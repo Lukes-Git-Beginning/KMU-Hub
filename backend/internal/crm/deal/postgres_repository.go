@@ -235,16 +235,15 @@ func (r *PostgresRepository) GetTags(ctx context.Context, dealID uuid.UUID) ([]*
 }
 
 func (r *PostgresRepository) AddTags(ctx context.Context, dealID uuid.UUID, tagIDs []uuid.UUID) error {
-	for _, tagID := range tagIDs {
-		_, err := r.pool.Exec(ctx,
-			`INSERT INTO deal_tags (deal_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-			dealID, tagID,
-		)
-		if err != nil {
-			return err
-		}
+	if len(tagIDs) == 0 {
+		return nil
 	}
-	return nil
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO deal_tags (deal_id, tag_id)
+		 SELECT $1, unnest($2::uuid[])
+		 ON CONFLICT DO NOTHING`,
+		dealID, tagIDs)
+	return err
 }
 
 func (r *PostgresRepository) RemoveTags(ctx context.Context, dealID uuid.UUID, tagIDs []uuid.UUID) error {
@@ -283,19 +282,26 @@ func (r *PostgresRepository) GetCustomFieldValues(ctx context.Context, dealID uu
 }
 
 func (r *PostgresRepository) SetCustomFieldValues(ctx context.Context, dealID uuid.UUID, values map[uuid.UUID]any) error {
+	if len(values) == 0 {
+		return nil
+	}
+	batch := &pgx.Batch{}
 	for fieldID, value := range values {
 		valueJSON, err := json.Marshal(value)
 		if err != nil {
 			return err
 		}
-		_, execErr := r.pool.Exec(ctx,
+		batch.Queue(
 			`INSERT INTO deal_custom_field_values (deal_id, field_id, value, created_at, updated_at)
 			 VALUES ($1, $2, $3, NOW(), NOW())
 			 ON CONFLICT (deal_id, field_id) DO UPDATE SET value = $3, updated_at = NOW()`,
-			dealID, fieldID, valueJSON,
-		)
-		if execErr != nil {
-			return execErr
+			dealID, fieldID, valueJSON)
+	}
+	br := r.pool.SendBatch(ctx, batch)
+	defer br.Close()
+	for range values {
+		if _, err := br.Exec(); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -365,6 +371,149 @@ func (r *PostgresRepository) SetClosedAt(ctx context.Context, dealID uuid.UUID, 
 		closedAt, dealID,
 	)
 	return err
+}
+
+// GetStageNames fetches stage names for multiple stage IDs in one query.
+func (r *PostgresRepository) GetStageNames(ctx context.Context, stageIDs []uuid.UUID) (map[uuid.UUID]string, error) {
+	if len(stageIDs) == 0 {
+		return nil, nil
+	}
+	rows, err := r.pool.Query(ctx, `SELECT id, name FROM pipeline_stages WHERE id = ANY($1)`, stageIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make(map[uuid.UUID]string)
+	for rows.Next() {
+		var id uuid.UUID
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, err
+		}
+		result[id] = name
+	}
+	return result, rows.Err()
+}
+
+// GetContactNames fetches contact names for multiple contact IDs in one query.
+func (r *PostgresRepository) GetContactNames(ctx context.Context, contactIDs []uuid.UUID) (map[uuid.UUID]string, error) {
+	if len(contactIDs) == 0 {
+		return nil, nil
+	}
+	rows, err := r.pool.Query(ctx, `SELECT id, first_name, last_name FROM contacts WHERE id = ANY($1)`, contactIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make(map[uuid.UUID]string)
+	for rows.Next() {
+		var id uuid.UUID
+		var first, last string
+		if err := rows.Scan(&id, &first, &last); err != nil {
+			return nil, err
+		}
+		result[id] = first + " " + last
+	}
+	return result, rows.Err()
+}
+
+// GetCompanyNames fetches company names for multiple company IDs in one query.
+func (r *PostgresRepository) GetCompanyNames(ctx context.Context, companyIDs []uuid.UUID) (map[uuid.UUID]string, error) {
+	if len(companyIDs) == 0 {
+		return nil, nil
+	}
+	rows, err := r.pool.Query(ctx, `SELECT id, name FROM companies WHERE id = ANY($1)`, companyIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make(map[uuid.UUID]string)
+	for rows.Next() {
+		var id uuid.UUID
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, err
+		}
+		result[id] = name
+	}
+	return result, rows.Err()
+}
+
+// GetOwnerNames fetches user names for multiple owner IDs in one query.
+func (r *PostgresRepository) GetOwnerNames(ctx context.Context, ownerIDs []uuid.UUID) (map[uuid.UUID]string, error) {
+	if len(ownerIDs) == 0 {
+		return nil, nil
+	}
+	rows, err := r.pool.Query(ctx, `SELECT id, first_name, last_name FROM users WHERE id = ANY($1)`, ownerIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make(map[uuid.UUID]string)
+	for rows.Next() {
+		var id uuid.UUID
+		var first, last string
+		if err := rows.Scan(&id, &first, &last); err != nil {
+			return nil, err
+		}
+		result[id] = first + " " + last
+	}
+	return result, rows.Err()
+}
+
+// GetTagsBatch fetches tags for multiple deal IDs in one query.
+func (r *PostgresRepository) GetTagsBatch(ctx context.Context, dealIDs []uuid.UUID) (map[uuid.UUID][]*models.Tag, error) {
+	if len(dealIDs) == 0 {
+		return nil, nil
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT dt.deal_id, t.id, t.name, t.color, t.entity_type, t.created_at
+		 FROM tags t JOIN deal_tags dt ON t.id = dt.tag_id
+		 WHERE dt.deal_id = ANY($1) ORDER BY t.name`, dealIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make(map[uuid.UUID][]*models.Tag)
+	for rows.Next() {
+		var dealID uuid.UUID
+		var tag models.Tag
+		if err := rows.Scan(&dealID, &tag.ID, &tag.Name, &tag.Color, &tag.EntityType, &tag.CreatedAt); err != nil {
+			return nil, err
+		}
+		result[dealID] = append(result[dealID], &tag)
+	}
+	return result, rows.Err()
+}
+
+// GetCustomFieldValuesBatch fetches custom field values for multiple deal IDs.
+func (r *PostgresRepository) GetCustomFieldValuesBatch(ctx context.Context, dealIDs []uuid.UUID) (map[uuid.UUID][]*models.CustomFieldValueRow, error) {
+	if len(dealIDs) == 0 {
+		return nil, nil
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT cfv.deal_id, cfv.field_id, cfd.field_name, cfv.value
+		 FROM deal_custom_field_values cfv
+		 JOIN custom_field_definitions cfd ON cfv.field_id = cfd.id
+		 WHERE cfv.deal_id = ANY($1)`, dealIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make(map[uuid.UUID][]*models.CustomFieldValueRow)
+	for rows.Next() {
+		var dealID uuid.UUID
+		var v models.CustomFieldValueRow
+		var valueJSON []byte
+		if err := rows.Scan(&dealID, &v.FieldID, &v.FieldName, &valueJSON); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(valueJSON, &v.Value); err != nil {
+			return nil, err
+		}
+		result[dealID] = append(result[dealID], &v)
+	}
+	return result, rows.Err()
 }
 
 // Helper to scan a single row into Deal

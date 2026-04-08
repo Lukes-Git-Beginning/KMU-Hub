@@ -224,13 +224,9 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]*models.DealWith
 		return nil, 0, err
 	}
 
-	var results []*models.DealWithRelations
-	for _, d := range deals {
-		withRel, relErr := s.getWithRelations(ctx, d)
-		if relErr != nil {
-			return nil, 0, relErr
-		}
-		results = append(results, withRel)
+	results, enrichErr := s.enrichWithRelationsBatch(ctx, deals)
+	if enrichErr != nil {
+		return nil, 0, enrichErr
 	}
 
 	return results, total, nil
@@ -492,6 +488,97 @@ func (s *Service) RemoveTags(ctx context.Context, dealID uuid.UUID, tagIDs []uui
 	}
 
 	return s.getWithRelations(ctx, deal)
+}
+
+// enrichWithRelationsBatch loads all relations for a slice of deals in batch.
+// Uses 6 queries total instead of 6*N queries, eliminating the N+1 problem.
+func (s *Service) enrichWithRelationsBatch(ctx context.Context, deals []*models.Deal) ([]*models.DealWithRelations, error) {
+	if len(deals) == 0 {
+		return nil, nil
+	}
+
+	dealIDs := make([]uuid.UUID, len(deals))
+	stageIDSet := make(map[uuid.UUID]struct{})
+	contactIDSet := make(map[uuid.UUID]struct{})
+	companyIDSet := make(map[uuid.UUID]struct{})
+	ownerIDSet := make(map[uuid.UUID]struct{})
+
+	for i, d := range deals {
+		dealIDs[i] = d.ID
+		stageIDSet[d.StageID] = struct{}{}
+		if d.ContactID != nil {
+			contactIDSet[*d.ContactID] = struct{}{}
+		}
+		if d.CompanyID != nil {
+			companyIDSet[*d.CompanyID] = struct{}{}
+		}
+		if d.OwnerID != nil {
+			ownerIDSet[*d.OwnerID] = struct{}{}
+		}
+	}
+
+	toSlice := func(m map[uuid.UUID]struct{}) []uuid.UUID {
+		sl := make([]uuid.UUID, 0, len(m))
+		for id := range m {
+			sl = append(sl, id)
+		}
+		return sl
+	}
+
+	stageNames, err := s.repo.GetStageNames(ctx, toSlice(stageIDSet))
+	if err != nil {
+		return nil, err
+	}
+	contactNames, err := s.repo.GetContactNames(ctx, toSlice(contactIDSet))
+	if err != nil {
+		return nil, err
+	}
+	companyNames, err := s.repo.GetCompanyNames(ctx, toSlice(companyIDSet))
+	if err != nil {
+		return nil, err
+	}
+	ownerNames, err := s.repo.GetOwnerNames(ctx, toSlice(ownerIDSet))
+	if err != nil {
+		return nil, err
+	}
+	tagsByDeal, err := s.repo.GetTagsBatch(ctx, dealIDs)
+	if err != nil {
+		return nil, err
+	}
+	cfByDeal, err := s.repo.GetCustomFieldValuesBatch(ctx, dealIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]*models.DealWithRelations, len(deals))
+	for i, d := range deals {
+		result := &models.DealWithRelations{Deal: *d}
+		result.StageName = stageNames[d.StageID]
+		if d.ContactID != nil {
+			if name, ok := contactNames[*d.ContactID]; ok && name != "" {
+				result.ContactName = &name
+			}
+		}
+		if d.CompanyID != nil {
+			if name, ok := companyNames[*d.CompanyID]; ok && name != "" {
+				result.CompanyName = &name
+			}
+		}
+		if d.OwnerID != nil {
+			if name, ok := ownerNames[*d.OwnerID]; ok && name != "" {
+				result.OwnerName = &name
+			}
+		}
+		result.Tags = tagsByDeal[d.ID]
+		if cfValues := cfByDeal[d.ID]; len(cfValues) > 0 {
+			result.CustomFields = make(map[string]any)
+			for _, v := range cfValues {
+				result.CustomFields[v.FieldName] = v.Value
+			}
+		}
+		results[i] = result
+	}
+	return results, nil
 }
 
 // getWithRelations loads all relations for a deal

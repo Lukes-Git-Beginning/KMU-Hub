@@ -30,6 +30,14 @@ type Repository interface {
 	GetCustomFieldValues(ctx context.Context, dealID uuid.UUID) ([]*models.CustomFieldValueRow, error)
 	SetCustomFieldValues(ctx context.Context, dealID uuid.UUID, values map[uuid.UUID]any) error
 
+	// Batch relations (for list endpoints — eliminates N+1 queries)
+	GetStageNames(ctx context.Context, stageIDs []uuid.UUID) (map[uuid.UUID]string, error)
+	GetContactNames(ctx context.Context, contactIDs []uuid.UUID) (map[uuid.UUID]string, error)
+	GetCompanyNames(ctx context.Context, companyIDs []uuid.UUID) (map[uuid.UUID]string, error)
+	GetOwnerNames(ctx context.Context, ownerIDs []uuid.UUID) (map[uuid.UUID]string, error)
+	GetTagsBatch(ctx context.Context, dealIDs []uuid.UUID) (map[uuid.UUID][]*models.Tag, error)
+	GetCustomFieldValuesBatch(ctx context.Context, dealIDs []uuid.UUID) (map[uuid.UUID][]*models.CustomFieldValueRow, error)
+
 	// Checks
 	StageExists(ctx context.Context, stageID uuid.UUID) (bool, error)
 	GetStage(ctx context.Context, stageID uuid.UUID) (*models.PipelineStage, error)
