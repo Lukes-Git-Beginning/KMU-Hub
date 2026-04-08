@@ -159,7 +159,7 @@ export const useKommunikationStore = create<KommunikationState>()(
         })),
     }),
     {
-      name: 'kmuhub-kommunikation',
+      name: 'cosmi-kommunikation',
       partialize: (state) => ({
         activeView: state.activeView,
         activeChannel: state.activeChannel,

@@ -173,6 +173,6 @@ export const useContactsStore = create<ContactsState>()(
           customFieldDefinitions: state.customFieldDefinitions.filter((f) => f.id !== id),
         })),
     }),
-    { name: 'kmuhub-contacts' }
+    { name: 'cosmi-contacts' }
   )
 )

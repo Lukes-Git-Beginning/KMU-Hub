@@ -138,6 +138,6 @@ export const useInventarStore = create<InventarStore>()(
       movements: MOCK_MOVEMENTS,
       inventurSessions: MOCK_INVENTUR_SESSIONS,
     }),
-    { name: 'kmuhub-inventar' },
+    { name: 'cosmi-inventar' },
   ),
 )

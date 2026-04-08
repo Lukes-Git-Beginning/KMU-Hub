@@ -249,6 +249,6 @@ export const useHelpdeskStore = create<HelpdeskStore>()(
       businessHours: MOCK_BUSINESS_HOURS,
       holidays: MOCK_HOLIDAYS,
     }),
-    { name: 'kmuhub-helpdesk' },
+    { name: 'cosmi-helpdesk' },
   ),
 )

@@ -289,7 +289,7 @@ export const useDashboardStore = create<DashboardState>()(
       },
     }),
     {
-      name: 'kmuhub-dashboard',
+      name: 'cosmi-dashboard',
       partialize: (state) => ({
         layouts: state.layouts,
         activeWidgets: state.activeWidgets,

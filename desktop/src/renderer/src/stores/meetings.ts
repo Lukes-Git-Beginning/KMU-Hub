@@ -551,6 +551,6 @@ export const useMeetingsStore = create<MeetingsState>()(
           videoMeeting: { ...state.videoMeeting, activeSpeakerId: userId },
         })),
     }),
-    { name: 'kmuhub-meetings' }
+    { name: 'cosmi-meetings' }
   )
 )

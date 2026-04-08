@@ -200,6 +200,6 @@ export const useProduktionStore = create<ProduktionStore>()(
       machines: MOCK_MACHINES,
       machineBookings: MOCK_MACHINE_BOOKINGS,
     }),
-    { name: 'kmuhub-produktion' },
+    { name: 'cosmi-produktion' },
   ),
 )

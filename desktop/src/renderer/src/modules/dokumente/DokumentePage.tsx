@@ -104,7 +104,7 @@ function getMimeCategory(mimeType: string): string {
 
 function getViewPref(folderId: string): 'grid' | 'list' {
   try {
-    const stored = localStorage.getItem(`view-pref-${folderId}`)
+    const stored = localStorage.getItem(`cosmi-view-pref-${folderId}`)
     return stored === 'list' ? 'list' : 'grid'
   } catch {
     return 'grid'
@@ -113,7 +113,7 @@ function getViewPref(folderId: string): 'grid' | 'list' {
 
 function setViewPref(folderId: string, view: 'grid' | 'list') {
   try {
-    localStorage.setItem(`view-pref-${folderId}`, view)
+    localStorage.setItem(`cosmi-view-pref-${folderId}`, view)
   } catch {
     // silently fail
   }

@@ -20,7 +20,45 @@ export default defineConfig({
     build: {
       chunkSizeWarningLimit: 250,
       rollupOptions: {
-        input: resolve('src/renderer/index.html')
+        input: resolve('src/renderer/index.html'),
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-query': [
+              '@tanstack/react-query',
+              '@tanstack/react-query-persist-client',
+              '@tanstack/query-async-storage-persister',
+            ],
+            'vendor-editor': [
+              '@tiptap/react',
+              '@tiptap/starter-kit',
+              '@tiptap/extension-code-block-lowlight',
+              '@tiptap/extension-image',
+              '@tiptap/extension-link',
+              '@tiptap/extension-placeholder',
+              '@tiptap/extension-table',
+              '@tiptap/extension-table-cell',
+              '@tiptap/extension-table-header',
+              '@tiptap/extension-table-row',
+              '@tiptap/extension-task-item',
+              '@tiptap/extension-task-list',
+              '@tiptap/extension-text-align',
+              '@tiptap/extension-underline',
+              'lowlight',
+            ],
+            'vendor-video': [
+              '@livekit/components-react',
+              '@livekit/components-styles',
+              'livekit-client',
+            ],
+            'vendor-workflow': ['@xyflow/react'],
+            'vendor-dnd': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+            'vendor-ui': ['lucide-react'],
+            'vendor-i18n': ['i18next', 'react-i18next', 'i18next-icu'],
+            'vendor-dates': ['date-fns'],
+            'vendor-state': ['zustand'],
+          },
+        },
       }
     },
     resolve: {

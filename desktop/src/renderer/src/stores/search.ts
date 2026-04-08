@@ -118,7 +118,7 @@ export const useSearchStore = create<SearchState>()(
         })),
     }),
     {
-      name: 'kmuhub-search',
+      name: 'cosmi-search',
       partialize: (state) => ({
         recentSearches: state.recentSearches,
       }),

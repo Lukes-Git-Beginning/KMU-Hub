@@ -18,7 +18,7 @@ import type { components } from '@/api/types'
 type UserInfo = components['schemas']['UserInfo']
 
 /** localStorage key for cached user data (offline fallback). */
-const CACHED_USER_KEY = 'kmuhub-cached-user'
+const CACHED_USER_KEY = 'cosmi-cached-user'
 
 export interface User {
   id: string

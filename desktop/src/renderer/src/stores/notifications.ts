@@ -274,7 +274,7 @@ export const useNotificationsStore = create<NotificationsState>()(
       },
     }),
     {
-      name: 'kmuhub-notifications',
+      name: 'cosmi-notifications',
     },
   ),
 )

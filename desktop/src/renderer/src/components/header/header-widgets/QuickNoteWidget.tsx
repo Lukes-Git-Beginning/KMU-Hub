@@ -19,15 +19,15 @@ import { Button } from '@/components/ui/button'
 export function QuickNoteWidget() {
   const { t } = useTranslation()
   const [note, setNote] = useState(() =>
-    localStorage.getItem('kmuhub-quicknote') ?? ''
+    localStorage.getItem('cosmi-quicknote') ?? ''
   )
 
   const handleSave = (value: string) => {
     setNote(value)
     if (value) {
-      localStorage.setItem('kmuhub-quicknote', value)
+      localStorage.setItem('cosmi-quicknote', value)
     } else {
-      localStorage.removeItem('kmuhub-quicknote')
+      localStorage.removeItem('cosmi-quicknote')
     }
   }
 

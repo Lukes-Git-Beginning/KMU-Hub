@@ -115,6 +115,6 @@ export const useIntegrationStore = create<IntegrationStoreState>()(
         }, 1500)
       },
     }),
-    { name: 'kmuhub-integrations' },
+    { name: 'cosmi-integrations' },
   ),
 )

@@ -73,6 +73,6 @@ export const useSchichtenStore = create<SchichtenStore>()(
       assignments: MOCK_ASSIGNMENTS,
       swapRequests: MOCK_SWAP_REQUESTS,
     }),
-    { name: 'kmuhub-schichten' },
+    { name: 'cosmi-schichten' },
   ),
 )

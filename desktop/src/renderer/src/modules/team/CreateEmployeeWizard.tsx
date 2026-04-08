@@ -273,7 +273,7 @@ export function CreateEmployeeWizard({ onClose, isWindow, initialData }: WizardP
 
   const handlePopOut = () => {
     try {
-      localStorage.setItem('kmuhub-employee-wizard-draft', JSON.stringify(form))
+      localStorage.setItem('cosmi-employee-wizard-draft', JSON.stringify(form))
     } catch { /* ignore */ }
     window.electronAPI?.employeeWizard?.openWindow()
     onClose()

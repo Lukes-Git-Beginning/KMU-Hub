@@ -409,6 +409,6 @@ export const useVermietungStore = create<VermietungStore>()(
       addZustandsprotokoll: (z) =>
         set((state) => ({ zustandsprotokolle: [...state.zustandsprotokolle, z] })),
     }),
-    { name: 'kmuhub-vermietung' },
+    { name: 'cosmi-vermietung' },
   ),
 )

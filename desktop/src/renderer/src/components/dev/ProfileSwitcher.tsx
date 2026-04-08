@@ -218,7 +218,7 @@ export function ProfileSwitcher() {
               </label>
               <button
                 onClick={() => {
-                  const keys = Object.keys(localStorage).filter((k) => k.startsWith('kmuhub-'))
+                  const keys = Object.keys(localStorage).filter((k) => k.startsWith('cosmi-'))
                   keys.forEach((k) => localStorage.removeItem(k))
                   window.location.reload()
                 }}

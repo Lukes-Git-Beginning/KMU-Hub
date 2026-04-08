@@ -8,7 +8,8 @@ import { lazy, Suspense, useEffect } from 'react'
 import { createHashRouter, Navigate, RouterProvider } from 'react-router-dom'
 import { QueryClient } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
-import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister'
+import { get, set, del } from 'idb-keyval'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Toaster } from 'sonner'
 import { I18nProvider } from '@/i18n'
@@ -83,25 +84,15 @@ const queryClient = new QueryClient({
   },
 })
 
-// Persist query cache to localStorage for offline support.
-// localStorage has a ~5-10MB limit; handle QuotaExceededError gracefully.
-const persister = createSyncStoragePersister({
-  storage: window.localStorage,
-  key: 'kmuhub-query-cache',
-  serialize: (data) => {
-    try {
-      return JSON.stringify(data)
-    } catch {
-      return '{}'
-    }
+// Persist query cache to IndexedDB for offline support.
+// IndexedDB has no practical size limit and avoids blocking the main thread.
+const persister = createAsyncStoragePersister({
+  storage: {
+    getItem: (key) => get(key),
+    setItem: (key, value) => set(key, value),
+    removeItem: (key) => del(key),
   },
-  deserialize: (data) => {
-    try {
-      return JSON.parse(data)
-    } catch {
-      return {}
-    }
-  },
+  key: 'cosmi-query-cache',
 })
 
 /**

@@ -192,6 +192,6 @@ export const useEinkaufStore = create<EinkaufStore>()(
       frameworkContracts: MOCK_FRAMEWORK_CONTRACTS,
       approvalThreshold: 5000,
     }),
-    { name: 'kmuhub-einkauf' },
+    { name: 'cosmi-einkauf' },
   ),
 )

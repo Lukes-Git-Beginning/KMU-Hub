@@ -503,6 +503,6 @@ export const useRapporteStore = create<RapporteStore>()(
           ),
         })),
     }),
-    { name: 'kmuhub-rapporte' },
+    { name: 'cosmi-rapporte' },
   ),
 )

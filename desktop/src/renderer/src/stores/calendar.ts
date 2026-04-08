@@ -133,7 +133,7 @@ export const useCalendarStore = create<CalendarState>()(
         set((s) => ({ showTaskDeadlines: !s.showTaskDeadlines })),
     }),
     {
-      name: 'kmuhub-calendar',
+      name: 'cosmi-calendar',
       // Only persist view preferences, not transient date state.
       // Serialize Set as array for JSON compatibility.
       partialize: (state) => ({

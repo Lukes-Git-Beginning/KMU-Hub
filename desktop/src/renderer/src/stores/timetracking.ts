@@ -609,7 +609,7 @@ export const useTimeTrackingStore = create<TimeTrackingState>()(
 
       setGpsEnabled: (enabled) => set({ gpsEnabled: enabled }),
     }),
-    { name: 'kmuhub-timetracking' },
+    { name: 'cosmi-timetracking' },
   ),
 )
 

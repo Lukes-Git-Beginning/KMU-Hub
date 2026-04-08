@@ -249,6 +249,6 @@ export const useSettingsStore = create<SettingsState>()(
           },
         })),
     }),
-    { name: 'kmuhub-settings' },
+    { name: 'cosmi-settings' },
   ),
 )

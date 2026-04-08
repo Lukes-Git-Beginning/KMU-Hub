@@ -387,6 +387,6 @@ export const useFormulareStore = create<FormulareState>()(
           ),
         })),
     }),
-    { name: 'kmuhub-formulare' }
+    { name: 'cosmi-formulare' }
   )
 )

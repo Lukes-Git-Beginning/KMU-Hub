@@ -465,6 +465,6 @@ export const useVertraegeStore = create<VertraegeStore>()(
           ),
         })),
     }),
-    { name: 'kmuhub-verträge' },
+    { name: 'cosmi-verträge' },
   ),
 )

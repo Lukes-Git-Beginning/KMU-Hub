@@ -168,6 +168,6 @@ export const useAIStore = create<AIStoreState>()(
         return s.aiEnabled && !s.moduleOptOuts[module]
       },
     }),
-    { name: 'kmuhub-ai' },
+    { name: 'cosmi-ai' },
   ),
 )

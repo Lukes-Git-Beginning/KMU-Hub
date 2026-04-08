@@ -126,6 +126,6 @@ export const useTeamStore = create<TeamStore>()(
           ],
         })),
     }),
-    { name: 'kmuhub-team' },
+    { name: 'cosmi-team' },
   ),
 )

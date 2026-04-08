@@ -235,7 +235,7 @@ export function useWorkTimeStatus() {
   return useQuery({
     queryKey: hrKeys.workTimeStatus(),
     queryFn: () => hrTimeApi.getStatus(),
-    refetchInterval: 30_000, // 30s polling for real-time header display
+    refetchInterval: 300_000, // 5min — header clock is cosmetic
   })
 }
 

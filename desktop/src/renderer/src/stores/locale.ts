@@ -4,7 +4,7 @@
  * Stores the user's explicit language choice. When locale is null,
  * the app auto-detects the browser language with fallback to German.
  *
- * Persistence: localStorage key 'kmuhub-locale' so the preference
+ * Persistence: localStorage key 'cosmi-locale' so the preference
  * survives app restart without requiring a backend round-trip.
  */
 import { create } from 'zustand'
@@ -51,7 +51,7 @@ export const useLocaleStore = create<LocaleState>()(
       resetLocale: () => set({ locale: null }),
     }),
     {
-      name: 'kmuhub-locale',
+      name: 'cosmi-locale',
     },
   ),
 )

@@ -244,7 +244,7 @@ export const useUIStore = create<UIState>()(
         set((state) => ({ deskDecorationsVisible: !state.deskDecorationsVisible })),
     }),
     {
-      name: 'kmuhub-ui',
+      name: 'cosmi-ui',
     }
   )
 )

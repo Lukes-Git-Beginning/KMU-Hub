@@ -465,7 +465,7 @@ export const useWikiStore = create<WikiState>()(
       setSearchQuery: (query) => set({ searchQuery: query }),
     }),
     {
-      name: 'kmuhub-wiki',
+      name: 'cosmi-wiki',
       version: 2,
       partialize: (state) => ({
         selectedCategoryId: state.selectedCategoryId,

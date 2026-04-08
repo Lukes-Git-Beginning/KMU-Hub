@@ -12,11 +12,11 @@ export default function EmployeeWizardWindowPage() {
    
   useEffect(() => {
     try {
-      const raw = localStorage.getItem('kmuhub-employee-wizard-draft')
+      const raw = localStorage.getItem('cosmi-employee-wizard-draft')
       if (raw) {
         // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
         setInitialData(JSON.parse(raw))
-        localStorage.removeItem('kmuhub-employee-wizard-draft')
+        localStorage.removeItem('cosmi-employee-wizard-draft')
       }
     } catch { /* ignore parse errors */ }
     setReady(true)

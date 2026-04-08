@@ -201,6 +201,6 @@ export const useBerichteStore = create<BerichteStore>()(
       datevBWA: MOCK_BWA,
       datevSuSa: MOCK_SUSA,
     }),
-    { name: 'kmuhub-berichte' },
+    { name: 'cosmi-berichte' },
   ),
 )

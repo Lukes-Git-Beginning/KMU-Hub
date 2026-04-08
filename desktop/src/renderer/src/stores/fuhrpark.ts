@@ -276,6 +276,6 @@ export const useFuhrparkStore = create<FuhrparkStore>()(
         toast.success('Tracking-Daten aktualisiert')
       },
     }),
-    { name: 'kmuhub-fuhrpark' },
+    { name: 'cosmi-fuhrpark' },
   ),
 )

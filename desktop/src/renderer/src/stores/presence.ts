@@ -70,7 +70,7 @@ export const usePresenceStore = create<PresenceState>()(
         }),
     }),
     {
-      name: 'kmuhub-presence',
+      name: 'cosmi-presence',
       // Only persist myStatus (manual override); presenceMap is transient
       partialize: (state) => ({
         myStatus: state.myStatus,

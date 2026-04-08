@@ -123,7 +123,7 @@ export const useProfileStore = create<ProfileState>()(
         })),
     }),
     {
-      name: 'kmuhub-profiles',
+      name: 'cosmi-profiles',
     },
   ),
 )

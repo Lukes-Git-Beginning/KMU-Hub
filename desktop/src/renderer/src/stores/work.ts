@@ -62,7 +62,7 @@ export const useWorkStore = create<WorkState>()(
         }),
     }),
     {
-      name: 'kmuhub-work',
+      name: 'cosmi-work',
     }
   )
 )

@@ -1,6 +1,6 @@
 # Performance-Optimierungsplan — Cosmi
 
-> **Status:** Geplant (2026-04-08)
+> **Status:** Phase 1 abgeschlossen (2026-04-08), Phase 2 offen
 > **Geschaetzter Aufwand:** ~8 Arbeitstage
 > **Grundlage:** Codebase-Audit (17 Issues: 3x P0, 4x P1, 5x P2, 5x P3) + Best-Practice-Recherche
 
@@ -21,48 +21,30 @@ Die Codebase-Analyse hat konkrete Performance-Issues in Frontend, Backend und Bu
 
 ---
 
-## Phase 1 — Analyse & Quick Wins (Tag 1)
+## Phase 1 — Analyse & Quick Wins (Tag 1) ✅ ABGESCHLOSSEN
 
-### 1.1 Bundle-Analyse aufsetzen
+### 1.1 Bundle-Analyse aufsetzen ✅
 
-- `rollup-plugin-visualizer` als devDependency installieren
-- In `electron.vite.config.ts` einbinden (Plugin-Array)
-- Einmal laufen lassen → Baseline-Report als HTML generieren
-- `build.chunkSizeWarningLimit: 250` setzen (statt default 500kb)
+- `rollup-plugin-visualizer` installiert + konfiguriert
+- `build.chunkSizeWarningLimit: 250` gesetzt
+- Report: `desktop/dist/bundle-report.html`
 
-**Dateien:** `desktop/package.json`, `desktop/electron.vite.config.ts`
+### 1.2 Google Fonts selbst hosten (P0) ✅
 
-### 1.2 Google Fonts selbst hosten (P0)
+- WOFF2-Dateien in `src/renderer/public/fonts/`
+- `@font-face` mit `font-display: swap`
+- CDN-Links + Preconnect entfernt
 
-**Problem:** `index.html` laedt Plus Jakarta Sans + JetBrains Mono ueber Google CDN. In Electron Production (`file://` Protokoll) = Netzwerk-Roundtrip bei jedem Kaltstart, offline komplett kaputt.
+### 1.3 Demo-Mode Dead Code eliminieren (P0) ✅
 
-**Fix:**
-1. WOFF2-Dateien herunterladen (Plus Jakarta Sans: 400/500/600/700 + Italic 400/500, JetBrains Mono: 400)
-2. Ablage in `src/renderer/public/fonts/`
-3. `@font-face` Deklarationen mit `font-display: swap` erstellen
-4. CDN-Links + Preconnect aus `index.html` entfernen
-5. CSP `font-src` anpassen: `https://fonts.gstatic.com` entfernen
+- Static `import { handlers }` → Dynamic `import('./handlers')` mit Lazy-Load Pattern
+- Fetch Interceptor wird synchron gesetzt, Handler async geladen
+- **Ergebnis:** 17 Handler-Chunks + 8 Data-Chunks nicht mehr im Prod-Bundle
+- **Hinweis:** `mock-db` (12 kB) bleibt im Bundle wegen direkter Imports aus `ITAdminTab.tsx` und `Birthdays.tsx` — wird behoben wenn echte APIs angebunden werden (Birthdays hat TODO)
 
-**Dateien:** `desktop/src/renderer/index.html`, neue CSS-Datei oder in `globals.css`
+### 1.4 Framer Motion → LazyMotion — ENTFALLEN
 
-### 1.3 Demo-Mode Dead Code eliminieren (P0)
-
-**Problem:** `mocks/demo-mode.ts` importiert ~9.000 Zeilen Mock-Daten/Handler statisch. Vite tree-shaked `import`-Statements NICHT, auch wenn der Code-Pfad nie erreicht wird. Der Kommentar im Code ("Vite dead-code eliminates everything after the early return") ist **falsch**.
-
-**Fix:** Static `import { handlers }` → Dynamic `const { handlers } = await import('./handlers')` innerhalb des `if (DEMO_MODE)` Blocks.
-
-**Dateien:** `desktop/src/renderer/src/mocks/demo-mode.ts`
-
-### 1.4 Framer Motion → LazyMotion (Bundle -30kb)
-
-**Problem:** Volle `motion`-Komponente = ~34kb gzipped. Mit `LazyMotion` + `m` Component → 4.6kb initial.
-
-**Fix:**
-1. `LazyMotion` Provider mit `features={domAnimation}` einrichten
-2. `motion.div` → `m.div` in animierten Komponenten
-3. Features werden async geladen: `const domAnimation = () => import('motion/dom')`
-
-**Dateien:** `desktop/src/renderer/src/App.tsx` (Provider), alle Komponenten die `motion.*` verwenden
+`motion` (^12.38.0) war als Dependency installiert, wurde aber nirgends importiert (0 Usages). Alle Animationen nutzen CSS/rAF direkt. Dependency entfernt.
 
 ---
 
