@@ -1,6 +1,6 @@
 ---
 tags: [frontend, design, tools, skills, audit]
-updated: 2026-04-06
+updated: 2026-04-08
 ---
 # Design System
 
@@ -126,6 +126,18 @@ Install-Pattern: `npx shadcn@latest add "https://magicui.design/r/<name>" --yes`
 - **Figma MCP Server** — Bidirektionale Figma <-> Code Pipeline
 - **Magic MCP (21st.dev)** — Component Generation im IDE
 - **v0 by Vercel** — Prototyping mit shadcn Output
+
+## Skeleton Screen (2026-04-08)
+- Statisches HTML/CSS in `index.html` innerhalb `<div id="root">`
+- Dark-Theme Layout-Shell: Sidebar (220px, 5 Nav-Items) + Main Content (Header, 3 Stat-Cards, Content-Area)
+- Farben: `#0a0a0f` (bg), `#111118` (surfaces), `#1e1e2e` (elements)
+- React ersetzt beim Mount automatisch den Inhalt von `#root`
+
+## Self-Hosted Fonts (2026-04-08)
+- WOFF2-Dateien in `src/renderer/public/fonts/` (Plus Jakarta Sans + JetBrains Mono)
+- `@font-face` Deklarationen in `src/renderer/src/styles/fonts.css`
+- `font-display: swap`, kein Google CDN, kein Preconnect
+- Wichtig fuer Electron: Offline-Faehigkeit + schnellerer Start
 
 ## LanguageSwitcher
 - Datei: `src/renderer/src/components/header/LanguageSwitcher.tsx`

@@ -1,6 +1,6 @@
 ---
 tags: [strategie, stack, entscheidungen]
-updated: 2026-04-06
+updated: 2026-04-08
 ---
 # Tech-Stack & Strategy Decisions
 
@@ -27,7 +27,7 @@ Vollstaendige Dokumentation: [[i18n]]
 ### UI / Interaktion
 | Paket | Version | Zweck |
 |-------|---------|-------|
-| motion | v12 | Animationen (ex Framer Motion) |
+| ~~motion~~ | ~~v12~~ | Entfernt 2026-04-08 — 0 Imports, alle Animationen CSS/rAF |
 | @dnd-kit/core + sortable + utilities | v6/v10/v3 | Drag & Drop |
 | @xyflow/react | v12 | Flow-Diagramme (Workflow-Editor, Plugin-Graph) |
 | @tanstack/react-virtual | v3.13 | Virtuelle Listen (MessageList, grosse Datasets) |
@@ -35,6 +35,18 @@ Vollstaendige Dokumentation: [[i18n]]
 | frimousse | v0.3 | Emoji-Picker (Chat) |
 | sonner | v2 | Toast-Notifications |
 | rrule | v2.8 | Kalender-Recurrence |
+
+### Build & Performance (seit 2026-04-08)
+| Paket | Version | Zweck |
+|-------|---------|-------|
+| babel-plugin-react-compiler | latest | Automatisches Memoization (annotation mode) |
+| v8-compile-cache | latest | V8 Bytecode Cache fuer schnelleren Kaltstart |
+| idb-keyval | v6 | IndexedDB Wrapper fuer React Query Persister |
+
+### Fonts (self-hosted seit 2026-04-08)
+- Plus Jakarta Sans (Display): latin + latin-ext, WOFF2 in `public/fonts/`
+- JetBrains Mono (Mono): latin + latin-ext, WOFF2
+- `@font-face` mit `font-display: swap`, kein Google CDN
 
 ### Basis-Stack (unveraendert)
 | Paket | Version | Zweck |

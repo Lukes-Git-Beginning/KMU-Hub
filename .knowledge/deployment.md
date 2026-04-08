@@ -1,6 +1,6 @@
 ---
 tags: [deployment, docker, ci-cd]
-updated: 2026-04-06
+updated: 2026-04-08
 ---
 # Deployment & Infrastruktur
 
@@ -118,6 +118,19 @@ Cleanup: Smoke-User wird am Ende per DELETE entfernt.
 8. Health Check — bei Fehler: Auto-Rollback
 9. Smoke Tests — bei Fehler: Auto-Rollback
 10. Erfolg loggen + Lock freigeben
+
+## PostgreSQL Tuning (docker-compose.prod.yml, 2026-04-08)
+Fuer Hetzner CPX42 (16GB RAM):
+```
+shared_buffers=4GB, effective_cache_size=12GB, work_mem=64MB,
+maintenance_work_mem=512MB, max_connections=150
+```
+Konfiguriert als `command:` Args im postgres Service.
+
+## pprof Profiling
+- Aktivierung: `ENABLE_PPROF=true` Environment-Variable
+- Endpoint: `/debug/pprof` (gemountet auf `http.DefaultServeMux`)
+- Nur fuer Development/Staging — NICHT in Production
 
 ## Produktion (Hetzner)
 - **Server:** CPX42 (8 vCPU, 16GB RAM), Ubuntu 24.04, Nuernberg

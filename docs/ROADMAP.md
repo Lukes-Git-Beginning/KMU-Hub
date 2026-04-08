@@ -55,10 +55,12 @@ Entwickelt von **Zentria** (Luke, Darien, Nico, Moritz). EU-gehostet (Hetzner Nu
 - react-intl → i18next v26 + react-i18next v17
 - 7.221 Keys × 4 Sprachen, strict TypeScript types
 
-**Performance Phase 1 (2026-04-08)**
-- Bundle-Analyzer eingerichtet, Fonts self-hosted
-- Demo-Mode Dead Code eliminiert (Dynamic Import)
-- Ungenutzte motion Dependency entfernt
+**Performance Optimierung (2026-04-08)**
+- Phase 1: Bundle-Analyzer, Fonts self-hosted, Demo Dead Code, motion entfernt
+- Phase 2: Chunk-Splitting, Async Persister, HR Polling, React Compiler, List Virtualization
+- Phase 3: N+1 Queries (Contact 61→4, Deal 121→7), Batch-Inserts, owner_id Index, Pool Fix, PG Tuning
+- Phase 4: V8 Compile Cache, modulePreload, Skeleton Screen
+- Phase 5: Audit Logger Worker Pool, gRPC Keep-Alive, pprof (Redis Caching offen)
 
 ### Infrastruktur (live seit 2026-03-08)
 
@@ -80,34 +82,35 @@ Entwickelt von **Zentria** (Luke, Darien, Nico, Moritz). EU-gehostet (Hetzner Nu
 
 **23 Tage bis Launch. Fokus: Performance + Polish + Demo-Qualitaet.**
 
-### Woche 1 (08.04 – 14.04) — Performance Frontend
+### Woche 1-2 (08.04 – 21.04) — Performance ✅ ERLEDIGT
 
-| # | Task | Aufwand | Impact |
-|---|------|---------|--------|
-| 1 | **Vite Chunk-Splitting** (`manualChunks` fuer react, tiptap, livekit, tanstack) | 2 Std | Hoch — Initial Load |
-| 2 | **HR Polling 30s → 5min** | 15 Min | Niedrig — Quick Win |
-| 3 | **`modulePreload` aktivieren** (aktuell `false`) | 5 Min | Mittel — Lazy-Chunk Preload |
-| 4 | **React Query → Async Persister** (IndexedDB via `idb-keyval`) | 2 Std | Mittel — Main Thread |
-| 5 | **localStorage Keys umbenennen** (`kmuhub-*` → `cosmi-*`) | 30 Min | Niedrig — Branding-Konsistenz |
+Alle Performance-Optimierungen in einer Session abgeschlossen (5 parallele Agenten):
 
-### Woche 2 (15.04 – 21.04) — Performance Backend + Stabilitaet
+| # | Task | Status |
+|---|------|--------|
+| 1 | Vite Chunk-Splitting | ✅ |
+| 2 | HR Polling 30s → 5min | ✅ |
+| 3 | `modulePreload` aktivieren | ✅ |
+| 4 | React Query → Async Persister (IndexedDB) | ✅ |
+| 5 | localStorage Keys (`cosmi-*`) | ✅ |
+| 6 | N+1 Queries Contact List (61 → 4) | ✅ |
+| 7 | N+1 Queries Deal List (121 → 7) | ✅ |
+| 8 | Connection Pool Fix (MaxConns 25 → 10) | ✅ |
+| 9 | Index `contacts.owner_id` | ✅ |
+| 10 | Batch-Inserts Tags & Custom Fields | ✅ |
+| + | React Compiler (annotation mode, 3 Components) | ✅ |
+| + | V8 Compile Cache | ✅ |
+| + | Audit Logger Worker Pool | ✅ |
+| + | Skeleton Screen | ✅ |
+| + | gRPC Keep-Alive + pprof | ✅ |
+| + | PG Tuning (shared_buffers, work_mem) | ✅ |
+| + | List Virtualization (ContactsListPage) | ✅ |
 
-| # | Task | Aufwand | Impact |
-|---|------|---------|--------|
-| 6 | **N+1 Queries Contact List** (61 → 4 Queries, Batch-Loading) | 1 Tag | Sehr hoch — P0 |
-| 7 | **N+1 Queries Deal List** (121 → 7 Queries, Batch-Loading) | 1 Tag | Sehr hoch — P0 |
-| 8 | **Connection Pool Fix** (MaxConns 25 → 10 pro Service) | 1 Std | Hoch — Stabilitaet |
-| 9 | **Fehlender Index `contacts.owner_id`** (Migration) | 15 Min | Mittel |
-| 10 | **Batch-Inserts Tags & Custom Fields** | 3 Std | Mittel — Write-Perf |
-
-### Woche 3 (22.04 – 28.04) — Demo-Qualitaet + Electron
+### Woche 3 (22.04 – 28.04) — Demo-Qualitaet
 
 | # | Task | Aufwand | Impact |
 |---|------|---------|--------|
 | 11 | **Kommunikation-Modul Fixes** (9 TODOs: broken filters, no-op notes/tags) | 1 Tag | Hoch — sichtbar kaputt |
-| 12 | **Audit Logger Worker Pool** (unbegrenzte Goroutines → Channel+Workers) | 2 Std | Mittel — Gateway-Stabilitaet |
-| 13 | **V8 Compile Cache** (20-40% schnellerer Kaltstart) | 30 Min | Mittel |
-| 14 | **Skeleton Screen** (HTML/CSS Shell statt weisser Screen) | 2 Std | Niedrig — Perceived Perf |
 | 15 | **Demo-Mode Visual Verification** (alle Screens durchklicken) | 2 Std | Hoch — Qualitaetssicherung |
 
 ### Woche 4 (29.04 – 01.05) — Final Polish + Deploy
@@ -121,12 +124,8 @@ Entwickelt von **Zentria** (Luke, Darien, Nico, Moritz). EU-gehostet (Hetzner Nu
 
 ### Bewusst NICHT im Sprint
 
-Diese Items sind entweder zu gross, haben externe Abhaengigkeiten, oder sind fuer Piloten nicht kritisch:
-
 | Item | Grund |
 |------|-------|
-| React Compiler evaluieren | ~1 Tag, Risiko fuer Regressions vor Launch |
-| List Virtualization (Contacts, Deals) | Pagination (PAGE_SIZE=20) reicht fuer Demo/Piloten |
 | Redis Caching Layer | Erst relevant bei >10 gleichzeitigen Usern |
 | PgBouncer | Connection Pool Fix reicht vorerst |
 | FinAPI Banking-Integration | Kein Backend-Pfad, zu gross fuer Sprint |
@@ -161,11 +160,11 @@ Diese Items sind entweder zu gross, haben externe Abhaengigkeiten, oder sind fue
 | Redis Caching Layer (Cache-Aside, 3 Tiers) | Hoch |
 | PgBouncer als DB Connection Pool | Hoch |
 | Desktop-Test-Coverage aufbauen (28/36 Module bei 0%) | Hoch |
-| React Compiler 1.0 evaluieren + ausrollen | Mittel |
-| List Virtualization fuer CRM-Listen | Mittel |
-| gRPC Connection Keep-Alive Tuning | Mittel |
-| pprof Profiling Endpoint | Mittel |
-| PostgreSQL Tuning (shared_buffers, work_mem) | Mittel |
+| ~~React Compiler 1.0~~ | ✅ Vorgezogen (annotation mode) |
+| ~~List Virtualization~~ | ✅ Vorgezogen (ContactsListPage) |
+| ~~gRPC Keep-Alive Tuning~~ | ✅ Vorgezogen |
+| ~~pprof Profiling~~ | ✅ Vorgezogen |
+| ~~PostgreSQL Tuning~~ | ✅ Vorgezogen |
 | OnlyOffice → Collabora Migration | Niedrig |
 | Auto-Deploy CD Pipeline (on merge to main) | Niedrig |
 
@@ -210,8 +209,8 @@ Einige Frontend-Formulare senden Felder nicht ans Backend (`EmployeeProfile` feh
 | UG-Gruendung Zentria | Notar-Termin geplant | 01.05.2026 |
 | AVV/DPA (Auftragsverarbeitungsvertrag) | Offen, braucht UG | Juni-Juli 2026 |
 | AGB + Impressum | Platzhalter live | Nach UG |
-| Backend N+1 Queries | Pre-Launch Sprint (Woche 2) | 21.04.2026 |
-| Connection Pool Exhaustion | Pre-Launch Sprint (Woche 2) | 21.04.2026 |
+| ~~Backend N+1 Queries~~ | ✅ Behoben (Contact 61→4, Deal 121→7) | 08.04.2026 |
+| ~~Connection Pool Exhaustion~~ | ✅ Behoben (MaxConns 25→10, PG Tuning) | 08.04.2026 |
 
 ---
 
@@ -220,8 +219,8 @@ Einige Frontend-Formulare senden Felder nicht ans Backend (`EmployeeProfile` feh
 | Metrik | Aktuell | Ziel Launch (01.05) | Ziel Q3 2026 |
 |--------|---------|---------------------|--------------|
 | Backend-Services healthy | 10/10 | 10/10 | 10/10 |
-| DB-Queries pro Contact-Liste | 61 | 4 | 4 |
-| DB-Queries pro Deal-Liste | 121 | 7 | 7 |
+| DB-Queries pro Contact-Liste | ~~61~~ 4 | 4 | 4 |
+| DB-Queries pro Deal-Liste | ~~121~~ 7 | 7 | 7 |
 | Desktop-Test-Coverage | ~5% | ~5% | 50%+ |
 | Backend-Test-Coverage | Solide (240+ CRM, 162+ Gateway) | Solide | 80%+ |
 | Sprachen | 4 (DE/EN/FR/IT) | 4 | 4 |

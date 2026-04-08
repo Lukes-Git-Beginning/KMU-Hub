@@ -1,6 +1,6 @@
 ---
 tags: [architektur, backend, frontend, ci-cd]
-updated: 2026-04-06
+updated: 2026-04-08
 ---
 # Architektur
 
@@ -65,6 +65,25 @@ ai, auth, automatisierung, berichte, calendar, contacts, dashboard, einkauf, fin
 
 ### Standalone
 - Guest Chat: Separate Vite SPA unter `/guest/`
+
+## Performance-Patterns
+
+### N+1 Query Elimination (2026-04-08)
+- Contact-Liste: `enrichWithRelationsBatch()` — 4 Queries statt 61 (Batch-Loading per `ANY($1)`)
+- Deal-Liste: `enrichWithRelationsBatch()` — 7 Queries statt 121
+- Batch-Inserts: Tags per `unnest($2::uuid[])`, Custom Fields per `pgx.Batch`
+- Einzelabfragen (`getWithRelations`) bleiben fuer GetByID/Create/Update (nur 1 Entity)
+
+### Gateway Performance
+- **Audit Logger:** Buffered Channel (1000) + Worker Pool (10 Workers) statt unbegrenzte Goroutines
+- **gRPC Keep-Alive:** 60s/10s, PermitWithoutStream (in `registry.go`)
+- **pprof:** `/debug/pprof` hinter `ENABLE_PPROF=true` Env-Var (nur Staging/Dev)
+- **Connection Pool:** MaxConns=10 pro Service (10×10=100 = PG-Limit), MaxConnLifetime=1h, HealthCheckPeriod=1m
+
+### React Compiler (2026-04-08)
+- `babel-plugin-react-compiler` im `annotation` Mode
+- `"use memo"` Directive auf DashboardPage, DealPipelineView, ContactsListPage
+- Automatisches Memoization ohne manuelle useMemo/useCallback
 
 ## Demo Mode
 

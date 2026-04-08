@@ -1,6 +1,6 @@
 ---
 tags: [security, auth, compliance, gdpr]
-updated: 2026-04-06
+updated: 2026-04-08
 ---
 # Security & Compliance
 
@@ -17,8 +17,15 @@ updated: 2026-04-06
 - 403 Forbidden bei unzureichenden Rechten
 
 ## Middleware-Stack (Reihenfolge)
-1. CORS → 2. Rate Limiting → 3. Auth (JWT) → 4. RBAC
+1. Metrics → 2. RequestID → 3. SecurityHeaders → 4. Logging → 5. CORS → 6. IP Filter → 7. Rate Limiting → 8. Audit Logger → 9. Auth (JWT) → 10. RBAC
 - Code: `backend/internal/middleware/`
+
+## Audit Logger (2026-04-08)
+- Buffered Channel (Kapazitaet 1000) + Worker Pool (10 Worker)
+- Non-blocking: Events werden bei vollem Channel gedroppt (mit Warning-Log)
+- Erfasst: mutating requests (POST/PUT/PATCH/DELETE) auf Security-relevanten Pfaden
+- Sendet via gRPC an Security-Service (`CreateAuditEntry`)
+- `Start(10)` + `defer Close()` in `gateway/main.go`
 
 ## CORS
 - Explizite Allowlist via `CORS_ALLOWED_ORIGINS` (Semikolon-getrennt)

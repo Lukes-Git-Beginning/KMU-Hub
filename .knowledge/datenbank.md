@@ -1,13 +1,13 @@
 ---
 tags: [datenbank, schema, migrations]
-updated: 2026-04-06
+updated: 2026-04-08
 ---
 # Datenbank
 
 ## Überblick
 - PostgreSQL 16 + Redis 7 (nur Cache, KEIN Dual-Write)
 - Änderungen NUR via golang-migrate (`make migrate-create name=xxx`)
-- 61 Migration-Paare in `backend/migrations/`
+- 62 Migration-Paare in `backend/migrations/`
 - Index-Konvention: `idx_{table}_{column}`
 
 ## Tabellen nach Domain
@@ -94,6 +94,9 @@ updated: 2026-04-06
 - `consent_records` — contact_id (FK), consent_type ENUM (marketing_email, marketing_phone, profiling, newsletter, data_processing, data_sharing), granted BOOL, legal_basis ENUM (consent, legitimate_interest, contract, legal_obligation), source, ip_address INET, granted_at, revoked_at
 - `gdpr_deletion_requests` — contact_id, requested_by, reason, status (pending/completed), completed_at
 
+### Contacts Owner Index (Migration 062)
+- `idx_contacts_owner_id` auf `contacts(owner_id)` — fehlte fuer `ListWithVisibility` Filter
+
 ### Finance Erweiterungen (Migration 061)
 - `finance_invoices.zugferd_profile VARCHAR(20)` — NULL = plain PDF, sonst 'MINIMUM' / 'BASIC_WL' / 'EN16931'
 - `finance_invoices.time_tracking_source JSONB` — Audit-Trail fuer Zeiterfassung→Rechnung
@@ -107,6 +110,11 @@ updated: 2026-04-06
 - **Trigram (pg_trgm):** `gin_trgm_ops` auf contacts Name + companies Name — Fuzzy Duplicate Detection
 - **Foreign Keys:** ON DELETE CASCADE oder SET NULL
 
+## Connection Pool & PG Tuning (2026-04-08)
+- MaxConns: 10 pro Service (10×10=100, passend zu PG max_connections=150)
+- MinConns: 2, MaxConnLifetime: 1h, MaxConnIdleTime: 30m, HealthCheckPeriod: 1m
+- PG Tuning (docker-compose.prod.yml): shared_buffers=4GB, effective_cache_size=12GB, work_mem=64MB, maintenance_work_mem=512MB
+
 ## Verwandte Notes
-- [[architektur]] — Service-Architektur
+- [[architektur]] — Service-Architektur, Performance-Patterns
 - [[api]] — API-Endpoints

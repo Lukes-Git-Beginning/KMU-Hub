@@ -1,6 +1,6 @@
 ---
 tags: [fortschritt, milestones]
-updated: 2026-04-06
+updated: 2026-04-08
 ---
 # Milestones
 
@@ -60,7 +60,19 @@ updated: 2026-04-06
 | Verbleibend (Wave 2+3) | ~47 Dateien (Settings, Integrations, Sub-Pages, Dialoge) |
 | Verbleibend | Keys in de.json konsolidieren, EN/FR/IT-Uebersetzungen, Strict Types |
 
+## Performance-Optimierung (2026-04-08)
+| Phase | Inhalt | Status |
+|-------|--------|--------|
+| Phase 1 — Quick Wins | Bundle-Analyzer, Fonts self-host, Demo Dead Code, motion entfernt | ✅ |
+| Phase 2 — Frontend | Chunk-Splitting, Async Persister, HR Polling, React Compiler, List Virtualization | ✅ |
+| Phase 3 — Backend | N+1 Queries (Contact 61→4, Deal 121→7), Batch-Inserts, owner_id Index, Pool Fix, PG Tuning | ✅ |
+| Phase 4 — Electron | V8 Compile Cache, modulePreload, Skeleton Screen | ✅ |
+| Phase 5 — Gateway | Audit Logger Worker Pool, gRPC Keep-Alive, pprof | ✅ (Redis Caching offen) |
+
+5 parallele Agenten (Worktree-Isolation), 6 Commits.
+Detaillierter Plan: `docs/PERFORMANCE-PLAN.md`
+
 ## Verwandte Notes
 - [[i18n]] — i18n-Architektur & Schluessel-Konventionen
 - [[design]] — Frontend Wiring Progress
-- [[architektur]] — Technischer Kontext
+- [[architektur]] — Technischer Kontext, Performance-Patterns
