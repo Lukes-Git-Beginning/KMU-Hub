@@ -4,6 +4,7 @@ go 1.25.6
 
 require (
 	code.sajari.com/docconv/v2 v2.0.0-pre.4
+	github.com/alicebob/miniredis/v2 v2.37.0
 	github.com/atc0005/go-teams-notify/v2 v2.14.0
 	github.com/coder/websocket v1.8.14
 	github.com/disintegration/imaging v1.6.2
@@ -27,6 +28,7 @@ require (
 	github.com/livekit/protocol v1.44.1-0.20260120134243-0914cc74653e
 	github.com/livekit/server-sdk-go/v2 v2.13.3
 	github.com/minio/minio-go/v7 v7.0.98
+	github.com/pdfcpu/pdfcpu v0.6.0
 	github.com/pemistahl/lingua-go v1.4.0
 	github.com/pquerna/otp v1.5.0
 	github.com/prometheus/client_golang v1.23.2
@@ -112,7 +114,6 @@ require (
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/otiai10/gosseract/v2 v2.2.4 // indirect
-	github.com/pdfcpu/pdfcpu v0.6.0 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
 	github.com/phpdave11/gofpdf v1.4.3 // indirect
 	github.com/pion/datachannel v1.6.0 // indirect
@@ -147,6 +148,7 @@ require (
 	github.com/tinylib/msgp v1.6.1 // indirect
 	github.com/twitchtv/twirp v8.1.3+incompatible // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
+	github.com/yuin/gopher-lua v1.1.1 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect
 	go.opentelemetry.io/otel v1.39.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.39.0 // indirect

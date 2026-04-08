@@ -26,6 +26,7 @@ services:
           cpus: "1.0"
 
   redis:
+    command: ["redis-server", "--maxmemory", "400mb", "--maxmemory-policy", "allkeys-lru", "--save", ""]
     logging: *default-logging
     deploy:
       resources:

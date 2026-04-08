@@ -19,6 +19,7 @@ import (
 	"github.com/emersion/go-webdav/caldav"
 	"github.com/emersion/go-webdav/carddav"
 
+	"github.com/kmuhub/kmuhub/internal/cache"
 	"github.com/kmuhub/kmuhub/internal/auth"
 	caldavpkg "github.com/kmuhub/kmuhub/internal/caldav"
 	"github.com/kmuhub/kmuhub/internal/chat/file"
@@ -153,7 +154,10 @@ func main() {
 	authMiddleware := middleware.Auth(localAuthService)
 
 	// Dashboard layout service (direct DB access, not gRPC)
-	dashboardRepo := gateway.NewPostgresDashboardRepository(pool)
+	cacheClient := cache.NewClient(redisClient)
+	dashboardRepo := gateway.NewCachedDashboardRepository(
+		gateway.NewPostgresDashboardRepository(pool), cacheClient,
+	)
 	dashboardService := gateway.NewDashboardService(dashboardRepo)
 
 	// CRM extension services (direct DB access: duplicates, timeline, consent)

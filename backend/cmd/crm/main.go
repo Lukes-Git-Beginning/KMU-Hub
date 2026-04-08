@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"google.golang.org/grpc"
 
+	"github.com/kmuhub/kmuhub/internal/cache"
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/crm/activity"
 	"github.com/kmuhub/kmuhub/internal/crm/company"
@@ -51,12 +52,21 @@ func main() {
 	}
 	defer pool.Close()
 
+	// Redis for cache-aside (best-effort)
+	redisClient, redisErr := database.NewRedisClient(ctx, cfg.RedisURL)
+	if redisErr != nil {
+		slog.Warn("redis unavailable for crm cache, using direct db", "error", redisErr)
+	}
+	cacheClient := cache.NewClient(redisClient)
+
 	// Initialize repositories
 	customFieldRepo := customfield.NewPostgresRepository(pool)
 	tagRepo := tag.NewPostgresRepository(pool)
 	contactRepo := contact.NewPostgresRepository(pool)
 	companyRepo := company.NewPostgresRepository(pool)
-	pipelineStageRepo := pipelinestage.NewPostgresRepository(pool)
+	pipelineStageRepo := pipelinestage.NewCachedRepository(
+		pipelinestage.NewPostgresRepository(pool), cacheClient,
+	)
 	dealRepo := deal.NewPostgresRepository(pool)
 	activityRepo := activity.NewPostgresRepository(pool)
 	searchRepo := search.NewPostgresRepository(pool)

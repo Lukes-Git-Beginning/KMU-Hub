@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/kmuhub/kmuhub/internal/cache"
 	"github.com/kmuhub/kmuhub/internal/biz/bexio"
 	"github.com/kmuhub/kmuhub/internal/biz/creditnote"
 	"github.com/kmuhub/kmuhub/internal/biz/dashboard"
@@ -78,6 +79,13 @@ func main() {
 	}
 	defer pool.Close()
 
+	// Redis for cache-aside (best-effort)
+	redisClient, redisErr := database.NewRedisClient(ctx, cfg.RedisURL)
+	if redisErr != nil {
+		slog.Warn("redis unavailable for biz cache, using direct db", "error", redisErr)
+	}
+	cacheClient := cache.NewClient(redisClient)
+
 	slog.Info("biz service initialized",
 		"grpc_port", cfg.BizGRPCPort,
 		"health_port", cfg.BizHealthPort,
@@ -92,7 +100,9 @@ func main() {
 	paymentRepo := payment.NewPostgresRepository(pool)
 	dunningRepo := dunning.NewPostgresRepository(pool)
 	dunningConfigRepo := dunning.NewPostgresConfigRepository(pool)
-	dashboardRepo := dashboard.NewPostgresRepository(pool)
+	dashboardRepo := dashboard.NewCachedRepository(
+		dashboard.NewPostgresRepository(pool), cacheClient,
+	)
 
 	// Shared repositories (used by multiple services)
 	numberSeqRepo := quote.NewPostgresNumberSequenceRepo(pool)

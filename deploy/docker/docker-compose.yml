@@ -103,10 +103,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       migrate:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      REDIS_URL: redis://redis:6379
       JWT_SECRET: docker-dev-secret-minimum-32-characters
       CRM_GRPC_PORT: ":50052"
       CRM_HEALTH_PORT: ":9092"
@@ -341,10 +344,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       migrate:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      REDIS_URL: redis://redis:6379
       JWT_SECRET: docker-dev-secret-minimum-32-characters
       BIZ_GRPC_PORT: ":50058"
       BIZ_HEALTH_PORT: ":9098"
