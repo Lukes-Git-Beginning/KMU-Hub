@@ -341,16 +341,16 @@ func (r *PostgresRepository) GetTags(ctx context.Context, contactID uuid.UUID) (
 }
 
 func (r *PostgresRepository) AddTags(ctx context.Context, contactID uuid.UUID, tagIDs []uuid.UUID) error {
-	for _, tagID := range tagIDs {
-		_, err := r.pool.Exec(ctx,
-			`INSERT INTO contact_tags (contact_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-			contactID, tagID,
-		)
-		if err != nil {
-			return err
-		}
+	if len(tagIDs) == 0 {
+		return nil
 	}
-	return nil
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO contact_tags (contact_id, tag_id)
+		 SELECT $1, unnest($2::uuid[])
+		 ON CONFLICT DO NOTHING`,
+		contactID, tagIDs,
+	)
+	return err
 }
 
 func (r *PostgresRepository) RemoveTags(ctx context.Context, contactID uuid.UUID, tagIDs []uuid.UUID) error {
@@ -389,22 +389,116 @@ func (r *PostgresRepository) GetCustomFieldValues(ctx context.Context, contactID
 }
 
 func (r *PostgresRepository) SetCustomFieldValues(ctx context.Context, contactID uuid.UUID, values map[uuid.UUID]any) error {
+	if len(values) == 0 {
+		return nil
+	}
+	batch := &pgx.Batch{}
 	for fieldID, value := range values {
 		valueJSON, err := json.Marshal(value)
 		if err != nil {
 			return err
 		}
-		_, execErr := r.pool.Exec(ctx,
+		batch.Queue(
 			`INSERT INTO contact_custom_field_values (contact_id, field_id, value, created_at, updated_at)
 			 VALUES ($1, $2, $3, NOW(), NOW())
 			 ON CONFLICT (contact_id, field_id) DO UPDATE SET value = $3, updated_at = NOW()`,
 			contactID, fieldID, valueJSON,
 		)
-		if execErr != nil {
-			return execErr
+	}
+	br := r.pool.SendBatch(ctx, batch)
+	defer br.Close()
+	for range values {
+		if _, err := br.Exec(); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// GetCompanyNames fetches company names for multiple company IDs in one query.
+func (r *PostgresRepository) GetCompanyNames(ctx context.Context, companyIDs []uuid.UUID) (map[uuid.UUID]string, error) {
+	if len(companyIDs) == 0 {
+		return nil, nil
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, name FROM companies WHERE id = ANY($1)`, companyIDs,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[uuid.UUID]string)
+	for rows.Next() {
+		var id uuid.UUID
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, err
+		}
+		result[id] = name
+	}
+	return result, rows.Err()
+}
+
+// GetTagsBatch fetches tags for multiple contact IDs in one query.
+func (r *PostgresRepository) GetTagsBatch(ctx context.Context, contactIDs []uuid.UUID) (map[uuid.UUID][]*models.Tag, error) {
+	if len(contactIDs) == 0 {
+		return nil, nil
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT ct.contact_id, t.id, t.name, t.color, t.entity_type, t.created_at
+		 FROM tags t
+		 JOIN contact_tags ct ON t.id = ct.tag_id
+		 WHERE ct.contact_id = ANY($1)
+		 ORDER BY t.name`, contactIDs,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[uuid.UUID][]*models.Tag)
+	for rows.Next() {
+		var contactID uuid.UUID
+		var tag models.Tag
+		if err := rows.Scan(&contactID, &tag.ID, &tag.Name, &tag.Color, &tag.EntityType, &tag.CreatedAt); err != nil {
+			return nil, err
+		}
+		result[contactID] = append(result[contactID], &tag)
+	}
+	return result, rows.Err()
+}
+
+// GetCustomFieldValuesBatch fetches custom field values for multiple contact IDs in one query.
+func (r *PostgresRepository) GetCustomFieldValuesBatch(ctx context.Context, contactIDs []uuid.UUID) (map[uuid.UUID][]*models.CustomFieldValueRow, error) {
+	if len(contactIDs) == 0 {
+		return nil, nil
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT cfv.contact_id, cfv.field_id, cfd.field_name, cfv.value
+		 FROM contact_custom_field_values cfv
+		 JOIN custom_field_definitions cfd ON cfv.field_id = cfd.id
+		 WHERE cfv.contact_id = ANY($1)`, contactIDs,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[uuid.UUID][]*models.CustomFieldValueRow)
+	for rows.Next() {
+		var contactID uuid.UUID
+		var v models.CustomFieldValueRow
+		var valueJSON []byte
+		if err := rows.Scan(&contactID, &v.FieldID, &v.FieldName, &valueJSON); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(valueJSON, &v.Value); err != nil {
+			return nil, err
+		}
+		result[contactID] = append(result[contactID], &v)
+	}
+	return result, rows.Err()
 }
 
 func (r *PostgresRepository) IsInUse(ctx context.Context, id uuid.UUID) (bool, error) {

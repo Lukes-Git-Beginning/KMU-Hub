@@ -27,6 +27,11 @@ type Repository interface {
 	AddTags(ctx context.Context, contactID uuid.UUID, tagIDs []uuid.UUID) error
 	RemoveTags(ctx context.Context, contactID uuid.UUID, tagIDs []uuid.UUID) error
 
+	// Batch relations (for list endpoints)
+	GetCompanyNames(ctx context.Context, companyIDs []uuid.UUID) (map[uuid.UUID]string, error)
+	GetTagsBatch(ctx context.Context, contactIDs []uuid.UUID) (map[uuid.UUID][]*models.Tag, error)
+	GetCustomFieldValuesBatch(ctx context.Context, contactIDs []uuid.UUID) (map[uuid.UUID][]*models.CustomFieldValueRow, error)
+
 	// Custom fields
 	GetCustomFieldValues(ctx context.Context, contactID uuid.UUID) ([]*models.CustomFieldValueRow, error)
 	SetCustomFieldValues(ctx context.Context, contactID uuid.UUID, values map[uuid.UUID]any) error

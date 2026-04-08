@@ -125,6 +125,30 @@ func (m *MockRepository) GetCustomFieldValues(ctx context.Context, contactID uui
 	return nil, nil
 }
 
+func (m *MockRepository) GetCompanyNames(ctx context.Context, companyIDs []uuid.UUID) (map[uuid.UUID]string, error) {
+	result := make(map[uuid.UUID]string)
+	for _, id := range companyIDs {
+		if name, ok := m.companies[id]; ok {
+			result[id] = name
+		}
+	}
+	return result, nil
+}
+
+func (m *MockRepository) GetTagsBatch(ctx context.Context, contactIDs []uuid.UUID) (map[uuid.UUID][]*models.Tag, error) {
+	result := make(map[uuid.UUID][]*models.Tag)
+	for _, id := range contactIDs {
+		if tags, ok := m.contactTags[id]; ok {
+			result[id] = tags
+		}
+	}
+	return result, nil
+}
+
+func (m *MockRepository) GetCustomFieldValuesBatch(ctx context.Context, contactIDs []uuid.UUID) (map[uuid.UUID][]*models.CustomFieldValueRow, error) {
+	return make(map[uuid.UUID][]*models.CustomFieldValueRow), nil
+}
+
 func (m *MockRepository) SetCustomFieldValues(ctx context.Context, contactID uuid.UUID, values map[uuid.UUID]any) error {
 	m.customFields[contactID] = values
 	return nil

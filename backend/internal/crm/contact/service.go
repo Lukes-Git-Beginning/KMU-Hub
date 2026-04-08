@@ -172,13 +172,9 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]*models.ContactW
 		return nil, 0, err
 	}
 
-	var results []*models.ContactWithRelations
-	for _, c := range contacts {
-		withRel, relErr := s.getWithRelations(ctx, c)
-		if relErr != nil {
-			return nil, 0, relErr
-		}
-		results = append(results, withRel)
+	results, enrichErr := s.enrichWithRelationsBatch(ctx, contacts)
+	if enrichErr != nil {
+		return nil, 0, enrichErr
 	}
 
 	return results, total, nil
@@ -348,6 +344,72 @@ func (s *Service) RemoveTags(ctx context.Context, contactID uuid.UUID, tagIDs []
 	return s.getWithRelations(ctx, contact)
 }
 
+// enrichWithRelationsBatch loads all relations for a slice of contacts in batch.
+// Uses 3 queries total instead of 3*N.
+func (s *Service) enrichWithRelationsBatch(ctx context.Context, contacts []*models.Contact) ([]*models.ContactWithRelations, error) {
+	if len(contacts) == 0 {
+		return nil, nil
+	}
+
+	// Collect IDs
+	contactIDs := make([]uuid.UUID, len(contacts))
+	companyIDSet := make(map[uuid.UUID]struct{})
+	for i, c := range contacts {
+		contactIDs[i] = c.ID
+		if c.CompanyID != nil {
+			companyIDSet[*c.CompanyID] = struct{}{}
+		}
+	}
+
+	companyIDs := make([]uuid.UUID, 0, len(companyIDSet))
+	for id := range companyIDSet {
+		companyIDs = append(companyIDs, id)
+	}
+
+	// Batch fetch all relations
+	companyNames, err := s.repo.GetCompanyNames(ctx, companyIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	tagsByContact, err := s.repo.GetTagsBatch(ctx, contactIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	cfByContact, err := s.repo.GetCustomFieldValuesBatch(ctx, contactIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	// Assemble results
+	results := make([]*models.ContactWithRelations, len(contacts))
+	for i, c := range contacts {
+		result := &models.ContactWithRelations{
+			Contact: *c,
+		}
+
+		if c.CompanyID != nil {
+			if name, ok := companyNames[*c.CompanyID]; ok && name != "" {
+				result.CompanyName = &name
+			}
+		}
+
+		result.Tags = tagsByContact[c.ID]
+
+		if values := cfByContact[c.ID]; len(values) > 0 {
+			result.CustomFields = make(map[string]any)
+			for _, v := range values {
+				result.CustomFields[v.FieldName] = v.Value
+			}
+		}
+
+		results[i] = result
+	}
+
+	return results, nil
+}
+
 // getWithRelations loads all relations for a contact
 func (s *Service) getWithRelations(ctx context.Context, contact *models.Contact) (*models.ContactWithRelations, error) {
 	result := &models.ContactWithRelations{
@@ -498,13 +560,9 @@ func (s *Service) ListWithVisibility(ctx context.Context, userID uuid.UUID, isAd
 		return nil, 0, err
 	}
 
-	var results []*models.ContactWithRelations
-	for _, c := range contacts {
-		withRel, relErr := s.getWithRelations(ctx, c)
-		if relErr != nil {
-			return nil, 0, relErr
-		}
-		results = append(results, withRel)
+	results, enrichErr := s.enrichWithRelationsBatch(ctx, contacts)
+	if enrichErr != nil {
+		return nil, 0, enrichErr
 	}
 
 	return results, total, nil
