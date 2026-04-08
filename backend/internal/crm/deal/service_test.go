@@ -173,6 +173,60 @@ func (m *MockRepository) SetClosedAt(ctx context.Context, dealID uuid.UUID, clos
 	return nil
 }
 
+func (m *MockRepository) GetStageNames(ctx context.Context, stageIDs []uuid.UUID) (map[uuid.UUID]string, error) {
+	result := make(map[uuid.UUID]string)
+	for _, id := range stageIDs {
+		if stage, ok := m.stages[id]; ok {
+			result[id] = stage.Name
+		}
+	}
+	return result, nil
+}
+
+func (m *MockRepository) GetContactNames(ctx context.Context, contactIDs []uuid.UUID) (map[uuid.UUID]string, error) {
+	result := make(map[uuid.UUID]string)
+	for _, id := range contactIDs {
+		if name, ok := m.contacts[id]; ok {
+			result[id] = name
+		}
+	}
+	return result, nil
+}
+
+func (m *MockRepository) GetCompanyNames(ctx context.Context, companyIDs []uuid.UUID) (map[uuid.UUID]string, error) {
+	result := make(map[uuid.UUID]string)
+	for _, id := range companyIDs {
+		if name, ok := m.companies[id]; ok {
+			result[id] = name
+		}
+	}
+	return result, nil
+}
+
+func (m *MockRepository) GetOwnerNames(ctx context.Context, ownerIDs []uuid.UUID) (map[uuid.UUID]string, error) {
+	result := make(map[uuid.UUID]string)
+	for _, id := range ownerIDs {
+		if name, ok := m.owners[id]; ok {
+			result[id] = name
+		}
+	}
+	return result, nil
+}
+
+func (m *MockRepository) GetTagsBatch(ctx context.Context, dealIDs []uuid.UUID) (map[uuid.UUID][]*models.Tag, error) {
+	result := make(map[uuid.UUID][]*models.Tag)
+	for _, id := range dealIDs {
+		if tags, ok := m.dealTags[id]; ok {
+			result[id] = tags
+		}
+	}
+	return result, nil
+}
+
+func (m *MockRepository) GetCustomFieldValuesBatch(ctx context.Context, dealIDs []uuid.UUID) (map[uuid.UUID][]*models.CustomFieldValueRow, error) {
+	return nil, nil
+}
+
 // Test helpers
 func (m *MockRepository) AddStage(stage *models.PipelineStage) {
 	m.stages[stage.ID] = stage
