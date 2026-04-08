@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -8,22 +9,48 @@ import (
 	securityv1 "github.com/kmuhub/kmuhub/proto/security/v1"
 )
 
-// AuditLogger writes audit entries via the security gRPC service.
-// It wraps handlers for security-relevant endpoints (login, CRUD, GDPR).
-type AuditLogger struct {
-	getClient func() (securityv1.SecurityServiceClient, error)
+// auditEvent captures the data needed to log an audit entry.
+type auditEvent struct {
+	method     string
+	path       string
+	userAgent  string
+	clientIP   string
+	userID     string
+	statusCode int
 }
 
-// NewAuditLogger creates a new AuditLogger that lazily obtains a gRPC client.
+// AuditLogger writes audit entries via the security gRPC service.
+// Uses a buffered channel and worker pool to prevent goroutine explosion.
+type AuditLogger struct {
+	getClient func() (securityv1.SecurityServiceClient, error)
+	events    chan auditEvent
+}
+
+// NewAuditLogger creates a new AuditLogger with a buffered event channel.
+// Call Start() to launch workers before using the middleware.
 func NewAuditLogger(getClient func() (securityv1.SecurityServiceClient, error)) *AuditLogger {
-	return &AuditLogger{getClient: getClient}
+	return &AuditLogger{
+		getClient: getClient,
+		events:    make(chan auditEvent, 1000),
+	}
+}
+
+// Start launches the worker pool that processes audit events.
+func (a *AuditLogger) Start(workers int) {
+	for i := 0; i < workers; i++ {
+		go a.worker()
+	}
+}
+
+func (a *AuditLogger) worker() {
+	for event := range a.events {
+		a.processEvent(event)
+	}
 }
 
 // Middleware returns HTTP middleware that logs audit events for mutating requests.
-// It fires asynchronously to avoid adding latency.
 func (a *AuditLogger) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Only audit mutating methods on security-relevant paths
 		if !shouldAudit(r) {
 			next.ServeHTTP(w, r)
 			return
@@ -32,9 +59,53 @@ func (a *AuditLogger) Middleware(next http.Handler) http.Handler {
 		sw := &statusWriter{ResponseWriter: w, statusCode: http.StatusOK}
 		next.ServeHTTP(sw, r)
 
-		// Fire-and-forget audit log
-		go a.logEvent(r, sw.statusCode)
+		// Non-blocking send to worker pool
+		select {
+		case a.events <- auditEvent{
+			method:     r.Method,
+			path:       r.URL.Path,
+			userAgent:  r.UserAgent(),
+			clientIP:   auditClientIP(r),
+			userID:     GetUserID(r.Context()),
+			statusCode: sw.statusCode,
+		}:
+		default:
+			slog.Warn("audit event dropped, channel full")
+		}
 	})
+}
+
+func (a *AuditLogger) processEvent(event auditEvent) {
+	client, err := a.getClient()
+	if err != nil {
+		slog.Debug("audit logger: security service unavailable", "error", err)
+		return
+	}
+
+	result := "success"
+	if event.statusCode >= 400 {
+		result = "failure"
+	}
+
+	action := deriveActionFromMethod(event.method, event.path)
+
+	_, err = client.CreateAuditEntry(context.Background(), &securityv1.CreateAuditEntryRequest{
+		UserId:     event.userID,
+		Action:     action,
+		Target:     event.path,
+		TargetType: "http_endpoint",
+		IpAddress:  event.clientIP,
+		UserAgent:  event.userAgent,
+		Result:     result,
+	})
+	if err != nil {
+		slog.Debug("audit logger: failed to log event", "action", action, "error", err)
+	}
+}
+
+// Close drains the event channel. Call during graceful shutdown.
+func (a *AuditLogger) Close() {
+	close(a.events)
 }
 
 func shouldAudit(r *http.Request) bool {
@@ -66,38 +137,7 @@ func shouldAudit(r *http.Request) bool {
 	return false
 }
 
-func (a *AuditLogger) logEvent(r *http.Request, statusCode int) {
-	client, err := a.getClient()
-	if err != nil {
-		slog.Debug("audit logger: security service unavailable", "error", err)
-		return
-	}
-
-	userID := GetUserID(r.Context())
-	result := "success"
-	if statusCode >= 400 {
-		result = "failure"
-	}
-
-	action := deriveAction(r)
-
-	_, err = client.CreateAuditEntry(r.Context(), &securityv1.CreateAuditEntryRequest{
-		UserId:     userID,
-		Action:     action,
-		Target:     r.URL.Path,
-		TargetType: "http_endpoint",
-		IpAddress:  auditClientIP(r),
-		UserAgent:  r.UserAgent(),
-		Result:     result,
-	})
-	if err != nil {
-		slog.Debug("audit logger: failed to log event", "action", action, "error", err)
-	}
-}
-
-func deriveAction(r *http.Request) string {
-	path := r.URL.Path
-
+func deriveActionFromMethod(method string, path string) string {
 	// Auth actions
 	if strings.Contains(path, "/auth/login") {
 		return "user.login"
@@ -110,7 +150,7 @@ func deriveAction(r *http.Request) string {
 	}
 
 	// Generic CRUD mapping
-	switch r.Method {
+	switch method {
 	case http.MethodPost:
 		return "resource.create"
 	case http.MethodPut, http.MethodPatch:

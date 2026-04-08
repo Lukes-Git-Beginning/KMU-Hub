@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -128,7 +129,7 @@ func main() {
 	rateLimiter := middleware.NewRateLimiter(redisClient, cfg.RateLimitRPS)
 	r.Use(rateLimiter.Middleware)
 
-	// Audit logger: logs security-relevant events via gRPC (fire-and-forget)
+	// Audit logger: logs security-relevant events via gRPC (worker pool)
 	auditLogger := middleware.NewAuditLogger(func() (securityv1.SecurityServiceClient, error) {
 		conn, err := registry.GetConnection("auth")
 		if err != nil {
@@ -136,7 +137,15 @@ func main() {
 		}
 		return securityv1.NewSecurityServiceClient(conn), nil
 	})
+	auditLogger.Start(10)
+	defer auditLogger.Close()
 	r.Use(auditLogger.Middleware)
+
+	// pprof profiling (only in non-production)
+	if os.Getenv("ENABLE_PPROF") == "true" {
+		r.Mount("/debug/pprof", http.DefaultServeMux)
+		slog.Info("pprof profiling enabled on /debug/pprof")
+	}
 
 	// =========================================================================
 	// Register per-service route handlers via RouteRegistrar interface

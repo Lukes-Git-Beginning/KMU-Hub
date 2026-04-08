@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
 )
 
 // ServiceConnection holds the gRPC connection state for a single backend service.
@@ -77,6 +79,11 @@ func (r *ServiceRegistry) GetConnection(name string) (*grpc.ClientConn, error) {
 	conn, err := grpc.NewClient(
 		svc.address,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:                60 * time.Second,
+			Timeout:             10 * time.Second,
+			PermitWithoutStream: true,
+		}),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gRPC client for %q at %s: %w", name, svc.address, err)

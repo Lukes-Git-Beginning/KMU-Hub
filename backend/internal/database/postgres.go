@@ -13,8 +13,11 @@ func NewPostgresPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, er
 	if err != nil {
 		return nil, fmt.Errorf("parse database config: %w", err)
 	}
-	config.MaxConns = 25
+	config.MaxConns = 10
 	config.MinConns = 2
+	config.MaxConnLifetime = time.Hour
+	config.MaxConnIdleTime = 30 * time.Minute
+	config.HealthCheckPeriod = time.Minute
 	config.ConnConfig.ConnectTimeout = 10 * time.Second
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)

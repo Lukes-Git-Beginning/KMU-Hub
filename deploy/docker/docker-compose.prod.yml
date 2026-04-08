@@ -7,6 +7,18 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=4GB"
+      - "-c"
+      - "effective_cache_size=12GB"
+      - "-c"
+      - "work_mem=64MB"
+      - "-c"
+      - "maintenance_work_mem=512MB"
+      - "-c"
+      - "max_connections=150"
     deploy:
       resources:
         limits:
