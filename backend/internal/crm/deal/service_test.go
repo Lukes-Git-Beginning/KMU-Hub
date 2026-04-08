@@ -7,6 +7,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
+	"errors"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -879,4 +881,857 @@ func TestService_RemoveTags_Success(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, dealID, deal.ID)
+}
+
+func TestService_RemoveTags_DealNotFound(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	_, err := svc.RemoveTags(context.Background(), uuid.New(), []uuid.UUID{uuid.New()})
+
+	assert.ErrorIs(t, err, ErrDealNotFound)
+}
+
+// ============================================================================
+// List Tests
+// ============================================================================
+
+func TestService_List_Empty(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	deals, total, err := svc.List(context.Background(), ListInput{})
+
+	require.NoError(t, err)
+	assert.Empty(t, deals)
+	assert.Equal(t, 0, total)
+}
+
+func TestService_List_WithDeals(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
+
+	for i := 0; i < 3; i++ {
+		id := uuid.New()
+		repo.deals[id] = &models.Deal{
+			ID:        id,
+			Name:      "Deal",
+			StageID:   stageID,
+			Currency:  "EUR",
+			Value:     decimal.NewFromFloat(1000),
+			CreatedBy: uuid.New(),
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+	}
+
+	deals, total, err := svc.List(context.Background(), ListInput{})
+
+	require.NoError(t, err)
+	assert.Len(t, deals, 3)
+	assert.Equal(t, 3, total)
+}
+
+func TestService_List_DefaultPagination(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
+
+	for i := 0; i < 25; i++ {
+		id := uuid.New()
+		repo.deals[id] = &models.Deal{
+			ID:        id,
+			Name:      "Deal",
+			StageID:   stageID,
+			Currency:  "EUR",
+			Value:     decimal.NewFromFloat(1000),
+			CreatedBy: uuid.New(),
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+	}
+
+	deals, total, err := svc.List(context.Background(), ListInput{
+		Page:     0,
+		PageSize: 0,
+	})
+
+	require.NoError(t, err)
+	assert.Len(t, deals, 20)
+	assert.Equal(t, 25, total)
+}
+
+func TestService_List_PageSizeExceedsMax(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	deals, _, err := svc.List(context.Background(), ListInput{
+		PageSize: 200,
+	})
+
+	require.NoError(t, err)
+	assert.Empty(t, deals)
+}
+
+// ============================================================================
+// Create - Lost Stage Tests
+// ============================================================================
+
+func TestService_Create_LostStage_SetsClosedAt(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{
+		ID:     stageID,
+		Name:   "Lost",
+		IsLost: true,
+	})
+
+	deal, err := svc.Create(context.Background(), CreateInput{
+		Name:      "Lost Deal",
+		Value:     5000.00,
+		StageID:   stageID,
+		CreatedBy: uuid.New(),
+	})
+
+	require.NoError(t, err)
+	assert.NotNil(t, deal.ClosedAt)
+}
+
+func TestService_Create_WithNotes(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
+
+	notes := "Important deal notes"
+	deal, err := svc.Create(context.Background(), CreateInput{
+		Name:      "Deal",
+		StageID:   stageID,
+		Notes:     &notes,
+		CreatedBy: uuid.New(),
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "Important deal notes", *deal.Notes)
+}
+
+func TestService_Create_WithCustomFields(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
+
+	fieldID := uuid.New()
+	deal, err := svc.Create(context.Background(), CreateInput{
+		Name:         "Deal",
+		StageID:      stageID,
+		CustomFields: map[uuid.UUID]any{fieldID: "custom value"},
+		CreatedBy:    uuid.New(),
+	})
+
+	require.NoError(t, err)
+	assert.NotNil(t, deal)
+	assert.Contains(t, repo.customFields[deal.ID], fieldID)
+}
+
+func TestService_Create_RepoError(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
+	repo.createErr = errors.New("db error")
+
+	_, err := svc.Create(context.Background(), CreateInput{
+		Name:      "Deal",
+		StageID:   stageID,
+		CreatedBy: uuid.New(),
+	})
+
+	assert.Error(t, err)
+}
+
+// ============================================================================
+// Update - Additional Tests
+// ============================================================================
+
+func TestService_Update_Currency(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
+
+	dealID := uuid.New()
+	repo.deals[dealID] = &models.Deal{
+		ID:        dealID,
+		Name:      "Deal",
+		Currency:  "EUR",
+		StageID:   stageID,
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	currency := "USD"
+	deal, err := svc.Update(context.Background(), dealID, UpdateInput{
+		Currency: &currency,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "USD", deal.Currency)
+}
+
+func TestService_Update_InvalidCurrency(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
+
+	dealID := uuid.New()
+	repo.deals[dealID] = &models.Deal{
+		ID:        dealID,
+		Name:      "Deal",
+		Currency:  "EUR",
+		StageID:   stageID,
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	currency := "INVALID"
+	_, err := svc.Update(context.Background(), dealID, UpdateInput{
+		Currency: &currency,
+	})
+
+	assert.ErrorIs(t, err, ErrInvalidCurrency)
+}
+
+func TestService_Update_ClearCompany(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
+
+	companyID := uuid.New()
+	repo.AddCompany(companyID, "Acme Corp")
+
+	dealID := uuid.New()
+	repo.deals[dealID] = &models.Deal{
+		ID:        dealID,
+		Name:      "Deal",
+		StageID:   stageID,
+		CompanyID: &companyID,
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	nilCompany := uuid.Nil
+	deal, err := svc.Update(context.Background(), dealID, UpdateInput{
+		CompanyID: &nilCompany,
+	})
+
+	require.NoError(t, err)
+	assert.Nil(t, deal.CompanyID)
+}
+
+func TestService_Update_SetCompany(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
+
+	companyID := uuid.New()
+	repo.AddCompany(companyID, "New Corp")
+
+	dealID := uuid.New()
+	repo.deals[dealID] = &models.Deal{
+		ID:        dealID,
+		Name:      "Deal",
+		StageID:   stageID,
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	deal, err := svc.Update(context.Background(), dealID, UpdateInput{
+		CompanyID: &companyID,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, companyID, *deal.CompanyID)
+}
+
+func TestService_Update_CompanyNotFound(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
+
+	dealID := uuid.New()
+	repo.deals[dealID] = &models.Deal{
+		ID:        dealID,
+		Name:      "Deal",
+		StageID:   stageID,
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	badCompanyID := uuid.New()
+	_, err := svc.Update(context.Background(), dealID, UpdateInput{
+		CompanyID: &badCompanyID,
+	})
+
+	assert.ErrorIs(t, err, ErrCompanyNotFound)
+}
+
+func TestService_Update_ClearOwner(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
+
+	ownerID := uuid.New()
+	repo.AddOwner(ownerID, "Sales Rep")
+
+	dealID := uuid.New()
+	repo.deals[dealID] = &models.Deal{
+		ID:        dealID,
+		Name:      "Deal",
+		StageID:   stageID,
+		OwnerID:   &ownerID,
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	nilOwner := uuid.Nil
+	deal, err := svc.Update(context.Background(), dealID, UpdateInput{
+		OwnerID: &nilOwner,
+	})
+
+	require.NoError(t, err)
+	assert.Nil(t, deal.OwnerID)
+}
+
+func TestService_Update_SetOwner(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
+
+	ownerID := uuid.New()
+	repo.AddOwner(ownerID, "New Owner")
+
+	dealID := uuid.New()
+	repo.deals[dealID] = &models.Deal{
+		ID:        dealID,
+		Name:      "Deal",
+		StageID:   stageID,
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	deal, err := svc.Update(context.Background(), dealID, UpdateInput{
+		OwnerID: &ownerID,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, ownerID, *deal.OwnerID)
+}
+
+func TestService_Update_OwnerNotFound(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
+
+	dealID := uuid.New()
+	repo.deals[dealID] = &models.Deal{
+		ID:        dealID,
+		Name:      "Deal",
+		StageID:   stageID,
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	badOwnerID := uuid.New()
+	_, err := svc.Update(context.Background(), dealID, UpdateInput{
+		OwnerID: &badOwnerID,
+	})
+
+	assert.ErrorIs(t, err, ErrOwnerNotFound)
+}
+
+func TestService_Update_ContactNotFound(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
+
+	dealID := uuid.New()
+	repo.deals[dealID] = &models.Deal{
+		ID:        dealID,
+		Name:      "Deal",
+		StageID:   stageID,
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	badContactID := uuid.New()
+	_, err := svc.Update(context.Background(), dealID, UpdateInput{
+		ContactID: &badContactID,
+	})
+
+	assert.ErrorIs(t, err, ErrContactNotFound)
+}
+
+func TestService_Update_SetContact(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
+
+	contactID := uuid.New()
+	repo.AddContact(contactID, "Jane Doe")
+
+	dealID := uuid.New()
+	repo.deals[dealID] = &models.Deal{
+		ID:        dealID,
+		Name:      "Deal",
+		StageID:   stageID,
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	deal, err := svc.Update(context.Background(), dealID, UpdateInput{
+		ContactID: &contactID,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, contactID, *deal.ContactID)
+}
+
+func TestService_Update_ExpectedCloseDate(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
+
+	dealID := uuid.New()
+	repo.deals[dealID] = &models.Deal{
+		ID:        dealID,
+		Name:      "Deal",
+		StageID:   stageID,
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	closeDate := time.Now().AddDate(0, 1, 0)
+	deal, err := svc.Update(context.Background(), dealID, UpdateInput{
+		ExpectedCloseDate: &closeDate,
+	})
+
+	require.NoError(t, err)
+	assert.NotNil(t, deal.ExpectedCloseDate)
+}
+
+func TestService_Update_Notes(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
+
+	dealID := uuid.New()
+	repo.deals[dealID] = &models.Deal{
+		ID:        dealID,
+		Name:      "Deal",
+		StageID:   stageID,
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	notes := "Updated notes"
+	deal, err := svc.Update(context.Background(), dealID, UpdateInput{
+		Notes: &notes,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "Updated notes", *deal.Notes)
+}
+
+func TestService_Update_CustomFields(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
+
+	dealID := uuid.New()
+	repo.deals[dealID] = &models.Deal{
+		ID:        dealID,
+		Name:      "Deal",
+		StageID:   stageID,
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	fieldID := uuid.New()
+	deal, err := svc.Update(context.Background(), dealID, UpdateInput{
+		CustomFields: map[uuid.UUID]any{fieldID: "value"},
+	})
+
+	require.NoError(t, err)
+	assert.NotNil(t, deal)
+	assert.Contains(t, repo.customFields[dealID], fieldID)
+}
+
+func TestService_Update_RepoError(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
+
+	dealID := uuid.New()
+	repo.deals[dealID] = &models.Deal{
+		ID:        dealID,
+		Name:      "Deal",
+		StageID:   stageID,
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	repo.updateErr = errors.New("db error")
+	newName := "Updated"
+	_, err := svc.Update(context.Background(), dealID, UpdateInput{
+		Name: &newName,
+	})
+
+	assert.Error(t, err)
+}
+
+func TestService_Delete_RepoError(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	dealID := uuid.New()
+	repo.deals[dealID] = &models.Deal{
+		ID:        dealID,
+		Name:      "Deal",
+		StageID:   uuid.New(),
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	repo.deleteErr = errors.New("db error")
+	err := svc.Delete(context.Background(), dealID)
+
+	assert.Error(t, err)
+}
+
+// ============================================================================
+// MoveToStage - Additional Tests
+// ============================================================================
+
+func TestService_MoveToStage_ToLost_SetsClosedAt(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	leadStageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: leadStageID, Name: "Lead"})
+
+	lostStageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{
+		ID:     lostStageID,
+		Name:   "Lost",
+		IsLost: true,
+	})
+
+	dealID := uuid.New()
+	repo.deals[dealID] = &models.Deal{
+		ID:        dealID,
+		Name:      "Deal",
+		StageID:   leadStageID,
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	deal, err := svc.MoveToStage(context.Background(), dealID, lostStageID)
+
+	require.NoError(t, err)
+	assert.NotNil(t, deal.ClosedAt)
+}
+
+func TestService_MoveToStage_DealNotFound(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
+
+	_, err := svc.MoveToStage(context.Background(), uuid.New(), stageID)
+
+	assert.ErrorIs(t, err, ErrDealNotFound)
+}
+
+// ============================================================================
+// EventEmitter Tests
+// ============================================================================
+
+type mockEventEmitter struct {
+	events []models.EventPayload
+}
+
+func (m *mockEventEmitter) EmitDealEvent(_ context.Context, payload models.EventPayload) error {
+	m.events = append(m.events, payload)
+	return nil
+}
+
+func TestService_SetEventEmitter(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	emitter := &mockEventEmitter{}
+	svc.SetEventEmitter(emitter)
+
+	assert.NotNil(t, svc.eventEmitter)
+}
+
+func TestService_Update_OwnerChange_EmitsEvent(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	emitter := &mockEventEmitter{}
+	svc.SetEventEmitter(emitter)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
+
+	ownerID := uuid.New()
+	repo.AddOwner(ownerID, "New Owner")
+
+	dealID := uuid.New()
+	repo.deals[dealID] = &models.Deal{
+		ID:        dealID,
+		Name:      "Deal",
+		StageID:   stageID,
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	_, err := svc.Update(context.Background(), dealID, UpdateInput{
+		OwnerID: &ownerID,
+	})
+
+	require.NoError(t, err)
+	require.Len(t, emitter.events, 1)
+	assert.Equal(t, "crm.deal.assigned", emitter.events[0].Type)
+	assert.Contains(t, emitter.events[0].TargetUserIDs, ownerID.String())
+}
+
+func TestService_MoveToStage_EmitsEvent(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	emitter := &mockEventEmitter{}
+	svc.SetEventEmitter(emitter)
+
+	leadStageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: leadStageID, Name: "Lead"})
+
+	wonStageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: wonStageID, Name: "Won", IsWon: true})
+
+	ownerID := uuid.New()
+	repo.AddOwner(ownerID, "Sales Rep")
+
+	dealID := uuid.New()
+	repo.deals[dealID] = &models.Deal{
+		ID:        dealID,
+		Name:      "Big Deal",
+		StageID:   leadStageID,
+		OwnerID:   &ownerID,
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	_, err := svc.MoveToStage(context.Background(), dealID, wonStageID)
+
+	require.NoError(t, err)
+	require.Len(t, emitter.events, 1)
+	assert.Equal(t, "crm.deal.stage_changed", emitter.events[0].Type)
+	assert.Contains(t, emitter.events[0].Title, "Won")
+}
+
+// ============================================================================
+// AddTags - Additional Tests
+// ============================================================================
+
+func TestService_AddTags_DealNotFound(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	tagID := uuid.New()
+	repo.AddValidTag(tagID, models.EntityTypeDeal)
+
+	_, err := svc.AddTags(context.Background(), uuid.New(), []uuid.UUID{tagID})
+
+	assert.ErrorIs(t, err, ErrDealNotFound)
+}
+
+// ============================================================================
+// List with Relations Tests (enrichWithRelationsBatch)
+// ============================================================================
+
+func TestService_List_WithRelations(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Proposal"})
+
+	contactID := uuid.New()
+	repo.AddContact(contactID, "Jane Doe")
+
+	companyID := uuid.New()
+	repo.AddCompany(companyID, "Acme Corp")
+
+	ownerID := uuid.New()
+	repo.AddOwner(ownerID, "Sales Rep")
+
+	dealID := uuid.New()
+	repo.deals[dealID] = &models.Deal{
+		ID:        dealID,
+		Name:      "Full Deal",
+		StageID:   stageID,
+		ContactID: &contactID,
+		CompanyID: &companyID,
+		OwnerID:   &ownerID,
+		Currency:  "EUR",
+		Value:     decimal.NewFromFloat(50000),
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	tagID := uuid.New()
+	repo.dealTags[dealID] = []*models.Tag{{ID: tagID, Name: "VIP"}}
+
+	deals, total, err := svc.List(context.Background(), ListInput{Page: 1, PageSize: 10})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, total)
+	require.Len(t, deals, 1)
+	assert.Equal(t, "Proposal", deals[0].StageName)
+	assert.Equal(t, "Jane Doe", *deals[0].ContactName)
+	assert.Equal(t, "Acme Corp", *deals[0].CompanyName)
+	assert.Equal(t, "Sales Rep", *deals[0].OwnerName)
+	assert.Len(t, deals[0].Tags, 1)
+}
+
+func TestService_List_Pagination(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
+
+	for i := 0; i < 5; i++ {
+		id := uuid.New()
+		repo.deals[id] = &models.Deal{
+			ID:        id,
+			Name:      "Deal",
+			StageID:   stageID,
+			Currency:  "EUR",
+			Value:     decimal.NewFromFloat(1000),
+			CreatedBy: uuid.New(),
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+	}
+
+	deals, total, err := svc.List(context.Background(), ListInput{Page: 2, PageSize: 3})
+
+	require.NoError(t, err)
+	assert.Equal(t, 5, total)
+	assert.Len(t, deals, 2)
+}
+
+// ============================================================================
+// GetByID with Relations
+// ============================================================================
+
+func TestService_GetByID_WithAllRelations(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Qualified"})
+
+	contactID := uuid.New()
+	repo.AddContact(contactID, "John Doe")
+
+	companyID := uuid.New()
+	repo.AddCompany(companyID, "Test Corp")
+
+	ownerID := uuid.New()
+	repo.AddOwner(ownerID, "Owner")
+
+	dealID := uuid.New()
+	repo.deals[dealID] = &models.Deal{
+		ID:        dealID,
+		Name:      "Deal",
+		StageID:   stageID,
+		ContactID: &contactID,
+		CompanyID: &companyID,
+		OwnerID:   &ownerID,
+		Currency:  "EUR",
+		Value:     decimal.NewFromFloat(1000),
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	deal, err := svc.GetByID(context.Background(), dealID)
+
+	require.NoError(t, err)
+	assert.Equal(t, "Qualified", deal.StageName)
+	assert.Equal(t, "John Doe", *deal.ContactName)
+	assert.Equal(t, "Test Corp", *deal.CompanyName)
+	assert.Equal(t, "Owner", *deal.OwnerName)
 }

@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"errors"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -870,4 +872,861 @@ func TestService_RemoveTags_ContactNotFound(t *testing.T) {
 	_, err := svc.RemoveTags(context.Background(), uuid.New(), []uuid.UUID{uuid.New()})
 
 	assert.ErrorIs(t, err, ErrContactNotFound)
+}
+
+// ============================================================================
+// Update - Additional Tests
+// ============================================================================
+
+func TestService_Update_EmptyLastName(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	contactID := uuid.New()
+	repo.contacts[contactID] = &models.Contact{
+		ID:        contactID,
+		FirstName: "John",
+		LastName:  "Doe",
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	emptyLast := ""
+	_, err := svc.Update(context.Background(), contactID, UpdateInput{
+		LastName: &emptyLast,
+	})
+
+	assert.ErrorIs(t, err, ErrLastNameRequired)
+}
+
+func TestService_Update_InvalidEmail(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	contactID := uuid.New()
+	repo.contacts[contactID] = &models.Contact{
+		ID:        contactID,
+		FirstName: "John",
+		LastName:  "Doe",
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	badEmail := "not-an-email"
+	_, err := svc.Update(context.Background(), contactID, UpdateInput{
+		Email: &badEmail,
+	})
+
+	assert.ErrorIs(t, err, ErrInvalidEmail)
+}
+
+func TestService_Update_ClearEmail(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	email := "john@example.com"
+	contactID := uuid.New()
+	repo.contacts[contactID] = &models.Contact{
+		ID:        contactID,
+		FirstName: "John",
+		LastName:  "Doe",
+		Email:     &email,
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	emptyEmail := ""
+	contact, err := svc.Update(context.Background(), contactID, UpdateInput{
+		Email: &emptyEmail,
+	})
+
+	require.NoError(t, err)
+	assert.Nil(t, contact.Email)
+}
+
+func TestService_Update_SetCompany(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	companyID := uuid.New()
+	repo.AddCompany(companyID, "New Corp")
+
+	contactID := uuid.New()
+	repo.contacts[contactID] = &models.Contact{
+		ID:        contactID,
+		FirstName: "John",
+		LastName:  "Doe",
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	contact, err := svc.Update(context.Background(), contactID, UpdateInput{
+		CompanyID: &companyID,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, companyID, *contact.CompanyID)
+}
+
+func TestService_Update_CompanyNotFound(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	contactID := uuid.New()
+	repo.contacts[contactID] = &models.Contact{
+		ID:        contactID,
+		FirstName: "John",
+		LastName:  "Doe",
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	badCompanyID := uuid.New()
+	_, err := svc.Update(context.Background(), contactID, UpdateInput{
+		CompanyID: &badCompanyID,
+	})
+
+	assert.ErrorIs(t, err, ErrCompanyNotFound)
+}
+
+func TestService_Update_Phone(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	contactID := uuid.New()
+	repo.contacts[contactID] = &models.Contact{
+		ID:        contactID,
+		FirstName: "John",
+		LastName:  "Doe",
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	phone := "+49123456789"
+	contact, err := svc.Update(context.Background(), contactID, UpdateInput{
+		Phone: &phone,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "+49123456789", *contact.Phone)
+}
+
+func TestService_Update_Position(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	contactID := uuid.New()
+	repo.contacts[contactID] = &models.Contact{
+		ID:        contactID,
+		FirstName: "John",
+		LastName:  "Doe",
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	position := "CTO"
+	contact, err := svc.Update(context.Background(), contactID, UpdateInput{
+		Position: &position,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "CTO", *contact.Position)
+}
+
+func TestService_Update_Notes(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	contactID := uuid.New()
+	repo.contacts[contactID] = &models.Contact{
+		ID:        contactID,
+		FirstName: "John",
+		LastName:  "Doe",
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	notes := "Important notes"
+	contact, err := svc.Update(context.Background(), contactID, UpdateInput{
+		Notes: &notes,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "Important notes", *contact.Notes)
+}
+
+func TestService_Update_CustomFields(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	contactID := uuid.New()
+	repo.contacts[contactID] = &models.Contact{
+		ID:        contactID,
+		FirstName: "John",
+		LastName:  "Doe",
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	fieldID := uuid.New()
+	contact, err := svc.Update(context.Background(), contactID, UpdateInput{
+		CustomFields: map[uuid.UUID]any{fieldID: "value"},
+	})
+
+	require.NoError(t, err)
+	assert.NotNil(t, contact)
+	assert.Contains(t, repo.customFields[contactID], fieldID)
+}
+
+func TestService_Update_RepoError(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	contactID := uuid.New()
+	repo.contacts[contactID] = &models.Contact{
+		ID:        contactID,
+		FirstName: "John",
+		LastName:  "Doe",
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	repo.updateErr = errors.New("db error")
+	newFirst := "Updated"
+	_, err := svc.Update(context.Background(), contactID, UpdateInput{
+		FirstName: &newFirst,
+	})
+
+	assert.Error(t, err)
+}
+
+func TestService_Create_RepoError(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	repo.createErr = errors.New("db error")
+
+	_, err := svc.Create(context.Background(), CreateInput{
+		FirstName: "John",
+		LastName:  "Doe",
+		CreatedBy: uuid.New(),
+	})
+
+	assert.Error(t, err)
+}
+
+func TestService_Delete_RepoError(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	contactID := uuid.New()
+	repo.contacts[contactID] = &models.Contact{
+		ID:        contactID,
+		FirstName: "John",
+		LastName:  "Doe",
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	repo.deleteErr = errors.New("db error")
+	err := svc.Delete(context.Background(), contactID)
+
+	assert.Error(t, err)
+}
+
+// ============================================================================
+// FindDuplicates Tests
+// ============================================================================
+
+func TestService_FindDuplicates_Success(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	contactID := uuid.New()
+	repo.contacts[contactID] = &models.Contact{
+		ID:        contactID,
+		FirstName: "John",
+		LastName:  "Doe",
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	candidates, err := svc.FindDuplicates(context.Background(), contactID)
+
+	require.NoError(t, err)
+	assert.Empty(t, candidates) // Mock returns empty
+}
+
+func TestService_FindDuplicates_ContactNotFound(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	_, err := svc.FindDuplicates(context.Background(), uuid.New())
+
+	assert.ErrorIs(t, err, ErrContactNotFound)
+}
+
+// ============================================================================
+// MergeContacts Tests
+// ============================================================================
+
+func TestService_MergeContacts_Success(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	primaryID := uuid.New()
+	repo.contacts[primaryID] = &models.Contact{
+		ID:        primaryID,
+		FirstName: "John",
+		LastName:  "Primary",
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	duplicateID := uuid.New()
+	repo.contacts[duplicateID] = &models.Contact{
+		ID:        duplicateID,
+		FirstName: "John",
+		LastName:  "Duplicate",
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	result, err := svc.MergeContacts(context.Background(), primaryID, duplicateID)
+
+	require.NoError(t, err)
+	assert.Equal(t, primaryID, result.ID)
+}
+
+func TestService_MergeContacts_SelfMerge(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	contactID := uuid.New()
+	repo.contacts[contactID] = &models.Contact{
+		ID:        contactID,
+		FirstName: "John",
+		LastName:  "Doe",
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	_, err := svc.MergeContacts(context.Background(), contactID, contactID)
+
+	assert.ErrorIs(t, err, ErrCannotMergeSelf)
+}
+
+func TestService_MergeContacts_PrimaryNotFound(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	duplicateID := uuid.New()
+	repo.contacts[duplicateID] = &models.Contact{
+		ID:        duplicateID,
+		FirstName: "Dup",
+		LastName:  "Contact",
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	_, err := svc.MergeContacts(context.Background(), uuid.New(), duplicateID)
+
+	assert.ErrorIs(t, err, ErrContactNotFound)
+}
+
+func TestService_MergeContacts_DuplicateNotFound(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	primaryID := uuid.New()
+	repo.contacts[primaryID] = &models.Contact{
+		ID:        primaryID,
+		FirstName: "Primary",
+		LastName:  "Contact",
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	_, err := svc.MergeContacts(context.Background(), primaryID, uuid.New())
+
+	assert.ErrorIs(t, err, ErrContactNotFound)
+}
+
+func TestService_MergeContacts_PrimaryAlreadyMerged(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	mergedInto := uuid.New()
+	primaryID := uuid.New()
+	repo.contacts[primaryID] = &models.Contact{
+		ID:           primaryID,
+		FirstName:    "Primary",
+		LastName:     "Contact",
+		MergedIntoID: &mergedInto,
+		CreatedBy:    uuid.New(),
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	duplicateID := uuid.New()
+	repo.contacts[duplicateID] = &models.Contact{
+		ID:        duplicateID,
+		FirstName: "Dup",
+		LastName:  "Contact",
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	_, err := svc.MergeContacts(context.Background(), primaryID, duplicateID)
+
+	assert.ErrorIs(t, err, ErrAlreadyMerged)
+}
+
+func TestService_MergeContacts_DuplicateAlreadyMerged(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	primaryID := uuid.New()
+	repo.contacts[primaryID] = &models.Contact{
+		ID:        primaryID,
+		FirstName: "Primary",
+		LastName:  "Contact",
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	mergedInto := uuid.New()
+	duplicateID := uuid.New()
+	repo.contacts[duplicateID] = &models.Contact{
+		ID:           duplicateID,
+		FirstName:    "Dup",
+		LastName:     "Contact",
+		MergedIntoID: &mergedInto,
+		CreatedBy:    uuid.New(),
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	_, err := svc.MergeContacts(context.Background(), primaryID, duplicateID)
+
+	assert.ErrorIs(t, err, ErrAlreadyMerged)
+}
+
+// ============================================================================
+// GetByEmail Tests
+// ============================================================================
+
+func TestService_GetByEmail_Success(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	email := "john@example.com"
+	contactID := uuid.New()
+	repo.contacts[contactID] = &models.Contact{
+		ID:        contactID,
+		FirstName: "John",
+		LastName:  "Doe",
+		Email:     &email,
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	contact, err := svc.GetByEmail(context.Background(), "john@example.com")
+
+	require.NoError(t, err)
+	assert.Equal(t, contactID, contact.ID)
+}
+
+func TestService_GetByEmail_NotFound(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	_, err := svc.GetByEmail(context.Background(), "notfound@example.com")
+
+	assert.ErrorIs(t, err, ErrContactNotFound)
+}
+
+// ============================================================================
+// Import Methods Tests
+// ============================================================================
+
+func TestService_CreateForImport_Success(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	contact := &models.Contact{
+		ID:        uuid.New(),
+		FirstName: "Import",
+		LastName:  "User",
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	err := svc.CreateForImport(context.Background(), contact)
+
+	require.NoError(t, err)
+	assert.Equal(t, "shared", contact.Visibility)
+}
+
+func TestService_CreateForImport_PreservesVisibility(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	contact := &models.Contact{
+		ID:         uuid.New(),
+		FirstName:  "Import",
+		LastName:   "User",
+		Visibility: "personal",
+		CreatedBy:  uuid.New(),
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+
+	err := svc.CreateForImport(context.Background(), contact)
+
+	require.NoError(t, err)
+	assert.Equal(t, "personal", contact.Visibility)
+}
+
+func TestService_UpdateForImport_Success(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	contactID := uuid.New()
+	repo.contacts[contactID] = &models.Contact{
+		ID:        contactID,
+		FirstName: "Old",
+		LastName:  "Name",
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	updated := &models.Contact{
+		ID:        contactID,
+		FirstName: "New",
+		LastName:  "Name",
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	err := svc.UpdateForImport(context.Background(), updated)
+
+	require.NoError(t, err)
+	assert.Equal(t, "New", repo.contacts[contactID].FirstName)
+}
+
+// ============================================================================
+// ListByIDs Tests
+// ============================================================================
+
+func TestService_ListByIDs_Success(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	id1 := uuid.New()
+	id2 := uuid.New()
+	repo.contacts[id1] = &models.Contact{
+		ID: id1, FirstName: "A", LastName: "B",
+		CreatedBy: uuid.New(), CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	}
+	repo.contacts[id2] = &models.Contact{
+		ID: id2, FirstName: "C", LastName: "D",
+		CreatedBy: uuid.New(), CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	}
+
+	contacts, err := svc.ListByIDs(context.Background(), []uuid.UUID{id1, id2})
+
+	require.NoError(t, err)
+	assert.Len(t, contacts, 2)
+}
+
+func TestService_ListByIDs_Partial(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	id1 := uuid.New()
+	repo.contacts[id1] = &models.Contact{
+		ID: id1, FirstName: "A", LastName: "B",
+		CreatedBy: uuid.New(), CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	}
+
+	contacts, err := svc.ListByIDs(context.Background(), []uuid.UUID{id1, uuid.New()})
+
+	require.NoError(t, err)
+	assert.Len(t, contacts, 1)
+}
+
+// ============================================================================
+// ListVisible Tests
+// ============================================================================
+
+func TestService_ListVisible_Success(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	id := uuid.New()
+	repo.contacts[id] = &models.Contact{
+		ID: id, FirstName: "A", LastName: "B",
+		CreatedBy: uuid.New(), CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	}
+
+	contacts, err := svc.ListVisible(context.Background(), uuid.New(), true)
+
+	require.NoError(t, err)
+	assert.Len(t, contacts, 1)
+}
+
+// ============================================================================
+// ListWithVisibility Tests
+// ============================================================================
+
+func TestService_ListWithVisibility_Success(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	id := uuid.New()
+	repo.contacts[id] = &models.Contact{
+		ID: id, FirstName: "A", LastName: "B",
+		CreatedBy: uuid.New(), CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	}
+
+	contacts, total, err := svc.ListWithVisibility(context.Background(), uuid.New(), true, ListInput{})
+
+	require.NoError(t, err)
+	assert.Len(t, contacts, 1)
+	assert.Equal(t, 1, total)
+}
+
+func TestService_ListWithVisibility_DefaultPagination(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	contacts, _, err := svc.ListWithVisibility(context.Background(), uuid.New(), false, ListInput{
+		Page:     0,
+		PageSize: 0,
+	})
+
+	require.NoError(t, err)
+	assert.Empty(t, contacts)
+}
+
+// ============================================================================
+// UpdateVisibility Tests
+// ============================================================================
+
+func TestService_UpdateVisibility_Success(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	contactID := uuid.New()
+	repo.contacts[contactID] = &models.Contact{
+		ID:         contactID,
+		FirstName:  "John",
+		LastName:   "Doe",
+		Visibility: "shared",
+		CreatedBy:  uuid.New(),
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+
+	ownerID := uuid.New()
+	err := svc.UpdateVisibility(context.Background(), contactID, "personal", &ownerID)
+
+	require.NoError(t, err)
+	assert.Equal(t, "personal", repo.contacts[contactID].Visibility)
+	assert.Equal(t, &ownerID, repo.contacts[contactID].OwnerID)
+}
+
+// ============================================================================
+// Create - Custom Fields Tests
+// ============================================================================
+
+func TestService_Create_WithCustomFields(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	fieldID := uuid.New()
+	contact, err := svc.Create(context.Background(), CreateInput{
+		FirstName:    "John",
+		LastName:     "Doe",
+		CustomFields: map[uuid.UUID]any{fieldID: "custom value"},
+		CreatedBy:    uuid.New(),
+	})
+
+	require.NoError(t, err)
+	assert.NotNil(t, contact)
+	assert.Contains(t, repo.customFields[contact.ID], fieldID)
+}
+
+// ============================================================================
+// List with Relations Tests (enrichWithRelationsBatch)
+// ============================================================================
+
+func TestService_List_WithRelations(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	companyID := uuid.New()
+	repo.AddCompany(companyID, "Acme Corp")
+
+	contactID := uuid.New()
+	repo.contacts[contactID] = &models.Contact{
+		ID:        contactID,
+		FirstName: "John",
+		LastName:  "Doe",
+		CompanyID: &companyID,
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	tagID := uuid.New()
+	repo.contactTags[contactID] = []*models.Tag{{ID: tagID, Name: "VIP"}}
+
+	contacts, total, err := svc.List(context.Background(), ListInput{Page: 1, PageSize: 10})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, total)
+	require.Len(t, contacts, 1)
+	assert.Equal(t, "Acme Corp", *contacts[0].CompanyName)
+	assert.Len(t, contacts[0].Tags, 1)
+}
+
+func TestService_List_Pagination(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	for i := 0; i < 5; i++ {
+		id := uuid.New()
+		repo.contacts[id] = &models.Contact{
+			ID: id, FirstName: "User", LastName: "Test",
+			CreatedBy: uuid.New(), CreatedAt: time.Now(), UpdatedAt: time.Now(),
+		}
+	}
+
+	contacts, total, err := svc.List(context.Background(), ListInput{Page: 2, PageSize: 3})
+
+	require.NoError(t, err)
+	assert.Equal(t, 5, total)
+	assert.Len(t, contacts, 2)
+}
+
+// ============================================================================
+// GetByID with Relations
+// ============================================================================
+
+func TestService_GetByID_WithCompany(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	companyID := uuid.New()
+	repo.AddCompany(companyID, "Acme Corp")
+
+	contactID := uuid.New()
+	repo.contacts[contactID] = &models.Contact{
+		ID:        contactID,
+		FirstName: "John",
+		LastName:  "Doe",
+		CompanyID: &companyID,
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	contact, err := svc.GetByID(context.Background(), contactID)
+
+	require.NoError(t, err)
+	assert.Equal(t, "Acme Corp", *contact.CompanyName)
+}
+
+// ============================================================================
+// trimStringPtr Tests
+// ============================================================================
+
+func TestService_Update_EmptyPhone_ClearsIt(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	phone := "+49123"
+	contactID := uuid.New()
+	repo.contacts[contactID] = &models.Contact{
+		ID:        contactID,
+		FirstName: "John",
+		LastName:  "Doe",
+		Phone:     &phone,
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	emptyPhone := ""
+	contact, err := svc.Update(context.Background(), contactID, UpdateInput{
+		Phone: &emptyPhone,
+	})
+
+	require.NoError(t, err)
+	assert.Nil(t, contact.Phone)
+}
+
+func TestService_Update_EmptyPosition_ClearsIt(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	position := "CEO"
+	contactID := uuid.New()
+	repo.contacts[contactID] = &models.Contact{
+		ID:        contactID,
+		FirstName: "John",
+		LastName:  "Doe",
+		Position:  &position,
+		CreatedBy: uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	emptyPosition := "  "
+	contact, err := svc.Update(context.Background(), contactID, UpdateInput{
+		Position: &emptyPosition,
+	})
+
+	require.NoError(t, err)
+	assert.Nil(t, contact.Position)
+}
+
+// ============================================================================
+// FindDuplicates - enrich path
+// ============================================================================
+
+func TestService_List_ListError(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	repo.listErr = errors.New("db error")
+
+	_, _, err := svc.List(context.Background(), ListInput{})
+
+	assert.Error(t, err)
 }
