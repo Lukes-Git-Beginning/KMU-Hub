@@ -228,7 +228,10 @@ func (h *HRRoutes) HandleApproveLeaveRequest(w http.ResponseWriter, r *http.Requ
 	var req struct {
 		Comment string `json:"comment"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
 
 	resp, err := client.ApproveLeaveRequest(r.Context(), &hrv1.ApproveLeaveRequestReq{
 		Id:         id,
@@ -256,7 +259,10 @@ func (h *HRRoutes) HandleRejectLeaveRequest(w http.ResponseWriter, r *http.Reque
 	var req struct {
 		Comment string `json:"comment"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
 
 	resp, err := client.RejectLeaveRequest(r.Context(), &hrv1.RejectLeaveRequestReq{
 		Id:         id,

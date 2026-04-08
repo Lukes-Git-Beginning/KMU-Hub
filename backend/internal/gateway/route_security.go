@@ -333,7 +333,10 @@ func (sr *SecurityRoutes) HandleApproveDataExport(w http.ResponseWriter, r *http
 	adminID := middleware.GetUserID(r.Context())
 
 	var req approveExportRequest
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
 
 	resp, err := client.ApproveDataExport(r.Context(), &securityv1.ApproveDataExportRequest{
 		ExportId:   exportID,
@@ -368,7 +371,10 @@ func (sr *SecurityRoutes) HandleDenyDataExport(w http.ResponseWriter, r *http.Re
 	adminID := middleware.GetUserID(r.Context())
 
 	var req denyExportRequest
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
 
 	resp, err := client.DenyDataExport(r.Context(), &securityv1.DenyDataExportRequest{
 		ExportId:   exportID,

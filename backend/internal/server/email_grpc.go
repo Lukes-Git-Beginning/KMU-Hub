@@ -606,7 +606,9 @@ func (s *EmailGRPCServer) CreateSignature(ctx context.Context, req *emailv1.Crea
 	}
 
 	if req.IsDefault {
-		_ = s.signatureService.SetDefault(ctx, sig.ID)
+		if err := s.signatureService.SetDefault(ctx, sig.ID); err != nil {
+			return nil, mapEmailError(err)
+		}
 		sig.IsDefault = true
 	}
 
@@ -667,7 +669,9 @@ func (s *EmailGRPCServer) UpdateSignature(ctx context.Context, req *emailv1.Upda
 	}
 
 	if req.IsDefault != nil && *req.IsDefault {
-		_ = s.signatureService.SetDefault(ctx, id)
+		if err := s.signatureService.SetDefault(ctx, id); err != nil {
+			return nil, mapEmailError(err)
+		}
 		sig.IsDefault = true
 	}
 

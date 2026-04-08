@@ -512,7 +512,9 @@ func (s *WorkGRPCServer) CreateTask(ctx context.Context, req *workv1.CreateTaskR
 		}
 		_ = s.taskRepo.SetCustomFieldValues(ctx, result.ID, cfMap)
 		// Refresh result
-		result, _ = s.taskService.GetByID(ctx, result.ID)
+		if result, err = s.taskService.GetByID(ctx, result.ID); err != nil {
+			return nil, mapWorkError(err)
+		}
 	}
 
 	return &workv1.CreateTaskResponse{
@@ -666,7 +668,9 @@ func (s *WorkGRPCServer) UpdateTask(ctx context.Context, req *workv1.UpdateTaskR
 			cfMap[fieldID] = value
 		}
 		_ = s.taskRepo.SetCustomFieldValues(ctx, id, cfMap)
-		result, _ = s.taskService.GetByID(ctx, id)
+		if result, err = s.taskService.GetByID(ctx, id); err != nil {
+			return nil, mapWorkError(err)
+		}
 	}
 
 	return &workv1.UpdateTaskResponse{

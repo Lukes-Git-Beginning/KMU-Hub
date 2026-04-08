@@ -200,7 +200,10 @@ func (br *BexioRoutes) HandleTriggerSync(w http.ResponseWriter, r *http.Request)
 		SyncType string `json:"sync_type"`
 	}
 	if r.Body != nil {
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			response.Error(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
 	}
 
 	resp, err := client.TriggerBexioSync(r.Context(), &bizv1.TriggerBexioSyncRequest{

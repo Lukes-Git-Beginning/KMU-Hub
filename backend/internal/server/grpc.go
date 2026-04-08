@@ -56,7 +56,10 @@ func (s *AuthGRPCServer) Login(ctx context.Context, req *authv1.LoginRequest) (*
 
 	var roles []string
 	if result.User != nil {
-		_, roles, _ = s.authService.GetUser(ctx, result.User.ID)
+		_, roles, err = s.authService.GetUser(ctx, result.User.ID)
+		if err != nil {
+			return nil, mapError(err)
+		}
 	}
 
 	return &authv1.LoginResponse{
@@ -338,7 +341,10 @@ func (s *AuthGRPCServer) Validate2FALogin(ctx context.Context, req *authv1.Valid
 
 	var roles []string
 	if user != nil {
-		_, roles, _ = s.authService.GetUser(ctx, user.ID)
+		_, roles, err = s.authService.GetUser(ctx, user.ID)
+		if err != nil {
+			return nil, mapError(err)
+		}
 	}
 
 	return &authv1.Validate2FALoginResponse{

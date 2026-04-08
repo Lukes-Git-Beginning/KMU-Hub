@@ -184,7 +184,12 @@ func (n *NotificationRoutes) HandleMarkAllRead(w http.ResponseWriter, r *http.Re
 
 	var body markAllReadBody
 	// Body is optional for mark-all-read
-	_ = json.NewDecoder(r.Body).Decode(&body)
+	if r.Body != nil {
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			response.Error(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
+	}
 
 	grpcReq := &notificationv1.MarkAllNotificationsReadRequest{
 		UserId: userID,

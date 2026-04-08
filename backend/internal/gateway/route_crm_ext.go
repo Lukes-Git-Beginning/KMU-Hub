@@ -261,7 +261,10 @@ func (c *CRMExtRoutes) HandleRevokeConsent(w http.ResponseWriter, r *http.Reques
 	consentType := chi.URLParam(r, "type")
 
 	var req revokeConsentRequest
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
 
 	userIDStr := middleware.GetUserID(r.Context())
 	var revokedBy *uuid.UUID
@@ -323,7 +326,10 @@ func (c *CRMExtRoutes) HandleRequestDeletion(w http.ResponseWriter, r *http.Requ
 	}
 
 	var req requestDeletionBody
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
 
 	userIDStr := middleware.GetUserID(r.Context())
 	var requestedBy *uuid.UUID

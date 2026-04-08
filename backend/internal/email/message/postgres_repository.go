@@ -450,13 +450,19 @@ func scanMessage(row pgx.Row) (*models.EmailMessage, error) {
 
 	// Parse JSON address arrays
 	if len(toJSON) > 0 {
-		_ = json.Unmarshal(toJSON, &msg.ToAddresses)
+		if err := json.Unmarshal(toJSON, &msg.ToAddresses); err != nil {
+			return nil, fmt.Errorf("failed to parse To addresses for message %s: %w", msg.ID, err)
+		}
 	}
 	if len(ccJSON) > 0 {
-		_ = json.Unmarshal(ccJSON, &msg.CcAddresses)
+		if err := json.Unmarshal(ccJSON, &msg.CcAddresses); err != nil {
+			return nil, fmt.Errorf("failed to parse Cc addresses for message %s: %w", msg.ID, err)
+		}
 	}
 	if len(bccJSON) > 0 {
-		_ = json.Unmarshal(bccJSON, &msg.BccAddresses)
+		if err := json.Unmarshal(bccJSON, &msg.BccAddresses); err != nil {
+			return nil, fmt.Errorf("failed to parse Bcc addresses for message %s: %w", msg.ID, err)
+		}
 	}
 
 	return &msg, nil
@@ -481,13 +487,19 @@ func collectMessages(rows pgx.Rows) ([]*models.EmailMessage, error) {
 		}
 
 		if len(toJSON) > 0 {
-			_ = json.Unmarshal(toJSON, &msg.ToAddresses)
+			if err := json.Unmarshal(toJSON, &msg.ToAddresses); err != nil {
+				return nil, fmt.Errorf("failed to parse To addresses for message %s: %w", msg.ID, err)
+			}
 		}
 		if len(ccJSON) > 0 {
-			_ = json.Unmarshal(ccJSON, &msg.CcAddresses)
+			if err := json.Unmarshal(ccJSON, &msg.CcAddresses); err != nil {
+				return nil, fmt.Errorf("failed to parse Cc addresses for message %s: %w", msg.ID, err)
+			}
 		}
 		if len(bccJSON) > 0 {
-			_ = json.Unmarshal(bccJSON, &msg.BccAddresses)
+			if err := json.Unmarshal(bccJSON, &msg.BccAddresses); err != nil {
+				return nil, fmt.Errorf("failed to parse Bcc addresses for message %s: %w", msg.ID, err)
+			}
 		}
 
 		messages = append(messages, &msg)

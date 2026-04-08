@@ -171,7 +171,9 @@ func (s *Service) ClockOut(ctx context.Context, tenantID, employeeID uuid.UUID) 
 		duration := int(now.Sub(activeBreak.StartTime).Minutes())
 		activeBreak.EndTime = &now
 		activeBreak.DurationMinutes = &duration
-		_ = s.breakRepo.Update(ctx, activeBreak)
+		if err := s.breakRepo.Update(ctx, activeBreak); err != nil {
+			return nil, nil, err
+		}
 	}
 
 	// Calculate total worked minutes from clock_in to now
@@ -306,7 +308,9 @@ func (s *Service) EndBreak(ctx context.Context, employeeID uuid.UUID) (*models.H
 		}
 		shift.BreakMinutes = totalBreak
 		shift.UpdatedAt = now
-		_ = s.workTimeRepo.Update(ctx, shift)
+		if err := s.workTimeRepo.Update(ctx, shift); err != nil {
+			return nil, err
+		}
 	}
 
 	slog.Info("hr.time.break_end",
