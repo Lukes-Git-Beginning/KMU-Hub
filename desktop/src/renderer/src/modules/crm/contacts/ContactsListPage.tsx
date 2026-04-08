@@ -6,8 +6,9 @@
  * company, tags, visibility, and creation date. Supports search,
  * pagination, visibility filtering, import wizard, and export dialog.
  */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { useTranslation } from 'react-i18next'
 import {
   Plus,
@@ -90,6 +91,15 @@ export default function ContactsListPage() {
           (c) =>
             (c as unknown as { visibility?: string }).visibility === visibilityFilter,
         )
+
+  const tableContainerRef = useRef<HTMLDivElement>(null)
+  const ROW_HEIGHT = 52
+  const virtualizer = useVirtualizer({
+    count: filteredContacts.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 5,
+  })
 
   async function handleCreate(form: ContactFormData) {
     try {
@@ -239,87 +249,102 @@ export default function ContactsListPage() {
         </div>
       ) : (
         <>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-8"><span className="sr-only">{t('crm.contacts.visibility')}</span></TableHead>
-                <TableHead>{t('crm.field.name')}</TableHead>
-                <TableHead>{t('crm.field.email')}</TableHead>
-                <TableHead>{t('crm.field.phone')}</TableHead>
-                <TableHead>{t('crm.field.company')}</TableHead>
-                <TableHead>{t('crm.field.tags')}</TableHead>
-                <TableHead>{t('crm.field.created')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredContacts.map((contact) => {
-                const visibility = (contact as unknown as { visibility?: string })
-                  .visibility
-                return (
-                  <TableRow
-                    key={contact.id}
-                    tabIndex={0}
-                    className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset"
-                    onClick={() => navigate(`/crm/contacts/${contact.id}`)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/crm/contacts/${contact.id}`) } }}
-                  >
-                    <TableCell className="w-8 pr-0">
-                      {visibility === 'personal' ? (
-                        <Lock
-                          className="h-3.5 w-3.5 text-warning"
-                          aria-label={t('crm.contacts.visibilityPersonal')}
-                        />
-                      ) : (
-                        <Globe
-                          className="h-3.5 w-3.5 text-muted-foreground"
-                          aria-label={t('crm.contacts.visibilityShared')}
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {contact.firstName} {contact.lastName}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {contact.email || '-'}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {contact.phone || '-'}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {contact.companyName || '-'}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {contact.tags?.map((tag) => (
-                          <Badge
-                            key={tag.id}
-                            variant="secondary"
-                            className="text-xs"
-                            style={
-                              tag.color
-                                ? {
-                                    backgroundColor: `${tag.color}20`,
-                                    color: tag.color,
-                                    borderColor: tag.color,
-                                  }
-                                : undefined
-                            }
-                          >
-                            {tag.name}
-                          </Badge>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {contact.createdAt
-                        ? new Date(contact.createdAt).toLocaleDateString('de-DE')
-                        : '-'}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+          {/* Scrollable container for virtualized table body */}
+          <div
+            ref={tableContainerRef}
+            style={{ overflow: 'auto', maxHeight: 'calc(100vh - 320px)' }}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-8"><span className="sr-only">{t('crm.contacts.visibility')}</span></TableHead>
+                  <TableHead>{t('crm.field.name')}</TableHead>
+                  <TableHead>{t('crm.field.email')}</TableHead>
+                  <TableHead>{t('crm.field.phone')}</TableHead>
+                  <TableHead>{t('crm.field.company')}</TableHead>
+                  <TableHead>{t('crm.field.tags')}</TableHead>
+                  <TableHead>{t('crm.field.created')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody style={{ position: 'relative', height: `${virtualizer.getTotalSize()}px` }}>
+                {virtualizer.getVirtualItems().map((virtualRow) => {
+                  const contact = filteredContacts[virtualRow.index]
+                  const visibility = (contact as unknown as { visibility?: string }).visibility
+                  return (
+                    <TableRow
+                      key={virtualRow.key}
+                      data-index={virtualRow.index}
+                      tabIndex={0}
+                      className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset"
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: `${virtualRow.size}px`,
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                      onClick={() => navigate(`/crm/contacts/${contact.id}`)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/crm/contacts/${contact.id}`) } }}
+                    >
+                      <TableCell className="w-8 pr-0">
+                        {visibility === 'personal' ? (
+                          <Lock
+                            className="h-3.5 w-3.5 text-warning"
+                            aria-label={t('crm.contacts.visibilityPersonal')}
+                          />
+                        ) : (
+                          <Globe
+                            className="h-3.5 w-3.5 text-muted-foreground"
+                            aria-label={t('crm.contacts.visibilityShared')}
+                          />
+                        )}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {contact.firstName} {contact.lastName}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {contact.email || '-'}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {contact.phone || '-'}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {contact.companyName || '-'}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {contact.tags?.map((tag) => (
+                            <Badge
+                              key={tag.id}
+                              variant="secondary"
+                              className="text-xs"
+                              style={
+                                tag.color
+                                  ? {
+                                      backgroundColor: `${tag.color}20`,
+                                      color: tag.color,
+                                      borderColor: tag.color,
+                                    }
+                                  : undefined
+                              }
+                            >
+                              {tag.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {contact.createdAt
+                          ? new Date(contact.createdAt).toLocaleDateString('de-DE')
+                          : '-'}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
 
           {/* Pagination */}
           <div className="flex items-center justify-between">
