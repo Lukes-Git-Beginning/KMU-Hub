@@ -1,3 +1,4 @@
+"use memo"
 import { useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Pencil, Check, RotateCcw } from 'lucide-react'

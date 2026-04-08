@@ -1,3 +1,4 @@
+import 'v8-compile-cache'
 import { app, BrowserWindow, shell, nativeImage } from 'electron'
 import { join } from 'path'
 import { registerIPCHandlers } from './ipc/index'

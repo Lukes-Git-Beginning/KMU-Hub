@@ -1,3 +1,4 @@
+"use memo"
 /**
  * Visual deal pipeline view displaying deals grouped by stage in horizontal columns.
  *

@@ -1,3 +1,4 @@
+"use memo"
 /**
  * Contacts list page with search, pagination, visibility, and import/export.
  *

@@ -67,7 +67,13 @@ export default defineConfig({
       }
     },
     plugins: [
-      react(),
+      react({
+        babel: {
+          plugins: [
+            ['babel-plugin-react-compiler', { compilationMode: 'annotation' }]
+          ]
+        }
+      }),
       tailwindcss(),
       visualizer({
         filename: 'dist/bundle-report.html',
