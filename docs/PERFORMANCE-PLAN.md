@@ -1,6 +1,6 @@
 # Performance-Optimierungsplan — Cosmi
 
-> **Status:** Phase 1 abgeschlossen (2026-04-08), Phase 2 offen
+> **Status:** Phasen 1-5 abgeschlossen (2026-04-08), nur Redis Caching (5.2) offen
 > **Geschaetzter Aufwand:** ~8 Arbeitstage
 > **Grundlage:** Codebase-Audit (17 Issues: 3x P0, 4x P1, 5x P2, 5x P3) + Best-Practice-Recherche
 
@@ -48,9 +48,9 @@ Die Codebase-Analyse hat konkrete Performance-Issues in Frontend, Backend und Bu
 
 ---
 
-## Phase 2 — Frontend-Optimierung (Tag 2-3)
+## Phase 2 — Frontend-Optimierung (Tag 2-3) ✅ ABGESCHLOSSEN
 
-### 2.1 Vite Chunk-Splitting Strategie (P1)
+### 2.1 Vite Chunk-Splitting Strategie (P1) ✅ (in Phase 1 erledigt)
 
 **Problem:** Kein `manualChunks` konfiguriert — ein riesiger Vendor-Chunk mit allen Dependencies.
 
@@ -70,7 +70,7 @@ manualChunks: {
 
 **Dateien:** `desktop/electron.vite.config.ts`
 
-### 2.2 React Query Persister → Async (P2)
+### 2.2 React Query Persister → Async (P2) ✅ (in Phase 1 erledigt)
 
 **Problem:** `createSyncStoragePersister` serialisiert den gesamten Query-Cache synchron auf dem Main Thread nach jedem Cache-Write. Bei `GC_TIME = 24h` waechst der localStorage-Blob.
 
@@ -78,7 +78,7 @@ manualChunks: {
 
 **Dateien:** `desktop/src/renderer/src/App.tsx` (Persister-Setup)
 
-### 2.3 HR Polling entschaerfen (P2)
+### 2.3 HR Polling entschaerfen (P2) ✅ (in Phase 1 erledigt — 300_000ms)
 
 **Problem:** `hr-hooks.ts:238` — `refetchInterval: 30_000` feuert alle 30 Sekunden, egal ob User auf der HR-Seite ist.
 
@@ -86,7 +86,7 @@ manualChunks: {
 
 **Dateien:** `desktop/src/renderer/src/api/hooks/hr-hooks.ts`
 
-### 2.4 React Compiler evaluieren
+### 2.4 React Compiler evaluieren ✅
 
 React Compiler 1.0 (seit Oktober 2025) macht automatisches Memoization — 30-60% weniger Re-Renders.
 
@@ -100,7 +100,7 @@ React Compiler 1.0 (seit Oktober 2025) macht automatisches Memoization — 30-60
 
 **Dateien:** `desktop/electron.vite.config.ts` (Babel-Plugin), Komponenten mit `"use memo"` Directive
 
-### 2.5 List Virtualization fuer CRM-Listen
+### 2.5 List Virtualization fuer CRM-Listen ✅ (ContactsListPage; DealPipelineView ist Kanban — nicht geeignet)
 
 **Problem:** Nur Chat Messages sind virtualisiert (`@tanstack/react-virtual`). Contacts, Deals, Tasks, Emails — alles plain `.map()`. Aktuell durch Pagination (PAGE_SIZE=20) abgemildert, aber kein Schutz bei groesseren Datenmengen.
 
@@ -117,9 +117,9 @@ React Compiler 1.0 (seit Oktober 2025) macht automatisches Memoization — 30-60
 
 ---
 
-## Phase 3 — Backend N+1 Queries & DB (Tag 3-5)
+## Phase 3 — Backend N+1 Queries & DB (Tag 3-5) ✅ ABGESCHLOSSEN
 
-### 3.1 N+1 Queries beheben (P0 — kritischstes Backend-Issue)
+### 3.1 N+1 Queries beheben (P0 — kritischstes Backend-Issue) ✅
 
 **Problem Contact List:**
 - `crm/contact/service.go` → `getWithRelations()` pro Contact = 3 Extra-Queries
@@ -160,7 +160,7 @@ Deals:
 - `backend/internal/crm/deal/service.go` (gleiches Pattern)
 - `backend/internal/crm/deal/postgres_repository.go` (neue Batch-Query Methoden)
 
-### 3.2 Batch-Inserts fuer Tags & Custom Fields (P1)
+### 3.2 Batch-Inserts fuer Tags & Custom Fields (P1) ✅
 
 **Problem:**
 - `contact/postgres_repository.go:343` — ein INSERT pro Tag in einer Schleife
@@ -185,7 +185,7 @@ ON CONFLICT (contact_id, field_id) DO UPDATE SET value = EXCLUDED.value;
 - `backend/internal/crm/contact/postgres_repository.go`
 - `backend/internal/crm/deal/postgres_repository.go`
 
-### 3.3 Fehlender Index `contacts.owner_id` (P2)
+### 3.3 Fehlender Index `contacts.owner_id` (P2) ✅
 
 **Problem:** `ListWithVisibility` filtert auf `owner_id`, aber kein Index vorhanden (Deals hat `idx_deals_owner`).
 
@@ -197,7 +197,7 @@ CREATE INDEX idx_contacts_owner_id ON contacts (owner_id);
 
 **Dateien:** `backend/migrations/` (neue Migration-Datei)
 
-### 3.4 Connection Pool Tuning (P1)
+### 3.4 Connection Pool Tuning (P1) ✅
 
 **Problem:** 10 Services × `MaxConns=25` = 250 potenzielle Postgres-Connections. PostgreSQL default `max_connections=100`.
 
@@ -218,7 +218,7 @@ config.HealthCheckPeriod = time.Minute
 
 **Dateien:** `backend/internal/database/postgres.go`, spaeter `deploy/docker/docker-compose.yml`
 
-### 3.5 PostgreSQL Tuning (Hetzner CPX42, 16GB RAM)
+### 3.5 PostgreSQL Tuning (Hetzner CPX42, 16GB RAM) ✅
 
 Anpassungen in `postgresql.conf` bzw. Docker-Compose Environment:
 
@@ -238,9 +238,9 @@ CREATE INDEX idx_deals_open ON deals (owner_id) WHERE status = 'open';
 
 ---
 
-## Phase 4 — Electron & Startup (Tag 5-6)
+## Phase 4 — Electron & Startup (Tag 5-6) ✅ ABGESCHLOSSEN
 
-### 4.1 V8 Compile Cache
+### 4.1 V8 Compile Cache ✅
 
 **Problem:** Jeder Kaltstart kompiliert JavaScript-Sourcen zu V8-Bytecode.
 
@@ -248,7 +248,7 @@ CREATE INDEX idx_deals_open ON deals (owner_id) WHERE status = 'open';
 
 **Dateien:** `desktop/src/main/index.ts` (require am Anfang)
 
-### 4.2 `modulePreload` wieder aktivieren
+### 4.2 `modulePreload` wieder aktivieren ✅ (in Phase 1 erledigt)
 
 **Problem:** `modulePreload: false` in Vite Config deaktiviert `<link rel="modulepreload">` Tags. Lazy-Chunks werden erst bei Navigation geladen statt parallel vorgeladen.
 
@@ -256,7 +256,7 @@ CREATE INDEX idx_deals_open ON deals (owner_id) WHERE status = 'open';
 
 **Dateien:** `desktop/electron.vite.config.ts`
 
-### 4.3 Skeleton Screen
+### 4.3 Skeleton Screen ✅
 
 **Problem:** Weisser Screen waehrend React-Initialisierung.
 
@@ -268,9 +268,9 @@ CREATE INDEX idx_deals_open ON deals (owner_id) WHERE status = 'open';
 
 ---
 
-## Phase 5 — Gateway & Caching (Tag 6-8)
+## Phase 5 — Gateway & Caching (Tag 6-8) — teilweise abgeschlossen
 
-### 5.1 Audit Logger optimieren (P2)
+### 5.1 Audit Logger optimieren (P2) ✅
 
 **Problem:** `middleware/audit.go:31` — `go a.logEvent(...)` spawnt eine unbegrenzte Goroutine pro mutierendem Request mit gRPC-Call. Unter Last = Goroutine-Explosion.
 
@@ -314,7 +314,7 @@ Stufenweise Einfuehrung von Cache-Aside Pattern:
 
 **Dateien:** Neues Package `backend/internal/cache/` mit generischem Cache-Aside Helper
 
-### 5.3 gRPC Connection Management
+### 5.3 gRPC Connection Management ✅ (Singletons bestätigt, Keep-Alive hinzugefügt)
 
 - Verifizieren dass Gateway gRPC-Connections als Singletons haelt (nicht per-Request)
 - Keep-Alive Tuning:
@@ -329,7 +329,7 @@ keepalive.ClientParameters{
 
 **Dateien:** `backend/cmd/gateway/main.go` (gRPC Client-Setup)
 
-### 5.4 pprof Profiling einbauen
+### 5.4 pprof Profiling einbauen ✅
 
 - Chi `middleware.Profiler()` auf `/debug/pprof` hinter Auth-Middleware mounten
 - Ermoeglicht Heap/CPU-Profiling in Development und Staging
