@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"errors"
 	"log/slog"
 	"net"
 	"net/http"
@@ -12,15 +13,21 @@ import (
 	securityv1 "github.com/kmuhub/kmuhub/proto/security/v1"
 )
 
-const ipRuleCacheTTL = 60 * time.Second
+const (
+	ipRuleCacheTTL     = 60 * time.Second
+	ipRuleMaxStaleness = 5 * time.Minute
+)
+
+var errIPRulesUnavailable = errors.New("IP rules unavailable: auth service unreachable")
 
 // IPFilterMiddleware checks client IP addresses against configured allow/block rules.
 // Rules are cached and refreshed every 60 seconds from the security gRPC service.
 type IPFilterMiddleware struct {
-	registry *ServiceRegistry
-	mu       sync.RWMutex
-	rules    []*securityv1.IPAccessRule
-	lastLoad time.Time
+	registry       *ServiceRegistry
+	mu             sync.RWMutex
+	rules          []*securityv1.IPAccessRule
+	lastLoad       time.Time
+	rulesEverLoaded bool
 }
 
 // NewIPFilterMiddleware creates a new IP filter middleware.
@@ -33,7 +40,12 @@ func NewIPFilterMiddleware(registry *ServiceRegistry) *IPFilterMiddleware {
 // Middleware returns the HTTP middleware handler.
 func (f *IPFilterMiddleware) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		rules := f.getRules(r)
+		rules, err := f.getRules(r)
+		if err != nil {
+			slog.Error("IP filter: blocking request, rules unavailable", "error", err)
+			response.Error(w, http.StatusServiceUnavailable, "service temporarily unavailable")
+			return
+		}
 		if len(rules) == 0 {
 			// No rules configured: allow all
 			next.ServeHTTP(w, r)
@@ -111,13 +123,28 @@ func (f *IPFilterMiddleware) Middleware(next http.Handler) http.Handler {
 	})
 }
 
+// handleFetchFailure decides whether to serve stale rules or fail closed.
+func (f *IPFilterMiddleware) handleFetchFailure(err error) ([]*securityv1.IPAccessRule, error) {
+	if !f.rulesEverLoaded {
+		slog.Error("IP filter: no rules ever loaded, failing closed", "error", err)
+		return nil, errIPRulesUnavailable
+	}
+	if time.Since(f.lastLoad) > ipRuleMaxStaleness {
+		slog.Error("IP filter: cache exceeds max staleness, failing closed",
+			"stale_for", time.Since(f.lastLoad).String(), "error", err)
+		return nil, errIPRulesUnavailable
+	}
+	slog.Warn("IP filter: serving stale rules", "stale_for", time.Since(f.lastLoad).String(), "error", err)
+	return f.rules, nil
+}
+
 // getRules returns cached rules, refreshing if stale.
-func (f *IPFilterMiddleware) getRules(r *http.Request) []*securityv1.IPAccessRule {
+func (f *IPFilterMiddleware) getRules(r *http.Request) ([]*securityv1.IPAccessRule, error) {
 	f.mu.RLock()
 	if time.Since(f.lastLoad) < ipRuleCacheTTL && f.rules != nil {
 		rules := f.rules
 		f.mu.RUnlock()
-		return rules
+		return rules, nil
 	}
 	f.mu.RUnlock()
 
@@ -126,34 +153,25 @@ func (f *IPFilterMiddleware) getRules(r *http.Request) []*securityv1.IPAccessRul
 
 	// Double-check after acquiring write lock
 	if time.Since(f.lastLoad) < ipRuleCacheTTL && f.rules != nil {
-		return f.rules
+		return f.rules, nil
 	}
 
 	conn, err := f.registry.GetConnection("auth")
 	if err != nil {
-		if f.rules != nil {
-			slog.Warn("IP filter: cannot reach auth service, keeping cached rules", "error", err)
-			return f.rules
-		}
-		slog.Warn("IP filter: cannot reach auth service, no cached rules — allowing all", "error", err)
-		return nil
+		return f.handleFetchFailure(err)
 	}
 
 	client := securityv1.NewSecurityServiceClient(conn)
 	resp, err := client.ListIPRules(r.Context(), &securityv1.ListIPRulesRequest{})
 	if err != nil {
-		if f.rules != nil {
-			slog.Warn("IP filter: failed to load rules, keeping cached rules", "error", err)
-			return f.rules
-		}
-		slog.Warn("IP filter: failed to load rules, no cached rules — allowing all", "error", err)
-		return nil
+		return f.handleFetchFailure(err)
 	}
 
 	f.rules = resp.Rules
 	f.lastLoad = time.Now()
+	f.rulesEverLoaded = true
 	slog.Debug("IP filter rules refreshed", "count", len(f.rules))
-	return f.rules
+	return f.rules, nil
 }
 
 // extractClientIP extracts the client IP from X-Forwarded-For or RemoteAddr.
