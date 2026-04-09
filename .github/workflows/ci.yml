@@ -89,6 +89,12 @@ jobs:
           echo ""
           TOTAL=$(go tool cover -func=coverage.out | tail -1 | awk '{print $3}' | sed 's/%//')
           echo "Total coverage: ${TOTAL}%"
+          THRESHOLD=15
+          if [ "$(echo "$TOTAL < $THRESHOLD" | bc -l)" = "1" ]; then
+            echo "::error::Coverage ${TOTAL}% is below minimum threshold ${THRESHOLD}%"
+            exit 1
+          fi
+          echo "Coverage ${TOTAL}% meets minimum threshold ${THRESHOLD}%"
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4

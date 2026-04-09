@@ -108,6 +108,10 @@ func (m *MockRepository) GetByQuoteID(ctx context.Context, tenantID, quoteID uui
 	return nil, ErrInvoiceNotFound
 }
 
+func (m *MockRepository) LinkTimeTracking(_ context.Context, _ uuid.UUID, _ json.RawMessage) error {
+	return nil
+}
+
 // MockNumberSequenceRepo implements NumberSequenceRepo for testing.
 type MockNumberSequenceRepo struct {
 	nextNumber string

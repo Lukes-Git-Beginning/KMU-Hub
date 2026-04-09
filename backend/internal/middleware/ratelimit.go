@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -76,7 +77,8 @@ func (rl *RateLimiter) allow(ctx context.Context, key string) (bool, error) {
 
 func clientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		return xff
+		parts := strings.Split(xff, ",")
+		return strings.TrimSpace(parts[0])
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {

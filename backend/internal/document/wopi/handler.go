@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/google/uuid"
 
@@ -132,7 +133,7 @@ func (h *Handler) GetFile(w http.ResponseWriter, r *http.Request, fileIDStr stri
 	defer reader.Close()
 
 	w.Header().Set("Content-Type", file.MimeType)
-	w.Header().Set("X-WOPI-ItemVersion", string(rune(file.CurrentVersion+'0')))
+	w.Header().Set("X-WOPI-ItemVersion", strconv.Itoa(file.CurrentVersion))
 	w.Header().Set("X-WOPI-ServerVersion", WOPIServerVersion)
 	w.WriteHeader(http.StatusOK)
 	_, _ = io.Copy(w, reader)

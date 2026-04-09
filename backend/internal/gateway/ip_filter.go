@@ -131,18 +131,22 @@ func (f *IPFilterMiddleware) getRules(r *http.Request) []*securityv1.IPAccessRul
 
 	conn, err := f.registry.GetConnection("auth")
 	if err != nil {
-		slog.Warn("IP filter: cannot reach auth service, allowing all", "error", err)
-		f.rules = nil
-		f.lastLoad = time.Now()
+		if f.rules != nil {
+			slog.Warn("IP filter: cannot reach auth service, keeping cached rules", "error", err)
+			return f.rules
+		}
+		slog.Warn("IP filter: cannot reach auth service, no cached rules — allowing all", "error", err)
 		return nil
 	}
 
 	client := securityv1.NewSecurityServiceClient(conn)
 	resp, err := client.ListIPRules(r.Context(), &securityv1.ListIPRulesRequest{})
 	if err != nil {
-		slog.Warn("IP filter: failed to load rules, allowing all", "error", err)
-		f.rules = nil
-		f.lastLoad = time.Now()
+		if f.rules != nil {
+			slog.Warn("IP filter: failed to load rules, keeping cached rules", "error", err)
+			return f.rules
+		}
+		slog.Warn("IP filter: failed to load rules, no cached rules — allowing all", "error", err)
 		return nil
 	}
 

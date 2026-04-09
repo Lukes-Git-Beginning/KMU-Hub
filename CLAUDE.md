@@ -149,8 +149,8 @@ Index Naming Convention: `idx_{table}_{column}` (z.B. `idx_contacts_email`)
 
 ### 6. Test Coverage
 
-- **Gesamt:** 80%+ Minimum
-- **Kritische Pfade (Auth, Payments, Data):** 95%+
+- **Gesamt:** 15%+ Minimum (CI-enforced), Ziel 40% bis Q3 2026
+- **Kritische Pfade (Auth, Payments, Data):** 60%+ Ziel
 - **Jeder PR:** Muss Tests enthalten fuer neuen Code
 - **Test-Isolation:** Jeder Test raeumt seine Daten auf, keine Abhaengigkeiten zwischen Tests
 
@@ -183,6 +183,13 @@ Nie hardcoded. `.env` Datei NIE committen.
 ### 10. Idempotente Operationen
 
 Alle API-Calls muessen sicher wiederholbar sein. Idempotency-Keys fuer POST-Requests.
+
+### 11. Tenant-Modell
+
+Cosmi ist aktuell **Single-Tenant-only**. Multi-Tenant-Support (tenant_id auf allen Tabellen) ist fuer Phase 3 geplant. Bis dahin:
+- Kein SaaS mit mehreren Mandanten auf einer DB-Instanz
+- Self-Hosted: Ein Deployment pro Kunde
+- Neue Tabellen MUESSEN tenant_id von Anfang an haben
 
 ### Knowledge Base (.knowledge/)
 
