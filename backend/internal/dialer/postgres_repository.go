@@ -310,6 +310,19 @@ func (r *PostgresCampaignRepository) RequeueContact(ctx context.Context, id uuid
 	return err
 }
 
+func (r *PostgresCampaignRepository) GetCampaignContactByID(ctx context.Context, id uuid.UUID) (*CampaignContact, error) {
+	row := r.pool.QueryRow(ctx,
+		`SELECT id, campaign_id, contact_id, position, status, outcome_id, notes,
+		        callback_at, last_called_at, call_count, created_at, updated_at
+		 FROM dialer_campaign_contacts WHERE id = $1`, id,
+	)
+	cc, err := scanCampaignContact(row)
+	if errors.Is(err, ErrNoContactsAvailable) {
+		return nil, ErrCampaignContactNotFound
+	}
+	return cc, err
+}
+
 func (r *PostgresCampaignRepository) IncrementContactCallCount(ctx context.Context, id uuid.UUID) error {
 	_, err := r.pool.Exec(ctx,
 		`UPDATE dialer_campaign_contacts

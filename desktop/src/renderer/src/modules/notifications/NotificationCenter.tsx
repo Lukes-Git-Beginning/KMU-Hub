@@ -7,7 +7,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { BellOff, Check, MessageSquare, TrendingUp, Users, Megaphone } from 'lucide-react'
+import { BellOff, Check, MessageSquare, TrendingUp, Users, Megaphone, PhoneCall } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { cn } from '@/lib/cn'
@@ -375,6 +375,8 @@ function getNotificationIcon(moduleId: string) {
       return TrendingUp
     case 'hr':
       return Users
+    case 'dialer':
+      return PhoneCall
     default:
       return Megaphone
   }

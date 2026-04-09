@@ -15,4 +15,5 @@ var (
 	ErrInvalidPhoneNumber       = errors.New("invalid phone number")
 	ErrCampaignHasNoContacts    = errors.New("campaign has no contacts")
 	ErrContactNotInCampaign     = errors.New("contact not in campaign")
+	ErrCampaignContactNotFound  = errors.New("campaign contact not found")
 )

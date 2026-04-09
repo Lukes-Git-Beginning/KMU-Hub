@@ -313,9 +313,9 @@ export default function CampaignDetailPage() {
         open={addContactsOpen}
         onOpenChange={setAddContactsOpen}
         isLoading={addContactsMutation.isPending}
-        onSubmit={(contactIds) =>
+        onSubmit={(payload) =>
           addContactsMutation.mutate(
-            { campaignId: campaign.id, contact_ids: contactIds },
+            { campaignId: campaign.id, ...payload },
             {
               onSuccess: (data) => {
                 setAddContactsOpen(false)

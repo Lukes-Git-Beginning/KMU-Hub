@@ -26,6 +26,7 @@ type CampaignRepository interface {
 	SkipContact(ctx context.Context, id uuid.UUID) error
 	RequeueContact(ctx context.Context, id uuid.UUID) error
 	IncrementContactCallCount(ctx context.Context, id uuid.UUID) error
+	GetCampaignContactByID(ctx context.Context, id uuid.UUID) (*CampaignContact, error)
 
 	// Aggregate stats and denormalized counts
 	GetCampaignStats(ctx context.Context, campaignID uuid.UUID) (*CampaignStats, error)

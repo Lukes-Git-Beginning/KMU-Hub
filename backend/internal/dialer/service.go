@@ -7,6 +7,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/notification/event"
 )
 
 // Service is the thick service layer for the Cosmi Dialer. All business logic
@@ -18,6 +21,7 @@ type Service struct {
 	agentRepo  AgentStatusRepository
 	agentStore *AgentStatusStore
 	crmBridge  CRMBridge
+	emitter    *PGEventEmitter // nil-safe; events are skipped when nil
 }
 
 // NewService wires all dialer dependencies into a ready-to-use Service.
@@ -28,6 +32,7 @@ func NewService(
 	agentRepo AgentStatusRepository,
 	agentStore *AgentStatusStore,
 	crmBridge CRMBridge,
+	emitter *PGEventEmitter,
 ) *Service {
 	return &Service{
 		campaigns:  campaigns,
@@ -36,6 +41,7 @@ func NewService(
 		agentRepo:  agentRepo,
 		agentStore: agentStore,
 		crmBridge:  crmBridge,
+		emitter:    emitter,
 	}
 }
 
@@ -637,8 +643,22 @@ func (s *Service) LogCallOutcome(
 	if notes != nil {
 		notesStr = *notes
 	}
+
+	// Resolve the real CRM contact UUID from the campaign contact join record.
+	var realContactID uuid.UUID
+	cc, ccErr := s.campaigns.GetCampaignContactByID(ctx, session.CampaignContactID)
+	if ccErr != nil || cc == nil {
+		slog.WarnContext(ctx, "dialer: resolve campaign contact for CRM bridge failed",
+			"campaign_contact_id", session.CampaignContactID,
+			"error", ccErr,
+		)
+		realContactID = session.CampaignContactID // fallback — better than uuid.Nil
+	} else {
+		realContactID = cc.ContactID
+	}
+
 	crmInput := CallActivityInput{
-		ContactID:       session.CampaignContactID, // reused as proxy; handler can override
+		ContactID:       realContactID,
 		AgentID:         session.AgentID,
 		Subject:         fmt.Sprintf("Anruf — %s", outcome.Label),
 		Description:     notesStr,
@@ -659,6 +679,9 @@ func (s *Service) LogCallOutcome(
 			"error", err,
 		)
 	}
+
+	// Emit notification events — best-effort, non-fatal.
+	s.emitOutcomeEvents(ctx, session, outcome, callbackAt)
 
 	slog.InfoContext(ctx, "dialer: call outcome logged",
 		"session_id", sessionID,
@@ -986,6 +1009,8 @@ func (s *Service) checkCampaignComplete(ctx context.Context, campaignID uuid.UUI
 			return fmt.Errorf("check campaign complete – update status: %w", err)
 		}
 
+		s.emitCampaignCompletedEvent(ctx, campaignID)
+
 		slog.InfoContext(ctx, "dialer: campaign auto-completed",
 			"campaign_id", campaignID,
 		)
@@ -994,31 +1019,77 @@ func (s *Service) checkCampaignComplete(ctx context.Context, campaignID uuid.UUI
 	return nil
 }
 
-// checkCampaignCompleteByContact is a convenience wrapper used when only the
-// campaign contact ID is available (e.g. after wrap-up). It loads the contact
-// to derive the campaign ID, then delegates to checkCampaignComplete.
-//
-// Since CampaignRepository does not expose a GetContactByID method, we query
-// the stats for the campaign via the session's CampaignContactID by listing
-// contacts and finding the parent. As a pragmatic alternative we call
-// UpdateCampaignCounts first (which the repository implements by scanning all
-// contacts) and then fetch the campaign to read its contact_count directly.
+// checkCampaignCompleteByContact resolves the campaign ID from a campaign
+// contact record and delegates to checkCampaignComplete.
 func (s *Service) checkCampaignCompleteByContact(ctx context.Context, campaignContactID uuid.UUID) error {
-	// We use a small trick: ListContacts with a tight filter can surface the
-	// CampaignID. However, CampaignRepository.ListContacts requires a
-	// campaignID. Since we do not have a standalone "get contact by ID" repo
-	// method, we skip the auto-complete check here and rely on the call to
-	// refreshCampaignCounts which triggers UpdateCampaignCounts in the
-	// repository — that implementation can set completed_at when all contacts
-	// are done at the DB level. This keeps the service correct without requiring
-	// a schema change.
-	//
-	// Future: add GetContactByID to CampaignRepository and call
-	// checkCampaignComplete(ctx, contact.CampaignID) from here.
-	slog.DebugContext(ctx, "dialer: campaign complete check skipped (no GetContactByID)",
-		"campaign_contact_id", campaignContactID,
-	)
-	return nil
+	cc, err := s.campaigns.GetCampaignContactByID(ctx, campaignContactID)
+	if err != nil {
+		return fmt.Errorf("check campaign complete – resolve contact: %w", err)
+	}
+	return s.checkCampaignComplete(ctx, cc.CampaignID)
+}
+
+// emitOutcomeEvents emits notification events after a call outcome is logged.
+// All calls are best-effort — a failed event emission never affects the outcome.
+func (s *Service) emitOutcomeEvents(ctx context.Context, session *CallSession, outcome *CallOutcome, callbackAt *time.Time) {
+	if s.emitter == nil {
+		return
+	}
+
+	now := time.Now().UTC()
+
+	// Always emit the generic outcome event for audit/analytics.
+	if err := s.emitter.EmitDialerEvent(ctx, models.EventPayload{
+		Type:       event.EventDialerCallOutcomeLogged,
+		ModuleID:   event.ModuleDialer,
+		Priority:   "normal",
+		ActorID:    session.AgentID.String(),
+		ResourceID: session.ID.String(),
+		Title:      fmt.Sprintf("Anruf-Ergebnis: %s", outcome.Label),
+		Timestamp:  now,
+	}); err != nil {
+		slog.WarnContext(ctx, "dialer: emit outcome event failed", "error", err)
+	}
+
+	// Emit callback-scheduled event targeted at the agent for notification.
+	if outcome.IsCallback && callbackAt != nil {
+		if err := s.emitter.EmitDialerEvent(ctx, models.EventPayload{
+			Type:          event.EventDialerCallbackScheduled,
+			ModuleID:      event.ModuleDialer,
+			Priority:      "normal",
+			ActorID:       session.AgentID.String(),
+			ResourceID:    session.CampaignContactID.String(),
+			TargetUserIDs: []string{session.AgentID.String()},
+			Title:         "Rückruf geplant",
+			Body:          fmt.Sprintf("Rückruf am %s", callbackAt.Format("02.01.2006 15:04")),
+			DeepLink:      "/dialer/workspace",
+			Timestamp:     now,
+		}); err != nil {
+			slog.WarnContext(ctx, "dialer: emit callback event failed", "error", err)
+		}
+	}
+}
+
+// emitCampaignCompletedEvent fires when a campaign transitions to completed.
+func (s *Service) emitCampaignCompletedEvent(ctx context.Context, campaignID uuid.UUID) {
+	if s.emitter == nil {
+		return
+	}
+
+	if err := s.emitter.EmitDialerEvent(ctx, models.EventPayload{
+		Type:       event.EventDialerCampaignCompleted,
+		ModuleID:   event.ModuleDialer,
+		Priority:   "normal",
+		ResourceID: campaignID.String(),
+		Title:      "Kampagne abgeschlossen",
+		DeepLink:   fmt.Sprintf("/dialer/campaigns/%s", campaignID),
+		Timestamp:  time.Now().UTC(),
+	}); err != nil {
+		slog.WarnContext(ctx, "dialer: emit campaign completed event failed",
+			"campaign_id", campaignID,
+			"error", err,
+		)
+	}
 }
 
 // refreshCampaignCounts is a best-effort helper that calls

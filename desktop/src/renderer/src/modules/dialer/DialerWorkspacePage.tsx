@@ -149,6 +149,10 @@ export default function DialerWorkspacePage() {
                 setActiveContact(null)
                 toast.success(t('dialer.workspace.wrapUp.complete'))
               },
+              onError: () => {
+                setWrapUpSubmitting(false)
+                toast.error(t('dialer.workspace.wrapUp.completeFailed'))
+              },
             },
           )
         },
@@ -168,18 +172,28 @@ export default function DialerWorkspacePage() {
   ])
 
   const handleSkipOutcome = useCallback(() => {
-    if (!activeSessionId) return
+    if (!activeSessionId || !activeContact || !activeCampaignId) return
     setWrapUpSubmitting(true)
-    completeWrapUpMutation.mutate(
-      { callId: activeSessionId },
+    // First mark the contact as skipped so it doesn't stay in_progress forever.
+    skipMutation.mutate(
+      { campaignId: activeCampaignId, contactId: activeContact.id },
       {
         onSuccess: () => {
-          resetStore()
-          setActiveContact(null)
+          completeWrapUpMutation.mutate(
+            { callId: activeSessionId },
+            {
+              onSuccess: () => {
+                resetStore()
+                setActiveContact(null)
+              },
+              onError: () => setWrapUpSubmitting(false),
+            },
+          )
         },
+        onError: () => setWrapUpSubmitting(false),
       },
     )
-  }, [activeSessionId, completeWrapUpMutation, resetStore, setWrapUpSubmitting])
+  }, [activeSessionId, activeContact, activeCampaignId, skipMutation, completeWrapUpMutation, resetStore, setWrapUpSubmitting])
 
   const handleAutoSave = useCallback(
     (text: string) => {

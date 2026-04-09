@@ -17,6 +17,7 @@ export type NotificationType =
   | 'invoice_overdue'
   | 'mention'
   | 'system'
+  | 'dialer_callback'
 
 export type NotificationPriority = 'low' | 'normal' | 'high'
 

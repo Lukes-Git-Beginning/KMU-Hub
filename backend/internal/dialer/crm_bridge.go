@@ -2,7 +2,9 @@ package dialer
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -11,6 +13,15 @@ import (
 
 	crmv1 "github.com/kmuhub/kmuhub/proto/crm/v1"
 )
+
+// contactFilterCriteria maps the JSON blob stored in saved_filters.filter_json
+// to the fields supported by ListContactsRequest. Unknown fields are ignored
+// for forward-compatibility.
+type contactFilterCriteria struct {
+	CompanyID string   `json:"company_id,omitempty"`
+	TagIDs    []string `json:"tag_ids,omitempty"`
+	Search    string   `json:"search,omitempty"`
+}
 
 // CRMBridge abstracts CRM service interactions for the dialer.
 // Phase 2: HubSpotBridge, SalesforceBridge, etc. implement this interface.
@@ -147,6 +158,17 @@ func (b *GRPCCRMBridge) ResolveFilterContacts(ctx context.Context, filterID uuid
 		return nil, fmt.Errorf("crm bridge get saved filter: empty response")
 	}
 
+	// Parse filter criteria from the saved filter's JSON blob.
+	var criteria contactFilterCriteria
+	if filterJSON := filterResp.Filter.FilterJson; filterJSON != "" {
+		if err := json.Unmarshal([]byte(filterJSON), &criteria); err != nil {
+			slog.WarnContext(ctx, "dialer: unmarshal saved filter criteria failed, importing all contacts",
+				"filter_id", filterID,
+				"error", err,
+			)
+		}
+	}
+
 	const pageSize = 100
 	var (
 		page    int32 = 1
@@ -154,11 +176,17 @@ func (b *GRPCCRMBridge) ResolveFilterContacts(ctx context.Context, filterID uuid
 	)
 
 	for {
-		resp, err := b.client.ListContacts(ctx, &crmv1.ListContactsRequest{
+		req := &crmv1.ListContactsRequest{
 			Page:     page,
 			PageSize: pageSize,
-			// visibility_filter empty = return all contacts the filter owner can see
-		})
+			Search:   criteria.Search,
+			TagIds:   criteria.TagIDs,
+		}
+		if criteria.CompanyID != "" {
+			req.CompanyId = &criteria.CompanyID
+		}
+
+		resp, err := b.client.ListContacts(ctx, req)
 		if err != nil {
 			return nil, fmt.Errorf("crm bridge list contacts (page %d): %w", page, err)
 		}

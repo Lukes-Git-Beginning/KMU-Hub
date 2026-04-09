@@ -75,8 +75,11 @@ func main() {
 	defer crmConn.Close()
 	crmBridge := dialer.NewGRPCCRMBridge(crmConn)
 
+	// Event emitter for notification bus
+	eventEmitter := dialer.NewPGEventEmitter(pool)
+
 	// Dialer service
-	dialerService := dialer.NewService(campaignRepo, callRepo, outcomeRepo, agentStatusRepo, agentStore, crmBridge)
+	dialerService := dialer.NewService(campaignRepo, callRepo, outcomeRepo, agentStatusRepo, agentStore, crmBridge, eventEmitter)
 
 	metricsRegistry := metrics.NewRegistry()
 
