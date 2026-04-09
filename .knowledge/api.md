@@ -1,6 +1,6 @@
 ---
 tags: [api, endpoints, openapi]
-updated: 2026-04-06
+updated: 2026-04-09
 ---
 # API-Referenz
 
@@ -35,6 +35,7 @@ updated: 2026-04-06
 | DATEV Upload | `/api/v1/datev/upload` | CSV-Upload (Buchungsstapel) |
 | CalDAV/CardDAV | `/caldav/…`, `/carddav/…` | go-webdav Proxy, App-Passwords |
 | WOPI | `/api/v1/wopi/…` | Document Lock/Unlock, CheckFileInfo (OnlyOffice) |
+| Dialer | `/api/v1/dialer/…` | Campaigns, Calls, Agent Status, Outcomes, Dashboards (25 Endpoints) |
 | Integration Config | `/api/v1/integrations/configs` | Teams/Slack Webhooks + OAuth |
 | Registrar | (intern) | Service-Registrierung im Gateway |
 | Health | `/health` | Public, kein Auth, Version/Commit/BuildTime |
@@ -58,6 +59,7 @@ updated: 2026-04-06
 - 401-Interception → transparenter Token-Refresh mit Concurrent De-Duplication
 - Offline-Guard: Blockt POST/PUT/DELETE wenn `!navigator.onLine`
 - 40+ React Query Hooks in `desktop/src/renderer/src/api/hooks/`
+- Dialer: Eigener `dialer-client.ts` (typed fetch, nicht openapi-fetch — noch nicht in openapi.yaml)
 
 ## Verwandte Notes
 - [[architektur]] — Service-Architektur & Gateway Routes

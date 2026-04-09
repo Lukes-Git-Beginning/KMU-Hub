@@ -1,6 +1,6 @@
 ---
 tags: [security, auth, compliance, gdpr]
-updated: 2026-04-08
+updated: 2026-04-09
 ---
 # Security & Compliance
 
@@ -12,7 +12,7 @@ updated: 2026-04-08
 
 ## RBAC
 - Rollen: admin, manager, member
-- Permissions: `resource:action` Pattern (z.B. `contacts:write`, `deals:delete`)
+- Permissions: `resource:action` Pattern (z.B. `contacts:write`, `deals:delete`, `dialer:campaigns:read`)
 - Middleware: `RequireRole(roles...)`, `RequirePermission(resource, action)`
 - 403 Forbidden bei unzureichenden Rechten
 

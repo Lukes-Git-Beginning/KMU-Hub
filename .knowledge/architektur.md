@@ -59,11 +59,18 @@ Gateway `/health`: status, checks, registered_services, version, commit, build_t
 
 ## Frontend (Electron + React 19 + TypeScript)
 
-### Module (35 in `modules/`)
-admin, auth, automatisierung, berichte, buchhaltung, calendar, chat, crm, dashboard, dokumente, einkauf, finanzen, formulare, fuhrpark, helpdesk, inventar, kalender, kommunikation, kontakte, mails, meetings, notifications, produktion, profil, rapporte, schichten, security, settings, team, vermietung, vertraege, video, wiki, work, zeiterfassung
+### Module (36 in `modules/`)
+admin, auth, automatisierung, berichte, buchhaltung, calendar, chat, crm, dashboard, **dialer**, dokumente, einkauf, finanzen, formulare, fuhrpark, helpdesk, inventar, kalender, kommunikation, kontakte, mails, meetings, notifications, produktion, profil, rapporte, schichten, security, settings, team, vermietung, vertraege, video, wiki, work, zeiterfassung
 
-### Zustand Stores (36 in `stores/`)
-ai, auth, automatisierung, berichte, calendar, contacts, dashboard, einkauf, finance, formulare, fuhrpark, helpdesk, integrations, inventar, kommunikation, locale, mails, meetings, navigation, notifications, presence, produktion, profile, rapporte, schichten, search, settings, team, timetracking, tour, ui, vermietung, vertraege, video, wiki, work
+### Dialer-Modul (2026-04-09)
+- 6 Pages: DialerLayout (4-Tab Sub-Nav), CampaignList, CampaignDetail, DialerWorkspace, AgentDashboard, DialerSettings
+- 15 Komponenten in `components/` (workspace/, dashboard/, settings/)
+- Workspace: 4-Phasen Call-Flow (idle → dialing → on_call → wrap_up) mit `animate-scale-in` Transitions
+- Data: `api/dialer-client.ts` (typed fetch, nicht openapi-fetch) + `api/hooks/useDialer.ts` (24 Hooks)
+- Nav: `PhoneCall` Icon, Farbe h:142 s:72 (Gruen), Live-Dot Badge bei aktivem Call
+
+### Zustand Stores (37 in `stores/`)
+ai, auth, automatisierung, berichte, calendar, contacts, dashboard, **dialer**, einkauf, finance, formulare, fuhrpark, helpdesk, integrations, inventar, kommunikation, locale, mails, meetings, navigation, notifications, presence, produktion, profile, rapporte, schichten, search, settings, team, timetracking, tour, ui, vermietung, vertraege, video, wiki, work
 
 ### Standalone
 - Guest Chat: Separate Vite SPA unter `/guest/`
@@ -92,7 +99,7 @@ ai, auth, automatisierung, berichte, calendar, contacts, dashboard, einkauf, fin
 - Aktiviert via `RENDERER_VITE_DEMO_MODE=true` (Build-Time Env)
 - **Fetch-Interceptor** (nicht MSW Service Worker)
 - Grund: Electron Production nutzt `file://` Protokoll — Service Workers + dynamic import() nicht unterstuetzt
-- Handler: `mocks/handlers/` (19 Dateien inkl. Dialer, statisch importiert, Vite eliminiert in non-demo Builds)
+- Handler: `mocks/handlers/` (19 Dateien inkl. Dialer mit 617 LoC, statisch importiert, Vite eliminiert in non-demo Builds)
 - Mock-Daten: `mocks/data/` (8 typisierte Dateien)
 - Dev: `npm run dev` → `--mode demo`; `npm run dev:test` → + CDP Port 9222
 

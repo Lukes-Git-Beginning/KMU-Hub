@@ -1,6 +1,6 @@
 ---
 tags: [fortschritt, milestones]
-updated: 2026-04-08
+updated: 2026-04-09
 ---
 # Milestones
 
@@ -71,6 +71,17 @@ updated: 2026-04-08
 
 5 parallele Agenten (Worktree-Isolation), 6 Commits.
 Detaillierter Plan: `docs/PERFORMANCE-PLAN.md`
+
+## Dialer-Modul Phase 1 (2026-04-09)
+| Sub-Phase | Inhalt | Status |
+|-----------|--------|--------|
+| 1A — Foundation | Proto (27 RPCs), 5 Migrations (063-067), Service-Skeleton, Docker | ✅ |
+| 1B — Backend Core | service.go (24 Methoden), 4 Repos, Redis Agent-Status, CRM-Bridge, gRPC-Server | ✅ |
+| 1C — Gateway + Permissions | 25 REST-Endpoints, Permission-Migration (068), route_dialer.go (1014 LoC) | ✅ |
+| 1D — Frontend | 26 Dateien, DialerWorkspace (4-Phasen Call-Flow), Campaigns, Dashboard, Settings, Mock-Handler, i18n (4 Sprachen) | ✅ |
+| 1E — Integration | CRM-Timeline, Callback-Notifications, CRM-Filter-Import, E2E | Offen |
+
+Strategische Roadmap: `docs/DIALER-ROADMAP.md`
 
 ## Verwandte Notes
 - [[i18n]] — i18n-Architektur & Schluessel-Konventionen
