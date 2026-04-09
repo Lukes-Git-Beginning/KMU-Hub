@@ -1,6 +1,6 @@
 ---
 tags: [architektur, backend, frontend, ci-cd]
-updated: 2026-04-08
+updated: 2026-04-09
 ---
 # Architektur
 
@@ -20,6 +20,7 @@ Gateway (HTTP/chi) auf Port 8080 → gRPC-Services intern:
 | biz | :50058 | Finance, HR, Bexio, Lexware, DATEV, PDF, Dunning |
 | automation | :50059 | Workflows, Conditions, Actions, Templates |
 | plugin | :50060 | WASM Sandbox, SDK, Host API, Lifecycle |
+| dialer | :50061 | Campaigns, Call Sessions, Agent Status, Outcomes |
 
 Gateway `/health`: status, checks, registered_services, version, commit, build_time (via ldflags)
 
@@ -53,6 +54,7 @@ Gateway `/health`: status, checks, registered_services, version, commit, build_t
 | `route_security.go` | Audit Logs, GDPR Export, Passwort-Policy |
 | `route_video.go` | Video-Calls (LiveKit) |
 | `route_wopi.go` | WOPI Document Protocol (OnlyOffice) |
+| `route_dialer.go` | Dialer (Campaigns, Calls, Agent Status, Outcomes) |
 | `route_work.go` | Projekte, Tasks, Zeiterfassung |
 
 ## Frontend (Electron + React 19 + TypeScript)
@@ -90,7 +92,7 @@ ai, auth, automatisierung, berichte, calendar, contacts, dashboard, einkauf, fin
 - Aktiviert via `RENDERER_VITE_DEMO_MODE=true` (Build-Time Env)
 - **Fetch-Interceptor** (nicht MSW Service Worker)
 - Grund: Electron Production nutzt `file://` Protokoll — Service Workers + dynamic import() nicht unterstuetzt
-- Handler: `mocks/handlers/` (18 Dateien, statisch importiert, Vite eliminiert in non-demo Builds)
+- Handler: `mocks/handlers/` (19 Dateien inkl. Dialer, statisch importiert, Vite eliminiert in non-demo Builds)
 - Mock-Daten: `mocks/data/` (8 typisierte Dateien)
 - Dev: `npm run dev` → `--mode demo`; `npm run dev:test` → + CDP Port 9222
 

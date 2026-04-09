@@ -1,13 +1,13 @@
 ---
 tags: [datenbank, schema, migrations]
-updated: 2026-04-08
+updated: 2026-04-09
 ---
 # Datenbank
 
 ## Überblick
 - PostgreSQL 16 + Redis 7 (nur Cache, KEIN Dual-Write)
 - Änderungen NUR via golang-migrate (`make migrate-create name=xxx`)
-- 62 Migration-Paare in `backend/migrations/`
+- 67 Migration-Paare in `backend/migrations/`
 - Index-Konvention: `idx_{table}_{column}`
 
 ## Tabellen nach Domain
@@ -101,6 +101,15 @@ updated: 2026-04-08
 - `finance_invoices.zugferd_profile VARCHAR(20)` — NULL = plain PDF, sonst 'MINIMUM' / 'BASIC_WL' / 'EN16931'
 - `finance_invoices.time_tracking_source JSONB` — Audit-Trail fuer Zeiterfassung→Rechnung
 - `hr_employee_profiles.hourly_rate DECIMAL(10,2)` — Stundensatz fuer Rechnungsstellung
+
+### Dialer (Migrations 063-067)
+- `dialer_campaigns` — name, status (draft/active/paused/completed/archived), mode (preview/power/predictive), settings JSONB, assigned_agent_ids UUID[], contact_count, completed_count, tenant_id
+- `dialer_campaign_contacts` — campaign_id (FK CASCADE), contact_id (FK), position, status (pending/in_progress/completed/skipped/callback), outcome_id, callback_at, call_count, UNIQUE(campaign_id, contact_id)
+- `dialer_call_sessions` — campaign_contact_id (FK), call_session_id (FK call_sessions, nullable), agent_id, outcome_id, duration_seconds, notes, next_action, appointment_id
+- `dialer_call_events` — Append-only Event-Log: dialer_call_session_id (FK CASCADE), event_type, payload JSONB, occurred_at
+- `dialer_call_outcomes` — Tenant-konfigurierbar: label, color, is_positive, is_callback, is_appointment, sort_order, tenant_id
+- `dialer_agent_status_log` — Audit-Log fuer Agent-Status (Redis ist Live-Quelle): user_id, campaign_id, status, previous_status, changed_at
+- **Kritischer Query:** `GetNextPendingContact` nutzt `FOR UPDATE SKIP LOCKED` fuer Phase-2 Power-Dialer-Parallelitaet
 
 ## Index-Strategie
 - **Composite:** `(project_key, archived_at)`, `(user_id, role, name)`

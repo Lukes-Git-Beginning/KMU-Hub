@@ -1,18 +1,19 @@
 ---
 tags: [index]
-updated: 2026-04-08
+updated: 2026-04-09
 ---
 # Cosmi — Knowledge Base
 
-## Projektstand (2026-04-06)
+## Projektstand (2026-04-09)
 - **Alle 20 Feature-Phasen abgeschlossen** (103/103 Plans)
-- **Modus:** Beta Hardening (seit 2026-02-27)
+- **Modus:** Dialer-Modul Entwicklung + Pre-Launch Sprint
 - **Branding:** "KMU Hub" → "Cosmi" (Software), "Zentria" (Firma), zentria.tech
 - **Phase A (Technisch):** ✅ Abgeschlossen — Core Wiring, D9 Merge, Lint 0
-- **Phase B (Hardening):** B1-B8 UI Hardening + B9 Crash-Fixes + B10 Design Audit & Rebrand
-- **B10 (2026-04-01):** Design Audit (36 Screenshots), Cosmi Rebrand, de-DE Locale, Umlaut-Normalisierung
-- **i18n Sprint (2026-04-06):** react-intl → i18next Migration, 4.500+ Schluessel, 41 Additions-JSONs, alle 35 Module + 9 Komponentengruppen instrumentiert — Wave 2+3 + Uebersetzungen noch offen
-- **Hetzner Prod:** ✅ Live, alle 10 Services healthy, Deploy-Pipeline mit Auto-Rollback
+- **Phase B (Hardening):** ✅ B1-B10 abgeschlossen
+- **i18n Sprint:** ✅ Abgeschlossen (7.221 Keys × 4 Sprachen)
+- **Performance Sprint:** ✅ Abgeschlossen (5 Phasen)
+- **Dialer Phase 1A+1B:** ✅ Backend-Foundation + Core-Logik (11. Microservice, 67 Migrations, 27 RPCs)
+- **Hetzner Prod:** ✅ Live, alle 11 Services healthy (inkl. Dialer), Deploy-Pipeline mit Auto-Rollback
 - **Testing:** Playwright MCP via Chrome CDP (Port 9222) fuer E2E-Verifikation
 - GitHub: github.com/Lukes-Git-Beginning/KMU-Hub (private), branch: main
 

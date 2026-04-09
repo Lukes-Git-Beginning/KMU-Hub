@@ -137,6 +137,38 @@ Alle Performance-Optimierungen in einer Session abgeschlossen (5 parallele Agent
 
 ---
 
+## Dialer-Modul (April – Juni 2026)
+
+**Ziel:** Von Click-to-Call MVP zur marktfaehigen CRM+Telefonie-Loesung.
+**Strategische Roadmap:** `docs/DIALER-ROADMAP.md`
+
+### Phase 1 — MVP: Click-to-Call + Kampagnen + Preview-Mode
+
+| Sub-Phase | Scope | Status |
+|-----------|-------|--------|
+| **1A — Foundation** | Proto (27 RPCs), 5 Migrations (063-067), Service-Skeleton, Gateway-Stub, Docker | ✅ Erledigt (09.04) |
+| **1B — Backend Core** | Service-Logik (24 Methoden), 4 Repositories, Redis Agent-Status, CRM-Bridge, E.164, gRPC-Server, 3 Automation-Trigger | ✅ Erledigt (09.04) |
+| **1C — Gateway + Demo-Mode** | REST-API (25 Endpoints), Permission-Migration, interaktiver Demo-Mode | Offen |
+| **1D — Frontend** | 15+ Komponenten, DialerWorkspace, CampaignList, Dashboard, AgentStatusBar, Click-to-Call, i18n (4 Sprachen) | Offen |
+| **1E — Integration** | CRM-Timeline, Callback-Notifications, CRM-Filter-Import, E2E-Verifikation | Offen |
+
+**Architektur-Entscheidungen:**
+- Eigenstaendiger `dialer`-Service (Port 50061/9101) — 11. Microservice
+- CRM-Bridge via gRPC (Interface fuer Phase-2 HubSpot-Erweiterung)
+- Call-State als Append-Only Event-Log (`dialer_call_events`)
+- `FOR UPDATE SKIP LOCKED` fuer Phase-2 Power-Dialer-Parallelitaet
+- `tenant_id` auf allen Tabellen von Tag 1
+
+### Phase 2 — PSTN Power Dialer (geplant Q3 2026)
+
+SIP-Telefonie via LiveKit SIP Gateway, Power-Dialer Auto-Advance, HubSpot-Sync, DSGVO-Recording, Supervisor-View, DNC-Listen.
+
+### Phase 3 — Contact-Center-Plattform (geplant Q4 2026+)
+
+Predictive Dialing (Erlang-C), Inbound ACD, AI Call Scoring, Multi-Tenant API.
+
+---
+
 ## Post-Launch Roadmap (Mai – September 2026)
 
 ### Phase C — Pilot-Betrieb (Mai-Juni 2026)
@@ -218,7 +250,7 @@ Einige Frontend-Formulare senden Felder nicht ans Backend (`EmployeeProfile` feh
 
 | Metrik | Aktuell | Ziel Launch (01.05) | Ziel Q3 2026 |
 |--------|---------|---------------------|--------------|
-| Backend-Services healthy | 10/10 | 10/10 | 10/10 |
+| Backend-Services healthy | 11/11 | 11/11 | 11/11 |
 | DB-Queries pro Contact-Liste | ~~61~~ 4 | 4 | 4 |
 | DB-Queries pro Deal-Liste | ~~121~~ 7 | 7 | 7 |
 | Desktop-Test-Coverage | ~5% | ~5% | 50%+ |
