@@ -12,6 +12,17 @@ Cosmi hat bereits eine produktionsreife LiveKit-Integration (WebRTC Rooms, Recor
 
 **Scope:** Interne WebRTC-Anrufe, Kampagnenverwaltung, Call-Outcomes, CRM-Integration
 **Aufwand:** M (6-10 Wochen mit AI-Pair)
+**Status:** 4/5 Sub-Phasen abgeschlossen (Stand: 2026-04-09)
+
+### Implementierungsfortschritt
+
+| Sub-Phase | Status | Inhalt |
+|-----------|--------|--------|
+| 1A — Foundation | ✅ Done | Proto (27 RPCs, 6 Enums), 5 Migrations (063-067), Service-Skeleton, Gateway-Stub, Docker |
+| 1B — Backend Core | ✅ Done | service.go (24 Methoden), 4 Repos, Redis Agent-Status, CRM-Bridge, E.164 Phone, gRPC-Server |
+| 1C — Gateway + Permissions | ✅ Done | 25 REST-Endpoints (route_dialer.go, 1014 LoC), Permission-Migration (068) |
+| 1D — Frontend | ✅ Done | 26 Dateien, 4-Phasen Workspace, Campaigns, Dashboard, Settings, Mock-Handler, i18n (DE/EN/FR/IT) |
+| 1E — Integration | ⬜ Offen | CRM-Timeline, Callback-Notifications, CRM-Filter-Import, E2E Tests |
 
 ### Features
 
