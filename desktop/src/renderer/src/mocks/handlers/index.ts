@@ -19,6 +19,7 @@ import { videoHandlers } from './video'
 import { dashboardHandlers } from './dashboard'
 import { settingsHandlers } from './settings'
 import { hrHandlers } from './hr'
+import { dialerHandlers } from './dialer'
 
 export const handlers = [
   ...authHandlers,
@@ -38,4 +39,5 @@ export const handlers = [
   ...dashboardHandlers,
   ...settingsHandlers,
   ...hrHandlers,
+  ...dialerHandlers,
 ]

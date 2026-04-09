@@ -28,6 +28,7 @@ import {
   Timer,
   ShieldCheck,
   BookOpen,
+  PhoneCall,
 } from 'lucide-react'
 
 export interface NavBadge {
@@ -113,6 +114,9 @@ export const navItems: NavItemConfig[] = [
   { id: 'formulare', to: '/formulare', icon: FileInput, label: i18next.t('layout.navItems.formulare'), enabled: true, section: 'main', color: { h: 222, s: 68 } },
   { id: 'vermietung', to: '/vermietung', icon: Building2, label: i18next.t('layout.navItems.vermietung'), enabled: true, section: 'main', color: { h: 8, s: 72 } },
   { id: 'rapporte', to: '/rapporte', icon: ClipboardCheck, label: i18next.t('layout.navItems.rapporte'), enabled: true, section: 'main', color: { h: 98, s: 55 } },
+
+  // ── Sales & Outbound ──
+  { id: 'dialer', to: '/dialer', icon: PhoneCall, label: i18next.t('layout.navItems.dialer'), enabled: true, section: 'main', color: { h: 142, s: 72 } },
 
   // ── System (bottom) ──
   { id: 'security-admin', to: '/admin/security', icon: ShieldCheck, label: i18next.t('layout.navItems.securityAdmin'), enabled: true, section: 'bottom', color: { h: 0, s: 68 } },

@@ -71,6 +71,7 @@ const VermietungPage = lazy(() => import('@/modules/vermietung/VermietungPage'))
 const RapportePage = lazy(() => import('@/modules/rapporte/RapportePage'))
 const ZeiterfassungPage = lazy(() => import('@/modules/zeiterfassung/ZeiterfassungPage'))
 const WikiPage = lazy(() => import('@/modules/wiki/WikiPage'))
+const DialerLayout = lazy(() => import('@/modules/dialer/DialerLayout'))
 
 // React Query client with offline-friendly defaults
 const queryClient = new QueryClient({
@@ -222,6 +223,7 @@ const router = createHashRouter([
       { path: 'rapporte', element: lazyRoute(RapportePage) },
       { path: 'zeiterfassung', element: lazyRoute(ZeiterfassungPage) },
       { path: 'wiki', element: lazyRoute(WikiPage) },
+      { path: 'dialer/*', element: lazyRoute(DialerLayout) },
     ],
   },
   {

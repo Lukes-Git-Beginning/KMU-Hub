@@ -187,4 +187,29 @@ export const IDS = {
     vertragsErinnerung: 'wf-007',
     feedbackSammlung: 'wf-008',
   },
+  // Dialer
+  dialer: {
+    // Campaigns
+    kampagneKaltAkquise: 'dlr-camp-001',
+    kampagneBestandskunden: 'dlr-camp-002',
+
+    // Campaign contacts
+    cc001: 'dlr-cc-001',
+    cc002: 'dlr-cc-002',
+    cc003: 'dlr-cc-003',
+    cc004: 'dlr-cc-004',
+    cc005: 'dlr-cc-005',
+    cc006: 'dlr-cc-006',
+    cc007: 'dlr-cc-007',
+    cc008: 'dlr-cc-008',
+
+    // Call outcomes
+    outcomeErreicht: 'dlr-out-001',
+    outcomeNichtErreicht: 'dlr-out-002',
+    outcomeWiedervorlage: 'dlr-out-003',
+    outcomeTermin: 'dlr-out-004',
+
+    // Call sessions
+    session001: 'dlr-sess-001',
+  },
 } as const
