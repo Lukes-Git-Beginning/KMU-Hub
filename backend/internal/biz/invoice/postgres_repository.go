@@ -235,6 +235,15 @@ func (r *PostgresRepository) GetByQuoteID(ctx context.Context, tenantID, quoteID
 	return r.scanInvoice(row)
 }
 
+// LinkTimeTracking persists the time_tracking_source JSONB column on an invoice.
+func (r *PostgresRepository) LinkTimeTracking(ctx context.Context, invoiceID uuid.UUID, src json.RawMessage) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE finance_invoices SET time_tracking_source = $1 WHERE id = $2`,
+		src, invoiceID,
+	)
+	return err
+}
+
 // NextInvoiceNumber returns the next gap-free invoice number using SELECT FOR UPDATE.
 // This is the CRITICAL GoBD compliance function -- gap-free sequential numbering.
 // Format: RE-{year}-{padded_number} e.g., RE-2026-0001

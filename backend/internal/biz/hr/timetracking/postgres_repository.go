@@ -316,6 +316,39 @@ func (r *PostgresWorkTimeRepo) GetWeeklySummary(ctx context.Context, employeeID 
 	return summary, nil
 }
 
+// AggregateWorkTimeForInvoice returns the total net_work_minutes and entry IDs
+// for all completed work time entries of the given employee within [from, to].
+func (r *PostgresWorkTimeRepo) AggregateWorkTimeForInvoice(ctx context.Context, tenantID, employeeID uuid.UUID, from, to time.Time) (int, []string, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, net_work_minutes
+		 FROM hr_work_time_entries
+		 WHERE tenant_id = $1
+		   AND employee_id = $2
+		   AND status = 'completed'
+		   AND clock_in >= $3
+		   AND clock_in <= $4
+		   AND net_work_minutes IS NOT NULL`,
+		tenantID, employeeID, from, to,
+	)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer rows.Close()
+
+	var total int
+	var entryIDs []string
+	for rows.Next() {
+		var entryID uuid.UUID
+		var netMinutes int
+		if scanErr := rows.Scan(&entryID, &netMinutes); scanErr != nil {
+			return 0, nil, scanErr
+		}
+		total += netMinutes
+		entryIDs = append(entryIDs, entryID.String())
+	}
+	return total, entryIDs, rows.Err()
+}
+
 // ============================================================================
 // Break Repository
 // ============================================================================

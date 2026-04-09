@@ -2,6 +2,7 @@ package invoice
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,6 +19,10 @@ type Repository interface {
 	UpdateStatus(ctx context.Context, tenantID, id uuid.UUID, status string) error
 	GetOverdue(ctx context.Context, tenantID uuid.UUID) ([]*models.Invoice, error)
 	GetByQuoteID(ctx context.Context, tenantID, quoteID uuid.UUID) (*models.Invoice, error)
+	// LinkTimeTracking persists a time_tracking_source JSONB payload on the invoice.
+	// Used after invoice creation to attach the audit trail from the HR time-tracking
+	// module. The operation is best-effort: callers should treat errors as non-fatal.
+	LinkTimeTracking(ctx context.Context, invoiceID uuid.UUID, src json.RawMessage) error
 }
 
 // ListFilter contains filtering options for listing invoices.

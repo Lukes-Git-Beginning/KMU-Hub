@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -12,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
+	"github.com/kmuhub/kmuhub/internal/biz/hr/timetracking"
 	"github.com/kmuhub/kmuhub/internal/biz/invoice"
 	"github.com/kmuhub/kmuhub/internal/biz/quote"
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -19,23 +19,26 @@ import (
 	"github.com/kmuhub/kmuhub/internal/server/response"
 )
 
-// BizExtRoutes handles extended biz/HR routes with direct DB access.
+// BizExtRoutes handles extended biz/HR routes.
 // Currently: time-tracking-to-invoice conversion.
 type BizExtRoutes struct {
-	pool       *pgxpool.Pool
-	invoiceSvc *invoice.Service
+	workTimeRepo timetracking.WorkTimeRepository
+	invoiceRepo  invoice.Repository
+	invoiceSvc   *invoice.Service
 }
 
-// NewBizExtRoutes creates BizExtRoutes using direct DB connections.
+// NewBizExtRoutes creates BizExtRoutes using repository abstractions.
 func NewBizExtRoutes(pool *pgxpool.Pool) *BizExtRoutes {
+	workTimeRepo := timetracking.NewPostgresWorkTimeRepo(pool)
 	invoiceRepo := invoice.NewPostgresRepository(pool)
 	numSeqRepo := quote.NewPostgresNumberSequenceRepo(pool)
 	settingsRepo := quote.NewPostgresCompanySettingsRepo(pool)
 	invoiceSvc := invoice.NewService(invoiceRepo, numSeqRepo, settingsRepo, nil)
 
 	return &BizExtRoutes{
-		pool:       pool,
-		invoiceSvc: invoiceSvc,
+		workTimeRepo: workTimeRepo,
+		invoiceRepo:  invoiceRepo,
+		invoiceSvc:   invoiceSvc,
 	}
 }
 
@@ -113,8 +116,8 @@ func (b *BizExtRoutes) HandleCreateInvoiceFromTime(w http.ResponseWriter, r *htt
 		taxMode = models.TaxModeStandard
 	}
 
-	// Aggregate completed work time entries
-	totalMinutes, entryIDs, err := b.aggregateWorkTime(r.Context(), tenantID, employeeID, dateFrom, dateTo)
+	// Aggregate completed work time entries via HR repository
+	totalMinutes, entryIDs, err := b.workTimeRepo.AggregateWorkTimeForInvoice(r.Context(), tenantID, employeeID, dateFrom, dateTo)
 	if err != nil {
 		response.Error(w, http.StatusInternalServerError, fmt.Sprintf("aggregate work time: %s", err.Error()))
 		return
@@ -145,22 +148,7 @@ func (b *BizExtRoutes) HandleCreateInvoiceFromTime(w http.ResponseWriter, r *htt
 	}
 
 	// Build time_tracking_source audit trail
-	type timeTrackingSource struct {
-		EmployeeID   string    `json:"employee_id"`
-		DateFrom     string    `json:"date_from"`
-		DateTo       string    `json:"date_to"`
-		TotalMinutes int       `json:"total_minutes"`
-		EntryIDs     []string  `json:"entry_ids"`
-		CreatedAt    time.Time `json:"created_at"`
-	}
-	ttSource := timeTrackingSource{
-		EmployeeID:   employeeID.String(),
-		DateFrom:     req.DateFrom,
-		DateTo:       req.DateTo,
-		TotalMinutes: totalMinutes,
-		EntryIDs:     entryIDs,
-		CreatedAt:    time.Now(),
-	}
+	ttSource := buildTimeTrackingSource(employeeID, req.DateFrom, req.DateTo, totalMinutes, entryIDs)
 	ttSourceJSON, _ := json.Marshal(ttSource)
 
 	// Create draft invoice
@@ -179,8 +167,8 @@ func (b *BizExtRoutes) HandleCreateInvoiceFromTime(w http.ResponseWriter, r *htt
 		return
 	}
 
-	// Attach time_tracking_source to the invoice record
-	if updateErr := b.setTimeTrackingSource(r.Context(), inv.ID, ttSourceJSON); updateErr != nil {
+	// Attach time_tracking_source to the invoice record via invoice repository
+	if updateErr := b.invoiceRepo.LinkTimeTracking(r.Context(), inv.ID, ttSourceJSON); updateErr != nil {
 		// Non-fatal: invoice is created, audit trail attachment failed
 		_ = updateErr
 	}
@@ -190,46 +178,28 @@ func (b *BizExtRoutes) HandleCreateInvoiceFromTime(w http.ResponseWriter, r *htt
 	response.JSON(w, http.StatusCreated, inv)
 }
 
-// aggregateWorkTime returns total net_work_minutes and entry IDs for completed
-// work time entries for the given employee in the date range.
-func (b *BizExtRoutes) aggregateWorkTime(ctx context.Context, tenantID, employeeID uuid.UUID, from, to time.Time) (int, []string, error) {
-	rows, err := b.pool.Query(ctx,
-		`SELECT id, net_work_minutes
-		 FROM hr_work_time_entries
-		 WHERE tenant_id = $1
-		   AND employee_id = $2
-		   AND status = 'completed'
-		   AND clock_in >= $3
-		   AND clock_in <= $4
-		   AND net_work_minutes IS NOT NULL`,
-		tenantID, employeeID, from, to,
-	)
-	if err != nil {
-		return 0, nil, err
-	}
-	defer rows.Close()
+// ============================================================================
+// Internal helpers
+// ============================================================================
 
-	var total int
-	var entryIDs []string
-	for rows.Next() {
-		var entryID uuid.UUID
-		var netMinutes int
-		if err := rows.Scan(&entryID, &netMinutes); err != nil {
-			return 0, nil, err
-		}
-		total += netMinutes
-		entryIDs = append(entryIDs, entryID.String())
-	}
-	return total, entryIDs, rows.Err()
+type timeTrackingSource struct {
+	EmployeeID   string    `json:"employee_id"`
+	DateFrom     string    `json:"date_from"`
+	DateTo       string    `json:"date_to"`
+	TotalMinutes int       `json:"total_minutes"`
+	EntryIDs     []string  `json:"entry_ids"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
-// setTimeTrackingSource persists the time_tracking_source JSONB on the invoice.
-func (b *BizExtRoutes) setTimeTrackingSource(ctx context.Context, invoiceID uuid.UUID, src json.RawMessage) error {
-	_, err := b.pool.Exec(ctx,
-		`UPDATE finance_invoices SET time_tracking_source = $1 WHERE id = $2`,
-		src, invoiceID,
-	)
-	return err
+func buildTimeTrackingSource(employeeID uuid.UUID, dateFrom, dateTo string, totalMinutes int, entryIDs []string) timeTrackingSource {
+	return timeTrackingSource{
+		EmployeeID:   employeeID.String(),
+		DateFrom:     dateFrom,
+		DateTo:       dateTo,
+		TotalMinutes: totalMinutes,
+		EntryIDs:     entryIDs,
+		CreatedAt:    time.Now(),
+	}
 }
 
 // ============================================================================
@@ -240,3 +210,4 @@ func (b *BizExtRoutes) setTimeTrackingSource(ctx context.Context, invoiceID uuid
 func (b *BizExtRoutes) registerTimeExtRoutes(r chi.Router) {
 	r.With(middleware.RequirePermission("hr", "write")).Post("/create-invoice", b.HandleCreateInvoiceFromTime)
 }
+

@@ -19,6 +19,10 @@ type WorkTimeRepository interface {
 	GetPreviousShiftEnd(ctx context.Context, employeeID uuid.UUID, before time.Time) (*time.Time, error)
 	GetDailySummary(ctx context.Context, employeeID uuid.UUID, date time.Time) (*DailySummary, error)
 	GetWeeklySummary(ctx context.Context, employeeID uuid.UUID, weekStart time.Time) (*WeeklySummary, error)
+	// AggregateWorkTimeForInvoice returns the total completed net_work_minutes and the
+	// individual entry IDs for an employee in the given inclusive date range.
+	// Only entries with status='completed' and a non-NULL net_work_minutes are considered.
+	AggregateWorkTimeForInvoice(ctx context.Context, tenantID, employeeID uuid.UUID, from, to time.Time) (totalMinutes int, entryIDs []string, err error)
 }
 
 // BreakRepository defines the interface for break entry persistence.
