@@ -33,7 +33,11 @@ export function registerAuthHandlers(): void {
         return JSON.parse(decrypted)
       }
 
-      // Fallback: plaintext storage
+      // Fallback: plaintext storage only allowed in dev mode
+      if (app.isPackaged) {
+        console.error('[auth] Secure storage is not available in production. Refusing to read plaintext tokens.')
+        return null
+      }
       return JSON.parse(raw.toString('utf-8'))
     } catch (err) {
       console.error('[auth] Failed to read stored tokens:', err)
@@ -50,7 +54,10 @@ export function registerAuthHandlers(): void {
         const encrypted = safeStorage.encryptString(json)
         fs.writeFileSync(tokenPath, encrypted)
       } else {
-        // Fallback: plaintext storage
+        // Fallback: plaintext storage only allowed in dev mode
+        if (app.isPackaged) {
+          throw new Error('Secure storage is not available. Cannot store tokens in production.')
+        }
         fs.writeFileSync(tokenPath, json, 'utf-8')
       }
     } catch (err) {

@@ -88,9 +88,11 @@ func (r *PostgresEmployeeRepo) List(ctx context.Context, filter EmployeeFilter) 
 	var args []any
 	argNum := 1
 
-	// Always filter by tenant: employee profiles don't have tenant_id directly,
-	// but we can use it in future or JOIN via users table.
-	// For now, list all accessible profiles.
+	if filter.TenantID != uuid.Nil {
+		conditions = append(conditions, fmt.Sprintf("ep.tenant_id = $%d", argNum))
+		args = append(args, filter.TenantID)
+		argNum++
+	}
 
 	if filter.Department != "" {
 		conditions = append(conditions, fmt.Sprintf("ep.department = $%d", argNum))
