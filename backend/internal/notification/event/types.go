@@ -93,5 +93,15 @@ const (
 	ModuleGuest        = "guest"
 )
 
+// Dialer events
+const (
+	EventDialerCallOutcomeLogged = "dialer.call.outcome_logged"
+	EventDialerCampaignCompleted = "dialer.campaign.completed"
+	EventDialerCallbackScheduled = "dialer.contact.callback_scheduled"
+)
+
+// Well-known module ID for the dialer
+const ModuleDialer = "dialer"
+
 // PostgreSQL LISTEN channel name for the event bus
 const PGNotifyChannel = "events"

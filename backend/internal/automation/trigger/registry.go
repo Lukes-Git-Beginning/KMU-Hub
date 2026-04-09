@@ -259,4 +259,47 @@ func (r *TriggerRegistry) registerBuiltins() {
 			{Key: "event.minutes_until", Label: "Minuten bis Start", Type: "number", Operators: numericOps()},
 		},
 	})
+
+	// =========================================================================
+	// Dialer triggers (3)
+	// =========================================================================
+	r.Register(&TriggerDefinition{
+		Type:        "dialer.call.outcome_logged",
+		Module:      "dialer",
+		Name:        "Anrufergebnis protokolliert",
+		Description: "Wird ausgeloest, wenn das Ergebnis eines Dialer-Anrufs protokolliert wird",
+		EventType:   event.EventDialerCallOutcomeLogged,
+		Fields: []TriggerField{
+			{Key: "call.duration_seconds", Label: "Anrufdauer (Sek.)", Type: "number", Operators: numericOps()},
+			{Key: "call.outcome", Label: "Ergebnis", Type: "string", Operators: stringOps()},
+			{Key: "call.outcome_is_positive", Label: "Positives Ergebnis", Type: "boolean", Operators: []string{"equals"}},
+			{Key: "call.contact_id", Label: "Kontakt-ID", Type: "string", Operators: []string{"equals", "not_equals"}},
+		},
+	})
+
+	r.Register(&TriggerDefinition{
+		Type:        "dialer.campaign.completed",
+		Module:      "dialer",
+		Name:        "Kampagne abgeschlossen",
+		Description: "Wird ausgeloest, wenn alle Kontakte einer Kampagne abgearbeitet sind",
+		EventType:   event.EventDialerCampaignCompleted,
+		Fields: []TriggerField{
+			{Key: "campaign.name", Label: "Kampagnenname", Type: "string", Operators: stringOps()},
+			{Key: "campaign.total_contacts", Label: "Gesamtkontakte", Type: "number", Operators: numericOps()},
+			{Key: "campaign.positive_rate", Label: "Erfolgsquote (%)", Type: "number", Operators: numericOps()},
+		},
+	})
+
+	r.Register(&TriggerDefinition{
+		Type:        "dialer.contact.callback_scheduled",
+		Module:      "dialer",
+		Name:        "Wiedervorlage geplant",
+		Description: "Wird ausgeloest, wenn ein Kontakt zur Wiedervorlage markiert wird",
+		EventType:   event.EventDialerCallbackScheduled,
+		Fields: []TriggerField{
+			{Key: "callback.contact_id", Label: "Kontakt-ID", Type: "string", Operators: []string{"equals", "not_equals"}},
+			{Key: "callback.scheduled_at", Label: "Geplant fuer", Type: "date", Operators: numericOps()},
+			{Key: "callback.agent_id", Label: "Agent-ID", Type: "string", Operators: []string{"equals", "not_equals"}},
+		},
+	})
 }
