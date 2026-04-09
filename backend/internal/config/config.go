@@ -35,6 +35,8 @@ type Config struct {
 	AutomationGRPCAddress   string `env:"AUTOMATION_GRPC_ADDRESS,default=localhost:50059"`
 	PluginGRPCPort          string `env:"PLUGIN_GRPC_PORT,default=:50060"`
 	PluginGRPCAddress       string `env:"PLUGIN_GRPC_ADDRESS,default=localhost:50060"`
+	DialerGRPCPort          string `env:"DIALER_GRPC_PORT,default=:50061"`
+	DialerGRPCAddress       string `env:"DIALER_GRPC_ADDRESS,default=localhost:50061"`
 	GatewayHTTPPort          string `env:"GATEWAY_HTTP_PORT,default=:8080"`
 
 	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS,delimiter=;,default=http://localhost:3000;http://localhost:5173"`
@@ -53,6 +55,7 @@ type Config struct {
 	BizHealthPort          string `env:"BIZ_HEALTH_PORT,default=:9098"`
 	AutomationHealthPort   string `env:"AUTOMATION_HEALTH_PORT,default=:9099"`
 	PluginHealthPort       string `env:"PLUGIN_HEALTH_PORT,default=:9100"`
+	DialerHealthPort       string `env:"DIALER_HEALTH_PORT,default=:9101"`
 
 	// LiveKit (Video calls -- optional, feature-flagged)
 	LiveKitAPIKey    string `env:"LIVEKIT_API_KEY,default="`

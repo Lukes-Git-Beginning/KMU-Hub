@@ -1,4 +1,4 @@
-.PHONY: build test lint clean run-gateway run-crm run-chat run-auth run-notification run-work run-automation migrate-up migrate-down migrate-create proto proto-automation docker-build docker-up docker-down docker-logs docker-clean e2e-test smoke-test smoke-prod
+.PHONY: build test lint clean run-gateway run-crm run-chat run-auth run-notification run-work run-automation run-dialer migrate-up migrate-down migrate-create proto proto-automation proto-dialer docker-build docker-up docker-down docker-logs docker-clean e2e-test smoke-test smoke-prod
 
 # Build all services
 build:
@@ -9,6 +9,7 @@ build:
 	go build -o bin/notification ./cmd/notification
 	go build -o bin/work ./cmd/work
 	go build -o bin/automation ./cmd/automation
+	go build -o bin/dialer ./cmd/dialer
 
 # Run individual services
 run-gateway:
@@ -31,6 +32,9 @@ run-work:
 
 run-automation:
 	go run ./cmd/automation
+
+run-dialer:
+	go run ./cmd/dialer
 
 # Test
 test:
@@ -91,12 +95,20 @@ proto:
 	protoc --go_out=. --go_opt=module=github.com/kmuhub/kmuhub \
 		--go-grpc_out=. --go-grpc_opt=module=github.com/kmuhub/kmuhub \
 		proto/automation/v1/automation.proto
+	protoc --go_out=. --go_opt=module=github.com/kmuhub/kmuhub \
+		--go-grpc_out=. --go-grpc_opt=module=github.com/kmuhub/kmuhub \
+		proto/dialer/v1/dialer.proto
 
 # Individual proto targets
 proto-automation:
 	protoc --go_out=. --go_opt=module=github.com/kmuhub/kmuhub \
 		--go-grpc_out=. --go-grpc_opt=module=github.com/kmuhub/kmuhub \
 		proto/automation/v1/automation.proto
+
+proto-dialer:
+	protoc --go_out=. --go_opt=module=github.com/kmuhub/kmuhub \
+		--go-grpc_out=. --go-grpc_opt=module=github.com/kmuhub/kmuhub \
+		proto/dialer/v1/dialer.proto
 
 # Docker operations
 docker-build:

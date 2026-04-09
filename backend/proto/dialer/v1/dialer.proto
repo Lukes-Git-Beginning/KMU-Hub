@@ -1,0 +1,415 @@
+syntax = "proto3";
+
+package dialer.v1;
+
+option go_package = "github.com/kmuhub/kmuhub/proto/dialer/v1;dialerv1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+service DialerService {
+  // Campaign Management
+  rpc CreateCampaign(CreateCampaignRequest) returns (Campaign);
+  rpc GetCampaign(GetCampaignRequest) returns (Campaign);
+  rpc ListCampaigns(ListCampaignsRequest) returns (ListCampaignsResponse);
+  rpc UpdateCampaign(UpdateCampaignRequest) returns (Campaign);
+  rpc StartCampaign(StartCampaignRequest) returns (Campaign);
+  rpc PauseCampaign(PauseCampaignRequest) returns (Campaign);
+  rpc ArchiveCampaign(ArchiveCampaignRequest) returns (google.protobuf.Empty);
+
+  // Campaign Contacts (Queue)
+  rpc AddContactsToCampaign(AddContactsToCampaignRequest) returns (AddContactsToCampaignResponse);
+  rpc GetNextContact(GetNextContactRequest) returns (CampaignContact);
+  rpc SkipContact(SkipContactRequest) returns (google.protobuf.Empty);
+  rpc RequeueContact(RequeueContactRequest) returns (google.protobuf.Empty);
+  rpc ListCampaignContacts(ListCampaignContactsRequest) returns (ListCampaignContactsResponse);
+
+  // Call Sessions
+  rpc InitiateDialerCall(InitiateDialerCallRequest) returns (DialerCallSession);
+  rpc LogCallOutcome(LogCallOutcomeRequest) returns (DialerCallSession);
+  rpc SaveCallNotes(SaveCallNotesRequest) returns (google.protobuf.Empty);
+  rpc CompleteWrapUp(CompleteWrapUpRequest) returns (google.protobuf.Empty);
+
+  // Agent Status
+  rpc SetAgentStatus(SetAgentStatusRequest) returns (AgentStatus);
+  rpc GetAgentStatus(GetAgentStatusRequest) returns (AgentStatus);
+  rpc GetCampaignAgents(GetCampaignAgentsRequest) returns (GetCampaignAgentsResponse);
+
+  // Call Outcomes (tenant-configurable)
+  rpc ListCallOutcomes(ListCallOutcomesRequest) returns (ListCallOutcomesResponse);
+  rpc CreateCallOutcome(CreateCallOutcomeRequest) returns (CallOutcome);
+  rpc UpdateCallOutcome(UpdateCallOutcomeRequest) returns (CallOutcome);
+  rpc DeleteCallOutcome(DeleteCallOutcomeRequest) returns (google.protobuf.Empty);
+
+  // Dashboard
+  rpc GetCampaignDashboard(GetCampaignDashboardRequest) returns (CampaignDashboard);
+  rpc GetAgentDashboard(GetAgentDashboardRequest) returns (AgentDashboard);
+}
+
+// ============================================================================
+// Enums
+// ============================================================================
+
+enum CampaignStatus {
+  CAMPAIGN_STATUS_UNSPECIFIED = 0;
+  CAMPAIGN_STATUS_DRAFT = 1;
+  CAMPAIGN_STATUS_ACTIVE = 2;
+  CAMPAIGN_STATUS_PAUSED = 3;
+  CAMPAIGN_STATUS_COMPLETED = 4;
+  CAMPAIGN_STATUS_ARCHIVED = 5;
+}
+
+enum CampaignMode {
+  CAMPAIGN_MODE_UNSPECIFIED = 0;
+  CAMPAIGN_MODE_PREVIEW = 1;
+  CAMPAIGN_MODE_POWER = 2;
+  CAMPAIGN_MODE_PREDICTIVE = 3;
+}
+
+enum AgentDialerStatus {
+  AGENT_DIALER_STATUS_UNSPECIFIED = 0;
+  AGENT_DIALER_STATUS_AVAILABLE = 1;
+  AGENT_DIALER_STATUS_ON_CALL = 2;
+  AGENT_DIALER_STATUS_WRAP_UP = 3;
+  AGENT_DIALER_STATUS_BREAK = 4;
+  AGENT_DIALER_STATUS_OFFLINE = 5;
+}
+
+enum CampaignContactStatus {
+  CAMPAIGN_CONTACT_STATUS_UNSPECIFIED = 0;
+  CAMPAIGN_CONTACT_STATUS_PENDING = 1;
+  CAMPAIGN_CONTACT_STATUS_IN_PROGRESS = 2;
+  CAMPAIGN_CONTACT_STATUS_COMPLETED = 3;
+  CAMPAIGN_CONTACT_STATUS_SKIPPED = 4;
+  CAMPAIGN_CONTACT_STATUS_CALLBACK = 5;
+}
+
+enum CallEventType {
+  CALL_EVENT_TYPE_UNSPECIFIED = 0;
+  CALL_EVENT_TYPE_INITIATED = 1;
+  CALL_EVENT_TYPE_RINGING = 2;
+  CALL_EVENT_TYPE_ANSWERED = 3;
+  CALL_EVENT_TYPE_IN_PROGRESS = 4;
+  CALL_EVENT_TYPE_OUTCOME_LOGGED = 5;
+  CALL_EVENT_TYPE_WRAP_UP_STARTED = 6;
+  CALL_EVENT_TYPE_COMPLETED = 7;
+  CALL_EVENT_TYPE_FAILED = 8;
+}
+
+// ============================================================================
+// Core Message Types
+// ============================================================================
+
+message Campaign {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  optional string description = 4;
+  CampaignStatus status = 5;
+  CampaignMode mode = 6;
+  // JSON-encoded campaign settings (e.g. wrap-up timeout, retry rules)
+  optional string settings = 7;
+  string created_by = 8;
+  repeated string assigned_agent_ids = 9;
+  int32 contact_count = 10;
+  int32 completed_count = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+  optional google.protobuf.Timestamp started_at = 14;
+  optional google.protobuf.Timestamp completed_at = 15;
+}
+
+message CampaignContact {
+  string id = 1;
+  string campaign_id = 2;
+  string contact_id = 3;
+  int32 position = 4;
+  CampaignContactStatus status = 5;
+  optional string outcome_id = 6;
+  optional string notes = 7;
+  optional google.protobuf.Timestamp callback_at = 8;
+  optional google.protobuf.Timestamp last_called_at = 9;
+  int32 call_count = 10;
+  // Denormalized contact info
+  string contact_name = 11;
+  string contact_phone = 12;
+  optional string contact_company = 13;
+}
+
+message DialerCallSession {
+  string id = 1;
+  string campaign_contact_id = 2;
+  // FK to video service call_sessions — present when call was routed via LiveKit
+  optional string call_session_id = 3;
+  string agent_id = 4;
+  optional string outcome_id = 5;
+  optional int32 duration_seconds = 6;
+  optional string notes = 7;
+  optional string next_action = 8;
+  optional string appointment_id = 9;
+  google.protobuf.Timestamp created_at = 10;
+  optional google.protobuf.Timestamp wrap_up_completed_at = 11;
+}
+
+message CallEvent {
+  string id = 1;
+  string dialer_call_session_id = 2;
+  CallEventType event_type = 3;
+  // JSON-encoded event payload (event-type-specific fields)
+  string payload = 4;
+  google.protobuf.Timestamp occurred_at = 5;
+}
+
+message AgentStatus {
+  string user_id = 1;
+  AgentDialerStatus status = 2;
+  optional string campaign_id = 3;
+  google.protobuf.Timestamp since = 4;
+  // Denormalized user info
+  string first_name = 5;
+  string last_name = 6;
+}
+
+message CallOutcome {
+  string id = 1;
+  string tenant_id = 2;
+  string label = 3;
+  string color = 4;
+  bool is_positive = 5;
+  bool is_callback = 6;
+  bool is_appointment = 7;
+  int32 sort_order = 8;
+  bool is_active = 9;
+}
+
+// ============================================================================
+// Dashboard Message Types
+// ============================================================================
+
+message OutcomeCount {
+  string outcome_id = 1;
+  string outcome_label = 2;
+  string outcome_color = 3;
+  int32 count = 4;
+}
+
+message CampaignDashboard {
+  string campaign_id = 1;
+  int32 total_contacts = 2;
+  int32 completed_contacts = 3;
+  int32 pending_contacts = 4;
+  int32 skipped_contacts = 5;
+  int32 callback_contacts = 6;
+  int32 total_calls = 7;
+  int32 positive_calls = 8;
+  float average_duration_seconds = 9;
+  float calls_per_hour = 10;
+  repeated OutcomeCount outcome_breakdown = 11;
+}
+
+message AgentDashboard {
+  string agent_id = 1;
+  int32 total_calls_today = 2;
+  float average_duration_seconds = 3;
+  float calls_per_hour = 4;
+  repeated OutcomeCount outcome_breakdown = 5;
+  optional string active_campaign_id = 6;
+  optional string active_campaign_name = 7;
+}
+
+// ============================================================================
+// Campaign Management RPCs
+// ============================================================================
+
+message CreateCampaignRequest {
+  string name = 1;
+  optional string description = 2;
+  // Defaults to CAMPAIGN_MODE_PREVIEW when unspecified
+  CampaignMode mode = 3;
+  repeated string assigned_agent_ids = 4;
+  // JSON-encoded campaign settings
+  optional string settings = 5;
+}
+
+message GetCampaignRequest {
+  string campaign_id = 1;
+}
+
+message ListCampaignsRequest {
+  optional CampaignStatus status_filter = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListCampaignsResponse {
+  repeated Campaign campaigns = 1;
+  int32 total = 2;
+}
+
+message UpdateCampaignRequest {
+  string campaign_id = 1;
+  optional string name = 2;
+  optional string description = 3;
+  repeated string assigned_agent_ids = 4;
+  optional string settings = 5;
+}
+
+message StartCampaignRequest {
+  string campaign_id = 1;
+  string user_id = 2;
+}
+
+message PauseCampaignRequest {
+  string campaign_id = 1;
+  string user_id = 2;
+}
+
+message ArchiveCampaignRequest {
+  string campaign_id = 1;
+  string user_id = 2;
+}
+
+// ============================================================================
+// Campaign Contacts (Queue) RPCs
+// ============================================================================
+
+message AddContactsToCampaignRequest {
+  string campaign_id = 1;
+  // Provide exactly one of: explicit contact IDs or a saved filter ID
+  repeated string contact_ids = 2;
+  optional string filter_id = 3;
+}
+
+message AddContactsToCampaignResponse {
+  int32 added_count = 1;
+  // Contacts already present in this campaign
+  int32 skipped_count = 2;
+}
+
+message GetNextContactRequest {
+  string campaign_id = 1;
+  string agent_id = 2;
+}
+
+message SkipContactRequest {
+  string campaign_contact_id = 1;
+  string agent_id = 2;
+}
+
+message RequeueContactRequest {
+  string campaign_contact_id = 1;
+  string agent_id = 2;
+}
+
+message ListCampaignContactsRequest {
+  string campaign_id = 1;
+  optional CampaignContactStatus status_filter = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListCampaignContactsResponse {
+  repeated CampaignContact contacts = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// Call Session RPCs
+// ============================================================================
+
+message InitiateDialerCallRequest {
+  string campaign_contact_id = 1;
+  string agent_id = 2;
+  // Optional: LiveKit call session created beforehand via VideoService
+  optional string call_session_id = 3;
+}
+
+message LogCallOutcomeRequest {
+  string dialer_call_session_id = 1;
+  string outcome_id = 2;
+  optional string notes = 3;
+  optional string next_action = 4;
+  optional google.protobuf.Timestamp callback_at = 5;
+  optional string appointment_id = 6;
+}
+
+message SaveCallNotesRequest {
+  string dialer_call_session_id = 1;
+  string notes = 2;
+}
+
+message CompleteWrapUpRequest {
+  string dialer_call_session_id = 1;
+  string agent_id = 2;
+}
+
+// ============================================================================
+// Agent Status RPCs
+// ============================================================================
+
+message SetAgentStatusRequest {
+  string user_id = 1;
+  AgentDialerStatus status = 2;
+  optional string campaign_id = 3;
+}
+
+message GetAgentStatusRequest {
+  string user_id = 1;
+}
+
+message GetCampaignAgentsRequest {
+  string campaign_id = 1;
+}
+
+message GetCampaignAgentsResponse {
+  repeated AgentStatus agents = 1;
+}
+
+// ============================================================================
+// Call Outcomes RPCs
+// ============================================================================
+
+message ListCallOutcomesRequest {
+  // When false, returns only active outcomes; omit to return all
+  optional bool include_inactive = 1;
+}
+
+message ListCallOutcomesResponse {
+  repeated CallOutcome outcomes = 1;
+}
+
+message CreateCallOutcomeRequest {
+  string label = 1;
+  string color = 2;
+  bool is_positive = 3;
+  bool is_callback = 4;
+  bool is_appointment = 5;
+  int32 sort_order = 6;
+}
+
+message UpdateCallOutcomeRequest {
+  string outcome_id = 1;
+  optional string label = 2;
+  optional string color = 3;
+  optional bool is_positive = 4;
+  optional bool is_callback = 5;
+  optional bool is_appointment = 6;
+  optional int32 sort_order = 7;
+  optional bool is_active = 8;
+}
+
+message DeleteCallOutcomeRequest {
+  string outcome_id = 1;
+}
+
+// ============================================================================
+// Dashboard RPCs
+// ============================================================================
+
+message GetCampaignDashboardRequest {
+  string campaign_id = 1;
+}
+
+message GetAgentDashboardRequest {
+  string agent_id = 1;
+}
