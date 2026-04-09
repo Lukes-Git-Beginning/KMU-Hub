@@ -79,7 +79,7 @@ Detaillierter Plan: `docs/PERFORMANCE-PLAN.md`
 | 1B — Backend Core | service.go (24 Methoden), 4 Repos, Redis Agent-Status, CRM-Bridge, gRPC-Server | ✅ |
 | 1C — Gateway + Permissions | 25 REST-Endpoints, Permission-Migration (068), route_dialer.go (1014 LoC) | ✅ |
 | 1D — Frontend | 26 Dateien, DialerWorkspace (4-Phasen Call-Flow), Campaigns, Dashboard, Settings, Mock-Handler, i18n (4 Sprachen) | ✅ |
-| 1E — Integration | CRM-Timeline, Callback-Notifications, CRM-Filter-Import, E2E | Offen |
+| 1E — Integration | CRM-Timeline live, Callback-Notifications, Filter-Import, Bug Fixes (ContactID, wrap_up, skip), EventEmitter, Unit/Gateway/E2E Tests | ✅ |
 
 Strategische Roadmap: `docs/DIALER-ROADMAP.md`
 

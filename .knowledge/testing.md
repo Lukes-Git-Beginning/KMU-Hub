@@ -1,12 +1,12 @@
 ---
 tags: [testing, qualitaet]
-updated: 2026-04-06
+updated: 2026-04-09
 ---
 # Test-Strategie
 
 ## Backend (Go)
 - Framework: Go stdlib `testing` + testify (assert/require/mock)
-- 58 `*_test.go` Dateien, 240+ Tests allein im CRM, 162+ Gateway-Handler-Tests
+- 61 `*_test.go` Dateien, 240+ Tests allein im CRM, 193+ Gateway-Handler-Tests
 - Race Detector: `-race` Flag in CI aktiviert
 - Coverage: Report generiert, als Artifact hochgeladen (30 Tage)
 
@@ -27,6 +27,9 @@ type MockRepository struct {
 - **Spracherkennung** — Chat-Nachrichten (`chat/langdetect/detector_test.go`)
 - **Workflow-Conditions** — `amount > 1000 AND status = 'approved'` (`automation/condition/evaluator_test.go`)
 - **Middleware** — RBAC, Rate Limiter, Auth (`middleware/*_test.go`)
+- **Dialer Service** — LogCallOutcome (ContactID resolution, fallback, callback), campaign auto-complete (`dialer/service_test.go`, 6 Tests)
+- **Dialer Gateway** — 31 Handler-Tests: ServiceUnavailable, InvalidJSON, InvalidUUID (`gateway/route_dialer_test.go`)
+- **Dialer E2E** — Full flow: Campaign → Contact → Call → Outcome → Timeline (`test/e2e/dialer_test.go`)
 
 ## Desktop (Electron/React)
 - Framework: Vitest konfiguriert
@@ -35,7 +38,7 @@ type MockRepository struct {
 ## E2E Tests
 - **Datei:** `backend/test/e2e/` (Build-Tag `//go:build e2e`)
 - CI-Job vorhanden (nach Unit Tests), mit Service-Containers
-- Tests fuer: CRM, Chat, Work, Document Services
+- Tests fuer: CRM, Chat, Work, Document, Dialer Services
 - Helpers: `doRequest`, `registerAndLogin`, `requireStatus`, `decodeBody`
 - **Makefile:** `make e2e-test`
 

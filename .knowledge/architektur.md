@@ -62,12 +62,17 @@ Gateway `/health`: status, checks, registered_services, version, commit, build_t
 ### Module (36 in `modules/`)
 admin, auth, automatisierung, berichte, buchhaltung, calendar, chat, crm, dashboard, **dialer**, dokumente, einkauf, finanzen, formulare, fuhrpark, helpdesk, inventar, kalender, kommunikation, kontakte, mails, meetings, notifications, produktion, profil, rapporte, schichten, security, settings, team, vermietung, vertraege, video, wiki, work, zeiterfassung
 
-### Dialer-Modul (2026-04-09)
+### Dialer-Modul (Phase 1 MVP ✅ 2026-04-09)
 - 6 Pages: DialerLayout (4-Tab Sub-Nav), CampaignList, CampaignDetail, DialerWorkspace, AgentDashboard, DialerSettings
 - 15 Komponenten in `components/` (workspace/, dashboard/, settings/)
 - Workspace: 4-Phasen Call-Flow (idle → dialing → on_call → wrap_up) mit `animate-scale-in` Transitions
 - Data: `api/dialer-client.ts` (typed fetch, nicht openapi-fetch) + `api/hooks/useDialer.ts` (24 Hooks)
+- Zusatz-Hooks: `api/hooks/useTimeline.ts` (CRM Contact Timeline), `api/hooks/useSavedFilters.ts` (typed apiClient)
 - Nav: `PhoneCall` Icon, Farbe h:142 s:72 (Gruen), Live-Dot Badge bei aktivem Call
+- AddContactsDialog: Tab-Toggle (Einzelne Kontakte / Gespeicherter CRM-Filter)
+- ContactTimeline: Live-Daten via `GET /api/v1/crm/contacts/{id}/timeline` (kein Mock mehr)
+- EventEmitter: `PGEventEmitter` in `backend/internal/dialer/event_emitter.go` — emittiert `dialer.call.outcome_logged`, `dialer.contact.callback_scheduled`, `dialer.campaign.completed`
+- NotificationType `dialer_callback` + PhoneCall-Icon im NotificationCenter
 
 ### Zustand Stores (37 in `stores/`)
 ai, auth, automatisierung, berichte, calendar, contacts, dashboard, **dialer**, einkauf, finance, formulare, fuhrpark, helpdesk, integrations, inventar, kommunikation, locale, mails, meetings, navigation, notifications, presence, produktion, profile, rapporte, schichten, search, settings, team, timetracking, tour, ui, vermietung, vertraege, video, wiki, work
