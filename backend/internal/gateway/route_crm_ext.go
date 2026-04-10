@@ -2,40 +2,34 @@ package gateway
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/kmuhub/kmuhub/internal/crm/activity"
-	"github.com/kmuhub/kmuhub/internal/crm/company"
-	"github.com/kmuhub/kmuhub/internal/crm/consent"
-	"github.com/kmuhub/kmuhub/internal/crm/contact"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
+	crmv1 "github.com/kmuhub/kmuhub/proto/crm/v1"
 )
 
-// CRMExtRoutes handles extended CRM routes with direct DB access.
-// These routes implement features not available via the CRM gRPC service:
-// duplicate detection, contact timeline, and GDPR consent management.
+// CRMExtRoutes handles extended CRM routes via gRPC proxy.
+// These routes implement: duplicate detection, contact timeline, and GDPR consent management.
 type CRMExtRoutes struct {
-	contactSvc  *contact.Service
-	companySvc  *company.Service
-	activitySvc *activity.Service
-	consentSvc  *consent.Service
+	registry *ServiceRegistry
 }
 
-// NewCRMExtRoutes creates CRMExtRoutes using direct DB connections.
-func NewCRMExtRoutes(pool *pgxpool.Pool) *CRMExtRoutes {
-	return &CRMExtRoutes{
-		contactSvc:  contact.NewService(contact.NewPostgresRepository(pool)),
-		companySvc:  company.NewService(company.NewPostgresRepository(pool)),
-		activitySvc: activity.NewService(activity.NewPostgresRepository(pool)),
-		consentSvc:  consent.NewService(consent.NewPostgresRepository(pool)),
+// NewCRMExtRoutes creates CRMExtRoutes using the service registry for gRPC access.
+func NewCRMExtRoutes(registry *ServiceRegistry) *CRMExtRoutes {
+	return &CRMExtRoutes{registry: registry}
+}
+
+// getCRMClient lazily obtains a gRPC client for the CRM service.
+func (c *CRMExtRoutes) getCRMClient() (crmv1.CRMServiceClient, error) {
+	conn, err := c.registry.GetConnection("crm")
+	if err != nil {
+		return nil, err
 	}
+	return crmv1.NewCRMServiceClient(conn), nil
 }
 
 // ============================================================================
@@ -43,21 +37,23 @@ func NewCRMExtRoutes(pool *pgxpool.Pool) *CRMExtRoutes {
 // ============================================================================
 
 func (c *CRMExtRoutes) HandleFindContactDuplicates(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	client, err := c.getCRMClient()
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid contact id")
+		respondServiceUnavailable(w, "crm")
 		return
 	}
 
-	candidates, err := c.contactSvc.FindDuplicates(r.Context(), id)
+	resp, err := client.FindContactDuplicates(r.Context(), &crmv1.FindContactDuplicatesRequest{
+		ContactId: chi.URLParam(r, "id"),
+	})
 	if err != nil {
-		response.Error(w, http.StatusInternalServerError, err.Error())
+		respondGRPCError(w, err)
 		return
 	}
 
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"duplicates": candidates,
-		"total":      len(candidates),
+		"duplicates": resp.Duplicates,
+		"total":      resp.Total,
 	})
 }
 
@@ -67,30 +63,28 @@ type mergeContactsRequest struct {
 }
 
 func (c *CRMExtRoutes) HandleMergeContacts(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, "crm")
+		return
+	}
+
 	var req mergeContactsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	primaryID, err := uuid.Parse(req.PrimaryID)
+	resp, err := client.MergeContacts(r.Context(), &crmv1.MergeContactsRequest{
+		PrimaryId:   req.PrimaryID,
+		DuplicateId: req.DuplicateID,
+	})
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid primary_id")
-		return
-	}
-	duplicateID, err := uuid.Parse(req.DuplicateID)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid duplicate_id")
-		return
-	}
-
-	merged, err := c.contactSvc.MergeContacts(r.Context(), primaryID, duplicateID)
-	if err != nil {
-		response.Error(w, http.StatusInternalServerError, err.Error())
+		respondGRPCError(w, err)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, merged)
+	response.JSON(w, http.StatusOK, resp.Contact)
 }
 
 // ============================================================================
@@ -98,21 +92,23 @@ func (c *CRMExtRoutes) HandleMergeContacts(w http.ResponseWriter, r *http.Reques
 // ============================================================================
 
 func (c *CRMExtRoutes) HandleFindCompanyDuplicates(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	client, err := c.getCRMClient()
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid company id")
+		respondServiceUnavailable(w, "crm")
 		return
 	}
 
-	candidates, err := c.companySvc.FindDuplicates(r.Context(), id)
+	resp, err := client.FindCompanyDuplicates(r.Context(), &crmv1.FindCompanyDuplicatesRequest{
+		CompanyId: chi.URLParam(r, "id"),
+	})
 	if err != nil {
-		response.Error(w, http.StatusInternalServerError, err.Error())
+		respondGRPCError(w, err)
 		return
 	}
 
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"duplicates": candidates,
-		"total":      len(candidates),
+		"duplicates": resp.Duplicates,
+		"total":      resp.Total,
 	})
 }
 
@@ -122,30 +118,28 @@ type mergeCompaniesRequest struct {
 }
 
 func (c *CRMExtRoutes) HandleMergeCompanies(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, "crm")
+		return
+	}
+
 	var req mergeCompaniesRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	primaryID, err := uuid.Parse(req.PrimaryID)
+	resp, err := client.MergeCompanies(r.Context(), &crmv1.MergeCompaniesRequest{
+		PrimaryId:   req.PrimaryID,
+		DuplicateId: req.DuplicateID,
+	})
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid primary_id")
-		return
-	}
-	duplicateID, err := uuid.Parse(req.DuplicateID)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid duplicate_id")
-		return
-	}
-
-	merged, err := c.companySvc.MergeCompanies(r.Context(), primaryID, duplicateID)
-	if err != nil {
-		response.Error(w, http.StatusInternalServerError, err.Error())
+		respondGRPCError(w, err)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, merged)
+	response.JSON(w, http.StatusOK, resp.Company)
 }
 
 // ============================================================================
@@ -153,35 +147,39 @@ func (c *CRMExtRoutes) HandleMergeCompanies(w http.ResponseWriter, r *http.Reque
 // ============================================================================
 
 func (c *CRMExtRoutes) HandleContactTimeline(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	client, err := c.getCRMClient()
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid contact id")
+		respondServiceUnavailable(w, "crm")
 		return
 	}
 
 	offsetStr := r.URL.Query().Get("offset")
 	limitStr := r.URL.Query().Get("limit")
 
-	offset := 0
-	limit := 20
+	page := int32(1)
+	pageSize := int32(20)
 	if offsetStr != "" {
 		if v, err := strconv.Atoi(offsetStr); err == nil && v >= 0 {
-			offset = v
+			page = int32(v)
 		}
 	}
 	if limitStr != "" {
 		if v, err := strconv.Atoi(limitStr); err == nil && v > 0 && v <= 100 {
-			limit = v
+			pageSize = int32(v)
 		}
 	}
 
-	result, err := c.activitySvc.GetContactTimeline(r.Context(), id, offset, limit)
+	resp, err := client.GetContactTimeline(r.Context(), &crmv1.GetContactTimelineRequest{
+		ContactId: chi.URLParam(r, "id"),
+		Page:      page,
+		PageSize:  pageSize,
+	})
 	if err != nil {
-		response.Error(w, http.StatusInternalServerError, err.Error())
+		respondGRPCError(w, err)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, result)
+	response.JSON(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -189,19 +187,21 @@ func (c *CRMExtRoutes) HandleContactTimeline(w http.ResponseWriter, r *http.Requ
 // ============================================================================
 
 func (c *CRMExtRoutes) HandleGetConsents(w http.ResponseWriter, r *http.Request) {
-	contactID, err := uuid.Parse(chi.URLParam(r, "id"))
+	client, err := c.getCRMClient()
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid contact id")
+		respondServiceUnavailable(w, "crm")
 		return
 	}
 
-	summary, err := c.consentSvc.GetContactConsents(r.Context(), contactID)
+	resp, err := client.GetContactConsents(r.Context(), &crmv1.GetContactConsentsRequest{
+		ContactId: chi.URLParam(r, "id"),
+	})
 	if err != nil {
-		response.Error(w, http.StatusInternalServerError, err.Error())
+		respondGRPCError(w, err)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, summary)
+	response.JSON(w, http.StatusOK, resp.Summary)
 }
 
 type grantConsentRequest struct {
@@ -212,9 +212,9 @@ type grantConsentRequest struct {
 }
 
 func (c *CRMExtRoutes) HandleGrantConsent(w http.ResponseWriter, r *http.Request) {
-	contactID, err := uuid.Parse(chi.URLParam(r, "id"))
+	client, err := c.getCRMClient()
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid contact id")
+		respondServiceUnavailable(w, "crm")
 		return
 	}
 
@@ -224,27 +224,26 @@ func (c *CRMExtRoutes) HandleGrantConsent(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	userIDStr := middleware.GetUserID(r.Context())
-	var createdBy *uuid.UUID
-	if uid, err := uuid.Parse(userIDStr); err == nil {
-		createdBy = &uid
+	protoReq := &crmv1.GrantConsentRequest{
+		ContactId:   chi.URLParam(r, "id"),
+		ConsentType: req.ConsentType,
+		Source:      req.Source,
+		LegalBasis:  req.LegalBasis,
+		IpAddress:   req.IPAddress,
 	}
 
-	record, err := c.consentSvc.GrantConsent(r.Context(), contactID, req.ConsentType, req.Source, req.LegalBasis, req.IPAddress, createdBy)
+	userIDStr := middleware.GetUserID(r.Context())
+	if userIDStr != "" {
+		protoReq.CreatedBy = &userIDStr
+	}
+
+	resp, err := client.GrantConsent(r.Context(), protoReq)
 	if err != nil {
-		if errors.Is(err, consent.ErrInvalidConsentType) || errors.Is(err, consent.ErrInvalidLegalBasis) {
-			response.Error(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		if errors.Is(err, consent.ErrContactNotFound) {
-			response.Error(w, http.StatusNotFound, err.Error())
-			return
-		}
-		response.Error(w, http.StatusInternalServerError, err.Error())
+		respondGRPCError(w, err)
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, record)
+	response.JSON(w, http.StatusCreated, resp.Record)
 }
 
 type revokeConsentRequest struct {
@@ -252,13 +251,11 @@ type revokeConsentRequest struct {
 }
 
 func (c *CRMExtRoutes) HandleRevokeConsent(w http.ResponseWriter, r *http.Request) {
-	contactID, err := uuid.Parse(chi.URLParam(r, "id"))
+	client, err := c.getCRMClient()
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid contact id")
+		respondServiceUnavailable(w, "crm")
 		return
 	}
-
-	consentType := chi.URLParam(r, "type")
 
 	var req revokeConsentRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -266,51 +263,45 @@ func (c *CRMExtRoutes) HandleRevokeConsent(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	userIDStr := middleware.GetUserID(r.Context())
-	var revokedBy *uuid.UUID
-	if uid, err := uuid.Parse(userIDStr); err == nil {
-		revokedBy = &uid
+	protoReq := &crmv1.RevokeConsentRequest{
+		ContactId:   chi.URLParam(r, "id"),
+		ConsentType: chi.URLParam(r, "type"),
+		Notes:       req.Notes,
 	}
 
-	record, err := c.consentSvc.RevokeConsent(r.Context(), contactID, consentType, req.Notes, revokedBy)
+	userIDStr := middleware.GetUserID(r.Context())
+	if userIDStr != "" {
+		protoReq.RevokedBy = &userIDStr
+	}
+
+	resp, err := client.RevokeConsent(r.Context(), protoReq)
 	if err != nil {
-		if errors.Is(err, consent.ErrInvalidConsentType) {
-			response.Error(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		if errors.Is(err, consent.ErrContactNotFound) {
-			response.Error(w, http.StatusNotFound, err.Error())
-			return
-		}
-		response.Error(w, http.StatusInternalServerError, err.Error())
+		respondGRPCError(w, err)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, record)
+	response.JSON(w, http.StatusOK, resp.Record)
 }
 
 func (c *CRMExtRoutes) HandleGetConsentHistory(w http.ResponseWriter, r *http.Request) {
-	contactID, err := uuid.Parse(chi.URLParam(r, "id"))
+	client, err := c.getCRMClient()
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid contact id")
+		respondServiceUnavailable(w, "crm")
 		return
 	}
 
-	consentType := chi.URLParam(r, "type")
-
-	records, err := c.consentSvc.GetConsentHistory(r.Context(), contactID, consentType)
+	resp, err := client.GetConsentHistory(r.Context(), &crmv1.GetConsentHistoryRequest{
+		ContactId:   chi.URLParam(r, "id"),
+		ConsentType: chi.URLParam(r, "type"),
+	})
 	if err != nil {
-		if errors.Is(err, consent.ErrInvalidConsentType) {
-			response.Error(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		response.Error(w, http.StatusInternalServerError, err.Error())
+		respondGRPCError(w, err)
 		return
 	}
 
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"history": records,
-		"total":   len(records),
+		"history": resp.History,
+		"total":   resp.Total,
 	})
 }
 
@@ -319,9 +310,9 @@ type requestDeletionBody struct {
 }
 
 func (c *CRMExtRoutes) HandleRequestDeletion(w http.ResponseWriter, r *http.Request) {
-	contactID, err := uuid.Parse(chi.URLParam(r, "id"))
+	client, err := c.getCRMClient()
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid contact id")
+		respondServiceUnavailable(w, "crm")
 		return
 	}
 
@@ -331,46 +322,41 @@ func (c *CRMExtRoutes) HandleRequestDeletion(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	userIDStr := middleware.GetUserID(r.Context())
-	var requestedBy *uuid.UUID
-	if uid, err := uuid.Parse(userIDStr); err == nil {
-		requestedBy = &uid
+	protoReq := &crmv1.RequestDeletionRequest{
+		ContactId: chi.URLParam(r, "id"),
+		Reason:    req.Reason,
 	}
 
-	deletionReq, err := c.consentSvc.RequestDeletion(r.Context(), contactID, req.Reason, requestedBy)
+	userIDStr := middleware.GetUserID(r.Context())
+	if userIDStr != "" {
+		protoReq.RequestedBy = &userIDStr
+	}
+
+	resp, err := client.RequestDeletion(r.Context(), protoReq)
 	if err != nil {
-		if errors.Is(err, consent.ErrContactNotFound) {
-			response.Error(w, http.StatusNotFound, err.Error())
-			return
-		}
-		response.Error(w, http.StatusInternalServerError, err.Error())
+		respondGRPCError(w, err)
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, deletionReq)
+	response.JSON(w, http.StatusCreated, resp.DeletionRequest)
 }
 
 func (c *CRMExtRoutes) HandleProcessDeletion(w http.ResponseWriter, r *http.Request) {
-	requestID, err := uuid.Parse(chi.URLParam(r, "id"))
+	client, err := c.getCRMClient()
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request id")
+		respondServiceUnavailable(w, "crm")
 		return
 	}
 
-	if err := c.consentSvc.ProcessDeletion(r.Context(), requestID); err != nil {
-		if errors.Is(err, consent.ErrDeletionRequestNotFound) {
-			response.Error(w, http.StatusNotFound, err.Error())
-			return
-		}
-		if errors.Is(err, consent.ErrDeletionAlreadyComplete) {
-			response.Error(w, http.StatusConflict, err.Error())
-			return
-		}
-		response.Error(w, http.StatusInternalServerError, err.Error())
+	resp, err := client.ProcessDeletion(r.Context(), &crmv1.ProcessDeletionRequest{
+		RequestId: chi.URLParam(r, "id"),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, map[string]string{"status": "completed"})
+	response.JSON(w, http.StatusOK, map[string]string{"status": resp.Status})
 }
 
 // ============================================================================

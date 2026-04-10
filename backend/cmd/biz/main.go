@@ -107,6 +107,10 @@ func main() {
 	// Shared repositories (used by multiple services)
 	numberSeqRepo := quote.NewPostgresNumberSequenceRepo(pool)
 	companySettingsRepo := quote.NewPostgresCompanySettingsRepo(pool)
+	// workTimeRepo is shared: used by BizGRPCServer (CreateInvoiceFromTimeEntries)
+	// and by the HR gRPC server (time tracking). Initialized here so it can be
+	// passed to NewBizGRPCServer before the HR services block.
+	workTimeRepo := timetracking.NewPostgresWorkTimeRepo(pool)
 
 	// =========================================================================
 	// CRM gRPC Client (for DealValueUpdater)
@@ -180,6 +184,7 @@ func main() {
 		pdfGen,
 		datevExp,
 		companySettingsRepo,
+		workTimeRepo,
 	)
 	bizv1.RegisterFinanceServiceServer(grpcServer, bizGRPC)
 
@@ -194,7 +199,7 @@ func main() {
 	docCategoryRepo := employee.NewPostgresDocCategoryRepo(pool)
 	employeeDocRepo := employee.NewPostgresEmployeeDocRepo(pool)
 	absenceRepo := absence.NewPostgresAbsenceRepo(pool)
-	workTimeRepo := timetracking.NewPostgresWorkTimeRepo(pool)
+	// workTimeRepo is already initialized above (shared with BizGRPCServer)
 	breakRepo := timetracking.NewPostgresBreakRepo(pool)
 
 	leaveSvc := leave.NewService(leaveRequestRepo, leaveBalanceRepo, leaveTypeRepo, hrSettingsRepo, employeeRepo)

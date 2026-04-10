@@ -110,6 +110,11 @@ proto-dialer:
 		--go-grpc_out=. --go-grpc_opt=module=github.com/kmuhub/kmuhub \
 		proto/dialer/v1/dialer.proto
 
+proto-biz:
+	protoc --go_out=. --go_opt=module=github.com/kmuhub/kmuhub \
+		--go-grpc_out=. --go-grpc_opt=module=github.com/kmuhub/kmuhub \
+		proto/biz/v1/biz.proto
+
 # Docker operations
 docker-build:
 	cd ../deploy/docker && docker-compose build

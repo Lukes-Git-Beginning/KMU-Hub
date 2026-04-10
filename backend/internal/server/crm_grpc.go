@@ -13,6 +13,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/crm/activity"
 	"github.com/kmuhub/kmuhub/internal/crm/company"
+	"github.com/kmuhub/kmuhub/internal/crm/consent"
 	"github.com/kmuhub/kmuhub/internal/crm/contact"
 	"github.com/kmuhub/kmuhub/internal/crm/customfield"
 	"github.com/kmuhub/kmuhub/internal/crm/deal"
@@ -36,6 +37,7 @@ type CRMGRPCServer struct {
 	pipelineStageService *pipelinestage.Service
 	dealService          *deal.Service
 	activityService      *activity.Service
+	consentService       *consent.Service
 	searchService        *search.Service
 	savedFilterService   *savedfilter.Service
 	reportService        *report.Service
@@ -53,6 +55,7 @@ func NewCRMGRPCServer(
 	pipelineStageService *pipelinestage.Service,
 	dealService *deal.Service,
 	activityService *activity.Service,
+	consentService *consent.Service,
 	searchService *search.Service,
 	savedFilterService *savedfilter.Service,
 	reportService *report.Service,
@@ -65,6 +68,7 @@ func NewCRMGRPCServer(
 		pipelineStageService: pipelineStageService,
 		dealService:          dealService,
 		activityService:      activityService,
+		consentService:       consentService,
 		searchService:        searchService,
 		savedFilterService:   savedFilterService,
 		reportService:        reportService,
@@ -2445,7 +2449,358 @@ func mapCRMError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, emailcontact.ErrNotAuthorized):
 		return status.Error(codes.PermissionDenied, err.Error())
+	// Consent errors
+	case errors.Is(err, consent.ErrContactNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, consent.ErrInvalidConsentType):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, consent.ErrInvalidLegalBasis):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, consent.ErrDeletionRequestNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, consent.ErrDeletionAlreadyComplete):
+		return status.Error(codes.AlreadyExists, err.Error())
+	// Merge errors
+	case errors.Is(err, contact.ErrCannotMergeSelf):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, contact.ErrAlreadyMerged):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, company.ErrCannotMergeSelf):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, company.ErrAlreadyMerged):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
 		return status.Error(codes.Internal, "internal error")
 	}
+}
+
+// ============================================================================
+// Duplicate Detection
+// ============================================================================
+
+func (s *CRMGRPCServer) FindContactDuplicates(ctx context.Context, req *crmv1.FindContactDuplicatesRequest) (*crmv1.FindContactDuplicatesResponse, error) {
+	contactID, err := uuid.Parse(req.ContactId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+	}
+
+	candidates, err := s.contactService.FindDuplicates(ctx, contactID)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	var results []*crmv1.DuplicateContactCandidate
+	for _, c := range candidates {
+		results = append(results, &crmv1.DuplicateContactCandidate{
+			Contact:    toContactInfo(c.Contact),
+			Similarity: c.Similarity,
+			MatchType:  c.MatchType,
+		})
+	}
+
+	return &crmv1.FindContactDuplicatesResponse{
+		Duplicates: results,
+		Total:      int32(len(results)),
+	}, nil
+}
+
+func (s *CRMGRPCServer) MergeContacts(ctx context.Context, req *crmv1.MergeContactsRequest) (*crmv1.MergeContactsResponse, error) {
+	primaryID, err := uuid.Parse(req.PrimaryId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid primary_id")
+	}
+	duplicateID, err := uuid.Parse(req.DuplicateId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid duplicate_id")
+	}
+
+	merged, err := s.contactService.MergeContacts(ctx, primaryID, duplicateID)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.MergeContactsResponse{
+		Contact: toContactInfo(merged),
+	}, nil
+}
+
+func (s *CRMGRPCServer) FindCompanyDuplicates(ctx context.Context, req *crmv1.FindCompanyDuplicatesRequest) (*crmv1.FindCompanyDuplicatesResponse, error) {
+	companyID, err := uuid.Parse(req.CompanyId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid company_id")
+	}
+
+	candidates, err := s.companyService.FindDuplicates(ctx, companyID)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	var results []*crmv1.DuplicateCompanyCandidate
+	for _, c := range candidates {
+		results = append(results, &crmv1.DuplicateCompanyCandidate{
+			Company:    toCompanyInfo(c.Company),
+			Similarity: c.Similarity,
+			MatchType:  c.MatchType,
+		})
+	}
+
+	return &crmv1.FindCompanyDuplicatesResponse{
+		Duplicates: results,
+		Total:      int32(len(results)),
+	}, nil
+}
+
+func (s *CRMGRPCServer) MergeCompanies(ctx context.Context, req *crmv1.MergeCompaniesRequest) (*crmv1.MergeCompaniesResponse, error) {
+	primaryID, err := uuid.Parse(req.PrimaryId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid primary_id")
+	}
+	duplicateID, err := uuid.Parse(req.DuplicateId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid duplicate_id")
+	}
+
+	merged, err := s.companyService.MergeCompanies(ctx, primaryID, duplicateID)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.MergeCompaniesResponse{
+		Company: toCompanyInfo(merged),
+	}, nil
+}
+
+// ============================================================================
+// Contact Timeline
+// ============================================================================
+
+func (s *CRMGRPCServer) GetContactTimeline(ctx context.Context, req *crmv1.GetContactTimelineRequest) (*crmv1.GetContactTimelineResponse, error) {
+	contactID, err := uuid.Parse(req.ContactId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+	}
+
+	page := int(req.Page)
+	pageSize := int(req.PageSize)
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+
+	result, err := s.activityService.GetContactTimeline(ctx, contactID, page, pageSize)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	var events []*crmv1.TimelineEvent
+	for _, e := range result.Events {
+		event := &crmv1.TimelineEvent{
+			Id:            e.ID.String(),
+			EventType:     e.EventType,
+			OccurredAt:    e.OccurredAt.Format("2006-01-02T15:04:05Z07:00"),
+			Title:         e.Title,
+			CreatedByName: e.CreatedByName,
+		}
+		if e.Description != nil {
+			event.Description = e.Description
+		}
+		if len(e.Metadata) > 0 {
+			meta := &crmv1.TimelineEventMetadata{Data: make(map[string]string)}
+			for k, v := range e.Metadata {
+				jsonBytes, _ := json.Marshal(v)
+				meta.Data[k] = string(jsonBytes)
+			}
+			event.Metadata = meta
+		}
+		events = append(events, event)
+	}
+
+	return &crmv1.GetContactTimelineResponse{
+		Events: events,
+		Total:  int32(result.Total),
+	}, nil
+}
+
+// ============================================================================
+// GDPR Consent Management
+// ============================================================================
+
+func toConsentRecord(r *consent.ConsentRecord) *crmv1.ConsentRecord {
+	rec := &crmv1.ConsentRecord{
+		Id:          r.ID.String(),
+		ContactId:   r.ContactID.String(),
+		ConsentType: r.ConsentType,
+		Granted:     r.Granted,
+		LegalBasis:  r.LegalBasis,
+		Source:      r.Source,
+		Notes:       r.Notes,
+		CreatedAt:   r.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+	if r.IPAddress != nil {
+		rec.IpAddress = r.IPAddress
+	}
+	if r.GrantedAt != nil {
+		t := r.GrantedAt.Format("2006-01-02T15:04:05Z07:00")
+		rec.GrantedAt = &t
+	}
+	if r.RevokedAt != nil {
+		t := r.RevokedAt.Format("2006-01-02T15:04:05Z07:00")
+		rec.RevokedAt = &t
+	}
+	if r.CreatedBy != nil {
+		s := r.CreatedBy.String()
+		rec.CreatedBy = &s
+	}
+	return rec
+}
+
+func (s *CRMGRPCServer) GetContactConsents(ctx context.Context, req *crmv1.GetContactConsentsRequest) (*crmv1.GetContactConsentsResponse, error) {
+	contactID, err := uuid.Parse(req.ContactId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+	}
+
+	summary, err := s.consentService.GetContactConsents(ctx, contactID)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	protoSummary := &crmv1.ConsentSummary{
+		ContactId: summary.ContactID.String(),
+		Consents:  make(map[string]*crmv1.ConsentRecord),
+	}
+	for k, v := range summary.Consents {
+		protoSummary.Consents[k] = toConsentRecord(v)
+	}
+
+	return &crmv1.GetContactConsentsResponse{
+		Summary: protoSummary,
+	}, nil
+}
+
+func (s *CRMGRPCServer) GrantConsent(ctx context.Context, req *crmv1.GrantConsentRequest) (*crmv1.GrantConsentResponse, error) {
+	contactID, err := uuid.Parse(req.ContactId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+	}
+
+	var createdBy *uuid.UUID
+	if req.CreatedBy != nil {
+		uid, parseErr := uuid.Parse(*req.CreatedBy)
+		if parseErr == nil {
+			createdBy = &uid
+		}
+	}
+
+	record, err := s.consentService.GrantConsent(ctx, contactID, req.ConsentType, req.Source, req.LegalBasis, req.IpAddress, createdBy)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.GrantConsentResponse{
+		Record: toConsentRecord(record),
+	}, nil
+}
+
+func (s *CRMGRPCServer) RevokeConsent(ctx context.Context, req *crmv1.RevokeConsentRequest) (*crmv1.RevokeConsentResponse, error) {
+	contactID, err := uuid.Parse(req.ContactId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+	}
+
+	var revokedBy *uuid.UUID
+	if req.RevokedBy != nil {
+		uid, parseErr := uuid.Parse(*req.RevokedBy)
+		if parseErr == nil {
+			revokedBy = &uid
+		}
+	}
+
+	record, err := s.consentService.RevokeConsent(ctx, contactID, req.ConsentType, req.Notes, revokedBy)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.RevokeConsentResponse{
+		Record: toConsentRecord(record),
+	}, nil
+}
+
+func (s *CRMGRPCServer) GetConsentHistory(ctx context.Context, req *crmv1.GetConsentHistoryRequest) (*crmv1.GetConsentHistoryResponse, error) {
+	contactID, err := uuid.Parse(req.ContactId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+	}
+
+	records, err := s.consentService.GetConsentHistory(ctx, contactID, req.ConsentType)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	var history []*crmv1.ConsentRecord
+	for _, r := range records {
+		history = append(history, toConsentRecord(r))
+	}
+
+	return &crmv1.GetConsentHistoryResponse{
+		History: history,
+		Total:   int32(len(history)),
+	}, nil
+}
+
+func (s *CRMGRPCServer) RequestDeletion(ctx context.Context, req *crmv1.RequestDeletionRequest) (*crmv1.RequestDeletionResponse, error) {
+	contactID, err := uuid.Parse(req.ContactId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+	}
+
+	var requestedBy *uuid.UUID
+	if req.RequestedBy != nil {
+		uid, parseErr := uuid.Parse(*req.RequestedBy)
+		if parseErr == nil {
+			requestedBy = &uid
+		}
+	}
+
+	deletionReq, err := s.consentService.RequestDeletion(ctx, contactID, req.Reason, requestedBy)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	proto := &crmv1.GDPRDeletionRequest{
+		Id:        deletionReq.ID.String(),
+		ContactId: deletionReq.ContactID.String(),
+		Reason:    deletionReq.Reason,
+		Status:    deletionReq.Status,
+		CreatedAt: deletionReq.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+	if deletionReq.RequestedBy != nil {
+		s := deletionReq.RequestedBy.String()
+		proto.RequestedBy = &s
+	}
+	if deletionReq.CompletedAt != nil {
+		t := deletionReq.CompletedAt.Format("2006-01-02T15:04:05Z07:00")
+		proto.CompletedAt = &t
+	}
+
+	return &crmv1.RequestDeletionResponse{
+		DeletionRequest: proto,
+	}, nil
+}
+
+func (s *CRMGRPCServer) ProcessDeletion(ctx context.Context, req *crmv1.ProcessDeletionRequest) (*crmv1.ProcessDeletionResponse, error) {
+	requestID, err := uuid.Parse(req.RequestId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request_id")
+	}
+
+	if err := s.consentService.ProcessDeletion(ctx, requestID); err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.ProcessDeletionResponse{
+		Status: "completed",
+	}, nil
 }

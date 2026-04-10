@@ -200,6 +200,12 @@ func (s *Service) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.
 	return s.repo.GetByID(ctx, tenantID, id)
 }
 
+// LinkTimeTracking attaches a time_tracking_source JSONB payload to an invoice.
+// This is best-effort: callers should treat errors as non-fatal.
+func (s *Service) LinkTimeTracking(ctx context.Context, invoiceID uuid.UUID, src json.RawMessage) error {
+	return s.repo.LinkTimeTracking(ctx, invoiceID, src)
+}
+
 // List retrieves invoices with optional filtering.
 func (s *Service) List(ctx context.Context, tenantID uuid.UUID, filter ListFilter) ([]*models.Invoice, int, error) {
 	return s.repo.List(ctx, tenantID, filter)

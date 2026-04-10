@@ -82,6 +82,23 @@ service CRMService {
   rpc GetPipelineReport(GetPipelineReportRequest) returns (GetPipelineReportResponse);
   rpc GetConversionReport(GetConversionReportRequest) returns (GetConversionReportResponse);
   rpc GetActivityReport(GetActivityReportRequest) returns (GetActivityReportResponse);
+
+  // Duplicate Detection
+  rpc FindContactDuplicates(FindContactDuplicatesRequest) returns (FindContactDuplicatesResponse);
+  rpc MergeContacts(MergeContactsRequest) returns (MergeContactsResponse);
+  rpc FindCompanyDuplicates(FindCompanyDuplicatesRequest) returns (FindCompanyDuplicatesResponse);
+  rpc MergeCompanies(MergeCompaniesRequest) returns (MergeCompaniesResponse);
+
+  // Contact Timeline
+  rpc GetContactTimeline(GetContactTimelineRequest) returns (GetContactTimelineResponse);
+
+  // GDPR Consent Management
+  rpc GetContactConsents(GetContactConsentsRequest) returns (GetContactConsentsResponse);
+  rpc GrantConsent(GrantConsentRequest) returns (GrantConsentResponse);
+  rpc RevokeConsent(RevokeConsentRequest) returns (RevokeConsentResponse);
+  rpc GetConsentHistory(GetConsentHistoryRequest) returns (GetConsentHistoryResponse);
+  rpc RequestDeletion(RequestDeletionRequest) returns (RequestDeletionResponse);
+  rpc ProcessDeletion(ProcessDeletionRequest) returns (ProcessDeletionResponse);
 }
 
 // ============================================================================
@@ -912,4 +929,179 @@ message GetActivityReportResponse {
   repeated ActivityMetric metrics = 1;
   int32 total_activities = 2;
   double completion_rate = 3;
+}
+
+// ============================================================================
+// Duplicate Detection Messages
+// ============================================================================
+
+message DuplicateContactCandidate {
+  ContactInfo contact = 1;
+  double similarity = 2;
+  string match_type = 3;  // "email_exact", "name_fuzzy", "phone_exact"
+}
+
+message FindContactDuplicatesRequest {
+  string contact_id = 1;
+}
+
+message FindContactDuplicatesResponse {
+  repeated DuplicateContactCandidate duplicates = 1;
+  int32 total = 2;
+}
+
+message MergeContactsRequest {
+  string primary_id = 1;
+  string duplicate_id = 2;
+}
+
+message MergeContactsResponse {
+  ContactInfo contact = 1;
+}
+
+message DuplicateCompanyCandidate {
+  CompanyInfo company = 1;
+  double similarity = 2;
+  string match_type = 3;  // "domain_exact", "name_fuzzy"
+}
+
+message FindCompanyDuplicatesRequest {
+  string company_id = 1;
+}
+
+message FindCompanyDuplicatesResponse {
+  repeated DuplicateCompanyCandidate duplicates = 1;
+  int32 total = 2;
+}
+
+message MergeCompaniesRequest {
+  string primary_id = 1;
+  string duplicate_id = 2;
+}
+
+message MergeCompaniesResponse {
+  CompanyInfo company = 1;
+}
+
+// ============================================================================
+// Contact Timeline Messages
+// ============================================================================
+
+message TimelineEventMetadata {
+  map<string, string> data = 1;
+}
+
+message TimelineEvent {
+  string id = 1;
+  string event_type = 2;      // "activity", "deal_linked"
+  string occurred_at = 3;
+  string title = 4;
+  optional string description = 5;
+  string created_by_name = 6;
+  TimelineEventMetadata metadata = 7;
+}
+
+message GetContactTimelineRequest {
+  string contact_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message GetContactTimelineResponse {
+  repeated TimelineEvent events = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// GDPR Consent Management Messages
+// ============================================================================
+
+message ConsentRecord {
+  string id = 1;
+  string contact_id = 2;
+  string consent_type = 3;
+  bool granted = 4;
+  string legal_basis = 5;
+  string source = 6;
+  optional string ip_address = 7;
+  string notes = 8;
+  optional string granted_at = 9;
+  optional string revoked_at = 10;
+  optional string created_by = 11;
+  string created_at = 12;
+}
+
+message ConsentSummary {
+  string contact_id = 1;
+  map<string, ConsentRecord> consents = 2;  // consent_type -> latest record
+}
+
+message GetContactConsentsRequest {
+  string contact_id = 1;
+}
+
+message GetContactConsentsResponse {
+  ConsentSummary summary = 1;
+}
+
+message GrantConsentRequest {
+  string contact_id = 1;
+  string consent_type = 2;
+  string source = 3;
+  string legal_basis = 4;
+  optional string ip_address = 5;
+  optional string created_by = 6;
+}
+
+message GrantConsentResponse {
+  ConsentRecord record = 1;
+}
+
+message RevokeConsentRequest {
+  string contact_id = 1;
+  string consent_type = 2;
+  string notes = 3;
+  optional string revoked_by = 4;
+}
+
+message RevokeConsentResponse {
+  ConsentRecord record = 1;
+}
+
+message GetConsentHistoryRequest {
+  string contact_id = 1;
+  string consent_type = 2;
+}
+
+message GetConsentHistoryResponse {
+  repeated ConsentRecord history = 1;
+  int32 total = 2;
+}
+
+message GDPRDeletionRequest {
+  string id = 1;
+  string contact_id = 2;
+  optional string requested_by = 3;
+  string reason = 4;
+  string status = 5;  // "pending", "processing", "completed"
+  optional string completed_at = 6;
+  string created_at = 7;
+}
+
+message RequestDeletionRequest {
+  string contact_id = 1;
+  string reason = 2;
+  optional string requested_by = 3;
+}
+
+message RequestDeletionResponse {
+  GDPRDeletionRequest deletion_request = 1;
+}
+
+message ProcessDeletionRequest {
+  string request_id = 1;
+}
+
+message ProcessDeletionResponse {
+  string status = 1;  // "completed"
 }

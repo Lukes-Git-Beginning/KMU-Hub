@@ -7881,6 +7881,1658 @@ func (x *GetActivityReportResponse) GetCompletionRate() float64 {
 	return 0
 }
 
+type DuplicateContactCandidate struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Contact       *ContactInfo           `protobuf:"bytes,1,opt,name=contact,proto3" json:"contact,omitempty"`
+	Similarity    float64                `protobuf:"fixed64,2,opt,name=similarity,proto3" json:"similarity,omitempty"`
+	MatchType     string                 `protobuf:"bytes,3,opt,name=match_type,json=matchType,proto3" json:"match_type,omitempty"` // "email_exact", "name_fuzzy", "phone_exact"
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DuplicateContactCandidate) Reset() {
+	*x = DuplicateContactCandidate{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[125]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DuplicateContactCandidate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DuplicateContactCandidate) ProtoMessage() {}
+
+func (x *DuplicateContactCandidate) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[125]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DuplicateContactCandidate.ProtoReflect.Descriptor instead.
+func (*DuplicateContactCandidate) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{125}
+}
+
+func (x *DuplicateContactCandidate) GetContact() *ContactInfo {
+	if x != nil {
+		return x.Contact
+	}
+	return nil
+}
+
+func (x *DuplicateContactCandidate) GetSimilarity() float64 {
+	if x != nil {
+		return x.Similarity
+	}
+	return 0
+}
+
+func (x *DuplicateContactCandidate) GetMatchType() string {
+	if x != nil {
+		return x.MatchType
+	}
+	return ""
+}
+
+type FindContactDuplicatesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ContactId     string                 `protobuf:"bytes,1,opt,name=contact_id,json=contactId,proto3" json:"contact_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FindContactDuplicatesRequest) Reset() {
+	*x = FindContactDuplicatesRequest{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[126]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FindContactDuplicatesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FindContactDuplicatesRequest) ProtoMessage() {}
+
+func (x *FindContactDuplicatesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[126]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FindContactDuplicatesRequest.ProtoReflect.Descriptor instead.
+func (*FindContactDuplicatesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{126}
+}
+
+func (x *FindContactDuplicatesRequest) GetContactId() string {
+	if x != nil {
+		return x.ContactId
+	}
+	return ""
+}
+
+type FindContactDuplicatesResponse struct {
+	state         protoimpl.MessageState       `protogen:"open.v1"`
+	Duplicates    []*DuplicateContactCandidate `protobuf:"bytes,1,rep,name=duplicates,proto3" json:"duplicates,omitempty"`
+	Total         int32                        `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FindContactDuplicatesResponse) Reset() {
+	*x = FindContactDuplicatesResponse{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[127]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FindContactDuplicatesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FindContactDuplicatesResponse) ProtoMessage() {}
+
+func (x *FindContactDuplicatesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[127]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FindContactDuplicatesResponse.ProtoReflect.Descriptor instead.
+func (*FindContactDuplicatesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{127}
+}
+
+func (x *FindContactDuplicatesResponse) GetDuplicates() []*DuplicateContactCandidate {
+	if x != nil {
+		return x.Duplicates
+	}
+	return nil
+}
+
+func (x *FindContactDuplicatesResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type MergeContactsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PrimaryId     string                 `protobuf:"bytes,1,opt,name=primary_id,json=primaryId,proto3" json:"primary_id,omitempty"`
+	DuplicateId   string                 `protobuf:"bytes,2,opt,name=duplicate_id,json=duplicateId,proto3" json:"duplicate_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MergeContactsRequest) Reset() {
+	*x = MergeContactsRequest{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[128]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MergeContactsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MergeContactsRequest) ProtoMessage() {}
+
+func (x *MergeContactsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[128]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MergeContactsRequest.ProtoReflect.Descriptor instead.
+func (*MergeContactsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{128}
+}
+
+func (x *MergeContactsRequest) GetPrimaryId() string {
+	if x != nil {
+		return x.PrimaryId
+	}
+	return ""
+}
+
+func (x *MergeContactsRequest) GetDuplicateId() string {
+	if x != nil {
+		return x.DuplicateId
+	}
+	return ""
+}
+
+type MergeContactsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Contact       *ContactInfo           `protobuf:"bytes,1,opt,name=contact,proto3" json:"contact,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MergeContactsResponse) Reset() {
+	*x = MergeContactsResponse{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[129]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MergeContactsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MergeContactsResponse) ProtoMessage() {}
+
+func (x *MergeContactsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[129]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MergeContactsResponse.ProtoReflect.Descriptor instead.
+func (*MergeContactsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{129}
+}
+
+func (x *MergeContactsResponse) GetContact() *ContactInfo {
+	if x != nil {
+		return x.Contact
+	}
+	return nil
+}
+
+type DuplicateCompanyCandidate struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Company       *CompanyInfo           `protobuf:"bytes,1,opt,name=company,proto3" json:"company,omitempty"`
+	Similarity    float64                `protobuf:"fixed64,2,opt,name=similarity,proto3" json:"similarity,omitempty"`
+	MatchType     string                 `protobuf:"bytes,3,opt,name=match_type,json=matchType,proto3" json:"match_type,omitempty"` // "domain_exact", "name_fuzzy"
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DuplicateCompanyCandidate) Reset() {
+	*x = DuplicateCompanyCandidate{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[130]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DuplicateCompanyCandidate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DuplicateCompanyCandidate) ProtoMessage() {}
+
+func (x *DuplicateCompanyCandidate) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[130]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DuplicateCompanyCandidate.ProtoReflect.Descriptor instead.
+func (*DuplicateCompanyCandidate) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{130}
+}
+
+func (x *DuplicateCompanyCandidate) GetCompany() *CompanyInfo {
+	if x != nil {
+		return x.Company
+	}
+	return nil
+}
+
+func (x *DuplicateCompanyCandidate) GetSimilarity() float64 {
+	if x != nil {
+		return x.Similarity
+	}
+	return 0
+}
+
+func (x *DuplicateCompanyCandidate) GetMatchType() string {
+	if x != nil {
+		return x.MatchType
+	}
+	return ""
+}
+
+type FindCompanyDuplicatesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CompanyId     string                 `protobuf:"bytes,1,opt,name=company_id,json=companyId,proto3" json:"company_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FindCompanyDuplicatesRequest) Reset() {
+	*x = FindCompanyDuplicatesRequest{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[131]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FindCompanyDuplicatesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FindCompanyDuplicatesRequest) ProtoMessage() {}
+
+func (x *FindCompanyDuplicatesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[131]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FindCompanyDuplicatesRequest.ProtoReflect.Descriptor instead.
+func (*FindCompanyDuplicatesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{131}
+}
+
+func (x *FindCompanyDuplicatesRequest) GetCompanyId() string {
+	if x != nil {
+		return x.CompanyId
+	}
+	return ""
+}
+
+type FindCompanyDuplicatesResponse struct {
+	state         protoimpl.MessageState       `protogen:"open.v1"`
+	Duplicates    []*DuplicateCompanyCandidate `protobuf:"bytes,1,rep,name=duplicates,proto3" json:"duplicates,omitempty"`
+	Total         int32                        `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FindCompanyDuplicatesResponse) Reset() {
+	*x = FindCompanyDuplicatesResponse{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[132]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FindCompanyDuplicatesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FindCompanyDuplicatesResponse) ProtoMessage() {}
+
+func (x *FindCompanyDuplicatesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[132]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FindCompanyDuplicatesResponse.ProtoReflect.Descriptor instead.
+func (*FindCompanyDuplicatesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{132}
+}
+
+func (x *FindCompanyDuplicatesResponse) GetDuplicates() []*DuplicateCompanyCandidate {
+	if x != nil {
+		return x.Duplicates
+	}
+	return nil
+}
+
+func (x *FindCompanyDuplicatesResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type MergeCompaniesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PrimaryId     string                 `protobuf:"bytes,1,opt,name=primary_id,json=primaryId,proto3" json:"primary_id,omitempty"`
+	DuplicateId   string                 `protobuf:"bytes,2,opt,name=duplicate_id,json=duplicateId,proto3" json:"duplicate_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MergeCompaniesRequest) Reset() {
+	*x = MergeCompaniesRequest{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[133]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MergeCompaniesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MergeCompaniesRequest) ProtoMessage() {}
+
+func (x *MergeCompaniesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[133]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MergeCompaniesRequest.ProtoReflect.Descriptor instead.
+func (*MergeCompaniesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{133}
+}
+
+func (x *MergeCompaniesRequest) GetPrimaryId() string {
+	if x != nil {
+		return x.PrimaryId
+	}
+	return ""
+}
+
+func (x *MergeCompaniesRequest) GetDuplicateId() string {
+	if x != nil {
+		return x.DuplicateId
+	}
+	return ""
+}
+
+type MergeCompaniesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Company       *CompanyInfo           `protobuf:"bytes,1,opt,name=company,proto3" json:"company,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MergeCompaniesResponse) Reset() {
+	*x = MergeCompaniesResponse{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[134]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MergeCompaniesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MergeCompaniesResponse) ProtoMessage() {}
+
+func (x *MergeCompaniesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[134]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MergeCompaniesResponse.ProtoReflect.Descriptor instead.
+func (*MergeCompaniesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{134}
+}
+
+func (x *MergeCompaniesResponse) GetCompany() *CompanyInfo {
+	if x != nil {
+		return x.Company
+	}
+	return nil
+}
+
+type TimelineEventMetadata struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Data          map[string]string      `protobuf:"bytes,1,rep,name=data,proto3" json:"data,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TimelineEventMetadata) Reset() {
+	*x = TimelineEventMetadata{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[135]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TimelineEventMetadata) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TimelineEventMetadata) ProtoMessage() {}
+
+func (x *TimelineEventMetadata) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[135]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TimelineEventMetadata.ProtoReflect.Descriptor instead.
+func (*TimelineEventMetadata) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{135}
+}
+
+func (x *TimelineEventMetadata) GetData() map[string]string {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+type TimelineEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	EventType     string                 `protobuf:"bytes,2,opt,name=event_type,json=eventType,proto3" json:"event_type,omitempty"` // "activity", "deal_linked"
+	OccurredAt    string                 `protobuf:"bytes,3,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`
+	Title         string                 `protobuf:"bytes,4,opt,name=title,proto3" json:"title,omitempty"`
+	Description   *string                `protobuf:"bytes,5,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	CreatedByName string                 `protobuf:"bytes,6,opt,name=created_by_name,json=createdByName,proto3" json:"created_by_name,omitempty"`
+	Metadata      *TimelineEventMetadata `protobuf:"bytes,7,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TimelineEvent) Reset() {
+	*x = TimelineEvent{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[136]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TimelineEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TimelineEvent) ProtoMessage() {}
+
+func (x *TimelineEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[136]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TimelineEvent.ProtoReflect.Descriptor instead.
+func (*TimelineEvent) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{136}
+}
+
+func (x *TimelineEvent) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *TimelineEvent) GetEventType() string {
+	if x != nil {
+		return x.EventType
+	}
+	return ""
+}
+
+func (x *TimelineEvent) GetOccurredAt() string {
+	if x != nil {
+		return x.OccurredAt
+	}
+	return ""
+}
+
+func (x *TimelineEvent) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *TimelineEvent) GetDescription() string {
+	if x != nil && x.Description != nil {
+		return *x.Description
+	}
+	return ""
+}
+
+func (x *TimelineEvent) GetCreatedByName() string {
+	if x != nil {
+		return x.CreatedByName
+	}
+	return ""
+}
+
+func (x *TimelineEvent) GetMetadata() *TimelineEventMetadata {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+type GetContactTimelineRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ContactId     string                 `protobuf:"bytes,1,opt,name=contact_id,json=contactId,proto3" json:"contact_id,omitempty"`
+	Page          int32                  `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetContactTimelineRequest) Reset() {
+	*x = GetContactTimelineRequest{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[137]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetContactTimelineRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetContactTimelineRequest) ProtoMessage() {}
+
+func (x *GetContactTimelineRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[137]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetContactTimelineRequest.ProtoReflect.Descriptor instead.
+func (*GetContactTimelineRequest) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{137}
+}
+
+func (x *GetContactTimelineRequest) GetContactId() string {
+	if x != nil {
+		return x.ContactId
+	}
+	return ""
+}
+
+func (x *GetContactTimelineRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *GetContactTimelineRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type GetContactTimelineResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Events        []*TimelineEvent       `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetContactTimelineResponse) Reset() {
+	*x = GetContactTimelineResponse{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[138]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetContactTimelineResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetContactTimelineResponse) ProtoMessage() {}
+
+func (x *GetContactTimelineResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[138]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetContactTimelineResponse.ProtoReflect.Descriptor instead.
+func (*GetContactTimelineResponse) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{138}
+}
+
+func (x *GetContactTimelineResponse) GetEvents() []*TimelineEvent {
+	if x != nil {
+		return x.Events
+	}
+	return nil
+}
+
+func (x *GetContactTimelineResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type ConsentRecord struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ContactId     string                 `protobuf:"bytes,2,opt,name=contact_id,json=contactId,proto3" json:"contact_id,omitempty"`
+	ConsentType   string                 `protobuf:"bytes,3,opt,name=consent_type,json=consentType,proto3" json:"consent_type,omitempty"`
+	Granted       bool                   `protobuf:"varint,4,opt,name=granted,proto3" json:"granted,omitempty"`
+	LegalBasis    string                 `protobuf:"bytes,5,opt,name=legal_basis,json=legalBasis,proto3" json:"legal_basis,omitempty"`
+	Source        string                 `protobuf:"bytes,6,opt,name=source,proto3" json:"source,omitempty"`
+	IpAddress     *string                `protobuf:"bytes,7,opt,name=ip_address,json=ipAddress,proto3,oneof" json:"ip_address,omitempty"`
+	Notes         string                 `protobuf:"bytes,8,opt,name=notes,proto3" json:"notes,omitempty"`
+	GrantedAt     *string                `protobuf:"bytes,9,opt,name=granted_at,json=grantedAt,proto3,oneof" json:"granted_at,omitempty"`
+	RevokedAt     *string                `protobuf:"bytes,10,opt,name=revoked_at,json=revokedAt,proto3,oneof" json:"revoked_at,omitempty"`
+	CreatedBy     *string                `protobuf:"bytes,11,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
+	CreatedAt     string                 `protobuf:"bytes,12,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConsentRecord) Reset() {
+	*x = ConsentRecord{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[139]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConsentRecord) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConsentRecord) ProtoMessage() {}
+
+func (x *ConsentRecord) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[139]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConsentRecord.ProtoReflect.Descriptor instead.
+func (*ConsentRecord) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{139}
+}
+
+func (x *ConsentRecord) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ConsentRecord) GetContactId() string {
+	if x != nil {
+		return x.ContactId
+	}
+	return ""
+}
+
+func (x *ConsentRecord) GetConsentType() string {
+	if x != nil {
+		return x.ConsentType
+	}
+	return ""
+}
+
+func (x *ConsentRecord) GetGranted() bool {
+	if x != nil {
+		return x.Granted
+	}
+	return false
+}
+
+func (x *ConsentRecord) GetLegalBasis() string {
+	if x != nil {
+		return x.LegalBasis
+	}
+	return ""
+}
+
+func (x *ConsentRecord) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *ConsentRecord) GetIpAddress() string {
+	if x != nil && x.IpAddress != nil {
+		return *x.IpAddress
+	}
+	return ""
+}
+
+func (x *ConsentRecord) GetNotes() string {
+	if x != nil {
+		return x.Notes
+	}
+	return ""
+}
+
+func (x *ConsentRecord) GetGrantedAt() string {
+	if x != nil && x.GrantedAt != nil {
+		return *x.GrantedAt
+	}
+	return ""
+}
+
+func (x *ConsentRecord) GetRevokedAt() string {
+	if x != nil && x.RevokedAt != nil {
+		return *x.RevokedAt
+	}
+	return ""
+}
+
+func (x *ConsentRecord) GetCreatedBy() string {
+	if x != nil && x.CreatedBy != nil {
+		return *x.CreatedBy
+	}
+	return ""
+}
+
+func (x *ConsentRecord) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+type ConsentSummary struct {
+	state         protoimpl.MessageState    `protogen:"open.v1"`
+	ContactId     string                    `protobuf:"bytes,1,opt,name=contact_id,json=contactId,proto3" json:"contact_id,omitempty"`
+	Consents      map[string]*ConsentRecord `protobuf:"bytes,2,rep,name=consents,proto3" json:"consents,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // consent_type -> latest record
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConsentSummary) Reset() {
+	*x = ConsentSummary{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[140]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConsentSummary) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConsentSummary) ProtoMessage() {}
+
+func (x *ConsentSummary) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[140]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConsentSummary.ProtoReflect.Descriptor instead.
+func (*ConsentSummary) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{140}
+}
+
+func (x *ConsentSummary) GetContactId() string {
+	if x != nil {
+		return x.ContactId
+	}
+	return ""
+}
+
+func (x *ConsentSummary) GetConsents() map[string]*ConsentRecord {
+	if x != nil {
+		return x.Consents
+	}
+	return nil
+}
+
+type GetContactConsentsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ContactId     string                 `protobuf:"bytes,1,opt,name=contact_id,json=contactId,proto3" json:"contact_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetContactConsentsRequest) Reset() {
+	*x = GetContactConsentsRequest{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[141]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetContactConsentsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetContactConsentsRequest) ProtoMessage() {}
+
+func (x *GetContactConsentsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[141]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetContactConsentsRequest.ProtoReflect.Descriptor instead.
+func (*GetContactConsentsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{141}
+}
+
+func (x *GetContactConsentsRequest) GetContactId() string {
+	if x != nil {
+		return x.ContactId
+	}
+	return ""
+}
+
+type GetContactConsentsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Summary       *ConsentSummary        `protobuf:"bytes,1,opt,name=summary,proto3" json:"summary,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetContactConsentsResponse) Reset() {
+	*x = GetContactConsentsResponse{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[142]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetContactConsentsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetContactConsentsResponse) ProtoMessage() {}
+
+func (x *GetContactConsentsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[142]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetContactConsentsResponse.ProtoReflect.Descriptor instead.
+func (*GetContactConsentsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{142}
+}
+
+func (x *GetContactConsentsResponse) GetSummary() *ConsentSummary {
+	if x != nil {
+		return x.Summary
+	}
+	return nil
+}
+
+type GrantConsentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ContactId     string                 `protobuf:"bytes,1,opt,name=contact_id,json=contactId,proto3" json:"contact_id,omitempty"`
+	ConsentType   string                 `protobuf:"bytes,2,opt,name=consent_type,json=consentType,proto3" json:"consent_type,omitempty"`
+	Source        string                 `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
+	LegalBasis    string                 `protobuf:"bytes,4,opt,name=legal_basis,json=legalBasis,proto3" json:"legal_basis,omitempty"`
+	IpAddress     *string                `protobuf:"bytes,5,opt,name=ip_address,json=ipAddress,proto3,oneof" json:"ip_address,omitempty"`
+	CreatedBy     *string                `protobuf:"bytes,6,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GrantConsentRequest) Reset() {
+	*x = GrantConsentRequest{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[143]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GrantConsentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GrantConsentRequest) ProtoMessage() {}
+
+func (x *GrantConsentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[143]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GrantConsentRequest.ProtoReflect.Descriptor instead.
+func (*GrantConsentRequest) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{143}
+}
+
+func (x *GrantConsentRequest) GetContactId() string {
+	if x != nil {
+		return x.ContactId
+	}
+	return ""
+}
+
+func (x *GrantConsentRequest) GetConsentType() string {
+	if x != nil {
+		return x.ConsentType
+	}
+	return ""
+}
+
+func (x *GrantConsentRequest) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *GrantConsentRequest) GetLegalBasis() string {
+	if x != nil {
+		return x.LegalBasis
+	}
+	return ""
+}
+
+func (x *GrantConsentRequest) GetIpAddress() string {
+	if x != nil && x.IpAddress != nil {
+		return *x.IpAddress
+	}
+	return ""
+}
+
+func (x *GrantConsentRequest) GetCreatedBy() string {
+	if x != nil && x.CreatedBy != nil {
+		return *x.CreatedBy
+	}
+	return ""
+}
+
+type GrantConsentResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Record        *ConsentRecord         `protobuf:"bytes,1,opt,name=record,proto3" json:"record,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GrantConsentResponse) Reset() {
+	*x = GrantConsentResponse{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[144]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GrantConsentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GrantConsentResponse) ProtoMessage() {}
+
+func (x *GrantConsentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[144]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GrantConsentResponse.ProtoReflect.Descriptor instead.
+func (*GrantConsentResponse) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{144}
+}
+
+func (x *GrantConsentResponse) GetRecord() *ConsentRecord {
+	if x != nil {
+		return x.Record
+	}
+	return nil
+}
+
+type RevokeConsentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ContactId     string                 `protobuf:"bytes,1,opt,name=contact_id,json=contactId,proto3" json:"contact_id,omitempty"`
+	ConsentType   string                 `protobuf:"bytes,2,opt,name=consent_type,json=consentType,proto3" json:"consent_type,omitempty"`
+	Notes         string                 `protobuf:"bytes,3,opt,name=notes,proto3" json:"notes,omitempty"`
+	RevokedBy     *string                `protobuf:"bytes,4,opt,name=revoked_by,json=revokedBy,proto3,oneof" json:"revoked_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeConsentRequest) Reset() {
+	*x = RevokeConsentRequest{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[145]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeConsentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeConsentRequest) ProtoMessage() {}
+
+func (x *RevokeConsentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[145]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeConsentRequest.ProtoReflect.Descriptor instead.
+func (*RevokeConsentRequest) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{145}
+}
+
+func (x *RevokeConsentRequest) GetContactId() string {
+	if x != nil {
+		return x.ContactId
+	}
+	return ""
+}
+
+func (x *RevokeConsentRequest) GetConsentType() string {
+	if x != nil {
+		return x.ConsentType
+	}
+	return ""
+}
+
+func (x *RevokeConsentRequest) GetNotes() string {
+	if x != nil {
+		return x.Notes
+	}
+	return ""
+}
+
+func (x *RevokeConsentRequest) GetRevokedBy() string {
+	if x != nil && x.RevokedBy != nil {
+		return *x.RevokedBy
+	}
+	return ""
+}
+
+type RevokeConsentResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Record        *ConsentRecord         `protobuf:"bytes,1,opt,name=record,proto3" json:"record,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeConsentResponse) Reset() {
+	*x = RevokeConsentResponse{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[146]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeConsentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeConsentResponse) ProtoMessage() {}
+
+func (x *RevokeConsentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[146]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeConsentResponse.ProtoReflect.Descriptor instead.
+func (*RevokeConsentResponse) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{146}
+}
+
+func (x *RevokeConsentResponse) GetRecord() *ConsentRecord {
+	if x != nil {
+		return x.Record
+	}
+	return nil
+}
+
+type GetConsentHistoryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ContactId     string                 `protobuf:"bytes,1,opt,name=contact_id,json=contactId,proto3" json:"contact_id,omitempty"`
+	ConsentType   string                 `protobuf:"bytes,2,opt,name=consent_type,json=consentType,proto3" json:"consent_type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetConsentHistoryRequest) Reset() {
+	*x = GetConsentHistoryRequest{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[147]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetConsentHistoryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetConsentHistoryRequest) ProtoMessage() {}
+
+func (x *GetConsentHistoryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[147]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetConsentHistoryRequest.ProtoReflect.Descriptor instead.
+func (*GetConsentHistoryRequest) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{147}
+}
+
+func (x *GetConsentHistoryRequest) GetContactId() string {
+	if x != nil {
+		return x.ContactId
+	}
+	return ""
+}
+
+func (x *GetConsentHistoryRequest) GetConsentType() string {
+	if x != nil {
+		return x.ConsentType
+	}
+	return ""
+}
+
+type GetConsentHistoryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	History       []*ConsentRecord       `protobuf:"bytes,1,rep,name=history,proto3" json:"history,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetConsentHistoryResponse) Reset() {
+	*x = GetConsentHistoryResponse{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[148]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetConsentHistoryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetConsentHistoryResponse) ProtoMessage() {}
+
+func (x *GetConsentHistoryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[148]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetConsentHistoryResponse.ProtoReflect.Descriptor instead.
+func (*GetConsentHistoryResponse) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{148}
+}
+
+func (x *GetConsentHistoryResponse) GetHistory() []*ConsentRecord {
+	if x != nil {
+		return x.History
+	}
+	return nil
+}
+
+func (x *GetConsentHistoryResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type GDPRDeletionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ContactId     string                 `protobuf:"bytes,2,opt,name=contact_id,json=contactId,proto3" json:"contact_id,omitempty"`
+	RequestedBy   *string                `protobuf:"bytes,3,opt,name=requested_by,json=requestedBy,proto3,oneof" json:"requested_by,omitempty"`
+	Reason        string                 `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`
+	Status        string                 `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"` // "pending", "processing", "completed"
+	CompletedAt   *string                `protobuf:"bytes,6,opt,name=completed_at,json=completedAt,proto3,oneof" json:"completed_at,omitempty"`
+	CreatedAt     string                 `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GDPRDeletionRequest) Reset() {
+	*x = GDPRDeletionRequest{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[149]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GDPRDeletionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GDPRDeletionRequest) ProtoMessage() {}
+
+func (x *GDPRDeletionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[149]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GDPRDeletionRequest.ProtoReflect.Descriptor instead.
+func (*GDPRDeletionRequest) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{149}
+}
+
+func (x *GDPRDeletionRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *GDPRDeletionRequest) GetContactId() string {
+	if x != nil {
+		return x.ContactId
+	}
+	return ""
+}
+
+func (x *GDPRDeletionRequest) GetRequestedBy() string {
+	if x != nil && x.RequestedBy != nil {
+		return *x.RequestedBy
+	}
+	return ""
+}
+
+func (x *GDPRDeletionRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *GDPRDeletionRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *GDPRDeletionRequest) GetCompletedAt() string {
+	if x != nil && x.CompletedAt != nil {
+		return *x.CompletedAt
+	}
+	return ""
+}
+
+func (x *GDPRDeletionRequest) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+type RequestDeletionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ContactId     string                 `protobuf:"bytes,1,opt,name=contact_id,json=contactId,proto3" json:"contact_id,omitempty"`
+	Reason        string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
+	RequestedBy   *string                `protobuf:"bytes,3,opt,name=requested_by,json=requestedBy,proto3,oneof" json:"requested_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RequestDeletionRequest) Reset() {
+	*x = RequestDeletionRequest{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[150]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RequestDeletionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RequestDeletionRequest) ProtoMessage() {}
+
+func (x *RequestDeletionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[150]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RequestDeletionRequest.ProtoReflect.Descriptor instead.
+func (*RequestDeletionRequest) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{150}
+}
+
+func (x *RequestDeletionRequest) GetContactId() string {
+	if x != nil {
+		return x.ContactId
+	}
+	return ""
+}
+
+func (x *RequestDeletionRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *RequestDeletionRequest) GetRequestedBy() string {
+	if x != nil && x.RequestedBy != nil {
+		return *x.RequestedBy
+	}
+	return ""
+}
+
+type RequestDeletionResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	DeletionRequest *GDPRDeletionRequest   `protobuf:"bytes,1,opt,name=deletion_request,json=deletionRequest,proto3" json:"deletion_request,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *RequestDeletionResponse) Reset() {
+	*x = RequestDeletionResponse{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[151]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RequestDeletionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RequestDeletionResponse) ProtoMessage() {}
+
+func (x *RequestDeletionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[151]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RequestDeletionResponse.ProtoReflect.Descriptor instead.
+func (*RequestDeletionResponse) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{151}
+}
+
+func (x *RequestDeletionResponse) GetDeletionRequest() *GDPRDeletionRequest {
+	if x != nil {
+		return x.DeletionRequest
+	}
+	return nil
+}
+
+type ProcessDeletionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RequestId     string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProcessDeletionRequest) Reset() {
+	*x = ProcessDeletionRequest{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[152]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProcessDeletionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProcessDeletionRequest) ProtoMessage() {}
+
+func (x *ProcessDeletionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[152]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProcessDeletionRequest.ProtoReflect.Descriptor instead.
+func (*ProcessDeletionRequest) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{152}
+}
+
+func (x *ProcessDeletionRequest) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+type ProcessDeletionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Status        string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"` // "completed"
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProcessDeletionResponse) Reset() {
+	*x = ProcessDeletionResponse{}
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[153]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProcessDeletionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProcessDeletionResponse) ProtoMessage() {}
+
+func (x *ProcessDeletionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_crm_v1_crm_proto_msgTypes[153]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProcessDeletionResponse.ProtoReflect.Descriptor instead.
+func (*ProcessDeletionResponse) Descriptor() ([]byte, []int) {
+	return file_proto_crm_v1_crm_proto_rawDescGZIP(), []int{153}
+}
+
+func (x *ProcessDeletionResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
 var File_proto_crm_v1_crm_proto protoreflect.FileDescriptor
 
 const file_proto_crm_v1_crm_proto_rawDesc = "" +
@@ -8672,7 +10324,167 @@ const file_proto_crm_v1_crm_proto_rawDesc = "" +
 	"\x19GetActivityReportResponse\x120\n" +
 	"\ametrics\x18\x01 \x03(\v2\x16.crm.v1.ActivityMetricR\ametrics\x12)\n" +
 	"\x10total_activities\x18\x02 \x01(\x05R\x0ftotalActivities\x12'\n" +
-	"\x0fcompletion_rate\x18\x03 \x01(\x01R\x0ecompletionRate2\xe7#\n" +
+	"\x0fcompletion_rate\x18\x03 \x01(\x01R\x0ecompletionRate\"\x89\x01\n" +
+	"\x19DuplicateContactCandidate\x12-\n" +
+	"\acontact\x18\x01 \x01(\v2\x13.crm.v1.ContactInfoR\acontact\x12\x1e\n" +
+	"\n" +
+	"similarity\x18\x02 \x01(\x01R\n" +
+	"similarity\x12\x1d\n" +
+	"\n" +
+	"match_type\x18\x03 \x01(\tR\tmatchType\"=\n" +
+	"\x1cFindContactDuplicatesRequest\x12\x1d\n" +
+	"\n" +
+	"contact_id\x18\x01 \x01(\tR\tcontactId\"x\n" +
+	"\x1dFindContactDuplicatesResponse\x12A\n" +
+	"\n" +
+	"duplicates\x18\x01 \x03(\v2!.crm.v1.DuplicateContactCandidateR\n" +
+	"duplicates\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"X\n" +
+	"\x14MergeContactsRequest\x12\x1d\n" +
+	"\n" +
+	"primary_id\x18\x01 \x01(\tR\tprimaryId\x12!\n" +
+	"\fduplicate_id\x18\x02 \x01(\tR\vduplicateId\"F\n" +
+	"\x15MergeContactsResponse\x12-\n" +
+	"\acontact\x18\x01 \x01(\v2\x13.crm.v1.ContactInfoR\acontact\"\x89\x01\n" +
+	"\x19DuplicateCompanyCandidate\x12-\n" +
+	"\acompany\x18\x01 \x01(\v2\x13.crm.v1.CompanyInfoR\acompany\x12\x1e\n" +
+	"\n" +
+	"similarity\x18\x02 \x01(\x01R\n" +
+	"similarity\x12\x1d\n" +
+	"\n" +
+	"match_type\x18\x03 \x01(\tR\tmatchType\"=\n" +
+	"\x1cFindCompanyDuplicatesRequest\x12\x1d\n" +
+	"\n" +
+	"company_id\x18\x01 \x01(\tR\tcompanyId\"x\n" +
+	"\x1dFindCompanyDuplicatesResponse\x12A\n" +
+	"\n" +
+	"duplicates\x18\x01 \x03(\v2!.crm.v1.DuplicateCompanyCandidateR\n" +
+	"duplicates\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"Y\n" +
+	"\x15MergeCompaniesRequest\x12\x1d\n" +
+	"\n" +
+	"primary_id\x18\x01 \x01(\tR\tprimaryId\x12!\n" +
+	"\fduplicate_id\x18\x02 \x01(\tR\vduplicateId\"G\n" +
+	"\x16MergeCompaniesResponse\x12-\n" +
+	"\acompany\x18\x01 \x01(\v2\x13.crm.v1.CompanyInfoR\acompany\"\x8d\x01\n" +
+	"\x15TimelineEventMetadata\x12;\n" +
+	"\x04data\x18\x01 \x03(\v2'.crm.v1.TimelineEventMetadata.DataEntryR\x04data\x1a7\n" +
+	"\tDataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x8f\x02\n" +
+	"\rTimelineEvent\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
+	"\n" +
+	"event_type\x18\x02 \x01(\tR\teventType\x12\x1f\n" +
+	"\voccurred_at\x18\x03 \x01(\tR\n" +
+	"occurredAt\x12\x14\n" +
+	"\x05title\x18\x04 \x01(\tR\x05title\x12%\n" +
+	"\vdescription\x18\x05 \x01(\tH\x00R\vdescription\x88\x01\x01\x12&\n" +
+	"\x0fcreated_by_name\x18\x06 \x01(\tR\rcreatedByName\x129\n" +
+	"\bmetadata\x18\a \x01(\v2\x1d.crm.v1.TimelineEventMetadataR\bmetadataB\x0e\n" +
+	"\f_description\"k\n" +
+	"\x19GetContactTimelineRequest\x12\x1d\n" +
+	"\n" +
+	"contact_id\x18\x01 \x01(\tR\tcontactId\x12\x12\n" +
+	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\"a\n" +
+	"\x1aGetContactTimelineResponse\x12-\n" +
+	"\x06events\x18\x01 \x03(\v2\x15.crm.v1.TimelineEventR\x06events\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xb5\x03\n" +
+	"\rConsentRecord\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
+	"\n" +
+	"contact_id\x18\x02 \x01(\tR\tcontactId\x12!\n" +
+	"\fconsent_type\x18\x03 \x01(\tR\vconsentType\x12\x18\n" +
+	"\agranted\x18\x04 \x01(\bR\agranted\x12\x1f\n" +
+	"\vlegal_basis\x18\x05 \x01(\tR\n" +
+	"legalBasis\x12\x16\n" +
+	"\x06source\x18\x06 \x01(\tR\x06source\x12\"\n" +
+	"\n" +
+	"ip_address\x18\a \x01(\tH\x00R\tipAddress\x88\x01\x01\x12\x14\n" +
+	"\x05notes\x18\b \x01(\tR\x05notes\x12\"\n" +
+	"\n" +
+	"granted_at\x18\t \x01(\tH\x01R\tgrantedAt\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"revoked_at\x18\n" +
+	" \x01(\tH\x02R\trevokedAt\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"created_by\x18\v \x01(\tH\x03R\tcreatedBy\x88\x01\x01\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\f \x01(\tR\tcreatedAtB\r\n" +
+	"\v_ip_addressB\r\n" +
+	"\v_granted_atB\r\n" +
+	"\v_revoked_atB\r\n" +
+	"\v_created_by\"\xc5\x01\n" +
+	"\x0eConsentSummary\x12\x1d\n" +
+	"\n" +
+	"contact_id\x18\x01 \x01(\tR\tcontactId\x12@\n" +
+	"\bconsents\x18\x02 \x03(\v2$.crm.v1.ConsentSummary.ConsentsEntryR\bconsents\x1aR\n" +
+	"\rConsentsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12+\n" +
+	"\x05value\x18\x02 \x01(\v2\x15.crm.v1.ConsentRecordR\x05value:\x028\x01\":\n" +
+	"\x19GetContactConsentsRequest\x12\x1d\n" +
+	"\n" +
+	"contact_id\x18\x01 \x01(\tR\tcontactId\"N\n" +
+	"\x1aGetContactConsentsResponse\x120\n" +
+	"\asummary\x18\x01 \x01(\v2\x16.crm.v1.ConsentSummaryR\asummary\"\xf6\x01\n" +
+	"\x13GrantConsentRequest\x12\x1d\n" +
+	"\n" +
+	"contact_id\x18\x01 \x01(\tR\tcontactId\x12!\n" +
+	"\fconsent_type\x18\x02 \x01(\tR\vconsentType\x12\x16\n" +
+	"\x06source\x18\x03 \x01(\tR\x06source\x12\x1f\n" +
+	"\vlegal_basis\x18\x04 \x01(\tR\n" +
+	"legalBasis\x12\"\n" +
+	"\n" +
+	"ip_address\x18\x05 \x01(\tH\x00R\tipAddress\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"created_by\x18\x06 \x01(\tH\x01R\tcreatedBy\x88\x01\x01B\r\n" +
+	"\v_ip_addressB\r\n" +
+	"\v_created_by\"E\n" +
+	"\x14GrantConsentResponse\x12-\n" +
+	"\x06record\x18\x01 \x01(\v2\x15.crm.v1.ConsentRecordR\x06record\"\xa1\x01\n" +
+	"\x14RevokeConsentRequest\x12\x1d\n" +
+	"\n" +
+	"contact_id\x18\x01 \x01(\tR\tcontactId\x12!\n" +
+	"\fconsent_type\x18\x02 \x01(\tR\vconsentType\x12\x14\n" +
+	"\x05notes\x18\x03 \x01(\tR\x05notes\x12\"\n" +
+	"\n" +
+	"revoked_by\x18\x04 \x01(\tH\x00R\trevokedBy\x88\x01\x01B\r\n" +
+	"\v_revoked_by\"F\n" +
+	"\x15RevokeConsentResponse\x12-\n" +
+	"\x06record\x18\x01 \x01(\v2\x15.crm.v1.ConsentRecordR\x06record\"\\\n" +
+	"\x18GetConsentHistoryRequest\x12\x1d\n" +
+	"\n" +
+	"contact_id\x18\x01 \x01(\tR\tcontactId\x12!\n" +
+	"\fconsent_type\x18\x02 \x01(\tR\vconsentType\"b\n" +
+	"\x19GetConsentHistoryResponse\x12/\n" +
+	"\ahistory\x18\x01 \x03(\v2\x15.crm.v1.ConsentRecordR\ahistory\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\x85\x02\n" +
+	"\x13GDPRDeletionRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
+	"\n" +
+	"contact_id\x18\x02 \x01(\tR\tcontactId\x12&\n" +
+	"\frequested_by\x18\x03 \x01(\tH\x00R\vrequestedBy\x88\x01\x01\x12\x16\n" +
+	"\x06reason\x18\x04 \x01(\tR\x06reason\x12\x16\n" +
+	"\x06status\x18\x05 \x01(\tR\x06status\x12&\n" +
+	"\fcompleted_at\x18\x06 \x01(\tH\x01R\vcompletedAt\x88\x01\x01\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\a \x01(\tR\tcreatedAtB\x0f\n" +
+	"\r_requested_byB\x0f\n" +
+	"\r_completed_at\"\x88\x01\n" +
+	"\x16RequestDeletionRequest\x12\x1d\n" +
+	"\n" +
+	"contact_id\x18\x01 \x01(\tR\tcontactId\x12\x16\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\x12&\n" +
+	"\frequested_by\x18\x03 \x01(\tH\x00R\vrequestedBy\x88\x01\x01B\x0f\n" +
+	"\r_requested_by\"a\n" +
+	"\x17RequestDeletionResponse\x12F\n" +
+	"\x10deletion_request\x18\x01 \x01(\v2\x1b.crm.v1.GDPRDeletionRequestR\x0fdeletionRequest\"7\n" +
+	"\x16ProcessDeletionRequest\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\"1\n" +
+	"\x17ProcessDeletionResponse\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status2\xa7+\n" +
 	"\n" +
 	"CRMService\x12X\n" +
 	"\x11CreateCustomField\x12 .crm.v1.CreateCustomFieldRequest\x1a!.crm.v1.CreateCustomFieldResponse\x12O\n" +
@@ -8735,7 +10547,18 @@ const file_proto_crm_v1_crm_proto_rawDesc = "" +
 	"\x11DeleteSavedFilter\x12 .crm.v1.DeleteSavedFilterRequest\x1a!.crm.v1.DeleteSavedFilterResponse\x12X\n" +
 	"\x11GetPipelineReport\x12 .crm.v1.GetPipelineReportRequest\x1a!.crm.v1.GetPipelineReportResponse\x12^\n" +
 	"\x13GetConversionReport\x12\".crm.v1.GetConversionReportRequest\x1a#.crm.v1.GetConversionReportResponse\x12X\n" +
-	"\x11GetActivityReport\x12 .crm.v1.GetActivityReportRequest\x1a!.crm.v1.GetActivityReportResponseB-Z+github.com/kmuhub/kmuhub/proto/crm/v1;crmv1b\x06proto3"
+	"\x11GetActivityReport\x12 .crm.v1.GetActivityReportRequest\x1a!.crm.v1.GetActivityReportResponse\x12d\n" +
+	"\x15FindContactDuplicates\x12$.crm.v1.FindContactDuplicatesRequest\x1a%.crm.v1.FindContactDuplicatesResponse\x12L\n" +
+	"\rMergeContacts\x12\x1c.crm.v1.MergeContactsRequest\x1a\x1d.crm.v1.MergeContactsResponse\x12d\n" +
+	"\x15FindCompanyDuplicates\x12$.crm.v1.FindCompanyDuplicatesRequest\x1a%.crm.v1.FindCompanyDuplicatesResponse\x12O\n" +
+	"\x0eMergeCompanies\x12\x1d.crm.v1.MergeCompaniesRequest\x1a\x1e.crm.v1.MergeCompaniesResponse\x12[\n" +
+	"\x12GetContactTimeline\x12!.crm.v1.GetContactTimelineRequest\x1a\".crm.v1.GetContactTimelineResponse\x12[\n" +
+	"\x12GetContactConsents\x12!.crm.v1.GetContactConsentsRequest\x1a\".crm.v1.GetContactConsentsResponse\x12I\n" +
+	"\fGrantConsent\x12\x1b.crm.v1.GrantConsentRequest\x1a\x1c.crm.v1.GrantConsentResponse\x12L\n" +
+	"\rRevokeConsent\x12\x1c.crm.v1.RevokeConsentRequest\x1a\x1d.crm.v1.RevokeConsentResponse\x12X\n" +
+	"\x11GetConsentHistory\x12 .crm.v1.GetConsentHistoryRequest\x1a!.crm.v1.GetConsentHistoryResponse\x12R\n" +
+	"\x0fRequestDeletion\x12\x1e.crm.v1.RequestDeletionRequest\x1a\x1f.crm.v1.RequestDeletionResponse\x12R\n" +
+	"\x0fProcessDeletion\x12\x1e.crm.v1.ProcessDeletionRequest\x1a\x1f.crm.v1.ProcessDeletionResponseB-Z+github.com/kmuhub/kmuhub/proto/crm/v1;crmv1b\x06proto3"
 
 var (
 	file_proto_crm_v1_crm_proto_rawDescOnce sync.Once
@@ -8749,7 +10572,7 @@ func file_proto_crm_v1_crm_proto_rawDescGZIP() []byte {
 	return file_proto_crm_v1_crm_proto_rawDescData
 }
 
-var file_proto_crm_v1_crm_proto_msgTypes = make([]protoimpl.MessageInfo, 130)
+var file_proto_crm_v1_crm_proto_msgTypes = make([]protoimpl.MessageInfo, 161)
 var file_proto_crm_v1_crm_proto_goTypes = []any{
 	(*CustomFieldInfo)(nil),                 // 0: crm.v1.CustomFieldInfo
 	(*CreateCustomFieldRequest)(nil),        // 1: crm.v1.CreateCustomFieldRequest
@@ -8876,11 +10699,42 @@ var file_proto_crm_v1_crm_proto_goTypes = []any{
 	(*ActivityMetric)(nil),                  // 122: crm.v1.ActivityMetric
 	(*GetActivityReportRequest)(nil),        // 123: crm.v1.GetActivityReportRequest
 	(*GetActivityReportResponse)(nil),       // 124: crm.v1.GetActivityReportResponse
-	nil,                                     // 125: crm.v1.ContactInfo.CustomFieldsEntry
-	nil,                                     // 126: crm.v1.ImportContactsCSVRequest.FieldMappingEntry
-	nil,                                     // 127: crm.v1.PreviewImportCSVResponse.DetectedMappingEntry
-	nil,                                     // 128: crm.v1.CompanyInfo.CustomFieldsEntry
-	nil,                                     // 129: crm.v1.DealInfo.CustomFieldsEntry
+	(*DuplicateContactCandidate)(nil),       // 125: crm.v1.DuplicateContactCandidate
+	(*FindContactDuplicatesRequest)(nil),    // 126: crm.v1.FindContactDuplicatesRequest
+	(*FindContactDuplicatesResponse)(nil),   // 127: crm.v1.FindContactDuplicatesResponse
+	(*MergeContactsRequest)(nil),            // 128: crm.v1.MergeContactsRequest
+	(*MergeContactsResponse)(nil),           // 129: crm.v1.MergeContactsResponse
+	(*DuplicateCompanyCandidate)(nil),       // 130: crm.v1.DuplicateCompanyCandidate
+	(*FindCompanyDuplicatesRequest)(nil),    // 131: crm.v1.FindCompanyDuplicatesRequest
+	(*FindCompanyDuplicatesResponse)(nil),   // 132: crm.v1.FindCompanyDuplicatesResponse
+	(*MergeCompaniesRequest)(nil),           // 133: crm.v1.MergeCompaniesRequest
+	(*MergeCompaniesResponse)(nil),          // 134: crm.v1.MergeCompaniesResponse
+	(*TimelineEventMetadata)(nil),           // 135: crm.v1.TimelineEventMetadata
+	(*TimelineEvent)(nil),                   // 136: crm.v1.TimelineEvent
+	(*GetContactTimelineRequest)(nil),       // 137: crm.v1.GetContactTimelineRequest
+	(*GetContactTimelineResponse)(nil),      // 138: crm.v1.GetContactTimelineResponse
+	(*ConsentRecord)(nil),                   // 139: crm.v1.ConsentRecord
+	(*ConsentSummary)(nil),                  // 140: crm.v1.ConsentSummary
+	(*GetContactConsentsRequest)(nil),       // 141: crm.v1.GetContactConsentsRequest
+	(*GetContactConsentsResponse)(nil),      // 142: crm.v1.GetContactConsentsResponse
+	(*GrantConsentRequest)(nil),             // 143: crm.v1.GrantConsentRequest
+	(*GrantConsentResponse)(nil),            // 144: crm.v1.GrantConsentResponse
+	(*RevokeConsentRequest)(nil),            // 145: crm.v1.RevokeConsentRequest
+	(*RevokeConsentResponse)(nil),           // 146: crm.v1.RevokeConsentResponse
+	(*GetConsentHistoryRequest)(nil),        // 147: crm.v1.GetConsentHistoryRequest
+	(*GetConsentHistoryResponse)(nil),       // 148: crm.v1.GetConsentHistoryResponse
+	(*GDPRDeletionRequest)(nil),             // 149: crm.v1.GDPRDeletionRequest
+	(*RequestDeletionRequest)(nil),          // 150: crm.v1.RequestDeletionRequest
+	(*RequestDeletionResponse)(nil),         // 151: crm.v1.RequestDeletionResponse
+	(*ProcessDeletionRequest)(nil),          // 152: crm.v1.ProcessDeletionRequest
+	(*ProcessDeletionResponse)(nil),         // 153: crm.v1.ProcessDeletionResponse
+	nil,                                     // 154: crm.v1.ContactInfo.CustomFieldsEntry
+	nil,                                     // 155: crm.v1.ImportContactsCSVRequest.FieldMappingEntry
+	nil,                                     // 156: crm.v1.PreviewImportCSVResponse.DetectedMappingEntry
+	nil,                                     // 157: crm.v1.CompanyInfo.CustomFieldsEntry
+	nil,                                     // 158: crm.v1.DealInfo.CustomFieldsEntry
+	nil,                                     // 159: crm.v1.TimelineEventMetadata.DataEntry
+	nil,                                     // 160: crm.v1.ConsentSummary.ConsentsEntry
 }
 var file_proto_crm_v1_crm_proto_depIdxs = []int32{
 	0,   // 0: crm.v1.CreateCustomFieldResponse.custom_field:type_name -> crm.v1.CustomFieldInfo
@@ -8892,7 +10746,7 @@ var file_proto_crm_v1_crm_proto_depIdxs = []int32{
 	11,  // 6: crm.v1.ListTagsResponse.tags:type_name -> crm.v1.TagInfo
 	11,  // 7: crm.v1.UpdateTagResponse.tag:type_name -> crm.v1.TagInfo
 	11,  // 8: crm.v1.ContactInfo.tags:type_name -> crm.v1.TagInfo
-	125, // 9: crm.v1.ContactInfo.custom_fields:type_name -> crm.v1.ContactInfo.CustomFieldsEntry
+	154, // 9: crm.v1.ContactInfo.custom_fields:type_name -> crm.v1.ContactInfo.CustomFieldsEntry
 	22,  // 10: crm.v1.CreateContactRequest.custom_fields:type_name -> crm.v1.CustomFieldValueInput
 	23,  // 11: crm.v1.CreateContactResponse.contact:type_name -> crm.v1.ContactInfo
 	23,  // 12: crm.v1.GetContactResponse.contact:type_name -> crm.v1.ContactInfo
@@ -8901,13 +10755,13 @@ var file_proto_crm_v1_crm_proto_depIdxs = []int32{
 	23,  // 15: crm.v1.UpdateContactResponse.contact:type_name -> crm.v1.ContactInfo
 	23,  // 16: crm.v1.AddContactTagsResponse.contact:type_name -> crm.v1.ContactInfo
 	23,  // 17: crm.v1.RemoveContactTagsResponse.contact:type_name -> crm.v1.ContactInfo
-	126, // 18: crm.v1.ImportContactsCSVRequest.field_mapping:type_name -> crm.v1.ImportContactsCSVRequest.FieldMappingEntry
+	155, // 18: crm.v1.ImportContactsCSVRequest.field_mapping:type_name -> crm.v1.ImportContactsCSVRequest.FieldMappingEntry
 	41,  // 19: crm.v1.ImportContactsResponse.errors:type_name -> crm.v1.ImportContactError
 	47,  // 20: crm.v1.PreviewImportCSVResponse.sample_rows:type_name -> crm.v1.CSVSampleRow
-	127, // 21: crm.v1.PreviewImportCSVResponse.detected_mapping:type_name -> crm.v1.PreviewImportCSVResponse.DetectedMappingEntry
+	156, // 21: crm.v1.PreviewImportCSVResponse.detected_mapping:type_name -> crm.v1.PreviewImportCSVResponse.DetectedMappingEntry
 	23,  // 22: crm.v1.UpdateContactVisibilityResponse.contact:type_name -> crm.v1.ContactInfo
 	11,  // 23: crm.v1.CompanyInfo.tags:type_name -> crm.v1.TagInfo
-	128, // 24: crm.v1.CompanyInfo.custom_fields:type_name -> crm.v1.CompanyInfo.CustomFieldsEntry
+	157, // 24: crm.v1.CompanyInfo.custom_fields:type_name -> crm.v1.CompanyInfo.CustomFieldsEntry
 	22,  // 25: crm.v1.CreateCompanyRequest.custom_fields:type_name -> crm.v1.CustomFieldValueInput
 	50,  // 26: crm.v1.CreateCompanyResponse.company:type_name -> crm.v1.CompanyInfo
 	50,  // 27: crm.v1.GetCompanyResponse.company:type_name -> crm.v1.CompanyInfo
@@ -8921,7 +10775,7 @@ var file_proto_crm_v1_crm_proto_depIdxs = []int32{
 	63,  // 35: crm.v1.UpdatePipelineStageResponse.stage:type_name -> crm.v1.PipelineStageInfo
 	63,  // 36: crm.v1.ReorderPipelineStagesResponse.stages:type_name -> crm.v1.PipelineStageInfo
 	11,  // 37: crm.v1.DealInfo.tags:type_name -> crm.v1.TagInfo
-	129, // 38: crm.v1.DealInfo.custom_fields:type_name -> crm.v1.DealInfo.CustomFieldsEntry
+	158, // 38: crm.v1.DealInfo.custom_fields:type_name -> crm.v1.DealInfo.CustomFieldsEntry
 	22,  // 39: crm.v1.CreateDealRequest.custom_fields:type_name -> crm.v1.CustomFieldValueInput
 	76,  // 40: crm.v1.CreateDealResponse.deal:type_name -> crm.v1.DealInfo
 	76,  // 41: crm.v1.GetDealResponse.deal:type_name -> crm.v1.DealInfo
@@ -8942,123 +10796,161 @@ var file_proto_crm_v1_crm_proto_depIdxs = []int32{
 	116, // 56: crm.v1.GetPipelineReportResponse.stages:type_name -> crm.v1.PipelineStageValue
 	119, // 57: crm.v1.GetConversionReportResponse.metrics:type_name -> crm.v1.ConversionMetric
 	122, // 58: crm.v1.GetActivityReportResponse.metrics:type_name -> crm.v1.ActivityMetric
-	1,   // 59: crm.v1.CRMService.CreateCustomField:input_type -> crm.v1.CreateCustomFieldRequest
-	3,   // 60: crm.v1.CRMService.GetCustomField:input_type -> crm.v1.GetCustomFieldRequest
-	5,   // 61: crm.v1.CRMService.ListCustomFields:input_type -> crm.v1.ListCustomFieldsRequest
-	7,   // 62: crm.v1.CRMService.UpdateCustomField:input_type -> crm.v1.UpdateCustomFieldRequest
-	9,   // 63: crm.v1.CRMService.DeleteCustomField:input_type -> crm.v1.DeleteCustomFieldRequest
-	12,  // 64: crm.v1.CRMService.CreateTag:input_type -> crm.v1.CreateTagRequest
-	14,  // 65: crm.v1.CRMService.GetTag:input_type -> crm.v1.GetTagRequest
-	16,  // 66: crm.v1.CRMService.ListTags:input_type -> crm.v1.ListTagsRequest
-	18,  // 67: crm.v1.CRMService.UpdateTag:input_type -> crm.v1.UpdateTagRequest
-	20,  // 68: crm.v1.CRMService.DeleteTag:input_type -> crm.v1.DeleteTagRequest
-	24,  // 69: crm.v1.CRMService.CreateContact:input_type -> crm.v1.CreateContactRequest
-	26,  // 70: crm.v1.CRMService.GetContact:input_type -> crm.v1.GetContactRequest
-	28,  // 71: crm.v1.CRMService.ListContacts:input_type -> crm.v1.ListContactsRequest
-	30,  // 72: crm.v1.CRMService.UpdateContact:input_type -> crm.v1.UpdateContactRequest
-	32,  // 73: crm.v1.CRMService.DeleteContact:input_type -> crm.v1.DeleteContactRequest
-	34,  // 74: crm.v1.CRMService.AddContactTags:input_type -> crm.v1.AddContactTagsRequest
-	36,  // 75: crm.v1.CRMService.RemoveContactTags:input_type -> crm.v1.RemoveContactTagsRequest
-	38,  // 76: crm.v1.CRMService.ImportContactsCSV:input_type -> crm.v1.ImportContactsCSVRequest
-	39,  // 77: crm.v1.CRMService.ImportContactsVCard:input_type -> crm.v1.ImportContactsVCardRequest
-	42,  // 78: crm.v1.CRMService.ExportContactsCSV:input_type -> crm.v1.ExportContactsCSVRequest
-	43,  // 79: crm.v1.CRMService.ExportContactsVCard:input_type -> crm.v1.ExportContactsVCardRequest
-	45,  // 80: crm.v1.CRMService.PreviewImportCSV:input_type -> crm.v1.PreviewImportCSVRequest
-	48,  // 81: crm.v1.CRMService.UpdateContactVisibility:input_type -> crm.v1.UpdateContactVisibilityRequest
-	51,  // 82: crm.v1.CRMService.CreateCompany:input_type -> crm.v1.CreateCompanyRequest
-	53,  // 83: crm.v1.CRMService.GetCompany:input_type -> crm.v1.GetCompanyRequest
-	55,  // 84: crm.v1.CRMService.ListCompanies:input_type -> crm.v1.ListCompaniesRequest
-	57,  // 85: crm.v1.CRMService.UpdateCompany:input_type -> crm.v1.UpdateCompanyRequest
-	59,  // 86: crm.v1.CRMService.DeleteCompany:input_type -> crm.v1.DeleteCompanyRequest
-	61,  // 87: crm.v1.CRMService.GetCompanyContacts:input_type -> crm.v1.GetCompanyContactsRequest
-	64,  // 88: crm.v1.CRMService.CreatePipelineStage:input_type -> crm.v1.CreatePipelineStageRequest
-	66,  // 89: crm.v1.CRMService.GetPipelineStage:input_type -> crm.v1.GetPipelineStageRequest
-	68,  // 90: crm.v1.CRMService.ListPipelineStages:input_type -> crm.v1.ListPipelineStagesRequest
-	70,  // 91: crm.v1.CRMService.UpdatePipelineStage:input_type -> crm.v1.UpdatePipelineStageRequest
-	72,  // 92: crm.v1.CRMService.DeletePipelineStage:input_type -> crm.v1.DeletePipelineStageRequest
-	74,  // 93: crm.v1.CRMService.ReorderPipelineStages:input_type -> crm.v1.ReorderPipelineStagesRequest
-	77,  // 94: crm.v1.CRMService.CreateDeal:input_type -> crm.v1.CreateDealRequest
-	79,  // 95: crm.v1.CRMService.GetDeal:input_type -> crm.v1.GetDealRequest
-	81,  // 96: crm.v1.CRMService.ListDeals:input_type -> crm.v1.ListDealsRequest
-	83,  // 97: crm.v1.CRMService.UpdateDeal:input_type -> crm.v1.UpdateDealRequest
-	85,  // 98: crm.v1.CRMService.DeleteDeal:input_type -> crm.v1.DeleteDealRequest
-	87,  // 99: crm.v1.CRMService.MoveDealToStage:input_type -> crm.v1.MoveDealToStageRequest
-	90,  // 100: crm.v1.CRMService.CreateActivity:input_type -> crm.v1.CreateActivityRequest
-	92,  // 101: crm.v1.CRMService.GetActivity:input_type -> crm.v1.GetActivityRequest
-	94,  // 102: crm.v1.CRMService.ListActivities:input_type -> crm.v1.ListActivitiesRequest
-	96,  // 103: crm.v1.CRMService.UpdateActivity:input_type -> crm.v1.UpdateActivityRequest
-	98,  // 104: crm.v1.CRMService.DeleteActivity:input_type -> crm.v1.DeleteActivityRequest
-	100, // 105: crm.v1.CRMService.CompleteActivity:input_type -> crm.v1.CompleteActivityRequest
-	103, // 106: crm.v1.CRMService.Search:input_type -> crm.v1.SearchRequest
-	106, // 107: crm.v1.CRMService.CreateSavedFilter:input_type -> crm.v1.CreateSavedFilterRequest
-	108, // 108: crm.v1.CRMService.GetSavedFilter:input_type -> crm.v1.GetSavedFilterRequest
-	110, // 109: crm.v1.CRMService.ListSavedFilters:input_type -> crm.v1.ListSavedFiltersRequest
-	112, // 110: crm.v1.CRMService.UpdateSavedFilter:input_type -> crm.v1.UpdateSavedFilterRequest
-	114, // 111: crm.v1.CRMService.DeleteSavedFilter:input_type -> crm.v1.DeleteSavedFilterRequest
-	117, // 112: crm.v1.CRMService.GetPipelineReport:input_type -> crm.v1.GetPipelineReportRequest
-	120, // 113: crm.v1.CRMService.GetConversionReport:input_type -> crm.v1.GetConversionReportRequest
-	123, // 114: crm.v1.CRMService.GetActivityReport:input_type -> crm.v1.GetActivityReportRequest
-	2,   // 115: crm.v1.CRMService.CreateCustomField:output_type -> crm.v1.CreateCustomFieldResponse
-	4,   // 116: crm.v1.CRMService.GetCustomField:output_type -> crm.v1.GetCustomFieldResponse
-	6,   // 117: crm.v1.CRMService.ListCustomFields:output_type -> crm.v1.ListCustomFieldsResponse
-	8,   // 118: crm.v1.CRMService.UpdateCustomField:output_type -> crm.v1.UpdateCustomFieldResponse
-	10,  // 119: crm.v1.CRMService.DeleteCustomField:output_type -> crm.v1.DeleteCustomFieldResponse
-	13,  // 120: crm.v1.CRMService.CreateTag:output_type -> crm.v1.CreateTagResponse
-	15,  // 121: crm.v1.CRMService.GetTag:output_type -> crm.v1.GetTagResponse
-	17,  // 122: crm.v1.CRMService.ListTags:output_type -> crm.v1.ListTagsResponse
-	19,  // 123: crm.v1.CRMService.UpdateTag:output_type -> crm.v1.UpdateTagResponse
-	21,  // 124: crm.v1.CRMService.DeleteTag:output_type -> crm.v1.DeleteTagResponse
-	25,  // 125: crm.v1.CRMService.CreateContact:output_type -> crm.v1.CreateContactResponse
-	27,  // 126: crm.v1.CRMService.GetContact:output_type -> crm.v1.GetContactResponse
-	29,  // 127: crm.v1.CRMService.ListContacts:output_type -> crm.v1.ListContactsResponse
-	31,  // 128: crm.v1.CRMService.UpdateContact:output_type -> crm.v1.UpdateContactResponse
-	33,  // 129: crm.v1.CRMService.DeleteContact:output_type -> crm.v1.DeleteContactResponse
-	35,  // 130: crm.v1.CRMService.AddContactTags:output_type -> crm.v1.AddContactTagsResponse
-	37,  // 131: crm.v1.CRMService.RemoveContactTags:output_type -> crm.v1.RemoveContactTagsResponse
-	40,  // 132: crm.v1.CRMService.ImportContactsCSV:output_type -> crm.v1.ImportContactsResponse
-	40,  // 133: crm.v1.CRMService.ImportContactsVCard:output_type -> crm.v1.ImportContactsResponse
-	44,  // 134: crm.v1.CRMService.ExportContactsCSV:output_type -> crm.v1.ExportContactsResponse
-	44,  // 135: crm.v1.CRMService.ExportContactsVCard:output_type -> crm.v1.ExportContactsResponse
-	46,  // 136: crm.v1.CRMService.PreviewImportCSV:output_type -> crm.v1.PreviewImportCSVResponse
-	49,  // 137: crm.v1.CRMService.UpdateContactVisibility:output_type -> crm.v1.UpdateContactVisibilityResponse
-	52,  // 138: crm.v1.CRMService.CreateCompany:output_type -> crm.v1.CreateCompanyResponse
-	54,  // 139: crm.v1.CRMService.GetCompany:output_type -> crm.v1.GetCompanyResponse
-	56,  // 140: crm.v1.CRMService.ListCompanies:output_type -> crm.v1.ListCompaniesResponse
-	58,  // 141: crm.v1.CRMService.UpdateCompany:output_type -> crm.v1.UpdateCompanyResponse
-	60,  // 142: crm.v1.CRMService.DeleteCompany:output_type -> crm.v1.DeleteCompanyResponse
-	62,  // 143: crm.v1.CRMService.GetCompanyContacts:output_type -> crm.v1.GetCompanyContactsResponse
-	65,  // 144: crm.v1.CRMService.CreatePipelineStage:output_type -> crm.v1.CreatePipelineStageResponse
-	67,  // 145: crm.v1.CRMService.GetPipelineStage:output_type -> crm.v1.GetPipelineStageResponse
-	69,  // 146: crm.v1.CRMService.ListPipelineStages:output_type -> crm.v1.ListPipelineStagesResponse
-	71,  // 147: crm.v1.CRMService.UpdatePipelineStage:output_type -> crm.v1.UpdatePipelineStageResponse
-	73,  // 148: crm.v1.CRMService.DeletePipelineStage:output_type -> crm.v1.DeletePipelineStageResponse
-	75,  // 149: crm.v1.CRMService.ReorderPipelineStages:output_type -> crm.v1.ReorderPipelineStagesResponse
-	78,  // 150: crm.v1.CRMService.CreateDeal:output_type -> crm.v1.CreateDealResponse
-	80,  // 151: crm.v1.CRMService.GetDeal:output_type -> crm.v1.GetDealResponse
-	82,  // 152: crm.v1.CRMService.ListDeals:output_type -> crm.v1.ListDealsResponse
-	84,  // 153: crm.v1.CRMService.UpdateDeal:output_type -> crm.v1.UpdateDealResponse
-	86,  // 154: crm.v1.CRMService.DeleteDeal:output_type -> crm.v1.DeleteDealResponse
-	88,  // 155: crm.v1.CRMService.MoveDealToStage:output_type -> crm.v1.MoveDealToStageResponse
-	91,  // 156: crm.v1.CRMService.CreateActivity:output_type -> crm.v1.CreateActivityResponse
-	93,  // 157: crm.v1.CRMService.GetActivity:output_type -> crm.v1.GetActivityResponse
-	95,  // 158: crm.v1.CRMService.ListActivities:output_type -> crm.v1.ListActivitiesResponse
-	97,  // 159: crm.v1.CRMService.UpdateActivity:output_type -> crm.v1.UpdateActivityResponse
-	99,  // 160: crm.v1.CRMService.DeleteActivity:output_type -> crm.v1.DeleteActivityResponse
-	101, // 161: crm.v1.CRMService.CompleteActivity:output_type -> crm.v1.CompleteActivityResponse
-	104, // 162: crm.v1.CRMService.Search:output_type -> crm.v1.SearchResponse
-	107, // 163: crm.v1.CRMService.CreateSavedFilter:output_type -> crm.v1.CreateSavedFilterResponse
-	109, // 164: crm.v1.CRMService.GetSavedFilter:output_type -> crm.v1.GetSavedFilterResponse
-	111, // 165: crm.v1.CRMService.ListSavedFilters:output_type -> crm.v1.ListSavedFiltersResponse
-	113, // 166: crm.v1.CRMService.UpdateSavedFilter:output_type -> crm.v1.UpdateSavedFilterResponse
-	115, // 167: crm.v1.CRMService.DeleteSavedFilter:output_type -> crm.v1.DeleteSavedFilterResponse
-	118, // 168: crm.v1.CRMService.GetPipelineReport:output_type -> crm.v1.GetPipelineReportResponse
-	121, // 169: crm.v1.CRMService.GetConversionReport:output_type -> crm.v1.GetConversionReportResponse
-	124, // 170: crm.v1.CRMService.GetActivityReport:output_type -> crm.v1.GetActivityReportResponse
-	115, // [115:171] is the sub-list for method output_type
-	59,  // [59:115] is the sub-list for method input_type
-	59,  // [59:59] is the sub-list for extension type_name
-	59,  // [59:59] is the sub-list for extension extendee
-	0,   // [0:59] is the sub-list for field type_name
+	23,  // 59: crm.v1.DuplicateContactCandidate.contact:type_name -> crm.v1.ContactInfo
+	125, // 60: crm.v1.FindContactDuplicatesResponse.duplicates:type_name -> crm.v1.DuplicateContactCandidate
+	23,  // 61: crm.v1.MergeContactsResponse.contact:type_name -> crm.v1.ContactInfo
+	50,  // 62: crm.v1.DuplicateCompanyCandidate.company:type_name -> crm.v1.CompanyInfo
+	130, // 63: crm.v1.FindCompanyDuplicatesResponse.duplicates:type_name -> crm.v1.DuplicateCompanyCandidate
+	50,  // 64: crm.v1.MergeCompaniesResponse.company:type_name -> crm.v1.CompanyInfo
+	159, // 65: crm.v1.TimelineEventMetadata.data:type_name -> crm.v1.TimelineEventMetadata.DataEntry
+	135, // 66: crm.v1.TimelineEvent.metadata:type_name -> crm.v1.TimelineEventMetadata
+	136, // 67: crm.v1.GetContactTimelineResponse.events:type_name -> crm.v1.TimelineEvent
+	160, // 68: crm.v1.ConsentSummary.consents:type_name -> crm.v1.ConsentSummary.ConsentsEntry
+	140, // 69: crm.v1.GetContactConsentsResponse.summary:type_name -> crm.v1.ConsentSummary
+	139, // 70: crm.v1.GrantConsentResponse.record:type_name -> crm.v1.ConsentRecord
+	139, // 71: crm.v1.RevokeConsentResponse.record:type_name -> crm.v1.ConsentRecord
+	139, // 72: crm.v1.GetConsentHistoryResponse.history:type_name -> crm.v1.ConsentRecord
+	149, // 73: crm.v1.RequestDeletionResponse.deletion_request:type_name -> crm.v1.GDPRDeletionRequest
+	139, // 74: crm.v1.ConsentSummary.ConsentsEntry.value:type_name -> crm.v1.ConsentRecord
+	1,   // 75: crm.v1.CRMService.CreateCustomField:input_type -> crm.v1.CreateCustomFieldRequest
+	3,   // 76: crm.v1.CRMService.GetCustomField:input_type -> crm.v1.GetCustomFieldRequest
+	5,   // 77: crm.v1.CRMService.ListCustomFields:input_type -> crm.v1.ListCustomFieldsRequest
+	7,   // 78: crm.v1.CRMService.UpdateCustomField:input_type -> crm.v1.UpdateCustomFieldRequest
+	9,   // 79: crm.v1.CRMService.DeleteCustomField:input_type -> crm.v1.DeleteCustomFieldRequest
+	12,  // 80: crm.v1.CRMService.CreateTag:input_type -> crm.v1.CreateTagRequest
+	14,  // 81: crm.v1.CRMService.GetTag:input_type -> crm.v1.GetTagRequest
+	16,  // 82: crm.v1.CRMService.ListTags:input_type -> crm.v1.ListTagsRequest
+	18,  // 83: crm.v1.CRMService.UpdateTag:input_type -> crm.v1.UpdateTagRequest
+	20,  // 84: crm.v1.CRMService.DeleteTag:input_type -> crm.v1.DeleteTagRequest
+	24,  // 85: crm.v1.CRMService.CreateContact:input_type -> crm.v1.CreateContactRequest
+	26,  // 86: crm.v1.CRMService.GetContact:input_type -> crm.v1.GetContactRequest
+	28,  // 87: crm.v1.CRMService.ListContacts:input_type -> crm.v1.ListContactsRequest
+	30,  // 88: crm.v1.CRMService.UpdateContact:input_type -> crm.v1.UpdateContactRequest
+	32,  // 89: crm.v1.CRMService.DeleteContact:input_type -> crm.v1.DeleteContactRequest
+	34,  // 90: crm.v1.CRMService.AddContactTags:input_type -> crm.v1.AddContactTagsRequest
+	36,  // 91: crm.v1.CRMService.RemoveContactTags:input_type -> crm.v1.RemoveContactTagsRequest
+	38,  // 92: crm.v1.CRMService.ImportContactsCSV:input_type -> crm.v1.ImportContactsCSVRequest
+	39,  // 93: crm.v1.CRMService.ImportContactsVCard:input_type -> crm.v1.ImportContactsVCardRequest
+	42,  // 94: crm.v1.CRMService.ExportContactsCSV:input_type -> crm.v1.ExportContactsCSVRequest
+	43,  // 95: crm.v1.CRMService.ExportContactsVCard:input_type -> crm.v1.ExportContactsVCardRequest
+	45,  // 96: crm.v1.CRMService.PreviewImportCSV:input_type -> crm.v1.PreviewImportCSVRequest
+	48,  // 97: crm.v1.CRMService.UpdateContactVisibility:input_type -> crm.v1.UpdateContactVisibilityRequest
+	51,  // 98: crm.v1.CRMService.CreateCompany:input_type -> crm.v1.CreateCompanyRequest
+	53,  // 99: crm.v1.CRMService.GetCompany:input_type -> crm.v1.GetCompanyRequest
+	55,  // 100: crm.v1.CRMService.ListCompanies:input_type -> crm.v1.ListCompaniesRequest
+	57,  // 101: crm.v1.CRMService.UpdateCompany:input_type -> crm.v1.UpdateCompanyRequest
+	59,  // 102: crm.v1.CRMService.DeleteCompany:input_type -> crm.v1.DeleteCompanyRequest
+	61,  // 103: crm.v1.CRMService.GetCompanyContacts:input_type -> crm.v1.GetCompanyContactsRequest
+	64,  // 104: crm.v1.CRMService.CreatePipelineStage:input_type -> crm.v1.CreatePipelineStageRequest
+	66,  // 105: crm.v1.CRMService.GetPipelineStage:input_type -> crm.v1.GetPipelineStageRequest
+	68,  // 106: crm.v1.CRMService.ListPipelineStages:input_type -> crm.v1.ListPipelineStagesRequest
+	70,  // 107: crm.v1.CRMService.UpdatePipelineStage:input_type -> crm.v1.UpdatePipelineStageRequest
+	72,  // 108: crm.v1.CRMService.DeletePipelineStage:input_type -> crm.v1.DeletePipelineStageRequest
+	74,  // 109: crm.v1.CRMService.ReorderPipelineStages:input_type -> crm.v1.ReorderPipelineStagesRequest
+	77,  // 110: crm.v1.CRMService.CreateDeal:input_type -> crm.v1.CreateDealRequest
+	79,  // 111: crm.v1.CRMService.GetDeal:input_type -> crm.v1.GetDealRequest
+	81,  // 112: crm.v1.CRMService.ListDeals:input_type -> crm.v1.ListDealsRequest
+	83,  // 113: crm.v1.CRMService.UpdateDeal:input_type -> crm.v1.UpdateDealRequest
+	85,  // 114: crm.v1.CRMService.DeleteDeal:input_type -> crm.v1.DeleteDealRequest
+	87,  // 115: crm.v1.CRMService.MoveDealToStage:input_type -> crm.v1.MoveDealToStageRequest
+	90,  // 116: crm.v1.CRMService.CreateActivity:input_type -> crm.v1.CreateActivityRequest
+	92,  // 117: crm.v1.CRMService.GetActivity:input_type -> crm.v1.GetActivityRequest
+	94,  // 118: crm.v1.CRMService.ListActivities:input_type -> crm.v1.ListActivitiesRequest
+	96,  // 119: crm.v1.CRMService.UpdateActivity:input_type -> crm.v1.UpdateActivityRequest
+	98,  // 120: crm.v1.CRMService.DeleteActivity:input_type -> crm.v1.DeleteActivityRequest
+	100, // 121: crm.v1.CRMService.CompleteActivity:input_type -> crm.v1.CompleteActivityRequest
+	103, // 122: crm.v1.CRMService.Search:input_type -> crm.v1.SearchRequest
+	106, // 123: crm.v1.CRMService.CreateSavedFilter:input_type -> crm.v1.CreateSavedFilterRequest
+	108, // 124: crm.v1.CRMService.GetSavedFilter:input_type -> crm.v1.GetSavedFilterRequest
+	110, // 125: crm.v1.CRMService.ListSavedFilters:input_type -> crm.v1.ListSavedFiltersRequest
+	112, // 126: crm.v1.CRMService.UpdateSavedFilter:input_type -> crm.v1.UpdateSavedFilterRequest
+	114, // 127: crm.v1.CRMService.DeleteSavedFilter:input_type -> crm.v1.DeleteSavedFilterRequest
+	117, // 128: crm.v1.CRMService.GetPipelineReport:input_type -> crm.v1.GetPipelineReportRequest
+	120, // 129: crm.v1.CRMService.GetConversionReport:input_type -> crm.v1.GetConversionReportRequest
+	123, // 130: crm.v1.CRMService.GetActivityReport:input_type -> crm.v1.GetActivityReportRequest
+	126, // 131: crm.v1.CRMService.FindContactDuplicates:input_type -> crm.v1.FindContactDuplicatesRequest
+	128, // 132: crm.v1.CRMService.MergeContacts:input_type -> crm.v1.MergeContactsRequest
+	131, // 133: crm.v1.CRMService.FindCompanyDuplicates:input_type -> crm.v1.FindCompanyDuplicatesRequest
+	133, // 134: crm.v1.CRMService.MergeCompanies:input_type -> crm.v1.MergeCompaniesRequest
+	137, // 135: crm.v1.CRMService.GetContactTimeline:input_type -> crm.v1.GetContactTimelineRequest
+	141, // 136: crm.v1.CRMService.GetContactConsents:input_type -> crm.v1.GetContactConsentsRequest
+	143, // 137: crm.v1.CRMService.GrantConsent:input_type -> crm.v1.GrantConsentRequest
+	145, // 138: crm.v1.CRMService.RevokeConsent:input_type -> crm.v1.RevokeConsentRequest
+	147, // 139: crm.v1.CRMService.GetConsentHistory:input_type -> crm.v1.GetConsentHistoryRequest
+	150, // 140: crm.v1.CRMService.RequestDeletion:input_type -> crm.v1.RequestDeletionRequest
+	152, // 141: crm.v1.CRMService.ProcessDeletion:input_type -> crm.v1.ProcessDeletionRequest
+	2,   // 142: crm.v1.CRMService.CreateCustomField:output_type -> crm.v1.CreateCustomFieldResponse
+	4,   // 143: crm.v1.CRMService.GetCustomField:output_type -> crm.v1.GetCustomFieldResponse
+	6,   // 144: crm.v1.CRMService.ListCustomFields:output_type -> crm.v1.ListCustomFieldsResponse
+	8,   // 145: crm.v1.CRMService.UpdateCustomField:output_type -> crm.v1.UpdateCustomFieldResponse
+	10,  // 146: crm.v1.CRMService.DeleteCustomField:output_type -> crm.v1.DeleteCustomFieldResponse
+	13,  // 147: crm.v1.CRMService.CreateTag:output_type -> crm.v1.CreateTagResponse
+	15,  // 148: crm.v1.CRMService.GetTag:output_type -> crm.v1.GetTagResponse
+	17,  // 149: crm.v1.CRMService.ListTags:output_type -> crm.v1.ListTagsResponse
+	19,  // 150: crm.v1.CRMService.UpdateTag:output_type -> crm.v1.UpdateTagResponse
+	21,  // 151: crm.v1.CRMService.DeleteTag:output_type -> crm.v1.DeleteTagResponse
+	25,  // 152: crm.v1.CRMService.CreateContact:output_type -> crm.v1.CreateContactResponse
+	27,  // 153: crm.v1.CRMService.GetContact:output_type -> crm.v1.GetContactResponse
+	29,  // 154: crm.v1.CRMService.ListContacts:output_type -> crm.v1.ListContactsResponse
+	31,  // 155: crm.v1.CRMService.UpdateContact:output_type -> crm.v1.UpdateContactResponse
+	33,  // 156: crm.v1.CRMService.DeleteContact:output_type -> crm.v1.DeleteContactResponse
+	35,  // 157: crm.v1.CRMService.AddContactTags:output_type -> crm.v1.AddContactTagsResponse
+	37,  // 158: crm.v1.CRMService.RemoveContactTags:output_type -> crm.v1.RemoveContactTagsResponse
+	40,  // 159: crm.v1.CRMService.ImportContactsCSV:output_type -> crm.v1.ImportContactsResponse
+	40,  // 160: crm.v1.CRMService.ImportContactsVCard:output_type -> crm.v1.ImportContactsResponse
+	44,  // 161: crm.v1.CRMService.ExportContactsCSV:output_type -> crm.v1.ExportContactsResponse
+	44,  // 162: crm.v1.CRMService.ExportContactsVCard:output_type -> crm.v1.ExportContactsResponse
+	46,  // 163: crm.v1.CRMService.PreviewImportCSV:output_type -> crm.v1.PreviewImportCSVResponse
+	49,  // 164: crm.v1.CRMService.UpdateContactVisibility:output_type -> crm.v1.UpdateContactVisibilityResponse
+	52,  // 165: crm.v1.CRMService.CreateCompany:output_type -> crm.v1.CreateCompanyResponse
+	54,  // 166: crm.v1.CRMService.GetCompany:output_type -> crm.v1.GetCompanyResponse
+	56,  // 167: crm.v1.CRMService.ListCompanies:output_type -> crm.v1.ListCompaniesResponse
+	58,  // 168: crm.v1.CRMService.UpdateCompany:output_type -> crm.v1.UpdateCompanyResponse
+	60,  // 169: crm.v1.CRMService.DeleteCompany:output_type -> crm.v1.DeleteCompanyResponse
+	62,  // 170: crm.v1.CRMService.GetCompanyContacts:output_type -> crm.v1.GetCompanyContactsResponse
+	65,  // 171: crm.v1.CRMService.CreatePipelineStage:output_type -> crm.v1.CreatePipelineStageResponse
+	67,  // 172: crm.v1.CRMService.GetPipelineStage:output_type -> crm.v1.GetPipelineStageResponse
+	69,  // 173: crm.v1.CRMService.ListPipelineStages:output_type -> crm.v1.ListPipelineStagesResponse
+	71,  // 174: crm.v1.CRMService.UpdatePipelineStage:output_type -> crm.v1.UpdatePipelineStageResponse
+	73,  // 175: crm.v1.CRMService.DeletePipelineStage:output_type -> crm.v1.DeletePipelineStageResponse
+	75,  // 176: crm.v1.CRMService.ReorderPipelineStages:output_type -> crm.v1.ReorderPipelineStagesResponse
+	78,  // 177: crm.v1.CRMService.CreateDeal:output_type -> crm.v1.CreateDealResponse
+	80,  // 178: crm.v1.CRMService.GetDeal:output_type -> crm.v1.GetDealResponse
+	82,  // 179: crm.v1.CRMService.ListDeals:output_type -> crm.v1.ListDealsResponse
+	84,  // 180: crm.v1.CRMService.UpdateDeal:output_type -> crm.v1.UpdateDealResponse
+	86,  // 181: crm.v1.CRMService.DeleteDeal:output_type -> crm.v1.DeleteDealResponse
+	88,  // 182: crm.v1.CRMService.MoveDealToStage:output_type -> crm.v1.MoveDealToStageResponse
+	91,  // 183: crm.v1.CRMService.CreateActivity:output_type -> crm.v1.CreateActivityResponse
+	93,  // 184: crm.v1.CRMService.GetActivity:output_type -> crm.v1.GetActivityResponse
+	95,  // 185: crm.v1.CRMService.ListActivities:output_type -> crm.v1.ListActivitiesResponse
+	97,  // 186: crm.v1.CRMService.UpdateActivity:output_type -> crm.v1.UpdateActivityResponse
+	99,  // 187: crm.v1.CRMService.DeleteActivity:output_type -> crm.v1.DeleteActivityResponse
+	101, // 188: crm.v1.CRMService.CompleteActivity:output_type -> crm.v1.CompleteActivityResponse
+	104, // 189: crm.v1.CRMService.Search:output_type -> crm.v1.SearchResponse
+	107, // 190: crm.v1.CRMService.CreateSavedFilter:output_type -> crm.v1.CreateSavedFilterResponse
+	109, // 191: crm.v1.CRMService.GetSavedFilter:output_type -> crm.v1.GetSavedFilterResponse
+	111, // 192: crm.v1.CRMService.ListSavedFilters:output_type -> crm.v1.ListSavedFiltersResponse
+	113, // 193: crm.v1.CRMService.UpdateSavedFilter:output_type -> crm.v1.UpdateSavedFilterResponse
+	115, // 194: crm.v1.CRMService.DeleteSavedFilter:output_type -> crm.v1.DeleteSavedFilterResponse
+	118, // 195: crm.v1.CRMService.GetPipelineReport:output_type -> crm.v1.GetPipelineReportResponse
+	121, // 196: crm.v1.CRMService.GetConversionReport:output_type -> crm.v1.GetConversionReportResponse
+	124, // 197: crm.v1.CRMService.GetActivityReport:output_type -> crm.v1.GetActivityReportResponse
+	127, // 198: crm.v1.CRMService.FindContactDuplicates:output_type -> crm.v1.FindContactDuplicatesResponse
+	129, // 199: crm.v1.CRMService.MergeContacts:output_type -> crm.v1.MergeContactsResponse
+	132, // 200: crm.v1.CRMService.FindCompanyDuplicates:output_type -> crm.v1.FindCompanyDuplicatesResponse
+	134, // 201: crm.v1.CRMService.MergeCompanies:output_type -> crm.v1.MergeCompaniesResponse
+	138, // 202: crm.v1.CRMService.GetContactTimeline:output_type -> crm.v1.GetContactTimelineResponse
+	142, // 203: crm.v1.CRMService.GetContactConsents:output_type -> crm.v1.GetContactConsentsResponse
+	144, // 204: crm.v1.CRMService.GrantConsent:output_type -> crm.v1.GrantConsentResponse
+	146, // 205: crm.v1.CRMService.RevokeConsent:output_type -> crm.v1.RevokeConsentResponse
+	148, // 206: crm.v1.CRMService.GetConsentHistory:output_type -> crm.v1.GetConsentHistoryResponse
+	151, // 207: crm.v1.CRMService.RequestDeletion:output_type -> crm.v1.RequestDeletionResponse
+	153, // 208: crm.v1.CRMService.ProcessDeletion:output_type -> crm.v1.ProcessDeletionResponse
+	142, // [142:209] is the sub-list for method output_type
+	75,  // [75:142] is the sub-list for method input_type
+	75,  // [75:75] is the sub-list for extension type_name
+	75,  // [75:75] is the sub-list for extension extendee
+	0,   // [0:75] is the sub-list for field type_name
 }
 
 func init() { file_proto_crm_v1_crm_proto_init() }
@@ -9087,13 +10979,19 @@ func file_proto_crm_v1_crm_proto_init() {
 	file_proto_crm_v1_crm_proto_msgTypes[112].OneofWrappers = []any{}
 	file_proto_crm_v1_crm_proto_msgTypes[117].OneofWrappers = []any{}
 	file_proto_crm_v1_crm_proto_msgTypes[123].OneofWrappers = []any{}
+	file_proto_crm_v1_crm_proto_msgTypes[136].OneofWrappers = []any{}
+	file_proto_crm_v1_crm_proto_msgTypes[139].OneofWrappers = []any{}
+	file_proto_crm_v1_crm_proto_msgTypes[143].OneofWrappers = []any{}
+	file_proto_crm_v1_crm_proto_msgTypes[145].OneofWrappers = []any{}
+	file_proto_crm_v1_crm_proto_msgTypes[149].OneofWrappers = []any{}
+	file_proto_crm_v1_crm_proto_msgTypes[150].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_crm_v1_crm_proto_rawDesc), len(file_proto_crm_v1_crm_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   130,
+			NumMessages:   161,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

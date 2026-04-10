@@ -62,6 +62,9 @@ service FinanceService {
   rpc GenerateInvoicePDF(GenerateInvoicePDFRequest) returns (GenerateInvoicePDFResponse);
   rpc GenerateCreditNotePDF(GenerateCreditNotePDFRequest) returns (GenerateCreditNotePDFResponse);
   rpc GenerateDunningPDF(GenerateDunningPDFRequest) returns (GenerateDunningPDFResponse);
+
+  // ==================== Time-Tracking → Invoice ====================
+  rpc CreateInvoiceFromTimeEntries(CreateInvoiceFromTimeEntriesRequest) returns (CreateInvoiceFromTimeEntriesResponse);
 }
 
 // ============================================================================
@@ -746,4 +749,26 @@ message GenerateDunningPDFRequest {
 message GenerateDunningPDFResponse {
   bytes pdf_data = 1;
   string filename = 2;
+}
+
+// ============================================================================
+// Time-Tracking → Invoice Request/Response
+// ============================================================================
+
+message CreateInvoiceFromTimeEntriesRequest {
+  string tenant_id = 1;
+  string employee_id = 2;
+  string customer_name = 3;
+  string customer_address = 4;
+  string customer_email = 5;
+  string date_from = 6;          // YYYY-MM-DD
+  string date_to = 7;            // YYYY-MM-DD
+  string hourly_rate = 8;        // Decimal as string
+  string description = 9;        // Optional; defaults to "Arbeitszeit {from}–{to}"
+  string tax_mode = 10;          // Optional; defaults to "standard"
+  string created_by = 11;
+}
+
+message CreateInvoiceFromTimeEntriesResponse {
+  Invoice invoice = 1;
 }

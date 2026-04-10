@@ -75,6 +75,17 @@ const (
 	CRMService_GetPipelineReport_FullMethodName       = "/crm.v1.CRMService/GetPipelineReport"
 	CRMService_GetConversionReport_FullMethodName     = "/crm.v1.CRMService/GetConversionReport"
 	CRMService_GetActivityReport_FullMethodName       = "/crm.v1.CRMService/GetActivityReport"
+	CRMService_FindContactDuplicates_FullMethodName   = "/crm.v1.CRMService/FindContactDuplicates"
+	CRMService_MergeContacts_FullMethodName           = "/crm.v1.CRMService/MergeContacts"
+	CRMService_FindCompanyDuplicates_FullMethodName   = "/crm.v1.CRMService/FindCompanyDuplicates"
+	CRMService_MergeCompanies_FullMethodName          = "/crm.v1.CRMService/MergeCompanies"
+	CRMService_GetContactTimeline_FullMethodName      = "/crm.v1.CRMService/GetContactTimeline"
+	CRMService_GetContactConsents_FullMethodName      = "/crm.v1.CRMService/GetContactConsents"
+	CRMService_GrantConsent_FullMethodName            = "/crm.v1.CRMService/GrantConsent"
+	CRMService_RevokeConsent_FullMethodName           = "/crm.v1.CRMService/RevokeConsent"
+	CRMService_GetConsentHistory_FullMethodName       = "/crm.v1.CRMService/GetConsentHistory"
+	CRMService_RequestDeletion_FullMethodName         = "/crm.v1.CRMService/RequestDeletion"
+	CRMService_ProcessDeletion_FullMethodName         = "/crm.v1.CRMService/ProcessDeletion"
 )
 
 // CRMServiceClient is the client API for CRMService service.
@@ -148,6 +159,20 @@ type CRMServiceClient interface {
 	GetPipelineReport(ctx context.Context, in *GetPipelineReportRequest, opts ...grpc.CallOption) (*GetPipelineReportResponse, error)
 	GetConversionReport(ctx context.Context, in *GetConversionReportRequest, opts ...grpc.CallOption) (*GetConversionReportResponse, error)
 	GetActivityReport(ctx context.Context, in *GetActivityReportRequest, opts ...grpc.CallOption) (*GetActivityReportResponse, error)
+	// Duplicate Detection
+	FindContactDuplicates(ctx context.Context, in *FindContactDuplicatesRequest, opts ...grpc.CallOption) (*FindContactDuplicatesResponse, error)
+	MergeContacts(ctx context.Context, in *MergeContactsRequest, opts ...grpc.CallOption) (*MergeContactsResponse, error)
+	FindCompanyDuplicates(ctx context.Context, in *FindCompanyDuplicatesRequest, opts ...grpc.CallOption) (*FindCompanyDuplicatesResponse, error)
+	MergeCompanies(ctx context.Context, in *MergeCompaniesRequest, opts ...grpc.CallOption) (*MergeCompaniesResponse, error)
+	// Contact Timeline
+	GetContactTimeline(ctx context.Context, in *GetContactTimelineRequest, opts ...grpc.CallOption) (*GetContactTimelineResponse, error)
+	// GDPR Consent Management
+	GetContactConsents(ctx context.Context, in *GetContactConsentsRequest, opts ...grpc.CallOption) (*GetContactConsentsResponse, error)
+	GrantConsent(ctx context.Context, in *GrantConsentRequest, opts ...grpc.CallOption) (*GrantConsentResponse, error)
+	RevokeConsent(ctx context.Context, in *RevokeConsentRequest, opts ...grpc.CallOption) (*RevokeConsentResponse, error)
+	GetConsentHistory(ctx context.Context, in *GetConsentHistoryRequest, opts ...grpc.CallOption) (*GetConsentHistoryResponse, error)
+	RequestDeletion(ctx context.Context, in *RequestDeletionRequest, opts ...grpc.CallOption) (*RequestDeletionResponse, error)
+	ProcessDeletion(ctx context.Context, in *ProcessDeletionRequest, opts ...grpc.CallOption) (*ProcessDeletionResponse, error)
 }
 
 type cRMServiceClient struct {
@@ -718,6 +743,116 @@ func (c *cRMServiceClient) GetActivityReport(ctx context.Context, in *GetActivit
 	return out, nil
 }
 
+func (c *cRMServiceClient) FindContactDuplicates(ctx context.Context, in *FindContactDuplicatesRequest, opts ...grpc.CallOption) (*FindContactDuplicatesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FindContactDuplicatesResponse)
+	err := c.cc.Invoke(ctx, CRMService_FindContactDuplicates_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cRMServiceClient) MergeContacts(ctx context.Context, in *MergeContactsRequest, opts ...grpc.CallOption) (*MergeContactsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MergeContactsResponse)
+	err := c.cc.Invoke(ctx, CRMService_MergeContacts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cRMServiceClient) FindCompanyDuplicates(ctx context.Context, in *FindCompanyDuplicatesRequest, opts ...grpc.CallOption) (*FindCompanyDuplicatesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FindCompanyDuplicatesResponse)
+	err := c.cc.Invoke(ctx, CRMService_FindCompanyDuplicates_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cRMServiceClient) MergeCompanies(ctx context.Context, in *MergeCompaniesRequest, opts ...grpc.CallOption) (*MergeCompaniesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MergeCompaniesResponse)
+	err := c.cc.Invoke(ctx, CRMService_MergeCompanies_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cRMServiceClient) GetContactTimeline(ctx context.Context, in *GetContactTimelineRequest, opts ...grpc.CallOption) (*GetContactTimelineResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetContactTimelineResponse)
+	err := c.cc.Invoke(ctx, CRMService_GetContactTimeline_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cRMServiceClient) GetContactConsents(ctx context.Context, in *GetContactConsentsRequest, opts ...grpc.CallOption) (*GetContactConsentsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetContactConsentsResponse)
+	err := c.cc.Invoke(ctx, CRMService_GetContactConsents_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cRMServiceClient) GrantConsent(ctx context.Context, in *GrantConsentRequest, opts ...grpc.CallOption) (*GrantConsentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GrantConsentResponse)
+	err := c.cc.Invoke(ctx, CRMService_GrantConsent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cRMServiceClient) RevokeConsent(ctx context.Context, in *RevokeConsentRequest, opts ...grpc.CallOption) (*RevokeConsentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RevokeConsentResponse)
+	err := c.cc.Invoke(ctx, CRMService_RevokeConsent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cRMServiceClient) GetConsentHistory(ctx context.Context, in *GetConsentHistoryRequest, opts ...grpc.CallOption) (*GetConsentHistoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetConsentHistoryResponse)
+	err := c.cc.Invoke(ctx, CRMService_GetConsentHistory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cRMServiceClient) RequestDeletion(ctx context.Context, in *RequestDeletionRequest, opts ...grpc.CallOption) (*RequestDeletionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RequestDeletionResponse)
+	err := c.cc.Invoke(ctx, CRMService_RequestDeletion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cRMServiceClient) ProcessDeletion(ctx context.Context, in *ProcessDeletionRequest, opts ...grpc.CallOption) (*ProcessDeletionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ProcessDeletionResponse)
+	err := c.cc.Invoke(ctx, CRMService_ProcessDeletion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CRMServiceServer is the server API for CRMService service.
 // All implementations must embed UnimplementedCRMServiceServer
 // for forward compatibility.
@@ -789,6 +924,20 @@ type CRMServiceServer interface {
 	GetPipelineReport(context.Context, *GetPipelineReportRequest) (*GetPipelineReportResponse, error)
 	GetConversionReport(context.Context, *GetConversionReportRequest) (*GetConversionReportResponse, error)
 	GetActivityReport(context.Context, *GetActivityReportRequest) (*GetActivityReportResponse, error)
+	// Duplicate Detection
+	FindContactDuplicates(context.Context, *FindContactDuplicatesRequest) (*FindContactDuplicatesResponse, error)
+	MergeContacts(context.Context, *MergeContactsRequest) (*MergeContactsResponse, error)
+	FindCompanyDuplicates(context.Context, *FindCompanyDuplicatesRequest) (*FindCompanyDuplicatesResponse, error)
+	MergeCompanies(context.Context, *MergeCompaniesRequest) (*MergeCompaniesResponse, error)
+	// Contact Timeline
+	GetContactTimeline(context.Context, *GetContactTimelineRequest) (*GetContactTimelineResponse, error)
+	// GDPR Consent Management
+	GetContactConsents(context.Context, *GetContactConsentsRequest) (*GetContactConsentsResponse, error)
+	GrantConsent(context.Context, *GrantConsentRequest) (*GrantConsentResponse, error)
+	RevokeConsent(context.Context, *RevokeConsentRequest) (*RevokeConsentResponse, error)
+	GetConsentHistory(context.Context, *GetConsentHistoryRequest) (*GetConsentHistoryResponse, error)
+	RequestDeletion(context.Context, *RequestDeletionRequest) (*RequestDeletionResponse, error)
+	ProcessDeletion(context.Context, *ProcessDeletionRequest) (*ProcessDeletionResponse, error)
 	mustEmbedUnimplementedCRMServiceServer()
 }
 
@@ -966,6 +1115,39 @@ func (UnimplementedCRMServiceServer) GetConversionReport(context.Context, *GetCo
 }
 func (UnimplementedCRMServiceServer) GetActivityReport(context.Context, *GetActivityReportRequest) (*GetActivityReportResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetActivityReport not implemented")
+}
+func (UnimplementedCRMServiceServer) FindContactDuplicates(context.Context, *FindContactDuplicatesRequest) (*FindContactDuplicatesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FindContactDuplicates not implemented")
+}
+func (UnimplementedCRMServiceServer) MergeContacts(context.Context, *MergeContactsRequest) (*MergeContactsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method MergeContacts not implemented")
+}
+func (UnimplementedCRMServiceServer) FindCompanyDuplicates(context.Context, *FindCompanyDuplicatesRequest) (*FindCompanyDuplicatesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FindCompanyDuplicates not implemented")
+}
+func (UnimplementedCRMServiceServer) MergeCompanies(context.Context, *MergeCompaniesRequest) (*MergeCompaniesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method MergeCompanies not implemented")
+}
+func (UnimplementedCRMServiceServer) GetContactTimeline(context.Context, *GetContactTimelineRequest) (*GetContactTimelineResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetContactTimeline not implemented")
+}
+func (UnimplementedCRMServiceServer) GetContactConsents(context.Context, *GetContactConsentsRequest) (*GetContactConsentsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetContactConsents not implemented")
+}
+func (UnimplementedCRMServiceServer) GrantConsent(context.Context, *GrantConsentRequest) (*GrantConsentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GrantConsent not implemented")
+}
+func (UnimplementedCRMServiceServer) RevokeConsent(context.Context, *RevokeConsentRequest) (*RevokeConsentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeConsent not implemented")
+}
+func (UnimplementedCRMServiceServer) GetConsentHistory(context.Context, *GetConsentHistoryRequest) (*GetConsentHistoryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetConsentHistory not implemented")
+}
+func (UnimplementedCRMServiceServer) RequestDeletion(context.Context, *RequestDeletionRequest) (*RequestDeletionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RequestDeletion not implemented")
+}
+func (UnimplementedCRMServiceServer) ProcessDeletion(context.Context, *ProcessDeletionRequest) (*ProcessDeletionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ProcessDeletion not implemented")
 }
 func (UnimplementedCRMServiceServer) mustEmbedUnimplementedCRMServiceServer() {}
 func (UnimplementedCRMServiceServer) testEmbeddedByValue()                    {}
@@ -1996,6 +2178,204 @@ func _CRMService_GetActivityReport_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CRMService_FindContactDuplicates_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FindContactDuplicatesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).FindContactDuplicates(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_FindContactDuplicates_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).FindContactDuplicates(ctx, req.(*FindContactDuplicatesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CRMService_MergeContacts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MergeContactsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).MergeContacts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_MergeContacts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).MergeContacts(ctx, req.(*MergeContactsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CRMService_FindCompanyDuplicates_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FindCompanyDuplicatesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).FindCompanyDuplicates(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_FindCompanyDuplicates_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).FindCompanyDuplicates(ctx, req.(*FindCompanyDuplicatesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CRMService_MergeCompanies_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MergeCompaniesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).MergeCompanies(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_MergeCompanies_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).MergeCompanies(ctx, req.(*MergeCompaniesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CRMService_GetContactTimeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetContactTimelineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).GetContactTimeline(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_GetContactTimeline_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).GetContactTimeline(ctx, req.(*GetContactTimelineRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CRMService_GetContactConsents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetContactConsentsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).GetContactConsents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_GetContactConsents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).GetContactConsents(ctx, req.(*GetContactConsentsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CRMService_GrantConsent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GrantConsentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).GrantConsent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_GrantConsent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).GrantConsent(ctx, req.(*GrantConsentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CRMService_RevokeConsent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeConsentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).RevokeConsent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_RevokeConsent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).RevokeConsent(ctx, req.(*RevokeConsentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CRMService_GetConsentHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetConsentHistoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).GetConsentHistory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_GetConsentHistory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).GetConsentHistory(ctx, req.(*GetConsentHistoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CRMService_RequestDeletion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RequestDeletionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).RequestDeletion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_RequestDeletion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).RequestDeletion(ctx, req.(*RequestDeletionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CRMService_ProcessDeletion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ProcessDeletionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).ProcessDeletion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_ProcessDeletion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).ProcessDeletion(ctx, req.(*ProcessDeletionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CRMService_ServiceDesc is the grpc.ServiceDesc for CRMService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2226,6 +2606,50 @@ var CRMService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetActivityReport",
 			Handler:    _CRMService_GetActivityReport_Handler,
+		},
+		{
+			MethodName: "FindContactDuplicates",
+			Handler:    _CRMService_FindContactDuplicates_Handler,
+		},
+		{
+			MethodName: "MergeContacts",
+			Handler:    _CRMService_MergeContacts_Handler,
+		},
+		{
+			MethodName: "FindCompanyDuplicates",
+			Handler:    _CRMService_FindCompanyDuplicates_Handler,
+		},
+		{
+			MethodName: "MergeCompanies",
+			Handler:    _CRMService_MergeCompanies_Handler,
+		},
+		{
+			MethodName: "GetContactTimeline",
+			Handler:    _CRMService_GetContactTimeline_Handler,
+		},
+		{
+			MethodName: "GetContactConsents",
+			Handler:    _CRMService_GetContactConsents_Handler,
+		},
+		{
+			MethodName: "GrantConsent",
+			Handler:    _CRMService_GrantConsent_Handler,
+		},
+		{
+			MethodName: "RevokeConsent",
+			Handler:    _CRMService_RevokeConsent_Handler,
+		},
+		{
+			MethodName: "GetConsentHistory",
+			Handler:    _CRMService_GetConsentHistory_Handler,
+		},
+		{
+			MethodName: "RequestDeletion",
+			Handler:    _CRMService_RequestDeletion_Handler,
+		},
+		{
+			MethodName: "ProcessDeletion",
+			Handler:    _CRMService_ProcessDeletion_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

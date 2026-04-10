@@ -8,6 +8,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/crm/activity"
 	"github.com/kmuhub/kmuhub/internal/crm/company"
+	"github.com/kmuhub/kmuhub/internal/crm/consent"
 	"github.com/kmuhub/kmuhub/internal/crm/contact"
 	"github.com/kmuhub/kmuhub/internal/crm/customfield"
 	"github.com/kmuhub/kmuhub/internal/crm/deal"
@@ -101,6 +102,33 @@ func TestMapCRMError(t *testing.T) {
 		{"not authorized (visibility)", emailcontact.ErrNotAuthorized, codes.PermissionDenied},
 		// --- Fallback ---
 		{"unknown error", errors.New("boom"), codes.Internal},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			requireGRPCCode(t, mapCRMError(tt.err), tt.wantCode)
+		})
+	}
+}
+
+func TestMapCRMError_ConsentAndMerge(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		wantCode codes.Code
+	}{
+		// Consent errors
+		{"consent contact not found", consent.ErrContactNotFound, codes.NotFound},
+		{"invalid consent type", consent.ErrInvalidConsentType, codes.InvalidArgument},
+		{"invalid legal basis", consent.ErrInvalidLegalBasis, codes.InvalidArgument},
+		{"deletion request not found", consent.ErrDeletionRequestNotFound, codes.NotFound},
+		{"deletion already complete", consent.ErrDeletionAlreadyComplete, codes.AlreadyExists},
+		// Contact merge errors
+		{"cannot merge contact self", contact.ErrCannotMergeSelf, codes.InvalidArgument},
+		{"contact already merged", contact.ErrAlreadyMerged, codes.FailedPrecondition},
+		// Company merge errors
+		{"cannot merge company self", company.ErrCannotMergeSelf, codes.InvalidArgument},
+		{"company already merged", company.ErrAlreadyMerged, codes.FailedPrecondition},
 	}
 
 	for _, tt := range tests {

@@ -56,7 +56,8 @@ const (
 	FinanceService_GenerateQuotePDF_FullMethodName      = "/biz.v1.FinanceService/GenerateQuotePDF"
 	FinanceService_GenerateInvoicePDF_FullMethodName    = "/biz.v1.FinanceService/GenerateInvoicePDF"
 	FinanceService_GenerateCreditNotePDF_FullMethodName = "/biz.v1.FinanceService/GenerateCreditNotePDF"
-	FinanceService_GenerateDunningPDF_FullMethodName    = "/biz.v1.FinanceService/GenerateDunningPDF"
+	FinanceService_GenerateDunningPDF_FullMethodName             = "/biz.v1.FinanceService/GenerateDunningPDF"
+	FinanceService_CreateInvoiceFromTimeEntries_FullMethodName   = "/biz.v1.FinanceService/CreateInvoiceFromTimeEntries"
 )
 
 // FinanceServiceClient is the client API for FinanceService service.
@@ -110,6 +111,8 @@ type FinanceServiceClient interface {
 	GenerateInvoicePDF(ctx context.Context, in *GenerateInvoicePDFRequest, opts ...grpc.CallOption) (*GenerateInvoicePDFResponse, error)
 	GenerateCreditNotePDF(ctx context.Context, in *GenerateCreditNotePDFRequest, opts ...grpc.CallOption) (*GenerateCreditNotePDFResponse, error)
 	GenerateDunningPDF(ctx context.Context, in *GenerateDunningPDFRequest, opts ...grpc.CallOption) (*GenerateDunningPDFResponse, error)
+	// ==================== Time-Tracking → Invoice ====================
+	CreateInvoiceFromTimeEntries(ctx context.Context, in *CreateInvoiceFromTimeEntriesRequest, opts ...grpc.CallOption) (*CreateInvoiceFromTimeEntriesResponse, error)
 }
 
 type financeServiceClient struct {
@@ -500,6 +503,16 @@ func (c *financeServiceClient) GenerateDunningPDF(ctx context.Context, in *Gener
 	return out, nil
 }
 
+func (c *financeServiceClient) CreateInvoiceFromTimeEntries(ctx context.Context, in *CreateInvoiceFromTimeEntriesRequest, opts ...grpc.CallOption) (*CreateInvoiceFromTimeEntriesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateInvoiceFromTimeEntriesResponse)
+	err := c.cc.Invoke(ctx, FinanceService_CreateInvoiceFromTimeEntries_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FinanceServiceServer is the server API for FinanceService service.
 // All implementations must embed UnimplementedFinanceServiceServer
 // for forward compatibility.
@@ -551,6 +564,8 @@ type FinanceServiceServer interface {
 	GenerateInvoicePDF(context.Context, *GenerateInvoicePDFRequest) (*GenerateInvoicePDFResponse, error)
 	GenerateCreditNotePDF(context.Context, *GenerateCreditNotePDFRequest) (*GenerateCreditNotePDFResponse, error)
 	GenerateDunningPDF(context.Context, *GenerateDunningPDFRequest) (*GenerateDunningPDFResponse, error)
+	// ==================== Time-Tracking → Invoice ====================
+	CreateInvoiceFromTimeEntries(context.Context, *CreateInvoiceFromTimeEntriesRequest) (*CreateInvoiceFromTimeEntriesResponse, error)
 	mustEmbedUnimplementedFinanceServiceServer()
 }
 
@@ -674,6 +689,9 @@ func (UnimplementedFinanceServiceServer) GenerateCreditNotePDF(context.Context, 
 }
 func (UnimplementedFinanceServiceServer) GenerateDunningPDF(context.Context, *GenerateDunningPDFRequest) (*GenerateDunningPDFResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GenerateDunningPDF not implemented")
+}
+func (UnimplementedFinanceServiceServer) CreateInvoiceFromTimeEntries(context.Context, *CreateInvoiceFromTimeEntriesRequest) (*CreateInvoiceFromTimeEntriesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateInvoiceFromTimeEntries not implemented")
 }
 func (UnimplementedFinanceServiceServer) mustEmbedUnimplementedFinanceServiceServer() {}
 func (UnimplementedFinanceServiceServer) testEmbeddedByValue()                        {}
@@ -1380,6 +1398,24 @@ func _FinanceService_GenerateDunningPDF_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FinanceService_CreateInvoiceFromTimeEntries_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateInvoiceFromTimeEntriesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).CreateInvoiceFromTimeEntries(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_CreateInvoiceFromTimeEntries_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).CreateInvoiceFromTimeEntries(ctx, req.(*CreateInvoiceFromTimeEntriesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FinanceService_ServiceDesc is the grpc.ServiceDesc for FinanceService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1538,6 +1574,10 @@ var FinanceService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GenerateDunningPDF",
 			Handler:    _FinanceService_GenerateDunningPDF_Handler,
+		},
+		{
+			MethodName: "CreateInvoiceFromTimeEntries",
+			Handler:    _FinanceService_CreateInvoiceFromTimeEntries_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

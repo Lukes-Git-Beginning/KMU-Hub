@@ -9,11 +9,30 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 )
+
+// CalDAVUserInfo holds user metadata for admin CalDAV management.
+type CalDAVUserInfo struct {
+	ID            string     `json:"id"`
+	Email         string     `json:"email"`
+	FirstName     string     `json:"first_name"`
+	LastName      string     `json:"last_name"`
+	CalDAVEnabled bool       `json:"caldav_enabled"`
+	PasswordCount int        `json:"password_count"`
+	LastUsed      *time.Time `json:"last_used"`
+}
+
+// CalDAVUserPreferenceService abstracts user-level CalDAV preference operations needed by the
+// route handler. This interface breaks the import cycle between gateway and caldav packages.
+type CalDAVUserPreferenceService interface {
+	GetCalDAVEnabled(ctx context.Context, userID uuid.UUID) (bool, error)
+	SetCalDAVEnabled(ctx context.Context, userID uuid.UUID, enabled bool) error
+	ListCalDAVUsers(ctx context.Context) ([]CalDAVUserInfo, error)
+	RevokeAllUserPasswords(ctx context.Context, userID uuid.UUID) (int64, error)
+}
 
 // CalDAVPasswordService abstracts app-specific password operations needed by the route handler.
 // This interface breaks the import cycle between gateway and caldav packages.
@@ -47,8 +66,8 @@ type CalDAVRoutes struct {
 	caldavHandler  http.Handler
 	carddavHandler http.Handler
 	pwService      CalDAVPasswordService
+	userPrefRepo   CalDAVUserPreferenceService
 	ctxInjector    CalDAVCtxInjector
-	pool           *pgxpool.Pool
 	authMiddleware func(http.Handler) http.Handler
 }
 
@@ -57,16 +76,16 @@ func NewCalDAVRoutes(
 	caldavHandler http.Handler,
 	carddavHandler http.Handler,
 	pwService CalDAVPasswordService,
+	userPrefRepo CalDAVUserPreferenceService,
 	ctxInjector CalDAVCtxInjector,
-	pool *pgxpool.Pool,
 	authMiddleware func(http.Handler) http.Handler,
 ) *CalDAVRoutes {
 	return &CalDAVRoutes{
 		caldavHandler:  caldavHandler,
 		carddavHandler: carddavHandler,
 		pwService:      pwService,
+		userPrefRepo:   userPrefRepo,
 		ctxInjector:    ctxInjector,
-		pool:           pool,
 		authMiddleware: authMiddleware,
 	}
 }
@@ -260,13 +279,9 @@ func (c *CalDAVRoutes) handleGetStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check user-level caldav_enabled
-	var userCaldavEnabled bool
-	scanErr := c.pool.QueryRow(r.Context(),
-		`SELECT COALESCE(caldav_enabled, false) FROM users WHERE id = $1`,
-		userID,
-	).Scan(&userCaldavEnabled)
-	if scanErr != nil {
-		slog.Warn("failed to check user caldav status", "user_id", userID, "error", scanErr)
+	userCaldavEnabled, prefErr := c.userPrefRepo.GetCalDAVEnabled(r.Context(), userID)
+	if prefErr != nil {
+		slog.Warn("failed to check user caldav status", "user_id", userID, "error", prefErr)
 	}
 
 	// Count active passwords
@@ -296,12 +311,8 @@ func (c *CalDAVRoutes) handleEnableCalDAV(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	_, execErr := c.pool.Exec(r.Context(),
-		`UPDATE users SET caldav_enabled = true WHERE id = $1`,
-		userID,
-	)
-	if execErr != nil {
-		slog.Error("failed to enable caldav for user", "user_id", userID, "error", execErr)
+	if err := c.userPrefRepo.SetCalDAVEnabled(r.Context(), userID, true); err != nil {
+		slog.Error("failed to enable caldav for user", "user_id", userID, "error", err)
 		response.Error(w, http.StatusInternalServerError, "failed to enable CalDAV")
 		return
 	}
@@ -319,12 +330,8 @@ func (c *CalDAVRoutes) handleDisableCalDAV(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	_, execErr := c.pool.Exec(r.Context(),
-		`UPDATE users SET caldav_enabled = false WHERE id = $1`,
-		userID,
-	)
-	if execErr != nil {
-		slog.Error("failed to disable caldav for user", "user_id", userID, "error", execErr)
+	if err := c.userPrefRepo.SetCalDAVEnabled(r.Context(), userID, false); err != nil {
+		slog.Error("failed to disable caldav for user", "user_id", userID, "error", err)
 		response.Error(w, http.StatusInternalServerError, "failed to disable CalDAV")
 		return
 	}
@@ -375,45 +382,11 @@ func (c *CalDAVRoutes) handleAdminSetSettings(w http.ResponseWriter, r *http.Req
 
 // handleAdminListUsers lists users with CalDAV enabled (for audit).
 func (c *CalDAVRoutes) handleAdminListUsers(w http.ResponseWriter, r *http.Request) {
-	rows, err := c.pool.Query(r.Context(),
-		`SELECT u.id, u.email, u.first_name, u.last_name, u.caldav_enabled,
-		        (SELECT COUNT(*) FROM app_specific_passwords asp
-		         WHERE asp.user_id = u.id AND asp.revoked_at IS NULL) AS password_count,
-		        (SELECT MAX(asp.last_used_at) FROM app_specific_passwords asp
-		         WHERE asp.user_id = u.id) AS last_used
-		 FROM users u
-		 WHERE u.caldav_enabled = true
-		 ORDER BY u.email`,
-	)
+	users, err := c.userPrefRepo.ListCalDAVUsers(r.Context())
 	if err != nil {
 		slog.Error("failed to list caldav users", "error", err)
 		response.Error(w, http.StatusInternalServerError, "failed to list users")
 		return
-	}
-	defer rows.Close()
-
-	type caldavUser struct {
-		ID            string  `json:"id"`
-		Email         string  `json:"email"`
-		FirstName     string  `json:"first_name"`
-		LastName      string  `json:"last_name"`
-		CalDAVEnabled bool    `json:"caldav_enabled"`
-		PasswordCount int     `json:"password_count"`
-		LastUsed      *string `json:"last_used"`
-	}
-
-	var users []caldavUser
-	for rows.Next() {
-		var u caldavUser
-		if err := rows.Scan(&u.ID, &u.Email, &u.FirstName, &u.LastName,
-			&u.CalDAVEnabled, &u.PasswordCount, &u.LastUsed); err != nil {
-			slog.Error("failed to scan caldav user", "error", err)
-			continue
-		}
-		users = append(users, u)
-	}
-	if users == nil {
-		users = []caldavUser{}
 	}
 
 	response.JSON(w, http.StatusOK, map[string]interface{}{
@@ -429,25 +402,20 @@ func (c *CalDAVRoutes) handleAdminRevokeUserPasswords(w http.ResponseWriter, r *
 		return
 	}
 
-	tag, execErr := c.pool.Exec(r.Context(),
-		`UPDATE app_specific_passwords
-		 SET revoked_at = NOW()
-		 WHERE user_id = $1 AND revoked_at IS NULL`,
-		targetUserID,
-	)
-	if execErr != nil {
+	revokedCount, err := c.userPrefRepo.RevokeAllUserPasswords(r.Context(), targetUserID)
+	if err != nil {
 		slog.Error("failed to revoke all passwords for user",
-			"target_user_id", targetUserID, "error", execErr)
+			"target_user_id", targetUserID, "error", err)
 		response.Error(w, http.StatusInternalServerError, "failed to revoke passwords")
 		return
 	}
 
 	slog.Info("admin revoked all CalDAV passwords for user",
 		"target_user_id", targetUserID,
-		"revoked_count", tag.RowsAffected(),
+		"revoked_count", revokedCount,
 	)
 
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"revoked_count": tag.RowsAffected(),
+		"revoked_count": revokedCount,
 	})
 }

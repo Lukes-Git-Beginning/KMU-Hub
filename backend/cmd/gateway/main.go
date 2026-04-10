@@ -162,18 +162,15 @@ func main() {
 	// =========================================================================
 	authMiddleware := middleware.Auth(localAuthService)
 
-	// Dashboard layout service (direct DB access, not gRPC)
+	// Dashboard layout service (gateway-local, not gRPC)
 	cacheClient := cache.NewClient(redisClient)
-	dashboardRepo := gateway.NewCachedDashboardRepository(
-		gateway.NewPostgresDashboardRepository(pool), cacheClient,
-	)
-	dashboardService := gateway.NewDashboardService(dashboardRepo)
+	dashboardService := gateway.NewDashboardStack(pool, cacheClient)
 
-	// CRM extension services (direct DB access: duplicates, timeline, consent)
-	crmExt := gateway.NewCRMExtRoutes(pool)
+	// CRM extension routes (gRPC proxy: duplicates, timeline, consent)
+	crmExt := gateway.NewCRMExtRoutes(registry)
 
-	// Biz extension services (direct DB access: time-to-invoice)
-	bizExt := gateway.NewBizExtRoutes(pool)
+	// Biz extension services (gRPC proxy: time-to-invoice)
+	bizExt := gateway.NewBizExtRoutes(registry)
 
 	// WOPI handler for OnlyOffice collaborative editing
 	wopiTokenService := wopi.NewTokenService(cfg.WOPIJWTSecret)
@@ -228,10 +225,12 @@ func main() {
 	carddavHandler := &carddav.Handler{Backend: carddavBackend, Prefix: "/carddav"}
 
 	caldavPwAdapter := &caldavPasswordAdapter{svc: caldavAppPwService}
+	caldavUserPrefRepo := caldavpkg.NewPostgresUserPreferenceRepository(pool)
+	caldavUserPrefAdapter := &caldavUserPrefAdapter{repo: caldavUserPrefRepo}
 	caldavRoutes := gateway.NewCalDAVRoutes(
 		caldavHandler, carddavHandler,
-		caldavPwAdapter, caldavpkg.CtxWithUser,
-		pool, authMiddleware,
+		caldavPwAdapter, caldavUserPrefAdapter,
+		caldavpkg.CtxWithUser, authMiddleware,
 	)
 	caldavRoutes.RegisterRoutes(r)
 	slog.Info("routes registered", "service", "caldav")
@@ -522,4 +521,42 @@ func (a *caldavPasswordAdapter) IsOrgEnabled(ctx context.Context) (bool, error) 
 
 func (a *caldavPasswordAdapter) SetOrgEnabled(ctx context.Context, enabled bool) error {
 	return a.svc.SetOrgEnabled(ctx, enabled)
+}
+
+// caldavUserPrefAdapter adapts caldavpkg.PostgresUserPreferenceRepository to
+// gateway.CalDAVUserPreferenceService, breaking the import cycle.
+type caldavUserPrefAdapter struct {
+	repo *caldavpkg.PostgresUserPreferenceRepository
+}
+
+func (a *caldavUserPrefAdapter) GetCalDAVEnabled(ctx context.Context, userID uuid.UUID) (bool, error) {
+	return a.repo.GetCalDAVEnabled(ctx, userID)
+}
+
+func (a *caldavUserPrefAdapter) SetCalDAVEnabled(ctx context.Context, userID uuid.UUID, enabled bool) error {
+	return a.repo.SetCalDAVEnabled(ctx, userID, enabled)
+}
+
+func (a *caldavUserPrefAdapter) ListCalDAVUsers(ctx context.Context) ([]gateway.CalDAVUserInfo, error) {
+	users, err := a.repo.ListCalDAVUsers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]gateway.CalDAVUserInfo, len(users))
+	for i, u := range users {
+		result[i] = gateway.CalDAVUserInfo{
+			ID:            u.ID,
+			Email:         u.Email,
+			FirstName:     u.FirstName,
+			LastName:      u.LastName,
+			CalDAVEnabled: u.CalDAVEnabled,
+			PasswordCount: u.PasswordCount,
+			LastUsed:      u.LastUsed,
+		}
+	}
+	return result, nil
+}
+
+func (a *caldavUserPrefAdapter) RevokeAllUserPasswords(ctx context.Context, userID uuid.UUID) (int64, error) {
+	return a.repo.RevokeAllUserPasswords(ctx, userID)
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/biz/dashboard"
 	"github.com/kmuhub/kmuhub/internal/biz/datev"
 	"github.com/kmuhub/kmuhub/internal/biz/dunning"
+	"github.com/kmuhub/kmuhub/internal/biz/hr/timetracking"
 	"github.com/kmuhub/kmuhub/internal/biz/invoice"
 	"github.com/kmuhub/kmuhub/internal/biz/payment"
 	"github.com/kmuhub/kmuhub/internal/biz/pdf"
@@ -44,6 +45,7 @@ type BizGRPCServer struct {
 	pdfGenerator      *pdf.Generator
 	datevExporter     *datev.Exporter
 	companySettings   CompanySettingsRepository
+	timetrackingRepo  timetracking.WorkTimeRepository
 }
 
 // NewBizGRPCServer creates a new BizGRPCServer with all finance services.
@@ -57,6 +59,7 @@ func NewBizGRPCServer(
 	pdfGenerator *pdf.Generator,
 	datevExporter *datev.Exporter,
 	companySettings CompanySettingsRepository,
+	timetrackingRepo timetracking.WorkTimeRepository,
 ) *BizGRPCServer {
 	return &BizGRPCServer{
 		quoteService:      quoteService,
@@ -68,6 +71,7 @@ func NewBizGRPCServer(
 		pdfGenerator:      pdfGenerator,
 		datevExporter:     datevExporter,
 		companySettings:   companySettings,
+		timetrackingRepo:  timetrackingRepo,
 	}
 }
 
@@ -1747,6 +1751,145 @@ func paymentMethodToProto(m string) bizv1.PaymentMethod {
 	default:
 		return bizv1.PaymentMethod_PAYMENT_METHOD_UNSPECIFIED
 	}
+}
+
+// ============================================================================
+// Time-Tracking → Invoice
+// ============================================================================
+
+// CreateInvoiceFromTimeEntries aggregates completed work time entries for an employee
+// in the given date range and creates a draft invoice. The invoice is returned as
+// JSON bytes in the response so the gateway proxy can forward it without needing
+// to deserialize the full Invoice proto message.
+func (s *BizGRPCServer) CreateInvoiceFromTimeEntries(ctx context.Context, req *bizv1.CreateInvoiceFromTimeEntriesRequest) (*bizv1.CreateInvoiceFromTimeEntriesResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
+	employeeID, err := uuid.Parse(req.GetEmployeeId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid employee_id")
+	}
+
+	userID, err := uuid.Parse(req.GetCreatedBy())
+	if err != nil {
+		// created_by is best-effort; fall back to Nil so invoice.Create still works.
+		userID = uuid.Nil
+	}
+
+	if req.GetCustomerName() == "" {
+		return nil, status.Error(codes.InvalidArgument, "customer_name is required")
+	}
+
+	dateFrom, err := time.Parse("2006-01-02", req.GetDateFrom())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid date_from, expected YYYY-MM-DD")
+	}
+	dateTo, err := time.Parse("2006-01-02", req.GetDateTo())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid date_to, expected YYYY-MM-DD")
+	}
+	// Include the full last day
+	dateTo = dateTo.Add(24*time.Hour - time.Second)
+
+	hourlyRate, parseErr := decimal.NewFromString(req.GetHourlyRate())
+	if parseErr != nil || hourlyRate.IsNegative() {
+		return nil, status.Error(codes.InvalidArgument, "invalid hourly_rate")
+	}
+
+	taxMode := req.GetTaxMode()
+	if taxMode == "" {
+		taxMode = models.TaxModeStandard
+	}
+
+	if s.timetrackingRepo == nil {
+		return nil, status.Error(codes.Unavailable, "time tracking repository not configured")
+	}
+
+	// Aggregate completed work time entries via HR repository
+	totalMinutes, entryIDs, err := s.timetrackingRepo.AggregateWorkTimeForInvoice(ctx, tenantID, employeeID, dateFrom, dateTo)
+	if err != nil {
+		slog.Error("aggregate work time failed", "tenant_id", tenantID, "employee_id", employeeID, "error", err)
+		return nil, status.Error(codes.Internal, fmt.Sprintf("aggregate work time: %s", err.Error()))
+	}
+
+	if totalMinutes == 0 {
+		return nil, status.Error(codes.FailedPrecondition, "no completed work time entries found for the given period")
+	}
+
+	// Convert minutes to hours (2 decimal places)
+	hours := decimal.NewFromInt(int64(totalMinutes)).Div(decimal.NewFromInt(60)).Round(2)
+	lineTotal := hours.Mul(hourlyRate)
+
+	description := req.GetDescription()
+	if description == "" {
+		description = fmt.Sprintf("Arbeitszeit %s–%s", req.GetDateFrom(), req.GetDateTo())
+	}
+
+	lineItem := models.LineItem{
+		ID:          uuid.New().String(),
+		Position:    1,
+		Description: description,
+		Quantity:    hours,
+		UnitPrice:   hourlyRate,
+		TaxRate:     decimal.NewFromInt(19),
+		LineTotal:   lineTotal,
+	}
+
+	// Create draft invoice
+	inv, err := s.invoiceService.Create(ctx, invoice.CreateInput{
+		TenantID:        tenantID,
+		CustomerName:    req.GetCustomerName(),
+		CustomerAddress: req.GetCustomerAddress(),
+		CustomerEmail:   req.GetCustomerEmail(),
+		TaxMode:         taxMode,
+		LineItems:       []models.LineItem{lineItem},
+		InvoiceDate:     time.Now(),
+		UserID:          userID,
+	})
+	if err != nil {
+		slog.Error("create invoice from time entries failed", "tenant_id", tenantID, "error", err)
+		return nil, mapBizError(err)
+	}
+
+	// Build time_tracking_source audit trail
+	type timeTrackingSource struct {
+		EmployeeID   string    `json:"employee_id"`
+		DateFrom     string    `json:"date_from"`
+		DateTo       string    `json:"date_to"`
+		TotalMinutes int       `json:"total_minutes"`
+		EntryIDs     []string  `json:"entry_ids"`
+		CreatedAt    time.Time `json:"created_at"`
+	}
+	ttSource := timeTrackingSource{
+		EmployeeID:   employeeID.String(),
+		DateFrom:     req.GetDateFrom(),
+		DateTo:       req.GetDateTo(),
+		TotalMinutes: totalMinutes,
+		EntryIDs:     entryIDs,
+		CreatedAt:    time.Now(),
+	}
+	ttSourceJSON, _ := json.Marshal(ttSource)
+
+	// Attach time_tracking_source to the invoice record (best-effort, non-fatal)
+	if linkErr := s.invoiceService.LinkTimeTracking(ctx, inv.ID, json.RawMessage(ttSourceJSON)); linkErr != nil {
+		slog.Warn("failed to link time tracking source to invoice",
+			"invoice_id", inv.ID,
+			"error", linkErr,
+		)
+	}
+	inv.TimeTrackingSource = json.RawMessage(ttSourceJSON)
+
+	// Serialize the invoice as JSON for the response
+	invJSON, err := json.Marshal(inv)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to serialize invoice")
+	}
+
+	return &bizv1.CreateInvoiceFromTimeEntriesResponse{
+		InvoiceJson: invJSON,
+	}, nil
 }
 
 // ============================================================================

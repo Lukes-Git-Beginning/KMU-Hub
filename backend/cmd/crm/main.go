@@ -17,6 +17,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/crm/activity"
 	"github.com/kmuhub/kmuhub/internal/crm/company"
+	"github.com/kmuhub/kmuhub/internal/crm/consent"
 	"github.com/kmuhub/kmuhub/internal/crm/contact"
 	"github.com/kmuhub/kmuhub/internal/crm/customfield"
 	"github.com/kmuhub/kmuhub/internal/crm/deal"
@@ -72,6 +73,7 @@ func main() {
 	searchRepo := search.NewPostgresRepository(pool)
 	savedFilterRepo := savedfilter.NewPostgresRepository(pool)
 	reportRepo := report.NewPostgresRepository(pool)
+	consentRepo := consent.NewPostgresRepository(pool)
 
 	// Initialize services
 	customFieldService := customfield.NewService(customFieldRepo)
@@ -82,6 +84,7 @@ func main() {
 	dealService := deal.NewService(dealRepo)
 	dealService.SetEventEmitter(deal.NewPGEventEmitter(pool))
 	activityService := activity.NewService(activityRepo)
+	consentService := consent.NewService(consentRepo)
 	searchService := search.NewService(searchRepo)
 	savedFilterService := savedfilter.NewService(savedFilterRepo)
 	reportService := report.NewService(reportRepo)
@@ -98,7 +101,7 @@ func main() {
 			metricsRegistry.GRPCStreamInterceptor(),
 		),
 	)
-	crmGRPC := server.NewCRMGRPCServer(customFieldService, tagService, contactService, companyService, pipelineStageService, dealService, activityService, searchService, savedFilterService, reportService)
+	crmGRPC := server.NewCRMGRPCServer(customFieldService, tagService, contactService, companyService, pipelineStageService, dealService, activityService, consentService, searchService, savedFilterService, reportService)
 	crmv1.RegisterCRMServiceServer(grpcServer, crmGRPC)
 
 	// Initialize gRPC metrics after service registration
