@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	_ "net/http/pprof"
@@ -13,15 +12,9 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-
-	"github.com/emersion/go-webdav/caldav"
-	"github.com/emersion/go-webdav/carddav"
 
 	"github.com/kmuhub/kmuhub/internal/cache"
 	"github.com/kmuhub/kmuhub/internal/auth"
-	caldavpkg "github.com/kmuhub/kmuhub/internal/caldav"
 	"github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/chat/guest"
 	"github.com/kmuhub/kmuhub/internal/inbox/adapter"
@@ -33,8 +26,6 @@ import (
 	"github.com/kmuhub/kmuhub/internal/metrics"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server"
-	authv1 "github.com/kmuhub/kmuhub/proto/auth/v1"
-	chatv1 "github.com/kmuhub/kmuhub/proto/chat/v1"
 	securityv1 "github.com/kmuhub/kmuhub/proto/security/v1"
 )
 
@@ -212,26 +203,7 @@ func main() {
 	slog.Info("routes registered", "service", "wopi")
 
 	// CalDAV/CardDAV protocol routes (Basic Auth, not JWT)
-	pushSubService := caldavpkg.NewPushSubscriptionService(pool)
-	pushNotifier := caldavpkg.NewPushNotifier(pushSubService)
-	caldavSyncService := caldavpkg.NewSyncTokenService(pool, pushNotifier)
-	caldavAppPwService := caldavpkg.NewAppPasswordService(
-		caldavpkg.NewPostgresAppPasswordRepository(pool), pool,
-	)
-	caldavBackend := caldavpkg.NewCalDAVBackend(registry, caldavSyncService, pool)
-	carddavBackend := caldavpkg.NewCardDAVBackend(registry, caldavSyncService, pool)
-
-	caldavHandler := &caldav.Handler{Backend: caldavBackend, Prefix: "/caldav"}
-	carddavHandler := &carddav.Handler{Backend: carddavBackend, Prefix: "/carddav"}
-
-	caldavPwAdapter := &caldavPasswordAdapter{svc: caldavAppPwService}
-	caldavUserPrefRepo := caldavpkg.NewPostgresUserPreferenceRepository(pool)
-	caldavUserPrefAdapter := &caldavUserPrefAdapter{repo: caldavUserPrefRepo}
-	caldavRoutes := gateway.NewCalDAVRoutes(
-		caldavHandler, carddavHandler,
-		caldavPwAdapter, caldavUserPrefAdapter,
-		caldavpkg.CtxWithUser, authMiddleware,
-	)
+	caldavRoutes := setupCalDAV(pool, registry, authMiddleware)
 	caldavRoutes.RegisterRoutes(r)
 	slog.Info("routes registered", "service", "caldav")
 
@@ -349,214 +321,4 @@ func main() {
 		slog.Error("http server shutdown failed", "error", err)
 	}
 	slog.Info("gateway stopped")
-}
-
-// notificationDeliveryPayload is the JSON payload sent via pg_notify('notification_delivery', ...).
-type notificationDeliveryPayload struct {
-	UserID       string          `json:"user_id"`
-	Notification json.RawMessage `json:"notification"`
-	DesktopPush  bool            `json:"desktop_push"`
-	Sound        string          `json:"sound"`
-}
-
-// startNotificationDeliveryListener listens on the PostgreSQL notification_delivery channel
-// and pushes real-time notifications to connected WebSocket clients.
-func startNotificationDeliveryListener(ctx context.Context, databaseURL string, wsHub *server.WebSocketHub) {
-	for {
-		if ctx.Err() != nil {
-			return
-		}
-
-		if err := listenNotificationDelivery(ctx, databaseURL, wsHub); err != nil {
-			if ctx.Err() != nil {
-				return
-			}
-			slog.Error("notification delivery listener failed, reconnecting", "error", err)
-			time.Sleep(5 * time.Second)
-		}
-	}
-}
-
-func listenNotificationDelivery(ctx context.Context, databaseURL string, wsHub *server.WebSocketHub) error {
-	conn, err := pgx.Connect(ctx, databaseURL)
-	if err != nil {
-		return err
-	}
-	defer conn.Close(ctx)
-
-	if _, err := conn.Exec(ctx, "LISTEN notification_delivery"); err != nil {
-		return err
-	}
-
-	slog.Info("notification delivery listener started")
-
-	for {
-		notification, err := conn.WaitForNotification(ctx)
-		if err != nil {
-			return err
-		}
-
-		var payload notificationDeliveryPayload
-		if err := json.Unmarshal([]byte(notification.Payload), &payload); err != nil {
-			slog.Error("failed to parse notification delivery payload",
-				"error", err,
-				"payload", notification.Payload,
-			)
-			continue
-		}
-
-		wsHub.SendNotificationToUser(ctx, payload.UserID, payload.Notification, payload.DesktopPush, payload.Sound)
-	}
-}
-
-// setupWebSocketHub creates the WebSocket hub using lazy connections from the registry.
-// Returns nil if either chat or auth service connections cannot be obtained.
-func setupWebSocketHub(registry *gateway.ServiceRegistry, tokenMaker *auth.TokenMaker, allowedOrigins []string) *server.WebSocketHub {
-	chatConn, err := registry.GetConnection("chat")
-	if err != nil {
-		slog.Warn("chat connection unavailable for websocket hub", "error", err)
-		return nil
-	}
-	chatClient := chatv1.NewChatServiceClient(chatConn)
-
-	authConn, err := registry.GetConnection("auth")
-	if err != nil {
-		slog.Warn("auth connection unavailable for websocket user lookup", "error", err)
-		return nil
-	}
-	authClient := authv1.NewAuthServiceClient(authConn)
-
-	return server.NewWebSocketHub(chatClient, tokenMaker, func(ctx context.Context, userID string) (string, string, error) {
-		resp, err := authClient.GetUser(ctx, &authv1.GetUserRequest{UserId: userID})
-		if err != nil {
-			return "", "", err
-		}
-		return resp.User.FirstName, resp.User.LastName, nil
-	}, allowedOrigins)
-}
-
-// guestServiceAdapter adapts guest.Service to server.GuestSessionValidator,
-// breaking the import cycle between server and guest packages.
-type guestServiceAdapter struct {
-	svc *guest.Service
-}
-
-func (a *guestServiceAdapter) ValidateToken(ctx context.Context, token string) (*server.GuestSessionInfo, error) {
-	session, err := a.svc.ValidateToken(ctx, token)
-	if err != nil {
-		return nil, err
-	}
-	return &server.GuestSessionInfo{
-		ID:          session.ID,
-		ChannelID:   session.ChannelID,
-		DisplayName: session.DisplayName,
-		IsActive:    session.IsActive,
-	}, nil
-}
-
-func (a *guestServiceAdapter) CheckRateLimit(sessionID string) error {
-	id, err := uuid.Parse(sessionID)
-	if err != nil {
-		return err
-	}
-	return a.svc.CheckRateLimit(id)
-}
-
-func (a *guestServiceAdapter) UpdateLastActivity(ctx context.Context, sessionID uuid.UUID) error {
-	// ValidateToken already updates last activity
-	return nil
-}
-
-// caldavPasswordAdapter adapts caldavpkg.AppPasswordService to gateway.CalDAVPasswordService,
-// breaking the import cycle between gateway and caldav packages.
-type caldavPasswordAdapter struct {
-	svc *caldavpkg.AppPasswordService
-}
-
-func (a *caldavPasswordAdapter) Validate(ctx context.Context, username, password string) (uuid.UUID, error) {
-	return a.svc.Validate(ctx, username, password)
-}
-
-func (a *caldavPasswordAdapter) Create(ctx context.Context, userID uuid.UUID, label string) (string, *gateway.CalDAVPasswordInfo, error) {
-	plaintext, pw, err := a.svc.Create(ctx, userID, label)
-	if err != nil {
-		return "", nil, err
-	}
-	return plaintext, &gateway.CalDAVPasswordInfo{
-		ID:             pw.ID,
-		Label:          pw.Label,
-		PasswordPrefix: pw.PasswordPrefix,
-		LastUsedAt:     pw.LastUsedAt,
-		CreatedAt:      pw.CreatedAt,
-		RevokedAt:      pw.RevokedAt,
-	}, nil
-}
-
-func (a *caldavPasswordAdapter) List(ctx context.Context, userID uuid.UUID) ([]*gateway.CalDAVPasswordInfo, error) {
-	passwords, err := a.svc.List(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]*gateway.CalDAVPasswordInfo, len(passwords))
-	for i, pw := range passwords {
-		result[i] = &gateway.CalDAVPasswordInfo{
-			ID:             pw.ID,
-			Label:          pw.Label,
-			PasswordPrefix: pw.PasswordPrefix,
-			LastUsedAt:     pw.LastUsedAt,
-			CreatedAt:      pw.CreatedAt,
-			RevokedAt:      pw.RevokedAt,
-		}
-	}
-	return result, nil
-}
-
-func (a *caldavPasswordAdapter) Revoke(ctx context.Context, id, userID uuid.UUID) error {
-	return a.svc.Revoke(ctx, id, userID)
-}
-
-func (a *caldavPasswordAdapter) IsOrgEnabled(ctx context.Context) (bool, error) {
-	return a.svc.IsOrgEnabled(ctx)
-}
-
-func (a *caldavPasswordAdapter) SetOrgEnabled(ctx context.Context, enabled bool) error {
-	return a.svc.SetOrgEnabled(ctx, enabled)
-}
-
-// caldavUserPrefAdapter adapts caldavpkg.PostgresUserPreferenceRepository to
-// gateway.CalDAVUserPreferenceService, breaking the import cycle.
-type caldavUserPrefAdapter struct {
-	repo *caldavpkg.PostgresUserPreferenceRepository
-}
-
-func (a *caldavUserPrefAdapter) GetCalDAVEnabled(ctx context.Context, userID uuid.UUID) (bool, error) {
-	return a.repo.GetCalDAVEnabled(ctx, userID)
-}
-
-func (a *caldavUserPrefAdapter) SetCalDAVEnabled(ctx context.Context, userID uuid.UUID, enabled bool) error {
-	return a.repo.SetCalDAVEnabled(ctx, userID, enabled)
-}
-
-func (a *caldavUserPrefAdapter) ListCalDAVUsers(ctx context.Context) ([]gateway.CalDAVUserInfo, error) {
-	users, err := a.repo.ListCalDAVUsers(ctx)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]gateway.CalDAVUserInfo, len(users))
-	for i, u := range users {
-		result[i] = gateway.CalDAVUserInfo{
-			ID:            u.ID,
-			Email:         u.Email,
-			FirstName:     u.FirstName,
-			LastName:      u.LastName,
-			CalDAVEnabled: u.CalDAVEnabled,
-			PasswordCount: u.PasswordCount,
-			LastUsed:      u.LastUsed,
-		}
-	}
-	return result, nil
-}
-
-func (a *caldavUserPrefAdapter) RevokeAllUserPasswords(ctx context.Context, userID uuid.UUID) (int64, error) {
-	return a.repo.RevokeAllUserPasswords(ctx, userID)
 }
