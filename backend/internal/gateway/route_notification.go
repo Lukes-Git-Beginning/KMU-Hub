@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -78,10 +77,6 @@ func (n *NotificationRoutes) HandleListNotifications(w http.ResponseWriter, r *h
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	page, pageSize := parsePagination(r, 1, 20)
 	moduleID := r.URL.Query().Get("module_id")
@@ -118,10 +113,6 @@ func (n *NotificationRoutes) HandleGetUnreadCount(w http.ResponseWriter, r *http
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	resp, err := client.GetUnreadCount(r.Context(), &notificationv1.GetUnreadCountRequest{
 		UserId: userID,
@@ -142,14 +133,9 @@ func (n *NotificationRoutes) HandleMarkRead(w http.ResponseWriter, r *http.Reque
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	notificationID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(notificationID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid notification id")
+	notificationID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -173,10 +159,6 @@ func (n *NotificationRoutes) HandleMarkAllRead(w http.ResponseWriter, r *http.Re
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	type markAllReadBody struct {
 		ModuleID *string `json:"module_id,omitempty"`
@@ -219,10 +201,6 @@ func (n *NotificationRoutes) HandleGetPreferences(w http.ResponseWriter, r *http
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	moduleID := r.URL.Query().Get("module_id")
 
@@ -258,10 +236,6 @@ func (n *NotificationRoutes) HandleUpdatePreference(w http.ResponseWriter, r *ht
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req updatePreferenceRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -335,10 +309,6 @@ func (n *NotificationRoutes) HandleMuteResource(w http.ResponseWriter, r *http.R
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req muteResourceRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -377,10 +347,6 @@ func (n *NotificationRoutes) HandleUnmuteResource(w http.ResponseWriter, r *http
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req unmuteResourceRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -414,10 +380,6 @@ func (n *NotificationRoutes) HandleListMutedResources(w http.ResponseWriter, r *
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	moduleID := r.URL.Query().Get("module_id")
 	page, pageSize := parsePagination(r, 1, 20)
@@ -452,10 +414,6 @@ func (n *NotificationRoutes) HandleGetQuietHours(w http.ResponseWriter, r *http.
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	resp, err := client.GetQuietHours(r.Context(), &notificationv1.GetQuietHoursRequest{
 		UserId: userID,
@@ -484,10 +442,6 @@ func (n *NotificationRoutes) HandleUpdateQuietHours(w http.ResponseWriter, r *ht
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req updateQuietHoursRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -529,10 +483,6 @@ func (n *NotificationRoutes) HandleToggleDND(w http.ResponseWriter, r *http.Requ
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req toggleDNDRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

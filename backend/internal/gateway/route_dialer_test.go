@@ -29,7 +29,7 @@ func TestHandleCreateCampaign_NoUserID(t *testing.T) {
 	routes := NewDialerRoutes(registryWithService("dialer"))
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/v1/dialer/campaigns", jsonBody(t, map[string]interface{}{}))
-	routes.HandleCreateCampaign(rec, req)
+	withAuthRequired(routes.HandleCreateCampaign)(rec, req)
 	assertStatus(t, rec, http.StatusUnauthorized)
 	assertErrorContains(t, rec, "not authenticated")
 }
@@ -60,7 +60,7 @@ func TestHandleGetCampaign_InvalidUUID(t *testing.T) {
 	req = withChiURLParam(req, "id", "not-a-uuid")
 	routes.HandleGetCampaign(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "invalid campaign id")
+	assertErrorContains(t, rec, "invalid id")
 }
 
 func TestHandleUpdateCampaign_InvalidUUID(t *testing.T) {
@@ -70,7 +70,7 @@ func TestHandleUpdateCampaign_InvalidUUID(t *testing.T) {
 	req = withChiURLParam(req, "id", "not-a-uuid")
 	routes.HandleUpdateCampaign(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "invalid campaign id")
+	assertErrorContains(t, rec, "invalid id")
 }
 
 func TestHandleUpdateCampaign_InvalidJSON(t *testing.T) {
@@ -91,7 +91,7 @@ func TestHandleStartCampaign_InvalidUUID(t *testing.T) {
 	req = withChiURLParam(req, "id", "not-a-uuid")
 	routes.HandleStartCampaign(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "invalid campaign id")
+	assertErrorContains(t, rec, "invalid id")
 }
 
 func TestHandleStartCampaign_ServiceUnavailable(t *testing.T) {
@@ -111,7 +111,7 @@ func TestHandlePauseCampaign_InvalidUUID(t *testing.T) {
 	req = withChiURLParam(req, "id", "not-a-uuid")
 	routes.HandlePauseCampaign(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "invalid campaign id")
+	assertErrorContains(t, rec, "invalid id")
 }
 
 func TestHandlePauseCampaign_ServiceUnavailable(t *testing.T) {
@@ -131,7 +131,7 @@ func TestHandleArchiveCampaign_InvalidUUID(t *testing.T) {
 	req = withChiURLParam(req, "id", "not-a-uuid")
 	routes.HandleArchiveCampaign(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "invalid campaign id")
+	assertErrorContains(t, rec, "invalid id")
 }
 
 // --- Campaign Contacts ---
@@ -152,7 +152,7 @@ func TestHandleAddContactsToCampaign_InvalidUUID(t *testing.T) {
 	req = withChiURLParam(req, "id", "not-a-uuid")
 	routes.HandleAddContactsToCampaign(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "invalid campaign id")
+	assertErrorContains(t, rec, "invalid id")
 }
 
 func TestHandleAddContactsToCampaign_InvalidJSON(t *testing.T) {
@@ -172,7 +172,7 @@ func TestHandleGetNextContact_InvalidUUID(t *testing.T) {
 	req = withChiURLParam(req, "id", "not-a-uuid")
 	routes.HandleGetNextContact(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "invalid campaign id")
+	assertErrorContains(t, rec, "invalid id")
 }
 
 // --- Calls ---
@@ -199,7 +199,7 @@ func TestHandleLogCallOutcome_InvalidUUID(t *testing.T) {
 	req = withChiURLParam(req, "id", "not-a-uuid")
 	routes.HandleLogCallOutcome(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "invalid call session id")
+	assertErrorContains(t, rec, "invalid id")
 }
 
 func TestHandleLogCallOutcome_InvalidJSON(t *testing.T) {
@@ -229,7 +229,7 @@ func TestHandleCompleteWrapUp_InvalidUUID(t *testing.T) {
 	req = withChiURLParam(req, "id", "not-a-uuid")
 	routes.HandleCompleteWrapUp(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "invalid call session id")
+	assertErrorContains(t, rec, "invalid id")
 }
 
 // --- Agent Status ---
@@ -272,7 +272,7 @@ func TestHandleUpdateCallOutcome_InvalidUUID(t *testing.T) {
 	req = withChiURLParam(req, "id", "not-a-uuid")
 	routes.HandleUpdateCallOutcome(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "invalid outcome id")
+	assertErrorContains(t, rec, "invalid id")
 }
 
 func TestHandleUpdateCallOutcome_InvalidJSON(t *testing.T) {
@@ -292,5 +292,5 @@ func TestHandleDeleteCallOutcome_InvalidUUID(t *testing.T) {
 	req = withChiURLParam(req, "id", "not-a-uuid")
 	routes.HandleDeleteCallOutcome(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "invalid outcome id")
+	assertErrorContains(t, rec, "invalid id")
 }

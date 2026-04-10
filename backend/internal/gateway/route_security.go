@@ -267,10 +267,6 @@ func (sr *SecurityRoutes) HandleRequestDataExport(w http.ResponseWriter, r *http
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	resp, err := client.RequestDataExport(r.Context(), &securityv1.RequestDataExportRequest{
 		UserId: userID,
@@ -324,9 +320,8 @@ func (sr *SecurityRoutes) HandleApproveDataExport(w http.ResponseWriter, r *http
 		return
 	}
 
-	exportID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(exportID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid export id")
+	exportID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -362,9 +357,8 @@ func (sr *SecurityRoutes) HandleDenyDataExport(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	exportID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(exportID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid export id")
+	exportID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -661,9 +655,8 @@ func (sr *SecurityRoutes) HandleDeleteIPRule(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	ruleID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(ruleID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid rule id")
+	ruleID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 

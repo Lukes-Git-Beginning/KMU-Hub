@@ -5,9 +5,12 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 )
 
@@ -91,4 +94,30 @@ func parseLimit(r *http.Request, defaultLimit, maxLimit int) int {
 		}
 	}
 	return defaultLimit
+}
+
+// validateUUIDParam extracts a chi URL parameter and validates it as a UUID.
+// Returns the raw string value and true on success. On failure, writes a 400
+// error response and returns false. The raw string is returned (not a uuid.UUID)
+// because gRPC handlers accept string IDs.
+func validateUUIDParam(w http.ResponseWriter, r *http.Request, param string) (string, bool) {
+	raw := chi.URLParam(r, param)
+	if _, err := uuid.Parse(raw); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid "+param)
+		return "", false
+	}
+	return raw, true
+}
+
+// RequireAuthenticated is a chi middleware that rejects requests without
+// a valid user ID in the context. Apply as a route-group middleware to
+// eliminate per-handler auth guards.
+func RequireAuthenticated(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if middleware.GetUserID(r.Context()) == "" {
+			response.Error(w, http.StatusUnauthorized, "user not authenticated")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }

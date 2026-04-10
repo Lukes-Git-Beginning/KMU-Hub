@@ -86,3 +86,13 @@ func testServiceUnavailable(t *testing.T, handler http.HandlerFunc) {
 	handler(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
+
+// withAuthRequired wraps a handler with the RequireAuthenticated middleware.
+// Use this in _NoUserID tests that call handlers directly (bypassing the chi router).
+// The wrapped handler returns 401 when no user ID is in the context, mirroring
+// what RequireAuthenticated does at the route group level in production.
+func withAuthRequired(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		RequireAuthenticated(h).ServeHTTP(w, r)
+	}
+}

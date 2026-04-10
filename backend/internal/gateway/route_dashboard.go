@@ -31,6 +31,7 @@ func (d *DashboardRoutes) ServiceName() string { return "dashboard" }
 func (d *DashboardRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
 	r.Route("/api/v1/dashboard", func(r chi.Router) {
 		r.Use(authMiddleware)
+		r.Use(RequireAuthenticated)
 
 		// User layout endpoints
 		r.Get("/layout", d.HandleGetDashboard)
@@ -50,10 +51,6 @@ func (d *DashboardRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 // HandleGetDashboard returns the effective dashboard layout for the authenticated user.
 func (d *DashboardRoutes) HandleGetDashboard(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	// Determine user's primary role for default fallback
 	role := primaryRole(middleware.GetUserRoles(r.Context()))
@@ -80,10 +77,6 @@ type saveDashboardRequest struct {
 // HandleSaveDashboard saves the authenticated user's personal dashboard layout.
 func (d *DashboardRoutes) HandleSaveDashboard(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req saveDashboardRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -114,10 +107,6 @@ func (d *DashboardRoutes) HandleSaveDashboard(w http.ResponseWriter, r *http.Req
 // HandleResetToDefaults removes the user's personal layout override.
 func (d *DashboardRoutes) HandleResetToDefaults(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	if err := d.service.ResetToDefaults(r.Context(), userID); err != nil {
 		response.Error(w, http.StatusInternalServerError, "failed to reset dashboard layout")

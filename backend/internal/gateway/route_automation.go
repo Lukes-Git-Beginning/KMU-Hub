@@ -40,6 +40,7 @@ func (ar *AutomationRoutes) getClient() (automationv1.AutomationServiceClient, e
 func (ar *AutomationRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
 	r.Route("/api/v1/automations", func(r chi.Router) {
 		r.Use(authMiddleware)
+		r.Use(RequireAuthenticated)
 
 		// CRUD
 		r.With(middleware.RequirePermission("automations", "write")).Post("/", ar.HandleCreateAutomation)
@@ -85,10 +86,6 @@ func (ar *AutomationRoutes) HandleCreateAutomation(w http.ResponseWriter, r *htt
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var body struct {
 		Name          string          `json:"name"`
@@ -197,9 +194,8 @@ func (ar *AutomationRoutes) HandleGetAutomation(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	automationID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(automationID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid automation id")
+	automationID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -222,14 +218,9 @@ func (ar *AutomationRoutes) HandleUpdateAutomation(w http.ResponseWriter, r *htt
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	automationID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(automationID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid automation id")
+	automationID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -300,9 +291,8 @@ func (ar *AutomationRoutes) HandleDeleteAutomation(w http.ResponseWriter, r *htt
 		return
 	}
 
-	automationID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(automationID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid automation id")
+	automationID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -328,9 +318,8 @@ func (ar *AutomationRoutes) HandleEnableAutomation(w http.ResponseWriter, r *htt
 		return
 	}
 
-	automationID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(automationID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid automation id")
+	automationID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -352,9 +341,8 @@ func (ar *AutomationRoutes) HandleDisableAutomation(w http.ResponseWriter, r *ht
 		return
 	}
 
-	automationID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(automationID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid automation id")
+	automationID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -380,9 +368,8 @@ func (ar *AutomationRoutes) HandleListExecutions(w http.ResponseWriter, r *http.
 		return
 	}
 
-	automationID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(automationID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid automation id")
+	automationID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -421,9 +408,8 @@ func (ar *AutomationRoutes) HandleGetExecution(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	executionID := chi.URLParam(r, "executionId")
-	if _, parseErr := uuid.Parse(executionID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid execution id")
+	executionID, ok := validateUUIDParam(w, r, "executionId")
+	if !ok {
 		return
 	}
 
@@ -507,10 +493,6 @@ func (ar *AutomationRoutes) HandleCreateFromTemplate(w http.ResponseWriter, r *h
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	templateID := chi.URLParam(r, "templateId")
 

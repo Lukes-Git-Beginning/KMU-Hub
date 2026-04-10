@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -41,6 +40,7 @@ func (dr *DialerRoutes) getDialerClient() (dialerv1.DialerServiceClient, error) 
 func (dr *DialerRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
 	r.Route("/api/v1/dialer", func(r chi.Router) {
 		r.Use(authMiddleware)
+		r.Use(RequireAuthenticated)
 
 		// Campaigns
 		r.Route("/campaigns", func(r chi.Router) {
@@ -203,12 +203,6 @@ func (dr *DialerRoutes) HandleCreateCampaign(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
-
 	var req createCampaignRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
@@ -248,9 +242,8 @@ func (dr *DialerRoutes) HandleGetCampaign(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	campaignID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(campaignID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid campaign id")
+	campaignID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -270,9 +263,8 @@ func (dr *DialerRoutes) HandleUpdateCampaign(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	campaignID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(campaignID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid campaign id")
+	campaignID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -313,14 +305,9 @@ func (dr *DialerRoutes) HandleStartCampaign(w http.ResponseWriter, r *http.Reque
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	campaignID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(campaignID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid campaign id")
+	campaignID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -344,14 +331,9 @@ func (dr *DialerRoutes) HandlePauseCampaign(w http.ResponseWriter, r *http.Reque
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	campaignID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(campaignID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid campaign id")
+	campaignID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -375,14 +357,9 @@ func (dr *DialerRoutes) HandleArchiveCampaign(w http.ResponseWriter, r *http.Req
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	campaignID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(campaignID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid campaign id")
+	campaignID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -409,9 +386,8 @@ func (dr *DialerRoutes) HandleAddContactsToCampaign(w http.ResponseWriter, r *ht
 		return
 	}
 
-	campaignID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(campaignID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid campaign id")
+	campaignID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -445,9 +421,8 @@ func (dr *DialerRoutes) HandleListCampaignContacts(w http.ResponseWriter, r *htt
 		return
 	}
 
-	campaignID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(campaignID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid campaign id")
+	campaignID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -482,9 +457,8 @@ func (dr *DialerRoutes) HandleGetNextContact(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	campaignID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(campaignID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid campaign id")
+	campaignID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -517,14 +491,9 @@ func (dr *DialerRoutes) HandleSkipContact(w http.ResponseWriter, r *http.Request
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	contactID := chi.URLParam(r, "cid")
-	if _, err := uuid.Parse(contactID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid campaign contact id")
+	contactID, ok := validateUUIDParam(w, r, "cid")
+	if !ok {
 		return
 	}
 
@@ -548,14 +517,9 @@ func (dr *DialerRoutes) HandleRequeueContact(w http.ResponseWriter, r *http.Requ
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	contactID := chi.URLParam(r, "cid")
-	if _, err := uuid.Parse(contactID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid campaign contact id")
+	contactID, ok := validateUUIDParam(w, r, "cid")
+	if !ok {
 		return
 	}
 
@@ -583,10 +547,6 @@ func (dr *DialerRoutes) HandleInitiateDialerCall(w http.ResponseWriter, r *http.
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req initiateDialerCallRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -626,9 +586,8 @@ func (dr *DialerRoutes) HandleLogCallOutcome(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	sessionID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(sessionID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid call session id")
+	sessionID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -681,9 +640,8 @@ func (dr *DialerRoutes) HandleSaveCallNotes(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	sessionID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(sessionID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid call session id")
+	sessionID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -712,17 +670,12 @@ func (dr *DialerRoutes) HandleCompleteWrapUp(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	sessionID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(sessionID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid call session id")
+	sessionID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req completeWrapUpRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -786,10 +739,6 @@ func (dr *DialerRoutes) HandleSetAgentStatus(w http.ResponseWriter, r *http.Requ
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req setAgentStatusRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -824,9 +773,8 @@ func (dr *DialerRoutes) HandleGetCampaignAgents(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	campaignID := chi.URLParam(r, "campaignId")
-	if _, err := uuid.Parse(campaignID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid campaign id")
+	campaignID, ok := validateUUIDParam(w, r, "campaignId")
+	if !ok {
 		return
 	}
 
@@ -910,9 +858,8 @@ func (dr *DialerRoutes) HandleUpdateCallOutcome(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	outcomeID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(outcomeID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid outcome id")
+	outcomeID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -963,9 +910,8 @@ func (dr *DialerRoutes) HandleDeleteCallOutcome(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	outcomeID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(outcomeID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid outcome id")
+	outcomeID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -991,9 +937,8 @@ func (dr *DialerRoutes) HandleGetCampaignDashboard(w http.ResponseWriter, r *htt
 		return
 	}
 
-	campaignID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(campaignID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid campaign id")
+	campaignID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 

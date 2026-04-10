@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	slackadapter "github.com/kmuhub/kmuhub/internal/notification/integration/slack"
@@ -159,10 +158,6 @@ func (ir *IntegrationRoutes) HandleCreateConfig(w http.ResponseWriter, r *http.R
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req createConfigRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -380,9 +375,8 @@ func (ir *IntegrationRoutes) HandleUpdateMapping(w http.ResponseWriter, r *http.
 		return
 	}
 
-	mappingID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(mappingID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid mapping id")
+	mappingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -414,9 +408,8 @@ func (ir *IntegrationRoutes) HandleDeleteMapping(w http.ResponseWriter, r *http.
 		return
 	}
 
-	mappingID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(mappingID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid mapping id")
+	mappingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -447,10 +440,6 @@ func (ir *IntegrationRoutes) HandleLinkAccount(w http.ResponseWriter, r *http.Re
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req linkAccountRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -478,10 +467,6 @@ func (ir *IntegrationRoutes) HandleUnlinkAccount(w http.ResponseWriter, r *http.
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	platform := chi.URLParam(r, "platform")
 
@@ -505,10 +490,6 @@ func (ir *IntegrationRoutes) HandleGetLinkStatus(w http.ResponseWriter, r *http.
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	resp, err := client.GetAccountLinkStatus(r.Context(), &notificationv1.GetAccountLinkStatusRequest{
 		UserId: userID,

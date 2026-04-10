@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -44,6 +43,7 @@ func (ir *InboxRoutes) getInboxClient() (inboxv1.InboxServiceClient, error) {
 func (ir *InboxRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
 	r.Route("/api/v1/inbox", func(r chi.Router) {
 		r.Use(authMiddleware)
+		r.Use(RequireAuthenticated)
 
 		// Message endpoints
 		r.With(middleware.RequirePermission("inbox", "read")).Get("/messages", ir.HandleListMessages)
@@ -92,10 +92,6 @@ func (ir *InboxRoutes) HandleListMessages(w http.ResponseWriter, r *http.Request
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	grpcReq := &inboxv1.ListMessagesRequest{
 		UserId:    userID,
@@ -147,14 +143,9 @@ func (ir *InboxRoutes) HandleGetMessage(w http.ResponseWriter, r *http.Request) 
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	messageID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(messageID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid message id")
+	messageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -178,14 +169,9 @@ func (ir *InboxRoutes) HandleMarkRead(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	messageID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(messageID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid message id")
+	messageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -209,14 +195,9 @@ func (ir *InboxRoutes) HandleMarkUnread(w http.ResponseWriter, r *http.Request) 
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	messageID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(messageID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid message id")
+	messageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -240,14 +221,9 @@ func (ir *InboxRoutes) HandleToggleStar(w http.ResponseWriter, r *http.Request) 
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	messageID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(messageID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid message id")
+	messageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -271,14 +247,9 @@ func (ir *InboxRoutes) HandleArchiveMessage(w http.ResponseWriter, r *http.Reque
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	messageID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(messageID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid message id")
+	messageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -302,14 +273,9 @@ func (ir *InboxRoutes) HandleUnarchiveMessage(w http.ResponseWriter, r *http.Req
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	messageID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(messageID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid message id")
+	messageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -333,14 +299,9 @@ func (ir *InboxRoutes) HandleSnoozeMessage(w http.ResponseWriter, r *http.Reques
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	messageID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(messageID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid message id")
+	messageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -379,14 +340,9 @@ func (ir *InboxRoutes) HandleUnsnoozeMessage(w http.ResponseWriter, r *http.Requ
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	messageID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(messageID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid message id")
+	messageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -410,14 +366,9 @@ func (ir *InboxRoutes) HandleReplyToMessage(w http.ResponseWriter, r *http.Reque
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	messageID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(messageID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid message id")
+	messageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -455,14 +406,9 @@ func (ir *InboxRoutes) HandleAssignMessage(w http.ResponseWriter, r *http.Reques
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	messageID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(messageID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid message id")
+	messageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -500,10 +446,6 @@ func (ir *InboxRoutes) HandleGetUnreadCount(w http.ResponseWriter, r *http.Reque
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	resp, err := client.GetUnreadCount(r.Context(), &inboxv1.GetUnreadCountRequest{
 		UserId: userID,
@@ -524,10 +466,6 @@ func (ir *InboxRoutes) HandleBulkMarkRead(w http.ResponseWriter, r *http.Request
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var body struct {
 		IDs []string `json:"ids"`
@@ -562,10 +500,6 @@ func (ir *InboxRoutes) HandleBulkArchive(w http.ResponseWriter, r *http.Request)
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var body struct {
 		IDs []string `json:"ids"`
@@ -604,10 +538,6 @@ func (ir *InboxRoutes) HandleCreateTeamInbox(w http.ResponseWriter, r *http.Requ
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var body struct {
 		Name           string `json:"name"`
@@ -650,14 +580,9 @@ func (ir *InboxRoutes) HandleUpdateTeamInbox(w http.ResponseWriter, r *http.Requ
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	teamInboxID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(teamInboxID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid team inbox id")
+	teamInboxID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -709,14 +634,9 @@ func (ir *InboxRoutes) HandleDeleteTeamInbox(w http.ResponseWriter, r *http.Requ
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	teamInboxID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(teamInboxID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid team inbox id")
+	teamInboxID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -740,10 +660,6 @@ func (ir *InboxRoutes) HandleListTeamInboxes(w http.ResponseWriter, r *http.Requ
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	resp, err := client.ListTeamInboxes(r.Context(), &inboxv1.ListTeamInboxesRequest{
 		UserId: userID,
@@ -764,14 +680,9 @@ func (ir *InboxRoutes) HandleAddTeamMember(w http.ResponseWriter, r *http.Reques
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	teamInboxID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(teamInboxID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid team inbox id")
+	teamInboxID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -813,20 +724,14 @@ func (ir *InboxRoutes) HandleRemoveTeamMember(w http.ResponseWriter, r *http.Req
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+
+	teamInboxID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
-	teamInboxID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(teamInboxID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid team inbox id")
-		return
-	}
-
-	memberUserID := chi.URLParam(r, "user_id")
-	if _, parseErr := uuid.Parse(memberUserID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid member user id")
+	memberUserID, ok2 := validateUUIDParam(w, r, "user_id")
+	if !ok2 {
 		return
 	}
 
@@ -851,14 +756,9 @@ func (ir *InboxRoutes) HandleListTeamMembers(w http.ResponseWriter, r *http.Requ
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	teamInboxID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(teamInboxID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid team inbox id")
+	teamInboxID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -882,14 +782,9 @@ func (ir *InboxRoutes) HandleClaimMessage(w http.ResponseWriter, r *http.Request
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	messageID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(messageID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid message id")
+	messageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -917,10 +812,6 @@ func (ir *InboxRoutes) HandleCreateRoutingRule(w http.ResponseWriter, r *http.Re
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var body struct {
 		Name       string          `json:"name"`
@@ -981,14 +872,9 @@ func (ir *InboxRoutes) HandleUpdateRoutingRule(w http.ResponseWriter, r *http.Re
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	ruleID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(ruleID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid rule id")
+	ruleID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -1057,14 +943,9 @@ func (ir *InboxRoutes) HandleDeleteRoutingRule(w http.ResponseWriter, r *http.Re
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	ruleID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(ruleID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid rule id")
+	ruleID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -1088,10 +969,6 @@ func (ir *InboxRoutes) HandleListRoutingRules(w http.ResponseWriter, r *http.Req
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	grpcReq := &inboxv1.ListRoutingRulesRequest{
 		UserId: userID,
@@ -1114,10 +991,6 @@ func (ir *InboxRoutes) HandleTestRoutingRule(w http.ResponseWriter, r *http.Requ
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var body struct {
 		Conditions  json.RawMessage              `json:"conditions"`

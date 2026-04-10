@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
@@ -41,6 +40,7 @@ func (cr *CalendarRoutes) getCalendarClient() (calv1.CalendarServiceClient, erro
 func (cr *CalendarRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
 	r.Route("/api/v1/calendar", func(r chi.Router) {
 		r.Use(authMiddleware)
+		r.Use(RequireAuthenticated)
 
 		// Calendars
 		r.With(middleware.RequirePermission("calendars", "read")).Get("/calendars", cr.HandleListCalendars)
@@ -238,10 +238,6 @@ func (cr *CalendarRoutes) HandleCreateCalendar(wr http.ResponseWriter, r *http.R
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(wr, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req createCalendarRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -283,9 +279,8 @@ func (cr *CalendarRoutes) HandleGetCalendar(wr http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	calendarID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(calendarID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid calendar id")
+	calendarID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -327,9 +322,8 @@ func (cr *CalendarRoutes) HandleUpdateCalendar(wr http.ResponseWriter, r *http.R
 		return
 	}
 
-	calendarID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(calendarID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid calendar id")
+	calendarID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -369,9 +363,8 @@ func (cr *CalendarRoutes) HandleDeleteCalendar(wr http.ResponseWriter, r *http.R
 		return
 	}
 
-	calendarID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(calendarID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid calendar id")
+	calendarID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -616,10 +609,6 @@ func (cr *CalendarRoutes) HandleCreateEvent(wr http.ResponseWriter, r *http.Requ
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(wr, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req createEventRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -678,9 +667,8 @@ func (cr *CalendarRoutes) HandleGetEvent(wr http.ResponseWriter, r *http.Request
 		return
 	}
 
-	eventID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(eventID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid event id")
+	eventID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -706,9 +694,8 @@ func (cr *CalendarRoutes) HandleUpdateEvent(wr http.ResponseWriter, r *http.Requ
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	eventID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(eventID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid event id")
+	eventID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -762,9 +749,8 @@ func (cr *CalendarRoutes) HandleDeleteEvent(wr http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	eventID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(eventID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid event id")
+	eventID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -785,9 +771,8 @@ func (cr *CalendarRoutes) HandleUpdateRecurringEvent(wr http.ResponseWriter, r *
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	eventID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(eventID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid event id")
+	eventID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -856,9 +841,8 @@ func (cr *CalendarRoutes) HandleRSVPToEvent(wr http.ResponseWriter, r *http.Requ
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	eventID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(eventID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid event id")
+	eventID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -888,9 +872,8 @@ func (cr *CalendarRoutes) HandleListEventAttendees(wr http.ResponseWriter, r *ht
 		return
 	}
 
-	eventID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(eventID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid event id")
+	eventID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -916,9 +899,8 @@ func (cr *CalendarRoutes) HandleSetEventReminders(wr http.ResponseWriter, r *htt
 		return
 	}
 
-	eventID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(eventID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid event id")
+	eventID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -947,9 +929,8 @@ func (cr *CalendarRoutes) HandleListEventReminders(wr http.ResponseWriter, r *ht
 		return
 	}
 
-	eventID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(eventID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid event id")
+	eventID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -1028,9 +1009,8 @@ func (cr *CalendarRoutes) HandleDeleteEventCategory(wr http.ResponseWriter, r *h
 		return
 	}
 
-	categoryID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(categoryID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid category id")
+	categoryID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -1132,9 +1112,8 @@ func (cr *CalendarRoutes) HandleGetResource(wr http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	resourceID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(resourceID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid resource id")
+	resourceID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -1154,9 +1133,8 @@ func (cr *CalendarRoutes) HandleUpdateResource(wr http.ResponseWriter, r *http.R
 		return
 	}
 
-	resourceID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(resourceID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid resource id")
+	resourceID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -1202,9 +1180,8 @@ func (cr *CalendarRoutes) HandleDeleteResource(wr http.ResponseWriter, r *http.R
 		return
 	}
 
-	resourceID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(resourceID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid resource id")
+	resourceID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -1224,9 +1201,8 @@ func (cr *CalendarRoutes) HandleListResourceAvailability(wr http.ResponseWriter,
 		return
 	}
 
-	resourceID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(resourceID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid resource id")
+	resourceID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -1315,9 +1291,8 @@ func (cr *CalendarRoutes) HandleCancelBooking(wr http.ResponseWriter, r *http.Re
 		return
 	}
 
-	bookingID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(bookingID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid booking id")
+	bookingID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -1540,9 +1515,8 @@ func (cr *CalendarRoutes) HandleGenerateJoinToken(wr http.ResponseWriter, r *htt
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	eventID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(eventID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid event id")
+	eventID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 

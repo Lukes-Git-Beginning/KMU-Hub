@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
@@ -239,9 +238,8 @@ func (a *AuthRoutes) HandleGetUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(userID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid user id")
+	userID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -286,9 +284,8 @@ func (a *AuthRoutes) HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(userID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid user id")
+	userID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -329,9 +326,8 @@ func (a *AuthRoutes) HandleAssignRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(userID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid user id")
+	userID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -360,9 +356,8 @@ func (a *AuthRoutes) HandleRemoveRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(userID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid user id")
+	userID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -392,10 +387,6 @@ func (a *AuthRoutes) HandleGetProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	resp, err := client.GetProfile(r.Context(), &authv1.GetProfileRequest{UserId: userID})
 	if err != nil {
@@ -419,10 +410,6 @@ func (a *AuthRoutes) HandleChangePassword(w http.ResponseWriter, r *http.Request
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req changePasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -465,10 +452,6 @@ func (a *AuthRoutes) HandleCreateInvitation(w http.ResponseWriter, r *http.Reque
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req createInvitationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -561,9 +544,8 @@ func (a *AuthRoutes) HandleCancelInvitation(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	invitationID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(invitationID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid invitation id")
+	invitationID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -590,10 +572,6 @@ func (a *AuthRoutes) HandleSetup2FA(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	resp, err := client.Setup2FA(r.Context(), &authv1.Setup2FARequest{UserId: userID})
 	if err != nil {
@@ -616,10 +594,6 @@ func (a *AuthRoutes) HandleVerify2FA(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req verify2FARequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -693,10 +667,6 @@ func (a *AuthRoutes) HandleDisable2FA(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req disable2FARequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -728,10 +698,6 @@ func (a *AuthRoutes) HandleRegenerateRecoveryCodes(w http.ResponseWriter, r *htt
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req regenerateCodesRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -869,10 +835,6 @@ func (a *AuthRoutes) HandleListSessions(w http.ResponseWriter, r *http.Request) 
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	resp, err := client.ListSessions(r.Context(), &authv1.ListSessionsRequest{
 		UserId: userID,
@@ -918,14 +880,9 @@ func (a *AuthRoutes) HandleTerminateSession(w http.ResponseWriter, r *http.Reque
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	sessionID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(sessionID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid session id")
+	sessionID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -949,10 +906,6 @@ func (a *AuthRoutes) HandleTerminateAllSessions(w http.ResponseWriter, r *http.R
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	// Optionally keep current session alive
 	currentSessionID := r.URL.Query().Get("current_session_id")

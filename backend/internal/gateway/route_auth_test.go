@@ -125,7 +125,7 @@ func TestHandleGetProfile_NoUserID(t *testing.T) {
 	routes := NewAuthRoutes(registryWithService("auth"))
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/v1/auth/me", nil)
-	routes.HandleGetProfile(rec, req)
+	withAuthRequired(routes.HandleGetProfile)(rec, req)
 	assertStatus(t, rec, http.StatusUnauthorized)
 }
 
@@ -144,7 +144,7 @@ func TestHandleChangePassword_NoUserID(t *testing.T) {
 	routes := NewAuthRoutes(registryWithService("auth"))
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/v1/auth/change-password", jsonBody(t, map[string]interface{}{}))
-	routes.HandleChangePassword(rec, req)
+	withAuthRequired(routes.HandleChangePassword)(rec, req)
 	assertStatus(t, rec, http.StatusUnauthorized)
 }
 
@@ -197,7 +197,7 @@ func TestHandleGetUser_InvalidUUID(t *testing.T) {
 	req = withChiURLParam(req, "id", "not-a-uuid")
 	routes.HandleGetUser(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "invalid user id")
+	assertErrorContains(t, rec, "invalid id")
 }
 
 // --- HandleCreateInvitation ---
@@ -215,7 +215,7 @@ func TestHandleCreateInvitation_NoUserID(t *testing.T) {
 	routes := NewAuthRoutes(registryWithService("auth"))
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/v1/invitations", jsonBody(t, map[string]interface{}{}))
-	routes.HandleCreateInvitation(rec, req)
+	withAuthRequired(routes.HandleCreateInvitation)(rec, req)
 	assertStatus(t, rec, http.StatusUnauthorized)
 }
 

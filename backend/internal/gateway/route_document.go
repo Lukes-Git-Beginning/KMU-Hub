@@ -134,10 +134,6 @@ func (d *DocumentRoutes) HandleCreateFolder(w http.ResponseWriter, r *http.Reque
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	resp, err := client.CreateFolder(r.Context(), &documentv1.CreateFolderRequest{
 		Name:      req.Name,
@@ -590,10 +586,6 @@ func (d *DocumentRoutes) HandleLinkFileToEntity(w http.ResponseWriter, r *http.R
 
 	fileID := chi.URLParam(r, "id")
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req linkFileToEntityRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -686,10 +678,6 @@ func (d *DocumentRoutes) HandleShareEntity(w http.ResponseWriter, r *http.Reques
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req shareEntityRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -779,10 +767,6 @@ func (d *DocumentRoutes) HandleListSharedWithMe(w http.ResponseWriter, r *http.R
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	resp, err := client.ListSharedWithMe(r.Context(), &documentv1.ListSharedWithMeRequest{
 		UserId: userID,
@@ -832,10 +816,6 @@ func (d *DocumentRoutes) HandleCreateTag(w http.ResponseWriter, r *http.Request)
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req createDocumentTagRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -1017,10 +997,6 @@ func (d *DocumentRoutes) HandleGenerateWOPIToken(w http.ResponseWriter, r *http.
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req generateWOPITokenRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
@@ -191,10 +190,6 @@ func (c *CRMRoutes) HandleCreateCustomField(w http.ResponseWriter, r *http.Reque
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req createCustomFieldRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -237,9 +232,8 @@ func (c *CRMRoutes) HandleGetCustomField(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	fieldID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(fieldID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid custom field id")
+	fieldID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -290,9 +284,8 @@ func (c *CRMRoutes) HandleUpdateCustomField(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	fieldID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(fieldID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid custom field id")
+	fieldID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -335,9 +328,8 @@ func (c *CRMRoutes) HandleDeleteCustomField(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	fieldID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(fieldID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid custom field id")
+	fieldID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -398,9 +390,8 @@ func (c *CRMRoutes) HandleGetTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tagID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(tagID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid tag id")
+	tagID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -448,9 +439,8 @@ func (c *CRMRoutes) HandleUpdateTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tagID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(tagID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid tag id")
+	tagID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -484,9 +474,8 @@ func (c *CRMRoutes) HandleDeleteTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tagID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(tagID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid tag id")
+	tagID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -528,10 +517,6 @@ func (c *CRMRoutes) HandleCreateContact(w http.ResponseWriter, r *http.Request) 
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req createContactRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -582,9 +567,8 @@ func (c *CRMRoutes) HandleGetContact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	contactID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(contactID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid contact id")
+	contactID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -657,9 +641,8 @@ func (c *CRMRoutes) HandleUpdateContact(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	contactID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(contactID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid contact id")
+	contactID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -714,9 +697,8 @@ func (c *CRMRoutes) HandleDeleteContact(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	contactID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(contactID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid contact id")
+	contactID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -740,9 +722,8 @@ func (c *CRMRoutes) HandleAddContactTags(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	contactID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(contactID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid contact id")
+	contactID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -771,9 +752,8 @@ func (c *CRMRoutes) HandleRemoveContactTags(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	contactID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(contactID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid contact id")
+	contactID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -807,10 +787,6 @@ func (c *CRMRoutes) HandleImportContactsCSV(w http.ResponseWriter, r *http.Reque
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	if parseErr := r.ParseMultipartForm(10 << 20); parseErr != nil { // 10MB max
 		response.Error(w, http.StatusBadRequest, "invalid multipart form")
@@ -867,10 +843,6 @@ func (c *CRMRoutes) HandleImportContactsVCard(w http.ResponseWriter, r *http.Req
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	if parseErr := r.ParseMultipartForm(10 << 20); parseErr != nil {
 		response.Error(w, http.StatusBadRequest, "invalid multipart form")
@@ -1031,17 +1003,12 @@ func (c *CRMRoutes) HandleUpdateContactVisibility(w http.ResponseWriter, r *http
 		return
 	}
 
-	contactID := chi.URLParam(r, "id")
-	if _, parseErr := uuid.Parse(contactID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid contact id")
+	contactID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 	isAdmin := middleware.IsAdmin(r.Context())
 
 	var req updateContactVisibilityRequest
@@ -1094,10 +1061,6 @@ func (c *CRMRoutes) HandleCreateCompany(w http.ResponseWriter, r *http.Request) 
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req createCompanyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -1146,9 +1109,8 @@ func (c *CRMRoutes) HandleGetCompany(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	companyID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(companyID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid company id")
+	companyID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -1211,9 +1173,8 @@ func (c *CRMRoutes) HandleUpdateCompany(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	companyID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(companyID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid company id")
+	companyID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -1271,9 +1232,8 @@ func (c *CRMRoutes) HandleDeleteCompany(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	companyID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(companyID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid company id")
+	companyID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -1293,9 +1253,8 @@ func (c *CRMRoutes) HandleGetCompanyContacts(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	companyID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(companyID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid company id")
+	companyID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -1366,9 +1325,8 @@ func (c *CRMRoutes) HandleGetPipelineStage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	stageID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(stageID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid pipeline stage id")
+	stageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -1412,9 +1370,8 @@ func (c *CRMRoutes) HandleUpdatePipelineStage(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	stageID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(stageID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid pipeline stage id")
+	stageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -1457,9 +1414,8 @@ func (c *CRMRoutes) HandleDeletePipelineStage(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	stageID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(stageID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid pipeline stage id")
+	stageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -1531,10 +1487,6 @@ func (c *CRMRoutes) HandleCreateDeal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req createDealRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -1591,9 +1543,8 @@ func (c *CRMRoutes) HandleGetDeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dealID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(dealID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid deal id")
+	dealID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -1673,9 +1624,8 @@ func (c *CRMRoutes) HandleUpdateDeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dealID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(dealID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid deal id")
+	dealID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -1733,9 +1683,8 @@ func (c *CRMRoutes) HandleDeleteDeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dealID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(dealID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid deal id")
+	dealID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -1759,9 +1708,8 @@ func (c *CRMRoutes) HandleMoveDealToStage(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	dealID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(dealID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid deal id")
+	dealID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -1793,9 +1741,7 @@ type modifyDealTagsRequest struct {
 }
 
 func (c *CRMRoutes) HandleAddDealTags(w http.ResponseWriter, r *http.Request) {
-	dealID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(dealID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid deal id")
+	if _, ok := validateUUIDParam(w, r, "id"); !ok {
 		return
 	}
 
@@ -1809,9 +1755,7 @@ func (c *CRMRoutes) HandleAddDealTags(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *CRMRoutes) HandleRemoveDealTags(w http.ResponseWriter, r *http.Request) {
-	dealID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(dealID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid deal id")
+	if _, ok := validateUUIDParam(w, r, "id"); !ok {
 		return
 	}
 
@@ -1849,10 +1793,6 @@ func (c *CRMRoutes) HandleCreateActivity(w http.ResponseWriter, r *http.Request)
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req createActivityRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -1902,9 +1842,8 @@ func (c *CRMRoutes) HandleGetActivity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	activityID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(activityID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid activity id")
+	activityID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -1988,9 +1927,8 @@ func (c *CRMRoutes) HandleUpdateActivity(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	activityID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(activityID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid activity id")
+	activityID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -2039,9 +1977,8 @@ func (c *CRMRoutes) HandleDeleteActivity(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	activityID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(activityID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid activity id")
+	activityID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -2061,9 +1998,8 @@ func (c *CRMRoutes) HandleCompleteActivity(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	activityID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(activityID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid activity id")
+	activityID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -2081,9 +2017,7 @@ type modifyActivityTagsRequest struct {
 }
 
 func (c *CRMRoutes) HandleAddActivityTags(w http.ResponseWriter, r *http.Request) {
-	activityID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(activityID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid activity id")
+	if _, ok := validateUUIDParam(w, r, "id"); !ok {
 		return
 	}
 
@@ -2097,9 +2031,7 @@ func (c *CRMRoutes) HandleAddActivityTags(w http.ResponseWriter, r *http.Request
 }
 
 func (c *CRMRoutes) HandleRemoveActivityTags(w http.ResponseWriter, r *http.Request) {
-	activityID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(activityID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid activity id")
+	if _, ok := validateUUIDParam(w, r, "id"); !ok {
 		return
 	}
 
@@ -2170,10 +2102,6 @@ func (c *CRMRoutes) HandleCreateSavedFilter(w http.ResponseWriter, r *http.Reque
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req createSavedFilterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -2208,9 +2136,8 @@ func (c *CRMRoutes) HandleGetSavedFilter(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	filterID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(filterID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid saved filter id")
+	filterID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -2258,9 +2185,8 @@ func (c *CRMRoutes) HandleUpdateSavedFilter(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	filterID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(filterID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid saved filter id")
+	filterID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -2297,9 +2223,8 @@ func (c *CRMRoutes) HandleDeleteSavedFilter(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	filterID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(filterID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid saved filter id")
+	filterID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -188,10 +187,6 @@ func (w *WorkRoutes) HandleCreateProject(wr http.ResponseWriter, r *http.Request
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(wr, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req createProjectRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -225,9 +220,8 @@ func (w *WorkRoutes) HandleGetProject(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projectID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(projectID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid project id")
+	projectID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -279,9 +273,8 @@ func (w *WorkRoutes) HandleUpdateProject(wr http.ResponseWriter, r *http.Request
 		return
 	}
 
-	projectID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(projectID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid project id")
+	projectID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -315,9 +308,8 @@ func (w *WorkRoutes) HandleArchiveProject(wr http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	projectID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(projectID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid project id")
+	projectID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -346,9 +338,8 @@ func (w *WorkRoutes) HandleAddProjectMember(wr http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	projectID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(projectID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid project id")
+	projectID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -706,10 +697,6 @@ func (w *WorkRoutes) HandleCreateTask(wr http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(wr, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req createTaskRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -771,9 +758,8 @@ func (w *WorkRoutes) HandleGetTask(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	taskID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(taskID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid task id")
+	taskID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -847,9 +833,8 @@ func (w *WorkRoutes) HandleUpdateTask(wr http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	taskID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(taskID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid task id")
+	taskID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -1575,9 +1560,8 @@ func (w *WorkRoutes) HandleStartTimer(wr http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	taskID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(taskID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid task id")
+	taskID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -1647,9 +1631,8 @@ func (w *WorkRoutes) HandleAddManualTimeEntry(wr http.ResponseWriter, r *http.Re
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	taskID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(taskID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid task id")
+	taskID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 
@@ -1698,9 +1681,8 @@ func (w *WorkRoutes) HandleUpdateTimeEntry(wr http.ResponseWriter, r *http.Reque
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	entryID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(entryID); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid time entry id")
+	entryID, ok := validateUUIDParam(wr, r, "id")
+	if !ok {
 		return
 	}
 

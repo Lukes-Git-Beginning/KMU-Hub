@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	videov1 "github.com/kmuhub/kmuhub/proto/video/v1"
@@ -185,10 +184,6 @@ func (vr *VideoRoutes) HandleCreateCall(w http.ResponseWriter, r *http.Request) 
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req createCallRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -225,9 +220,8 @@ func (vr *VideoRoutes) HandleJoinCall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	callID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(callID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid call id")
+	callID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -251,9 +245,8 @@ func (vr *VideoRoutes) HandleEndCall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	callID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(callID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid call id")
+	callID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -276,9 +269,8 @@ func (vr *VideoRoutes) HandleGetCall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	callID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(callID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid call id")
+	callID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -351,9 +343,8 @@ func (vr *VideoRoutes) HandleStopRecording(w http.ResponseWriter, r *http.Reques
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	recordingID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(recordingID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid recording id")
+	recordingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -377,9 +368,8 @@ func (vr *VideoRoutes) HandleSetRecordingConsent(w http.ResponseWriter, r *http.
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	recordingID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(recordingID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid recording id")
+	recordingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -409,9 +399,8 @@ func (vr *VideoRoutes) HandleGetRecordingConsent(w http.ResponseWriter, r *http.
 		return
 	}
 
-	recordingID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(recordingID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid recording id")
+	recordingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -463,9 +452,8 @@ func (vr *VideoRoutes) HandleDeleteRecording(w http.ResponseWriter, r *http.Requ
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	recordingID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(recordingID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid recording id")
+	recordingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -544,9 +532,8 @@ func (vr *VideoRoutes) HandleGetMeeting(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	meetingID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(meetingID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid meeting id")
+	meetingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -566,9 +553,8 @@ func (vr *VideoRoutes) HandleUpdateMeeting(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	meetingID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(meetingID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid meeting id")
+	meetingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -619,9 +605,8 @@ func (vr *VideoRoutes) HandleDeleteMeeting(w http.ResponseWriter, r *http.Reques
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	meetingID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(meetingID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid meeting id")
+	meetingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -696,9 +681,8 @@ func (vr *VideoRoutes) HandleStartMeeting(w http.ResponseWriter, r *http.Request
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	meetingID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(meetingID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid meeting id")
+	meetingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -722,9 +706,8 @@ func (vr *VideoRoutes) HandleEndMeeting(w http.ResponseWriter, r *http.Request) 
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	meetingID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(meetingID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid meeting id")
+	meetingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -752,9 +735,8 @@ func (vr *VideoRoutes) HandleSaveMeetingNotes(w http.ResponseWriter, r *http.Req
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	meetingID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(meetingID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid meeting id")
+	meetingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -786,9 +768,8 @@ func (vr *VideoRoutes) HandleGetMeetingNotes(w http.ResponseWriter, r *http.Requ
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	meetingID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(meetingID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid meeting id")
+	meetingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -812,9 +793,8 @@ func (vr *VideoRoutes) HandleGetPreviousMeetingNotes(w http.ResponseWriter, r *h
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	meetingID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(meetingID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid meeting id")
+	meetingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -841,9 +821,8 @@ func (vr *VideoRoutes) HandleCreateActionItem(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	meetingID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(meetingID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid meeting id")
+	meetingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -876,9 +855,8 @@ func (vr *VideoRoutes) HandleUpdateActionItem(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	itemID := chi.URLParam(r, "itemId")
-	if _, err := uuid.Parse(itemID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid action item id")
+	itemID, ok := validateUUIDParam(w, r, "itemId")
+	if !ok {
 		return
 	}
 
@@ -912,9 +890,8 @@ func (vr *VideoRoutes) HandleDeleteActionItem(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	itemID := chi.URLParam(r, "itemId")
-	if _, err := uuid.Parse(itemID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid action item id")
+	itemID, ok := validateUUIDParam(w, r, "itemId")
+	if !ok {
 		return
 	}
 
@@ -936,9 +913,8 @@ func (vr *VideoRoutes) HandleListActionItems(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	meetingID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(meetingID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid meeting id")
+	meetingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 

@@ -24,7 +24,7 @@ func TestHandleCreateChannel_NoUserID(t *testing.T) {
 	routes := NewChatRoutes(registryWithService("chat"))
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/v1/channels", jsonBody(t, map[string]interface{}{}))
-	routes.HandleCreateChannel(rec, req)
+	withAuthRequired(routes.HandleCreateChannel)(rec, req)
 	assertStatus(t, rec, http.StatusUnauthorized)
 	assertErrorContains(t, rec, "not authenticated")
 }
@@ -66,7 +66,7 @@ func TestHandleGetChannel_NoUserID(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/v1/channels/123", nil)
 	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
-	routes.HandleGetChannel(rec, req)
+	withAuthRequired(routes.HandleGetChannel)(rec, req)
 	assertStatus(t, rec, http.StatusUnauthorized)
 }
 
@@ -78,7 +78,7 @@ func TestHandleGetChannel_InvalidUUID(t *testing.T) {
 	req = withUserID(req, "user-123")
 	routes.HandleGetChannel(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "invalid channel id")
+	assertErrorContains(t, rec, "invalid id")
 }
 
 func TestHandleListChannels_ServiceUnavailable(t *testing.T) {
@@ -94,7 +94,7 @@ func TestHandleListChannels_NoUserID(t *testing.T) {
 	routes := NewChatRoutes(registryWithService("chat"))
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/v1/channels", nil)
-	routes.HandleListChannels(rec, req)
+	withAuthRequired(routes.HandleListChannels)(rec, req)
 	assertStatus(t, rec, http.StatusUnauthorized)
 }
 
@@ -115,7 +115,7 @@ func TestHandleSendMessage_NoUserID(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/v1/channels/123/messages", jsonBody(t, map[string]interface{}{}))
 	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
-	routes.HandleSendMessage(rec, req)
+	withAuthRequired(routes.HandleSendMessage)(rec, req)
 	assertStatus(t, rec, http.StatusUnauthorized)
 }
 
@@ -147,7 +147,7 @@ func TestHandleDeleteMessage_InvalidUUID(t *testing.T) {
 	req = withUserID(req, "user-123")
 	routes.HandleDeleteMessage(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "invalid message id")
+	assertErrorContains(t, rec, "invalid id")
 }
 
 // --- DMs ---
@@ -165,6 +165,6 @@ func TestHandleGetOrCreateDM_NoUserID(t *testing.T) {
 	routes := NewChatRoutes(registryWithService("chat"))
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/v1/channels/dm", jsonBody(t, map[string]interface{}{}))
-	routes.HandleGetOrCreateDM(rec, req)
+	withAuthRequired(routes.HandleGetOrCreateDM)(rec, req)
 	assertStatus(t, rec, http.StatusUnauthorized)
 }

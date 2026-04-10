@@ -24,7 +24,7 @@ func TestHandleCreateContact_NoUserID(t *testing.T) {
 	routes := NewCRMRoutes(registryWithService("crm"), nil)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/v1/contacts", jsonBody(t, map[string]interface{}{}))
-	routes.HandleCreateContact(rec, req)
+	withAuthRequired(routes.HandleCreateContact)(rec, req)
 	assertStatus(t, rec, http.StatusUnauthorized)
 	assertErrorContains(t, rec, "not authenticated")
 }
@@ -79,7 +79,7 @@ func TestHandleGetContact_InvalidUUID(t *testing.T) {
 	req = withChiURLParam(req, "id", "not-a-uuid")
 	routes.HandleGetContact(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "invalid contact id")
+	assertErrorContains(t, rec, "invalid id")
 }
 
 func TestHandleListContacts_ServiceUnavailable(t *testing.T) {
@@ -97,7 +97,7 @@ func TestHandleDeleteContact_InvalidUUID(t *testing.T) {
 	req = withChiURLParam(req, "id", "not-a-uuid")
 	routes.HandleDeleteContact(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "invalid contact id")
+	assertErrorContains(t, rec, "invalid id")
 }
 
 // --- Companies ---
@@ -111,7 +111,7 @@ func TestHandleCreateCompany_NoUserID(t *testing.T) {
 	routes := NewCRMRoutes(registryWithService("crm"), nil)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/v1/companies", jsonBody(t, map[string]interface{}{}))
-	routes.HandleCreateCompany(rec, req)
+	withAuthRequired(routes.HandleCreateCompany)(rec, req)
 	assertStatus(t, rec, http.StatusUnauthorized)
 }
 
@@ -143,7 +143,7 @@ func TestHandleGetCompany_InvalidUUID(t *testing.T) {
 	req = withChiURLParam(req, "id", "invalid")
 	routes.HandleGetCompany(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "invalid company id")
+	assertErrorContains(t, rec, "invalid id")
 }
 
 // --- Custom Fields ---
@@ -157,7 +157,7 @@ func TestHandleCreateCustomField_NoUserID(t *testing.T) {
 	routes := NewCRMRoutes(registryWithService("crm"), nil)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/v1/custom-fields", jsonBody(t, map[string]interface{}{}))
-	routes.HandleCreateCustomField(rec, req)
+	withAuthRequired(routes.HandleCreateCustomField)(rec, req)
 	assertStatus(t, rec, http.StatusUnauthorized)
 }
 
@@ -180,7 +180,7 @@ func TestHandleGetCustomField_InvalidUUID(t *testing.T) {
 	req = withChiURLParam(req, "id", "not-a-uuid")
 	routes.HandleGetCustomField(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "invalid custom field id")
+	assertErrorContains(t, rec, "invalid id")
 }
 
 // --- Tags ---
@@ -216,5 +216,5 @@ func TestHandleGetTag_InvalidUUID(t *testing.T) {
 	req = withChiURLParam(req, "id", "not-a-uuid")
 	routes.HandleGetTag(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "invalid tag id")
+	assertErrorContains(t, rec, "invalid id")
 }

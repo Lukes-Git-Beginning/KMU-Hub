@@ -40,6 +40,7 @@ func (ch *ChatRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 	// Channels
 	r.Route("/api/v1/channels", func(r chi.Router) {
 		r.Use(authMiddleware)
+		r.Use(RequireAuthenticated)
 		// DM routes (before /{id} to avoid conflict)
 		r.With(middleware.RequirePermission("channels", "write")).Post("/dm", ch.HandleGetOrCreateDM)
 		r.With(middleware.RequirePermission("channels", "read")).Get("/dm", ch.HandleListDMs)
@@ -69,6 +70,7 @@ func (ch *ChatRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 	// Messages (individual message operations)
 	r.Route("/api/v1/messages", func(r chi.Router) {
 		r.Use(authMiddleware)
+		r.Use(RequireAuthenticated)
 		r.With(middleware.RequirePermission("mentions", "read")).Get("/mentions", ch.HandleGetUserMentions)
 		r.With(middleware.RequirePermission("messages", "read")).Get("/{id}/thread", ch.HandleGetThreadReplies)
 		r.With(middleware.RequirePermission("messages", "write")).Put("/{id}", ch.HandleUpdateMessage)
@@ -78,6 +80,7 @@ func (ch *ChatRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 	// Files (individual file operations)
 	r.Route("/api/v1/files", func(r chi.Router) {
 		r.Use(authMiddleware)
+		r.Use(RequireAuthenticated)
 		r.With(middleware.RequirePermission("files", "read")).Get("/{id}/download", ch.HandleGetFileDownloadURL)
 		r.With(middleware.RequirePermission("files", "read")).Get("/{id}/thumbnail", ch.HandleGetFileThumbnailURL)
 		r.With(middleware.RequirePermission("files", "delete")).Delete("/{id}", ch.HandleDeleteFile)
@@ -86,6 +89,7 @@ func (ch *ChatRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 	// Chat search
 	r.Route("/api/v1/chat", func(r chi.Router) {
 		r.Use(authMiddleware)
+		r.Use(RequireAuthenticated)
 		r.Get("/search", ch.HandleSearchChat)
 	})
 }
@@ -109,10 +113,6 @@ func (ch *ChatRoutes) HandleCreateChannel(w http.ResponseWriter, r *http.Request
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req createChannelRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -152,14 +152,9 @@ func (ch *ChatRoutes) HandleGetChannel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	channelID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(channelID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid channel id")
+	channelID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -183,10 +178,6 @@ func (ch *ChatRoutes) HandleListChannels(w http.ResponseWriter, r *http.Request)
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	includeArchived := r.URL.Query().Get("include_archived") == "true"
 	page, pageSize := parsePagination(r, 1, 20)
@@ -218,14 +209,9 @@ func (ch *ChatRoutes) HandleUpdateChannel(w http.ResponseWriter, r *http.Request
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	channelID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(channelID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid channel id")
+	channelID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -263,14 +249,9 @@ func (ch *ChatRoutes) HandleDeleteChannel(w http.ResponseWriter, r *http.Request
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	channelID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(channelID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid channel id")
+	channelID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -294,14 +275,9 @@ func (ch *ChatRoutes) HandleArchiveChannel(w http.ResponseWriter, r *http.Reques
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	channelID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(channelID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid channel id")
+	channelID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -329,14 +305,9 @@ func (ch *ChatRoutes) HandleJoinChannel(w http.ResponseWriter, r *http.Request) 
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	channelID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(channelID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid channel id")
+	channelID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -360,14 +331,9 @@ func (ch *ChatRoutes) HandleLeaveChannel(w http.ResponseWriter, r *http.Request)
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	channelID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(channelID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid channel id")
+	channelID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -390,9 +356,8 @@ func (ch *ChatRoutes) HandleGetChannelMembers(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	channelID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(channelID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid channel id")
+	channelID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -428,15 +393,13 @@ func (ch *ChatRoutes) HandleUpdateMemberRole(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	channelID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(channelID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid channel id")
+	channelID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
-	targetUserID := chi.URLParam(r, "userId")
-	if _, err := uuid.Parse(targetUserID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid user id")
+	targetUserID, ok := validateUUIDParam(w, r, "userId")
+	if !ok {
 		return
 	}
 
@@ -484,14 +447,9 @@ func (ch *ChatRoutes) HandleSendMessage(w http.ResponseWriter, r *http.Request) 
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	channelID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(channelID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid channel id")
+	channelID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -546,14 +504,9 @@ func (ch *ChatRoutes) HandleGetMessages(w http.ResponseWriter, r *http.Request) 
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	channelID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(channelID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid channel id")
+	channelID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -593,14 +546,9 @@ func (ch *ChatRoutes) HandleUpdateMessage(w http.ResponseWriter, r *http.Request
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	messageID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(messageID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid message id")
+	messageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -636,14 +584,9 @@ func (ch *ChatRoutes) HandleDeleteMessage(w http.ResponseWriter, r *http.Request
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	messageID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(messageID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid message id")
+	messageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -675,10 +618,6 @@ func (ch *ChatRoutes) HandleGetOrCreateDM(w http.ResponseWriter, r *http.Request
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	var req getOrCreateDMRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -721,10 +660,6 @@ func (ch *ChatRoutes) HandleListDMs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	page, pageSize := parsePagination(r, 1, 20)
 
@@ -753,14 +688,9 @@ func (ch *ChatRoutes) HandleGetThreadReplies(w http.ResponseWriter, r *http.Requ
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	messageID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(messageID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid message id")
+	messageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -804,14 +734,9 @@ func (ch *ChatRoutes) HandleMarkChannelRead(w http.ResponseWriter, r *http.Reque
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
-	channelID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(channelID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid channel id")
+	channelID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -852,10 +777,6 @@ func (ch *ChatRoutes) HandleGetUnreadCounts(w http.ResponseWriter, r *http.Reque
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	resp, err := client.GetUnreadCounts(r.Context(), &chatv1.GetUnreadCountsRequest{
 		UserId: userID,
@@ -876,10 +797,6 @@ func (ch *ChatRoutes) HandleGetUserMentions(w http.ResponseWriter, r *http.Reque
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	page, pageSize := parsePagination(r, 1, 20)
 
@@ -907,17 +824,12 @@ func (ch *ChatRoutes) HandleGetFileDownloadURL(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	fileID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(fileID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid file id")
+	fileID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	resp, err := client.GetFileDownloadURL(r.Context(), &chatv1.GetFileDownloadURLRequest{
 		FileId: fileID,
@@ -938,17 +850,12 @@ func (ch *ChatRoutes) HandleGetFileThumbnailURL(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	fileID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(fileID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid file id")
+	fileID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	resp, err := client.GetFileThumbnailURL(r.Context(), &chatv1.GetFileThumbnailURLRequest{
 		FileId: fileID,
@@ -969,17 +876,12 @@ func (ch *ChatRoutes) HandleListChannelFiles(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	channelID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(channelID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid channel id")
+	channelID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	page, pageSize := parsePagination(r, 1, 20)
 
@@ -1004,17 +906,12 @@ func (ch *ChatRoutes) HandleDeleteFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fileID := chi.URLParam(r, "id")
-	if _, err := uuid.Parse(fileID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid file id")
+	fileID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	_, err = client.DeleteFile(r.Context(), &chatv1.DeleteFileRequest{
 		FileId: fileID,
@@ -1040,10 +937,6 @@ func (ch *ChatRoutes) HandleSearchChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
 
 	query := r.URL.Query().Get("q")
 	if query == "" {

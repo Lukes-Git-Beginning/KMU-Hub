@@ -24,7 +24,7 @@ func TestHandleCreateProject_NoUserID(t *testing.T) {
 	routes := NewWorkRoutes(registryWithService("work"))
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/v1/projects", jsonBody(t, map[string]interface{}{}))
-	routes.HandleCreateProject(rec, req)
+	withAuthRequired(routes.HandleCreateProject)(rec, req)
 	assertStatus(t, rec, http.StatusUnauthorized)
 	assertErrorContains(t, rec, "not authenticated")
 }
@@ -79,7 +79,7 @@ func TestHandleGetProject_InvalidUUID(t *testing.T) {
 	req = withChiURLParam(req, "id", "not-a-uuid")
 	routes.HandleGetProject(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "invalid project id")
+	assertErrorContains(t, rec, "invalid id")
 }
 
 func TestHandleListProjects_ServiceUnavailable(t *testing.T) {
@@ -101,7 +101,7 @@ func TestHandleCreateTask_NoUserID(t *testing.T) {
 	routes := NewWorkRoutes(registryWithService("work"))
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/v1/tasks", jsonBody(t, map[string]interface{}{}))
-	routes.HandleCreateTask(rec, req)
+	withAuthRequired(routes.HandleCreateTask)(rec, req)
 	assertStatus(t, rec, http.StatusUnauthorized)
 }
 
@@ -142,7 +142,7 @@ func TestHandleGetTask_InvalidUUID(t *testing.T) {
 	req = withChiURLParam(req, "id", "not-a-uuid")
 	routes.HandleGetTask(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "invalid task id")
+	assertErrorContains(t, rec, "invalid id")
 }
 
 // --- Time Entries ---

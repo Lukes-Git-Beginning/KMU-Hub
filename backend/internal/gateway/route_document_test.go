@@ -35,7 +35,7 @@ func TestHandleCreateFolder_NoUserID(t *testing.T) {
 	req := httptest.NewRequest("POST", "/api/v1/documents/folders", jsonBody(t, map[string]interface{}{
 		"name": "Test Folder",
 	}))
-	routes.HandleCreateFolder(rec, req)
+	withAuthRequired(routes.HandleCreateFolder)(rec, req)
 	assertStatus(t, rec, http.StatusUnauthorized)
 	assertErrorContains(t, rec, "not authenticated")
 }
