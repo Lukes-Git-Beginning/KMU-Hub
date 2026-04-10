@@ -32,8 +32,11 @@ type MockRepository struct {
 - **Dialer E2E** — Full flow: Campaign → Contact → Call → Outcome → Timeline (`test/e2e/dialer_test.go`)
 
 ## Desktop (Electron/React)
-- Framework: Vitest konfiguriert
-- **Status:** Kaum Tests vorhanden — Ausbau nötig
+- Framework: Vitest + jsdom, Setup: `test/setup.ts`
+- **Status:** 8 Test-Dateien, 62/62 Tests grün (Stand 2026-04-09)
+- i18next Mock: `t: (key) => key` — Tests assertieren auf i18n-Keys, nicht übersetzte Strings
+- MSW für API-Mocks (ContactsFlow, DashboardPage)
+- Test-Dateien: LoginPage, InvoiceForm, ChatFlow, DealsFlow, TeamFlow, CompaniesFlow, ContactsFlow, DashboardPage
 
 ## E2E Tests
 - **Datei:** `backend/test/e2e/` (Build-Tag `//go:build e2e`)

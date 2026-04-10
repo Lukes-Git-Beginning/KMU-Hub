@@ -1,6 +1,6 @@
 ---
 tags: [architektur, backend, frontend, ci-cd]
-updated: 2026-04-09
+updated: 2026-04-10
 ---
 # Architektur
 
@@ -24,21 +24,33 @@ Gateway (HTTP/chi) auf Port 8080 → gRPC-Services intern:
 
 Gateway `/health`: status, checks, registered_services, version, commit, build_time (via ldflags)
 
-### Gateway Route-Dateien (27)
+### Gateway Route-Dateien (37)
+
+Alle Handler sind duenne gRPC-Proxies. Keine direkte DB-Abfrage im Gateway (ausser Dashboard, gekapselt).
+Shared Helpers: `validateUUIDParam`, `RequireAuthenticated` Middleware, `respondGRPCError`, `parsePagination`.
+Entry Point: `cmd/gateway/main.go` (~324 LoC) + `setup.go` + `adapters.go`.
 
 | Datei | Domain |
 |-------|--------|
 | `route_auth.go` | Auth, 2FA, Passwoerter |
 | `route_bexio.go` | Bexio OAuth + Sync |
-| `route_biz.go` | Finance (Quotes, Invoices, Payments) |
-| `route_biz_ext.go` | Finance Extended (HR-Einstellungen, Dunning) |
-| `route_caldav.go` | CalDAV/CardDAV Proxy |
+| `route_biz.go` | Finance Struct + RegisterRoutes + Enum-Helpers |
+| `route_biz_quotes.go` | Angebote (CRUD, PDF, Send, Accept, Reject) |
+| `route_biz_invoices.go` | Rechnungen (CRUD, PDF, ZUGFeRD, Send) |
+| `route_biz_billing.go` | Zahlungen, Mahnwesen, Gutschriften, DATEV |
+| `route_biz_ext.go` | Time-to-Invoice (duenner gRPC-Proxy) |
+| `route_caldav.go` | CalDAV/CardDAV Proxy + App-Passwoerter |
 | `route_calendar.go` | Kalender, Events, Ressourcen |
 | `route_chat.go` | Chat, Channels, Nachrichten |
-| `route_crm.go` | CRM (Contacts, Companies, Deals) |
-| `route_crm_ext.go` | CRM Extended (Consent, Duplicate Detection) |
-| `route_dashboard.go` | Dashboard-Widgets |
+| `route_crm.go` | CRM Struct + RegisterRoutes |
+| `route_crm_contacts.go` | Kontakte (CRUD, Import/Export, Tags) |
+| `route_crm_companies.go` | Firmen (CRUD) |
+| `route_crm_pipeline.go` | Pipeline Stages + Deals |
+| `route_crm_activities.go` | Aktivitaeten, Suche, Filter, Reports, Custom Fields, Tags |
+| `route_crm_ext.go` | CRM Extended (Consent, Duplikate, Timeline — gRPC) |
+| `route_dashboard.go` | Dashboard-Widgets (gateway-local) |
 | `route_datev_upload.go` | DATEV CSV-Upload |
+| `route_dialer.go` | Dialer (Campaigns, Calls, Agent Status, Outcomes) |
 | `route_document.go` | Dokumente (CRUD) |
 | `route_email.go` | E-Mail-Konten, IMAP/SMTP |
 | `route_guest.go` | Guest Chat (public, kein Auth) |
@@ -49,13 +61,15 @@ Gateway `/health`: status, checks, registered_services, version, commit, build_t
 | `route_lexware.go` | Lexware API |
 | `route_notification.go` | Benachrichtigungen |
 | `route_plugin.go` | Plugin Install/Run/Manifests/Templates |
-| `route_registrar.go` | Service-Registrierung |
+| `route_registrar.go` | RouteRegistrar Interface |
 | `route_search_global.go` | Cross-Service Global Search (500ms Timeout) |
 | `route_security.go` | Audit Logs, GDPR Export, Passwort-Policy |
 | `route_video.go` | Video-Calls (LiveKit) |
 | `route_wopi.go` | WOPI Document Protocol (OnlyOffice) |
-| `route_dialer.go` | Dialer (Campaigns, Calls, Agent Status, Outcomes) |
-| `route_work.go` | Projekte, Tasks, Zeiterfassung |
+| `route_work.go` | Work Struct + RegisterRoutes |
+| `route_work_projects.go` | Projekte (CRUD, Members, Templates, Statuses) |
+| `route_work_tasks.go` | Tasks (CRUD, Comments, Dependencies, Files) |
+| `route_work_time.go` | Timer + Zeiterfassung |
 
 ## Frontend (Electron + React 19 + TypeScript)
 
@@ -88,11 +102,22 @@ ai, auth, automatisierung, berichte, calendar, contacts, dashboard, **dialer**, 
 - Batch-Inserts: Tags per `unnest($2::uuid[])`, Custom Fields per `pgx.Batch`
 - Einzelabfragen (`getWithRelations`) bleiben fuer GetByID/Create/Update (nur 1 Entity)
 
-### Gateway Performance
+### Gateway Performance & Security
 - **Audit Logger:** Buffered Channel (1000) + Worker Pool (10 Workers) statt unbegrenzte Goroutines
 - **gRPC Keep-Alive:** 60s/10s, PermitWithoutStream (in `registry.go`)
+- **gRPC mTLS:** Optional via Env-Vars, `ServiceRegistry` akzeptiert `*tls.Config` (nil = insecure)
+- **IP Filter:** TTL-basierter Fail-Close (5min Max-Staleness), Details in [[security]]
 - **pprof:** `/debug/pprof` hinter `ENABLE_PPROF=true` Env-Var (nur Staging/Dev)
 - **Connection Pool:** MaxConns=10 pro Service (10×10=100 = PG-Limit), MaxConnLifetime=1h, HealthCheckPeriod=1m
+
+### Gateway Bloat Refactoring (2026-04-10)
+- 14 neue gRPC RPCs (11 CRM: Duplikate, Merge, Timeline, GDPR Consent; 3 Biz: TimeToInvoice, QuoteFromDeal, ZUGFeRD)
+- `*pgxpool.Pool` Nutzung im Gateway von 5 auf 1 (Dashboard, gekapselt via `NewDashboardStack`)
+- Domain-Imports eliminiert: `internal/biz/pdf`, `internal/crm/*`, `shopspring/decimal`, `internal/models`
+- CalDAV raw SQL → `caldav.UserPreferenceRepository`
+- Boilerplate: `validateUUIDParam` + `RequireAuthenticated` Middleware (~570 Zeilen reduziert)
+- 3 grosse Dateien gesplittet: route_crm (2335→164), route_work (1800→140), route_biz (1437→308)
+- main.go (525→324) via Extraktion nach setup.go + adapters.go
 
 ### React Compiler (2026-04-08)
 - `babel-plugin-react-compiler` im `annotation` Mode

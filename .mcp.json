@@ -3,10 +3,6 @@
     "knowledge": {
       "command": "cmd",
       "args": ["/c", "npx", "-y", "@modelcontextprotocol/server-filesystem", ".knowledge"]
-    },
-    "playwright": {
-      "command": "cmd",
-      "args": ["/c", "npx", "-y", "@playwright/mcp@latest", "--cdp-endpoint", "http://localhost:9222"]
     }
   }
 }

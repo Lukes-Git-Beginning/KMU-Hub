@@ -83,6 +83,18 @@ Detaillierter Plan: `docs/PERFORMANCE-PLAN.md`
 
 Strategische Roadmap: `docs/DIALER-ROADMAP.md`
 
+## Code Review Hardening (2026-04-09)
+| Finding | Status |
+|---------|--------|
+| tenant_id auf contacts/companies (Migration 070) | ✅ |
+| Desktop Tests reparieren (62/62 grün) | ✅ |
+| IP Filter Fail-Close mit 5min TTL | ✅ |
+| gRPC mTLS (optional, env-var-gesteuert) | ✅ |
+| Gateway Bloat reduzieren (route_crm_ext.go) | ✅ |
+
+Commits (cdaeefd–8f13465): 14 neue gRPC RPCs (11 CRM + 3 Biz), pgxpool aus Gateway entfernt, ~570 Zeilen Boilerplate reduziert, 3 große Dateien gesplittet, main.go cleanup.
+Vorherige Commits (d136ea6, 96740e8, 927dbcf): HR tenant_id, SQL aus Gateway in Repos, Security/CI/Coverage Fixes.
+
 ## Verwandte Notes
 - [[i18n]] — i18n-Architektur & Schluessel-Konventionen
 - [[design]] — Frontend Wiring Progress

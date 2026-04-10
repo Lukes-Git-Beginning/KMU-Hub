@@ -7,7 +7,7 @@ updated: 2026-04-09
 ## Überblick
 - PostgreSQL 16 + Redis 7 (nur Cache, KEIN Dual-Write)
 - Änderungen NUR via golang-migrate (`make migrate-create name=xxx`)
-- 68 Migration-Paare in `backend/migrations/`
+- 70 Migration-Paare in `backend/migrations/`
 - Index-Konvention: `idx_{table}_{column}`
 
 ## Tabellen nach Domain
@@ -110,6 +110,13 @@ updated: 2026-04-09
 - `dialer_call_outcomes` — Tenant-konfigurierbar: label, color, is_positive, is_callback, is_appointment, sort_order, tenant_id
 - `dialer_agent_status_log` — Audit-Log fuer Agent-Status (Redis ist Live-Quelle): user_id, campaign_id, status, previous_status, changed_at
 - **Kritischer Query:** `GetNextPendingContact` nutzt `FOR UPDATE SKIP LOCKED` fuer Phase-2 Power-Dialer-Parallelitaet
+
+### Tenant Isolation (Migrations 069-070)
+- `hr_employee_profiles.tenant_id UUID NOT NULL DEFAULT '00000000-...'` + `idx_hr_employee_profiles_tenant`
+- `contacts.tenant_id UUID NOT NULL DEFAULT '00000000-...'` + `idx_contacts_tenant`
+- `companies.tenant_id UUID NOT NULL DEFAULT '00000000-...'` + `idx_companies_tenant`
+- Alle Contact/Company Repository-Queries filtern nach tenant_id
+- Single-Tenant Default: Nil-UUID (`00000000-0000-0000-0000-000000000000`)
 
 ### Dialer Permissions (Migration 068)
 - `dialer:campaigns` (read/write), `dialer:calls` (write), `dialer:agent` (manage), `dialer:outcomes` (manage)

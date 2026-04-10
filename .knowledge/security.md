@@ -27,6 +27,24 @@ updated: 2026-04-09
 - Sendet via gRPC an Security-Service (`CreateAuditEntry`)
 - `Start(10)` + `defer Close()` in `gateway/main.go`
 
+## IP Filter (2026-04-09)
+- Cache-TTL: 60s Refresh, 5min Max-Staleness
+- Fail-Close: Blockiert Traffic wenn Auth-Service >5min unerreichbar oder nie geladen
+- Fail-Stale: Serviert gecachte Regeln innerhalb 5min Fenster
+- `rulesEverLoaded` Flag unterscheidet "nie geladen" von "leere Regelliste"
+
+## gRPC mTLS (2026-04-09)
+- Optional via `GRPC_TLS_CERT_FILE`, `GRPC_TLS_KEY_FILE`, `GRPC_TLS_CA_FILE`
+- Wenn gesetzt: TLS 1.3 mTLS fuer alle Service-zu-Service gRPC Verbindungen
+- Wenn leer: Insecure Credentials (lokale Entwicklung)
+- `BuildClientTLSConfig()` in `gateway/tls.go`, injiziert in `ServiceRegistry`
+
+## Tenant Isolation (2026-04-09)
+- `contacts`, `companies`, `hr_employee_profiles` haben `tenant_id UUID NOT NULL`
+- Default: Nil-UUID fuer Single-Tenant Betrieb
+- Alle CRM Repository-Queries filtern nach tenant_id
+- Multi-Tenant Support vorbereitet fuer Phase 3
+
 ## CORS
 - Explizite Allowlist via `CORS_ALLOWED_ORIGINS` (Semikolon-getrennt)
 - Erlaubte Headers: Authorization, Content-Type, X-Request-ID

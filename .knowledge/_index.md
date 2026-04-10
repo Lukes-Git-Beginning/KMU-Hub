@@ -1,12 +1,13 @@
 ---
 tags: [index]
-updated: 2026-04-09
+updated: 2026-04-10
 ---
 # Cosmi — Knowledge Base
 
-## Projektstand (2026-04-09)
+## Projektstand (2026-04-10)
 - **Alle 20 Feature-Phasen abgeschlossen** (103/103 Plans)
 - **Modus:** Dialer-Modul Entwicklung + Pre-Launch Sprint
+- **Code Review Hardening:** ✅ Alle 5 Findings erledigt (inkl. Gateway Bloat Refactoring)
 - **Branding:** "KMU Hub" → "Cosmi" (Software), "Zentria" (Firma), zentria.tech
 - **Phase A (Technisch):** ✅ Abgeschlossen — Core Wiring, D9 Merge, Lint 0
 - **Phase B (Hardening):** ✅ B1-B10 abgeschlossen

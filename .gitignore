@@ -63,10 +63,13 @@ data/
 docker-compose.override.yml
 
 # === Coverage ===
-coverage/
+**/coverage/
 *.cover
 *.coverage
 htmlcov/
+
+# === Test Results ===
+vitest-results.json
 
 # === OS ===
 .DS_Store
