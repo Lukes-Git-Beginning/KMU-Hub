@@ -65,6 +65,9 @@ service FinanceService {
 
   // ==================== Time-Tracking → Invoice ====================
   rpc CreateInvoiceFromTimeEntries(CreateInvoiceFromTimeEntriesRequest) returns (CreateInvoiceFromTimeEntriesResponse);
+
+  // ==================== Deal-to-Quote ====================
+  rpc CreateQuoteFromDeal(CreateQuoteFromDealRequest) returns (CreateQuoteFromDealResponse);
 }
 
 // ============================================================================

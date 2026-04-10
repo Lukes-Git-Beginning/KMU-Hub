@@ -58,6 +58,8 @@ const (
 	FinanceService_GenerateCreditNotePDF_FullMethodName = "/biz.v1.FinanceService/GenerateCreditNotePDF"
 	FinanceService_GenerateDunningPDF_FullMethodName             = "/biz.v1.FinanceService/GenerateDunningPDF"
 	FinanceService_CreateInvoiceFromTimeEntries_FullMethodName   = "/biz.v1.FinanceService/CreateInvoiceFromTimeEntries"
+	FinanceService_CreateQuoteFromDeal_FullMethodName            = "/biz.v1.FinanceService/CreateQuoteFromDeal"
+	FinanceService_GenerateZUGFeRDInvoicePDF_FullMethodName      = "/biz.v1.FinanceService/GenerateZUGFeRDInvoicePDF"
 )
 
 // FinanceServiceClient is the client API for FinanceService service.
@@ -113,6 +115,10 @@ type FinanceServiceClient interface {
 	GenerateDunningPDF(ctx context.Context, in *GenerateDunningPDFRequest, opts ...grpc.CallOption) (*GenerateDunningPDFResponse, error)
 	// ==================== Time-Tracking → Invoice ====================
 	CreateInvoiceFromTimeEntries(ctx context.Context, in *CreateInvoiceFromTimeEntriesRequest, opts ...grpc.CallOption) (*CreateInvoiceFromTimeEntriesResponse, error)
+	// ==================== Deal-to-Quote ====================
+	CreateQuoteFromDeal(ctx context.Context, in *CreateQuoteFromDealRequest, opts ...grpc.CallOption) (*CreateQuoteFromDealResponse, error)
+	// ==================== ZUGFeRD / Factur-X ====================
+	GenerateZUGFeRDInvoicePDF(ctx context.Context, in *GenerateZUGFeRDInvoicePDFRequest, opts ...grpc.CallOption) (*GenerateZUGFeRDInvoicePDFResponse, error)
 }
 
 type financeServiceClient struct {
@@ -513,6 +519,26 @@ func (c *financeServiceClient) CreateInvoiceFromTimeEntries(ctx context.Context,
 	return out, nil
 }
 
+func (c *financeServiceClient) CreateQuoteFromDeal(ctx context.Context, in *CreateQuoteFromDealRequest, opts ...grpc.CallOption) (*CreateQuoteFromDealResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateQuoteFromDealResponse)
+	err := c.cc.Invoke(ctx, FinanceService_CreateQuoteFromDeal_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) GenerateZUGFeRDInvoicePDF(ctx context.Context, in *GenerateZUGFeRDInvoicePDFRequest, opts ...grpc.CallOption) (*GenerateZUGFeRDInvoicePDFResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GenerateZUGFeRDInvoicePDFResponse)
+	err := c.cc.Invoke(ctx, FinanceService_GenerateZUGFeRDInvoicePDF_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FinanceServiceServer is the server API for FinanceService service.
 // All implementations must embed UnimplementedFinanceServiceServer
 // for forward compatibility.
@@ -566,6 +592,10 @@ type FinanceServiceServer interface {
 	GenerateDunningPDF(context.Context, *GenerateDunningPDFRequest) (*GenerateDunningPDFResponse, error)
 	// ==================== Time-Tracking → Invoice ====================
 	CreateInvoiceFromTimeEntries(context.Context, *CreateInvoiceFromTimeEntriesRequest) (*CreateInvoiceFromTimeEntriesResponse, error)
+	// ==================== Deal-to-Quote ====================
+	CreateQuoteFromDeal(context.Context, *CreateQuoteFromDealRequest) (*CreateQuoteFromDealResponse, error)
+	// ==================== ZUGFeRD / Factur-X ====================
+	GenerateZUGFeRDInvoicePDF(context.Context, *GenerateZUGFeRDInvoicePDFRequest) (*GenerateZUGFeRDInvoicePDFResponse, error)
 	mustEmbedUnimplementedFinanceServiceServer()
 }
 
@@ -692,6 +722,12 @@ func (UnimplementedFinanceServiceServer) GenerateDunningPDF(context.Context, *Ge
 }
 func (UnimplementedFinanceServiceServer) CreateInvoiceFromTimeEntries(context.Context, *CreateInvoiceFromTimeEntriesRequest) (*CreateInvoiceFromTimeEntriesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateInvoiceFromTimeEntries not implemented")
+}
+func (UnimplementedFinanceServiceServer) CreateQuoteFromDeal(context.Context, *CreateQuoteFromDealRequest) (*CreateQuoteFromDealResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateQuoteFromDeal not implemented")
+}
+func (UnimplementedFinanceServiceServer) GenerateZUGFeRDInvoicePDF(context.Context, *GenerateZUGFeRDInvoicePDFRequest) (*GenerateZUGFeRDInvoicePDFResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GenerateZUGFeRDInvoicePDF not implemented")
 }
 func (UnimplementedFinanceServiceServer) mustEmbedUnimplementedFinanceServiceServer() {}
 func (UnimplementedFinanceServiceServer) testEmbeddedByValue()                        {}
@@ -1416,6 +1452,42 @@ func _FinanceService_CreateInvoiceFromTimeEntries_Handler(srv interface{}, ctx c
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FinanceService_CreateQuoteFromDeal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateQuoteFromDealRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).CreateQuoteFromDeal(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_CreateQuoteFromDeal_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).CreateQuoteFromDeal(ctx, req.(*CreateQuoteFromDealRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_GenerateZUGFeRDInvoicePDF_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateZUGFeRDInvoicePDFRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).GenerateZUGFeRDInvoicePDF(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_GenerateZUGFeRDInvoicePDF_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).GenerateZUGFeRDInvoicePDF(ctx, req.(*GenerateZUGFeRDInvoicePDFRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FinanceService_ServiceDesc is the grpc.ServiceDesc for FinanceService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1578,6 +1650,14 @@ var FinanceService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateInvoiceFromTimeEntries",
 			Handler:    _FinanceService_CreateInvoiceFromTimeEntries_Handler,
+		},
+		{
+			MethodName: "CreateQuoteFromDeal",
+			Handler:    _FinanceService_CreateQuoteFromDeal_Handler,
+		},
+		{
+			MethodName: "GenerateZUGFeRDInvoicePDF",
+			Handler:    _FinanceService_GenerateZUGFeRDInvoicePDF_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

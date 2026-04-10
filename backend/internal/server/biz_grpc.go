@@ -25,6 +25,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/biz/quote"
 	"github.com/kmuhub/kmuhub/internal/models"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
+	crmv1 "github.com/kmuhub/kmuhub/proto/crm/v1"
 )
 
 // CompanySettingsRepository provides CRUD for company settings in the gRPC server.
@@ -46,6 +47,7 @@ type BizGRPCServer struct {
 	datevExporter     *datev.Exporter
 	companySettings   CompanySettingsRepository
 	timetrackingRepo  timetracking.WorkTimeRepository
+	crmClient         crmv1.CRMServiceClient // optional; nil if CRM service unreachable
 }
 
 // NewBizGRPCServer creates a new BizGRPCServer with all finance services.
@@ -60,6 +62,7 @@ func NewBizGRPCServer(
 	datevExporter *datev.Exporter,
 	companySettings CompanySettingsRepository,
 	timetrackingRepo timetracking.WorkTimeRepository,
+	crmClient crmv1.CRMServiceClient,
 ) *BizGRPCServer {
 	return &BizGRPCServer{
 		quoteService:      quoteService,
@@ -72,6 +75,7 @@ func NewBizGRPCServer(
 		datevExporter:     datevExporter,
 		companySettings:   companySettings,
 		timetrackingRepo:  timetrackingRepo,
+		crmClient:         crmClient,
 	}
 }
 
@@ -1268,6 +1272,59 @@ func (s *BizGRPCServer) GenerateDunningPDF(ctx context.Context, req *bizv1.Gener
 	}, nil
 }
 
+func (s *BizGRPCServer) GenerateZUGFeRDInvoicePDF(ctx context.Context, req *bizv1.GenerateZUGFeRDInvoicePDFRequest) (*bizv1.GenerateZUGFeRDInvoicePDFResponse, error) {
+	tenantID, id, err := parseTenantAndID(req.GetTenantId(), req.GetId())
+	if err != nil {
+		return nil, err
+	}
+
+	inv, err := s.invoiceService.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return nil, mapBizError(err)
+	}
+
+	settings, err := s.companySettings.GetByTenantID(ctx, tenantID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to load company settings")
+	}
+
+	// Generate plain PDF first — used as fallback on ZUGFeRD failure.
+	gen := pdf.NewGenerator(*settings)
+	plainPDF, err := gen.GenerateInvoicePDF(*inv)
+	if err != nil {
+		slog.Error("failed to generate invoice PDF for zugferd", "invoice_id", id, "error", err)
+		return nil, status.Error(codes.Internal, "PDF generation failed")
+	}
+
+	plainFilename := fmt.Sprintf("Rechnung_%s.pdf", inv.InvoiceNumber)
+
+	// Generate ZUGFeRD XML (Factur-X EN16931 profile).
+	xmlBytes, err := pdf.GenerateZUGFeRDXML(*inv, *settings)
+	if err != nil {
+		slog.Error("zugferd xml generation failed, returning plain PDF", "invoice_id", id, "error", err)
+		return &bizv1.GenerateZUGFeRDInvoicePDFResponse{
+			PdfData:  plainPDF,
+			Filename: plainFilename,
+		}, nil
+	}
+
+	// Embed the XML attachment into the PDF.
+	zugferdPDF, err := pdf.EmbedZUGFeRDXML(plainPDF, xmlBytes, inv.InvoiceNumber)
+	if err != nil {
+		slog.Error("zugferd embed failed, returning plain PDF", "invoice_id", id, "error", err)
+		return &bizv1.GenerateZUGFeRDInvoicePDFResponse{
+			PdfData:  plainPDF,
+			Filename: plainFilename,
+		}, nil
+	}
+
+	filename := fmt.Sprintf("factur-x_%s.pdf", inv.InvoiceNumber)
+	return &bizv1.GenerateZUGFeRDInvoicePDFResponse{
+		PdfData:  zugferdPDF,
+		Filename: filename,
+	}, nil
+}
+
 // ============================================================================
 // Proto Conversion Helpers
 // ============================================================================
@@ -1889,6 +1946,143 @@ func (s *BizGRPCServer) CreateInvoiceFromTimeEntries(ctx context.Context, req *b
 
 	return &bizv1.CreateInvoiceFromTimeEntriesResponse{
 		InvoiceJson: invJSON,
+	}, nil
+}
+
+// ============================================================================
+// Deal-to-Quote
+// ============================================================================
+
+// CreateQuoteFromDeal fetches a CRM deal (and its linked contact/company) and
+// creates a pre-populated draft quote. The orchestration lives here rather than
+// in the gateway so that the business logic is encapsulated in the biz service.
+func (s *BizGRPCServer) CreateQuoteFromDeal(ctx context.Context, req *bizv1.CreateQuoteFromDealRequest) (*bizv1.CreateQuoteFromDealResponse, error) {
+	if req.GetDealId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "deal_id is required")
+	}
+
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
+	userID, err := uuid.Parse(req.GetCreatedBy())
+	if err != nil {
+		userID = uuid.Nil
+	}
+
+	if s.crmClient == nil {
+		return nil, status.Error(codes.Unavailable, "CRM service not available")
+	}
+
+	// 1. Fetch the CRM deal
+	dealResp, err := s.crmClient.GetDeal(ctx, &crmv1.GetDealRequest{Id: req.GetDealId()})
+	if err != nil {
+		slog.Error("CreateQuoteFromDeal: fetch deal failed", "deal_id", req.GetDealId(), "error", err)
+		return nil, err
+	}
+	deal := dealResp.GetDeal()
+
+	// 2. Build customer snapshot — prefer company name for B2B (DACH norm)
+	customerName := ""
+	customerAddress := ""
+	customerEmail := ""
+
+	if deal.GetCompanyName() != "" {
+		customerName = deal.GetCompanyName()
+	} else if deal.GetContactName() != "" {
+		customerName = deal.GetContactName()
+	}
+
+	// Enrich from contact if available
+	if deal.GetContactId() != "" {
+		contactResp, contactErr := s.crmClient.GetContact(ctx, &crmv1.GetContactRequest{Id: deal.GetContactId()})
+		if contactErr == nil && contactResp.GetContact() != nil {
+			contact := contactResp.GetContact()
+			if customerEmail == "" {
+				customerEmail = contact.GetEmail()
+			}
+			if customerName == "" {
+				first := contact.GetFirstName()
+				last := contact.GetLastName()
+				if first != "" && last != "" {
+					customerName = first + " " + last
+				} else {
+					customerName = first + last
+				}
+			}
+		}
+	}
+
+	// Enrich address from company if available
+	if deal.GetCompanyId() != "" {
+		companyResp, companyErr := s.crmClient.GetCompany(ctx, &crmv1.GetCompanyRequest{Id: deal.GetCompanyId()})
+		if companyErr == nil && companyResp.GetCompany() != nil {
+			company := companyResp.GetCompany()
+			if customerAddress == "" {
+				parts := []string{}
+				if company.GetAddress() != "" {
+					parts = append(parts, company.GetAddress())
+				}
+				if company.GetCity() != "" {
+					parts = append(parts, company.GetCity())
+				}
+				if company.GetCountry() != "" {
+					parts = append(parts, company.GetCountry())
+				}
+				if len(parts) > 0 {
+					customerAddress = parts[0]
+					for i := 1; i < len(parts); i++ {
+						customerAddress += ", " + parts[i]
+					}
+				}
+			}
+			if customerName == "" {
+				customerName = company.GetName()
+			}
+		}
+	}
+
+	// 3. Create draft quote via quote service.
+	dealIDStr := req.GetDealId()
+	dealUUID, dealUUIDErr := uuid.Parse(dealIDStr)
+	if dealUUIDErr != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid deal_id: must be a UUID")
+	}
+
+	// A single placeholder line item is required by the service; the user fills
+	// in the actual items after opening the quote in the UI.
+	placeholderItem := models.LineItem{
+		ID:          uuid.New().String(),
+		Position:    1,
+		Description: "Leistungsbeschreibung (bitte ausfüllen)",
+		Quantity:    decimal.NewFromInt(1),
+		UnitPrice:   decimal.Zero,
+		TaxRate:     decimal.NewFromInt(19),
+		LineTotal:   decimal.Zero,
+	}
+
+	q, err := s.quoteService.Create(ctx, quote.CreateInput{
+		TenantID:        tenantID,
+		CustomerName:    customerName,
+		CustomerAddress: customerAddress,
+		CustomerEmail:   customerEmail,
+		TaxMode:         models.TaxModeStandard,
+		LineItems:       []models.LineItem{placeholderItem},
+		DealID:          &dealUUID,
+		UserID:          userID,
+	})
+	if err != nil {
+		slog.Error("CreateQuoteFromDeal: create quote failed",
+			"deal_id", req.GetDealId(),
+			"tenant_id", tenantID,
+			"error", err,
+		)
+		return nil, mapBizError(err)
+	}
+
+	return &bizv1.CreateQuoteFromDealResponse{
+		Quote: toProtoQuote(q),
 	}, nil
 }
 

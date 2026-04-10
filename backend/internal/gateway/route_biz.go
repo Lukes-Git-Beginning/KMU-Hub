@@ -3,21 +3,14 @@ package gateway
 import (
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"strconv"
-	"strings"
-	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/shopspring/decimal"
 
-	"github.com/kmuhub/kmuhub/internal/biz/pdf"
 	"github.com/kmuhub/kmuhub/internal/middleware"
-	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
-	crmv1 "github.com/kmuhub/kmuhub/proto/crm/v1"
 )
 
 // BizRoutes handles HTTP routes for the Biz (Finance) backend service.
@@ -40,15 +33,6 @@ func (b *BizRoutes) getBizClient() (bizv1.FinanceServiceClient, error) {
 		return nil, err
 	}
 	return bizv1.NewFinanceServiceClient(conn), nil
-}
-
-// getCRMClient lazily obtains a gRPC client for the CRM service.
-func (b *BizRoutes) getCRMClient() (crmv1.CRMServiceClient, error) {
-	conn, err := b.registry.GetConnection("crm")
-	if err != nil {
-		return nil, err
-	}
-	return crmv1.NewCRMServiceClient(conn), nil
 }
 
 // getTenantID extracts the tenant identifier from the request context.
@@ -769,10 +753,10 @@ func (b *BizRoutes) HandleGenerateInvoicePDF(w http.ResponseWriter, r *http.Requ
 	respondPDF(w, resp.PdfData, resp.Filename)
 }
 
-// handleZUGFeRDInvoicePDF generates an invoice PDF with an embedded Factur-X/ZUGFeRD 2.1 XML.
+// handleZUGFeRDInvoicePDF delegates to the biz service which owns the domain logic.
+// Graceful degradation (plain PDF on XML failure) is handled inside the RPC.
 func (b *BizRoutes) handleZUGFeRDInvoicePDF(w http.ResponseWriter, r *http.Request, client bizv1.FinanceServiceClient, tenantID, id string) {
-	// Fetch invoice data
-	invResp, err := client.GetInvoice(r.Context(), &bizv1.GetInvoiceRequest{
+	resp, err := client.GenerateZUGFeRDInvoicePDF(r.Context(), &bizv1.GenerateZUGFeRDInvoicePDFRequest{
 		Id:       id,
 		TenantId: tenantID,
 	})
@@ -780,122 +764,7 @@ func (b *BizRoutes) handleZUGFeRDInvoicePDF(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	protoInv := invResp.Invoice
-
-	// Fetch company settings
-	settingsResp, err := client.GetCompanySettings(r.Context(), &bizv1.GetCompanySettingsRequest{
-		TenantId: tenantID,
-	})
-	if err != nil {
-		respondGRPCError(w, err)
-		return
-	}
-	protoSettings := settingsResp.Settings
-
-	// Generate plain PDF
-	pdfResp, err := client.GenerateInvoicePDF(r.Context(), &bizv1.GenerateInvoicePDFRequest{
-		Id:       id,
-		TenantId: tenantID,
-	})
-	if err != nil {
-		respondGRPCError(w, err)
-		return
-	}
-
-	// Map proto Invoice → models.Invoice for ZUGFeRD XML generation
-	inv := protoInvoiceToModel(protoInv)
-	settings := protoSettingsToModel(protoSettings)
-
-	xmlBytes, err := pdf.GenerateZUGFeRDXML(inv, settings)
-	if err != nil {
-		slog.Error("zugferd xml generation failed", "invoice_id", id, "error", err)
-		// Graceful degradation: return plain PDF
-		respondPDF(w, pdfResp.PdfData, pdfResp.Filename)
-		return
-	}
-
-	zugferdPDF, err := pdf.EmbedZUGFeRDXML(pdfResp.PdfData, xmlBytes, inv.InvoiceNumber)
-	if err != nil {
-		slog.Error("zugferd embed failed", "invoice_id", id, "error", err)
-		respondPDF(w, pdfResp.PdfData, pdfResp.Filename)
-		return
-	}
-
-	filename := fmt.Sprintf("factur-x_%s.pdf", inv.InvoiceNumber)
-	respondPDF(w, zugferdPDF, filename)
-}
-
-// protoInvoiceToModel converts a proto Invoice to a models.Invoice for ZUGFeRD generation.
-// Only fields required by GenerateZUGFeRDXML are populated.
-func protoInvoiceToModel(inv *bizv1.Invoice) models.Invoice {
-	if inv == nil {
-		return models.Invoice{}
-	}
-
-	invoiceDate, _ := time.Parse("2006-01-02", inv.InvoiceDate)
-	dueDate, _ := time.Parse("2006-01-02", inv.DueDate)
-
-	var subtotal, totalTax, grossTotal decimal.Decimal
-	if inv.TaxBreakdown != nil {
-		subtotal, _ = decimal.NewFromString(inv.TaxBreakdown.Subtotal)
-		totalTax, _ = decimal.NewFromString(inv.TaxBreakdown.TotalTax)
-		grossTotal, _ = decimal.NewFromString(inv.TaxBreakdown.GrossTotal)
-	}
-
-	var customerName string
-	if inv.Customer != nil {
-		customerName = inv.Customer.Name
-	}
-
-	// Serialize line items as JSON for parseLineItems in the XML generator
-	type lineItemJSON struct {
-		ID          string `json:"id"`
-		Position    int32  `json:"position"`
-		Description string `json:"description"`
-		Quantity    string `json:"quantity"`
-		UnitPrice   string `json:"unit_price"`
-		TaxRate     string `json:"tax_rate"`
-		LineTotal   string `json:"line_total"`
-	}
-	var lineItems []lineItemJSON
-	for _, li := range inv.LineItems {
-		lineItems = append(lineItems, lineItemJSON{
-			ID:          li.Id,
-			Position:    li.Position,
-			Description: li.Description,
-			Quantity:    li.Quantity,
-			UnitPrice:   li.UnitPrice,
-			TaxRate:     li.TaxRate,
-			LineTotal:   li.LineTotal,
-		})
-	}
-	lineItemsJSON, _ := json.Marshal(lineItems)
-
-	return models.Invoice{
-		InvoiceNumber: inv.InvoiceNumber,
-		CustomerName:  customerName,
-		InvoiceDate:   invoiceDate,
-		DueDate:       dueDate,
-		Subtotal:      subtotal,
-		TotalTax:      totalTax,
-		GrossTotal:    grossTotal,
-		LineItems:     lineItemsJSON,
-	}
-}
-
-// protoSettingsToModel converts proto CompanySettings to models.CompanySettings for ZUGFeRD.
-func protoSettingsToModel(s *bizv1.CompanySettings) models.CompanySettings {
-	if s == nil {
-		return models.CompanySettings{}
-	}
-	return models.CompanySettings{
-		Name:    s.Name,
-		Street:  s.Street,
-		PLZ:     s.Plz,
-		City:    s.City,
-		Country: s.Country,
-		UStIDNr: s.UstIdNr,
-	}
+	respondPDF(w, resp.PdfData, resp.Filename)
 }
 
 // ============================================================================
@@ -1415,10 +1284,9 @@ func (b *BizRoutes) HandleExportDATEV(w http.ResponseWriter, r *http.Request) {
 // Deal-to-Quote Handler
 // ============================================================================
 
-// HandleCreateQuoteFromDeal creates a new draft quote pre-populated with
-// customer data from a CRM deal. It fetches the deal, its linked contact
-// and company, then creates a quote via the biz service with deal_id set
-// (which triggers deal value auto-sync).
+// HandleCreateQuoteFromDeal is a thin proxy that delegates the cross-service
+// orchestration (fetch deal, contact, company; assemble customer snapshot) to
+// the biz gRPC service via CreateQuoteFromDeal. The HTTP contract is unchanged.
 func (b *BizRoutes) HandleCreateQuoteFromDeal(w http.ResponseWriter, r *http.Request) {
 	bizClient, err := b.getBizClient()
 	if err != nil {
@@ -1426,95 +1294,21 @@ func (b *BizRoutes) HandleCreateQuoteFromDeal(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	crmClient, err := b.getCRMClient()
-	if err != nil {
-		respondServiceUnavailable(w, "crm")
-		return
-	}
-
 	tenantID := getTenantID(r)
 	userID := middleware.GetUserID(r.Context())
 	dealID := chi.URLParam(r, "dealId")
 
-	// 1. Fetch the CRM deal
-	dealResp, err := crmClient.GetDeal(r.Context(), &crmv1.GetDealRequest{Id: dealID})
-	if err != nil {
-		respondGRPCError(w, err)
-		return
-	}
-	deal := dealResp.GetDeal()
-
-	// 2. Build customer snapshot from deal's contact and company info
-	customerName := ""
-	customerAddress := ""
-	customerEmail := ""
-
-	// Prefer company name if available, fall back to contact name (B2B norm in DACH)
-	if deal.GetCompanyName() != "" {
-		customerName = deal.GetCompanyName()
-	} else if deal.GetContactName() != "" {
-		customerName = deal.GetContactName()
-	}
-
-	// Try to get more details from the contact if available
-	if deal.GetContactId() != "" {
-		contactResp, contactErr := crmClient.GetContact(r.Context(), &crmv1.GetContactRequest{Id: deal.GetContactId()})
-		if contactErr == nil && contactResp.GetContact() != nil {
-			contact := contactResp.GetContact()
-			if customerEmail == "" {
-				customerEmail = contact.GetEmail()
-			}
-			if customerName == "" {
-				customerName = strings.TrimSpace(contact.GetFirstName() + " " + contact.GetLastName())
-			}
-		}
-	}
-
-	// Try to get address from company if available
-	if deal.GetCompanyId() != "" {
-		companyResp, companyErr := crmClient.GetCompany(r.Context(), &crmv1.GetCompanyRequest{Id: deal.GetCompanyId()})
-		if companyErr == nil && companyResp.GetCompany() != nil {
-			company := companyResp.GetCompany()
-			if customerAddress == "" {
-				// Build address from company fields
-				parts := []string{}
-				if company.GetAddress() != "" {
-					parts = append(parts, company.GetAddress())
-				}
-				if company.GetCity() != "" {
-					parts = append(parts, company.GetCity())
-				}
-				if company.GetCountry() != "" {
-					parts = append(parts, company.GetCountry())
-				}
-				customerAddress = strings.Join(parts, ", ")
-			}
-			if customerName == "" {
-				customerName = company.GetName()
-			}
-		}
-	}
-
-	// 3. Create quote via biz service with deal_id and pre-populated customer
-	quoteResp, err := bizClient.CreateQuote(r.Context(), &bizv1.CreateQuoteRequest{
-		TenantId: tenantID,
-		Customer: &bizv1.CustomerSnapshot{
-			Name:    customerName,
-			Address: customerAddress,
-			Email:   customerEmail,
-		},
-		TaxMode:   bizv1.TaxMode_TAX_MODE_STANDARD,
+	resp, err := bizClient.CreateQuoteFromDeal(r.Context(), &bizv1.CreateQuoteFromDealRequest{
+		TenantId:  tenantID,
 		DealId:    dealID,
 		CreatedBy: userID,
-		// LineItems left empty -- user fills in the quote form
-		// ValidUntil left empty -- uses company default
 	})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, quoteResp.GetQuote())
+	response.JSON(w, http.StatusCreated, resp.GetQuote())
 }
 
 // ============================================================================

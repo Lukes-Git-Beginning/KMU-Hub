@@ -113,27 +113,28 @@ func main() {
 	workTimeRepo := timetracking.NewPostgresWorkTimeRepo(pool)
 
 	// =========================================================================
-	// CRM gRPC Client (for DealValueUpdater)
+	// CRM gRPC Client (for DealValueUpdater + CreateQuoteFromDeal)
 	// =========================================================================
 	var dealUpdater quote.DealValueUpdater
+	var crmServiceClient crmv1.CRMServiceClient
 	if cfg.CRMGRPCAddress != "" {
 		crmConn, crmErr := grpc.NewClient(
 			cfg.CRMGRPCAddress,
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		)
 		if crmErr != nil {
-			slog.Warn("failed to connect to CRM service, deal value sync disabled",
+			slog.Warn("failed to connect to CRM service, deal value sync and quote-from-deal disabled",
 				"address", cfg.CRMGRPCAddress,
 				"error", crmErr,
 			)
 		} else {
 			defer crmConn.Close()
-			crmClient := crmv1.NewCRMServiceClient(crmConn)
-			dealUpdater = &crmDealUpdater{crmClient: crmClient}
-			slog.Info("CRM deal value sync enabled", "address", cfg.CRMGRPCAddress)
+			crmServiceClient = crmv1.NewCRMServiceClient(crmConn)
+			dealUpdater = &crmDealUpdater{crmClient: crmServiceClient}
+			slog.Info("CRM client enabled (deal value sync + quote-from-deal)", "address", cfg.CRMGRPCAddress)
 		}
 	} else {
-		slog.Info("CRM gRPC address not configured, deal value sync disabled")
+		slog.Info("CRM gRPC address not configured, deal value sync and quote-from-deal disabled")
 	}
 
 	// =========================================================================
@@ -185,6 +186,7 @@ func main() {
 		datevExp,
 		companySettingsRepo,
 		workTimeRepo,
+		crmServiceClient,
 	)
 	bizv1.RegisterFinanceServiceServer(grpcServer, bizGRPC)
 
