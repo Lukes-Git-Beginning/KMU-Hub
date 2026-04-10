@@ -1,0 +1,505 @@
+package gateway
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/kmuhub/kmuhub/internal/middleware"
+	"github.com/kmuhub/kmuhub/internal/server/response"
+	crmv1 "github.com/kmuhub/kmuhub/proto/crm/v1"
+)
+
+// ============================================================================
+// Pipeline Stages Handlers
+// ============================================================================
+
+type createPipelineStageRequest struct {
+	Name        string  `json:"name"`
+	Color       string  `json:"color"`
+	IsWon       bool    `json:"is_won"`
+	IsLost      bool    `json:"is_lost"`
+	Probability float64 `json:"probability"`
+}
+
+func (c *CRMRoutes) HandleCreatePipelineStage(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	var req createPipelineStageRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Name == "" {
+		response.Error(w, http.StatusBadRequest, "name is required")
+		return
+	}
+
+	resp, err := client.CreatePipelineStage(r.Context(), &crmv1.CreatePipelineStageRequest{
+		Name:        req.Name,
+		Color:       req.Color,
+		IsWon:       req.IsWon,
+		IsLost:      req.IsLost,
+		Probability: req.Probability,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (c *CRMRoutes) HandleGetPipelineStage(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	stageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GetPipelineStage(r.Context(), &crmv1.GetPipelineStageRequest{Id: stageID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (c *CRMRoutes) HandleListPipelineStages(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	resp, err := client.ListPipelineStages(r.Context(), &crmv1.ListPipelineStagesRequest{})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type updatePipelineStageRequest struct {
+	Name        *string  `json:"name,omitempty"`
+	Color       *string  `json:"color,omitempty"`
+	IsWon       *bool    `json:"is_won,omitempty"`
+	IsLost      *bool    `json:"is_lost,omitempty"`
+	Probability *float64 `json:"probability,omitempty"`
+}
+
+func (c *CRMRoutes) HandleUpdatePipelineStage(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	stageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	var req updatePipelineStageRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	grpcReq := &crmv1.UpdatePipelineStageRequest{Id: stageID}
+	if req.Name != nil {
+		grpcReq.Name = req.Name
+	}
+	if req.Color != nil {
+		grpcReq.Color = req.Color
+	}
+	if req.IsWon != nil {
+		grpcReq.IsWon = req.IsWon
+	}
+	if req.IsLost != nil {
+		grpcReq.IsLost = req.IsLost
+	}
+	if req.Probability != nil {
+		grpcReq.Probability = req.Probability
+	}
+
+	resp, err := client.UpdatePipelineStage(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (c *CRMRoutes) HandleDeletePipelineStage(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	stageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	_, err = client.DeletePipelineStage(r.Context(), &crmv1.DeletePipelineStageRequest{Id: stageID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "pipeline stage deleted"})
+}
+
+type reorderPipelineStagesRequest struct {
+	StageIDs []string `json:"stage_ids"`
+}
+
+func (c *CRMRoutes) HandleReorderPipelineStages(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	var req reorderPipelineStagesRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if len(req.StageIDs) == 0 {
+		response.Error(w, http.StatusBadRequest, "stage_ids is required")
+		return
+	}
+
+	resp, err := client.ReorderPipelineStages(r.Context(), &crmv1.ReorderPipelineStagesRequest{
+		StageIds: req.StageIDs,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Deals Handlers
+// ============================================================================
+
+type createDealRequest struct {
+	Name              string                    `json:"name"`
+	Value             float64                   `json:"value"`
+	Currency          string                    `json:"currency"`
+	StageID           string                    `json:"stage_id"`
+	ContactID         *string                   `json:"contact_id,omitempty"`
+	CompanyID         *string                   `json:"company_id,omitempty"`
+	OwnerID           *string                   `json:"owner_id,omitempty"`
+	ExpectedCloseDate string                    `json:"expected_close_date"`
+	Notes             string                    `json:"notes"`
+	TagIDs            []string                  `json:"tag_ids"`
+	CustomFields      []customFieldValueRequest `json:"custom_fields"`
+}
+
+func (c *CRMRoutes) HandleCreateDeal(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	var req createDealRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Name == "" || req.StageID == "" {
+		response.Error(w, http.StatusBadRequest, "name and stage_id are required")
+		return
+	}
+
+	grpcReq := &crmv1.CreateDealRequest{
+		Name:              req.Name,
+		Value:             req.Value,
+		Currency:          req.Currency,
+		StageId:           req.StageID,
+		ExpectedCloseDate: req.ExpectedCloseDate,
+		Notes:             req.Notes,
+		TagIds:            req.TagIDs,
+		CreatedBy:         userID,
+	}
+
+	if req.ContactID != nil {
+		grpcReq.ContactId = req.ContactID
+	}
+	if req.CompanyID != nil {
+		grpcReq.CompanyId = req.CompanyID
+	}
+	if req.OwnerID != nil {
+		grpcReq.OwnerId = req.OwnerID
+	}
+
+	for _, cf := range req.CustomFields {
+		grpcReq.CustomFields = append(grpcReq.CustomFields, &crmv1.CustomFieldValueInput{
+			FieldId: cf.FieldID,
+			Value:   cf.Value,
+		})
+	}
+
+	resp, err := client.CreateDeal(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (c *CRMRoutes) HandleGetDeal(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	dealID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GetDeal(r.Context(), &crmv1.GetDealRequest{Id: dealID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (c *CRMRoutes) HandleListDeals(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	stageID := r.URL.Query().Get("stage_id")
+	contactID := r.URL.Query().Get("contact_id")
+	companyID := r.URL.Query().Get("company_id")
+	ownerID := r.URL.Query().Get("owner_id")
+	search := r.URL.Query().Get("search")
+	sortBy := r.URL.Query().Get("sort_by")
+	sortDesc := r.URL.Query().Get("sort_desc") == "true"
+	tagIDs := r.URL.Query()["tag_ids"]
+	page, pageSize := parsePagination(r, 1, 20)
+
+	grpcReq := &crmv1.ListDealsRequest{
+		Search:   search,
+		Page:     int32(page),
+		PageSize: int32(pageSize),
+		SortBy:   sortBy,
+		SortDesc: sortDesc,
+		TagIds:   tagIDs,
+	}
+
+	if stageID != "" {
+		grpcReq.StageId = &stageID
+	}
+	if contactID != "" {
+		grpcReq.ContactId = &contactID
+	}
+	if companyID != "" {
+		grpcReq.CompanyId = &companyID
+	}
+	if ownerID != "" {
+		grpcReq.OwnerId = &ownerID
+	}
+
+	resp, err := client.ListDeals(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type updateDealRequest struct {
+	Name              *string                   `json:"name,omitempty"`
+	Value             *float64                  `json:"value,omitempty"`
+	Currency          *string                   `json:"currency,omitempty"`
+	ContactID         *string                   `json:"contact_id,omitempty"`
+	CompanyID         *string                   `json:"company_id,omitempty"`
+	OwnerID           *string                   `json:"owner_id,omitempty"`
+	ExpectedCloseDate *string                   `json:"expected_close_date,omitempty"`
+	Notes             *string                   `json:"notes,omitempty"`
+	CustomFields      []customFieldValueRequest `json:"custom_fields"`
+}
+
+func (c *CRMRoutes) HandleUpdateDeal(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	dealID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	var req updateDealRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	grpcReq := &crmv1.UpdateDealRequest{Id: dealID}
+	if req.Name != nil {
+		grpcReq.Name = req.Name
+	}
+	if req.Value != nil {
+		grpcReq.Value = req.Value
+	}
+	if req.Currency != nil {
+		grpcReq.Currency = req.Currency
+	}
+	if req.ContactID != nil {
+		grpcReq.ContactId = req.ContactID
+	}
+	if req.CompanyID != nil {
+		grpcReq.CompanyId = req.CompanyID
+	}
+	if req.OwnerID != nil {
+		grpcReq.OwnerId = req.OwnerID
+	}
+	if req.ExpectedCloseDate != nil {
+		grpcReq.ExpectedCloseDate = req.ExpectedCloseDate
+	}
+	if req.Notes != nil {
+		grpcReq.Notes = req.Notes
+	}
+	for _, cf := range req.CustomFields {
+		grpcReq.CustomFields = append(grpcReq.CustomFields, &crmv1.CustomFieldValueInput{
+			FieldId: cf.FieldID,
+			Value:   cf.Value,
+		})
+	}
+
+	resp, err := client.UpdateDeal(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (c *CRMRoutes) HandleDeleteDeal(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	dealID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	_, err = client.DeleteDeal(r.Context(), &crmv1.DeleteDealRequest{Id: dealID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "deal deleted"})
+}
+
+type moveDealToStageRequest struct {
+	StageID string `json:"stage_id"`
+}
+
+func (c *CRMRoutes) HandleMoveDealToStage(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	dealID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	var req moveDealToStageRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.StageID == "" {
+		response.Error(w, http.StatusBadRequest, "stage_id is required")
+		return
+	}
+
+	resp, err := client.MoveDealToStage(r.Context(), &crmv1.MoveDealToStageRequest{
+		DealId:  dealID,
+		StageId: req.StageID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type modifyDealTagsRequest struct {
+	TagIDs []string `json:"tag_ids"`
+}
+
+func (c *CRMRoutes) HandleAddDealTags(w http.ResponseWriter, r *http.Request) {
+	if _, ok := validateUUIDParam(w, r, "id"); !ok {
+		return
+	}
+
+	var req modifyDealTagsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	response.Error(w, http.StatusNotImplemented, "add deal tags not implemented via HTTP, use gRPC")
+}
+
+func (c *CRMRoutes) HandleRemoveDealTags(w http.ResponseWriter, r *http.Request) {
+	if _, ok := validateUUIDParam(w, r, "id"); !ok {
+		return
+	}
+
+	var req modifyDealTagsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	response.Error(w, http.StatusNotImplemented, "remove deal tags not implemented via HTTP, use gRPC")
+}

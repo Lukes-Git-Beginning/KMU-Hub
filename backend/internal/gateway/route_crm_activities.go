@@ -1,0 +1,898 @@
+package gateway
+
+import (
+	"encoding/json"
+	"net/http"
+	"strconv"
+
+	"github.com/kmuhub/kmuhub/internal/middleware"
+	"github.com/kmuhub/kmuhub/internal/server/response"
+	crmv1 "github.com/kmuhub/kmuhub/proto/crm/v1"
+)
+
+// ============================================================================
+// Activities Handlers
+// ============================================================================
+
+type createActivityRequest struct {
+	ActivityType string                    `json:"activity_type"`
+	Subject      string                    `json:"subject"`
+	Description  string                    `json:"description"`
+	ContactID    *string                   `json:"contact_id,omitempty"`
+	CompanyID    *string                   `json:"company_id,omitempty"`
+	DealID       *string                   `json:"deal_id,omitempty"`
+	AssignedTo   *string                   `json:"assigned_to,omitempty"`
+	DueDate      string                    `json:"due_date"`
+	TagIDs       []string                  `json:"tag_ids"`
+	CustomFields []customFieldValueRequest `json:"custom_fields"`
+}
+
+func (c *CRMRoutes) HandleCreateActivity(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	var req createActivityRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.ActivityType == "" || req.Subject == "" {
+		response.Error(w, http.StatusBadRequest, "activity_type and subject are required")
+		return
+	}
+
+	grpcReq := &crmv1.CreateActivityRequest{
+		ActivityType: req.ActivityType,
+		Subject:      req.Subject,
+		Description:  req.Description,
+		DueDate:      req.DueDate,
+		CreatedBy:    userID,
+	}
+
+	if req.ContactID != nil {
+		grpcReq.ContactId = req.ContactID
+	}
+	if req.CompanyID != nil {
+		grpcReq.CompanyId = req.CompanyID
+	}
+	if req.DealID != nil {
+		grpcReq.DealId = req.DealID
+	}
+	if req.AssignedTo != nil {
+		grpcReq.AssignedTo = req.AssignedTo
+	}
+
+	resp, err := client.CreateActivity(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (c *CRMRoutes) HandleGetActivity(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	activityID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GetActivity(r.Context(), &crmv1.GetActivityRequest{Id: activityID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (c *CRMRoutes) HandleListActivities(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	activityType := r.URL.Query().Get("activity_type")
+	contactID := r.URL.Query().Get("contact_id")
+	companyID := r.URL.Query().Get("company_id")
+	dealID := r.URL.Query().Get("deal_id")
+	assignedTo := r.URL.Query().Get("assigned_to")
+	isCompletedStr := r.URL.Query().Get("is_completed")
+	sortBy := r.URL.Query().Get("sort_by")
+	sortDesc := r.URL.Query().Get("sort_desc") == "true"
+	page, pageSize := parsePagination(r, 1, 20)
+
+	grpcReq := &crmv1.ListActivitiesRequest{
+		Page:     int32(page),
+		PageSize: int32(pageSize),
+		SortBy:   sortBy,
+		SortDesc: sortDesc,
+	}
+
+	if activityType != "" {
+		grpcReq.ActivityType = &activityType
+	}
+	if contactID != "" {
+		grpcReq.ContactId = &contactID
+	}
+	if companyID != "" {
+		grpcReq.CompanyId = &companyID
+	}
+	if dealID != "" {
+		grpcReq.DealId = &dealID
+	}
+	if assignedTo != "" {
+		grpcReq.AssignedTo = &assignedTo
+	}
+	if isCompletedStr != "" {
+		isCompleted := isCompletedStr == "true"
+		grpcReq.IsCompleted = &isCompleted
+	}
+
+	resp, err := client.ListActivities(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type updateActivityRequest struct {
+	Subject      *string                   `json:"subject,omitempty"`
+	Description  *string                   `json:"description,omitempty"`
+	ContactID    *string                   `json:"contact_id,omitempty"`
+	CompanyID    *string                   `json:"company_id,omitempty"`
+	DealID       *string                   `json:"deal_id,omitempty"`
+	AssignedTo   *string                   `json:"assigned_to,omitempty"`
+	DueDate      *string                   `json:"due_date,omitempty"`
+	CustomFields []customFieldValueRequest `json:"custom_fields"`
+}
+
+func (c *CRMRoutes) HandleUpdateActivity(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	activityID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	var req updateActivityRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	grpcReq := &crmv1.UpdateActivityRequest{Id: activityID}
+	if req.Subject != nil {
+		grpcReq.Subject = req.Subject
+	}
+	if req.Description != nil {
+		grpcReq.Description = req.Description
+	}
+	if req.ContactID != nil {
+		grpcReq.ContactId = req.ContactID
+	}
+	if req.CompanyID != nil {
+		grpcReq.CompanyId = req.CompanyID
+	}
+	if req.DealID != nil {
+		grpcReq.DealId = req.DealID
+	}
+	if req.AssignedTo != nil {
+		grpcReq.AssignedTo = req.AssignedTo
+	}
+	if req.DueDate != nil {
+		grpcReq.DueDate = req.DueDate
+	}
+
+	resp, err := client.UpdateActivity(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (c *CRMRoutes) HandleDeleteActivity(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	activityID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	_, err = client.DeleteActivity(r.Context(), &crmv1.DeleteActivityRequest{Id: activityID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "activity deleted"})
+}
+
+func (c *CRMRoutes) HandleCompleteActivity(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	activityID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.CompleteActivity(r.Context(), &crmv1.CompleteActivityRequest{Id: activityID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type modifyActivityTagsRequest struct {
+	TagIDs []string `json:"tag_ids"`
+}
+
+func (c *CRMRoutes) HandleAddActivityTags(w http.ResponseWriter, r *http.Request) {
+	if _, ok := validateUUIDParam(w, r, "id"); !ok {
+		return
+	}
+
+	var req modifyActivityTagsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	response.Error(w, http.StatusNotImplemented, "add activity tags not implemented via HTTP, use gRPC")
+}
+
+func (c *CRMRoutes) HandleRemoveActivityTags(w http.ResponseWriter, r *http.Request) {
+	if _, ok := validateUUIDParam(w, r, "id"); !ok {
+		return
+	}
+
+	var req modifyActivityTagsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	response.Error(w, http.StatusNotImplemented, "remove activity tags not implemented via HTTP, use gRPC")
+}
+
+// ============================================================================
+// Search Handler
+// ============================================================================
+
+func (c *CRMRoutes) HandleSearch(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	query := r.URL.Query().Get("q")
+	if query == "" {
+		response.Error(w, http.StatusBadRequest, "query parameter 'q' is required")
+		return
+	}
+
+	entityTypes := r.URL.Query()["types"]
+	limit := 20
+
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
+			limit = parsed
+		}
+	}
+
+	resp, err := client.Search(r.Context(), &crmv1.SearchRequest{
+		Query:       query,
+		EntityTypes: entityTypes,
+		Limit:       int32(limit),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Saved Filters Handlers
+// ============================================================================
+
+type createSavedFilterRequest struct {
+	Name       string `json:"name"`
+	EntityType string `json:"entity_type"`
+	FilterJSON string `json:"filter_json"`
+	IsDefault  bool   `json:"is_default"`
+}
+
+func (c *CRMRoutes) HandleCreateSavedFilter(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	var req createSavedFilterRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Name == "" || req.EntityType == "" || req.FilterJSON == "" {
+		response.Error(w, http.StatusBadRequest, "name, entity_type, and filter_json are required")
+		return
+	}
+
+	resp, err := client.CreateSavedFilter(r.Context(), &crmv1.CreateSavedFilterRequest{
+		Name:       req.Name,
+		EntityType: req.EntityType,
+		FilterJson: req.FilterJSON,
+		IsDefault:  req.IsDefault,
+		CreatedBy:  userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (c *CRMRoutes) HandleGetSavedFilter(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	filterID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GetSavedFilter(r.Context(), &crmv1.GetSavedFilterRequest{Id: filterID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (c *CRMRoutes) HandleListSavedFilters(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	entityType := r.URL.Query().Get("entity_type")
+
+	resp, err := client.ListSavedFilters(r.Context(), &crmv1.ListSavedFiltersRequest{
+		EntityType: entityType,
+		UserId:     userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type updateSavedFilterRequest struct {
+	Name       *string `json:"name,omitempty"`
+	FilterJSON *string `json:"filter_json,omitempty"`
+	IsDefault  *bool   `json:"is_default,omitempty"`
+}
+
+func (c *CRMRoutes) HandleUpdateSavedFilter(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	filterID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	var req updateSavedFilterRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	grpcReq := &crmv1.UpdateSavedFilterRequest{Id: filterID}
+	if req.Name != nil {
+		grpcReq.Name = req.Name
+	}
+	if req.FilterJSON != nil {
+		grpcReq.FilterJson = req.FilterJSON
+	}
+	if req.IsDefault != nil {
+		grpcReq.IsDefault = req.IsDefault
+	}
+
+	resp, err := client.UpdateSavedFilter(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (c *CRMRoutes) HandleDeleteSavedFilter(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	filterID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	_, err = client.DeleteSavedFilter(r.Context(), &crmv1.DeleteSavedFilterRequest{Id: filterID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "saved filter deleted"})
+}
+
+// ============================================================================
+// Reports Handlers
+// ============================================================================
+
+func (c *CRMRoutes) HandleGetPipelineReport(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	ownerID := r.URL.Query().Get("owner_id")
+	startDate := r.URL.Query().Get("start_date")
+	endDate := r.URL.Query().Get("end_date")
+
+	if startDate == "" || endDate == "" {
+		response.Error(w, http.StatusBadRequest, "start_date and end_date are required")
+		return
+	}
+
+	grpcReq := &crmv1.GetPipelineReportRequest{
+		StartDate: startDate,
+		EndDate:   endDate,
+	}
+	if ownerID != "" {
+		grpcReq.OwnerId = &ownerID
+	}
+
+	resp, err := client.GetPipelineReport(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (c *CRMRoutes) HandleGetConversionReport(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	startDate := r.URL.Query().Get("start_date")
+	endDate := r.URL.Query().Get("end_date")
+
+	if startDate == "" || endDate == "" {
+		response.Error(w, http.StatusBadRequest, "start_date and end_date are required")
+		return
+	}
+
+	resp, err := client.GetConversionReport(r.Context(), &crmv1.GetConversionReportRequest{
+		StartDate: startDate,
+		EndDate:   endDate,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (c *CRMRoutes) HandleGetActivityReport(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	userID := r.URL.Query().Get("user_id")
+	startDate := r.URL.Query().Get("start_date")
+	endDate := r.URL.Query().Get("end_date")
+
+	if startDate == "" || endDate == "" {
+		response.Error(w, http.StatusBadRequest, "start_date and end_date are required")
+		return
+	}
+
+	grpcReq := &crmv1.GetActivityReportRequest{
+		StartDate: startDate,
+		EndDate:   endDate,
+	}
+	if userID != "" {
+		grpcReq.UserId = &userID
+	}
+
+	resp, err := client.GetActivityReport(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Custom Fields Handlers
+// ============================================================================
+
+type createCustomFieldRequest struct {
+	EntityType   string   `json:"entity_type"`
+	FieldName    string   `json:"field_name"`
+	FieldLabel   string   `json:"field_label"`
+	FieldType    string   `json:"field_type"`
+	Options      []string `json:"options,omitempty"`
+	DefaultValue *string  `json:"default_value,omitempty"`
+	IsRequired   bool     `json:"is_required"`
+	SortOrder    int      `json:"sort_order"`
+}
+
+func (c *CRMRoutes) HandleCreateCustomField(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	var req createCustomFieldRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.EntityType == "" || req.FieldName == "" || req.FieldLabel == "" || req.FieldType == "" {
+		response.Error(w, http.StatusBadRequest, "entity_type, field_name, field_label, and field_type are required")
+		return
+	}
+
+	grpcReq := &crmv1.CreateCustomFieldRequest{
+		EntityType: req.EntityType,
+		FieldName:  req.FieldName,
+		FieldLabel: req.FieldLabel,
+		FieldType:  req.FieldType,
+		Options:    req.Options,
+		IsRequired: req.IsRequired,
+		SortOrder:  int32(req.SortOrder),
+		CreatedBy:  userID,
+	}
+	if req.DefaultValue != nil {
+		grpcReq.DefaultValue = req.DefaultValue
+	}
+
+	resp, err := client.CreateCustomField(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (c *CRMRoutes) HandleGetCustomField(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	fieldID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GetCustomField(r.Context(), &crmv1.GetCustomFieldRequest{Id: fieldID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (c *CRMRoutes) HandleListCustomFields(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	entityType := r.URL.Query().Get("entity_type")
+	page, pageSize := parsePagination(r, 1, 20)
+
+	resp, err := client.ListCustomFields(r.Context(), &crmv1.ListCustomFieldsRequest{
+		EntityType: entityType,
+		Page:       int32(page),
+		PageSize:   int32(pageSize),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type updateCustomFieldRequest struct {
+	FieldLabel   *string  `json:"field_label,omitempty"`
+	Options      []string `json:"options,omitempty"`
+	DefaultValue *string  `json:"default_value,omitempty"`
+	IsRequired   *bool    `json:"is_required,omitempty"`
+	SortOrder    *int32   `json:"sort_order,omitempty"`
+}
+
+func (c *CRMRoutes) HandleUpdateCustomField(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	fieldID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	var req updateCustomFieldRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	grpcReq := &crmv1.UpdateCustomFieldRequest{
+		Id:      fieldID,
+		Options: req.Options,
+	}
+	if req.FieldLabel != nil {
+		grpcReq.FieldLabel = req.FieldLabel
+	}
+	if req.DefaultValue != nil {
+		grpcReq.DefaultValue = req.DefaultValue
+	}
+	if req.IsRequired != nil {
+		grpcReq.IsRequired = req.IsRequired
+	}
+	if req.SortOrder != nil {
+		grpcReq.SortOrder = req.SortOrder
+	}
+
+	resp, err := client.UpdateCustomField(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (c *CRMRoutes) HandleDeleteCustomField(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	fieldID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	_, err = client.DeleteCustomField(r.Context(), &crmv1.DeleteCustomFieldRequest{Id: fieldID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "custom field deleted"})
+}
+
+// ============================================================================
+// Tags Handlers
+// ============================================================================
+
+type createTagRequest struct {
+	Name       string `json:"name"`
+	Color      string `json:"color"`
+	EntityType string `json:"entity_type"`
+}
+
+func (c *CRMRoutes) HandleCreateTag(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	var req createTagRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Name == "" || req.EntityType == "" {
+		response.Error(w, http.StatusBadRequest, "name and entity_type are required")
+		return
+	}
+
+	resp, err := client.CreateTag(r.Context(), &crmv1.CreateTagRequest{
+		Name:       req.Name,
+		Color:      req.Color,
+		EntityType: req.EntityType,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (c *CRMRoutes) HandleGetTag(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	tagID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GetTag(r.Context(), &crmv1.GetTagRequest{Id: tagID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (c *CRMRoutes) HandleListTags(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	entityType := r.URL.Query().Get("entity_type")
+	page, pageSize := parsePagination(r, 1, 50)
+
+	resp, err := client.ListTags(r.Context(), &crmv1.ListTagsRequest{
+		EntityType: entityType,
+		Page:       int32(page),
+		PageSize:   int32(pageSize),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type updateTagRequest struct {
+	Name  *string `json:"name,omitempty"`
+	Color *string `json:"color,omitempty"`
+}
+
+func (c *CRMRoutes) HandleUpdateTag(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	tagID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	var req updateTagRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	grpcReq := &crmv1.UpdateTagRequest{Id: tagID}
+	if req.Name != nil {
+		grpcReq.Name = req.Name
+	}
+	if req.Color != nil {
+		grpcReq.Color = req.Color
+	}
+
+	resp, err := client.UpdateTag(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (c *CRMRoutes) HandleDeleteTag(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	tagID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	_, err = client.DeleteTag(r.Context(), &crmv1.DeleteTagRequest{Id: tagID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "tag deleted"})
+}
