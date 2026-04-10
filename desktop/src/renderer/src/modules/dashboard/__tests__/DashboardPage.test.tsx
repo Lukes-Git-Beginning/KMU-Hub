@@ -67,23 +67,23 @@ describe('DashboardPage', () => {
   it('renders greeting based on time of day', () => {
     renderDashboard()
 
-    // One of the three greetings must be present
-    const greetings = ['Guten Morgen', 'Guten Tag', 'Guten Abend']
-    const found = greetings.some((g) => screen.queryByText(g) !== null)
+    // One of the three greeting keys must be present
+    const greetingKeys = ['dashboard.greeting.morning', 'dashboard.greeting.afternoon', 'dashboard.greeting.evening']
+    const found = greetingKeys.some((g) => screen.queryByText(g) !== null)
     expect(found).toBe(true)
   })
 
   it('renders welcome message', () => {
     renderDashboard()
 
-    expect(screen.getByText(/Willkommen bei Cosmi/)).toBeInTheDocument()
+    expect(screen.getByText('dashboard.greeting.subtitle')).toBeInTheDocument()
   })
 
   it('renders edit button "Dashboard anpassen"', () => {
     mockIsEditing = false
     renderDashboard()
 
-    expect(screen.getByText('Dashboard anpassen')).toBeInTheDocument()
+    expect(screen.getByText('dashboard.edit.customize')).toBeInTheDocument()
   })
 
   it('calls ensureDefaults on mount', () => {

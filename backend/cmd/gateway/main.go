@@ -60,7 +60,15 @@ func main() {
 	// =========================================================================
 	// Service Registry: register backend services with lazy gRPC connections
 	// =========================================================================
-	registry := gateway.NewServiceRegistry()
+	tlsCfg, err := gateway.BuildClientTLSConfig(cfg.GRPCTLSCertFile, cfg.GRPCTLSKeyFile, cfg.GRPCTLSCAFile)
+	if err != nil {
+		slog.Error("failed to build gRPC TLS config", "error", err)
+		os.Exit(1)
+	}
+	if tlsCfg != nil {
+		slog.Info("gRPC mTLS enabled for service-to-service communication")
+	}
+	registry := gateway.NewServiceRegistry(tlsCfg)
 	registry.Register("auth", cfg.AuthGRPCAddress)
 	registry.Register("crm", cfg.CRMGRPCAddress)
 	registry.Register("chat", cfg.ChatGRPCAddress)

@@ -17,14 +17,14 @@ import (
 // emptyRegistry returns a ServiceRegistry with no registered services.
 // Any handler that calls getXClient will get a "service not registered" error.
 func emptyRegistry() *ServiceRegistry {
-	return NewServiceRegistry()
+	return NewServiceRegistry(nil)
 }
 
 // registryWithService returns a ServiceRegistry with a single service registered.
 // The address is a dummy localhost address — gRPC calls will fail at RPC time,
 // but getXClient will succeed (grpc.NewClient is non-blocking).
 func registryWithService(name string) *ServiceRegistry {
-	reg := NewServiceRegistry()
+	reg := NewServiceRegistry(nil)
 	reg.Register(name, "localhost:0")
 	return reg
 }

@@ -117,7 +117,7 @@ describe('DealFormDialog', () => {
       <DealFormDialog open={true} onOpenChange={onOpenChange} onSubmit={onSubmit} />,
     )
 
-    expect(screen.getByText('Neuer Deal')).toBeInTheDocument()
+    expect(screen.getByText('crm.deals.newTitle')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('z.B. CRM-Lizenz ABC GmbH')).toHaveValue('')
   })
 
@@ -132,7 +132,7 @@ describe('DealFormDialog', () => {
       />,
     )
 
-    expect(screen.getByText('Deal bearbeiten')).toBeInTheDocument()
+    expect(screen.getByText('crm.deals.editTitle')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('z.B. CRM-Lizenz ABC GmbH')).toHaveValue('Bestandsdeal')
   })
 
@@ -143,7 +143,7 @@ describe('DealFormDialog', () => {
     )
 
     await user.type(screen.getByPlaceholderText('z.B. CRM-Lizenz ABC GmbH'), 'Neuer Deal')
-    await user.click(screen.getByRole('button', { name: 'Erstellen' }))
+    await user.click(screen.getByRole('button', { name: 'common.create' }))
 
     expect(onSubmit).toHaveBeenCalledTimes(1)
     const submitted = onSubmit.mock.calls[0][0] as DealFormData
@@ -155,7 +155,7 @@ describe('DealFormDialog', () => {
       <DealFormDialog open={true} onOpenChange={onOpenChange} onSubmit={onSubmit} />,
     )
 
-    const submitBtn = screen.getByRole('button', { name: 'Erstellen' })
+    const submitBtn = screen.getByRole('button', { name: 'common.create' })
     expect(submitBtn).toBeDisabled()
   })
 
@@ -169,7 +169,7 @@ describe('DealFormDialog', () => {
       />,
     )
 
-    expect(screen.getByText('Gewichteter Wert')).toBeInTheDocument()
+    expect(screen.getByText('crm.deals.weightedValue')).toBeInTheDocument()
   })
 })
 
@@ -210,7 +210,7 @@ describe('DealsListPage', () => {
 
     renderWithProviders(<DealsListPage />)
 
-    expect(screen.getByText('Keine Deals gefunden')).toBeInTheDocument()
+    expect(screen.getByText('crm.deals.noResults')).toBeInTheDocument()
   })
 
   it('shows error state with retry button', () => {
@@ -223,15 +223,15 @@ describe('DealsListPage', () => {
 
     renderWithProviders(<DealsListPage />)
 
-    expect(screen.getByText('Fehler beim Laden der Deals')).toBeInTheDocument()
-    expect(screen.getByText('Erneut versuchen')).toBeInTheDocument()
+    expect(screen.getByText('crm.deals.loadError')).toBeInTheDocument()
+    expect(screen.getByText('common.retry')).toBeInTheDocument()
   })
 
   it('opens create dialog on button click', async () => {
     const user = userEvent.setup()
     renderWithProviders(<DealsListPage />)
 
-    await user.click(screen.getByText('Neuer Deal'))
+    await user.click(screen.getByText('crm.deals.new'))
 
     await waitFor(() => {
       expect(screen.getByPlaceholderText('z.B. CRM-Lizenz ABC GmbH')).toBeInTheDocument()
@@ -278,8 +278,8 @@ describe('DealPipelineView', () => {
   it('shows empty placeholder for stages with no deals', () => {
     renderWithProviders(<DealPipelineView />)
 
-    // Stages without deals show "Keine Deals"
-    const emptyLabels = screen.getAllByText('Keine Deals')
+    // Stages without deals show the no-deals key
+    const emptyLabels = screen.getAllByText('crm.deals.noDeals')
     expect(emptyLabels.length).toBeGreaterThanOrEqual(1)
   })
 })

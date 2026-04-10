@@ -8,7 +8,7 @@ import (
 )
 
 func TestRegisterAndGetConnection(t *testing.T) {
-	reg := NewServiceRegistry()
+	reg := NewServiceRegistry(nil)
 	reg.Register("test-svc", "localhost:0")
 
 	conn, err := reg.GetConnection("test-svc")
@@ -21,7 +21,7 @@ func TestRegisterAndGetConnection(t *testing.T) {
 }
 
 func TestGetConnectionUnregisteredService(t *testing.T) {
-	reg := NewServiceRegistry()
+	reg := NewServiceRegistry(nil)
 
 	_, err := reg.GetConnection("unknown")
 	if err == nil {
@@ -30,7 +30,7 @@ func TestGetConnectionUnregisteredService(t *testing.T) {
 }
 
 func TestGetConnectionCaching(t *testing.T) {
-	reg := NewServiceRegistry()
+	reg := NewServiceRegistry(nil)
 	reg.Register("cache-test", "localhost:0")
 
 	conn1, err := reg.GetConnection("cache-test")
@@ -49,7 +49,7 @@ func TestGetConnectionCaching(t *testing.T) {
 }
 
 func TestCloseNoPanic(t *testing.T) {
-	reg := NewServiceRegistry()
+	reg := NewServiceRegistry(nil)
 	reg.Register("svc-a", "localhost:0")
 	reg.Register("svc-b", "localhost:0")
 
@@ -61,7 +61,7 @@ func TestCloseNoPanic(t *testing.T) {
 }
 
 func TestCloseResetsConnections(t *testing.T) {
-	reg := NewServiceRegistry()
+	reg := NewServiceRegistry(nil)
 	reg.Register("svc", "localhost:0")
 
 	_, err := reg.GetConnection("svc")
@@ -82,7 +82,7 @@ func TestCloseResetsConnections(t *testing.T) {
 }
 
 func TestRegisteredServices(t *testing.T) {
-	reg := NewServiceRegistry()
+	reg := NewServiceRegistry(nil)
 	reg.Register("auth", "localhost:50051")
 	reg.Register("crm", "localhost:50052")
 

@@ -44,7 +44,7 @@ func (m *MockRepository) Create(ctx context.Context, company *models.Company) er
 	return nil
 }
 
-func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Company, error) {
+func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID, _ uuid.UUID) (*models.Company, error) {
 	if m.getErr != nil {
 		return nil, m.getErr
 	}
@@ -78,7 +78,7 @@ func (m *MockRepository) List(ctx context.Context, filter ListFilter, offset, li
 	return result[offset:end], total, nil
 }
 
-func (m *MockRepository) Update(ctx context.Context, company *models.Company) error {
+func (m *MockRepository) Update(ctx context.Context, company *models.Company, _ uuid.UUID) error {
 	if m.updateErr != nil {
 		return m.updateErr
 	}
@@ -86,7 +86,7 @@ func (m *MockRepository) Update(ctx context.Context, company *models.Company) er
 	return nil
 }
 
-func (m *MockRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (m *MockRepository) Delete(ctx context.Context, id uuid.UUID, _ uuid.UUID) error {
 	if m.deleteErr != nil {
 		return m.deleteErr
 	}
@@ -94,7 +94,7 @@ func (m *MockRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (m *MockRepository) GetContactCount(ctx context.Context, companyID uuid.UUID) (int, error) {
+func (m *MockRepository) GetContactCount(ctx context.Context, companyID uuid.UUID, _ uuid.UUID) (int, error) {
 	return m.contactCounts[companyID], nil
 }
 
@@ -119,7 +119,7 @@ func (m *MockRepository) SetCustomFieldValues(ctx context.Context, companyID uui
 	return nil
 }
 
-func (m *MockRepository) HasContacts(ctx context.Context, companyID uuid.UUID) (bool, error) {
+func (m *MockRepository) HasContacts(ctx context.Context, companyID uuid.UUID, _ uuid.UUID) (bool, error) {
 	return m.contactCounts[companyID] > 0, nil
 }
 
@@ -138,11 +138,11 @@ func (m *MockRepository) SetContactCount(companyID uuid.UUID, count int) {
 	m.contactCounts[companyID] = count
 }
 
-func (m *MockRepository) FindDuplicateCandidates(_ context.Context, _ uuid.UUID) ([]*DuplicateCandidate, error) {
+func (m *MockRepository) FindDuplicateCandidates(_ context.Context, _, _ uuid.UUID) ([]*DuplicateCandidate, error) {
 	return nil, nil
 }
 
-func (m *MockRepository) MergeInto(_ context.Context, _, _ uuid.UUID) error {
+func (m *MockRepository) MergeInto(_ context.Context, _, _, _ uuid.UUID) error {
 	return nil
 }
 

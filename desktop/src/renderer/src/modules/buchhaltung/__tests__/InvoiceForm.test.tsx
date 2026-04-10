@@ -69,15 +69,15 @@ describe('InvoiceFormDialog', () => {
   it('renders with default invoice type', () => {
     renderInvoiceForm()
 
-    expect(screen.getByText('Neue Rechnung')).toBeInTheDocument()
+    expect(screen.getByText('buchhaltung.newInvoice')).toBeInTheDocument()
     // Should have one default line item row
-    expect(screen.getByPlaceholderText('Beschreibung...')).toBeInTheDocument()
-    expect(screen.getByText(/Position hinzuf/)).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('buchhaltung.form.descriptionDots')).toBeInTheDocument()
+    expect(screen.getByText('buchhaltung.form.addPosition')).toBeInTheDocument()
   })
 
   it('renders as quote form when defaultType is quote', () => {
     renderInvoiceForm({ defaultType: 'quote' })
-    expect(screen.getByText('Neues Angebot')).toBeInTheDocument()
+    expect(screen.getByText('buchhaltung.newQuote')).toBeInTheDocument()
   })
 
   it('adds a new line item when clicking add button', async () => {
@@ -85,21 +85,21 @@ describe('InvoiceFormDialog', () => {
     renderInvoiceForm()
 
     // Initially one line item
-    const descriptions = screen.getAllByPlaceholderText('Beschreibung...')
+    const descriptions = screen.getAllByPlaceholderText('buchhaltung.form.descriptionDots')
     expect(descriptions).toHaveLength(1)
 
     // Click "Position hinzufügen"
-    await user.click(screen.getByText(/Position hinzuf/))
+    await user.click(screen.getByText('buchhaltung.form.addPosition'))
 
     // Now two line items
-    const updatedDescriptions = screen.getAllByPlaceholderText('Beschreibung...')
+    const updatedDescriptions = screen.getAllByPlaceholderText('buchhaltung.form.descriptionDots')
     expect(updatedDescriptions).toHaveLength(2)
   })
 
   it('disables save button without client name', () => {
     renderInvoiceForm()
 
-    const saveBtn = screen.getByRole('button', { name: 'Erstellen' })
+    const saveBtn = screen.getByRole('button', { name: 'common.create' })
     expect(saveBtn).toBeDisabled()
   })
 
@@ -107,17 +107,17 @@ describe('InvoiceFormDialog', () => {
     const user = userEvent.setup()
     renderInvoiceForm()
 
-    await user.type(screen.getByPlaceholderText('Firma / Person'), 'Test AG')
+    await user.type(screen.getByPlaceholderText('buchhaltung.form.clientPlaceholder'), 'Test AG')
 
-    const saveBtn = screen.getByRole('button', { name: 'Erstellen' })
+    const saveBtn = screen.getByRole('button', { name: 'common.create' })
     expect(saveBtn).toBeEnabled()
   })
 
   it('displays totals section with Zwischensumme, MwSt, Gesamt', () => {
     renderInvoiceForm()
 
-    expect(screen.getByText('Zwischensumme')).toBeInTheDocument()
-    expect(screen.getAllByText('MwSt').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByText('Gesamt')).toBeInTheDocument()
+    expect(screen.getByText('buchhaltung.totals.subtotal')).toBeInTheDocument()
+    expect(screen.getAllByText('buchhaltung.form.vat').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText('buchhaltung.totals.total')).toBeInTheDocument()
   })
 })

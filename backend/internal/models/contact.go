@@ -19,6 +19,7 @@ type Contact struct {
 	Visibility   string     `json:"visibility"` // shared, personal (default: shared)
 	OwnerID      *uuid.UUID `json:"owner_id,omitempty"`
 	MergedIntoID *uuid.UUID `json:"merged_into_id,omitempty"`
+	TenantID     uuid.UUID  `json:"tenant_id"`
 	CreatedBy    uuid.UUID  `json:"created_by"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`

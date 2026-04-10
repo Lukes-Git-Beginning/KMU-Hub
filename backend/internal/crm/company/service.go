@@ -11,6 +11,9 @@ import (
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
+// defaultTenantID is used in single-tenant mode until multi-tenant support is added.
+var defaultTenantID = uuid.MustParse("00000000-0000-0000-0000-000000000000")
+
 // Service handles company business logic
 type Service struct {
 	repo Repository
@@ -34,10 +37,16 @@ type CreateInput struct {
 	TagIDs        []uuid.UUID
 	CustomFields  map[uuid.UUID]any // field_id -> value
 	CreatedBy     uuid.UUID
+	TenantID      uuid.UUID
 }
 
 // Create creates a new company
 func (s *Service) Create(ctx context.Context, input CreateInput) (*models.CompanyWithRelations, error) {
+	tenantID := input.TenantID
+	if tenantID == uuid.Nil {
+		tenantID = defaultTenantID
+	}
+
 	// Validate name
 	name := strings.TrimSpace(input.Name)
 	if name == "" {
@@ -65,6 +74,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Compan
 		City:          trimStringPtr(input.City),
 		Country:       trimStringPtr(input.Country),
 		Notes:         input.Notes,
+		TenantID:      tenantID,
 		CreatedBy:     input.CreatedBy,
 		CreatedAt:     time.Now(),
 		UpdatedAt:     time.Now(),
@@ -93,16 +103,21 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Compan
 		"name", company.Name,
 	)
 
-	return s.getWithRelations(ctx, company)
+	return s.getWithRelations(ctx, company, tenantID)
 }
 
 // GetByID retrieves a company by ID
 func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*models.CompanyWithRelations, error) {
-	company, err := s.repo.GetByID(ctx, id)
+	return s.GetByIDWithTenant(ctx, id, defaultTenantID)
+}
+
+// GetByIDWithTenant retrieves a company by ID scoped to a tenant
+func (s *Service) GetByIDWithTenant(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.CompanyWithRelations, error) {
+	company, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, ErrCompanyNotFound
 	}
-	return s.getWithRelations(ctx, company)
+	return s.getWithRelations(ctx, company, tenantID)
 }
 
 // ListInput contains filtering options for listing companies
@@ -114,10 +129,16 @@ type ListInput struct {
 	PageSize int
 	SortBy   string
 	SortDesc bool
+	TenantID uuid.UUID
 }
 
 // List retrieves companies with optional filtering
 func (s *Service) List(ctx context.Context, input ListInput) ([]*models.CompanyWithRelations, int, error) {
+	tenantID := input.TenantID
+	if tenantID == uuid.Nil {
+		tenantID = defaultTenantID
+	}
+
 	if input.Page < 1 {
 		input.Page = 1
 	}
@@ -127,6 +148,7 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]*models.CompanyW
 
 	offset := (input.Page - 1) * input.PageSize
 	filter := ListFilter{
+		TenantID: tenantID,
 		Search:   input.Search,
 		Industry: input.Industry,
 		TagIDs:   input.TagIDs,
@@ -141,7 +163,7 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]*models.CompanyW
 
 	var results []*models.CompanyWithRelations
 	for _, c := range companies {
-		withRel, relErr := s.getWithRelations(ctx, c)
+		withRel, relErr := s.getWithRelations(ctx, c, tenantID)
 		if relErr != nil {
 			return nil, 0, relErr
 		}
@@ -166,7 +188,12 @@ type UpdateInput struct {
 
 // Update updates an existing company
 func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (*models.CompanyWithRelations, error) {
-	company, err := s.repo.GetByID(ctx, id)
+	return s.UpdateWithTenant(ctx, id, input, defaultTenantID)
+}
+
+// UpdateWithTenant updates an existing company scoped to a tenant
+func (s *Service) UpdateWithTenant(ctx context.Context, id uuid.UUID, input UpdateInput, tenantID uuid.UUID) (*models.CompanyWithRelations, error) {
+	company, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, ErrCompanyNotFound
 	}
@@ -203,7 +230,7 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (
 
 	company.UpdatedAt = time.Now()
 
-	if updateErr := s.repo.Update(ctx, company); updateErr != nil {
+	if updateErr := s.repo.Update(ctx, company, tenantID); updateErr != nil {
 		return nil, updateErr
 	}
 
@@ -216,18 +243,23 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (
 
 	slog.Info("company updated", "company_id", company.ID)
 
-	return s.getWithRelations(ctx, company)
+	return s.getWithRelations(ctx, company, tenantID)
 }
 
 // Delete removes a company
 func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
-	company, err := s.repo.GetByID(ctx, id)
+	return s.DeleteWithTenant(ctx, id, defaultTenantID)
+}
+
+// DeleteWithTenant removes a company scoped to a tenant
+func (s *Service) DeleteWithTenant(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	company, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return ErrCompanyNotFound
 	}
 
 	// Check if company has contacts
-	hasContacts, err := s.repo.HasContacts(ctx, id)
+	hasContacts, err := s.repo.HasContacts(ctx, id, tenantID)
 	if err != nil {
 		return err
 	}
@@ -235,7 +267,7 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 		return ErrCompanyInUse
 	}
 
-	if deleteErr := s.repo.Delete(ctx, id); deleteErr != nil {
+	if deleteErr := s.repo.Delete(ctx, id, tenantID); deleteErr != nil {
 		return deleteErr
 	}
 
@@ -249,7 +281,7 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 
 // AddTags adds tags to a company
 func (s *Service) AddTags(ctx context.Context, companyID uuid.UUID, tagIDs []uuid.UUID) (*models.CompanyWithRelations, error) {
-	company, err := s.repo.GetByID(ctx, companyID)
+	company, err := s.repo.GetByID(ctx, companyID, defaultTenantID)
 	if err != nil {
 		return nil, ErrCompanyNotFound
 	}
@@ -269,12 +301,12 @@ func (s *Service) AddTags(ctx context.Context, companyID uuid.UUID, tagIDs []uui
 		return nil, addErr
 	}
 
-	return s.getWithRelations(ctx, company)
+	return s.getWithRelations(ctx, company, defaultTenantID)
 }
 
 // RemoveTags removes tags from a company
 func (s *Service) RemoveTags(ctx context.Context, companyID uuid.UUID, tagIDs []uuid.UUID) (*models.CompanyWithRelations, error) {
-	company, err := s.repo.GetByID(ctx, companyID)
+	company, err := s.repo.GetByID(ctx, companyID, defaultTenantID)
 	if err != nil {
 		return nil, ErrCompanyNotFound
 	}
@@ -283,17 +315,17 @@ func (s *Service) RemoveTags(ctx context.Context, companyID uuid.UUID, tagIDs []
 		return nil, removeErr
 	}
 
-	return s.getWithRelations(ctx, company)
+	return s.getWithRelations(ctx, company, defaultTenantID)
 }
 
 // getWithRelations loads all relations for a company
-func (s *Service) getWithRelations(ctx context.Context, company *models.Company) (*models.CompanyWithRelations, error) {
+func (s *Service) getWithRelations(ctx context.Context, company *models.Company, tenantID uuid.UUID) (*models.CompanyWithRelations, error) {
 	result := &models.CompanyWithRelations{
 		Company: *company,
 	}
 
 	// Load contact count
-	count, _ := s.repo.GetContactCount(ctx, company.ID)
+	count, _ := s.repo.GetContactCount(ctx, company.ID, tenantID)
 	result.ContactCount = count
 
 	// Load tags
@@ -321,17 +353,22 @@ type DuplicateCandidate struct {
 
 // FindDuplicates returns potential duplicate companies for the given company ID.
 func (s *Service) FindDuplicates(ctx context.Context, companyID uuid.UUID) ([]*DuplicateCandidate, error) {
-	if _, err := s.repo.GetByID(ctx, companyID); err != nil {
+	return s.FindDuplicatesWithTenant(ctx, companyID, defaultTenantID)
+}
+
+// FindDuplicatesWithTenant returns potential duplicate companies scoped to a tenant.
+func (s *Service) FindDuplicatesWithTenant(ctx context.Context, companyID uuid.UUID, tenantID uuid.UUID) ([]*DuplicateCandidate, error) {
+	if _, err := s.repo.GetByID(ctx, companyID, tenantID); err != nil {
 		return nil, ErrCompanyNotFound
 	}
 
-	candidates, err := s.repo.FindDuplicateCandidates(ctx, companyID)
+	candidates, err := s.repo.FindDuplicateCandidates(ctx, companyID, tenantID)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, c := range candidates {
-		withRel, relErr := s.getWithRelations(ctx, &c.Company.Company)
+		withRel, relErr := s.getWithRelations(ctx, &c.Company.Company, tenantID)
 		if relErr == nil {
 			c.Company = withRel
 		}
@@ -342,11 +379,16 @@ func (s *Service) FindDuplicates(ctx context.Context, companyID uuid.UUID) ([]*D
 
 // MergeCompanies merges a duplicate company into a primary company.
 func (s *Service) MergeCompanies(ctx context.Context, primaryID, duplicateID uuid.UUID) (*models.CompanyWithRelations, error) {
+	return s.MergeCompaniesWithTenant(ctx, primaryID, duplicateID, defaultTenantID)
+}
+
+// MergeCompaniesWithTenant merges companies scoped to a tenant.
+func (s *Service) MergeCompaniesWithTenant(ctx context.Context, primaryID, duplicateID uuid.UUID, tenantID uuid.UUID) (*models.CompanyWithRelations, error) {
 	if primaryID == duplicateID {
 		return nil, ErrCannotMergeSelf
 	}
 
-	primary, err := s.repo.GetByID(ctx, primaryID)
+	primary, err := s.repo.GetByID(ctx, primaryID, tenantID)
 	if err != nil {
 		return nil, ErrCompanyNotFound
 	}
@@ -354,7 +396,7 @@ func (s *Service) MergeCompanies(ctx context.Context, primaryID, duplicateID uui
 		return nil, ErrAlreadyMerged
 	}
 
-	dup, err := s.repo.GetByID(ctx, duplicateID)
+	dup, err := s.repo.GetByID(ctx, duplicateID, tenantID)
 	if err != nil {
 		return nil, ErrCompanyNotFound
 	}
@@ -362,7 +404,7 @@ func (s *Service) MergeCompanies(ctx context.Context, primaryID, duplicateID uui
 		return nil, ErrAlreadyMerged
 	}
 
-	if err := s.repo.MergeInto(ctx, primaryID, duplicateID); err != nil {
+	if err := s.repo.MergeInto(ctx, primaryID, duplicateID, tenantID); err != nil {
 		return nil, err
 	}
 
@@ -371,7 +413,7 @@ func (s *Service) MergeCompanies(ctx context.Context, primaryID, duplicateID uui
 		"duplicate_id", duplicateID,
 	)
 
-	return s.getWithRelations(ctx, primary)
+	return s.getWithRelations(ctx, primary, tenantID)
 }
 
 // Helper to trim and nil empty strings

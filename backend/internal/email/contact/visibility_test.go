@@ -15,7 +15,7 @@ type mockContactRepository struct {
 	callCount      int
 }
 
-func (m *mockContactRepository) UpdateVisibility(_ context.Context, contactID uuid.UUID, visibility string, ownerID *uuid.UUID) error {
+func (m *mockContactRepository) UpdateVisibility(_ context.Context, contactID uuid.UUID, visibility string, ownerID *uuid.UUID, _ uuid.UUID) error {
 	m.lastContactID = contactID
 	m.lastVisibility = visibility
 	m.lastOwnerID = ownerID

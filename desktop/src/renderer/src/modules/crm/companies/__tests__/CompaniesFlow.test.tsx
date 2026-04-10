@@ -91,7 +91,7 @@ describe('CompanyFormDialog', () => {
       <CompanyFormDialog open={true} onOpenChange={onOpenChange} onSubmit={onSubmit} />,
     )
 
-    expect(screen.getByText('Neues Unternehmen')).toBeInTheDocument()
+    expect(screen.getByText('crm.companies.newTitle')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Muster AG')).toHaveValue('')
   })
 
@@ -106,7 +106,7 @@ describe('CompanyFormDialog', () => {
       />,
     )
 
-    expect(screen.getByText('Unternehmen bearbeiten')).toBeInTheDocument()
+    expect(screen.getByText('crm.companies.editTitle')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Muster AG')).toHaveValue('Beispiel AG')
     expect(screen.getByPlaceholderText('www.firma.de')).toHaveValue('beispiel.de')
   })
@@ -118,7 +118,7 @@ describe('CompanyFormDialog', () => {
     )
 
     await user.type(screen.getByPlaceholderText('Muster AG'), 'Neue Firma GmbH')
-    await user.click(screen.getByRole('button', { name: 'Erstellen' }))
+    await user.click(screen.getByRole('button', { name: 'common.create' }))
 
     expect(onSubmit).toHaveBeenCalledTimes(1)
     const submitted = onSubmit.mock.calls[0][0] as CompanyFormData
@@ -130,7 +130,7 @@ describe('CompanyFormDialog', () => {
       <CompanyFormDialog open={true} onOpenChange={onOpenChange} onSubmit={onSubmit} />,
     )
 
-    const submitBtn = screen.getByRole('button', { name: 'Erstellen' })
+    const submitBtn = screen.getByRole('button', { name: 'common.create' })
     expect(submitBtn).toBeDisabled()
   })
 
@@ -140,7 +140,7 @@ describe('CompanyFormDialog', () => {
       <CompanyFormDialog open={true} onOpenChange={onOpenChange} onSubmit={onSubmit} />,
     )
 
-    const tagInput = screen.getByPlaceholderText('Tag hinzufügen...')
+    const tagInput = screen.getByPlaceholderText('crm.tags.addPlaceholder')
     await user.type(tagInput, 'VIP')
     await user.keyboard('{Enter}')
 
@@ -159,7 +159,7 @@ describe('CompanyFormDialog', () => {
       <CompanyFormDialog open={true} onOpenChange={onOpenChange} onSubmit={onSubmit} />,
     )
 
-    await user.click(screen.getByRole('button', { name: 'Abbrechen' }))
+    await user.click(screen.getByRole('button', { name: 'common.cancel' }))
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 })
@@ -195,7 +195,7 @@ describe('CompaniesListPage', () => {
 
     renderWithProviders(<CompaniesListPage />)
 
-    expect(screen.getByText('Keine Unternehmen gefunden')).toBeInTheDocument()
+    expect(screen.getByText('crm.companies.noResults')).toBeInTheDocument()
   })
 
   it('shows error state with retry button', () => {
@@ -208,15 +208,15 @@ describe('CompaniesListPage', () => {
 
     renderWithProviders(<CompaniesListPage />)
 
-    expect(screen.getByText('Fehler beim Laden der Unternehmen')).toBeInTheDocument()
-    expect(screen.getByText('Erneut versuchen')).toBeInTheDocument()
+    expect(screen.getByText('crm.companies.loadError')).toBeInTheDocument()
+    expect(screen.getByText('common.retry')).toBeInTheDocument()
   })
 
   it('shows create dialog when clicking new company button', async () => {
     const user = userEvent.setup()
     renderWithProviders(<CompaniesListPage />)
 
-    await user.click(screen.getByText('Neues Unternehmen'))
+    await user.click(screen.getByText('crm.companies.new'))
 
     await waitFor(() => {
       expect(screen.getByPlaceholderText('Muster AG')).toBeInTheDocument()

@@ -43,7 +43,7 @@ describe('ContactFormDialog', () => {
       />,
     )
 
-    expect(screen.getByText('Neuer Kontakt')).toBeInTheDocument()
+    expect(screen.getByText('crm.contacts.newTitle')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Max')).toHaveValue('')
     expect(screen.getByPlaceholderText('Muster')).toHaveValue('')
   })
@@ -63,7 +63,7 @@ describe('ContactFormDialog', () => {
       />,
     )
 
-    expect(screen.getByText('Kontakt bearbeiten')).toBeInTheDocument()
+    expect(screen.getByText('crm.contacts.editTitle')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Max')).toHaveValue('Anna')
     expect(screen.getByPlaceholderText('Muster')).toHaveValue('Beispiel')
     expect(screen.getByPlaceholderText('max@firma.de')).toHaveValue('anna@firma.de')
@@ -83,7 +83,7 @@ describe('ContactFormDialog', () => {
     await user.type(screen.getByPlaceholderText('Muster'), 'Meier')
     await user.type(screen.getByPlaceholderText('max@firma.de'), 'peter@meier.de')
 
-    await user.click(screen.getByRole('button', { name: 'Erstellen' }))
+    await user.click(screen.getByRole('button', { name: 'common.create' }))
 
     expect(onSubmit).toHaveBeenCalledTimes(1)
     const submitted = onSubmit.mock.calls[0][0] as ContactFormData
@@ -102,7 +102,7 @@ describe('ContactFormDialog', () => {
     )
 
     // Submit button should be disabled without first/last name
-    const submitBtn = screen.getByRole('button', { name: 'Erstellen' })
+    const submitBtn = screen.getByRole('button', { name: 'common.create' })
     expect(submitBtn).toBeDisabled()
   })
 
@@ -116,7 +116,7 @@ describe('ContactFormDialog', () => {
       />,
     )
 
-    await user.click(screen.getByRole('button', { name: 'Abbrechen' }))
+    await user.click(screen.getByRole('button', { name: 'common.cancel' }))
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 })

@@ -18,6 +18,7 @@ type Company struct {
 	Country       *string    `json:"country,omitempty"`
 	Notes         *string    `json:"notes,omitempty"`
 	MergedIntoID  *uuid.UUID `json:"merged_into_id,omitempty"`
+	TenantID      uuid.UUID  `json:"tenant_id"`
 	CreatedBy     uuid.UUID  `json:"created_by"`
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     time.Time  `json:"updated_at"`

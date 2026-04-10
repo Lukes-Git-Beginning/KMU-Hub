@@ -26,19 +26,20 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) Create(ctx context.Context, company *models.Company) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO companies (id, name, domain, industry, employee_count, address, city, country, notes, created_by, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+		`INSERT INTO companies (id, name, domain, industry, employee_count, address, city, country, notes, tenant_id, created_by, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
 		company.ID, company.Name, company.Domain, company.Industry, company.EmployeeCount,
 		company.Address, company.City, company.Country, company.Notes,
+		company.TenantID,
 		company.CreatedBy, company.CreatedAt, company.UpdatedAt,
 	)
 	return err
 }
 
-func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Company, error) {
+func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.Company, error) {
 	return r.scanCompany(r.pool.QueryRow(ctx,
-		`SELECT id, name, domain, industry, employee_count, address, city, country, notes, merged_into_id, created_by, created_at, updated_at
-		 FROM companies WHERE id = $1`, id,
+		`SELECT id, name, domain, industry, employee_count, address, city, country, notes, merged_into_id, tenant_id, created_by, created_at, updated_at
+		 FROM companies WHERE id = $1 AND tenant_id = $2`, id, tenantID,
 	))
 }
 
@@ -47,6 +48,11 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset
 	var conditions []string
 	var args []any
 	argNum := 1
+
+	// Always filter by tenant
+	conditions = append(conditions, fmt.Sprintf("tenant_id = $%d", argNum))
+	args = append(args, filter.TenantID)
+	argNum++
 
 	if filter.Search != "" {
 		conditions = append(conditions, fmt.Sprintf("(LOWER(name) LIKE $%d OR LOWER(domain) LIKE $%d)", argNum, argNum))
@@ -70,10 +76,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset
 		argNum += 2
 	}
 
-	whereClause := ""
-	if len(conditions) > 0 {
-		whereClause = "WHERE " + strings.Join(conditions, " AND ")
-	}
+	whereClause := "WHERE " + strings.Join(conditions, " AND ")
 
 	// Count total
 	var total int
@@ -94,7 +97,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset
 
 	// Query with pagination
 	query := fmt.Sprintf(`
-		SELECT id, name, domain, industry, employee_count, address, city, country, notes, merged_into_id, created_by, created_at, updated_at
+		SELECT id, name, domain, industry, employee_count, address, city, country, notes, merged_into_id, tenant_id, created_by, created_at, updated_at
 		FROM companies %s
 		ORDER BY %s %s
 		LIMIT $%d OFFSET $%d
@@ -120,27 +123,27 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset
 	return companies, total, rows.Err()
 }
 
-func (r *PostgresRepository) Update(ctx context.Context, company *models.Company) error {
+func (r *PostgresRepository) Update(ctx context.Context, company *models.Company, tenantID uuid.UUID) error {
 	_, err := r.pool.Exec(ctx,
 		`UPDATE companies SET name = $1, domain = $2, industry = $3, employee_count = $4,
 		 address = $5, city = $6, country = $7, notes = $8, updated_at = $9
-		 WHERE id = $10`,
+		 WHERE id = $10 AND tenant_id = $11`,
 		company.Name, company.Domain, company.Industry, company.EmployeeCount,
 		company.Address, company.City, company.Country, company.Notes,
-		company.UpdatedAt, company.ID,
+		company.UpdatedAt, company.ID, tenantID,
 	)
 	return err
 }
 
-func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM companies WHERE id = $1`, id)
+func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM companies WHERE id = $1 AND tenant_id = $2`, id, tenantID)
 	return err
 }
 
-func (r *PostgresRepository) GetContactCount(ctx context.Context, companyID uuid.UUID) (int, error) {
+func (r *PostgresRepository) GetContactCount(ctx context.Context, companyID uuid.UUID, tenantID uuid.UUID) (int, error) {
 	var count int
 	err := r.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM contacts WHERE company_id = $1`, companyID,
+		`SELECT COUNT(*) FROM contacts WHERE company_id = $1 AND tenant_id = $2`, companyID, tenantID,
 	).Scan(&count)
 	return count, err
 }
@@ -236,10 +239,10 @@ func (r *PostgresRepository) SetCustomFieldValues(ctx context.Context, companyID
 	return nil
 }
 
-func (r *PostgresRepository) HasContacts(ctx context.Context, companyID uuid.UUID) (bool, error) {
+func (r *PostgresRepository) HasContacts(ctx context.Context, companyID uuid.UUID, tenantID uuid.UUID) (bool, error) {
 	var count int
 	err := r.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM contacts WHERE company_id = $1 LIMIT 1`, companyID,
+		`SELECT COUNT(*) FROM contacts WHERE company_id = $1 AND tenant_id = $2 LIMIT 1`, companyID, tenantID,
 	).Scan(&count)
 	return count > 0, err
 }
@@ -254,8 +257,8 @@ func (r *PostgresRepository) TagExists(ctx context.Context, tagID uuid.UUID, ent
 }
 
 // FindDuplicateCandidates finds potential duplicate companies using domain and trigram name matching.
-func (r *PostgresRepository) FindDuplicateCandidates(ctx context.Context, companyID uuid.UUID) ([]*DuplicateCandidate, error) {
-	src, err := r.GetByID(ctx, companyID)
+func (r *PostgresRepository) FindDuplicateCandidates(ctx context.Context, companyID uuid.UUID, tenantID uuid.UUID) ([]*DuplicateCandidate, error) {
+	src, err := r.GetByID(ctx, companyID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -265,11 +268,11 @@ func (r *PostgresRepository) FindDuplicateCandidates(ctx context.Context, compan
 	// 1. Domain exact match
 	if src.Domain != nil && *src.Domain != "" {
 		rows, queryErr := r.pool.Query(ctx,
-			`SELECT id, name, domain, industry, employee_count, address, city, country, notes, merged_into_id, created_by, created_at, updated_at
+			`SELECT id, name, domain, industry, employee_count, address, city, country, notes, merged_into_id, tenant_id, created_by, created_at, updated_at
 			 FROM companies
-			 WHERE LOWER(domain) = LOWER($1) AND id != $2 AND merged_into_id IS NULL
+			 WHERE LOWER(domain) = LOWER($1) AND id != $2 AND merged_into_id IS NULL AND tenant_id = $3
 			 LIMIT 10`,
-			*src.Domain, companyID,
+			*src.Domain, companyID, tenantID,
 		)
 		if queryErr == nil {
 			defer rows.Close()
@@ -288,15 +291,16 @@ func (r *PostgresRepository) FindDuplicateCandidates(ctx context.Context, compan
 
 	// 2. Trigram name match (>= 0.7 similarity)
 	rows2, queryErr2 := r.pool.Query(ctx,
-		`SELECT id, name, domain, industry, employee_count, address, city, country, notes, merged_into_id, created_by, created_at, updated_at,
+		`SELECT id, name, domain, industry, employee_count, address, city, country, notes, merged_into_id, tenant_id, created_by, created_at, updated_at,
 		        similarity(lower(name), lower($1)) AS sim
 		 FROM companies
 		 WHERE similarity(lower(name), lower($1)) >= 0.7
 		   AND id != $2
 		   AND merged_into_id IS NULL
+		   AND tenant_id = $3
 		 ORDER BY sim DESC
 		 LIMIT 10`,
-		src.Name, companyID,
+		src.Name, companyID, tenantID,
 	)
 	if queryErr2 == nil {
 		defer rows2.Close()
@@ -306,6 +310,7 @@ func (r *PostgresRepository) FindDuplicateCandidates(ctx context.Context, compan
 			scanErr := rows2.Scan(
 				&c.ID, &c.Name, &c.Domain, &c.Industry, &c.EmployeeCount,
 				&c.Address, &c.City, &c.Country, &c.Notes, &c.MergedIntoID,
+				&c.TenantID,
 				&c.CreatedBy, &c.CreatedAt, &c.UpdatedAt,
 				&sim,
 			)
@@ -341,7 +346,19 @@ func (r *PostgresRepository) FindDuplicateCandidates(ctx context.Context, compan
 }
 
 // MergeInto reassigns all related records from duplicateID to primaryID, then soft-deletes duplicate.
-func (r *PostgresRepository) MergeInto(ctx context.Context, primaryID, duplicateID uuid.UUID) error {
+func (r *PostgresRepository) MergeInto(ctx context.Context, primaryID, duplicateID uuid.UUID, tenantID uuid.UUID) error {
+	// Verify both companies belong to the same tenant
+	var primaryTenant, dupTenant uuid.UUID
+	if err := r.pool.QueryRow(ctx, `SELECT tenant_id FROM companies WHERE id = $1`, primaryID).Scan(&primaryTenant); err != nil {
+		return fmt.Errorf("verify primary tenant: %w", err)
+	}
+	if err := r.pool.QueryRow(ctx, `SELECT tenant_id FROM companies WHERE id = $1`, duplicateID).Scan(&dupTenant); err != nil {
+		return fmt.Errorf("verify duplicate tenant: %w", err)
+	}
+	if primaryTenant != tenantID || dupTenant != tenantID {
+		return fmt.Errorf("companies do not belong to the specified tenant")
+	}
+
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -410,6 +427,7 @@ func (r *PostgresRepository) scanCompany(row pgx.Row) (*models.Company, error) {
 	err := row.Scan(
 		&c.ID, &c.Name, &c.Domain, &c.Industry, &c.EmployeeCount,
 		&c.Address, &c.City, &c.Country, &c.Notes, &c.MergedIntoID,
+		&c.TenantID,
 		&c.CreatedBy, &c.CreatedAt, &c.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -427,6 +445,7 @@ func (r *PostgresRepository) scanCompanyFromRows(rows pgx.Rows) (*models.Company
 	err := rows.Scan(
 		&c.ID, &c.Name, &c.Domain, &c.Industry, &c.EmployeeCount,
 		&c.Address, &c.City, &c.Country, &c.Notes, &c.MergedIntoID,
+		&c.TenantID,
 		&c.CreatedBy, &c.CreatedAt, &c.UpdatedAt,
 	)
 	if err != nil {

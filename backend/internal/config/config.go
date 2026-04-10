@@ -92,6 +92,11 @@ type Config struct {
 	DatevAuthURL      string `env:"DATEV_AUTH_URL,default=https://login.datev.de/openidconnect/authorize"`
 	DatevAPIBaseURL   string `env:"DATEV_API_BASE_URL,default=https://accounting-documents.api.datev.de"`
 
+	// gRPC mTLS (optional — if all three are set, service-to-service gRPC uses mTLS)
+	GRPCTLSCertFile string `env:"GRPC_TLS_CERT_FILE,default="`
+	GRPCTLSKeyFile  string `env:"GRPC_TLS_KEY_FILE,default="`
+	GRPCTLSCAFile   string `env:"GRPC_TLS_CA_FILE,default="`
+
 	// MinIO (S3-compatible file storage)
 	MinIOEndpoint   string `env:"MINIO_ENDPOINT,default=localhost:9000"`
 	MinIOAccessKey  string `env:"MINIO_ACCESS_KEY,default=kmuhub"`

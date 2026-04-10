@@ -1,0 +1,5 @@
+ALTER TABLE contacts ADD COLUMN tenant_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+CREATE INDEX idx_contacts_tenant ON contacts(tenant_id);
+
+ALTER TABLE companies ADD COLUMN tenant_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+CREATE INDEX idx_companies_tenant ON companies(tenant_id);

@@ -131,13 +131,13 @@ describe('ChatLayout', () => {
   it('renders empty state when no channel selected', () => {
     renderWithProviders(<ChatLayout />)
 
-    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Wähle einen Channel')
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('chat.empty.title')
   })
 
   it('shows channel list sidebar', () => {
     renderWithProviders(<ChatLayout />)
 
-    expect(screen.getByText('Channels')).toBeInTheDocument()
+    expect(screen.getByText('chat.channels.title')).toBeInTheDocument()
   })
 
   it('shows message area when channel is selected', async () => {
@@ -195,7 +195,7 @@ describe('ChannelList', () => {
       <ChannelList selectedChannelId={null} onSelectChannel={onSelectChannel} />,
     )
 
-    await user.type(screen.getByPlaceholderText('Suchen...'), 'dev')
+    await user.type(screen.getByPlaceholderText('chat.channels.searchPlaceholder'), 'dev')
 
     await waitFor(() => {
       expect(screen.getByText('development')).toBeInTheDocument()
@@ -223,8 +223,8 @@ describe('CreateChannelDialog', () => {
       <CreateChannelDialog open={true} onOpenChange={onOpenChange} onCreated={onCreated} />,
     )
 
-    expect(screen.getByText('Neuen Channel erstellen')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('z.B. allgemein, marketing, development')).toBeInTheDocument()
+    expect(screen.getByText('chat.createChannel.title')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('chat.createChannel.namePlaceholder')).toBeInTheDocument()
   })
 
   it('submits channel creation', async () => {
@@ -234,10 +234,10 @@ describe('CreateChannelDialog', () => {
     )
 
     await user.type(
-      screen.getByPlaceholderText('z.B. allgemein, marketing, development'),
+      screen.getByPlaceholderText('chat.createChannel.namePlaceholder'),
       'neuer-channel',
     )
-    await user.click(screen.getByRole('button', { name: 'Erstellen' }))
+    await user.click(screen.getByRole('button', { name: 'common.create' }))
 
     await waitFor(() => {
       expect(onCreated).toHaveBeenCalledWith('ch-new')
@@ -249,7 +249,7 @@ describe('CreateChannelDialog', () => {
       <CreateChannelDialog open={true} onOpenChange={onOpenChange} onCreated={onCreated} />,
     )
 
-    const submitBtn = screen.getByRole('button', { name: 'Erstellen' })
+    const submitBtn = screen.getByRole('button', { name: 'common.create' })
     expect(submitBtn).toBeDisabled()
   })
 })
@@ -262,14 +262,14 @@ describe('MessageInput', () => {
   it('renders with placeholder text', () => {
     renderWithProviders(<MessageInput channelId="ch-001" />)
 
-    expect(screen.getByPlaceholderText(/Nachricht schreiben/)).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('chat.input.placeholder')).toBeInTheDocument()
   })
 
   it('sends message on Enter', async () => {
     const user = userEvent.setup()
     renderWithProviders(<MessageInput channelId="ch-001" />)
 
-    const textarea = screen.getByPlaceholderText(/Nachricht schreiben/)
+    const textarea = screen.getByPlaceholderText('chat.input.placeholder')
     await user.type(textarea, 'Hallo Welt!')
     await user.keyboard('{Enter}')
 

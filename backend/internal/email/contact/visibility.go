@@ -10,7 +10,7 @@ import (
 
 // ContactRepository defines the minimal repository interface needed by VisibilityService.
 type ContactRepository interface {
-	UpdateVisibility(ctx context.Context, contactID uuid.UUID, visibility string, ownerID *uuid.UUID) error
+	UpdateVisibility(ctx context.Context, contactID uuid.UUID, visibility string, ownerID *uuid.UUID, tenantID uuid.UUID) error
 }
 
 // VisibilityService manages contact visibility (shared/personal) with admin override.
@@ -53,7 +53,7 @@ func (s *VisibilityService) SetVisibility(ctx context.Context, contactID uuid.UU
 		ownerID = &userID
 	}
 
-	if err := s.contactRepo.UpdateVisibility(ctx, contactID, visibility, ownerID); err != nil {
+	if err := s.contactRepo.UpdateVisibility(ctx, contactID, visibility, ownerID, uuid.MustParse("00000000-0000-0000-0000-000000000000")); err != nil {
 		return err
 	}
 
@@ -68,7 +68,7 @@ func (s *VisibilityService) SetVisibility(ctx context.Context, contactID uuid.UU
 
 // SetOwner sets the owner of a personal contact.
 func (s *VisibilityService) SetOwner(ctx context.Context, contactID uuid.UUID, ownerID uuid.UUID) error {
-	if err := s.contactRepo.UpdateVisibility(ctx, contactID, VisibilityPersonal, &ownerID); err != nil {
+	if err := s.contactRepo.UpdateVisibility(ctx, contactID, VisibilityPersonal, &ownerID, uuid.MustParse("00000000-0000-0000-0000-000000000000")); err != nil {
 		return err
 	}
 
@@ -88,7 +88,7 @@ func (s *VisibilityService) AdminOverride(ctx context.Context, contactID uuid.UU
 
 	// Admin override clears the owner when setting to shared
 	var ownerID *uuid.UUID
-	if err := s.contactRepo.UpdateVisibility(ctx, contactID, visibility, ownerID); err != nil {
+	if err := s.contactRepo.UpdateVisibility(ctx, contactID, visibility, ownerID, uuid.MustParse("00000000-0000-0000-0000-000000000000")); err != nil {
 		return err
 	}
 

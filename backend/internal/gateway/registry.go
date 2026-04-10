@@ -1,12 +1,14 @@
 package gateway
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log/slog"
 	"sync"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 )
@@ -22,14 +24,17 @@ type ServiceConnection struct {
 // Services are registered with their addresses at startup, and connections
 // are created lazily on first use via GetConnection.
 type ServiceRegistry struct {
-	services map[string]*ServiceConnection
-	mu       sync.RWMutex
+	services  map[string]*ServiceConnection
+	mu        sync.RWMutex
+	tlsConfig *tls.Config // nil = insecure (local dev)
 }
 
 // NewServiceRegistry creates a new empty ServiceRegistry.
-func NewServiceRegistry() *ServiceRegistry {
+// Pass a non-nil tlsConfig to enable mTLS for all gRPC connections.
+func NewServiceRegistry(tlsConfig *tls.Config) *ServiceRegistry {
 	return &ServiceRegistry{
-		services: make(map[string]*ServiceConnection),
+		services:  make(map[string]*ServiceConnection),
+		tlsConfig: tlsConfig,
 	}
 }
 
@@ -78,7 +83,7 @@ func (r *ServiceRegistry) GetConnection(name string) (*grpc.ClientConn, error) {
 
 	conn, err := grpc.NewClient(
 		svc.address,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithTransportCredentials(r.transportCredentials()),
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{
 			Time:                60 * time.Second,
 			Timeout:             10 * time.Second,
@@ -104,6 +109,14 @@ func (r *ServiceRegistry) RegisteredServices() []string {
 		names = append(names, name)
 	}
 	return names
+}
+
+// transportCredentials returns mTLS credentials if configured, or insecure credentials for local dev.
+func (r *ServiceRegistry) transportCredentials() credentials.TransportCredentials {
+	if r.tlsConfig != nil {
+		return credentials.NewTLS(r.tlsConfig)
+	}
+	return insecure.NewCredentials()
 }
 
 // Close gracefully closes all active gRPC connections.

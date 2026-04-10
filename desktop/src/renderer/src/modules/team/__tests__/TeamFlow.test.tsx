@@ -69,10 +69,10 @@ describe('InviteMemberDialog', () => {
       <InviteMemberDialog open={true} onOpenChange={onOpenChange} />,
     )
 
-    expect(screen.getByText('Mitglied einladen')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Vorname')).toHaveValue('')
-    expect(screen.getByPlaceholderText('Nachname')).toHaveValue('')
-    expect(screen.getByPlaceholderText('email@firma.de')).toHaveValue('')
+    expect(screen.getByText('team.invite.title')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('team.invite.firstName')).toHaveValue('')
+    expect(screen.getByPlaceholderText('team.invite.lastName')).toHaveValue('')
+    expect(screen.getByPlaceholderText('team.invite.emailPlaceholder')).toHaveValue('')
   })
 
   it('submits invite with required fields', async () => {
@@ -81,11 +81,11 @@ describe('InviteMemberDialog', () => {
       <InviteMemberDialog open={true} onOpenChange={onOpenChange} />,
     )
 
-    await user.type(screen.getByPlaceholderText('Vorname'), 'Peter')
-    await user.type(screen.getByPlaceholderText('Nachname'), 'Müller')
-    await user.type(screen.getByPlaceholderText('email@firma.de'), 'peter@firma.de')
+    await user.type(screen.getByPlaceholderText('team.invite.firstName'), 'Peter')
+    await user.type(screen.getByPlaceholderText('team.invite.lastName'), 'Müller')
+    await user.type(screen.getByPlaceholderText('team.invite.emailPlaceholder'), 'peter@firma.de')
 
-    await user.click(screen.getByRole('button', { name: 'Einladung senden' }))
+    await user.click(screen.getByRole('button', { name: 'team.invite.sendInvitation' }))
 
     expect(mockMutate).toHaveBeenCalledTimes(1)
     const callArgs = mockMutate.mock.calls[0][0]
@@ -99,7 +99,7 @@ describe('InviteMemberDialog', () => {
       <InviteMemberDialog open={true} onOpenChange={onOpenChange} />,
     )
 
-    const submitBtn = screen.getByRole('button', { name: 'Einladung senden' })
+    const submitBtn = screen.getByRole('button', { name: 'team.invite.sendInvitation' })
     expect(submitBtn).toBeDisabled()
   })
 
@@ -109,7 +109,7 @@ describe('InviteMemberDialog', () => {
       <InviteMemberDialog open={true} onOpenChange={onOpenChange} />,
     )
 
-    expect(screen.getByRole('button', { name: 'Sendet...' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'team.invite.sending' })).toBeInTheDocument()
     mockCreateEmployee.isPending = false
   })
 
@@ -119,7 +119,7 @@ describe('InviteMemberDialog', () => {
       <InviteMemberDialog open={true} onOpenChange={onOpenChange} />,
     )
 
-    await user.click(screen.getByRole('button', { name: 'Abbrechen' }))
+    await user.click(screen.getByRole('button', { name: 'common.cancel' }))
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 })

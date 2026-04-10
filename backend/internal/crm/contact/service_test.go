@@ -48,7 +48,7 @@ func (m *MockRepository) Create(ctx context.Context, contact *models.Contact) er
 	return nil
 }
 
-func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Contact, error) {
+func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID, _ uuid.UUID) (*models.Contact, error) {
 	if m.getErr != nil {
 		return nil, m.getErr
 	}
@@ -59,7 +59,7 @@ func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Con
 	return contact, nil
 }
 
-func (m *MockRepository) GetByEmail(ctx context.Context, email string) (*models.Contact, error) {
+func (m *MockRepository) GetByEmail(ctx context.Context, email string, _ uuid.UUID) (*models.Contact, error) {
 	for _, c := range m.contacts {
 		if c.Email != nil && *c.Email == email {
 			return c, nil
@@ -91,7 +91,7 @@ func (m *MockRepository) List(ctx context.Context, filter ListFilter, offset, li
 	return result[offset:end], total, nil
 }
 
-func (m *MockRepository) Update(ctx context.Context, contact *models.Contact) error {
+func (m *MockRepository) Update(ctx context.Context, contact *models.Contact, _ uuid.UUID) error {
 	if m.updateErr != nil {
 		return m.updateErr
 	}
@@ -99,7 +99,7 @@ func (m *MockRepository) Update(ctx context.Context, contact *models.Contact) er
 	return nil
 }
 
-func (m *MockRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (m *MockRepository) Delete(ctx context.Context, id uuid.UUID, _ uuid.UUID) error {
 	if m.deleteErr != nil {
 		return m.deleteErr
 	}
@@ -107,7 +107,7 @@ func (m *MockRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (m *MockRepository) GetCompanyName(ctx context.Context, companyID uuid.UUID) (string, error) {
+func (m *MockRepository) GetCompanyName(ctx context.Context, companyID uuid.UUID, _ uuid.UUID) (string, error) {
 	return m.companies[companyID], nil
 }
 
@@ -127,7 +127,7 @@ func (m *MockRepository) GetCustomFieldValues(ctx context.Context, contactID uui
 	return nil, nil
 }
 
-func (m *MockRepository) GetCompanyNames(ctx context.Context, companyIDs []uuid.UUID) (map[uuid.UUID]string, error) {
+func (m *MockRepository) GetCompanyNames(ctx context.Context, companyIDs []uuid.UUID, _ uuid.UUID) (map[uuid.UUID]string, error) {
 	result := make(map[uuid.UUID]string)
 	for _, id := range companyIDs {
 		if name, ok := m.companies[id]; ok {
@@ -156,11 +156,11 @@ func (m *MockRepository) SetCustomFieldValues(ctx context.Context, contactID uui
 	return nil
 }
 
-func (m *MockRepository) IsInUse(ctx context.Context, id uuid.UUID) (bool, error) {
+func (m *MockRepository) IsInUse(ctx context.Context, id uuid.UUID, _ uuid.UUID) (bool, error) {
 	return m.inUseContacts[id], nil
 }
 
-func (m *MockRepository) CompanyExists(ctx context.Context, companyID uuid.UUID) (bool, error) {
+func (m *MockRepository) CompanyExists(ctx context.Context, companyID uuid.UUID, _ uuid.UUID) (bool, error) {
 	_, exists := m.companies[companyID]
 	return exists, nil
 }
@@ -174,7 +174,7 @@ func (m *MockRepository) ListWithVisibility(ctx context.Context, userID uuid.UUI
 	return m.List(ctx, filter, offset, limit)
 }
 
-func (m *MockRepository) ListByIDs(ctx context.Context, ids []uuid.UUID) ([]*models.Contact, error) {
+func (m *MockRepository) ListByIDs(ctx context.Context, ids []uuid.UUID, _ uuid.UUID) ([]*models.Contact, error) {
 	var result []*models.Contact
 	for _, id := range ids {
 		if c, ok := m.contacts[id]; ok {
@@ -184,7 +184,7 @@ func (m *MockRepository) ListByIDs(ctx context.Context, ids []uuid.UUID) ([]*mod
 	return result, nil
 }
 
-func (m *MockRepository) ListAll(ctx context.Context, userID uuid.UUID, isAdmin bool) ([]*models.Contact, error) {
+func (m *MockRepository) ListAll(ctx context.Context, userID uuid.UUID, isAdmin bool, _ uuid.UUID) ([]*models.Contact, error) {
 	var result []*models.Contact
 	for _, c := range m.contacts {
 		result = append(result, c)
@@ -192,7 +192,7 @@ func (m *MockRepository) ListAll(ctx context.Context, userID uuid.UUID, isAdmin 
 	return result, nil
 }
 
-func (m *MockRepository) UpdateVisibility(ctx context.Context, contactID uuid.UUID, visibility string, ownerID *uuid.UUID) error {
+func (m *MockRepository) UpdateVisibility(ctx context.Context, contactID uuid.UUID, visibility string, ownerID *uuid.UUID, _ uuid.UUID) error {
 	if c, ok := m.contacts[contactID]; ok {
 		c.Visibility = visibility
 		c.OwnerID = ownerID
@@ -213,11 +213,11 @@ func (m *MockRepository) SetInUse(contactID uuid.UUID, inUse bool) {
 	m.inUseContacts[contactID] = inUse
 }
 
-func (m *MockRepository) FindDuplicateCandidates(_ context.Context, _ uuid.UUID) ([]*DuplicateCandidate, error) {
+func (m *MockRepository) FindDuplicateCandidates(_ context.Context, _, _ uuid.UUID) ([]*DuplicateCandidate, error) {
 	return nil, nil
 }
 
-func (m *MockRepository) MergeInto(_ context.Context, _, _ uuid.UUID) error {
+func (m *MockRepository) MergeInto(_ context.Context, _, _, _ uuid.UUID) error {
 	return nil
 }
 
