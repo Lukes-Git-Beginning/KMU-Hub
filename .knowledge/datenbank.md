@@ -1,14 +1,15 @@
 ---
-tags: [datenbank, schema, migrations]
-updated: 2026-04-09
+tags: [datenbank, schema, migrations, ai-first]
+updated: 2026-04-18
 ---
 # Datenbank
 
 ## Überblick
 - PostgreSQL 16 + Redis 7 (nur Cache, KEIN Dual-Write)
 - Änderungen NUR via golang-migrate (`make migrate-create name=xxx`)
-- 70 Migration-Paare in `backend/migrations/`
+- 74 Migration-Paare in `backend/migrations/`
 - Index-Konvention: `idx_{table}_{column}`
+- **AI-First-Foundation** seit Migration 071 (siehe Abschnitt unten)
 
 ## Tabellen nach Domain
 
@@ -134,6 +135,36 @@ updated: 2026-04-09
 - MaxConns: 10 pro Service (10×10=100, passend zu PG max_connections=150)
 - MinConns: 2, MaxConnLifetime: 1h, MaxConnIdleTime: 30m, HealthCheckPeriod: 1m
 - PG Tuning (docker-compose.prod.yml): shared_buffers=4GB, effective_cache_size=12GB, work_mem=64MB, maintenance_work_mem=512MB
+
+## AI-First-DB Foundation (Migrations 071–074, 2026-04-18)
+
+Pragmatische Minimal-Version der "AI-First-DB"-Patterns — bewusst ohne Vendor-Lock-in.
+
+### Migration 071 — Schema-Selbstbeschreibung via `COMMENT ON`
+- Top-10-Tabellen kommentiert: `users`, `companies`, `contacts`, `deals`, `activities`, `projects`, `tasks`, `meetings`, `calendar_events`, `dialer_campaigns`
+- Kommentare beschreiben: Zweck, Lifecycle, Enum-Semantik, non-obvious Relations
+- Abrufbar via `obj_description()` / `col_description()` für MCP-Agenten und DBeaver
+- **Konvention ab jetzt:** Jede neue Tabelle bekommt `COMMENT ON TABLE` + zentrale Spalten als Teil der `.up.sql`
+
+### Migration 072/073 — pgvector auf contacts
+- `CREATE EXTENSION vector` (Migration 072)
+- `contacts.search_text` = GENERATED ALWAYS (first_name + last_name + email + phone + position + notes)
+- `contacts.embedding vector(1536)` + `embedding_updated_at`
+- HNSW-Index `idx_contacts_embedding` (m=16, ef_construction=64, cosine)
+- Kein Backfill-Worker im Scope — Provider-Entscheidung (OpenAI vs EU-lokal) erst nach ZFA-Launch
+
+### Migration 074 — Agent-Read-Only-Rolle
+- `cosmi_agent_readonly` mit `SELECT` auf alle Tabellen (inkl. Default Privileges für neue Tabellen)
+- Passwort out-of-band (Deploy-Script / Secrets-Manager), nicht in Git
+- Zielgruppe: MCP-Server, die Schema-Introspection und Read-Queries für Agenten anbieten
+
+### Vertagt (bewusst nicht im M1-Scope)
+- **Embedding-Backfill-Worker** — eigener Sprint nach Provider-Entscheidung (EU vs OpenAI, DSGVO-Implikationen)
+- **Hybrid Search (BM25 + Vector + RRF)** — erst wenn Use-Case konkret (z.B. Kunde fragt nach "Kontakten mit Budget-Bedenken")
+- **ParadeDB `pg_search`, `pgai`, `pgvectorscale`** — Vendor-Lock + zusätzliche Failure-Domain
+- **Agent-Memory-Tabellen** (`agent_conversations`, `agent_memories`, `agent_tool_calls`) — keine konkrete Agent-Anwendung in Cosmi geplant
+- **Semantic Catalog YAML** — YAGNI für Single-Tenant-Stage, `COMMENT ON` reicht
+- **Spalten-Rename für Naturalness (SNAILS)** — Breaking Change, warten bis nach Multi-Tenancy-Migration (Phase 3)
 
 ## Verwandte Notes
 - [[architektur]] — Service-Architektur, Performance-Patterns
