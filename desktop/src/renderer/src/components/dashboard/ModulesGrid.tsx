@@ -5,11 +5,22 @@ import {
   ChevronDown,
   Minimize2,
   Maximize2,
+  Settings2,
+  Lock,
+  Info,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/cn'
-import { isModuleAllowedForProfile } from '@/config/business-profiles'
+import { isModuleAllowedForProfile, getProfileById } from '@/config/business-profiles'
 import { useProfileStore } from '@/stores/profile'
 import { navItems, moduleHsl, moduleHslBg } from '@/components/layout/sidebar/nav-items'
 
@@ -59,9 +70,12 @@ function getModuleIcon(id: string) {
 export function ModulesGrid() {
   const { t } = useTranslation()
   const [viewState, setViewState] = useState<ViewState>('full')
+  const [manageOpen, setManageOpen] = useState(false)
   const businessProfileId = useProfileStore((s) => s.businessProfileId)
   const devShowAll = useProfileStore((s) => s.devShowAllModules)
   const enabledOptionals = useProfileStore((s) => s.enabledOptionalModules)
+  const enableModule = useProfileStore((s) => s.enableModule)
+  const disableModule = useProfileStore((s) => s.disableModule)
 
   const filteredModules = ALL_MODULES.filter((mod) => {
     if (devShowAll) return true
@@ -109,7 +123,13 @@ export function ModulesGrid() {
           </div>
 
           {viewState !== 'minimized' && (
-            <span className="text-sm text-primary">{t('dashboard.modules.manage')}</span>
+            <button
+              onClick={() => setManageOpen(true)}
+              className="flex items-center gap-1.5 text-sm text-primary transition-colors hover:text-primary/80"
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+              {t('dashboard.modules.manage')}
+            </button>
           )}
         </div>
       </div>
@@ -129,7 +149,6 @@ export function ModulesGrid() {
                 className={cn(
                   'group relative rounded-xl border border-border bg-card p-6 transition-all hover:shadow-lg hover:-translate-y-0.5',
                   !mod.isActive && 'opacity-75',
-                  i === 0 && 'lg:col-span-2 lg:flex lg:items-center lg:gap-6',
                   `animate-scale-in stagger-${Math.min(i + 1, 8)}`,
                 )}
               >
@@ -175,6 +194,124 @@ export function ModulesGrid() {
           })}
         </div>
       )}
+      <ManageModulesDialog
+        open={manageOpen}
+        onOpenChange={setManageOpen}
+        businessProfileId={businessProfileId}
+        enabledOptionals={enabledOptionals}
+        onEnable={enableModule}
+        onDisable={disableModule}
+      />
     </div>
+  )
+}
+
+function ManageModulesDialog({
+  open,
+  onOpenChange,
+  businessProfileId,
+  enabledOptionals,
+  onEnable,
+  onDisable,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  businessProfileId: string | null
+  enabledOptionals: string[]
+  onEnable: (id: string) => void
+  onDisable: (id: string) => void
+}) {
+  const { t } = useTranslation()
+  const profile = businessProfileId ? getProfileById(businessProfileId as Parameters<typeof getProfileById>[0]) : null
+
+  const coreModules = profile
+    ? ALL_MODULES.filter((m) => profile.defaultModules.includes(m.id))
+    : ALL_MODULES
+  const optionalModules = profile
+    ? ALL_MODULES.filter((m) => profile.optionalModules.includes(m.id))
+    : []
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t('dashboard.modules.manage')}</DialogTitle>
+          <DialogDescription>{t('dashboard.modules.manage.description')}</DialogDescription>
+        </DialogHeader>
+
+        {!profile ? (
+          <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/50 p-4">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div>
+              <p className="text-sm font-medium text-foreground">{t('dashboard.modules.manage.allVisible')}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t('dashboard.modules.manage.allVisibleHint')}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <div>
+              <h4 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <Lock className="h-3 w-3" />
+                {t('dashboard.modules.manage.core')}
+              </h4>
+              <div className="space-y-1">
+                {coreModules.map((mod) => {
+                  const Icon = getModuleIcon(mod.id)
+                  if (!Icon) return null
+                  return (
+                    <div key={mod.id} className="flex items-center justify-between rounded-lg px-3 py-2.5">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="flex h-8 w-8 items-center justify-center rounded-lg"
+                          style={{ backgroundColor: moduleHslBg(mod.id) }}
+                        >
+                          <Icon className="h-4 w-4" style={{ color: moduleHsl(mod.id) }} />
+                        </div>
+                        <span className="text-sm text-foreground">{t(mod.nameKey)}</span>
+                      </div>
+                      <Switch checked disabled />
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {optionalModules.length > 0 && (
+              <div>
+                <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {t('dashboard.modules.manage.optional')}
+                </h4>
+                <div className="space-y-1">
+                  {optionalModules.map((mod) => {
+                    const Icon = getModuleIcon(mod.id)
+                    if (!Icon) return null
+                    const isEnabled = enabledOptionals.includes(mod.id)
+                    return (
+                      <div key={mod.id} className="flex items-center justify-between rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/50">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="flex h-8 w-8 items-center justify-center rounded-lg"
+                            style={{ backgroundColor: moduleHslBg(mod.id) }}
+                          >
+                            <Icon className="h-4 w-4" style={{ color: moduleHsl(mod.id) }} />
+                          </div>
+                          <span className="text-sm text-foreground">{t(mod.nameKey)}</span>
+                        </div>
+                        <Switch
+                          checked={isEnabled}
+                          onCheckedChange={(checked) =>
+                            checked ? onEnable(mod.id) : onDisable(mod.id)
+                          }
+                        />
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }

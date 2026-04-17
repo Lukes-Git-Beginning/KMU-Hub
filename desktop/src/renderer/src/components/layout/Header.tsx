@@ -31,7 +31,7 @@ export function Header() {
   useNotificationWebSocket()
 
   return (
-    <header data-tour="header" className="relative z-20 flex h-[64px] items-center border-b border-header-border bg-header-background px-[16px] md:px-[24px] glass-surface">
+    <header data-tour="header" className="relative z-20 flex h-[72px] items-center border-b border-header-border bg-header-background px-[16px] md:px-[24px] glass-surface">
       {/* Left: demo badge + mobile menu + search + clock */}
       <div className="flex shrink-0 items-center gap-[12px] md:gap-[16px]">
         {DEMO_MODE && (
@@ -64,7 +64,7 @@ export function Header() {
       </div>
 
       {/* Right: controls */}
-      <div className="flex shrink-0 min-w-0 items-center gap-[4px] md:gap-[8px]">
+      <div className="flex shrink-0 min-w-0 items-center gap-[8px] md:gap-[12px]">
         {/* Unified Time Tracker (clock-in + task tracking) */}
         <div className="hidden lg:block">
           <TimeTrackerWidget />

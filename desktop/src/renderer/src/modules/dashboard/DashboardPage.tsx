@@ -76,28 +76,23 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="animate-fade-up stagger-1">
-          <QuickActionsBar />
-        </div>
-
         {/* Alerts */}
-        <div className="animate-fade-up stagger-2">
+        <div className="animate-fade-up stagger-1">
           <AlertsSection />
         </div>
 
         {/* Profile Widget Suggestions */}
-        <div className="animate-fade-up stagger-3">
+        <div className="animate-fade-up stagger-2">
           <ProfileWidgetSuggestions />
         </div>
 
         {/* Modules Grid */}
-        <div className="animate-fade-up stagger-4">
+        <div className="animate-fade-up stagger-3">
           <ModulesGrid />
         </div>
 
         {/* Widget Grid */}
-        <div className="mb-8 animate-fade-up stagger-5">
+        <div className="mb-8 animate-fade-up stagger-4">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">
               {t('dashboard.widgets.title')}
@@ -107,6 +102,9 @@ export default function DashboardPage() {
                 {t('dashboard.widgets.editHint')}
               </p>
             )}
+          </div>
+          <div className="mb-6">
+            <QuickActionsBar />
           </div>
           <WidgetContainer />
         </div>

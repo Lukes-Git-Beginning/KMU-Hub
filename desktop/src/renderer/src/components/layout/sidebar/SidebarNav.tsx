@@ -79,8 +79,10 @@ function NavItem({
           {!collapsed && (
             <span
               className={cn(
-                'text-sm leading-tight truncate',
-                isActive ? 'font-semibold' : 'font-medium'
+                'flex-1 min-w-0 text-sm leading-tight truncate',
+                isActive
+                  ? 'font-semibold text-sidebar-foreground'
+                  : 'font-medium text-sidebar-muted'
               )}
             >
               {item.label}
