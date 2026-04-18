@@ -1,0 +1,622 @@
+package helpdesk
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+// Service is the thick service layer for the Cosmi Helpdesk module. All
+// business logic lives here; handlers only parse requests and format responses.
+type Service struct {
+	repo Repository
+	log  *slog.Logger
+}
+
+// NewService creates a Service wired to the given Repository and logger.
+func NewService(repo Repository, log *slog.Logger) *Service {
+	return &Service{repo: repo, log: log}
+}
+
+// ---------------------------------------------------------------------------
+// Ticket lifecycle
+// ---------------------------------------------------------------------------
+
+// CreateTicket creates a new open ticket.
+func (s *Service) CreateTicket(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	requesterID uuid.UUID,
+	subject string,
+	priority string,
+	assigneeID *uuid.UUID,
+	queueID *uuid.UUID,
+) (*Ticket, error) {
+	if subject == "" {
+		return nil, fmt.Errorf("subject must not be empty")
+	}
+	if priority == "" {
+		priority = TicketPriorityNormal
+	}
+	if !ValidTicketPriorities[priority] {
+		return nil, ErrInvalidPriority
+	}
+
+	now := time.Now().UTC()
+	t := &Ticket{
+		ID:          uuid.New(),
+		TenantID:    tenantID,
+		Subject:     subject,
+		Status:      TicketStatusOpen,
+		Priority:    priority,
+		AssigneeID:  assigneeID,
+		RequesterID: requesterID,
+		QueueID:     queueID,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+
+	if err := s.repo.CreateTicket(ctx, t); err != nil {
+		return nil, fmt.Errorf("create ticket: %w", err)
+	}
+
+	s.log.InfoContext(ctx, "helpdesk: ticket created",
+		"ticket_id", t.ID,
+		"tenant_id", tenantID,
+		"requester_id", requesterID,
+	)
+
+	return t, nil
+}
+
+// GetTicket retrieves a ticket by ID.
+func (s *Service) GetTicket(ctx context.Context, id uuid.UUID) (*Ticket, error) {
+	t, err := s.repo.GetTicketByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("get ticket: %w", err)
+	}
+	return t, nil
+}
+
+// ListTickets returns a paginated list of tickets for a tenant.
+func (s *Service) ListTickets(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	statusFilter *string,
+	page, pageSize int,
+) ([]*Ticket, int, error) {
+	if statusFilter != nil && !ValidTicketStatuses[*statusFilter] {
+		return nil, 0, ErrInvalidStatus
+	}
+	tickets, total, err := s.repo.ListTickets(ctx, tenantID, statusFilter, page, pageSize)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list tickets: %w", err)
+	}
+	return tickets, total, nil
+}
+
+// UpdateTicket applies field-level patches to a ticket.
+func (s *Service) UpdateTicket(
+	ctx context.Context,
+	id uuid.UUID,
+	subject *string,
+	priority *string,
+	assigneeID *uuid.UUID,
+	queueID *uuid.UUID,
+) (*Ticket, error) {
+	t, err := s.repo.GetTicketByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("update ticket – load: %w", err)
+	}
+
+	if subject != nil {
+		if *subject == "" {
+			return nil, fmt.Errorf("subject must not be empty")
+		}
+		t.Subject = *subject
+	}
+	if priority != nil {
+		if !ValidTicketPriorities[*priority] {
+			return nil, ErrInvalidPriority
+		}
+		t.Priority = *priority
+	}
+	if assigneeID != nil {
+		t.AssigneeID = assigneeID
+	}
+	if queueID != nil {
+		t.QueueID = queueID
+	}
+	t.UpdatedAt = time.Now().UTC()
+
+	if err := s.repo.UpdateTicket(ctx, t); err != nil {
+		return nil, fmt.Errorf("update ticket: %w", err)
+	}
+
+	s.log.InfoContext(ctx, "helpdesk: ticket updated", "ticket_id", id)
+	return t, nil
+}
+
+// CloseTicket transitions a ticket to closed status.
+func (s *Service) CloseTicket(ctx context.Context, id uuid.UUID) (*Ticket, error) {
+	t, err := s.repo.GetTicketByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("close ticket – load: %w", err)
+	}
+
+	now := time.Now().UTC()
+	t.Status = TicketStatusClosed
+	t.ResolvedAt = &now
+	t.UpdatedAt = now
+
+	if err := s.repo.UpdateTicket(ctx, t); err != nil {
+		return nil, fmt.Errorf("close ticket: %w", err)
+	}
+
+	s.log.InfoContext(ctx, "helpdesk: ticket closed", "ticket_id", id)
+	return t, nil
+}
+
+// ReopenTicket transitions a closed or solved ticket back to open.
+func (s *Service) ReopenTicket(ctx context.Context, id uuid.UUID) (*Ticket, error) {
+	t, err := s.repo.GetTicketByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("reopen ticket – load: %w", err)
+	}
+
+	if t.Status != TicketStatusClosed && t.Status != TicketStatusSolved {
+		return nil, fmt.Errorf("reopen ticket: only closed or solved tickets can be reopened")
+	}
+
+	t.Status = TicketStatusOpen
+	t.ResolvedAt = nil
+	t.UpdatedAt = time.Now().UTC()
+
+	if err := s.repo.UpdateTicket(ctx, t); err != nil {
+		return nil, fmt.Errorf("reopen ticket: %w", err)
+	}
+
+	s.log.InfoContext(ctx, "helpdesk: ticket reopened", "ticket_id", id)
+	return t, nil
+}
+
+// AssignTicket sets the assignee on a ticket.
+func (s *Service) AssignTicket(ctx context.Context, ticketID, assigneeID uuid.UUID) (*Ticket, error) {
+	t, err := s.repo.GetTicketByID(ctx, ticketID)
+	if err != nil {
+		return nil, fmt.Errorf("assign ticket – load: %w", err)
+	}
+
+	t.AssigneeID = &assigneeID
+	t.UpdatedAt = time.Now().UTC()
+
+	if err := s.repo.UpdateTicket(ctx, t); err != nil {
+		return nil, fmt.Errorf("assign ticket: %w", err)
+	}
+
+	s.log.InfoContext(ctx, "helpdesk: ticket assigned",
+		"ticket_id", ticketID,
+		"assignee_id", assigneeID,
+	)
+	return t, nil
+}
+
+// MergeTickets merges sourceID into targetID via the merge package logic.
+func (s *Service) MergeTickets(ctx context.Context, sourceID, targetID uuid.UUID) error {
+	if err := MergeTickets(ctx, s.repo, sourceID, targetID); err != nil {
+		return fmt.Errorf("merge tickets: %w", err)
+	}
+
+	s.log.InfoContext(ctx, "helpdesk: tickets merged",
+		"source_id", sourceID,
+		"target_id", targetID,
+	)
+	return nil
+}
+
+// ---------------------------------------------------------------------------
+// Messages
+// ---------------------------------------------------------------------------
+
+// AddMessage appends a reply or internal note to a ticket. Sets
+// first_response_at on the ticket if this is the first non-internal message.
+func (s *Service) AddMessage(
+	ctx context.Context,
+	ticketID uuid.UUID,
+	authorID uuid.UUID,
+	body string,
+	internal bool,
+	attachments []string,
+) (*TicketMessage, error) {
+	if body == "" {
+		return nil, fmt.Errorf("message body must not be empty")
+	}
+
+	ticket, err := s.repo.GetTicketByID(ctx, ticketID)
+	if err != nil {
+		return nil, fmt.Errorf("add message – load ticket: %w", err)
+	}
+
+	now := time.Now().UTC()
+	if attachments == nil {
+		attachments = []string{}
+	}
+
+	m := &TicketMessage{
+		ID:          uuid.New(),
+		TicketID:    ticketID,
+		AuthorID:    authorID,
+		Body:        body,
+		Internal:    internal,
+		Attachments: attachments,
+		CreatedAt:   now,
+	}
+
+	if err := s.repo.CreateMessage(ctx, m); err != nil {
+		return nil, fmt.Errorf("add message: %w", err)
+	}
+
+	// Mark first response timestamp on the ticket if this is the first public reply.
+	if !internal && ticket.FirstResponseAt == nil {
+		ticket.FirstResponseAt = &now
+		ticket.UpdatedAt = now
+		if err := s.repo.UpdateTicket(ctx, ticket); err != nil {
+			s.log.WarnContext(ctx, "helpdesk: set first_response_at failed",
+				"ticket_id", ticketID,
+				"error", err,
+			)
+		}
+	}
+
+	s.log.InfoContext(ctx, "helpdesk: message added",
+		"ticket_id", ticketID,
+		"message_id", m.ID,
+		"internal", internal,
+	)
+
+	return m, nil
+}
+
+// ListMessages returns all messages for a ticket ordered by created_at ASC.
+func (s *Service) ListMessages(ctx context.Context, ticketID uuid.UUID) ([]*TicketMessage, error) {
+	messages, err := s.repo.ListMessagesByTicket(ctx, ticketID)
+	if err != nil {
+		return nil, fmt.Errorf("list messages: %w", err)
+	}
+	return messages, nil
+}
+
+// ---------------------------------------------------------------------------
+// Queue management
+// ---------------------------------------------------------------------------
+
+// CreateQueue creates a new ticket queue for a tenant.
+func (s *Service) CreateQueue(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	name string,
+	defaultAssigneeID *uuid.UUID,
+	slaPolicyID *uuid.UUID,
+) (*TicketQueue, error) {
+	if name == "" {
+		return nil, fmt.Errorf("queue name must not be empty")
+	}
+
+	now := time.Now().UTC()
+	q := &TicketQueue{
+		ID:                uuid.New(),
+		TenantID:          tenantID,
+		Name:              name,
+		DefaultAssigneeID: defaultAssigneeID,
+		SLAPolicyID:       slaPolicyID,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	}
+
+	if err := s.repo.CreateQueue(ctx, q); err != nil {
+		return nil, fmt.Errorf("create queue: %w", err)
+	}
+
+	s.log.InfoContext(ctx, "helpdesk: queue created",
+		"queue_id", q.ID,
+		"tenant_id", tenantID,
+		"name", name,
+	)
+
+	return q, nil
+}
+
+// UpdateQueue applies field patches to a queue.
+func (s *Service) UpdateQueue(
+	ctx context.Context,
+	id uuid.UUID,
+	name *string,
+	defaultAssigneeID *uuid.UUID,
+	slaPolicyID *uuid.UUID,
+) (*TicketQueue, error) {
+	q, err := s.repo.GetQueueByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("update queue – load: %w", err)
+	}
+
+	if name != nil {
+		if *name == "" {
+			return nil, fmt.Errorf("queue name must not be empty")
+		}
+		q.Name = *name
+	}
+	if defaultAssigneeID != nil {
+		q.DefaultAssigneeID = defaultAssigneeID
+	}
+	if slaPolicyID != nil {
+		q.SLAPolicyID = slaPolicyID
+	}
+	q.UpdatedAt = time.Now().UTC()
+
+	if err := s.repo.UpdateQueue(ctx, q); err != nil {
+		return nil, fmt.Errorf("update queue: %w", err)
+	}
+
+	s.log.InfoContext(ctx, "helpdesk: queue updated", "queue_id", id)
+	return q, nil
+}
+
+// ListQueues returns all queues for a tenant.
+func (s *Service) ListQueues(ctx context.Context, tenantID uuid.UUID) ([]*TicketQueue, error) {
+	queues, err := s.repo.ListQueues(ctx, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("list queues: %w", err)
+	}
+	return queues, nil
+}
+
+// DeleteQueue removes a queue.
+func (s *Service) DeleteQueue(ctx context.Context, id uuid.UUID) error {
+	if err := s.repo.DeleteQueue(ctx, id); err != nil {
+		return fmt.Errorf("delete queue: %w", err)
+	}
+	s.log.InfoContext(ctx, "helpdesk: queue deleted", "queue_id", id)
+	return nil
+}
+
+// ---------------------------------------------------------------------------
+// Canned responses
+// ---------------------------------------------------------------------------
+
+// CreateCannedResponse creates a new reply template.
+func (s *Service) CreateCannedResponse(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	name, body string,
+) (*CannedResponse, error) {
+	if name == "" {
+		return nil, fmt.Errorf("canned response name must not be empty")
+	}
+	if body == "" {
+		return nil, fmt.Errorf("canned response body must not be empty")
+	}
+
+	now := time.Now().UTC()
+	cr := &CannedResponse{
+		ID:        uuid.New(),
+		TenantID:  tenantID,
+		Name:      name,
+		Body:      body,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	if err := s.repo.CreateCannedResponse(ctx, cr); err != nil {
+		return nil, fmt.Errorf("create canned response: %w", err)
+	}
+
+	s.log.InfoContext(ctx, "helpdesk: canned response created",
+		"canned_response_id", cr.ID,
+		"tenant_id", tenantID,
+	)
+
+	return cr, nil
+}
+
+// UpdateCannedResponse patches name/body of a canned response.
+func (s *Service) UpdateCannedResponse(
+	ctx context.Context,
+	id uuid.UUID,
+	name *string,
+	body *string,
+) (*CannedResponse, error) {
+	cr, err := s.repo.GetCannedResponseByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("update canned response – load: %w", err)
+	}
+
+	if name != nil {
+		if *name == "" {
+			return nil, fmt.Errorf("canned response name must not be empty")
+		}
+		cr.Name = *name
+	}
+	if body != nil {
+		if *body == "" {
+			return nil, fmt.Errorf("canned response body must not be empty")
+		}
+		cr.Body = *body
+	}
+	cr.UpdatedAt = time.Now().UTC()
+
+	if err := s.repo.UpdateCannedResponse(ctx, cr); err != nil {
+		return nil, fmt.Errorf("update canned response: %w", err)
+	}
+
+	s.log.InfoContext(ctx, "helpdesk: canned response updated", "canned_response_id", id)
+	return cr, nil
+}
+
+// DeleteCannedResponse removes a canned response template.
+func (s *Service) DeleteCannedResponse(ctx context.Context, id uuid.UUID) error {
+	if err := s.repo.DeleteCannedResponse(ctx, id); err != nil {
+		return fmt.Errorf("delete canned response: %w", err)
+	}
+	s.log.InfoContext(ctx, "helpdesk: canned response deleted", "canned_response_id", id)
+	return nil
+}
+
+// ListCannedResponses returns all canned responses for a tenant.
+func (s *Service) ListCannedResponses(ctx context.Context, tenantID uuid.UUID) ([]*CannedResponse, error) {
+	list, err := s.repo.ListCannedResponses(ctx, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("list canned responses: %w", err)
+	}
+	return list, nil
+}
+
+// ---------------------------------------------------------------------------
+// SLA policies
+// ---------------------------------------------------------------------------
+
+// CreateSLAPolicy creates a new SLA policy for a tenant.
+func (s *Service) CreateSLAPolicy(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	name string,
+	firstResponseMins, resolutionMins int,
+	businessHours map[string]any,
+) (*SLAPolicy, error) {
+	if name == "" {
+		return nil, fmt.Errorf("sla policy name must not be empty")
+	}
+	if firstResponseMins <= 0 {
+		return nil, fmt.Errorf("first_response_mins must be positive")
+	}
+	if resolutionMins <= 0 {
+		return nil, fmt.Errorf("resolution_mins must be positive")
+	}
+
+	now := time.Now().UTC()
+	p := &SLAPolicy{
+		ID:                uuid.New(),
+		TenantID:          tenantID,
+		Name:              name,
+		FirstResponseMins: firstResponseMins,
+		ResolutionMins:    resolutionMins,
+		BusinessHours:     businessHours,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	}
+
+	if err := s.repo.CreateSLAPolicy(ctx, p); err != nil {
+		return nil, fmt.Errorf("create sla policy: %w", err)
+	}
+
+	s.log.InfoContext(ctx, "helpdesk: sla policy created",
+		"policy_id", p.ID,
+		"tenant_id", tenantID,
+		"name", name,
+	)
+
+	return p, nil
+}
+
+// UpdateSLAPolicy applies patches to an existing SLA policy.
+func (s *Service) UpdateSLAPolicy(
+	ctx context.Context,
+	id uuid.UUID,
+	name *string,
+	firstResponseMins *int,
+	resolutionMins *int,
+	businessHours map[string]any,
+) (*SLAPolicy, error) {
+	p, err := s.repo.GetSLAPolicyByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("update sla policy – load: %w", err)
+	}
+
+	if name != nil {
+		if *name == "" {
+			return nil, fmt.Errorf("sla policy name must not be empty")
+		}
+		p.Name = *name
+	}
+	if firstResponseMins != nil {
+		if *firstResponseMins <= 0 {
+			return nil, fmt.Errorf("first_response_mins must be positive")
+		}
+		p.FirstResponseMins = *firstResponseMins
+	}
+	if resolutionMins != nil {
+		if *resolutionMins <= 0 {
+			return nil, fmt.Errorf("resolution_mins must be positive")
+		}
+		p.ResolutionMins = *resolutionMins
+	}
+	if businessHours != nil {
+		p.BusinessHours = businessHours
+	}
+	p.UpdatedAt = time.Now().UTC()
+
+	if err := s.repo.UpdateSLAPolicy(ctx, p); err != nil {
+		return nil, fmt.Errorf("update sla policy: %w", err)
+	}
+
+	s.log.InfoContext(ctx, "helpdesk: sla policy updated", "policy_id", id)
+	return p, nil
+}
+
+// ListSLAPolicies returns all SLA policies for a tenant.
+func (s *Service) ListSLAPolicies(ctx context.Context, tenantID uuid.UUID) ([]*SLAPolicy, error) {
+	policies, err := s.repo.ListSLAPolicies(ctx, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("list sla policies: %w", err)
+	}
+	return policies, nil
+}
+
+// ApplySLAPolicy assigns a policy to a ticket and recalculates due_at.
+func (s *Service) ApplySLAPolicy(ctx context.Context, ticketID, policyID uuid.UUID) (*Ticket, error) {
+	ticket, err := s.repo.GetTicketByID(ctx, ticketID)
+	if err != nil {
+		return nil, fmt.Errorf("apply sla policy – load ticket: %w", err)
+	}
+
+	policy, err := s.repo.GetSLAPolicyByID(ctx, policyID)
+	if err != nil {
+		return nil, fmt.Errorf("apply sla policy – load policy: %w", err)
+	}
+
+	now := time.Now().UTC()
+	ticket = ApplyPolicy(ticket, policy, now)
+	ticket.UpdatedAt = now
+
+	if err := s.repo.UpdateTicket(ctx, ticket); err != nil {
+		return nil, fmt.Errorf("apply sla policy – update ticket: %w", err)
+	}
+
+	s.log.InfoContext(ctx, "helpdesk: sla policy applied",
+		"ticket_id", ticketID,
+		"policy_id", policyID,
+		"due_at", ticket.DueAt,
+	)
+
+	return ticket, nil
+}
+
+// GetSLAStatus computes the current SLA health of a ticket.
+func (s *Service) GetSLAStatus(ctx context.Context, ticketID uuid.UUID, policyID *uuid.UUID) (SLAStatus, error) {
+	ticket, err := s.repo.GetTicketByID(ctx, ticketID)
+	if err != nil {
+		return "", fmt.Errorf("get sla status – load ticket: %w", err)
+	}
+
+	var policy *SLAPolicy
+	if policyID != nil {
+		policy, err = s.repo.GetSLAPolicyByID(ctx, *policyID)
+		if err != nil {
+			return "", fmt.Errorf("get sla status – load policy: %w", err)
+		}
+	}
+
+	return ComputeStatus(ticket, policy, time.Now().UTC()), nil
+}
