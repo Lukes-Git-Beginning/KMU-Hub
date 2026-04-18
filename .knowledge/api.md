@@ -36,6 +36,8 @@ updated: 2026-04-18
 | CalDAV/CardDAV | `/caldav/…`, `/carddav/…` | go-webdav Proxy, App-Passwords |
 | WOPI | `/api/v1/wopi/…` | Document Lock/Unlock, CheckFileInfo (OnlyOffice) |
 | Dialer | `/api/v1/dialer/…` | Campaigns, Calls, Agent Status, Outcomes, Dashboards (25 Endpoints) |
+| Wiki | `/api/v1/wiki/articles`, `/versions`, `/attachments`, `/categories`, `/search` | 14 Endpoints, Postgres-FTS (tsvector+GIN, deutsch), hinter `modules.wiki`-Flag |
+| Helpdesk | `/api/v1/helpdesk/tickets`, `/messages`, `/queues`, `/canned-responses`, `/sla-policies` | 22 Endpoints, SLA-Engine + Ticket-Merge, hinter `modules.helpdesk`-Flag |
 | Feature Flags | `/api/v1/feature-flags` | Resolver-Output (16 Flags: 14 Modul-Flags + `plugins.wasm`/`plugins.config`), auth-required |
 | Integration Config | `/api/v1/integrations/configs` | Teams/Slack Webhooks + OAuth |
 | Registrar | (intern) | Service-Registrierung im Gateway |

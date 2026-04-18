@@ -10,6 +10,7 @@ updated: 2026-04-18
 - **Alle 20 Feature-Phasen abgeschlossen** (103/103 Plans)
 - **Branding:** "Cosmi" (Software), "Zentria" (Firma), zentria.tech
 - **Sprint 1 (startet 2026-04-28):** 7 Module (wiki, berichte, formulare, helpdesk, vertraege, buchhaltung-Completion, video-Completion) + R2-P0 Batch A (TURN self-hosted, LiveKit-Secrets, Recording-Consent, Egress-Webhook, Lexware-HMAC)
+- **Sprint 1 Welle 1–4 (2026-04-18):** ✅ R2-P0 Batch A komplett (LiveKit-Secrets-Assertion, Egress-Webhook, Lexware-HMAC, Recording-Consent, coturn-Prep flag-off), ✅ Wiki-Modul (15 RPCs, FTS) + Helpdesk-Modul (22 RPCs, SLA + Merge) end-to-end (Migration + Domain + Proto + gRPC + Gateway-Route + FE-Client/Hooks + Dockerfile + docker-compose)
 - **Feature-Flag-Registry:** ✅ Live (16 Flags), siehe [[architektur]]
 - **Consent-Enforcement:** ✅ Vor SendEmail + DialerCall aktiv, siehe [[security]]
 - **WASM-Plugin-System:** Feature-Flag OFF bis Phase D + Build-Tag `no_wasm`, siehe [[integrationen]]

@@ -7,7 +7,7 @@ updated: 2026-04-18
 ## Überblick
 - PostgreSQL 16 + Redis 7 (nur Cache, KEIN Dual-Write)
 - Änderungen NUR via golang-migrate (`make migrate-create name=xxx`)
-- 75 Migration-Paare in `backend/migrations/`
+- 77 Migration-Paare in `backend/migrations/` (Sprint 1 Welle 2: 076 wiki, 077 helpdesk)
 - Index-Konvention: `idx_{table}_{column}`
 - **AI-First-Foundation** seit Migration 071 (siehe Abschnitt unten)
 
