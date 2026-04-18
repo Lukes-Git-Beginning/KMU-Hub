@@ -11,6 +11,7 @@ updated: 2026-04-18
 - **Branding:** "Cosmi" (Software), "Zentria" (Firma), zentria.tech
 - **Sprint 1 (startet 2026-04-28):** 7 Module (wiki, berichte, formulare, helpdesk, vertraege, buchhaltung-Completion, video-Completion) + R2-P0 Batch A (TURN self-hosted, LiveKit-Secrets, Recording-Consent, Egress-Webhook, Lexware-HMAC)
 - **Sprint 1 Welle 1–4 (2026-04-18):** ✅ R2-P0 Batch A komplett (LiveKit-Secrets-Assertion, Egress-Webhook, Lexware-HMAC, Recording-Consent, coturn-Prep flag-off), ✅ Wiki-Modul (15 RPCs, FTS) + Helpdesk-Modul (22 RPCs, SLA + Merge) end-to-end (Migration + Domain + Proto + gRPC + Gateway-Route + FE-Client/Hooks + Dockerfile + docker-compose)
+- **Sprint 1 Welle 5 (2026-04-18) — berichte Backend-Kern:** ✅ Migration 000079 (4 Tabellen + 8 System-Seeds), Proto 14 RPCs, `backend/internal/berichte/` Service-Layer (52.4% Cov), `executor/` mit 8 kind-handlers + DashboardKPIs (92.1% Cov), `scheduler/` mit cron-dispatch + atomic claim + nil-tolerant Exporter/Mailer (91.5% Cov). Offen: Exporter (PDF/CSV/XLSX), gRPC-Server, Gateway-Routes, Docker, Recharts-Page-Migration.
 - **Feature-Flag-Registry:** ✅ Live (16 Flags), siehe [[architektur]]
 - **Consent-Enforcement:** ✅ Vor SendEmail + DialerCall aktiv, siehe [[security]]
 - **WASM-Plugin-System:** Feature-Flag OFF bis Phase D + Build-Tag `no_wasm`, siehe [[integrationen]]

@@ -7,7 +7,7 @@ updated: 2026-04-18
 ## Überblick
 - PostgreSQL 16 + Redis 7 (nur Cache, KEIN Dual-Write)
 - Änderungen NUR via golang-migrate (`make migrate-create name=xxx`)
-- 77 Migration-Paare in `backend/migrations/` (Sprint 1 Welle 2: 076 wiki, 077 helpdesk)
+- 79 Migration-Paare in `backend/migrations/` (Sprint 1 Welle 2: 076 wiki, 077 helpdesk; Welle 5: 079 berichte)
 - Index-Konvention: `idx_{table}_{column}`
 - **AI-First-Foundation** seit Migration 071 (siehe Abschnitt unten)
 
@@ -124,6 +124,14 @@ updated: 2026-04-18
 ### Dialer Permissions (Migration 068)
 - `dialer:campaigns` (read/write), `dialer:calls` (write), `dialer:agent` (manage), `dialer:outcomes` (manage)
 - Zugewiesen an Rollen: admin (alle), manager (alle), member (campaigns:read, calls:write, agent:manage)
+
+### Berichte / Reports (Migration 079)
+- `report_definitions` — tenant_id, name, description, module (finanzen/crm/helpdesk/inventar/produktion/cross), kind (system/custom), query_config JSONB, default_format (pdf/csv/xlsx), created_by (FK users SET NULL), is_published, CHECK-Constraints auf module/kind/format
+- `report_cache` — tenant_id, definition_id (FK CASCADE), params_hash TEXT (sha256), result JSONB, row_count, computed_at, expires_at, UNIQUE(definition_id, params_hash); Index `idx_report_cache_expires` fuer Cleanup-Job
+- `report_schedules` — tenant_id, definition_id (FK CASCADE), cron_expression, recipients TEXT[], format, params JSONB, active, last_run_at/status/error, created_by (FK users SET NULL). Atomares `ClaimSchedule` UPDATE ... WHERE last_run_at=$prev verhindert Double-Run bei Tick-Overlap.
+- `report_runs` — Audit-Log: tenant_id, definition_id, schedule_id (FK SET NULL), trigger (manual/scheduled/api), params, duration_ms, row_count, status (success/failed), error, started_at, completed_at
+- **Seeds:** 8 System-Berichte auf Platzhalter-Tenant `00000000-…-000000000001` (Umsatz, Offene Posten, Pipeline, Conversion, Activity, Helpdesk-SLA, Stock-Warnings, DATEV-BWA)
+- **Indizes:** `idx_report_{definitions,cache,schedules,runs}_tenant_id` + `idx_report_runs_tenant_started` (DESC fuer Audit-List)
 
 ## Index-Strategie
 - **Composite:** `(project_key, archived_at)`, `(user_id, role, name)`
