@@ -2,6 +2,7 @@ package recording
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -22,12 +23,17 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 }
 
 func (r *PostgresRepository) CreateRecording(ctx context.Context, rec *Recording) error {
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO recordings (id, call_id, meeting_id, status, egress_id, file_url, file_size_bytes,
-		  duration_seconds, retention_expires_at, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-		rec.ID, rec.CallID, rec.MeetingID, rec.Status, rec.EgressID,
-		rec.FileURL, rec.FileSizeBytes, rec.DurationSeconds,
+	snapshotJSON, err := marshalConsentSnapshot(rec.ConsentSnapshot)
+	if err != nil {
+		return fmt.Errorf("marshal consent snapshot: %w", err)
+	}
+
+	_, err = r.pool.Exec(ctx,
+		`INSERT INTO recordings (id, call_id, meeting_id, started_by, consent_snapshot, status,
+		  egress_id, file_url, file_size_bytes, duration_seconds, retention_expires_at, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+		rec.ID, rec.CallID, rec.MeetingID, rec.StartedBy, snapshotJSON, rec.Status,
+		rec.EgressID, rec.FileURL, rec.FileSizeBytes, rec.DurationSeconds,
 		rec.RetentionExpiresAt, rec.CreatedAt,
 	)
 	return err
@@ -35,19 +41,25 @@ func (r *PostgresRepository) CreateRecording(ctx context.Context, rec *Recording
 
 func (r *PostgresRepository) GetRecording(ctx context.Context, id uuid.UUID) (*Recording, error) {
 	var rec Recording
+	var snapshotJSON []byte
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, call_id, meeting_id, status, egress_id, file_url, file_size_bytes,
-		        duration_seconds, retention_expires_at, created_at
+		`SELECT id, call_id, meeting_id, started_by, consent_snapshot, status,
+		        egress_id, file_url, file_size_bytes, duration_seconds, retention_expires_at, created_at
 		 FROM recordings WHERE id = $1`,
 		id,
-	).Scan(&rec.ID, &rec.CallID, &rec.MeetingID, &rec.Status, &rec.EgressID,
-		&rec.FileURL, &rec.FileSizeBytes, &rec.DurationSeconds,
+	).Scan(&rec.ID, &rec.CallID, &rec.MeetingID, &rec.StartedBy, &snapshotJSON, &rec.Status,
+		&rec.EgressID, &rec.FileURL, &rec.FileSizeBytes, &rec.DurationSeconds,
 		&rec.RetentionExpiresAt, &rec.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, err
+	}
+	if len(snapshotJSON) > 0 {
+		if err := json.Unmarshal(snapshotJSON, &rec.ConsentSnapshot); err != nil {
+			return nil, fmt.Errorf("unmarshal consent snapshot: %w", err)
+		}
 	}
 	return &rec, nil
 }
@@ -65,8 +77,8 @@ func (r *PostgresRepository) UpdateRecording(ctx context.Context, rec *Recording
 
 func (r *PostgresRepository) ListRecordingsByCall(ctx context.Context, callID uuid.UUID) ([]Recording, error) {
 	return r.listRecordings(ctx,
-		`SELECT id, call_id, meeting_id, status, egress_id, file_url, file_size_bytes,
-		        duration_seconds, retention_expires_at, created_at
+		`SELECT id, call_id, meeting_id, started_by, consent_snapshot, status, egress_id, file_url,
+		        file_size_bytes, duration_seconds, retention_expires_at, created_at
 		 FROM recordings WHERE call_id = $1 ORDER BY created_at DESC`,
 		callID,
 	)
@@ -74,8 +86,8 @@ func (r *PostgresRepository) ListRecordingsByCall(ctx context.Context, callID uu
 
 func (r *PostgresRepository) ListRecordingsByMeeting(ctx context.Context, meetingID uuid.UUID) ([]Recording, error) {
 	return r.listRecordings(ctx,
-		`SELECT id, call_id, meeting_id, status, egress_id, file_url, file_size_bytes,
-		        duration_seconds, retention_expires_at, created_at
+		`SELECT id, call_id, meeting_id, started_by, consent_snapshot, status, egress_id, file_url,
+		        file_size_bytes, duration_seconds, retention_expires_at, created_at
 		 FROM recordings WHERE meeting_id = $1 ORDER BY created_at DESC`,
 		meetingID,
 	)
@@ -136,8 +148,8 @@ func (r *PostgresRepository) CountPendingConsents(ctx context.Context, recording
 
 func (r *PostgresRepository) ListExpiredRecordings(ctx context.Context, before time.Time) ([]Recording, error) {
 	return r.listRecordings(ctx,
-		`SELECT id, call_id, meeting_id, status, egress_id, file_url, file_size_bytes,
-		        duration_seconds, retention_expires_at, created_at
+		`SELECT id, call_id, meeting_id, started_by, consent_snapshot, status, egress_id, file_url,
+		        file_size_bytes, duration_seconds, retention_expires_at, created_at
 		 FROM recordings
 		 WHERE retention_expires_at < $1 AND status = 'completed'
 		 ORDER BY retention_expires_at ASC`,
@@ -149,7 +161,8 @@ func (r *PostgresRepository) ListRecordingsWithAccess(ctx context.Context, userI
 	// Returns recordings where the user was a participant (via call_participants or meeting_attendees)
 	// Optionally filtered by meeting ID
 	query := `
-		SELECT DISTINCT r.id, r.call_id, r.meeting_id, r.status, r.egress_id, r.file_url,
+		SELECT DISTINCT r.id, r.call_id, r.meeting_id, r.started_by, r.consent_snapshot,
+		       r.status, r.egress_id, r.file_url,
 		       r.file_size_bytes, r.duration_seconds, r.retention_expires_at, r.created_at
 		FROM recordings r
 		LEFT JOIN call_participants cp ON r.call_id = cp.call_id AND cp.user_id = $1
@@ -202,7 +215,9 @@ func (r *PostgresRepository) GetRecordingParticipants(ctx context.Context, recor
 	return userIDs, rows.Err()
 }
 
-// listRecordings is a helper to scan recording rows
+// listRecordings is a helper to scan recording rows.
+// All queries passed here must SELECT: id, call_id, meeting_id, started_by, consent_snapshot,
+// status, egress_id, file_url, file_size_bytes, duration_seconds, retention_expires_at, created_at
 func (r *PostgresRepository) listRecordings(ctx context.Context, query string, args ...any) ([]Recording, error) {
 	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
@@ -213,12 +228,29 @@ func (r *PostgresRepository) listRecordings(ctx context.Context, query string, a
 	var recordings []Recording
 	for rows.Next() {
 		var rec Recording
-		if scanErr := rows.Scan(&rec.ID, &rec.CallID, &rec.MeetingID, &rec.Status,
+		var snapshotJSON []byte
+		if scanErr := rows.Scan(
+			&rec.ID, &rec.CallID, &rec.MeetingID, &rec.StartedBy, &snapshotJSON, &rec.Status,
 			&rec.EgressID, &rec.FileURL, &rec.FileSizeBytes, &rec.DurationSeconds,
-			&rec.RetentionExpiresAt, &rec.CreatedAt); scanErr != nil {
+			&rec.RetentionExpiresAt, &rec.CreatedAt,
+		); scanErr != nil {
 			return nil, scanErr
+		}
+		if len(snapshotJSON) > 0 {
+			if unmarshalErr := json.Unmarshal(snapshotJSON, &rec.ConsentSnapshot); unmarshalErr != nil {
+				return nil, fmt.Errorf("unmarshal consent snapshot: %w", unmarshalErr)
+			}
 		}
 		recordings = append(recordings, rec)
 	}
 	return recordings, rows.Err()
+}
+
+// marshalConsentSnapshot serializes the participant snapshot to JSONB.
+// Returns nil for an empty slice so the column stays NULL for old recordings.
+func marshalConsentSnapshot(snapshot []ParticipantConsentInfo) ([]byte, error) {
+	if len(snapshot) == 0 {
+		return nil, nil
+	}
+	return json.Marshal(snapshot)
 }

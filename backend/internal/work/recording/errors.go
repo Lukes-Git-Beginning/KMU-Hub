@@ -9,4 +9,5 @@ var (
 	ErrRecordingNotActive   = errors.New("recording is not in active state")
 	ErrInvalidStatus        = errors.New("invalid recording status transition")
 	ErrNoCallOrMeeting      = errors.New("recording must be associated with a call or meeting")
+	ErrNoParticipants       = errors.New("recording requires at least one participant")
 )

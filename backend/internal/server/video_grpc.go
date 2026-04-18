@@ -175,6 +175,11 @@ func (s *VideoGRPCServer) ListActiveCalls(ctx context.Context, req *videov1.List
 // ============================================================================
 
 func (s *VideoGRPCServer) StartRecording(ctx context.Context, req *videov1.StartRecordingRequest) (*videov1.Recording, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
 	var callID *uuid.UUID
 	if req.CallId != nil {
 		cid, parseErr := uuid.Parse(*req.CallId)
@@ -193,24 +198,64 @@ func (s *VideoGRPCServer) StartRecording(ctx context.Context, req *videov1.Start
 		meetingID = &mid
 	}
 
-	// Determine room name from the call or meeting
+	// Build participant snapshot from DB so all current participants are subject to consent,
+	// not just the requesting user (fixes UWG/DSGVO: all parties must consent).
 	var roomName string
+	var participants []recording.ParticipantConsentInfo
+
 	if callID != nil {
+		// Option 1: pull active participants from call_participants via video service
 		sessionWithP, getErr := s.videoService.GetCall(ctx, *callID)
 		if getErr != nil {
 			return nil, mapVideoError(getErr)
 		}
 		roomName = sessionWithP.RoomName
+		for _, p := range sessionWithP.Participants {
+			displayName := p.FirstName
+			if p.LastName != "" {
+				displayName += " " + p.LastName
+			}
+			participants = append(participants, recording.ParticipantConsentInfo{
+				UserID:      p.UserID,
+				DisplayName: displayName,
+				JoinedAt:    p.JoinedAt,
+			})
+		}
+	} else if meetingID != nil {
+		// Option 1: pull attendees from meeting_attendees via meeting service
+		mwa, getErr := s.meetingService.GetMeeting(ctx, *meetingID)
+		if getErr != nil {
+			return nil, mapMeetingError(getErr)
+		}
+		if mwa.RoomName != nil {
+			roomName = *mwa.RoomName
+		}
+		attendeeJoinedAt := mwa.ScheduledStart
+		if mwa.ActualStart != nil {
+			attendeeJoinedAt = *mwa.ActualStart
+		}
+		for _, a := range mwa.Attendees {
+			displayName := a.FirstName
+			if a.LastName != "" {
+				displayName += " " + a.LastName
+			}
+			participants = append(participants, recording.ParticipantConsentInfo{
+				UserID:      a.UserID,
+				DisplayName: displayName,
+				JoinedAt:    attendeeJoinedAt,
+			})
+		}
 	}
 
-	// Participant IDs would normally come from the current call/meeting participants.
-	// For now, start with the requesting user.
-	userID, err := uuid.Parse(req.UserId)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	// Ensure the requesting user is always included (e.g. initiator before DB record is created)
+	if len(participants) == 0 {
+		participants = append(participants, recording.ParticipantConsentInfo{
+			UserID:      userID,
+			DisplayName: "",
+		})
 	}
 
-	rec, err := s.recordingService.StartRecording(ctx, callID, meetingID, roomName, []uuid.UUID{userID})
+	rec, err := s.recordingService.StartRecording(ctx, callID, meetingID, roomName, userID, participants)
 	if err != nil {
 		return nil, mapRecordingError(err)
 	}
@@ -1258,6 +1303,8 @@ func mapRecordingError(err error) error {
 	case errors.Is(err, recording.ErrRecordingNotActive):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, recording.ErrNoCallOrMeeting):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, recording.ErrNoParticipants):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
 		return status.Error(codes.Internal, "internal error")

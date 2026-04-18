@@ -6,6 +6,14 @@ import (
 	"github.com/google/uuid"
 )
 
+// ParticipantConsentInfo captures the state of a participant at recording start.
+// Stored as a JSONB snapshot so the consent record survives user-data changes (DSGVO immutability).
+type ParticipantConsentInfo struct {
+	UserID      uuid.UUID `json:"user_id"`
+	DisplayName string    `json:"display_name"`
+	JoinedAt    time.Time `json:"joined_at"`
+}
+
 // Recording status constants
 const (
 	RecordingStatusActive     = "active"
@@ -26,16 +34,18 @@ var ValidRecordingStatuses = map[string]bool{
 
 // Recording represents a recorded call or meeting session
 type Recording struct {
-	ID                 uuid.UUID  `json:"id"`
-	CallID             *uuid.UUID `json:"call_id,omitempty"`
-	MeetingID          *uuid.UUID `json:"meeting_id,omitempty"`
-	Status             string     `json:"status"`
-	EgressID           *string    `json:"egress_id,omitempty"`
-	FileURL            *string    `json:"file_url,omitempty"`
-	FileSizeBytes      *int64     `json:"file_size_bytes,omitempty"`
-	DurationSeconds    *int       `json:"duration_seconds,omitempty"`
-	RetentionExpiresAt *time.Time `json:"retention_expires_at,omitempty"`
-	CreatedAt          time.Time  `json:"created_at"`
+	ID                 uuid.UUID                `json:"id"`
+	CallID             *uuid.UUID               `json:"call_id,omitempty"`
+	MeetingID          *uuid.UUID               `json:"meeting_id,omitempty"`
+	StartedBy          *uuid.UUID               `json:"started_by,omitempty"`
+	ConsentSnapshot    []ParticipantConsentInfo  `json:"consent_snapshot,omitempty"`
+	Status             string                   `json:"status"`
+	EgressID           *string                  `json:"egress_id,omitempty"`
+	FileURL            *string                  `json:"file_url,omitempty"`
+	FileSizeBytes      *int64                   `json:"file_size_bytes,omitempty"`
+	DurationSeconds    *int                     `json:"duration_seconds,omitempty"`
+	RetentionExpiresAt *time.Time               `json:"retention_expires_at,omitempty"`
+	CreatedAt          time.Time                `json:"created_at"`
 }
 
 // RecordingConsent represents a participant's consent for being recorded

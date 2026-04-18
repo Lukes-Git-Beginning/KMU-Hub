@@ -49,14 +49,27 @@ func NewService(repo Repository, egressManager EgressManager, templateURL string
 
 // StartRecording initiates a recording for a call or meeting.
 // All participants must have responded to the consent prompt before recording can begin.
+// startedBy is the user who triggered the recording (stored for audit).
+// participants is the full list of call/meeting participants at start time; their IDs are
+// used for the consent gate and the list is persisted as an immutable DSGVO snapshot.
 // Sets a 30-day retention period on the recording.
-func (s *Service) StartRecording(ctx context.Context, callID *uuid.UUID, meetingID *uuid.UUID, roomName string, participantIDs []uuid.UUID) (*Recording, error) {
+func (s *Service) StartRecording(ctx context.Context, callID *uuid.UUID, meetingID *uuid.UUID, roomName string, startedBy uuid.UUID, participants []ParticipantConsentInfo) (*Recording, error) {
 	if !s.enabled {
 		return nil, ErrEgressNotConfigured
 	}
 
 	if callID == nil && meetingID == nil {
 		return nil, ErrNoCallOrMeeting
+	}
+
+	if len(participants) == 0 {
+		return nil, ErrNoParticipants
+	}
+
+	// Extract participant IDs for the consent gate
+	participantIDs := make([]uuid.UUID, len(participants))
+	for i, p := range participants {
+		participantIDs[i] = p.UserID
 	}
 
 	now := time.Now()
@@ -66,6 +79,8 @@ func (s *Service) StartRecording(ctx context.Context, callID *uuid.UUID, meeting
 		ID:                 uuid.New(),
 		CallID:             callID,
 		MeetingID:          meetingID,
+		StartedBy:          &startedBy,
+		ConsentSnapshot:    participants,
 		Status:             RecordingStatusActive,
 		RetentionExpiresAt: &retentionExpires,
 		CreatedAt:          now,

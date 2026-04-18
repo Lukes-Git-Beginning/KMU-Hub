@@ -37,6 +37,19 @@ func (m *mockEgressManager) StopEgress(_ context.Context, _ string) error {
 	return m.stopErr
 }
 
+// makeParticipants builds a []ParticipantConsentInfo slice from UUIDs for test convenience.
+func makeParticipants(ids ...uuid.UUID) []ParticipantConsentInfo {
+	ps := make([]ParticipantConsentInfo, len(ids))
+	for i, id := range ids {
+		ps[i] = ParticipantConsentInfo{
+			UserID:      id,
+			DisplayName: "User " + id.String()[:8],
+			JoinedAt:    time.Now(),
+		}
+	}
+	return ps
+}
+
 // --- Mock Repository ---
 
 type mockRepo struct {
@@ -190,9 +203,10 @@ func TestStartRecording_FailsWhenConsentPending(t *testing.T) {
 	callID := uuid.New()
 	user1 := uuid.New()
 	user2 := uuid.New()
+	starter := uuid.New()
 
 	// No consents set -> pending
-	_, err := svc.StartRecording(context.Background(), &callID, nil, "call-abc123", []uuid.UUID{user1, user2})
+	_, err := svc.StartRecording(context.Background(), &callID, nil, "call-abc123", starter, makeParticipants(user1, user2))
 	assert.ErrorIs(t, err, ErrConsentPending)
 }
 
@@ -204,14 +218,15 @@ func TestStartRecording_SucceedsWhenAllConsented(t *testing.T) {
 	callID := uuid.New()
 	user1 := uuid.New()
 	user2 := uuid.New()
-	participants := []uuid.UUID{user1, user2}
+	starter := user1
+	participants := makeParticipants(user1, user2)
 
 	// Pre-create a recording ID to set consents on
 	// We need to use pendingOverride since we can't know the recording ID in advance
 	zero := 0
 	repo.pendingOverride = &zero
 
-	rec, err := svc.StartRecording(context.Background(), &callID, nil, "call-abc123", participants)
+	rec, err := svc.StartRecording(context.Background(), &callID, nil, "call-abc123", starter, participants)
 	require.NoError(t, err)
 	assert.NotNil(t, rec)
 	assert.Equal(t, RecordingStatusActive, rec.Status)
@@ -225,10 +240,11 @@ func TestStartRecording_Sets30DayRetention(t *testing.T) {
 	svc := NewService(repo, egress, "https://template.example.com", S3Config{})
 
 	callID := uuid.New()
+	starter := uuid.New()
 	zero := 0
 	repo.pendingOverride = &zero
 
-	rec, err := svc.StartRecording(context.Background(), &callID, nil, "call-abc123", []uuid.UUID{uuid.New()})
+	rec, err := svc.StartRecording(context.Background(), &callID, nil, "call-abc123", starter, makeParticipants(starter))
 	require.NoError(t, err)
 
 	assert.NotNil(t, rec.RetentionExpiresAt)
@@ -243,7 +259,8 @@ func TestStartRecording_FailsWhenEgressNotConfigured(t *testing.T) {
 	svc := NewService(repo, nil, "", S3Config{}) // nil egress = disabled
 
 	callID := uuid.New()
-	_, err := svc.StartRecording(context.Background(), &callID, nil, "call-abc123", []uuid.UUID{uuid.New()})
+	starter := uuid.New()
+	_, err := svc.StartRecording(context.Background(), &callID, nil, "call-abc123", starter, makeParticipants(starter))
 	assert.ErrorIs(t, err, ErrEgressNotConfigured)
 }
 
@@ -252,7 +269,8 @@ func TestStartRecording_FailsWithNoCallOrMeeting(t *testing.T) {
 	egress := newMockEgressManager()
 	svc := NewService(repo, egress, "", S3Config{})
 
-	_, err := svc.StartRecording(context.Background(), nil, nil, "call-abc123", []uuid.UUID{uuid.New()})
+	starter := uuid.New()
+	_, err := svc.StartRecording(context.Background(), nil, nil, "call-abc123", starter, makeParticipants(starter))
 	assert.ErrorIs(t, err, ErrNoCallOrMeeting)
 }
 
@@ -262,10 +280,11 @@ func TestStartRecording_WithMeetingID(t *testing.T) {
 	svc := NewService(repo, egress, "https://template.example.com", S3Config{})
 
 	meetingID := uuid.New()
+	starter := uuid.New()
 	zero := 0
 	repo.pendingOverride = &zero
 
-	rec, err := svc.StartRecording(context.Background(), nil, &meetingID, "meeting-room", []uuid.UUID{uuid.New()})
+	rec, err := svc.StartRecording(context.Background(), nil, &meetingID, "meeting-room", starter, makeParticipants(starter))
 	require.NoError(t, err)
 	assert.Nil(t, rec.CallID)
 	assert.NotNil(t, rec.MeetingID)
@@ -278,10 +297,11 @@ func TestStopRecording_TransitionsToProcessing(t *testing.T) {
 	svc := NewService(repo, egress, "", S3Config{})
 
 	callID := uuid.New()
+	starter := uuid.New()
 	zero := 0
 	repo.pendingOverride = &zero
 
-	rec, err := svc.StartRecording(context.Background(), &callID, nil, "call-abc123", []uuid.UUID{uuid.New()})
+	rec, err := svc.StartRecording(context.Background(), &callID, nil, "call-abc123", starter, makeParticipants(starter))
 	require.NoError(t, err)
 
 	stopped, err := svc.StopRecording(context.Background(), rec.ID)
@@ -560,6 +580,137 @@ func TestNewService_DisabledMode(t *testing.T) {
 
 	// StartRecording should fail
 	callID := uuid.New()
-	_, err = svc.StartRecording(context.Background(), &callID, nil, "room", []uuid.UUID{uuid.New()})
+	starter := uuid.New()
+	_, err = svc.StartRecording(context.Background(), &callID, nil, "room", starter, makeParticipants(starter))
 	assert.ErrorIs(t, err, ErrEgressNotConfigured)
+}
+
+// ============================================================================
+// New tests for S1.R2.3: consent-snapshot, started_by, multi-participant gate
+// ============================================================================
+
+// TestStartRecording_AllThreeParticipantsRequireConsent verifies that recording
+// cannot start when 3 participants are present but none has consented yet.
+func TestStartRecording_AllThreeParticipantsRequireConsent(t *testing.T) {
+	repo := newMockRepo()
+	egress := newMockEgressManager()
+	svc := NewService(repo, egress, "https://template.example.com", S3Config{})
+
+	callID := uuid.New()
+	user1 := uuid.New()
+	user2 := uuid.New()
+	user3 := uuid.New()
+	starter := user1
+
+	// No consents yet — all 3 pending
+	_, err := svc.StartRecording(context.Background(), &callID, nil, "room-x", starter, makeParticipants(user1, user2, user3))
+	assert.ErrorIs(t, err, ErrConsentPending)
+}
+
+// TestStartRecording_BlocksUntilAllThreeConsent verifies the consent gate:
+// one consent is not enough, two are not enough, only all three allow recording.
+func TestStartRecording_BlocksUntilAllThreeConsent(t *testing.T) {
+	repo := newMockRepo()
+	egress := newMockEgressManager()
+	svc := NewService(repo, egress, "https://template.example.com", S3Config{Bucket: "recordings"})
+
+	callID := uuid.New()
+	user1 := uuid.New()
+	user2 := uuid.New()
+	user3 := uuid.New()
+	starter := user1
+	participants := makeParticipants(user1, user2, user3)
+
+	// We need a recording ID upfront to register consents.
+	// Use a temporary recording with known ID in the mock.
+	tempRecID := uuid.New()
+	repo.recordings[tempRecID] = &Recording{ID: tempRecID, CallID: &callID, Status: RecordingStatusActive}
+
+	// Register consents against that ID
+	require.NoError(t, svc.SetConsent(context.Background(), tempRecID, user1, true))
+	require.NoError(t, svc.SetConsent(context.Background(), tempRecID, user2, true))
+	// user3 has NOT consented yet
+
+	// One missing consent: still blocked. Use pendingOverride = 1
+	one := 1
+	repo.pendingOverride = &one
+	_, err := svc.StartRecording(context.Background(), &callID, nil, "room-x", starter, participants)
+	assert.ErrorIs(t, err, ErrConsentPending)
+
+	// All three consented: now allowed
+	zero := 0
+	repo.pendingOverride = &zero
+	rec, err := svc.StartRecording(context.Background(), &callID, nil, "room-x", starter, participants)
+	require.NoError(t, err)
+	assert.Equal(t, RecordingStatusActive, rec.Status)
+}
+
+// TestStartRecording_PersistsStartedBy verifies that started_by is stored on the recording.
+func TestStartRecording_PersistsStartedBy(t *testing.T) {
+	repo := newMockRepo()
+	egress := newMockEgressManager()
+	svc := NewService(repo, egress, "https://template.example.com", S3Config{Bucket: "recordings"})
+
+	callID := uuid.New()
+	starter := uuid.New()
+	zero := 0
+	repo.pendingOverride = &zero
+
+	rec, err := svc.StartRecording(context.Background(), &callID, nil, "room-x", starter, makeParticipants(starter))
+	require.NoError(t, err)
+
+	// started_by must be set and match the caller
+	require.NotNil(t, rec.StartedBy)
+	assert.Equal(t, starter, *rec.StartedBy)
+
+	// the stored recording must also carry started_by
+	stored := repo.recordings[rec.ID]
+	require.NotNil(t, stored.StartedBy)
+	assert.Equal(t, starter, *stored.StartedBy)
+}
+
+// TestStartRecording_ConsentSnapshotContainsAllParticipants verifies that the
+// immutable DSGVO snapshot captures every participant present at recording start.
+func TestStartRecording_ConsentSnapshotContainsAllParticipants(t *testing.T) {
+	repo := newMockRepo()
+	egress := newMockEgressManager()
+	svc := NewService(repo, egress, "https://template.example.com", S3Config{Bucket: "recordings"})
+
+	callID := uuid.New()
+	user1 := uuid.New()
+	user2 := uuid.New()
+	user3 := uuid.New()
+	starter := user1
+	participants := makeParticipants(user1, user2, user3)
+
+	zero := 0
+	repo.pendingOverride = &zero
+
+	rec, err := svc.StartRecording(context.Background(), &callID, nil, "room-x", starter, participants)
+	require.NoError(t, err)
+
+	// Snapshot must have exactly 3 entries
+	assert.Len(t, rec.ConsentSnapshot, 3)
+
+	// All participant IDs must be present in the snapshot
+	snapshotIDs := make(map[uuid.UUID]bool)
+	for _, p := range rec.ConsentSnapshot {
+		snapshotIDs[p.UserID] = true
+	}
+	assert.True(t, snapshotIDs[user1])
+	assert.True(t, snapshotIDs[user2])
+	assert.True(t, snapshotIDs[user3])
+}
+
+// TestStartRecording_FailsWithNoParticipants verifies that an empty participant list is rejected.
+func TestStartRecording_FailsWithNoParticipants(t *testing.T) {
+	repo := newMockRepo()
+	egress := newMockEgressManager()
+	svc := NewService(repo, egress, "https://template.example.com", S3Config{})
+
+	callID := uuid.New()
+	starter := uuid.New()
+
+	_, err := svc.StartRecording(context.Background(), &callID, nil, "room-x", starter, nil)
+	assert.ErrorIs(t, err, ErrNoParticipants)
 }
