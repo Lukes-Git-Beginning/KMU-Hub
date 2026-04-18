@@ -12,6 +12,10 @@ import (
 	videov1 "github.com/kmuhub/kmuhub/proto/video/v1"
 )
 
+// liveKitEgressStatus mirrors the LiveKit EgressStatus enum values that matter
+// for recording completion. A value of 3 means EGRESS_COMPLETE in LiveKit's proto.
+const liveKitEgressStatusComplete int32 = 3
+
 // VideoRoutes handles HTTP routes for the Video service.
 // Video runs in the same binary as Work, so we reuse the "work" gRPC connection.
 type VideoRoutes struct {
@@ -33,6 +37,15 @@ func (vr *VideoRoutes) getVideoClient() (videov1.VideoServiceClient, error) {
 		return nil, err
 	}
 	return videov1.NewVideoServiceClient(conn), nil
+}
+
+// getVideoEgressClient obtains a gRPC client that includes the Egress-completion RPCs.
+func (vr *VideoRoutes) getVideoEgressClient() (videov1.VideoServiceEgressClient, error) {
+	conn, err := vr.registry.GetConnection("work")
+	if err != nil {
+		return nil, err
+	}
+	return videov1.NewVideoServiceEgressClient(conn), nil
 }
 
 // RegisterRoutes registers all Video, Meeting, Recording, Presence, and Reaction HTTP routes.
@@ -1110,8 +1123,36 @@ func (vr *VideoRoutes) HandleGetReactionSummary(w http.ResponseWriter, r *http.R
 // LiveKit Webhook Handler
 // ============================================================================
 
+// liveKitWebhookEvent mirrors the relevant fields of the LiveKit webhook payload.
+// LiveKit EgressInfo status values: 0=starting, 1=active, 2=ending, 3=complete, 4=failed, 5=aborted.
+type liveKitWebhookEvent struct {
+	Event string `json:"event"`
+	Room  struct {
+		Name string `json:"name"`
+	} `json:"room"`
+	Participant struct {
+		Identity string `json:"identity"`
+	} `json:"participant"`
+	EgressInfo struct {
+		EgressID string `json:"egress_id"`
+		RoomName string `json:"room_name"`
+		Status   int32  `json:"status"`
+		// Error is set when Status indicates failure.
+		Error string `json:"error"`
+		// Duration is in nanoseconds (LiveKit convention).
+		Duration int64 `json:"duration"`
+		// FileResults holds details about uploaded recording files.
+		FileResults []struct {
+			Filename  string `json:"filename"`
+			Location  string `json:"location"`
+			Size      int64  `json:"size"`
+			Duration  int64  `json:"duration"`
+		} `json:"file_results"`
+	} `json:"egress_info"`
+}
+
 func (vr *VideoRoutes) HandleLiveKitWebhook(w http.ResponseWriter, r *http.Request) {
-	// Read the raw body for webhook validation
+	// Read the raw body for webhook validation.
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, "failed to read request body")
@@ -1119,61 +1160,139 @@ func (vr *VideoRoutes) HandleLiveKitWebhook(w http.ResponseWriter, r *http.Reque
 	}
 	defer r.Body.Close()
 
-	// Parse the webhook event payload
-	// LiveKit webhook sends JSON with event type and metadata
-	var webhookEvent struct {
-		Event string `json:"event"`
-		Room  struct {
-			Name string `json:"name"`
-		} `json:"room"`
-		Participant struct {
-			Identity string `json:"identity"`
-		} `json:"participant"`
-		EgressInfo struct {
-			EgressID string `json:"egress_id"`
-			Status   int32  `json:"status"`
-		} `json:"egress_info"`
-	}
-
-	if err := json.Unmarshal(body, &webhookEvent); err != nil {
+	var evt liveKitWebhookEvent
+	if err := json.Unmarshal(body, &evt); err != nil {
 		slog.Warn("invalid livekit webhook payload", "error", err)
 		response.Error(w, http.StatusBadRequest, "invalid webhook payload")
 		return
 	}
 
 	slog.Info("livekit webhook received",
-		"event", webhookEvent.Event,
-		"room", webhookEvent.Room.Name,
+		"event", evt.Event,
+		"room", evt.Room.Name,
 	)
 
-	// Dispatch based on event type
-	// The actual handling is done via the video gRPC service which delegates to the service layer.
-	// For now, we acknowledge the webhook. Full handling with gRPC calls will be added
-	// when the LiveKit webhook signature validation library is integrated.
-	switch webhookEvent.Event {
+	switch evt.Event {
 	case "participant_joined":
 		slog.Info("participant joined via webhook",
-			"room", webhookEvent.Room.Name,
-			"identity", webhookEvent.Participant.Identity,
+			"room", evt.Room.Name,
+			"identity", evt.Participant.Identity,
 		)
+
 	case "participant_left":
 		slog.Info("participant left via webhook",
-			"room", webhookEvent.Room.Name,
-			"identity", webhookEvent.Participant.Identity,
+			"room", evt.Room.Name,
+			"identity", evt.Participant.Identity,
 		)
+
 	case "room_finished":
 		slog.Info("room finished via webhook",
-			"room", webhookEvent.Room.Name,
+			"room", evt.Room.Name,
 		)
+
 	case "egress_ended":
-		slog.Info("egress ended via webhook",
-			"egress_id", webhookEvent.EgressInfo.EgressID,
-		)
+		vr.handleEgressEnded(r, evt)
+
 	default:
-		slog.Debug("unhandled livekit webhook event", "event", webhookEvent.Event)
+		slog.Debug("unhandled livekit webhook event", "event", evt.Event)
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+// handleEgressEnded processes an egress_ended webhook event.
+// It calls CompleteRecordingByEgress or FailRecordingByEgress on the video
+// gRPC service so that the recording row is updated from "processing" to the
+// final status and the file URL is persisted.
+func (vr *VideoRoutes) handleEgressEnded(r *http.Request, evt liveKitWebhookEvent) {
+	egress := evt.EgressInfo
+	slog.Info("egress ended via webhook",
+		"egress_id", egress.EgressID,
+		"status", egress.Status,
+	)
+
+	if egress.EgressID == "" {
+		slog.Warn("egress_ended webhook missing egress_id — cannot update recording")
+		return
+	}
+
+	client, err := vr.getVideoEgressClient()
+	if err != nil {
+		slog.Error("egress_ended: failed to obtain video gRPC client",
+			"egress_id", egress.EgressID,
+			"error", err,
+		)
+		return
+	}
+
+	ctx := r.Context()
+
+	// LiveKit EgressStatus 3 = EGRESS_COMPLETE.
+	if egress.Status == liveKitEgressStatusComplete {
+		// Extract file metadata from the first FileResult, if present.
+		var fileURL string
+		var fileSizeBytes int64
+		if len(egress.FileResults) > 0 {
+			fr := egress.FileResults[0]
+			if fr.Location != "" {
+				fileURL = fr.Location
+			} else {
+				fileURL = fr.Filename
+			}
+			fileSizeBytes = fr.Size
+		}
+
+		// LiveKit Duration is in nanoseconds — convert to whole seconds.
+		durationNs := egress.Duration
+		if len(egress.FileResults) > 0 && egress.FileResults[0].Duration > 0 {
+			durationNs = egress.FileResults[0].Duration
+		}
+		durationSeconds := int32(durationNs / 1_000_000_000) //nolint:mnd
+
+		_, grpcErr := client.CompleteRecordingByEgress(ctx, &videov1.CompleteRecordingByEgressRequest{
+			EgressID:        egress.EgressID,
+			FileURL:         fileURL,
+			FileSizeBytes:   fileSizeBytes,
+			DurationSeconds: durationSeconds,
+		})
+		if grpcErr != nil {
+			slog.Error("egress_ended: CompleteRecordingByEgress failed",
+				"egress_id", egress.EgressID,
+				"error", grpcErr,
+			)
+			return
+		}
+
+		slog.Info("recording completed via egress webhook",
+			"egress_id", egress.EgressID,
+			"file_url", fileURL,
+			"duration_seconds", durationSeconds,
+		)
+		return
+	}
+
+	// Any non-complete status is treated as failure.
+	reason := egress.Error
+	if reason == "" {
+		reason = "egress ended with non-complete status"
+	}
+
+	slog.Warn("egress ended with failure status",
+		"egress_id", egress.EgressID,
+		"status", egress.Status,
+		"reason", reason,
+	)
+
+	_, grpcErr := client.FailRecordingByEgress(ctx, &videov1.FailRecordingByEgressRequest{
+		EgressID: egress.EgressID,
+		Reason:   reason,
+	})
+	if grpcErr != nil {
+		slog.Error("egress_ended: FailRecordingByEgress failed",
+			"egress_id", egress.EgressID,
+			"error", grpcErr,
+		)
+	}
 }
 
 // parseTimestamp is defined in route_work.go and shared across gateway routes.
