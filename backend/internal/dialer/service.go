@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kmuhub/kmuhub/internal/crm/consent"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/notification/event"
 )
@@ -15,13 +16,16 @@ import (
 // Service is the thick service layer for the Cosmi Dialer. All business logic
 // lives here; handlers only parse requests and format responses.
 type Service struct {
-	campaigns  CampaignRepository
-	calls      CallRepository
-	outcomes   OutcomeRepository
-	agentRepo  AgentStatusRepository
-	agentStore *AgentStatusStore
-	crmBridge  CRMBridge
-	emitter    *PGEventEmitter // nil-safe; events are skipped when nil
+	campaigns       CampaignRepository
+	calls           CallRepository
+	outcomes        OutcomeRepository
+	agentRepo       AgentStatusRepository
+	agentStore      *AgentStatusStore
+	crmBridge       CRMBridge
+	emitter         *PGEventEmitter // nil-safe; events are skipped when nil
+	// consentAsserter, when non-nil, enforces active phone consent before
+	// initiating a call. Nil-safe for tests and legacy code paths.
+	consentAsserter *consent.Asserter
 }
 
 // NewService wires all dialer dependencies into a ready-to-use Service.
@@ -43,6 +47,23 @@ func NewService(
 		crmBridge:  crmBridge,
 		emitter:    emitter,
 	}
+}
+
+// NewServiceWithConsent creates a dialer service with a consent asserter wired
+// in. This is the production constructor — the asserter must be non-nil.
+func NewServiceWithConsent(
+	campaigns CampaignRepository,
+	calls CallRepository,
+	outcomes OutcomeRepository,
+	agentRepo AgentStatusRepository,
+	agentStore *AgentStatusStore,
+	crmBridge CRMBridge,
+	emitter *PGEventEmitter,
+	asserter *consent.Asserter,
+) *Service {
+	svc := NewService(campaigns, calls, outcomes, agentRepo, agentStore, crmBridge, emitter)
+	svc.consentAsserter = asserter
+	return svc
 }
 
 // ---------------------------------------------------------------------------
@@ -494,6 +515,18 @@ func (s *Service) InitiateDialerCall(
 	agentID uuid.UUID,
 	videoCallSessionID *uuid.UUID,
 ) (*CallSession, error) {
+	// Consent pre-check: resolve the real CRM contact ID, then assert active
+	// phone consent before opening a call session.
+	if s.consentAsserter != nil {
+		cc, err := s.campaigns.GetCampaignContactByID(ctx, campaignContactID)
+		if err != nil {
+			return nil, fmt.Errorf("initiate call – resolve contact for consent check: %w", err)
+		}
+		if err := s.consentAsserter.Assert(ctx, cc.ContactID, consent.ChannelPhone); err != nil {
+			return nil, err
+		}
+	}
+
 	now := time.Now().UTC()
 
 	session := &CallSession{

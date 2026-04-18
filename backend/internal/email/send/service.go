@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kmuhub/kmuhub/internal/crm/consent"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -45,6 +46,10 @@ type SignatureProvider interface {
 type SendInput struct {
 	AccountID   uuid.UUID
 	UserID      uuid.UUID
+	// ContactID, when set, triggers a consent pre-check for ChannelEmail.
+	// Leave nil for system emails or transactional messages that do not
+	// require marketing consent (e.g. password reset, invoice delivery).
+	ContactID   *uuid.UUID
 	From        EmailAddress
 	To          []EmailAddress
 	CC          []EmailAddress
@@ -106,6 +111,10 @@ type Service struct {
 	messageCreator    MessageCreator
 	signatureProvider SignatureProvider
 	mimeBuilder       *MIMEBuilder
+	// consentAsserter, when non-nil, enforces active consent before sending.
+	// It is nil-safe: if not injected, consent checks are skipped (development
+	// / legacy path). Production wiring must always inject an Asserter.
+	consentAsserter   *consent.Asserter
 }
 
 // NewService creates a new send service.
@@ -122,11 +131,33 @@ func NewService(
 	}
 }
 
+// NewServiceWithConsent creates a send service with a consent asserter wired in.
+// This is the production constructor. The asserter is mandatory in production
+// to satisfy the Rigorosum P0 requirement.
+func NewServiceWithConsent(
+	accountProvider AccountProvider,
+	messageCreator MessageCreator,
+	signatureProvider SignatureProvider,
+	asserter *consent.Asserter,
+) *Service {
+	svc := NewService(accountProvider, messageCreator, signatureProvider)
+	svc.consentAsserter = asserter
+	return svc
+}
+
 // Send composes and sends a new email via SMTP.
 func (s *Service) Send(ctx context.Context, input SendInput) (*models.EmailMessage, error) {
 	// Validate recipients
 	if len(input.To) == 0 {
 		return nil, ErrInvalidRecipient
+	}
+
+	// Consent pre-check: block marketing email when no active consent exists.
+	// Only triggered when both a ContactID and an Asserter are present.
+	if s.consentAsserter != nil && input.ContactID != nil {
+		if err := s.consentAsserter.Assert(ctx, *input.ContactID, consent.ChannelEmail); err != nil {
+			return nil, err
+		}
 	}
 
 	// Get SMTP credentials
