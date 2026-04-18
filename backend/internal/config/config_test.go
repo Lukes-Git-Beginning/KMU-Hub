@@ -75,4 +75,65 @@ func TestValidateProductionSecrets(t *testing.T) {
 			t.Fatal("Load() should fail for 'Production' (case-insensitive)")
 		}
 	})
+
+	// --- LiveKit secret validation ---
+
+	t.Run("prod with livekit dev key rejected", func(t *testing.T) {
+		t.Setenv("COSMI_ENV", "production")
+		t.Setenv("JWT_SECRET", "any-jwt-secret")
+		t.Setenv("WOPI_JWT_SECRET", "strong-wopi-secret")
+		t.Setenv("MINIO_SECRET_KEY", "strong-minio-secret")
+		t.Setenv("VAULT_MASTER_SECRET", "strong-vault-secret")
+		// LiveKit configured with dev default — must be rejected
+		t.Setenv("LIVEKIT_API_KEY", "devkey")
+		t.Setenv("LIVEKIT_API_SECRET", "real-livekit-secret")
+		t.Setenv("LIVEKIT_WEBHOOK_SECRET", "real-webhook-secret")
+		_, err := Load(context.Background())
+		if err == nil {
+			t.Fatal("Load() should fail in production with LIVEKIT_API_KEY=devkey")
+		}
+	})
+
+	t.Run("prod with no livekit config passes", func(t *testing.T) {
+		t.Setenv("COSMI_ENV", "production")
+		t.Setenv("JWT_SECRET", "any-jwt-secret")
+		t.Setenv("WOPI_JWT_SECRET", "strong-wopi-secret")
+		t.Setenv("MINIO_SECRET_KEY", "strong-minio-secret")
+		t.Setenv("VAULT_MASTER_SECRET", "strong-vault-secret")
+		// LiveKit not configured at all — no check should fire
+		t.Setenv("LIVEKIT_API_KEY", "")
+		t.Setenv("LIVEKIT_API_SECRET", "")
+		t.Setenv("LIVEKIT_WEBHOOK_SECRET", "")
+		_, err := Load(context.Background())
+		if err != nil {
+			t.Fatalf("Load() should succeed when LiveKit is not configured: %v", err)
+		}
+	})
+
+	t.Run("prod with real livekit keys passes", func(t *testing.T) {
+		t.Setenv("COSMI_ENV", "production")
+		t.Setenv("JWT_SECRET", "any-jwt-secret")
+		t.Setenv("WOPI_JWT_SECRET", "strong-wopi-secret")
+		t.Setenv("MINIO_SECRET_KEY", "strong-minio-secret")
+		t.Setenv("VAULT_MASTER_SECRET", "strong-vault-secret")
+		t.Setenv("LIVEKIT_API_KEY", "prod-livekit-api-key-abc123")
+		t.Setenv("LIVEKIT_API_SECRET", "prod-livekit-api-secret-xyz789")
+		t.Setenv("LIVEKIT_WEBHOOK_SECRET", "prod-livekit-webhook-secret-qrs456")
+		_, err := Load(context.Background())
+		if err != nil {
+			t.Fatalf("Load() should succeed with all real LiveKit keys: %v", err)
+		}
+	})
+
+	t.Run("dev env with livekit dev keys passes", func(t *testing.T) {
+		t.Setenv("COSMI_ENV", "development")
+		t.Setenv("JWT_SECRET", "any-jwt-secret")
+		t.Setenv("LIVEKIT_API_KEY", "devkey")
+		t.Setenv("LIVEKIT_API_SECRET", "devsecret")
+		// No check in dev — must succeed
+		_, err := Load(context.Background())
+		if err != nil {
+			t.Fatalf("Load() should succeed in development with livekit dev keys: %v", err)
+		}
+	})
 }

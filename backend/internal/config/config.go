@@ -139,24 +139,44 @@ func Load(ctx context.Context) (*Config, error) {
 
 // knownDevSecrets lists values that are safe in dev but must never reach production.
 var knownDevSecrets = map[string]string{
-	"WOPI_JWT_SECRET":   "wopi-dev-secret-change-me",
-	"MINIO_SECRET_KEY":  "kmuhub_dev",
-	"VAULT_MASTER_SECRET": "",
+	"WOPI_JWT_SECRET":      "wopi-dev-secret-change-me",
+	"MINIO_SECRET_KEY":     "kmuhub_dev",
+	"VAULT_MASTER_SECRET":  "",
+	"LIVEKIT_API_KEY":      "devkey",
+	"LIVEKIT_API_SECRET":   "devsecret",
+	"LIVEKIT_WEBHOOK_SECRET": "",
 }
 
 func validateProductionSecrets(cfg *Config) error {
 	type check struct {
-		name  string
-		value string
-		dev   string
+		name      string
+		value     string
+		dev       string
+		skipEmpty bool // if true, skip the check when value is empty (optional integration)
 	}
 	checks := []check{
-		{"WOPI_JWT_SECRET", cfg.WOPIJWTSecret, knownDevSecrets["WOPI_JWT_SECRET"]},
-		{"MINIO_SECRET_KEY", cfg.MinIOSecretKey, knownDevSecrets["MINIO_SECRET_KEY"]},
-		{"VAULT_MASTER_SECRET", cfg.VaultMasterSecret, knownDevSecrets["VAULT_MASTER_SECRET"]},
+		{"WOPI_JWT_SECRET", cfg.WOPIJWTSecret, knownDevSecrets["WOPI_JWT_SECRET"], false},
+		{"MINIO_SECRET_KEY", cfg.MinIOSecretKey, knownDevSecrets["MINIO_SECRET_KEY"], false},
+		{"VAULT_MASTER_SECRET", cfg.VaultMasterSecret, knownDevSecrets["VAULT_MASTER_SECRET"], false},
 	}
+
+	// LiveKit secrets are only validated when LiveKit is configured.
+	// If both API key and secret are empty, LiveKit is OFF — no check needed.
+	liveKitConfigured := cfg.LiveKitAPIKey != "" || cfg.LiveKitAPISecret != ""
+	if liveKitConfigured {
+		checks = append(checks,
+			check{"LIVEKIT_API_KEY", cfg.LiveKitAPIKey, knownDevSecrets["LIVEKIT_API_KEY"], false},
+			check{"LIVEKIT_API_SECRET", cfg.LiveKitAPISecret, knownDevSecrets["LIVEKIT_API_SECRET"], false},
+			// LIVEKIT_WEBHOOK_SECRET must be set when LiveKit is active in production.
+			check{"LIVEKIT_WEBHOOK_SECRET", cfg.LiveKitWebhookSecret, knownDevSecrets["LIVEKIT_WEBHOOK_SECRET"], false},
+		)
+	}
+
 	var errs []string
 	for _, c := range checks {
+		if c.skipEmpty && c.value == "" {
+			continue
+		}
 		if c.value == c.dev {
 			if c.dev == "" {
 				errs = append(errs, fmt.Sprintf("%s must be set in production (currently empty)", c.name))
