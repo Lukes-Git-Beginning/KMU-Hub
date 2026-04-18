@@ -12,7 +12,7 @@
 | WP-1 Service-Layer + Repo | ✅ Done 2026-04-18 | Worktree A: `8bf9e00`..`021ba8d` | models+errors+repository interface (185 LOC); PostgresRepository (485 LOC) mit atomic ClaimSchedule; Service (703 LOC) mit Executor-Interface+Clock+robfig/cron; service_test.go 43 cases, Coverage **52.4%**. |
 | WP-2 Aggregations-Executor | ✅ Done 2026-04-18 | Worktree A | executor (~650 LOC) mit 8 kind-handlers + DashboardKPIs; narrow downstream-interfaces (FinanceRepo/CRMReportsRepo/HelpdeskRepo/InventarRepo/DatevBridge), nil-tolerant mit `downstream_not_available`-warning; Coverage **92.1%**. |
 | WP-3 Export-Layer PDF/CSV/XLSX | ⏳ Pending | Worktree B | excelize v2 noch nicht im go.mod |
-| WP-4 Scheduled-Report-Worker | ⏳ Pending | Worktree A | robfig/cron/v3 Dep pruefen |
+| WP-4 Scheduled-Report-Worker | ✅ Done 2026-04-18 | Worktree A | scheduler.go (~320 LOC): 60s tick, cron-next-fire via robfig/cron/v3, atomic ClaimSchedule gegen tick-overlap, Runner/Exporter/Mailer als narrow Interfaces; nil-tolerant für Exporter/Mailer (markSkip), run/export/mail-Fehler markFailed mit Begründung. Coverage **91.5%**. |
 | WP-5 gRPC-Server + cmd/berichte | ⏳ Pending | Worktree B | — |
 | WP-6 Gateway-Routes | ⏳ Pending | Worktree B | — |
 | WP-7 Docker-Integration | ⏳ Pending | Worktree B | — |
