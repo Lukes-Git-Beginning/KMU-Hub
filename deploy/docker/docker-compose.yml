@@ -463,6 +463,56 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  wiki:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.wiki
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      WIKI_GRPC_PORT: ":50062"
+      WIKI_HEALTH_PORT: ":9102"
+    ports:
+      - "50062:50062"
+      - "9102:9102"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --spider --tries=1 http://localhost:9102/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
+
+  helpdesk:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.helpdesk
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      HELPDESK_GRPC_PORT: ":50065"
+      HELPDESK_HEALTH_PORT: ":9105"
+    ports:
+      - "50065:50065"
+      - "9105:9105"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --spider --tries=1 http://localhost:9105/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
+
   onlyoffice:
     image: onlyoffice/documentserver:latest
     environment:
@@ -508,6 +558,10 @@ services:
         condition: service_started
       dialer:
         condition: service_started
+      wiki:
+        condition: service_started
+      helpdesk:
+        condition: service_started
       livekit:
         condition: service_healthy
       minio:
@@ -544,6 +598,10 @@ services:
       PLUGIN_GRPC_PORT: ":50060"
       DIALER_GRPC_ADDRESS: dialer:50061
       DIALER_GRPC_PORT: ":50061"
+      WIKI_GRPC_ADDRESS: wiki:50062
+      WIKI_GRPC_PORT: ":50062"
+      HELPDESK_GRPC_ADDRESS: helpdesk:50065
+      HELPDESK_GRPC_PORT: ":50065"
       WOPI_JWT_SECRET: docker-dev-wopi-secret-minimum-32-characters
       GATEWAY_HTTP_PORT: ":8080"
       METRICS_PORT: ":9090"

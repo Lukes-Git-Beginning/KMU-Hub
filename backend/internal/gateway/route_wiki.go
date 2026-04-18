@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/kmuhub/kmuhub/internal/featureflag"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	wikiv1 "github.com/kmuhub/kmuhub/proto/wiki/v1"
@@ -14,11 +15,12 @@ import (
 // WikiRoutes handles HTTP routes for the Wiki backend service.
 type WikiRoutes struct {
 	registry *ServiceRegistry
+	flags    *featureflag.Registry
 }
 
-// NewWikiRoutes creates a new WikiRoutes with the given service registry.
-func NewWikiRoutes(registry *ServiceRegistry) *WikiRoutes {
-	return &WikiRoutes{registry: registry}
+// NewWikiRoutes creates a new WikiRoutes with the given service registry and feature flags.
+func NewWikiRoutes(registry *ServiceRegistry, flags *featureflag.Registry) *WikiRoutes {
+	return &WikiRoutes{registry: registry, flags: flags}
 }
 
 // ServiceName returns the backend service name.
@@ -37,8 +39,13 @@ func (wr *WikiRoutes) getWikiClient() (wikiv1.WikiServiceClient, error) {
 // TODO(Phase 2): extract from JWT claims via middleware.
 const wikiPlaceholderTenantID = "00000000-0000-0000-0000-000000000001"
 
-// RegisterRoutes registers all Wiki HTTP routes.
+// RegisterRoutes mounts all Wiki HTTP routes behind the feature flag modules.wiki.
+// Routes are only registered if the flag is enabled.
 func (wr *WikiRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
+	if !wr.flags.IsEnabled("modules.wiki") {
+		return
+	}
+
 	r.Route("/api/v1/wiki", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.Use(RequireAuthenticated)
