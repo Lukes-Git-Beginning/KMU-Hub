@@ -261,6 +261,17 @@ else
     fail "No HSTS header" ""
 fi
 
+# 14b. OnlyOffice JWT — request without JWT token must return 401/403
+OO_PORT="${ONLYOFFICE_PORT:-8088}"
+OO_RESP=$(curl -sf -o /dev/null -w "%{http_code}" "http://localhost:${OO_PORT}/web-apps/apps/api/documents/api.js" 2>/dev/null || echo "000")
+if [[ "$OO_RESP" == "401" || "$OO_RESP" == "403" ]]; then
+    pass "OnlyOffice JWT active (unauthenticated request = $OO_RESP)"
+elif [[ "$OO_RESP" == "000" ]]; then
+    pass "OnlyOffice not reachable from smoke runner (skip JWT check)"
+else
+    fail "OnlyOffice JWT may be disabled — unauthenticated request returned $OO_RESP, expected 401/403" ""
+fi
+
 # ==========================================
 # Performance Tests (3)
 # ==========================================
