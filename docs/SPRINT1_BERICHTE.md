@@ -16,7 +16,7 @@
 | WP-5 gRPC-Server + cmd/berichte | ⏳ Pending | Worktree B | — |
 | WP-6 Gateway-Routes | ⏳ Pending | Worktree B | — |
 | WP-7 Docker-Integration | ⏳ Pending | Worktree B | — |
-| WP-8 Frontend-Client + Hooks | ⏳ Pending | Worktree C | kann starten (Proto frozen) |
+| WP-8 Frontend-Client + Hooks | ✅ Done 2026-04-18 | Worktree C: `33c758b` | berichte-client.ts (300 LOC) + berichte-types.ts (230 LOC) + useBerichte.ts (250 LOC), snake_case matched wiki pattern, blob-export with Content-Disposition filename parsing. |
 | WP-9 Recharts + Page-Migration | ⏳ Pending | Worktree C | — |
 | WP-11 Feature-Flag + Smoke + Docs | ⏳ Pending | Final | — |
 
