@@ -1,5 +1,13 @@
 # Cosmi by Zentria — Business-Roadmap 2026
 
+> ⚠️ **SUPERSEDED** am 2026-04-18 durch `docs/ROADMAP.md` (Post-Rigorosum-Konsolidierung).
+>
+> Launch-Datum, Team-Status (Moritz "in der Schwebe"), Modul-Scope (alle 14 werden echt) sind in der neuen Kern-Roadmap aktualisiert.
+> Finanzprojektionen und Pricing-Modell wandern in `docs/PRICING.md`.
+> Dieses File bleibt fuer Audit-Trail erhalten, darf aber nicht mehr als Referenz genutzt werden.
+
+---
+
 > Dieses Dokument gibt einen Überblick über Produkt, Team, Timeline, Finanzen und nächste Schritte für die Markteinführung von Cosmi.
 >
 > **Stand:** 31. März 2026 | **Version:** 1.0

@@ -1,5 +1,12 @@
 # KMU Hub — Produkt-Strategie & Handoff
 
+> ⚠️ **SUPERSEDED** am 2026-04-18 durch `docs/ROADMAP.md` (Post-Rigorosum-Konsolidierung).
+>
+> Dieses Dokument stammt aus Februar 2026 und enthaelt ueberholte Aussagen (Phase 12 "Luke baut jetzt" ist laengst fertig, Launch-Datum 01.05 verschoben auf 01.06, Preismodell veraltet).
+> Positioning-Kern bleibt in `docs/STRATEGY.md`. Modul-Scope in der neuen Kern-Roadmap.
+
+---
+
 **Datum:** 2026-02-19 (aktualisiert nach Strategy Session)
 **Von:** Darien (Design/Produkt)
 **An:** Luke (Backend)

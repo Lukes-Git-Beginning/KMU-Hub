@@ -1,5 +1,12 @@
 # i18n Migration — Komplette Roadmap
 
+> ⚠️ **SUPERSEDED** am 2026-04-18 durch `docs/ROADMAP.md` (Post-Rigorosum-Konsolidierung).
+>
+> Die Migration ist abgeschlossen (7.221 Keys × 4 Sprachen), **aber alle 18 ICU-Plural-Strings haben fehlende schliessende Klammern** (Rigorosum-Befund N5). Der Fix ist P0.7 in der neuen Kern-Roadmap, Sprint 0.
+> Historische Referenz fuer die Migrations-Methodik.
+
+---
+
 ## Context
 i18n Migration (react-intl → i18next) in Cosmi Desktop. Ziel: Alle ~440 .tsx/.ts-Dateien instrumentieren, damit die App vollständig DE/EN/FR/IT übersetzbar ist. Agents dürfen max ~5-7 Dateien pro Task bearbeiten, um unter 80k Tokens zu bleiben.
 

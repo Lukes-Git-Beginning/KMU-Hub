@@ -1,5 +1,12 @@
 # Performance-Optimierungsplan — Cosmi
 
+> ⚠️ **SUPERSEDED** am 2026-04-18 durch `docs/ROADMAP.md` (Post-Rigorosum-Konsolidierung).
+>
+> Phasen 1-5 abgeschlossen. Redis-Caching (5.2) wandert in Phase D (post-Launch Hardening).
+> Historische Referenz fuer die Performance-Methodik und die gefundenen Root Causes.
+
+---
+
 > **Status:** Phasen 1-5 abgeschlossen (2026-04-08), nur Redis Caching (5.2) offen
 > **Geschaetzter Aufwand:** ~8 Arbeitstage
 > **Grundlage:** Codebase-Audit (17 Issues: 3x P0, 4x P1, 5x P2, 5x P3) + Best-Practice-Recherche
