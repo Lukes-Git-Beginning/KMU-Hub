@@ -4,6 +4,24 @@ updated: 2026-04-18
 ---
 # Milestones
 
+## Sprint 1 Session 2026-04-18 — R2-P0 Batch A + Wiki + Helpdesk end-to-end
+| Schritt | Details |
+|---------|---------|
+| R2-P0.2 LiveKit-Secrets Startup-Assertion | `310c803` — Prod crasht bei devkey/devsecret |
+| R2-P0.5 Egress-Webhook `egress_ended` | `d8f89d4` — setzt `recordings.status=completed` + `file_url` |
+| R2-P0.6 Lexware Webhook HMAC | `787c327` — HMAC-SHA256 Verifikation auf eingehenden Webhooks |
+| R2-P0.3 Recording-Consent-Bug | `efd752a` — `StartRecording` pruft Consent fuer alle Call-Teilnehmer |
+| R2-P0.1 coturn-Prep (flag-off) | `a9749fa` — `livekit.yaml` Overlay + Go-TURN-Credential-Propagation, Deploy offen |
+| S1.1 Wiki Backend-Modul | `601a815` — 15 RPCs, Postgres-FTS (tsvector+GIN, deutsch), 5 Tabellen, Coverage 38.2% |
+| S1.4 Helpdesk Backend-Modul | `c2d179e` — 22 RPCs, SLA-Engine + Ticket-Merge (ILIKE-Prefix), Coverage 39.3% |
+| S1.1 Wiki Wiring | `75c783e` — Proto, gRPC-Server, `cmd/wiki` Binary, `route_wiki.go` hinter `modules.wiki`-Flag |
+| S1.4 Helpdesk Wiring | `2d8f6d3` — Proto, gRPC-Server, `cmd/helpdesk` Binary, `route_helpdesk.go` hinter `modules.helpdesk`-Flag |
+| Frontend Clients + Hooks | `eed1329` — `wiki-client.ts`/`useWiki.ts` (21 Hooks), `helpdesk-client.ts`/`useHelpdesk.ts` (28 Hooks), `useRecordingStatus` Polling |
+| Gateway + Docker-Compose Activation | `0ac916c` — Registry-Register aktiv, `Dockerfile.wiki`/`Dockerfile.helpdesk`, Services in compose |
+| Knowledge-Base Update | `7349ba3` — `_index.md`/`api.md`/`datenbank.md` |
+
+**Gesamt:** 13 Commits auf main, `go build ./...` + `go test ./...` gruen. Wiki + Helpdesk default-OFF via Feature-Flags. Offen: `.env.example` uncommitted (Hook-Whitelist blockiert), TURN-Deploy wartet auf CPX11-Provisionierung.
+
 ## Abgeschlossene Meilensteine
 | Meilenstein | Phasen | Abgeschlossen |
 |------------|--------|--------------|

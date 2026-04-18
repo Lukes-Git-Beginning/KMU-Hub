@@ -120,22 +120,24 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 
 **Ziel:** 7 von 14 Modulen echt + die fuenf teuersten R2-P0-Items.
 
-| # | Task | Aufwand | Kategorie |
-|---|---|---|---|
-| S1.1 | **wiki** (Postgres-FTS, TipTap, Versionen, Share-Links) | 3d | Modul |
-| S1.2 | **berichte** (BI-Aggregations-Service, Views, CSV/PDF-Export) | 3d | Modul |
-| S1.3 | **formulare** (Form-Schema JSONB, Submissions, Webhook-Trigger) | 4d | Modul |
-| S1.4 | **helpdesk** (Tickets, Agenten, Canned, Merge) | 4d | Modul |
-| S1.5 | **vertraege** (Laufzeit-Engine, Erinnerungs-Trigger, Skribble-Placeholder) | 3d | Modul |
-| S1.6 | **buchhaltung** Completion (FinanzenHook-Gaps, GoBD-Journal) | 2d | Modul |
-| S1.7 | **video** Completion (`useVideo`-Hook, Recording-Tagging) | 2d | Modul |
-| **S1.R2.1** | **TURN/STUN-Server — coturn self-hosted** auf eigenem CPX11, TURN-URLs im LiveKit-Client-Token + `use_external_ip: true` | 2d | R2-P0.1 |
-| **S1.R2.2** | **LiveKit-Secrets Startup-Assertion** (keine Dev-Defaults in Prod) | 2h | R2-P0.2 |
-| **S1.R2.3** | **Recording-Consent-Bug:** `StartRecording` uebergibt alle aktiven Call-Teilnehmer als `participantIDs` (`video_grpc.go:213`) | 1d | R2-P0.3 |
-| **S1.R2.5** | **Egress-Webhook** ruft `CompleteRecording` (`route_video.go:1153-1176`) | 4h | R2-P0.5 |
-| **S1.R2.6** | **Lexware-Webhook HMAC-Signatur-Validierung** (`webhook_handler.go:99-113`) | 1d | R2-P0.6 |
+| # | Task | Aufwand | Kategorie | Status |
+|---|---|---|---|---|
+| S1.1 | **wiki** (Postgres-FTS, TipTap, Versionen, Share-Links) | 3d | Modul | ✅ Done 2026-04-18 — 15 RPCs, FTS tsvector+GIN, Coverage 38.2% |
+| S1.2 | **berichte** (BI-Aggregations-Service, Views, CSV/PDF-Export) | 3d | Modul | Pending |
+| S1.3 | **formulare** (Form-Schema JSONB, Submissions, Webhook-Trigger) | 4d | Modul | Pending |
+| S1.4 | **helpdesk** (Tickets, Agenten, Canned, Merge) | 4d | Modul | ✅ Done 2026-04-18 — 22 RPCs, SLA + Merge, Coverage 39.3% |
+| S1.5 | **vertraege** (Laufzeit-Engine, Erinnerungs-Trigger, Skribble-Placeholder) | 3d | Modul | Pending |
+| S1.6 | **buchhaltung** Completion (FinanzenHook-Gaps, GoBD-Journal) | 2d | Modul | Pending |
+| S1.7 | **video** Completion (`useVideo`-Hook, Recording-Tagging) | 2d | Modul | ⏳ Teilweise — `useRecordingStatus` Polling-Hook in Welle 3 ergaenzt, Rest offen |
+| **S1.R2.1** | **TURN/STUN-Server — coturn self-hosted** auf eigenem CPX11, TURN-URLs im LiveKit-Client-Token + `use_external_ip: true` | 2d | R2-P0.1 | ⏳ Code flag-off fertig (`a9749fa`), Deploy wartet auf CPX11-Provisionierung |
+| **S1.R2.2** | **LiveKit-Secrets Startup-Assertion** (keine Dev-Defaults in Prod) | 2h | R2-P0.2 | ✅ Done 2026-04-18 (`310c803`) |
+| **S1.R2.3** | **Recording-Consent-Bug:** `StartRecording` uebergibt alle aktiven Call-Teilnehmer als `participantIDs` (`video_grpc.go:213`) | 1d | R2-P0.3 | ✅ Done 2026-04-18 (`efd752a`) |
+| **S1.R2.5** | **Egress-Webhook** ruft `CompleteRecording` (`route_video.go:1153-1176`) | 4h | R2-P0.5 | ✅ Done 2026-04-18 (`d8f89d4`) |
+| **S1.R2.6** | **Lexware-Webhook HMAC-Signatur-Validierung** (`webhook_handler.go:99-113`) | 1d | R2-P0.6 | ✅ Done 2026-04-18 (`787c327`) |
 
 **Parallelitaets-Model:** 4 Git-Worktrees fuer Module + 1 Worktree fuer R2-P0-Batch. Je Worktree 1 Sonnet-Agent als Code-Schreiber, Luke als Reviewer.
+
+**Session 2026-04-18 (vor Sprint-Start):** Direct-to-main mit Subagent-Wellen statt Worktrees — Welle-Protokoll in `memory/project_sprint1_progress.md`. Erledigt: S1.1 wiki, S1.4 helpdesk, S1.R2.1 Code-Teil, S1.R2.2/3/5/6 komplett, S1.7 Teilstuecke.
 
 **Ende Sprint 1:** 7 Module live, 5 R2-P0 erledigt, Coverage ≥30% pro Modul.
 
@@ -253,12 +255,12 @@ Quelle: Rigorosum Runde 1 (wild-wren, 2026-04-18) + Rigorosum Runde 2 Vertiefung
 
 | # | Task | Status | Sprint |
 |---|---|---|---|
-| R2-P0.1 | TURN/STUN coturn self-hosted + `use_external_ip: true` | Pending | S1 |
-| R2-P0.2 | LiveKit-Secrets Startup-Assertion | Pending | S1 |
-| R2-P0.3 | Recording-Consent-Bug (`video_grpc.go:213` — alle Teilnehmer) | Pending | S1 |
+| R2-P0.1 | TURN/STUN coturn self-hosted + `use_external_ip: true` | ⏳ Code done (a9749fa), Deploy pending | S1 |
+| R2-P0.2 | LiveKit-Secrets Startup-Assertion | ✅ Done (310c803) | S1 |
+| R2-P0.3 | Recording-Consent-Bug (`video_grpc.go:213` — alle Teilnehmer) | ✅ Done (efd752a) | S1 |
 | R2-P0.4 | Frontend Recording-Consent-Modal + Banner (Join-with-Consent) | Pending | S2 |
-| R2-P0.5 | Egress-Webhook ruft `CompleteRecording` | Pending | S1 |
-| R2-P0.6 | Lexware-Webhook HMAC-Signatur-Validierung | Pending | S1 |
+| R2-P0.5 | Egress-Webhook ruft `CompleteRecording` | ✅ Done (d8f89d4) | S1 |
+| R2-P0.6 | Lexware-Webhook HMAC-Signatur-Validierung | ✅ Done (787c327) | S1 |
 | R2-P0.7 | Offline-Queue Desktop-WS (IndexedDB + Reconciliation) | Pending | S2 |
 | R2-P0.8 | `consent_records.created_by` ON DELETE SET NULL | Pending | S2 |
 | R2-P0.9 | `gdpr_deletion_requests.contact_id` zirkulaere FK aufloesen | Pending | S2 |
