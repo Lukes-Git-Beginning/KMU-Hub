@@ -52,6 +52,9 @@ services:
 
   onlyoffice:
     logging: *default-logging
+    environment:
+      JWT_ENABLED: "true"
+      JWT_SECRET: ${ONLYOFFICE_JWT_SECRET}
     deploy:
       resources:
         limits:
