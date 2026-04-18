@@ -1,24 +1,40 @@
 package gateway
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/kmuhub/kmuhub/internal/biz/lexware"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
 )
 
+// lexwareWebhookSignatureHeader is the header Lexware (or our self-hosted endpoint)
+// sends with the HMAC-SHA256 signature.
+const lexwareWebhookSignatureHeader = "X-Signature"
+
 // LexwareRoutes handles HTTP routes for the Lexware integration.
 type LexwareRoutes struct {
-	registry *ServiceRegistry
+	registry      *ServiceRegistry
+	webhookSecret string // empty means secret not configured (dev/staging)
+	isProd        bool   // set to true when COSMI_ENV=production for defense-in-depth
 }
 
 // NewLexwareRoutes creates a new LexwareRoutes.
-func NewLexwareRoutes(registry *ServiceRegistry) *LexwareRoutes {
-	return &LexwareRoutes{registry: registry}
+// webhookSecret is the value of LEXWARE_WEBHOOK_SECRET from config.
+// isProd should be set to true when running in production (COSMI_ENV=production).
+func NewLexwareRoutes(registry *ServiceRegistry, webhookSecret string, isProd bool) *LexwareRoutes {
+	return &LexwareRoutes{
+		registry:      registry,
+		webhookSecret: webhookSecret,
+		isProd:        isProd,
+	}
 }
 
 // ServiceName returns "biz" to reuse the existing gRPC connection
@@ -445,7 +461,43 @@ func (lr *LexwareRoutes) HandlePushQuote(w http.ResponseWriter, r *http.Request)
 
 // HandleWebhookEvent processes incoming Lexware webhook events.
 // This endpoint is public (no auth middleware) because Lexware calls it directly.
+// HMAC-SHA256 signature validation is performed when LEXWARE_WEBHOOK_SECRET is set.
 func (lr *LexwareRoutes) HandleWebhookEvent(w http.ResponseWriter, r *http.Request) {
+	// Read raw body first so it can be used for both HMAC validation and JSON decoding.
+	rawBody, err := io.ReadAll(r.Body)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "failed to read request body")
+		return
+	}
+	// Restore body for downstream JSON decoding.
+	r.Body = io.NopCloser(bytes.NewReader(rawBody))
+
+	// --- HMAC validation ---
+	if lr.webhookSecret == "" {
+		if lr.isProd {
+			// Defense-in-depth: config.go should have caught this at startup, but
+			// we reject the request here too in case of misconfiguration.
+			slog.Error("lexware webhook: LEXWARE_WEBHOOK_SECRET not set in production — rejecting request")
+			response.Error(w, http.StatusInternalServerError, "webhook secret not configured")
+			return
+		}
+		// Dev/staging: skip signature check but warn.
+		slog.Warn("lexware webhook: LEXWARE_WEBHOOK_SECRET not set — skipping HMAC validation (dev/staging only)")
+	} else {
+		sig := r.Header.Get(lexwareWebhookSignatureHeader)
+		if sig == "" {
+			slog.Warn("lexware webhook: missing X-Signature header — rejecting request")
+			response.Error(w, http.StatusUnauthorized, "missing webhook signature")
+			return
+		}
+		if !lexware.ValidateHMAC(rawBody, sig, lr.webhookSecret) {
+			slog.Warn("lexware webhook: invalid HMAC signature — rejecting request")
+			response.Error(w, http.StatusUnauthorized, "invalid webhook signature")
+			return
+		}
+	}
+
+	// --- Dispatch event ---
 	client, err := lr.getLexwareClient()
 	if err != nil {
 		respondServiceUnavailable(w, lr.ServiceName())

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -177,6 +178,8 @@ func main() {
 	wopiFileAdapter := gateway.NewWOPIFileAdapter(registry)
 	wopiHandler := wopi.NewHandler(wopiTokenService, wopiLockService, wopiFileAdapter, fileStore)
 
+	isProd := strings.EqualFold(cfg.Env, "production")
+
 	registrars := []gateway.RouteRegistrar{
 		gateway.NewAuthRoutes(registry),
 		gateway.NewCRMRoutes(registry, crmExt),
@@ -190,6 +193,7 @@ func main() {
 		gateway.NewDocumentRoutes(registry),
 		gateway.NewBizRoutes(registry),
 		gateway.NewBexioRoutes(registry),
+		gateway.NewLexwareRoutes(registry, cfg.LexwareWebhookSecret, isProd),
 		gateway.NewHRRoutes(registry, bizExt),
 		gateway.NewInboxRoutes(registry),
 		gateway.NewAutomationRoutes(registry),

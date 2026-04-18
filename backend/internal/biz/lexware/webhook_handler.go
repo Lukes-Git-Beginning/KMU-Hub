@@ -2,12 +2,19 @@ package lexware
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 )
+
+// hmacSignaturePrefix is the prefix used in the X-Signature header.
+const hmacSignaturePrefix = "hmac-sha256="
 
 type WebhookSubscription struct {
 	ID          string `json:"id,omitempty"`
@@ -19,6 +26,36 @@ type WebhookHandler struct {
 	client  *Client
 	repo    Repository
 	emitter EventEmitter
+}
+
+// ValidateHMAC checks whether the given signature (value of the X-Signature header,
+// including the "hmac-sha256=" prefix) matches an HMAC-SHA256 digest of body using
+// secret as the key. Comparison is done in constant time to prevent timing attacks.
+//
+// Returns false when the signature is malformed, has the wrong prefix, or does not match.
+func ValidateHMAC(body []byte, signature, secret string) bool {
+	sig := strings.TrimPrefix(signature, hmacSignaturePrefix)
+	if sig == signature {
+		// Prefix was not present — reject.
+		return false
+	}
+	expectedBytes, err := hex.DecodeString(sig)
+	if err != nil {
+		return false
+	}
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(body)
+	return hmac.Equal(mac.Sum(nil), expectedBytes)
+}
+
+// ComputeHMAC computes an HMAC-SHA256 signature for body using secret.
+// Returned string includes the "hmac-sha256=" prefix and is suitable for use as
+// the value of the X-Signature header.
+// This helper is used in tests and by the webhook registration flow.
+func ComputeHMAC(body []byte, secret string) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(body)
+	return hmacSignaturePrefix + hex.EncodeToString(mac.Sum(nil))
 }
 
 func NewWebhookHandler(client *Client, repo Repository, emitter EventEmitter) *WebhookHandler {
