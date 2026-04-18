@@ -1,0 +1,280 @@
+syntax = "proto3";
+
+package berichte.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/kmuhub/kmuhub/proto/berichte/v1;berichtev1";
+
+service BerichteService {
+  // Definitions (CRUD)
+  rpc CreateDefinition(CreateDefinitionRequest) returns (DefinitionResponse);
+  rpc GetDefinition(GetDefinitionRequest) returns (DefinitionResponse);
+  rpc UpdateDefinition(UpdateDefinitionRequest) returns (DefinitionResponse);
+  rpc DeleteDefinition(DeleteDefinitionRequest) returns (DeleteDefinitionResponse);
+  rpc ListDefinitions(ListDefinitionsRequest) returns (ListDefinitionsResponse);
+
+  // Run & Cache
+  rpc RunReport(RunReportRequest) returns (RunReportResponse);
+  rpc GetCachedResult(GetCachedResultRequest) returns (RunReportResponse);
+  rpc InvalidateCache(InvalidateCacheRequest) returns (InvalidateCacheResponse);
+
+  // Export
+  rpc ExportReport(ExportReportRequest) returns (ExportReportResponse);
+
+  // Schedules
+  rpc CreateSchedule(CreateScheduleRequest) returns (ScheduleResponse);
+  rpc UpdateSchedule(UpdateScheduleRequest) returns (ScheduleResponse);
+  rpc DeleteSchedule(DeleteScheduleRequest) returns (DeleteScheduleResponse);
+  rpc ListSchedules(ListSchedulesRequest) returns (ListSchedulesResponse);
+  rpc ToggleSchedule(ToggleScheduleRequest) returns (ScheduleResponse);
+
+  // KPIs (Dashboard convenience)
+  rpc GetDashboardKPIs(DashboardKPIsRequest) returns (DashboardKPIsResponse);
+}
+
+// ============================================================================
+// Domain Messages
+// ============================================================================
+
+message Definition {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  string description = 4;
+  string module = 5;              // finanzen|crm|helpdesk|inventar|produktion|cross
+  string kind = 6;                // system|custom
+  bytes query_config = 7;         // raw JSONB aggregation spec
+  string default_format = 8;      // pdf|csv|xlsx
+  optional string created_by = 9;
+  bool is_published = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+}
+
+message Schedule {
+  string id = 1;
+  string tenant_id = 2;
+  string definition_id = 3;
+  string name = 4;
+  string cron_expression = 5;
+  repeated string recipients = 6;
+  string format = 7;              // pdf|csv|xlsx
+  bytes params = 8;               // raw JSONB
+  bool active = 9;
+  optional google.protobuf.Timestamp last_run_at = 10;
+  optional string last_run_status = 11; // success|failed|skipped
+  optional string last_run_error = 12;
+  optional string created_by = 13;
+  google.protobuf.Timestamp created_at = 14;
+  google.protobuf.Timestamp updated_at = 15;
+}
+
+message Run {
+  string id = 1;
+  string tenant_id = 2;
+  string definition_id = 3;
+  optional string schedule_id = 4;
+  string trigger = 5;             // manual|scheduled|api
+  bytes params = 6;
+  optional int32 duration_ms = 7;
+  optional int32 row_count = 8;
+  string status = 9;              // success|failed
+  optional string error = 10;
+  google.protobuf.Timestamp started_at = 11;
+  optional google.protobuf.Timestamp completed_at = 12;
+}
+
+message ReportResult {
+  bytes payload = 1;              // JSON-encoded {columns, rows, series, totals, meta}
+  int32 row_count = 2;
+  google.protobuf.Timestamp generated_at = 3;
+  bool from_cache = 4;
+}
+
+message KPI {
+  string id = 1;
+  string label = 2;
+  string value = 3;               // rendered value (string for flexibility)
+  string unit = 4;
+  optional double change_percent = 5;
+  string module_id = 6;
+}
+
+// ============================================================================
+// Definition RPC messages
+// ============================================================================
+
+message CreateDefinitionRequest {
+  string tenant_id = 1;
+  string name = 2;
+  string description = 3;
+  string module = 4;
+  string kind = 5;                // defaults to "custom"
+  bytes query_config = 6;
+  string default_format = 7;
+  optional string created_by = 8;
+  bool is_published = 9;
+}
+
+message GetDefinitionRequest {
+  string tenant_id = 1;
+  string definition_id = 2;
+}
+
+message UpdateDefinitionRequest {
+  string tenant_id = 1;
+  string definition_id = 2;
+  optional string name = 3;
+  optional string description = 4;
+  optional string module = 5;
+  bytes query_config = 6;         // empty = no change
+  optional string default_format = 7;
+  optional bool is_published = 8;
+  string editor_id = 9;
+}
+
+message DeleteDefinitionRequest {
+  string tenant_id = 1;
+  string definition_id = 2;
+}
+
+message DeleteDefinitionResponse {}
+
+message DefinitionResponse {
+  Definition definition = 1;
+}
+
+message ListDefinitionsRequest {
+  string tenant_id = 1;
+  optional string module = 2;
+  optional string kind = 3;
+  optional bool is_published = 4;
+  string search = 5;
+  int32 page = 6;
+  int32 page_size = 7;
+  string sort_by = 8;
+  bool sort_desc = 9;
+}
+
+message ListDefinitionsResponse {
+  repeated Definition definitions = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// Run / Cache / Export
+// ============================================================================
+
+message RunReportRequest {
+  string tenant_id = 1;
+  string definition_id = 2;
+  bytes params = 3;
+  bool force_refresh = 4;         // ignore cache
+  string trigger = 5;              // defaults to "manual"
+}
+
+message RunReportResponse {
+  ReportResult result = 1;
+  Run run = 2;
+}
+
+message GetCachedResultRequest {
+  string tenant_id = 1;
+  string definition_id = 2;
+  bytes params = 3;
+}
+
+message InvalidateCacheRequest {
+  string tenant_id = 1;
+  string definition_id = 2;
+}
+
+message InvalidateCacheResponse {
+  int32 evicted = 1;
+}
+
+message ExportReportRequest {
+  string tenant_id = 1;
+  string definition_id = 2;
+  bytes params = 3;
+  string format = 4;              // pdf|csv|xlsx
+}
+
+message ExportReportResponse {
+  bytes payload = 1;
+  string filename = 2;
+  string content_type = 3;
+}
+
+// ============================================================================
+// Schedule RPC messages
+// ============================================================================
+
+message CreateScheduleRequest {
+  string tenant_id = 1;
+  string definition_id = 2;
+  string name = 3;
+  string cron_expression = 4;
+  repeated string recipients = 5;
+  string format = 6;
+  bytes params = 7;
+  bool active = 8;
+  optional string created_by = 9;
+}
+
+message UpdateScheduleRequest {
+  string tenant_id = 1;
+  string schedule_id = 2;
+  optional string name = 3;
+  optional string cron_expression = 4;
+  repeated string recipients = 5;
+  bool recipients_set = 6;        // true if `recipients` replaces
+  optional string format = 7;
+  bytes params = 8;
+  optional bool active = 9;
+}
+
+message DeleteScheduleRequest {
+  string tenant_id = 1;
+  string schedule_id = 2;
+}
+
+message DeleteScheduleResponse {}
+
+message ScheduleResponse {
+  Schedule schedule = 1;
+}
+
+message ListSchedulesRequest {
+  string tenant_id = 1;
+  optional string definition_id = 2;
+  optional bool active = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+}
+
+message ListSchedulesResponse {
+  repeated Schedule schedules = 1;
+  int32 total = 2;
+}
+
+message ToggleScheduleRequest {
+  string tenant_id = 1;
+  string schedule_id = 2;
+  bool active = 3;
+}
+
+// ============================================================================
+// KPI Dashboard
+// ============================================================================
+
+message DashboardKPIsRequest {
+  string tenant_id = 1;
+  repeated string modules = 2;    // empty = all modules
+}
+
+message DashboardKPIsResponse {
+  repeated KPI kpis = 1;
+  google.protobuf.Timestamp generated_at = 2;
+}
