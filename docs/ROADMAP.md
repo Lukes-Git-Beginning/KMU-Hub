@@ -1,7 +1,8 @@
 # Cosmi — Kern-Roadmap
 
-> **Status:** Post-Rigorosum 2026-04-18, konsolidierte Single Source of Truth
-> **Launch-Datum:** **2026-06-01** (UG-Gruendung + ZFA-Pilot-0 + Beta-Launch)
+> **Status:** Post-Rigorosum Runde 2 Vertiefungs-Audit (2026-04-18), konsolidierte Single Source of Truth
+> **Launch-Datum:** **2026-07-01** (+4 Wochen verschoben nach Runde 2 — 9 neue P0-Launch-Blocker + Option-B-Full + finance-Normalisierung)
+> **UG-Gruendung:** 2026-06-01 bleibt, Launch-Tag separat
 > **Konsolidiert aus:** ROADMAP (alt), BUSINESS-ROADMAP, PRODUCT-STRATEGY, DIALER-ROADMAP, I18N-ROADMAP, PERFORMANCE-PLAN, .knowledge/milestones.md
 > **Eigentuemer dieser Datei:** Luke. Jede andere Roadmap-Datei ist SUPERSEDED.
 
@@ -11,25 +12,30 @@
 
 ### Warum diese Roadmap
 
-Bis 2026-04-18 lagen Produkt-, Technik- und Business-Pfade auf 11 verschiedene Dokumente verteilt. Das Rigorosum vom 18.04. hat harte Defizite aufgedeckt (Gesamtnote 3.3), darunter launch-verhindernde Sicherheits- und Compliance-Luecken. Gleichzeitig wurde der Launch von 01.05. auf **01.06. verschoben**, um einen ambitionierten Scope sauber umzusetzen statt mit nur 6 echten Modulen an den Markt zu gehen.
+Bis 2026-04-18 lagen Produkt-, Technik- und Business-Pfade auf 11 verschiedene Dokumente verteilt. Zwei Rigorosum-Runden am 18.04. haben harte Defizite aufgedeckt: **Runde 1** (Gesamtnote 3.3, wild-wren-Plan) identifizierte 7 P0-Launch-Blocker in Backend/Frontend/Ops. **Runde 2 Vertiefung** (Gesamtnote 4.1, functional-seahorse-Plan) lieferte 9 zusaetzliche P0-Blocker in Integrationen, Realtime-Kern und DB-Schema — darunter ein komplett fehlender TURN/STUN-Server und ein faktisch wirkungsloser Recording-Consent-Check. Kombinierte Launch-Reife: **3.7**.
+
+Konsequenz: Launch von 01.06. auf **01.07. verschoben** (+4 Wochen), um 16 P0-Blocker + Option-B-Full-Retrofit (~50 Tabellen) + finance_line_items-Normalisierung sauber umzusetzen. UG-Gruendung bleibt auf 01.06.
 
 Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden deprecatet (siehe §8).
 
 ### North Star
 
-**Cosmi 1.0 geht am 2026-06-01 live mit:**
+**Cosmi 1.0 geht am 2026-07-01 live mit:**
 - **14 echten Modulen** (keine Mock-Daten mehr in user-sichtbaren Pfaden)
-- **Sauberem Multi-Tenancy-Blueprint** (Option A: Instanz-pro-Pilot, Ansible-automatisiert)
-- **DSGVO-Consent-Enforcement** in allen Send-Flows (Email, Dialer)
-- **Sicherheits-Posture auf Pilot-Niveau** (7 P0-Fixes aus Rigorosum erledigt)
-- **Zweiter, unabhaengiger Review-Zyklus abgeschlossen** (Sprint 4, Peer-Review-Option nutzen)
+- **Multi-Tenancy Option-B aktiv** (RLS auf ~50 Tabellen, Instanz-pro-Pilot + tenant_id-Isolation — kein Downgrade-Risiko)
+- **DSGVO-Consent-Enforcement** in allen Send-Flows (Email, Dialer) + Realtime-Recording (Join-with-Consent + persistenter Banner)
+- **Sicherheits-Posture auf Pilot-Niveau** (16 P0-Fixes aus Rigorosum Runde 1 + 2 erledigt)
+- **TURN/STUN self-hosted** (coturn auf eigenem CPX11, kein Vendor-Lock)
+- **WASM-Plugin-System Feature-Flag OFF** — Config-Plugins aktiv, WASM-Haertung in Phase D (ehrlicher Pitch)
+- **`finance_invoices.line_items` normalisiert** (eigene `finance_invoice_lines`-Tabelle, GoBD/ZUGFeRD-tauglich, Finance-Test-Coverage erweitert)
+- **Zweiter Review-Zyklus abgeschlossen** (Sprint 5, Peer-Review + Rigorosum Runde 3)
 - **Ehrlicher Pitch:** Mobile = PWA auf Desktop-Basis, keine falschen Native-Versprechen
 
 ### Pilot-Strategie
 
-- **Pilot-0 (ZFA, Anfang Juni):** Warm-Einstieg, Design-Partner, Dialer-Nutzung, kostenlos
-- **Pilot 1–3 (Juni–Juli, Dienstleister-Segment):** Kostenlos, Feedback-Loop woechentlich, Referenzen aufbauen
-- **Handwerk-Piloten:** ab Monat 4 (September 2026), wenn Rapporte/Schichten/Fuhrpark auf Branchen-Daten kalibriert sind
+- **Pilot-0 (ZFA, Anfang Juli):** Warm-Einstieg, Design-Partner, Dialer-Nutzung, kostenlos
+- **Pilot 1–3 (Juli–August, Dienstleister-Segment):** Kostenlos, Feedback-Loop woechentlich, Referenzen aufbauen
+- **Handwerk-Piloten:** ab Oktober 2026, wenn Rapporte/Schichten/Fuhrpark auf Branchen-Daten kalibriert sind
 
 ---
 
@@ -47,155 +53,259 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 | Infrastruktur Hetzner CPX42 (11 Services healthy, HTTPS, Backup-Cron, Prometheus) | ✅ |
 | Website zentria.tech (Astro 5, Vercel) | ⚠ "Viele Versprechungen, wenig dahinter" — Inhalts-Cleanup noetig |
 
-### Was aus dem Rigorosum zaehlt
+### Was aus den Rigorosum-Runden zaehlt
 
-- **Kapitel-Noten:** Backend 3.3 · Frontend 3.3 · Mobile 5.0 (leer) · Ops/Sec 2.7 · Tests 4.0 · Launch-Readiness 3.7
-- **7 P0-Launch-Blocker** (siehe §4)
-- **8 P1-Items** (vor Pilot-1, siehe §4)
-- **14 Frontend-only-Module** — werden jetzt alle echt (siehe §5)
-- **Mobile-Ordner leer** — wird geloescht, Pitch korrigiert (siehe §3 Sprint 0)
-- Vollstaendiges Rigorosum: `~/.claude/plans/wir-hatten-ja-schonmal-wild-wren.md`
+**Runde 1 (wild-wren, Gesamtnote 3.3):**
+- Kapitel-Noten: Backend 3.3 · Frontend 3.3 · Mobile 5.0 (leer) · Ops/Sec 2.7 · Tests 4.0 · Launch-Readiness 3.7
+- 7 P0-Launch-Blocker + 8 P1-Items (siehe §4)
+- Vollstaendig: `~/.claude/plans/wir-hatten-ja-schonmal-wild-wren.md`
+
+**Runde 2 Vertiefung (functional-seahorse, Gesamtnote 4.1):**
+- Kapitel-Noten: Integrationen 4.1 · Realtime-Kern 4.5 (schlechteste Zone) · DB-Schema 3.8
+- 9 neue P0-Launch-Blocker (R2-P0.1–9, siehe §4): TURN-Config, LiveKit-Secrets, Recording-Consent-Bug, Frontend-Consent-Modal, Egress-Webhook, Lexware-HMAC, Offline-Queue, `consent_records.created_by`-FK, `gdpr_deletion_requests`-zirkulaere-FK
+- 12 P1 + 15 P2 + 6 P3 zusaetzlich
+- Vollstaendig: `~/.claude/plans/du-bist-ein-schlecht-functional-seahorse.md`
+
+**Kombinierte Launch-Reife: 3.7** (nach oben korrigiert von Runde-1-3.3, weil Runde 2 neue Blocker ans Licht holte).
+
+**Andere Kern-Entscheidungen:**
+- 14 Frontend-only-Module — werden jetzt alle echt (siehe §5)
+- Mobile-Ordner leer — wird geloescht, Pitch korrigiert (siehe §3 Sprint 0)
+- Multi-Tenancy **Option-B voll durchgezogen** — ~50 Tabellen bekommen `tenant_id` + RLS-Policies in Sprint 2+3
+- WASM-Plugin-System **Feature-Flag OFF** bis Phase D — Config-Plugins aktiv, keine WASM-Runtime in Production
+- `finance_invoices.line_items` **vor Launch normalisiert** in eigene Tabelle
 
 ### Was sich geaendert hat
 
 | Alt | Neu |
 |---|---|
-| Launch 01.05. | **Launch 01.06.** |
+| Launch 01.05. → 01.06. | **Launch 01.07.** (nach Runde 2) |
 | "11 Industry-Module bleiben auf Mock" (alte ROADMAP §Scope-Entscheidungen) | **Alle 14 Module werden echt** |
 | "React Native Scaffold existiert" (alter Audit) | **Mobile-Ordner leer, wird geloescht** |
+| Multi-Tenancy Option-A permanent | **Option-B-Full jetzt, ~50 Tabellen Retrofit** |
+| WASM-Plugin-System aktiv | **Feature-Flag OFF bis Phase D** (ehrlicher Pitch) |
+| Recording ohne Consent-Fluss | **Join-with-Consent + persistenter Banner** |
+| TURN/STUN nicht konfiguriert | **coturn self-hosted auf CPX11** |
+| `finance_invoices.line_items` JSONB | **normalisierte Tabelle + Backfill** |
 | Moritz als GTM-Lead | "In der Schwebe" (siehe MEMORY project_team_ug.md) |
 | Demo-Theater als Feature | **Demo-Theater als Launch-Risiko** |
 
 ---
 
-## 3. Sprint-Plan bis 2026-06-01
+## 3. Sprint-Plan bis 2026-07-01
 
-**6 Wochen = 4 Sprints a ~1.5 Wochen. Parallelitaet via Git-Worktrees + Sub-Agenten (Sonnet fuer Code-Volumen, Opus fuer Architektur-Entscheidungen).**
+**10 Wochen = 6 Sprints. Parallelitaet via Git-Worktrees + Sub-Agenten (Sonnet fuer Code-Volumen, Opus fuer Architektur-Entscheidungen).**
 
-### Sprint 0 — Launch-Blocker-Sweep (2026-04-21 – 2026-04-27, 1 Woche)
+### Sprint 0 — Runde-1-Launch-Blocker (2026-04-21 – 2026-04-27, 1 Woche)
 
-**Ziel:** Alle P0-Blocker aus dem Rigorosum abraeumen. Modul-Scope final. Bibliotheken-Prerequisites.
+**Ziel:** Alle 7 P0-Blocker aus Rigorosum Runde 1 abraeumen. Modul-Scope final. Bibliotheken-Prerequisites.
 
-| # | Task | Aufwand | Owner | Verifikation |
+| # | Task | Aufwand | Quelle | Verifikation |
 |---|---|---|---|---|
-| S0.1 | Migration 000071: `consent_records.contact_id` CASCADE → SET NULL | 4h | Luke | `\d consent_records` |
-| S0.2 | `assertConsent()`-Wrapper vor `SendEmail` + `InitiateDialerCall` | 3d | Luke+Sonnet | Integration-Test schlaegt ohne Consent fehl |
-| S0.3 | `WOPI_JWT_SECRET`, `MINIO_SECRET_KEY`, `VAULT_MASTER_SECRET` mit `required: true` + Startup-Assertion | 2h | Luke | Service-Start ohne Env-Var → harter Abbruch |
-| S0.4 | DOMPurify in 7 `dangerouslySetInnerHTML`-Stellen (insb. `MailsPage.tsx:577`, `WikiArticle.tsx:72`) | 1d | Luke+Sonnet | grep zeigt nur noch sanitize-wrapped Aufrufe |
-| S0.5 | OnlyOffice JWT in Prod-Override explizit `JWT_ENABLED: "true"` + Secret-Sync | 2h | Luke | OnlyOffice-Request ohne JWT → 401 |
-| S0.6 | Feature-Flag-Registry (Config-basiert) — Safety Net fuer Modul-Slippage | 2d | Luke+Sonnet | Nav zeigt nur aktivierte Module, Route-Direct-Access → 404 |
-| S0.7 | ICU-Plural-Klammern-Fix in de.json/en.json/fr.json/it.json (18 Strings × 4 Sprachen) | 1h | Luke+Sonnet | i18n-Test mit `count: 5` rendert korrekt |
-| S0.8 | `mobile/`-Ordner loeschen, MEMORY.md + Website-Pitch korrigieren (PWA statt Native) | 2h | Luke | Ordner weg, Pitch ehrlich |
-| S0.9 | 14-Modul-Backend-Scope-Matrix erstellen (siehe §5) | 1d | Luke | Matrix dokumentiert pro Modul: Tabellen, gRPC-RPCs, Abhaengigkeiten |
+| S0.1 | Migration 000071: `consent_records.contact_id` CASCADE → SET NULL | 4h | R1-P0.1 | `\d consent_records` |
+| S0.2 | `assertConsent()`-Wrapper vor `SendEmail` + `InitiateDialerCall` | 3d | R1-P0.2 | Integration-Test schlaegt ohne Consent fehl |
+| S0.3 | `WOPI_JWT_SECRET`, `MINIO_SECRET_KEY`, `VAULT_MASTER_SECRET` mit `required: true` + Startup-Assertion | 2h | R1-P0.3 | Service-Start ohne Env-Var → harter Abbruch |
+| S0.4 | DOMPurify in 7 `dangerouslySetInnerHTML`-Stellen (insb. `MailsPage.tsx:577`, `WikiArticle.tsx:72`) | 1d | R1-P0.4 | grep zeigt nur noch sanitize-wrapped Aufrufe |
+| S0.5 | OnlyOffice JWT in Prod-Override explizit `JWT_ENABLED: "true"` + Secret-Sync | 2h | R1-P0.5 | OnlyOffice-Request ohne JWT → 401 |
+| S0.6 | Feature-Flag-Registry (Config-basiert) — Safety Net fuer Modul-Slippage **+ WASM-Plugin-System Feature-Flag OFF** | 2d | R1-P0.6 | Nav zeigt nur aktivierte Module, WASM-Runtime nicht instanziert |
+| S0.7 | ICU-Plural-Klammern-Fix in de.json/en.json/fr.json/it.json (18 Strings × 4 Sprachen) | 1h | R1-P0.7 | i18n-Test mit `count: 5` rendert korrekt |
+| S0.8 | `mobile/`-Ordner loeschen, MEMORY.md + Website-Pitch korrigieren (PWA statt Native) | 2h | Cleanup | Ordner weg, Pitch ehrlich |
+| S0.9 | 14-Modul-Backend-Scope-Matrix erstellen (siehe §5) | 1d | Planung | Matrix dokumentiert pro Modul: Tabellen, gRPC-RPCs, Abhaengigkeiten |
 
-**Ende Sprint 0:** Alle P0 gefixt, Feature-Flag-System live, Modul-Scope final.
+**Ende Sprint 0:** Alle R1-P0 gefixt, Feature-Flag-System live (inkl. WASM-OFF), Modul-Scope final.
 
 ---
 
-### Sprint 1 — Backend-Offensive Teil 1 (2026-04-28 – 2026-05-10, 2 Wochen)
+### Sprint 1 — Backend-Offensive Teil 1 + R2-P0 Batch A (2026-04-28 – 2026-05-10, 2 Wochen)
 
-**Ziel:** 7 von 14 Modulen voll ans Backend angebunden. Parallelisierung per Worktree (3–4 Module gleichzeitig mit Sonnet-Sub-Agenten).
-
-Reihenfolge nach Aufwand und Abhaengigkeit:
-
-| # | Modul | Kern-Scope | Aufwand | Abhaengigkeit |
-|---|---|---|---|---|
-| S1.1 | **wiki** | Postgres-FTS, TipTap-Content speichern, Versionen, Share-Links | 3d | — |
-| S1.2 | **berichte** | BI-Aggregations-Service, View-Definitionen in DB, CSV/PDF-Export | 3d | biz, crm (read) |
-| S1.3 | **formulare** | Form-Schema JSONB, Submissions-Table, Webhook-Trigger fuer Automation | 4d | automation |
-| S1.4 | **helpdesk** | Tickets, Agenten-Zuweisung, Canned Responses, Merge-Funktion | 4d | auth, email |
-| S1.5 | **vertraege** | Vertrags-Entity, Laufzeit-Engine, Erinnerungs-Trigger, Skribble-Placeholder | 3d | crm |
-| S1.6 | **buchhaltung** (Completion) | Fehlende FinanzenHook-Gaps schliessen, GoBD-konforme Journal-Tabelle | 2d | biz (exists) |
-| S1.7 | **video** (Completion) | `useVideo`-Hook vervollstaendigen, Recording-Tagging in Meetings | 2d | work/livekit (exists) |
-
-**Parallelitaets-Model:** 4 Git-Worktrees (`wt-wiki`, `wt-formulare`, `wt-helpdesk`, `wt-vertraege`) + 1 Main-Branch fuer Completions. Je Worktree 1 Sonnet-Agent als Code-Schreiber, Luke als Reviewer.
-
-**Ende Sprint 1:** 7 Module live auf main, Coverage ≥30% pro Modul (Regel: kein Merge ohne Tests).
-
----
-
-### Sprint 2 — Backend-Offensive Teil 2 + Multi-Tenancy (2026-05-11 – 2026-05-24, 2 Wochen)
-
-**Ziel:** Restliche 7 Module + Instanz-pro-Pilot-Blueprint + P1-Blocker.
+**Ziel:** 7 von 14 Modulen echt + die fuenf teuersten R2-P0-Items.
 
 | # | Task | Aufwand | Kategorie |
 |---|---|---|---|
-| S2.1 | **rapporte** (Arbeitsrapporte Handwerk) | 4d | Modul |
-| S2.2 | **schichten** (Schichtplanung mit ArbZG-Warnings auch im Backend) | 4d | Modul |
-| S2.3 | **fuhrpark** (Fahrzeuge, Schadensmeldungen, Termine) | 3d | Modul |
-| S2.4 | **vermietung** (Mietgeraete, Zustandsprotokolle, Rueckgabe-Flow) | 4d | Modul |
-| S2.5 | **inventar** (Lager, Bestandsbewegungen, Bestands-Warnungen) | 3d | Modul |
-| S2.6 | **einkauf** (Bestellungen, Lieferanten, Wareneingangs-Flow) | 3d | Modul |
-| S2.7 | **produktion** (Produktionsplanung, Maschinenbelegung) | 3d | Modul |
-| S2.8 | Ansible-Playbook Instanz-pro-Pilot (Hetzner-VPS bootstrappen, Secrets generieren, Docker-Stack deployen, Backup-Cron, Caddy-Domain) | 5d | P1.1 |
-| S2.9 | Dependency-Security-Scans (`trivy`, `gosec`, `npm audit`) in CI | 2d | P1.2 |
-| S2.10 | Dialer `LogCallOutcome` in Transaktion + Integration-Test | 2d | P1.3 |
-| S2.11 | Prod-Image-Tags pinnen (7× `latest` → Version-Hash) | 30min | P1.4 |
-| S2.12 | Alertmanager + Slack-Webhook | 1d | P1.5 |
-| S2.13 | `cd.yml` Auto-Deploy auf main-merge (mit Green-Gate) | 1d | P1.6 |
-| S2.14 | Dialer-Test-Coverage 12% → ≥30% | 8d | P1.8 (parallel zu Module) |
+| S1.1 | **wiki** (Postgres-FTS, TipTap, Versionen, Share-Links) | 3d | Modul |
+| S1.2 | **berichte** (BI-Aggregations-Service, Views, CSV/PDF-Export) | 3d | Modul |
+| S1.3 | **formulare** (Form-Schema JSONB, Submissions, Webhook-Trigger) | 4d | Modul |
+| S1.4 | **helpdesk** (Tickets, Agenten, Canned, Merge) | 4d | Modul |
+| S1.5 | **vertraege** (Laufzeit-Engine, Erinnerungs-Trigger, Skribble-Placeholder) | 3d | Modul |
+| S1.6 | **buchhaltung** Completion (FinanzenHook-Gaps, GoBD-Journal) | 2d | Modul |
+| S1.7 | **video** Completion (`useVideo`-Hook, Recording-Tagging) | 2d | Modul |
+| **S1.R2.1** | **TURN/STUN-Server — coturn self-hosted** auf eigenem CPX11, TURN-URLs im LiveKit-Client-Token + `use_external_ip: true` | 2d | R2-P0.1 |
+| **S1.R2.2** | **LiveKit-Secrets Startup-Assertion** (keine Dev-Defaults in Prod) | 2h | R2-P0.2 |
+| **S1.R2.3** | **Recording-Consent-Bug:** `StartRecording` uebergibt alle aktiven Call-Teilnehmer als `participantIDs` (`video_grpc.go:213`) | 1d | R2-P0.3 |
+| **S1.R2.5** | **Egress-Webhook** ruft `CompleteRecording` (`route_video.go:1153-1176`) | 4h | R2-P0.5 |
+| **S1.R2.6** | **Lexware-Webhook HMAC-Signatur-Validierung** (`webhook_handler.go:99-113`) | 1d | R2-P0.6 |
 
-**Parallelitaets-Model:** 4 Worktrees fuer Module + 1 Worktree fuer Infrastruktur (Ansible/CI) + 1 fuer Test-Coverage-Sprint.
+**Parallelitaets-Model:** 4 Git-Worktrees fuer Module + 1 Worktree fuer R2-P0-Batch. Je Worktree 1 Sonnet-Agent als Code-Schreiber, Luke als Reviewer.
 
-**Ende Sprint 2:** Alle 14 Module auf main, Ansible-Blueprint tested, Dialer ≥30% Coverage, Prod-Security-Posture auf P1-Niveau.
+**Ende Sprint 1:** 7 Module live, 5 R2-P0 erledigt, Coverage ≥30% pro Modul.
 
 ---
 
-### Sprint 3 — Integration, Polish, Pre-Launch-Audit (2026-05-25 – 2026-05-31, 1 Woche)
+### Sprint 2 — Backend-Offensive Teil 2 + R2-P0 Batch B + Option-B Phase 1 (2026-05-11 – 2026-05-24, 2 Wochen)
 
-**Ziel:** End-to-End-Tests, Content-Cleanup, zweite Review-Runde, Launch-Freigabe.
+**Ziel:** Restliche 7 Module + die restlichen R2-P0-Items + Start Option-B-Retrofit (Top-20 Tabellen).
 
 | # | Task | Aufwand | Kategorie |
 |---|---|---|---|
-| S3.1 | Website-Content-Audit (zentria.tech) — "Viele Versprechungen, wenig dahinter" fixen: Features-Liste mit realem Delivery-Status abgleichen | 1d | GTM |
-| S3.2 | Input-Validation-Framework (`go-playground/validator`) ausrollen auf 20 kritische Handler | 5d | P1.7 |
-| S3.3 | End-to-End-Smoke-Test: alle 14 neuen Module durchklicken, Daten persistieren, Reload, Rollen-Check | 1d | QA |
-| S3.4 | Legal: AGB, Impressum, Datenschutzerklaerung final (mit UG-Daten nach 01.06.) | 1d | Legal |
-| S3.5 | Peer-Review durch Luke's Ex-Mitgruender (Sonderaktivierung) | 2d extern | Review |
-| S3.6 | **Review-Zyklus 2** (Rigorosum Runde 2): Claude re-auditiert alle neuen Module + Ansible-Blueprint | 1d | Review |
-| S3.7 | Finaler Smoke auf Prod (`deploy/scripts/smoke.sh`) | 30min | Launch |
-| S3.8 | UG-Notartermin wahrnehmen, Konto eroeffnen | 1d extern | Legal |
+| S2.1 | **rapporte** | 4d | Modul |
+| S2.2 | **schichten** (ArbZG-Warnings im Backend) | 4d | Modul |
+| S2.3 | **fuhrpark** (TÜV-Reminder) | 3d | Modul |
+| S2.4 | **vermietung** (Zustandsprotokolle) | 4d | Modul |
+| S2.5 | **inventar** (Bestands-Alarm) | 3d | Modul |
+| S2.6 | **einkauf** (Wareneingang) | 3d | Modul |
+| S2.7 | **produktion** (Maschinenbelegung) | 3d | Modul |
+| **S2.R2.4** | **Frontend Recording-Consent-Modal + persistenter Banner** (Join-with-Consent-Modell: einmaliger Consent-Click beim Call-Beitritt, Banner + rotes Mic-Icon waehrend Aufnahme, Ablehnung → Kick) | 2d | R2-P0.4 |
+| **S2.R2.7** | **Offline-Queue** im Desktop-WS-Client: IndexedDB-Buffer fuer Messages, Reconciliation bei Reconnect, Duplicate-Detection | 3d | R2-P0.7 |
+| **S2.R2.8** | **`consent_records.created_by`** ON DELETE SET NULL (Migration 000075) | 2h | R2-P0.8 |
+| **S2.R2.9** | **`gdpr_deletion_requests.contact_id`** zirkulaere Blockade aufloesen | 4h | R2-P0.9 |
+| **S2.MT.1** | **Option-B Phase 1 (Top-20 Tabellen):** `deals`, `activities`, `messages`, `channels`, `channel_memberships`, `notifications`, `events`, `audit_log`, `automations`, `automation_executions`, `calendar_events`, `meetings`, `calls`, `tasks`, `projects`, `team_inboxes`, `inbox_messages`, `document_folders`, `document_files`, `recordings` — je ALTER ADD COLUMN tenant_id + Backfill + Index + RLS-Policy | 5d | Option-B |
 
-**Ende Sprint 3:** Launch-Freigabe. ZFA-Pilot-0-Onboarding ab 01.06.
+**Parallelitaets-Model:** 4 Module-Worktrees + 1 Realtime/R2-P0-Worktree + 1 Multi-Tenancy-Worktree.
+
+**Ende Sprint 2:** Alle 14 Module live, alle 9 R2-P0 erledigt, Option-B Top-20 aktiv.
+
+---
+
+### Sprint 3 — Option-B Phase 2 + Infrastruktur-P1 (2026-05-25 – 2026-06-07, 2 Wochen)
+
+**Ziel:** Restliche ~30 Tabellen Option-B-Retrofit + Ansible + Security-Scans.
+
+| # | Task | Aufwand | Kategorie |
+|---|---|---|---|
+| S3.MT.2 | **Option-B Phase 2:** restliche ~30 Tabellen mit tenant_id + RLS (alle Hilfstabellen, Preferences, Settings, Mappings, Cache-Layer) | 5d | Option-B |
+| S3.1 | Ansible-Playbook Instanz-pro-Pilot (jetzt mit Option-B-tauglichem Schema) | 5d | R1-P1.1 |
+| S3.2 | Dependency-Security-Scans (`trivy`, `gosec`, `npm audit`) in CI | 2d | R1-P1.2 |
+| S3.3 | Dialer `LogCallOutcome` in Transaktion + Integration-Test | 2d | R1-P1.3 |
+| S3.4 | Prod-Image-Tags pinnen (7× `latest` → Version-Hash) | 30min | R1-P1.4 |
+| S3.5 | Alertmanager + Slack-Webhook | 1d | R1-P1.5 |
+| S3.6 | `cd.yml` Auto-Deploy auf main-merge (mit Green-Gate) | 1d | R1-P1.6 |
+| S3.7 | Dialer-Test-Coverage 12% → ≥30% | 8d | R1-P1.8 (parallel) |
+
+**Parallelitaets-Model:** 1 Worktree Option-B + 1 Infra/Ansible + 1 Test-Coverage. Multi-Tenancy-Migration muss zuerst fertig sein, bevor Ansible-Blueprint diese Schema-Version kennt.
+
+**Ende Sprint 3:** Alle ~50 Tabellen mit tenant_id + RLS, Ansible-Playbook mit Option-B deployt eine Pilot-Instanz in <30 Min, CI hat trivy/gosec/npm audit gruen.
+
+---
+
+### Sprint 4 — Finance-Normalisierung + P1-Security + Runde-2-P1 (2026-06-08 – 2026-06-21, 2 Wochen)
+
+**Ziel:** finance_invoices.line_items raus aus JSONB, Finance-Test-Coverage hoch, restliche R1-P1 + R2-P1.
+
+| # | Task | Aufwand | Kategorie |
+|---|---|---|---|
+| S4.FI.1 | **`finance_invoices.line_items` → `finance_invoice_lines`-Tabelle** (Migration + Backfill + Read-Path-Update + Write-Path-Update + ZUGFeRD-Export-Anpassung) | 3d | R2-P1.12 |
+| S4.FI.2 | **Finance-Test-Coverage ausbauen** — Service-Level Tests fuer Rechnungserstellung, Positions-Summen, Steuerberechnung, Zahlungs-Verbuchung, Dunning-Flow | 5d | Quality |
+| S4.1 | Input-Validation-Framework (`go-playground/validator`) auf 20 kritische Handler | 5d | R1-P1.7 |
+| S4.2 | LiveKit-Webhook-Signatur-Validierung (Stub aufloesen) | 1d | R2-P1.1 |
+| S4.3 | Automation-Semaphor tenant-isolieren (kein Global-20) | 1d | R2-P1.3 |
+| S4.4 | Bexio + DATEV Circuit-Breaker + DATEV-Retry | 1d | R2-P1.4 |
+| S4.5 | StartMeeting + `POST /meetings` Rollen-Check + Organizer-only-Start | 4h | R2-P1.5 |
+| S4.6 | WS-Token periodisch in-session revalidieren | 4h | R2-P1.6 |
+| S4.7 | Redis-backed WS-Subscription-State (Gateway-Restart-resistent) | 2d | R2-P1.7 |
+| S4.8 | `dialer_*.outcome_id`-Indizes (Migration 000076) | 30min | R2-P1.8 |
+| S4.9 | ~10 FKs ohne ON DELETE nachziehen (Migration 000077) | 1d | R2-P1.9 |
+| S4.10 | Partitionierung audit_log/events/dialer_call_events/automation_executions + pg_cron-Retention (30d Rolling) | 3d | R2-P1.10 |
+| S4.11 | `CleanupExpiredRecordings`-Cronjob aktivieren | 2h | R2-P1.11 |
+
+**Parallelitaets-Model:** 1 Finance-Worktree (normalize + test) + 1 Security/Validation + 1 DB-Ops. Finance-Test-Coverage laeuft mindestens parallel mit Normalisierung.
+
+**Ende Sprint 4:** finance_invoices relational, Finance-Coverage ≥50%, alle R1-P1 + R2-P1 erledigt.
+
+---
+
+### Sprint 5 — Integration, Polish, Pre-Launch-Audit (2026-06-22 – 2026-06-30, 1.5 Wochen)
+
+**Ziel:** End-to-End-Tests, Content-Cleanup, Peer-Review, Rigorosum Runde 3, Launch-Freigabe.
+
+| # | Task | Aufwand | Kategorie |
+|---|---|---|---|
+| S5.1 | Website-Content-Audit (zentria.tech) — Features-Liste mit realem Delivery-Status abgleichen, WASM-Plugin-Claims entfernen | 1d | GTM |
+| S5.2 | End-to-End-Smoke-Test: alle 14 Module + Realtime-Flows (Chat+Meetings+Recording) + Option-B-Tenant-Isolation | 2d | QA |
+| S5.3 | Legal: AGB, Impressum, Datenschutzerklaerung final (mit UG-Daten nach 01.06.) | 1d | Legal |
+| S5.4 | Peer-Review durch Luke's Ex-Mitgruender | 2d extern | Review |
+| S5.5 | **Rigorosum Runde 3** (Claude re-auditiert alle neuen Module + Ansible + Option-B + Realtime-Haertung + R2-P0-Closure) | 1d | Review |
+| S5.6 | Finaler Smoke auf Prod (`deploy/scripts/smoke.sh`) | 30min | Launch |
+| S5.7 | UG-Notartermin (01.06. parallel zu Sprint 3), Konto aktiv | extern | Legal |
+
+**Ende Sprint 5:** Launch-Freigabe. ZFA-Pilot-0-Onboarding ab 01.07.
 
 ---
 
 ## 4. Launch-Readiness-Checkliste (P0–P3)
 
-Quelle: Rigorosum 2026-04-18, Teil III. Priorisierung bleibt bestehen, Deadlines passen sich an neuen Launch an.
+Quelle: Rigorosum Runde 1 (wild-wren, 2026-04-18) + Rigorosum Runde 2 Vertiefung (functional-seahorse, 2026-04-18). R1 = Runde 1, R2 = Runde 2 Vertiefung.
 
-### P0 — Launch-Blocker (Ende Sprint 0)
+### P0 — Launch-Blocker (16 Items, bis Ende Sprint 2 dicht)
 
-| # | Task | Status | Sprint |
-|---|---|---|---|
-| P0.1 | Migration 000071 CASCADE → SET NULL | Pending | S0 |
-| P0.2 | `assertConsent()` vor Email/Dialer-Send | Pending | S0 |
-| P0.3 | Prod-Secrets required | Pending | S0 |
-| P0.4 | DOMPurify in dangerouslySetInnerHTML | Pending | S0 |
-| P0.5 | OnlyOffice JWT in Prod | Pending | S0 |
-| P0.6 | Feature-Flag-Registry | Pending | S0 |
-| P0.7 | ICU-Plural-Klammern-Fix | Pending | S0 |
-
-### P1 — Vor Pilot-1 (Ende Sprint 2)
+**Runde 1 P0 (7 Items, Sprint 0):**
 
 | # | Task | Status | Sprint |
 |---|---|---|---|
-| P1.1 | Ansible Instanz-pro-Pilot | Pending | S2 |
-| P1.2 | Dependency-Security-Scans in CI | Pending | S2 |
-| P1.3 | Dialer LogCallOutcome Transaktion | Pending | S2 |
-| P1.4 | Prod-Image-Tags pinnen | Pending | S2 |
-| P1.5 | Alertmanager + Slack | Pending | S2 |
-| P1.6 | cd.yml Auto-Deploy | Pending | S2 |
-| P1.7 | Input-Validation-Framework | Pending | S3 |
-| P1.8 | Dialer-Coverage 12 → 30% | Pending | S2 |
+| R1-P0.1 | Migration 000071 CASCADE → SET NULL | Pending | S0 |
+| R1-P0.2 | `assertConsent()` vor Email/Dialer-Send | Pending | S0 |
+| R1-P0.3 | Prod-Secrets required | Pending | S0 |
+| R1-P0.4 | DOMPurify in dangerouslySetInnerHTML | Pending | S0 |
+| R1-P0.5 | OnlyOffice JWT in Prod | Pending | S0 |
+| R1-P0.6 | Feature-Flag-Registry (inkl. WASM-OFF) | Pending | S0 |
+| R1-P0.7 | ICU-Plural-Klammern-Fix | Pending | S0 |
 
-### P2 — Vor Pilot-Skalierung (Post-Launch Phase C, Juli–September)
+**Runde 2 P0 (9 Items, Sprint 1+2):**
 
-P2.1 DSGVO-Erasure Stores · P2.2 Rollen-Route-Guards + DEV_BYPASS_AUTH-Hardening · P2.3 Duplikat-Komponenten konsolidieren · P2.4 Virtualisierung Top-10-Listen · P2.5 CSP in Caddy · P2.6 crm/contacts ↔ kontakte-Konsolidierung · P2.7 Error-Wrapping-Hygiene · P2.8 .pb.go aus Repo + buf generate
+| # | Task | Status | Sprint |
+|---|---|---|---|
+| R2-P0.1 | TURN/STUN coturn self-hosted + `use_external_ip: true` | Pending | S1 |
+| R2-P0.2 | LiveKit-Secrets Startup-Assertion | Pending | S1 |
+| R2-P0.3 | Recording-Consent-Bug (`video_grpc.go:213` — alle Teilnehmer) | Pending | S1 |
+| R2-P0.4 | Frontend Recording-Consent-Modal + Banner (Join-with-Consent) | Pending | S2 |
+| R2-P0.5 | Egress-Webhook ruft `CompleteRecording` | Pending | S1 |
+| R2-P0.6 | Lexware-Webhook HMAC-Signatur-Validierung | Pending | S1 |
+| R2-P0.7 | Offline-Queue Desktop-WS (IndexedDB + Reconciliation) | Pending | S2 |
+| R2-P0.8 | `consent_records.created_by` ON DELETE SET NULL | Pending | S2 |
+| R2-P0.9 | `gdpr_deletion_requests.contact_id` zirkulaere FK aufloesen | Pending | S2 |
 
-### P3 — Nice-to-Have (Phase D, ab Oktober 2026)
+### P1 — Vor Pilot-1 (Ende Sprint 4)
 
-P3.1 Go-Stable-Version · P3.2 Panic-Fix automation/templates.go · P3.3 Naming (email/mails, biz/finanzen/buchhaltung, kalender/calendar) · P3.4 Tenant-scoped Rate-Limit · P3.5 React.memo Review · P3.6 Hard-coded Hex → CSS-Vars · P3.7 Desktop Auto-Update · P3.8 Loki/Log-Aggregation · P3.9 Mobile-Scaffold (wenn Markt es verlangt)
+**Runde 1 P1 (8 Items, Sprint 3+4):**
+
+| # | Task | Status | Sprint |
+|---|---|---|---|
+| R1-P1.1 | Ansible Instanz-pro-Pilot (mit Option-B-Schema) | Pending | S3 |
+| R1-P1.2 | Dependency-Security-Scans in CI | Pending | S3 |
+| R1-P1.3 | Dialer LogCallOutcome Transaktion | Pending | S3 |
+| R1-P1.4 | Prod-Image-Tags pinnen | Pending | S3 |
+| R1-P1.5 | Alertmanager + Slack | Pending | S3 |
+| R1-P1.6 | cd.yml Auto-Deploy | Pending | S3 |
+| R1-P1.7 | Input-Validation-Framework | Pending | S4 |
+| R1-P1.8 | Dialer-Coverage 12 → 30% | Pending | S3 |
+
+**Runde 2 P1 (12 Items, Sprint 4):**
+
+| # | Task | Status | Sprint |
+|---|---|---|---|
+| R2-P1.1 | LiveKit-Webhook-Signatur-Validierung | Pending | S4 |
+| R2-P1.2 | WASM-Plugin-System Feature-Flag OFF | Pending | S0 (bereits mit R1-P0.6) |
+| R2-P1.3 | Automation-Semaphor tenant-isolieren | Pending | S4 |
+| R2-P1.4 | Bexio+DATEV Circuit-Breaker/Retry | Pending | S4 |
+| R2-P1.5 | StartMeeting Rollen-Check + Organizer-only | Pending | S4 |
+| R2-P1.6 | WS-Token in-session revalidieren | Pending | S4 |
+| R2-P1.7 | Redis-backed WS-Subscription-State | Pending | S4 |
+| R2-P1.8 | Dialer `outcome_id`-Indizes (Migration 000076) | Pending | S4 |
+| R2-P1.9 | ~10 FKs ohne ON DELETE nachziehen (Migration 000077) | Pending | S4 |
+| R2-P1.10 | Partitionierung + pg_cron-Retention | Pending | S4 |
+| R2-P1.11 | `CleanupExpiredRecordings`-Cronjob | Pending | S4 |
+| R2-P1.12 | `finance_invoices.line_items` normalisieren | Pending | S4 |
+
+### P2 — Vor Pilot-Skalierung (Post-Launch Phase C, August–November)
+
+**Runde 1 P2:** DSGVO-Erasure Stores · Rollen-Route-Guards + DEV_BYPASS_AUTH-Hardening · Duplikat-Komponenten konsolidieren · Virtualisierung Top-10-Listen · CSP in Caddy · crm/contacts ↔ kontakte-Konsolidierung · Error-Wrapping-Hygiene · .pb.go aus Repo + buf generate
+
+**Runde 2 P2 (15 Items):** Redundante Indizes bereinigen (consent_records, email_accounts, audit_log) · Compound-Indizes (activities, hr_leave, deals, message_mentions) · WOPI-Token-Masking in Logs · Slack-Acknowledge in DB markieren · Automation-DLQ · Guest-Chat Content-Scanning · Typing-Timeout + WS-Ping/Pong · Reaction-Toggle mit SELECT FOR UPDATE · GDPR-Erasure-Pfad deckt recordings · CHECK-Constraints auf consent_records.source/gdpr_status · inbox_messages.crm_contact_id FK · Moderator-Audit-Log · Recording-Tagging (started_by, consent_snapshot) · Guest-Chat Hard-Delete · LiveKit-Token-Grants differenzieren (Moderator/Gast, 24h→1h)
+
+### P3 — Nice-to-Have (Phase D, ab November 2026)
+
+**Runde 1 P3:** Go-Stable-Version · Panic-Fix automation/templates.go · Naming (email/mails, biz/finanzen/buchhaltung, kalender/calendar) · Tenant-scoped Rate-Limit · React.memo Review · Hard-coded Hex → CSS-Vars · Desktop Auto-Update · Loki/Log-Aggregation · Mobile-Scaffold (wenn Markt es verlangt)
+
+**Runde 2 P3 (6 Items):** UUID-Generator-Konsistenz (Migration 000033) · Dead Tables entfernen (event_types, storage_quotas, task_dependencies, notification_mutes) · BEGIN/COMMIT-Wrapping in Migrations · VARCHAR(20) status durchgehend CHECK-constrained · GIN-Index auf dialer_campaigns.assigned_agent_ids wenn >100 Agents · **WASM-Plugin-System Haertung** (Ed25519-Signing + WASI-Deny-Set) statt Deaktivierung — nur wenn Phase-D-Markt-Signal fuer Plugin-Dev-Interesse
 
 ---
 
@@ -276,11 +386,11 @@ Jeder Sprint endet mit einem harten Gate. Ohne gruenes Gate kein Fortschritt.
 
 ### Gate S0 (2026-04-27)
 
-- [ ] Alle 7 P0-Items erledigt, Migration 000071 deployed
+- [ ] Alle 7 R1-P0-Items erledigt, Migration 000071 deployed
 - [ ] `grep -rn "dangerouslySetInnerHTML" desktop/src/renderer/src/` zeigt nur sanitize-wrapped
 - [ ] Service-Start ohne `WOPI_JWT_SECRET` bricht ab
-- [ ] Feature-Flag-Registry versteckt alle 14 alten Mock-Routen
-- [ ] i18n-Test fuer ICU-Plurals grün
+- [ ] Feature-Flag-Registry versteckt alle 14 alten Mock-Routen **+ WASM-Plugin-Runtime nicht instanziert**
+- [ ] i18n-Test fuer ICU-Plurals gruen
 - [ ] `mobile/`-Ordner weg, Pitch korrigiert
 - [ ] 14-Modul-Scope-Matrix in diesem Dokument gepflegt
 
@@ -288,28 +398,44 @@ Jeder Sprint endet mit einem harten Gate. Ohne gruenes Gate kein Fortschritt.
 
 - [ ] 7 Module live: wiki, berichte, formulare, helpdesk, vertraege, buchhaltung-Completion, video-Completion
 - [ ] Coverage pro neuem Modul ≥30%
-- [ ] `make test` grün auf main
+- [ ] **R2-P0 Batch A erledigt:** TURN/STUN-Server laeuft, LiveKit-Prod-Assertion greift, Recording-Consent uebergibt alle Teilnehmer, Egress-Webhook ruft CompleteRecording, Lexware-HMAC validiert
+- [ ] `make test` gruen auf main
 - [ ] Smoke-Script durchlaeuft ohne neue Fehler
 
 ### Gate S2 (2026-05-24)
 
 - [ ] Alle 14 Module live
-- [ ] Ansible-Playbook: `ansible-playbook bootstrap-pilot.yml -i pilot-test` deployt vollstaendige Cosmi-Instanz auf frischen Hetzner-Host in <30 Min
+- [ ] **Alle 9 R2-P0 erledigt:** Frontend-Consent-Modal + Banner, Offline-Queue, consent_records/gdpr-FKs gefixt
+- [ ] **Option-B Phase 1 live:** Top-20 Tabellen mit tenant_id + Backfill + RLS
+- [ ] Integration-Test: Tenant-A-User kann Tenant-B-Daten nicht lesen (RLS-Gate)
+- [ ] Realtime-Smoke: Call mit 3 Teilnehmern, Recording-Consent von allen, Playback funktioniert
+- [ ] Offline-Queue-Test: Electron-Client disconnected, Messages geschickt, reconnected, Server-Reconciliation ohne Duplikate
+
+### Gate S3 (2026-06-07)
+
+- [ ] **Option-B Phase 2 live:** restliche ~30 Tabellen, insgesamt ~50 Tabellen mit tenant_id + RLS
+- [ ] Ansible-Playbook: `ansible-playbook bootstrap-pilot.yml -i pilot-test` deployt vollstaendige Cosmi-Instanz auf frischen Hetzner-Host in <30 Min, Option-B-Schema korrekt
 - [ ] CI hat trivy+gosec+npm audit, keine High/Critical CVEs
 - [ ] Dialer-Coverage ≥30%
 - [ ] Alertmanager sendet Test-Alert in Slack
 - [ ] cd.yml deployt automatisch bei main-merge
 
-### Gate S3 (2026-05-31) — LAUNCH-FREIGABE
+### Gate S4 (2026-06-21)
+
+- [ ] **`finance_invoices.line_items` normalisiert:** `finance_invoice_lines`-Tabelle existiert, Backfill migriert alle bestehenden Rechnungen, ZUGFeRD-Export laeuft gegen neue Tabelle
+- [ ] **Finance-Service-Coverage ≥50%** (vorher <15%): Rechnungserstellung, Positions-Summen, Steuerberechnung, Zahlungen, Dunning getestet
+- [ ] Alle R1-P1 + R2-P1 erledigt (Input-Validation, LiveKit-HMAC, Automation-Tenant-Isolation, Circuit-Breaker, Meeting-Rollen, WS-Token, Redis-Subscription-State, DB-FKs-Nachzug, Partitionierung, Recording-Cronjob)
+
+### Gate S5 (2026-06-30) — LAUNCH-FREIGABE
 
 - [ ] Peer-Review durch Ex-Mitgruender abgeschlossen, kein P0/P1 offen
-- [ ] Rigorosum Runde 2 (Claude): Gesamtnote ≥2.3
-- [ ] Website zentria.tech: Features-Liste stimmt mit Delivery ueberein
+- [ ] **Rigorosum Runde 3 (Claude)**: Gesamtnote ≥2.3, alle R1-P0 + R2-P0 geschlossen
+- [ ] Website zentria.tech: Features-Liste stimmt mit Delivery ueberein, WASM-Plugin-Claims entfernt
 - [ ] AGB, Impressum, Datenschutzerklaerung mit UG-Daten live
-- [ ] End-to-End-Smoke aller 14 Module grün
-- [ ] UG eingetragen, Konto live
+- [ ] End-to-End-Smoke aller 14 Module gruen, inkl. Realtime-Flows (Chat+Meetings+Recording) und Tenant-Isolation
+- [ ] UG eingetragen (seit 01.06.), Konto aktiv
 
-**Go-Live: 2026-06-01**
+**Go-Live: 2026-07-01**
 
 ---
 
@@ -350,16 +476,24 @@ Folgende Dateien werden mit dem Check-in dieser Roadmap zu historischen Referenz
 
 ---
 
-## 10. Offene strategische Entscheidungen
+## 10. Entschiedene Strategien (nach Rigorosum Runde 2)
 
-Wird im naechsten Austausch zwischen Luke und Claude (Rigorosum Runde 2, Ende Sprint 3) bestaetigt oder verworfen:
+**Am 2026-04-18 nach Runde 2 entschieden:**
 
-1. Handwerk-Module (rapporte, schichten, fuhrpark, vermietung, produktion) wirklich zum Launch echt, auch wenn kein Handwerks-Pilot dabei ist? Alternative: Dienstleister-Piloten zum Launch, Handwerks-Module als "Beta-Preview" kennzeichnen.
-2. Multi-Tenancy Option A bis Skalierung durchhalten oder ab Pilot-3 auf RLS migrieren?
-3. Annabel-Track — wenn CV-Gespraech positiv: welches Aufgabenpaket ab wann?
-4. Preismodell-Rollout: ab Pilot-0 kostenlos, ab Pilot-1 rabattiert (50%), ab Pilot-4 Vollpreis? Oder alle Piloten kostenlos bis Q4?
+1. **Handwerk-Module zum Launch:** Alle 14 Module werden echt (nicht "Beta-Preview"). Safety-Net bleibt der Feature-Flag: falls ein Modul bis Launch-Freeze nicht fertig ist, Feature-Flag OFF + "Coming Q3 2026"-Overlay.
+2. **Multi-Tenancy:** **Option-B volle Breitseite jetzt** — ~50 Tabellen bekommen `tenant_id` + Backfill + Index + RLS-Policies in Sprint 2 (Top-20) + Sprint 3 (Rest). Kein spaeteres Retrofit, kein Option-A-Permanent.
+3. **Recording-Consent-Modell:** **Join-with-Consent + Banner** — einmaliger Consent-Click beim ersten Call-Beitritt (persistiert als Consent-Record), Recording startet mit persistenter Banner-Anzeige + rotem Mic-Icon, Ablehnung kickt Teilnehmer aus Call. Mitte zwischen nutzerfreundlich und wasserdicht.
+4. **Plugin-System:** **Feature-Flag OFF bis Phase D** — Config-Plugins bleiben aktiv, WASM-Runtime nicht instanziert. Ehrlicher Pitch. WASM-Haertung (Ed25519-Signing + WASI-Deny-Set) nur wenn Phase-D-Markt-Signal positiv.
+5. **TURN/STUN:** **Build, not Buy** — coturn self-hosted auf eigenem CPX11 (~€5/Monat), kein Vendor-Lock auf LiveKit Cloud.
+6. **`finance_invoices.line_items`:** **Vor Launch normalisieren** in `finance_invoice_lines`-Tabelle + parallel Finance-Test-Coverage auf ≥50% ausbauen (vorher <15%). GoBD/ZUGFeRD-tauglich machen.
+7. **Launch-Datum:** **2026-07-01** (+4 Wochen gegenueber alter Planung). UG-Gruendung 01.06 bleibt stehen.
+
+### Weiterhin offen (nicht launch-blockend)
+
+- **Annabel-Track:** abhaengig von CV-Gespraech. Wenn positiv: Aufgabenpaket und Start-Datum in separater Entscheidung.
+- **Preismodell-Rollout:** Default-Annahme — alle Piloten kostenlos bis Q4 2026, ab Phase E (kommerzieller Launch) Stripe/SEPA + Pricing-Seite.
 
 ---
 
-*Letztes Update: 2026-04-18 (Post-Rigorosum-Konsolidierung)*
-*Naechste Ueberarbeitung: Gate S3, 2026-05-31*
+*Letztes Update: 2026-04-18 (Post-Rigorosum-Runde-2-Konsolidierung, Launch auf 01.07. verschoben)*
+*Naechste Ueberarbeitung: Gate S5, 2026-06-30*
