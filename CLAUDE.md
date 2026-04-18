@@ -17,7 +17,7 @@
 |-----------|-------------|
 | Backend | Go (API Gateway + Microservices) |
 | Desktop | Electron + React + TypeScript |
-| Mobile | React Native |
+| Mobile | PWA (Phase E, auf Desktop-Basis) |
 | Datenbank | PostgreSQL + Redis |
 | Video | LiveKit (self-hostable) |
 | Plugins | Config-basiert + WASM (komplexe Erweiterungen) |

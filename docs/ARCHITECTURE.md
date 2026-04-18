@@ -127,7 +127,7 @@ CRM braucht integrierte Video-Calls (1:1 und Gruppen), Screen Sharing, und Recor
 - Go-basiert (passt zum Stack)
 - Self-hostable (EU-Datensouveraenitaet!)
 - Modernes SFU-Design (Selective Forwarding Unit)
-- WebRTC-basiert, funktioniert in Electron und React Native
+- WebRTC-basiert, funktioniert in Electron (Desktop) und modernen Browsern (PWA, Phase E)
 - Gute SDKs fuer alle Plattformen
 - Recording und Egress built-in
 - Cloud-Option verfuegbar als Fallback
