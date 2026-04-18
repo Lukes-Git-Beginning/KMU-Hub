@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+// Sprint 1 S1.4 Helpdesk — RPC surface placeholder (filled by Welle 3 Agent WIRE-Helpdesk)
+
+package helpdesk.v1;
+
+option go_package = "github.com/kmuhub/kmuhub/proto/helpdesk/v1;helpdeskv1";

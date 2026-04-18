@@ -63,6 +63,7 @@ data/
 docker-compose.override.yml
 
 # === Coverage ===
+**/coverage
 **/coverage/
 *.cover
 *.coverage

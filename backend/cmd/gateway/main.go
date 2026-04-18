@@ -76,6 +76,9 @@ func main() {
 	registry.Register("automation", cfg.AutomationGRPCAddress)
 	registry.Register("plugin", cfg.PluginGRPCAddress)
 	registry.Register("dialer", cfg.DialerGRPCAddress)
+	// Sprint 1 modules (activated in Welle 4 after gRPC servers come online)
+	// registry.Register("wiki", cfg.WikiGRPCAddress)
+	// registry.Register("helpdesk", cfg.HelpdeskGRPCAddress)
 	defer registry.Close()
 
 	// Database for file upload handler (direct access, not via gRPC)

@@ -39,6 +39,10 @@ type Config struct {
 	PluginGRPCAddress       string `env:"PLUGIN_GRPC_ADDRESS,default=localhost:50060"`
 	DialerGRPCPort          string `env:"DIALER_GRPC_PORT,default=:50061"`
 	DialerGRPCAddress       string `env:"DIALER_GRPC_ADDRESS,default=localhost:50061"`
+	WikiGRPCPort            string `env:"WIKI_GRPC_PORT,default=:50062"`
+	WikiGRPCAddress         string `env:"WIKI_GRPC_ADDRESS,default=localhost:50062"`
+	HelpdeskGRPCPort        string `env:"HELPDESK_GRPC_PORT,default=:50065"`
+	HelpdeskGRPCAddress     string `env:"HELPDESK_GRPC_ADDRESS,default=localhost:50065"`
 	GatewayHTTPPort          string `env:"GATEWAY_HTTP_PORT,default=:8080"`
 
 	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS,delimiter=;,default=http://localhost:3000;http://localhost:5173"`
@@ -58,6 +62,8 @@ type Config struct {
 	AutomationHealthPort   string `env:"AUTOMATION_HEALTH_PORT,default=:9099"`
 	PluginHealthPort       string `env:"PLUGIN_HEALTH_PORT,default=:9100"`
 	DialerHealthPort       string `env:"DIALER_HEALTH_PORT,default=:9101"`
+	WikiHealthPort         string `env:"WIKI_HEALTH_PORT,default=:9102"`
+	HelpdeskHealthPort     string `env:"HELPDESK_HEALTH_PORT,default=:9105"`
 
 	// LiveKit (Video calls -- optional, feature-flagged)
 	LiveKitAPIKey    string `env:"LIVEKIT_API_KEY,default="`
@@ -69,6 +75,13 @@ type Config struct {
 
 	// LiveKit Webhook (optional, validates incoming LiveKit webhook signatures)
 	LiveKitWebhookSecret string `env:"LIVEKIT_WEBHOOK_SECRET,default="`
+
+	// TURN / coturn (self-hosted on separate Hetzner CPX11, optional — flag-off until provisioned)
+	TURNSecret string `env:"TURN_SECRET,default="`
+	COTURNHost string `env:"COTURN_HOST,default="`
+
+	// Lexware Webhook HMAC (optional, validates incoming Lexware webhook signatures)
+	LexwareWebhookSecret string `env:"LEXWARE_WEBHOOK_SECRET,default="`
 
 	// Vault (secret encryption -- required for auth service)
 	VaultMasterSecret string `env:"VAULT_MASTER_SECRET,default="`

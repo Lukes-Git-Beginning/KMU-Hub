@@ -318,8 +318,8 @@ Diese Fehler wurden im Vorgaenger-Projekt (slot_booking_webapp) gemacht und duer
 ## Git-Regeln
 
 - **Conventional Commits:** `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`
-- **Branch-Strategie:** `main` -> `develop` -> `feature/*`, `fix/*`
-- **PR-Pflicht:** Kein direkter Push auf `main` oder `develop`
+- **Branch-Strategie:** Ab Sprint 1 (2026-04-18) **direct-to-main ist Default** — keine Feature-Branches, keine PRs, ausser der User fordert explizit einen PR an. Sprint 0 lief noch mit PRs; ab jetzt direkt auf `main`.
+- **CI-Rot-Recovery:** `git revert <sha>` (erzeugt neuen Commit). **NIE** `reset --hard`, **NIE** Force-Push.
 - **Keine AI-Attribution** in Commits
 - **Commit-Messages:** Englisch, imperativ ("Add contact endpoint", nicht "Added...")
 

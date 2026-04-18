@@ -1,0 +1,1 @@
+-- Sprint 1 S1.1 Wiki — schema placeholder (filled by Welle 2 Agent MOD-Wiki)

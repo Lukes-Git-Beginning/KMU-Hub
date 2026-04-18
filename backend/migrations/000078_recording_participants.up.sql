@@ -1,0 +1,1 @@
+-- Sprint 1 S1.R2.3 Recording-Consent-Bug — schema placeholder (filled by Welle 1 Agent R2-B)

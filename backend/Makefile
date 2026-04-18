@@ -1,4 +1,4 @@
-.PHONY: build build-prod test lint clean run-gateway run-crm run-chat run-auth run-notification run-work run-automation run-dialer migrate-up migrate-down migrate-create proto proto-automation proto-dialer docker-build docker-up docker-down docker-logs docker-clean e2e-test smoke-test smoke-prod
+.PHONY: build build-prod test lint clean run-gateway run-crm run-chat run-auth run-notification run-work run-automation run-dialer run-wiki run-helpdesk migrate-up migrate-down migrate-create proto proto-automation proto-dialer proto-wiki proto-helpdesk docker-build docker-up docker-down docker-logs docker-clean e2e-test smoke-test smoke-prod
 
 # Build all services
 build:
@@ -10,6 +10,8 @@ build:
 	go build -o bin/work ./cmd/work
 	go build -o bin/automation ./cmd/automation
 	go build -o bin/dialer ./cmd/dialer
+	go build -o bin/wiki ./cmd/wiki
+	go build -o bin/helpdesk ./cmd/helpdesk
 
 # Production gateway build: WASM plugin runtime compiled out (-tags no_wasm)
 # Sets COSMI_WASM_PLUGINS_ENABLED=false by default (flag registry enforces it too).
@@ -40,6 +42,12 @@ run-automation:
 
 run-dialer:
 	go run ./cmd/dialer
+
+run-wiki:
+	go run ./cmd/wiki
+
+run-helpdesk:
+	go run ./cmd/helpdesk
 
 # Test
 test:
@@ -119,6 +127,16 @@ proto-biz:
 	protoc --go_out=. --go_opt=module=github.com/kmuhub/kmuhub \
 		--go-grpc_out=. --go-grpc_opt=module=github.com/kmuhub/kmuhub \
 		proto/biz/v1/biz.proto
+
+proto-wiki:
+	protoc --go_out=. --go_opt=module=github.com/kmuhub/kmuhub \
+		--go-grpc_out=. --go-grpc_opt=module=github.com/kmuhub/kmuhub \
+		proto/wiki/v1/wiki.proto
+
+proto-helpdesk:
+	protoc --go_out=. --go_opt=module=github.com/kmuhub/kmuhub \
+		--go-grpc_out=. --go-grpc_opt=module=github.com/kmuhub/kmuhub \
+		proto/helpdesk/v1/helpdesk.proto
 
 # Docker operations
 docker-build:
