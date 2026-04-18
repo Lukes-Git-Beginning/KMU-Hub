@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { sanitizeHtml } from '@/lib/sanitize'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import type { WikiArticle as WikiArticleType } from '@/types/wiki'
@@ -69,7 +70,7 @@ export function WikiArticle({ article, onDelete, onShare }: WikiArticleProps) {
           <div className="flex-1 overflow-y-auto px-5 py-4">
             <div
               className="prose prose-sm max-w-none dark:prose-invert"
-              dangerouslySetInnerHTML={{ __html: article.content }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(article.content) }}
             />
           </div>
         )}

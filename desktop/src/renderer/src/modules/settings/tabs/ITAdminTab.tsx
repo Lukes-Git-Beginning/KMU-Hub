@@ -5,6 +5,7 @@
  * permission management, and email signature editor.
  */
 import { useState } from 'react'
+import { sanitizeHtml } from '@/lib/sanitize'
 import { useTranslation } from 'react-i18next'
 import {
   Server,
@@ -476,7 +477,7 @@ function SignatureSection() {
         <div>
           <h4 className="text-xs font-medium text-foreground mb-2">{t('settings.itadmin.signature.preview')}</h4>
           <div className="rounded-lg border border-border bg-white p-4 min-h-[120px]">
-            <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
+            <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(previewHtml) }} />
           </div>
         </div>
       </div>
