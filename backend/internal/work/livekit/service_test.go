@@ -1,10 +1,14 @@
 package livekit
 
 import (
+	"crypto/hmac"
+	"crypto/sha1" //nolint:gosec // HMAC-SHA1 required by coturn REST API spec
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -172,5 +176,135 @@ func TestGenerateJoinToken_PartialConfig(t *testing.T) {
 	_, err := svc.GenerateJoinToken("cal-550e8400", "user-123", "Max Mustermann")
 	if err != ErrLiveKitNotConfigured {
 		t.Errorf("err = %v, want ErrLiveKitNotConfigured", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TURN / coturn credential tests
+// ---------------------------------------------------------------------------
+
+func TestIsTURNEnabled_BothSet(t *testing.T) {
+	svc := NewServiceWithTURN("key", "secret", "wss://livekit.example.com", "turnsecret", "turn.zentria.tech")
+	if !svc.IsTURNEnabled() {
+		t.Error("expected IsTURNEnabled = true when both turnSecret and coturnHost are set")
+	}
+}
+
+func TestIsTURNEnabled_NoSecret(t *testing.T) {
+	svc := NewServiceWithTURN("key", "secret", "wss://livekit.example.com", "", "turn.zentria.tech")
+	if svc.IsTURNEnabled() {
+		t.Error("expected IsTURNEnabled = false when turnSecret is empty")
+	}
+}
+
+func TestIsTURNEnabled_NoHost(t *testing.T) {
+	svc := NewServiceWithTURN("key", "secret", "wss://livekit.example.com", "turnsecret", "")
+	if svc.IsTURNEnabled() {
+		t.Error("expected IsTURNEnabled = false when coturnHost is empty")
+	}
+}
+
+func TestTURNIceServers_Disabled(t *testing.T) {
+	// NewService (no TURN params) must return nil — zero-value fallback
+	svc := NewService("key", "secret", "wss://livekit.example.com")
+	servers := svc.TURNIceServers("user-123")
+	if servers != nil {
+		t.Errorf("expected nil IceServers when TURN disabled, got %v", servers)
+	}
+}
+
+func TestTURNIceServers_ReturnsCredentials(t *testing.T) {
+	const turnSecret = "test-turn-shared-secret"
+	const coturnHost = "turn.zentria.tech"
+	const userID = "user-123"
+
+	svc := NewServiceWithTURN("key", "secret", "wss://livekit.example.com", turnSecret, coturnHost)
+	servers := svc.TURNIceServers(userID)
+
+	if len(servers) != 2 {
+		t.Fatalf("expected 2 ICE servers (TLS + plain), got %d", len(servers))
+	}
+
+	// Both entries must have the same username and credential
+	tls := servers[0]
+	plain := servers[1]
+
+	if tls.Username == "" {
+		t.Error("TLS ICE server username is empty")
+	}
+	if tls.Credential == "" {
+		t.Error("TLS ICE server credential is empty")
+	}
+	if tls.Username != plain.Username {
+		t.Errorf("username mismatch: TLS=%q plain=%q", tls.Username, plain.Username)
+	}
+	if tls.Credential != plain.Credential {
+		t.Errorf("credential mismatch: TLS=%q plain=%q", tls.Credential, plain.Credential)
+	}
+
+	// Username must contain the userID suffix
+	if !strings.HasSuffix(tls.Username, ":"+userID) {
+		t.Errorf("username %q does not end with :%s", tls.Username, userID)
+	}
+
+	// URL format checks
+	if len(tls.URLs) != 1 || !strings.HasPrefix(tls.URLs[0], "turns:") {
+		t.Errorf("TLS ICE server URL should start with 'turns:', got %v", tls.URLs)
+	}
+	if len(plain.URLs) != 1 || !strings.HasPrefix(plain.URLs[0], "turn:") {
+		t.Errorf("plain ICE server URL should start with 'turn:', got %v", plain.URLs)
+	}
+
+	// Validate HMAC-SHA1 credential against the known secret
+	//nolint:gosec
+	mac := hmac.New(sha1.New, []byte(turnSecret))
+	mac.Write([]byte(tls.Username)) //nolint:errcheck
+	expectedCred := base64.StdEncoding.EncodeToString(mac.Sum(nil))
+	if tls.Credential != expectedCred {
+		t.Errorf("credential HMAC mismatch: got %q, want %q", tls.Credential, expectedCred)
+	}
+}
+
+func TestTURNIceServers_CredentialsExpireInFuture(t *testing.T) {
+	svc := NewServiceWithTURN("key", "secret", "wss://livekit.example.com", "secret", "turn.zentria.tech")
+	servers := svc.TURNIceServers("user-123")
+
+	if len(servers) == 0 {
+		t.Fatal("expected ICE servers")
+	}
+
+	// Parse the unix timestamp from username (format: "<timestamp>:<userID>")
+	parts := strings.SplitN(servers[0].Username, ":", 2)
+	if len(parts) != 2 {
+		t.Fatalf("unexpected username format: %q", servers[0].Username)
+	}
+
+	var expiry int64
+	if _, err := fmt.Sscanf(parts[0], "%d", &expiry); err != nil {
+		t.Fatalf("cannot parse expiry timestamp from %q: %v", parts[0], err)
+	}
+
+	now := time.Now().Unix()
+	if expiry <= now {
+		t.Errorf("TURN credential expiry %d is in the past (now=%d)", expiry, now)
+	}
+	// Should be ~24h in the future (allow 60s slack)
+	minExpiry := now + int64(23*time.Hour/time.Second)
+	if expiry < minExpiry {
+		t.Errorf("TURN credential expires too soon: expiry=%d, want >=%d (now+23h)", expiry, minExpiry)
+	}
+}
+
+func TestNewService_BackwardCompat(t *testing.T) {
+	// NewService must still work exactly as before (no TURN params)
+	svc := NewService("key", "secret", "wss://livekit.example.com")
+	if !svc.IsEnabled() {
+		t.Error("expected IsEnabled = true")
+	}
+	if svc.IsTURNEnabled() {
+		t.Error("expected IsTURNEnabled = false when created via NewService")
+	}
+	if svc.TURNIceServers("u") != nil {
+		t.Error("expected nil TURNIceServers when created via NewService")
 	}
 }

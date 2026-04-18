@@ -1,0 +1,38 @@
+# =============================================================================
+# livekit-turn.yaml — LiveKit TURN overlay config
+# =============================================================================
+# This file is ONLY mounted when coturn is active (TURN_SECRET is set).
+# Mount instructions are in docker-compose.prod.yml (see commented section).
+#
+# LiveKit merges multiple config files in order; values here override the
+# base livekit.yaml. Only TURN-related keys are set here to keep the diff
+# minimal and the base file stable.
+#
+# Reference: https://docs.livekit.io/home/self-hosting/turn/
+# =============================================================================
+
+# Announce the server's public IP to WebRTC clients for direct ICE candidates.
+# Safe to enable even without TURN — reduces reliance on STUN for candidate
+# discovery on the main app server.
+use_external_ip: true
+
+turn:
+  # Enable TURN relaying. Set to false or remove this file to disable.
+  enabled: true
+
+  # FQDN of the coturn server. Must match the TLS certificate CN.
+  # Replace with the actual value — this file is not processed for env vars.
+  # See COTURN_HOST in .env.production.
+  domain: turn.zentria.tech
+
+  # TURN-over-TLS port (coturn tls-listening-port).
+  # Preferred by WebRTC clients in secure contexts (HTTPS desktop app).
+  tls_port: 5349
+
+  # Plain TURN/UDP port (coturn listening-port).
+  # Fallback when TLS is blocked; also used for ICE UDP relay.
+  udp_port: 3478
+
+  # Let LiveKit use the external TLS cert from coturn (turns: scheme).
+  # Set to true when coturn has a valid Let's Encrypt cert.
+  external_tls: true

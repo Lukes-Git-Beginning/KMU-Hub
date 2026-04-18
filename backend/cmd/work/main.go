@@ -86,7 +86,13 @@ func main() {
 
 	// Calendar domain services
 	calendarService := calendar.NewService(calendarRepo)
-	livekitService := livekit.NewService(cfg.LiveKitAPIKey, cfg.LiveKitAPISecret, cfg.LiveKitWSURL)
+	// NewServiceWithTURN: pass TURN_SECRET + COTURN_HOST from config.
+	// Both default to "" when not set, so TURN is transparently disabled
+	// until the coturn CPX11 is provisioned and the env vars are populated.
+	livekitService := livekit.NewServiceWithTURN(
+		cfg.LiveKitAPIKey, cfg.LiveKitAPISecret, cfg.LiveKitWSURL,
+		cfg.TURNSecret, cfg.COTURNHost,
+	)
 	nagerClient := holiday.NewNagerClient()
 	holidayService := holiday.NewService(holidayRepo, nagerClient)
 	resourceService := resource.NewService(resourceRepo)

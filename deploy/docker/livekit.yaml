@@ -3,6 +3,12 @@ rtc:
   tcp_port: 7881
   port_range_start: 50000
   port_range_end: 60000
+  # use_external_ip: announce the server's public IP to WebRTC clients for
+  # direct ICE candidates. Set to true in production (app server has a public
+  # IP). Keeps working without TURN — just ensures clients get the right
+  # candidate address even behind a one-NIC Hetzner server.
+  # In dev (docker-compose.yml without prod overlay) this remains false so
+  # local containers can reach each other without external IP resolution.
   use_external_ip: false
 redis:
   address: redis:6379
@@ -12,3 +18,25 @@ webhook:
   urls:
     - http://gateway:8080/api/v1/webhooks/livekit
   api_key: devkey
+
+# ---------------------------------------------------------------------------
+# TURN / coturn integration
+# ---------------------------------------------------------------------------
+# The TURN block is intentionally NOT present in this base config.
+# It is injected via livekit-turn.yaml (see deploy/docker/) when TURN is
+# active. The docker-compose.prod.yml mounts livekit-turn.yaml as an
+# additional config file when TURN_SECRET is non-empty.
+#
+# Why a separate overlay file instead of inline ${COTURN_HOST} substitution?
+# LiveKit does not natively support env-var substitution in livekit.yaml.
+# Docker Compose does substitute ${VAR} in compose files, but NOT in mounted
+# config files. A missing/empty turn.domain would cause LiveKit to either
+# crash or silently disable TURN after logging an error — both undesirable.
+# The overlay approach is explicit and zero-risk: if the file is not mounted,
+# TURN is simply off.
+#
+# To enable TURN:
+#   1. Provision the coturn CPX11 (deploy/hetzner/coturn-setup.sh)
+#   2. Set TURN_SECRET and COTURN_HOST in .env.production
+#   3. Uncomment the livekit-turn.yaml volume mount in docker-compose.prod.yml
+#   4. docker compose restart livekit

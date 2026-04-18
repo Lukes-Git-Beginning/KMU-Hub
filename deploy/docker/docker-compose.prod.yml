@@ -63,6 +63,23 @@ services:
 
   livekit:
     logging: *default-logging
+    # ---------------------------------------------------------------------------
+    # TURN activation: when coturn is provisioned, uncomment the volumes block
+    # below AND set TURN_SECRET + COTURN_HOST in .env.production.
+    # Then update livekit-turn.yaml: replace "turn.zentria.tech" with the value
+    # of COTURN_HOST if it differs, then restart livekit.
+    #
+    # To activate:
+    #   1. Run deploy/hetzner/coturn-setup.sh on the CPX11
+    #   2. Set TURN_SECRET and COTURN_HOST in .env.production
+    #   3. Uncomment the volumes section below
+    #   4. sudo docker compose -f docker-compose.yml -f docker-compose.prod.yml restart livekit
+    #
+    # volumes:
+    #   - ./livekit.yaml:/etc/livekit.yaml           # base config (already mounted in base)
+    #   - ./livekit-turn.yaml:/etc/livekit-turn.yaml # TURN overlay — activates TURN
+    # command: --config /etc/livekit.yaml --config /etc/livekit-turn.yaml
+    # ---------------------------------------------------------------------------
     deploy:
       resources:
         limits:
