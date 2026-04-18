@@ -2,6 +2,8 @@ package config
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/sethvargo/go-envconfig"
@@ -104,6 +106,9 @@ type Config struct {
 	MinIOBucket     string `env:"MINIO_BUCKET,default=kmuhub-files"`
 	MinIOUseSSL     bool   `env:"MINIO_USE_SSL,default=false"`
 	FileSizeLimitMB int    `env:"FILE_SIZE_LIMIT_MB,default=50"`
+
+	// Env controls production secret validation ("production" enables hard checks)
+	Env string `env:"COSMI_ENV,default=development"`
 }
 
 func Load(ctx context.Context) (*Config, error) {
@@ -111,5 +116,44 @@ func Load(ctx context.Context) (*Config, error) {
 	if err := envconfig.Process(ctx, &cfg); err != nil {
 		return nil, err
 	}
+	if strings.EqualFold(cfg.Env, "production") {
+		if err := validateProductionSecrets(&cfg); err != nil {
+			return nil, fmt.Errorf("production secret validation failed: %w", err)
+		}
+	}
 	return &cfg, nil
+}
+
+// knownDevSecrets lists values that are safe in dev but must never reach production.
+var knownDevSecrets = map[string]string{
+	"WOPI_JWT_SECRET":   "wopi-dev-secret-change-me",
+	"MINIO_SECRET_KEY":  "kmuhub_dev",
+	"VAULT_MASTER_SECRET": "",
+}
+
+func validateProductionSecrets(cfg *Config) error {
+	type check struct {
+		name  string
+		value string
+		dev   string
+	}
+	checks := []check{
+		{"WOPI_JWT_SECRET", cfg.WOPIJWTSecret, knownDevSecrets["WOPI_JWT_SECRET"]},
+		{"MINIO_SECRET_KEY", cfg.MinIOSecretKey, knownDevSecrets["MINIO_SECRET_KEY"]},
+		{"VAULT_MASTER_SECRET", cfg.VaultMasterSecret, knownDevSecrets["VAULT_MASTER_SECRET"]},
+	}
+	var errs []string
+	for _, c := range checks {
+		if c.value == c.dev {
+			if c.dev == "" {
+				errs = append(errs, fmt.Sprintf("%s must be set in production (currently empty)", c.name))
+			} else {
+				errs = append(errs, fmt.Sprintf("%s must not use the dev default value in production", c.name))
+			}
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("insecure secrets detected:\n  - %s", strings.Join(errs, "\n  - "))
+	}
+	return nil
 }
