@@ -1,7 +1,282 @@
 syntax = "proto3";
 
-// Sprint 1 S1.4 Helpdesk — RPC surface placeholder (filled by Welle 3 Agent WIRE-Helpdesk)
-
 package helpdesk.v1;
 
 option go_package = "github.com/kmuhub/kmuhub/proto/helpdesk/v1;helpdeskv1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+service HelpdeskService {
+  // Ticket lifecycle
+  rpc CreateTicket(CreateTicketRequest) returns (Ticket);
+  rpc GetTicket(GetTicketRequest) returns (Ticket);
+  rpc ListTickets(ListTicketsRequest) returns (ListTicketsResponse);
+  rpc UpdateTicket(UpdateTicketRequest) returns (Ticket);
+  rpc CloseTicket(CloseTicketRequest) returns (Ticket);
+  rpc ReopenTicket(ReopenTicketRequest) returns (Ticket);
+  rpc AssignTicket(AssignTicketRequest) returns (Ticket);
+  rpc MergeTickets(MergeTicketsRequest) returns (google.protobuf.Empty);
+
+  // Messages
+  rpc AddMessage(AddMessageRequest) returns (TicketMessage);
+  rpc ListMessages(ListMessagesRequest) returns (ListMessagesResponse);
+
+  // Queue management
+  rpc CreateQueue(CreateQueueRequest) returns (TicketQueue);
+  rpc UpdateQueue(UpdateQueueRequest) returns (TicketQueue);
+  rpc ListQueues(ListQueuesRequest) returns (ListQueuesResponse);
+  rpc DeleteQueue(DeleteQueueRequest) returns (google.protobuf.Empty);
+
+  // Canned responses
+  rpc CreateCannedResponse(CreateCannedResponseRequest) returns (CannedResponse);
+  rpc UpdateCannedResponse(UpdateCannedResponseRequest) returns (CannedResponse);
+  rpc DeleteCannedResponse(DeleteCannedResponseRequest) returns (google.protobuf.Empty);
+  rpc ListCannedResponses(ListCannedResponsesRequest) returns (ListCannedResponsesResponse);
+
+  // SLA policies
+  rpc CreateSLAPolicy(CreateSLAPolicyRequest) returns (SLAPolicy);
+  rpc UpdateSLAPolicy(UpdateSLAPolicyRequest) returns (SLAPolicy);
+  rpc ListSLAPolicies(ListSLAPoliciesRequest) returns (ListSLAPoliciesResponse);
+  rpc ApplySLAPolicy(ApplySLAPolicyRequest) returns (Ticket);
+  rpc GetSLAStatus(GetSLAStatusRequest) returns (GetSLAStatusResponse);
+}
+
+// ============================================================================
+// Core Message Types
+// ============================================================================
+
+message Ticket {
+  string id = 1;
+  string tenant_id = 2;
+  string subject = 3;
+  // Status: "open" | "pending" | "solved" | "closed" | "merged"
+  string status = 4;
+  // Priority: "low" | "normal" | "high" | "urgent"
+  string priority = 5;
+  optional string assignee_id = 6;
+  string requester_id = 7;
+  optional string queue_id = 8;
+  optional google.protobuf.Timestamp due_at = 9;
+  optional string merged_into_id = 10;
+  optional google.protobuf.Timestamp first_response_at = 11;
+  optional google.protobuf.Timestamp resolved_at = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+}
+
+message TicketMessage {
+  string id = 1;
+  string ticket_id = 2;
+  string author_id = 3;
+  string body = 4;
+  bool internal = 5;
+  repeated string attachments = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message TicketQueue {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  optional string default_assignee_id = 4;
+  optional string sla_policy_id = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message CannedResponse {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  string body = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message SLAPolicy {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  int32 first_response_mins = 4;
+  int32 resolution_mins = 5;
+  // JSON-encoded business hours config
+  optional string business_hours = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+// ============================================================================
+// Ticket Lifecycle RPCs
+// ============================================================================
+
+message CreateTicketRequest {
+  string requester_id = 1;
+  string subject = 2;
+  // Defaults to "normal" when empty
+  string priority = 3;
+  optional string assignee_id = 4;
+  optional string queue_id = 5;
+}
+
+message GetTicketRequest {
+  string ticket_id = 1;
+}
+
+message ListTicketsRequest {
+  // Optional status filter: "open" | "pending" | "solved" | "closed" | "merged"
+  optional string status_filter = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListTicketsResponse {
+  repeated Ticket tickets = 1;
+  int32 total = 2;
+}
+
+message UpdateTicketRequest {
+  string ticket_id = 1;
+  optional string subject = 2;
+  optional string priority = 3;
+  optional string assignee_id = 4;
+  optional string queue_id = 5;
+}
+
+message CloseTicketRequest {
+  string ticket_id = 1;
+}
+
+message ReopenTicketRequest {
+  string ticket_id = 1;
+}
+
+message AssignTicketRequest {
+  string ticket_id = 1;
+  string assignee_id = 2;
+}
+
+message MergeTicketsRequest {
+  string source_ticket_id = 1;
+  string target_ticket_id = 2;
+}
+
+// ============================================================================
+// Message RPCs
+// ============================================================================
+
+message AddMessageRequest {
+  string ticket_id = 1;
+  string author_id = 2;
+  string body = 3;
+  bool internal = 4;
+  repeated string attachments = 5;
+}
+
+message ListMessagesRequest {
+  string ticket_id = 1;
+}
+
+message ListMessagesResponse {
+  repeated TicketMessage messages = 1;
+}
+
+// ============================================================================
+// Queue Management RPCs
+// ============================================================================
+
+message CreateQueueRequest {
+  string name = 1;
+  optional string default_assignee_id = 2;
+  optional string sla_policy_id = 3;
+}
+
+message UpdateQueueRequest {
+  string queue_id = 1;
+  optional string name = 2;
+  optional string default_assignee_id = 3;
+  optional string sla_policy_id = 4;
+}
+
+message ListQueuesRequest {
+  // tenant_id is extracted from JWT context on the server side
+}
+
+message ListQueuesResponse {
+  repeated TicketQueue queues = 1;
+}
+
+message DeleteQueueRequest {
+  string queue_id = 1;
+}
+
+// ============================================================================
+// Canned Response RPCs
+// ============================================================================
+
+message CreateCannedResponseRequest {
+  string name = 1;
+  string body = 2;
+}
+
+message UpdateCannedResponseRequest {
+  string canned_response_id = 1;
+  optional string name = 2;
+  optional string body = 3;
+}
+
+message DeleteCannedResponseRequest {
+  string canned_response_id = 1;
+}
+
+message ListCannedResponsesRequest {
+  // tenant_id is extracted from JWT context on the server side
+}
+
+message ListCannedResponsesResponse {
+  repeated CannedResponse canned_responses = 1;
+}
+
+// ============================================================================
+// SLA Policy RPCs
+// ============================================================================
+
+message CreateSLAPolicyRequest {
+  string name = 1;
+  int32 first_response_mins = 2;
+  int32 resolution_mins = 3;
+  // JSON-encoded business hours config (optional)
+  optional string business_hours = 4;
+}
+
+message UpdateSLAPolicyRequest {
+  string sla_policy_id = 1;
+  optional string name = 2;
+  optional int32 first_response_mins = 3;
+  optional int32 resolution_mins = 4;
+  // JSON-encoded business hours config (optional)
+  optional string business_hours = 5;
+}
+
+message ListSLAPoliciesRequest {
+  // tenant_id is extracted from JWT context on the server side
+}
+
+message ListSLAPoliciesResponse {
+  repeated SLAPolicy policies = 1;
+}
+
+message ApplySLAPolicyRequest {
+  string ticket_id = 1;
+  string sla_policy_id = 2;
+}
+
+message GetSLAStatusRequest {
+  string ticket_id = 1;
+  optional string sla_policy_id = 2;
+}
+
+message GetSLAStatusResponse {
+  // "on_track" | "at_risk" | "breached"
+  string status = 1;
+}
