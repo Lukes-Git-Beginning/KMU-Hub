@@ -9,8 +9,8 @@
 | WP | Status | Worktree | Stand |
 |---|---|---|---|
 | WP-0 Migration + Proto | ✅ Done 2026-04-18 | main | 4 Tabellen + 8 Seeds in `000079_create_berichte.*.sql`; 14 RPCs in `proto/berichte/v1/berichte.proto`; pb.go generiert; `proto-berichte` Makefile-Target live. |
-| WP-1 Service-Layer + Repo | ⏳ Pending | Worktree A | — |
-| WP-2 Aggregations-Executor | ⏳ Pending | Worktree A | — |
+| WP-1 Service-Layer + Repo | ✅ Done 2026-04-18 | Worktree A: `8bf9e00`..`021ba8d` | models+errors+repository interface (185 LOC); PostgresRepository (485 LOC) mit atomic ClaimSchedule; Service (703 LOC) mit Executor-Interface+Clock+robfig/cron; service_test.go 43 cases, Coverage **52.4%**. |
+| WP-2 Aggregations-Executor | ✅ Done 2026-04-18 | Worktree A | executor (~650 LOC) mit 8 kind-handlers + DashboardKPIs; narrow downstream-interfaces (FinanceRepo/CRMReportsRepo/HelpdeskRepo/InventarRepo/DatevBridge), nil-tolerant mit `downstream_not_available`-warning; Coverage **92.1%**. |
 | WP-3 Export-Layer PDF/CSV/XLSX | ⏳ Pending | Worktree B | excelize v2 noch nicht im go.mod |
 | WP-4 Scheduled-Report-Worker | ⏳ Pending | Worktree A | robfig/cron/v3 Dep pruefen |
 | WP-5 gRPC-Server + cmd/berichte | ⏳ Pending | Worktree B | — |
