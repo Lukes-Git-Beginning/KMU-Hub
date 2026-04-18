@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { sanitizeHtml } from '@/lib/sanitize'
 import { useTranslation } from 'react-i18next'
 import {
   Mail,
@@ -574,7 +575,7 @@ export default function MailsPage() {
               {selectedMessage.body_html ? (
                 <div
                   className="text-sm text-text-body leading-relaxed prose prose-sm max-w-none"
-                  dangerouslySetInnerHTML={{ __html: selectedMessage.body_html }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedMessage.body_html) }}
                 />
               ) : (
                 <div className="text-sm text-text-body whitespace-pre-line leading-relaxed">

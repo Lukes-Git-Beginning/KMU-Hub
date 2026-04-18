@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { sanitizeHtml } from '@/lib/sanitize'
 import { useTranslation } from 'react-i18next'
 import {
   Dialog,
@@ -281,7 +282,7 @@ export function EmailTemplateDialog({
                   </p>
                   <div
                     className="rounded-lg border border-border bg-background p-4 prose prose-sm dark:prose-invert max-w-none text-sm"
-                    dangerouslySetInnerHTML={{ __html: selected.body }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(selected.body) }}
                   />
                 </div>
                 <div>

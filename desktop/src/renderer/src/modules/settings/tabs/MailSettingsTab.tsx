@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { sanitizeHtmlStrict } from '@/lib/sanitize'
 import { useTranslation } from 'react-i18next'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -106,7 +107,7 @@ export function MailSettingsTab() {
             <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">{t('settings.mail.signature.preview')}</p>
             <div
               className="text-sm text-foreground"
-              dangerouslySetInnerHTML={{ __html: signature }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtmlStrict(signature) }}
             />
           </div>
         </div>

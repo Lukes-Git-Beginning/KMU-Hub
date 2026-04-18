@@ -99,11 +99,13 @@ export function RecordingConsentDialog({
             <p>
               {t('features.video.recordingConsent.intro')}
             </p>
+            {/* trusted: i18n-rendered (messages/ controlled) */}
             <p
               dangerouslySetInnerHTML={{
                 __html: t('features.video.recordingConsent.acceptInfo'),
               }}
             />
+            {/* trusted: i18n-rendered (messages/ controlled) */}
             <p
               dangerouslySetInnerHTML={{
                 __html: t('features.video.recordingConsent.declineInfo'),
