@@ -7,7 +7,7 @@ updated: 2026-04-18
 ## Überblick
 - PostgreSQL 16 + Redis 7 (nur Cache, KEIN Dual-Write)
 - Änderungen NUR via golang-migrate (`make migrate-create name=xxx`)
-- 74 Migration-Paare in `backend/migrations/`
+- 75 Migration-Paare in `backend/migrations/`
 - Index-Konvention: `idx_{table}_{column}`
 - **AI-First-Foundation** seit Migration 071 (siehe Abschnitt unten)
 
@@ -91,9 +91,11 @@ updated: 2026-04-18
 - `companies.merged_into_id UUID` — Soft-Merge Tracking
 - GIN-Trigram-Index auf `contacts` (first+last name) und `companies` (name)
 
-### Consent Management (Migration 060)
+### Consent Management (Migrations 060, 075)
 - `consent_records` — contact_id (FK), consent_type ENUM (marketing_email, marketing_phone, profiling, newsletter, data_processing, data_sharing), granted BOOL, legal_basis ENUM (consent, legitimate_interest, contract, legal_obligation), source, ip_address INET, granted_at, revoked_at
 - `gdpr_deletion_requests` — contact_id, requested_by, reason, status (pending/completed), completed_at
+- **Migration 075 (2026-04-18, R1-P0.1):** `consent_records.contact_id` FK `ON DELETE CASCADE` → `ON DELETE SET NULL`. Consent-Historie ueberlebt damit GDPR-Loeschung des Kontakts. Regressions-Test: `backend/migrations/migration_000075_test.go`.
+- **Aktiv-Check (Consent-Asserter):** `WHERE contact_id=$1 AND consent_type=$2 AND granted=true AND revoked_at IS NULL` — siehe [[security]] Consent Enforcement
 
 ### Contacts Owner Index (Migration 062)
 - `idx_contacts_owner_id` auf `contacts(owner_id)` — fehlte fuer `ListWithVisibility` Filter

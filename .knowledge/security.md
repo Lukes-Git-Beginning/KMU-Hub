@@ -1,6 +1,6 @@
 ---
 tags: [security, auth, compliance, gdpr]
-updated: 2026-04-09
+updated: 2026-04-18
 ---
 # Security & Compliance
 
@@ -73,6 +73,36 @@ updated: 2026-04-09
 - Prepared Statements durchgehend (kein String-Concatenation)
 - Request-Parsing + Validierung pro Endpoint
 - Email-Validierung, Passwort-Strength-Checks
+
+## Consent Enforcement (2026-04-18, Sprint 0 S0.2)
+
+- **Package:** `backend/internal/crm/consent/`
+- **API:** `Asserter.Assert(ctx, contactID, channel)` — `channel ∈ {ChannelEmail, ChannelPhone}`
+- **Hooks:**
+  - `email/send/service.go` — vor SMTP-Dispatch
+  - `dialer/service.go` — vor Twilio/Dialer-Call
+- **Query:** `consent_records WHERE contact_id=$1 AND consent_type=$2 AND granted=true AND revoked_at IS NULL`
+- **Transactional Skip:** `ChannelEmail` + Contact ohne E-Mail → `nil` (nichts zu senden, kein Consent noetig)
+- **Block-Log:** `slog.Warn("consent_block", "contact_id", id, "channel", ch)` + `ErrNoConsent`
+- **Status:** Launch-Blocker R1-P0.2 erledigt (PR #10). Gateway-Wiring via additive `NewServiceWithConsent()`-Constructors — Full-Wiring als separater Schritt im cmd-Paket.
+
+## Prod-Secrets Startup-Assertion (2026-04-18, Sprint 0 S0.3)
+
+- Wenn `COSMI_ENV=production`, erzwingt `backend/internal/config/config.go` nicht-leere Werte fuer:
+  - `JWT_SECRET`, `VAULT_MASTER_SECRET`, `WOPI_JWT_SECRET`, `MINIO_SECRET_KEY`
+- Dev-Default-Werte (wie `change-me`, `dev-secret`) werden in Prod explizit abgelehnt.
+- Tests: `backend/internal/config/config_test.go` (TestValidateProductionSecrets).
+- Service-Start ohne Secret → harter Abbruch, keine stillen Fallbacks.
+
+## Frontend HTML Sanitization (2026-04-18, Sprint 0 S0.4)
+
+- **Paket:** `dompurify` v3 + `@types/dompurify` (installiert in `desktop/`)
+- **Wrapper:** `desktop/src/renderer/src/lib/sanitize.ts`
+  - `sanitizeHtml(raw, config?)` — Standard-Whitelist (p, br, formatting, Links, Tabellen, Bilder), Link-Hook erzwingt `target="_blank" rel="noopener noreferrer"`, blockt `javascript:`/`data:`-URIs
+  - `sanitizeHtmlStrict(raw)` — nur Text-Formatierung, keine Links/Bilder (Signature-Preview)
+- **Call-Sites:** 5 `dangerouslySetInnerHTML` gehaertet in Mails, Wiki-Artikel, Email-Template, Mail-Settings-Signature, IT-Admin-HTML-Preview
+- **i18n-trusted Exceptions:** `features/video/RecordingConsentDialog.tsx:103/:108` — beide rendern `t(...)` aus `messages/`, markiert mit `{/* trusted: i18n-rendered ... */}`
+- **Tests:** `lib/__tests__/sanitize.test.ts` (10 Vitest-Cases)
 
 ## GDPR / Datenschutz
 

@@ -1,6 +1,6 @@
 ---
 tags: [fortschritt, milestones]
-updated: 2026-04-09
+updated: 2026-04-18
 ---
 # Milestones
 
@@ -82,6 +82,29 @@ Detaillierter Plan: `docs/PERFORMANCE-PLAN.md`
 | 1E — Integration | CRM-Timeline live, Callback-Notifications, Filter-Import, Bug Fixes (ContactID, wrap_up, skip), EventEmitter, Unit/Gateway/E2E Tests | ✅ |
 
 Strategische Roadmap: `docs/DIALER-ROADMAP.md`
+
+## Rigorosum Runde 1 + 2 (2026-04-18)
+- **Runde 1 (wild-wren):** Gesamtnote 3.3 — 7 P0-Launch-Blocker + 8 P1 + 7 P2 + 9 P3 identifiziert (Backend/Frontend/Ops)
+- **Runde 2 Vertiefung (functional-seahorse):** Gesamtnote 4.1 — 9 neue P0-Blocker in Integrationen, Realtime-Kern, DB-Schema + 12 P1 + 15 P2 + 6 P3
+- Kombinierte Launch-Reife **3.7** → Launch auf 2026-07-01 verschoben (+4 Wochen)
+- Strategische Entscheidungen: Option-B-Full Multi-Tenancy, coturn self-hosted, Join-with-Consent, WASM Feature-Flag OFF, `finance_invoices.line_items` vor Launch normalisieren
+- Details: siehe `docs/ROADMAP.md` (Single Source of Truth) und MEMORY `project_rigorosum_april.md`, `project_rigorosum_runde2.md`
+
+## Sprint 0 — Launch-Blocker abgeraeumt (2026-04-18) ✅
+Alle 7 R1-P0-Blocker + R2-P1.2 (WASM-OFF) + Cleanup + Modul-Scope-Matrix in drei parallelen Wellen.
+| # | Task | PR |
+|---|---|---|
+| S0.1 | Migration 000075: `consent_records.contact_id` ON DELETE SET NULL | #5 |
+| S0.2 | `AssertConsent`-Wrapper vor SendEmail + DialerCall (`crm/consent/`) | #10 |
+| S0.3 | Prod-Secrets Startup-Assertion (`JWT`, `VAULT`, `WOPI_JWT`, `MINIO`) | #6 |
+| S0.4 | DOMPurify `lib/sanitize.ts` fuer 5 Call-Sites | #9 |
+| S0.5 | OnlyOffice `JWT_ENABLED: true` in Prod-Override | #7 |
+| S0.6 | Feature-Flag-Registry (16 Flags, API, useFeatureFlags, FeatureGate) + WASM Build-Tag `!no_wasm` | #11 |
+| S0.7 | ICU-Plural-Klammer-Fix (18 Strings × 4 Sprachen) | #3 |
+| S0.8 | `mobile/`-Ordner entfernt, Pitch auf PWA | #4 |
+| S0.9 | `docs/MODULES_SCOPE_MATRIX.md` (14 Module) | #8 |
+
+Gate S0 bestanden. Sprint 1 startet 2026-04-28 mit 7 Modulen + TURN-Server + LiveKit-Secrets + Recording-Consent-Fix + Egress-Webhook + Lexware-HMAC (R2-P0 Batch A).
 
 ## Code Review Hardening (2026-04-09)
 | Finding | Status |

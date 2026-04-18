@@ -1,6 +1,6 @@
 ---
 tags: [testing, qualitaet]
-updated: 2026-04-09
+updated: 2026-04-18
 ---
 # Test-Strategie
 
@@ -30,13 +30,21 @@ type MockRepository struct {
 - **Dialer Service** — LogCallOutcome (ContactID resolution, fallback, callback), campaign auto-complete (`dialer/service_test.go`, 6 Tests)
 - **Dialer Gateway** — 31 Handler-Tests: ServiceUnavailable, InvalidJSON, InvalidUUID (`gateway/route_dialer_test.go`)
 - **Dialer E2E** — Full flow: Campaign → Contact → Call → Outcome → Timeline (`test/e2e/dialer_test.go`)
+- **Feature-Flag-Registry** (2026-04-18) — 9 Registry-Cases (`featureflag/registry_test.go`) + 4 Handler-Cases (`gateway/route_feature_flags_test.go`)
+- **Consent-Asserter** (2026-04-18) — 7 Asserter-Cases (`crm/consent/asserter_test.go`) plus Integration-Tests `email/send/consent_test.go` (4) und `dialer/consent_test.go` (3) — Send-Pfad wird ohne Consent niemals erreicht
+- **Prod-Secrets Validator** (2026-04-18) — `config/config_test.go` (TestValidateProductionSecrets)
+- **Migration 000075** (2026-04-18) — `migrations/migration_000075_test.go` verifiziert `contact_id ON DELETE SET NULL`
 
 ## Desktop (Electron/React)
 - Framework: Vitest + jsdom, Setup: `test/setup.ts`
-- **Status:** 8 Test-Dateien, 62/62 Tests grün (Stand 2026-04-09)
+- **Status:** 12+ Test-Dateien (Stand 2026-04-18)
 - i18next Mock: `t: (key) => key` — Tests assertieren auf i18n-Keys, nicht übersetzte Strings
 - MSW für API-Mocks (ContactsFlow, DashboardPage)
-- Test-Dateien: LoginPage, InvoiceForm, ChatFlow, DealsFlow, TeamFlow, CompaniesFlow, ContactsFlow, DashboardPage
+- Bestehende: LoginPage, InvoiceForm, ChatFlow, DealsFlow, TeamFlow, CompaniesFlow, ContactsFlow, DashboardPage
+- **Sprint 0 Neuzugaenge:**
+  - `lib/__tests__/sanitize.test.ts` — 10 Cases fuer DOMPurify-Wrapper (Script/IFrame/OnClick/JS-URL/OnError stripping, Link-Hook, strict mode)
+  - `components/shared/__tests__/FeatureGate.test.tsx` — 4 Cases (Flag on/off, loading-state, fallback)
+  - `i18n/__tests__/plural.test.ts` — ICU-Plural-Regressions-Gate
 
 ## E2E Tests
 - **Datei:** `backend/test/e2e/` (Build-Tag `//go:build e2e`)

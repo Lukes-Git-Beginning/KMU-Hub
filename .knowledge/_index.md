@@ -1,32 +1,37 @@
 ---
 tags: [index]
-updated: 2026-04-10
+updated: 2026-04-18
 ---
 # Cosmi — Knowledge Base
 
-## Projektstand (2026-04-10)
+## Projektstand (2026-04-18)
+- **Sprint 0 abgeschlossen:** Alle 7 R1-P0-Blocker + Cleanup + Modul-Scope-Matrix gemerged (9 PRs), Gate S0 bestanden
+- **Launch-Datum:** **2026-07-01** (+4 Wochen nach Rigorosum Runde 2)
 - **Alle 20 Feature-Phasen abgeschlossen** (103/103 Plans)
-- **Modus:** Dialer-Modul Entwicklung + Pre-Launch Sprint
-- **Code Review Hardening:** ✅ Alle 5 Findings erledigt (inkl. Gateway Bloat Refactoring)
-- **Branding:** "KMU Hub" → "Cosmi" (Software), "Zentria" (Firma), zentria.tech
-- **Phase A (Technisch):** ✅ Abgeschlossen — Core Wiring, D9 Merge, Lint 0
-- **Phase B (Hardening):** ✅ B1-B10 abgeschlossen
-- **i18n Sprint:** ✅ Abgeschlossen (7.221 Keys × 4 Sprachen)
-- **Performance Sprint:** ✅ Abgeschlossen (5 Phasen)
-- **Dialer Phase 1A+1B:** ✅ Backend-Foundation + Core-Logik (11. Microservice, 67 Migrations, 27 RPCs)
-- **Hetzner Prod:** ✅ Live, alle 11 Services healthy (inkl. Dialer), Deploy-Pipeline mit Auto-Rollback
+- **Branding:** "Cosmi" (Software), "Zentria" (Firma), zentria.tech
+- **Sprint 1 (startet 2026-04-28):** 7 Module (wiki, berichte, formulare, helpdesk, vertraege, buchhaltung-Completion, video-Completion) + R2-P0 Batch A (TURN self-hosted, LiveKit-Secrets, Recording-Consent, Egress-Webhook, Lexware-HMAC)
+- **Feature-Flag-Registry:** ✅ Live (16 Flags), siehe [[architektur]]
+- **Consent-Enforcement:** ✅ Vor SendEmail + DialerCall aktiv, siehe [[security]]
+- **WASM-Plugin-System:** Feature-Flag OFF bis Phase D + Build-Tag `no_wasm`, siehe [[integrationen]]
+- **Mobile:** PWA auf Desktop-Basis (kein React Native mehr)
+- **Hetzner Prod:** ✅ Live, alle 11 Services healthy, Deploy-Pipeline mit Auto-Rollback
 - **Testing:** Playwright MCP via Chrome CDP (Port 9222) fuer E2E-Verifikation
 - GitHub: github.com/Lukes-Git-Beginning/KMU-Hub (private), branch: main
 
-### Beta Roadmap (3 Phasen, 3 Tracks)
-| Phase | Zeitraum | Technisch | Legal | Business |
-|-------|----------|-----------|-------|----------|
-| A — Core Wiring | März 2026 | ✅ Abgeschlossen (API-Hooks, D9 Merge, Lint-Cleanup) | Anwalt, Unternehmensform | Kundengespräch, Hetzner |
-| B — Beta Hardening | März-April 2026 | ✅ B1-B8 UI Hardening + B9 Crash-Fixes + B10 Design Audit & Rebrand | AGB, DSGVO, AVV/DPA | Website, Preisliste |
-| C — Beta Launch | Mai 2026 | Performance, Self-Hosted-Paket | Rechtstexte live, Impressum | Pilot-Onboarding |
+### Roadmap (Single Source of Truth: `docs/ROADMAP.md`)
+| Sprint | Zeitraum | Fokus |
+|---|---|---|
+| S0 | 2026-04-21–04-27 | ✅ 7 R1-P0-Blocker + Modul-Scope-Matrix + Cleanup |
+| S1 | 2026-04-28–05-10 | 7 Module + R2-P0 Batch A (TURN, LiveKit, Recording, Egress, Lexware) |
+| S2 | 2026-05-11–05-24 | 7 weitere Module + R2-P0 Batch B + Option-B Phase 1 (Top-20 Tabellen + RLS) |
+| S3 | 2026-05-25–06-07 | Option-B Phase 2 (Rest ~30 Tabellen) + Ansible + CI-Security-Scans |
+| S4 | 2026-06-08–06-21 | `finance_invoices.line_items`-Normalisierung + R1-P1 + R2-P1 |
+| S5 | 2026-06-22–06-30 | End-to-End, Peer-Review, Rigorosum Runde 3, Launch-Freigabe |
 
-### Kritische Blocker
-1. Legal (AVV/DPA) = Blocker für Pilot-Onboarding mit echten Kundendaten
+### Aktive Blocker
+1. **Legal (AVV/DPA):** wartet auf UG-Gruendung 2026-06-01
+2. **9 R2-P0-Blocker:** auf Sprint 1+2 verteilt, siehe `docs/ROADMAP.md §4`
+3. **~50 Tabellen Option-B-Retrofit:** Sprint 2+3
 
 ## Notes
 

@@ -1,6 +1,6 @@
 ---
 tags: [integrationen, bexio, lexware, livekit, plugin, wasm]
-updated: 2026-04-06
+updated: 2026-04-18
 ---
 # Externe Integrationen
 
@@ -53,19 +53,26 @@ updated: 2026-04-06
 - File-Locking (TTL-basiert, Concurrent-Edit-Prevention)
 - Auto-Versioning bei Save
 - OnlyOffice DocumentServer in Docker (Port 8088) — **aktuell aktiv**
+- **Prod-Override (Sprint 0 S0.5):** `deploy/docker/docker-compose.prod.yml` setzt `JWT_ENABLED: "true"` explizit — OnlyOffice akzeptiert in Prod nur JWT-signierte Requests
 - **Collabora:** Geplanter Ersatz (MPL 2.0 sicherer als AGPL) — **noch nicht umgesetzt**
 - Gateway: `/api/v1/wopi/…`
 - Code: `backend/internal/document/wopi/`
 
-## Plugin-System (WASM via wazero)
-- Plugins als WebAssembly-Module (`.wasm`)
-- Runtime: wazero v1.9.0 (pure Go, kein CGo)
+## Plugin-System (WASM via wazero) — Feature-Flag OFF bis Phase D (2026-04-18)
+
+- **Status:** Runtime vorhanden, aber bis Launch NICHT aktiv. R2-P1.2 (ehrlicher Pitch — kein WASM-Plugin-Claim zum Launch)
+- Plugins als WebAssembly-Module (`.wasm`), Runtime: wazero v1.9.0 (pure Go, kein CGo)
 - Sandbox: Kein Filesystem-Zugriff, Netzwerk-Isolation, Capability-basiert
 - Manifest-System: Install, Enable/Disable, Permissions, Settings-Schema
 - Rate Limiting + Memory Limits pro Plugin
-- Gateway: `/api/v1/plugins/…` (Manifests, Installations, Execution-Logs, Templates)
-- Industry-Module (11) = Plugin-Kandidaten fuer v2
+- **Zweifacher Kill-Switch:**
+  1. Laufzeit: Flag `plugins.wasm` (Default `false`, Env `COSMI_WASM_PLUGINS_ENABLED`) im Feature-Flag-Registry
+  2. Compile-Zeit: Build-Tag `//go:build !no_wasm` auf `runtime.go/sandbox.go/hostapi.go/memory.go/lifecycle.go`; Stub `runtime_disabled.go` mit `//go:build no_wasm` exportiert gleiche API als no-op
+- **Prod-Build:** `make build-prod` setzt `-tags no_wasm` → kein WASM-Code im Binary
+- Gateway: `/api/v1/plugins/…` (Manifests, Installations, Execution-Logs, Templates) — Config-Plugins bleiben aktiv (`plugins.config`=true)
+- Industry-Module (14) laufen ueber eigene Modul-Flags `modules.<name>`, nicht ueber WASM
 - Code: `backend/internal/plugin/` (sdk/, wasm/)
+- Haertungs-Roadmap: Ed25519-Signing + WASI-Deny-Set nur bei Phase-D-Marktsignal (siehe [[architektur]] Feature-Flag-Subsystem)
 
 ## Guest Chat
 - Standalone oeffentliche Chat-Oberflaeche (Vite SPA unter `/guest/`)

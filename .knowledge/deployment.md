@@ -1,6 +1,6 @@
 ---
 tags: [deployment, docker, ci-cd]
-updated: 2026-04-09
+updated: 2026-04-18
 ---
 # Deployment & Infrastruktur
 
@@ -152,6 +152,17 @@ RUN go build -ldflags "-X .../gateway.BuildVersion=$BUILD_VERSION -X .../gateway
 ```
 Package-Level Vars in `backend/internal/gateway/route_health.go`:
 `BuildVersion`, `BuildCommit`, `BuildTime`
+
+## Build-Tag `no_wasm` (Prod-Builds, 2026-04-18)
+- `make build-prod` ruft `go build -tags no_wasm ./...` — das WASM-Plugin-Runtime-File-Set wird durch den Stub `runtime_disabled.go` ersetzt
+- Production Container muessen mit diesem Target gebaut werden, Default-`make build` enthaelt weiterhin die Runtime (fuer lokale Tests)
+- Laufzeit-Schutz zusaetzlich via Feature-Flag `plugins.wasm=false` (Env `COSMI_WASM_PLUGINS_ENABLED`)
+- Details: [[integrationen]] und [[architektur]]
+
+## OnlyOffice Prod-JWT (2026-04-18)
+- `deploy/docker/docker-compose.prod.yml` setzt `JWT_ENABLED: "true"` explizit (vorher: Dev-Default geerbt)
+- Secret muss in `/opt/kmuhub/.env.production` als `ONLYOFFICE_JWT_SECRET` + gleicher Wert im Document-Service gepflegt sein
+- `smoke.sh` enthaelt seit Sprint 0 einen JWT-Check gegen den OnlyOffice-Container
 
 ## Kubernetes (Sekundaer)
 - Manifeste: `deploy/k8s/` (base/, overlays/, namespace.yaml)

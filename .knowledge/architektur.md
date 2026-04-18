@@ -1,6 +1,6 @@
 ---
 tags: [architektur, backend, frontend, ci-cd]
-updated: 2026-04-10
+updated: 2026-04-18
 ---
 # Architektur
 
@@ -24,7 +24,7 @@ Gateway (HTTP/chi) auf Port 8080 → gRPC-Services intern:
 
 Gateway `/health`: status, checks, registered_services, version, commit, build_time (via ldflags)
 
-### Gateway Route-Dateien (37)
+### Gateway Route-Dateien (38)
 
 Alle Handler sind duenne gRPC-Proxies. Keine direkte DB-Abfrage im Gateway (ausser Dashboard, gekapselt).
 Shared Helpers: `validateUUIDParam`, `RequireAuthenticated` Middleware, `respondGRPCError`, `parsePagination`.
@@ -51,6 +51,7 @@ Entry Point: `cmd/gateway/main.go` (~324 LoC) + `setup.go` + `adapters.go`.
 | `route_dashboard.go` | Dashboard-Widgets (gateway-local) |
 | `route_datev_upload.go` | DATEV CSV-Upload |
 | `route_dialer.go` | Dialer (Campaigns, Calls, Agent Status, Outcomes) |
+| `route_feature_flags.go` | `GET /api/v1/feature-flags` — Resolver-Output fuer Frontend-Gate |
 | `route_document.go` | Dokumente (CRUD) |
 | `route_email.go` | E-Mail-Konten, IMAP/SMTP |
 | `route_guest.go` | Guest Chat (public, kein Auth) |
@@ -123,6 +124,44 @@ ai, auth, automatisierung, berichte, calendar, contacts, dashboard, **dialer**, 
 - `babel-plugin-react-compiler` im `annotation` Mode
 - `"use memo"` Directive auf DashboardPage, DealPipelineView, ContactsListPage
 - Automatisches Memoization ohne manuelle useMemo/useCallback
+
+## Feature-Flag-Subsystem (2026-04-18, Sprint 0 S0.6)
+
+- **Backend:** `backend/internal/featureflag/registry.go`
+  - Typed `Flag{Key, DefaultEnabled, EnvVar, Description, Risk, LLMToggleSafe}`
+  - `Risk`-Enum: `safe | breaking | security` — plus `LLMToggleSafe`-Flag, damit spaetere LLM-gesteuerte Toggles wissen, was sie anfassen duerfen
+  - Env-Loader, `IsEnabled(key)`, `All()`, sortierte `Keys()`
+  - 16 Flags registriert: 14 Modul-Flags (`modules.<name>`, Default off) + `plugins.wasm` (off) + `plugins.config` (on)
+  - EnvVar-Konvention Modul-Flags: `COSMI_MODULE_<UPPER>_ENABLED`
+- **API:** `GET /api/v1/feature-flags` (auth-required) → `{flags: {[key]: bool}, version: "v1"}`
+- **Frontend:**
+  - `api/hooks/useFeatureFlags.ts` — React-Query, Refetch on focus, `isEnabled(key)`-Helper
+  - `components/shared/FeatureGate.tsx` — `<FeatureGate flag="modules.wiki" fallback={null}>`
+  - `hooks/useFilteredNavItems.ts` — Nav-Items nach Modul-Flag filtern (Mapping video-Nav-ID `meetings` → `modules.video` explizit)
+- **Wiring:** Registry in `cmd/gateway/main.go` gebaut (explizit, kein Package-Global, keine `init()`).
+- **Zweck:** Safety-Net fuer Modul-Slippage — jedes Modul, das bis Launch nicht produktionsreif wird, laesst sich per Env-Flag ausblenden.
+
+## Consent Enforcement Wrapper (2026-04-18, Sprint 0 S0.2)
+
+- **Package:** `backend/internal/crm/consent/`
+  - `Asserter.Assert(ctx, contactID, channel)` mit `ChannelEmail | ChannelPhone`
+  - `ErrNoConsent`, `ErrContactMissing`
+  - Transactional Skip bei `ChannelEmail` wenn Contact keine E-Mail hat
+  - Blocked Attempts: `slog.Warn("consent_block", ...)`
+- **Integration:**
+  - `backend/internal/email/send/service.go` — Check vor SMTP-Dispatch
+  - `backend/internal/dialer/service.go` — Check vor Twilio/Dialer-Call
+  - Additive `NewServiceWithConsent()`-Constructors (Gateway-Wiring separater Schritt)
+- **Repo-Query:** `consent_records WHERE contact_id=$1 AND consent_type=$2 AND granted=true AND revoked_at IS NULL`
+- Details: [[security]]
+
+## WASM-Plugin-System — Feature-Flag OFF (Sprint 0 S0.6 / R2-P1.2)
+
+- Runtime-Files (`runtime.go`, `sandbox.go`, `hostapi.go`, `memory.go`, `lifecycle.go`) mit Build-Tag `//go:build !no_wasm`
+- Stub: `backend/internal/plugin/wasm/runtime_disabled.go` mit `//go:build no_wasm` — exportiert die gleiche API, alle Operationen no-op
+- Runtime-Toggle zusaetzlich ueber `plugins.wasm`-Flag (Default off)
+- `make build-prod` setzt `-tags no_wasm` → Production-Builds enthalten keinen WASM-Code-Pfad mehr
+- Details: [[integrationen]]
 
 ## Demo Mode
 

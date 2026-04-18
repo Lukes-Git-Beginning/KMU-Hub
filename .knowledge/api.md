@@ -1,6 +1,6 @@
 ---
 tags: [api, endpoints, openapi]
-updated: 2026-04-09
+updated: 2026-04-18
 ---
 # API-Referenz
 
@@ -36,6 +36,7 @@ updated: 2026-04-09
 | CalDAV/CardDAV | `/caldav/…`, `/carddav/…` | go-webdav Proxy, App-Passwords |
 | WOPI | `/api/v1/wopi/…` | Document Lock/Unlock, CheckFileInfo (OnlyOffice) |
 | Dialer | `/api/v1/dialer/…` | Campaigns, Calls, Agent Status, Outcomes, Dashboards (25 Endpoints) |
+| Feature Flags | `/api/v1/feature-flags` | Resolver-Output (16 Flags: 14 Modul-Flags + `plugins.wasm`/`plugins.config`), auth-required |
 | Integration Config | `/api/v1/integrations/configs` | Teams/Slack Webhooks + OAuth |
 | Registrar | (intern) | Service-Registrierung im Gateway |
 | Health | `/health` | Public, kein Auth, Version/Commit/BuildTime |

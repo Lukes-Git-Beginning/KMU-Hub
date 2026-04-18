@@ -1,16 +1,18 @@
 ---
 tags: [strategie, stack, entscheidungen]
-updated: 2026-04-08
+updated: 2026-04-18
 ---
 # Tech-Stack & Strategy Decisions
 
 ## Strategische Entscheidungen
 - **Deutschland-First**: EUR default, 19%/7% MWSt, de-DE locale for beta
 - **Payroll anti-feature**: NEVER built, integration only (Bexio/Lexware)
-- **OnlyOffice → Collabora geplant** (MPL 2.0 sicherer als AGPL) — **noch NICHT umgesetzt**, OnlyOffice weiterhin aktiv
+- **OnlyOffice → Collabora geplant** (MPL 2.0 sicherer als AGPL) — **noch NICHT umgesetzt**, OnlyOffice weiterhin aktiv (Prod mit `JWT_ENABLED=true`)
 - **Modul-x-User pricing**: Kein fixes Tier-System, 23 Module (2-7 EUR/User/Mo), Branchenpakete mit 15% Rabatt — siehe [[pricing]]
 - **"Kommunikation" module** = frontend name for Unified Inbox
-- **Industry modules** = Phase 20 plugin candidates, NOT core
+- **Industry modules (14)** = zum Launch echt, Feature-Flag-gated via `modules.<name>` (Safety-Net) — siehe [[architektur]]
+- **Mobile = PWA auf Desktop-Basis** (Entscheidung 2026-04-18) — kein React Native, `mobile/`-Ordner entfernt, ehrlicher Pitch
+- **WASM-Plugin-System** — Feature-Flag OFF bis Phase D (`plugins.wasm=false` + Build-Tag `no_wasm`), siehe [[integrationen]]
 - **Scope rename**: buchhaltung -> finanzen (invoices, quotes, dunning, DATEV only)
 
 ## Frontend-Bibliotheken
@@ -35,6 +37,7 @@ Vollstaendige Dokumentation: [[i18n]]
 | frimousse | v0.3 | Emoji-Picker (Chat) |
 | sonner | v2 | Toast-Notifications |
 | rrule | v2.8 | Kalender-Recurrence |
+| dompurify + @types/dompurify | v3 | HTML-Sanitization (XSS-Hardening) — Wrapper `lib/sanitize.ts` (seit 2026-04-18) |
 
 ### Build & Performance (seit 2026-04-08)
 | Paket | Version | Zweck |
