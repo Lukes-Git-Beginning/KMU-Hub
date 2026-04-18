@@ -1,7 +1,225 @@
 syntax = "proto3";
 
-// Sprint 1 S1.1 Wiki — RPC surface placeholder (filled by Welle 3 Agent WIRE-Wiki)
-
 package wiki.v1;
 
+import "google/protobuf/timestamp.proto";
+
 option go_package = "github.com/kmuhub/kmuhub/proto/wiki/v1;wikiv1";
+
+service WikiService {
+  // Articles
+  rpc CreateArticle(CreateArticleRequest) returns (ArticleResponse);
+  rpc GetArticle(GetArticleRequest) returns (ArticleResponse);
+  rpc UpdateArticle(UpdateArticleRequest) returns (ArticleResponse);
+  rpc DeleteArticle(DeleteArticleRequest) returns (DeleteArticleResponse);
+  rpc ListArticles(ListArticlesRequest) returns (ListArticlesResponse);
+  rpc SearchArticles(SearchArticlesRequest) returns (SearchArticlesResponse);
+
+  // Versions
+  rpc ListVersions(ListVersionsRequest) returns (ListVersionsResponse);
+  rpc GetVersion(GetVersionRequest) returns (VersionResponse);
+  rpc RestoreVersion(RestoreVersionRequest) returns (ArticleResponse);
+
+  // Attachments
+  rpc UploadAttachment(UploadAttachmentRequest) returns (AttachmentResponse);
+  rpc ListAttachments(ListAttachmentsRequest) returns (ListAttachmentsResponse);
+  rpc DeleteAttachment(DeleteAttachmentRequest) returns (DeleteAttachmentResponse);
+
+  // Categories
+  rpc ListCategories(ListCategoriesRequest) returns (ListCategoriesResponse);
+  rpc CreateCategory(CreateCategoryRequest) returns (CategoryResponse);
+}
+
+// ============================================================================
+// Domain Messages
+// ============================================================================
+
+message Article {
+  string id = 1;
+  string tenant_id = 2;
+  string title = 3;
+  string slug = 4;
+  bytes content = 5; // raw JSONB (TipTap JSON)
+  string author_id = 6;
+  optional string category_id = 7;
+  bool published = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message Version {
+  string id = 1;
+  string article_id = 2;
+  int32 version_number = 3;
+  bytes content = 4;
+  optional string changed_by = 5;
+  google.protobuf.Timestamp changed_at = 6;
+}
+
+message Attachment {
+  string id = 1;
+  string article_id = 2;
+  string file_ref = 3;
+  string mime = 4;
+  int64 size = 5;
+  optional string uploaded_by = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message Category {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  optional string parent_id = 4;
+  int32 position = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+// ============================================================================
+// Article Requests / Responses
+// ============================================================================
+
+message CreateArticleRequest {
+  string tenant_id = 1;
+  string title = 2;
+  string slug = 3;
+  bytes content = 4;
+  string author_id = 5;
+  optional string category_id = 6;
+  bool published = 7;
+}
+
+message GetArticleRequest {
+  string tenant_id = 1;
+  string article_id = 2;
+}
+
+message UpdateArticleRequest {
+  string tenant_id = 1;
+  string article_id = 2;
+  optional string title = 3;
+  optional string slug = 4;
+  bytes content = 5; // empty = no content change
+  optional string category_id = 6; // empty string = clear category
+  optional bool published = 7;
+  string editor_id = 8;
+}
+
+message DeleteArticleRequest {
+  string tenant_id = 1;
+  string article_id = 2;
+}
+
+message DeleteArticleResponse {}
+
+message ArticleResponse {
+  Article article = 1;
+}
+
+message ListArticlesRequest {
+  string tenant_id = 1;
+  optional string category_id = 2;
+  optional string author_id = 3;
+  optional bool published = 4;
+  string search = 5;
+  int32 page = 6;
+  int32 page_size = 7;
+  string sort_by = 8;
+  bool sort_desc = 9;
+}
+
+message ListArticlesResponse {
+  repeated Article articles = 1;
+  int32 total = 2;
+}
+
+message SearchArticlesRequest {
+  string tenant_id = 1;
+  string query = 2;
+  int32 limit = 3;
+}
+
+message SearchArticlesResponse {
+  repeated Article articles = 1;
+}
+
+// ============================================================================
+// Version Requests / Responses
+// ============================================================================
+
+message ListVersionsRequest {
+  string article_id = 1;
+}
+
+message ListVersionsResponse {
+  repeated Version versions = 1;
+}
+
+message GetVersionRequest {
+  string version_id = 1;
+}
+
+message VersionResponse {
+  Version version = 1;
+}
+
+message RestoreVersionRequest {
+  string tenant_id = 1;
+  string article_id = 2;
+  string version_id = 3;
+  string editor_id = 4;
+}
+
+// ============================================================================
+// Attachment Requests / Responses
+// ============================================================================
+
+message UploadAttachmentRequest {
+  string article_id = 1;
+  string file_ref = 2;
+  string mime = 3;
+  int64 size = 4;
+  optional string uploaded_by = 5;
+}
+
+message AttachmentResponse {
+  Attachment attachment = 1;
+}
+
+message ListAttachmentsRequest {
+  string article_id = 1;
+}
+
+message ListAttachmentsResponse {
+  repeated Attachment attachments = 1;
+}
+
+message DeleteAttachmentRequest {
+  string attachment_id = 1;
+}
+
+message DeleteAttachmentResponse {}
+
+// ============================================================================
+// Category Requests / Responses
+// ============================================================================
+
+message ListCategoriesRequest {
+  string tenant_id = 1;
+}
+
+message ListCategoriesResponse {
+  repeated Category categories = 1;
+}
+
+message CreateCategoryRequest {
+  string tenant_id = 1;
+  string name = 2;
+  optional string parent_id = 3;
+  int32 position = 4;
+}
+
+message CategoryResponse {
+  Category category = 1;
+}
