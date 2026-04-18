@@ -21,6 +21,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/document/wopi"
+	"github.com/kmuhub/kmuhub/internal/featureflag"
 	"github.com/kmuhub/kmuhub/internal/gateway"
 	"github.com/kmuhub/kmuhub/internal/health"
 	"github.com/kmuhub/kmuhub/internal/metrics"
@@ -41,6 +42,10 @@ func main() {
 		slog.Error("failed to load config", "error", err)
 		os.Exit(1)
 	}
+
+	// Feature-flag registry — resolved once at startup via env vars
+	flagRegistry := featureflag.NewRegistry().Load(os.Getenv)
+	slog.Info("feature flags loaded", "count", len(flagRegistry.All()))
 
 	// Redis for rate limiting (best-effort)
 	redisClient, err := database.NewRedisClient(ctx, cfg.RedisURL)
@@ -189,6 +194,7 @@ func main() {
 		gateway.NewDialerRoutes(registry),
 		gateway.NewGlobalSearchRoutes(registry),
 		gateway.NewDashboardRoutes(dashboardService),
+		gateway.NewFeatureFlagRoutes(flagRegistry),
 		gateway.NewHealthRoutes(healthCheckers, registry),
 	}
 

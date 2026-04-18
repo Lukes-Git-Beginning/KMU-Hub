@@ -1,4 +1,4 @@
-.PHONY: build test lint clean run-gateway run-crm run-chat run-auth run-notification run-work run-automation run-dialer migrate-up migrate-down migrate-create proto proto-automation proto-dialer docker-build docker-up docker-down docker-logs docker-clean e2e-test smoke-test smoke-prod
+.PHONY: build build-prod test lint clean run-gateway run-crm run-chat run-auth run-notification run-work run-automation run-dialer migrate-up migrate-down migrate-create proto proto-automation proto-dialer docker-build docker-up docker-down docker-logs docker-clean e2e-test smoke-test smoke-prod
 
 # Build all services
 build:
@@ -10,6 +10,11 @@ build:
 	go build -o bin/work ./cmd/work
 	go build -o bin/automation ./cmd/automation
 	go build -o bin/dialer ./cmd/dialer
+
+# Production gateway build: WASM plugin runtime compiled out (-tags no_wasm)
+# Sets COSMI_WASM_PLUGINS_ENABLED=false by default (flag registry enforces it too).
+build-prod:
+	go build -tags no_wasm -ldflags "-X main.version=$(VERSION)" -o bin/gateway ./cmd/gateway
 
 # Run individual services
 run-gateway:

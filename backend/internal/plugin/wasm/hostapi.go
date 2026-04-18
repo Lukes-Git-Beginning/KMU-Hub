@@ -1,3 +1,6 @@
+//go:build !no_wasm
+// +build !no_wasm
+
 package wasm
 
 import (
