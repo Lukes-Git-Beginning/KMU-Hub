@@ -17,7 +17,7 @@
 | WP-6 Gateway-Routes | ⏳ Pending | Worktree B | — |
 | WP-7 Docker-Integration | ⏳ Pending | Worktree B | — |
 | WP-8 Frontend-Client + Hooks | ✅ Done 2026-04-18 | Worktree C: `33c758b` | berichte-client.ts (300 LOC) + berichte-types.ts (230 LOC) + useBerichte.ts (250 LOC), snake_case matched wiki pattern, blob-export with Content-Disposition filename parsing. |
-| WP-9 Recharts + Page-Migration | ⏳ Pending | Worktree C | — |
+| WP-9 Recharts + Page-Migration | ✅ Done 2026-04-18 | Worktree C: `b2c97d8`, `3fea0f8`, `2f3aedc` | recharts 3.8.1 + chartTheme/chartMotion utils (401 LOC); 5 Sub-Components KPICard/DashboardGrid/ReportBuilder/ScheduleList/DatevView (1176 LOC); BerichtePage 1186→120 LOC auf Live-API; Mock-Store als SUPERSEDED markiert. |
 | WP-11 Feature-Flag + Smoke + Docs | ⏳ Pending | Final | — |
 
 **Update-Regel:** Beim Abschluss eines WP diese Tabelle via Edit aktualisieren (Status ✅/⏳, Worktree-Spalte mit Commit-SHA oder Note).
