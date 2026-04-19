@@ -1,0 +1,102 @@
+# =============================================================================
+# coturn configuration template — Zentria / Cosmi TURN server
+# =============================================================================
+# Placeholders replaced by setup.sh at deploy time:
+#   {{EXTERNAL_IP}}         — public IPv4 of the CAX11 instance
+#   {{REALM}}               — zentria.tech
+#   {{STATIC_AUTH_SECRET}}  — 32-byte hex secret (must match TURN_SECRET in
+#                             .env.production on the CPX42 app server)
+#
+# Do NOT edit /etc/turnserver.conf directly on the server.
+# Re-run deploy/turn/deploy.sh to regenerate it from this template.
+#
+# Reference: https://github.com/coturn/coturn/blob/master/examples/etc/turnserver.conf
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Network
+# ---------------------------------------------------------------------------
+
+# Plain STUN/TURN — UDP + TCP
+listening-port=3478
+
+# Bind on all interfaces; external-ip= tells clients the public address.
+listening-ip=0.0.0.0
+
+# Public IPv4 announced to ICE clients and used for relay endpoints.
+# On a single-NIC Hetzner instance relay-ip == external-ip.
+external-ip={{EXTERNAL_IP}}
+relay-ip={{EXTERNAL_IP}}
+
+# ---------------------------------------------------------------------------
+# ICE relay port range
+# Must match ufw rules set by setup.sh and the Hetzner Cloud firewall.
+# ---------------------------------------------------------------------------
+min-port=49152
+max-port=65535
+
+# ---------------------------------------------------------------------------
+# Identity
+# ---------------------------------------------------------------------------
+realm={{REALM}}
+server-name=turn.zentria.tech
+
+# ---------------------------------------------------------------------------
+# WebRTC / RFC 5389 compliance
+# ---------------------------------------------------------------------------
+
+# Include RFC 5389 message integrity fingerprint in all TURN responses.
+# Required by WebRTC clients and LiveKit.
+fingerprint
+
+# ---------------------------------------------------------------------------
+# Authentication: REST API / shared-secret mode
+# ---------------------------------------------------------------------------
+# LiveKit uses coturn's HMAC-SHA1 time-limited credential mechanism:
+#   - LiveKit generates a temporary username/password per room session
+#   - The shared secret below MUST match TURN_SECRET in .env.production
+#   - Clients receive credentials in the LiveKit join response — no static passwords
+#
+# See: https://github.com/coturn/coturn/wiki/turnserver#secret-based-authorization
+#      https://docs.livekit.io/home/self-hosting/turn/
+use-auth-secret
+static-auth-secret={{STATIC_AUTH_SECRET}}
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+log-file=/var/log/turnserver.log
+no-stdout-log
+simple-log
+pidfile=/var/run/turnserver.pid
+
+# ---------------------------------------------------------------------------
+# Security hardening
+# ---------------------------------------------------------------------------
+
+# Disable the coturn management CLI (reduces attack surface)
+no-cli
+
+# Prevent relay to loopback / multicast addresses
+no-loopback-peers
+no-multicast-peers
+
+# Disable legacy TLS versions (only TLS 1.2+ allowed when TLS is enabled)
+no-tlsv1
+no-tlsv1_1
+
+# Block relay to all RFC-1918 and reserved ranges (SSRF protection).
+# Prevents an external attacker from relaying traffic into Docker network,
+# instance metadata service (169.254.169.254), etc.
+denied-peer-ip=0.0.0.0-0.255.255.255
+denied-peer-ip=10.0.0.0-10.255.255.255
+denied-peer-ip=100.64.0.0-100.127.255.255
+denied-peer-ip=127.0.0.0-127.255.255.255
+denied-peer-ip=169.254.0.0-169.254.255.255
+denied-peer-ip=172.16.0.0-172.31.255.255
+denied-peer-ip=192.0.0.0-192.0.0.255
+denied-peer-ip=192.168.0.0-192.168.255.255
+denied-peer-ip=198.18.0.0-198.19.255.255
+denied-peer-ip=198.51.100.0-198.51.100.255
+denied-peer-ip=203.0.113.0-203.0.113.255
+denied-peer-ip=240.0.0.0-255.255.255.255

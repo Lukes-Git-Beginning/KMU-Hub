@@ -43,6 +43,13 @@ LIVEKIT_API_SECRET=CHANGE_ME_MINIMUM_32_CHARS
 LIVEKIT_WS_URL=wss://YOUR_DOMAIN_OR_IP:7443
 LIVEKIT_WEBHOOK_SECRET=CHANGE_ME_WEBHOOK_SECRET
 
+# ===== TURN / coturn (Sprint 1 R2.1) =====
+# Set after provisioning the CAX11 TURN server (deploy/turn/README.md).
+# TURN_SECRET must match the --secret arg used with deploy/turn/deploy.sh
+# and the static-auth-secret in /etc/turnserver.conf on the TURN server.
+TURN_SECRET=CHANGE_ME_OPENSSL_RAND_HEX_32
+COTURN_HOST=turn.zentria.tech
+
 # ===== MONITORING =====
 GF_SECURITY_ADMIN_PASSWORD=CHANGE_ME_GRAFANA_PASSWORD
 GF_USERS_ALLOW_SIGN_UP=false
