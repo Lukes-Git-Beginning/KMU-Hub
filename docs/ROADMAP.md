@@ -143,6 +143,8 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 
 **Progress Sprint 1 (Stand 2026-04-19):** 4/7 Module done (S1.1 wiki, S1.2 berichte, S1.3 formulare, S1.4 helpdesk). 4/5 R2-P0 Batch A done (S1.R2.2/3/5/6); S1.R2.1 coturn live (`turn.zentria.tech:3478`, CAX11 FSN1), LiveKit `use_external_ip: true` aktiv — aber **Backend-Wiring fehlt** (TURN-Credentials in AccessToken, Sprint-2-Task). Naechste Module: S1.5 vertraege, S1.6 buchhaltung-Completion, S1.7 video-Rest.
 
+**S1.PREP Production-Redeploy (2026-04-19/20):** ✅ Full-Redeploy CPX42 von `fa17fc3` (2026-03-08) → `980eba3`. 171 Commits, 20 Migrations (62→81), 4 neue Services (wiki/helpdesk/berichte/formulare) live mit Feature-Flags default OFF. Deploy-Hygiene-Commit `980eba3` fixt 3 `deploy.sh`-Bugs (COMPOSE_FILES_DIR, --env-file, Rolling-Restart-Liste) + 000079-Idempotenz + PRODUCTION_TEMPLATE. 6 weitere Infra-Bugs server-seitig ad-hoc per `skip-worktree` gepatched (docker-compose.yml 18× hardcoded `kmuhub_dev`, Healthcheck `--spider`→GET, formulare `/health`→`/healthz`) — müssen in Sprint 2 als saubere Commits auf `main`. Post-Deploy: alle 15 Business-Services healthy, `/health` liefert `commit: 980eba3`. Details Memory `project_server_redeploy_20260419.md`.
+
 **Ende Sprint 1:** 7 Module live, 5 R2-P0 erledigt, Coverage ≥30% pro Modul.
 
 ---
