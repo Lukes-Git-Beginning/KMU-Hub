@@ -187,6 +187,14 @@ services:
           memory: 256M
           cpus: "0.25"
 
+  berichte:
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+
   # ===== API Gateway =====
 
   gateway:
