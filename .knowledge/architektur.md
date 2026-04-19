@@ -1,6 +1,6 @@
 ---
 tags: [architektur, backend, frontend, ci-cd]
-updated: 2026-04-18
+updated: 2026-04-19
 ---
 # Architektur
 
@@ -220,10 +220,188 @@ ai, auth, automatisierung, berichte, calendar, contacts, dashboard, **dialer**, 
 | `deploy/k8s/` | Kubernetes-Manifeste (sekundaer, Kustomize) |
 | `desktop/electron.vite.config.ts` | Vite + Electron Build-Config |
 
-## Regeln
+## Entwicklungs-Kommandos
+
+### Backend (Go)
+
+```bash
+cd backend
+make run-gateway                    # API Gateway starten (Port 8080)
+make run-crm                        # CRM Service starten
+make run-chat                       # Chat Service starten
+make run-auth                       # Auth Service starten
+
+make build                          # Alle Services bauen
+make build-prod                     # Production Build (-tags no_wasm)
+make test                           # Alle Tests
+make test-coverage                  # Mit Coverage-Report
+make lint                           # golangci-lint
+
+make migrate-up                     # Migrations ausfuehren
+make migrate-down                   # Letzte Migration zurueckrollen
+make migrate-create name=xxx        # Neue Migration erstellen
+```
+
+### Desktop (Electron)
+
+```bash
+cd desktop
+npm install
+npm run dev                         # Electron Dev-Modus
+npm run dev:test                    # Dev + CDP Port 9222 (Playwright MCP)
+npm run build                       # Production Build
+npm run test                        # Vitest
+npm run lint                        # ESLint
+```
+
+### Docker (Lokale Entwicklung)
+
+```bash
+cd deploy/docker
+docker-compose up -d                # Alle Services starten
+docker-compose logs -f gateway      # Logs eines Services
+docker-compose down                 # Alles stoppen (Volumes bleiben)
+docker-compose down -v              # Inkl. Volumes (zerstoerend!)
+```
+
+## Architektur-Regeln (Detail)
+
+Bullet-Liste mit Quick-Hinweis steht in `CLAUDE.md`. Hier die ausfuehrliche Version mit Code-Beispielen.
+
+### 1. Thick Services, Thin Handlers
+
+Business-Logik gehoert in Services, NICHT in HTTP-Handler. Handler sind nur fuer:
+- Request parsen / validieren
+- Service aufrufen
+- Response formatieren
+
+```go
+// RICHTIG
+func (h *ContactHandler) Create(w http.ResponseWriter, r *http.Request) {
+    var req CreateContactRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        respondError(w, http.StatusBadRequest, err)
+        return
+    }
+    contact, err := h.contactService.Create(r.Context(), req)
+    if err != nil {
+        respondError(w, http.StatusInternalServerError, err)
+        return
+    }
+    respondJSON(w, http.StatusCreated, contact)
+}
+
+// FALSCH - Business-Logik im Handler
+func (h *ContactHandler) Create(w http.ResponseWriter, r *http.Request) {
+    // ... Validierung, DB-Zugriff, E-Mail senden direkt hier
+}
+```
+
+### 2. Centralized Service Registry
+
+Alle Services ueber zentrale Stelle initialisieren und injizieren. Kein `init()`-Missbrauch, keine globalen Variablen.
+
+```go
+type ServiceRegistry struct {
+    ContactService *contact.Service
+    DealService    *deal.Service
+    AuthService    *auth.Service
+    // ...
+}
+```
+
+Aktueller Stand: explizit gebaut in `cmd/gateway/main.go` + `setup.go` + `adapters.go` (Bloat-Refactoring 2026-04-10, siehe oben).
+
+### 3. Structured Logging von Tag 1
+
+Kein `fmt.Println()`, immer `slog`:
+
+```go
+// RICHTIG
+slog.Info("contact created",
+    "contact_id", contact.ID,
+    "user_id", userID,
+)
+
+// FALSCH
+fmt.Printf("Created contact %s\n", contact.ID)
+log.Println("contact created")
+```
+
+### 4. API-First Design
+
+OpenAPI-Spec VOR Implementation schreiben. Code wird gegen die Spec validiert (siehe `backend/api/openapi.yaml`, OpenAPI 3.0.3, ~14k Zeilen). Validation-Step in CI: `OpenAPI Validate`.
+
+### 5. Database Migrations
+
+IMMER via Migration-Tool (golang-migrate), NIE manuell SQL auf der DB:
+
+```bash
+make migrate-create name=add_contacts_table
+# -> backend/migrations/000001_add_contacts_table.up.sql
+# -> backend/migrations/000001_add_contacts_table.down.sql
+```
+
+Index-Naming-Convention: `idx_{table}_{column}` (z.B. `idx_contacts_email`).
+
+### 6. Test Coverage
+
+- **Gesamt:** 15%+ Minimum (CI-enforced), Ziel 40% bis Q3 2026
+- **Kritische Pfade (Auth, Payments, Data):** 60%+ Ziel
+- **Jeder PR:** Muss Tests enthalten fuer neuen Code
+- **Test-Isolation:** Jeder Test raeumt seine Daten auf, keine Abhaengigkeiten zwischen Tests
+
+Details: [[testing]].
+
+### 7. Security First
+
+- Auth + Rate Limiting + Input Validation von Anfang an
+- CSRF-Schutz fuer alle mutierenden Endpoints
+- SQL-Injection: Immer Prepared Statements, nie String-Concatenation
+- CORS: Explizite Allowlist, kein Wildcard
+- Secrets: Immer ueber Environment Variables, nie im Code
+
+Details: [[security]].
+
+### 8. Graceful Degradation
+
+Services muessen unabhaengig ausfallen koennen. Beispiele:
+- CRM funktioniert, auch wenn Chat offline ist
+- Dialer-Workspace bleibt nutzbar, wenn Notification-Service down ist
+- Frontend faellt auf Read-only zurueck, statt komplett zu crashen, wenn ein Backend-Service nicht erreichbar ist
+
+### 9. Config ueber Environment Variables
+
+```bash
+# .env (NIE committen — wird vom Pre-Commit-Hook geblockt, siehe troubleshooting)
+DATABASE_URL=postgres://user:pass@localhost:5432/kmuhub
+REDIS_URL=redis://localhost:6379
+JWT_SECRET=...
+LIVEKIT_URL=...
+LIVEKIT_API_KEY=...
+LIVEKIT_API_SECRET=...
+```
+
+Nie hardcoded. Production-Secrets werden beim Start asserted (`backend/internal/config/secrets.go`), siehe [[security]].
+
+### 10. Idempotente Operationen
+
+Alle mutierenden API-Calls muessen sicher wiederholbar sein. Idempotency-Keys fuer POST-Requests (`Idempotency-Key`-Header). Nuetzlich besonders bei Dialer-Outcomes, Finance-Postings, Webhook-Retries.
+
+### 11. Tenant-Modell
+
+Cosmi ist aktuell **Single-Tenant-only**. Multi-Tenant-Support (Option-B-Full mit `tenant_id` auf ~50 Tabellen) ist fuer Sprint 2/3 geplant. Bis dahin:
+- Kein SaaS mit mehreren Mandanten auf einer DB-Instanz
+- Self-Hosted: Ein Deployment pro Kunde (Hetzner-Instanz pro Pilot ab M3, ~287 EUR/M bei 10 Piloten)
+- Neue Tabellen MUESSEN `tenant_id` von Anfang an haben — auch wenn der Wert vor Migration noch konstant ist
+
+Details: `project_multi_tenancy.md` im Memory-Index.
+
+## Quick-Regeln (Top 3, ohne Detail)
+
 - Thick services, thin handlers
 - Structured logging (slog), kein fmt.Println
-- 80%+ test coverage, 95%+ fuer kritische Pfade
+- Test-Coverage-Min 15% gesamt, 60% kritische Pfade
 
 ## Verwandte Notes
 - [[stack]] — Strategy Decisions & Frontend-Bibliotheken
