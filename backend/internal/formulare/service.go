@@ -265,10 +265,7 @@ func (s *Service) CreateFormSchema(ctx context.Context, in CreateSchemaInput) (*
 		status = FormSchemaStatusDraft
 	}
 
-	pageCount := in.PageCount
-	if pageCount < 1 {
-		pageCount = 1
-	}
+	pageCount := max(in.PageCount, 1)
 
 	now := time.Now().UTC()
 	schema := &FormSchema{
@@ -336,11 +333,7 @@ func (s *Service) UpdateFormSchema(ctx context.Context, in UpdateSchemaInput) (*
 		schema.IsPublic = *in.IsPublic
 	}
 	if in.PageCount != nil {
-		if *in.PageCount < 1 {
-			schema.PageCount = 1
-		} else {
-			schema.PageCount = *in.PageCount
-		}
+		schema.PageCount = max(*in.PageCount, 1)
 	}
 
 	schema.UpdatedAt = time.Now().UTC()

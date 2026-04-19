@@ -124,10 +124,7 @@ func (r *PostgresRepository) ListSchemas(ctx context.Context, tenantID uuid.UUID
 	if limit <= 0 {
 		limit = 20
 	}
-	offset := filter.Offset
-	if offset < 0 {
-		offset = 0
-	}
+	offset := max(filter.Offset, 0)
 
 	query := fmt.Sprintf(`
 		SELECT id, tenant_id, title, description, fields, status, is_template,
@@ -279,10 +276,7 @@ func (r *PostgresRepository) ListSubmissions(ctx context.Context, tenantID uuid.
 	if limit <= 0 {
 		limit = 20
 	}
-	offset := filter.Offset
-	if offset < 0 {
-		offset = 0
-	}
+	offset := max(filter.Offset, 0)
 
 	query := fmt.Sprintf(`
 		SELECT id, form_schema_id, tenant_id, answers, status, submitted_by,
@@ -585,10 +579,7 @@ func (r *PostgresRepository) ListWebhookDeliveries(ctx context.Context, tenantID
 	if limit <= 0 {
 		limit = 20
 	}
-	offset := filter.Offset
-	if offset < 0 {
-		offset = 0
-	}
+	offset := max(filter.Offset, 0)
 
 	query := fmt.Sprintf(`
 		SELECT id, webhook_id, submission_id, tenant_id, payload, status,

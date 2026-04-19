@@ -134,14 +134,8 @@ func (r *stubRepo) ListSchemas(_ context.Context, tenantID uuid.UUID, filter Lis
 	if limit <= 0 {
 		limit = total
 	}
-	offset := filter.Offset
-	if offset > total {
-		offset = total
-	}
-	end := offset + limit
-	if end > total {
-		end = total
-	}
+	offset := min(filter.Offset, total)
+	end := min(offset+limit, total)
 	return all[offset:end], total, nil
 }
 
@@ -221,14 +215,8 @@ func (r *stubRepo) ListSubmissions(_ context.Context, tenantID uuid.UUID, filter
 	if limit <= 0 || limit > total {
 		limit = total
 	}
-	offset := filter.Offset
-	if offset > total {
-		offset = total
-	}
-	end := offset + limit
-	if end > total {
-		end = total
-	}
+	offset := min(filter.Offset, total)
+	end := min(offset+limit, total)
 	return all[offset:end], total, nil
 }
 
@@ -629,7 +617,7 @@ func TestDeleteFormSchema_NotFound_ReturnsError(t *testing.T) {
 
 func TestListFormSchemas_RespectsPaging(t *testing.T) {
 	svc, _ := newSvc()
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		_, _ = svc.CreateFormSchema(context.Background(), CreateSchemaInput{
 			TenantID: testTenant,
 			Title:    "Form",
@@ -837,7 +825,7 @@ func prepareExportData(t *testing.T, svc *Service) uuid.UUID {
 	schema := mustCreateSchema(t, svc)
 	schemaID := schema.ID
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		_, err := svc.CreateSubmission(context.Background(), CreateSubmissionInput{
 			TenantID:     testTenant,
 			FormSchemaID: &schemaID,
