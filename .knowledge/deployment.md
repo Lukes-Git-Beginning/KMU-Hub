@@ -1,8 +1,10 @@
 ---
 tags: [deployment, docker, ci-cd]
-updated: 2026-04-19
+updated: 2026-04-20
 ---
 # Deployment & Infrastruktur
+
+> **Aktueller Prod-Stand (2026-04-20):** `app.zentria.tech` auf `980eba3`, Migration-Head 81, alle 15 Business-Services healthy. Erster Full-Redeploy seit 2026-03-08 — Details in MEMORY `project_server_redeploy_20260419.md`. **Wichtig:** Auf dem Server sind `deploy/docker/livekit.yaml` und `deploy/docker/docker-compose.yml` via `git update-index --skip-worktree` aus Git-Sight genommen, weil sie lokale Patches + Secrets enthalten, die noch nicht in `main` committed sind. Nächste PRs, die diese Files ändern, müssen vor dem Pull `--no-skip-worktree` + manuellen Re-Patch durchlaufen.
 
 ## Docker Compose (Lokal + Self-Hosted)
 Datei: `deploy/docker/docker-compose.yml`
@@ -82,12 +84,23 @@ Flow: `lock → snapshot → backup → pull → build → migrate → rolling r
 - **Deploy-History:** TSV-Log (`/opt/kmuhub/deploy-history.log`): timestamp, prev_sha, new_sha, status, duration
 - **No-Change Detection:** Skipped wenn SHA identisch
 - Flags: `--skip-backup`, `--service=<name>`
+- **Aufruf auf Prod:** `sudo env GIT_SSH_COMMAND='ssh -i /home/deploy/.ssh/github_deploy' /opt/kmuhub/deploy/scripts/deploy.sh` (GIT_SSH_COMMAND noetig, weil root keinen eigenen GitHub-Key hat)
+
+**Gefixt in `980eba3` (2026-04-19):**
+- `COMPOSE_FILES_DIR` und `ENV_FILE` getrennt vom Git-`COMPOSE_DIR` (vorher: Script suchte Compose-Files unter `/opt/kmuhub/`, die aber in `/opt/kmuhub/deploy/docker/` liegen)
+- `--env-file /opt/kmuhub/.env.production` wird jetzt an jeden `docker compose`-Call uebergeben (vorher: Prod-Env wurde ignoriert)
+- Rolling-Restart-Liste um `dialer wiki helpdesk berichte formulare` erweitert
+
+**Noch offen (Sprint 2):**
+- `livekit`, `livekit-egress` fehlen in der Restart-Liste — nach einem Deploy laeuft LiveKit weiter mit altem Config-Mount. Workaround: manuell `$COMPOSE up -d --force-recreate livekit livekit-egress` nach dem Script.
+- Auto-Rollback-Pfad referenziert `$DATABASE_URL` als Shell-Var (nicht aus env-file) — funktioniert nur wenn vor dem Script `source .env.production` gemacht wurde.
 
 ### rollback.sh — Manueller Rollback
 - `./rollback.sh` — Rollback zum vorherigen Deploy (aus deploy-history.log)
 - `./rollback.sh --to <sha>` — Rollback zu spezifischem Commit
 - `./rollback.sh --list` — Letzte 10 Deployments tabellarisch
 - Steps: Lock → Backup → Checkout → Rebuild → Restart → Health Check → Log
+- **Wichtig:** macht KEIN `migrate down`. Nur der interne Auto-Rollback-Pfad in `deploy.sh` berechnet und fuehrt `migrate down N` aus. Bei manuellem Rollback ueber ein Schema-Aenderung hinweg: vorher explizit `$COMPOSE run --rm migrate -path /migrations -database "$DATABASE_URL" down N`.
 
 ### smoke.sh — Curl/jq Smoke Tests (22 Tests, 7 Kategorien)
 Laeuft ohne Go-Toolchain auf jedem Server, <30 Sekunden.
@@ -110,7 +123,9 @@ Cleanup: Smoke-User wird am Ende per DELETE entfernt.
 - Exit 0 = healthy, Exit 2 = failures
 
 ### backup.sh / restore.sh — Datenbank-Backup
-- Backup-Cron taeglich 02:00
+- Backup-Cron taeglich 02:00 (in `deploy`-User-crontab)
+- **Known Issue (seit 2026-03-08):** `/var/log/kmuhub-backup.log` existiert nicht → Cron laeuft silent und schreibt keine Backups. Sprint-2-Task: Root-Cause untersuchen (Permission? Working-Dir? Log-Rotation?). Als Sicherheit: manueller `pg_dumpall` vor jedem Deploy.
+- **`jq` ist NICHT installiert** auf dem Prod-Server — `smoke.sh` failt mit `ERROR: jq is required but not installed`. Sprint-2-Task: `sudo apt install jq`.
 
 ## Deployment-Reihenfolge (KRITISCH)
 1. Lock erwerben (flock)
@@ -123,6 +138,43 @@ Cleanup: Smoke-User wird am Ende per DELETE entfernt.
 8. Health Check — bei Fehler: Auto-Rollback
 9. Smoke Tests — bei Fehler: Auto-Rollback
 10. Erfolg loggen + Lock freigeben
+
+## Server-Side Patches via `skip-worktree` (2026-04-19/20)
+
+Auf dem Prod-Server sind zwei Dateien lokal gepatched und aus Git-Sight genommen, weil die noetigen Fixes noch nicht in `main` committed sind. Siehe MEMORY `project_server_redeploy_20260419.md`.
+
+| Datei | Lokaler Patch | Grund |
+|-------|---------------|-------|
+| `deploy/docker/livekit.yaml` | `devkey: devsecret` ersetzt durch echten `LIVEKIT_API_KEY`/`LIVEKIT_API_SECRET` aus `.env.production` | LiveKit unterstuetzt keine ENV-Substitution in yaml |
+| `deploy/docker/docker-compose.yml` | 18× `DATABASE_URL`/`POSTGRES_PASSWORD` von hardcoded `kmuhub_dev` auf `${DATABASE_URL}`/`${POSTGRES_PASSWORD}`; alle `wget --spider` durch `-q -O /dev/null`; formulare-Healthcheck auf `/healthz` | Backend-`/health` supported nur GET (nicht HEAD); formulare registriert `/healthz` statt `/health`; compose-File-Fixes muessen sauber in einem PR zusammengefasst werden |
+
+**Fuer PRs, die diese Files aendern:**
+```bash
+# Auf Server vor Pull
+sudo -u deploy bash -c "cd /opt/kmuhub && git update-index --no-skip-worktree deploy/docker/livekit.yaml deploy/docker/docker-compose.yml"
+# Lokale Versionen sichern
+sudo cp deploy/docker/livekit.yaml /tmp/livekit_local.yaml
+# Pull
+sudo -u deploy bash -c "cd /opt/kmuhub && GIT_SSH_COMMAND=... git pull origin main"
+# Re-patch nach dem Pull (falls PR die Files nicht komplett fixt)
+sudo -u deploy bash -c "cd /opt/kmuhub && git update-index --skip-worktree deploy/docker/livekit.yaml deploy/docker/docker-compose.yml"
+```
+
+**Status Prod-Server (`sudo -u deploy git ls-files -v | grep ^S`):**
+```
+S deploy/docker/docker-compose.yml
+S deploy/docker/livekit.yaml
+```
+
+## Sprint-2-TODOs fuer Deploy-Hygiene
+
+1. `docker-compose.yml` — 18× hardcoded `kmuhub_dev` eliminieren, alle Services auf `${DATABASE_URL}` / `${POSTGRES_PASSWORD}`
+2. Backend — `/health` auch fuer HEAD-Requests registrieren (Go: `router.HEAD("/health", ...)`), ODER alle Healthchecks explizit auf GET (`wget -q -O /dev/null ...`)
+3. `formulare`-Service — `/health` registrieren (zusaetzlich zu `/healthz`) fuer Konsistenz
+4. `deploy.sh` — `livekit` + `livekit-egress` in Rolling-Restart-Liste ergaenzen
+5. `livekit.yaml` Template-Renderer — z.B. `envsubst` in einem Pre-Start-Hook, damit Secrets via env-File kommen koennen
+6. Backup-Cron Root-Cause fixen (fehlt `/var/log/kmuhub-backup.log`, vermutlich Permission- oder Working-Dir-Problem)
+7. `jq` auf Prod-Server installieren (`sudo apt install jq`) — ohne bleibt `smoke.sh` nicht lauffaehig
 
 ## PostgreSQL Tuning (docker-compose.prod.yml, 2026-04-08)
 Fuer Hetzner CPX42 (16GB RAM):

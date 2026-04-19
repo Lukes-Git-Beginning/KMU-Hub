@@ -1,6 +1,6 @@
 ---
 tags: [fortschritt, milestones]
-updated: 2026-04-19
+updated: 2026-04-20
 ---
 # Milestones
 
@@ -35,6 +35,26 @@ updated: 2026-04-19
 | WP-11 Final-Wire + Smoke | `a4b2cc9` — Exporter-Stub in `cmd/berichte/main.go` durch `export.NewExporter`-Adapter ersetzt, `smoke.sh` um 3 Berichte-Checks (Definitions/Run/Export-MIME) erweitert — Flag-OFF gracefully als Pass. ROADMAP S1.2 ✅ Done |
 
 **Gesamt:** 6 Commits auf main. Gate S1.2 erfuellt. Berichte default-OFF via `modules.berichte`-Flag. Tenant-ID bleibt Placeholder `00000000-…-000001` bis JWT-Claim-Extraktion in Sprint 2 (Option-B Phase 1).
+
+## Sprint 1 S1.PREP — Production-Redeploy (2026-04-19/20) ✅
+
+Erster Full-Redeploy des Hetzner-CPX42 seit 2026-03-08. Server hing auf `fa17fc3` mit Dev-Secrets (`kmuhub_dev`/`devkey`) und 10 von 11 Services seit 6 Wochen als "unhealthy" markiert. Gewandert nach `980eba3` — 171 Commits, 20 Migrations (62→81), 4 neue Module live.
+
+| Phase | Details |
+|---|---|
+| Deploy-Hygiene-Commit | `980eba3` — `deploy.sh` fixt: `COMPOSE_FILES_DIR`+`ENV_FILE` getrennt vom Git-Root, `--env-file` an alle Compose-Calls, Rolling-Restart-Liste um `dialer/wiki/helpdesk/berichte/formulare` erweitert. Migration `000079` via `ON CONFLICT DO NOTHING` idempotent. `ONLYOFFICE_JWT_SECRET` im PRODUCTION_TEMPLATE dokumentiert. |
+| Server-Side Patches (skip-worktree) | `livekit.yaml` mit echtem LIVEKIT_API_KEY/SECRET befuellt (kein ENV-Sub moeglich). `docker-compose.yml`: 18× hardcoded `kmuhub_dev` durch `${DATABASE_URL}`/`${POSTGRES_PASSWORD}` ersetzt, alle `wget --spider` (HEAD) durch `-q -O /dev/null` (GET), `formulare`-Healthcheck auf `/healthz` umgebogen. |
+| Postgres-Alignment | `ALTER USER kmuhub WITH PASSWORD <32-char>` um laufendes `docker_pgdata`-Volume mit `.env.production` zu synchronisieren. `DATABASE_URL` URL-encoded (Passwort enthielt Base64-Sonderzeichen). |
+| Build-Strategie | Parallel-Bake killt sich selbst auf CPX42 (16 GB, kein Swap) — sequenzieller Build ueber 17 Services in ~10 min. |
+| Migrate | 62→81 in 4.7s sauber durchgelaufen, inkl. pgvector-Extension + tenant_id-Retrofits + 4 neuer Modul-Schemas. |
+| Rolling Restart | 14 Services sofort healthy nach Healthcheck-GET-Patch, `formulare` nach `/healthz`-Patch. Gateway + Caddy zuletzt. |
+| Post-Deploy | `https://app.zentria.tech/health` → `{"status":"healthy","commit":"980eba3"}`, alle 15 Business-Services + LiveKit (ohne devkey-Warnung) + Infra healthy. |
+
+**Backups (`/opt/kmuhub/backups/`):** `env_preredeploy_20260419_2122.production`, `livekit_preredeploy_20260419_2122.yaml`, `pg_dumpall_preredeploy_20260419_2122.sql` (367 KB, 10595 Zeilen, Stand Migration 61).
+
+**7 Infrastruktur-Bugs** dokumentiert, 1 in Commit gefixt, 6 server-seitig patched, alle als Sprint-2-TODO-Liste in MEMORY `project_server_redeploy_20260419.md` und [[deployment]] verzeichnet.
+
+**Commits:** `980eba3` (deploy.sh+migrations+template) und `3dbe057` (ROADMAP-Update).
 
 ## Abgeschlossene Meilensteine
 | Meilenstein | Phasen | Abgeschlossen |

@@ -1,10 +1,10 @@
 ---
 tags: [index]
-updated: 2026-04-19
+updated: 2026-04-20
 ---
 # Cosmi — Knowledge Base
 
-## Projektstand (2026-04-19)
+## Projektstand (2026-04-20)
 - **Sprint 0 abgeschlossen:** Alle 7 R1-P0-Blocker + Cleanup + Modul-Scope-Matrix gemerged (9 PRs), Gate S0 bestanden
 - **Launch-Datum:** **2026-07-01** (+4 Wochen nach Rigorosum Runde 2)
 - **Alle 20 Feature-Phasen abgeschlossen** (103/103 Plans)
@@ -18,7 +18,7 @@ updated: 2026-04-19
 - **Consent-Enforcement:** ✅ Vor SendEmail + DialerCall aktiv, siehe [[security]]
 - **WASM-Plugin-System:** Feature-Flag OFF bis Phase D + Build-Tag `no_wasm`, siehe [[integrationen]]
 - **Mobile:** PWA auf Desktop-Basis (kein React Native mehr)
-- **Hetzner Prod:** ✅ Live, alle 11 Services healthy, Deploy-Pipeline mit Auto-Rollback
+- **Hetzner Prod:** ✅ **Live auf `980eba3` seit 2026-04-19** — alle 15 Business-Services healthy, LiveKit ohne devkey-Warnung, Migration-Head `81`. Erster Full-Redeploy seit 2026-03-08 (171 Commits). 6 Infra-Bugs per skip-worktree server-seitig gepatched, Sprint-2-Cleanup in [[deployment]] und [[troubleshooting]] notiert.
 - **Testing:** Playwright MCP via Chrome CDP (Port 9222) fuer E2E-Verifikation
 - GitHub: github.com/Lukes-Git-Beginning/KMU-Hub (private), branch: main
 

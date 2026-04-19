@@ -1,15 +1,17 @@
 ---
 tags: [datenbank, schema, migrations, ai-first]
-updated: 2026-04-19
+updated: 2026-04-20
 ---
 # Datenbank
 
 ## Überblick
-- PostgreSQL 16 + Redis 7 (nur Cache, KEIN Dual-Write)
+- PostgreSQL 16 mit `pgvector/pgvector:pg16`-Image + Redis 7 (nur Cache, KEIN Dual-Write)
 - Änderungen NUR via golang-migrate (`make migrate-create name=xxx`)
 - 81 Migration-Paare in `backend/migrations/` (Sprint 1 Welle 2: 076 wiki, 077 helpdesk; Welle 5: 079 berichte; Welle 6: 080 seed_berichte_permissions; S1.3: 081 formulare)
+- **Prod-Stand seit 2026-04-19:** Migration-Head `81`, nicht dirty. Volume: `docker_pgdata` (nicht `docker_postgres-data`).
 - Index-Konvention: `idx_{table}_{column}`
 - **AI-First-Foundation** seit Migration 071 (siehe Abschnitt unten)
+- **Seed-Idempotenz:** Migration `000079` (berichte) wurde in `980eba3` um `ON CONFLICT DO NOTHING` erweitert, damit ein Re-Run keine Duplikate erzeugt. Gleiches Muster fuer alle zukuenftigen Seed-Migrations anwenden.
 
 ## Tabellen nach Domain
 
