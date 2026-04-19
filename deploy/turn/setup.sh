@@ -114,6 +114,12 @@ sed \
 chmod 640 /etc/turnserver.conf
 chown root:turnserver /etc/turnserver.conf 2>/dev/null || chown root:root /etc/turnserver.conf
 
+# Ensure log file exists and is writable by the turnserver user
+# (Ubuntu's coturn package does not ship /var/log/turnserver.log with correct perms)
+touch /var/log/turnserver.log
+chown turnserver:turnserver /var/log/turnserver.log 2>/dev/null || chown root:root /var/log/turnserver.log
+chmod 640 /var/log/turnserver.log
+
 echo "[setup] /etc/turnserver.conf written."
 
 # ---------------------------------------------------------------------------
