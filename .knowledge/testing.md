@@ -1,6 +1,6 @@
 ---
 tags: [testing, qualitaet]
-updated: 2026-04-18
+updated: 2026-04-19
 ---
 # Test-Strategie
 
@@ -34,6 +34,7 @@ type MockRepository struct {
 - **Consent-Asserter** (2026-04-18) — 7 Asserter-Cases (`crm/consent/asserter_test.go`) plus Integration-Tests `email/send/consent_test.go` (4) und `dialer/consent_test.go` (3) — Send-Pfad wird ohne Consent niemals erreicht
 - **Prod-Secrets Validator** (2026-04-18) — `config/config_test.go` (TestValidateProductionSecrets)
 - **Migration 000075** (2026-04-18) — `migrations/migration_000075_test.go` verifiziert `contact_id ON DELETE SET NULL`
+- **Berichte-Modul** (2026-04-19, Sprint 1 Welle 5-6) — Export-Layer `internal/berichte/export/*_test.go` (Golden-File-Tests fuer PDF-Signatur/CSV-BOM+Semikolon/XLSX-Parseable, Coverage 80.2%), gRPC-Server `internal/server/berichte_grpc_test.go` (UUID-Validation + Error-Mapping, 77.6%), Gateway-Routes `gateway/route_berichte_test.go` (Flag-OFF/ON + RBAC, 57%), Scheduler `scheduler/scheduler_test.go` (Clock-Mock + atomic ClaimSchedule, 89.4%), Executor `executor/executor_test.go` (8 Kind-Handler mit nil-toleranten Downstream-Repos, 92.1%)
 
 ## Desktop (Electron/React)
 - Framework: Vitest + jsdom, Setup: `test/setup.ts`
@@ -58,7 +59,7 @@ Zwei Varianten mit gleicher Abdeckung:
 
 ### Bash (`deploy/scripts/smoke.sh`)
 - Curl/jq-basiert, keine Go-Toolchain nötig
-- 19 Tests in 6 Kategorien: Infra (5), Auth (3), CRM CRUD (3), Security (3), Performance (3), Cross-Service (2)
+- 22 Tests in 7 Kategorien: Infra (5), Auth (3), CRM CRUD (3), Security (3), Performance (3), Cross-Service (2), Berichte (3, gated by `modules.berichte` — 404 akzeptiert wenn Flag OFF)
 - Flags: `--base-url`, `--verbose`, `--expect-version`
 - Smoke-User Cleanup am Ende
 - Wird als Gate im `deploy.sh` nach Health Check ausgefuehrt

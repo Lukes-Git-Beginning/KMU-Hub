@@ -139,6 +139,10 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 
 **Session 2026-04-18 (vor Sprint-Start):** Direct-to-main mit Subagent-Wellen statt Worktrees — Welle-Protokoll in `memory/project_sprint1_progress.md`. Erledigt: S1.1 wiki, S1.4 helpdesk, S1.R2.1 Code-Teil, S1.R2.2/3/5/6 komplett, S1.7 Teilstuecke.
 
+**Session 2026-04-19:** S1.2 berichte komplett geschlossen (6 Commits `5039f79`..`a4b2cc9`) via 3-Wellen-Subagent-Pipeline. Ports 50063/9103, ACL-Seed-Migration 000080, alle Coverage-Ziele erfuellt (Export 80.2%, gRPC 77.6%, Routes 57%, Scheduler 89.4%, Service 52.2%). Knowledge-Stand aktualisiert.
+
+**Progress Sprint 1 (Stand 2026-04-19):** 3/7 Module done (S1.1 wiki, S1.2 berichte, S1.4 helpdesk). 4/5 R2-P0 Batch A done (S1.R2.2/3/5/6); S1.R2.1 TURN-Deploy wartet auf CPX11. Naechste Module: S1.3 formulare, S1.5 vertraege, S1.6 buchhaltung-Completion, S1.7 video-Rest.
+
 **Ende Sprint 1:** 7 Module live, 5 R2-P0 erledigt, Coverage ≥30% pro Modul.
 
 ---

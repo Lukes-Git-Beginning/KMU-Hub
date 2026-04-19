@@ -19,15 +19,19 @@ Gateway (HTTP/chi) auf Port 8080 → gRPC-Services intern:
 | document | :50057 | Files, Folders, Versions, WOPI Locks |
 | biz | :50058 | Finance, HR, Bexio, Lexware, DATEV, PDF, Dunning |
 | automation | :50059 | Workflows, Conditions, Actions, Templates |
-| plugin | :50060 | WASM Sandbox, SDK, Host API, Lifecycle |
+| plugin | :50060 | WASM Sandbox (flag off), SDK, Host API, Lifecycle |
 | dialer | :50061 | Campaigns, Call Sessions, Agent Status, Outcomes |
+| wiki | :50062 | Articles, Versions, Attachments, Categories, FTS (tsvector+GIN), Share-Links (Sprint 1 Welle 2) |
+| berichte | :50063 | Report-Definitions, Schedules, Cache, Runs, KPI-Dashboard, PDF/CSV/XLSX-Export, In-Process-Cron-Scheduler (Sprint 1 Welle 5-6) |
+| helpdesk | :50065 | Tickets, Messages, Queues, Canned-Responses, SLA-Policies, Merge (Sprint 1 Welle 2) |
 
 Gateway `/health`: status, checks, registered_services, version, commit, build_time (via ldflags)
 
-### Gateway Route-Dateien (38)
+### Gateway Route-Dateien (41)
 
 Alle Handler sind duenne gRPC-Proxies. Keine direkte DB-Abfrage im Gateway (ausser Dashboard, gekapselt).
 Shared Helpers: `validateUUIDParam`, `RequireAuthenticated` Middleware, `respondGRPCError`, `parsePagination`.
+Alle Modul-Routes (wiki/helpdesk/berichte) sind gated via `featureflag.Registry` — Flag OFF = Route nicht gemountet (kein 404/405, sondern komplett unsichtbar).
 Entry Point: `cmd/gateway/main.go` (~324 LoC) + `setup.go` + `adapters.go`.
 
 | Datei | Domain |
@@ -71,6 +75,9 @@ Entry Point: `cmd/gateway/main.go` (~324 LoC) + `setup.go` + `adapters.go`.
 | `route_work_projects.go` | Projekte (CRUD, Members, Templates, Statuses) |
 | `route_work_tasks.go` | Tasks (CRUD, Comments, Dependencies, Files) |
 | `route_work_time.go` | Timer + Zeiterfassung |
+| `route_wiki.go` | Wiki (Articles, Versions, Attachments, Categories, FTS) — hinter `modules.wiki` |
+| `route_helpdesk.go` | Helpdesk (Tickets, SLA, Merge, Canned) — hinter `modules.helpdesk` |
+| `route_berichte.go` | Berichte (Definitions, Schedules, KPIs, Export PDF/CSV/XLSX) — hinter `modules.berichte`, Permission `berichte:reports` |
 
 ## Frontend (Electron + React 19 + TypeScript)
 

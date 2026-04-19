@@ -1,6 +1,6 @@
 ---
 tags: [fortschritt, milestones]
-updated: 2026-04-18
+updated: 2026-04-19
 ---
 # Milestones
 
@@ -21,6 +21,19 @@ updated: 2026-04-18
 | Knowledge-Base Update | `7349ba3` — `_index.md`/`api.md`/`datenbank.md` |
 
 **Gesamt:** 13 Commits auf main, `go build ./...` + `go test ./...` gruen. Wiki + Helpdesk default-OFF via Feature-Flags. Offen: `.env.example` uncommitted (Hook-Whitelist blockiert), TURN-Deploy wartet auf CPX11-Provisionierung.
+
+## Sprint 1 Session 2026-04-19 — S1.2 Berichte Completion
+3-Wellen-Subagent-Pipeline fuer die verbleibenden 5 Work-Packages (WP-3/5/6/7/11). Plan: `~/.claude/plans/sodele-was-steht-als-structured-raccoon.md`. Ports 50063/9103 (Luecke zwischen wiki und helpdesk gefuellt).
+| Schritt | Details |
+|---------|---------|
+| WP-3 Export-Layer | `5039f79` — `internal/berichte/export/` mit PDF (maroto v2) + CSV (strings.Builder, UTF-8-BOM + Semikolon fuer DATEV) + XLSX (excelize v2.8.1). Coverage 80.2% ueber Golden-File-Tests |
+| WP-5 gRPC-Server + cmd | `a742b9e` — `server/berichte_grpc.go` (14 RPCs, UUID-Validation, `mapBerichteError`), `cmd/berichte/main.go` mit Scheduler-Goroutine + Graceful-Shutdown, `Dockerfile.berichte`, Config-Felder (`BerichteGRPCPort/Address/HealthPort`). Coverage 77.6% |
+| go.mod tidy | `22fe40f` — cron/v3 + excelize/v2 von indirect → direct (nach Welle 1) |
+| WP-6 Gateway-Routes | `e76441a` — `gateway/route_berichte.go` mit 14 HTTP-Endpoints, `modules.berichte`-Gate, RBAC-Middleware `RequirePermission("berichte:reports", read|write)`, Export-Response via `Content-Disposition`. Coverage 57%. Migration 000080 seed_berichte_permissions |
+| WP-7 Docker-Compose | `98d60c3` — `berichte`-Service-Block (dev + prod), Gateway `depends_on: berichte {service_healthy}` + `BERICHTE_GRPC_ADDRESS=berichte:50063` |
+| WP-11 Final-Wire + Smoke | `a4b2cc9` — Exporter-Stub in `cmd/berichte/main.go` durch `export.NewExporter`-Adapter ersetzt, `smoke.sh` um 3 Berichte-Checks (Definitions/Run/Export-MIME) erweitert — Flag-OFF gracefully als Pass. ROADMAP S1.2 ✅ Done |
+
+**Gesamt:** 6 Commits auf main. Gate S1.2 erfuellt. Berichte default-OFF via `modules.berichte`-Flag. Tenant-ID bleibt Placeholder `00000000-…-000001` bis JWT-Claim-Extraktion in Sprint 2 (Option-B Phase 1).
 
 ## Abgeschlossene Meilensteine
 | Meilenstein | Phasen | Abgeschlossen |

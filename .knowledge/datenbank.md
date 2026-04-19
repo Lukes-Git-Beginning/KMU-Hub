@@ -1,13 +1,13 @@
 ---
 tags: [datenbank, schema, migrations, ai-first]
-updated: 2026-04-18
+updated: 2026-04-19
 ---
 # Datenbank
 
 ## Überblick
 - PostgreSQL 16 + Redis 7 (nur Cache, KEIN Dual-Write)
 - Änderungen NUR via golang-migrate (`make migrate-create name=xxx`)
-- 79 Migration-Paare in `backend/migrations/` (Sprint 1 Welle 2: 076 wiki, 077 helpdesk; Welle 5: 079 berichte)
+- 80 Migration-Paare in `backend/migrations/` (Sprint 1 Welle 2: 076 wiki, 077 helpdesk; Welle 5: 079 berichte; Welle 6: 080 seed_berichte_permissions)
 - Index-Konvention: `idx_{table}_{column}`
 - **AI-First-Foundation** seit Migration 071 (siehe Abschnitt unten)
 
@@ -124,6 +124,11 @@ updated: 2026-04-18
 ### Dialer Permissions (Migration 068)
 - `dialer:campaigns` (read/write), `dialer:calls` (write), `dialer:agent` (manage), `dialer:outcomes` (manage)
 - Zugewiesen an Rollen: admin (alle), manager (alle), member (campaigns:read, calls:write, agent:manage)
+
+### Berichte Permissions (Migration 080)
+- `berichte:reports:read` + `berichte:reports:write` als neue Permissions registriert
+- Admin-Rolle bekommt beide Rechte; Manager/Member nach Bedarf erweiterbar
+- Gated via `middleware.RequirePermission("berichte:reports", "read"|"write")` in `route_berichte.go`
 
 ### Berichte / Reports (Migration 079)
 - `report_definitions` — tenant_id, name, description, module (finanzen/crm/helpdesk/inventar/produktion/cross), kind (system/custom), query_config JSONB, default_format (pdf/csv/xlsx), created_by (FK users SET NULL), is_published, CHECK-Constraints auf module/kind/format

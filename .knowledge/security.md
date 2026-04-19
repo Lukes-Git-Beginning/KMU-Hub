@@ -1,6 +1,6 @@
 ---
 tags: [security, auth, compliance, gdpr]
-updated: 2026-04-18
+updated: 2026-04-19
 ---
 # Security & Compliance
 
@@ -12,9 +12,10 @@ updated: 2026-04-18
 
 ## RBAC
 - Rollen: admin, manager, member
-- Permissions: `resource:action` Pattern (z.B. `contacts:write`, `deals:delete`, `dialer:campaigns:read`)
+- Permissions: `resource:action` Pattern (z.B. `contacts:write`, `deals:delete`, `dialer:campaigns:read`, `berichte:reports:read|write` — Migration 080)
 - Middleware: `RequireRole(roles...)`, `RequirePermission(resource, action)`
 - 403 Forbidden bei unzureichenden Rechten
+- Neue Modul-Permissions landen als eigene Seed-Migration (`08x_seed_<modul>_permissions.up.sql`) mit Admin-Default-Grant
 
 ## Middleware-Stack (Reihenfolge)
 1. Metrics → 2. RequestID → 3. SecurityHeaders → 4. Logging → 5. CORS → 6. IP Filter → 7. Rate Limiting → 8. Audit Logger → 9. Auth (JWT) → 10. RBAC

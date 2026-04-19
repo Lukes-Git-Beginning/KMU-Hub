@@ -1,17 +1,19 @@
 ---
 tags: [index]
-updated: 2026-04-18
+updated: 2026-04-19
 ---
 # Cosmi — Knowledge Base
 
-## Projektstand (2026-04-18)
+## Projektstand (2026-04-19)
 - **Sprint 0 abgeschlossen:** Alle 7 R1-P0-Blocker + Cleanup + Modul-Scope-Matrix gemerged (9 PRs), Gate S0 bestanden
 - **Launch-Datum:** **2026-07-01** (+4 Wochen nach Rigorosum Runde 2)
 - **Alle 20 Feature-Phasen abgeschlossen** (103/103 Plans)
 - **Branding:** "Cosmi" (Software), "Zentria" (Firma), zentria.tech
-- **Sprint 1 (startet 2026-04-28):** 7 Module (wiki, berichte, formulare, helpdesk, vertraege, buchhaltung-Completion, video-Completion) + R2-P0 Batch A (TURN self-hosted, LiveKit-Secrets, Recording-Consent, Egress-Webhook, Lexware-HMAC)
-- **Sprint 1 Welle 1–4 (2026-04-18):** ✅ R2-P0 Batch A komplett (LiveKit-Secrets-Assertion, Egress-Webhook, Lexware-HMAC, Recording-Consent, coturn-Prep flag-off), ✅ Wiki-Modul (15 RPCs, FTS) + Helpdesk-Modul (22 RPCs, SLA + Merge) end-to-end (Migration + Domain + Proto + gRPC + Gateway-Route + FE-Client/Hooks + Dockerfile + docker-compose)
-- **Sprint 1 Welle 5 (2026-04-18) — berichte Backend-Kern:** ✅ Migration 000079 (4 Tabellen + 8 System-Seeds), Proto 14 RPCs, `backend/internal/berichte/` Service-Layer (52.4% Cov), `executor/` mit 8 kind-handlers + DashboardKPIs (92.1% Cov), `scheduler/` mit cron-dispatch + atomic claim + nil-tolerant Exporter/Mailer (91.5% Cov). Offen: Exporter (PDF/CSV/XLSX), gRPC-Server, Gateway-Routes, Docker, Recharts-Page-Migration.
+- **Sprint 1 Progress:** **3/7 Module live** — wiki (S1.1), helpdesk (S1.4), berichte (S1.2). **4/5 R2-P0 Batch A done** — S1.R2.2/3/5/6 gemerged, S1.R2.1 TURN-Deploy wartet auf CPX11-Provisionierung
+- **Naechste Sprint-1-Tasks:** S1.3 formulare, S1.5 vertraege, S1.6 buchhaltung-Completion, S1.7 video-Rest
+- **Sprint 1 Welle 1–4 (2026-04-18):** ✅ R2-P0 Batch A komplett (LiveKit-Secrets-Assertion, Egress-Webhook, Lexware-HMAC, Recording-Consent, coturn-Prep flag-off), ✅ Wiki-Modul (15 RPCs, FTS) + Helpdesk-Modul (22 RPCs, SLA + Merge) end-to-end
+- **Sprint 1 Welle 5 (2026-04-18) — berichte Backend-Kern:** ✅ Migration 000079, Proto 14 RPCs, Service-Layer (52.4% Cov), Executor (92.1% Cov), Scheduler (91.5% Cov), Frontend-Client + Recharts-Page
+- **Sprint 1 Welle 6 (2026-04-19) — S1.2 berichte Completion:** ✅ WP-3 Export-Layer (PDF/CSV/XLSX, 80.2% Cov), WP-5 gRPC-Server + cmd (77.6% Cov, Ports 50063/9103), WP-6 Gateway-Routes + ACL-Seed 000080 (57% Cov), WP-7 Docker-Compose, WP-11 Smoke. Gate S1.2 bestanden
 - **Feature-Flag-Registry:** ✅ Live (16 Flags), siehe [[architektur]]
 - **Consent-Enforcement:** ✅ Vor SendEmail + DialerCall aktiv, siehe [[security]]
 - **WASM-Plugin-System:** Feature-Flag OFF bis Phase D + Build-Tag `no_wasm`, siehe [[integrationen]]

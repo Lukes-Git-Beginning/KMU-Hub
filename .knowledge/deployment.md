@@ -1,6 +1,6 @@
 ---
 tags: [deployment, docker, ci-cd]
-updated: 2026-04-18
+updated: 2026-04-19
 ---
 # Deployment & Infrastruktur
 
@@ -30,7 +30,11 @@ Datei: `deploy/docker/docker-compose.yml`
 | biz | 50058 | postgres, redis |
 | automation | 50059 | postgres, redis |
 | plugin | 50060 | postgres, redis |
-| **gateway** | **8080** | **alle Services** |
+| dialer | 50061 | postgres, redis |
+| wiki | 50062 | postgres, migrate |
+| berichte | 50063 | postgres, migrate (Scheduler als Goroutine im Binary) |
+| helpdesk | 50065 | postgres, migrate |
+| **gateway** | **8080** | **alle Services** (`depends_on: service_healthy`) |
 
 ### Health Checks
 - Alle Services: `wget --spider http://localhost:{port}/health`
@@ -85,7 +89,7 @@ Flow: `lock → snapshot → backup → pull → build → migrate → rolling r
 - `./rollback.sh --list` — Letzte 10 Deployments tabellarisch
 - Steps: Lock → Backup → Checkout → Rebuild → Restart → Health Check → Log
 
-### smoke.sh — Curl/jq Smoke Tests (19 Tests, 6 Kategorien)
+### smoke.sh — Curl/jq Smoke Tests (22 Tests, 7 Kategorien)
 Laeuft ohne Go-Toolchain auf jedem Server, <30 Sekunden.
 
 | Kategorie | Tests |
@@ -96,6 +100,7 @@ Laeuft ohne Go-Toolchain auf jedem Server, <30 Sekunden.
 | Security (3) | Unauth 401, CORS-Headers, HSTS |
 | Performance (3) | /health <500ms, /auth/login <2s, /contacts <1s |
 | Cross-Service (2) | Chat-Channel, Dashboard |
+| Berichte (3) | GET /berichte/definitions, POST /run, POST /export?format=pdf (MIME-Check) — gated durch `modules.berichte`, 404 akzeptiert wenn Flag OFF |
 
 Flags: `--base-url URL`, `--verbose`, `--expect-version SHA`
 Cleanup: Smoke-User wird am Ende per DELETE entfernt.
