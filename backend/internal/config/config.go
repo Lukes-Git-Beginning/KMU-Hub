@@ -41,6 +41,8 @@ type Config struct {
 	DialerGRPCAddress       string `env:"DIALER_GRPC_ADDRESS,default=localhost:50061"`
 	WikiGRPCPort            string `env:"WIKI_GRPC_PORT,default=:50062"`
 	WikiGRPCAddress         string `env:"WIKI_GRPC_ADDRESS,default=localhost:50062"`
+	BerichteGRPCPort        string `env:"BERICHTE_GRPC_PORT,default=:50063"`
+	BerichteGRPCAddress     string `env:"BERICHTE_GRPC_ADDRESS,default=localhost:50063"`
 	HelpdeskGRPCPort        string `env:"HELPDESK_GRPC_PORT,default=:50065"`
 	HelpdeskGRPCAddress     string `env:"HELPDESK_GRPC_ADDRESS,default=localhost:50065"`
 	GatewayHTTPPort          string `env:"GATEWAY_HTTP_PORT,default=:8080"`
@@ -63,6 +65,7 @@ type Config struct {
 	PluginHealthPort       string `env:"PLUGIN_HEALTH_PORT,default=:9100"`
 	DialerHealthPort       string `env:"DIALER_HEALTH_PORT,default=:9101"`
 	WikiHealthPort         string `env:"WIKI_HEALTH_PORT,default=:9102"`
+	BerichteHealthPort     string `env:"BERICHTE_HEALTH_PORT,default=:9103"`
 	HelpdeskHealthPort     string `env:"HELPDESK_HEALTH_PORT,default=:9105"`
 
 	// LiveKit (Video calls -- optional, feature-flagged)
