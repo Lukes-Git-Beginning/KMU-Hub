@@ -80,6 +80,7 @@ func main() {
 	registry.Register("wiki", cfg.WikiGRPCAddress)
 	registry.Register("helpdesk", cfg.HelpdeskGRPCAddress)
 	registry.Register("berichte", cfg.BerichteGRPCAddress)
+	registry.Register("formulare", cfg.FormulareGRPCAddress)
 	defer registry.Close()
 
 	// Database for file upload handler (direct access, not via gRPC)
@@ -202,6 +203,7 @@ func main() {
 		gateway.NewWikiRoutes(registry, flagRegistry),
 		gateway.NewHelpdeskRoutes(registry, flagRegistry),
 		gateway.NewBerichteRoutes(registry, flagRegistry),
+		gateway.NewFormulareRoutes(registry, flagRegistry),
 		gateway.NewGlobalSearchRoutes(registry),
 		gateway.NewDashboardRoutes(dashboardService),
 		gateway.NewFeatureFlagRoutes(flagRegistry),

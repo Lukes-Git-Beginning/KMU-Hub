@@ -538,6 +538,31 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  formulare:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.formulare
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      FORMULARE_GRPC_PORT: ":50064"
+      FORMULARE_HEALTH_PORT: ":9104"
+    ports:
+      - "50064:50064"
+      - "9104:9104"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --spider --tries=1 http://localhost:9104/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
+
   onlyoffice:
     image: onlyoffice/documentserver:latest
     environment:
@@ -589,6 +614,8 @@ services:
         condition: service_started
       berichte:
         condition: service_healthy
+      formulare:
+        condition: service_healthy
       livekit:
         condition: service_healthy
       minio:
@@ -631,6 +658,8 @@ services:
       HELPDESK_GRPC_PORT: ":50065"
       BERICHTE_GRPC_ADDRESS: berichte:50063
       BERICHTE_GRPC_PORT: ":50063"
+      FORMULARE_GRPC_ADDRESS: formulare:50064
+      FORMULARE_GRPC_PORT: ":50064"
       WOPI_JWT_SECRET: docker-dev-wopi-secret-minimum-32-characters
       GATEWAY_HTTP_PORT: ":8080"
       METRICS_PORT: ":9090"
