@@ -20,7 +20,7 @@ updated: 2026-04-19
 | Gateway + Docker-Compose Activation | `0ac916c` — Registry-Register aktiv, `Dockerfile.wiki`/`Dockerfile.helpdesk`, Services in compose |
 | Knowledge-Base Update | `7349ba3` — `_index.md`/`api.md`/`datenbank.md` |
 
-**Gesamt:** 13 Commits auf main, `go build ./...` + `go test ./...` gruen. Wiki + Helpdesk default-OFF via Feature-Flags. Offen: `.env.example` uncommitted (Hook-Whitelist blockiert), TURN-Deploy wartet auf CPX11-Provisionierung.
+**Gesamt:** 13 Commits auf main, `go build ./...` + `go test ./...` gruen. Wiki + Helpdesk default-OFF via Feature-Flags. Offen: `.env.example` uncommitted (Hook-Whitelist blockiert); TURN-Deploy-Artefakte inzwischen committed (2026-04-19, `1cb9d6f`, `deploy/turn/`), CAX11-Server-Provisionierung + DNS + Deploy-Ausfuehrung User-Action.
 
 ## Sprint 1 Session 2026-04-19 — S1.2 Berichte Completion
 3-Wellen-Subagent-Pipeline fuer die verbleibenden 5 Work-Packages (WP-3/5/6/7/11). Plan: `~/.claude/plans/sodele-was-steht-als-structured-raccoon.md`. Ports 50063/9103 (Luecke zwischen wiki und helpdesk gefuellt).

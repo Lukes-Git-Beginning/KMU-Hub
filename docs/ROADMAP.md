@@ -25,7 +25,7 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 - **Multi-Tenancy Option-B aktiv** (RLS auf ~50 Tabellen, Instanz-pro-Pilot + tenant_id-Isolation — kein Downgrade-Risiko)
 - **DSGVO-Consent-Enforcement** in allen Send-Flows (Email, Dialer) + Realtime-Recording (Join-with-Consent + persistenter Banner)
 - **Sicherheits-Posture auf Pilot-Niveau** (16 P0-Fixes aus Rigorosum Runde 1 + 2 erledigt)
-- **TURN/STUN self-hosted** (coturn auf eigenem CPX11, kein Vendor-Lock)
+- **TURN/STUN self-hosted** (coturn auf eigenem CAX11, kein Vendor-Lock)
 - **WASM-Plugin-System Feature-Flag OFF** — Config-Plugins aktiv, WASM-Haertung in Phase D (ehrlicher Pitch)
 - **`finance_invoices.line_items` normalisiert** (eigene `finance_invoice_lines`-Tabelle, GoBD/ZUGFeRD-tauglich, Finance-Test-Coverage erweitert)
 - **Zweiter Review-Zyklus abgeschlossen** (Sprint 5, Peer-Review + Rigorosum Runde 3)
@@ -85,7 +85,7 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 | Multi-Tenancy Option-A permanent | **Option-B-Full jetzt, ~50 Tabellen Retrofit** |
 | WASM-Plugin-System aktiv | **Feature-Flag OFF bis Phase D** (ehrlicher Pitch) |
 | Recording ohne Consent-Fluss | **Join-with-Consent + persistenter Banner** |
-| TURN/STUN nicht konfiguriert | **coturn self-hosted auf CPX11** |
+| TURN/STUN nicht konfiguriert | **coturn self-hosted auf CAX11** |
 | `finance_invoices.line_items` JSONB | **normalisierte Tabelle + Backfill** |
 | Moritz als GTM-Lead | "In der Schwebe" (siehe MEMORY project_team_ug.md) |
 | Demo-Theater als Feature | **Demo-Theater als Launch-Risiko** |
@@ -129,7 +129,7 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 | S1.5 | **vertraege** (Laufzeit-Engine, Erinnerungs-Trigger, Skribble-Placeholder) | 3d | Modul | Pending |
 | S1.6 | **buchhaltung** Completion (FinanzenHook-Gaps, GoBD-Journal) | 2d | Modul | Pending |
 | S1.7 | **video** Completion (`useVideo`-Hook, Recording-Tagging) | 2d | Modul | ⏳ Teilweise — `useRecordingStatus` Polling-Hook in Welle 3 ergaenzt, Rest offen |
-| **S1.R2.1** | **TURN/STUN-Server — coturn self-hosted** auf eigenem CPX11, TURN-URLs im LiveKit-Client-Token + `use_external_ip: true` | 2d | R2-P0.1 | ⏳ Code flag-off fertig (`a9749fa`), Deploy wartet auf CPX11-Provisionierung |
+| **S1.R2.1** | **TURN/STUN-Server — coturn self-hosted** auf eigenem CAX11 (ARM, ~€3.80/M, Nuernberg), TURN-URLs im LiveKit-Client-Token + `use_external_ip: true` | 2d | R2-P0.1 | ⏳ Code flag-off (`a9749fa`) + Deploy-Artefakte (`1cb9d6f`, `deploy/turn/`) fertig; Server-Provisionierung + DNS (`turn.zentria.tech`) + `deploy.sh`-Ausfuehrung ausstehend (User-Action) |
 | **S1.R2.2** | **LiveKit-Secrets Startup-Assertion** (keine Dev-Defaults in Prod) | 2h | R2-P0.2 | ✅ Done 2026-04-18 (`310c803`) |
 | **S1.R2.3** | **Recording-Consent-Bug:** `StartRecording` uebergibt alle aktiven Call-Teilnehmer als `participantIDs` (`video_grpc.go:213`) | 1d | R2-P0.3 | ✅ Done 2026-04-18 (`efd752a`) |
 | **S1.R2.5** | **Egress-Webhook** ruft `CompleteRecording` (`route_video.go:1153-1176`) | 4h | R2-P0.5 | ✅ Done 2026-04-18 (`d8f89d4`) |
@@ -141,7 +141,7 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 
 **Session 2026-04-19:** S1.2 berichte komplett geschlossen (6 Commits `5039f79`..`a4b2cc9`) via 3-Wellen-Subagent-Pipeline. Ports 50063/9103, ACL-Seed-Migration 000080, alle Coverage-Ziele erfuellt (Export 80.2%, gRPC 77.6%, Routes 57%, Scheduler 89.4%, Service 52.2%). Knowledge-Stand aktualisiert.
 
-**Progress Sprint 1 (Stand 2026-04-19):** 4/7 Module done (S1.1 wiki, S1.2 berichte, S1.3 formulare, S1.4 helpdesk). 4/5 R2-P0 Batch A done (S1.R2.2/3/5/6); S1.R2.1 TURN-Deploy wartet auf CPX11. Naechste Module: S1.5 vertraege, S1.6 buchhaltung-Completion, S1.7 video-Rest.
+**Progress Sprint 1 (Stand 2026-04-19):** 4/7 Module done (S1.1 wiki, S1.2 berichte, S1.3 formulare, S1.4 helpdesk). 4/5 R2-P0 Batch A done (S1.R2.2/3/5/6); S1.R2.1 TURN-Deploy-Artefakte in `deploy/turn/` committed (`1cb9d6f`), CAX11-Provisionierung + DNS + Deploy-Ausfuehrung ausstehend (User-Action). Naechste Module: S1.5 vertraege, S1.6 buchhaltung-Completion, S1.7 video-Rest.
 
 **Ende Sprint 1:** 7 Module live, 5 R2-P0 erledigt, Coverage ≥30% pro Modul.
 
@@ -259,7 +259,7 @@ Quelle: Rigorosum Runde 1 (wild-wren, 2026-04-18) + Rigorosum Runde 2 Vertiefung
 
 | # | Task | Status | Sprint |
 |---|---|---|---|
-| R2-P0.1 | TURN/STUN coturn self-hosted + `use_external_ip: true` | ⏳ Code done (a9749fa), Deploy pending | S1 |
+| R2-P0.1 | TURN/STUN coturn self-hosted + `use_external_ip: true` | ⏳ Code (a9749fa) + Deploy-Artefakte (1cb9d6f, `deploy/turn/`) done; CAX11-Provisionierung + DNS + `deploy.sh`-Ausfuehrung ausstehend (User) | S1 |
 | R2-P0.2 | LiveKit-Secrets Startup-Assertion | ✅ Done (310c803) | S1 |
 | R2-P0.3 | Recording-Consent-Bug (`video_grpc.go:213` — alle Teilnehmer) | ✅ Done (efd752a) | S1 |
 | R2-P0.4 | Frontend Recording-Consent-Modal + Banner (Join-with-Consent) | Pending | S2 |
@@ -490,7 +490,7 @@ Folgende Dateien werden mit dem Check-in dieser Roadmap zu historischen Referenz
 2. **Multi-Tenancy:** **Option-B volle Breitseite jetzt** — ~50 Tabellen bekommen `tenant_id` + Backfill + Index + RLS-Policies in Sprint 2 (Top-20) + Sprint 3 (Rest). Kein spaeteres Retrofit, kein Option-A-Permanent.
 3. **Recording-Consent-Modell:** **Join-with-Consent + Banner** — einmaliger Consent-Click beim ersten Call-Beitritt (persistiert als Consent-Record), Recording startet mit persistenter Banner-Anzeige + rotem Mic-Icon, Ablehnung kickt Teilnehmer aus Call. Mitte zwischen nutzerfreundlich und wasserdicht.
 4. **Plugin-System:** **Feature-Flag OFF bis Phase D** — Config-Plugins bleiben aktiv, WASM-Runtime nicht instanziert. Ehrlicher Pitch. WASM-Haertung (Ed25519-Signing + WASI-Deny-Set) nur wenn Phase-D-Markt-Signal positiv.
-5. **TURN/STUN:** **Build, not Buy** — coturn self-hosted auf eigenem CPX11 (~€5/Monat), kein Vendor-Lock auf LiveKit Cloud.
+5. **TURN/STUN:** **Build, not Buy** — coturn self-hosted auf eigenem CAX11 (ARM Ampere, ~€3.80/Monat, 20TB Traffic), kein Vendor-Lock auf LiveKit Cloud.
 6. **`finance_invoices.line_items`:** **Vor Launch normalisieren** in `finance_invoice_lines`-Tabelle + parallel Finance-Test-Coverage auf ≥50% ausbauen (vorher <15%). GoBD/ZUGFeRD-tauglich machen.
 7. **Launch-Datum:** **2026-07-01** (+4 Wochen gegenueber alter Planung). UG-Gruendung 01.06 bleibt stehen.
 

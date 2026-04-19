@@ -9,7 +9,7 @@ updated: 2026-04-19
 - **Launch-Datum:** **2026-07-01** (+4 Wochen nach Rigorosum Runde 2)
 - **Alle 20 Feature-Phasen abgeschlossen** (103/103 Plans)
 - **Branding:** "Cosmi" (Software), "Zentria" (Firma), zentria.tech
-- **Sprint 1 Progress:** **4/7 Module live** — wiki (S1.1), helpdesk (S1.4), berichte (S1.2), formulare (S1.3). **4/5 R2-P0 Batch A done** — S1.R2.2/3/5/6 gemerged, S1.R2.1 TURN-Deploy wartet auf CPX11-Provisionierung
+- **Sprint 1 Progress:** **4/7 Module live** — wiki (S1.1), helpdesk (S1.4), berichte (S1.2), formulare (S1.3). **4/5 R2-P0 Batch A done** — S1.R2.2/3/5/6 gemerged, S1.R2.1 TURN-Deploy-Artefakte in `deploy/turn/` committed (`1cb9d6f`); Hetzner CAX11-Provisionierung + DNS (`turn.zentria.tech`) + `deploy.sh`-Ausfuehrung User-Action
 - **Naechste Sprint-1-Tasks:** S1.5 vertraege, S1.6 buchhaltung-Completion, S1.7 video-Rest
 - **Sprint 1 Welle 1–4 (2026-04-18):** ✅ R2-P0 Batch A komplett (LiveKit-Secrets-Assertion, Egress-Webhook, Lexware-HMAC, Recording-Consent, coturn-Prep flag-off), ✅ Wiki-Modul (15 RPCs, FTS) + Helpdesk-Modul (22 RPCs, SLA + Merge) end-to-end
 - **Sprint 1 Welle 5 (2026-04-18) — berichte Backend-Kern:** ✅ Migration 000079, Proto 14 RPCs, Service-Layer (52.4% Cov), Executor (92.1% Cov), Scheduler (91.5% Cov), Frontend-Client + Recharts-Page
