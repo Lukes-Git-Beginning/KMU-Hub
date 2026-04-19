@@ -37,7 +37,17 @@ updated: 2026-04-18
 - Egress-Service fuer Aufnahmen (MinIO-Storage)
 - Feature-Flagged: Graceful Disable wenn API-Key/Secret nicht gesetzt
 - Code: `backend/internal/work/livekit/`
-- Docker: LiveKit Server (7880) + Egress Container
+- Docker: LiveKit Server (7880/7881 TCP, 7882 UDP) + Egress Container
+- `rtc.use_external_ip: true` seit 2026-04-19 aktiv (bessere direct ICE candidates)
+
+## TURN-Server (coturn, self-hosted, seit 2026-04-19)
+- **Zweck:** Relay-Fallback fuer WebRTC-Clients hinter symmetric NAT / restriktiven Firewalls
+- **Host:** `turn.zentria.tech:3478` (Hetzner CAX11 FSN1, Details [[deployment#turn-server-cax11-seit-2026-04-19]])
+- **Protokoll:** plain TURN/UDP (MVP, kein TLS); `lt-cred-mech` mit `use-auth-secret`
+- **Secret-Sharing:** `static-auth-secret` in `/etc/turnserver.conf` = `TURN_SECRET` in `.env.production` auf App-Server
+- **Client-Auth:** Per-Session-Credentials via HMAC-SHA1, im LiveKit `AccessToken` (Sprint-2-Task S2.R2.1b)
+- **Einschraenkung:** LiveKit-Wiring im video-Service noch offen — coturn laeuft, wird aber bis Implementation nicht von Clients genutzt
+- **Deploy-Doku:** `deploy/turn/livekit-integration.md` (Option B)
 
 ## CalDAV/CardDAV (go-webdav)
 - App-spezifische Passwoerter fuer Clients (Thunderbird, iOS, macOS)

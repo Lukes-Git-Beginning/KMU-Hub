@@ -160,6 +160,8 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 | S2.5 | **inventar** (Bestands-Alarm) | 3d | Modul |
 | S2.6 | **einkauf** (Wareneingang) | 3d | Modul |
 | S2.7 | **produktion** (Maschinenbelegung) | 3d | Modul |
+| **S2.R2.1b** | **LiveKit TURN-Wiring** — `video`-Service um per-Session-TURN-Credentials im `AccessToken` erweitern (HMAC-SHA1 vom `TURN_SECRET`, Expiry 4h, Username-Format `<expiry>:<identity>`). Danach End-to-End-Smoke-Test mit `RTCPeerConnection.getStats()` → `candidateType: relay`. Siehe `deploy/turn/livekit-integration.md` Option B. | 1d | R2-P0.1 (Teil 2) |
+| **S2.PREP** | **Full-Redeploy CPX42** — Server auf main-HEAD heben (6 Wochen Rückstand seit 2026-03-08), LiveKit-Secrets echt setzen, alle Sprint-0-R1-P0 + Sprint-1-R2-P0-Fixes produktiv. Muss VOR S2.R2.1b laufen sonst fehlt Code-Basis. | 0.5d | Ops |
 | **S2.R2.4** | **Frontend Recording-Consent-Modal + persistenter Banner** (Join-with-Consent-Modell: einmaliger Consent-Click beim Call-Beitritt, Banner + rotes Mic-Icon waehrend Aufnahme, Ablehnung → Kick) | 2d | R2-P0.4 |
 | **S2.R2.7** | **Offline-Queue** im Desktop-WS-Client: IndexedDB-Buffer fuer Messages, Reconciliation bei Reconnect, Duplicate-Detection | 3d | R2-P0.7 |
 | **S2.R2.8** | **`consent_records.created_by`** ON DELETE SET NULL (Migration 000075) | 2h | R2-P0.8 |

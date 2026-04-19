@@ -11,7 +11,8 @@ updated: 2026-04-19
 | R2-P0.5 Egress-Webhook `egress_ended` | `d8f89d4` — setzt `recordings.status=completed` + `file_url` |
 | R2-P0.6 Lexware Webhook HMAC | `787c327` — HMAC-SHA256 Verifikation auf eingehenden Webhooks |
 | R2-P0.3 Recording-Consent-Bug | `efd752a` — `StartRecording` pruft Consent fuer alle Call-Teilnehmer |
-| R2-P0.1 coturn-Prep (flag-off) | `a9749fa` — `livekit.yaml` Overlay + Go-TURN-Credential-Propagation, Deploy offen |
+| R2-P0.1 coturn-Prep (flag-off) | `a9749fa` — `livekit.yaml` Overlay + Go-TURN-Credential-Propagation (Overlay-Ansatz in Session 2026-04-19 als konzeptionell falsch revertet, siehe `deploy/turn/livekit-integration.md`) |
+| R2-P0.1 coturn live | 2026-04-19 Session: Hetzner CAX11 FSN1, `turn.zentria.tech:3478`, LiveKit `use_external_ip:true` aktiv — Backend-Wiring (TURN-Credentials im AccessToken) offen, Sprint-2 S2.R2.1b |
 | S1.1 Wiki Backend-Modul | `601a815` — 15 RPCs, Postgres-FTS (tsvector+GIN, deutsch), 5 Tabellen, Coverage 38.2% |
 | S1.4 Helpdesk Backend-Modul | `c2d179e` — 22 RPCs, SLA-Engine + Ticket-Merge (ILIKE-Prefix), Coverage 39.3% |
 | S1.1 Wiki Wiring | `75c783e` — Proto, gRPC-Server, `cmd/wiki` Binary, `route_wiki.go` hinter `modules.wiki`-Flag |
@@ -20,7 +21,7 @@ updated: 2026-04-19
 | Gateway + Docker-Compose Activation | `0ac916c` — Registry-Register aktiv, `Dockerfile.wiki`/`Dockerfile.helpdesk`, Services in compose |
 | Knowledge-Base Update | `7349ba3` — `_index.md`/`api.md`/`datenbank.md` |
 
-**Gesamt:** 13 Commits auf main, `go build ./...` + `go test ./...` gruen. Wiki + Helpdesk default-OFF via Feature-Flags. Offen: `.env.example` uncommitted (Hook-Whitelist blockiert); TURN-Deploy-Artefakte inzwischen committed (2026-04-19, `1cb9d6f`, `deploy/turn/`), CAX11-Server-Provisionierung + DNS + Deploy-Ausfuehrung User-Action.
+**Gesamt:** 13 Commits auf main, `go build ./...` + `go test ./...` gruen. Wiki + Helpdesk default-OFF via Feature-Flags. Offen: `.env.example` uncommitted (Hook-Whitelist blockiert). TURN: coturn live seit 2026-04-19 (CAX11 FSN1), LiveKit-Wiring im video-Service bleibt Sprint-2-Task (S2.R2.1b).
 
 ## Sprint 1 Session 2026-04-19 — S1.2 Berichte Completion
 3-Wellen-Subagent-Pipeline fuer die verbleibenden 5 Work-Packages (WP-3/5/6/7/11). Plan: `~/.claude/plans/sodele-was-steht-als-structured-raccoon.md`. Ports 50063/9103 (Luecke zwischen wiki und helpdesk gefuellt).

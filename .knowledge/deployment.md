@@ -138,14 +138,27 @@ Konfiguriert als `command:` Args im postgres Service.
 - Nur fuer Development/Staging — NICHT in Production
 
 ## Produktion (Hetzner)
-- **Server:** CPX42 (8 vCPU, 16GB RAM), Ubuntu 24.04, Nuernberg
+
+### App-Server CPX42
+- **Server:** CPX42 (8 vCPU, 16GB RAM, x86_64), Ubuntu 24.04, Nuernberg (nbg1)
 - **IP:** 178.104.38.195, **Domain:** app.zentria.tech
 - **SSH:** `ssh -i ~/.ssh/hetzner_kmuhub deploy@178.104.38.195`
-- **App-Pfad:** `/opt/kmuhub/`, Compose aus `deploy/docker/`
+- **App-Pfad:** `/opt/kmuhub/`, `.env.production` direkt dort (NICHT in `deploy/docker/`)
+- **Compose:** aus `deploy/docker/` mit `-f docker-compose.yml -f docker-compose.prod.yml`
 - **Git Pull:** `sudo GIT_SSH_COMMAND='ssh -i /home/deploy/.ssh/github_deploy' git pull origin main`
 - **HTTPS:** Caddy + Let's Encrypt, HSTS, HTTP/2
-- **Firewall:** Hetzner Cloud Firewall `kmuhub-fw` (10 Regeln, IPv4+IPv6)
+- **Firewall:** Hetzner Cloud Firewall `kmuhub-fw` (7 Regeln: SSH/80/443/7880/7881/7882-UDP/ICMP, Source Any IPv4+IPv6)
 - **Monitoring:** Prometheus + Grafana (localhost-only, SSH-Tunnel)
+
+### TURN-Server CAX11 (seit 2026-04-19)
+- **Server:** CAX11 (ARM Ampere, 2 vCPU, 4GB RAM, 40GB SSD, 20TB Traffic, ~€3.80/M), Ubuntu 24.04, Falkenstein (fsn1)
+- **IP:** 5.75.246.217, **Domain:** turn.zentria.tech (A-Record bei Cloudflare, DNS only; PTR in Hetzner)
+- **SSH:** `ssh -i ~/.ssh/hetzner_kmuhub root@5.75.246.217`
+- **Firewall:** `kmuhub-turn-fw` (4 Regeln: 22/TCP, 3478/TCP+UDP, 49152-65535/UDP)
+- **Service:** coturn 4.6.1 (systemd `coturn.service`), plain TURN/UDP, noch kein TLS
+- **Config:** `/etc/turnserver.conf` (`lt-cred-mech` + `use-auth-secret`, `static-auth-secret` shared mit App-Server `.env.production:TURN_SECRET`)
+- **Deploy-Artefakte:** `deploy/turn/setup.sh` + `deploy.sh` + `turnserver.conf.template`
+- **Status:** Server live, aber LiveKit-Wiring in video-service offen (Sprint 2 S2.R2.1b, siehe `deploy/turn/livekit-integration.md` Option B)
 
 ## Gateway Build-Version (ldflags)
 ```dockerfile
