@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -703,13 +702,6 @@ func fromProtoExportFormat(f formularev1.ExportFormat) formulare.ExportFormat {
 	default:
 		return formulare.ExportFormatCSV
 	}
-}
-
-func timestampToProto(t time.Time) *timestamppb.Timestamp {
-	if t.IsZero() {
-		return nil
-	}
-	return timestamppb.New(t)
 }
 
 // ============================================================================

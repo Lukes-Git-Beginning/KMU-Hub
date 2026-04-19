@@ -387,7 +387,7 @@ func TestWorker_ProcessBatch_RespectsBatchSize(t *testing.T) {
 	repo.webhooks[webhookID] = wh
 
 	// Add 15 pending deliveries
-	for i := 0; i < 15; i++ {
+	for range 15 {
 		del := newDelivery(webhookID, tenantID, 0, 5)
 		repo.mu.Lock()
 		repo.deliveries[del.ID] = del
@@ -407,9 +407,10 @@ func TestWorker_ProcessBatch_RespectsBatchSize(t *testing.T) {
 	delivered := 0
 	pending := 0
 	for _, d := range repo.deliveries {
-		if d.Status == WebhookDeliveryStatusDelivered {
+		switch d.Status {
+		case WebhookDeliveryStatusDelivered:
 			delivered++
-		} else if d.Status == WebhookDeliveryStatusPending {
+		case WebhookDeliveryStatusPending:
 			pending++
 		}
 	}

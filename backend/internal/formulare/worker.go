@@ -25,13 +25,7 @@ var backoffDurations = []time.Duration{
 }
 
 func backoffFor(attemptCount int) time.Duration {
-	idx := attemptCount - 1
-	if idx < 0 {
-		idx = 0
-	}
-	if idx >= len(backoffDurations) {
-		idx = len(backoffDurations) - 1
-	}
+	idx := min(max(attemptCount-1, 0), len(backoffDurations)-1)
 	return backoffDurations[idx]
 }
 

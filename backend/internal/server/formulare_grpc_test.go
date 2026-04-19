@@ -103,14 +103,8 @@ func (r *stubFormulareRepo) ListSchemas(_ context.Context, tenantID uuid.UUID, f
 	if limit <= 0 || limit > total {
 		limit = total
 	}
-	offset := filter.Offset
-	if offset > total {
-		offset = total
-	}
-	end := offset + limit
-	if end > total {
-		end = total
-	}
+	offset := min(filter.Offset, total)
+	end := min(offset+limit, total)
 	return all[offset:end], total, nil
 }
 
@@ -506,7 +500,7 @@ func TestListFormSchemas_HappyPath(t *testing.T) {
 	srv := newFormulareServerWithRepo(repo)
 
 	tenantID := uuid.New()
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		_, err := srv.CreateFormSchema(context.Background(), &formularev1.CreateFormSchemaRequest{
 			TenantId: tenantID.String(),
 			Title:    "Form",
@@ -612,7 +606,7 @@ func TestListSubmissions_HappyPath(t *testing.T) {
 	tenantID := uuid.New()
 	schemaID := uuid.New()
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		_, err := srv.CreateSubmission(context.Background(), &formularev1.CreateSubmissionRequest{
 			TenantId:     tenantID.String(),
 			FormSchemaId: schemaID.String(),
