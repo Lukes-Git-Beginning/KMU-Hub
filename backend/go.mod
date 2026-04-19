@@ -108,6 +108,7 @@ require (
 	github.com/minio/crc64nvme v1.1.1 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/moby/sys/user v0.3.0 // indirect
+	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/nats-io/nats.go v1.48.0 // indirect
 	github.com/nats-io/nkeys v0.4.12 // indirect
@@ -138,7 +139,7 @@ require (
 	github.com/prometheus/common v0.66.1 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/puzpuzpuz/xsync/v3 v3.5.1 // indirect
-	github.com/richardlehane/mscfb v1.0.3 // indirect
+	github.com/richardlehane/mscfb v1.0.4 // indirect
 	github.com/richardlehane/msoleps v1.0.3 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
@@ -149,6 +150,9 @@ require (
 	github.com/tinylib/msgp v1.6.1 // indirect
 	github.com/twitchtv/twirp v8.1.3+incompatible // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
+	github.com/xuri/efp v0.0.0-20231025114914-d1ff6096ae53 // indirect
+	github.com/xuri/excelize/v2 v2.8.1 // indirect
+	github.com/xuri/nfp v0.0.0-20230919160717-d98342af3f05 // indirect
 	github.com/yuin/gopher-lua v1.1.1 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect
 	go.opentelemetry.io/otel v1.39.0 // indirect
