@@ -113,4 +113,5 @@ INSERT INTO report_definitions (tenant_id, name, description, module, kind, quer
   ('00000000-0000-0000-0000-000000000001', 'Aktivitaeten pro Vertriebler', 'Calls/Emails/Notes pro User',              'crm',      'system', '{"kind":"activity_by_user","period":"last_30_days"}',   'xlsx', TRUE),
   ('00000000-0000-0000-0000-000000000001', 'Helpdesk-SLA',                 'SLA-Compliance pro Queue',                 'helpdesk', 'system', '{"kind":"helpdesk_sla","period":"last_30_days"}',       'pdf',  TRUE),
   ('00000000-0000-0000-0000-000000000001', 'Bestands-Warnungen',           'Artikel unter min_quantity',               'inventar', 'system', '{"kind":"stock_warnings"}',                             'csv',  TRUE),
-  ('00000000-0000-0000-0000-000000000001', 'DATEV-BWA-Bruecke',            'Vorbereitung fuer DATEV-Export',           'finanzen', 'system', '{"kind":"datev_bwa","period":"current_month"}',         'csv',  TRUE);
+  ('00000000-0000-0000-0000-000000000001', 'DATEV-BWA-Bruecke',            'Vorbereitung fuer DATEV-Export',           'finanzen', 'system', '{"kind":"datev_bwa","period":"current_month"}',         'csv',  TRUE)
+ON CONFLICT DO NOTHING;

@@ -2,6 +2,8 @@
 set -euo pipefail
 
 COMPOSE_DIR="${COMPOSE_DIR:-/opt/kmuhub}"
+COMPOSE_FILES_DIR="${COMPOSE_FILES_DIR:-$COMPOSE_DIR/deploy/docker}"
+ENV_FILE="${ENV_FILE:-$COMPOSE_DIR/.env.production}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKIP_BACKUP=false
 SERVICE=""
@@ -17,7 +19,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-COMPOSE="docker compose -f $COMPOSE_DIR/docker-compose.yml -f $COMPOSE_DIR/docker-compose.prod.yml"
+COMPOSE="docker compose --env-file $ENV_FILE -f $COMPOSE_FILES_DIR/docker-compose.yml -f $COMPOSE_FILES_DIR/docker-compose.prod.yml"
 
 log() { echo "[deploy] $(date '+%Y-%m-%d %H:%M:%S') $*"; }
 
@@ -68,7 +70,7 @@ rollback() {
 
     $COMPOSE up -d postgres redis minio
     sleep 5
-    for svc in auth crm chat notification work email document biz automation plugin; do
+    for svc in auth crm chat notification work email document biz automation plugin dialer wiki helpdesk berichte formulare; do
         $COMPOSE up -d "$svc"
         sleep 3
     done
@@ -164,7 +166,7 @@ else
     $COMPOSE up -d postgres redis minio
     sleep 5
 
-    for svc in auth crm chat notification work email document biz automation plugin; do
+    for svc in auth crm chat notification work email document biz automation plugin dialer wiki helpdesk berichte formulare; do
         log "  Starting $svc..."
         $COMPOSE up -d "$svc"
         sleep 3
