@@ -79,6 +79,7 @@ func main() {
 	registry.Register("dialer", cfg.DialerGRPCAddress)
 	registry.Register("wiki", cfg.WikiGRPCAddress)
 	registry.Register("helpdesk", cfg.HelpdeskGRPCAddress)
+	registry.Register("berichte", cfg.BerichteGRPCAddress)
 	defer registry.Close()
 
 	// Database for file upload handler (direct access, not via gRPC)
@@ -200,6 +201,7 @@ func main() {
 		gateway.NewDialerRoutes(registry),
 		gateway.NewWikiRoutes(registry, flagRegistry),
 		gateway.NewHelpdeskRoutes(registry, flagRegistry),
+		gateway.NewBerichteRoutes(registry, flagRegistry),
 		gateway.NewGlobalSearchRoutes(registry),
 		gateway.NewDashboardRoutes(dashboardService),
 		gateway.NewFeatureFlagRoutes(flagRegistry),
