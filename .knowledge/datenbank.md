@@ -7,7 +7,7 @@ updated: 2026-04-19
 ## Überblick
 - PostgreSQL 16 + Redis 7 (nur Cache, KEIN Dual-Write)
 - Änderungen NUR via golang-migrate (`make migrate-create name=xxx`)
-- 80 Migration-Paare in `backend/migrations/` (Sprint 1 Welle 2: 076 wiki, 077 helpdesk; Welle 5: 079 berichte; Welle 6: 080 seed_berichte_permissions)
+- 81 Migration-Paare in `backend/migrations/` (Sprint 1 Welle 2: 076 wiki, 077 helpdesk; Welle 5: 079 berichte; Welle 6: 080 seed_berichte_permissions; S1.3: 081 formulare)
 - Index-Konvention: `idx_{table}_{column}`
 - **AI-First-Foundation** seit Migration 071 (siehe Abschnitt unten)
 
@@ -129,6 +129,14 @@ updated: 2026-04-19
 - `berichte:reports:read` + `berichte:reports:write` als neue Permissions registriert
 - Admin-Rolle bekommt beide Rechte; Manager/Member nach Bedarf erweiterbar
 - Gated via `middleware.RequirePermission("berichte:reports", "read"|"write")` in `route_berichte.go`
+
+### Formulare (Migration 081, Sprint 1 S1.3)
+- `form_schemas` — id UUID PK, tenant_id UUID NOT NULL, title TEXT, description TEXT, fields JSONB NOT NULL DEFAULT '[]', status ENUM(draft/active/archived) DEFAULT 'draft', is_template BOOL DEFAULT false, is_public BOOL DEFAULT false, page_count INT DEFAULT 1, submission_count INT DEFAULT 0 (denorm., per Trigger), created_by UUID, created_at/updated_at/deleted_at (Soft-Delete GoBD). Index: (tenant_id, deleted_at), (tenant_id, status)
+- `form_submissions` — id UUID PK, form_schema_id UUID FK ON DELETE SET NULL, tenant_id UUID NOT NULL, answers JSONB NOT NULL, status ENUM(new/read/archived) DEFAULT 'new', submitted_by TEXT NULL, ip_address INET NULL (DSGVO-Kommentar). Index: (form_schema_id, submitted_at DESC), (tenant_id, status)
+- `form_webhooks` — id UUID PK, form_schema_id UUID FK ON DELETE CASCADE, tenant_id UUID NOT NULL, url TEXT NOT NULL, secret TEXT NULL (HMAC-SHA256-Key), events TEXT[] DEFAULT ARRAY['submission.created'], active BOOL DEFAULT true, last_triggered_at/last_status. Index: (form_schema_id), (tenant_id)
+- `form_webhook_deliveries` — id UUID PK, webhook_id FK CASCADE, submission_id FK CASCADE, tenant_id UUID NOT NULL, payload JSONB NOT NULL, status ENUM(pending/delivered/failed/dead) DEFAULT 'pending', attempt_count INT, max_attempts INT DEFAULT 5, next_attempt_at TIMESTAMPTZ, last_error/last_response_code, created_at/delivered_at. Partial Index: (next_attempt_at) WHERE status = 'pending' (Worker-Effizienz)
+- **Worker:** Exp-Backoff 30s→2min→10min→30min→2h, Dead-Letter nach 5 Versuchen, HMAC-Signatur als `X-Cosmi-Signature: sha256=<hex>` Header
+- **Permissions:** `formulare:schemas:{read,write}`, `formulare:submissions:{read,write}`, `formulare:webhooks:write`
 
 ### Berichte / Reports (Migration 079)
 - `report_definitions` — tenant_id, name, description, module (finanzen/crm/helpdesk/inventar/produktion/cross), kind (system/custom), query_config JSONB, default_format (pdf/csv/xlsx), created_by (FK users SET NULL), is_published, CHECK-Constraints auf module/kind/format

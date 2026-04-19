@@ -124,7 +124,7 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 |---|---|---|---|---|
 | S1.1 | **wiki** (Postgres-FTS, TipTap, Versionen, Share-Links) | 3d | Modul | ✅ Done 2026-04-18 — 15 RPCs, FTS tsvector+GIN, Coverage 38.2% |
 | S1.2 | **berichte** (BI-Aggregations-Service, Views, CSV/PDF/XLSX-Export, Scheduled Reports, Recharts) | 3d | Modul | ✅ Done 2026-04-19 — Alle 11 WPs abgeschlossen. Wave 1–3: WP-3 Export-Layer (80.2% Cov), WP-5 gRPC+cmd (77.6% Cov), WP-6 Gateway-Routes + ACL-Seed 000080 (57% Cov), WP-7 Docker-Compose, WP-11 Flag+Smoke. Ports 50063/9103. Plan `docs/SPRINT1_BERICHTE.md`. |
-| S1.3 | **formulare** (Form-Schema JSONB, Submissions, Webhook-Trigger) | 4d | Modul | Pending |
+| S1.3 | **formulare** (Form-Schema JSONB, Submissions, Webhook-Trigger) | 4d | Modul | ✅ Done 2026-04-19 — 18 RPCs (Schema+Submission+Webhook+Delivery+Stats), Migration 000081 (4 Tabellen), Webhook-Worker (HMAC-SHA256, Exp-Backoff 30s→2h, Dead-Letter), CSV+XLSX Export, Feature-Flag modules.formulare. Ports 50064/9104. |
 | S1.4 | **helpdesk** (Tickets, Agenten, Canned, Merge) | 4d | Modul | ✅ Done 2026-04-18 — 22 RPCs, SLA + Merge, Coverage 39.3% |
 | S1.5 | **vertraege** (Laufzeit-Engine, Erinnerungs-Trigger, Skribble-Placeholder) | 3d | Modul | Pending |
 | S1.6 | **buchhaltung** Completion (FinanzenHook-Gaps, GoBD-Journal) | 2d | Modul | Pending |
@@ -141,7 +141,7 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 
 **Session 2026-04-19:** S1.2 berichte komplett geschlossen (6 Commits `5039f79`..`a4b2cc9`) via 3-Wellen-Subagent-Pipeline. Ports 50063/9103, ACL-Seed-Migration 000080, alle Coverage-Ziele erfuellt (Export 80.2%, gRPC 77.6%, Routes 57%, Scheduler 89.4%, Service 52.2%). Knowledge-Stand aktualisiert.
 
-**Progress Sprint 1 (Stand 2026-04-19):** 3/7 Module done (S1.1 wiki, S1.2 berichte, S1.4 helpdesk). 4/5 R2-P0 Batch A done (S1.R2.2/3/5/6); S1.R2.1 TURN-Deploy wartet auf CPX11. Naechste Module: S1.3 formulare, S1.5 vertraege, S1.6 buchhaltung-Completion, S1.7 video-Rest.
+**Progress Sprint 1 (Stand 2026-04-19):** 4/7 Module done (S1.1 wiki, S1.2 berichte, S1.3 formulare, S1.4 helpdesk). 4/5 R2-P0 Batch A done (S1.R2.2/3/5/6); S1.R2.1 TURN-Deploy wartet auf CPX11. Naechste Module: S1.5 vertraege, S1.6 buchhaltung-Completion, S1.7 video-Rest.
 
 **Ende Sprint 1:** 7 Module live, 5 R2-P0 erledigt, Coverage ≥30% pro Modul.
 

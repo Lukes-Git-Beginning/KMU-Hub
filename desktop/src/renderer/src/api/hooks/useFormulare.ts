@@ -15,6 +15,7 @@ import {
   duplicateFormSchema,
   exportSubmissions,
   getFormSchema,
+  getFormStats,
   getSubmission,
   getWebhook,
   listAllDeliveries,
@@ -50,6 +51,7 @@ export const formulareKeys = {
     all: ['formulare', 'schemas'] as const,
     list: (q?: ListSchemasQuery) => ['formulare', 'schemas', 'list', q] as const,
     detail: (id: string) => ['formulare', 'schemas', 'detail', id] as const,
+    stats: (id: string) => ['formulare', 'schemas', 'stats', id] as const,
   },
   submissions: {
     all: ['formulare', 'submissions'] as const,
@@ -101,6 +103,14 @@ export function useFormSchema(id: string) {
     queryKey: formulareKeys.schemas.detail(id),
     queryFn: () => getFormSchema(id),
     enabled: !!id,
+  })
+}
+
+export function useFormStats(schemaId: string) {
+  return useQuery({
+    queryKey: formulareKeys.schemas.stats(schemaId),
+    queryFn: () => getFormStats(schemaId),
+    enabled: !!schemaId,
   })
 }
 

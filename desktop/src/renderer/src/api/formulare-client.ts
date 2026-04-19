@@ -321,6 +321,27 @@ export function deleteWebhook(id: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Stats
+// ---------------------------------------------------------------------------
+
+export interface FormStatsResponse {
+  totalSubmissions: number
+  newSubmissions: number
+  readSubmissions: number
+  archivedSubmissions: number
+  submissionsThisWeek: number
+  submissionsThisMonth: number
+  averageCompletionRate: number
+}
+
+export function getFormStats(schemaId: string) {
+  return request<FormStatsResponse>({
+    method: 'GET',
+    path: `${BASE}/schemas/${schemaId}/stats`,
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Deliveries
 // ---------------------------------------------------------------------------
 

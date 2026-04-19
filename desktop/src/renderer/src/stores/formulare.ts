@@ -5,16 +5,15 @@
  * All server data (schemas, submissions, webhooks) is managed by
  * React Query via useFormulare.ts hooks.
  *
- * Retained field types include 'rating' as a frontend-only display type
- * (backend normalises it to 'number'; the editor shows stars).
- * Actions (email/task/crm_contact) are local UI state that will be
- * wired to a backend endpoint in a later sprint.
+ * Actions (email/task/crm_contact) are local UI state retained in DraftSchema
+ * for future Sprint 2 backend wiring — the UI panel is hidden until the backend
+ * endpoint exists.
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 // Re-export from API types so the Page can use a single import source.
-// The store adds 'rating' which is frontend-only.
+// These 8 types match the backend whitelist exactly.
 export type FormFieldType =
   | 'text'
   | 'textarea'
@@ -23,7 +22,6 @@ export type FormFieldType =
   | 'radio'
   | 'date'
   | 'number'
-  | 'rating'
   | 'file'
 
 export interface FormField {

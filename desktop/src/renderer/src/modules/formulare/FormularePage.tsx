@@ -24,15 +24,11 @@ import {
   Circle,
   Calendar,
   Hash,
-  Star,
   Paperclip,
   Link2,
   Mail,
-  StarOff,
   Download,
   Zap,
-  ListTodo,
-  UserPlus,
   Split,
   Info,
   Globe,
@@ -103,7 +99,6 @@ const FIELD_TYPE_LABEL_KEYS: Record<FormFieldType, string> = {
   radio: 'formulare.fieldType.radio',
   date: 'formulare.fieldType.date',
   number: 'formulare.fieldType.number',
-  rating: 'formulare.fieldType.rating',
   file: 'formulare.fieldType.file',
 }
 
@@ -115,7 +110,6 @@ const FIELD_TYPE_ICONS: Record<FormFieldType, typeof Type> = {
   radio: Circle,
   date: Calendar,
   number: Hash,
-  rating: Star,
   file: Paperclip,
 }
 
@@ -127,7 +121,6 @@ const FIELD_TYPE_OPTION_KEYS: { value: FormFieldType; labelKey: string }[] = [
   { value: 'checkbox', labelKey: 'formulare.fieldType.checkbox' },
   { value: 'date', labelKey: 'formulare.fieldType.date' },
   { value: 'number', labelKey: 'formulare.fieldType.number' },
-  { value: 'rating', labelKey: 'formulare.fieldType.ratingStars' },
   { value: 'file', labelKey: 'formulare.fieldType.fileUpload' },
 ]
 
@@ -198,9 +191,6 @@ export default function FormularePage() {
     removeField,
     reorderFields: _reorderFields,
     updateField,
-    addAction,
-    updateAction,
-    removeAction,
   } = useFormulareStore()
 
   // -------------------------------------------------------------------------
@@ -273,16 +263,6 @@ export default function FormularePage() {
 
   // 10.2 — Multi-page preview state
   const [previewPage, setPreviewPage] = useState(0)
-
-  // 10.3 — Actions UI state
-  const [showActionsSection, setShowActionsSection] = useState(false)
-  const [showAddActionMenu, setShowAddActionMenu] = useState(false)
-  const [editingActionIndex, setEditingActionIndex] = useState<number | null>(
-    null,
-  )
-  const [actionEmailTo, setActionEmailTo] = useState('')
-  const [actionTaskTitle, setActionTaskTitle] = useState('')
-  const [actionTaskAssignee, setActionTaskAssignee] = useState('')
 
   // 10.4 — Public preview state
   const [showPublicPreview, setShowPublicPreview] = useState(false)
@@ -692,62 +672,6 @@ export default function FormularePage() {
   }, [draft?.fields])
 
   // ---------------------------------------------------------------------------
-  // 10.3 — Action handlers (local draft state)
-  // ---------------------------------------------------------------------------
-
-  const handleAddAction = (type: 'email' | 'task' | 'crm_contact') => {
-    const newAction = { type, config: {} as Record<string, string> }
-    addAction(newAction)
-    if (type !== 'crm_contact') {
-      setEditingActionIndex((draft?.actions.length ?? 0))
-      if (type === 'email') setActionEmailTo('')
-      else {
-        setActionTaskTitle('')
-        setActionTaskAssignee('')
-      }
-    } else {
-      toast.success(t('formulare.toast.crmAktionHinzugefuegt'))
-    }
-    setShowAddActionMenu(false)
-  }
-
-  const handleSaveAction = (index: number) => {
-    if (!draft) return
-    const action = draft.actions[index]
-    if (!action) return
-    if (action.type === 'email') {
-      updateAction(index, { ...action, config: { to: actionEmailTo } })
-    } else if (action.type === 'task') {
-      updateAction(index, {
-        ...action,
-        config: { title: actionTaskTitle, assignee: actionTaskAssignee },
-      })
-    }
-    setEditingActionIndex(null)
-    toast.success(t('formulare.toast.aktionGespeichert'))
-  }
-
-  const handleRemoveAction = (index: number) => {
-    removeAction(index)
-    toast.success(t('formulare.toast.aktionEntfernt'))
-  }
-
-  const actionTypeLabels: Record<string, string> = useMemo(
-    () => ({
-      email: t('formulare.editor.emailSenden'),
-      task: t('formulare.editor.taskErstellen'),
-      crm_contact: t('formulare.editor.crmKontakt'),
-    }),
-    [t],
-  )
-
-  const actionTypeIcons: Record<string, typeof Mail> = {
-    email: Mail,
-    task: ListTodo,
-    crm_contact: UserPlus,
-  }
-
-  // ---------------------------------------------------------------------------
   // 10.1 — Conditional logic evaluation helper
   // ---------------------------------------------------------------------------
 
@@ -773,19 +697,6 @@ export default function FormularePage() {
   // Render helpers
   // ---------------------------------------------------------------------------
 
-  const renderStars = (value: number, max = 5) => (
-    <div className="flex items-center gap-0.5">
-      {Array.from({ length: max }, (_, i) => (
-        <Star
-          key={i}
-          className={`h-4 w-4 ${
-            i < value ? 'fill-warning text-warning' : 'text-muted-foreground/30'
-          }`}
-        />
-      ))}
-    </div>
-  )
-
   const renderFieldIcon = (type: FormFieldType, className = 'h-4 w-4') => {
     const Icon = FIELD_TYPE_ICONS[type]
     return <Icon className={className} />
@@ -802,8 +713,6 @@ export default function FormularePage() {
     }
 
     switch (field.type) {
-      case 'rating':
-        return renderStars(typeof value === 'number' ? value : 0)
       case 'checkbox':
         return (
           <span
@@ -922,14 +831,6 @@ export default function FormularePage() {
             placeholder="0"
             className="w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm text-muted-foreground placeholder:text-input-placeholder"
           />
-        )
-      case 'rating':
-        return (
-          <div className="flex items-center gap-1">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <StarOff key={n} className="h-5 w-5 text-muted-foreground/30" />
-            ))}
-          </div>
         )
       case 'file':
         return (
@@ -1303,212 +1204,6 @@ export default function FormularePage() {
           </div>
         </div>
 
-        {/* ====================== 10.3 — AKTIONEN SECTION ====================== */}
-        <div className="mt-6">
-          <button
-            onClick={() => setShowActionsSection(!showActionsSection)}
-            className="flex items-center gap-2 text-sm font-medium text-foreground hover:text-primary transition-colors"
-          >
-            {showActionsSection ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
-            <Zap className="h-4 w-4 text-primary" />
-            {t('formulare.editor.automatischeAktionen')}
-            {(draft.actions?.length ?? 0) > 0 && (
-              <span className="rounded-full bg-primary-light px-2 py-0.5 text-[10px] font-medium text-primary">
-                {draft.actions.length}
-              </span>
-            )}
-          </button>
-
-          {showActionsSection && (
-            <div className="mt-3 space-y-3">
-              {(draft.actions ?? []).map((action, idx) => {
-                const ActionIcon = actionTypeIcons[action.type] ?? Zap
-                const isEditing = editingActionIndex === idx
-                return (
-                  <div
-                    key={idx}
-                    className="rounded-lg border border-border bg-card p-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary-light shrink-0">
-                          <ActionIcon className="h-4 w-4 text-primary" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-foreground">
-                            {actionTypeLabels[action.type]}
-                          </p>
-                          {action.type === 'email' && action.config.to && (
-                            <p className="text-[10px] text-muted-foreground">
-                              {t('formulare.editor.an')}: {action.config.to}
-                            </p>
-                          )}
-                          {action.type === 'task' && action.config.title && (
-                            <p className="text-[10px] text-muted-foreground">
-                              {action.config.title}
-                              {action.config.assignee
-                                ? ` → ${action.config.assignee}`
-                                : ''}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {action.type !== 'crm_contact' && (
-                          <button
-                            onClick={() => {
-                              setEditingActionIndex(idx)
-                              if (action.type === 'email')
-                                setActionEmailTo(action.config.to ?? '')
-                              if (action.type === 'task') {
-                                setActionTaskTitle(action.config.title ?? '')
-                                setActionTaskAssignee(
-                                  action.config.assignee ?? '',
-                                )
-                              }
-                            }}
-                            className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
-                          >
-                            <Edit className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleRemoveAction(idx)}
-                          className="rounded-md p-1.5 text-muted-foreground hover:text-error hover:bg-error-light transition-colors"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Inline edit for email */}
-                    {isEditing && action.type === 'email' && (
-                      <div className="mt-3 space-y-2 border-t border-border-muted pt-3">
-                        <div className="space-y-1">
-                          <label className="text-xs font-medium text-muted-foreground">
-                            {t('formulare.editor.empfaenger')}
-                          </label>
-                          <input
-                            type="email"
-                            value={actionEmailTo}
-                            onChange={(e) => setActionEmailTo(e.target.value)}
-                            placeholder={t('formulare.editor.emailPlaceholder')}
-                            className="w-full rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
-                          />
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => setEditingActionIndex(null)}
-                            className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary"
-                          >
-                            {t('common.cancel')}
-                          </button>
-                          <button
-                            onClick={() => handleSaveAction(idx)}
-                            className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground hover:bg-button-primary-hover"
-                          >
-                            {t('common.save')}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Inline edit for task */}
-                    {isEditing && action.type === 'task' && (
-                      <div className="mt-3 space-y-2 border-t border-border-muted pt-3">
-                        <div className="space-y-1">
-                          <label className="text-xs font-medium text-muted-foreground">
-                            {t('formulare.editor.taskTitel')}
-                          </label>
-                          <input
-                            type="text"
-                            value={actionTaskTitle}
-                            onChange={(e) => setActionTaskTitle(e.target.value)}
-                            placeholder={t(
-                              'formulare.editor.taskTitelPlaceholder',
-                            )}
-                            className="w-full rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-xs font-medium text-muted-foreground">
-                            {t('formulare.editor.zustaendig')}
-                          </label>
-                          <input
-                            type="text"
-                            value={actionTaskAssignee}
-                            onChange={(e) =>
-                              setActionTaskAssignee(e.target.value)
-                            }
-                            placeholder={t(
-                              'formulare.editor.zustaendigPlaceholder',
-                            )}
-                            className="w-full rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
-                          />
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => setEditingActionIndex(null)}
-                            className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary"
-                          >
-                            {t('common.cancel')}
-                          </button>
-                          <button
-                            onClick={() => handleSaveAction(idx)}
-                            className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground hover:bg-button-primary-hover"
-                          >
-                            {t('common.save')}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-
-              {/* Add action button */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowAddActionMenu(!showAddActionMenu)}
-                  className="flex items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:border-primary/40 transition-colors"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  {t('formulare.editor.aktionHinzufuegen')}
-                </button>
-                {showAddActionMenu && (
-                  <div className="absolute left-0 top-full mt-1 z-20 w-52 rounded-lg border border-border bg-card shadow-xl py-1">
-                    <button
-                      onClick={() => handleAddAction('email')}
-                      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-                    >
-                      <Mail className="h-4 w-4 text-muted-foreground" />
-                      {t('formulare.editor.emailSenden')}
-                    </button>
-                    <button
-                      onClick={() => handleAddAction('task')}
-                      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-                    >
-                      <ListTodo className="h-4 w-4 text-muted-foreground" />
-                      {t('formulare.editor.taskErstellen')}
-                    </button>
-                    <button
-                      onClick={() => handleAddAction('crm_contact')}
-                      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-                    >
-                      <UserPlus className="h-4 w-4 text-muted-foreground" />
-                      {t('formulare.editor.crmKontakt')}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
         {/* ====================== 10.4 — PUBLIC PREVIEW MODAL ====================== */}
         <Dialog
           open={showPublicPreview && !!draft}
@@ -1611,16 +1306,6 @@ export default function FormularePage() {
                           type="date"
                           className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
-                      )}
-                      {field.type === 'rating' && (
-                        <div className="flex items-center gap-1">
-                          {[1, 2, 3, 4, 5].map((n) => (
-                            <Star
-                              key={n}
-                              className="h-6 w-6 text-gray-300 hover:text-warning cursor-pointer transition-colors"
-                            />
-                          ))}
-                        </div>
                       )}
                       {field.type === 'file' && (
                         <div className="flex items-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-500">
