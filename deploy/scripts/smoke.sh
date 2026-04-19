@@ -352,6 +352,63 @@ else
 fi
 
 # ==========================================
+# Berichte Module (3) — gated by modules.berichte feature flag
+# ==========================================
+section "Berichte"
+
+if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
+    DEFS_RESP=$(curl -sf -w "\n%{http_code}" "$BASE_URL/api/v1/berichte/definitions" \
+        -H "Authorization: Bearer $SMOKE_TOKEN" 2>/dev/null || echo $'\n000')
+    DEFS_CODE=$(echo "$DEFS_RESP" | tail -1)
+    DEFS_BODY=$(echo "$DEFS_RESP" | sed '$d')
+
+    if [[ "$DEFS_CODE" == "200" ]]; then
+        DEFS_COUNT=$(echo "$DEFS_BODY" | jq 'length' 2>/dev/null || echo "0")
+        if [[ "$DEFS_COUNT" -ge "1" ]]; then
+            pass "GET /berichte/definitions = 200 ($DEFS_COUNT definitions)"
+        else
+            fail "GET /berichte/definitions returned 200 but 0 definitions (expected >= 1 system seed)" "$DEFS_BODY"
+        fi
+
+        # 20. Run a report (first definition in the list)
+        FIRST_DEF_ID=$(echo "$DEFS_BODY" | jq -r '.[0].id' 2>/dev/null || echo "")
+        if [[ -n "$FIRST_DEF_ID" && "$FIRST_DEF_ID" != "null" ]]; then
+            RUN_CODE=$(curl -sf -o /dev/null -w "%{http_code}" -X POST \
+                "$BASE_URL/api/v1/berichte/definitions/$FIRST_DEF_ID/run" \
+                -H "Content-Type: application/json" \
+                -H "Authorization: Bearer $SMOKE_TOKEN" \
+                -d '{}' 2>/dev/null || echo "000")
+            if [[ "$RUN_CODE" == "200" ]]; then
+                pass "POST /berichte/definitions/{id}/run = 200"
+            else
+                fail "POST /berichte/definitions/{id}/run returned $RUN_CODE" ""
+            fi
+
+            # 21. Export as PDF
+            EXPORT_MIME=$(curl -sf -o /dev/null -w "%{content_type}" -X POST \
+                "$BASE_URL/api/v1/berichte/definitions/$FIRST_DEF_ID/export?format=pdf" \
+                -H "Content-Type: application/json" \
+                -H "Authorization: Bearer $SMOKE_TOKEN" \
+                -d '{}' 2>/dev/null || echo "")
+            if [[ "$EXPORT_MIME" == application/pdf* ]]; then
+                pass "POST /berichte/definitions/{id}/export?format=pdf returns application/pdf"
+            else
+                fail "Berichte export PDF returned content-type '$EXPORT_MIME'" ""
+            fi
+        else
+            fail "Berichte run/export skipped (no definition id)" ""
+        fi
+    elif [[ "$DEFS_CODE" == "404" ]]; then
+        # Modul gated off — acceptable on environments without COSMI_MODULE_BERICHTE_ENABLED=true
+        pass "Berichte module gated off ($DEFS_CODE — modules.berichte flag disabled)"
+    else
+        fail "GET /berichte/definitions returned $DEFS_CODE" "$DEFS_BODY"
+    fi
+else
+    fail "Berichte checks skipped (no auth)" ""
+fi
+
+# ==========================================
 # Cleanup
 # ==========================================
 section "Cleanup"

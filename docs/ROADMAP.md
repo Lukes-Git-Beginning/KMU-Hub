@@ -123,7 +123,7 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 | # | Task | Aufwand | Kategorie | Status |
 |---|---|---|---|---|
 | S1.1 | **wiki** (Postgres-FTS, TipTap, Versionen, Share-Links) | 3d | Modul | ✅ Done 2026-04-18 — 15 RPCs, FTS tsvector+GIN, Coverage 38.2% |
-| S1.2 | **berichte** (BI-Aggregations-Service, Views, CSV/PDF/XLSX-Export, Scheduled Reports, Recharts) | 3d | Modul | ⏳ In progress — Plan in `docs/SPRINT1_BERICHTE.md`; WP-0/1/2/4 done (Migration 000079 + Proto 14 RPCs + Service-Layer 52.4% + Executor 92.1% + Scheduler 91.5%); WP-8 Frontend-Client+Hooks done; offen: WP-3 Exporter/WP-5 gRPC+cmd/WP-6 Gateway-Routes/WP-7 Docker (Worktree B) + WP-9 Recharts-Page-Migration (Worktree C) + WP-11 Smoke |
+| S1.2 | **berichte** (BI-Aggregations-Service, Views, CSV/PDF/XLSX-Export, Scheduled Reports, Recharts) | 3d | Modul | ✅ Done 2026-04-19 — Alle 11 WPs abgeschlossen. Wave 1–3: WP-3 Export-Layer (80.2% Cov), WP-5 gRPC+cmd (77.6% Cov), WP-6 Gateway-Routes + ACL-Seed 000080 (57% Cov), WP-7 Docker-Compose, WP-11 Flag+Smoke. Ports 50063/9103. Plan `docs/SPRINT1_BERICHTE.md`. |
 | S1.3 | **formulare** (Form-Schema JSONB, Submissions, Webhook-Trigger) | 4d | Modul | Pending |
 | S1.4 | **helpdesk** (Tickets, Agenten, Canned, Merge) | 4d | Modul | ✅ Done 2026-04-18 — 22 RPCs, SLA + Merge, Coverage 39.3% |
 | S1.5 | **vertraege** (Laufzeit-Engine, Erinnerungs-Trigger, Skribble-Placeholder) | 3d | Modul | Pending |

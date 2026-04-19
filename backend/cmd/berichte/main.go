@@ -16,6 +16,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/berichte"
 	"github.com/kmuhub/kmuhub/internal/berichte/executor"
+	"github.com/kmuhub/kmuhub/internal/berichte/export"
 	"github.com/kmuhub/kmuhub/internal/berichte/scheduler"
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
@@ -50,10 +51,9 @@ func main() {
 	exec := executor.New(executor.Deps{}) // downstream repos nil in Sprint 1; added per module in Sprint 2+
 	svc := berichte.NewService(repo, exec, berichte.Options{})
 
-	// ExporterFactory stub — TODO(sprint-1 wave-3): wire export.NewExporter here after WP-3 merge
-	var exporterFactory server.BerichteExporterFactory = func(format string) (server.BerichteExporter, error) {
-		return nil, errors.New("export not wired yet")
-	}
+	exporterFactory := server.BerichteExporterFactory(func(format string) (server.BerichteExporter, error) {
+		return export.NewExporter(format)
+	})
 
 	// Scheduler (exporter=nil, mailer=nil → skipped until WP-3/SMTP wired)
 	sched := scheduler.New(repo, svc, nil, nil, scheduler.Config{})
