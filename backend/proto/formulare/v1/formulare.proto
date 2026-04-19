@@ -1,0 +1,342 @@
+syntax = "proto3";
+
+package formulare.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/kmuhub/kmuhub/proto/formulare/v1;formularev1";
+
+service FormulareService {
+  // Schema Cluster
+  rpc CreateFormSchema(CreateFormSchemaRequest) returns (CreateFormSchemaResponse);
+  rpc GetFormSchema(GetFormSchemaRequest) returns (GetFormSchemaResponse);
+  rpc UpdateFormSchema(UpdateFormSchemaRequest) returns (UpdateFormSchemaResponse);
+  rpc DeleteFormSchema(DeleteFormSchemaRequest) returns (DeleteFormSchemaResponse);
+  rpc ListFormSchemas(ListFormSchemasRequest) returns (ListFormSchemasResponse);
+  rpc DuplicateFormSchema(DuplicateFormSchemaRequest) returns (DuplicateFormSchemaResponse);
+
+  // Submission Cluster
+  rpc CreateSubmission(CreateSubmissionRequest) returns (CreateSubmissionResponse);
+  rpc GetSubmission(GetSubmissionRequest) returns (GetSubmissionResponse);
+  rpc ListSubmissions(ListSubmissionsRequest) returns (ListSubmissionsResponse);
+  rpc UpdateSubmissionStatus(UpdateSubmissionStatusRequest) returns (UpdateSubmissionStatusResponse);
+  rpc ExportSubmissions(ExportSubmissionsRequest) returns (ExportSubmissionsResponse);
+
+  // Webhook Cluster
+  rpc CreateWebhook(CreateWebhookRequest) returns (CreateWebhookResponse);
+  rpc GetWebhook(GetWebhookRequest) returns (GetWebhookResponse);
+  rpc UpdateWebhook(UpdateWebhookRequest) returns (UpdateWebhookResponse);
+  rpc DeleteWebhook(DeleteWebhookRequest) returns (DeleteWebhookResponse);
+  rpc ListWebhooks(ListWebhooksRequest) returns (ListWebhooksResponse);
+
+  // Delivery Observability
+  rpc ListWebhookDeliveries(ListWebhookDeliveriesRequest) returns (ListWebhookDeliveriesResponse);
+}
+
+// ============================================================================
+// Enums
+// ============================================================================
+
+enum FormSchemaStatus {
+  FORM_SCHEMA_STATUS_UNSPECIFIED = 0;
+  FORM_SCHEMA_STATUS_DRAFT = 1;
+  FORM_SCHEMA_STATUS_ACTIVE = 2;
+  FORM_SCHEMA_STATUS_ARCHIVED = 3;
+}
+
+enum FormSubmissionStatus {
+  FORM_SUBMISSION_STATUS_UNSPECIFIED = 0;
+  FORM_SUBMISSION_STATUS_NEW = 1;
+  FORM_SUBMISSION_STATUS_READ = 2;
+  FORM_SUBMISSION_STATUS_ARCHIVED = 3;
+}
+
+enum WebhookDeliveryStatus {
+  WEBHOOK_DELIVERY_STATUS_UNSPECIFIED = 0;
+  WEBHOOK_DELIVERY_STATUS_PENDING = 1;
+  WEBHOOK_DELIVERY_STATUS_DELIVERED = 2;
+  WEBHOOK_DELIVERY_STATUS_FAILED = 3;
+  WEBHOOK_DELIVERY_STATUS_DEAD = 4;
+}
+
+enum ExportFormat {
+  EXPORT_FORMAT_UNSPECIFIED = 0;
+  EXPORT_FORMAT_CSV = 1;
+  EXPORT_FORMAT_XLSX = 2;
+}
+
+// ============================================================================
+// Domain Messages
+// ============================================================================
+
+message FormSchema {
+  string id = 1;
+  string tenant_id = 2;
+  string title = 3;
+  string description = 4;
+  bytes fields = 5;                              // JSON-array of FormField
+  FormSchemaStatus status = 6;
+  bool is_template = 7;
+  bool is_public = 8;
+  int32 page_count = 9;
+  int32 submission_count = 10;
+  string created_by = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+  optional google.protobuf.Timestamp deleted_at = 14;
+}
+
+message FormSubmission {
+  string id = 1;
+  string form_schema_id = 2;
+  string tenant_id = 3;
+  bytes answers = 4;                             // JSON-object of field answers
+  FormSubmissionStatus status = 5;
+  string submitted_by = 6;
+  string ip_address = 7;
+  google.protobuf.Timestamp submitted_at = 8;
+}
+
+message FormWebhook {
+  string id = 1;
+  string form_schema_id = 2;
+  string tenant_id = 3;
+  string url = 4;
+  string secret = 5;
+  repeated string events = 6;
+  bool active = 7;
+  optional google.protobuf.Timestamp last_triggered_at = 8;
+  string last_status = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message WebhookDelivery {
+  string id = 1;
+  string webhook_id = 2;
+  string submission_id = 3;
+  string tenant_id = 4;
+  bytes payload = 5;
+  WebhookDeliveryStatus status = 6;
+  int32 attempt_count = 7;
+  int32 max_attempts = 8;
+  optional google.protobuf.Timestamp next_attempt_at = 9;
+  string last_error = 10;
+  int32 last_response_code = 11;
+  google.protobuf.Timestamp created_at = 12;
+  optional google.protobuf.Timestamp delivered_at = 13;
+}
+
+// ============================================================================
+// Schema Cluster — Requests / Responses
+// ============================================================================
+
+message CreateFormSchemaRequest {
+  string tenant_id = 1;
+  string title = 2;
+  string description = 3;
+  bytes fields = 4;
+  FormSchemaStatus status = 5;
+  bool is_template = 6;
+  bool is_public = 7;
+  int32 page_count = 8;
+  string created_by = 9;
+}
+
+message CreateFormSchemaResponse {
+  FormSchema schema = 1;
+}
+
+message GetFormSchemaRequest {
+  string tenant_id = 1;
+  string schema_id = 2;
+}
+
+message GetFormSchemaResponse {
+  FormSchema schema = 1;
+}
+
+message UpdateFormSchemaRequest {
+  string tenant_id = 1;
+  string schema_id = 2;
+  optional string title = 3;
+  optional string description = 4;
+  bytes fields = 5;                              // empty = no fields change
+  optional FormSchemaStatus status = 6;
+  optional bool is_template = 7;
+  optional bool is_public = 8;
+  optional int32 page_count = 9;
+  string editor_id = 10;
+}
+
+message UpdateFormSchemaResponse {
+  FormSchema schema = 1;
+}
+
+message DeleteFormSchemaRequest {
+  string tenant_id = 1;
+  string schema_id = 2;
+}
+
+message DeleteFormSchemaResponse {}
+
+message ListFormSchemasRequest {
+  string tenant_id = 1;
+  optional FormSchemaStatus status = 2;
+  optional bool is_template = 3;
+  string search = 4;
+  int32 limit = 5;
+  int32 offset = 6;
+}
+
+message ListFormSchemasResponse {
+  repeated FormSchema schemas = 1;
+  int32 total = 2;
+}
+
+message DuplicateFormSchemaRequest {
+  string tenant_id = 1;
+  string schema_id = 2;
+  optional string new_title = 3;
+}
+
+message DuplicateFormSchemaResponse {
+  FormSchema schema = 1;
+}
+
+// ============================================================================
+// Submission Cluster — Requests / Responses
+// ============================================================================
+
+message CreateSubmissionRequest {
+  string tenant_id = 1;
+  string form_schema_id = 2;
+  bytes answers = 3;
+  optional string submitted_by = 4;
+  optional string ip_address = 5;
+}
+
+message CreateSubmissionResponse {
+  FormSubmission submission = 1;
+}
+
+message GetSubmissionRequest {
+  string tenant_id = 1;
+  string submission_id = 2;
+}
+
+message GetSubmissionResponse {
+  FormSubmission submission = 1;
+}
+
+message ListSubmissionsRequest {
+  string tenant_id = 1;
+  optional string form_schema_id = 2;
+  optional FormSubmissionStatus status = 3;
+  int32 limit = 4;
+  int32 offset = 5;
+}
+
+message ListSubmissionsResponse {
+  repeated FormSubmission submissions = 1;
+  int32 total = 2;
+}
+
+message UpdateSubmissionStatusRequest {
+  string tenant_id = 1;
+  string submission_id = 2;
+  FormSubmissionStatus status = 3;
+}
+
+message UpdateSubmissionStatusResponse {
+  FormSubmission submission = 1;
+}
+
+message ExportSubmissionsRequest {
+  string tenant_id = 1;
+  string form_schema_id = 2;
+  ExportFormat format = 3;
+  optional FormSubmissionStatus status = 4;
+  optional google.protobuf.Timestamp submitted_after = 5;
+  optional google.protobuf.Timestamp submitted_before = 6;
+}
+
+message ExportSubmissionsResponse {
+  bytes content = 1;
+  string filename = 2;
+  string mime_type = 3;
+}
+
+// ============================================================================
+// Webhook Cluster — Requests / Responses
+// ============================================================================
+
+message CreateWebhookRequest {
+  string tenant_id = 1;
+  string form_schema_id = 2;
+  string url = 3;
+  optional string secret = 4;
+  repeated string events = 5;
+  bool active = 6;
+}
+
+message CreateWebhookResponse {
+  FormWebhook webhook = 1;
+}
+
+message GetWebhookRequest {
+  string tenant_id = 1;
+  string webhook_id = 2;
+}
+
+message GetWebhookResponse {
+  FormWebhook webhook = 1;
+}
+
+message UpdateWebhookRequest {
+  string tenant_id = 1;
+  string webhook_id = 2;
+  optional string url = 3;
+  optional string secret = 4;
+  repeated string events = 5;
+  bool events_set = 6;                           // true = replace events list
+  optional bool active = 7;
+}
+
+message UpdateWebhookResponse {
+  FormWebhook webhook = 1;
+}
+
+message DeleteWebhookRequest {
+  string tenant_id = 1;
+  string webhook_id = 2;
+}
+
+message DeleteWebhookResponse {}
+
+message ListWebhooksRequest {
+  string tenant_id = 1;
+  string form_schema_id = 2;
+}
+
+message ListWebhooksResponse {
+  repeated FormWebhook webhooks = 1;
+}
+
+// ============================================================================
+// Delivery Observability — Requests / Responses
+// ============================================================================
+
+message ListWebhookDeliveriesRequest {
+  string tenant_id = 1;
+  optional string webhook_id = 2;
+  optional string submission_id = 3;
+  optional WebhookDeliveryStatus status = 4;
+  int32 limit = 5;
+  int32 offset = 6;
+}
+
+message ListWebhookDeliveriesResponse {
+  repeated WebhookDelivery deliveries = 1;
+  int32 total = 2;
+}
