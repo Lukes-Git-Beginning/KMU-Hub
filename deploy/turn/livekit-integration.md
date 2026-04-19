@@ -1,137 +1,123 @@
 # LiveKit ↔ coturn Integration
 
-> After coturn is deployed, apply the changes below on the **app server** (`178.104.38.195`).
-> Do NOT commit secrets. All `CHANGE_ME` / `<REDACTED>` placeholders must be filled in locally.
+> **Status 2026-04-19:** coturn is deployed on Hetzner CAX11 (`turn.zentria.tech`,
+> `5.75.246.217`). The external TURN server is **not yet wired into LiveKit** —
+> see "Pending work" below. Clients currently cannot use coturn for relay.
 
-## 1. `.env.production` — add TURN keys
+## What's done
 
-Add these two lines to `/opt/kmuhub/deploy/docker/.env.production`:
+- coturn 4.6.1 running on `turn.zentria.tech:3478` (plain UDP/TCP, no TLS yet)
+- `static-auth-secret` in `/etc/turnserver.conf` matches `TURN_SECRET` in
+  `/opt/kmuhub/.env.production` on the app server
+- `rtc.use_external_ip: true` is set in `/opt/kmuhub/deploy/docker/livekit.yaml`
+  on the production server (improves direct ICE candidates, not a TURN fix)
 
-```
-# TURN / coturn (Sprint 1 R2.1)
-TURN_SECRET=REPLACE_ME            # the secret used when running deploy/turn/deploy.sh
-COTURN_HOST=turn.zentria.tech
-```
+## What does NOT work (why the first integration attempt failed)
 
-The `TURN_SECRET` value must be **identical** to the `--secret` argument passed to `deploy.sh`.
-LiveKit reads this via its config overlay (see step 2), not directly as an env var —
-the env file entries are for documentation and future services that may query TURN credentials.
+An earlier revision of this doc suggested putting a `turn:` block in
+`livekit.yaml` pointing to `turn.zentria.tech`. **That is wrong.** LiveKit's
+`turn:` block configures LiveKit's **own embedded TURN server**, not an
+external one. Setting it while `turn.zentria.tech` already runs coturn causes
+a port conflict and confusion.
 
-## 2. `docker-compose.prod.yml` — uncomment livekit-turn.yaml volume
+## Pending work — wire the external coturn into LiveKit
 
-Current state (lines 64–82 in `deploy/docker/docker-compose.prod.yml`):
+There are two supported ways to advertise an external TURN server to LiveKit
+clients. Pick ONE, **do not combine with a `turn:` block**.
 
-```yaml
-  livekit:
-    logging: *default-logging
-    # volumes:
-    #   - ./livekit.yaml:/etc/livekit.yaml
-    #   - ./livekit-turn.yaml:/etc/livekit-turn.yaml
-    # command: --config /etc/livekit.yaml --config /etc/livekit-turn.yaml
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: "0.5"
-```
+### Option A — static `rtc.turn_servers` (simpler, static credentials)
 
-After change:
+Requires storing username/credential pairs somewhere (not great for
+per-session auth). Skip unless a specific use case demands it.
 
 ```yaml
-  livekit:
-    logging: *default-logging
-    volumes:
-      - ./livekit.yaml:/etc/livekit.yaml
-      - ./livekit-turn.yaml:/etc/livekit-turn.yaml
-    command: --config /etc/livekit.yaml --config /etc/livekit-turn.yaml
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: "0.5"
+rtc:
+  turn_servers:
+    - host: turn.zentria.tech
+      port: 3478
+      protocol: udp
+      username: <static-username>
+      credential: <static-password>
 ```
 
-## 3. `livekit-turn.yaml` — verify domain (no edit needed for default setup)
+### Option B — ephemeral credentials via `AccessToken` (recommended)
 
-`deploy/docker/livekit-turn.yaml` already contains `domain: turn.zentria.tech`.
-If `COTURN_HOST` differs from `turn.zentria.tech`, update the `domain:` field before restarting.
+The LiveKit server generates short-lived TURN credentials per room-join using
+the `static-auth-secret` shared with coturn. This is the standard pattern
+documented by LiveKit.
 
-Current content (already committed):
+**Backend change required** (`backend/internal/video/service.go`, when building
+the `AccessToken`):
 
-```yaml
-use_external_ip: true
+```go
+// Generate REST-API-style TURN credential:
+// username = "<unix-expiry-seconds>:<livekit-identity>"
+// credential = base64( HMAC-SHA1( TURN_SECRET, username ) )
 
-turn:
-  enabled: true
-  domain: turn.zentria.tech
-  tls_port: 5349        # for future TLS — coturn will listen here post Let's Encrypt
-  udp_port: 3478        # plain UDP — active in MVP
-  external_tls: true    # set to false until Let's Encrypt cert is in place
+expiry := time.Now().Add(4 * time.Hour).Unix()
+username := fmt.Sprintf("%d:%s", expiry, identity)
+h := hmac.New(sha1.New, []byte(turnSecret))
+h.Write([]byte(username))
+credential := base64.StdEncoding.EncodeToString(h.Sum(nil))
+
+at := auth.NewAccessToken(apiKey, apiSecret).
+    AddGrant(&auth.VideoGrant{Room: roomName, RoomJoin: true}).
+    SetIdentity(identity)
+
+// Attach TURN server to the token (LiveKit ≥ 1.5)
+at.SetTurnServer(&livekit.TURNServer{
+    Host:       "turn.zentria.tech",
+    Port:       3478,
+    Protocol:   livekit.TURNServer_UDP,
+    Username:   username,
+    Credential: credential,
+})
 ```
 
-> **MVP note:** `external_tls: true` tells LiveKit to use the `turns:` URI scheme (TLS).
-> Since coturn MVP has no TLS cert yet, set `external_tls: false` and clients will use
-> `turn:` (plain). Update to `true` after Let's Encrypt is configured.
-
-Corrected livekit-turn.yaml for MVP (plain TURN only):
-
-```yaml
-use_external_ip: true
-
-turn:
-  enabled: true
-  domain: turn.zentria.tech
-  udp_port: 3478
-  external_tls: false
-```
-
-## 4. Restart LiveKit
-
-```bash
-ssh -i ~/.ssh/hetzner_kmuhub deploy@178.104.38.195
-cd /opt/kmuhub/deploy/docker
-sudo docker compose -f docker-compose.yml -f docker-compose.prod.yml restart livekit
-sudo docker compose logs -f livekit --tail=50
-```
-
-Confirm in logs: `using TURN server turn:turn.zentria.tech:3478` (or similar LiveKit startup message).
-
-## 5. Smoke-test
-
-**Option A — Trickle ICE web tool (no credentials needed for STUN check):**
-1. Open https://webrtc.github.io/samples/src/content/peerconnection/trickle-ice/
-2. Add ICE server: `turn:turn.zentria.tech:3478`
-3. Username / Credential: leave blank for STUN-only test; for TURN test use
-   LiveKit-generated credentials from a room join or generate manually:
-   ```
-   # TURN REST API credential generation (Python one-liner)
-   python3 -c "
-   import hmac, hashlib, base64, time
-   secret = 'YOUR_TURN_SECRET'
-   username = str(int(time.time()) + 3600) + ':testuser'
-   credential = base64.b64encode(hmac.new(secret.encode(), username.encode(), hashlib.sha1).digest()).decode()
-   print('Username:', username)
-   print('Credential:', credential)
-   "
-   ```
-
-**Option B — turnutils_uclient (on the coturn server itself):**
-```bash
-ssh -i ~/.ssh/hetzner_kmuhub root@<coturn-ip>
-turnutils_uclient -T -p 3478 turn.zentria.tech
-```
+The app server reads `TURN_SECRET` from `.env.production` — already set during
+the 2026-04-19 deploy.
 
 ## Key mapping summary
 
-| Where | Key | Value |
-|-------|-----|-------|
-| `.env.production` (app server) | `TURN_SECRET` | `<hex-secret>` |
-| `.env.production` (app server) | `COTURN_HOST` | `turn.zentria.tech` |
-| `livekit-turn.yaml` | `turn.domain` | `turn.zentria.tech` |
-| `livekit-turn.yaml` | `turn.udp_port` | `3478` |
-| `livekit-turn.yaml` | `turn.external_tls` | `false` (MVP), `true` (post-TLS) |
-| `coturn /etc/turnserver.conf` | `static-auth-secret` | same `<hex-secret>` |
+| Where                                    | Key                    | Value                                   |
+|------------------------------------------|------------------------|-----------------------------------------|
+| `coturn /etc/turnserver.conf` (TURN box) | `static-auth-secret`   | `<hex-secret>`                          |
+| `/opt/kmuhub/.env.production` (app box)  | `TURN_SECRET`          | same `<hex-secret>`                     |
+| `/opt/kmuhub/.env.production` (app box)  | `COTURN_HOST`          | `turn.zentria.tech`                     |
+| `video` service (Go code, pending)       | read `TURN_SECRET` env | used to HMAC-sign per-token credentials |
+| LiveKit client (browser)                 | receives TURN URI      | via access token (Option B)             |
 
-The shared secret is the single coupling point between LiveKit and coturn.
-All three locations (`.env.production`, `livekit-turn.yaml` indirectly via LiveKit runtime,
-and `turnserver.conf`) must agree on this value.
+## Obsolete file
+
+`deploy/docker/livekit-turn.yaml` — **do not mount it**. It was created
+alongside this doc under the wrong assumption about LiveKit's `turn:` block.
+The file remains in the repo as a historical artifact for reference and will
+be removed (or rewritten for Option A) once the backend-side TURN wiring lands.
+
+## Smoke test (after Option B is implemented)
+
+1. Deploy backend with TURN-credential generation in access tokens
+2. Start a call — inspect the client-side `RTCPeerConnection.getStats()`;
+   for clients behind symmetric NAT you should see `candidateType: relay`
+   with `turnServer: turn.zentria.tech:3478`
+3. Server-side coturn log should show `session ... allocated` entries
+   (`sudo journalctl -u coturn -f` on `turn.zentria.tech`)
+
+## Standalone test (no LiveKit required)
+
+Verifies coturn alone is healthy:
+
+```bash
+# On any machine with the TURN_SECRET:
+TURN_SECRET=<hex-secret>
+EXPIRY=$(($(date +%s) + 3600))
+USERNAME="$EXPIRY:test"
+CREDENTIAL=$(echo -n "$USERNAME" | openssl dgst -sha1 -hmac "$TURN_SECRET" -binary | base64)
+
+echo "Username:   $USERNAME"
+echo "Credential: $CREDENTIAL"
+```
+
+Plug these into https://webrtc.github.io/samples/src/content/peerconnection/trickle-ice/
+with `turn:turn.zentria.tech:3478`. A successful `relay` candidate confirms
+coturn works end-to-end.

@@ -129,7 +129,7 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 | S1.5 | **vertraege** (Laufzeit-Engine, Erinnerungs-Trigger, Skribble-Placeholder) | 3d | Modul | Pending |
 | S1.6 | **buchhaltung** Completion (FinanzenHook-Gaps, GoBD-Journal) | 2d | Modul | Pending |
 | S1.7 | **video** Completion (`useVideo`-Hook, Recording-Tagging) | 2d | Modul | ⏳ Teilweise — `useRecordingStatus` Polling-Hook in Welle 3 ergaenzt, Rest offen |
-| **S1.R2.1** | **TURN/STUN-Server — coturn self-hosted** auf eigenem CAX11 (ARM, ~€3.80/M, Nuernberg), TURN-URLs im LiveKit-Client-Token + `use_external_ip: true` | 2d | R2-P0.1 | ⏳ Code flag-off (`a9749fa`) + Deploy-Artefakte (`1cb9d6f`, `deploy/turn/`) fertig; Server-Provisionierung + DNS (`turn.zentria.tech`) + `deploy.sh`-Ausfuehrung ausstehend (User-Action) |
+| **S1.R2.1** | **TURN/STUN-Server — coturn self-hosted** auf eigenem CAX11 (ARM, ~€3.80/M, Falkenstein), TURN-URLs im LiveKit-Client-Token + `use_external_ip: true` | 2d | R2-P0.1 | ⏳ coturn live auf `turn.zentria.tech:3478` (2026-04-19, CAX11 FSN1), LiveKit `use_external_ip: true` live. **LiveKit-Wiring fehlt noch** — video-service muss per-Session-TURN-Credentials (HMAC-SHA1 vom TURN_SECRET) in den Access-Token schreiben (siehe `deploy/turn/livekit-integration.md` Option B). Sprint-2-Task. |
 | **S1.R2.2** | **LiveKit-Secrets Startup-Assertion** (keine Dev-Defaults in Prod) | 2h | R2-P0.2 | ✅ Done 2026-04-18 (`310c803`) |
 | **S1.R2.3** | **Recording-Consent-Bug:** `StartRecording` uebergibt alle aktiven Call-Teilnehmer als `participantIDs` (`video_grpc.go:213`) | 1d | R2-P0.3 | ✅ Done 2026-04-18 (`efd752a`) |
 | **S1.R2.5** | **Egress-Webhook** ruft `CompleteRecording` (`route_video.go:1153-1176`) | 4h | R2-P0.5 | ✅ Done 2026-04-18 (`d8f89d4`) |
@@ -141,7 +141,7 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 
 **Session 2026-04-19:** S1.2 berichte komplett geschlossen (6 Commits `5039f79`..`a4b2cc9`) via 3-Wellen-Subagent-Pipeline. Ports 50063/9103, ACL-Seed-Migration 000080, alle Coverage-Ziele erfuellt (Export 80.2%, gRPC 77.6%, Routes 57%, Scheduler 89.4%, Service 52.2%). Knowledge-Stand aktualisiert.
 
-**Progress Sprint 1 (Stand 2026-04-19):** 4/7 Module done (S1.1 wiki, S1.2 berichte, S1.3 formulare, S1.4 helpdesk). 4/5 R2-P0 Batch A done (S1.R2.2/3/5/6); S1.R2.1 TURN-Deploy-Artefakte in `deploy/turn/` committed (`1cb9d6f`), CAX11-Provisionierung + DNS + Deploy-Ausfuehrung ausstehend (User-Action). Naechste Module: S1.5 vertraege, S1.6 buchhaltung-Completion, S1.7 video-Rest.
+**Progress Sprint 1 (Stand 2026-04-19):** 4/7 Module done (S1.1 wiki, S1.2 berichte, S1.3 formulare, S1.4 helpdesk). 4/5 R2-P0 Batch A done (S1.R2.2/3/5/6); S1.R2.1 coturn live (`turn.zentria.tech:3478`, CAX11 FSN1), LiveKit `use_external_ip: true` aktiv — aber **Backend-Wiring fehlt** (TURN-Credentials in AccessToken, Sprint-2-Task). Naechste Module: S1.5 vertraege, S1.6 buchhaltung-Completion, S1.7 video-Rest.
 
 **Ende Sprint 1:** 7 Module live, 5 R2-P0 erledigt, Coverage ≥30% pro Modul.
 
@@ -259,7 +259,7 @@ Quelle: Rigorosum Runde 1 (wild-wren, 2026-04-18) + Rigorosum Runde 2 Vertiefung
 
 | # | Task | Status | Sprint |
 |---|---|---|---|
-| R2-P0.1 | TURN/STUN coturn self-hosted + `use_external_ip: true` | ⏳ Code (a9749fa) + Deploy-Artefakte (1cb9d6f, `deploy/turn/`) done; CAX11-Provisionierung + DNS + `deploy.sh`-Ausfuehrung ausstehend (User) | S1 |
+| R2-P0.1 | TURN/STUN coturn self-hosted + `use_external_ip: true` | ⏳ coturn live (CAX11 FSN1, `turn.zentria.tech:3478`, 2026-04-19); LiveKit `use_external_ip: true` aktiv; **Backend-Wiring ausstehend** (video-service muss HMAC-TURN-Credentials in AccessToken schreiben) | S1 coturn, S2 wiring |
 | R2-P0.2 | LiveKit-Secrets Startup-Assertion | ✅ Done (310c803) | S1 |
 | R2-P0.3 | Recording-Consent-Bug (`video_grpc.go:213` — alle Teilnehmer) | ✅ Done (efd752a) | S1 |
 | R2-P0.4 | Frontend Recording-Consent-Modal + Banner (Join-with-Consent) | Pending | S2 |
