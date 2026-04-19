@@ -40,6 +40,15 @@ type ListDeliveriesFilter struct {
 	Offset       int
 }
 
+// FormStats holds aggregated submission statistics for a form schema.
+type FormStats struct {
+	FormSchemaID uuid.UUID
+	TotalCount   int
+	NewCount     int
+	Last7dCount  int
+	Last30dCount int
+}
+
 // Repository defines the persistence interface for the formulare module.
 type Repository interface {
 	// Schema
@@ -70,4 +79,7 @@ type Repository interface {
 	MarkDeliveryResult(ctx context.Context, id uuid.UUID, status WebhookDeliveryStatus, attemptCount int, nextAttemptAt *time.Time, lastError string, lastCode int) error
 	ListWebhookDeliveries(ctx context.Context, tenantID uuid.UUID, filter ListDeliveriesFilter) ([]*WebhookDelivery, int, error)
 	GetWebhookDelivery(ctx context.Context, id, tenantID uuid.UUID) (*WebhookDelivery, error)
+
+	// Stats
+	GetFormStats(ctx context.Context, formSchemaID, tenantID uuid.UUID) (*FormStats, error)
 }

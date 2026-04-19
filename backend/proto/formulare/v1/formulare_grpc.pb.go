@@ -36,6 +36,7 @@ const (
 	FormulareService_DeleteWebhook_FullMethodName          = "/formulare.v1.FormulareService/DeleteWebhook"
 	FormulareService_ListWebhooks_FullMethodName           = "/formulare.v1.FormulareService/ListWebhooks"
 	FormulareService_ListWebhookDeliveries_FullMethodName  = "/formulare.v1.FormulareService/ListWebhookDeliveries"
+	FormulareService_GetFormStats_FullMethodName           = "/formulare.v1.FormulareService/GetFormStats"
 )
 
 // FormulareServiceClient is the client API for FormulareService service.
@@ -63,6 +64,8 @@ type FormulareServiceClient interface {
 	ListWebhooks(ctx context.Context, in *ListWebhooksRequest, opts ...grpc.CallOption) (*ListWebhooksResponse, error)
 	// Delivery Observability
 	ListWebhookDeliveries(ctx context.Context, in *ListWebhookDeliveriesRequest, opts ...grpc.CallOption) (*ListWebhookDeliveriesResponse, error)
+	// Stats
+	GetFormStats(ctx context.Context, in *GetFormStatsRequest, opts ...grpc.CallOption) (*GetFormStatsResponse, error)
 }
 
 type formulareServiceClient struct {
@@ -243,6 +246,16 @@ func (c *formulareServiceClient) ListWebhookDeliveries(ctx context.Context, in *
 	return out, nil
 }
 
+func (c *formulareServiceClient) GetFormStats(ctx context.Context, in *GetFormStatsRequest, opts ...grpc.CallOption) (*GetFormStatsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetFormStatsResponse)
+	err := c.cc.Invoke(ctx, FormulareService_GetFormStats_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FormulareServiceServer is the server API for FormulareService service.
 // All implementations must embed UnimplementedFormulareServiceServer
 // for forward compatibility.
@@ -268,6 +281,8 @@ type FormulareServiceServer interface {
 	ListWebhooks(context.Context, *ListWebhooksRequest) (*ListWebhooksResponse, error)
 	// Delivery Observability
 	ListWebhookDeliveries(context.Context, *ListWebhookDeliveriesRequest) (*ListWebhookDeliveriesResponse, error)
+	// Stats
+	GetFormStats(context.Context, *GetFormStatsRequest) (*GetFormStatsResponse, error)
 	mustEmbedUnimplementedFormulareServiceServer()
 }
 
@@ -328,6 +343,9 @@ func (UnimplementedFormulareServiceServer) ListWebhooks(context.Context, *ListWe
 }
 func (UnimplementedFormulareServiceServer) ListWebhookDeliveries(context.Context, *ListWebhookDeliveriesRequest) (*ListWebhookDeliveriesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListWebhookDeliveries not implemented")
+}
+func (UnimplementedFormulareServiceServer) GetFormStats(context.Context, *GetFormStatsRequest) (*GetFormStatsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetFormStats not implemented")
 }
 func (UnimplementedFormulareServiceServer) mustEmbedUnimplementedFormulareServiceServer() {}
 func (UnimplementedFormulareServiceServer) testEmbeddedByValue()                          {}
@@ -656,6 +674,24 @@ func _FormulareService_ListWebhookDeliveries_Handler(srv interface{}, ctx contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FormulareService_GetFormStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetFormStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FormulareServiceServer).GetFormStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FormulareService_GetFormStats_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FormulareServiceServer).GetFormStats(ctx, req.(*GetFormStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FormulareService_ServiceDesc is the grpc.ServiceDesc for FormulareService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -730,6 +766,10 @@ var FormulareService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListWebhookDeliveries",
 			Handler:    _FormulareService_ListWebhookDeliveries_Handler,
+		},
+		{
+			MethodName: "GetFormStats",
+			Handler:    _FormulareService_GetFormStats_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

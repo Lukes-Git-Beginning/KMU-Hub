@@ -338,6 +338,39 @@ func (r *stubFormulareRepo) GetWebhookDelivery(_ context.Context, id, tenantID u
 	return &cp, nil
 }
 
+func (r *stubFormulareRepo) GetFormStats(_ context.Context, formSchemaID, tenantID uuid.UUID) (*formulare.FormStats, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var total, newCount, last7d, last30d int
+	cutoff7d := time.Now().UTC().Add(-7 * 24 * time.Hour)
+	cutoff30d := time.Now().UTC().Add(-30 * 24 * time.Hour)
+	for _, s := range r.submissions {
+		if s.TenantID != tenantID {
+			continue
+		}
+		if s.FormSchemaID == nil || *s.FormSchemaID != formSchemaID {
+			continue
+		}
+		total++
+		if s.Status == formulare.FormSubmissionStatusNew {
+			newCount++
+		}
+		if s.SubmittedAt.After(cutoff7d) {
+			last7d++
+		}
+		if s.SubmittedAt.After(cutoff30d) {
+			last30d++
+		}
+	}
+	return &formulare.FormStats{
+		FormSchemaID: formSchemaID,
+		TotalCount:   total,
+		NewCount:     newCount,
+		Last7dCount:  last7d,
+		Last30dCount: last30d,
+	}, nil
+}
+
 // ============================================================================
 // Test helpers
 // ============================================================================
@@ -997,6 +1030,74 @@ func TestListWebhookDeliveries_HappyPath(t *testing.T) {
 	if resp.Deliveries[0].Status != formularev1.WebhookDeliveryStatus_WEBHOOK_DELIVERY_STATUS_DELIVERED {
 		t.Errorf("status mismatch")
 	}
+}
+
+// ============================================================================
+// Stats Tests
+// ============================================================================
+
+func TestGetFormStats_HappyPath(t *testing.T) {
+	repo := newStubFormulareRepo()
+	srv := newFormulareServerWithRepo(repo)
+
+	tenantID := uuid.New()
+	schemaID := uuid.New()
+
+	// Seed 3 submissions
+	for range 3 {
+		sub := &formulare.FormSubmission{
+			ID:           uuid.New(),
+			TenantID:     tenantID,
+			FormSchemaID: &schemaID,
+			Answers:      []byte(`{"q":"a"}`),
+			Status:       formulare.FormSubmissionStatusNew,
+			SubmittedAt:  time.Now().UTC(),
+		}
+		repo.mu.Lock()
+		repo.submissions[sub.ID] = sub
+		repo.mu.Unlock()
+	}
+
+	resp, err := srv.GetFormStats(context.Background(), &formularev1.GetFormStatsRequest{
+		TenantId:     tenantID.String(),
+		FormSchemaId: schemaID.String(),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Stats == nil {
+		t.Fatal("expected stats in response")
+	}
+	if resp.Stats.TotalCount != 3 {
+		t.Errorf("expected TotalCount=3, got %d", resp.Stats.TotalCount)
+	}
+	if resp.Stats.NewCount != 3 {
+		t.Errorf("expected NewCount=3, got %d", resp.Stats.NewCount)
+	}
+	if resp.Stats.Last_7DCount != 3 {
+		t.Errorf("expected Last_7DCount=3, got %d", resp.Stats.Last_7DCount)
+	}
+	if resp.Stats.Last_30DCount != 3 {
+		t.Errorf("expected Last_30DCount=3, got %d", resp.Stats.Last_30DCount)
+	}
+}
+
+func TestGetFormStats_InvalidTenantID(t *testing.T) {
+	srv := newTestFormulareServer()
+	_, err := srv.GetFormStats(context.Background(), &formularev1.GetFormStatsRequest{
+		TenantId:     "not-a-uuid",
+		FormSchemaId: uuid.New().String(),
+	})
+	assertGRPCCode(t, err, codes.InvalidArgument)
+}
+
+func TestGetFormStats_InvalidFormSchemaID(t *testing.T) {
+	srv := newTestFormulareServer()
+	_, err := srv.GetFormStats(context.Background(), &formularev1.GetFormStatsRequest{
+		TenantId:     uuid.New().String(),
+		FormSchemaId: "bad-uuid",
+	})
+	assertGRPCCode(t, err, codes.InvalidArgument)
 }
 
 // ============================================================================

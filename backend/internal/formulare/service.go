@@ -775,3 +775,24 @@ func (s *Service) ListWebhookDeliveries(ctx context.Context, in ListDeliveriesIn
 func (s *Service) GetWebhookDelivery(ctx context.Context, id, tenantID uuid.UUID) (*WebhookDelivery, error) {
 	return s.repo.GetWebhookDelivery(ctx, id, tenantID)
 }
+
+// ============================================================================
+// Stats methods
+// ============================================================================
+
+// GetFormStatsInput drives a form stats lookup.
+type GetFormStatsInput struct {
+	TenantID     uuid.UUID
+	FormSchemaID uuid.UUID
+}
+
+// GetFormStats returns aggregated submission statistics for a form schema.
+func (s *Service) GetFormStats(ctx context.Context, in GetFormStatsInput) (*FormStats, error) {
+	if in.TenantID == uuid.Nil {
+		return nil, fmt.Errorf("tenant_id is required: %w", ErrInvalidFields)
+	}
+	if in.FormSchemaID == uuid.Nil {
+		return nil, fmt.Errorf("form_schema_id is required: %w", ErrInvalidFields)
+	}
+	return s.repo.GetFormStats(ctx, in.FormSchemaID, in.TenantID)
+}

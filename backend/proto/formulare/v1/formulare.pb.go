@@ -2750,6 +2750,178 @@ func (x *ListWebhookDeliveriesResponse) GetTotal() int32 {
 	return 0
 }
 
+type GetFormStatsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	FormSchemaId  string                 `protobuf:"bytes,2,opt,name=form_schema_id,json=formSchemaId,proto3" json:"form_schema_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetFormStatsRequest) Reset() {
+	*x = GetFormStatsRequest{}
+	mi := &file_proto_formulare_v1_formulare_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetFormStatsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetFormStatsRequest) ProtoMessage() {}
+
+func (x *GetFormStatsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_formulare_v1_formulare_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetFormStatsRequest.ProtoReflect.Descriptor instead.
+func (*GetFormStatsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_formulare_v1_formulare_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *GetFormStatsRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *GetFormStatsRequest) GetFormSchemaId() string {
+	if x != nil {
+		return x.FormSchemaId
+	}
+	return ""
+}
+
+type FormStats struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FormSchemaId  string                 `protobuf:"bytes,1,opt,name=form_schema_id,json=formSchemaId,proto3" json:"form_schema_id,omitempty"`
+	TotalCount    int32                  `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	NewCount      int32                  `protobuf:"varint,3,opt,name=new_count,json=newCount,proto3" json:"new_count,omitempty"`
+	Last_7DCount  int32                  `protobuf:"varint,4,opt,name=last_7d_count,json=last7dCount,proto3" json:"last_7d_count,omitempty"`
+	Last_30DCount int32                  `protobuf:"varint,5,opt,name=last_30d_count,json=last30dCount,proto3" json:"last_30d_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FormStats) Reset() {
+	*x = FormStats{}
+	mi := &file_proto_formulare_v1_formulare_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FormStats) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FormStats) ProtoMessage() {}
+
+func (x *FormStats) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_formulare_v1_formulare_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FormStats.ProtoReflect.Descriptor instead.
+func (*FormStats) Descriptor() ([]byte, []int) {
+	return file_proto_formulare_v1_formulare_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *FormStats) GetFormSchemaId() string {
+	if x != nil {
+		return x.FormSchemaId
+	}
+	return ""
+}
+
+func (x *FormStats) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
+
+func (x *FormStats) GetNewCount() int32 {
+	if x != nil {
+		return x.NewCount
+	}
+	return 0
+}
+
+func (x *FormStats) GetLast_7DCount() int32 {
+	if x != nil {
+		return x.Last_7DCount
+	}
+	return 0
+}
+
+func (x *FormStats) GetLast_30DCount() int32 {
+	if x != nil {
+		return x.Last_30DCount
+	}
+	return 0
+}
+
+type GetFormStatsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Stats         *FormStats             `protobuf:"bytes,1,opt,name=stats,proto3" json:"stats,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetFormStatsResponse) Reset() {
+	*x = GetFormStatsResponse{}
+	mi := &file_proto_formulare_v1_formulare_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetFormStatsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetFormStatsResponse) ProtoMessage() {}
+
+func (x *GetFormStatsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_formulare_v1_formulare_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetFormStatsResponse.ProtoReflect.Descriptor instead.
+func (*GetFormStatsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_formulare_v1_formulare_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *GetFormStatsResponse) GetStats() *FormStats {
+	if x != nil {
+		return x.Stats
+	}
+	return nil
+}
+
 var File_proto_formulare_v1_formulare_proto protoreflect.FileDescriptor
 
 const file_proto_formulare_v1_formulare_proto_rawDesc = "" +
@@ -3003,7 +3175,19 @@ const file_proto_formulare_v1_formulare_proto_rawDesc = "" +
 	"\n" +
 	"deliveries\x18\x01 \x03(\v2\x1d.formulare.v1.WebhookDeliveryR\n" +
 	"deliveries\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total*\x94\x01\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"X\n" +
+	"\x13GetFormStatsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12$\n" +
+	"\x0eform_schema_id\x18\x02 \x01(\tR\fformSchemaId\"\xb9\x01\n" +
+	"\tFormStats\x12$\n" +
+	"\x0eform_schema_id\x18\x01 \x01(\tR\fformSchemaId\x12\x1f\n" +
+	"\vtotal_count\x18\x02 \x01(\x05R\n" +
+	"totalCount\x12\x1b\n" +
+	"\tnew_count\x18\x03 \x01(\x05R\bnewCount\x12\"\n" +
+	"\rlast_7d_count\x18\x04 \x01(\x05R\vlast7dCount\x12$\n" +
+	"\x0elast_30d_count\x18\x05 \x01(\x05R\flast30dCount\"E\n" +
+	"\x14GetFormStatsResponse\x12-\n" +
+	"\x05stats\x18\x01 \x01(\v2\x17.formulare.v1.FormStatsR\x05stats*\x94\x01\n" +
 	"\x10FormSchemaStatus\x12\"\n" +
 	"\x1eFORM_SCHEMA_STATUS_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18FORM_SCHEMA_STATUS_DRAFT\x10\x01\x12\x1d\n" +
@@ -3023,7 +3207,7 @@ const file_proto_formulare_v1_formulare_proto_rawDesc = "" +
 	"\fExportFormat\x12\x1d\n" +
 	"\x19EXPORT_FORMAT_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11EXPORT_FORMAT_CSV\x10\x01\x12\x16\n" +
-	"\x12EXPORT_FORMAT_XLSX\x10\x022\x81\r\n" +
+	"\x12EXPORT_FORMAT_XLSX\x10\x022\xd8\r\n" +
 	"\x10FormulareService\x12a\n" +
 	"\x10CreateFormSchema\x12%.formulare.v1.CreateFormSchemaRequest\x1a&.formulare.v1.CreateFormSchemaResponse\x12X\n" +
 	"\rGetFormSchema\x12\".formulare.v1.GetFormSchemaRequest\x1a#.formulare.v1.GetFormSchemaResponse\x12a\n" +
@@ -3042,7 +3226,8 @@ const file_proto_formulare_v1_formulare_proto_rawDesc = "" +
 	"\rUpdateWebhook\x12\".formulare.v1.UpdateWebhookRequest\x1a#.formulare.v1.UpdateWebhookResponse\x12X\n" +
 	"\rDeleteWebhook\x12\".formulare.v1.DeleteWebhookRequest\x1a#.formulare.v1.DeleteWebhookResponse\x12U\n" +
 	"\fListWebhooks\x12!.formulare.v1.ListWebhooksRequest\x1a\".formulare.v1.ListWebhooksResponse\x12p\n" +
-	"\x15ListWebhookDeliveries\x12*.formulare.v1.ListWebhookDeliveriesRequest\x1a+.formulare.v1.ListWebhookDeliveriesResponseB9Z7github.com/kmuhub/kmuhub/proto/formulare/v1;formularev1b\x06proto3"
+	"\x15ListWebhookDeliveries\x12*.formulare.v1.ListWebhookDeliveriesRequest\x1a+.formulare.v1.ListWebhookDeliveriesResponse\x12U\n" +
+	"\fGetFormStats\x12!.formulare.v1.GetFormStatsRequest\x1a\".formulare.v1.GetFormStatsResponseB9Z7github.com/kmuhub/kmuhub/proto/formulare/v1;formularev1b\x06proto3"
 
 var (
 	file_proto_formulare_v1_formulare_proto_rawDescOnce sync.Once
@@ -3057,7 +3242,7 @@ func file_proto_formulare_v1_formulare_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_formulare_v1_formulare_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_proto_formulare_v1_formulare_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
+var file_proto_formulare_v1_formulare_proto_msgTypes = make([]protoimpl.MessageInfo, 41)
 var file_proto_formulare_v1_formulare_proto_goTypes = []any{
 	(FormSchemaStatus)(0),                  // 0: formulare.v1.FormSchemaStatus
 	(FormSubmissionStatus)(0),              // 1: formulare.v1.FormSubmissionStatus
@@ -3101,22 +3286,25 @@ var file_proto_formulare_v1_formulare_proto_goTypes = []any{
 	(*ListWebhooksResponse)(nil),           // 39: formulare.v1.ListWebhooksResponse
 	(*ListWebhookDeliveriesRequest)(nil),   // 40: formulare.v1.ListWebhookDeliveriesRequest
 	(*ListWebhookDeliveriesResponse)(nil),  // 41: formulare.v1.ListWebhookDeliveriesResponse
-	(*timestamppb.Timestamp)(nil),          // 42: google.protobuf.Timestamp
+	(*GetFormStatsRequest)(nil),            // 42: formulare.v1.GetFormStatsRequest
+	(*FormStats)(nil),                      // 43: formulare.v1.FormStats
+	(*GetFormStatsResponse)(nil),           // 44: formulare.v1.GetFormStatsResponse
+	(*timestamppb.Timestamp)(nil),          // 45: google.protobuf.Timestamp
 }
 var file_proto_formulare_v1_formulare_proto_depIdxs = []int32{
 	0,  // 0: formulare.v1.FormSchema.status:type_name -> formulare.v1.FormSchemaStatus
-	42, // 1: formulare.v1.FormSchema.created_at:type_name -> google.protobuf.Timestamp
-	42, // 2: formulare.v1.FormSchema.updated_at:type_name -> google.protobuf.Timestamp
-	42, // 3: formulare.v1.FormSchema.deleted_at:type_name -> google.protobuf.Timestamp
+	45, // 1: formulare.v1.FormSchema.created_at:type_name -> google.protobuf.Timestamp
+	45, // 2: formulare.v1.FormSchema.updated_at:type_name -> google.protobuf.Timestamp
+	45, // 3: formulare.v1.FormSchema.deleted_at:type_name -> google.protobuf.Timestamp
 	1,  // 4: formulare.v1.FormSubmission.status:type_name -> formulare.v1.FormSubmissionStatus
-	42, // 5: formulare.v1.FormSubmission.submitted_at:type_name -> google.protobuf.Timestamp
-	42, // 6: formulare.v1.FormWebhook.last_triggered_at:type_name -> google.protobuf.Timestamp
-	42, // 7: formulare.v1.FormWebhook.created_at:type_name -> google.protobuf.Timestamp
-	42, // 8: formulare.v1.FormWebhook.updated_at:type_name -> google.protobuf.Timestamp
+	45, // 5: formulare.v1.FormSubmission.submitted_at:type_name -> google.protobuf.Timestamp
+	45, // 6: formulare.v1.FormWebhook.last_triggered_at:type_name -> google.protobuf.Timestamp
+	45, // 7: formulare.v1.FormWebhook.created_at:type_name -> google.protobuf.Timestamp
+	45, // 8: formulare.v1.FormWebhook.updated_at:type_name -> google.protobuf.Timestamp
 	2,  // 9: formulare.v1.WebhookDelivery.status:type_name -> formulare.v1.WebhookDeliveryStatus
-	42, // 10: formulare.v1.WebhookDelivery.next_attempt_at:type_name -> google.protobuf.Timestamp
-	42, // 11: formulare.v1.WebhookDelivery.created_at:type_name -> google.protobuf.Timestamp
-	42, // 12: formulare.v1.WebhookDelivery.delivered_at:type_name -> google.protobuf.Timestamp
+	45, // 10: formulare.v1.WebhookDelivery.next_attempt_at:type_name -> google.protobuf.Timestamp
+	45, // 11: formulare.v1.WebhookDelivery.created_at:type_name -> google.protobuf.Timestamp
+	45, // 12: formulare.v1.WebhookDelivery.delivered_at:type_name -> google.protobuf.Timestamp
 	0,  // 13: formulare.v1.CreateFormSchemaRequest.status:type_name -> formulare.v1.FormSchemaStatus
 	4,  // 14: formulare.v1.CreateFormSchemaResponse.schema:type_name -> formulare.v1.FormSchema
 	4,  // 15: formulare.v1.GetFormSchemaResponse.schema:type_name -> formulare.v1.FormSchema
@@ -3133,53 +3321,56 @@ var file_proto_formulare_v1_formulare_proto_depIdxs = []int32{
 	5,  // 26: formulare.v1.UpdateSubmissionStatusResponse.submission:type_name -> formulare.v1.FormSubmission
 	3,  // 27: formulare.v1.ExportSubmissionsRequest.format:type_name -> formulare.v1.ExportFormat
 	1,  // 28: formulare.v1.ExportSubmissionsRequest.status:type_name -> formulare.v1.FormSubmissionStatus
-	42, // 29: formulare.v1.ExportSubmissionsRequest.submitted_after:type_name -> google.protobuf.Timestamp
-	42, // 30: formulare.v1.ExportSubmissionsRequest.submitted_before:type_name -> google.protobuf.Timestamp
+	45, // 29: formulare.v1.ExportSubmissionsRequest.submitted_after:type_name -> google.protobuf.Timestamp
+	45, // 30: formulare.v1.ExportSubmissionsRequest.submitted_before:type_name -> google.protobuf.Timestamp
 	6,  // 31: formulare.v1.CreateWebhookResponse.webhook:type_name -> formulare.v1.FormWebhook
 	6,  // 32: formulare.v1.GetWebhookResponse.webhook:type_name -> formulare.v1.FormWebhook
 	6,  // 33: formulare.v1.UpdateWebhookResponse.webhook:type_name -> formulare.v1.FormWebhook
 	6,  // 34: formulare.v1.ListWebhooksResponse.webhooks:type_name -> formulare.v1.FormWebhook
 	2,  // 35: formulare.v1.ListWebhookDeliveriesRequest.status:type_name -> formulare.v1.WebhookDeliveryStatus
 	7,  // 36: formulare.v1.ListWebhookDeliveriesResponse.deliveries:type_name -> formulare.v1.WebhookDelivery
-	8,  // 37: formulare.v1.FormulareService.CreateFormSchema:input_type -> formulare.v1.CreateFormSchemaRequest
-	10, // 38: formulare.v1.FormulareService.GetFormSchema:input_type -> formulare.v1.GetFormSchemaRequest
-	12, // 39: formulare.v1.FormulareService.UpdateFormSchema:input_type -> formulare.v1.UpdateFormSchemaRequest
-	14, // 40: formulare.v1.FormulareService.DeleteFormSchema:input_type -> formulare.v1.DeleteFormSchemaRequest
-	16, // 41: formulare.v1.FormulareService.ListFormSchemas:input_type -> formulare.v1.ListFormSchemasRequest
-	18, // 42: formulare.v1.FormulareService.DuplicateFormSchema:input_type -> formulare.v1.DuplicateFormSchemaRequest
-	20, // 43: formulare.v1.FormulareService.CreateSubmission:input_type -> formulare.v1.CreateSubmissionRequest
-	22, // 44: formulare.v1.FormulareService.GetSubmission:input_type -> formulare.v1.GetSubmissionRequest
-	24, // 45: formulare.v1.FormulareService.ListSubmissions:input_type -> formulare.v1.ListSubmissionsRequest
-	26, // 46: formulare.v1.FormulareService.UpdateSubmissionStatus:input_type -> formulare.v1.UpdateSubmissionStatusRequest
-	28, // 47: formulare.v1.FormulareService.ExportSubmissions:input_type -> formulare.v1.ExportSubmissionsRequest
-	30, // 48: formulare.v1.FormulareService.CreateWebhook:input_type -> formulare.v1.CreateWebhookRequest
-	32, // 49: formulare.v1.FormulareService.GetWebhook:input_type -> formulare.v1.GetWebhookRequest
-	34, // 50: formulare.v1.FormulareService.UpdateWebhook:input_type -> formulare.v1.UpdateWebhookRequest
-	36, // 51: formulare.v1.FormulareService.DeleteWebhook:input_type -> formulare.v1.DeleteWebhookRequest
-	38, // 52: formulare.v1.FormulareService.ListWebhooks:input_type -> formulare.v1.ListWebhooksRequest
-	40, // 53: formulare.v1.FormulareService.ListWebhookDeliveries:input_type -> formulare.v1.ListWebhookDeliveriesRequest
-	9,  // 54: formulare.v1.FormulareService.CreateFormSchema:output_type -> formulare.v1.CreateFormSchemaResponse
-	11, // 55: formulare.v1.FormulareService.GetFormSchema:output_type -> formulare.v1.GetFormSchemaResponse
-	13, // 56: formulare.v1.FormulareService.UpdateFormSchema:output_type -> formulare.v1.UpdateFormSchemaResponse
-	15, // 57: formulare.v1.FormulareService.DeleteFormSchema:output_type -> formulare.v1.DeleteFormSchemaResponse
-	17, // 58: formulare.v1.FormulareService.ListFormSchemas:output_type -> formulare.v1.ListFormSchemasResponse
-	19, // 59: formulare.v1.FormulareService.DuplicateFormSchema:output_type -> formulare.v1.DuplicateFormSchemaResponse
-	21, // 60: formulare.v1.FormulareService.CreateSubmission:output_type -> formulare.v1.CreateSubmissionResponse
-	23, // 61: formulare.v1.FormulareService.GetSubmission:output_type -> formulare.v1.GetSubmissionResponse
-	25, // 62: formulare.v1.FormulareService.ListSubmissions:output_type -> formulare.v1.ListSubmissionsResponse
-	27, // 63: formulare.v1.FormulareService.UpdateSubmissionStatus:output_type -> formulare.v1.UpdateSubmissionStatusResponse
-	29, // 64: formulare.v1.FormulareService.ExportSubmissions:output_type -> formulare.v1.ExportSubmissionsResponse
-	31, // 65: formulare.v1.FormulareService.CreateWebhook:output_type -> formulare.v1.CreateWebhookResponse
-	33, // 66: formulare.v1.FormulareService.GetWebhook:output_type -> formulare.v1.GetWebhookResponse
-	35, // 67: formulare.v1.FormulareService.UpdateWebhook:output_type -> formulare.v1.UpdateWebhookResponse
-	37, // 68: formulare.v1.FormulareService.DeleteWebhook:output_type -> formulare.v1.DeleteWebhookResponse
-	39, // 69: formulare.v1.FormulareService.ListWebhooks:output_type -> formulare.v1.ListWebhooksResponse
-	41, // 70: formulare.v1.FormulareService.ListWebhookDeliveries:output_type -> formulare.v1.ListWebhookDeliveriesResponse
-	54, // [54:71] is the sub-list for method output_type
-	37, // [37:54] is the sub-list for method input_type
-	37, // [37:37] is the sub-list for extension type_name
-	37, // [37:37] is the sub-list for extension extendee
-	0,  // [0:37] is the sub-list for field type_name
+	43, // 37: formulare.v1.GetFormStatsResponse.stats:type_name -> formulare.v1.FormStats
+	8,  // 38: formulare.v1.FormulareService.CreateFormSchema:input_type -> formulare.v1.CreateFormSchemaRequest
+	10, // 39: formulare.v1.FormulareService.GetFormSchema:input_type -> formulare.v1.GetFormSchemaRequest
+	12, // 40: formulare.v1.FormulareService.UpdateFormSchema:input_type -> formulare.v1.UpdateFormSchemaRequest
+	14, // 41: formulare.v1.FormulareService.DeleteFormSchema:input_type -> formulare.v1.DeleteFormSchemaRequest
+	16, // 42: formulare.v1.FormulareService.ListFormSchemas:input_type -> formulare.v1.ListFormSchemasRequest
+	18, // 43: formulare.v1.FormulareService.DuplicateFormSchema:input_type -> formulare.v1.DuplicateFormSchemaRequest
+	20, // 44: formulare.v1.FormulareService.CreateSubmission:input_type -> formulare.v1.CreateSubmissionRequest
+	22, // 45: formulare.v1.FormulareService.GetSubmission:input_type -> formulare.v1.GetSubmissionRequest
+	24, // 46: formulare.v1.FormulareService.ListSubmissions:input_type -> formulare.v1.ListSubmissionsRequest
+	26, // 47: formulare.v1.FormulareService.UpdateSubmissionStatus:input_type -> formulare.v1.UpdateSubmissionStatusRequest
+	28, // 48: formulare.v1.FormulareService.ExportSubmissions:input_type -> formulare.v1.ExportSubmissionsRequest
+	30, // 49: formulare.v1.FormulareService.CreateWebhook:input_type -> formulare.v1.CreateWebhookRequest
+	32, // 50: formulare.v1.FormulareService.GetWebhook:input_type -> formulare.v1.GetWebhookRequest
+	34, // 51: formulare.v1.FormulareService.UpdateWebhook:input_type -> formulare.v1.UpdateWebhookRequest
+	36, // 52: formulare.v1.FormulareService.DeleteWebhook:input_type -> formulare.v1.DeleteWebhookRequest
+	38, // 53: formulare.v1.FormulareService.ListWebhooks:input_type -> formulare.v1.ListWebhooksRequest
+	40, // 54: formulare.v1.FormulareService.ListWebhookDeliveries:input_type -> formulare.v1.ListWebhookDeliveriesRequest
+	42, // 55: formulare.v1.FormulareService.GetFormStats:input_type -> formulare.v1.GetFormStatsRequest
+	9,  // 56: formulare.v1.FormulareService.CreateFormSchema:output_type -> formulare.v1.CreateFormSchemaResponse
+	11, // 57: formulare.v1.FormulareService.GetFormSchema:output_type -> formulare.v1.GetFormSchemaResponse
+	13, // 58: formulare.v1.FormulareService.UpdateFormSchema:output_type -> formulare.v1.UpdateFormSchemaResponse
+	15, // 59: formulare.v1.FormulareService.DeleteFormSchema:output_type -> formulare.v1.DeleteFormSchemaResponse
+	17, // 60: formulare.v1.FormulareService.ListFormSchemas:output_type -> formulare.v1.ListFormSchemasResponse
+	19, // 61: formulare.v1.FormulareService.DuplicateFormSchema:output_type -> formulare.v1.DuplicateFormSchemaResponse
+	21, // 62: formulare.v1.FormulareService.CreateSubmission:output_type -> formulare.v1.CreateSubmissionResponse
+	23, // 63: formulare.v1.FormulareService.GetSubmission:output_type -> formulare.v1.GetSubmissionResponse
+	25, // 64: formulare.v1.FormulareService.ListSubmissions:output_type -> formulare.v1.ListSubmissionsResponse
+	27, // 65: formulare.v1.FormulareService.UpdateSubmissionStatus:output_type -> formulare.v1.UpdateSubmissionStatusResponse
+	29, // 66: formulare.v1.FormulareService.ExportSubmissions:output_type -> formulare.v1.ExportSubmissionsResponse
+	31, // 67: formulare.v1.FormulareService.CreateWebhook:output_type -> formulare.v1.CreateWebhookResponse
+	33, // 68: formulare.v1.FormulareService.GetWebhook:output_type -> formulare.v1.GetWebhookResponse
+	35, // 69: formulare.v1.FormulareService.UpdateWebhook:output_type -> formulare.v1.UpdateWebhookResponse
+	37, // 70: formulare.v1.FormulareService.DeleteWebhook:output_type -> formulare.v1.DeleteWebhookResponse
+	39, // 71: formulare.v1.FormulareService.ListWebhooks:output_type -> formulare.v1.ListWebhooksResponse
+	41, // 72: formulare.v1.FormulareService.ListWebhookDeliveries:output_type -> formulare.v1.ListWebhookDeliveriesResponse
+	44, // 73: formulare.v1.FormulareService.GetFormStats:output_type -> formulare.v1.GetFormStatsResponse
+	56, // [56:74] is the sub-list for method output_type
+	38, // [38:56] is the sub-list for method input_type
+	38, // [38:38] is the sub-list for extension type_name
+	38, // [38:38] is the sub-list for extension extendee
+	0,  // [0:38] is the sub-list for field type_name
 }
 
 func init() { file_proto_formulare_v1_formulare_proto_init() }
@@ -3205,7 +3396,7 @@ func file_proto_formulare_v1_formulare_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_formulare_v1_formulare_proto_rawDesc), len(file_proto_formulare_v1_formulare_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   38,
+			NumMessages:   41,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

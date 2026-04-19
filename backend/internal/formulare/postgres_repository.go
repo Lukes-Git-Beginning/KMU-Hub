@@ -761,5 +761,33 @@ func (r *PostgresRepository) scanDeliveryFromRows(rows pgx.Rows) (*WebhookDelive
 	return &d, nil
 }
 
+// ============================================================================
+// Stats
+// ============================================================================
+
+func (r *PostgresRepository) GetFormStats(ctx context.Context, formSchemaID, tenantID uuid.UUID) (*FormStats, error) {
+	var total, newCount, last7d, last30d int
+	err := r.pool.QueryRow(ctx,
+		`SELECT
+		  COUNT(*) AS total,
+		  COUNT(*) FILTER (WHERE status = 'new') AS new_count,
+		  COUNT(*) FILTER (WHERE submitted_at >= NOW() - INTERVAL '7 days') AS last_7d,
+		  COUNT(*) FILTER (WHERE submitted_at >= NOW() - INTERVAL '30 days') AS last_30d
+		FROM form_submissions
+		WHERE form_schema_id = $1 AND tenant_id = $2`,
+		formSchemaID, tenantID,
+	).Scan(&total, &newCount, &last7d, &last30d)
+	if err != nil {
+		return nil, fmt.Errorf("get form stats: %w", err)
+	}
+	return &FormStats{
+		FormSchemaID: formSchemaID,
+		TotalCount:   total,
+		NewCount:     newCount,
+		Last7dCount:  last7d,
+		Last30dCount: last30d,
+	}, nil
+}
+
 // compile-time interface check
 var _ Repository = (*PostgresRepository)(nil)

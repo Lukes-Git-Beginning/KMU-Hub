@@ -512,6 +512,39 @@ func (s *FormulareGRPCServer) ListWebhookDeliveries(ctx context.Context, req *fo
 }
 
 // ============================================================================
+// Stats RPC
+// ============================================================================
+
+func (s *FormulareGRPCServer) GetFormStats(ctx context.Context, req *formularev1.GetFormStatsRequest) (*formularev1.GetFormStatsResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	formSchemaID, err := uuid.Parse(req.GetFormSchemaId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid form_schema_id: %v", err)
+	}
+
+	stats, err := s.svc.GetFormStats(ctx, formulare.GetFormStatsInput{
+		TenantID:     tenantID,
+		FormSchemaID: formSchemaID,
+	})
+	if err != nil {
+		return nil, mapFormulareError(err)
+	}
+
+	return &formularev1.GetFormStatsResponse{
+		Stats: &formularev1.FormStats{
+			FormSchemaId:  stats.FormSchemaID.String(),
+			TotalCount:    int32(stats.TotalCount),
+			NewCount:      int32(stats.NewCount),
+			Last_7DCount:  int32(stats.Last7dCount),
+			Last_30DCount: int32(stats.Last30dCount),
+		},
+	}, nil
+}
+
+// ============================================================================
 // Conversion helpers — domain → proto
 // ============================================================================
 

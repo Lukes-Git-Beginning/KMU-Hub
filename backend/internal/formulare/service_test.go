@@ -395,6 +395,39 @@ func (r *stubRepo) GetWebhookDelivery(_ context.Context, id, tenantID uuid.UUID)
 	return &cp, nil
 }
 
+func (r *stubRepo) GetFormStats(_ context.Context, formSchemaID, tenantID uuid.UUID) (*FormStats, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var total, newCount, last7d, last30d int
+	cutoff7d := time.Now().UTC().Add(-7 * 24 * time.Hour)
+	cutoff30d := time.Now().UTC().Add(-30 * 24 * time.Hour)
+	for _, s := range r.submissions {
+		if s.TenantID != tenantID {
+			continue
+		}
+		if s.FormSchemaID == nil || *s.FormSchemaID != formSchemaID {
+			continue
+		}
+		total++
+		if s.Status == FormSubmissionStatusNew {
+			newCount++
+		}
+		if s.SubmittedAt.After(cutoff7d) {
+			last7d++
+		}
+		if s.SubmittedAt.After(cutoff30d) {
+			last30d++
+		}
+	}
+	return &FormStats{
+		FormSchemaID: formSchemaID,
+		TotalCount:   total,
+		NewCount:     newCount,
+		Last7dCount:  last7d,
+		Last30dCount: last30d,
+	}, nil
+}
+
 // compile-time interface check
 var _ Repository = (*stubRepo)(nil)
 
@@ -1152,5 +1185,89 @@ func TestValidateWebhookURL_EmptyString(t *testing.T) {
 func TestValidateWebhookURL_NoHost(t *testing.T) {
 	if err := validateWebhookURL("https://"); !errors.Is(err, ErrInvalidURL) {
 		t.Errorf("expected ErrInvalidURL for no host, got %v", err)
+	}
+}
+
+// ============================================================================
+// Tests: GetFormStats
+// ============================================================================
+
+func TestGetFormStats_Success(t *testing.T) {
+	svc, _ := newSvc()
+	schema := mustCreateSchema(t, svc)
+
+	schemaID := schema.ID
+	// Create 2 submissions (both status=new by default)
+	for range 2 {
+		_, err := svc.CreateSubmission(context.Background(), CreateSubmissionInput{
+			TenantID:     testTenant,
+			FormSchemaID: &schemaID,
+			Answers:      []byte(`{"name":"Test"}`),
+		})
+		if err != nil {
+			t.Fatalf("create submission: %v", err)
+		}
+	}
+
+	stats, err := svc.GetFormStats(context.Background(), GetFormStatsInput{
+		TenantID:     testTenant,
+		FormSchemaID: schemaID,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stats.TotalCount != 2 {
+		t.Errorf("expected TotalCount=2, got %d", stats.TotalCount)
+	}
+	if stats.NewCount != 2 {
+		t.Errorf("expected NewCount=2, got %d", stats.NewCount)
+	}
+	// All submissions were just created, so they fall within 7d and 30d
+	if stats.Last7dCount != 2 {
+		t.Errorf("expected Last7dCount=2, got %d", stats.Last7dCount)
+	}
+	if stats.Last30dCount != 2 {
+		t.Errorf("expected Last30dCount=2, got %d", stats.Last30dCount)
+	}
+	if stats.FormSchemaID != schemaID {
+		t.Errorf("expected FormSchemaID=%v, got %v", schemaID, stats.FormSchemaID)
+	}
+}
+
+func TestGetFormStats_InvalidTenantID_ReturnsError(t *testing.T) {
+	svc, _ := newSvc()
+	_, err := svc.GetFormStats(context.Background(), GetFormStatsInput{
+		TenantID:     uuid.Nil,
+		FormSchemaID: uuid.New(),
+	})
+	if !errors.Is(err, ErrInvalidFields) {
+		t.Errorf("expected ErrInvalidFields for nil tenant_id, got %v", err)
+	}
+}
+
+func TestGetFormStats_InvalidFormSchemaID_ReturnsError(t *testing.T) {
+	svc, _ := newSvc()
+	_, err := svc.GetFormStats(context.Background(), GetFormStatsInput{
+		TenantID:     testTenant,
+		FormSchemaID: uuid.Nil,
+	})
+	if !errors.Is(err, ErrInvalidFields) {
+		t.Errorf("expected ErrInvalidFields for nil form_schema_id, got %v", err)
+	}
+}
+
+func TestGetFormStats_EmptySchema_ReturnsZeroCounts(t *testing.T) {
+	svc, _ := newSvc()
+	schema := mustCreateSchema(t, svc)
+
+	stats, err := svc.GetFormStats(context.Background(), GetFormStatsInput{
+		TenantID:     testTenant,
+		FormSchemaID: schema.ID,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stats.TotalCount != 0 || stats.NewCount != 0 || stats.Last7dCount != 0 || stats.Last30dCount != 0 {
+		t.Errorf("expected all-zero stats for empty schema, got %+v", stats)
 	}
 }

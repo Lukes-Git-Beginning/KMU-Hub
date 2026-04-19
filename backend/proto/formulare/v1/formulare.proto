@@ -31,6 +31,9 @@ service FormulareService {
 
   // Delivery Observability
   rpc ListWebhookDeliveries(ListWebhookDeliveriesRequest) returns (ListWebhookDeliveriesResponse);
+
+  // Stats
+  rpc GetFormStats(GetFormStatsRequest) returns (GetFormStatsResponse);
 }
 
 // ============================================================================
@@ -339,4 +342,25 @@ message ListWebhookDeliveriesRequest {
 message ListWebhookDeliveriesResponse {
   repeated WebhookDelivery deliveries = 1;
   int32 total = 2;
+}
+
+// ============================================================================
+// Stats — Requests / Responses
+// ============================================================================
+
+message GetFormStatsRequest {
+  string tenant_id = 1;
+  string form_schema_id = 2;
+}
+
+message FormStats {
+  string form_schema_id = 1;
+  int32 total_count = 2;
+  int32 new_count = 3;
+  int32 last_7d_count = 4;
+  int32 last_30d_count = 5;
+}
+
+message GetFormStatsResponse {
+  FormStats stats = 1;
 }

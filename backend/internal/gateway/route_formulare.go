@@ -61,6 +61,7 @@ func (fr *FormulareRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http
 				r.With(middleware.RequirePermission("formulare:schemas", "write")).Patch("/", fr.HandleUpdateFormSchema)
 				r.With(middleware.RequirePermission("formulare:schemas", "write")).Delete("/", fr.HandleDeleteFormSchema)
 				r.With(middleware.RequirePermission("formulare:schemas", "write")).Post("/duplicate", fr.HandleDuplicateFormSchema)
+				r.With(middleware.RequirePermission("formulare:submissions", "read")).Get("/stats", fr.HandleGetFormStats)
 
 				// Submissions nested under schema
 				r.Route("/submissions", func(r chi.Router) {
@@ -707,6 +708,31 @@ func (fr *FormulareRoutes) HandleListWebhookDeliveriesForWebhook(w http.Response
 	}
 
 	resp, err := client.ListWebhookDeliveries(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// HandleGetFormStats returns aggregated submission statistics for a form schema.
+// Route: GET /schemas/{id}/stats
+func (fr *FormulareRoutes) HandleGetFormStats(w http.ResponseWriter, r *http.Request) {
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GetFormStats(r.Context(), &formularev1.GetFormStatsRequest{
+		TenantId:     formularePlaceholderTenantID,
+		FormSchemaId: id,
+	})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
