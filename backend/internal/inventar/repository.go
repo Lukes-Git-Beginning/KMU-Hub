@@ -25,7 +25,7 @@ type Repository interface {
 
 	// Movements
 	CreateMovement(ctx context.Context, movement *Movement) error
-	GetMovement(ctx context.Context, movementID uuid.UUID) (*Movement, error)
+	GetMovement(ctx context.Context, tenantID, movementID uuid.UUID) (*Movement, error)
 	ListMovements(ctx context.Context, tenantID, itemID uuid.UUID, offset, limit int) ([]*Movement, int, error)
 
 	// Warnings

@@ -43,6 +43,16 @@ type Repository interface {
 	// excludeID can be set to exclude a specific booking (for updates). Returns nil if no conflict.
 	FindConflictingBooking(ctx context.Context, tenantID uuid.UUID, machineID string, startsAt, endsAt time.Time, excludeID *uuid.UUID) (*uuid.UUID, error)
 
+	// CreateBookingWithLock atomically checks for conflicts and inserts a new booking under a
+	// pg_advisory_xact_lock keyed by tenant_id||':'||machine_id. This serialises concurrent
+	// create-booking requests for the same (tenant, machine) pair and prevents double-booking.
+	//
+	// Return values:
+	//   conflictID non-nil, err nil  → a conflicting booking exists; caller should return ErrBookingConflict
+	//   conflictID nil, err nil      → booking created successfully
+	//   conflictID nil, err non-nil  → unexpected DB error
+	CreateBookingWithLock(ctx context.Context, booking *MachineBooking) (conflictID *uuid.UUID, err error)
+
 	// Production Plans
 	CreatePlan(ctx context.Context, plan *ProductionPlan) error
 	UpdatePlan(ctx context.Context, plan *ProductionPlan) error

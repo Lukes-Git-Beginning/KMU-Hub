@@ -113,11 +113,12 @@ export function useStartRecording() {
   })
 }
 
-/** Stop an active recording. */
+/** Stop an active recording. Caller must pass the recording id, not the call id —
+ * the backend route is /recordings/{id}/stop. */
 export function useStopRecording() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (callId: string) => stopRecording(callId),
+    mutationFn: (recordingId: string) => stopRecording(recordingId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['recordings'] })
     },

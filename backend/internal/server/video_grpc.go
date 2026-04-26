@@ -361,28 +361,16 @@ func (s *VideoGRPCServer) DeleteRecording(ctx context.Context, req *videov1.Dele
 		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
 	}
 
-	// Delete via cleanup (the recording service doesn't have a direct user-facing delete,
-	// but the repo does -- we reuse the listing + deletion pattern)
 	_ = req.UserId // Authorization handled at gateway level
 
-	recordings, listErr := s.recordingService.ListRecordings(ctx, nil, nil)
-	if listErr != nil {
-		return nil, mapRecordingError(listErr)
+	// Verify the recording exists. Earlier revisions called ListRecordings(nil, nil)
+	// which returns ErrNoCallOrMeeting and made every Delete return 500.
+	if _, getErr := s.recordingService.GetRecordingStatus(ctx, recordingID); getErr != nil {
+		return nil, mapRecordingError(getErr)
 	}
 
-	// Find and verify the recording exists
-	found := false
-	for _, r := range recordings {
-		if r.ID == recordingID {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return nil, status.Error(codes.NotFound, "recording not found")
-	}
-
-	// Mark as deleted by failing it (soft delete pattern)
+	// Mark as deleted by failing it (soft delete pattern). A dedicated DeleteRecording
+	// service method is on the Sprint 3 backlog.
 	if err := s.recordingService.FailRecording(ctx, recordingID, "deleted by user"); err != nil {
 		return nil, mapRecordingError(err)
 	}

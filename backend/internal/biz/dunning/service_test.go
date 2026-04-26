@@ -820,3 +820,170 @@ func TestCalculateInterest_LargeAmount(t *testing.T) {
 	// B2B: 50000 * 12.62% * ~182/365 ~= 3147
 	assert.True(t, interest.GreaterThan(decimal.NewFromInt(2500)))
 }
+
+// ---------------------------------------------------------------------------
+// UpdateDunningStatus Tests (Review-Befund #15)
+// ---------------------------------------------------------------------------
+
+func TestService_UpdateDunningStatus_DraftToSent(t *testing.T) {
+	tenantID := uuid.New()
+	recordID := uuid.New()
+
+	repo := NewMockRepository()
+	repo.addRecord(&models.DunningRecord{
+		ID:       recordID,
+		TenantID: tenantID,
+		Level:    1,
+		Status:   models.DunningStatusDraft,
+	})
+
+	svc := NewService(repo, &MockConfigRepository{}, NewMockInvoiceReader())
+
+	result, err := svc.UpdateDunningStatus(context.Background(), tenantID, recordID, models.DunningStatusSent)
+	require.NoError(t, err)
+	assert.Equal(t, models.DunningStatusSent, result.Status)
+	assert.NotNil(t, result.SentAt, "sent_at must be set when transitioning to sent")
+}
+
+func TestService_UpdateDunningStatus_InvalidStatus(t *testing.T) {
+	tenantID := uuid.New()
+	recordID := uuid.New()
+
+	repo := NewMockRepository()
+	repo.addRecord(&models.DunningRecord{
+		ID:       recordID,
+		TenantID: tenantID,
+		Level:    1,
+		Status:   models.DunningStatusSent,
+	})
+
+	svc := NewService(repo, &MockConfigRepository{}, NewMockInvoiceReader())
+
+	_, err := svc.UpdateDunningStatus(context.Background(), tenantID, recordID, "withdrawn")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid dunning status")
+}
+
+func TestService_UpdateDunningStatus_NotFound(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo, &MockConfigRepository{}, NewMockInvoiceReader())
+
+	_, err := svc.UpdateDunningStatus(context.Background(), uuid.New(), uuid.New(), models.DunningStatusSent)
+	assert.ErrorIs(t, err, ErrDunningNotFound)
+}
+
+// ---------------------------------------------------------------------------
+// SendDunningNotice Tests (Review-Befund #15)
+// ---------------------------------------------------------------------------
+
+func TestService_SendDunningNotice_Success(t *testing.T) {
+	tenantID := uuid.New()
+	recordID := uuid.New()
+	userID := uuid.New()
+	invoiceID := uuid.New()
+
+	repo := NewMockRepository()
+	repo.addRecord(&models.DunningRecord{
+		ID:        recordID,
+		TenantID:  tenantID,
+		InvoiceID: invoiceID,
+		Level:     1,
+		Status:    models.DunningStatusDraft,
+	})
+
+	svc := NewService(repo, &MockConfigRepository{}, NewMockInvoiceReader())
+
+	result, err := svc.SendDunningNotice(context.Background(), tenantID, recordID, userID)
+	require.NoError(t, err)
+	assert.Equal(t, models.DunningStatusSent, result.Status)
+	assert.NotNil(t, result.SentAt, "sent_at must be set after SendDunningNotice")
+}
+
+func TestService_SendDunningNotice_NotDraft(t *testing.T) {
+	tenantID := uuid.New()
+	recordID := uuid.New()
+
+	repo := NewMockRepository()
+	repo.addRecord(&models.DunningRecord{
+		ID:       recordID,
+		TenantID: tenantID,
+		Level:    1,
+		Status:   models.DunningStatusSent, // already sent
+	})
+
+	svc := NewService(repo, &MockConfigRepository{}, NewMockInvoiceReader())
+
+	_, err := svc.SendDunningNotice(context.Background(), tenantID, recordID, uuid.New())
+	assert.ErrorIs(t, err, ErrDunningNotDraft)
+}
+
+func TestService_SendDunningNotice_NotFound(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo, &MockConfigRepository{}, NewMockInvoiceReader())
+
+	_, err := svc.SendDunningNotice(context.Background(), uuid.New(), uuid.New(), uuid.New())
+	assert.ErrorIs(t, err, ErrDunningNotFound)
+}
+
+// ---------------------------------------------------------------------------
+// GenerateGoBDExport Tests (Review-Befund #15)
+// ---------------------------------------------------------------------------
+
+func TestService_GenerateGoBDExport_HasUTF8BOM(t *testing.T) {
+	svc := NewService(NewMockRepository(), &MockConfigRepository{}, NewMockInvoiceReader())
+	tenantID := uuid.New()
+	from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)
+	rows := []GoBDExportRow{
+		{
+			InvoiceNumber: "RE-2026-0001",
+			InvoiceDate:   "2026-03-01",
+			CustomerName:  "Test GmbH",
+			GrossTotal:    "238.00",
+			Status:        "sent",
+			TaxMode:       "standard",
+		},
+	}
+
+	result, err := svc.GenerateGoBDExport(context.Background(), tenantID, from, to, rows)
+
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(result.CSVData), 3, "CSV must be at least 3 bytes (BOM)")
+	assert.Equal(t, []byte{0xEF, 0xBB, 0xBF}, result.CSVData[:3], "CSV must start with UTF-8 BOM")
+}
+
+func TestService_GenerateGoBDExport_HeaderRow(t *testing.T) {
+	svc := NewService(NewMockRepository(), &MockConfigRepository{}, NewMockInvoiceReader())
+	tenantID := uuid.New()
+	from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)
+
+	result, err := svc.GenerateGoBDExport(context.Background(), tenantID, from, to, []GoBDExportRow{})
+
+	require.NoError(t, err)
+	// Strip the 3-byte BOM and inspect the first content line
+	content := string(result.CSVData[3:])
+	assert.Contains(t, content, "BelegNr", "header must contain BelegNr")
+	assert.Contains(t, content, "BelegDatum", "header must contain BelegDatum")
+	assert.Contains(t, content, "Empfaenger", "header must contain Empfaenger")
+	assert.Contains(t, content, "Bruttobetrag", "header must contain Bruttobetrag")
+	assert.Contains(t, content, "Status", "header must contain Status")
+	assert.Contains(t, content, "Steuerart", "header must contain Steuerart")
+}
+
+func TestService_GenerateGoBDExport_RowCount(t *testing.T) {
+	svc := NewService(NewMockRepository(), &MockConfigRepository{}, NewMockInvoiceReader())
+	tenantID := uuid.New()
+	from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)
+	rows := []GoBDExportRow{
+		{InvoiceNumber: "RE-2026-0001", InvoiceDate: "2026-01-15", CustomerName: "Alpha GmbH", GrossTotal: "100.00", Status: "sent", TaxMode: "standard"},
+		{InvoiceNumber: "RE-2026-0002", InvoiceDate: "2026-02-10", CustomerName: "Beta AG", GrossTotal: "200.00", Status: "paid", TaxMode: "standard"},
+		{InvoiceNumber: "RE-2026-0003", InvoiceDate: "2026-03-05", CustomerName: "Gamma KG", GrossTotal: "50.00", Status: "sent", TaxMode: "reduced"},
+	}
+
+	result, err := svc.GenerateGoBDExport(context.Background(), tenantID, from, to, rows)
+
+	require.NoError(t, err)
+	assert.Equal(t, 3, result.RowCount)
+}

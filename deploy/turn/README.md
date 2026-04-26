@@ -90,41 +90,42 @@ journalctl -u coturn -n 50
 
 ## Step 5 — LiveKit integration on app server
 
-See `deploy/turn/livekit-integration.md` for the full Before/After diff.
+> **The earlier revision of this section (uncomment `livekit-turn.yaml`, add a
+> `turn:` block to `livekit.yaml`) was wrong.** LiveKit's `turn:` block
+> configures LiveKit's *own* embedded TURN server, not an external one — putting
+> `turn.zentria.tech` there causes a port conflict and a half-broken setup.
+>
+> The correct integration is the **Metadata-JSON** strategy: per-session TURN
+> credentials are embedded in every LiveKit AccessToken by the Go backend (HMAC-SHA1
+> over `<expiry>:<identity>`). LiveKit itself stays unaware of coturn — it just
+> hands the metadata to the client, which uses it for ICE.
+>
+> See `deploy/turn/livekit-integration.md` for the implementation details and
+> Before/After diff.
 
-Summary of what to do on `178.104.38.195`:
+What you actually need to do on `178.104.38.195`:
 
-1. Add to `/opt/kmuhub/deploy/docker/.env.production`:
+1. Add to `/opt/kmuhub/.env.production`:
    ```
-   TURN_SECRET=REPLACE_ME
+   TURN_SECRET=REPLACE_ME      # must match static-auth-secret in /etc/turnserver.conf on the TURN host
    COTURN_HOST=turn.zentria.tech
    ```
 
-2. Edit `deploy/docker/docker-compose.prod.yml` — uncomment the `livekit` volumes block:
-   ```yaml
-   volumes:
-     - ./livekit.yaml:/etc/livekit.yaml
-     - ./livekit-turn.yaml:/etc/livekit-turn.yaml
-   command: --config /etc/livekit.yaml --config /etc/livekit-turn.yaml
-   ```
-
-3. Update `deploy/docker/livekit-turn.yaml` — set `external_tls: false` for MVP
-   (plain TURN only, no TLS cert yet):
-   ```yaml
-   turn:
-     enabled: true
-     domain: turn.zentria.tech
-     udp_port: 3478
-     external_tls: false
-   ```
-
-4. Restart LiveKit:
+2. Restart the affected app services so they pick up the new env vars:
    ```bash
    ssh -i ~/.ssh/hetzner_kmuhub deploy@178.104.38.195
-   cd /opt/kmuhub/deploy/docker
-   sudo docker compose -f docker-compose.yml -f docker-compose.prod.yml restart livekit
-   sudo docker compose logs livekit --tail=30
+   cd /opt/kmuhub
+   sudo docker compose --env-file .env.production \
+     -f deploy/docker/docker-compose.yml -f deploy/docker/docker-compose.prod.yml \
+     restart work gateway
    ```
+
+3. Verify a freshly issued AccessToken contains TURN ICE servers in the Metadata
+   field — see Step 6 below for the smoke-test.
+
+**Do not** edit `livekit.yaml` to add a `turn:` block, and **do not** mount
+`livekit-turn.yaml`. Those files exist only as historical reference and are
+superseded by the AccessToken-Metadata approach.
 
 ---
 

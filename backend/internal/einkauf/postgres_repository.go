@@ -51,11 +51,17 @@ func (r *PostgresRepository) UpdateSupplier(ctx context.Context, s *Supplier) er
 
 func (r *PostgresRepository) DeleteSupplier(ctx context.Context, tenantID, supplierID uuid.UUID) error {
 	now := time.Now()
-	_, err := r.pool.Exec(ctx,
+	ct, err := r.pool.Exec(ctx,
 		`UPDATE suppliers SET deleted_at = $1, updated_at = $1 WHERE id = $2 AND tenant_id = $3 AND deleted_at IS NULL`,
 		now, supplierID, tenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrSupplierNotFound
+	}
+	return nil
 }
 
 func (r *PostgresRepository) GetSupplier(ctx context.Context, tenantID, supplierID uuid.UUID) (*Supplier, error) {
@@ -134,7 +140,7 @@ func (r *PostgresRepository) CreatePO(ctx context.Context, po *PurchaseOrder) er
 }
 
 func (r *PostgresRepository) UpdatePO(ctx context.Context, po *PurchaseOrder) error {
-	_, err := r.pool.Exec(ctx,
+	ct, err := r.pool.Exec(ctx,
 		`UPDATE purchase_orders
 		 SET supplier_id = $1, po_number = $2, status = $3, order_date = $4,
 		     expected_delivery_date = $5, total_amount = $6, currency = $7,
@@ -144,15 +150,30 @@ func (r *PostgresRepository) UpdatePO(ctx context.Context, po *PurchaseOrder) er
 		po.ExpectedDeliveryDate, po.TotalAmount, po.Currency,
 		po.Notes, po.UpdatedAt, po.ID, po.TenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrPONotFound
+	}
+	return nil
 }
 
 func (r *PostgresRepository) DeletePO(ctx context.Context, tenantID, poID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx,
-		`DELETE FROM purchase_orders WHERE id = $1 AND tenant_id = $2`,
+	// Defense-in-depth: only draft POs may be deleted. The service layer also
+	// checks this, but a direct repo call (admin tool, future caller) must not
+	// be able to wipe submitted/received purchase orders.
+	ct, err := r.pool.Exec(ctx,
+		`DELETE FROM purchase_orders WHERE id = $1 AND tenant_id = $2 AND status = 'draft'`,
 		poID, tenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrPONotDraft
+	}
+	return nil
 }
 
 func (r *PostgresRepository) GetPO(ctx context.Context, tenantID, poID uuid.UUID) (*PurchaseOrder, error) {
@@ -248,11 +269,17 @@ func (r *PostgresRepository) ListPOs(ctx context.Context, tenantID uuid.UUID, fi
 
 func (r *PostgresRepository) UpdatePOStatus(ctx context.Context, tenantID, poID uuid.UUID, status POStatus) error {
 	now := time.Now()
-	_, err := r.pool.Exec(ctx,
+	ct, err := r.pool.Exec(ctx,
 		`UPDATE purchase_orders SET status = $1, updated_at = $2 WHERE id = $3 AND tenant_id = $4`,
 		status, now, poID, tenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrPONotFound
+	}
+	return nil
 }
 
 func (r *PostgresRepository) PONumberExists(ctx context.Context, tenantID uuid.UUID, poNumber string, excludeID *uuid.UUID) (bool, error) {

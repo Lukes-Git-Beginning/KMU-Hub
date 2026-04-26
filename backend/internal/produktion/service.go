@@ -382,7 +382,11 @@ func (s *Service) CancelOrder(ctx context.Context, tenantID, orderID uuid.UUID) 
 // Booking methods
 // ============================================================================
 
-// CreateMachineBooking creates a new machine booking with conflict detection.
+// CreateMachineBooking creates a new machine booking with atomic conflict detection.
+//
+// The conflict-check and INSERT are executed inside a single Postgres transaction protected by
+// pg_advisory_xact_lock (via CreateBookingWithLock), eliminating the TOCTOU race that existed
+// when FindConflictingBooking and CreateBooking were two separate non-transactional calls.
 func (s *Service) CreateMachineBooking(ctx context.Context, input CreateBookingInput) (*MachineBooking, error) {
 	machineID := strings.TrimSpace(input.MachineID)
 	if machineID == "" {
@@ -390,14 +394,6 @@ func (s *Service) CreateMachineBooking(ctx context.Context, input CreateBookingI
 	}
 	if !input.EndsAt.After(input.StartsAt) {
 		return nil, ErrInvalidInput
-	}
-
-	conflictID, err := s.repo.FindConflictingBooking(ctx, input.TenantID, machineID, input.StartsAt, input.EndsAt, nil)
-	if err != nil {
-		return nil, fmt.Errorf("check booking conflict: %w", err)
-	}
-	if conflictID != nil {
-		return nil, fmt.Errorf("%w: conflicts with booking %s", ErrBookingConflict, conflictID)
 	}
 
 	now := time.Now()
@@ -415,8 +411,12 @@ func (s *Service) CreateMachineBooking(ctx context.Context, input CreateBookingI
 		UpdatedAt:         now,
 	}
 
-	if createErr := s.repo.CreateBooking(ctx, booking); createErr != nil {
-		return nil, fmt.Errorf("create booking: %w", createErr)
+	conflictID, err := s.repo.CreateBookingWithLock(ctx, booking)
+	if err != nil {
+		return nil, fmt.Errorf("create booking: %w", err)
+	}
+	if conflictID != nil {
+		return nil, fmt.Errorf("%w: conflicts with booking %s", ErrBookingConflict, conflictID)
 	}
 
 	slog.Info("machine booking created",

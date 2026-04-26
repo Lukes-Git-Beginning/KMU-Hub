@@ -191,6 +191,22 @@ func validateProductionSecrets(cfg *Config) error {
 	}
 
 	var errs []string
+
+	// TURN must be configured symmetrically. A half-configured TURN (host without
+	// secret, or vice-versa) issues join tokens with TURN URLs but invalid credentials,
+	// so the client probes TURN, gets HTTP 401 from coturn, and falls back to STUN
+	// after a noticeable latency spike. Refuse to start in production when only one
+	// of the two values is set.
+	turnHostSet := cfg.COTURNHost != ""
+	turnSecretSet := cfg.TURNSecret != ""
+	if turnHostSet != turnSecretSet {
+		if turnHostSet {
+			errs = append(errs, "COTURN_HOST is set but TURN_SECRET is empty — half-configured TURN issues invalid credentials")
+		} else {
+			errs = append(errs, "TURN_SECRET is set but COTURN_HOST is empty — secret has no host to authenticate against")
+		}
+	}
+
 	for _, c := range checks {
 		if c.skipEmpty && c.value == "" {
 			continue

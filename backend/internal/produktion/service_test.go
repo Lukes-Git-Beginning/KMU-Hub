@@ -2,6 +2,8 @@ package produktion
 
 import (
 	"context"
+	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,6 +17,7 @@ import (
 // ============================================================================
 
 type mockRepository struct {
+	mu       sync.Mutex // guards all map access and CreateBookingWithLock atomicity
 	orders   map[uuid.UUID]*ProductionOrder
 	bookings map[uuid.UUID]*MachineBooking
 	plans    map[uuid.UUID]*ProductionPlan
@@ -94,6 +97,8 @@ func (m *mockRepository) OrderNumberExists(ctx context.Context, tenantID uuid.UU
 }
 
 func (m *mockRepository) CreateBooking(ctx context.Context, booking *MachineBooking) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if m.createBookingErr != nil {
 		return m.createBookingErr
 	}
@@ -102,11 +107,15 @@ func (m *mockRepository) CreateBooking(ctx context.Context, booking *MachineBook
 }
 
 func (m *mockRepository) UpdateBooking(ctx context.Context, booking *MachineBooking) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.bookings[booking.ID] = booking
 	return nil
 }
 
 func (m *mockRepository) GetBooking(ctx context.Context, tenantID, bookingID uuid.UUID) (*MachineBooking, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	b, ok := m.bookings[bookingID]
 	if !ok || b.TenantID != tenantID {
 		return nil, ErrBookingNotFound
@@ -115,6 +124,8 @@ func (m *mockRepository) GetBooking(ctx context.Context, tenantID, bookingID uui
 }
 
 func (m *mockRepository) ListBookings(ctx context.Context, tenantID uuid.UUID, filter ListBookingsFilter, offset, limit int) ([]*MachineBooking, int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	var result []*MachineBooking
 	for _, b := range m.bookings {
 		if b.TenantID != tenantID {
@@ -134,11 +145,15 @@ func (m *mockRepository) ListBookings(ctx context.Context, tenantID uuid.UUID, f
 }
 
 func (m *mockRepository) DeleteBooking(ctx context.Context, tenantID, bookingID uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	delete(m.bookings, bookingID)
 	return nil
 }
 
 func (m *mockRepository) FindConflictingBooking(ctx context.Context, tenantID uuid.UUID, machineID string, startsAt, endsAt time.Time, excludeID *uuid.UUID) (*uuid.UUID, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	// Simple overlap check across all stored bookings (mirrors real SQL logic).
 	for _, b := range m.bookings {
 		if b.TenantID != tenantID || b.MachineID != machineID {
@@ -156,6 +171,36 @@ func (m *mockRepository) FindConflictingBooking(ctx context.Context, tenantID uu
 			return &id, nil
 		}
 	}
+	return nil, nil
+}
+
+// CreateBookingWithLock simulates the advisory-lock Tx from PostgresRepository.
+// The mutex on mockRepository ensures only one goroutine runs the check+insert at a time,
+// mirroring the serialisation that pg_advisory_xact_lock provides in production.
+func (m *mockRepository) CreateBookingWithLock(ctx context.Context, booking *MachineBooking) (*uuid.UUID, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Conflict check (identical logic to FindConflictingBooking but under the same lock).
+	for _, b := range m.bookings {
+		if b.TenantID != booking.TenantID || b.MachineID != booking.MachineID {
+			continue
+		}
+		if b.Status != BookingStatusBooked && b.Status != BookingStatusInUse {
+			continue
+		}
+		// Overlap: b.starts_at < booking.EndsAt AND b.ends_at > booking.StartsAt
+		if b.StartsAt.Before(booking.EndsAt) && b.EndsAt.After(booking.StartsAt) {
+			id := b.ID
+			return &id, nil
+		}
+	}
+
+	// No conflict — store the booking.
+	if m.createBookingErr != nil {
+		return nil, m.createBookingErr
+	}
+	m.bookings[booking.ID] = booking
 	return nil, nil
 }
 
@@ -726,4 +771,88 @@ func TestService_GetCapacityOverview_Success(t *testing.T) {
 	assert.Equal(t, 40.0, overview.TotalCapacityHours)
 	assert.Equal(t, 8.0, overview.BookedHours)
 	assert.Equal(t, 32.0, overview.AvailableHours)
+}
+
+// ============================================================================
+// Race Condition Test
+// ============================================================================
+
+// TestService_CreateMachineBooking_RaceConditionMutex verifies that the
+// advisory-lock pattern (simulated via sync.Mutex in the mock) prevents
+// double-booking under concurrent load.
+//
+// 50 goroutines all attempt to book the exact same machine for the exact same
+// time window simultaneously.  Exactly one must succeed; the other 49 must
+// receive ErrBookingConflict.  After the test, the repo must contain exactly
+// one booking for that machine.
+func TestService_CreateMachineBooking_RaceConditionMutex(t *testing.T) {
+	const goroutines = 50
+
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	orderID := uuid.New()
+	machineID := "RACE-MACHINE-001"
+	startsAt := time.Date(2026, 7, 1, 8, 0, 0, 0, time.UTC)
+	endsAt := time.Date(2026, 7, 1, 16, 0, 0, 0, time.UTC)
+
+	type result struct {
+		booking *MachineBooking
+		err     error
+	}
+
+	results := make([]result, goroutines)
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+
+	for i := range goroutines {
+		go func(idx int) {
+			defer wg.Done()
+			b, err := svc.CreateMachineBooking(context.Background(), CreateBookingInput{
+				TenantID:          tenantID,
+				MachineID:         machineID,
+				ProductionOrderID: orderID,
+				StartsAt:          startsAt,
+				EndsAt:            endsAt,
+			})
+			results[idx] = result{booking: b, err: err}
+		}(i)
+	}
+
+	wg.Wait()
+
+	var successes, conflicts, other int
+	for _, r := range results {
+		switch {
+		case r.err == nil:
+			successes++
+		case isBookingConflict(r.err):
+			conflicts++
+		default:
+			other++
+			t.Errorf("unexpected error: %v", r.err)
+		}
+	}
+
+	assert.Equal(t, 1, successes, "exactly one goroutine must succeed")
+	assert.Equal(t, goroutines-1, conflicts, "all other goroutines must get ErrBookingConflict")
+	assert.Equal(t, 0, other, "no unexpected errors")
+
+	// Verify exactly one booking in the repo.
+	repo.mu.Lock()
+	bookingCount := 0
+	for _, b := range repo.bookings {
+		if b.MachineID == machineID && b.TenantID == tenantID {
+			bookingCount++
+		}
+	}
+	repo.mu.Unlock()
+
+	assert.Equal(t, 1, bookingCount, "repo must contain exactly one booking after concurrent attempts")
+}
+
+// isBookingConflict unwraps wrapped errors to check for ErrBookingConflict.
+func isBookingConflict(err error) bool {
+	return errors.Is(err, ErrBookingConflict)
 }

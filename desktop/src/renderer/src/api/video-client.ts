@@ -191,10 +191,10 @@ export const listActiveCalls = () =>
 // ---------------------------------------------------------------------------
 
 export const startRecording = (callId: string) =>
-  post<Recording>(`/api/v1/video/calls/${callId}/recording/start`)
+  post<Recording>('/api/v1/video/recordings/start', { call_id: callId })
 
-export const stopRecording = (callId: string) =>
-  post<Recording>(`/api/v1/video/calls/${callId}/recording/stop`)
+export const stopRecording = (recordingId: string) =>
+  post<Recording>(`/api/v1/video/recordings/${recordingId}/stop`)
 
 export const setRecordingConsent = (recordingId: string, consented: boolean) =>
   post<void>(`/api/v1/video/recordings/${recordingId}/consent`, { consented })

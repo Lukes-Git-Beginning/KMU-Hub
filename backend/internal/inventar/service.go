@@ -298,18 +298,22 @@ func (s *Service) AdjustStock(ctx context.Context, input AdjustStockInput) (*Ite
 		return nil, err
 	}
 
-	item.Quantity = max(item.Quantity+input.Delta, 0)
+	if item.Quantity+input.Delta < 0 {
+		return nil, ErrInsufficientStock
+	}
+
+	item.Quantity = item.Quantity + input.Delta
 	item.UpdatedAt = time.Now()
 
 	if updateErr := s.repo.UpdateItem(ctx, item); updateErr != nil {
 		return nil, fmt.Errorf("update item quantity: %w", updateErr)
 	}
 
-	movementType := MovementTypeIn
+	movementType := MovementTypeAdjustment
 	if input.Delta < 0 {
 		movementType = MovementTypeOut
-	} else {
-		movementType = MovementTypeAdjustment
+	} else if input.Delta > 0 {
+		movementType = MovementTypeIn
 	}
 
 	movement := &Movement{
@@ -352,13 +356,14 @@ func (s *Service) TransferStock(ctx context.Context, input TransferStockInput) e
 		return err
 	}
 
+	if fromItem.Quantity < input.Quantity {
+		return ErrInsufficientStock
+	}
+
 	now := time.Now()
 
 	// Deduct from source
 	fromItem.Quantity -= input.Quantity
-	if fromItem.Quantity < 0 {
-		fromItem.Quantity = 0
-	}
 	fromItem.UpdatedAt = now
 	if updateErr := s.repo.UpdateItem(ctx, fromItem); updateErr != nil {
 		return fmt.Errorf("update from-item quantity: %w", updateErr)

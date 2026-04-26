@@ -287,24 +287,45 @@ func (r *PostgresRepository) DeleteBooking(ctx context.Context, tenantID, bookin
 // If btree_gist is confirmed available the query can be replaced with:
 //
 //	tstzrange(starts_at, ends_at, '[)') && tstzrange($4, $5, '[)')
+//
+// Note: when excludeID is nil, the WHERE clause omits the id-exclusion entirely.
+// Earlier revisions substituted uuid.UUID{} as a sentinel, which silently filtered
+// out any booking that happened to use the zero UUID — the dedicated branches below
+// remove that fragile coupling.
+//
+// Race condition note: this method alone does NOT protect against concurrent double-booking.
+// For atomic conflict-check + insert use CreateBookingWithLock, which wraps both operations
+// in a single transaction guarded by pg_advisory_xact_lock(hashtext(tenant_id||':'||machine_id)).
 func (r *PostgresRepository) FindConflictingBooking(ctx context.Context, tenantID uuid.UUID, machineID string, startsAt, endsAt time.Time, excludeID *uuid.UUID) (*uuid.UUID, error) {
-	nilUUID := uuid.UUID{}
-	if excludeID == nil {
-		excludeID = &nilUUID
-	}
+	var (
+		conflictID uuid.UUID
+		err        error
+	)
 
-	var conflictID uuid.UUID
-	err := r.pool.QueryRow(ctx,
-		`SELECT id FROM machine_bookings
-		 WHERE tenant_id = $1
-		   AND machine_id = $2
-		   AND status IN ('booked', 'in_use')
-		   AND id != $3
-		   AND starts_at < $5
-		   AND ends_at > $4
-		 LIMIT 1`,
-		tenantID, machineID, *excludeID, startsAt, endsAt,
-	).Scan(&conflictID)
+	if excludeID == nil {
+		err = r.pool.QueryRow(ctx,
+			`SELECT id FROM machine_bookings
+			 WHERE tenant_id = $1
+			   AND machine_id = $2
+			   AND status IN ('booked', 'in_use')
+			   AND starts_at < $4
+			   AND ends_at > $3
+			 LIMIT 1`,
+			tenantID, machineID, startsAt, endsAt,
+		).Scan(&conflictID)
+	} else {
+		err = r.pool.QueryRow(ctx,
+			`SELECT id FROM machine_bookings
+			 WHERE tenant_id = $1
+			   AND machine_id = $2
+			   AND status IN ('booked', 'in_use')
+			   AND id != $3
+			   AND starts_at < $5
+			   AND ends_at > $4
+			 LIMIT 1`,
+			tenantID, machineID, *excludeID, startsAt, endsAt,
+		).Scan(&conflictID)
+	}
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
@@ -313,6 +334,76 @@ func (r *PostgresRepository) FindConflictingBooking(ctx context.Context, tenantI
 		return nil, fmt.Errorf("find conflicting booking: %w", err)
 	}
 	return &conflictID, nil
+}
+
+// CreateBookingWithLock atomically creates a machine booking under a Postgres advisory lock.
+//
+// The lock key is hashtext(tenant_id::text || ':' || machine_id), scoped to the transaction.
+// This serialises all concurrent booking attempts for the same (tenant, machine) pair without
+// touching any unrelated rows or tables. The approach avoids btree_gist (extension dependency)
+// and the impossibility of SELECT FOR UPDATE on a not-yet-existing row.
+//
+// Flow:
+//  1. BeginTx (ReadCommitted)
+//  2. pg_advisory_xact_lock — blocks until no other session holds the lock for this key
+//  3. Conflict check inside the locked Tx
+//  4a. Conflict found → Rollback; return (conflictID, nil)
+//  4b. No conflict    → INSERT + Commit; return (nil, nil)
+func (r *PostgresRepository) CreateBookingWithLock(ctx context.Context, booking *MachineBooking) (*uuid.UUID, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // no-op if already committed
+
+	// Acquire advisory lock scoped to this transaction.
+	lockKey := booking.TenantID.String() + ":" + booking.MachineID
+	if _, lockErr := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, lockKey); lockErr != nil {
+		return nil, fmt.Errorf("acquire advisory lock: %w", lockErr)
+	}
+
+	// Conflict check (same logic as FindConflictingBooking but using the open Tx).
+	var conflictID uuid.UUID
+	scanErr := tx.QueryRow(ctx,
+		`SELECT id FROM machine_bookings
+		 WHERE tenant_id = $1
+		   AND machine_id = $2
+		   AND status IN ('booked', 'in_use')
+		   AND starts_at < $4
+		   AND ends_at > $3
+		 LIMIT 1`,
+		booking.TenantID, booking.MachineID, booking.StartsAt, booking.EndsAt,
+	).Scan(&conflictID)
+
+	if scanErr != nil && !errors.Is(scanErr, pgx.ErrNoRows) {
+		return nil, fmt.Errorf("conflict check in tx: %w", scanErr)
+	}
+	if scanErr == nil {
+		// Conflict found — rollback and signal caller.
+		_ = tx.Rollback(ctx)
+		id := conflictID
+		return &id, nil
+	}
+
+	// No conflict — insert.
+	_, insertErr := tx.Exec(ctx,
+		`INSERT INTO machine_bookings
+		    (id, tenant_id, machine_id, production_order_id, starts_at, ends_at,
+		     status, notes, created_by, created_at, updated_at)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		booking.ID, booking.TenantID, booking.MachineID, booking.ProductionOrderID,
+		booking.StartsAt, booking.EndsAt, booking.Status, booking.Notes,
+		booking.CreatedBy, booking.CreatedAt, booking.UpdatedAt,
+	)
+	if insertErr != nil {
+		return nil, fmt.Errorf("insert booking in tx: %w", insertErr)
+	}
+
+	if commitErr := tx.Commit(ctx); commitErr != nil {
+		return nil, fmt.Errorf("commit booking tx: %w", commitErr)
+	}
+
+	return nil, nil
 }
 
 // ============================================================================

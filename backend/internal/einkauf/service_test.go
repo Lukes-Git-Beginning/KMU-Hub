@@ -773,3 +773,71 @@ func TestAllFullyReceived_False(t *testing.T) {
 func TestAllFullyReceived_Empty(t *testing.T) {
 	assert.False(t, allFullyReceived(nil))
 }
+
+// ============================================================================
+// Bug-Fix Tests — numeric precision + PartialReceive validation
+// ============================================================================
+
+// TestService_AllFullyReceived_DecimalPrecisionMismatch verifies that
+// "10.0000" and "10" are treated as equal (Bug Fix #1).
+func TestService_AllFullyReceived_DecimalPrecisionMismatch(t *testing.T) {
+	lines := []*POLine{
+		{Quantity: "10.0000", ReceivedQuantity: "10"},
+		{Quantity: "5.00", ReceivedQuantity: "5.0"},
+	}
+	assert.True(t, allFullyReceived(lines))
+}
+
+// TestService_PartialReceive_NegativeQuantity verifies that a negative
+// ReceivedQuantity is rejected with ErrInvalidQuantity (Bug Fix #2).
+func TestService_PartialReceive_NegativeQuantity(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	s := addSupplier(repo, tenantID, "Supplier")
+	po := addPO(repo, tenantID, s.ID, "PO-NEG-001", POStatusSubmitted)
+	l1 := addPOLine(repo, tenantID, po.ID, "Widget", "10")
+
+	_, err := svc.PartialReceive(context.Background(), tenantID, po.ID, []PartialReceiveItem{
+		{LineID: l1.ID, ReceivedQuantity: "-5"},
+	})
+
+	assert.ErrorIs(t, err, ErrInvalidQuantity)
+}
+
+// TestService_PartialReceive_ExceedsOrdered verifies that receiving more than
+// the ordered quantity is rejected with ErrExceedsOrderedQty (Bug Fix #2).
+func TestService_PartialReceive_ExceedsOrdered(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	s := addSupplier(repo, tenantID, "Supplier")
+	po := addPO(repo, tenantID, s.ID, "PO-EXCEED-001", POStatusSubmitted)
+	l1 := addPOLine(repo, tenantID, po.ID, "Widget", "10")
+
+	_, err := svc.PartialReceive(context.Background(), tenantID, po.ID, []PartialReceiveItem{
+		{LineID: l1.ID, ReceivedQuantity: "15"},
+	})
+
+	assert.ErrorIs(t, err, ErrExceedsOrderedQty)
+}
+
+// TestService_PartialReceive_InvalidString verifies that a non-numeric
+// ReceivedQuantity string is rejected with ErrInvalidQuantity (Bug Fix #2).
+func TestService_PartialReceive_InvalidString(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	s := addSupplier(repo, tenantID, "Supplier")
+	po := addPO(repo, tenantID, s.ID, "PO-NAN-001", POStatusSubmitted)
+	l1 := addPOLine(repo, tenantID, po.ID, "Widget", "10")
+
+	_, err := svc.PartialReceive(context.Background(), tenantID, po.ID, []PartialReceiveItem{
+		{LineID: l1.ID, ReceivedQuantity: "abc"},
+	})
+
+	assert.ErrorIs(t, err, ErrInvalidQuantity)
+}

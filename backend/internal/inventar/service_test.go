@@ -113,9 +113,12 @@ func (m *mockRepository) CreateMovement(ctx context.Context, movement *Movement)
 	return nil
 }
 
-func (m *mockRepository) GetMovement(ctx context.Context, movementID uuid.UUID) (*Movement, error) {
+func (m *mockRepository) GetMovement(ctx context.Context, tenantID, movementID uuid.UUID) (*Movement, error) {
 	mv, ok := m.movements[movementID]
 	if !ok {
+		return nil, ErrMovementNotFound
+	}
+	if mv.TenantID != tenantID {
 		return nil, ErrMovementNotFound
 	}
 	return mv, nil
@@ -838,4 +841,54 @@ func TestService_ListMovements_Pagination(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 15, total)
 	assert.Len(t, mvs, 10)
+}
+
+// ============================================================================
+// Oversell / Insufficient-Stock Tests
+// ============================================================================
+
+func TestService_AdjustStock_OversellRejected(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	item := addItem(repo, tenantID, "Produkt", "P-001", 10, 0)
+
+	_, err := svc.AdjustStock(context.Background(), AdjustStockInput{
+		TenantID: tenantID,
+		ItemID:   item.ID,
+		Delta:    -100,
+		Reason:   "Oversell attempt",
+	})
+
+	assert.ErrorIs(t, err, ErrInsufficientStock)
+	// Item quantity must be unchanged
+	assert.Equal(t, int64(10), repo.items[item.ID].Quantity)
+	// No movement must have been recorded
+	assert.Len(t, repo.movements, 0)
+}
+
+func TestService_TransferStock_InsufficientSource(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	fromItem := addItem(repo, tenantID, "Quelle", "SRC-001", 5, 0)
+	toItem := addItem(repo, tenantID, "Ziel", "DST-001", 0, 0)
+
+	err := svc.TransferStock(context.Background(), TransferStockInput{
+		TenantID:   tenantID,
+		FromItemID: fromItem.ID,
+		ToItemID:   toItem.ID,
+		Quantity:   10,
+		Reason:     "Oversell transfer attempt",
+	})
+
+	assert.ErrorIs(t, err, ErrInsufficientStock)
+	// From-item quantity must be unchanged
+	assert.Equal(t, int64(5), repo.items[fromItem.ID].Quantity)
+	// To-item quantity must be unchanged
+	assert.Equal(t, int64(0), repo.items[toItem.ID].Quantity)
+	// No movements must have been recorded
+	assert.Len(t, repo.movements, 0)
 }

@@ -38,7 +38,7 @@ func (r *PostgresRepository) CreateItem(ctx context.Context, item *Item) error {
 }
 
 func (r *PostgresRepository) UpdateItem(ctx context.Context, item *Item) error {
-	_, err := r.pool.Exec(ctx,
+	ct, err := r.pool.Exec(ctx,
 		`UPDATE inventory_items
 		 SET name = $1, sku = $2, barcode = $3, quantity = $4, min_quantity = $5,
 		     unit = $6, location = $7, updated_at = $8
@@ -46,15 +46,27 @@ func (r *PostgresRepository) UpdateItem(ctx context.Context, item *Item) error {
 		item.Name, item.SKU, item.Barcode, item.Quantity, item.MinQuantity,
 		item.Unit, item.Location, item.UpdatedAt, item.ID, item.TenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrItemNotFound
+	}
+	return nil
 }
 
 func (r *PostgresRepository) SoftDeleteItem(ctx context.Context, tenantID, itemID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx,
+	ct, err := r.pool.Exec(ctx,
 		`UPDATE inventory_items SET deleted_at = NOW() WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
 		itemID, tenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrItemNotFound
+	}
+	return nil
 }
 
 func (r *PostgresRepository) GetItem(ctx context.Context, tenantID, itemID uuid.UUID) (*Item, error) {
@@ -171,12 +183,12 @@ func (r *PostgresRepository) CreateMovement(ctx context.Context, movement *Movem
 	return err
 }
 
-func (r *PostgresRepository) GetMovement(ctx context.Context, movementID uuid.UUID) (*Movement, error) {
+func (r *PostgresRepository) GetMovement(ctx context.Context, tenantID, movementID uuid.UUID) (*Movement, error) {
 	var m Movement
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, item_id, movement_type, quantity, performed_by, reason, created_at
-		 FROM inventory_movements WHERE id = $1`,
-		movementID,
+		 FROM inventory_movements WHERE id = $1 AND tenant_id = $2`,
+		movementID, tenantID,
 	).Scan(&m.ID, &m.TenantID, &m.ItemID, &m.MovementType, &m.Quantity, &m.PerformedBy, &m.Reason, &m.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrMovementNotFound

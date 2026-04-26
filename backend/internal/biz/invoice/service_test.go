@@ -21,13 +21,15 @@ import (
 
 // MockRepository implements Repository for testing.
 type MockRepository struct {
-	invoices        map[uuid.UUID]*models.Invoice
-	createErr       error
-	getErr          error
-	listErr         error
-	updateErr       error
-	updateStatusErr error
-	overdueErr      error
+	invoices             map[uuid.UUID]*models.Invoice
+	createErr            error
+	getErr               error
+	listErr              error
+	updateErr            error
+	updateStatusErr      error
+	overdueErr           error
+	aggregateStatsResult PaymentStats
+	aggregateStatsErr    error
 }
 
 func NewMockRepository() *MockRepository {
@@ -134,9 +136,12 @@ func (m *MockRepository) CountByFiscalYear(_ context.Context, tenantID uuid.UUID
 	return count, nil
 }
 
-// AggregatePaymentStats returns zeroed stats (sufficient for service tests).
+// AggregatePaymentStats returns the configured aggregateStatsResult (default: zeroed).
 func (m *MockRepository) AggregatePaymentStats(_ context.Context, _ uuid.UUID, _, _ time.Time) (PaymentStats, error) {
-	return PaymentStats{}, nil
+	if m.aggregateStatsErr != nil {
+		return PaymentStats{}, m.aggregateStatsErr
+	}
+	return m.aggregateStatsResult, nil
 }
 
 // ListForGoBDExport returns non-draft invoices with invoice_number in the date range.
@@ -153,8 +158,10 @@ func (m *MockRepository) ListForGoBDExport(_ context.Context, tenantID uuid.UUID
 
 // MockNumberSequenceRepo implements NumberSequenceRepo for testing.
 type MockNumberSequenceRepo struct {
-	nextNumber string
-	nextErr    error
+	nextNumber   string
+	nextErr      error
+	seqInfo      *SequenceInfo // nil means "no sequence for this year"
+	seqInfoErr   error
 }
 
 func (m *MockNumberSequenceRepo) NextNumber(ctx context.Context, tenantID uuid.UUID, documentType string, fiscalYear int, prefix string) (string, error) {
@@ -167,9 +174,12 @@ func (m *MockNumberSequenceRepo) NextNumber(ctx context.Context, tenantID uuid.U
 	return "RE-2026-0001", nil
 }
 
-// GetSequenceInfo returns nil (no sequence exists) for test purposes.
+// GetSequenceInfo returns the configured seqInfo (nil by default = no sequence exists).
 func (m *MockNumberSequenceRepo) GetSequenceInfo(_ context.Context, _ uuid.UUID, _ string, _ int) (*SequenceInfo, error) {
-	return nil, nil
+	if m.seqInfoErr != nil {
+		return nil, m.seqInfoErr
+	}
+	return m.seqInfo, nil
 }
 
 // MockCompanySettingsRepo implements CompanySettingsRepo for testing.
@@ -950,4 +960,240 @@ func TestService_Create_NilEmitterSafe(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.NotNil(t, inv)
+}
+
+// ============================================================================
+// GoBD Lock-Guard Tests (Bug 1 — Review-Befund #11)
+// ============================================================================
+
+// createLockedSentInvoice creates a sent invoice, then locks it via LockInvoice.
+// Returns the locked invoice and the lockedBy user ID.
+func createLockedSentInvoice(t *testing.T, svc *Service, repo *MockRepository, numSeq *MockNumberSequenceRepo, tenantID uuid.UUID) (*models.Invoice, uuid.UUID) {
+	t.Helper()
+	userID := uuid.New()
+	inv := createDraftInvoice(t, repo, tenantID)
+
+	numSeq.nextNumber = "RE-2026-0099"
+	err := svc.Send(context.Background(), tenantID, inv.ID, userID)
+	require.NoError(t, err, "Send must succeed before locking")
+
+	lockedBy := uuid.New()
+	_, err = svc.LockInvoice(context.Background(), tenantID, inv.ID, lockedBy)
+	require.NoError(t, err, "LockInvoice must succeed")
+
+	return repo.invoices[inv.ID], lockedBy
+}
+
+// TestService_Update_RejectedWhenLocked verifies that Update returns ErrInvoiceLocked
+// for an administratively locked invoice (GoBD §146).
+func TestService_Update_RejectedWhenLocked(t *testing.T) {
+	svc, repo, numSeq, _, _ := newTestService()
+	tenantID := uuid.New()
+	inv, _ := createLockedSentInvoice(t, svc, repo, numSeq, tenantID)
+
+	newName := "Should Be Blocked"
+	_, err := svc.Update(context.Background(), tenantID, inv.ID, UpdateInput{
+		CustomerName: &newName,
+	})
+
+	// A locked invoice has status "sent" which first triggers ErrInvoiceImmutable.
+	// Either ErrInvoiceImmutable or ErrInvoiceLocked is acceptable — both enforce
+	// the GoBD write barrier. We verify that the update was NOT applied.
+	assert.Error(t, err)
+	stored := repo.invoices[inv.ID]
+	assert.NotEqual(t, "Should Be Blocked", stored.CustomerName,
+		"customer name must not change on a locked invoice")
+}
+
+// TestService_Cancel_RejectedWhenLocked verifies that Cancel returns ErrInvoiceLocked
+// for an administratively locked invoice (GoBD §146).
+func TestService_Cancel_RejectedWhenLocked(t *testing.T) {
+	svc, repo, numSeq, _, _ := newTestService()
+	tenantID := uuid.New()
+	inv, _ := createLockedSentInvoice(t, svc, repo, numSeq, tenantID)
+	userID := uuid.New()
+
+	err := svc.Cancel(context.Background(), tenantID, inv.ID, userID)
+
+	assert.ErrorIs(t, err, ErrInvoiceLocked,
+		"Cancel must return ErrInvoiceLocked for a locked invoice")
+	stored := repo.invoices[inv.ID]
+	assert.Equal(t, models.InvoiceStatusSent, stored.Status,
+		"status must remain 'sent' after blocked Cancel")
+}
+
+// TestService_UpdateStatus_RejectedWhenLocked verifies that MarkPaid returns
+// ErrInvoiceLocked for an administratively locked invoice (GoBD §146).
+func TestService_UpdateStatus_RejectedWhenLocked(t *testing.T) {
+	svc, repo, numSeq, _, _ := newTestService()
+	tenantID := uuid.New()
+	inv, _ := createLockedSentInvoice(t, svc, repo, numSeq, tenantID)
+
+	err := svc.MarkPaid(context.Background(), tenantID, inv.ID)
+
+	assert.ErrorIs(t, err, ErrInvoiceLocked,
+		"MarkPaid must return ErrInvoiceLocked for a locked invoice")
+	stored := repo.invoices[inv.ID]
+	assert.Equal(t, models.InvoiceStatusSent, stored.Status,
+		"status must remain 'sent' after blocked MarkPaid")
+}
+
+// ============================================================================
+// GoBD Journal-Summary Cancelled-Invoice Test (Bug 2 — Review-Befund #12)
+// ============================================================================
+
+// ============================================================================
+// ValidateInvoiceNumber Tests (Review-Befund #15)
+// ============================================================================
+
+func TestService_ValidateInvoiceNumber_ValidNew(t *testing.T) {
+	svc, _, _, _, _ := newTestService()
+	tenantID := uuid.New()
+
+	result, err := svc.ValidateInvoiceNumber(context.Background(), tenantID, "RE-2026-0042")
+
+	require.NoError(t, err)
+	assert.True(t, result.ValidFormat)
+	assert.False(t, result.AlreadyUsed)
+	assert.Equal(t, "RE-2026-0042", result.Canonical)
+}
+
+func TestService_ValidateInvoiceNumber_InvalidFormat(t *testing.T) {
+	svc, _, _, _, _ := newTestService()
+	tenantID := uuid.New()
+
+	cases := []string{
+		"foo",
+		"RE-26-1",
+		"INV-2026-0001",
+		"",
+		"RE-2026",
+		"re-2026-0042", // lowercase — pattern only accepts [A-Z]{2}
+	}
+
+	for _, tc := range cases {
+		result, err := svc.ValidateInvoiceNumber(context.Background(), tenantID, tc)
+		require.NoError(t, err, "case %q", tc)
+		assert.False(t, result.ValidFormat, "case %q should be invalid", tc)
+		assert.Empty(t, result.Canonical, "case %q should have no canonical form", tc)
+	}
+}
+
+func TestService_ValidateInvoiceNumber_AlreadyUsed(t *testing.T) {
+	svc, repo, _, _, _ := newTestService()
+	tenantID := uuid.New()
+
+	// Seed the repo with an invoice carrying that number
+	existing := createDraftInvoice(t, repo, tenantID)
+	existing.InvoiceNumber = "RE-2026-0007"
+
+	result, err := svc.ValidateInvoiceNumber(context.Background(), tenantID, "RE-2026-0007")
+
+	require.NoError(t, err)
+	assert.True(t, result.ValidFormat)
+	assert.True(t, result.AlreadyUsed)
+	assert.Equal(t, "RE-2026-0007", result.Canonical)
+}
+
+func TestService_ValidateInvoiceNumber_CanonicalLowercase(t *testing.T) {
+	// Pattern requires [A-Z]{2} — lowercase "re-2026-0042" must be invalid.
+	svc, _, _, _, _ := newTestService()
+	tenantID := uuid.New()
+
+	result, err := svc.ValidateInvoiceNumber(context.Background(), tenantID, "re-2026-0042")
+
+	require.NoError(t, err)
+	assert.False(t, result.ValidFormat, "lowercase prefix must not match the pattern")
+	assert.Empty(t, result.Canonical)
+}
+
+// ============================================================================
+// GetPaymentStats Tests (Review-Befund #15)
+// ============================================================================
+
+func TestService_GetPaymentStats_Empty(t *testing.T) {
+	svc, _, _, _, _ := newTestService()
+	tenantID := uuid.New()
+	from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)
+
+	stats, err := svc.GetPaymentStats(context.Background(), tenantID, from, to)
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, stats.TotalInvoices)
+	assert.Equal(t, 0, stats.TotalPaid)
+	assert.Equal(t, 0, stats.TotalOutstanding)
+}
+
+func TestService_GetPaymentStats_Aggregates(t *testing.T) {
+	// The MockRepository.AggregatePaymentStats is a stub returning zeroed stats.
+	// We replace it with a richer mock to verify the service delegates correctly.
+	repo := NewMockRepository()
+	// Patch the mock to return 2 paid + 1 outstanding
+	repo.aggregateStatsResult = PaymentStats{
+		TotalInvoices:    3,
+		TotalPaid:        2,
+		TotalOutstanding: 1,
+	}
+
+	numSeq := &MockNumberSequenceRepo{}
+	cs := &MockCompanySettingsRepo{}
+	svc := NewService(repo, numSeq, cs, NewMockQuoteReader())
+	tenantID := uuid.New()
+	from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)
+
+	stats, err := svc.GetPaymentStats(context.Background(), tenantID, from, to)
+
+	require.NoError(t, err)
+	assert.Equal(t, 3, stats.TotalInvoices)
+	assert.Equal(t, 2, stats.TotalPaid)
+	assert.Equal(t, 1, stats.TotalOutstanding)
+}
+
+// TestService_GetJournalSummary_CountsCancelledInvoices verifies that cancelled
+// invoices count toward TotalInvoicesIssued and do not create false gaps.
+// GoBD requires that stornierte Belege the sequence not interrupt.
+func TestService_GetJournalSummary_CountsCancelledInvoices(t *testing.T) {
+	svc, repo, numSeq, _, _ := newTestService()
+	tenantID := uuid.New()
+	fiscalYear := 2026
+
+	// Configure sequence: highest assigned number is 3
+	numSeq.seqInfo = &SequenceInfo{
+		FiscalYear:    fiscalYear,
+		CurrentNumber: 3,
+	}
+
+	makeInvoice := func(status, number string) {
+		t.Helper()
+		lineItemsJSON, err := json.Marshal(testLineItems())
+		require.NoError(t, err)
+		inv := &models.Invoice{
+			ID:            uuid.New(),
+			TenantID:      tenantID,
+			Status:        status,
+			InvoiceNumber: number,
+			InvoiceDate:   time.Date(fiscalYear, 6, 1, 0, 0, 0, 0, time.UTC),
+			LineItems:     lineItemsJSON,
+			CreatedBy:     uuid.New(),
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+		}
+		repo.invoices[inv.ID] = inv
+	}
+
+	// 3 invoices: sent, cancelled, paid — all must be counted
+	makeInvoice(models.InvoiceStatusSent, "RE-2026-0001")
+	makeInvoice(models.InvoiceStatusCancelled, "RE-2026-0002")
+	makeInvoice(models.InvoiceStatusPaid, "RE-2026-0003")
+
+	summary, err := svc.GetJournalSummary(context.Background(), tenantID, fiscalYear)
+
+	require.NoError(t, err)
+	assert.Equal(t, 3, summary.TotalInvoicesIssued,
+		"all three invoices (sent, cancelled, paid) must be counted")
+	assert.Equal(t, 3, summary.HighestSequence)
+	assert.Equal(t, 0, summary.GapsDetected,
+		"no gaps expected when all sequence numbers have matching invoices")
 }

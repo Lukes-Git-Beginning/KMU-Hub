@@ -67,10 +67,13 @@ func (vr *VideoRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 		r.Post("/recordings/{id}/consent", vr.HandleSetRecordingConsent)
 		r.Get("/recordings/{id}/consent", vr.HandleGetRecordingConsent)
 		r.Get("/recordings/{id}/consents", vr.HandleGetRecordingConsents)
-		r.Post("/recordings/{id}/tag-consents", vr.HandleTagRecordingWithConsents)
-		r.Patch("/recordings/{id}/metadata", vr.HandleUpdateRecordingMetadata)
+		// Mutating recording-tag/metadata/cleanup endpoints touch forensic GDPR
+		// state — they require the recordings:admin permission so a regular user
+		// cannot overwrite the consent snapshot of someone else's recording.
+		r.With(middleware.RequirePermission("recordings", "admin")).Post("/recordings/{id}/tag-consents", vr.HandleTagRecordingWithConsents)
+		r.With(middleware.RequirePermission("recordings", "admin")).Patch("/recordings/{id}/metadata", vr.HandleUpdateRecordingMetadata)
 		r.Get("/recordings/{id}/status", vr.HandleGetRecordingStatus)
-		r.Post("/recordings/{id}/cleanup", vr.HandleCleanupExpiredRecording)
+		r.With(middleware.RequirePermission("recordings", "admin")).Post("/recordings/{id}/cleanup", vr.HandleCleanupExpiredRecording)
 		r.Get("/recordings", vr.HandleListRecordings)
 		r.Get("/meetings/{meetingId}/recordings", vr.HandleListRecordingsByMeeting)
 		r.Delete("/recordings/{id}", vr.HandleDeleteRecording)

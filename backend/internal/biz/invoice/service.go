@@ -238,6 +238,11 @@ func (s *Service) Update(ctx context.Context, tenantID, id uuid.UUID, input Upda
 		return nil, ErrInvoiceImmutable
 	}
 
+	// GoBD §146: administratively locked invoices are technically immutable
+	if isInvoiceLocked(inv) {
+		return nil, ErrInvoiceLocked
+	}
+
 	if input.CustomerName != nil {
 		inv.CustomerName = *input.CustomerName
 	}
@@ -446,6 +451,11 @@ func (s *Service) MarkPaid(ctx context.Context, tenantID, id uuid.UUID) error {
 		return ErrInvoiceNotDraft
 	}
 
+	// GoBD §146: administratively locked invoices are technically immutable
+	if isInvoiceLocked(inv) {
+		return ErrInvoiceLocked
+	}
+
 	if updateErr := s.repo.UpdateStatus(ctx, tenantID, id, models.InvoiceStatusPaid); updateErr != nil {
 		return updateErr
 	}
@@ -474,6 +484,11 @@ func (s *Service) Cancel(ctx context.Context, tenantID, id, userID uuid.UUID) er
 		return ErrInvoiceAlreadyCancelled
 	default:
 		return fmt.Errorf("cannot cancel invoice with status %s", inv.Status)
+	}
+
+	// GoBD §146: administratively locked invoices are technically immutable
+	if isInvoiceLocked(inv) {
+		return ErrInvoiceLocked
 	}
 
 	if updateErr := s.repo.UpdateStatus(ctx, tenantID, id, models.InvoiceStatusCancelled); updateErr != nil {

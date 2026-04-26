@@ -109,6 +109,11 @@ func (s *Service) SendDunningNotice(ctx context.Context, tenantID, id, userID uu
 // GenerateGoBDExport
 // ============================================================================
 
+// TODO Sprint 3: extend GoBDExportRow + buildGoBDCSV to include the GoBD-2019
+// mandatory columns: Buchungsbetrag (net), MwSt-Betrag, Steuerschluessel,
+// Soll/Haben-Konto, Buchungstext, Belegnummer-intern. Until then this export
+// is a preview only — operators must NOT submit it to a Finanzamt audit.
+
 // GoBDExportRow represents one line in the GoBD CSV export.
 type GoBDExportRow struct {
 	InvoiceNumber string
@@ -156,9 +161,14 @@ func (s *Service) GenerateGoBDExport(_ context.Context, tenantID uuid.UUID, from
 }
 
 // buildGoBDCSV serialises GoBDExportRows into a UTF-8 CSV with semicolon delimiter
-// (standard German accounting CSV format).
+// (standard German accounting CSV format). The output is prefixed with a UTF-8 BOM
+// so that DATEV / Lexware / Excel render Umlaute in customer names correctly when
+// the CSV is opened locally.
 func buildGoBDCSV(rows []GoBDExportRow) []byte {
 	var buf bytes.Buffer
+	// UTF-8 BOM (EF BB BF) — required by most German accounting tools for Umlaut-safe CSV import.
+	buf.Write([]byte{0xEF, 0xBB, 0xBF})
+
 	w := csv.NewWriter(&buf)
 	w.Comma = ';'
 

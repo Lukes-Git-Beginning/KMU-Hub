@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -597,6 +598,26 @@ func (s *Service) PartialReceive(ctx context.Context, tenantID, poID uuid.UUID, 
 		return nil, ErrPONotReceivable
 	}
 
+	// Validate all items before applying any update (fail-fast, all-or-nothing).
+	// TODO(Sprint 3): wrap in a DB transaction once the repository exposes Tx support.
+	for _, item := range items {
+		recv, err := strconv.ParseFloat(item.ReceivedQuantity, 64)
+		if err != nil || recv < 0 {
+			return nil, fmt.Errorf("partial receive line %s: %w", item.LineID, ErrInvalidQuantity)
+		}
+		line, err := s.repo.GetPOLine(ctx, tenantID, item.LineID)
+		if err != nil {
+			return nil, fmt.Errorf("partial receive line %s lookup: %w", item.LineID, err)
+		}
+		ordered, err := strconv.ParseFloat(line.Quantity, 64)
+		if err != nil {
+			return nil, fmt.Errorf("partial receive line %s ordered qty parse: %w", item.LineID, err)
+		}
+		if recv > ordered {
+			return nil, fmt.Errorf("partial receive line %s: %w", item.LineID, ErrExceedsOrderedQty)
+		}
+	}
+
 	// Apply updates
 	for _, item := range items {
 		if err := s.repo.UpdatePOLineReceivedQuantity(ctx, tenantID, item.LineID, item.ReceivedQuantity); err != nil {
@@ -634,15 +655,26 @@ func (s *Service) ExportPO(ctx context.Context, tenantID, poID uuid.UUID, format
 // Helpers
 // ============================================================================
 
-// allFullyReceived returns true if every line's received_quantity equals its quantity.
-// Both are stored as decimal strings; we do a string-equality check which works
-// correctly when quantities are stored with consistent precision.
+// numericEqual compares two decimal strings numerically (float64 precision is
+// sufficient for numeric(15,4) values which fit comfortably in 53 mantissa bits).
+// Falls back to string equality when either value cannot be parsed.
+func numericEqual(a, b string) bool {
+	af, errA := strconv.ParseFloat(a, 64)
+	bf, errB := strconv.ParseFloat(b, 64)
+	if errA != nil || errB != nil {
+		return a == b
+	}
+	return af == bf
+}
+
+// allFullyReceived returns true if every line's received_quantity equals its
+// quantity. Uses numeric comparison so that "10.0000" == "10" evaluates as true.
 func allFullyReceived(lines []*POLine) bool {
 	if len(lines) == 0 {
 		return false
 	}
 	for _, l := range lines {
-		if l.ReceivedQuantity != l.Quantity {
+		if !numericEqual(l.ReceivedQuantity, l.Quantity) {
 			return false
 		}
 	}

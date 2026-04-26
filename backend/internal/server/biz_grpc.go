@@ -2299,7 +2299,7 @@ func (s *BizGRPCServer) GenerateGoBDExport(ctx context.Context, req *bizv1.Gener
 		CsvData:       result.CSVData,
 		Filename:      filename,
 		RecordCount:   int32(result.RowCount),
-		FormatVersion: "GoBD-2019",
+		FormatVersion: "GoBD-Sprint3-Preview-NotYetCompliant",
 	}, nil
 }
 

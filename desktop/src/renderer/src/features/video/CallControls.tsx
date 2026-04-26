@@ -49,6 +49,12 @@ export function CallControls({ callId, onLeave, className }: CallControlsProps) 
   const stopRecording = useStopRecording()
 
   const [isLeaving, setIsLeaving] = useState(false)
+  // Tracks the recording id returned by startRecording so stopRecording can target
+  // the correct backend route (/recordings/{id}/stop). LiveKit's useIsRecording
+  // tells us *that* a recording is active, but not *which* one. If the user joins
+  // a call where someone else already started recording, this stays null and the
+  // stop button is hidden — Sprint 3 backlog: query the active recording by call id.
+  const [activeRecordingId, setActiveRecordingId] = useState<string | null>(null)
 
   // Mic toggle
   const handleMicToggle = useCallback(async () => {
@@ -67,12 +73,14 @@ export function CallControls({ callId, onLeave, className }: CallControlsProps) 
 
   // Record toggle
   const handleRecordToggle = useCallback(async () => {
-    if (isRecording) {
-      await stopRecording.mutateAsync(callId)
-    } else {
-      await startRecording.mutateAsync(callId)
+    if (isRecording && activeRecordingId) {
+      await stopRecording.mutateAsync(activeRecordingId)
+      setActiveRecordingId(null)
+    } else if (!isRecording) {
+      const recording = await startRecording.mutateAsync(callId)
+      setActiveRecordingId(recording.id)
     }
-  }, [isRecording, callId, startRecording, stopRecording])
+  }, [isRecording, activeRecordingId, callId, startRecording, stopRecording])
 
   // Leave call
   const handleLeave = useCallback(async () => {

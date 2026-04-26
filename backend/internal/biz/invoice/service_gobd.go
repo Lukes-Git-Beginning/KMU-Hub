@@ -89,23 +89,21 @@ func (s *Service) LockInvoice(ctx context.Context, tenantID, id, lockedBy uuid.U
 		return LockInvoiceResult{}, fmt.Errorf("only sent/paid/overdue invoices can be locked (GoBD: lock applies to completed documents)")
 	}
 
-	// Check for existing lock in snapshot_data
+	// Parse existing snapshot_data once. A corrupt JSONB blob must NOT be silently
+	// overwritten — that would destroy whatever the snapshot was previously holding.
+	var snap map[string]any
 	if len(inv.SnapshotData) > 0 {
-		var snap map[string]any
-		if parseErr := json.Unmarshal(inv.SnapshotData, &snap); parseErr == nil {
-			if _, ok := snap["locked_at"]; ok {
-				return LockInvoiceResult{}, ErrInvoiceLocked
-			}
+		if parseErr := json.Unmarshal(inv.SnapshotData, &snap); parseErr != nil {
+			return LockInvoiceResult{}, fmt.Errorf("invoice snapshot_data is corrupt for id %s: %w", id, parseErr)
+		}
+		if _, ok := snap["locked_at"]; ok {
+			return LockInvoiceResult{}, ErrInvoiceLocked
 		}
 	}
 
 	// Record lock in snapshot_data JSONB
 	// TODO Sprint 4: replace with dedicated locked_at/locked_by columns once migration is applied.
 	now := time.Now()
-	var snap map[string]any
-	if len(inv.SnapshotData) > 0 {
-		_ = json.Unmarshal(inv.SnapshotData, &snap)
-	}
 	if snap == nil {
 		snap = make(map[string]any)
 	}
@@ -204,4 +202,33 @@ func (s *Service) GetPaymentStats(ctx context.Context, tenantID uuid.UUID, fromD
 // the date range. Used by the gRPC handler to populate the GoBD CSV export.
 func (s *Service) ListForGoBDExport(ctx context.Context, tenantID uuid.UUID, fromDate, toDate time.Time) ([]*models.Invoice, error) {
 	return s.repo.ListForGoBDExport(ctx, tenantID, fromDate, toDate)
+}
+
+// ============================================================================
+// Lock-state helper
+// ============================================================================
+
+// isInvoiceLocked reports whether inv carries a locked_at marker in its
+// snapshot_data JSONB blob.
+//
+// Design contract (different from LockInvoice's own parse path):
+//   - Corrupt snapshot_data is treated as "not locked" here so that write
+//     guards never hard-block on a corrupt blob. The corruption is logged for
+//     ops awareness. LockInvoice itself errors hard on corruption to prevent
+//     silent overwrites.
+//   - An empty snapshot_data blob means no lock has been recorded → false.
+func isInvoiceLocked(inv *models.Invoice) bool {
+	if len(inv.SnapshotData) == 0 {
+		return false
+	}
+	var snap map[string]any
+	if err := json.Unmarshal(inv.SnapshotData, &snap); err != nil {
+		slog.Warn("invoice snapshot_data is corrupt — treating as unlocked",
+			"invoice_id", inv.ID,
+			"error", err,
+		)
+		return false
+	}
+	_, locked := snap["locked_at"]
+	return locked
 }
