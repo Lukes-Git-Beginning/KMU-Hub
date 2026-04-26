@@ -40,14 +40,14 @@ for cmd in curl jq; do
 done
 
 pass() {
-    ((TOTAL++))
-    ((PASSED++))
+    : $((TOTAL++))
+    : $((PASSED++))
     echo "  [PASS] $1"
 }
 
 fail() {
-    ((TOTAL++))
-    ((FAILED++))
+    : $((TOTAL++))
+    : $((FAILED++))
     echo "  [FAIL] $1"
     if [[ "$VERBOSE" == "true" && -n "${2:-}" ]]; then
         echo "         Details: $2"
