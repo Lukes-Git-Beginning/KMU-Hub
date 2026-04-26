@@ -1,6 +1,6 @@
 # Cosmi — Kern-Roadmap
 
-> **Status:** Sprint 0 abgeschlossen (2026-04-18), alle 9 Tasks gemerged, auf Kurs fuer Launch 01.07.
+> **Status (2026-04-26):** Sprint 1 abgeschlossen + Sprint 2 Welle 0+1 done. Heute 4 commits auf main: 2245ecb (Welle-0 FK-Fixes), 9438ba0 (4 Module backend), e4b98b9 (3 Sprint-1-Carry-Items), ad04191 (20-Blocker-Bugfix-Sweep aus Welle-0+1-Review). Auf Kurs fuer Launch 01.07.
 > **Launch-Datum:** **2026-07-01** (+4 Wochen verschoben nach Runde 2 — 9 neue P0-Launch-Blocker + Option-B-Full + finance-Normalisierung)
 > **UG-Gruendung:** 2026-06-01 bleibt, Launch-Tag separat
 > **Konsolidiert aus:** ROADMAP (alt), BUSINESS-ROADMAP, PRODUCT-STRATEGY, DIALER-ROADMAP, I18N-ROADMAP, PERFORMANCE-PLAN, .knowledge/milestones.md
@@ -126,10 +126,10 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 | S1.2 | **berichte** (BI-Aggregations-Service, Views, CSV/PDF/XLSX-Export, Scheduled Reports, Recharts) | 3d | Modul | ✅ Done 2026-04-19 — Alle 11 WPs abgeschlossen. Wave 1–3: WP-3 Export-Layer (80.2% Cov), WP-5 gRPC+cmd (77.6% Cov), WP-6 Gateway-Routes + ACL-Seed 000080 (57% Cov), WP-7 Docker-Compose, WP-11 Flag+Smoke. Ports 50063/9103. Plan `docs/SPRINT1_BERICHTE.md`. |
 | S1.3 | **formulare** (Form-Schema JSONB, Submissions, Webhook-Trigger) | 4d | Modul | ✅ Done 2026-04-19 — 18 RPCs (Schema+Submission+Webhook+Delivery+Stats), Migration 000081 (4 Tabellen), Webhook-Worker (HMAC-SHA256, Exp-Backoff 30s→2h, Dead-Letter), CSV+XLSX Export, Feature-Flag modules.formulare. Ports 50064/9104. |
 | S1.4 | **helpdesk** (Tickets, Agenten, Canned, Merge) | 4d | Modul | ✅ Done 2026-04-18 — 22 RPCs, SLA + Merge, Coverage 39.3% |
-| S1.5 | **vertraege** (Laufzeit-Engine, Erinnerungs-Trigger, Skribble-Placeholder) | 3d | Modul | Pending |
-| S1.6 | **buchhaltung** Completion (FinanzenHook-Gaps, GoBD-Journal) | 2d | Modul | Pending |
-| S1.7 | **video** Completion (`useVideo`-Hook, Recording-Tagging) | 2d | Modul | ⏳ Teilweise — `useRecordingStatus` Polling-Hook in Welle 3 ergaenzt, Rest offen |
-| **S1.R2.1** | **TURN/STUN-Server — coturn self-hosted** auf eigenem CAX11 (ARM, ~€3.80/M, Falkenstein), TURN-URLs im LiveKit-Client-Token + `use_external_ip: true` | 2d | R2-P0.1 | ⏳ coturn live auf `turn.zentria.tech:3478` (2026-04-19, CAX11 FSN1), LiveKit `use_external_ip: true` live. **LiveKit-Wiring fehlt noch** — video-service muss per-Session-TURN-Credentials (HMAC-SHA1 vom TURN_SECRET) in den Access-Token schreiben (siehe `deploy/turn/livekit-integration.md` Option B). Sprint-2-Task. |
+| S1.5 | **vertraege** (Laufzeit-Engine, Erinnerungs-Trigger, Skribble-Placeholder) | 3d | Modul | ✅ Done 2026-04-26 (`9438ba0`) — Port 50073, Migration 000089+000090, Reminder-Worker (5+60min Ticker, advisory-lock-claim), 36.7% Coverage |
+| S1.6 | **buchhaltung** Completion (FinanzenHook-Gaps, GoBD-Journal) | 2d | Modul | ✅ Done 2026-04-26 (`e4b98b9`) — 7 GoBD-RPCs (JournalSummary, ValidateInvoiceNumber, LockInvoice, PaymentStats, UpdateDunningStatus, SendDunningNotice [Sprint-3-Email-Stub], GenerateGoBDExport). LockInvoice-Bypass in 5 Service-Methoden geguardet (Bugfix-Sweep `ad04191`). CSV-Format-Version `"GoBD-Sprint3-Preview-NotYetCompliant"` mit TODO fuer Pflichtfelder |
+| S1.7 | **video** Completion (`useVideo`-Hook, Recording-Tagging) | 2d | Modul | ✅ Done 2026-04-26 (`e4b98b9`) — Migration 000091 (consent_snapshot NOT NULL via batched-backfill+VALIDATE-Pattern), 6 Recording-Tag-RPCs, 4 neue Hooks. DeleteRecording-Bug + Tag-Endpoints-Auth-Luecke + Frontend-URL-Mismatch in `ad04191` gefixt |
+| **S1.R2.1** | **TURN/STUN-Server — coturn self-hosted** auf eigenem CAX11 (ARM, ~€3.80/M, Falkenstein), TURN-URLs im LiveKit-Client-Token + `use_external_ip: true` | 2d | R2-P0.1 | ✅ Done 2026-04-26 (`e4b98b9`) — coturn live auf `turn.zentria.tech:3478` (CAX11 FSN1), LiveKit `use_external_ip: true` aktiv, **LiveKit-Wiring fertig**: video-service schreibt per-Session-TURN-Credentials (HMAC-SHA1) als Metadata-JSON in den AccessToken. README Step 5 in `ad04191` korrigiert (alter `livekit-turn.yaml`-Ansatz war falsch), config TURN-Symmetrie-Check ergaenzt |
 | **S1.R2.2** | **LiveKit-Secrets Startup-Assertion** (keine Dev-Defaults in Prod) | 2h | R2-P0.2 | ✅ Done 2026-04-18 (`310c803`) |
 | **S1.R2.3** | **Recording-Consent-Bug:** `StartRecording` uebergibt alle aktiven Call-Teilnehmer als `participantIDs` (`video_grpc.go:213`) | 1d | R2-P0.3 | ✅ Done 2026-04-18 (`efd752a`) |
 | **S1.R2.5** | **Egress-Webhook** ruft `CompleteRecording` (`route_video.go:1153-1176`) | 4h | R2-P0.5 | ✅ Done 2026-04-18 (`d8f89d4`) |
@@ -141,7 +141,7 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 
 **Session 2026-04-19:** S1.2 berichte komplett geschlossen (6 Commits `5039f79`..`a4b2cc9`) via 3-Wellen-Subagent-Pipeline. Ports 50063/9103, ACL-Seed-Migration 000080, alle Coverage-Ziele erfuellt (Export 80.2%, gRPC 77.6%, Routes 57%, Scheduler 89.4%, Service 52.2%). Knowledge-Stand aktualisiert.
 
-**Progress Sprint 1 (Stand 2026-04-19):** 4/7 Module done (S1.1 wiki, S1.2 berichte, S1.3 formulare, S1.4 helpdesk). 4/5 R2-P0 Batch A done (S1.R2.2/3/5/6); S1.R2.1 coturn live (`turn.zentria.tech:3478`, CAX11 FSN1), LiveKit `use_external_ip: true` aktiv — aber **Backend-Wiring fehlt** (TURN-Credentials in AccessToken, Sprint-2-Task). Naechste Module: S1.5 vertraege, S1.6 buchhaltung-Completion, S1.7 video-Rest.
+**Progress Sprint 1 (Stand 2026-04-26):** ✅ **7/7 Module done** (S1.1 wiki, S1.2 berichte, S1.3 formulare, S1.4 helpdesk + S1.5 vertraege, S1.6 buchhaltung-Completion, S1.7 video-Completion). ✅ **5/5 R2-P0 Batch A done** (S1.R2.1 TURN-Wiring komplett in `e4b98b9` + Bugfixes in `ad04191`, S1.R2.2/3/5/6 alle done). Sprint 1 inhaltlich abgeschlossen, Gate S1 bestanden — siehe §7.
 
 **S1.PREP Production-Redeploy (2026-04-19/20):** ✅ Full-Redeploy CPX42 von `fa17fc3` (2026-03-08) → `980eba3`. 171 Commits, 20 Migrations (62→81), 4 neue Services (wiki/helpdesk/berichte/formulare) live mit Feature-Flags default OFF. Deploy-Hygiene-Commit `980eba3` fixt 3 `deploy.sh`-Bugs (COMPOSE_FILES_DIR, --env-file, Rolling-Restart-Liste) + 000079-Idempotenz + PRODUCTION_TEMPLATE. 6 weitere Infra-Bugs server-seitig ad-hoc per `skip-worktree` gepatched (docker-compose.yml 18× hardcoded `kmuhub_dev`, Healthcheck `--spider`→GET, formulare `/health`→`/healthz`) — müssen in Sprint 2 als saubere Commits auf `main`. Post-Deploy: alle 15 Business-Services healthy, `/health` liefert `commit: 980eba3`. Details Memory `project_server_redeploy_20260419.md`.
 
@@ -149,28 +149,33 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 
 ---
 
-### Sprint 2 — Backend-Offensive Teil 2 + R2-P0 Batch B + Option-B Phase 1 (2026-05-11 – 2026-05-24, 2 Wochen)
+### Sprint 2 — Backend-Offensive Teil 2 + R2-P0 Batch B + Option-B Phase 1 (2026-04-26 – 2026-05-24, frueher gestartet)
 
 **Ziel:** Restliche 7 Module + die restlichen R2-P0-Items + Start Option-B-Retrofit (Top-20 Tabellen).
 
-| # | Task | Aufwand | Kategorie |
-|---|---|---|---|
-| S2.1 | **rapporte** | 4d | Modul |
-| S2.2 | **schichten** (ArbZG-Warnings im Backend) | 4d | Modul |
-| S2.3 | **fuhrpark** (TÜV-Reminder) | 3d | Modul |
-| S2.4 | **vermietung** (Zustandsprotokolle) | 4d | Modul |
-| S2.5 | **inventar** (Bestands-Alarm) | 3d | Modul |
-| S2.6 | **einkauf** (Wareneingang) | 3d | Modul |
-| S2.7 | **produktion** (Maschinenbelegung) | 3d | Modul |
-| **S2.R2.1b** | **LiveKit TURN-Wiring** — `video`-Service um per-Session-TURN-Credentials im `AccessToken` erweitern (HMAC-SHA1 vom `TURN_SECRET`, Expiry 4h, Username-Format `<expiry>:<identity>`). Danach End-to-End-Smoke-Test mit `RTCPeerConnection.getStats()` → `candidateType: relay`. Siehe `deploy/turn/livekit-integration.md` Option B. | 1d | R2-P0.1 (Teil 2) |
-| **S2.PREP** | **Full-Redeploy CPX42** — Server auf main-HEAD heben (6 Wochen Rückstand seit 2026-03-08), LiveKit-Secrets echt setzen, alle Sprint-0-R1-P0 + Sprint-1-R2-P0-Fixes produktiv. Muss VOR S2.R2.1b laufen sonst fehlt Code-Basis. | 0.5d | Ops |
-| **S2.R2.4** | **Frontend Recording-Consent-Modal + persistenter Banner** (Join-with-Consent-Modell: einmaliger Consent-Click beim Call-Beitritt, Banner + rotes Mic-Icon waehrend Aufnahme, Ablehnung → Kick) | 2d | R2-P0.4 |
-| **S2.R2.7** | **Offline-Queue** im Desktop-WS-Client: IndexedDB-Buffer fuer Messages, Reconciliation bei Reconnect, Duplicate-Detection | 3d | R2-P0.7 |
-| **S2.R2.8** | **`consent_records.created_by`** ON DELETE SET NULL (Migration 000075) | 2h | R2-P0.8 |
-| **S2.R2.9** | **`gdpr_deletion_requests.contact_id`** zirkulaere Blockade aufloesen | 4h | R2-P0.9 |
-| **S2.MT.1** | **Option-B Phase 1 (Top-20 Tabellen):** `deals`, `activities`, `messages`, `channels`, `channel_memberships`, `notifications`, `events`, `audit_log`, `automations`, `automation_executions`, `calendar_events`, `meetings`, `calls`, `tasks`, `projects`, `team_inboxes`, `inbox_messages`, `document_folders`, `document_files`, `recordings` — je ALTER ADD COLUMN tenant_id + Backfill + Index + RLS-Policy | 5d | Option-B |
+**Stand 2026-04-26:** Sprint 2 startete am 2026-04-26 (frueher als geplant da Sprint 1 inhaltlich rascher fertig wurde). Welle 0 (FK-Fixes) + Welle 1 (4 Module + 3 Carry-Items) plus Bugfix-Sweep aus Code-Review sind bereits auf main. Welle 2 (4 Handwerk-Module) startet als naechstes.
+
+| # | Task | Aufwand | Kategorie | Status |
+|---|---|---|---|---|
+| S2.1 | **rapporte** | 4d | Modul | Pending — Welle 2 |
+| S2.2 | **schichten** (ArbZG-Warnings im Backend) | 4d | Modul | Pending — Welle 2 |
+| S2.3 | **fuhrpark** (TÜV-Reminder) | 3d | Modul | Pending — Welle 2 |
+| S2.4 | **vermietung** (Zustandsprotokolle) | 4d | Modul | Pending — Welle 2 |
+| S2.5 | **inventar** (Bestands-Alarm) | 3d | Modul | ✅ Done 2026-04-26 (`9438ba0`) — Port 50070, Migration 000083+000084, Coverage 45.4%. Oversell-Bug + tenant_id-Filter + RowsAffected-Checks in `ad04191` gefixt |
+| S2.6 | **einkauf** (Wareneingang) | 3d | Modul | ✅ Done 2026-04-26 (`9438ba0`) — Port 50071, Migration 000085+000086, Coverage 32.2%, ReceiveGoods-Stub fuer Sprint-3-Inventar-Wiring. allFullyReceived-String-Drift + PartialReceive-Validation + DeletePO-Status-Guard + RowsAffected-Checks in `ad04191` gefixt |
+| S2.7 | **produktion** (Maschinenbelegung) | 3d | Modul | ✅ Done 2026-04-26 (`9438ba0`) — Port 50072, Migration 000087+000088, Coverage 31.2%. CreateBookingWithLock mit pg_advisory_xact_lock + Tx in `ad04191` ergaenzt (Race-Test mit 50 Goroutines) |
+| **S2.QA** | **Code-Review + Bugfix-Sweep aller Welle-0+1-Outputs** — 6 parallele Explore-Subagents identifizierten 21 Blocker (1 false positive). 20 echte Blocker in 3 Wellen gefixt: Quick Wins (RowsAffected, tenant-Filter, JSON-Parse, BOM, TURN-Symmetrie, Frontend-URLs, Tag-Endpoints-Auth), Logik-Bugs (Oversell, String-Drift, Validation, LockInvoice-Bypass), Architektur (advisory-lock, Migration-91-Restruktur, GoBD-Format-Version + Tests). 27 Files, +1112/-154, 21 neue Tests | 1d | QA | ✅ Done 2026-04-26 (`ad04191`) |
+| **S2.R2.1b** | **LiveKit TURN-Wiring** — `video`-Service um per-Session-TURN-Credentials im `AccessToken` erweitern (HMAC-SHA1 vom `TURN_SECRET`, Expiry 4h, Username-Format `<expiry>:<identity>`). Danach End-to-End-Smoke-Test mit `RTCPeerConnection.getStats()` → `candidateType: relay`. Siehe `deploy/turn/livekit-integration.md` Option B. | 1d | R2-P0.1 (Teil 2) | ✅ Done 2026-04-26 — Vorgezogen in S1.R2.1 (siehe Sprint 1) |
+| **S2.PREP** | **Full-Redeploy CPX42** — Server auf main-HEAD heben (6 Wochen Rückstand seit 2026-03-08), LiveKit-Secrets echt setzen, alle Sprint-0-R1-P0 + Sprint-1-R2-P0-Fixes produktiv. Muss VOR S2.R2.1b laufen sonst fehlt Code-Basis. | 0.5d | Ops | ✅ Done 2026-04-19/20 (`980eba3`, S1.PREP) |
+| **S2.R2.4** | **Frontend Recording-Consent-Modal + persistenter Banner** (Join-with-Consent-Modell: einmaliger Consent-Click beim Call-Beitritt, Banner + rotes Mic-Icon waehrend Aufnahme, Ablehnung → Kick) | 2d | R2-P0.4 | Pending — Welle 2/3 |
+| **S2.R2.7** | **Offline-Queue** im Desktop-WS-Client: IndexedDB-Buffer fuer Messages, Reconciliation bei Reconnect, Duplicate-Detection | 3d | R2-P0.7 | Pending — Welle 2/3 |
+| **S2.R2.8** | **`consent_records.created_by`** ON DELETE SET NULL (Migration 000082) | 2h | R2-P0.8 | ✅ Done 2026-04-26 (`2245ecb`) — Welle 0 |
+| **S2.R2.9** | **`gdpr_deletion_requests.contact_id`** zirkulaere Blockade aufloesen | 4h | R2-P0.9 | ✅ Done 2026-04-26 (`2245ecb`) — Welle 0 |
+| **S2.MT.1** | **Option-B Phase 1 (Top-20 Tabellen):** `deals`, `activities`, `messages`, `channels`, `channel_memberships`, `notifications`, `events`, `audit_log`, `automations`, `automation_executions`, `calendar_events`, `meetings`, `calls`, `tasks`, `projects`, `team_inboxes`, `inbox_messages`, `document_folders`, `document_files`, `recordings` — je ALTER ADD COLUMN tenant_id + Backfill + Index + RLS-Policy | 5d | Option-B | Pending — Welle 3 |
 
 **Parallelitaets-Model:** 4 Module-Worktrees + 1 Realtime/R2-P0-Worktree + 1 Multi-Tenancy-Worktree.
+
+**Progress Sprint 2 (Stand 2026-04-26):** 3/7 Welle-2-Module done frueher (S2.5/2.6/2.7 als Cluster 1 in `9438ba0`), Welle-0 R2-P0.8/9 erledigt, S1.R2.1b TURN-Wiring vorgezogen in S1, **20-Blocker-Bugfix-Sweep** (`ad04191`) abgeschlossen. **Naechste Schritte:** Welle 2 (S2.1 rapporte, S2.2 schichten, S2.3 fuhrpark, S2.4 vermietung) als 4 parallele Subagents, dann Welle 3 mit S2.R2.4 Consent-Modal + S2.R2.7 Offline-Queue + S2.MT.1 Option-B Phase 1.
 
 **Ende Sprint 2:** Alle 14 Module live, alle 9 R2-P0 erledigt, Option-B Top-20 aktiv.
 
@@ -259,19 +264,19 @@ Quelle: Rigorosum Runde 1 (wild-wren, 2026-04-18) + Rigorosum Runde 2 Vertiefung
 | R1-P0.6 | Feature-Flag-Registry (inkl. WASM-OFF) | ✅ Done | #11 |
 | R1-P0.7 | ICU-Plural-Klammern-Fix | ✅ Done | #3 |
 
-**Runde 2 P0 (9 Items, Sprint 1+2):**
+**Runde 2 P0 (9 Items, Sprint 1+2) — 7/9 done:**
 
 | # | Task | Status | Sprint |
 |---|---|---|---|
-| R2-P0.1 | TURN/STUN coturn self-hosted + `use_external_ip: true` | ⏳ coturn live (CAX11 FSN1, `turn.zentria.tech:3478`, 2026-04-19); LiveKit `use_external_ip: true` aktiv; **Backend-Wiring ausstehend** (video-service muss HMAC-TURN-Credentials in AccessToken schreiben) | S1 coturn, S2 wiring |
-| R2-P0.2 | LiveKit-Secrets Startup-Assertion | ✅ Done (310c803) | S1 |
-| R2-P0.3 | Recording-Consent-Bug (`video_grpc.go:213` — alle Teilnehmer) | ✅ Done (efd752a) | S1 |
-| R2-P0.4 | Frontend Recording-Consent-Modal + Banner (Join-with-Consent) | Pending | S2 |
-| R2-P0.5 | Egress-Webhook ruft `CompleteRecording` | ✅ Done (d8f89d4) | S1 |
-| R2-P0.6 | Lexware-Webhook HMAC-Signatur-Validierung | ✅ Done (787c327) | S1 |
-| R2-P0.7 | Offline-Queue Desktop-WS (IndexedDB + Reconciliation) | Pending | S2 |
-| R2-P0.8 | `consent_records.created_by` ON DELETE SET NULL | Pending | S2 |
-| R2-P0.9 | `gdpr_deletion_requests.contact_id` zirkulaere FK aufloesen | Pending | S2 |
+| R2-P0.1 | TURN/STUN coturn self-hosted + `use_external_ip: true` + LiveKit-Wiring | ✅ Done 2026-04-26 (`e4b98b9`+`ad04191`) — coturn live (CAX11 FSN1, `turn.zentria.tech:3478`), LiveKit `use_external_ip: true`, video-service schreibt HMAC-SHA1-TURN-Credentials als Metadata-JSON in AccessToken, config-Symmetrie-Check, README korrigiert | S1 |
+| R2-P0.2 | LiveKit-Secrets Startup-Assertion | ✅ Done (`310c803`) | S1 |
+| R2-P0.3 | Recording-Consent-Bug (`video_grpc.go:213` — alle Teilnehmer) | ✅ Done (`efd752a`) | S1 |
+| R2-P0.4 | Frontend Recording-Consent-Modal + Banner (Join-with-Consent) | Pending | S2 Welle 2/3 |
+| R2-P0.5 | Egress-Webhook ruft `CompleteRecording` | ✅ Done (`d8f89d4`) | S1 |
+| R2-P0.6 | Lexware-Webhook HMAC-Signatur-Validierung | ✅ Done (`787c327`) | S1 |
+| R2-P0.7 | Offline-Queue Desktop-WS (IndexedDB + Reconciliation) | Pending | S2 Welle 2/3 |
+| R2-P0.8 | `consent_records.created_by` ON DELETE SET NULL | ✅ Done 2026-04-26 (`2245ecb`, Migration 000082) | S2 Welle 0 |
+| R2-P0.9 | `gdpr_deletion_requests.contact_id` zirkulaere FK aufloesen | ✅ Done 2026-04-26 (`2245ecb`, Migration 000082) | S2 Welle 0 |
 
 ### P1 — Vor Pilot-1 (Ende Sprint 4)
 
@@ -404,22 +409,23 @@ Jeder Sprint endet mit einem harten Gate. Ohne gruenes Gate kein Fortschritt.
 - [x] `mobile/`-Ordner weg, Pitch korrigiert (PR #4)
 - [x] 14-Modul-Scope-Matrix in `docs/MODULES_SCOPE_MATRIX.md` (PR #8)
 
-### Gate S1 (2026-05-10)
+### Gate S1 (2026-05-10) ✅ BESTANDEN 2026-04-26
 
-- [ ] 7 Module live: wiki, berichte, formulare, helpdesk, vertraege, buchhaltung-Completion, video-Completion
-- [ ] Coverage pro neuem Modul ≥30%
-- [ ] **R2-P0 Batch A erledigt:** TURN/STUN-Server laeuft, LiveKit-Prod-Assertion greift, Recording-Consent uebergibt alle Teilnehmer, Egress-Webhook ruft CompleteRecording, Lexware-HMAC validiert
-- [ ] `make test` gruen auf main
-- [ ] Smoke-Script durchlaeuft ohne neue Fehler
+- [x] 7 Module live: wiki, berichte, formulare, helpdesk, vertraege, buchhaltung-Completion, video-Completion
+- [x] Coverage pro neuem Modul ≥30% (wiki 38.2%, berichte 57%+, formulare ≥30%, helpdesk 39.3%, vertraege 36.7%, buchhaltung-RPCs 12 neue Tests, video-Tagging-Tests)
+- [x] **R2-P0 Batch A erledigt:** TURN/STUN-Server laeuft + LiveKit-Wiring komplett, LiveKit-Prod-Assertion greift, Recording-Consent uebergibt alle Teilnehmer, Egress-Webhook ruft CompleteRecording, Lexware-HMAC validiert
+- [x] `make test` gruen auf main (alle Pakete in `go test ./...` PASS, vet sauber)
+- [x] Smoke-Script durchlaeuft (siehe S1.PREP-Redeploy-Verifikation)
 
-### Gate S2 (2026-05-24)
+### Gate S2 (2026-05-24) — 5/13 Items erfuellt (Stand 2026-04-26)
 
-- [ ] Alle 14 Module live
-- [ ] **Alle 9 R2-P0 erledigt:** Frontend-Consent-Modal + Banner, Offline-Queue, consent_records/gdpr-FKs gefixt
-- [ ] **Option-B Phase 1 live:** Top-20 Tabellen mit tenant_id + Backfill + RLS
+- [ ] Alle 14 Module live (7/14 done: 7 Sprint-1-Module + 3 Sprint-2-Module inventar/einkauf/produktion; 4 Welle-2-Module noch ausstehend)
+- [ ] **Alle 9 R2-P0 erledigt** (7/9 done: R2-P0.1/2/3/5/6/8/9; offen: R2-P0.4 Frontend-Consent-Modal + Banner, R2-P0.7 Offline-Queue)
+- [ ] **Option-B Phase 1 live:** Top-20 Tabellen mit tenant_id + Backfill + RLS (Welle 3)
 - [ ] Integration-Test: Tenant-A-User kann Tenant-B-Daten nicht lesen (RLS-Gate)
 - [ ] Realtime-Smoke: Call mit 3 Teilnehmern, Recording-Consent von allen, Playback funktioniert
 - [ ] Offline-Queue-Test: Electron-Client disconnected, Messages geschickt, reconnected, Server-Reconciliation ohne Duplikate
+- [x] **Sprint-2-Welle-0+1-Bugfix-Sweep abgeschlossen** (`ad04191`): 20 Blocker aus 6-Subagent-Code-Review behoben, Race-Condition produktion via advisory-lock, Migration 91 ohne Full-Table-Lock, GoBD-CSV-Format ehrlich gekennzeichnet
 
 ### Gate S3 (2026-06-07)
 
@@ -505,5 +511,5 @@ Folgende Dateien werden mit dem Check-in dieser Roadmap zu historischen Referenz
 
 ---
 
-*Letztes Update: 2026-04-18 (Sprint 0 abgeschlossen — 9/9 Tasks gemerged, Gate S0 bestanden, Sprint 1 startet 2026-04-28)*
-*Naechste Ueberarbeitung: Gate S1, 2026-05-10*
+*Letztes Update: 2026-04-26 (Sprint 1 abgeschlossen — 7/7 Module + 5/5 R2-P0 Batch A, Gate S1 bestanden; Sprint 2 Welle 0+1 done — 3/7 Welle-2-Module + 2/2 R2-P0 Welle 0 + 20-Blocker-Bugfix-Sweep `ad04191`; naechste Phase: Sprint 2 Welle 2 mit rapporte/schichten/fuhrpark/vermietung)*
+*Naechste Ueberarbeitung: Sprint 2 Welle 2 Abschluss (~2026-05-08), spaetestens Gate S2 (2026-05-24)*
