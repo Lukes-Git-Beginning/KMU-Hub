@@ -119,6 +119,17 @@ type FinanceServiceClient interface {
 	CreateQuoteFromDeal(ctx context.Context, in *CreateQuoteFromDealRequest, opts ...grpc.CallOption) (*CreateQuoteFromDealResponse, error)
 	// ==================== ZUGFeRD / Factur-X ====================
 	GenerateZUGFeRDInvoicePDF(ctx context.Context, in *GenerateZUGFeRDInvoicePDFRequest, opts ...grpc.CallOption) (*GenerateZUGFeRDInvoicePDFResponse, error)
+	// ==================== GoBD Journal & Compliance ====================
+	GetJournalSummary(ctx context.Context, in *GetJournalSummaryRequest, opts ...grpc.CallOption) (*GetJournalSummaryResponse, error)
+	ValidateInvoiceNumber(ctx context.Context, in *ValidateInvoiceNumberRequest, opts ...grpc.CallOption) (*ValidateInvoiceNumberResponse, error)
+	LockInvoice(ctx context.Context, in *LockInvoiceRequest, opts ...grpc.CallOption) (*LockInvoiceResponse, error)
+	// ==================== Payment Statistics ====================
+	GetPaymentStats(ctx context.Context, in *GetPaymentStatsRequest, opts ...grpc.CallOption) (*GetPaymentStatsResponse, error)
+	// ==================== Dunning Gaps ====================
+	UpdateDunningStatus(ctx context.Context, in *UpdateDunningStatusRequest, opts ...grpc.CallOption) (*UpdateDunningStatusResponse, error)
+	SendDunningNotice(ctx context.Context, in *SendDunningNoticeRequest, opts ...grpc.CallOption) (*SendDunningNoticeResponse, error)
+	// ==================== GoBD Export ====================
+	GenerateGoBDExport(ctx context.Context, in *GenerateGoBDExportRequest, opts ...grpc.CallOption) (*GenerateGoBDExportResponse, error)
 }
 
 type financeServiceClient struct {
@@ -539,6 +550,76 @@ func (c *financeServiceClient) GenerateZUGFeRDInvoicePDF(ctx context.Context, in
 	return out, nil
 }
 
+func (c *financeServiceClient) GetJournalSummary(ctx context.Context, in *GetJournalSummaryRequest, opts ...grpc.CallOption) (*GetJournalSummaryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetJournalSummaryResponse)
+	err := c.cc.Invoke(ctx, FinanceService_GetJournalSummary_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) ValidateInvoiceNumber(ctx context.Context, in *ValidateInvoiceNumberRequest, opts ...grpc.CallOption) (*ValidateInvoiceNumberResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ValidateInvoiceNumberResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ValidateInvoiceNumber_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) LockInvoice(ctx context.Context, in *LockInvoiceRequest, opts ...grpc.CallOption) (*LockInvoiceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LockInvoiceResponse)
+	err := c.cc.Invoke(ctx, FinanceService_LockInvoice_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) GetPaymentStats(ctx context.Context, in *GetPaymentStatsRequest, opts ...grpc.CallOption) (*GetPaymentStatsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPaymentStatsResponse)
+	err := c.cc.Invoke(ctx, FinanceService_GetPaymentStats_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) UpdateDunningStatus(ctx context.Context, in *UpdateDunningStatusRequest, opts ...grpc.CallOption) (*UpdateDunningStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateDunningStatusResponse)
+	err := c.cc.Invoke(ctx, FinanceService_UpdateDunningStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) SendDunningNotice(ctx context.Context, in *SendDunningNoticeRequest, opts ...grpc.CallOption) (*SendDunningNoticeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SendDunningNoticeResponse)
+	err := c.cc.Invoke(ctx, FinanceService_SendDunningNotice_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) GenerateGoBDExport(ctx context.Context, in *GenerateGoBDExportRequest, opts ...grpc.CallOption) (*GenerateGoBDExportResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GenerateGoBDExportResponse)
+	err := c.cc.Invoke(ctx, FinanceService_GenerateGoBDExport_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FinanceServiceServer is the server API for FinanceService service.
 // All implementations must embed UnimplementedFinanceServiceServer
 // for forward compatibility.
@@ -596,6 +677,17 @@ type FinanceServiceServer interface {
 	CreateQuoteFromDeal(context.Context, *CreateQuoteFromDealRequest) (*CreateQuoteFromDealResponse, error)
 	// ==================== ZUGFeRD / Factur-X ====================
 	GenerateZUGFeRDInvoicePDF(context.Context, *GenerateZUGFeRDInvoicePDFRequest) (*GenerateZUGFeRDInvoicePDFResponse, error)
+	// ==================== GoBD Journal & Compliance ====================
+	GetJournalSummary(context.Context, *GetJournalSummaryRequest) (*GetJournalSummaryResponse, error)
+	ValidateInvoiceNumber(context.Context, *ValidateInvoiceNumberRequest) (*ValidateInvoiceNumberResponse, error)
+	LockInvoice(context.Context, *LockInvoiceRequest) (*LockInvoiceResponse, error)
+	// ==================== Payment Statistics ====================
+	GetPaymentStats(context.Context, *GetPaymentStatsRequest) (*GetPaymentStatsResponse, error)
+	// ==================== Dunning Gaps ====================
+	UpdateDunningStatus(context.Context, *UpdateDunningStatusRequest) (*UpdateDunningStatusResponse, error)
+	SendDunningNotice(context.Context, *SendDunningNoticeRequest) (*SendDunningNoticeResponse, error)
+	// ==================== GoBD Export ====================
+	GenerateGoBDExport(context.Context, *GenerateGoBDExportRequest) (*GenerateGoBDExportResponse, error)
 	mustEmbedUnimplementedFinanceServiceServer()
 }
 
@@ -728,6 +820,27 @@ func (UnimplementedFinanceServiceServer) CreateQuoteFromDeal(context.Context, *C
 }
 func (UnimplementedFinanceServiceServer) GenerateZUGFeRDInvoicePDF(context.Context, *GenerateZUGFeRDInvoicePDFRequest) (*GenerateZUGFeRDInvoicePDFResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GenerateZUGFeRDInvoicePDF not implemented")
+}
+func (UnimplementedFinanceServiceServer) GetJournalSummary(context.Context, *GetJournalSummaryRequest) (*GetJournalSummaryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetJournalSummary not implemented")
+}
+func (UnimplementedFinanceServiceServer) ValidateInvoiceNumber(context.Context, *ValidateInvoiceNumberRequest) (*ValidateInvoiceNumberResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ValidateInvoiceNumber not implemented")
+}
+func (UnimplementedFinanceServiceServer) LockInvoice(context.Context, *LockInvoiceRequest) (*LockInvoiceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method LockInvoice not implemented")
+}
+func (UnimplementedFinanceServiceServer) GetPaymentStats(context.Context, *GetPaymentStatsRequest) (*GetPaymentStatsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetPaymentStats not implemented")
+}
+func (UnimplementedFinanceServiceServer) UpdateDunningStatus(context.Context, *UpdateDunningStatusRequest) (*UpdateDunningStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateDunningStatus not implemented")
+}
+func (UnimplementedFinanceServiceServer) SendDunningNotice(context.Context, *SendDunningNoticeRequest) (*SendDunningNoticeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SendDunningNotice not implemented")
+}
+func (UnimplementedFinanceServiceServer) GenerateGoBDExport(context.Context, *GenerateGoBDExportRequest) (*GenerateGoBDExportResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GenerateGoBDExport not implemented")
 }
 func (UnimplementedFinanceServiceServer) mustEmbedUnimplementedFinanceServiceServer() {}
 func (UnimplementedFinanceServiceServer) testEmbeddedByValue()                        {}
@@ -1488,6 +1601,132 @@ func _FinanceService_GenerateZUGFeRDInvoicePDF_Handler(srv interface{}, ctx cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FinanceService_GetJournalSummary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetJournalSummaryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).GetJournalSummary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_GetJournalSummary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).GetJournalSummary(ctx, req.(*GetJournalSummaryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_ValidateInvoiceNumber_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidateInvoiceNumberRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ValidateInvoiceNumber(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ValidateInvoiceNumber_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ValidateInvoiceNumber(ctx, req.(*ValidateInvoiceNumberRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_LockInvoice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LockInvoiceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).LockInvoice(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_LockInvoice_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).LockInvoice(ctx, req.(*LockInvoiceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_GetPaymentStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPaymentStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).GetPaymentStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_GetPaymentStats_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).GetPaymentStats(ctx, req.(*GetPaymentStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_UpdateDunningStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateDunningStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).UpdateDunningStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_UpdateDunningStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).UpdateDunningStatus(ctx, req.(*UpdateDunningStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_SendDunningNotice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SendDunningNoticeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).SendDunningNotice(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_SendDunningNotice_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).SendDunningNotice(ctx, req.(*SendDunningNoticeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_GenerateGoBDExport_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateGoBDExportRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).GenerateGoBDExport(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_GenerateGoBDExport_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).GenerateGoBDExport(ctx, req.(*GenerateGoBDExportRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FinanceService_ServiceDesc is the grpc.ServiceDesc for FinanceService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1658,6 +1897,34 @@ var FinanceService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GenerateZUGFeRDInvoicePDF",
 			Handler:    _FinanceService_GenerateZUGFeRDInvoicePDF_Handler,
+		},
+		{
+			MethodName: "GetJournalSummary",
+			Handler:    _FinanceService_GetJournalSummary_Handler,
+		},
+		{
+			MethodName: "ValidateInvoiceNumber",
+			Handler:    _FinanceService_ValidateInvoiceNumber_Handler,
+		},
+		{
+			MethodName: "LockInvoice",
+			Handler:    _FinanceService_LockInvoice_Handler,
+		},
+		{
+			MethodName: "GetPaymentStats",
+			Handler:    _FinanceService_GetPaymentStats_Handler,
+		},
+		{
+			MethodName: "UpdateDunningStatus",
+			Handler:    _FinanceService_UpdateDunningStatus_Handler,
+		},
+		{
+			MethodName: "SendDunningNotice",
+			Handler:    _FinanceService_SendDunningNotice_Handler,
+		},
+		{
+			MethodName: "GenerateGoBDExport",
+			Handler:    _FinanceService_GenerateGoBDExport_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

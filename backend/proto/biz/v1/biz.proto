@@ -68,6 +68,21 @@ service FinanceService {
 
   // ==================== Deal-to-Quote ====================
   rpc CreateQuoteFromDeal(CreateQuoteFromDealRequest) returns (CreateQuoteFromDealResponse);
+
+  // ==================== GoBD Journal & Compliance ====================
+  rpc GetJournalSummary(GetJournalSummaryRequest) returns (GetJournalSummaryResponse);
+  rpc ValidateInvoiceNumber(ValidateInvoiceNumberRequest) returns (ValidateInvoiceNumberResponse);
+  rpc LockInvoice(LockInvoiceRequest) returns (LockInvoiceResponse);
+
+  // ==================== Payment Statistics ====================
+  rpc GetPaymentStats(GetPaymentStatsRequest) returns (GetPaymentStatsResponse);
+
+  // ==================== Dunning Gaps ====================
+  rpc UpdateDunningStatus(UpdateDunningStatusRequest) returns (UpdateDunningStatusResponse);
+  rpc SendDunningNotice(SendDunningNoticeRequest) returns (SendDunningNoticeResponse);
+
+  // ==================== GoBD Export ====================
+  rpc GenerateGoBDExport(GenerateGoBDExportRequest) returns (GenerateGoBDExportResponse);
 }
 
 // ============================================================================
@@ -774,4 +789,116 @@ message CreateInvoiceFromTimeEntriesRequest {
 
 message CreateInvoiceFromTimeEntriesResponse {
   Invoice invoice = 1;
+}
+
+// ============================================================================
+// GoBD Journal Summary Request/Response
+// ============================================================================
+
+message GetJournalSummaryRequest {
+  string tenant_id = 1;
+  int32 year = 2;                  // Fiscal year e.g., 2026
+}
+
+message GetJournalSummaryResponse {
+  int32 year = 1;
+  int32 total_invoices_issued = 2; // Count of invoice numbers assigned
+  int32 gaps_detected = 3;         // Should always be 0 for GoBD compliance
+  string first_number = 4;         // e.g., "RE-2026-0001"
+  string last_number = 5;          // e.g., "RE-2026-0042"
+  int32 highest_sequence = 6;      // Numeric part of last assigned number
+}
+
+// ============================================================================
+// ValidateInvoiceNumber Request/Response
+// ============================================================================
+
+message ValidateInvoiceNumberRequest {
+  string tenant_id = 1;
+  string invoice_number = 2;
+}
+
+message ValidateInvoiceNumberResponse {
+  bool valid_format = 1;           // Matches pattern RE-YYYY-NNNN
+  bool already_used = 2;           // True if number is already assigned to an invoice
+  string canonical = 3;            // Normalized form of the number, or empty if invalid format
+}
+
+// ============================================================================
+// LockInvoice Request/Response
+// ============================================================================
+
+message LockInvoiceRequest {
+  string id = 1;
+  string tenant_id = 2;
+  string locked_by = 3;            // User ID performing the lock
+}
+
+message LockInvoiceResponse {
+  Invoice invoice = 1;
+  string locked_at = 2;            // RFC3339 timestamp of when the lock was applied
+}
+
+// ============================================================================
+// GetPaymentStats Request/Response
+// ============================================================================
+
+message GetPaymentStatsRequest {
+  string tenant_id = 1;
+  string from_date = 2;            // YYYY-MM-DD inclusive
+  string to_date = 3;              // YYYY-MM-DD inclusive
+}
+
+message GetPaymentStatsResponse {
+  int32 total_invoices = 1;
+  int32 total_paid = 2;
+  int32 total_outstanding = 3;
+  string total_paid_amount = 4;    // Decimal as string
+  string total_outstanding_amount = 5; // Decimal as string
+  string average_days_to_pay = 6;  // Decimal as string; 0 if no data
+}
+
+// ============================================================================
+// UpdateDunningStatus Request/Response
+// ============================================================================
+
+message UpdateDunningStatusRequest {
+  string id = 1;
+  string tenant_id = 2;
+  string status = 3;               // "draft" | "sent" | "paid"
+}
+
+message UpdateDunningStatusResponse {
+  DunningRecord dunning = 1;
+}
+
+// ============================================================================
+// SendDunningNotice Request/Response
+// ============================================================================
+
+message SendDunningNoticeRequest {
+  string id = 1;
+  string tenant_id = 2;
+}
+
+message SendDunningNoticeResponse {
+  DunningRecord dunning = 1;
+  bool email_queued = 2;           // false until Sprint 3 email integration
+}
+
+// ============================================================================
+// GenerateGoBDExport Request/Response
+// ============================================================================
+
+message GenerateGoBDExportRequest {
+  string tenant_id = 1;
+  string from_date = 2;            // YYYY-MM-DD
+  string to_date = 3;              // YYYY-MM-DD
+}
+
+message GenerateGoBDExportResponse {
+  bytes csv_data = 1;
+  string filename = 2;
+  int32 record_count = 3;
+  string format_version = 4;       // e.g., "GoBD-CSV-1.0"
 }

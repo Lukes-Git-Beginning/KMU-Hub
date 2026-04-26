@@ -10,6 +10,10 @@ import {
   getCall,
   listRecordings,
   getRecordingConsent,
+  getRecordingConsents,
+  tagRecordingWithConsents,
+  updateRecordingMetadata,
+  listRecordingsByMeeting,
   createCall,
   joinCall,
   endCall,
@@ -17,7 +21,7 @@ import {
   stopRecording,
   setRecordingConsent,
 } from '../video-client'
-import type { CreateCallRequest, RecordingStatus } from '../video-types'
+import type { CreateCallRequest, RecordingStatus, ConsentSnapshotEntry, UpdateRecordingMetadataRequest } from '../video-types'
 
 // Terminal states — polling stops when one of these is reached.
 const RECORDING_TERMINAL_STATES: RecordingStatus[] = ['completed', 'failed', 'deleted']
@@ -165,5 +169,84 @@ export function useSetRecordingConsent() {
         queryKey: ['recordings', variables.recordingId, 'consent'],
       })
     },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// S1.7 Recording Tagging Hooks (Welle 1.B)
+// ---------------------------------------------------------------------------
+
+/**
+ * Get the consent snapshot + live consent rows for a recording.
+ * Returns the frozen JSONB snapshot enriched with up-to-date consent status.
+ */
+export function useRecordingConsents(recordingId: string) {
+  return useQuery({
+    queryKey: ['recordings', recordingId, 'consents'],
+    queryFn: () => getRecordingConsents(recordingId),
+    enabled: !!recordingId,
+  })
+}
+
+/**
+ * Overwrite the consent snapshot on an existing recording.
+ * Intended for administrative corrections or late-joiner updates.
+ */
+export function useTagRecordingWithConsents() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      recordingId,
+      snapshot,
+    }: {
+      recordingId: string
+      snapshot: ConsentSnapshotEntry[]
+    }) => tagRecordingWithConsents(recordingId, snapshot),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ['recordings', variables.recordingId, 'consents'],
+      })
+    },
+  })
+}
+
+/**
+ * Update mutable metadata on a recording (file_url, file_size_bytes, duration_seconds, status).
+ * Primarily used by internal tooling; the egress webhook calls this automatically.
+ */
+export function useUpdateRecordingMetadata() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      recordingId,
+      metadata,
+    }: {
+      recordingId: string
+      metadata: UpdateRecordingMetadataRequest
+    }) => updateRecordingMetadata(recordingId, metadata),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ['recordings', variables.recordingId],
+      })
+    },
+  })
+}
+
+/**
+ * List all recordings for a specific meeting with optional pagination.
+ * Distinct from useRecordings which filters by call_id or meeting_id via the general endpoint.
+ */
+export function useListRecordingsByMeeting(
+  meetingId: string,
+  opts?: { page?: number; pageSize?: number },
+) {
+  return useQuery({
+    queryKey: ['recordings', 'by-meeting', meetingId, opts],
+    queryFn: () =>
+      listRecordingsByMeeting(meetingId, {
+        page: opts?.page,
+        page_size: opts?.pageSize,
+      }),
+    enabled: !!meetingId,
   })
 }

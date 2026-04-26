@@ -69,3 +69,12 @@ type RecordingConsentStatus struct {
 	Consents     []RecordingConsentWithUser  `json:"consents"`
 	AllConsented bool                        `json:"all_consented"`
 }
+
+// RecordingMetadata holds the updatable fields for UpdateRecordingMetadata.
+// All fields are optional; nil means "do not update".
+type RecordingMetadata struct {
+	FileURL         *string `json:"file_url,omitempty"`
+	FileSizeBytes   *int64  `json:"file_size_bytes,omitempty"`
+	DurationSeconds *int    `json:"duration_seconds,omitempty"`
+	Status          *string `json:"status,omitempty"`
+}

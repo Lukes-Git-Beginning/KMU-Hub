@@ -15,6 +15,7 @@ import {
   financeDashboardApi,
   financeExportApi,
   financeDealApi,
+  financeGoBDApi,
 } from '../finance-client'
 import type {
   CreateQuoteRequest,
@@ -29,6 +30,7 @@ import type {
   ListInvoicesParams,
   ListCreditNotesParams,
   ListDunningsParams,
+  DateRangeParams,
 } from '@/types/finance-types'
 
 // ---------------------------------------------------------------------------
@@ -50,6 +52,10 @@ export const financeKeys = {
   dunningConfig: () => ['finance', 'dunning-config'] as const,
   dashboard: (dateFrom?: string, dateTo?: string) =>
     ['finance', 'dashboard', dateFrom, dateTo] as const,
+  // GoBD keys (Sprint 2 / Wave 1.B)
+  journalSummary: (year: number) => ['finance', 'journal-summary', year] as const,
+  paymentStats: (from: string, to: string) =>
+    ['finance', 'payment-stats', from, to] as const,
 }
 
 // ---------------------------------------------------------------------------
@@ -501,6 +507,107 @@ export function useDownloadDunningPDF() {
     mutationFn: (id: string) => financeDunningApi.getPDF(id),
     onSuccess: (blob) => {
       downloadBlob(blob, `Mahnung.pdf`)
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// GoBD Journal & Compliance hooks (Sprint 2 / Wave 1.B)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetches the GoBD journal summary for a given fiscal year.
+ * gaps_detected === 0 is required for GoBD compliance.
+ */
+export function useJournalSummary(year: number) {
+  return useQuery({
+    queryKey: financeKeys.journalSummary(year),
+    queryFn: () => financeGoBDApi.getJournalSummary(year),
+    enabled: year >= 2000 && year <= 2100,
+    staleTime: 10 * 60 * 1000, // 10 min — journal state changes infrequently
+  })
+}
+
+/**
+ * Checks whether a candidate invoice number is format-valid and not yet assigned.
+ * enabled=false by default — set enabled to true when the user stops typing.
+ */
+export function useValidateInvoiceNumber(number: string, enabled = false) {
+  return useQuery({
+    queryKey: ['finance', 'validate-invoice-number', number] as const,
+    queryFn: () => financeGoBDApi.validateInvoiceNumber(number),
+    enabled: enabled && number.length > 0,
+    staleTime: 30 * 1000, // 30 s — invalidated by any invoice creation
+  })
+}
+
+/**
+ * Locks an invoice (GoBD: administrative immutability).
+ * Invalidates the invoice cache on success.
+ */
+export function useLockInvoice() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => financeGoBDApi.lockInvoice(id),
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: financeKeys.invoice(id) })
+      qc.invalidateQueries({ queryKey: ['finance', 'invoices'] })
+    },
+  })
+}
+
+/**
+ * Fetches aggregated payment statistics for a date range.
+ */
+export function usePaymentStats(params: DateRangeParams) {
+  return useQuery({
+    queryKey: financeKeys.paymentStats(params.from_date, params.to_date),
+    queryFn: () => financeGoBDApi.getPaymentStats(params),
+    enabled: !!params.from_date && !!params.to_date,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+/**
+ * Directly overrides the status of a dunning record (admin use).
+ */
+export function useUpdateDunningStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      financeGoBDApi.updateDunningStatus(id, status),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['finance', 'dunnings'] })
+    },
+  })
+}
+
+/**
+ * Marks a dunning record as sent and (Sprint 3) queues the email notification.
+ */
+export function useSendDunningNotice() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => financeGoBDApi.sendDunningNotice(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['finance', 'dunnings'] })
+    },
+  })
+}
+
+/**
+ * Generates and downloads a GoBD-compliant CSV export for the given date range.
+ * The file is downloaded directly via blob URL.
+ */
+export function useGoBDExport() {
+  return useMutation({
+    mutationFn: (params: DateRangeParams) =>
+      financeGoBDApi.generateGoBDExport(params),
+    onSuccess: (blob, params) => {
+      downloadBlob(
+        blob,
+        `gobd-export-${params.from_date}-${params.to_date}.csv`,
+      )
     },
   })
 }

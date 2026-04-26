@@ -294,6 +294,146 @@ func (s *Service) ListRecordings(ctx context.Context, callID *uuid.UUID, meeting
 	return nil, ErrNoCallOrMeeting
 }
 
+// GetRecordingConsents returns the consent snapshot stored on the recording, optionally enriched
+// with live consent records from the recording_consents table.
+func (s *Service) GetRecordingConsents(ctx context.Context, recordingID uuid.UUID) (*RecordingConsentStatus, error) {
+	rec, err := s.repo.GetRecording(ctx, recordingID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch live consent rows for up-to-date responded_at / consented values
+	liveConsents, err := s.repo.GetConsentsWithUser(ctx, recordingID)
+	if err != nil {
+		return nil, fmt.Errorf("get consents with user: %w", err)
+	}
+
+	allConsented := true
+	for _, c := range liveConsents {
+		if !c.Consented {
+			allConsented = false
+			break
+		}
+	}
+	// If no live consents yet, fall back to snapshot to determine pending state
+	if len(liveConsents) == 0 && len(rec.ConsentSnapshot) > 0 {
+		allConsented = false
+	}
+
+	return &RecordingConsentStatus{
+		RecordingID:  recordingID,
+		Consents:     liveConsents,
+		AllConsented: allConsented,
+	}, nil
+}
+
+// TagRecordingWithConsents overwrites the consent_snapshot JSONB on an existing recording.
+// Called after StartRecording when the snapshot needs to be refreshed (e.g. late-joiners).
+// Errors are non-fatal in the StartRecording flow — callers should log and continue.
+func (s *Service) TagRecordingWithConsents(ctx context.Context, recordingID uuid.UUID, snapshot []ParticipantConsentInfo) error {
+	if err := s.repo.TagRecordingWithConsents(ctx, recordingID, snapshot); err != nil {
+		return fmt.Errorf("tag recording consents: %w", err)
+	}
+
+	slog.Info("recording consent snapshot tagged",
+		"recording_id", recordingID,
+		"participant_count", len(snapshot),
+	)
+
+	return nil
+}
+
+// UpdateRecordingMetadata updates mutable metadata fields on an existing recording.
+// Used by the egress webhook and administrative operations.
+func (s *Service) UpdateRecordingMetadata(ctx context.Context, recordingID uuid.UUID, meta RecordingMetadata) error {
+	rec, err := s.repo.GetRecording(ctx, recordingID)
+	if err != nil {
+		return err
+	}
+
+	if meta.FileURL != nil {
+		rec.FileURL = meta.FileURL
+	}
+	if meta.FileSizeBytes != nil {
+		rec.FileSizeBytes = meta.FileSizeBytes
+	}
+	if meta.DurationSeconds != nil {
+		rec.DurationSeconds = meta.DurationSeconds
+	}
+	if meta.Status != nil {
+		if !ValidRecordingStatuses[*meta.Status] {
+			return ErrInvalidStatus
+		}
+		rec.Status = *meta.Status
+	}
+
+	if err := s.repo.UpdateRecording(ctx, rec); err != nil {
+		return fmt.Errorf("update recording metadata: %w", err)
+	}
+
+	slog.Info("recording metadata updated",
+		"recording_id", recordingID,
+	)
+
+	return nil
+}
+
+// GetRecordingStatus returns the current status of a single recording.
+// This is the primary polling target for the useRecordingStatus frontend hook.
+func (s *Service) GetRecordingStatus(ctx context.Context, recordingID uuid.UUID) (*Recording, error) {
+	rec, err := s.repo.GetRecording(ctx, recordingID)
+	if err != nil {
+		return nil, err
+	}
+	return rec, nil
+}
+
+// CleanupExpiredRecording deletes a single recording by ID if its retention period has elapsed.
+// Intended to be called by a cron job (Sprint 4 / R2-P1.11). Returns ErrNotExpired if the
+// recording has not yet reached its retention expiry.
+func (s *Service) CleanupExpiredRecording(ctx context.Context, recordingID uuid.UUID) error {
+	rec, err := s.repo.GetRecording(ctx, recordingID)
+	if err != nil {
+		return err
+	}
+
+	if rec.RetentionExpiresAt == nil || rec.RetentionExpiresAt.After(time.Now()) {
+		return ErrNotExpired
+	}
+
+	if err := s.repo.DeleteRecording(ctx, recordingID); err != nil {
+		return fmt.Errorf("delete expired recording: %w", err)
+	}
+
+	slog.Info("expired recording deleted (single)",
+		"recording_id", recordingID,
+		"retention_expired_at", rec.RetentionExpiresAt,
+	)
+
+	return nil
+}
+
+// ListRecordingsByMeeting returns all recordings for a given meeting, scoped to tenantID.
+// TenantID is currently unused (single-tenant), but included for Option-B-Retrofit in Sprint 2/3.
+func (s *Service) ListRecordingsByMeeting(ctx context.Context, meetingID uuid.UUID, _ uuid.UUID, page, pageSize int) ([]Recording, int, error) {
+	all, err := s.repo.ListRecordingsByMeeting(ctx, meetingID)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	total := len(all)
+	if page > 0 && pageSize > 0 {
+		start := (page - 1) * pageSize
+		if start >= total {
+			return []Recording{}, total, nil
+		}
+		end := min(start+pageSize, total)
+		all = all[start:end]
+	}
+
+	return all, total, nil
+}
+
 // ListRecordingsWithAccess returns recordings a user has access to, optionally filtered by meeting.
 // This is the Phase 11 integration point: the central file manager calls this to discover
 // recordings per meeting and enforce participant-only access.

@@ -195,11 +195,41 @@ export interface RecordingConsent {
   user_id: string
   consented: boolean
   responded_at: string
+  first_name?: string
+  last_name?: string
 }
 
 export interface RecordingConsentStatus {
   all_responded: boolean
   consents: RecordingConsent[]
+}
+
+/** Enriched consent status returned by GetRecordingConsents (S1.7) */
+export interface RecordingConsentsResponse {
+  recording_id: string
+  consents: RecordingConsent[]
+  all_consented: boolean
+}
+
+/** A single entry in the consent snapshot */
+export interface ConsentSnapshotEntry {
+  user_id: string
+  display_name: string
+  joined_at?: string
+}
+
+/** Request body for PATCH /recordings/{id}/metadata */
+export interface UpdateRecordingMetadataRequest {
+  file_url?: string
+  file_size_bytes?: number
+  duration_seconds?: number
+  status?: RecordingStatus
+}
+
+/** Paginated list of recordings for a meeting */
+export interface RecordingsByMeetingResponse {
+  recordings: Recording[]
+  total: number
 }
 
 // ---------------------------------------------------------------------------

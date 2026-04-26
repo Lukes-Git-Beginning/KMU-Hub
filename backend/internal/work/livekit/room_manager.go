@@ -2,6 +2,7 @@ package livekit
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	lkauth "github.com/livekit/protocol/auth"
@@ -12,22 +13,33 @@ import (
 // RoomManager implements the video.RoomManager interface using the LiveKit server SDK.
 // When LiveKit is not configured, callers should pass nil (the video service handles nil gracefully).
 type RoomManager struct {
-	client    *lksdk.RoomServiceClient
-	apiKey    string
-	apiSecret string
+	client     *lksdk.RoomServiceClient
+	apiKey     string
+	apiSecret  string
+	turnSecret string // coturn shared secret; empty = TURN disabled
+	coturnHost string // FQDN of coturn server, e.g. "turn.zentria.tech"
 }
 
-// NewRoomManager creates a new LiveKit room manager.
+// NewRoomManager creates a new LiveKit room manager without TURN support.
 // Returns nil if any required parameter is empty.
 func NewRoomManager(apiKey, apiSecret, wsURL string) *RoomManager {
+	return NewRoomManagerWithTURN(apiKey, apiSecret, wsURL, "", "")
+}
+
+// NewRoomManagerWithTURN creates a new LiveKit room manager with optional TURN support.
+// turnSecret and coturnHost are both required for TURN to be active; either empty disables it.
+// Returns nil if any of apiKey, apiSecret, or wsURL is empty.
+func NewRoomManagerWithTURN(apiKey, apiSecret, wsURL, turnSecret, coturnHost string) *RoomManager {
 	if apiKey == "" || apiSecret == "" || wsURL == "" {
 		return nil
 	}
 	client := lksdk.NewRoomServiceClient(wsURL, apiKey, apiSecret)
 	return &RoomManager{
-		client:    client,
-		apiKey:    apiKey,
-		apiSecret: apiSecret,
+		client:     client,
+		apiKey:     apiKey,
+		apiSecret:  apiSecret,
+		turnSecret: turnSecret,
+		coturnHost: coturnHost,
 	}
 }
 
@@ -55,6 +67,9 @@ func (rm *RoomManager) DeleteRoom(ctx context.Context, name string) error {
 }
 
 // GenerateToken creates a JWT token for a user to join a specific LiveKit room.
+// When TURN is configured on this RoomManager, per-session coturn credentials
+// are embedded in the token Metadata field as JSON so that the LiveKit client
+// SDK can apply them to the WebRTC peer connection automatically.
 func (rm *RoomManager) GenerateToken(roomName, userID, displayName string) (string, error) {
 	at := lkauth.NewAccessToken(rm.apiKey, rm.apiSecret)
 	grant := &lkauth.VideoGrant{
@@ -64,6 +79,18 @@ func (rm *RoomManager) GenerateToken(roomName, userID, displayName string) (stri
 	at.SetVideoGrant(grant).
 		SetIdentity(userID).
 		SetName(displayName)
+
+	// Embed per-session TURN credentials when coturn is configured.
+	if rm.turnSecret != "" && rm.coturnHost != "" {
+		svc := &Service{turnSecret: rm.turnSecret, coturnHost: rm.coturnHost}
+		if servers := svc.TURNIceServers(userID); len(servers) > 0 {
+			meta := turnMetadata{IceServers: servers}
+			metaJSON, err := json.Marshal(meta)
+			if err == nil {
+				at.SetMetadata(string(metaJSON))
+			}
+		}
+	}
 
 	return at.ToJWT()
 }

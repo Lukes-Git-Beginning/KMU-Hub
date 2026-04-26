@@ -112,6 +112,45 @@ func (m *MockRepository) LinkTimeTracking(_ context.Context, _ uuid.UUID, _ json
 	return nil
 }
 
+// InvoiceNumberExists returns false for all numbers (no duplicates in test data by default).
+func (m *MockRepository) InvoiceNumberExists(_ context.Context, _ uuid.UUID, number string) (bool, error) {
+	for _, inv := range m.invoices {
+		if inv.InvoiceNumber == number {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// CountByFiscalYear counts non-draft invoices with invoice_number in the given year.
+func (m *MockRepository) CountByFiscalYear(_ context.Context, tenantID uuid.UUID, year int) (int, error) {
+	count := 0
+	for _, inv := range m.invoices {
+		if inv.TenantID == tenantID && inv.Status != "draft" && inv.InvoiceNumber != "" &&
+			inv.InvoiceDate.Year() == year {
+			count++
+		}
+	}
+	return count, nil
+}
+
+// AggregatePaymentStats returns zeroed stats (sufficient for service tests).
+func (m *MockRepository) AggregatePaymentStats(_ context.Context, _ uuid.UUID, _, _ time.Time) (PaymentStats, error) {
+	return PaymentStats{}, nil
+}
+
+// ListForGoBDExport returns non-draft invoices with invoice_number in the date range.
+func (m *MockRepository) ListForGoBDExport(_ context.Context, tenantID uuid.UUID, fromDate, toDate time.Time) ([]*models.Invoice, error) {
+	var result []*models.Invoice
+	for _, inv := range m.invoices {
+		if inv.TenantID == tenantID && inv.Status != "draft" && inv.InvoiceNumber != "" &&
+			!inv.InvoiceDate.Before(fromDate) && !inv.InvoiceDate.After(toDate) {
+			result = append(result, inv)
+		}
+	}
+	return result, nil
+}
+
 // MockNumberSequenceRepo implements NumberSequenceRepo for testing.
 type MockNumberSequenceRepo struct {
 	nextNumber string
@@ -126,6 +165,11 @@ func (m *MockNumberSequenceRepo) NextNumber(ctx context.Context, tenantID uuid.U
 		return m.nextNumber, nil
 	}
 	return "RE-2026-0001", nil
+}
+
+// GetSequenceInfo returns nil (no sequence exists) for test purposes.
+func (m *MockNumberSequenceRepo) GetSequenceInfo(_ context.Context, _ uuid.UUID, _ string, _ int) (*SequenceInfo, error) {
+	return nil, nil
 }
 
 // MockCompanySettingsRepo implements CompanySettingsRepo for testing.

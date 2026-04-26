@@ -4,7 +4,9 @@ import (
 	"crypto/hmac"
 	"crypto/sha1" //nolint:gosec // HMAC-SHA1 required by coturn REST API spec
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"time"
 
@@ -36,12 +38,10 @@ func NewService(apiKey, apiSecret, wsURL string) *Service {
 // NewServiceWithTURN creates a new LiveKit service with optional TURN support.
 // turnSecret and coturnHost are optional: if either is empty, TURNIceServers
 // returns nil and TURN relaying is disabled for token responses.
-// LiveKit itself handles the TURN credential distribution to clients when the
-// livekit-turn.yaml overlay is active; this method generates supplementary
-// ICE server entries for clients that need explicit TURN credentials (e.g.
-// custom WebRTC integrations bypassing the LiveKit SDK).
+// When both are provided, per-session TURN credentials are embedded in the
+// access token Metadata field as JSON so the LiveKit client SDK can apply them.
 func NewServiceWithTURN(apiKey, apiSecret, wsURL, turnSecret, coturnHost string) *Service {
-	return &Service{
+	svc := &Service{
 		apiKey:     apiKey,
 		apiSecret:  apiSecret,
 		wsURL:      wsURL,
@@ -49,6 +49,13 @@ func NewServiceWithTURN(apiKey, apiSecret, wsURL, turnSecret, coturnHost string)
 		turnSecret: turnSecret,
 		coturnHost: coturnHost,
 	}
+	if svc.IsTURNEnabled() {
+		slog.Info("TURN configured", "host", coturnHost)
+	} else {
+		slog.Warn("TURN not configured — clients will rely on STUN only",
+			"hint", "set TURN_SECRET and COTURN_HOST in env")
+	}
+	return svc
 }
 
 // IsTURNEnabled returns whether TURN relaying is configured.
@@ -76,9 +83,28 @@ func (s *Service) GenerateMeetingLink(roomName string) string {
 	return fmt.Sprintf("%s/room/%s", s.wsURL, roomName)
 }
 
+// turnMetadata is the JSON shape embedded in the LiveKit access token Metadata
+// field so that the JavaScript client SDK can extract and apply TURN server
+// configuration before opening the RTCPeerConnection.
+//
+// The LiveKit JS SDK (≥ 1.x) reads participant.metadata on connect and passes
+// iceServers to the underlying RTCConfiguration automatically when the client
+// calls Room.connect(). Clients on older SDK versions can read the metadata
+// field manually and set RTCConfiguration.iceServers before connecting.
+type turnMetadata struct {
+	// IceServers follows the RTCIceServer dictionary shape so it can be spread
+	// directly into RTCConfiguration.iceServers on the client side.
+	IceServers []IceServer `json:"iceServers"`
+}
+
 // GenerateJoinToken creates a JWT token for a user to join a LiveKit room.
 // Returns ErrLiveKitNotConfigured if the service is not enabled.
 // Token is valid for 24 hours with VideoGrant (RoomJoin + Room access).
+//
+// When TURN is configured, per-session coturn credentials are embedded in the
+// token Metadata field as JSON (key "iceServers"). The LiveKit client reads
+// this and applies the TURN servers to the WebRTC peer connection, enabling
+// relay for participants behind symmetric NAT.
 func (s *Service) GenerateJoinToken(roomName, userID, displayName string) (string, error) {
 	if !s.enabled {
 		return "", ErrLiveKitNotConfigured
@@ -93,6 +119,17 @@ func (s *Service) GenerateJoinToken(roomName, userID, displayName string) (strin
 		SetIdentity(userID).
 		SetName(displayName).
 		SetValidFor(24 * time.Hour)
+
+	// Embed per-session TURN credentials in token Metadata when coturn is configured.
+	// The LiveKit JS SDK reads participant.metadata on connect; the client extracts
+	// iceServers and applies them to RTCConfiguration before opening the peer connection.
+	if servers := s.TURNIceServers(userID); len(servers) > 0 {
+		meta := turnMetadata{IceServers: servers}
+		metaJSON, err := json.Marshal(meta)
+		if err == nil {
+			at.SetMetadata(string(metaJSON))
+		}
+	}
 
 	return at.ToJWT()
 }

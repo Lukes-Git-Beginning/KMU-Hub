@@ -1,8 +1,10 @@
 # LiveKit ↔ coturn Integration
 
-> **Status 2026-04-19:** coturn is deployed on Hetzner CAX11 (`turn.zentria.tech`,
-> `5.75.246.217`). The external TURN server is **not yet wired into LiveKit** —
-> see "Pending work" below. Clients currently cannot use coturn for relay.
+> **Status 2026-04-26 (Implementation landed — S1.R2.1b):** coturn is deployed
+> on Hetzner CAX11 (`turn.zentria.tech`, `5.75.246.217`). Per-session TURN
+> credentials are now wired into every LiveKit AccessToken via the Metadata
+> field (Option B, Metadata-JSON strategy). See "Implementation 2026-04-26"
+> below for details.
 
 ## What's done
 
@@ -20,7 +22,42 @@ An earlier revision of this doc suggested putting a `turn:` block in
 external one. Setting it while `turn.zentria.tech` already runs coturn causes
 a port conflict and confusion.
 
-## Pending work — wire the external coturn into LiveKit
+## Implementation 2026-04-26
+
+Option B (ephemeral credentials via AccessToken) is implemented. Strategy chosen:
+**Metadata-JSON** — TURN ICE server credentials are embedded in the LiveKit
+access token `Metadata` field as JSON rather than via a native SDK API, because
+the LiveKit Go SDK (protocol v1.44.x) has no `SetTurnServer` method on
+`AccessToken`. Metadata-JSON is the idiomatic fallback documented by LiveKit.
+
+**Files changed:**
+- `backend/internal/work/livekit/service.go` — `GenerateJoinToken` now calls
+  `TURNIceServers(userID)` and embeds the result as `{"iceServers": [...]}` JSON
+  in the token Metadata when TURN is configured.
+- `backend/internal/work/livekit/room_manager.go` — `RoomManager` stores
+  `turnSecret`/`coturnHost`; `GenerateToken` (used by video JoinCall) embeds
+  TURN credentials in Metadata using the same mechanism.
+- `backend/cmd/work/main.go` — `NewRoomManagerWithTURN` replaces `NewRoomManager`
+  so TURN config flows from env vars through to every token.
+
+**Client-side integration:**
+The LiveKit JS SDK reads `participant.metadata` on join. The frontend should
+parse `JSON.parse(metadata).iceServers` and merge it with the RTCConfiguration
+before calling `room.connect()`. Example:
+
+```typescript
+const meta = JSON.parse(token_metadata || "{}");
+const iceServers = meta.iceServers ?? [];
+await room.connect(wsUrl, token, {
+  rtcConfig: { iceServers: [...defaultStun, ...iceServers] }
+});
+```
+
+**Startup log:** `NewServiceWithTURN` and `NewRoomManagerWithTURN` now emit a
+structured slog line at startup — `INFO TURN configured host=turn.zentria.tech`
+when configured, or `WARN TURN not configured` otherwise.
+
+## (Superseded) Pending work — wire the external coturn into LiveKit
 
 There are two supported ways to advertise an external TURN server to LiveKit
 clients. Pick ONE, **do not combine with a `turn:` block**.
@@ -40,14 +77,17 @@ rtc:
       credential: <static-password>
 ```
 
-### Option B — ephemeral credentials via `AccessToken` (recommended)
+### Option B — ephemeral credentials via `AccessToken` (implemented ✅)
 
-The LiveKit server generates short-lived TURN credentials per room-join using
+The backend generates short-lived TURN credentials per room-join using
 the `static-auth-secret` shared with coturn. This is the standard pattern
 documented by LiveKit.
 
-**Backend change required** (`backend/internal/video/service.go`, when building
-the `AccessToken`):
+**Implementation note:** The LiveKit Go SDK (protocol v1.44.x) does not expose a
+`SetTurnServer` method — credentials are embedded via `SetMetadata` as JSON
+instead. See "Implementation 2026-04-26" above.
+
+**Original reference snippet** (`backend/internal/video/service.go`):
 
 ```go
 // Generate REST-API-style TURN credential:

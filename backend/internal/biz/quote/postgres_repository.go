@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
+	invoicebiz "github.com/kmuhub/kmuhub/internal/biz/invoice"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -278,6 +279,29 @@ func (r *PostgresNumberSequenceRepo) NextNumber(ctx context.Context, tenantID uu
 
 	// Format: PREFIX-YEAR-PADDED e.g., AN-2026-0001
 	return fmt.Sprintf("%s-%d-%04d", prefix, fiscalYear, currentNumber), nil
+}
+
+// GetSequenceInfo returns the current state of the number sequence for the given
+// document type and fiscal year. Returns nil if no sequence exists yet.
+// Used by invoice.GetJournalSummary for GoBD gap detection.
+// The return type is *invoicebiz.SequenceInfo to satisfy the invoice.NumberSequenceRepo interface.
+func (r *PostgresNumberSequenceRepo) GetSequenceInfo(ctx context.Context, tenantID uuid.UUID, documentType string, fiscalYear int) (*invoicebiz.SequenceInfo, error) {
+	var currentNumber int
+	err := r.pool.QueryRow(ctx,
+		`SELECT current_number FROM finance_number_sequences
+		WHERE tenant_id = $1 AND document_type = $2 AND fiscal_year = $3`,
+		tenantID, documentType, fiscalYear,
+	).Scan(&currentNumber)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get sequence info: %w", err)
+	}
+	return &invoicebiz.SequenceInfo{
+		CurrentNumber: currentNumber,
+		FiscalYear:    fiscalYear,
+	}, nil
 }
 
 // PostgresCompanySettingsRepo implements CompanySettingsRepo using PostgreSQL.

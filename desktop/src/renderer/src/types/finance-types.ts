@@ -328,3 +328,63 @@ export interface ListDunningsResponse {
   dunnings: DunningRecord[]
   total: number
 }
+
+// ---------------------------------------------------------------------------
+// GoBD Journal & Compliance (Sprint 2 / Wave 1.B)
+// ---------------------------------------------------------------------------
+
+/** GoBD journal summary for a fiscal year. gaps_detected must be 0 for compliance. */
+export interface JournalSummary {
+  year: number
+  total_invoices_issued: number
+  gaps_detected: number
+  first_number: string
+  last_number: string
+  highest_sequence: number
+}
+
+/** Result of validating an invoice number candidate. */
+export interface ValidateInvoiceNumberResult {
+  valid_format: boolean
+  already_used: boolean
+  canonical: string
+}
+
+/** Aggregated payment statistics for a date range. */
+export interface PaymentStats {
+  total_invoices: number
+  total_paid: number
+  total_outstanding: number
+  /** Decimal string, e.g. "12345.00" */
+  total_paid_amount: string
+  /** Decimal string, e.g. "6789.00" */
+  total_outstanding_amount: string
+  /** Average days from invoice_date to payment, e.g. "14.5" */
+  average_days_to_pay: string
+}
+
+/** Parameters for fetching the GoBD journal summary. */
+export interface JournalSummaryParams {
+  year: number
+}
+
+/** Parameters for date-range queries (payments stats, GoBD export). */
+export interface DateRangeParams {
+  from_date: string // YYYY-MM-DD
+  to_date: string   // YYYY-MM-DD
+}
+
+/** Parameters for the GoBD CSV export. */
+export type GoBDExportParams = DateRangeParams
+
+/** Response from LockInvoice. */
+export interface LockInvoiceResponse {
+  invoice_json?: Record<string, unknown>
+  locked_at: string // RFC3339
+}
+
+/** Response from UpdateDunningStatus / SendDunningNotice. */
+export interface DunningNoticeResponse {
+  dunning: DunningRecord
+  email_queued?: boolean
+}

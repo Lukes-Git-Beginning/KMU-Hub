@@ -77,9 +77,12 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/pay", b.HandleMarkInvoicePaid)
 		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/cancel", b.HandleCancelInvoice)
 		r.With(middleware.RequirePermission("finance", "read")).Get("/{id}/pdf", b.HandleGenerateInvoicePDF)
+		r.With(middleware.RequirePermission("finance", "admin")).Post("/{id}/lock", b.HandleLockInvoice)
 		// Payments nested under invoices
 		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/payments", b.HandleRecordPayment)
 		r.With(middleware.RequirePermission("finance", "read")).Get("/{id}/payments", b.HandleListPayments)
+		// GoBD number validation
+		r.With(middleware.RequirePermission("finance", "read")).Get("/validate-number", b.HandleValidateInvoiceNumber)
 	})
 
 	// Credit Notes
@@ -108,6 +111,9 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		r.With(middleware.RequirePermission("finance", "read")).Get("/{id}/pdf", b.HandleGenerateDunningPDF)
 		r.With(middleware.RequirePermission("finance", "read")).Get("/config", b.HandleGetDunningConfig)
 		r.With(middleware.RequirePermission("finance", "admin")).Put("/config", b.HandleUpdateDunningConfig)
+		// GoBD dunning gaps (Sprint 2 / Wave 1.B)
+		r.With(middleware.RequirePermission("finance", "admin")).Put("/{id}/status", b.HandleUpdateDunningStatus)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/{id}/notice", b.HandleSendDunningNotice)
 	})
 
 	// Dashboard
@@ -116,10 +122,23 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleGetFinanceDashboard)
 	})
 
-	// DATEV Export
+	// DATEV + GoBD Export
 	r.Route("/api/v1/finance/export", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.With(middleware.RequirePermission("finance", "read")).Post("/datev", b.HandleExportDATEV)
+		r.With(middleware.RequirePermission("finance", "admin")).Post("/gobd", b.HandleGenerateGoBDExport)
+	})
+
+	// GoBD Journal summary
+	r.Route("/api/v1/finance/journal", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/summary", b.HandleGetJournalSummary)
+	})
+
+	// Payment Stats
+	r.Route("/api/v1/finance/stats", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/payments", b.HandleGetPaymentStats)
 	})
 
 	// Deal-to-Quote conversion

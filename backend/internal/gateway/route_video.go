@@ -66,7 +66,13 @@ func (vr *VideoRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 		r.Post("/recordings/{id}/stop", vr.HandleStopRecording)
 		r.Post("/recordings/{id}/consent", vr.HandleSetRecordingConsent)
 		r.Get("/recordings/{id}/consent", vr.HandleGetRecordingConsent)
+		r.Get("/recordings/{id}/consents", vr.HandleGetRecordingConsents)
+		r.Post("/recordings/{id}/tag-consents", vr.HandleTagRecordingWithConsents)
+		r.Patch("/recordings/{id}/metadata", vr.HandleUpdateRecordingMetadata)
+		r.Get("/recordings/{id}/status", vr.HandleGetRecordingStatus)
+		r.Post("/recordings/{id}/cleanup", vr.HandleCleanupExpiredRecording)
 		r.Get("/recordings", vr.HandleListRecordings)
+		r.Get("/meetings/{meetingId}/recordings", vr.HandleListRecordingsByMeeting)
 		r.Delete("/recordings/{id}", vr.HandleDeleteRecording)
 
 		// Presence
@@ -1293,6 +1299,214 @@ func (vr *VideoRoutes) handleEgressEnded(r *http.Request, evt liveKitWebhookEven
 			"error", grpcErr,
 		)
 	}
+}
+
+// ============================================================================
+// Recording Tagging Handlers (S1.7 / Welle 1.B)
+// ============================================================================
+
+// getVideoRecordingTagClient obtains the recording-tag extended gRPC client.
+func (vr *VideoRoutes) getVideoRecordingTagClient() (videov1.VideoServiceRecordingTagClient, error) {
+	conn, err := vr.registry.GetConnection("work")
+	if err != nil {
+		return nil, err
+	}
+	return videov1.NewVideoServiceRecordingTagClient(conn), nil
+}
+
+// HandleGetRecordingConsents returns the consent snapshot + live consent rows for a recording.
+// GET /api/v1/video/recordings/{id}/consents
+func (vr *VideoRoutes) HandleGetRecordingConsents(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoRecordingTagClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+
+	recordingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GetRecordingConsents(r.Context(), &videov1.GetRecordingConsentsRequest{
+		RecordingID: recordingID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type tagRecordingConsentsRequest struct {
+	Snapshot []struct {
+		UserID      string `json:"user_id"`
+		DisplayName string `json:"display_name"`
+		JoinedAt    string `json:"joined_at,omitempty"`
+	} `json:"snapshot"`
+}
+
+// HandleTagRecordingWithConsents overwrites the consent snapshot on a recording.
+// POST /api/v1/video/recordings/{id}/tag-consents
+func (vr *VideoRoutes) HandleTagRecordingWithConsents(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoRecordingTagClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+
+	recordingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	var req tagRecordingConsentsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	entries := make([]*videov1.ConsentSnapshotEntry, 0, len(req.Snapshot))
+	for _, e := range req.Snapshot {
+		entries = append(entries, &videov1.ConsentSnapshotEntry{
+			UserID:      e.UserID,
+			DisplayName: e.DisplayName,
+			JoinedAt:    e.JoinedAt,
+		})
+	}
+
+	_, err = client.TagRecordingWithConsents(r.Context(), &videov1.TagRecordingWithConsentsRequest{
+		RecordingID: recordingID,
+		Snapshot:    entries,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "consent snapshot updated"})
+}
+
+type updateRecordingMetadataRequest struct {
+	FileURL         *string `json:"file_url,omitempty"`
+	FileSizeBytes   *int64  `json:"file_size_bytes,omitempty"`
+	DurationSeconds *int32  `json:"duration_seconds,omitempty"`
+	Status          *string `json:"status,omitempty"`
+}
+
+// HandleUpdateRecordingMetadata updates mutable fields on a recording.
+// PATCH /api/v1/video/recordings/{id}/metadata
+func (vr *VideoRoutes) HandleUpdateRecordingMetadata(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoRecordingTagClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+
+	recordingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	var req updateRecordingMetadataRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	resp, err := client.UpdateRecordingMetadata(r.Context(), &videov1.UpdateRecordingMetadataRequest{
+		RecordingID:     recordingID,
+		FileURL:         req.FileURL,
+		FileSizeBytes:   req.FileSizeBytes,
+		DurationSeconds: req.DurationSeconds,
+		Status:          req.Status,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// HandleGetRecordingStatus returns the current status of a single recording.
+// GET /api/v1/video/recordings/{id}/status
+func (vr *VideoRoutes) HandleGetRecordingStatus(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoRecordingTagClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+
+	recordingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GetRecordingStatus(r.Context(), &videov1.GetRecordingStatusRequest{
+		RecordingID: recordingID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// HandleListRecordingsByMeeting lists recordings for a specific meeting with pagination.
+// GET /api/v1/video/meetings/{meetingId}/recordings
+func (vr *VideoRoutes) HandleListRecordingsByMeeting(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoRecordingTagClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+
+	meetingID, ok := validateUUIDParam(w, r, "meetingId")
+	if !ok {
+		return
+	}
+
+	page, pageSize := parsePagination(r, 1, 20)
+
+	resp, err := client.ListRecordingsByMeeting(r.Context(), &videov1.ListRecordingsByMeetingRequest{
+		MeetingID: meetingID,
+		Page:      int32(page),
+		PageSize:  int32(pageSize),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// HandleCleanupExpiredRecording deletes a single recording past its retention period.
+// POST /api/v1/video/recordings/{id}/cleanup  (admin/cron endpoint)
+func (vr *VideoRoutes) HandleCleanupExpiredRecording(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoRecordingTagClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+
+	recordingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	_, err = client.CleanupExpiredRecording(r.Context(), &videov1.CleanupExpiredRecordingRequest{
+		RecordingID: recordingID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "recording deleted"})
 }
 
 // parseTimestamp is defined in route_work.go and shared across gateway routes.

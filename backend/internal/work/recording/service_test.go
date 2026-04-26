@@ -2,6 +2,7 @@ package recording
 
 import (
 	"context"
+	"slices"
 	"testing"
 	"time"
 
@@ -165,14 +166,7 @@ func (m *mockRepo) ListExpiredRecordings(_ context.Context, before time.Time) ([
 
 func (m *mockRepo) ListRecordingsWithAccess(_ context.Context, userID uuid.UUID, meetingID *uuid.UUID) ([]Recording, error) {
 	// Simplified mock: return all completed/processing recordings if user is in participantUsers
-	isParticipant := false
-	for _, uid := range m.participantUsers {
-		if uid == userID {
-			isParticipant = true
-			break
-		}
-	}
-	if !isParticipant {
+	if !slices.Contains(m.participantUsers, userID) {
 		return nil, nil
 	}
 
@@ -191,6 +185,37 @@ func (m *mockRepo) ListRecordingsWithAccess(_ context.Context, userID uuid.UUID,
 
 func (m *mockRepo) GetRecordingParticipants(_ context.Context, _ uuid.UUID) ([]uuid.UUID, error) {
 	return m.participantUsers, nil
+}
+
+func (m *mockRepo) GetRecordingByEgressID(_ context.Context, egressID string) (*Recording, error) {
+	for _, rec := range m.recordings {
+		if rec.EgressID != nil && *rec.EgressID == egressID {
+			return rec, nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
+func (m *mockRepo) TagRecordingWithConsents(_ context.Context, recordingID uuid.UUID, snapshot []ParticipantConsentInfo) error {
+	rec, ok := m.recordings[recordingID]
+	if !ok {
+		return ErrNotFound
+	}
+	rec.ConsentSnapshot = snapshot
+	return nil
+}
+
+func (m *mockRepo) GetConsentsWithUser(_ context.Context, recordingID uuid.UUID) ([]RecordingConsentWithUser, error) {
+	raw := m.consents[recordingID]
+	result := make([]RecordingConsentWithUser, len(raw))
+	for i, c := range raw {
+		result[i] = RecordingConsentWithUser{
+			RecordingConsent: c,
+			FirstName:        "Mock",
+			LastName:         "User",
+		}
+	}
+	return result, nil
 }
 
 // --- Tests ---

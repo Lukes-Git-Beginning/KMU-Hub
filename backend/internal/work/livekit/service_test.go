@@ -308,3 +308,145 @@ func TestNewService_BackwardCompat(t *testing.T) {
 		t.Error("expected nil TURNIceServers when created via NewService")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// GenerateJoinToken + TURN Metadata embedding tests
+// ---------------------------------------------------------------------------
+
+// decodeTokenPayload decodes the middle (payload) section of a JWT and returns
+// the raw JSON as a map. The JWT must be compact-serialized (3 dot-separated parts).
+func decodeTokenPayload(t *testing.T, token string) map[string]any {
+	t.Helper()
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		t.Fatalf("JWT has %d parts, want 3", len(parts))
+	}
+	payloadJSON, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		t.Fatalf("base64-decode payload: %v", err)
+	}
+	var payload map[string]any
+	if jsonErr := json.Unmarshal(payloadJSON, &payload); jsonErr != nil {
+		t.Fatalf("json-decode payload: %v", jsonErr)
+	}
+	return payload
+}
+
+func TestGenerateJoinToken_NoTURN_NoMetadata(t *testing.T) {
+	// Without TURN config the token must not carry a metadata field (backward compat).
+	svc := NewService("test-api-key", "test-api-secret-that-is-long-enough", "wss://livekit.example.com")
+
+	token, err := svc.GenerateJoinToken("cal-550e8400", "user-123", "Max Mustermann")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	payload := decodeTokenPayload(t, token)
+	if md, ok := payload["metadata"]; ok && md != "" {
+		t.Errorf("expected no metadata when TURN is not configured, got %v", md)
+	}
+}
+
+func TestGenerateJoinToken_WithTURN_EmbedsTURNMetadata(t *testing.T) {
+	const turnSecret = "test-turn-shared-secret"
+	const coturnHost = "turn.zentria.tech"
+	const userID = "user-456"
+
+	svc := NewServiceWithTURN(
+		"test-api-key", "test-api-secret-that-is-long-enough",
+		"wss://livekit.example.com",
+		turnSecret, coturnHost,
+	)
+
+	token, err := svc.GenerateJoinToken("cal-room1", userID, "Test User")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	payload := decodeTokenPayload(t, token)
+
+	// metadata must be a non-empty string
+	mdRaw, ok := payload["metadata"].(string)
+	if !ok || mdRaw == "" {
+		t.Fatalf("expected metadata string in token, got %v", payload["metadata"])
+	}
+
+	// metadata must be valid JSON with an iceServers array
+	var meta map[string]any
+	if err := json.Unmarshal([]byte(mdRaw), &meta); err != nil {
+		t.Fatalf("metadata is not valid JSON: %v — raw: %s", err, mdRaw)
+	}
+
+	iceRaw, ok := meta["iceServers"]
+	if !ok {
+		t.Fatal("metadata JSON missing 'iceServers' key")
+	}
+
+	iceServers, ok := iceRaw.([]any)
+	if !ok || len(iceServers) == 0 {
+		t.Fatalf("iceServers must be a non-empty array, got %T %v", iceRaw, iceRaw)
+	}
+
+	// Each ICE server entry must have urls, username, credential
+	for i, entry := range iceServers {
+		srv, ok := entry.(map[string]any)
+		if !ok {
+			t.Errorf("iceServers[%d] is not an object: %T", i, entry)
+			continue
+		}
+		if _, ok := srv["urls"]; !ok {
+			t.Errorf("iceServers[%d] missing 'urls'", i)
+		}
+		username, _ := srv["username"].(string)
+		if username == "" {
+			t.Errorf("iceServers[%d] missing 'username'", i)
+		}
+		credential, _ := srv["credential"].(string)
+		if credential == "" {
+			t.Errorf("iceServers[%d] missing 'credential'", i)
+		}
+
+		// Validate HMAC-SHA1 credential matches the known secret
+		//nolint:gosec
+		mac := hmac.New(sha1.New, []byte(turnSecret))
+		mac.Write([]byte(username)) //nolint:errcheck
+		expectedCred := base64.StdEncoding.EncodeToString(mac.Sum(nil))
+		if credential != expectedCred {
+			t.Errorf("iceServers[%d] credential HMAC mismatch: got %q, want %q", i, credential, expectedCred)
+		}
+
+		// Username must end with the participant userID
+		if !strings.HasSuffix(username, ":"+userID) {
+			t.Errorf("iceServers[%d] username %q does not end with :%s", i, username, userID)
+		}
+	}
+}
+
+func TestGenerateJoinToken_WithTURN_TokenIsValidJWT(t *testing.T) {
+	// Full round-trip: token with TURN metadata must still be a valid 3-part JWT.
+	svc := NewServiceWithTURN(
+		"test-api-key", "test-api-secret-that-is-long-enough",
+		"wss://livekit.example.com",
+		"turnsecret", "turn.zentria.tech",
+	)
+
+	token, err := svc.GenerateJoinToken("cal-room2", "user-789", "Another User")
+	if err != nil {
+		t.Fatalf("unexpected error generating JWT with TURN metadata: %v", err)
+	}
+
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		t.Fatalf("JWT has %d parts, want 3", len(parts))
+	}
+
+	payload := decodeTokenPayload(t, token)
+
+	// Verify core JWT claims survive alongside the TURN metadata
+	if sub, ok := payload["sub"].(string); !ok || sub != "user-789" {
+		t.Errorf("sub = %v, want %q", payload["sub"], "user-789")
+	}
+	if iss, ok := payload["iss"].(string); !ok || iss != "test-api-key" {
+		t.Errorf("iss = %v, want %q", payload["iss"], "test-api-key")
+	}
+}

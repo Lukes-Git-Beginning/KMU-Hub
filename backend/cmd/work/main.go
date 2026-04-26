@@ -121,7 +121,13 @@ func main() {
 	// Video domain services
 	var roomMgr video.RoomManager
 	if cfg.LiveKitAPIKey != "" && cfg.LiveKitAPISecret != "" {
-		roomMgr = livekit.NewRoomManager(cfg.LiveKitAPIKey, cfg.LiveKitAPISecret, cfg.LiveKitWSURL)
+		// NewRoomManagerWithTURN: pass TURN_SECRET + COTURN_HOST from config.
+		// Both default to "" when not set, transparently disabling TURN until
+		// the coturn CAX11 env vars are populated.
+		roomMgr = livekit.NewRoomManagerWithTURN(
+			cfg.LiveKitAPIKey, cfg.LiveKitAPISecret, cfg.LiveKitWSURL,
+			cfg.TURNSecret, cfg.COTURNHost,
+		)
 	}
 	videoService := video.NewService(videoRepo, roomMgr)
 

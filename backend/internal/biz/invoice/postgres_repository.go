@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -251,6 +252,120 @@ func (r *PostgresRepository) LinkTimeTracking(ctx context.Context, invoiceID uui
 // IMPORTANT: This is delegated to the shared NumberSequenceRepo implementation
 // (PostgresNumberSequenceRepo in the quote package) which handles the transaction
 // and INSERT-if-missing logic.
+
+// ============================================================================
+// GoBD-completion repository methods (Sprint 2 / Wave 1.B)
+// ============================================================================
+
+// InvoiceNumberExists returns true if the given invoice number is already
+// assigned to an invoice belonging to the tenant.
+func (r *PostgresRepository) InvoiceNumberExists(ctx context.Context, tenantID uuid.UUID, invoiceNumber string) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(
+			SELECT 1 FROM finance_invoices
+			WHERE tenant_id = $1 AND invoice_number = $2
+		)`,
+		tenantID, invoiceNumber,
+	).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("check invoice number exists: %w", err)
+	}
+	return exists, nil
+}
+
+// CountByFiscalYear counts non-draft invoices that have an invoice_number assigned
+// and whose invoice_date falls within the given calendar year.
+func (r *PostgresRepository) CountByFiscalYear(ctx context.Context, tenantID uuid.UUID, year int) (int, error) {
+	var count int
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM finance_invoices
+		WHERE tenant_id = $1
+		  AND status != 'draft'
+		  AND invoice_number != ''
+		  AND EXTRACT(YEAR FROM invoice_date) = $2`,
+		tenantID, year,
+	).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count invoices by fiscal year: %w", err)
+	}
+	return count, nil
+}
+
+// AggregatePaymentStats returns aggregated payment statistics for invoices
+// with invoice_date within [fromDate, toDate].
+func (r *PostgresRepository) AggregatePaymentStats(ctx context.Context, tenantID uuid.UUID, fromDate, toDate time.Time) (PaymentStats, error) {
+	row := r.pool.QueryRow(ctx,
+		`SELECT
+			COUNT(*) AS total_invoices,
+			COUNT(*) FILTER (WHERE status = 'paid') AS total_paid,
+			COUNT(*) FILTER (WHERE status NOT IN ('paid', 'cancelled')) AS total_outstanding,
+			COALESCE(SUM(gross_total) FILTER (WHERE status = 'paid'), 0) AS total_paid_amount,
+			COALESCE(SUM(gross_total) FILTER (WHERE status NOT IN ('paid', 'cancelled')), 0) AS total_outstanding_amount,
+			COALESCE(
+				AVG(
+					EXTRACT(EPOCH FROM (updated_at - invoice_date)) / 86400.0
+				) FILTER (WHERE status = 'paid'),
+				0
+			) AS avg_days_to_pay
+		FROM finance_invoices
+		WHERE tenant_id = $1
+		  AND invoice_date >= $2
+		  AND invoice_date <= $3`,
+		tenantID, fromDate, toDate,
+	)
+
+	var totalInvoices, totalPaid, totalOutstanding int
+	var totalPaidAmt, totalOutstandingAmt, avgDays float64
+	if err := row.Scan(&totalInvoices, &totalPaid, &totalOutstanding, &totalPaidAmt, &totalOutstandingAmt, &avgDays); err != nil {
+		return PaymentStats{}, fmt.Errorf("aggregate payment stats: %w", err)
+	}
+
+	return PaymentStats{
+		TotalInvoices:          totalInvoices,
+		TotalPaid:              totalPaid,
+		TotalOutstanding:       totalOutstanding,
+		TotalPaidAmount:        decimal.NewFromFloat(totalPaidAmt),
+		TotalOutstandingAmount: decimal.NewFromFloat(totalOutstandingAmt),
+		AverageDaysToPay:       decimal.NewFromFloat(avgDays),
+	}, nil
+}
+
+// ListForGoBDExport returns all non-draft, numbered invoices in the date range,
+// ordered by invoice_number for gap-free journal verification.
+func (r *PostgresRepository) ListForGoBDExport(ctx context.Context, tenantID uuid.UUID, fromDate, toDate time.Time) ([]*models.Invoice, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, tenant_id, invoice_number, status,
+			customer_name, customer_address, customer_email, customer_ust_id_nr,
+			company_snapshot, tax_mode, line_items, tax_breakdown,
+			subtotal, total_tax, gross_total,
+			invoice_date, delivery_date, due_date, payment_terms,
+			snapshot_data, source_quote_id, notes,
+			created_by, created_at, updated_at
+		FROM finance_invoices
+		WHERE tenant_id = $1
+		  AND status != 'draft'
+		  AND invoice_number != ''
+		  AND invoice_date >= $2
+		  AND invoice_date <= $3
+		ORDER BY invoice_number ASC`,
+		tenantID, fromDate, toDate,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list invoices for GoBD export: %w", err)
+	}
+	defer rows.Close()
+
+	var invoices []*models.Invoice
+	for rows.Next() {
+		inv, scanErr := r.scanInvoiceFromRows(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		invoices = append(invoices, inv)
+	}
+	return invoices, rows.Err()
+}
 
 // scanInvoice scans a single row into an Invoice model.
 func (r *PostgresRepository) scanInvoice(row pgx.Row) (*models.Invoice, error) {

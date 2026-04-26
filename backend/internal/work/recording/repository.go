@@ -11,12 +11,15 @@ import (
 type Repository interface {
 	CreateRecording(ctx context.Context, rec *Recording) error
 	GetRecording(ctx context.Context, id uuid.UUID) (*Recording, error)
+	GetRecordingByEgressID(ctx context.Context, egressID string) (*Recording, error)
 	UpdateRecording(ctx context.Context, rec *Recording) error
+	TagRecordingWithConsents(ctx context.Context, recordingID uuid.UUID, snapshot []ParticipantConsentInfo) error
 	ListRecordingsByCall(ctx context.Context, callID uuid.UUID) ([]Recording, error)
 	ListRecordingsByMeeting(ctx context.Context, meetingID uuid.UUID) ([]Recording, error)
 	DeleteRecording(ctx context.Context, id uuid.UUID) error
 	SetConsent(ctx context.Context, consent *RecordingConsent) error
 	GetConsents(ctx context.Context, recordingID uuid.UUID) ([]RecordingConsent, error)
+	GetConsentsWithUser(ctx context.Context, recordingID uuid.UUID) ([]RecordingConsentWithUser, error)
 	CountPendingConsents(ctx context.Context, recordingID uuid.UUID, participantIDs []uuid.UUID) (int, error)
 	ListExpiredRecordings(ctx context.Context, before time.Time) ([]Recording, error)
 	ListRecordingsWithAccess(ctx context.Context, userID uuid.UUID, meetingID *uuid.UUID) ([]Recording, error)

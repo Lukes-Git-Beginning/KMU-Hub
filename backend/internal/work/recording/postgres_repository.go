@@ -93,6 +93,48 @@ func (r *PostgresRepository) ListRecordingsByMeeting(ctx context.Context, meetin
 	)
 }
 
+func (r *PostgresRepository) GetRecordingByEgressID(ctx context.Context, egressID string) (*Recording, error) {
+	var rec Recording
+	var snapshotJSON []byte
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, call_id, meeting_id, started_by, consent_snapshot, status,
+		        egress_id, file_url, file_size_bytes, duration_seconds, retention_expires_at, created_at
+		 FROM recordings WHERE egress_id = $1`,
+		egressID,
+	).Scan(&rec.ID, &rec.CallID, &rec.MeetingID, &rec.StartedBy, &snapshotJSON, &rec.Status,
+		&rec.EgressID, &rec.FileURL, &rec.FileSizeBytes, &rec.DurationSeconds,
+		&rec.RetentionExpiresAt, &rec.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if len(snapshotJSON) > 0 {
+		if err := json.Unmarshal(snapshotJSON, &rec.ConsentSnapshot); err != nil {
+			return nil, fmt.Errorf("unmarshal consent snapshot: %w", err)
+		}
+	}
+	return &rec, nil
+}
+
+func (r *PostgresRepository) TagRecordingWithConsents(ctx context.Context, recordingID uuid.UUID, snapshot []ParticipantConsentInfo) error {
+	snapshotJSON, err := marshalConsentSnapshot(snapshot)
+	if err != nil {
+		return fmt.Errorf("marshal consent snapshot: %w", err)
+	}
+	// Ensure we never write a NULL — use empty JSON array as sentinel
+	if snapshotJSON == nil {
+		snapshotJSON = []byte("[]")
+	}
+
+	_, err = r.pool.Exec(ctx,
+		`UPDATE recordings SET consent_snapshot = $1 WHERE id = $2`,
+		snapshotJSON, recordingID,
+	)
+	return err
+}
+
 func (r *PostgresRepository) DeleteRecording(ctx context.Context, id uuid.UUID) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM recordings WHERE id = $1`, id)
 	return err
@@ -124,6 +166,35 @@ func (r *PostgresRepository) GetConsents(ctx context.Context, recordingID uuid.U
 	for rows.Next() {
 		var c RecordingConsent
 		if scanErr := rows.Scan(&c.RecordingID, &c.UserID, &c.Consented, &c.RespondedAt); scanErr != nil {
+			return nil, scanErr
+		}
+		consents = append(consents, c)
+	}
+	return consents, rows.Err()
+}
+
+func (r *PostgresRepository) GetConsentsWithUser(ctx context.Context, recordingID uuid.UUID) ([]RecordingConsentWithUser, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT rc.recording_id, rc.user_id, rc.consented, rc.responded_at,
+		        COALESCE(u.first_name, ''), COALESCE(u.last_name, '')
+		 FROM recording_consents rc
+		 LEFT JOIN users u ON rc.user_id = u.id
+		 WHERE rc.recording_id = $1
+		 ORDER BY rc.responded_at ASC`,
+		recordingID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var consents []RecordingConsentWithUser
+	for rows.Next() {
+		var c RecordingConsentWithUser
+		if scanErr := rows.Scan(
+			&c.RecordingID, &c.UserID, &c.Consented, &c.RespondedAt,
+			&c.FirstName, &c.LastName,
+		); scanErr != nil {
 			return nil, scanErr
 		}
 		consents = append(consents, c)

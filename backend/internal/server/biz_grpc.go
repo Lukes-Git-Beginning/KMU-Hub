@@ -2087,6 +2087,223 @@ func (s *BizGRPCServer) CreateQuoteFromDeal(ctx context.Context, req *bizv1.Crea
 }
 
 // ============================================================================
+// GoBD Journal & Compliance (Sprint 2 / Wave 1.B)
+// ============================================================================
+
+func (s *BizGRPCServer) GetJournalSummary(ctx context.Context, req *bizv1.GetJournalSummaryRequest) (*bizv1.GetJournalSummaryResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
+	year := int(req.GetYear())
+	if year < 2000 || year > 2100 {
+		return nil, status.Error(codes.InvalidArgument, "year must be between 2000 and 2100")
+	}
+
+	summary, err := s.invoiceService.GetJournalSummary(ctx, tenantID, year)
+	if err != nil {
+		slog.Error("GetJournalSummary failed", "tenant_id", tenantID, "year", year, "error", err)
+		return nil, mapBizError(err)
+	}
+
+	return &bizv1.GetJournalSummaryResponse{
+		Year:                int32(summary.Year),
+		TotalInvoicesIssued: int32(summary.TotalInvoicesIssued),
+		GapsDetected:        int32(summary.GapsDetected),
+		FirstNumber:         summary.FirstNumber,
+		LastNumber:          summary.LastNumber,
+		HighestSequence:     int32(summary.HighestSequence),
+	}, nil
+}
+
+func (s *BizGRPCServer) ValidateInvoiceNumber(ctx context.Context, req *bizv1.ValidateInvoiceNumberRequest) (*bizv1.ValidateInvoiceNumberResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
+	result, err := s.invoiceService.ValidateInvoiceNumber(ctx, tenantID, req.GetInvoiceNumber())
+	if err != nil {
+		slog.Error("ValidateInvoiceNumber failed", "tenant_id", tenantID, "error", err)
+		return nil, mapBizError(err)
+	}
+
+	return &bizv1.ValidateInvoiceNumberResponse{
+		ValidFormat: result.ValidFormat,
+		AlreadyUsed: result.AlreadyUsed,
+		Canonical:   result.Canonical,
+	}, nil
+}
+
+func (s *BizGRPCServer) LockInvoice(ctx context.Context, req *bizv1.LockInvoiceRequest) (*bizv1.LockInvoiceResponse, error) {
+	// LockInvoiceRequest uses Id (not InvoiceId) per biz_gobd.pb.go
+	tenantID, id, err := parseTenantAndID(req.GetTenantId(), req.GetId())
+	if err != nil {
+		return nil, err
+	}
+
+	lockedBy, parseErr := uuid.Parse(req.GetLockedBy())
+	if parseErr != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid locked_by user id")
+	}
+
+	result, lockErr := s.invoiceService.LockInvoice(ctx, tenantID, id, lockedBy)
+	if lockErr != nil {
+		slog.Error("LockInvoice failed", "invoice_id", id, "tenant_id", tenantID, "error", lockErr)
+		return nil, mapBizError(lockErr)
+	}
+
+	// Serialize invoice to JSON for transport (Sprint 4: replace with typed proto fields)
+	var invJSON []byte
+	if result.Invoice != nil {
+		invJSON, _ = json.Marshal(result.Invoice)
+	}
+
+	// LockInvoiceResponse.LockedAt is RFC3339 string per biz_gobd.pb.go
+	return &bizv1.LockInvoiceResponse{
+		InvoiceJson: invJSON,
+		LockedAt:    result.LockedAt.Format(time.RFC3339),
+	}, nil
+}
+
+func (s *BizGRPCServer) GetPaymentStats(ctx context.Context, req *bizv1.GetPaymentStatsRequest) (*bizv1.GetPaymentStatsResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
+	// FromDate/ToDate are YYYY-MM-DD strings per biz_gobd.pb.go
+	fromDate, fromErr := time.Parse("2006-01-02", req.GetFromDate())
+	if fromErr != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid from_date: expected YYYY-MM-DD")
+	}
+	toDate, toErr := time.Parse("2006-01-02", req.GetToDate())
+	if toErr != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid to_date: expected YYYY-MM-DD")
+	}
+	if toDate.Before(fromDate) {
+		return nil, status.Error(codes.InvalidArgument, "to_date must be after from_date")
+	}
+
+	stats, statsErr := s.invoiceService.GetPaymentStats(ctx, tenantID, fromDate, toDate)
+	if statsErr != nil {
+		slog.Error("GetPaymentStats failed", "tenant_id", tenantID, "error", statsErr)
+		return nil, mapBizError(statsErr)
+	}
+
+	// Response amounts are decimal strings per biz_gobd.pb.go
+	return &bizv1.GetPaymentStatsResponse{
+		TotalInvoices:          int32(stats.TotalInvoices),
+		TotalPaid:              int32(stats.TotalPaid),
+		TotalOutstanding:       int32(stats.TotalOutstanding),
+		TotalPaidAmount:        stats.TotalPaidAmount.StringFixed(2),
+		TotalOutstandingAmount: stats.TotalOutstandingAmount.StringFixed(2),
+		AverageDaysToPay:       stats.AverageDaysToPay.StringFixed(1),
+	}, nil
+}
+
+// ============================================================================
+// Dunning Gaps (Sprint 2 / Wave 1.B)
+// ============================================================================
+
+func (s *BizGRPCServer) UpdateDunningStatus(ctx context.Context, req *bizv1.UpdateDunningStatusRequest) (*bizv1.UpdateDunningStatusResponse, error) {
+	// UpdateDunningStatusRequest uses Id (not DunningId) per biz_gobd.pb.go
+	tenantID, id, err := parseTenantAndID(req.GetTenantId(), req.GetId())
+	if err != nil {
+		return nil, err
+	}
+
+	record, updateErr := s.dunningService.UpdateDunningStatus(ctx, tenantID, id, req.GetStatus())
+	if updateErr != nil {
+		slog.Error("UpdateDunningStatus failed", "dunning_id", id, "tenant_id", tenantID, "error", updateErr)
+		return nil, mapBizError(updateErr)
+	}
+
+	// Response wraps a full DunningRecord proto per biz_gobd.pb.go
+	return &bizv1.UpdateDunningStatusResponse{
+		Dunning: toProtoDunningRecord(record),
+	}, nil
+}
+
+func (s *BizGRPCServer) SendDunningNotice(ctx context.Context, req *bizv1.SendDunningNoticeRequest) (*bizv1.SendDunningNoticeResponse, error) {
+	// SendDunningNoticeRequest uses Id (not DunningId), no UserId field per biz_gobd.pb.go
+	tenantID, id, err := parseTenantAndID(req.GetTenantId(), req.GetId())
+	if err != nil {
+		return nil, err
+	}
+
+	record, sendErr := s.dunningService.SendDunningNotice(ctx, tenantID, id, uuid.Nil)
+	if sendErr != nil {
+		slog.Error("SendDunningNotice failed", "dunning_id", id, "tenant_id", tenantID, "error", sendErr)
+		return nil, mapBizError(sendErr)
+	}
+
+	// EmailQueued = false until Sprint 3 email integration
+	return &bizv1.SendDunningNoticeResponse{
+		Dunning:     toProtoDunningRecord(record),
+		EmailQueued: false,
+	}, nil
+}
+
+// ============================================================================
+// GoBD Export (Sprint 2 / Wave 1.B)
+// ============================================================================
+
+func (s *BizGRPCServer) GenerateGoBDExport(ctx context.Context, req *bizv1.GenerateGoBDExportRequest) (*bizv1.GenerateGoBDExportResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
+	// FromDate/ToDate are YYYY-MM-DD strings per biz_gobd.pb.go
+	fromDate, fromErr := time.Parse("2006-01-02", req.GetFromDate())
+	if fromErr != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid from_date: expected YYYY-MM-DD")
+	}
+	toDate, toErr := time.Parse("2006-01-02", req.GetToDate())
+	if toErr != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid to_date: expected YYYY-MM-DD")
+	}
+	if toDate.Before(fromDate) {
+		return nil, status.Error(codes.InvalidArgument, "to_date must be after from_date")
+	}
+
+	// Fetch invoices from invoice service and convert to dunning.GoBDExportRow
+	invoices, fetchErr := s.invoiceService.ListForGoBDExport(ctx, tenantID, fromDate, toDate)
+	if fetchErr != nil {
+		slog.Error("GenerateGoBDExport: fetch invoices failed", "tenant_id", tenantID, "error", fetchErr)
+		return nil, mapBizError(fetchErr)
+	}
+
+	rows := make([]dunning.GoBDExportRow, 0, len(invoices))
+	for _, inv := range invoices {
+		rows = append(rows, dunning.GoBDExportRow{
+			InvoiceNumber: inv.InvoiceNumber,
+			InvoiceDate:   inv.InvoiceDate.Format("2006-01-02"),
+			CustomerName:  inv.CustomerName,
+			GrossTotal:    inv.GrossTotal.StringFixed(2),
+			Status:        inv.Status,
+			TaxMode:       inv.TaxMode,
+		})
+	}
+
+	result, exportErr := s.dunningService.GenerateGoBDExport(ctx, tenantID, fromDate, toDate, rows)
+	if exportErr != nil {
+		slog.Error("GenerateGoBDExport: CSV generation failed", "tenant_id", tenantID, "error", exportErr)
+		return nil, mapBizError(exportErr)
+	}
+
+	filename := fmt.Sprintf("gobd-export-%s-%s.csv", fromDate.Format("2006-01-02"), toDate.Format("2006-01-02"))
+	return &bizv1.GenerateGoBDExportResponse{
+		CsvData:       result.CSVData,
+		Filename:      filename,
+		RecordCount:   int32(result.RowCount),
+		FormatVersion: "GoBD-2019",
+	}, nil
+}
+
+// ============================================================================
 // Shared Helpers
 // ============================================================================
 
@@ -2138,6 +2355,8 @@ func mapBizError(err error) error {
 	case errors.Is(err, invoice.ErrNoLineItems):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, invoice.ErrQuoteNotAccepted):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, invoice.ErrInvoiceLocked):
 		return status.Error(codes.FailedPrecondition, err.Error())
 
 	// Credit note errors

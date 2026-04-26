@@ -10,4 +10,5 @@ var (
 	ErrInvalidStatus        = errors.New("invalid recording status transition")
 	ErrNoCallOrMeeting      = errors.New("recording must be associated with a call or meeting")
 	ErrNoParticipants       = errors.New("recording requires at least one participant")
+	ErrNotExpired           = errors.New("recording retention period has not elapsed")
 )

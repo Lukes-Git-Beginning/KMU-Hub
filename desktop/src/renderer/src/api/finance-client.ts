@@ -33,6 +33,12 @@ import type {
   ListCreditNotesResponse,
   ListPaymentsResponse,
   ListDunningsResponse,
+  JournalSummary,
+  ValidateInvoiceNumberResult,
+  PaymentStats,
+  LockInvoiceResponse,
+  DunningNoticeResponse,
+  DateRangeParams,
 } from '@/types/finance-types'
 
 // ---------------------------------------------------------------------------
@@ -439,5 +445,63 @@ export const financeDealApi = {
       `/api/v1/finance/deals/${dealId}/quote`,
       { method: 'POST' },
     )
+  },
+}
+
+// ---------------------------------------------------------------------------
+// GoBD Journal & Compliance (Sprint 2 / Wave 1.B)
+// ---------------------------------------------------------------------------
+
+export const financeGoBDApi = {
+  /** GET /api/v1/finance/journal/summary?year=YYYY */
+  getJournalSummary(year: number) {
+    return request<JournalSummary>(
+      `/api/v1/finance/journal/summary?year=${year}`,
+    )
+  },
+
+  /** GET /api/v1/finance/invoices/validate-number?number=RE-2026-0001 */
+  validateInvoiceNumber(number: string) {
+    return request<ValidateInvoiceNumberResult>(
+      `/api/v1/finance/invoices/validate-number?number=${encodeURIComponent(number)}`,
+    )
+  },
+
+  /** POST /api/v1/finance/invoices/{id}/lock */
+  lockInvoice(id: string) {
+    return request<LockInvoiceResponse>(`/api/v1/finance/invoices/${id}/lock`, {
+      method: 'POST',
+    })
+  },
+
+  /** GET /api/v1/finance/stats/payments?from=YYYY-MM-DD&to=YYYY-MM-DD */
+  getPaymentStats(params: DateRangeParams) {
+    return request<PaymentStats>(
+      `/api/v1/finance/stats/payments?from=${params.from_date}&to=${params.to_date}`,
+    )
+  },
+
+  /** PUT /api/v1/finance/dunning/{id}/status */
+  updateDunningStatus(id: string, status: string) {
+    return request<DunningRecord>(`/api/v1/finance/dunning/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    })
+  },
+
+  /** POST /api/v1/finance/dunning/{id}/notice */
+  sendDunningNotice(id: string) {
+    return request<DunningNoticeResponse>(
+      `/api/v1/finance/dunning/${id}/notice`,
+      { method: 'POST' },
+    )
+  },
+
+  /** POST /api/v1/finance/export/gobd — downloads CSV blob */
+  generateGoBDExport(params: DateRangeParams) {
+    return requestBlob('/api/v1/finance/export/gobd', {
+      method: 'POST',
+      body: JSON.stringify({ from_date: params.from_date, to_date: params.to_date }),
+    })
   },
 }

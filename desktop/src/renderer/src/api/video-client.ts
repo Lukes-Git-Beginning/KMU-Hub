@@ -12,6 +12,10 @@ import type {
   JoinCallResponse,
   Recording,
   RecordingConsentStatus,
+  RecordingConsentsResponse,
+  ConsentSnapshotEntry,
+  UpdateRecordingMetadataRequest,
+  RecordingsByMeetingResponse,
   Meeting,
   CreateMeetingRequest,
   UpdateMeetingRequest,
@@ -200,6 +204,26 @@ export const getRecordingConsent = (recordingId: string) =>
 
 export const listRecordings = (params: { call_id?: string; meeting_id?: string }) =>
   get<Recording[]>('/api/v1/video/recordings', params)
+
+/** Get consent snapshot + live consent rows for a recording (S1.7). */
+export const getRecordingConsents = (recordingId: string) =>
+  get<RecordingConsentsResponse>(`/api/v1/video/recordings/${recordingId}/consents`)
+
+/** Overwrite the consent snapshot on a recording (S1.7). */
+export const tagRecordingWithConsents = (recordingId: string, snapshot: ConsentSnapshotEntry[]) =>
+  post<void>(`/api/v1/video/recordings/${recordingId}/tag-consents`, { snapshot })
+
+/** Update mutable metadata on a recording (S1.7). */
+export const updateRecordingMetadata = (recordingId: string, req: UpdateRecordingMetadataRequest) =>
+  request<Recording>({ method: 'PATCH', path: `/api/v1/video/recordings/${recordingId}/metadata`, body: req })
+
+/** Get the current status of a single recording (S1.7). */
+export const getRecordingStatus = (recordingId: string) =>
+  get<Recording>(`/api/v1/video/recordings/${recordingId}/status`)
+
+/** List recordings for a specific meeting with pagination (S1.7). */
+export const listRecordingsByMeeting = (meetingId: string, params?: { page?: number; page_size?: number }) =>
+  get<RecordingsByMeetingResponse>(`/api/v1/video/meetings/${meetingId}/recordings`, params as RequestOptions['params'])
 
 // ---------------------------------------------------------------------------
 // Meetings

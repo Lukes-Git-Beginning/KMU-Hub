@@ -78,7 +78,7 @@ func (b *BizRoutes) HandleListCreditNotes(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.JSON(w, http.StatusOK, map[string]interface{}{
+	response.JSON(w, http.StatusOK, map[string]any{
 		"credit_notes": resp.CreditNotes,
 		"total":        resp.Total,
 	})
@@ -219,7 +219,7 @@ func (b *BizRoutes) HandleListPayments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, map[string]interface{}{
+	response.JSON(w, http.StatusOK, map[string]any{
 		"payments": resp.Payments,
 		"total":    resp.Total,
 	})
@@ -273,7 +273,7 @@ func (b *BizRoutes) HandleListDunnings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, map[string]interface{}{
+	response.JSON(w, http.StatusOK, map[string]any{
 		"dunnings": resp.Dunnings,
 		"total":    resp.Total,
 	})
@@ -523,4 +523,225 @@ func (b *BizRoutes) HandleExportDATEV(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", resp.Filename))
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(resp.CsvData)
+}
+
+// ============================================================================
+// GoBD Journal & Compliance Handlers (Sprint 2 / Wave 1.B)
+// ============================================================================
+
+// HandleGetJournalSummary returns the gap-detection journal summary for a fiscal year.
+// GET /api/v1/finance/journal/summary?year=2026
+func (b *BizRoutes) HandleGetJournalSummary(w http.ResponseWriter, r *http.Request) {
+	client, err := b.getBizClient()
+	if err != nil {
+		respondServiceUnavailable(w, b.ServiceName())
+		return
+	}
+
+	tenantID := getTenantID(r)
+	yearStr := r.URL.Query().Get("year")
+	if yearStr == "" {
+		response.Error(w, http.StatusBadRequest, "year query parameter is required")
+		return
+	}
+	var year int32
+	if _, scanErr := fmt.Sscanf(yearStr, "%d", &year); scanErr != nil || year < 2000 || year > 2100 {
+		response.Error(w, http.StatusBadRequest, "year must be a 4-digit number between 2000 and 2100")
+		return
+	}
+
+	resp, err := client.GetJournalSummary(r.Context(), &bizv1.GetJournalSummaryRequest{
+		TenantId: tenantID,
+		Year:     year,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// HandleValidateInvoiceNumber checks format validity and uniqueness of an invoice number.
+// GET /api/v1/finance/invoices/validate-number?number=RE-2026-0042
+func (b *BizRoutes) HandleValidateInvoiceNumber(w http.ResponseWriter, r *http.Request) {
+	client, err := b.getBizClient()
+	if err != nil {
+		respondServiceUnavailable(w, b.ServiceName())
+		return
+	}
+
+	tenantID := getTenantID(r)
+	number := r.URL.Query().Get("number")
+	if number == "" {
+		response.Error(w, http.StatusBadRequest, "number query parameter is required")
+		return
+	}
+
+	resp, err := client.ValidateInvoiceNumber(r.Context(), &bizv1.ValidateInvoiceNumberRequest{
+		TenantId:      tenantID,
+		InvoiceNumber: number,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// HandleLockInvoice administratively locks an invoice (GoBD: immutability after lock).
+// POST /api/v1/finance/invoices/{id}/lock
+func (b *BizRoutes) HandleLockInvoice(w http.ResponseWriter, r *http.Request) {
+	client, err := b.getBizClient()
+	if err != nil {
+		respondServiceUnavailable(w, b.ServiceName())
+		return
+	}
+
+	tenantID := getTenantID(r)
+	id := chi.URLParam(r, "id")
+	userID := middleware.GetUserID(r.Context())
+
+	resp, err := client.LockInvoice(r.Context(), &bizv1.LockInvoiceRequest{
+		Id:       id,
+		TenantId: tenantID,
+		LockedBy: userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// HandleGetPaymentStats returns aggregated payment statistics for a date range.
+// GET /api/v1/finance/stats/payments?from=2026-01-01&to=2026-12-31
+func (b *BizRoutes) HandleGetPaymentStats(w http.ResponseWriter, r *http.Request) {
+	client, err := b.getBizClient()
+	if err != nil {
+		respondServiceUnavailable(w, b.ServiceName())
+		return
+	}
+
+	tenantID := getTenantID(r)
+	fromDate := r.URL.Query().Get("from")
+	toDate := r.URL.Query().Get("to")
+	if fromDate == "" || toDate == "" {
+		response.Error(w, http.StatusBadRequest, "from and to query parameters are required (YYYY-MM-DD)")
+		return
+	}
+
+	resp, err := client.GetPaymentStats(r.Context(), &bizv1.GetPaymentStatsRequest{
+		TenantId: tenantID,
+		FromDate: fromDate,
+		ToDate:   toDate,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// HandleUpdateDunningStatus directly sets a dunning record's status (admin override).
+// PUT /api/v1/finance/dunning/{id}/status
+func (b *BizRoutes) HandleUpdateDunningStatus(w http.ResponseWriter, r *http.Request) {
+	client, err := b.getBizClient()
+	if err != nil {
+		respondServiceUnavailable(w, b.ServiceName())
+		return
+	}
+
+	tenantID := getTenantID(r)
+	id := chi.URLParam(r, "id")
+
+	var req struct {
+		Status string `json:"status"`
+	}
+	if decodeErr := json.NewDecoder(r.Body).Decode(&req); decodeErr != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	resp, err := client.UpdateDunningStatus(r.Context(), &bizv1.UpdateDunningStatusRequest{
+		Id:       id,
+		TenantId: tenantID,
+		Status:   req.Status,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp.GetDunning())
+}
+
+// HandleSendDunningNotice marks a dunning as sent.
+// POST /api/v1/finance/dunning/{id}/notice
+func (b *BizRoutes) HandleSendDunningNotice(w http.ResponseWriter, r *http.Request) {
+	client, err := b.getBizClient()
+	if err != nil {
+		respondServiceUnavailable(w, b.ServiceName())
+		return
+	}
+
+	tenantID := getTenantID(r)
+	id := chi.URLParam(r, "id")
+
+	resp, err := client.SendDunningNotice(r.Context(), &bizv1.SendDunningNoticeRequest{
+		Id:       id,
+		TenantId: tenantID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]any{
+		"dunning":      resp.GetDunning(),
+		"email_queued": resp.GetEmailQueued(),
+	})
+}
+
+// HandleGenerateGoBDExport generates and downloads a GoBD-compliant CSV export.
+// POST /api/v1/finance/export/gobd
+func (b *BizRoutes) HandleGenerateGoBDExport(w http.ResponseWriter, r *http.Request) {
+	client, err := b.getBizClient()
+	if err != nil {
+		respondServiceUnavailable(w, b.ServiceName())
+		return
+	}
+
+	tenantID := getTenantID(r)
+
+	var req struct {
+		FromDate string `json:"from_date"`
+		ToDate   string `json:"to_date"`
+	}
+	if decodeErr := json.NewDecoder(r.Body).Decode(&req); decodeErr != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	resp, err := client.GenerateGoBDExport(r.Context(), &bizv1.GenerateGoBDExportRequest{
+		TenantId: tenantID,
+		FromDate: req.FromDate,
+		ToDate:   req.ToDate,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	filename := resp.GetFilename()
+	if filename == "" {
+		filename = "gobd-export.csv"
+	}
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(resp.GetCsvData())
 }

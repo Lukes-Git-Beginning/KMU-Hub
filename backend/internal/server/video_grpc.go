@@ -20,9 +20,11 @@ import (
 	videov1 "github.com/kmuhub/kmuhub/proto/video/v1"
 )
 
-// VideoGRPCServer implements the Video gRPC service
+// VideoGRPCServer implements the Video gRPC service and its recording-tagging extension.
 type VideoGRPCServer struct {
 	videov1.UnimplementedVideoServiceServer
+	videov1.UnimplementedVideoServiceEgressServer
+	videov1.UnimplementedVideoServiceRecordingTagServer
 	videoService     *video.Service
 	meetingService   *meeting.Service
 	recordingService *recording.Service
@@ -382,6 +384,155 @@ func (s *VideoGRPCServer) DeleteRecording(ctx context.Context, req *videov1.Dele
 
 	// Mark as deleted by failing it (soft delete pattern)
 	if err := s.recordingService.FailRecording(ctx, recordingID, "deleted by user"); err != nil {
+		return nil, mapRecordingError(err)
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+// ============================================================================
+// Recording Tagging RPCs (S1.7 / Welle 1.B)
+// ============================================================================
+
+func (s *VideoGRPCServer) GetRecordingConsents(ctx context.Context, req *videov1.GetRecordingConsentsRequest) (*videov1.GetRecordingConsentsResponse, error) {
+	recordingID, err := uuid.Parse(req.RecordingID)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
+	}
+
+	cs, err := s.recordingService.GetRecordingConsents(ctx, recordingID)
+	if err != nil {
+		return nil, mapRecordingError(err)
+	}
+
+	var protoConsents []*videov1.RecordingConsent
+	for _, c := range cs.Consents {
+		protoConsents = append(protoConsents, &videov1.RecordingConsent{
+			RecordingId: c.RecordingID.String(),
+			UserId:      c.UserID.String(),
+			Consented:   c.Consented,
+			FirstName:   c.FirstName,
+			LastName:    c.LastName,
+		})
+	}
+
+	return &videov1.GetRecordingConsentsResponse{
+		RecordingID:  recordingID.String(),
+		Consents:     protoConsents,
+		AllConsented: cs.AllConsented,
+	}, nil
+}
+
+func (s *VideoGRPCServer) TagRecordingWithConsents(ctx context.Context, req *videov1.TagRecordingWithConsentsRequest) (*emptypb.Empty, error) {
+	recordingID, err := uuid.Parse(req.RecordingID)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
+	}
+
+	snapshot := make([]recording.ParticipantConsentInfo, 0, len(req.Snapshot))
+	for _, e := range req.Snapshot {
+		uid, parseErr := uuid.Parse(e.UserID)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid user_id in snapshot")
+		}
+		snapshot = append(snapshot, recording.ParticipantConsentInfo{
+			UserID:      uid,
+			DisplayName: e.DisplayName,
+		})
+	}
+
+	if err := s.recordingService.TagRecordingWithConsents(ctx, recordingID, snapshot); err != nil {
+		return nil, mapRecordingError(err)
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+func (s *VideoGRPCServer) UpdateRecordingMetadata(ctx context.Context, req *videov1.UpdateRecordingMetadataRequest) (*videov1.Recording, error) {
+	recordingID, err := uuid.Parse(req.RecordingID)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
+	}
+
+	meta := recording.RecordingMetadata{
+		FileURL:       req.FileURL,
+		FileSizeBytes: req.FileSizeBytes,
+	}
+	if req.DurationSeconds != nil {
+		d := int(*req.DurationSeconds)
+		meta.DurationSeconds = &d
+	}
+	if req.Status != nil {
+		meta.Status = req.Status
+	}
+
+	if err := s.recordingService.UpdateRecordingMetadata(ctx, recordingID, meta); err != nil {
+		return nil, mapRecordingError(err)
+	}
+
+	// Re-fetch to return current state
+	rec, err := s.recordingService.GetRecordingStatus(ctx, recordingID)
+	if err != nil {
+		return nil, mapRecordingError(err)
+	}
+
+	return recordingToProto(rec), nil
+}
+
+func (s *VideoGRPCServer) ListRecordingsByMeeting(ctx context.Context, req *videov1.ListRecordingsByMeetingRequest) (*videov1.ListRecordingsByMeetingResponse, error) {
+	meetingID, err := uuid.Parse(req.MeetingID)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
+	}
+
+	var tenantID uuid.UUID
+	if req.TenantID != "" {
+		tenantID, err = uuid.Parse(req.TenantID)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		}
+	}
+
+	recordings, total, err := s.recordingService.ListRecordingsByMeeting(ctx, meetingID, tenantID, int(req.Page), int(req.PageSize))
+	if err != nil {
+		return nil, mapRecordingError(err)
+	}
+
+	var protos []*videov1.Recording
+	for _, r := range recordings {
+		protos = append(protos, recordingToProto(&r))
+	}
+
+	return &videov1.ListRecordingsByMeetingResponse{
+		Recordings: protos,
+		Total:      int32(total),
+	}, nil
+}
+
+func (s *VideoGRPCServer) GetRecordingStatus(ctx context.Context, req *videov1.GetRecordingStatusRequest) (*videov1.Recording, error) {
+	recordingID, err := uuid.Parse(req.RecordingID)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
+	}
+
+	rec, err := s.recordingService.GetRecordingStatus(ctx, recordingID)
+	if err != nil {
+		return nil, mapRecordingError(err)
+	}
+
+	return recordingToProto(rec), nil
+}
+
+func (s *VideoGRPCServer) CleanupExpiredRecording(ctx context.Context, req *videov1.CleanupExpiredRecordingRequest) (*emptypb.Empty, error) {
+	recordingID, err := uuid.Parse(req.RecordingID)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
+	}
+
+	if err := s.recordingService.CleanupExpiredRecording(ctx, recordingID); err != nil {
+		if errors.Is(err, recording.ErrNotExpired) {
+			return nil, status.Error(codes.FailedPrecondition, err.Error())
+		}
 		return nil, mapRecordingError(err)
 	}
 
@@ -1305,6 +1456,10 @@ func mapRecordingError(err error) error {
 	case errors.Is(err, recording.ErrNoCallOrMeeting):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, recording.ErrNoParticipants):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, recording.ErrNotExpired):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, recording.ErrInvalidStatus):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
 		return status.Error(codes.Internal, "internal error")
