@@ -70,7 +70,7 @@ rollback() {
 
     $COMPOSE up -d postgres redis minio
     sleep 5
-    for svc in auth crm chat notification work email document biz automation plugin dialer wiki helpdesk berichte formulare; do
+    for svc in auth crm chat notification work email document biz automation plugin dialer wiki helpdesk berichte formulare livekit livekit-egress; do
         $COMPOSE up -d "$svc"
         sleep 3
     done
@@ -174,7 +174,7 @@ else
     $COMPOSE up -d postgres redis minio
     sleep 5
 
-    for svc in auth crm chat notification work email document biz automation plugin dialer wiki helpdesk berichte formulare; do
+    for svc in auth crm chat notification work email document biz automation plugin dialer wiki helpdesk berichte formulare livekit livekit-egress; do
         log "  Starting $svc..."
         $COMPOSE up -d "$svc"
         sleep 3
