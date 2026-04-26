@@ -4,6 +4,33 @@
    All decorative animations respect prefers-reduced-motion.
    ═══════════════════════════════════════════════════════ */
 
+/* ════════════════════════
+   MOTION TOKENS — theme-agnostic
+   Apple-Disziplin in Curves/Durations, Cosmi-Identität in Anwendung.
+   Spiegel-File in TS: src/renderer/src/lib/motion.ts
+   ════════════════════════ */
+:root {
+  /* Easings (cubic-bezier, hand-tuned) */
+  --ease-out-ui:    cubic-bezier(0.23, 1, 0.32, 1);     /* Entry / responsive */
+  --ease-in-out:    cubic-bezier(0.77, 0, 0.175, 1);    /* On-screen movement */
+  --ease-drawer:    cubic-bezier(0.32, 0.72, 0, 1);     /* iOS-style drawers */
+  --ease-page:      cubic-bezier(0.22, 1, 0.36, 1);     /* Page transitions */
+
+  /* Durations (UI rule: <300ms unless modal/drawer) */
+  --dur-instant:    100ms;   /* Hover, focus-ring */
+  --dur-press:      140ms;   /* Button :active */
+  --dur-tooltip:    160ms;
+  --dur-fast:       200ms;   /* Default for fade/scale */
+  --dur-dropdown:   220ms;
+  --dur-base:       280ms;   /* Page-enter, default reveal */
+  --dur-modal:      300ms;
+  --dur-drawer:     400ms;
+  --dur-success:    500ms;   /* Hero check-draw, celebration */
+
+  /* Reveal stagger step (used between sibling animations) */
+  --stagger-step:   40ms;
+}
+
 /* ── Fade Animations ── */
 @keyframes fade-in {
   from { opacity: 0; }
@@ -175,23 +202,23 @@
    ════════════════════════ */
 
 .animate-fade-in {
-  animation: fade-in 200ms ease-out both;
+  animation: fade-in var(--dur-fast) var(--ease-out-ui) both;
 }
 
 .animate-fade-up {
-  animation: fade-up 300ms ease-out both;
+  animation: fade-up var(--dur-base) var(--ease-out-ui) both;
 }
 
 .animate-fade-down {
-  animation: fade-down 300ms ease-out both;
+  animation: fade-down var(--dur-base) var(--ease-out-ui) both;
 }
 
 .animate-scale-in {
-  animation: scale-in 200ms ease-out both;
+  animation: scale-in var(--dur-fast) var(--ease-out-ui) both;
 }
 
 .animate-scale-in-bounce {
-  animation: scale-in-bounce 350ms ease-out both;
+  animation: scale-in-bounce 350ms var(--ease-out-ui) both;
 }
 
 .animate-slide-in-right {
@@ -290,7 +317,7 @@
 }
 
 .page-enter {
-  animation: page-enter-up 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: page-enter-up var(--dur-base) var(--ease-page) both;
 }
 
 .page-exit {

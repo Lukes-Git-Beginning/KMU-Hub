@@ -46,11 +46,15 @@ Bullet-Liste — Code-Beispiele und Detail-Erlaeuterungen siehe `[[architektur#a
 
 Aesthetik: **"Premium SaaS mit Editorial Touch"** — kein generisches Dashboard-Look.
 
+**Designphilosophie:** Cosmi-Identitaet bleibt eigen. Apple-Linse (Reduktion, Hierarchie, Daily-Use-Disziplin) fuer alles was 100x/Tag passiert. Discord-Linse (Waerme, Personality, Joy-Moments) fuer Empty-States, Onboarding, Success. **Keine visuellen Kopien** (kein Mac-Chrome, keine Discord-Sidebar, keine Mascots von draussen).
+
 - **Font-Bans:** NIEMALS Inter, Roboto, Arial, Space Grotesk, Helvetica, Open Sans. Erlaubt: Plus Jakarta Sans, Clash Display, Satoshi, JetBrains Mono, Playfair Display
 - **Anti-Patterns:** Card-in-Card, AI-Slop-Aesthetik (lila Gradienten), symmetrische Bootstrap-Grids, Ueber-Animation
-- **Skills:** `frontend-design` (auto-loaded), `impeccable` (`/audit`, `/critique`, `/polish`, `/animate` etc.)
+- **Motion-Hardrule:** Nur `transform`/`opacity` animieren (GPU). Nie `width/height/margin/padding`. Tokens in `lib/motion.ts` + `styles/animations.css` — keine magic numbers in Komponenten.
+- **Keine Emojis in UI** (Personality via Custom-SVG, Motion, Wording).
+- **Skills:** `frontend-design` (auto-loaded), `impeccable` (`/audit`, `/critique`, `/polish`, `/animate` etc.). On-demand: `emilkowalski/skill`, `kylezantos/design-motion-principles`.
 
-Vollstaendige Direktiven (Farb-Hierarchie, Motion, Tiefe, Workflow): `[[design]]`
+Vollstaendige Direktiven (Joy-Matrix, Personality-Guidelines, Motion-Tokens, Workflow): `[[design]]`
 
 ## Haeufige Fehler
 

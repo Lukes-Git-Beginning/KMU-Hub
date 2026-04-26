@@ -1,8 +1,90 @@
 ---
-tags: [frontend, design, tools, skills, audit]
-updated: 2026-04-08
+tags: [frontend, design, tools, skills, audit, motion, philosophy]
+updated: 2026-04-26
 ---
 # Design System
+
+## Designphilosophie (KERN)
+
+**Cosmi-Identität bleibt eigen. Apple und Discord sind Inspirations-*Prinzipien*, kein visueller Stil.**
+
+| Linse | Prinzip | Wo es greift |
+|---|---|---|
+| Apple | Reduktion, Hierarchie-Klarheit, Daily-Use-Disziplin, Motion-Praezision | Forms, Tabellen, Navigation, Filter, alles was 100x/Tag passiert |
+| Discord | Waerme, Personality, Joy-Moments, Benutzer-Liebe | Empty-States, Onboarding, Success-Moments, Loading >1.5s, Avatars/Presence |
+
+**Verbote:**
+- Keine Mac-Chrome (Traffic-Lights, native Frame-Buttons, Stoplights)
+- Keine Discord-UI-Patterns (Server-Sidebar, Wumpus-Mascot, Server-Boost-Aesthetik)
+- Keine Emojis in UI (Personality via Custom-SVG, Motion, Wording)
+
+**Daily-Use-Test:** Nichts darf nach Tag 30 nerven. Animation/Personality nur dort, wo's bei 100. Nutzung noch erfreut, nie bremst.
+
+## Motion-Token-Layer (NEU 2026-04-26)
+
+Quelle: Emil Kowalski (Sonner/Vaul/Linear-Stack), adaptiert.
+Files: `styles/animations.css` (CSS-Vars), `lib/motion.ts` (TS-Konstanten).
+
+```
+EASINGS
+  --ease-out-ui:  cubic-bezier(0.23, 1, 0.32, 1)   Default fuer Reveals/Entry
+  --ease-in-out:  cubic-bezier(0.77, 0, 0.175, 1)  On-screen movement
+  --ease-drawer:  cubic-bezier(0.32, 0.72, 0, 1)   iOS-style drawers
+  --ease-page:    cubic-bezier(0.22, 1, 0.36, 1)   Page transitions
+
+DURATIONS  (UI-Hardrule: <300ms ausser Modal/Drawer)
+  instant 100  press 140  tooltip 160  fast 200  dropdown 220
+  base 280  modal 300  drawer 400  success 500
+
+SPRINGS
+  spring.soft  { duration: 0.5, bounce: 0.2 }   Joy-Moments
+  spring.drawer { duration: 0.4, bounce: 0.1 }   Sheets
+
+STAGGER  --stagger-step: 40ms
+```
+
+**Hardrules:**
+- Nie ease-in fuer UI (Emil) — startet langsam, fuehlt sich traege an
+- Nie scale(0) → scale(0.95) + opacity 0 als Start
+- Nur transform/opacity animieren — GPU. Nie width/height/margin/padding
+- Keyboard-Aktionen (Shortcuts, Command Palette) NIE animieren
+- Tooltips: zweiter Hover ohne Delay/Animation
+
+## Joy-Moments-Matrix
+
+Wo darf gespielt werden, wo bleibt es streng:
+
+| Bereich | Modus | Wie |
+|---|---|---|
+| Daten-Tabellen, Forms, Filter, Nav | streng | Unsichtbar schnell, keine Reveals, kein Bounce |
+| Buttons, Checkboxes, Inputs | streng | press 140ms scale(0.97), focus-ring instant |
+| Modal/Drawer/Sheet | streng | --ease-drawer + spring.drawer |
+| Empty-States | warm | Custom-SVG (existiert: `components/shared/illustrations/`), BlurFade-Reveal, friendly Copy |
+| Onboarding / First-Run | warm | Orchestrierte Stagger-Reveals, page-enter mit Personality |
+| Success-Moments (Deal won, Task done, Invoice paid) | warm | NumberTicker + ConfettiBurst + check-circle-draw |
+| Loading <1.5s | streng | Skeleton-Shimmer |
+| Loading >1.5s | warm | Custom-Illustration mit subtiler Animation |
+| Avatar / Presence-Indicator | warm | glow-pulse 2s fuer online |
+| KPI-Dashboard initial reveal | warm | menu-stagger style, 40ms steps |
+| Daily-Use Click/Type/Scroll | streng | <100ms feedback, kein Bounce |
+
+## Personality-Guidelines (UI Tone of Voice)
+
+- **Empty-States:** warm, kurz, leicht selbst-ironisch erlaubt
+  ✓ "Hier ist's noch leer — leg los."
+  ✗ "No data available."
+- **Errors:** empathisch + Loesungspfad, nicht techy
+  ✓ "Hat nicht geklappt. Probier's nochmal oder check deine Verbindung."
+  ✗ "Error 500: Internal Server Error"
+- **Success:** dezent feiern, nicht Spam
+  ✓ check-tick-draw + Toast "Deal abgeschlossen"
+  ✗ Confetti-Spam bei jeder Mini-Aktion
+- **Loading:** entspannt, nicht panisch
+  ✓ "Einen Moment..."
+  ✗ "Please wait..."
+- **Keine Emojis** in UI-Copy (Cosmi-Regel) — Wuerde + Personality via Wording, Custom-SVG, Motion.
+
+## Status: D9 gemerged + Design-Tooling + UI Hardening (2026-03-26)
 
 ## Status: D9 gemerged + Design-Tooling + UI Hardening (2026-03-26)
 - D1-D8 cherry-picked from design/brainstorm to main (full design system)
@@ -25,8 +107,24 @@ updated: 2026-04-08
 - `/critique` — UX-Review gegen Nielsen's 10 Heuristiken + Persona Testing
 - `/polish` — Final Pass für pixelperfekte Perfektion
 
+### emilkowalski/skill (on-demand, 2026-04-26)
+- Install: `npx skills add emilkowalski/skill`
+- **Nicht auto-load** — manuell triggern bei Motion-Reviews, neuen Komponenten mit States, `/animate`-Calls
+- Quelle der Motion-Tokens (siehe oben)
+- Empfehlung des Autors: case-by-case, nicht always-on
+
+### kylezantos/design-motion-principles (on-demand, 2026-04-26)
+- Install: `npx skills add kylezantos/design-motion-principles`
+- Audit-Tool: 3-Designer-Linse (Emil Kowalski / Jakub Krehel / Jhey Tompkins)
+- Workflow: Reconnaissance → Audit → Report mit Severity Levels
+- Einsatz: Pre-Sprint-End, Pre-Launch-Pass
+
+### Verworfen
+- **Taste Skill** (tasteskill.dev) — skip. Hardcoded Dark-OLED konfligiert mit Themes, ueberschneidet `frontend-design`.
+
 ### Design-Workflow
 Generate -> `/audit` -> `/critique` -> Fix -> `/polish` -> Ship
+Motion-Pass (vor Sprint-End): `/animate` mit emilkowalski/skill aktiv -> design-motion-principles audit
 
 ## Component Libraries (installiert 2026-03-26)
 
