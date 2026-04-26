@@ -106,7 +106,7 @@ export const useProfileStore = create<ProfileState>()(
 
       // ---- Business Profile (Industry) ----
       businessProfileId: null,
-      devShowAllModules: false,
+      devShowAllModules: true,
       enabledOptionalModules: [],
 
       setBusinessProfile: (id) => set({ businessProfileId: id, enabledOptionalModules: [] }),
@@ -124,6 +124,12 @@ export const useProfileStore = create<ProfileState>()(
     }),
     {
       name: 'cosmi-profiles',
+      version: 2,
+      migrate: (persisted) => {
+        // v2: force devShowAllModules=true for design/dev work — overrides stale persisted false
+        const state = (persisted ?? {}) as { devShowAllModules?: boolean }
+        return { ...state, devShowAllModules: true }
+      },
     },
   ),
 )

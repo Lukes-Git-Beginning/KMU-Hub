@@ -46,6 +46,10 @@ export function useFilteredNavItems() {
       items.filter((item) => {
         if (!canSeeNavItem(user, item.id)) return false
 
+        // devShowAll bypasses every gate (profile + feature flags).
+        // It's the explicit "show me everything" switch for design/dev work.
+        if (devShowAll) return true
+
         // Feature-flag gate: hide optional module items until the flag is enabled.
         // While flags are loading we conservatively hide them (no flash of ungated content).
         if (MODULE_FLAG_IDS.has(item.id)) {
@@ -54,7 +58,6 @@ export function useFilteredNavItems() {
           if (flagsLoading || !isFlagEnabled(flagKey)) return false
         }
 
-        if (devShowAll) return true
         return isModuleAllowedForProfile(item.id, businessProfileId, enabledOptionals)
       })
 

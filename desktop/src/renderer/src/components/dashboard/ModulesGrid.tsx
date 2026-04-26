@@ -8,6 +8,7 @@ import {
   Settings2,
   Lock,
   Info,
+  Briefcase,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
@@ -37,34 +38,61 @@ interface ModuleConfig {
 }
 
 /**
- * Module definitions — colors + icons come from nav-items.ts.
+ * Module definitions — colors + icons come from nav-items.ts where possible.
  * Only module-specific metadata (description, stats, badge) is here.
  * Labels use i18n keys resolved at render time.
  */
 const ALL_MODULES: ModuleConfig[] = [
+  // ── Core productivity ──
   { id: 'projects', nameKey: 'dashboard.modules.projects.name', descriptionKey: 'dashboard.modules.projects.description', path: '/work/projects', stats: { labelKey: 'dashboard.modules.projects.stat', value: 24 }, isActive: true },
   { id: 'tasks', nameKey: 'dashboard.modules.tasks.name', descriptionKey: 'dashboard.modules.tasks.description', path: '/work/my-tasks', stats: { labelKey: 'dashboard.modules.tasks.stat', value: 142 }, isActive: true },
   { id: 'documents', nameKey: 'dashboard.modules.documents.name', descriptionKey: 'dashboard.modules.documents.description', path: '/dokumente', stats: { labelKey: 'dashboard.modules.documents.stat', value: 89 }, isActive: true },
-  { id: 'finance', nameKey: 'dashboard.modules.finance.name', descriptionKey: 'dashboard.modules.finance.description', path: '/finanzen', stats: { labelKey: 'dashboard.modules.finance.stat', value: 18 }, isActive: true, badgeKey: 'dashboard.modules.badgeNew' },
+  { id: 'wiki', nameKey: 'dashboard.modules.wiki.name', descriptionKey: 'dashboard.modules.wiki.description', path: '/wiki', stats: { labelKey: 'dashboard.modules.wiki.stat', value: 47 }, isActive: true },
+
+  // ── Communication ──
   { id: 'chat', nameKey: 'dashboard.modules.chat.name', descriptionKey: 'dashboard.modules.chat.description', path: '/chat', stats: { labelKey: 'dashboard.modules.chat.stat', value: 37 }, isActive: true },
+  { id: 'mail', nameKey: 'dashboard.modules.mail.name', descriptionKey: 'dashboard.modules.mail.description', path: '/mails', stats: { labelKey: 'dashboard.modules.mail.stat', value: 12 }, isActive: true },
+  { id: 'meetings', nameKey: 'dashboard.modules.meetings.name', descriptionKey: 'dashboard.modules.meetings.description', path: '/meetings', stats: { labelKey: 'dashboard.modules.meetings.stat', value: 4 }, isActive: true },
+  { id: 'kommunikation', nameKey: 'dashboard.modules.kommunikation.name', descriptionKey: 'dashboard.modules.kommunikation.description', path: '/kommunikation', stats: { labelKey: 'dashboard.modules.kommunikation.stat', value: 8 }, isActive: true },
+
+  // ── CRM & Sales ──
   { id: 'crm', nameKey: 'dashboard.modules.crm.name', descriptionKey: 'dashboard.modules.crm.description', path: '/crm', stats: { labelKey: 'dashboard.modules.crm.stat', value: 12 }, isActive: true },
-  { id: 'inventar', nameKey: 'dashboard.modules.inventar.name', descriptionKey: 'dashboard.modules.inventar.description', path: '/inventar', stats: { labelKey: 'dashboard.modules.inventar.stat', value: 245 }, isActive: true },
+  { id: 'contacts', nameKey: 'dashboard.modules.contacts.name', descriptionKey: 'dashboard.modules.contacts.description', path: '/kontakte', stats: { labelKey: 'dashboard.modules.contacts.stat', value: 156 }, isActive: true },
+  { id: 'dialer', nameKey: 'dashboard.modules.dialer.name', descriptionKey: 'dashboard.modules.dialer.description', path: '/dialer', stats: { labelKey: 'dashboard.modules.dialer.stat', value: 23 }, isActive: true },
+
+  // ── People & Time ──
+  { id: 'team', nameKey: 'dashboard.modules.team.name', descriptionKey: 'dashboard.modules.team.description', path: '/team', stats: { labelKey: 'dashboard.modules.team.stat', value: 14 }, isActive: true },
+  { id: 'calendar', nameKey: 'dashboard.modules.calendar.name', descriptionKey: 'dashboard.modules.calendar.description', path: '/kalender', stats: { labelKey: 'dashboard.modules.calendar.stat', value: 11 }, isActive: true },
+  { id: 'zeiterfassung', nameKey: 'dashboard.modules.zeiterfassung.name', descriptionKey: 'dashboard.modules.zeiterfassung.description', path: '/zeiterfassung', stats: { labelKey: 'dashboard.modules.zeiterfassung.stat', value: 6 }, isActive: true },
   { id: 'schichten', nameKey: 'dashboard.modules.schichten.name', descriptionKey: 'dashboard.modules.schichten.description', path: '/schichten', stats: { labelKey: 'dashboard.modules.schichten.stat', value: 32 }, isActive: true },
+
+  // ── Finance & Legal ──
+  { id: 'finance', nameKey: 'dashboard.modules.finance.name', descriptionKey: 'dashboard.modules.finance.description', path: '/finanzen', stats: { labelKey: 'dashboard.modules.finance.stat', value: 18 }, isActive: true, badgeKey: 'dashboard.modules.badgeNew' },
+  { id: 'vertraege', nameKey: 'dashboard.modules.vertraege.name', descriptionKey: 'dashboard.modules.vertraege.description', path: '/vertraege', stats: { labelKey: 'dashboard.modules.vertraege.stat', value: 9 }, isActive: true },
+  { id: 'formulare', nameKey: 'dashboard.modules.formulare.name', descriptionKey: 'dashboard.modules.formulare.description', path: '/formulare', stats: { labelKey: 'dashboard.modules.formulare.stat', value: 4 }, isActive: true },
+
+  // ── Industry-specific ──
+  { id: 'inventar', nameKey: 'dashboard.modules.inventar.name', descriptionKey: 'dashboard.modules.inventar.description', path: '/inventar', stats: { labelKey: 'dashboard.modules.inventar.stat', value: 245 }, isActive: true },
   { id: 'einkauf', nameKey: 'dashboard.modules.einkauf.name', descriptionKey: 'dashboard.modules.einkauf.description', path: '/einkauf', stats: { labelKey: 'dashboard.modules.einkauf.stat', value: 7 }, isActive: true },
   { id: 'helpdesk', nameKey: 'dashboard.modules.helpdesk.name', descriptionKey: 'dashboard.modules.helpdesk.description', path: '/helpdesk', stats: { labelKey: 'dashboard.modules.helpdesk.stat', value: 15 }, isActive: true },
   { id: 'fuhrpark', nameKey: 'dashboard.modules.fuhrpark.name', descriptionKey: 'dashboard.modules.fuhrpark.description', path: '/fuhrpark', stats: { labelKey: 'dashboard.modules.fuhrpark.stat', value: 6 }, isActive: true },
   { id: 'produktion', nameKey: 'dashboard.modules.produktion.name', descriptionKey: 'dashboard.modules.produktion.description', path: '/produktion', stats: { labelKey: 'dashboard.modules.produktion.stat', value: 8 }, isActive: true },
-  { id: 'berichte', nameKey: 'dashboard.modules.berichte.name', descriptionKey: 'dashboard.modules.berichte.description', path: '/berichte', stats: { labelKey: 'dashboard.modules.berichte.stat', value: 3 }, isActive: true },
-  { id: 'zeiterfassung', nameKey: 'dashboard.modules.zeiterfassung.name', descriptionKey: 'dashboard.modules.zeiterfassung.description', path: '/zeiterfassung', stats: { labelKey: 'dashboard.modules.zeiterfassung.stat', value: 6 }, isActive: true },
-  { id: 'vertraege', nameKey: 'dashboard.modules.vertraege.name', descriptionKey: 'dashboard.modules.vertraege.description', path: '/vertraege', stats: { labelKey: 'dashboard.modules.vertraege.stat', value: 9 }, isActive: true },
-  { id: 'formulare', nameKey: 'dashboard.modules.formulare.name', descriptionKey: 'dashboard.modules.formulare.description', path: '/formulare', stats: { labelKey: 'dashboard.modules.formulare.stat', value: 4 }, isActive: true },
   { id: 'vermietung', nameKey: 'dashboard.modules.vermietung.name', descriptionKey: 'dashboard.modules.vermietung.description', path: '/vermietung', stats: { labelKey: 'dashboard.modules.vermietung.stat', value: 5 }, isActive: true },
   { id: 'rapporte', nameKey: 'dashboard.modules.rapporte.name', descriptionKey: 'dashboard.modules.rapporte.description', path: '/rapporte', stats: { labelKey: 'dashboard.modules.rapporte.stat', value: 8 }, isActive: true },
+  { id: 'berichte', nameKey: 'dashboard.modules.berichte.name', descriptionKey: 'dashboard.modules.berichte.description', path: '/berichte', stats: { labelKey: 'dashboard.modules.berichte.stat', value: 3 }, isActive: true },
+
+  // ── Admin / Infrastructure ──
+  { id: 'infrastructure', nameKey: 'dashboard.modules.infrastructure.name', descriptionKey: 'dashboard.modules.infrastructure.description', path: '/infrastruktur', stats: { labelKey: 'dashboard.modules.infrastructure.stat', value: 12 }, isActive: true },
+  { id: 'automatisierung', nameKey: 'dashboard.modules.automatisierung.name', descriptionKey: 'dashboard.modules.automatisierung.description', path: '/automatisierung', stats: { labelKey: 'dashboard.modules.automatisierung.stat', value: 6 }, isActive: true },
 ]
 
-/** Look up the icon from nav-items by module ID */
+/**
+ * Look up the icon from nav-items by module ID.
+ * Falls back to Briefcase for IDs that don't have a sidebar entry
+ * (e.g. CRM hub at /crm has no sidebar item — sidebar links directly to /kontakte).
+ */
 function getModuleIcon(id: string) {
-  return navItems.find((i) => i.id === id)?.icon
+  return navItems.find((i) => i.id === id)?.icon ?? Briefcase
 }
 
 export function ModulesGrid() {
