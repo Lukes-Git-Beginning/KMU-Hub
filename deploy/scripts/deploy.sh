@@ -132,6 +132,14 @@ if [[ "$PREV_SHA" == "$NEW_SHA" && -z "$SERVICE" ]]; then
     exit 0
 fi
 
+# Step 2.5: Render templated config files (livekit-secrets.yaml from .env.production)
+log "Step 2.5/7: Rendering config templates..."
+set -a
+# shellcheck disable=SC1090
+source "$ENV_FILE"
+set +a
+"$SCRIPT_DIR/render-configs.sh"
+
 # Step 3: Build images with version info
 log "Step 3/7: Building images..."
 BUILD_VERSION=$(git describe --tags --always 2>/dev/null || echo "$NEW_SHA")
