@@ -6,6 +6,7 @@ COMPOSE_FILES_DIR="${COMPOSE_FILES_DIR:-$COMPOSE_DIR/deploy/docker}"
 ENV_FILE="${ENV_FILE:-$COMPOSE_DIR/.env.production}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKIP_BACKUP=false
+FORCE=false
 SERVICE=""
 DEPLOY_LOCK="$COMPOSE_DIR/.deploy.lock"
 DEPLOY_LOG="$COMPOSE_DIR/deploy-history.log"
@@ -14,6 +15,7 @@ DEPLOY_START=$(date +%s)
 while [[ $# -gt 0 ]]; do
     case $1 in
         --skip-backup) SKIP_BACKUP=true; shift ;;
+        --force) FORCE=true; shift ;;
         --service=*) SERVICE="${1#*=}"; shift ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
@@ -126,10 +128,14 @@ git pull origin main
 NEW_SHA=$(git rev-parse HEAD)
 log "New commit: $NEW_SHA"
 
-if [[ "$PREV_SHA" == "$NEW_SHA" && -z "$SERVICE" ]]; then
+if [[ "$PREV_SHA" == "$NEW_SHA" && -z "$SERVICE" && "$FORCE" == "false" ]]; then
     log "No changes to deploy (already at $NEW_SHA)"
     log_deploy "no-change" "$PREV_SHA" "$NEW_SHA"
     exit 0
+fi
+
+if [[ "$PREV_SHA" == "$NEW_SHA" && "$FORCE" == "true" ]]; then
+    log "Force-rebuild requested — Code unchanged ($NEW_SHA), but rebuilding anyway"
 fi
 
 # Step 2.5: Render templated config files (livekit-secrets.yaml from .env.production)
