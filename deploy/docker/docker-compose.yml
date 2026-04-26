@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: kmuhub
       POSTGRES_USER: kmuhub
-      POSTGRES_PASSWORD: kmuhub_dev
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in deploy/docker/.env or .env.production}
     ports:
       - "5432:5432"
     volumes:
@@ -62,7 +62,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: ["postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable", "up"]
+    command: ["${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}", "up"]
     restart: on-failure
 
   auth:
@@ -77,7 +77,7 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
       REDIS_URL: redis://redis:6379
       JWT_SECRET: docker-dev-secret-minimum-32-characters
       ACCESS_TOKEN_EXPIRY: 15m
@@ -108,7 +108,7 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
       REDIS_URL: redis://redis:6379
       JWT_SECRET: docker-dev-secret-minimum-32-characters
       CRM_GRPC_PORT: ":50052"
@@ -138,7 +138,7 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
       JWT_SECRET: docker-dev-secret-minimum-32-characters
       CHAT_GRPC_PORT: ":50053"
       CHAT_HEALTH_PORT: ":9093"
@@ -169,7 +169,7 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
       JWT_SECRET: docker-dev-secret-minimum-32-characters
       NOTIFICATION_GRPC_PORT: ":50054"
       NOTIFICATION_HEALTH_PORT: ":9094"
@@ -240,7 +240,7 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
       REDIS_URL: redis://redis:6379
       JWT_SECRET: docker-dev-secret-minimum-32-characters
       WORK_GRPC_PORT: ":50055"
@@ -280,7 +280,7 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
       JWT_SECRET: docker-dev-secret-minimum-32-characters
       EMAIL_GRPC_PORT: ":50056"
       EMAIL_HEALTH_PORT: ":9096"
@@ -315,7 +315,7 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
       JWT_SECRET: docker-dev-secret-minimum-32-characters
       DOCUMENT_GRPC_PORT: ":50057"
       DOCUMENT_HEALTH_PORT: ":9097"
@@ -349,7 +349,7 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
       REDIS_URL: redis://redis:6379
       JWT_SECRET: docker-dev-secret-minimum-32-characters
       BIZ_GRPC_PORT: ":50058"
@@ -387,7 +387,7 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
       REDIS_URL: redis://redis:6379
       JWT_SECRET: docker-dev-secret-minimum-32-characters
       AUTOMATION_GRPC_PORT: ":50059"
@@ -417,7 +417,7 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
       JWT_SECRET: docker-dev-secret-minimum-32-characters
       PLUGIN_GRPC_PORT: ":50060"
       PLUGIN_HEALTH_PORT: ":9100"
@@ -444,7 +444,7 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
       REDIS_URL: redis://redis:6379
       JWT_SECRET: docker-dev-secret-minimum-32-characters
       DIALER_GRPC_PORT: ":50061"
@@ -473,7 +473,7 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
       JWT_SECRET: docker-dev-secret-minimum-32-characters
       WIKI_GRPC_PORT: ":50062"
       WIKI_HEALTH_PORT: ":9102"
@@ -498,7 +498,7 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
       JWT_SECRET: docker-dev-secret-minimum-32-characters
       HELPDESK_GRPC_PORT: ":50065"
       HELPDESK_HEALTH_PORT: ":9105"
@@ -523,7 +523,7 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
       JWT_SECRET: docker-dev-secret-minimum-32-characters
       BERICHTE_GRPC_PORT: ":50063"
       BERICHTE_HEALTH_PORT: ":9103"
@@ -548,7 +548,7 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
       JWT_SECRET: docker-dev-secret-minimum-32-characters
       FORMULARE_GRPC_PORT: ":50064"
       FORMULARE_HEALTH_PORT: ":9104"
@@ -625,7 +625,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
       REDIS_URL: redis://redis:6379
       JWT_SECRET: docker-dev-secret-minimum-32-characters
       ACCESS_TOKEN_EXPIRY: 15m
