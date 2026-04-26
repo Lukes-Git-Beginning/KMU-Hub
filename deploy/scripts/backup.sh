@@ -17,14 +17,14 @@ mkdir -p "$BACKUP_DIR"
 # PostgreSQL backup
 PG_FILE="$BACKUP_DIR/pg_${TIMESTAMP}.dump.gz"
 log "Dumping PostgreSQL..."
-docker compose -f "$COMPOSE_DIR/docker-compose.yml" -f "$COMPOSE_DIR/docker-compose.prod.yml" \
+docker compose --env-file "$COMPOSE_DIR/.env.production" -f "$COMPOSE_DIR/deploy/docker/docker-compose.yml" -f "$COMPOSE_DIR/deploy/docker/docker-compose.prod.yml" \
     exec -T postgres pg_dump -U kmuhub -Fc kmuhub | gzip > "$PG_FILE"
 log "PostgreSQL backup: $PG_FILE ($(du -h "$PG_FILE" | cut -f1))"
 
 # MinIO backup (volume snapshot via tar)
 MINIO_FILE="$BACKUP_DIR/minio_${TIMESTAMP}.tar.gz"
 log "Backing up MinIO data..."
-docker compose -f "$COMPOSE_DIR/docker-compose.yml" -f "$COMPOSE_DIR/docker-compose.prod.yml" \
+docker compose --env-file "$COMPOSE_DIR/.env.production" -f "$COMPOSE_DIR/deploy/docker/docker-compose.yml" -f "$COMPOSE_DIR/deploy/docker/docker-compose.prod.yml" \
     exec -T minio tar czf - /data 2>/dev/null > "$MINIO_FILE" || {
     log "WARNING: MinIO backup failed (non-critical)"
     rm -f "$MINIO_FILE"
