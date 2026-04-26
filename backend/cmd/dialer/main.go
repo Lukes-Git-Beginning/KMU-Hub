@@ -109,7 +109,7 @@ func main() {
 	}
 
 	healthRouter := chi.NewRouter()
-	healthRouter.Get("/health", server.HealthHandler(healthCheckers))
+	server.RegisterHealth(healthRouter, "/health", healthCheckers)
 	healthRouter.Handle("/metrics", metricsRegistry.Handler())
 
 	healthSrv := &http.Server{
