@@ -81,6 +81,10 @@ func main() {
 	registry.Register("helpdesk", cfg.HelpdeskGRPCAddress)
 	registry.Register("berichte", cfg.BerichteGRPCAddress)
 	registry.Register("formulare", cfg.FormulareGRPCAddress)
+	registry.Register("inventar", cfg.InventarGRPCAddress)
+	registry.Register("einkauf", cfg.EinkaufGRPCAddress)
+	registry.Register("produktion", cfg.ProduktionGRPCAddress)
+	registry.Register("vertraege", cfg.VertraegeGRPCAddress)
 	defer registry.Close()
 
 	// Database for file upload handler (direct access, not via gRPC)
@@ -204,6 +208,10 @@ func main() {
 		gateway.NewHelpdeskRoutes(registry, flagRegistry),
 		gateway.NewBerichteRoutes(registry, flagRegistry),
 		gateway.NewFormulareRoutes(registry, flagRegistry),
+		gateway.NewInventarRoutes(registry, flagRegistry),
+		gateway.NewEinkaufRoutes(registry, flagRegistry),
+		gateway.NewProduktionRoutes(registry, flagRegistry),
+		gateway.NewVertraegeRoutes(registry, flagRegistry),
 		gateway.NewGlobalSearchRoutes(registry),
 		gateway.NewDashboardRoutes(dashboardService),
 		gateway.NewFeatureFlagRoutes(flagRegistry),

@@ -563,6 +563,106 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  inventar:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.inventar
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
+      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      INVENTAR_GRPC_PORT: ":50070"
+      INVENTAR_HEALTH_PORT: ":9110"
+    ports:
+      - "50070:50070"
+      - "9110:9110"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --spider --tries=1 http://localhost:9110/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
+
+  einkauf:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.einkauf
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
+      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      EINKAUF_GRPC_PORT: ":50071"
+      EINKAUF_HEALTH_PORT: ":9111"
+    ports:
+      - "50071:50071"
+      - "9111:9111"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --spider --tries=1 http://localhost:9111/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
+
+  produktion:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.produktion
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
+      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      PRODUKTION_GRPC_PORT: ":50072"
+      PRODUKTION_HEALTH_PORT: ":9112"
+    ports:
+      - "50072:50072"
+      - "9112:9112"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --spider --tries=1 http://localhost:9112/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
+
+  vertraege:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.vertraege
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
+      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      VERTRAEGE_GRPC_PORT: ":50073"
+      VERTRAEGE_HEALTH_PORT: ":9113"
+    ports:
+      - "50073:50073"
+      - "9113:9113"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --spider --tries=1 http://localhost:9113/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
+
   onlyoffice:
     image: onlyoffice/documentserver:latest
     environment:
@@ -616,6 +716,14 @@ services:
         condition: service_healthy
       formulare:
         condition: service_healthy
+      inventar:
+        condition: service_healthy
+      einkauf:
+        condition: service_healthy
+      produktion:
+        condition: service_healthy
+      vertraege:
+        condition: service_healthy
       livekit:
         condition: service_healthy
       minio:
@@ -660,6 +768,14 @@ services:
       BERICHTE_GRPC_PORT: ":50063"
       FORMULARE_GRPC_ADDRESS: formulare:50064
       FORMULARE_GRPC_PORT: ":50064"
+      INVENTAR_GRPC_ADDRESS: inventar:50070
+      INVENTAR_GRPC_PORT: ":50070"
+      EINKAUF_GRPC_ADDRESS: einkauf:50071
+      EINKAUF_GRPC_PORT: ":50071"
+      PRODUKTION_GRPC_ADDRESS: produktion:50072
+      PRODUKTION_GRPC_PORT: ":50072"
+      VERTRAEGE_GRPC_ADDRESS: vertraege:50073
+      VERTRAEGE_GRPC_PORT: ":50073"
       WOPI_JWT_SECRET: docker-dev-wopi-secret-minimum-32-characters
       GATEWAY_HTTP_PORT: ":8080"
       METRICS_PORT: ":9090"

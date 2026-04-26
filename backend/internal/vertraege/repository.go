@@ -1,0 +1,48 @@
+package vertraege
+
+import (
+	"context"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+// ListContractsFilter holds optional filter criteria for listing contracts.
+type ListContractsFilter struct {
+	Status    *ContractStatus
+	Type      *ContractType
+	StartsAfter  *time.Time
+	StartsBefore *time.Time
+	EndsAfter    *time.Time
+	EndsBefore   *time.Time
+}
+
+// Repository defines the persistence interface for the vertraege module.
+type Repository interface {
+	// Contracts
+	CreateContract(ctx context.Context, c *Contract) error
+	UpdateContract(ctx context.Context, c *Contract) error
+	GetContract(ctx context.Context, tenantID, contractID uuid.UUID) (*Contract, error)
+	ListContracts(ctx context.Context, tenantID uuid.UUID, filter ListContractsFilter, offset, limit int) ([]*Contract, int, error)
+	DeleteContract(ctx context.Context, tenantID, contractID uuid.UUID) error
+	ContractNumberExists(ctx context.Context, tenantID uuid.UUID, number string, excludeID *uuid.UUID) (bool, error)
+
+	// Auto-expiry: marks active contracts as expired when ends_on < today
+	ExpireContracts(ctx context.Context) (int64, error)
+
+	// Parties
+	AddParty(ctx context.Context, p *ContractParty) error
+	RemoveParty(ctx context.Context, tenantID, partyID uuid.UUID) error
+	ListParties(ctx context.Context, tenantID, contractID uuid.UUID) ([]*ContractParty, error)
+
+	// Reminders
+	CreateReminder(ctx context.Context, r *ContractReminder) error
+	UpdateReminder(ctx context.Context, r *ContractReminder) error
+	GetReminder(ctx context.Context, tenantID, reminderID uuid.UUID) (*ContractReminder, error)
+	DeleteReminder(ctx context.Context, tenantID, reminderID uuid.UUID) error
+	ListReminders(ctx context.Context, tenantID, contractID uuid.UUID, onlyPending bool) ([]*ContractReminder, error)
+
+	// Worker: claim reminders that are due
+	ClaimDueReminders(ctx context.Context) ([]*ContractReminder, error)
+	MarkReminderSent(ctx context.Context, reminderID uuid.UUID, sentAt time.Time) error
+}

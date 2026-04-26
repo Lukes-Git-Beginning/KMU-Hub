@@ -1,0 +1,251 @@
+syntax = "proto3";
+
+package vertraege.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/kmuhub/kmuhub/proto/vertraege/v1;vertraegev1";
+
+service VertraegeService {
+  // Contracts
+  rpc CreateContract(CreateContractRequest) returns (ContractResponse);
+  rpc UpdateContract(UpdateContractRequest) returns (ContractResponse);
+  rpc DeleteContract(DeleteContractRequest) returns (DeleteContractResponse);
+  rpc GetContract(GetContractRequest) returns (ContractResponse);
+  rpc ListContracts(ListContractsRequest) returns (ListContractsResponse);
+
+  // Parties
+  rpc AddParty(AddPartyRequest) returns (PartyResponse);
+  rpc RemoveParty(RemovePartyRequest) returns (RemovePartyResponse);
+  rpc ListParties(ListPartiesRequest) returns (ListPartiesResponse);
+
+  // Reminders
+  rpc CreateReminder(CreateReminderRequest) returns (ReminderResponse);
+  rpc UpdateReminder(UpdateReminderRequest) returns (ReminderResponse);
+  rpc DeleteReminder(DeleteReminderRequest) returns (DeleteReminderResponse);
+  rpc ListReminders(ListRemindersRequest) returns (ListRemindersResponse);
+
+  // Document upload helper (returns signed-URL stub; Sprint 3 wires MinIO)
+  rpc UploadDocument(UploadDocumentRequest) returns (UploadDocumentResponse);
+
+  // Export (text dump for now; Sprint 3 adds PDF renderer)
+  rpc ExportContract(ExportContractRequest) returns (ExportContractResponse);
+}
+
+// ============================================================================
+// Domain Messages
+// ============================================================================
+
+message Contract {
+  string id = 1;
+  string tenant_id = 2;
+  string contract_number = 3;
+  string title = 4;
+  string contract_type = 5; // rental|service|employment|nda|other
+  string status = 6;        // draft|active|expired|terminated
+  google.protobuf.Timestamp starts_on = 7;
+  optional google.protobuf.Timestamp ends_on = 8;
+  optional string document_url = 9;
+  string notes = 10;
+  optional string created_by = 11;
+  optional string signature_provider = 12; // Phase D: Skribble placeholder
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+
+  // Populated only by GetContract
+  repeated ContractParty parties = 15;
+  repeated ContractReminder reminders = 16;
+}
+
+message ContractParty {
+  string id = 1;
+  string tenant_id = 2;
+  string contract_id = 3;
+  string party_type = 4;    // contact|company|external
+  optional string contact_id = 5;
+  optional string company_id = 6;
+  optional string external_name = 7;
+  string role_in_contract = 8;
+  optional google.protobuf.Timestamp signed_on = 9;
+  google.protobuf.Timestamp created_at = 10;
+}
+
+message ContractReminder {
+  string id = 1;
+  string tenant_id = 2;
+  string contract_id = 3;
+  google.protobuf.Timestamp remind_at = 4;
+  string reminder_type = 5; // renewal|expiry|payment|custom
+  string subject = 6;
+  string message = 7;
+  string status = 8;        // pending|sent|cancelled
+  google.protobuf.Timestamp created_at = 9;
+  optional google.protobuf.Timestamp sent_at = 10;
+}
+
+// ============================================================================
+// Contract Requests / Responses
+// ============================================================================
+
+message CreateContractRequest {
+  string tenant_id = 1;
+  string contract_number = 2;
+  string title = 3;
+  string contract_type = 4;
+  google.protobuf.Timestamp starts_on = 5;
+  optional google.protobuf.Timestamp ends_on = 6;
+  optional string document_url = 7;
+  string notes = 8;
+  optional string created_by = 9;
+}
+
+message UpdateContractRequest {
+  string tenant_id = 1;
+  string contract_id = 2;
+  optional string title = 3;
+  optional string contract_type = 4;
+  optional string status = 5;
+  optional google.protobuf.Timestamp starts_on = 6;
+  optional google.protobuf.Timestamp ends_on = 7;
+  bool clear_ends_on = 8;
+  optional string document_url = 9;
+  optional string notes = 10;
+}
+
+message DeleteContractRequest {
+  string tenant_id = 1;
+  string contract_id = 2;
+}
+
+message DeleteContractResponse {}
+
+message GetContractRequest {
+  string tenant_id = 1;
+  string contract_id = 2;
+}
+
+message ContractResponse {
+  Contract contract = 1;
+}
+
+message ListContractsRequest {
+  string tenant_id = 1;
+  optional string status = 2;
+  optional string contract_type = 3;
+  optional google.protobuf.Timestamp starts_after = 4;
+  optional google.protobuf.Timestamp starts_before = 5;
+  optional google.protobuf.Timestamp ends_after = 6;
+  optional google.protobuf.Timestamp ends_before = 7;
+  int32 page = 8;
+  int32 page_size = 9;
+}
+
+message ListContractsResponse {
+  repeated Contract contracts = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// Party Requests / Responses
+// ============================================================================
+
+message AddPartyRequest {
+  string tenant_id = 1;
+  string contract_id = 2;
+  string party_type = 3;
+  optional string contact_id = 4;
+  optional string company_id = 5;
+  optional string external_name = 6;
+  string role_in_contract = 7;
+  optional google.protobuf.Timestamp signed_on = 8;
+}
+
+message RemovePartyRequest {
+  string tenant_id = 1;
+  string party_id = 2;
+}
+
+message RemovePartyResponse {}
+
+message ListPartiesRequest {
+  string tenant_id = 1;
+  string contract_id = 2;
+}
+
+message PartyResponse {
+  ContractParty party = 1;
+}
+
+message ListPartiesResponse {
+  repeated ContractParty parties = 1;
+}
+
+// ============================================================================
+// Reminder Requests / Responses
+// ============================================================================
+
+message CreateReminderRequest {
+  string tenant_id = 1;
+  string contract_id = 2;
+  google.protobuf.Timestamp remind_at = 3;
+  string reminder_type = 4;
+  string subject = 5;
+  string message = 6;
+}
+
+message UpdateReminderRequest {
+  string tenant_id = 1;
+  string reminder_id = 2;
+  optional google.protobuf.Timestamp remind_at = 3;
+  optional string reminder_type = 4;
+  optional string subject = 5;
+  optional string message = 6;
+  optional string status = 7;
+}
+
+message DeleteReminderRequest {
+  string tenant_id = 1;
+  string reminder_id = 2;
+}
+
+message DeleteReminderResponse {}
+
+message ListRemindersRequest {
+  string tenant_id = 1;
+  string contract_id = 2;
+  bool only_pending = 3;
+}
+
+message ReminderResponse {
+  ContractReminder reminder = 1;
+}
+
+message ListRemindersResponse {
+  repeated ContractReminder reminders = 1;
+}
+
+// ============================================================================
+// Document & Export
+// ============================================================================
+
+message UploadDocumentRequest {
+  string tenant_id = 1;
+  string contract_id = 2;
+}
+
+message UploadDocumentResponse {
+  // Signed upload URL (stub; Sprint 3 wires MinIO presign).
+  string upload_url = 1;
+}
+
+message ExportContractRequest {
+  string tenant_id = 1;
+  string contract_id = 2;
+}
+
+message ExportContractResponse {
+  // Raw bytes — plain text now, PDF in Sprint 3.
+  bytes payload = 1;
+  string content_type = 2;
+  string filename = 3;
+}

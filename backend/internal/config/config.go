@@ -47,6 +47,14 @@ type Config struct {
 	FormulareGRPCAddress    string `env:"FORMULARE_GRPC_ADDRESS,default=localhost:50064"`
 	HelpdeskGRPCPort        string `env:"HELPDESK_GRPC_PORT,default=:50065"`
 	HelpdeskGRPCAddress     string `env:"HELPDESK_GRPC_ADDRESS,default=localhost:50065"`
+	InventarGRPCPort        string `env:"INVENTAR_GRPC_PORT,default=:50070"`
+	InventarGRPCAddress     string `env:"INVENTAR_GRPC_ADDRESS,default=localhost:50070"`
+	EinkaufGRPCPort         string `env:"EINKAUF_GRPC_PORT,default=:50071"`
+	EinkaufGRPCAddress      string `env:"EINKAUF_GRPC_ADDRESS,default=localhost:50071"`
+	ProduktionGRPCPort      string `env:"PRODUKTION_GRPC_PORT,default=:50072"`
+	ProduktionGRPCAddress   string `env:"PRODUKTION_GRPC_ADDRESS,default=localhost:50072"`
+	VertraegeGRPCPort       string `env:"VERTRAEGE_GRPC_PORT,default=:50073"`
+	VertraegeGRPCAddress    string `env:"VERTRAEGE_GRPC_ADDRESS,default=localhost:50073"`
 	GatewayHTTPPort          string `env:"GATEWAY_HTTP_PORT,default=:8080"`
 
 	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS,delimiter=;,default=http://localhost:3000;http://localhost:5173"`
@@ -70,6 +78,10 @@ type Config struct {
 	BerichteHealthPort     string `env:"BERICHTE_HEALTH_PORT,default=:9103"`
 	FormulareHealthPort    string `env:"FORMULARE_HEALTH_PORT,default=:9104"`
 	HelpdeskHealthPort     string `env:"HELPDESK_HEALTH_PORT,default=:9105"`
+	InventarHealthPort     string `env:"INVENTAR_HEALTH_PORT,default=:9110"`
+	EinkaufHealthPort      string `env:"EINKAUF_HEALTH_PORT,default=:9111"`
+	ProduktionHealthPort   string `env:"PRODUKTION_HEALTH_PORT,default=:9112"`
+	VertraegeHealthPort    string `env:"VERTRAEGE_HEALTH_PORT,default=:9113"`
 
 	// LiveKit (Video calls -- optional, feature-flagged)
 	LiveKitAPIKey    string `env:"LIVEKIT_API_KEY,default="`

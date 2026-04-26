@@ -1,0 +1,281 @@
+syntax = "proto3";
+
+package einkauf.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/kmuhub/kmuhub/proto/einkauf/v1;einkaufv1";
+
+service EinkaufService {
+  // Suppliers
+  rpc CreateSupplier(CreateSupplierRequest) returns (SupplierResponse);
+  rpc UpdateSupplier(UpdateSupplierRequest) returns (SupplierResponse);
+  rpc DeleteSupplier(DeleteSupplierRequest) returns (DeleteSupplierResponse);
+  rpc GetSupplier(GetSupplierRequest) returns (SupplierResponse);
+  rpc ListSuppliers(ListSuppliersRequest) returns (ListSuppliersResponse);
+
+  // Purchase Orders
+  rpc CreatePO(CreatePORequest) returns (POResponse);
+  rpc UpdatePO(UpdatePORequest) returns (POResponse);
+  rpc DeletePO(DeletePORequest) returns (DeletePOResponse);
+  rpc GetPO(GetPORequest) returns (POResponse);
+  rpc ListPOs(ListPOsRequest) returns (ListPOsResponse);
+
+  // PO Lines
+  rpc AddPOLine(AddPOLineRequest) returns (POLineResponse);
+  rpc UpdatePOLine(UpdatePOLineRequest) returns (POLineResponse);
+  rpc DeletePOLine(DeletePOLineRequest) returns (DeletePOLineResponse);
+  rpc ListPOLines(ListPOLinesRequest) returns (ListPOLinesResponse);
+
+  // Workflows
+  rpc SubmitPO(SubmitPORequest) returns (POResponse);
+  rpc ReceiveGoods(ReceiveGoodsRequest) returns (POResponse);
+  rpc PartialReceive(PartialReceiveRequest) returns (POResponse);
+  rpc ExportPO(ExportPORequest) returns (ExportPOResponse);
+}
+
+// ============================================================================
+// Domain Messages
+// ============================================================================
+
+message Supplier {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  optional string contact_id = 4;
+  string email = 5;
+  string phone = 6;
+  string address = 7;
+  string payment_terms = 8;
+  string notes = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message PurchaseOrder {
+  string id = 1;
+  string tenant_id = 2;
+  string supplier_id = 3;
+  string po_number = 4;
+  string status = 5; // draft|submitted|sent|partially_received|received|closed|cancelled
+  google.protobuf.Timestamp order_date = 6;
+  optional google.protobuf.Timestamp expected_delivery_date = 7;
+  string total_amount = 8;
+  string currency = 9;
+  string notes = 10;
+  optional string created_by = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+  repeated POLine lines = 14; // populated on GetPO
+}
+
+message POLine {
+  string id = 1;
+  string tenant_id = 2;
+  string po_id = 3;
+  string product_name = 4;
+  string sku = 5;
+  string quantity = 6;
+  string unit_price = 7;
+  string tax_rate = 8;
+  string received_quantity = 9;
+  int32 line_position = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+}
+
+// ============================================================================
+// Supplier Requests / Responses
+// ============================================================================
+
+message CreateSupplierRequest {
+  string tenant_id = 1;
+  string name = 2;
+  optional string contact_id = 3;
+  string email = 4;
+  string phone = 5;
+  string address = 6;
+  string payment_terms = 7;
+  string notes = 8;
+}
+
+message UpdateSupplierRequest {
+  string tenant_id = 1;
+  string supplier_id = 2;
+  optional string name = 3;
+  optional string contact_id = 4; // empty string to clear
+  optional string email = 5;
+  optional string phone = 6;
+  optional string address = 7;
+  optional string payment_terms = 8;
+  optional string notes = 9;
+}
+
+message DeleteSupplierRequest {
+  string tenant_id = 1;
+  string supplier_id = 2;
+}
+
+message DeleteSupplierResponse {}
+
+message GetSupplierRequest {
+  string tenant_id = 1;
+  string supplier_id = 2;
+}
+
+message SupplierResponse {
+  Supplier supplier = 1;
+}
+
+message ListSuppliersRequest {
+  string tenant_id = 1;
+  string search = 2;
+  bool active_only = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+}
+
+message ListSuppliersResponse {
+  repeated Supplier suppliers = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// Purchase Order Requests / Responses
+// ============================================================================
+
+message CreatePORequest {
+  string tenant_id = 1;
+  string supplier_id = 2;
+  string po_number = 3;
+  google.protobuf.Timestamp order_date = 4;
+  optional google.protobuf.Timestamp expected_delivery_date = 5;
+  string currency = 6;
+  string notes = 7;
+  optional string created_by = 8;
+}
+
+message UpdatePORequest {
+  string tenant_id = 1;
+  string po_id = 2;
+  optional string supplier_id = 3;
+  optional string po_number = 4;
+  optional google.protobuf.Timestamp order_date = 5;
+  optional google.protobuf.Timestamp expected_delivery_date = 6; // send epoch to clear
+  optional string currency = 7;
+  optional string notes = 8;
+}
+
+message DeletePORequest {
+  string tenant_id = 1;
+  string po_id = 2;
+}
+
+message DeletePOResponse {}
+
+message GetPORequest {
+  string tenant_id = 1;
+  string po_id = 2;
+}
+
+message POResponse {
+  PurchaseOrder po = 1;
+}
+
+message ListPOsRequest {
+  string tenant_id = 1;
+  optional string supplier_id = 2;
+  optional string status = 3;
+  optional google.protobuf.Timestamp date_from = 4;
+  optional google.protobuf.Timestamp date_to = 5;
+  int32 page = 6;
+  int32 page_size = 7;
+}
+
+message ListPOsResponse {
+  repeated PurchaseOrder pos = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// PO Line Requests / Responses
+// ============================================================================
+
+message AddPOLineRequest {
+  string tenant_id = 1;
+  string po_id = 2;
+  string product_name = 3;
+  string sku = 4;
+  string quantity = 5;
+  string unit_price = 6;
+  string tax_rate = 7;
+  int32 line_position = 8;
+}
+
+message UpdatePOLineRequest {
+  string tenant_id = 1;
+  string line_id = 2;
+  optional string product_name = 3;
+  optional string sku = 4;
+  optional string quantity = 5;
+  optional string unit_price = 6;
+  optional string tax_rate = 7;
+  optional int32 line_position = 8;
+}
+
+message DeletePOLineRequest {
+  string tenant_id = 1;
+  string line_id = 2;
+}
+
+message DeletePOLineResponse {}
+
+message ListPOLinesRequest {
+  string tenant_id = 1;
+  string po_id = 2;
+}
+
+message ListPOLinesResponse {
+  repeated POLine lines = 1;
+}
+
+message POLineResponse {
+  POLine line = 1;
+}
+
+// ============================================================================
+// Workflow Requests / Responses
+// ============================================================================
+
+message SubmitPORequest {
+  string tenant_id = 1;
+  string po_id = 2;
+}
+
+message ReceiveGoodsRequest {
+  string tenant_id = 1;
+  string po_id = 2;
+}
+
+message PartialReceiveItem {
+  string line_id = 1;
+  string received_quantity = 2;
+}
+
+message PartialReceiveRequest {
+  string tenant_id = 1;
+  string po_id = 2;
+  repeated PartialReceiveItem items = 3;
+}
+
+message ExportPORequest {
+  string tenant_id = 1;
+  string po_id = 2;
+  string format = 3; // "pdf" or "csv"
+}
+
+message ExportPOResponse {
+  bytes payload = 1;
+  string content_type = 2;
+  string filename = 3;
+}

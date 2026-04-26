@@ -1,0 +1,250 @@
+syntax = "proto3";
+
+package inventar.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/kmuhub/kmuhub/proto/inventar/v1;inventarv1";
+
+service InventarService {
+  // Items
+  rpc CreateItem(CreateItemRequest) returns (ItemResponse);
+  rpc GetItem(GetItemRequest) returns (ItemResponse);
+  rpc UpdateItem(UpdateItemRequest) returns (ItemResponse);
+  rpc DeleteItem(DeleteItemRequest) returns (DeleteItemResponse);
+  rpc ListItems(ListItemsRequest) returns (ListItemsResponse);
+
+  // Stock operations
+  rpc AdjustStock(AdjustStockRequest) returns (ItemResponse);
+  rpc TransferStock(TransferStockRequest) returns (TransferStockResponse);
+  rpc RecordMovement(RecordMovementRequest) returns (MovementResponse);
+  rpc ListMovements(ListMovementsRequest) returns (ListMovementsResponse);
+  rpc GetStockHistory(GetStockHistoryRequest) returns (ListMovementsResponse);
+
+  // Warnings
+  rpc CreateWarning(CreateWarningRequest) returns (WarningResponse);
+  rpc UpdateWarning(UpdateWarningRequest) returns (WarningResponse);
+  rpc AcknowledgeWarning(AcknowledgeWarningRequest) returns (WarningResponse);
+  rpc ListWarnings(ListWarningsRequest) returns (ListWarningsResponse);
+
+  // Reports
+  rpc GetStockReport(GetStockReportRequest) returns (StockReportResponse);
+  rpc ExportInventory(ExportInventoryRequest) returns (ExportInventoryResponse);
+}
+
+// ============================================================================
+// Domain Messages
+// ============================================================================
+
+message Item {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  string sku = 4;
+  optional string barcode = 5;
+  int64 quantity = 6;
+  int64 min_quantity = 7;
+  string unit = 8;
+  optional string location = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message Movement {
+  string id = 1;
+  string tenant_id = 2;
+  string item_id = 3;
+  string movement_type = 4; // in|out|adjustment|transfer
+  int64 quantity = 5;
+  optional string performed_by = 6;
+  string reason = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message Warning {
+  string id = 1;
+  string tenant_id = 2;
+  string item_id = 3;
+  int64 threshold = 4;
+  int64 current_quantity = 5;
+  string status = 6; // active|acknowledged|resolved
+  google.protobuf.Timestamp created_at = 7;
+  optional google.protobuf.Timestamp acknowledged_at = 8;
+  optional string acknowledged_by = 9;
+}
+
+// ============================================================================
+// Item Requests / Responses
+// ============================================================================
+
+message CreateItemRequest {
+  string tenant_id = 1;
+  string name = 2;
+  string sku = 3;
+  optional string barcode = 4;
+  int64 quantity = 5;
+  int64 min_quantity = 6;
+  string unit = 7;
+  optional string location = 8;
+}
+
+message GetItemRequest {
+  string tenant_id = 1;
+  string item_id = 2;
+}
+
+message UpdateItemRequest {
+  string tenant_id = 1;
+  string item_id = 2;
+  optional string name = 3;
+  optional string sku = 4;
+  optional string barcode = 5;
+  optional int64 min_quantity = 6;
+  optional string unit = 7;
+  optional string location = 8;
+}
+
+message DeleteItemRequest {
+  string tenant_id = 1;
+  string item_id = 2;
+}
+
+message DeleteItemResponse {}
+
+message ItemResponse {
+  Item item = 1;
+}
+
+message ListItemsRequest {
+  string tenant_id = 1;
+  string search = 2;
+  optional string location = 3;
+  bool low_stock = 4;
+  int32 page = 5;
+  int32 page_size = 6;
+}
+
+message ListItemsResponse {
+  repeated Item items = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// Stock Operation Requests / Responses
+// ============================================================================
+
+message AdjustStockRequest {
+  string tenant_id = 1;
+  string item_id = 2;
+  int64 delta = 3; // positive = in, negative = out
+  optional string performed_by = 4;
+  string reason = 5;
+}
+
+message TransferStockRequest {
+  string tenant_id = 1;
+  string from_item_id = 2;
+  string to_item_id = 3;
+  int64 quantity = 4;
+  optional string performed_by = 5;
+  string reason = 6;
+}
+
+message TransferStockResponse {}
+
+message RecordMovementRequest {
+  string tenant_id = 1;
+  string item_id = 2;
+  string movement_type = 3; // in|out|adjustment|transfer
+  int64 quantity = 4;
+  optional string performed_by = 5;
+  string reason = 6;
+}
+
+message MovementResponse {
+  Movement movement = 1;
+}
+
+message ListMovementsRequest {
+  string tenant_id = 1;
+  string item_id = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListMovementsResponse {
+  repeated Movement movements = 1;
+  int32 total = 2;
+}
+
+message GetStockHistoryRequest {
+  string tenant_id = 1;
+  string item_id = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+// ============================================================================
+// Warning Requests / Responses
+// ============================================================================
+
+message CreateWarningRequest {
+  string tenant_id = 1;
+  string item_id = 2;
+  int64 threshold = 3;
+  int64 current_quantity = 4;
+}
+
+message UpdateWarningRequest {
+  string tenant_id = 1;
+  string warning_id = 2;
+  string status = 3; // active|acknowledged|resolved
+}
+
+message AcknowledgeWarningRequest {
+  string tenant_id = 1;
+  string warning_id = 2;
+  string acknowledged_by = 3;
+}
+
+message WarningResponse {
+  Warning warning = 1;
+}
+
+message ListWarningsRequest {
+  string tenant_id = 1;
+  optional string status = 2; // filter by status
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListWarningsResponse {
+  repeated Warning warnings = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// Report Requests / Responses
+// ============================================================================
+
+message GetStockReportRequest {
+  string tenant_id = 1;
+}
+
+message StockReportResponse {
+  int32 total_items = 1;
+  int64 total_quantity = 2;
+  int32 low_stock_count = 3;
+  int32 active_warnings = 4;
+}
+
+message ExportInventoryRequest {
+  string tenant_id = 1;
+  string format = 2; // csv
+}
+
+message ExportInventoryResponse {
+  bytes payload = 1;
+  string content_type = 2;
+  string filename = 3;
+}

@@ -1,0 +1,250 @@
+syntax = "proto3";
+
+package produktion.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/kmuhub/kmuhub/proto/produktion/v1;produktionv1";
+
+service ProduktionService {
+  // Production Orders
+  rpc CreateOrder(CreateOrderRequest) returns (OrderResponse);
+  rpc UpdateOrder(UpdateOrderRequest) returns (OrderResponse);
+  rpc DeleteOrder(DeleteOrderRequest) returns (DeleteOrderResponse);
+  rpc GetOrder(GetOrderRequest) returns (OrderResponse);
+  rpc ListOrders(ListOrdersRequest) returns (ListOrdersResponse);
+
+  // Order lifecycle transitions
+  rpc StartOrder(OrderActionRequest) returns (OrderResponse);
+  rpc CompleteOrder(OrderActionRequest) returns (OrderResponse);
+  rpc CancelOrder(OrderActionRequest) returns (OrderResponse);
+
+  // Machine Bookings
+  rpc CreateMachineBooking(CreateMachineBookingRequest) returns (MachineBookingResponse);
+  rpc UpdateMachineBooking(UpdateMachineBookingRequest) returns (MachineBookingResponse);
+  rpc DeleteMachineBooking(DeleteMachineBookingRequest) returns (DeleteMachineBookingResponse);
+  rpc ListMachineBookings(ListMachineBookingsRequest) returns (ListMachineBookingsResponse);
+
+  // Production Plans
+  rpc CreatePlan(CreatePlanRequest) returns (PlanResponse);
+  rpc UpdatePlan(UpdatePlanRequest) returns (PlanResponse);
+  rpc GetPlan(GetPlanRequest) returns (PlanResponse);
+  rpc GetCapacityOverview(GetCapacityOverviewRequest) returns (CapacityOverviewResponse);
+}
+
+// ============================================================================
+// Domain Messages
+// ============================================================================
+
+message ProductionOrder {
+  string id = 1;
+  string tenant_id = 2;
+  string order_number = 3;
+  string product_name = 4;
+  int32 quantity = 5;
+  string status = 6; // planned|in_progress|completed|cancelled
+  google.protobuf.Timestamp planned_start = 7;
+  google.protobuf.Timestamp planned_end = 8;
+  optional google.protobuf.Timestamp actual_start = 9;
+  optional google.protobuf.Timestamp actual_end = 10;
+  int32 priority = 11; // 1-5
+  string notes = 12;
+  optional string created_by = 13;
+  google.protobuf.Timestamp created_at = 14;
+  google.protobuf.Timestamp updated_at = 15;
+}
+
+message MachineBooking {
+  string id = 1;
+  string tenant_id = 2;
+  string machine_id = 3;
+  string production_order_id = 4;
+  google.protobuf.Timestamp starts_at = 5;
+  google.protobuf.Timestamp ends_at = 6;
+  string status = 7; // booked|in_use|completed|cancelled
+  string notes = 8;
+  optional string created_by = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message ProductionPlan {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  int32 week_number = 4;
+  int32 year = 5;
+  double total_capacity_hours = 6;
+  double planned_capacity_hours = 7;
+  string status = 8; // draft|active|completed
+  string notes = 9;
+  optional string created_by = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+}
+
+message CapacityOverview {
+  string machine_id = 1;
+  double total_capacity_hours = 2;
+  double booked_hours = 3;
+  double available_hours = 4;
+}
+
+// ============================================================================
+// Order Requests / Responses
+// ============================================================================
+
+message CreateOrderRequest {
+  string tenant_id = 1;
+  string order_number = 2;
+  string product_name = 3;
+  int32 quantity = 4;
+  google.protobuf.Timestamp planned_start = 5;
+  google.protobuf.Timestamp planned_end = 6;
+  int32 priority = 7;
+  string notes = 8;
+  optional string created_by = 9;
+}
+
+message UpdateOrderRequest {
+  string tenant_id = 1;
+  string order_id = 2;
+  optional string product_name = 3;
+  optional int32 quantity = 4;
+  optional google.protobuf.Timestamp planned_start = 5;
+  optional google.protobuf.Timestamp planned_end = 6;
+  optional int32 priority = 7;
+  optional string notes = 8;
+}
+
+message DeleteOrderRequest {
+  string tenant_id = 1;
+  string order_id = 2;
+}
+
+message DeleteOrderResponse {}
+
+message GetOrderRequest {
+  string tenant_id = 1;
+  string order_id = 2;
+}
+
+message OrderResponse {
+  ProductionOrder order = 1;
+}
+
+message OrderActionRequest {
+  string tenant_id = 1;
+  string order_id = 2;
+}
+
+message ListOrdersRequest {
+  string tenant_id = 1;
+  optional string status = 2;
+  optional int32 priority = 3;
+  optional google.protobuf.Timestamp date_from = 4;
+  optional google.protobuf.Timestamp date_to = 5;
+  int32 page = 6;
+  int32 page_size = 7;
+}
+
+message ListOrdersResponse {
+  repeated ProductionOrder orders = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// Machine Booking Requests / Responses
+// ============================================================================
+
+message CreateMachineBookingRequest {
+  string tenant_id = 1;
+  string machine_id = 2;
+  string production_order_id = 3;
+  google.protobuf.Timestamp starts_at = 4;
+  google.protobuf.Timestamp ends_at = 5;
+  string notes = 6;
+  optional string created_by = 7;
+}
+
+message UpdateMachineBookingRequest {
+  string tenant_id = 1;
+  string booking_id = 2;
+  optional string machine_id = 3;
+  optional string production_order_id = 4;
+  optional google.protobuf.Timestamp starts_at = 5;
+  optional google.protobuf.Timestamp ends_at = 6;
+  optional string notes = 7;
+}
+
+message DeleteMachineBookingRequest {
+  string tenant_id = 1;
+  string booking_id = 2;
+}
+
+message DeleteMachineBookingResponse {}
+
+message MachineBookingResponse {
+  MachineBooking booking = 1;
+}
+
+message ListMachineBookingsRequest {
+  string tenant_id = 1;
+  optional string machine_id = 2;
+  optional google.protobuf.Timestamp date_from = 3;
+  optional google.protobuf.Timestamp date_to = 4;
+  optional string production_order_id = 5;
+  int32 page = 6;
+  int32 page_size = 7;
+}
+
+message ListMachineBookingsResponse {
+  repeated MachineBooking bookings = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// Plan Requests / Responses
+// ============================================================================
+
+message CreatePlanRequest {
+  string tenant_id = 1;
+  string name = 2;
+  int32 week_number = 3;
+  int32 year = 4;
+  double total_capacity_hours = 5;
+  double planned_capacity_hours = 6;
+  string notes = 7;
+  optional string created_by = 8;
+}
+
+message UpdatePlanRequest {
+  string tenant_id = 1;
+  string plan_id = 2;
+  optional string name = 3;
+  optional int32 week_number = 4;
+  optional int32 year = 5;
+  optional double total_capacity_hours = 6;
+  optional double planned_capacity_hours = 7;
+  optional string status = 8;
+  optional string notes = 9;
+}
+
+message GetPlanRequest {
+  string tenant_id = 1;
+  string plan_id = 2;
+}
+
+message PlanResponse {
+  ProductionPlan plan = 1;
+}
+
+message GetCapacityOverviewRequest {
+  string tenant_id = 1;
+  string machine_id = 2;
+  string plan_id = 3;
+}
+
+message CapacityOverviewResponse {
+  CapacityOverview overview = 1;
+}
