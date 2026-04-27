@@ -2432,6 +2432,7 @@
   "finanzen.tabs.export": "Export",
   "finanzen.tabs.invoices": "Invoices ({count})",
   "finanzen.tabs.quotes": "Quotes ({count})",
+  "finanzen.tabs.settings": "Settings",
   "finanzen.totals.netAmount": "Net Amount",
   "finanzen.totals.subtotalNet": "Subtotal (net)",
   "finanzen.totals.totalAmount": "Total Amount",

@@ -20,6 +20,7 @@ export type FinanceTabKey =
   | 'belegkette'
   | 'banking'
   | 'export'
+  | 'settings'
 
 // ---------------------------------------------------------------------------
 // Store interface

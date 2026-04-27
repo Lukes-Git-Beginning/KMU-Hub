@@ -15,6 +15,7 @@ import {
   Link2,
   Landmark,
   Timer,
+  Settings as SettingsIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ItemActions, ConfirmDialog, EmptyState, PageHeader } from '@/components/shared'
@@ -55,6 +56,9 @@ import { EInvoiceBadge, EInvoiceDetailDialog } from './EInvoiceIndicator'
 import { HoursToInvoiceDialog } from './HoursToInvoiceDialog'
 import { BankingWidget } from './BankingWidget'
 import { AnimatedCheckmark } from '@/components/shared/AnimatedCheckmark'
+import { FinanceSettingsTab } from '@/modules/settings/tabs/FinanceSettingsTab'
+import { useAuthStore } from '@/stores/auth'
+import { userHasRole } from '@/config/roles'
 
 // ---------------------------------------------------------------------------
 // Status badge config
@@ -135,6 +139,11 @@ export default function FinanzenPage() {
     setInvoiceFilter,
     quoteFilter,
   } = useFinanceUIStore()
+
+  const user = useAuthStore((s) => s.user)
+  const canSeeSettingsTab = userHasRole(user, ['admin'])
+  // Falls Settings-Tab restricted wird (Rollenwechsel) -> auf dashboard zurueckfallen
+  const effectiveTab: FinanceTabKey = activeTab === 'settings' && !canSeeSettingsTab ? 'dashboard' : activeTab
 
   const [search, setSearch] = useState('')
 
@@ -414,6 +423,9 @@ export default function FinanzenPage() {
     { key: 'belegkette', label: t('finanzen.tabs.belegkette'), icon: Link2 },
     { key: 'banking', label: t('finanzen.tabs.banking'), icon: Landmark },
     { key: 'export', label: t('finanzen.tabs.export'), icon: Download },
+    ...(canSeeSettingsTab
+      ? [{ key: 'settings' as const, label: t('finanzen.tabs.settings'), icon: SettingsIcon }]
+      : []),
   ]
 
   return (
@@ -461,7 +473,7 @@ export default function FinanzenPage() {
               key={t.key}
               onClick={() => setActiveTab(t.key)}
               className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm whitespace-nowrap transition-colors tab-accent-active ${
-                activeTab === t.key
+                effectiveTab === t.key
                   ? 'border-primary text-primary font-medium'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
@@ -474,9 +486,9 @@ export default function FinanzenPage() {
       </div>
 
       {/* Search (for list tabs) */}
-      {(activeTab === 'invoices' ||
-        activeTab === 'quotes' ||
-        activeTab === 'credit-notes') && (
+      {(effectiveTab === 'invoices' ||
+        effectiveTab === 'quotes' ||
+        effectiveTab === 'credit-notes') && (
         <div className="flex items-center gap-3 mb-4">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -488,7 +500,7 @@ export default function FinanzenPage() {
               className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
           </div>
-          {activeTab === 'quotes' && (
+          {effectiveTab === 'quotes' && (
             <button
               onClick={handleNewQuote}
               className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
@@ -497,7 +509,7 @@ export default function FinanzenPage() {
               {t('finanzen.quotes.create')}
             </button>
           )}
-          {activeTab === 'credit-notes' && (
+          {effectiveTab === 'credit-notes' && (
             <button
               onClick={() => setShowCreditNote(true)}
               className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
@@ -506,7 +518,7 @@ export default function FinanzenPage() {
               {t('finanzen.creditNote.createTitle')}
             </button>
           )}
-          {activeTab === 'invoices' && (
+          {effectiveTab === 'invoices' && (
             <div className="flex items-center gap-1.5">
               {(
                 [undefined, 'draft', 'sent', 'paid', 'overdue', 'cancelled'] as const
@@ -543,10 +555,10 @@ export default function FinanzenPage() {
       )}
 
       {/* Dashboard Tab */}
-      {activeTab === 'dashboard' && <FinanceDashboard />}
+      {effectiveTab === 'dashboard' && <FinanceDashboard />}
 
       {/* Invoices Tab */}
-      {activeTab === 'invoices' &&
+      {effectiveTab === 'invoices' &&
         (invoicesLoading ? (
           <LoadingState />
         ) : filteredInvoices.length === 0 ? (
@@ -625,7 +637,7 @@ export default function FinanzenPage() {
         ))}
 
       {/* Quotes Tab */}
-      {activeTab === 'quotes' &&
+      {effectiveTab === 'quotes' &&
         (quotesLoading ? (
           <LoadingState />
         ) : filteredQuotes.length === 0 ? (
@@ -679,7 +691,7 @@ export default function FinanzenPage() {
         ))}
 
       {/* Credit Notes Tab */}
-      {activeTab === 'credit-notes' &&
+      {effectiveTab === 'credit-notes' &&
         (creditNotesLoading ? (
           <LoadingState />
         ) : filteredCreditNotes.length === 0 ? (
@@ -761,16 +773,16 @@ export default function FinanzenPage() {
         ))}
 
       {/* Dunning Tab */}
-      {activeTab === 'dunning' && <DunningPanel />}
+      {effectiveTab === 'dunning' && <DunningPanel />}
 
       {/* Belegkette Tab */}
-      {activeTab === 'belegkette' && <BelegketteTab />}
+      {effectiveTab === 'belegkette' && <BelegketteTab />}
 
       {/* Banking Tab */}
-      {activeTab === 'banking' && <BankingWidget />}
+      {effectiveTab === 'banking' && <BankingWidget />}
 
       {/* Export Tab */}
-      {activeTab === 'export' && (
+      {effectiveTab === 'export' && (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
             {t('finanzen.exportTab.description')}
@@ -845,6 +857,9 @@ export default function FinanzenPage() {
           </div>
         </div>
       )}
+
+      {/* Settings Tab — admin only (firmenweite Buchhaltungs-Konfiguration) */}
+      {effectiveTab === 'settings' && <FinanceSettingsTab />}
 
       {/* Invoice Detail Panel */}
       {selectedInvoiceId && (

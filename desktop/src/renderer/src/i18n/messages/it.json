@@ -2402,6 +2402,7 @@
   "finanzen.tabs.export": "Esporta",
   "finanzen.tabs.invoices": "Fatture ({count})",
   "finanzen.tabs.quotes": "Offerte ({count})",
+  "finanzen.tabs.settings": "Impostazioni",
   "finanzen.totals.netAmount": "Importo netto",
   "finanzen.totals.subtotalNet": "Subtotale (netto)",
   "finanzen.totals.totalAmount": "Importo totale",

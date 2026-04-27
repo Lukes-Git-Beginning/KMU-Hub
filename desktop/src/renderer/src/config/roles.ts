@@ -31,7 +31,6 @@ export const SETTINGS_TAB_ROLES: Record<string, RoleId[]> = {
   // Everyone sees: profile, appearance, language, security, notifications, about
   mail:     ['admin', 'manager', 'member', 'hr'],
   calendar: ['admin', 'manager', 'member', 'hr'],
-  finance:  ['admin'],
   company:       ['admin'],
   billing:       ['admin'],
   integrations:  ['admin'],

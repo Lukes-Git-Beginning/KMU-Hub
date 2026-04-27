@@ -34,7 +34,6 @@ import { DESK_BACKGROUNDS } from '@/components/layout/DeskEnvironment'
 import { canSeeSettingsTab } from '@/config/roles'
 import { MailSettingsTab } from './tabs/MailSettingsTab'
 import { CalendarSettingsTab } from './tabs/CalendarSettingsTab'
-import { FinanceSettingsTab } from './tabs/FinanceSettingsTab'
 import { PrivacySettingsTab } from './tabs/PrivacySettingsTab'
 import { PaletteSwitcher } from '@/components/shared/PaletteSwitcher'
 import { LayoutSwitcher } from '@/components/shared/LayoutSwitcher'
@@ -49,7 +48,7 @@ import { ThemePreview } from './ThemePreview'
 import { useTourStore } from '@/stores/tour'
 import { branding } from '@/config/branding'
 
-type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notifications' | 'mail' | 'calendar' | 'finance' | 'company' | 'billing' | 'it-admin' | 'integrations' | 'privacy' | 'ai' | 'about'
+type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notifications' | 'mail' | 'calendar' | 'company' | 'billing' | 'it-admin' | 'integrations' | 'privacy' | 'ai' | 'about'
 
 interface TabConfig {
   key: TabKey
@@ -66,7 +65,6 @@ const ALL_TABS: TabConfig[] = [
   { key: 'notifications', labelKey: 'settings.tabs.notifications', icon: Bell, groupKey: 'settings.groups.personal' },
   { key: 'mail', labelKey: 'settings.tabs.mail', icon: Mail, groupKey: 'settings.groups.modules' },
   { key: 'calendar', labelKey: 'settings.tabs.calendar', icon: Calendar, groupKey: 'settings.groups.modules' },
-  { key: 'finance', labelKey: 'settings.tabs.finance', icon: Receipt, groupKey: 'settings.groups.modules' },
   { key: 'company', labelKey: 'settings.tabs.company', icon: Landmark, groupKey: 'settings.groups.admin' },
   { key: 'billing', labelKey: 'settings.tabs.billing', icon: CreditCard, groupKey: 'settings.groups.admin' },
   { key: 'it-admin', labelKey: 'settings.tabs.itAdmin', icon: Monitor, groupKey: 'settings.groups.admin' },
@@ -141,7 +139,6 @@ export default function SettingsPage() {
         {effectiveTab === 'notifications' && <NotificationSettingsTab />}
         {effectiveTab === 'mail' && <MailSettingsTab />}
         {effectiveTab === 'calendar' && <CalendarSettingsTab />}
-        {effectiveTab === 'finance' && <FinanceSettingsTab />}
         {effectiveTab === 'company' && <CompanySettingsTab />}
         {effectiveTab === 'billing' && <BillingSettingsTab />}
         {effectiveTab === 'it-admin' && <ITAdminTab />}

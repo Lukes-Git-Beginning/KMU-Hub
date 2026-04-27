@@ -2402,6 +2402,7 @@
   "finanzen.tabs.export": "Export",
   "finanzen.tabs.invoices": "Factures ({count})",
   "finanzen.tabs.quotes": "Devis ({count})",
+  "finanzen.tabs.settings": "Paramètres",
   "finanzen.totals.netAmount": "Montant HT",
   "finanzen.totals.subtotalNet": "Sous-total (HT)",
   "finanzen.totals.totalAmount": "Montant total",
