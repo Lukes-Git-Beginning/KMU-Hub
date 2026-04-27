@@ -15,7 +15,7 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { EmptyState } from '@/components/shared'
+import { EmptyState, InlineStat } from '@/components/shared'
 
 // ============================================================
 // Types
@@ -206,24 +206,12 @@ export function OnboardingChecklist() {
   return (
     <div className="space-y-4">
       {/* KPI Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">{t('team.onboarding.activeOnboardings')}</p>
-          <p className="text-lg font-semibold text-foreground">{onboardings.length}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">{t('team.onboarding.inProgress')}</p>
-          <p className="text-lg font-semibold text-warning">{inProgress}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">{t('team.onboarding.completed')}</p>
-          <p className="text-lg font-semibold text-success">{completedAll}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">{t('team.onboarding.templates')}</p>
-          <p className="text-lg font-semibold text-foreground">{TEMPLATES.length}</p>
-        </div>
-      </div>
+      <dl className="mb-4 flex flex-wrap items-end gap-x-10 gap-y-3 border-b border-border pb-4">
+        <InlineStat label={t('team.onboarding.activeOnboardings')} value={onboardings.length} />
+        <InlineStat label={t('team.onboarding.inProgress')} value={inProgress} accent={inProgress > 0 ? 'warning' : 'default'} />
+        <InlineStat label={t('team.onboarding.completed')} value={completedAll} accent={completedAll > 0 ? 'success' : 'default'} />
+        <InlineStat label={t('team.onboarding.templates')} value={TEMPLATES.length} />
+      </dl>
 
       {/* Sub-Tabs */}
       <div className="flex items-center gap-4 border-b border-border">

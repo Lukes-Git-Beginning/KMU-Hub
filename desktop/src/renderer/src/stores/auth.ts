@@ -20,6 +20,17 @@ type UserInfo = components['schemas']['UserInfo']
 /** localStorage key for cached user data (offline fallback). */
 const CACHED_USER_KEY = 'cosmi-cached-user'
 
+/** localStorage key for tenant-mode override (mock persistence until backend). */
+const TENANT_MODE_KEY = 'cosmi:tenant:mode'
+
+export type TenantMode = 'centralized' | 'distributed'
+
+export interface Tenant {
+  planType: 'cosmi' | 'orbit'
+  mode: TenantMode
+  employeeCount: number
+}
+
 export interface User {
   id: string
   email: string
@@ -30,6 +41,7 @@ export interface User {
 
 interface AuthState {
   user: User | null
+  tenant: Tenant
   accessToken: string | null
   refreshTokenValue: string | null
   isAuthenticated: boolean
@@ -37,6 +49,9 @@ interface AuthState {
 
   /** Pending 2FA token (set when login requires TOTP verification). */
   pendingToken: string | null
+
+  /** Set tenant mode and persist to localStorage. */
+  setTenantMode: (mode: TenantMode) => void
 
   /** Initialize auth state from stored tokens (call on app startup). */
   initialize: () => Promise<void>
@@ -97,13 +112,39 @@ function clearCachedUser(): void {
   }
 }
 
+/** Read tenant mode: localStorage override first, then default distributed.
+ *  Distributed = Settings nur PERSÖNLICH, alle Admin-Funktionen im Admin-Modul links unten. */
+function loadTenantMode(): TenantMode {
+  try {
+    const stored = localStorage.getItem(TENANT_MODE_KEY)
+    if (stored === 'distributed' || stored === 'centralized') return stored
+  } catch {
+    // Non-critical
+  }
+  return 'distributed'
+}
+
 export const useAuthStore = create<AuthState>()((set, get) => ({
   user: null,
+  tenant: {
+    planType: 'cosmi',
+    mode: loadTenantMode(),
+    employeeCount: 0,
+  },
   accessToken: null,
   refreshTokenValue: null,
   isAuthenticated: false,
   isLoading: true,
   pendingToken: null,
+
+  setTenantMode(mode: TenantMode) {
+    try {
+      localStorage.setItem(TENANT_MODE_KEY, mode)
+    } catch {
+      // Non-critical
+    }
+    set((s) => ({ tenant: { ...s.tenant, mode } }))
+  },
 
   async initialize() {
     set({ isLoading: true })

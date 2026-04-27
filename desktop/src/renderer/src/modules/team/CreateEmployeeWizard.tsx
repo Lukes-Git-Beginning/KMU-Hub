@@ -960,7 +960,7 @@ function DocumentsStep({ form, update }: { form: EmployeeFormData; update: Updat
 // ---------------------------------------------------------------------------
 
 function SummaryStep({ form, update }: { form: EmployeeFormData; update: UpdateFn }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const roleLabels = form.roles
     .map((r) => {
       const opt = ROLE_OPTIONS.find((o) => o.id === r)
@@ -991,7 +991,7 @@ function SummaryStep({ form, update }: { form: EmployeeFormData; update: UpdateF
         <SummaryRow label={t('team.employee.summary.annualLeave')} value={t('team.employee.summary.annualLeaveValue', { count: form.annualLeaveDays })} />
         <SummaryRow
           label={t('team.wizard.startDate')}
-          value={new Date(form.startDate).toLocaleDateString('de-DE')}
+          value={new Date(form.startDate).toLocaleDateString(i18n.language)}
         />
         {form.location && <SummaryRow label={t('team.member.location')} value={form.location} />}
       </SummaryCard>

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate } from '@/lib/format'
+import { InlineStat } from '@/components/shared'
 
 // ============================================================
 // Types
@@ -333,18 +334,16 @@ export function SelfServiceView() {
       {/* Time Account Tab */}
       {tab === 'zeitkonto' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <dl className="mb-4 flex flex-wrap items-end gap-x-10 gap-y-3 border-b border-border pb-4">
             {TIME_ACCOUNTS.map((ta) => (
-              <div key={ta.label} className="rounded-lg border border-border bg-card p-4">
-                <p className="text-xs text-muted-foreground mb-1">{ta.label}</p>
-                <p className={`text-lg font-semibold ${
-                  ta.type === 'positive' ? 'text-success' : ta.type === 'negative' ? 'text-error' : 'text-foreground'
-                }`}>
-                  {ta.type === 'positive' && '+'}{ta.hours}{ta.label.includes('Tage') ? '' : 'h'}
-                </p>
-              </div>
+              <InlineStat
+                key={ta.label}
+                label={ta.label}
+                value={`${ta.type === 'positive' ? '+' : ''}${ta.hours}${ta.label.includes('Tage') ? '' : 'h'}`}
+                accent={ta.type === 'positive' ? 'success' : ta.type === 'negative' ? 'error' : 'default'}
+              />
             ))}
-          </div>
+          </dl>
 
           <div className="rounded-lg border border-border bg-card p-5">
             <h3 className="text-sm font-medium text-foreground mb-3">{t('team.selfService.workTimeAccount')}</h3>

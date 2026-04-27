@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -27,6 +27,7 @@ import {
   Network,
   UserCircle,
   Settings,
+  Package,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth'
@@ -43,6 +44,7 @@ import { useEmployees, useLeaveRequests, useUpdateEmployee } from '@/api/hooks/h
 import type { EmployeeProfile, LeaveRequest } from '@/api/hr-types'
 import { ItemActions, ConfirmDialog, EmptyState, PageHeader, type ActionItem } from '@/components/shared'
 import { MemberDetailPanel } from './MemberDetailPanel'
+import { ModuleAssignmentTab, type ModuleAssignmentInitialFilter } from './ModuleAssignmentTab'
 import { InviteMemberDialog } from './InviteMemberDialog'
 import { CreateEmployeeWizard } from './CreateEmployeeWizard'
 import { EditMemberDialog } from './EditMemberDialog'
@@ -74,7 +76,7 @@ import {
 } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 
-type TabKey = 'members' | 'requests' | 'absences' | 'korrekturen' | 'personalakte' | 'onboarding' | 'orgchart' | 'integrationen' | 'schulungen' | 'selfservice' | 'einstellungen'
+type TabKey = 'members' | 'requests' | 'absences' | 'korrekturen' | 'personalakte' | 'onboarding' | 'orgchart' | 'integrationen' | 'schulungen' | 'selfservice' | 'einstellungen' | 'modulzuteilung'
 
 const contractTypeLabels: Record<string, string> = {
   full_time: 'Vollzeit',
@@ -137,7 +139,7 @@ const participationStatusLabels: Record<string, string> = {
 }
 
 export default function TeamPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   // Keep Zustand only for training/payroll mocks (no backend API yet)
   const {
@@ -161,6 +163,19 @@ export default function TeamPage() {
 
   const user = useAuthStore((s) => s.user)
   const [tab, setTab] = useState<TabKey>('members')
+  const [initialFilter, setInitialFilter] = useState<ModuleAssignmentInitialFilter | undefined>(undefined)
+
+  // Consume navigation intent for module-assignment tab
+  const navigationStore = useNavigationStore()
+  useEffect(() => {
+    const intent = navigationStore.intent
+    if (intent?.type === 'open-team-modulzuteilung') {
+      setTab('modulzuteilung')
+      setInitialFilter(intent.data as ModuleAssignmentInitialFilter)
+      navigationStore.clearIntent()
+    }
+  }, [navigationStore.intent]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // If active tab gets restricted (role switch), fall back to 'members'
   const effectiveTab: TabKey = canSeeTeamTab(user, tab) ? tab : 'members'
   const [search, setSearch] = useState('')
@@ -256,7 +271,7 @@ export default function TeamPage() {
     <div className="flex-1 overflow-y-auto p-6">
       {/* Header */}
       <PageHeader
-        title="Team"
+        title={t('team.page.title', { defaultValue: 'Team' })}
         description={t('team.page.headerDescription', { count: apiEmployees.length, pending: pendingCount })}
         icon={Users}
         moduleId="team"
@@ -275,9 +290,9 @@ export default function TeamPage() {
       {/* Department cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6 animate-fade-up" style={{ animationDelay: '50ms' }}>
         {deptCounts.map((dept) => (
-          <div key={dept.name} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
+          <div key={dept.name} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-[box-shadow,transform] duration-200 ease-out hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-light">
-              <Users className="h-5 w-5 text-primary" />
+              <Users className="h-5 w-5 text-primary" aria-hidden="true" />
             </div>
             <div>
               <p className="text-sm font-medium text-foreground">{dept.name}</p>
@@ -302,6 +317,7 @@ export default function TeamPage() {
             { key: 'onboarding' as const, label: t('team.page.tab.onboarding'), icon: ListChecks },
             { key: 'orgchart' as const, label: t('team.page.tab.orgchart'), icon: Network },
             { key: 'integrationen' as const, label: t('team.page.tab.integrations'), icon: Link2 },
+            { key: 'modulzuteilung' as const, label: t('team.page.tab.moduleAssignment'), icon: Package },
             { key: 'schulungen' as const, label: t('team.page.tab.trainings'), icon: GraduationCap },
             { key: 'selfservice' as const, label: t('team.page.tab.selfservice'), icon: UserCircle },
             { key: 'einstellungen' as const, label: t('team.page.tab.settings'), icon: Settings },
@@ -327,27 +343,36 @@ export default function TeamPage() {
         <>
           <div className="flex items-center gap-3 mb-4">
             <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
               <input
-                type="text"
+                type="search"
+                name="team-search"
+                autoComplete="off"
+                aria-label={t('team.page.searchPlaceholder')}
                 placeholder={t('team.page.searchPlaceholder')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
               />
             </div>
-            <div className="flex gap-1">
+            <div className="flex gap-1" role="group" aria-label={t('team.page.viewMode', { defaultValue: 'Ansicht' })}>
               <button
+                type="button"
                 onClick={() => setViewMode('grid')}
+                aria-pressed={viewMode === 'grid'}
+                aria-label={t('team.page.viewModeGrid', { defaultValue: 'Kachel-Ansicht' })}
                 className={`rounded-md p-1.5 transition-colors ${viewMode === 'grid' ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:bg-secondary'}`}
               >
-                <Grid3X3 className="h-4 w-4" />
+                <Grid3X3 className="h-4 w-4" aria-hidden="true" />
               </button>
               <button
+                type="button"
                 onClick={() => setViewMode('list')}
+                aria-pressed={viewMode === 'list'}
+                aria-label={t('team.page.viewModeList', { defaultValue: 'Listen-Ansicht' })}
                 className={`rounded-md p-1.5 transition-colors ${viewMode === 'list' ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:bg-secondary'}`}
               >
-                <List className="h-4 w-4" />
+                <List className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -451,35 +476,52 @@ export default function TeamPage() {
       {/* Integrationen Tab (7.1 + 7.2 — replaces old Lohn tab) */}
       {effectiveTab === 'integrationen' && <HRIntegrationPanel />}
 
+      {/* Modul-Zuteilung Tab */}
+      {effectiveTab === 'modulzuteilung' && (
+        <ModuleAssignmentTab
+          initialFilter={initialFilter}
+          onSelectMember={(userId, name) => {
+            // Find the employee record by userId to get the internal ID
+            const emp = apiEmployees.find((e) => e.userId === userId)
+            if (emp) {
+              const initials = getInitials(name)
+              setSelectedMemberId(emp.id)
+              setSelectedMemberName(name)
+              setSelectedMemberInitials(initials)
+            }
+          }}
+        />
+      )}
+
       {/* Schulungen Tab (still Zustand mock) */}
       {effectiveTab === 'schulungen' && (
         <div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            <div className="rounded-lg border border-border bg-card p-4">
-              <p className="text-xs text-muted-foreground mb-1">{t('team.page.training.totalTrainings')}</p>
-              <p className="text-lg font-semibold text-foreground">{trainings.length}</p>
+          <dl className="mb-6 flex flex-wrap items-end gap-x-8 gap-y-3 border-b border-border pb-5">
+            <div className="min-w-[120px]">
+              <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">{t('team.page.training.totalTrainings')}</dt>
+              <dd className="mt-0.5 text-2xl font-semibold tabular-nums leading-none text-foreground">{trainings.length}</dd>
             </div>
-            <div className="rounded-lg border border-border bg-card p-4">
-              <p className="text-xs text-muted-foreground mb-1">{t('team.page.training.mandatory')}</p>
-              <p className="text-lg font-semibold text-foreground">{mandatoryCount}</p>
+            <div className="min-w-[120px]">
+              <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">{t('team.page.training.mandatory')}</dt>
+              <dd className="mt-0.5 text-2xl font-semibold tabular-nums leading-none text-foreground">{mandatoryCount}</dd>
             </div>
-            <div className="rounded-lg border border-border bg-card p-4">
-              <p className="text-xs text-muted-foreground mb-1">{t('team.page.training.expired')}</p>
-              <div className="flex items-center gap-2">
-                <p className="text-lg font-semibold text-foreground">{expiredCount}</p>
+            <div className="min-w-[120px]">
+              <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">{t('team.page.training.expired')}</dt>
+              <dd className={`mt-0.5 flex items-center gap-2 text-2xl font-semibold tabular-nums leading-none ${expiredCount > 0 ? 'text-error' : 'text-foreground'}`}>
+                {expiredCount}
                 {expiredCount > 0 && (
-                  <span className="rounded-full bg-error-light px-2 py-0.5 text-[10px] font-medium text-error flex items-center gap-1">
-                    <AlertTriangle className="h-3 w-3" />
+                  <span className="inline-flex items-center gap-1 rounded-full bg-error-light px-1.5 py-0.5 text-[10px] font-medium text-error" aria-live="polite">
+                    <AlertTriangle className="h-3 w-3" aria-hidden="true" />
                     {t('team.page.training.attention')}
                   </span>
                 )}
-              </div>
+              </dd>
             </div>
-            <div className="rounded-lg border border-border bg-card p-4">
-              <p className="text-xs text-muted-foreground mb-1">{t('team.page.training.participations')}</p>
-              <p className="text-lg font-semibold text-foreground">{trainingParticipations.length}</p>
+            <div className="min-w-[120px]">
+              <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">{t('team.page.training.participations')}</dt>
+              <dd className="mt-0.5 text-2xl font-semibold tabular-nums leading-none text-foreground">{trainingParticipations.length}</dd>
             </div>
-          </div>
+          </dl>
 
           <div className="flex items-center gap-2 mb-4">
             <button
@@ -572,14 +614,14 @@ export default function TeamPage() {
                               </span>
                             </td>
                             <td className="px-3 py-2.5 text-muted-foreground tabular-nums">
-                              {p.completedAt ? new Date(p.completedAt).toLocaleDateString('de-DE') : '-'}
+                              {p.completedAt ? new Date(p.completedAt).toLocaleDateString(i18n.language) : '—'}
                             </td>
                             <td className="px-3 py-2.5 text-muted-foreground tabular-nums">
                               {p.expiresAt ? (
                                 <span className={p.status === 'expired' ? 'text-error font-medium' : ''}>
-                                  {new Date(p.expiresAt).toLocaleDateString('de-DE')}
+                                  {new Date(p.expiresAt).toLocaleDateString(i18n.language)}
                                 </span>
-                              ) : '-'}
+                              ) : '—'}
                             </td>
                           </tr>
                         )
@@ -823,7 +865,7 @@ function EmployeeRow({ employee, name, initials, actions, activity, onEmail, onM
 }
 
 function LeaveRequestCard({ request, onApprove }: { request: LeaveRequest; onApprove: () => void }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const initials = request.employeeName
     ?.split(' ')
     .map((n) => n[0])
@@ -856,8 +898,8 @@ function LeaveRequestCard({ request, onApprove }: { request: LeaveRequest; onApp
         <div className="flex items-center gap-2">
           <Calendar className="h-3.5 w-3.5" />
           <span>
-            {new Date(request.startDate).toLocaleDateString('de-DE')}
-            {request.startDate !== request.endDate && ` – ${new Date(request.endDate).toLocaleDateString('de-DE')}`}
+            {new Date(request.startDate).toLocaleDateString(i18n.language)}
+            {request.startDate !== request.endDate && ` – ${new Date(request.endDate).toLocaleDateString(i18n.language)}`}
             {' '}({request.totalDays} {request.totalDays === 1 ? t('team.approval.day') : t('team.approval.days')})
           </span>
         </div>

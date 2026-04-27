@@ -23,6 +23,7 @@ export const RESTRICTED_NAV_ITEMS: Record<string, RoleId[]> = {
   finance:        ['admin'],
   infrastructure: ['admin', 'it_support'],
   'security-admin': ['admin'],
+  admin:          ['admin', 'it_support'],
   settings:       ['admin', 'it_support'],
 }
 
@@ -44,13 +45,14 @@ export const SETTINGS_TAB_ROLES: Record<string, RoleId[]> = {
 // Tabs NOT listed = visible to all (members, absences, orgchart, selfservice).
 // Personalakte and HR-Integrationen are hr_only (DSGVO). Korrekturen + Schulungen + Settings = manager+hr+admin.
 export const TEAM_TAB_ROLES: Record<string, RoleId[]> = {
-  requests:      ['admin', 'manager', 'hr'],
-  korrekturen:   ['admin', 'manager', 'hr'],
-  personalakte:  ['admin', 'hr'],
-  integrationen: ['admin', 'hr'],
-  schulungen:    ['admin', 'manager', 'hr'],
-  einstellungen: ['admin', 'hr'],
-  onboarding:    ['admin', 'manager', 'hr'],
+  requests:        ['admin', 'manager', 'hr'],
+  korrekturen:     ['admin', 'manager', 'hr'],
+  personalakte:    ['admin', 'hr'],
+  integrationen:   ['admin', 'hr'],
+  schulungen:      ['admin', 'manager', 'hr'],
+  einstellungen:   ['admin', 'hr'],
+  onboarding:      ['admin', 'manager', 'hr'],
+  modulzuteilung:  ['admin', 'it_support'],
 }
 
 // ---- Mock user profiles for design testing ----

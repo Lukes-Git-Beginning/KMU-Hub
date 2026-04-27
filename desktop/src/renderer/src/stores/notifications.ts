@@ -18,6 +18,7 @@ export type NotificationType =
   | 'mention'
   | 'system'
   | 'dialer_callback'
+  | 'billing_recommendation'
 
 export type NotificationPriority = 'low' | 'normal' | 'high'
 

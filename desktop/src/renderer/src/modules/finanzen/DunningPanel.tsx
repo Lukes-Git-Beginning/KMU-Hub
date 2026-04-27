@@ -29,7 +29,7 @@ import {
 } from '@/api/hooks/useFinance'
 import { formatEUR } from '@/stores/finance'
 import type { DunningRecord, DunningStatus } from '@/types/finance-types'
-import { EmptyState } from '@/components/shared'
+import { EmptyState, InlineStat } from '@/components/shared'
 import { formatDate } from '@/lib/format'
 
 const LEVEL_LABEL_KEYS: Record<number, string> = {
@@ -111,16 +111,10 @@ export function DunningPanel() {
     <div className="space-y-4">
       {/* Header actions */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="rounded-lg border border-border bg-card p-3 min-w-[120px]">
-            <p className="text-[10px] text-muted-foreground mb-1">{t('finanzen.dunning.openDunnings')}</p>
-            <p className="text-lg font-semibold text-foreground">{openCount}</p>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-3 min-w-[120px]">
-            <p className="text-[10px] text-muted-foreground mb-1">{t('finanzen.dunning.totalFees')}</p>
-            <p className="text-lg font-semibold text-foreground">{formatEUR(totalAmount)}</p>
-          </div>
-        </div>
+        <dl className="flex items-end gap-x-8 gap-y-3">
+          <InlineStat label={t('finanzen.dunning.openDunnings')} value={openCount} accent={openCount > 0 ? 'warning' : 'default'} />
+          <InlineStat label={t('finanzen.dunning.totalFees')} value={formatEUR(totalAmount)} />
+        </dl>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"

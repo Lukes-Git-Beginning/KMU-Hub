@@ -169,3 +169,47 @@ export function calculateMonthly(
 export function formatEUR(amount: number): string {
   return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(amount)
 }
+
+// ───────────────────────── Billing-Insight-Types (Sprint 1) ─────────────────────────
+
+export interface UserModuleGrant {
+  userId: string
+  userName: string
+  moduleId: ModuleId
+  grantedAt: string
+  lastActiveAt: string | null
+}
+
+export interface ModuleUsageStats {
+  moduleId: ModuleId
+  assignedUserCount: number
+  activeUserCount: number
+  utilizationPercent: number
+  inactiveUsers: { userId: string; userName: string; lastActiveAt: string | null }[]
+}
+
+export interface InsightSettings {
+  observationDays: 30 | 90 | 180
+  utilizationThreshold: number
+  minInactivityDays: number
+  recommendationsEnabled: boolean
+  toastOnApply: boolean
+}
+
+export interface Recommendation {
+  hash: string
+  moduleId: ModuleId
+  moduleName: string
+  inactiveUsers: { userId: string; userName: string }[]
+  monthlySavings: number
+  yearlySavings: number
+  observationDays: number
+}
+
+export const DEFAULT_INSIGHT_SETTINGS: InsightSettings = {
+  observationDays: 90,
+  utilizationThreshold: 30,
+  minInactivityDays: 60,
+  recommendationsEnabled: true,
+  toastOnApply: true,
+}

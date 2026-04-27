@@ -1,9 +1,11 @@
 import { create } from 'zustand'
 
-export interface NavigationIntent {
-  type: 'compose-email' | 'start-call' | 'send-message' | 'open-contact'
-  data: Record<string, string>
-}
+export type NavigationIntent =
+  | { type: 'compose-email'; data: Record<string, string> }
+  | { type: 'start-call'; data: Record<string, string> }
+  | { type: 'send-message'; data: Record<string, string> }
+  | { type: 'open-contact'; data: Record<string, string> }
+  | { type: 'open-team-modulzuteilung'; data: { moduleId?: string; userIds?: string[] } }
 
 interface NavigationState {
   intent: NavigationIntent | null

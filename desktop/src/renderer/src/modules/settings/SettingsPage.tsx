@@ -79,8 +79,8 @@ const ALL_TABS: TabConfigExtended[] = [
   { key: 'billing', labelKey: 'settings.tabs.billing', icon: CreditCard, groupKey: 'settings.groups.admin', adminOnly: true },
   { key: 'it-admin', labelKey: 'settings.tabs.itAdmin', icon: Monitor, groupKey: 'settings.groups.admin', adminOnly: true },
   { key: 'integrations', labelKey: 'settings.tabs.integrations', icon: Plug, groupKey: 'settings.groups.admin', adminOnly: true },
-  { key: 'privacy', labelKey: 'settings.tabs.privacy', icon: Lock, groupKey: 'settings.groups.admin' },
-  { key: 'ai', labelKey: 'settings.tabs.ai', icon: Bot, groupKey: 'settings.groups.admin' },
+  { key: 'privacy', labelKey: 'settings.tabs.privacy', icon: Lock, groupKey: 'settings.groups.personal' },
+  { key: 'ai', labelKey: 'settings.tabs.ai', icon: Bot, groupKey: 'settings.groups.personal' },
   { key: 'about', labelKey: 'settings.tabs.about', icon: Info, groupKey: 'settings.groups.other' },
 ]
 
@@ -100,10 +100,10 @@ export default function SettingsPage() {
 
   // Filter tabs:
   // 1. RBAC — restricted tabs are INVISIBLE
-  // 2. distributed-Mode — adminOnly tabs are INVISIBLE (live in Admin Hub)
+  // 2. adminOnly Tabs — IMMER ausgeblendet (Admin-Funktionen leben im Admin-Modul links unten)
   const tabs = ALL_TABS.filter((tab) => {
     if (!canSeeSettingsTab(user, tab.key)) return false
-    if (isDistributed && tab.adminOnly) return false
+    if (tab.adminOnly) return false
     return true
   })
 
@@ -158,40 +158,11 @@ export default function SettingsPage() {
             )
           })}
 
-          {/* Administration-Block — in centralized mode: Links zum Admin-Hub */}
-          {!isDistributed && user?.roles.some((r) => ['admin', 'it_support'].includes(r)) && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-3 mb-1">
-                {t('settings.adminBlock.title')}
-              </p>
-              <div className="space-y-0.5">
-                {[
-                  { labelKey: 'settings.adminBlock.it', to: '/admin/it' },
-                  { labelKey: 'settings.adminBlock.security', to: '/admin/security' },
-                  { labelKey: 'settings.adminBlock.billing', to: '/admin/billing' },
-                  { labelKey: 'settings.adminBlock.integrations', to: '/admin/integrations' },
-                ].map((link) => (
-                  <Link
-                    key={link.to}
-                    to={link.to}
-                    className="flex w-full items-center justify-between gap-2.5 rounded-md px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-                  >
-                    <span>{t(link.labelKey)}</span>
-                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                  </Link>
-                ))}
-              </div>
-              <p className="text-[10px] text-muted-foreground px-3 mt-2 leading-relaxed">
-                {t('settings.adminBlock.distributedHint')}
-              </p>
-            </div>
-          )}
-
-          {/* Distributed-Mode: kurzer Hinweis auf Admin-Hub */}
-          {isDistributed && user?.roles.some((r) => ['admin', 'it_support'].includes(r)) && (
+          {/* Hinweis auf Admin-Modul (für admin/it_support) */}
+          {user?.roles.some((r) => ['admin', 'it_support'].includes(r)) && (
             <div className="px-3 mt-2">
               <p className="text-[10px] text-muted-foreground leading-relaxed">
-                Administration-Einstellungen im Hub links unten.
+                {t('settings.adminBlock.distributedHint', { defaultValue: 'Tenant-weite Administration im Modul links unten.' })}
               </p>
             </div>
           )}

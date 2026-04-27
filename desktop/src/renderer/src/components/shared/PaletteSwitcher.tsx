@@ -11,7 +11,7 @@ interface PaletteSwitcherProps {
 type PaletteColors = { primary: string; accent1: string; accent2: string; bg: string }
 
 const paletteColors: Record<ColorTheme, PaletteColors> = {
-  graphit:    { primary: '#4f46e5', accent1: '#f97316', accent2: '#10b981', bg: '#f4f4f6' },
+  graphit:    { primary: '#1e7e74', accent1: '#f97316', accent2: '#10b981', bg: '#f4f4f6' },
   sand:       { primary: '#1e7e74', accent1: '#d97706', accent2: '#0d9488', bg: '#e8e3dd' },
   ozean:      { primary: '#0891b2', accent1: '#f43f5e', accent2: '#6366f1', bg: '#f0f7f7' },
   lavendel:   { primary: '#7c3aed', accent1: '#ec4899', accent2: '#06b6d4', bg: '#f3f0f9' },

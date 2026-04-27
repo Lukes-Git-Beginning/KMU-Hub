@@ -7,7 +7,7 @@
  */
 import { useState, useEffect, useCallback } from 'react'
 
-const COLORS = ['#f97316', '#10b981', '#4f46e5', '#ec4899', '#f59e0b', '#8b5cf6']
+const COLORS = ['#f97316', '#10b981', '#1e7e74', '#ec4899', '#f59e0b', '#8b5cf6']
 const PARTICLE_COUNT = 35
 
 interface Particle {

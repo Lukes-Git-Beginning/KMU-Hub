@@ -35,8 +35,11 @@ const NotificationCenter = lazy(() => import('@/modules/notifications/Notificati
 const DashboardSettings = lazy(() => import('@/modules/settings/DashboardSettings'))
 const SettingsPage = lazy(() => import('@/modules/settings/SettingsPage'))
 
-// Security admin hub (lazy-loaded, admin-only)
+// Security admin hub (lazy-loaded, admin-only) — legacy, ersetzt durch AdminHubPage
 const SecurityAdminPage = lazy(() => import('@/modules/security/SecurityAdminPage'))
+
+// Admin Hub — neue Routen /admin/it | /admin/security | /admin/billing | /admin/integrations
+const AdminHubPage = lazy(() => import('@/modules/admin/AdminHubPage'))
 
 // CalDAV admin page
 const CalDAVAdminPage = lazy(() => import('@/modules/admin/CalDAVAdminPage'))
@@ -189,8 +192,16 @@ const router = createHashRouter([
       { path: 'settings/dashboard', element: lazyRoute(DashboardSettings) },
       { path: 'settings', element: lazyRoute(SettingsPage) },
 
-      // Admin security hub
-      { path: 'admin/security', element: lazyRoute(SecurityAdminPage) },
+      // Admin security hub — legacy redirect (Backwards-Compat, wird in Phase 4 entfernt)
+      { path: 'admin/security-legacy', element: lazyRoute(SecurityAdminPage) },
+
+      // Admin Hub — neue /admin/* Routen
+      { path: 'admin/it', element: lazyRoute(AdminHubPage) },
+      { path: 'admin/security', element: lazyRoute(AdminHubPage) },
+      { path: 'admin/billing', element: lazyRoute(AdminHubPage) },
+      { path: 'admin/integrations', element: lazyRoute(AdminHubPage) },
+      // Backwards-Compat: /einstellungen?tab=it-admin → /admin/it (via Settings redirect)
+      // Backwards-Compat: /einstellungen?tab=billing → /admin/billing (via Settings redirect)
 
       // CalDAV admin
       { path: 'admin/caldav', element: lazyRoute(CalDAVAdminPage) },

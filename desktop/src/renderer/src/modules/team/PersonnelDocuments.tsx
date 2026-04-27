@@ -15,7 +15,7 @@ import {
   FileLock2,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { EmptyState } from '@/components/shared'
+import { EmptyState, InlineStat } from '@/components/shared'
 import {
   Dialog,
   DialogContent,
@@ -150,30 +150,22 @@ export function PersonnelDocuments() {
   return (
     <div className="space-y-4">
       {/* KPI Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">{t('team.personnelDocs.totalDocuments')}</p>
-          <p className="text-lg font-semibold text-foreground">{totalDocs}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">{t('team.personnelDocs.employees')}</p>
-          <p className="text-lg font-semibold text-foreground">{new Set(MOCK_DOCUMENTS.map(d => d.employeeId)).size}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">{t('team.personnelDocs.expiringSoon')}</p>
-          <div className="flex items-center gap-2">
-            <p className="text-lg font-semibold text-warning">{expiringCount}</p>
-            {expiringCount > 0 && <Clock className="h-4 w-4 text-warning" />}
-          </div>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">{t('team.personnelDocs.expired')}</p>
-          <div className="flex items-center gap-2">
-            <p className="text-lg font-semibold text-error">{expiredCount}</p>
-            {expiredCount > 0 && <AlertTriangle className="h-4 w-4 text-error" />}
-          </div>
-        </div>
-      </div>
+      <dl className="mb-4 flex flex-wrap items-end gap-x-10 gap-y-3 border-b border-border pb-4">
+        <InlineStat label={t('team.personnelDocs.totalDocuments')} value={totalDocs} />
+        <InlineStat label={t('team.personnelDocs.employees')} value={new Set(MOCK_DOCUMENTS.map(d => d.employeeId)).size} />
+        <InlineStat
+          label={t('team.personnelDocs.expiringSoon')}
+          value={expiringCount}
+          accent={expiringCount > 0 ? 'warning' : 'default'}
+          icon={expiringCount > 0 ? Clock : undefined}
+        />
+        <InlineStat
+          label={t('team.personnelDocs.expired')}
+          value={expiredCount}
+          accent={expiredCount > 0 ? 'error' : 'default'}
+          icon={expiredCount > 0 ? AlertTriangle : undefined}
+        />
+      </dl>
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3">

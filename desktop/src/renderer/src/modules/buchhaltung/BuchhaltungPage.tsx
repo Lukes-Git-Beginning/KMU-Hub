@@ -32,7 +32,7 @@ import {
   calcInvoiceTotal,
   calcRemainingAmount,
 } from '@/stores/finance'
-import { ItemActions, ConfirmDialog, EmptyState, PageHeader } from '@/components/shared'
+import { ItemActions, ConfirmDialog, EmptyState, PageHeader, InlineStat } from '@/components/shared'
 import { formatCurrency } from '@/lib/format'
 import { InvoiceFormDialog } from './InvoiceFormDialog'
 import { ExpenseFormDialog } from './ExpenseFormDialog'
@@ -452,14 +452,11 @@ export default function BuchhaltungPage() {
         return (
           <div className="space-y-4">
             {/* Dunning stats row */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <dl className="mb-4 flex flex-wrap items-end gap-x-10 gap-y-3 border-b border-border pb-4">
               {dunningStats.map((ds) => (
-                <div key={ds.label} className="rounded-lg border border-border bg-card p-3">
-                  <p className="text-[10px] text-muted-foreground mb-1">{ds.label}</p>
-                  <p className="text-lg font-semibold text-foreground">{ds.value}</p>
-                </div>
+                <InlineStat key={ds.label} label={ds.label} value={ds.value} />
               ))}
-            </div>
+            </dl>
 
             {/* Filter bar */}
             <div className="flex items-center gap-3 flex-wrap">

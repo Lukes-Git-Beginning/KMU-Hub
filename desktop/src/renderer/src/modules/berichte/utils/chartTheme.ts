@@ -18,7 +18,7 @@ export interface ChartTheme {
 }
 
 const DEFAULT_THEME: ChartTheme = {
-  primary: '#4f46e5',
+  primary: '#1e7e74',
   accent1: '#ec4899',
   accent2: '#14b8a6',
   muted: '#64748b',

@@ -19,9 +19,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { Shield } from 'lucide-react'
+import { Shield, LayoutGrid } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useSettingsStore } from '@/stores/settings'
+import { useTenantMode } from '@/hooks/useTenantMode'
+import { useAuthStore } from '@/stores/auth'
+import { userHasRole } from '@/config/roles'
 import { SidebarBranding } from './SidebarBranding'
 import { SidebarNav } from './SidebarNav'
 import { SidebarUser } from './SidebarUser'
@@ -37,6 +40,9 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggle, isMobileOpen = false, onMobileClose }: SidebarProps) {
   const navigate = useNavigate()
+  const { isDistributed } = useTenantMode()
+  const user = useAuthStore((s) => s.user)
+  const canSeeAdminHub = isDistributed && userHasRole(user, ['admin', 'it_support'])
   const security = useSettingsStore((s) => s.security)
   const pwLastChanged = security.passwordLastChanged ? new Date(security.passwordLastChanged) : null
   const pwExpiryDays = security.passwordExpiryDays || 90
@@ -109,7 +115,9 @@ export function Sidebar({ collapsed, onToggle, isMobileOpen = false, onMobileClo
       {/* Main nav — only pinned modules */}
       <SidebarNav items={pinnedItems} collapsed={collapsed} onItemClick={onMobileClose} />
 
-      {/* Bottom: Security warning + Settings + User */}
+      {/* Bottom: Security warning + Settings + User
+          Note: Administration-Hub-Icon liegt in nav-items.ts (id: 'admin')
+          und wird via SidebarNav mit den bottom-section Items gerendert. */}
       <div className="mt-auto border-t border-sidebar-border p-2 space-y-0.5">
         {showPwWarning && (
           <button

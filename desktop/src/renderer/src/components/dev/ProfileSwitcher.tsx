@@ -67,7 +67,7 @@ export function ProfileSwitcher() {
         )}
         <span className="text-xs font-medium text-foreground hidden sm:inline">
           {currentRoleId
-            ? DEV_PROFILES.find((p) => p.id === currentRoleId)?.label
+            ? t(DEV_PROFILES.find((p) => p.id === currentRoleId)?.label ?? '')
             : t('devTools.noProfile')}
         </span>
         {currentBusinessProfile && (
@@ -141,11 +141,11 @@ export function ProfileSwitcher() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
                             <p className={`text-sm font-medium ${isActive ? 'text-primary' : 'text-foreground'}`}>
-                              {profile.label}
+                              {t(profile.label)}
                             </p>
                             {isActive && <Check className="h-3.5 w-3.5 text-primary" />}
                           </div>
-                          <p className="text-[10px] text-muted-foreground truncate">{profile.description}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{t(profile.description)}</p>
                         </div>
                       </button>
                     )

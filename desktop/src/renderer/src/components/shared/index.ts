@@ -1,4 +1,5 @@
 export { ConfirmDialog } from './ConfirmDialog'
+export { InlineStat, type InlineStatProps } from './InlineStat'
 export { DetailPanel } from './DetailPanel'
 export { EmptyState } from './EmptyState'
 export { ItemActions, type ActionItem } from './ItemActions'

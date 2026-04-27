@@ -11,7 +11,7 @@
 
 /* ═══════════════════════════════════════════════════════════
    GRAPHIT THEME — LIGHT (DEFAULT)
-   Modern neutral base, indigo primary, orange + emerald accents.
+   Modern neutral base, teal primary, orange + emerald accents.
    Inspired by clean SaaS aesthetics (Inspo 2).
    ═══════════════════════════════════════════════════════════ */
 :root {
@@ -34,13 +34,13 @@
   --popover: #ffffff;
   --popover-foreground: #18181b;
 
-  /* PRIMARY — Indigo */
-  --primary: #4f46e5;
+  /* PRIMARY — Teal */
+  --primary: #1e7e74;
   --primary-foreground: #ffffff;
-  --primary-dark: #3730a3;
-  --primary-light: #eef2ff;
-  --primary-accent: #6366f1;
-  --primary-subtle: #f5f3ff;
+  --primary-dark: #0d4d48;
+  --primary-light: #e8f5f3;
+  --primary-accent: #16a085;
+  --primary-subtle: #f0faf8;
 
   /* SECONDARY */
   --secondary: #f0f0f3;
@@ -195,7 +195,7 @@
 
 /* ═══════════════════════════════════════════════════════════
    GRAPHIT THEME — DARK
-   Cool blue-tinted dark, indigo primary (lighter for contrast).
+   Cool blue-tinted dark, teal primary (lighter for contrast).
    ═══════════════════════════════════════════════════════════ */
 .dark {
   --background: #0f0f13;
@@ -210,12 +210,12 @@
   --popover: #1a1a22;
   --popover-foreground: #f4f4f5;
 
-  --primary: #818cf8;
+  --primary: #3ab0a4;
   --primary-foreground: #0f0f13;
-  --primary-dark: #6366f1;
-  --primary-light: rgba(99, 102, 241, 0.15);
-  --primary-accent: #a5b4fc;
-  --primary-subtle: rgba(99, 102, 241, 0.08);
+  --primary-dark: #1e7e74;
+  --primary-light: rgba(30, 126, 116, 0.15);
+  --primary-accent: #5ec4ba;
+  --primary-subtle: rgba(30, 126, 116, 0.08);
 
   --secondary: #1e1e28;
   --secondary-foreground: #f4f4f5;

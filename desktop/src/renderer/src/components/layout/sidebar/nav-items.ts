@@ -25,9 +25,9 @@ import {
   Building2,
   ClipboardCheck,
   Timer,
-  ShieldCheck,
   BookOpen,
   PhoneCall,
+  LayoutGrid,
 } from 'lucide-react'
 
 export interface NavBadge {
@@ -118,6 +118,6 @@ export const navItems: NavItemConfig[] = [
   { id: 'dialer', to: '/dialer', icon: PhoneCall, label: 'layout.navItems.dialer', enabled: true, section: 'main', color: { h: 142, s: 72 } },
 
   // ── System (bottom) ──
-  { id: 'security-admin', to: '/admin/security', icon: ShieldCheck, label: 'layout.navItems.securityAdmin', enabled: true, section: 'bottom', color: { h: 0, s: 68 } },
+  { id: 'admin', to: '/admin/it', icon: LayoutGrid, label: 'layout.navItems.admin', enabled: true, section: 'bottom', color: { h: 174, s: 62 } },
   { id: 'settings', to: '/settings', icon: Cog, label: 'layout.navItems.settings', enabled: true, section: 'bottom', color: { h: 220, s: 18 } },
 ]

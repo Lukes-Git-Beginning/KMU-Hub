@@ -17,7 +17,7 @@ import {
 import { toast } from 'sonner'
 import { useEmployees } from '@/api/hooks/hr-hooks'
 import type { EmployeeProfile } from '@/api/hr-types'
-import { EmptyState } from '@/components/shared'
+import { EmptyState, InlineStat } from '@/components/shared'
 
 // ============================================================
 // Types
@@ -250,24 +250,12 @@ export function OrgChart() {
   return (
     <div className="space-y-4">
       {/* KPI Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">{t('team.orgChart.totalEmployees')}</p>
-          <p className="text-lg font-semibold text-foreground">{totalEmployees}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">{t('team.orgChart.departments')}</p>
-          <p className="text-lg font-semibold text-foreground">{departments.length}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">{t('team.orgChart.managers')}</p>
-          <p className="text-lg font-semibold text-foreground">{managers.length}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">{t('team.orgChart.hierarchyLevels')}</p>
-          <p className="text-lg font-semibold text-foreground">{hierarchyLevels}</p>
-        </div>
-      </div>
+      <dl className="mb-4 flex flex-wrap items-end gap-x-10 gap-y-3 border-b border-border pb-4">
+        <InlineStat label={t('team.orgChart.totalEmployees')} value={totalEmployees} />
+        <InlineStat label={t('team.orgChart.departments')} value={departments.length} />
+        <InlineStat label={t('team.orgChart.managers')} value={managers.length} />
+        <InlineStat label={t('team.orgChart.hierarchyLevels')} value={hierarchyLevels} />
+      </dl>
 
       {/* Toolbar */}
       <div className="flex items-center gap-3">
