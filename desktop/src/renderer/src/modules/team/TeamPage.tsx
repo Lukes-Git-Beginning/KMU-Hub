@@ -29,6 +29,8 @@ import {
   Settings,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useAuthStore } from '@/stores/auth'
+import { canSeeTeamTab } from '@/config/roles'
 import {
   useTeamStore,
   type Training,
@@ -157,7 +159,10 @@ export default function TeamPage() {
   const { data: employeesData, isLoading: employeesLoading } = useEmployees()
   const { data: pendingRequestsData } = useLeaveRequests({ status: 'pending' })
 
+  const user = useAuthStore((s) => s.user)
   const [tab, setTab] = useState<TabKey>('members')
+  // If active tab gets restricted (role switch), fall back to 'members'
+  const effectiveTab: TabKey = canSeeTeamTab(user, tab) ? tab : 'members'
   const [search, setSearch] = useState('')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
@@ -300,12 +305,14 @@ export default function TeamPage() {
             { key: 'schulungen' as const, label: t('team.page.tab.trainings'), icon: GraduationCap },
             { key: 'selfservice' as const, label: t('team.page.tab.selfservice'), icon: UserCircle },
             { key: 'einstellungen' as const, label: t('team.page.tab.settings'), icon: Settings },
-          ]).map((tab_item) => (
+          ])
+            .filter((tab_item) => canSeeTeamTab(user, tab_item.key))
+            .map((tab_item) => (
             <button
               key={tab_item.key}
               onClick={() => setTab(tab_item.key)}
               className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm transition-colors whitespace-nowrap ${
-                tab === tab_item.key ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'
+                effectiveTab === tab_item.key ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               {tab_item.icon && <tab_item.icon className="h-3.5 w-3.5" />}
@@ -316,7 +323,7 @@ export default function TeamPage() {
       </div>
 
       {/* Members Tab */}
-      {tab === 'members' && (
+      {effectiveTab === 'members' && (
         <>
           <div className="flex items-center gap-3 mb-4">
             <div className="relative flex-1 max-w-sm">
@@ -402,7 +409,7 @@ export default function TeamPage() {
       )}
 
       {/* Requests Tab -- uses TanStack Query */}
-      {tab === 'requests' && (
+      {effectiveTab === 'requests' && (
         <div className="space-y-3">
           {pendingRequests.length === 0 ? (
             <EmptyState
@@ -423,29 +430,29 @@ export default function TeamPage() {
       )}
 
       {/* Absences Tab */}
-      {tab === 'absences' && (
+      {effectiveTab === 'absences' && (
         <AbsenceCalendar />
       )}
 
       {/* Korrekturen Tab */}
-      {tab === 'korrekturen' && (
+      {effectiveTab === 'korrekturen' && (
         <TimeCorrectionPanel />
       )}
 
       {/* Personalakte Tab (7.3) */}
-      {tab === 'personalakte' && <PersonnelDocuments />}
+      {effectiveTab === 'personalakte' && <PersonnelDocuments />}
 
       {/* Onboarding Tab (7.4) */}
-      {tab === 'onboarding' && <OnboardingChecklist />}
+      {effectiveTab === 'onboarding' && <OnboardingChecklist />}
 
       {/* Organigramm Tab (7.5) */}
-      {tab === 'orgchart' && <OrgChart />}
+      {effectiveTab === 'orgchart' && <OrgChart />}
 
       {/* Integrationen Tab (7.1 + 7.2 — replaces old Lohn tab) */}
-      {tab === 'integrationen' && <HRIntegrationPanel />}
+      {effectiveTab === 'integrationen' && <HRIntegrationPanel />}
 
       {/* Schulungen Tab (still Zustand mock) */}
-      {tab === 'schulungen' && (
+      {effectiveTab === 'schulungen' && (
         <div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <div className="rounded-lg border border-border bg-card p-4">
@@ -587,10 +594,10 @@ export default function TeamPage() {
       )}
 
       {/* Self-Service Tab (7.6) */}
-      {tab === 'selfservice' && <SelfServiceView />}
+      {effectiveTab === 'selfservice' && <SelfServiceView />}
 
       {/* Einstellungen Tab (HR settings moved from global Settings) */}
-      {tab === 'einstellungen' && <TeamSettingsTab />}
+      {effectiveTab === 'einstellungen' && <TeamSettingsTab />}
 
       {/* Member Detail Panel */}
       {selectedMemberId && (

@@ -41,6 +41,19 @@ export const SETTINGS_TAB_ROLES: Record<string, RoleId[]> = {
   ai:       ['admin'],
 }
 
+// ---- Which team-module tabs each role can see ----
+// Tabs NOT listed = visible to all (members, absences, orgchart, selfservice).
+// Personalakte and HR-Integrationen are hr_only (DSGVO). Korrekturen + Schulungen + Settings = manager+hr+admin.
+export const TEAM_TAB_ROLES: Record<string, RoleId[]> = {
+  requests:      ['admin', 'manager', 'hr'],
+  korrekturen:   ['admin', 'manager', 'hr'],
+  personalakte:  ['admin', 'hr'],
+  integrationen: ['admin', 'hr'],
+  schulungen:    ['admin', 'manager', 'hr'],
+  einstellungen: ['admin', 'hr'],
+  onboarding:    ['admin', 'manager', 'hr'],
+}
+
 // ---- Mock user profiles for design testing ----
 export interface DevProfile {
   id: RoleId
@@ -138,6 +151,12 @@ export function canSeeNavItem(user: User | null, navItemId: string): boolean {
 
 export function canSeeSettingsTab(user: User | null, tabKey: string): boolean {
   const restriction = SETTINGS_TAB_ROLES[tabKey]
+  if (!restriction) return true // no restriction = visible to all
+  return userHasRole(user, restriction)
+}
+
+export function canSeeTeamTab(user: User | null, tabKey: string): boolean {
+  const restriction = TEAM_TAB_ROLES[tabKey]
   if (!restriction) return true // no restriction = visible to all
   return userHasRole(user, restriction)
 }
