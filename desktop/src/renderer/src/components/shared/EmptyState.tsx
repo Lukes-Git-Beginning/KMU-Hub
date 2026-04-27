@@ -21,11 +21,11 @@ export function EmptyState({ icon: Icon, illustration, title, description, actio
           {illustration}
         </div>
       ) : Icon ? (
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10" aria-hidden="true">
-          <Icon className="h-8 w-8 text-primary/60" />
+        <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-secondary" aria-hidden="true">
+          <Icon className="h-7 w-7 text-muted-foreground" />
         </div>
       ) : null}
-      <p className="mt-5 text-lg font-semibold text-foreground">{title}</p>
+      <h3 className="mt-5 text-lg font-semibold text-foreground">{title}</h3>
       {description && (
         <p className="mt-1.5 max-w-sm text-center text-sm text-muted-foreground">
           {description}

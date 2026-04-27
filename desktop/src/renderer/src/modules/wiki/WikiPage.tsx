@@ -27,6 +27,7 @@ import { WikiArticle } from './WikiArticle'
 import { WikiTemplateDialog } from './WikiTemplateDialog'
 import { WikiCategoryDialog } from './WikiCategoryDialog'
 import { WikiShareDialog } from './WikiShareDialog'
+import { formatDate as libFormatDate } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
 // Status config
@@ -39,11 +40,8 @@ const statusConfig: Record<string, { key: string; bg: string }> = {
 }
 
 function formatDate(dateStr: string): string {
-  try {
-    return new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('de-DE')
-  } catch {
-    return dateStr
-  }
+  const normalized = dateStr.includes('T') ? dateStr : dateStr + 'T00:00:00'
+  return libFormatDate(normalized)
 }
 
 // ---------------------------------------------------------------------------

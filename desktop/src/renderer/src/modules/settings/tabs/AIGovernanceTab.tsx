@@ -1,14 +1,21 @@
+/**
+ * AIGovernanceTab — Persönliche KI-Einstellungen.
+ *
+ * Phase 4: Nur noch persönlicher Inhalt.
+ * Org-weite KI-Governance (Tenant-Master-Toggle, Modul-Verbote,
+ * Org-Activity-Log, Provider-Auswahl) ist in Admin-Hub →
+ * Sicherheit → KI-Governance (AIGovernanceAdminTab).
+ */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Sparkles,
+  Bot,
   Mail,
   MessageSquare,
   Headphones,
   Search,
   FileText,
   Shield,
-  Server,
   Activity,
 } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
@@ -37,39 +44,47 @@ export function AIGovernanceTab() {
 
   const [showAllLogs, setShowAllLogs] = useState(false)
   const visibleLogs = showAllLogs ? activityLog : activityLog.slice(0, 10)
-
   const enabledCount = MODULE_CONFIG_KEYS.filter((m) => !moduleOptOuts[m.key]).length
 
   return (
     <div className="max-w-3xl">
-      <h2 className="text-foreground mb-1">{t('settings.ai.title')}</h2>
+      <h2 className="text-foreground mb-1">
+        {t('settings.ai.personal.title', { defaultValue: 'KI-Einstellungen' })}
+      </h2>
       <p className="text-sm text-muted-foreground mb-6">
-        {t('settings.ai.subtitle')}
+        {t('settings.ai.subtitle', { defaultValue: 'Steuere KI-Vorschläge auf deinem Account.' })}
       </p>
 
-      {/* Master toggle */}
-      <div className="rounded-lg border border-border bg-card p-5 glass-surface mb-6">
+      {/* Persönlicher Master-Toggle */}
+      <div className="rounded-lg border border-border bg-card p-5 mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${aiEnabled ? 'bg-primary-light' : 'bg-secondary'}`}>
-              <Sparkles className={`h-5 w-5 ${aiEnabled ? 'text-primary' : 'text-muted-foreground'}`} />
+              <Bot className={`h-5 w-5 ${aiEnabled ? 'text-primary' : 'text-muted-foreground'}`} />
             </div>
             <div>
-              <p className="text-sm font-medium text-foreground">{t('settings.ai.masterToggle.label')}</p>
+              <p className="text-sm font-medium text-foreground">
+                {t('settings.ai.personal.toggle', { defaultValue: 'KI-Vorschläge auf meinem Account' })}
+              </p>
               <p className="text-xs text-muted-foreground">
-                {aiEnabled ? t('settings.ai.masterToggle.activeCount', { count: enabledCount, total: MODULE_CONFIG_KEYS.length }) : t('settings.ai.masterToggle.allDisabled')}
+                {aiEnabled
+                  ? t('settings.ai.masterToggle.activeCount', { count: enabledCount, total: MODULE_CONFIG_KEYS.length })
+                  : t('settings.ai.masterToggle.allDisabled')
+                }
               </p>
             </div>
           </div>
-          <Switch checked={aiEnabled} onCheckedChange={setAIEnabled} />
+          <Switch id="personal-ai-master" checked={aiEnabled} onCheckedChange={setAIEnabled} />
         </div>
       </div>
 
-      {/* Module opt-outs */}
-      <div className="rounded-lg border border-border bg-card p-5 glass-surface mb-6">
-        <h3 className="text-sm font-medium text-foreground mb-1">{t('settings.ai.modules.title')}</h3>
+      {/* Pro-Modul Opt-out */}
+      <div className="rounded-lg border border-border bg-card p-5 mb-6">
+        <h3 className="text-sm font-medium text-foreground mb-1">
+          {t('settings.ai.personal.moduleOptOut', { defaultValue: 'Pro-Modul Opt-out' })}
+        </h3>
         <p className="text-xs text-muted-foreground mb-4">
-          {t('settings.ai.modules.subtitle')}
+          {t('settings.ai.modules.subtitle', { defaultValue: 'Wähle Module wo du keine KI-Vorschläge möchtest.' })}
         </p>
 
         <div className="space-y-3">
@@ -101,26 +116,25 @@ export function AIGovernanceTab() {
         </div>
       </div>
 
-      {/* Privacy section */}
-      <div className="rounded-lg border border-border bg-card p-5 glass-surface mb-6">
+      {/* Privacy / No-Training */}
+      <div className="rounded-lg border border-border bg-card p-5 mb-6">
         <div className="flex items-center gap-2 mb-4">
           <Shield className="h-4 w-4 text-primary" />
           <h3 className="text-sm font-medium text-foreground">{t('settings.ai.privacy.title')}</h3>
         </div>
-
         <div className="space-y-4">
-          {/* No training — always on, read-only */}
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-foreground">{t('settings.ai.privacy.noTraining.label')}</p>
               <p className="text-[11px] text-muted-foreground">{t('settings.ai.privacy.noTraining.desc')}</p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="rounded-full bg-success-light px-2 py-0.5 text-[10px] font-medium text-success">{t('settings.ai.privacy.alwaysActive')}</span>
+              <span className="rounded-full bg-success-light px-2 py-0.5 text-[10px] font-medium text-success">
+                {t('settings.ai.privacy.alwaysActive')}
+              </span>
               <Switch checked={noTrainingOnData} disabled />
             </div>
           </div>
-
           <div className="border-t border-border pt-4">
             <div className="flex items-center justify-between">
               <div>
@@ -133,34 +147,14 @@ export function AIGovernanceTab() {
         </div>
       </div>
 
-      {/* Provider info */}
-      <div className="rounded-lg border border-border bg-card p-5 glass-surface mb-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Server className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-medium text-foreground">{t('settings.ai.provider.title')}</h3>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            { label: t('settings.ai.provider.model'), value: 'GPT-4o' },
-            { label: t('settings.ai.provider.hosting'), value: 'EU (Frankfurt)' },
-            { label: t('settings.ai.provider.dataProcessing'), value: t('settings.ai.provider.dataProcessingValue') },
-            { label: t('settings.ai.provider.dataSharing'), value: t('settings.ai.provider.dataSharingValue') },
-          ].map((item) => (
-            <div key={item.label} className="rounded-md bg-secondary/50 px-3 py-2">
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{item.label}</p>
-              <p className="text-sm text-foreground mt-0.5">{item.value}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Activity log */}
-      <div className="rounded-lg border border-border bg-card p-5 glass-surface">
+      {/* Meine AI-Aktivität */}
+      <div className="rounded-lg border border-border bg-card p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Activity className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-medium text-foreground">{t('settings.ai.activityLog.title')}</h3>
+            <h3 className="text-sm font-medium text-foreground">
+              {t('settings.ai.personal.history', { defaultValue: 'Meine AI-Aktivität' })}
+            </h3>
             <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
               {t('settings.ai.activityLog.entries', { count: activityLog.length })}
             </span>
@@ -169,7 +163,7 @@ export function AIGovernanceTab() {
 
         {activityLog.length === 0 ? (
           <div className="py-8 text-center">
-            <Sparkles className="mx-auto h-8 w-8 text-muted-foreground/30 mb-2" />
+            <Bot className="mx-auto h-8 w-8 text-muted-foreground/30 mb-2" />
             <p className="text-sm text-muted-foreground">{t('settings.ai.activityLog.empty')}</p>
           </div>
         ) : (
@@ -188,7 +182,7 @@ export function AIGovernanceTab() {
                 <tbody>
                   {visibleLogs.map((entry) => (
                     <tr key={entry.id} className="border-b border-border-muted last:border-0 hover:bg-secondary/30 transition-colors">
-                      <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
+                      <td className="px-3 py-2 text-xs text-muted-foreground tabular-nums whitespace-nowrap">
                         {new Date(entry.timestamp).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                       </td>
                       <td className="px-3 py-2">
@@ -204,13 +198,15 @@ export function AIGovernanceTab() {
                 </tbody>
               </table>
             </div>
-
             {activityLog.length > 10 && (
               <button
                 onClick={() => setShowAllLogs(!showAllLogs)}
                 className="mt-3 text-xs text-primary hover:underline"
               >
-                {showAllLogs ? t('settings.ai.activityLog.showLess') : t('settings.ai.activityLog.showAll', { count: activityLog.length })}
+                {showAllLogs
+                  ? t('settings.ai.activityLog.showLess')
+                  : t('settings.ai.activityLog.showAll', { count: activityLog.length })
+                }
               </button>
             )}
           </>

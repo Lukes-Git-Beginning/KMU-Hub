@@ -24,6 +24,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
+import { formatDate } from '@/lib/format'
 
 // ============================================================
 // Types
@@ -251,11 +252,11 @@ export function PersonnelDocuments() {
                         </div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
                           <span>{doc.fileName} ({doc.fileSize})</span>
-                          <span>{t('team.personnelDocs.uploaded')}: {new Date(doc.uploadedAt).toLocaleDateString('de-DE')}</span>
+                          <span>{t('team.personnelDocs.uploaded')}: {formatDate(doc.uploadedAt)}</span>
                           {doc.expiresAt && (
                             <span className={`flex items-center gap-1 ${st.color}`}>
                               <StIcon className="h-3 w-3" />
-                              {t('team.personnelDocs.expires')}: {new Date(doc.expiresAt).toLocaleDateString('de-DE')}
+                              {t('team.personnelDocs.expires')}: {formatDate(doc.expiresAt)}
                             </span>
                           )}
                         </div>

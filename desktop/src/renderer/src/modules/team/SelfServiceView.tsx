@@ -17,6 +17,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { formatDate } from '@/lib/format'
 
 // ============================================================
 // Types
@@ -172,7 +173,7 @@ export function SelfServiceView() {
                 { icon: MapPin, label: t('team.member.location'), value: CURRENT_USER.location },
                 { icon: Building2, label: t('team.member.department'), value: CURRENT_USER.department },
                 { icon: Briefcase, label: t('team.member.contractType'), value: `${CURRENT_USER.contractType} (${CURRENT_USER.workload}%)` },
-                { icon: Calendar, label: t('team.selfService.joinDate'), value: new Date(CURRENT_USER.joinDate).toLocaleDateString('de-DE') },
+                { icon: Calendar, label: t('team.selfService.joinDate'), value: formatDate(CURRENT_USER.joinDate) },
                 { icon: User, label: t('team.selfService.manager'), value: CURRENT_USER.manager },
               ].map((item) => {
                 const Icon = item.icon
@@ -273,8 +274,8 @@ export function SelfServiceView() {
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Calendar className="h-3 w-3" />
                         <span>
-                          {new Date(req.startDate).toLocaleDateString('de-DE')}
-                          {req.startDate !== req.endDate && ` – ${new Date(req.endDate).toLocaleDateString('de-DE')}`}
+                          {formatDate(req.startDate)}
+                          {req.startDate !== req.endDate && ` – ${formatDate(req.endDate)}`}
                           {' '}({req.days} {req.days === 1 ? t('team.approval.day') : t('team.approval.days')})
                         </span>
                       </div>

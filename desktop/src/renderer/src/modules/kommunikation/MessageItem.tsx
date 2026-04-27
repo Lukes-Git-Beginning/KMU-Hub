@@ -2,32 +2,18 @@ import { useTranslation } from 'react-i18next'
 import { FileText, Image, File, Reply, Forward, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ConversationMessage } from '@/types/communication'
+import { formatDate as libFormatDate, formatTime as libFormatTime } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 function formatTime(timestamp: string): string {
-  try {
-    return new Date(timestamp).toLocaleTimeString('de-DE', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  } catch {
-    return ''
-  }
+  return libFormatTime(timestamp, { hour: '2-digit', minute: '2-digit' })
 }
 
 function formatDate(timestamp: string): string {
-  try {
-    return new Date(timestamp).toLocaleDateString('de-DE', {
-      weekday: 'short',
-      day: '2-digit',
-      month: 'short',
-    })
-  } catch {
-    return ''
-  }
+  return libFormatDate(timestamp, { weekday: 'short', day: '2-digit', month: 'short' })
 }
 
 function getFileIcon(type: string) {

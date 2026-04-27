@@ -16,7 +16,7 @@ import {
   Plus,
   Clock,
 } from 'lucide-react'
-import { cn } from '@/lib'
+import { cn, formatDate } from '@/lib'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -562,7 +562,7 @@ export default function TaskDetailPage() {
                   <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                   <span>
                     {task.due_date
-                      ? new Date(task.due_date).toLocaleDateString('de-DE')
+                      ? formatDate(task.due_date)
                       : t('work.tasks.noDate')}
                   </span>
                 </button>

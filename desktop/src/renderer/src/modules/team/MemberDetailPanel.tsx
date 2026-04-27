@@ -14,12 +14,15 @@ import {
   Upload,
   ChevronDown,
   ChevronUp,
+  AlertTriangle,
+  ArrowRight,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { DetailPanel } from '@/components/shared'
 import { toast } from 'sonner'
+import { useNavigate } from 'react-router-dom'
 import {
   useEmployee,
   useEmployeeLeaveBalance,
@@ -27,6 +30,12 @@ import {
   useDocumentCategories,
   useUploadEmployeeDocument,
 } from '@/api/hooks/hr-hooks'
+import { useUserModules } from '@/api/hooks/useModuleAssignments'
+import { useInsightSettings } from '@/api/hooks/useBilling'
+import { useNavigationStore } from '@/stores/navigation'
+import { DEFAULT_INSIGHT_SETTINGS } from '@/lib/pricing'
+import { MODULE_DISPLAY_NAMES } from './ModuleAssignmentTab'
+import { formatRelativeTime, formatDate } from '@/lib/format'
 
 const contractTypeKeys: Record<string, string> = {
   full_time: 'team.contractType.fullTime',
@@ -180,7 +189,7 @@ export function MemberDetailPanel({
               {employee?.startDate && (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Calendar className="h-3.5 w-3.5 shrink-0" />
-                  <span>{t('team.detail.since')} {new Date(employee.startDate).toLocaleDateString('de-DE')} ({tenure})</span>
+                  <span>{t('team.detail.since')} {formatDate(employee.startDate)} ({tenure})</span>
                 </div>
               )}
               {employee?.managerName && (
@@ -219,6 +228,14 @@ export function MemberDetailPanel({
             </section>
           )}
 
+          {/* Module-Zuteilung */}
+          {employee?.userId && (
+            <EmployeeModulesSection
+              userId={employee.userId}
+              onManage={() => onEdit()}
+            />
+          )}
+
           {/* Documents */}
           <DocumentsSection memberId={memberId} documents={documents ?? []} />
 
@@ -253,7 +270,7 @@ function DocumentsSection({
   const [showUpload, setShowUpload] = useState(false)
   const [categoryId, setCategoryId] = useState('')
   const [notes, setNotes] = useState('')
-  const [_fileName, _setFileName] = useState('')
+  const [_fileName, setFileName] = useState('')
 
   const handleUpload = () => {
     if (!categoryId) {
@@ -306,7 +323,7 @@ function DocumentsSection({
                   <FileText className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{doc.fileName ?? doc.categoryName ?? t('team.documents.document')}</span>
                   <span className="text-[10px] ml-auto shrink-0">
-                    {new Date(doc.createdAt).toLocaleDateString('de-DE')}
+                    {formatDate(doc.createdAt)}
                   </span>
                 </div>
               ))}
@@ -393,6 +410,97 @@ function DocumentsSection({
               </div>
             </div>
           )}
+        </div>
+      )}
+    </section>
+  )
+}
+
+// ============================================================
+// Employee Modules Section
+// ============================================================
+function EmployeeModulesSection({
+  userId,
+  onManage,
+}: {
+  userId: string
+  onManage: () => void
+}) {
+  const { t, i18n } = useTranslation()
+  const navigate = useNavigate()
+  const { setIntent } = useNavigationStore()
+  const { data: userGrants = [] } = useUserModules(userId)
+  const { data: insightSettings } = useInsightSettings()
+  const minInactivityDays = insightSettings?.minInactivityDays ?? DEFAULT_INSIGHT_SETTINGS.minInactivityDays
+
+  const [expanded, setExpanded] = useState(true)
+
+  function isInactive(lastActiveAt: string | null): boolean {
+    if (!lastActiveAt) return true
+    const diffDays = (Date.now() - new Date(lastActiveAt).getTime()) / 86_400_000
+    return diffDays > minInactivityDays
+  }
+
+  const handleManage = () => {
+    setIntent({
+      type: 'open-team-modulzuteilung',
+      data: { userIds: [userId] },
+    })
+    onManage()
+    navigate('/team')
+  }
+
+  const Chevron = expanded ? ChevronUp : ChevronDown
+
+  if (userGrants.length === 0) return null
+
+  return (
+    <section className="space-y-2">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex items-center gap-1 w-full text-left"
+        aria-expanded={expanded}
+      >
+        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {t('team.member.modules.title')} ({userGrants.length})
+        </h4>
+        <Chevron className="h-3 w-3 text-muted-foreground ml-auto" aria-hidden="true" />
+      </button>
+
+      {expanded && (
+        <div className="space-y-1">
+          {userGrants.map((grant) => {
+            const moduleName = MODULE_DISPLAY_NAMES[grant.moduleId] ?? grant.moduleId
+            const inactive = isInactive(grant.lastActiveAt)
+            const relTime = formatRelativeTime(grant.lastActiveAt, i18n.language)
+
+            return (
+              <div
+                key={grant.moduleId}
+                className={`flex items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-xs ${
+                  inactive ? 'bg-warning/5' : 'bg-secondary/30'
+                }`}
+              >
+                <span className="font-medium text-foreground truncate">{moduleName}</span>
+                <span className={`flex items-center gap-1 shrink-0 ${inactive ? 'text-warning-foreground' : 'text-muted-foreground'}`}>
+                  {inactive && <AlertTriangle className="h-3 w-3" aria-label="inaktiv" />}
+                  {grant.lastActiveAt
+                    ? t('team.member.modules.lastUsed', { time: relTime })
+                    : t('team.member.modules.neverUsed')}
+                </span>
+              </div>
+            )
+          })}
+
+          <button
+            type="button"
+            onClick={handleManage}
+            className="flex w-full items-center justify-end gap-1.5 pt-1 text-xs text-primary hover:underline transition-colors"
+          >
+            {t('team.member.modules.manage')}
+            <ArrowRight className="h-3 w-3" aria-hidden="true" />
+          </button>
         </div>
       )}
     </section>

@@ -39,6 +39,7 @@ import {
   useUntagFile,
 } from '@/api/hooks/useDocuments'
 import type { DocumentFile } from '@/api/types/document-types'
+import { formatDate } from '@/lib/format'
 
 interface FileDetailPanelProps {
   file: DocumentFile | null
@@ -173,12 +174,7 @@ export function FileDetailPanel({
         <div className="flex items-center gap-2 text-sm">
           <Calendar className="h-4 w-4 text-muted-foreground" />
           <span className="text-foreground">
-            {new Date(file.created_at).toLocaleDateString('de-DE', {
-              weekday: 'long',
-              day: 'numeric',
-              month: 'long',
-              year: 'numeric',
-            })}
+            {formatDate(file.created_at, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </span>
         </div>
         <div className="flex items-center gap-2 text-sm">

@@ -8,6 +8,7 @@ import { useCalendars } from '@/api/hooks/useCalendars'
 import { useEventsInRange } from '@/api/hooks/useEvents'
 import { expandedEventToUI } from '@/modules/kalender/adapters'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
+import { formatDate } from '@/lib/format'
 
 function CalendarUpcoming(_props: WidgetProps) {
   const { t } = useTranslation()
@@ -72,13 +73,13 @@ function CalendarUpcoming(_props: WidgetProps) {
       <div className="flex items-center gap-2 px-4 pt-4 pb-2">
         <div className="flex h-10 w-10 flex-col items-center justify-center rounded-lg bg-primary/10">
           <span className="text-[9px] font-bold text-primary uppercase leading-none">
-            {today.toLocaleDateString('de-DE', { weekday: 'short' })}
+            {formatDate(today, { weekday: 'short' })}
           </span>
           <span className="text-sm font-bold text-primary leading-tight">{dd}</span>
         </div>
         <div>
           <p className="text-sm font-medium text-foreground">
-            {today.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}
+            {formatDate(today, { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
           <p className="text-xs text-muted-foreground">{t('dashboard.calendar.eventsToday', { count: events.length })}</p>
         </div>

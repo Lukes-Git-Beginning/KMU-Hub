@@ -42,7 +42,7 @@ import {
 } from '@/components/ui/tooltip'
 import { useInventarStore, type InventoryItem, type InventurSession } from '@/stores/inventar'
 import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
-import { formatCurrency } from '@/lib/format'
+import { formatCurrency, formatDate, formatDateTime } from '@/lib/format'
 
 type TabKey = 'artikel' | 'lagerorte' | 'bewegungen' | 'inventur'
 type StatusFilter = 'all' | 'ok' | 'warning' | 'critical'
@@ -118,14 +118,7 @@ function getStockStatusDisplay(item: InventoryItem): { color: string; labelKey: 
   return { color: 'bg-success', labelKey: stockStatusLabelKeys.ok, dotColor: 'bg-success' }
 }
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('de-DE')
-}
-
-function formatDateTime(dateStr: string): string {
-  const d = new Date(dateStr)
-  return `${d.toLocaleDateString('de-DE')} ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`
-}
+// formatDate / formatDateTime imported from @/lib/format (locale-aware)
 
 // ─── Barcode Scanner Dialog ─────────────────────────────────────
 function BarcodeScannerDialog({
@@ -1108,8 +1101,8 @@ export default function InventarPage() {
                     return (
                       <tr key={mov.id} className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors">
                         <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                          {new Date(mov.createdAt).toLocaleDateString('de-DE')}{' '}
-                          <span className="text-xs">{new Date(mov.createdAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span>
+                          {formatDate(mov.createdAt)}{' '}
+                          <span className="text-xs">{formatDateTime(mov.createdAt, { timeStyle: 'short' })}</span>
                         </td>
                         <td className="px-4 py-3 font-medium text-foreground">{mov.itemName}</td>
                         <td className="px-4 py-3">

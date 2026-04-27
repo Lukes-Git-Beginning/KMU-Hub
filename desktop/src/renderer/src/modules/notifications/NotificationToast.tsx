@@ -74,15 +74,15 @@ function ToastContent({
 
   const Icon = getIcon(notification.icon)
 
-  const priorityColors: Record<string, string> = {
-    high: 'border-l-red-500',
-    normal: 'border-l-primary',
-    low: 'border-l-muted-foreground/40',
+  const priorityBg: Record<string, string> = {
+    high: 'border-error/40 bg-error-light/30',
+    normal: 'border-border/60 bg-card',
+    low: 'border-border/40 bg-card',
   }
 
   return (
     <div
-      className={`w-[360px] rounded-lg border border-border/60 bg-card shadow-lg overflow-hidden border-l-[3px] ${priorityColors[notification.priority] || priorityColors.normal}`}
+      className={`w-[360px] rounded-lg border shadow-lg overflow-hidden ${priorityBg[notification.priority] || priorityBg.normal}`}
     >
       <div className="p-3">
         <div className="flex items-start gap-3">

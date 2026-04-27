@@ -14,7 +14,7 @@ import {
   Calculator,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatCurrency } from '@/lib'
+import { formatCurrency, formatDate } from '@/lib'
 import {
   Dialog,
   DialogContent,
@@ -212,7 +212,7 @@ export default function HoursToInvoiceDialog({
 
                   {/* Date */}
                   <span className="text-xs text-muted-foreground">
-                    {new Date(entry.date).toLocaleDateString('de-DE')}
+                    {formatDate(entry.date)}
                   </span>
 
                   {/* Task */}

@@ -24,6 +24,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { CompanyFormDialog, type CompanyFormData } from './CompanyFormDialog'
+import { formatDate } from '@/lib/format'
 
 const PAGE_SIZE = 20
 
@@ -202,7 +203,7 @@ export default function CompaniesListPage() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {company.createdAt
-                      ? new Date(company.createdAt).toLocaleDateString('de-DE')
+                      ? formatDate(company.createdAt)
                       : '-'}
                   </TableCell>
                 </TableRow>

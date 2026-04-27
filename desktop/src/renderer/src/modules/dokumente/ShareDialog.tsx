@@ -32,6 +32,7 @@ import {
   useUnshareEntity,
 } from '@/api/hooks/useDocuments'
 import type { SharePermission } from '@/api/types/document-types'
+import { formatDate } from '@/lib/format'
 
 interface ShareDialogProps {
   open: boolean
@@ -178,7 +179,7 @@ export function ShareDialog({
                       </span>
                       <p className="text-[10px] text-muted-foreground">
                         {t('dokumente.share.by')} {s.shared_by_name} &middot;{' '}
-                        {new Date(s.created_at).toLocaleDateString('de-DE')}
+                        {formatDate(s.created_at)}
                       </p>
                     </div>
                   </div>

@@ -20,6 +20,7 @@ import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import type { Contact } from '@/stores/contacts'
+import { formatDate } from '@/lib/format'
 
 interface ContactDetailPanelProps {
   contact: Contact
@@ -207,7 +208,7 @@ export function ContactDetailPanel({
             <div className="flex items-center gap-3 text-sm">
               <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
               <span className="text-muted-foreground">
-                {t('kontakte.detail.lastContact')}: {new Date(contact.lastContact).toLocaleDateString('de-DE')}
+                {t('kontakte.detail.lastContact')}: {formatDate(contact.lastContact)}
               </span>
             </div>
           </div>
@@ -306,7 +307,7 @@ export function ContactDetailPanel({
                             {t(activityLabelKeys[activity.type])}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            · {new Date(activity.date).toLocaleDateString('de-DE')}
+                            · {formatDate(activity.date)}
                           </span>
                         </div>
                       </div>
@@ -333,7 +334,7 @@ export function ContactDetailPanel({
         <Separator />
         <section className="pb-4">
           <p className="text-xs text-muted-foreground">
-            {t('kontakte.detail.createdAt')} {new Date(contact.createdAt).toLocaleDateString('de-DE')}
+            {t('kontakte.detail.createdAt')} {formatDate(contact.createdAt)}
           </p>
         </section>
       </div>

@@ -12,6 +12,7 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from '@/components/ui/popover'
+import { formatDate } from '@/lib/format'
 
 interface SnoozePopoverProps {
   onSnooze: (isoTimestamp: string) => void
@@ -49,13 +50,7 @@ function formatDateForInput(date: Date): string {
 }
 
 function formatSnoozeDisplay(date: Date): string {
-  return date.toLocaleDateString('de-DE', {
-    weekday: 'short',
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return formatDate(date, { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
 export function SnoozePopover({ onSnooze, children }: SnoozePopoverProps) {

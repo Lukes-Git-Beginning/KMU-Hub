@@ -8,6 +8,7 @@ import {
   Calendar,
   History,
 } from 'lucide-react'
+import { formatDate } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
 // Mock activity data
@@ -48,7 +49,7 @@ function formatRelative(dateStr: string, t: (key: string, opts?: Record<string, 
     if (diffH < 24) return t('kommunikation.time.hoursAgo', { count: diffH })
     const diffD = Math.floor(diffH / 24)
     if (diffD < 7) return t('kommunikation.time.daysAgo', { count: diffD })
-    return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
+    return formatDate(d, { day: '2-digit', month: '2-digit' })
   } catch {
     return dateStr
   }

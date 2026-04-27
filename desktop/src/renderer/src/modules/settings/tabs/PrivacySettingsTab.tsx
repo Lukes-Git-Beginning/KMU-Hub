@@ -1,16 +1,19 @@
+/**
+ * PrivacySettingsTab — Persönliche Datenschutz-Einstellungen.
+ *
+ * Phase 4: Nur noch persönlicher Inhalt.
+ * Tenant-Einstellungen (Tracking org-weit, Retention, Cookie-Defaults)
+ * sind in Admin-Hub → Sicherheit → Datenschutz (PrivacyAdminTab).
+ */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
-import { Download, Trash2, ShieldCheck, Cookie, FileDown } from 'lucide-react'
+import { Download, Trash2, ShieldCheck, FileDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/shared'
 
 export function PrivacySettingsTab() {
   const { t } = useTranslation()
-  const [analyticsEnabled, setAnalyticsEnabled] = useState(true)
-  const [crashReportsEnabled, setCrashReportsEnabled] = useState(true)
-  const [usageDataEnabled, setUsageDataEnabled] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
 
@@ -29,8 +32,12 @@ export function PrivacySettingsTab() {
 
   return (
     <div className="max-w-2xl">
-      <h2 className="text-foreground mb-1">{t('settings.privacy.title')}</h2>
-      <p className="text-sm text-muted-foreground mb-6">{t('settings.privacy.subtitle')}</p>
+      <h2 className="text-foreground mb-1">
+        {t('settings.privacy.personal.title', { defaultValue: 'Meine Daten' })}
+      </h2>
+      <p className="text-sm text-muted-foreground mb-6">
+        {t('settings.privacy.subtitle', { defaultValue: 'Deine persönlichen DSGVO-Rechte (Art. 15 + Art. 17).' })}
+      </p>
 
       {/* GDPR info */}
       <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 mb-8">
@@ -43,57 +50,16 @@ export function PrivacySettingsTab() {
         </p>
       </div>
 
-      {/* Cookie / tracking preferences */}
-      <section className="mb-8">
-        <div className="flex items-center gap-2 mb-4">
-          <Cookie className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground">{t('settings.privacy.tracking.title')}</h3>
-        </div>
-
-        <div className="space-y-3">
-          <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
-            <div>
-              <p className="text-sm text-foreground">{t('settings.privacy.tracking.analytics.label')}</p>
-              <p className="text-xs text-muted-foreground">{t('settings.privacy.tracking.analytics.desc')}</p>
-            </div>
-            <Switch checked={analyticsEnabled} onCheckedChange={setAnalyticsEnabled} />
-          </div>
-
-          <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
-            <div>
-              <p className="text-sm text-foreground">{t('settings.privacy.tracking.crashReports.label')}</p>
-              <p className="text-xs text-muted-foreground">{t('settings.privacy.tracking.crashReports.desc')}</p>
-            </div>
-            <Switch checked={crashReportsEnabled} onCheckedChange={setCrashReportsEnabled} />
-          </div>
-
-          <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
-            <div>
-              <p className="text-sm text-foreground">{t('settings.privacy.tracking.usageData.label')}</p>
-              <p className="text-xs text-muted-foreground">{t('settings.privacy.tracking.usageData.desc')}</p>
-            </div>
-            <Switch checked={usageDataEnabled} onCheckedChange={setUsageDataEnabled} />
-          </div>
-        </div>
-
-        <Button
-          variant="outline"
-          size="sm"
-          className="mt-3"
-          onClick={() => toast.success(t('settings.privacy.tracking.saved'))}
-        >
-          {t('settings.privacy.tracking.saveButton')}
-        </Button>
-      </section>
-
-      {/* Data export */}
+      {/* Datenexport (Art. 15) */}
       <section className="mb-8">
         <div className="flex items-center gap-2 mb-4">
           <FileDown className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground">{t('settings.privacy.export.title')}</h3>
+          <h3 className="text-sm font-medium text-foreground">
+            {t('settings.privacy.personal.exportTitle', { defaultValue: 'Meine Daten exportieren' })}
+          </h3>
         </div>
         <p className="text-xs text-muted-foreground mb-3">
-          {t('settings.privacy.export.desc')}
+          {t('settings.privacy.export.desc', { defaultValue: 'Exportiere eine Kopie aller deiner persönlichen Daten (DSGVO Art. 15).' })}
         </p>
         <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
@@ -104,19 +70,26 @@ export function PrivacySettingsTab() {
             <p className="text-xs text-muted-foreground">{t('settings.privacy.export.fullExportHint')}</p>
           </div>
           <Button onClick={handleExportData} disabled={isExporting} size="sm">
-            {isExporting ? t('settings.privacy.export.preparing') : t('settings.privacy.export.requestButton')}
+            {isExporting
+              ? t('settings.privacy.export.preparing')
+              : t('settings.privacy.export.requestButton')
+            }
           </Button>
         </div>
       </section>
 
-      {/* Account deletion */}
+      {/* Account-Löschung (Art. 17) */}
       <section>
         <div className="flex items-center gap-2 mb-4">
           <Trash2 className="h-4 w-4 text-error" />
-          <h3 className="text-sm font-medium text-error">{t('settings.privacy.deleteAccount.title')}</h3>
+          <h3 className="text-sm font-medium text-error">
+            {t('settings.privacy.personal.deleteTitle', { defaultValue: 'Account löschen' })}
+          </h3>
         </div>
         <div className="rounded-lg border border-error/20 bg-error/5 p-4">
-          <p className="text-sm text-foreground mb-2">{t('settings.privacy.deleteAccount.requestTitle')}</p>
+          <p className="text-sm text-foreground mb-2">
+            {t('settings.privacy.deleteAccount.requestTitle')}
+          </p>
           <p className="text-xs text-muted-foreground mb-4">
             {t('settings.privacy.deleteAccount.requestDesc')}
           </p>

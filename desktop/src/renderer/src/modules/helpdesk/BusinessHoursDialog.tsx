@@ -6,6 +6,7 @@
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { formatDate } from '@/lib/format'
 import {
   Clock,
   Plus,
@@ -202,7 +203,7 @@ export function BusinessHoursDialog({ open, onClose }: BusinessHoursDialogProps)
                     <div className="flex items-center gap-3">
                       <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                       <span className="text-xs font-mono text-muted-foreground">
-                        {new Date(h.date + 'T00:00:00').toLocaleDateString('de-DE')}
+                        {formatDate(h.date + 'T00:00:00')}
                       </span>
                       <span className="text-sm text-foreground">{h.name}</span>
                     </div>

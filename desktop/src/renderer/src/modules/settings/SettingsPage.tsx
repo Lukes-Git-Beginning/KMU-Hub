@@ -19,7 +19,7 @@ import {
   EyeOff,
   Landmark,
   Plug,
-  Sparkles,
+  Bot,
   CreditCard,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -32,6 +32,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 import { DESK_BACKGROUNDS } from '@/components/layout/DeskEnvironment'
 import { canSeeSettingsTab } from '@/config/roles'
+import { Link } from 'react-router-dom'
 import { MailSettingsTab } from './tabs/MailSettingsTab'
 import { CalendarSettingsTab } from './tabs/CalendarSettingsTab'
 import { PrivacySettingsTab } from './tabs/PrivacySettingsTab'
@@ -47,6 +48,10 @@ import { ITAdminTab } from './tabs/ITAdminTab'
 import { ThemePreview } from './ThemePreview'
 import { useTourStore } from '@/stores/tour'
 import { branding } from '@/config/branding'
+import { useTenantMode } from '@/hooks/useTenantMode'
+import { useNavigate } from 'react-router-dom'
+import { ChevronRight } from 'lucide-react'
+import { formatDate } from '@/lib/format'
 
 type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notifications' | 'mail' | 'calendar' | 'company' | 'billing' | 'it-admin' | 'integrations' | 'privacy' | 'ai' | 'about'
 
@@ -57,7 +62,12 @@ interface TabConfig {
   groupKey?: string
 }
 
-const ALL_TABS: TabConfig[] = [
+interface TabConfigExtended extends TabConfig {
+  /** Tabs mit adminOnly=true werden im distributed-Modus ausgeblendet. */
+  adminOnly?: boolean
+}
+
+const ALL_TABS: TabConfigExtended[] = [
   { key: 'profile', labelKey: 'settings.tabs.profile', icon: User, groupKey: 'settings.groups.personal' },
   { key: 'appearance', labelKey: 'settings.tabs.appearance', icon: Palette, groupKey: 'settings.groups.personal' },
   { key: 'language', labelKey: 'settings.tabs.language', icon: Globe, groupKey: 'settings.groups.personal' },
@@ -65,12 +75,12 @@ const ALL_TABS: TabConfig[] = [
   { key: 'notifications', labelKey: 'settings.tabs.notifications', icon: Bell, groupKey: 'settings.groups.personal' },
   { key: 'mail', labelKey: 'settings.tabs.mail', icon: Mail, groupKey: 'settings.groups.modules' },
   { key: 'calendar', labelKey: 'settings.tabs.calendar', icon: Calendar, groupKey: 'settings.groups.modules' },
-  { key: 'company', labelKey: 'settings.tabs.company', icon: Landmark, groupKey: 'settings.groups.admin' },
-  { key: 'billing', labelKey: 'settings.tabs.billing', icon: CreditCard, groupKey: 'settings.groups.admin' },
-  { key: 'it-admin', labelKey: 'settings.tabs.itAdmin', icon: Monitor, groupKey: 'settings.groups.admin' },
-  { key: 'integrations', labelKey: 'settings.tabs.integrations', icon: Plug, groupKey: 'settings.groups.admin' },
+  { key: 'company', labelKey: 'settings.tabs.company', icon: Landmark, groupKey: 'settings.groups.admin', adminOnly: true },
+  { key: 'billing', labelKey: 'settings.tabs.billing', icon: CreditCard, groupKey: 'settings.groups.admin', adminOnly: true },
+  { key: 'it-admin', labelKey: 'settings.tabs.itAdmin', icon: Monitor, groupKey: 'settings.groups.admin', adminOnly: true },
+  { key: 'integrations', labelKey: 'settings.tabs.integrations', icon: Plug, groupKey: 'settings.groups.admin', adminOnly: true },
   { key: 'privacy', labelKey: 'settings.tabs.privacy', icon: Lock, groupKey: 'settings.groups.admin' },
-  { key: 'ai', labelKey: 'settings.tabs.ai', icon: Sparkles, groupKey: 'settings.groups.admin' },
+  { key: 'ai', labelKey: 'settings.tabs.ai', icon: Bot, groupKey: 'settings.groups.admin' },
   { key: 'about', labelKey: 'settings.tabs.about', icon: Info, groupKey: 'settings.groups.other' },
 ]
 
@@ -85,13 +95,33 @@ export default function SettingsPage() {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<TabKey>('profile')
   const user = useAuthStore((s) => s.user)
+  const { isDistributed } = useTenantMode()
+  const navigate = useNavigate()
 
-  // Filter tabs by role — restricted tabs are INVISIBLE, not greyed out
-  const tabs = ALL_TABS.filter((tab) => canSeeSettingsTab(user, tab.key))
+  // Filter tabs:
+  // 1. RBAC — restricted tabs are INVISIBLE
+  // 2. distributed-Mode — adminOnly tabs are INVISIBLE (live in Admin Hub)
+  const tabs = ALL_TABS.filter((tab) => {
+    if (!canSeeSettingsTab(user, tab.key)) return false
+    if (isDistributed && tab.adminOnly) return false
+    return true
+  })
 
-  // If the active tab got hidden (e.g. after role switch), fall back to profile
+  // If the active tab got hidden (e.g. after role switch or mode change), fall back to profile
   const isActiveVisible = tabs.some((t) => t.key === activeTab)
   const effectiveTab = isActiveVisible ? activeTab : 'profile'
+
+  // Handle backwards-compat redirects: ?tab=it-admin → /admin/it etc.
+  const searchParams = new URLSearchParams(window.location.hash.split('?')[1] ?? '')
+  const tabParam = searchParams.get('tab')
+  if (tabParam === 'it-admin') {
+    navigate('/admin/it', { replace: true })
+    return null
+  }
+  if (tabParam === 'billing') {
+    navigate('/admin/billing', { replace: true })
+    return null
+  }
 
   return (
     <div className="flex h-full overflow-hidden animate-fade-up">
@@ -127,6 +157,44 @@ export default function SettingsPage() {
               </div>
             )
           })}
+
+          {/* Administration-Block — in centralized mode: Links zum Admin-Hub */}
+          {!isDistributed && user?.roles.some((r) => ['admin', 'it_support'].includes(r)) && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-3 mb-1">
+                {t('settings.adminBlock.title')}
+              </p>
+              <div className="space-y-0.5">
+                {[
+                  { labelKey: 'settings.adminBlock.it', to: '/admin/it' },
+                  { labelKey: 'settings.adminBlock.security', to: '/admin/security' },
+                  { labelKey: 'settings.adminBlock.billing', to: '/admin/billing' },
+                  { labelKey: 'settings.adminBlock.integrations', to: '/admin/integrations' },
+                ].map((link) => (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    className="flex w-full items-center justify-between gap-2.5 rounded-md px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+                  >
+                    <span>{t(link.labelKey)}</span>
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Link>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground px-3 mt-2 leading-relaxed">
+                {t('settings.adminBlock.distributedHint')}
+              </p>
+            </div>
+          )}
+
+          {/* Distributed-Mode: kurzer Hinweis auf Admin-Hub */}
+          {isDistributed && user?.roles.some((r) => ['admin', 'it_support'].includes(r)) && (
+            <div className="px-3 mt-2">
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                Administration-Einstellungen im Hub links unten.
+              </p>
+            </div>
+          )}
         </nav>
       </aside>
 
@@ -697,7 +765,7 @@ function SecurityTab() {
                  t('settings.security.passwordNextChange', { days: daysUntilExpiry })}
               </p>
               <p className="text-xs text-muted-foreground">
-                {t('settings.security.lastChanged')}: {lastChanged?.toLocaleDateString('de-DE') ?? t('settings.security.unknown')}
+                {t('settings.security.lastChanged')}: {lastChanged ? formatDate(lastChanged) : t('settings.security.unknown')}
                 {' · '}{t('settings.security.policy')}: {t('settings.security.everyDays', { days: expiryDays })}
               </p>
             </div>
@@ -928,20 +996,20 @@ function AboutTab() {
   return (
     <div className="max-w-2xl mx-auto">
       {/* Hero */}
-      <div className="rounded-xl bg-gradient-to-br from-primary to-primary-dark p-8 mb-6">
+      <div className="rounded-xl border border-border bg-card p-8 mb-6">
         <div className="flex items-center gap-4 mb-3">
           <img src={branding.cosmi.icon128} alt="Cosmi" className="max-h-14 w-auto object-contain" />
           <div>
-            <h2 className="text-primary-foreground text-xl font-semibold mb-0.5">Cosmi</h2>
-            <p className="text-primary-foreground/50 text-xs">by Zentria</p>
+            <h2 className="text-foreground text-xl font-semibold mb-0.5">Cosmi</h2>
+            <p className="text-muted-foreground text-xs">by Zentria</p>
           </div>
         </div>
-        <p className="text-primary-foreground/80 text-sm mb-3">
+        <p className="text-muted-foreground text-sm mb-3">
           {t('settings.about.tagline')}
         </p>
         <div className="flex items-center gap-3">
-          <span className="rounded-full bg-white/15 px-3 py-1 text-xs text-primary-foreground">v0.1.0 Beta</span>
-          <span className="rounded-full bg-white/15 px-3 py-1 text-xs text-primary-foreground">Enterprise</span>
+          <span className="rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">v0.1.0 Beta</span>
+          <span className="rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">Enterprise</span>
         </div>
       </div>
 

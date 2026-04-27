@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import { useFileDownloadURL } from '@/api/hooks/useDocuments'
 import type { DocumentFile } from '@/api/types/document-types'
+import { formatDate } from '@/lib/format'
 
 interface FilePreviewModalProps {
   file: DocumentFile | null
@@ -202,7 +203,7 @@ export function FilePreviewModal({
           <div className="text-xs text-muted-foreground">
             {formatBytes(file.file_size)} &middot; Version{' '}
             {file.current_version} &middot;{' '}
-            {new Date(file.created_at).toLocaleDateString('de-DE')}
+            {formatDate(file.created_at)}
           </div>
           <Button
             variant="outline"

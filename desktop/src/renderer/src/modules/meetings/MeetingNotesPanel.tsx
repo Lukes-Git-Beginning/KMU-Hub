@@ -10,7 +10,7 @@
  */
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Save, Lock, Globe, Sparkles } from 'lucide-react'
+import { Save, Lock, Globe, Bot } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAIStore } from '@/stores/ai'
 import { Switch } from '@/components/ui/switch'
@@ -167,7 +167,7 @@ export function MeetingNotesPanel({ meetingId }: MeetingNotesPanelProps) {
               {summaryLoading ? (
                 <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               ) : (
-                <Sparkles className="h-3 w-3" />
+                <Bot className="h-3 w-3" />
               )}
               {t('meetings.notes.summarize')}
             </button>

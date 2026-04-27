@@ -13,6 +13,7 @@ import {
 import { useFinanceDashboard } from '@/api/hooks/useFinance'
 import { useFinanceUIStore, formatEUR } from '@/stores/finance'
 import type { InvoiceStatus } from '@/types/finance-types'
+import { formatDate } from '@/lib/format'
 
 const STATUS_COLORS: Record<InvoiceStatus, string> = {
   draft: 'bg-secondary',
@@ -328,7 +329,7 @@ export function FinanceDashboard() {
                     </p>
                   </div>
                   <span className="text-warning text-[10px] ml-2 shrink-0">
-                    bis {new Date(q.valid_until).toLocaleDateString('de-DE')}
+                    bis {formatDate(q.valid_until)}
                   </span>
                 </div>
               ))}

@@ -6,6 +6,7 @@
  */
 import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { formatDate } from '@/lib/format'
 import { Link2, Copy, Check, Shield, Calendar, RefreshCw, Eye, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -131,7 +132,7 @@ export function ShareLinkDialog({ open, onClose, fileName, fileId }: ShareLinkDi
             </select>
             {expiryDays !== '0' && (
               <p className="text-[10px] text-muted-foreground mt-1">
-                {t('dokumente.shareLink.expiresOn', { date: expiryDate.toLocaleDateString('de-DE') })}
+                {t('dokumente.shareLink.expiresOn', { date: formatDate(expiryDate) })}
               </p>
             )}
           </div>

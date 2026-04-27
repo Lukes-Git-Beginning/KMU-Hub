@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { formatDate } from '@/lib/format'
 import { SkipForward, RotateCcw, Phone, Clock, Building2 } from 'lucide-react'
 import {
   Table,
@@ -126,7 +127,7 @@ export default function ContactQueueTable({
                 {contact.status === 5 && contact.callback_at && (
                   <span className="ml-1.5 inline-flex items-center gap-1 text-xs text-warning">
                     <Clock className="h-3 w-3" />
-                    {new Date(contact.callback_at).toLocaleDateString('de-DE')}
+                    {formatDate(contact.callback_at)}
                   </span>
                 )}
               </TableCell>

@@ -48,7 +48,7 @@ import {
   type FrameworkContract,
 } from '@/stores/einkauf'
 import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
-import { formatAmount, formatCurrency } from '@/lib/format'
+import { formatAmount, formatCurrency, formatDate } from '@/lib/format'
 
 type TabKey = 'bestellungen' | 'lieferanten' | 'katalog' | 'rahmenverträge'
 type StatusFilter = PurchaseOrder['status'] | 'all'
@@ -415,8 +415,8 @@ export default function EinkaufPage() {
   // ---------------------------------------------------------------------------
 
 
-  const formatDate = (d: string) =>
-    new Date(d.includes('T') ? d : d + 'T00:00:00').toLocaleDateString('de-DE')
+  const formatDateLocal = (d: string) =>
+    formatDate(d.includes('T') ? d : d + 'T00:00:00')
 
   /** Status timeline for detail panel */
   const renderTimeline = (currentStatus: PurchaseOrder['status']) => {
@@ -622,7 +622,7 @@ export default function EinkaufPage() {
                         {formatCurrency(order.total, order.currency || 'EUR')}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {order.expectedDelivery ? formatDate(order.expectedDelivery) : '--'}
+                        {order.expectedDelivery ? formatDateLocal(order.expectedDelivery) : '--'}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {formatDate(order.createdAt)}
@@ -864,7 +864,7 @@ export default function EinkaufPage() {
                           <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
                             <span className="font-mono">{contract.contractNr}</span>
                             <span>{contract.supplierName}</span>
-                            <span>{formatDate(contract.startDate)} – {formatDate(contract.endDate)}</span>
+                            <span>{formatDateLocal(contract.startDate)} – {formatDateLocal(contract.endDate)}</span>
                           </div>
                         </div>
                       </div>
@@ -1061,7 +1061,7 @@ export default function EinkaufPage() {
                 <CalendarDays className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">{t('einkauf.detail.deliveryDateLabel')}</span>
                 <span className="text-foreground">
-                  {selectedOrder.expectedDelivery ? formatDate(selectedOrder.expectedDelivery) : '--'}
+                  {selectedOrder.expectedDelivery ? formatDateLocal(selectedOrder.expectedDelivery) : '--'}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-sm">

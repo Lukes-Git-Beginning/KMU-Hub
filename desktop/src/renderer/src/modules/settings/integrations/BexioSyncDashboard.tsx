@@ -41,6 +41,7 @@ import type {
   BexioSyncLogEntry,
 } from '@/api/bexio-types'
 import { BexioFieldMappingEditor } from './BexioFieldMappingEditor'
+import { formatDate } from '@/lib/format'
 
 interface BexioSyncDashboardProps {
   isOpen: boolean
@@ -113,7 +114,7 @@ export function BexioSyncDashboard({
             {connection?.connected_at && (
               <p className="text-xs text-muted-foreground">
                 {t('settings.integrations.bexio.sync.connectedSince', {
-                  date: new Date(connection.connected_at).toLocaleDateString('de-DE'),
+                  date: formatDate(connection.connected_at),
                 })}
               </p>
             )}

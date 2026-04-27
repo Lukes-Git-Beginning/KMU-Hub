@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { formatDate } from '@/lib/format'
 import {
   Send,
   UserPlus,
@@ -359,7 +360,7 @@ export default function ESignaturDialog({
                     <div className="min-w-0 pb-1">
                       <p className="text-sm text-foreground">{event.label}</p>
                       <span className="text-[10px] text-muted-foreground">
-                        {new Date(event.date + 'T00:00:00').toLocaleDateString('de-DE')}
+                        {formatDate(event.date + 'T00:00:00')}
                       </span>
                     </div>
                   </div>

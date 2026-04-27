@@ -12,7 +12,7 @@ import {
   Briefcase,
   Monitor,
   FileText,
-  Sparkles,
+  CheckCircle2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { EmptyState } from '@/components/shared'
@@ -282,7 +282,7 @@ export function OnboardingChecklist() {
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-foreground">{ob.employeeName}</span>
                         <span className="text-xs text-muted-foreground">— {t(ob.templateName)}</span>
-                        {isDone && <Sparkles className="h-3.5 w-3.5 text-success" />}
+                        {isDone && <CheckCircle2 className="h-3.5 w-3.5 text-success" />}
                       </div>
                       <div className="flex items-center gap-3 mt-1">
                         <div className="flex-1 max-w-[200px] h-1.5 rounded-full bg-secondary">

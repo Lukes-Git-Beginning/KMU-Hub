@@ -12,7 +12,7 @@ import {
   PawPrint,
   Hexagon,
   Waves,
-  Sparkles,
+  Star,
   CircleOff,
 } from 'lucide-react'
 
@@ -72,7 +72,7 @@ export const BACKGROUND_PATTERNS: Record<string, BackgroundPattern> = {
     id: 'abstrakt',
     name: 'config.backgroundPattern.abstrakt.name',
     description: 'config.backgroundPattern.abstrakt.description',
-    icon: Sparkles,
+    icon: Star,
     bgClass: 'bg-pattern-abstrakt',
     stickerClass: 'sticker-abstrakt',
   },

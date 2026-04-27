@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Building2, Loader2, Plug, Unlink, RefreshCw, Zap, Plus, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useIntegrationStore } from '@/stores/integrations'
+import { formatDate } from '@/lib/format'
 
 interface KontoMapping {
   id: string
@@ -148,7 +149,7 @@ export function DATEVConfigPanel({ onBack }: DATEVConfigPanelProps) {
       {/* Connected info */}
       {status === 'connected' && integration?.connectedAt && (
         <div className="rounded-lg border border-success/30 bg-success-light px-4 py-2.5 mb-6 text-sm text-success">
-          {t('settings.integrations.connectedSince', { date: new Date(integration.connectedAt).toLocaleDateString('de-DE') })}
+          {t('settings.integrations.connectedSince', { date: formatDate(integration.connectedAt) })}
           {integration.lastSync && (
             <span className="ml-3 text-success/70">
               {t('settings.integrations.lastSync', { date: new Date(integration.lastSync).toLocaleString('de-DE') })}

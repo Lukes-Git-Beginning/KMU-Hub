@@ -22,6 +22,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ACTIVITY_TYPES, activityTypeLabel, activityTypeIcon } from './activityUtils'
 import { ActivityFormDialog, type ActivityFormData } from './ActivityFormDialog'
+import { formatDate } from '@/lib/format'
 
 const PAGE_SIZE = 20
 
@@ -232,17 +233,13 @@ export default function ActivitiesListPage() {
                       {activity.due_date && (
                         <span>
                           {t('crm.activities.due')}:{' '}
-                          {new Date(activity.due_date).toLocaleDateString(
-                            'de-DE'
-                          )}
+                          {formatDate(activity.due_date)}
                         </span>
                       )}
                       {activity.created_at && (
                         <span>
                           {t('crm.field.created')}:{' '}
-                          {new Date(activity.created_at).toLocaleDateString(
-                            'de-DE'
-                          )}
+                          {formatDate(activity.created_at)}
                         </span>
                       )}
                     </div>

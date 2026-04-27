@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import { formatDate as libFormatDate, formatDateTime as libFormatDateTime } from '@/lib/format'
 import {
   Search,
   Plus,
@@ -379,16 +380,10 @@ export default function FormularePage() {
   // ---------------------------------------------------------------------------
 
   const formatDate = (d: string) =>
-    new Date(d.includes('T') ? d : d + 'T00:00:00').toLocaleDateString('de-DE')
+    libFormatDate(d.includes('T') ? d : d + 'T00:00:00')
 
   const formatDateTime = (d: string) =>
-    new Date(d).toLocaleDateString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
+    libFormatDateTime(d, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
   const getFormActions = useCallback(
     (schema: FormSchema) => [

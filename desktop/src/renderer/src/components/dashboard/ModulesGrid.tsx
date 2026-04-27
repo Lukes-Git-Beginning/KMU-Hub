@@ -175,7 +175,7 @@ export function ModulesGrid() {
                 key={mod.id}
                 to={mod.path}
                 className={cn(
-                  'group relative rounded-xl border border-border bg-card p-6 transition-all hover:shadow-lg hover:-translate-y-0.5',
+                  'group relative rounded-xl border border-border bg-card p-6 transition-[box-shadow,transform] hover:shadow-md hover:-translate-y-px',
                   !mod.isActive && 'opacity-75',
                   `animate-scale-in stagger-${Math.min(i + 1, 8)}`,
                 )}
@@ -207,7 +207,7 @@ export function ModulesGrid() {
                     </p>
                     <p className="text-2xl text-foreground stat-accent">{mod.stats.value}</p>
                   </div>
-                  <ArrowRight className="h-5 w-5 text-muted-foreground transition-all group-hover:translate-x-1 group-hover:text-primary" />
+                  <ArrowRight className="h-5 w-5 text-muted-foreground transition-[color,transform] group-hover:translate-x-0.5 group-hover:text-primary" />
                 </div>
 
                 {!mod.isActive && (

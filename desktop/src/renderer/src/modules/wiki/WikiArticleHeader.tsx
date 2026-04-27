@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import type { WikiArticle } from '@/types/wiki'
 import { useWikiStore } from '@/stores/wiki'
 import { ItemActions } from '@/components/shared'
+import { formatDate as libFormatDate } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
 // Status config
@@ -27,15 +28,8 @@ const statusConfig: Record<string, { key: string; bg: string }> = {
 }
 
 function formatDate(dateStr: string): string {
-  try {
-    return new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('de-DE', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    })
-  } catch {
-    return dateStr
-  }
+  const normalized = dateStr.includes('T') ? dateStr : dateStr + 'T00:00:00'
+  return libFormatDate(normalized, { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 // ---------------------------------------------------------------------------

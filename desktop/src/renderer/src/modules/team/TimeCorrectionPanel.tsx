@@ -26,6 +26,7 @@ import {
   useApproveCorrection,
 } from '@/api/hooks/hr-hooks'
 import type { WorkTimeEntry } from '@/api/hr-types'
+import { formatDate as libFormatDate, formatTime as libFormatTime } from '@/lib/format'
 
 export function TimeCorrectionPanel() {
   const { t } = useTranslation()
@@ -78,11 +79,11 @@ export function TimeCorrectionPanel() {
 
   const formatTime = (iso?: string) => {
     if (!iso) return '--:--'
-    return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+    return libFormatTime(iso, { hour: '2-digit', minute: '2-digit' })
   }
 
   const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    libFormatDate(iso, { day: '2-digit', month: '2-digit', year: 'numeric' })
 
   if (isLoading) {
     return (

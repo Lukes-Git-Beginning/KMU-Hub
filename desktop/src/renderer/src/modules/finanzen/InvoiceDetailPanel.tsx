@@ -29,6 +29,7 @@ import {
 import { formatEUR } from '@/stores/finance'
 import type { InvoiceStatus } from '@/types/finance-types'
 import { PDFPreviewPanel } from './PDFPreviewPanel'
+import { formatDate } from '@/lib/format'
 
 const statusConfig: Record<
   InvoiceStatus,
@@ -178,7 +179,7 @@ export function InvoiceDetailPanel({
                 {t('finanzen.invoiceDetail.invoiceDate')}
               </p>
               <p className="text-foreground">
-                {new Date(invoice.invoice_date).toLocaleDateString('de-DE')}
+                {formatDate(invoice.invoice_date)}
               </p>
             </div>
           </div>
@@ -187,7 +188,7 @@ export function InvoiceDetailPanel({
             <div>
               <p className="text-[10px] text-muted-foreground">{t('finanzen.invoiceDetail.dueDate')}</p>
               <p className="text-foreground">
-                {new Date(invoice.due_date).toLocaleDateString('de-DE')}
+                {formatDate(invoice.due_date)}
               </p>
             </div>
           </div>
@@ -300,7 +301,7 @@ export function InvoiceDetailPanel({
                       {PAYMENT_METHOD_LABEL_KEYS[p.method] ? t(PAYMENT_METHOD_LABEL_KEYS[p.method]) : p.method}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
-                      {new Date(p.payment_date).toLocaleDateString('de-DE')}
+                      {formatDate(p.payment_date)}
                       {p.reference && ` | ${p.reference}`}
                     </p>
                   </div>
@@ -327,7 +328,7 @@ export function InvoiceDetailPanel({
         <PDFPreviewPanel
           invoiceNumber={invoice.invoice_number}
           customerName={invoice.customer?.name ?? ''}
-          date={new Date(invoice.invoice_date).toLocaleDateString('de-DE')}
+          date={formatDate(invoice.invoice_date)}
           amount={formatEUR(invoice.tax_breakdown?.gross_total ?? invoice.total_gross ?? 0)}
           onDownload={() => downloadPDF.mutate(invoiceId)}
         />
@@ -386,7 +387,7 @@ export function InvoiceDetailPanel({
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-foreground">{entry.action}</span>
                     <span className="text-[10px] text-muted-foreground">
-                      {new Date(entry.date).toLocaleDateString('de-DE')}
+                      {formatDate(entry.date)}
                     </span>
                   </div>
                   <p className="text-[10px] text-muted-foreground">

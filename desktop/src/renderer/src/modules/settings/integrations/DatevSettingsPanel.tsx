@@ -50,6 +50,7 @@ import type {
   DatevUploadConfig,
   DatevUploadLogEntry,
 } from '@/api/datev-upload-types'
+import { formatDate } from '@/lib/format'
 
 interface DatevSettingsPanelProps {
   isOpen: boolean
@@ -146,7 +147,7 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
               </p>
               {isConnected && connection?.connected_at && (
                 <p className="text-xs text-muted-foreground">
-                  {t('settings.integrations.datev.settings.connectedSince', { date: new Date(connection.connected_at).toLocaleDateString('de-DE') })}
+                  {t('settings.integrations.datev.settings.connectedSince', { date: formatDate(connection.connected_at) })}
                 </p>
               )}
             </div>

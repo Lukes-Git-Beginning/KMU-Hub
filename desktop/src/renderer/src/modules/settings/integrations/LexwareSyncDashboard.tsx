@@ -41,6 +41,7 @@ import type {
   LexwareSyncLogEntry,
 } from '@/api/lexware-types'
 import { LexwareFieldMappingEditor } from './LexwareFieldMappingEditor'
+import { formatDate } from '@/lib/format'
 
 interface LexwareSyncDashboardProps {
   isOpen: boolean
@@ -116,7 +117,7 @@ export function LexwareSyncDashboard({
             {connection?.connected_at && (
               <p className="text-xs text-muted-foreground">
                 {t('settings.integrations.lexware.sync.connectedSince', {
-                  date: new Date(connection.connected_at).toLocaleDateString('de-DE'),
+                  date: formatDate(connection.connected_at),
                 })}
               </p>
             )}

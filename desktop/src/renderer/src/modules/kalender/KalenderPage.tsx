@@ -47,6 +47,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { RoomBookingView } from './RoomBookingView'
 import { CategoryManagerDialog } from './CategoryManagerDialog'
 import { CalendarBrowseDialog } from './CalendarBrowseDialog'
+import { CalendarSettingsTab } from './tabs/CalendarSettingsTab'
 
 // ============================================================
 // Types (re-export from adapters)
@@ -323,6 +324,7 @@ export default function KalenderPage() {
   const [showRoomBooking, setShowRoomBooking] = useState(false)
   const [showCategoryManager, setShowCategoryManager] = useState(false)
   const [showCalendarBrowse, setShowCalendarBrowse] = useState(false)
+  const [showCalendarSettings, setShowCalendarSettings] = useState(false)
 
   // Auth
   const currentUserId = useAuthStore((s) => s.user?.id ?? '')
@@ -596,6 +598,7 @@ export default function KalenderPage() {
               onOpenRooms={() => setShowRoomBooking(true)}
               onOpenCategories={() => setShowCategoryManager(true)}
               onOpenCalendarBrowse={() => setShowCalendarBrowse(true)}
+              onOpenSettings={() => setShowCalendarSettings(true)}
             />
 
             <div className="flex-1 overflow-auto bg-card">
@@ -715,6 +718,16 @@ export default function KalenderPage() {
             calendars={calendars}
             onToggleCalendar={toggleCalendar}
           />
+
+          {/* Calendar Settings Modal */}
+          <Dialog open={showCalendarSettings} onOpenChange={setShowCalendarSettings}>
+            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{t('kalender.einstellungen.title', { defaultValue: 'Kalender-Einstellungen' })}</DialogTitle>
+              </DialogHeader>
+              <CalendarSettingsTab />
+            </DialogContent>
+          </Dialog>
         </div>
       ) : (
         <TerminbuchungTab />
@@ -1656,6 +1669,7 @@ function CalendarToolbar({
   onOpenRooms,
   onOpenCategories,
   onOpenCalendarBrowse,
+  onOpenSettings,
 }: {
   view: ViewMode
   currentDate: Date
@@ -1666,6 +1680,7 @@ function CalendarToolbar({
   onOpenRooms: () => void
   onOpenCategories: () => void
   onOpenCalendarBrowse: () => void
+  onOpenSettings: () => void
 }) {
   const { t } = useTranslation()
   const label =
@@ -1725,6 +1740,13 @@ function CalendarToolbar({
           title={t('kalender.toolbar.categories')}
         >
           <Settings2 className="h-4 w-4" />
+        </button>
+        <button
+          onClick={onOpenSettings}
+          className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+          title={t('kalender.einstellungen.title', { defaultValue: 'Einstellungen' })}
+        >
+          <Settings2 className="h-4 w-4 opacity-60" />
         </button>
         <span className="mx-0.5 h-5 w-px bg-border" />
         <button

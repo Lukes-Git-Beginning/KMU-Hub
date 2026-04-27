@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/cn'
+import { formatDate } from '@/lib/format'
 import { toast } from 'sonner'
 import { EmptyState } from '@/components/shared'
 import { EmptyCalendar } from '@/components/shared/illustrations'
@@ -579,7 +580,7 @@ function CorrectionsView({
               <div key={entry.id} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card">
                 <div className="flex-1 min-w-0">
                   <div className="text-sm text-foreground font-mono tabular-nums">
-                    {new Date(entry.clockIn).toLocaleDateString('de-DE')}:{' '}
+                    {formatDate(entry.clockIn)}:{' '}
                     {formatTimeFromISO(entry.clockIn)} – {entry.clockOut ? formatTimeFromISO(entry.clockOut) : '...'}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">

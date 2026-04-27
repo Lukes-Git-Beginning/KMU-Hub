@@ -31,6 +31,7 @@ import {
 import { useRecordings } from '@/api/hooks/useVideo'
 import { useAuthStore } from '@/stores/auth'
 import type { MeetingSummary } from '@/api/video-types'
+import { formatDate as libFormatDate } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -54,12 +55,7 @@ function formatDuration(minutes: number): string {
 }
 
 function formatDate(isoDate: string): string {
-  return new Date(isoDate).toLocaleDateString('de-DE', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
+  return libFormatDate(isoDate, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 // ---------------------------------------------------------------------------

@@ -33,6 +33,7 @@ import {
   useCreateVersion,
   useRevertVersion,
 } from '@/api/hooks/useDocuments'
+import { formatDateTime } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -46,13 +47,7 @@ function formatBytes(bytes: number): string {
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('de-DE', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return formatDateTime(dateStr, { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 // ---------------------------------------------------------------------------

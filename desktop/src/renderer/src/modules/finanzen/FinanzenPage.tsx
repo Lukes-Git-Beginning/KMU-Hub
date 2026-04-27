@@ -16,6 +16,8 @@ import {
   Landmark,
   Timer,
   Settings as SettingsIcon,
+  Building2,
+  Plug,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ItemActions, ConfirmDialog, EmptyState, PageHeader } from '@/components/shared'
@@ -51,14 +53,19 @@ import { ExportDialog } from './ExportDialog'
 import { DunningPanel } from './DunningPanel'
 import { FinanceDashboard } from './FinanceDashboard'
 import { BelegketteTab } from './BelegketteTab'
+import { ExpensesTab } from './tabs/ExpensesTab'
+import { TransactionsTab } from './tabs/TransactionsTab'
 import { QRRechnungPreview, QRBillIndicator } from './QRRechnungPreview'
 import { EInvoiceBadge, EInvoiceDetailDialog } from './EInvoiceIndicator'
 import { HoursToInvoiceDialog } from './HoursToInvoiceDialog'
 import { BankingWidget } from './BankingWidget'
 import { AnimatedCheckmark } from '@/components/shared/AnimatedCheckmark'
 import { FinanceSettingsTab } from '@/modules/settings/tabs/FinanceSettingsTab'
+import { StammdatenTab } from './tabs/StammdatenTab'
+import { FinanzIntegrationenTab } from './tabs/FinanzIntegrationenTab'
 import { useAuthStore } from '@/stores/auth'
 import { userHasRole } from '@/config/roles'
+import { formatDate } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
 // Status badge config
@@ -142,8 +149,9 @@ export default function FinanzenPage() {
 
   const user = useAuthStore((s) => s.user)
   const canSeeSettingsTab = userHasRole(user, ['admin'])
-  // Falls Settings-Tab restricted wird (Rollenwechsel) -> auf dashboard zurueckfallen
-  const effectiveTab: FinanceTabKey = activeTab === 'settings' && !canSeeSettingsTab ? 'dashboard' : activeTab
+  // Falls admin-only Tabs restricted sind (Rollenwechsel) -> auf dashboard zurueckfallen
+  const adminOnlyTabs: FinanceTabKey[] = ['settings', 'stammdaten', 'finanz-integrationen']
+  const effectiveTab: FinanceTabKey = adminOnlyTabs.includes(activeTab) && !canSeeSettingsTab ? 'dashboard' : activeTab
 
   const [search, setSearch] = useState('')
 
@@ -404,6 +412,10 @@ export default function FinanzenPage() {
     count?: number
   }[] = [
     { key: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+    // Stammdaten: 2. Position (admin only) — oft erster Setup-Schritt
+    ...(canSeeSettingsTab
+      ? [{ key: 'stammdaten' as const, label: t('finanzen.tabs.stammdaten', { defaultValue: 'Stammdaten' }), icon: Building2 }]
+      : []),
     {
       key: 'invoices',
       label: t('finanzen.tabs.invoices', { count: invoicesData?.total ?? 0 }),
@@ -419,12 +431,25 @@ export default function FinanzenPage() {
       label: t('finanzen.tabs.creditNotes', { count: creditNotesData?.total ?? 0 }),
       icon: Receipt,
     },
+    {
+      key: 'expenses',
+      label: t('buchhaltung.tabs.expenses'),
+      icon: Receipt,
+    },
+    {
+      key: 'transactions',
+      label: t('buchhaltung.tabs.transactions'),
+      icon: Timer,
+    },
     { key: 'dunning', label: t('finanzen.tabs.dunning'), icon: Gavel },
     { key: 'belegkette', label: t('finanzen.tabs.belegkette'), icon: Link2 },
     { key: 'banking', label: t('finanzen.tabs.banking'), icon: Landmark },
     { key: 'export', label: t('finanzen.tabs.export'), icon: Download },
     ...(canSeeSettingsTab
-      ? [{ key: 'settings' as const, label: t('finanzen.tabs.settings'), icon: SettingsIcon }]
+      ? [
+          { key: 'finanz-integrationen' as const, label: t('finanzen.tabs.integrationen', { defaultValue: 'Integrationen' }), icon: Plug },
+          { key: 'settings' as const, label: t('finanzen.tabs.settings'), icon: SettingsIcon },
+        ]
       : []),
   ]
 
@@ -601,7 +626,7 @@ export default function FinanzenPage() {
                     {formatEUR(grossTotal)}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {new Date(inv.due_date).toLocaleDateString('de-DE')}
+                    {formatDate(inv.due_date)}
                   </span>
                   <span
                     className={`text-xs font-medium ${
@@ -675,7 +700,7 @@ export default function FinanzenPage() {
                     {formatEUR(q.tax_breakdown?.gross_total ?? q.total_gross ?? 0)}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {new Date(q.valid_until).toLocaleDateString('de-DE')}
+                    {formatDate(q.valid_until)}
                   </span>
                   <span
                     className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.colors}`}
@@ -772,6 +797,12 @@ export default function FinanzenPage() {
           </div>
         ))}
 
+      {/* Expenses Tab (migriert aus altem buchhaltung-Modul) */}
+      {effectiveTab === 'expenses' && <ExpensesTab />}
+
+      {/* Transactions Tab (migriert aus altem buchhaltung-Modul) */}
+      {effectiveTab === 'transactions' && <TransactionsTab />}
+
       {/* Dunning Tab */}
       {effectiveTab === 'dunning' && <DunningPanel />}
 
@@ -857,6 +888,12 @@ export default function FinanzenPage() {
           </div>
         </div>
       )}
+
+      {/* Stammdaten Tab — admin only */}
+      {effectiveTab === 'stammdaten' && <StammdatenTab />}
+
+      {/* Finanz-Integrationen Tab — admin only */}
+      {effectiveTab === 'finanz-integrationen' && <FinanzIntegrationenTab />}
 
       {/* Settings Tab — admin only (firmenweite Buchhaltungs-Konfiguration) */}
       {effectiveTab === 'settings' && <FinanceSettingsTab />}

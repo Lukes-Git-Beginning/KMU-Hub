@@ -48,6 +48,15 @@ import type { EmailMessageInfo } from '@/api/email-types'
 import type { ComposeMode } from '@/stores/mails'
 import { ComposeInline } from './ComposeInline'
 import { ItemActions, ConfirmDialog, EmptyState, type ActionItem } from '@/components/shared'
+import { MailServerSettingsTab } from './tabs/MailServerSettingsTab'
+import { userHasRole } from '@/config/roles'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { formatDate, formatTime } from '@/lib/format'
 
 const folderIcons: Record<string, typeof Inbox> = {
   inbox: Inbox,
@@ -106,6 +115,8 @@ export default function MailsPage() {
   const userId = user?.id ?? ''
   const consumeIntent = useNavigationStore((s) => s.consumeIntent)
   const { setComposeDraft: _setComposeDraft } = useMailsStore()
+  const canSeeMailSettings = userHasRole(user, ['admin', 'it_support'])
+  const [showMailSettings, setShowMailSettings] = useState(false)
 
   // Account
   const { data: accountData } = useEmailAccount(userId)
@@ -279,23 +290,6 @@ export default function MailsPage() {
     return addr.email[0].toUpperCase()
   }
 
-  const formatDate = (dateStr: string) => {
-    try {
-      const d = new Date(dateStr)
-      return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
-    } catch {
-      return dateStr
-    }
-  }
-
-  const formatTime = (dateStr: string) => {
-    try {
-      const d = new Date(dateStr)
-      return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
-    } catch {
-      return ''
-    }
-  }
 
   const showInlineCompose = composeOpen
   const showMessageDetail = selectedMessage && !showInlineCompose
@@ -364,6 +358,18 @@ export default function MailsPage() {
           >
             <RefreshCw className={`h-3.5 w-3.5 ${syncStatusData?.status === 'syncing' ? 'animate-spin' : ''}`} />
             {syncStatusData?.status === 'syncing' ? t('mails.syncing') : t('mails.sync')}
+          </button>
+        )}
+
+        {/* Admin: Einstellungen-Button */}
+        {canSeeMailSettings && (
+          <button
+            onClick={() => setShowMailSettings(true)}
+            className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
+            aria-label={t('mails.einstellungen.title', { defaultValue: 'Mail-Einstellungen' })}
+          >
+            <Settings className="h-3.5 w-3.5" />
+            {t('mails.tabs.einstellungen', { defaultValue: 'Einstellungen' })}
           </button>
         )}
       </aside>
@@ -639,6 +645,16 @@ export default function MailsPage() {
         variant="destructive"
         onConfirm={handleDelete}
       />
+
+      {/* Mail Server Settings Modal */}
+      <Dialog open={showMailSettings} onOpenChange={setShowMailSettings}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t('mails.einstellungen.title', { defaultValue: 'Mail-Einstellungen' })}</DialogTitle>
+          </DialogHeader>
+          <MailServerSettingsTab />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

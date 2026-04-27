@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { FileText, Calendar, CreditCard, Clock, CheckCircle2, AlertCircle, XCircle, User } from 'lucide-react'
 import { DetailPanel } from '@/components/shared'
 import { type Invoice, calcLineTotal, calcInvoiceSubtotal, calcInvoiceTax, calcInvoiceTotal, calcPaidAmount, calcRemainingAmount } from '@/stores/finance'
-import { formatCurrency } from '@/lib/format'
+import { formatCurrency, formatDate } from '@/lib/format'
 
 const statusKeys: Record<string, { labelKey: string; color: string; bg: string; icon: typeof CheckCircle2 }> = {
   draft: { labelKey: 'buchhaltung.status.draft', color: 'text-muted-foreground', bg: 'bg-secondary', icon: FileText },
@@ -51,14 +51,14 @@ export function InvoiceDetailPanel({ invoice, onClose, onEdit, onRecordPayment }
             <Calendar className="h-3.5 w-3.5" />
             <div>
               <p className="text-[10px] text-muted-foreground">{t('buchhaltung.form.date')}</p>
-              <p className="text-foreground">{new Date(invoice.date).toLocaleDateString('de-DE')}</p>
+              <p className="text-foreground">{formatDate(invoice.date)}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
             <Clock className="h-3.5 w-3.5" />
             <div>
               <p className="text-[10px] text-muted-foreground">{t('buchhaltung.table.due')}</p>
-              <p className="text-foreground">{new Date(invoice.dueDate).toLocaleDateString('de-DE')}</p>
+              <p className="text-foreground">{formatDate(invoice.dueDate)}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
@@ -137,7 +137,7 @@ export function InvoiceDetailPanel({ invoice, onClose, onEdit, onRecordPayment }
                   <div>
                     <p className="text-foreground">{p.method}</p>
                     <p className="text-[10px] text-muted-foreground">
-                      {new Date(p.date).toLocaleDateString('de-DE')}
+                      {formatDate(p.date)}
                       {p.reference && ` · ${p.reference}`}
                     </p>
                   </div>

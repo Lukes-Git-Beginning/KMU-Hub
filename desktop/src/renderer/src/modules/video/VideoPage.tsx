@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { useMeetingsStore, type CallHistoryEntry } from '../../stores/meetings'
 import { PageHeader } from '@/components/shared'
+import { formatDate } from '@/lib/format'
 
 type VideoTab = 'active' | 'history' | 'settings'
 
@@ -44,7 +45,7 @@ function formatDate(dateStr: string, t: (key: string) => string): string {
 
   if (d.toDateString() === today.toDateString()) return t('video.date.heute')
   if (d.toDateString() === yesterday.toDateString()) return t('video.date.gestern')
-  return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  return formatDate(d, { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 function directionIcon(direction: CallHistoryEntry['direction']) {

@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Building2, Loader2, Plug, Unlink, RefreshCw, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 import { useIntegrationStore } from '@/stores/integrations'
+import { formatDate } from '@/lib/format'
 
 const STATUS_BADGE_KEYS: Record<string, { labelKey: string; cls: string }> = {
   connected: { labelKey: 'settings.integrations.status.connected', cls: 'bg-success-light text-success' },
@@ -153,7 +154,7 @@ export function BexioConfigPanel({ onBack }: BexioConfigPanelProps) {
                   {t('settings.integrations.bexio.connectedWith')}
                 </p>
                 <p className="text-xs text-success/70 mt-0.5">
-                  Seit {integration?.connectedAt ? new Date(integration.connectedAt).toLocaleDateString('de-DE') : '—'}
+                  Seit {integration?.connectedAt ? formatDate(integration.connectedAt) : '—'}
                   {integration?.lastSync && (
                     <span className="ml-2">
                       · Letzte Sync: {new Date(integration.lastSync).toLocaleString('de-DE')}

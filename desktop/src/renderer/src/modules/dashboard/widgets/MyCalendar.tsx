@@ -8,6 +8,7 @@ import { useCalendars } from '@/api/hooks/useCalendars'
 import { useEventsInRange } from '@/api/hooks/useEvents'
 import { expandedEventToUI } from '@/modules/kalender/adapters'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
+import { formatDate } from '@/lib/format'
 
 const TYPE_STYLE: Record<string, { color: string; labelKey: string }> = {
   meeting: { color: 'bg-blue-500', labelKey: 'dashboard.myCalendar.meeting' },
@@ -69,7 +70,7 @@ function MyCalendar(_props: WidgetProps) {
       <div className="flex h-full flex-col">
         <div className="flex items-center justify-between px-4 pt-4 pb-2">
           <span className="text-xs font-medium text-muted-foreground">
-            {now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}
+            {formatDate(now, { weekday: 'long', day: 'numeric', month: 'long' })}
           </span>
           <span className="text-xs font-mono text-primary font-semibold">{currentTimeStr}</span>
         </div>
@@ -85,7 +86,7 @@ function MyCalendar(_props: WidgetProps) {
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-4 pb-2">
         <span className="text-xs font-medium text-muted-foreground">
-          {now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}
+          {formatDate(now, { weekday: 'long', day: 'numeric', month: 'long' })}
         </span>
         <span className="text-xs font-mono text-primary font-semibold">{currentTimeStr}</span>
       </div>

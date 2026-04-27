@@ -38,7 +38,7 @@ import {
 } from '@/components/ui/tooltip'
 import { useVertraegeStore, type Contract, type ContractType, type ContractStatus, type ContractTemplate } from '@/stores/vertraege'
 import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
-import { formatCurrency } from '@/lib/format'
+import { formatCurrency, formatDate } from '@/lib/format'
 import ESignaturDialog from './ESignaturDialog'
 
 // ─── Type Config ─────────────────────────────────────────────────
@@ -84,9 +84,9 @@ const CURRENCIES = ['EUR', 'CHF', 'USD'] as const
 
 
 
-function formatDate(dateStr: string): string {
+function formatContractDate(dateStr: string): string {
   if (!dateStr) return 'Unbefristet'
-  return new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('de-DE')
+  return formatDate(dateStr.includes('T') ? dateStr : dateStr + 'T00:00:00')
 }
 
 function daysUntil(dateStr: string): number {

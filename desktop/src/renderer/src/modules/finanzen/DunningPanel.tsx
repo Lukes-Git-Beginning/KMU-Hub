@@ -30,6 +30,7 @@ import {
 import { formatEUR } from '@/stores/finance'
 import type { DunningRecord, DunningStatus } from '@/types/finance-types'
 import { EmptyState } from '@/components/shared'
+import { formatDate } from '@/lib/format'
 
 const LEVEL_LABEL_KEYS: Record<number, string> = {
   1: 'finanzen.dunning.level1',
@@ -260,9 +261,7 @@ export function DunningPanel() {
                 </span>
                 <span className="text-sm text-foreground">{formatEUR(d.interest)}</span>
                 <span className="text-xs text-muted-foreground">
-                  {d.sent_at
-                    ? new Date(d.sent_at).toLocaleDateString('de-DE')
-                    : '--'}
+                  {d.sent_at ? formatDate(d.sent_at) : '--'}
                 </span>
                 <span
                   className={`inline-flex items-center self-start rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.colors}`}

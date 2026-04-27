@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Calendar, Clock, CheckCircle2, XCircle, AlertTriangle, Loader2 } from 'lucide-react'
 import { useLeaveRequests, useApproveLeaveRequest, useRejectLeaveRequest } from '@/api/hooks/hr-hooks'
 import type { LeaveRequest } from '@/api/hr-types'
+import { formatDate } from '@/lib/format'
 
 const leaveTypeColors: Record<string, string> = {
   urlaub: 'bg-info-light text-info',
@@ -134,8 +135,8 @@ export function HRApprovalDialog({
               <div className="flex items-center gap-2">
                 <Calendar className="h-3.5 w-3.5" />
                 <span>
-                  {new Date(request.startDate).toLocaleDateString('de-DE')}
-                  {request.startDate !== request.endDate && ` – ${new Date(request.endDate).toLocaleDateString('de-DE')}`}
+                  {formatDate(request.startDate)}
+                  {request.startDate !== request.endDate && ` – ${formatDate(request.endDate)}`}
                   {request.isHalfDayStart && ` (${request.halfDayPeriodStart === 'morning' ? t('team.approval.morning') : t('team.approval.afternoon')})`}
                 </span>
               </div>
@@ -158,7 +159,7 @@ export function HRApprovalDialog({
                 <p className="text-xs font-medium text-warning">{t('team.approval.overlappingAbsence')}</p>
                 {overlapping.map((o) => (
                   <p key={o.id} className="text-xs text-muted-foreground mt-0.5">
-                    {o.leaveType?.name ?? t('team.absence.absence')}: {new Date(o.startDate).toLocaleDateString('de-DE')} – {new Date(o.endDate).toLocaleDateString('de-DE')}
+                    {o.leaveType?.name ?? t('team.absence.absence')}: {formatDate(o.startDate)} – {formatDate(o.endDate)}
                   </p>
                 ))}
               </div>

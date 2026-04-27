@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
+import { formatDate } from '@/lib/format'
 
 function formatCurrency(value?: number, currency?: string): string {
   if (value == null) return '-'
@@ -186,9 +187,7 @@ export default function DealPipelineView() {
                       {deal.expectedCloseDate && (
                         <p className="mt-1 text-xs text-muted-foreground">
                           {t('crm.deals.closeLabel')}:{' '}
-                          {new Date(
-                            deal.expectedCloseDate
-                          ).toLocaleDateString('de-DE')}
+                          {formatDate(deal.expectedCloseDate)}
                         </p>
                       )}
                       {deal.tags && deal.tags.length > 0 && (

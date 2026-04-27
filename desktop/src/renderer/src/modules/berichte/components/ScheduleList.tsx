@@ -19,6 +19,7 @@ import {
   useSchedules,
   useToggleSchedule,
 } from '@/api/hooks/useBerichte'
+import { formatDateTime } from '@/lib/format'
 
 interface ScheduleListProps {
   definitions: ReportDefinition[]
@@ -26,19 +27,7 @@ interface ScheduleListProps {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-function formatDateTime(iso: string | null): string {
-  if (!iso) return '—'
-  try {
-    const d = new Date(iso)
-    return `${d.toLocaleDateString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    })} ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`
-  } catch {
-    return '—'
-  }
-}
+// formatDateTime imported from @/lib/format (locale-aware)
 
 const STATUS_STYLES: Record<string, string> = {
   success: 'bg-success-light text-success',

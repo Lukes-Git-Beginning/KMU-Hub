@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { formatDate } from '@/lib/format'
 import {
   Search,
   Plus,
@@ -102,7 +103,7 @@ function formatDate(dateStr: string): string {
 }
 
 function formatDateShort(dateStr: string): string {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('de-DE')
+  return formatDate(dateStr + 'T00:00:00')
 }
 
 function calcNetHours(start: string, end: string, breakMin: number): string {

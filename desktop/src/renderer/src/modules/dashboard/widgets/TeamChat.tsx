@@ -11,6 +11,7 @@ import { Hash, ArrowRight, Loader2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useChannels } from '@/api/hooks/useChannels'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
+import { formatTime } from '@/lib/format'
 
 /** Build initials from first + last name. */
 function getInitials(firstName?: string, lastName?: string): string {
@@ -19,15 +20,6 @@ function getInitials(firstName?: string, lastName?: string): string {
   return (f + l).toUpperCase() || '?'
 }
 
-/** Format ISO timestamp to relative short time (e.g. "14:30"). */
-function formatTime(iso?: string): string {
-  if (!iso) return ''
-  try {
-    return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
-  } catch {
-    return ''
-  }
-}
 
 const MAX_MESSAGES = 7
 

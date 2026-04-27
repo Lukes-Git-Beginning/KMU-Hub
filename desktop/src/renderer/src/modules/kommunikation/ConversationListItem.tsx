@@ -6,6 +6,7 @@ import {
   Star,
 } from 'lucide-react'
 import type { InboxMessage, InboxChannel } from '@/api/inbox-types'
+import { formatDate } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
 // Channel config
@@ -34,7 +35,7 @@ function formatRelativeTime(dateStr: string, t: (key: string) => string): string
     if (diffMin < 60) return `${diffMin}m`
     if (diffH < 24) return `${diffH}h`
     if (diffD < 7) return `${diffD}d`
-    return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
+    return formatDate(date, { day: '2-digit', month: '2-digit' })
   } catch {
     return dateStr
   }

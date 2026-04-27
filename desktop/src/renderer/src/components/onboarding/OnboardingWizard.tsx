@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Sparkles, User, LayoutGrid, Compass, Clock, PartyPopper,
+  Bot, User, LayoutGrid, Compass, Clock, PartyPopper,
   ChevronRight, ChevronLeft,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -26,7 +26,7 @@ function buildSteps(t: TFunction): OnboardingStep[] {
   return [
     {
       id: 'welcome',
-      icon: Sparkles,
+      icon: Bot,
       iconColor: 'text-primary',
       iconBg: 'bg-primary/10',
       title: t('onboarding.welcome.title'),

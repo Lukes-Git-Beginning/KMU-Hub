@@ -25,6 +25,7 @@ import { ItemActions, ConfirmDialog, EmptyState, PageHeader, type ActionItem } f
 import { MeetingFormDialog } from './MeetingFormDialog'
 import { MeetingDetailPanel } from './MeetingDetailPanel'
 import { MeetingRoomView } from './MeetingRoomView'
+import { formatDate } from '@/lib/format'
 
 type FilterTab = 'all' | 'live' | 'scheduled' | 'past'
 type ViewMode = 'grid' | 'timeline'
@@ -70,7 +71,7 @@ function groupByDate(meetings: Meeting[], _t: (key: string) => string): { label:
       let label: string
       if (date === today) label = _t('meetings.time.today')
       else if (date === tomorrow) label = _t('meetings.time.tomorrow')
-      else label = new Date(date).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })
+      else label = formatDate(date, { weekday: 'long', day: 'numeric', month: 'long' })
       return { label, date, meetings: items.sort((a, b) => a.startTime.localeCompare(b.startTime)) }
     })
 }
@@ -455,7 +456,7 @@ function MeetingCard({
       <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3 flex-wrap">
         <span className="flex items-center gap-1">
           <Calendar className="h-3 w-3" />
-          {new Date(meeting.date).toLocaleDateString('de-DE')}
+          {formatDate(meeting.date)}
         </span>
         <span className="flex items-center gap-1">
           <Clock className="h-3 w-3" />

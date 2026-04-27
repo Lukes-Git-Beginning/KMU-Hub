@@ -47,6 +47,7 @@ import ImportWizard from '@/modules/mails/ImportWizard'
 import ExportDialog from '@/modules/mails/ExportDialog'
 import { PageHeader } from '@/components/shared'
 import { ContactFormDialog, type ContactFormData } from './ContactFormDialog'
+import { formatDate } from '@/lib/format'
 
 const PAGE_SIZE = 20
 
@@ -335,9 +336,7 @@ export default function ContactsListPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {contact.createdAt
-                          ? new Date(contact.createdAt).toLocaleDateString('de-DE')
-                          : '-'}
+                        {contact.createdAt ? formatDate(contact.createdAt) : '-'}
                       </TableCell>
                     </TableRow>
                   )

@@ -14,7 +14,7 @@ import {
   Save,
   Trash2,
   FileText,
-  Sparkles,
+  Bot,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ComposeMode } from '@/stores/mails'
@@ -357,7 +357,7 @@ export function ComposeModal({
                   {aiDraftLoading ? (
                     <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                   ) : (
-                    <Sparkles className="h-3.5 w-3.5" />
+                    <Bot className="h-3.5 w-3.5" />
                   )}
                   {t('mails.compose.aiDraft')}
                 </button>

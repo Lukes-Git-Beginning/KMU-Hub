@@ -41,6 +41,7 @@ import { InvoiceDetailPanel } from './InvoiceDetailPanel'
 import { ExportDialog } from './ExportDialog'
 import { BelegketteTab } from '@/modules/finanzen/BelegketteTab'
 import { BankingWidget } from '@/modules/finanzen/BankingWidget'
+import { formatDate } from '@/lib/format'
 
 type TabKey = 'transactions' | 'invoices' | 'quotes' | 'expenses' | 'mahnungen' | 'reports' | 'belegkette' | 'banking'
 
@@ -291,7 +292,7 @@ export default function BuchhaltungPage() {
                   <button onClick={() => setSelectedInvoice(inv)} className="text-sm font-mono text-primary hover:underline text-left">{inv.number}</button>
                   <span className="text-sm text-foreground truncate">{inv.client}</span>
                   <span className="text-sm font-medium text-foreground">{formatCurrency(total)}</span>
-                  <span className="text-xs text-muted-foreground">{new Date(inv.dueDate).toLocaleDateString('de-DE')}</span>
+                  <span className="text-xs text-muted-foreground">{formatDate(inv.dueDate)}</span>
                   <span className={`text-xs font-medium ${remaining > 0 ? 'text-warning' : 'text-success'}`}>
                     {remaining > 0 ? formatCurrency(remaining) : '—'}
                   </span>
@@ -325,7 +326,7 @@ export default function BuchhaltungPage() {
                   <button onClick={() => setSelectedInvoice(inv)} className="text-sm font-mono text-primary hover:underline text-left">{inv.number}</button>
                   <span className="text-sm text-foreground truncate">{inv.client}</span>
                   <span className="text-sm font-medium text-foreground">{formatCurrency(total)}</span>
-                  <span className="text-xs text-muted-foreground">{new Date(inv.dueDate).toLocaleDateString('de-DE')}</span>
+                  <span className="text-xs text-muted-foreground">{formatDate(inv.dueDate)}</span>
                   <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.colors}`}>
                     <StatusIcon className="h-3 w-3" />
                     {t(sc.labelKey)}
@@ -354,7 +355,7 @@ export default function BuchhaltungPage() {
                 <div key={exp.id} className="grid grid-cols-[1fr_100px_80px_100px_80px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors">
                   <div className="min-w-0">
                     <p className="text-sm text-foreground truncate">{exp.description}</p>
-                    <p className="text-[10px] text-muted-foreground">{new Date(exp.date).toLocaleDateString('de-DE')}{exp.project && ` · ${exp.project}`}</p>
+                    <p className="text-[10px] text-muted-foreground">{formatDate(exp.date)}{exp.project && ` · ${exp.project}`}</p>
                   </div>
                   <span className="text-xs text-muted-foreground">{exp.category}</span>
                   <span className="text-sm font-medium text-error">{formatCurrency(exp.amount)}</span>
@@ -397,7 +398,7 @@ export default function BuchhaltungPage() {
               <span className={`text-sm font-medium text-right ${tx.type === 'income' ? 'text-success' : 'text-error'}`}>
                 {tx.type === 'income' ? '+' : ''}{formatCurrency(tx.amount)}
               </span>
-              <span className="text-xs text-muted-foreground text-right">{new Date(tx.date).toLocaleDateString('de-DE')}</span>
+              <span className="text-xs text-muted-foreground text-right">{formatDate(tx.date)}</span>
               <ItemActions items={[
                 { label: t('common.delete'), variant: 'destructive' as const, onClick: () => setConfirmDelete({ type: 'transaction', id: tx.id, label: tx.description }) },
               ]} />
@@ -537,7 +538,7 @@ export default function BuchhaltungPage() {
                           ))}
                         </div>
                       </div>
-                      <span className="text-xs text-muted-foreground">{new Date(d.sentAt).toLocaleDateString('de-DE')}</span>
+                      <span className="text-xs text-muted-foreground">{formatDate(d.sentAt)}</span>
                       <span className={`inline-flex items-center self-start rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.colors}`}>
                         {sc.label}
                       </span>

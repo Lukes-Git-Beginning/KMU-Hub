@@ -55,6 +55,7 @@ import type {
   FileSortField,
   SortDirection,
 } from '@/api/types/document-types'
+import { formatDate } from '@/lib/format'
 
 
 
@@ -1523,7 +1524,7 @@ function FileGridCard({
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
             {formatBytes(file.file_size)} &middot;{' '}
-            {new Date(file.updated_at).toLocaleDateString('de-DE')}
+            {formatDate(file.updated_at)}
           </p>
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
@@ -1618,7 +1619,7 @@ function FileListRow({
         {typeLabels[cat] ?? cat}
       </span>
       <span className="text-xs text-muted-foreground">
-        {new Date(file.updated_at).toLocaleDateString('de-DE')}
+        {formatDate(file.updated_at)}
       </span>
     </div>
   )

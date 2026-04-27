@@ -4,6 +4,7 @@
  * Shows status, permissions, settings editor, and recent execution logs
  * for a single installed plugin.
  */
+import { formatDate } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -125,7 +126,7 @@ export function PluginDetailDialog({
           <DialogDescription>
             {installation.plugin_type === 'wasm' ? t('admin.plugins.type.wasm') : t('admin.plugins.type.config')}{' '}
             &middot; {t('admin.plugins.installedAt')}{' '}
-            {new Date(installation.created_at).toLocaleDateString('de-DE')}
+            {formatDate(installation.created_at)}
           </DialogDescription>
         </DialogHeader>
 

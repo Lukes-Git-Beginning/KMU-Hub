@@ -27,6 +27,7 @@ import {
 } from '@/api/hooks/useMeetings'
 import { useVideoStore } from '@/stores/video'
 import type { RsvpStatus } from '@/api/video-types'
+import { formatDate as libFormatDate, formatTime as libFormatTime } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -57,18 +58,11 @@ const rsvpColors: Record<RsvpStatus, string> = {
 }
 
 function formatTime(isoDate: string): string {
-  return new Date(isoDate).toLocaleTimeString('de-DE', {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return libFormatTime(isoDate, { hour: '2-digit', minute: '2-digit' })
 }
 
 function formatDate(isoDate: string): string {
-  return new Date(isoDate).toLocaleDateString('de-DE', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  })
+  return libFormatDate(isoDate, { weekday: 'long', day: 'numeric', month: 'long' })
 }
 
 // ---------------------------------------------------------------------------

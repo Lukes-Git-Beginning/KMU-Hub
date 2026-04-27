@@ -44,6 +44,7 @@ import {
 import {
   useDatevConnectionStatus,
 } from '@/api/hooks/useDatevUpload'
+import { formatDate } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
 // SVG icons for platform logos (inline to avoid external deps)
@@ -367,7 +368,7 @@ function AccountLinkRow({
               {linkStatus.external_display_name}
             </span>
             {linkStatus.linked_at &&
-              ` ${t('settings.integrations.since')} ${new Date(linkStatus.linked_at).toLocaleDateString('de-DE')}`}
+              ` ${t('settings.integrations.since')} ${formatDate(linkStatus.linked_at)}`}
           </p>
         ) : (
           <p className="text-xs text-muted-foreground">{t('settings.integrations.notLinked')}</p>

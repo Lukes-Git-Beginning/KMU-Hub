@@ -35,6 +35,7 @@ import {
 import DealPipelineView from './DealPipelineView'
 import { PageHeader } from '@/components/shared'
 import { DealFormDialog, type DealFormData } from './DealFormDialog'
+import { formatDate } from '@/lib/format'
 
 const PAGE_SIZE = 20
 
@@ -227,11 +228,7 @@ export default function DealsListPage() {
                         {deal.contactName || '-'}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {deal.expectedCloseDate
-                          ? new Date(deal.expectedCloseDate).toLocaleDateString(
-                              'de-DE'
-                            )
-                          : '-'}
+                        {deal.expectedCloseDate ? formatDate(deal.expectedCloseDate) : '-'}
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">

@@ -15,6 +15,8 @@ import {
   TrendingUp,
 } from 'lucide-react'
 
+import { formatDate } from '@/lib/format'
+
 // ---------------------------------------------------------------------------
 // Activity type config
 // ---------------------------------------------------------------------------
@@ -81,7 +83,7 @@ export function TimelineItem({ entry, isLast }: TimelineItemProps) {
       if (days === 0) return t('crm.timeline.today')
       if (days === 1) return t('crm.timeline.yesterday')
       if (days < 7) return t('crm.timeline.daysAgo', { days })
-      return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      return formatDate(d, { day: '2-digit', month: '2-digit', year: 'numeric' })
     } catch {
       return entry.date
     }

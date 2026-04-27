@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import { formatDate } from '@/lib/format'
 import {
   Search,
   Plus,
@@ -361,7 +362,7 @@ function computeViolations(employees: Employee[], assignments: ShiftAssignment[]
       if (count > 1) {
         violations.push({
           employeeId: emp.id, employeeName: emp.name, type: 'rest_period', severity: 'error',
-          message: `${emp.name}: Doppelbuchung am ${new Date(date + 'T00:00:00').toLocaleDateString('de-DE')}`,
+          message: `${emp.name}: Doppelbuchung am ${formatDate(date + 'T00:00:00')}`,
         })
       }
     }
@@ -530,7 +531,7 @@ export default function SchichtenPage() {
     if (!dragState) return
     const emp = EMPLOYEES.find((e) => e.id === empId)
     toast.success(t('schichten.toast.verschoben'), {
-      description: `${dragState.templateName} → ${emp?.name} am ${new Date(date + 'T00:00:00').toLocaleDateString('de-DE')}`,
+      description: `${dragState.templateName} → ${emp?.name} am ${formatDate(date + 'T00:00:00')}`,
     })
     setDragState(null)
     setDropTarget(null)
@@ -549,7 +550,7 @@ export default function SchichtenPage() {
     const emp = EMPLOYEES.find((e) => e.id === assignEmployee)
     const tpl = templates.find((tplItem) => tplItem.id === assignTemplate)
     toast.success(t('schichten.dialog.assign.successToast'), {
-      description: `${tpl?.name} an ${emp?.name} am ${new Date(assignDate + 'T00:00:00').toLocaleDateString('de-DE')}`,
+      description: `${tpl?.name} an ${emp?.name} am ${formatDate(assignDate + 'T00:00:00')}`,
     })
     setAssignDialog({ open: false, employeeId: '', date: '' })
   }

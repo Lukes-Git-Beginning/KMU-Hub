@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/select'
 import { useAbsenceCalendar, useEmployees, useHRSettings } from '@/api/hooks/hr-hooks'
 import type { AbsenceEntry } from '@/api/hr-types'
+import { formatDate } from '@/lib/format'
 
 const DAYS_SHORT = ['Mo', 'Di', 'Mi', 'Do', 'Fr']
 
@@ -107,7 +108,7 @@ export function AbsenceCalendar() {
             <ChevronLeft className="h-4 w-4" />
           </button>
           <span className="text-sm font-medium text-foreground min-w-[200px] text-center">
-            {allDays[0].toLocaleDateString('de-DE')} – {allDays[allDays.length - 1].toLocaleDateString('de-DE')}
+            {formatDate(allDays[0])} – {formatDate(allDays[allDays.length - 1])}
           </span>
           <button onClick={() => navigate(1)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors">
             <ChevronRight className="h-4 w-4" />

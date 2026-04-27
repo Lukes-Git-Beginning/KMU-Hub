@@ -39,6 +39,7 @@ import {
   useTestCalDAVConnection,
 } from '@/api/hooks/useCaldav'
 import { API_BASE_URL } from '@/lib/constants'
+import { formatDate } from '@/lib/format'
 
 export function CalDAVSettingsTab() {
   const { t } = useTranslation()
@@ -174,9 +175,9 @@ export function CalDAVSettingsTab() {
                   <p className="text-sm font-medium truncate">{pw.label}</p>
                   <p className="text-xs text-muted-foreground">
                     {pw.password_prefix}... | {t('settings.caldav.created')}:{' '}
-                    {new Date(pw.created_at).toLocaleDateString('de-DE')}
+                    {formatDate(pw.created_at)}
                     {pw.last_used_at &&
-                      ` | ${t('settings.caldav.lastUsed')}: ${new Date(pw.last_used_at).toLocaleDateString('de-DE')}`}
+                      ` | ${t('settings.caldav.lastUsed')}: ${formatDate(pw.last_used_at)}`}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 ml-2">

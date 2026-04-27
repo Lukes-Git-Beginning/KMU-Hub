@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { formatDate } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -214,7 +215,7 @@ export function HoursToInvoiceDialog({
                       {isSelected && <Check className="h-3 w-3 text-white" />}
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {new Date(entry.date).toLocaleDateString('de-DE')}
+                      {formatDate(entry.date)}
                     </span>
                     <div className="min-w-0">
                       <p className="text-xs font-medium text-foreground truncate">{entry.project}</p>

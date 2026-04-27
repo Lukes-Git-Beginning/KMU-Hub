@@ -20,7 +20,7 @@ import {
   Settings2,
   Pencil,
   Tag,
-  Sparkles,
+  Bot,
   LifeBuoy,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -48,6 +48,7 @@ import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTe
 import { useAIStore } from '@/stores/ai'
 import { PageHeader, EmptyState } from '@/components/shared'
 import { EmptyHelpdesk } from '@/components/shared/illustrations'
+import { formatDate } from '@/lib/format'
 
 type TabKey = 'tickets' | 'wissensdatenbank' | 'statistik'
 type StatusFilter = 'all' | TicketType['status']
@@ -424,7 +425,7 @@ export default function HelpdeskPage() {
                         <SLABadge overdue={ticket.slaOverdue} remaining={ticket.slaRemaining} dueAt={ticket.slaDueAt} compact />
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">
-                        {new Date(ticket.createdAt).toLocaleDateString('de-DE')}
+                        {formatDate(ticket.createdAt)}
                       </td>
                     </tr>
                   ))}
@@ -474,7 +475,7 @@ export default function HelpdeskPage() {
                     <p className="text-xs text-muted-foreground line-clamp-3 mb-3">{article.excerpt}</p>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{article.views}</span>
-                      <span>{new Date(article.updatedAt).toLocaleDateString('de-DE')}</span>
+                      <span>{formatDate(article.updatedAt)}</span>
                     </div>
                   </button>
                 ))
@@ -886,7 +887,7 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
               {aiSuggestionLoading ? (
                 <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               ) : (
-                <Sparkles className="h-3 w-3" />
+                <Bot className="h-3 w-3" />
               )}
               {t('helpdesk.ticket.aiSuggestion')}
             </button>
@@ -983,7 +984,7 @@ function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () =
 
         <div className="border-t border-border mt-6 pt-4 flex items-center justify-between">
           <p className="text-xs text-muted-foreground">
-            {t('helpdesk.kb.lastUpdated')}: {new Date(article.updatedAt).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}
+            {t('helpdesk.kb.lastUpdated')}: {formatDate(article.updatedAt, { day: '2-digit', month: 'long', year: 'numeric' })}
           </p>
           <button onClick={() => toast.info(t('helpdesk.kb.feedbackSent'))} className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors">
             {t('helpdesk.kb.wasHelpful')}

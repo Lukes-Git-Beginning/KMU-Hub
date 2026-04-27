@@ -32,7 +32,7 @@ import {
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { DetailPanel, EmptyState, PageHeader } from '@/components/shared'
-import { formatAmount } from '@/lib/format'
+import { formatAmount, formatDate, formatTime } from '@/lib/format'
 import { useFuhrparkStore, type Vehicle, type MaintenanceRecord, type FuelRecord, type LogbookEntry, type VehicleDocument, type DamageReport } from '@/stores/fuhrpark'
 import SchadensmeldungDialog from './SchadensmeldungDialog'
 
@@ -132,9 +132,7 @@ function statusTextColor(status: 'overdue' | 'soon' | 'ok'): string {
   return ''
 }
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('de-DE')
-}
+// formatDate / formatTime imported from @/lib/format (locale-aware)
 
 
 function formatKm(val: number): string {
@@ -180,9 +178,7 @@ function formatRelativeTime(timestamp: string, t: (key: string, opts?: any) => s
     : t('fuhrpark.relativeTime.daysAgo', { days: diffDays })
 }
 
-function formatTime(timestamp: string): string {
-  return new Date(timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
-}
+// formatTime imported from @/lib/format (locale-aware, defaults to timeStyle 'short')
 
 // ---------------------------------------------------------------------------
 // Dialog: Fahrzeug hinzufügen

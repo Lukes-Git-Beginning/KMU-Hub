@@ -25,6 +25,7 @@ import {
   useMutedResources,
   useUnmuteResource,
 } from '@/api/hooks/useNotifications'
+import { formatDate, formatTime } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
 // Module matrix (same as before, but in a dedicated component)
@@ -175,7 +176,7 @@ export function NotificationSettingsTab() {
             <p className="text-xs text-muted-foreground">
               {dndStatus?.is_active
                 ? dndStatus.expires_at
-                  ? t('settings.notifications.dnd.expiresAt', { time: new Date(dndStatus.expires_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) })
+                  ? t('settings.notifications.dnd.expiresAt', { time: formatTime(dndStatus.expires_at, { hour: '2-digit', minute: '2-digit' }) })
                   : t('settings.notifications.dnd.noExpiry')
                 : t('settings.notifications.dnd.hint')}
             </p>
@@ -274,7 +275,7 @@ export function NotificationSettingsTab() {
                 <div>
                   <p className="text-sm text-foreground">{mute.resource_label ?? mute.resource_id}</p>
                   <p className="text-[10px] text-muted-foreground">
-                    {mute.resource_type} · {t('settings.notifications.muted.since', { date: new Date(mute.muted_at).toLocaleDateString('de-DE') })}
+                    {mute.resource_type} · {t('settings.notifications.muted.since', { date: formatDate(mute.muted_at) })}
                   </p>
                 </div>
                 <button

@@ -13,7 +13,7 @@ import {
   Receipt,
   LifeBuoy,
   Search,
-  Sparkles,
+  Bot,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -181,8 +181,8 @@ export function GlobalSearchDialog() {
         default: {
           label: t('shared.globalSearch.aiResults'),
           items: [
-            { id: 'ai-1', icon: Sparkles, title: 'Ähnliches Thema im Wiki', subtitle: 'Onboarding-Prozess — 87% Relevanz', route: '/wiki' },
-            { id: 'ai-2', icon: Sparkles, title: 'Verwandtes Ticket', subtitle: '#1038 PDF-Export — 72% Relevanz', route: '/helpdesk' },
+            { id: 'ai-1', icon: Bot, title: 'Ähnliches Thema im Wiki', subtitle: 'Onboarding-Prozess — 87% Relevanz', route: '/wiki' },
+            { id: 'ai-2', icon: Bot, title: 'Verwandtes Ticket', subtitle: '#1038 PDF-Export — 72% Relevanz', route: '/helpdesk' },
           ],
         },
       }

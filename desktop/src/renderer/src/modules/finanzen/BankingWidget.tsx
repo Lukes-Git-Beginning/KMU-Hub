@@ -21,6 +21,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { formatDate } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -241,7 +242,7 @@ export function BankingWidget() {
                 }`}
               >
                 <span className="text-xs text-muted-foreground">
-                  {new Date(tx.date).toLocaleDateString('de-DE')}
+                  {formatDate(tx.date)}
                 </span>
                 <span className="text-xs text-foreground truncate">{tx.description}</span>
                 <span className="text-xs text-muted-foreground truncate">{tx.counterpart}</span>

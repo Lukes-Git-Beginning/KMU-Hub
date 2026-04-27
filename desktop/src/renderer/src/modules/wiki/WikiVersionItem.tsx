@@ -1,21 +1,15 @@
 import { useTranslation } from 'react-i18next'
 import { Clock } from 'lucide-react'
 import type { WikiVersion } from '@/types/wiki'
+import { formatDate as libFormatDate } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 function formatDate(dateStr: string): string {
-  try {
-    return new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('de-DE', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    })
-  } catch {
-    return dateStr
-  }
+  const normalized = dateStr.includes('T') ? dateStr : dateStr + 'T00:00:00'
+  return libFormatDate(normalized, { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 // ---------------------------------------------------------------------------

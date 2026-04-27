@@ -50,6 +50,7 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import MaschinenbelegungChart from './MaschinenbelegungChart'
+import { formatDate } from '@/lib/format'
 
 type TabKey = 'aufträge' | 'stücklisten' | 'qualität' | 'maschinen'
 type StatusFilter = 'all' | 'planned' | 'in_progress' | 'paused' | 'completed' | 'cancelled'
@@ -107,9 +108,7 @@ function getDaysRemaining(dueDate: string): number {
   return Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
 }
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('de-DE')
-}
+// formatDate imported from @/lib/format (locale-aware)
 
 function formatDuration(minutes: number): string {
   const h = Math.floor(minutes / 60)
