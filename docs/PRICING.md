@@ -74,11 +74,11 @@ Alle Preise in EUR pro User pro Monat, zzgl. MwSt.
 | Meetings | 4 | Zoom Pro 13-15 | bis 73% guenstiger |
 | Telefonie | 5 | VoIP 8-15 | Integriert in Cosmi |
 
-### 3.3 Finanzen & Einkauf
+### 3.3 Buchhaltung & Einkauf
 
 | Modul | Preis | Markt-Vergleich | Vorteil |
 |-------|-------|-----------------|---------|
-| Finanzen | 6 | sevDesk ab 10, Lexoffice ab 7 | Vollintegriert |
+| Buchhaltung | 6 | sevDesk ab 10, Lexoffice ab 7 | Vollintegriert |
 | Einkauf | 5 | Spezialsoftware 10-20 | bis 75% guenstiger |
 | Vertraege | 5 | Spezialsoftware 10-25 | bis 80% guenstiger |
 | Vermietung | 5 | Spezialsoftware 20-40 | bis 88% guenstiger |
@@ -137,10 +137,10 @@ Onboarding-Vorlagen, kein separater Kaufgegenstand. Definieren vorausgewaehlte M
 
 | Paket | Enthaltene Module | ab EUR/User/Mo | Markt-Vergleich |
 |-------|-------------------|----------------|-----------------|
-| Handwerk | CRM, Aufgaben, Kalender, Chat, Zeiterfassung, Finanzen, Rapporte, Schichten | ~26 | ~45 |
+| Handwerk | CRM, Aufgaben, Kalender, Chat, Zeiterfassung, Buchhaltung, Rapporte, Schichten | ~26 | ~45 |
 | IT & Agentur | CRM, Aufgaben, Kalender, Chat, E-Mail, Meetings, Projekte, Wiki, Berichte | ~29 | ~50 |
-| Dienstleister | CRM, Aufgaben, Kalender, Chat, E-Mail, Finanzen, Vertraege, Berichte | ~25 | ~43 |
-| Handel & Logistik | CRM, Aufgaben, Kalender, Chat, Inventar, Finanzen, Einkauf | ~26 | ~44 |
+| Dienstleister | CRM, Aufgaben, Kalender, Chat, E-Mail, Buchhaltung, Vertraege, Berichte | ~25 | ~43 |
+| Handel & Logistik | CRM, Aufgaben, Kalender, Chat, Inventar, Buchhaltung, Einkauf | ~26 | ~44 |
 | Produktion | CRM, Aufgaben, Kalender, Chat, Produktion, Inventar, Schichten, Zeiterfassung, Fuhrpark | ~33 | ~56 |
 
 ---
@@ -220,7 +220,7 @@ Zentria liefert physische Hardware (Synology NAS) und installiert vor Ort. Cosmi
 | Meetings | 8 | 4 | 32 |
 | CRM & Vertrieb | 5 | 6 | 30 |
 | Zeiterfassung | 20 | 3 | 60 |
-| Finanzen | 3 | 6 | 18 |
+| Buchhaltung | 3 | 6 | 18 |
 | Schichten | 20 | 4 | 80 |
 | Zwischensumme | | | 300 |
 | Volumen-Rabatt (20 User, 5%) | | | -15 |

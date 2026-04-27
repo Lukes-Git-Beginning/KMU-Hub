@@ -37,10 +37,10 @@ Was es gibt: Modul-Zuweisungen pro User, Rollenvorlagen, Volumen-Rabatt, Branche
 | Meetings | 4 | Zoom Pro 13-15 |
 | Telefonie | 5 | VoIP 8-15 |
 
-### Finanzen & Einkauf
+### Buchhaltung & Einkauf
 | Modul | Preis | Markt-Vergleich |
 |-------|-------|-----------------|
-| Finanzen | 6 | sevDesk ab 10, Lexoffice ab 7 |
+| Buchhaltung | 6 | sevDesk ab 10, Lexoffice ab 7 |
 | Einkauf | 5 | Spezialsoftware 10-20 |
 | Vertraege | 5 | Spezialsoftware 10-25 |
 | Vermietung | 5 | Spezialsoftware 20-40 |
@@ -92,10 +92,10 @@ Was es gibt: Modul-Zuweisungen pro User, Rollenvorlagen, Volumen-Rabatt, Branche
 
 | Paket | Module | ab EUR/User/Monat |
 |-------|--------|-------------------|
-| Handwerk | CRM, Aufgaben, Kalender, Chat, Zeiterfassung, Finanzen, Rapporte, Schichten | ~26 |
+| Handwerk | CRM, Aufgaben, Kalender, Chat, Zeiterfassung, Buchhaltung, Rapporte, Schichten | ~26 |
 | IT & Agentur | CRM, Aufgaben, Kalender, Chat, E-Mail, Meetings, Projekte, Wiki, Berichte | ~29 |
-| Dienstleister | CRM, Aufgaben, Kalender, Chat, E-Mail, Finanzen, Vertraege, Berichte | ~25 |
-| Handel & Logistik | CRM, Aufgaben, Kalender, Chat, Inventar, Finanzen, Einkauf | ~26 |
+| Dienstleister | CRM, Aufgaben, Kalender, Chat, E-Mail, Buchhaltung, Vertraege, Berichte | ~25 |
+| Handel & Logistik | CRM, Aufgaben, Kalender, Chat, Inventar, Buchhaltung, Einkauf | ~26 |
 | Produktion | CRM, Aufgaben, Kalender, Chat, Produktion, Inventar, Schichten, Zeiterfassung, Fuhrpark | ~33 |
 
 ---
@@ -159,7 +159,7 @@ Physische Hardware beim Kunden, COSMI laeuft lokal. Zentria uebernimmt remote Wa
 
 | Posten | Betrag |
 |--------|--------|
-| Module (Chat 20x, Meetings 8x, CRM 5x, Zeit 20x, Finanzen 3x, Schichten 20x) | 300 EUR |
+| Module (Chat 20x, Meetings 8x, CRM 5x, Zeit 20x, Buchhaltung 3x, Schichten 20x) | 300 EUR |
 | Volumen-Rabatt 20 User (5%) | -15 EUR |
 | Support Professional (10% von 285 EUR) | 28,50 EUR |
 | **Gesamt/Monat (zzgl. MwSt.)** | **313,50 EUR** |
