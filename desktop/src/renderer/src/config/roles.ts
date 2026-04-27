@@ -33,6 +33,7 @@ export const SETTINGS_TAB_ROLES: Record<string, RoleId[]> = {
   calendar: ['admin', 'manager', 'member', 'hr'],
   finance:  ['admin'],
   company:       ['admin'],
+  billing:       ['admin'],
   integrations:  ['admin'],
   business:      ['admin'],
   team:     ['admin', 'hr'],

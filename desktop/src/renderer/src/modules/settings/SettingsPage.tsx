@@ -20,6 +20,7 @@ import {
   Landmark,
   Plug,
   Sparkles,
+  CreditCard,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Input } from '@/components/ui/input'
@@ -39,6 +40,7 @@ import { PaletteSwitcher } from '@/components/shared/PaletteSwitcher'
 import { LayoutSwitcher } from '@/components/shared/LayoutSwitcher'
 import { headerWidgetList } from '@/components/header/header-widgets'
 import { CompanySettingsTab } from './tabs/CompanySettingsTab'
+import { BillingSettingsTab } from './tabs/BillingSettingsTab'
 import { NotificationSettingsTab } from './tabs/NotificationSettingsTab'
 import { IntegrationSettingsTab } from './tabs/IntegrationSettingsTab'
 import { AIGovernanceTab } from './tabs/AIGovernanceTab'
@@ -47,7 +49,7 @@ import { ThemePreview } from './ThemePreview'
 import { useTourStore } from '@/stores/tour'
 import { branding } from '@/config/branding'
 
-type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notifications' | 'mail' | 'calendar' | 'finance' | 'company' | 'it-admin' | 'integrations' | 'privacy' | 'ai' | 'about'
+type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notifications' | 'mail' | 'calendar' | 'finance' | 'company' | 'billing' | 'it-admin' | 'integrations' | 'privacy' | 'ai' | 'about'
 
 interface TabConfig {
   key: TabKey
@@ -66,6 +68,7 @@ const ALL_TABS: TabConfig[] = [
   { key: 'calendar', labelKey: 'settings.tabs.calendar', icon: Calendar, groupKey: 'settings.groups.modules' },
   { key: 'finance', labelKey: 'settings.tabs.finance', icon: Receipt, groupKey: 'settings.groups.modules' },
   { key: 'company', labelKey: 'settings.tabs.company', icon: Landmark, groupKey: 'settings.groups.admin' },
+  { key: 'billing', labelKey: 'settings.tabs.billing', icon: CreditCard, groupKey: 'settings.groups.admin' },
   { key: 'it-admin', labelKey: 'settings.tabs.itAdmin', icon: Monitor, groupKey: 'settings.groups.admin' },
   { key: 'integrations', labelKey: 'settings.tabs.integrations', icon: Plug, groupKey: 'settings.groups.admin' },
   { key: 'privacy', labelKey: 'settings.tabs.privacy', icon: Lock, groupKey: 'settings.groups.admin' },
@@ -140,6 +143,7 @@ export default function SettingsPage() {
         {effectiveTab === 'calendar' && <CalendarSettingsTab />}
         {effectiveTab === 'finance' && <FinanceSettingsTab />}
         {effectiveTab === 'company' && <CompanySettingsTab />}
+        {effectiveTab === 'billing' && <BillingSettingsTab />}
         {effectiveTab === 'it-admin' && <ITAdminTab />}
         {effectiveTab === 'integrations' && <IntegrationSettingsTab />}
         {effectiveTab === 'privacy' && <PrivacySettingsTab />}
