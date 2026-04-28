@@ -61,16 +61,25 @@ updated: 2026-04-28
 5. Alle geschuetzten Endpoints: `Authorization: Bearer <access_token>`
 6. Token-Refresh: POST `/api/v1/auth/refresh` mit refresh_token
 
+### JWT-Claims (seit 2026-04-28, Welle 2D)
+- `uid` — User-UUID
+- `tid` — Tenant-UUID (Migration 000104: `users.tenant_id`). Leer/invalid → 401 Unauthorized auf jedem Modul-Endpoint, kein Placeholder-Fallback. Details: [[security]] "JWT Tenant-Claim & Cross-Layer-Hardening".
+- `roles` — RBAC-Rollen
+- `perms` — Permissions (`resource:action`)
+
 ## Request/Response Pattern
 - Content-Type: `application/json`
-- Error-Responses: 400, 401, 403, 409, 429
+- Error-Responses: 400, 401, 403, 409, 412, 422, 429
 - Rate Limiting: 100 rps pro User/IP, `429 Too Many Requests` mit `Retry-After: 1`
+- **Idempotency-Key Header (seit 2026-04-28, Welle 3):** Mutations (POST/PUT/PATCH) unter `/api/v1/` SOLLEN `Idempotency-Key: <UUIDv4>` mitschicken. Aktuell WarnMode (loggt fehlende Keys), HardMode in Welle 4. Replay → cached Response, Conflict → 422, In-Flight → 409+Retry-After:2. Whitelist `/auth/login|refresh|2fa`. Details: [[security]] "Idempotency-Konvention".
+- **Pre-Recording-Consent 412 (seit 2026-04-28, Welle 3):** `POST /api/v1/video/recordings/start` returniert 412 Precondition Failed wenn der Initiator nicht vorher `POST /api/v1/video/recordings/{id}/initiator-consent` aufgerufen hat. Frontend zeigt Pre-Dialog vor StartRecording. Details: [[security]] "Pre-Recording-Consent".
 
 ## Frontend-Integration
 - API-Client: `desktop/src/renderer/src/api/client.ts` (openapi-fetch)
 - Automatischer Bearer-Header aus Auth-Store
+- **Automatischer `Idempotency-Key`-Header (seit Welle 3)** auf jeder Mutation via `api/idempotency.ts::generateIdempotencyKey()` (UUIDv4)
 - 401-Interception → transparenter Token-Refresh mit Concurrent De-Duplication
-- Offline-Guard: Blockt POST/PUT/DELETE wenn `!navigator.onLine`
+- **Offline-Queue (seit Welle 3):** Bei `!navigator.onLine` werden Mutations in IndexedDB-Queue gepuffert (`api/offline-queue.ts`, idb-keyval) statt `OfflineError` zu werfen. `useOnlineStatus`-Hook drained bei Online-Event (max 5 parallel, exp-Backoff, Dead-Letter nach 5 Versuchen). UI: `<OfflineBanner />` zeigt Queue-Count + Manual-Drain.
 - 40+ React Query Hooks in `desktop/src/renderer/src/api/hooks/`
 - Dialer: Eigener `dialer-client.ts` (typed fetch, nicht openapi-fetch — noch nicht in openapi.yaml)
 

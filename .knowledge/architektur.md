@@ -6,7 +6,7 @@ updated: 2026-04-28
 
 ## Backend (Go Microservices)
 
-Gateway (HTTP/chi) auf Port 8080 → gRPC-Services intern:
+Gateway (HTTP/chi) auf Port 8080 → gRPC-Services intern. Tenant-Isolation auf HTTP-Ebene seit Welle 2D (2026-04-28) durch JWT `tid`-Claim + `middleware.GetTenantID()` (fail-closed) enforced — kein Placeholder-Fallback mehr. Details: [[security]].
 
 | Service | Port | Domain |
 |---------|------|--------|
@@ -179,6 +179,16 @@ ai, auth, automatisierung, berichte, calendar, contacts, dashboard, **dialer**, 
   - Additive `NewServiceWithConsent()`-Constructors (Gateway-Wiring separater Schritt)
 - **Repo-Query:** `consent_records WHERE contact_id=$1 AND consent_type=$2 AND granted=true AND revoked_at IS NULL`
 - Details: [[security]]
+
+## Sprint 2 Welle 2D — JWT-Tenant-Hardening (2026-04-28)
+
+Welle-1-Altlast (`<modul>PlaceholderTenantID = "00000000-...-000000000001"` in 11 Gateway-Routes) komplett entfernt. Drei Commits:
+
+1. `33450e7` (W2D-A): `auth.Claims.TenantID string \`json:"tid"\``, `CreateAccessToken(userID, tenantID, ...)`, Migration 000104 `users.tenant_id`, Middleware-Helper `GetTenantID(ctx) (uuid.UUID, error)` mit `ErrMissingTenantID` (fail-closed). 11 Routes refactored: rapporte/schichten/fuhrpark/vermietung/inventar/einkauf/produktion/berichte/formulare/wiki/vertraege.
+2. `c421fac` (W2D-B): `auth/postgres_repository.go` SELECTed `tenant_id` jetzt — vorher leer → `tid`-Claim immer empty trotz Issuance.
+3. `8f055e3` (W2D-C): 5 Cross-Layer-Holes geschlossen — `dialer_grpc.go`/`helpdesk_grpc.go` (13 Proto-Requests um `tenant_id` Field erweitert + pb.go regeneriert), `route_wiki.go` (4 Handler verwarfen tenantID), `route_biz.go::getTenantID(r)` (rief `GetUserID` statt `GetTenantID` → UserID-als-TenantID-Surrogate in 90 Call-Sites quer durch biz/billing/invoices/quotes/ext/hr/lexware/bexio/datev).
+
+**Pflicht-Pattern fuer neue Routes:** `tenantID, err := middleware.GetTenantID(r.Context())` als erste Aktion → `respondError(w, http.StatusUnauthorized, ...)` bei Fehler. Kein Default-Tenant. Details: [[security]] "JWT Tenant-Claim & Cross-Layer-Hardening".
 
 ## Sprint 2 Welle 2A — Modul-Patterns (2026-04-28)
 

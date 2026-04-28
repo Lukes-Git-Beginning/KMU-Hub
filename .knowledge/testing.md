@@ -1,6 +1,6 @@
 ---
 tags: [testing, qualitaet]
-updated: 2026-04-19
+updated: 2026-04-28
 ---
 # Test-Strategie
 
@@ -35,6 +35,7 @@ type MockRepository struct {
 - **Prod-Secrets Validator** (2026-04-18) — `config/config_test.go` (TestValidateProductionSecrets)
 - **Migration 000075** (2026-04-18) — `migrations/migration_000075_test.go` verifiziert `contact_id ON DELETE SET NULL`
 - **Berichte-Modul** (2026-04-19, Sprint 1 Welle 5-6) — Export-Layer `internal/berichte/export/*_test.go` (Golden-File-Tests fuer PDF-Signatur/CSV-BOM+Semikolon/XLSX-Parseable, Coverage 80.2%), gRPC-Server `internal/server/berichte_grpc_test.go` (UUID-Validation + Error-Mapping, 77.6%), Gateway-Routes `gateway/route_berichte_test.go` (Flag-OFF/ON + RBAC, 57%), Scheduler `scheduler/scheduler_test.go` (Clock-Mock + atomic ClaimSchedule, 89.4%), Executor `executor/executor_test.go` (8 Kind-Handler mit nil-toleranten Downstream-Repos, 92.1%)
+- **JWT Tenant-Claim** (2026-04-28, Sprint 2 Welle 2D) — `auth/token_test.go` (TenantID-Roundtrip + Empty-Legacy-Case), `middleware/auth_test.go` (`GetTenantID` valid + empty), neu `gateway/tenant_isolation_test.go` (10 Cases: no-tenant/empty-tid → 401, valid-tid → passes), `gateway/testutil_test.go` (`withTenantID`/`withAuth`-Helper). Bestehende Gateway-Tests (route_biz_test, route_berichte_test, …) injizieren `testTenantID` in Context.
 
 ## Desktop (Electron/React)
 - Framework: Vitest + jsdom, Setup: `test/setup.ts`

@@ -4,6 +4,32 @@ updated: 2026-04-28
 ---
 # Milestones
 
+## Sprint 2 Welle 3 Session 2026-04-28 (Spaetabend) — R2-P0.4 + R2-P0.7 + Option-B Phase 1
+
+Drei parallele Sonnet-Subagents, drei direct-to-main Commits, Migrations 000105/000106/000107 (statt 104/105/106 weil W2D-A 000104 belegt). Schliesst die letzten beiden offenen R2-P0-Blocker (Recording-Consent UX + Offline-Queue) und startet die Option-B-Retrofit-Welle ueber ~50 Tabellen (Phase 1: Top-20 Hot-Path).
+
+| Commit | Stream | Inhalt |
+|--------|--------|--------|
+| `174a7e4` | Stream B (R2-P0.7) | Migration 000105 `idempotency_keys` (tenant-scoped, expires_at-Cleanup). Backend: `internal/idempotency/` Postgres-Repo (`ON CONFLICT DO NOTHING` Reserve-Race), `middleware.Idempotency` in **WarnMode** Default mit Replay/Conflict-422/InFlight-409+Retry-After:2/Fresh-Pfaden + Auth-Whitelist, Cleanup-Goroutine 1h-Tick auf gateway main. Frontend: `api/offline-queue.ts` IndexedDB-Queue (idb-keyval, max 5 parallel, exp-Backoff, Dead-Letter nach 5 Versuchen), `api/idempotency.ts` UUIDv4-Auto-Header, `client.ts` enqueued bei `!navigator.onLine` statt `OfflineError`-Throw, `useOnlineStatus.drain()` bei Online-Event, `OfflineBanner`-UI. Tests: 20 Backend (50.2% Middleware-Cov) + 11 Frontend (fake-indexeddb). |
+| `5d7fb0d` | Stream C (Option-B Phase 1) | Migration 000106 — `tenant_id UUID NOT NULL DEFAULT '00...000001'` + Per-Table-Index + 9 Composite-Hot-Path-Indizes auf 20 Tabellen: deals/activities/tasks/projects/channels/messages/notifications/time_entries/calendar_events/email_messages/inbox_messages/deal_stage_history/pipeline_stages/saved_filters/custom_field_definitions/automations/document_files/recordings/dialer_call_sessions/audit_log. Top-5 (deals/activities/tasks/messages/notifications) komplett gewired: Repo CREATE/GetByID/List/Delete mit `tenant_id`-First-Filter, Service-Signaturen mit tenantID-Param via `middleware.GetTenantID`, Proto-Erweiterung um `tenant_id` auf 14 RPCs (crm.proto, work.proto, chat.proto), gRPC-Handler parsen `req.TenantId`, Gateway-Routes mit `GetTenantID`-First-Action (401 bei Fehler). 15 neue Cross-Tenant-Tests in `tenant_isolation_test.go`. Restliche 15 Tabellen haben Spalte+Default, Full-Wiring deferred auf Welle 4. |
+| `f6af609` | Stream A (R2-P0.4) | Migration 000107 — `recordings.pre_recording_consent_at` + `initiator_consent_id`, `recording_consents.responded_at`, Partial-Index. Backend: `recording.Service.ConfirmInitiatorConsent` stempelt, `StartRecording` returniert `ErrPreConsentMissing` (HTTP 412) wenn Stamp fehlt, neuer gRPC-RPC via `proto/video/v1/video_pre_consent_ext.go` (Handfile-Extension-Pattern, kein .proto-Regen). Endpoint `POST /api/v1/video/recordings/{id}/initiator-consent`. Frontend: `RecordingInitiatorDialog` (Radix AlertDialog, non-dismissible) ZWINGEND vor `startRecording` — Initiator bestaetigt aktiv. `RecordingActiveBanner` (roter Top-Stripe waehrend Aufnahme). i18n-Keys `recordingBanner.*` + `recordingInitiator.*` in de/en/fr/it. Tests: 4 Service + 3 Gateway + 4 Frontend. |
+
+**Gesamt:** 90 Files, ~4200 LOC, 3 Commits + 1 Knowledge-Commit. `go build ./...` + `go vet ./...` + `go test ./...` + `tsc --noEmit` alle gruen. Idempotency-Middleware bleibt in **WarnMode** bis Welle 4 (Frontend-Rollout der Idempotency-Keys muss vollstaendig ausgerollt sein, dann HardMode).
+
+**Pause-Gate aktiv:** Nach Welle 3 → User-Review + Bugfix-Sweep (Welle 3.5, analog Welle 2C-Pattern), bevor Welle 4 startet (Top-30+ Tabellen + restliche 15 Top-20-Repos + Idempotency HardMode).
+
+## Sprint 2 Welle 2D Session 2026-04-28 (Abend) — JWT-Tenant-Hardening
+
+Welle-1-Altlast geschlossen: vor Welle 2D hatten 11 Gateway-Routes hardcoded `<modul>PlaceholderTenantID = "00000000-...-000000000001"` ohne JWT-Claim-Extraction → Cross-Tenant-Isolation auf HTTP-Ebene defekt. Drei aufeinanderfolgende Commits, alle direct-to-main:
+
+| Commit | Inhalt |
+|--------|--------|
+| `33450e7` (W2D-A) | `auth.Claims.TenantID string \`json:"tid"\`` + `CreateAccessToken(userID, tenantID, ...)` + Migration 000104 (`users.tenant_id` mit `idx_users_tenant`) + Middleware `GetTenantID(ctx) (uuid.UUID, error)` (fail-closed via `ErrMissingTenantID`). 11 Routes refactored: rapporte/schichten/fuhrpark/vermietung/inventar/einkauf/produktion/berichte/formulare/wiki/vertraege. 10 neue `gateway/tenant_isolation_test.go` Tests. |
+| `c421fac` (W2D-B Hotfix) | `auth/postgres_repository.go` SELECTed `tenant_id` jetzt — vorher leeres Feld → `tid`-Claim immer empty trotz Issuance. Service-Layer + Test-Update. |
+| `8f055e3` (W2D-C Sweep) | 5 Cross-Layer-Holes geschlossen: `dialer_grpc.go`/`helpdesk_grpc.go` (13 Proto-Requests um `tenant_id` erweitert + pb.go regen), `route_wiki.go` (4 Handler verwarfen tenantID), `route_biz.go::getTenantID(r)` rief `GetUserID` statt `GetTenantID` (UserID-als-TenantID-Surrogate in 90 Call-Sites quer durch biz/billing/invoices/quotes/ext/hr/lexware/bexio/datev). |
+
+**Gesamt:** 42 Files, ~2200 LOC, 3 Commits. Proto-Aenderungen in `dialer.proto` + `helpdesk.proto`. W2D-B war ursprünglich als separater Schritt geplant, wurde aber redundant (Server-Drift bereits in `bed88ab` → `fd7e3b2` 2026-04-25/26 erledigt). `go build ./...` + `go vet ./...` + Tests gruen. Pflicht-Pattern fuer alle neuen Routes: `tenantID, err := middleware.GetTenantID(r.Context())` als erste Aktion → 401 bei Fehler. Details: [[security]] "JWT Tenant-Claim & Cross-Layer-Hardening".
+
 ## Sprint 2 Welle 2A Session 2026-04-28 — 4 Handwerk-Module Backend
 
 4 parallele Sonnet-Subagents schreiben rapporte/schichten/fuhrpark/vermietung Backends direkt auf main, je mit Welle-1-Inventar als Template-Anker. Plan: `~/.claude/plans/alright-was-steht-als-noble-rabin.md`.

@@ -1,5 +1,5 @@
 ---
-tags: [datenbank, schema, migrations, ai-first]
+tags: [datenbank, schema, migrations, ai-first, tenant-isolation]
 updated: 2026-04-28
 ---
 # Datenbank
@@ -7,8 +7,8 @@ updated: 2026-04-28
 ## Überblick
 - PostgreSQL 16 mit `pgvector/pgvector:pg16`-Image + Redis 7 (nur Cache, KEIN Dual-Write)
 - Änderungen NUR via golang-migrate (`make migrate-create name=xxx`)
-- 103 Migration-Paare in `backend/migrations/` (Sprint 1 Welle 2: 076 wiki, 077 helpdesk; Welle 5: 079 berichte; Welle 6: 080 seed_berichte_permissions; S1.3: 081 formulare; Sprint 2 Welle 1: 082 consent FK + gdpr-FK, 083+084 inventar, 085+086 einkauf, 087+088 produktion, 089+090 vertraege, 091 video; Sprint 2 Welle 2A: 092+093 rapporte, 094+095 schichten, 096+097 fuhrpark, 098+099 vermietung; Sprint 2 Welle 2C Bugfix-Sweep: 100 rapporte_approve_permission, 101 vermietung_gist_overlap_unique_inspection, 102 schichten_shift_assignments_tenant_unique, 103 schichten_shift_capacity)
-- **Prod-Stand seit 2026-04-19:** Migration-Head `81`. Welle 1 + Welle 2A + Welle 2C bringen Head auf `103` (lokal/main, Server-Deploy ausstehend). Volume: `docker_pgdata` (nicht `docker_postgres-data`).
+- 107 Migration-Paare in `backend/migrations/` (Sprint 1 Welle 2: 076 wiki, 077 helpdesk; Welle 5: 079 berichte; Welle 6: 080 seed_berichte_permissions; S1.3: 081 formulare; Sprint 2 Welle 1: 082 consent FK + gdpr-FK, 083+084 inventar, 085+086 einkauf, 087+088 produktion, 089+090 vertraege, 091 video; Sprint 2 Welle 2A: 092+093 rapporte, 094+095 schichten, 096+097 fuhrpark, 098+099 vermietung; Sprint 2 Welle 2C Bugfix-Sweep: 100 rapporte_approve_permission, 101 vermietung_gist_overlap_unique_inspection, 102 schichten_shift_assignments_tenant_unique, 103 schichten_shift_capacity; Sprint 2 Welle 2D: 104 users_tenant_id; Sprint 2 Welle 3: 105 idempotency_keys, 106 tenant_id_retrofit_phase1, 107 recordings_pre_consent_audit)
+- **Prod-Stand seit 2026-04-19:** Migration-Head `81`. Welle 1 + Welle 2A + Welle 2C + Welle 2D + Welle 3 bringen Head auf `107` (lokal/main, Server-Deploy ausstehend). Volume: `docker_pgdata` (nicht `docker_postgres-data`).
 - Index-Konvention: `idx_{table}_{column}`
 - **AI-First-Foundation** seit Migration 071 (siehe Abschnitt unten)
 - **Seed-Idempotenz:** Migration `000079` (berichte) wurde in `980eba3` um `ON CONFLICT DO NOTHING` erweitert, damit ein Re-Run keine Duplikate erzeugt. Gleiches Muster fuer alle zukuenftigen Seed-Migrations anwenden.
@@ -16,7 +16,7 @@ updated: 2026-04-28
 ## Tabellen nach Domain
 
 ### Core Identity
-- `users` — UUID PK, email (unique), password_hash (bcrypt), first/last_name, is_active
+- `users` — UUID PK, **tenant_id UUID NOT NULL DEFAULT '00000000-...-000000000001'** (Migration 000104, Welle 2D, mit `idx_users_tenant`), email (unique), password_hash (bcrypt), first/last_name, is_active. `auth/postgres_repository.go` SELECTed das Feld jetzt — vorher leer → JWT `tid`-Claim immer leer.
 - `roles` — admin, manager, member
 - `permissions` — resource:action Pattern (z.B. contacts:write)
 - `role_permissions`, `user_roles` — RBAC-Zuordnung
@@ -170,6 +170,16 @@ Alle Welle-2A-Tabellen tragen `tenant_id UUID NOT NULL DEFAULT '00000000-...-000
 - `rental_inspections` — id, rental_id FK CASCADE, tenant_id, kind ENUM(handover/return), inspector_id UUID, inspected_at, condition_notes TEXT, photo_keys TEXT[] (MinIO-Keys)
 - **Overlap-Pre-Check** (`service.go::CheckAvailability`): `SELECT 1 FROM rentals WHERE object_id=$1 AND tstzrange(start_date, end_date) && tstzrange($2, $3) AND status != 'cancelled'` → bei Treffer `ErrRentalConflict`
 - **Permissions:** `vermietung:object:{read,write}`, `vermietung:rental:{read,write}`, `vermietung:inspection:{read,write}`
+
+### Sprint 2 Welle 3 — R2-P0 + Option-B Phase 1 (Migrations 105–107)
+
+- **000105 idempotency_keys:** `CREATE TABLE idempotency_keys (key TEXT PK, tenant_id UUID, user_id UUID, method, path, request_hash TEXT, response_status INT, response_body JSONB, created_at, completed_at, expires_at TIMESTAMPTZ DEFAULT NOW()+'24h')` + Indizes `(tenant_id, user_id, created_at DESC)` + `(expires_at)`. Tenant-scoped from day one (Option-B-ready). Cleanup-Goroutine im Gateway tickt 1h und deletet `expires_at < NOW()`. Backend-Middleware `internal/middleware/idempotency.go` startet im **WarnMode** (loggt fehlende Keys, blockt nicht) bis Frontend-Rollout fertig — HardMode in Welle 4. Whitelist `/auth/login|refresh|2fa` weil Token-Rotation nicht idempotent.
+- **000106 tenant_id_retrofit_phase1 (Top-20):** PL/pgSQL-Loop `ALTER TABLE %I ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001'` + Per-Table-Index ueber 20 Tabellen: deals, activities, tasks, projects, channels, messages, notifications, time_entries, calendar_events, email_messages, inbox_messages, deal_stage_history, pipeline_stages, saved_filters, custom_field_definitions, automations, document_files, recordings, dialer_call_sessions, audit_log. Plus 9 Composite-Hot-Path-Indizes: `idx_deals_tenant_stage`, `idx_activities_tenant_owner`, `idx_tasks_tenant_status`, `idx_messages_tenant_channel`, `idx_notifications_tenant_user`, `idx_time_entries_tenant_user`, `idx_calendar_events_tenant_start`, `idx_recordings_tenant_status`, `idx_audit_log_tenant_time`. Standard-Sentinel `00...000001` (NICHT die alte Nil-UUID `...000000000000` aus 000069/000070). Top-5 Repos voll gewired (deals/activities/tasks/messages/notifications), Rest hat Spalte+Default und wird in Welle 4 gewired.
+- **000107 recordings_pre_consent_audit:** `ALTER TABLE recordings ADD COLUMN pre_recording_consent_at TIMESTAMPTZ NULL, ADD COLUMN initiator_consent_id UUID NULL` + `recording_consents.responded_at TIMESTAMPTZ NULL` + Partial-Index `idx_recordings_pre_consent ON recordings(initiator_consent_id) WHERE initiator_consent_id IS NOT NULL`. Audit-Trail fuer R2-P0.4 Initiator-Pre-Consent-Flow. `recording.Service.StartRecording` lehnt 412 Precondition Failed ab wenn `pre_recording_consent_at IS NULL` — neuer Endpoint `POST /api/v1/video/recordings/{id}/initiator-consent` stempelt das Feld nachdem der Initiator den Pre-Dialog bestaetigt.
+
+### Sprint 2 Welle 2D — JWT-Tenant-Hardening (Migration 104)
+
+- **000104 users_tenant_id:** `ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001'` + `CREATE INDEX IF NOT EXISTS idx_users_tenant ON users(tenant_id)`. Defensives `IF NOT EXISTS` weil ein vorheriger Patch ohne Idempotenz-Schutz auf einigen Dev-DBs angekommen war. Kombiniert mit `auth.Claims.TenantID` (JSON `tid`) und `middleware.GetTenantID()`-Helper (fail-closed: leerer/invalider Wert → `ErrMissingTenantID` → 401). Schliesst Welle-1-Altlast (11 Routes mit Placeholder-TenantID) und 5 Cross-Layer-Holes in dialer/helpdesk gRPC + wiki + biz/hr/lexware. Details siehe [[security]] Abschnitt "JWT Tenant-Claim & Cross-Layer-Hardening".
 
 ### Sprint 2 Welle 2C — Bugfix-Sweep-Migrations (100–103)
 

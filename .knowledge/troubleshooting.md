@@ -1,6 +1,6 @@
 ---
 tags: [troubleshooting, debug]
-updated: 2026-04-20
+updated: 2026-04-28
 ---
 # Troubleshooting & Bekannte Probleme
 
@@ -125,6 +125,29 @@ Aus dem ersten Full-Redeploy des Hetzner-Prod-Servers von `fa17fc3` auf `980eba3
 - **Symptom:** `/opt/kmuhub/backups/` enthaelt nur einen einzigen alten Dump, obwohl `crontab -u deploy -l` einen 02:00-Eintrag zeigt.
 - **Ursache:** `/var/log/kmuhub-backup.log` existiert nicht. Entweder fehlt die Datei mit passenden Permissions, oder das Script failed vor dem ersten `echo`.
 - **Diagnose (Sprint-2-Task):** Check `sudo -u deploy /opt/kmuhub/deploy/scripts/backup.sh` manuell, `journalctl -u cron`, und Permissions auf `/var/log/`.
+
+## Tenant-Isolation Lessons (Sprint 2 Welle 2D, 2026-04-28)
+
+Drei Anti-Pattern, die Welle 1 hinterlassen hat. Vor jedem neuen Modul-Wiring pruefen.
+
+### Hardcoded `<modul>PlaceholderTenantID`-Konstanten
+- **Symptom:** Routes sehen so aus: `tenantID, _ := uuid.Parse(rapportePlaceholderTenantID)`. Cross-Tenant-Isolation auf HTTP-Ebene effektiv aus.
+- **Fix:** `tenantID, err := middleware.GetTenantID(r.Context())` als erste Aktion in jedem Handler. Bei Fehler 401 zurueck (kein Default-Tenant). Konstante komplett loeschen — Compiler findet alle Reste.
+- **Test:** `gateway/tenant_isolation_test.go`-Pattern kopieren: no-tenant + empty-tid + valid-tid.
+
+### `tenant_id`-Spalte ohne SELECT im Repository
+- **Symptom:** JWT signiert `tid`, Middleware liest aber leeren String → `ErrMissingTenantID` → 401 trotz korrekter Auth.
+- **Diagnose:** `grep -n "SELECT" backend/internal/<modul>/postgres_repository.go` und schauen ob `tenant_id` im Column-Set ist. War Hotfix-Anlass `c421fac` fuer auth.
+- **Lesson:** Wenn ein Migration-Patch eine Spalte hinzufuegt, im selben Commit alle Repository-SELECTs aktualisieren — sonst kommt der Wert nie in der App-Schicht an.
+
+### `getTenantID` ruft heimlich `GetUserID`
+- **Symptom:** Code compiliert, Tests laufen — aber jeder Call schreibt UserID als TenantID in den gRPC-Request. In Single-Tenant-Dev faellt das nicht auf, in Multi-Tenant-Tests schlagen alle Cross-Tenant-Checks fehl.
+- **War in:** `route_biz.go::getTenantID(r)` → 90 Call-Sites quer durch biz/billing/invoices/quotes/ext/hr/lexware/bexio/datev.
+- **Fix:** `getTenantID(r)` returniert `(string, error)`, ruft `middleware.GetTenantID` auf, Callsites pruefen `err != nil`. Beim Refactoring darauf achten, dass kein Helper noch UserID-by-mistake durchschleift.
+
+### Proto-Requests ohne `tenant_id`-Field
+- **Symptom:** gRPC-Service-Code hat einen Helper wie `extractTenantID()` der eine Konstante zurueckgibt, weil die Proto-Definition kein `tenant_id` kennt.
+- **Fix:** Proto-File patchen (`tenant_id = N;` mit naechstem freien Field-Index), `make proto` (oder protoc-Aufruf), gRPC-Server liest `req.GetTenantId()` mit `InvalidArgument`-Guard. Gateway-Route reicht `tenantID.String()` durch. War in dialer + helpdesk auf 13 RPCs.
 
 ## Git-Workflow & Recovery (Sprint 1+)
 
