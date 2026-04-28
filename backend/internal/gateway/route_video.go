@@ -77,6 +77,8 @@ func (vr *VideoRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 		r.Get("/recordings", vr.HandleListRecordings)
 		r.Get("/meetings/{meetingId}/recordings", vr.HandleListRecordingsByMeeting)
 		r.Delete("/recordings/{id}", vr.HandleDeleteRecording)
+		// Initiator pre-recording consent (R2-P0.4 / Migration 000107)
+		r.Post("/recordings/{id}/initiator-consent", vr.HandleConfirmInitiatorConsent)
 
 		// Presence
 		r.Get("/presence/{userId}", vr.HandleGetPresence)
@@ -1510,6 +1512,59 @@ func (vr *VideoRoutes) HandleCleanupExpiredRecording(w http.ResponseWriter, r *h
 	}
 
 	response.JSON(w, http.StatusOK, map[string]string{"status": "recording deleted"})
+}
+
+// ============================================================================
+// Initiator Pre-Recording Consent Handler (R2-P0.4 / Migration 000107)
+// ============================================================================
+
+// getVideoPreConsentClient obtains the pre-consent extended gRPC client.
+func (vr *VideoRoutes) getVideoPreConsentClient() (videov1.VideoServicePreConsentClient, error) {
+	conn, err := vr.registry.GetConnection("work")
+	if err != nil {
+		return nil, err
+	}
+	return videov1.NewVideoServicePreConsentClient(conn), nil
+}
+
+// HandleConfirmInitiatorConsent stamps pre_recording_consent_at on a recording row.
+// Must be called by the initiator before StartRecording when the pre-dialog flow is used.
+// Returns 412 Precondition Failed when the recording does not belong to the calling user.
+// POST /api/v1/video/recordings/{id}/initiator-consent
+func (vr *VideoRoutes) HandleConfirmInitiatorConsent(w http.ResponseWriter, r *http.Request) {
+	client, err := vr.getVideoPreConsentClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	tenantID, tenantErr := middleware.GetTenantID(r.Context())
+	if tenantErr != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant context")
+		return
+	}
+	recordingID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.ConfirmInitiatorConsent(r.Context(), &videov1.ConfirmInitiatorConsentRequest{
+		RecordingID: recordingID,
+		UserID:      userID,
+		TenantID:    tenantID.String(),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	if !resp.Stamped {
+		response.Error(w, http.StatusPreconditionFailed, "pre-recording consent could not be confirmed: recording not found or not owned by user")
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]bool{"stamped": true})
 }
 
 // parseTimestamp is defined in route_work.go and shared across gateway routes.

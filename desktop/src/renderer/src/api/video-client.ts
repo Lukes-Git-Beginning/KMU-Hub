@@ -190,6 +190,9 @@ export const listActiveCalls = () =>
 // Recordings
 // ---------------------------------------------------------------------------
 
+export const confirmInitiatorConsent = (recordingId: string) =>
+  post<{ stamped: boolean }>(`/api/v1/video/recordings/${recordingId}/initiator-consent`)
+
 export const startRecording = (callId: string) =>
   post<Recording>('/api/v1/video/recordings/start', { call_id: callId })
 

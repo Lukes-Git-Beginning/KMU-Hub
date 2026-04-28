@@ -34,18 +34,22 @@ var ValidRecordingStatuses = map[string]bool{
 
 // Recording represents a recorded call or meeting session
 type Recording struct {
-	ID                 uuid.UUID                `json:"id"`
-	CallID             *uuid.UUID               `json:"call_id,omitempty"`
-	MeetingID          *uuid.UUID               `json:"meeting_id,omitempty"`
-	StartedBy          *uuid.UUID               `json:"started_by,omitempty"`
-	ConsentSnapshot    []ParticipantConsentInfo  `json:"consent_snapshot,omitempty"`
-	Status             string                   `json:"status"`
-	EgressID           *string                  `json:"egress_id,omitempty"`
-	FileURL            *string                  `json:"file_url,omitempty"`
-	FileSizeBytes      *int64                   `json:"file_size_bytes,omitempty"`
-	DurationSeconds    *int                     `json:"duration_seconds,omitempty"`
-	RetentionExpiresAt *time.Time               `json:"retention_expires_at,omitempty"`
-	CreatedAt          time.Time                `json:"created_at"`
+	ID                      uuid.UUID                `json:"id"`
+	TenantID                uuid.UUID                `json:"tenant_id"`
+	CallID                  *uuid.UUID               `json:"call_id,omitempty"`
+	MeetingID               *uuid.UUID               `json:"meeting_id,omitempty"`
+	StartedBy               *uuid.UUID               `json:"started_by,omitempty"`
+	ConsentSnapshot         []ParticipantConsentInfo  `json:"consent_snapshot,omitempty"`
+	Status                  string                   `json:"status"`
+	EgressID                *string                  `json:"egress_id,omitempty"`
+	FileURL                 *string                  `json:"file_url,omitempty"`
+	FileSizeBytes           *int64                   `json:"file_size_bytes,omitempty"`
+	DurationSeconds         *int                     `json:"duration_seconds,omitempty"`
+	RetentionExpiresAt      *time.Time               `json:"retention_expires_at,omitempty"`
+	CreatedAt               time.Time                `json:"created_at"`
+	// Pre-recording consent fields (Migration 000107)
+	PreRecordingConsentAt   *time.Time               `json:"pre_recording_consent_at,omitempty"`
+	InitiatorConsentID      *uuid.UUID               `json:"initiator_consent_id,omitempty"`
 }
 
 // RecordingConsent represents a participant's consent for being recorded

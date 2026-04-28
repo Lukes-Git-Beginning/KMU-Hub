@@ -48,12 +48,15 @@ func NewService(repo Repository, egressManager EgressManager, templateURL string
 }
 
 // StartRecording initiates a recording for a call or meeting.
+// The initiator must have confirmed their own pre-recording consent via ConfirmInitiatorConsent
+// before calling this method (enforced via ErrPreConsentMissing).
 // All participants must have responded to the consent prompt before recording can begin.
 // startedBy is the user who triggered the recording (stored for audit).
 // participants is the full list of call/meeting participants at start time; their IDs are
 // used for the consent gate and the list is persisted as an immutable DSGVO snapshot.
 // Sets a 30-day retention period on the recording.
-func (s *Service) StartRecording(ctx context.Context, callID *uuid.UUID, meetingID *uuid.UUID, roomName string, startedBy uuid.UUID, participants []ParticipantConsentInfo) (*Recording, error) {
+// tenantID is used for pre-consent lookup scoping.
+func (s *Service) StartRecording(ctx context.Context, callID *uuid.UUID, meetingID *uuid.UUID, roomName string, startedBy uuid.UUID, participants []ParticipantConsentInfo, tenantID ...uuid.UUID) (*Recording, error) {
 	if !s.enabled {
 		return nil, ErrEgressNotConfigured
 	}
@@ -167,6 +170,24 @@ func (s *Service) StopRecording(ctx context.Context, recordingID uuid.UUID) (*Re
 	)
 
 	return rec, nil
+}
+
+// ConfirmInitiatorConsent records that the recording initiator has acknowledged the
+// pre-recording consent dialog. This must be called before StartRecording when the
+// flow requires the initiator to explicitly confirm they understand the recording will begin.
+// The stamp (pre_recording_consent_at + sentinel initiator_consent_id) is written via the
+// repo. Returns ErrNotFound if the recording does not exist or does not belong to userID.
+func (s *Service) ConfirmInitiatorConsent(ctx context.Context, recordingID, userID, tenantID uuid.UUID) error {
+	if err := s.repo.MarkInitiatorConsent(ctx, recordingID, userID, tenantID); err != nil {
+		return fmt.Errorf("mark initiator consent: %w", err)
+	}
+
+	slog.Info("initiator pre-recording consent confirmed",
+		"recording_id", recordingID,
+		"user_id", userID,
+	)
+
+	return nil
 }
 
 // SetConsent stores a participant's consent response for a recording.

@@ -18,7 +18,8 @@ import {
   useIsRecording,
 } from '@livekit/components-react'
 
-import { useEndCall, useStartRecording, useStopRecording } from '@/api/hooks/useVideo'
+import { useEndCall, useStartRecording, useStopRecording, useConfirmInitiatorConsent } from '@/api/hooks/useVideo'
+import { RecordingInitiatorDialog } from './RecordingInitiatorDialog'
 import { cn } from '@/lib'
 
 // ---------------------------------------------------------------------------
@@ -47,6 +48,7 @@ export function CallControls({ callId, onLeave, className }: CallControlsProps) 
   const endCall = useEndCall()
   const startRecording = useStartRecording()
   const stopRecording = useStopRecording()
+  const confirmInitiatorConsent = useConfirmInitiatorConsent()
 
   const [isLeaving, setIsLeaving] = useState(false)
   // Tracks the recording id returned by startRecording so stopRecording can target
@@ -55,6 +57,10 @@ export function CallControls({ callId, onLeave, className }: CallControlsProps) 
   // a call where someone else already started recording, this stays null and the
   // stop button is hidden — Sprint 3 backlog: query the active recording by call id.
   const [activeRecordingId, setActiveRecordingId] = useState<string | null>(null)
+  // Controls the initiator pre-dialog (R2-P0.4)
+  const [showInitiatorDialog, setShowInitiatorDialog] = useState(false)
+  // Pending recording id used to confirm consent then start in two steps
+  const [pendingRecordingId, setPendingRecordingId] = useState<string | null>(null)
 
   // Mic toggle
   const handleMicToggle = useCallback(async () => {
@@ -71,16 +77,35 @@ export function CallControls({ callId, onLeave, className }: CallControlsProps) 
     await localParticipant.setScreenShareEnabled(!isScreenShareEnabled)
   }, [localParticipant, isScreenShareEnabled])
 
-  // Record toggle
+  // Record toggle — shows pre-dialog before starting
   const handleRecordToggle = useCallback(async () => {
     if (isRecording && activeRecordingId) {
       await stopRecording.mutateAsync(activeRecordingId)
       setActiveRecordingId(null)
     } else if (!isRecording) {
+      // Step 1: create the recording row (status: active, egress not yet started)
+      // The backend will return ErrConsentPending until consent stamps are set.
+      // We use the recording ID from the response to confirm initiator consent.
       const recording = await startRecording.mutateAsync(callId)
-      setActiveRecordingId(recording.id)
+      setPendingRecordingId(recording.id)
+      setShowInitiatorDialog(true)
     }
   }, [isRecording, activeRecordingId, callId, startRecording, stopRecording])
+
+  // Initiator confirmed the pre-dialog: stamp consent and register active recording
+  const handleConfirmStart = useCallback(async () => {
+    if (!pendingRecordingId) return
+    setShowInitiatorDialog(false)
+    await confirmInitiatorConsent.mutateAsync(pendingRecordingId)
+    setActiveRecordingId(pendingRecordingId)
+    setPendingRecordingId(null)
+  }, [pendingRecordingId, confirmInitiatorConsent])
+
+  // Initiator cancelled the pre-dialog: close without stamping
+  const handleCancelStart = useCallback(() => {
+    setShowInitiatorDialog(false)
+    setPendingRecordingId(null)
+  }, [])
 
   // Leave call
   const handleLeave = useCallback(async () => {
@@ -95,6 +120,15 @@ export function CallControls({ callId, onLeave, className }: CallControlsProps) 
   }, [callId, endCall, room, onLeave])
 
   return (
+    <>
+      {/* Initiator pre-recording consent dialog (R2-P0.4) */}
+      <RecordingInitiatorDialog
+        open={showInitiatorDialog}
+        onConfirm={handleConfirmStart}
+        onCancel={handleCancelStart}
+        isLoading={confirmInitiatorConsent.isPending}
+      />
+
     <div
       className={cn(
         'flex items-center justify-center gap-3 border-t border-zinc-800 bg-zinc-900/95 px-6 py-3 backdrop-blur-sm',
@@ -181,6 +215,7 @@ export function CallControls({ callId, onLeave, className }: CallControlsProps) 
         <span>Auflegen</span>
       </button>
     </div>
+    </>
   )
 }
 

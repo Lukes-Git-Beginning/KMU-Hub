@@ -25,6 +25,7 @@ type VideoGRPCServer struct {
 	videov1.UnimplementedVideoServiceServer
 	videov1.UnimplementedVideoServiceEgressServer
 	videov1.UnimplementedVideoServiceRecordingTagServer
+	videov1.UnimplementedVideoServicePreConsentServer
 	videoService     *video.Service
 	meetingService   *meeting.Service
 	recordingService *recording.Service
@@ -525,6 +526,37 @@ func (s *VideoGRPCServer) CleanupExpiredRecording(ctx context.Context, req *vide
 	}
 
 	return &emptypb.Empty{}, nil
+}
+
+// ConfirmInitiatorConsent stamps pre_recording_consent_at on a recording row.
+// Called by the gateway after the initiator acknowledges the pre-recording dialog.
+func (s *VideoGRPCServer) ConfirmInitiatorConsent(ctx context.Context, req *videov1.ConfirmInitiatorConsentRequest) (*videov1.ConfirmInitiatorConsentResponse, error) {
+	recordingID, err := uuid.Parse(req.RecordingID)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
+	}
+
+	userID, err := uuid.Parse(req.UserID)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	var tenantID uuid.UUID
+	if req.TenantID != "" {
+		tenantID, err = uuid.Parse(req.TenantID)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		}
+	}
+
+	if err := s.recordingService.ConfirmInitiatorConsent(ctx, recordingID, userID, tenantID); err != nil {
+		if errors.Is(err, recording.ErrNotFound) {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		return nil, mapRecordingError(err)
+	}
+
+	return &videov1.ConfirmInitiatorConsentResponse{Stamped: true}, nil
 }
 
 // ============================================================================

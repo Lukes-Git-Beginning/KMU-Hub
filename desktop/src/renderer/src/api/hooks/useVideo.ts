@@ -20,6 +20,7 @@ import {
   startRecording,
   stopRecording,
   setRecordingConsent,
+  confirmInitiatorConsent,
 } from '../video-client'
 import type { CreateCallRequest, RecordingStatus, ConsentSnapshotEntry, UpdateRecordingMetadataRequest } from '../video-types'
 
@@ -98,6 +99,20 @@ export function useEndCall() {
     mutationFn: (callId: string) => endCall(callId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calls'] })
+    },
+  })
+}
+
+/**
+ * Confirm that the recording initiator has acknowledged the pre-recording consent dialog.
+ * Must be called before startRecording in the initiator flow (R2-P0.4).
+ */
+export function useConfirmInitiatorConsent() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (recordingId: string) => confirmInitiatorConsent(recordingId),
+    onSuccess: (_data, recordingId) => {
+      queryClient.invalidateQueries({ queryKey: ['recordings', recordingId] })
     },
   })
 }

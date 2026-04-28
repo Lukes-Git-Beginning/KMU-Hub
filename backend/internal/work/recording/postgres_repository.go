@@ -317,6 +317,39 @@ func (r *PostgresRepository) listRecordings(ctx context.Context, query string, a
 	return recordings, rows.Err()
 }
 
+// MarkInitiatorConsent stamps pre_recording_consent_at on a recording row.
+// The sentinel UUID 00000000-0000-0000-0000-000000000001 is used as initiator_consent_id.
+// tenantID is accepted for API consistency but not used as a filter until the recordings
+// table gains tenant_id in the Option-B Sprint 2/3 retrofit.
+func (r *PostgresRepository) MarkInitiatorConsent(ctx context.Context, recordingID, userID, _ uuid.UUID) error {
+	sentinelConsentID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	_, err := r.pool.Exec(ctx,
+		`UPDATE recordings
+		 SET pre_recording_consent_at = NOW(),
+		     initiator_consent_id = $1
+		 WHERE id = $2
+		   AND started_by = $3`,
+		sentinelConsentID, recordingID, userID,
+	)
+	return err
+}
+
+// GetPreConsentStatus returns true if pre_recording_consent_at is set on the recording.
+// tenantID is accepted for API consistency but not filtered until Option-B retrofit.
+func (r *PostgresRepository) GetPreConsentStatus(ctx context.Context, recordingID, _ uuid.UUID) (bool, error) {
+	var stamped bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT pre_recording_consent_at IS NOT NULL
+		 FROM recordings
+		 WHERE id = $1`,
+		recordingID,
+	).Scan(&stamped)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, ErrNotFound
+	}
+	return stamped, err
+}
+
 // marshalConsentSnapshot serializes the participant snapshot to JSONB.
 // Returns nil for an empty slice so the column stays NULL for old recordings.
 func marshalConsentSnapshot(snapshot []ParticipantConsentInfo) ([]byte, error) {

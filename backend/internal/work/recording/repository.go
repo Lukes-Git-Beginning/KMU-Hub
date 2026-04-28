@@ -24,4 +24,7 @@ type Repository interface {
 	ListExpiredRecordings(ctx context.Context, before time.Time) ([]Recording, error)
 	ListRecordingsWithAccess(ctx context.Context, userID uuid.UUID, meetingID *uuid.UUID) ([]Recording, error)
 	GetRecordingParticipants(ctx context.Context, recordingID uuid.UUID) ([]uuid.UUID, error)
+	// Pre-recording consent (Migration 000107)
+	MarkInitiatorConsent(ctx context.Context, recordingID, userID, tenantID uuid.UUID) error
+	GetPreConsentStatus(ctx context.Context, recordingID, tenantID uuid.UUID) (bool, error)
 }
