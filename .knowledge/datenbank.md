@@ -7,8 +7,8 @@ updated: 2026-04-28
 ## Überblick
 - PostgreSQL 16 mit `pgvector/pgvector:pg16`-Image + Redis 7 (nur Cache, KEIN Dual-Write)
 - Änderungen NUR via golang-migrate (`make migrate-create name=xxx`)
-- 99 Migration-Paare in `backend/migrations/` (Sprint 1 Welle 2: 076 wiki, 077 helpdesk; Welle 5: 079 berichte; Welle 6: 080 seed_berichte_permissions; S1.3: 081 formulare; Sprint 2 Welle 1: 082 consent FK + gdpr-FK, 083+084 inventar, 085+086 einkauf, 087+088 produktion, 089+090 vertraege, 091 video; Sprint 2 Welle 2A: 092+093 rapporte, 094+095 schichten, 096+097 fuhrpark, 098+099 vermietung)
-- **Prod-Stand seit 2026-04-19:** Migration-Head `81`. Welle 1 + Welle 2A bringen Head auf `99` (lokal/main, Server-Deploy ausstehend). Volume: `docker_pgdata` (nicht `docker_postgres-data`).
+- 103 Migration-Paare in `backend/migrations/` (Sprint 1 Welle 2: 076 wiki, 077 helpdesk; Welle 5: 079 berichte; Welle 6: 080 seed_berichte_permissions; S1.3: 081 formulare; Sprint 2 Welle 1: 082 consent FK + gdpr-FK, 083+084 inventar, 085+086 einkauf, 087+088 produktion, 089+090 vertraege, 091 video; Sprint 2 Welle 2A: 092+093 rapporte, 094+095 schichten, 096+097 fuhrpark, 098+099 vermietung; Sprint 2 Welle 2C Bugfix-Sweep: 100 rapporte_approve_permission, 101 vermietung_gist_overlap_unique_inspection, 102 schichten_shift_assignments_tenant_unique, 103 schichten_shift_capacity)
+- **Prod-Stand seit 2026-04-19:** Migration-Head `81`. Welle 1 + Welle 2A + Welle 2C bringen Head auf `103` (lokal/main, Server-Deploy ausstehend). Volume: `docker_pgdata` (nicht `docker_postgres-data`).
 - Index-Konvention: `idx_{table}_{column}`
 - **AI-First-Foundation** seit Migration 071 (siehe Abschnitt unten)
 - **Seed-Idempotenz:** Migration `000079` (berichte) wurde in `980eba3` um `ON CONFLICT DO NOTHING` erweitert, damit ein Re-Run keine Duplikate erzeugt. Gleiches Muster fuer alle zukuenftigen Seed-Migrations anwenden.
@@ -170,6 +170,13 @@ Alle Welle-2A-Tabellen tragen `tenant_id UUID NOT NULL DEFAULT '00000000-...-000
 - `rental_inspections` — id, rental_id FK CASCADE, tenant_id, kind ENUM(handover/return), inspector_id UUID, inspected_at, condition_notes TEXT, photo_keys TEXT[] (MinIO-Keys)
 - **Overlap-Pre-Check** (`service.go::CheckAvailability`): `SELECT 1 FROM rentals WHERE object_id=$1 AND tstzrange(start_date, end_date) && tstzrange($2, $3) AND status != 'cancelled'` → bei Treffer `ErrRentalConflict`
 - **Permissions:** `vermietung:object:{read,write}`, `vermietung:rental:{read,write}`, `vermietung:inspection:{read,write}`
+
+### Sprint 2 Welle 2C — Bugfix-Sweep-Migrations (100–103)
+
+- **000100 rapporte_approve_permission:** Seedet `rapporte:report:approve` Permission (resource=`rapporte:report`, action=`approve`), grant nur an admin-Rolle. Vorher hatten `/approve` und `/reject` Routes die gleiche `rapporte:report:write` Permission wie Edit/Delete — jetzt separates Approver-Recht.
+- **000101 vermietung_gist_overlap_unique_inspection:** `ALTER TABLE rentals ADD CONSTRAINT excl_rentals_no_overlap EXCLUDE USING GIST (tenant_id WITH =, object_id WITH =, tstzrange(start_date, end_date) WITH &&) WHERE (status NOT IN ('cancelled','completed'))` — DB-Layer-Race-Condition-Schutz fuer Doppelbuchung. Plus `ALTER TABLE rental_inspections ADD CONSTRAINT uq_rental_inspections_kind UNIQUE (tenant_id, rental_id, kind)` — verhindert zwei handover- oder zwei return-Inspections fuer dasselbe Rental.
+- **000102 schichten_shift_assignments_tenant_unique:** `DROP CONSTRAINT uq_shift_assignments_shift_employee` (war non-tenant-scoped) und `ADD CONSTRAINT uq_shift_assignments_tenant_shift_employee UNIQUE (tenant_id, shift_id, employee_id)`.
+- **000103 schichten_shift_capacity:** `ALTER TABLE shifts ADD COLUMN capacity INT NULL` — optionales Capacity-Limit fuer Schichten. AssignEmployee prueft `CountAssignments < shift.capacity` vor INSERT (`ErrShiftFull` sonst), kombiniert mit ArbZG-Pre-Check.
 
 ### Berichte / Reports (Migration 079)
 - `report_definitions` — tenant_id, name, description, module (finanzen/crm/helpdesk/inventar/produktion/cross), kind (system/custom), query_config JSONB, default_format (pdf/csv/xlsx), created_by (FK users SET NULL), is_published, CHECK-Constraints auf module/kind/format

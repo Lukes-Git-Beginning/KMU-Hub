@@ -8,11 +8,11 @@ updated: 2026-04-28
 - **Sprint 0 abgeschlossen:** Alle 7 R1-P0-Blocker + Cleanup + Modul-Scope-Matrix gemerged (9 PRs), Gate S0 bestanden
 - **Sprint 1 abgeschlossen (2026-04-26):** 7/7 Module live + 5/5 R2-P0 Batch A done, Gate S1 bestanden
 - **Sprint 2 Welle 1 done (2026-04-26):** inventar/einkauf/produktion + 20-Blocker-Bugfix-Sweep (`ad04191`) auf main
-- **Sprint 2 Welle 2A done (2026-04-28):** rapporte/schichten/fuhrpark/vermietung Backends auf main (`e4b1a62` + `c52839f`). **7/14 Module live** + 4 weitere mit Backend-Foundation
+- **Sprint 2 Welle 2A+2B+2C done (2026-04-28):** Backends (`e4b1a62`+`c52839f`), Frontend-Hooks (`1a94503`), 23-Bugfix-Sweep (`a4d189e`). **7/14 Module live** mit Frontend-Hooks.
 - **Launch-Datum:** **2026-07-01** (+4 Wochen nach Rigorosum Runde 2)
 - **Alle 20 Feature-Phasen abgeschlossen** (103/103 Plans)
 - **Branding:** "Cosmi" (Software), "Zentria" (Firma), zentria.tech
-- **Naechste Schritte:** Sprint 2 Welle 2B (Frontend-Hooks 4 Module) → Welle 2C (Bugfix-Sweep) → Welle 3 (R2-P0.4 Consent-Modal + R2-P0.7 Offline-Queue + Option-B Phase 1)
+- **Naechste Schritte:** Cross-Module JWT-Claim-Extraction-Task (7 Routes) → Welle 3 (R2-P0.4 Consent-Modal + R2-P0.7 Offline-Queue + Option-B Phase 1 Top-20 Tabellen)
 - **Sprint 1 Welle 1–4 (2026-04-18):** ✅ R2-P0 Batch A komplett (LiveKit-Secrets-Assertion, Egress-Webhook, Lexware-HMAC, Recording-Consent, coturn-Prep flag-off), ✅ Wiki-Modul (15 RPCs, FTS) + Helpdesk-Modul (22 RPCs, SLA + Merge) end-to-end
 - **Sprint 1 Welle 5 (2026-04-18) — berichte Backend-Kern:** ✅ Migration 000079, Proto 14 RPCs, Service-Layer (52.4% Cov), Executor (92.1% Cov), Scheduler (91.5% Cov), Frontend-Client + Recharts-Page
 - **Sprint 1 Welle 6 (2026-04-19) — S1.2 berichte Completion:** ✅ WP-3 Export-Layer (PDF/CSV/XLSX, 80.2% Cov), WP-5 gRPC-Server + cmd (77.6% Cov, Ports 50063/9103), WP-6 Gateway-Routes + ACL-Seed 000080 (57% Cov), WP-7 Docker-Compose, WP-11 Smoke. Gate S1.2 bestanden

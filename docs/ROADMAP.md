@@ -153,7 +153,7 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 
 **Ziel:** Restliche 7 Module + die restlichen R2-P0-Items + Start Option-B-Retrofit (Top-20 Tabellen).
 
-**Stand 2026-04-28:** Sprint 2 Welle 0 + Welle 1 + Welle 2A done. **7/7 Welle-2-Module Backend live** (3 Welle-1 + 4 Welle-2A). Welle 2B (Frontend-Hooks) startet als naechstes, danach Welle 2C (Bugfix-Sweep) und Welle 3 (R2-P0.4/7 + Option-B Phase 1).
+**Stand 2026-04-28 (Welle 2C done):** Sprint 2 Welle 0 + Welle 1 + Welle 2A + Welle 2B + Welle 2C done. **7/7 Welle-2-Module Backend + Frontend-Hooks live** mit Bugfix-Sweep nach `ad04191`-Pattern. Cross-Module JWT-Claim-Extraction-Task (Welle-1-Altlast in 7 Routes) und Welle 3 (R2-P0.4/7 + Option-B Phase 1) stehen aus.
 
 | # | Task | Aufwand | Kategorie | Status |
 |---|---|---|---|---|
@@ -175,7 +175,7 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 
 **Parallelitaets-Model:** 4 Module-Worktrees + 1 Realtime/R2-P0-Worktree + 1 Multi-Tenancy-Worktree.
 
-**Progress Sprint 2 (Stand 2026-04-28):** **7/7 Welle-2-Module Backend done** (S2.5/2.6/2.7 als Cluster 1 in `9438ba0` Welle 1 + S2.1/2.2/2.3/2.4 als Welle 2A in `e4b1a62` + `c52839f`). Welle-0 R2-P0.8/9 erledigt, S1.R2.1b TURN-Wiring vorgezogen in S1, **20-Blocker-Bugfix-Sweep** (`ad04191`) abgeschlossen. Alle 4 Welle-2A-Module mit Pflicht-Guards aus `ad04191` (Pre-Check, tenant_id, RowsAffected) von Anfang an. **Naechste Schritte:** Welle 2B (Frontend-Hooks fuer rapporte/schichten/fuhrpark/vermietung), dann Welle 2C (Bugfix-Sweep wie ad04191), dann Welle 3 mit S2.R2.4 Consent-Modal + S2.R2.7 Offline-Queue + S2.MT.1 Option-B Phase 1.
+**Progress Sprint 2 (Stand 2026-04-28 Abend):** **7/7 Welle-2-Module Backend + Frontend-Hooks + Bugfix-Sweep done.** Welle 1 (`9438ba0`) + Welle 2A (`e4b1a62`+`c52839f`) + Welle 2B Frontend-Hooks (`1a94503`, 12 Files, 2.904 LOC, ~70 Hooks) + Welle 2C 23-Bugfix-Sweep (`a4d189e`, 36 Files, +866/-124, 4 neue Migrations 100-103). Coverage rapporte 33.9%, schichten 35.2%, fuhrpark 39.8%, vermietung 40.9%. **Welle-1-Altlast aufgedeckt:** hardcoded Placeholder-TenantID in 7 Routes (rapporte/schichten/fuhrpark/vermietung/inventar/einkauf/produktion) → eigene Sprint-2-Cross-Module-Task fuer JWT-Claim-Extraction-Refactor vor Pilot-1. **Naechste Schritte:** Cross-Module JWT-Refactor → Welle 3 (S2.R2.4 Consent-Modal + S2.R2.7 Offline-Queue + S2.MT.1 Option-B Phase 1).
 
 **Ende Sprint 2:** Alle 14 Module live, alle 9 R2-P0 erledigt, Option-B Top-20 aktiv.
 
@@ -511,5 +511,5 @@ Folgende Dateien werden mit dem Check-in dieser Roadmap zu historischen Referenz
 
 ---
 
-*Letztes Update: 2026-04-28 (Sprint 2 Welle 2A done — 7/7 Welle-2-Module Backend live: 3 Welle 1 + 4 Welle 2A. Commits `e4b1a62` fuhrpark + `c52839f` rapporte/schichten/vermietung. 75 Files, ~30k LOC, 128 Tests, Coverage 35-41%, Migrations 092-099, Ports 50074-50077/9114-9117. Pflicht-Guards aus ad04191 durchgezogen. Naechste Phase: Welle 2B Frontend-Hooks)*
-*Naechste Ueberarbeitung: Welle 2B/2C Abschluss (~2026-04-30), Welle 3 (R2-P0.4/7 + Option-B Phase 1) Start, spaetestens Gate S2 (2026-05-24)*
+*Letztes Update: 2026-04-28 Abend (Sprint 2 Welle 2A+2B+2C done — 7/7 Welle-2-Module Backend + Frontend-Hooks live + 23-Bugfix-Sweep abgeschlossen. Commits `e4b1a62` + `c52839f` + `1a94503` + `a4d189e`. 4 neue Bugfix-Migrations 100-103. Coverage 33-41%. Welle-1-Altlast aufgedeckt: 7-Module JWT-Claim-Extraction-Refactor steht aus.)*
+*Naechste Ueberarbeitung: Cross-Module JWT-Task + Welle 3 Start (~2026-04-30), spaetestens Gate S2 (2026-05-24)*

@@ -17,7 +17,19 @@ updated: 2026-04-28
 
 **Gesamt:** 2 Commits auf main, 75 Files, ~30k LOC, 128 Tests, alle Module-Coverages 35–41% (>30%-Ziel), `go build ./...` + `go vet ./...` clean. Alle 4 Module Feature-Flag default OFF. Open: TÜV-Notification-Delivery (Sprint-3-Wiring), `assigned_driver_id` FK (Sprint-3-Team-Wiring), rapporte-PDF-Export (Sprint-3-Library). Subagent-Lessons: Self-Commit-Anomalie (fuhrpark), kuenftig `kein git add/commit` im Briefing erzwingen. Race-Conditions auf shared Files (config.go, gateway/main.go, docker-compose.yml) durch Edit-Tool-Konfliktdetection sauber aufgeloest.
 
-**Naechste Wellen:** 2B Frontend-Hooks (4 Module parallel), 2C Bugfix-Sweep wie `ad04191`, 2D Memory/ROADMAP-Update.
+**Welle 2B (Frontend-Hooks):** ✅ Commit `1a94503` — 12 Files, 2.904 LOC, ~70 Hooks. 4 parallele Sonnet-Subagents schrieben pro Modul je 3 Files (`<modul>-types.ts`, `<modul>-client.ts`, `hooks/use<Modul>.ts`). Pattern: TanStack Query, Stale-Time 30s (Calendar 60s, TÜV-Due 5min). Mock-Stores in `desktop/.../stores/` unangetastet — FeatureGate-Switch auf Komponenten-Layer. tsc --noEmit clean.
+
+**Welle 2C (Bugfix-Sweep):** ✅ 4 parallele Explore-Reviews (read-only) → 27 Findings → 23 Welle-2A/2B-Bugs gefixt in Commit `a4d189e` (36 Files, +866/-124, 4 neue Migrations). 4 Findings sind Welle-1-Altlast (hardcoded Placeholder-TenantID in 7 Routes) und werden separat in einer Cross-Module-Task adressiert.
+
+**Welle 2C Highlights:**
+- **P0 Sicherheit:** fuhrpark TÜV-Cron Cross-Tenant-Lecks geschlossen (FindVehiclesDueTuev/MarkTuevReminderSent mit tenant_id), rapporte UploadAttachment ObjectKey-Path-Validierung gegen Tenant-Prefix, rapporte separate `:approve`-Permission (Migration 000100, nur admin)
+- **P1 Datenintegritaet:** vermietung Migration 000101 mit `EXCLUDE USING GIST` (DB-Layer-Race-Schutz CreateRental) + UNIQUE auf rental_inspections (tenant, rental_id, kind), schichten ArbZG bidirektional (vor + nach), ApplyTemplate idempotent (Infinite-Loop-Bug behoben), Migration 000102 UNIQUE shift_assignments tenant-scoped, Migration 000103 capacity-Field + Pre-Check, rapporte Approve/Reject atomic UPDATE, rapporte GetReportStatsCounts SQL GROUP BY (statt limit=100000), fuhrpark Mileage-Decrement-Reject
+- **P1 Korrektheit:** vermietung Operator-Precedence-Fix in UpdateRental, schichten ArbZG `<` (war `<=`), fuhrpark BETWEEN `::date`-Cast, vermietung Calendar filtert reserved/active, ReplacePhotos via neuem proto-bool
+- **P2/P3:** fuhrpark Cron-Scan-Fenster 2h (Drift-Margin), 4 Frontend-Cache-Invalidation-Fixes, GPS-Range-Validation
+
+**Tests:** 134 gruen. Coverage rapporte 33.9%, schichten 35.2%, fuhrpark 39.8%, vermietung 40.9% — alle ueber 30%-Ziel.
+
+**Welle-1-Altlast (Cross-Module):** `route_{rapporte,schichten,fuhrpark,vermietung,inventar,einkauf,produktion}.go` haben hardcoded `<modul>PlaceholderTenantID = "00000000-0000-0000-0000-000000000001"` ohne JWT-Claim-Extraction. Cross-Tenant-Isolation auf HTTP-Ebene **funktioniert nicht**. Eigene Sprint-2-Task vor Pilot-1: JWT-Claim-Extraction-Refactor fuer alle 7 Module gemeinsam.
 
 ## Sprint 1 Session 2026-04-18 — R2-P0 Batch A + Wiki + Helpdesk end-to-end
 | Schritt | Details |
