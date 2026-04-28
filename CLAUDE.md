@@ -100,7 +100,7 @@ Single Source of Truth fuer projektspezifisches Wissen. Notes haben YAML-Frontma
 | `security.md` | JWT, RBAC, Consent-Enforcement, Prod-Secrets-Assertion, DOMPurify |
 | `integrationen.md` | Bexio, Lexware, DATEV, LiveKit, OnlyOffice JWT, Plugin-WASM (off) |
 | `deployment.md` | Docker, CI/CD, Hetzner, `make build-prod -tags no_wasm` |
-| `testing.md` | Test-Strategie, Playwright MCP, Sprint-0-Neuzugaenge |
+| `testing.md` | Test-Strategie, Sprint-0-Neuzugaenge |
 | `pricing.md` | Modul-x-User Preismodell (COSMI + ORBIT) |
 | `troubleshooting.md` | Bekannte Probleme, Git-Workflow, Tailwind/CSP, ICU-Plural, Radix-Null |
 | `tooling-graphify.md` | Graphify-Eval (vertagt auf Sprint 2/3) |

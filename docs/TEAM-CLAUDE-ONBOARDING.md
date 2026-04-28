@@ -45,7 +45,6 @@ Claude darf **ohne Nachfrage**:
 - Go-Commands (`go test`, `go build`, `go run`, `make`)
 - npm/npx (`vitest`, `tsc`, `eslint`, `shadcn`, `vite`)
 - Docker-Compose
-- Playwright (Browser-Automation)
 - Knowledge-Base lesen
 
 Alles andere fragt er — einfach mit `1` (Allow once) oder `2` (Always) bestätigen.

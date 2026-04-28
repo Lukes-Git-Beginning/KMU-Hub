@@ -21,7 +21,6 @@ updated: 2026-04-28
 - **WASM-Plugin-System:** Feature-Flag OFF bis Phase D + Build-Tag `no_wasm`, siehe [[integrationen]]
 - **Mobile:** PWA auf Desktop-Basis (kein React Native mehr)
 - **Hetzner Prod:** ✅ **Live auf `980eba3` seit 2026-04-19** — alle 15 Business-Services healthy, LiveKit ohne devkey-Warnung, Migration-Head `81`. Erster Full-Redeploy seit 2026-03-08 (171 Commits). 6 Infra-Bugs per skip-worktree server-seitig gepatched, Sprint-2-Cleanup in [[deployment]] und [[troubleshooting]] notiert.
-- **Testing:** Playwright MCP via Chrome CDP (Port 9222) fuer E2E-Verifikation
 - GitHub: github.com/Lukes-Git-Beginning/KMU-Hub (private), branch: main
 
 ### Roadmap (Single Source of Truth: `docs/ROADMAP.md`)

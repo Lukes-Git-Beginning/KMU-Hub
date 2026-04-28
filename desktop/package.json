@@ -5,7 +5,6 @@
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev --mode demo",
-    "dev:test": "electron-vite dev --mode demo -- --remote-debugging-port=9222 --remote-allow-origins=*",
     "build": "electron-vite build",
     "build:win": "electron-vite build && electron-builder --win",
     "build:dist": "electron-vite build && electron-builder",

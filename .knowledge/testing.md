@@ -85,13 +85,6 @@ Zwei Varianten mit gleicher Abdeckung:
 5. **Smoke** (nach 4) — Go Smoke Tests
 6. **OpenAPI Validate** (parallel) — Spec-Validierung
 
-## Playwright MCP (E2E / Visuelle Verifikation)
-- Protocol: Chrome DevTools Protocol (CDP), Port 9222
-- Konfiguration: `.mcp.json` im Projekt-Root
-- Start: `npm run dev:test` — Electron im Demo-Modus mit CDP-Port
-  - Befehl: `electron-vite dev --mode demo -- --remote-debugging-port=9222 --remote-allow-origins=*`
-- Use-Cases: Visuelle Verifikation nach Aenderungen, Screenshot-Sessions (B10: 36 Screenshots), Crash-Detection (B9: alle Module auf 0 JS-Errors geprueft)
-
 ## Demo Mode als Testumgebung
 - `RENDERER_VITE_DEMO_MODE=true` — Fetch-Interceptor mit realistischen Mock-Daten
 - Kein Backend noetig fuer Frontend-Tests

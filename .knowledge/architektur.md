@@ -212,7 +212,7 @@ Subagent-Strategie: 4 parallele Sonnet-Subagents schreiben direkt auf main, Done
 - Grund: Electron Production nutzt `file://` Protokoll — Service Workers + dynamic import() nicht unterstuetzt
 - Handler: `mocks/handlers/` (19 Dateien inkl. Dialer mit 617 LoC, statisch importiert, Vite eliminiert in non-demo Builds)
 - Mock-Daten: `mocks/data/` (8 typisierte Dateien)
-- Dev: `npm run dev` → `--mode demo`; `npm run dev:test` → + CDP Port 9222
+- Dev: `npm run dev` → `--mode demo`
 
 ## i18n-Architektur
 
@@ -290,7 +290,6 @@ make migrate-create name=xxx        # Neue Migration erstellen
 cd desktop
 npm install
 npm run dev                         # Electron Dev-Modus
-npm run dev:test                    # Dev + CDP Port 9222 (Playwright MCP)
 npm run build                       # Production Build
 npm run test                        # Vitest
 npm run lint                        # ESLint

@@ -102,10 +102,9 @@ Erster Full-Redeploy des Hetzner-CPX42 seit 2026-03-08. Server hing auf `fa17fc3
 | Lint-Cleanup (347 ESLint-Probleme auf 0) | 2026-03-07 |
 | Phase A Dead-Code Audit | 2026-03-05 |
 
-## Beta Phase B9 — Crash-Fixes & Playwright Testing (2026-04-01)
+## Beta Phase B9 — Crash-Fixes (2026-04-01)
 | Schritt | Details |
 |---------|---------|
-| Playwright MCP eingerichtet | Chrome CDP Port 9222, .mcp.json konfiguriert |
 | MSW durch Fetch-Interceptor ersetzt | demo-mode.ts, sauberer als MSW Service Worker |
 | RichTextEditor entfernt | Ungenutzte shared component |
 | Business Roadmap erstellt | docs/BUSINESS-ROADMAP.md |
@@ -113,12 +112,12 @@ Erster Full-Redeploy des Hetzner-CPX42 seit 2026-03-08. Server hing auf `fa17fc3
 | 9 Modul-Crashes gefixt | Inventar (duplicate import), Einkauf (null guard), Formulare (null guard), Vermietung (objectName/currency), Dashboard Widgets (camelCase, activities, pipeline) |
 | 5 weitere Null-Guards | CalendarUpcoming (today/dd scope), MyCalendar (now scope), EinkaufPage (showWareneingangDialog?.id), FormularePage (showShareDialog?.name, editingForm), ZustandsprotokollDialog (reservation?.objectName) |
 | Projekte Mock-Daten | project_key, is_template, Handler pagination |
-| Playwright-Verifikation | Alle Module crash-frei verifiziert (0 JS-Errors) |
+| Crash-Verifikation | Alle Module crash-frei verifiziert (0 JS-Errors) |
 
 ## Beta Phase B10 — Design Audit & Rebrand (2026-04-01)
 | Schritt | Details |
 |---------|---------|
-| Design Audit (36 Screenshots) | Playwright-Session, alle Module visuell geprüft, Score ~6.6/10 |
+| Design Audit (36 Screenshots) | Manuelle Screenshot-Session, alle Module visuell geprüft, Score ~6.6/10 |
 | Auth Redesign | AuthLayout mit Split-Layout + Brand-Panel für Login/Register |
 | Empty States normalisiert | Projekte (EmptyGeneric), Zeiterfassung (EmptyCalendar), Buchhaltung (Props gefixt) |
 | Team Tabs Overflow | Fade-Mask + scrollbar-hide für 11-Tab-Leiste |
