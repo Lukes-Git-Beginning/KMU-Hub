@@ -1,0 +1,549 @@
+package schichten
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+const arbzgMinRestDuration = 11 * time.Hour
+
+// Service handles schichten business logic.
+type Service struct {
+	repo Repository
+}
+
+// NewService creates a new schichten service.
+func NewService(repo Repository) *Service {
+	return &Service{repo: repo}
+}
+
+// ============================================================================
+// Input types
+// ============================================================================
+
+// CreateShiftInput contains data to create a shift.
+type CreateShiftInput struct {
+	TenantID    uuid.UUID
+	Title       string
+	Description string
+	StartTime   time.Time
+	EndTime     time.Time
+	Location    *string
+	CreatedBy   *uuid.UUID
+}
+
+// UpdateShiftInput contains fields that can be updated on a shift.
+type UpdateShiftInput struct {
+	TenantID    uuid.UUID
+	ShiftID     uuid.UUID
+	Title       *string
+	Description *string
+	StartTime   *time.Time
+	EndTime     *time.Time
+	Location    *string
+}
+
+// ListShiftsInput contains pagination and filtering for shift listing.
+type ListShiftsInput struct {
+	TenantID uuid.UUID
+	Status   *ShiftStatus
+	From     *time.Time
+	To       *time.Time
+	Page     int
+	PageSize int
+}
+
+// AssignEmployeeInput contains data to assign an employee to a shift.
+type AssignEmployeeInput struct {
+	TenantID   uuid.UUID
+	ShiftID    uuid.UUID
+	EmployeeID uuid.UUID
+	AssignedBy *uuid.UUID
+}
+
+// CreateTemplateInput contains data to create a shift template.
+type CreateTemplateInput struct {
+	TenantID        uuid.UUID
+	Name            string
+	Description     string
+	DayOfWeek       int
+	StartHour       int
+	StartMinute     int
+	DurationMinutes int
+	Location        *string
+}
+
+// UpdateTemplateInput contains fields that can be updated on a template.
+type UpdateTemplateInput struct {
+	TenantID        uuid.UUID
+	TemplateID      uuid.UUID
+	Name            *string
+	Description     *string
+	DayOfWeek       *int
+	StartHour       *int
+	StartMinute     *int
+	DurationMinutes *int
+	Location        *string
+}
+
+// ApplyTemplateInput contains data to generate shifts from a template.
+type ApplyTemplateInput struct {
+	TenantID   uuid.UUID
+	TemplateID uuid.UUID
+	RangeStart time.Time
+	RangeEnd   time.Time
+	CreatedBy  *uuid.UUID
+}
+
+// ListTemplatesInput contains pagination for template listing.
+type ListTemplatesInput struct {
+	TenantID uuid.UUID
+	Page     int
+	PageSize int
+}
+
+// GetShiftStatsInput contains optional time range for stats.
+type GetShiftStatsInput struct {
+	TenantID uuid.UUID
+	From     *time.Time
+	To       *time.Time
+}
+
+// ============================================================================
+// Shift methods
+// ============================================================================
+
+// CreateShift creates a new shift in draft status.
+func (s *Service) CreateShift(ctx context.Context, input CreateShiftInput) (*Shift, error) {
+	title := strings.TrimSpace(input.Title)
+	if title == "" {
+		return nil, ErrInvalidInput
+	}
+	if !input.EndTime.After(input.StartTime) {
+		return nil, ErrInvalidInput
+	}
+
+	now := time.Now()
+	shift := &Shift{
+		ID:          uuid.New(),
+		TenantID:    input.TenantID,
+		Title:       title,
+		Description: input.Description,
+		StartTime:   input.StartTime,
+		EndTime:     input.EndTime,
+		Status:      ShiftStatusDraft,
+		Location:    input.Location,
+		CreatedBy:   input.CreatedBy,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+
+	if err := s.repo.CreateShift(ctx, shift); err != nil {
+		return nil, fmt.Errorf("create shift: %w", err)
+	}
+
+	slog.Info("shift created", "shift_id", shift.ID, "tenant_id", shift.TenantID)
+	return shift, nil
+}
+
+// UpdateShift updates mutable fields on a shift.
+func (s *Service) UpdateShift(ctx context.Context, input UpdateShiftInput) (*Shift, error) {
+	shift, err := s.repo.GetShift(ctx, input.TenantID, input.ShiftID)
+	if err != nil {
+		return nil, err
+	}
+
+	if input.Title != nil {
+		t := strings.TrimSpace(*input.Title)
+		if t == "" {
+			return nil, ErrInvalidInput
+		}
+		shift.Title = t
+	}
+	if input.Description != nil {
+		shift.Description = *input.Description
+	}
+	if input.StartTime != nil {
+		shift.StartTime = *input.StartTime
+	}
+	if input.EndTime != nil {
+		shift.EndTime = *input.EndTime
+	}
+	if !shift.EndTime.After(shift.StartTime) {
+		return nil, ErrInvalidInput
+	}
+	if input.Location != nil {
+		shift.Location = input.Location
+	}
+	shift.UpdatedAt = time.Now()
+
+	if err := s.repo.UpdateShift(ctx, shift); err != nil {
+		return nil, fmt.Errorf("update shift: %w", err)
+	}
+
+	slog.Info("shift updated", "shift_id", shift.ID, "tenant_id", shift.TenantID)
+	return shift, nil
+}
+
+// DeleteShift hard-deletes a shift and its assignments (CASCADE).
+func (s *Service) DeleteShift(ctx context.Context, tenantID, shiftID uuid.UUID) error {
+	if _, err := s.repo.GetShift(ctx, tenantID, shiftID); err != nil {
+		return err
+	}
+	if err := s.repo.DeleteShift(ctx, tenantID, shiftID); err != nil {
+		return fmt.Errorf("delete shift: %w", err)
+	}
+	slog.Info("shift deleted", "shift_id", shiftID, "tenant_id", tenantID)
+	return nil
+}
+
+// GetShift retrieves a single shift by ID.
+func (s *Service) GetShift(ctx context.Context, tenantID, shiftID uuid.UUID) (*Shift, error) {
+	return s.repo.GetShift(ctx, tenantID, shiftID)
+}
+
+// ListShifts retrieves shifts with optional filtering and pagination.
+func (s *Service) ListShifts(ctx context.Context, input ListShiftsInput) ([]*Shift, int, error) {
+	if input.Page < 1 {
+		input.Page = 1
+	}
+	if input.PageSize < 1 || input.PageSize > 200 {
+		input.PageSize = 50
+	}
+	offset := (input.Page - 1) * input.PageSize
+	filter := ListShiftsFilter{
+		Status: input.Status,
+		From:   input.From,
+		To:     input.To,
+	}
+	return s.repo.ListShifts(ctx, input.TenantID, filter, offset, input.PageSize)
+}
+
+// PublishShifts sets all draft shifts within a time window to published.
+// Idempotent: already-published shifts are not double-counted.
+func (s *Service) PublishShifts(ctx context.Context, tenantID uuid.UUID, from, to time.Time) (int64, error) {
+	if !to.After(from) {
+		return 0, ErrInvalidInput
+	}
+	count, err := s.repo.PublishShifts(ctx, tenantID, from, to)
+	if err != nil {
+		return 0, fmt.Errorf("publish shifts: %w", err)
+	}
+	slog.Info("shifts published", "tenant_id", tenantID, "count", count, "from", from, "to", to)
+	return count, nil
+}
+
+// ============================================================================
+// Assignment methods
+// ============================================================================
+
+// AssignEmployee assigns an employee to a shift after ArbZG validation.
+func (s *Service) AssignEmployee(ctx context.Context, input AssignEmployeeInput) (*ShiftAssignment, error) {
+	// Pre-check: verify shift exists under tenant
+	shift, err := s.repo.GetShift(ctx, input.TenantID, input.ShiftID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Guard 1: ArbZG §5 rest-period check before DB write
+	if err := s.validateRestPeriod(ctx, input.TenantID, input.EmployeeID, shift.StartTime, shift.EndTime); err != nil {
+		return nil, err
+	}
+
+	assignment := &ShiftAssignment{
+		ID:         uuid.New(),
+		TenantID:   input.TenantID,
+		ShiftID:    input.ShiftID,
+		EmployeeID: input.EmployeeID,
+		AssignedAt: time.Now(),
+		AssignedBy: input.AssignedBy,
+	}
+
+	if err := s.repo.CreateAssignment(ctx, assignment); err != nil {
+		return nil, fmt.Errorf("assign employee: %w", err)
+	}
+
+	slog.Info("employee assigned to shift",
+		"shift_id", input.ShiftID,
+		"employee_id", input.EmployeeID,
+		"tenant_id", input.TenantID,
+	)
+	return assignment, nil
+}
+
+// UnassignEmployee removes an employee from a shift.
+func (s *Service) UnassignEmployee(ctx context.Context, tenantID, shiftID, employeeID uuid.UUID) error {
+	// Pre-check: ensure shift exists under tenant
+	if _, err := s.repo.GetShift(ctx, tenantID, shiftID); err != nil {
+		return err
+	}
+
+	if err := s.repo.DeleteAssignment(ctx, tenantID, shiftID, employeeID); err != nil {
+		return fmt.Errorf("unassign employee: %w", err)
+	}
+
+	slog.Info("employee unassigned from shift",
+		"shift_id", shiftID,
+		"employee_id", employeeID,
+		"tenant_id", tenantID,
+	)
+	return nil
+}
+
+// ListAssignments returns all assignments for a shift.
+func (s *Service) ListAssignments(ctx context.Context, tenantID, shiftID uuid.UUID) ([]*ShiftAssignment, error) {
+	if _, err := s.repo.GetShift(ctx, tenantID, shiftID); err != nil {
+		return nil, err
+	}
+	return s.repo.ListAssignments(ctx, tenantID, shiftID)
+}
+
+// ============================================================================
+// Template methods
+// ============================================================================
+
+// CreateTemplate creates a new shift template.
+func (s *Service) CreateTemplate(ctx context.Context, input CreateTemplateInput) (*ShiftTemplate, error) {
+	name := strings.TrimSpace(input.Name)
+	if name == "" {
+		return nil, ErrInvalidInput
+	}
+	if input.DayOfWeek < 0 || input.DayOfWeek > 6 {
+		return nil, ErrInvalidInput
+	}
+	if input.StartHour < 0 || input.StartHour > 23 {
+		return nil, ErrInvalidInput
+	}
+	if input.StartMinute < 0 || input.StartMinute > 59 {
+		return nil, ErrInvalidInput
+	}
+	if input.DurationMinutes <= 0 {
+		return nil, ErrInvalidInput
+	}
+
+	now := time.Now()
+	tmpl := &ShiftTemplate{
+		ID:              uuid.New(),
+		TenantID:        input.TenantID,
+		Name:            name,
+		Description:     input.Description,
+		DayOfWeek:       input.DayOfWeek,
+		StartHour:       input.StartHour,
+		StartMinute:     input.StartMinute,
+		DurationMinutes: input.DurationMinutes,
+		Location:        input.Location,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}
+
+	if err := s.repo.CreateTemplate(ctx, tmpl); err != nil {
+		return nil, fmt.Errorf("create shift template: %w", err)
+	}
+
+	slog.Info("shift template created", "template_id", tmpl.ID, "tenant_id", tmpl.TenantID)
+	return tmpl, nil
+}
+
+// UpdateTemplate updates mutable fields on a template.
+func (s *Service) UpdateTemplate(ctx context.Context, input UpdateTemplateInput) (*ShiftTemplate, error) {
+	tmpl, err := s.repo.GetTemplate(ctx, input.TenantID, input.TemplateID)
+	if err != nil {
+		return nil, err
+	}
+
+	if input.Name != nil {
+		n := strings.TrimSpace(*input.Name)
+		if n == "" {
+			return nil, ErrInvalidInput
+		}
+		tmpl.Name = n
+	}
+	if input.Description != nil {
+		tmpl.Description = *input.Description
+	}
+	if input.DayOfWeek != nil {
+		if *input.DayOfWeek < 0 || *input.DayOfWeek > 6 {
+			return nil, ErrInvalidInput
+		}
+		tmpl.DayOfWeek = *input.DayOfWeek
+	}
+	if input.StartHour != nil {
+		if *input.StartHour < 0 || *input.StartHour > 23 {
+			return nil, ErrInvalidInput
+		}
+		tmpl.StartHour = *input.StartHour
+	}
+	if input.StartMinute != nil {
+		if *input.StartMinute < 0 || *input.StartMinute > 59 {
+			return nil, ErrInvalidInput
+		}
+		tmpl.StartMinute = *input.StartMinute
+	}
+	if input.DurationMinutes != nil {
+		if *input.DurationMinutes <= 0 {
+			return nil, ErrInvalidInput
+		}
+		tmpl.DurationMinutes = *input.DurationMinutes
+	}
+	if input.Location != nil {
+		tmpl.Location = input.Location
+	}
+	tmpl.UpdatedAt = time.Now()
+
+	if err := s.repo.UpdateTemplate(ctx, tmpl); err != nil {
+		return nil, fmt.Errorf("update shift template: %w", err)
+	}
+
+	slog.Info("shift template updated", "template_id", tmpl.ID, "tenant_id", tmpl.TenantID)
+	return tmpl, nil
+}
+
+// DeleteTemplate removes a shift template.
+func (s *Service) DeleteTemplate(ctx context.Context, tenantID, templateID uuid.UUID) error {
+	if _, err := s.repo.GetTemplate(ctx, tenantID, templateID); err != nil {
+		return err
+	}
+	if err := s.repo.DeleteTemplate(ctx, tenantID, templateID); err != nil {
+		return fmt.Errorf("delete shift template: %w", err)
+	}
+	slog.Info("shift template deleted", "template_id", templateID, "tenant_id", tenantID)
+	return nil
+}
+
+// GetTemplate retrieves a single template by ID.
+func (s *Service) GetTemplate(ctx context.Context, tenantID, templateID uuid.UUID) (*ShiftTemplate, error) {
+	return s.repo.GetTemplate(ctx, tenantID, templateID)
+}
+
+// ListTemplates returns paginated templates.
+func (s *Service) ListTemplates(ctx context.Context, input ListTemplatesInput) ([]*ShiftTemplate, int, error) {
+	if input.Page < 1 {
+		input.Page = 1
+	}
+	if input.PageSize < 1 || input.PageSize > 200 {
+		input.PageSize = 50
+	}
+	offset := (input.Page - 1) * input.PageSize
+	return s.repo.ListTemplates(ctx, input.TenantID, offset, input.PageSize)
+}
+
+// ApplyTemplate generates draft shifts for every matching weekday within the date range.
+func (s *Service) ApplyTemplate(ctx context.Context, input ApplyTemplateInput) ([]*Shift, error) {
+	if !input.RangeEnd.After(input.RangeStart) {
+		return nil, ErrInvalidInput
+	}
+
+	tmpl, err := s.repo.GetTemplate(ctx, input.TenantID, input.TemplateID)
+	if err != nil {
+		return nil, err
+	}
+
+	loc, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		loc = time.UTC
+	}
+
+	var created []*Shift
+
+	// Walk through each day in [RangeStart, RangeEnd)
+	current := input.RangeStart.In(loc)
+	end := input.RangeEnd.In(loc)
+
+	for !current.After(end) {
+		// time.Weekday: Sunday=0 … Saturday=6 — same encoding as template
+		if int(current.Weekday()) == tmpl.DayOfWeek {
+			shiftStart := time.Date(
+				current.Year(), current.Month(), current.Day(),
+				tmpl.StartHour, tmpl.StartMinute, 0, 0, loc,
+			)
+			shiftEnd := shiftStart.Add(time.Duration(tmpl.DurationMinutes) * time.Minute)
+
+			now := time.Now()
+			shift := &Shift{
+				ID:          uuid.New(),
+				TenantID:    input.TenantID,
+				Title:       tmpl.Name,
+				Description: tmpl.Description,
+				StartTime:   shiftStart,
+				EndTime:     shiftEnd,
+				Status:      ShiftStatusDraft,
+				Location:    tmpl.Location,
+				CreatedBy:   input.CreatedBy,
+				CreatedAt:   now,
+				UpdatedAt:   now,
+			}
+
+			if createErr := s.repo.CreateShift(ctx, shift); createErr != nil {
+				return nil, fmt.Errorf("apply template: create shift for %s: %w", shiftStart.Format("2006-01-02"), createErr)
+			}
+			created = append(created, shift)
+		}
+		current = current.AddDate(0, 0, 1)
+	}
+
+	slog.Info("template applied",
+		"template_id", input.TemplateID,
+		"tenant_id", input.TenantID,
+		"shifts_created", len(created),
+	)
+	return created, nil
+}
+
+// ============================================================================
+// Compliance & Stats
+// ============================================================================
+
+// CheckArbzgCompliance validates ArbZG §5 rest requirements without writing to DB.
+func (s *Service) CheckArbzgCompliance(ctx context.Context, tenantID, employeeID uuid.UUID, newStart, newEnd time.Time) (bool, string, error) {
+	if err := s.validateRestPeriod(ctx, tenantID, employeeID, newStart, newEnd); err != nil {
+		return false, err.Error(), nil
+	}
+	return true, "", nil
+}
+
+// GetShiftStats returns aggregated shift statistics.
+func (s *Service) GetShiftStats(ctx context.Context, input GetShiftStatsInput) (*ShiftStats, error) {
+	return s.repo.GetStats(ctx, input.TenantID, input.From, input.To)
+}
+
+// ============================================================================
+// Internal helpers
+// ============================================================================
+
+// validateRestPeriod enforces ArbZG §5: minimum 11 hours rest between consecutive
+// shifts for the same employee. Called before AssignEmployee writes to DB.
+//
+// Cases:
+//   - No prior shift found → OK.
+//   - restDuration >= 11h → OK.
+//   - restDuration < 11h → ErrArbzgViolation.
+func (s *Service) validateRestPeriod(ctx context.Context, tenantID, employeeID uuid.UUID, newStart, newEnd time.Time) error {
+	// Find the most recent shift end before newStart for this employee.
+	latestEnd, err := s.repo.LatestShiftEndBeforeForEmployee(ctx, tenantID, employeeID, newStart)
+	if err != nil {
+		return fmt.Errorf("arbzg check: %w", err)
+	}
+
+	if latestEnd == nil {
+		// No prior shift — no rest constraint applies.
+		return nil
+	}
+
+	rest := newStart.Sub(*latestEnd)
+	if rest < arbzgMinRestDuration {
+		slog.Warn("ArbZG §5 violation detected",
+			"employee_id", employeeID,
+			"tenant_id", tenantID,
+			"rest_duration", rest,
+			"required", arbzgMinRestDuration,
+		)
+		return ErrArbzgViolation
+	}
+
+	return nil
+}

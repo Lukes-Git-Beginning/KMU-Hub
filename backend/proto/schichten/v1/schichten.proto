@@ -1,0 +1,262 @@
+syntax = "proto3";
+
+package schichten.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/kmuhub/kmuhub/proto/schichten/v1;schichtenv1";
+
+service SchichtenService {
+  // Shifts
+  rpc CreateShift(CreateShiftRequest) returns (ShiftResponse);
+  rpc GetShift(GetShiftRequest) returns (ShiftResponse);
+  rpc UpdateShift(UpdateShiftRequest) returns (ShiftResponse);
+  rpc DeleteShift(DeleteShiftRequest) returns (DeleteShiftResponse);
+  rpc ListShifts(ListShiftsRequest) returns (ListShiftsResponse);
+  rpc PublishShifts(PublishShiftsRequest) returns (PublishShiftsResponse);
+
+  // Assignments
+  rpc AssignEmployee(AssignEmployeeRequest) returns (AssignmentResponse);
+  rpc UnassignEmployee(UnassignEmployeeRequest) returns (UnassignEmployeeResponse);
+  rpc ListAssignments(ListAssignmentsRequest) returns (ListAssignmentsResponse);
+
+  // Templates
+  rpc CreateTemplate(CreateTemplateRequest) returns (TemplateResponse);
+  rpc UpdateTemplate(UpdateTemplateRequest) returns (TemplateResponse);
+  rpc DeleteTemplate(DeleteTemplateRequest) returns (DeleteTemplateResponse);
+  rpc ListTemplates(ListTemplatesRequest) returns (ListTemplatesResponse);
+  rpc ApplyTemplate(ApplyTemplateRequest) returns (ApplyTemplateResponse);
+
+  // Compliance & Stats
+  rpc CheckArbzgCompliance(CheckArbzgComplianceRequest) returns (CheckArbzgComplianceResponse);
+  rpc GetShiftStats(GetShiftStatsRequest) returns (ShiftStatsResponse);
+}
+
+// ============================================================================
+// Domain Messages
+// ============================================================================
+
+message Shift {
+  string tenant_id = 1;
+  string id = 2;
+  string title = 3;
+  string description = 4;
+  google.protobuf.Timestamp start_time = 5;
+  google.protobuf.Timestamp end_time = 6;
+  string status = 7; // draft|published
+  optional string location = 8;
+  optional string created_by = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message ShiftAssignment {
+  string tenant_id = 1;
+  string id = 2;
+  string shift_id = 3;
+  string employee_id = 4;
+  google.protobuf.Timestamp assigned_at = 5;
+  optional string assigned_by = 6;
+}
+
+message ShiftTemplate {
+  string tenant_id = 1;
+  string id = 2;
+  string name = 3;
+  string description = 4;
+  int32 day_of_week = 5; // 0=Sunday … 6=Saturday
+  int32 start_hour = 6;
+  int32 start_minute = 7;
+  int32 duration_minutes = 8;
+  optional string location = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+// ============================================================================
+// Shift Requests / Responses
+// ============================================================================
+
+message CreateShiftRequest {
+  string tenant_id = 1;
+  string title = 2;
+  string description = 3;
+  google.protobuf.Timestamp start_time = 4;
+  google.protobuf.Timestamp end_time = 5;
+  optional string location = 6;
+  optional string created_by = 7;
+}
+
+message GetShiftRequest {
+  string tenant_id = 1;
+  string shift_id = 2;
+}
+
+message UpdateShiftRequest {
+  string tenant_id = 1;
+  string shift_id = 2;
+  optional string title = 3;
+  optional string description = 4;
+  optional google.protobuf.Timestamp start_time = 5;
+  optional google.protobuf.Timestamp end_time = 6;
+  optional string location = 7;
+}
+
+message DeleteShiftRequest {
+  string tenant_id = 1;
+  string shift_id = 2;
+}
+
+message DeleteShiftResponse {}
+
+message ShiftResponse {
+  Shift shift = 1;
+}
+
+message ListShiftsRequest {
+  string tenant_id = 1;
+  optional string status = 2; // draft|published|all
+  optional google.protobuf.Timestamp from = 3;
+  optional google.protobuf.Timestamp to = 4;
+  int32 page = 5;
+  int32 page_size = 6;
+}
+
+message ListShiftsResponse {
+  repeated Shift shifts = 1;
+  int32 total = 2;
+}
+
+message PublishShiftsRequest {
+  string tenant_id = 1;
+  google.protobuf.Timestamp from = 2;
+  google.protobuf.Timestamp to = 3;
+}
+
+message PublishShiftsResponse {
+  int32 published_count = 1;
+}
+
+// ============================================================================
+// Assignment Requests / Responses
+// ============================================================================
+
+message AssignEmployeeRequest {
+  string tenant_id = 1;
+  string shift_id = 2;
+  string employee_id = 3;
+  optional string assigned_by = 4;
+}
+
+message UnassignEmployeeRequest {
+  string tenant_id = 1;
+  string shift_id = 2;
+  string employee_id = 3;
+}
+
+message UnassignEmployeeResponse {}
+
+message AssignmentResponse {
+  ShiftAssignment assignment = 1;
+}
+
+message ListAssignmentsRequest {
+  string tenant_id = 1;
+  string shift_id = 2;
+}
+
+message ListAssignmentsResponse {
+  repeated ShiftAssignment assignments = 1;
+}
+
+// ============================================================================
+// Template Requests / Responses
+// ============================================================================
+
+message CreateTemplateRequest {
+  string tenant_id = 1;
+  string name = 2;
+  string description = 3;
+  int32 day_of_week = 4;
+  int32 start_hour = 5;
+  int32 start_minute = 6;
+  int32 duration_minutes = 7;
+  optional string location = 8;
+}
+
+message UpdateTemplateRequest {
+  string tenant_id = 1;
+  string template_id = 2;
+  optional string name = 3;
+  optional string description = 4;
+  optional int32 day_of_week = 5;
+  optional int32 start_hour = 6;
+  optional int32 start_minute = 7;
+  optional int32 duration_minutes = 8;
+  optional string location = 9;
+}
+
+message DeleteTemplateRequest {
+  string tenant_id = 1;
+  string template_id = 2;
+}
+
+message DeleteTemplateResponse {}
+
+message TemplateResponse {
+  ShiftTemplate template = 1;
+}
+
+message ListTemplatesRequest {
+  string tenant_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListTemplatesResponse {
+  repeated ShiftTemplate templates = 1;
+  int32 total = 2;
+}
+
+message ApplyTemplateRequest {
+  string tenant_id = 1;
+  string template_id = 2;
+  google.protobuf.Timestamp range_start = 3;
+  google.protobuf.Timestamp range_end = 4;
+  optional string created_by = 5;
+}
+
+message ApplyTemplateResponse {
+  repeated Shift shifts = 1;
+  int32 created_count = 2;
+}
+
+// ============================================================================
+// Compliance & Stats Requests / Responses
+// ============================================================================
+
+message CheckArbzgComplianceRequest {
+  string tenant_id = 1;
+  string employee_id = 2;
+  google.protobuf.Timestamp new_shift_start = 3;
+  google.protobuf.Timestamp new_shift_end = 4;
+}
+
+message CheckArbzgComplianceResponse {
+  bool compliant = 1;
+  string violation_reason = 2; // empty when compliant
+}
+
+message GetShiftStatsRequest {
+  string tenant_id = 1;
+  optional google.protobuf.Timestamp from = 2;
+  optional google.protobuf.Timestamp to = 3;
+}
+
+message ShiftStatsResponse {
+  int32 total_shifts = 1;
+  int32 published_shifts = 2;
+  int32 draft_shifts = 3;
+  int32 total_assignments = 4;
+  int32 unique_employees = 5;
+}

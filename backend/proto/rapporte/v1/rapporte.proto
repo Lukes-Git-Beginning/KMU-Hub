@@ -1,0 +1,275 @@
+syntax = "proto3";
+
+package rapporte.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/kmuhub/kmuhub/proto/rapporte/v1;rapportev1";
+
+service RapporteService {
+  // Reports
+  rpc CreateReport(CreateReportRequest) returns (ReportResponse);
+  rpc GetReport(GetReportRequest) returns (ReportResponse);
+  rpc UpdateReport(UpdateReportRequest) returns (ReportResponse);
+  rpc DeleteReport(DeleteReportRequest) returns (DeleteReportResponse);
+  rpc ListReports(ListReportsRequest) returns (ListReportsResponse);
+
+  // State machine
+  rpc SubmitReport(SubmitReportRequest) returns (ReportResponse);
+  rpc ApproveReport(ApproveReportRequest) returns (ReportResponse);
+  rpc RejectReport(RejectReportRequest) returns (ReportResponse);
+
+  // Lines
+  rpc AddLine(AddLineRequest) returns (LineResponse);
+  rpc UpdateLine(UpdateLineRequest) returns (LineResponse);
+  rpc DeleteLine(DeleteLineRequest) returns (DeleteLineResponse);
+  rpc ListLines(ListLinesRequest) returns (ListLinesResponse);
+
+  // Attachments
+  rpc UploadAttachment(UploadAttachmentRequest) returns (AttachmentResponse);
+  rpc ListAttachments(ListAttachmentsRequest) returns (ListAttachmentsResponse);
+  rpc DeleteAttachment(DeleteAttachmentRequest) returns (DeleteAttachmentResponse);
+
+  // Reports & export
+  rpc GetReportStats(GetReportStatsRequest) returns (ReportStatsResponse);
+  rpc ListPendingApprovals(ListPendingApprovalsRequest) returns (ListReportsResponse);
+  rpc ExportPDF(ExportPDFRequest) returns (ExportPDFResponse);
+}
+
+// ============================================================================
+// Domain Messages
+// ============================================================================
+
+message WorkReport {
+  string id = 1;
+  string tenant_id = 2;
+  string title = 3;
+  string description = 4;
+  string status = 5; // draft|submitted|approved|rejected
+  string author_id = 6;
+  optional string reviewer_id = 7;
+  optional google.protobuf.Timestamp reviewed_at = 8;
+  string review_note = 9;
+  optional double lat = 10;
+  optional double lon = 11;
+  string report_date = 12; // YYYY-MM-DD
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+}
+
+message ReportLine {
+  string id = 1;
+  string tenant_id = 2;
+  string report_id = 3;
+  int32 position = 4;
+  string description = 5;
+  double quantity = 6;
+  string unit = 7;
+  string notes = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message ReportAttachment {
+  string id = 1;
+  string tenant_id = 2;
+  string report_id = 3;
+  optional string line_id = 4;
+  string filename = 5;
+  string content_type = 6;
+  int64 size_bytes = 7;
+  string object_key = 8;
+  string presigned_url = 9;
+  string uploaded_by = 10;
+  google.protobuf.Timestamp created_at = 11;
+}
+
+// ============================================================================
+// Report Requests / Responses
+// ============================================================================
+
+message CreateReportRequest {
+  string tenant_id = 1;
+  string title = 2;
+  string description = 3;
+  string author_id = 4;
+  optional double lat = 5;
+  optional double lon = 6;
+  string report_date = 7; // YYYY-MM-DD, empty = today
+}
+
+message GetReportRequest {
+  string tenant_id = 1;
+  string report_id = 2;
+}
+
+message UpdateReportRequest {
+  string tenant_id = 1;
+  string report_id = 2;
+  optional string title = 3;
+  optional string description = 4;
+  optional double lat = 5;
+  optional double lon = 6;
+  optional string report_date = 7;
+}
+
+message DeleteReportRequest {
+  string tenant_id = 1;
+  string report_id = 2;
+}
+
+message DeleteReportResponse {}
+
+message ReportResponse {
+  WorkReport report = 1;
+}
+
+message ListReportsRequest {
+  string tenant_id = 1;
+  optional string status = 2;
+  optional string author_id = 3;
+  string search = 4;
+  int32 page = 5;
+  int32 page_size = 6;
+}
+
+message ListReportsResponse {
+  repeated WorkReport reports = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// State Machine Requests
+// ============================================================================
+
+message SubmitReportRequest {
+  string tenant_id = 1;
+  string report_id = 2;
+}
+
+message ApproveReportRequest {
+  string tenant_id = 1;
+  string report_id = 2;
+  string reviewer_id = 3;
+  string review_note = 4;
+}
+
+message RejectReportRequest {
+  string tenant_id = 1;
+  string report_id = 2;
+  string reviewer_id = 3;
+  string review_note = 4;
+}
+
+// ============================================================================
+// Line Requests / Responses
+// ============================================================================
+
+message AddLineRequest {
+  string tenant_id = 1;
+  string report_id = 2;
+  string description = 3;
+  double quantity = 4;
+  string unit = 5;
+  string notes = 6;
+  int32 position = 7;
+}
+
+message UpdateLineRequest {
+  string tenant_id = 1;
+  string line_id = 2;
+  optional string description = 3;
+  optional double quantity = 4;
+  optional string unit = 5;
+  optional string notes = 6;
+  optional int32 position = 7;
+}
+
+message DeleteLineRequest {
+  string tenant_id = 1;
+  string line_id = 2;
+}
+
+message DeleteLineResponse {}
+
+message LineResponse {
+  ReportLine line = 1;
+}
+
+message ListLinesRequest {
+  string tenant_id = 1;
+  string report_id = 2;
+}
+
+message ListLinesResponse {
+  repeated ReportLine lines = 1;
+}
+
+// ============================================================================
+// Attachment Requests / Responses
+// ============================================================================
+
+message UploadAttachmentRequest {
+  string tenant_id = 1;
+  string report_id = 2;
+  optional string line_id = 3;
+  string filename = 4;
+  string content_type = 5;
+  int64 size_bytes = 6;
+  string object_key = 7; // pre-computed by caller, stored as-is
+  string uploaded_by = 8;
+}
+
+message ListAttachmentsRequest {
+  string tenant_id = 1;
+  string report_id = 2;
+  optional string line_id = 3;
+}
+
+message ListAttachmentsResponse {
+  repeated ReportAttachment attachments = 1;
+}
+
+message AttachmentResponse {
+  ReportAttachment attachment = 1;
+}
+
+message DeleteAttachmentRequest {
+  string tenant_id = 1;
+  string attachment_id = 2;
+}
+
+message DeleteAttachmentResponse {}
+
+// ============================================================================
+// Stats / Export
+// ============================================================================
+
+message GetReportStatsRequest {
+  string tenant_id = 1;
+}
+
+message ReportStatsResponse {
+  int32 total_reports = 1;
+  int32 draft_count = 2;
+  int32 submitted_count = 3;
+  int32 approved_count = 4;
+  int32 rejected_count = 5;
+}
+
+message ListPendingApprovalsRequest {
+  string tenant_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ExportPDFRequest {
+  string tenant_id = 1;
+  string report_id = 2;
+}
+
+message ExportPDFResponse {
+  bytes payload = 1;
+  string content_type = 2;
+  string filename = 3;
+}

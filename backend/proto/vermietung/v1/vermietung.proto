@@ -1,0 +1,315 @@
+syntax = "proto3";
+
+package vermietung.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/kmuhub/kmuhub/proto/vermietung/v1;vermietungv1";
+
+service VermietungService {
+  // Objects
+  rpc CreateObject(CreateObjectRequest) returns (ObjectResponse);
+  rpc UpdateObject(UpdateObjectRequest) returns (ObjectResponse);
+  rpc DeleteObject(DeleteObjectRequest) returns (DeleteObjectResponse);
+  rpc GetObject(GetObjectRequest) returns (ObjectResponse);
+  rpc ListObjects(ListObjectsRequest) returns (ListObjectsResponse);
+
+  // Availability
+  rpc CheckAvailability(CheckAvailabilityRequest) returns (CheckAvailabilityResponse);
+
+  // Rentals
+  rpc CreateRental(CreateRentalRequest) returns (RentalResponse);
+  rpc UpdateRental(UpdateRentalRequest) returns (RentalResponse);
+  rpc DeleteRental(DeleteRentalRequest) returns (DeleteRentalResponse);
+  rpc GetRental(GetRentalRequest) returns (RentalResponse);
+  rpc ListRentals(ListRentalsRequest) returns (ListRentalsResponse);
+  rpc StartRental(StartRentalRequest) returns (RentalResponse);
+  rpc EndRental(EndRentalRequest) returns (RentalResponse);
+
+  // Inspections
+  rpc CreateInspection(CreateInspectionRequest) returns (InspectionResponse);
+  rpc UpdateInspection(UpdateInspectionRequest) returns (InspectionResponse);
+  rpc GetInspection(GetInspectionRequest) returns (InspectionResponse);
+  rpc ListInspections(ListInspectionsRequest) returns (ListInspectionsResponse);
+  rpc UploadInspectionPhoto(UploadInspectionPhotoRequest) returns (UploadInspectionPhotoResponse);
+
+  // Calendar & Reports
+  rpc GetRentalCalendar(GetRentalCalendarRequest) returns (GetRentalCalendarResponse);
+  rpc ExportRentalReport(ExportRentalReportRequest) returns (ExportRentalReportResponse);
+}
+
+// ============================================================================
+// Domain Messages
+// ============================================================================
+
+message RentalObject {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  optional string description = 4;
+  string category = 5;
+  double daily_rate = 6;
+  double deposit = 7;
+  optional string location = 8;
+  optional string notes = 9;
+  bool active = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+}
+
+message Rental {
+  string id = 1;
+  string tenant_id = 2;
+  string object_id = 3;
+  optional string contact_id = 4;
+  string renter_name = 5;
+  google.protobuf.Timestamp start_date = 6;
+  google.protobuf.Timestamp end_date = 7;
+  string status = 8; // reserved|active|completed|cancelled
+  double total_price = 9;
+  bool deposit_paid = 10;
+  optional string notes = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+}
+
+message RentalInspection {
+  string id = 1;
+  string tenant_id = 2;
+  string rental_id = 3;
+  string kind = 4; // handover|return
+  string notes = 5;
+  repeated string photo_urls = 6;
+  optional string performed_by = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+// ============================================================================
+// Object Requests / Responses
+// ============================================================================
+
+message CreateObjectRequest {
+  string tenant_id = 1;
+  string name = 2;
+  optional string description = 3;
+  string category = 4;
+  double daily_rate = 5;
+  double deposit = 6;
+  optional string location = 7;
+  optional string notes = 8;
+}
+
+message UpdateObjectRequest {
+  string tenant_id = 1;
+  string object_id = 2;
+  optional string name = 3;
+  optional string description = 4;
+  optional string category = 5;
+  optional double daily_rate = 6;
+  optional double deposit = 7;
+  optional string location = 8;
+  optional string notes = 9;
+  optional bool active = 10;
+}
+
+message DeleteObjectRequest {
+  string tenant_id = 1;
+  string object_id = 2;
+}
+
+message DeleteObjectResponse {}
+
+message GetObjectRequest {
+  string tenant_id = 1;
+  string object_id = 2;
+}
+
+message ObjectResponse {
+  RentalObject object = 1;
+}
+
+message ListObjectsRequest {
+  string tenant_id = 1;
+  string search = 2;
+  optional string category = 3;
+  optional bool active_only = 4;
+  int32 page = 5;
+  int32 page_size = 6;
+}
+
+message ListObjectsResponse {
+  repeated RentalObject objects = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// Availability
+// ============================================================================
+
+message CheckAvailabilityRequest {
+  string tenant_id = 1;
+  string object_id = 2;
+  google.protobuf.Timestamp start_date = 3;
+  google.protobuf.Timestamp end_date = 4;
+  optional string exclude_rental_id = 5; // used when updating an existing rental
+}
+
+message CheckAvailabilityResponse {
+  bool available = 1;
+  repeated Rental conflicting_rentals = 2;
+}
+
+// ============================================================================
+// Rental Requests / Responses
+// ============================================================================
+
+message CreateRentalRequest {
+  string tenant_id = 1;
+  string object_id = 2;
+  optional string contact_id = 3;
+  string renter_name = 4;
+  google.protobuf.Timestamp start_date = 5;
+  google.protobuf.Timestamp end_date = 6;
+  double total_price = 7;
+  bool deposit_paid = 8;
+  optional string notes = 9;
+}
+
+message UpdateRentalRequest {
+  string tenant_id = 1;
+  string rental_id = 2;
+  optional string renter_name = 3;
+  optional google.protobuf.Timestamp start_date = 4;
+  optional google.protobuf.Timestamp end_date = 5;
+  optional double total_price = 6;
+  optional bool deposit_paid = 7;
+  optional string notes = 8;
+}
+
+message DeleteRentalRequest {
+  string tenant_id = 1;
+  string rental_id = 2;
+}
+
+message DeleteRentalResponse {}
+
+message GetRentalRequest {
+  string tenant_id = 1;
+  string rental_id = 2;
+}
+
+message RentalResponse {
+  Rental rental = 1;
+}
+
+message ListRentalsRequest {
+  string tenant_id = 1;
+  optional string object_id = 2;
+  optional string status = 3;
+  optional google.protobuf.Timestamp from = 4;
+  optional google.protobuf.Timestamp to = 5;
+  int32 page = 6;
+  int32 page_size = 7;
+}
+
+message ListRentalsResponse {
+  repeated Rental rentals = 1;
+  int32 total = 2;
+}
+
+message StartRentalRequest {
+  string tenant_id = 1;
+  string rental_id = 2;
+}
+
+message EndRentalRequest {
+  string tenant_id = 1;
+  string rental_id = 2;
+}
+
+// ============================================================================
+// Inspection Requests / Responses
+// ============================================================================
+
+message CreateInspectionRequest {
+  string tenant_id = 1;
+  string rental_id = 2;
+  string kind = 3; // handover|return
+  string notes = 4;
+  repeated string photo_urls = 5;
+  optional string performed_by = 6;
+}
+
+message UpdateInspectionRequest {
+  string tenant_id = 1;
+  string inspection_id = 2;
+  optional string notes = 3;
+  repeated string photo_urls = 4; // full replacement
+}
+
+message GetInspectionRequest {
+  string tenant_id = 1;
+  string inspection_id = 2;
+}
+
+message InspectionResponse {
+  RentalInspection inspection = 1;
+}
+
+message ListInspectionsRequest {
+  string tenant_id = 1;
+  string rental_id = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListInspectionsResponse {
+  repeated RentalInspection inspections = 1;
+  int32 total = 2;
+}
+
+message UploadInspectionPhotoRequest {
+  string tenant_id = 1;
+  string inspection_id = 2;
+  bytes data = 3;
+  string filename = 4;
+  string content_type = 5;
+}
+
+message UploadInspectionPhotoResponse {
+  string url = 1;
+}
+
+// ============================================================================
+// Calendar & Report
+// ============================================================================
+
+message GetRentalCalendarRequest {
+  string tenant_id = 1;
+  int32 year = 2;
+  int32 month = 3; // 1-12
+}
+
+message CalendarEntry {
+  string object_id = 1;
+  string object_name = 2;
+  repeated Rental rentals = 3;
+}
+
+message GetRentalCalendarResponse {
+  repeated CalendarEntry entries = 1;
+}
+
+message ExportRentalReportRequest {
+  string tenant_id = 1;
+  string format = 2; // csv
+  optional google.protobuf.Timestamp from = 3;
+  optional google.protobuf.Timestamp to = 4;
+}
+
+message ExportRentalReportResponse {
+  bytes payload = 1;
+  string content_type = 2;
+  string filename = 3;
+}
