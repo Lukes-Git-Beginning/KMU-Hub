@@ -35,9 +35,6 @@ func (ir *InventarRoutes) getClient() (inventarv1.InventarServiceClient, error) 
 	return inventarv1.NewInventarServiceClient(conn), nil
 }
 
-// tenantID is a temporary placeholder until JWT claim extraction is implemented.
-// TODO(Phase 2): extract from JWT claims via middleware.
-const inventarPlaceholderTenantID = "00000000-0000-0000-0000-000000000001"
 
 // RegisterRoutes mounts all Inventar HTTP routes behind the feature flag modules.inventar.
 // Routes are only registered if the flag is enabled.
@@ -152,6 +149,11 @@ type acknowledgeWarningRequest struct {
 // ============================================================================
 
 func (ir *InventarRoutes) HandleListItems(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := ir.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, ir.ServiceName())
@@ -162,7 +164,7 @@ func (ir *InventarRoutes) HandleListItems(w http.ResponseWriter, r *http.Request
 	q := r.URL.Query()
 
 	grpcReq := &inventarv1.ListItemsRequest{
-		TenantId: inventarPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		Search:   q.Get("search"),
 		Page:     int32(page),
 		PageSize: int32(pageSize),
@@ -183,6 +185,11 @@ func (ir *InventarRoutes) HandleListItems(w http.ResponseWriter, r *http.Request
 }
 
 func (ir *InventarRoutes) HandleCreateItem(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := ir.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, ir.ServiceName())
@@ -204,7 +211,7 @@ func (ir *InventarRoutes) HandleCreateItem(w http.ResponseWriter, r *http.Reques
 	}
 
 	grpcReq := &inventarv1.CreateItemRequest{
-		TenantId:    inventarPlaceholderTenantID,
+		TenantId:    tenantID.String(),
 		Name:        req.Name,
 		Sku:         req.SKU,
 		Barcode:     req.Barcode,
@@ -223,6 +230,11 @@ func (ir *InventarRoutes) HandleCreateItem(w http.ResponseWriter, r *http.Reques
 }
 
 func (ir *InventarRoutes) HandleGetItem(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := ir.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, ir.ServiceName())
@@ -235,7 +247,7 @@ func (ir *InventarRoutes) HandleGetItem(w http.ResponseWriter, r *http.Request) 
 	}
 
 	resp, err := client.GetItem(r.Context(), &inventarv1.GetItemRequest{
-		TenantId: inventarPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		ItemId:   id,
 	})
 	if err != nil {
@@ -246,6 +258,11 @@ func (ir *InventarRoutes) HandleGetItem(w http.ResponseWriter, r *http.Request) 
 }
 
 func (ir *InventarRoutes) HandleUpdateItem(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := ir.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, ir.ServiceName())
@@ -264,7 +281,7 @@ func (ir *InventarRoutes) HandleUpdateItem(w http.ResponseWriter, r *http.Reques
 	}
 
 	grpcReq := &inventarv1.UpdateItemRequest{
-		TenantId: inventarPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		ItemId:   id,
 		Name:     req.Name,
 		Sku:      req.SKU,
@@ -285,6 +302,11 @@ func (ir *InventarRoutes) HandleUpdateItem(w http.ResponseWriter, r *http.Reques
 }
 
 func (ir *InventarRoutes) HandleDeleteItem(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := ir.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, ir.ServiceName())
@@ -297,7 +319,7 @@ func (ir *InventarRoutes) HandleDeleteItem(w http.ResponseWriter, r *http.Reques
 	}
 
 	_, err = client.DeleteItem(r.Context(), &inventarv1.DeleteItemRequest{
-		TenantId: inventarPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		ItemId:   id,
 	})
 	if err != nil {
@@ -312,6 +334,11 @@ func (ir *InventarRoutes) HandleDeleteItem(w http.ResponseWriter, r *http.Reques
 // ============================================================================
 
 func (ir *InventarRoutes) HandleAdjustStock(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := ir.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, ir.ServiceName())
@@ -330,7 +357,7 @@ func (ir *InventarRoutes) HandleAdjustStock(w http.ResponseWriter, r *http.Reque
 	}
 
 	grpcReq := &inventarv1.AdjustStockRequest{
-		TenantId:    inventarPlaceholderTenantID,
+		TenantId:    tenantID.String(),
 		ItemId:      id,
 		Delta:       req.Delta,
 		PerformedBy: req.PerformedBy,
@@ -346,6 +373,11 @@ func (ir *InventarRoutes) HandleAdjustStock(w http.ResponseWriter, r *http.Reque
 }
 
 func (ir *InventarRoutes) HandleTransferStock(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := ir.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, ir.ServiceName())
@@ -363,7 +395,7 @@ func (ir *InventarRoutes) HandleTransferStock(w http.ResponseWriter, r *http.Req
 	}
 
 	grpcReq := &inventarv1.TransferStockRequest{
-		TenantId:    inventarPlaceholderTenantID,
+		TenantId:    tenantID.String(),
 		FromItemId:  req.FromItemID,
 		ToItemId:    req.ToItemID,
 		Quantity:    req.Quantity,
@@ -380,6 +412,11 @@ func (ir *InventarRoutes) HandleTransferStock(w http.ResponseWriter, r *http.Req
 }
 
 func (ir *InventarRoutes) HandleListMovements(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := ir.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, ir.ServiceName())
@@ -394,7 +431,7 @@ func (ir *InventarRoutes) HandleListMovements(w http.ResponseWriter, r *http.Req
 	page, pageSize := parsePagination(r, 1, 50)
 
 	resp, err := client.ListMovements(r.Context(), &inventarv1.ListMovementsRequest{
-		TenantId: inventarPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		ItemId:   id,
 		Page:     int32(page),
 		PageSize: int32(pageSize),
@@ -407,6 +444,11 @@ func (ir *InventarRoutes) HandleListMovements(w http.ResponseWriter, r *http.Req
 }
 
 func (ir *InventarRoutes) HandleGetStockHistory(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := ir.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, ir.ServiceName())
@@ -421,7 +463,7 @@ func (ir *InventarRoutes) HandleGetStockHistory(w http.ResponseWriter, r *http.R
 	page, pageSize := parsePagination(r, 1, 50)
 
 	resp, err := client.GetStockHistory(r.Context(), &inventarv1.GetStockHistoryRequest{
-		TenantId: inventarPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		ItemId:   id,
 		Page:     int32(page),
 		PageSize: int32(pageSize),
@@ -434,6 +476,11 @@ func (ir *InventarRoutes) HandleGetStockHistory(w http.ResponseWriter, r *http.R
 }
 
 func (ir *InventarRoutes) HandleRecordMovement(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := ir.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, ir.ServiceName())
@@ -452,7 +499,7 @@ func (ir *InventarRoutes) HandleRecordMovement(w http.ResponseWriter, r *http.Re
 	}
 
 	grpcReq := &inventarv1.RecordMovementRequest{
-		TenantId:     inventarPlaceholderTenantID,
+		TenantId:     tenantID.String(),
 		ItemId:       id,
 		MovementType: req.MovementType,
 		Quantity:     req.Quantity,
@@ -473,6 +520,11 @@ func (ir *InventarRoutes) HandleRecordMovement(w http.ResponseWriter, r *http.Re
 // ============================================================================
 
 func (ir *InventarRoutes) HandleListWarnings(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := ir.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, ir.ServiceName())
@@ -483,7 +535,7 @@ func (ir *InventarRoutes) HandleListWarnings(w http.ResponseWriter, r *http.Requ
 	q := r.URL.Query()
 
 	grpcReq := &inventarv1.ListWarningsRequest{
-		TenantId: inventarPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		Page:     int32(page),
 		PageSize: int32(pageSize),
 	}
@@ -500,6 +552,11 @@ func (ir *InventarRoutes) HandleListWarnings(w http.ResponseWriter, r *http.Requ
 }
 
 func (ir *InventarRoutes) HandleCreateWarning(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := ir.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, ir.ServiceName())
@@ -517,7 +574,7 @@ func (ir *InventarRoutes) HandleCreateWarning(w http.ResponseWriter, r *http.Req
 	}
 
 	resp, err := client.CreateWarning(r.Context(), &inventarv1.CreateWarningRequest{
-		TenantId:        inventarPlaceholderTenantID,
+		TenantId:        tenantID.String(),
 		ItemId:          req.ItemID,
 		Threshold:       req.Threshold,
 		CurrentQuantity: req.CurrentQuantity,
@@ -530,6 +587,11 @@ func (ir *InventarRoutes) HandleCreateWarning(w http.ResponseWriter, r *http.Req
 }
 
 func (ir *InventarRoutes) HandleUpdateWarning(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := ir.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, ir.ServiceName())
@@ -548,7 +610,7 @@ func (ir *InventarRoutes) HandleUpdateWarning(w http.ResponseWriter, r *http.Req
 	}
 
 	resp, err := client.UpdateWarning(r.Context(), &inventarv1.UpdateWarningRequest{
-		TenantId:  inventarPlaceholderTenantID,
+		TenantId:  tenantID.String(),
 		WarningId: id,
 		Status:    req.Status,
 	})
@@ -560,6 +622,11 @@ func (ir *InventarRoutes) HandleUpdateWarning(w http.ResponseWriter, r *http.Req
 }
 
 func (ir *InventarRoutes) HandleAcknowledgeWarning(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := ir.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, ir.ServiceName())
@@ -582,7 +649,7 @@ func (ir *InventarRoutes) HandleAcknowledgeWarning(w http.ResponseWriter, r *htt
 	}
 
 	resp, err := client.AcknowledgeWarning(r.Context(), &inventarv1.AcknowledgeWarningRequest{
-		TenantId:       inventarPlaceholderTenantID,
+		TenantId:       tenantID.String(),
 		WarningId:      id,
 		AcknowledgedBy: req.AcknowledgedBy,
 	})
@@ -598,6 +665,11 @@ func (ir *InventarRoutes) HandleAcknowledgeWarning(w http.ResponseWriter, r *htt
 // ============================================================================
 
 func (ir *InventarRoutes) HandleGetStockReport(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := ir.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, ir.ServiceName())
@@ -605,7 +677,7 @@ func (ir *InventarRoutes) HandleGetStockReport(w http.ResponseWriter, r *http.Re
 	}
 
 	resp, err := client.GetStockReport(r.Context(), &inventarv1.GetStockReportRequest{
-		TenantId: inventarPlaceholderTenantID,
+		TenantId: tenantID.String(),
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -615,6 +687,11 @@ func (ir *InventarRoutes) HandleGetStockReport(w http.ResponseWriter, r *http.Re
 }
 
 func (ir *InventarRoutes) HandleExportInventory(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := ir.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, ir.ServiceName())
@@ -627,7 +704,7 @@ func (ir *InventarRoutes) HandleExportInventory(w http.ResponseWriter, r *http.R
 	}
 
 	resp, err := client.ExportInventory(r.Context(), &inventarv1.ExportInventoryRequest{
-		TenantId: inventarPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		Format:   format,
 	})
 	if err != nil {

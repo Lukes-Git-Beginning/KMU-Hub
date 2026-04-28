@@ -37,9 +37,6 @@ func (pr *ProduktionRoutes) getClient() (produktionv1.ProduktionServiceClient, e
 	return produktionv1.NewProduktionServiceClient(conn), nil
 }
 
-// produktionPlaceholderTenantID is a temporary placeholder until JWT claim extraction is implemented.
-// TODO(Phase 2): extract from JWT claims via middleware.
-const produktionPlaceholderTenantID = "00000000-0000-0000-0000-000000000001"
 
 // RegisterRoutes mounts all Produktion HTTP routes behind the feature flag modules.produktion.
 // Routes are only registered if the flag is enabled.
@@ -156,6 +153,11 @@ type updatePlanRequest struct {
 // ============================================================================
 
 func (pr *ProduktionRoutes) HandleListOrders(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -166,7 +168,7 @@ func (pr *ProduktionRoutes) HandleListOrders(w http.ResponseWriter, r *http.Requ
 	q := r.URL.Query()
 
 	grpcReq := &produktionv1.ListOrdersRequest{
-		TenantId: produktionPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		Page:     int32(page),
 		PageSize: int32(pageSize),
 	}
@@ -199,6 +201,11 @@ func (pr *ProduktionRoutes) HandleListOrders(w http.ResponseWriter, r *http.Requ
 }
 
 func (pr *ProduktionRoutes) HandleCreateOrder(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -233,7 +240,7 @@ func (pr *ProduktionRoutes) HandleCreateOrder(w http.ResponseWriter, r *http.Req
 	}
 
 	grpcReq := &produktionv1.CreateOrderRequest{
-		TenantId:     produktionPlaceholderTenantID,
+		TenantId:     tenantID.String(),
 		OrderNumber:  req.OrderNumber,
 		ProductName:  req.ProductName,
 		Quantity:     int32(req.Quantity),
@@ -253,6 +260,11 @@ func (pr *ProduktionRoutes) HandleCreateOrder(w http.ResponseWriter, r *http.Req
 }
 
 func (pr *ProduktionRoutes) HandleGetOrder(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -265,7 +277,7 @@ func (pr *ProduktionRoutes) HandleGetOrder(w http.ResponseWriter, r *http.Reques
 	}
 
 	resp, err := client.GetOrder(r.Context(), &produktionv1.GetOrderRequest{
-		TenantId: produktionPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		OrderId:  id,
 	})
 	if err != nil {
@@ -276,6 +288,11 @@ func (pr *ProduktionRoutes) HandleGetOrder(w http.ResponseWriter, r *http.Reques
 }
 
 func (pr *ProduktionRoutes) HandleUpdateOrder(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -294,7 +311,7 @@ func (pr *ProduktionRoutes) HandleUpdateOrder(w http.ResponseWriter, r *http.Req
 	}
 
 	grpcReq := &produktionv1.UpdateOrderRequest{
-		TenantId: produktionPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		OrderId:  id,
 		Notes:    req.Notes,
 	}
@@ -329,6 +346,11 @@ func (pr *ProduktionRoutes) HandleUpdateOrder(w http.ResponseWriter, r *http.Req
 }
 
 func (pr *ProduktionRoutes) HandleDeleteOrder(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -341,7 +363,7 @@ func (pr *ProduktionRoutes) HandleDeleteOrder(w http.ResponseWriter, r *http.Req
 	}
 
 	_, err = client.DeleteOrder(r.Context(), &produktionv1.DeleteOrderRequest{
-		TenantId: produktionPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		OrderId:  id,
 	})
 	if err != nil {
@@ -352,6 +374,11 @@ func (pr *ProduktionRoutes) HandleDeleteOrder(w http.ResponseWriter, r *http.Req
 }
 
 func (pr *ProduktionRoutes) HandleStartOrder(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -362,7 +389,7 @@ func (pr *ProduktionRoutes) HandleStartOrder(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	resp, err := client.StartOrder(r.Context(), &produktionv1.OrderActionRequest{
-		TenantId: produktionPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		OrderId:  id,
 	})
 	if err != nil {
@@ -373,6 +400,11 @@ func (pr *ProduktionRoutes) HandleStartOrder(w http.ResponseWriter, r *http.Requ
 }
 
 func (pr *ProduktionRoutes) HandleCompleteOrder(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -383,7 +415,7 @@ func (pr *ProduktionRoutes) HandleCompleteOrder(w http.ResponseWriter, r *http.R
 		return
 	}
 	resp, err := client.CompleteOrder(r.Context(), &produktionv1.OrderActionRequest{
-		TenantId: produktionPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		OrderId:  id,
 	})
 	if err != nil {
@@ -394,6 +426,11 @@ func (pr *ProduktionRoutes) HandleCompleteOrder(w http.ResponseWriter, r *http.R
 }
 
 func (pr *ProduktionRoutes) HandleCancelOrder(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -404,7 +441,7 @@ func (pr *ProduktionRoutes) HandleCancelOrder(w http.ResponseWriter, r *http.Req
 		return
 	}
 	resp, err := client.CancelOrder(r.Context(), &produktionv1.OrderActionRequest{
-		TenantId: produktionPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		OrderId:  id,
 	})
 	if err != nil {
@@ -419,6 +456,11 @@ func (pr *ProduktionRoutes) HandleCancelOrder(w http.ResponseWriter, r *http.Req
 // ============================================================================
 
 func (pr *ProduktionRoutes) HandleListMachineBookings(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -429,7 +471,7 @@ func (pr *ProduktionRoutes) HandleListMachineBookings(w http.ResponseWriter, r *
 	q := r.URL.Query()
 
 	grpcReq := &produktionv1.ListMachineBookingsRequest{
-		TenantId: produktionPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		Page:     int32(page),
 		PageSize: int32(pageSize),
 	}
@@ -459,6 +501,11 @@ func (pr *ProduktionRoutes) HandleListMachineBookings(w http.ResponseWriter, r *
 }
 
 func (pr *ProduktionRoutes) HandleCreateMachineBooking(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -493,7 +540,7 @@ func (pr *ProduktionRoutes) HandleCreateMachineBooking(w http.ResponseWriter, r 
 	}
 
 	grpcReq := &produktionv1.CreateMachineBookingRequest{
-		TenantId:          produktionPlaceholderTenantID,
+		TenantId:          tenantID.String(),
 		MachineId:         req.MachineID,
 		ProductionOrderId: req.ProductionOrderID,
 		StartsAt:          timestamppb.New(startsAt),
@@ -511,6 +558,11 @@ func (pr *ProduktionRoutes) HandleCreateMachineBooking(w http.ResponseWriter, r 
 }
 
 func (pr *ProduktionRoutes) HandleUpdateMachineBooking(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -529,7 +581,7 @@ func (pr *ProduktionRoutes) HandleUpdateMachineBooking(w http.ResponseWriter, r 
 	}
 
 	grpcReq := &produktionv1.UpdateMachineBookingRequest{
-		TenantId:  produktionPlaceholderTenantID,
+		TenantId:  tenantID.String(),
 		BookingId: id,
 		MachineId: req.MachineID,
 		Notes:     req.Notes,
@@ -557,6 +609,11 @@ func (pr *ProduktionRoutes) HandleUpdateMachineBooking(w http.ResponseWriter, r 
 }
 
 func (pr *ProduktionRoutes) HandleDeleteMachineBooking(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -569,7 +626,7 @@ func (pr *ProduktionRoutes) HandleDeleteMachineBooking(w http.ResponseWriter, r 
 	}
 
 	_, err = client.DeleteMachineBooking(r.Context(), &produktionv1.DeleteMachineBookingRequest{
-		TenantId:  produktionPlaceholderTenantID,
+		TenantId:  tenantID.String(),
 		BookingId: id,
 	})
 	if err != nil {
@@ -584,6 +641,11 @@ func (pr *ProduktionRoutes) HandleDeleteMachineBooking(w http.ResponseWriter, r 
 // ============================================================================
 
 func (pr *ProduktionRoutes) HandleCreatePlan(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -603,7 +665,7 @@ func (pr *ProduktionRoutes) HandleCreatePlan(w http.ResponseWriter, r *http.Requ
 	}
 
 	grpcReq := &produktionv1.CreatePlanRequest{
-		TenantId:             produktionPlaceholderTenantID,
+		TenantId:             tenantID.String(),
 		Name:                 req.Name,
 		WeekNumber:           int32(req.WeekNumber),
 		Year:                 int32(req.Year),
@@ -622,6 +684,11 @@ func (pr *ProduktionRoutes) HandleCreatePlan(w http.ResponseWriter, r *http.Requ
 }
 
 func (pr *ProduktionRoutes) HandleGetPlan(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -634,7 +701,7 @@ func (pr *ProduktionRoutes) HandleGetPlan(w http.ResponseWriter, r *http.Request
 	}
 
 	resp, err := client.GetPlan(r.Context(), &produktionv1.GetPlanRequest{
-		TenantId: produktionPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		PlanId:   id,
 	})
 	if err != nil {
@@ -645,6 +712,11 @@ func (pr *ProduktionRoutes) HandleGetPlan(w http.ResponseWriter, r *http.Request
 }
 
 func (pr *ProduktionRoutes) HandleUpdatePlan(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -663,7 +735,7 @@ func (pr *ProduktionRoutes) HandleUpdatePlan(w http.ResponseWriter, r *http.Requ
 	}
 
 	grpcReq := &produktionv1.UpdatePlanRequest{
-		TenantId: produktionPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		PlanId:   id,
 		Name:     req.Name,
 		Status:   req.Status,
@@ -693,6 +765,11 @@ func (pr *ProduktionRoutes) HandleUpdatePlan(w http.ResponseWriter, r *http.Requ
 }
 
 func (pr *ProduktionRoutes) HandleGetCapacityOverview(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -711,7 +788,7 @@ func (pr *ProduktionRoutes) HandleGetCapacityOverview(w http.ResponseWriter, r *
 	}
 
 	resp, err := client.GetCapacityOverview(r.Context(), &produktionv1.GetCapacityOverviewRequest{
-		TenantId:  produktionPlaceholderTenantID,
+		TenantId:  tenantID.String(),
 		MachineId: machineID,
 		PlanId:    planID,
 	})

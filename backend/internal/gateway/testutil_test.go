@@ -10,9 +10,13 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
 )
+
+// testTenantID is a stable test tenant UUID used by all handler unit tests.
+var testTenantID = uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
 
 // emptyRegistry returns a ServiceRegistry with no registered services.
 // Any handler that calls getXClient will get a "service not registered" error.
@@ -33,6 +37,19 @@ func registryWithService(name string) *ServiceRegistry {
 func withUserID(r *http.Request, userID string) *http.Request {
 	ctx := context.WithValue(r.Context(), middleware.UserIDKey, userID)
 	return r.WithContext(ctx)
+}
+
+// withTenantID creates a request with a tenant ID set in the context (as the auth middleware would).
+// Handlers that call middleware.GetTenantID require this in unit tests.
+func withTenantID(r *http.Request, tenantID uuid.UUID) *http.Request {
+	ctx := context.WithValue(r.Context(), middleware.TenantIDKey, tenantID.String())
+	return r.WithContext(ctx)
+}
+
+// withAuth creates a request with both user ID and tenant ID in the context,
+// mirroring what the Auth middleware injects in production.
+func withAuth(r *http.Request, userID string, tenantID uuid.UUID) *http.Request {
+	return withTenantID(withUserID(r, userID), tenantID)
 }
 
 // withChiURLParam sets a chi URL parameter on the request context.
@@ -79,10 +96,12 @@ func assertErrorContains(t *testing.T, rec *httptest.ResponseRecorder, substr st
 
 // testServiceUnavailable is a generic test for any handler that gets a gRPC client first.
 // It verifies that when the service is not registered, the handler returns 503.
+// A valid TenantID is set in the context so that the tenant check does not interfere.
 func testServiceUnavailable(t *testing.T, handler http.HandlerFunc) {
 	t.Helper()
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/", strings.NewReader("{}"))
+	req = withTenantID(req, testTenantID)
 	handler(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }

@@ -2,9 +2,12 @@ package middleware
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 )
@@ -15,7 +18,12 @@ const (
 	UserIDKey    userContextKey = "user_id"
 	UserRolesKey userContextKey = "user_roles"
 	UserPermsKey userContextKey = "user_permissions"
+	TenantIDKey  userContextKey = "tenant_id"
 )
+
+// ErrMissingTenantID is returned by GetTenantID when the JWT has no tid claim or the claim is empty.
+// Handlers must treat this as 401 Unauthorized — no default substitution is permitted.
+var ErrMissingTenantID = errors.New("missing or invalid tenant_id in token")
 
 func Auth(authService *auth.Service) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -42,6 +50,9 @@ func Auth(authService *auth.Service) func(http.Handler) http.Handler {
 			ctx = context.WithValue(ctx, UserIDKey, claims.UserID)
 			ctx = context.WithValue(ctx, UserRolesKey, claims.Roles)
 			ctx = context.WithValue(ctx, UserPermsKey, claims.Permissions)
+			// TenantID is stored as-is (may be empty for legacy tokens without tid claim).
+			// GetTenantID enforces non-empty + valid UUID — no placeholder substitution here.
+			ctx = context.WithValue(ctx, TenantIDKey, claims.TenantID)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
@@ -53,6 +64,21 @@ func GetUserID(ctx context.Context) string {
 		return id
 	}
 	return ""
+}
+
+// GetTenantID extracts and validates the tenant UUID from the request context.
+// Returns ErrMissingTenantID if the tid claim is absent or not a valid UUID.
+// Callers must respond with 401 on error — never substitute a default tenant.
+func GetTenantID(ctx context.Context) (uuid.UUID, error) {
+	raw, ok := ctx.Value(TenantIDKey).(string)
+	if !ok || raw == "" {
+		return uuid.Nil, ErrMissingTenantID
+	}
+	id, err := uuid.Parse(raw)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("%w: %s", ErrMissingTenantID, err.Error())
+	}
+	return id, nil
 }
 
 func GetUserRoles(ctx context.Context) []string {

@@ -35,7 +35,6 @@ func (rr *RapporteRoutes) getClient() (rapportev1.RapporteServiceClient, error) 
 	return rapportev1.NewRapporteServiceClient(conn), nil
 }
 
-const rapportePlaceholderTenantID = "00000000-0000-0000-0000-000000000001"
 
 // RegisterRoutes mounts all Rapporte HTTP routes behind the feature flag modules.rapporte.
 func (rr *RapporteRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
@@ -147,6 +146,11 @@ type rapporteUploadAttachmentRequest struct {
 // ============================================================================
 
 func (rr *RapporteRoutes) HandleListReports(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := rr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, rr.ServiceName())
@@ -157,7 +161,7 @@ func (rr *RapporteRoutes) HandleListReports(w http.ResponseWriter, r *http.Reque
 	q := r.URL.Query()
 
 	grpcReq := &rapportev1.ListReportsRequest{
-		TenantId: rapportePlaceholderTenantID,
+		TenantId: tenantID.String(),
 		Search:   q.Get("search"),
 		Page:     int32(page),
 		PageSize: int32(pageSize),
@@ -178,6 +182,11 @@ func (rr *RapporteRoutes) HandleListReports(w http.ResponseWriter, r *http.Reque
 }
 
 func (rr *RapporteRoutes) HandleCreateReport(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := rr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, rr.ServiceName())
@@ -199,7 +208,7 @@ func (rr *RapporteRoutes) HandleCreateReport(w http.ResponseWriter, r *http.Requ
 	}
 
 	grpcReq := &rapportev1.CreateReportRequest{
-		TenantId:    rapportePlaceholderTenantID,
+		TenantId:    tenantID.String(),
 		Title:       req.Title,
 		Description: req.Description,
 		AuthorId:    req.AuthorID,
@@ -217,6 +226,11 @@ func (rr *RapporteRoutes) HandleCreateReport(w http.ResponseWriter, r *http.Requ
 }
 
 func (rr *RapporteRoutes) HandleGetReport(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := rr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, rr.ServiceName())
@@ -229,7 +243,7 @@ func (rr *RapporteRoutes) HandleGetReport(w http.ResponseWriter, r *http.Request
 	}
 
 	resp, err := client.GetReport(r.Context(), &rapportev1.GetReportRequest{
-		TenantId: rapportePlaceholderTenantID,
+		TenantId: tenantID.String(),
 		ReportId: id,
 	})
 	if err != nil {
@@ -240,6 +254,11 @@ func (rr *RapporteRoutes) HandleGetReport(w http.ResponseWriter, r *http.Request
 }
 
 func (rr *RapporteRoutes) HandleUpdateReport(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := rr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, rr.ServiceName())
@@ -258,7 +277,7 @@ func (rr *RapporteRoutes) HandleUpdateReport(w http.ResponseWriter, r *http.Requ
 	}
 
 	grpcReq := &rapportev1.UpdateReportRequest{
-		TenantId:    rapportePlaceholderTenantID,
+		TenantId:    tenantID.String(),
 		ReportId:    id,
 		Title:       req.Title,
 		Description: req.Description,
@@ -276,6 +295,11 @@ func (rr *RapporteRoutes) HandleUpdateReport(w http.ResponseWriter, r *http.Requ
 }
 
 func (rr *RapporteRoutes) HandleDeleteReport(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := rr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, rr.ServiceName())
@@ -288,7 +312,7 @@ func (rr *RapporteRoutes) HandleDeleteReport(w http.ResponseWriter, r *http.Requ
 	}
 
 	_, err = client.DeleteReport(r.Context(), &rapportev1.DeleteReportRequest{
-		TenantId: rapportePlaceholderTenantID,
+		TenantId: tenantID.String(),
 		ReportId: id,
 	})
 	if err != nil {
@@ -303,6 +327,11 @@ func (rr *RapporteRoutes) HandleDeleteReport(w http.ResponseWriter, r *http.Requ
 // ============================================================================
 
 func (rr *RapporteRoutes) HandleSubmitReport(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := rr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, rr.ServiceName())
@@ -315,7 +344,7 @@ func (rr *RapporteRoutes) HandleSubmitReport(w http.ResponseWriter, r *http.Requ
 	}
 
 	resp, err := client.SubmitReport(r.Context(), &rapportev1.SubmitReportRequest{
-		TenantId: rapportePlaceholderTenantID,
+		TenantId: tenantID.String(),
 		ReportId: id,
 	})
 	if err != nil {
@@ -326,6 +355,11 @@ func (rr *RapporteRoutes) HandleSubmitReport(w http.ResponseWriter, r *http.Requ
 }
 
 func (rr *RapporteRoutes) HandleApproveReport(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := rr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, rr.ServiceName())
@@ -348,7 +382,7 @@ func (rr *RapporteRoutes) HandleApproveReport(w http.ResponseWriter, r *http.Req
 	}
 
 	resp, err := client.ApproveReport(r.Context(), &rapportev1.ApproveReportRequest{
-		TenantId:   rapportePlaceholderTenantID,
+		TenantId:   tenantID.String(),
 		ReportId:   id,
 		ReviewerId: req.ReviewerID,
 		ReviewNote: req.ReviewNote,
@@ -361,6 +395,11 @@ func (rr *RapporteRoutes) HandleApproveReport(w http.ResponseWriter, r *http.Req
 }
 
 func (rr *RapporteRoutes) HandleRejectReport(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := rr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, rr.ServiceName())
@@ -383,7 +422,7 @@ func (rr *RapporteRoutes) HandleRejectReport(w http.ResponseWriter, r *http.Requ
 	}
 
 	resp, err := client.RejectReport(r.Context(), &rapportev1.RejectReportRequest{
-		TenantId:   rapportePlaceholderTenantID,
+		TenantId:   tenantID.String(),
 		ReportId:   id,
 		ReviewerId: req.ReviewerID,
 		ReviewNote: req.ReviewNote,
@@ -400,6 +439,11 @@ func (rr *RapporteRoutes) HandleRejectReport(w http.ResponseWriter, r *http.Requ
 // ============================================================================
 
 func (rr *RapporteRoutes) HandleListLines(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := rr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, rr.ServiceName())
@@ -412,7 +456,7 @@ func (rr *RapporteRoutes) HandleListLines(w http.ResponseWriter, r *http.Request
 	}
 
 	resp, err := client.ListLines(r.Context(), &rapportev1.ListLinesRequest{
-		TenantId: rapportePlaceholderTenantID,
+		TenantId: tenantID.String(),
 		ReportId: reportID,
 	})
 	if err != nil {
@@ -423,6 +467,11 @@ func (rr *RapporteRoutes) HandleListLines(w http.ResponseWriter, r *http.Request
 }
 
 func (rr *RapporteRoutes) HandleAddLine(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := rr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, rr.ServiceName())
@@ -445,7 +494,7 @@ func (rr *RapporteRoutes) HandleAddLine(w http.ResponseWriter, r *http.Request) 
 	}
 
 	resp, err := client.AddLine(r.Context(), &rapportev1.AddLineRequest{
-		TenantId:    rapportePlaceholderTenantID,
+		TenantId:    tenantID.String(),
 		ReportId:    reportID,
 		Description: req.Description,
 		Quantity:    req.Quantity,
@@ -461,6 +510,11 @@ func (rr *RapporteRoutes) HandleAddLine(w http.ResponseWriter, r *http.Request) 
 }
 
 func (rr *RapporteRoutes) HandleUpdateLine(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := rr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, rr.ServiceName())
@@ -479,7 +533,7 @@ func (rr *RapporteRoutes) HandleUpdateLine(w http.ResponseWriter, r *http.Reques
 	}
 
 	grpcReq := &rapportev1.UpdateLineRequest{
-		TenantId:    rapportePlaceholderTenantID,
+		TenantId:    tenantID.String(),
 		LineId:      lineID,
 		Description: req.Description,
 		Unit:        req.Unit,
@@ -501,6 +555,11 @@ func (rr *RapporteRoutes) HandleUpdateLine(w http.ResponseWriter, r *http.Reques
 }
 
 func (rr *RapporteRoutes) HandleDeleteLine(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := rr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, rr.ServiceName())
@@ -513,7 +572,7 @@ func (rr *RapporteRoutes) HandleDeleteLine(w http.ResponseWriter, r *http.Reques
 	}
 
 	_, err = client.DeleteLine(r.Context(), &rapportev1.DeleteLineRequest{
-		TenantId: rapportePlaceholderTenantID,
+		TenantId: tenantID.String(),
 		LineId:   lineID,
 	})
 	if err != nil {
@@ -528,6 +587,11 @@ func (rr *RapporteRoutes) HandleDeleteLine(w http.ResponseWriter, r *http.Reques
 // ============================================================================
 
 func (rr *RapporteRoutes) HandleListAttachments(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := rr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, rr.ServiceName())
@@ -540,7 +604,7 @@ func (rr *RapporteRoutes) HandleListAttachments(w http.ResponseWriter, r *http.R
 	}
 
 	grpcReq := &rapportev1.ListAttachmentsRequest{
-		TenantId: rapportePlaceholderTenantID,
+		TenantId: tenantID.String(),
 		ReportId: reportID,
 	}
 	if lid := r.URL.Query().Get("line_id"); lid != "" {
@@ -556,6 +620,11 @@ func (rr *RapporteRoutes) HandleListAttachments(w http.ResponseWriter, r *http.R
 }
 
 func (rr *RapporteRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := rr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, rr.ServiceName())
@@ -578,7 +647,7 @@ func (rr *RapporteRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.
 	}
 
 	grpcReq := &rapportev1.UploadAttachmentRequest{
-		TenantId:    rapportePlaceholderTenantID,
+		TenantId:    tenantID.String(),
 		ReportId:    reportID,
 		LineId:      req.LineID,
 		Filename:    req.Filename,
@@ -597,6 +666,11 @@ func (rr *RapporteRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.
 }
 
 func (rr *RapporteRoutes) HandleDeleteAttachment(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := rr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, rr.ServiceName())
@@ -609,7 +683,7 @@ func (rr *RapporteRoutes) HandleDeleteAttachment(w http.ResponseWriter, r *http.
 	}
 
 	_, err = client.DeleteAttachment(r.Context(), &rapportev1.DeleteAttachmentRequest{
-		TenantId:     rapportePlaceholderTenantID,
+		TenantId:     tenantID.String(),
 		AttachmentId: attID,
 	})
 	if err != nil {
@@ -624,6 +698,11 @@ func (rr *RapporteRoutes) HandleDeleteAttachment(w http.ResponseWriter, r *http.
 // ============================================================================
 
 func (rr *RapporteRoutes) HandleGetReportStats(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := rr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, rr.ServiceName())
@@ -631,7 +710,7 @@ func (rr *RapporteRoutes) HandleGetReportStats(w http.ResponseWriter, r *http.Re
 	}
 
 	resp, err := client.GetReportStats(r.Context(), &rapportev1.GetReportStatsRequest{
-		TenantId: rapportePlaceholderTenantID,
+		TenantId: tenantID.String(),
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -641,6 +720,11 @@ func (rr *RapporteRoutes) HandleGetReportStats(w http.ResponseWriter, r *http.Re
 }
 
 func (rr *RapporteRoutes) HandleListPendingApprovals(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := rr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, rr.ServiceName())
@@ -650,7 +734,7 @@ func (rr *RapporteRoutes) HandleListPendingApprovals(w http.ResponseWriter, r *h
 	page, pageSize := parsePagination(r, 1, 50)
 
 	resp, err := client.ListPendingApprovals(r.Context(), &rapportev1.ListPendingApprovalsRequest{
-		TenantId: rapportePlaceholderTenantID,
+		TenantId: tenantID.String(),
 		Page:     int32(page),
 		PageSize: int32(pageSize),
 	})
@@ -662,6 +746,11 @@ func (rr *RapporteRoutes) HandleListPendingApprovals(w http.ResponseWriter, r *h
 }
 
 func (rr *RapporteRoutes) HandleExportPDF(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := rr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, rr.ServiceName())
@@ -674,7 +763,7 @@ func (rr *RapporteRoutes) HandleExportPDF(w http.ResponseWriter, r *http.Request
 	}
 
 	resp, err := client.ExportPDF(r.Context(), &rapportev1.ExportPDFRequest{
-		TenantId: rapportePlaceholderTenantID,
+		TenantId: tenantID.String(),
 		ReportId: reportID,
 	})
 	if err != nil {

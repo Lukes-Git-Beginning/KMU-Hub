@@ -38,7 +38,6 @@ func (sr *SchichtenRoutes) getClient() (schichtenv1.SchichtenServiceClient, erro
 	return schichtenv1.NewSchichtenServiceClient(conn), nil
 }
 
-const schichtenPlaceholderTenantID = "00000000-0000-0000-0000-000000000001"
 
 // RegisterRoutes mounts all Schichten HTTP routes behind the feature flag modules.schichten.
 func (sr *SchichtenRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
@@ -148,6 +147,11 @@ type applyTemplateRequest struct {
 // ============================================================================
 
 func (sr *SchichtenRoutes) HandleListShifts(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := sr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, sr.ServiceName())
@@ -158,7 +162,7 @@ func (sr *SchichtenRoutes) HandleListShifts(w http.ResponseWriter, r *http.Reque
 	q := r.URL.Query()
 
 	grpcReq := &schichtenv1.ListShiftsRequest{
-		TenantId: schichtenPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		Page:     int32(page),
 		PageSize: int32(pageSize),
 	}
@@ -175,6 +179,11 @@ func (sr *SchichtenRoutes) HandleListShifts(w http.ResponseWriter, r *http.Reque
 }
 
 func (sr *SchichtenRoutes) HandleCreateShift(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := sr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, sr.ServiceName())
@@ -203,7 +212,7 @@ func (sr *SchichtenRoutes) HandleCreateShift(w http.ResponseWriter, r *http.Requ
 	}
 
 	grpcReq := &schichtenv1.CreateShiftRequest{
-		TenantId:    schichtenPlaceholderTenantID,
+		TenantId:    tenantID.String(),
 		Title:       req.Title,
 		Description: req.Description,
 		StartTime:   start,
@@ -221,6 +230,11 @@ func (sr *SchichtenRoutes) HandleCreateShift(w http.ResponseWriter, r *http.Requ
 }
 
 func (sr *SchichtenRoutes) HandleGetShift(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := sr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, sr.ServiceName())
@@ -233,7 +247,7 @@ func (sr *SchichtenRoutes) HandleGetShift(w http.ResponseWriter, r *http.Request
 	}
 
 	resp, err := client.GetShift(r.Context(), &schichtenv1.GetShiftRequest{
-		TenantId: schichtenPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		ShiftId:  id,
 	})
 	if err != nil {
@@ -244,6 +258,11 @@ func (sr *SchichtenRoutes) HandleGetShift(w http.ResponseWriter, r *http.Request
 }
 
 func (sr *SchichtenRoutes) HandleUpdateShift(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := sr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, sr.ServiceName())
@@ -262,7 +281,7 @@ func (sr *SchichtenRoutes) HandleUpdateShift(w http.ResponseWriter, r *http.Requ
 	}
 
 	grpcReq := &schichtenv1.UpdateShiftRequest{
-		TenantId:    schichtenPlaceholderTenantID,
+		TenantId:    tenantID.String(),
 		ShiftId:     id,
 		Title:       req.Title,
 		Description: req.Description,
@@ -294,6 +313,11 @@ func (sr *SchichtenRoutes) HandleUpdateShift(w http.ResponseWriter, r *http.Requ
 }
 
 func (sr *SchichtenRoutes) HandleDeleteShift(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := sr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, sr.ServiceName())
@@ -306,7 +330,7 @@ func (sr *SchichtenRoutes) HandleDeleteShift(w http.ResponseWriter, r *http.Requ
 	}
 
 	_, err = client.DeleteShift(r.Context(), &schichtenv1.DeleteShiftRequest{
-		TenantId: schichtenPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		ShiftId:  id,
 	})
 	if err != nil {
@@ -317,6 +341,11 @@ func (sr *SchichtenRoutes) HandleDeleteShift(w http.ResponseWriter, r *http.Requ
 }
 
 func (sr *SchichtenRoutes) HandlePublishShifts(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := sr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, sr.ServiceName())
@@ -341,7 +370,7 @@ func (sr *SchichtenRoutes) HandlePublishShifts(w http.ResponseWriter, r *http.Re
 	}
 
 	resp, err := client.PublishShifts(r.Context(), &schichtenv1.PublishShiftsRequest{
-		TenantId: schichtenPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		From:     from,
 		To:       to,
 	})
@@ -357,6 +386,11 @@ func (sr *SchichtenRoutes) HandlePublishShifts(w http.ResponseWriter, r *http.Re
 // ============================================================================
 
 func (sr *SchichtenRoutes) HandleListAssignments(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := sr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, sr.ServiceName())
@@ -369,7 +403,7 @@ func (sr *SchichtenRoutes) HandleListAssignments(w http.ResponseWriter, r *http.
 	}
 
 	resp, err := client.ListAssignments(r.Context(), &schichtenv1.ListAssignmentsRequest{
-		TenantId: schichtenPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		ShiftId:  id,
 	})
 	if err != nil {
@@ -380,6 +414,11 @@ func (sr *SchichtenRoutes) HandleListAssignments(w http.ResponseWriter, r *http.
 }
 
 func (sr *SchichtenRoutes) HandleAssignEmployee(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := sr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, sr.ServiceName())
@@ -402,7 +441,7 @@ func (sr *SchichtenRoutes) HandleAssignEmployee(w http.ResponseWriter, r *http.R
 	}
 
 	grpcReq := &schichtenv1.AssignEmployeeRequest{
-		TenantId:   schichtenPlaceholderTenantID,
+		TenantId:   tenantID.String(),
 		ShiftId:    shiftID,
 		EmployeeId: req.EmployeeID,
 		AssignedBy: req.AssignedBy,
@@ -417,6 +456,11 @@ func (sr *SchichtenRoutes) HandleAssignEmployee(w http.ResponseWriter, r *http.R
 }
 
 func (sr *SchichtenRoutes) HandleUnassignEmployee(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := sr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, sr.ServiceName())
@@ -433,7 +477,7 @@ func (sr *SchichtenRoutes) HandleUnassignEmployee(w http.ResponseWriter, r *http
 	}
 
 	_, err = client.UnassignEmployee(r.Context(), &schichtenv1.UnassignEmployeeRequest{
-		TenantId:   schichtenPlaceholderTenantID,
+		TenantId:   tenantID.String(),
 		ShiftId:    shiftID,
 		EmployeeId: employeeID,
 	})
@@ -449,6 +493,11 @@ func (sr *SchichtenRoutes) HandleUnassignEmployee(w http.ResponseWriter, r *http
 // ============================================================================
 
 func (sr *SchichtenRoutes) HandleListTemplates(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := sr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, sr.ServiceName())
@@ -458,7 +507,7 @@ func (sr *SchichtenRoutes) HandleListTemplates(w http.ResponseWriter, r *http.Re
 	page, pageSize := parsePagination(r, 1, 50)
 
 	resp, err := client.ListTemplates(r.Context(), &schichtenv1.ListTemplatesRequest{
-		TenantId: schichtenPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		Page:     int32(page),
 		PageSize: int32(pageSize),
 	})
@@ -470,6 +519,11 @@ func (sr *SchichtenRoutes) HandleListTemplates(w http.ResponseWriter, r *http.Re
 }
 
 func (sr *SchichtenRoutes) HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := sr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, sr.ServiceName())
@@ -487,7 +541,7 @@ func (sr *SchichtenRoutes) HandleCreateTemplate(w http.ResponseWriter, r *http.R
 	}
 
 	resp, err := client.CreateTemplate(r.Context(), &schichtenv1.CreateTemplateRequest{
-		TenantId:        schichtenPlaceholderTenantID,
+		TenantId:        tenantID.String(),
 		Name:            req.Name,
 		Description:     req.Description,
 		DayOfWeek:       req.DayOfWeek,
@@ -504,6 +558,11 @@ func (sr *SchichtenRoutes) HandleCreateTemplate(w http.ResponseWriter, r *http.R
 }
 
 func (sr *SchichtenRoutes) HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := sr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, sr.ServiceName())
@@ -522,7 +581,7 @@ func (sr *SchichtenRoutes) HandleUpdateTemplate(w http.ResponseWriter, r *http.R
 	}
 
 	grpcReq := &schichtenv1.UpdateTemplateRequest{
-		TenantId:        schichtenPlaceholderTenantID,
+		TenantId:        tenantID.String(),
 		TemplateId:      id,
 		Name:            req.Name,
 		Description:     req.Description,
@@ -542,6 +601,11 @@ func (sr *SchichtenRoutes) HandleUpdateTemplate(w http.ResponseWriter, r *http.R
 }
 
 func (sr *SchichtenRoutes) HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := sr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, sr.ServiceName())
@@ -554,7 +618,7 @@ func (sr *SchichtenRoutes) HandleDeleteTemplate(w http.ResponseWriter, r *http.R
 	}
 
 	_, err = client.DeleteTemplate(r.Context(), &schichtenv1.DeleteTemplateRequest{
-		TenantId:   schichtenPlaceholderTenantID,
+		TenantId:   tenantID.String(),
 		TemplateId: id,
 	})
 	if err != nil {
@@ -565,6 +629,11 @@ func (sr *SchichtenRoutes) HandleDeleteTemplate(w http.ResponseWriter, r *http.R
 }
 
 func (sr *SchichtenRoutes) HandleApplyTemplate(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := sr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, sr.ServiceName())
@@ -594,7 +663,7 @@ func (sr *SchichtenRoutes) HandleApplyTemplate(w http.ResponseWriter, r *http.Re
 	}
 
 	resp, err := client.ApplyTemplate(r.Context(), &schichtenv1.ApplyTemplateRequest{
-		TenantId:   schichtenPlaceholderTenantID,
+		TenantId:   tenantID.String(),
 		TemplateId: id,
 		RangeStart: rangeStart,
 		RangeEnd:   rangeEnd,
@@ -612,6 +681,11 @@ func (sr *SchichtenRoutes) HandleApplyTemplate(w http.ResponseWriter, r *http.Re
 // ============================================================================
 
 func (sr *SchichtenRoutes) HandleCheckArbzgCompliance(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := sr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, sr.ServiceName())
@@ -637,7 +711,7 @@ func (sr *SchichtenRoutes) HandleCheckArbzgCompliance(w http.ResponseWriter, r *
 	}
 
 	resp, err := client.CheckArbzgCompliance(r.Context(), &schichtenv1.CheckArbzgComplianceRequest{
-		TenantId:      schichtenPlaceholderTenantID,
+		TenantId:      tenantID.String(),
 		EmployeeId:    employeeID,
 		NewShiftStart: newShiftStart,
 		NewShiftEnd:   newShiftEnd,
@@ -650,6 +724,11 @@ func (sr *SchichtenRoutes) HandleCheckArbzgCompliance(w http.ResponseWriter, r *
 }
 
 func (sr *SchichtenRoutes) HandleGetShiftStats(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := sr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, sr.ServiceName())
@@ -657,7 +736,7 @@ func (sr *SchichtenRoutes) HandleGetShiftStats(w http.ResponseWriter, r *http.Re
 	}
 
 	resp, err := client.GetShiftStats(r.Context(), &schichtenv1.GetShiftStatsRequest{
-		TenantId: schichtenPlaceholderTenantID,
+		TenantId: tenantID.String(),
 	})
 	if err != nil {
 		respondGRPCError(w, err)

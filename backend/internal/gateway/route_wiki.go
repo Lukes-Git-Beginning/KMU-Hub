@@ -35,9 +35,6 @@ func (wr *WikiRoutes) getWikiClient() (wikiv1.WikiServiceClient, error) {
 	return wikiv1.NewWikiServiceClient(conn), nil
 }
 
-// tenantID is a temporary placeholder until JWT claim extraction is implemented.
-// TODO(Phase 2): extract from JWT claims via middleware.
-const wikiPlaceholderTenantID = "00000000-0000-0000-0000-000000000001"
 
 // RegisterRoutes mounts all Wiki HTTP routes behind the feature flag modules.wiki.
 // Routes are only registered if the flag is enabled.
@@ -119,6 +116,11 @@ type createCategoryRequest struct {
 // ============================================================================
 
 func (wr *WikiRoutes) HandleListArticles(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := wr.getWikiClient()
 	if err != nil {
 		respondServiceUnavailable(w, wr.ServiceName())
@@ -129,7 +131,7 @@ func (wr *WikiRoutes) HandleListArticles(w http.ResponseWriter, r *http.Request)
 	q := r.URL.Query()
 
 	grpcReq := &wikiv1.ListArticlesRequest{
-		TenantId: wikiPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		Search:   q.Get("search"),
 		Page:     int32(page),
 		PageSize: int32(pageSize),
@@ -159,6 +161,11 @@ func (wr *WikiRoutes) HandleListArticles(w http.ResponseWriter, r *http.Request)
 }
 
 func (wr *WikiRoutes) HandleCreateArticle(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := wr.getWikiClient()
 	if err != nil {
 		respondServiceUnavailable(w, wr.ServiceName())
@@ -178,7 +185,7 @@ func (wr *WikiRoutes) HandleCreateArticle(w http.ResponseWriter, r *http.Request
 	}
 
 	grpcReq := &wikiv1.CreateArticleRequest{
-		TenantId:   wikiPlaceholderTenantID,
+		TenantId:   tenantID.String(),
 		Title:      req.Title,
 		Slug:       req.Slug,
 		Content:    req.Content,
@@ -196,6 +203,11 @@ func (wr *WikiRoutes) HandleCreateArticle(w http.ResponseWriter, r *http.Request
 }
 
 func (wr *WikiRoutes) HandleGetArticle(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := wr.getWikiClient()
 	if err != nil {
 		respondServiceUnavailable(w, wr.ServiceName())
@@ -208,7 +220,7 @@ func (wr *WikiRoutes) HandleGetArticle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, err := client.GetArticle(r.Context(), &wikiv1.GetArticleRequest{
-		TenantId:  wikiPlaceholderTenantID,
+		TenantId:  tenantID.String(),
 		ArticleId: id,
 	})
 	if err != nil {
@@ -219,6 +231,11 @@ func (wr *WikiRoutes) HandleGetArticle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (wr *WikiRoutes) HandleUpdateArticle(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := wr.getWikiClient()
 	if err != nil {
 		respondServiceUnavailable(w, wr.ServiceName())
@@ -239,7 +256,7 @@ func (wr *WikiRoutes) HandleUpdateArticle(w http.ResponseWriter, r *http.Request
 	}
 
 	grpcReq := &wikiv1.UpdateArticleRequest{
-		TenantId:   wikiPlaceholderTenantID,
+		TenantId:   tenantID.String(),
 		ArticleId:  id,
 		Title:      req.Title,
 		Slug:       req.Slug,
@@ -258,6 +275,11 @@ func (wr *WikiRoutes) HandleUpdateArticle(w http.ResponseWriter, r *http.Request
 }
 
 func (wr *WikiRoutes) HandleDeleteArticle(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := wr.getWikiClient()
 	if err != nil {
 		respondServiceUnavailable(w, wr.ServiceName())
@@ -270,7 +292,7 @@ func (wr *WikiRoutes) HandleDeleteArticle(w http.ResponseWriter, r *http.Request
 	}
 
 	_, err = client.DeleteArticle(r.Context(), &wikiv1.DeleteArticleRequest{
-		TenantId:  wikiPlaceholderTenantID,
+		TenantId:  tenantID.String(),
 		ArticleId: id,
 	})
 	if err != nil {
@@ -281,6 +303,11 @@ func (wr *WikiRoutes) HandleDeleteArticle(w http.ResponseWriter, r *http.Request
 }
 
 func (wr *WikiRoutes) HandleSearchArticles(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := wr.getWikiClient()
 	if err != nil {
 		respondServiceUnavailable(w, wr.ServiceName())
@@ -296,7 +323,7 @@ func (wr *WikiRoutes) HandleSearchArticles(w http.ResponseWriter, r *http.Reques
 	limit := parseLimit(r, 20, 100)
 
 	resp, err := client.SearchArticles(r.Context(), &wikiv1.SearchArticlesRequest{
-		TenantId: wikiPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		Query:    q,
 		Limit:    int32(limit),
 	})
@@ -312,6 +339,10 @@ func (wr *WikiRoutes) HandleSearchArticles(w http.ResponseWriter, r *http.Reques
 // ============================================================================
 
 func (wr *WikiRoutes) HandleListVersions(w http.ResponseWriter, r *http.Request) {
+	if _, err := middleware.GetTenantID(r.Context()); err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := wr.getWikiClient()
 	if err != nil {
 		respondServiceUnavailable(w, wr.ServiceName())
@@ -334,6 +365,11 @@ func (wr *WikiRoutes) HandleListVersions(w http.ResponseWriter, r *http.Request)
 }
 
 func (wr *WikiRoutes) HandleRestoreVersion(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := wr.getWikiClient()
 	if err != nil {
 		respondServiceUnavailable(w, wr.ServiceName())
@@ -352,7 +388,7 @@ func (wr *WikiRoutes) HandleRestoreVersion(w http.ResponseWriter, r *http.Reques
 	userID := middleware.GetUserID(r.Context())
 
 	resp, err := client.RestoreVersion(r.Context(), &wikiv1.RestoreVersionRequest{
-		TenantId:  wikiPlaceholderTenantID,
+		TenantId:  tenantID.String(),
 		ArticleId: articleID,
 		VersionId: versionID,
 		EditorId:  userID,
@@ -369,6 +405,10 @@ func (wr *WikiRoutes) HandleRestoreVersion(w http.ResponseWriter, r *http.Reques
 // ============================================================================
 
 func (wr *WikiRoutes) HandleListAttachments(w http.ResponseWriter, r *http.Request) {
+	if _, err := middleware.GetTenantID(r.Context()); err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := wr.getWikiClient()
 	if err != nil {
 		respondServiceUnavailable(w, wr.ServiceName())
@@ -391,6 +431,10 @@ func (wr *WikiRoutes) HandleListAttachments(w http.ResponseWriter, r *http.Reque
 }
 
 func (wr *WikiRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.Request) {
+	if _, err := middleware.GetTenantID(r.Context()); err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := wr.getWikiClient()
 	if err != nil {
 		respondServiceUnavailable(w, wr.ServiceName())
@@ -431,6 +475,10 @@ func (wr *WikiRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.Requ
 }
 
 func (wr *WikiRoutes) HandleDeleteAttachment(w http.ResponseWriter, r *http.Request) {
+	if _, err := middleware.GetTenantID(r.Context()); err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := wr.getWikiClient()
 	if err != nil {
 		respondServiceUnavailable(w, wr.ServiceName())
@@ -457,6 +505,11 @@ func (wr *WikiRoutes) HandleDeleteAttachment(w http.ResponseWriter, r *http.Requ
 // ============================================================================
 
 func (wr *WikiRoutes) HandleListCategories(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := wr.getWikiClient()
 	if err != nil {
 		respondServiceUnavailable(w, wr.ServiceName())
@@ -464,7 +517,7 @@ func (wr *WikiRoutes) HandleListCategories(w http.ResponseWriter, r *http.Reques
 	}
 
 	resp, err := client.ListCategories(r.Context(), &wikiv1.ListCategoriesRequest{
-		TenantId: wikiPlaceholderTenantID,
+		TenantId: tenantID.String(),
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -474,6 +527,11 @@ func (wr *WikiRoutes) HandleListCategories(w http.ResponseWriter, r *http.Reques
 }
 
 func (wr *WikiRoutes) HandleCreateCategory(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := wr.getWikiClient()
 	if err != nil {
 		respondServiceUnavailable(w, wr.ServiceName())
@@ -491,7 +549,7 @@ func (wr *WikiRoutes) HandleCreateCategory(w http.ResponseWriter, r *http.Reques
 	}
 
 	grpcReq := &wikiv1.CreateCategoryRequest{
-		TenantId: wikiPlaceholderTenantID,
+		TenantId: tenantID.String(),
 		Name:     req.Name,
 		Position: req.Position,
 		ParentId: req.ParentID,

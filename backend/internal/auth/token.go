@@ -20,6 +20,7 @@ type TokenMaker struct {
 type Claims struct {
 	jwt.RegisteredClaims
 	UserID      string   `json:"uid"`
+	TenantID    string   `json:"tid"`
 	Roles       []string `json:"roles"`
 	Permissions []string `json:"perms"`
 }
@@ -32,7 +33,10 @@ func NewTokenMaker(secret string, accessExpiry, refreshExpiry time.Duration) *To
 	}
 }
 
-func (tm *TokenMaker) CreateAccessToken(userID uuid.UUID, roles, permissions []string) (string, error) {
+// CreateAccessToken creates a signed JWT containing the user identity, tenant, roles and permissions.
+// tenantID must be a non-empty UUID string; an empty string results in a legacy token that will be
+// rejected by GetTenantID in the middleware (fail-closed).
+func (tm *TokenMaker) CreateAccessToken(userID uuid.UUID, tenantID string, roles, permissions []string) (string, error) {
 	now := time.Now()
 	claims := Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -41,6 +45,7 @@ func (tm *TokenMaker) CreateAccessToken(userID uuid.UUID, roles, permissions []s
 			Issuer:    "kmuhub",
 		},
 		UserID:      userID.String(),
+		TenantID:    tenantID,
 		Roles:       roles,
 		Permissions: permissions,
 	}

@@ -557,7 +557,7 @@ func TestService_ValidateToken(t *testing.T) {
 
 	t.Run("valid token", func(t *testing.T) {
 		userID := uuid.New()
-		token, err := svc.tokenMaker.CreateAccessToken(userID, []string{"admin"}, []string{"contacts:read"})
+		token, err := svc.tokenMaker.CreateAccessToken(userID, uuid.New().String(), []string{"admin"}, []string{"contacts:read"})
 		require.NoError(t, err)
 
 		claims, err := svc.ValidateToken(context.Background(), token)

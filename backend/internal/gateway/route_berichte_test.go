@@ -61,9 +61,10 @@ func TestBerichteRoutes_FlagOFF(t *testing.T) {
 
 // TestBerichteRoutes_FlagON verifies that routes are registered when the flag is on.
 // The route is matched (not 404) — the exact status code depends on middleware:
+// • 401 when tenant check fires (no TenantID in context) → route matched
 // • 403 when RequirePermission fires (no permission in context) → route matched
 // • 503 when gRPC backend is absent
-// Both are valid "route was registered" signals; we only reject 404.
+// All are valid "route was registered" signals; we only reject 404.
 func TestBerichteRoutes_FlagON(t *testing.T) {
 	r := chi.NewRouter()
 	routes := NewBerichteRoutes(emptyRegistry(), berichteFlagsON())
@@ -100,7 +101,7 @@ func TestHandleCreateDefinition_InvalidJSON(t *testing.T) {
 	routes := NewBerichteRoutes(registryWithService("berichte"), berichteFlagsON())
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/berichte/definitions", invalidJSON())
-	req = withUserID(req, "user-123")
+	req = withAuth(req, "user-123", testTenantID)
 	routes.HandleCreateDefinition(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid request body")
@@ -111,7 +112,7 @@ func TestHandleCreateDefinition_MissingName(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/berichte/definitions",
 		jsonBody(t, map[string]interface{}{"module": "crm"}))
-	req = withUserID(req, "user-123")
+	req = withAuth(req, "user-123", testTenantID)
 	routes.HandleCreateDefinition(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "name is required")
@@ -122,7 +123,7 @@ func TestHandleCreateDefinition_MissingModule(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/berichte/definitions",
 		jsonBody(t, map[string]interface{}{"name": "My Report"}))
-	req = withUserID(req, "user-123")
+	req = withAuth(req, "user-123", testTenantID)
 	routes.HandleCreateDefinition(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "module is required")
@@ -133,6 +134,7 @@ func TestHandleGetDefinition_ServiceUnavailable(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/berichte/definitions/550e8400-e29b-41d4-a716-446655440000", nil)
 	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	req = withTenantID(req, testTenantID)
 	routes.HandleGetDefinition(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
@@ -142,6 +144,7 @@ func TestHandleGetDefinition_InvalidUUID(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/berichte/definitions/bad", nil)
 	req = withChiURLParam(req, "id", "not-a-uuid")
+	req = withTenantID(req, testTenantID)
 	routes.HandleGetDefinition(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid id")
@@ -153,7 +156,7 @@ func TestHandleUpdateDefinition_InvalidUUID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPatch, "/api/v1/berichte/definitions/bad",
 		jsonBody(t, map[string]interface{}{}))
 	req = withChiURLParam(req, "id", "not-a-uuid")
-	req = withUserID(req, "user-123")
+	req = withAuth(req, "user-123", testTenantID)
 	routes.HandleUpdateDefinition(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid id")
@@ -165,7 +168,7 @@ func TestHandleUpdateDefinition_InvalidJSON(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPatch, "/api/v1/berichte/definitions/550e8400-e29b-41d4-a716-446655440000",
 		invalidJSON())
 	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
-	req = withUserID(req, "user-123")
+	req = withAuth(req, "user-123", testTenantID)
 	routes.HandleUpdateDefinition(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid request body")
@@ -176,6 +179,7 @@ func TestHandleDeleteDefinition_InvalidUUID(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/berichte/definitions/bad", nil)
 	req = withChiURLParam(req, "id", "not-a-uuid")
+	req = withTenantID(req, testTenantID)
 	routes.HandleDeleteDefinition(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid id")
@@ -193,6 +197,7 @@ func TestHandleRunReport_ServiceUnavailable(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/berichte/definitions/550e8400-e29b-41d4-a716-446655440000/run",
 		jsonBody(t, map[string]interface{}{}))
 	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	req = withTenantID(req, testTenantID)
 	routes.HandleRunReport(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
@@ -203,6 +208,7 @@ func TestHandleRunReport_InvalidUUID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/berichte/definitions/bad/run",
 		jsonBody(t, map[string]interface{}{}))
 	req = withChiURLParam(req, "id", "not-a-uuid")
+	req = withTenantID(req, testTenantID)
 	routes.HandleRunReport(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid id")
@@ -214,6 +220,7 @@ func TestHandleRunReport_InvalidJSON(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/berichte/definitions/550e8400-e29b-41d4-a716-446655440000/run",
 		invalidJSON())
 	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	req = withTenantID(req, testTenantID)
 	routes.HandleRunReport(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid request body")
@@ -225,6 +232,7 @@ func TestHandleExportReport_ServiceUnavailable(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/berichte/definitions/550e8400-e29b-41d4-a716-446655440000/export",
 		jsonBody(t, map[string]interface{}{}))
 	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	req = withTenantID(req, testTenantID)
 	routes.HandleExportReport(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
@@ -235,6 +243,7 @@ func TestHandleExportReport_InvalidUUID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/berichte/definitions/bad/export",
 		jsonBody(t, map[string]interface{}{}))
 	req = withChiURLParam(req, "id", "not-a-uuid")
+	req = withTenantID(req, testTenantID)
 	routes.HandleExportReport(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid id")
@@ -246,6 +255,7 @@ func TestHandleExportReport_InvalidJSON(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/berichte/definitions/550e8400-e29b-41d4-a716-446655440000/export",
 		invalidJSON())
 	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	req = withTenantID(req, testTenantID)
 	routes.HandleExportReport(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid request body")
@@ -257,6 +267,7 @@ func TestHandleExportReport_ServiceUnavailableAfterUUID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/berichte/definitions/550e8400-e29b-41d4-a716-446655440000/export",
 		jsonBody(t, map[string]interface{}{}))
 	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	req = withTenantID(req, testTenantID)
 	routes.HandleExportReport(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
@@ -266,6 +277,7 @@ func TestHandleInvalidateCache_ServiceUnavailableAfterUUID(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/berichte/definitions/550e8400-e29b-41d4-a716-446655440000/cache", nil)
 	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	req = withTenantID(req, testTenantID)
 	routes.HandleInvalidateCache(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
@@ -275,6 +287,7 @@ func TestHandleInvalidateCache_InvalidUUID(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/berichte/definitions/bad/cache", nil)
 	req = withChiURLParam(req, "id", "not-a-uuid")
+	req = withTenantID(req, testTenantID)
 	routes.HandleInvalidateCache(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid id")
@@ -298,7 +311,7 @@ func TestHandleCreateSchedule_InvalidJSON(t *testing.T) {
 	routes := NewBerichteRoutes(registryWithService("berichte"), berichteFlagsON())
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/berichte/schedules", invalidJSON())
-	req = withUserID(req, "user-123")
+	req = withAuth(req, "user-123", testTenantID)
 	routes.HandleCreateSchedule(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid request body")
@@ -309,7 +322,7 @@ func TestHandleCreateSchedule_MissingName(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/berichte/schedules",
 		jsonBody(t, map[string]interface{}{"cron_expression": "0 8 * * 1"}))
-	req = withUserID(req, "user-123")
+	req = withAuth(req, "user-123", testTenantID)
 	routes.HandleCreateSchedule(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "name is required")
@@ -320,7 +333,7 @@ func TestHandleCreateSchedule_MissingCron(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/berichte/schedules",
 		jsonBody(t, map[string]interface{}{"name": "Weekly"}))
-	req = withUserID(req, "user-123")
+	req = withAuth(req, "user-123", testTenantID)
 	routes.HandleCreateSchedule(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "cron_expression is required")
@@ -332,6 +345,7 @@ func TestHandleUpdateSchedule_InvalidUUID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPatch, "/api/v1/berichte/schedules/bad",
 		jsonBody(t, map[string]interface{}{}))
 	req = withChiURLParam(req, "id", "not-a-uuid")
+	req = withTenantID(req, testTenantID)
 	routes.HandleUpdateSchedule(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid id")
@@ -342,6 +356,7 @@ func TestHandleDeleteSchedule_InvalidUUID(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/berichte/schedules/bad", nil)
 	req = withChiURLParam(req, "id", "not-a-uuid")
+	req = withTenantID(req, testTenantID)
 	routes.HandleDeleteSchedule(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid id")
@@ -353,6 +368,7 @@ func TestHandleToggleSchedule_InvalidUUID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/berichte/schedules/bad/toggle",
 		jsonBody(t, map[string]interface{}{"active": true}))
 	req = withChiURLParam(req, "id", "not-a-uuid")
+	req = withTenantID(req, testTenantID)
 	routes.HandleToggleSchedule(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid id")
@@ -364,6 +380,7 @@ func TestHandleToggleSchedule_InvalidJSON(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/berichte/schedules/550e8400-e29b-41d4-a716-446655440000/toggle",
 		invalidJSON())
 	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	req = withTenantID(req, testTenantID)
 	routes.HandleToggleSchedule(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid request body")

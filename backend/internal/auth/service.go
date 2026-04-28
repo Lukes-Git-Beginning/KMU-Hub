@@ -289,7 +289,7 @@ func (s *Service) createTokenPair(ctx context.Context, user *models.User) (*mode
 	roles, _ := s.repo.GetUserRoles(ctx, user.ID)
 	permissions, _ := s.repo.GetUserPermissions(ctx, user.ID)
 
-	accessToken, err := s.tokenMaker.CreateAccessToken(user.ID, roles, permissions)
+	accessToken, err := s.tokenMaker.CreateAccessToken(user.ID, user.TenantID.String(), roles, permissions)
 	if err != nil {
 		return nil, err
 	}

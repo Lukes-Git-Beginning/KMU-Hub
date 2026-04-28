@@ -35,9 +35,6 @@ func (vr *VertraegeRoutes) getClient() (vertraegev1.VertraegeServiceClient, erro
 	return vertraegev1.NewVertraegeServiceClient(conn), nil
 }
 
-// tenantID placeholder until JWT claim extraction is implemented.
-// TODO(Phase 2): extract from JWT claims via middleware.
-const vertraegePlaceholderTenantID = "00000000-0000-0000-0000-000000000001"
 
 // RegisterRoutes mounts all Vertraege HTTP routes behind the feature flag.
 func (vr *VertraegeRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
@@ -138,6 +135,11 @@ type updateReminderRequest struct {
 // ============================================================================
 
 func (vr *VertraegeRoutes) HandleListContracts(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := vr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, vr.ServiceName())
@@ -148,7 +150,7 @@ func (vr *VertraegeRoutes) HandleListContracts(w http.ResponseWriter, r *http.Re
 	q := r.URL.Query()
 
 	grpcReq := &vertraegev1.ListContractsRequest{
-		TenantId: vertraegePlaceholderTenantID,
+		TenantId: tenantID.String(),
 		Page:     int32(page),
 		PageSize: int32(pageSize),
 	}
@@ -168,6 +170,11 @@ func (vr *VertraegeRoutes) HandleListContracts(w http.ResponseWriter, r *http.Re
 }
 
 func (vr *VertraegeRoutes) HandleCreateContract(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := vr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, vr.ServiceName())
@@ -195,7 +202,7 @@ func (vr *VertraegeRoutes) HandleCreateContract(w http.ResponseWriter, r *http.R
 	}
 
 	grpcReq := &vertraegev1.CreateContractRequest{
-		TenantId:       vertraegePlaceholderTenantID,
+		TenantId:       tenantID.String(),
 		ContractNumber: req.ContractNumber,
 		Title:          req.Title,
 		ContractType:   req.ContractType,
@@ -215,6 +222,11 @@ func (vr *VertraegeRoutes) HandleCreateContract(w http.ResponseWriter, r *http.R
 }
 
 func (vr *VertraegeRoutes) HandleGetContract(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := vr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, vr.ServiceName())
@@ -227,7 +239,7 @@ func (vr *VertraegeRoutes) HandleGetContract(w http.ResponseWriter, r *http.Requ
 	}
 
 	resp, err := client.GetContract(r.Context(), &vertraegev1.GetContractRequest{
-		TenantId:   vertraegePlaceholderTenantID,
+		TenantId:   tenantID.String(),
 		ContractId: id,
 	})
 	if err != nil {
@@ -238,6 +250,11 @@ func (vr *VertraegeRoutes) HandleGetContract(w http.ResponseWriter, r *http.Requ
 }
 
 func (vr *VertraegeRoutes) HandleUpdateContract(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := vr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, vr.ServiceName())
@@ -256,7 +273,7 @@ func (vr *VertraegeRoutes) HandleUpdateContract(w http.ResponseWriter, r *http.R
 	}
 
 	grpcReq := &vertraegev1.UpdateContractRequest{
-		TenantId:    vertraegePlaceholderTenantID,
+		TenantId:    tenantID.String(),
 		ContractId:  id,
 		Title:       req.Title,
 		Status:      req.Status,
@@ -279,6 +296,11 @@ func (vr *VertraegeRoutes) HandleUpdateContract(w http.ResponseWriter, r *http.R
 }
 
 func (vr *VertraegeRoutes) HandleDeleteContract(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := vr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, vr.ServiceName())
@@ -291,7 +313,7 @@ func (vr *VertraegeRoutes) HandleDeleteContract(w http.ResponseWriter, r *http.R
 	}
 
 	_, err = client.DeleteContract(r.Context(), &vertraegev1.DeleteContractRequest{
-		TenantId:   vertraegePlaceholderTenantID,
+		TenantId:   tenantID.String(),
 		ContractId: id,
 	})
 	if err != nil {
@@ -302,6 +324,11 @@ func (vr *VertraegeRoutes) HandleDeleteContract(w http.ResponseWriter, r *http.R
 }
 
 func (vr *VertraegeRoutes) HandleUploadDocument(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := vr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, vr.ServiceName())
@@ -314,7 +341,7 @@ func (vr *VertraegeRoutes) HandleUploadDocument(w http.ResponseWriter, r *http.R
 	}
 
 	resp, err := client.UploadDocument(r.Context(), &vertraegev1.UploadDocumentRequest{
-		TenantId:   vertraegePlaceholderTenantID,
+		TenantId:   tenantID.String(),
 		ContractId: id,
 	})
 	if err != nil {
@@ -325,6 +352,11 @@ func (vr *VertraegeRoutes) HandleUploadDocument(w http.ResponseWriter, r *http.R
 }
 
 func (vr *VertraegeRoutes) HandleExportContract(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := vr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, vr.ServiceName())
@@ -337,7 +369,7 @@ func (vr *VertraegeRoutes) HandleExportContract(w http.ResponseWriter, r *http.R
 	}
 
 	resp, err := client.ExportContract(r.Context(), &vertraegev1.ExportContractRequest{
-		TenantId:   vertraegePlaceholderTenantID,
+		TenantId:   tenantID.String(),
 		ContractId: id,
 	})
 	if err != nil {
@@ -364,6 +396,11 @@ func (vr *VertraegeRoutes) HandleExportContract(w http.ResponseWriter, r *http.R
 // ============================================================================
 
 func (vr *VertraegeRoutes) HandleListParties(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := vr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, vr.ServiceName())
@@ -376,7 +413,7 @@ func (vr *VertraegeRoutes) HandleListParties(w http.ResponseWriter, r *http.Requ
 	}
 
 	resp, err := client.ListParties(r.Context(), &vertraegev1.ListPartiesRequest{
-		TenantId:   vertraegePlaceholderTenantID,
+		TenantId:   tenantID.String(),
 		ContractId: id,
 	})
 	if err != nil {
@@ -387,6 +424,11 @@ func (vr *VertraegeRoutes) HandleListParties(w http.ResponseWriter, r *http.Requ
 }
 
 func (vr *VertraegeRoutes) HandleAddParty(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := vr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, vr.ServiceName())
@@ -413,7 +455,7 @@ func (vr *VertraegeRoutes) HandleAddParty(w http.ResponseWriter, r *http.Request
 	}
 
 	grpcReq := &vertraegev1.AddPartyRequest{
-		TenantId:       vertraegePlaceholderTenantID,
+		TenantId:       tenantID.String(),
 		ContractId:     id,
 		PartyType:      req.PartyType,
 		RoleInContract: req.RoleInContract,
@@ -437,6 +479,11 @@ func (vr *VertraegeRoutes) HandleAddParty(w http.ResponseWriter, r *http.Request
 }
 
 func (vr *VertraegeRoutes) HandleRemoveParty(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := vr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, vr.ServiceName())
@@ -449,7 +496,7 @@ func (vr *VertraegeRoutes) HandleRemoveParty(w http.ResponseWriter, r *http.Requ
 	}
 
 	_, err = client.RemoveParty(r.Context(), &vertraegev1.RemovePartyRequest{
-		TenantId: vertraegePlaceholderTenantID,
+		TenantId: tenantID.String(),
 		PartyId:  partyID,
 	})
 	if err != nil {
@@ -464,6 +511,11 @@ func (vr *VertraegeRoutes) HandleRemoveParty(w http.ResponseWriter, r *http.Requ
 // ============================================================================
 
 func (vr *VertraegeRoutes) HandleListReminders(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := vr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, vr.ServiceName())
@@ -479,7 +531,7 @@ func (vr *VertraegeRoutes) HandleListReminders(w http.ResponseWriter, r *http.Re
 	onlyPending := q.Get("only_pending") == "true" || q.Get("only_pending") == "1"
 
 	resp, err := client.ListReminders(r.Context(), &vertraegev1.ListRemindersRequest{
-		TenantId:   vertraegePlaceholderTenantID,
+		TenantId:   tenantID.String(),
 		ContractId: id,
 		OnlyPending: onlyPending,
 	})
@@ -491,6 +543,11 @@ func (vr *VertraegeRoutes) HandleListReminders(w http.ResponseWriter, r *http.Re
 }
 
 func (vr *VertraegeRoutes) HandleCreateReminder(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := vr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, vr.ServiceName())
@@ -513,7 +570,7 @@ func (vr *VertraegeRoutes) HandleCreateReminder(w http.ResponseWriter, r *http.R
 	}
 
 	grpcReq := &vertraegev1.CreateReminderRequest{
-		TenantId:     vertraegePlaceholderTenantID,
+		TenantId:     tenantID.String(),
 		ContractId:   id,
 		ReminderType: req.ReminderType,
 		Subject:      req.Subject,
@@ -529,6 +586,11 @@ func (vr *VertraegeRoutes) HandleCreateReminder(w http.ResponseWriter, r *http.R
 }
 
 func (vr *VertraegeRoutes) HandleUpdateReminder(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := vr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, vr.ServiceName())
@@ -547,7 +609,7 @@ func (vr *VertraegeRoutes) HandleUpdateReminder(w http.ResponseWriter, r *http.R
 	}
 
 	grpcReq := &vertraegev1.UpdateReminderRequest{
-		TenantId:     vertraegePlaceholderTenantID,
+		TenantId:     tenantID.String(),
 		ReminderId:   reminderID,
 		ReminderType: req.ReminderType,
 		Subject:      req.Subject,
@@ -564,6 +626,11 @@ func (vr *VertraegeRoutes) HandleUpdateReminder(w http.ResponseWriter, r *http.R
 }
 
 func (vr *VertraegeRoutes) HandleDeleteReminder(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := vr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, vr.ServiceName())
@@ -576,7 +643,7 @@ func (vr *VertraegeRoutes) HandleDeleteReminder(w http.ResponseWriter, r *http.R
 	}
 
 	_, err = client.DeleteReminder(r.Context(), &vertraegev1.DeleteReminderRequest{
-		TenantId:   vertraegePlaceholderTenantID,
+		TenantId:   tenantID.String(),
 		ReminderId: reminderID,
 	})
 	if err != nil {

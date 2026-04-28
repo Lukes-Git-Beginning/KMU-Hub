@@ -36,9 +36,6 @@ func (br *BerichteRoutes) getClient() (berichtev1.BerichteServiceClient, error) 
 	return berichtev1.NewBerichteServiceClient(conn), nil
 }
 
-// tenantID is a temporary placeholder until JWT claim extraction is implemented.
-// TODO(Phase 2): extract from JWT claims via middleware.
-const berichtePlaceholderTenantID = "00000000-0000-0000-0000-000000000001"
 
 // RegisterRoutes mounts all Berichte HTTP routes behind the feature flag modules.berichte.
 // Routes are only registered if the flag is enabled.
@@ -145,6 +142,11 @@ type toggleScheduleRequest struct {
 // ============================================================================
 
 func (br *BerichteRoutes) HandleListDefinitions(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := br.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, br.ServiceName())
@@ -155,7 +157,7 @@ func (br *BerichteRoutes) HandleListDefinitions(w http.ResponseWriter, r *http.R
 	q := r.URL.Query()
 
 	grpcReq := &berichtev1.ListDefinitionsRequest{
-		TenantId: berichtePlaceholderTenantID,
+		TenantId: tenantID.String(),
 		Search:   q.Get("search"),
 		Page:     int32(page),
 		PageSize: int32(pageSize),
@@ -185,6 +187,11 @@ func (br *BerichteRoutes) HandleListDefinitions(w http.ResponseWriter, r *http.R
 }
 
 func (br *BerichteRoutes) HandleCreateDefinition(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := br.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, br.ServiceName())
@@ -208,7 +215,7 @@ func (br *BerichteRoutes) HandleCreateDefinition(w http.ResponseWriter, r *http.
 	}
 
 	grpcReq := &berichtev1.CreateDefinitionRequest{
-		TenantId:      berichtePlaceholderTenantID,
+		TenantId:      tenantID.String(),
 		Name:          req.Name,
 		Description:   req.Description,
 		Module:        req.Module,
@@ -228,6 +235,11 @@ func (br *BerichteRoutes) HandleCreateDefinition(w http.ResponseWriter, r *http.
 }
 
 func (br *BerichteRoutes) HandleGetDefinition(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := br.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, br.ServiceName())
@@ -240,7 +252,7 @@ func (br *BerichteRoutes) HandleGetDefinition(w http.ResponseWriter, r *http.Req
 	}
 
 	resp, err := client.GetDefinition(r.Context(), &berichtev1.GetDefinitionRequest{
-		TenantId:     berichtePlaceholderTenantID,
+		TenantId:     tenantID.String(),
 		DefinitionId: id,
 	})
 	if err != nil {
@@ -251,6 +263,11 @@ func (br *BerichteRoutes) HandleGetDefinition(w http.ResponseWriter, r *http.Req
 }
 
 func (br *BerichteRoutes) HandleUpdateDefinition(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := br.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, br.ServiceName())
@@ -271,7 +288,7 @@ func (br *BerichteRoutes) HandleUpdateDefinition(w http.ResponseWriter, r *http.
 	}
 
 	grpcReq := &berichtev1.UpdateDefinitionRequest{
-		TenantId:      berichtePlaceholderTenantID,
+		TenantId:      tenantID.String(),
 		DefinitionId:  id,
 		Name:          req.Name,
 		Description:   req.Description,
@@ -291,6 +308,11 @@ func (br *BerichteRoutes) HandleUpdateDefinition(w http.ResponseWriter, r *http.
 }
 
 func (br *BerichteRoutes) HandleDeleteDefinition(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := br.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, br.ServiceName())
@@ -303,7 +325,7 @@ func (br *BerichteRoutes) HandleDeleteDefinition(w http.ResponseWriter, r *http.
 	}
 
 	_, err = client.DeleteDefinition(r.Context(), &berichtev1.DeleteDefinitionRequest{
-		TenantId:     berichtePlaceholderTenantID,
+		TenantId:     tenantID.String(),
 		DefinitionId: id,
 	})
 	if err != nil {
@@ -318,6 +340,11 @@ func (br *BerichteRoutes) HandleDeleteDefinition(w http.ResponseWriter, r *http.
 // ============================================================================
 
 func (br *BerichteRoutes) HandleRunReport(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := br.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, br.ServiceName())
@@ -336,7 +363,7 @@ func (br *BerichteRoutes) HandleRunReport(w http.ResponseWriter, r *http.Request
 	}
 
 	grpcReq := &berichtev1.RunReportRequest{
-		TenantId:     berichtePlaceholderTenantID,
+		TenantId:     tenantID.String(),
 		DefinitionId: id,
 		Params:       req.Params,
 		ForceRefresh: req.ForceRefresh,
@@ -355,6 +382,11 @@ func (br *BerichteRoutes) HandleRunReport(w http.ResponseWriter, r *http.Request
 // The format is taken from the query parameter ?format=pdf|csv|xlsx; defaults to "pdf".
 // Content-Disposition uses %q formatting to prevent filename injection.
 func (br *BerichteRoutes) HandleExportReport(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := br.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, br.ServiceName())
@@ -378,7 +410,7 @@ func (br *BerichteRoutes) HandleExportReport(w http.ResponseWriter, r *http.Requ
 	}
 
 	grpcReq := &berichtev1.ExportReportRequest{
-		TenantId:     berichtePlaceholderTenantID,
+		TenantId:     tenantID.String(),
 		DefinitionId: id,
 		Params:       req.Params,
 		Format:       format,
@@ -422,6 +454,11 @@ func formatFilename(name string) string {
 }
 
 func (br *BerichteRoutes) HandleInvalidateCache(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := br.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, br.ServiceName())
@@ -434,7 +471,7 @@ func (br *BerichteRoutes) HandleInvalidateCache(w http.ResponseWriter, r *http.R
 	}
 
 	resp, err := client.InvalidateCache(r.Context(), &berichtev1.InvalidateCacheRequest{
-		TenantId:     berichtePlaceholderTenantID,
+		TenantId:     tenantID.String(),
 		DefinitionId: id,
 	})
 	if err != nil {
@@ -449,6 +486,11 @@ func (br *BerichteRoutes) HandleInvalidateCache(w http.ResponseWriter, r *http.R
 // ============================================================================
 
 func (br *BerichteRoutes) HandleListSchedules(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := br.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, br.ServiceName())
@@ -459,7 +501,7 @@ func (br *BerichteRoutes) HandleListSchedules(w http.ResponseWriter, r *http.Req
 	q := r.URL.Query()
 
 	grpcReq := &berichtev1.ListSchedulesRequest{
-		TenantId: berichtePlaceholderTenantID,
+		TenantId: tenantID.String(),
 		Page:     int32(page),
 		PageSize: int32(pageSize),
 	}
@@ -480,6 +522,11 @@ func (br *BerichteRoutes) HandleListSchedules(w http.ResponseWriter, r *http.Req
 }
 
 func (br *BerichteRoutes) HandleCreateSchedule(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := br.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, br.ServiceName())
@@ -503,7 +550,7 @@ func (br *BerichteRoutes) HandleCreateSchedule(w http.ResponseWriter, r *http.Re
 	}
 
 	grpcReq := &berichtev1.CreateScheduleRequest{
-		TenantId:       berichtePlaceholderTenantID,
+		TenantId:       tenantID.String(),
 		DefinitionId:   req.DefinitionID,
 		Name:           req.Name,
 		CronExpression: req.CronExpression,
@@ -523,6 +570,11 @@ func (br *BerichteRoutes) HandleCreateSchedule(w http.ResponseWriter, r *http.Re
 }
 
 func (br *BerichteRoutes) HandleUpdateSchedule(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := br.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, br.ServiceName())
@@ -541,7 +593,7 @@ func (br *BerichteRoutes) HandleUpdateSchedule(w http.ResponseWriter, r *http.Re
 	}
 
 	grpcReq := &berichtev1.UpdateScheduleRequest{
-		TenantId:      berichtePlaceholderTenantID,
+		TenantId:      tenantID.String(),
 		ScheduleId:    id,
 		Name:          req.Name,
 		CronExpression: req.CronExpression,
@@ -561,6 +613,11 @@ func (br *BerichteRoutes) HandleUpdateSchedule(w http.ResponseWriter, r *http.Re
 }
 
 func (br *BerichteRoutes) HandleDeleteSchedule(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := br.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, br.ServiceName())
@@ -573,7 +630,7 @@ func (br *BerichteRoutes) HandleDeleteSchedule(w http.ResponseWriter, r *http.Re
 	}
 
 	_, err = client.DeleteSchedule(r.Context(), &berichtev1.DeleteScheduleRequest{
-		TenantId:   berichtePlaceholderTenantID,
+		TenantId:   tenantID.String(),
 		ScheduleId: id,
 	})
 	if err != nil {
@@ -584,6 +641,11 @@ func (br *BerichteRoutes) HandleDeleteSchedule(w http.ResponseWriter, r *http.Re
 }
 
 func (br *BerichteRoutes) HandleToggleSchedule(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := br.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, br.ServiceName())
@@ -602,7 +664,7 @@ func (br *BerichteRoutes) HandleToggleSchedule(w http.ResponseWriter, r *http.Re
 	}
 
 	resp, err := client.ToggleSchedule(r.Context(), &berichtev1.ToggleScheduleRequest{
-		TenantId:   berichtePlaceholderTenantID,
+		TenantId:   tenantID.String(),
 		ScheduleId: id,
 		Active:     req.Active,
 	})
@@ -618,6 +680,11 @@ func (br *BerichteRoutes) HandleToggleSchedule(w http.ResponseWriter, r *http.Re
 // ============================================================================
 
 func (br *BerichteRoutes) HandleGetDashboardKPIs(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	client, err := br.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, br.ServiceName())
@@ -636,7 +703,7 @@ func (br *BerichteRoutes) HandleGetDashboardKPIs(w http.ResponseWriter, r *http.
 	}
 
 	resp, err := client.GetDashboardKPIs(r.Context(), &berichtev1.DashboardKPIsRequest{
-		TenantId: berichtePlaceholderTenantID,
+		TenantId: tenantID.String(),
 		Modules:  modules,
 	})
 	if err != nil {
