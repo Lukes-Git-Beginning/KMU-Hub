@@ -22,6 +22,7 @@ import RegisterPage from '@/modules/auth/RegisterPage'
 import { DEV_PROFILES } from '@/config/roles'
 import { ProfileSwitcher } from '@/components/dev/ProfileSwitcher'
 import NotificationToast from '@/modules/notifications/NotificationToast'
+import { OfflineBanner } from '@/components/ui/OfflineBanner'
 
 // Lazy-loaded module pages — existing (backend-connected)
 const DashboardPage = lazy(() => import('@/modules/dashboard/DashboardPage'))
@@ -291,6 +292,7 @@ export default function App() {
           <RouterProvider router={router} />
           <Toaster richColors position="bottom-right" closeButton />
           <NotificationToast />
+          <OfflineBanner />
           {DEV_BYPASS_AUTH && <ProfileSwitcher />}
         </TooltipProvider>
       </I18nProvider>

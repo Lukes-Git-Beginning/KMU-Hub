@@ -12,6 +12,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { wsManager } from '@/api/websocket'
 import { useAuthStore } from '@/stores/auth'
+import { drain } from '@/api/offline-queue'
+import { API_BASE_URL } from '@/lib/constants'
 
 export function useOnlineStatus() {
   const [isOnline, setIsOnline] = useState(navigator.onLine)
@@ -34,6 +36,12 @@ export function useOnlineStatus() {
 
       // Invalidate all queries to trigger refetch of stale data
       queryClient.invalidateQueries()
+
+      // Drain offline queue — replay mutations that were queued while offline.
+      const { accessToken } = useAuthStore.getState()
+      drain(API_BASE_URL, () => accessToken).catch(() => {
+        // Drain errors are non-fatal; the OfflineBanner provides manual retry.
+      })
 
       // Clear "was offline" indicator after 3 seconds
       setTimeout(() => setWasOffline(false), 3000)

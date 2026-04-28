@@ -25,6 +25,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/featureflag"
 	"github.com/kmuhub/kmuhub/internal/gateway"
 	"github.com/kmuhub/kmuhub/internal/health"
+	"github.com/kmuhub/kmuhub/internal/idempotency"
 	"github.com/kmuhub/kmuhub/internal/metrics"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server"
@@ -133,6 +134,10 @@ func main() {
 		health.NewRedisChecker(redisClient),
 	}
 
+	// Idempotency repository + cleanup worker (WarnMode: warns but never blocks)
+	idempotencyRepo := idempotency.NewPostgresRepository(pool)
+	go middleware.IdempotencyCleanupWorker(ctx, idempotencyRepo)
+
 	// Router
 	r := chi.NewRouter()
 	r.Use(middleware.Metrics(metricsRegistry))
@@ -159,6 +164,10 @@ func main() {
 	auditLogger.Start(10)
 	defer auditLogger.Close()
 	r.Use(auditLogger.Middleware)
+
+	// Idempotency deduplication middleware (WarnMode until frontend fully sends headers)
+	// Position: after Auth/RBAC (needs tenant+user context), before route handlers.
+	r.Use(middleware.Idempotency(idempotencyRepo, middleware.WarnMode))
 
 	// pprof profiling (only in non-production)
 	if os.Getenv("ENABLE_PPROF") == "true" {

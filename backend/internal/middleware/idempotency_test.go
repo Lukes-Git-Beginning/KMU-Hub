@@ -1,0 +1,258 @@
+package middleware
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/kmuhub/kmuhub/internal/idempotency"
+)
+
+// --- In-memory mock repo ---
+
+type memIdempotencyRepo struct {
+	records map[string]*idempotency.Record
+	// injectErr forces Reserve to return this error on the next call.
+	injectErr error
+}
+
+func newMemIdempotencyRepo() *memIdempotencyRepo {
+	return &memIdempotencyRepo{records: make(map[string]*idempotency.Record)}
+}
+
+func (m *memIdempotencyRepo) Reserve(
+	ctx context.Context,
+	key string,
+	tenantID, userID uuid.UUID,
+	method, path, hash string,
+) (*idempotency.Record, error) {
+	if m.injectErr != nil {
+		err := m.injectErr
+		m.injectErr = nil
+		return nil, err
+	}
+
+	existing, ok := m.records[key]
+	if !ok {
+		now := time.Now()
+		m.records[key] = &idempotency.Record{
+			Key:         key,
+			TenantID:    tenantID,
+			UserID:      userID,
+			Method:      method,
+			Path:        path,
+			RequestHash: hash,
+			CreatedAt:   now,
+			ExpiresAt:   now.Add(24 * time.Hour),
+		}
+		return nil, nil
+	}
+
+	if existing.RequestHash != hash {
+		return nil, idempotency.ErrConflict
+	}
+	if existing.CompletedAt == nil {
+		return nil, idempotency.ErrInFlight
+	}
+	return existing, nil
+}
+
+func (m *memIdempotencyRepo) Get(ctx context.Context, key string) (*idempotency.Record, error) {
+	rec, ok := m.records[key]
+	if !ok {
+		return nil, pgx.ErrNoRows
+	}
+	return rec, nil
+}
+
+func (m *memIdempotencyRepo) Complete(ctx context.Context, key string, status int, body []byte) error {
+	rec, ok := m.records[key]
+	if !ok {
+		return errors.New("key not found")
+	}
+	rec.ResponseStatus = &status
+	rec.ResponseBody = body
+	now := time.Now()
+	rec.CompletedAt = &now
+	return nil
+}
+
+func (m *memIdempotencyRepo) Cleanup(ctx context.Context) (int, error) {
+	return 0, nil
+}
+
+// --- Helpers ---
+
+// requestWithAuth builds an *http.Request with tenant/user context pre-set.
+func requestWithAuth(method, path string, body string) *http.Request {
+	var bodyReader *strings.Reader
+	if body != "" {
+		bodyReader = strings.NewReader(body)
+	} else {
+		bodyReader = strings.NewReader("")
+	}
+	r := httptest.NewRequest(method, path, bodyReader)
+	tenantID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	userID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+	ctx := context.WithValue(r.Context(), TenantIDKey, tenantID.String())
+	ctx = context.WithValue(ctx, UserIDKey, userID.String())
+	return r.WithContext(ctx)
+}
+
+func okHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_, _ = w.Write([]byte(`{"id":"new-resource"}`))
+}
+
+// --- Tests ---
+
+func TestIdempotency_Skip_GETRequest(t *testing.T) {
+	repo := newMemIdempotencyRepo()
+	mw := Idempotency(repo, WarnMode)
+
+	r := requestWithAuth(http.MethodGet, "/api/v1/crm/contacts", "")
+	rec := httptest.NewRecorder()
+	mw(http.HandlerFunc(okHandler)).ServeHTTP(rec, r)
+
+	assert.Equal(t, http.StatusCreated, rec.Code)
+	assert.Empty(t, repo.records, "GET should not create idempotency records")
+}
+
+func TestIdempotency_FreshKey_StoresAndReturns(t *testing.T) {
+	repo := newMemIdempotencyRepo()
+	mw := Idempotency(repo, WarnMode)
+
+	r := requestWithAuth(http.MethodPost, "/api/v1/crm/contacts", `{"name":"Test"}`)
+	r.Header.Set("Idempotency-Key", "key-fresh-001")
+	rec := httptest.NewRecorder()
+	mw(http.HandlerFunc(okHandler)).ServeHTTP(rec, r)
+
+	assert.Equal(t, http.StatusCreated, rec.Code)
+	assert.Equal(t, `{"id":"new-resource"}`, rec.Body.String())
+}
+
+func TestIdempotency_Replay_ReturnsCached(t *testing.T) {
+	repo := newMemIdempotencyRepo()
+	mw := Idempotency(repo, WarnMode)
+
+	// First call — handler runs
+	r1 := requestWithAuth(http.MethodPost, "/api/v1/crm/contacts", `{"name":"Test"}`)
+	r1.Header.Set("Idempotency-Key", "key-replay-001")
+	rec1 := httptest.NewRecorder()
+	mw(http.HandlerFunc(okHandler)).ServeHTTP(rec1, r1)
+	require.Equal(t, http.StatusCreated, rec1.Code)
+
+	// Wait briefly for async Complete goroutine
+	time.Sleep(20 * time.Millisecond)
+
+	// Second call — should be replayed from cache
+	r2 := requestWithAuth(http.MethodPost, "/api/v1/crm/contacts", `{"name":"Test"}`)
+	r2.Header.Set("Idempotency-Key", "key-replay-001")
+	rec2 := httptest.NewRecorder()
+	mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("handler should not be called on replay")
+	})).ServeHTTP(rec2, r2)
+
+	assert.Equal(t, http.StatusCreated, rec2.Code)
+	assert.Equal(t, "true", rec2.Header().Get("Idempotency-Replayed"))
+	assert.Equal(t, `{"id":"new-resource"}`, rec2.Body.String())
+}
+
+func TestIdempotency_InFlight_Returns409(t *testing.T) {
+	repo := newMemIdempotencyRepo()
+	// Pre-populate a non-completed record (simulates in-flight)
+	repo.records["key-inflight-001"] = &idempotency.Record{
+		Key:         "key-inflight-001",
+		TenantID:    uuid.MustParse("11111111-1111-1111-1111-111111111111"),
+		UserID:      uuid.MustParse("22222222-2222-2222-2222-222222222222"),
+		Method:      "POST",
+		Path:        "/api/v1/crm/contacts",
+		RequestHash: computeRequestHash("11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222", "POST", "/api/v1/crm/contacts", []byte(`{"name":"Test"}`)),
+		CreatedAt:   time.Now(),
+		ExpiresAt:   time.Now().Add(24 * time.Hour),
+	}
+
+	mw := Idempotency(repo, WarnMode)
+	r := requestWithAuth(http.MethodPost, "/api/v1/crm/contacts", `{"name":"Test"}`)
+	r.Header.Set("Idempotency-Key", "key-inflight-001")
+	rec := httptest.NewRecorder()
+	mw(http.HandlerFunc(okHandler)).ServeHTTP(rec, r)
+
+	assert.Equal(t, http.StatusConflict, rec.Code)
+	assert.Equal(t, "2", rec.Header().Get("Retry-After"))
+}
+
+func TestIdempotency_Conflict_Returns422(t *testing.T) {
+	repo := newMemIdempotencyRepo()
+	// Pre-populate with a different hash
+	status := 201
+	body := []byte(`{"id":"old"}`)
+	now := time.Now()
+	repo.records["key-conflict-001"] = &idempotency.Record{
+		Key:            "key-conflict-001",
+		TenantID:       uuid.MustParse("11111111-1111-1111-1111-111111111111"),
+		UserID:         uuid.MustParse("22222222-2222-2222-2222-222222222222"),
+		Method:         "POST",
+		Path:           "/api/v1/crm/contacts",
+		RequestHash:    "different-hash-from-first-request",
+		ResponseStatus: &status,
+		ResponseBody:   body,
+		CreatedAt:      now,
+		CompletedAt:    &now,
+		ExpiresAt:      now.Add(24 * time.Hour),
+	}
+
+	mw := Idempotency(repo, WarnMode)
+	r := requestWithAuth(http.MethodPost, "/api/v1/crm/contacts", `{"name":"DifferentPayload"}`)
+	r.Header.Set("Idempotency-Key", "key-conflict-001")
+	rec := httptest.NewRecorder()
+	mw(http.HandlerFunc(okHandler)).ServeHTTP(rec, r)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, rec.Code)
+}
+
+func TestIdempotency_MissingKey_WarnMode_Passes(t *testing.T) {
+	repo := newMemIdempotencyRepo()
+	mw := Idempotency(repo, WarnMode)
+
+	r := requestWithAuth(http.MethodPost, "/api/v1/crm/contacts", `{"name":"Test"}`)
+	// No Idempotency-Key header
+	rec := httptest.NewRecorder()
+	mw(http.HandlerFunc(okHandler)).ServeHTTP(rec, r)
+
+	assert.Equal(t, http.StatusCreated, rec.Code, "WarnMode should pass through missing key")
+}
+
+func TestIdempotency_MissingKey_HardMode_Blocks(t *testing.T) {
+	repo := newMemIdempotencyRepo()
+	mw := Idempotency(repo, HardMode)
+
+	r := requestWithAuth(http.MethodPost, "/api/v1/crm/contacts", `{"name":"Test"}`)
+	rec := httptest.NewRecorder()
+	mw(http.HandlerFunc(okHandler)).ServeHTTP(rec, r)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestIdempotency_WhitelistedPath_Skip(t *testing.T) {
+	repo := newMemIdempotencyRepo()
+	mw := Idempotency(repo, HardMode)
+
+	// /auth/login is whitelisted — no Idempotency-Key required even in HardMode
+	r := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader([]byte(`{"email":"x@x.com","password":"pw"}`)))
+	rec := httptest.NewRecorder()
+	mw(http.HandlerFunc(okHandler)).ServeHTTP(rec, r)
+
+	assert.Equal(t, http.StatusCreated, rec.Code)
+}
