@@ -58,8 +58,9 @@ func (rr *RapporteRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 
 			// State transitions
 			r.With(middleware.RequirePermission("rapporte:report", "write")).Post("/submit", rr.HandleSubmitReport)
-			r.With(middleware.RequirePermission("rapporte:report", "write")).Post("/approve", rr.HandleApproveReport)
-			r.With(middleware.RequirePermission("rapporte:report", "write")).Post("/reject", rr.HandleRejectReport)
+			// Bug #3: approve/reject require dedicated "approve" action, not generic "write"
+			r.With(middleware.RequirePermission("rapporte:report", "approve")).Post("/approve", rr.HandleApproveReport)
+			r.With(middleware.RequirePermission("rapporte:report", "approve")).Post("/reject", rr.HandleRejectReport)
 
 			// Lines
 			r.With(middleware.RequirePermission("rapporte:line", "read")).Get("/lines", rr.HandleListLines)

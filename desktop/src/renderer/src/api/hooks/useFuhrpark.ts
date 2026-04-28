@@ -230,9 +230,11 @@ export function useDeleteService() {
 export function useCompleteService() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...body }: CompleteServiceInput & { id: string }) =>
+    // Bug #21: vehicleId is required so we can invalidate the per-vehicle services cache
+    mutationFn: ({ id, vehicleId: _vehicleId, ...body }: CompleteServiceInput & { id: string; vehicleId: string }) =>
       completeService(id, body),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: fuhrparkKeys.vehicleServices(variables.vehicleId) })
       qc.invalidateQueries({ queryKey: ['fuhrpark', 'services'] })
       qc.invalidateQueries({ queryKey: ['fuhrpark', 'vehicles'] })
       qc.invalidateQueries({ queryKey: fuhrparkKeys.upcomingServices() })

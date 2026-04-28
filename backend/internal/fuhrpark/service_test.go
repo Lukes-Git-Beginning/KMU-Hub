@@ -233,9 +233,9 @@ func (m *mockRepository) FindVehiclesDueTuev(ctx context.Context, from, to time.
 	return result, nil
 }
 
-func (m *mockRepository) MarkTuevReminderSent(ctx context.Context, vehicleID uuid.UUID) error {
+func (m *mockRepository) MarkTuevReminderSent(ctx context.Context, vehicleID, tenantID uuid.UUID) error {
 	v, ok := m.vehicles[vehicleID]
-	if !ok {
+	if !ok || v.TenantID != tenantID {
 		return ErrVehicleNotFound
 	}
 	now := time.Now()
@@ -721,6 +721,83 @@ func TestService_ScheduleService_InvalidServiceType(t *testing.T) {
 		TenantID: tenantID, VehicleID: v.ID, ServiceType: "", ScheduledAt: time.Now(),
 	})
 	assert.ErrorIs(t, err, ErrInvalidInput)
+}
+
+// Bug #12: Mileage decrement prevention
+func TestService_UpdateVehicle_MileageDecrement_Rejected(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	tenantID := uuid.New()
+
+	v, err := svc.CreateVehicle(context.Background(), CreateVehicleInput{
+		TenantID: tenantID, LicensePlate: "MIL-1", Make: "VW", Model: "T", Year: 2021,
+		MileageKm: 50000,
+	})
+	require.NoError(t, err)
+
+	lower := int64(49999)
+	_, err = svc.UpdateVehicle(context.Background(), UpdateVehicleInput{
+		TenantID: tenantID, VehicleID: v.ID, MileageKm: &lower,
+	})
+	assert.ErrorIs(t, err, ErrInvalidInput, "mileage must not go backwards")
+}
+
+func TestService_UpdateVehicle_MileageIncrement_Accepted(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	tenantID := uuid.New()
+
+	v, err := svc.CreateVehicle(context.Background(), CreateVehicleInput{
+		TenantID: tenantID, LicensePlate: "MIL-2", Make: "VW", Model: "T", Year: 2021,
+		MileageKm: 50000,
+	})
+	require.NoError(t, err)
+
+	higher := int64(55000)
+	updated, err := svc.UpdateVehicle(context.Background(), UpdateVehicleInput{
+		TenantID: tenantID, VehicleID: v.ID, MileageKm: &higher,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, int64(55000), updated.MileageKm)
+}
+
+// Bug #1: MarkTuevReminderSent cross-tenant guard
+func TestMarkTuevReminderSent_CrossTenant_ReturnsNotFound(t *testing.T) {
+	repo := newMockRepository()
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	vid := uuid.New()
+	due := time.Now().AddDate(0, 0, 7)
+	repo.vehicles[vid] = &Vehicle{
+		ID:          vid,
+		TenantID:    tenantA,
+		LicensePlate: "CT-1",
+		TuevDueDate: &due,
+	}
+
+	// tenantB tries to stamp tenantA's vehicle → must fail
+	err := repo.MarkTuevReminderSent(context.Background(), vid, tenantB)
+	assert.ErrorIs(t, err, ErrVehicleNotFound)
+}
+
+// Bug #18: 2h window (formerly 1h) — verify drift scenario
+func TestTuevWorker_WindowIs2h(t *testing.T) {
+	repo := newMockRepository()
+	tenantID := uuid.New()
+	now := time.Date(2026, 5, 1, 10, 0, 0, 0, time.UTC)
+
+	// Vehicle due at now+7d+90min — within new 2h window but outside old 1h window
+	due := now.AddDate(0, 0, 7).Add(90 * time.Minute)
+	vid := uuid.New()
+	repo.vehicles[vid] = &Vehicle{
+		ID: vid, TenantID: tenantID, LicensePlate: "DRIFT-7D", TuevDueDate: &due,
+	}
+
+	worker := NewTuevWorker(repo, nil, nil)
+	err := worker.ProcessTuevReminders(context.Background(), now)
+	require.NoError(t, err)
+	assert.NotNil(t, repo.vehicles[vid].TuevReminderSentAt, "vehicle at +7d+90min must be notified with 2h window")
 }
 
 func TestService_CompleteService_CancelledNotAllowed(t *testing.T) {

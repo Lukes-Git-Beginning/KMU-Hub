@@ -272,6 +272,10 @@ func (s *Service) UpdateVehicle(ctx context.Context, input UpdateVehicleInput) (
 		v.Status = *input.Status
 	}
 	if input.MileageKm != nil {
+		// Guard: odometer cannot go backwards (Bug #12 — mileage decrement prevention)
+		if *input.MileageKm < v.MileageKm {
+			return nil, ErrInvalidInput
+		}
 		v.MileageKm = *input.MileageKm
 	}
 	if input.ClearTuevDueDate {

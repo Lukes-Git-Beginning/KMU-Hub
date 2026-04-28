@@ -245,7 +245,10 @@ message UpdateInspectionRequest {
   string tenant_id = 1;
   string inspection_id = 2;
   optional string notes = 3;
-  repeated string photo_urls = 4; // full replacement
+  repeated string photo_urls = 4;
+  // replace_photos: when true, photo_urls replaces the existing list (even if empty).
+  // When false (default), photo_urls is ignored and existing photos are kept.
+  bool replace_photos = 5;
 }
 
 message GetInspectionRequest {

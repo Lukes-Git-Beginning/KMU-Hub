@@ -151,11 +151,51 @@ func (m *mockRepository) ListAssignments(ctx context.Context, tenantID, shiftID 
 	return result, nil
 }
 
+func (m *mockRepository) CountAssignments(ctx context.Context, tenantID, shiftID uuid.UUID) (int, error) {
+	count := 0
+	for _, a := range m.assignments {
+		if a.ShiftID == shiftID && a.TenantID == tenantID {
+			count++
+		}
+	}
+	return count, nil
+}
+
 func (m *mockRepository) LatestShiftEndBeforeForEmployee(ctx context.Context, tenantID, employeeID uuid.UUID, before time.Time) (*time.Time, error) {
 	if t, ok := m.employeeLatestEnd[employeeID]; ok {
 		return t, nil
 	}
 	return nil, nil
+}
+
+func (m *mockRepository) EarliestShiftStartAfterForEmployee(ctx context.Context, tenantID, employeeID uuid.UUID, after time.Time) (*time.Time, error) {
+	// Find the earliest assigned shift that starts after 'after'
+	var earliest *time.Time
+	for _, a := range m.assignments {
+		if a.TenantID != tenantID || a.EmployeeID != employeeID {
+			continue
+		}
+		s, ok := m.shifts[a.ShiftID]
+		if !ok {
+			continue
+		}
+		if s.StartTime.After(after) {
+			if earliest == nil || s.StartTime.Before(*earliest) {
+				t := s.StartTime
+				earliest = &t
+			}
+		}
+	}
+	return earliest, nil
+}
+
+func (m *mockRepository) ShiftExistsForTemplate(ctx context.Context, tenantID uuid.UUID, startTime, endTime time.Time, title string) (bool, error) {
+	for _, s := range m.shifts {
+		if s.TenantID == tenantID && s.StartTime.Equal(startTime) && s.EndTime.Equal(endTime) && s.Title == title {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // -- Templates --
@@ -866,6 +906,67 @@ func TestService_CheckArbzgCompliance_Violation(t *testing.T) {
 	assert.NotEmpty(t, reason)
 }
 
+// Bug #5: ArbZG bidirectional check — new shift sandwiched between two close shifts
+func TestService_ArbZG_ViolationBothDirections(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	employeeID := uuid.New()
+
+	// Existing shift A: ends at 22:00
+	shiftA := addShift(repo, tenantID, "Shift A", mustTime("2026-05-01T14:00:00Z"), mustTime("2026-05-01T22:00:00Z"), ShiftStatusPublished)
+	repo.assignments[assignKey(shiftA.ID, employeeID)] = &ShiftAssignment{
+		ID: uuid.New(), TenantID: tenantID, ShiftID: shiftA.ID, EmployeeID: employeeID, AssignedAt: time.Now(),
+	}
+
+	// Existing shift B: starts at 04:00 next day (6h after A ends)
+	shiftB := addShift(repo, tenantID, "Shift B", mustTime("2026-05-02T04:00:00Z"), mustTime("2026-05-02T12:00:00Z"), ShiftStatusPublished)
+	repo.assignments[assignKey(shiftB.ID, employeeID)] = &ShiftAssignment{
+		ID: uuid.New(), TenantID: tenantID, ShiftID: shiftB.ID, EmployeeID: employeeID, AssignedAt: time.Now(),
+	}
+
+	// New shift: 23:30 to 03:30 — only 1.5h after A ends, 0.5h before B starts
+	newShift := addShift(repo, tenantID, "New Middle", mustTime("2026-05-01T23:30:00Z"), mustTime("2026-05-02T03:30:00Z"), ShiftStatusDraft)
+
+	// Should fail: 1.5h rest before (from A) violates ArbZG
+	prevEnd := mustTime("2026-05-01T22:00:00Z")
+	repo.employeeLatestEnd[employeeID] = &prevEnd
+
+	_, err := svc.AssignEmployee(context.Background(), AssignEmployeeInput{
+		TenantID: tenantID, ShiftID: newShift.ID, EmployeeID: employeeID,
+	})
+	assert.ErrorIs(t, err, ErrArbzgViolation, "shift sandwiched with < 11h rest must be rejected")
+}
+
+// Bug #6: ApplyTemplate idempotency — duplicate application must not create duplicate shifts
+func TestService_ApplyTemplate_Idempotent(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	// Monday=1 template
+	tmpl := addTemplate(repo, tenantID, "Mon-Schicht", 1, 8, 0, 480)
+
+	rangeStart := time.Date(2026, 4, 27, 0, 0, 0, 0, time.UTC)
+	rangeEnd := time.Date(2026, 5, 3, 23, 59, 0, 0, time.UTC)
+
+	// Apply once
+	shifts1, err := svc.ApplyTemplate(context.Background(), ApplyTemplateInput{
+		TenantID: tenantID, TemplateID: tmpl.ID, RangeStart: rangeStart, RangeEnd: rangeEnd,
+	})
+	require.NoError(t, err)
+	count1 := len(shifts1)
+
+	// Apply again — must not create duplicates
+	shifts2, err := svc.ApplyTemplate(context.Background(), ApplyTemplateInput{
+		TenantID: tenantID, TemplateID: tmpl.ID, RangeStart: rangeStart, RangeEnd: rangeEnd,
+	})
+	require.NoError(t, err)
+	assert.Empty(t, shifts2, "second apply must produce 0 new shifts (all already exist)")
+	assert.Equal(t, count1, len(repo.shifts), "total shifts in repo must not grow on second apply")
+}
+
 // ============================================================================
 // ListShifts Tests
 // ============================================================================
@@ -887,4 +988,72 @@ func TestService_ListShifts_DefaultPagination(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 60, total)
 	assert.Len(t, shifts, 50) // default page size
+}
+
+// ============================================================================
+// Capacity Tests (Bug #8)
+// ============================================================================
+
+// A shift with capacity=2 should reject the third assignment.
+func TestService_AssignEmployee_CapacityExceeded_Rejected(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	start := time.Now().Add(48 * time.Hour)
+	end := start.Add(8 * time.Hour)
+	cap := 2
+
+	shift := &Shift{
+		ID:        uuid.New(),
+		TenantID:  tenantID,
+		Title:     "Full Shift",
+		StartTime: start,
+		EndTime:   end,
+		Status:    ShiftStatusDraft,
+		Capacity:  &cap,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	repo.shifts[shift.ID] = shift
+
+	emp1, emp2, emp3 := uuid.New(), uuid.New(), uuid.New()
+
+	// First two assignments succeed
+	_, err := svc.AssignEmployee(context.Background(), AssignEmployeeInput{
+		TenantID: tenantID, ShiftID: shift.ID, EmployeeID: emp1,
+	})
+	require.NoError(t, err)
+
+	_, err = svc.AssignEmployee(context.Background(), AssignEmployeeInput{
+		TenantID: tenantID, ShiftID: shift.ID, EmployeeID: emp2,
+	})
+	require.NoError(t, err)
+
+	// Third assignment must be rejected
+	_, err = svc.AssignEmployee(context.Background(), AssignEmployeeInput{
+		TenantID: tenantID, ShiftID: shift.ID, EmployeeID: emp3,
+	})
+	assert.ErrorIs(t, err, ErrShiftFull)
+}
+
+// A shift without capacity (nil) must accept any number of assignments.
+func TestService_AssignEmployee_NoCapacity_Unlimited(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	start := time.Now().Add(48 * time.Hour)
+	end := start.Add(8 * time.Hour)
+
+	shift := addShift(repo, tenantID, "Unlimited", start, end, ShiftStatusDraft)
+	// shift.Capacity is nil by default
+
+	for i := range 5 {
+		emp := uuid.New()
+		_, err := svc.AssignEmployee(context.Background(), AssignEmployeeInput{
+			TenantID: tenantID, ShiftID: shift.ID, EmployeeID: emp,
+		})
+		require.NoError(t, err, "assignment %d must succeed when capacity is unlimited", i+1)
+	}
 }

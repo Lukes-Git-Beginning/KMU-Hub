@@ -154,7 +154,9 @@ export function useDeleteReport() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => deleteReport(id),
-    onSuccess: () => {
+    // Bug #19: also invalidate the detail cache so stale report data is evicted
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: rapporteKeys.report(id) })
       qc.invalidateQueries({ queryKey: ['rapporte', 'reports'] })
       qc.invalidateQueries({ queryKey: rapporteKeys.stats() })
     },

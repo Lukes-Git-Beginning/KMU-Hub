@@ -1795,7 +1795,9 @@ type UpdateInspectionRequest struct {
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	InspectionId  string                 `protobuf:"bytes,2,opt,name=inspection_id,json=inspectionId,proto3" json:"inspection_id,omitempty"`
 	Notes         *string                `protobuf:"bytes,3,opt,name=notes,proto3,oneof" json:"notes,omitempty"`
-	PhotoUrls     []string               `protobuf:"bytes,4,rep,name=photo_urls,json=photoUrls,proto3" json:"photo_urls,omitempty"` // full replacement
+	PhotoUrls     []string               `protobuf:"bytes,4,rep,name=photo_urls,json=photoUrls,proto3" json:"photo_urls,omitempty"`
+	// ReplacePhotos: when true, photo_urls replaces the existing list (even if empty).
+	ReplacePhotos bool `protobuf:"varint,5,opt,name=replace_photos,json=replacePhotos,proto3" json:"replace_photos,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1856,6 +1858,13 @@ func (x *UpdateInspectionRequest) GetPhotoUrls() []string {
 		return x.PhotoUrls
 	}
 	return nil
+}
+
+func (x *UpdateInspectionRequest) GetReplacePhotos() bool {
+	if x != nil {
+		return x.ReplacePhotos
+	}
+	return false
 }
 
 type GetInspectionRequest struct {

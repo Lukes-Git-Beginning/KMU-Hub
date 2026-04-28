@@ -108,7 +108,8 @@ export function useArbzgCheck(params: ArbzgCheckParams) {
     queryKey: schichtenKeys.compliance(params),
     queryFn: () => checkArbzgCompliance(params),
     enabled: !!(params.employee_id && params.new_shift_start && params.new_shift_end),
-    staleTime: STALE_TIME,
+    // Bug #20: compliance check must always reflect the latest assignments — never serve stale result
+    staleTime: 0,
   })
 }
 
@@ -181,6 +182,8 @@ export function useAssignEmployee() {
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: schichtenKeys.assignments(variables.shiftId) })
       qc.invalidateQueries({ queryKey: ['schichten', 'stats'] })
+      // Bug #20: invalidate compliance cache after assignment so subsequent checks are fresh
+      qc.invalidateQueries({ queryKey: ['schichten', 'compliance'] })
     },
   })
 }

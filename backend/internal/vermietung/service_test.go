@@ -228,6 +228,15 @@ func (m *mockRepository) ListInspections(ctx context.Context, tenantID, rentalID
 	return result[offset:end], total, nil
 }
 
+func (m *mockRepository) GetInspectionByKind(ctx context.Context, tenantID, rentalID uuid.UUID, kind InspectionKind) (*RentalInspection, error) {
+	for _, ins := range m.inspections {
+		if ins.TenantID == tenantID && ins.RentalID == rentalID && ins.Kind == kind {
+			return ins, nil
+		}
+	}
+	return nil, ErrInspectionNotFound
+}
+
 // compile-time interface check
 var _ Repository = (*mockRepository)(nil)
 

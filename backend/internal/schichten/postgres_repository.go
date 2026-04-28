@@ -29,10 +29,10 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 func (r *PostgresRepository) CreateShift(ctx context.Context, shift *Shift) error {
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO shifts
-		    (id, tenant_id, title, description, start_time, end_time, status, location, created_by, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+		    (id, tenant_id, title, description, start_time, end_time, status, location, capacity, created_by, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
 		shift.ID, shift.TenantID, shift.Title, shift.Description,
-		shift.StartTime, shift.EndTime, shift.Status, shift.Location, shift.CreatedBy,
+		shift.StartTime, shift.EndTime, shift.Status, shift.Location, shift.Capacity, shift.CreatedBy,
 		shift.CreatedAt, shift.UpdatedAt,
 	)
 	return err
@@ -42,10 +42,10 @@ func (r *PostgresRepository) UpdateShift(ctx context.Context, shift *Shift) erro
 	ct, err := r.pool.Exec(ctx,
 		`UPDATE shifts
 		 SET title = $1, description = $2, start_time = $3, end_time = $4,
-		     status = $5, location = $6, updated_at = $7
-		 WHERE id = $8 AND tenant_id = $9`,
+		     status = $5, location = $6, capacity = $7, updated_at = $8
+		 WHERE id = $9 AND tenant_id = $10`,
 		shift.Title, shift.Description, shift.StartTime, shift.EndTime,
-		shift.Status, shift.Location, shift.UpdatedAt, shift.ID, shift.TenantID,
+		shift.Status, shift.Location, shift.Capacity, shift.UpdatedAt, shift.ID, shift.TenantID,
 	)
 	if err != nil {
 		return err
@@ -73,12 +73,12 @@ func (r *PostgresRepository) DeleteShift(ctx context.Context, tenantID, shiftID 
 func (r *PostgresRepository) GetShift(ctx context.Context, tenantID, shiftID uuid.UUID) (*Shift, error) {
 	var s Shift
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, tenant_id, title, description, start_time, end_time, status, location, created_by, created_at, updated_at
+		`SELECT id, tenant_id, title, description, start_time, end_time, status, location, capacity, created_by, created_at, updated_at
 		 FROM shifts WHERE id = $1 AND tenant_id = $2`,
 		shiftID, tenantID,
 	).Scan(
 		&s.ID, &s.TenantID, &s.Title, &s.Description,
-		&s.StartTime, &s.EndTime, &s.Status, &s.Location, &s.CreatedBy,
+		&s.StartTime, &s.EndTime, &s.Status, &s.Location, &s.Capacity, &s.CreatedBy,
 		&s.CreatedAt, &s.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -125,7 +125,7 @@ func (r *PostgresRepository) ListShifts(ctx context.Context, tenantID uuid.UUID,
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id, tenant_id, title, description, start_time, end_time, status, location, created_by, created_at, updated_at
+		SELECT id, tenant_id, title, description, start_time, end_time, status, location, capacity, created_by, created_at, updated_at
 		FROM shifts %s
 		ORDER BY start_time ASC
 		LIMIT $%d OFFSET $%d
@@ -236,7 +236,9 @@ func (r *PostgresRepository) ListAssignments(ctx context.Context, tenantID, shif
 }
 
 // LatestShiftEndBeforeForEmployee finds the most recent shift end_time for an employee
-// that ends before the given timestamp. Used for ArbZG rest-period validation.
+// that ends strictly before the given timestamp. Used for ArbZG rest-period validation.
+// Uses strict less-than (<) so a shift ending exactly at newStart is not counted
+// as a prior shift — that edge case means zero rest, which is a violation handled by the caller.
 func (r *PostgresRepository) LatestShiftEndBeforeForEmployee(ctx context.Context, tenantID, employeeID uuid.UUID, before time.Time) (*time.Time, error) {
 	var endTime time.Time
 	err := r.pool.QueryRow(ctx,
@@ -245,7 +247,7 @@ func (r *PostgresRepository) LatestShiftEndBeforeForEmployee(ctx context.Context
 		 JOIN shift_assignments sa ON sa.shift_id = s.id
 		 WHERE sa.tenant_id = $1
 		   AND sa.employee_id = $2
-		   AND s.end_time <= $3
+		   AND s.end_time < $3
 		 ORDER BY s.end_time DESC
 		 LIMIT 1`,
 		tenantID, employeeID, before,
@@ -257,6 +259,47 @@ func (r *PostgresRepository) LatestShiftEndBeforeForEmployee(ctx context.Context
 		return nil, fmt.Errorf("latest shift end for employee: %w", err)
 	}
 	return &endTime, nil
+}
+
+// EarliestShiftStartAfterForEmployee finds the earliest shift start_time for an employee
+// that begins strictly after the given timestamp. Used for bidirectional ArbZG rest-period validation.
+func (r *PostgresRepository) EarliestShiftStartAfterForEmployee(ctx context.Context, tenantID, employeeID uuid.UUID, after time.Time) (*time.Time, error) {
+	var startTime time.Time
+	err := r.pool.QueryRow(ctx,
+		`SELECT s.start_time
+		 FROM shifts s
+		 JOIN shift_assignments sa ON sa.shift_id = s.id
+		 WHERE sa.tenant_id = $1
+		   AND sa.employee_id = $2
+		   AND s.start_time > $3
+		 ORDER BY s.start_time ASC
+		 LIMIT 1`,
+		tenantID, employeeID, after,
+	).Scan(&startTime)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("earliest shift start for employee: %w", err)
+	}
+	return &startTime, nil
+}
+
+// ShiftExistsForTemplate checks whether a shift with the given tenant, start, end, and title already exists.
+// Used by ApplyTemplate for idempotency (prevents duplicate application).
+func (r *PostgresRepository) ShiftExistsForTemplate(ctx context.Context, tenantID uuid.UUID, startTime, endTime time.Time, title string) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(
+			SELECT 1 FROM shifts
+			WHERE tenant_id=$1 AND start_time=$2 AND end_time=$3 AND title=$4
+		)`,
+		tenantID, startTime, endTime, title,
+	).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("check shift exists for template: %w", err)
+	}
+	return exists, nil
 }
 
 // ============================================================================
@@ -441,13 +484,26 @@ func (r *PostgresRepository) scanShiftFromRows(rows pgx.Rows) (*Shift, error) {
 	var s Shift
 	err := rows.Scan(
 		&s.ID, &s.TenantID, &s.Title, &s.Description,
-		&s.StartTime, &s.EndTime, &s.Status, &s.Location, &s.CreatedBy,
+		&s.StartTime, &s.EndTime, &s.Status, &s.Location, &s.Capacity, &s.CreatedBy,
 		&s.CreatedAt, &s.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("scan shift row: %w", err)
 	}
 	return &s, nil
+}
+
+// CountAssignments returns the count of current assignments for a shift.
+func (r *PostgresRepository) CountAssignments(ctx context.Context, tenantID, shiftID uuid.UUID) (int, error) {
+	var count int
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM shift_assignments WHERE tenant_id = $1 AND shift_id = $2`,
+		tenantID, shiftID,
+	).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count assignments: %w", err)
+	}
+	return count, nil
 }
 
 func (r *PostgresRepository) scanAssignmentFromRows(rows pgx.Rows) (*ShiftAssignment, error) {

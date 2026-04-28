@@ -431,13 +431,14 @@ func (s *VermietungGRPCServer) UpdateInspection(ctx context.Context, req *vermie
 		return nil, status.Errorf(codes.InvalidArgument, "invalid inspection_id: %v", err)
 	}
 
-	photoURLs := req.GetPhotoUrls()
 	input := vermietung.UpdateInspectionInput{
-		TenantID:      tenantID,
-		InspectionID:  inspectionID,
-		Notes:         req.Notes,
-		PhotoURLs:     photoURLs,
-		ReplacePhotos: len(photoURLs) > 0,
+		TenantID:     tenantID,
+		InspectionID: inspectionID,
+		Notes:        req.Notes,
+		// Bug #17: use explicit replace_photos flag so callers can clear the photo list
+		// by sending replace_photos=true with an empty photo_urls array.
+		ReplacePhotos: req.GetReplacePhotos(),
+		PhotoURLs:     req.GetPhotoUrls(),
 	}
 
 	ins, err := s.svc.UpdateInspection(ctx, input)

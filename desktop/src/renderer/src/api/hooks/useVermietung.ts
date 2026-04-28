@@ -80,15 +80,16 @@ export function useObject(id: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Queries — Availability
+// Mutations — Availability (Bug #22)
 // ---------------------------------------------------------------------------
+// Availability is an on-demand check (not a background poll), so it must be a
+// mutation rather than a query. This prevents stale cache from hiding conflicts
+// that arose since the last render.
 
-export function useAvailabilityCheck(objectId: string, params: CheckAvailabilityParams) {
-  return useQuery({
-    queryKey: vermietungKeys.availability(objectId, params),
-    queryFn: () => checkAvailability(objectId, params),
-    enabled: !!objectId && !!params.start_date && !!params.end_date,
-    staleTime: 60 * 1000,
+export function useCheckAvailability() {
+  return useMutation({
+    mutationFn: ({ objectId, ...params }: CheckAvailabilityParams & { objectId: string }) =>
+      checkAvailability(objectId, params),
   })
 }
 

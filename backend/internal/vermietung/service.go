@@ -375,7 +375,7 @@ func (s *Service) UpdateRental(ctx context.Context, input UpdateRentalInput) (*R
 		newEnd = *input.EndDate
 	}
 
-	if (input.StartDate != nil || input.EndDate != nil) && newStart != rental.StartDate || newEnd != rental.EndDate {
+	if (input.StartDate != nil || input.EndDate != nil) && (newStart != rental.StartDate || newEnd != rental.EndDate) {
 		if !newEnd.After(newStart) {
 			return nil, ErrInvalidInput
 		}
@@ -501,6 +501,14 @@ func (s *Service) CreateInspection(ctx context.Context, input CreateInspectionIn
 		return nil, err
 	}
 
+	// Guard: only one inspection of each kind per rental (e.g. no two handover inspections).
+	// The DB UNIQUE constraint (migration 000101) is the hard stop; this pre-check provides
+	// a friendly error message rather than a raw constraint violation.
+	existing, err := s.repo.GetInspectionByKind(ctx, input.TenantID, input.RentalID, input.Kind)
+	if err == nil && existing != nil {
+		return nil, ErrInspectionKindExists
+	}
+
 	photos := input.PhotoURLs
 	if photos == nil {
 		photos = []string{}
@@ -619,9 +627,12 @@ func (s *Service) GetRentalCalendar(ctx context.Context, tenantID uuid.UUID, yea
 		return nil, fmt.Errorf("get calendar rentals: %w", err)
 	}
 
-	// Group by objectID
+	// Group by objectID — exclude cancelled rentals from calendar view
 	byObject := make(map[uuid.UUID][]*Rental)
 	for _, r := range rentals {
+		if r.Status == RentalStatusCancelled {
+			continue
+		}
 		byObject[r.ObjectID] = append(byObject[r.ObjectID], r)
 	}
 

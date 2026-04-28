@@ -24,9 +24,12 @@ type Shift struct {
 	EndTime     time.Time   `json:"end_time"`
 	Status      ShiftStatus `json:"status"`
 	Location    *string     `json:"location,omitempty"`
-	CreatedBy   *uuid.UUID  `json:"created_by,omitempty"`
-	CreatedAt   time.Time   `json:"created_at"`
-	UpdatedAt   time.Time   `json:"updated_at"`
+	// Capacity is the maximum number of employees that can be assigned to this shift.
+	// nil means unlimited.
+	Capacity  *int       `json:"capacity,omitempty"`
+	CreatedBy *uuid.UUID `json:"created_by,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
 }
 
 // ShiftAssignment links an employee to a shift.

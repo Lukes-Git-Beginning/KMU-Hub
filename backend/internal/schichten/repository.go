@@ -29,9 +29,15 @@ type Repository interface {
 	DeleteAssignment(ctx context.Context, tenantID, shiftID, employeeID uuid.UUID) error
 	GetAssignment(ctx context.Context, tenantID, shiftID, employeeID uuid.UUID) (*ShiftAssignment, error)
 	ListAssignments(ctx context.Context, tenantID, shiftID uuid.UUID) ([]*ShiftAssignment, error)
+	// CountAssignments returns the number of assignments for a shift (capacity guard).
+	CountAssignments(ctx context.Context, tenantID, shiftID uuid.UUID) (int, error)
 
-	// ArbZG: latest shift that ends before newStart for the given employee
+	// ArbZG: latest shift that ends strictly before newStart for the given employee (bidirectional check)
 	LatestShiftEndBeforeForEmployee(ctx context.Context, tenantID, employeeID uuid.UUID, before time.Time) (*time.Time, error)
+	// ArbZG: earliest shift that starts strictly after newEnd for the given employee (bidirectional check)
+	EarliestShiftStartAfterForEmployee(ctx context.Context, tenantID, employeeID uuid.UUID, after time.Time) (*time.Time, error)
+	// ShiftExistsForTemplate checks for an identical shift (idempotency for ApplyTemplate)
+	ShiftExistsForTemplate(ctx context.Context, tenantID uuid.UUID, startTime, endTime time.Time, title string) (bool, error)
 
 	// Templates
 	CreateTemplate(ctx context.Context, t *ShiftTemplate) error

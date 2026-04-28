@@ -97,14 +97,15 @@ func (w *TuevWorker) Run(ctx context.Context, acquireLockAndRun func(ctx context
 // tuev_due_date in 1-day and 7-day windows and inserts notifications for each.
 // Idempotency: tuev_reminder_sent_at is stamped so a second run in the same
 // window will not re-notify.
+// Window extended to 2 hours to tolerate cron drift at the 60-min interval.
 func (w *TuevWorker) ProcessTuevReminders(ctx context.Context, now time.Time) error {
-	// 7-day window: due in [now+7d, now+7d+1h]
+	// 7-day window: due in [now+7d, now+7d+2h] — 2h window guards against 60min-interval drift
 	sevenDayFrom := now.AddDate(0, 0, 7)
-	sevenDayTo := sevenDayFrom.Add(1 * time.Hour)
+	sevenDayTo := sevenDayFrom.Add(2 * time.Hour)
 
-	// 1-day window: due in [now+1d, now+1d+1h]
+	// 1-day window: due in [now+1d, now+1d+2h]
 	oneDayFrom := now.AddDate(0, 0, 1)
-	oneDayTo := oneDayFrom.Add(1 * time.Hour)
+	oneDayTo := oneDayFrom.Add(2 * time.Hour)
 
 	count7, err := w.processWindow(ctx, sevenDayFrom, sevenDayTo, "7_days")
 	if err != nil {
@@ -142,9 +143,10 @@ func (w *TuevWorker) processWindow(ctx context.Context, from, to time.Time, labe
 			"window", label,
 		)
 
-		if markErr := w.repo.MarkTuevReminderSent(ctx, v.ID); markErr != nil {
+		if markErr := w.repo.MarkTuevReminderSent(ctx, v.ID, v.TenantID); markErr != nil {
 			w.logger.Error("fuhrpark TUEV: failed to mark reminder sent",
 				"vehicle_id", v.ID,
+				"tenant_id", v.TenantID,
 				"error", markErr,
 			)
 		}

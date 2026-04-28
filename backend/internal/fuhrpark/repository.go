@@ -55,7 +55,9 @@ type Repository interface {
 	// TUEV Cron
 	// FindVehiclesDueTuev returns vehicles where tuev_due_date falls in [from, to]
 	// and tuev_reminder_sent_at is NULL or < windowStart (idempotency guard).
+	// The query is intentionally cross-tenant: the cron must check all tenants.
 	FindVehiclesDueTuev(ctx context.Context, from, to time.Time) ([]*Vehicle, error)
 	// MarkTuevReminderSent stamps tuev_reminder_sent_at = now on a vehicle.
-	MarkTuevReminderSent(ctx context.Context, vehicleID uuid.UUID) error
+	// tenant_id is required to prevent cross-tenant stamp manipulation.
+	MarkTuevReminderSent(ctx context.Context, vehicleID, tenantID uuid.UUID) error
 }

@@ -171,6 +171,53 @@ func (m *mockRepository) ListAttachments(_ context.Context, tenantID, reportID u
 	return result, nil
 }
 
+func (m *mockRepository) AtomicApproveReport(_ context.Context, tenantID, reportID, reviewerID uuid.UUID, reviewNote string) (bool, error) {
+	rep, ok := m.reports[reportID]
+	if !ok || rep.TenantID != tenantID || rep.DeletedAt != nil {
+		return false, ErrReportNotFound
+	}
+	if rep.Status != StatusSubmitted {
+		return false, nil
+	}
+	now := time.Now()
+	rep.Status = StatusApproved
+	rep.ReviewerID = &reviewerID
+	rep.ReviewedAt = &now
+	rep.ReviewNote = reviewNote
+	rep.UpdatedAt = now
+	m.reports[reportID] = rep
+	return true, nil
+}
+
+func (m *mockRepository) AtomicRejectReport(_ context.Context, tenantID, reportID, reviewerID uuid.UUID, reviewNote string) (bool, error) {
+	rep, ok := m.reports[reportID]
+	if !ok || rep.TenantID != tenantID || rep.DeletedAt != nil {
+		return false, ErrReportNotFound
+	}
+	if rep.Status != StatusSubmitted {
+		return false, nil
+	}
+	now := time.Now()
+	rep.Status = StatusRejected
+	rep.ReviewerID = &reviewerID
+	rep.ReviewedAt = &now
+	rep.ReviewNote = reviewNote
+	rep.UpdatedAt = now
+	m.reports[reportID] = rep
+	return true, nil
+}
+
+func (m *mockRepository) GetReportStatsCounts(_ context.Context, tenantID uuid.UUID) (map[string]int, error) {
+	counts := make(map[string]int)
+	for _, rep := range m.reports {
+		if rep.TenantID != tenantID || rep.DeletedAt != nil {
+			continue
+		}
+		counts[string(rep.Status)]++
+	}
+	return counts, nil
+}
+
 // compile-time interface check
 var _ Repository = (*mockRepository)(nil)
 
@@ -533,6 +580,105 @@ func TestService_UploadAttachment_Success(t *testing.T) {
 	assert.Equal(t, "foto.jpg", att.Filename)
 }
 
+// Bug #2: Cross-tenant MinIO path validation
+func TestService_UploadAttachment_CrossTenantPath_Rejected(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	rep := addReport(repo, tenantA, "Bericht", StatusDraft)
+
+	// tenantA crafts an object_key pointing to tenantB's storage path
+	_, err := svc.UploadAttachment(context.Background(), UploadAttachmentInput{
+		TenantID:    tenantA,
+		ReportID:    rep.ID,
+		Filename:    "evil.jpg",
+		ContentType: "image/jpeg",
+		SizeBytes:   1024,
+		ObjectKey:   "tenants/" + tenantB.String() + "/rapporte/evil.jpg",
+		UploadedBy:  uuid.New(),
+	})
+	assert.ErrorIs(t, err, ErrInvalidInput, "cross-tenant object key must be rejected")
+}
+
+// Bug #10: Atomic approve race — two concurrent approves yield 1 success + 1 conflict
+func TestService_ApproveReport_ParallelApprovals_OnlyOneSucceeds(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	rep := addReport(repo, tenantID, "Race", StatusSubmitted)
+
+	// Simulate sequential "parallel" — second call after first already changed state
+	_, err1 := svc.ApproveReport(context.Background(), ApproveReportInput{
+		TenantID: tenantID, ReportID: rep.ID, ReviewerID: uuid.New(),
+	})
+	_, err2 := svc.ApproveReport(context.Background(), ApproveReportInput{
+		TenantID: tenantID, ReportID: rep.ID, ReviewerID: uuid.New(),
+	})
+
+	require.NoError(t, err1)
+	assert.ErrorIs(t, err2, ErrAlreadyApproved, "second approve on already-approved report must fail")
+}
+
+// Bug #11: GetReportStats uses GROUP BY (not full scan) — verify correct counts
+func TestService_GetReportStats_GroupByQuery(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	for range 3 {
+		addReport(repo, tenantID, "Draft", StatusDraft)
+	}
+	for range 2 {
+		addReport(repo, tenantID, "Sub", StatusSubmitted)
+	}
+	addReport(repo, tenantID, "App", StatusApproved)
+	addReport(repo, tenantID, "Rej", StatusRejected)
+
+	stats, err := svc.GetReportStats(context.Background(), tenantID)
+	require.NoError(t, err)
+	assert.Equal(t, 7, stats.TotalReports)
+	assert.Equal(t, 3, stats.DraftCount)
+	assert.Equal(t, 2, stats.SubmittedCount)
+	assert.Equal(t, 1, stats.ApprovedCount)
+	assert.Equal(t, 1, stats.RejectedCount)
+}
+
+// Bug #23: GPS range validation
+func TestService_CreateReport_InvalidGPS_Rejected(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	tenantID := uuid.New()
+
+	lat := 91.0 // > 90
+	_, err := svc.CreateReport(context.Background(), CreateReportInput{
+		TenantID: tenantID, Title: "GPS-Test", AuthorID: uuid.New(), Lat: &lat,
+	})
+	assert.ErrorIs(t, err, ErrInvalidInput, "lat > 90 must be rejected")
+
+	lon := -181.0 // < -180
+	_, err = svc.CreateReport(context.Background(), CreateReportInput{
+		TenantID: tenantID, Title: "GPS-Test", AuthorID: uuid.New(), Lon: &lon,
+	})
+	assert.ErrorIs(t, err, ErrInvalidInput, "lon < -180 must be rejected")
+}
+
+func TestService_CreateReport_ValidGPS_Accepted(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	tenantID := uuid.New()
+
+	lat := 48.1374 // Munich
+	lon := 11.5755
+	rep, err := svc.CreateReport(context.Background(), CreateReportInput{
+		TenantID: tenantID, Title: "GPS-Valid", AuthorID: uuid.New(), Lat: &lat, Lon: &lon,
+	})
+	require.NoError(t, err)
+	assert.NotNil(t, rep.Lat)
+}
+
 func TestService_ListAttachments_Success(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)
@@ -548,7 +694,7 @@ func TestService_ListAttachments_Success(t *testing.T) {
 			Filename:    "foto" + string(rune('0'+i)) + ".jpg",
 			ContentType: "image/jpeg",
 			SizeBytes:   1024,
-			ObjectKey:   "key" + string(rune('0'+i)),
+			ObjectKey:   "tenants/" + tenantID.String() + "/rapporte/foto" + string(rune('0'+i)) + ".jpg",
 			UploadedBy:  uploader,
 		})
 		require.NoError(t, err)

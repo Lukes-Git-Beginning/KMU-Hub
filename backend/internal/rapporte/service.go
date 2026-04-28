@@ -124,11 +124,25 @@ type UploadAttachmentInput struct {
 // Report methods
 // ============================================================================
 
+// validateGPS returns ErrInvalidInput if lat/lon are out of range.
+func validateGPS(lat, lon *float64) error {
+	if lat != nil && (*lat < -90 || *lat > 90) {
+		return ErrInvalidInput
+	}
+	if lon != nil && (*lon < -180 || *lon > 180) {
+		return ErrInvalidInput
+	}
+	return nil
+}
+
 // CreateReport creates a new work report in Draft status.
 func (s *Service) CreateReport(ctx context.Context, input CreateReportInput) (*WorkReport, error) {
 	title := strings.TrimSpace(input.Title)
 	if title == "" {
 		return nil, ErrInvalidInput
+	}
+	if err := validateGPS(input.Lat, input.Lon); err != nil {
+		return nil, err
 	}
 
 	now := time.Now()
@@ -186,6 +200,9 @@ func (s *Service) UpdateReport(ctx context.Context, input UpdateReportInput) (*W
 	}
 	if input.Description != nil {
 		report.Description = *input.Description
+	}
+	if err := validateGPS(input.Lat, input.Lon); err != nil {
+		return nil, err
 	}
 	if input.Lat != nil {
 		report.Lat = input.Lat
@@ -279,31 +296,28 @@ func (s *Service) SubmitReport(ctx context.Context, input SubmitReportInput) (*W
 	return report, nil
 }
 
-// ApproveReport transitions a report from Submitted → Approved.
-// Guard 2: only Submitted can be approved.
+// ApproveReport transitions a report from Submitted → Approved atomically.
+// Uses atomic UPDATE WHERE status='submitted' to close the TOCTOU race window.
 func (s *Service) ApproveReport(ctx context.Context, input ApproveReportInput) (*WorkReport, error) {
-	report, err := s.repo.GetReport(ctx, input.TenantID, input.ReportID)
+	affected, err := s.repo.AtomicApproveReport(ctx, input.TenantID, input.ReportID, input.ReviewerID, input.ReviewNote)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("approve work report: %w", err)
 	}
-
-	// Guard 2: pre-check before DB write — only submitted can be approved
-	if report.Status != StatusSubmitted {
-		if report.Status == StatusApproved {
+	if !affected {
+		// Row was not in 'submitted' state — distinguish approved vs. other
+		existing, getErr := s.repo.GetReport(ctx, input.TenantID, input.ReportID)
+		if getErr != nil {
+			return nil, getErr
+		}
+		if existing.Status == StatusApproved {
 			return nil, ErrAlreadyApproved
 		}
 		return nil, ErrInvalidStateTransition
 	}
 
-	now := time.Now()
-	report.Status = StatusApproved
-	report.ReviewerID = &input.ReviewerID
-	report.ReviewedAt = &now
-	report.ReviewNote = input.ReviewNote
-	report.UpdatedAt = now
-
-	if err := s.repo.UpdateReport(ctx, report); err != nil {
-		return nil, fmt.Errorf("approve work report: %w", err)
+	report, err := s.repo.GetReport(ctx, input.TenantID, input.ReportID)
+	if err != nil {
+		return nil, err
 	}
 
 	slog.Info("work report approved",
@@ -313,31 +327,27 @@ func (s *Service) ApproveReport(ctx context.Context, input ApproveReportInput) (
 	return report, nil
 }
 
-// RejectReport transitions a report from Submitted → Rejected.
-// Guard 2: only Submitted can be rejected.
+// RejectReport transitions a report from Submitted → Rejected atomically.
+// Uses atomic UPDATE WHERE status='submitted' to close the TOCTOU race window.
 func (s *Service) RejectReport(ctx context.Context, input RejectReportInput) (*WorkReport, error) {
-	report, err := s.repo.GetReport(ctx, input.TenantID, input.ReportID)
+	affected, err := s.repo.AtomicRejectReport(ctx, input.TenantID, input.ReportID, input.ReviewerID, input.ReviewNote)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("reject work report: %w", err)
 	}
-
-	// Guard 2: pre-check before DB write
-	if report.Status != StatusSubmitted {
-		if report.Status == StatusApproved {
+	if !affected {
+		existing, getErr := s.repo.GetReport(ctx, input.TenantID, input.ReportID)
+		if getErr != nil {
+			return nil, getErr
+		}
+		if existing.Status == StatusApproved {
 			return nil, ErrAlreadyApproved
 		}
 		return nil, ErrInvalidStateTransition
 	}
 
-	now := time.Now()
-	report.Status = StatusRejected
-	report.ReviewerID = &input.ReviewerID
-	report.ReviewedAt = &now
-	report.ReviewNote = input.ReviewNote
-	report.UpdatedAt = now
-
-	if err := s.repo.UpdateReport(ctx, report); err != nil {
-		return nil, fmt.Errorf("reject work report: %w", err)
+	report, err := s.repo.GetReport(ctx, input.TenantID, input.ReportID)
+	if err != nil {
+		return nil, err
 	}
 
 	slog.Info("work report rejected",
@@ -477,6 +487,13 @@ func (s *Service) UploadAttachment(ctx context.Context, input UploadAttachmentIn
 		return nil, ErrInvalidInput
 	}
 
+	// Security: validate that the object key is scoped to this tenant's path.
+	// Prevents cross-tenant MinIO object access via a crafted object_key.
+	expectedPrefix := fmt.Sprintf("tenants/%s/", input.TenantID)
+	if !strings.HasPrefix(input.ObjectKey, expectedPrefix) {
+		return nil, ErrInvalidInput
+	}
+
 	if _, err := s.repo.GetReport(ctx, input.TenantID, input.ReportID); err != nil {
 		return nil, err
 	}
@@ -528,24 +545,25 @@ func (s *Service) DeleteAttachment(ctx context.Context, tenantID, attachmentID u
 // ============================================================================
 
 // GetReportStats returns status-level counts for a tenant.
+// Uses an efficient GROUP BY query instead of fetching all rows.
 func (s *Service) GetReportStats(ctx context.Context, tenantID uuid.UUID) (*ReportStats, error) {
-	all, _, err := s.repo.ListReports(ctx, tenantID, ListReportsFilter{}, 0, 100000)
+	counts, err := s.repo.GetReportStatsCounts(ctx, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("get report stats: %w", err)
 	}
 
 	stats := &ReportStats{}
-	for _, r := range all {
-		stats.TotalReports++
-		switch r.Status {
+	for status, count := range counts {
+		stats.TotalReports += count
+		switch ReportStatus(status) {
 		case StatusDraft:
-			stats.DraftCount++
+			stats.DraftCount = count
 		case StatusSubmitted:
-			stats.SubmittedCount++
+			stats.SubmittedCount = count
 		case StatusApproved:
-			stats.ApprovedCount++
+			stats.ApprovedCount = count
 		case StatusRejected:
-			stats.RejectedCount++
+			stats.RejectedCount = count
 		}
 	}
 	return stats, nil

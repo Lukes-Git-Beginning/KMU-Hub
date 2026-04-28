@@ -409,6 +409,27 @@ func (r *PostgresRepository) ListInspections(ctx context.Context, tenantID, rent
 	return inspections, total, rows.Err()
 }
 
+// GetInspectionByKind retrieves an inspection by rental + kind (unique per rental).
+// Returns ErrInspectionNotFound when no such inspection exists.
+func (r *PostgresRepository) GetInspectionByKind(ctx context.Context, tenantID, rentalID uuid.UUID, kind InspectionKind) (*RentalInspection, error) {
+	var ins RentalInspection
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, tenant_id, rental_id, kind, notes, photo_urls, performed_by, created_at, updated_at
+		 FROM rental_inspections WHERE tenant_id = $1 AND rental_id = $2 AND kind = $3`,
+		tenantID, rentalID, kind,
+	).Scan(
+		&ins.ID, &ins.TenantID, &ins.RentalID, &ins.Kind, &ins.Notes,
+		&ins.PhotoURLs, &ins.PerformedBy, &ins.CreatedAt, &ins.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrInspectionNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get inspection by kind: %w", err)
+	}
+	return &ins, nil
+}
+
 // ============================================================================
 // Scan helpers
 // ============================================================================

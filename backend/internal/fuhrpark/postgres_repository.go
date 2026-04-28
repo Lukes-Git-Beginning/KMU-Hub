@@ -470,13 +470,14 @@ func (r *PostgresRepository) GetVehicleHistory(ctx context.Context, tenantID, ve
 func (r *PostgresRepository) FindVehiclesDueTuev(ctx context.Context, from, to time.Time) ([]*Vehicle, error) {
 	// Idempotency guard: only notify if we haven't sent a reminder within the last 23 hours.
 	// This prevents double-notification if the cron runs twice within the same hour window.
+	// Query is cross-tenant by design: the cron scans all tenants' vehicles.
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, tenant_id, license_plate, make, model, year, vin, color, fuel_type,
 		       status, mileage_km, tuev_due_date, tuev_reminder_sent_at,
 		       assigned_driver_id, notes, created_at, updated_at, deleted_at
 		FROM vehicles
 		WHERE deleted_at IS NULL
-		  AND tuev_due_date BETWEEN $1 AND $2
+		  AND tuev_due_date BETWEEN $1::date AND $2::date
 		  AND (tuev_reminder_sent_at IS NULL OR tuev_reminder_sent_at < NOW() - INTERVAL '23 hours')`,
 		from, to,
 	)
@@ -496,12 +497,20 @@ func (r *PostgresRepository) FindVehiclesDueTuev(ctx context.Context, from, to t
 	return vehicles, rows.Err()
 }
 
-func (r *PostgresRepository) MarkTuevReminderSent(ctx context.Context, vehicleID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE vehicles SET tuev_reminder_sent_at = NOW() WHERE id = $1`,
-		vehicleID,
+// MarkTuevReminderSent stamps tuev_reminder_sent_at = now for a specific vehicle.
+// The tenant_id guard prevents cross-tenant manipulation from a compromised cron path.
+func (r *PostgresRepository) MarkTuevReminderSent(ctx context.Context, vehicleID, tenantID uuid.UUID) error {
+	ct, err := r.pool.Exec(ctx,
+		`UPDATE vehicles SET tuev_reminder_sent_at = NOW() WHERE id = $1 AND tenant_id = $2`,
+		vehicleID, tenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrVehicleNotFound
+	}
+	return nil
 }
 
 // ============================================================================

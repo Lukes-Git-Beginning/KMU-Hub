@@ -22,6 +22,17 @@ type Repository interface {
 	GetReport(ctx context.Context, tenantID, reportID uuid.UUID) (*WorkReport, error)
 	ListReports(ctx context.Context, tenantID uuid.UUID, filter ListReportsFilter, offset, limit int) ([]*WorkReport, int, error)
 
+	// Atomic state transitions (close TOCTOU race in approve/reject)
+	// AtomicApproveReport updates status from 'submitted' → 'approved' in one SQL statement.
+	// Returns (true, nil) on success, (false, nil) when no row was in submitted state.
+	AtomicApproveReport(ctx context.Context, tenantID, reportID, reviewerID uuid.UUID, reviewNote string) (bool, error)
+	// AtomicRejectReport updates status from 'submitted' → 'rejected' in one SQL statement.
+	AtomicRejectReport(ctx context.Context, tenantID, reportID, reviewerID uuid.UUID, reviewNote string) (bool, error)
+
+	// GetReportStatsCounts returns a map of status → count using a GROUP BY query.
+	// More efficient than fetching all rows for stats aggregation.
+	GetReportStatsCounts(ctx context.Context, tenantID uuid.UUID) (map[string]int, error)
+
 	// Lines
 	CreateLine(ctx context.Context, line *ReportLine) error
 	UpdateLine(ctx context.Context, line *ReportLine) error

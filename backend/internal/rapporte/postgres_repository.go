@@ -346,6 +346,63 @@ func (r *PostgresRepository) ListAttachments(ctx context.Context, tenantID, repo
 }
 
 // ============================================================================
+// Atomic state transitions
+// ============================================================================
+
+// AtomicApproveReport performs a single UPDATE that both checks the current status
+// and sets approved in one round-trip, closing the TOCTOU race window.
+func (r *PostgresRepository) AtomicApproveReport(ctx context.Context, tenantID, reportID, reviewerID uuid.UUID, reviewNote string) (bool, error) {
+	ct, err := r.pool.Exec(ctx, `
+		UPDATE work_reports
+		SET status='approved', reviewer_id=$1, reviewed_at=NOW(), review_note=$2, updated_at=NOW()
+		WHERE id=$3 AND tenant_id=$4 AND status='submitted' AND deleted_at IS NULL`,
+		reviewerID, reviewNote, reportID, tenantID,
+	)
+	if err != nil {
+		return false, err
+	}
+	return ct.RowsAffected() > 0, nil
+}
+
+// AtomicRejectReport performs a single UPDATE that both checks the current status
+// and sets rejected in one round-trip, closing the TOCTOU race window.
+func (r *PostgresRepository) AtomicRejectReport(ctx context.Context, tenantID, reportID, reviewerID uuid.UUID, reviewNote string) (bool, error) {
+	ct, err := r.pool.Exec(ctx, `
+		UPDATE work_reports
+		SET status='rejected', reviewer_id=$1, reviewed_at=NOW(), review_note=$2, updated_at=NOW()
+		WHERE id=$3 AND tenant_id=$4 AND status='submitted' AND deleted_at IS NULL`,
+		reviewerID, reviewNote, reportID, tenantID,
+	)
+	if err != nil {
+		return false, err
+	}
+	return ct.RowsAffected() > 0, nil
+}
+
+// GetReportStatsCounts returns a map of status → count via GROUP BY.
+func (r *PostgresRepository) GetReportStatsCounts(ctx context.Context, tenantID uuid.UUID) (map[string]int, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT status, COUNT(*) FROM work_reports WHERE tenant_id=$1 AND deleted_at IS NULL GROUP BY status`,
+		tenantID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("get report stats counts: %w", err)
+	}
+	defer rows.Close()
+
+	counts := make(map[string]int)
+	for rows.Next() {
+		var status string
+		var count int
+		if scanErr := rows.Scan(&status, &count); scanErr != nil {
+			return nil, fmt.Errorf("scan report stats: %w", scanErr)
+		}
+		counts[status] = count
+	}
+	return counts, rows.Err()
+}
+
+// ============================================================================
 // Scan helpers
 // ============================================================================
 

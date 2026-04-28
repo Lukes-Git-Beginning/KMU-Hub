@@ -46,5 +46,6 @@ type Repository interface {
 	CreateInspection(ctx context.Context, ins *RentalInspection) error
 	UpdateInspection(ctx context.Context, ins *RentalInspection) error
 	GetInspection(ctx context.Context, tenantID, inspectionID uuid.UUID) (*RentalInspection, error)
+	GetInspectionByKind(ctx context.Context, tenantID, rentalID uuid.UUID, kind InspectionKind) (*RentalInspection, error)
 	ListInspections(ctx context.Context, tenantID, rentalID uuid.UUID, offset, limit int) ([]*RentalInspection, int, error)
 }

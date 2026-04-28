@@ -242,7 +242,7 @@ func (s *Service) PublishShifts(ctx context.Context, tenantID uuid.UUID, from, t
 // Assignment methods
 // ============================================================================
 
-// AssignEmployee assigns an employee to a shift after ArbZG validation.
+// AssignEmployee assigns an employee to a shift after ArbZG validation and capacity check.
 func (s *Service) AssignEmployee(ctx context.Context, input AssignEmployeeInput) (*ShiftAssignment, error) {
 	// Pre-check: verify shift exists under tenant
 	shift, err := s.repo.GetShift(ctx, input.TenantID, input.ShiftID)
@@ -250,7 +250,24 @@ func (s *Service) AssignEmployee(ctx context.Context, input AssignEmployeeInput)
 		return nil, err
 	}
 
-	// Guard 1: ArbZG §5 rest-period check before DB write
+	// Guard 1: capacity check — reject if shift is already full
+	if shift.Capacity != nil {
+		count, countErr := s.repo.CountAssignments(ctx, input.TenantID, input.ShiftID)
+		if countErr != nil {
+			return nil, fmt.Errorf("capacity check: %w", countErr)
+		}
+		if count >= *shift.Capacity {
+			slog.Warn("shift capacity reached",
+				"shift_id", input.ShiftID,
+				"tenant_id", input.TenantID,
+				"capacity", *shift.Capacity,
+				"current_count", count,
+			)
+			return nil, ErrShiftFull
+		}
+	}
+
+	// Guard 2: ArbZG §5 rest-period check before DB write
 	if err := s.validateRestPeriod(ctx, input.TenantID, input.EmployeeID, shift.StartTime, shift.EndTime); err != nil {
 		return nil, err
 	}
@@ -478,10 +495,17 @@ func (s *Service) ApplyTemplate(ctx context.Context, input ApplyTemplateInput) (
 				UpdatedAt:   now,
 			}
 
-			if createErr := s.repo.CreateShift(ctx, shift); createErr != nil {
-				return nil, fmt.Errorf("apply template: create shift for %s: %w", shiftStart.Format("2006-01-02"), createErr)
+			// Idempotency guard: skip CreateShift if an identical shift already exists for this day.
+			exists, checkErr := s.repo.ShiftExistsForTemplate(ctx, input.TenantID, shiftStart, shiftEnd, tmpl.Name)
+			if checkErr != nil {
+				return nil, fmt.Errorf("apply template: check duplicate for %s: %w", shiftStart.Format("2006-01-02"), checkErr)
 			}
-			created = append(created, shift)
+			if !exists {
+				if createErr := s.repo.CreateShift(ctx, shift); createErr != nil {
+					return nil, fmt.Errorf("apply template: create shift for %s: %w", shiftStart.Format("2006-01-02"), createErr)
+				}
+				created = append(created, shift)
+			}
 		}
 		current = current.AddDate(0, 0, 1)
 	}
@@ -518,31 +542,49 @@ func (s *Service) GetShiftStats(ctx context.Context, input GetShiftStatsInput) (
 // validateRestPeriod enforces ArbZG §5: minimum 11 hours rest between consecutive
 // shifts for the same employee. Called before AssignEmployee writes to DB.
 //
+// Both directions are checked:
+//   - The shift that ends BEFORE newStart (previous shift)
+//   - The shift that starts AFTER newEnd (following shift)
+//
 // Cases:
-//   - No prior shift found → OK.
+//   - No adjacent shift found → OK.
 //   - restDuration >= 11h → OK.
 //   - restDuration < 11h → ErrArbzgViolation.
 func (s *Service) validateRestPeriod(ctx context.Context, tenantID, employeeID uuid.UUID, newStart, newEnd time.Time) error {
-	// Find the most recent shift end before newStart for this employee.
+	// Direction 1: find the most recent shift end BEFORE newStart.
 	latestEnd, err := s.repo.LatestShiftEndBeforeForEmployee(ctx, tenantID, employeeID, newStart)
 	if err != nil {
-		return fmt.Errorf("arbzg check: %w", err)
+		return fmt.Errorf("arbzg check (before): %w", err)
+	}
+	if latestEnd != nil {
+		restBefore := newStart.Sub(*latestEnd)
+		if restBefore < arbzgMinRestDuration {
+			slog.Warn("ArbZG §5 violation detected (shift before)",
+				"employee_id", employeeID,
+				"tenant_id", tenantID,
+				"rest_duration", restBefore,
+				"required", arbzgMinRestDuration,
+			)
+			return ErrArbzgViolation
+		}
 	}
 
-	if latestEnd == nil {
-		// No prior shift — no rest constraint applies.
-		return nil
+	// Direction 2: find the earliest shift start AFTER newEnd.
+	earliestStart, err := s.repo.EarliestShiftStartAfterForEmployee(ctx, tenantID, employeeID, newEnd)
+	if err != nil {
+		return fmt.Errorf("arbzg check (after): %w", err)
 	}
-
-	rest := newStart.Sub(*latestEnd)
-	if rest < arbzgMinRestDuration {
-		slog.Warn("ArbZG §5 violation detected",
-			"employee_id", employeeID,
-			"tenant_id", tenantID,
-			"rest_duration", rest,
-			"required", arbzgMinRestDuration,
-		)
-		return ErrArbzgViolation
+	if earliestStart != nil {
+		restAfter := earliestStart.Sub(newEnd)
+		if restAfter < arbzgMinRestDuration {
+			slog.Warn("ArbZG §5 violation detected (shift after)",
+				"employee_id", employeeID,
+				"tenant_id", tenantID,
+				"rest_duration", restAfter,
+				"required", arbzgMinRestDuration,
+			)
+			return ErrArbzgViolation
+		}
 	}
 
 	return nil
