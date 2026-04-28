@@ -85,6 +85,10 @@ func main() {
 	registry.Register("einkauf", cfg.EinkaufGRPCAddress)
 	registry.Register("produktion", cfg.ProduktionGRPCAddress)
 	registry.Register("vertraege", cfg.VertraegeGRPCAddress)
+	registry.Register("rapporte", cfg.RapporteGRPCAddress)
+	registry.Register("schichten", cfg.SchichtenGRPCAddress)
+	registry.Register("vermietung", cfg.VermietungGRPCAddress)
+	registry.Register("fuhrpark", cfg.FuhrparkGRPCAddress)
 	defer registry.Close()
 
 	// Database for file upload handler (direct access, not via gRPC)
@@ -212,6 +216,10 @@ func main() {
 		gateway.NewEinkaufRoutes(registry, flagRegistry),
 		gateway.NewProduktionRoutes(registry, flagRegistry),
 		gateway.NewVertraegeRoutes(registry, flagRegistry),
+		gateway.NewRapporteRoutes(registry, flagRegistry),
+		gateway.NewSchichtenRoutes(registry, flagRegistry),
+		gateway.NewVermietungRoutes(registry, flagRegistry),
+		gateway.NewFuhrparkRoutes(registry, flagRegistry),
 		gateway.NewGlobalSearchRoutes(registry),
 		gateway.NewDashboardRoutes(dashboardService),
 		gateway.NewFeatureFlagRoutes(flagRegistry),

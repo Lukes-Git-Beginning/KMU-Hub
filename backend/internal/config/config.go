@@ -55,6 +55,14 @@ type Config struct {
 	ProduktionGRPCAddress   string `env:"PRODUKTION_GRPC_ADDRESS,default=localhost:50072"`
 	VertraegeGRPCPort       string `env:"VERTRAEGE_GRPC_PORT,default=:50073"`
 	VertraegeGRPCAddress    string `env:"VERTRAEGE_GRPC_ADDRESS,default=localhost:50073"`
+	RapporteGRPCPort        string `env:"RAPPORTE_GRPC_PORT,default=:50074"`
+	RapporteGRPCAddress     string `env:"RAPPORTE_GRPC_ADDRESS,default=localhost:50074"`
+	SchichtenGRPCPort       string `env:"SCHICHTEN_GRPC_PORT,default=:50075"`
+	SchichtenGRPCAddress    string `env:"SCHICHTEN_GRPC_ADDRESS,default=localhost:50075"`
+	FuhrparkGRPCPort        string `env:"FUHRPARK_GRPC_PORT,default=:50076"`
+	FuhrparkGRPCAddress     string `env:"FUHRPARK_GRPC_ADDRESS,default=localhost:50076"`
+	VermietungGRPCPort      string `env:"VERMIETUNG_GRPC_PORT,default=:50077"`
+	VermietungGRPCAddress   string `env:"VERMIETUNG_GRPC_ADDRESS,default=localhost:50077"`
 	GatewayHTTPPort          string `env:"GATEWAY_HTTP_PORT,default=:8080"`
 
 	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS,delimiter=;,default=http://localhost:3000;http://localhost:5173"`
@@ -82,6 +90,10 @@ type Config struct {
 	EinkaufHealthPort      string `env:"EINKAUF_HEALTH_PORT,default=:9111"`
 	ProduktionHealthPort   string `env:"PRODUKTION_HEALTH_PORT,default=:9112"`
 	VertraegeHealthPort    string `env:"VERTRAEGE_HEALTH_PORT,default=:9113"`
+	RapporteHealthPort     string `env:"RAPPORTE_HEALTH_PORT,default=:9114"`
+	SchichtenHealthPort    string `env:"SCHICHTEN_HEALTH_PORT,default=:9115"`
+	FuhrparkHealthPort     string `env:"FUHRPARK_HEALTH_PORT,default=:9116"`
+	VermietungHealthPort   string `env:"VERMIETUNG_HEALTH_PORT,default=:9117"`
 
 	// LiveKit (Video calls -- optional, feature-flagged)
 	LiveKitAPIKey    string `env:"LIVEKIT_API_KEY,default="`

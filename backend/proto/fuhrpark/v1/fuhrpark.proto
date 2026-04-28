@@ -1,0 +1,322 @@
+syntax = "proto3";
+
+package fuhrpark.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/kmuhub/kmuhub/proto/fuhrpark/v1;fuhrparkv1";
+
+service FuhrparkService {
+  // Vehicles
+  rpc CreateVehicle(CreateVehicleRequest)       returns (VehicleResponse);
+  rpc UpdateVehicle(UpdateVehicleRequest)       returns (VehicleResponse);
+  rpc DeleteVehicle(DeleteVehicleRequest)       returns (DeleteVehicleResponse);
+  rpc GetVehicle(GetVehicleRequest)             returns (VehicleResponse);
+  rpc ListVehicles(ListVehiclesRequest)         returns (ListVehiclesResponse);
+
+  // Services
+  rpc ScheduleService(ScheduleServiceRequest)   returns (VehicleServiceResponse);
+  rpc UpdateService(UpdateServiceRequest)       returns (VehicleServiceResponse);
+  rpc DeleteService(DeleteServiceRequest)       returns (DeleteServiceResponse);
+  rpc CompleteService(CompleteServiceRequest)   returns (VehicleServiceResponse);
+  rpc ListServices(ListServicesRequest)         returns (ListServicesResponse);
+
+  // Damages
+  rpc ReportDamage(ReportDamageRequest)         returns (DamageResponse);
+  rpc UpdateDamage(UpdateDamageRequest)         returns (DamageResponse);
+  rpc ResolveDamage(ResolveDamageRequest)       returns (DamageResponse);
+  rpc ListDamages(ListDamagesRequest)           returns (ListDamagesResponse);
+
+  // History & Reports
+  rpc GetVehicleHistory(GetVehicleHistoryRequest)         returns (VehicleHistoryResponse);
+  rpc CheckTuevDue(CheckTuevDueRequest)                   returns (CheckTuevDueResponse);
+  rpc ListUpcomingServices(ListUpcomingServicesRequest)   returns (ListServicesResponse);
+  rpc ExportVehicleReport(ExportVehicleReportRequest)     returns (ExportVehicleReportResponse);
+}
+
+// ============================================================================
+// Domain Messages
+// ============================================================================
+
+message Vehicle {
+  string id = 1;
+  string tenant_id = 2;
+  string license_plate = 3;
+  string make = 4;
+  string model = 5;
+  int32 year = 6;
+  optional string vin = 7;
+  optional string color = 8;
+  string fuel_type = 9;     // petrol|diesel|electric|hybrid|other
+  string status = 10;        // active|in_service|inactive|decommissioned
+  int64 mileage_km = 11;
+  optional string tuev_due_date = 12;       // ISO date YYYY-MM-DD
+  optional string assigned_driver_id = 13;  // stub Sprint 3
+  optional string notes = 14;
+  google.protobuf.Timestamp created_at = 15;
+  google.protobuf.Timestamp updated_at = 16;
+}
+
+message VehicleService {
+  string id = 1;
+  string tenant_id = 2;
+  string vehicle_id = 3;
+  string service_type = 4;
+  optional string description = 5;
+  string scheduled_at = 6;   // ISO date YYYY-MM-DD
+  optional google.protobuf.Timestamp completed_at = 7;
+  optional int64 cost_cents = 8;
+  optional string workshop = 9;
+  optional int64 mileage_km = 10;
+  string status = 11;        // scheduled|in_progress|completed|cancelled
+  optional string notes = 12;
+  optional string created_by = 13;
+  google.protobuf.Timestamp created_at = 14;
+  google.protobuf.Timestamp updated_at = 15;
+}
+
+message Damage {
+  string id = 1;
+  string tenant_id = 2;
+  string vehicle_id = 3;
+  string description = 4;
+  string severity = 5;       // minor|moderate|major|totalled
+  string status = 6;         // reported|in_repair|resolved
+  optional string reported_by = 7;
+  optional string resolved_by = 8;
+  optional google.protobuf.Timestamp resolved_at = 9;
+  repeated string photo_keys = 10;
+  optional int64 cost_cents = 11;
+  optional string notes = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+}
+
+// ============================================================================
+// Vehicle Requests / Responses
+// ============================================================================
+
+message CreateVehicleRequest {
+  string tenant_id = 1;
+  string license_plate = 2;
+  string make = 3;
+  string model = 4;
+  int32 year = 5;
+  optional string vin = 6;
+  optional string color = 7;
+  string fuel_type = 8;
+  int64 mileage_km = 9;
+  optional string tuev_due_date = 10;
+  optional string assigned_driver_id = 11;
+  optional string notes = 12;
+}
+
+message UpdateVehicleRequest {
+  string tenant_id = 1;
+  string vehicle_id = 2;
+  optional string license_plate = 3;
+  optional string make = 4;
+  optional string model = 5;
+  optional int32 year = 6;
+  optional string vin = 7;
+  optional string color = 8;
+  optional string fuel_type = 9;
+  optional string status = 10;
+  optional int64 mileage_km = 11;
+  optional string tuev_due_date = 12;
+  optional string assigned_driver_id = 13;
+  optional string notes = 14;
+}
+
+message DeleteVehicleRequest {
+  string tenant_id = 1;
+  string vehicle_id = 2;
+}
+
+message DeleteVehicleResponse {}
+
+message GetVehicleRequest {
+  string tenant_id = 1;
+  string vehicle_id = 2;
+}
+
+message VehicleResponse {
+  Vehicle vehicle = 1;
+}
+
+message ListVehiclesRequest {
+  string tenant_id = 1;
+  string search = 2;
+  optional string status = 3;
+  optional string fuel_type = 4;
+  int32 page = 5;
+  int32 page_size = 6;
+}
+
+message ListVehiclesResponse {
+  repeated Vehicle vehicles = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// Service Requests / Responses
+// ============================================================================
+
+message ScheduleServiceRequest {
+  string tenant_id = 1;
+  string vehicle_id = 2;
+  string service_type = 3;
+  optional string description = 4;
+  string scheduled_at = 5;   // ISO date YYYY-MM-DD
+  optional int64 cost_cents = 6;
+  optional string workshop = 7;
+  optional int64 mileage_km = 8;
+  optional string notes = 9;
+  optional string created_by = 10;
+}
+
+message UpdateServiceRequest {
+  string tenant_id = 1;
+  string service_id = 2;
+  optional string service_type = 3;
+  optional string description = 4;
+  optional string scheduled_at = 5;
+  optional int64 cost_cents = 6;
+  optional string workshop = 7;
+  optional int64 mileage_km = 8;
+  optional string status = 9;
+  optional string notes = 10;
+}
+
+message DeleteServiceRequest {
+  string tenant_id = 1;
+  string service_id = 2;
+}
+
+message DeleteServiceResponse {}
+
+message CompleteServiceRequest {
+  string tenant_id = 1;
+  string service_id = 2;
+  optional int64 cost_cents = 3;
+  optional int64 mileage_km = 4;
+  optional string notes = 5;
+}
+
+message ListServicesRequest {
+  string tenant_id = 1;
+  optional string vehicle_id = 2;
+  optional string status = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+}
+
+message VehicleServiceResponse {
+  VehicleService service = 1;
+}
+
+message ListServicesResponse {
+  repeated VehicleService services = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// Damage Requests / Responses
+// ============================================================================
+
+message ReportDamageRequest {
+  string tenant_id = 1;
+  string vehicle_id = 2;
+  string description = 3;
+  string severity = 4;
+  optional string reported_by = 5;
+  repeated string photo_keys = 6;
+  optional int64 cost_cents = 7;
+  optional string notes = 8;
+}
+
+message UpdateDamageRequest {
+  string tenant_id = 1;
+  string damage_id = 2;
+  optional string description = 3;
+  optional string severity = 4;
+  optional string status = 5;
+  repeated string photo_keys = 6;
+  optional int64 cost_cents = 7;
+  optional string notes = 8;
+}
+
+message ResolveDamageRequest {
+  string tenant_id = 1;
+  string damage_id = 2;
+  optional string resolved_by = 3;
+  optional int64 cost_cents = 4;
+  optional string notes = 5;
+}
+
+message ListDamagesRequest {
+  string tenant_id = 1;
+  optional string vehicle_id = 2;
+  optional string status = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+}
+
+message DamageResponse {
+  Damage damage = 1;
+}
+
+message ListDamagesResponse {
+  repeated Damage damages = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// History & Report Requests / Responses
+// ============================================================================
+
+message GetVehicleHistoryRequest {
+  string tenant_id = 1;
+  string vehicle_id = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message VehicleHistoryEntry {
+  string kind = 1;    // "service" | "damage"
+  string id = 2;
+  string summary = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+message VehicleHistoryResponse {
+  repeated VehicleHistoryEntry entries = 1;
+  int32 total = 2;
+}
+
+message CheckTuevDueRequest {
+  string tenant_id = 1;
+  optional int32 days_ahead = 2;  // default 30
+}
+
+message CheckTuevDueResponse {
+  repeated Vehicle vehicles = 1;
+}
+
+message ListUpcomingServicesRequest {
+  string tenant_id = 1;
+  int32 days_ahead = 2;  // default 30
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ExportVehicleReportRequest {
+  string tenant_id = 1;
+  string format = 2;   // csv
+}
+
+message ExportVehicleReportResponse {
+  bytes payload = 1;
+  string content_type = 2;
+  string filename = 3;
+}

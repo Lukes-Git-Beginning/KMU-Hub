@@ -663,6 +663,106 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  fuhrpark:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.fuhrpark
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
+      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      FUHRPARK_GRPC_PORT: ":50076"
+      FUHRPARK_HEALTH_PORT: ":9116"
+    ports:
+      - "50076:50076"
+      - "9116:9116"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --spider --tries=1 http://localhost:9116/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
+
+  vermietung:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.vermietung
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
+      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      VERMIETUNG_GRPC_PORT: ":50077"
+      VERMIETUNG_HEALTH_PORT: ":9117"
+    ports:
+      - "50077:50077"
+      - "9117:9117"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --spider --tries=1 http://localhost:9117/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
+
+  rapporte:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.rapporte
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
+      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      RAPPORTE_GRPC_PORT: ":50074"
+      RAPPORTE_HEALTH_PORT: ":9114"
+    ports:
+      - "50074:50074"
+      - "9114:9114"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --spider --tries=1 http://localhost:9114/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
+
+  schichten:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.schichten
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
+      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      SCHICHTEN_GRPC_PORT: ":50075"
+      SCHICHTEN_HEALTH_PORT: ":9115"
+    ports:
+      - "50075:50075"
+      - "9115:9115"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --spider --tries=1 http://localhost:9115/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
+
   onlyoffice:
     image: onlyoffice/documentserver:latest
     environment:
@@ -724,6 +824,14 @@ services:
         condition: service_healthy
       vertraege:
         condition: service_healthy
+      rapporte:
+        condition: service_healthy
+      schichten:
+        condition: service_healthy
+      fuhrpark:
+        condition: service_healthy
+      vermietung:
+        condition: service_healthy
       livekit:
         condition: service_healthy
       minio:
@@ -776,6 +884,14 @@ services:
       PRODUKTION_GRPC_PORT: ":50072"
       VERTRAEGE_GRPC_ADDRESS: vertraege:50073
       VERTRAEGE_GRPC_PORT: ":50073"
+      RAPPORTE_GRPC_ADDRESS: rapporte:50074
+      RAPPORTE_GRPC_PORT: ":50074"
+      SCHICHTEN_GRPC_ADDRESS: schichten:50075
+      SCHICHTEN_GRPC_PORT: ":50075"
+      FUHRPARK_GRPC_ADDRESS: fuhrpark:50076
+      FUHRPARK_GRPC_PORT: ":50076"
+      VERMIETUNG_GRPC_ADDRESS: vermietung:50077
+      VERMIETUNG_GRPC_PORT: ":50077"
       WOPI_JWT_SECRET: docker-dev-wopi-secret-minimum-32-characters
       GATEWAY_HTTP_PORT: ":8080"
       METRICS_PORT: ":9090"
