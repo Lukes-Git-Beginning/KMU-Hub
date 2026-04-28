@@ -46,6 +46,7 @@ func (s *Service) SetLangDetector(detector LangDetector) {
 
 // CreateInput contains the data needed to create a message
 type CreateInput struct {
+	TenantID         uuid.UUID
 	ChannelID        uuid.UUID
 	Content          string
 	CreatedBy        uuid.UUID
@@ -118,6 +119,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Messag
 	now := time.Now()
 	message := &models.Message{
 		ID:              uuid.New(),
+		TenantID:        input.TenantID,
 		ChannelID:       input.ChannelID,
 		Content:         content,
 		IsDeleted:       false,

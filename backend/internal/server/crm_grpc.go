@@ -970,7 +970,13 @@ func (s *CRMGRPCServer) CreateDeal(ctx context.Context, req *crmv1.CreateDealReq
 		return nil, status.Error(codes.InvalidArgument, "invalid stage_id")
 	}
 
+	tenantID, err := uuid.Parse(req.TenantId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
 	input := deal.CreateInput{
+		TenantID:  tenantID,
 		Name:      req.Name,
 		Value:     req.Value,
 		Currency:  req.Currency,
@@ -1055,7 +1061,12 @@ func (s *CRMGRPCServer) GetDeal(ctx context.Context, req *crmv1.GetDealRequest) 
 		return nil, status.Error(codes.InvalidArgument, "invalid deal id")
 	}
 
-	d, err := s.dealService.GetByID(ctx, id)
+	tenantID, err := uuid.Parse(req.TenantId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
+	d, err := s.dealService.GetByID(ctx, tenantID, id)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -1066,7 +1077,13 @@ func (s *CRMGRPCServer) GetDeal(ctx context.Context, req *crmv1.GetDealRequest) 
 }
 
 func (s *CRMGRPCServer) ListDeals(ctx context.Context, req *crmv1.ListDealsRequest) (*crmv1.ListDealsResponse, error) {
+	tenantID, err := uuid.Parse(req.TenantId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
 	input := deal.ListInput{
+		TenantID: tenantID,
 		Search:   req.Search,
 		Page:     int(req.Page),
 		PageSize: int(req.PageSize),
@@ -1215,7 +1232,12 @@ func (s *CRMGRPCServer) UpdateDeal(ctx context.Context, req *crmv1.UpdateDealReq
 		}
 	}
 
-	d, err := s.dealService.Update(ctx, id, input)
+	tenantIDForUpdate, err := uuid.Parse(req.TenantId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
+	d, err := s.dealService.Update(ctx, tenantIDForUpdate, id, input)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -1231,7 +1253,12 @@ func (s *CRMGRPCServer) DeleteDeal(ctx context.Context, req *crmv1.DeleteDealReq
 		return nil, status.Error(codes.InvalidArgument, "invalid deal id")
 	}
 
-	if err := s.dealService.Delete(ctx, id); err != nil {
+	tenantID, err := uuid.Parse(req.TenantId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
+	if err := s.dealService.Delete(ctx, tenantID, id); err != nil {
 		return nil, mapCRMError(err)
 	}
 
@@ -1249,7 +1276,12 @@ func (s *CRMGRPCServer) MoveDealToStage(ctx context.Context, req *crmv1.MoveDeal
 		return nil, status.Error(codes.InvalidArgument, "invalid stage_id")
 	}
 
-	d, err := s.dealService.MoveToStage(ctx, dealID, stageID)
+	tenantID, err := uuid.Parse(req.TenantId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
+	d, err := s.dealService.MoveToStage(ctx, tenantID, dealID, stageID)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -1269,7 +1301,13 @@ func (s *CRMGRPCServer) CreateActivity(ctx context.Context, req *crmv1.CreateAct
 		return nil, status.Error(codes.InvalidArgument, "invalid created_by user id")
 	}
 
+	actTenantID, err := uuid.Parse(req.TenantId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
 	input := activity.CreateInput{
+		TenantID:     actTenantID,
 		ActivityType: models.ActivityType(req.ActivityType),
 		Subject:      req.Subject,
 		CreatedBy:    createdBy,
@@ -1330,7 +1368,12 @@ func (s *CRMGRPCServer) GetActivity(ctx context.Context, req *crmv1.GetActivityR
 		return nil, status.Error(codes.InvalidArgument, "invalid activity id")
 	}
 
-	a, err := s.activityService.GetByID(ctx, id)
+	actGetTenantID, err := uuid.Parse(req.TenantId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
+	a, err := s.activityService.GetByID(ctx, actGetTenantID, id)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -1341,7 +1384,13 @@ func (s *CRMGRPCServer) GetActivity(ctx context.Context, req *crmv1.GetActivityR
 }
 
 func (s *CRMGRPCServer) ListActivities(ctx context.Context, req *crmv1.ListActivitiesRequest) (*crmv1.ListActivitiesResponse, error) {
+	actListTenantID, err := uuid.Parse(req.TenantId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
 	input := activity.ListInput{
+		TenantID: actListTenantID,
 		Page:     int(req.Page),
 		PageSize: int(req.PageSize),
 		SortBy:   req.SortBy,
@@ -1474,7 +1523,12 @@ func (s *CRMGRPCServer) UpdateActivity(ctx context.Context, req *crmv1.UpdateAct
 		}
 	}
 
-	a, err := s.activityService.Update(ctx, id, input)
+	actUpdateTenantID, err := uuid.Parse(req.TenantId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
+	a, err := s.activityService.Update(ctx, actUpdateTenantID, id, input)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -1490,7 +1544,12 @@ func (s *CRMGRPCServer) DeleteActivity(ctx context.Context, req *crmv1.DeleteAct
 		return nil, status.Error(codes.InvalidArgument, "invalid activity id")
 	}
 
-	if err := s.activityService.Delete(ctx, id); err != nil {
+	actDelTenantID, err := uuid.Parse(req.TenantId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
+	if err := s.activityService.Delete(ctx, actDelTenantID, id); err != nil {
 		return nil, mapCRMError(err)
 	}
 
@@ -1503,7 +1562,12 @@ func (s *CRMGRPCServer) CompleteActivity(ctx context.Context, req *crmv1.Complet
 		return nil, status.Error(codes.InvalidArgument, "invalid activity id")
 	}
 
-	a, err := s.activityService.Complete(ctx, id)
+	actCompleteTenantID, err := uuid.Parse(req.TenantId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
+	a, err := s.activityService.Complete(ctx, actCompleteTenantID, id)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}

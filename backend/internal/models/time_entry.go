@@ -9,6 +9,7 @@ import (
 // TimeEntry represents a tracked time period on a task
 type TimeEntry struct {
 	ID              uuid.UUID  `json:"id"`
+	TenantID        uuid.UUID  `json:"tenant_id"`
 	TaskID          uuid.UUID  `json:"task_id"`
 	UserID          uuid.UUID  `json:"user_id"`
 	StartedAt       time.Time  `json:"started_at"`

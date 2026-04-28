@@ -23,6 +23,7 @@ func NewService(repo Repository) *Service {
 
 // CreateInput contains the data needed to create an activity
 type CreateInput struct {
+	TenantID     uuid.UUID
 	ActivityType models.ActivityType
 	Subject      string
 	Description  *string
@@ -107,6 +108,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Activi
 	now := time.Now()
 	activity := &models.Activity{
 		ID:           uuid.New(),
+		TenantID:     input.TenantID,
 		ActivityType: input.ActivityType,
 		Subject:      subject,
 		Description:  input.Description,
@@ -149,9 +151,9 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Activi
 	return s.getWithRelations(ctx, activity)
 }
 
-// GetByID retrieves an activity by ID
-func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*models.ActivityWithRelations, error) {
-	activity, err := s.repo.GetByID(ctx, id)
+// GetByID retrieves an activity by ID, scoped to the given tenant.
+func (s *Service) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.ActivityWithRelations, error) {
+	activity, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -160,6 +162,7 @@ func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*models.ActivityWi
 
 // ListInput contains filtering options for listing activities
 type ListInput struct {
+	TenantID     uuid.UUID
 	ActivityType *models.ActivityType
 	ContactID    *uuid.UUID
 	CompanyID    *uuid.UUID
@@ -199,7 +202,7 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]*models.Activity
 		SortDesc:     input.SortDesc,
 	}
 
-	activities, total, err := s.repo.List(ctx, filter, offset, input.PageSize)
+	activities, total, err := s.repo.List(ctx, input.TenantID, filter, offset, input.PageSize)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -228,9 +231,9 @@ type UpdateInput struct {
 	CustomFields map[uuid.UUID]any
 }
 
-// Update updates an existing activity
-func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (*models.ActivityWithRelations, error) {
-	activity, err := s.repo.GetByID(ctx, id)
+// Update updates an existing activity, scoped to the given tenant.
+func (s *Service) Update(ctx context.Context, tenantID, id uuid.UUID, input UpdateInput) (*models.ActivityWithRelations, error) {
+	activity, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -329,14 +332,14 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (
 	return s.getWithRelations(ctx, activity)
 }
 
-// Delete removes an activity
-func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
-	activity, err := s.repo.GetByID(ctx, id)
+// Delete removes an activity, scoped to the given tenant.
+func (s *Service) Delete(ctx context.Context, tenantID, id uuid.UUID) error {
+	activity, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return err
 	}
 
-	if deleteErr := s.repo.Delete(ctx, id); deleteErr != nil {
+	if deleteErr := s.repo.Delete(ctx, id, tenantID); deleteErr != nil {
 		return deleteErr
 	}
 
@@ -348,9 +351,9 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// Complete marks an activity as completed
-func (s *Service) Complete(ctx context.Context, id uuid.UUID) (*models.ActivityWithRelations, error) {
-	activity, err := s.repo.GetByID(ctx, id)
+// Complete marks an activity as completed, scoped to the given tenant.
+func (s *Service) Complete(ctx context.Context, tenantID, id uuid.UUID) (*models.ActivityWithRelations, error) {
+	activity, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -374,9 +377,9 @@ func (s *Service) Complete(ctx context.Context, id uuid.UUID) (*models.ActivityW
 	return s.getWithRelations(ctx, activity)
 }
 
-// Uncomplete marks an activity as not completed
-func (s *Service) Uncomplete(ctx context.Context, id uuid.UUID) (*models.ActivityWithRelations, error) {
-	activity, err := s.repo.GetByID(ctx, id)
+// Uncomplete marks an activity as not completed, scoped to the given tenant.
+func (s *Service) Uncomplete(ctx context.Context, tenantID, id uuid.UUID) (*models.ActivityWithRelations, error) {
+	activity, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -434,9 +437,9 @@ func (s *Service) GetContactTimeline(ctx context.Context, contactID uuid.UUID, p
 	return &TimelineResult{Events: events, Total: total}, nil
 }
 
-// AddTags adds tags to an activity
-func (s *Service) AddTags(ctx context.Context, activityID uuid.UUID, tagIDs []uuid.UUID) (*models.ActivityWithRelations, error) {
-	activity, err := s.repo.GetByID(ctx, activityID)
+// AddTags adds tags to an activity, scoped to the given tenant.
+func (s *Service) AddTags(ctx context.Context, tenantID, activityID uuid.UUID, tagIDs []uuid.UUID) (*models.ActivityWithRelations, error) {
+	activity, err := s.repo.GetByID(ctx, activityID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -459,9 +462,9 @@ func (s *Service) AddTags(ctx context.Context, activityID uuid.UUID, tagIDs []uu
 	return s.getWithRelations(ctx, activity)
 }
 
-// RemoveTags removes tags from an activity
-func (s *Service) RemoveTags(ctx context.Context, activityID uuid.UUID, tagIDs []uuid.UUID) (*models.ActivityWithRelations, error) {
-	activity, err := s.repo.GetByID(ctx, activityID)
+// RemoveTags removes tags from an activity, scoped to the given tenant.
+func (s *Service) RemoveTags(ctx context.Context, tenantID, activityID uuid.UUID, tagIDs []uuid.UUID) (*models.ActivityWithRelations, error) {
+	activity, err := s.repo.GetByID(ctx, activityID, tenantID)
 	if err != nil {
 		return nil, err
 	}

@@ -52,7 +52,7 @@ func (m *MockRepository) Create(ctx context.Context, deal *models.Deal) error {
 	return nil
 }
 
-func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Deal, error) {
+func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.Deal, error) {
 	if m.getErr != nil {
 		return nil, m.getErr
 	}
@@ -63,7 +63,7 @@ func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Dea
 	return deal, nil
 }
 
-func (m *MockRepository) List(ctx context.Context, filter ListFilter, offset, limit int) ([]*models.Deal, int, error) {
+func (m *MockRepository) List(ctx context.Context, tenantID uuid.UUID, filter ListFilter, offset, limit int) ([]*models.Deal, int, error) {
 	var result []*models.Deal
 	for _, d := range m.deals {
 		result = append(result, d)
@@ -87,7 +87,7 @@ func (m *MockRepository) Update(ctx context.Context, deal *models.Deal) error {
 	return nil
 }
 
-func (m *MockRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (m *MockRepository) Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
 	if m.deleteErr != nil {
 		return m.deleteErr
 	}
@@ -533,7 +533,7 @@ func TestService_GetByID_Success(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	deal, err := svc.GetByID(context.Background(), dealID)
+	deal, err := svc.GetByID(context.Background(), uuid.Nil, dealID)
 
 	require.NoError(t, err)
 	assert.Equal(t, dealID, deal.ID)
@@ -545,7 +545,7 @@ func TestService_GetByID_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	_, err := svc.GetByID(context.Background(), uuid.New())
+	_, err := svc.GetByID(context.Background(), uuid.Nil, uuid.New())
 
 	assert.ErrorIs(t, err, ErrDealNotFound)
 }
@@ -576,7 +576,7 @@ func TestService_Update_Success(t *testing.T) {
 	newName := "New Name"
 	newValue := 25000.00
 
-	deal, err := svc.Update(context.Background(), dealID, UpdateInput{
+	deal, err := svc.Update(context.Background(), uuid.Nil, dealID, UpdateInput{
 		Name:  &newName,
 		Value: &newValue,
 	})
@@ -591,7 +591,7 @@ func TestService_Update_NotFound(t *testing.T) {
 	svc := NewService(repo)
 
 	newName := "New Name"
-	_, err := svc.Update(context.Background(), uuid.New(), UpdateInput{
+	_, err := svc.Update(context.Background(), uuid.Nil, uuid.New(), UpdateInput{
 		Name: &newName,
 	})
 
@@ -616,7 +616,7 @@ func TestService_Update_EmptyName(t *testing.T) {
 	}
 
 	emptyName := ""
-	_, err := svc.Update(context.Background(), dealID, UpdateInput{
+	_, err := svc.Update(context.Background(), uuid.Nil, dealID, UpdateInput{
 		Name: &emptyName,
 	})
 
@@ -645,7 +645,7 @@ func TestService_Update_ClearContact(t *testing.T) {
 	}
 
 	nilContact := uuid.Nil
-	deal, err := svc.Update(context.Background(), dealID, UpdateInput{
+	deal, err := svc.Update(context.Background(), uuid.Nil, dealID, UpdateInput{
 		ContactID: &nilContact,
 	})
 
@@ -671,7 +671,7 @@ func TestService_Delete_Success(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	err := svc.Delete(context.Background(), dealID)
+	err := svc.Delete(context.Background(), uuid.Nil, dealID)
 
 	require.NoError(t, err)
 	assert.NotContains(t, repo.deals, dealID)
@@ -681,7 +681,7 @@ func TestService_Delete_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	err := svc.Delete(context.Background(), uuid.New())
+	err := svc.Delete(context.Background(), uuid.Nil, uuid.New())
 
 	assert.ErrorIs(t, err, ErrDealNotFound)
 }
@@ -716,7 +716,7 @@ func TestService_MoveToStage_Success(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	deal, err := svc.MoveToStage(context.Background(), dealID, newStageID)
+	deal, err := svc.MoveToStage(context.Background(), uuid.Nil, dealID, newStageID)
 
 	require.NoError(t, err)
 	assert.Equal(t, newStageID, deal.StageID)
@@ -748,7 +748,7 @@ func TestService_MoveToStage_ToWon_SetsClosedAt(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	deal, err := svc.MoveToStage(context.Background(), dealID, wonStageID)
+	deal, err := svc.MoveToStage(context.Background(), uuid.Nil, dealID, wonStageID)
 
 	require.NoError(t, err)
 	assert.NotNil(t, deal.ClosedAt)
@@ -780,7 +780,7 @@ func TestService_MoveToStage_FromWonToOpen_ClearsClosedAt(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	deal, err := svc.MoveToStage(context.Background(), dealID, leadStageID)
+	deal, err := svc.MoveToStage(context.Background(), uuid.Nil, dealID, leadStageID)
 
 	require.NoError(t, err)
 	assert.Nil(t, deal.ClosedAt)
@@ -803,7 +803,7 @@ func TestService_MoveToStage_StageNotFound(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	_, err := svc.MoveToStage(context.Background(), dealID, uuid.New())
+	_, err := svc.MoveToStage(context.Background(), uuid.Nil, dealID, uuid.New())
 
 	assert.ErrorIs(t, err, ErrStageNotFound)
 }
@@ -832,7 +832,7 @@ func TestService_AddTags_Success(t *testing.T) {
 	tagID := uuid.New()
 	repo.AddValidTag(tagID, models.EntityTypeDeal)
 
-	deal, err := svc.AddTags(context.Background(), dealID, []uuid.UUID{tagID})
+	deal, err := svc.AddTags(context.Background(), uuid.Nil, dealID, []uuid.UUID{tagID})
 
 	require.NoError(t, err)
 	assert.Equal(t, dealID, deal.ID)
@@ -855,7 +855,7 @@ func TestService_AddTags_TagNotFound(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	_, err := svc.AddTags(context.Background(), dealID, []uuid.UUID{uuid.New()})
+	_, err := svc.AddTags(context.Background(), uuid.Nil, dealID, []uuid.UUID{uuid.New()})
 
 	assert.ErrorIs(t, err, ErrTagNotFound)
 }
@@ -877,7 +877,7 @@ func TestService_RemoveTags_Success(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	deal, err := svc.RemoveTags(context.Background(), dealID, []uuid.UUID{uuid.New()})
+	deal, err := svc.RemoveTags(context.Background(), uuid.Nil, dealID, []uuid.UUID{uuid.New()})
 
 	require.NoError(t, err)
 	assert.Equal(t, dealID, deal.ID)
@@ -887,7 +887,7 @@ func TestService_RemoveTags_DealNotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	_, err := svc.RemoveTags(context.Background(), uuid.New(), []uuid.UUID{uuid.New()})
+	_, err := svc.RemoveTags(context.Background(), uuid.New(), uuid.Nil, []uuid.UUID{uuid.New()})
 
 	assert.ErrorIs(t, err, ErrDealNotFound)
 }
@@ -1083,7 +1083,7 @@ func TestService_Update_Currency(t *testing.T) {
 	}
 
 	currency := "USD"
-	deal, err := svc.Update(context.Background(), dealID, UpdateInput{
+	deal, err := svc.Update(context.Background(), uuid.Nil, dealID, UpdateInput{
 		Currency: &currency,
 	})
 
@@ -1110,7 +1110,7 @@ func TestService_Update_InvalidCurrency(t *testing.T) {
 	}
 
 	currency := "INVALID"
-	_, err := svc.Update(context.Background(), dealID, UpdateInput{
+	_, err := svc.Update(context.Background(), uuid.Nil, dealID, UpdateInput{
 		Currency: &currency,
 	})
 
@@ -1139,7 +1139,7 @@ func TestService_Update_ClearCompany(t *testing.T) {
 	}
 
 	nilCompany := uuid.Nil
-	deal, err := svc.Update(context.Background(), dealID, UpdateInput{
+	deal, err := svc.Update(context.Background(), uuid.Nil, dealID, UpdateInput{
 		CompanyID: &nilCompany,
 	})
 
@@ -1167,7 +1167,7 @@ func TestService_Update_SetCompany(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	deal, err := svc.Update(context.Background(), dealID, UpdateInput{
+	deal, err := svc.Update(context.Background(), uuid.Nil, dealID, UpdateInput{
 		CompanyID: &companyID,
 	})
 
@@ -1193,7 +1193,7 @@ func TestService_Update_CompanyNotFound(t *testing.T) {
 	}
 
 	badCompanyID := uuid.New()
-	_, err := svc.Update(context.Background(), dealID, UpdateInput{
+	_, err := svc.Update(context.Background(), uuid.Nil, dealID, UpdateInput{
 		CompanyID: &badCompanyID,
 	})
 
@@ -1222,7 +1222,7 @@ func TestService_Update_ClearOwner(t *testing.T) {
 	}
 
 	nilOwner := uuid.Nil
-	deal, err := svc.Update(context.Background(), dealID, UpdateInput{
+	deal, err := svc.Update(context.Background(), uuid.Nil, dealID, UpdateInput{
 		OwnerID: &nilOwner,
 	})
 
@@ -1250,7 +1250,7 @@ func TestService_Update_SetOwner(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	deal, err := svc.Update(context.Background(), dealID, UpdateInput{
+	deal, err := svc.Update(context.Background(), uuid.Nil, dealID, UpdateInput{
 		OwnerID: &ownerID,
 	})
 
@@ -1276,7 +1276,7 @@ func TestService_Update_OwnerNotFound(t *testing.T) {
 	}
 
 	badOwnerID := uuid.New()
-	_, err := svc.Update(context.Background(), dealID, UpdateInput{
+	_, err := svc.Update(context.Background(), uuid.Nil, dealID, UpdateInput{
 		OwnerID: &badOwnerID,
 	})
 
@@ -1301,7 +1301,7 @@ func TestService_Update_ContactNotFound(t *testing.T) {
 	}
 
 	badContactID := uuid.New()
-	_, err := svc.Update(context.Background(), dealID, UpdateInput{
+	_, err := svc.Update(context.Background(), uuid.Nil, dealID, UpdateInput{
 		ContactID: &badContactID,
 	})
 
@@ -1328,7 +1328,7 @@ func TestService_Update_SetContact(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	deal, err := svc.Update(context.Background(), dealID, UpdateInput{
+	deal, err := svc.Update(context.Background(), uuid.Nil, dealID, UpdateInput{
 		ContactID: &contactID,
 	})
 
@@ -1354,7 +1354,7 @@ func TestService_Update_ExpectedCloseDate(t *testing.T) {
 	}
 
 	closeDate := time.Now().AddDate(0, 1, 0)
-	deal, err := svc.Update(context.Background(), dealID, UpdateInput{
+	deal, err := svc.Update(context.Background(), uuid.Nil, dealID, UpdateInput{
 		ExpectedCloseDate: &closeDate,
 	})
 
@@ -1380,7 +1380,7 @@ func TestService_Update_Notes(t *testing.T) {
 	}
 
 	notes := "Updated notes"
-	deal, err := svc.Update(context.Background(), dealID, UpdateInput{
+	deal, err := svc.Update(context.Background(), uuid.Nil, dealID, UpdateInput{
 		Notes: &notes,
 	})
 
@@ -1406,7 +1406,7 @@ func TestService_Update_CustomFields(t *testing.T) {
 	}
 
 	fieldID := uuid.New()
-	deal, err := svc.Update(context.Background(), dealID, UpdateInput{
+	deal, err := svc.Update(context.Background(), uuid.Nil, dealID, UpdateInput{
 		CustomFields: map[uuid.UUID]any{fieldID: "value"},
 	})
 
@@ -1434,7 +1434,7 @@ func TestService_Update_RepoError(t *testing.T) {
 
 	repo.updateErr = errors.New("db error")
 	newName := "Updated"
-	_, err := svc.Update(context.Background(), dealID, UpdateInput{
+	_, err := svc.Update(context.Background(), uuid.Nil, dealID, UpdateInput{
 		Name: &newName,
 	})
 
@@ -1456,7 +1456,7 @@ func TestService_Delete_RepoError(t *testing.T) {
 	}
 
 	repo.deleteErr = errors.New("db error")
-	err := svc.Delete(context.Background(), dealID)
+	err := svc.Delete(context.Background(), uuid.Nil, dealID)
 
 	assert.Error(t, err)
 }
@@ -1489,7 +1489,7 @@ func TestService_MoveToStage_ToLost_SetsClosedAt(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	deal, err := svc.MoveToStage(context.Background(), dealID, lostStageID)
+	deal, err := svc.MoveToStage(context.Background(), uuid.Nil, dealID, lostStageID)
 
 	require.NoError(t, err)
 	assert.NotNil(t, deal.ClosedAt)
@@ -1502,7 +1502,7 @@ func TestService_MoveToStage_DealNotFound(t *testing.T) {
 	stageID := uuid.New()
 	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
 
-	_, err := svc.MoveToStage(context.Background(), uuid.New(), stageID)
+	_, err := svc.MoveToStage(context.Background(), uuid.Nil, uuid.New(), stageID)
 
 	assert.ErrorIs(t, err, ErrDealNotFound)
 }
@@ -1553,7 +1553,7 @@ func TestService_Update_OwnerChange_EmitsEvent(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	_, err := svc.Update(context.Background(), dealID, UpdateInput{
+	_, err := svc.Update(context.Background(), uuid.Nil, dealID, UpdateInput{
 		OwnerID: &ownerID,
 	})
 
@@ -1590,7 +1590,7 @@ func TestService_MoveToStage_EmitsEvent(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	_, err := svc.MoveToStage(context.Background(), dealID, wonStageID)
+	_, err := svc.MoveToStage(context.Background(), uuid.Nil, dealID, wonStageID)
 
 	require.NoError(t, err)
 	require.Len(t, emitter.events, 1)
@@ -1609,7 +1609,7 @@ func TestService_AddTags_DealNotFound(t *testing.T) {
 	tagID := uuid.New()
 	repo.AddValidTag(tagID, models.EntityTypeDeal)
 
-	_, err := svc.AddTags(context.Background(), uuid.New(), []uuid.UUID{tagID})
+	_, err := svc.AddTags(context.Background(), uuid.Nil, uuid.New(), []uuid.UUID{tagID})
 
 	assert.ErrorIs(t, err, ErrDealNotFound)
 }
@@ -1727,7 +1727,7 @@ func TestService_GetByID_WithAllRelations(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	deal, err := svc.GetByID(context.Background(), dealID)
+	deal, err := svc.GetByID(context.Background(), uuid.Nil, dealID)
 
 	require.NoError(t, err)
 	assert.Equal(t, "Qualified", deal.StageName)

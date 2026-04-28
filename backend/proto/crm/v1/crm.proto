@@ -613,6 +613,7 @@ message DealInfo {
 }
 
 message CreateDealRequest {
+  string tenant_id = 13;
   string name = 1;
   double value = 2;
   string currency = 3;
@@ -633,6 +634,7 @@ message CreateDealResponse {
 
 message GetDealRequest {
   string id = 1;
+  string tenant_id = 2;
 }
 
 message GetDealResponse {
@@ -640,6 +642,7 @@ message GetDealResponse {
 }
 
 message ListDealsRequest {
+  string tenant_id = 11;
   optional string stage_id = 1;
   optional string contact_id = 2;
   optional string company_id = 3;
@@ -659,6 +662,7 @@ message ListDealsResponse {
 
 message UpdateDealRequest {
   string id = 1;
+  string tenant_id = 11;
   optional string name = 2;
   optional double value = 3;
   optional string currency = 4;
@@ -676,6 +680,7 @@ message UpdateDealResponse {
 
 message DeleteDealRequest {
   string id = 1;
+  string tenant_id = 2;
 }
 
 message DeleteDealResponse {}
@@ -683,6 +688,7 @@ message DeleteDealResponse {}
 message MoveDealToStageRequest {
   string deal_id = 1;
   string stage_id = 2;
+  string tenant_id = 3;
 }
 
 message MoveDealToStageResponse {
@@ -715,6 +721,7 @@ message ActivityInfo {
 }
 
 message CreateActivityRequest {
+  string tenant_id = 10;
   string activity_type = 1;
   string subject = 2;
   string description = 3;
@@ -732,6 +739,7 @@ message CreateActivityResponse {
 
 message GetActivityRequest {
   string id = 1;
+  string tenant_id = 2;
 }
 
 message GetActivityResponse {
@@ -739,6 +747,7 @@ message GetActivityResponse {
 }
 
 message ListActivitiesRequest {
+  string tenant_id = 11;
   optional string activity_type = 1;
   optional string contact_id = 2;
   optional string company_id = 3;
@@ -758,6 +767,7 @@ message ListActivitiesResponse {
 
 message UpdateActivityRequest {
   string id = 1;
+  string tenant_id = 9;
   optional string subject = 2;
   optional string description = 3;
   optional string contact_id = 4;
@@ -773,12 +783,14 @@ message UpdateActivityResponse {
 
 message DeleteActivityRequest {
   string id = 1;
+  string tenant_id = 2;
 }
 
 message DeleteActivityResponse {}
 
 message CompleteActivityRequest {
   string id = 1;
+  string tenant_id = 2;
 }
 
 message CompleteActivityResponse {

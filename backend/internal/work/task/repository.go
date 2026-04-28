@@ -17,7 +17,7 @@ type Repository interface {
 	// Core CRUD
 	Create(ctx context.Context, task *models.Task) error
 	GetByID(ctx context.Context, id uuid.UUID) (*models.TaskWithRelations, error)
-	List(ctx context.Context, filters TaskFilters) ([]models.TaskWithRelations, int, error)
+	List(ctx context.Context, tenantID uuid.UUID, filters TaskFilters) ([]models.TaskWithRelations, int, error)
 	Update(ctx context.Context, task *models.Task) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	MoveTask(ctx context.Context, taskID uuid.UUID, newStatusID uuid.UUID, newSortOrder float64) error

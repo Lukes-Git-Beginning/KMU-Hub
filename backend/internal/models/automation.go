@@ -11,6 +11,7 @@ import (
 // based on events and conditions.
 type Automation struct {
 	ID              uuid.UUID       `json:"id"`
+	TenantID        uuid.UUID       `json:"tenant_id"`
 	Name            string          `json:"name"`
 	Description     string          `json:"description"`
 	Scope           string          `json:"scope"`

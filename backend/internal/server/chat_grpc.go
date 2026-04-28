@@ -303,7 +303,13 @@ func (s *ChatGRPCServer) SendMessage(ctx context.Context, req *chatv1.SendMessag
 		return nil, status.Error(codes.InvalidArgument, "invalid channel id")
 	}
 
+	chatTenantID, err := uuid.Parse(req.TenantId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
 	input := message.CreateInput{
+		TenantID:        chatTenantID,
 		ChannelID:       channelID,
 		Content:         req.Content,
 		MentionEveryone: req.MentionEveryone,

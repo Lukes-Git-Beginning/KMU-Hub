@@ -44,6 +44,7 @@ func (s *Service) SetEventEmitter(emitter EventEmitter) {
 
 // CreateInput contains the data needed to create a deal
 type CreateInput struct {
+	TenantID          uuid.UUID
 	Name              string
 	Value             float64
 	Currency          string
@@ -133,6 +134,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.DealWi
 
 	deal := &models.Deal{
 		ID:                uuid.New(),
+		TenantID:          input.TenantID,
 		Name:              name,
 		Value:             decimal.NewFromFloat(input.Value),
 		Currency:          currency,
@@ -175,9 +177,9 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.DealWi
 	return s.getWithRelations(ctx, deal)
 }
 
-// GetByID retrieves a deal by ID
-func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*models.DealWithRelations, error) {
-	deal, err := s.repo.GetByID(ctx, id)
+// GetByID retrieves a deal by ID, scoped to the given tenant.
+func (s *Service) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.DealWithRelations, error) {
+	deal, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -186,6 +188,7 @@ func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*models.DealWithRe
 
 // ListInput contains filtering options for listing deals
 type ListInput struct {
+	TenantID  uuid.UUID
 	StageID   *uuid.UUID
 	ContactID *uuid.UUID
 	CompanyID *uuid.UUID
@@ -219,7 +222,7 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]*models.DealWith
 		SortDesc:  input.SortDesc,
 	}
 
-	deals, total, err := s.repo.List(ctx, filter, offset, input.PageSize)
+	deals, total, err := s.repo.List(ctx, input.TenantID, filter, offset, input.PageSize)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -245,9 +248,9 @@ type UpdateInput struct {
 	CustomFields      map[uuid.UUID]any
 }
 
-// Update updates an existing deal
-func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (*models.DealWithRelations, error) {
-	deal, err := s.repo.GetByID(ctx, id)
+// Update updates an existing deal, scoped to the given tenant.
+func (s *Service) Update(ctx context.Context, tenantID, id uuid.UUID, input UpdateInput) (*models.DealWithRelations, error) {
+	deal, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -365,14 +368,14 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (
 	return s.getWithRelations(ctx, deal)
 }
 
-// Delete removes a deal
-func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
-	deal, err := s.repo.GetByID(ctx, id)
+// Delete removes a deal, scoped to the given tenant.
+func (s *Service) Delete(ctx context.Context, tenantID, id uuid.UUID) error {
+	deal, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return err
 	}
 
-	if deleteErr := s.repo.Delete(ctx, id); deleteErr != nil {
+	if deleteErr := s.repo.Delete(ctx, id, tenantID); deleteErr != nil {
 		return deleteErr
 	}
 
@@ -384,9 +387,9 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// MoveToStage moves a deal to a different pipeline stage
-func (s *Service) MoveToStage(ctx context.Context, dealID, stageID uuid.UUID) (*models.DealWithRelations, error) {
-	deal, err := s.repo.GetByID(ctx, dealID)
+// MoveToStage moves a deal to a different pipeline stage, scoped to the given tenant.
+func (s *Service) MoveToStage(ctx context.Context, tenantID, dealID, stageID uuid.UUID) (*models.DealWithRelations, error) {
+	deal, err := s.repo.GetByID(ctx, dealID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -451,9 +454,9 @@ func (s *Service) MoveToStage(ctx context.Context, dealID, stageID uuid.UUID) (*
 	return s.getWithRelations(ctx, deal)
 }
 
-// AddTags adds tags to a deal
-func (s *Service) AddTags(ctx context.Context, dealID uuid.UUID, tagIDs []uuid.UUID) (*models.DealWithRelations, error) {
-	deal, err := s.repo.GetByID(ctx, dealID)
+// AddTags adds tags to a deal, scoped to the given tenant.
+func (s *Service) AddTags(ctx context.Context, tenantID, dealID uuid.UUID, tagIDs []uuid.UUID) (*models.DealWithRelations, error) {
+	deal, err := s.repo.GetByID(ctx, dealID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -476,9 +479,9 @@ func (s *Service) AddTags(ctx context.Context, dealID uuid.UUID, tagIDs []uuid.U
 	return s.getWithRelations(ctx, deal)
 }
 
-// RemoveTags removes tags from a deal
-func (s *Service) RemoveTags(ctx context.Context, dealID uuid.UUID, tagIDs []uuid.UUID) (*models.DealWithRelations, error) {
-	deal, err := s.repo.GetByID(ctx, dealID)
+// RemoveTags removes tags from a deal, scoped to the given tenant.
+func (s *Service) RemoveTags(ctx context.Context, tenantID, dealID uuid.UUID, tagIDs []uuid.UUID) (*models.DealWithRelations, error) {
+	deal, err := s.repo.GetByID(ctx, dealID, tenantID)
 	if err != nil {
 		return nil, err
 	}

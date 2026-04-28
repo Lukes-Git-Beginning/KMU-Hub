@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v6.33.4
-// source: proto/crm/v1/crm.proto
+// source: crm/v1/crm.proto
 
 package crmv1
 
@@ -2653,5 +2653,5 @@ var CRMService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/crm/v1/crm.proto",
+	Metadata: "crm/v1/crm.proto",
 }

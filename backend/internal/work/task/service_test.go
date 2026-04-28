@@ -49,7 +49,7 @@ func (m *mockRepo) GetByID(_ context.Context, id uuid.UUID) (*models.TaskWithRel
 	return tw, nil
 }
 
-func (m *mockRepo) List(_ context.Context, filters TaskFilters) ([]models.TaskWithRelations, int, error) {
+func (m *mockRepo) List(_ context.Context, _ uuid.UUID, filters TaskFilters) ([]models.TaskWithRelations, int, error) {
 	var result []models.TaskWithRelations
 	for _, tw := range m.tasks {
 		if filters.AssigneeID != nil && (tw.AssigneeID == nil || *tw.AssigneeID != *filters.AssigneeID) {
@@ -889,7 +889,7 @@ func TestService_ListMyTasks(t *testing.T) {
 		CreatedBy:  otherID,
 	})
 
-	tasks, total, err := svc.ListMyTasks(ctx, userID, TaskFilters{})
+	tasks, total, err := svc.ListMyTasks(ctx, uuid.Nil, userID, TaskFilters{})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

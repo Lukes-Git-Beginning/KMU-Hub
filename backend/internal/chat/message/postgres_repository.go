@@ -25,9 +25,9 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) Create(ctx context.Context, message *models.Message) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO messages (id, channel_id, content, is_deleted, edited_at, parent_message_id, lang, created_by, guest_session_id, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-		message.ID, message.ChannelID, message.Content, message.IsDeleted,
+		`INSERT INTO messages (id, tenant_id, channel_id, content, is_deleted, edited_at, parent_message_id, lang, created_by, guest_session_id, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+		message.ID, message.TenantID, message.ChannelID, message.Content, message.IsDeleted,
 		message.EditedAt, message.ParentMessageID, message.Lang, message.CreatedBy,
 		message.GuestSessionID, message.CreatedAt,
 	)
@@ -201,9 +201,9 @@ func (r *PostgresRepository) CreateWithReplyCount(ctx context.Context, message *
 
 	// Insert the reply message
 	_, err = tx.Exec(ctx,
-		`INSERT INTO messages (id, channel_id, content, is_deleted, edited_at, parent_message_id, lang, created_by, guest_session_id, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-		message.ID, message.ChannelID, message.Content, message.IsDeleted,
+		`INSERT INTO messages (id, tenant_id, channel_id, content, is_deleted, edited_at, parent_message_id, lang, created_by, guest_session_id, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+		message.ID, message.TenantID, message.ChannelID, message.Content, message.IsDeleted,
 		message.EditedAt, message.ParentMessageID, message.Lang, message.CreatedBy,
 		message.GuestSessionID, message.CreatedAt,
 	)

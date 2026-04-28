@@ -403,6 +403,7 @@ message ListProjectStatusesResponse {
 // ============================================================================
 
 message CreateTaskRequest {
+  string tenant_id = 11;
   string project_id = 1;
   string title = 2;
   optional string description = 3;
@@ -428,6 +429,7 @@ message GetTaskResponse {
 }
 
 message ListTasksRequest {
+  string tenant_id = 14;
   optional string project_id = 1;
   optional string assignee_id = 2;
   optional string status_id = 3;

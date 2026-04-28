@@ -34,6 +34,12 @@ func (c *CRMRoutes) HandleCreateActivity(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	actTID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
 	userID := middleware.GetUserID(r.Context())
 
 	var req createActivityRequest
@@ -48,6 +54,7 @@ func (c *CRMRoutes) HandleCreateActivity(w http.ResponseWriter, r *http.Request)
 	}
 
 	grpcReq := &crmv1.CreateActivityRequest{
+		TenantId:     actTID.String(),
 		ActivityType: req.ActivityType,
 		Subject:      req.Subject,
 		Description:  req.Description,
@@ -84,12 +91,18 @@ func (c *CRMRoutes) HandleGetActivity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	actGetTID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
 	activityID, ok := validateUUIDParam(w, r, "id")
 	if !ok {
 		return
 	}
 
-	resp, err := client.GetActivity(r.Context(), &crmv1.GetActivityRequest{Id: activityID})
+	resp, err := client.GetActivity(r.Context(), &crmv1.GetActivityRequest{Id: activityID, TenantId: actGetTID.String()})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
@@ -105,6 +118,12 @@ func (c *CRMRoutes) HandleListActivities(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	actListTID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
 	activityType := r.URL.Query().Get("activity_type")
 	contactID := r.URL.Query().Get("contact_id")
 	companyID := r.URL.Query().Get("company_id")
@@ -116,6 +135,7 @@ func (c *CRMRoutes) HandleListActivities(w http.ResponseWriter, r *http.Request)
 	page, pageSize := parsePagination(r, 1, 20)
 
 	grpcReq := &crmv1.ListActivitiesRequest{
+		TenantId: actListTID.String(),
 		Page:     int32(page),
 		PageSize: int32(pageSize),
 		SortBy:   sortBy,
@@ -180,7 +200,13 @@ func (c *CRMRoutes) HandleUpdateActivity(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	grpcReq := &crmv1.UpdateActivityRequest{Id: activityID}
+	actUpdateTID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
+	grpcReq := &crmv1.UpdateActivityRequest{Id: activityID, TenantId: actUpdateTID.String()}
 	if req.Subject != nil {
 		grpcReq.Subject = req.Subject
 	}
@@ -219,12 +245,18 @@ func (c *CRMRoutes) HandleDeleteActivity(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	actDelTID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
 	activityID, ok := validateUUIDParam(w, r, "id")
 	if !ok {
 		return
 	}
 
-	_, err = client.DeleteActivity(r.Context(), &crmv1.DeleteActivityRequest{Id: activityID})
+	_, err = client.DeleteActivity(r.Context(), &crmv1.DeleteActivityRequest{Id: activityID, TenantId: actDelTID.String()})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
@@ -240,12 +272,18 @@ func (c *CRMRoutes) HandleCompleteActivity(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	actCompleteTID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
 	activityID, ok := validateUUIDParam(w, r, "id")
 	if !ok {
 		return
 	}
 
-	resp, err := client.CompleteActivity(r.Context(), &crmv1.CompleteActivityRequest{Id: activityID})
+	resp, err := client.CompleteActivity(r.Context(), &crmv1.CompleteActivityRequest{Id: activityID, TenantId: actCompleteTID.String()})
 	if err != nil {
 		respondGRPCError(w, err)
 		return

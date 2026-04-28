@@ -22,14 +22,21 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{pool: pool}
 }
 
+// sentinelTenantID is used as a placeholder when no tenant_id is available (legacy/system-generated notifications).
+var sentinelTenantID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
+
 func (r *PostgresRepository) Create(ctx context.Context, notif *models.Notification) error {
+	tenantID := notif.TenantID
+	if tenantID == uuid.Nil {
+		tenantID = sentinelTenantID
+	}
 	query := `
-		INSERT INTO notifications (id, user_id, event_type_key, module_id, priority, actor_id, resource_id,
+		INSERT INTO notifications (id, tenant_id, user_id, event_type_key, module_id, priority, actor_id, resource_id,
 			title, body, deep_link, group_key, group_count, is_read, delivered_desktop, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`
 
 	_, err := r.pool.Exec(ctx, query,
-		notif.ID, notif.UserID, notif.EventTypeKey, notif.ModuleID, notif.Priority,
+		notif.ID, tenantID, notif.UserID, notif.EventTypeKey, notif.ModuleID, notif.Priority,
 		notif.ActorID, notif.ResourceID, notif.Title, notif.Body, notif.DeepLink,
 		notif.GroupKey, notif.GroupCount, notif.IsRead, notif.DeliveredDesktop, notif.CreatedAt,
 	)

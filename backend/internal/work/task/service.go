@@ -37,6 +37,7 @@ func (s *Service) SetEventEmitter(emitter EventEmitter) {
 
 // CreateInput contains the data needed to create a task
 type CreateInput struct {
+	TenantID     uuid.UUID
 	ProjectID    *uuid.UUID
 	Title        string
 	Description  *string
@@ -119,6 +120,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.TaskWi
 	now := time.Now()
 	task := &models.Task{
 		ID:           uuid.New(),
+		TenantID:     input.TenantID,
 		ProjectID:    input.ProjectID,
 		TaskNumber:   taskNumber,
 		Title:        title,
@@ -458,9 +460,9 @@ func (s *Service) GetByID(ctx context.Context, taskID uuid.UUID) (*models.TaskWi
 	return s.repo.GetByID(ctx, taskID)
 }
 
-// List retrieves tasks with filtering and pagination
-func (s *Service) List(ctx context.Context, filters TaskFilters) ([]models.TaskWithRelations, int, error) {
-	return s.repo.List(ctx, filters)
+// List retrieves tasks with filtering and pagination, scoped to the given tenant.
+func (s *Service) List(ctx context.Context, tenantID uuid.UUID, filters TaskFilters) ([]models.TaskWithRelations, int, error) {
+	return s.repo.List(ctx, tenantID, filters)
 }
 
 // DepInput contains the data needed to create a task dependency
@@ -532,11 +534,11 @@ func (s *Service) DeleteDependency(ctx context.Context, depID uuid.UUID) error {
 	return s.repo.DeleteDependency(ctx, depID)
 }
 
-// ListMyTasks returns tasks assigned to or created by the user
-func (s *Service) ListMyTasks(ctx context.Context, userID uuid.UUID, filters TaskFilters) ([]models.TaskWithRelations, int, error) {
+// ListMyTasks returns tasks assigned to or created by the user, scoped to the given tenant.
+func (s *Service) ListMyTasks(ctx context.Context, tenantID, userID uuid.UUID, filters TaskFilters) ([]models.TaskWithRelations, int, error) {
 	// Override filter to target the user
 	filters.AssigneeID = &userID
-	return s.repo.List(ctx, filters)
+	return s.repo.List(ctx, tenantID, filters)
 }
 
 // CreateFromTemplate copies all tasks from a source project into a target project

@@ -51,6 +51,7 @@ var ValidEntityTypes = map[EntityType]bool{
 // CustomFieldDefinition represents the schema definition for a custom field
 type CustomFieldDefinition struct {
 	ID           uuid.UUID  `json:"id"`
+	TenantID     uuid.UUID  `json:"tenant_id"`
 	EntityType   EntityType `json:"entity_type"`
 	FieldName    string     `json:"field_name"`
 	FieldLabel   string     `json:"field_label"`

@@ -52,7 +52,14 @@ func (w *WorkRoutes) HandleCreateTask(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	createTenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(wr, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
 	grpcReq := &workv1.CreateTaskRequest{
+		TenantId:  createTenantID.String(),
 		ProjectId: req.ProjectID,
 		Title:     req.Title,
 		Priority:  req.Priority,
@@ -122,10 +129,17 @@ func (w *WorkRoutes) HandleListTasks(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	listTenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(wr, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
 	q := r.URL.Query()
 	page, pageSize := parsePagination(r, 1, 20)
 
 	grpcReq := &workv1.ListTasksRequest{
+		TenantId:         listTenantID.String(),
 		Search:           q.Get("search"),
 		Page:             int32(page),
 		PageSize:         int32(pageSize),

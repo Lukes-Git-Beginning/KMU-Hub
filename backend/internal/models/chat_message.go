@@ -9,6 +9,7 @@ import (
 // Message represents a chat message
 type Message struct {
 	ID              uuid.UUID  `json:"id"`
+	TenantID        uuid.UUID  `json:"tenant_id"`
 	ChannelID       uuid.UUID  `json:"channel_id"`
 	Content         string     `json:"content"`
 	IsDeleted       bool       `json:"is_deleted"`

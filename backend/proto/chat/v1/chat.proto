@@ -235,6 +235,7 @@ message SendMessageRequest {
   repeated string mentioned_user_ids = 5;  // User IDs to mention (Sprint 3)
   bool mention_everyone = 6;               // @everyone/@channel mention (Sprint 3)
   optional string guest_session_id = 7;    // For guest chat messages (mutually exclusive with created_by)
+  string tenant_id = 8;
 }
 
 message SendMessageResponse {

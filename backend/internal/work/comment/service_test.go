@@ -94,7 +94,7 @@ func (m *mockTaskRepo) CreateActivity(_ context.Context, activity *models.TaskAc
 
 // Unused methods - satisfy task.Repository interface
 func (m *mockTaskRepo) Create(_ context.Context, _ *models.Task) error { return nil }
-func (m *mockTaskRepo) List(_ context.Context, _ task.TaskFilters) ([]models.TaskWithRelations, int, error) {
+func (m *mockTaskRepo) List(_ context.Context, _ uuid.UUID, _ task.TaskFilters) ([]models.TaskWithRelations, int, error) {
 	return nil, 0, nil
 }
 func (m *mockTaskRepo) Update(_ context.Context, _ *models.Task) error          { return nil }

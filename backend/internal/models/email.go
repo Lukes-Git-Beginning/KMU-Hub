@@ -74,6 +74,7 @@ type EmailAddress struct {
 // EmailMessage represents a cached email message.
 type EmailMessage struct {
 	ID              uuid.UUID      `json:"id"`
+	TenantID        uuid.UUID      `json:"tenant_id"`
 	AccountID       uuid.UUID      `json:"account_id"`
 	FolderID        uuid.UUID      `json:"folder_id"`
 	UID             int64          `json:"uid"`

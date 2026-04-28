@@ -40,6 +40,7 @@ func (cr ChannelRole) CanModerate() bool {
 // Channel represents a chat channel
 type Channel struct {
 	ID             uuid.UUID  `json:"id"`
+	TenantID       uuid.UUID  `json:"tenant_id"`
 	Name           string     `json:"name"`
 	Description    *string    `json:"description,omitempty"`
 	IsPrivate      bool       `json:"is_private"`

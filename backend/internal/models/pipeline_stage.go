@@ -10,6 +10,7 @@ import (
 // PipelineStage represents a stage in the sales pipeline
 type PipelineStage struct {
 	ID          uuid.UUID       `json:"id"`
+	TenantID    uuid.UUID       `json:"tenant_id"`
 	Name        string          `json:"name"`
 	Color       string          `json:"color"`
 	SortOrder   int             `json:"sort_order"`

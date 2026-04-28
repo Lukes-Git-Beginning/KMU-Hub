@@ -12,10 +12,10 @@ import (
 // Repository defines the interface for deal persistence
 type Repository interface {
 	Create(ctx context.Context, deal *models.Deal) error
-	GetByID(ctx context.Context, id uuid.UUID) (*models.Deal, error)
-	List(ctx context.Context, filter ListFilter, offset, limit int) ([]*models.Deal, int, error)
+	GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.Deal, error)
+	List(ctx context.Context, tenantID uuid.UUID, filter ListFilter, offset, limit int) ([]*models.Deal, int, error)
 	Update(ctx context.Context, deal *models.Deal) error
-	Delete(ctx context.Context, id uuid.UUID) error
+	Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error
 
 	// Relations
 	GetStageName(ctx context.Context, stageID uuid.UUID) (string, error)

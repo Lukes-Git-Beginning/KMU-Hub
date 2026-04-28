@@ -82,11 +82,11 @@ type ChannelInfo struct {
 	CreatedAt   string                 `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt   string                 `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	// Denormalized fields for API responses
-	MemberCount   int32        `protobuf:"varint,10,opt,name=member_count,json=memberCount,proto3" json:"member_count,omitempty"`
-	MyRole        *string      `protobuf:"bytes,11,opt,name=my_role,json=myRole,proto3,oneof" json:"my_role,omitempty"` // Current user's role in the channel
-	LastMessage   *MessageInfo `protobuf:"bytes,12,opt,name=last_message,json=lastMessage,proto3,oneof" json:"last_message,omitempty"`
-	UnreadCount    int32        `protobuf:"varint,13,opt,name=unread_count,json=unreadCount,proto3" json:"unread_count,omitempty"` // Unread messages for the requesting user (Sprint 3)
-	IsGuestEnabled bool         `protobuf:"varint,14,opt,name=is_guest_enabled,json=isGuestEnabled,proto3" json:"is_guest_enabled,omitempty"`
+	MemberCount    int32        `protobuf:"varint,10,opt,name=member_count,json=memberCount,proto3" json:"member_count,omitempty"`
+	MyRole         *string      `protobuf:"bytes,11,opt,name=my_role,json=myRole,proto3,oneof" json:"my_role,omitempty"` // Current user's role in the channel
+	LastMessage    *MessageInfo `protobuf:"bytes,12,opt,name=last_message,json=lastMessage,proto3,oneof" json:"last_message,omitempty"`
+	UnreadCount    int32        `protobuf:"varint,13,opt,name=unread_count,json=unreadCount,proto3" json:"unread_count,omitempty"`            // Unread messages for the requesting user (Sprint 3)
+	IsGuestEnabled bool         `protobuf:"varint,14,opt,name=is_guest_enabled,json=isGuestEnabled,proto3" json:"is_guest_enabled,omitempty"` // Whether this channel accepts guest chat sessions
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -1589,7 +1589,8 @@ type SendMessageRequest struct {
 	ParentMessageId  *string                `protobuf:"bytes,4,opt,name=parent_message_id,json=parentMessageId,proto3,oneof" json:"parent_message_id,omitempty"` // For thread replies
 	MentionedUserIds []string               `protobuf:"bytes,5,rep,name=mentioned_user_ids,json=mentionedUserIds,proto3" json:"mentioned_user_ids,omitempty"`    // User IDs to mention (Sprint 3)
 	MentionEveryone  bool                   `protobuf:"varint,6,opt,name=mention_everyone,json=mentionEveryone,proto3" json:"mention_everyone,omitempty"`        // @everyone/@channel mention (Sprint 3)
-	GuestSessionId   *string                `protobuf:"bytes,7,opt,name=guest_session_id,json=guestSessionId,proto3,oneof" json:"guest_session_id,omitempty"`    // For guest chat messages
+	GuestSessionId   *string                `protobuf:"bytes,7,opt,name=guest_session_id,json=guestSessionId,proto3,oneof" json:"guest_session_id,omitempty"`    // For guest chat messages (mutually exclusive with created_by)
+	TenantId         string                 `protobuf:"bytes,8,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -1669,6 +1670,13 @@ func (x *SendMessageRequest) GetMentionEveryone() bool {
 func (x *SendMessageRequest) GetGuestSessionId() string {
 	if x != nil && x.GuestSessionId != nil {
 		return *x.GuestSessionId
+	}
+	return ""
+}
+
+func (x *SendMessageRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
 	}
 	return ""
 }
@@ -4054,7 +4062,7 @@ var File_proto_chat_v1_chat_proto protoreflect.FileDescriptor
 
 const file_proto_chat_v1_chat_proto_rawDesc = "" +
 	"\n" +
-	"\x18proto/chat/v1/chat.proto\x12\achat.v1\"\xd9\x03\n" +
+	"\x18proto/chat/v1/chat.proto\x12\achat.v1\"\x83\x04\n" +
 	"\vChannelInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12%\n" +
@@ -4074,7 +4082,8 @@ const file_proto_chat_v1_chat_proto_rawDesc = "" +
 	" \x01(\x05R\vmemberCount\x12\x1c\n" +
 	"\amy_role\x18\v \x01(\tH\x01R\x06myRole\x88\x01\x01\x12<\n" +
 	"\flast_message\x18\f \x01(\v2\x14.chat.v1.MessageInfoH\x02R\vlastMessage\x88\x01\x01\x12!\n" +
-	"\funread_count\x18\r \x01(\x05R\vunreadCountB\x0e\n" +
+	"\funread_count\x18\r \x01(\x05R\vunreadCount\x12(\n" +
+	"\x10is_guest_enabled\x18\x0e \x01(\bR\x0eisGuestEnabledB\x0e\n" +
 	"\f_descriptionB\n" +
 	"\n" +
 	"\b_my_roleB\x0f\n" +
@@ -4165,7 +4174,7 @@ const file_proto_chat_v1_chat_proto_rawDesc = "" +
 	"\fmention_type\x18\x02 \x01(\x0e2\x14.chat.v1.MentionTypeR\vmentionType\x12\x1d\n" +
 	"\n" +
 	"first_name\x18\x03 \x01(\tR\tfirstName\x12\x1b\n" +
-	"\tlast_name\x18\x04 \x01(\tR\blastName\"\xfc\x03\n" +
+	"\tlast_name\x18\x04 \x01(\tR\blastName\"\x8a\x05\n" +
 	"\vMessageInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -4185,10 +4194,14 @@ const file_proto_chat_v1_chat_proto_rawDesc = "" +
 	"\vreply_count\x18\v \x01(\x05R\n" +
 	"replyCount\x120\n" +
 	"\bmentions\x18\f \x03(\v2\x14.chat.v1.MentionInfoR\bmentions\x12'\n" +
-	"\x05files\x18\r \x03(\v2\x11.chat.v1.FileInfoR\x05filesB\f\n" +
+	"\x05files\x18\r \x03(\v2\x11.chat.v1.FileInfoR\x05files\x12-\n" +
+	"\x10guest_session_id\x18\x0e \x01(\tH\x02R\x0eguestSessionId\x88\x01\x01\x121\n" +
+	"\x12guest_display_name\x18\x0f \x01(\tH\x03R\x10guestDisplayName\x88\x01\x01B\f\n" +
 	"\n" +
 	"_edited_atB\x14\n" +
-	"\x12_parent_message_id\"\x8c\x02\n" +
+	"\x12_parent_message_idB\x13\n" +
+	"\x11_guest_session_idB\x15\n" +
+	"\x13_guest_display_name\"\xed\x02\n" +
 	"\x12SendMessageRequest\x12\x1d\n" +
 	"\n" +
 	"channel_id\x18\x01 \x01(\tR\tchannelId\x12\x18\n" +
@@ -4197,8 +4210,11 @@ const file_proto_chat_v1_chat_proto_rawDesc = "" +
 	"created_by\x18\x03 \x01(\tR\tcreatedBy\x12/\n" +
 	"\x11parent_message_id\x18\x04 \x01(\tH\x00R\x0fparentMessageId\x88\x01\x01\x12,\n" +
 	"\x12mentioned_user_ids\x18\x05 \x03(\tR\x10mentionedUserIds\x12)\n" +
-	"\x10mention_everyone\x18\x06 \x01(\bR\x0fmentionEveryoneB\x14\n" +
-	"\x12_parent_message_id\"E\n" +
+	"\x10mention_everyone\x18\x06 \x01(\bR\x0fmentionEveryone\x12-\n" +
+	"\x10guest_session_id\x18\a \x01(\tH\x01R\x0eguestSessionId\x88\x01\x01\x12\x1b\n" +
+	"\ttenant_id\x18\b \x01(\tR\btenantIdB\x14\n" +
+	"\x12_parent_message_idB\x13\n" +
+	"\x11_guest_session_id\"E\n" +
 	"\x13SendMessageResponse\x12.\n" +
 	"\amessage\x18\x01 \x01(\v2\x14.chat.v1.MessageInfoR\amessage\"\xaf\x01\n" +
 	"\x12GetMessagesRequest\x12\x1d\n" +

@@ -28,10 +28,10 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) Create(ctx context.Context, deal *models.Deal) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO deals (id, name, value, currency, stage_id, contact_id, company_id, owner_id,
+		`INSERT INTO deals (id, tenant_id, name, value, currency, stage_id, contact_id, company_id, owner_id,
 		 expected_close_date, notes, created_by, created_at, updated_at, closed_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-		deal.ID, deal.Name, deal.Value, deal.Currency, deal.StageID,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+		deal.ID, deal.TenantID, deal.Name, deal.Value, deal.Currency, deal.StageID,
 		deal.ContactID, deal.CompanyID, deal.OwnerID,
 		deal.ExpectedCloseDate, deal.Notes, deal.CreatedBy,
 		deal.CreatedAt, deal.UpdatedAt, deal.ClosedAt,
@@ -39,19 +39,19 @@ func (r *PostgresRepository) Create(ctx context.Context, deal *models.Deal) erro
 	return err
 }
 
-func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Deal, error) {
+func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.Deal, error) {
 	return r.scanDeal(r.pool.QueryRow(ctx,
-		`SELECT id, name, value, currency, stage_id, contact_id, company_id, owner_id,
+		`SELECT id, tenant_id, name, value, currency, stage_id, contact_id, company_id, owner_id,
 		 expected_close_date, notes, created_by, created_at, updated_at, closed_at
-		 FROM deals WHERE id = $1`, id,
+		 FROM deals WHERE tenant_id = $1 AND id = $2`, tenantID, id,
 	))
 }
 
-func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset, limit int) ([]*models.Deal, int, error) {
-	// Build WHERE clause
-	var conditions []string
-	var args []any
-	argNum := 1
+func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filter ListFilter, offset, limit int) ([]*models.Deal, int, error) {
+	// Build WHERE clause — tenant_id is always the first filter
+	conditions := []string{fmt.Sprintf("tenant_id = $%d", 1)}
+	args := []any{tenantID}
+	argNum := 2
 
 	if filter.StageID != nil {
 		conditions = append(conditions, fmt.Sprintf("stage_id = $%d", argNum))
@@ -121,7 +121,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset
 
 	// Query with pagination
 	query := fmt.Sprintf(`
-		SELECT id, name, value, currency, stage_id, contact_id, company_id, owner_id,
+		SELECT id, tenant_id, name, value, currency, stage_id, contact_id, company_id, owner_id,
 		       expected_close_date, notes, created_by, created_at, updated_at, closed_at
 		FROM deals %s
 		ORDER BY %s %s NULLS LAST
@@ -161,8 +161,8 @@ func (r *PostgresRepository) Update(ctx context.Context, deal *models.Deal) erro
 	return err
 }
 
-func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM deals WHERE id = $1`, id)
+func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM deals WHERE tenant_id = $1 AND id = $2`, tenantID, id)
 	return err
 }
 
@@ -521,7 +521,7 @@ func (r *PostgresRepository) scanDeal(row pgx.Row) (*models.Deal, error) {
 	var d models.Deal
 	var valueFloat float64
 	err := row.Scan(
-		&d.ID, &d.Name, &valueFloat, &d.Currency, &d.StageID,
+		&d.ID, &d.TenantID, &d.Name, &valueFloat, &d.Currency, &d.StageID,
 		&d.ContactID, &d.CompanyID, &d.OwnerID,
 		&d.ExpectedCloseDate, &d.Notes, &d.CreatedBy,
 		&d.CreatedAt, &d.UpdatedAt, &d.ClosedAt,
@@ -541,7 +541,7 @@ func (r *PostgresRepository) scanDealFromRows(rows pgx.Rows) (*models.Deal, erro
 	var d models.Deal
 	var valueFloat float64
 	err := rows.Scan(
-		&d.ID, &d.Name, &valueFloat, &d.Currency, &d.StageID,
+		&d.ID, &d.TenantID, &d.Name, &valueFloat, &d.Currency, &d.StageID,
 		&d.ContactID, &d.CompanyID, &d.OwnerID,
 		&d.ExpectedCloseDate, &d.Notes, &d.CreatedBy,
 		&d.CreatedAt, &d.UpdatedAt, &d.ClosedAt,

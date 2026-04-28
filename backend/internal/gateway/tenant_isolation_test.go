@@ -22,6 +22,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -193,6 +194,188 @@ func TestInventar_ValidTid_PassesTenantCheck(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := reqWithTenant(http.MethodGet, "/api/v1/inventar/items", uuid.New())
 	routes.HandleListItems(rec, req)
+	if rec.Code == http.StatusUnauthorized {
+		t.Errorf("valid tid should not be rejected with 401; body = %s", rec.Body.String())
+	}
+}
+
+// ============================================================================
+// CRM Deals — tenant isolation checks
+// ============================================================================
+
+func TestDeals_NoTenant_Returns401(t *testing.T) {
+	routes := NewCRMRoutes(registryWithService("crm"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/crm/deals", nil)
+	routes.HandleListDeals(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestDeals_EmptyTid_Returns401(t *testing.T) {
+	routes := NewCRMRoutes(registryWithService("crm"), nil)
+	rec := httptest.NewRecorder()
+	req := reqWithEmptyTenant(http.MethodGet, "/api/v1/crm/deals")
+	routes.HandleListDeals(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestDeals_ValidTid_PassesTenantCheck(t *testing.T) {
+	routes := NewCRMRoutes(registryWithService("crm"), nil)
+	rec := httptest.NewRecorder()
+	req := reqWithTenant(http.MethodGet, "/api/v1/crm/deals", uuid.New())
+	routes.HandleListDeals(rec, req)
+	if rec.Code == http.StatusUnauthorized {
+		t.Errorf("valid tid should not be rejected with 401; body = %s", rec.Body.String())
+	}
+}
+
+func TestDeals_TwoTenants_IndependentContexts(t *testing.T) {
+	routes := NewCRMRoutes(registryWithService("crm"), nil)
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	recA := httptest.NewRecorder()
+	reqA := reqWithTenant(http.MethodGet, "/api/v1/crm/deals", tenantA)
+
+	recB := httptest.NewRecorder()
+	reqB := reqWithTenant(http.MethodGet, "/api/v1/crm/deals", tenantB)
+
+	routes.HandleListDeals(recA, reqA)
+	routes.HandleListDeals(recB, reqB)
+
+	if recA.Code == http.StatusUnauthorized {
+		t.Errorf("tenant A request rejected with 401")
+	}
+	if recB.Code == http.StatusUnauthorized {
+		t.Errorf("tenant B request rejected with 401")
+	}
+}
+
+// ============================================================================
+// CRM Activities — tenant isolation checks
+// ============================================================================
+
+func TestActivities_NoTenant_Returns401(t *testing.T) {
+	routes := NewCRMRoutes(registryWithService("crm"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/crm/activities", nil)
+	routes.HandleListActivities(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestActivities_EmptyTid_Returns401(t *testing.T) {
+	routes := NewCRMRoutes(registryWithService("crm"), nil)
+	rec := httptest.NewRecorder()
+	req := reqWithEmptyTenant(http.MethodGet, "/api/v1/crm/activities")
+	routes.HandleListActivities(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestActivities_ValidTid_PassesTenantCheck(t *testing.T) {
+	routes := NewCRMRoutes(registryWithService("crm"), nil)
+	rec := httptest.NewRecorder()
+	req := reqWithTenant(http.MethodGet, "/api/v1/crm/activities", uuid.New())
+	routes.HandleListActivities(rec, req)
+	if rec.Code == http.StatusUnauthorized {
+		t.Errorf("valid tid should not be rejected with 401; body = %s", rec.Body.String())
+	}
+}
+
+// ============================================================================
+// Work Tasks — tenant isolation checks
+// ============================================================================
+
+func TestTasks_NoTenant_Returns401(t *testing.T) {
+	routes := NewWorkRoutes(registryWithService("work"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/work/tasks", nil)
+	routes.HandleListTasks(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestTasks_EmptyTid_Returns401(t *testing.T) {
+	routes := NewWorkRoutes(registryWithService("work"))
+	rec := httptest.NewRecorder()
+	req := reqWithEmptyTenant(http.MethodGet, "/api/v1/work/tasks")
+	routes.HandleListTasks(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestTasks_ValidTid_PassesTenantCheck(t *testing.T) {
+	routes := NewWorkRoutes(registryWithService("work"))
+	rec := httptest.NewRecorder()
+	req := reqWithTenant(http.MethodGet, "/api/v1/work/tasks", uuid.New())
+	routes.HandleListTasks(rec, req)
+	if rec.Code == http.StatusUnauthorized {
+		t.Errorf("valid tid should not be rejected with 401; body = %s", rec.Body.String())
+	}
+}
+
+func TestTasks_TwoTenants_IndependentContexts(t *testing.T) {
+	routes := NewWorkRoutes(registryWithService("work"))
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	recA := httptest.NewRecorder()
+	reqA := reqWithTenant(http.MethodGet, "/api/v1/work/tasks", tenantA)
+
+	recB := httptest.NewRecorder()
+	reqB := reqWithTenant(http.MethodGet, "/api/v1/work/tasks", tenantB)
+
+	routes.HandleListTasks(recA, reqA)
+	routes.HandleListTasks(recB, reqB)
+
+	if recA.Code == http.StatusUnauthorized {
+		t.Errorf("tenant A request rejected with 401")
+	}
+	if recB.Code == http.StatusUnauthorized {
+		t.Errorf("tenant B request rejected with 401")
+	}
+}
+
+// ============================================================================
+// Chat Messages (SendMessage) — tenant isolation checks
+// ============================================================================
+
+func TestMessages_NoTenant_Returns401(t *testing.T) {
+	routes := NewChatRoutes(registryWithService("chat"))
+	rec := httptest.NewRecorder()
+	// Use a valid channel UUID in the path so the handler doesn't fail on param parsing
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"content":"hello"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req = withChiURLParam(req, "id", uuid.New().String())
+	routes.HandleSendMessage(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestMessages_EmptyTid_Returns401(t *testing.T) {
+	routes := NewChatRoutes(registryWithService("chat"))
+	rec := httptest.NewRecorder()
+	req := reqWithEmptyTenant(http.MethodPost, "/")
+	req.Header.Set("Content-Type", "application/json")
+	req = withChiURLParam(req, "id", uuid.New().String())
+	// Re-attach the body after reqWithEmptyTenant (which calls httptest.NewRequest with empty body).
+	// We need to decode a valid body, so wrap with a real body reader.
+	req2 := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"content":"hello"}`))
+	req2.Header.Set("Content-Type", "application/json")
+	ctx := context.WithValue(req2.Context(), middleware.TenantIDKey, "")
+	ctx = context.WithValue(ctx, middleware.UserIDKey, "user1")
+	req2 = req2.WithContext(ctx)
+	req2 = withChiURLParam(req2, "id", uuid.New().String())
+	routes.HandleSendMessage(rec, req2)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestMessages_ValidTid_PassesTenantCheck(t *testing.T) {
+	routes := NewChatRoutes(registryWithService("chat"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"content":"hello"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req = withTenantID(req, uuid.New())
+	req = withChiURLParam(req, "id", uuid.New().String())
+	routes.HandleSendMessage(rec, req)
 	if rec.Code == http.StatusUnauthorized {
 		t.Errorf("valid tid should not be rejected with 401; body = %s", rec.Body.String())
 	}

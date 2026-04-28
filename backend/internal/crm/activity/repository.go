@@ -11,10 +11,10 @@ import (
 // Repository defines the interface for activity persistence
 type Repository interface {
 	Create(ctx context.Context, activity *models.Activity) error
-	GetByID(ctx context.Context, id uuid.UUID) (*models.Activity, error)
-	List(ctx context.Context, filter ListFilter, offset, limit int) ([]*models.Activity, int, error)
+	GetByID(ctx context.Context, id, tenantID uuid.UUID) (*models.Activity, error)
+	List(ctx context.Context, tenantID uuid.UUID, filter ListFilter, offset, limit int) ([]*models.Activity, int, error)
 	Update(ctx context.Context, activity *models.Activity) error
-	Delete(ctx context.Context, id uuid.UUID) error
+	Delete(ctx context.Context, id, tenantID uuid.UUID) error
 
 	// Relations
 	GetContactName(ctx context.Context, contactID uuid.UUID) (string, error)

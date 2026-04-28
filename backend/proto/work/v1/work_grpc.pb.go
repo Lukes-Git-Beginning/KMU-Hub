@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v6.33.4
-// source: proto/work/v1/work.proto
+// source: work/v1/work.proto
 
 package workv1
 
@@ -2045,5 +2045,5 @@ var WorkService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/work/v1/work.proto",
+	Metadata: "work/v1/work.proto",
 }

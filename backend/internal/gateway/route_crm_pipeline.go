@@ -222,6 +222,12 @@ func (c *CRMRoutes) HandleCreateDeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
 	userID := middleware.GetUserID(r.Context())
 
 	var req createDealRequest
@@ -236,6 +242,7 @@ func (c *CRMRoutes) HandleCreateDeal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	grpcReq := &crmv1.CreateDealRequest{
+		TenantId:          tenantID.String(),
 		Name:              req.Name,
 		Value:             req.Value,
 		Currency:          req.Currency,
@@ -279,12 +286,18 @@ func (c *CRMRoutes) HandleGetDeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
 	dealID, ok := validateUUIDParam(w, r, "id")
 	if !ok {
 		return
 	}
 
-	resp, err := client.GetDeal(r.Context(), &crmv1.GetDealRequest{Id: dealID})
+	resp, err := client.GetDeal(r.Context(), &crmv1.GetDealRequest{Id: dealID, TenantId: tenantID.String()})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
@@ -300,6 +313,12 @@ func (c *CRMRoutes) HandleListDeals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
 	stageID := r.URL.Query().Get("stage_id")
 	contactID := r.URL.Query().Get("contact_id")
 	companyID := r.URL.Query().Get("company_id")
@@ -311,6 +330,7 @@ func (c *CRMRoutes) HandleListDeals(w http.ResponseWriter, r *http.Request) {
 	page, pageSize := parsePagination(r, 1, 20)
 
 	grpcReq := &crmv1.ListDealsRequest{
+		TenantId: tenantID.String(),
 		Search:   search,
 		Page:     int32(page),
 		PageSize: int32(pageSize),
@@ -371,7 +391,13 @@ func (c *CRMRoutes) HandleUpdateDeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	grpcReq := &crmv1.UpdateDealRequest{Id: dealID}
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
+	grpcReq := &crmv1.UpdateDealRequest{Id: dealID, TenantId: tenantID.String()}
 	if req.Name != nil {
 		grpcReq.Name = req.Name
 	}
@@ -419,12 +445,18 @@ func (c *CRMRoutes) HandleDeleteDeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
 	dealID, ok := validateUUIDParam(w, r, "id")
 	if !ok {
 		return
 	}
 
-	_, err = client.DeleteDeal(r.Context(), &crmv1.DeleteDealRequest{Id: dealID})
+	_, err = client.DeleteDeal(r.Context(), &crmv1.DeleteDealRequest{Id: dealID, TenantId: tenantID.String()})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
@@ -460,9 +492,16 @@ func (c *CRMRoutes) HandleMoveDealToStage(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
 	resp, err := client.MoveDealToStage(r.Context(), &crmv1.MoveDealToStageRequest{
-		DealId:  dealID,
-		StageId: req.StageID,
+		DealId:   dealID,
+		StageId:  req.StageID,
+		TenantId: tenantID.String(),
 	})
 	if err != nil {
 		respondGRPCError(w, err)

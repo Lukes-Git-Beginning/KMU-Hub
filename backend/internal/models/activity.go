@@ -39,6 +39,7 @@ func (at ActivityType) String() string {
 // Activity represents a CRM activity (call, meeting, note, email, task)
 type Activity struct {
 	ID           uuid.UUID    `json:"id"`
+	TenantID     uuid.UUID    `json:"tenant_id"`
 	ActivityType ActivityType `json:"activity_type"`
 	Subject      string       `json:"subject"`
 	Description  *string      `json:"description,omitempty"`

@@ -49,7 +49,7 @@ func (m *MockRepository) Create(ctx context.Context, activity *models.Activity) 
 	return nil
 }
 
-func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Activity, error) {
+func (m *MockRepository) GetByID(ctx context.Context, id, tenantID uuid.UUID) (*models.Activity, error) {
 	if m.getErr != nil {
 		return nil, m.getErr
 	}
@@ -60,7 +60,7 @@ func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Act
 	return activity, nil
 }
 
-func (m *MockRepository) List(ctx context.Context, filter ListFilter, offset, limit int) ([]*models.Activity, int, error) {
+func (m *MockRepository) List(ctx context.Context, tenantID uuid.UUID, filter ListFilter, offset, limit int) ([]*models.Activity, int, error) {
 	var result []*models.Activity
 	for _, a := range m.activities {
 		// Apply filter
@@ -94,7 +94,7 @@ func (m *MockRepository) Update(ctx context.Context, activity *models.Activity) 
 	return nil
 }
 
-func (m *MockRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (m *MockRepository) Delete(ctx context.Context, id, tenantID uuid.UUID) error {
 	if m.deleteErr != nil {
 		return m.deleteErr
 	}
@@ -459,7 +459,7 @@ func TestService_GetByID_Success(t *testing.T) {
 		UpdatedAt:    time.Now(),
 	}
 
-	activity, err := svc.GetByID(context.Background(), activityID)
+	activity, err := svc.GetByID(context.Background(), uuid.Nil, activityID)
 
 	require.NoError(t, err)
 	assert.Equal(t, activityID, activity.ID)
@@ -470,7 +470,7 @@ func TestService_GetByID_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	_, err := svc.GetByID(context.Background(), uuid.New())
+	_, err := svc.GetByID(context.Background(), uuid.Nil, uuid.New())
 
 	assert.ErrorIs(t, err, ErrActivityNotFound)
 }
@@ -497,7 +497,7 @@ func TestService_GetByID_LoadsRelations(t *testing.T) {
 		UpdatedAt:    time.Now(),
 	}
 
-	activity, err := svc.GetByID(context.Background(), activityID)
+	activity, err := svc.GetByID(context.Background(), uuid.Nil, activityID)
 
 	require.NoError(t, err)
 	assert.Equal(t, "John Doe", *activity.ContactName)
@@ -669,7 +669,7 @@ func TestService_Update_Success(t *testing.T) {
 	newSubject := "New Subject"
 	newDescription := "Updated description"
 
-	activity, err := svc.Update(context.Background(), activityID, UpdateInput{
+	activity, err := svc.Update(context.Background(), uuid.Nil, activityID, UpdateInput{
 		Subject:     &newSubject,
 		Description: &newDescription,
 	})
@@ -684,7 +684,7 @@ func TestService_Update_NotFound(t *testing.T) {
 	svc := NewService(repo)
 
 	newSubject := "New Subject"
-	_, err := svc.Update(context.Background(), uuid.New(), UpdateInput{
+	_, err := svc.Update(context.Background(), uuid.Nil, uuid.New(), UpdateInput{
 		Subject: &newSubject,
 	})
 
@@ -706,7 +706,7 @@ func TestService_Update_EmptySubject(t *testing.T) {
 	}
 
 	emptySubject := ""
-	_, err := svc.Update(context.Background(), activityID, UpdateInput{
+	_, err := svc.Update(context.Background(), uuid.Nil, activityID, UpdateInput{
 		Subject: &emptySubject,
 	})
 
@@ -732,7 +732,7 @@ func TestService_Update_ClearContact(t *testing.T) {
 	}
 
 	nilContact := uuid.Nil
-	activity, err := svc.Update(context.Background(), activityID, UpdateInput{
+	activity, err := svc.Update(context.Background(), uuid.Nil, activityID, UpdateInput{
 		ContactID: &nilContact,
 	})
 
@@ -758,7 +758,7 @@ func TestService_Delete_Success(t *testing.T) {
 		UpdatedAt:    time.Now(),
 	}
 
-	err := svc.Delete(context.Background(), activityID)
+	err := svc.Delete(context.Background(), uuid.Nil, activityID)
 
 	require.NoError(t, err)
 	assert.NotContains(t, repo.activities, activityID)
@@ -768,7 +768,7 @@ func TestService_Delete_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	err := svc.Delete(context.Background(), uuid.New())
+	err := svc.Delete(context.Background(), uuid.Nil, uuid.New())
 
 	assert.ErrorIs(t, err, ErrActivityNotFound)
 }
@@ -792,7 +792,7 @@ func TestService_Complete_Success(t *testing.T) {
 		UpdatedAt:    time.Now(),
 	}
 
-	activity, err := svc.Complete(context.Background(), activityID)
+	activity, err := svc.Complete(context.Background(), uuid.Nil, activityID)
 
 	require.NoError(t, err)
 	assert.True(t, activity.IsCompleted)
@@ -816,7 +816,7 @@ func TestService_Complete_AlreadyCompleted(t *testing.T) {
 		UpdatedAt:    time.Now(),
 	}
 
-	activity, err := svc.Complete(context.Background(), activityID)
+	activity, err := svc.Complete(context.Background(), uuid.Nil, activityID)
 
 	require.NoError(t, err)
 	assert.True(t, activity.IsCompleted)
@@ -828,7 +828,7 @@ func TestService_Complete_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	_, err := svc.Complete(context.Background(), uuid.New())
+	_, err := svc.Complete(context.Background(), uuid.Nil, uuid.New())
 
 	assert.ErrorIs(t, err, ErrActivityNotFound)
 }
@@ -850,7 +850,7 @@ func TestService_Uncomplete_Success(t *testing.T) {
 		UpdatedAt:    time.Now(),
 	}
 
-	activity, err := svc.Uncomplete(context.Background(), activityID)
+	activity, err := svc.Uncomplete(context.Background(), uuid.Nil, activityID)
 
 	require.NoError(t, err)
 	assert.False(t, activity.IsCompleted)
@@ -872,7 +872,7 @@ func TestService_Uncomplete_AlreadyNotCompleted(t *testing.T) {
 		UpdatedAt:    time.Now(),
 	}
 
-	activity, err := svc.Uncomplete(context.Background(), activityID)
+	activity, err := svc.Uncomplete(context.Background(), uuid.Nil, activityID)
 
 	require.NoError(t, err)
 	assert.False(t, activity.IsCompleted)
@@ -899,7 +899,7 @@ func TestService_AddTags_Success(t *testing.T) {
 	tagID := uuid.New()
 	repo.AddValidTag(tagID, models.EntityTypeActivity)
 
-	activity, err := svc.AddTags(context.Background(), activityID, []uuid.UUID{tagID})
+	activity, err := svc.AddTags(context.Background(), uuid.Nil, activityID, []uuid.UUID{tagID})
 
 	require.NoError(t, err)
 	assert.Equal(t, activityID, activity.ID)
@@ -919,7 +919,7 @@ func TestService_AddTags_TagNotFound(t *testing.T) {
 		UpdatedAt:    time.Now(),
 	}
 
-	_, err := svc.AddTags(context.Background(), activityID, []uuid.UUID{uuid.New()})
+	_, err := svc.AddTags(context.Background(), uuid.Nil, activityID, []uuid.UUID{uuid.New()})
 
 	assert.ErrorIs(t, err, ErrTagNotFound)
 }
@@ -941,7 +941,7 @@ func TestService_AddTags_WrongEntityType(t *testing.T) {
 	tagID := uuid.New()
 	repo.AddValidTag(tagID, models.EntityTypeDeal) // Wrong type - should be activity
 
-	_, err := svc.AddTags(context.Background(), activityID, []uuid.UUID{tagID})
+	_, err := svc.AddTags(context.Background(), uuid.Nil, activityID, []uuid.UUID{tagID})
 
 	assert.ErrorIs(t, err, ErrTagNotFound)
 }
@@ -960,7 +960,7 @@ func TestService_RemoveTags_Success(t *testing.T) {
 		UpdatedAt:    time.Now(),
 	}
 
-	activity, err := svc.RemoveTags(context.Background(), activityID, []uuid.UUID{uuid.New()})
+	activity, err := svc.RemoveTags(context.Background(), uuid.Nil, activityID, []uuid.UUID{uuid.New()})
 
 	require.NoError(t, err)
 	assert.Equal(t, activityID, activity.ID)

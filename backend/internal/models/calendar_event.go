@@ -39,6 +39,7 @@ var ValidRecurringEditScopes = map[string]bool{
 // CalendarEvent represents an event on a calendar
 type CalendarEvent struct {
 	ID              uuid.UUID  `json:"id"`
+	TenantID        uuid.UUID  `json:"tenant_id"`
 	CalendarID      uuid.UUID  `json:"calendar_id"`
 	Title           string     `json:"title"`
 	Description     *string    `json:"description,omitempty"`

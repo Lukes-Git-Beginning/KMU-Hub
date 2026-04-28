@@ -10,6 +10,7 @@ import (
 // Deal represents a sales opportunity in the CRM
 type Deal struct {
 	ID                uuid.UUID       `json:"id"`
+	TenantID          uuid.UUID       `json:"tenant_id"`
 	Name              string          `json:"name"`
 	Value             decimal.Decimal `json:"value"`
 	Currency          string          `json:"currency"`

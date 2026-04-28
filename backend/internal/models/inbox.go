@@ -12,6 +12,7 @@ import (
 // identified by a unique (user_id, channel, source_id) combination.
 type InboxMessage struct {
 	ID            uuid.UUID        `json:"id"`
+	TenantID      uuid.UUID        `json:"tenant_id"`
 	UserID        uuid.UUID        `json:"user_id"`
 	Channel       string           `json:"channel"`
 	SourceID      string           `json:"source_id"`

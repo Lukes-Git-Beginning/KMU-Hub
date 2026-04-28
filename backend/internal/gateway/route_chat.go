@@ -464,7 +464,14 @@ func (ch *ChatRoutes) HandleSendMessage(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
 	grpcReq := &chatv1.SendMessageRequest{
+		TenantId:        tenantID.String(),
 		ChannelId:       channelID,
 		Content:         req.Content,
 		CreatedBy:       userID,

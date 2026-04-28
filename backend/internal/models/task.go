@@ -78,6 +78,7 @@ const (
 // Task represents a work item within a project
 type Task struct {
 	ID           uuid.UUID  `json:"id"`
+	TenantID     uuid.UUID  `json:"tenant_id"`
 	ProjectID    *uuid.UUID `json:"project_id,omitempty"`
 	TaskNumber   int        `json:"task_number"`
 	Title        string     `json:"title"`

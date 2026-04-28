@@ -105,6 +105,7 @@ type CampaignContact struct {
 // CallSession represents a single call attempt against a campaign contact.
 type CallSession struct {
 	ID                uuid.UUID
+	TenantID          uuid.UUID
 	CampaignContactID uuid.UUID
 	CallSessionID     *uuid.UUID // FK to video call_sessions (nullable)
 	AgentID           uuid.UUID

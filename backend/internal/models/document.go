@@ -50,6 +50,7 @@ type DocumentFolder struct {
 // DocumentFile represents a file stored in the document system.
 type DocumentFile struct {
 	ID             uuid.UUID      `json:"id"`
+	TenantID       uuid.UUID      `json:"tenant_id"`
 	FolderID       uuid.UUID      `json:"folder_id"`
 	Filename       string         `json:"filename"`
 	MimeType       string         `json:"mime_type"`

@@ -9,6 +9,7 @@ import (
 // SavedFilter represents a saved filter configuration
 type SavedFilter struct {
 	ID         uuid.UUID  `json:"id"`
+	TenantID   uuid.UUID  `json:"tenant_id"`
 	Name       string     `json:"name"`
 	EntityType EntityType `json:"entity_type"`
 	FilterJSON string     `json:"filter_json"`

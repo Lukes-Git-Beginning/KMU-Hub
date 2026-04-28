@@ -449,7 +449,13 @@ func (s *WorkGRPCServer) CreateTask(ctx context.Context, req *workv1.CreateTaskR
 		return nil, status.Error(codes.InvalidArgument, "invalid created_by")
 	}
 
+	taskTenantID, err := uuid.Parse(req.TenantId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
 	input := task.CreateInput{
+		TenantID:  taskTenantID,
 		Title:     req.Title,
 		Priority:  req.Priority,
 		CreatedBy: createdBy,
@@ -587,7 +593,12 @@ func (s *WorkGRPCServer) ListTasks(ctx context.Context, req *workv1.ListTasksReq
 		filters.DueDateTo = &t
 	}
 
-	tasks, total, err := s.taskService.List(ctx, filters)
+	taskListTenantID, err := uuid.Parse(req.TenantId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
+	tasks, total, err := s.taskService.List(ctx, taskListTenantID, filters)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list tasks")
 	}

@@ -27,10 +27,10 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) Create(ctx context.Context, task *models.Task) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO tasks (id, project_id, task_number, title, description, status_id, priority,
+		`INSERT INTO tasks (id, tenant_id, project_id, task_number, title, description, status_id, priority,
 		  assignee_id, parent_task_id, depth, sort_order, due_date, created_by, created_at, updated_at, completed_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
-		task.ID, task.ProjectID, task.TaskNumber, task.Title, task.Description,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+		task.ID, task.TenantID, task.ProjectID, task.TaskNumber, task.Title, task.Description,
 		task.StatusID, task.Priority, task.AssigneeID, task.ParentTaskID,
 		task.Depth, task.SortOrder, task.DueDate, task.CreatedBy,
 		task.CreatedAt, task.UpdatedAt, task.CompletedAt,
@@ -97,10 +97,10 @@ var validSortColumns = map[string]string{
 	"sort_order":  "t.sort_order",
 }
 
-func (r *PostgresRepository) List(ctx context.Context, filters TaskFilters) ([]models.TaskWithRelations, int, error) {
-	var conditions []string
-	var args []any
-	argIdx := 1
+func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filters TaskFilters) ([]models.TaskWithRelations, int, error) {
+	conditions := []string{fmt.Sprintf("t.tenant_id = $%d", 1)}
+	args := []any{tenantID}
+	argIdx := 2
 
 	if filters.ProjectID != nil {
 		conditions = append(conditions, fmt.Sprintf("t.project_id = $%d", argIdx))

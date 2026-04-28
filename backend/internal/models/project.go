@@ -23,6 +23,7 @@ var ValidProjectRoles = map[string]bool{
 // Project represents a project in the work management system
 type Project struct {
 	ID               uuid.UUID  `json:"id"`
+	TenantID         uuid.UUID  `json:"tenant_id"`
 	Name             string     `json:"name"`
 	Description      *string    `json:"description,omitempty"`
 	ProjectKey       string     `json:"project_key"`

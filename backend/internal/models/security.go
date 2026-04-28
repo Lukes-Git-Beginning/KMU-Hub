@@ -32,6 +32,7 @@ const (
 // AuditEntry represents a single entry in the tamper-evident audit log.
 type AuditEntry struct {
 	ID           uuid.UUID  `json:"id"`
+	TenantID     uuid.UUID  `json:"tenant_id"`
 	SequenceNum  int64      `json:"sequence_num"`
 	Timestamp    time.Time  `json:"timestamp"`
 	UserID       *uuid.UUID `json:"user_id,omitempty"`

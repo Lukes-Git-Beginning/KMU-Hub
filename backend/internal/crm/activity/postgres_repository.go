@@ -26,10 +26,10 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) Create(ctx context.Context, activity *models.Activity) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO activities (id, activity_type, subject, description, contact_id, company_id,
+		`INSERT INTO activities (id, tenant_id, activity_type, subject, description, contact_id, company_id,
 		 deal_id, assigned_to, due_date, is_completed, completed_at, created_by, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-		activity.ID, activity.ActivityType, activity.Subject, activity.Description,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+		activity.ID, activity.TenantID, activity.ActivityType, activity.Subject, activity.Description,
 		activity.ContactID, activity.CompanyID, activity.DealID, activity.AssignedTo,
 		activity.DueDate, activity.IsCompleted, activity.CompletedAt,
 		activity.CreatedBy, activity.CreatedAt, activity.UpdatedAt,
@@ -37,19 +37,19 @@ func (r *PostgresRepository) Create(ctx context.Context, activity *models.Activi
 	return err
 }
 
-func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Activity, error) {
+func (r *PostgresRepository) GetByID(ctx context.Context, id, tenantID uuid.UUID) (*models.Activity, error) {
 	return r.scanActivity(r.pool.QueryRow(ctx,
-		`SELECT id, activity_type, subject, description, contact_id, company_id, deal_id,
+		`SELECT id, tenant_id, activity_type, subject, description, contact_id, company_id, deal_id,
 		 assigned_to, due_date, is_completed, completed_at, created_by, created_at, updated_at
-		 FROM activities WHERE id = $1`, id,
+		 FROM activities WHERE tenant_id = $1 AND id = $2`, tenantID, id,
 	))
 }
 
-func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset, limit int) ([]*models.Activity, int, error) {
-	// Build WHERE clause
-	var conditions []string
-	var args []any
-	argNum := 1
+func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filter ListFilter, offset, limit int) ([]*models.Activity, int, error) {
+	// Build WHERE clause — tenant_id is always the first filter
+	conditions := []string{fmt.Sprintf("tenant_id = $%d", 1)}
+	args := []any{tenantID}
+	argNum := 2
 
 	if filter.ActivityType != nil {
 		conditions = append(conditions, fmt.Sprintf("activity_type = $%d", argNum))
@@ -137,7 +137,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset
 
 	// Query with pagination
 	query := fmt.Sprintf(`
-		SELECT id, activity_type, subject, description, contact_id, company_id, deal_id,
+		SELECT id, tenant_id, activity_type, subject, description, contact_id, company_id, deal_id,
 		       assigned_to, due_date, is_completed, completed_at, created_by, created_at, updated_at
 		FROM activities %s
 		ORDER BY %s %s NULLS LAST
@@ -177,8 +177,8 @@ func (r *PostgresRepository) Update(ctx context.Context, activity *models.Activi
 	return err
 }
 
-func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM activities WHERE id = $1`, id)
+func (r *PostgresRepository) Delete(ctx context.Context, id, tenantID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM activities WHERE tenant_id = $1 AND id = $2`, tenantID, id)
 	return err
 }
 
@@ -417,7 +417,7 @@ func (r *PostgresRepository) GetContactTimeline(ctx context.Context, contactID u
 func (r *PostgresRepository) scanActivity(row pgx.Row) (*models.Activity, error) {
 	var a models.Activity
 	err := row.Scan(
-		&a.ID, &a.ActivityType, &a.Subject, &a.Description,
+		&a.ID, &a.TenantID, &a.ActivityType, &a.Subject, &a.Description,
 		&a.ContactID, &a.CompanyID, &a.DealID, &a.AssignedTo,
 		&a.DueDate, &a.IsCompleted, &a.CompletedAt,
 		&a.CreatedBy, &a.CreatedAt, &a.UpdatedAt,
@@ -432,7 +432,7 @@ func (r *PostgresRepository) scanActivity(row pgx.Row) (*models.Activity, error)
 func (r *PostgresRepository) scanActivityFromRows(rows pgx.Rows) (*models.Activity, error) {
 	var a models.Activity
 	err := rows.Scan(
-		&a.ID, &a.ActivityType, &a.Subject, &a.Description,
+		&a.ID, &a.TenantID, &a.ActivityType, &a.Subject, &a.Description,
 		&a.ContactID, &a.CompanyID, &a.DealID, &a.AssignedTo,
 		&a.DueDate, &a.IsCompleted, &a.CompletedAt,
 		&a.CreatedBy, &a.CreatedAt, &a.UpdatedAt,

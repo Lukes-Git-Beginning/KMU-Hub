@@ -23,6 +23,7 @@ var ValidPriorities = map[string]bool{
 // Notification represents a user notification
 type Notification struct {
 	ID               uuid.UUID  `json:"id"`
+	TenantID         uuid.UUID  `json:"tenant_id"`
 	UserID           uuid.UUID  `json:"user_id"`
 	EventTypeKey     string     `json:"event_type_key"`
 	ModuleID         string     `json:"module_id"`
