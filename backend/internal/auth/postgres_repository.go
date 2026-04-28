@@ -21,9 +21,9 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) CreateUser(ctx context.Context, user *models.User) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO users (id, email, password_hash, first_name, last_name, is_active, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		user.ID, user.Email, user.PasswordHash, user.FirstName, user.LastName,
+		`INSERT INTO users (id, tenant_id, email, password_hash, first_name, last_name, is_active, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		user.ID, user.TenantID, user.Email, user.PasswordHash, user.FirstName, user.LastName,
 		user.IsActive, user.CreatedAt, user.UpdatedAt,
 	)
 	return err
@@ -32,9 +32,9 @@ func (r *PostgresRepository) CreateUser(ctx context.Context, user *models.User) 
 func (r *PostgresRepository) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
 	var user models.User
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, email, password_hash, first_name, last_name, is_active, created_at, updated_at
+		`SELECT id, tenant_id, email, password_hash, first_name, last_name, is_active, created_at, updated_at
 		 FROM users WHERE email = $1`, email,
-	).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName,
+	).Scan(&user.ID, &user.TenantID, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName,
 		&user.IsActive, &user.CreatedAt, &user.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrUserNotFound
@@ -45,9 +45,9 @@ func (r *PostgresRepository) GetUserByEmail(ctx context.Context, email string) (
 func (r *PostgresRepository) GetUserByID(ctx context.Context, id uuid.UUID) (*models.User, error) {
 	var user models.User
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, email, password_hash, first_name, last_name, is_active, created_at, updated_at
+		`SELECT id, tenant_id, email, password_hash, first_name, last_name, is_active, created_at, updated_at
 		 FROM users WHERE id = $1`, id,
-	).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName,
+	).Scan(&user.ID, &user.TenantID, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName,
 		&user.IsActive, &user.CreatedAt, &user.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrUserNotFound
@@ -79,7 +79,7 @@ func (r *PostgresRepository) ListUsers(ctx context.Context, offset, limit int) (
 	}
 
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, email, password_hash, first_name, last_name, is_active, created_at, updated_at
+		`SELECT id, tenant_id, email, password_hash, first_name, last_name, is_active, created_at, updated_at
 		 FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset,
 	)
 	if err != nil {
@@ -90,7 +90,7 @@ func (r *PostgresRepository) ListUsers(ctx context.Context, offset, limit int) (
 	var users []*models.User
 	for rows.Next() {
 		var u models.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.FirstName, &u.LastName,
+		if err := rows.Scan(&u.ID, &u.TenantID, &u.Email, &u.PasswordHash, &u.FirstName, &u.LastName,
 			&u.IsActive, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
