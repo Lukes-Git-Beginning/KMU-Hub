@@ -35,11 +35,15 @@ func (b *BizRoutes) getBizClient() (bizv1.FinanceServiceClient, error) {
 	return bizv1.NewFinanceServiceClient(conn), nil
 }
 
-// getTenantID extracts the tenant identifier from the request context.
-// In single-tenant mode, the user ID is used as the tenant identifier.
-// Multi-tenant support will extract tenant from JWT claims in a future phase.
-func getTenantID(r *http.Request) string {
-	return middleware.GetUserID(r.Context())
+// getTenantID extracts and validates the tenant UUID from the JWT claims in the request context.
+// Returns ErrMissingTenantID (from middleware) when the tid claim is absent or not a valid UUID.
+// Callers must respond with 401 Unauthorized on error.
+func getTenantID(r *http.Request) (string, error) {
+	id, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		return "", err
+	}
+	return id.String(), nil
 }
 
 // RegisterRoutes registers all Finance HTTP routes.
@@ -159,7 +163,11 @@ func (b *BizRoutes) HandleGetCompanySettings(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	resp, err := client.GetCompanySettings(r.Context(), &bizv1.GetCompanySettingsRequest{
 		TenantId: tenantID,
@@ -199,7 +207,11 @@ func (b *BizRoutes) HandleUpdateCompanySettings(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	var req updateCompanySettingsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

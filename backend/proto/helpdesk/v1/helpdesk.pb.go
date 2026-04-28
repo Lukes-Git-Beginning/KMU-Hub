@@ -550,6 +550,7 @@ type CreateTicketRequest struct {
 	Priority      string  `protobuf:"bytes,3,opt,name=priority,proto3" json:"priority,omitempty"`
 	AssigneeId    *string `protobuf:"bytes,4,opt,name=assignee_id,json=assigneeId,proto3,oneof" json:"assignee_id,omitempty"`
 	QueueId       *string `protobuf:"bytes,5,opt,name=queue_id,json=queueId,proto3,oneof" json:"queue_id,omitempty"`
+	TenantId      string  `protobuf:"bytes,6,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -619,6 +620,13 @@ func (x *CreateTicketRequest) GetQueueId() string {
 	return ""
 }
 
+func (x *CreateTicketRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
 type GetTicketRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TicketId      string                 `protobuf:"bytes,1,opt,name=ticket_id,json=ticketId,proto3" json:"ticket_id,omitempty"`
@@ -669,6 +677,7 @@ type ListTicketsRequest struct {
 	StatusFilter  *string `protobuf:"bytes,1,opt,name=status_filter,json=statusFilter,proto3,oneof" json:"status_filter,omitempty"`
 	Page          int32   `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
 	PageSize      int32   `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	TenantId      string  `protobuf:"bytes,4,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -722,6 +731,13 @@ func (x *ListTicketsRequest) GetPageSize() int32 {
 		return x.PageSize
 	}
 	return 0
+}
+
+func (x *ListTicketsRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
 }
 
 type ListTicketsResponse struct {
@@ -1213,6 +1229,7 @@ type CreateQueueRequest struct {
 	Name              string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	DefaultAssigneeId *string                `protobuf:"bytes,2,opt,name=default_assignee_id,json=defaultAssigneeId,proto3,oneof" json:"default_assignee_id,omitempty"`
 	SlaPolicyId       *string                `protobuf:"bytes,3,opt,name=sla_policy_id,json=slaPolicyId,proto3,oneof" json:"sla_policy_id,omitempty"`
+	TenantId          string                 `protobuf:"bytes,4,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -1264,6 +1281,13 @@ func (x *CreateQueueRequest) GetDefaultAssigneeId() string {
 func (x *CreateQueueRequest) GetSlaPolicyId() string {
 	if x != nil && x.SlaPolicyId != nil {
 		return *x.SlaPolicyId
+	}
+	return ""
+}
+
+func (x *CreateQueueRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
 	}
 	return ""
 }
@@ -1338,6 +1362,7 @@ func (x *UpdateQueueRequest) GetSlaPolicyId() string {
 
 type ListQueuesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1370,6 +1395,13 @@ func (x *ListQueuesRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use ListQueuesRequest.ProtoReflect.Descriptor instead.
 func (*ListQueuesRequest) Descriptor() ([]byte, []int) {
 	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *ListQueuesRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
 }
 
 type ListQueuesResponse struct {
@@ -1464,6 +1496,7 @@ type CreateCannedResponseRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Body          string                 `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
+	TenantId      string                 `protobuf:"bytes,3,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1508,6 +1541,13 @@ func (x *CreateCannedResponseRequest) GetName() string {
 func (x *CreateCannedResponseRequest) GetBody() string {
 	if x != nil {
 		return x.Body
+	}
+	return ""
+}
+
+func (x *CreateCannedResponseRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
 	}
 	return ""
 }
@@ -1618,6 +1658,7 @@ func (x *DeleteCannedResponseRequest) GetCannedResponseId() string {
 
 type ListCannedResponsesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1650,6 +1691,13 @@ func (x *ListCannedResponsesRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use ListCannedResponsesRequest.ProtoReflect.Descriptor instead.
 func (*ListCannedResponsesRequest) Descriptor() ([]byte, []int) {
 	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *ListCannedResponsesRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
 }
 
 type ListCannedResponsesResponse struct {
@@ -1703,6 +1751,7 @@ type CreateSLAPolicyRequest struct {
 	ResolutionMins    int32                  `protobuf:"varint,3,opt,name=resolution_mins,json=resolutionMins,proto3" json:"resolution_mins,omitempty"`
 	// JSON-encoded business hours config (optional)
 	BusinessHours *string `protobuf:"bytes,4,opt,name=business_hours,json=businessHours,proto3,oneof" json:"business_hours,omitempty"`
+	TenantId      string  `protobuf:"bytes,5,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1761,6 +1810,13 @@ func (x *CreateSLAPolicyRequest) GetResolutionMins() int32 {
 func (x *CreateSLAPolicyRequest) GetBusinessHours() string {
 	if x != nil && x.BusinessHours != nil {
 		return *x.BusinessHours
+	}
+	return ""
+}
+
+func (x *CreateSLAPolicyRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
 	}
 	return ""
 }
@@ -1844,6 +1900,7 @@ func (x *UpdateSLAPolicyRequest) GetBusinessHours() string {
 
 type ListSLAPoliciesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1876,6 +1933,13 @@ func (x *ListSLAPoliciesRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use ListSLAPoliciesRequest.ProtoReflect.Descriptor instead.
 func (*ListSLAPoliciesRequest) Descriptor() ([]byte, []int) {
 	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *ListSLAPoliciesRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
 }
 
 type ListSLAPoliciesResponse struct {
@@ -2143,22 +2207,24 @@ const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
 	"updated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAtB\x11\n" +
-	"\x0f_business_hours\"\xd1\x01\n" +
+	"\x0f_business_hours\"\xee\x01\n" +
 	"\x13CreateTicketRequest\x12!\n" +
 	"\frequester_id\x18\x01 \x01(\tR\vrequesterId\x12\x18\n" +
 	"\asubject\x18\x02 \x01(\tR\asubject\x12\x1a\n" +
 	"\bpriority\x18\x03 \x01(\tR\bpriority\x12$\n" +
 	"\vassignee_id\x18\x04 \x01(\tH\x00R\n" +
 	"assigneeId\x88\x01\x01\x12\x1e\n" +
-	"\bqueue_id\x18\x05 \x01(\tH\x01R\aqueueId\x88\x01\x01B\x0e\n" +
+	"\bqueue_id\x18\x05 \x01(\tH\x01R\aqueueId\x88\x01\x01\x12\x1b\n" +
+	"\ttenant_id\x18\x06 \x01(\tR\btenantIdB\x0e\n" +
 	"\f_assignee_idB\v\n" +
 	"\t_queue_id\"/\n" +
 	"\x10GetTicketRequest\x12\x1b\n" +
-	"\tticket_id\x18\x01 \x01(\tR\bticketId\"\x81\x01\n" +
+	"\tticket_id\x18\x01 \x01(\tR\bticketId\"\x9e\x01\n" +
 	"\x12ListTicketsRequest\x12(\n" +
 	"\rstatus_filter\x18\x01 \x01(\tH\x00R\fstatusFilter\x88\x01\x01\x12\x12\n" +
 	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1b\n" +
-	"\tpage_size\x18\x03 \x01(\x05R\bpageSizeB\x10\n" +
+	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\x12\x1b\n" +
+	"\ttenant_id\x18\x04 \x01(\tR\btenantIdB\x10\n" +
 	"\x0e_status_filter\"Z\n" +
 	"\x13ListTicketsResponse\x12-\n" +
 	"\atickets\x18\x01 \x03(\v2\x13.helpdesk.v1.TicketR\atickets\x12\x14\n" +
@@ -2195,11 +2261,12 @@ const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"\x13ListMessagesRequest\x12\x1b\n" +
 	"\tticket_id\x18\x01 \x01(\tR\bticketId\"N\n" +
 	"\x14ListMessagesResponse\x126\n" +
-	"\bmessages\x18\x01 \x03(\v2\x1a.helpdesk.v1.TicketMessageR\bmessages\"\xb0\x01\n" +
+	"\bmessages\x18\x01 \x03(\v2\x1a.helpdesk.v1.TicketMessageR\bmessages\"\xcd\x01\n" +
 	"\x12CreateQueueRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x123\n" +
 	"\x13default_assignee_id\x18\x02 \x01(\tH\x00R\x11defaultAssigneeId\x88\x01\x01\x12'\n" +
-	"\rsla_policy_id\x18\x03 \x01(\tH\x01R\vslaPolicyId\x88\x01\x01B\x16\n" +
+	"\rsla_policy_id\x18\x03 \x01(\tH\x01R\vslaPolicyId\x88\x01\x01\x12\x1b\n" +
+	"\ttenant_id\x18\x04 \x01(\tR\btenantIdB\x16\n" +
 	"\x14_default_assignee_idB\x10\n" +
 	"\x0e_sla_policy_id\"\xd9\x01\n" +
 	"\x12UpdateQueueRequest\x12\x19\n" +
@@ -2209,15 +2276,17 @@ const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"\rsla_policy_id\x18\x04 \x01(\tH\x02R\vslaPolicyId\x88\x01\x01B\a\n" +
 	"\x05_nameB\x16\n" +
 	"\x14_default_assignee_idB\x10\n" +
-	"\x0e_sla_policy_id\"\x13\n" +
-	"\x11ListQueuesRequest\"F\n" +
+	"\x0e_sla_policy_id\"0\n" +
+	"\x11ListQueuesRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"F\n" +
 	"\x12ListQueuesResponse\x120\n" +
 	"\x06queues\x18\x01 \x03(\v2\x18.helpdesk.v1.TicketQueueR\x06queues\"/\n" +
 	"\x12DeleteQueueRequest\x12\x19\n" +
-	"\bqueue_id\x18\x01 \x01(\tR\aqueueId\"E\n" +
+	"\bqueue_id\x18\x01 \x01(\tR\aqueueId\"b\n" +
 	"\x1bCreateCannedResponseRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
-	"\x04body\x18\x02 \x01(\tR\x04body\"\x8f\x01\n" +
+	"\x04body\x18\x02 \x01(\tR\x04body\x12\x1b\n" +
+	"\ttenant_id\x18\x03 \x01(\tR\btenantId\"\x8f\x01\n" +
 	"\x1bUpdateCannedResponseRequest\x12,\n" +
 	"\x12canned_response_id\x18\x01 \x01(\tR\x10cannedResponseId\x12\x17\n" +
 	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x17\n" +
@@ -2225,15 +2294,17 @@ const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"\x05_nameB\a\n" +
 	"\x05_body\"K\n" +
 	"\x1bDeleteCannedResponseRequest\x12,\n" +
-	"\x12canned_response_id\x18\x01 \x01(\tR\x10cannedResponseId\"\x1c\n" +
-	"\x1aListCannedResponsesRequest\"e\n" +
+	"\x12canned_response_id\x18\x01 \x01(\tR\x10cannedResponseId\"9\n" +
+	"\x1aListCannedResponsesRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"e\n" +
 	"\x1bListCannedResponsesResponse\x12F\n" +
-	"\x10canned_responses\x18\x01 \x03(\v2\x1b.helpdesk.v1.CannedResponseR\x0fcannedResponses\"\xc4\x01\n" +
+	"\x10canned_responses\x18\x01 \x03(\v2\x1b.helpdesk.v1.CannedResponseR\x0fcannedResponses\"\xe1\x01\n" +
 	"\x16CreateSLAPolicyRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12.\n" +
 	"\x13first_response_mins\x18\x02 \x01(\x05R\x11firstResponseMins\x12'\n" +
 	"\x0fresolution_mins\x18\x03 \x01(\x05R\x0eresolutionMins\x12*\n" +
-	"\x0ebusiness_hours\x18\x04 \x01(\tH\x00R\rbusinessHours\x88\x01\x01B\x11\n" +
+	"\x0ebusiness_hours\x18\x04 \x01(\tH\x00R\rbusinessHours\x88\x01\x01\x12\x1b\n" +
+	"\ttenant_id\x18\x05 \x01(\tR\btenantIdB\x11\n" +
 	"\x0f_business_hours\"\xac\x02\n" +
 	"\x16UpdateSLAPolicyRequest\x12\"\n" +
 	"\rsla_policy_id\x18\x01 \x01(\tR\vslaPolicyId\x12\x17\n" +
@@ -2244,8 +2315,9 @@ const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"\x05_nameB\x16\n" +
 	"\x14_first_response_minsB\x12\n" +
 	"\x10_resolution_minsB\x11\n" +
-	"\x0f_business_hours\"\x18\n" +
-	"\x16ListSLAPoliciesRequest\"M\n" +
+	"\x0f_business_hours\"5\n" +
+	"\x16ListSLAPoliciesRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"M\n" +
 	"\x17ListSLAPoliciesResponse\x122\n" +
 	"\bpolicies\x18\x01 \x03(\v2\x16.helpdesk.v1.SLAPolicyR\bpolicies\"X\n" +
 	"\x15ApplySLAPolicyRequest\x12\x1b\n" +

@@ -31,7 +31,11 @@ func (b *BizRoutes) HandleCreateCreditNote(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	userID := middleware.GetUserID(r.Context())
 
 	var req createCreditNoteRequest
@@ -64,7 +68,11 @@ func (b *BizRoutes) HandleListCreditNotes(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	page, pageSize := parsePagination(r, 1, 50)
 
 	resp, err := client.ListCreditNotes(r.Context(), &bizv1.ListCreditNotesRequest{
@@ -91,7 +99,11 @@ func (b *BizRoutes) HandleGetCreditNote(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	resp, err := client.GetCreditNote(r.Context(), &bizv1.GetCreditNoteRequest{
@@ -113,7 +125,11 @@ func (b *BizRoutes) HandleSendCreditNote(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	resp, err := client.SendCreditNote(r.Context(), &bizv1.SendCreditNoteRequest{
@@ -135,7 +151,11 @@ func (b *BizRoutes) HandleGenerateCreditNotePDF(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	resp, err := client.GenerateCreditNotePDF(r.Context(), &bizv1.GenerateCreditNotePDFRequest{
@@ -169,7 +189,11 @@ func (b *BizRoutes) HandleRecordPayment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	userID := middleware.GetUserID(r.Context())
 	invoiceID := chi.URLParam(r, "id")
 
@@ -204,7 +228,11 @@ func (b *BizRoutes) HandleListPayments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	invoiceID := chi.URLParam(r, "id")
 	page, pageSize := parsePagination(r, 1, 50)
 
@@ -232,7 +260,11 @@ func (b *BizRoutes) HandleDeletePayment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	_, err = client.DeletePayment(r.Context(), &bizv1.DeletePaymentRequest{
@@ -258,7 +290,11 @@ func (b *BizRoutes) HandleListDunnings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	page, pageSize := parsePagination(r, 1, 50)
 
 	resp, err := client.ListDunnings(r.Context(), &bizv1.ListDunningsRequest{
@@ -293,7 +329,11 @@ func (b *BizRoutes) HandleCreateDunning(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	userID := middleware.GetUserID(r.Context())
 
 	var req createDunningRequest
@@ -325,7 +365,11 @@ func (b *BizRoutes) HandleSendDunning(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	resp, err := client.SendDunning(r.Context(), &bizv1.SendDunningRequest{
@@ -347,7 +391,11 @@ func (b *BizRoutes) HandleEscalateDunning(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	userID := middleware.GetUserID(r.Context())
 
 	// The escalate endpoint uses the dunning ID from the URL, but the proto
@@ -380,7 +428,11 @@ func (b *BizRoutes) HandleGenerateDunningPDF(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	resp, err := client.GenerateDunningPDF(r.Context(), &bizv1.GenerateDunningPDFRequest{
@@ -402,7 +454,11 @@ func (b *BizRoutes) HandleGetDunningConfig(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	resp, err := client.GetDunningConfig(r.Context(), &bizv1.GetDunningConfigRequest{
 		TenantId: tenantID,
@@ -431,7 +487,11 @@ func (b *BizRoutes) HandleUpdateDunningConfig(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	var req updateDunningConfigRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -470,7 +530,11 @@ func (b *BizRoutes) HandleGetFinanceDashboard(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	resp, err := client.GetFinanceDashboard(r.Context(), &bizv1.GetFinanceDashboardRequest{
 		TenantId: tenantID,
@@ -500,7 +564,11 @@ func (b *BizRoutes) HandleExportDATEV(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	var req exportDATEVRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -538,7 +606,11 @@ func (b *BizRoutes) HandleGetJournalSummary(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	yearStr := r.URL.Query().Get("year")
 	if yearStr == "" {
 		response.Error(w, http.StatusBadRequest, "year query parameter is required")
@@ -571,7 +643,11 @@ func (b *BizRoutes) HandleValidateInvoiceNumber(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	number := r.URL.Query().Get("number")
 	if number == "" {
 		response.Error(w, http.StatusBadRequest, "number query parameter is required")
@@ -599,7 +675,11 @@ func (b *BizRoutes) HandleLockInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	id := chi.URLParam(r, "id")
 	userID := middleware.GetUserID(r.Context())
 
@@ -625,7 +705,11 @@ func (b *BizRoutes) HandleGetPaymentStats(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	fromDate := r.URL.Query().Get("from")
 	toDate := r.URL.Query().Get("to")
 	if fromDate == "" || toDate == "" {
@@ -655,7 +739,11 @@ func (b *BizRoutes) HandleUpdateDunningStatus(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	var req struct {
@@ -688,7 +776,11 @@ func (b *BizRoutes) HandleSendDunningNotice(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	resp, err := client.SendDunningNotice(r.Context(), &bizv1.SendDunningNoticeRequest{
@@ -715,7 +807,11 @@ func (b *BizRoutes) HandleGenerateGoBDExport(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	var req struct {
 		FromDate string `json:"from_date"`

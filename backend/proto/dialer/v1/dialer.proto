@@ -229,6 +229,7 @@ message CreateCampaignRequest {
   repeated string assigned_agent_ids = 4;
   // JSON-encoded campaign settings
   optional string settings = 5;
+  string tenant_id = 6;
 }
 
 message GetCampaignRequest {
@@ -239,6 +240,7 @@ message ListCampaignsRequest {
   optional CampaignStatus status_filter = 1;
   int32 page = 2;
   int32 page_size = 3;
+  string tenant_id = 4;
 }
 
 message ListCampaignsResponse {
@@ -351,6 +353,7 @@ message SetAgentStatusRequest {
   string user_id = 1;
   AgentDialerStatus status = 2;
   optional string campaign_id = 3;
+  string tenant_id = 4;
 }
 
 message GetAgentStatusRequest {
@@ -372,6 +375,7 @@ message GetCampaignAgentsResponse {
 message ListCallOutcomesRequest {
   // When false, returns only active outcomes; omit to return all
   optional bool include_inactive = 1;
+  string tenant_id = 2;
 }
 
 message ListCallOutcomesResponse {
@@ -385,6 +389,7 @@ message CreateCallOutcomeRequest {
   bool is_callback = 4;
   bool is_appointment = 5;
   int32 sort_order = 6;
+  string tenant_id = 7;
 }
 
 message UpdateCallOutcomeRequest {

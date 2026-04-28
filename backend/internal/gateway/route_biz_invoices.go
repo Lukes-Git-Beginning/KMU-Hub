@@ -34,7 +34,11 @@ func (b *BizRoutes) HandleCreateInvoice(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	userID := middleware.GetUserID(r.Context())
 
 	var req createInvoiceRequest
@@ -71,7 +75,11 @@ func (b *BizRoutes) HandleListInvoices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	page, pageSize := parsePagination(r, 1, 50)
 
 	req := &bizv1.ListInvoicesRequest{
@@ -100,7 +108,11 @@ func (b *BizRoutes) HandleGetInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	resp, err := client.GetInvoice(r.Context(), &bizv1.GetInvoiceRequest{
@@ -133,7 +145,11 @@ func (b *BizRoutes) HandleUpdateInvoice(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	var req updateInvoiceRequest
@@ -169,7 +185,11 @@ func (b *BizRoutes) HandleSendInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	resp, err := client.SendInvoice(r.Context(), &bizv1.SendInvoiceRequest{
@@ -191,7 +211,11 @@ func (b *BizRoutes) HandleMarkInvoicePaid(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	resp, err := client.MarkInvoicePaid(r.Context(), &bizv1.MarkInvoicePaidRequest{
@@ -213,7 +237,11 @@ func (b *BizRoutes) HandleCancelInvoice(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	resp, err := client.CancelInvoice(r.Context(), &bizv1.CancelInvoiceRequest{
@@ -235,7 +263,11 @@ func (b *BizRoutes) HandleGenerateInvoicePDF(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	// ZUGFeRD format: embed Factur-X XML into the PDF

@@ -116,7 +116,11 @@ func (br *BexioRoutes) HandleGetAuthURL(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	resp, err := client.GetBexioAuthURL(r.Context(), &bizv1.GetBexioAuthURLRequest{
 		TenantId:    tenantID,
@@ -140,7 +144,11 @@ func (br *BexioRoutes) HandleDisconnect(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	_, err = client.DisconnectBexio(r.Context(), &bizv1.DisconnectBexioRequest{
 		TenantId: tenantID,
@@ -161,7 +169,11 @@ func (br *BexioRoutes) HandleGetConnectionStatus(w http.ResponseWriter, r *http.
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	resp, err := client.GetBexioConnectionStatus(r.Context(), &bizv1.GetBexioConnectionStatusRequest{
 		TenantId: tenantID,
@@ -194,7 +206,11 @@ func (br *BexioRoutes) HandleTriggerSync(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	var body struct {
 		SyncType string `json:"sync_type"`
@@ -229,7 +245,11 @@ func (br *BexioRoutes) HandleGetSyncStatus(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	resp, err := client.GetBexioSyncStatus(r.Context(), &bizv1.GetBexioSyncStatusRequest{
 		TenantId: tenantID,
@@ -272,7 +292,11 @@ func (br *BexioRoutes) HandleListSyncLogs(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	limit := parseLimit(r, 20, 100)
 
 	resp, err := client.ListBexioSyncLogs(r.Context(), &bizv1.ListBexioSyncLogsRequest{
@@ -320,7 +344,11 @@ func (br *BexioRoutes) HandleGetFieldMappings(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	entityType := chi.URLParam(r, "entity_type")
 
 	resp, err := client.GetBexioFieldMappings(r.Context(), &bizv1.GetBexioFieldMappingsRequest{
@@ -343,7 +371,11 @@ func (br *BexioRoutes) HandleUpdateFieldMappings(w http.ResponseWriter, r *http.
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	entityType := chi.URLParam(r, "entity_type")
 
 	var body struct {
@@ -379,7 +411,11 @@ func (br *BexioRoutes) HandlePushInvoice(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	invoiceID := chi.URLParam(r, "invoice_id")
 
 	resp, err := client.PushInvoiceToBexio(r.Context(), &bizv1.PushInvoiceToBexioRequest{
@@ -412,7 +448,11 @@ func (br *BexioRoutes) HandlePushQuote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	quoteID := chi.URLParam(r, "quote_id")
 
 	resp, err := client.PushQuoteToBexio(r.Context(), &bizv1.PushQuoteToBexioRequest{

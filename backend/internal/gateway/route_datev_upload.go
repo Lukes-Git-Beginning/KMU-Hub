@@ -76,7 +76,11 @@ func (dr *DatevUploadRoutes) HandleGetAuthURL(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	resp, err := client.GetDatevAuthURL(r.Context(), &bizv1.GetDatevAuthURLRequest{
 		TenantId:    tenantID,
@@ -139,7 +143,11 @@ func (dr *DatevUploadRoutes) HandleDisconnect(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	_, err = client.DisconnectDatev(r.Context(), &bizv1.DisconnectDatevRequest{
 		TenantId: tenantID,
@@ -160,7 +168,11 @@ func (dr *DatevUploadRoutes) HandleGetConnectionStatus(w http.ResponseWriter, r 
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	resp, err := client.GetDatevConnectionStatus(r.Context(), &bizv1.GetDatevConnectionStatusRequest{
 		TenantId: tenantID,
@@ -187,7 +199,11 @@ func (dr *DatevUploadRoutes) HandleUploadBuchungsstapel(w http.ResponseWriter, r
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	var body struct {
 		StartDate       string `json:"start_date"`
@@ -230,7 +246,11 @@ func (dr *DatevUploadRoutes) HandleUploadBeleg(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	invoiceID := chi.URLParam(r, "invoice_id")
 
 	resp, err := client.UploadDatevBeleg(r.Context(), &bizv1.UploadDatevBelegRequest{
@@ -264,7 +284,11 @@ func (dr *DatevUploadRoutes) HandleGetUploadConfig(w http.ResponseWriter, r *htt
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	resp, err := client.GetDatevUploadConfig(r.Context(), &bizv1.GetDatevUploadConfigRequest{
 		TenantId: tenantID,
@@ -289,7 +313,11 @@ func (dr *DatevUploadRoutes) HandleUpdateUploadConfig(w http.ResponseWriter, r *
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	var body struct {
 		ClientNumber      string `json:"client_number"`
@@ -327,7 +355,11 @@ func (dr *DatevUploadRoutes) HandleListUploadLogs(w http.ResponseWriter, r *http
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	limit := parseLimit(r, 20, 100)
 
 	resp, err := client.ListDatevUploadLogs(r.Context(), &bizv1.ListDatevUploadLogsRequest{

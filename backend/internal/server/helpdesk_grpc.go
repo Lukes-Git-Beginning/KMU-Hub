@@ -26,18 +26,15 @@ func NewHelpdeskGRPCServer(svc *helpdesk.Service) *HelpdeskGRPCServer {
 	return &HelpdeskGRPCServer{svc: svc}
 }
 
-// extractHelpdeskTenantID returns the tenant UUID.
-// TODO(Phase 3): extract from JWT claims via gRPC metadata.
-func extractHelpdeskTenantID() uuid.UUID {
-	return uuid.MustParse("00000000-0000-0000-0000-000000000001")
-}
-
 // ============================================================================
 // Ticket Lifecycle (8 RPCs)
 // ============================================================================
 
 func (s *HelpdeskGRPCServer) CreateTicket(ctx context.Context, req *helpdeskv1.CreateTicketRequest) (*helpdeskv1.Ticket, error) {
-	tenantID := extractHelpdeskTenantID()
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
+	}
 
 	requesterID, err := uuid.Parse(req.GetRequesterId())
 	if err != nil {
@@ -82,7 +79,10 @@ func (s *HelpdeskGRPCServer) GetTicket(ctx context.Context, req *helpdeskv1.GetT
 }
 
 func (s *HelpdeskGRPCServer) ListTickets(ctx context.Context, req *helpdeskv1.ListTicketsRequest) (*helpdeskv1.ListTicketsResponse, error) {
-	tenantID := extractHelpdeskTenantID()
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
+	}
 
 	var statusFilter *string
 	if req.StatusFilter != nil {
@@ -239,7 +239,10 @@ func (s *HelpdeskGRPCServer) ListMessages(ctx context.Context, req *helpdeskv1.L
 // ============================================================================
 
 func (s *HelpdeskGRPCServer) CreateQueue(ctx context.Context, req *helpdeskv1.CreateQueueRequest) (*helpdeskv1.TicketQueue, error) {
-	tenantID := extractHelpdeskTenantID()
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
+	}
 
 	var defaultAssigneeID *uuid.UUID
 	if req.DefaultAssigneeId != nil {
@@ -297,8 +300,11 @@ func (s *HelpdeskGRPCServer) UpdateQueue(ctx context.Context, req *helpdeskv1.Up
 	return ticketQueueToProto(q), nil
 }
 
-func (s *HelpdeskGRPCServer) ListQueues(ctx context.Context, _ *helpdeskv1.ListQueuesRequest) (*helpdeskv1.ListQueuesResponse, error) {
-	tenantID := extractHelpdeskTenantID()
+func (s *HelpdeskGRPCServer) ListQueues(ctx context.Context, req *helpdeskv1.ListQueuesRequest) (*helpdeskv1.ListQueuesResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
+	}
 	queues, err := s.svc.ListQueues(ctx, tenantID)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
@@ -326,7 +332,10 @@ func (s *HelpdeskGRPCServer) DeleteQueue(ctx context.Context, req *helpdeskv1.De
 // ============================================================================
 
 func (s *HelpdeskGRPCServer) CreateCannedResponse(ctx context.Context, req *helpdeskv1.CreateCannedResponseRequest) (*helpdeskv1.CannedResponse, error) {
-	tenantID := extractHelpdeskTenantID()
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
+	}
 	cr, err := s.svc.CreateCannedResponse(ctx, tenantID, req.GetName(), req.GetBody())
 	if err != nil {
 		return nil, mapHelpdeskError(err)
@@ -357,8 +366,11 @@ func (s *HelpdeskGRPCServer) DeleteCannedResponse(ctx context.Context, req *help
 	return &emptypb.Empty{}, nil
 }
 
-func (s *HelpdeskGRPCServer) ListCannedResponses(ctx context.Context, _ *helpdeskv1.ListCannedResponsesRequest) (*helpdeskv1.ListCannedResponsesResponse, error) {
-	tenantID := extractHelpdeskTenantID()
+func (s *HelpdeskGRPCServer) ListCannedResponses(ctx context.Context, req *helpdeskv1.ListCannedResponsesRequest) (*helpdeskv1.ListCannedResponsesResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
+	}
 	list, err := s.svc.ListCannedResponses(ctx, tenantID)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
@@ -375,7 +387,10 @@ func (s *HelpdeskGRPCServer) ListCannedResponses(ctx context.Context, _ *helpdes
 // ============================================================================
 
 func (s *HelpdeskGRPCServer) CreateSLAPolicy(ctx context.Context, req *helpdeskv1.CreateSLAPolicyRequest) (*helpdeskv1.SLAPolicy, error) {
-	tenantID := extractHelpdeskTenantID()
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
+	}
 
 	var businessHours map[string]any
 	if req.BusinessHours != nil && req.GetBusinessHours() != "" {
@@ -424,8 +439,11 @@ func (s *HelpdeskGRPCServer) UpdateSLAPolicy(ctx context.Context, req *helpdeskv
 	return slaPolicyToProto(p), nil
 }
 
-func (s *HelpdeskGRPCServer) ListSLAPolicies(ctx context.Context, _ *helpdeskv1.ListSLAPoliciesRequest) (*helpdeskv1.ListSLAPoliciesResponse, error) {
-	tenantID := extractHelpdeskTenantID()
+func (s *HelpdeskGRPCServer) ListSLAPolicies(ctx context.Context, req *helpdeskv1.ListSLAPoliciesRequest) (*helpdeskv1.ListSLAPoliciesResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
+	}
 	policies, err := s.svc.ListSLAPolicies(ctx, tenantID)
 	if err != nil {
 		return nil, mapHelpdeskError(err)

@@ -125,7 +125,11 @@ func (h *HRRoutes) HandleCreateLeaveRequest(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	userID := middleware.GetUserID(r.Context())
 
 	var req createLeaveRequestHTTPReq
@@ -172,7 +176,11 @@ func (h *HRRoutes) HandleListLeaveRequests(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	page, pageSize := parsePagination(r, 1, 50)
 
 	grpcReq := &hrv1.ListLeaveRequestsReq{
@@ -306,7 +314,11 @@ func (h *HRRoutes) HandleGetLeaveBalance(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	userID := middleware.GetUserID(r.Context())
 
 	resp, err := client.GetLeaveBalance(r.Context(), &hrv1.GetLeaveBalanceReq{
@@ -328,7 +340,11 @@ func (h *HRRoutes) HandleGetEmployeeLeaveBalance(w http.ResponseWriter, r *http.
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	employeeID := chi.URLParam(r, "userId")
 
 	resp, err := client.GetEmployeeLeaveBalance(r.Context(), &hrv1.GetEmployeeLeaveBalanceReq{
@@ -350,7 +366,11 @@ func (h *HRRoutes) HandleListLeaveTypes(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	resp, err := client.ListLeaveTypes(r.Context(), &hrv1.ListLeaveTypesReq{
 		TenantId: tenantID,
@@ -376,7 +396,11 @@ func (h *HRRoutes) HandleRecordSickLeave(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	userID := middleware.GetUserID(r.Context())
 
 	var req recordSickLeaveHTTPReq
@@ -414,7 +438,11 @@ func (h *HRRoutes) HandleClockIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	userID := middleware.GetUserID(r.Context())
 
 	resp, err := client.ClockIn(r.Context(), &hrv1.ClockInReq{
@@ -436,7 +464,11 @@ func (h *HRRoutes) HandleClockOut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	userID := middleware.GetUserID(r.Context())
 
 	resp, err := client.ClockOut(r.Context(), &hrv1.ClockOutReq{
@@ -591,7 +623,11 @@ func (h *HRRoutes) HandleListWorkTimeEntries(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	page, pageSize := parsePagination(r, 1, 50)
 
 	grpcReq := &hrv1.ListWorkTimeEntriesReq{
@@ -685,7 +721,11 @@ func (h *HRRoutes) HandleSubmitCorrection(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	userID := middleware.GetUserID(r.Context())
 
 	var req submitCorrectionHTTPReq
@@ -756,7 +796,11 @@ func (h *HRRoutes) HandleGetAbsenceCalendar(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	grpcReq := &hrv1.GetAbsenceCalendarReq{
 		TenantId:   tenantID,
@@ -785,7 +829,11 @@ func (h *HRRoutes) HandleListEmployees(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	page, pageSize := parsePagination(r, 1, 50)
 
 	resp, err := client.ListEmployees(r.Context(), &hrv1.ListEmployeesReq{
@@ -964,7 +1012,11 @@ func (h *HRRoutes) HandleUploadEmployeeDocument(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	employeeID := chi.URLParam(r, "id")
 	uploadedBy := middleware.GetUserID(r.Context())
 
@@ -1001,7 +1053,11 @@ func (h *HRRoutes) HandleGetHRSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	resp, err := client.GetHRSettings(r.Context(), &hrv1.GetHRSettingsReq{
 		TenantId: tenantID,
@@ -1028,7 +1084,11 @@ func (h *HRRoutes) HandleUpdateHRSettings(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	var req updateHRSettingsHTTPReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

@@ -339,10 +339,12 @@ func (wr *WikiRoutes) HandleSearchArticles(w http.ResponseWriter, r *http.Reques
 // ============================================================================
 
 func (wr *WikiRoutes) HandleListVersions(w http.ResponseWriter, r *http.Request) {
-	if _, err := middleware.GetTenantID(r.Context()); err != nil {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
 		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
 		return
 	}
+	_ = tenantID // validated; article_id already scopes to tenant via FK
 	client, err := wr.getWikiClient()
 	if err != nil {
 		respondServiceUnavailable(w, wr.ServiceName())
@@ -405,10 +407,12 @@ func (wr *WikiRoutes) HandleRestoreVersion(w http.ResponseWriter, r *http.Reques
 // ============================================================================
 
 func (wr *WikiRoutes) HandleListAttachments(w http.ResponseWriter, r *http.Request) {
-	if _, err := middleware.GetTenantID(r.Context()); err != nil {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
 		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
 		return
 	}
+	_ = tenantID // validated; article_id already scopes to tenant via FK
 	client, err := wr.getWikiClient()
 	if err != nil {
 		respondServiceUnavailable(w, wr.ServiceName())
@@ -431,10 +435,12 @@ func (wr *WikiRoutes) HandleListAttachments(w http.ResponseWriter, r *http.Reque
 }
 
 func (wr *WikiRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.Request) {
-	if _, err := middleware.GetTenantID(r.Context()); err != nil {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
 		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
 		return
 	}
+	_ = tenantID // validated; article_id already scopes to tenant via FK
 	client, err := wr.getWikiClient()
 	if err != nil {
 		respondServiceUnavailable(w, wr.ServiceName())
@@ -475,10 +481,12 @@ func (wr *WikiRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.Requ
 }
 
 func (wr *WikiRoutes) HandleDeleteAttachment(w http.ResponseWriter, r *http.Request) {
-	if _, err := middleware.GetTenantID(r.Context()); err != nil {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
 		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
 		return
 	}
+	_ = tenantID // validated; attachment_id already scopes to tenant via article FK
 	client, err := wr.getWikiClient()
 	if err != nil {
 		respondServiceUnavailable(w, wr.ServiceName())

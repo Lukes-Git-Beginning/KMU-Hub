@@ -1302,6 +1302,7 @@ type CreateCampaignRequest struct {
 	AssignedAgentIds []string     `protobuf:"bytes,4,rep,name=assigned_agent_ids,json=assignedAgentIds,proto3" json:"assigned_agent_ids,omitempty"`
 	// JSON-encoded campaign settings
 	Settings      *string `protobuf:"bytes,5,opt,name=settings,proto3,oneof" json:"settings,omitempty"`
+	TenantId      string  `protobuf:"bytes,6,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1371,6 +1372,13 @@ func (x *CreateCampaignRequest) GetSettings() string {
 	return ""
 }
 
+func (x *CreateCampaignRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
 type GetCampaignRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	CampaignId    string                 `protobuf:"bytes,1,opt,name=campaign_id,json=campaignId,proto3" json:"campaign_id,omitempty"`
@@ -1420,6 +1428,7 @@ type ListCampaignsRequest struct {
 	StatusFilter  *CampaignStatus        `protobuf:"varint,1,opt,name=status_filter,json=statusFilter,proto3,enum=dialer.v1.CampaignStatus,oneof" json:"status_filter,omitempty"`
 	Page          int32                  `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
 	PageSize      int32                  `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	TenantId      string                 `protobuf:"bytes,4,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1473,6 +1482,13 @@ func (x *ListCampaignsRequest) GetPageSize() int32 {
 		return x.PageSize
 	}
 	return 0
+}
+
+func (x *ListCampaignsRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
 }
 
 type ListCampaignsResponse struct {
@@ -2403,6 +2419,7 @@ type SetAgentStatusRequest struct {
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	Status        AgentDialerStatus      `protobuf:"varint,2,opt,name=status,proto3,enum=dialer.v1.AgentDialerStatus" json:"status,omitempty"`
 	CampaignId    *string                `protobuf:"bytes,3,opt,name=campaign_id,json=campaignId,proto3,oneof" json:"campaign_id,omitempty"`
+	TenantId      string                 `protobuf:"bytes,4,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2454,6 +2471,13 @@ func (x *SetAgentStatusRequest) GetStatus() AgentDialerStatus {
 func (x *SetAgentStatusRequest) GetCampaignId() string {
 	if x != nil && x.CampaignId != nil {
 		return *x.CampaignId
+	}
+	return ""
+}
+
+func (x *SetAgentStatusRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
 	}
 	return ""
 }
@@ -2593,7 +2617,8 @@ func (x *GetCampaignAgentsResponse) GetAgents() []*AgentStatus {
 type ListCallOutcomesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// When false, returns only active outcomes; omit to return all
-	IncludeInactive *bool `protobuf:"varint,1,opt,name=include_inactive,json=includeInactive,proto3,oneof" json:"include_inactive,omitempty"`
+	IncludeInactive *bool  `protobuf:"varint,1,opt,name=include_inactive,json=includeInactive,proto3,oneof" json:"include_inactive,omitempty"`
+	TenantId        string `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -2633,6 +2658,13 @@ func (x *ListCallOutcomesRequest) GetIncludeInactive() bool {
 		return *x.IncludeInactive
 	}
 	return false
+}
+
+func (x *ListCallOutcomesRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
 }
 
 type ListCallOutcomesResponse struct {
@@ -2687,6 +2719,7 @@ type CreateCallOutcomeRequest struct {
 	IsCallback    bool                   `protobuf:"varint,4,opt,name=is_callback,json=isCallback,proto3" json:"is_callback,omitempty"`
 	IsAppointment bool                   `protobuf:"varint,5,opt,name=is_appointment,json=isAppointment,proto3" json:"is_appointment,omitempty"`
 	SortOrder     int32                  `protobuf:"varint,6,opt,name=sort_order,json=sortOrder,proto3" json:"sort_order,omitempty"`
+	TenantId      string                 `protobuf:"bytes,7,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2761,6 +2794,13 @@ func (x *CreateCallOutcomeRequest) GetSortOrder() int32 {
 		return x.SortOrder
 	}
 	return 0
+}
+
+func (x *CreateCallOutcomeRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
 }
 
 type UpdateCallOutcomeRequest struct {
@@ -3134,22 +3174,24 @@ const file_proto_dialer_v1_dialer_proto_rawDesc = "" +
 	"\x12active_campaign_id\x18\x06 \x01(\tH\x00R\x10activeCampaignId\x88\x01\x01\x125\n" +
 	"\x14active_campaign_name\x18\a \x01(\tH\x01R\x12activeCampaignName\x88\x01\x01B\x15\n" +
 	"\x13_active_campaign_idB\x17\n" +
-	"\x15_active_campaign_name\"\xeb\x01\n" +
+	"\x15_active_campaign_name\"\x88\x02\n" +
 	"\x15CreateCampaignRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12%\n" +
 	"\vdescription\x18\x02 \x01(\tH\x00R\vdescription\x88\x01\x01\x12+\n" +
 	"\x04mode\x18\x03 \x01(\x0e2\x17.dialer.v1.CampaignModeR\x04mode\x12,\n" +
 	"\x12assigned_agent_ids\x18\x04 \x03(\tR\x10assignedAgentIds\x12\x1f\n" +
-	"\bsettings\x18\x05 \x01(\tH\x01R\bsettings\x88\x01\x01B\x0e\n" +
+	"\bsettings\x18\x05 \x01(\tH\x01R\bsettings\x88\x01\x01\x12\x1b\n" +
+	"\ttenant_id\x18\x06 \x01(\tR\btenantIdB\x0e\n" +
 	"\f_descriptionB\v\n" +
 	"\t_settings\"5\n" +
 	"\x12GetCampaignRequest\x12\x1f\n" +
 	"\vcampaign_id\x18\x01 \x01(\tR\n" +
-	"campaignId\"\x9e\x01\n" +
+	"campaignId\"\xbb\x01\n" +
 	"\x14ListCampaignsRequest\x12C\n" +
 	"\rstatus_filter\x18\x01 \x01(\x0e2\x19.dialer.v1.CampaignStatusH\x00R\fstatusFilter\x88\x01\x01\x12\x12\n" +
 	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1b\n" +
-	"\tpage_size\x18\x03 \x01(\x05R\bpageSizeB\x10\n" +
+	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\x12\x1b\n" +
+	"\ttenant_id\x18\x04 \x01(\tR\btenantIdB\x10\n" +
 	"\x0e_status_filter\"`\n" +
 	"\x15ListCampaignsResponse\x121\n" +
 	"\tcampaigns\x18\x01 \x03(\v2\x13.dialer.v1.CampaignR\tcampaigns\x12\x14\n" +
@@ -3232,12 +3274,13 @@ const file_proto_dialer_v1_dialer_proto_rawDesc = "" +
 	"\x05notes\x18\x02 \x01(\tR\x05notes\"g\n" +
 	"\x15CompleteWrapUpRequest\x123\n" +
 	"\x16dialer_call_session_id\x18\x01 \x01(\tR\x13dialerCallSessionId\x12\x19\n" +
-	"\bagent_id\x18\x02 \x01(\tR\aagentId\"\x9c\x01\n" +
+	"\bagent_id\x18\x02 \x01(\tR\aagentId\"\xb9\x01\n" +
 	"\x15SetAgentStatusRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x124\n" +
 	"\x06status\x18\x02 \x01(\x0e2\x1c.dialer.v1.AgentDialerStatusR\x06status\x12$\n" +
 	"\vcampaign_id\x18\x03 \x01(\tH\x00R\n" +
-	"campaignId\x88\x01\x01B\x0e\n" +
+	"campaignId\x88\x01\x01\x12\x1b\n" +
+	"\ttenant_id\x18\x04 \x01(\tR\btenantIdB\x0e\n" +
 	"\f_campaign_id\"0\n" +
 	"\x15GetAgentStatusRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\";\n" +
@@ -3245,12 +3288,13 @@ const file_proto_dialer_v1_dialer_proto_rawDesc = "" +
 	"\vcampaign_id\x18\x01 \x01(\tR\n" +
 	"campaignId\"K\n" +
 	"\x19GetCampaignAgentsResponse\x12.\n" +
-	"\x06agents\x18\x01 \x03(\v2\x16.dialer.v1.AgentStatusR\x06agents\"^\n" +
+	"\x06agents\x18\x01 \x03(\v2\x16.dialer.v1.AgentStatusR\x06agents\"{\n" +
 	"\x17ListCallOutcomesRequest\x12.\n" +
-	"\x10include_inactive\x18\x01 \x01(\bH\x00R\x0fincludeInactive\x88\x01\x01B\x13\n" +
+	"\x10include_inactive\x18\x01 \x01(\bH\x00R\x0fincludeInactive\x88\x01\x01\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantIdB\x13\n" +
 	"\x11_include_inactive\"N\n" +
 	"\x18ListCallOutcomesResponse\x122\n" +
-	"\boutcomes\x18\x01 \x03(\v2\x16.dialer.v1.CallOutcomeR\boutcomes\"\xce\x01\n" +
+	"\boutcomes\x18\x01 \x03(\v2\x16.dialer.v1.CallOutcomeR\boutcomes\"\xeb\x01\n" +
 	"\x18CreateCallOutcomeRequest\x12\x14\n" +
 	"\x05label\x18\x01 \x01(\tR\x05label\x12\x14\n" +
 	"\x05color\x18\x02 \x01(\tR\x05color\x12\x1f\n" +
@@ -3260,7 +3304,8 @@ const file_proto_dialer_v1_dialer_proto_rawDesc = "" +
 	"isCallback\x12%\n" +
 	"\x0eis_appointment\x18\x05 \x01(\bR\risAppointment\x12\x1d\n" +
 	"\n" +
-	"sort_order\x18\x06 \x01(\x05R\tsortOrder\"\x91\x03\n" +
+	"sort_order\x18\x06 \x01(\x05R\tsortOrder\x12\x1b\n" +
+	"\ttenant_id\x18\a \x01(\tR\btenantId\"\x91\x03\n" +
 	"\x18UpdateCallOutcomeRequest\x12\x1d\n" +
 	"\n" +
 	"outcome_id\x18\x01 \x01(\tR\toutcomeId\x12\x19\n" +

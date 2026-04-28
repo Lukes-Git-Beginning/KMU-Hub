@@ -31,7 +31,11 @@ func (b *BizRoutes) HandleCreateQuote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	userID := middleware.GetUserID(r.Context())
 
 	var req createQuoteRequest
@@ -65,7 +69,11 @@ func (b *BizRoutes) HandleListQuotes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	page, pageSize := parsePagination(r, 1, 50)
 
 	req := &bizv1.ListQuotesRequest{
@@ -95,7 +103,11 @@ func (b *BizRoutes) HandleGetQuote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	resp, err := client.GetQuote(r.Context(), &bizv1.GetQuoteRequest{
@@ -125,7 +137,11 @@ func (b *BizRoutes) HandleUpdateQuote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	var req updateQuoteRequest
@@ -158,7 +174,11 @@ func (b *BizRoutes) HandleDeleteQuote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	_, err = client.DeleteQuote(r.Context(), &bizv1.DeleteQuoteRequest{
@@ -180,7 +200,11 @@ func (b *BizRoutes) HandleSendQuote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	resp, err := client.SendQuote(r.Context(), &bizv1.SendQuoteRequest{
@@ -202,7 +226,11 @@ func (b *BizRoutes) HandleAcceptQuote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	resp, err := client.AcceptQuote(r.Context(), &bizv1.AcceptQuoteRequest{
@@ -224,7 +252,11 @@ func (b *BizRoutes) HandleRejectQuote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	resp, err := client.RejectQuote(r.Context(), &bizv1.RejectQuoteRequest{
@@ -253,7 +285,11 @@ func (b *BizRoutes) HandleConvertQuoteToInvoice(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	var req convertQuoteRequest
@@ -285,7 +321,11 @@ func (b *BizRoutes) HandleGenerateQuotePDF(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	resp, err := client.GenerateQuotePDF(r.Context(), &bizv1.GenerateQuotePDFRequest{
@@ -314,7 +354,11 @@ func (b *BizRoutes) HandleCreateQuoteFromDeal(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	userID := middleware.GetUserID(r.Context())
 	dealID := chi.URLParam(r, "dealId")
 

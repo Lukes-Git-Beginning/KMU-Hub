@@ -24,6 +24,7 @@ func TestHandleCreateInvoice_InvalidJSON(t *testing.T) {
 	routes := NewBizRoutes(registryWithService("biz"))
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/v1/finance/invoices", invalidJSON())
+	req = withTenantID(req, testTenantID)
 	routes.HandleCreateInvoice(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid request body")
@@ -57,6 +58,7 @@ func TestHandleCreateQuote_InvalidJSON(t *testing.T) {
 	routes := NewBizRoutes(registryWithService("biz"))
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/v1/finance/quotes", invalidJSON())
+	req = withTenantID(req, testTenantID)
 	routes.HandleCreateQuote(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 }
@@ -89,6 +91,7 @@ func TestHandleCreateCreditNote_InvalidJSON(t *testing.T) {
 	routes := NewBizRoutes(registryWithService("biz"))
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/v1/finance/credit-notes", invalidJSON())
+	req = withTenantID(req, testTenantID)
 	routes.HandleCreateCreditNote(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 }
@@ -123,6 +126,7 @@ func TestHandleUpdateCompanySettings_InvalidJSON(t *testing.T) {
 	routes := NewBizRoutes(registryWithService("biz"))
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("PUT", "/api/v1/finance/settings", invalidJSON())
+	req = withTenantID(req, testTenantID)
 	routes.HandleUpdateCompanySettings(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 }

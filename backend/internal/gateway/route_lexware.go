@@ -95,7 +95,11 @@ func (lr *LexwareRoutes) HandleConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	var body struct {
 		APIKey string `json:"api_key"`
@@ -134,7 +138,11 @@ func (lr *LexwareRoutes) HandleDisconnect(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	_, err = client.DisconnectLexware(r.Context(), &bizv1.DisconnectLexwareRequest{
 		TenantId: tenantID,
@@ -155,7 +163,11 @@ func (lr *LexwareRoutes) HandleGetConnectionStatus(w http.ResponseWriter, r *htt
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	resp, err := client.GetLexwareConnectionStatus(r.Context(), &bizv1.GetLexwareConnectionStatusRequest{
 		TenantId: tenantID,
@@ -183,7 +195,11 @@ func (lr *LexwareRoutes) HandleTestConnection(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	resp, err := client.TestLexwareConnection(r.Context(), &bizv1.TestLexwareConnectionRequest{
 		TenantId: tenantID,
@@ -215,7 +231,11 @@ func (lr *LexwareRoutes) HandleTriggerSync(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	var body struct {
 		SyncType string `json:"sync_type"`
@@ -250,7 +270,11 @@ func (lr *LexwareRoutes) HandleGetSyncStatus(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 
 	resp, err := client.GetLexwareSyncStatus(r.Context(), &bizv1.GetLexwareSyncStatusRequest{
 		TenantId: tenantID,
@@ -290,7 +314,11 @@ func (lr *LexwareRoutes) HandleListSyncLogs(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	limit := parseLimit(r, 20, 100)
 
 	resp, err := client.ListLexwareSyncLogs(r.Context(), &bizv1.ListLexwareSyncLogsRequest{
@@ -338,7 +366,11 @@ func (lr *LexwareRoutes) HandleGetFieldMappings(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	entityType := chi.URLParam(r, "entity_type")
 
 	resp, err := client.GetLexwareFieldMappings(r.Context(), &bizv1.GetLexwareFieldMappingsRequest{
@@ -361,7 +393,11 @@ func (lr *LexwareRoutes) HandleUpdateFieldMappings(w http.ResponseWriter, r *htt
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	entityType := chi.URLParam(r, "entity_type")
 
 	var body struct {
@@ -397,7 +433,11 @@ func (lr *LexwareRoutes) HandlePushInvoice(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	invoiceID := chi.URLParam(r, "id")
 
 	resp, err := client.PushInvoiceToLexware(r.Context(), &bizv1.PushInvoiceToLexwareRequest{
@@ -430,7 +470,11 @@ func (lr *LexwareRoutes) HandlePushQuote(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	quoteID := chi.URLParam(r, "id")
 
 	resp, err := client.PushQuoteToLexware(r.Context(), &bizv1.PushQuoteToLexwareRequest{

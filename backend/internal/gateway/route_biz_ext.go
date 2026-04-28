@@ -50,7 +50,11 @@ type createInvoiceFromTimeRequest struct {
 // HandleCreateInvoiceFromTime is a thin proxy: it decodes the HTTP request,
 // calls the biz gRPC service, and forwards the JSON invoice response.
 func (b *BizExtRoutes) HandleCreateInvoiceFromTime(w http.ResponseWriter, r *http.Request) {
-	tenantID := getTenantID(r)
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
 	userID := middleware.GetUserID(r.Context())
 
 	var req createInvoiceFromTimeRequest
