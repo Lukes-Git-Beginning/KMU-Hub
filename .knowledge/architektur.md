@@ -1,6 +1,6 @@
 ---
 tags: [architektur, backend, frontend, ci-cd]
-updated: 2026-04-19
+updated: 2026-04-28
 ---
 # Architektur
 
@@ -23,7 +23,16 @@ Gateway (HTTP/chi) auf Port 8080 → gRPC-Services intern:
 | dialer | :50061 | Campaigns, Call Sessions, Agent Status, Outcomes |
 | wiki | :50062 | Articles, Versions, Attachments, Categories, FTS (tsvector+GIN), Share-Links (Sprint 1 Welle 2) |
 | berichte | :50063 | Report-Definitions, Schedules, Cache, Runs, KPI-Dashboard, PDF/CSV/XLSX-Export, In-Process-Cron-Scheduler (Sprint 1 Welle 5-6) |
+| formulare | :50064 | Form-Schemas (JSONB), Submissions, Webhook-Worker (HMAC-SHA256, Exp-Backoff, Dead-Letter), CSV+XLSX Export (Sprint 1 S1.3) |
 | helpdesk | :50065 | Tickets, Messages, Queues, Canned-Responses, SLA-Policies, Merge (Sprint 1 Welle 2) |
+| inventar | :50070 | Items, Movements, Stock-Warnings, Oversell-Guard (Sprint 2 Welle 1) |
+| einkauf | :50071 | Suppliers, Purchase-Orders, PO-Lines, Wareneingang-Stub (Sprint 2 Welle 1) |
+| produktion | :50072 | Production-Orders, Machine-Bookings (advisory-lock), Plans (Sprint 2 Welle 1) |
+| vertraege | :50073 | Contracts, Parties, Reminders (advisory-lock-claim, 5+60min Ticker) (Sprint 1 S1.5) |
+| **rapporte** | :50074 | Work-Reports, Lines, Attachments, Approval-State-Machine, GPS-Tag (Sprint 2 Welle 2A) |
+| **schichten** | :50075 | Shifts, Assignments, Templates, ArbZG §5 Pre-Check (11h Ruhezeit, DST-aware) (Sprint 2 Welle 2A) |
+| **fuhrpark** | :50076 | Vehicles, Services, Damages, TÜV-Reminder-Cron (advisory-lock 7d/1d) (Sprint 2 Welle 2A) |
+| **vermietung** | :50077 | Rental-Objects, Rentals, Inspections, GIST tstzrange-Overlap-Index (Sprint 2 Welle 2A) |
 
 Gateway `/health`: status, checks, registered_services, version, commit, build_time (via ldflags)
 
@@ -78,6 +87,15 @@ Entry Point: `cmd/gateway/main.go` (~324 LoC) + `setup.go` + `adapters.go`.
 | `route_wiki.go` | Wiki (Articles, Versions, Attachments, Categories, FTS) — hinter `modules.wiki` |
 | `route_helpdesk.go` | Helpdesk (Tickets, SLA, Merge, Canned) — hinter `modules.helpdesk` |
 | `route_berichte.go` | Berichte (Definitions, Schedules, KPIs, Export PDF/CSV/XLSX) — hinter `modules.berichte`, Permission `berichte:reports` |
+| `route_formulare.go` | Formulare (Schemas, Submissions, Webhooks) — hinter `modules.formulare` |
+| `route_inventar.go` | Inventar (Items, Movements, Warnings) — hinter `modules.inventar` |
+| `route_einkauf.go` | Einkauf (Suppliers, POs, Lines) — hinter `modules.einkauf` |
+| `route_produktion.go` | Produktion (Orders, Bookings, Plans) — hinter `modules.produktion` |
+| `route_vertraege.go` | Vertraege (Contracts, Parties, Reminders) — hinter `modules.vertraege` |
+| `route_rapporte.go` | Rapporte (Reports, Lines, Attachments, Approval) — hinter `modules.rapporte` |
+| `route_schichten.go` | Schichten (Shifts, Assignments, Templates, ArbZG-Compliance) — hinter `modules.schichten` |
+| `route_fuhrpark.go` | Fuhrpark (Vehicles, Services, Damages, TÜV-Reminder) — hinter `modules.fuhrpark` |
+| `route_vermietung.go` | Vermietung (Objects, Rentals, Inspections, Calendar) — hinter `modules.vermietung` |
 
 ## Frontend (Electron + React 19 + TypeScript)
 
@@ -161,6 +179,23 @@ ai, auth, automatisierung, berichte, calendar, contacts, dashboard, **dialer**, 
   - Additive `NewServiceWithConsent()`-Constructors (Gateway-Wiring separater Schritt)
 - **Repo-Query:** `consent_records WHERE contact_id=$1 AND consent_type=$2 AND granted=true AND revoked_at IS NULL`
 - Details: [[security]]
+
+## Sprint 2 Welle 2A — Modul-Patterns (2026-04-28)
+
+Vier Handwerk-Module (`rapporte`, `schichten`, `fuhrpark`, `vermietung`) sind das frischeste Beispiel des Standard-Modul-Templates aus `MODULES_SCOPE_MATRIX.md`. Inventar (Welle 1) ist der Anker, Welle 2A wiederholt das Pattern × 4 mit drei Pflicht-Guards aus dem `ad04191`-Bugfix-Sweep:
+
+1. **Pre-Check vor State-Transitions / Mengenwrites** — Service-Layer, nicht Repository. Beispiele: `rapporte.ApproveReport` prueft `status == submitted`, `schichten.AssignEmployee` ruft `validateRestPeriod`, `vermietung.CreateRental` macht GIST-Overlap-Query, `fuhrpark.CompleteService` prueft `status == scheduled`.
+2. **`tenant_id` in jedem Get-by-ID** — `WHERE id = $1 AND tenant_id = $2` in allen `postgres_repository.go` SELECTs.
+3. **`RowsAffected() == 0` Sentinel** — jede `pool.Exec()` fuer UPDATE/DELETE returniert `Err<Modul>NotFound`.
+
+Modul-spezifische Patterns:
+
+- **TÜV-Reminder-Cron (`fuhrpark`):** `cmd/fuhrpark/worker.go` mit `pg_try_advisory_xact_lock` Leader-Election, 7d/1d-Vorlauf-Fenster, idempotent via `vehicles.tuev_reminder_sent_at` (skip bei Stamp <23h alt). Notification-Delivery noch Stub — Sprint-3-Wiring an `notification`-gRPC noetig (siehe `docs/sprint2-welle2-issues.md`).
+- **ArbZG §5 Pre-Check (`schichten`):** `validateRestPeriod(ctx, employeeID, newStart, newEnd)` in `service.go`. Bei <11h Ruhezeit zwischen letzter und neuer Schicht: `ErrArbzgViolation`. DST-Spring-Forward-Test mit `time.LoadLocation("Europe/Berlin")`.
+- **GIST tstzrange-Overlap (`vermietung`):** `idx_rentals_object_dates ON rentals USING GIST (object_id, tstzrange(start_date, end_date))`. `CheckAvailability`/`CreateRental` nutzen `&&`-Operator. Doppelbuchung-Schutz auf DB-Ebene + Service-Pre-Check.
+- **Approval-State-Machine (`rapporte`):** `Draft → Submitted → Approved/Rejected`, nach Approved blockt jeder Edit/Rollback (`ErrAlreadyApproved`).
+
+Subagent-Strategie: 4 parallele Sonnet-Subagents schreiben direkt auf main, Done-Reports max 200 Worte. Race-Risiken auf shared Files (`config.go`, `cmd/gateway/main.go`, `docker-compose.yml`) wurden durch Edit-Tool-Konfliktdetection aufgeloest. Self-Commit-Anomalie: ein Subagent (fuhrpark) hat eigenmaechtig commited — fuer kuenftige Briefings explizit `kein git add/commit` ergaenzen. Details: `memory/project_sprint2_welle2.md`.
 
 ## WASM-Plugin-System — Feature-Flag OFF (Sprint 0 S0.6 / R2-P1.2)
 

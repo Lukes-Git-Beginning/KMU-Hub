@@ -153,14 +153,14 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 
 **Ziel:** Restliche 7 Module + die restlichen R2-P0-Items + Start Option-B-Retrofit (Top-20 Tabellen).
 
-**Stand 2026-04-26:** Sprint 2 startete am 2026-04-26 (frueher als geplant da Sprint 1 inhaltlich rascher fertig wurde). Welle 0 (FK-Fixes) + Welle 1 (4 Module + 3 Carry-Items) plus Bugfix-Sweep aus Code-Review sind bereits auf main. Welle 2 (4 Handwerk-Module) startet als naechstes.
+**Stand 2026-04-28:** Sprint 2 Welle 0 + Welle 1 + Welle 2A done. **7/7 Welle-2-Module Backend live** (3 Welle-1 + 4 Welle-2A). Welle 2B (Frontend-Hooks) startet als naechstes, danach Welle 2C (Bugfix-Sweep) und Welle 3 (R2-P0.4/7 + Option-B Phase 1).
 
 | # | Task | Aufwand | Kategorie | Status |
 |---|---|---|---|---|
-| S2.1 | **rapporte** | 4d | Modul | Pending — Welle 2 |
-| S2.2 | **schichten** (ArbZG-Warnings im Backend) | 4d | Modul | Pending — Welle 2 |
-| S2.3 | **fuhrpark** (TÜV-Reminder) | 3d | Modul | Pending — Welle 2 |
-| S2.4 | **vermietung** (Zustandsprotokolle) | 4d | Modul | Pending — Welle 2 |
+| S2.1 | **rapporte** | 4d | Modul | ✅ Done 2026-04-28 (`c52839f`) — Port 50074/9114, Migration 000092+000093, 18 RPCs, Approval-State-Machine, GPS-Tag, Coverage 35.6% (35 Tests) |
+| S2.2 | **schichten** (ArbZG-Warnings im Backend) | 4d | Modul | ✅ Done 2026-04-28 (`c52839f`) — Port 50075/9115, Migration 000094+000095, 16 RPCs, ArbZG §5 Pre-Check (11h Ruhezeit, DST-aware), Coverage 35.6% (38 Tests) |
+| S2.3 | **fuhrpark** (TÜV-Reminder) | 3d | Modul | ✅ Done 2026-04-28 (`e4b1a62`) — Port 50076/9116, Migration 000096+000097, 18 RPCs, TÜV-Reminder-Cron-Worker (advisory-lock 7d/1d), Coverage 39.7% (21 Tests). TÜV-Notification-Delivery noch Stub (Sprint-3-Wiring an `notification`-gRPC) |
+| S2.4 | **vermietung** (Zustandsprotokolle) | 4d | Modul | ✅ Done 2026-04-28 (`c52839f`) — Port 50077/9117, Migration 000098+000099, 20 RPCs, GIST tstzrange-Overlap-Index gegen Doppelbuchung, Coverage 41.3% (34 Tests) |
 | S2.5 | **inventar** (Bestands-Alarm) | 3d | Modul | ✅ Done 2026-04-26 (`9438ba0`) — Port 50070, Migration 000083+000084, Coverage 45.4%. Oversell-Bug + tenant_id-Filter + RowsAffected-Checks in `ad04191` gefixt |
 | S2.6 | **einkauf** (Wareneingang) | 3d | Modul | ✅ Done 2026-04-26 (`9438ba0`) — Port 50071, Migration 000085+000086, Coverage 32.2%, ReceiveGoods-Stub fuer Sprint-3-Inventar-Wiring. allFullyReceived-String-Drift + PartialReceive-Validation + DeletePO-Status-Guard + RowsAffected-Checks in `ad04191` gefixt |
 | S2.7 | **produktion** (Maschinenbelegung) | 3d | Modul | ✅ Done 2026-04-26 (`9438ba0`) — Port 50072, Migration 000087+000088, Coverage 31.2%. CreateBookingWithLock mit pg_advisory_xact_lock + Tx in `ad04191` ergaenzt (Race-Test mit 50 Goroutines) |
@@ -175,7 +175,7 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 
 **Parallelitaets-Model:** 4 Module-Worktrees + 1 Realtime/R2-P0-Worktree + 1 Multi-Tenancy-Worktree.
 
-**Progress Sprint 2 (Stand 2026-04-26):** 3/7 Welle-2-Module done frueher (S2.5/2.6/2.7 als Cluster 1 in `9438ba0`), Welle-0 R2-P0.8/9 erledigt, S1.R2.1b TURN-Wiring vorgezogen in S1, **20-Blocker-Bugfix-Sweep** (`ad04191`) abgeschlossen. **Naechste Schritte:** Welle 2 (S2.1 rapporte, S2.2 schichten, S2.3 fuhrpark, S2.4 vermietung) als 4 parallele Subagents, dann Welle 3 mit S2.R2.4 Consent-Modal + S2.R2.7 Offline-Queue + S2.MT.1 Option-B Phase 1.
+**Progress Sprint 2 (Stand 2026-04-28):** **7/7 Welle-2-Module Backend done** (S2.5/2.6/2.7 als Cluster 1 in `9438ba0` Welle 1 + S2.1/2.2/2.3/2.4 als Welle 2A in `e4b1a62` + `c52839f`). Welle-0 R2-P0.8/9 erledigt, S1.R2.1b TURN-Wiring vorgezogen in S1, **20-Blocker-Bugfix-Sweep** (`ad04191`) abgeschlossen. Alle 4 Welle-2A-Module mit Pflicht-Guards aus `ad04191` (Pre-Check, tenant_id, RowsAffected) von Anfang an. **Naechste Schritte:** Welle 2B (Frontend-Hooks fuer rapporte/schichten/fuhrpark/vermietung), dann Welle 2C (Bugfix-Sweep wie ad04191), dann Welle 3 mit S2.R2.4 Consent-Modal + S2.R2.7 Offline-Queue + S2.MT.1 Option-B Phase 1.
 
 **Ende Sprint 2:** Alle 14 Module live, alle 9 R2-P0 erledigt, Option-B Top-20 aktiv.
 
@@ -511,5 +511,5 @@ Folgende Dateien werden mit dem Check-in dieser Roadmap zu historischen Referenz
 
 ---
 
-*Letztes Update: 2026-04-26 (Sprint 1 abgeschlossen — 7/7 Module + 5/5 R2-P0 Batch A, Gate S1 bestanden; Sprint 2 Welle 0+1 done — 3/7 Welle-2-Module + 2/2 R2-P0 Welle 0 + 20-Blocker-Bugfix-Sweep `ad04191`; naechste Phase: Sprint 2 Welle 2 mit rapporte/schichten/fuhrpark/vermietung)*
-*Naechste Ueberarbeitung: Sprint 2 Welle 2 Abschluss (~2026-05-08), spaetestens Gate S2 (2026-05-24)*
+*Letztes Update: 2026-04-28 (Sprint 2 Welle 2A done — 7/7 Welle-2-Module Backend live: 3 Welle 1 + 4 Welle 2A. Commits `e4b1a62` fuhrpark + `c52839f` rapporte/schichten/vermietung. 75 Files, ~30k LOC, 128 Tests, Coverage 35-41%, Migrations 092-099, Ports 50074-50077/9114-9117. Pflicht-Guards aus ad04191 durchgezogen. Naechste Phase: Welle 2B Frontend-Hooks)*
+*Naechste Ueberarbeitung: Welle 2B/2C Abschluss (~2026-04-30), Welle 3 (R2-P0.4/7 + Option-B Phase 1) Start, spaetestens Gate S2 (2026-05-24)*

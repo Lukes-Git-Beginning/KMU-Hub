@@ -1,14 +1,14 @@
 ---
 tags: [datenbank, schema, migrations, ai-first]
-updated: 2026-04-20
+updated: 2026-04-28
 ---
 # Datenbank
 
 ## Überblick
 - PostgreSQL 16 mit `pgvector/pgvector:pg16`-Image + Redis 7 (nur Cache, KEIN Dual-Write)
 - Änderungen NUR via golang-migrate (`make migrate-create name=xxx`)
-- 81 Migration-Paare in `backend/migrations/` (Sprint 1 Welle 2: 076 wiki, 077 helpdesk; Welle 5: 079 berichte; Welle 6: 080 seed_berichte_permissions; S1.3: 081 formulare)
-- **Prod-Stand seit 2026-04-19:** Migration-Head `81`, nicht dirty. Volume: `docker_pgdata` (nicht `docker_postgres-data`).
+- 99 Migration-Paare in `backend/migrations/` (Sprint 1 Welle 2: 076 wiki, 077 helpdesk; Welle 5: 079 berichte; Welle 6: 080 seed_berichte_permissions; S1.3: 081 formulare; Sprint 2 Welle 1: 082 consent FK + gdpr-FK, 083+084 inventar, 085+086 einkauf, 087+088 produktion, 089+090 vertraege, 091 video; Sprint 2 Welle 2A: 092+093 rapporte, 094+095 schichten, 096+097 fuhrpark, 098+099 vermietung)
+- **Prod-Stand seit 2026-04-19:** Migration-Head `81`. Welle 1 + Welle 2A bringen Head auf `99` (lokal/main, Server-Deploy ausstehend). Volume: `docker_pgdata` (nicht `docker_postgres-data`).
 - Index-Konvention: `idx_{table}_{column}`
 - **AI-First-Foundation** seit Migration 071 (siehe Abschnitt unten)
 - **Seed-Idempotenz:** Migration `000079` (berichte) wurde in `980eba3` um `ON CONFLICT DO NOTHING` erweitert, damit ein Re-Run keine Duplikate erzeugt. Gleiches Muster fuer alle zukuenftigen Seed-Migrations anwenden.
@@ -139,6 +139,37 @@ updated: 2026-04-20
 - `form_webhook_deliveries` — id UUID PK, webhook_id FK CASCADE, submission_id FK CASCADE, tenant_id UUID NOT NULL, payload JSONB NOT NULL, status ENUM(pending/delivered/failed/dead) DEFAULT 'pending', attempt_count INT, max_attempts INT DEFAULT 5, next_attempt_at TIMESTAMPTZ, last_error/last_response_code, created_at/delivered_at. Partial Index: (next_attempt_at) WHERE status = 'pending' (Worker-Effizienz)
 - **Worker:** Exp-Backoff 30s→2min→10min→30min→2h, Dead-Letter nach 5 Versuchen, HMAC-Signatur als `X-Cosmi-Signature: sha256=<hex>` Header
 - **Permissions:** `formulare:schemas:{read,write}`, `formulare:submissions:{read,write}`, `formulare:webhooks:write`
+
+### Sprint 2 Welle 2A — Handwerk-Module (Migrations 092–099)
+
+Alle Welle-2A-Tabellen tragen `tenant_id UUID NOT NULL DEFAULT '00000000-...-000000000001'` von Anfang an (Option-B-ready). Pflicht-Permissions-Seed je Modul (resource×action × Admin-Grant) als zweites Migration-Paar.
+
+#### Rapporte (Migration 092 + 093)
+- `work_reports` — id UUID PK, tenant_id, customer_id UUID NULL (CRM-Stub), title TEXT, description TEXT, status ENUM(draft/submitted/approved/rejected) DEFAULT 'draft', lat NUMERIC(9,6) NULL, lon NUMERIC(9,6) NULL, submitted_at, approved_at, approved_by UUID NULL, rejection_reason TEXT NULL, deleted_at (Soft-Delete). Indizes: `(tenant_id, status) WHERE deleted_at IS NULL`, `(customer_id) WHERE deleted_at IS NULL`
+- `report_lines` — id, report_id FK CASCADE, tenant_id, position INT, kind ENUM(work/material/note), description, quantity NUMERIC, unit TEXT, unit_price NUMERIC. Index `(report_id, position)`
+- `report_attachments` — id, line_id FK CASCADE, tenant_id, filename, minio_key TEXT (Pattern `tenants/<tid>/rapporte/<report>/<line>/<filename>`), size_bytes, content_type. Index `(report_id)`
+- **Permissions:** `rapporte:report:{read,write}`, `rapporte:line:{read,write}`, `rapporte:attachment:{read,write}`
+
+#### Schichten (Migration 094 + 095)
+- `shifts` — id, tenant_id, start_at TIMESTAMPTZ, end_at TIMESTAMPTZ, location TEXT, role TEXT, notes, status ENUM(draft/published) DEFAULT 'draft', published_at NULL, capacity INT. Index `(tenant_id, start_at)`, `(tenant_id, status)`
+- `shift_assignments` — id, shift_id FK CASCADE, employee_id UUID (FK-Stub Sprint 3), tenant_id, assigned_at, assigned_by UUID. UNIQUE(shift_id, employee_id). Index `(employee_id, shift_id)`
+- `shift_templates` — id, tenant_id, name, weekday_pattern JSONB (z.B. `{"mon": [{"start": "08:00", "end": "17:00"}], ...}`), default_role TEXT
+- **ArbZG-Pre-Check** (`service.go::validateRestPeriod`): SQL `SELECT MAX(end_at) FROM shifts WHERE employee_id=$1 AND end_at <= $2 AND tenant_id=$3` → Differenz < 11h → `ErrArbzgViolation`. DST-aware via `time.LoadLocation("Europe/Berlin")`.
+- **Permissions:** `schichten:shift:{read,write}`, `schichten:assignment:{read,write}`, `schichten:template:{read,write}`
+
+#### Fuhrpark (Migration 096 + 097)
+- `vehicles` — id, tenant_id, license_plate TEXT, make/model TEXT, year INT, vin TEXT, fuel_type ENUM, mileage_km INT, tuev_due_date DATE NULL, **tuev_reminder_sent_at TIMESTAMPTZ NULL** (Cron-Idempotenz), assigned_driver_id UUID NULL (FK-Stub Sprint 3). Partial Index `(tenant_id, tuev_due_date) WHERE tuev_due_date IS NOT NULL`
+- `vehicle_services` — id, vehicle_id FK CASCADE, tenant_id, scheduled_at, completed_at NULL, kind ENUM(maintenance/inspection/repair/cleaning), cost_cents INT, status ENUM(scheduled/in_progress/completed/cancelled). Index `(vehicle_id, scheduled_at DESC)`
+- `vehicle_damages` — id, vehicle_id FK CASCADE, tenant_id, reported_at, description, severity ENUM, status ENUM(reported/in_repair/resolved), photo_keys TEXT[] (MinIO-Keys), repair_cost_cents INT NULL
+- **TÜV-Cron** (`worker.go`): `pg_try_advisory_xact_lock(<hash("fuhrpark_tuev_cron")>)` Leader-Election. Scannt 7d-Fenster + 1d-Fenster, schreibt `tuev_reminder_sent_at` (skip bei Stamp <23h alt). Notification-Delivery noch Stub (Sprint-3-Wiring).
+- **Permissions:** `fuhrpark:vehicle:{read,write}`, `fuhrpark:service:{read,write}`, `fuhrpark:damage:{read,write}`
+
+#### Vermietung (Migration 098 + 099)
+- `rental_objects` — id, tenant_id, name, kind TEXT, daily_rate_cents INT, deposit_cents INT, available BOOL DEFAULT true, deleted_at (Soft-Delete). Index `(tenant_id, deleted_at)`
+- `rentals` — id, object_id FK CASCADE, tenant_id, customer_id UUID NULL (CRM-Stub), start_date TIMESTAMPTZ, end_date TIMESTAMPTZ, status ENUM(reserved/active/completed/cancelled), notes. **GIST-Index:** `idx_rentals_object_dates ON rentals USING GIST (object_id, tstzrange(start_date, end_date))` — Doppelbuchung-Schutz auf DB-Ebene
+- `rental_inspections` — id, rental_id FK CASCADE, tenant_id, kind ENUM(handover/return), inspector_id UUID, inspected_at, condition_notes TEXT, photo_keys TEXT[] (MinIO-Keys)
+- **Overlap-Pre-Check** (`service.go::CheckAvailability`): `SELECT 1 FROM rentals WHERE object_id=$1 AND tstzrange(start_date, end_date) && tstzrange($2, $3) AND status != 'cancelled'` → bei Treffer `ErrRentalConflict`
+- **Permissions:** `vermietung:object:{read,write}`, `vermietung:rental:{read,write}`, `vermietung:inspection:{read,write}`
 
 ### Berichte / Reports (Migration 079)
 - `report_definitions` — tenant_id, name, description, module (finanzen/crm/helpdesk/inventar/produktion/cross), kind (system/custom), query_config JSONB, default_format (pdf/csv/xlsx), created_by (FK users SET NULL), is_published, CHECK-Constraints auf module/kind/format

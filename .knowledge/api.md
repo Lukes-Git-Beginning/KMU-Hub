@@ -1,6 +1,6 @@
 ---
 tags: [api, endpoints, openapi]
-updated: 2026-04-19
+updated: 2026-04-28
 ---
 # API-Referenz
 
@@ -40,6 +40,14 @@ updated: 2026-04-19
 | Helpdesk | `/api/v1/helpdesk/tickets`, `/messages`, `/queues`, `/canned-responses`, `/sla-policies` | 22 Endpoints, SLA-Engine + Ticket-Merge, hinter `modules.helpdesk`-Flag |
 | Berichte | `/api/v1/berichte/definitions`, `/schedules`, `/kpis` | 14 RPCs live (Sprint 1 Welle 5-6, 2026-04-19). Definitions-CRUD (5), Run/Cache/Export/Invalidate (4), Schedules-CRUD + Toggle (5), DashboardKPIs (1). Export als `Content-Disposition: attachment` mit PDF/CSV/XLSX-Bytes. Hinter `modules.berichte`-Flag + RBAC-Permission `berichte:reports:{read,write}`. |
 | Formulare | `/api/v1/formulare/schemas`, `/submissions`, `/webhooks`, `/deliveries` | 18 RPCs live (Sprint 1 S1.3, 2026-04-19). Schema-CRUD + Duplicate + Stats (7), Submissions (5: List/Get/Create/UpdateStatus/Export), Webhooks (5: CRUD + List), Deliveries (1: ListDeliveries). Export als CSV/XLSX via `format`-Query-Param. Webhook-Delivery via DB-Queue + Worker (HMAC-SHA256 `X-Cosmi-Signature`, Exp-Backoff 30s→2h, Dead-Letter nach 5 Versuchen). Hinter `modules.formulare`-Flag + RBAC-Permissions `formulare:schemas:{read,write}`, `formulare:submissions:{read,write}`, `formulare:webhooks:write`. Ports: gRPC 50064, Health 9104. |
+| Inventar | `/api/v1/inventar/items`, `/movements`, `/warnings`, `/transfer`, `/report`, `/export` | 14 Endpoints (Sprint 2 Welle 1). Items-CRUD, Stock-Adjust mit Oversell-Guard, Transfer, Movements, Warnings (auto bei `quantity <= min_quantity`). Hinter `modules.inventar`-Flag + RBAC `inventar:{item,movement,warning}:{read,write}`. Ports: 50070/9110. |
+| Einkauf | `/api/v1/einkauf/suppliers`, `/purchase-orders`, `/po-lines`, `/receive` | ~18 Endpoints (Sprint 2 Welle 1). Supplier-CRUD, PO-Lifecycle Submit→Sent→PartiallyReceived→Received→Closed, ReceiveGoods-Stub fuer Sprint-3-Inventar-Wiring. Hinter `modules.einkauf`-Flag. Ports: 50071/9111. |
+| Produktion | `/api/v1/produktion/orders`, `/machine-bookings`, `/plans` | ~16 Endpoints (Sprint 2 Welle 1). Order-Lifecycle, Machine-Booking-Konflikt-Pruefung (advisory-lock + `pg_advisory_xact_lock`), Capacity-Overview. Hinter `modules.produktion`-Flag. Ports: 50072/9112. |
+| Vertraege | `/api/v1/vertraege/contracts`, `/parties`, `/reminders` | ~14 Endpoints (Sprint 1 S1.5). Laufzeit-Engine, Reminder-Worker (advisory-lock-claim, 5+60min Ticker), Skribble-Placeholder. Hinter `modules.vertraege`-Flag. Ports: 50073/9113. |
+| **Rapporte** | `/api/v1/rapporte/reports`, `/lines`, `/attachments`, `/pending-approvals`, `/export` | 18 RPCs (Sprint 2 Welle 2A, 2026-04-28). Report-CRUD + Approval-State-Machine (Submit/Approve/Reject), Line-CRUD, MinIO-Photo-Upload via Gateway-File-Handler (`photo_keys` als TEXT[]), GPS-Tag (`lat`/`lon`), PDF-Export-Stub. Hinter `modules.rapporte`-Flag + RBAC `rapporte:{report,line,attachment}:{read,write}`. Ports: 50074/9114. |
+| **Schichten** | `/api/v1/schichten/shifts`, `/assignments`, `/templates`, `/arbzg-check` | 16 RPCs (Sprint 2 Welle 2A, 2026-04-28). Shift-CRUD + Publish-Flow, Assign/Unassign mit ArbZG-§5-Pre-Check (11h Ruhezeit, DST-aware), Template-Apply auf Wochenmuster. Hinter `modules.schichten`-Flag + RBAC `schichten:{shift,assignment,template}:{read,write}`. Ports: 50075/9115. |
+| **Fuhrpark** | `/api/v1/fuhrpark/vehicles`, `/services`, `/damages`, `/upcoming-services`, `/tuv-due` | 18 RPCs (Sprint 2 Welle 2A, 2026-04-28). Vehicle-CRUD, Service-Scheduling, Damage-Reporting mit MinIO-Photos, TÜV-Reminder-Cron-Worker (advisory-lock, 7d/1d-Fenster, idempotent via `tuev_reminder_sent_at`). Hinter `modules.fuhrpark`-Flag + RBAC `fuhrpark:{vehicle,service,damage}:{read,write}`. Ports: 50076/9116. |
+| **Vermietung** | `/api/v1/vermietung/objects`, `/rentals`, `/inspections`, `/availability`, `/calendar` | 20 RPCs (Sprint 2 Welle 2A, 2026-04-28). Object-CRUD, Rental-Lifecycle Reserved→Active→Completed, GIST-tstzrange-Overlap-Check (`CheckAvailability` + Pre-Check vor `CreateRental`), Handover/Return-Inspections mit Photo-Uploads, Calendar-View. Hinter `modules.vermietung`-Flag + RBAC `vermietung:{object,rental,inspection}:{read,write}`. Ports: 50077/9117. |
 | Feature Flags | `/api/v1/feature-flags` | Resolver-Output (16 Flags: 14 Modul-Flags + `plugins.wasm`/`plugins.config`), auth-required |
 | Integration Config | `/api/v1/integrations/configs` | Teams/Slack Webhooks + OAuth |
 | Registrar | (intern) | Service-Registrierung im Gateway |

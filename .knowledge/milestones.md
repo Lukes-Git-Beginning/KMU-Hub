@@ -1,8 +1,23 @@
 ---
 tags: [fortschritt, milestones]
-updated: 2026-04-20
+updated: 2026-04-28
 ---
 # Milestones
+
+## Sprint 2 Welle 2A Session 2026-04-28 — 4 Handwerk-Module Backend
+
+4 parallele Sonnet-Subagents schreiben rapporte/schichten/fuhrpark/vermietung Backends direkt auf main, je mit Welle-1-Inventar als Template-Anker. Plan: `~/.claude/plans/alright-was-steht-als-noble-rabin.md`.
+
+| Schritt | Details |
+|---------|---------|
+| Welle 2A — fuhrpark | `e4b1a62` (Self-Commit Subagent) — 22 Files, ~6k LOC, Migrations 000096+97 (vehicles/services/damages), 18 RPCs, TÜV-Reminder-Cron-Worker mit `pg_try_advisory_xact_lock` Leader-Election + 7d/1d-Vorlauf-Fenster + Idempotenz via `tuev_reminder_sent_at`, Ports 50076/9116, Coverage 39.7% (21 Tests) |
+| Welle 2A — rapporte/schichten/vermietung | `c52839f` (konsolidierter Commit) — 53 Files, 21.8k Insertions. rapporte (50074/9114, Migrations 92+93, 35 Tests, 35.6% Cov, Approval-State-Machine + GPS-Tag), schichten (50075/9115, Migrations 94+95, 38 Tests, 35.6% Cov, ArbZG §5 Pre-Check inkl. DST-Spring-Forward), vermietung (50077/9117, Migrations 98+99, 34 Tests, 41.3% Cov, GIST-tstzrange-Overlap-Index gegen Doppelbuchung) |
+| Pflicht-Guards aus `ad04191` | Alle 4 Module von Anfang an: Pre-Check vor State-Transitions/Mengenwrites, `tenant_id`-Filter in jedem Get-by-ID, `RowsAffected() == 0` Sentinel auf jedem UPDATE/DELETE |
+| Knowledge-Base Update | `_index.md`/`architektur.md`/`datenbank.md`/`api.md`/`milestones.md` |
+
+**Gesamt:** 2 Commits auf main, 75 Files, ~30k LOC, 128 Tests, alle Module-Coverages 35–41% (>30%-Ziel), `go build ./...` + `go vet ./...` clean. Alle 4 Module Feature-Flag default OFF. Open: TÜV-Notification-Delivery (Sprint-3-Wiring), `assigned_driver_id` FK (Sprint-3-Team-Wiring), rapporte-PDF-Export (Sprint-3-Library). Subagent-Lessons: Self-Commit-Anomalie (fuhrpark), kuenftig `kein git add/commit` im Briefing erzwingen. Race-Conditions auf shared Files (config.go, gateway/main.go, docker-compose.yml) durch Edit-Tool-Konfliktdetection sauber aufgeloest.
+
+**Naechste Wellen:** 2B Frontend-Hooks (4 Module parallel), 2C Bugfix-Sweep wie `ad04191`, 2D Memory/ROADMAP-Update.
 
 ## Sprint 1 Session 2026-04-18 — R2-P0 Batch A + Wiki + Helpdesk end-to-end
 | Schritt | Details |
