@@ -136,11 +136,21 @@ func (s *Service) CreateCampaign(
 	return c, nil
 }
 
-// GetCampaign retrieves a campaign by ID.
+// GetCampaign retrieves a campaign by ID (internal — no tenant scoping).
+// For user-facing requests use GetCampaignForTenant to enforce cross-tenant isolation.
 func (s *Service) GetCampaign(ctx context.Context, id uuid.UUID) (*Campaign, error) {
 	c, err := s.campaigns.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get campaign: %w", err)
+	}
+	return c, nil
+}
+
+// GetCampaignForTenant retrieves a campaign by ID scoped to the given tenant.
+func (s *Service) GetCampaignForTenant(ctx context.Context, id, tenantID uuid.UUID) (*Campaign, error) {
+	c, err := s.campaigns.GetByIDForTenant(ctx, id, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("get campaign for tenant: %w", err)
 	}
 	return c, nil
 }

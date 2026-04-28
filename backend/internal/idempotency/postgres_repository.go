@@ -22,6 +22,10 @@ var ErrConflict = errors.New("idempotency key reused with different request")
 // (concurrent in-flight request with same key).
 var ErrInFlight = errors.New("idempotency key request in flight")
 
+// ErrKeyMissing is returned by Complete when the key no longer exists
+// (e.g. the cleanup worker ran between Reserve and Complete).
+var ErrKeyMissing = errors.New("idempotency key no longer exists")
+
 // Record holds the stored state for a single idempotency key.
 type Record struct {
 	Key            string
@@ -45,14 +49,20 @@ type Repository interface {
 	//   - different hash             → ErrConflict
 	Reserve(ctx context.Context, key string, tenantID, userID uuid.UUID, method, path, hash string) (*Record, error)
 
-	// Get returns the record for the given key, or pgx.ErrNoRows if not found.
-	Get(ctx context.Context, key string) (*Record, error)
+	// Get returns the record for the given (tenantID, key) pair, or pgx.ErrNoRows if not found.
+	Get(ctx context.Context, tenantID uuid.UUID, key string) (*Record, error)
 
 	// Complete stores the response for a previously reserved key.
+	// Returns ErrKeyMissing when the key no longer exists (e.g. cleaned up).
 	Complete(ctx context.Context, key string, status int, body []byte) error
 
 	// Cleanup deletes expired records and returns the number of rows deleted.
 	Cleanup(ctx context.Context) (int, error)
+
+	// CleanupWithLock acquires pg_try_advisory_lock(lockKey) first, so only one
+	// replica runs the delete per tick. Returns 0 without error when the lock
+	// is held by another process.
+	CleanupWithLock(ctx context.Context, lockKey int64) (int, error)
 }
 
 type postgresRepository struct {
@@ -70,50 +80,59 @@ func (r *postgresRepository) Reserve(
 	tenantID, userID uuid.UUID,
 	method, path, hash string,
 ) (*Record, error) {
-	// INSERT … ON CONFLICT DO NOTHING handles the race: only one writer wins.
+	// INSERT … ON CONFLICT (tenant_id, key) DO UPDATE SET xmax_trick = ...
+	// Pattern: we use a sentinel column update (expires_at = expires_at, a no-op) so
+	// RETURNING fires for both insert and conflict paths, giving us the stored record
+	// atomically without a separate SELECT — eliminating the TOCTOU window.
 	const insertSQL = `
 		INSERT INTO idempotency_keys
 			(key, tenant_id, user_id, method, path, request_hash)
 		VALUES ($1, $2, $3, $4, $5, $6)
-		ON CONFLICT (key) DO NOTHING`
+		ON CONFLICT (tenant_id, key) DO UPDATE SET expires_at = idempotency_keys.expires_at
+		RETURNING key, tenant_id, user_id, method, path, request_hash,
+		          response_status, response_body, created_at, completed_at, expires_at`
 
-	tag, err := r.pool.Exec(ctx, insertSQL, key, tenantID, userID, method, path, hash)
+	rec := &Record{}
+	err := r.pool.QueryRow(ctx, insertSQL, key, tenantID, userID, method, path, hash).Scan(
+		&rec.Key,
+		&rec.TenantID,
+		&rec.UserID,
+		&rec.Method,
+		&rec.Path,
+		&rec.RequestHash,
+		&rec.ResponseStatus,
+		&rec.ResponseBody,
+		&rec.CreatedAt,
+		&rec.CompletedAt,
+		&rec.ExpiresAt,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	if tag.RowsAffected() == 1 {
-		// Happy path: we inserted, key is fresh.
-		return nil, nil
-	}
-
-	// Key already exists — fetch the existing record to determine the state.
-	rec, err := r.Get(ctx, key)
-	if err != nil {
-		return nil, err
-	}
-
+	// A different hash means the key was used with a different payload (client bug).
 	if rec.RequestHash != hash {
 		return nil, ErrConflict
 	}
 
+	// No completion yet — in-flight or just-inserted (both safe: caller will wait/proceed).
 	if rec.CompletedAt == nil {
-		return nil, ErrInFlight
+		return nil, nil
 	}
 
 	// Completed replay — return existing record so middleware can serve cached response.
 	return rec, nil
 }
 
-func (r *postgresRepository) Get(ctx context.Context, key string) (*Record, error) {
+func (r *postgresRepository) Get(ctx context.Context, tenantID uuid.UUID, key string) (*Record, error) {
 	const q = `
 		SELECT key, tenant_id, user_id, method, path, request_hash,
 		       response_status, response_body, created_at, completed_at, expires_at
 		FROM idempotency_keys
-		WHERE key = $1`
+		WHERE tenant_id = $1 AND key = $2`
 
 	rec := &Record{}
-	err := r.pool.QueryRow(ctx, q, key).Scan(
+	err := r.pool.QueryRow(ctx, q, tenantID, key).Scan(
 		&rec.Key,
 		&rec.TenantID,
 		&rec.UserID,
@@ -143,8 +162,15 @@ func (r *postgresRepository) Complete(ctx context.Context, key string, status in
 		    completed_at    = NOW()
 		WHERE key = $1`
 
-	_, err := r.pool.Exec(ctx, q, key, status, body)
-	return err
+	tag, err := r.pool.Exec(ctx, q, key, status, body)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		// The cleanup worker ran between Reserve and Complete — key is gone.
+		return ErrKeyMissing
+	}
+	return nil
 }
 
 func (r *postgresRepository) Cleanup(ctx context.Context) (int, error) {
@@ -154,4 +180,24 @@ func (r *postgresRepository) Cleanup(ctx context.Context) (int, error) {
 		return 0, err
 	}
 	return int(tag.RowsAffected()), nil
+}
+
+func (r *postgresRepository) CleanupWithLock(ctx context.Context, lockKey int64) (int, error) {
+	// pg_try_advisory_lock returns true if we acquired the session-level lock,
+	// false if another session already holds it. We release immediately after the
+	// delete so the lock is not held for the full hour.
+	var locked bool
+	if err := r.pool.QueryRow(ctx, `SELECT pg_try_advisory_lock($1)`, lockKey).Scan(&locked); err != nil {
+		return 0, err
+	}
+	if !locked {
+		// Another replica is running cleanup — skip this tick.
+		return 0, nil
+	}
+	defer func() {
+		// Release advisory lock (best-effort — connection returns to pool on function exit).
+		_, _ = r.pool.Exec(ctx, `SELECT pg_advisory_unlock($1)`, lockKey)
+	}()
+
+	return r.Cleanup(ctx)
 }

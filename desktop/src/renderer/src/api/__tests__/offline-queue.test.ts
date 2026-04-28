@@ -84,14 +84,23 @@ describe('drain', () => {
     vi.unstubAllGlobals()
   })
 
-  it('treats 409 (idempotency replay) as success', async () => {
+  it('retries on 409 (idempotency in-flight, not success) without dropping the item', async () => {
+    // 409 from the idempotency middleware means a parallel request holding the
+    // same key is still in-flight. The drain MUST retry, not silently drop:
+    // the cached response (after the in-flight call completes) returns 2xx.
     await enqueue('POST', '/api/v1/test', null)
 
     const mockFetch = vi.fn().mockResolvedValue({ ok: false, status: 409 })
     vi.stubGlobal('fetch', mockFetch)
 
     const result = await drain('https://app.zentria.tech', () => 'token')
-    expect(result.replayed).toBe(1)
+    expect(result.replayed).toBe(0)
+    expect(result.failed).toBe(1)
+
+    // Item remains queued for the next drain cycle.
+    const remaining = await peek()
+    expect(remaining).toHaveLength(1)
+    expect(remaining[0].retryCount).toBe(1)
 
     vi.unstubAllGlobals()
   })

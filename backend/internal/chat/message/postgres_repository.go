@@ -34,12 +34,12 @@ func (r *PostgresRepository) Create(ctx context.Context, message *models.Message
 	return err
 }
 
-func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Message, error) {
+func (r *PostgresRepository) GetByID(ctx context.Context, id, tenantID uuid.UUID) (*models.Message, error) {
 	var m models.Message
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, channel_id, content, is_deleted, edited_at, parent_message_id, reply_count, lang, created_by, guest_session_id, created_at
-		 FROM messages WHERE id = $1`, id,
-	).Scan(&m.ID, &m.ChannelID, &m.Content, &m.IsDeleted, &m.EditedAt,
+		`SELECT id, tenant_id, channel_id, content, is_deleted, edited_at, parent_message_id, reply_count, lang, created_by, guest_session_id, created_at
+		 FROM messages WHERE id = $1 AND tenant_id = $2`, id, tenantID,
+	).Scan(&m.ID, &m.TenantID, &m.ChannelID, &m.Content, &m.IsDeleted, &m.EditedAt,
 		&m.ParentMessageID, &m.ReplyCount, &m.Lang, &m.CreatedBy, &m.GuestSessionID, &m.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrMessageNotFound
@@ -52,8 +52,8 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models
 
 func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*models.MessageWithSender, error) {
 	var args []any
-	args = append(args, filter.ChannelID)
-	argNum := 2
+	args = append(args, filter.TenantID, filter.ChannelID)
+	argNum := 3
 
 	// Build extra conditions
 	extraConditions := ""
@@ -63,10 +63,13 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 		extraConditions += " AND m.parent_message_id IS NULL"
 	}
 
-	// Build cursor condition
+	// Build cursor condition — scope cursor lookup to tenant to prevent cross-tenant time leaks
 	if filter.Before != nil {
 		var cursorTime time.Time
-		if err := r.pool.QueryRow(ctx, `SELECT created_at FROM messages WHERE id = $1`, *filter.Before).Scan(&cursorTime); err != nil {
+		if err := r.pool.QueryRow(ctx,
+			`SELECT created_at FROM messages WHERE id = $1 AND tenant_id = $2`,
+			*filter.Before, filter.TenantID,
+		).Scan(&cursorTime); err != nil {
 			if !errors.Is(err, pgx.ErrNoRows) {
 				return nil, err
 			}
@@ -77,7 +80,10 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 		}
 	} else if filter.After != nil {
 		var cursorTime time.Time
-		if err := r.pool.QueryRow(ctx, `SELECT created_at FROM messages WHERE id = $1`, *filter.After).Scan(&cursorTime); err != nil {
+		if err := r.pool.QueryRow(ctx,
+			`SELECT created_at FROM messages WHERE id = $1 AND tenant_id = $2`,
+			*filter.After, filter.TenantID,
+		).Scan(&cursorTime); err != nil {
 			if !errors.Is(err, pgx.ErrNoRows) {
 				return nil, err
 			}
@@ -96,7 +102,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 		FROM messages m
 		LEFT JOIN users u ON m.created_by = u.id
 		LEFT JOIN guest_sessions gs ON m.guest_session_id = gs.id
-		WHERE m.channel_id = $1 AND m.is_deleted = FALSE%s
+		WHERE m.tenant_id = $1 AND m.channel_id = $2 AND m.is_deleted = FALSE%s
 		ORDER BY m.created_at DESC
 		LIMIT $%d`, extraConditions, argNum)
 
@@ -126,33 +132,48 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 }
 
 func (r *PostgresRepository) Update(ctx context.Context, message *models.Message) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE messages SET content = $1, edited_at = $2 WHERE id = $3`,
-		message.Content, message.EditedAt, message.ID,
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE messages SET content = $1, edited_at = $2 WHERE id = $3 AND tenant_id = $4`,
+		message.Content, message.EditedAt, message.ID, message.TenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrMessageNotFound
+	}
+	return nil
 }
 
-func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (r *PostgresRepository) Delete(ctx context.Context, id, tenantID uuid.UUID) error {
 	// Soft delete
-	_, err := r.pool.Exec(ctx, `UPDATE messages SET is_deleted = TRUE WHERE id = $1`, id)
-	return err
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE messages SET is_deleted = TRUE WHERE id = $1 AND tenant_id = $2`,
+		id, tenantID,
+	)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrMessageNotFound
+	}
+	return nil
 }
 
 // Channel checks
 
-func (r *PostgresRepository) ChannelExists(ctx context.Context, channelID uuid.UUID) (bool, error) {
+func (r *PostgresRepository) ChannelExists(ctx context.Context, channelID, tenantID uuid.UUID) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM channels WHERE id = $1)`, channelID,
+		`SELECT EXISTS(SELECT 1 FROM channels WHERE id = $1 AND tenant_id = $2)`, channelID, tenantID,
 	).Scan(&exists)
 	return exists, err
 }
 
-func (r *PostgresRepository) IsChannelArchived(ctx context.Context, channelID uuid.UUID) (bool, error) {
+func (r *PostgresRepository) IsChannelArchived(ctx context.Context, channelID, tenantID uuid.UUID) (bool, error) {
 	var archived bool
 	err := r.pool.QueryRow(ctx,
-		`SELECT is_archived FROM channels WHERE id = $1`, channelID,
+		`SELECT is_archived FROM channels WHERE id = $1 AND tenant_id = $2`, channelID, tenantID,
 	).Scan(&archived)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, ErrChannelNotFound
@@ -160,11 +181,15 @@ func (r *PostgresRepository) IsChannelArchived(ctx context.Context, channelID uu
 	return archived, err
 }
 
-func (r *PostgresRepository) IsMember(ctx context.Context, channelID, userID uuid.UUID) (bool, error) {
+func (r *PostgresRepository) IsMember(ctx context.Context, channelID, tenantID, userID uuid.UUID) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM channel_memberships WHERE channel_id = $1 AND user_id = $2)`,
-		channelID, userID,
+		`SELECT EXISTS(
+			SELECT 1 FROM channel_memberships cm
+			JOIN channels c ON cm.channel_id = c.id
+			WHERE cm.channel_id = $1 AND c.tenant_id = $2 AND cm.user_id = $3
+		)`,
+		channelID, tenantID, userID,
 	).Scan(&exists)
 	return exists, err
 }

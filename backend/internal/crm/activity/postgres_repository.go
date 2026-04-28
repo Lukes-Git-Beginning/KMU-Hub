@@ -165,16 +165,22 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 }
 
 func (r *PostgresRepository) Update(ctx context.Context, activity *models.Activity) error {
-	_, err := r.pool.Exec(ctx,
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE activities SET subject = $1, description = $2, contact_id = $3, company_id = $4,
 		 deal_id = $5, assigned_to = $6, due_date = $7, is_completed = $8, completed_at = $9,
 		 updated_at = $10
-		 WHERE id = $11`,
+		 WHERE id = $11 AND tenant_id = $12`,
 		activity.Subject, activity.Description, activity.ContactID, activity.CompanyID,
 		activity.DealID, activity.AssignedTo, activity.DueDate,
-		activity.IsCompleted, activity.CompletedAt, activity.UpdatedAt, activity.ID,
+		activity.IsCompleted, activity.CompletedAt, activity.UpdatedAt, activity.ID, activity.TenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrActivityNotFound
+	}
+	return nil
 }
 
 func (r *PostgresRepository) Delete(ctx context.Context, id, tenantID uuid.UUID) error {
@@ -358,28 +364,29 @@ func (r *PostgresRepository) TagExists(ctx context.Context, tagID uuid.UUID, ent
 	return exists, err
 }
 
-// GetContactTimeline returns a unified timeline of activities and deal links for a contact.
-func (r *PostgresRepository) GetContactTimeline(ctx context.Context, contactID uuid.UUID, offset, limit int) ([]*TimelineEvent, int, error) {
-	// Count total
+// GetContactTimeline returns a unified timeline of activities and deal links for a contact,
+// scoped to the given tenant.
+func (r *PostgresRepository) GetContactTimeline(ctx context.Context, contactID, tenantID uuid.UUID, offset, limit int) ([]*TimelineEvent, int, error) {
+	// Count total — both tables filtered by tenant_id
 	var total int
 	countQuery := `
 		SELECT COUNT(*) FROM (
-			SELECT id FROM activities WHERE contact_id = $1
+			SELECT id FROM activities WHERE contact_id = $1 AND tenant_id = $2
 			UNION ALL
-			SELECT d.id FROM deals d WHERE d.contact_id = $1
+			SELECT d.id FROM deals d WHERE d.contact_id = $1 AND d.tenant_id = $2
 		) sub
 	`
-	if err := r.pool.QueryRow(ctx, countQuery, contactID).Scan(&total); err != nil {
+	if err := r.pool.QueryRow(ctx, countQuery, contactID, tenantID).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
-	// UNION query: activities + deal links
+	// UNION query: activities + deal links — both arms filtered by tenant_id
 	query := `
 		SELECT id, 'activity' AS event_type, created_at AS occurred_at,
 		       subject AS title, description,
 		       COALESCE((SELECT first_name || ' ' || last_name FROM users WHERE id = created_by), '') AS created_by_name
 		FROM activities
-		WHERE contact_id = $1
+		WHERE contact_id = $1 AND tenant_id = $2
 
 		UNION ALL
 
@@ -387,13 +394,13 @@ func (r *PostgresRepository) GetContactTimeline(ctx context.Context, contactID u
 		       'Deal verknüpft: ' || d.name AS title, NULL::text AS description,
 		       COALESCE((SELECT first_name || ' ' || last_name FROM users WHERE id = d.created_by), '') AS created_by_name
 		FROM deals d
-		WHERE d.contact_id = $1
+		WHERE d.contact_id = $1 AND d.tenant_id = $2
 
 		ORDER BY occurred_at DESC
-		LIMIT $2 OFFSET $3
+		LIMIT $3 OFFSET $4
 	`
 
-	rows, err := r.pool.Query(ctx, query, contactID, limit, offset)
+	rows, err := r.pool.Query(ctx, query, contactID, tenantID, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}

@@ -162,7 +162,11 @@ async function replayItem(
   const token = getAccessToken()
   const headers = new Headers(item.headers)
   headers.set('Idempotency-Key', item.idempotencyKey)
-  headers.set('Content-Type', 'application/json')
+  // Content-Type only for methods that carry a JSON body. DELETE without body
+  // would otherwise trip strict server-side request validators.
+  if (item.body !== null && item.body !== undefined) {
+    headers.set('Content-Type', 'application/json')
+  }
   if (token) {
     headers.set('Authorization', `Bearer ${token}`)
   }
@@ -178,13 +182,16 @@ async function replayItem(
     body: item.body ?? undefined,
   })
 
-  // 2xx and 409 (already processed — idempotency replay) are considered success.
-  if (response.ok || response.status === 409) {
+  // 2xx — idempotency replay returns the cached 2xx status, so a successful
+  // re-drain looks identical to first-time success. 409 is reserved for
+  // in-flight collisions and MUST be retried (not silently dropped).
+  if (response.ok) {
     return
   }
 
-  // 4xx client errors (except 409/429) are not retryable — move immediately to dead letter.
-  if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+  // 4xx client errors (except 409 in-flight and 429 rate-limit) are not
+  // retryable — surface them to dead letter immediately.
+  if (response.status >= 400 && response.status < 500 && response.status !== 409 && response.status !== 429) {
     throw new Error(`HTTP ${response.status} (not retryable)`)
   }
 

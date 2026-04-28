@@ -26,14 +26,14 @@ func newTrackingRepo() *trackingRepo {
 	return &trackingRepo{MockRepository: NewMockRepository()}
 }
 
-func (t *trackingRepo) List(ctx context.Context) ([]*models.PipelineStage, error) {
+func (t *trackingRepo) List(ctx context.Context, tenantID uuid.UUID) ([]*models.PipelineStage, error) {
 	t.listCalls++
-	return t.MockRepository.List(ctx)
+	return t.MockRepository.List(ctx, tenantID)
 }
 
-func (t *trackingRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.PipelineStage, error) {
+func (t *trackingRepo) GetByID(ctx context.Context, id, tenantID uuid.UUID) (*models.PipelineStage, error) {
 	t.getByIDCalls++
-	return t.MockRepository.GetByID(ctx, id)
+	return t.MockRepository.GetByID(ctx, id, tenantID)
 }
 
 func setupCachedRepo(t *testing.T) (*CachedRepository, *trackingRepo, *miniredis.Miniredis) {
@@ -47,9 +47,14 @@ func setupCachedRepo(t *testing.T) (*CachedRepository, *trackingRepo, *miniredis
 	return cached, inner, mr
 }
 
+// testTenantID is a fixed tenant UUID used in all cached-repo tests so
+// cache keys are consistent within a single test.
+var testTenantID = uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+
 func seedStage(inner *trackingRepo, name string) *models.PipelineStage {
 	stage := &models.PipelineStage{
 		ID:          uuid.New(),
+		TenantID:    testTenantID,
 		Name:        name,
 		Color:       "#ff0000",
 		SortOrder:   1,
@@ -63,7 +68,7 @@ func TestCachedRepository_List_CacheMiss(t *testing.T) {
 	repo, inner, _ := setupCachedRepo(t)
 	seedStage(inner, "Stage A")
 
-	stages, err := repo.List(context.Background())
+	stages, err := repo.List(context.Background(), testTenantID)
 	require.NoError(t, err)
 	assert.Len(t, stages, 1)
 	assert.Equal(t, 1, inner.listCalls)
@@ -74,11 +79,11 @@ func TestCachedRepository_List_CacheHit(t *testing.T) {
 	seedStage(inner, "Stage A")
 
 	// First call → cache miss
-	_, _ = repo.List(context.Background())
+	_, _ = repo.List(context.Background(), testTenantID)
 	assert.Equal(t, 1, inner.listCalls)
 
 	// Second call → cache hit
-	stages, err := repo.List(context.Background())
+	stages, err := repo.List(context.Background(), testTenantID)
 	require.NoError(t, err)
 	assert.Len(t, stages, 1)
 	assert.Equal(t, 1, inner.listCalls) // not incremented
@@ -89,7 +94,7 @@ func TestCachedRepository_List_RedisDown_FallsThrough(t *testing.T) {
 	seedStage(inner, "Stage A")
 	mr.Close()
 
-	stages, err := repo.List(context.Background())
+	stages, err := repo.List(context.Background(), testTenantID)
 	require.NoError(t, err)
 	assert.Len(t, stages, 1)
 	assert.Equal(t, 1, inner.listCalls)
@@ -99,7 +104,7 @@ func TestCachedRepository_GetByID_CacheMiss(t *testing.T) {
 	repo, inner, _ := setupCachedRepo(t)
 	stage := seedStage(inner, "Stage B")
 
-	result, err := repo.GetByID(context.Background(), stage.ID)
+	result, err := repo.GetByID(context.Background(), stage.ID, testTenantID)
 	require.NoError(t, err)
 	assert.Equal(t, "Stage B", result.Name)
 	assert.Equal(t, 1, inner.getByIDCalls)
@@ -109,8 +114,8 @@ func TestCachedRepository_GetByID_CacheHit(t *testing.T) {
 	repo, inner, _ := setupCachedRepo(t)
 	stage := seedStage(inner, "Stage B")
 
-	_, _ = repo.GetByID(context.Background(), stage.ID)
-	result, err := repo.GetByID(context.Background(), stage.ID)
+	_, _ = repo.GetByID(context.Background(), stage.ID, testTenantID)
+	result, err := repo.GetByID(context.Background(), stage.ID, testTenantID)
 	require.NoError(t, err)
 	assert.Equal(t, "Stage B", result.Name)
 	assert.Equal(t, 1, inner.getByIDCalls) // not incremented
@@ -121,18 +126,19 @@ func TestCachedRepository_Create_InvalidatesList(t *testing.T) {
 	seedStage(inner, "Existing")
 
 	// Populate cache
-	_, _ = repo.List(context.Background())
+	_, _ = repo.List(context.Background(), testTenantID)
 	assert.Equal(t, 1, inner.listCalls)
 
 	// Create invalidates list cache
 	err := repo.Create(context.Background(), &models.PipelineStage{
-		ID:   uuid.New(),
-		Name: "New Stage",
+		ID:       uuid.New(),
+		TenantID: testTenantID,
+		Name:     "New Stage",
 	})
 	require.NoError(t, err)
 
 	// Next List should hit DB again
-	_, _ = repo.List(context.Background())
+	_, _ = repo.List(context.Background(), testTenantID)
 	assert.Equal(t, 2, inner.listCalls)
 }
 
@@ -141,16 +147,16 @@ func TestCachedRepository_Update_InvalidatesListAndByID(t *testing.T) {
 	stage := seedStage(inner, "Original")
 
 	// Populate both caches
-	_, _ = repo.List(context.Background())
-	_, _ = repo.GetByID(context.Background(), stage.ID)
+	_, _ = repo.List(context.Background(), testTenantID)
+	_, _ = repo.GetByID(context.Background(), stage.ID, testTenantID)
 
 	// Update invalidates both
 	stage.Name = "Updated"
 	err := repo.Update(context.Background(), stage)
 	require.NoError(t, err)
 
-	_, _ = repo.List(context.Background())
-	_, _ = repo.GetByID(context.Background(), stage.ID)
+	_, _ = repo.List(context.Background(), testTenantID)
+	_, _ = repo.GetByID(context.Background(), stage.ID, testTenantID)
 	assert.Equal(t, 2, inner.listCalls)
 	assert.Equal(t, 2, inner.getByIDCalls)
 }
@@ -160,14 +166,14 @@ func TestCachedRepository_Delete_InvalidatesListAndByID(t *testing.T) {
 	stage := seedStage(inner, "ToDelete")
 
 	// Populate cache
-	_, _ = repo.List(context.Background())
-	_, _ = repo.GetByID(context.Background(), stage.ID)
+	_, _ = repo.List(context.Background(), testTenantID)
+	_, _ = repo.GetByID(context.Background(), stage.ID, testTenantID)
 
-	err := repo.Delete(context.Background(), stage.ID)
+	err := repo.Delete(context.Background(), stage.ID, testTenantID)
 	require.NoError(t, err)
 
 	// Should fetch from DB again
-	_, _ = repo.List(context.Background())
+	_, _ = repo.List(context.Background(), testTenantID)
 	assert.Equal(t, 2, inner.listCalls)
 }
 
@@ -177,19 +183,19 @@ func TestCachedRepository_Reorder_InvalidatesAll(t *testing.T) {
 	s2 := seedStage(inner, "Second")
 
 	// Populate cache
-	_, _ = repo.List(context.Background())
-	_, _ = repo.GetByID(context.Background(), s1.ID)
-	_, _ = repo.GetByID(context.Background(), s2.ID)
+	_, _ = repo.List(context.Background(), testTenantID)
+	_, _ = repo.GetByID(context.Background(), s1.ID, testTenantID)
+	_, _ = repo.GetByID(context.Background(), s2.ID, testTenantID)
 
-	err := repo.Reorder(context.Background(), []uuid.UUID{s2.ID, s1.ID})
+	err := repo.Reorder(context.Background(), testTenantID, []uuid.UUID{s2.ID, s1.ID})
 	require.NoError(t, err)
 
 	// All should re-fetch from DB
-	_, _ = repo.List(context.Background())
+	_, _ = repo.List(context.Background(), testTenantID)
 	assert.Equal(t, 2, inner.listCalls)
 
-	_, _ = repo.GetByID(context.Background(), s1.ID)
-	_, _ = repo.GetByID(context.Background(), s2.ID)
+	_, _ = repo.GetByID(context.Background(), s1.ID, testTenantID)
+	_, _ = repo.GetByID(context.Background(), s2.ID, testTenantID)
 	assert.Equal(t, 4, inner.getByIDCalls) // 2 initial + 2 after invalidation
 }
 
@@ -198,8 +204,9 @@ func TestCachedRepository_ListWithStats_NotCached(t *testing.T) {
 	seedStage(inner, "Stage")
 
 	// ListWithStats always goes to inner
-	_, _ = repo.ListWithStats(context.Background())
-	_, _ = repo.ListWithStats(context.Background())
+	_, _ = repo.ListWithStats(context.Background(), testTenantID)
+	_, _ = repo.ListWithStats(context.Background(), testTenantID)
 	// We can't track this easily since trackingRepo doesn't override ListWithStats,
 	// but the point is it compiles and delegates correctly.
+	_ = inner
 }

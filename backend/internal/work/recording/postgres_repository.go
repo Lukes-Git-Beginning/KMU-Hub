@@ -319,30 +319,36 @@ func (r *PostgresRepository) listRecordings(ctx context.Context, query string, a
 
 // MarkInitiatorConsent stamps pre_recording_consent_at on a recording row.
 // The sentinel UUID 00000000-0000-0000-0000-000000000001 is used as initiator_consent_id.
-// tenantID is accepted for API consistency but not used as a filter until the recordings
-// table gains tenant_id in the Option-B Sprint 2/3 retrofit.
-func (r *PostgresRepository) MarkInitiatorConsent(ctx context.Context, recordingID, userID, _ uuid.UUID) error {
+// tenantID is enforced in the WHERE clause (recordings.tenant_id added by Migration 000106).
+func (r *PostgresRepository) MarkInitiatorConsent(ctx context.Context, recordingID, userID, tenantID uuid.UUID) error {
 	sentinelConsentID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
-	_, err := r.pool.Exec(ctx,
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE recordings
 		 SET pre_recording_consent_at = NOW(),
 		     initiator_consent_id = $1
 		 WHERE id = $2
-		   AND started_by = $3`,
-		sentinelConsentID, recordingID, userID,
+		   AND started_by = $3
+		   AND tenant_id = $4`,
+		sentinelConsentID, recordingID, userID, tenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // GetPreConsentStatus returns true if pre_recording_consent_at is set on the recording.
-// tenantID is accepted for API consistency but not filtered until Option-B retrofit.
-func (r *PostgresRepository) GetPreConsentStatus(ctx context.Context, recordingID, _ uuid.UUID) (bool, error) {
+// tenantID is enforced in the WHERE clause.
+func (r *PostgresRepository) GetPreConsentStatus(ctx context.Context, recordingID, tenantID uuid.UUID) (bool, error) {
 	var stamped bool
 	err := r.pool.QueryRow(ctx,
 		`SELECT pre_recording_consent_at IS NOT NULL
 		 FROM recordings
-		 WHERE id = $1`,
-		recordingID,
+		 WHERE id = $1 AND tenant_id = $2`,
+		recordingID, tenantID,
 	).Scan(&stamped)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, ErrNotFound

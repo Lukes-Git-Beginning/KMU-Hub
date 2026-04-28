@@ -23,6 +23,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/crm/savedfilter"
 	"github.com/kmuhub/kmuhub/internal/crm/search"
 	"github.com/kmuhub/kmuhub/internal/crm/tag"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	crmv1 "github.com/kmuhub/kmuhub/proto/crm/v1"
 )
@@ -828,7 +829,13 @@ func (s *CRMGRPCServer) GetCompanyContacts(ctx context.Context, req *crmv1.GetCo
 // ============================================================================
 
 func (s *CRMGRPCServer) CreatePipelineStage(ctx context.Context, req *crmv1.CreatePipelineStageRequest) (*crmv1.CreatePipelineStageResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	input := pipelinestage.CreateInput{
+		TenantID:    tenantID,
 		Name:        req.Name,
 		Color:       req.Color,
 		IsWon:       req.IsWon,
@@ -847,12 +854,17 @@ func (s *CRMGRPCServer) CreatePipelineStage(ctx context.Context, req *crmv1.Crea
 }
 
 func (s *CRMGRPCServer) GetPipelineStage(ctx context.Context, req *crmv1.GetPipelineStageRequest) (*crmv1.GetPipelineStageResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid pipeline stage id")
 	}
 
-	stage, err := s.pipelineStageService.GetByID(ctx, id)
+	stage, err := s.pipelineStageService.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -863,7 +875,12 @@ func (s *CRMGRPCServer) GetPipelineStage(ctx context.Context, req *crmv1.GetPipe
 }
 
 func (s *CRMGRPCServer) ListPipelineStages(ctx context.Context, req *crmv1.ListPipelineStagesRequest) (*crmv1.ListPipelineStagesResponse, error) {
-	stages, err := s.pipelineStageService.ListWithStats(ctx)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
+	stages, err := s.pipelineStageService.ListWithStats(ctx, tenantID)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list pipeline stages")
 	}
@@ -879,6 +896,11 @@ func (s *CRMGRPCServer) ListPipelineStages(ctx context.Context, req *crmv1.ListP
 }
 
 func (s *CRMGRPCServer) UpdatePipelineStage(ctx context.Context, req *crmv1.UpdatePipelineStageRequest) (*crmv1.UpdatePipelineStageResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid pipeline stage id")
@@ -902,7 +924,7 @@ func (s *CRMGRPCServer) UpdatePipelineStage(ctx context.Context, req *crmv1.Upda
 		input.Probability = req.Probability
 	}
 
-	stage, err := s.pipelineStageService.Update(ctx, id, input)
+	stage, err := s.pipelineStageService.Update(ctx, id, tenantID, input)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -913,12 +935,17 @@ func (s *CRMGRPCServer) UpdatePipelineStage(ctx context.Context, req *crmv1.Upda
 }
 
 func (s *CRMGRPCServer) DeletePipelineStage(ctx context.Context, req *crmv1.DeletePipelineStageRequest) (*crmv1.DeletePipelineStageResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid pipeline stage id")
 	}
 
-	if err := s.pipelineStageService.Delete(ctx, id); err != nil {
+	if err := s.pipelineStageService.Delete(ctx, id, tenantID); err != nil {
 		return nil, mapCRMError(err)
 	}
 
@@ -926,21 +953,26 @@ func (s *CRMGRPCServer) DeletePipelineStage(ctx context.Context, req *crmv1.Dele
 }
 
 func (s *CRMGRPCServer) ReorderPipelineStages(ctx context.Context, req *crmv1.ReorderPipelineStagesRequest) (*crmv1.ReorderPipelineStagesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	var stageIDs []uuid.UUID
 	for _, idStr := range req.StageIds {
-		id, err := uuid.Parse(idStr)
-		if err != nil {
+		id, parseErr := uuid.Parse(idStr)
+		if parseErr != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid stage id in list")
 		}
 		stageIDs = append(stageIDs, id)
 	}
 
-	if err := s.pipelineStageService.Reorder(ctx, stageIDs); err != nil {
+	if err := s.pipelineStageService.Reorder(ctx, tenantID, stageIDs); err != nil {
 		return nil, mapCRMError(err)
 	}
 
 	// Return updated list
-	stages, err := s.pipelineStageService.ListWithStats(ctx)
+	stages, err := s.pipelineStageService.ListWithStats(ctx, tenantID)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list pipeline stages")
 	}
@@ -2644,6 +2676,11 @@ func (s *CRMGRPCServer) GetContactTimeline(ctx context.Context, req *crmv1.GetCo
 		return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
 	}
 
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	page := int(req.Page)
 	pageSize := int(req.PageSize)
 	if page < 1 {
@@ -2653,7 +2690,7 @@ func (s *CRMGRPCServer) GetContactTimeline(ctx context.Context, req *crmv1.GetCo
 		pageSize = 20
 	}
 
-	result, err := s.activityService.GetContactTimeline(ctx, contactID, page, pageSize)
+	result, err := s.activityService.GetContactTimeline(ctx, contactID, tenantID, page, pageSize)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

@@ -84,7 +84,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.TaskWi
 	// Handle nesting
 	var depth int
 	if input.ParentTaskID != nil {
-		parentTask, err := s.repo.GetByID(ctx, *input.ParentTaskID)
+		parentTask, err := s.repo.GetByID(ctx, *input.ParentTaskID, input.TenantID)
 		if err != nil {
 			return nil, fmt.Errorf("parent task: %w", err)
 		}
@@ -171,7 +171,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.TaskWi
 		})
 	}
 
-	return s.repo.GetByID(ctx, task.ID)
+	return s.repo.GetByID(ctx, task.ID, input.TenantID)
 }
 
 // UpdateInput contains the data that can be updated on a task
@@ -186,8 +186,8 @@ type UpdateInput struct {
 }
 
 // Update updates an existing task
-func (s *Service) Update(ctx context.Context, taskID uuid.UUID, input UpdateInput, actorID uuid.UUID) (*models.TaskWithRelations, error) {
-	existing, err := s.repo.GetByID(ctx, taskID)
+func (s *Service) Update(ctx context.Context, tenantID, taskID uuid.UUID, input UpdateInput, actorID uuid.UUID) (*models.TaskWithRelations, error) {
+	existing, err := s.repo.GetByID(ctx, taskID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -343,12 +343,12 @@ func (s *Service) Update(ctx context.Context, taskID uuid.UUID, input UpdateInpu
 		}
 	}
 
-	return s.repo.GetByID(ctx, task.ID)
+	return s.repo.GetByID(ctx, task.ID, tenantID)
 }
 
 // MoveTask moves a task to a different status column (Kanban move)
-func (s *Service) MoveTask(ctx context.Context, taskID uuid.UUID, newStatusID uuid.UUID, newSortOrder float64, actorID uuid.UUID) error {
-	existing, err := s.repo.GetByID(ctx, taskID)
+func (s *Service) MoveTask(ctx context.Context, tenantID, taskID uuid.UUID, newStatusID uuid.UUID, newSortOrder float64, actorID uuid.UUID) error {
+	existing, err := s.repo.GetByID(ctx, taskID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -426,8 +426,8 @@ func (s *Service) MoveTask(ctx context.Context, taskID uuid.UUID, newStatusID uu
 }
 
 // Delete removes a task
-func (s *Service) Delete(ctx context.Context, taskID uuid.UUID, actorID uuid.UUID) error {
-	existing, err := s.repo.GetByID(ctx, taskID)
+func (s *Service) Delete(ctx context.Context, tenantID, taskID uuid.UUID, actorID uuid.UUID) error {
+	existing, err := s.repo.GetByID(ctx, taskID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -443,7 +443,7 @@ func (s *Service) Delete(ctx context.Context, taskID uuid.UUID, actorID uuid.UUI
 		}
 	}
 
-	if deleteErr := s.repo.Delete(ctx, taskID); deleteErr != nil {
+	if deleteErr := s.repo.Delete(ctx, taskID, tenantID); deleteErr != nil {
 		return deleteErr
 	}
 
@@ -455,9 +455,9 @@ func (s *Service) Delete(ctx context.Context, taskID uuid.UUID, actorID uuid.UUI
 	return nil
 }
 
-// GetByID retrieves a task by ID
-func (s *Service) GetByID(ctx context.Context, taskID uuid.UUID) (*models.TaskWithRelations, error) {
-	return s.repo.GetByID(ctx, taskID)
+// GetByID retrieves a task by ID, scoped to the given tenant.
+func (s *Service) GetByID(ctx context.Context, tenantID, taskID uuid.UUID) (*models.TaskWithRelations, error) {
+	return s.repo.GetByID(ctx, taskID, tenantID)
 }
 
 // List retrieves tasks with filtering and pagination, scoped to the given tenant.

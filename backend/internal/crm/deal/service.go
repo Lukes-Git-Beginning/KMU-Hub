@@ -418,7 +418,7 @@ func (s *Service) MoveToStage(ctx context.Context, tenantID, dealID, stageID uui
 	}
 
 	// Update closed_at separately to handle the NULL case
-	if setErr := s.repo.SetClosedAt(ctx, dealID, deal.ClosedAt); setErr != nil {
+	if setErr := s.repo.SetClosedAt(ctx, dealID, tenantID, deal.ClosedAt); setErr != nil {
 		return nil, setErr
 	}
 

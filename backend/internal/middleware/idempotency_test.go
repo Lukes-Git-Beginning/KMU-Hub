@@ -67,7 +67,7 @@ func (m *memIdempotencyRepo) Reserve(
 	return existing, nil
 }
 
-func (m *memIdempotencyRepo) Get(ctx context.Context, key string) (*idempotency.Record, error) {
+func (m *memIdempotencyRepo) Get(ctx context.Context, tenantID uuid.UUID, key string) (*idempotency.Record, error) {
 	rec, ok := m.records[key]
 	if !ok {
 		return nil, pgx.ErrNoRows
@@ -88,6 +88,10 @@ func (m *memIdempotencyRepo) Complete(ctx context.Context, key string, status in
 }
 
 func (m *memIdempotencyRepo) Cleanup(ctx context.Context) (int, error) {
+	return 0, nil
+}
+
+func (m *memIdempotencyRepo) CleanupWithLock(ctx context.Context, lockKey int64) (int, error) {
 	return 0, nil
 }
 

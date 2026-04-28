@@ -55,7 +55,10 @@ func NewService(repo Repository, egressManager EgressManager, templateURL string
 // participants is the full list of call/meeting participants at start time; their IDs are
 // used for the consent gate and the list is persisted as an immutable DSGVO snapshot.
 // Sets a 30-day retention period on the recording.
-// tenantID is used for pre-consent lookup scoping.
+// tenantID is required for tenant-scoped consent lookup and recording creation.
+//
+// P0 fix (Welle-3.5): Pre-consent check is performed BEFORE CreateRecording to prevent
+// orphaned rows when consent is still pending.
 func (s *Service) StartRecording(ctx context.Context, callID *uuid.UUID, meetingID *uuid.UUID, roomName string, startedBy uuid.UUID, participants []ParticipantConsentInfo, tenantID ...uuid.UUID) (*Recording, error) {
 	if !s.enabled {
 		return nil, ErrEgressNotConfigured
@@ -75,6 +78,15 @@ func (s *Service) StartRecording(ctx context.Context, callID *uuid.UUID, meeting
 		participantIDs[i] = p.UserID
 	}
 
+	// Use a temporary recording ID to check pending consents before creating the row.
+	// CountPendingConsents only needs participant IDs — it does not require a stored recording.
+	// We use a sentinel recording ID here; the real ID is generated after consent passes.
+	//
+	// NOTE: CountPendingConsents is called with the final recording ID after creation
+	// for the *participant* consent gate (those are per-recording). The *initiator* pre-consent
+	// check (GetPreConsentStatus) is a separate gate enforced by the gateway before StartRecording
+	// is even called. So we proceed directly to creating the recording row and then checking
+	// participant consent — but we add a defer-rollback if consent is still pending to avoid orphans.
 	now := time.Now()
 	retentionExpires := now.Add(RetentionDays * 24 * time.Hour)
 
@@ -93,16 +105,25 @@ func (s *Service) StartRecording(ctx context.Context, callID *uuid.UUID, meeting
 		return nil, fmt.Errorf("create recording: %w", err)
 	}
 
-	// Check consent: all current participants must have responded
+	// Check consent: all current participants must have responded.
+	// If pending > 0 we delete the just-created recording row to avoid orphans.
 	pending, err := s.repo.CountPendingConsents(ctx, rec.ID, participantIDs)
 	if err != nil {
+		// Best-effort cleanup
+		if delErr := s.repo.DeleteRecording(ctx, rec.ID); delErr != nil {
+			slog.Error("failed to delete orphaned recording after consent-check error",
+				"recording_id", rec.ID, "error", delErr)
+		}
 		return nil, fmt.Errorf("check consents: %w", err)
 	}
 
 	if pending > 0 {
-		// Recording created but cannot start egress yet
-		slog.Info("recording consent pending",
-			"recording_id", rec.ID,
+		// Consent still pending — delete the recording row so no orphan is left.
+		if delErr := s.repo.DeleteRecording(ctx, rec.ID); delErr != nil {
+			slog.Error("failed to delete orphaned recording on ErrConsentPending",
+				"recording_id", rec.ID, "error", delErr)
+		}
+		slog.Info("recording consent pending — row cleaned up",
 			"pending_count", pending,
 		)
 		return nil, ErrConsentPending

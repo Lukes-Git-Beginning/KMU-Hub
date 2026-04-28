@@ -41,7 +41,7 @@ func (m *mockRepo) Create(_ context.Context, task *models.Task) error {
 	return nil
 }
 
-func (m *mockRepo) GetByID(_ context.Context, id uuid.UUID) (*models.TaskWithRelations, error) {
+func (m *mockRepo) GetByID(_ context.Context, id, _ uuid.UUID) (*models.TaskWithRelations, error) {
 	tw, ok := m.tasks[id]
 	if !ok {
 		return nil, ErrNotFound
@@ -73,7 +73,7 @@ func (m *mockRepo) Update(_ context.Context, task *models.Task) error {
 	return nil
 }
 
-func (m *mockRepo) Delete(_ context.Context, id uuid.UUID) error {
+func (m *mockRepo) Delete(_ context.Context, id, _ uuid.UUID) error {
 	delete(m.tasks, id)
 	delete(m.rawTasks, id)
 	return nil
@@ -191,7 +191,7 @@ func (m *mockRepo) GetCustomFieldValues(_ context.Context, _ uuid.UUID) (map[str
 	return nil, nil
 }
 
-func (m *mockRepo) Search(_ context.Context, _ string, _ TaskSearchFilters) ([]models.TaskWithRelations, int, error) {
+func (m *mockRepo) Search(_ context.Context, _ uuid.UUID, _ string, _ TaskSearchFilters) ([]models.TaskWithRelations, int, error) {
 	return nil, 0, nil
 }
 
@@ -656,7 +656,7 @@ func TestService_MoveTask(t *testing.T) {
 		emitter.events = nil
 
 		newStatusID := uuid.New()
-		err := svc.MoveTask(ctx, task1.ID, newStatusID, 1.5, userID)
+		err := svc.MoveTask(ctx, uuid.Nil, task1.ID, newStatusID, 1.5, userID)
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -675,7 +675,7 @@ func TestService_MoveTask(t *testing.T) {
 		repo.statusClosed = true
 
 		closedStatusID := uuid.New()
-		err := svc.MoveTask(ctx, task1.ID, closedStatusID, 2.0, userID)
+		err := svc.MoveTask(ctx, uuid.Nil, task1.ID, closedStatusID, 2.0, userID)
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -691,7 +691,7 @@ func TestService_MoveTask(t *testing.T) {
 		repo.statusClosed = false
 
 		openStatusID := uuid.New()
-		err := svc.MoveTask(ctx, task1.ID, openStatusID, 3.0, userID)
+		err := svc.MoveTask(ctx, uuid.Nil, task1.ID, openStatusID, 3.0, userID)
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -728,7 +728,7 @@ func TestService_Update(t *testing.T) {
 	t.Run("update title logs activity", func(t *testing.T) {
 		activitiesBefore := len(repo.activities)
 		newTitle := "Updated title"
-		result, err := svc.Update(ctx, task1.ID, UpdateInput{
+		result, err := svc.Update(ctx, uuid.Nil, task1.ID, UpdateInput{
 			Title: &newTitle,
 		}, userID)
 		if err != nil {
@@ -749,7 +749,7 @@ func TestService_Update(t *testing.T) {
 	t.Run("update priority logs activity", func(t *testing.T) {
 		activitiesBefore := len(repo.activities)
 		newPriority := models.TaskPriorityUrgent
-		_, err := svc.Update(ctx, task1.ID, UpdateInput{
+		_, err := svc.Update(ctx, uuid.Nil, task1.ID, UpdateInput{
 			Priority: &newPriority,
 		}, userID)
 		if err != nil {
@@ -763,7 +763,7 @@ func TestService_Update(t *testing.T) {
 	t.Run("update assignee emits event", func(t *testing.T) {
 		emitter.events = nil
 		newAssignee := uuid.New()
-		_, err := svc.Update(ctx, task1.ID, UpdateInput{
+		_, err := svc.Update(ctx, uuid.Nil, task1.ID, UpdateInput{
 			AssigneeID: &newAssignee,
 		}, userID)
 		if err != nil {
@@ -784,7 +784,7 @@ func TestService_Update(t *testing.T) {
 
 		emitter.events = nil
 		newStatus := uuid.New()
-		_, err := svc.Update(ctx, task1.ID, UpdateInput{
+		_, err := svc.Update(ctx, uuid.Nil, task1.ID, UpdateInput{
 			StatusID: &newStatus,
 		}, userID)
 		if err != nil {
@@ -800,7 +800,7 @@ func TestService_Update(t *testing.T) {
 
 	t.Run("invalid priority rejected", func(t *testing.T) {
 		badPriority := "nonexistent"
-		_, err := svc.Update(ctx, task1.ID, UpdateInput{
+		_, err := svc.Update(ctx, uuid.Nil, task1.ID, UpdateInput{
 			Priority: &badPriority,
 		}, userID)
 		if err != ErrInvalidPriority {
@@ -825,13 +825,13 @@ func TestService_Delete(t *testing.T) {
 		CreatedBy: userID,
 	})
 
-	err := svc.Delete(ctx, task1.ID, userID)
+	err := svc.Delete(ctx, uuid.Nil, task1.ID, userID)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
 	// Verify task is gone
-	_, err = svc.GetByID(ctx, task1.ID)
+	_, err = svc.GetByID(ctx, uuid.Nil, task1.ID)
 	if err != ErrNotFound {
 		t.Errorf("expected ErrNotFound after delete, got %v", err)
 	}
@@ -855,7 +855,7 @@ func TestService_DeleteViewerCannotDelete(t *testing.T) {
 		CreatedBy: ownerID,
 	})
 
-	err := svc.Delete(ctx, task1.ID, viewerID)
+	err := svc.Delete(ctx, uuid.Nil, task1.ID, viewerID)
 	if err != ErrViewerCannotEdit {
 		t.Errorf("expected ErrViewerCannotEdit, got %v", err)
 	}
@@ -1013,7 +1013,7 @@ func TestService_UpdateNonExistent(t *testing.T) {
 	svc := NewService(repo, projRepo)
 
 	title := "new"
-	_, err := svc.Update(ctx, uuid.New(), UpdateInput{Title: &title}, uuid.New())
+	_, err := svc.Update(ctx, uuid.Nil, uuid.New(), UpdateInput{Title: &title}, uuid.New())
 	if err != ErrNotFound {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
@@ -1033,7 +1033,7 @@ func TestService_UpdateDueDate(t *testing.T) {
 
 	activitiesBefore := len(repo.activities)
 	dueDate := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
-	_, err := svc.Update(ctx, task1.ID, UpdateInput{
+	_, err := svc.Update(ctx, uuid.Nil, task1.ID, UpdateInput{
 		DueDate: &dueDate,
 	}, userID)
 	if err != nil {

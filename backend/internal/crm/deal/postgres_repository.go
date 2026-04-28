@@ -149,16 +149,22 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 }
 
 func (r *PostgresRepository) Update(ctx context.Context, deal *models.Deal) error {
-	_, err := r.pool.Exec(ctx,
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE deals SET name = $1, value = $2, currency = $3, stage_id = $4,
 		 contact_id = $5, company_id = $6, owner_id = $7, expected_close_date = $8,
 		 notes = $9, updated_at = $10
-		 WHERE id = $11`,
+		 WHERE id = $11 AND tenant_id = $12`,
 		deal.Name, deal.Value, deal.Currency, deal.StageID,
 		deal.ContactID, deal.CompanyID, deal.OwnerID, deal.ExpectedCloseDate,
-		deal.Notes, deal.UpdatedAt, deal.ID,
+		deal.Notes, deal.UpdatedAt, deal.ID, deal.TenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrDealNotFound
+	}
+	return nil
 }
 
 func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
@@ -307,10 +313,11 @@ func (r *PostgresRepository) SetCustomFieldValues(ctx context.Context, dealID uu
 	return nil
 }
 
-func (r *PostgresRepository) StageExists(ctx context.Context, stageID uuid.UUID) (bool, error) {
+func (r *PostgresRepository) StageExists(ctx context.Context, stageID, tenantID uuid.UUID) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM pipeline_stages WHERE id = $1)`, stageID,
+		`SELECT EXISTS(SELECT 1 FROM pipeline_stages WHERE id = $1 AND tenant_id = $2)`,
+		stageID, tenantID,
 	).Scan(&exists)
 	return exists, err
 }
@@ -365,12 +372,18 @@ func (r *PostgresRepository) TagExists(ctx context.Context, tagID uuid.UUID, ent
 	return exists, err
 }
 
-func (r *PostgresRepository) SetClosedAt(ctx context.Context, dealID uuid.UUID, closedAt *time.Time) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE deals SET closed_at = $1, updated_at = NOW() WHERE id = $2`,
-		closedAt, dealID,
+func (r *PostgresRepository) SetClosedAt(ctx context.Context, dealID, tenantID uuid.UUID, closedAt *time.Time) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE deals SET closed_at = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3`,
+		closedAt, dealID, tenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrDealNotFound
+	}
+	return nil
 }
 
 // GetStageNames fetches stage names for multiple stage IDs in one query.

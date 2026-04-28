@@ -37,7 +37,7 @@ type Repository interface {
 	TagExists(ctx context.Context, tagID uuid.UUID, entityType models.EntityType) (bool, error)
 
 	// Timeline
-	GetContactTimeline(ctx context.Context, contactID uuid.UUID, offset, limit int) ([]*TimelineEvent, int, error)
+	GetContactTimeline(ctx context.Context, contactID, tenantID uuid.UUID, offset, limit int) ([]*TimelineEvent, int, error)
 }
 
 // ListFilter contains filtering options for listing activities

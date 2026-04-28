@@ -46,7 +46,7 @@ func (m *MockRepository) Create(ctx context.Context, message *models.Message) er
 	return nil
 }
 
-func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Message, error) {
+func (m *MockRepository) GetByID(ctx context.Context, id, _ uuid.UUID) (*models.Message, error) {
 	if m.getErr != nil {
 		return nil, m.getErr
 	}
@@ -91,7 +91,7 @@ func (m *MockRepository) Update(ctx context.Context, message *models.Message) er
 	return nil
 }
 
-func (m *MockRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (m *MockRepository) Delete(ctx context.Context, id, _ uuid.UUID) error {
 	if m.deleteErr != nil {
 		return m.deleteErr
 	}
@@ -101,12 +101,12 @@ func (m *MockRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (m *MockRepository) ChannelExists(ctx context.Context, channelID uuid.UUID) (bool, error) {
+func (m *MockRepository) ChannelExists(ctx context.Context, channelID, _ uuid.UUID) (bool, error) {
 	_, exists := m.channels[channelID]
 	return exists, nil
 }
 
-func (m *MockRepository) IsChannelArchived(ctx context.Context, channelID uuid.UUID) (bool, error) {
+func (m *MockRepository) IsChannelArchived(ctx context.Context, channelID, _ uuid.UUID) (bool, error) {
 	ch, ok := m.channels[channelID]
 	if !ok {
 		return false, ErrChannelNotFound
@@ -114,7 +114,7 @@ func (m *MockRepository) IsChannelArchived(ctx context.Context, channelID uuid.U
 	return ch.archived, nil
 }
 
-func (m *MockRepository) IsMember(ctx context.Context, channelID, userID uuid.UUID) (bool, error) {
+func (m *MockRepository) IsMember(ctx context.Context, channelID, _ uuid.UUID, userID uuid.UUID) (bool, error) {
 	key := membershipKey(channelID, userID)
 	_, exists := m.memberships[key]
 	return exists, nil
@@ -416,7 +416,7 @@ func TestService_GetByID(t *testing.T) {
 		require.NoError(t, err)
 
 		// Get by ID
-		msg, err := service.GetByID(context.Background(), created.ID, userID)
+		msg, err := service.GetByID(context.Background(), created.ID, uuid.Nil, userID)
 
 		require.NoError(t, err)
 		assert.Equal(t, created.ID, msg.ID)
@@ -426,7 +426,7 @@ func TestService_GetByID(t *testing.T) {
 		repo := NewMockRepository()
 		service := NewService(repo)
 
-		_, err := service.GetByID(context.Background(), uuid.New(), uuid.New())
+		_, err := service.GetByID(context.Background(), uuid.New(), uuid.Nil, uuid.New())
 
 		assert.Equal(t, ErrMessageNotFound, err)
 	})
@@ -451,7 +451,7 @@ func TestService_GetByID(t *testing.T) {
 		require.NoError(t, err)
 
 		// Try to get as non-member
-		_, err = service.GetByID(context.Background(), created.ID, otherUserID)
+		_, err = service.GetByID(context.Background(), created.ID, uuid.Nil, otherUserID)
 
 		assert.Equal(t, ErrNotChannelMember, err)
 	})
@@ -532,7 +532,7 @@ func TestService_Update(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		updated, err := service.Update(context.Background(), created.ID, userID, UpdateInput{
+		updated, err := service.Update(context.Background(), created.ID, uuid.Nil, userID, UpdateInput{
 			Content: "Updated content",
 		})
 
@@ -560,7 +560,7 @@ func TestService_Update(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = service.Update(context.Background(), created.ID, otherID, UpdateInput{
+		_, err = service.Update(context.Background(), created.ID, uuid.Nil, otherID, UpdateInput{
 			Content: "Hacked",
 		})
 
@@ -584,7 +584,7 @@ func TestService_Update(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = service.Update(context.Background(), created.ID, userID, UpdateInput{
+		_, err = service.Update(context.Background(), created.ID, uuid.Nil, userID, UpdateInput{
 			Content: "  ",
 		})
 
@@ -609,11 +609,11 @@ func TestService_Update(t *testing.T) {
 		require.NoError(t, err)
 
 		// Delete the message
-		err = service.Delete(context.Background(), created.ID, userID)
+		err = service.Delete(context.Background(), created.ID, uuid.Nil, userID)
 		require.NoError(t, err)
 
 		// Try to update
-		_, err = service.Update(context.Background(), created.ID, userID, UpdateInput{
+		_, err = service.Update(context.Background(), created.ID, uuid.Nil, userID, UpdateInput{
 			Content: "Updated",
 		})
 
@@ -639,12 +639,12 @@ func TestService_Delete(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = service.Delete(context.Background(), created.ID, userID)
+		err = service.Delete(context.Background(), created.ID, uuid.Nil, userID)
 
 		require.NoError(t, err)
 
 		// Verify soft deleted
-		msg, _ := repo.GetByID(context.Background(), created.ID)
+		msg, _ := repo.GetByID(context.Background(), created.ID, uuid.Nil)
 		assert.True(t, msg.IsDeleted)
 	})
 
@@ -668,7 +668,7 @@ func TestService_Delete(t *testing.T) {
 		require.NoError(t, err)
 
 		// Admin deletes someone else's message
-		err = service.Delete(context.Background(), created.ID, adminID)
+		err = service.Delete(context.Background(), created.ID, uuid.Nil, adminID)
 
 		require.NoError(t, err)
 	})
@@ -693,7 +693,7 @@ func TestService_Delete(t *testing.T) {
 		require.NoError(t, err)
 
 		// Other member tries to delete
-		err = service.Delete(context.Background(), created.ID, otherID)
+		err = service.Delete(context.Background(), created.ID, uuid.Nil, otherID)
 
 		assert.Equal(t, ErrNotAuthorized, err)
 	})
@@ -716,9 +716,9 @@ func TestService_Delete(t *testing.T) {
 		require.NoError(t, err)
 
 		// Delete twice
-		err = service.Delete(context.Background(), created.ID, userID)
+		err = service.Delete(context.Background(), created.ID, uuid.Nil, userID)
 		require.NoError(t, err)
-		err = service.Delete(context.Background(), created.ID, userID)
+		err = service.Delete(context.Background(), created.ID, uuid.Nil, userID)
 		require.NoError(t, err) // Should not error
 	})
 }
@@ -849,7 +849,7 @@ func TestService_Create_ThreadReply(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = service.Delete(context.Background(), parent.ID, userID)
+		err = service.Delete(context.Background(), parent.ID, uuid.Nil, userID)
 		require.NoError(t, err)
 
 		// Try to reply
@@ -981,7 +981,7 @@ func TestService_Delete_ThreadReply(t *testing.T) {
 		assert.Equal(t, 1, repo.messages[parent.ID].ReplyCount)
 
 		// Delete reply
-		err = service.Delete(context.Background(), reply.ID, userID)
+		err = service.Delete(context.Background(), reply.ID, uuid.Nil, userID)
 		require.NoError(t, err)
 
 		// Verify parent has reply_count=0

@@ -64,8 +64,8 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Messag
 		return nil, ErrContentRequired
 	}
 
-	// Check channel exists
-	exists, err := s.repo.ChannelExists(ctx, input.ChannelID)
+	// Check channel exists within tenant
+	exists, err := s.repo.ChannelExists(ctx, input.ChannelID, input.TenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -73,8 +73,8 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Messag
 		return nil, ErrChannelNotFound
 	}
 
-	// Check channel not archived
-	archived, err := s.repo.IsChannelArchived(ctx, input.ChannelID)
+	// Check channel not archived (also tenant-scoped)
+	archived, err := s.repo.IsChannelArchived(ctx, input.ChannelID, input.TenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Messag
 
 	// Guest messages bypass membership check; regular messages require it
 	if input.GuestSessionID == nil {
-		isMember, memberErr := s.repo.IsMember(ctx, input.ChannelID, input.CreatedBy)
+		isMember, memberErr := s.repo.IsMember(ctx, input.ChannelID, input.TenantID, input.CreatedBy)
 		if memberErr != nil {
 			return nil, memberErr
 		}
@@ -95,7 +95,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Messag
 
 	// Validate thread reply if parent is specified
 	if input.ParentMessageID != nil {
-		parent, parentErr := s.repo.GetByID(ctx, *input.ParentMessageID)
+		parent, parentErr := s.repo.GetByID(ctx, *input.ParentMessageID, input.TenantID)
 		if parentErr != nil {
 			return nil, parentErr
 		}
@@ -152,7 +152,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Messag
 	)
 
 	// Create mentions (Sprint 3)
-	mentions, mentionErr := s.processMentions(ctx, message.ID, input.ChannelID, input.MentionedUserIDs, input.MentionEveryone, now)
+	mentions, mentionErr := s.processMentions(ctx, message.ID, input.ChannelID, input.TenantID, input.MentionedUserIDs, input.MentionEveryone, now)
 	if mentionErr != nil {
 		return nil, mentionErr
 	}
@@ -234,14 +234,14 @@ func (s *Service) emitMessageEvents(ctx context.Context, message *models.Message
 }
 
 // GetByID retrieves a message by ID
-func (s *Service) GetByID(ctx context.Context, id, userID uuid.UUID) (*models.MessageWithSender, error) {
-	message, err := s.repo.GetByID(ctx, id)
+func (s *Service) GetByID(ctx context.Context, id, tenantID, userID uuid.UUID) (*models.MessageWithSender, error) {
+	message, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Check user is a member of the channel
-	isMember, memberErr := s.repo.IsMember(ctx, message.ChannelID, userID)
+	// Check user is a member of the channel (tenant-scoped)
+	isMember, memberErr := s.repo.IsMember(ctx, message.ChannelID, tenantID, userID)
 	if memberErr != nil {
 		return nil, memberErr
 	}
@@ -254,6 +254,7 @@ func (s *Service) GetByID(ctx context.Context, id, userID uuid.UUID) (*models.Me
 
 // ListInput contains options for listing messages
 type ListInput struct {
+	TenantID            uuid.UUID
 	ChannelID           uuid.UUID
 	UserID              uuid.UUID // For membership check
 	Limit               int
@@ -264,8 +265,8 @@ type ListInput struct {
 
 // List retrieves messages from a channel
 func (s *Service) List(ctx context.Context, input ListInput) ([]*models.MessageWithSender, bool, error) {
-	// Check channel exists
-	exists, err := s.repo.ChannelExists(ctx, input.ChannelID)
+	// Check channel exists within tenant
+	exists, err := s.repo.ChannelExists(ctx, input.ChannelID, input.TenantID)
 	if err != nil {
 		return nil, false, err
 	}
@@ -275,7 +276,7 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]*models.MessageW
 
 	// Check user is a member (skip for guest-enabled channels)
 	if !input.SkipMembershipCheck {
-		isMember, memberErr := s.repo.IsMember(ctx, input.ChannelID, input.UserID)
+		isMember, memberErr := s.repo.IsMember(ctx, input.ChannelID, input.TenantID, input.UserID)
 		if memberErr != nil {
 			return nil, false, memberErr
 		}
@@ -289,6 +290,7 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]*models.MessageW
 	}
 
 	filter := ListFilter{
+		TenantID:       input.TenantID,
 		ChannelID:      input.ChannelID,
 		Limit:          input.Limit + 1, // Fetch one extra to determine if there are more
 		Before:         input.Before,
@@ -326,8 +328,8 @@ type UpdateInput struct {
 }
 
 // Update updates an existing message
-func (s *Service) Update(ctx context.Context, id, userID uuid.UUID, input UpdateInput) (*models.MessageWithSender, error) {
-	message, err := s.repo.GetByID(ctx, id)
+func (s *Service) Update(ctx context.Context, id, tenantID, userID uuid.UUID, input UpdateInput) (*models.MessageWithSender, error) {
+	message, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -355,14 +357,14 @@ func (s *Service) Update(ctx context.Context, id, userID uuid.UUID, input Update
 		return nil, updateErr
 	}
 
-	slog.Info("message updated", "message_id", message.ID, "updated_by", userID)
+	slog.Info("message updated", "message_id", message.ID, "tenant_id", tenantID, "updated_by", userID)
 
 	return s.getWithSender(ctx, message)
 }
 
 // Delete soft-deletes a message
-func (s *Service) Delete(ctx context.Context, id, userID uuid.UUID) error {
-	message, err := s.repo.GetByID(ctx, id)
+func (s *Service) Delete(ctx context.Context, id, tenantID, userID uuid.UUID) error {
+	message, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return err
 	}
@@ -382,7 +384,7 @@ func (s *Service) Delete(ctx context.Context, id, userID uuid.UUID) error {
 		}
 	}
 
-	if deleteErr := s.repo.Delete(ctx, id); deleteErr != nil {
+	if deleteErr := s.repo.Delete(ctx, id, tenantID); deleteErr != nil {
 		return deleteErr
 	}
 
@@ -398,6 +400,7 @@ func (s *Service) Delete(ctx context.Context, id, userID uuid.UUID) error {
 
 	slog.Info("message deleted",
 		"message_id", message.ID,
+		"tenant_id", tenantID,
 		"channel_id", message.ChannelID,
 		"deleted_by", userID,
 	)
@@ -407,6 +410,7 @@ func (s *Service) Delete(ctx context.Context, id, userID uuid.UUID) error {
 
 // GetThreadRepliesInput contains options for listing thread replies
 type GetThreadRepliesInput struct {
+	TenantID        uuid.UUID
 	ParentMessageID uuid.UUID
 	UserID          uuid.UUID
 	Limit           int
@@ -423,8 +427,8 @@ type GetThreadRepliesResult struct {
 
 // GetThreadReplies returns a parent message and its thread replies
 func (s *Service) GetThreadReplies(ctx context.Context, input GetThreadRepliesInput) (*GetThreadRepliesResult, error) {
-	// Get parent message
-	parent, err := s.repo.GetByID(ctx, input.ParentMessageID)
+	// Get parent message (tenant-scoped)
+	parent, err := s.repo.GetByID(ctx, input.ParentMessageID, input.TenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -434,8 +438,8 @@ func (s *Service) GetThreadReplies(ctx context.Context, input GetThreadRepliesIn
 		return nil, ErrNestedThreads
 	}
 
-	// Check user is member of the channel
-	isMember, memberErr := s.repo.IsMember(ctx, parent.ChannelID, input.UserID)
+	// Check user is member of the channel (tenant-scoped)
+	isMember, memberErr := s.repo.IsMember(ctx, parent.ChannelID, input.TenantID, input.UserID)
 	if memberErr != nil {
 		return nil, memberErr
 	}
@@ -513,7 +517,7 @@ func (s *Service) getWithSender(ctx context.Context, message *models.Message) (*
 }
 
 // processMentions validates and creates mentions for a message
-func (s *Service) processMentions(ctx context.Context, messageID, channelID uuid.UUID, mentionedUserIDs []uuid.UUID, mentionEveryone bool, now time.Time) ([]models.MentionWithUser, error) {
+func (s *Service) processMentions(ctx context.Context, messageID, channelID, tenantID uuid.UUID, mentionedUserIDs []uuid.UUID, mentionEveryone bool, now time.Time) ([]models.MentionWithUser, error) {
 	if len(mentionedUserIDs) == 0 && !mentionEveryone {
 		return nil, nil
 	}
@@ -536,9 +540,9 @@ func (s *Service) processMentions(ctx context.Context, messageID, channelID uuid
 			})
 		}
 	} else {
-		// Validate each mentioned user is a channel member
+		// Validate each mentioned user is a channel member (tenant-scoped)
 		for _, userID := range mentionedUserIDs {
-			isMember, err := s.repo.IsMember(ctx, channelID, userID)
+			isMember, err := s.repo.IsMember(ctx, channelID, tenantID, userID)
 			if err != nil {
 				return nil, err
 			}

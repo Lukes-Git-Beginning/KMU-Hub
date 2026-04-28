@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/dialer"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	dialerv1 "github.com/kmuhub/kmuhub/proto/dialer/v1"
 )
 
@@ -32,9 +33,20 @@ func NewDialerGRPCServer(svc *dialer.Service) *DialerGRPCServer {
 // ============================================================================
 
 func (s *DialerGRPCServer) CreateCampaign(ctx context.Context, req *dialerv1.CreateCampaignRequest) (*dialerv1.Campaign, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
+	// TenantId comes from proto field (gateway passes it) — fall back to context
+	var tenantID uuid.UUID
+	if tid := req.GetTenantId(); tid != "" {
+		parsed, err := uuid.Parse(tid)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		}
+		tenantID = parsed
+	} else {
+		ctxTenant, err := middleware.GetTenantID(ctx)
+		if err != nil {
+			return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+		}
+		tenantID = ctxTenant
 	}
 
 	var assignedAgentIDs []uuid.UUID
@@ -55,7 +67,10 @@ func (s *DialerGRPCServer) CreateCampaign(ctx context.Context, req *dialerv1.Cre
 		settings = &cs
 	}
 
-	createdBy := tenantID // placeholder until auth claims are available
+	// createdBy is not in proto v1 — use zero UUID; will be replaced by server-side
+	// user extraction once proto v2 adds the field.
+	var createdBy uuid.UUID
+
 	c, err := s.svc.CreateCampaign(ctx, tenantID, createdBy, req.GetName(), req.Description, campaignModeFromProto(req.GetMode()), assignedAgentIDs, settings)
 	if err != nil {
 		return nil, mapDialerError(err)
@@ -68,7 +83,12 @@ func (s *DialerGRPCServer) GetCampaign(ctx context.Context, req *dialerv1.GetCam
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid campaign_id: %v", err)
 	}
-	c, err := s.svc.GetCampaign(ctx, id)
+	// GetCampaignRequest has no tenant_id field in proto v1 — read from JWT context
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+	c, err := s.svc.GetCampaignForTenant(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapDialerError(err)
 	}

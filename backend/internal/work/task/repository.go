@@ -16,10 +16,10 @@ const MaxNestingDepth = 5
 type Repository interface {
 	// Core CRUD
 	Create(ctx context.Context, task *models.Task) error
-	GetByID(ctx context.Context, id uuid.UUID) (*models.TaskWithRelations, error)
+	GetByID(ctx context.Context, id, tenantID uuid.UUID) (*models.TaskWithRelations, error)
 	List(ctx context.Context, tenantID uuid.UUID, filters TaskFilters) ([]models.TaskWithRelations, int, error)
 	Update(ctx context.Context, task *models.Task) error
-	Delete(ctx context.Context, id uuid.UUID) error
+	Delete(ctx context.Context, id, tenantID uuid.UUID) error
 	MoveTask(ctx context.Context, taskID uuid.UUID, newStatusID uuid.UUID, newSortOrder float64) error
 
 	// Task number
@@ -56,7 +56,7 @@ type Repository interface {
 	GetCustomFieldValues(ctx context.Context, taskID uuid.UUID) (map[string]any, error)
 
 	// Search
-	Search(ctx context.Context, query string, filters TaskSearchFilters) ([]models.TaskWithRelations, int, error)
+	Search(ctx context.Context, tenantID uuid.UUID, query string, filters TaskSearchFilters) ([]models.TaskWithRelations, int, error)
 
 	// Template support
 	ListByProject(ctx context.Context, projectID uuid.UUID) ([]models.Task, error)

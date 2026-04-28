@@ -39,7 +39,7 @@ type Repository interface {
 	GetCustomFieldValuesBatch(ctx context.Context, dealIDs []uuid.UUID) (map[uuid.UUID][]*models.CustomFieldValueRow, error)
 
 	// Checks
-	StageExists(ctx context.Context, stageID uuid.UUID) (bool, error)
+	StageExists(ctx context.Context, stageID, tenantID uuid.UUID) (bool, error)
 	GetStage(ctx context.Context, stageID uuid.UUID) (*models.PipelineStage, error)
 	ContactExists(ctx context.Context, contactID uuid.UUID) (bool, error)
 	CompanyExists(ctx context.Context, companyID uuid.UUID) (bool, error)
@@ -47,7 +47,7 @@ type Repository interface {
 	TagExists(ctx context.Context, tagID uuid.UUID, entityType models.EntityType) (bool, error)
 
 	// Closed at updates
-	SetClosedAt(ctx context.Context, dealID uuid.UUID, closedAt *time.Time) error
+	SetClosedAt(ctx context.Context, dealID, tenantID uuid.UUID, closedAt *time.Time) error
 }
 
 // ListFilter contains filtering options for listing deals

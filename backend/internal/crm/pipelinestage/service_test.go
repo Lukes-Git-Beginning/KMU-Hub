@@ -41,7 +41,7 @@ func (m *MockRepository) Create(ctx context.Context, stage *models.PipelineStage
 	return nil
 }
 
-func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.PipelineStage, error) {
+func (m *MockRepository) GetByID(ctx context.Context, id, tenantID uuid.UUID) (*models.PipelineStage, error) {
 	if m.getErr != nil {
 		return nil, m.getErr
 	}
@@ -52,7 +52,7 @@ func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Pip
 	return stage, nil
 }
 
-func (m *MockRepository) List(ctx context.Context) ([]*models.PipelineStage, error) {
+func (m *MockRepository) List(ctx context.Context, tenantID uuid.UUID) ([]*models.PipelineStage, error) {
 	var result []*models.PipelineStage
 	for _, s := range m.stages {
 		result = append(result, s)
@@ -60,7 +60,7 @@ func (m *MockRepository) List(ctx context.Context) ([]*models.PipelineStage, err
 	return result, nil
 }
 
-func (m *MockRepository) ListWithStats(ctx context.Context) ([]*models.PipelineStageWithStats, error) {
+func (m *MockRepository) ListWithStats(ctx context.Context, tenantID uuid.UUID) ([]*models.PipelineStageWithStats, error) {
 	var result []*models.PipelineStageWithStats
 	for _, s := range m.stages {
 		result = append(result, &models.PipelineStageWithStats{
@@ -80,7 +80,7 @@ func (m *MockRepository) Update(ctx context.Context, stage *models.PipelineStage
 	return nil
 }
 
-func (m *MockRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (m *MockRepository) Delete(ctx context.Context, id, tenantID uuid.UUID) error {
 	if m.deleteErr != nil {
 		return m.deleteErr
 	}
@@ -88,7 +88,7 @@ func (m *MockRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (m *MockRepository) Reorder(ctx context.Context, stageIDs []uuid.UUID) error {
+func (m *MockRepository) Reorder(ctx context.Context, tenantID uuid.UUID, stageIDs []uuid.UUID) error {
 	if m.reorderErr != nil {
 		return m.reorderErr
 	}
@@ -100,11 +100,11 @@ func (m *MockRepository) Reorder(ctx context.Context, stageIDs []uuid.UUID) erro
 	return nil
 }
 
-func (m *MockRepository) HasDeals(ctx context.Context, id uuid.UUID) (bool, error) {
+func (m *MockRepository) HasDeals(ctx context.Context, id, tenantID uuid.UUID) (bool, error) {
 	return m.dealsPerStage[id] > 0, nil
 }
 
-func (m *MockRepository) HasWonStage(ctx context.Context, excludeID *uuid.UUID) (bool, error) {
+func (m *MockRepository) HasWonStage(ctx context.Context, tenantID uuid.UUID, excludeID *uuid.UUID) (bool, error) {
 	if !m.hasWon {
 		return false, nil
 	}
@@ -120,7 +120,7 @@ func (m *MockRepository) HasWonStage(ctx context.Context, excludeID *uuid.UUID) 
 	return true, nil
 }
 
-func (m *MockRepository) HasLostStage(ctx context.Context, excludeID *uuid.UUID) (bool, error) {
+func (m *MockRepository) HasLostStage(ctx context.Context, tenantID uuid.UUID, excludeID *uuid.UUID) (bool, error) {
 	if !m.hasLost {
 		return false, nil
 	}
@@ -136,11 +136,11 @@ func (m *MockRepository) HasLostStage(ctx context.Context, excludeID *uuid.UUID)
 	return true, nil
 }
 
-func (m *MockRepository) GetNextSortOrder(ctx context.Context) (int, error) {
+func (m *MockRepository) GetNextSortOrder(ctx context.Context, tenantID uuid.UUID) (int, error) {
 	return len(m.stages) + 1, nil
 }
 
-func (m *MockRepository) CountStages(ctx context.Context) (int, error) {
+func (m *MockRepository) CountStages(ctx context.Context, tenantID uuid.UUID) (int, error) {
 	return len(m.stages), nil
 }
 
@@ -363,7 +363,7 @@ func TestService_GetByID_Success(t *testing.T) {
 		UpdatedAt:   time.Now(),
 	}
 
-	stage, err := svc.GetByID(context.Background(), stageID)
+	stage, err := svc.GetByID(context.Background(), stageID, uuid.Nil)
 
 	require.NoError(t, err)
 	assert.Equal(t, stageID, stage.ID)
@@ -374,7 +374,7 @@ func TestService_GetByID_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	_, err := svc.GetByID(context.Background(), uuid.New())
+	_, err := svc.GetByID(context.Background(), uuid.New(), uuid.Nil)
 
 	assert.ErrorIs(t, err, ErrStageNotFound)
 }
@@ -387,7 +387,7 @@ func TestService_List_Empty(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	stages, err := svc.List(context.Background())
+	stages, err := svc.List(context.Background(), uuid.Nil)
 
 	require.NoError(t, err)
 	assert.Empty(t, stages)
@@ -410,7 +410,7 @@ func TestService_List_WithStages(t *testing.T) {
 		}
 	}
 
-	stages, err := svc.List(context.Background())
+	stages, err := svc.List(context.Background(), uuid.Nil)
 
 	require.NoError(t, err)
 	assert.Len(t, stages, 3)
@@ -432,7 +432,7 @@ func TestService_ListWithStats(t *testing.T) {
 	}
 	repo.SetDeals(stageID, 5)
 
-	stages, err := svc.ListWithStats(context.Background())
+	stages, err := svc.ListWithStats(context.Background(), uuid.Nil)
 
 	require.NoError(t, err)
 	require.Len(t, stages, 1)
@@ -463,7 +463,7 @@ func TestService_Update_Success(t *testing.T) {
 	newColor := "#14b8a6"
 	newProb := 25.0
 
-	stage, err := svc.Update(context.Background(), stageID, UpdateInput{
+	stage, err := svc.Update(context.Background(), stageID, uuid.Nil, UpdateInput{
 		Name:        &newName,
 		Color:       &newColor,
 		Probability: &newProb,
@@ -480,7 +480,7 @@ func TestService_Update_NotFound(t *testing.T) {
 	svc := NewService(repo)
 
 	newName := "New Name"
-	_, err := svc.Update(context.Background(), uuid.New(), UpdateInput{
+	_, err := svc.Update(context.Background(), uuid.New(), uuid.Nil, UpdateInput{
 		Name: &newName,
 	})
 
@@ -502,7 +502,7 @@ func TestService_Update_EmptyName(t *testing.T) {
 	}
 
 	emptyName := ""
-	_, err := svc.Update(context.Background(), stageID, UpdateInput{
+	_, err := svc.Update(context.Background(), stageID, uuid.Nil, UpdateInput{
 		Name: &emptyName,
 	})
 
@@ -524,7 +524,7 @@ func TestService_Update_InvalidColor(t *testing.T) {
 	}
 
 	invalidColor := "blue"
-	_, err := svc.Update(context.Background(), stageID, UpdateInput{
+	_, err := svc.Update(context.Background(), stageID, uuid.Nil, UpdateInput{
 		Color: &invalidColor,
 	})
 
@@ -548,7 +548,7 @@ func TestService_Update_SetIsWon(t *testing.T) {
 	}
 
 	isWon := true
-	stage, err := svc.Update(context.Background(), stageID, UpdateInput{
+	stage, err := svc.Update(context.Background(), stageID, uuid.Nil, UpdateInput{
 		IsWon: &isWon,
 	})
 
@@ -585,7 +585,7 @@ func TestService_Update_SetIsWon_AlreadyExists(t *testing.T) {
 	}
 
 	isWon := true
-	_, err := svc.Update(context.Background(), stageID, UpdateInput{
+	_, err := svc.Update(context.Background(), stageID, uuid.Nil, UpdateInput{
 		IsWon: &isWon,
 	})
 
@@ -609,7 +609,7 @@ func TestService_Update_SetIsLost(t *testing.T) {
 	}
 
 	isLost := true
-	stage, err := svc.Update(context.Background(), stageID, UpdateInput{
+	stage, err := svc.Update(context.Background(), stageID, uuid.Nil, UpdateInput{
 		IsLost: &isLost,
 	})
 
@@ -635,7 +635,7 @@ func TestService_Update_ClearIsWon(t *testing.T) {
 	repo.SetHasWon(true)
 
 	isWon := false
-	stage, err := svc.Update(context.Background(), stageID, UpdateInput{
+	stage, err := svc.Update(context.Background(), stageID, uuid.Nil, UpdateInput{
 		IsWon: &isWon,
 	})
 
@@ -661,7 +661,7 @@ func TestService_Delete_Success(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	err := svc.Delete(context.Background(), stageID)
+	err := svc.Delete(context.Background(), stageID, uuid.Nil)
 
 	require.NoError(t, err)
 	assert.NotContains(t, repo.stages, stageID)
@@ -671,7 +671,7 @@ func TestService_Delete_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	err := svc.Delete(context.Background(), uuid.New())
+	err := svc.Delete(context.Background(), uuid.New(), uuid.Nil)
 
 	assert.ErrorIs(t, err, ErrStageNotFound)
 }
@@ -691,7 +691,7 @@ func TestService_Delete_HasDeals(t *testing.T) {
 	}
 	repo.SetDeals(stageID, 3)
 
-	err := svc.Delete(context.Background(), stageID)
+	err := svc.Delete(context.Background(), stageID, uuid.Nil)
 
 	assert.ErrorIs(t, err, ErrStageHasDeals)
 	assert.Contains(t, repo.stages, stageID) // Not deleted
@@ -711,7 +711,7 @@ func TestService_Reorder_Success(t *testing.T) {
 	repo.stages[id3] = &models.PipelineStage{ID: id3, Name: "Proposal", SortOrder: 3}
 
 	// Reorder: move Qualified to first
-	err := svc.Reorder(context.Background(), []uuid.UUID{id2, id1, id3})
+	err := svc.Reorder(context.Background(), uuid.Nil, []uuid.UUID{id2, id1, id3})
 
 	require.NoError(t, err)
 	assert.Equal(t, 2, repo.stages[id1].SortOrder)
@@ -728,7 +728,7 @@ func TestService_Reorder_MissingStage(t *testing.T) {
 	repo.stages[id2] = &models.PipelineStage{ID: id2, Name: "Qualified", SortOrder: 2}
 
 	// Missing id2
-	err := svc.Reorder(context.Background(), []uuid.UUID{id1})
+	err := svc.Reorder(context.Background(), uuid.Nil, []uuid.UUID{id1})
 
 	assert.ErrorIs(t, err, ErrInvalidReorder)
 }
@@ -742,7 +742,7 @@ func TestService_Reorder_DuplicateStage(t *testing.T) {
 	repo.stages[id2] = &models.PipelineStage{ID: id2, Name: "Qualified", SortOrder: 2}
 
 	// Duplicate id1
-	err := svc.Reorder(context.Background(), []uuid.UUID{id1, id1})
+	err := svc.Reorder(context.Background(), uuid.Nil, []uuid.UUID{id1, id1})
 
 	assert.ErrorIs(t, err, ErrInvalidReorder)
 }
@@ -755,7 +755,7 @@ func TestService_Reorder_InvalidStageID(t *testing.T) {
 	repo.stages[id1] = &models.PipelineStage{ID: id1, Name: "Lead", SortOrder: 1}
 
 	// Non-existent stage ID
-	err := svc.Reorder(context.Background(), []uuid.UUID{uuid.New()})
+	err := svc.Reorder(context.Background(), uuid.Nil, []uuid.UUID{uuid.New()})
 
 	assert.ErrorIs(t, err, ErrStageNotFound)
 }

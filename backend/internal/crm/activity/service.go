@@ -419,8 +419,8 @@ type TimelineResult struct {
 	Total  int              `json:"total"`
 }
 
-// GetContactTimeline returns a paginated timeline of events for a contact.
-func (s *Service) GetContactTimeline(ctx context.Context, contactID uuid.UUID, page, pageSize int) (*TimelineResult, error) {
+// GetContactTimeline returns a paginated timeline of events for a contact, scoped to tenantID.
+func (s *Service) GetContactTimeline(ctx context.Context, contactID, tenantID uuid.UUID, page, pageSize int) (*TimelineResult, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -429,7 +429,7 @@ func (s *Service) GetContactTimeline(ctx context.Context, contactID uuid.UUID, p
 	}
 	offset := (page - 1) * pageSize
 
-	events, total, err := s.repo.GetContactTimeline(ctx, contactID, offset, pageSize)
+	events, total, err := s.repo.GetContactTimeline(ctx, contactID, tenantID, offset, pageSize)
 	if err != nil {
 		return nil, err
 	}

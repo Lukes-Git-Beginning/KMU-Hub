@@ -78,7 +78,9 @@ func (vr *VideoRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 		r.Get("/meetings/{meetingId}/recordings", vr.HandleListRecordingsByMeeting)
 		r.Delete("/recordings/{id}", vr.HandleDeleteRecording)
 		// Initiator pre-recording consent (R2-P0.4 / Migration 000107)
-		r.Post("/recordings/{id}/initiator-consent", vr.HandleConfirmInitiatorConsent)
+		// Requires recording:write to ensure only authenticated users with recording
+		// capability can stamp pre-consent (no anonymous or read-only users).
+		r.With(middleware.RequirePermission("recording", "write")).Post("/recordings/{id}/initiator-consent", vr.HandleConfirmInitiatorConsent)
 
 		// Presence
 		r.Get("/presence/{userId}", vr.HandleGetPresence)

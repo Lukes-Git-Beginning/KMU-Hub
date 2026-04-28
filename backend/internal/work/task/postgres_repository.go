@@ -64,12 +64,12 @@ FROM tasks t
 LEFT JOIN project_statuses ps ON t.status_id = ps.id
 LEFT JOIN users u ON t.assignee_id = u.id
 LEFT JOIN projects p ON t.project_id = p.id
-WHERE t.id = $1
+WHERE t.id = $1 AND t.tenant_id = $2
 `
 
-func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.TaskWithRelations, error) {
+func (r *PostgresRepository) GetByID(ctx context.Context, id, tenantID uuid.UUID) (*models.TaskWithRelations, error) {
 	var tw models.TaskWithRelations
-	err := r.pool.QueryRow(ctx, getByIDQuery, id).Scan(
+	err := r.pool.QueryRow(ctx, getByIDQuery, id, tenantID).Scan(
 		&tw.ID, &tw.ProjectID, &tw.TaskNumber, &tw.Title, &tw.Description,
 		&tw.StatusID, &tw.Priority, &tw.AssigneeID, &tw.ParentTaskID,
 		&tw.Depth, &tw.SortOrder, &tw.DueDate, &tw.CreatedBy,
@@ -229,21 +229,33 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 }
 
 func (r *PostgresRepository) Update(ctx context.Context, task *models.Task) error {
-	_, err := r.pool.Exec(ctx,
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE tasks SET title = $1, description = $2, status_id = $3, priority = $4,
 		  assignee_id = $5, parent_task_id = $6, depth = $7, sort_order = $8,
 		  due_date = $9, updated_at = $10, completed_at = $11
-		 WHERE id = $12`,
+		 WHERE id = $12 AND tenant_id = $13`,
 		task.Title, task.Description, task.StatusID, task.Priority,
 		task.AssigneeID, task.ParentTaskID, task.Depth, task.SortOrder,
-		task.DueDate, task.UpdatedAt, task.CompletedAt, task.ID,
+		task.DueDate, task.UpdatedAt, task.CompletedAt, task.ID, task.TenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
-func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM tasks WHERE id = $1`, id)
-	return err
+func (r *PostgresRepository) Delete(ctx context.Context, id, tenantID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM tasks WHERE id = $1 AND tenant_id = $2`, id, tenantID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (r *PostgresRepository) MoveTask(ctx context.Context, taskID uuid.UUID, newStatusID uuid.UUID, newSortOrder float64) error {
@@ -616,14 +628,19 @@ func (r *PostgresRepository) GetCustomFieldValues(ctx context.Context, taskID uu
 	return result, rows.Err()
 }
 
-func (r *PostgresRepository) Search(ctx context.Context, query string, filters TaskSearchFilters) ([]models.TaskWithRelations, int, error) {
+func (r *PostgresRepository) Search(ctx context.Context, tenantID uuid.UUID, query string, filters TaskSearchFilters) ([]models.TaskWithRelations, int, error) {
 	var conditions []string
 	var args []any
 	argIdx := 1
 
 	// Full-text search condition
-	conditions = append(conditions, fmt.Sprintf("search_vector @@ plainto_tsquery('german', $%d)", argIdx))
+	conditions = append(conditions, fmt.Sprintf("t.search_vector @@ plainto_tsquery('german', $%d)", argIdx))
 	args = append(args, query)
+	argIdx++
+
+	// Tenant isolation — mandatory filter; cross-tenant full-text search is not allowed.
+	conditions = append(conditions, fmt.Sprintf("t.tenant_id = $%d", argIdx))
+	args = append(args, tenantID)
 	argIdx++
 
 	if len(filters.ProjectIDs) > 0 {
@@ -676,7 +693,7 @@ func (r *PostgresRepository) Search(ctx context.Context, query string, filters T
 		LEFT JOIN users u ON t.assignee_id = u.id
 		LEFT JOIN projects p ON t.project_id = p.id
 		WHERE %s
-		ORDER BY ts_rank(search_vector, plainto_tsquery('german', $1)) DESC
+		ORDER BY ts_rank(t.search_vector, plainto_tsquery('german', $1)) DESC
 		LIMIT $%d OFFSET $%d
 	`, where, argIdx, argIdx+1)
 

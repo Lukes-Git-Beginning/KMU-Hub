@@ -1,4 +1,12 @@
 -- Rollback Option-B Phase 1: remove tenant_id from 20 core tables
+--
+-- Sentinel-UUID note (P1 #31 / Welle-3.5):
+-- The up-migration backfills existing rows with the sentinel
+-- '00000000-0000-0000-0000-000000000001'. That sentinel does NOT correspond to a
+-- real row in the tenants table, so a FK tenant_id -> tenants(id) is intentionally
+-- absent from 000106. The FK will be added after Pilot-1 once legacy rows are
+-- purged or re-assigned to real Tenant IDs (planned Sprint 3 cleanup migration).
+-- Do NOT add the FK here without first resolving the sentinel mismatch.
 DO $$
 DECLARE
     t TEXT;

@@ -165,10 +165,6 @@ func main() {
 	defer auditLogger.Close()
 	r.Use(auditLogger.Middleware)
 
-	// Idempotency deduplication middleware (WarnMode until frontend fully sends headers)
-	// Position: after Auth/RBAC (needs tenant+user context), before route handlers.
-	r.Use(middleware.Idempotency(idempotencyRepo, middleware.WarnMode))
-
 	// pprof profiling (only in non-production)
 	if os.Getenv("ENABLE_PPROF") == "true" {
 		r.Mount("/debug/pprof", http.DefaultServeMux)
@@ -179,6 +175,14 @@ func main() {
 	// Register per-service route handlers via RouteRegistrar interface
 	// =========================================================================
 	authMiddleware := middleware.Auth(localAuthService)
+
+	// Idempotency deduplication middleware (WarnMode until frontend fully sends headers).
+	// Combined with authMiddleware so the chain is: Auth → Idempotency → Handler.
+	// This guarantees tenant+user context is populated before idempotency reads it.
+	idempotencyMW := middleware.Idempotency(idempotencyRepo, middleware.WarnMode)
+	authWithIdempotency := func(next http.Handler) http.Handler {
+		return authMiddleware(idempotencyMW(next))
+	}
 
 	// Dashboard layout service (gateway-local, not gRPC)
 	cacheClient := cache.NewClient(redisClient)
@@ -236,7 +240,7 @@ func main() {
 	}
 
 	for _, reg := range registrars {
-		reg.RegisterRoutes(r, authMiddleware)
+		reg.RegisterRoutes(r, authWithIdempotency)
 		slog.Info("routes registered", "service", reg.ServiceName())
 	}
 

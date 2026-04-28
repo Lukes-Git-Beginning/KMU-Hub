@@ -135,7 +135,7 @@ func (m *MockRepository) SetCustomFieldValues(ctx context.Context, dealID uuid.U
 	return nil
 }
 
-func (m *MockRepository) StageExists(ctx context.Context, stageID uuid.UUID) (bool, error) {
+func (m *MockRepository) StageExists(ctx context.Context, stageID, tenantID uuid.UUID) (bool, error) {
 	_, exists := m.stages[stageID]
 	return exists, nil
 }
@@ -168,7 +168,7 @@ func (m *MockRepository) TagExists(ctx context.Context, tagID uuid.UUID, entityT
 	return exists && et == entityType, nil
 }
 
-func (m *MockRepository) SetClosedAt(ctx context.Context, dealID uuid.UUID, closedAt *time.Time) error {
+func (m *MockRepository) SetClosedAt(ctx context.Context, dealID, tenantID uuid.UUID, closedAt *time.Time) error {
 	if deal, ok := m.deals[dealID]; ok {
 		deal.ClosedAt = closedAt
 	}

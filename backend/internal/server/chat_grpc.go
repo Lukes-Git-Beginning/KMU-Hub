@@ -12,6 +12,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/chat/message"
 	"github.com/kmuhub/kmuhub/internal/chat/search"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	chatv1 "github.com/kmuhub/kmuhub/proto/chat/v1"
 )
@@ -357,6 +358,11 @@ func (s *ChatGRPCServer) SendMessage(ctx context.Context, req *chatv1.SendMessag
 }
 
 func (s *ChatGRPCServer) GetMessages(ctx context.Context, req *chatv1.GetMessagesRequest) (*chatv1.GetMessagesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	channelID, err := uuid.Parse(req.ChannelId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid channel id")
@@ -368,6 +374,7 @@ func (s *ChatGRPCServer) GetMessages(ctx context.Context, req *chatv1.GetMessage
 	}
 
 	input := message.ListInput{
+		TenantID:  tenantID,
 		ChannelID: channelID,
 		UserID:    userID,
 		Limit:     int(req.Limit),
@@ -415,6 +422,11 @@ func (s *ChatGRPCServer) GetMessages(ctx context.Context, req *chatv1.GetMessage
 }
 
 func (s *ChatGRPCServer) UpdateMessage(ctx context.Context, req *chatv1.UpdateMessageRequest) (*chatv1.UpdateMessageResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid message id")
@@ -429,7 +441,7 @@ func (s *ChatGRPCServer) UpdateMessage(ctx context.Context, req *chatv1.UpdateMe
 		Content: req.Content,
 	}
 
-	msg, err := s.messageService.Update(ctx, id, userID, input)
+	msg, err := s.messageService.Update(ctx, id, tenantID, userID, input)
 	if err != nil {
 		return nil, mapChatError(err)
 	}
@@ -440,6 +452,11 @@ func (s *ChatGRPCServer) UpdateMessage(ctx context.Context, req *chatv1.UpdateMe
 }
 
 func (s *ChatGRPCServer) DeleteMessage(ctx context.Context, req *chatv1.DeleteMessageRequest) (*chatv1.DeleteMessageResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid message id")
@@ -450,7 +467,7 @@ func (s *ChatGRPCServer) DeleteMessage(ctx context.Context, req *chatv1.DeleteMe
 		return nil, status.Error(codes.InvalidArgument, "invalid user id")
 	}
 
-	if err := s.messageService.Delete(ctx, id, userID); err != nil {
+	if err := s.messageService.Delete(ctx, id, tenantID, userID); err != nil {
 		return nil, mapChatError(err)
 	}
 
@@ -513,6 +530,11 @@ func (s *ChatGRPCServer) ListDMs(ctx context.Context, req *chatv1.ListDMsRequest
 // ============================================================================
 
 func (s *ChatGRPCServer) GetThreadReplies(ctx context.Context, req *chatv1.GetThreadRepliesRequest) (*chatv1.GetThreadRepliesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	parentMessageID, err := uuid.Parse(req.ParentMessageId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid parent_message_id")
@@ -524,6 +546,7 @@ func (s *ChatGRPCServer) GetThreadReplies(ctx context.Context, req *chatv1.GetTh
 	}
 
 	input := message.GetThreadRepliesInput{
+		TenantID:        tenantID,
 		ParentMessageID: parentMessageID,
 		UserID:          userID,
 		Limit:           int(req.Limit),
@@ -567,6 +590,11 @@ func (s *ChatGRPCServer) GetThreadReplies(ctx context.Context, req *chatv1.GetTh
 // ============================================================================
 
 func (s *ChatGRPCServer) MarkChannelRead(ctx context.Context, req *chatv1.MarkChannelReadRequest) (*chatv1.MarkChannelReadResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	channelID, err := uuid.Parse(req.ChannelId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid channel_id")
@@ -582,8 +610,8 @@ func (s *ChatGRPCServer) MarkChannelRead(ctx context.Context, req *chatv1.MarkCh
 		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
 	}
 
-	// Get the message to find its created_at
-	msg, err := s.messageService.GetByID(ctx, messageID, userID)
+	// Get the message to find its created_at (tenant-scoped)
+	msg, err := s.messageService.GetByID(ctx, messageID, tenantID, userID)
 	if err != nil {
 		return nil, mapChatError(err)
 	}

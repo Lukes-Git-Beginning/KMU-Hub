@@ -185,7 +185,7 @@ func (m *MockRepository) AddValidTag(tagID uuid.UUID, entityType models.EntityTy
 	m.validTags[tagID] = entityType
 }
 
-func (m *MockRepository) GetContactTimeline(_ context.Context, _ uuid.UUID, _, _ int) ([]*TimelineEvent, int, error) {
+func (m *MockRepository) GetContactTimeline(_ context.Context, _, _ uuid.UUID, _, _ int) ([]*TimelineEvent, int, error) {
 	return nil, 0, nil
 }
 

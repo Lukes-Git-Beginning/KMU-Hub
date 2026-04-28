@@ -53,11 +53,24 @@ func (r *PostgresCampaignRepository) Create(ctx context.Context, c *Campaign) er
 }
 
 func (r *PostgresCampaignRepository) GetByID(ctx context.Context, id uuid.UUID) (*Campaign, error) {
+	// NOTE: tenantID filter is enforced at the service layer via GetByIDForTenant where
+	// cross-tenant isolation is required. This method is used for internal lookup by the
+	// dialer worker (which uses campaign IDs from its own queue, not user input).
 	row := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, name, description, status, mode, settings,
 		        created_by, assigned_agent_ids, contact_count, completed_count,
 		        created_at, updated_at, started_at, completed_at
 		 FROM dialer_campaigns WHERE id = $1`, id,
+	)
+	return scanCampaign(row)
+}
+
+func (r *PostgresCampaignRepository) GetByIDForTenant(ctx context.Context, id, tenantID uuid.UUID) (*Campaign, error) {
+	row := r.pool.QueryRow(ctx,
+		`SELECT id, tenant_id, name, description, status, mode, settings,
+		        created_by, assigned_agent_ids, contact_count, completed_count,
+		        created_at, updated_at, started_at, completed_at
+		 FROM dialer_campaigns WHERE id = $1 AND tenant_id = $2`, id, tenantID,
 	)
 	return scanCampaign(row)
 }

@@ -12,6 +12,7 @@ type CampaignRepository interface {
 	// Campaign CRUD
 	Create(ctx context.Context, c *Campaign) error
 	GetByID(ctx context.Context, id uuid.UUID) (*Campaign, error)
+	GetByIDForTenant(ctx context.Context, id, tenantID uuid.UUID) (*Campaign, error)
 	List(ctx context.Context, tenantID uuid.UUID, statusFilter *string, page, pageSize int) ([]*Campaign, int, error)
 	Update(ctx context.Context, c *Campaign) error
 	UpdateStatus(ctx context.Context, id uuid.UUID, status string) error

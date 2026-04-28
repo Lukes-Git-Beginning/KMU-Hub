@@ -43,6 +43,7 @@ func (s *Service) SetEventEmitter(emitter task.EventEmitter) {
 
 // CreateInput contains the data needed to create a comment
 type CreateInput struct {
+	TenantID        uuid.UUID
 	TaskID          uuid.UUID
 	Content         string
 	QuotedCommentID *uuid.UUID
@@ -60,8 +61,8 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*TaskCommentWi
 		return nil, ErrContentTooLong
 	}
 
-	// Verify task exists
-	taskWithRel, err := s.taskRepo.GetByID(ctx, input.TaskID)
+	// Verify task exists (tenant-scoped)
+	taskWithRel, err := s.taskRepo.GetByID(ctx, input.TaskID, input.TenantID)
 	if err != nil {
 		return nil, fmt.Errorf("task lookup: %w", err)
 	}

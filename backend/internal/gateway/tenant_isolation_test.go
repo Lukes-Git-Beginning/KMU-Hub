@@ -380,3 +380,69 @@ func TestMessages_ValidTid_PassesTenantCheck(t *testing.T) {
 		t.Errorf("valid tid should not be rejected with 401; body = %s", rec.Body.String())
 	}
 }
+
+// ============================================================================
+// Recording — initiator-consent tenant isolation (R2-P0.4 / Welle 3.5)
+//
+// The /api/v1/video/recordings/{id}/initiator-consent endpoint is the
+// pre-recording consent gate. It MUST fail-closed on missing or empty
+// tenant context — otherwise an attacker with knowledge of a recording UUID
+// could stamp consent on a recording belonging to another tenant.
+// ============================================================================
+
+func TestRecordingInitiatorConsent_NoTenant_Returns401(t *testing.T) {
+	routes := NewVideoRoutes(registryWithService("work"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	req = withChiURLParam(req, "id", uuid.New().String())
+	routes.HandleConfirmInitiatorConsent(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestRecordingInitiatorConsent_EmptyTid_Returns401(t *testing.T) {
+	routes := NewVideoRoutes(registryWithService("work"))
+	rec := httptest.NewRecorder()
+	req := reqWithEmptyTenant(http.MethodPost, "/")
+	req = withChiURLParam(req, "id", uuid.New().String())
+	routes.HandleConfirmInitiatorConsent(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+func TestRecordingInitiatorConsent_ValidTid_PassesTenantCheck(t *testing.T) {
+	routes := NewVideoRoutes(registryWithService("work"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	req = withTenantID(req, uuid.New())
+	req = withChiURLParam(req, "id", uuid.New().String())
+	routes.HandleConfirmInitiatorConsent(rec, req)
+	if rec.Code == http.StatusUnauthorized {
+		t.Errorf("valid tid should not be rejected with 401; body = %s", rec.Body.String())
+	}
+}
+
+// TestRecordingInitiatorConsent_TwoTenants_IndependentContexts ensures that
+// two requests from different tenants do not share state and both reach the
+// gRPC layer (where MarkInitiatorConsent then enforces tenant_id at the DB
+// level — see recording/postgres_repository.go::MarkInitiatorConsent).
+func TestRecordingInitiatorConsent_TwoTenants_IndependentContexts(t *testing.T) {
+	routes := NewVideoRoutes(registryWithService("work"))
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	recordingID := uuid.New().String()
+
+	recA := httptest.NewRecorder()
+	reqA := httptest.NewRequest(http.MethodPost, "/", nil)
+	reqA = withTenantID(reqA, tenantA)
+	reqA = withChiURLParam(reqA, "id", recordingID)
+	routes.HandleConfirmInitiatorConsent(recA, reqA)
+
+	recB := httptest.NewRecorder()
+	reqB := httptest.NewRequest(http.MethodPost, "/", nil)
+	reqB = withTenantID(reqB, tenantB)
+	reqB = withChiURLParam(reqB, "id", recordingID)
+	routes.HandleConfirmInitiatorConsent(recB, reqB)
+
+	if recA.Code == http.StatusUnauthorized || recB.Code == http.StatusUnauthorized {
+		t.Errorf("valid tids should not be rejected with 401 (A=%d, B=%d)", recA.Code, recB.Code)
+	}
+}

@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/work/comment"
 	"github.com/kmuhub/kmuhub/internal/work/project"
@@ -518,7 +519,7 @@ func (s *WorkGRPCServer) CreateTask(ctx context.Context, req *workv1.CreateTaskR
 		}
 		_ = s.taskRepo.SetCustomFieldValues(ctx, result.ID, cfMap)
 		// Refresh result
-		if result, err = s.taskService.GetByID(ctx, result.ID); err != nil {
+		if result, err = s.taskService.GetByID(ctx, taskTenantID, result.ID); err != nil {
 			return nil, mapWorkError(err)
 		}
 	}
@@ -534,7 +535,12 @@ func (s *WorkGRPCServer) GetTask(ctx context.Context, req *workv1.GetTaskRequest
 		return nil, status.Error(codes.InvalidArgument, "invalid task id")
 	}
 
-	t, err := s.taskService.GetByID(ctx, id)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	t, err := s.taskService.GetByID(ctx, tenantID, id)
 	if err != nil {
 		return nil, mapWorkError(err)
 	}
@@ -625,6 +631,11 @@ func (s *WorkGRPCServer) UpdateTask(ctx context.Context, req *workv1.UpdateTaskR
 		return nil, status.Error(codes.InvalidArgument, "invalid updated_by")
 	}
 
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	input := task.UpdateInput{}
 	if req.Title != nil {
 		input.Title = req.Title
@@ -659,7 +670,7 @@ func (s *WorkGRPCServer) UpdateTask(ctx context.Context, req *workv1.UpdateTaskR
 		input.DueDate = &t
 	}
 
-	result, err := s.taskService.Update(ctx, id, input, updatedBy)
+	result, err := s.taskService.Update(ctx, tenantID, id, input, updatedBy)
 	if err != nil {
 		return nil, mapWorkError(err)
 	}
@@ -679,7 +690,7 @@ func (s *WorkGRPCServer) UpdateTask(ctx context.Context, req *workv1.UpdateTaskR
 			cfMap[fieldID] = value
 		}
 		_ = s.taskRepo.SetCustomFieldValues(ctx, id, cfMap)
-		if result, err = s.taskService.GetByID(ctx, id); err != nil {
+		if result, err = s.taskService.GetByID(ctx, tenantID, id); err != nil {
 			return nil, mapWorkError(err)
 		}
 	}
@@ -695,7 +706,12 @@ func (s *WorkGRPCServer) DeleteTask(ctx context.Context, req *workv1.DeleteTaskR
 		return nil, status.Error(codes.InvalidArgument, "invalid task id")
 	}
 
-	if err := s.taskService.Delete(ctx, id, uuid.Nil); err != nil {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	if err := s.taskService.Delete(ctx, tenantID, id, uuid.Nil); err != nil {
 		return nil, mapWorkError(err)
 	}
 
@@ -718,11 +734,16 @@ func (s *WorkGRPCServer) MoveTask(ctx context.Context, req *workv1.MoveTaskReque
 		return nil, status.Error(codes.InvalidArgument, "invalid moved_by")
 	}
 
-	if err := s.taskService.MoveTask(ctx, id, statusID, req.SortOrder, movedBy); err != nil {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	if err := s.taskService.MoveTask(ctx, tenantID, id, statusID, req.SortOrder, movedBy); err != nil {
 		return nil, mapWorkError(err)
 	}
 
-	result, err := s.taskService.GetByID(ctx, id)
+	result, err := s.taskService.GetByID(ctx, tenantID, id)
 	if err != nil {
 		return nil, mapWorkError(err)
 	}
@@ -832,6 +853,11 @@ func (s *WorkGRPCServer) ListTaskDependencies(ctx context.Context, req *workv1.L
 // ============================================================================
 
 func (s *WorkGRPCServer) CreateTaskComment(ctx context.Context, req *workv1.CreateTaskCommentRequest) (*workv1.CreateTaskCommentResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	taskID, err := uuid.Parse(req.TaskId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid task_id")
@@ -843,6 +869,7 @@ func (s *WorkGRPCServer) CreateTaskComment(ctx context.Context, req *workv1.Crea
 	}
 
 	input := comment.CreateInput{
+		TenantID: tenantID,
 		TaskID:   taskID,
 		Content:  req.Content,
 		AuthorID: authorID,
@@ -1281,27 +1308,32 @@ func (s *WorkGRPCServer) SetUserProjectPreference(ctx context.Context, req *work
 // ============================================================================
 
 func (s *WorkGRPCServer) SearchTasks(ctx context.Context, req *workv1.SearchTasksRequest) (*workv1.SearchTasksResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	filters := task.TaskSearchFilters{
 		Page:     int(req.Page),
 		PageSize: int(req.PageSize),
 	}
 
 	for _, pid := range req.ProjectIds {
-		id, err := uuid.Parse(pid)
-		if err != nil {
+		id, parseErr := uuid.Parse(pid)
+		if parseErr != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid project_id in list")
 		}
 		filters.ProjectIDs = append(filters.ProjectIDs, id)
 	}
 	for _, aid := range req.AssigneeIds {
-		id, err := uuid.Parse(aid)
-		if err != nil {
+		id, parseErr := uuid.Parse(aid)
+		if parseErr != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid assignee_id in list")
 		}
 		filters.AssigneeIDs = append(filters.AssigneeIDs, id)
 	}
 
-	tasks, total, err := s.taskRepo.Search(ctx, req.Query, filters)
+	tasks, total, err := s.taskRepo.Search(ctx, tenantID, req.Query, filters)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to search tasks")
 	}

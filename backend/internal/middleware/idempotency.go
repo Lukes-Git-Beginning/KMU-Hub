@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -155,10 +155,14 @@ func Idempotency(repo idempotency.Repository, mode IdempotencyMode) func(http.Ha
 			next.ServeHTTP(crw, r)
 
 			// Store the response asynchronously to avoid blocking the client.
+			// context.WithoutCancel ensures the goroutine isn't cancelled when the
+			// request context is done (which happens as soon as ServeHTTP returns).
+			completeCtx := context.WithoutCancel(r.Context())
 			go func() {
-				ctx := r.Context()
-				if err := repo.Complete(ctx, idempotencyKey, crw.statusCode, crw.body.Bytes()); err != nil {
-					slog.Error("idempotency complete failed", "key", idempotencyKey, "error", err)
+				if err := repo.Complete(completeCtx, idempotencyKey, crw.statusCode, crw.body.Bytes()); err != nil {
+					if !errors.Is(err, idempotency.ErrKeyMissing) {
+						slog.Error("idempotency complete failed", "key", idempotencyKey, "error", err)
+					}
 				}
 			}()
 		})
@@ -182,11 +186,11 @@ func computeRequestHash(tenantID, userID, method, path string, body []byte) stri
 }
 
 func isInFlight(err error) bool {
-	return err != nil && err.Error() == idempotency.ErrInFlight.Error()
+	return errors.Is(err, idempotency.ErrInFlight)
 }
 
 func isConflict(err error) bool {
-	return err != nil && err.Error() == idempotency.ErrConflict.Error()
+	return errors.Is(err, idempotency.ErrConflict)
 }
 
 // capturingResponseWriter buffers the response so it can be stored.
@@ -210,13 +214,17 @@ func (c *capturingResponseWriter) Write(b []byte) (int, error) {
 	return c.ResponseWriter.Write(b)
 }
 
+// idempotencyCleanupLockKey is a stable int64 used as the pg_try_advisory_xact_lock key
+// so only one replica runs the cleanup per hour. Value is arbitrary but must be constant.
+const idempotencyCleanupLockKey int64 = 0x49444D50 // "IDMP" in ASCII
+
 // IdempotencyCleanupWorker runs a periodic cleanup of expired idempotency keys.
-// It uses pg_try_advisory_xact_lock for leader-election (one replica runs per tick).
+// pg_try_advisory_lock ensures leader election: only one replica deletes per tick.
 func IdempotencyCleanupWorker(ctx context.Context, repo idempotency.Repository) {
 	ticker := time.NewTicker(time.Hour)
 	defer ticker.Stop()
 
-	slog.Info("idempotency cleanup worker starting", "interval", "1h")
+	slog.Info("idempotency cleanup worker starting", "interval", "1h", "lock_key", idempotencyCleanupLockKey)
 
 	for {
 		select {
@@ -224,7 +232,7 @@ func IdempotencyCleanupWorker(ctx context.Context, repo idempotency.Repository) 
 			slog.Info("idempotency cleanup worker stopped")
 			return
 		case <-ticker.C:
-			count, err := repo.Cleanup(ctx)
+			count, err := repo.CleanupWithLock(ctx, idempotencyCleanupLockKey)
 			if err != nil {
 				slog.Error("idempotency cleanup failed", "error", err)
 				continue
@@ -235,6 +243,3 @@ func IdempotencyCleanupWorker(ctx context.Context, repo idempotency.Repository) 
 		}
 	}
 }
-
-// jsonResponse is a helper used in tests — kept unexported.
-var _ = json.Marshal

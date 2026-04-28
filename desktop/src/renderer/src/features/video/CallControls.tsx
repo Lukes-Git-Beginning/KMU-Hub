@@ -17,6 +17,7 @@ import {
   useRoomContext,
   useIsRecording,
 } from '@livekit/components-react'
+import { toast } from 'sonner'
 
 import { useEndCall, useStartRecording, useStopRecording, useConfirmInitiatorConsent } from '@/api/hooks/useVideo'
 import { RecordingInitiatorDialog } from './RecordingInitiatorDialog'
@@ -77,28 +78,38 @@ export function CallControls({ callId, onLeave, className }: CallControlsProps) 
     await localParticipant.setScreenShareEnabled(!isScreenShareEnabled)
   }, [localParticipant, isScreenShareEnabled])
 
-  // Record toggle — shows pre-dialog before starting
+  // Record toggle — shows pre-dialog before starting. Guarded against
+  // double-click via the mutation pending flags so two StartRecording requests
+  // can never race past the dialog.
   const handleRecordToggle = useCallback(async () => {
+    if (startRecording.isPending || stopRecording.isPending || confirmInitiatorConsent.isPending) {
+      return
+    }
     if (isRecording && activeRecordingId) {
       await stopRecording.mutateAsync(activeRecordingId)
       setActiveRecordingId(null)
     } else if (!isRecording) {
-      // Step 1: create the recording row (status: active, egress not yet started)
-      // The backend will return ErrConsentPending until consent stamps are set.
-      // We use the recording ID from the response to confirm initiator consent.
       const recording = await startRecording.mutateAsync(callId)
       setPendingRecordingId(recording.id)
       setShowInitiatorDialog(true)
     }
-  }, [isRecording, activeRecordingId, callId, startRecording, stopRecording])
+  }, [isRecording, activeRecordingId, callId, startRecording, stopRecording, confirmInitiatorConsent])
 
-  // Initiator confirmed the pre-dialog: stamp consent and register active recording
+  // Initiator confirmed the pre-dialog: stamp consent and register active recording.
+  // Dialog only closes on success; on failure the user gets a toast and can retry
+  // without an orphaned recording row stuck without consent.
   const handleConfirmStart = useCallback(async () => {
     if (!pendingRecordingId) return
-    setShowInitiatorDialog(false)
-    await confirmInitiatorConsent.mutateAsync(pendingRecordingId)
-    setActiveRecordingId(pendingRecordingId)
-    setPendingRecordingId(null)
+    try {
+      await confirmInitiatorConsent.mutateAsync(pendingRecordingId)
+      setActiveRecordingId(pendingRecordingId)
+      setPendingRecordingId(null)
+      setShowInitiatorDialog(false)
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'Aufnahme-Bestaetigung fehlgeschlagen',
+      )
+    }
   }, [pendingRecordingId, confirmInitiatorConsent])
 
   // Initiator cancelled the pre-dialog: close without stamping

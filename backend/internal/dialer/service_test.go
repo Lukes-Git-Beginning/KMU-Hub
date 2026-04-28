@@ -38,6 +38,12 @@ func (r *mockCampaignRepo) GetByID(_ context.Context, id uuid.UUID) (*Campaign, 
 	}
 	return nil, ErrCampaignNotFound
 }
+func (r *mockCampaignRepo) GetByIDForTenant(_ context.Context, id, _ uuid.UUID) (*Campaign, error) {
+	if c, ok := r.campaigns[id]; ok {
+		return c, nil
+	}
+	return nil, ErrCampaignNotFound
+}
 func (r *mockCampaignRepo) List(_ context.Context, _ uuid.UUID, _ *string, _, _ int) ([]*Campaign, int, error) {
 	return nil, 0, nil
 }
