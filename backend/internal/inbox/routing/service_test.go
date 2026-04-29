@@ -134,7 +134,7 @@ func (m *mockMessageRepository) Create(_ context.Context, msg *models.InboxMessa
 	return nil
 }
 
-func (m *mockMessageRepository) GetByID(_ context.Context, id uuid.UUID) (*models.InboxMessage, error) {
+func (m *mockMessageRepository) GetByID(_ context.Context, id uuid.UUID, _ uuid.UUID) (*models.InboxMessage, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	msg, ok := m.messages[id]

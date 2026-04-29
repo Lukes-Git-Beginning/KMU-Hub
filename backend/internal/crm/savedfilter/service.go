@@ -24,6 +24,7 @@ func NewService(repo Repository) *Service {
 
 // CreateInput contains the data needed to create a saved filter
 type CreateInput struct {
+	TenantID   uuid.UUID
 	Name       string
 	EntityType string
 	FilterJSON string
@@ -52,7 +53,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.SavedF
 
 	// If setting as default, clear any existing default first
 	if input.IsDefault {
-		if err := s.repo.ClearDefault(ctx, input.CreatedBy, entityType); err != nil {
+		if err := s.repo.ClearDefault(ctx, input.TenantID, input.CreatedBy, entityType); err != nil {
 			return nil, err
 		}
 	}
@@ -60,6 +61,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.SavedF
 	now := time.Now()
 	filter := &models.SavedFilter{
 		ID:         uuid.New(),
+		TenantID:   input.TenantID,
 		Name:       name,
 		EntityType: entityType,
 		FilterJSON: input.FilterJSON,
@@ -83,12 +85,13 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.SavedF
 }
 
 // GetByID retrieves a saved filter by ID
-func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*models.SavedFilter, error) {
-	return s.repo.GetByID(ctx, id)
+func (s *Service) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.SavedFilter, error) {
+	return s.repo.GetByID(ctx, id, tenantID)
 }
 
 // ListInput contains filtering options for listing saved filters
 type ListInput struct {
+	TenantID   uuid.UUID
 	EntityType *string
 	UserID     *uuid.UUID
 }
@@ -107,7 +110,7 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]*models.SavedFil
 		filter.EntityType = &et
 	}
 
-	return s.repo.List(ctx, filter)
+	return s.repo.List(ctx, input.TenantID, filter)
 }
 
 // UpdateInput contains the data that can be updated on a saved filter
@@ -118,8 +121,8 @@ type UpdateInput struct {
 }
 
 // Update updates an existing saved filter
-func (s *Service) Update(ctx context.Context, id uuid.UUID, userID uuid.UUID, input UpdateInput) (*models.SavedFilter, error) {
-	filter, err := s.repo.GetByID(ctx, id)
+func (s *Service) Update(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, userID uuid.UUID, input UpdateInput) (*models.SavedFilter, error) {
+	filter, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +150,7 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, userID uuid.UUID, in
 	if input.IsDefault != nil {
 		// If setting as default, clear any existing default first
 		if *input.IsDefault && !filter.IsDefault {
-			if clearErr := s.repo.ClearDefault(ctx, filter.CreatedBy, filter.EntityType); clearErr != nil {
+			if clearErr := s.repo.ClearDefault(ctx, tenantID, filter.CreatedBy, filter.EntityType); clearErr != nil {
 				return nil, clearErr
 			}
 		}
@@ -166,8 +169,8 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, userID uuid.UUID, in
 }
 
 // Delete removes a saved filter
-func (s *Service) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
-	filter, err := s.repo.GetByID(ctx, id)
+func (s *Service) Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, userID uuid.UUID) error {
+	filter, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return err
 	}
@@ -177,7 +180,7 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) er
 		return ErrFilterNotOwned
 	}
 
-	if deleteErr := s.repo.Delete(ctx, id); deleteErr != nil {
+	if deleteErr := s.repo.Delete(ctx, id, tenantID); deleteErr != nil {
 		return deleteErr
 	}
 

@@ -12,13 +12,17 @@ import (
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
+// testTenantID is a fixed tenant UUID for cross-tenant isolation tests.
+var testTenantID = uuid.MustParse("aaaaaaaa-0000-0000-0000-000000000001")
+var otherTenantID = uuid.MustParse("bbbbbbbb-0000-0000-0000-000000000002")
+
 // MockRepository implements Repository for testing
 type MockRepository struct {
 	projects    map[uuid.UUID]*models.Project
 	members     map[uuid.UUID]map[uuid.UUID]*models.ProjectMember // projectID -> userID -> member
-	keys        map[string]bool
-	statuses    map[uuid.UUID][]models.ProjectStatus // projectID -> statuses
-	preferences map[string]*models.UserProjectPreference // "userID:projectID" -> pref
+	keys        map[string]bool                                   // "tenantID:key" -> exists
+	statuses    map[uuid.UUID][]models.ProjectStatus              // projectID -> statuses
+	preferences map[string]*models.UserProjectPreference          // "userID:projectID" -> pref
 
 	createErr    error
 	getErr       error
@@ -42,24 +46,27 @@ func (m *MockRepository) Create(ctx context.Context, project *models.Project) er
 		return m.createErr
 	}
 	m.projects[project.ID] = project
-	m.keys[project.ProjectKey] = true
+	m.keys[project.TenantID.String()+":"+project.ProjectKey] = true
 	return nil
 }
 
-func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Project, error) {
+func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.Project, error) {
 	if m.getErr != nil {
 		return nil, m.getErr
 	}
 	p, ok := m.projects[id]
-	if !ok {
+	if !ok || p.TenantID != tenantID {
 		return nil, ErrNotFound
 	}
 	return p, nil
 }
 
-func (m *MockRepository) List(ctx context.Context, userID uuid.UUID, isAdmin bool, includeArchived bool) ([]models.ProjectWithDetails, error) {
+func (m *MockRepository) List(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, isAdmin bool, includeArchived bool) ([]models.ProjectWithDetails, error) {
 	var result []models.ProjectWithDetails
 	for _, p := range m.projects {
+		if p.TenantID != tenantID {
+			continue
+		}
 		if !includeArchived && p.ArchivedAt != nil {
 			continue
 		}
@@ -87,16 +94,20 @@ func (m *MockRepository) Update(ctx context.Context, project *models.Project) er
 	if m.updateErr != nil {
 		return m.updateErr
 	}
+	existing, ok := m.projects[project.ID]
+	if !ok || existing.TenantID != project.TenantID {
+		return ErrNotFound
+	}
 	m.projects[project.ID] = project
 	return nil
 }
 
-func (m *MockRepository) Archive(ctx context.Context, projectID uuid.UUID) error {
+func (m *MockRepository) Archive(ctx context.Context, projectID uuid.UUID, tenantID uuid.UUID) error {
 	if m.archiveErr != nil {
 		return m.archiveErr
 	}
 	p, ok := m.projects[projectID]
-	if !ok {
+	if !ok || p.TenantID != tenantID {
 		return ErrNotFound
 	}
 	now := time.Now()
@@ -104,16 +115,16 @@ func (m *MockRepository) Archive(ctx context.Context, projectID uuid.UUID) error
 	return nil
 }
 
-func (m *MockRepository) GetProjectKey(ctx context.Context, projectID uuid.UUID) (string, error) {
+func (m *MockRepository) GetProjectKey(ctx context.Context, projectID uuid.UUID, tenantID uuid.UUID) (string, error) {
 	p, ok := m.projects[projectID]
-	if !ok {
+	if !ok || p.TenantID != tenantID {
 		return "", ErrNotFound
 	}
 	return p.ProjectKey, nil
 }
 
-func (m *MockRepository) KeyExists(ctx context.Context, key string) (bool, error) {
-	return m.keys[key], nil
+func (m *MockRepository) KeyExists(ctx context.Context, tenantID uuid.UUID, key string) (bool, error) {
+	return m.keys[tenantID.String()+":"+key], nil
 }
 
 func (m *MockRepository) AddMember(ctx context.Context, projectID, userID uuid.UUID, role string) error {
@@ -190,14 +201,15 @@ func (m *MockRepository) CountOwners(ctx context.Context, projectID uuid.UUID) (
 	return count, nil
 }
 
-func (m *MockRepository) SaveAsTemplate(ctx context.Context, sourceID uuid.UUID, newName string, newKey string, createdBy uuid.UUID) (*models.Project, error) {
+func (m *MockRepository) SaveAsTemplate(ctx context.Context, tenantID uuid.UUID, sourceID uuid.UUID, newName string, newKey string, createdBy uuid.UUID) (*models.Project, error) {
 	source, ok := m.projects[sourceID]
-	if !ok {
+	if !ok || source.TenantID != tenantID {
 		return nil, ErrNotFound
 	}
 	now := time.Now()
 	tmpl := &models.Project{
 		ID:               uuid.New(),
+		TenantID:         tenantID,
 		Name:             newName,
 		Description:      source.Description,
 		ProjectKey:       newKey,
@@ -209,13 +221,13 @@ func (m *MockRepository) SaveAsTemplate(ctx context.Context, sourceID uuid.UUID,
 		UpdatedAt:        now,
 	}
 	m.projects[tmpl.ID] = tmpl
-	m.keys[newKey] = true
+	m.keys[tenantID.String()+":"+newKey] = true
 	return tmpl, nil
 }
 
-func (m *MockRepository) GetForTemplate(ctx context.Context, projectID uuid.UUID) (*models.Project, []models.ProjectStatus, error) {
+func (m *MockRepository) GetForTemplate(ctx context.Context, projectID uuid.UUID, tenantID uuid.UUID) (*models.Project, []models.ProjectStatus, error) {
 	p, ok := m.projects[projectID]
-	if !ok {
+	if !ok || p.TenantID != tenantID {
 		return nil, nil, ErrNotFound
 	}
 	return p, m.statuses[projectID], nil
@@ -252,7 +264,7 @@ func (m *MockRepository) addMemberDirect(projectID, userID uuid.UUID, role strin
 // Test helper to add a project directly
 func (m *MockRepository) addProject(p *models.Project) {
 	m.projects[p.ID] = p
-	m.keys[p.ProjectKey] = true
+	m.keys[p.TenantID.String()+":"+p.ProjectKey] = true
 }
 
 // ============================================================================
@@ -264,6 +276,7 @@ func TestService_Create_Success(t *testing.T) {
 	svc := NewService(repo)
 
 	input := CreateInput{
+		TenantID:   testTenantID,
 		Name:       "My Project",
 		ProjectKey: "MP",
 		CreatedBy:  uuid.New(),
@@ -273,6 +286,7 @@ func TestService_Create_Success(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.NotEqual(t, uuid.Nil, project.ID)
+	assert.Equal(t, testTenantID, project.TenantID)
 	assert.Equal(t, "My Project", project.Name)
 	assert.Equal(t, "MP", project.ProjectKey)
 	assert.Equal(t, 1, project.NextTaskNumber)
@@ -292,6 +306,7 @@ func TestService_Create_WithDescription(t *testing.T) {
 
 	desc := "A test project description"
 	input := CreateInput{
+		TenantID:    testTenantID,
 		Name:        "Test Project",
 		Description: &desc,
 		ProjectKey:  "TP",
@@ -310,6 +325,7 @@ func TestService_Create_KeyNormalizesToUppercase(t *testing.T) {
 	svc := NewService(repo)
 
 	input := CreateInput{
+		TenantID:   testTenantID,
 		Name:       "Test",
 		ProjectKey: "mp",
 		CreatedBy:  uuid.New(),
@@ -326,6 +342,7 @@ func TestService_Create_EmptyName(t *testing.T) {
 	svc := NewService(repo)
 
 	_, err := svc.Create(context.Background(), CreateInput{
+		TenantID:   testTenantID,
 		Name:       "",
 		ProjectKey: "MP",
 		CreatedBy:  uuid.New(),
@@ -339,6 +356,7 @@ func TestService_Create_NameTooShort(t *testing.T) {
 	svc := NewService(repo)
 
 	_, err := svc.Create(context.Background(), CreateInput{
+		TenantID:   testTenantID,
 		Name:       "AB",
 		ProjectKey: "MP",
 		CreatedBy:  uuid.New(),
@@ -352,6 +370,7 @@ func TestService_Create_EmptyKey(t *testing.T) {
 	svc := NewService(repo)
 
 	_, err := svc.Create(context.Background(), CreateInput{
+		TenantID:   testTenantID,
 		Name:       "Project",
 		ProjectKey: "",
 		CreatedBy:  uuid.New(),
@@ -365,6 +384,7 @@ func TestService_Create_KeyTooShort(t *testing.T) {
 	svc := NewService(repo)
 
 	_, err := svc.Create(context.Background(), CreateInput{
+		TenantID:   testTenantID,
 		Name:       "Project",
 		ProjectKey: "M",
 		CreatedBy:  uuid.New(),
@@ -378,6 +398,7 @@ func TestService_Create_KeyTooLong(t *testing.T) {
 	svc := NewService(repo)
 
 	_, err := svc.Create(context.Background(), CreateInput{
+		TenantID:   testTenantID,
 		Name:       "Project",
 		ProjectKey: "ABCDEFGHIJK", // 11 chars
 		CreatedBy:  uuid.New(),
@@ -403,6 +424,7 @@ func TestService_Create_KeyInvalidChars(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := svc.Create(context.Background(), CreateInput{
+				TenantID:   testTenantID,
 				Name:       "Project",
 				ProjectKey: tc.key,
 				CreatedBy:  uuid.New(),
@@ -418,19 +440,99 @@ func TestService_Create_DuplicateKey(t *testing.T) {
 
 	// Create first project
 	_, err := svc.Create(context.Background(), CreateInput{
+		TenantID:   testTenantID,
 		Name:       "Project 1",
 		ProjectKey: "MP",
 		CreatedBy:  uuid.New(),
 	})
 	require.NoError(t, err)
 
-	// Try duplicate key
+	// Try duplicate key within same tenant
 	_, err = svc.Create(context.Background(), CreateInput{
+		TenantID:   testTenantID,
 		Name:       "Project 2",
 		ProjectKey: "MP",
 		CreatedBy:  uuid.New(),
 	})
 	assert.ErrorIs(t, err, ErrKeyAlreadyExists)
+}
+
+// ============================================================================
+// Cross-Tenant Isolation Tests
+// ============================================================================
+
+func TestService_CrossTenant_GetByID_OtherTenantReturnsNotFound(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	projectID := uuid.New()
+	repo.addProject(&models.Project{
+		ID:         projectID,
+		TenantID:   testTenantID,
+		Name:       "Tenant A Project",
+		ProjectKey: "TA",
+		CreatedBy:  uuid.New(),
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	})
+
+	// Tenant B cannot read Tenant A's project
+	_, err := svc.Get(context.Background(), projectID, otherTenantID, uuid.Nil, true)
+	assert.ErrorIs(t, err, ErrNotFound)
+}
+
+func TestService_CrossTenant_List_OnlyOwnProjects(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	pA := &models.Project{ID: uuid.New(), TenantID: testTenantID, Name: "A", ProjectKey: "A1", CreatedBy: uuid.New(), CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	pB := &models.Project{ID: uuid.New(), TenantID: otherTenantID, Name: "B", ProjectKey: "B1", CreatedBy: uuid.New(), CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	repo.addProject(pA)
+	repo.addProject(pB)
+
+	projects, err := svc.List(context.Background(), testTenantID, uuid.Nil, true, false)
+	require.NoError(t, err)
+	require.Len(t, projects, 1)
+	assert.Equal(t, pA.ID, projects[0].ID)
+}
+
+func TestService_CrossTenant_Update_OtherTenantReturnsNotFound(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	projectID := uuid.New()
+	repo.addProject(&models.Project{
+		ID:         projectID,
+		TenantID:   testTenantID,
+		Name:       "Project",
+		ProjectKey: "PR",
+		CreatedBy:  uuid.New(),
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	})
+
+	newName := "Changed"
+	_, err := svc.Update(context.Background(), projectID, otherTenantID, uuid.Nil, true, UpdateInput{Name: &newName})
+	assert.ErrorIs(t, err, ErrNotFound)
+}
+
+func TestService_CrossTenant_Archive_OtherTenantReturnsNotFound(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	projectID := uuid.New()
+	repo.addProject(&models.Project{
+		ID:         projectID,
+		TenantID:   testTenantID,
+		Name:       "Project",
+		ProjectKey: "PR",
+		CreatedBy:  uuid.New(),
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	})
+
+	err := svc.Archive(context.Background(), projectID, otherTenantID, uuid.Nil, true)
+	assert.ErrorIs(t, err, ErrNotFound)
 }
 
 // ============================================================================
@@ -445,6 +547,7 @@ func TestService_Get_AsMember(t *testing.T) {
 	userID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         projectID,
+		TenantID:   testTenantID,
 		Name:       "Test",
 		ProjectKey: "TST",
 		CreatedBy:  userID,
@@ -453,7 +556,7 @@ func TestService_Get_AsMember(t *testing.T) {
 	})
 	repo.addMemberDirect(projectID, userID, models.ProjectRoleOwner)
 
-	project, err := svc.Get(context.Background(), projectID, userID, false)
+	project, err := svc.Get(context.Background(), projectID, testTenantID, userID, false)
 
 	require.NoError(t, err)
 	assert.Equal(t, projectID, project.ID)
@@ -466,6 +569,7 @@ func TestService_Get_AsAdmin(t *testing.T) {
 	projectID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         projectID,
+		TenantID:   testTenantID,
 		Name:       "Test",
 		ProjectKey: "TST",
 		CreatedBy:  uuid.New(),
@@ -475,7 +579,7 @@ func TestService_Get_AsAdmin(t *testing.T) {
 
 	// Admin is NOT a member but can still access
 	adminID := uuid.New()
-	project, err := svc.Get(context.Background(), projectID, adminID, true)
+	project, err := svc.Get(context.Background(), projectID, testTenantID, adminID, true)
 
 	require.NoError(t, err)
 	assert.Equal(t, projectID, project.ID)
@@ -488,6 +592,7 @@ func TestService_Get_NotMember(t *testing.T) {
 	projectID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         projectID,
+		TenantID:   testTenantID,
 		Name:       "Test",
 		ProjectKey: "TST",
 		CreatedBy:  uuid.New(),
@@ -495,7 +600,7 @@ func TestService_Get_NotMember(t *testing.T) {
 		UpdatedAt:  time.Now(),
 	})
 
-	_, err := svc.Get(context.Background(), projectID, uuid.New(), false)
+	_, err := svc.Get(context.Background(), projectID, testTenantID, uuid.New(), false)
 
 	assert.ErrorIs(t, err, ErrNotProjectMember)
 }
@@ -504,7 +609,7 @@ func TestService_Get_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	_, err := svc.Get(context.Background(), uuid.New(), uuid.New(), false)
+	_, err := svc.Get(context.Background(), uuid.New(), testTenantID, uuid.New(), false)
 
 	assert.ErrorIs(t, err, ErrNotFound)
 }
@@ -521,16 +626,16 @@ func TestService_List_AsMember(t *testing.T) {
 	otherID := uuid.New()
 
 	// Project user is member of
-	p1 := &models.Project{ID: uuid.New(), Name: "Mine", ProjectKey: "MN", CreatedBy: userID, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	p1 := &models.Project{ID: uuid.New(), TenantID: testTenantID, Name: "Mine", ProjectKey: "MN", CreatedBy: userID, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	repo.addProject(p1)
 	repo.addMemberDirect(p1.ID, userID, models.ProjectRoleOwner)
 
 	// Project user is NOT member of
-	p2 := &models.Project{ID: uuid.New(), Name: "Other", ProjectKey: "OT", CreatedBy: otherID, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	p2 := &models.Project{ID: uuid.New(), TenantID: testTenantID, Name: "Other", ProjectKey: "OT", CreatedBy: otherID, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	repo.addProject(p2)
 	repo.addMemberDirect(p2.ID, otherID, models.ProjectRoleOwner)
 
-	projects, err := svc.List(context.Background(), userID, false, false)
+	projects, err := svc.List(context.Background(), testTenantID, userID, false, false)
 
 	require.NoError(t, err)
 	assert.Len(t, projects, 1)
@@ -541,14 +646,12 @@ func TestService_List_AsAdmin_SeesAll(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	adminID := uuid.New()
-
-	p1 := &models.Project{ID: uuid.New(), Name: "P1", ProjectKey: "P1", CreatedBy: uuid.New(), CreatedAt: time.Now(), UpdatedAt: time.Now()}
-	p2 := &models.Project{ID: uuid.New(), Name: "P2", ProjectKey: "P2", CreatedBy: uuid.New(), CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	p1 := &models.Project{ID: uuid.New(), TenantID: testTenantID, Name: "P1", ProjectKey: "P1", CreatedBy: uuid.New(), CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	p2 := &models.Project{ID: uuid.New(), TenantID: testTenantID, Name: "P2", ProjectKey: "P2", CreatedBy: uuid.New(), CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	repo.addProject(p1)
 	repo.addProject(p2)
 
-	projects, err := svc.List(context.Background(), adminID, true, false)
+	projects, err := svc.List(context.Background(), testTenantID, uuid.Nil, true, false)
 
 	require.NoError(t, err)
 	assert.Len(t, projects, 2)
@@ -566,6 +669,7 @@ func TestService_Update_AsOwner(t *testing.T) {
 	projectID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         projectID,
+		TenantID:   testTenantID,
 		Name:       "Old Name",
 		ProjectKey: "ON",
 		CreatedBy:  ownerID,
@@ -575,7 +679,7 @@ func TestService_Update_AsOwner(t *testing.T) {
 	repo.addMemberDirect(projectID, ownerID, models.ProjectRoleOwner)
 
 	newName := "New Name"
-	project, err := svc.Update(context.Background(), projectID, ownerID, false, UpdateInput{
+	project, err := svc.Update(context.Background(), projectID, testTenantID, ownerID, false, UpdateInput{
 		Name: &newName,
 	})
 
@@ -591,6 +695,7 @@ func TestService_Update_AsAdmin(t *testing.T) {
 	projectID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         projectID,
+		TenantID:   testTenantID,
 		Name:       "Old",
 		ProjectKey: "OL",
 		CreatedBy:  uuid.New(),
@@ -599,7 +704,7 @@ func TestService_Update_AsAdmin(t *testing.T) {
 	})
 
 	newName := "New"
-	project, err := svc.Update(context.Background(), projectID, adminID, true, UpdateInput{
+	project, err := svc.Update(context.Background(), projectID, testTenantID, adminID, true, UpdateInput{
 		Name: &newName,
 	})
 
@@ -615,6 +720,7 @@ func TestService_Update_AsMember_Fails(t *testing.T) {
 	projectID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         projectID,
+		TenantID:   testTenantID,
 		Name:       "Project",
 		ProjectKey: "PR",
 		CreatedBy:  uuid.New(),
@@ -624,7 +730,7 @@ func TestService_Update_AsMember_Fails(t *testing.T) {
 	repo.addMemberDirect(projectID, memberID, models.ProjectRoleMember)
 
 	newName := "Changed"
-	_, err := svc.Update(context.Background(), projectID, memberID, false, UpdateInput{
+	_, err := svc.Update(context.Background(), projectID, testTenantID, memberID, false, UpdateInput{
 		Name: &newName,
 	})
 
@@ -640,6 +746,7 @@ func TestService_Update_Archived_Fails(t *testing.T) {
 	archivedAt := time.Now()
 	repo.addProject(&models.Project{
 		ID:         projectID,
+		TenantID:   testTenantID,
 		Name:       "Archived",
 		ProjectKey: "AR",
 		CreatedBy:  ownerID,
@@ -650,7 +757,7 @@ func TestService_Update_Archived_Fails(t *testing.T) {
 	repo.addMemberDirect(projectID, ownerID, models.ProjectRoleOwner)
 
 	newName := "Changed"
-	_, err := svc.Update(context.Background(), projectID, ownerID, false, UpdateInput{
+	_, err := svc.Update(context.Background(), projectID, testTenantID, ownerID, false, UpdateInput{
 		Name: &newName,
 	})
 
@@ -665,6 +772,7 @@ func TestService_Update_EmptyName(t *testing.T) {
 	projectID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         projectID,
+		TenantID:   testTenantID,
 		Name:       "Project",
 		ProjectKey: "PR",
 		CreatedBy:  ownerID,
@@ -674,7 +782,7 @@ func TestService_Update_EmptyName(t *testing.T) {
 	repo.addMemberDirect(projectID, ownerID, models.ProjectRoleOwner)
 
 	emptyName := ""
-	_, err := svc.Update(context.Background(), projectID, ownerID, false, UpdateInput{
+	_, err := svc.Update(context.Background(), projectID, testTenantID, ownerID, false, UpdateInput{
 		Name: &emptyName,
 	})
 
@@ -693,6 +801,7 @@ func TestService_Archive_AsOwner(t *testing.T) {
 	projectID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         projectID,
+		TenantID:   testTenantID,
 		Name:       "Project",
 		ProjectKey: "PR",
 		CreatedBy:  ownerID,
@@ -701,7 +810,7 @@ func TestService_Archive_AsOwner(t *testing.T) {
 	})
 	repo.addMemberDirect(projectID, ownerID, models.ProjectRoleOwner)
 
-	err := svc.Archive(context.Background(), projectID, ownerID, false)
+	err := svc.Archive(context.Background(), projectID, testTenantID, ownerID, false)
 
 	require.NoError(t, err)
 	assert.NotNil(t, repo.projects[projectID].ArchivedAt)
@@ -714,6 +823,7 @@ func TestService_Archive_AsAdmin(t *testing.T) {
 	projectID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         projectID,
+		TenantID:   testTenantID,
 		Name:       "Project",
 		ProjectKey: "PR",
 		CreatedBy:  uuid.New(),
@@ -721,7 +831,7 @@ func TestService_Archive_AsAdmin(t *testing.T) {
 		UpdatedAt:  time.Now(),
 	})
 
-	err := svc.Archive(context.Background(), projectID, uuid.New(), true)
+	err := svc.Archive(context.Background(), projectID, testTenantID, uuid.New(), true)
 
 	require.NoError(t, err)
 }
@@ -734,6 +844,7 @@ func TestService_Archive_AsMember_Fails(t *testing.T) {
 	projectID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         projectID,
+		TenantID:   testTenantID,
 		Name:       "Project",
 		ProjectKey: "PR",
 		CreatedBy:  uuid.New(),
@@ -742,7 +853,7 @@ func TestService_Archive_AsMember_Fails(t *testing.T) {
 	})
 	repo.addMemberDirect(projectID, memberID, models.ProjectRoleMember)
 
-	err := svc.Archive(context.Background(), projectID, memberID, false)
+	err := svc.Archive(context.Background(), projectID, testTenantID, memberID, false)
 
 	assert.ErrorIs(t, err, ErrNotProjectOwner)
 }
@@ -756,6 +867,7 @@ func TestService_Archive_AlreadyArchived_Fails(t *testing.T) {
 	archivedAt := time.Now()
 	repo.addProject(&models.Project{
 		ID:         projectID,
+		TenantID:   testTenantID,
 		Name:       "Project",
 		ProjectKey: "PR",
 		CreatedBy:  ownerID,
@@ -765,7 +877,7 @@ func TestService_Archive_AlreadyArchived_Fails(t *testing.T) {
 	})
 	repo.addMemberDirect(projectID, ownerID, models.ProjectRoleOwner)
 
-	err := svc.Archive(context.Background(), projectID, ownerID, false)
+	err := svc.Archive(context.Background(), projectID, testTenantID, ownerID, false)
 
 	assert.ErrorIs(t, err, ErrProjectArchived)
 }
@@ -782,6 +894,7 @@ func TestService_AddMember_AsOwner(t *testing.T) {
 	projectID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         projectID,
+		TenantID:   testTenantID,
 		Name:       "Project",
 		ProjectKey: "PR",
 		CreatedBy:  ownerID,
@@ -791,7 +904,7 @@ func TestService_AddMember_AsOwner(t *testing.T) {
 	repo.addMemberDirect(projectID, ownerID, models.ProjectRoleOwner)
 
 	newUserID := uuid.New()
-	err := svc.AddMember(context.Background(), projectID, newUserID, ownerID, false, models.ProjectRoleMember)
+	err := svc.AddMember(context.Background(), projectID, testTenantID, newUserID, ownerID, false, models.ProjectRoleMember)
 
 	require.NoError(t, err)
 	assert.NotNil(t, repo.members[projectID][newUserID])
@@ -805,6 +918,7 @@ func TestService_AddMember_AsAdmin(t *testing.T) {
 	projectID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         projectID,
+		TenantID:   testTenantID,
 		Name:       "Project",
 		ProjectKey: "PR",
 		CreatedBy:  uuid.New(),
@@ -813,7 +927,7 @@ func TestService_AddMember_AsAdmin(t *testing.T) {
 	})
 
 	newUserID := uuid.New()
-	err := svc.AddMember(context.Background(), projectID, newUserID, uuid.New(), true, models.ProjectRoleViewer)
+	err := svc.AddMember(context.Background(), projectID, testTenantID, newUserID, uuid.New(), true, models.ProjectRoleViewer)
 
 	require.NoError(t, err)
 	assert.Equal(t, models.ProjectRoleViewer, repo.members[projectID][newUserID].Role)
@@ -827,6 +941,7 @@ func TestService_AddMember_AsMember_Fails(t *testing.T) {
 	projectID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         projectID,
+		TenantID:   testTenantID,
 		Name:       "Project",
 		ProjectKey: "PR",
 		CreatedBy:  uuid.New(),
@@ -835,7 +950,7 @@ func TestService_AddMember_AsMember_Fails(t *testing.T) {
 	})
 	repo.addMemberDirect(projectID, memberID, models.ProjectRoleMember)
 
-	err := svc.AddMember(context.Background(), projectID, uuid.New(), memberID, false, models.ProjectRoleMember)
+	err := svc.AddMember(context.Background(), projectID, testTenantID, uuid.New(), memberID, false, models.ProjectRoleMember)
 
 	assert.ErrorIs(t, err, ErrNotProjectOwner)
 }
@@ -844,7 +959,7 @@ func TestService_AddMember_InvalidRole(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	err := svc.AddMember(context.Background(), uuid.New(), uuid.New(), uuid.New(), true, "superadmin")
+	err := svc.AddMember(context.Background(), uuid.New(), testTenantID, uuid.New(), uuid.New(), true, "superadmin")
 
 	assert.ErrorIs(t, err, ErrInvalidRole)
 }
@@ -857,6 +972,7 @@ func TestService_AddMember_ArchivedProject_Fails(t *testing.T) {
 	archivedAt := time.Now()
 	repo.addProject(&models.Project{
 		ID:         projectID,
+		TenantID:   testTenantID,
 		Name:       "Archived",
 		ProjectKey: "AR",
 		CreatedBy:  uuid.New(),
@@ -865,7 +981,7 @@ func TestService_AddMember_ArchivedProject_Fails(t *testing.T) {
 		UpdatedAt:  time.Now(),
 	})
 
-	err := svc.AddMember(context.Background(), projectID, uuid.New(), uuid.New(), true, models.ProjectRoleMember)
+	err := svc.AddMember(context.Background(), projectID, testTenantID, uuid.New(), uuid.New(), true, models.ProjectRoleMember)
 
 	assert.ErrorIs(t, err, ErrProjectArchived)
 }
@@ -883,6 +999,7 @@ func TestService_RemoveMember_Success(t *testing.T) {
 	projectID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         projectID,
+		TenantID:   testTenantID,
 		Name:       "Project",
 		ProjectKey: "PR",
 		CreatedBy:  ownerID,
@@ -892,7 +1009,7 @@ func TestService_RemoveMember_Success(t *testing.T) {
 	repo.addMemberDirect(projectID, ownerID, models.ProjectRoleOwner)
 	repo.addMemberDirect(projectID, memberID, models.ProjectRoleMember)
 
-	err := svc.RemoveMember(context.Background(), projectID, memberID, ownerID, false)
+	err := svc.RemoveMember(context.Background(), projectID, testTenantID, memberID, ownerID, false)
 
 	require.NoError(t, err)
 	_, exists := repo.members[projectID][memberID]
@@ -907,6 +1024,7 @@ func TestService_RemoveMember_CannotRemoveLastOwner(t *testing.T) {
 	projectID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         projectID,
+		TenantID:   testTenantID,
 		Name:       "Project",
 		ProjectKey: "PR",
 		CreatedBy:  ownerID,
@@ -916,7 +1034,7 @@ func TestService_RemoveMember_CannotRemoveLastOwner(t *testing.T) {
 	repo.addMemberDirect(projectID, ownerID, models.ProjectRoleOwner)
 
 	// Admin tries to remove the only owner
-	err := svc.RemoveMember(context.Background(), projectID, ownerID, uuid.New(), true)
+	err := svc.RemoveMember(context.Background(), projectID, testTenantID, ownerID, uuid.New(), true)
 
 	assert.ErrorIs(t, err, ErrCannotRemoveOnlyOwner)
 }
@@ -930,6 +1048,7 @@ func TestService_RemoveMember_CanRemoveOneOfMultipleOwners(t *testing.T) {
 	projectID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         projectID,
+		TenantID:   testTenantID,
 		Name:       "Project",
 		ProjectKey: "PR",
 		CreatedBy:  owner1ID,
@@ -939,7 +1058,7 @@ func TestService_RemoveMember_CanRemoveOneOfMultipleOwners(t *testing.T) {
 	repo.addMemberDirect(projectID, owner1ID, models.ProjectRoleOwner)
 	repo.addMemberDirect(projectID, owner2ID, models.ProjectRoleOwner)
 
-	err := svc.RemoveMember(context.Background(), projectID, owner2ID, owner1ID, false)
+	err := svc.RemoveMember(context.Background(), projectID, testTenantID, owner2ID, owner1ID, false)
 
 	require.NoError(t, err)
 }
@@ -953,6 +1072,7 @@ func TestService_RemoveMember_AsMember_Fails(t *testing.T) {
 	projectID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         projectID,
+		TenantID:   testTenantID,
 		Name:       "Project",
 		ProjectKey: "PR",
 		CreatedBy:  uuid.New(),
@@ -962,7 +1082,7 @@ func TestService_RemoveMember_AsMember_Fails(t *testing.T) {
 	repo.addMemberDirect(projectID, memberID, models.ProjectRoleMember)
 	repo.addMemberDirect(projectID, otherID, models.ProjectRoleMember)
 
-	err := svc.RemoveMember(context.Background(), projectID, otherID, memberID, false)
+	err := svc.RemoveMember(context.Background(), projectID, testTenantID, otherID, memberID, false)
 
 	assert.ErrorIs(t, err, ErrNotProjectOwner)
 }
@@ -980,6 +1100,7 @@ func TestService_UpdateMemberRole_Success(t *testing.T) {
 	projectID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         projectID,
+		TenantID:   testTenantID,
 		Name:       "Project",
 		ProjectKey: "PR",
 		CreatedBy:  ownerID,
@@ -989,7 +1110,7 @@ func TestService_UpdateMemberRole_Success(t *testing.T) {
 	repo.addMemberDirect(projectID, ownerID, models.ProjectRoleOwner)
 	repo.addMemberDirect(projectID, memberID, models.ProjectRoleMember)
 
-	err := svc.UpdateMemberRole(context.Background(), projectID, memberID, ownerID, false, models.ProjectRoleViewer)
+	err := svc.UpdateMemberRole(context.Background(), projectID, testTenantID, memberID, ownerID, false, models.ProjectRoleViewer)
 
 	require.NoError(t, err)
 	assert.Equal(t, models.ProjectRoleViewer, repo.members[projectID][memberID].Role)
@@ -1003,6 +1124,7 @@ func TestService_UpdateMemberRole_CannotDemoteLastOwner(t *testing.T) {
 	projectID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         projectID,
+		TenantID:   testTenantID,
 		Name:       "Project",
 		ProjectKey: "PR",
 		CreatedBy:  ownerID,
@@ -1012,7 +1134,7 @@ func TestService_UpdateMemberRole_CannotDemoteLastOwner(t *testing.T) {
 	repo.addMemberDirect(projectID, ownerID, models.ProjectRoleOwner)
 
 	// Admin tries to demote the last owner
-	err := svc.UpdateMemberRole(context.Background(), projectID, ownerID, uuid.New(), true, models.ProjectRoleMember)
+	err := svc.UpdateMemberRole(context.Background(), projectID, testTenantID, ownerID, uuid.New(), true, models.ProjectRoleMember)
 
 	assert.ErrorIs(t, err, ErrCannotRemoveOnlyOwner)
 }
@@ -1021,7 +1143,7 @@ func TestService_UpdateMemberRole_InvalidRole(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	err := svc.UpdateMemberRole(context.Background(), uuid.New(), uuid.New(), uuid.New(), true, "invalid")
+	err := svc.UpdateMemberRole(context.Background(), uuid.New(), testTenantID, uuid.New(), uuid.New(), true, "invalid")
 
 	assert.ErrorIs(t, err, ErrInvalidRole)
 }
@@ -1038,6 +1160,7 @@ func TestService_ListMembers_AsMember(t *testing.T) {
 	projectID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         projectID,
+		TenantID:   testTenantID,
 		Name:       "Project",
 		ProjectKey: "PR",
 		CreatedBy:  userID,
@@ -1046,7 +1169,7 @@ func TestService_ListMembers_AsMember(t *testing.T) {
 	})
 	repo.addMemberDirect(projectID, userID, models.ProjectRoleOwner)
 
-	members, err := svc.ListMembers(context.Background(), projectID, userID, false)
+	members, err := svc.ListMembers(context.Background(), projectID, testTenantID, userID, false)
 
 	require.NoError(t, err)
 	assert.Len(t, members, 1)
@@ -1059,6 +1182,7 @@ func TestService_ListMembers_NotMember_Fails(t *testing.T) {
 	projectID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         projectID,
+		TenantID:   testTenantID,
 		Name:       "Project",
 		ProjectKey: "PR",
 		CreatedBy:  uuid.New(),
@@ -1066,7 +1190,7 @@ func TestService_ListMembers_NotMember_Fails(t *testing.T) {
 		UpdatedAt:  time.Now(),
 	})
 
-	_, err := svc.ListMembers(context.Background(), projectID, uuid.New(), false)
+	_, err := svc.ListMembers(context.Background(), projectID, testTenantID, uuid.New(), false)
 
 	assert.ErrorIs(t, err, ErrNotProjectMember)
 }
@@ -1082,6 +1206,7 @@ func TestService_SaveAsTemplate_Success(t *testing.T) {
 	sourceID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         sourceID,
+		TenantID:   testTenantID,
 		Name:       "Source Project",
 		ProjectKey: "SP",
 		CreatedBy:  uuid.New(),
@@ -1089,7 +1214,7 @@ func TestService_SaveAsTemplate_Success(t *testing.T) {
 		UpdatedAt:  time.Now(),
 	})
 
-	tmpl, err := svc.SaveAsTemplate(context.Background(), sourceID, "My Template", "TMPL", uuid.New())
+	tmpl, err := svc.SaveAsTemplate(context.Background(), testTenantID, sourceID, "My Template", "TMPL", uuid.New())
 
 	require.NoError(t, err)
 	assert.True(t, tmpl.IsTemplate)
@@ -1102,7 +1227,7 @@ func TestService_SaveAsTemplate_SourceNotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	_, err := svc.SaveAsTemplate(context.Background(), uuid.New(), "Template", "TM", uuid.New())
+	_, err := svc.SaveAsTemplate(context.Background(), testTenantID, uuid.New(), "Template", "TM", uuid.New())
 
 	assert.ErrorIs(t, err, ErrNotFound)
 }
@@ -1114,6 +1239,7 @@ func TestService_SaveAsTemplate_DuplicateKey(t *testing.T) {
 	sourceID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         sourceID,
+		TenantID:   testTenantID,
 		Name:       "Source",
 		ProjectKey: "SP",
 		CreatedBy:  uuid.New(),
@@ -1121,7 +1247,7 @@ func TestService_SaveAsTemplate_DuplicateKey(t *testing.T) {
 		UpdatedAt:  time.Now(),
 	})
 
-	_, err := svc.SaveAsTemplate(context.Background(), sourceID, "Template", "SP", uuid.New())
+	_, err := svc.SaveAsTemplate(context.Background(), testTenantID, sourceID, "Template", "SP", uuid.New())
 
 	assert.ErrorIs(t, err, ErrKeyAlreadyExists)
 }
@@ -1133,6 +1259,7 @@ func TestService_SaveAsTemplate_EmptyName(t *testing.T) {
 	sourceID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         sourceID,
+		TenantID:   testTenantID,
 		Name:       "Source",
 		ProjectKey: "SP",
 		CreatedBy:  uuid.New(),
@@ -1140,7 +1267,7 @@ func TestService_SaveAsTemplate_EmptyName(t *testing.T) {
 		UpdatedAt:  time.Now(),
 	})
 
-	_, err := svc.SaveAsTemplate(context.Background(), sourceID, "", "TM", uuid.New())
+	_, err := svc.SaveAsTemplate(context.Background(), testTenantID, sourceID, "", "TM", uuid.New())
 
 	assert.ErrorIs(t, err, ErrNameRequired)
 }
@@ -1157,6 +1284,7 @@ func TestService_CreateFromTemplate_Success(t *testing.T) {
 	desc := "Template description"
 	repo.addProject(&models.Project{
 		ID:          templateID,
+		TenantID:    testTenantID,
 		Name:        "Template",
 		Description: &desc,
 		ProjectKey:  "TM",
@@ -1171,7 +1299,7 @@ func TestService_CreateFromTemplate_Success(t *testing.T) {
 	}
 
 	creatorID := uuid.New()
-	project, err := svc.CreateFromTemplate(context.Background(), templateID, "New Project", "NP", creatorID)
+	project, err := svc.CreateFromTemplate(context.Background(), testTenantID, templateID, "New Project", "NP", creatorID)
 
 	require.NoError(t, err)
 	assert.Equal(t, "New Project", project.Name)
@@ -1195,6 +1323,7 @@ func TestService_CreateFromTemplate_NotATemplate(t *testing.T) {
 	regularID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         regularID,
+		TenantID:   testTenantID,
 		Name:       "Regular",
 		ProjectKey: "RG",
 		IsTemplate: false,
@@ -1203,7 +1332,7 @@ func TestService_CreateFromTemplate_NotATemplate(t *testing.T) {
 		UpdatedAt:  time.Now(),
 	})
 
-	_, err := svc.CreateFromTemplate(context.Background(), regularID, "New", "NW", uuid.New())
+	_, err := svc.CreateFromTemplate(context.Background(), testTenantID, regularID, "New", "NW", uuid.New())
 
 	assert.ErrorIs(t, err, ErrTemplateNotFound)
 }
@@ -1215,6 +1344,7 @@ func TestService_CreateFromTemplate_DuplicateKey(t *testing.T) {
 	templateID := uuid.New()
 	repo.addProject(&models.Project{
 		ID:         templateID,
+		TenantID:   testTenantID,
 		Name:       "Template",
 		ProjectKey: "TM",
 		IsTemplate: true,
@@ -1223,7 +1353,7 @@ func TestService_CreateFromTemplate_DuplicateKey(t *testing.T) {
 		UpdatedAt:  time.Now(),
 	})
 
-	_, err := svc.CreateFromTemplate(context.Background(), templateID, "New", "TM", uuid.New())
+	_, err := svc.CreateFromTemplate(context.Background(), testTenantID, templateID, "New", "TM", uuid.New())
 
 	assert.ErrorIs(t, err, ErrKeyAlreadyExists)
 }

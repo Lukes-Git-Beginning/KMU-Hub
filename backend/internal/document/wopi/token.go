@@ -23,6 +23,7 @@ type WOPITokenClaims struct {
 	UserID   string `json:"user_id"`
 	UserName string `json:"user_name"`
 	CanWrite bool   `json:"can_write"`
+	TenantID string `json:"tenant_id"`
 }
 
 // TokenService generates and validates WOPI-specific JWTs.
@@ -40,8 +41,9 @@ func NewTokenService(secret string) *TokenService {
 }
 
 // Generate creates a new WOPI JWT token for the given file and user.
+// tenantID is encoded in the token so the WOPI handler can scope file lookups.
 // Returns the token string and TTL in milliseconds.
-func (s *TokenService) Generate(fileID, userID, userName string, canWrite bool) (string, int64, error) {
+func (s *TokenService) Generate(fileID, userID, userName, tenantID string, canWrite bool) (string, int64, error) {
 	now := time.Now()
 	claims := WOPITokenClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -53,6 +55,7 @@ func (s *TokenService) Generate(fileID, userID, userName string, canWrite bool) 
 		UserID:   userID,
 		UserName: userName,
 		CanWrite: canWrite,
+		TenantID: tenantID,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

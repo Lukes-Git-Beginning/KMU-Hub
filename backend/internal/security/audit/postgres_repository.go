@@ -62,9 +62,9 @@ func (r *PostgresRepository) Create(ctx context.Context, entry *models.AuditEntr
 	}
 
 	_, err = tx.Exec(ctx,
-		`INSERT INTO audit_log (id, timestamp, user_id, action, target, target_type, details, ip_address, user_agent, result, previous_hash, entry_hash)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-		entry.ID, entry.Timestamp, entry.UserID, entry.Action,
+		`INSERT INTO audit_log (id, tenant_id, timestamp, user_id, action, target, target_type, details, ip_address, user_agent, result, previous_hash, entry_hash)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+		entry.ID, entry.TenantID, entry.Timestamp, entry.UserID, entry.Action,
 		entry.Target, entry.TargetType, entry.Details,
 		entry.IPAddress, entry.UserAgent, entry.Result,
 		entry.PreviousHash, entry.EntryHash,
@@ -104,10 +104,12 @@ func computeEntryHash(entry *models.AuditEntry, previousHash string) string {
 }
 
 // List returns audit entries matching the filter with pagination.
+// Always filters by tenant_id to enforce tenant isolation.
 func (r *PostgresRepository) List(ctx context.Context, filter *models.AuditFilter) ([]*models.AuditEntry, int, error) {
-	var conditions []string
-	var args []interface{}
-	argIdx := 1
+	// tenant_id is always the first filter (audit_log.tenant_id is NOT NULL)
+	conditions := []string{fmt.Sprintf("tenant_id = $%d", 1)}
+	args := []interface{}{filter.TenantID}
+	argIdx := 2
 
 	if filter.DateFrom != nil {
 		conditions = append(conditions, fmt.Sprintf("timestamp >= $%d", argIdx))
@@ -135,10 +137,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter *models.AuditFilte
 		argIdx++
 	}
 
-	whereClause := ""
-	if len(conditions) > 0 {
-		whereClause = "WHERE " + strings.Join(conditions, " AND ")
-	}
+	whereClause := "WHERE " + strings.Join(conditions, " AND ")
 
 	// Count total matching entries
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM audit_log %s", whereClause)

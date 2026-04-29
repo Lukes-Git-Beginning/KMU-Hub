@@ -66,6 +66,7 @@ func (s *Service) emitEvent(ctx context.Context, eventType, actorID, resourceID 
 
 // UploadInput contains the data needed to upload a document file.
 type UploadInput struct {
+	TenantID    uuid.UUID
 	FolderID    uuid.UUID
 	Filename    string
 	MimeType    string
@@ -110,6 +111,7 @@ func (s *Service) Upload(ctx context.Context, input UploadInput) (*models.Docume
 	// Create DB record
 	file := &models.DocumentFile{
 		ID:             fileID,
+		TenantID:       input.TenantID,
 		FolderID:       input.FolderID,
 		Filename:       filename,
 		MimeType:       input.MimeType,
@@ -160,9 +162,9 @@ func (s *Service) Upload(ctx context.Context, input UploadInput) (*models.Docume
 	return file, nil
 }
 
-// GetByID retrieves a file by ID.
-func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*models.DocumentFile, error) {
-	file, err := s.repo.GetByID(ctx, id)
+// GetByID retrieves a file by ID, scoped to the tenant.
+func (s *Service) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.DocumentFile, error) {
+	file, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -177,8 +179,8 @@ func (s *Service) List(ctx context.Context, filter ListFilter) ([]*models.Docume
 	return s.repo.List(ctx, filter)
 }
 
-// Update updates file metadata.
-func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) error {
+// Update updates file metadata, scoped to the tenant.
+func (s *Service) Update(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, input UpdateInput) error {
 	// Validate filename if changing
 	if input.Filename != nil {
 		name := strings.TrimSpace(*input.Filename)
@@ -191,7 +193,7 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) e
 		input.Filename = &name
 	}
 
-	if err := s.repo.Update(ctx, id, input); err != nil {
+	if err := s.repo.Update(ctx, id, tenantID, input); err != nil {
 		return err
 	}
 
@@ -201,9 +203,9 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) e
 	return nil
 }
 
-// Delete soft-deletes a file. Does NOT remove from MinIO (enables recovery).
-func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
-	file, err := s.repo.GetByID(ctx, id)
+// Delete soft-deletes a file, scoped to the tenant. Does NOT remove from MinIO (enables recovery).
+func (s *Service) Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	file, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return err
 	}
@@ -211,7 +213,7 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 		return nil // idempotent
 	}
 
-	if err := s.repo.SoftDelete(ctx, id); err != nil {
+	if err := s.repo.SoftDelete(ctx, id, tenantID); err != nil {
 		return err
 	}
 
@@ -223,8 +225,9 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 // Copy copies a file to a target folder by downloading and re-uploading the content.
-func (s *Service) Copy(ctx context.Context, fileID, targetFolderID, userID uuid.UUID) (*models.DocumentFile, error) {
-	file, err := s.repo.GetByID(ctx, fileID)
+// tenantID is used for the initial GetByID isolation check; the copy inherits the same tenantID.
+func (s *Service) Copy(ctx context.Context, fileID, targetFolderID, userID uuid.UUID, tenantID uuid.UUID) (*models.DocumentFile, error) {
+	file, err := s.repo.GetByID(ctx, fileID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -254,6 +257,7 @@ func (s *Service) Copy(ctx context.Context, fileID, targetFolderID, userID uuid.
 	// Create new DB record
 	newFile := &models.DocumentFile{
 		ID:             newFileID,
+		TenantID:       tenantID,
 		FolderID:       targetFolderID,
 		Filename:       file.Filename,
 		MimeType:       file.MimeType,
@@ -300,8 +304,9 @@ func (s *Service) Copy(ctx context.Context, fileID, targetFolderID, userID uuid.
 }
 
 // Move moves a file to a different folder (just updates folder_id, MinIO key stays the same).
-func (s *Service) Move(ctx context.Context, fileID, targetFolderID uuid.UUID) error {
-	file, err := s.repo.GetByID(ctx, fileID)
+// tenantID is used for isolation checks.
+func (s *Service) Move(ctx context.Context, fileID, targetFolderID uuid.UUID, tenantID uuid.UUID) error {
+	file, err := s.repo.GetByID(ctx, fileID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -309,7 +314,7 @@ func (s *Service) Move(ctx context.Context, fileID, targetFolderID uuid.UUID) er
 		return ErrFileDeleted
 	}
 
-	if err := s.repo.Update(ctx, fileID, UpdateInput{FolderID: &targetFolderID}); err != nil {
+	if err := s.repo.Update(ctx, fileID, tenantID, UpdateInput{FolderID: &targetFolderID}); err != nil {
 		return err
 	}
 
@@ -322,8 +327,8 @@ func (s *Service) Move(ctx context.Context, fileID, targetFolderID uuid.UUID) er
 }
 
 // GetDownloadURL returns a presigned URL for downloading the file (1-hour expiry).
-func (s *Service) GetDownloadURL(ctx context.Context, fileID uuid.UUID) (string, error) {
-	file, err := s.repo.GetByID(ctx, fileID)
+func (s *Service) GetDownloadURL(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID) (string, error) {
+	file, err := s.repo.GetByID(ctx, fileID, tenantID)
 	if err != nil {
 		return "", err
 	}
@@ -344,8 +349,9 @@ type VersionInput struct {
 }
 
 // CreateVersion uploads new content and creates a new version record.
-func (s *Service) CreateVersion(ctx context.Context, fileID uuid.UUID, input VersionInput) (*models.DocumentFileVersion, error) {
-	file, err := s.repo.GetByID(ctx, fileID)
+// tenantID is used to scope the file lookup.
+func (s *Service) CreateVersion(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID, input VersionInput) (*models.DocumentFileVersion, error) {
+	file, err := s.repo.GetByID(ctx, fileID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -408,8 +414,9 @@ func (s *Service) ListVersions(ctx context.Context, fileID uuid.UUID) ([]*models
 }
 
 // RevertVersion reverts to a previous version by creating a new version with the old content.
-func (s *Service) RevertVersion(ctx context.Context, fileID uuid.UUID, versionNumber int, userID uuid.UUID) (*models.DocumentFileVersion, error) {
-	file, err := s.repo.GetByID(ctx, fileID)
+// tenantID is used to scope the file lookup.
+func (s *Service) RevertVersion(ctx context.Context, fileID uuid.UUID, versionNumber int, userID uuid.UUID, tenantID uuid.UUID) (*models.DocumentFileVersion, error) {
+	file, err := s.repo.GetByID(ctx, fileID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -477,13 +484,14 @@ func (s *Service) RevertVersion(ctx context.Context, fileID uuid.UUID, versionNu
 }
 
 // LinkToEntity creates a link between a file and a CRM/PM entity.
-func (s *Service) LinkToEntity(ctx context.Context, fileID uuid.UUID, entityType string, entityID, userID uuid.UUID) error {
+// tenantID is used to scope the file lookup.
+func (s *Service) LinkToEntity(ctx context.Context, fileID uuid.UUID, entityType string, entityID, userID uuid.UUID, tenantID uuid.UUID) error {
 	if !AllowedEntityTypes[entityType] {
 		return ErrInvalidEntityType
 	}
 
 	// Verify file exists and not deleted
-	file, err := s.repo.GetByID(ctx, fileID)
+	file, err := s.repo.GetByID(ctx, fileID, tenantID)
 	if err != nil {
 		return err
 	}

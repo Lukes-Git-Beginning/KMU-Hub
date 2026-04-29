@@ -88,7 +88,7 @@ func (we *WorkflowEngine) Execute(ctx context.Context, auto models.Automation, e
 			"automation_id", auto.ID,
 			"threshold", circuitBreakerThreshold,
 		)
-		if err := we.workflowRepo.SetActive(ctx, auto.ID, false); err != nil {
+		if err := we.workflowRepo.SetActive(ctx, auto.ID, auto.TenantID, false); err != nil {
 			slog.Error("failed to auto-disable automation", "automation_id", auto.ID, "error", err)
 		}
 		return workflow.ErrCircuitBreakerOpen

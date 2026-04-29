@@ -26,9 +26,9 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) Create(ctx context.Context, channel *models.Channel) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO channels (id, name, description, is_private, is_dm, is_archived, created_by, dm_user1, dm_user2, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-		channel.ID, channel.Name, channel.Description, channel.IsPrivate,
+		`INSERT INTO channels (id, tenant_id, name, description, is_private, is_dm, is_archived, created_by, dm_user1, dm_user2, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+		channel.ID, channel.TenantID, channel.Name, channel.Description, channel.IsPrivate,
 		channel.IsDM, channel.IsArchived, channel.CreatedBy, channel.DMUser1, channel.DMUser2,
 		channel.CreatedAt, channel.UpdatedAt,
 	)
@@ -37,16 +37,28 @@ func (r *PostgresRepository) Create(ctx context.Context, channel *models.Channel
 
 func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Channel, error) {
 	return r.scanChannel(r.pool.QueryRow(ctx,
-		`SELECT id, name, description, is_private, is_dm, is_archived, created_by, dm_user1, dm_user2, created_at, updated_at
+		`SELECT id, tenant_id, name, description, is_private, is_dm, is_archived, created_by, dm_user1, dm_user2, created_at, updated_at
 		 FROM channels WHERE id = $1`, id,
 	))
 }
 
+func (r *PostgresRepository) GetByIDForTenant(ctx context.Context, id, tenantID uuid.UUID) (*models.Channel, error) {
+	return r.scanChannel(r.pool.QueryRow(ctx,
+		`SELECT id, tenant_id, name, description, is_private, is_dm, is_archived, created_by, dm_user1, dm_user2, created_at, updated_at
+		 FROM channels WHERE id = $1 AND tenant_id = $2`, id, tenantID,
+	))
+}
+
 func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset, limit int) ([]*models.Channel, int, error) {
-	// Build WHERE clause - always filter by membership
+	// Build WHERE clause - always filter by tenant and membership
 	var conditions []string
 	var args []any
 	argNum := 1
+
+	// Tenant isolation
+	conditions = append(conditions, fmt.Sprintf("c.tenant_id = $%d", argNum))
+	args = append(args, filter.TenantID)
+	argNum++
 
 	// User must be a member
 	conditions = append(conditions, fmt.Sprintf(`c.id IN (SELECT channel_id FROM channel_memberships WHERE user_id = $%d)`, argNum))
@@ -80,7 +92,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset
 
 	// Query with pagination, ordered by last message or created_at
 	query := fmt.Sprintf(`
-		SELECT c.id, c.name, c.description, c.is_private, c.is_dm, c.is_archived,
+		SELECT c.id, c.tenant_id, c.name, c.description, c.is_private, c.is_dm, c.is_archived,
 		       c.created_by, c.dm_user1, c.dm_user2, c.created_at, c.updated_at
 		FROM channels c
 		%s
@@ -109,17 +121,30 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset
 }
 
 func (r *PostgresRepository) Update(ctx context.Context, channel *models.Channel) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE channels SET name = $1, description = $2, is_archived = $3, updated_at = $4
-		 WHERE id = $5`,
-		channel.Name, channel.Description, channel.IsArchived, channel.UpdatedAt, channel.ID,
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE channels SET name = $1, description = $2, is_archived = $3, is_guest_enabled = $4, updated_at = $5
+		 WHERE id = $6 AND tenant_id = $7`,
+		channel.Name, channel.Description, channel.IsArchived, channel.IsGuestEnabled, channel.UpdatedAt,
+		channel.ID, channel.TenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrChannelNotFound
+	}
+	return nil
 }
 
-func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM channels WHERE id = $1`, id)
-	return err
+func (r *PostgresRepository) Delete(ctx context.Context, id, tenantID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM channels WHERE id = $1 AND tenant_id = $2`, id, tenantID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrChannelNotFound
+	}
+	return nil
 }
 
 // Membership operations
@@ -265,7 +290,7 @@ func (r *PostgresRepository) GetLastMessage(ctx context.Context, channelID uuid.
 func (r *PostgresRepository) scanChannel(row pgx.Row) (*models.Channel, error) {
 	var c models.Channel
 	err := row.Scan(
-		&c.ID, &c.Name, &c.Description, &c.IsPrivate, &c.IsDM, &c.IsArchived,
+		&c.ID, &c.TenantID, &c.Name, &c.Description, &c.IsPrivate, &c.IsDM, &c.IsArchived,
 		&c.CreatedBy, &c.DMUser1, &c.DMUser2, &c.CreatedAt, &c.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -280,7 +305,7 @@ func (r *PostgresRepository) scanChannel(row pgx.Row) (*models.Channel, error) {
 func (r *PostgresRepository) scanChannelFromRows(rows pgx.Rows) (*models.Channel, error) {
 	var c models.Channel
 	err := rows.Scan(
-		&c.ID, &c.Name, &c.Description, &c.IsPrivate, &c.IsDM, &c.IsArchived,
+		&c.ID, &c.TenantID, &c.Name, &c.Description, &c.IsPrivate, &c.IsDM, &c.IsArchived,
 		&c.CreatedBy, &c.DMUser1, &c.DMUser2, &c.CreatedAt, &c.UpdatedAt,
 	)
 	if err != nil {
@@ -291,10 +316,10 @@ func (r *PostgresRepository) scanChannelFromRows(rows pgx.Rows) (*models.Channel
 
 // DM operations
 
-func (r *PostgresRepository) FindDMChannel(ctx context.Context, user1, user2 uuid.UUID) (*models.Channel, error) {
+func (r *PostgresRepository) FindDMChannel(ctx context.Context, user1, user2, tenantID uuid.UUID) (*models.Channel, error) {
 	return r.scanChannel(r.pool.QueryRow(ctx,
-		`SELECT id, name, description, is_private, is_dm, is_archived, created_by, dm_user1, dm_user2, created_at, updated_at
-		 FROM channels WHERE is_dm = TRUE AND dm_user1 = $1 AND dm_user2 = $2`, user1, user2,
+		`SELECT id, tenant_id, name, description, is_private, is_dm, is_archived, created_by, dm_user1, dm_user2, created_at, updated_at
+		 FROM channels WHERE is_dm = TRUE AND dm_user1 = $1 AND dm_user2 = $2 AND tenant_id = $3`, user1, user2, tenantID,
 	))
 }
 
@@ -362,9 +387,9 @@ func (r *PostgresRepository) CreateDMChannel(ctx context.Context, channel *model
 
 	// Insert channel
 	_, err = tx.Exec(ctx,
-		`INSERT INTO channels (id, name, description, is_private, is_dm, is_archived, created_by, dm_user1, dm_user2, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-		channel.ID, channel.Name, channel.Description, channel.IsPrivate,
+		`INSERT INTO channels (id, tenant_id, name, description, is_private, is_dm, is_archived, created_by, dm_user1, dm_user2, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+		channel.ID, channel.TenantID, channel.Name, channel.Description, channel.IsPrivate,
 		channel.IsDM, channel.IsArchived, channel.CreatedBy, channel.DMUser1, channel.DMUser2,
 		channel.CreatedAt, channel.UpdatedAt,
 	)

@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/automation/workflow"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	automationv1 "github.com/kmuhub/kmuhub/proto/automation/v1"
 )
@@ -32,12 +33,18 @@ func NewAutomationGRPCServer(svc *workflow.Service) *AutomationGRPCServer {
 // ============================================================================
 
 func (s *AutomationGRPCServer) CreateAutomation(ctx context.Context, req *automationv1.CreateAutomationRequest) (*automationv1.CreateAutomationResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "missing tenant_id: %v", err)
+	}
+
 	ownerID, err := uuid.Parse(req.GetOwnerId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid owner_id: %v", err)
 	}
 
 	auto := &models.Automation{
+		TenantID:    tenantID,
 		Name:        req.GetName(),
 		Description: req.GetDescription(),
 		Scope:       scopeFromProto(req.GetScope()),
@@ -66,12 +73,17 @@ func (s *AutomationGRPCServer) CreateAutomation(ctx context.Context, req *automa
 }
 
 func (s *AutomationGRPCServer) UpdateAutomation(ctx context.Context, req *automationv1.UpdateAutomationRequest) (*automationv1.UpdateAutomationResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "missing tenant_id: %v", err)
+	}
+
 	id, err := uuid.Parse(req.GetAutomationId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid automation_id: %v", err)
 	}
 
-	auto, err := s.svc.GetByID(ctx, id)
+	auto, err := s.svc.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapDomainError(err)
 	}
@@ -111,12 +123,17 @@ func (s *AutomationGRPCServer) UpdateAutomation(ctx context.Context, req *automa
 }
 
 func (s *AutomationGRPCServer) DeleteAutomation(ctx context.Context, req *automationv1.DeleteAutomationRequest) (*automationv1.DeleteAutomationResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "missing tenant_id: %v", err)
+	}
+
 	id, err := uuid.Parse(req.GetAutomationId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid automation_id: %v", err)
 	}
 
-	if err := s.svc.Delete(ctx, id); err != nil {
+	if err := s.svc.Delete(ctx, id, tenantID); err != nil {
 		return nil, mapDomainError(err)
 	}
 
@@ -124,12 +141,17 @@ func (s *AutomationGRPCServer) DeleteAutomation(ctx context.Context, req *automa
 }
 
 func (s *AutomationGRPCServer) GetAutomation(ctx context.Context, req *automationv1.GetAutomationRequest) (*automationv1.GetAutomationResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "missing tenant_id: %v", err)
+	}
+
 	id, err := uuid.Parse(req.GetAutomationId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid automation_id: %v", err)
 	}
 
-	auto, err := s.svc.GetByID(ctx, id)
+	auto, err := s.svc.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapDomainError(err)
 	}
@@ -140,9 +162,15 @@ func (s *AutomationGRPCServer) GetAutomation(ctx context.Context, req *automatio
 }
 
 func (s *AutomationGRPCServer) ListAutomations(ctx context.Context, req *automationv1.ListAutomationsRequest) (*automationv1.ListAutomationsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "missing tenant_id: %v", err)
+	}
+
 	filter := workflow.ListFilter{
-		Limit:  int(req.GetLimit()),
-		Offset: int(req.GetOffset()),
+		TenantID: tenantID,
+		Limit:    int(req.GetLimit()),
+		Offset:   int(req.GetOffset()),
 	}
 
 	if req.GetOwnerId() != "" {
@@ -184,16 +212,21 @@ func (s *AutomationGRPCServer) ListAutomations(ctx context.Context, req *automat
 // ============================================================================
 
 func (s *AutomationGRPCServer) EnableAutomation(ctx context.Context, req *automationv1.EnableAutomationRequest) (*automationv1.EnableAutomationResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "missing tenant_id: %v", err)
+	}
+
 	id, err := uuid.Parse(req.GetAutomationId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid automation_id: %v", err)
 	}
 
-	if err := s.svc.SetActive(ctx, id, true); err != nil {
+	if err := s.svc.SetActive(ctx, id, tenantID, true); err != nil {
 		return nil, mapDomainError(err)
 	}
 
-	auto, err := s.svc.GetByID(ctx, id)
+	auto, err := s.svc.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapDomainError(err)
 	}
@@ -204,16 +237,21 @@ func (s *AutomationGRPCServer) EnableAutomation(ctx context.Context, req *automa
 }
 
 func (s *AutomationGRPCServer) DisableAutomation(ctx context.Context, req *automationv1.DisableAutomationRequest) (*automationv1.DisableAutomationResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "missing tenant_id: %v", err)
+	}
+
 	id, err := uuid.Parse(req.GetAutomationId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid automation_id: %v", err)
 	}
 
-	if err := s.svc.SetActive(ctx, id, false); err != nil {
+	if err := s.svc.SetActive(ctx, id, tenantID, false); err != nil {
 		return nil, mapDomainError(err)
 	}
 
-	auto, err := s.svc.GetByID(ctx, id)
+	auto, err := s.svc.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapDomainError(err)
 	}
@@ -335,12 +373,17 @@ func (s *AutomationGRPCServer) ListTemplates(ctx context.Context, req *automatio
 }
 
 func (s *AutomationGRPCServer) CreateFromTemplate(ctx context.Context, req *automationv1.CreateFromTemplateRequest) (*automationv1.CreateFromTemplateResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "missing tenant_id: %v", err)
+	}
+
 	ownerID, err := uuid.Parse(req.GetOwnerId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid owner_id: %v", err)
 	}
 
-	auto, err := s.svc.CreateFromTemplate(ctx, req.GetTemplateId(), ownerID, req.GetName())
+	auto, err := s.svc.CreateFromTemplate(ctx, req.GetTemplateId(), tenantID, ownerID, req.GetName())
 	if err != nil {
 		return nil, mapDomainError(err)
 	}
@@ -372,6 +415,11 @@ func (s *AutomationGRPCServer) TestCondition(ctx context.Context, req *automatio
 }
 
 func (s *AutomationGRPCServer) DryRunAutomation(ctx context.Context, req *automationv1.DryRunAutomationRequest) (*automationv1.DryRunAutomationResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "missing tenant_id: %v", err)
+	}
+
 	id, err := uuid.Parse(req.GetAutomationId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid automation_id: %v", err)
@@ -379,7 +427,7 @@ func (s *AutomationGRPCServer) DryRunAutomation(ctx context.Context, req *automa
 
 	sampleEnv := automationStructToMap(req.GetSampleEvent())
 
-	result, err := s.svc.DryRun(ctx, id, sampleEnv)
+	result, err := s.svc.DryRun(ctx, id, tenantID, sampleEnv)
 	if err != nil {
 		return &automationv1.DryRunAutomationResponse{
 			ConditionMatched: false,
@@ -408,7 +456,12 @@ func (s *AutomationGRPCServer) DryRunAutomation(ctx context.Context, req *automa
 // ============================================================================
 
 func (s *AutomationGRPCServer) GetAutomationStats(ctx context.Context, _ *automationv1.GetAutomationStatsRequest) (*automationv1.GetAutomationStatsResponse, error) {
-	stats, err := s.svc.GetStats(ctx)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "missing tenant_id: %v", err)
+	}
+
+	stats, err := s.svc.GetStats(ctx, tenantID)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get stats: %v", err)
 	}

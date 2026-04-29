@@ -25,30 +25,30 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) Create(ctx context.Context, entry *models.TimeEntry) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO time_entries (id, task_id, user_id, started_at, ended_at, duration_seconds,
+		`INSERT INTO time_entries (id, tenant_id, task_id, user_id, started_at, ended_at, duration_seconds,
 		  description, is_manual, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-		entry.ID, entry.TaskID, entry.UserID, entry.StartedAt, entry.EndedAt,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+		entry.ID, entry.TenantID, entry.TaskID, entry.UserID, entry.StartedAt, entry.EndedAt,
 		entry.DurationSeconds, entry.Description, entry.IsManual,
 		entry.CreatedAt, entry.UpdatedAt,
 	)
 	return err
 }
 
-func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.TimeEntryWithUser, error) {
+func (r *PostgresRepository) GetByID(ctx context.Context, id, tenantID uuid.UUID) (*models.TimeEntryWithUser, error) {
 	row := r.pool.QueryRow(ctx,
-		`SELECT te.id, te.task_id, te.user_id, te.started_at, te.ended_at,
+		`SELECT te.id, te.tenant_id, te.task_id, te.user_id, te.started_at, te.ended_at,
 		        te.duration_seconds, te.description, te.is_manual,
 		        te.created_at, te.updated_at,
 		        u.first_name || ' ' || u.last_name AS user_name
 		 FROM time_entries te
 		 JOIN users u ON u.id = te.user_id
-		 WHERE te.id = $1`, id,
+		 WHERE te.id = $1 AND te.tenant_id = $2`, id, tenantID,
 	)
 
 	var e models.TimeEntryWithUser
 	err := row.Scan(
-		&e.ID, &e.TaskID, &e.UserID, &e.StartedAt, &e.EndedAt,
+		&e.ID, &e.TenantID, &e.TaskID, &e.UserID, &e.StartedAt, &e.EndedAt,
 		&e.DurationSeconds, &e.Description, &e.IsManual,
 		&e.CreatedAt, &e.UpdatedAt, &e.UserName,
 	)
@@ -66,9 +66,10 @@ func (r *PostgresRepository) Update(ctx context.Context, entry *models.TimeEntry
 		`UPDATE time_entries SET
 		  started_at = $2, ended_at = $3, duration_seconds = $4,
 		  description = $5, updated_at = $6
-		 WHERE id = $1`,
+		 WHERE id = $1 AND tenant_id = $7`,
 		entry.ID, entry.StartedAt, entry.EndedAt,
 		entry.DurationSeconds, entry.Description, entry.UpdatedAt,
+		entry.TenantID,
 	)
 	if err != nil {
 		return fmt.Errorf("update time entry: %w", err)
@@ -79,8 +80,8 @@ func (r *PostgresRepository) Update(ctx context.Context, entry *models.TimeEntry
 	return nil
 }
 
-func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	tag, err := r.pool.Exec(ctx, `DELETE FROM time_entries WHERE id = $1`, id)
+func (r *PostgresRepository) Delete(ctx context.Context, id, tenantID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM time_entries WHERE id = $1 AND tenant_id = $2`, id, tenantID)
 	if err != nil {
 		return fmt.Errorf("delete time entry: %w", err)
 	}
@@ -90,7 +91,7 @@ func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (r *PostgresRepository) ListByTask(ctx context.Context, taskID uuid.UUID, page, pageSize int) ([]models.TimeEntryWithUser, int, error) {
+func (r *PostgresRepository) ListByTask(ctx context.Context, taskID, tenantID uuid.UUID, page, pageSize int) ([]models.TimeEntryWithUser, int, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -102,22 +103,22 @@ func (r *PostgresRepository) ListByTask(ctx context.Context, taskID uuid.UUID, p
 	// Count
 	var total int
 	if err := r.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM time_entries WHERE task_id = $1`, taskID,
+		`SELECT COUNT(*) FROM time_entries WHERE task_id = $1 AND tenant_id = $2`, taskID, tenantID,
 	).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count time entries: %w", err)
 	}
 
 	rows, err := r.pool.Query(ctx,
-		`SELECT te.id, te.task_id, te.user_id, te.started_at, te.ended_at,
+		`SELECT te.id, te.tenant_id, te.task_id, te.user_id, te.started_at, te.ended_at,
 		        te.duration_seconds, te.description, te.is_manual,
 		        te.created_at, te.updated_at,
 		        u.first_name || ' ' || u.last_name AS user_name
 		 FROM time_entries te
 		 JOIN users u ON u.id = te.user_id
-		 WHERE te.task_id = $1
+		 WHERE te.task_id = $1 AND te.tenant_id = $2
 		 ORDER BY te.started_at DESC
-		 LIMIT $2 OFFSET $3`,
-		taskID, pageSize, offset,
+		 LIMIT $3 OFFSET $4`,
+		taskID, tenantID, pageSize, offset,
 	)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list time entries: %w", err)
@@ -128,7 +129,7 @@ func (r *PostgresRepository) ListByTask(ctx context.Context, taskID uuid.UUID, p
 	for rows.Next() {
 		var e models.TimeEntryWithUser
 		if scanErr := rows.Scan(
-			&e.ID, &e.TaskID, &e.UserID, &e.StartedAt, &e.EndedAt,
+			&e.ID, &e.TenantID, &e.TaskID, &e.UserID, &e.StartedAt, &e.EndedAt,
 			&e.DurationSeconds, &e.Description, &e.IsManual,
 			&e.CreatedAt, &e.UpdatedAt, &e.UserName,
 		); scanErr != nil {
@@ -140,7 +141,7 @@ func (r *PostgresRepository) ListByTask(ctx context.Context, taskID uuid.UUID, p
 	return entries, total, nil
 }
 
-func (r *PostgresRepository) ListByUser(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]models.TimeEntryWithUser, int, error) {
+func (r *PostgresRepository) ListByUser(ctx context.Context, userID, tenantID uuid.UUID, page, pageSize int) ([]models.TimeEntryWithUser, int, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -151,22 +152,22 @@ func (r *PostgresRepository) ListByUser(ctx context.Context, userID uuid.UUID, p
 
 	var total int
 	if err := r.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM time_entries WHERE user_id = $1`, userID,
+		`SELECT COUNT(*) FROM time_entries WHERE user_id = $1 AND tenant_id = $2`, userID, tenantID,
 	).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count user time entries: %w", err)
 	}
 
 	rows, err := r.pool.Query(ctx,
-		`SELECT te.id, te.task_id, te.user_id, te.started_at, te.ended_at,
+		`SELECT te.id, te.tenant_id, te.task_id, te.user_id, te.started_at, te.ended_at,
 		        te.duration_seconds, te.description, te.is_manual,
 		        te.created_at, te.updated_at,
 		        u.first_name || ' ' || u.last_name AS user_name
 		 FROM time_entries te
 		 JOIN users u ON u.id = te.user_id
-		 WHERE te.user_id = $1
+		 WHERE te.user_id = $1 AND te.tenant_id = $2
 		 ORDER BY te.started_at DESC
-		 LIMIT $2 OFFSET $3`,
-		userID, pageSize, offset,
+		 LIMIT $3 OFFSET $4`,
+		userID, tenantID, pageSize, offset,
 	)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list user time entries: %w", err)
@@ -177,7 +178,7 @@ func (r *PostgresRepository) ListByUser(ctx context.Context, userID uuid.UUID, p
 	for rows.Next() {
 		var e models.TimeEntryWithUser
 		if scanErr := rows.Scan(
-			&e.ID, &e.TaskID, &e.UserID, &e.StartedAt, &e.EndedAt,
+			&e.ID, &e.TenantID, &e.TaskID, &e.UserID, &e.StartedAt, &e.EndedAt,
 			&e.DurationSeconds, &e.Description, &e.IsManual,
 			&e.CreatedAt, &e.UpdatedAt, &e.UserName,
 		); scanErr != nil {
@@ -189,21 +190,21 @@ func (r *PostgresRepository) ListByUser(ctx context.Context, userID uuid.UUID, p
 	return entries, total, nil
 }
 
-func (r *PostgresRepository) GetActiveTimer(ctx context.Context, userID uuid.UUID) (*models.ActiveTimer, error) {
+func (r *PostgresRepository) GetActiveTimer(ctx context.Context, userID, tenantID uuid.UUID) (*models.ActiveTimer, error) {
 	row := r.pool.QueryRow(ctx,
-		`SELECT te.id, te.task_id, te.user_id, te.started_at, te.ended_at,
+		`SELECT te.id, te.tenant_id, te.task_id, te.user_id, te.started_at, te.ended_at,
 		        te.duration_seconds, te.description, te.is_manual,
 		        te.created_at, te.updated_at,
 		        t.title AS task_title
 		 FROM time_entries te
 		 JOIN tasks t ON t.id = te.task_id
-		 WHERE te.user_id = $1 AND te.ended_at IS NULL
-		 LIMIT 1`, userID,
+		 WHERE te.user_id = $1 AND te.tenant_id = $2 AND te.ended_at IS NULL
+		 LIMIT 1`, userID, tenantID,
 	)
 
 	var a models.ActiveTimer
 	err := row.Scan(
-		&a.ID, &a.TaskID, &a.UserID, &a.StartedAt, &a.EndedAt,
+		&a.ID, &a.TenantID, &a.TaskID, &a.UserID, &a.StartedAt, &a.EndedAt,
 		&a.DurationSeconds, &a.Description, &a.IsManual,
 		&a.CreatedAt, &a.UpdatedAt, &a.TaskTitle,
 	)
@@ -216,22 +217,22 @@ func (r *PostgresRepository) GetActiveTimer(ctx context.Context, userID uuid.UUI
 	return &a, nil
 }
 
-func (r *PostgresRepository) StopActiveTimer(ctx context.Context, userID uuid.UUID) (*models.TimeEntry, error) {
+func (r *PostgresRepository) StopActiveTimer(ctx context.Context, userID, tenantID uuid.UUID) (*models.TimeEntry, error) {
 	now := time.Now()
 	row := r.pool.QueryRow(ctx,
 		`UPDATE time_entries
-		 SET ended_at = $2,
-		     duration_seconds = EXTRACT(EPOCH FROM ($2 - started_at))::INTEGER,
-		     updated_at = $2
-		 WHERE user_id = $1 AND ended_at IS NULL
-		 RETURNING id, task_id, user_id, started_at, ended_at, duration_seconds,
+		 SET ended_at = $3,
+		     duration_seconds = EXTRACT(EPOCH FROM ($3 - started_at))::INTEGER,
+		     updated_at = $3
+		 WHERE user_id = $1 AND tenant_id = $2 AND ended_at IS NULL
+		 RETURNING id, tenant_id, task_id, user_id, started_at, ended_at, duration_seconds,
 		           description, is_manual, created_at, updated_at`,
-		userID, now,
+		userID, tenantID, now,
 	)
 
 	var e models.TimeEntry
 	err := row.Scan(
-		&e.ID, &e.TaskID, &e.UserID, &e.StartedAt, &e.EndedAt,
+		&e.ID, &e.TenantID, &e.TaskID, &e.UserID, &e.StartedAt, &e.EndedAt,
 		&e.DurationSeconds, &e.Description, &e.IsManual,
 		&e.CreatedAt, &e.UpdatedAt,
 	)
@@ -244,7 +245,7 @@ func (r *PostgresRepository) StopActiveTimer(ctx context.Context, userID uuid.UU
 	return &e, nil
 }
 
-func (r *PostgresRepository) GetTaskTimeSummary(ctx context.Context, taskID uuid.UUID) (*models.TimeEntrySummary, error) {
+func (r *PostgresRepository) GetTaskTimeSummary(ctx context.Context, taskID, tenantID uuid.UUID) (*models.TimeEntrySummary, error) {
 	row := r.pool.QueryRow(ctx,
 		`SELECT
 		   COALESCE(SUM(
@@ -255,7 +256,7 @@ func (r *PostgresRepository) GetTaskTimeSummary(ctx context.Context, taskID uuid
 		   ), 0) AS total_duration,
 		   COUNT(*) AS entry_count
 		 FROM time_entries
-		 WHERE task_id = $1`, taskID,
+		 WHERE task_id = $1 AND tenant_id = $2`, taskID, tenantID,
 	)
 
 	s := &models.TimeEntrySummary{TaskID: taskID}

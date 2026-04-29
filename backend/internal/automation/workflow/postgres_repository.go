@@ -45,13 +45,13 @@ func (r *PostgresRepository) Create(ctx context.Context, a *models.Automation) e
 
 	query := `
 		INSERT INTO automations (
-			id, name, description, scope, owner_id, trigger_type,
+			id, tenant_id, name, description, scope, owner_id, trigger_type,
 			trigger_config, conditions, actions, is_active, max_steps,
 			template_id, last_triggered_at, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`
 
 	_, err := r.pool.Exec(ctx, query,
-		a.ID, a.Name, a.Description, a.Scope, a.OwnerID, a.TriggerType,
+		a.ID, a.TenantID, a.Name, a.Description, a.Scope, a.OwnerID, a.TriggerType,
 		a.TriggerConfig, a.Conditions, a.Actions, a.IsActive, a.MaxSteps,
 		a.TemplateID, a.LastTriggeredAt, a.CreatedAt, a.UpdatedAt,
 	)
@@ -63,14 +63,14 @@ func (r *PostgresRepository) Update(ctx context.Context, a *models.Automation) e
 
 	query := `
 		UPDATE automations SET
-			name = $2, description = $3, scope = $4, trigger_type = $5,
-			trigger_config = $6, conditions = $7, actions = $8,
-			is_active = $9, max_steps = $10, template_id = $11,
-			updated_at = $12
-		WHERE id = $1`
+			name = $3, description = $4, scope = $5, trigger_type = $6,
+			trigger_config = $7, conditions = $8, actions = $9,
+			is_active = $10, max_steps = $11, template_id = $12,
+			updated_at = $13
+		WHERE id = $1 AND tenant_id = $2`
 
 	tag, err := r.pool.Exec(ctx, query,
-		a.ID, a.Name, a.Description, a.Scope, a.TriggerType,
+		a.ID, a.TenantID, a.Name, a.Description, a.Scope, a.TriggerType,
 		a.TriggerConfig, a.Conditions, a.Actions,
 		a.IsActive, a.MaxSteps, a.TemplateID,
 		a.UpdatedAt,
@@ -84,10 +84,10 @@ func (r *PostgresRepository) Update(ctx context.Context, a *models.Automation) e
 	return nil
 }
 
-func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	query := `DELETE FROM automations WHERE id = $1`
+func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	query := `DELETE FROM automations WHERE id = $1 AND tenant_id = $2`
 
-	tag, err := r.pool.Exec(ctx, query, id)
+	tag, err := r.pool.Exec(ctx, query, id, tenantID)
 	if err != nil {
 		return err
 	}
@@ -97,16 +97,16 @@ func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Automation, error) {
+func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.Automation, error) {
 	query := `
-		SELECT id, name, description, scope, owner_id, trigger_type,
+		SELECT id, tenant_id, name, description, scope, owner_id, trigger_type,
 			trigger_config, conditions, actions, is_active, max_steps,
 			template_id, last_triggered_at, created_at, updated_at
-		FROM automations WHERE id = $1`
+		FROM automations WHERE id = $1 AND tenant_id = $2`
 
 	a := &models.Automation{}
-	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&a.ID, &a.Name, &a.Description, &a.Scope, &a.OwnerID, &a.TriggerType,
+	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(
+		&a.ID, &a.TenantID, &a.Name, &a.Description, &a.Scope, &a.OwnerID, &a.TriggerType,
 		&a.TriggerConfig, &a.Conditions, &a.Actions, &a.IsActive, &a.MaxSteps,
 		&a.TemplateID, &a.LastTriggeredAt, &a.CreatedAt, &a.UpdatedAt,
 	)
@@ -120,9 +120,10 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models
 }
 
 func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*models.Automation, int, error) {
-	var conditions []string
-	var args []any
-	argIndex := 1
+	// tenant_id is always the first condition for isolation
+	conditions := []string{fmt.Sprintf("tenant_id = $%d", 1)}
+	args := []any{filter.TenantID}
+	argIndex := 2
 
 	if filter.OwnerID != nil {
 		conditions = append(conditions, fmt.Sprintf("owner_id = $%d", argIndex))
@@ -145,10 +146,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 		argIndex++
 	}
 
-	where := ""
-	if len(conditions) > 0 {
-		where = "WHERE " + strings.Join(conditions, " AND ")
-	}
+	where := "WHERE " + strings.Join(conditions, " AND ")
 
 	limit := filter.Limit
 	if limit <= 0 {
@@ -160,7 +158,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id, name, description, scope, owner_id, trigger_type,
+		SELECT id, tenant_id, name, description, scope, owner_id, trigger_type,
 			trigger_config, conditions, actions, is_active, max_steps,
 			template_id, last_triggered_at, created_at, updated_at,
 			COUNT(*) OVER() AS total_count
@@ -182,7 +180,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 	for rows.Next() {
 		a := &models.Automation{}
 		err := rows.Scan(
-			&a.ID, &a.Name, &a.Description, &a.Scope, &a.OwnerID, &a.TriggerType,
+			&a.ID, &a.TenantID, &a.Name, &a.Description, &a.Scope, &a.OwnerID, &a.TriggerType,
 			&a.TriggerConfig, &a.Conditions, &a.Actions, &a.IsActive, &a.MaxSteps,
 			&a.TemplateID, &a.LastTriggeredAt, &a.CreatedAt, &a.UpdatedAt,
 			&totalCount,
@@ -202,7 +200,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 
 func (r *PostgresRepository) ListActiveByTriggerType(ctx context.Context, triggerType string) ([]*models.Automation, error) {
 	query := `
-		SELECT id, name, description, scope, owner_id, trigger_type,
+		SELECT id, tenant_id, name, description, scope, owner_id, trigger_type,
 			trigger_config, conditions, actions, is_active, max_steps,
 			template_id, last_triggered_at, created_at, updated_at
 		FROM automations
@@ -220,7 +218,7 @@ func (r *PostgresRepository) ListActiveByTriggerType(ctx context.Context, trigge
 
 func (r *PostgresRepository) ListActiveTimeBased(ctx context.Context) ([]*models.Automation, error) {
 	query := `
-		SELECT id, name, description, scope, owner_id, trigger_type,
+		SELECT id, tenant_id, name, description, scope, owner_id, trigger_type,
 			trigger_config, conditions, actions, is_active, max_steps,
 			template_id, last_triggered_at, created_at, updated_at
 		FROM automations
@@ -236,10 +234,10 @@ func (r *PostgresRepository) ListActiveTimeBased(ctx context.Context) ([]*models
 	return scanAutomations(rows)
 }
 
-func (r *PostgresRepository) SetActive(ctx context.Context, id uuid.UUID, active bool) error {
-	query := `UPDATE automations SET is_active = $2, updated_at = NOW() WHERE id = $1`
+func (r *PostgresRepository) SetActive(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, active bool) error {
+	query := `UPDATE automations SET is_active = $3, updated_at = NOW() WHERE id = $1 AND tenant_id = $2`
 
-	tag, err := r.pool.Exec(ctx, query, id, active)
+	tag, err := r.pool.Exec(ctx, query, id, tenantID, active)
 	if err != nil {
 		return err
 	}
@@ -250,6 +248,7 @@ func (r *PostgresRepository) SetActive(ctx context.Context, id uuid.UUID, active
 }
 
 func (r *PostgresRepository) UpdateLastTriggered(ctx context.Context, id uuid.UUID, at time.Time) error {
+	// Internal-only: called by automation engine, not user-facing. No tenant filter needed.
 	query := `UPDATE automations SET last_triggered_at = $2, updated_at = NOW() WHERE id = $1`
 
 	tag, err := r.pool.Exec(ctx, query, id, at)
@@ -515,7 +514,7 @@ func scanAutomations(rows pgx.Rows) ([]*models.Automation, error) {
 	for rows.Next() {
 		a := &models.Automation{}
 		err := rows.Scan(
-			&a.ID, &a.Name, &a.Description, &a.Scope, &a.OwnerID, &a.TriggerType,
+			&a.ID, &a.TenantID, &a.Name, &a.Description, &a.Scope, &a.OwnerID, &a.TriggerType,
 			&a.TriggerConfig, &a.Conditions, &a.Actions, &a.IsActive, &a.MaxSteps,
 			&a.TemplateID, &a.LastTriggeredAt, &a.CreatedAt, &a.UpdatedAt,
 		)

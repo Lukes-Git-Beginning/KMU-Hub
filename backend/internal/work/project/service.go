@@ -32,6 +32,7 @@ func NewService(repo Repository) *Service {
 
 // CreateInput contains the data needed to create a project
 type CreateInput struct {
+	TenantID    uuid.UUID
 	Name        string
 	Description *string
 	ProjectKey  string
@@ -68,8 +69,8 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Projec
 		return nil, ErrKeyInvalidChars
 	}
 
-	// Check key uniqueness
-	exists, err := s.repo.KeyExists(ctx, key)
+	// Check key uniqueness within tenant
+	exists, err := s.repo.KeyExists(ctx, input.TenantID, key)
 	if err != nil {
 		return nil, err
 	}
@@ -80,6 +81,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Projec
 	now := time.Now()
 	project := &models.Project{
 		ID:             uuid.New(),
+		TenantID:       input.TenantID,
 		Name:           name,
 		Description:    input.Description,
 		ProjectKey:     key,
@@ -109,8 +111,8 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Projec
 }
 
 // Get retrieves a project by ID, checking membership (or admin)
-func (s *Service) Get(ctx context.Context, projectID, userID uuid.UUID, isAdmin bool) (*models.Project, error) {
-	project, err := s.repo.GetByID(ctx, projectID)
+func (s *Service) Get(ctx context.Context, projectID uuid.UUID, tenantID uuid.UUID, userID uuid.UUID, isAdmin bool) (*models.Project, error) {
+	project, err := s.repo.GetByID(ctx, projectID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -129,8 +131,8 @@ func (s *Service) Get(ctx context.Context, projectID, userID uuid.UUID, isAdmin 
 }
 
 // List retrieves projects for a user (or all for admin)
-func (s *Service) List(ctx context.Context, userID uuid.UUID, isAdmin bool, includeArchived bool) ([]models.ProjectWithDetails, error) {
-	return s.repo.List(ctx, userID, isAdmin, includeArchived)
+func (s *Service) List(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, isAdmin bool, includeArchived bool) ([]models.ProjectWithDetails, error) {
+	return s.repo.List(ctx, tenantID, userID, isAdmin, includeArchived)
 }
 
 // UpdateInput contains the data that can be updated on a project
@@ -140,8 +142,8 @@ type UpdateInput struct {
 }
 
 // Update updates an existing project. Only owners or admins can update.
-func (s *Service) Update(ctx context.Context, projectID, userID uuid.UUID, isAdmin bool, input UpdateInput) (*models.Project, error) {
-	project, err := s.repo.GetByID(ctx, projectID)
+func (s *Service) Update(ctx context.Context, projectID uuid.UUID, tenantID uuid.UUID, userID uuid.UUID, isAdmin bool, input UpdateInput) (*models.Project, error) {
+	project, err := s.repo.GetByID(ctx, projectID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -191,8 +193,8 @@ func (s *Service) Update(ctx context.Context, projectID, userID uuid.UUID, isAdm
 }
 
 // Archive soft-deletes a project. Only owners or admins can archive.
-func (s *Service) Archive(ctx context.Context, projectID, userID uuid.UUID, isAdmin bool) error {
-	project, err := s.repo.GetByID(ctx, projectID)
+func (s *Service) Archive(ctx context.Context, projectID uuid.UUID, tenantID uuid.UUID, userID uuid.UUID, isAdmin bool) error {
+	project, err := s.repo.GetByID(ctx, projectID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -212,7 +214,7 @@ func (s *Service) Archive(ctx context.Context, projectID, userID uuid.UUID, isAd
 		}
 	}
 
-	if archiveErr := s.repo.Archive(ctx, projectID); archiveErr != nil {
+	if archiveErr := s.repo.Archive(ctx, projectID, tenantID); archiveErr != nil {
 		return archiveErr
 	}
 
@@ -222,14 +224,14 @@ func (s *Service) Archive(ctx context.Context, projectID, userID uuid.UUID, isAd
 }
 
 // AddMember adds a user to a project. Only owners or admins can add members.
-func (s *Service) AddMember(ctx context.Context, projectID, userID, actorID uuid.UUID, isAdmin bool, role string) error {
+func (s *Service) AddMember(ctx context.Context, projectID uuid.UUID, tenantID uuid.UUID, userID, actorID uuid.UUID, isAdmin bool, role string) error {
 	// Validate role
 	if !models.ValidProjectRoles[role] {
 		return ErrInvalidRole
 	}
 
 	// Check project exists
-	project, err := s.repo.GetByID(ctx, projectID)
+	project, err := s.repo.GetByID(ctx, projectID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -264,9 +266,9 @@ func (s *Service) AddMember(ctx context.Context, projectID, userID, actorID uuid
 
 // RemoveMember removes a user from a project. Only owners or admins can remove.
 // Cannot remove the last owner.
-func (s *Service) RemoveMember(ctx context.Context, projectID, userID, actorID uuid.UUID, isAdmin bool) error {
+func (s *Service) RemoveMember(ctx context.Context, projectID uuid.UUID, tenantID uuid.UUID, userID, actorID uuid.UUID, isAdmin bool) error {
 	// Check project exists
-	if _, err := s.repo.GetByID(ctx, projectID); err != nil {
+	if _, err := s.repo.GetByID(ctx, projectID, tenantID); err != nil {
 		return err
 	}
 
@@ -311,14 +313,14 @@ func (s *Service) RemoveMember(ctx context.Context, projectID, userID, actorID u
 
 // UpdateMemberRole updates a member's role. Only owners or admins can update roles.
 // Cannot demote the last owner.
-func (s *Service) UpdateMemberRole(ctx context.Context, projectID, userID, actorID uuid.UUID, isAdmin bool, role string) error {
+func (s *Service) UpdateMemberRole(ctx context.Context, projectID uuid.UUID, tenantID uuid.UUID, userID, actorID uuid.UUID, isAdmin bool, role string) error {
 	// Validate role
 	if !models.ValidProjectRoles[role] {
 		return ErrInvalidRole
 	}
 
 	// Check project exists
-	if _, err := s.repo.GetByID(ctx, projectID); err != nil {
+	if _, err := s.repo.GetByID(ctx, projectID, tenantID); err != nil {
 		return err
 	}
 
@@ -364,9 +366,9 @@ func (s *Service) UpdateMemberRole(ctx context.Context, projectID, userID, actor
 }
 
 // ListMembers lists all members of a project
-func (s *Service) ListMembers(ctx context.Context, projectID, userID uuid.UUID, isAdmin bool) ([]models.ProjectMember, error) {
+func (s *Service) ListMembers(ctx context.Context, projectID uuid.UUID, tenantID uuid.UUID, userID uuid.UUID, isAdmin bool) ([]models.ProjectMember, error) {
 	// Check project exists
-	if _, err := s.repo.GetByID(ctx, projectID); err != nil {
+	if _, err := s.repo.GetByID(ctx, projectID, tenantID); err != nil {
 		return nil, err
 	}
 
@@ -385,9 +387,9 @@ func (s *Service) ListMembers(ctx context.Context, projectID, userID uuid.UUID, 
 }
 
 // SaveAsTemplate creates a template copy of an existing project. Only admin/manager can create templates.
-func (s *Service) SaveAsTemplate(ctx context.Context, sourceID uuid.UUID, newName, newKey string, createdBy uuid.UUID) (*models.Project, error) {
-	// Validate source exists
-	if _, err := s.repo.GetByID(ctx, sourceID); err != nil {
+func (s *Service) SaveAsTemplate(ctx context.Context, tenantID uuid.UUID, sourceID uuid.UUID, newName, newKey string, createdBy uuid.UUID) (*models.Project, error) {
+	// Validate source exists within tenant
+	if _, err := s.repo.GetByID(ctx, sourceID, tenantID); err != nil {
 		return nil, err
 	}
 
@@ -415,7 +417,7 @@ func (s *Service) SaveAsTemplate(ctx context.Context, sourceID uuid.UUID, newNam
 		return nil, ErrKeyInvalidChars
 	}
 
-	exists, err := s.repo.KeyExists(ctx, key)
+	exists, err := s.repo.KeyExists(ctx, tenantID, key)
 	if err != nil {
 		return nil, err
 	}
@@ -423,7 +425,7 @@ func (s *Service) SaveAsTemplate(ctx context.Context, sourceID uuid.UUID, newNam
 		return nil, ErrKeyAlreadyExists
 	}
 
-	template, err := s.repo.SaveAsTemplate(ctx, sourceID, name, key, createdBy)
+	template, err := s.repo.SaveAsTemplate(ctx, tenantID, sourceID, name, key, createdBy)
 	if err != nil {
 		return nil, err
 	}
@@ -438,9 +440,9 @@ func (s *Service) SaveAsTemplate(ctx context.Context, sourceID uuid.UUID, newNam
 
 // CreateFromTemplate creates a new project from a template, copying statuses.
 // Task copying is handled by the task service (06-03).
-func (s *Service) CreateFromTemplate(ctx context.Context, templateID uuid.UUID, name, key string, createdBy uuid.UUID) (*models.Project, error) {
-	// Validate template exists and is actually a template
-	tmpl, statuses, err := s.repo.GetForTemplate(ctx, templateID)
+func (s *Service) CreateFromTemplate(ctx context.Context, tenantID uuid.UUID, templateID uuid.UUID, name, key string, createdBy uuid.UUID) (*models.Project, error) {
+	// Validate template exists and is actually a template within tenant
+	tmpl, statuses, err := s.repo.GetForTemplate(ctx, templateID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -472,7 +474,7 @@ func (s *Service) CreateFromTemplate(ctx context.Context, templateID uuid.UUID, 
 		return nil, ErrKeyInvalidChars
 	}
 
-	exists, err := s.repo.KeyExists(ctx, cleanKey)
+	exists, err := s.repo.KeyExists(ctx, tenantID, cleanKey)
 	if err != nil {
 		return nil, err
 	}
@@ -484,6 +486,7 @@ func (s *Service) CreateFromTemplate(ctx context.Context, templateID uuid.UUID, 
 	now := time.Now()
 	project := &models.Project{
 		ID:               uuid.New(),
+		TenantID:         tenantID,
 		Name:             cleanName,
 		Description:      tmpl.Description,
 		ProjectKey:       cleanKey,

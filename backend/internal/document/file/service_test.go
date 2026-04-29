@@ -87,12 +87,16 @@ func (m *MockRepository) Create(_ context.Context, file *models.DocumentFile) er
 	return nil
 }
 
-func (m *MockRepository) GetByID(_ context.Context, id uuid.UUID) (*models.DocumentFile, error) {
+func (m *MockRepository) GetByID(_ context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.DocumentFile, error) {
 	if m.failGetByID {
 		return nil, ErrFileNotFound
 	}
 	file, ok := m.files[id]
 	if !ok {
+		return nil, ErrFileNotFound
+	}
+	// Enforce tenant isolation when a real tenantID is supplied.
+	if tenantID != uuid.Nil && file.TenantID != uuid.Nil && file.TenantID != tenantID {
 		return nil, ErrFileNotFound
 	}
 	return file, nil
@@ -109,7 +113,7 @@ func (m *MockRepository) List(_ context.Context, _ ListFilter) ([]*models.Docume
 	return result, len(result), nil
 }
 
-func (m *MockRepository) Update(_ context.Context, id uuid.UUID, input UpdateInput) error {
+func (m *MockRepository) Update(_ context.Context, id uuid.UUID, _ uuid.UUID, input UpdateInput) error {
 	if m.failUpdate {
 		return errors.New("repo update error")
 	}
@@ -129,12 +133,16 @@ func (m *MockRepository) Update(_ context.Context, id uuid.UUID, input UpdateInp
 	return nil
 }
 
-func (m *MockRepository) SoftDelete(_ context.Context, id uuid.UUID) error {
+func (m *MockRepository) SoftDelete(_ context.Context, id uuid.UUID, tenantID uuid.UUID) error {
 	if m.failSoftDelete {
 		return errors.New("repo soft delete error")
 	}
 	file, ok := m.files[id]
 	if !ok {
+		return ErrFileNotFound
+	}
+	// Enforce tenant isolation.
+	if tenantID != uuid.Nil && file.TenantID != uuid.Nil && file.TenantID != tenantID {
 		return ErrFileNotFound
 	}
 	file.IsDeleted = true
@@ -227,8 +235,14 @@ func validUploadInput() UploadInput {
 
 // seedFile inserts a file directly into the mock repo and returns it.
 func seedFile(repo *MockRepository) *models.DocumentFile {
+	return seedFileForTenant(repo, uuid.Nil)
+}
+
+// seedFileForTenant inserts a file with a specific tenantID into the mock repo.
+func seedFileForTenant(repo *MockRepository, tenantID uuid.UUID) *models.DocumentFile {
 	file := &models.DocumentFile{
 		ID:             uuid.New(),
+		TenantID:       tenantID,
 		FolderID:       uuid.New(),
 		Filename:       "existing.pdf",
 		MimeType:       "application/pdf",
@@ -329,7 +343,7 @@ func TestGetByID_Success(t *testing.T) {
 	svc, repo, _ := newTestService()
 	seeded := seedFile(repo)
 
-	file, err := svc.GetByID(context.Background(), seeded.ID)
+	file, err := svc.GetByID(context.Background(), seeded.ID, uuid.Nil)
 
 	require.NoError(t, err)
 	assert.Equal(t, seeded.ID, file.ID)
@@ -339,7 +353,7 @@ func TestGetByID_Success(t *testing.T) {
 func TestGetByID_NotFound(t *testing.T) {
 	svc, _, _ := newTestService()
 
-	file, err := svc.GetByID(context.Background(), uuid.New())
+	file, err := svc.GetByID(context.Background(), uuid.New(), uuid.Nil)
 
 	assert.Nil(t, file)
 	assert.ErrorIs(t, err, ErrFileNotFound)
@@ -349,7 +363,7 @@ func TestDelete_Success(t *testing.T) {
 	svc, repo, _ := newTestService()
 	seeded := seedFile(repo)
 
-	err := svc.Delete(context.Background(), seeded.ID)
+	err := svc.Delete(context.Background(), seeded.ID, uuid.Nil)
 
 	require.NoError(t, err)
 	assert.True(t, repo.files[seeded.ID].IsDeleted)
@@ -360,7 +374,7 @@ func TestMove_Success(t *testing.T) {
 	seeded := seedFile(repo)
 	targetFolder := uuid.New()
 
-	err := svc.Move(context.Background(), seeded.ID, targetFolder)
+	err := svc.Move(context.Background(), seeded.ID, targetFolder, uuid.Nil)
 
 	require.NoError(t, err)
 	assert.Equal(t, targetFolder, repo.files[seeded.ID].FolderID)
@@ -372,7 +386,7 @@ func TestCopy_Success(t *testing.T) {
 	targetFolder := uuid.New()
 	userID := uuid.New()
 
-	copied, err := svc.Copy(context.Background(), seeded.ID, targetFolder, userID)
+	copied, err := svc.Copy(context.Background(), seeded.ID, targetFolder, userID, uuid.Nil)
 
 	require.NoError(t, err)
 	require.NotNil(t, copied)
@@ -389,7 +403,7 @@ func TestGetDownloadURL_Success(t *testing.T) {
 	svc, repo, _ := newTestService()
 	seeded := seedFile(repo)
 
-	url, err := svc.GetDownloadURL(context.Background(), seeded.ID)
+	url, err := svc.GetDownloadURL(context.Background(), seeded.ID, uuid.Nil)
 
 	require.NoError(t, err)
 	assert.Contains(t, url, "https://example.com/download/")
@@ -399,7 +413,7 @@ func TestGetDownloadURL_Success(t *testing.T) {
 func TestGetDownloadURL_FileNotFound(t *testing.T) {
 	svc, _, _ := newTestService()
 
-	url, err := svc.GetDownloadURL(context.Background(), uuid.New())
+	url, err := svc.GetDownloadURL(context.Background(), uuid.New(), uuid.Nil)
 
 	assert.Empty(t, url)
 	assert.ErrorIs(t, err, ErrFileNotFound)
@@ -411,7 +425,7 @@ func TestLinkToEntity_Success(t *testing.T) {
 	entityID := uuid.New()
 	userID := uuid.New()
 
-	err := svc.LinkToEntity(context.Background(), seeded.ID, "contact", entityID, userID)
+	err := svc.LinkToEntity(context.Background(), seeded.ID, "contact", entityID, userID, uuid.Nil)
 
 	require.NoError(t, err)
 	links := repo.entityLinks[seeded.ID]
@@ -424,7 +438,7 @@ func TestLinkToEntity_InvalidType(t *testing.T) {
 	svc, repo, _ := newTestService()
 	seeded := seedFile(repo)
 
-	err := svc.LinkToEntity(context.Background(), seeded.ID, "invalid_type", uuid.New(), uuid.New())
+	err := svc.LinkToEntity(context.Background(), seeded.ID, "invalid_type", uuid.New(), uuid.New(), uuid.Nil)
 
 	assert.ErrorIs(t, err, ErrInvalidEntityType)
 }
@@ -434,7 +448,7 @@ func TestUpdate_Success(t *testing.T) {
 	seeded := seedFile(repo)
 	newName := "renamed.pdf"
 
-	err := svc.Update(context.Background(), seeded.ID, UpdateInput{Filename: &newName})
+	err := svc.Update(context.Background(), seeded.ID, uuid.Nil, UpdateInput{Filename: &newName})
 
 	require.NoError(t, err)
 	assert.Equal(t, newName, repo.files[seeded.ID].Filename)
@@ -457,7 +471,7 @@ func TestCreateVersion_Success(t *testing.T) {
 	seeded := seedFile(repo)
 	userID := uuid.New()
 
-	version, err := svc.CreateVersion(context.Background(), seeded.ID, VersionInput{
+	version, err := svc.CreateVersion(context.Background(), seeded.ID, uuid.Nil, VersionInput{
 		Reader:   strings.NewReader("new version content"),
 		FileSize: 512,
 		MimeType: "application/pdf",
@@ -469,4 +483,44 @@ func TestCreateVersion_Success(t *testing.T) {
 	assert.Equal(t, 2, version.VersionNumber)
 	assert.Equal(t, seeded.ID, version.FileID)
 	assert.Equal(t, userID, version.CreatedBy)
+}
+
+// ============================================================================
+// Cross-tenant isolation tests (document_files)
+// ============================================================================
+
+// TestGetByID_CrossTenant verifies that a file owned by tenant A is not
+// accessible when queried with tenant B's ID.
+func TestGetByID_CrossTenant(t *testing.T) {
+	svc, repo, _ := newTestService()
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	// Seed a file belonging to tenant A.
+	file := seedFileForTenant(repo, tenantA)
+
+	// Querying with tenant B must return not-found.
+	result, err := svc.GetByID(context.Background(), file.ID, tenantB)
+
+	assert.Nil(t, result)
+	assert.ErrorIs(t, err, ErrFileNotFound)
+}
+
+// TestDelete_CrossTenant verifies that a file owned by tenant A cannot be
+// deleted by a request carrying tenant B's ID.
+func TestDelete_CrossTenant(t *testing.T) {
+	svc, repo, _ := newTestService()
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	file := seedFileForTenant(repo, tenantA)
+
+	// Delete with tenant B's ID must fail.
+	err := svc.Delete(context.Background(), file.ID, tenantB)
+
+	assert.ErrorIs(t, err, ErrFileNotFound)
+	// The file must still exist in the store.
+	assert.False(t, repo.files[file.ID].IsDeleted, "file must remain intact after cross-tenant delete attempt")
 }

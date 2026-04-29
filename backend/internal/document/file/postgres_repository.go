@@ -25,30 +25,31 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) Create(ctx context.Context, file *models.DocumentFile) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO document_files (id, folder_id, filename, mime_type, file_size, storage_key, thumbnail_key, current_version, owner_id, is_favorite, is_deleted, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-		file.ID, file.FolderID, file.Filename, file.MimeType, file.FileSize,
+		`INSERT INTO document_files (id, tenant_id, folder_id, filename, mime_type, file_size, storage_key, thumbnail_key, current_version, owner_id, is_favorite, is_deleted, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+		file.ID, file.TenantID, file.FolderID, file.Filename, file.MimeType, file.FileSize,
 		file.StorageKey, file.ThumbnailKey, file.CurrentVersion, file.OwnerID,
 		file.IsFavorite, file.IsDeleted, file.CreatedAt, file.UpdatedAt,
 	)
 	return err
 }
 
-func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.DocumentFile, error) {
+func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.DocumentFile, error) {
 	row := r.pool.QueryRow(ctx,
 		`SELECT f.id, f.folder_id, f.filename, f.mime_type, f.file_size, f.storage_key, f.thumbnail_key,
 		        f.current_version, f.owner_id, f.is_favorite, f.is_deleted, f.content_text,
 		        f.created_at, f.updated_at, f.deleted_at
 		 FROM document_files f
-		 WHERE f.id = $1`, id,
+		 WHERE f.id = $1 AND f.tenant_id = $2`, id, tenantID,
 	)
 	return r.scanFile(row)
 }
 
 func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*models.DocumentFile, int, error) {
-	var conditions []string
-	var args []any
-	argNum := 1
+	// tenant_id is always the first condition for isolation
+	conditions := []string{fmt.Sprintf("f.tenant_id = $%d", 1)}
+	args := []any{filter.TenantID}
+	argNum := 2
 
 	if filter.FolderID != nil {
 		conditions = append(conditions, fmt.Sprintf("f.folder_id = $%d", argNum))
@@ -155,7 +156,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 	return files, total, rows.Err()
 }
 
-func (r *PostgresRepository) Update(ctx context.Context, id uuid.UUID, input UpdateInput) error {
+func (r *PostgresRepository) Update(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, input UpdateInput) error {
 	var setClauses []string
 	var args []any
 	argNum := 1
@@ -184,9 +185,9 @@ func (r *PostgresRepository) Update(ctx context.Context, id uuid.UUID, input Upd
 
 	setClauses = append(setClauses, "updated_at = NOW()")
 
-	query := fmt.Sprintf("UPDATE document_files SET %s WHERE id = $%d AND NOT is_deleted",
-		strings.Join(setClauses, ", "), argNum)
-	args = append(args, id)
+	query := fmt.Sprintf("UPDATE document_files SET %s WHERE id = $%d AND tenant_id = $%d AND NOT is_deleted",
+		strings.Join(setClauses, ", "), argNum, argNum+1)
+	args = append(args, id, tenantID)
 
 	tag, err := r.pool.Exec(ctx, query, args...)
 	if err != nil {
@@ -198,9 +199,9 @@ func (r *PostgresRepository) Update(ctx context.Context, id uuid.UUID, input Upd
 	return nil
 }
 
-func (r *PostgresRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
+func (r *PostgresRepository) SoftDelete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
 	tag, err := r.pool.Exec(ctx,
-		`UPDATE document_files SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND NOT is_deleted`, id)
+		`UPDATE document_files SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND tenant_id = $2 AND NOT is_deleted`, id, tenantID)
 	if err != nil {
 		return err
 	}

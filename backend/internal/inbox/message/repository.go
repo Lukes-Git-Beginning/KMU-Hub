@@ -11,6 +11,7 @@ import (
 
 // ListFilter contains filtering options for listing inbox messages.
 type ListFilter struct {
+	TenantID    uuid.UUID // Required: always filters by tenant
 	UserID      uuid.UUID
 	Channel     *string
 	IsRead      *bool
@@ -29,8 +30,8 @@ type Repository interface {
 	// Create persists a new inbox message.
 	Create(ctx context.Context, msg *models.InboxMessage) error
 
-	// GetByID retrieves an inbox message by its ID.
-	GetByID(ctx context.Context, id uuid.UUID) (*models.InboxMessage, error)
+	// GetByID retrieves an inbox message by its ID, scoped to the tenant.
+	GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.InboxMessage, error)
 
 	// List retrieves inbox messages with filtering and cursor-based pagination.
 	// Returns messages and total count.

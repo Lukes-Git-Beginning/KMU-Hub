@@ -56,12 +56,18 @@ func NewWorkGRPCServer(
 // ============================================================================
 
 func (s *WorkGRPCServer) CreateProject(ctx context.Context, req *workv1.CreateProjectRequest) (*workv1.CreateProjectResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	createdBy, err := uuid.Parse(req.CreatedBy)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid created_by user id")
 	}
 
 	input := project.CreateInput{
+		TenantID:   tenantID,
 		Name:       req.Name,
 		ProjectKey: req.ProjectKey,
 		CreatedBy:  createdBy,
@@ -81,13 +87,17 @@ func (s *WorkGRPCServer) CreateProject(ctx context.Context, req *workv1.CreatePr
 }
 
 func (s *WorkGRPCServer) GetProject(ctx context.Context, req *workv1.GetProjectRequest) (*workv1.GetProjectResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid project id")
 	}
 
-	// For now pass nil userID with isAdmin=true since gateway handles auth
-	p, err := s.projectService.Get(ctx, id, uuid.Nil, true)
+	p, err := s.projectService.Get(ctx, id, tenantID, uuid.Nil, true)
 	if err != nil {
 		return nil, mapWorkError(err)
 	}
@@ -98,8 +108,12 @@ func (s *WorkGRPCServer) GetProject(ctx context.Context, req *workv1.GetProjectR
 }
 
 func (s *WorkGRPCServer) ListProjects(ctx context.Context, req *workv1.ListProjectsRequest) (*workv1.ListProjectsResponse, error) {
-	// Use admin mode; gateway enforces auth
-	projects, err := s.projectService.List(ctx, uuid.Nil, true, req.IncludeArchived)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	projects, err := s.projectService.List(ctx, tenantID, uuid.Nil, true, req.IncludeArchived)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list projects")
 	}
@@ -116,6 +130,11 @@ func (s *WorkGRPCServer) ListProjects(ctx context.Context, req *workv1.ListProje
 }
 
 func (s *WorkGRPCServer) UpdateProject(ctx context.Context, req *workv1.UpdateProjectRequest) (*workv1.UpdateProjectResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid project id")
@@ -129,7 +148,7 @@ func (s *WorkGRPCServer) UpdateProject(ctx context.Context, req *workv1.UpdatePr
 		input.Description = req.Description
 	}
 
-	p, err := s.projectService.Update(ctx, id, uuid.Nil, true, input)
+	p, err := s.projectService.Update(ctx, id, tenantID, uuid.Nil, true, input)
 	if err != nil {
 		return nil, mapWorkError(err)
 	}
@@ -140,16 +159,21 @@ func (s *WorkGRPCServer) UpdateProject(ctx context.Context, req *workv1.UpdatePr
 }
 
 func (s *WorkGRPCServer) ArchiveProject(ctx context.Context, req *workv1.ArchiveProjectRequest) (*workv1.ArchiveProjectResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid project id")
 	}
 
-	if err := s.projectService.Archive(ctx, id, uuid.Nil, true); err != nil {
+	if err := s.projectService.Archive(ctx, id, tenantID, uuid.Nil, true); err != nil {
 		return nil, mapWorkError(err)
 	}
 
-	p, err := s.projectService.Get(ctx, id, uuid.Nil, true)
+	p, err := s.projectService.Get(ctx, id, tenantID, uuid.Nil, true)
 	if err != nil {
 		return nil, mapWorkError(err)
 	}
@@ -164,6 +188,11 @@ func (s *WorkGRPCServer) ArchiveProject(ctx context.Context, req *workv1.Archive
 // ============================================================================
 
 func (s *WorkGRPCServer) AddProjectMember(ctx context.Context, req *workv1.AddProjectMemberRequest) (*workv1.AddProjectMemberResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	projectID, err := uuid.Parse(req.ProjectId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid project_id")
@@ -174,12 +203,12 @@ func (s *WorkGRPCServer) AddProjectMember(ctx context.Context, req *workv1.AddPr
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	if err := s.projectService.AddMember(ctx, projectID, userID, uuid.Nil, true, req.Role); err != nil {
+	if err := s.projectService.AddMember(ctx, projectID, tenantID, userID, uuid.Nil, true, req.Role); err != nil {
 		return nil, mapWorkError(err)
 	}
 
 	// Return the member info
-	members, err := s.projectService.ListMembers(ctx, projectID, uuid.Nil, true)
+	members, err := s.projectService.ListMembers(ctx, projectID, tenantID, uuid.Nil, true)
 	if err != nil {
 		return nil, mapWorkError(err)
 	}
@@ -196,6 +225,11 @@ func (s *WorkGRPCServer) AddProjectMember(ctx context.Context, req *workv1.AddPr
 }
 
 func (s *WorkGRPCServer) RemoveProjectMember(ctx context.Context, req *workv1.RemoveProjectMemberRequest) (*workv1.RemoveProjectMemberResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	projectID, err := uuid.Parse(req.ProjectId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid project_id")
@@ -206,7 +240,7 @@ func (s *WorkGRPCServer) RemoveProjectMember(ctx context.Context, req *workv1.Re
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	if err := s.projectService.RemoveMember(ctx, projectID, userID, uuid.Nil, true); err != nil {
+	if err := s.projectService.RemoveMember(ctx, projectID, tenantID, userID, uuid.Nil, true); err != nil {
 		return nil, mapWorkError(err)
 	}
 
@@ -214,12 +248,17 @@ func (s *WorkGRPCServer) RemoveProjectMember(ctx context.Context, req *workv1.Re
 }
 
 func (s *WorkGRPCServer) ListProjectMembers(ctx context.Context, req *workv1.ListProjectMembersRequest) (*workv1.ListProjectMembersResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	projectID, err := uuid.Parse(req.ProjectId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid project_id")
 	}
 
-	members, err := s.projectService.ListMembers(ctx, projectID, uuid.Nil, true)
+	members, err := s.projectService.ListMembers(ctx, projectID, tenantID, uuid.Nil, true)
 	if err != nil {
 		return nil, mapWorkError(err)
 	}
@@ -235,6 +274,11 @@ func (s *WorkGRPCServer) ListProjectMembers(ctx context.Context, req *workv1.Lis
 }
 
 func (s *WorkGRPCServer) UpdateProjectMemberRole(ctx context.Context, req *workv1.UpdateProjectMemberRoleRequest) (*workv1.UpdateProjectMemberRoleResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	projectID, err := uuid.Parse(req.ProjectId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid project_id")
@@ -245,11 +289,11 @@ func (s *WorkGRPCServer) UpdateProjectMemberRole(ctx context.Context, req *workv
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	if err := s.projectService.UpdateMemberRole(ctx, projectID, userID, uuid.Nil, true, req.Role); err != nil {
+	if err := s.projectService.UpdateMemberRole(ctx, projectID, tenantID, userID, uuid.Nil, true, req.Role); err != nil {
 		return nil, mapWorkError(err)
 	}
 
-	members, err := s.projectService.ListMembers(ctx, projectID, uuid.Nil, true)
+	members, err := s.projectService.ListMembers(ctx, projectID, tenantID, uuid.Nil, true)
 	if err != nil {
 		return nil, mapWorkError(err)
 	}
@@ -270,6 +314,11 @@ func (s *WorkGRPCServer) UpdateProjectMemberRole(ctx context.Context, req *workv
 // ============================================================================
 
 func (s *WorkGRPCServer) SaveProjectAsTemplate(ctx context.Context, req *workv1.SaveProjectAsTemplateRequest) (*workv1.SaveProjectAsTemplateResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	projectID, err := uuid.Parse(req.ProjectId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid project_id")
@@ -281,7 +330,7 @@ func (s *WorkGRPCServer) SaveProjectAsTemplate(ctx context.Context, req *workv1.
 	}
 
 	// Generate a template key from the name
-	tmpl, err := s.projectService.SaveAsTemplate(ctx, projectID, req.TemplateName, generateTemplateKey(req.TemplateName), createdBy)
+	tmpl, err := s.projectService.SaveAsTemplate(ctx, tenantID, projectID, req.TemplateName, generateTemplateKey(req.TemplateName), createdBy)
 	if err != nil {
 		return nil, mapWorkError(err)
 	}
@@ -292,6 +341,11 @@ func (s *WorkGRPCServer) SaveProjectAsTemplate(ctx context.Context, req *workv1.
 }
 
 func (s *WorkGRPCServer) CreateProjectFromTemplate(ctx context.Context, req *workv1.CreateProjectFromTemplateRequest) (*workv1.CreateProjectFromTemplateResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	templateID, err := uuid.Parse(req.TemplateId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid template_id")
@@ -302,7 +356,7 @@ func (s *WorkGRPCServer) CreateProjectFromTemplate(ctx context.Context, req *wor
 		return nil, status.Error(codes.InvalidArgument, "invalid created_by")
 	}
 
-	p, err := s.projectService.CreateFromTemplate(ctx, templateID, req.Name, req.ProjectKey, createdBy)
+	p, err := s.projectService.CreateFromTemplate(ctx, tenantID, templateID, req.Name, req.ProjectKey, createdBy)
 	if err != nil {
 		return nil, mapWorkError(err)
 	}
@@ -1573,6 +1627,11 @@ func preferenceToProto(p *models.UserProjectPreference) *workv1.UserProjectPrefe
 // ============================================================================
 
 func (s *WorkGRPCServer) StartTimer(ctx context.Context, req *workv1.StartTimerRequest) (*workv1.StartTimerResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	taskID, err := uuid.Parse(req.TaskId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid task_id")
@@ -1583,7 +1642,7 @@ func (s *WorkGRPCServer) StartTimer(ctx context.Context, req *workv1.StartTimerR
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	entry, stoppedEntry, err := s.timeEntryService.StartTimer(ctx, taskID, userID)
+	entry, stoppedEntry, err := s.timeEntryService.StartTimer(ctx, taskID, userID, tenantID)
 	if err != nil {
 		return nil, mapTimeEntryError(err)
 	}
@@ -1599,12 +1658,17 @@ func (s *WorkGRPCServer) StartTimer(ctx context.Context, req *workv1.StartTimerR
 }
 
 func (s *WorkGRPCServer) StopTimer(ctx context.Context, req *workv1.StopTimerRequest) (*workv1.StopTimerResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	entry, err := s.timeEntryService.StopTimer(ctx, userID)
+	entry, err := s.timeEntryService.StopTimer(ctx, userID, tenantID)
 	if err != nil {
 		return nil, mapTimeEntryError(err)
 	}
@@ -1615,12 +1679,17 @@ func (s *WorkGRPCServer) StopTimer(ctx context.Context, req *workv1.StopTimerReq
 }
 
 func (s *WorkGRPCServer) GetActiveTimer(ctx context.Context, req *workv1.GetActiveTimerRequest) (*workv1.GetActiveTimerResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	timer, err := s.timeEntryService.GetActiveTimer(ctx, userID)
+	timer, err := s.timeEntryService.GetActiveTimer(ctx, userID, tenantID)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to get active timer")
 	}
@@ -1640,6 +1709,11 @@ func (s *WorkGRPCServer) GetActiveTimer(ctx context.Context, req *workv1.GetActi
 }
 
 func (s *WorkGRPCServer) AddManualTimeEntry(ctx context.Context, req *workv1.AddManualTimeEntryRequest) (*workv1.AddManualTimeEntryResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	taskID, err := uuid.Parse(req.TaskId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid task_id")
@@ -1651,6 +1725,7 @@ func (s *WorkGRPCServer) AddManualTimeEntry(ctx context.Context, req *workv1.Add
 	}
 
 	input := timeentry.ManualEntryInput{
+		TenantID:        tenantID,
 		TaskID:          taskID,
 		UserID:          userID,
 		StartedAt:       req.StartedAt.AsTime(),
@@ -1671,6 +1746,11 @@ func (s *WorkGRPCServer) AddManualTimeEntry(ctx context.Context, req *workv1.Add
 }
 
 func (s *WorkGRPCServer) UpdateTimeEntry(ctx context.Context, req *workv1.UpdateTimeEntryRequest) (*workv1.UpdateTimeEntryResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	entryID, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid time entry id")
@@ -1694,7 +1774,7 @@ func (s *WorkGRPCServer) UpdateTimeEntry(ctx context.Context, req *workv1.Update
 		input.Description = req.Description
 	}
 
-	result, err := s.timeEntryService.UpdateEntry(ctx, entryID, actorID, input)
+	result, err := s.timeEntryService.UpdateEntry(ctx, entryID, actorID, tenantID, input)
 	if err != nil {
 		return nil, mapTimeEntryError(err)
 	}
@@ -1705,6 +1785,11 @@ func (s *WorkGRPCServer) UpdateTimeEntry(ctx context.Context, req *workv1.Update
 }
 
 func (s *WorkGRPCServer) DeleteTimeEntry(ctx context.Context, req *workv1.DeleteTimeEntryRequest) (*workv1.DeleteTimeEntryResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	entryID, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid time entry id")
@@ -1715,7 +1800,7 @@ func (s *WorkGRPCServer) DeleteTimeEntry(ctx context.Context, req *workv1.Delete
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	if err := s.timeEntryService.DeleteEntry(ctx, entryID, actorID, false); err != nil {
+	if err := s.timeEntryService.DeleteEntry(ctx, entryID, actorID, tenantID, false); err != nil {
 		return nil, mapTimeEntryError(err)
 	}
 
@@ -1723,6 +1808,11 @@ func (s *WorkGRPCServer) DeleteTimeEntry(ctx context.Context, req *workv1.Delete
 }
 
 func (s *WorkGRPCServer) ListTimeEntries(ctx context.Context, req *workv1.ListTimeEntriesRequest) (*workv1.ListTimeEntriesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	taskID, err := uuid.Parse(req.TaskId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid task_id")
@@ -1737,7 +1827,7 @@ func (s *WorkGRPCServer) ListTimeEntries(ctx context.Context, req *workv1.ListTi
 		pageSize = 20
 	}
 
-	entries, total, err := s.timeEntryService.ListByTask(ctx, taskID, page, pageSize)
+	entries, total, err := s.timeEntryService.ListByTask(ctx, taskID, tenantID, page, pageSize)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list time entries")
 	}
@@ -1754,12 +1844,17 @@ func (s *WorkGRPCServer) ListTimeEntries(ctx context.Context, req *workv1.ListTi
 }
 
 func (s *WorkGRPCServer) GetTaskTimeSummary(ctx context.Context, req *workv1.GetTaskTimeSummaryRequest) (*workv1.GetTaskTimeSummaryResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	taskID, err := uuid.Parse(req.TaskId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid task_id")
 	}
 
-	summary, err := s.timeEntryService.GetTaskTimeSummary(ctx, taskID)
+	summary, err := s.timeEntryService.GetTaskTimeSummary(ctx, taskID, tenantID)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to get time summary")
 	}

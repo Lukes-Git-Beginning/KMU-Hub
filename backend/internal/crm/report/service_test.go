@@ -45,7 +45,7 @@ func (m *MockRepository) GetPipelineReport(ctx context.Context, filter PipelineF
 	}, nil
 }
 
-func (m *MockRepository) GetConversionReport(ctx context.Context, startDate, endDate time.Time) (*models.ConversionReport, error) {
+func (m *MockRepository) GetConversionReport(ctx context.Context, tenantID uuid.UUID, startDate, endDate time.Time) (*models.ConversionReport, error) {
 	if m.conversionErr != nil {
 		return nil, m.conversionErr
 	}
@@ -84,11 +84,14 @@ func (m *MockRepository) GetActivityReport(ctx context.Context, filter ActivityF
 // Pipeline Report Tests
 // ============================================================================
 
+var testTenantID = uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+
 func TestService_GetPipelineReport_Success(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
 	input := PipelineReportInput{
+		TenantID:  testTenantID,
 		StartDate: time.Now().AddDate(0, -1, 0),
 		EndDate:   time.Now(),
 	}
@@ -108,6 +111,7 @@ func TestService_GetPipelineReport_WithOwnerFilter(t *testing.T) {
 
 	ownerID := uuid.New()
 	input := PipelineReportInput{
+		TenantID:  testTenantID,
 		OwnerID:   &ownerID,
 		StartDate: time.Now().AddDate(0, -1, 0),
 		EndDate:   time.Now(),
@@ -124,7 +128,8 @@ func TestService_GetPipelineReport_StartDateRequired(t *testing.T) {
 	svc := NewService(repo)
 
 	input := PipelineReportInput{
-		EndDate: time.Now(),
+		TenantID: testTenantID,
+		EndDate:  time.Now(),
 	}
 
 	_, err := svc.GetPipelineReport(context.Background(), input)
@@ -137,6 +142,7 @@ func TestService_GetPipelineReport_EndDateRequired(t *testing.T) {
 	svc := NewService(repo)
 
 	input := PipelineReportInput{
+		TenantID:  testTenantID,
 		StartDate: time.Now(),
 	}
 
@@ -150,6 +156,7 @@ func TestService_GetPipelineReport_InvalidDateRange(t *testing.T) {
 	svc := NewService(repo)
 
 	input := PipelineReportInput{
+		TenantID:  testTenantID,
 		StartDate: time.Now(),
 		EndDate:   time.Now().AddDate(0, -1, 0), // Before start
 	}
@@ -170,6 +177,7 @@ func TestService_GetPipelineReport_EmptyReport(t *testing.T) {
 	svc := NewService(repo)
 
 	input := PipelineReportInput{
+		TenantID:  testTenantID,
 		StartDate: time.Now().AddDate(-1, 0, 0),
 		EndDate:   time.Now(),
 	}
@@ -190,6 +198,7 @@ func TestService_GetConversionReport_Success(t *testing.T) {
 	svc := NewService(repo)
 
 	input := ConversionReportInput{
+		TenantID:  testTenantID,
 		StartDate: time.Now().AddDate(0, -1, 0),
 		EndDate:   time.Now(),
 	}
@@ -207,7 +216,8 @@ func TestService_GetConversionReport_StartDateRequired(t *testing.T) {
 	svc := NewService(repo)
 
 	input := ConversionReportInput{
-		EndDate: time.Now(),
+		TenantID: testTenantID,
+		EndDate:  time.Now(),
 	}
 
 	_, err := svc.GetConversionReport(context.Background(), input)
@@ -220,6 +230,7 @@ func TestService_GetConversionReport_EndDateRequired(t *testing.T) {
 	svc := NewService(repo)
 
 	input := ConversionReportInput{
+		TenantID:  testTenantID,
 		StartDate: time.Now(),
 	}
 
@@ -233,6 +244,7 @@ func TestService_GetConversionReport_InvalidDateRange(t *testing.T) {
 	svc := NewService(repo)
 
 	input := ConversionReportInput{
+		TenantID:  testTenantID,
 		StartDate: time.Now(),
 		EndDate:   time.Now().AddDate(0, -1, 0), // Before start
 	}
@@ -252,6 +264,7 @@ func TestService_GetConversionReport_EmptyReport(t *testing.T) {
 	svc := NewService(repo)
 
 	input := ConversionReportInput{
+		TenantID:  testTenantID,
 		StartDate: time.Now().AddDate(-1, 0, 0),
 		EndDate:   time.Now(),
 	}
@@ -272,6 +285,7 @@ func TestService_GetActivityReport_Success(t *testing.T) {
 	svc := NewService(repo)
 
 	input := ActivityReportInput{
+		TenantID:  testTenantID,
 		StartDate: time.Now().AddDate(0, -1, 0),
 		EndDate:   time.Now(),
 	}
@@ -290,6 +304,7 @@ func TestService_GetActivityReport_WithUserFilter(t *testing.T) {
 
 	userID := uuid.New()
 	input := ActivityReportInput{
+		TenantID:  testTenantID,
 		UserID:    &userID,
 		StartDate: time.Now().AddDate(0, -1, 0),
 		EndDate:   time.Now(),
@@ -306,7 +321,8 @@ func TestService_GetActivityReport_StartDateRequired(t *testing.T) {
 	svc := NewService(repo)
 
 	input := ActivityReportInput{
-		EndDate: time.Now(),
+		TenantID: testTenantID,
+		EndDate:  time.Now(),
 	}
 
 	_, err := svc.GetActivityReport(context.Background(), input)
@@ -319,6 +335,7 @@ func TestService_GetActivityReport_EndDateRequired(t *testing.T) {
 	svc := NewService(repo)
 
 	input := ActivityReportInput{
+		TenantID:  testTenantID,
 		StartDate: time.Now(),
 	}
 
@@ -332,6 +349,7 @@ func TestService_GetActivityReport_InvalidDateRange(t *testing.T) {
 	svc := NewService(repo)
 
 	input := ActivityReportInput{
+		TenantID:  testTenantID,
 		StartDate: time.Now(),
 		EndDate:   time.Now().AddDate(0, -1, 0), // Before start
 	}
@@ -351,6 +369,7 @@ func TestService_GetActivityReport_EmptyReport(t *testing.T) {
 	svc := NewService(repo)
 
 	input := ActivityReportInput{
+		TenantID:  testTenantID,
 		StartDate: time.Now().AddDate(-1, 0, 0),
 		EndDate:   time.Now(),
 	}
@@ -368,6 +387,7 @@ func TestService_GetActivityReport_ChecksAllMetricTypes(t *testing.T) {
 	svc := NewService(repo)
 
 	input := ActivityReportInput{
+		TenantID:  testTenantID,
 		StartDate: time.Now().AddDate(0, -1, 0),
 		EndDate:   time.Now(),
 	}

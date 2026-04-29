@@ -46,6 +46,11 @@ func NewChatGRPCServer(
 // ============================================================================
 
 func (s *ChatGRPCServer) CreateChannel(ctx context.Context, req *chatv1.CreateChannelRequest) (*chatv1.CreateChannelResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	createdBy, err := uuid.Parse(req.CreatedBy)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid created_by user id")
@@ -66,6 +71,7 @@ func (s *ChatGRPCServer) CreateChannel(ctx context.Context, req *chatv1.CreateCh
 	}
 
 	input := channel.CreateInput{
+		TenantID:         tenantID,
 		Name:             req.Name,
 		Description:      description,
 		IsPrivate:        req.IsPrivate,
@@ -84,6 +90,11 @@ func (s *ChatGRPCServer) CreateChannel(ctx context.Context, req *chatv1.CreateCh
 }
 
 func (s *ChatGRPCServer) GetChannel(ctx context.Context, req *chatv1.GetChannelRequest) (*chatv1.GetChannelResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid channel id")
@@ -94,7 +105,7 @@ func (s *ChatGRPCServer) GetChannel(ctx context.Context, req *chatv1.GetChannelR
 		return nil, status.Error(codes.InvalidArgument, "invalid user id")
 	}
 
-	ch, err := s.channelService.GetByID(ctx, id, userID)
+	ch, err := s.channelService.GetByID(ctx, id, userID, tenantID)
 	if err != nil {
 		return nil, mapChatError(err)
 	}
@@ -105,12 +116,18 @@ func (s *ChatGRPCServer) GetChannel(ctx context.Context, req *chatv1.GetChannelR
 }
 
 func (s *ChatGRPCServer) ListChannels(ctx context.Context, req *chatv1.ListChannelsRequest) (*chatv1.ListChannelsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user id")
 	}
 
 	input := channel.ListInput{
+		TenantID:        tenantID,
 		UserID:          userID,
 		IncludeArchived: req.IncludeArchived,
 		Page:            int(req.Page),
@@ -134,6 +151,11 @@ func (s *ChatGRPCServer) ListChannels(ctx context.Context, req *chatv1.ListChann
 }
 
 func (s *ChatGRPCServer) UpdateChannel(ctx context.Context, req *chatv1.UpdateChannelRequest) (*chatv1.UpdateChannelResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid channel id")
@@ -149,7 +171,7 @@ func (s *ChatGRPCServer) UpdateChannel(ctx context.Context, req *chatv1.UpdateCh
 		Description: req.Description,
 	}
 
-	ch, err := s.channelService.Update(ctx, id, userID, input)
+	ch, err := s.channelService.Update(ctx, id, userID, tenantID, input)
 	if err != nil {
 		return nil, mapChatError(err)
 	}
@@ -160,6 +182,11 @@ func (s *ChatGRPCServer) UpdateChannel(ctx context.Context, req *chatv1.UpdateCh
 }
 
 func (s *ChatGRPCServer) DeleteChannel(ctx context.Context, req *chatv1.DeleteChannelRequest) (*chatv1.DeleteChannelResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid channel id")
@@ -170,7 +197,7 @@ func (s *ChatGRPCServer) DeleteChannel(ctx context.Context, req *chatv1.DeleteCh
 		return nil, status.Error(codes.InvalidArgument, "invalid user id")
 	}
 
-	if err := s.channelService.Delete(ctx, id, userID); err != nil {
+	if err := s.channelService.Delete(ctx, id, userID, tenantID); err != nil {
 		return nil, mapChatError(err)
 	}
 
@@ -178,6 +205,11 @@ func (s *ChatGRPCServer) DeleteChannel(ctx context.Context, req *chatv1.DeleteCh
 }
 
 func (s *ChatGRPCServer) ArchiveChannel(ctx context.Context, req *chatv1.ArchiveChannelRequest) (*chatv1.ArchiveChannelResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid channel id")
@@ -188,7 +220,7 @@ func (s *ChatGRPCServer) ArchiveChannel(ctx context.Context, req *chatv1.Archive
 		return nil, status.Error(codes.InvalidArgument, "invalid user id")
 	}
 
-	ch, err := s.channelService.Archive(ctx, id, userID)
+	ch, err := s.channelService.Archive(ctx, id, userID, tenantID)
 	if err != nil {
 		return nil, mapChatError(err)
 	}
@@ -203,6 +235,11 @@ func (s *ChatGRPCServer) ArchiveChannel(ctx context.Context, req *chatv1.Archive
 // ============================================================================
 
 func (s *ChatGRPCServer) JoinChannel(ctx context.Context, req *chatv1.JoinChannelRequest) (*chatv1.JoinChannelResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	channelID, err := uuid.Parse(req.ChannelId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid channel id")
@@ -213,7 +250,7 @@ func (s *ChatGRPCServer) JoinChannel(ctx context.Context, req *chatv1.JoinChanne
 		return nil, status.Error(codes.InvalidArgument, "invalid user id")
 	}
 
-	member, err := s.channelService.Join(ctx, channelID, userID)
+	member, err := s.channelService.Join(ctx, channelID, userID, tenantID)
 	if err != nil {
 		return nil, mapChatError(err)
 	}
@@ -224,6 +261,11 @@ func (s *ChatGRPCServer) JoinChannel(ctx context.Context, req *chatv1.JoinChanne
 }
 
 func (s *ChatGRPCServer) LeaveChannel(ctx context.Context, req *chatv1.LeaveChannelRequest) (*chatv1.LeaveChannelResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	channelID, err := uuid.Parse(req.ChannelId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid channel id")
@@ -234,7 +276,7 @@ func (s *ChatGRPCServer) LeaveChannel(ctx context.Context, req *chatv1.LeaveChan
 		return nil, status.Error(codes.InvalidArgument, "invalid user id")
 	}
 
-	if err := s.channelService.Leave(ctx, channelID, userID); err != nil {
+	if err := s.channelService.Leave(ctx, channelID, userID, tenantID); err != nil {
 		return nil, mapChatError(err)
 	}
 
@@ -242,12 +284,17 @@ func (s *ChatGRPCServer) LeaveChannel(ctx context.Context, req *chatv1.LeaveChan
 }
 
 func (s *ChatGRPCServer) GetChannelMembers(ctx context.Context, req *chatv1.GetChannelMembersRequest) (*chatv1.GetChannelMembersResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	channelID, err := uuid.Parse(req.ChannelId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid channel id")
 	}
 
-	members, total, err := s.channelService.GetMembers(ctx, channelID, int(req.Page), int(req.PageSize))
+	members, total, err := s.channelService.GetMembers(ctx, channelID, tenantID, int(req.Page), int(req.PageSize))
 	if err != nil {
 		return nil, mapChatError(err)
 	}
@@ -264,6 +311,11 @@ func (s *ChatGRPCServer) GetChannelMembers(ctx context.Context, req *chatv1.GetC
 }
 
 func (s *ChatGRPCServer) UpdateMemberRole(ctx context.Context, req *chatv1.UpdateMemberRoleRequest) (*chatv1.UpdateMemberRoleResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	channelID, err := uuid.Parse(req.ChannelId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid channel id")
@@ -284,7 +336,7 @@ func (s *ChatGRPCServer) UpdateMemberRole(ctx context.Context, req *chatv1.Updat
 		return nil, status.Error(codes.InvalidArgument, "invalid role")
 	}
 
-	member, err := s.channelService.UpdateMemberRole(ctx, channelID, targetUserID, requesterUserID, newRole)
+	member, err := s.channelService.UpdateMemberRole(ctx, channelID, targetUserID, requesterUserID, tenantID, newRole)
 	if err != nil {
 		return nil, mapChatError(err)
 	}
@@ -382,7 +434,7 @@ func (s *ChatGRPCServer) GetMessages(ctx context.Context, req *chatv1.GetMessage
 
 	// Guest access: uuid.Nil means guest — skip membership, verify channel is guest-enabled
 	if userID == uuid.Nil {
-		guestEnabled, chkErr := s.channelService.IsGuestEnabled(ctx, channelID)
+		guestEnabled, chkErr := s.channelService.IsGuestEnabled(ctx, channelID, tenantID)
 		if chkErr != nil || !guestEnabled {
 			return nil, status.Error(codes.PermissionDenied, "channel does not allow guest access")
 		}
@@ -479,6 +531,11 @@ func (s *ChatGRPCServer) DeleteMessage(ctx context.Context, req *chatv1.DeleteMe
 // ============================================================================
 
 func (s *ChatGRPCServer) GetOrCreateDM(ctx context.Context, req *chatv1.GetOrCreateDMRequest) (*chatv1.GetOrCreateDMResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
@@ -490,6 +547,7 @@ func (s *ChatGRPCServer) GetOrCreateDM(ctx context.Context, req *chatv1.GetOrCre
 	}
 
 	result, err := s.channelService.GetOrCreateDM(ctx, channel.GetOrCreateDMInput{
+		TenantID:    tenantID,
 		UserID:      userID,
 		OtherUserID: otherUserID,
 	})
@@ -504,12 +562,17 @@ func (s *ChatGRPCServer) GetOrCreateDM(ctx context.Context, req *chatv1.GetOrCre
 }
 
 func (s *ChatGRPCServer) ListDMs(ctx context.Context, req *chatv1.ListDMsRequest) (*chatv1.ListDMsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	channels, total, err := s.channelService.ListDMs(ctx, userID, int(req.Page), int(req.PageSize))
+	channels, total, err := s.channelService.ListDMs(ctx, userID, tenantID, int(req.Page), int(req.PageSize))
 	if err != nil {
 		return nil, mapChatError(err)
 	}
@@ -616,7 +679,7 @@ func (s *ChatGRPCServer) MarkChannelRead(ctx context.Context, req *chatv1.MarkCh
 		return nil, mapChatError(err)
 	}
 
-	if err := s.channelService.MarkRead(ctx, channelID, userID, msg.CreatedAt); err != nil {
+	if err := s.channelService.MarkRead(ctx, channelID, userID, tenantID, msg.CreatedAt); err != nil {
 		return nil, mapChatError(err)
 	}
 

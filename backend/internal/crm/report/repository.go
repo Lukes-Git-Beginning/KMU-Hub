@@ -15,7 +15,7 @@ type Repository interface {
 	GetPipelineReport(ctx context.Context, filter PipelineFilter) (*models.PipelineReport, error)
 
 	// GetConversionReport returns stage transition metrics
-	GetConversionReport(ctx context.Context, startDate, endDate time.Time) (*models.ConversionReport, error)
+	GetConversionReport(ctx context.Context, tenantID uuid.UUID, startDate, endDate time.Time) (*models.ConversionReport, error)
 
 	// GetActivityReport returns activity metrics grouped by type
 	GetActivityReport(ctx context.Context, filter ActivityFilter) (*models.ActivityReport, error)
@@ -23,6 +23,7 @@ type Repository interface {
 
 // PipelineFilter contains filtering options for pipeline report
 type PipelineFilter struct {
+	TenantID  uuid.UUID
 	OwnerID   *uuid.UUID
 	StartDate time.Time
 	EndDate   time.Time
@@ -30,6 +31,7 @@ type PipelineFilter struct {
 
 // ActivityFilter contains filtering options for activity report
 type ActivityFilter struct {
+	TenantID  uuid.UUID
 	UserID    *uuid.UUID
 	StartDate time.Time
 	EndDate   time.Time

@@ -1,6 +1,6 @@
 ---
 tags: [architektur, backend, frontend, ci-cd]
-updated: 2026-04-28
+updated: 2026-04-29
 ---
 # Architektur
 
@@ -206,6 +206,16 @@ Modul-spezifische Patterns:
 - **Approval-State-Machine (`rapporte`):** `Draft → Submitted → Approved/Rejected`, nach Approved blockt jeder Edit/Rollback (`ErrAlreadyApproved`).
 
 Subagent-Strategie: 4 parallele Sonnet-Subagents schreiben direkt auf main, Done-Reports max 200 Worte. Race-Risiken auf shared Files (`config.go`, `cmd/gateway/main.go`, `docker-compose.yml`) wurden durch Edit-Tool-Konfliktdetection aufgeloest. Self-Commit-Anomalie: ein Subagent (fuhrpark) hat eigenmaechtig commited — fuer kuenftige Briefings explizit `kein git add/commit` ergaenzen. Details: `memory/project_sprint2_welle2.md`.
+
+## Sprint 2 Welle 3.5 — Hardening-Sweep (2026-04-29)
+
+Bugfix-Sweep nach Welle 3 (Commit `d443ab4`, 34 Findings closed: 17 P0 + 17 P1, P2/P3 in `docs/sprint2-welle3-followups.md` deferred). Drei Themen-Cluster:
+
+1. **gRPC Tenant-Spoof-Sweep** — `chat_grpc.go`/`crm_grpc.go`/`work_grpc.go`/`video_grpc.go`/`dialer_grpc.go` ziehen `tenant_id` jetzt aus `middleware.GetTenantID(ctx)` statt `req.GetTenantId()` (Proto-Feld). Verhindert Tenant-Spoof bei Service-zu-Service-Calls oder kompromittiertem Gateway. Pflicht-Pattern fuer alle neuen gRPC-Server-Methoden. Details: [[security]] "gRPC Tenant-Spoof-Sweep".
+2. **Repository-Tenant-Filter-Sweep** — `deal/activity/task/pipelinestage/chat-message/recording postgres_repository.go` enforcen `WHERE id=$1 AND tenant_id=$2` auf jedem UPDATE/DELETE/GetByID/Search-Pfad plus `RowsAffected==0`-Sentinel. Repository-Interfaces an PostgresRepository-Signaturen synchronisiert (`CachedRepository` reicht tenant_id durch). 14 Model-Structs (deal/activity/task/etc.) tragen einheitliche `TenantID`-Tags. `pipelinestage.scanStage` liest `tenant_id` aus Migration 000106 (vorher Scan-Mismatch nach migrate-up).
+3. **Idempotency + Recording-Robustness** — Middleware-Stack-Position fix nach Auth+RBAC. `errors.Is` statt String-Equality. Atomares `Reserve` via `INSERT ... ON CONFLICT DO UPDATE RETURNING`. `context.WithoutCancel` fuer async Complete. Cleanup-Worker echte `pg_try_advisory_xact_lock`-Leader-Election. Migration 000108 setzt PK auf `(tenant_id, key)`. `Recording.StartRecording` reordert Pre-Consent-Check VOR `CreateRecording` (verhindert Orphan-Rows). Frontend: `CallControls` hat Doppelklick-Guard via `isPending`-Flags + try/catch-Toast auf `confirmInitiatorConsent`-Failure; `offline-queue` retried bei 409 statt silent-drop. Details: [[security]] Idempotency + Pre-Recording-Consent.
+
+Pause-Gate: Nach Welle 3.5 → User-Review + Welle-4-Plan (Idempotency HardMode, restliche 15 Top-20-Repos, Top-30+ Tabellen).
 
 ## WASM-Plugin-System — Feature-Flag OFF (Sprint 0 S0.6 / R2-P1.2)
 

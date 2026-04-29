@@ -37,6 +37,7 @@ func (s *Service) SetEventEmitter(emitter EventEmitter) {
 
 // CreateInput contains the data needed to create an event
 type CreateInput struct {
+	TenantID     uuid.UUID
 	CalendarID   uuid.UUID
 	Title        string
 	Description  *string
@@ -105,6 +106,7 @@ func (s *Service) Create(ctx context.Context, actorID uuid.UUID, input CreateInp
 
 	evt := &models.CalendarEvent{
 		ID:              eventID,
+		TenantID:        input.TenantID,
 		CalendarID:      input.CalendarID,
 		Title:           title,
 		Description:     input.Description,
@@ -170,8 +172,8 @@ func (s *Service) Create(ctx context.Context, actorID uuid.UUID, input CreateInp
 }
 
 // Get retrieves an event by ID
-func (s *Service) Get(ctx context.Context, eventID uuid.UUID) (*models.CalendarEvent, error) {
-	return s.repo.GetByID(ctx, eventID)
+func (s *Service) Get(ctx context.Context, eventID, tenantID uuid.UUID) (*models.CalendarEvent, error) {
+	return s.repo.GetByID(ctx, eventID, tenantID)
 }
 
 // UpdateInput contains fields that can be updated on an event
@@ -188,8 +190,8 @@ type UpdateInput struct {
 }
 
 // UpdateEvent updates a non-recurring event
-func (s *Service) UpdateEvent(ctx context.Context, eventID, actorID uuid.UUID, changes UpdateInput) (*models.CalendarEvent, error) {
-	evt, err := s.repo.GetByID(ctx, eventID)
+func (s *Service) UpdateEvent(ctx context.Context, eventID, actorID, tenantID uuid.UUID, changes UpdateInput) (*models.CalendarEvent, error) {
+	evt, err := s.repo.GetByID(ctx, eventID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -216,12 +218,12 @@ func (s *Service) UpdateEvent(ctx context.Context, eventID, actorID uuid.UUID, c
 }
 
 // UpdateRecurringEvent handles the three-way edit for recurring events
-func (s *Service) UpdateRecurringEvent(ctx context.Context, eventID, actorID uuid.UUID, scope string, originalDate time.Time, changes UpdateInput) (*models.CalendarEvent, error) {
+func (s *Service) UpdateRecurringEvent(ctx context.Context, eventID, actorID, tenantID uuid.UUID, scope string, originalDate time.Time, changes UpdateInput) (*models.CalendarEvent, error) {
 	if !models.ValidRecurringEditScopes[scope] {
 		return nil, ErrInvalidRecurringEditScope
 	}
 
-	evt, err := s.repo.GetByID(ctx, eventID)
+	evt, err := s.repo.GetByID(ctx, eventID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +296,7 @@ func (s *Service) editThisEvent(ctx context.Context, evt *models.CalendarEvent, 
 }
 
 // editThisAndFuture splits a recurring series at the given date
-func (s *Service) editThisAndFuture(ctx context.Context, evt *models.CalendarEvent, actorID uuid.UUID, originalDate time.Time, changes UpdateInput) (*models.CalendarEvent, error) {
+func (s *Service) editThisAndFuture(ctx context.Context, evt *models.CalendarEvent, actorID uuid.UUID, originalDate time.Time, changes UpdateInput) (*models.CalendarEvent, error) { //nolint:unparam
 	// Set UNTIL on original RRULE to the day before originalDate
 	dayBefore := originalDate.Add(-24 * time.Hour)
 	newRRule, err := SetUntil(*evt.RRule, dayBefore)
@@ -333,6 +335,7 @@ func (s *Service) editThisAndFuture(ctx context.Context, evt *models.CalendarEve
 
 	newEvt := &models.CalendarEvent{
 		ID:              newEventID,
+		TenantID:        evt.TenantID,
 		CalendarID:      evt.CalendarID,
 		Title:           evt.Title,
 		Description:     evt.Description,
@@ -386,8 +389,8 @@ func (s *Service) editAllEvents(ctx context.Context, evt *models.CalendarEvent, 
 }
 
 // DeleteEvent deletes an event. Only creator can delete.
-func (s *Service) DeleteEvent(ctx context.Context, eventID, actorID uuid.UUID) error {
-	evt, err := s.repo.GetByID(ctx, eventID)
+func (s *Service) DeleteEvent(ctx context.Context, eventID, actorID, tenantID uuid.UUID) error {
+	evt, err := s.repo.GetByID(ctx, eventID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -396,7 +399,7 @@ func (s *Service) DeleteEvent(ctx context.Context, eventID, actorID uuid.UUID) e
 		return ErrNotEventCreator
 	}
 
-	if deleteErr := s.repo.Delete(ctx, eventID); deleteErr != nil {
+	if deleteErr := s.repo.Delete(ctx, eventID, tenantID); deleteErr != nil {
 		return deleteErr
 	}
 
@@ -408,8 +411,8 @@ func (s *Service) DeleteEvent(ctx context.Context, eventID, actorID uuid.UUID) e
 }
 
 // DeleteRecurringInstance cancels a single occurrence of a recurring event
-func (s *Service) DeleteRecurringInstance(ctx context.Context, eventID, actorID uuid.UUID, originalDate time.Time) error {
-	evt, err := s.repo.GetByID(ctx, eventID)
+func (s *Service) DeleteRecurringInstance(ctx context.Context, eventID, actorID, tenantID uuid.UUID, originalDate time.Time) error {
+	evt, err := s.repo.GetByID(ctx, eventID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -445,12 +448,12 @@ func (s *Service) DeleteRecurringInstance(ctx context.Context, eventID, actorID 
 }
 
 // RSVPToEvent updates a user's RSVP status for an event
-func (s *Service) RSVPToEvent(ctx context.Context, eventID, userID uuid.UUID, status string) error {
+func (s *Service) RSVPToEvent(ctx context.Context, eventID, userID, tenantID uuid.UUID, status string) error {
 	if !models.ValidRSVPStatuses[status] {
 		return ErrInvalidRSVPStatus
 	}
 
-	evt, err := s.repo.GetByID(ctx, eventID)
+	evt, err := s.repo.GetByID(ctx, eventID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -472,15 +475,15 @@ func (s *Service) RSVPToEvent(ctx context.Context, eventID, userID uuid.UUID, st
 }
 
 // ListAttendees lists all attendees of an event
-func (s *Service) ListAttendees(ctx context.Context, eventID uuid.UUID) ([]models.EventAttendee, error) {
-	if _, err := s.repo.GetByID(ctx, eventID); err != nil {
+func (s *Service) ListAttendees(ctx context.Context, eventID, tenantID uuid.UUID) ([]models.EventAttendee, error) {
+	if _, err := s.repo.GetByID(ctx, eventID, tenantID); err != nil {
 		return nil, err
 	}
 	return s.repo.ListAttendees(ctx, eventID)
 }
 
 // SetReminders sets reminders for an event (replaces all existing)
-func (s *Service) SetReminders(ctx context.Context, eventID, actorID uuid.UUID, minutesBefore []int) error {
+func (s *Service) SetReminders(ctx context.Context, eventID, actorID, tenantID uuid.UUID, minutesBefore []int) error {
 	if len(minutesBefore) > 3 {
 		return ErrReminderLimitExceeded
 	}
@@ -491,7 +494,7 @@ func (s *Service) SetReminders(ctx context.Context, eventID, actorID uuid.UUID, 
 		}
 	}
 
-	evt, err := s.repo.GetByID(ctx, eventID)
+	evt, err := s.repo.GetByID(ctx, eventID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -521,15 +524,15 @@ func (s *Service) ListReminders(ctx context.Context, eventID uuid.UUID) ([]model
 }
 
 // ListEventsInRange returns all events (expanded recurring + non-recurring) in a time window
-func (s *Service) ListEventsInRange(ctx context.Context, calendarIDs []uuid.UUID, start, end time.Time, userID uuid.UUID) ([]models.ExpandedEvent, error) {
+func (s *Service) ListEventsInRange(ctx context.Context, calendarIDs []uuid.UUID, start, end time.Time, userID, tenantID uuid.UUID) ([]models.ExpandedEvent, error) {
 	// Get non-recurring events from repo
-	nonRecurring, err := s.repo.ListInRange(ctx, calendarIDs, start, end, userID)
+	nonRecurring, err := s.repo.ListInRange(ctx, calendarIDs, start, end, userID, tenantID)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get recurring events and expand
-	recurring, err := s.repo.ListRecurringOverlapping(ctx, calendarIDs, start, end)
+	recurring, err := s.repo.ListRecurringOverlapping(ctx, calendarIDs, start, end, tenantID)
 	if err != nil {
 		return nil, err
 	}

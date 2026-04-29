@@ -68,7 +68,7 @@ func (m *mockRepository) Create(_ context.Context, msg *models.InboxMessage) err
 	return nil
 }
 
-func (m *mockRepository) GetByID(_ context.Context, id uuid.UUID) (*models.InboxMessage, error) {
+func (m *mockRepository) GetByID(_ context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.InboxMessage, error) {
 	if m.getByIDErr != nil {
 		return nil, m.getByIDErr
 	}
@@ -76,6 +76,10 @@ func (m *mockRepository) GetByID(_ context.Context, id uuid.UUID) (*models.Inbox
 	defer m.mu.RUnlock()
 	msg, ok := m.messages[id]
 	if !ok {
+		return nil, ErrMessageNotFound
+	}
+	// Enforce tenant isolation when a real tenantID is supplied.
+	if tenantID != uuid.Nil && msg.TenantID != uuid.Nil && msg.TenantID != tenantID {
 		return nil, ErrMessageNotFound
 	}
 	return msg, nil
@@ -302,7 +306,7 @@ func TestCreate_Success(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEqual(t, uuid.Nil, msg.ID)
 
-	stored, err := repo.GetByID(context.Background(), msg.ID)
+	stored, err := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
 	require.NoError(t, err)
 	assert.Equal(t, msg.Subject, stored.Subject)
 }
@@ -330,7 +334,7 @@ func TestCreate_DuplicateDetected(t *testing.T) {
 
 	require.ErrorIs(t, err, ErrDuplicateMessage)
 	// Existing message should have updated subject since dup is newer
-	stored, _ := repo.GetByID(context.Background(), existing.ID)
+	stored, _ := repo.GetByID(context.Background(), existing.ID, uuid.Nil)
 	assert.Equal(t, "Updated Subject", stored.Subject)
 }
 
@@ -341,7 +345,7 @@ func TestGetByID_Success(t *testing.T) {
 	msg := newTestMessage()
 	seedMessage(repo, msg)
 
-	result, err := svc.GetByID(context.Background(), msg.ID)
+	result, err := svc.GetByID(context.Background(), msg.ID, uuid.Nil)
 
 	require.NoError(t, err)
 	assert.Equal(t, msg.ID, result.ID)
@@ -352,7 +356,7 @@ func TestGetByID_NotFound(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo, adapter.NewAdapterRegistry())
 
-	_, err := svc.GetByID(context.Background(), uuid.New())
+	_, err := svc.GetByID(context.Background(), uuid.New(), uuid.Nil)
 
 	require.ErrorIs(t, err, ErrMessageNotFound)
 }
@@ -382,10 +386,10 @@ func TestMarkRead_Success(t *testing.T) {
 	msg.IsRead = false
 	seedMessage(repo, msg)
 
-	err := svc.MarkRead(context.Background(), msg.ID)
+	err := svc.MarkRead(context.Background(), msg.ID, uuid.Nil)
 
 	require.NoError(t, err)
-	stored, _ := repo.GetByID(context.Background(), msg.ID)
+	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
 	assert.True(t, stored.IsRead)
 }
 
@@ -400,7 +404,7 @@ func TestMarkUnread_Success(t *testing.T) {
 	err := svc.MarkUnread(context.Background(), msg.ID)
 
 	require.NoError(t, err)
-	stored, _ := repo.GetByID(context.Background(), msg.ID)
+	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
 	assert.False(t, stored.IsRead)
 }
 
@@ -415,7 +419,7 @@ func TestToggleStar_Success(t *testing.T) {
 	err := svc.ToggleStar(context.Background(), msg.ID)
 
 	require.NoError(t, err)
-	stored, _ := repo.GetByID(context.Background(), msg.ID)
+	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
 	assert.True(t, stored.IsStarred)
 }
 
@@ -429,7 +433,7 @@ func TestArchive_Success(t *testing.T) {
 	err := svc.Archive(context.Background(), msg.ID)
 
 	require.NoError(t, err)
-	stored, _ := repo.GetByID(context.Background(), msg.ID)
+	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
 	assert.True(t, stored.IsArchived)
 }
 
@@ -444,7 +448,7 @@ func TestSnooze_Success(t *testing.T) {
 	err := svc.Snooze(context.Background(), msg.ID, until)
 
 	require.NoError(t, err)
-	stored, _ := repo.GetByID(context.Background(), msg.ID)
+	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
 	require.NotNil(t, stored.SnoozedUntil)
 	assert.WithinDuration(t, until, *stored.SnoozedUntil, time.Second)
 }
@@ -486,7 +490,7 @@ func TestAssignMessage_Success(t *testing.T) {
 	err := svc.AssignMessage(context.Background(), msg.ID, assigneeID)
 
 	require.NoError(t, err)
-	stored, _ := repo.GetByID(context.Background(), msg.ID)
+	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
 	require.NotNil(t, stored.AssignedTo)
 	assert.Equal(t, assigneeID, *stored.AssignedTo)
 }
@@ -518,8 +522,8 @@ func TestBulkMarkRead_Success(t *testing.T) {
 	err := svc.BulkMarkRead(context.Background(), []uuid.UUID{msg1.ID, msg2.ID})
 
 	require.NoError(t, err)
-	s1, _ := repo.GetByID(context.Background(), msg1.ID)
-	s2, _ := repo.GetByID(context.Background(), msg2.ID)
+	s1, _ := repo.GetByID(context.Background(), msg1.ID, uuid.Nil)
+	s2, _ := repo.GetByID(context.Background(), msg2.ID, uuid.Nil)
 	assert.True(t, s1.IsRead)
 	assert.True(t, s2.IsRead)
 }
@@ -536,8 +540,52 @@ func TestBulkArchive_Success(t *testing.T) {
 	err := svc.BulkArchive(context.Background(), []uuid.UUID{msg1.ID, msg2.ID})
 
 	require.NoError(t, err)
-	s1, _ := repo.GetByID(context.Background(), msg1.ID)
-	s2, _ := repo.GetByID(context.Background(), msg2.ID)
+	s1, _ := repo.GetByID(context.Background(), msg1.ID, uuid.Nil)
+	s2, _ := repo.GetByID(context.Background(), msg2.ID, uuid.Nil)
 	assert.True(t, s1.IsArchived)
 	assert.True(t, s2.IsArchived)
+}
+
+// ============================================================================
+// Cross-tenant isolation tests (inbox_messages)
+// ============================================================================
+
+// TestGetByID_CrossTenant verifies that a message owned by tenant A cannot be
+// fetched using tenant B's ID.
+func TestGetByID_CrossTenant(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo, adapter.NewAdapterRegistry())
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	msg := newTestMessage()
+	msg.TenantID = tenantA
+	seedMessage(repo, msg)
+
+	result, err := svc.GetByID(context.Background(), msg.ID, tenantB)
+
+	assert.Nil(t, result)
+	assert.ErrorIs(t, err, ErrMessageNotFound)
+}
+
+// TestMarkRead_CrossTenant verifies that marking a message as read fails when
+// the request carries a different tenant's ID.
+func TestMarkRead_CrossTenant(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo, adapter.NewAdapterRegistry())
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	msg := newTestMessage()
+	msg.TenantID = tenantA
+	msg.IsRead = false
+	seedMessage(repo, msg)
+
+	err := svc.MarkRead(context.Background(), msg.ID, tenantB)
+
+	assert.ErrorIs(t, err, ErrMessageNotFound)
+	// Read flag must remain unchanged.
+	assert.False(t, repo.messages[msg.ID].IsRead)
 }

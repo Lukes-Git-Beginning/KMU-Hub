@@ -88,9 +88,9 @@ func (s *Service) GetHighestUID(ctx context.Context, folderID uuid.UUID) (uint32
 	return s.repo.GetHighestUID(ctx, folderID)
 }
 
-// GetByID returns a full message by ID.
-func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*models.EmailMessage, error) {
-	return s.repo.GetByID(ctx, id)
+// GetByID returns a full message by ID, scoped to the tenant.
+func (s *Service) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.EmailMessage, error) {
+	return s.repo.GetByID(ctx, id, tenantID)
 }
 
 // ListByFolder returns paginated messages for a folder.
@@ -121,8 +121,9 @@ func (s *Service) MarkUnread(ctx context.Context, id uuid.UUID) error {
 }
 
 // ToggleStar toggles the starred state of a message.
-func (s *Service) ToggleStar(ctx context.Context, id uuid.UUID) error {
-	msg, err := s.repo.GetByID(ctx, id)
+// tenantID is used for the initial GetByID isolation check.
+func (s *Service) ToggleStar(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	msg, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return err
 	}

@@ -23,6 +23,7 @@ func NewService(repo Repository) *Service {
 
 // CreateInput contains the data needed to create a channel
 type CreateInput struct {
+	TenantID         uuid.UUID
 	Name             string
 	Description      *string
 	IsPrivate        bool
@@ -52,6 +53,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Channe
 	now := time.Now()
 	channel := &models.Channel{
 		ID:          uuid.New(),
+		TenantID:    input.TenantID,
 		Name:        name,
 		Description: input.Description,
 		IsPrivate:   input.IsPrivate,
@@ -104,8 +106,8 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Channe
 }
 
 // GetByID retrieves a channel by ID
-func (s *Service) GetByID(ctx context.Context, id, userID uuid.UUID) (*models.ChannelWithRelations, error) {
-	channel, err := s.repo.GetByID(ctx, id)
+func (s *Service) GetByID(ctx context.Context, id, userID, tenantID uuid.UUID) (*models.ChannelWithRelations, error) {
+	channel, err := s.repo.GetByIDForTenant(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -123,6 +125,7 @@ func (s *Service) GetByID(ctx context.Context, id, userID uuid.UUID) (*models.Ch
 
 // ListInput contains filtering options for listing channels
 type ListInput struct {
+	TenantID        uuid.UUID
 	UserID          uuid.UUID
 	IncludeArchived bool
 	IsDM            *bool
@@ -142,6 +145,7 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]*models.ChannelW
 
 	offset := (input.Page - 1) * input.PageSize
 	filter := ListFilter{
+		TenantID:        input.TenantID,
 		UserID:          input.UserID,
 		IncludeArchived: input.IncludeArchived,
 		IsDM:            input.IsDM,
@@ -172,8 +176,8 @@ type UpdateInput struct {
 }
 
 // Update updates an existing channel
-func (s *Service) Update(ctx context.Context, id, userID uuid.UUID, input UpdateInput) (*models.ChannelWithRelations, error) {
-	channel, err := s.repo.GetByID(ctx, id)
+func (s *Service) Update(ctx context.Context, id, userID, tenantID uuid.UUID, input UpdateInput) (*models.ChannelWithRelations, error) {
+	channel, err := s.repo.GetByIDForTenant(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -215,8 +219,8 @@ func (s *Service) Update(ctx context.Context, id, userID uuid.UUID, input Update
 }
 
 // Delete removes a channel
-func (s *Service) Delete(ctx context.Context, id, userID uuid.UUID) error {
-	channel, err := s.repo.GetByID(ctx, id)
+func (s *Service) Delete(ctx context.Context, id, userID, tenantID uuid.UUID) error {
+	channel, err := s.repo.GetByIDForTenant(ctx, id, tenantID)
 	if err != nil {
 		return err
 	}
@@ -235,7 +239,7 @@ func (s *Service) Delete(ctx context.Context, id, userID uuid.UUID) error {
 		return ErrNotAuthorized
 	}
 
-	if deleteErr := s.repo.Delete(ctx, id); deleteErr != nil {
+	if deleteErr := s.repo.Delete(ctx, id, tenantID); deleteErr != nil {
 		return deleteErr
 	}
 
@@ -249,8 +253,8 @@ func (s *Service) Delete(ctx context.Context, id, userID uuid.UUID) error {
 }
 
 // Archive archives a channel
-func (s *Service) Archive(ctx context.Context, id, userID uuid.UUID) (*models.ChannelWithRelations, error) {
-	channel, err := s.repo.GetByID(ctx, id)
+func (s *Service) Archive(ctx context.Context, id, userID, tenantID uuid.UUID) (*models.ChannelWithRelations, error) {
+	channel, err := s.repo.GetByIDForTenant(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -282,8 +286,8 @@ func (s *Service) Archive(ctx context.Context, id, userID uuid.UUID) (*models.Ch
 }
 
 // Join adds a user to a public channel
-func (s *Service) Join(ctx context.Context, channelID, userID uuid.UUID) (*models.ChannelMember, error) {
-	channel, err := s.repo.GetByID(ctx, channelID)
+func (s *Service) Join(ctx context.Context, channelID, userID, tenantID uuid.UUID) (*models.ChannelMember, error) {
+	channel, err := s.repo.GetByIDForTenant(ctx, channelID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -323,8 +327,8 @@ func (s *Service) Join(ctx context.Context, channelID, userID uuid.UUID) (*model
 }
 
 // Leave removes a user from a channel
-func (s *Service) Leave(ctx context.Context, channelID, userID uuid.UUID) error {
-	channel, err := s.repo.GetByID(ctx, channelID)
+func (s *Service) Leave(ctx context.Context, channelID, userID, tenantID uuid.UUID) error {
+	channel, err := s.repo.GetByIDForTenant(ctx, channelID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -353,8 +357,8 @@ func (s *Service) Leave(ctx context.Context, channelID, userID uuid.UUID) error 
 }
 
 // GetMembers lists members of a channel
-func (s *Service) GetMembers(ctx context.Context, channelID uuid.UUID, page, pageSize int) ([]*models.ChannelMember, int, error) {
-	_, err := s.repo.GetByID(ctx, channelID)
+func (s *Service) GetMembers(ctx context.Context, channelID, tenantID uuid.UUID, page, pageSize int) ([]*models.ChannelMember, int, error) {
+	_, err := s.repo.GetByIDForTenant(ctx, channelID, tenantID)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -371,8 +375,8 @@ func (s *Service) GetMembers(ctx context.Context, channelID uuid.UUID, page, pag
 }
 
 // UpdateMemberRole updates a member's role in the channel
-func (s *Service) UpdateMemberRole(ctx context.Context, channelID, targetUserID, requesterUserID uuid.UUID, newRole models.ChannelRole) (*models.ChannelMember, error) {
-	_, err := s.repo.GetByID(ctx, channelID)
+func (s *Service) UpdateMemberRole(ctx context.Context, channelID, targetUserID, requesterUserID, tenantID uuid.UUID, newRole models.ChannelRole) (*models.ChannelMember, error) {
+	_, err := s.repo.GetByIDForTenant(ctx, channelID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -424,8 +428,8 @@ func (s *Service) UpdateMemberRole(ctx context.Context, channelID, targetUserID,
 }
 
 // AddMember adds a user to a channel (for private channels, invitations)
-func (s *Service) AddMember(ctx context.Context, channelID, userID, inviterID uuid.UUID) (*models.ChannelMember, error) {
-	channel, err := s.repo.GetByID(ctx, channelID)
+func (s *Service) AddMember(ctx context.Context, channelID, userID, inviterID, tenantID uuid.UUID) (*models.ChannelMember, error) {
+	channel, err := s.repo.GetByIDForTenant(ctx, channelID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -529,6 +533,7 @@ func (s *Service) getMemberWithInfo(ctx context.Context, membership *models.Chan
 
 // GetOrCreateDMInput contains the data needed to get or create a DM
 type GetOrCreateDMInput struct {
+	TenantID    uuid.UUID
 	UserID      uuid.UUID
 	OtherUserID uuid.UUID
 }
@@ -562,7 +567,7 @@ func (s *Service) GetOrCreateDM(ctx context.Context, input GetOrCreateDMInput) (
 	}
 
 	// Try to find existing DM
-	existing, findErr := s.repo.FindDMChannel(ctx, user1, user2)
+	existing, findErr := s.repo.FindDMChannel(ctx, user1, user2, input.TenantID)
 	if findErr == nil && existing != nil {
 		withRel, relErr := s.getWithRelations(ctx, existing, input.UserID)
 		if relErr != nil {
@@ -578,6 +583,7 @@ func (s *Service) GetOrCreateDM(ctx context.Context, input GetOrCreateDMInput) (
 	now := time.Now()
 	channel := &models.Channel{
 		ID:         uuid.New(),
+		TenantID:   input.TenantID,
 		Name:       "DM",
 		IsPrivate:  true,
 		IsDM:       true,
@@ -620,9 +626,10 @@ func (s *Service) GetOrCreateDM(ctx context.Context, input GetOrCreateDMInput) (
 }
 
 // ListDMs lists DM channels for a user
-func (s *Service) ListDMs(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]*models.ChannelWithRelations, int, error) {
+func (s *Service) ListDMs(ctx context.Context, userID, tenantID uuid.UUID, page, pageSize int) ([]*models.ChannelWithRelations, int, error) {
 	isDM := true
 	return s.List(ctx, ListInput{
+		TenantID: tenantID,
 		UserID:   userID,
 		IsDM:     &isDM,
 		Page:     page,
@@ -631,9 +638,9 @@ func (s *Service) ListDMs(ctx context.Context, userID uuid.UUID, page, pageSize 
 }
 
 // MarkRead marks a channel as read up to a specific message time
-func (s *Service) MarkRead(ctx context.Context, channelID, userID uuid.UUID, messageCreatedAt time.Time) error {
+func (s *Service) MarkRead(ctx context.Context, channelID, userID, tenantID uuid.UUID, messageCreatedAt time.Time) error {
 	// Check channel exists
-	ch, err := s.repo.GetByID(ctx, channelID)
+	ch, err := s.repo.GetByIDForTenant(ctx, channelID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -667,8 +674,8 @@ func (s *Service) GetUnreadCounts(ctx context.Context, userID uuid.UUID) (map[uu
 }
 
 // EnableGuest enables guest chat on a channel
-func (s *Service) EnableGuest(ctx context.Context, channelID uuid.UUID) error {
-	channel, err := s.repo.GetByID(ctx, channelID)
+func (s *Service) EnableGuest(ctx context.Context, channelID, tenantID uuid.UUID) error {
+	channel, err := s.repo.GetByIDForTenant(ctx, channelID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -678,8 +685,8 @@ func (s *Service) EnableGuest(ctx context.Context, channelID uuid.UUID) error {
 }
 
 // DisableGuest disables guest chat on a channel
-func (s *Service) DisableGuest(ctx context.Context, channelID uuid.UUID) error {
-	channel, err := s.repo.GetByID(ctx, channelID)
+func (s *Service) DisableGuest(ctx context.Context, channelID, tenantID uuid.UUID) error {
+	channel, err := s.repo.GetByIDForTenant(ctx, channelID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -689,8 +696,8 @@ func (s *Service) DisableGuest(ctx context.Context, channelID uuid.UUID) error {
 }
 
 // IsGuestEnabled checks if a channel accepts guest chat sessions
-func (s *Service) IsGuestEnabled(ctx context.Context, channelID uuid.UUID) (bool, error) {
-	channel, err := s.repo.GetByID(ctx, channelID)
+func (s *Service) IsGuestEnabled(ctx context.Context, channelID, tenantID uuid.UUID) (bool, error) {
+	channel, err := s.repo.GetByIDForTenant(ctx, channelID, tenantID)
 	if err != nil {
 		return false, err
 	}

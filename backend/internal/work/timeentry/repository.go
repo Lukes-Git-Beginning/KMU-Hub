@@ -12,18 +12,18 @@ import (
 type Repository interface {
 	// Core CRUD
 	Create(ctx context.Context, entry *models.TimeEntry) error
-	GetByID(ctx context.Context, id uuid.UUID) (*models.TimeEntryWithUser, error)
+	GetByID(ctx context.Context, id, tenantID uuid.UUID) (*models.TimeEntryWithUser, error)
 	Update(ctx context.Context, entry *models.TimeEntry) error
-	Delete(ctx context.Context, id uuid.UUID) error
+	Delete(ctx context.Context, id, tenantID uuid.UUID) error
 
 	// Listing
-	ListByTask(ctx context.Context, taskID uuid.UUID, page, pageSize int) ([]models.TimeEntryWithUser, int, error)
-	ListByUser(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]models.TimeEntryWithUser, int, error)
+	ListByTask(ctx context.Context, taskID, tenantID uuid.UUID, page, pageSize int) ([]models.TimeEntryWithUser, int, error)
+	ListByUser(ctx context.Context, userID, tenantID uuid.UUID, page, pageSize int) ([]models.TimeEntryWithUser, int, error)
 
 	// Timer
-	GetActiveTimer(ctx context.Context, userID uuid.UUID) (*models.ActiveTimer, error)
-	StopActiveTimer(ctx context.Context, userID uuid.UUID) (*models.TimeEntry, error)
+	GetActiveTimer(ctx context.Context, userID, tenantID uuid.UUID) (*models.ActiveTimer, error)
+	StopActiveTimer(ctx context.Context, userID, tenantID uuid.UUID) (*models.TimeEntry, error)
 
 	// Summary
-	GetTaskTimeSummary(ctx context.Context, taskID uuid.UUID) (*models.TimeEntrySummary, error)
+	GetTaskTimeSummary(ctx context.Context, taskID, tenantID uuid.UUID) (*models.TimeEntrySummary, error)
 }

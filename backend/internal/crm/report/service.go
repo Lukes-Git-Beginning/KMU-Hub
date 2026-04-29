@@ -22,6 +22,7 @@ func NewService(repo Repository) *Service {
 
 // PipelineReportInput contains input parameters for pipeline report
 type PipelineReportInput struct {
+	TenantID  uuid.UUID
 	OwnerID   *uuid.UUID
 	StartDate time.Time
 	EndDate   time.Time
@@ -45,6 +46,7 @@ func (s *Service) GetPipelineReport(ctx context.Context, input PipelineReportInp
 	}
 
 	slog.Info("pipeline report generated",
+		"tenant_id", input.TenantID,
 		"start_date", input.StartDate,
 		"end_date", input.EndDate,
 		"total_deals", report.TotalDeals,
@@ -55,6 +57,7 @@ func (s *Service) GetPipelineReport(ctx context.Context, input PipelineReportInp
 
 // ConversionReportInput contains input parameters for conversion report
 type ConversionReportInput struct {
+	TenantID  uuid.UUID
 	StartDate time.Time
 	EndDate   time.Time
 }
@@ -71,12 +74,13 @@ func (s *Service) GetConversionReport(ctx context.Context, input ConversionRepor
 		return nil, ErrInvalidDateRange
 	}
 
-	report, err := s.repo.GetConversionReport(ctx, input.StartDate, input.EndDate)
+	report, err := s.repo.GetConversionReport(ctx, input.TenantID, input.StartDate, input.EndDate)
 	if err != nil {
 		return nil, err
 	}
 
 	slog.Info("conversion report generated",
+		"tenant_id", input.TenantID,
 		"start_date", input.StartDate,
 		"end_date", input.EndDate,
 		"metrics_count", len(report.Metrics),
@@ -87,6 +91,7 @@ func (s *Service) GetConversionReport(ctx context.Context, input ConversionRepor
 
 // ActivityReportInput contains input parameters for activity report
 type ActivityReportInput struct {
+	TenantID  uuid.UUID
 	UserID    *uuid.UUID
 	StartDate time.Time
 	EndDate   time.Time
@@ -110,6 +115,7 @@ func (s *Service) GetActivityReport(ctx context.Context, input ActivityReportInp
 	}
 
 	slog.Info("activity report generated",
+		"tenant_id", input.TenantID,
 		"start_date", input.StartDate,
 		"end_date", input.EndDate,
 		"total_activities", report.TotalActivities,

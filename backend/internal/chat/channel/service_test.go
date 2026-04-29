@@ -94,7 +94,18 @@ func (m *MockRepository) Update(ctx context.Context, channel *models.Channel) er
 	return nil
 }
 
-func (m *MockRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (m *MockRepository) GetByIDForTenant(ctx context.Context, id, _ uuid.UUID) (*models.Channel, error) {
+	if m.getErr != nil {
+		return nil, m.getErr
+	}
+	channel, ok := m.channels[id]
+	if !ok {
+		return nil, ErrChannelNotFound
+	}
+	return channel, nil
+}
+
+func (m *MockRepository) Delete(ctx context.Context, id, _ uuid.UUID) error {
 	if m.deleteErr != nil {
 		return m.deleteErr
 	}
@@ -184,7 +195,7 @@ func (m *MockRepository) GetLastMessage(ctx context.Context, channelID uuid.UUID
 	return nil, nil
 }
 
-func (m *MockRepository) FindDMChannel(ctx context.Context, user1, user2 uuid.UUID) (*models.Channel, error) {
+func (m *MockRepository) FindDMChannel(ctx context.Context, user1, user2, _ uuid.UUID) (*models.Channel, error) {
 	for _, ch := range m.channels {
 		if ch.IsDM && ch.DMUser1 != nil && ch.DMUser2 != nil &&
 			*ch.DMUser1 == user1 && *ch.DMUser2 == user2 {
@@ -339,7 +350,7 @@ func TestService_GetByID(t *testing.T) {
 		require.NoError(t, err)
 
 		// Get by ID
-		ch, err := service.GetByID(context.Background(), created.ID, userID)
+		ch, err := service.GetByID(context.Background(), created.ID, userID, uuid.Nil)
 
 		require.NoError(t, err)
 		assert.Equal(t, created.ID, ch.ID)
@@ -349,7 +360,7 @@ func TestService_GetByID(t *testing.T) {
 		repo := NewMockRepository()
 		service := NewService(repo)
 
-		_, err := service.GetByID(context.Background(), uuid.New(), uuid.New())
+		_, err := service.GetByID(context.Background(), uuid.New(), uuid.New(), uuid.Nil)
 
 		assert.Equal(t, ErrChannelNotFound, err)
 	})
@@ -369,7 +380,7 @@ func TestService_GetByID(t *testing.T) {
 		require.NoError(t, err)
 
 		// Try to get as non-member
-		_, err = service.GetByID(context.Background(), created.ID, otherID)
+		_, err = service.GetByID(context.Background(), created.ID, otherID, uuid.Nil)
 
 		assert.Equal(t, ErrNotChannelMember, err)
 	})
@@ -411,7 +422,7 @@ func TestService_List(t *testing.T) {
 		// Create and archive channel
 		created, err := service.Create(context.Background(), CreateInput{Name: "Old Channel", CreatedBy: userID})
 		require.NoError(t, err)
-		_, err = service.Archive(context.Background(), created.ID, userID)
+		_, err = service.Archive(context.Background(), created.ID, userID, uuid.Nil)
 		require.NoError(t, err)
 
 		// Create active channel
@@ -444,7 +455,7 @@ func TestService_Update(t *testing.T) {
 
 		// Update
 		newName := "Updated"
-		updated, err := service.Update(context.Background(), created.ID, userID, UpdateInput{
+		updated, err := service.Update(context.Background(), created.ID, userID, uuid.Nil, UpdateInput{
 			Name: &newName,
 		})
 
@@ -471,7 +482,7 @@ func TestService_Update(t *testing.T) {
 
 		// Try to update as member
 		newName := "Hacked"
-		_, err = service.Update(context.Background(), created.ID, memberID, UpdateInput{
+		_, err = service.Update(context.Background(), created.ID, memberID, uuid.Nil, UpdateInput{
 			Name: &newName,
 		})
 
@@ -488,12 +499,12 @@ func TestService_Update(t *testing.T) {
 		// Create and archive
 		created, err := service.Create(context.Background(), CreateInput{Name: "Old", CreatedBy: userID})
 		require.NoError(t, err)
-		_, err = service.Archive(context.Background(), created.ID, userID)
+		_, err = service.Archive(context.Background(), created.ID, userID, uuid.Nil)
 		require.NoError(t, err)
 
 		// Try to update
 		newName := "New"
-		_, err = service.Update(context.Background(), created.ID, userID, UpdateInput{Name: &newName})
+		_, err = service.Update(context.Background(), created.ID, userID, uuid.Nil, UpdateInput{Name: &newName})
 
 		assert.Equal(t, ErrChannelArchived, err)
 	})
@@ -510,12 +521,12 @@ func TestService_Delete(t *testing.T) {
 		created, err := service.Create(context.Background(), CreateInput{Name: "ToDelete", CreatedBy: userID})
 		require.NoError(t, err)
 
-		err = service.Delete(context.Background(), created.ID, userID)
+		err = service.Delete(context.Background(), created.ID, userID, uuid.Nil)
 
 		require.NoError(t, err)
 
 		// Verify deleted
-		_, err = service.GetByID(context.Background(), created.ID, userID)
+		_, err = service.GetByID(context.Background(), created.ID, userID, uuid.Nil)
 		assert.Equal(t, ErrChannelNotFound, err)
 	})
 
@@ -536,11 +547,11 @@ func TestService_Delete(t *testing.T) {
 		require.NoError(t, err)
 
 		// Make admin
-		_, err = service.UpdateMemberRole(context.Background(), created.ID, adminID, ownerID, models.ChannelRoleAdmin)
+		_, err = service.UpdateMemberRole(context.Background(), created.ID, adminID, ownerID, uuid.Nil, models.ChannelRoleAdmin)
 		require.NoError(t, err)
 
 		// Admin tries to delete - should fail (only owner can delete)
-		err = service.Delete(context.Background(), created.ID, adminID)
+		err = service.Delete(context.Background(), created.ID, adminID, uuid.Nil)
 
 		assert.Equal(t, ErrNotAuthorized, err)
 	})
@@ -557,7 +568,7 @@ func TestService_Archive(t *testing.T) {
 		created, err := service.Create(context.Background(), CreateInput{Name: "ToArchive", CreatedBy: userID})
 		require.NoError(t, err)
 
-		archived, err := service.Archive(context.Background(), created.ID, userID)
+		archived, err := service.Archive(context.Background(), created.ID, userID, uuid.Nil)
 
 		require.NoError(t, err)
 		assert.True(t, archived.IsArchived)
@@ -574,9 +585,9 @@ func TestService_Archive(t *testing.T) {
 		require.NoError(t, err)
 
 		// Archive twice
-		_, err = service.Archive(context.Background(), created.ID, userID)
+		_, err = service.Archive(context.Background(), created.ID, userID, uuid.Nil)
 		require.NoError(t, err)
-		archived, err := service.Archive(context.Background(), created.ID, userID)
+		archived, err := service.Archive(context.Background(), created.ID, userID, uuid.Nil)
 
 		require.NoError(t, err)
 		assert.True(t, archived.IsArchived)
@@ -598,7 +609,7 @@ func TestService_Join(t *testing.T) {
 		require.NoError(t, err)
 
 		// Join
-		member, err := service.Join(context.Background(), created.ID, userID)
+		member, err := service.Join(context.Background(), created.ID, userID, uuid.Nil)
 
 		require.NoError(t, err)
 		assert.Equal(t, userID, member.UserID)
@@ -619,7 +630,7 @@ func TestService_Join(t *testing.T) {
 		require.NoError(t, err)
 
 		// Try to join
-		_, err = service.Join(context.Background(), created.ID, userID)
+		_, err = service.Join(context.Background(), created.ID, userID, uuid.Nil)
 
 		assert.Equal(t, ErrCannotJoinPrivate, err)
 	})
@@ -635,7 +646,7 @@ func TestService_Join(t *testing.T) {
 		require.NoError(t, err)
 
 		// Try to join own channel
-		_, err = service.Join(context.Background(), created.ID, userID)
+		_, err = service.Join(context.Background(), created.ID, userID, uuid.Nil)
 
 		assert.Equal(t, ErrAlreadyMember, err)
 	})
@@ -658,7 +669,7 @@ func TestService_Leave(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = service.Leave(context.Background(), created.ID, memberID)
+		err = service.Leave(context.Background(), created.ID, memberID, uuid.Nil)
 
 		require.NoError(t, err)
 	})
@@ -673,7 +684,7 @@ func TestService_Leave(t *testing.T) {
 		created, err := service.Create(context.Background(), CreateInput{Name: "MyChannel", CreatedBy: userID})
 		require.NoError(t, err)
 
-		err = service.Leave(context.Background(), created.ID, userID)
+		err = service.Leave(context.Background(), created.ID, userID, uuid.Nil)
 
 		assert.Equal(t, ErrCannotLeaveOwner, err)
 	})
@@ -696,7 +707,7 @@ func TestService_UpdateMemberRole(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		member, err := service.UpdateMemberRole(context.Background(), created.ID, memberID, ownerID, models.ChannelRoleAdmin)
+		member, err := service.UpdateMemberRole(context.Background(), created.ID, memberID, ownerID, uuid.Nil, models.ChannelRoleAdmin)
 
 		require.NoError(t, err)
 		assert.Equal(t, models.ChannelRoleAdmin, member.Role)
@@ -718,7 +729,7 @@ func TestService_UpdateMemberRole(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = service.UpdateMemberRole(context.Background(), created.ID, memberID, ownerID, models.ChannelRoleOwner)
+		_, err = service.UpdateMemberRole(context.Background(), created.ID, memberID, ownerID, uuid.Nil, models.ChannelRoleOwner)
 
 		assert.Equal(t, ErrCannotChangeOwner, err)
 	})
@@ -742,11 +753,11 @@ func TestService_UpdateMemberRole(t *testing.T) {
 		require.NoError(t, err)
 
 		// Promote admin
-		_, err = service.UpdateMemberRole(context.Background(), created.ID, adminID, ownerID, models.ChannelRoleAdmin)
+		_, err = service.UpdateMemberRole(context.Background(), created.ID, adminID, ownerID, uuid.Nil, models.ChannelRoleAdmin)
 		require.NoError(t, err)
 
 		// Admin tries to promote member - should fail (only owner)
-		_, err = service.UpdateMemberRole(context.Background(), created.ID, memberID, adminID, models.ChannelRoleAdmin)
+		_, err = service.UpdateMemberRole(context.Background(), created.ID, memberID, adminID, uuid.Nil, models.ChannelRoleAdmin)
 
 		assert.Equal(t, ErrNotAuthorized, err)
 	})
@@ -769,7 +780,7 @@ func TestService_GetMembers(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		members, total, err := service.GetMembers(context.Background(), created.ID, 1, 10)
+		members, total, err := service.GetMembers(context.Background(), created.ID, uuid.Nil, 1, 10)
 
 		require.NoError(t, err)
 		assert.Equal(t, 2, total)
@@ -796,7 +807,7 @@ func TestService_AddMember(t *testing.T) {
 		require.NoError(t, err)
 
 		// Owner adds member
-		member, err := service.AddMember(context.Background(), created.ID, inviteeID, ownerID)
+		member, err := service.AddMember(context.Background(), created.ID, inviteeID, ownerID, uuid.Nil)
 
 		require.NoError(t, err)
 		assert.Equal(t, inviteeID, member.UserID)
@@ -823,7 +834,7 @@ func TestService_AddMember(t *testing.T) {
 		require.NoError(t, err)
 
 		// Member tries to add someone
-		_, err = service.AddMember(context.Background(), created.ID, inviteeID, memberID)
+		_, err = service.AddMember(context.Background(), created.ID, inviteeID, memberID, uuid.Nil)
 
 		assert.Equal(t, ErrNotAuthorized, err)
 	})
@@ -965,7 +976,7 @@ func TestService_ListDMs(t *testing.T) {
 		require.NoError(t, err)
 
 		// List DMs should only return the DM
-		dms, total, err := service.ListDMs(context.Background(), userID, 1, 20)
+		dms, total, err := service.ListDMs(context.Background(), userID, uuid.Nil, 1, 20)
 		require.NoError(t, err)
 		assert.Equal(t, 1, total)
 		assert.Len(t, dms, 1)
@@ -991,7 +1002,7 @@ func TestService_Join_DM_Guard(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = service.Join(context.Background(), dm.Channel.ID, thirdID)
+		_, err = service.Join(context.Background(), dm.Channel.ID, thirdID, uuid.Nil)
 		assert.Equal(t, ErrCannotJoinDM, err)
 	})
 }
@@ -1012,7 +1023,7 @@ func TestService_Leave_DM_Guard(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = service.Leave(context.Background(), dm.Channel.ID, userID)
+		err = service.Leave(context.Background(), dm.Channel.ID, userID, uuid.Nil)
 		assert.Equal(t, ErrCannotLeaveDM, err)
 	})
 }
@@ -1033,7 +1044,7 @@ func TestService_Delete_DM_Guard(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = service.Delete(context.Background(), dm.Channel.ID, userID)
+		err = service.Delete(context.Background(), dm.Channel.ID, userID, uuid.Nil)
 		assert.Equal(t, ErrCannotDeleteDM, err)
 	})
 }
@@ -1054,7 +1065,7 @@ func TestService_MarkRead(t *testing.T) {
 		require.NoError(t, err)
 
 		now := time.Now()
-		err = service.MarkRead(context.Background(), created.ID, userID, now)
+		err = service.MarkRead(context.Background(), created.ID, userID, uuid.Nil, now)
 
 		require.NoError(t, err)
 		// Verify the membership was updated
@@ -1074,7 +1085,7 @@ func TestService_MarkRead(t *testing.T) {
 		created, err := service.Create(context.Background(), CreateInput{Name: "General", CreatedBy: userID})
 		require.NoError(t, err)
 
-		err = service.MarkRead(context.Background(), created.ID, otherID, time.Now())
+		err = service.MarkRead(context.Background(), created.ID, otherID, uuid.Nil, time.Now())
 
 		assert.Equal(t, ErrNotChannelMember, err)
 	})
@@ -1088,10 +1099,10 @@ func TestService_MarkRead(t *testing.T) {
 
 		created, err := service.Create(context.Background(), CreateInput{Name: "Old", CreatedBy: userID})
 		require.NoError(t, err)
-		_, err = service.Archive(context.Background(), created.ID, userID)
+		_, err = service.Archive(context.Background(), created.ID, userID, uuid.Nil)
 		require.NoError(t, err)
 
-		err = service.MarkRead(context.Background(), created.ID, userID, time.Now())
+		err = service.MarkRead(context.Background(), created.ID, userID, uuid.Nil, time.Now())
 
 		assert.Equal(t, ErrChannelArchived, err)
 	})
@@ -1146,3 +1157,38 @@ func ptr[T any](v T) *T {
 
 // Ensure mock implements interface
 var _ Repository = (*MockRepository)(nil)
+
+// ============================================================================
+// Cross-Tenant Isolation Tests (channels)
+// ============================================================================
+
+// TestCrossTenant_Channel_GetByIDForTenant_WrongTenantReturnsNotFound verifies
+// that the GetByIDForTenant repository method returns ErrChannelNotFound when
+// the mock is set to return that error (simulating real Postgres WHERE tenant_id=$2).
+func TestCrossTenant_Channel_GetByIDForTenant_WrongTenantReturnsNotFound(t *testing.T) {
+	repo := NewMockRepository()
+	repo.getErr = ErrChannelNotFound
+
+	_, err := repo.GetByIDForTenant(context.Background(), uuid.New(), uuid.New())
+	assert.Equal(t, ErrChannelNotFound, err)
+}
+
+// TestCrossTenant_Channel_TenantIDStoredOnCreate verifies that the TenantID
+// on CreateInput is persisted on the created channel model.
+func TestCrossTenant_Channel_TenantIDStoredOnCreate(t *testing.T) {
+	repo := NewMockRepository()
+	service := NewService(repo)
+
+	userID := uuid.New()
+	tenantID := uuid.New()
+	repo.AddUser(userID, "John", "Doe", "john@example.com")
+
+	ch, err := service.Create(context.Background(), CreateInput{
+		TenantID:  tenantID,
+		Name:      "TenantChannel",
+		CreatedBy: userID,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, tenantID, ch.TenantID, "channel must carry the tenantID from CreateInput")
+}

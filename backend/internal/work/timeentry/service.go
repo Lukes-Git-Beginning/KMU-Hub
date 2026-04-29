@@ -23,15 +23,15 @@ func NewService(repo Repository) *Service {
 
 // StartTimer starts a new timer for a user on a task.
 // If the user already has a running timer on another task, it stops that timer first.
-func (s *Service) StartTimer(ctx context.Context, taskID, userID uuid.UUID) (*models.TimeEntry, *models.TimeEntry, error) {
+func (s *Service) StartTimer(ctx context.Context, taskID, userID, tenantID uuid.UUID) (*models.TimeEntry, *models.TimeEntry, error) {
 	// Check for and stop any existing active timer
 	var stoppedEntry *models.TimeEntry
-	existing, err := s.repo.GetActiveTimer(ctx, userID)
+	existing, err := s.repo.GetActiveTimer(ctx, userID, tenantID)
 	if err != nil {
 		return nil, nil, err
 	}
 	if existing != nil {
-		stopped, stopErr := s.repo.StopActiveTimer(ctx, userID)
+		stopped, stopErr := s.repo.StopActiveTimer(ctx, userID, tenantID)
 		if stopErr != nil {
 			return nil, nil, stopErr
 		}
@@ -45,6 +45,7 @@ func (s *Service) StartTimer(ctx context.Context, taskID, userID uuid.UUID) (*mo
 	now := time.Now()
 	entry := &models.TimeEntry{
 		ID:        uuid.New(),
+		TenantID:  tenantID,
 		TaskID:    taskID,
 		UserID:    userID,
 		StartedAt: now,
@@ -67,8 +68,8 @@ func (s *Service) StartTimer(ctx context.Context, taskID, userID uuid.UUID) (*mo
 }
 
 // StopTimer stops the active timer for a user
-func (s *Service) StopTimer(ctx context.Context, userID uuid.UUID) (*models.TimeEntry, error) {
-	stopped, err := s.repo.StopActiveTimer(ctx, userID)
+func (s *Service) StopTimer(ctx context.Context, userID, tenantID uuid.UUID) (*models.TimeEntry, error) {
+	stopped, err := s.repo.StopActiveTimer(ctx, userID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -87,12 +88,13 @@ func (s *Service) StopTimer(ctx context.Context, userID uuid.UUID) (*models.Time
 }
 
 // GetActiveTimer returns the currently running timer for a user, or nil
-func (s *Service) GetActiveTimer(ctx context.Context, userID uuid.UUID) (*models.ActiveTimer, error) {
-	return s.repo.GetActiveTimer(ctx, userID)
+func (s *Service) GetActiveTimer(ctx context.Context, userID, tenantID uuid.UUID) (*models.ActiveTimer, error) {
+	return s.repo.GetActiveTimer(ctx, userID, tenantID)
 }
 
 // ManualEntryInput contains the data for creating a manual time entry
 type ManualEntryInput struct {
+	TenantID        uuid.UUID
 	TaskID          uuid.UUID
 	UserID          uuid.UUID
 	StartedAt       time.Time
@@ -120,6 +122,7 @@ func (s *Service) AddManualEntry(ctx context.Context, input ManualEntryInput) (*
 
 	entry := &models.TimeEntry{
 		ID:              uuid.New(),
+		TenantID:        input.TenantID,
 		TaskID:          input.TaskID,
 		UserID:          input.UserID,
 		StartedAt:       input.StartedAt,
@@ -153,8 +156,8 @@ type UpdateEntryInput struct {
 }
 
 // UpdateEntry updates an existing time entry
-func (s *Service) UpdateEntry(ctx context.Context, entryID, actorID uuid.UUID, input UpdateEntryInput) (*models.TimeEntryWithUser, error) {
-	existing, err := s.repo.GetByID(ctx, entryID)
+func (s *Service) UpdateEntry(ctx context.Context, entryID, actorID, tenantID uuid.UUID, input UpdateEntryInput) (*models.TimeEntryWithUser, error) {
+	existing, err := s.repo.GetByID(ctx, entryID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -194,12 +197,12 @@ func (s *Service) UpdateEntry(ctx context.Context, entryID, actorID uuid.UUID, i
 		return nil, updateErr
 	}
 
-	return s.repo.GetByID(ctx, entryID)
+	return s.repo.GetByID(ctx, entryID, tenantID)
 }
 
 // DeleteEntry deletes a time entry
-func (s *Service) DeleteEntry(ctx context.Context, entryID, actorID uuid.UUID, isAdmin bool) error {
-	existing, err := s.repo.GetByID(ctx, entryID)
+func (s *Service) DeleteEntry(ctx context.Context, entryID, actorID, tenantID uuid.UUID, isAdmin bool) error {
+	existing, err := s.repo.GetByID(ctx, entryID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -209,15 +212,15 @@ func (s *Service) DeleteEntry(ctx context.Context, entryID, actorID uuid.UUID, i
 		return ErrCannotDeleteOthers
 	}
 
-	return s.repo.Delete(ctx, entryID)
+	return s.repo.Delete(ctx, entryID, tenantID)
 }
 
 // ListByTask returns time entries for a task
-func (s *Service) ListByTask(ctx context.Context, taskID uuid.UUID, page, pageSize int) ([]models.TimeEntryWithUser, int, error) {
-	return s.repo.ListByTask(ctx, taskID, page, pageSize)
+func (s *Service) ListByTask(ctx context.Context, taskID, tenantID uuid.UUID, page, pageSize int) ([]models.TimeEntryWithUser, int, error) {
+	return s.repo.ListByTask(ctx, taskID, tenantID, page, pageSize)
 }
 
 // GetTaskTimeSummary returns the aggregate time summary for a task
-func (s *Service) GetTaskTimeSummary(ctx context.Context, taskID uuid.UUID) (*models.TimeEntrySummary, error) {
-	return s.repo.GetTaskTimeSummary(ctx, taskID)
+func (s *Service) GetTaskTimeSummary(ctx context.Context, taskID, tenantID uuid.UUID) (*models.TimeEntrySummary, error) {
+	return s.repo.GetTaskTimeSummary(ctx, taskID, tenantID)
 }

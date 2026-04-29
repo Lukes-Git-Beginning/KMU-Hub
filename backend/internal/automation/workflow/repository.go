@@ -12,12 +12,12 @@ import (
 type Repository interface {
 	Create(ctx context.Context, automation *models.Automation) error
 	Update(ctx context.Context, automation *models.Automation) error
-	Delete(ctx context.Context, id uuid.UUID) error
-	GetByID(ctx context.Context, id uuid.UUID) (*models.Automation, error)
+	Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error
+	GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.Automation, error)
 	List(ctx context.Context, filter ListFilter) ([]*models.Automation, int, error)
 	ListActiveByTriggerType(ctx context.Context, triggerType string) ([]*models.Automation, error)
 	ListActiveTimeBased(ctx context.Context) ([]*models.Automation, error)
-	SetActive(ctx context.Context, id uuid.UUID, active bool) error
+	SetActive(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, active bool) error
 	UpdateLastTriggered(ctx context.Context, id uuid.UUID, at time.Time) error
 }
 
@@ -39,6 +39,7 @@ type TemplateRepository interface {
 
 // ListFilter defines filtering criteria for listing automations.
 type ListFilter struct {
+	TenantID    uuid.UUID  // Required: always filters by tenant
 	OwnerID     *uuid.UUID
 	Scope       *string
 	TriggerType *string

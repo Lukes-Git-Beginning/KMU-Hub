@@ -61,9 +61,9 @@ func (s *Service) Create(ctx context.Context, msg *models.InboxMessage) error {
 	return s.repo.Create(ctx, msg)
 }
 
-// GetByID retrieves an inbox message by its ID.
-func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*models.InboxMessage, error) {
-	return s.repo.GetByID(ctx, id)
+// GetByID retrieves an inbox message by its ID, scoped to the tenant.
+func (s *Service) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.InboxMessage, error) {
+	return s.repo.GetByID(ctx, id, tenantID)
 }
 
 // List retrieves inbox messages with filtering and pagination.
@@ -75,8 +75,9 @@ func (s *Service) List(ctx context.Context, filter ListFilter) ([]*models.InboxM
 }
 
 // MarkRead marks an inbox message as read and syncs back to the originating system.
-func (s *Service) MarkRead(ctx context.Context, id uuid.UUID) error {
-	msg, err := s.repo.GetByID(ctx, id)
+// tenantID is used for the initial GetByID isolation check.
+func (s *Service) MarkRead(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	msg, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return err
 	}
@@ -130,8 +131,9 @@ func (s *Service) Snooze(ctx context.Context, id uuid.UUID, until time.Time) err
 }
 
 // Reply routes a reply back through the originating channel's adapter.
-func (s *Service) Reply(ctx context.Context, id uuid.UUID, userID uuid.UUID, body string) error {
-	msg, err := s.repo.GetByID(ctx, id)
+// tenantID is used for the initial GetByID isolation check.
+func (s *Service) Reply(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, userID uuid.UUID, body string) error {
+	msg, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return err
 	}

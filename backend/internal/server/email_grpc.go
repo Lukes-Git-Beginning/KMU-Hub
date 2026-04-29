@@ -18,6 +18,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/email/send"
 	"github.com/kmuhub/kmuhub/internal/email/signature"
 	emailsync "github.com/kmuhub/kmuhub/internal/email/sync"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	emailv1 "github.com/kmuhub/kmuhub/proto/email/v1"
 )
@@ -342,12 +343,17 @@ func (s *EmailGRPCServer) ListMessages(ctx context.Context, req *emailv1.ListMes
 }
 
 func (s *EmailGRPCServer) GetMessage(ctx context.Context, req *emailv1.GetMessageRequest) (*emailv1.GetMessageResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid message id")
 	}
 
-	msg, err := s.messageService.GetByID(ctx, id)
+	msg, err := s.messageService.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
@@ -411,17 +417,22 @@ func (s *EmailGRPCServer) MarkUnread(ctx context.Context, req *emailv1.MarkUnrea
 }
 
 func (s *EmailGRPCServer) ToggleStar(ctx context.Context, req *emailv1.ToggleStarRequest) (*emailv1.ToggleStarResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid message id")
 	}
 
-	if err := s.messageService.ToggleStar(ctx, id); err != nil {
+	if err := s.messageService.ToggleStar(ctx, id, tenantID); err != nil {
 		return nil, mapEmailError(err)
 	}
 
 	// Retrieve updated state
-	msg, err := s.messageService.GetByID(ctx, id)
+	msg, err := s.messageService.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
@@ -520,6 +531,11 @@ func (s *EmailGRPCServer) SaveDraft(ctx context.Context, req *emailv1.SaveDraftR
 }
 
 func (s *EmailGRPCServer) ReplyEmail(ctx context.Context, req *emailv1.ReplyEmailRequest) (*emailv1.ReplyEmailResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	accountID, err := uuid.Parse(req.AccountId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid account_id")
@@ -530,7 +546,7 @@ func (s *EmailGRPCServer) ReplyEmail(ctx context.Context, req *emailv1.ReplyEmai
 		return nil, status.Error(codes.InvalidArgument, "invalid original_message_id")
 	}
 
-	origMsg, err := s.messageService.GetByID(ctx, origID)
+	origMsg, err := s.messageService.GetByID(ctx, origID, tenantID)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
@@ -559,6 +575,11 @@ func (s *EmailGRPCServer) ReplyEmail(ctx context.Context, req *emailv1.ReplyEmai
 }
 
 func (s *EmailGRPCServer) ForwardEmail(ctx context.Context, req *emailv1.ForwardEmailRequest) (*emailv1.ForwardEmailResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	accountID, err := uuid.Parse(req.AccountId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid account_id")
@@ -569,7 +590,7 @@ func (s *EmailGRPCServer) ForwardEmail(ctx context.Context, req *emailv1.Forward
 		return nil, status.Error(codes.InvalidArgument, "invalid original_message_id")
 	}
 
-	origMsg, err := s.messageService.GetByID(ctx, origID)
+	origMsg, err := s.messageService.GetByID(ctx, origID, tenantID)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}

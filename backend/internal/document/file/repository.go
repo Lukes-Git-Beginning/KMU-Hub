@@ -11,10 +11,10 @@ import (
 // Repository defines the interface for file persistence.
 type Repository interface {
 	Create(ctx context.Context, file *models.DocumentFile) error
-	GetByID(ctx context.Context, id uuid.UUID) (*models.DocumentFile, error)
+	GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.DocumentFile, error)
 	List(ctx context.Context, filter ListFilter) ([]*models.DocumentFile, int, error)
-	Update(ctx context.Context, id uuid.UUID, input UpdateInput) error
-	SoftDelete(ctx context.Context, id uuid.UUID) error
+	Update(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, input UpdateInput) error
+	SoftDelete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error
 
 	// Versioning
 	CreateVersion(ctx context.Context, version *models.DocumentFileVersion) error
@@ -34,6 +34,7 @@ type Repository interface {
 
 // ListFilter contains filtering options for listing files.
 type ListFilter struct {
+	TenantID   uuid.UUID // Required: always filters by tenant
 	FolderID   *uuid.UUID
 	OwnerID    *uuid.UUID
 	IsFavorite *bool

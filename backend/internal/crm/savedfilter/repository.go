@@ -11,13 +11,13 @@ import (
 // Repository defines the interface for saved filter persistence
 type Repository interface {
 	Create(ctx context.Context, filter *models.SavedFilter) error
-	GetByID(ctx context.Context, id uuid.UUID) (*models.SavedFilter, error)
-	List(ctx context.Context, filter ListFilter) ([]*models.SavedFilter, error)
+	GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.SavedFilter, error)
+	List(ctx context.Context, tenantID uuid.UUID, filter ListFilter) ([]*models.SavedFilter, error)
 	Update(ctx context.Context, filter *models.SavedFilter) error
-	Delete(ctx context.Context, id uuid.UUID) error
+	Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error
 
 	// ClearDefault clears the is_default flag for a user's filters of a specific entity type
-	ClearDefault(ctx context.Context, userID uuid.UUID, entityType models.EntityType) error
+	ClearDefault(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, entityType models.EntityType) error
 }
 
 // ListFilter contains filtering options for listing saved filters

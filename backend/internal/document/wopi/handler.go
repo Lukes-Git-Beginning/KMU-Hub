@@ -21,9 +21,9 @@ const WOPIServerVersion = "kmuhub-wopi/1.0"
 // FileServiceInterface defines the minimal methods the WOPI handler needs from the file service.
 // Keeps this package decoupled from the file package to avoid circular imports.
 type FileServiceInterface interface {
-	GetByID(ctx context.Context, id uuid.UUID) (*models.DocumentFile, error)
-	GetDownloadURL(ctx context.Context, fileID uuid.UUID) (string, error)
-	CreateVersion(ctx context.Context, fileID uuid.UUID, input VersionInput) (*models.DocumentFileVersion, error)
+	GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.DocumentFile, error)
+	GetDownloadURL(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID) (string, error)
+	CreateVersion(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID, input VersionInput) (*models.DocumentFileVersion, error)
 }
 
 // VersionInput mirrors file.VersionInput for WOPI auto-versioning.
@@ -72,7 +72,8 @@ func (h *Handler) CheckFileInfo(w http.ResponseWriter, r *http.Request, fileIDSt
 		return
 	}
 
-	file, err := h.fileService.GetByID(r.Context(), fileID)
+	tenantID := parseTenantIDFromClaims(claims)
+	file, err := h.fileService.GetByID(r.Context(), fileID, tenantID)
 	if err != nil {
 		slog.Warn("WOPI CheckFileInfo: file not found", "file_id", fileIDStr, "error", err)
 		http.Error(w, "file not found", http.StatusNotFound)
@@ -118,7 +119,8 @@ func (h *Handler) GetFile(w http.ResponseWriter, r *http.Request, fileIDStr stri
 		return
 	}
 
-	file, err := h.fileService.GetByID(r.Context(), fileID)
+	tenantID := parseTenantIDFromClaims(claims)
+	file, err := h.fileService.GetByID(r.Context(), fileID, tenantID)
 	if err != nil {
 		http.Error(w, "file not found", http.StatusNotFound)
 		return
@@ -180,7 +182,8 @@ func (h *Handler) PutFile(w http.ResponseWriter, r *http.Request, fileIDStr stri
 		return
 	}
 
-	file, err := h.fileService.GetByID(r.Context(), fileID)
+	tenantID := parseTenantIDFromClaims(claims)
+	file, err := h.fileService.GetByID(r.Context(), fileID, tenantID)
 	if err != nil {
 		http.Error(w, "file not found", http.StatusNotFound)
 		return
@@ -195,7 +198,7 @@ func (h *Handler) PutFile(w http.ResponseWriter, r *http.Request, fileIDStr stri
 		UserID:   userID,
 	}
 
-	_, err = h.fileService.CreateVersion(r.Context(), fileID, versionInput)
+	_, err = h.fileService.CreateVersion(r.Context(), fileID, tenantID, versionInput)
 	if err != nil {
 		slog.Error("WOPI PutFile: failed to create version", "file_id", fileIDStr, "error", err)
 		http.Error(w, "failed to save file", http.StatusInternalServerError)
@@ -296,4 +299,17 @@ func (h *Handler) validateAccessToken(w http.ResponseWriter, r *http.Request) (*
 	}
 
 	return claims, true
+}
+
+// parseTenantIDFromClaims extracts the tenant UUID from WOPI token claims.
+// Falls back to uuid.Nil if the claim is missing or invalid (backward compat with old tokens).
+func parseTenantIDFromClaims(claims *WOPITokenClaims) uuid.UUID {
+	if claims.TenantID == "" {
+		return uuid.Nil
+	}
+	id, err := uuid.Parse(claims.TenantID)
+	if err != nil {
+		return uuid.Nil
+	}
+	return id
 }

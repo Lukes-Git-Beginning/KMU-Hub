@@ -93,12 +93,18 @@ func (s *CRMGRPCServer) SetImportExportServices(
 // ============================================================================
 
 func (s *CRMGRPCServer) CreateCustomField(ctx context.Context, req *crmv1.CreateCustomFieldRequest) (*crmv1.CreateCustomFieldResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	createdBy, err := uuid.Parse(req.CreatedBy)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid created_by user id")
 	}
 
 	input := customfield.CreateInput{
+		TenantID:   tenantID,
 		EntityType: models.EntityType(req.EntityType),
 		FieldName:  req.FieldName,
 		FieldLabel: req.FieldLabel,
@@ -124,12 +130,17 @@ func (s *CRMGRPCServer) CreateCustomField(ctx context.Context, req *crmv1.Create
 }
 
 func (s *CRMGRPCServer) GetCustomField(ctx context.Context, req *crmv1.GetCustomFieldRequest) (*crmv1.GetCustomFieldResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid custom field id")
 	}
 
-	field, err := s.customFieldService.GetByID(ctx, id)
+	field, err := s.customFieldService.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -140,7 +151,13 @@ func (s *CRMGRPCServer) GetCustomField(ctx context.Context, req *crmv1.GetCustom
 }
 
 func (s *CRMGRPCServer) ListCustomFields(ctx context.Context, req *crmv1.ListCustomFieldsRequest) (*crmv1.ListCustomFieldsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	input := customfield.ListInput{
+		TenantID: tenantID,
 		Page:     int(req.Page),
 		PageSize: int(req.PageSize),
 	}
@@ -167,12 +184,19 @@ func (s *CRMGRPCServer) ListCustomFields(ctx context.Context, req *crmv1.ListCus
 }
 
 func (s *CRMGRPCServer) UpdateCustomField(ctx context.Context, req *crmv1.UpdateCustomFieldRequest) (*crmv1.UpdateCustomFieldResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid custom field id")
 	}
 
-	input := customfield.UpdateInput{}
+	input := customfield.UpdateInput{
+		TenantID: tenantID,
+	}
 
 	if req.FieldLabel != nil {
 		input.FieldLabel = req.FieldLabel
@@ -202,12 +226,17 @@ func (s *CRMGRPCServer) UpdateCustomField(ctx context.Context, req *crmv1.Update
 }
 
 func (s *CRMGRPCServer) DeleteCustomField(ctx context.Context, req *crmv1.DeleteCustomFieldRequest) (*crmv1.DeleteCustomFieldResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid custom field id")
 	}
 
-	if err := s.customFieldService.Delete(ctx, id); err != nil {
+	if err := s.customFieldService.Delete(ctx, id, tenantID); err != nil {
 		return nil, mapCRMError(err)
 	}
 
@@ -1643,12 +1672,18 @@ func (s *CRMGRPCServer) Search(ctx context.Context, req *crmv1.SearchRequest) (*
 // ============================================================================
 
 func (s *CRMGRPCServer) CreateSavedFilter(ctx context.Context, req *crmv1.CreateSavedFilterRequest) (*crmv1.CreateSavedFilterResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	createdBy, err := uuid.Parse(req.CreatedBy)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid created_by user id")
 	}
 
 	input := savedfilter.CreateInput{
+		TenantID:   tenantID,
 		Name:       req.Name,
 		EntityType: req.EntityType,
 		FilterJSON: req.FilterJson,
@@ -1667,12 +1702,17 @@ func (s *CRMGRPCServer) CreateSavedFilter(ctx context.Context, req *crmv1.Create
 }
 
 func (s *CRMGRPCServer) GetSavedFilter(ctx context.Context, req *crmv1.GetSavedFilterRequest) (*crmv1.GetSavedFilterResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid saved filter id")
 	}
 
-	filter, err := s.savedFilterService.GetByID(ctx, id)
+	filter, err := s.savedFilterService.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -1683,7 +1723,14 @@ func (s *CRMGRPCServer) GetSavedFilter(ctx context.Context, req *crmv1.GetSavedF
 }
 
 func (s *CRMGRPCServer) ListSavedFilters(ctx context.Context, req *crmv1.ListSavedFiltersRequest) (*crmv1.ListSavedFiltersResponse, error) {
-	input := savedfilter.ListInput{}
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	input := savedfilter.ListInput{
+		TenantID: tenantID,
+	}
 
 	if req.EntityType != "" {
 		input.EntityType = &req.EntityType
@@ -1712,13 +1759,18 @@ func (s *CRMGRPCServer) ListSavedFilters(ctx context.Context, req *crmv1.ListSav
 }
 
 func (s *CRMGRPCServer) UpdateSavedFilter(ctx context.Context, req *crmv1.UpdateSavedFilterRequest) (*crmv1.UpdateSavedFilterResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid saved filter id")
 	}
 
-	// Get the filter first to extract the user ID
-	existingFilter, err := s.savedFilterService.GetByID(ctx, id)
+	// Get the filter first to extract the user ID (already tenant-scoped)
+	existingFilter, err := s.savedFilterService.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -1735,7 +1787,7 @@ func (s *CRMGRPCServer) UpdateSavedFilter(ctx context.Context, req *crmv1.Update
 		input.IsDefault = req.IsDefault
 	}
 
-	filter, err := s.savedFilterService.Update(ctx, id, existingFilter.CreatedBy, input)
+	filter, err := s.savedFilterService.Update(ctx, id, tenantID, existingFilter.CreatedBy, input)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -1746,18 +1798,23 @@ func (s *CRMGRPCServer) UpdateSavedFilter(ctx context.Context, req *crmv1.Update
 }
 
 func (s *CRMGRPCServer) DeleteSavedFilter(ctx context.Context, req *crmv1.DeleteSavedFilterRequest) (*crmv1.DeleteSavedFilterResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid saved filter id")
 	}
 
-	// Get the filter first to extract the user ID
-	existingFilter, err := s.savedFilterService.GetByID(ctx, id)
+	// Get the filter first to extract the user ID (already tenant-scoped)
+	existingFilter, err := s.savedFilterService.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
 
-	if err := s.savedFilterService.Delete(ctx, id, existingFilter.CreatedBy); err != nil {
+	if err := s.savedFilterService.Delete(ctx, id, tenantID, existingFilter.CreatedBy); err != nil {
 		return nil, mapCRMError(err)
 	}
 
@@ -1769,6 +1826,11 @@ func (s *CRMGRPCServer) DeleteSavedFilter(ctx context.Context, req *crmv1.Delete
 // ============================================================================
 
 func (s *CRMGRPCServer) GetPipelineReport(ctx context.Context, req *crmv1.GetPipelineReportRequest) (*crmv1.GetPipelineReportResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant context")
+	}
+
 	startDate, err := parseDate(req.StartDate)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid start_date format")
@@ -1780,6 +1842,7 @@ func (s *CRMGRPCServer) GetPipelineReport(ctx context.Context, req *crmv1.GetPip
 	}
 
 	input := report.PipelineReportInput{
+		TenantID:  tenantID,
 		StartDate: startDate,
 		EndDate:   endDate,
 	}
@@ -1817,6 +1880,11 @@ func (s *CRMGRPCServer) GetPipelineReport(ctx context.Context, req *crmv1.GetPip
 }
 
 func (s *CRMGRPCServer) GetConversionReport(ctx context.Context, req *crmv1.GetConversionReportRequest) (*crmv1.GetConversionReportResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant context")
+	}
+
 	startDate, err := parseDate(req.StartDate)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid start_date format")
@@ -1828,6 +1896,7 @@ func (s *CRMGRPCServer) GetConversionReport(ctx context.Context, req *crmv1.GetC
 	}
 
 	input := report.ConversionReportInput{
+		TenantID:  tenantID,
 		StartDate: startDate,
 		EndDate:   endDate,
 	}
@@ -1856,6 +1925,11 @@ func (s *CRMGRPCServer) GetConversionReport(ctx context.Context, req *crmv1.GetC
 }
 
 func (s *CRMGRPCServer) GetActivityReport(ctx context.Context, req *crmv1.GetActivityReportRequest) (*crmv1.GetActivityReportResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant context")
+	}
+
 	startDate, err := parseDate(req.StartDate)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid start_date format")
@@ -1867,6 +1941,7 @@ func (s *CRMGRPCServer) GetActivityReport(ctx context.Context, req *crmv1.GetAct
 	}
 
 	input := report.ActivityReportInput{
+		TenantID:  tenantID,
 		StartDate: startDate,
 		EndDate:   endDate,
 	}

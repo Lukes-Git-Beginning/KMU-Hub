@@ -513,40 +513,46 @@ func NewPostgresCallRepository(pool *pgxpool.Pool) *PostgresCallRepository {
 func (r *PostgresCallRepository) CreateSession(ctx context.Context, s *CallSession) error {
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO dialer_call_sessions
-		    (id, campaign_contact_id, call_session_id, agent_id, outcome_id,
+		    (id, tenant_id, campaign_contact_id, call_session_id, agent_id, outcome_id,
 		     duration_seconds, notes, next_action, appointment_id,
 		     created_at, updated_at, wrap_up_completed_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-		s.ID, s.CampaignContactID, s.CallSessionID, s.AgentID, s.OutcomeID,
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+		s.ID, s.TenantID, s.CampaignContactID, s.CallSessionID, s.AgentID, s.OutcomeID,
 		s.DurationSeconds, s.Notes, s.NextAction, s.AppointmentID,
 		s.CreatedAt, s.UpdatedAt, s.WrapUpCompletedAt,
 	)
 	return err
 }
 
-func (r *PostgresCallRepository) GetSessionByID(ctx context.Context, id uuid.UUID) (*CallSession, error) {
+func (r *PostgresCallRepository) GetSessionByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*CallSession, error) {
 	row := r.pool.QueryRow(ctx,
 		`SELECT id, campaign_contact_id, call_session_id, agent_id, outcome_id,
 		        duration_seconds, notes, next_action, appointment_id,
 		        created_at, updated_at, wrap_up_completed_at
-		 FROM dialer_call_sessions WHERE id = $1`, id,
+		 FROM dialer_call_sessions WHERE id = $1 AND tenant_id = $2`, id, tenantID,
 	)
 	return scanCallSession(row)
 }
 
 func (r *PostgresCallRepository) UpdateSession(ctx context.Context, s *CallSession) error {
-	_, err := r.pool.Exec(ctx,
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE dialer_call_sessions
 		 SET call_session_id = $1, outcome_id = $2, duration_seconds = $3,
 		     notes = $4, next_action = $5, appointment_id = $6,
 		     updated_at = $7, wrap_up_completed_at = $8
-		 WHERE id = $9`,
+		 WHERE id = $9 AND tenant_id = $10`,
 		s.CallSessionID, s.OutcomeID, s.DurationSeconds,
 		s.Notes, s.NextAction, s.AppointmentID,
 		s.UpdatedAt, s.WrapUpCompletedAt,
-		s.ID,
+		s.ID, s.TenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrCallSessionNotFound
+	}
+	return nil
 }
 
 func (r *PostgresCallRepository) AppendEvent(ctx context.Context, e *CallEvent) error {

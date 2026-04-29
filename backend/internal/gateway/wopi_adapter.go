@@ -32,7 +32,8 @@ func (a *WOPIFileAdapter) getClient() (documentv1.DocumentServiceClient, error) 
 }
 
 // GetByID retrieves a document file by ID via gRPC and converts to the domain model.
-func (a *WOPIFileAdapter) GetByID(ctx context.Context, id uuid.UUID) (*models.DocumentFile, error) {
+// tenantID is embedded in the gRPC JWT metadata by the gateway middleware.
+func (a *WOPIFileAdapter) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.DocumentFile, error) {
 	client, err := a.getClient()
 	if err != nil {
 		return nil, err
@@ -62,7 +63,8 @@ func (a *WOPIFileAdapter) GetByID(ctx context.Context, id uuid.UUID) (*models.Do
 }
 
 // GetDownloadURL returns a presigned download URL via gRPC.
-func (a *WOPIFileAdapter) GetDownloadURL(ctx context.Context, fileID uuid.UUID) (string, error) {
+// tenantID is embedded in the gRPC JWT metadata by the gateway middleware.
+func (a *WOPIFileAdapter) GetDownloadURL(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID) (string, error) {
 	client, err := a.getClient()
 	if err != nil {
 		return "", err
@@ -82,7 +84,8 @@ func (a *WOPIFileAdapter) GetDownloadURL(ctx context.Context, fileID uuid.UUID) 
 // content save is handled by the gateway reading the body and uploading to
 // MinIO directly, then calling the gRPC to record the version metadata.
 // For simplicity in MVP, we return a stub version.
-func (a *WOPIFileAdapter) CreateVersion(ctx context.Context, fileID uuid.UUID, input wopi.VersionInput) (*models.DocumentFileVersion, error) {
+// tenantID is passed from the WOPI token claims for proper isolation.
+func (a *WOPIFileAdapter) CreateVersion(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID, input wopi.VersionInput) (*models.DocumentFileVersion, error) {
 	client, err := a.getClient()
 	if err != nil {
 		return nil, err

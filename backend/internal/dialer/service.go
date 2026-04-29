@@ -521,6 +521,7 @@ func (s *Service) ListCampaignContacts(
 // an INITIATED event, and marks the contact as in_progress.
 func (s *Service) InitiateDialerCall(
 	ctx context.Context,
+	tenantID uuid.UUID,
 	campaignContactID uuid.UUID,
 	agentID uuid.UUID,
 	videoCallSessionID *uuid.UUID,
@@ -541,6 +542,7 @@ func (s *Service) InitiateDialerCall(
 
 	session := &CallSession{
 		ID:                uuid.New(),
+		TenantID:          tenantID,
 		CampaignContactID: campaignContactID,
 		CallSessionID:     videoCallSessionID,
 		AgentID:           agentID,
@@ -592,6 +594,7 @@ func (s *Service) InitiateDialerCall(
 // duration, updates the contact queue status, and creates a CRM activity.
 func (s *Service) LogCallOutcome(
 	ctx context.Context,
+	tenantID uuid.UUID,
 	sessionID uuid.UUID,
 	outcomeID uuid.UUID,
 	notes *string,
@@ -599,7 +602,7 @@ func (s *Service) LogCallOutcome(
 	callbackAt *time.Time,
 	appointmentID *uuid.UUID,
 ) (*CallSession, error) {
-	session, err := s.calls.GetSessionByID(ctx, sessionID)
+	session, err := s.calls.GetSessionByID(ctx, sessionID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("log outcome – load session: %w", err)
 	}
@@ -738,8 +741,8 @@ func (s *Service) LogCallOutcome(
 
 // SaveCallNotes persists mid-call or post-call notes on a session without
 // changing any other fields.
-func (s *Service) SaveCallNotes(ctx context.Context, sessionID uuid.UUID, notes string) error {
-	session, err := s.calls.GetSessionByID(ctx, sessionID)
+func (s *Service) SaveCallNotes(ctx context.Context, tenantID uuid.UUID, sessionID uuid.UUID, notes string) error {
+	session, err := s.calls.GetSessionByID(ctx, sessionID, tenantID)
 	if err != nil {
 		return fmt.Errorf("save notes – load session: %w", err)
 	}
@@ -764,8 +767,8 @@ func (s *Service) SaveCallNotes(ctx context.Context, sessionID uuid.UUID, notes 
 // CompleteWrapUp marks the agent's wrap-up phase as finished, appends a
 // COMPLETED event, refreshes campaign counts, and auto-completes the campaign
 // if all contacts are done.
-func (s *Service) CompleteWrapUp(ctx context.Context, sessionID uuid.UUID) error {
-	session, err := s.calls.GetSessionByID(ctx, sessionID)
+func (s *Service) CompleteWrapUp(ctx context.Context, tenantID uuid.UUID, sessionID uuid.UUID) error {
+	session, err := s.calls.GetSessionByID(ctx, sessionID, tenantID)
 	if err != nil {
 		return fmt.Errorf("complete wrap-up – load session: %w", err)
 	}

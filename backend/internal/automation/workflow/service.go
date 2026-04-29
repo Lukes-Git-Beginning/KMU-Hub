@@ -116,14 +116,14 @@ func (s *Service) Update(ctx context.Context, auto *models.Automation) error {
 	return s.repo.Update(ctx, auto)
 }
 
-// Delete removes an automation by ID.
-func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
-	return s.repo.Delete(ctx, id)
+// Delete removes an automation by ID, scoped to the tenant.
+func (s *Service) Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	return s.repo.Delete(ctx, id, tenantID)
 }
 
-// GetByID retrieves an automation by ID.
-func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*models.Automation, error) {
-	return s.repo.GetByID(ctx, id)
+// GetByID retrieves an automation by ID, scoped to the tenant.
+func (s *Service) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.Automation, error) {
+	return s.repo.GetByID(ctx, id, tenantID)
 }
 
 // List retrieves automations matching the given filter.
@@ -141,9 +141,9 @@ func (s *Service) List(ctx context.Context, filter ListFilter) ([]*models.Automa
 // Enable/Disable
 // ============================================================================
 
-// SetActive enables or disables an automation.
-func (s *Service) SetActive(ctx context.Context, id uuid.UUID, active bool) error {
-	return s.repo.SetActive(ctx, id, active)
+// SetActive enables or disables an automation, scoped to the tenant.
+func (s *Service) SetActive(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, active bool) error {
+	return s.repo.SetActive(ctx, id, tenantID, active)
 }
 
 // ============================================================================
@@ -194,8 +194,8 @@ func (s *Service) GetTemplate(ctx context.Context, id string) (*models.Automatio
 	return s.templateRepo.GetTemplate(ctx, id)
 }
 
-// CreateFromTemplate creates a new automation from a template.
-func (s *Service) CreateFromTemplate(ctx context.Context, templateID string, ownerID uuid.UUID, name string) (*models.Automation, error) {
+// CreateFromTemplate creates a new automation from a template for a given tenant.
+func (s *Service) CreateFromTemplate(ctx context.Context, templateID string, tenantID uuid.UUID, ownerID uuid.UUID, name string) (*models.Automation, error) {
 	tmpl, err := s.templateRepo.GetTemplate(ctx, templateID)
 	if err != nil {
 		return nil, err
@@ -206,6 +206,7 @@ func (s *Service) CreateFromTemplate(ctx context.Context, templateID string, own
 
 	auto := &models.Automation{
 		ID:            uuid.New(),
+		TenantID:      tenantID,
 		Name:          name,
 		Description:   tmpl.Description,
 		Scope:         models.AutomationScopePersonal,
@@ -243,15 +244,15 @@ type AutomationStats struct {
 	SuccessRate       float64 `json:"success_rate"`
 }
 
-// GetStats returns aggregate automation statistics.
-func (s *Service) GetStats(ctx context.Context) (*AutomationStats, error) {
-	_, totalCount, err := s.repo.List(ctx, ListFilter{Limit: 1})
+// GetStats returns aggregate automation statistics for a tenant.
+func (s *Service) GetStats(ctx context.Context, tenantID uuid.UUID) (*AutomationStats, error) {
+	_, totalCount, err := s.repo.List(ctx, ListFilter{TenantID: tenantID, Limit: 1})
 	if err != nil {
 		return nil, err
 	}
 
 	isActive := true
-	_, activeCount, err := s.repo.List(ctx, ListFilter{IsActive: &isActive, Limit: 1})
+	_, activeCount, err := s.repo.List(ctx, ListFilter{TenantID: tenantID, IsActive: &isActive, Limit: 1})
 	if err != nil {
 		return nil, err
 	}
@@ -332,8 +333,9 @@ type DryRunStep struct {
 }
 
 // DryRun simulates an automation execution without calling real action gRPC methods.
-func (s *Service) DryRun(ctx context.Context, automationID uuid.UUID, sampleEnv map[string]any) (*DryRunResult, error) {
-	auto, err := s.repo.GetByID(ctx, automationID)
+// tenantID is required for isolation.
+func (s *Service) DryRun(ctx context.Context, automationID uuid.UUID, tenantID uuid.UUID, sampleEnv map[string]any) (*DryRunResult, error) {
+	auto, err := s.repo.GetByID(ctx, automationID, tenantID)
 	if err != nil {
 		return nil, err
 	}

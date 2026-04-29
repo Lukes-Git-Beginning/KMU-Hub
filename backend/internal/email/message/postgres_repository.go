@@ -31,14 +31,14 @@ func (r *PostgresRepository) Create(ctx context.Context, msg *models.EmailMessag
 	bccJSON, _ := json.Marshal(msg.BccAddresses)
 
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO email_messages (id, account_id, folder_id, uid, message_id,
+		`INSERT INTO email_messages (id, tenant_id, account_id, folder_id, uid, message_id,
 			in_reply_to, "references", thread_id, from_name, from_email,
 			to_addresses, cc_addresses, bcc_addresses, subject, preview,
 			body_text, body_html, is_read, is_starred, is_draft,
 			has_attachments, date, size_bytes, raw_headers, created_at, updated_at)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
-			$14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)`,
-		msg.ID, msg.AccountID, msg.FolderID, msg.UID, msg.MessageID,
+			$14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)`,
+		msg.ID, msg.TenantID, msg.AccountID, msg.FolderID, msg.UID, msg.MessageID,
 		msg.InReplyTo, msg.References, msg.ThreadID, msg.FromName, msg.FromEmail,
 		toJSON, ccJSON, bccJSON, msg.Subject, msg.Preview,
 		msg.BodyText, msg.BodyHTML, msg.IsRead, msg.IsStarred, msg.IsDraft,
@@ -48,14 +48,14 @@ func (r *PostgresRepository) Create(ctx context.Context, msg *models.EmailMessag
 	return err
 }
 
-func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.EmailMessage, error) {
+func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.EmailMessage, error) {
 	row := r.pool.QueryRow(ctx,
 		`SELECT id, account_id, folder_id, uid, message_id, in_reply_to,
 			"references", thread_id, from_name, from_email, to_addresses,
 			cc_addresses, bcc_addresses, subject, preview, body_text, body_html,
 			is_read, is_starred, is_draft, has_attachments, date, size_bytes,
 			raw_headers, created_at, updated_at
-		 FROM email_messages WHERE id = $1`, id,
+		 FROM email_messages WHERE id = $1 AND tenant_id = $2`, id, tenantID,
 	)
 	return scanMessage(row)
 }

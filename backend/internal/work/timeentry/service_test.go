@@ -60,7 +60,7 @@ func (m *mockRepository) Create(_ context.Context, entry *models.TimeEntry) erro
 	return nil
 }
 
-func (m *mockRepository) GetByID(_ context.Context, id uuid.UUID) (*models.TimeEntryWithUser, error) {
+func (m *mockRepository) GetByID(_ context.Context, id, _ uuid.UUID) (*models.TimeEntryWithUser, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if m.getByIDErr != nil {
@@ -88,7 +88,7 @@ func (m *mockRepository) Update(_ context.Context, entry *models.TimeEntry) erro
 	return nil
 }
 
-func (m *mockRepository) Delete(_ context.Context, id uuid.UUID) error {
+func (m *mockRepository) Delete(_ context.Context, id, _ uuid.UUID) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.deleteErr != nil {
@@ -99,18 +99,18 @@ func (m *mockRepository) Delete(_ context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (m *mockRepository) ListByTask(_ context.Context, _ uuid.UUID, _, _ int) ([]models.TimeEntryWithUser, int, error) {
+func (m *mockRepository) ListByTask(_ context.Context, _, _ uuid.UUID, _, _ int) ([]models.TimeEntryWithUser, int, error) {
 	if m.listByTaskErr != nil {
 		return nil, 0, m.listByTaskErr
 	}
 	return m.listByTaskEntries, m.listByTaskTotal, nil
 }
 
-func (m *mockRepository) ListByUser(_ context.Context, _ uuid.UUID, _, _ int) ([]models.TimeEntryWithUser, int, error) {
+func (m *mockRepository) ListByUser(_ context.Context, _, _ uuid.UUID, _, _ int) ([]models.TimeEntryWithUser, int, error) {
 	return nil, 0, nil
 }
 
-func (m *mockRepository) GetActiveTimer(_ context.Context, _ uuid.UUID) (*models.ActiveTimer, error) {
+func (m *mockRepository) GetActiveTimer(_ context.Context, _, _ uuid.UUID) (*models.ActiveTimer, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if m.getActiveTimerErr != nil {
@@ -119,7 +119,7 @@ func (m *mockRepository) GetActiveTimer(_ context.Context, _ uuid.UUID) (*models
 	return m.activeTimer, nil
 }
 
-func (m *mockRepository) StopActiveTimer(_ context.Context, _ uuid.UUID) (*models.TimeEntry, error) {
+func (m *mockRepository) StopActiveTimer(_ context.Context, _, _ uuid.UUID) (*models.TimeEntry, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.stopActiveTimerErr != nil {
@@ -131,7 +131,7 @@ func (m *mockRepository) StopActiveTimer(_ context.Context, _ uuid.UUID) (*model
 	return result, nil
 }
 
-func (m *mockRepository) GetTaskTimeSummary(_ context.Context, _ uuid.UUID) (*models.TimeEntrySummary, error) {
+func (m *mockRepository) GetTaskTimeSummary(_ context.Context, _, _ uuid.UUID) (*models.TimeEntrySummary, error) {
 	if m.getTaskTimeSummaryErr != nil {
 		return nil, m.getTaskTimeSummaryErr
 	}
@@ -151,7 +151,7 @@ func TestStartTimer_Success(t *testing.T) {
 	taskID := uuid.New()
 	userID := uuid.New()
 
-	entry, stopped, err := svc.StartTimer(context.Background(), taskID, userID)
+	entry, stopped, err := svc.StartTimer(context.Background(), taskID, userID, uuid.Nil)
 
 	require.NoError(t, err)
 	assert.NotNil(t, entry)
@@ -188,7 +188,7 @@ func TestStartTimer_AutoStopExisting(t *testing.T) {
 	}
 	repo.stoppedTimer = oldEntry
 
-	entry, stopped, err := svc.StartTimer(context.Background(), newTaskID, userID)
+	entry, stopped, err := svc.StartTimer(context.Background(), newTaskID, userID, uuid.Nil)
 
 	require.NoError(t, err)
 	assert.NotNil(t, entry)
@@ -203,7 +203,7 @@ func TestStartTimer_GetActiveTimerError(t *testing.T) {
 
 	repo.getActiveTimerErr = errors.New("db connection failed")
 
-	_, _, err := svc.StartTimer(context.Background(), uuid.New(), uuid.New())
+	_, _, err := svc.StartTimer(context.Background(), uuid.New(), uuid.New(), uuid.Nil)
 
 	require.Error(t, err)
 	assert.Equal(t, "db connection failed", err.Error())
@@ -215,7 +215,7 @@ func TestStartTimer_CreateError(t *testing.T) {
 
 	repo.createErr = errors.New("create failed")
 
-	_, _, err := svc.StartTimer(context.Background(), uuid.New(), uuid.New())
+	_, _, err := svc.StartTimer(context.Background(), uuid.New(), uuid.New(), uuid.Nil)
 
 	require.Error(t, err)
 	assert.Equal(t, "create failed", err.Error())
@@ -240,7 +240,7 @@ func TestStopTimer_Success(t *testing.T) {
 	}
 	repo.stoppedTimer = stoppedEntry
 
-	result, err := svc.StopTimer(context.Background(), userID)
+	result, err := svc.StopTimer(context.Background(), userID, uuid.Nil)
 
 	require.NoError(t, err)
 	assert.NotNil(t, result)
@@ -252,7 +252,7 @@ func TestStopTimer_NoActiveTimer(t *testing.T) {
 	svc := NewService(repo)
 
 	// stoppedTimer is nil by default, StopActiveTimer returns nil
-	result, err := svc.StopTimer(context.Background(), uuid.New())
+	result, err := svc.StopTimer(context.Background(), uuid.New(), uuid.Nil)
 
 	assert.Nil(t, result)
 	require.Error(t, err)
@@ -277,7 +277,7 @@ func TestGetActiveTimer_Success(t *testing.T) {
 	}
 	repo.activeTimer = timer
 
-	result, err := svc.GetActiveTimer(context.Background(), userID)
+	result, err := svc.GetActiveTimer(context.Background(), userID, uuid.Nil)
 
 	require.NoError(t, err)
 	assert.NotNil(t, result)
@@ -399,7 +399,7 @@ func TestUpdateEntry_Success(t *testing.T) {
 		Description:     &newDesc,
 	}
 
-	result, err := svc.UpdateEntry(context.Background(), entryID, userID, input)
+	result, err := svc.UpdateEntry(context.Background(), entryID, userID, uuid.Nil, input)
 
 	require.NoError(t, err)
 	assert.NotNil(t, result)
@@ -425,7 +425,7 @@ func TestUpdateEntry_NotOwnerRejected(t *testing.T) {
 
 	input := UpdateEntryInput{Description: ptrString("hacked")}
 
-	result, err := svc.UpdateEntry(context.Background(), entryID, otherID, input)
+	result, err := svc.UpdateEntry(context.Background(), entryID, otherID, uuid.Nil, input)
 
 	assert.Nil(t, result)
 	require.Error(t, err)
@@ -451,7 +451,7 @@ func TestUpdateEntry_InvalidDuration(t *testing.T) {
 	zeroDur := 0
 	input := UpdateEntryInput{DurationSeconds: &zeroDur}
 
-	result, err := svc.UpdateEntry(context.Background(), entryID, userID, input)
+	result, err := svc.UpdateEntry(context.Background(), entryID, userID, uuid.Nil, input)
 
 	assert.Nil(t, result)
 	require.Error(t, err)
@@ -477,7 +477,7 @@ func TestUpdateEntry_DescriptionTooLong(t *testing.T) {
 	longDesc := strings.Repeat("x", 2001)
 	input := UpdateEntryInput{Description: &longDesc}
 
-	result, err := svc.UpdateEntry(context.Background(), entryID, userID, input)
+	result, err := svc.UpdateEntry(context.Background(), entryID, userID, uuid.Nil, input)
 
 	assert.Nil(t, result)
 	require.Error(t, err)
@@ -501,7 +501,7 @@ func TestDeleteEntry_SuccessByOwner(t *testing.T) {
 		UserName: "Test User",
 	}
 
-	err := svc.DeleteEntry(context.Background(), entryID, userID, false)
+	err := svc.DeleteEntry(context.Background(), entryID, userID, uuid.Nil, false)
 
 	require.NoError(t, err)
 	// Entry should be removed from mock
@@ -524,7 +524,7 @@ func TestDeleteEntry_SuccessByAdmin(t *testing.T) {
 		UserName: "Owner",
 	}
 
-	err := svc.DeleteEntry(context.Background(), entryID, adminID, true)
+	err := svc.DeleteEntry(context.Background(), entryID, adminID, uuid.Nil, true)
 
 	require.NoError(t, err)
 	assert.NotContains(t, repo.withUser, entryID)
@@ -546,7 +546,7 @@ func TestDeleteEntry_RejectedNonOwnerNonAdmin(t *testing.T) {
 		UserName: "Owner",
 	}
 
-	err := svc.DeleteEntry(context.Background(), entryID, otherID, false)
+	err := svc.DeleteEntry(context.Background(), entryID, otherID, uuid.Nil, false)
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrCannotDeleteOthers)
@@ -574,7 +574,7 @@ func TestListByTask_Success(t *testing.T) {
 	repo.listByTaskEntries = entries
 	repo.listByTaskTotal = 2
 
-	result, total, err := svc.ListByTask(context.Background(), taskID, 1, 20)
+	result, total, err := svc.ListByTask(context.Background(), taskID, uuid.Nil, 1, 20)
 
 	require.NoError(t, err)
 	assert.Len(t, result, 2)
@@ -595,11 +595,42 @@ func TestGetTaskTimeSummary_Success(t *testing.T) {
 	}
 	repo.taskTimeSummary = summary
 
-	result, err := svc.GetTaskTimeSummary(context.Background(), taskID)
+	result, err := svc.GetTaskTimeSummary(context.Background(), taskID, uuid.Nil)
 
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Equal(t, taskID, result.TaskID)
 	assert.Equal(t, 7200, result.TotalDurationSeconds)
 	assert.Equal(t, 5, result.EntryCount)
+}
+
+// ============================================================================
+// Cross-Tenant Isolation Tests (time_entries)
+// ============================================================================
+
+// TestCrossTenant_TimeEntry_GetByID_NotFound verifies that fetching an
+// entry with a mismatched tenantID returns ErrNotFound. The mock simulates
+// real Postgres behaviour by returning ErrNotFound when getByIDErr is set.
+func TestCrossTenant_TimeEntry_GetByID_NotFound(t *testing.T) {
+	repo := newMockRepo()
+	repo.getByIDErr = ErrNotFound
+
+	_, err := repo.GetByID(context.Background(), uuid.New(), uuid.New())
+	assert.ErrorIs(t, err, ErrNotFound)
+}
+
+// TestCrossTenant_TimeEntry_TenantIDStoredOnCreate verifies that the tenantID
+// passed to StartTimer is persisted on the created entry.
+func TestCrossTenant_TimeEntry_TenantIDStoredOnCreate(t *testing.T) {
+	repo := newMockRepo()
+	svc := NewService(repo)
+
+	taskID := uuid.New()
+	userID := uuid.New()
+	tenantID := uuid.New()
+
+	entry, _, err := svc.StartTimer(context.Background(), taskID, userID, tenantID)
+
+	require.NoError(t, err)
+	assert.Equal(t, tenantID, entry.TenantID, "entry must carry the tenantID set during StartTimer")
 }

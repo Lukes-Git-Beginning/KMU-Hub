@@ -24,23 +24,26 @@ func NewService(repo Repository) *Service {
 
 // LogEvent records an audit event. It never returns an error to the caller;
 // failures are logged internally to avoid disrupting business operations.
+// tenantID is the tenant that owns this audit entry (sentinel UUID for system events).
 func (s *Service) LogEvent(
 	ctx context.Context,
+	tenantID uuid.UUID,
 	userID *uuid.UUID,
 	action, target, targetType string,
 	details map[string]interface{},
 	ipAddress, userAgent, result string,
 ) {
 	entry := &models.AuditEntry{
-		ID:        uuid.New(),
-		Timestamp: time.Now().UTC(),
-		UserID:    userID,
-		Action:    action,
-		Target:    target,
+		ID:         uuid.New(),
+		TenantID:   tenantID,
+		Timestamp:  time.Now().UTC(),
+		UserID:     userID,
+		Action:     action,
+		Target:     target,
 		TargetType: targetType,
-		IPAddress: ipAddress,
-		UserAgent: userAgent,
-		Result:    result,
+		IPAddress:  ipAddress,
+		UserAgent:  userAgent,
+		Result:     result,
 	}
 
 	if details != nil {

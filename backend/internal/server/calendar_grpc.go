@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/work/calendar"
 	"github.com/kmuhub/kmuhub/internal/work/event"
@@ -381,12 +382,17 @@ func (s *CalendarGRPCServer) CreateEvent(ctx context.Context, req *calv1.CreateE
 }
 
 func (s *CalendarGRPCServer) GetEvent(ctx context.Context, req *calv1.GetEventRequest) (*calv1.GetEventResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid event id")
 	}
 
-	evt, err := s.eventService.Get(ctx, id)
+	evt, err := s.eventService.Get(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapCalendarError(err)
 	}
@@ -399,6 +405,11 @@ func (s *CalendarGRPCServer) GetEvent(ctx context.Context, req *calv1.GetEventRe
 }
 
 func (s *CalendarGRPCServer) ListEventsInRange(ctx context.Context, req *calv1.ListEventsInRangeRequest) (*calv1.ListEventsInRangeResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	var calendarIDs []uuid.UUID
 	for _, idStr := range req.CalendarIds {
 		id, parseErr := uuid.Parse(idStr)
@@ -416,7 +427,7 @@ func (s *CalendarGRPCServer) ListEventsInRange(ctx context.Context, req *calv1.L
 	start := req.Start.AsTime()
 	end := req.End.AsTime()
 
-	events, err := s.eventService.ListEventsInRange(ctx, calendarIDs, start, end, userID)
+	events, err := s.eventService.ListEventsInRange(ctx, calendarIDs, start, end, userID, tenantID)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list events")
 	}
@@ -481,7 +492,12 @@ func (s *CalendarGRPCServer) UpdateEvent(ctx context.Context, req *calv1.UpdateE
 		input.HasVideoCall = req.HasVideoCall
 	}
 
-	evt, err := s.eventService.UpdateEvent(ctx, eventID, actorID, input)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	evt, err := s.eventService.UpdateEvent(ctx, eventID, actorID, tenantID, input)
 	if err != nil {
 		return nil, mapCalendarError(err)
 	}
@@ -492,13 +508,18 @@ func (s *CalendarGRPCServer) UpdateEvent(ctx context.Context, req *calv1.UpdateE
 }
 
 func (s *CalendarGRPCServer) DeleteEvent(ctx context.Context, req *calv1.DeleteEventRequest) (*calv1.DeleteEventResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	eventID, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid event id")
 	}
 
 	// Gateway handles auth; use uuid.Nil as actorID
-	if err := s.eventService.DeleteEvent(ctx, eventID, uuid.Nil); err != nil {
+	if err := s.eventService.DeleteEvent(ctx, eventID, uuid.Nil, tenantID); err != nil {
 		return nil, mapCalendarError(err)
 	}
 
@@ -564,7 +585,12 @@ func (s *CalendarGRPCServer) UpdateRecurringEvent(ctx context.Context, req *calv
 		changes.CategoryID = &catID
 	}
 
-	evt, err := s.eventService.UpdateRecurringEvent(ctx, eventID, actorID, scope, originalDate, changes)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	evt, err := s.eventService.UpdateRecurringEvent(ctx, eventID, actorID, tenantID, scope, originalDate, changes)
 	if err != nil {
 		return nil, mapCalendarError(err)
 	}
@@ -575,6 +601,11 @@ func (s *CalendarGRPCServer) UpdateRecurringEvent(ctx context.Context, req *calv
 }
 
 func (s *CalendarGRPCServer) RSVPToEvent(ctx context.Context, req *calv1.RSVPToEventRequest) (*calv1.RSVPToEventResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	eventID, err := uuid.Parse(req.EventId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid event_id")
@@ -585,7 +616,7 @@ func (s *CalendarGRPCServer) RSVPToEvent(ctx context.Context, req *calv1.RSVPToE
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	if err := s.eventService.RSVPToEvent(ctx, eventID, userID, req.RsvpStatus); err != nil {
+	if err := s.eventService.RSVPToEvent(ctx, eventID, userID, tenantID, req.RsvpStatus); err != nil {
 		return nil, mapCalendarError(err)
 	}
 
@@ -593,12 +624,17 @@ func (s *CalendarGRPCServer) RSVPToEvent(ctx context.Context, req *calv1.RSVPToE
 }
 
 func (s *CalendarGRPCServer) ListEventAttendees(ctx context.Context, req *calv1.ListEventAttendeesRequest) (*calv1.ListEventAttendeesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	eventID, err := uuid.Parse(req.EventId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid event_id")
 	}
 
-	attendees, err := s.eventService.ListAttendees(ctx, eventID)
+	attendees, err := s.eventService.ListAttendees(ctx, eventID, tenantID)
 	if err != nil {
 		return nil, mapCalendarError(err)
 	}
@@ -684,8 +720,13 @@ func (s *CalendarGRPCServer) SetEventReminders(ctx context.Context, req *calv1.S
 		minutesBefore = append(minutesBefore, int(m))
 	}
 
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	// Gateway handles auth; use uuid.Nil as actorID
-	if err := s.eventService.SetReminders(ctx, eventID, uuid.Nil, minutesBefore); err != nil {
+	if err := s.eventService.SetReminders(ctx, eventID, uuid.Nil, tenantID, minutesBefore); err != nil {
 		return nil, mapCalendarError(err)
 	}
 

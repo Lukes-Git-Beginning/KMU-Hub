@@ -5,7 +5,6 @@
  * with auth header injection and 401 retry. Adds a blob variant for the
  * PDF/CSV/XLSX export endpoint (Content-Disposition filename extraction).
  */
-import { API_BASE_URL } from '@/lib/constants'
 import type {
   CreateDefinitionInput,
   CreateScheduleInput,
@@ -25,27 +24,11 @@ import type {
   UpdateDefinitionInput,
   UpdateScheduleInput,
 } from './berichte-types'
+import { authenticatedRequest, authenticatedBlobRequest } from './utils/authenticatedFetch'
 
 // ---------------------------------------------------------------------------
 // Request helpers
 // ---------------------------------------------------------------------------
-
-const MUTATION_METHODS = new Set(['POST', 'PUT', 'DELETE', 'PATCH'])
-
-async function getAuthToken(): Promise<string | null> {
-  const { useAuthStore } = await import('@/stores/auth')
-  return useAuthStore.getState().accessToken
-}
-
-async function refreshAuthToken(): Promise<string | null> {
-  const { useAuthStore } = await import('@/stores/auth')
-  return useAuthStore.getState().refreshToken()
-}
-
-async function logoutAuth(): Promise<void> {
-  const { useAuthStore } = await import('@/stores/auth')
-  useAuthStore.getState().logout()
-}
 
 type QueryPrimitive = string | number | boolean | undefined | null
 
@@ -56,73 +39,8 @@ interface RequestOptions {
   params?: Record<string, QueryPrimitive | QueryPrimitive[]>
 }
 
-function buildUrl(path: string, params?: RequestOptions['params']): string {
-  const url = new URL(`${API_BASE_URL}${path}`)
-  if (!params) return url.toString()
-  for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || value === null) continue
-    if (Array.isArray(value)) {
-      const filtered = value.filter((v) => v !== undefined && v !== null)
-      if (filtered.length === 0) continue
-      url.searchParams.set(key, filtered.join(','))
-      continue
-    }
-    url.searchParams.set(key, String(value))
-  }
-  return url.toString()
-}
-
-async function request<T>(opts: RequestOptions): Promise<T> {
-  if (!navigator.onLine && MUTATION_METHODS.has(opts.method)) {
-    throw new Error('Änderungen sind offline nicht möglich.')
-  }
-
-  const url = buildUrl(opts.path, opts.params)
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  }
-
-  const token = await getAuthToken()
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
-  }
-
-  const init: RequestInit = { method: opts.method, headers }
-  if (opts.body !== undefined) {
-    init.body = JSON.stringify(opts.body)
-  }
-
-  const response = await fetch(url, init)
-
-  if (!response.ok) {
-    if (response.status === 401) {
-      const newToken = await refreshAuthToken()
-      if (newToken) {
-        headers['Authorization'] = `Bearer ${newToken}`
-        const retry = await fetch(url, { ...init, headers })
-        if (!retry.ok) {
-          const errBody = await retry.json().catch(() => ({}))
-          throw new Error(
-            (errBody as Record<string, string>).error ||
-              `Request failed: ${retry.status}`,
-          )
-        }
-        if (retry.status === 204) return {} as T
-        return retry.json() as Promise<T>
-      }
-      await logoutAuth()
-      throw new Error('Authentication expired')
-    }
-
-    const errBody = await response.json().catch(() => ({}))
-    throw new Error(
-      (errBody as Record<string, string>).error ||
-        `Request failed: ${response.status}`,
-    )
-  }
-
-  if (response.status === 204) return {} as T
-  return response.json() as Promise<T>
+function request<T>(opts: RequestOptions): Promise<T> {
+  return authenticatedRequest<T>(opts)
 }
 
 async function requestBlobWithHeaders(
@@ -132,32 +50,7 @@ async function requestBlobWithHeaders(
   fallbackFormat: ReportFormat,
   params?: RequestOptions['params'],
 ): Promise<ExportedReport> {
-  if (!navigator.onLine) {
-    throw new Error('Änderungen sind offline nicht möglich.')
-  }
-
-  const url = buildUrl(path, params)
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  }
-
-  const token = await getAuthToken()
-  if (token) headers['Authorization'] = `Bearer ${token}`
-
-  const init: RequestInit = { method, headers }
-  if (body !== undefined) init.body = JSON.stringify(body)
-
-  let response = await fetch(url, init)
-
-  if (response.status === 401) {
-    const newToken = await refreshAuthToken()
-    if (!newToken) {
-      await logoutAuth()
-      throw new Error('Authentication expired')
-    }
-    headers['Authorization'] = `Bearer ${newToken}`
-    response = await fetch(url, { ...init, headers })
-  }
+  const response = await authenticatedBlobRequest({ method, path, body, params: params as Record<string, string | number | boolean | null | undefined> })
 
   if (!response.ok) {
     const errBody = await response.json().catch(() => ({}))

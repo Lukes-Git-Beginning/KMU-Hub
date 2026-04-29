@@ -310,6 +310,11 @@ func (s *DialerGRPCServer) ListCampaignContacts(ctx context.Context, req *dialer
 // ============================================================================
 
 func (s *DialerGRPCServer) InitiateDialerCall(ctx context.Context, req *dialerv1.InitiateDialerCallRequest) (*dialerv1.DialerCallSession, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "missing tenant_id: %v", err)
+	}
+
 	ccID, err := uuid.Parse(req.GetCampaignContactId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid campaign_contact_id: %v", err)
@@ -328,7 +333,7 @@ func (s *DialerGRPCServer) InitiateDialerCall(ctx context.Context, req *dialerv1
 		videoCallSessionID = &vid
 	}
 
-	cs, err := s.svc.InitiateDialerCall(ctx, ccID, agentID, videoCallSessionID)
+	cs, err := s.svc.InitiateDialerCall(ctx, tenantID, ccID, agentID, videoCallSessionID)
 	if err != nil {
 		return nil, mapDialerError(err)
 	}
@@ -336,6 +341,11 @@ func (s *DialerGRPCServer) InitiateDialerCall(ctx context.Context, req *dialerv1
 }
 
 func (s *DialerGRPCServer) LogCallOutcome(ctx context.Context, req *dialerv1.LogCallOutcomeRequest) (*dialerv1.DialerCallSession, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "missing tenant_id: %v", err)
+	}
+
 	sessionID, err := uuid.Parse(req.GetDialerCallSessionId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid dialer_call_session_id: %v", err)
@@ -360,7 +370,7 @@ func (s *DialerGRPCServer) LogCallOutcome(ctx context.Context, req *dialerv1.Log
 		appointmentID = &aid
 	}
 
-	cs, err := s.svc.LogCallOutcome(ctx, sessionID, outcomeID, req.Notes, req.NextAction, callbackAt, appointmentID)
+	cs, err := s.svc.LogCallOutcome(ctx, tenantID, sessionID, outcomeID, req.Notes, req.NextAction, callbackAt, appointmentID)
 	if err != nil {
 		return nil, mapDialerError(err)
 	}
@@ -368,22 +378,32 @@ func (s *DialerGRPCServer) LogCallOutcome(ctx context.Context, req *dialerv1.Log
 }
 
 func (s *DialerGRPCServer) SaveCallNotes(ctx context.Context, req *dialerv1.SaveCallNotesRequest) (*emptypb.Empty, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "missing tenant_id: %v", err)
+	}
+
 	sessionID, err := uuid.Parse(req.GetDialerCallSessionId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid dialer_call_session_id: %v", err)
 	}
-	if err := s.svc.SaveCallNotes(ctx, sessionID, req.GetNotes()); err != nil {
+	if err := s.svc.SaveCallNotes(ctx, tenantID, sessionID, req.GetNotes()); err != nil {
 		return nil, mapDialerError(err)
 	}
 	return &emptypb.Empty{}, nil
 }
 
 func (s *DialerGRPCServer) CompleteWrapUp(ctx context.Context, req *dialerv1.CompleteWrapUpRequest) (*emptypb.Empty, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "missing tenant_id: %v", err)
+	}
+
 	sessionID, err := uuid.Parse(req.GetDialerCallSessionId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid dialer_call_session_id: %v", err)
 	}
-	if err := s.svc.CompleteWrapUp(ctx, sessionID); err != nil {
+	if err := s.svc.CompleteWrapUp(ctx, tenantID, sessionID); err != nil {
 		return nil, mapDialerError(err)
 	}
 	return &emptypb.Empty{}, nil

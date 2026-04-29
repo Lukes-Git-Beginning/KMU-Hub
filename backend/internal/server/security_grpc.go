@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/security/audit"
 	"github.com/kmuhub/kmuhub/internal/security/gdpr"
@@ -52,6 +53,9 @@ func NewSecurityGRPCServer(
 // ============================================================================
 
 func (s *SecurityGRPCServer) CreateAuditEntry(ctx context.Context, req *securityv1.CreateAuditEntryRequest) (*securityv1.CreateAuditEntryResponse, error) {
+	// tenantID defaults to sentinel if not present (system events without tenant context)
+	tenantID, _ := middleware.GetTenantID(ctx)
+
 	var userID *uuid.UUID
 	if req.UserId != "" {
 		parsed, err := uuid.Parse(req.UserId)
@@ -61,7 +65,7 @@ func (s *SecurityGRPCServer) CreateAuditEntry(ctx context.Context, req *security
 		userID = &parsed
 	}
 
-	s.auditService.LogEvent(ctx, userID, req.Action, req.Target, req.TargetType,
+	s.auditService.LogEvent(ctx, tenantID, userID, req.Action, req.Target, req.TargetType,
 		nil, req.IpAddress, req.UserAgent, req.Result)
 
 	return &securityv1.CreateAuditEntryResponse{
@@ -76,7 +80,12 @@ func (s *SecurityGRPCServer) CreateAuditEntry(ctx context.Context, req *security
 }
 
 func (s *SecurityGRPCServer) ListAuditEntries(ctx context.Context, req *securityv1.ListAuditEntriesRequest) (*securityv1.ListAuditEntriesResponse, error) {
-	filter := &models.AuditFilter{}
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "missing tenant_id: %v", err)
+	}
+
+	filter := &models.AuditFilter{TenantID: tenantID}
 	if req.Filter != nil {
 		if req.Filter.DateFrom != nil {
 			t := req.Filter.DateFrom.AsTime()
@@ -116,7 +125,12 @@ func (s *SecurityGRPCServer) ListAuditEntries(ctx context.Context, req *security
 }
 
 func (s *SecurityGRPCServer) ExportAuditLog(ctx context.Context, req *securityv1.ExportAuditLogRequest) (*securityv1.ExportAuditLogResponse, error) {
-	filter := &models.AuditFilter{}
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "missing tenant_id: %v", err)
+	}
+
+	filter := &models.AuditFilter{TenantID: tenantID}
 	if req.Filter != nil {
 		if req.Filter.DateFrom != nil {
 			t := req.Filter.DateFrom.AsTime()

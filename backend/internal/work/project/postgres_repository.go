@@ -24,70 +24,74 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) Create(ctx context.Context, project *models.Project) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO projects (id, name, description, project_key, next_task_number, is_template,
+		`INSERT INTO projects (id, tenant_id, name, description, project_key, next_task_number, is_template,
 		 template_source_id, created_by, created_at, updated_at, archived_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-		project.ID, project.Name, project.Description, project.ProjectKey,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+		project.ID, project.TenantID, project.Name, project.Description, project.ProjectKey,
 		project.NextTaskNumber, project.IsTemplate, project.TemplateSourceID,
 		project.CreatedBy, project.CreatedAt, project.UpdatedAt, project.ArchivedAt,
 	)
 	return err
 }
 
-func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Project, error) {
+func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.Project, error) {
 	row := r.pool.QueryRow(ctx,
-		`SELECT id, name, description, project_key, next_task_number, is_template,
+		`SELECT id, tenant_id, name, description, project_key, next_task_number, is_template,
 		 template_source_id, created_by, created_at, updated_at, archived_at
-		 FROM projects WHERE id = $1`, id,
+		 FROM projects WHERE id = $1 AND tenant_id = $2`, id, tenantID,
 	)
 	return r.scanProject(row)
 }
 
-func (r *PostgresRepository) List(ctx context.Context, userID uuid.UUID, isAdmin bool, includeArchived bool) ([]models.ProjectWithDetails, error) {
+func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, isAdmin bool, includeArchived bool) ([]models.ProjectWithDetails, error) {
 	var query string
 	var args []any
 
 	if isAdmin {
 		if includeArchived {
-			query = `SELECT p.id, p.name, p.description, p.project_key, p.next_task_number,
+			query = `SELECT p.id, p.tenant_id, p.name, p.description, p.project_key, p.next_task_number,
 				p.is_template, p.template_source_id, p.created_by, p.created_at, p.updated_at, p.archived_at,
 				(SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id) AS member_count,
 				(SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id) AS task_count,
 				COALESCE((SELECT u.first_name || ' ' || u.last_name FROM users u WHERE u.id = p.created_by), '') AS owner_name
 				FROM projects p
+				WHERE p.tenant_id = $1
 				ORDER BY p.created_at DESC`
+			args = append(args, tenantID)
 		} else {
-			query = `SELECT p.id, p.name, p.description, p.project_key, p.next_task_number,
+			query = `SELECT p.id, p.tenant_id, p.name, p.description, p.project_key, p.next_task_number,
 				p.is_template, p.template_source_id, p.created_by, p.created_at, p.updated_at, p.archived_at,
 				(SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id) AS member_count,
 				(SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id) AS task_count,
 				COALESCE((SELECT u.first_name || ' ' || u.last_name FROM users u WHERE u.id = p.created_by), '') AS owner_name
 				FROM projects p
-				WHERE p.archived_at IS NULL
+				WHERE p.tenant_id = $1 AND p.archived_at IS NULL
 				ORDER BY p.created_at DESC`
+			args = append(args, tenantID)
 		}
 	} else {
 		if includeArchived {
-			query = `SELECT p.id, p.name, p.description, p.project_key, p.next_task_number,
+			query = `SELECT p.id, p.tenant_id, p.name, p.description, p.project_key, p.next_task_number,
 				p.is_template, p.template_source_id, p.created_by, p.created_at, p.updated_at, p.archived_at,
 				(SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id) AS member_count,
 				(SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id) AS task_count,
 				COALESCE((SELECT u.first_name || ' ' || u.last_name FROM users u WHERE u.id = p.created_by), '') AS owner_name
 				FROM projects p
-				JOIN project_members pm ON p.id = pm.project_id AND pm.user_id = $1
+				JOIN project_members pm ON p.id = pm.project_id AND pm.user_id = $2
+				WHERE p.tenant_id = $1
 				ORDER BY p.created_at DESC`
-			args = append(args, userID)
+			args = append(args, tenantID, userID)
 		} else {
-			query = `SELECT p.id, p.name, p.description, p.project_key, p.next_task_number,
+			query = `SELECT p.id, p.tenant_id, p.name, p.description, p.project_key, p.next_task_number,
 				p.is_template, p.template_source_id, p.created_by, p.created_at, p.updated_at, p.archived_at,
 				(SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id) AS member_count,
 				(SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id) AS task_count,
 				COALESCE((SELECT u.first_name || ' ' || u.last_name FROM users u WHERE u.id = p.created_by), '') AS owner_name
 				FROM projects p
-				JOIN project_members pm ON p.id = pm.project_id AND pm.user_id = $1
-				WHERE p.archived_at IS NULL
+				JOIN project_members pm ON p.id = pm.project_id AND pm.user_id = $2
+				WHERE p.tenant_id = $1 AND p.archived_at IS NULL
 				ORDER BY p.created_at DESC`
-			args = append(args, userID)
+			args = append(args, tenantID, userID)
 		}
 	}
 
@@ -101,7 +105,7 @@ func (r *PostgresRepository) List(ctx context.Context, userID uuid.UUID, isAdmin
 	for rows.Next() {
 		var p models.ProjectWithDetails
 		scanErr := rows.Scan(
-			&p.ID, &p.Name, &p.Description, &p.ProjectKey, &p.NextTaskNumber,
+			&p.ID, &p.TenantID, &p.Name, &p.Description, &p.ProjectKey, &p.NextTaskNumber,
 			&p.IsTemplate, &p.TemplateSourceID, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt, &p.ArchivedAt,
 			&p.MemberCount, &p.TaskCount, &p.OwnerName,
 		)
@@ -114,26 +118,38 @@ func (r *PostgresRepository) List(ctx context.Context, userID uuid.UUID, isAdmin
 }
 
 func (r *PostgresRepository) Update(ctx context.Context, project *models.Project) error {
-	_, err := r.pool.Exec(ctx,
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE projects SET name = $1, description = $2, updated_at = $3
-		 WHERE id = $4`,
-		project.Name, project.Description, project.UpdatedAt, project.ID,
+		 WHERE id = $4 AND tenant_id = $5`,
+		project.Name, project.Description, project.UpdatedAt, project.ID, project.TenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
-func (r *PostgresRepository) Archive(ctx context.Context, projectID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE projects SET archived_at = $1, updated_at = $1 WHERE id = $2`,
-		time.Now(), projectID,
+func (r *PostgresRepository) Archive(ctx context.Context, projectID uuid.UUID, tenantID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE projects SET archived_at = $1, updated_at = $1 WHERE id = $2 AND tenant_id = $3`,
+		time.Now(), projectID, tenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
-func (r *PostgresRepository) GetProjectKey(ctx context.Context, projectID uuid.UUID) (string, error) {
+func (r *PostgresRepository) GetProjectKey(ctx context.Context, projectID uuid.UUID, tenantID uuid.UUID) (string, error) {
 	var key string
 	err := r.pool.QueryRow(ctx,
-		`SELECT project_key FROM projects WHERE id = $1`, projectID,
+		`SELECT project_key FROM projects WHERE id = $1 AND tenant_id = $2`, projectID, tenantID,
 	).Scan(&key)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", ErrNotFound
@@ -141,10 +157,10 @@ func (r *PostgresRepository) GetProjectKey(ctx context.Context, projectID uuid.U
 	return key, err
 }
 
-func (r *PostgresRepository) KeyExists(ctx context.Context, key string) (bool, error) {
+func (r *PostgresRepository) KeyExists(ctx context.Context, tenantID uuid.UUID, key string) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM projects WHERE project_key = $1 AND archived_at IS NULL)`, key,
+		`SELECT EXISTS(SELECT 1 FROM projects WHERE project_key = $1 AND tenant_id = $2 AND archived_at IS NULL)`, key, tenantID,
 	).Scan(&exists)
 	return exists, err
 }
@@ -242,26 +258,26 @@ func (r *PostgresRepository) CountOwners(ctx context.Context, projectID uuid.UUI
 
 // Template operations
 
-func (r *PostgresRepository) SaveAsTemplate(ctx context.Context, sourceID uuid.UUID, newName string, newKey string, createdBy uuid.UUID) (*models.Project, error) {
+func (r *PostgresRepository) SaveAsTemplate(ctx context.Context, tenantID uuid.UUID, sourceID uuid.UUID, newName string, newKey string, createdBy uuid.UUID) (*models.Project, error) {
 	now := time.Now()
 	id := uuid.New()
 
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO projects (id, name, description, project_key, next_task_number, is_template,
+		`INSERT INTO projects (id, tenant_id, name, description, project_key, next_task_number, is_template,
 		 template_source_id, created_by, created_at, updated_at)
-		 SELECT $1, $2, description, $3, 1, true, $4, $5, $6, $6
-		 FROM projects WHERE id = $4`,
-		id, newName, newKey, sourceID, createdBy, now,
+		 SELECT $1, tenant_id, $2, description, $3, 1, true, $4, $5, $6, $6
+		 FROM projects WHERE id = $4 AND tenant_id = $7`,
+		id, newName, newKey, sourceID, createdBy, now, tenantID,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	return r.GetByID(ctx, id)
+	return r.GetByID(ctx, id, tenantID)
 }
 
-func (r *PostgresRepository) GetForTemplate(ctx context.Context, projectID uuid.UUID) (*models.Project, []models.ProjectStatus, error) {
-	project, err := r.GetByID(ctx, projectID)
+func (r *PostgresRepository) GetForTemplate(ctx context.Context, projectID uuid.UUID, tenantID uuid.UUID) (*models.Project, []models.ProjectStatus, error) {
+	project, err := r.GetByID(ctx, projectID, tenantID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -324,7 +340,7 @@ func (r *PostgresRepository) SetUserPreference(ctx context.Context, pref *models
 func (r *PostgresRepository) scanProject(row pgx.Row) (*models.Project, error) {
 	var p models.Project
 	err := row.Scan(
-		&p.ID, &p.Name, &p.Description, &p.ProjectKey, &p.NextTaskNumber,
+		&p.ID, &p.TenantID, &p.Name, &p.Description, &p.ProjectKey, &p.NextTaskNumber,
 		&p.IsTemplate, &p.TemplateSourceID, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt, &p.ArchivedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {

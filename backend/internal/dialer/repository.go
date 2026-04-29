@@ -38,7 +38,7 @@ type CampaignRepository interface {
 // CallRepository handles persistence for call sessions and their events.
 type CallRepository interface {
 	CreateSession(ctx context.Context, s *CallSession) error
-	GetSessionByID(ctx context.Context, id uuid.UUID) (*CallSession, error)
+	GetSessionByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*CallSession, error)
 	UpdateSession(ctx context.Context, s *CallSession) error
 	AppendEvent(ctx context.Context, e *CallEvent) error
 	ListEventsBySession(ctx context.Context, sessionID uuid.UUID) ([]*CallEvent, error)

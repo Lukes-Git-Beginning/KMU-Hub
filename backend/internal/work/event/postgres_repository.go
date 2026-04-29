@@ -25,11 +25,11 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) Create(ctx context.Context, event *models.CalendarEvent) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO calendar_events (id, calendar_id, title, description, location, resource_id,
+		`INSERT INTO calendar_events (id, tenant_id, calendar_id, title, description, location, resource_id,
 		 start_time, end_time, is_all_day, timezone, rrule, recurrence_end, has_video_call,
 		 livekit_room_name, category_id, created_by, created_at, updated_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
-		event.ID, event.CalendarID, event.Title, event.Description, event.Location,
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+		event.ID, event.TenantID, event.CalendarID, event.Title, event.Description, event.Location,
 		event.ResourceID, event.StartTime, event.EndTime, event.IsAllDay, event.Timezone,
 		event.RRule, event.RecurrenceEnd, event.HasVideoCall, event.LiveKitRoomName,
 		event.CategoryID, event.CreatedBy, event.CreatedAt, event.UpdatedAt,
@@ -37,14 +37,14 @@ func (r *PostgresRepository) Create(ctx context.Context, event *models.CalendarE
 	return err
 }
 
-func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.CalendarEvent, error) {
+func (r *PostgresRepository) GetByID(ctx context.Context, id, tenantID uuid.UUID) (*models.CalendarEvent, error) {
 	var e models.CalendarEvent
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, calendar_id, title, description, location, resource_id,
+		`SELECT id, tenant_id, calendar_id, title, description, location, resource_id,
 		 start_time, end_time, is_all_day, timezone, rrule, recurrence_end,
 		 has_video_call, livekit_room_name, category_id, created_by, created_at, updated_at
-		 FROM calendar_events WHERE id = $1`, id,
-	).Scan(&e.ID, &e.CalendarID, &e.Title, &e.Description, &e.Location, &e.ResourceID,
+		 FROM calendar_events WHERE id = $1 AND tenant_id = $2`, id, tenantID,
+	).Scan(&e.ID, &e.TenantID, &e.CalendarID, &e.Title, &e.Description, &e.Location, &e.ResourceID,
 		&e.StartTime, &e.EndTime, &e.IsAllDay, &e.Timezone, &e.RRule, &e.RecurrenceEnd,
 		&e.HasVideoCall, &e.LiveKitRoomName, &e.CategoryID, &e.CreatedBy, &e.CreatedAt, &e.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -57,27 +57,39 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models
 }
 
 func (r *PostgresRepository) Update(ctx context.Context, event *models.CalendarEvent) error {
-	_, err := r.pool.Exec(ctx,
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE calendar_events SET title=$1, description=$2, location=$3, resource_id=$4,
 		 start_time=$5, end_time=$6, is_all_day=$7, timezone=$8, rrule=$9, recurrence_end=$10,
 		 has_video_call=$11, livekit_room_name=$12, category_id=$13, updated_at=$14
-		 WHERE id=$15`,
+		 WHERE id=$15 AND tenant_id=$16`,
 		event.Title, event.Description, event.Location, event.ResourceID,
 		event.StartTime, event.EndTime, event.IsAllDay, event.Timezone,
 		event.RRule, event.RecurrenceEnd, event.HasVideoCall, event.LiveKitRoomName,
-		event.CategoryID, event.UpdatedAt, event.ID,
+		event.CategoryID, event.UpdatedAt, event.ID, event.TenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrEventNotFound
+	}
+	return nil
 }
 
-func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM calendar_events WHERE id = $1`, id)
-	return err
+func (r *PostgresRepository) Delete(ctx context.Context, id, tenantID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM calendar_events WHERE id = $1 AND tenant_id = $2`, id, tenantID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrEventNotFound
+	}
+	return nil
 }
 
-func (r *PostgresRepository) ListInRange(ctx context.Context, calendarIDs []uuid.UUID, start, end time.Time, userID uuid.UUID) ([]models.ExpandedEvent, error) {
+func (r *PostgresRepository) ListInRange(ctx context.Context, calendarIDs []uuid.UUID, start, end time.Time, userID, tenantID uuid.UUID) ([]models.ExpandedEvent, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT e.id, e.calendar_id, e.title, e.description, e.location, e.resource_id,
+		`SELECT e.id, e.tenant_id, e.calendar_id, e.title, e.description, e.location, e.resource_id,
 		        e.start_time, e.end_time, e.is_all_day, e.timezone, e.rrule, e.recurrence_end,
 		        e.has_video_call, e.livekit_room_name, e.category_id, e.created_by,
 		        e.created_at, e.updated_at,
@@ -93,10 +105,11 @@ func (r *PostgresRepository) ListInRange(ctx context.Context, calendarIDs []uuid
 		 LEFT JOIN event_categories ec ON e.category_id = ec.id
 		 LEFT JOIN resources res ON e.resource_id = res.id
 		 WHERE e.calendar_id = ANY($1)
+		   AND e.tenant_id = $5
 		   AND e.rrule IS NULL
 		   AND e.start_time < $3 AND e.end_time > $2
 		 ORDER BY e.start_time ASC`,
-		calendarIDs, start, end, userID,
+		calendarIDs, start, end, userID, tenantID,
 	)
 	if err != nil {
 		return nil, err
@@ -107,7 +120,7 @@ func (r *PostgresRepository) ListInRange(ctx context.Context, calendarIDs []uuid
 	for rows.Next() {
 		var ev models.ExpandedEvent
 		if scanErr := rows.Scan(
-			&ev.ID, &ev.CalendarID, &ev.Title, &ev.Description, &ev.Location, &ev.ResourceID,
+			&ev.ID, &ev.TenantID, &ev.CalendarID, &ev.Title, &ev.Description, &ev.Location, &ev.ResourceID,
 			&ev.StartTime, &ev.EndTime, &ev.IsAllDay, &ev.Timezone, &ev.RRule, &ev.RecurrenceEnd,
 			&ev.HasVideoCall, &ev.LiveKitRoomName, &ev.CategoryID, &ev.CreatedBy,
 			&ev.CreatedAt, &ev.UpdatedAt,
@@ -123,19 +136,20 @@ func (r *PostgresRepository) ListInRange(ctx context.Context, calendarIDs []uuid
 	return events, rows.Err()
 }
 
-func (r *PostgresRepository) ListRecurringOverlapping(ctx context.Context, calendarIDs []uuid.UUID, start, end time.Time) ([]models.CalendarEvent, error) {
+func (r *PostgresRepository) ListRecurringOverlapping(ctx context.Context, calendarIDs []uuid.UUID, start, end time.Time, tenantID uuid.UUID) ([]models.CalendarEvent, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, calendar_id, title, description, location, resource_id,
+		`SELECT id, tenant_id, calendar_id, title, description, location, resource_id,
 		        start_time, end_time, is_all_day, timezone, rrule, recurrence_end,
 		        has_video_call, livekit_room_name, category_id, created_by,
 		        created_at, updated_at
 		 FROM calendar_events
 		 WHERE calendar_id = ANY($1)
+		   AND tenant_id = $4
 		   AND rrule IS NOT NULL
 		   AND start_time < $3
 		   AND (recurrence_end IS NULL OR recurrence_end > $2)
 		 ORDER BY start_time ASC`,
-		calendarIDs, start, end,
+		calendarIDs, start, end, tenantID,
 	)
 	if err != nil {
 		return nil, err
@@ -146,7 +160,7 @@ func (r *PostgresRepository) ListRecurringOverlapping(ctx context.Context, calen
 	for rows.Next() {
 		var e models.CalendarEvent
 		if scanErr := rows.Scan(
-			&e.ID, &e.CalendarID, &e.Title, &e.Description, &e.Location, &e.ResourceID,
+			&e.ID, &e.TenantID, &e.CalendarID, &e.Title, &e.Description, &e.Location, &e.ResourceID,
 			&e.StartTime, &e.EndTime, &e.IsAllDay, &e.Timezone, &e.RRule, &e.RecurrenceEnd,
 			&e.HasVideoCall, &e.LiveKitRoomName, &e.CategoryID, &e.CreatedBy,
 			&e.CreatedAt, &e.UpdatedAt,

@@ -246,18 +246,20 @@ func (m *mockProjectRepo) IsMember(_ context.Context, projectID, userID uuid.UUI
 
 // Unused methods - satisfy interface
 func (m *mockProjectRepo) Create(_ context.Context, _ *models.Project) error { return nil }
-func (m *mockProjectRepo) GetByID(_ context.Context, _ uuid.UUID) (*models.Project, error) {
+func (m *mockProjectRepo) GetByID(_ context.Context, _ uuid.UUID, _ uuid.UUID) (*models.Project, error) {
 	return nil, nil
 }
-func (m *mockProjectRepo) List(_ context.Context, _ uuid.UUID, _ bool, _ bool) ([]models.ProjectWithDetails, error) {
+func (m *mockProjectRepo) List(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ bool, _ bool) ([]models.ProjectWithDetails, error) {
 	return nil, nil
 }
 func (m *mockProjectRepo) Update(_ context.Context, _ *models.Project) error { return nil }
-func (m *mockProjectRepo) Archive(_ context.Context, _ uuid.UUID) error      { return nil }
-func (m *mockProjectRepo) GetProjectKey(_ context.Context, _ uuid.UUID) (string, error) {
+func (m *mockProjectRepo) Archive(_ context.Context, _ uuid.UUID, _ uuid.UUID) error { return nil }
+func (m *mockProjectRepo) GetProjectKey(_ context.Context, _ uuid.UUID, _ uuid.UUID) (string, error) {
 	return "", nil
 }
-func (m *mockProjectRepo) KeyExists(_ context.Context, _ string) (bool, error) { return false, nil }
+func (m *mockProjectRepo) KeyExists(_ context.Context, _ uuid.UUID, _ string) (bool, error) {
+	return false, nil
+}
 func (m *mockProjectRepo) AddMember(_ context.Context, _, _ uuid.UUID, _ string) error {
 	return nil
 }
@@ -269,10 +271,10 @@ func (m *mockProjectRepo) ListMembers(_ context.Context, _ uuid.UUID) ([]models.
 	return nil, nil
 }
 func (m *mockProjectRepo) CountOwners(_ context.Context, _ uuid.UUID) (int, error) { return 0, nil }
-func (m *mockProjectRepo) SaveAsTemplate(_ context.Context, _ uuid.UUID, _, _ string, _ uuid.UUID) (*models.Project, error) {
+func (m *mockProjectRepo) SaveAsTemplate(_ context.Context, _ uuid.UUID, _ uuid.UUID, _, _ string, _ uuid.UUID) (*models.Project, error) {
 	return nil, nil
 }
-func (m *mockProjectRepo) GetForTemplate(_ context.Context, _ uuid.UUID) (*models.Project, []models.ProjectStatus, error) {
+func (m *mockProjectRepo) GetForTemplate(_ context.Context, _ uuid.UUID, _ uuid.UUID) (*models.Project, []models.ProjectStatus, error) {
 	return nil, nil, nil
 }
 func (m *mockProjectRepo) GetUserPreference(_ context.Context, _, _ uuid.UUID) (*models.UserProjectPreference, error) {

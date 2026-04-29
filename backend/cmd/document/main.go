@@ -208,16 +208,16 @@ type wopiFileAdapter struct {
 	svc *file.Service
 }
 
-func (a *wopiFileAdapter) GetByID(ctx context.Context, id uuid.UUID) (*models.DocumentFile, error) {
-	return a.svc.GetByID(ctx, id)
+func (a *wopiFileAdapter) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.DocumentFile, error) {
+	return a.svc.GetByID(ctx, id, tenantID)
 }
 
-func (a *wopiFileAdapter) GetDownloadURL(ctx context.Context, fileID uuid.UUID) (string, error) {
-	return a.svc.GetDownloadURL(ctx, fileID)
+func (a *wopiFileAdapter) GetDownloadURL(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID) (string, error) {
+	return a.svc.GetDownloadURL(ctx, fileID, tenantID)
 }
 
-func (a *wopiFileAdapter) CreateVersion(ctx context.Context, fileID uuid.UUID, input wopi.VersionInput) (*models.DocumentFileVersion, error) {
-	return a.svc.CreateVersion(ctx, fileID, file.VersionInput{
+func (a *wopiFileAdapter) CreateVersion(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID, input wopi.VersionInput) (*models.DocumentFileVersion, error) {
+	return a.svc.CreateVersion(ctx, fileID, tenantID, file.VersionInput{
 		Reader:   input.Reader,
 		FileSize: input.FileSize,
 		MimeType: input.MimeType,

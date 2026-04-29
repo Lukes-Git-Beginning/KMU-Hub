@@ -46,6 +46,16 @@ func (m *MockRepository) List(ctx context.Context, filter *models.AuditFilter) (
 	if m.listErr != nil {
 		return nil, 0, m.listErr
 	}
+	// If filter specifies a non-nil TenantID, scope results accordingly.
+	if filter != nil && filter.TenantID != uuid.Nil {
+		var result []*models.AuditEntry
+		for _, e := range m.entries {
+			if e.TenantID == filter.TenantID {
+				result = append(result, e)
+			}
+		}
+		return result, len(result), nil
+	}
 	return m.entries, len(m.entries), nil
 }
 
@@ -71,9 +81,11 @@ func TestService_LogEvent_Success(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
 	userID := uuid.New()
 	svc.LogEvent(
 		context.Background(),
+		tenantID,
 		&userID,
 		"contact.create",
 		"contact-123",
@@ -102,6 +114,7 @@ func TestService_LogEvent_WithDetails(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
 	userID := uuid.New()
 	details := map[string]interface{}{
 		"old_email": "old@example.com",
@@ -110,6 +123,7 @@ func TestService_LogEvent_WithDetails(t *testing.T) {
 
 	svc.LogEvent(
 		context.Background(),
+		tenantID,
 		&userID,
 		"contact.update",
 		"contact-123",
@@ -136,9 +150,11 @@ func TestService_LogEvent_NilDetails(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
 	userID := uuid.New()
 	svc.LogEvent(
 		context.Background(),
+		tenantID,
 		&userID,
 		"user.login",
 		"",
@@ -158,12 +174,14 @@ func TestService_LogEvent_RepoError(t *testing.T) {
 	repo.createErr = errors.New("database connection lost")
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
 	userID := uuid.New()
 
 	// LogEvent is fire-and-forget: it does NOT return an error.
 	// It should not panic either.
 	svc.LogEvent(
 		context.Background(),
+		tenantID,
 		&userID,
 		"contact.delete",
 		"contact-456",
@@ -184,6 +202,7 @@ func TestService_LogEvent_NilUserID(t *testing.T) {
 
 	svc.LogEvent(
 		context.Background(),
+		uuid.Nil,
 		nil,
 		"system.startup",
 		"",
@@ -403,4 +422,55 @@ func TestService_ExportEntries_UnsupportedFormat(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, data)
 	assert.True(t, strings.Contains(err.Error(), "unsupported export format"))
+}
+
+// ============================================================================
+// Cross-tenant isolation tests (audit_log)
+// ============================================================================
+
+// TestLogEvent_TenantID verifies that LogEvent correctly tags the audit entry
+// with the supplied tenantID, ensuring entries are scoped per tenant.
+func TestLogEvent_TenantID(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	userID := uuid.New()
+
+	svc.LogEvent(context.Background(), tenantA, &userID, "contact.create", "c1", "contact", nil, "", "", "success")
+	svc.LogEvent(context.Background(), tenantB, &userID, "contact.create", "c2", "contact", nil, "", "", "success")
+
+	require.Len(t, repo.entries, 2)
+	assert.Equal(t, tenantA, repo.entries[0].TenantID, "first entry must carry tenant A's ID")
+	assert.Equal(t, tenantB, repo.entries[1].TenantID, "second entry must carry tenant B's ID")
+}
+
+// TestListEntries_TenantScoped verifies that ListEntries with a TenantID filter
+// only returns entries belonging to that tenant.
+func TestListEntries_TenantScoped(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	// Seed 2 entries for tenant A and 1 for tenant B.
+	repo.entries = []*models.AuditEntry{
+		{ID: uuid.New(), TenantID: tenantA, Action: "a1", Result: "success"},
+		{ID: uuid.New(), TenantID: tenantA, Action: "a2", Result: "success"},
+		{ID: uuid.New(), TenantID: tenantB, Action: "b1", Result: "success"},
+	}
+
+	entries, total, err := svc.ListEntries(context.Background(), &models.AuditFilter{
+		TenantID: tenantA,
+		Limit:    50,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, total)
+	assert.Len(t, entries, 2)
+	for _, e := range entries {
+		assert.Equal(t, tenantA, e.TenantID, "ListEntries must only return entries for the requested tenant")
+	}
 }

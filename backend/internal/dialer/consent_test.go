@@ -52,7 +52,7 @@ func TestInitiateDialerCall_BlockedByConsent(t *testing.T) {
 		ContactID:  realContactID,
 	}
 
-	_, err := h.svc.InitiateDialerCall(context.Background(), ccID, uuid.New(), nil)
+	_, err := h.svc.InitiateDialerCall(context.Background(), uuid.Nil, ccID, uuid.New(), nil)
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, consent.ErrNoConsent)
@@ -75,7 +75,7 @@ func TestInitiateDialerCall_AllowedByConsent(t *testing.T) {
 		ContactID:  realContactID,
 	}
 
-	session, err := h.svc.InitiateDialerCall(context.Background(), ccID, uuid.New(), nil)
+	session, err := h.svc.InitiateDialerCall(context.Background(), uuid.Nil, ccID, uuid.New(), nil)
 
 	require.NoError(t, err)
 	require.NotNil(t, session)
@@ -97,7 +97,7 @@ func TestInitiateDialerCall_NoAsserter_Allowed(t *testing.T) {
 		ContactID:  uuid.New(),
 	}
 
-	session, err := h.svc.InitiateDialerCall(context.Background(), ccID, uuid.New(), nil)
+	session, err := h.svc.InitiateDialerCall(context.Background(), uuid.Nil, ccID, uuid.New(), nil)
 
 	require.NoError(t, err)
 	require.NotNil(t, session)

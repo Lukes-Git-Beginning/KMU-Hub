@@ -12,6 +12,11 @@ import (
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
+var (
+	testTenantID  = uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+	otherTenantID = uuid.MustParse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+)
+
 // MockRepository implements Repository for testing
 type MockRepository struct {
 	filters      map[uuid.UUID]*models.SavedFilter
@@ -36,7 +41,7 @@ func (m *MockRepository) Create(ctx context.Context, filter *models.SavedFilter)
 	return nil
 }
 
-func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.SavedFilter, error) {
+func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.SavedFilter, error) {
 	if m.getErr != nil {
 		return nil, m.getErr
 	}
@@ -44,12 +49,20 @@ func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Sav
 	if !ok {
 		return nil, ErrFilterNotFound
 	}
+	// Enforce tenant isolation
+	if filter.TenantID != tenantID {
+		return nil, ErrFilterNotFound
+	}
 	return filter, nil
 }
 
-func (m *MockRepository) List(ctx context.Context, filter ListFilter) ([]*models.SavedFilter, error) {
+func (m *MockRepository) List(ctx context.Context, tenantID uuid.UUID, filter ListFilter) ([]*models.SavedFilter, error) {
 	var result []*models.SavedFilter
 	for _, f := range m.filters {
+		// Enforce tenant isolation
+		if f.TenantID != tenantID {
+			continue
+		}
 		if filter.EntityType != nil && f.EntityType != *filter.EntityType {
 			continue
 		}
@@ -69,18 +82,22 @@ func (m *MockRepository) Update(ctx context.Context, filter *models.SavedFilter)
 	return nil
 }
 
-func (m *MockRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (m *MockRepository) Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
 	if m.deleteErr != nil {
 		return m.deleteErr
+	}
+	f, ok := m.filters[id]
+	if !ok || f.TenantID != tenantID {
+		return ErrFilterNotFound
 	}
 	delete(m.filters, id)
 	return nil
 }
 
-func (m *MockRepository) ClearDefault(ctx context.Context, userID uuid.UUID, entityType models.EntityType) error {
+func (m *MockRepository) ClearDefault(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, entityType models.EntityType) error {
 	m.clearDefault = true
 	for _, f := range m.filters {
-		if f.CreatedBy == userID && f.EntityType == entityType && f.IsDefault {
+		if f.TenantID == tenantID && f.CreatedBy == userID && f.EntityType == entityType && f.IsDefault {
 			f.IsDefault = false
 		}
 	}
@@ -96,6 +113,7 @@ func TestService_Create_Success(t *testing.T) {
 	svc := NewService(repo)
 
 	input := CreateInput{
+		TenantID:   testTenantID,
 		Name:       "Hot Leads",
 		EntityType: "contact",
 		FilterJSON: `{"status":"hot"}`,
@@ -107,6 +125,7 @@ func TestService_Create_Success(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.NotEqual(t, uuid.Nil, filter.ID)
+	assert.Equal(t, testTenantID, filter.TenantID)
 	assert.Equal(t, "Hot Leads", filter.Name)
 	assert.Equal(t, models.EntityTypeContact, filter.EntityType)
 	assert.Equal(t, `{"status":"hot"}`, filter.FilterJSON)
@@ -122,6 +141,7 @@ func TestService_Create_AllEntityTypes(t *testing.T) {
 			svc := NewService(repo)
 
 			input := CreateInput{
+				TenantID:   testTenantID,
 				Name:       "Test Filter",
 				EntityType: entityType,
 				FilterJSON: `{}`,
@@ -144,6 +164,7 @@ func TestService_Create_SetAsDefault(t *testing.T) {
 
 	// Create first default filter
 	input1 := CreateInput{
+		TenantID:   testTenantID,
 		Name:       "First Default",
 		EntityType: "deal",
 		FilterJSON: `{"stage":"new"}`,
@@ -157,6 +178,7 @@ func TestService_Create_SetAsDefault(t *testing.T) {
 
 	// Create second default filter - should clear first
 	input2 := CreateInput{
+		TenantID:   testTenantID,
 		Name:       "Second Default",
 		EntityType: "deal",
 		FilterJSON: `{"stage":"won"}`,
@@ -178,6 +200,7 @@ func TestService_Create_NameRequired(t *testing.T) {
 	svc := NewService(repo)
 
 	input := CreateInput{
+		TenantID:   testTenantID,
 		Name:       "",
 		EntityType: "contact",
 		FilterJSON: `{}`,
@@ -194,6 +217,7 @@ func TestService_Create_NameWhitespaceOnly(t *testing.T) {
 	svc := NewService(repo)
 
 	input := CreateInput{
+		TenantID:   testTenantID,
 		Name:       "   ",
 		EntityType: "contact",
 		FilterJSON: `{}`,
@@ -210,6 +234,7 @@ func TestService_Create_InvalidEntityType(t *testing.T) {
 	svc := NewService(repo)
 
 	input := CreateInput{
+		TenantID:   testTenantID,
 		Name:       "Test",
 		EntityType: "invalid",
 		FilterJSON: `{}`,
@@ -226,6 +251,7 @@ func TestService_Create_InvalidFilterJSON(t *testing.T) {
 	svc := NewService(repo)
 
 	input := CreateInput{
+		TenantID:   testTenantID,
 		Name:       "Test",
 		EntityType: "contact",
 		FilterJSON: `not valid json`,
@@ -242,6 +268,7 @@ func TestService_Create_TrimsName(t *testing.T) {
 	svc := NewService(repo)
 
 	input := CreateInput{
+		TenantID:   testTenantID,
 		Name:       "  Trimmed Name  ",
 		EntityType: "contact",
 		FilterJSON: `{}`,
@@ -265,6 +292,7 @@ func TestService_GetByID_Success(t *testing.T) {
 	filterID := uuid.New()
 	repo.filters[filterID] = &models.SavedFilter{
 		ID:         filterID,
+		TenantID:   testTenantID,
 		Name:       "Test Filter",
 		EntityType: models.EntityTypeContact,
 		FilterJSON: `{"status":"active"}`,
@@ -273,7 +301,7 @@ func TestService_GetByID_Success(t *testing.T) {
 		UpdatedAt:  time.Now(),
 	}
 
-	filter, err := svc.GetByID(context.Background(), filterID)
+	filter, err := svc.GetByID(context.Background(), filterID, testTenantID)
 
 	require.NoError(t, err)
 	assert.Equal(t, filterID, filter.ID)
@@ -284,7 +312,7 @@ func TestService_GetByID_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	_, err := svc.GetByID(context.Background(), uuid.New())
+	_, err := svc.GetByID(context.Background(), uuid.New(), testTenantID)
 
 	assert.ErrorIs(t, err, ErrFilterNotFound)
 }
@@ -302,6 +330,7 @@ func TestService_List_All(t *testing.T) {
 		id := uuid.New()
 		repo.filters[id] = &models.SavedFilter{
 			ID:         id,
+			TenantID:   testTenantID,
 			Name:       "Filter",
 			EntityType: models.EntityTypeContact,
 			FilterJSON: `{}`,
@@ -312,7 +341,8 @@ func TestService_List_All(t *testing.T) {
 	}
 
 	filters, err := svc.List(context.Background(), ListInput{
-		UserID: &userID,
+		TenantID: testTenantID,
+		UserID:   &userID,
 	})
 
 	require.NoError(t, err)
@@ -330,6 +360,7 @@ func TestService_List_FilterByEntityType(t *testing.T) {
 		id := uuid.New()
 		repo.filters[id] = &models.SavedFilter{
 			ID:         id,
+			TenantID:   testTenantID,
 			Name:       "Contact Filter",
 			EntityType: models.EntityTypeContact,
 			FilterJSON: `{}`,
@@ -344,6 +375,7 @@ func TestService_List_FilterByEntityType(t *testing.T) {
 		id := uuid.New()
 		repo.filters[id] = &models.SavedFilter{
 			ID:         id,
+			TenantID:   testTenantID,
 			Name:       "Deal Filter",
 			EntityType: models.EntityTypeDeal,
 			FilterJSON: `{}`,
@@ -355,6 +387,7 @@ func TestService_List_FilterByEntityType(t *testing.T) {
 
 	contactType := "contact"
 	filters, err := svc.List(context.Background(), ListInput{
+		TenantID:   testTenantID,
 		EntityType: &contactType,
 		UserID:     &userID,
 	})
@@ -369,6 +402,7 @@ func TestService_List_InvalidEntityType(t *testing.T) {
 
 	invalidType := "invalid"
 	_, err := svc.List(context.Background(), ListInput{
+		TenantID:   testTenantID,
 		EntityType: &invalidType,
 	})
 
@@ -387,6 +421,7 @@ func TestService_List_FilterByUserID(t *testing.T) {
 		id := uuid.New()
 		repo.filters[id] = &models.SavedFilter{
 			ID:         id,
+			TenantID:   testTenantID,
 			Name:       "User1 Filter",
 			EntityType: models.EntityTypeContact,
 			FilterJSON: `{}`,
@@ -401,6 +436,7 @@ func TestService_List_FilterByUserID(t *testing.T) {
 		id := uuid.New()
 		repo.filters[id] = &models.SavedFilter{
 			ID:         id,
+			TenantID:   testTenantID,
 			Name:       "User2 Filter",
 			EntityType: models.EntityTypeContact,
 			FilterJSON: `{}`,
@@ -411,7 +447,8 @@ func TestService_List_FilterByUserID(t *testing.T) {
 	}
 
 	filters, err := svc.List(context.Background(), ListInput{
-		UserID: &userID1,
+		TenantID: testTenantID,
+		UserID:   &userID1,
 	})
 
 	require.NoError(t, err)
@@ -430,6 +467,7 @@ func TestService_Update_Success(t *testing.T) {
 	filterID := uuid.New()
 	repo.filters[filterID] = &models.SavedFilter{
 		ID:         filterID,
+		TenantID:   testTenantID,
 		Name:       "Old Name",
 		EntityType: models.EntityTypeContact,
 		FilterJSON: `{"old":"value"}`,
@@ -442,7 +480,7 @@ func TestService_Update_Success(t *testing.T) {
 	newName := "New Name"
 	newJSON := `{"new":"value"}`
 
-	filter, err := svc.Update(context.Background(), filterID, userID, UpdateInput{
+	filter, err := svc.Update(context.Background(), filterID, testTenantID, userID, UpdateInput{
 		Name:       &newName,
 		FilterJSON: &newJSON,
 	})
@@ -457,7 +495,7 @@ func TestService_Update_NotFound(t *testing.T) {
 	svc := NewService(repo)
 
 	newName := "New Name"
-	_, err := svc.Update(context.Background(), uuid.New(), uuid.New(), UpdateInput{
+	_, err := svc.Update(context.Background(), uuid.New(), testTenantID, uuid.New(), UpdateInput{
 		Name: &newName,
 	})
 
@@ -473,6 +511,7 @@ func TestService_Update_NotOwned(t *testing.T) {
 	filterID := uuid.New()
 	repo.filters[filterID] = &models.SavedFilter{
 		ID:         filterID,
+		TenantID:   testTenantID,
 		Name:       "Test",
 		EntityType: models.EntityTypeContact,
 		FilterJSON: `{}`,
@@ -482,7 +521,7 @@ func TestService_Update_NotOwned(t *testing.T) {
 	}
 
 	newName := "New Name"
-	_, err := svc.Update(context.Background(), filterID, otherUserID, UpdateInput{
+	_, err := svc.Update(context.Background(), filterID, testTenantID, otherUserID, UpdateInput{
 		Name: &newName,
 	})
 
@@ -497,6 +536,7 @@ func TestService_Update_EmptyName(t *testing.T) {
 	filterID := uuid.New()
 	repo.filters[filterID] = &models.SavedFilter{
 		ID:         filterID,
+		TenantID:   testTenantID,
 		Name:       "Test",
 		EntityType: models.EntityTypeContact,
 		FilterJSON: `{}`,
@@ -506,7 +546,7 @@ func TestService_Update_EmptyName(t *testing.T) {
 	}
 
 	emptyName := ""
-	_, err := svc.Update(context.Background(), filterID, userID, UpdateInput{
+	_, err := svc.Update(context.Background(), filterID, testTenantID, userID, UpdateInput{
 		Name: &emptyName,
 	})
 
@@ -521,6 +561,7 @@ func TestService_Update_InvalidFilterJSON(t *testing.T) {
 	filterID := uuid.New()
 	repo.filters[filterID] = &models.SavedFilter{
 		ID:         filterID,
+		TenantID:   testTenantID,
 		Name:       "Test",
 		EntityType: models.EntityTypeContact,
 		FilterJSON: `{}`,
@@ -530,7 +571,7 @@ func TestService_Update_InvalidFilterJSON(t *testing.T) {
 	}
 
 	invalidJSON := "not valid"
-	_, err := svc.Update(context.Background(), filterID, userID, UpdateInput{
+	_, err := svc.Update(context.Background(), filterID, testTenantID, userID, UpdateInput{
 		FilterJSON: &invalidJSON,
 	})
 
@@ -547,6 +588,7 @@ func TestService_Update_SetAsDefault(t *testing.T) {
 	existingID := uuid.New()
 	repo.filters[existingID] = &models.SavedFilter{
 		ID:         existingID,
+		TenantID:   testTenantID,
 		Name:       "Existing Default",
 		EntityType: models.EntityTypeDeal,
 		FilterJSON: `{}`,
@@ -560,6 +602,7 @@ func TestService_Update_SetAsDefault(t *testing.T) {
 	filterID := uuid.New()
 	repo.filters[filterID] = &models.SavedFilter{
 		ID:         filterID,
+		TenantID:   testTenantID,
 		Name:       "Test",
 		EntityType: models.EntityTypeDeal,
 		FilterJSON: `{}`,
@@ -570,7 +613,7 @@ func TestService_Update_SetAsDefault(t *testing.T) {
 	}
 
 	isDefault := true
-	filter, err := svc.Update(context.Background(), filterID, userID, UpdateInput{
+	filter, err := svc.Update(context.Background(), filterID, testTenantID, userID, UpdateInput{
 		IsDefault: &isDefault,
 	})
 
@@ -592,6 +635,7 @@ func TestService_Delete_Success(t *testing.T) {
 	filterID := uuid.New()
 	repo.filters[filterID] = &models.SavedFilter{
 		ID:         filterID,
+		TenantID:   testTenantID,
 		Name:       "Test",
 		EntityType: models.EntityTypeContact,
 		FilterJSON: `{}`,
@@ -600,7 +644,7 @@ func TestService_Delete_Success(t *testing.T) {
 		UpdatedAt:  time.Now(),
 	}
 
-	err := svc.Delete(context.Background(), filterID, userID)
+	err := svc.Delete(context.Background(), filterID, testTenantID, userID)
 
 	require.NoError(t, err)
 	assert.NotContains(t, repo.filters, filterID)
@@ -610,7 +654,7 @@ func TestService_Delete_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	err := svc.Delete(context.Background(), uuid.New(), uuid.New())
+	err := svc.Delete(context.Background(), uuid.New(), testTenantID, uuid.New())
 
 	assert.ErrorIs(t, err, ErrFilterNotFound)
 }
@@ -624,6 +668,7 @@ func TestService_Delete_NotOwned(t *testing.T) {
 	filterID := uuid.New()
 	repo.filters[filterID] = &models.SavedFilter{
 		ID:         filterID,
+		TenantID:   testTenantID,
 		Name:       "Test",
 		EntityType: models.EntityTypeContact,
 		FilterJSON: `{}`,
@@ -632,8 +677,137 @@ func TestService_Delete_NotOwned(t *testing.T) {
 		UpdatedAt:  time.Now(),
 	}
 
-	err := svc.Delete(context.Background(), filterID, otherUserID)
+	err := svc.Delete(context.Background(), filterID, testTenantID, otherUserID)
 
 	assert.ErrorIs(t, err, ErrFilterNotOwned)
 	assert.Contains(t, repo.filters, filterID) // Should not be deleted
+}
+
+// ============================================================================
+// Cross-Tenant Isolation Tests
+// ============================================================================
+
+func TestService_CrossTenant_GetByID_OtherTenantReturnsNotFound(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	filterID := uuid.New()
+	repo.filters[filterID] = &models.SavedFilter{
+		ID:         filterID,
+		TenantID:   testTenantID,
+		Name:       "Tenant A Filter",
+		EntityType: models.EntityTypeContact,
+		FilterJSON: `{}`,
+		CreatedBy:  uuid.New(),
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+
+	// Tenant B tries to read Tenant A's filter — must get NotFound
+	_, err := svc.GetByID(context.Background(), filterID, otherTenantID)
+	assert.ErrorIs(t, err, ErrFilterNotFound)
+
+	// Tenant A can read its own filter
+	filter, err := svc.GetByID(context.Background(), filterID, testTenantID)
+	require.NoError(t, err)
+	assert.Equal(t, filterID, filter.ID)
+}
+
+func TestService_CrossTenant_List_OnlyOwnFilters(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	userID := uuid.New()
+
+	// Add 2 filters for Tenant A
+	for i := 0; i < 2; i++ {
+		id := uuid.New()
+		repo.filters[id] = &models.SavedFilter{
+			ID:         id,
+			TenantID:   testTenantID,
+			Name:       "TenantA Filter",
+			EntityType: models.EntityTypeContact,
+			FilterJSON: `{}`,
+			CreatedBy:  userID,
+			CreatedAt:  time.Now(),
+			UpdatedAt:  time.Now(),
+		}
+	}
+
+	// Add 3 filters for Tenant B
+	for i := 0; i < 3; i++ {
+		id := uuid.New()
+		repo.filters[id] = &models.SavedFilter{
+			ID:         id,
+			TenantID:   otherTenantID,
+			Name:       "TenantB Filter",
+			EntityType: models.EntityTypeContact,
+			FilterJSON: `{}`,
+			CreatedBy:  userID,
+			CreatedAt:  time.Now(),
+			UpdatedAt:  time.Now(),
+		}
+	}
+
+	// Tenant A sees only its 2 filters
+	filtersA, err := svc.List(context.Background(), ListInput{TenantID: testTenantID})
+	require.NoError(t, err)
+	assert.Len(t, filtersA, 2)
+
+	// Tenant B sees only its 3 filters
+	filtersB, err := svc.List(context.Background(), ListInput{TenantID: otherTenantID})
+	require.NoError(t, err)
+	assert.Len(t, filtersB, 3)
+}
+
+func TestService_CrossTenant_Delete_OtherTenantReturnsNotFound(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	ownerID := uuid.New()
+	filterID := uuid.New()
+	repo.filters[filterID] = &models.SavedFilter{
+		ID:         filterID,
+		TenantID:   testTenantID,
+		Name:       "Tenant A Filter",
+		EntityType: models.EntityTypeContact,
+		FilterJSON: `{}`,
+		CreatedBy:  ownerID,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+
+	// Tenant B tries to delete Tenant A's filter — must get NotFound
+	err := svc.Delete(context.Background(), filterID, otherTenantID, ownerID)
+	assert.ErrorIs(t, err, ErrFilterNotFound)
+
+	// Filter must still exist
+	assert.Contains(t, repo.filters, filterID)
+}
+
+func TestService_CrossTenant_Update_OtherTenantReturnsNotFound(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	ownerID := uuid.New()
+	filterID := uuid.New()
+	repo.filters[filterID] = &models.SavedFilter{
+		ID:         filterID,
+		TenantID:   testTenantID,
+		Name:       "Tenant A Filter",
+		EntityType: models.EntityTypeContact,
+		FilterJSON: `{}`,
+		CreatedBy:  ownerID,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+
+	newName := "Hacked Name"
+	_, err := svc.Update(context.Background(), filterID, otherTenantID, ownerID, UpdateInput{
+		Name: &newName,
+	})
+	assert.ErrorIs(t, err, ErrFilterNotFound)
+
+	// Name must be unchanged
+	assert.Equal(t, "Tenant A Filter", repo.filters[filterID].Name)
 }

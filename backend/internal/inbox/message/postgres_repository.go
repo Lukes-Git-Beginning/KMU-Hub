@@ -25,19 +25,19 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 func (r *PostgresRepository) Create(ctx context.Context, msg *models.InboxMessage) error {
 	query := `
 		INSERT INTO inbox_messages (
-			id, user_id, channel, source_id, sender_name, sender_id, sender_email,
+			id, tenant_id, user_id, channel, source_id, sender_name, sender_id, sender_email,
 			subject, preview, is_read, is_starred, is_archived, snoozed_until,
 			assigned_to, team_inbox_id, tags, deep_link, crm_contact_id,
 			metadata, received_at, created_at, updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7,
-			$8, $9, $10, $11, $12, $13,
-			$14, $15, $16, $17, $18,
-			$19, $20, NOW(), NOW()
+			$1, $2, $3, $4, $5, $6, $7, $8,
+			$9, $10, $11, $12, $13, $14,
+			$15, $16, $17, $18, $19,
+			$20, $21, NOW(), NOW()
 		)`
 
 	_, err := r.pool.Exec(ctx, query,
-		msg.ID, msg.UserID, msg.Channel, msg.SourceID, msg.SenderName, msg.SenderID, msg.SenderEmail,
+		msg.ID, msg.TenantID, msg.UserID, msg.Channel, msg.SourceID, msg.SenderName, msg.SenderID, msg.SenderEmail,
 		msg.Subject, msg.Preview, msg.IsRead, msg.IsStarred, msg.IsArchived, msg.SnoozedUntil,
 		msg.AssignedTo, msg.TeamInboxID, msg.Tags, msg.DeepLink, msg.CRMContactID,
 		msg.Metadata, msg.ReceivedAt,
@@ -45,16 +45,16 @@ func (r *PostgresRepository) Create(ctx context.Context, msg *models.InboxMessag
 	return err
 }
 
-func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.InboxMessage, error) {
+func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.InboxMessage, error) {
 	query := `
 		SELECT id, user_id, channel, source_id, sender_name, sender_id, sender_email,
 			subject, preview, is_read, is_starred, is_archived, snoozed_until,
 			assigned_to, team_inbox_id, tags, deep_link, crm_contact_id,
 			metadata, received_at, created_at, updated_at
-		FROM inbox_messages WHERE id = $1`
+		FROM inbox_messages WHERE id = $1 AND tenant_id = $2`
 
 	msg := &models.InboxMessage{}
-	err := r.pool.QueryRow(ctx, query, id).Scan(
+	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(
 		&msg.ID, &msg.UserID, &msg.Channel, &msg.SourceID, &msg.SenderName, &msg.SenderID, &msg.SenderEmail,
 		&msg.Subject, &msg.Preview, &msg.IsRead, &msg.IsStarred, &msg.IsArchived, &msg.SnoozedUntil,
 		&msg.AssignedTo, &msg.TeamInboxID, &msg.Tags, &msg.DeepLink, &msg.CRMContactID,
@@ -67,9 +67,9 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models
 }
 
 func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*models.InboxMessage, int, error) {
-	where := "WHERE user_id = $1"
-	args := []interface{}{filter.UserID}
-	argIdx := 2
+	where := "WHERE tenant_id = $1 AND user_id = $2"
+	args := []interface{}{filter.TenantID, filter.UserID}
+	argIdx := 3
 
 	if filter.Channel != nil {
 		where += fmt.Sprintf(" AND channel = $%d", argIdx)
@@ -116,9 +116,9 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 	}
 
 	// Count query (without cursor and limit for total count)
-	countWhere := "WHERE user_id = $1"
-	countArgs := []interface{}{filter.UserID}
-	countIdx := 2
+	countWhere := "WHERE tenant_id = $1 AND user_id = $2"
+	countArgs := []interface{}{filter.TenantID, filter.UserID}
+	countIdx := 3
 
 	if filter.Channel != nil {
 		countWhere += fmt.Sprintf(" AND channel = $%d", countIdx)

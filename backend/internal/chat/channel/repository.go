@@ -14,9 +14,10 @@ type Repository interface {
 	// Channel CRUD
 	Create(ctx context.Context, channel *models.Channel) error
 	GetByID(ctx context.Context, id uuid.UUID) (*models.Channel, error)
+	GetByIDForTenant(ctx context.Context, id, tenantID uuid.UUID) (*models.Channel, error)
 	List(ctx context.Context, filter ListFilter, offset, limit int) ([]*models.Channel, int, error)
 	Update(ctx context.Context, channel *models.Channel) error
-	Delete(ctx context.Context, id uuid.UUID) error
+	Delete(ctx context.Context, id, tenantID uuid.UUID) error
 
 	// Membership operations
 	AddMember(ctx context.Context, membership *models.ChannelMembership) error
@@ -34,7 +35,7 @@ type Repository interface {
 	GetLastMessage(ctx context.Context, channelID uuid.UUID) (*models.MessageWithSender, error)
 
 	// DM operations
-	FindDMChannel(ctx context.Context, user1, user2 uuid.UUID) (*models.Channel, error)
+	FindDMChannel(ctx context.Context, user1, user2, tenantID uuid.UUID) (*models.Channel, error)
 	CreateDMChannel(ctx context.Context, channel *models.Channel, mem1, mem2 *models.ChannelMembership) error
 
 	// Read receipts (Sprint 3)
@@ -45,6 +46,7 @@ type Repository interface {
 
 // ListFilter contains filtering options for listing channels
 type ListFilter struct {
+	TenantID        uuid.UUID // Required: tenant isolation
 	UserID          uuid.UUID // Required: list channels this user is a member of
 	IncludeArchived bool
 	IsDM            *bool

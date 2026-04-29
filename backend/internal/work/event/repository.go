@@ -20,11 +20,11 @@ type ReminderWithEvent struct {
 type Repository interface {
 	// Events
 	Create(ctx context.Context, event *models.CalendarEvent) error
-	GetByID(ctx context.Context, id uuid.UUID) (*models.CalendarEvent, error)
+	GetByID(ctx context.Context, id, tenantID uuid.UUID) (*models.CalendarEvent, error)
 	Update(ctx context.Context, event *models.CalendarEvent) error
-	Delete(ctx context.Context, id uuid.UUID) error
-	ListInRange(ctx context.Context, calendarIDs []uuid.UUID, start, end time.Time, userID uuid.UUID) ([]models.ExpandedEvent, error)
-	ListRecurringOverlapping(ctx context.Context, calendarIDs []uuid.UUID, start, end time.Time) ([]models.CalendarEvent, error)
+	Delete(ctx context.Context, id, tenantID uuid.UUID) error
+	ListInRange(ctx context.Context, calendarIDs []uuid.UUID, start, end time.Time, userID, tenantID uuid.UUID) ([]models.ExpandedEvent, error)
+	ListRecurringOverlapping(ctx context.Context, calendarIDs []uuid.UUID, start, end time.Time, tenantID uuid.UUID) ([]models.CalendarEvent, error)
 
 	// Attendees
 	AddAttendee(ctx context.Context, attendee *models.EventAttendee) error

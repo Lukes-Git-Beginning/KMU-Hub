@@ -103,11 +103,16 @@ func (r *mockCallRepo) CreateSession(_ context.Context, s *CallSession) error {
 	r.sessions[s.ID] = s
 	return nil
 }
-func (r *mockCallRepo) GetSessionByID(_ context.Context, id uuid.UUID) (*CallSession, error) {
-	if s, ok := r.sessions[id]; ok {
-		return s, nil
+func (r *mockCallRepo) GetSessionByID(_ context.Context, id uuid.UUID, tenantID uuid.UUID) (*CallSession, error) {
+	s, ok := r.sessions[id]
+	if !ok {
+		return nil, ErrCallSessionNotFound
 	}
-	return nil, ErrCallSessionNotFound
+	// Enforce tenant isolation when a real tenantID is supplied.
+	if tenantID != uuid.Nil && s.TenantID != uuid.Nil && s.TenantID != tenantID {
+		return nil, ErrCallSessionNotFound
+	}
+	return s, nil
 }
 func (r *mockCallRepo) UpdateSession(_ context.Context, s *CallSession) error {
 	r.sessions[s.ID] = s
@@ -210,7 +215,7 @@ func newTestHarness() *testHarness {
 
 func TestLogCallOutcome_SessionNotFound(t *testing.T) {
 	h := newTestHarness()
-	_, err := h.svc.LogCallOutcome(context.Background(), uuid.New(), uuid.New(), nil, nil, nil, nil)
+	_, err := h.svc.LogCallOutcome(context.Background(), uuid.Nil, uuid.New(), uuid.New(), nil, nil, nil, nil)
 	if !errors.Is(err, ErrCallSessionNotFound) {
 		t.Errorf("expected ErrCallSessionNotFound, got %v", err)
 	}
@@ -229,7 +234,7 @@ func TestLogCallOutcome_OutcomeNotFound(t *testing.T) {
 		UpdatedAt:         time.Now(),
 	}
 
-	_, err := h.svc.LogCallOutcome(context.Background(), sessionID, uuid.New(), nil, nil, nil, nil)
+	_, err := h.svc.LogCallOutcome(context.Background(), uuid.Nil, sessionID, uuid.New(), nil, nil, nil, nil)
 	if !errors.Is(err, ErrOutcomeNotFound) {
 		t.Errorf("expected ErrOutcomeNotFound, got %v", err)
 	}
@@ -271,7 +276,7 @@ func TestLogCallOutcome_ResolvesRealContactID(t *testing.T) {
 		ContactID:  realContactID,
 	}
 
-	_, err := h.svc.LogCallOutcome(context.Background(), sessionID, outcomeID, nil, nil, nil, nil)
+	_, err := h.svc.LogCallOutcome(context.Background(), uuid.Nil, sessionID, outcomeID, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -312,7 +317,7 @@ func TestLogCallOutcome_FallsBackWhenContactNotFound(t *testing.T) {
 	}
 
 	// Don't add the campaign contact — should fall back to ccID.
-	_, err := h.svc.LogCallOutcome(context.Background(), sessionID, outcomeID, nil, nil, nil, nil)
+	_, err := h.svc.LogCallOutcome(context.Background(), uuid.Nil, sessionID, outcomeID, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -360,7 +365,7 @@ func TestLogCallOutcome_CallbackSetsContactStatus(t *testing.T) {
 	}
 
 	cbTime := time.Now().Add(24 * time.Hour)
-	_, err := h.svc.LogCallOutcome(context.Background(), sessionID, outcomeID, nil, nil, &cbTime, nil)
+	_, err := h.svc.LogCallOutcome(context.Background(), uuid.Nil, sessionID, outcomeID, nil, nil, &cbTime, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -399,5 +404,58 @@ func TestCheckCampaignCompleteByContact(t *testing.T) {
 	}
 	if h.campaigns.updateStatusCalls[0].Status != CampaignStatusCompleted {
 		t.Errorf("expected status=%s, got %s", CampaignStatusCompleted, h.campaigns.updateStatusCalls[0].Status)
+	}
+}
+
+// ============================================================================
+// Cross-tenant isolation tests (dialer_call_sessions)
+// ============================================================================
+
+// TestLogCallOutcome_CrossTenant verifies that LogCallOutcome returns
+// ErrCallSessionNotFound when the tenantID doesn't match the session's tenant.
+func TestLogCallOutcome_CrossTenant(t *testing.T) {
+	h := newTestHarness()
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	sessionID := uuid.New()
+
+	// Seed a session belonging to tenant A.
+	h.calls.sessions[sessionID] = &CallSession{
+		ID:                sessionID,
+		TenantID:          tenantA,
+		CampaignContactID: uuid.New(),
+		AgentID:           uuid.New(),
+		CreatedAt:         time.Now(),
+		UpdatedAt:         time.Now(),
+	}
+
+	// Request with tenant B must fail to find the session.
+	_, err := h.svc.LogCallOutcome(context.Background(), tenantB, sessionID, uuid.New(), nil, nil, nil, nil)
+
+	if !errors.Is(err, ErrCallSessionNotFound) {
+		t.Errorf("expected ErrCallSessionNotFound for cross-tenant access, got %v", err)
+	}
+}
+
+// TestInitiateDialerCall_TenantIDTagged verifies that a successfully initiated
+// call session is tagged with the caller's tenantID.
+func TestInitiateDialerCall_TenantIDTagged(t *testing.T) {
+	h := newTestHarness()
+	tenantA := uuid.New()
+	ccID := uuid.New()
+
+	h.campaigns.contacts[ccID] = &CampaignContact{
+		ID:         ccID,
+		CampaignID: uuid.New(),
+		ContactID:  uuid.New(),
+	}
+
+	session, err := h.svc.InitiateDialerCall(context.Background(), tenantA, ccID, uuid.New(), nil)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if session.TenantID != tenantA {
+		t.Errorf("expected TenantID=%s on new session, got %s", tenantA, session.TenantID)
 	}
 }

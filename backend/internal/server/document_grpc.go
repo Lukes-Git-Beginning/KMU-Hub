@@ -17,6 +17,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/document/tag"
 	"github.com/kmuhub/kmuhub/internal/document/virtual"
 	"github.com/kmuhub/kmuhub/internal/document/wopi"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	documentv1 "github.com/kmuhub/kmuhub/proto/document/v1"
 )
@@ -241,12 +242,17 @@ func (s *DocumentGRPCServer) InitializeTeamSpace(ctx context.Context, req *docum
 // ============================================================================
 
 func (s *DocumentGRPCServer) GetFile(ctx context.Context, req *documentv1.GetFileRequest) (*documentv1.GetFileResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid file id")
 	}
 
-	f, err := s.fileService.GetByID(ctx, id)
+	f, err := s.fileService.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}
@@ -255,9 +261,15 @@ func (s *DocumentGRPCServer) GetFile(ctx context.Context, req *documentv1.GetFil
 }
 
 func (s *DocumentGRPCServer) ListFiles(ctx context.Context, req *documentv1.ListFilesRequest) (*documentv1.ListFilesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	filter := file.ListFilter{
-		Limit:  int(req.PerPage),
-		Offset: int((req.Page - 1) * req.PerPage),
+		TenantID: tenantID,
+		Limit:    int(req.PerPage),
+		Offset:   int((req.Page - 1) * req.PerPage),
 	}
 
 	if filter.Limit <= 0 {
@@ -304,6 +316,11 @@ func (s *DocumentGRPCServer) ListFiles(ctx context.Context, req *documentv1.List
 }
 
 func (s *DocumentGRPCServer) UpdateFile(ctx context.Context, req *documentv1.UpdateFileRequest) (*documentv1.UpdateFileResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid file id")
@@ -324,11 +341,11 @@ func (s *DocumentGRPCServer) UpdateFile(ctx context.Context, req *documentv1.Upd
 		input.IsFavorite = req.IsFavorite
 	}
 
-	if err := s.fileService.Update(ctx, id, input); err != nil {
+	if err := s.fileService.Update(ctx, id, tenantID, input); err != nil {
 		return nil, mapDocumentError(err)
 	}
 
-	f, err := s.fileService.GetByID(ctx, id)
+	f, err := s.fileService.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}
@@ -337,12 +354,17 @@ func (s *DocumentGRPCServer) UpdateFile(ctx context.Context, req *documentv1.Upd
 }
 
 func (s *DocumentGRPCServer) DeleteFile(ctx context.Context, req *documentv1.DeleteFileRequest) (*documentv1.DeleteFileResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid file id")
 	}
 
-	if err := s.fileService.Delete(ctx, id); err != nil {
+	if err := s.fileService.Delete(ctx, id, tenantID); err != nil {
 		return nil, mapDocumentError(err)
 	}
 
@@ -350,6 +372,11 @@ func (s *DocumentGRPCServer) DeleteFile(ctx context.Context, req *documentv1.Del
 }
 
 func (s *DocumentGRPCServer) CopyFile(ctx context.Context, req *documentv1.CopyFileRequest) (*documentv1.CopyFileResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid file id")
@@ -361,7 +388,7 @@ func (s *DocumentGRPCServer) CopyFile(ctx context.Context, req *documentv1.CopyF
 	}
 
 	// Use Nil as userID since gateway handles auth
-	f, err := s.fileService.Copy(ctx, id, targetFolderID, uuid.Nil)
+	f, err := s.fileService.Copy(ctx, id, targetFolderID, uuid.Nil, tenantID)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}
@@ -370,6 +397,11 @@ func (s *DocumentGRPCServer) CopyFile(ctx context.Context, req *documentv1.CopyF
 }
 
 func (s *DocumentGRPCServer) MoveFile(ctx context.Context, req *documentv1.MoveFileRequest) (*documentv1.MoveFileResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid file id")
@@ -380,11 +412,11 @@ func (s *DocumentGRPCServer) MoveFile(ctx context.Context, req *documentv1.MoveF
 		return nil, status.Error(codes.InvalidArgument, "invalid target_folder_id")
 	}
 
-	if err := s.fileService.Move(ctx, id, targetFolderID); err != nil {
+	if err := s.fileService.Move(ctx, id, targetFolderID, tenantID); err != nil {
 		return nil, mapDocumentError(err)
 	}
 
-	f, err := s.fileService.GetByID(ctx, id)
+	f, err := s.fileService.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}
@@ -393,17 +425,22 @@ func (s *DocumentGRPCServer) MoveFile(ctx context.Context, req *documentv1.MoveF
 }
 
 func (s *DocumentGRPCServer) GetFileDownloadURL(ctx context.Context, req *documentv1.GetFileDownloadURLRequest) (*documentv1.GetFileDownloadURLResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid file id")
 	}
 
-	url, err := s.fileService.GetDownloadURL(ctx, id)
+	url, err := s.fileService.GetDownloadURL(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}
 
-	f, err := s.fileService.GetByID(ctx, id)
+	f, err := s.fileService.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}
@@ -462,18 +499,23 @@ func (s *DocumentGRPCServer) ListFileVersions(ctx context.Context, req *document
 }
 
 func (s *DocumentGRPCServer) RevertFileVersion(ctx context.Context, req *documentv1.RevertFileVersionRequest) (*documentv1.RevertFileVersionResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	fileID, err := uuid.Parse(req.FileId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid file_id")
 	}
 
 	// Use Nil as userID since gateway handles auth
-	_, err = s.fileService.RevertVersion(ctx, fileID, int(req.VersionNumber), uuid.Nil)
+	_, err = s.fileService.RevertVersion(ctx, fileID, int(req.VersionNumber), uuid.Nil, tenantID)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}
 
-	f, err := s.fileService.GetByID(ctx, fileID)
+	f, err := s.fileService.GetByID(ctx, fileID, tenantID)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}
@@ -690,7 +732,12 @@ func (s *DocumentGRPCServer) LinkFileToEntity(ctx context.Context, req *document
 		return nil, status.Error(codes.InvalidArgument, "invalid linked_by")
 	}
 
-	if err := s.fileService.LinkToEntity(ctx, fileID, req.EntityType, entityID, linkedBy); err != nil {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	if err := s.fileService.LinkToEntity(ctx, fileID, req.EntityType, entityID, linkedBy, tenantID); err != nil {
 		return nil, mapDocumentError(err)
 	}
 
@@ -843,10 +890,17 @@ func (s *DocumentGRPCServer) GenerateWOPIToken(ctx context.Context, req *documen
 		return nil, status.Error(codes.InvalidArgument, "file_id and user_id are required")
 	}
 
+	// Extract tenantID from JWT context to embed in WOPI token for file scoping.
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	tenantIDStr := ""
+	if tenantErr == nil {
+		tenantIDStr = tenantID.String()
+	}
+
 	// Default user name (gateway can pass more info)
 	userName := "User"
 
-	token, ttlMs, err := s.tokenService.Generate(req.FileId, req.UserId, userName, true)
+	token, ttlMs, err := s.tokenService.Generate(req.FileId, req.UserId, userName, tenantIDStr, true)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to generate WOPI token")
 	}

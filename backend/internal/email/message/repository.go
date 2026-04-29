@@ -19,7 +19,7 @@ type ListOpts struct {
 // Repository defines the interface for email message persistence.
 type Repository interface {
 	Create(ctx context.Context, msg *models.EmailMessage) error
-	GetByID(ctx context.Context, id uuid.UUID) (*models.EmailMessage, error)
+	GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.EmailMessage, error)
 	GetByFolderUID(ctx context.Context, folderID uuid.UUID, uid uint32) (*models.EmailMessage, error)
 	ListByFolder(ctx context.Context, folderID uuid.UUID, opts ListOpts) ([]*models.EmailMessage, int, error)
 	ListByThread(ctx context.Context, threadID uuid.UUID) ([]*models.EmailMessage, error)

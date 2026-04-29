@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kmuhub/kmuhub/internal/models"
@@ -20,7 +21,7 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 }
 
 func (r *PostgresRepository) GetPipelineReport(ctx context.Context, filter PipelineFilter) (*models.PipelineReport, error) {
-	// Build query based on filter
+	// Build query based on filter — always tenant-scoped via deals.tenant_id
 	query := `
 		SELECT
 			ps.id AS stage_id,
@@ -30,15 +31,15 @@ func (r *PostgresRepository) GetPipelineReport(ctx context.Context, filter Pipel
 			COALESCE(SUM(d.value * (ps.probability / 100.0)), 0) AS weighted_value
 		FROM pipeline_stages ps
 		LEFT JOIN deals d ON d.stage_id = ps.id
-			AND d.created_at >= $1
-			AND d.created_at <= $2
+			AND d.tenant_id = $1
+			AND d.created_at >= $2
+			AND d.created_at <= $3
 	`
 
-	var args []any
-	args = append(args, filter.StartDate, filter.EndDate)
+	args := []any{filter.TenantID, filter.StartDate, filter.EndDate}
 
 	if filter.OwnerID != nil {
-		query += " AND d.owner_id = $3"
+		query += " AND d.owner_id = $4"
 		args = append(args, *filter.OwnerID)
 	}
 
@@ -71,8 +72,8 @@ func (r *PostgresRepository) GetPipelineReport(ctx context.Context, filter Pipel
 	return report, rows.Err()
 }
 
-func (r *PostgresRepository) GetConversionReport(ctx context.Context, startDate, endDate time.Time) (*models.ConversionReport, error) {
-	// Query stage transitions with metrics
+func (r *PostgresRepository) GetConversionReport(ctx context.Context, tenantID uuid.UUID, startDate, endDate time.Time) (*models.ConversionReport, error) {
+	// Query stage transitions with metrics — tenant-scoped via deal_stage_history join deals
 	query := `
 		WITH stage_transitions AS (
 			SELECT
@@ -83,9 +84,10 @@ func (r *PostgresRepository) GetConversionReport(ctx context.Context, startDate,
 				dsh.changed_at,
 				LAG(dsh.changed_at) OVER (PARTITION BY dsh.deal_id ORDER BY dsh.changed_at) AS prev_changed_at
 			FROM deal_stage_history dsh
+			JOIN deals d ON dsh.deal_id = d.id AND d.tenant_id = $1
 			LEFT JOIN pipeline_stages ps_from ON dsh.from_stage_id = ps_from.id
 			JOIN pipeline_stages ps_to ON dsh.to_stage_id = ps_to.id
-			WHERE dsh.changed_at >= $1 AND dsh.changed_at <= $2
+			WHERE dsh.changed_at >= $2 AND dsh.changed_at <= $3
 		)
 		SELECT
 			COALESCE(from_stage, 'New') AS from_stage,
@@ -97,7 +99,7 @@ func (r *PostgresRepository) GetConversionReport(ctx context.Context, startDate,
 		ORDER BY from_stage, to_stage
 	`
 
-	rows, err := r.pool.Query(ctx, query, startDate, endDate)
+	rows, err := r.pool.Query(ctx, query, tenantID, startDate, endDate)
 	if err != nil {
 		return nil, err
 	}
@@ -135,11 +137,11 @@ func (r *PostgresRepository) GetConversionReport(ctx context.Context, startDate,
 			COALESCE(AVG(EXTRACT(EPOCH FROM (d.updated_at - d.created_at)) / 86400.0), 0) AS avg_cycle
 		FROM deals d
 		JOIN pipeline_stages ps ON d.stage_id = ps.id
-		WHERE d.created_at >= $1 AND d.created_at <= $2
+		WHERE d.tenant_id = $1 AND d.created_at >= $2 AND d.created_at <= $3
 	`
 
 	var winRate, avgCycle *float64
-	if scanErr := r.pool.QueryRow(ctx, winQuery, startDate, endDate).Scan(&winRate, &avgCycle); scanErr != nil {
+	if scanErr := r.pool.QueryRow(ctx, winQuery, tenantID, startDate, endDate).Scan(&winRate, &avgCycle); scanErr != nil {
 		return nil, scanErr
 	}
 	if winRate != nil {
@@ -160,14 +162,13 @@ func (r *PostgresRepository) GetActivityReport(ctx context.Context, filter Activ
 			COUNT(CASE WHEN is_completed THEN 1 END)::int AS completed_count,
 			COUNT(CASE WHEN NOT is_completed AND due_date < NOW() THEN 1 END)::int AS overdue_count
 		FROM activities
-		WHERE created_at >= $1 AND created_at <= $2
+		WHERE tenant_id = $1 AND created_at >= $2 AND created_at <= $3
 	`
 
-	var args []any
-	args = append(args, filter.StartDate, filter.EndDate)
+	args := []any{filter.TenantID, filter.StartDate, filter.EndDate}
 
 	if filter.UserID != nil {
-		query += " AND (created_by = $3 OR assigned_to = $3)"
+		query += " AND (created_by = $4 OR assigned_to = $4)"
 		args = append(args, *filter.UserID)
 	}
 

@@ -37,9 +37,13 @@ func (r *mockRepo) Create(_ context.Context, msg *models.EmailMessage) error {
 	return nil
 }
 
-func (r *mockRepo) GetByID(_ context.Context, id uuid.UUID) (*models.EmailMessage, error) {
+func (r *mockRepo) GetByID(_ context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.EmailMessage, error) {
 	m, ok := r.messages[id]
 	if !ok {
+		return nil, ErrMessageNotFound
+	}
+	// Enforce tenant isolation when a real tenantID is supplied.
+	if tenantID != uuid.Nil && m.TenantID != uuid.Nil && m.TenantID != tenantID {
 		return nil, ErrMessageNotFound
 	}
 	copy := *m
@@ -327,11 +331,11 @@ func TestService_ToggleStar(t *testing.T) {
 	require.NoError(t, svc.Create(context.Background(), msg))
 
 	// Toggle on
-	require.NoError(t, svc.ToggleStar(context.Background(), msg.ID))
+	require.NoError(t, svc.ToggleStar(context.Background(), msg.ID, uuid.Nil))
 	assert.True(t, repo.messages[msg.ID].IsStarred)
 
 	// Toggle off
-	require.NoError(t, svc.ToggleStar(context.Background(), msg.ID))
+	require.NoError(t, svc.ToggleStar(context.Background(), msg.ID, uuid.Nil))
 	assert.False(t, repo.messages[msg.ID].IsStarred)
 }
 
@@ -343,7 +347,7 @@ func TestService_Delete(t *testing.T) {
 	require.NoError(t, svc.Create(context.Background(), msg))
 
 	require.NoError(t, svc.Delete(context.Background(), msg.ID))
-	_, err := svc.GetByID(context.Background(), msg.ID)
+	_, err := svc.GetByID(context.Background(), msg.ID, uuid.Nil)
 	assert.ErrorIs(t, err, ErrMessageNotFound)
 }
 
@@ -369,4 +373,48 @@ func TestReconstructThreads(t *testing.T) {
 	thread1 := *msgs[0].ThreadID
 	assert.Equal(t, thread1, *msgs[1].ThreadID)
 	assert.Equal(t, thread1, *msgs[2].ThreadID)
+}
+
+// ============================================================================
+// Cross-tenant isolation tests (email_messages)
+// ============================================================================
+
+// TestGetByID_CrossTenant verifies that an email message owned by tenant A
+// cannot be fetched with tenant B's ID.
+func TestGetByID_CrossTenant(t *testing.T) {
+	repo := newMockRepo()
+	svc := NewService(repo, &mockFolderRepo{})
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	msg := newTestMessage(uuid.New())
+	msg.TenantID = tenantA
+	require.NoError(t, repo.Create(context.Background(), msg))
+
+	result, err := svc.GetByID(context.Background(), msg.ID, tenantB)
+
+	assert.Nil(t, result)
+	assert.ErrorIs(t, err, ErrMessageNotFound)
+}
+
+// TestToggleStar_CrossTenant verifies that starring a message belonging to
+// tenant A is rejected when the request carries tenant B's ID.
+func TestToggleStar_CrossTenant(t *testing.T) {
+	repo := newMockRepo()
+	svc := NewService(repo, &mockFolderRepo{})
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	msg := newTestMessage(uuid.New())
+	msg.TenantID = tenantA
+	msg.IsStarred = false
+	require.NoError(t, repo.Create(context.Background(), msg))
+
+	err := svc.ToggleStar(context.Background(), msg.ID, tenantB)
+
+	assert.ErrorIs(t, err, ErrMessageNotFound)
+	// The star state must remain unchanged.
+	assert.False(t, repo.messages[msg.ID].IsStarred)
 }

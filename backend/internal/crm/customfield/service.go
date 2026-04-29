@@ -22,6 +22,7 @@ func NewService(repo Repository) *Service {
 
 // CreateInput contains the data needed to create a custom field
 type CreateInput struct {
+	TenantID     uuid.UUID
 	EntityType   models.EntityType
 	FieldName    string
 	FieldLabel   string
@@ -58,14 +59,15 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Custom
 		return nil, ErrOptionsRequired
 	}
 
-	// Check for duplicate
-	existing, _ := s.repo.GetByEntityAndName(ctx, input.EntityType, input.FieldName)
+	// Check for duplicate within tenant
+	existing, _ := s.repo.GetByEntityAndName(ctx, input.TenantID, input.EntityType, input.FieldName)
 	if existing != nil {
 		return nil, ErrFieldExists
 	}
 
 	field := &models.CustomFieldDefinition{
 		ID:           uuid.New(),
+		TenantID:     input.TenantID,
 		EntityType:   input.EntityType,
 		FieldName:    input.FieldName,
 		FieldLabel:   input.FieldLabel,
@@ -93,8 +95,8 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Custom
 }
 
 // GetByID retrieves a custom field by ID
-func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*models.CustomFieldDefinition, error) {
-	field, err := s.repo.GetByID(ctx, id)
+func (s *Service) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.CustomFieldDefinition, error) {
+	field, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, ErrFieldNotFound
 	}
@@ -103,6 +105,7 @@ func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*models.CustomFiel
 
 // ListInput contains filtering options for listing custom fields
 type ListInput struct {
+	TenantID   uuid.UUID
 	EntityType *models.EntityType
 	Page       int
 	PageSize   int
@@ -118,11 +121,12 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]*models.CustomFi
 	}
 
 	offset := (input.Page - 1) * input.PageSize
-	return s.repo.List(ctx, input.EntityType, offset, input.PageSize)
+	return s.repo.List(ctx, input.TenantID, input.EntityType, offset, input.PageSize)
 }
 
 // UpdateInput contains the data that can be updated on a custom field
 type UpdateInput struct {
+	TenantID     uuid.UUID
 	FieldLabel   *string
 	Options      []string
 	DefaultValue *string
@@ -132,7 +136,7 @@ type UpdateInput struct {
 
 // Update updates an existing custom field definition
 func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (*models.CustomFieldDefinition, error) {
-	field, err := s.repo.GetByID(ctx, id)
+	field, err := s.repo.GetByID(ctx, id, input.TenantID)
 	if err != nil {
 		return nil, ErrFieldNotFound
 	}
@@ -178,13 +182,13 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (
 }
 
 // Delete removes a custom field definition
-func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
-	field, err := s.repo.GetByID(ctx, id)
+func (s *Service) Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	field, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return ErrFieldNotFound
 	}
 
-	if deleteErr := s.repo.Delete(ctx, id); deleteErr != nil {
+	if deleteErr := s.repo.Delete(ctx, id, tenantID); deleteErr != nil {
 		return deleteErr
 	}
 

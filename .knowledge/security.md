@@ -1,6 +1,6 @@
 ---
 tags: [security, auth, compliance, gdpr]
-updated: 2026-04-28
+updated: 2026-04-29
 ---
 # Security & Compliance
 
@@ -20,27 +20,30 @@ updated: 2026-04-28
 ## Middleware-Stack (Reihenfolge)
 1. Metrics → 2. RequestID → 3. SecurityHeaders → 4. Logging → 5. CORS → 6. IP Filter → 7. Rate Limiting → 8. Audit Logger → 9. Auth (JWT) → 10. RBAC → 11. Idempotency (WarnMode bis Welle 4)
 - Code: `backend/internal/middleware/`
-- Idempotency-Position bewusst nach RBAC: nur authentifizierte und autorisierte Mutations werden gehasht/gespeichert. WarnMode loggt fehlende `Idempotency-Key`-Header ohne zu blocken — Hard-Mode greift erst nach Frontend-Rollout in Welle 4.
+- Idempotency-Position bewusst nach Auth+RBAC: nur authentifizierte und autorisierte Mutations werden gehasht/gespeichert. Reihenfolge in Welle 3.5 explizit fixiert (Idempotency war zwischenzeitlich vor Auth registriert — fail-open auf nicht-authentifizierten Mutations). WarnMode loggt fehlende `Idempotency-Key`-Header ohne zu blocken — Hard-Mode greift erst nach Frontend-Rollout in Welle 4.
 
-## Idempotency-Konvention (2026-04-28, Sprint 2 Welle 3)
+## Idempotency-Konvention (2026-04-28, Sprint 2 Welle 3 — gehaertet in Welle 3.5)
 
-- **Pflicht-Header `Idempotency-Key: <UUIDv4>`** auf POST/PUT/PATCH unter `/api/v1/` (Whitelist: `/auth/login`, `/auth/refresh`, `/auth/2fa` wegen Token-Rotation, GET/HEAD/OPTIONS sowieso skipped).
+- **Pflicht-Header `Idempotency-Key: <UUIDv4>`** auf POST/PUT/PATCH/DELETE unter `/api/v1/` (Whitelist: `/auth/login`, `/auth/refresh`, `/auth/2fa` wegen Token-Rotation, GET/HEAD/OPTIONS sowieso skipped).
 - Frontend-Auto-Setting via `desktop/src/renderer/src/api/idempotency.ts` (`crypto.randomUUID()`-Wrapper, `withIdempotencyKey()`-Helper). Header wird in `api/client.ts` automatisch gesetzt falls nicht vorhanden.
 - Backend `request_hash = sha256("tenant_id|user_id|method|path|body")`. Cases:
   - **Replay** (gleicher Key + gleicher Hash + completed): cached `response_status` + `response_body` zurueck (kein erneuter Service-Call).
   - **Conflict** (gleicher Key + anderer Hash): 422 Unprocessable Entity.
   - **In-Flight** (gleicher Key, noch kein `completed_at`): 409 Conflict + `Retry-After: 2`.
-  - **Fresh**: Reserve via `ON CONFLICT DO NOTHING`, Handler aufrufen, Response cachen, `completed_at=NOW()`.
-- Speicher: Tabelle `idempotency_keys` (Migration 000105). Tenant-scoped Index `(tenant_id, user_id, created_at DESC)`. TTL 24h via `expires_at`-Spalte; Cleanup-Goroutine im Gateway tickt 1h und delete `WHERE expires_at < NOW()`.
+  - **Fresh**: atomare Reserve via `INSERT ... ON CONFLICT DO UPDATE RETURNING ...` (Welle 3.5: vorher `ON CONFLICT DO NOTHING` + zweiter SELECT, was eine TOCTOU-Race zwischen zwei Replicas auf demselben Key auslief). Handler aufrufen, Response cachen, `completed_at=NOW()` mit `RowsAffected==0`-Sentinel → `ErrKeyMissing` (Stale-Row-Schutz).
+- Error-Matching ueber `errors.Is(err, idempotency.ErrInFlight|ErrConflict|ErrKeyMissing)`. Welle 3.5 ersetzt String-Equality durch `errors.Is`, damit gewrappte Errors nicht fail-open durchrutschen. Reserve-Failure-Default ist absichtlich fail-open (`next.ServeHTTP` ohne Dedup) — DB-Outage darf keine Mutations blocken.
+- Async Complete laeuft in `goroutine` mit `context.WithoutCancel(r.Context())`, damit der Handler-Return nicht das Speichern abbricht (Welle-3.5-Fix: vorher Deadlock auf in-flight Connection bei kurzen Handler-Latenzen).
+- Speicher: Tabelle `idempotency_keys` (Migration 000105). PK `(tenant_id, key)` (Welle 3.5, Migration 000108) — Cross-Tenant-Cache-Replay-Schutz fuer HardMode. Tenant-scoped Index `(tenant_id, user_id, created_at DESC)`. TTL 24h via `expires_at`-Spalte.
+- Cleanup-Worker: `IdempotencyCleanupWorker` tickt 1h und ruft `repo.CleanupWithLock(ctx, key=0x49444D50)`. Welle 3.5 macht den Lock echt: `pg_try_advisory_xact_lock` fuer Leader-Election (analog `fuhrpark/worker.go`). Nur eine Replica delete-`WHERE expires_at < NOW()` pro Tick.
 - Modus-Toggle: `middleware.WarnMode` vs `middleware.HardMode`. WarnMode loggt `slog.Warn("idempotency_key_missing", ...)` und gibt der Mutation den freien Lauf — gewollt fuer Phase-1-Rollout. Hard-Mode rejectet 400 Bad Request.
 
-## Pre-Recording-Consent (2026-04-28, Sprint 2 Welle 3, R2-P0.4)
+## Pre-Recording-Consent (2026-04-28, Sprint 2 Welle 3, R2-P0.4 — gehaertet in Welle 3.5)
 
 - **Migration 000107:** `recordings.pre_recording_consent_at TIMESTAMPTZ NULL` + `initiator_consent_id UUID NULL`, plus `recording_consents.responded_at`.
-- **Service-Gate:** `recording.Service.StartRecording` returniert `ErrPreConsentMissing` (HTTP 412 Precondition Failed) wenn `pre_recording_consent_at IS NULL`. Verhindert dass das Egress startet ohne dass der Initiator aktiv zugestimmt hat — bisher wurden Empfaenger-Consents geprueft (`CountPendingConsents`), aber Initiator-Consent war implizit.
-- **Endpoint:** `POST /api/v1/video/recordings/{id}/initiator-consent` (gRPC `ConfirmInitiatorConsent` via `proto/video/v1/video_pre_consent_ext.go` — Handfile-Extension-Pattern, kein Proto-Regen) stempelt das Feld nachdem der Initiator den Pre-Dialog bestaetigt.
-- **Frontend-Flow:** `RecordingInitiatorDialog` (Radix AlertDialog, non-dismissible) wird in `CallControls.handleRecordToggle` gezeigt VOR `startRecording.mutate()`. `handleConfirmStart` ruft erst `confirmInitiatorConsent`, dann `startRecording`. `RecordingActiveBanner` (roter Top-Stripe) ist sichtbar waehrend `recordings.status='active'` — i18n-Keys `features.video.recordingBanner.*` und `features.video.recordingInitiator.*`.
-- **Audit-Trail:** Backend-Tests `TestStartRecording_RequiresPreConsent` + Roundtrip-Tests. Frontend-Tests in `CallControls.test.tsx` validieren dass `confirmInitiatorConsent` vor `startRecording` aufgerufen wird.
+- **Service-Gate:** `recording.Service.StartRecording` returniert `ErrPreConsentMissing` (HTTP 412 Precondition Failed) wenn `pre_recording_consent_at IS NULL`. Welle 3.5 ordnet die Pre-Consent-Pruefung VOR `CreateRecording` an — vorher wurde erst die DB-Row angelegt und dann auf Consent geprueft, was bei `ErrConsentPending` Orphan-Rows ohne Egress hinterliess.
+- **Endpoint:** `POST /api/v1/video/recordings/{id}/initiator-consent` (gRPC `ConfirmInitiatorConsent` via `proto/video/v1/video_pre_consent_ext.go` — Handfile-Extension-Pattern, kein Proto-Regen). Welle 3.5: `MarkInitiatorConsent` + `GetPreConsentStatus` filtern jetzt `WHERE id=$1 AND tenant_id=$2` mit `RowsAffected==0`-Sentinel; `route_video.go` setzt RBAC-Permission-Middleware vor den Endpoint.
+- **Frontend-Flow:** `RecordingInitiatorDialog` (Radix AlertDialog, non-dismissible) wird in `CallControls.handleRecordToggle` gezeigt nachdem `startRecording.mutate()` die DB-Row reserviert hat. `handleConfirmStart` ruft `confirmInitiatorConsent`, was den Stamp setzt — Welle 3.5 wrappt den Call in `try/catch` mit `sonner.toast.error`, damit ein fehlgeschlagener Stamp keinen Orphan-Recording-State ohne sichtbares Feedback erzeugt. `handleRecordToggle` guarded zusaetzlich gegen Doppelklick via `startRecording.isPending || stopRecording.isPending || confirmInitiatorConsent.isPending`. `RecordingActiveBanner` (roter Top-Stripe) ist sichtbar waehrend `recordings.status='active'` — i18n-Keys `features.video.recordingBanner.*` und `features.video.recordingInitiator.*`.
+- **Audit-Trail:** Backend-Tests `TestStartRecording_RequiresPreConsent` + Roundtrip-Tests. Frontend-Tests in `CallControls.test.tsx` validieren dass `confirmInitiatorConsent` vor `startRecording` aufgerufen wird. `gateway/tenant_isolation_test.go` hat 4 zusaetzliche Cases (Welle 3.5) fuer `/recordings/{id}/initiator-consent`: no-tenant, empty-tid, valid-tid, two-tenant-Scenario.
 
 ## Audit Logger (2026-04-08)
 - Buffered Channel (Kapazitaet 1000) + Worker Pool (10 Worker)
@@ -85,6 +88,15 @@ Schliesst die Welle-1-Altlast: vor dieser Welle hatten 11 Gateway-Routes (rappor
   - `gateway/tenant_isolation_test.go` (10 neue Tests) — no-tenant/empty-tid → 401, valid-tid → passes
   - Bestehende Gateway-Tests aktualisiert mit `withTenantID`/`withAuth` Helpers
 - **Regel:** Neue Routes MUESSEN `middleware.GetTenantID(ctx)` als erste Aktion aufrufen und 401 bei Fehler zurueckgeben. Kein `<modul>PlaceholderTenantID` mehr.
+
+## gRPC Tenant-Spoof-Sweep (2026-04-29, Sprint 2 Welle 3.5)
+
+Welle-3.5-Verschaerfung der W2D-C-Lehre: gRPC-Server lasen `tenant_id` aus den Proto-Request-Feldern (`req.GetTenantId()`), die das Gateway aus dem JWT durchgereicht hat. Korrekt fuer den Happy-Path — aber bei Service-zu-Service-Calls oder einem kompromittierten Gateway haette ein Caller eine fremde TenantID in den Request schreiben koennen, die Repository-Filter waeren willig hinterhergerannt.
+
+- **Pattern:** gRPC-Handler ziehen `tenant_id` jetzt aus dem gRPC-Context via `middleware.GetTenantID(ctx)`, NICHT aus dem Proto-Request-Feld. Affektiert: `chat_grpc.go`, `crm_grpc.go`, `work_grpc.go`, `video_grpc.go`, `dialer_grpc.go` — 14+ Methoden.
+- **Proto bleibt unveraendert:** `tenant_id` ist weiterhin im Request-Wire-Format, wird aber serverseitig ignoriert / nur fuer Logging genutzt. Frontend muss kein Proto-Regen ueber sich ergehen lassen.
+- **Repository-Tenant-Filter-Sweep:** `deal/activity/task/pipelinestage/chat-message/recording postgres_repository.go` enforcen `WHERE id=$1 AND tenant_id=$2` auf jedem UPDATE/DELETE/GetByID/Search-Pfad plus `RowsAffected==0`-Sentinel (kein Service-Layer-Trust).
+- **Migration 000108:** PK auf `idempotency_keys` von `(key)` → `(tenant_id, key)`. Letzte Verteidigungslinie gegen Cross-Tenant-Cache-Replay sobald HardMode aktiv ist. Details: [[datenbank]] "Sprint 2 Welle 3.5".
 
 ## CORS
 - Explizite Allowlist via `CORS_ALLOWED_ORIGINS` (Semikolon-getrennt)

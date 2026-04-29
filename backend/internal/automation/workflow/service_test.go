@@ -45,16 +45,24 @@ func (m *mockRepo) Update(ctx context.Context, a *models.Automation) error {
 	return nil
 }
 
-func (m *mockRepo) Delete(ctx context.Context, id uuid.UUID) error {
+func (m *mockRepo) Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
 	if m.deleteFn != nil {
 		return m.deleteFn(ctx, id)
 	}
 	return nil
 }
 
-func (m *mockRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Automation, error) {
+func (m *mockRepo) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.Automation, error) {
 	if m.getByIDFn != nil {
-		return m.getByIDFn(ctx, id)
+		auto, err := m.getByIDFn(ctx, id)
+		if err != nil || auto == nil {
+			return auto, err
+		}
+		// Enforce tenant isolation when a real tenantID is supplied.
+		if tenantID != uuid.Nil && auto.TenantID != uuid.Nil && auto.TenantID != tenantID {
+			return nil, ErrAutomationNotFound
+		}
+		return auto, nil
 	}
 	return nil, nil
 }
@@ -80,7 +88,7 @@ func (m *mockRepo) ListActiveTimeBased(ctx context.Context) ([]*models.Automatio
 	return nil, nil
 }
 
-func (m *mockRepo) SetActive(ctx context.Context, id uuid.UUID, active bool) error {
+func (m *mockRepo) SetActive(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, active bool) error {
 	if m.setActiveFn != nil {
 		return m.setActiveFn(ctx, id, active)
 	}
@@ -343,7 +351,7 @@ func TestDelete_Success(t *testing.T) {
 	svc := newTestService(repo, nil, nil)
 
 	targetID := uuid.New()
-	err := svc.Delete(context.Background(), targetID)
+	err := svc.Delete(context.Background(), targetID, uuid.Nil)
 	require.NoError(t, err)
 	assert.Equal(t, targetID, deletedID)
 }
@@ -361,7 +369,7 @@ func TestGetByID_Success(t *testing.T) {
 	}
 	svc := newTestService(repo, nil, nil)
 
-	result, err := svc.GetByID(context.Background(), expected.ID)
+	result, err := svc.GetByID(context.Background(), expected.ID, uuid.Nil)
 	require.NoError(t, err)
 	assert.Equal(t, expected.Name, result.Name)
 }
@@ -374,7 +382,7 @@ func TestGetByID_NotFound(t *testing.T) {
 	}
 	svc := newTestService(repo, nil, nil)
 
-	_, err := svc.GetByID(context.Background(), uuid.New())
+	_, err := svc.GetByID(context.Background(), uuid.New(), uuid.Nil)
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, ErrAutomationNotFound))
 }
@@ -442,7 +450,7 @@ func TestSetActive_Success(t *testing.T) {
 	}
 	svc := newTestService(repo, nil, nil)
 
-	err := svc.SetActive(context.Background(), uuid.New(), true)
+	err := svc.SetActive(context.Background(), uuid.New(), uuid.Nil, true)
 	require.NoError(t, err)
 	assert.True(t, capturedActive)
 }
@@ -597,7 +605,7 @@ func TestCreateFromTemplate_Success(t *testing.T) {
 	svc := newTestService(repo, nil, tmplRepo)
 
 	ownerID := uuid.New()
-	result, err := svc.CreateFromTemplate(context.Background(), "tmpl-welcome", ownerID, "My Welcome")
+	result, err := svc.CreateFromTemplate(context.Background(), "tmpl-welcome", uuid.Nil, ownerID, "My Welcome")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -620,7 +628,7 @@ func TestCreateFromTemplate_TemplateNotFound(t *testing.T) {
 	}
 	svc := newTestService(nil, nil, tmplRepo)
 
-	_, err := svc.CreateFromTemplate(context.Background(), "nonexistent", uuid.New(), "Test")
+	_, err := svc.CreateFromTemplate(context.Background(), "nonexistent", uuid.Nil, uuid.New(), "Test")
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, ErrTemplateNotFound))
 }
@@ -656,7 +664,7 @@ func TestGetStats_Success(t *testing.T) {
 	}
 	svc := newTestService(repo, execRepo, nil)
 
-	stats, err := svc.GetStats(context.Background())
+	stats, err := svc.GetStats(context.Background(), uuid.Nil)
 	require.NoError(t, err)
 
 	assert.Equal(t, 10, stats.TotalAutomations)
@@ -724,7 +732,7 @@ func TestDryRun_Success(t *testing.T) {
 	}
 	svc := newTestService(repo, nil, nil)
 
-	result, err := svc.DryRun(context.Background(), autoID, map[string]any{"x": 1})
+	result, err := svc.DryRun(context.Background(), autoID, uuid.Nil, map[string]any{"x": 1})
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -744,7 +752,7 @@ func TestDryRun_AutomationNotFound(t *testing.T) {
 	}
 	svc := newTestService(repo, nil, nil)
 
-	_, err := svc.DryRun(context.Background(), uuid.New(), nil)
+	_, err := svc.DryRun(context.Background(), uuid.New(), uuid.Nil, nil)
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, ErrAutomationNotFound))
 }
@@ -763,11 +771,72 @@ func TestDryRun_UnknownActionMarkedAsError(t *testing.T) {
 	}
 	svc := newTestService(repo, nil, nil)
 
-	result, err := svc.DryRun(context.Background(), autoID, nil)
+	result, err := svc.DryRun(context.Background(), autoID, uuid.Nil, nil)
 	require.NoError(t, err)
 
 	assert.True(t, result.Steps[0].WouldRun)
 	assert.Empty(t, result.Steps[0].Error)
 	assert.False(t, result.Steps[1].WouldRun)
 	assert.Equal(t, "action type not registered", result.Steps[1].Error)
+}
+
+// ============================================================================
+// Cross-tenant isolation tests (automations)
+// ============================================================================
+
+// TestGetByID_CrossTenant verifies that an automation owned by tenant A cannot
+// be retrieved by a request carrying tenant B's ID.
+func TestGetByID_CrossTenant(t *testing.T) {
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	autoID := uuid.New()
+
+	auto := &models.Automation{
+		ID:          autoID,
+		TenantID:    tenantA,
+		Name:        "Tenant A Automation",
+		TriggerType: "event",
+	}
+	repo := &mockRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*models.Automation, error) {
+			if id == autoID {
+				return auto, nil
+			}
+			return nil, ErrAutomationNotFound
+		},
+	}
+	svc := newTestService(repo, nil, nil)
+
+	result, err := svc.GetByID(context.Background(), autoID, tenantB)
+
+	assert.Nil(t, result)
+	assert.ErrorIs(t, err, ErrAutomationNotFound)
+}
+
+// TestDryRun_CrossTenant verifies that DryRun on an automation owned by
+// tenant A is rejected when the request carries tenant B's ID.
+func TestDryRun_CrossTenant(t *testing.T) {
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	autoID := uuid.New()
+
+	auto := &models.Automation{
+		ID:          autoID,
+		TenantID:    tenantA,
+		TriggerType: "event",
+	}
+	repo := &mockRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*models.Automation, error) {
+			if id == autoID {
+				return auto, nil
+			}
+			return nil, ErrAutomationNotFound
+		},
+	}
+	svc := newTestService(repo, nil, nil)
+
+	result, err := svc.DryRun(context.Background(), autoID, tenantB, nil)
+
+	assert.Nil(t, result)
+	assert.ErrorIs(t, err, ErrAutomationNotFound)
 }

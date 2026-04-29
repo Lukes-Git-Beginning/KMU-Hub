@@ -8,7 +8,6 @@
  *
  * Gateway routes: /api/v1/email/*
  */
-import { API_BASE_URL } from '@/lib/constants'
 import type {
   CreateEmailAccountRequest,
   UpdateEmailAccountRequest,
@@ -33,78 +32,40 @@ import type {
   UploadAttachmentResponse,
   AttachmentDownloadURLResponse,
 } from './email-types'
+import { authenticatedRequest } from './utils/authenticatedFetch'
 
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-const MUTATION_METHODS = new Set(['POST', 'PUT', 'DELETE', 'PATCH'])
-
-class OfflineError extends Error {
-  constructor() {
-    super('Änderungen sind offline nicht möglich.')
-    this.name = 'OfflineError'
-  }
-}
-
-let refreshPromise: Promise<string | null> | null = null
-
-async function getToken(): Promise<string | undefined> {
-  const { useAuthStore } = await import('@/stores/auth')
-  return useAuthStore.getState().accessToken
-}
-
-async function refreshToken(): Promise<string | null> {
-  const { useAuthStore } = await import('@/stores/auth')
-  const store = useAuthStore.getState()
-  if (!refreshPromise) {
-    refreshPromise = store.refreshToken().finally(() => {
-      refreshPromise = null
-    })
-  }
-  return refreshPromise
-}
-
+/**
+ * Thin adapter: converts the (path, RequestInit) call signature used
+ * throughout this module to the authenticatedRequest options object.
+ * body is extracted from options.body and passed as-is so FormData /
+ * multipart requests work correctly (Content-Type is not forced to JSON).
+ */
 async function request<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const method = options.method ?? 'GET'
-
-  if (!navigator.onLine && MUTATION_METHODS.has(method)) {
-    throw new OfflineError()
-  }
-
-  const token = await getToken()
-  const headers = new Headers(options.headers)
-  if (token) headers.set('Authorization', `Bearer ${token}`)
-  if (options.body && typeof options.body === 'string') {
-    headers.set('Content-Type', 'application/json')
-  }
-
-  let res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers })
-
-  // Handle 401 with refresh
-  if (res.status === 401 && !path.includes('/auth/')) {
-    const newToken = await refreshToken()
-    if (!newToken) {
-      const { useAuthStore } = await import('@/stores/auth')
-      useAuthStore.getState().logout()
-      throw new Error('Session abgelaufen')
+  const method = (options.method ?? 'GET').toUpperCase()
+  // Decode body for authenticatedRequest which re-serialises plain objects to JSON.
+  // Here the callers already pass JSON.stringify(data) as options.body, so we
+  // try to parse it back; if it's FormData we pass the raw body through.
+  let body: unknown = undefined
+  if (options.body !== undefined) {
+    if (typeof options.body === 'string') {
+      try {
+        body = JSON.parse(options.body)
+      } catch {
+        body = options.body
+      }
+    } else {
+      // FormData or Blob — pass through as-is
+      body = options.body
     }
-    headers.set('Authorization', `Bearer ${newToken}`)
-    res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers })
   }
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: res.statusText }))
-    throw new Error(body.error ?? body.message ?? `HTTP ${res.status}`)
-  }
-
-  // 204 No Content
-  if (res.status === 204) return {} as T
-
-  return res.json() as Promise<T>
+  return authenticatedRequest<T>({ method, path, body })
 }
 
 function qs(params: Record<string, unknown>): string {

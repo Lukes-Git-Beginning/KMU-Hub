@@ -12,10 +12,15 @@ import (
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
+var (
+	testTenantID  = uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+	otherTenantID = uuid.MustParse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+)
+
 // mockRepository implements Repository for testing
 type mockRepository struct {
 	fields        map[uuid.UUID]*models.CustomFieldDefinition
-	fieldsByKey   map[string]*models.CustomFieldDefinition // key = entityType:fieldName
+	fieldsByKey   map[string]*models.CustomFieldDefinition // key = tenantID:entityType:fieldName
 	shouldFailGet bool
 }
 
@@ -28,12 +33,12 @@ func newMockRepository() *mockRepository {
 
 func (m *mockRepository) Create(_ context.Context, field *models.CustomFieldDefinition) error {
 	m.fields[field.ID] = field
-	key := string(field.EntityType) + ":" + field.FieldName
+	key := field.TenantID.String() + ":" + string(field.EntityType) + ":" + field.FieldName
 	m.fieldsByKey[key] = field
 	return nil
 }
 
-func (m *mockRepository) GetByID(_ context.Context, id uuid.UUID) (*models.CustomFieldDefinition, error) {
+func (m *mockRepository) GetByID(_ context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.CustomFieldDefinition, error) {
 	if m.shouldFailGet {
 		return nil, ErrFieldNotFound
 	}
@@ -41,11 +46,15 @@ func (m *mockRepository) GetByID(_ context.Context, id uuid.UUID) (*models.Custo
 	if !ok {
 		return nil, ErrFieldNotFound
 	}
+	// Enforce tenant isolation
+	if f.TenantID != tenantID {
+		return nil, ErrFieldNotFound
+	}
 	return f, nil
 }
 
-func (m *mockRepository) GetByEntityAndName(_ context.Context, entityType models.EntityType, fieldName string) (*models.CustomFieldDefinition, error) {
-	key := string(entityType) + ":" + fieldName
+func (m *mockRepository) GetByEntityAndName(_ context.Context, tenantID uuid.UUID, entityType models.EntityType, fieldName string) (*models.CustomFieldDefinition, error) {
+	key := tenantID.String() + ":" + string(entityType) + ":" + fieldName
 	f, ok := m.fieldsByKey[key]
 	if !ok {
 		return nil, ErrFieldNotFound
@@ -53,9 +62,12 @@ func (m *mockRepository) GetByEntityAndName(_ context.Context, entityType models
 	return f, nil
 }
 
-func (m *mockRepository) List(_ context.Context, entityType *models.EntityType, offset, limit int) ([]*models.CustomFieldDefinition, int, error) {
+func (m *mockRepository) List(_ context.Context, tenantID uuid.UUID, entityType *models.EntityType, offset, limit int) ([]*models.CustomFieldDefinition, int, error) {
 	var result []*models.CustomFieldDefinition
 	for _, f := range m.fields {
+		if f.TenantID != tenantID {
+			continue
+		}
 		if entityType == nil || f.EntityType == *entityType {
 			result = append(result, f)
 		}
@@ -73,18 +85,22 @@ func (m *mockRepository) List(_ context.Context, entityType *models.EntityType, 
 }
 
 func (m *mockRepository) Update(_ context.Context, field *models.CustomFieldDefinition) error {
+	existing, ok := m.fields[field.ID]
+	if !ok || existing.TenantID != field.TenantID {
+		return ErrFieldNotFound
+	}
 	m.fields[field.ID] = field
-	key := string(field.EntityType) + ":" + field.FieldName
+	key := field.TenantID.String() + ":" + string(field.EntityType) + ":" + field.FieldName
 	m.fieldsByKey[key] = field
 	return nil
 }
 
-func (m *mockRepository) Delete(_ context.Context, id uuid.UUID) error {
+func (m *mockRepository) Delete(_ context.Context, id uuid.UUID, tenantID uuid.UUID) error {
 	f, ok := m.fields[id]
-	if !ok {
+	if !ok || f.TenantID != tenantID {
 		return ErrFieldNotFound
 	}
-	key := string(f.EntityType) + ":" + f.FieldName
+	key := f.TenantID.String() + ":" + string(f.EntityType) + ":" + f.FieldName
 	delete(m.fieldsByKey, key)
 	delete(m.fields, id)
 	return nil
@@ -96,9 +112,10 @@ func newTestService() (*Service, *mockRepository) {
 	return svc, repo
 }
 
-func createTestField(repo *mockRepository, entityType models.EntityType, fieldName string, fieldType models.FieldType) *models.CustomFieldDefinition {
+func createTestField(repo *mockRepository, tenantID uuid.UUID, entityType models.EntityType, fieldName string, fieldType models.FieldType) *models.CustomFieldDefinition {
 	field := &models.CustomFieldDefinition{
 		ID:         uuid.New(),
+		TenantID:   tenantID,
 		EntityType: entityType,
 		FieldName:  fieldName,
 		FieldLabel: fieldName + " Label",
@@ -110,7 +127,7 @@ func createTestField(repo *mockRepository, entityType models.EntityType, fieldNa
 		UpdatedAt:  time.Now(),
 	}
 	repo.fields[field.ID] = field
-	key := string(entityType) + ":" + fieldName
+	key := tenantID.String() + ":" + string(entityType) + ":" + fieldName
 	repo.fieldsByKey[key] = field
 	return field
 }
@@ -125,6 +142,7 @@ func TestService_Create(t *testing.T) {
 		{
 			name: "success_text_field",
 			input: CreateInput{
+				TenantID:   testTenantID,
 				EntityType: models.EntityTypeContact,
 				FieldName:  "website",
 				FieldLabel: "Website URL",
@@ -136,6 +154,7 @@ func TestService_Create(t *testing.T) {
 		{
 			name: "success_select_field_with_options",
 			input: CreateInput{
+				TenantID:   testTenantID,
 				EntityType: models.EntityTypeContact,
 				FieldName:  "priority",
 				FieldLabel: "Priority Level",
@@ -148,6 +167,7 @@ func TestService_Create(t *testing.T) {
 		{
 			name: "success_multiselect_field",
 			input: CreateInput{
+				TenantID:   testTenantID,
 				EntityType: models.EntityTypeDeal,
 				FieldName:  "tags",
 				FieldLabel: "Tags",
@@ -160,6 +180,7 @@ func TestService_Create(t *testing.T) {
 		{
 			name: "success_required_field",
 			input: CreateInput{
+				TenantID:   testTenantID,
 				EntityType: models.EntityTypeCompany,
 				FieldName:  "industry",
 				FieldLabel: "Industry",
@@ -172,6 +193,7 @@ func TestService_Create(t *testing.T) {
 		{
 			name: "invalid_entity_type",
 			input: CreateInput{
+				TenantID:   testTenantID,
 				EntityType: "invalid",
 				FieldName:  "test",
 				FieldLabel: "Test",
@@ -184,6 +206,7 @@ func TestService_Create(t *testing.T) {
 		{
 			name: "invalid_field_type",
 			input: CreateInput{
+				TenantID:   testTenantID,
 				EntityType: models.EntityTypeContact,
 				FieldName:  "test",
 				FieldLabel: "Test",
@@ -196,6 +219,7 @@ func TestService_Create(t *testing.T) {
 		{
 			name: "missing_field_name",
 			input: CreateInput{
+				TenantID:   testTenantID,
 				EntityType: models.EntityTypeContact,
 				FieldName:  "",
 				FieldLabel: "Test",
@@ -208,6 +232,7 @@ func TestService_Create(t *testing.T) {
 		{
 			name: "missing_field_label",
 			input: CreateInput{
+				TenantID:   testTenantID,
 				EntityType: models.EntityTypeContact,
 				FieldName:  "test",
 				FieldLabel: "",
@@ -220,6 +245,7 @@ func TestService_Create(t *testing.T) {
 		{
 			name: "select_without_options",
 			input: CreateInput{
+				TenantID:   testTenantID,
 				EntityType: models.EntityTypeContact,
 				FieldName:  "priority",
 				FieldLabel: "Priority",
@@ -233,6 +259,7 @@ func TestService_Create(t *testing.T) {
 		{
 			name: "multiselect_without_options",
 			input: CreateInput{
+				TenantID:   testTenantID,
 				EntityType: models.EntityTypeContact,
 				FieldName:  "tags",
 				FieldLabel: "Tags",
@@ -246,6 +273,7 @@ func TestService_Create(t *testing.T) {
 		{
 			name: "duplicate_field",
 			input: CreateInput{
+				TenantID:   testTenantID,
 				EntityType: models.EntityTypeContact,
 				FieldName:  "existing_field",
 				FieldLabel: "Existing",
@@ -253,7 +281,7 @@ func TestService_Create(t *testing.T) {
 				CreatedBy:  uuid.New(),
 			},
 			setup: func(r *mockRepository) {
-				createTestField(r, models.EntityTypeContact, "existing_field", models.FieldTypeText)
+				createTestField(r, testTenantID, models.EntityTypeContact, "existing_field", models.FieldTypeText)
 			},
 			wantErr: ErrFieldExists,
 		},
@@ -272,6 +300,7 @@ func TestService_Create(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				assert.NotNil(t, field)
+				assert.Equal(t, testTenantID, field.TenantID)
 				assert.Equal(t, tt.input.EntityType, field.EntityType)
 				assert.Equal(t, tt.input.FieldName, field.FieldName)
 				assert.Equal(t, tt.input.FieldLabel, field.FieldLabel)
@@ -285,19 +314,22 @@ func TestService_Create(t *testing.T) {
 
 func TestService_GetByID(t *testing.T) {
 	tests := []struct {
-		name    string
-		setup   func(*mockRepository) uuid.UUID
-		wantErr error
+		name     string
+		tenantID uuid.UUID
+		setup    func(*mockRepository) uuid.UUID
+		wantErr  error
 	}{
 		{
-			name: "found",
+			name:     "found",
+			tenantID: testTenantID,
 			setup: func(r *mockRepository) uuid.UUID {
-				field := createTestField(r, models.EntityTypeContact, "website", models.FieldTypeText)
+				field := createTestField(r, testTenantID, models.EntityTypeContact, "website", models.FieldTypeText)
 				return field.ID
 			},
 		},
 		{
-			name: "not_found",
+			name:     "not_found",
+			tenantID: testTenantID,
 			setup: func(r *mockRepository) uuid.UUID {
 				return uuid.New()
 			},
@@ -310,7 +342,7 @@ func TestService_GetByID(t *testing.T) {
 			svc, repo := newTestService()
 			id := tt.setup(repo)
 
-			field, err := svc.GetByID(context.Background(), id)
+			field, err := svc.GetByID(context.Background(), id, tt.tenantID)
 
 			if tt.wantErr != nil {
 				assert.ErrorIs(t, err, tt.wantErr)
@@ -327,14 +359,15 @@ func TestService_GetByID(t *testing.T) {
 func TestService_List(t *testing.T) {
 	svc, repo := newTestService()
 
-	// Create test fields
-	createTestField(repo, models.EntityTypeContact, "field1", models.FieldTypeText)
-	createTestField(repo, models.EntityTypeContact, "field2", models.FieldTypeNumber)
-	createTestField(repo, models.EntityTypeCompany, "field3", models.FieldTypeText)
-	createTestField(repo, models.EntityTypeDeal, "field4", models.FieldTypeDate)
+	// Create test fields for testTenantID
+	createTestField(repo, testTenantID, models.EntityTypeContact, "field1", models.FieldTypeText)
+	createTestField(repo, testTenantID, models.EntityTypeContact, "field2", models.FieldTypeNumber)
+	createTestField(repo, testTenantID, models.EntityTypeCompany, "field3", models.FieldTypeText)
+	createTestField(repo, testTenantID, models.EntityTypeDeal, "field4", models.FieldTypeDate)
 
 	t.Run("list_all", func(t *testing.T) {
 		fields, total, err := svc.List(context.Background(), ListInput{
+			TenantID: testTenantID,
 			Page:     1,
 			PageSize: 10,
 		})
@@ -346,6 +379,7 @@ func TestService_List(t *testing.T) {
 	t.Run("filter_by_entity_type", func(t *testing.T) {
 		entityType := models.EntityTypeContact
 		fields, total, err := svc.List(context.Background(), ListInput{
+			TenantID:   testTenantID,
 			EntityType: &entityType,
 			Page:       1,
 			PageSize:   10,
@@ -360,6 +394,7 @@ func TestService_List(t *testing.T) {
 
 	t.Run("pagination", func(t *testing.T) {
 		fields, total, err := svc.List(context.Background(), ListInput{
+			TenantID: testTenantID,
 			Page:     1,
 			PageSize: 2,
 		})
@@ -368,6 +403,7 @@ func TestService_List(t *testing.T) {
 		assert.Len(t, fields, 2)
 
 		fields2, total2, err := svc.List(context.Background(), ListInput{
+			TenantID: testTenantID,
 			Page:     2,
 			PageSize: 2,
 		})
@@ -378,6 +414,7 @@ func TestService_List(t *testing.T) {
 
 	t.Run("default_page_values", func(t *testing.T) {
 		fields, total, err := svc.List(context.Background(), ListInput{
+			TenantID: testTenantID,
 			Page:     0, // Should default to 1
 			PageSize: 0, // Should default to 20
 		})
@@ -388,6 +425,7 @@ func TestService_List(t *testing.T) {
 
 	t.Run("page_size_capped", func(t *testing.T) {
 		_, _, err := svc.List(context.Background(), ListInput{
+			TenantID: testTenantID,
 			Page:     1,
 			PageSize: 500, // Should be capped at 100
 		})
@@ -405,42 +443,46 @@ func TestService_Update(t *testing.T) {
 		{
 			name: "update_label",
 			setup: func(r *mockRepository) uuid.UUID {
-				field := createTestField(r, models.EntityTypeContact, "website", models.FieldTypeText)
+				field := createTestField(r, testTenantID, models.EntityTypeContact, "website", models.FieldTypeText)
 				return field.ID
 			},
 			input: UpdateInput{
+				TenantID:   testTenantID,
 				FieldLabel: strPtr("Updated Label"),
 			},
 		},
 		{
 			name: "update_options",
 			setup: func(r *mockRepository) uuid.UUID {
-				field := createTestField(r, models.EntityTypeContact, "priority", models.FieldTypeSelect)
+				field := createTestField(r, testTenantID, models.EntityTypeContact, "priority", models.FieldTypeSelect)
 				field.Options = []string{"low", "high"}
 				r.fields[field.ID] = field
 				return field.ID
 			},
 			input: UpdateInput{
-				Options: []string{"low", "medium", "high", "urgent"},
+				TenantID: testTenantID,
+				Options:  []string{"low", "medium", "high", "urgent"},
 			},
 		},
 		{
 			name: "update_required",
 			setup: func(r *mockRepository) uuid.UUID {
-				field := createTestField(r, models.EntityTypeContact, "website", models.FieldTypeText)
+				field := createTestField(r, testTenantID, models.EntityTypeContact, "website", models.FieldTypeText)
 				return field.ID
 			},
 			input: UpdateInput{
+				TenantID:   testTenantID,
 				IsRequired: boolPtr(true),
 			},
 		},
 		{
 			name: "update_sort_order",
 			setup: func(r *mockRepository) uuid.UUID {
-				field := createTestField(r, models.EntityTypeContact, "website", models.FieldTypeText)
+				field := createTestField(r, testTenantID, models.EntityTypeContact, "website", models.FieldTypeText)
 				return field.ID
 			},
 			input: UpdateInput{
+				TenantID:  testTenantID,
 				SortOrder: intPtr(5),
 			},
 		},
@@ -450,6 +492,7 @@ func TestService_Update(t *testing.T) {
 				return uuid.New()
 			},
 			input: UpdateInput{
+				TenantID:   testTenantID,
 				FieldLabel: strPtr("Test"),
 			},
 			wantErr: ErrFieldNotFound,
@@ -457,10 +500,11 @@ func TestService_Update(t *testing.T) {
 		{
 			name: "empty_label",
 			setup: func(r *mockRepository) uuid.UUID {
-				field := createTestField(r, models.EntityTypeContact, "website", models.FieldTypeText)
+				field := createTestField(r, testTenantID, models.EntityTypeContact, "website", models.FieldTypeText)
 				return field.ID
 			},
 			input: UpdateInput{
+				TenantID:   testTenantID,
 				FieldLabel: strPtr(""),
 			},
 			wantErr: ErrFieldLabelRequired,
@@ -468,13 +512,14 @@ func TestService_Update(t *testing.T) {
 		{
 			name: "remove_options_from_select",
 			setup: func(r *mockRepository) uuid.UUID {
-				field := createTestField(r, models.EntityTypeContact, "priority", models.FieldTypeSelect)
+				field := createTestField(r, testTenantID, models.EntityTypeContact, "priority", models.FieldTypeSelect)
 				field.Options = []string{"low", "high"}
 				r.fields[field.ID] = field
 				return field.ID
 			},
 			input: UpdateInput{
-				Options: []string{},
+				TenantID: testTenantID,
+				Options:  []string{},
 			},
 			wantErr: ErrOptionsRequired,
 		},
@@ -512,19 +557,22 @@ func TestService_Update(t *testing.T) {
 
 func TestService_Delete(t *testing.T) {
 	tests := []struct {
-		name    string
-		setup   func(*mockRepository) uuid.UUID
-		wantErr error
+		name     string
+		tenantID uuid.UUID
+		setup    func(*mockRepository) uuid.UUID
+		wantErr  error
 	}{
 		{
-			name: "success",
+			name:     "success",
+			tenantID: testTenantID,
 			setup: func(r *mockRepository) uuid.UUID {
-				field := createTestField(r, models.EntityTypeContact, "website", models.FieldTypeText)
+				field := createTestField(r, testTenantID, models.EntityTypeContact, "website", models.FieldTypeText)
 				return field.ID
 			},
 		},
 		{
-			name: "not_found",
+			name:     "not_found",
+			tenantID: testTenantID,
 			setup: func(r *mockRepository) uuid.UUID {
 				return uuid.New()
 			},
@@ -537,7 +585,7 @@ func TestService_Delete(t *testing.T) {
 			svc, repo := newTestService()
 			id := tt.setup(repo)
 
-			err := svc.Delete(context.Background(), id)
+			err := svc.Delete(context.Background(), id, tt.tenantID)
 
 			if tt.wantErr != nil {
 				assert.ErrorIs(t, err, tt.wantErr)
@@ -549,6 +597,79 @@ func TestService_Delete(t *testing.T) {
 			}
 		})
 	}
+}
+
+// ============================================================================
+// Cross-Tenant Isolation Tests
+// ============================================================================
+
+func TestService_CrossTenant_GetByID_OtherTenantReturnsNotFound(t *testing.T) {
+	svc, repo := newTestService()
+
+	field := createTestField(repo, testTenantID, models.EntityTypeContact, "website", models.FieldTypeText)
+
+	// Tenant B cannot see Tenant A's field
+	_, err := svc.GetByID(context.Background(), field.ID, otherTenantID)
+	assert.ErrorIs(t, err, ErrFieldNotFound)
+
+	// Tenant A can see its own field
+	got, err := svc.GetByID(context.Background(), field.ID, testTenantID)
+	require.NoError(t, err)
+	assert.Equal(t, field.ID, got.ID)
+}
+
+func TestService_CrossTenant_List_OnlyOwnFields(t *testing.T) {
+	svc, repo := newTestService()
+
+	// 2 fields for Tenant A
+	createTestField(repo, testTenantID, models.EntityTypeContact, "fa1", models.FieldTypeText)
+	createTestField(repo, testTenantID, models.EntityTypeContact, "fa2", models.FieldTypeText)
+
+	// 3 fields for Tenant B
+	createTestField(repo, otherTenantID, models.EntityTypeContact, "fb1", models.FieldTypeText)
+	createTestField(repo, otherTenantID, models.EntityTypeContact, "fb2", models.FieldTypeText)
+	createTestField(repo, otherTenantID, models.EntityTypeContact, "fb3", models.FieldTypeText)
+
+	fieldsA, totalA, err := svc.List(context.Background(), ListInput{TenantID: testTenantID, Page: 1, PageSize: 100})
+	require.NoError(t, err)
+	assert.Equal(t, 2, totalA)
+	assert.Len(t, fieldsA, 2)
+
+	fieldsB, totalB, err := svc.List(context.Background(), ListInput{TenantID: otherTenantID, Page: 1, PageSize: 100})
+	require.NoError(t, err)
+	assert.Equal(t, 3, totalB)
+	assert.Len(t, fieldsB, 3)
+}
+
+func TestService_CrossTenant_Delete_OtherTenantReturnsNotFound(t *testing.T) {
+	svc, repo := newTestService()
+
+	field := createTestField(repo, testTenantID, models.EntityTypeContact, "website", models.FieldTypeText)
+
+	// Tenant B cannot delete Tenant A's field
+	err := svc.Delete(context.Background(), field.ID, otherTenantID)
+	assert.ErrorIs(t, err, ErrFieldNotFound)
+
+	// Field must still exist
+	_, exists := repo.fields[field.ID]
+	assert.True(t, exists)
+}
+
+func TestService_CrossTenant_Update_OtherTenantReturnsNotFound(t *testing.T) {
+	svc, repo := newTestService()
+
+	field := createTestField(repo, testTenantID, models.EntityTypeContact, "website", models.FieldTypeText)
+	originalLabel := field.FieldLabel
+
+	// Tenant B cannot update Tenant A's field
+	_, err := svc.Update(context.Background(), field.ID, UpdateInput{
+		TenantID:   otherTenantID,
+		FieldLabel: strPtr("Hacked Label"),
+	})
+	assert.ErrorIs(t, err, ErrFieldNotFound)
+
+	// Label must be unchanged
+	assert.Equal(t, originalLabel, repo.fields[field.ID].FieldLabel)
 }
 
 func TestFieldType_Validation(t *testing.T) {

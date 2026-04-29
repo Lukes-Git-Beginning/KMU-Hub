@@ -30,40 +30,40 @@ func (r *PostgresRepository) Create(ctx context.Context, field *models.CustomFie
 
 	_, err = r.pool.Exec(ctx,
 		`INSERT INTO custom_field_definitions
-		 (id, entity_type, field_name, field_label, field_type, options, default_value, is_required, sort_order, created_by, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-		field.ID, field.EntityType, field.FieldName, field.FieldLabel, field.FieldType,
+		 (id, tenant_id, entity_type, field_name, field_label, field_type, options, default_value, is_required, sort_order, created_by, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+		field.ID, field.TenantID, field.EntityType, field.FieldName, field.FieldLabel, field.FieldType,
 		optionsJSON, field.DefaultValue, field.IsRequired, field.SortOrder,
 		field.CreatedBy, field.CreatedAt, field.UpdatedAt,
 	)
 	return err
 }
 
-func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.CustomFieldDefinition, error) {
+func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.CustomFieldDefinition, error) {
 	return r.scanField(r.pool.QueryRow(ctx,
-		`SELECT id, entity_type, field_name, field_label, field_type, options, default_value, is_required, sort_order, created_by, created_at, updated_at
-		 FROM custom_field_definitions WHERE id = $1`, id,
+		`SELECT id, tenant_id, entity_type, field_name, field_label, field_type, options, default_value, is_required, sort_order, created_by, created_at, updated_at
+		 FROM custom_field_definitions WHERE id = $1 AND tenant_id = $2`, id, tenantID,
 	))
 }
 
-func (r *PostgresRepository) GetByEntityAndName(ctx context.Context, entityType models.EntityType, fieldName string) (*models.CustomFieldDefinition, error) {
+func (r *PostgresRepository) GetByEntityAndName(ctx context.Context, tenantID uuid.UUID, entityType models.EntityType, fieldName string) (*models.CustomFieldDefinition, error) {
 	return r.scanField(r.pool.QueryRow(ctx,
-		`SELECT id, entity_type, field_name, field_label, field_type, options, default_value, is_required, sort_order, created_by, created_at, updated_at
-		 FROM custom_field_definitions WHERE entity_type = $1 AND field_name = $2`, entityType, fieldName,
+		`SELECT id, tenant_id, entity_type, field_name, field_label, field_type, options, default_value, is_required, sort_order, created_by, created_at, updated_at
+		 FROM custom_field_definitions WHERE tenant_id = $1 AND entity_type = $2 AND field_name = $3`, tenantID, entityType, fieldName,
 	))
 }
 
-func (r *PostgresRepository) List(ctx context.Context, entityType *models.EntityType, offset, limit int) ([]*models.CustomFieldDefinition, int, error) {
+func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, entityType *models.EntityType, offset, limit int) ([]*models.CustomFieldDefinition, int, error) {
 	var total int
 	var countErr error
 
 	if entityType != nil {
 		countErr = r.pool.QueryRow(ctx,
-			`SELECT COUNT(*) FROM custom_field_definitions WHERE entity_type = $1`, *entityType,
+			`SELECT COUNT(*) FROM custom_field_definitions WHERE tenant_id = $1 AND entity_type = $2`, tenantID, *entityType,
 		).Scan(&total)
 	} else {
 		countErr = r.pool.QueryRow(ctx,
-			`SELECT COUNT(*) FROM custom_field_definitions`,
+			`SELECT COUNT(*) FROM custom_field_definitions WHERE tenant_id = $1`, tenantID,
 		).Scan(&total)
 	}
 	if countErr != nil {
@@ -75,18 +75,19 @@ func (r *PostgresRepository) List(ctx context.Context, entityType *models.Entity
 
 	if entityType != nil {
 		rows, err = r.pool.Query(ctx,
-			`SELECT id, entity_type, field_name, field_label, field_type, options, default_value, is_required, sort_order, created_by, created_at, updated_at
+			`SELECT id, tenant_id, entity_type, field_name, field_label, field_type, options, default_value, is_required, sort_order, created_by, created_at, updated_at
 			 FROM custom_field_definitions
-			 WHERE entity_type = $1
+			 WHERE tenant_id = $1 AND entity_type = $2
 			 ORDER BY sort_order ASC, created_at ASC
-			 LIMIT $2 OFFSET $3`, *entityType, limit, offset,
+			 LIMIT $3 OFFSET $4`, tenantID, *entityType, limit, offset,
 		)
 	} else {
 		rows, err = r.pool.Query(ctx,
-			`SELECT id, entity_type, field_name, field_label, field_type, options, default_value, is_required, sort_order, created_by, created_at, updated_at
+			`SELECT id, tenant_id, entity_type, field_name, field_label, field_type, options, default_value, is_required, sort_order, created_by, created_at, updated_at
 			 FROM custom_field_definitions
+			 WHERE tenant_id = $1
 			 ORDER BY entity_type ASC, sort_order ASC, created_at ASC
-			 LIMIT $1 OFFSET $2`, limit, offset,
+			 LIMIT $2 OFFSET $3`, tenantID, limit, offset,
 		)
 	}
 	if err != nil {
@@ -112,20 +113,32 @@ func (r *PostgresRepository) Update(ctx context.Context, field *models.CustomFie
 		return err
 	}
 
-	_, err = r.pool.Exec(ctx,
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE custom_field_definitions
 		 SET field_label = $1, options = $2, default_value = $3, is_required = $4, sort_order = $5, updated_at = $6
-		 WHERE id = $7`,
-		field.FieldLabel, optionsJSON, field.DefaultValue, field.IsRequired, field.SortOrder, field.UpdatedAt, field.ID,
+		 WHERE id = $7 AND tenant_id = $8`,
+		field.FieldLabel, optionsJSON, field.DefaultValue, field.IsRequired, field.SortOrder, field.UpdatedAt, field.ID, field.TenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrFieldNotFound
+	}
+	return nil
 }
 
-func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx,
-		`DELETE FROM custom_field_definitions WHERE id = $1`, id,
+func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx,
+		`DELETE FROM custom_field_definitions WHERE id = $1 AND tenant_id = $2`, id, tenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrFieldNotFound
+	}
+	return nil
 }
 
 // Helper to scan a single row into CustomFieldDefinition
@@ -134,7 +147,7 @@ func (r *PostgresRepository) scanField(row pgx.Row) (*models.CustomFieldDefiniti
 	var optionsJSON []byte
 
 	err := row.Scan(
-		&field.ID, &field.EntityType, &field.FieldName, &field.FieldLabel, &field.FieldType,
+		&field.ID, &field.TenantID, &field.EntityType, &field.FieldName, &field.FieldLabel, &field.FieldType,
 		&optionsJSON, &field.DefaultValue, &field.IsRequired, &field.SortOrder,
 		&field.CreatedBy, &field.CreatedAt, &field.UpdatedAt,
 	)
@@ -160,7 +173,7 @@ func (r *PostgresRepository) scanFieldFromRows(rows pgx.Rows) (*models.CustomFie
 	var optionsJSON []byte
 
 	err := rows.Scan(
-		&field.ID, &field.EntityType, &field.FieldName, &field.FieldLabel, &field.FieldType,
+		&field.ID, &field.TenantID, &field.EntityType, &field.FieldName, &field.FieldLabel, &field.FieldType,
 		&optionsJSON, &field.DefaultValue, &field.IsRequired, &field.SortOrder,
 		&field.CreatedBy, &field.CreatedAt, &field.UpdatedAt,
 	)

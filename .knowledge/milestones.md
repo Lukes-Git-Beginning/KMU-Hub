@@ -1,8 +1,23 @@
 ---
 tags: [fortschritt, milestones]
-updated: 2026-04-28
+updated: 2026-04-29
 ---
 # Milestones
+
+## Sprint 2 Welle 3.5 Session 2026-04-29 — Bugfix-Sweep nach Welle 3
+
+Konsolidierter Hardening-Commit `d443ab4 fix(welle3): close 34 findings from welle 3 review` — 17 P0 + 17 P1 closed, P2/P3 in `docs/sprint2-welle3-followups.md` deferred. 47 Files, +1029/-434 Zeilen. Build+Vet+Tests+tsc+npm test alle gruen (`173/173`).
+
+| Cluster | Inhalt |
+|---------|--------|
+| **gRPC Tenant-Spoof-Sweep** | `chat_grpc.go`/`crm_grpc.go`/`work_grpc.go`/`video_grpc.go`/`dialer_grpc.go` lesen `tenant_id` jetzt aus `middleware.GetTenantID(ctx)` statt `req.GetTenantId()`. Verhindert Tenant-Spoof bei Service-zu-Service-Calls oder kompromittiertem Gateway. 14+ Methoden affected. |
+| **Repository-Tenant-Filter-Sweep** | `deal/activity/task/pipelinestage/chat-message/recording postgres_repository.go` enforcen `WHERE id=$1 AND tenant_id=$2` auf jedem UPDATE/DELETE/GetByID/Search-Pfad plus `RowsAffected==0`-Sentinel. Repository-Interfaces an PostgresRepository-Signaturen synchronisiert (`CachedRepository` reicht tenant_id durch). 14 Model-Structs mit einheitlicher `TenantID`-Tag. `pipelinestage.scanStage` liest Spalte aus 000106 (vorher Scan-Mismatch). |
+| **Idempotency-Hardening** | Migration 000108 setzt PK auf `(tenant_id, key)` (Cross-Tenant-Cache-Replay-Schutz fuer HardMode). Atomare Reserve via `INSERT ... ON CONFLICT DO UPDATE RETURNING`. `errors.Is`-Matching auf `ErrInFlight`/`ErrConflict`/`ErrKeyMissing` (vorher String-Equality, fail-open auf wrapped errors). `context.WithoutCancel` fuer async Complete (kein Deadlock auf Handler-Return). Cleanup-Worker bekommt echte `pg_try_advisory_xact_lock`-Leader-Election. Middleware-Stack-Position fixiert nach Auth+RBAC. |
+| **Recording-Robustness** | `StartRecording` reordert Pre-Consent-Check VOR `CreateRecording` (verhindert Orphan-Rows bei `ErrConsentPending`). `MarkInitiatorConsent` + `GetPreConsentStatus` filtern `tenant_id` mit `RowsAffected==0`-Sentinel. `route_video.go` setzt RBAC-Permission-Middleware vor den Endpoint. |
+| **Frontend** | `CallControls`: Doppelklick-Guard via `startRecording.isPending`/`stopRecording.isPending`/`confirmInitiatorConsent.isPending`. `handleConfirmStart` wrapped in try/catch + `sonner.toast.error` bei Failure (kein Orphan-Recording-State, User kann erneut bestaetigen). `offline-queue.ts`: 409 (in-flight) als Retry-Class statt silent-drop, `Content-Type` nur bei vorhandenem Body. |
+| **Tests** | `gateway/tenant_isolation_test.go` um 4 Cases fuer `/recordings/{id}/initiator-consent` erweitert (no-tenant, empty-tid, valid-tid, two-tenant). Migration `000106_tenant_id_retrofit_phase1.down.sql` ergaenzt mit Doc-Kommentar zur bewussten FK-Abwesenheit. Frontend-Tests: 173/173 gruen. |
+
+**Gesamt:** 1 Commit auf main (`d443ab4`), Migration 000108 hinzu (Head: `108`). Build+Vet+test+tsc+npm test gruen. Pause-Gate aktiv: User-Review → Welle 4 (Idempotency HardMode + restliche 15 Top-20-Repos + Top-30+ Tabellen). P2/P3-Followups in `docs/sprint2-welle3-followups.md`.
 
 ## Sprint 2 Welle 3 Session 2026-04-28 (Spaetabend) — R2-P0.4 + R2-P0.7 + Option-B Phase 1
 

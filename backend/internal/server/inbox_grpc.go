@@ -15,6 +15,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/inbox/message"
 	"github.com/kmuhub/kmuhub/internal/inbox/routing"
 	"github.com/kmuhub/kmuhub/internal/inbox/team"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	inboxv1 "github.com/kmuhub/kmuhub/proto/inbox/v1"
 )
@@ -45,12 +46,18 @@ func NewInboxGRPCServer(
 // ============================================================================
 
 func (s *InboxGRPCServer) ListMessages(ctx context.Context, req *inboxv1.ListMessagesRequest) (*inboxv1.ListMessagesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
 	filter := message.ListFilter{
+		TenantID: tenantID,
 		UserID:   userID,
 		PageSize: int(req.PageSize),
 	}
@@ -113,12 +120,17 @@ func (s *InboxGRPCServer) ListMessages(ctx context.Context, req *inboxv1.ListMes
 }
 
 func (s *InboxGRPCServer) GetMessage(ctx context.Context, req *inboxv1.GetMessageRequest) (*inboxv1.GetMessageResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	msgID, err := uuid.Parse(req.MessageId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
 	}
 
-	msg, err := s.messageService.GetByID(ctx, msgID)
+	msg, err := s.messageService.GetByID(ctx, msgID, tenantID)
 	if err != nil {
 		return nil, mapInboxError(err)
 	}
@@ -129,16 +141,21 @@ func (s *InboxGRPCServer) GetMessage(ctx context.Context, req *inboxv1.GetMessag
 }
 
 func (s *InboxGRPCServer) MarkRead(ctx context.Context, req *inboxv1.MarkReadRequest) (*inboxv1.MarkReadResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	msgID, err := uuid.Parse(req.MessageId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
 	}
 
-	if err := s.messageService.MarkRead(ctx, msgID); err != nil {
+	if err := s.messageService.MarkRead(ctx, msgID, tenantID); err != nil {
 		return nil, mapInboxError(err)
 	}
 
-	msg, err := s.messageService.GetByID(ctx, msgID)
+	msg, err := s.messageService.GetByID(ctx, msgID, tenantID)
 	if err != nil {
 		return nil, mapInboxError(err)
 	}
@@ -149,6 +166,11 @@ func (s *InboxGRPCServer) MarkRead(ctx context.Context, req *inboxv1.MarkReadReq
 }
 
 func (s *InboxGRPCServer) MarkUnread(ctx context.Context, req *inboxv1.MarkUnreadRequest) (*inboxv1.MarkUnreadResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	msgID, err := uuid.Parse(req.MessageId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
@@ -158,7 +180,7 @@ func (s *InboxGRPCServer) MarkUnread(ctx context.Context, req *inboxv1.MarkUnrea
 		return nil, mapInboxError(err)
 	}
 
-	msg, err := s.messageService.GetByID(ctx, msgID)
+	msg, err := s.messageService.GetByID(ctx, msgID, tenantID)
 	if err != nil {
 		return nil, mapInboxError(err)
 	}
@@ -169,6 +191,11 @@ func (s *InboxGRPCServer) MarkUnread(ctx context.Context, req *inboxv1.MarkUnrea
 }
 
 func (s *InboxGRPCServer) ToggleStar(ctx context.Context, req *inboxv1.ToggleStarRequest) (*inboxv1.ToggleStarResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	msgID, err := uuid.Parse(req.MessageId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
@@ -178,7 +205,7 @@ func (s *InboxGRPCServer) ToggleStar(ctx context.Context, req *inboxv1.ToggleSta
 		return nil, mapInboxError(err)
 	}
 
-	msg, err := s.messageService.GetByID(ctx, msgID)
+	msg, err := s.messageService.GetByID(ctx, msgID, tenantID)
 	if err != nil {
 		return nil, mapInboxError(err)
 	}
@@ -189,6 +216,11 @@ func (s *InboxGRPCServer) ToggleStar(ctx context.Context, req *inboxv1.ToggleSta
 }
 
 func (s *InboxGRPCServer) ArchiveMessage(ctx context.Context, req *inboxv1.ArchiveMessageRequest) (*inboxv1.ArchiveMessageResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	msgID, err := uuid.Parse(req.MessageId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
@@ -198,7 +230,7 @@ func (s *InboxGRPCServer) ArchiveMessage(ctx context.Context, req *inboxv1.Archi
 		return nil, mapInboxError(err)
 	}
 
-	msg, err := s.messageService.GetByID(ctx, msgID)
+	msg, err := s.messageService.GetByID(ctx, msgID, tenantID)
 	if err != nil {
 		return nil, mapInboxError(err)
 	}
@@ -209,6 +241,11 @@ func (s *InboxGRPCServer) ArchiveMessage(ctx context.Context, req *inboxv1.Archi
 }
 
 func (s *InboxGRPCServer) UnarchiveMessage(ctx context.Context, req *inboxv1.UnarchiveMessageRequest) (*inboxv1.UnarchiveMessageResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	msgID, err := uuid.Parse(req.MessageId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
@@ -218,7 +255,7 @@ func (s *InboxGRPCServer) UnarchiveMessage(ctx context.Context, req *inboxv1.Una
 		return nil, mapInboxError(err)
 	}
 
-	msg, err := s.messageService.GetByID(ctx, msgID)
+	msg, err := s.messageService.GetByID(ctx, msgID, tenantID)
 	if err != nil {
 		return nil, mapInboxError(err)
 	}
@@ -229,6 +266,11 @@ func (s *InboxGRPCServer) UnarchiveMessage(ctx context.Context, req *inboxv1.Una
 }
 
 func (s *InboxGRPCServer) SnoozeMessage(ctx context.Context, req *inboxv1.SnoozeMessageRequest) (*inboxv1.SnoozeMessageResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	msgID, err := uuid.Parse(req.MessageId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
@@ -243,7 +285,7 @@ func (s *InboxGRPCServer) SnoozeMessage(ctx context.Context, req *inboxv1.Snooze
 		return nil, mapInboxError(err)
 	}
 
-	msg, err := s.messageService.GetByID(ctx, msgID)
+	msg, err := s.messageService.GetByID(ctx, msgID, tenantID)
 	if err != nil {
 		return nil, mapInboxError(err)
 	}
@@ -254,6 +296,11 @@ func (s *InboxGRPCServer) SnoozeMessage(ctx context.Context, req *inboxv1.Snooze
 }
 
 func (s *InboxGRPCServer) UnsnoozeMessage(ctx context.Context, req *inboxv1.UnsnoozeMessageRequest) (*inboxv1.UnsnoozeMessageResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	msgID, err := uuid.Parse(req.MessageId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
@@ -261,7 +308,7 @@ func (s *InboxGRPCServer) UnsnoozeMessage(ctx context.Context, req *inboxv1.Unsn
 
 	// Unsnooze is equivalent to snooze with a past time, handled via repo directly
 	// The message service doesn't have a dedicated Unsnooze, use the repo pattern
-	msg, err := s.messageService.GetByID(ctx, msgID)
+	msg, err := s.messageService.GetByID(ctx, msgID, tenantID)
 	if err != nil {
 		return nil, mapInboxError(err)
 	}
@@ -276,6 +323,11 @@ func (s *InboxGRPCServer) UnsnoozeMessage(ctx context.Context, req *inboxv1.Unsn
 }
 
 func (s *InboxGRPCServer) ReplyToMessage(ctx context.Context, req *inboxv1.ReplyToMessageRequest) (*inboxv1.ReplyToMessageResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	msgID, err := uuid.Parse(req.MessageId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
@@ -286,7 +338,7 @@ func (s *InboxGRPCServer) ReplyToMessage(ctx context.Context, req *inboxv1.Reply
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	if err := s.messageService.Reply(ctx, msgID, userID, req.Body); err != nil {
+	if err := s.messageService.Reply(ctx, msgID, tenantID, userID, req.Body); err != nil {
 		return nil, mapInboxError(err)
 	}
 
@@ -296,6 +348,11 @@ func (s *InboxGRPCServer) ReplyToMessage(ctx context.Context, req *inboxv1.Reply
 }
 
 func (s *InboxGRPCServer) AssignMessage(ctx context.Context, req *inboxv1.AssignMessageRequest) (*inboxv1.AssignMessageResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	msgID, err := uuid.Parse(req.MessageId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
@@ -310,7 +367,7 @@ func (s *InboxGRPCServer) AssignMessage(ctx context.Context, req *inboxv1.Assign
 		return nil, mapInboxError(err)
 	}
 
-	msg, err := s.messageService.GetByID(ctx, msgID)
+	msg, err := s.messageService.GetByID(ctx, msgID, tenantID)
 	if err != nil {
 		return nil, mapInboxError(err)
 	}
@@ -560,6 +617,11 @@ func (s *InboxGRPCServer) ListTeamMembers(ctx context.Context, req *inboxv1.List
 }
 
 func (s *InboxGRPCServer) ClaimMessage(ctx context.Context, req *inboxv1.ClaimMessageRequest) (*inboxv1.ClaimMessageResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	msgID, err := uuid.Parse(req.MessageId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
@@ -571,7 +633,7 @@ func (s *InboxGRPCServer) ClaimMessage(ctx context.Context, req *inboxv1.ClaimMe
 	}
 
 	// Get the message to find its team_inbox_id
-	msg, err := s.messageService.GetByID(ctx, msgID)
+	msg, err := s.messageService.GetByID(ctx, msgID, tenantID)
 	if err != nil {
 		return nil, mapInboxError(err)
 	}
@@ -585,7 +647,7 @@ func (s *InboxGRPCServer) ClaimMessage(ctx context.Context, req *inboxv1.ClaimMe
 	}
 
 	// Refresh the message after claiming
-	msg, err = s.messageService.GetByID(ctx, msgID)
+	msg, err = s.messageService.GetByID(ctx, msgID, tenantID)
 	if err != nil {
 		return nil, mapInboxError(err)
 	}

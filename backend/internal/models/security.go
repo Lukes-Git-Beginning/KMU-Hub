@@ -49,6 +49,7 @@ type AuditEntry struct {
 
 // AuditFilter defines query parameters for listing audit entries.
 type AuditFilter struct {
+	TenantID uuid.UUID  `json:"tenant_id"` // Required: always filters by tenant
 	DateFrom *time.Time `json:"date_from,omitempty"`
 	DateTo   *time.Time `json:"date_to,omitempty"`
 	UserID   *uuid.UUID `json:"user_id,omitempty"`

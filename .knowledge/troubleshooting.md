@@ -1,6 +1,6 @@
 ---
 tags: [troubleshooting, debug]
-updated: 2026-04-28
+updated: 2026-04-29
 ---
 # Troubleshooting & Bekannte Probleme
 
@@ -147,7 +147,29 @@ Drei Anti-Pattern, die Welle 1 hinterlassen hat. Vor jedem neuen Modul-Wiring pr
 
 ### Proto-Requests ohne `tenant_id`-Field
 - **Symptom:** gRPC-Service-Code hat einen Helper wie `extractTenantID()` der eine Konstante zurueckgibt, weil die Proto-Definition kein `tenant_id` kennt.
-- **Fix:** Proto-File patchen (`tenant_id = N;` mit naechstem freien Field-Index), `make proto` (oder protoc-Aufruf), gRPC-Server liest `req.GetTenantId()` mit `InvalidArgument`-Guard. Gateway-Route reicht `tenantID.String()` durch. War in dialer + helpdesk auf 13 RPCs.
+- **Fix:** Proto-File patchen (`tenant_id = N;` mit naechstem freien Field-Index), `make proto` (oder protoc-Aufruf), gRPC-Server liest `tenant_id` aus dem gRPC-Context via `middleware.GetTenantID(ctx)`. War in dialer + helpdesk auf 13 RPCs.
+
+### gRPC liest `tenant_id` aus Proto-Request statt aus Context (Welle 3.5)
+- **Symptom:** gRPC-Server-Methode ruft `req.GetTenantId()` und filtert damit Repos. Funktioniert im Happy-Path. Bei Service-zu-Service-Calls oder einem kompromittierten Gateway kann ein Caller eine fremde TenantID ins Request-Feld schreiben — der Repo-Filter folgt willig.
+- **Fix:** `tenantID, err := middleware.GetTenantID(ctx)` in jedem gRPC-Handler. Proto-Feld bleibt im Wire-Format, wird aber serverseitig ignoriert oder hoechstens fuer Logging genutzt. Welle 3.5 hat das Pattern auf 14+ Methoden in chat/crm/work/video/dialer-gRPC umgestellt.
+- **Test:** Tenant-Isolation-Tests muessen einen Two-Tenant-Scenario abdecken (User Tenant A schickt Request mit `tenant_id=B` im Body — Backend muss `tenant_id=A` aus dem Context durchsetzen).
+
+## Frontend-Mutation-Patterns (Welle 3.5)
+
+### Doppelklick-Guard auf zweistufigen Mutations
+- **Symptom:** User klickt schnell zweimal auf "Aufnahme starten". Erste Mutation erstellt eine Recording-Row, zweite versucht es nochmal — Race-Condition zwischen `startRecording` und dem nachfolgenden `confirmInitiatorConsent`. Bei Fehlschlag steht eine Recording-Row ohne Consent-Stamp in der DB.
+- **Fix:** Guard am Anfang des Click-Handlers gegen ALLE involvierten Mutations: `if (startRecording.isPending || stopRecording.isPending || confirmInitiatorConsent.isPending) return`. TanStack-Query `isPending` ist die richtige Quelle, nicht ein eigenes `useState`-Flag.
+- **Pattern in:** `desktop/src/renderer/src/features/video/CallControls.tsx`.
+
+### Try/catch um zweite Mutation einer two-step-Sequenz
+- **Symptom:** `await mutateA(); await mutateB()` — wenn `mutateB` failt, hinterlaesst `mutateA` einen Orphan-State. User sieht keinen Fehler, weil React-Query den Throw schluckt aber das Rendering nicht aktualisiert.
+- **Fix:** `try { await mutateB.mutateAsync(...) } catch (err) { toast.error(err instanceof Error ? err.message : 'Fallback-Text') }`. Dialog-Close NUR im Success-Pfad. User kann erneut bestaetigen ohne neue Row anzulegen.
+- **Pattern in:** `CallControls.handleConfirmStart` (Welle 3.5-Fix).
+
+### Offline-Queue: 409 ist Retry, nicht Success
+- **Symptom:** Offline-Queue drained beim `online`-Event. Backend antwortet 409 Conflict (Idempotency-Key in-flight). Queue interpretiert non-2xx als generic-fail oder schlimmer als Success und droppt das Item.
+- **Fix:** 409 explizit als Retry-Class behandeln (`Retry-After`-Header respektieren), nicht als terminales Failure. Queue setzt das Item zurueck in den Pending-Pool und versucht es nach Backoff neu. `Content-Type: application/json` nur setzen wenn das Item tatsaechlich einen Body hat (sonst lehnt das Backend mit 400 ab).
+- **Pattern in:** `desktop/src/renderer/src/api/offline-queue.ts` (Welle-3.5-Fix).
 
 ## Git-Workflow & Recovery (Sprint 1+)
 
