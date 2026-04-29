@@ -4,6 +4,20 @@ updated: 2026-04-29
 ---
 # Milestones
 
+## Sprint 2 Welle 4A Session 2026-04-29 — Repository-Layer-Wirings + Idempotency Client Coverage
+
+Vier parallele Sonnet-Subagents (Stream A/B/C/D), ein konsolidierter Direct-to-Main-Commit `4ff5fa2 feat(welle4a): wire repos with tenantID + idempotency client coverage`. 109 Files, +3326/-3325 Zeilen (Net +1, Test-Konsolidierung kompensiert Insertions). Stream B Bonus: `work/event` mitgewired (calendar_events). Stream C Repair: Cross-Package-Test-Mock-Fallout in `work/task/service_test.go` und `automation/workflow/service_test.go` nachgezogen.
+
+| Cluster | Inhalt |
+|---------|--------|
+| **Backend Repository-Wirings (~75 Files)** | `automation/workflow` + `automation/engine`, `chat/channel`, `crm/customfield`/`crm/report`/`crm/savedfilter`, `dialer` (+ `consent_test.go`), `document/file` + `document/wopi` + `gateway/wopi_adapter` + `cmd/document/main`, `email/message`, `inbox/message`/`inbox/routing`/`inbox/team`, `security/audit` + `models/security`, `work/event`/`work/project`/`work/timeentry` + `work/task/service_test`. Repository/Service-Signaturen tragen `tenantID uuid.UUID` durch, Postgres-Repos enforcen `WHERE tenant_id=$1` first. |
+| **gRPC Layer (10 Handler)** | `automation_grpc.go`, `calendar_grpc.go`, `chat_grpc.go`, `crm_grpc.go`, `dialer_grpc.go`, `document_grpc.go`, `email_grpc.go`, `inbox_grpc.go`, `security_grpc.go`, `work_grpc.go` lesen `tenant_id` jetzt aus `middleware.GetTenantID(ctx)` statt aus Proto-Feld. Erweitert die Welle-3.5-Lesart auf den vollen gRPC-Layer. |
+| **Frontend authenticatedFetch-Helper** | Neuer `desktop/src/renderer/src/api/utils/authenticatedFetch.ts` zentralisiert Auth-Header + Idempotency-Key-Generierung + Offline-Queue-Hooks + Error-Mapping. **32 API-Clients refactored**: automation, berichte, bexio, caldav, calendar, crm-import, datev-upload, dialer, einkauf, email, finance, formulare, fuhrpark, helpdesk, hr, inbox, integration, inventar, lexware, notification, plugin, produktion, rapporte, schichten, security, vermietung, vertraege, video, wiki + 3 weitere. Eliminiert Duplikat-Code in jedem Client. |
+| **Frontend Idempotency-Coverage-Test-Suite** | Neue `desktop/src/renderer/src/api/__tests__/idempotency-coverage.test.ts` mit **29 Cases** — pro API-Client-Familie ein Round-Trip ueber `authenticatedFetch` plus Idempotency-Key-Header-Verifikation. Stellt sicher, dass der Frontend-Idempotency-Rollout flaechendeckend ist (Voraussetzung fuer Idempotency HardMode in Welle 4B). |
+| **Tests** | Repo-weit `go vet ./...` 0 Issues, `go test -count=1 ./...` alle Pakete OK (kein FAIL). 24 `cmd/<svc>` seriell mit `-ldflags="-w -s"` gebaut (Linker-OOM-Workaround, siehe [[troubleshooting]]). Frontend: 14 Test-Files, 202/202 Tests gruen (inkl. neuer 29 idempotency-coverage). |
+
+**Gesamt:** 1 Commit auf main (`4ff5fa2`), keine Migrations. Build+Vet+Test+tsc+npm test gruen. Pause-Gate aktiv: User-Review → Welle 4B (Top-30+ Tabellen Option-B Phase 2 + restliche Repo-Wirings + Idempotency HardMode + P2/P3-Followups aus `docs/sprint2-welle3-followups.md`).
+
 ## Sprint 2 Welle 3.5 Session 2026-04-29 — Bugfix-Sweep nach Welle 3
 
 Konsolidierter Hardening-Commit `d443ab4 fix(welle3): close 34 findings from welle 3 review` — 17 P0 + 17 P1 closed, P2/P3 in `docs/sprint2-welle3-followups.md` deferred. 47 Files, +1029/-434 Zeilen. Build+Vet+Tests+tsc+npm test alle gruen (`173/173`).

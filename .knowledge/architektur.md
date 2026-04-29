@@ -117,6 +117,11 @@ admin, auth, automatisierung, berichte, buchhaltung, calendar, chat, crm, dashbo
 ### Zustand Stores (37 in `stores/`)
 ai, auth, automatisierung, berichte, calendar, contacts, dashboard, **dialer**, einkauf, finance, formulare, fuhrpark, helpdesk, integrations, inventar, kommunikation, locale, mails, meetings, navigation, notifications, presence, produktion, profile, rapporte, schichten, search, settings, team, timetracking, tour, ui, vermietung, vertraege, video, wiki, work
 
+### API-Layer-Pattern (2026-04-29, Sprint 2 Welle 4A)
+- **Zentraler Helper:** `desktop/src/renderer/src/api/utils/authenticatedFetch.ts` — kapselt Auth-Header (`Authorization: Bearer …`), Idempotency-Key-Generierung (UUIDv4 fuer Mutations), Offline-Queue-Hooks (enqueue bei `!navigator.onLine`), Error-Mapping (Backend-Error-Shape → typed Errors).
+- **32 API-Clients konsumieren ihn:** automation, berichte, bexio, caldav, calendar, crm-import, datev-upload, dialer, einkauf, email, finance, formulare, fuhrpark, helpdesk, hr, inbox, integration, inventar, lexware, notification, plugin, produktion, rapporte, schichten, security, vermietung, vertraege, video, wiki, plus 3 weitere. Eliminiert Duplikat-Code in jedem Client.
+- **Test-Coverage:** `api/__tests__/idempotency-coverage.test.ts` mit 29 Cases (eine pro API-Client-Familie) verifiziert Idempotency-Key-Header-Setzung — Voraussetzung fuer Idempotency-HardMode-Switch in Welle 4B.
+
 ### Standalone
 - Guest Chat: Separate Vite SPA unter `/guest/`
 

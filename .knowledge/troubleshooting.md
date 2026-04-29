@@ -35,6 +35,21 @@ Aus Vorgaenger-Projekt (slot_booking_webapp) gelernt:
 - **GitHub CLI:** `"C:/Program Files/GitHub CLI/gh.exe"`
 - **Shell:** Git Bash (Unix-Syntax, nicht Windows CMD)
 
+## Go-Linker-OOM bei `go build ./...` (Windows, viele cmd-Mains)
+- **Symptom:** `runtime: cannot allocate memory` aus `cmd/link` waehrend repo-weitem `go build ./...`. Tritt typischerweise mid-build auf (z.B. beim Bauen von `cmd/chat`), kein Code-Fehler.
+- **Ursache:** 24 Microservice-Mains (`backend/cmd/<svc>`) — der Go-Build linkt sie parallel (`GOMAXPROCS`-viele gleichzeitig). Auf Windows mit knappem freien RAM platzt der Linker-Heap.
+- **Workaround:** Seriell pro Service bauen, optional mit `-ldflags="-w -s"` (strip debug+symbol-Table fuer kleinere Binaries und weniger Linker-Memory):
+  ```bash
+  cd backend
+  for d in cmd/*/; do
+    svc=$(basename "$d")
+    go build -ldflags="-w -s" -o "/tmp/kmuhub_build/$svc" "./cmd/$svc" || break
+  done
+  ```
+- **Weitere Optionen:** `go build -p 1 ./...` (komplett serieller Compile/Link) oder `GOMEMLIMIT=4GiB go build ./...`. CI ist nicht betroffen — Linux-Linker hat genug Heap.
+- **Verifikation ohne Build:** `go vet ./...` + `go test ./...` belasten den Linker nicht und liefern volle Korrektheits-Aussage.
+- Notiert nach Sprint 2 Welle 4A (2026-04-29) — vier Subagents bauten nur `./internal/...`, der repo-weite Build war erst danach an der Reihe. Seriell + ldflags hat alle 24 Services sauber gebaut.
+
 ## golangci-lint
 - Version 2 erfordert `version: "2"` in `.golangci.yml`
 - `goimports` aus Formatters entfernt (CI-Issues)
