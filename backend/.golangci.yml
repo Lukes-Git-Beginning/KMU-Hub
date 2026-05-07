@@ -12,7 +12,7 @@ linters:
     - unconvert
   settings:
     misspell:
-      ignore-words:
+      ignore-rules:
         - produktion   # German module name (Produktion/PRODUKTION)
         - Produktion
         - PRODUKTION
