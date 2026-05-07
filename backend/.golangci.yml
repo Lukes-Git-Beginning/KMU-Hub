@@ -32,6 +32,8 @@ linters:
         - G101   # Scope constant names are not hardcoded credentials
         - G109   # int32 cast from Atoi is bounds-safe in our query contexts
         - G402   # Email TLS config — MinVersion handled by server
+        - G108   # /debug/pprof — env-gated via ENABLE_PPROF
+        - G304   # File inclusion via variable — TLS cert paths from config
   exclusions:
     paths:
       - proto

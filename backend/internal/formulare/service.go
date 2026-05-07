@@ -588,12 +588,12 @@ func buildXLSX(submissions []*FormSubmission, headerKeys []string) ([]byte, erro
 	defer f.Close() //nolint:errcheck
 
 	sheet := "Submissions"
-	f.SetSheetName("Sheet1", sheet)
+	f.SetSheetName("Sheet1", sheet) //nolint:errcheck,gosec
 
 	header := append([]string{"id", "submitted_at", "status", "submitted_by", "ip_address"}, headerKeys...)
 	for col, h := range header {
 		cell, _ := excelize.CoordinatesToCellName(col+1, 1)
-		f.SetCellValue(sheet, cell, h) //nolint:errcheck
+		f.SetCellValue(sheet, cell, h) //nolint:errcheck,gosec
 	}
 
 	for rowIdx, sub := range submissions {
@@ -618,12 +618,12 @@ func buildXLSX(submissions []*FormSubmission, headerKeys []string) ([]byte, erro
 		}
 		for col, v := range meta {
 			cell, _ := excelize.CoordinatesToCellName(col+1, xlRow)
-			f.SetCellValue(sheet, cell, v) //nolint:errcheck
+			f.SetCellValue(sheet, cell, v) //nolint:errcheck,gosec
 		}
 		for ki, k := range headerKeys {
 			cell, _ := excelize.CoordinatesToCellName(5+ki+1, xlRow)
 			if v, ok := answers[k]; ok {
-				f.SetCellValue(sheet, cell, fmt.Sprintf("%v", v)) //nolint:errcheck
+				f.SetCellValue(sheet, cell, fmt.Sprintf("%v", v)) //nolint:errcheck,gosec
 			}
 		}
 	}
