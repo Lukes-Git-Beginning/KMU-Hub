@@ -1,6 +1,6 @@
 ---
 tags: [architektur, backend, frontend, ci-cd]
-updated: 2026-04-29
+updated: 2026-05-07
 ---
 # Architektur
 
@@ -211,6 +211,23 @@ Modul-spezifische Patterns:
 - **Approval-State-Machine (`rapporte`):** `Draft → Submitted → Approved/Rejected`, nach Approved blockt jeder Edit/Rollback (`ErrAlreadyApproved`).
 
 Subagent-Strategie: 4 parallele Sonnet-Subagents schreiben direkt auf main, Done-Reports max 200 Worte. Race-Risiken auf shared Files (`config.go`, `cmd/gateway/main.go`, `docker-compose.yml`) wurden durch Edit-Tool-Konfliktdetection aufgeloest. Self-Commit-Anomalie: ein Subagent (fuhrpark) hat eigenmaechtig commited — fuer kuenftige Briefings explizit `kein git add/commit` ergaenzen. Details: `memory/project_sprint2_welle2.md`.
+
+## Sprint 2 Welle 4B — Option-B Phase 2 + Idempotency HardMode-Bereitschaft (2026-05-07)
+
+Drei Sub-Wellen (4B.1 + 4B.2 + 4B.3), zwei Direct-to-Main-Commits. Schliesst die Tenant-Isolation-Front auf den verbleibenden Hot-Path-Tabellen und macht den Idempotency-Stack HardMode-ready (Code + Dev-Default Hard, Prod-Cutover als separate Sprint-3-Aktion).
+
+| Commit | Inhalt |
+|--------|--------|
+| `b868fb6 feat(welle4b): option-b phase 2 + idempotency hardmode readiness` | 105 Files, +3687/-1358. 5 neue Migrations (000109-000113, siehe [[datenbank]]). 16+ Repository-Wirings (work/calendar+meeting+resource, email/*, notification/*, inbox/*, crm/tag+consent+search). 13 gRPC-Handler auf `middleware.GetTenantID(ctx)`. Idempotency `Complete()`-Composite-PK-Fix + HardMode-Env-Flag `IDEMPOTENCY_MODE` in `cmd/gateway/main.go` (Default WarnMode). 12 Cross-Tenant-Tests in `tenant_isolation_test.go` + 3 finance JSONB-Tests. P2-Followups integral (P2-1, -2, -3, -5, -6, -7, -8, P3-3). |
+| `1b1eb37 fix(welle4b): close 5 P0+P1 findings from welle 4B.3 sweep` | 9 Files, +195/-97. **F1 P0:** `video_grpc.StartRecording` extrahiert tenantID nun vor if/else und reicht sie an `recordingService.StartRecording` durch (vorher uuid.Nil als tenant_id auf jeder neuen recording-Row). **F2 P0:** 12 Deal/Activity-Handler in `crm_grpc.go` von `req.TenantId`-Spoof auf `middleware.GetTenantID(ctx)` (Welle-3.5-P0-Carryover). **F3+F10 P1:** `meeting_action_items` INSERT/UPDATE/DELETE/Get mit tenant_id-Filter + neue `GetActionItemByID`-Methode. **F4 P1:** `ConvertActionItemsToTasks` uuid.Nil-Guard via `GetMeetingIDForActionItem`-Lookup. **F5 P1:** `.env.example IDEMPOTENCY_MODE=hard` auskommentiert (docker-compose setzt es bereits hart fuer Dev). |
+
+**Idempotency HardMode-Rollout:** Code-bereit, Dev-Default Hard. Prod-Cutover bleibt Sprint-3-Aktion nach Pilot-1 (Risiko: API-Caller die heute noch ohne Idempotency-Key senden wuerden 400en). 4 neue Tests (`Complete_TenantFilter`, `Get_TenantIsolation`, `HardMode_MissingKey_Returns400`, `HardMode_CrossTenantKeyRejected`).
+
+**Pflicht-Pattern fuer neue Repos:** tenant_id-Filter auf jedem SELECT/UPDATE/DELETE; tenant_id-Spalte+Value in jedem INSERT; Repository-Sigs `(ctx, tenantID uuid.UUID, ...)` als zweiten Param; gRPC-Handler liest `middleware.GetTenantID(ctx)` als erste Aktion. 4 Plan-Notes (Out-of-Scope mit Begruendung): `work/caldav` (Auth-Layer-Problem, Sprint 3), `auth.GetUserByEmail` (by-design global), `gateway/dashboard_repository` (Architektur-Klaerung), `finance_line_items` (JSONB in Parent-Tables, kein Retrofit noetig).
+
+**Cross-Stream-Drift-Lesson:** Drei Mal trafen stale IDE-Diagnostics — Subagent-Output sagte "alles gruen", IDE-Diagnostics zeigten Sig-Drift in `cmd/*/main.go` und gRPC-Handlern, `go build ./...` direkt war clean. **Authoritative Verifikation ist `go build ./...`, nicht IDE-Diagnostics.** Details: [[troubleshooting]].
+
+Pause-Gates zwischen 4B.1 ↔ 4B.2 ↔ 4B.3 wie in `feedback_pause_between_waves.md` gefordert. 4 P2/P3-Followups (echte DB-Backed Cross-Tenant-Tests, idempotency-time.Sleep-flaky, ListAllActive-Caller-Audit, ListBrowsable-shared-Filter-Frage) in `docs/sprint2-welle4b-followups.md` deferred.
 
 ## Sprint 2 Welle 3.5 — Hardening-Sweep (2026-04-29)
 

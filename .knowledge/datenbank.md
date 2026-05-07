@@ -1,14 +1,14 @@
 ---
 tags: [datenbank, schema, migrations, ai-first, tenant-isolation]
-updated: 2026-04-29
+updated: 2026-05-07
 ---
 # Datenbank
 
 ## Überblick
 - PostgreSQL 16 mit `pgvector/pgvector:pg16`-Image + Redis 7 (nur Cache, KEIN Dual-Write)
 - Änderungen NUR via golang-migrate (`make migrate-create name=xxx`)
-- 108 Migration-Paare in `backend/migrations/` (Sprint 1 Welle 2: 076 wiki, 077 helpdesk; Welle 5: 079 berichte; Welle 6: 080 seed_berichte_permissions; S1.3: 081 formulare; Sprint 2 Welle 1: 082 consent FK + gdpr-FK, 083+084 inventar, 085+086 einkauf, 087+088 produktion, 089+090 vertraege, 091 video; Sprint 2 Welle 2A: 092+093 rapporte, 094+095 schichten, 096+097 fuhrpark, 098+099 vermietung; Sprint 2 Welle 2C Bugfix-Sweep: 100 rapporte_approve_permission, 101 vermietung_gist_overlap_unique_inspection, 102 schichten_shift_assignments_tenant_unique, 103 schichten_shift_capacity; Sprint 2 Welle 2D: 104 users_tenant_id; Sprint 2 Welle 3: 105 idempotency_keys, 106 tenant_id_retrofit_phase1, 107 recordings_pre_consent_audit; Sprint 2 Welle 3.5: 108 idempotency_keys_composite_pk)
-- **Prod-Stand seit 2026-04-19:** Migration-Head `81`. Welle 1 + Welle 2A + Welle 2C + Welle 2D + Welle 3 + Welle 3.5 bringen Head auf `108` (lokal/main, Server-Deploy ausstehend). Volume: `docker_pgdata` (nicht `docker_postgres-data`).
+- 113 Migration-Paare in `backend/migrations/` (Sprint 1 Welle 2: 076 wiki, 077 helpdesk; Welle 5: 079 berichte; Welle 6: 080 seed_berichte_permissions; S1.3: 081 formulare; Sprint 2 Welle 1: 082 consent FK + gdpr-FK, 083+084 inventar, 085+086 einkauf, 087+088 produktion, 089+090 vertraege, 091 video; Sprint 2 Welle 2A: 092+093 rapporte, 094+095 schichten, 096+097 fuhrpark, 098+099 vermietung; Sprint 2 Welle 2C Bugfix-Sweep: 100 rapporte_approve_permission, 101 vermietung_gist_overlap_unique_inspection, 102 schichten_shift_assignments_tenant_unique, 103 schichten_shift_capacity; Sprint 2 Welle 2D: 104 users_tenant_id; Sprint 2 Welle 3: 105 idempotency_keys, 106 tenant_id_retrofit_phase1, 107 recordings_pre_consent_audit; Sprint 2 Welle 3.5: 108 idempotency_keys_composite_pk; Sprint 2 Welle 4B: 109 calendar_work_phase2, 110 email_notification_phase2, 111 security_crm_aux_phase2, 112 automation_exec_channels_phase2, 113 idempotency_complete_tenant_pk_alignment)
+- **Prod-Stand seit 2026-04-19:** Migration-Head `81`. Welle 1 + Welle 2A + Welle 2C + Welle 2D + Welle 3 + Welle 3.5 + Welle 4B bringen Head auf `113` (lokal/main, Server-Deploy ausstehend). Volume: `docker_pgdata` (nicht `docker_postgres-data`).
 - Index-Konvention: `idx_{table}_{column}`
 - **AI-First-Foundation** seit Migration 071 (siehe Abschnitt unten)
 - **Seed-Idempotenz:** Migration `000079` (berichte) wurde in `980eba3` um `ON CONFLICT DO NOTHING` erweitert, damit ein Re-Run keine Duplikate erzeugt. Gleiches Muster fuer alle zukuenftigen Seed-Migrations anwenden.
@@ -181,6 +181,23 @@ Alle Welle-2A-Tabellen tragen `tenant_id UUID NOT NULL DEFAULT '00000000-...-000
 
 - **000108 idempotency_keys_composite_pk:** `DROP CONSTRAINT idempotency_keys_pkey; ADD PRIMARY KEY (tenant_id, key)`. P0-Fix: ohne Composite-PK koennte ein Idempotency-Key von Tenant A im HardMode als Response von Tenant B replayed werden (Cross-Tenant-Cache-Leak). Application-Layer macht Conflict-Detection ueber den `request_hash`, aber das DB-PK-Constraint ist die letzte Verteidigungslinie. Down-Migration setzt PK absichtlich nur auf `(key)` zurueck — keine FK auf `tenants(id)`, weil der Sentinel `00000000-...-000000000001` aus 000106 (Option-B-Backfill) sonst eine FK-Verletzung waere. Cleanup-FK landet in einer eigenen Migration nach Pilot-1, wenn Legacy-Rows gepurgt sind.
 - **Companion-Aenderungen ohne Migration:** Repository-Tenant-Filter-Sweep auf `deal/activity/task/pipelinestage/chat-message/recording postgres_repository.go` (alle UPDATE/DELETE/GetByID/Search filtern jetzt `WHERE id=$1 AND tenant_id=$2` + `RowsAffected==0`-Sentinel). `pipelinestage.scanStage` liest `tenant_id`-Spalte aus 000106 (vorher Scan-Mismatch nach migrate-up). Migration 000106 hat jetzt eine `down.sql` mit explizitem Doc-Kommentar zur bewussten FK-Abwesenheit.
+
+### Sprint 2 Welle 4B — Option-B Phase 2 + Idempotency HardMode-Bereitschaft (Migrations 109–113)
+
+Top-30+ Tabellen-Retrofit auf den verbleibenden Hot-Path-Tabellen, plus Idempotency Complete()-Composite-PK-Fix mit Performance-Index. Alle ALTERs mit `ADD COLUMN IF NOT EXISTS` (defensiv gegen Re-Run und gegen Tabellen, die in 000106 schon retrofittet wurden).
+
+- **000109 option_b_phase2_calendar_work:** 21 tenant_id-Spalten + Index pro Tabelle: `calendars`, `calendar_members`, `event_categories`, `event_attendees`, `event_exceptions`, `event_reminders`, `user_calendar_preferences`, `meetings`, `meeting_attendees`, `meeting_notes`, `meeting_action_items`, `recording_consents`, `resources`, `resource_tags`, `resource_bookings`, `task_comments`, `task_activities`, `task_files`, `task_dependencies`, `project_members`, `project_statuses`. Plus Composite-Index `idx_recordings_meeting_id_tenant_id ON recordings(meeting_id, tenant_id)` fuer Recording-by-Meeting-Lookup ueber FK.
+- **000110 option_b_phase2_email_notification:** 11 tenant_id-Spalten + Indizes auf `email_accounts`, `email_folders`, `email_attachments`, `email_signatures`, `email_contact_links`, `team_inboxes`, `team_inbox_members`, `routing_rules`, `notification_preferences`, `notification_mutes`, `notification_quiet_hours`. Subtables zu `email_messages`/`inbox_messages` (die bereits via 000106 tenant_id haben).
+- **000111 option_b_phase2_security_crm_aux:** 12 tenant_id-Spalten + Indizes auf `vault_secrets`, `gdpr_export_requests`, `gdpr_erasure_log`, `password_policies`, `password_history`, `ip_access_rules`, `tags`, `contact_tags`, `company_tags`, `deal_tags`, `activity_tags`, `consent_records`. CRM-Auxiliary-Tabellen (Tag-System, Consent) und Security-Subtables.
+- **000112 option_b_phase2_automation_exec_channels:** 5 tenant_id-Spalten auf `automation_executions`, `channel_memberships`, `integration_configs`, `bexio_sync_configs`, `lexware_sync_configs`. **JOIN-Backfill-Pattern** fuer Tabellen ohne eigenen owner: `UPDATE automation_executions ae SET tenant_id = a.tenant_id FROM automations a WHERE ae.automation_id = a.id` und analog fuer `channel_memberships` ueber `channels`. Beide bekommen danach `ALTER COLUMN tenant_id SET NOT NULL`. Die drei Integration-Configs bleiben nullable (kein Backfill-Source — App-Code befuellt beim naechsten Touch).
+- **000113 idempotency_complete_tenant_pk_alignment:** Pure-Tracking-Migration mit einem zusaetzlichen partial Index `idx_idempotency_keys_tenant_completed ON idempotency_keys(tenant_id, key, completed_at) WHERE completed_at IS NULL`. Ergaenzt 000105's Index `(tenant_id, user_id, created_at DESC)` um Coverage fuer in-flight Lookups (Replay-Detection im HardMode-Pfad). Schema-Aenderung wuerde fuer den App-Code `Complete()`-Composite-PK-Fix nicht notwendig sein, aber Performance-relevant fuer Replay-Detection-Latenz.
+
+**Companion-Aenderungen ohne Migration (im selben Welle-4B-Commit):**
+- `idempotency.PostgresRepository.Complete(ctx, tenantID, key, status, body)` — neue Sig mit `WHERE tenant_id = $1 AND key = $2`. Ohne diesen Fix waere die Composite-PK aus 000108 nur halb wirksam (Get war seit Welle 3.5 sicher, Complete bis 4B nicht).
+- `cmd/gateway/main.go` HardMode-Env-Flag `IDEMPOTENCY_MODE=hard` (Default WarnMode).
+- 16+ Repository-Wirings (work/calendar+meeting+resource, email/*, notification/*, inbox/*, crm/tag+consent+search) mit tenant_id-First-Filter.
+- chat/message Cursor-Lookup: ThreadListFilter bekommt TenantID-Field, Cursor-Decode-Query filtert tenant_id (P2-6-Fix).
+- crm/activity AddTags: Loop mit N Einzel-INSERTs → Single `INSERT ... SELECT $1, unnest($2::uuid[])` (P3-3-Fix).
 
 ### Sprint 2 Welle 2D — JWT-Tenant-Hardening (Migration 104)
 

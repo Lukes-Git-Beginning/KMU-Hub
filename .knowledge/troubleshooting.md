@@ -1,6 +1,6 @@
 ---
 tags: [troubleshooting, debug]
-updated: 2026-04-29
+updated: 2026-05-07
 ---
 # Troubleshooting & Bekannte Probleme
 
@@ -168,6 +168,13 @@ Drei Anti-Pattern, die Welle 1 hinterlassen hat. Vor jedem neuen Modul-Wiring pr
 - **Symptom:** gRPC-Server-Methode ruft `req.GetTenantId()` und filtert damit Repos. Funktioniert im Happy-Path. Bei Service-zu-Service-Calls oder einem kompromittierten Gateway kann ein Caller eine fremde TenantID ins Request-Feld schreiben — der Repo-Filter folgt willig.
 - **Fix:** `tenantID, err := middleware.GetTenantID(ctx)` in jedem gRPC-Handler. Proto-Feld bleibt im Wire-Format, wird aber serverseitig ignoriert oder hoechstens fuer Logging genutzt. Welle 3.5 hat das Pattern auf 14+ Methoden in chat/crm/work/video/dialer-gRPC umgestellt.
 - **Test:** Tenant-Isolation-Tests muessen einen Two-Tenant-Scenario abdecken (User Tenant A schickt Request mit `tenant_id=B` im Body — Backend muss `tenant_id=A` aus dem Context durchsetzen).
+
+## Stale IDE-Diagnostics bei Cross-Stream-Subagent-Refactor (Welle 4B, 2026-05-07)
+
+- **Symptom:** Subagent-Output sagt "alles gruen — go build/vet/test alle pass". IDE-Diagnostics-Stream meldet aber kurz danach Sig-Drift in `cmd/*/main.go` oder `server/*_grpc.go` mit Compiler-Errors wie `*X.PostgresRepository does not implement Y.Repository (wrong type for method Z)`.
+- **Ursache:** IDE-Diagnostics arbeiten auf einem Snapshot des File-System-Zustands der manchmal hinter dem letzten Subagent-Save haengt. Bei Subagents die ueber 100+ Files refactoren und am Ende einen Sweep ueber Wirings machen, kommt das Diagnostic-Update nicht synchron mit dem letzten Save.
+- **Fix:** Authoritative Verifikation ist immer `cd backend && go build ./...` (frischer Build vom Disk-State). Nicht auf IDE-Diagnostics als Compiler-Authority verlassen — die sind ein Hilfsmittel, nicht die Source of Truth.
+- **Beispiel Welle 4B:** Drei Mal trafen Diagnostics mit "PostgresRepository implementiert Interface nicht" — `go build ./...` direkt war jedes Mal clean. Im Welle-4B-Bilanz-Memory dokumentiert (`project_sprint2_welle4b.md`).
 
 ## Frontend-Mutation-Patterns (Welle 3.5)
 

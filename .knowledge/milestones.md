@@ -1,8 +1,23 @@
 ---
 tags: [fortschritt, milestones]
-updated: 2026-04-29
+updated: 2026-05-07
 ---
 # Milestones
+
+## Sprint 2 Welle 4B Session 2026-05-07 — Option-B Phase 2 + Idempotency HardMode-Bereitschaft
+
+Drei Sub-Wellen (4B.1 + 4B.2 + 4B.3) mit insgesamt 10 Sonnet-Subagents (4B.1: 4 parallel + 1 Sweep, 4B.2: 4 parallel, 4B.3: 1 Explore + 1 Fix). Zwei konsolidierte Direct-to-Main-Commits.
+
+| Commit | Inhalt |
+|--------|--------|
+| `b868fb6 feat(welle4b): option-b phase 2 + idempotency hardmode readiness` | 105 Files, +3687/-1358. 5 neue Migrations 000109-000113 (Calendar/Work-Internal, Email/Inbox/Notification, Security/CRM-Aux, Automation-Exec/Channel-Memberships, Idempotency partial Index). 49 neue tenant_id-Spalten + JOIN-Backfill fuer automation_executions+channel_memberships. 16+ Repository-Wirings (work/calendar+meeting+resource, email/*, notification/*, inbox/*, crm/tag+consent+search). Idempotency `Complete()` Composite-PK-Fix + HardMode-Env-Flag in main.go (Default WarnMode, Dev-Default Hard via docker-compose). 13 gRPC-Handler auf `middleware.GetTenantID(ctx)`. 12 P2-7 Cross-Tenant-Tests + 3 finance JSONB-Tests. 8 P2-Followups integral (P2-1, -2, -3, -5, -6, -7, -8, P3-3). |
+| `1b1eb37 fix(welle4b): close 5 P0+P1 findings from welle 4B.3 sweep` | 9 Files, +195/-97. **F1 P0:** `video_grpc.StartRecording` schrieb uuid.Nil als tenant_id auf jeder neuen recording-Row — tenantID jetzt vor if/else extrahiert + an Variadic. **F2 P0:** 12 Deal/Activity-Handler in `crm_grpc.go` von `req.TenantId`-Spoof auf `middleware.GetTenantID(ctx)` (Welle-3.5-P0-Carryover). **F3+F10 P1:** meeting_action_items INSERT/UPDATE/DELETE/Get mit tenant_id-Filter + neue `GetActionItemByID`-Methode. **F4 P1:** ConvertActionItemsToTasks uuid.Nil-Guard. **F5 P1:** .env.example IDEMPOTENCY_MODE=hard auskommentiert. |
+
+**Verifikation:** `go build ./...` 0 Errors, `go vet ./...` 0 Issues, `go test ./... -count=1` alle Pakete OK, `npx tsc --noEmit` 0 TypeErrors, `npx vitest run` 14/14 Files / 202/202 Tests pass.
+
+**4 P2/P3 deferred** in `docs/sprint2-welle4b-followups.md`: F6 echte DB-Backed Cross-Tenant-Boundary-Tests (statt nur HTTP-Smoke), F7 TestHardMode time.Sleep flaky, F8 email/account ListAllActive Caller-Audit-Comment, F9 ListBrowsable shared-Filter-Frage. Plus Idempotency HardMode Prod-Cutover (separate Sprint-3-Deploy-Aktion nach Pilot-1).
+
+**Cross-Stream-Drift-Lesson:** Drei Mal trafen stale IDE-Diagnostics — Subagent meldete "alles gruen", IDE-Diagnostics zeigten Sig-Drift in `cmd/*/main.go` und gRPC-Handlern, `go build ./...` direkt war clean. Authoritative Verifikation ist `go build ./...`, nicht IDE-Diagnostics.
 
 ## Sprint 2 Welle 4A Session 2026-04-29 — Repository-Layer-Wirings + Idempotency Client Coverage
 

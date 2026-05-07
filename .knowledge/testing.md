@@ -1,6 +1,6 @@
 ---
 tags: [testing, qualitaet]
-updated: 2026-04-29
+updated: 2026-05-07
 ---
 # Test-Strategie
 
@@ -40,6 +40,9 @@ type MockRepository struct {
 - **Idempotency-Middleware** (2026-04-29, Sprint 2 Welle 3.5) — `middleware/idempotency_test.go` validiert `errors.Is`-Matching auf `ErrInFlight`/`ErrConflict`/`ErrKeyMissing` (vorher String-Equality, fail-open auf wrapped errors), atomarer `Reserve`-Pfad via `INSERT ... ON CONFLICT DO UPDATE RETURNING`, `context.WithoutCancel`-Pfad fuer async Complete.
 - **Frontend Offline-Queue + CallControls** (2026-04-29, Sprint 2 Welle 3.5) — `api/__tests__/offline-queue.test.ts` deckt 409-Retry ab (in-flight wird als Retry, nicht als Success behandelt; vorher silently dropped). `features/video/__tests__/CallControls.test.tsx` validiert Doppelklick-Guard (`isPending` blockt zweite Mutation) und try/catch-Toast-Pfad bei `confirmInitiatorConsent`-Failure (kein Orphan-Recording-State).
 - **Idempotency-Client-Coverage** (2026-04-29, Sprint 2 Welle 4A) — `api/__tests__/idempotency-coverage.test.ts` mit **29 Cases** stellt sicher, dass alle 32 API-Clients ihren Idempotency-Key-Header korrekt durch den neuen `api/utils/authenticatedFetch.ts`-Helper setzen. Voraussetzung fuer den Idempotency-HardMode-Switch in Welle 4B (vorher WarnMode, da Frontend-Rollout incremental war). Pro API-Client-Familie ein Round-Trip ueber den Helper plus Idempotency-Header-Verifikation.
+- **Cross-Tenant-Isolation-Tests Welle 4B** (2026-05-07, Sprint 2 Welle 4B Stream 2D) — `gateway/tenant_isolation_test.go` um **12 Sub-Tests** erweitert: `TestTenantIsolation_Pipeline_Stages`, `_CalendarEvents`, `_TimeEntries`, `_Automations`, `_SavedFilters`, `_CustomFields`, `_EmailMessages`, `_InboxMessages`, `_Dialer_Campaigns`, `_AuditLog`, `_Recordings`, `_Channels`. Pattern: Two-Tenant-Smoke (`recA.Code != 401 && recB.Code != 401`). Echte DB-Backed Cross-Tenant-Boundary-Tests sind in `docs/sprint2-welle4b-followups.md` als F6 fuer Sprint 3 deferred. Plus 3 finance JSONB-Subtests in `gateway/route_biz_test.go` (`TestFinanceLineItems_JSONBTenantIsolation`) — bestaetigen dass `finance_line_items` als JSONB in Parent-Tabellen ausreichend per `tenant_id` isoliert sind (kein Schema-Change noetig).
+- **Idempotency HardMode-Tests Welle 4B** (2026-05-07, Sprint 2 Welle 4B Stream 2C) — `idempotency/postgres_repository_test.go` mit `TestComplete_TenantFilter` + `TestGet_TenantIsolation` (Composite-PK-Verteidigung gegen Cross-Tenant-Replay), `middleware/idempotency_test.go` mit `TestHardMode_MissingKey_Returns400` + `TestHardMode_CrossTenantKeyRejected` (HardMode-Verhalten). F7 (`time.Sleep(20ms)`-Flakiness) deferred auf Sprint 3.
+- **Recording Service-Test Welle 4B** (2026-05-07, Sprint 2 Welle 4B P2-2) — `work/recording/service_test.go` `TestStartRecording_TenantIsolation` mit `tenantAwareRepo`-Wrapper. Vorher pruefte der Test nur String-Existenz; jetzt echter Service-Aufruf mit Mock-Repos: TenantA erstellt Recording → `rec.TenantID == tenantA` ✓ → TenantB-Repo gibt ErrNotFound ✓.
 
 ## Desktop (Electron/React)
 - Framework: Vitest + jsdom, Setup: `test/setup.ts`

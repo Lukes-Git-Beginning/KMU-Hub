@@ -1,10 +1,12 @@
 ---
 tags: [deployment, docker, ci-cd]
-updated: 2026-04-20
+updated: 2026-05-07
 ---
 # Deployment & Infrastruktur
 
 > **Aktueller Prod-Stand (2026-04-20):** `app.zentria.tech` auf `980eba3`, Migration-Head 81, alle 15 Business-Services healthy. Erster Full-Redeploy seit 2026-03-08 — Details in MEMORY `project_server_redeploy_20260419.md`. **Wichtig:** Auf dem Server sind `deploy/docker/livekit.yaml` und `deploy/docker/docker-compose.yml` via `git update-index --skip-worktree` aus Git-Sight genommen, weil sie lokale Patches + Secrets enthalten, die noch nicht in `main` committed sind. Nächste PRs, die diese Files ändern, müssen vor dem Pull `--no-skip-worktree` + manuellen Re-Patch durchlaufen.
+>
+> **Welle 4B (2026-05-07):** `deploy/docker/docker-compose.yml` und `backend/.env.example` setzen `IDEMPOTENCY_MODE=hard` im Gateway-Environment fuer Dev. Production bleibt unset → WarnMode default. Prod-Cutover auf HardMode ist Sprint-3-Aktion nach Pilot-1.
 
 ## Docker Compose (Lokal + Self-Hosted)
 Datei: `deploy/docker/docker-compose.yml`

@@ -1,6 +1,6 @@
 ---
 tags: [security, auth, compliance, gdpr]
-updated: 2026-04-29
+updated: 2026-05-07
 ---
 # Security & Compliance
 
@@ -35,7 +35,12 @@ updated: 2026-04-29
 - Async Complete laeuft in `goroutine` mit `context.WithoutCancel(r.Context())`, damit der Handler-Return nicht das Speichern abbricht (Welle-3.5-Fix: vorher Deadlock auf in-flight Connection bei kurzen Handler-Latenzen).
 - Speicher: Tabelle `idempotency_keys` (Migration 000105). PK `(tenant_id, key)` (Welle 3.5, Migration 000108) — Cross-Tenant-Cache-Replay-Schutz fuer HardMode. Tenant-scoped Index `(tenant_id, user_id, created_at DESC)`. TTL 24h via `expires_at`-Spalte.
 - Cleanup-Worker: `IdempotencyCleanupWorker` tickt 1h und ruft `repo.CleanupWithLock(ctx, key=0x49444D50)`. Welle 3.5 macht den Lock echt: `pg_try_advisory_xact_lock` fuer Leader-Election (analog `fuhrpark/worker.go`). Nur eine Replica delete-`WHERE expires_at < NOW()` pro Tick.
-- Modus-Toggle: `middleware.WarnMode` vs `middleware.HardMode`. WarnMode loggt `slog.Warn("idempotency_key_missing", ...)` und gibt der Mutation den freien Lauf — gewollt fuer Phase-1-Rollout. Hard-Mode rejectet 400 Bad Request.
+- Modus-Toggle: `middleware.WarnMode` vs `middleware.HardMode` ueber Env-Var `IDEMPOTENCY_MODE` (Welle 4B, Default `warn`). WarnMode loggt `slog.Warn("idempotency_key_missing", ...)` und gibt der Mutation den freien Lauf. HardMode rejectet 400 Bad Request bei fehlendem Header. **Dev-Default ist Hard** via `deploy/docker/docker-compose.yml` (`IDEMPOTENCY_MODE=hard` im Gateway-Environment) — fuer Production bleibt `IDEMPOTENCY_MODE` unset → WarnMode default. Prod-Cutover ist Sprint-3-Aktion nach Pilot-1.
+
+### Welle 4B Update (2026-05-07): `Complete()` Composite-PK-Fix
+- **Problem:** Bis Welle 4B hatte `idempotency.PostgresRepository.Complete(ctx, key, status, body)` nur `WHERE key = $1` — kein tenant_id-Filter im UPDATE-Pfad. Composite-PK aus 000108 war damit nur halb wirksam: Get/Reserve waren sicher, Complete konnte cross-tenant ueberschreiben.
+- **Fix:** Neue Sig `Complete(ctx, tenantID, key, status, body)` mit `WHERE tenant_id = $1 AND key = $2`. Middleware-Caller extrahiert tenantID aus Context. Migration 000113 fuegt einen partial Index `idx_idempotency_keys_tenant_completed (tenant_id, key, completed_at) WHERE completed_at IS NULL` fuer Replay-Detection-Performance hinzu.
+- **Tests:** 4 neue Cases — `TestComplete_TenantFilter`, `TestGet_TenantIsolation`, `TestHardMode_MissingKey_Returns400`, `TestHardMode_CrossTenantKeyRejected`.
 
 ## Pre-Recording-Consent (2026-04-28, Sprint 2 Welle 3, R2-P0.4 — gehaertet in Welle 3.5)
 
