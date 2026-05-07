@@ -343,7 +343,7 @@ func (s *Service) generateSummary(ctx context.Context, m *Meeting) (*MeetingSumm
 		return nil, fmt.Errorf("get attendees for summary: %w", err)
 	}
 
-	actionItems, err := s.repo.ListActionItems(ctx, m.ID)
+	actionItems, err := s.repo.ListActionItems(ctx, m.ID, m.TenantID)
 	if err != nil {
 		return nil, fmt.Errorf("get action items for summary: %w", err)
 	}
@@ -463,6 +463,7 @@ func (s *Service) CreateActionItem(ctx context.Context, input CreateActionItemIn
 
 	item := &MeetingActionItem{
 		ID:          uuid.New(),
+		TenantID:    input.TenantID,
 		MeetingID:   input.MeetingID,
 		Description: desc,
 		AssigneeID:  input.AssigneeID,
@@ -484,7 +485,7 @@ func (s *Service) CreateActionItem(ctx context.Context, input CreateActionItemIn
 }
 
 // UpdateActionItem updates an existing action item
-func (s *Service) UpdateActionItem(ctx context.Context, id uuid.UUID, input UpdateActionItemInput) (*MeetingActionItem, error) {
+func (s *Service) UpdateActionItem(ctx context.Context, id, tenantID uuid.UUID, input UpdateActionItemInput) (*MeetingActionItem, error) {
 	// Get the existing items for this meeting by loading through list
 	// We need to find the item first; use a direct approach
 	items, err := s.listAllActionItemsByID(ctx, id)
@@ -511,7 +512,7 @@ func (s *Service) UpdateActionItem(ctx context.Context, id uuid.UUID, input Upda
 		item.SortOrder = *input.SortOrder
 	}
 
-	if err := s.repo.UpdateActionItem(ctx, item); err != nil {
+	if err := s.repo.UpdateActionItem(ctx, item, tenantID); err != nil {
 		return nil, err
 	}
 
@@ -533,8 +534,8 @@ func (s *Service) listAllActionItemsByID(ctx context.Context, id uuid.UUID) (*Me
 }
 
 // DeleteActionItem deletes an action item
-func (s *Service) DeleteActionItem(ctx context.Context, id uuid.UUID) error {
-	if err := s.repo.DeleteActionItem(ctx, id); err != nil {
+func (s *Service) DeleteActionItem(ctx context.Context, id, tenantID uuid.UUID) error {
+	if err := s.repo.DeleteActionItem(ctx, id, tenantID); err != nil {
 		return err
 	}
 
@@ -545,14 +546,26 @@ func (s *Service) DeleteActionItem(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+// GetMeetingIDForActionItem resolves the meeting ID for a given action item ID.
+// Returns uuid.Nil if the item does not exist or does not belong to the tenant.
+func (s *Service) GetMeetingIDForActionItem(ctx context.Context, actionItemID, tenantID uuid.UUID) (uuid.UUID, error) {
+	item, err := s.repo.GetActionItemByID(ctx, actionItemID, tenantID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return item.MeetingID, nil
+}
+
 // ListActionItems lists all action items for a meeting
 func (s *Service) ListActionItems(ctx context.Context, meetingID, tenantID uuid.UUID) ([]MeetingActionItem, error) {
-	// Verify meeting exists
-	if _, err := s.repo.GetMeeting(ctx, meetingID, tenantID); err != nil {
-		return nil, err
+	// Verify meeting exists (only when a specific meeting is requested)
+	if meetingID != uuid.Nil {
+		if _, err := s.repo.GetMeeting(ctx, meetingID, tenantID); err != nil {
+			return nil, err
+		}
 	}
 
-	return s.repo.ListActionItems(ctx, meetingID)
+	return s.repo.ListActionItems(ctx, meetingID, tenantID)
 }
 
 // ConvertActionItemsToTasks prepares action items for task conversion.
@@ -563,7 +576,7 @@ func (s *Service) ConvertActionItemsToTasks(ctx context.Context, meetingID, tena
 		return nil, err
 	}
 
-	items, err := s.repo.ListActionItems(ctx, meetingID)
+	items, err := s.repo.ListActionItems(ctx, meetingID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("list action items for conversion: %w", err)
 	}

@@ -176,7 +176,19 @@ func (m *mockRepo) CreateActionItem(_ context.Context, item *MeetingActionItem) 
 	return nil
 }
 
-func (m *mockRepo) UpdateActionItem(_ context.Context, item *MeetingActionItem) error {
+func (m *mockRepo) GetActionItemByID(_ context.Context, id, _ uuid.UUID) (*MeetingActionItem, error) {
+	for _, items := range m.actionItems {
+		for _, item := range items {
+			if item.ID == id {
+				cp := item
+				return &cp, nil
+			}
+		}
+	}
+	return nil, ErrActionItemNotFound
+}
+
+func (m *mockRepo) UpdateActionItem(_ context.Context, item *MeetingActionItem, _ uuid.UUID) error {
 	items := m.actionItems[item.MeetingID]
 	for i, existing := range items {
 		if existing.ID == item.ID {
@@ -187,7 +199,7 @@ func (m *mockRepo) UpdateActionItem(_ context.Context, item *MeetingActionItem) 
 	return ErrActionItemNotFound
 }
 
-func (m *mockRepo) DeleteActionItem(_ context.Context, id uuid.UUID) error {
+func (m *mockRepo) DeleteActionItem(_ context.Context, id, _ uuid.UUID) error {
 	for meetingID, items := range m.actionItems {
 		for i, item := range items {
 			if item.ID == id {
@@ -199,7 +211,7 @@ func (m *mockRepo) DeleteActionItem(_ context.Context, id uuid.UUID) error {
 	return ErrActionItemNotFound
 }
 
-func (m *mockRepo) ListActionItems(_ context.Context, meetingID uuid.UUID) ([]MeetingActionItem, error) {
+func (m *mockRepo) ListActionItems(_ context.Context, meetingID, _ uuid.UUID) ([]MeetingActionItem, error) {
 	return m.actionItems[meetingID], nil
 }
 
@@ -706,7 +718,7 @@ func TestDeleteActionItem_Success(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = svc.DeleteActionItem(ctx, item.ID)
+	err = svc.DeleteActionItem(ctx, item.ID, testTenantID)
 	require.NoError(t, err)
 
 	items, err := svc.ListActionItems(ctx, m.ID, testTenantID)
@@ -718,7 +730,7 @@ func TestDeleteActionItem_NotFound(t *testing.T) {
 	svc, _ := newTestService()
 	ctx := context.Background()
 
-	err := svc.DeleteActionItem(ctx, uuid.New())
+	err := svc.DeleteActionItem(ctx, uuid.New(), testTenantID)
 	assert.ErrorIs(t, err, ErrActionItemNotFound)
 }
 

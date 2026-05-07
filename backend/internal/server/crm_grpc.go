@@ -1046,6 +1046,11 @@ func (s *CRMGRPCServer) ReorderPipelineStages(ctx context.Context, req *crmv1.Re
 // ============================================================================
 
 func (s *CRMGRPCServer) CreateDeal(ctx context.Context, req *crmv1.CreateDealRequest) (*crmv1.CreateDealResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	createdBy, err := uuid.Parse(req.CreatedBy)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid created_by user id")
@@ -1054,11 +1059,6 @@ func (s *CRMGRPCServer) CreateDeal(ctx context.Context, req *crmv1.CreateDealReq
 	stageID, err := uuid.Parse(req.StageId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid stage_id")
-	}
-
-	tenantID, err := uuid.Parse(req.TenantId)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
 	}
 
 	input := deal.CreateInput{
@@ -1142,14 +1142,14 @@ func (s *CRMGRPCServer) CreateDeal(ctx context.Context, req *crmv1.CreateDealReq
 }
 
 func (s *CRMGRPCServer) GetDeal(ctx context.Context, req *crmv1.GetDealRequest) (*crmv1.GetDealResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid deal id")
-	}
-
-	tenantID, err := uuid.Parse(req.TenantId)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
 	}
 
 	d, err := s.dealService.GetByID(ctx, tenantID, id)
@@ -1163,9 +1163,9 @@ func (s *CRMGRPCServer) GetDeal(ctx context.Context, req *crmv1.GetDealRequest) 
 }
 
 func (s *CRMGRPCServer) ListDeals(ctx context.Context, req *crmv1.ListDealsRequest) (*crmv1.ListDealsResponse, error) {
-	tenantID, err := uuid.Parse(req.TenantId)
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
 	}
 
 	input := deal.ListInput{
@@ -1234,6 +1234,11 @@ func (s *CRMGRPCServer) ListDeals(ctx context.Context, req *crmv1.ListDealsReque
 }
 
 func (s *CRMGRPCServer) UpdateDeal(ctx context.Context, req *crmv1.UpdateDealRequest) (*crmv1.UpdateDealResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid deal id")
@@ -1318,12 +1323,7 @@ func (s *CRMGRPCServer) UpdateDeal(ctx context.Context, req *crmv1.UpdateDealReq
 		}
 	}
 
-	tenantIDForUpdate, err := uuid.Parse(req.TenantId)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
-	}
-
-	d, err := s.dealService.Update(ctx, tenantIDForUpdate, id, input)
+	d, err := s.dealService.Update(ctx, tenantID, id, input)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -1334,14 +1334,14 @@ func (s *CRMGRPCServer) UpdateDeal(ctx context.Context, req *crmv1.UpdateDealReq
 }
 
 func (s *CRMGRPCServer) DeleteDeal(ctx context.Context, req *crmv1.DeleteDealRequest) (*crmv1.DeleteDealResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid deal id")
-	}
-
-	tenantID, err := uuid.Parse(req.TenantId)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
 	}
 
 	if err := s.dealService.Delete(ctx, tenantID, id); err != nil {
@@ -1352,6 +1352,11 @@ func (s *CRMGRPCServer) DeleteDeal(ctx context.Context, req *crmv1.DeleteDealReq
 }
 
 func (s *CRMGRPCServer) MoveDealToStage(ctx context.Context, req *crmv1.MoveDealToStageRequest) (*crmv1.MoveDealToStageResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	dealID, err := uuid.Parse(req.DealId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid deal_id")
@@ -1360,11 +1365,6 @@ func (s *CRMGRPCServer) MoveDealToStage(ctx context.Context, req *crmv1.MoveDeal
 	stageID, err := uuid.Parse(req.StageId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid stage_id")
-	}
-
-	tenantID, err := uuid.Parse(req.TenantId)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
 	}
 
 	d, err := s.dealService.MoveToStage(ctx, tenantID, dealID, stageID)
@@ -1382,18 +1382,18 @@ func (s *CRMGRPCServer) MoveDealToStage(ctx context.Context, req *crmv1.MoveDeal
 // ============================================================================
 
 func (s *CRMGRPCServer) CreateActivity(ctx context.Context, req *crmv1.CreateActivityRequest) (*crmv1.CreateActivityResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	createdBy, err := uuid.Parse(req.CreatedBy)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid created_by user id")
 	}
 
-	actTenantID, err := uuid.Parse(req.TenantId)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
-	}
-
 	input := activity.CreateInput{
-		TenantID:     actTenantID,
+		TenantID:     tenantID,
 		ActivityType: models.ActivityType(req.ActivityType),
 		Subject:      req.Subject,
 		CreatedBy:    createdBy,
@@ -1449,17 +1449,17 @@ func (s *CRMGRPCServer) CreateActivity(ctx context.Context, req *crmv1.CreateAct
 }
 
 func (s *CRMGRPCServer) GetActivity(ctx context.Context, req *crmv1.GetActivityRequest) (*crmv1.GetActivityResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid activity id")
 	}
 
-	actGetTenantID, err := uuid.Parse(req.TenantId)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
-	}
-
-	a, err := s.activityService.GetByID(ctx, actGetTenantID, id)
+	a, err := s.activityService.GetByID(ctx, tenantID, id)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -1470,13 +1470,13 @@ func (s *CRMGRPCServer) GetActivity(ctx context.Context, req *crmv1.GetActivityR
 }
 
 func (s *CRMGRPCServer) ListActivities(ctx context.Context, req *crmv1.ListActivitiesRequest) (*crmv1.ListActivitiesResponse, error) {
-	actListTenantID, err := uuid.Parse(req.TenantId)
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
 	}
 
 	input := activity.ListInput{
-		TenantID: actListTenantID,
+		TenantID: tenantID,
 		Page:     int(req.Page),
 		PageSize: int(req.PageSize),
 		SortBy:   req.SortBy,
@@ -1536,6 +1536,11 @@ func (s *CRMGRPCServer) ListActivities(ctx context.Context, req *crmv1.ListActiv
 }
 
 func (s *CRMGRPCServer) UpdateActivity(ctx context.Context, req *crmv1.UpdateActivityRequest) (*crmv1.UpdateActivityResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid activity id")
@@ -1609,12 +1614,7 @@ func (s *CRMGRPCServer) UpdateActivity(ctx context.Context, req *crmv1.UpdateAct
 		}
 	}
 
-	actUpdateTenantID, err := uuid.Parse(req.TenantId)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
-	}
-
-	a, err := s.activityService.Update(ctx, actUpdateTenantID, id, input)
+	a, err := s.activityService.Update(ctx, tenantID, id, input)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -1625,17 +1625,17 @@ func (s *CRMGRPCServer) UpdateActivity(ctx context.Context, req *crmv1.UpdateAct
 }
 
 func (s *CRMGRPCServer) DeleteActivity(ctx context.Context, req *crmv1.DeleteActivityRequest) (*crmv1.DeleteActivityResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid activity id")
 	}
 
-	actDelTenantID, err := uuid.Parse(req.TenantId)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
-	}
-
-	if err := s.activityService.Delete(ctx, actDelTenantID, id); err != nil {
+	if err := s.activityService.Delete(ctx, tenantID, id); err != nil {
 		return nil, mapCRMError(err)
 	}
 
@@ -1643,17 +1643,17 @@ func (s *CRMGRPCServer) DeleteActivity(ctx context.Context, req *crmv1.DeleteAct
 }
 
 func (s *CRMGRPCServer) CompleteActivity(ctx context.Context, req *crmv1.CompleteActivityRequest) (*crmv1.CompleteActivityResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid activity id")
 	}
 
-	actCompleteTenantID, err := uuid.Parse(req.TenantId)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
-	}
-
-	a, err := s.activityService.Complete(ctx, actCompleteTenantID, id)
+	a, err := s.activityService.Complete(ctx, tenantID, id)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}

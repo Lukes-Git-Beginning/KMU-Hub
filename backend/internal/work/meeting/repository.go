@@ -30,9 +30,10 @@ type Repository interface {
 
 	// Action Items
 	CreateActionItem(ctx context.Context, item *MeetingActionItem) error
-	UpdateActionItem(ctx context.Context, item *MeetingActionItem) error
-	DeleteActionItem(ctx context.Context, id uuid.UUID) error
-	ListActionItems(ctx context.Context, meetingID uuid.UUID) ([]MeetingActionItem, error)
+	GetActionItemByID(ctx context.Context, id, tenantID uuid.UUID) (*MeetingActionItem, error)
+	UpdateActionItem(ctx context.Context, item *MeetingActionItem, tenantID uuid.UUID) error
+	DeleteActionItem(ctx context.Context, id, tenantID uuid.UUID) error
+	ListActionItems(ctx context.Context, meetingID, tenantID uuid.UUID) ([]MeetingActionItem, error)
 	UpdateActionItemTaskID(ctx context.Context, itemID, taskID uuid.UUID) error
 }
 

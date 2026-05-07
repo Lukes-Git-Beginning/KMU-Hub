@@ -92,6 +92,7 @@ type MeetingNotes struct {
 // MeetingActionItem represents a follow-up action from a meeting
 type MeetingActionItem struct {
 	ID          uuid.UUID  `json:"id"`
+	TenantID    uuid.UUID  `json:"tenant_id"`
 	MeetingID   uuid.UUID  `json:"meeting_id"`
 	Description string     `json:"description"`
 	AssigneeID  *uuid.UUID `json:"assignee_id,omitempty"`

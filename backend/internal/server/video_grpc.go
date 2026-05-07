@@ -179,6 +179,11 @@ func (s *VideoGRPCServer) ListActiveCalls(ctx context.Context, req *videov1.List
 // ============================================================================
 
 func (s *VideoGRPCServer) StartRecording(ctx context.Context, req *videov1.StartRecordingRequest) (*videov1.Recording, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
@@ -227,10 +232,6 @@ func (s *VideoGRPCServer) StartRecording(ctx context.Context, req *videov1.Start
 		}
 	} else if meetingID != nil {
 		// Option 1: pull attendees from meeting_attendees via meeting service
-		tenantID, tenantErr := middleware.GetTenantID(ctx)
-		if tenantErr != nil {
-			return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
-		}
 		mwa, getErr := s.meetingService.GetMeeting(ctx, *meetingID, tenantID)
 		if getErr != nil {
 			return nil, mapMeetingError(getErr)
@@ -263,7 +264,7 @@ func (s *VideoGRPCServer) StartRecording(ctx context.Context, req *videov1.Start
 		})
 	}
 
-	rec, err := s.recordingService.StartRecording(ctx, callID, meetingID, roomName, userID, participants)
+	rec, err := s.recordingService.StartRecording(ctx, callID, meetingID, roomName, userID, participants, tenantID)
 	if err != nil {
 		return nil, mapRecordingError(err)
 	}
@@ -923,6 +924,11 @@ func (s *VideoGRPCServer) CreateActionItem(ctx context.Context, req *videov1.Cre
 }
 
 func (s *VideoGRPCServer) UpdateActionItem(ctx context.Context, req *videov1.UpdateActionItemRequest) (*videov1.ActionItem, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+
 	id, err := uuid.Parse(req.ActionItemId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid action_item_id")
@@ -947,7 +953,7 @@ func (s *VideoGRPCServer) UpdateActionItem(ctx context.Context, req *videov1.Upd
 		input.SortOrder = &so
 	}
 
-	item, err := s.meetingService.UpdateActionItem(ctx, id, input)
+	item, err := s.meetingService.UpdateActionItem(ctx, id, tenantID, input)
 	if err != nil {
 		return nil, mapMeetingError(err)
 	}
@@ -956,12 +962,17 @@ func (s *VideoGRPCServer) UpdateActionItem(ctx context.Context, req *videov1.Upd
 }
 
 func (s *VideoGRPCServer) DeleteActionItem(ctx context.Context, req *videov1.DeleteActionItemRequest) (*emptypb.Empty, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+
 	id, err := uuid.Parse(req.ActionItemId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid action_item_id")
 	}
 
-	if err := s.meetingService.DeleteActionItem(ctx, id); err != nil {
+	if err := s.meetingService.DeleteActionItem(ctx, id, tenantID); err != nil {
 		return nil, mapMeetingError(err)
 	}
 
@@ -1024,11 +1035,19 @@ func (s *VideoGRPCServer) ConvertActionItemsToTasks(ctx context.Context, req *vi
 	var resultItems []*videov1.ActionItem
 
 	for _, itemID := range itemIDs {
+		// Resolve the meeting ID for this action item via the meeting service.
+		// uuid.Nil is not a valid meeting ID — skip if we cannot determine the meeting.
+		meetingIDForItem, resolveErr := s.meetingService.GetMeetingIDForActionItem(ctx, itemID, tenantID)
+		if resolveErr != nil {
+			continue
+		}
+		if meetingIDForItem == uuid.Nil {
+			continue
+		}
+
 		// Create a task from the action item description
-		// Note: ListActionItems requires a meeting ID; using uuid.Nil lists all unscoped items
-		items, listErr := s.meetingService.ListActionItems(ctx, uuid.Nil, tenantID)
+		items, listErr := s.meetingService.ListActionItems(ctx, meetingIDForItem, tenantID)
 		if listErr != nil {
-			// Try to get the item directly by creating a task with the item ID info
 			continue
 		}
 

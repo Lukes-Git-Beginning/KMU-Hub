@@ -298,21 +298,40 @@ func (r *PostgresRepository) GetPreviousMeetingNotes(ctx context.Context, recurr
 
 // --- Action Items ---
 
+func (r *PostgresRepository) GetActionItemByID(ctx context.Context, id, tenantID uuid.UUID) (*MeetingActionItem, error) {
+	var item MeetingActionItem
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, tenant_id, meeting_id, description, assignee_id, is_completed, task_id, sort_order, created_at
+		 FROM meeting_action_items WHERE id=$1 AND tenant_id=$2`,
+		id, tenantID,
+	).Scan(
+		&item.ID, &item.TenantID, &item.MeetingID, &item.Description, &item.AssigneeID,
+		&item.IsCompleted, &item.TaskID, &item.SortOrder, &item.CreatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrActionItemNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get action item by id: %w", err)
+	}
+	return &item, nil
+}
+
 func (r *PostgresRepository) CreateActionItem(ctx context.Context, item *MeetingActionItem) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO meeting_action_items (id, meeting_id, description, assignee_id, is_completed, task_id, sort_order, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		item.ID, item.MeetingID, item.Description, item.AssigneeID,
+		`INSERT INTO meeting_action_items (id, tenant_id, meeting_id, description, assignee_id, is_completed, task_id, sort_order, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		item.ID, item.TenantID, item.MeetingID, item.Description, item.AssigneeID,
 		item.IsCompleted, item.TaskID, item.SortOrder, item.CreatedAt,
 	)
 	return err
 }
 
-func (r *PostgresRepository) UpdateActionItem(ctx context.Context, item *MeetingActionItem) error {
+func (r *PostgresRepository) UpdateActionItem(ctx context.Context, item *MeetingActionItem, tenantID uuid.UUID) error {
 	tag, err := r.pool.Exec(ctx,
 		`UPDATE meeting_action_items SET description=$2, assignee_id=$3, is_completed=$4, sort_order=$5
-		 WHERE id=$1`,
-		item.ID, item.Description, item.AssigneeID, item.IsCompleted, item.SortOrder,
+		 WHERE id=$1 AND tenant_id=$6`,
+		item.ID, item.Description, item.AssigneeID, item.IsCompleted, item.SortOrder, tenantID,
 	)
 	if err != nil {
 		return fmt.Errorf("update action item: %w", err)
@@ -323,8 +342,8 @@ func (r *PostgresRepository) UpdateActionItem(ctx context.Context, item *Meeting
 	return nil
 }
 
-func (r *PostgresRepository) DeleteActionItem(ctx context.Context, id uuid.UUID) error {
-	tag, err := r.pool.Exec(ctx, `DELETE FROM meeting_action_items WHERE id=$1`, id)
+func (r *PostgresRepository) DeleteActionItem(ctx context.Context, id, tenantID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM meeting_action_items WHERE id=$1 AND tenant_id=$2`, id, tenantID)
 	if err != nil {
 		return fmt.Errorf("delete action item: %w", err)
 	}
@@ -334,11 +353,11 @@ func (r *PostgresRepository) DeleteActionItem(ctx context.Context, id uuid.UUID)
 	return nil
 }
 
-func (r *PostgresRepository) ListActionItems(ctx context.Context, meetingID uuid.UUID) ([]MeetingActionItem, error) {
+func (r *PostgresRepository) ListActionItems(ctx context.Context, meetingID, tenantID uuid.UUID) ([]MeetingActionItem, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, meeting_id, description, assignee_id, is_completed, task_id, sort_order, created_at
-		 FROM meeting_action_items WHERE meeting_id=$1 ORDER BY sort_order, created_at`,
-		meetingID,
+		`SELECT id, tenant_id, meeting_id, description, assignee_id, is_completed, task_id, sort_order, created_at
+		 FROM meeting_action_items WHERE meeting_id=$1 AND tenant_id=$2 ORDER BY sort_order, created_at`,
+		meetingID, tenantID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list action items: %w", err)
@@ -349,7 +368,7 @@ func (r *PostgresRepository) ListActionItems(ctx context.Context, meetingID uuid
 	for rows.Next() {
 		var item MeetingActionItem
 		if err := rows.Scan(
-			&item.ID, &item.MeetingID, &item.Description, &item.AssigneeID,
+			&item.ID, &item.TenantID, &item.MeetingID, &item.Description, &item.AssigneeID,
 			&item.IsCompleted, &item.TaskID, &item.SortOrder, &item.CreatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan action item: %w", err)
