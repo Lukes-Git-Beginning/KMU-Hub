@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 // --- In-memory mock repo ---
 
 type memIdempotencyRepo struct {
+	mu      sync.Mutex
 	records map[string]*idempotency.Record
 	// injectErr forces Reserve to return this error on the next call.
 	injectErr error
@@ -36,6 +38,9 @@ func (m *memIdempotencyRepo) Reserve(
 	tenantID, userID uuid.UUID,
 	method, path, hash string,
 ) (*idempotency.Record, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	if m.injectErr != nil {
 		err := m.injectErr
 		m.injectErr = nil
@@ -68,6 +73,8 @@ func (m *memIdempotencyRepo) Reserve(
 }
 
 func (m *memIdempotencyRepo) Get(ctx context.Context, tenantID uuid.UUID, key string) (*idempotency.Record, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	rec, ok := m.records[key]
 	if !ok {
 		return nil, pgx.ErrNoRows
@@ -76,6 +83,8 @@ func (m *memIdempotencyRepo) Get(ctx context.Context, tenantID uuid.UUID, key st
 }
 
 func (m *memIdempotencyRepo) Complete(ctx context.Context, tenantID uuid.UUID, key string, status int, body []byte) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	rec, ok := m.records[key]
 	if !ok {
 		return errors.New("key not found")
