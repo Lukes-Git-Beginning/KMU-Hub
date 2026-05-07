@@ -248,13 +248,18 @@ func (s *CRMGRPCServer) DeleteCustomField(ctx context.Context, req *crmv1.Delete
 // ============================================================================
 
 func (s *CRMGRPCServer) CreateTag(ctx context.Context, req *crmv1.CreateTagRequest) (*crmv1.CreateTagResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	input := tag.CreateInput{
 		Name:       req.Name,
 		Color:      req.Color,
 		EntityType: models.EntityType(req.EntityType),
 	}
 
-	t, err := s.tagService.Create(ctx, input)
+	t, err := s.tagService.Create(ctx, tenantID, input)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -265,12 +270,17 @@ func (s *CRMGRPCServer) CreateTag(ctx context.Context, req *crmv1.CreateTagReque
 }
 
 func (s *CRMGRPCServer) GetTag(ctx context.Context, req *crmv1.GetTagRequest) (*crmv1.GetTagResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid tag id")
 	}
 
-	t, err := s.tagService.GetByID(ctx, id)
+	t, err := s.tagService.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -281,6 +291,11 @@ func (s *CRMGRPCServer) GetTag(ctx context.Context, req *crmv1.GetTagRequest) (*
 }
 
 func (s *CRMGRPCServer) ListTags(ctx context.Context, req *crmv1.ListTagsRequest) (*crmv1.ListTagsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	input := tag.ListInput{
 		Page:     int(req.Page),
 		PageSize: int(req.PageSize),
@@ -291,7 +306,7 @@ func (s *CRMGRPCServer) ListTags(ctx context.Context, req *crmv1.ListTagsRequest
 		input.EntityType = &entityType
 	}
 
-	tags, total, err := s.tagService.List(ctx, input)
+	tags, total, err := s.tagService.List(ctx, tenantID, input)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list tags")
 	}
@@ -308,6 +323,11 @@ func (s *CRMGRPCServer) ListTags(ctx context.Context, req *crmv1.ListTagsRequest
 }
 
 func (s *CRMGRPCServer) UpdateTag(ctx context.Context, req *crmv1.UpdateTagRequest) (*crmv1.UpdateTagResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid tag id")
@@ -322,7 +342,7 @@ func (s *CRMGRPCServer) UpdateTag(ctx context.Context, req *crmv1.UpdateTagReque
 		input.Color = req.Color
 	}
 
-	t, err := s.tagService.Update(ctx, id, input)
+	t, err := s.tagService.Update(ctx, id, tenantID, input)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -333,12 +353,17 @@ func (s *CRMGRPCServer) UpdateTag(ctx context.Context, req *crmv1.UpdateTagReque
 }
 
 func (s *CRMGRPCServer) DeleteTag(ctx context.Context, req *crmv1.DeleteTagRequest) (*crmv1.DeleteTagResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid tag id")
 	}
 
-	if err := s.tagService.Delete(ctx, id); err != nil {
+	if err := s.tagService.Delete(ctx, id, tenantID); err != nil {
 		return nil, mapCRMError(err)
 	}
 
@@ -1643,9 +1668,15 @@ func (s *CRMGRPCServer) CompleteActivity(ctx context.Context, req *crmv1.Complet
 // ============================================================================
 
 func (s *CRMGRPCServer) Search(ctx context.Context, req *crmv1.SearchRequest) (*crmv1.SearchResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	input := search.SearchInput{
-		Query: req.Query,
-		Limit: int(req.Limit),
+		Query:    req.Query,
+		Limit:    int(req.Limit),
+		TenantID: tenantID,
 	}
 
 	for _, et := range req.EntityTypes {
@@ -2833,12 +2864,17 @@ func toConsentRecord(r *consent.ConsentRecord) *crmv1.ConsentRecord {
 }
 
 func (s *CRMGRPCServer) GetContactConsents(ctx context.Context, req *crmv1.GetContactConsentsRequest) (*crmv1.GetContactConsentsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	contactID, err := uuid.Parse(req.ContactId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
 	}
 
-	summary, err := s.consentService.GetContactConsents(ctx, contactID)
+	summary, err := s.consentService.GetContactConsents(ctx, tenantID, contactID)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -2857,6 +2893,11 @@ func (s *CRMGRPCServer) GetContactConsents(ctx context.Context, req *crmv1.GetCo
 }
 
 func (s *CRMGRPCServer) GrantConsent(ctx context.Context, req *crmv1.GrantConsentRequest) (*crmv1.GrantConsentResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	contactID, err := uuid.Parse(req.ContactId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
@@ -2870,7 +2911,7 @@ func (s *CRMGRPCServer) GrantConsent(ctx context.Context, req *crmv1.GrantConsen
 		}
 	}
 
-	record, err := s.consentService.GrantConsent(ctx, contactID, req.ConsentType, req.Source, req.LegalBasis, req.IpAddress, createdBy)
+	record, err := s.consentService.GrantConsent(ctx, tenantID, contactID, req.ConsentType, req.Source, req.LegalBasis, req.IpAddress, createdBy)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -2881,6 +2922,11 @@ func (s *CRMGRPCServer) GrantConsent(ctx context.Context, req *crmv1.GrantConsen
 }
 
 func (s *CRMGRPCServer) RevokeConsent(ctx context.Context, req *crmv1.RevokeConsentRequest) (*crmv1.RevokeConsentResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	contactID, err := uuid.Parse(req.ContactId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
@@ -2894,7 +2940,7 @@ func (s *CRMGRPCServer) RevokeConsent(ctx context.Context, req *crmv1.RevokeCons
 		}
 	}
 
-	record, err := s.consentService.RevokeConsent(ctx, contactID, req.ConsentType, req.Notes, revokedBy)
+	record, err := s.consentService.RevokeConsent(ctx, tenantID, contactID, req.ConsentType, req.Notes, revokedBy)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -2905,12 +2951,17 @@ func (s *CRMGRPCServer) RevokeConsent(ctx context.Context, req *crmv1.RevokeCons
 }
 
 func (s *CRMGRPCServer) GetConsentHistory(ctx context.Context, req *crmv1.GetConsentHistoryRequest) (*crmv1.GetConsentHistoryResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	contactID, err := uuid.Parse(req.ContactId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
 	}
 
-	records, err := s.consentService.GetConsentHistory(ctx, contactID, req.ConsentType)
+	records, err := s.consentService.GetConsentHistory(ctx, tenantID, contactID, req.ConsentType)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}

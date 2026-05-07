@@ -104,8 +104,8 @@ func (s *Service) ProcessEvent(ctx context.Context, payload models.EventPayload)
 			continue
 		}
 
-		// Evaluate preferences
-		decision, err := s.prefService.Evaluate(ctx, targetUserID, payload)
+		// Evaluate preferences (tenant comes from the notification payload's TenantID context)
+		decision, err := s.prefService.Evaluate(ctx, payload.TenantID, targetUserID, payload)
 		if err != nil {
 			slog.Error("preference evaluation failed",
 				"user_id", targetUserID,
@@ -181,8 +181,8 @@ func (s *Service) ProcessEvent(ctx context.Context, payload models.EventPayload)
 	return nil
 }
 
-// ListNotifications returns paginated notifications for a user.
-func (s *Service) ListNotifications(ctx context.Context, userID uuid.UUID, moduleID *string, isRead *bool, page, pageSize int) ([]*models.Notification, int, error) {
+// ListNotifications returns paginated notifications for a user within a tenant.
+func (s *Service) ListNotifications(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, moduleID *string, isRead *bool, page, pageSize int) ([]*models.Notification, int, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -192,6 +192,7 @@ func (s *Service) ListNotifications(ctx context.Context, userID uuid.UUID, modul
 
 	offset := (page - 1) * pageSize
 	filter := ListFilter{
+		TenantID: tenantID,
 		UserID:   userID,
 		ModuleID: moduleID,
 		IsRead:   isRead,
@@ -200,14 +201,14 @@ func (s *Service) ListNotifications(ctx context.Context, userID uuid.UUID, modul
 	return s.repo.List(ctx, filter, offset, pageSize)
 }
 
-// GetUnreadCount returns the number of unread notifications for a user.
-func (s *Service) GetUnreadCount(ctx context.Context, userID uuid.UUID) (int, error) {
-	return s.repo.GetUnreadCount(ctx, userID)
+// GetUnreadCount returns the number of unread notifications for a user within a tenant.
+func (s *Service) GetUnreadCount(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID) (int, error) {
+	return s.repo.GetUnreadCount(ctx, tenantID, userID)
 }
 
 // MarkRead marks a single notification as read. Returns the updated notification.
-func (s *Service) MarkRead(ctx context.Context, notifID, userID uuid.UUID) (*models.Notification, error) {
-	notif, err := s.repo.GetByID(ctx, notifID)
+func (s *Service) MarkRead(ctx context.Context, tenantID uuid.UUID, notifID, userID uuid.UUID) (*models.Notification, error) {
+	notif, err := s.repo.GetByID(ctx, tenantID, notifID)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +218,7 @@ func (s *Service) MarkRead(ctx context.Context, notifID, userID uuid.UUID) (*mod
 	}
 
 	now := time.Now()
-	if err := s.repo.MarkRead(ctx, notifID, now); err != nil {
+	if err := s.repo.MarkRead(ctx, tenantID, notifID, now); err != nil {
 		return nil, err
 	}
 
@@ -226,9 +227,9 @@ func (s *Service) MarkRead(ctx context.Context, notifID, userID uuid.UUID) (*mod
 	return notif, nil
 }
 
-// MarkAllRead marks all unread notifications as read for a user.
-func (s *Service) MarkAllRead(ctx context.Context, userID uuid.UUID, moduleID *string) (int, error) {
-	return s.repo.MarkAllRead(ctx, userID, moduleID, time.Now())
+// MarkAllRead marks all unread notifications as read for a user within a tenant.
+func (s *Service) MarkAllRead(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, moduleID *string) (int, error) {
+	return s.repo.MarkAllRead(ctx, tenantID, userID, moduleID, time.Now())
 }
 
 // notifyDelivery sends a lightweight payload via pg_notify on the delivery channel

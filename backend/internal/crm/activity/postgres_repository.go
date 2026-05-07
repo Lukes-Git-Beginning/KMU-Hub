@@ -257,16 +257,19 @@ func (r *PostgresRepository) GetTags(ctx context.Context, activityID uuid.UUID) 
 }
 
 func (r *PostgresRepository) AddTags(ctx context.Context, activityID uuid.UUID, tagIDs []uuid.UUID) error {
-	for _, tagID := range tagIDs {
-		_, err := r.pool.Exec(ctx,
-			`INSERT INTO activity_tags (activity_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-			activityID, tagID,
-		)
-		if err != nil {
-			return err
-		}
+	if len(tagIDs) == 0 {
+		return nil
 	}
-	return nil
+	// P3-3: Single batch-INSERT using unnest — N roundtrips → 1.
+	// tenant_id is carried from the parent activity via JOIN for denormalization consistency.
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO activity_tags (activity_id, tag_id, tenant_id)
+		 SELECT $1, unnest($2::uuid[]),
+		        (SELECT tenant_id FROM activities WHERE id = $1)
+		 ON CONFLICT DO NOTHING`,
+		activityID, tagIDs,
+	)
+	return err
 }
 
 func (r *PostgresRepository) RemoveTags(ctx context.Context, activityID uuid.UUID, tagIDs []uuid.UUID) error {

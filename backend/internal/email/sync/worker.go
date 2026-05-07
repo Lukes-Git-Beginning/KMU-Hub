@@ -135,8 +135,8 @@ func (w *Worker) Run(ctx context.Context) {
 
 // syncCycle performs one complete sync: connect, sync folders, sync messages, enter IDLE/poll.
 func (w *Worker) syncCycle(ctx context.Context) error {
-	// Get decrypted credentials
-	creds, err := w.accountService.GetDecryptedCredentials(ctx, w.account.ID)
+	// Get decrypted credentials — scoped to tenant for isolation
+	creds, err := w.accountService.GetDecryptedCredentials(ctx, w.account.ID, w.account.TenantID)
 	if err != nil {
 		return err
 	}
@@ -174,8 +174,8 @@ func (w *Worker) syncCycle(ctx context.Context) error {
 		}
 	}
 
-	// Update last sync timestamp
-	if err := w.accountService.UpdateLastSync(ctx, w.account.ID); err != nil {
+	// Update last sync timestamp — scoped to tenant for isolation
+	if err := w.accountService.UpdateLastSync(ctx, w.account.ID, w.account.TenantID); err != nil {
 		w.logger.Warn("failed to update last_sync_at", "error", err)
 	}
 

@@ -12,6 +12,8 @@ import (
 
 // --- Mock Repository ---
 
+var testTenantID = uuid.New()
+
 type mockRepo struct {
 	meetings    map[uuid.UUID]*Meeting
 	attendees   map[uuid.UUID][]MeetingAttendee
@@ -33,9 +35,13 @@ func (m *mockRepo) CreateMeeting(_ context.Context, mtg *Meeting) error {
 	return nil
 }
 
-func (m *mockRepo) GetMeeting(_ context.Context, id uuid.UUID) (*Meeting, error) {
+func (m *mockRepo) GetMeeting(_ context.Context, id, tenantID uuid.UUID) (*Meeting, error) {
 	mtg, ok := m.meetings[id]
 	if !ok {
+		return nil, ErrNotFound
+	}
+	// Tenant isolation: deny cross-tenant access
+	if mtg.TenantID != uuid.Nil && mtg.TenantID != tenantID {
 		return nil, ErrNotFound
 	}
 	// Return a copy to prevent mutations leaking
@@ -51,8 +57,12 @@ func (m *mockRepo) UpdateMeeting(_ context.Context, mtg *Meeting) error {
 	return nil
 }
 
-func (m *mockRepo) DeleteMeeting(_ context.Context, id uuid.UUID) error {
-	if _, ok := m.meetings[id]; !ok {
+func (m *mockRepo) DeleteMeeting(_ context.Context, id, tenantID uuid.UUID) error {
+	mtg, ok := m.meetings[id]
+	if !ok {
+		return ErrNotFound
+	}
+	if mtg.TenantID != uuid.Nil && mtg.TenantID != tenantID {
 		return ErrNotFound
 	}
 	delete(m.meetings, id)
@@ -62,6 +72,10 @@ func (m *mockRepo) DeleteMeeting(_ context.Context, id uuid.UUID) error {
 func (m *mockRepo) ListMeetings(_ context.Context, filter MeetingFilter) ([]Meeting, error) {
 	var result []Meeting
 	for _, mtg := range m.meetings {
+		// Always filter by tenant when TenantID is set in filter
+		if filter.TenantID != uuid.Nil && mtg.TenantID != filter.TenantID {
+			continue
+		}
 		if filter.Status != nil && mtg.Status != *filter.Status {
 			continue
 		}
@@ -212,6 +226,7 @@ func newTestService() (*Service, *mockRepo) {
 
 func validCreateInput() CreateMeetingInput {
 	return CreateMeetingInput{
+		TenantID:       testTenantID,
 		Title:          "Weekly Standup",
 		OrganizerID:    uuid.New(),
 		ScheduledStart: time.Now().Add(1 * time.Hour),
@@ -232,6 +247,7 @@ func TestCreateMeeting_Success(t *testing.T) {
 	assert.NotEqual(t, uuid.Nil, m.ID)
 	assert.Equal(t, "Weekly Standup", m.Title)
 	assert.Equal(t, MeetingStatusScheduled, m.Status)
+	assert.Equal(t, testTenantID, m.TenantID)
 
 	// Organizer should be added as attendee with accepted status
 	attendees := repo.attendees[m.ID]
@@ -295,7 +311,7 @@ func TestUpdateMeeting_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	newTitle := "Updated Standup"
-	updated, err := svc.UpdateMeeting(ctx, m.ID, UpdateMeetingInput{
+	updated, err := svc.UpdateMeeting(ctx, m.ID, testTenantID, UpdateMeetingInput{
 		Title: &newTitle,
 	})
 	require.NoError(t, err)
@@ -311,11 +327,11 @@ func TestUpdateMeeting_NotScheduled(t *testing.T) {
 	require.NoError(t, err)
 
 	// Start the meeting
-	_, err = svc.StartMeeting(ctx, m.ID)
+	_, err = svc.StartMeeting(ctx, m.ID, testTenantID)
 	require.NoError(t, err)
 
 	newTitle := "Updated"
-	_, err = svc.UpdateMeeting(ctx, m.ID, UpdateMeetingInput{Title: &newTitle})
+	_, err = svc.UpdateMeeting(ctx, m.ID, testTenantID, UpdateMeetingInput{Title: &newTitle})
 	assert.ErrorIs(t, err, ErrNotScheduled)
 }
 
@@ -327,7 +343,7 @@ func TestDeleteMeeting_Success(t *testing.T) {
 	m, err := svc.CreateMeeting(ctx, input)
 	require.NoError(t, err)
 
-	err = svc.DeleteMeeting(ctx, m.ID)
+	err = svc.DeleteMeeting(ctx, m.ID, testTenantID)
 	require.NoError(t, err)
 	assert.Empty(t, repo.meetings)
 }
@@ -340,10 +356,10 @@ func TestDeleteMeeting_InProgress(t *testing.T) {
 	m, err := svc.CreateMeeting(ctx, input)
 	require.NoError(t, err)
 
-	_, err = svc.StartMeeting(ctx, m.ID)
+	_, err = svc.StartMeeting(ctx, m.ID, testTenantID)
 	require.NoError(t, err)
 
-	err = svc.DeleteMeeting(ctx, m.ID)
+	err = svc.DeleteMeeting(ctx, m.ID, testTenantID)
 	assert.ErrorIs(t, err, ErrCannotDelete)
 }
 
@@ -355,7 +371,7 @@ func TestStartMeeting_Success(t *testing.T) {
 	m, err := svc.CreateMeeting(ctx, input)
 	require.NoError(t, err)
 
-	started, err := svc.StartMeeting(ctx, m.ID)
+	started, err := svc.StartMeeting(ctx, m.ID, testTenantID)
 	require.NoError(t, err)
 	assert.Equal(t, MeetingStatusInProgress, started.Status)
 	assert.NotNil(t, started.ActualStart)
@@ -370,10 +386,10 @@ func TestStartMeeting_AlreadyInProgress(t *testing.T) {
 	m, err := svc.CreateMeeting(ctx, input)
 	require.NoError(t, err)
 
-	_, err = svc.StartMeeting(ctx, m.ID)
+	_, err = svc.StartMeeting(ctx, m.ID, testTenantID)
 	require.NoError(t, err)
 
-	_, err = svc.StartMeeting(ctx, m.ID)
+	_, err = svc.StartMeeting(ctx, m.ID, testTenantID)
 	assert.ErrorIs(t, err, ErrNotScheduled)
 }
 
@@ -385,10 +401,10 @@ func TestEndMeeting_Success(t *testing.T) {
 	m, err := svc.CreateMeeting(ctx, input)
 	require.NoError(t, err)
 
-	_, err = svc.StartMeeting(ctx, m.ID)
+	_, err = svc.StartMeeting(ctx, m.ID, testTenantID)
 	require.NoError(t, err)
 
-	summary, err := svc.EndMeeting(ctx, m.ID)
+	summary, err := svc.EndMeeting(ctx, m.ID, testTenantID)
 	require.NoError(t, err)
 	assert.Equal(t, m.ID, summary.MeetingID)
 	assert.GreaterOrEqual(t, summary.DurationMinutes, 0)
@@ -402,7 +418,7 @@ func TestEndMeeting_NotInProgress(t *testing.T) {
 	m, err := svc.CreateMeeting(ctx, input)
 	require.NoError(t, err)
 
-	_, err = svc.EndMeeting(ctx, m.ID)
+	_, err = svc.EndMeeting(ctx, m.ID, testTenantID)
 	assert.ErrorIs(t, err, ErrNotInProgress)
 }
 
@@ -417,13 +433,13 @@ func TestLifecycle_ScheduledToInProgressToCompleted(t *testing.T) {
 	assert.Equal(t, MeetingStatusScheduled, m.Status)
 
 	// Start
-	started, err := svc.StartMeeting(ctx, m.ID)
+	started, err := svc.StartMeeting(ctx, m.ID, testTenantID)
 	require.NoError(t, err)
 	assert.Equal(t, MeetingStatusInProgress, started.Status)
 	assert.NotNil(t, started.ActualStart)
 
 	// End
-	summary, err := svc.EndMeeting(ctx, m.ID)
+	summary, err := svc.EndMeeting(ctx, m.ID, testTenantID)
 	require.NoError(t, err)
 	assert.Equal(t, m.ID, summary.MeetingID)
 
@@ -441,7 +457,7 @@ func TestCancelMeeting_Success(t *testing.T) {
 	m, err := svc.CreateMeeting(ctx, input)
 	require.NoError(t, err)
 
-	cancelled, err := svc.CancelMeeting(ctx, m.ID)
+	cancelled, err := svc.CancelMeeting(ctx, m.ID, testTenantID)
 	require.NoError(t, err)
 	assert.Equal(t, MeetingStatusCancelled, cancelled.Status)
 }
@@ -454,10 +470,10 @@ func TestCancelMeeting_NotScheduled(t *testing.T) {
 	m, err := svc.CreateMeeting(ctx, input)
 	require.NoError(t, err)
 
-	_, err = svc.StartMeeting(ctx, m.ID)
+	_, err = svc.StartMeeting(ctx, m.ID, testTenantID)
 	require.NoError(t, err)
 
-	_, err = svc.CancelMeeting(ctx, m.ID)
+	_, err = svc.CancelMeeting(ctx, m.ID, testTenantID)
 	assert.ErrorIs(t, err, ErrNotScheduled)
 }
 
@@ -469,11 +485,11 @@ func TestSaveNotes_Success(t *testing.T) {
 	m, err := svc.CreateMeeting(ctx, input)
 	require.NoError(t, err)
 
-	_, err = svc.StartMeeting(ctx, m.ID)
+	_, err = svc.StartMeeting(ctx, m.ID, testTenantID)
 	require.NoError(t, err)
 
 	authorID := uuid.New()
-	notes, err := svc.SaveNotes(ctx, m.ID, authorID, "Important decisions here", false)
+	notes, err := svc.SaveNotes(ctx, m.ID, authorID, testTenantID, "Important decisions here", false)
 	require.NoError(t, err)
 	assert.Equal(t, "Important decisions here", notes.Content)
 	assert.False(t, notes.IsPrivate)
@@ -487,7 +503,7 @@ func TestSaveNotes_NotInProgress(t *testing.T) {
 	m, err := svc.CreateMeeting(ctx, input)
 	require.NoError(t, err)
 
-	_, err = svc.SaveNotes(ctx, m.ID, uuid.New(), "Notes", false)
+	_, err = svc.SaveNotes(ctx, m.ID, uuid.New(), testTenantID, "Notes", false)
 	assert.ErrorIs(t, err, ErrNotInProgress)
 }
 
@@ -499,10 +515,10 @@ func TestSaveNotes_EmptyContent(t *testing.T) {
 	m, err := svc.CreateMeeting(ctx, input)
 	require.NoError(t, err)
 
-	_, err = svc.StartMeeting(ctx, m.ID)
+	_, err = svc.StartMeeting(ctx, m.ID, testTenantID)
 	require.NoError(t, err)
 
-	_, err = svc.SaveNotes(ctx, m.ID, uuid.New(), "   ", false)
+	_, err = svc.SaveNotes(ctx, m.ID, uuid.New(), testTenantID, "   ", false)
 	assert.ErrorIs(t, err, ErrNotesContentRequired)
 }
 
@@ -541,7 +557,7 @@ func TestGetPreviousMeetingNotes_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get previous notes
-	notes, err := svc.GetPreviousMeetingNotes(ctx, currentMeeting.ID)
+	notes, err := svc.GetPreviousMeetingNotes(ctx, currentMeeting.ID, testTenantID)
 	require.NoError(t, err)
 	assert.Equal(t, "Previous meeting notes", notes.Content)
 }
@@ -554,7 +570,7 @@ func TestGetPreviousMeetingNotes_NotRecurring(t *testing.T) {
 	m, err := svc.CreateMeeting(ctx, input)
 	require.NoError(t, err)
 
-	_, err = svc.GetPreviousMeetingNotes(ctx, m.ID)
+	_, err = svc.GetPreviousMeetingNotes(ctx, m.ID, testTenantID)
 	assert.ErrorIs(t, err, ErrNotRecurring)
 }
 
@@ -569,6 +585,7 @@ func TestCreateActionItem_Success(t *testing.T) {
 	assignee := uuid.New()
 	item, err := svc.CreateActionItem(ctx, CreateActionItemInput{
 		MeetingID:   m.ID,
+		TenantID:    testTenantID,
 		Description: "Follow up with client",
 		AssigneeID:  &assignee,
 		SortOrder:   1,
@@ -588,6 +605,7 @@ func TestCreateActionItem_EmptyDescription(t *testing.T) {
 
 	_, err = svc.CreateActionItem(ctx, CreateActionItemInput{
 		MeetingID:   m.ID,
+		TenantID:    testTenantID,
 		Description: "",
 	})
 	assert.ErrorIs(t, err, ErrActionDescRequired)
@@ -599,6 +617,7 @@ func TestCreateActionItem_MeetingNotFound(t *testing.T) {
 
 	_, err := svc.CreateActionItem(ctx, CreateActionItemInput{
 		MeetingID:   uuid.New(),
+		TenantID:    testTenantID,
 		Description: "Something",
 	})
 	assert.ErrorIs(t, err, ErrNotFound)
@@ -614,6 +633,7 @@ func TestListActionItems_Success(t *testing.T) {
 
 	_, err = svc.CreateActionItem(ctx, CreateActionItemInput{
 		MeetingID:   m.ID,
+		TenantID:    testTenantID,
 		Description: "Item 1",
 		SortOrder:   0,
 	})
@@ -621,12 +641,13 @@ func TestListActionItems_Success(t *testing.T) {
 
 	_, err = svc.CreateActionItem(ctx, CreateActionItemInput{
 		MeetingID:   m.ID,
+		TenantID:    testTenantID,
 		Description: "Item 2",
 		SortOrder:   1,
 	})
 	require.NoError(t, err)
 
-	items, err := svc.ListActionItems(ctx, m.ID)
+	items, err := svc.ListActionItems(ctx, m.ID, testTenantID)
 	require.NoError(t, err)
 	assert.Len(t, items, 2)
 }
@@ -642,12 +663,14 @@ func TestConvertActionItemsToTasks(t *testing.T) {
 	// Create 3 action items, link one to a task
 	item1, err := svc.CreateActionItem(ctx, CreateActionItemInput{
 		MeetingID:   m.ID,
+		TenantID:    testTenantID,
 		Description: "Todo 1",
 	})
 	require.NoError(t, err)
 
 	_, err = svc.CreateActionItem(ctx, CreateActionItemInput{
 		MeetingID:   m.ID,
+		TenantID:    testTenantID,
 		Description: "Todo 2",
 	})
 	require.NoError(t, err)
@@ -662,7 +685,7 @@ func TestConvertActionItemsToTasks(t *testing.T) {
 	}
 
 	// Convert should return only unconverted
-	unconverted, err := svc.ConvertActionItemsToTasks(ctx, m.ID)
+	unconverted, err := svc.ConvertActionItemsToTasks(ctx, m.ID, testTenantID)
 	require.NoError(t, err)
 	assert.Len(t, unconverted, 1)
 	assert.Equal(t, "Todo 2", unconverted[0].Description)
@@ -678,6 +701,7 @@ func TestDeleteActionItem_Success(t *testing.T) {
 
 	item, err := svc.CreateActionItem(ctx, CreateActionItemInput{
 		MeetingID:   m.ID,
+		TenantID:    testTenantID,
 		Description: "To delete",
 	})
 	require.NoError(t, err)
@@ -685,7 +709,7 @@ func TestDeleteActionItem_Success(t *testing.T) {
 	err = svc.DeleteActionItem(ctx, item.ID)
 	require.NoError(t, err)
 
-	items, err := svc.ListActionItems(ctx, m.ID)
+	items, err := svc.ListActionItems(ctx, m.ID, testTenantID)
 	require.NoError(t, err)
 	assert.Empty(t, items)
 }
@@ -718,22 +742,23 @@ func TestEndMeeting_WithNotesAndActionItems(t *testing.T) {
 	m, err := svc.CreateMeeting(ctx, input)
 	require.NoError(t, err)
 
-	_, err = svc.StartMeeting(ctx, m.ID)
+	_, err = svc.StartMeeting(ctx, m.ID, testTenantID)
 	require.NoError(t, err)
 
 	// Add notes
-	_, err = svc.SaveNotes(ctx, m.ID, input.OrganizerID, "Meeting notes content", false)
+	_, err = svc.SaveNotes(ctx, m.ID, input.OrganizerID, testTenantID, "Meeting notes content", false)
 	require.NoError(t, err)
 
 	// Add action items
 	_, err = svc.CreateActionItem(ctx, CreateActionItemInput{
 		MeetingID:   m.ID,
+		TenantID:    testTenantID,
 		Description: "Follow up action",
 	})
 	require.NoError(t, err)
 
 	// End meeting - summary should include notes and action items
-	summary, err := svc.EndMeeting(ctx, m.ID)
+	summary, err := svc.EndMeeting(ctx, m.ID, testTenantID)
 	require.NoError(t, err)
 	assert.NotNil(t, summary.NotesSummary)
 	assert.Contains(t, *summary.NotesSummary, "Meeting notes content")
@@ -748,7 +773,7 @@ func TestGetMeeting_WithAttendees(t *testing.T) {
 	m, err := svc.CreateMeeting(ctx, input)
 	require.NoError(t, err)
 
-	result, err := svc.GetMeeting(ctx, m.ID)
+	result, err := svc.GetMeeting(ctx, m.ID, testTenantID)
 	require.NoError(t, err)
 	assert.Equal(t, m.ID, result.ID)
 	assert.GreaterOrEqual(t, len(result.Attendees), 1)
@@ -758,7 +783,7 @@ func TestGetMeeting_NotFound(t *testing.T) {
 	svc, _ := newTestService()
 	ctx := context.Background()
 
-	_, err := svc.GetMeeting(ctx, uuid.New())
+	_, err := svc.GetMeeting(ctx, uuid.New(), testTenantID)
 	assert.ErrorIs(t, err, ErrNotFound)
 }
 
@@ -770,10 +795,10 @@ func TestDeleteCancelledMeeting_Success(t *testing.T) {
 	m, err := svc.CreateMeeting(ctx, input)
 	require.NoError(t, err)
 
-	_, err = svc.CancelMeeting(ctx, m.ID)
+	_, err = svc.CancelMeeting(ctx, m.ID, testTenantID)
 	require.NoError(t, err)
 
-	err = svc.DeleteMeeting(ctx, m.ID)
+	err = svc.DeleteMeeting(ctx, m.ID, testTenantID)
 	require.NoError(t, err)
 	assert.Empty(t, repo.meetings)
 }
@@ -788,6 +813,7 @@ func TestLinkActionItemToTask(t *testing.T) {
 
 	item, err := svc.CreateActionItem(ctx, CreateActionItemInput{
 		MeetingID:   m.ID,
+		TenantID:    testTenantID,
 		Description: "Linkable item",
 	})
 	require.NoError(t, err)
@@ -804,4 +830,46 @@ func TestLinkActionItemToTask(t *testing.T) {
 			assert.Equal(t, taskID, *i.TaskID)
 		}
 	}
+}
+
+// TestMeetingRepo_TenantIsolation verifies that meetings created for TenantA
+// are not visible when querying as TenantB.
+func TestMeetingRepo_TenantIsolation(t *testing.T) {
+	svc, _ := newTestService()
+	ctx := context.Background()
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	// Create meeting as TenantA
+	inputA := CreateMeetingInput{
+		TenantID:       tenantA,
+		Title:          "TenantA Standup",
+		OrganizerID:    uuid.New(),
+		ScheduledStart: time.Now().Add(1 * time.Hour),
+		ScheduledEnd:   time.Now().Add(2 * time.Hour),
+		AttendeeIDs:    []uuid.UUID{uuid.New()},
+	}
+	mtgA, err := svc.CreateMeeting(ctx, inputA)
+	require.NoError(t, err)
+
+	// Query as TenantB → should not find meeting
+	_, err = svc.GetMeeting(ctx, mtgA.ID, tenantB)
+	assert.ErrorIs(t, err, ErrNotFound, "TenantB should not see TenantA's meeting")
+
+	// Query as TenantA → should find it
+	found, err := svc.GetMeeting(ctx, mtgA.ID, tenantA)
+	require.NoError(t, err)
+	assert.Equal(t, mtgA.ID, found.ID)
+
+	// ListMeetings with TenantB filter → empty
+	listB, err := svc.ListMeetings(ctx, MeetingFilter{TenantID: tenantB})
+	require.NoError(t, err)
+	assert.Empty(t, listB, "ListMeetings with TenantB should return no results")
+
+	// ListMeetings with TenantA filter → finds the meeting
+	listA, err := svc.ListMeetings(ctx, MeetingFilter{TenantID: tenantA})
+	require.NoError(t, err)
+	assert.Len(t, listA, 1)
+	assert.Equal(t, mtgA.ID, listA[0].ID)
 }

@@ -24,6 +24,7 @@ func NewService(repo Repository) *Service {
 
 // CreateInput contains data needed to create a resource
 type CreateInput struct {
+	TenantID     uuid.UUID
 	Name         string
 	ResourceType string
 	Capacity     *int
@@ -53,6 +54,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Resour
 	now := time.Now()
 	resource := &models.Resource{
 		ID:           uuid.New(),
+		TenantID:     input.TenantID,
 		Name:         name,
 		ResourceType: input.ResourceType,
 		Capacity:     input.Capacity,
@@ -80,14 +82,15 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Resour
 		"resource_id", resource.ID,
 		"name", resource.Name,
 		"type", resource.ResourceType,
+		"tenant_id", input.TenantID,
 	)
 
 	return resource, nil
 }
 
 // Get retrieves a resource by ID
-func (s *Service) Get(ctx context.Context, id uuid.UUID) (*models.Resource, error) {
-	return s.repo.GetByID(ctx, id)
+func (s *Service) Get(ctx context.Context, id, tenantID uuid.UUID) (*models.Resource, error) {
+	return s.repo.GetByID(ctx, id, tenantID)
 }
 
 // List lists resources with optional filters. Defaults to active-only.
@@ -110,12 +113,12 @@ type UpdateInput struct {
 }
 
 // Update modifies an existing resource. Only admin/managers can update.
-func (s *Service) Update(ctx context.Context, resourceID uuid.UUID, isAdmin bool, input UpdateInput) (*models.Resource, error) {
+func (s *Service) Update(ctx context.Context, resourceID, tenantID uuid.UUID, isAdmin bool, input UpdateInput) (*models.Resource, error) {
 	if !isAdmin {
 		return nil, ErrNotAuthorized
 	}
 
-	resource, err := s.repo.GetByID(ctx, resourceID)
+	resource, err := s.repo.GetByID(ctx, resourceID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -163,13 +166,13 @@ func (s *Service) Update(ctx context.Context, resourceID uuid.UUID, isAdmin bool
 }
 
 // SetTags replaces all tags on a resource. Only admin/managers can set tags.
-func (s *Service) SetTags(ctx context.Context, resourceID uuid.UUID, isAdmin bool, tags []string) error {
+func (s *Service) SetTags(ctx context.Context, resourceID, tenantID uuid.UUID, isAdmin bool, tags []string) error {
 	if !isAdmin {
 		return ErrNotAuthorized
 	}
 
 	// Verify resource exists
-	if _, err := s.repo.GetByID(ctx, resourceID); err != nil {
+	if _, err := s.repo.GetByID(ctx, resourceID, tenantID); err != nil {
 		return err
 	}
 
@@ -177,12 +180,12 @@ func (s *Service) SetTags(ctx context.Context, resourceID uuid.UUID, isAdmin boo
 }
 
 // Delete soft-deletes a resource (sets is_active = false). Only admin/managers.
-func (s *Service) Delete(ctx context.Context, resourceID uuid.UUID, isAdmin bool) error {
+func (s *Service) Delete(ctx context.Context, resourceID, tenantID uuid.UUID, isAdmin bool) error {
 	if !isAdmin {
 		return ErrNotAuthorized
 	}
 
-	if err := s.repo.Delete(ctx, resourceID); err != nil {
+	if err := s.repo.Delete(ctx, resourceID, tenantID); err != nil {
 		return err
 	}
 
@@ -193,12 +196,12 @@ func (s *Service) Delete(ctx context.Context, resourceID uuid.UUID, isAdmin bool
 // Book creates a booking for a resource. If a double-booking is detected (via
 // the DB EXCLUDE GIST constraint), it fetches alternative resources of the
 // same type and returns a BookingConflictError with suggestions.
-func (s *Service) Book(ctx context.Context, actorID, resourceID, eventID uuid.UUID, start, end time.Time) (*models.ResourceBooking, error) {
+func (s *Service) Book(ctx context.Context, actorID, resourceID, eventID, tenantID uuid.UUID, start, end time.Time) (*models.ResourceBooking, error) {
 	if !end.After(start) {
 		return nil, ErrInvalidBookingTimeRange
 	}
 
-	resource, err := s.repo.GetByID(ctx, resourceID)
+	resource, err := s.repo.GetByID(ctx, resourceID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -210,6 +213,7 @@ func (s *Service) Book(ctx context.Context, actorID, resourceID, eventID uuid.UU
 	now := time.Now()
 	booking := &models.ResourceBooking{
 		ID:         uuid.New(),
+		TenantID:   tenantID,
 		ResourceID: resourceID,
 		EventID:    eventID,
 		BookedBy:   actorID,
@@ -233,7 +237,7 @@ func (s *Service) Book(ctx context.Context, actorID, resourceID, eventID uuid.UU
 			}
 
 			// Find alternative resources of the same type
-			alternatives, _ := s.repo.FindAlternatives(ctx, resourceID, start, end, resource.ResourceType)
+			alternatives, _ := s.repo.FindAlternatives(ctx, resourceID, start, end, resource.ResourceType, tenantID)
 
 			return nil, &BookingConflictError{
 				ResourceName:  resource.Name,
@@ -259,8 +263,8 @@ func (s *Service) Book(ctx context.Context, actorID, resourceID, eventID uuid.UU
 }
 
 // CancelBooking cancels a booking. Only the booking owner can cancel.
-func (s *Service) CancelBooking(ctx context.Context, bookingID, actorID uuid.UUID) error {
-	booking, err := s.repo.GetBooking(ctx, bookingID)
+func (s *Service) CancelBooking(ctx context.Context, bookingID, actorID, tenantID uuid.UUID) error {
+	booking, err := s.repo.GetBooking(ctx, bookingID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -273,7 +277,7 @@ func (s *Service) CancelBooking(ctx context.Context, bookingID, actorID uuid.UUI
 		return ErrNotBookingOwner
 	}
 
-	if cancelErr := s.repo.CancelBooking(ctx, bookingID); cancelErr != nil {
+	if cancelErr := s.repo.CancelBooking(ctx, bookingID, tenantID); cancelErr != nil {
 		return cancelErr
 	}
 
@@ -286,9 +290,9 @@ func (s *Service) CancelBooking(ctx context.Context, bookingID, actorID uuid.UUI
 }
 
 // ListAvailability lists all active bookings for a resource on a given date
-func (s *Service) ListAvailability(ctx context.Context, resourceID uuid.UUID, date time.Time) ([]models.ResourceBooking, error) {
+func (s *Service) ListAvailability(ctx context.Context, resourceID, tenantID uuid.UUID, date time.Time) ([]models.ResourceBooking, error) {
 	// Verify resource exists
-	if _, err := s.repo.GetByID(ctx, resourceID); err != nil {
+	if _, err := s.repo.GetByID(ctx, resourceID, tenantID); err != nil {
 		return nil, err
 	}
 
@@ -299,9 +303,10 @@ func (s *Service) ListAvailability(ctx context.Context, resourceID uuid.UUID, da
 }
 
 // FindAvailable finds resources available for a given time range with optional filters
-func (s *Service) FindAvailable(ctx context.Context, start, end time.Time, filters ResourceFilters) ([]models.Resource, error) {
+func (s *Service) FindAvailable(ctx context.Context, tenantID uuid.UUID, start, end time.Time, filters ResourceFilters) ([]models.Resource, error) {
 	if !end.After(start) {
 		return nil, ErrInvalidBookingTimeRange
 	}
+	filters.TenantID = tenantID
 	return s.repo.FindAvailableResources(ctx, start, end, filters)
 }

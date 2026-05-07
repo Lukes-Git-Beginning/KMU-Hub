@@ -25,11 +25,11 @@ type MockRepository struct {
 	preferences     map[uuid.UUID]*models.UserCalendarPreferences
 	personalCreated map[uuid.UUID]bool // track if personal calendar was auto-created
 
-	createErr   error
-	getErr      error
-	updateErr   error
-	deleteErr   error
-	addMemErr   error
+	createErr    error
+	getErr       error
+	updateErr    error
+	deleteErr    error
+	addMemErr    error
 	catCreateErr error
 }
 
@@ -52,7 +52,7 @@ func (m *MockRepository) Create(ctx context.Context, calendar *models.Calendar) 
 	return nil
 }
 
-func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Calendar, error) {
+func (m *MockRepository) GetByID(ctx context.Context, id, tenantID uuid.UUID) (*models.Calendar, error) {
 	if m.getErr != nil {
 		return nil, m.getErr
 	}
@@ -60,12 +60,20 @@ func (m *MockRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Cal
 	if !ok {
 		return nil, ErrCalendarNotFound
 	}
+	// Tenant isolation check
+	if c.TenantID != uuid.Nil && c.TenantID != tenantID {
+		return nil, ErrCalendarNotFound
+	}
 	return c, nil
 }
 
-func (m *MockRepository) ListByUser(ctx context.Context, userID uuid.UUID) ([]models.CalendarWithMemberInfo, error) {
+func (m *MockRepository) ListByUser(ctx context.Context, userID, tenantID uuid.UUID) ([]models.CalendarWithMemberInfo, error) {
 	var result []models.CalendarWithMemberInfo
 	for _, c := range m.calendars {
+		// Tenant isolation
+		if c.TenantID != uuid.Nil && c.TenantID != tenantID {
+			continue
+		}
 		// Calendar owned by user
 		if c.OwnerID == userID {
 			result = append(result, models.CalendarWithMemberInfo{
@@ -98,7 +106,7 @@ func (m *MockRepository) Update(ctx context.Context, calendar *models.Calendar) 
 	return nil
 }
 
-func (m *MockRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (m *MockRepository) Delete(ctx context.Context, id, tenantID uuid.UUID) error {
 	if m.deleteErr != nil {
 		return m.deleteErr
 	}
@@ -180,9 +188,12 @@ func (m *MockRepository) UpdateMemberColorOverride(ctx context.Context, calendar
 	return ErrMemberNotFound
 }
 
-func (m *MockRepository) ListBrowsable(ctx context.Context, userID uuid.UUID) ([]models.Calendar, error) {
+func (m *MockRepository) ListBrowsable(ctx context.Context, userID, tenantID uuid.UUID) ([]models.Calendar, error) {
 	var result []models.Calendar
 	for _, c := range m.calendars {
+		if c.TenantID != uuid.Nil && c.TenantID != tenantID {
+			continue
+		}
 		if c.CalendarType != models.CalendarTypeShared {
 			continue
 		}
@@ -230,7 +241,7 @@ func (m *MockRepository) CreateCategory(ctx context.Context, category *models.Ev
 	if m.catCreateErr != nil {
 		return m.catCreateErr
 	}
-	// Check for duplicate name within user
+	// Check for duplicate name within user+tenant
 	for _, catID := range m.catsByUser[category.UserID] {
 		existing := m.categories[catID]
 		if existing != nil && existing.Name == category.Name {
@@ -242,19 +253,24 @@ func (m *MockRepository) CreateCategory(ctx context.Context, category *models.Ev
 	return nil
 }
 
-func (m *MockRepository) ListCategories(ctx context.Context, userID uuid.UUID) ([]models.EventCategory, error) {
+func (m *MockRepository) ListCategories(ctx context.Context, userID, tenantID uuid.UUID) ([]models.EventCategory, error) {
 	var result []models.EventCategory
 	for _, catID := range m.catsByUser[userID] {
 		if cat, ok := m.categories[catID]; ok {
-			result = append(result, *cat)
+			if cat.TenantID == uuid.Nil || cat.TenantID == tenantID {
+				result = append(result, *cat)
+			}
 		}
 	}
 	return result, nil
 }
 
-func (m *MockRepository) DeleteCategory(ctx context.Context, id, userID uuid.UUID) error {
+func (m *MockRepository) DeleteCategory(ctx context.Context, id, userID, tenantID uuid.UUID) error {
 	cat, ok := m.categories[id]
 	if !ok || cat.UserID != userID {
+		return ErrCategoryNotFound
+	}
+	if cat.TenantID != uuid.Nil && cat.TenantID != tenantID {
 		return ErrCategoryNotFound
 	}
 	delete(m.categories, id)
@@ -282,7 +298,7 @@ func (m *MockRepository) UpsertPreferences(ctx context.Context, prefs *models.Us
 	return nil
 }
 
-func (m *MockRepository) EnsurePersonalCalendar(ctx context.Context, userID uuid.UUID) (*models.Calendar, error) {
+func (m *MockRepository) EnsurePersonalCalendar(ctx context.Context, userID, tenantID uuid.UUID) (*models.Calendar, error) {
 	// Check if personal calendar already exists
 	for _, c := range m.calendars {
 		if c.OwnerID == userID && c.IsDefault && c.CalendarType == models.CalendarTypePersonal {
@@ -294,6 +310,7 @@ func (m *MockRepository) EnsurePersonalCalendar(ctx context.Context, userID uuid
 	now := time.Now()
 	cal := &models.Calendar{
 		ID:           uuid.New(),
+		TenantID:     tenantID,
 		Name:         "Mein Kalender",
 		CalendarType: models.CalendarTypePersonal,
 		Color:        "#4285F4",
@@ -327,6 +344,9 @@ func (m *MockRepository) addMemberDirect(calendarID, userID uuid.UUID, permissio
 	}
 }
 
+// tenantID used by all tests
+var testTenantID = uuid.New()
+
 // ============================================================================
 // Create Tests
 // ============================================================================
@@ -336,7 +356,7 @@ func TestService_Create_PersonalCalendar(t *testing.T) {
 	svc := NewService(repo)
 	userID := uuid.New()
 
-	cal, err := svc.Create(context.Background(), userID, CreateInput{
+	cal, err := svc.Create(context.Background(), userID, testTenantID, CreateInput{
 		Name:         "Work Calendar",
 		CalendarType: models.CalendarTypePersonal,
 		Color:        "#FF5733",
@@ -348,6 +368,7 @@ func TestService_Create_PersonalCalendar(t *testing.T) {
 	assert.Equal(t, models.CalendarTypePersonal, cal.CalendarType)
 	assert.Equal(t, "#FF5733", cal.Color)
 	assert.Equal(t, userID, cal.OwnerID)
+	assert.Equal(t, testTenantID, cal.TenantID)
 	assert.False(t, cal.IsDefault)
 	assert.Equal(t, "Europe/Berlin", cal.Timezone)
 }
@@ -357,7 +378,7 @@ func TestService_Create_SharedCalendar(t *testing.T) {
 	svc := NewService(repo)
 	userID := uuid.New()
 
-	cal, err := svc.Create(context.Background(), userID, CreateInput{
+	cal, err := svc.Create(context.Background(), userID, testTenantID, CreateInput{
 		Name:         "Team Calendar",
 		CalendarType: models.CalendarTypeShared,
 		Color:        "#34A853",
@@ -373,7 +394,7 @@ func TestService_Create_DefaultColor(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	cal, err := svc.Create(context.Background(), uuid.New(), CreateInput{
+	cal, err := svc.Create(context.Background(), uuid.New(), testTenantID, CreateInput{
 		Name:         "Calendar",
 		CalendarType: models.CalendarTypePersonal,
 	})
@@ -386,7 +407,7 @@ func TestService_Create_EmptyName(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	_, err := svc.Create(context.Background(), uuid.New(), CreateInput{
+	_, err := svc.Create(context.Background(), uuid.New(), testTenantID, CreateInput{
 		Name:         "",
 		CalendarType: models.CalendarTypePersonal,
 	})
@@ -398,7 +419,7 @@ func TestService_Create_InvalidType(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	_, err := svc.Create(context.Background(), uuid.New(), CreateInput{
+	_, err := svc.Create(context.Background(), uuid.New(), testTenantID, CreateInput{
 		Name:         "Calendar",
 		CalendarType: "invalid",
 	})
@@ -410,7 +431,7 @@ func TestService_Create_InvalidColor(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	_, err := svc.Create(context.Background(), uuid.New(), CreateInput{
+	_, err := svc.Create(context.Background(), uuid.New(), testTenantID, CreateInput{
 		Name:         "Calendar",
 		CalendarType: models.CalendarTypePersonal,
 		Color:        "not-a-color",
@@ -428,7 +449,7 @@ func TestService_ListByUser_CreatesPersonalCalendar(t *testing.T) {
 	svc := NewService(repo)
 	userID := uuid.New()
 
-	calendars, err := svc.ListByUser(context.Background(), userID)
+	calendars, err := svc.ListByUser(context.Background(), userID, testTenantID)
 
 	require.NoError(t, err)
 	assert.True(t, repo.personalCreated[userID])
@@ -444,7 +465,7 @@ func TestService_ListByUser_IncludesOwnedAndSubscribed(t *testing.T) {
 
 	// User's personal calendar
 	personalCal := &models.Calendar{
-		ID: uuid.New(), Name: "Mine", CalendarType: models.CalendarTypePersonal,
+		ID: uuid.New(), TenantID: testTenantID, Name: "Mine", CalendarType: models.CalendarTypePersonal,
 		OwnerID: userID, IsDefault: true, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
@@ -452,7 +473,7 @@ func TestService_ListByUser_IncludesOwnedAndSubscribed(t *testing.T) {
 
 	// Shared calendar user is subscribed to
 	sharedCal := &models.Calendar{
-		ID: uuid.New(), Name: "Team", CalendarType: models.CalendarTypeShared,
+		ID: uuid.New(), TenantID: testTenantID, Name: "Team", CalendarType: models.CalendarTypeShared,
 		OwnerID: otherID, Color: "#34A853", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
@@ -461,13 +482,13 @@ func TestService_ListByUser_IncludesOwnedAndSubscribed(t *testing.T) {
 
 	// Other calendar user is NOT subscribed to
 	otherCal := &models.Calendar{
-		ID: uuid.New(), Name: "Other Team", CalendarType: models.CalendarTypeShared,
+		ID: uuid.New(), TenantID: testTenantID, Name: "Other Team", CalendarType: models.CalendarTypeShared,
 		OwnerID: otherID, Color: "#EA4335", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 	repo.addCalendar(otherCal)
 
-	calendars, err := svc.ListByUser(context.Background(), userID)
+	calendars, err := svc.ListByUser(context.Background(), userID, testTenantID)
 
 	require.NoError(t, err)
 	// Should have: personal + subscribed shared (not the other)
@@ -485,13 +506,13 @@ func TestService_Update_AsOwner(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Old Name", CalendarType: models.CalendarTypePersonal,
+		ID: calID, TenantID: testTenantID, Name: "Old Name", CalendarType: models.CalendarTypePersonal,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 
 	newName := "New Name"
-	cal, err := svc.Update(context.Background(), calID, ownerID, UpdateInput{
+	cal, err := svc.Update(context.Background(), calID, ownerID, testTenantID, UpdateInput{
 		Name: &newName,
 	})
 
@@ -507,14 +528,14 @@ func TestService_Update_AsAdmin(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Calendar", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "Calendar", CalendarType: models.CalendarTypeShared,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 	repo.addMemberDirect(calID, adminID, models.CalendarPermissionAdmin)
 
 	newName := "Updated"
-	cal, err := svc.Update(context.Background(), calID, adminID, UpdateInput{
+	cal, err := svc.Update(context.Background(), calID, adminID, testTenantID, UpdateInput{
 		Name: &newName,
 	})
 
@@ -530,14 +551,14 @@ func TestService_Update_AsViewer_Fails(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Calendar", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "Calendar", CalendarType: models.CalendarTypeShared,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 	repo.addMemberDirect(calID, viewerID, models.CalendarPermissionView)
 
 	newName := "Hacked"
-	_, err := svc.Update(context.Background(), calID, viewerID, UpdateInput{
+	_, err := svc.Update(context.Background(), calID, viewerID, testTenantID, UpdateInput{
 		Name: &newName,
 	})
 
@@ -551,13 +572,13 @@ func TestService_Update_EmptyName(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Calendar", CalendarType: models.CalendarTypePersonal,
+		ID: calID, TenantID: testTenantID, Name: "Calendar", CalendarType: models.CalendarTypePersonal,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 
 	emptyName := ""
-	_, err := svc.Update(context.Background(), calID, ownerID, UpdateInput{
+	_, err := svc.Update(context.Background(), calID, ownerID, testTenantID, UpdateInput{
 		Name: &emptyName,
 	})
 
@@ -571,13 +592,13 @@ func TestService_Update_InvalidColor(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Calendar", CalendarType: models.CalendarTypePersonal,
+		ID: calID, TenantID: testTenantID, Name: "Calendar", CalendarType: models.CalendarTypePersonal,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 
 	badColor := "red"
-	_, err := svc.Update(context.Background(), calID, ownerID, UpdateInput{
+	_, err := svc.Update(context.Background(), calID, ownerID, testTenantID, UpdateInput{
 		Color: &badColor,
 	})
 
@@ -589,7 +610,7 @@ func TestService_Update_NotFound(t *testing.T) {
 	svc := NewService(repo)
 
 	newName := "Test"
-	_, err := svc.Update(context.Background(), uuid.New(), uuid.New(), UpdateInput{
+	_, err := svc.Update(context.Background(), uuid.New(), uuid.New(), testTenantID, UpdateInput{
 		Name: &newName,
 	})
 
@@ -607,12 +628,12 @@ func TestService_Delete_AsOwner(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "To Delete", CalendarType: models.CalendarTypePersonal,
+		ID: calID, TenantID: testTenantID, Name: "To Delete", CalendarType: models.CalendarTypePersonal,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 
-	err := svc.Delete(context.Background(), calID, ownerID)
+	err := svc.Delete(context.Background(), calID, ownerID, testTenantID)
 
 	require.NoError(t, err)
 	assert.NotContains(t, repo.calendars, calID)
@@ -624,12 +645,12 @@ func TestService_Delete_NotOwner_Fails(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Calendar", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "Calendar", CalendarType: models.CalendarTypeShared,
 		OwnerID: uuid.New(), Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 
-	err := svc.Delete(context.Background(), calID, uuid.New())
+	err := svc.Delete(context.Background(), calID, uuid.New(), testTenantID)
 
 	assert.ErrorIs(t, err, ErrNotCalendarOwner)
 }
@@ -641,12 +662,12 @@ func TestService_Delete_DefaultCalendar_Fails(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Default", CalendarType: models.CalendarTypePersonal,
+		ID: calID, TenantID: testTenantID, Name: "Default", CalendarType: models.CalendarTypePersonal,
 		OwnerID: ownerID, IsDefault: true, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 
-	err := svc.Delete(context.Background(), calID, ownerID)
+	err := svc.Delete(context.Background(), calID, ownerID, testTenantID)
 
 	assert.ErrorIs(t, err, ErrCannotDeleteDefaultCalendar)
 }
@@ -655,7 +676,7 @@ func TestService_Delete_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	err := svc.Delete(context.Background(), uuid.New(), uuid.New())
+	err := svc.Delete(context.Background(), uuid.New(), uuid.New(), testTenantID)
 
 	assert.ErrorIs(t, err, ErrCalendarNotFound)
 }
@@ -672,12 +693,12 @@ func TestService_AddMember_AsOwner(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Shared", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "Shared", CalendarType: models.CalendarTypeShared,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 
-	err := svc.AddMember(context.Background(), calID, ownerID, targetID, models.CalendarPermissionEdit)
+	err := svc.AddMember(context.Background(), calID, ownerID, targetID, testTenantID, models.CalendarPermissionEdit)
 
 	require.NoError(t, err)
 	assert.NotNil(t, repo.members[calID][targetID])
@@ -693,13 +714,13 @@ func TestService_AddMember_AsAdmin(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Shared", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "Shared", CalendarType: models.CalendarTypeShared,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 	repo.addMemberDirect(calID, adminID, models.CalendarPermissionAdmin)
 
-	err := svc.AddMember(context.Background(), calID, adminID, targetID, models.CalendarPermissionView)
+	err := svc.AddMember(context.Background(), calID, adminID, targetID, testTenantID, models.CalendarPermissionView)
 
 	require.NoError(t, err)
 }
@@ -712,13 +733,13 @@ func TestService_AddMember_AsViewer_Fails(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Shared", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "Shared", CalendarType: models.CalendarTypeShared,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 	repo.addMemberDirect(calID, viewerID, models.CalendarPermissionView)
 
-	err := svc.AddMember(context.Background(), calID, viewerID, uuid.New(), models.CalendarPermissionView)
+	err := svc.AddMember(context.Background(), calID, viewerID, uuid.New(), testTenantID, models.CalendarPermissionView)
 
 	assert.ErrorIs(t, err, ErrInsufficientPermission)
 }
@@ -730,12 +751,12 @@ func TestService_AddMember_CannotAddOwner(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Shared", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "Shared", CalendarType: models.CalendarTypeShared,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 
-	err := svc.AddMember(context.Background(), calID, ownerID, ownerID, models.CalendarPermissionAdmin)
+	err := svc.AddMember(context.Background(), calID, ownerID, ownerID, testTenantID, models.CalendarPermissionAdmin)
 
 	assert.ErrorIs(t, err, ErrOwnerCannotBeAdded)
 }
@@ -747,12 +768,12 @@ func TestService_AddMember_InvalidPermission(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Shared", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "Shared", CalendarType: models.CalendarTypeShared,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 
-	err := svc.AddMember(context.Background(), calID, ownerID, uuid.New(), "superadmin")
+	err := svc.AddMember(context.Background(), calID, ownerID, uuid.New(), testTenantID, "superadmin")
 
 	assert.ErrorIs(t, err, ErrInvalidPermission)
 }
@@ -765,13 +786,13 @@ func TestService_AddMember_AlreadyMember(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Shared", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "Shared", CalendarType: models.CalendarTypeShared,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 	repo.addMemberDirect(calID, targetID, models.CalendarPermissionView)
 
-	err := svc.AddMember(context.Background(), calID, ownerID, targetID, models.CalendarPermissionEdit)
+	err := svc.AddMember(context.Background(), calID, ownerID, targetID, testTenantID, models.CalendarPermissionEdit)
 
 	assert.ErrorIs(t, err, ErrMemberAlreadyExists)
 }
@@ -788,13 +809,13 @@ func TestService_RemoveMember_AsOwner(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Shared", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "Shared", CalendarType: models.CalendarTypeShared,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 	repo.addMemberDirect(calID, targetID, models.CalendarPermissionView)
 
-	err := svc.RemoveMember(context.Background(), calID, ownerID, targetID)
+	err := svc.RemoveMember(context.Background(), calID, ownerID, targetID, testTenantID)
 
 	require.NoError(t, err)
 	_, exists := repo.members[calID][targetID]
@@ -809,13 +830,13 @@ func TestService_RemoveMember_CannotRemoveOwner(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Shared", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "Shared", CalendarType: models.CalendarTypeShared,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 	repo.addMemberDirect(calID, adminID, models.CalendarPermissionAdmin)
 
-	err := svc.RemoveMember(context.Background(), calID, adminID, ownerID)
+	err := svc.RemoveMember(context.Background(), calID, adminID, ownerID, testTenantID)
 
 	assert.ErrorIs(t, err, ErrNotCalendarOwner)
 }
@@ -829,14 +850,14 @@ func TestService_RemoveMember_AsViewer_Fails(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Shared", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "Shared", CalendarType: models.CalendarTypeShared,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 	repo.addMemberDirect(calID, viewerID, models.CalendarPermissionView)
 	repo.addMemberDirect(calID, targetID, models.CalendarPermissionView)
 
-	err := svc.RemoveMember(context.Background(), calID, viewerID, targetID)
+	err := svc.RemoveMember(context.Background(), calID, viewerID, targetID, testTenantID)
 
 	assert.ErrorIs(t, err, ErrInsufficientPermission)
 }
@@ -853,13 +874,13 @@ func TestService_UpdateMemberPermission_Success(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Shared", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "Shared", CalendarType: models.CalendarTypeShared,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 	repo.addMemberDirect(calID, targetID, models.CalendarPermissionView)
 
-	err := svc.UpdateMemberPermission(context.Background(), calID, ownerID, targetID, models.CalendarPermissionEdit)
+	err := svc.UpdateMemberPermission(context.Background(), calID, ownerID, targetID, testTenantID, models.CalendarPermissionEdit)
 
 	require.NoError(t, err)
 	assert.Equal(t, models.CalendarPermissionEdit, repo.members[calID][targetID].Permission)
@@ -873,13 +894,13 @@ func TestService_UpdateMemberPermission_CannotChangeOwner(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Shared", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "Shared", CalendarType: models.CalendarTypeShared,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 	repo.addMemberDirect(calID, adminID, models.CalendarPermissionAdmin)
 
-	err := svc.UpdateMemberPermission(context.Background(), calID, adminID, ownerID, models.CalendarPermissionView)
+	err := svc.UpdateMemberPermission(context.Background(), calID, adminID, ownerID, testTenantID, models.CalendarPermissionView)
 
 	assert.ErrorIs(t, err, ErrOwnerCannotBeAdded)
 }
@@ -892,13 +913,13 @@ func TestService_UpdateMemberPermission_InvalidPermission(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Shared", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "Shared", CalendarType: models.CalendarTypeShared,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 	repo.addMemberDirect(calID, targetID, models.CalendarPermissionView)
 
-	err := svc.UpdateMemberPermission(context.Background(), calID, ownerID, targetID, "superuser")
+	err := svc.UpdateMemberPermission(context.Background(), calID, ownerID, targetID, testTenantID, "superuser")
 
 	assert.ErrorIs(t, err, ErrInvalidPermission)
 }
@@ -910,12 +931,12 @@ func TestService_UpdateMemberPermission_NotAMember(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Shared", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "Shared", CalendarType: models.CalendarTypeShared,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 
-	err := svc.UpdateMemberPermission(context.Background(), calID, ownerID, uuid.New(), models.CalendarPermissionEdit)
+	err := svc.UpdateMemberPermission(context.Background(), calID, ownerID, uuid.New(), testTenantID, models.CalendarPermissionEdit)
 
 	assert.ErrorIs(t, err, ErrMemberNotFound)
 }
@@ -931,14 +952,14 @@ func TestService_ListMembers_Success(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Shared", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "Shared", CalendarType: models.CalendarTypeShared,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 	repo.addMemberDirect(calID, uuid.New(), models.CalendarPermissionView)
 	repo.addMemberDirect(calID, uuid.New(), models.CalendarPermissionEdit)
 
-	members, err := svc.ListMembers(context.Background(), calID)
+	members, err := svc.ListMembers(context.Background(), calID, testTenantID)
 
 	require.NoError(t, err)
 	assert.Len(t, members, 2)
@@ -948,7 +969,7 @@ func TestService_ListMembers_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	_, err := svc.ListMembers(context.Background(), uuid.New())
+	_, err := svc.ListMembers(context.Background(), uuid.New(), testTenantID)
 
 	assert.ErrorIs(t, err, ErrCalendarNotFound)
 }
@@ -965,12 +986,12 @@ func TestService_Subscribe_SharedCalendar(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Team", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "Team", CalendarType: models.CalendarTypeShared,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 
-	err := svc.Subscribe(context.Background(), calID, userID)
+	err := svc.Subscribe(context.Background(), calID, userID, testTenantID)
 
 	require.NoError(t, err)
 	assert.NotNil(t, repo.members[calID][userID])
@@ -984,12 +1005,12 @@ func TestService_Subscribe_PersonalCalendar_Fails(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Personal", CalendarType: models.CalendarTypePersonal,
+		ID: calID, TenantID: testTenantID, Name: "Personal", CalendarType: models.CalendarTypePersonal,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 
-	err := svc.Subscribe(context.Background(), calID, uuid.New())
+	err := svc.Subscribe(context.Background(), calID, uuid.New(), testTenantID)
 
 	assert.ErrorIs(t, err, ErrCannotSubscribePersonal)
 }
@@ -1001,12 +1022,12 @@ func TestService_Subscribe_OwnCalendar_Fails(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "My Shared", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "My Shared", CalendarType: models.CalendarTypeShared,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 
-	err := svc.Subscribe(context.Background(), calID, ownerID)
+	err := svc.Subscribe(context.Background(), calID, ownerID, testTenantID)
 
 	assert.ErrorIs(t, err, ErrSubscriptionExists)
 }
@@ -1019,15 +1040,15 @@ func TestService_Subscribe_AlreadySubscribed_Fails(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Team", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "Team", CalendarType: models.CalendarTypeShared,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 
-	err := svc.Subscribe(context.Background(), calID, userID)
+	err := svc.Subscribe(context.Background(), calID, userID, testTenantID)
 	require.NoError(t, err)
 
-	err = svc.Subscribe(context.Background(), calID, userID)
+	err = svc.Subscribe(context.Background(), calID, userID, testTenantID)
 	assert.ErrorIs(t, err, ErrSubscriptionExists)
 }
 
@@ -1039,13 +1060,13 @@ func TestService_Unsubscribe_Success(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Team", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "Team", CalendarType: models.CalendarTypeShared,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 	repo.addMemberDirect(calID, userID, models.CalendarPermissionView)
 
-	err := svc.Unsubscribe(context.Background(), calID, userID)
+	err := svc.Unsubscribe(context.Background(), calID, userID, testTenantID)
 
 	require.NoError(t, err)
 	_, exists := repo.members[calID][userID]
@@ -1059,12 +1080,12 @@ func TestService_Unsubscribe_OwnCalendar_Fails(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "My Shared", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "My Shared", CalendarType: models.CalendarTypeShared,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 
-	err := svc.Unsubscribe(context.Background(), calID, ownerID)
+	err := svc.Unsubscribe(context.Background(), calID, ownerID, testTenantID)
 
 	assert.ErrorIs(t, err, ErrNotCalendarOwner)
 }
@@ -1076,12 +1097,12 @@ func TestService_Unsubscribe_NotSubscribed_Fails(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Team", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "Team", CalendarType: models.CalendarTypeShared,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 
-	err := svc.Unsubscribe(context.Background(), calID, uuid.New())
+	err := svc.Unsubscribe(context.Background(), calID, uuid.New(), testTenantID)
 
 	assert.ErrorIs(t, err, ErrSubscriptionNotFound)
 }
@@ -1098,7 +1119,7 @@ func TestService_ListBrowsable(t *testing.T) {
 
 	// Shared calendar NOT subscribed to
 	browsable := &models.Calendar{
-		ID: uuid.New(), Name: "Browsable", CalendarType: models.CalendarTypeShared,
+		ID: uuid.New(), TenantID: testTenantID, Name: "Browsable", CalendarType: models.CalendarTypeShared,
 		OwnerID: otherID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
@@ -1106,7 +1127,7 @@ func TestService_ListBrowsable(t *testing.T) {
 
 	// Shared calendar already subscribed to
 	subscribed := &models.Calendar{
-		ID: uuid.New(), Name: "Subscribed", CalendarType: models.CalendarTypeShared,
+		ID: uuid.New(), TenantID: testTenantID, Name: "Subscribed", CalendarType: models.CalendarTypeShared,
 		OwnerID: otherID, Color: "#34A853", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
@@ -1115,13 +1136,13 @@ func TestService_ListBrowsable(t *testing.T) {
 
 	// Personal calendar (should not appear)
 	personal := &models.Calendar{
-		ID: uuid.New(), Name: "Other's Personal", CalendarType: models.CalendarTypePersonal,
+		ID: uuid.New(), TenantID: testTenantID, Name: "Other's Personal", CalendarType: models.CalendarTypePersonal,
 		OwnerID: otherID, Color: "#EA4335", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 	repo.addCalendar(personal)
 
-	calendars, err := svc.ListBrowsable(context.Background(), userID)
+	calendars, err := svc.ListBrowsable(context.Background(), userID, testTenantID)
 
 	require.NoError(t, err)
 	require.Len(t, calendars, 1)
@@ -1137,20 +1158,21 @@ func TestService_CreateCategory_Success(t *testing.T) {
 	svc := NewService(repo)
 	userID := uuid.New()
 
-	cat, err := svc.CreateCategory(context.Background(), userID, "Meeting", "#FF5733")
+	cat, err := svc.CreateCategory(context.Background(), userID, testTenantID, "Meeting", "#FF5733")
 
 	require.NoError(t, err)
 	assert.NotEqual(t, uuid.Nil, cat.ID)
 	assert.Equal(t, "Meeting", cat.Name)
 	assert.Equal(t, "#FF5733", cat.Color)
 	assert.Equal(t, userID, cat.UserID)
+	assert.Equal(t, testTenantID, cat.TenantID)
 }
 
 func TestService_CreateCategory_DefaultColor(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	cat, err := svc.CreateCategory(context.Background(), uuid.New(), "Focus", "")
+	cat, err := svc.CreateCategory(context.Background(), uuid.New(), testTenantID, "Focus", "")
 
 	require.NoError(t, err)
 	assert.Equal(t, "#7986CB", cat.Color)
@@ -1160,7 +1182,7 @@ func TestService_CreateCategory_EmptyName(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	_, err := svc.CreateCategory(context.Background(), uuid.New(), "", "#FF5733")
+	_, err := svc.CreateCategory(context.Background(), uuid.New(), testTenantID, "", "#FF5733")
 
 	assert.ErrorIs(t, err, ErrCategoryNameRequired)
 }
@@ -1169,7 +1191,7 @@ func TestService_CreateCategory_InvalidColor(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	_, err := svc.CreateCategory(context.Background(), uuid.New(), "Bad", "red")
+	_, err := svc.CreateCategory(context.Background(), uuid.New(), testTenantID, "Bad", "red")
 
 	assert.ErrorIs(t, err, ErrInvalidColor)
 }
@@ -1179,10 +1201,10 @@ func TestService_CreateCategory_DuplicateName(t *testing.T) {
 	svc := NewService(repo)
 	userID := uuid.New()
 
-	_, err := svc.CreateCategory(context.Background(), userID, "Meeting", "#FF5733")
+	_, err := svc.CreateCategory(context.Background(), userID, testTenantID, "Meeting", "#FF5733")
 	require.NoError(t, err)
 
-	_, err = svc.CreateCategory(context.Background(), userID, "Meeting", "#34A853")
+	_, err = svc.CreateCategory(context.Background(), userID, testTenantID, "Meeting", "#34A853")
 	assert.ErrorIs(t, err, ErrDuplicateCategoryName)
 }
 
@@ -1191,12 +1213,12 @@ func TestService_ListCategories(t *testing.T) {
 	svc := NewService(repo)
 	userID := uuid.New()
 
-	_, err := svc.CreateCategory(context.Background(), userID, "Meeting", "#FF5733")
+	_, err := svc.CreateCategory(context.Background(), userID, testTenantID, "Meeting", "#FF5733")
 	require.NoError(t, err)
-	_, err = svc.CreateCategory(context.Background(), userID, "Focus", "#34A853")
+	_, err = svc.CreateCategory(context.Background(), userID, testTenantID, "Focus", "#34A853")
 	require.NoError(t, err)
 
-	cats, err := svc.ListCategories(context.Background(), userID)
+	cats, err := svc.ListCategories(context.Background(), userID, testTenantID)
 
 	require.NoError(t, err)
 	assert.Len(t, cats, 2)
@@ -1207,13 +1229,13 @@ func TestService_DeleteCategory_Success(t *testing.T) {
 	svc := NewService(repo)
 	userID := uuid.New()
 
-	cat, err := svc.CreateCategory(context.Background(), userID, "Meeting", "#FF5733")
+	cat, err := svc.CreateCategory(context.Background(), userID, testTenantID, "Meeting", "#FF5733")
 	require.NoError(t, err)
 
-	err = svc.DeleteCategory(context.Background(), cat.ID, userID)
+	err = svc.DeleteCategory(context.Background(), cat.ID, userID, testTenantID)
 
 	require.NoError(t, err)
-	cats, _ := svc.ListCategories(context.Background(), userID)
+	cats, _ := svc.ListCategories(context.Background(), userID, testTenantID)
 	assert.Len(t, cats, 0)
 }
 
@@ -1221,7 +1243,7 @@ func TestService_DeleteCategory_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	err := svc.DeleteCategory(context.Background(), uuid.New(), uuid.New())
+	err := svc.DeleteCategory(context.Background(), uuid.New(), uuid.New(), testTenantID)
 
 	assert.ErrorIs(t, err, ErrCategoryNotFound)
 }
@@ -1231,10 +1253,10 @@ func TestService_DeleteCategory_WrongUser(t *testing.T) {
 	svc := NewService(repo)
 	userID := uuid.New()
 
-	cat, err := svc.CreateCategory(context.Background(), userID, "Meeting", "#FF5733")
+	cat, err := svc.CreateCategory(context.Background(), userID, testTenantID, "Meeting", "#FF5733")
 	require.NoError(t, err)
 
-	err = svc.DeleteCategory(context.Background(), cat.ID, uuid.New())
+	err = svc.DeleteCategory(context.Background(), cat.ID, uuid.New(), testTenantID)
 
 	assert.ErrorIs(t, err, ErrCategoryNotFound)
 }
@@ -1324,13 +1346,13 @@ func TestService_PermissionHierarchy_EditCannotAddMembers(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Shared", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "Shared", CalendarType: models.CalendarTypeShared,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 	repo.addMemberDirect(calID, editorID, models.CalendarPermissionEdit)
 
-	err := svc.AddMember(context.Background(), calID, editorID, uuid.New(), models.CalendarPermissionView)
+	err := svc.AddMember(context.Background(), calID, editorID, uuid.New(), testTenantID, models.CalendarPermissionView)
 
 	assert.ErrorIs(t, err, ErrInsufficientPermission)
 }
@@ -1343,7 +1365,7 @@ func TestService_PermissionHierarchy_EditorCanUpdate(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Shared", CalendarType: models.CalendarTypeShared,
+		ID: calID, TenantID: testTenantID, Name: "Shared", CalendarType: models.CalendarTypeShared,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
@@ -1351,7 +1373,7 @@ func TestService_PermissionHierarchy_EditorCanUpdate(t *testing.T) {
 
 	// Editor should NOT be able to update (requires admin)
 	newName := "Updated by Editor"
-	_, err := svc.Update(context.Background(), calID, editorID, UpdateInput{
+	_, err := svc.Update(context.Background(), calID, editorID, testTenantID, UpdateInput{
 		Name: &newName,
 	})
 
@@ -1368,12 +1390,12 @@ func TestService_Get_Success(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Calendar", CalendarType: models.CalendarTypePersonal,
+		ID: calID, TenantID: testTenantID, Name: "Calendar", CalendarType: models.CalendarTypePersonal,
 		OwnerID: uuid.New(), Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 
-	cal, err := svc.Get(context.Background(), calID)
+	cal, err := svc.Get(context.Background(), calID, testTenantID)
 
 	require.NoError(t, err)
 	assert.Equal(t, calID, cal.ID)
@@ -1384,7 +1406,7 @@ func TestService_Get_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	_, err := svc.Get(context.Background(), uuid.New())
+	_, err := svc.Get(context.Background(), uuid.New(), testTenantID)
 
 	assert.ErrorIs(t, err, ErrCalendarNotFound)
 }
@@ -1397,7 +1419,7 @@ func TestService_Subscribe_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	err := svc.Subscribe(context.Background(), uuid.New(), uuid.New())
+	err := svc.Subscribe(context.Background(), uuid.New(), uuid.New(), testTenantID)
 
 	assert.ErrorIs(t, err, ErrCalendarNotFound)
 }
@@ -1406,7 +1428,7 @@ func TestService_Unsubscribe_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	err := svc.Unsubscribe(context.Background(), uuid.New(), uuid.New())
+	err := svc.Unsubscribe(context.Background(), uuid.New(), uuid.New(), testTenantID)
 
 	assert.ErrorIs(t, err, ErrCalendarNotFound)
 }
@@ -1415,7 +1437,7 @@ func TestService_RemoveMember_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	err := svc.RemoveMember(context.Background(), uuid.New(), uuid.New(), uuid.New())
+	err := svc.RemoveMember(context.Background(), uuid.New(), uuid.New(), uuid.New(), testTenantID)
 
 	assert.ErrorIs(t, err, ErrCalendarNotFound)
 }
@@ -1424,7 +1446,7 @@ func TestService_AddMember_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	err := svc.AddMember(context.Background(), uuid.New(), uuid.New(), uuid.New(), models.CalendarPermissionView)
+	err := svc.AddMember(context.Background(), uuid.New(), uuid.New(), uuid.New(), testTenantID, models.CalendarPermissionView)
 
 	assert.ErrorIs(t, err, ErrCalendarNotFound)
 }
@@ -1433,7 +1455,7 @@ func TestService_UpdateMemberPermission_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	err := svc.UpdateMemberPermission(context.Background(), uuid.New(), uuid.New(), uuid.New(), models.CalendarPermissionEdit)
+	err := svc.UpdateMemberPermission(context.Background(), uuid.New(), uuid.New(), uuid.New(), testTenantID, models.CalendarPermissionEdit)
 
 	assert.ErrorIs(t, err, ErrCalendarNotFound)
 }
@@ -1445,14 +1467,14 @@ func TestService_Update_Color(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Cal", CalendarType: models.CalendarTypePersonal,
+		ID: calID, TenantID: testTenantID, Name: "Cal", CalendarType: models.CalendarTypePersonal,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 
 	newColor := "#FF0000"
 	newTz := "Europe/Zurich"
-	cal, err := svc.Update(context.Background(), calID, ownerID, UpdateInput{
+	cal, err := svc.Update(context.Background(), calID, ownerID, testTenantID, UpdateInput{
 		Color:    &newColor,
 		Timezone: &newTz,
 	})
@@ -1469,13 +1491,13 @@ func TestService_Update_Description(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Cal", CalendarType: models.CalendarTypePersonal,
+		ID: calID, TenantID: testTenantID, Name: "Cal", CalendarType: models.CalendarTypePersonal,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 
 	desc := "My calendar description"
-	cal, err := svc.Update(context.Background(), calID, ownerID, UpdateInput{
+	cal, err := svc.Update(context.Background(), calID, ownerID, testTenantID, UpdateInput{
 		Description: &desc,
 	})
 
@@ -1491,15 +1513,44 @@ func TestService_Subscribe_ResourceCalendar(t *testing.T) {
 	calID := uuid.New()
 
 	repo.addCalendar(&models.Calendar{
-		ID: calID, Name: "Room", CalendarType: models.CalendarTypeResource,
+		ID: calID, TenantID: testTenantID, Name: "Room", CalendarType: models.CalendarTypeResource,
 		OwnerID: ownerID, Color: "#4285F4", Timezone: "Europe/Berlin",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	})
 
 	// Resource calendars should be subscribable (not personal)
-	err := svc.Subscribe(context.Background(), calID, uuid.New())
+	err := svc.Subscribe(context.Background(), calID, uuid.New(), testTenantID)
 
 	require.NoError(t, err)
+}
+
+// ============================================================================
+// Tenant Isolation Test
+// ============================================================================
+
+func TestCalendarRepo_TenantIsolation(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	ownerA := uuid.New()
+
+	// Create calendar as Tenant A
+	calA, err := svc.Create(context.Background(), ownerA, tenantA, CreateInput{
+		Name:         "Tenant A Calendar",
+		CalendarType: models.CalendarTypePersonal,
+	})
+	require.NoError(t, err)
+
+	// Query as Tenant B -> should not find it
+	_, err = svc.Get(context.Background(), calA.ID, tenantB)
+	assert.ErrorIs(t, err, ErrCalendarNotFound, "calendar from tenant A must not be visible to tenant B")
+
+	// Query as Tenant A -> should find it
+	found, err := svc.Get(context.Background(), calA.ID, tenantA)
+	require.NoError(t, err)
+	assert.Equal(t, calA.ID, found.ID)
 }
 
 // Suppress unused import for fmt

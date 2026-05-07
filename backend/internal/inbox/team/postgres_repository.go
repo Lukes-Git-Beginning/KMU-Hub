@@ -22,12 +22,12 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) CreateTeamInbox(ctx context.Context, inbox *models.TeamInbox) error {
 	query := `
-		INSERT INTO team_inboxes (id, name, description, assignment_mode, visibility,
+		INSERT INTO team_inboxes (id, tenant_id, name, description, assignment_mode, visibility,
 			next_assignee_index, created_by, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())`
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())`
 
 	_, err := r.pool.Exec(ctx, query,
-		inbox.ID, inbox.Name, inbox.Description, inbox.AssignmentMode, inbox.Visibility,
+		inbox.ID, inbox.TenantID, inbox.Name, inbox.Description, inbox.AssignmentMode, inbox.Visibility,
 		inbox.NextAssigneeIndex, inbox.CreatedBy,
 	)
 	return err
@@ -36,12 +36,12 @@ func (r *PostgresRepository) CreateTeamInbox(ctx context.Context, inbox *models.
 func (r *PostgresRepository) UpdateTeamInbox(ctx context.Context, inbox *models.TeamInbox) error {
 	query := `
 		UPDATE team_inboxes SET
-			name = $2, description = $3, assignment_mode = $4, visibility = $5,
+			name = $3, description = $4, assignment_mode = $5, visibility = $6,
 			updated_at = NOW()
-		WHERE id = $1`
+		WHERE id = $1 AND tenant_id = $2`
 
 	tag, err := r.pool.Exec(ctx, query,
-		inbox.ID, inbox.Name, inbox.Description, inbox.AssignmentMode, inbox.Visibility,
+		inbox.ID, inbox.TenantID, inbox.Name, inbox.Description, inbox.AssignmentMode, inbox.Visibility,
 	)
 	if err != nil {
 		return err
@@ -52,8 +52,8 @@ func (r *PostgresRepository) UpdateTeamInbox(ctx context.Context, inbox *models.
 	return nil
 }
 
-func (r *PostgresRepository) DeleteTeamInbox(ctx context.Context, id uuid.UUID) error {
-	tag, err := r.pool.Exec(ctx, "DELETE FROM team_inboxes WHERE id = $1", id)
+func (r *PostgresRepository) DeleteTeamInbox(ctx context.Context, tenantID, id uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx, "DELETE FROM team_inboxes WHERE id = $1 AND tenant_id = $2", id, tenantID)
 	if err != nil {
 		return err
 	}
@@ -63,15 +63,15 @@ func (r *PostgresRepository) DeleteTeamInbox(ctx context.Context, id uuid.UUID) 
 	return nil
 }
 
-func (r *PostgresRepository) GetTeamInbox(ctx context.Context, id uuid.UUID) (*models.TeamInbox, error) {
+func (r *PostgresRepository) GetTeamInbox(ctx context.Context, tenantID, id uuid.UUID) (*models.TeamInbox, error) {
 	query := `
-		SELECT id, name, description, assignment_mode, visibility,
+		SELECT id, tenant_id, name, description, assignment_mode, visibility,
 			next_assignee_index, created_by, created_at, updated_at
-		FROM team_inboxes WHERE id = $1`
+		FROM team_inboxes WHERE id = $1 AND tenant_id = $2`
 
 	inbox := &models.TeamInbox{}
-	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&inbox.ID, &inbox.Name, &inbox.Description, &inbox.AssignmentMode, &inbox.Visibility,
+	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(
+		&inbox.ID, &inbox.TenantID, &inbox.Name, &inbox.Description, &inbox.AssignmentMode, &inbox.Visibility,
 		&inbox.NextAssigneeIndex, &inbox.CreatedBy, &inbox.CreatedAt, &inbox.UpdatedAt,
 	)
 	if err == pgx.ErrNoRows {
@@ -80,16 +80,16 @@ func (r *PostgresRepository) GetTeamInbox(ctx context.Context, id uuid.UUID) (*m
 	return inbox, err
 }
 
-func (r *PostgresRepository) ListByUser(ctx context.Context, userID uuid.UUID) ([]*models.TeamInbox, error) {
+func (r *PostgresRepository) ListByUser(ctx context.Context, tenantID, userID uuid.UUID) ([]*models.TeamInbox, error) {
 	query := `
-		SELECT t.id, t.name, t.description, t.assignment_mode, t.visibility,
+		SELECT t.id, t.tenant_id, t.name, t.description, t.assignment_mode, t.visibility,
 			t.next_assignee_index, t.created_by, t.created_at, t.updated_at
 		FROM team_inboxes t
 		INNER JOIN team_inbox_members m ON t.id = m.team_inbox_id
-		WHERE m.user_id = $1
+		WHERE m.user_id = $1 AND t.tenant_id = $2
 		ORDER BY t.name`
 
-	rows, err := r.pool.Query(ctx, query, userID)
+	rows, err := r.pool.Query(ctx, query, userID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +99,7 @@ func (r *PostgresRepository) ListByUser(ctx context.Context, userID uuid.UUID) (
 	for rows.Next() {
 		inbox := &models.TeamInbox{}
 		if err := rows.Scan(
-			&inbox.ID, &inbox.Name, &inbox.Description, &inbox.AssignmentMode, &inbox.Visibility,
+			&inbox.ID, &inbox.TenantID, &inbox.Name, &inbox.Description, &inbox.AssignmentMode, &inbox.Visibility,
 			&inbox.NextAssigneeIndex, &inbox.CreatedBy, &inbox.CreatedAt, &inbox.UpdatedAt,
 		); err != nil {
 			return nil, err
@@ -186,11 +186,11 @@ func (r *PostgresRepository) GetMemberRole(ctx context.Context, teamInboxID, use
 	return role, err
 }
 
-func (r *PostgresRepository) IncrementAssigneeIndex(ctx context.Context, teamInboxID uuid.UUID) (int, error) {
+func (r *PostgresRepository) IncrementAssigneeIndex(ctx context.Context, tenantID, teamInboxID uuid.UUID) (int, error) {
 	var newIndex int
 	err := r.pool.QueryRow(ctx,
-		"UPDATE team_inboxes SET next_assignee_index = next_assignee_index + 1, updated_at = NOW() WHERE id = $1 RETURNING next_assignee_index",
-		teamInboxID,
+		"UPDATE team_inboxes SET next_assignee_index = next_assignee_index + 1, updated_at = NOW() WHERE id = $1 AND tenant_id = $2 RETURNING next_assignee_index",
+		teamInboxID, tenantID,
 	).Scan(&newIndex)
 	if err == pgx.ErrNoRows {
 		return 0, ErrTeamInboxNotFound

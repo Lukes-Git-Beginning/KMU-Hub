@@ -209,12 +209,12 @@ type attachSyncAdapter struct {
 	svc *attachment.Service
 }
 
-func (a *attachSyncAdapter) CreateFromStream(ctx context.Context, messageID uuid.UUID, accountID uuid.UUID, messageUID uint32, filename, contentType string, size int64, reader interface{}, contentID string, isInline bool) (*models.EmailAttachment, error) {
+func (a *attachSyncAdapter) CreateFromStream(ctx context.Context, messageID uuid.UUID, accountID uuid.UUID, messageUID uint32, filename, contentType string, size int64, reader any, contentID string, isInline bool, tenantID uuid.UUID) (*models.EmailAttachment, error) {
 	r, ok := reader.(io.Reader)
 	if !ok {
 		return nil, fmt.Errorf("reader must implement io.Reader")
 	}
-	return a.svc.CreateFromStream(ctx, messageID, accountID, messageUID, filename, contentType, size, r, contentID, isInline)
+	return a.svc.CreateFromStream(ctx, messageID, accountID, messageUID, filename, contentType, size, r, contentID, isInline, tenantID)
 }
 
 // folderSyncAdapter bridges message.FolderRepository -> emailsync.FolderSyncer interface.
@@ -253,8 +253,8 @@ type sendAccountAdapter struct {
 	accountService *account.Service
 }
 
-func (a *sendAccountAdapter) GetDecryptedCredentials(ctx context.Context, accountID uuid.UUID) (*send.Credentials, error) {
-	creds, err := a.accountService.GetDecryptedCredentials(ctx, accountID)
+func (a *sendAccountAdapter) GetDecryptedCredentials(ctx context.Context, accountID uuid.UUID, tenantID uuid.UUID) (*send.Credentials, error) {
+	creds, err := a.accountService.GetDecryptedCredentials(ctx, accountID, tenantID)
 	if err != nil {
 		return nil, err
 	}

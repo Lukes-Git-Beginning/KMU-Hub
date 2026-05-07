@@ -18,8 +18,8 @@ import (
 // MockRepository implements Repository for testing.
 type MockRepository struct {
 	CreateFn          func(ctx context.Context, att *models.EmailAttachment) error
-	GetByMessageFn    func(ctx context.Context, messageID uuid.UUID) ([]*models.EmailAttachment, error)
-	GetMinIOKeyByIDFn func(ctx context.Context, id uuid.UUID) (string, error)
+	GetByMessageFn    func(ctx context.Context, messageID uuid.UUID, tenantID uuid.UUID) ([]*models.EmailAttachment, error)
+	GetMinIOKeyByIDFn func(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (string, error)
 }
 
 func (m *MockRepository) Create(ctx context.Context, att *models.EmailAttachment) error {
@@ -29,16 +29,16 @@ func (m *MockRepository) Create(ctx context.Context, att *models.EmailAttachment
 	return nil
 }
 
-func (m *MockRepository) GetByMessage(ctx context.Context, messageID uuid.UUID) ([]*models.EmailAttachment, error) {
+func (m *MockRepository) GetByMessage(ctx context.Context, messageID uuid.UUID, tenantID uuid.UUID) ([]*models.EmailAttachment, error) {
 	if m.GetByMessageFn != nil {
-		return m.GetByMessageFn(ctx, messageID)
+		return m.GetByMessageFn(ctx, messageID, tenantID)
 	}
 	return nil, nil
 }
 
-func (m *MockRepository) GetMinIOKeyByID(ctx context.Context, id uuid.UUID) (string, error) {
+func (m *MockRepository) GetMinIOKeyByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (string, error) {
 	if m.GetMinIOKeyByIDFn != nil {
-		return m.GetMinIOKeyByIDFn(ctx, id)
+		return m.GetMinIOKeyByIDFn(ctx, id, tenantID)
 	}
 	return "", ErrAttachmentNotFound
 }
@@ -71,6 +71,8 @@ func (m *MockObjectStore) Delete(ctx context.Context, minioKey string) error {
 	return nil
 }
 
+var testTenantID = uuid.MustParse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+
 func TestCreateFromStream_Success(t *testing.T) {
 	accountID := uuid.New()
 	messageID := uuid.New()
@@ -87,11 +89,13 @@ func TestCreateFromStream_Success(t *testing.T) {
 		"report.pdf", "application/pdf",
 		int64(reader.Len()), reader,
 		"", false,
+		testTenantID,
 	)
 
 	require.NoError(t, err)
 	require.NotNil(t, att)
 	assert.Equal(t, messageID, att.MessageID)
+	assert.Equal(t, testTenantID, att.TenantID)
 	assert.Equal(t, "report.pdf", att.Filename)
 	assert.Equal(t, "application/pdf", att.ContentType)
 	assert.NotEmpty(t, att.MinIOKey)
@@ -113,6 +117,7 @@ func TestCreateFromStream_UploadError(t *testing.T) {
 		"file.txt", "text/plain",
 		12, strings.NewReader("test content"),
 		"", false,
+		testTenantID,
 	)
 
 	assert.Nil(t, att)
@@ -143,6 +148,7 @@ func TestCreateFromStream_RepoError_CleansUpMinIO(t *testing.T) {
 		"file.txt", "text/plain",
 		12, strings.NewReader("test content"),
 		"", false,
+		testTenantID,
 	)
 
 	assert.Nil(t, att)
@@ -154,12 +160,12 @@ func TestCreateFromStream_RepoError_CleansUpMinIO(t *testing.T) {
 func TestGetByMessage_Success(t *testing.T) {
 	messageID := uuid.New()
 	expected := []*models.EmailAttachment{
-		{ID: uuid.New(), MessageID: messageID, Filename: "a.pdf"},
-		{ID: uuid.New(), MessageID: messageID, Filename: "b.png"},
+		{ID: uuid.New(), TenantID: testTenantID, MessageID: messageID, Filename: "a.pdf"},
+		{ID: uuid.New(), TenantID: testTenantID, MessageID: messageID, Filename: "b.png"},
 	}
 	repo := &MockRepository{
-		GetByMessageFn: func(_ context.Context, mid uuid.UUID) ([]*models.EmailAttachment, error) {
-			if mid == messageID {
+		GetByMessageFn: func(_ context.Context, mid uuid.UUID, tid uuid.UUID) ([]*models.EmailAttachment, error) {
+			if mid == messageID && tid == testTenantID {
 				return expected, nil
 			}
 			return nil, nil
@@ -167,20 +173,20 @@ func TestGetByMessage_Success(t *testing.T) {
 	}
 	svc := NewService(repo, &MockObjectStore{})
 
-	result, err := svc.GetByMessage(context.Background(), messageID)
+	result, err := svc.GetByMessage(context.Background(), messageID, testTenantID)
 	require.NoError(t, err)
 	assert.Len(t, result, 2)
 }
 
 func TestGetByMessage_Empty(t *testing.T) {
 	repo := &MockRepository{
-		GetByMessageFn: func(_ context.Context, _ uuid.UUID) ([]*models.EmailAttachment, error) {
+		GetByMessageFn: func(_ context.Context, _ uuid.UUID, _ uuid.UUID) ([]*models.EmailAttachment, error) {
 			return []*models.EmailAttachment{}, nil
 		},
 	}
 	svc := NewService(repo, &MockObjectStore{})
 
-	result, err := svc.GetByMessage(context.Background(), uuid.New())
+	result, err := svc.GetByMessage(context.Background(), uuid.New(), testTenantID)
 	require.NoError(t, err)
 	assert.Empty(t, result)
 }
@@ -190,8 +196,8 @@ func TestGetDownloadURL_Success(t *testing.T) {
 	minioKey := "email-attachments/acc/42/file.pdf"
 
 	repo := &MockRepository{
-		GetMinIOKeyByIDFn: func(_ context.Context, id uuid.UUID) (string, error) {
-			if id == attID {
+		GetMinIOKeyByIDFn: func(_ context.Context, id uuid.UUID, tid uuid.UUID) (string, error) {
+			if id == attID && tid == testTenantID {
 				return minioKey, nil
 			}
 			return "", ErrAttachmentNotFound
@@ -204,7 +210,7 @@ func TestGetDownloadURL_Success(t *testing.T) {
 	}
 	svc := NewService(repo, store)
 
-	url, err := svc.GetDownloadURL(context.Background(), attID)
+	url, err := svc.GetDownloadURL(context.Background(), attID, testTenantID)
 	require.NoError(t, err)
 	assert.Contains(t, url, minioKey)
 	assert.Contains(t, url, "token=abc")
@@ -212,13 +218,13 @@ func TestGetDownloadURL_Success(t *testing.T) {
 
 func TestGetDownloadURL_NotFound(t *testing.T) {
 	repo := &MockRepository{
-		GetMinIOKeyByIDFn: func(_ context.Context, _ uuid.UUID) (string, error) {
+		GetMinIOKeyByIDFn: func(_ context.Context, _ uuid.UUID, _ uuid.UUID) (string, error) {
 			return "", ErrAttachmentNotFound
 		},
 	}
 	svc := NewService(repo, &MockObjectStore{})
 
-	url, err := svc.GetDownloadURL(context.Background(), uuid.New())
+	url, err := svc.GetDownloadURL(context.Background(), uuid.New(), testTenantID)
 	assert.Empty(t, url)
 	assert.ErrorIs(t, err, ErrAttachmentNotFound)
 }
@@ -234,9 +240,38 @@ func TestCreateFromStream_InlineAttachment(t *testing.T) {
 		"logo.png", "image/png",
 		256, strings.NewReader("png-data"),
 		"cid:logo@company", true,
+		testTenantID,
 	)
 
 	require.NoError(t, err)
 	assert.True(t, att.IsInline)
 	assert.Equal(t, "cid:logo@company", att.ContentID)
+}
+
+func TestGetByMessage_TenantIsolation(t *testing.T) {
+	tenantA := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	tenantB := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+	messageID := uuid.New()
+	expected := []*models.EmailAttachment{
+		{ID: uuid.New(), TenantID: tenantA, MessageID: messageID, Filename: "secret.pdf"},
+	}
+	repo := &MockRepository{
+		GetByMessageFn: func(_ context.Context, mid uuid.UUID, tid uuid.UUID) ([]*models.EmailAttachment, error) {
+			if mid == messageID && tid == tenantA {
+				return expected, nil
+			}
+			return nil, nil
+		},
+	}
+	svc := NewService(repo, &MockObjectStore{})
+
+	// Tenant A sees their attachment
+	result, err := svc.GetByMessage(context.Background(), messageID, tenantA)
+	require.NoError(t, err)
+	assert.Len(t, result, 1)
+
+	// Tenant B sees nothing
+	result, err = svc.GetByMessage(context.Background(), messageID, tenantB)
+	require.NoError(t, err)
+	assert.Empty(t, result)
 }

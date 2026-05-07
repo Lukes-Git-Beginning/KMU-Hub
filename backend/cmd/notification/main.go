@@ -377,6 +377,7 @@ func (ic *InboxConsumer) HandleEvent(ctx context.Context, evt models.EventPayloa
 
 		msg := &models.InboxMessage{
 			ID:         uuid.New(),
+			TenantID:   evt.TenantID,
 			UserID:     userID,
 			Channel:    channel,
 			SourceID:   evt.ResourceID,

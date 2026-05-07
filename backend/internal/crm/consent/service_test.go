@@ -45,7 +45,7 @@ func (m *MockRepository) CreateConsentRecord(_ context.Context, record *ConsentR
 	return nil
 }
 
-func (m *MockRepository) GetConsentHistory(_ context.Context, contactID uuid.UUID, consentType string) ([]*ConsentRecord, error) {
+func (m *MockRepository) GetConsentHistory(_ context.Context, tenantID, contactID uuid.UUID, consentType string) ([]*ConsentRecord, error) {
 	if m.getConsentHistoryErr != nil {
 		return nil, m.getConsentHistoryErr
 	}
@@ -58,7 +58,7 @@ func (m *MockRepository) GetConsentHistory(_ context.Context, contactID uuid.UUI
 	return result, nil
 }
 
-func (m *MockRepository) GetLatestConsents(_ context.Context, _ uuid.UUID) ([]*ConsentRecord, error) {
+func (m *MockRepository) GetLatestConsents(_ context.Context, _, _ uuid.UUID) ([]*ConsentRecord, error) {
 	if m.getLatestConsentsErr != nil {
 		return nil, m.getLatestConsentsErr
 	}
@@ -130,8 +130,10 @@ func TestService_GrantConsent_Success(t *testing.T) {
 	ip := "192.168.1.1"
 	createdBy := uuid.New()
 
+	tenantID := uuid.New()
 	record, err := svc.GrantConsent(
 		context.Background(),
+		tenantID,
 		contactID,
 		"marketing_email",
 		"web_form",
@@ -166,6 +168,7 @@ func TestService_GrantConsent_InvalidConsentType(t *testing.T) {
 
 	_, err := svc.GrantConsent(
 		context.Background(),
+		uuid.New(),
 		contactID,
 		"invalid_type",
 		"web_form",
@@ -187,6 +190,7 @@ func TestService_GrantConsent_InvalidLegalBasis(t *testing.T) {
 
 	_, err := svc.GrantConsent(
 		context.Background(),
+		uuid.New(),
 		contactID,
 		"marketing_email",
 		"web_form",
@@ -205,6 +209,7 @@ func TestService_GrantConsent_ContactNotFound(t *testing.T) {
 
 	_, err := svc.GrantConsent(
 		context.Background(),
+		uuid.New(),
 		uuid.New(), // non-existent contact
 		"marketing_email",
 		"web_form",
@@ -227,6 +232,7 @@ func TestService_GrantConsent_RepoError(t *testing.T) {
 
 	_, err := svc.GrantConsent(
 		context.Background(),
+		uuid.New(),
 		contactID,
 		"newsletter",
 		"web_form",
@@ -254,6 +260,7 @@ func TestService_RevokeConsent_Success(t *testing.T) {
 
 	record, err := svc.RevokeConsent(
 		context.Background(),
+		uuid.New(),
 		contactID,
 		"marketing_email",
 		"User requested opt-out",
@@ -284,6 +291,7 @@ func TestService_RevokeConsent_InvalidConsentType(t *testing.T) {
 
 	_, err := svc.RevokeConsent(
 		context.Background(),
+		uuid.New(),
 		contactID,
 		"bogus_type",
 		"notes",
@@ -299,6 +307,7 @@ func TestService_RevokeConsent_ContactNotFound(t *testing.T) {
 
 	_, err := svc.RevokeConsent(
 		context.Background(),
+		uuid.New(),
 		uuid.New(),
 		"marketing_email",
 		"notes",
@@ -340,7 +349,7 @@ func TestService_GetContactConsents_Success(t *testing.T) {
 		},
 	}
 
-	summary, err := svc.GetContactConsents(context.Background(), contactID)
+	summary, err := svc.GetContactConsents(context.Background(), uuid.New(), contactID)
 
 	require.NoError(t, err)
 	assert.Equal(t, contactID, summary.ContactID)
@@ -362,7 +371,7 @@ func TestService_GetContactConsents_Empty(t *testing.T) {
 	contactID := uuid.New()
 	repo.latestConsents = []*ConsentRecord{}
 
-	summary, err := svc.GetContactConsents(context.Background(), contactID)
+	summary, err := svc.GetContactConsents(context.Background(), uuid.New(), contactID)
 
 	require.NoError(t, err)
 	assert.Equal(t, contactID, summary.ContactID)
@@ -410,7 +419,7 @@ func TestService_GetConsentHistory_Success(t *testing.T) {
 		},
 	}
 
-	records, err := svc.GetConsentHistory(context.Background(), contactID, "marketing_email")
+	records, err := svc.GetConsentHistory(context.Background(), uuid.New(), contactID, "marketing_email")
 
 	require.NoError(t, err)
 	assert.Len(t, records, 2)
@@ -423,7 +432,7 @@ func TestService_GetConsentHistory_InvalidType(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	_, err := svc.GetConsentHistory(context.Background(), uuid.New(), "invalid_type")
+	_, err := svc.GetConsentHistory(context.Background(), uuid.New(), uuid.New(), "invalid_type")
 
 	assert.ErrorIs(t, err, ErrInvalidConsentType)
 }

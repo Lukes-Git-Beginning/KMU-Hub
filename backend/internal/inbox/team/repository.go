@@ -16,14 +16,14 @@ type Repository interface {
 	// UpdateTeamInbox updates an existing team inbox.
 	UpdateTeamInbox(ctx context.Context, inbox *models.TeamInbox) error
 
-	// DeleteTeamInbox deletes a team inbox by ID.
-	DeleteTeamInbox(ctx context.Context, id uuid.UUID) error
+	// DeleteTeamInbox deletes a team inbox by ID within a tenant.
+	DeleteTeamInbox(ctx context.Context, tenantID, id uuid.UUID) error
 
-	// GetTeamInbox retrieves a team inbox by ID.
-	GetTeamInbox(ctx context.Context, id uuid.UUID) (*models.TeamInbox, error)
+	// GetTeamInbox retrieves a team inbox by ID within a tenant.
+	GetTeamInbox(ctx context.Context, tenantID, id uuid.UUID) (*models.TeamInbox, error)
 
-	// ListByUser returns all team inboxes where the user is a member.
-	ListByUser(ctx context.Context, userID uuid.UUID) ([]*models.TeamInbox, error)
+	// ListByUser returns all team inboxes where the user is a member within a tenant.
+	ListByUser(ctx context.Context, tenantID, userID uuid.UUID) ([]*models.TeamInbox, error)
 
 	// AddMember adds a user as a member of a team inbox.
 	AddMember(ctx context.Context, member *models.TeamInboxMember) error
@@ -40,8 +40,8 @@ type Repository interface {
 	// GetMemberRole returns the role of a user in a team inbox, or empty string if not a member.
 	GetMemberRole(ctx context.Context, teamInboxID, userID uuid.UUID) (string, error)
 
-	// IncrementAssigneeIndex atomically increments and returns the next assignee index for round-robin.
-	IncrementAssigneeIndex(ctx context.Context, teamInboxID uuid.UUID) (int, error)
+	// IncrementAssigneeIndex atomically increments and returns the next assignee index for round-robin within a tenant.
+	IncrementAssigneeIndex(ctx context.Context, tenantID, teamInboxID uuid.UUID) (int, error)
 
 	// GetMemberCount returns the number of members in a team inbox.
 	GetMemberCount(ctx context.Context, teamInboxID uuid.UUID) (int, error)

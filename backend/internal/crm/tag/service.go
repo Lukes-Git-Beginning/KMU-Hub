@@ -29,7 +29,7 @@ type CreateInput struct {
 }
 
 // Create creates a new tag
-func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Tag, error) {
+func (s *Service) Create(ctx context.Context, tenantID uuid.UUID, input CreateInput) (*models.Tag, error) {
 	// Validate entity type
 	if !input.EntityType.IsValid() {
 		return nil, ErrInvalidEntityType
@@ -50,14 +50,15 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Tag, e
 		return nil, ErrInvalidColor
 	}
 
-	// Check for duplicate
-	existing, _ := s.repo.GetByEntityAndName(ctx, input.EntityType, name)
+	// Check for duplicate within tenant
+	existing, _ := s.repo.GetByEntityAndName(ctx, tenantID, input.EntityType, name)
 	if existing != nil {
 		return nil, ErrTagExists
 	}
 
 	tag := &models.Tag{
 		ID:         uuid.New(),
+		TenantID:   tenantID,
 		Name:       name,
 		Color:      color,
 		EntityType: input.EntityType,
@@ -70,6 +71,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Tag, e
 
 	slog.Info("tag created",
 		"tag_id", tag.ID,
+		"tenant_id", tenantID,
 		"entity_type", tag.EntityType,
 		"name", tag.Name,
 	)
@@ -77,9 +79,9 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Tag, e
 	return tag, nil
 }
 
-// GetByID retrieves a tag by ID
-func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*models.Tag, error) {
-	tag, err := s.repo.GetByID(ctx, id)
+// GetByID retrieves a tag by ID within a tenant
+func (s *Service) GetByID(ctx context.Context, id, tenantID uuid.UUID) (*models.Tag, error) {
+	tag, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, ErrTagNotFound
 	}
@@ -93,8 +95,8 @@ type ListInput struct {
 	PageSize   int
 }
 
-// List retrieves tags with optional filtering
-func (s *Service) List(ctx context.Context, input ListInput) ([]*models.Tag, int, error) {
+// List retrieves tags with optional filtering, scoped to a tenant
+func (s *Service) List(ctx context.Context, tenantID uuid.UUID, input ListInput) ([]*models.Tag, int, error) {
 	if input.Page < 1 {
 		input.Page = 1
 	}
@@ -103,7 +105,7 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]*models.Tag, int
 	}
 
 	offset := (input.Page - 1) * input.PageSize
-	return s.repo.List(ctx, input.EntityType, offset, input.PageSize)
+	return s.repo.List(ctx, tenantID, input.EntityType, offset, input.PageSize)
 }
 
 // UpdateInput contains the data that can be updated on a tag
@@ -112,9 +114,9 @@ type UpdateInput struct {
 	Color *string
 }
 
-// Update updates an existing tag
-func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (*models.Tag, error) {
-	tag, err := s.repo.GetByID(ctx, id)
+// Update updates an existing tag within a tenant
+func (s *Service) Update(ctx context.Context, id, tenantID uuid.UUID, input UpdateInput) (*models.Tag, error) {
+	tag, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, ErrTagNotFound
 	}
@@ -125,9 +127,9 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (
 			return nil, ErrTagNameRequired
 		}
 
-		// Check for duplicate if name is changing
+		// Check for duplicate if name is changing (within same tenant)
 		if name != tag.Name {
-			existing, _ := s.repo.GetByEntityAndName(ctx, tag.EntityType, name)
+			existing, _ := s.repo.GetByEntityAndName(ctx, tenantID, tag.EntityType, name)
 			if existing != nil {
 				return nil, ErrTagExists
 			}
@@ -146,20 +148,20 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (
 		return nil, updateErr
 	}
 
-	slog.Info("tag updated", "tag_id", tag.ID)
+	slog.Info("tag updated", "tag_id", tag.ID, "tenant_id", tenantID)
 
 	return tag, nil
 }
 
-// Delete removes a tag
-func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
-	tag, err := s.repo.GetByID(ctx, id)
+// Delete removes a tag within a tenant
+func (s *Service) Delete(ctx context.Context, id, tenantID uuid.UUID) error {
+	tag, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return ErrTagNotFound
 	}
 
-	// Check if tag is in use
-	inUse, err := s.repo.IsInUse(ctx, id)
+	// Check if tag is in use (scoped to tenant)
+	inUse, err := s.repo.IsInUse(ctx, id, tenantID)
 	if err != nil {
 		return err
 	}
@@ -167,12 +169,13 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 		return ErrTagInUse
 	}
 
-	if deleteErr := s.repo.Delete(ctx, id); deleteErr != nil {
+	if deleteErr := s.repo.Delete(ctx, id, tenantID); deleteErr != nil {
 		return deleteErr
 	}
 
 	slog.Info("tag deleted",
 		"tag_id", tag.ID,
+		"tenant_id", tenantID,
 		"entity_type", tag.EntityType,
 		"name", tag.Name,
 	)

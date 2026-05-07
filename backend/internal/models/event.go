@@ -39,6 +39,7 @@ type Event struct {
 // This is the compact metadata format (under 8000 bytes).
 type EventPayload struct {
 	Type          string          `json:"type"`
+	TenantID      uuid.UUID       `json:"tenant_id"`
 	Priority      string          `json:"priority"`
 	ActorID       string          `json:"actor_id,omitempty"`
 	ResourceID    string          `json:"resource_id,omitempty"`

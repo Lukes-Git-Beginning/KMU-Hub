@@ -31,7 +31,7 @@ type FolderSyncer interface {
 
 // AttachmentStorer defines the interface for storing email attachments during sync.
 type AttachmentStorer interface {
-	CreateFromStream(ctx context.Context, messageID uuid.UUID, accountID uuid.UUID, messageUID uint32, filename, contentType string, size int64, reader interface{}, contentID string, isInline bool) (*models.EmailAttachment, error)
+	CreateFromStream(ctx context.Context, messageID uuid.UUID, accountID uuid.UUID, messageUID uint32, filename, contentType string, size int64, reader interface{}, contentID string, isInline bool, tenantID uuid.UUID) (*models.EmailAttachment, error)
 }
 
 // SyncStatus holds the current sync status for an account.
@@ -78,7 +78,7 @@ func (e *Engine) Start(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	e.cancelFn = cancel
 
-	accounts, err := e.accountService.ListActive(ctx)
+	accounts, err := e.accountService.ListAllActive(ctx)
 	if err != nil {
 		cancel()
 		return err
@@ -113,8 +113,8 @@ func (e *Engine) Stop() {
 
 // StartWorker starts sync for a specific account by ID.
 func (e *Engine) StartWorker(ctx context.Context, accountID uuid.UUID) error {
-	// Get full account data from service (includes encrypted credentials)
-	accounts, err := e.accountService.ListActive(ctx)
+	// Get full account data from service (includes encrypted credentials and tenant_id).
+	accounts, err := e.accountService.ListAllActive(ctx)
 	if err != nil {
 		return err
 	}

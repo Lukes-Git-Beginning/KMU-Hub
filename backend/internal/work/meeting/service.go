@@ -22,6 +22,7 @@ func NewService(repo Repository) *Service {
 
 // CreateMeetingInput contains the data needed to create a meeting
 type CreateMeetingInput struct {
+	TenantID           uuid.UUID
 	Title              string
 	Description        *string
 	Agenda             *string
@@ -45,6 +46,7 @@ type UpdateMeetingInput struct {
 // CreateActionItemInput contains the data to create an action item
 type CreateActionItemInput struct {
 	MeetingID   uuid.UUID
+	TenantID    uuid.UUID
 	Description string
 	AssigneeID  *uuid.UUID
 	SortOrder   int
@@ -82,6 +84,7 @@ func (s *Service) CreateMeeting(ctx context.Context, input CreateMeetingInput) (
 	now := time.Now().UTC()
 	m := &Meeting{
 		ID:                 uuid.New(),
+		TenantID:           input.TenantID,
 		Title:              title,
 		Description:        input.Description,
 		Agenda:             input.Agenda,
@@ -124,6 +127,7 @@ func (s *Service) CreateMeeting(ctx context.Context, input CreateMeetingInput) (
 	slog.Info("meeting created",
 		"meeting_id", m.ID,
 		"organizer_id", input.OrganizerID,
+		"tenant_id", input.TenantID,
 		"attendee_count", len(input.AttendeeIDs),
 	)
 
@@ -131,8 +135,8 @@ func (s *Service) CreateMeeting(ctx context.Context, input CreateMeetingInput) (
 }
 
 // GetMeeting retrieves a meeting by ID with its attendees
-func (s *Service) GetMeeting(ctx context.Context, id uuid.UUID) (*MeetingWithAttendees, error) {
-	m, err := s.repo.GetMeeting(ctx, id)
+func (s *Service) GetMeeting(ctx context.Context, id, tenantID uuid.UUID) (*MeetingWithAttendees, error) {
+	m, err := s.repo.GetMeeting(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -154,8 +158,8 @@ func (s *Service) GetMeeting(ctx context.Context, id uuid.UUID) (*MeetingWithAtt
 }
 
 // UpdateMeeting updates a meeting (only allowed when scheduled)
-func (s *Service) UpdateMeeting(ctx context.Context, id uuid.UUID, input UpdateMeetingInput) (*Meeting, error) {
-	m, err := s.repo.GetMeeting(ctx, id)
+func (s *Service) UpdateMeeting(ctx context.Context, id, tenantID uuid.UUID, input UpdateMeetingInput) (*Meeting, error) {
+	m, err := s.repo.GetMeeting(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -210,8 +214,8 @@ func (s *Service) UpdateMeeting(ctx context.Context, id uuid.UUID, input UpdateM
 }
 
 // DeleteMeeting deletes a meeting (only scheduled or cancelled)
-func (s *Service) DeleteMeeting(ctx context.Context, id uuid.UUID) error {
-	m, err := s.repo.GetMeeting(ctx, id)
+func (s *Service) DeleteMeeting(ctx context.Context, id, tenantID uuid.UUID) error {
+	m, err := s.repo.GetMeeting(ctx, id, tenantID)
 	if err != nil {
 		return err
 	}
@@ -220,7 +224,7 @@ func (s *Service) DeleteMeeting(ctx context.Context, id uuid.UUID) error {
 		return ErrCannotDelete
 	}
 
-	if err := s.repo.DeleteMeeting(ctx, id); err != nil {
+	if err := s.repo.DeleteMeeting(ctx, id, tenantID); err != nil {
 		return err
 	}
 
@@ -237,8 +241,8 @@ func (s *Service) ListMeetings(ctx context.Context, filter MeetingFilter) ([]Mee
 }
 
 // StartMeeting transitions a scheduled meeting to in_progress
-func (s *Service) StartMeeting(ctx context.Context, id uuid.UUID) (*Meeting, error) {
-	m, err := s.repo.GetMeeting(ctx, id)
+func (s *Service) StartMeeting(ctx context.Context, id, tenantID uuid.UUID) (*Meeting, error) {
+	m, err := s.repo.GetMeeting(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -267,8 +271,8 @@ func (s *Service) StartMeeting(ctx context.Context, id uuid.UUID) (*Meeting, err
 }
 
 // EndMeeting transitions an in-progress meeting to completed and generates a summary
-func (s *Service) EndMeeting(ctx context.Context, id uuid.UUID) (*MeetingSummary, error) {
-	m, err := s.repo.GetMeeting(ctx, id)
+func (s *Service) EndMeeting(ctx context.Context, id, tenantID uuid.UUID) (*MeetingSummary, error) {
+	m, err := s.repo.GetMeeting(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -308,8 +312,8 @@ func (s *Service) EndMeeting(ctx context.Context, id uuid.UUID) (*MeetingSummary
 }
 
 // CancelMeeting cancels a scheduled meeting
-func (s *Service) CancelMeeting(ctx context.Context, id uuid.UUID) (*Meeting, error) {
-	m, err := s.repo.GetMeeting(ctx, id)
+func (s *Service) CancelMeeting(ctx context.Context, id, tenantID uuid.UUID) (*Meeting, error) {
+	m, err := s.repo.GetMeeting(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -384,8 +388,8 @@ func (s *Service) generateSummary(ctx context.Context, m *Meeting) (*MeetingSumm
 // --- Notes ---
 
 // SaveNotes saves or updates meeting notes for a user
-func (s *Service) SaveNotes(ctx context.Context, meetingID, authorID uuid.UUID, content string, isPrivate bool) (*MeetingNotes, error) {
-	m, err := s.repo.GetMeeting(ctx, meetingID)
+func (s *Service) SaveNotes(ctx context.Context, meetingID, authorID, tenantID uuid.UUID, content string, isPrivate bool) (*MeetingNotes, error) {
+	m, err := s.repo.GetMeeting(ctx, meetingID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -425,8 +429,8 @@ func (s *Service) SaveNotes(ctx context.Context, meetingID, authorID uuid.UUID, 
 }
 
 // GetPreviousMeetingNotes retrieves notes from the previous occurrence of a recurring meeting
-func (s *Service) GetPreviousMeetingNotes(ctx context.Context, meetingID uuid.UUID) (*MeetingNotes, error) {
-	m, err := s.repo.GetMeeting(ctx, meetingID)
+func (s *Service) GetPreviousMeetingNotes(ctx context.Context, meetingID, tenantID uuid.UUID) (*MeetingNotes, error) {
+	m, err := s.repo.GetMeeting(ctx, meetingID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -448,7 +452,7 @@ func (s *Service) GetPreviousMeetingNotes(ctx context.Context, meetingID uuid.UU
 // CreateActionItem creates a new action item for a meeting
 func (s *Service) CreateActionItem(ctx context.Context, input CreateActionItemInput) (*MeetingActionItem, error) {
 	// Verify meeting exists
-	if _, err := s.repo.GetMeeting(ctx, input.MeetingID); err != nil {
+	if _, err := s.repo.GetMeeting(ctx, input.MeetingID, input.TenantID); err != nil {
 		return nil, err
 	}
 
@@ -542,9 +546,9 @@ func (s *Service) DeleteActionItem(ctx context.Context, id uuid.UUID) error {
 }
 
 // ListActionItems lists all action items for a meeting
-func (s *Service) ListActionItems(ctx context.Context, meetingID uuid.UUID) ([]MeetingActionItem, error) {
+func (s *Service) ListActionItems(ctx context.Context, meetingID, tenantID uuid.UUID) ([]MeetingActionItem, error) {
 	// Verify meeting exists
-	if _, err := s.repo.GetMeeting(ctx, meetingID); err != nil {
+	if _, err := s.repo.GetMeeting(ctx, meetingID, tenantID); err != nil {
 		return nil, err
 	}
 
@@ -553,9 +557,9 @@ func (s *Service) ListActionItems(ctx context.Context, meetingID uuid.UUID) ([]M
 
 // ConvertActionItemsToTasks prepares action items for task conversion.
 // Returns the list of action items that need to be converted (not yet linked to tasks).
-func (s *Service) ConvertActionItemsToTasks(ctx context.Context, meetingID uuid.UUID) ([]MeetingActionItem, error) {
+func (s *Service) ConvertActionItemsToTasks(ctx context.Context, meetingID, tenantID uuid.UUID) ([]MeetingActionItem, error) {
 	// Verify meeting exists
-	if _, err := s.repo.GetMeeting(ctx, meetingID); err != nil {
+	if _, err := s.repo.GetMeeting(ctx, meetingID, tenantID); err != nil {
 		return nil, err
 	}
 
@@ -590,9 +594,9 @@ func (s *Service) UpdateAttendeeRSVP(ctx context.Context, meetingID, userID uuid
 }
 
 // AddAttendee adds an attendee to a meeting
-func (s *Service) AddAttendee(ctx context.Context, meetingID, userID uuid.UUID) error {
+func (s *Service) AddAttendee(ctx context.Context, meetingID, userID, tenantID uuid.UUID) error {
 	// Verify meeting exists
-	if _, err := s.repo.GetMeeting(ctx, meetingID); err != nil {
+	if _, err := s.repo.GetMeeting(ctx, meetingID, tenantID); err != nil {
 		return err
 	}
 

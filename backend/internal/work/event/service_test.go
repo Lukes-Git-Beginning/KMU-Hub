@@ -249,7 +249,7 @@ func (m *MockCalendarRepository) Create(_ context.Context, calendar *models.Cale
 	return nil
 }
 
-func (m *MockCalendarRepository) GetByID(_ context.Context, id uuid.UUID) (*models.Calendar, error) {
+func (m *MockCalendarRepository) GetByID(_ context.Context, id, _ uuid.UUID) (*models.Calendar, error) {
 	c, ok := m.calendars[id]
 	if !ok {
 		return nil, ErrInsufficientPermission
@@ -257,7 +257,7 @@ func (m *MockCalendarRepository) GetByID(_ context.Context, id uuid.UUID) (*mode
 	return c, nil
 }
 
-func (m *MockCalendarRepository) ListByUser(_ context.Context, _ uuid.UUID) ([]models.CalendarWithMemberInfo, error) {
+func (m *MockCalendarRepository) ListByUser(_ context.Context, _, _ uuid.UUID) ([]models.CalendarWithMemberInfo, error) {
 	return nil, nil
 }
 
@@ -265,7 +265,7 @@ func (m *MockCalendarRepository) Update(_ context.Context, _ *models.Calendar) e
 	return nil
 }
 
-func (m *MockCalendarRepository) Delete(_ context.Context, _ uuid.UUID) error {
+func (m *MockCalendarRepository) Delete(_ context.Context, _, _ uuid.UUID) error {
 	return nil
 }
 
@@ -302,7 +302,7 @@ func (m *MockCalendarRepository) UpdateMemberColorOverride(_ context.Context, _,
 	return nil
 }
 
-func (m *MockCalendarRepository) ListBrowsable(_ context.Context, _ uuid.UUID) ([]models.Calendar, error) {
+func (m *MockCalendarRepository) ListBrowsable(_ context.Context, _, _ uuid.UUID) ([]models.Calendar, error) {
 	return nil, nil
 }
 
@@ -318,11 +318,11 @@ func (m *MockCalendarRepository) CreateCategory(_ context.Context, _ *models.Eve
 	return nil
 }
 
-func (m *MockCalendarRepository) ListCategories(_ context.Context, _ uuid.UUID) ([]models.EventCategory, error) {
+func (m *MockCalendarRepository) ListCategories(_ context.Context, _, _ uuid.UUID) ([]models.EventCategory, error) {
 	return nil, nil
 }
 
-func (m *MockCalendarRepository) DeleteCategory(_ context.Context, _, _ uuid.UUID) error {
+func (m *MockCalendarRepository) DeleteCategory(_ context.Context, _, _, _ uuid.UUID) error {
 	return nil
 }
 
@@ -334,7 +334,7 @@ func (m *MockCalendarRepository) UpsertPreferences(_ context.Context, _ *models.
 	return nil
 }
 
-func (m *MockCalendarRepository) EnsurePersonalCalendar(_ context.Context, _ uuid.UUID) (*models.Calendar, error) {
+func (m *MockCalendarRepository) EnsurePersonalCalendar(_ context.Context, _, _ uuid.UUID) (*models.Calendar, error) {
 	return nil, nil
 }
 

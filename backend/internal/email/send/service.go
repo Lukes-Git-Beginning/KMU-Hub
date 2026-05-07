@@ -17,7 +17,7 @@ import (
 
 // AccountProvider retrieves decrypted SMTP credentials.
 type AccountProvider interface {
-	GetDecryptedCredentials(ctx context.Context, accountID uuid.UUID) (*Credentials, error)
+	GetDecryptedCredentials(ctx context.Context, accountID uuid.UUID, tenantID uuid.UUID) (*Credentials, error)
 }
 
 // Credentials holds decrypted SMTP connection credentials.
@@ -36,16 +36,17 @@ type MessageCreator interface {
 	Create(ctx context.Context, msg *models.EmailMessage) error
 }
 
-// SignatureProvider retrieves email signatures.
+// SignatureProvider retrieves email signatures scoped to a tenant.
 type SignatureProvider interface {
-	GetByID(ctx context.Context, id uuid.UUID) (*models.EmailSignature, error)
-	GetDefault(ctx context.Context, userID uuid.UUID) (*models.EmailSignature, error)
+	GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.EmailSignature, error)
+	GetDefault(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID) (*models.EmailSignature, error)
 }
 
 // SendInput contains the data needed to compose and send a new email.
 type SendInput struct {
-	AccountID   uuid.UUID
-	UserID      uuid.UUID
+	AccountID uuid.UUID
+	TenantID  uuid.UUID
+	UserID    uuid.UUID
 	// ContactID, when set, triggers a consent pre-check for ChannelEmail.
 	// Leave nil for system emails or transactional messages that do not
 	// require marketing consent (e.g. password reset, invoice delivery).
@@ -63,45 +64,48 @@ type SendInput struct {
 
 // ReplyInput contains the data needed to reply to an email.
 type ReplyInput struct {
-	AccountID      uuid.UUID
-	UserID         uuid.UUID
-	OriginalMsgID  uuid.UUID
-	OriginalMsg    *models.EmailMessage
-	From           EmailAddress
-	To             []EmailAddress
-	CC             []EmailAddress
-	BCC            []EmailAddress
-	BodyHTML       string
-	BodyText       string
-	SignatureID    *uuid.UUID
+	AccountID     uuid.UUID
+	TenantID      uuid.UUID
+	UserID        uuid.UUID
+	OriginalMsgID uuid.UUID
+	OriginalMsg   *models.EmailMessage
+	From          EmailAddress
+	To            []EmailAddress
+	CC            []EmailAddress
+	BCC           []EmailAddress
+	BodyHTML      string
+	BodyText      string
+	SignatureID   *uuid.UUID
 }
 
 // ForwardInput contains the data needed to forward an email.
 type ForwardInput struct {
-	AccountID      uuid.UUID
-	UserID         uuid.UUID
-	OriginalMsg    *models.EmailMessage
-	From           EmailAddress
-	To             []EmailAddress
-	CC             []EmailAddress
-	BCC            []EmailAddress
-	BodyHTML       string
-	BodyText       string
-	SignatureID    *uuid.UUID
-	Attachments    []AttachmentData
-}
-
-// DraftInput contains the data needed to save a draft.
-type DraftInput struct {
 	AccountID   uuid.UUID
+	TenantID    uuid.UUID
 	UserID      uuid.UUID
+	OriginalMsg *models.EmailMessage
 	From        EmailAddress
 	To          []EmailAddress
 	CC          []EmailAddress
 	BCC         []EmailAddress
-	Subject     string
 	BodyHTML    string
 	BodyText    string
+	SignatureID *uuid.UUID
+	Attachments []AttachmentData
+}
+
+// DraftInput contains the data needed to save a draft.
+type DraftInput struct {
+	AccountID uuid.UUID
+	TenantID  uuid.UUID
+	UserID    uuid.UUID
+	From      EmailAddress
+	To        []EmailAddress
+	CC        []EmailAddress
+	BCC       []EmailAddress
+	Subject   string
+	BodyHTML  string
+	BodyText  string
 	SignatureID *uuid.UUID
 }
 
@@ -160,8 +164,8 @@ func (s *Service) Send(ctx context.Context, input SendInput) (*models.EmailMessa
 		}
 	}
 
-	// Get SMTP credentials
-	creds, err := s.accountProvider.GetDecryptedCredentials(ctx, input.AccountID)
+	// Get SMTP credentials scoped to tenant
+	creds, err := s.accountProvider.GetDecryptedCredentials(ctx, input.AccountID, input.TenantID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get SMTP credentials: %w", err)
 	}
@@ -169,7 +173,7 @@ func (s *Service) Send(ctx context.Context, input SendInput) (*models.EmailMessa
 	// Append signature if requested
 	bodyHTML := input.BodyHTML
 	if input.SignatureID != nil {
-		bodyHTML = s.appendSignature(ctx, bodyHTML, *input.SignatureID)
+		bodyHTML = s.appendSignature(ctx, bodyHTML, *input.SignatureID, input.TenantID)
 	}
 
 	// Build MIME message
@@ -241,15 +245,16 @@ func (s *Service) Reply(ctx context.Context, input ReplyInput) (*models.EmailMes
 	}
 
 	return s.Send(ctx, SendInput{
-		AccountID: input.AccountID,
-		UserID:    input.UserID,
-		From:      input.From,
-		To:        input.To,
-		CC:        input.CC,
-		BCC:       input.BCC,
-		Subject:   subject,
-		BodyHTML:  input.BodyHTML,
-		BodyText:  input.BodyText,
+		AccountID:   input.AccountID,
+		TenantID:    input.TenantID,
+		UserID:      input.UserID,
+		From:        input.From,
+		To:          input.To,
+		CC:          input.CC,
+		BCC:         input.BCC,
+		Subject:     subject,
+		BodyHTML:    input.BodyHTML,
+		BodyText:    input.BodyText,
 		SignatureID: input.SignatureID,
 	})
 }
@@ -288,6 +293,7 @@ func (s *Service) Forward(ctx context.Context, input ForwardInput) (*models.Emai
 
 	return s.Send(ctx, SendInput{
 		AccountID:   input.AccountID,
+		TenantID:    input.TenantID,
 		UserID:      input.UserID,
 		From:        input.From,
 		To:          input.To,
@@ -305,7 +311,7 @@ func (s *Service) Forward(ctx context.Context, input ForwardInput) (*models.Emai
 func (s *Service) SaveDraft(ctx context.Context, input DraftInput) (*models.EmailMessage, error) {
 	bodyHTML := input.BodyHTML
 	if input.SignatureID != nil {
-		bodyHTML = s.appendSignature(ctx, bodyHTML, *input.SignatureID)
+		bodyHTML = s.appendSignature(ctx, bodyHTML, *input.SignatureID, input.TenantID)
 	}
 
 	msg := &models.EmailMessage{
@@ -393,14 +399,14 @@ func (s *Service) sendSMTPTLS(addr string, auth smtp.Auth, host, from string, to
 	return client.Quit()
 }
 
-// appendSignature fetches a signature and appends it to the HTML body.
-func (s *Service) appendSignature(ctx context.Context, bodyHTML string, signatureID uuid.UUID) string {
+// appendSignature fetches a signature scoped to a tenant and appends it to the HTML body.
+func (s *Service) appendSignature(ctx context.Context, bodyHTML string, signatureID uuid.UUID, tenantID uuid.UUID) string {
 	if s.signatureProvider == nil {
 		return bodyHTML
 	}
-	sig, err := s.signatureProvider.GetByID(ctx, signatureID)
+	sig, err := s.signatureProvider.GetByID(ctx, signatureID, tenantID)
 	if err != nil {
-		slog.Warn("failed to load signature", "signature_id", signatureID, "error", err)
+		slog.Warn("failed to load signature", "signature_id", signatureID, "tenant_id", tenantID, "error", err)
 		return bodyHTML
 	}
 	return bodyHTML + "<br/><br/>--<br/>" + sig.HTMLContent

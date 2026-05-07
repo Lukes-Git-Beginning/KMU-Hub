@@ -31,7 +31,7 @@ func (s *stubAssertRepo) ContactHasEmail(_ context.Context, _ uuid.UUID) (bool, 
 // Used to prove that the consent check passed (errors past that gate are credential errors).
 type errAccountProvider struct{}
 
-func (e *errAccountProvider) GetDecryptedCredentials(_ context.Context, _ uuid.UUID) (*Credentials, error) {
+func (e *errAccountProvider) GetDecryptedCredentials(_ context.Context, _ uuid.UUID, _ uuid.UUID) (*Credentials, error) {
 	return nil, errors.New("no SMTP credentials configured")
 }
 

@@ -13,8 +13,8 @@ import (
 // Repository defines the interface for email attachment persistence.
 type Repository interface {
 	Create(ctx context.Context, att *models.EmailAttachment) error
-	GetByMessage(ctx context.Context, messageID uuid.UUID) ([]*models.EmailAttachment, error)
-	GetMinIOKeyByID(ctx context.Context, id uuid.UUID) (string, error)
+	GetByMessage(ctx context.Context, messageID uuid.UUID, tenantID uuid.UUID) ([]*models.EmailAttachment, error)
+	GetMinIOKeyByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (string, error)
 }
 
 // ObjectStore defines the interface for attachment file storage (MinIO).

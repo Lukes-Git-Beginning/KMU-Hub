@@ -54,18 +54,26 @@ func (m *mockRepository) Reserve(
 	return existing, nil
 }
 
-func (m *mockRepository) Get(ctx context.Context, key string) (*idempotency.Record, error) {
+func (m *mockRepository) Get(ctx context.Context, tenantID uuid.UUID, key string) (*idempotency.Record, error) {
+	// Composite lookup: only return record if tenant matches.
 	rec, ok := m.records[key]
 	if !ok {
+		return nil, pgx.ErrNoRows
+	}
+	if rec.TenantID != tenantID {
 		return nil, pgx.ErrNoRows
 	}
 	return rec, nil
 }
 
-func (m *mockRepository) Complete(ctx context.Context, key string, status int, body []byte) error {
+func (m *mockRepository) Complete(ctx context.Context, tenantID uuid.UUID, key string, status int, body []byte) error {
 	rec, ok := m.records[key]
 	if !ok {
 		return pgx.ErrNoRows
+	}
+	// Enforce tenant isolation: refuse to complete for a different tenant.
+	if rec.TenantID != tenantID {
+		return idempotency.ErrKeyMissing
 	}
 	rec.ResponseStatus = &status
 	rec.ResponseBody = body
@@ -84,6 +92,10 @@ func (m *mockRepository) Cleanup(ctx context.Context) (int, error) {
 		}
 	}
 	return count, nil
+}
+
+func (m *mockRepository) CleanupWithLock(ctx context.Context, lockKey int64) (int, error) {
+	return m.Cleanup(ctx)
 }
 
 func TestReserve_FreshKey(t *testing.T) {
@@ -120,7 +132,7 @@ func TestReserve_Replay_ReturnsCachedRecord(t *testing.T) {
 
 	status := 201
 	body := []byte(`{"id":"abc"}`)
-	require.NoError(t, repo.Complete(context.Background(), "key-replay", status, body))
+	require.NoError(t, repo.Complete(context.Background(), tenantID, "key-replay", status, body))
 
 	// Replay: same key+hash after completion → returns existing record
 	rec, err := repo.Reserve(context.Background(), "key-replay", tenantID, userID, "POST", "/api/v1/test", "hash-abc")
@@ -162,10 +174,10 @@ func TestCleanup_DeletesExpired(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, count)
 
-	_, err = repo.Get(context.Background(), "key-expired")
+	_, err = repo.Get(context.Background(), tenantID, "key-expired")
 	assert.True(t, errors.Is(err, pgx.ErrNoRows), "expired key should be deleted")
 
-	_, err = repo.Get(context.Background(), "key-live")
+	_, err = repo.Get(context.Background(), tenantID, "key-live")
 	assert.NoError(t, err, "live key should remain")
 }
 
@@ -177,11 +189,66 @@ func TestComplete_StoresResponse(t *testing.T) {
 	_, err := repo.Reserve(context.Background(), "key-complete", tenantID, userID, "POST", "/api/v1/test", "hash1")
 	require.NoError(t, err)
 
-	err = repo.Complete(context.Background(), "key-complete", 200, []byte(`{"ok":true}`))
+	err = repo.Complete(context.Background(), tenantID, "key-complete", 200, []byte(`{"ok":true}`))
 	require.NoError(t, err)
 
-	rec, err := repo.Get(context.Background(), "key-complete")
+	rec, err := repo.Get(context.Background(), tenantID, "key-complete")
 	require.NoError(t, err)
 	assert.NotNil(t, rec.CompletedAt)
 	assert.Equal(t, 200, *rec.ResponseStatus)
+}
+
+// TestComplete_TenantFilter verifies that Complete() scoped to Tenant A cannot
+// overwrite (and expose) a record owned by Tenant B — cross-tenant cache-replay defense.
+func TestComplete_TenantFilter(t *testing.T) {
+	repo := newMockRepository()
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	userID := uuid.New()
+	const sharedKey = "key-cross-tenant-complete"
+
+	// Tenant A reserves the key.
+	_, err := repo.Reserve(context.Background(), sharedKey, tenantA, userID, "POST", "/api/v1/test", "hash-a")
+	require.NoError(t, err)
+
+	// Tenant A completes the key — must succeed.
+	err = repo.Complete(context.Background(), tenantA, sharedKey, 201, []byte(`{"id":"a"}`))
+	require.NoError(t, err, "Tenant A must be able to complete its own key")
+
+	// Tenant B attempts to GET the same raw key — must find nothing (wrong tenant).
+	rec, err := repo.Get(context.Background(), tenantB, sharedKey)
+	assert.True(t, errors.Is(err, pgx.ErrNoRows), "Tenant B must not see Tenant A's completed record")
+	assert.Nil(t, rec)
+
+	// Tenant B attempting to Complete Tenant A's key must also be rejected.
+	err = repo.Complete(context.Background(), tenantB, sharedKey, 200, []byte(`{"id":"b"}`))
+	assert.True(t, errors.Is(err, idempotency.ErrKeyMissing),
+		"Complete with wrong tenantID must return ErrKeyMissing (not silently succeed)")
+}
+
+// TestGet_TenantIsolation verifies that Get() with Tenant B's ID does not return
+// a record reserved by Tenant A, even when the key string is identical.
+func TestGet_TenantIsolation(t *testing.T) {
+	repo := newMockRepository()
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	userID := uuid.New()
+	const sharedKey = "key-cross-tenant-get"
+
+	// Tenant A reserves and completes the key.
+	_, err := repo.Reserve(context.Background(), sharedKey, tenantA, userID, "POST", "/api/v1/test", "hash-a")
+	require.NoError(t, err)
+	err = repo.Complete(context.Background(), tenantA, sharedKey, 200, []byte(`{"ok":true}`))
+	require.NoError(t, err)
+
+	// Tenant A can retrieve its own record.
+	recA, err := repo.Get(context.Background(), tenantA, sharedKey)
+	require.NoError(t, err)
+	require.NotNil(t, recA, "Tenant A must be able to GET its own completed record")
+
+	// Tenant B must not see Tenant A's record.
+	recB, err := repo.Get(context.Background(), tenantB, sharedKey)
+	assert.True(t, errors.Is(err, pgx.ErrNoRows),
+		"Tenant B must not receive Tenant A's idempotency record (cross-tenant replay defense)")
+	assert.Nil(t, recB)
 }

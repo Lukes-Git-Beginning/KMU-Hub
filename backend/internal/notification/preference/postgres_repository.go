@@ -21,15 +21,15 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{pool: pool}
 }
 
-func (r *PostgresRepository) GetEventTypePreference(ctx context.Context, userID uuid.UUID, eventTypeKey string) (*models.NotificationPreference, error) {
+func (r *PostgresRepository) GetEventTypePreference(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, eventTypeKey string) (*models.NotificationPreference, error) {
 	query := `
-		SELECT id, user_id, event_type_key, module_id, in_app, desktop_push, sound, created_at, updated_at
+		SELECT id, tenant_id, user_id, event_type_key, module_id, in_app, desktop_push, sound, created_at, updated_at
 		FROM notification_preferences
-		WHERE user_id = $1 AND event_type_key = $2`
+		WHERE tenant_id = $1 AND user_id = $2 AND event_type_key = $3`
 
 	pref := &models.NotificationPreference{}
-	err := r.pool.QueryRow(ctx, query, userID, eventTypeKey).Scan(
-		&pref.ID, &pref.UserID, &pref.EventTypeKey, &pref.ModuleID,
+	err := r.pool.QueryRow(ctx, query, tenantID, userID, eventTypeKey).Scan(
+		&pref.ID, &pref.TenantID, &pref.UserID, &pref.EventTypeKey, &pref.ModuleID,
 		&pref.InApp, &pref.DesktopPush, &pref.Sound, &pref.CreatedAt, &pref.UpdatedAt,
 	)
 	if err == pgx.ErrNoRows {
@@ -38,15 +38,15 @@ func (r *PostgresRepository) GetEventTypePreference(ctx context.Context, userID 
 	return pref, err
 }
 
-func (r *PostgresRepository) GetModuleDefault(ctx context.Context, userID uuid.UUID, moduleID string) (*models.NotificationPreference, error) {
+func (r *PostgresRepository) GetModuleDefault(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, moduleID string) (*models.NotificationPreference, error) {
 	query := `
-		SELECT id, user_id, event_type_key, module_id, in_app, desktop_push, sound, created_at, updated_at
+		SELECT id, tenant_id, user_id, event_type_key, module_id, in_app, desktop_push, sound, created_at, updated_at
 		FROM notification_preferences
-		WHERE user_id = $1 AND module_id = $2 AND event_type_key IS NULL`
+		WHERE tenant_id = $1 AND user_id = $2 AND module_id = $3 AND event_type_key IS NULL`
 
 	pref := &models.NotificationPreference{}
-	err := r.pool.QueryRow(ctx, query, userID, moduleID).Scan(
-		&pref.ID, &pref.UserID, &pref.EventTypeKey, &pref.ModuleID,
+	err := r.pool.QueryRow(ctx, query, tenantID, userID, moduleID).Scan(
+		&pref.ID, &pref.TenantID, &pref.UserID, &pref.EventTypeKey, &pref.ModuleID,
 		&pref.InApp, &pref.DesktopPush, &pref.Sound, &pref.CreatedAt, &pref.UpdatedAt,
 	)
 	if err == pgx.ErrNoRows {
@@ -55,17 +55,18 @@ func (r *PostgresRepository) GetModuleDefault(ctx context.Context, userID uuid.U
 	return pref, err
 }
 
-func (r *PostgresRepository) ListPreferences(ctx context.Context, userID uuid.UUID, moduleID *string) ([]*models.NotificationPreference, error) {
-	where := "WHERE user_id = $1"
-	args := []interface{}{userID}
+func (r *PostgresRepository) ListPreferences(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, moduleID *string) ([]*models.NotificationPreference, error) {
+	where := "WHERE tenant_id = $1 AND user_id = $2"
+	args := []interface{}{tenantID, userID}
+	argIdx := 3
 
 	if moduleID != nil {
-		where += " AND module_id = $2"
+		where += fmt.Sprintf(" AND module_id = $%d", argIdx)
 		args = append(args, *moduleID)
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id, user_id, event_type_key, module_id, in_app, desktop_push, sound, created_at, updated_at
+		SELECT id, tenant_id, user_id, event_type_key, module_id, in_app, desktop_push, sound, created_at, updated_at
 		FROM notification_preferences %s
 		ORDER BY module_id, event_type_key NULLS FIRST`, where)
 
@@ -79,7 +80,7 @@ func (r *PostgresRepository) ListPreferences(ctx context.Context, userID uuid.UU
 	for rows.Next() {
 		pref := &models.NotificationPreference{}
 		err := rows.Scan(
-			&pref.ID, &pref.UserID, &pref.EventTypeKey, &pref.ModuleID,
+			&pref.ID, &pref.TenantID, &pref.UserID, &pref.EventTypeKey, &pref.ModuleID,
 			&pref.InApp, &pref.DesktopPush, &pref.Sound, &pref.CreatedAt, &pref.UpdatedAt,
 		)
 		if err != nil {
@@ -93,44 +94,43 @@ func (r *PostgresRepository) ListPreferences(ctx context.Context, userID uuid.UU
 
 func (r *PostgresRepository) UpsertPreference(ctx context.Context, pref *models.NotificationPreference) error {
 	query := `
-		INSERT INTO notification_preferences (id, user_id, event_type_key, module_id, in_app, desktop_push, sound, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		ON CONFLICT (user_id, event_type_key) WHERE event_type_key IS NOT NULL
-		DO UPDATE SET in_app = $5, desktop_push = $6, sound = $7, updated_at = $9`
+		INSERT INTO notification_preferences (id, tenant_id, user_id, event_type_key, module_id, in_app, desktop_push, sound, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		ON CONFLICT (tenant_id, user_id, event_type_key) WHERE event_type_key IS NOT NULL
+		DO UPDATE SET in_app = $6, desktop_push = $7, sound = $8, updated_at = $10`
 
 	_, err := r.pool.Exec(ctx, query,
-		pref.ID, pref.UserID, pref.EventTypeKey, pref.ModuleID,
+		pref.ID, pref.TenantID, pref.UserID, pref.EventTypeKey, pref.ModuleID,
 		pref.InApp, pref.DesktopPush, pref.Sound, pref.CreatedAt, pref.UpdatedAt,
 	)
 	return err
 }
 
-func (r *PostgresRepository) IsResourceMuted(ctx context.Context, userID uuid.UUID, moduleID, resourceID string) (bool, error) {
+func (r *PostgresRepository) IsResourceMuted(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, moduleID, resourceID string) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx,
-		"SELECT EXISTS(SELECT 1 FROM notification_mutes WHERE user_id = $1 AND module_id = $2 AND resource_id = $3)",
-		userID, moduleID, resourceID,
+		"SELECT EXISTS(SELECT 1 FROM notification_mutes WHERE tenant_id = $1 AND user_id = $2 AND module_id = $3 AND resource_id = $4)",
+		tenantID, userID, moduleID, resourceID,
 	).Scan(&exists)
 	return exists, err
 }
 
 func (r *PostgresRepository) CreateMute(ctx context.Context, mute *models.NotificationMute) error {
 	query := `
-		INSERT INTO notification_mutes (id, user_id, module_id, resource_id, created_at)
-		VALUES ($1, $2, $3, $4, $5)`
+		INSERT INTO notification_mutes (id, tenant_id, user_id, module_id, resource_id, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6)`
 
-	_, err := r.pool.Exec(ctx, query, mute.ID, mute.UserID, mute.ModuleID, mute.ResourceID, mute.CreatedAt)
+	_, err := r.pool.Exec(ctx, query, mute.ID, mute.TenantID, mute.UserID, mute.ModuleID, mute.ResourceID, mute.CreatedAt)
 	if err != nil {
-		// Check for unique constraint violation
 		return err
 	}
 	return nil
 }
 
-func (r *PostgresRepository) DeleteMute(ctx context.Context, userID uuid.UUID, moduleID, resourceID string) error {
+func (r *PostgresRepository) DeleteMute(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, moduleID, resourceID string) error {
 	tag, err := r.pool.Exec(ctx,
-		"DELETE FROM notification_mutes WHERE user_id = $1 AND module_id = $2 AND resource_id = $3",
-		userID, moduleID, resourceID,
+		"DELETE FROM notification_mutes WHERE tenant_id = $1 AND user_id = $2 AND module_id = $3 AND resource_id = $4",
+		tenantID, userID, moduleID, resourceID,
 	)
 	if err != nil {
 		return err
@@ -141,10 +141,10 @@ func (r *PostgresRepository) DeleteMute(ctx context.Context, userID uuid.UUID, m
 	return nil
 }
 
-func (r *PostgresRepository) ListMutes(ctx context.Context, userID uuid.UUID, moduleID *string, offset, limit int) ([]*models.NotificationMute, int, error) {
-	where := "WHERE user_id = $1"
-	args := []interface{}{userID}
-	argIdx := 2
+func (r *PostgresRepository) ListMutes(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, moduleID *string, offset, limit int) ([]*models.NotificationMute, int, error) {
+	where := "WHERE tenant_id = $1 AND user_id = $2"
+	args := []interface{}{tenantID, userID}
+	argIdx := 3
 
 	if moduleID != nil {
 		where += fmt.Sprintf(" AND module_id = $%d", argIdx)
@@ -162,7 +162,7 @@ func (r *PostgresRepository) ListMutes(ctx context.Context, userID uuid.UUID, mo
 
 	// Data
 	dataQuery := fmt.Sprintf(`
-		SELECT id, user_id, module_id, resource_id, created_at
+		SELECT id, tenant_id, user_id, module_id, resource_id, created_at
 		FROM notification_mutes %s
 		ORDER BY created_at DESC
 		LIMIT $%d OFFSET $%d`, where, argIdx, argIdx+1)
@@ -177,7 +177,7 @@ func (r *PostgresRepository) ListMutes(ctx context.Context, userID uuid.UUID, mo
 	var mutes []*models.NotificationMute
 	for rows.Next() {
 		mute := &models.NotificationMute{}
-		err := rows.Scan(&mute.ID, &mute.UserID, &mute.ModuleID, &mute.ResourceID, &mute.CreatedAt)
+		err := rows.Scan(&mute.ID, &mute.TenantID, &mute.UserID, &mute.ModuleID, &mute.ResourceID, &mute.CreatedAt)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -187,16 +187,16 @@ func (r *PostgresRepository) ListMutes(ctx context.Context, userID uuid.UUID, mo
 	return mutes, total, rows.Err()
 }
 
-func (r *PostgresRepository) GetQuietHours(ctx context.Context, userID uuid.UUID) (*models.QuietHours, error) {
+func (r *PostgresRepository) GetQuietHours(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID) (*models.QuietHours, error) {
 	query := `
-		SELECT id, user_id, start_time, end_time, timezone, days_of_week, enabled,
+		SELECT id, tenant_id, user_id, start_time, end_time, timezone, days_of_week, enabled,
 			manual_dnd, manual_dnd_until, created_at, updated_at
 		FROM notification_quiet_hours
-		WHERE user_id = $1`
+		WHERE tenant_id = $1 AND user_id = $2`
 
 	qh := &models.QuietHours{}
-	err := r.pool.QueryRow(ctx, query, userID).Scan(
-		&qh.ID, &qh.UserID, &qh.StartTime, &qh.EndTime, &qh.Timezone, &qh.DaysOfWeek,
+	err := r.pool.QueryRow(ctx, query, tenantID, userID).Scan(
+		&qh.ID, &qh.TenantID, &qh.UserID, &qh.StartTime, &qh.EndTime, &qh.Timezone, &qh.DaysOfWeek,
 		&qh.Enabled, &qh.ManualDND, &qh.ManualDNDUntil, &qh.CreatedAt, &qh.UpdatedAt,
 	)
 	if err == pgx.ErrNoRows {
@@ -207,15 +207,15 @@ func (r *PostgresRepository) GetQuietHours(ctx context.Context, userID uuid.UUID
 
 func (r *PostgresRepository) UpsertQuietHours(ctx context.Context, qh *models.QuietHours) error {
 	query := `
-		INSERT INTO notification_quiet_hours (id, user_id, start_time, end_time, timezone, days_of_week,
+		INSERT INTO notification_quiet_hours (id, tenant_id, user_id, start_time, end_time, timezone, days_of_week,
 			enabled, manual_dnd, manual_dnd_until, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-		ON CONFLICT (user_id)
-		DO UPDATE SET start_time = $3, end_time = $4, timezone = $5, days_of_week = $6,
-			enabled = $7, manual_dnd = $8, manual_dnd_until = $9, updated_at = $11`
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		ON CONFLICT (tenant_id, user_id)
+		DO UPDATE SET start_time = $4, end_time = $5, timezone = $6, days_of_week = $7,
+			enabled = $8, manual_dnd = $9, manual_dnd_until = $10, updated_at = $12`
 
 	_, err := r.pool.Exec(ctx, query,
-		qh.ID, qh.UserID, qh.StartTime, qh.EndTime, qh.Timezone, qh.DaysOfWeek,
+		qh.ID, qh.TenantID, qh.UserID, qh.StartTime, qh.EndTime, qh.Timezone, qh.DaysOfWeek,
 		qh.Enabled, qh.ManualDND, qh.ManualDNDUntil, qh.CreatedAt, qh.UpdatedAt,
 	)
 	return err

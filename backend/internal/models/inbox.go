@@ -40,6 +40,7 @@ type InboxMessage struct {
 // Messages can be routed to team inboxes and claimed by members.
 type TeamInbox struct {
 	ID                uuid.UUID `json:"id"`
+	TenantID          uuid.UUID `json:"tenant_id"`
 	Name              string    `json:"name"`
 	Description       *string   `json:"description,omitempty"`
 	AssignmentMode    string    `json:"assignment_mode"`
@@ -62,6 +63,7 @@ type TeamInboxMember struct {
 // Rules are evaluated in priority order (lower number = higher priority).
 type RoutingRule struct {
 	ID         uuid.UUID       `json:"id"`
+	TenantID   uuid.UUID       `json:"tenant_id"`
 	Name       string          `json:"name"`
 	Channel    *string         `json:"channel,omitempty"`
 	Conditions json.RawMessage `json:"conditions"`
@@ -80,7 +82,7 @@ type Condition struct {
 	Or       []Condition `json:"or,omitempty"`
 	Field    string      `json:"field,omitempty"`
 	Operator string      `json:"operator,omitempty"`
-	Value    interface{} `json:"value,omitempty"`
+	Value    any `json:"value,omitempty"`
 }
 
 // Action represents what happens when a routing rule matches a message.

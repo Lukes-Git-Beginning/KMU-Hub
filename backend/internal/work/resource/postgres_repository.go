@@ -27,11 +27,11 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) Create(ctx context.Context, resource *models.Resource) error {
 	query := `
-		INSERT INTO resources (id, name, resource_type, capacity, floor, location, description, is_active, created_by, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
+		INSERT INTO resources (id, tenant_id, name, resource_type, capacity, floor, location, description, is_active, created_by, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
 
 	_, err := r.pool.Exec(ctx, query,
-		resource.ID, resource.Name, resource.ResourceType,
+		resource.ID, resource.TenantID, resource.Name, resource.ResourceType,
 		resource.Capacity, resource.Floor, resource.Location, resource.Description,
 		resource.IsActive, resource.CreatedBy,
 		resource.CreatedAt, resource.UpdatedAt,
@@ -39,19 +39,19 @@ func (r *PostgresRepository) Create(ctx context.Context, resource *models.Resour
 	return err
 }
 
-func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Resource, error) {
+func (r *PostgresRepository) GetByID(ctx context.Context, id, tenantID uuid.UUID) (*models.Resource, error) {
 	query := `
-		SELECT r.id, r.name, r.resource_type, r.capacity, r.floor, r.location, r.description,
+		SELECT r.id, r.tenant_id, r.name, r.resource_type, r.capacity, r.floor, r.location, r.description,
 		       r.is_active, r.created_by, r.created_at, r.updated_at,
 		       COALESCE(array_agg(rt.tag) FILTER (WHERE rt.tag IS NOT NULL), '{}') AS tags
 		FROM resources r
 		LEFT JOIN resource_tags rt ON rt.resource_id = r.id
-		WHERE r.id = $1
+		WHERE r.id = $1 AND r.tenant_id = $2
 		GROUP BY r.id`
 
 	var res models.Resource
-	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&res.ID, &res.Name, &res.ResourceType,
+	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(
+		&res.ID, &res.TenantID, &res.Name, &res.ResourceType,
 		&res.Capacity, &res.Floor, &res.Location, &res.Description,
 		&res.IsActive, &res.CreatedBy,
 		&res.CreatedAt, &res.UpdatedAt,
@@ -70,6 +70,11 @@ func (r *PostgresRepository) List(ctx context.Context, filters ResourceFilters) 
 	var conditions []string
 	var args []any
 	argN := 1
+
+	// Tenant isolation mandatory
+	conditions = append(conditions, fmt.Sprintf("r.tenant_id = $%d", argN))
+	args = append(args, filters.TenantID)
+	argN++
 
 	if filters.Type != nil {
 		conditions = append(conditions, fmt.Sprintf("r.resource_type = $%d", argN))
@@ -102,7 +107,7 @@ func (r *PostgresRepository) List(ctx context.Context, filters ResourceFilters) 
 	}
 
 	query := fmt.Sprintf(`
-		SELECT r.id, r.name, r.resource_type, r.capacity, r.floor, r.location, r.description,
+		SELECT r.id, r.tenant_id, r.name, r.resource_type, r.capacity, r.floor, r.location, r.description,
 		       r.is_active, r.created_by, r.created_at, r.updated_at,
 		       COALESCE(array_agg(rt.tag) FILTER (WHERE rt.tag IS NOT NULL), '{}') AS tags
 		FROM resources r
@@ -121,7 +126,7 @@ func (r *PostgresRepository) List(ctx context.Context, filters ResourceFilters) 
 	for rows.Next() {
 		var res models.Resource
 		if scanErr := rows.Scan(
-			&res.ID, &res.Name, &res.ResourceType,
+			&res.ID, &res.TenantID, &res.Name, &res.ResourceType,
 			&res.Capacity, &res.Floor, &res.Location, &res.Description,
 			&res.IsActive, &res.CreatedBy,
 			&res.CreatedAt, &res.UpdatedAt,
@@ -137,12 +142,12 @@ func (r *PostgresRepository) List(ctx context.Context, filters ResourceFilters) 
 func (r *PostgresRepository) Update(ctx context.Context, resource *models.Resource) error {
 	query := `
 		UPDATE resources
-		SET name = $2, resource_type = $3, capacity = $4, floor = $5,
-		    location = $6, description = $7, is_active = $8, updated_at = $9
-		WHERE id = $1`
+		SET name = $3, resource_type = $4, capacity = $5, floor = $6,
+		    location = $7, description = $8, is_active = $9, updated_at = $10
+		WHERE id = $1 AND tenant_id = $2`
 
 	tag, err := r.pool.Exec(ctx, query,
-		resource.ID, resource.Name, resource.ResourceType,
+		resource.ID, resource.TenantID, resource.Name, resource.ResourceType,
 		resource.Capacity, resource.Floor, resource.Location, resource.Description,
 		resource.IsActive, resource.UpdatedAt,
 	)
@@ -155,9 +160,9 @@ func (r *PostgresRepository) Update(ctx context.Context, resource *models.Resour
 	return nil
 }
 
-func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	query := `UPDATE resources SET is_active = false, updated_at = $2 WHERE id = $1`
-	tag, err := r.pool.Exec(ctx, query, id, time.Now())
+func (r *PostgresRepository) Delete(ctx context.Context, id, tenantID uuid.UUID) error {
+	query := `UPDATE resources SET is_active = false, updated_at = $3 WHERE id = $1 AND tenant_id = $2`
+	tag, err := r.pool.Exec(ctx, query, id, tenantID, time.Now())
 	if err != nil {
 		return fmt.Errorf("soft delete resource: %w", err)
 	}
@@ -193,11 +198,11 @@ func (r *PostgresRepository) SetTags(ctx context.Context, resourceID uuid.UUID, 
 
 func (r *PostgresRepository) CreateBooking(ctx context.Context, booking *models.ResourceBooking) error {
 	query := `
-		INSERT INTO resource_bookings (id, resource_id, event_id, booked_by, start_time, end_time, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)`
+		INSERT INTO resource_bookings (id, tenant_id, resource_id, event_id, booked_by, start_time, end_time, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 
 	_, err := r.pool.Exec(ctx, query,
-		booking.ID, booking.ResourceID, booking.EventID,
+		booking.ID, booking.TenantID, booking.ResourceID, booking.EventID,
 		booking.BookedBy, booking.StartTime, booking.EndTime,
 		booking.CreatedAt,
 	)
@@ -212,9 +217,9 @@ func (r *PostgresRepository) CreateBooking(ctx context.Context, booking *models.
 	return nil
 }
 
-func (r *PostgresRepository) CancelBooking(ctx context.Context, bookingID uuid.UUID) error {
-	query := `UPDATE resource_bookings SET cancelled_at = $2 WHERE id = $1 AND cancelled_at IS NULL`
-	tag, err := r.pool.Exec(ctx, query, bookingID, time.Now())
+func (r *PostgresRepository) CancelBooking(ctx context.Context, bookingID, tenantID uuid.UUID) error {
+	query := `UPDATE resource_bookings SET cancelled_at = $3 WHERE id = $1 AND tenant_id = $2 AND cancelled_at IS NULL`
+	tag, err := r.pool.Exec(ctx, query, bookingID, tenantID, time.Now())
 	if err != nil {
 		return fmt.Errorf("cancel booking: %w", err)
 	}
@@ -226,7 +231,7 @@ func (r *PostgresRepository) CancelBooking(ctx context.Context, bookingID uuid.U
 
 func (r *PostgresRepository) ListBookings(ctx context.Context, resourceID uuid.UUID, start, end time.Time) ([]models.ResourceBooking, error) {
 	query := `
-		SELECT rb.id, rb.resource_id, rb.event_id, rb.booked_by, rb.start_time, rb.end_time,
+		SELECT rb.id, rb.tenant_id, rb.resource_id, rb.event_id, rb.booked_by, rb.start_time, rb.end_time,
 		       rb.cancelled_at, rb.created_at,
 		       COALESCE(res.name, '') AS resource_name,
 		       '' AS event_title
@@ -248,7 +253,7 @@ func (r *PostgresRepository) ListBookings(ctx context.Context, resourceID uuid.U
 
 func (r *PostgresRepository) ListBookingsByEvent(ctx context.Context, eventID uuid.UUID) ([]models.ResourceBooking, error) {
 	query := `
-		SELECT rb.id, rb.resource_id, rb.event_id, rb.booked_by, rb.start_time, rb.end_time,
+		SELECT rb.id, rb.tenant_id, rb.resource_id, rb.event_id, rb.booked_by, rb.start_time, rb.end_time,
 		       rb.cancelled_at, rb.created_at,
 		       COALESCE(res.name, '') AS resource_name,
 		       '' AS event_title
@@ -267,19 +272,19 @@ func (r *PostgresRepository) ListBookingsByEvent(ctx context.Context, eventID uu
 	return scanBookings(rows)
 }
 
-func (r *PostgresRepository) GetBooking(ctx context.Context, bookingID uuid.UUID) (*models.ResourceBooking, error) {
+func (r *PostgresRepository) GetBooking(ctx context.Context, bookingID, tenantID uuid.UUID) (*models.ResourceBooking, error) {
 	query := `
-		SELECT rb.id, rb.resource_id, rb.event_id, rb.booked_by, rb.start_time, rb.end_time,
+		SELECT rb.id, rb.tenant_id, rb.resource_id, rb.event_id, rb.booked_by, rb.start_time, rb.end_time,
 		       rb.cancelled_at, rb.created_at,
 		       COALESCE(res.name, '') AS resource_name,
 		       '' AS event_title
 		FROM resource_bookings rb
 		LEFT JOIN resources res ON res.id = rb.resource_id
-		WHERE rb.id = $1`
+		WHERE rb.id = $1 AND rb.tenant_id = $2`
 
 	var b models.ResourceBooking
-	err := r.pool.QueryRow(ctx, query, bookingID).Scan(
-		&b.ID, &b.ResourceID, &b.EventID, &b.BookedBy,
+	err := r.pool.QueryRow(ctx, query, bookingID, tenantID).Scan(
+		&b.ID, &b.TenantID, &b.ResourceID, &b.EventID, &b.BookedBy,
 		&b.StartTime, &b.EndTime, &b.CancelledAt, &b.CreatedAt,
 		&b.ResourceName, &b.EventTitle,
 	)
@@ -306,6 +311,11 @@ func (r *PostgresRepository) FindAvailableResources(ctx context.Context, start, 
 	)`)
 	conditions = append(conditions, "r.is_active = true")
 
+	// Tenant isolation mandatory
+	conditions = append(conditions, fmt.Sprintf("r.tenant_id = $%d", argN))
+	args = append(args, filters.TenantID)
+	argN++
+
 	if filters.Type != nil {
 		conditions = append(conditions, fmt.Sprintf("r.resource_type = $%d", argN))
 		args = append(args, *filters.Type)
@@ -329,7 +339,7 @@ func (r *PostgresRepository) FindAvailableResources(ctx context.Context, start, 
 	where := "WHERE " + strings.Join(conditions, " AND ")
 
 	query := fmt.Sprintf(`
-		SELECT r.id, r.name, r.resource_type, r.capacity, r.floor, r.location, r.description,
+		SELECT r.id, r.tenant_id, r.name, r.resource_type, r.capacity, r.floor, r.location, r.description,
 		       r.is_active, r.created_by, r.created_at, r.updated_at,
 		       COALESCE(array_agg(rt.tag) FILTER (WHERE rt.tag IS NOT NULL), '{}') AS tags
 		FROM resources r
@@ -348,7 +358,7 @@ func (r *PostgresRepository) FindAvailableResources(ctx context.Context, start, 
 	for rows.Next() {
 		var res models.Resource
 		if scanErr := rows.Scan(
-			&res.ID, &res.Name, &res.ResourceType,
+			&res.ID, &res.TenantID, &res.Name, &res.ResourceType,
 			&res.Capacity, &res.Floor, &res.Location, &res.Description,
 			&res.IsActive, &res.CreatedBy,
 			&res.CreatedAt, &res.UpdatedAt,
@@ -361,12 +371,13 @@ func (r *PostgresRepository) FindAvailableResources(ctx context.Context, start, 
 	return resources, rows.Err()
 }
 
-func (r *PostgresRepository) FindAlternatives(ctx context.Context, excludeID uuid.UUID, start, end time.Time, resourceType string) ([]AlternativeResource, error) {
+func (r *PostgresRepository) FindAlternatives(ctx context.Context, excludeID uuid.UUID, start, end time.Time, resourceType string, tenantID uuid.UUID) ([]AlternativeResource, error) {
 	query := `
 		SELECT r.id, r.name, r.capacity, r.floor
 		FROM resources r
 		WHERE r.id != $1
 		  AND r.resource_type = $4
+		  AND r.tenant_id = $5
 		  AND r.is_active = true
 		  AND r.id NOT IN (
 		    SELECT resource_id FROM resource_bookings
@@ -376,7 +387,7 @@ func (r *PostgresRepository) FindAlternatives(ctx context.Context, excludeID uui
 		ORDER BY r.name
 		LIMIT 5`
 
-	rows, err := r.pool.Query(ctx, query, excludeID, start, end, resourceType)
+	rows, err := r.pool.Query(ctx, query, excludeID, start, end, resourceType, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("find alternatives: %w", err)
 	}
@@ -398,7 +409,7 @@ func scanBookings(rows pgx.Rows) ([]models.ResourceBooking, error) {
 	for rows.Next() {
 		var b models.ResourceBooking
 		if err := rows.Scan(
-			&b.ID, &b.ResourceID, &b.EventID, &b.BookedBy,
+			&b.ID, &b.TenantID, &b.ResourceID, &b.EventID, &b.BookedBy,
 			&b.StartTime, &b.EndTime, &b.CancelledAt, &b.CreatedAt,
 			&b.ResourceName, &b.EventTitle,
 		); err != nil {

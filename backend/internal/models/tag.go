@@ -10,6 +10,7 @@ import (
 // Tag represents a tag that can be assigned to CRM entities
 type Tag struct {
 	ID         uuid.UUID  `json:"id"`
+	TenantID   uuid.UUID  `json:"tenant_id"`
 	Name       string     `json:"name"`
 	Color      string     `json:"color"`       // Hex color code (e.g., "#ff5733")
 	EntityType EntityType `json:"entity_type"` // contact, company, deal, activity

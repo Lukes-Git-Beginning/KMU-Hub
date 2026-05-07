@@ -33,7 +33,7 @@ func TestEvaluateUrgentBypassesAllFilters(t *testing.T) {
 		{UserID: userID, ModuleID: "system", ResourceID: "resource-1"},
 	}
 
-	decision, err := svc.Evaluate(context.Background(), userID, event)
+	decision, err := svc.Evaluate(context.Background(), uuid.New(), userID, event)
 	require.NoError(t, err)
 	assert.True(t, decision.Deliver)
 	assert.True(t, decision.InApp)
@@ -58,7 +58,7 @@ func TestEvaluateResourceMuted(t *testing.T) {
 		{UserID: userID, ModuleID: "chat", ResourceID: "channel-abc"},
 	}
 
-	decision, err := svc.Evaluate(context.Background(), userID, event)
+	decision, err := svc.Evaluate(context.Background(), uuid.New(), userID, event)
 	require.NoError(t, err)
 	assert.False(t, decision.Deliver)
 	assert.Equal(t, "resource muted", decision.Reason)
@@ -86,7 +86,7 @@ func TestEvaluateEventTypePreference(t *testing.T) {
 		},
 	}
 
-	decision, err := svc.Evaluate(context.Background(), userID, event)
+	decision, err := svc.Evaluate(context.Background(), uuid.New(), userID, event)
 	require.NoError(t, err)
 	assert.True(t, decision.Deliver)
 	assert.True(t, decision.InApp)
@@ -117,7 +117,7 @@ func TestEvaluateModuleDefault(t *testing.T) {
 		},
 	}
 
-	decision, err := svc.Evaluate(context.Background(), userID, event)
+	decision, err := svc.Evaluate(context.Background(), uuid.New(), userID, event)
 	require.NoError(t, err)
 	assert.True(t, decision.Deliver)
 	assert.True(t, decision.InApp)
@@ -137,7 +137,7 @@ func TestEvaluateSystemDefaultWhenNoPrefs(t *testing.T) {
 	}
 
 	// No preferences at all
-	decision, err := svc.Evaluate(context.Background(), userID, event)
+	decision, err := svc.Evaluate(context.Background(), uuid.New(), userID, event)
 	require.NoError(t, err)
 	assert.True(t, decision.Deliver)
 	assert.True(t, decision.InApp)
@@ -157,7 +157,7 @@ func TestEvaluateLowPriorityNeverDesktopPush(t *testing.T) {
 		ModuleID: "chat",
 	}
 
-	decision, err := svc.Evaluate(context.Background(), userID, event)
+	decision, err := svc.Evaluate(context.Background(), uuid.New(), userID, event)
 	require.NoError(t, err)
 	assert.True(t, decision.Deliver)
 	assert.True(t, decision.InApp)
@@ -189,7 +189,7 @@ func TestEvaluateLowPriorityIgnoresDesktopPushPreference(t *testing.T) {
 		},
 	}
 
-	decision, err := svc.Evaluate(context.Background(), userID, event)
+	decision, err := svc.Evaluate(context.Background(), uuid.New(), userID, event)
 	require.NoError(t, err)
 	assert.False(t, decision.DesktopPush)
 }
@@ -217,7 +217,7 @@ func TestEvaluateAllChannelsDisabled(t *testing.T) {
 		},
 	}
 
-	decision, err := svc.Evaluate(context.Background(), userID, event)
+	decision, err := svc.Evaluate(context.Background(), uuid.New(), userID, event)
 	require.NoError(t, err)
 	assert.False(t, decision.Deliver)
 	assert.Contains(t, decision.Reason, "all delivery channels disabled")
@@ -242,7 +242,7 @@ func TestEvaluateQuietHoursActiveNormalPriority(t *testing.T) {
 		Enabled:    false,
 	}
 
-	decision, err := svc.Evaluate(context.Background(), userID, event)
+	decision, err := svc.Evaluate(context.Background(), uuid.New(), userID, event)
 	require.NoError(t, err)
 	assert.True(t, decision.Deliver)
 	assert.True(t, decision.InApp)
@@ -267,7 +267,7 @@ func TestEvaluateUrgentIgnoresQuietHours(t *testing.T) {
 		ManualDND: true,
 	}
 
-	decision, err := svc.Evaluate(context.Background(), userID, event)
+	decision, err := svc.Evaluate(context.Background(), uuid.New(), userID, event)
 	require.NoError(t, err)
 	assert.True(t, decision.Deliver)
 	assert.True(t, decision.DesktopPush)
@@ -286,7 +286,7 @@ func TestEvaluateNoResourceIDSkipsMuteCheck(t *testing.T) {
 		ResourceID: "", // No resource ID
 	}
 
-	decision, err := svc.Evaluate(context.Background(), userID, event)
+	decision, err := svc.Evaluate(context.Background(), uuid.New(), userID, event)
 	require.NoError(t, err)
 	assert.True(t, decision.Deliver)
 }
@@ -299,7 +299,7 @@ func TestIsInQuietHoursNoConfig(t *testing.T) {
 	repo := newMockPrefRepo()
 	svc := NewService(repo)
 
-	result, err := svc.isInQuietHours(context.Background(), uuid.New())
+	result, err := svc.isInQuietHours(context.Background(), uuid.New(), uuid.New())
 	require.NoError(t, err)
 	assert.False(t, result)
 }
@@ -314,7 +314,7 @@ func TestIsInQuietHoursManualDNDIndefinite(t *testing.T) {
 		ManualDND: true,
 	}
 
-	result, err := svc.isInQuietHours(context.Background(), userID)
+	result, err := svc.isInQuietHours(context.Background(), uuid.New(), userID)
 	require.NoError(t, err)
 	assert.True(t, result)
 }
@@ -331,7 +331,7 @@ func TestIsInQuietHoursManualDNDTimedActive(t *testing.T) {
 		ManualDNDUntil: &future,
 	}
 
-	result, err := svc.isInQuietHours(context.Background(), userID)
+	result, err := svc.isInQuietHours(context.Background(), uuid.New(), userID)
 	require.NoError(t, err)
 	assert.True(t, result)
 }
@@ -348,7 +348,7 @@ func TestIsInQuietHoursManualDNDTimedExpired(t *testing.T) {
 		ManualDNDUntil: &past,
 	}
 
-	result, err := svc.isInQuietHours(context.Background(), userID)
+	result, err := svc.isInQuietHours(context.Background(), uuid.New(), userID)
 	require.NoError(t, err)
 	assert.False(t, result)
 }
@@ -368,7 +368,7 @@ func TestIsInQuietHoursDisabled(t *testing.T) {
 		DaysOfWeek: []int{1, 2, 3, 4, 5, 6, 7},
 	}
 
-	result, err := svc.isInQuietHours(context.Background(), userID)
+	result, err := svc.isInQuietHours(context.Background(), uuid.New(), userID)
 	require.NoError(t, err)
 	assert.False(t, result)
 }
@@ -391,7 +391,7 @@ func TestIsInQuietHoursOvernightWindow(t *testing.T) {
 
 	// This test primarily validates that the overnight parsing logic
 	// doesn't error - the actual result depends on current time
-	_, err := svc.isInQuietHours(context.Background(), userID)
+	_, err := svc.isInQuietHours(context.Background(), uuid.New(), userID)
 	require.NoError(t, err)
 }
 
@@ -409,7 +409,7 @@ func TestIsInQuietHoursInvalidTimezone(t *testing.T) {
 		DaysOfWeek: []int{1, 2, 3, 4, 5, 6, 7},
 	}
 
-	_, err := svc.isInQuietHours(context.Background(), userID)
+	_, err := svc.isInQuietHours(context.Background(), uuid.New(), userID)
 	assert.ErrorIs(t, err, ErrInvalidTimezone)
 }
 
@@ -427,7 +427,7 @@ func TestIsInQuietHoursInvalidTimeFormat(t *testing.T) {
 		DaysOfWeek: []int{1, 2, 3, 4, 5, 6, 7},
 	}
 
-	_, err := svc.isInQuietHours(context.Background(), userID)
+	_, err := svc.isInQuietHours(context.Background(), uuid.New(), userID)
 	assert.ErrorIs(t, err, ErrInvalidTimeFormat)
 }
 
@@ -456,8 +456,9 @@ func TestMuteResource(t *testing.T) {
 	repo := newMockPrefRepo()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
 	userID := uuid.New()
-	mute, err := svc.MuteResource(context.Background(), userID, "chat", "channel-abc")
+	mute, err := svc.MuteResource(context.Background(), tenantID, userID, "chat", "channel-abc")
 	require.NoError(t, err)
 	assert.Equal(t, userID, mute.UserID)
 	assert.Equal(t, "chat", mute.ModuleID)
@@ -468,12 +469,13 @@ func TestMuteResourceAlreadyMuted(t *testing.T) {
 	repo := newMockPrefRepo()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
 	userID := uuid.New()
 	repo.mutes = []models.NotificationMute{
 		{UserID: userID, ModuleID: "chat", ResourceID: "channel-abc"},
 	}
 
-	_, err := svc.MuteResource(context.Background(), userID, "chat", "channel-abc")
+	_, err := svc.MuteResource(context.Background(), tenantID, userID, "chat", "channel-abc")
 	assert.ErrorIs(t, err, ErrMuteAlreadyExists)
 }
 
@@ -481,12 +483,13 @@ func TestUnmuteResource(t *testing.T) {
 	repo := newMockPrefRepo()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
 	userID := uuid.New()
 	repo.mutes = []models.NotificationMute{
 		{UserID: userID, ModuleID: "chat", ResourceID: "channel-abc"},
 	}
 
-	err := svc.UnmuteResource(context.Background(), userID, "chat", "channel-abc")
+	err := svc.UnmuteResource(context.Background(), tenantID, userID, "chat", "channel-abc")
 	require.NoError(t, err)
 }
 
@@ -494,7 +497,7 @@ func TestUnmuteResourceNotFound(t *testing.T) {
 	repo := newMockPrefRepo()
 	svc := NewService(repo)
 
-	err := svc.UnmuteResource(context.Background(), uuid.New(), "chat", "nonexistent")
+	err := svc.UnmuteResource(context.Background(), uuid.New(), uuid.New(), "chat", "nonexistent")
 	assert.ErrorIs(t, err, ErrMuteNotFound)
 }
 
@@ -502,13 +505,14 @@ func TestListMutedResources(t *testing.T) {
 	repo := newMockPrefRepo()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
 	userID := uuid.New()
 	repo.mutes = []models.NotificationMute{
 		{UserID: userID, ModuleID: "chat", ResourceID: "channel-1"},
 		{UserID: userID, ModuleID: "chat", ResourceID: "channel-2"},
 	}
 
-	mutes, total, err := svc.ListMutedResources(context.Background(), userID, nil, 1, 10)
+	mutes, total, err := svc.ListMutedResources(context.Background(), tenantID, userID, nil, 1, 10)
 	require.NoError(t, err)
 	assert.Len(t, mutes, 2)
 	assert.Equal(t, 2, total)
@@ -518,8 +522,9 @@ func TestUpdateQuietHours(t *testing.T) {
 	repo := newMockPrefRepo()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
 	userID := uuid.New()
-	qh, err := svc.UpdateQuietHours(context.Background(), userID, "18:00", "08:00", "Europe/Berlin", []int{1, 2, 3, 4, 5}, true)
+	qh, err := svc.UpdateQuietHours(context.Background(), tenantID, userID, "18:00", "08:00", "Europe/Berlin", []int{1, 2, 3, 4, 5}, true)
 	require.NoError(t, err)
 	assert.Equal(t, "18:00", qh.StartTime)
 	assert.Equal(t, "08:00", qh.EndTime)
@@ -531,7 +536,7 @@ func TestUpdateQuietHoursInvalidTimezone(t *testing.T) {
 	repo := newMockPrefRepo()
 	svc := NewService(repo)
 
-	_, err := svc.UpdateQuietHours(context.Background(), uuid.New(), "18:00", "08:00", "Bad/Zone", []int{1}, true)
+	_, err := svc.UpdateQuietHours(context.Background(), uuid.New(), uuid.New(), "18:00", "08:00", "Bad/Zone", []int{1}, true)
 	assert.ErrorIs(t, err, ErrInvalidTimezone)
 }
 
@@ -539,7 +544,7 @@ func TestUpdateQuietHoursInvalidTimeFormat(t *testing.T) {
 	repo := newMockPrefRepo()
 	svc := NewService(repo)
 
-	_, err := svc.UpdateQuietHours(context.Background(), uuid.New(), "bad", "08:00", "UTC", []int{1}, true)
+	_, err := svc.UpdateQuietHours(context.Background(), uuid.New(), uuid.New(), "bad", "08:00", "UTC", []int{1}, true)
 	assert.ErrorIs(t, err, ErrInvalidTimeFormat)
 }
 
@@ -547,10 +552,10 @@ func TestUpdateQuietHoursInvalidDayOfWeek(t *testing.T) {
 	repo := newMockPrefRepo()
 	svc := NewService(repo)
 
-	_, err := svc.UpdateQuietHours(context.Background(), uuid.New(), "18:00", "08:00", "UTC", []int{0}, true)
+	_, err := svc.UpdateQuietHours(context.Background(), uuid.New(), uuid.New(), "18:00", "08:00", "UTC", []int{0}, true)
 	assert.ErrorIs(t, err, ErrInvalidDayOfWeek)
 
-	_, err = svc.UpdateQuietHours(context.Background(), uuid.New(), "18:00", "08:00", "UTC", []int{8}, true)
+	_, err = svc.UpdateQuietHours(context.Background(), uuid.New(), uuid.New(), "18:00", "08:00", "UTC", []int{8}, true)
 	assert.ErrorIs(t, err, ErrInvalidDayOfWeek)
 }
 
@@ -558,17 +563,18 @@ func TestToggleManualDND(t *testing.T) {
 	repo := newMockPrefRepo()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
 	userID := uuid.New()
 
 	// Enable DND
-	qh, err := svc.ToggleManualDND(context.Background(), userID, true, nil)
+	qh, err := svc.ToggleManualDND(context.Background(), tenantID, userID, true, nil)
 	require.NoError(t, err)
 	assert.True(t, qh.ManualDND)
 	assert.Nil(t, qh.ManualDNDUntil)
 
 	// Disable DND
 	repo.quietHours = qh
-	qh, err = svc.ToggleManualDND(context.Background(), userID, false, nil)
+	qh, err = svc.ToggleManualDND(context.Background(), tenantID, userID, false, nil)
 	require.NoError(t, err)
 	assert.False(t, qh.ManualDND)
 }
@@ -577,10 +583,11 @@ func TestToggleManualDNDWithExpiry(t *testing.T) {
 	repo := newMockPrefRepo()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
 	userID := uuid.New()
 	until := time.Now().Add(2 * time.Hour)
 
-	qh, err := svc.ToggleManualDND(context.Background(), userID, true, &until)
+	qh, err := svc.ToggleManualDND(context.Background(), tenantID, userID, true, &until)
 	require.NoError(t, err)
 	assert.True(t, qh.ManualDND)
 	assert.NotNil(t, qh.ManualDNDUntil)
@@ -590,7 +597,7 @@ func TestGetQuietHoursNotFound(t *testing.T) {
 	repo := newMockPrefRepo()
 	svc := NewService(repo)
 
-	_, err := svc.GetQuietHours(context.Background(), uuid.New())
+	_, err := svc.GetQuietHours(context.Background(), uuid.New(), uuid.New())
 	assert.ErrorIs(t, err, ErrQuietHoursNotFound)
 }
 
@@ -608,7 +615,7 @@ func newMockPrefRepo() *mockPrefRepo {
 	return &mockPrefRepo{}
 }
 
-func (m *mockPrefRepo) GetEventTypePreference(_ context.Context, userID uuid.UUID, eventTypeKey string) (*models.NotificationPreference, error) {
+func (m *mockPrefRepo) GetEventTypePreference(_ context.Context, _ uuid.UUID, userID uuid.UUID, eventTypeKey string) (*models.NotificationPreference, error) {
 	for _, p := range m.prefs {
 		if p.UserID == userID && p.EventTypeKey != nil && *p.EventTypeKey == eventTypeKey {
 			return &p, nil
@@ -617,7 +624,7 @@ func (m *mockPrefRepo) GetEventTypePreference(_ context.Context, userID uuid.UUI
 	return nil, ErrPreferenceNotFound
 }
 
-func (m *mockPrefRepo) GetModuleDefault(_ context.Context, userID uuid.UUID, moduleID string) (*models.NotificationPreference, error) {
+func (m *mockPrefRepo) GetModuleDefault(_ context.Context, _ uuid.UUID, userID uuid.UUID, moduleID string) (*models.NotificationPreference, error) {
 	for _, p := range m.prefs {
 		if p.UserID == userID && p.EventTypeKey == nil && p.ModuleID != nil && *p.ModuleID == moduleID {
 			return &p, nil
@@ -626,7 +633,7 @@ func (m *mockPrefRepo) GetModuleDefault(_ context.Context, userID uuid.UUID, mod
 	return nil, ErrPreferenceNotFound
 }
 
-func (m *mockPrefRepo) ListPreferences(_ context.Context, userID uuid.UUID, moduleID *string) ([]*models.NotificationPreference, error) {
+func (m *mockPrefRepo) ListPreferences(_ context.Context, _ uuid.UUID, userID uuid.UUID, moduleID *string) ([]*models.NotificationPreference, error) {
 	var result []*models.NotificationPreference
 	for i := range m.prefs {
 		if m.prefs[i].UserID == userID {
@@ -644,7 +651,7 @@ func (m *mockPrefRepo) UpsertPreference(_ context.Context, pref *models.Notifica
 	return nil
 }
 
-func (m *mockPrefRepo) IsResourceMuted(_ context.Context, userID uuid.UUID, moduleID, resourceID string) (bool, error) {
+func (m *mockPrefRepo) IsResourceMuted(_ context.Context, _ uuid.UUID, userID uuid.UUID, moduleID, resourceID string) (bool, error) {
 	for _, mute := range m.mutes {
 		if mute.UserID == userID && mute.ModuleID == moduleID && mute.ResourceID == resourceID {
 			return true, nil
@@ -658,7 +665,7 @@ func (m *mockPrefRepo) CreateMute(_ context.Context, mute *models.NotificationMu
 	return nil
 }
 
-func (m *mockPrefRepo) DeleteMute(_ context.Context, userID uuid.UUID, moduleID, resourceID string) error {
+func (m *mockPrefRepo) DeleteMute(_ context.Context, _ uuid.UUID, userID uuid.UUID, moduleID, resourceID string) error {
 	for i, mute := range m.mutes {
 		if mute.UserID == userID && mute.ModuleID == moduleID && mute.ResourceID == resourceID {
 			m.mutes = append(m.mutes[:i], m.mutes[i+1:]...)
@@ -668,7 +675,7 @@ func (m *mockPrefRepo) DeleteMute(_ context.Context, userID uuid.UUID, moduleID,
 	return ErrMuteNotFound
 }
 
-func (m *mockPrefRepo) ListMutes(_ context.Context, userID uuid.UUID, moduleID *string, offset, limit int) ([]*models.NotificationMute, int, error) {
+func (m *mockPrefRepo) ListMutes(_ context.Context, _ uuid.UUID, userID uuid.UUID, moduleID *string, offset, limit int) ([]*models.NotificationMute, int, error) {
 	var filtered []*models.NotificationMute
 	for i := range m.mutes {
 		if m.mutes[i].UserID == userID {
@@ -689,7 +696,7 @@ func (m *mockPrefRepo) ListMutes(_ context.Context, userID uuid.UUID, moduleID *
 	return filtered[offset:end], total, nil
 }
 
-func (m *mockPrefRepo) GetQuietHours(_ context.Context, userID uuid.UUID) (*models.QuietHours, error) {
+func (m *mockPrefRepo) GetQuietHours(_ context.Context, _ uuid.UUID, userID uuid.UUID) (*models.QuietHours, error) {
 	if m.quietHours != nil && m.quietHours.UserID == userID {
 		return m.quietHours, nil
 	}

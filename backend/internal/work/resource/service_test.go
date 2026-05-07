@@ -12,6 +12,8 @@ import (
 
 // --- Mock Repository ---
 
+var testTenantID = uuid.New()
+
 type mockRepo struct {
 	resources      map[uuid.UUID]*models.Resource
 	resourceTags   map[uuid.UUID][]string
@@ -33,9 +35,13 @@ func (m *mockRepo) Create(_ context.Context, resource *models.Resource) error {
 	return nil
 }
 
-func (m *mockRepo) GetByID(_ context.Context, id uuid.UUID) (*models.Resource, error) {
+func (m *mockRepo) GetByID(_ context.Context, id, tenantID uuid.UUID) (*models.Resource, error) {
 	r, ok := m.resources[id]
 	if !ok {
+		return nil, ErrResourceNotFound
+	}
+	// Tenant isolation: deny cross-tenant access
+	if r.TenantID != uuid.Nil && r.TenantID != tenantID {
 		return nil, ErrResourceNotFound
 	}
 	r.Tags = m.resourceTags[id]
@@ -45,6 +51,10 @@ func (m *mockRepo) GetByID(_ context.Context, id uuid.UUID) (*models.Resource, e
 func (m *mockRepo) List(_ context.Context, filters ResourceFilters) ([]models.Resource, error) {
 	var result []models.Resource
 	for _, r := range m.resources {
+		// Filter by tenant when set
+		if filters.TenantID != uuid.Nil && r.TenantID != filters.TenantID {
+			continue
+		}
 		if filters.IsActive != nil && r.IsActive != *filters.IsActive {
 			continue
 		}
@@ -88,9 +98,12 @@ func (m *mockRepo) Update(_ context.Context, resource *models.Resource) error {
 	return nil
 }
 
-func (m *mockRepo) Delete(_ context.Context, id uuid.UUID) error {
+func (m *mockRepo) Delete(_ context.Context, id, tenantID uuid.UUID) error {
 	r, ok := m.resources[id]
 	if !ok {
+		return ErrResourceNotFound
+	}
+	if r.TenantID != uuid.Nil && r.TenantID != tenantID {
 		return ErrResourceNotFound
 	}
 	r.IsActive = false
@@ -111,9 +124,12 @@ func (m *mockRepo) CreateBooking(_ context.Context, booking *models.ResourceBook
 	return nil
 }
 
-func (m *mockRepo) CancelBooking(_ context.Context, bookingID uuid.UUID) error {
+func (m *mockRepo) CancelBooking(_ context.Context, bookingID, tenantID uuid.UUID) error {
 	b, ok := m.bookings[bookingID]
 	if !ok {
+		return ErrBookingNotFound
+	}
+	if b.TenantID != uuid.Nil && b.TenantID != tenantID {
 		return ErrBookingNotFound
 	}
 	now := time.Now()
@@ -142,9 +158,12 @@ func (m *mockRepo) ListBookingsByEvent(_ context.Context, eventID uuid.UUID) ([]
 	return result, nil
 }
 
-func (m *mockRepo) GetBooking(_ context.Context, bookingID uuid.UUID) (*models.ResourceBooking, error) {
+func (m *mockRepo) GetBooking(_ context.Context, bookingID, tenantID uuid.UUID) (*models.ResourceBooking, error) {
 	b, ok := m.bookings[bookingID]
 	if !ok {
+		return nil, ErrBookingNotFound
+	}
+	if b.TenantID != uuid.Nil && b.TenantID != tenantID {
 		return nil, ErrBookingNotFound
 	}
 	return b, nil
@@ -154,6 +173,9 @@ func (m *mockRepo) FindAvailableResources(_ context.Context, start, end time.Tim
 	var result []models.Resource
 	for _, r := range m.resources {
 		if !r.IsActive {
+			continue
+		}
+		if filters.TenantID != uuid.Nil && r.TenantID != filters.TenantID {
 			continue
 		}
 		if filters.Type != nil && r.ResourceType != *filters.Type {
@@ -176,7 +198,7 @@ func (m *mockRepo) FindAvailableResources(_ context.Context, start, end time.Tim
 	return result, nil
 }
 
-func (m *mockRepo) FindAlternatives(_ context.Context, _ uuid.UUID, _, _ time.Time, _ string) ([]AlternativeResource, error) {
+func (m *mockRepo) FindAlternatives(_ context.Context, _ uuid.UUID, _, _ time.Time, _ string, _ uuid.UUID) ([]AlternativeResource, error) {
 	return m.alternatives, nil
 }
 
@@ -194,6 +216,7 @@ func setupService() (*Service, *mockRepo) {
 func createRoom(t *testing.T, svc *Service) *models.Resource {
 	t.Helper()
 	res, err := svc.Create(context.Background(), CreateInput{
+		TenantID:     testTenantID,
 		Name:         "Konferenzraum A",
 		ResourceType: models.ResourceTypeRoom,
 		Capacity:     ptrInt(10),
@@ -216,6 +239,7 @@ func TestCreate_Room(t *testing.T) {
 	svc, repo := setupService()
 
 	res, err := svc.Create(context.Background(), CreateInput{
+		TenantID:     testTenantID,
 		Name:         "Konferenzraum A",
 		ResourceType: models.ResourceTypeRoom,
 		Capacity:     ptrInt(10),
@@ -252,6 +276,7 @@ func TestCreate_Equipment(t *testing.T) {
 	svc, _ := setupService()
 
 	res, err := svc.Create(context.Background(), CreateInput{
+		TenantID:     testTenantID,
 		Name:         "Beamer XR200",
 		ResourceType: models.ResourceTypeEquipment,
 		CreatedBy:    uuid.New(),
@@ -269,6 +294,7 @@ func TestCreate_Vehicle(t *testing.T) {
 	svc, _ := setupService()
 
 	res, err := svc.Create(context.Background(), CreateInput{
+		TenantID:     testTenantID,
 		Name:         "VW Transporter",
 		ResourceType: models.ResourceTypeVehicle,
 		CreatedBy:    uuid.New(),
@@ -286,6 +312,7 @@ func TestCreate_EmptyName(t *testing.T) {
 	svc, _ := setupService()
 
 	_, err := svc.Create(context.Background(), CreateInput{
+		TenantID:     testTenantID,
 		Name:         "",
 		ResourceType: models.ResourceTypeRoom,
 		CreatedBy:    uuid.New(),
@@ -300,6 +327,7 @@ func TestCreate_WhitespaceName(t *testing.T) {
 	svc, _ := setupService()
 
 	_, err := svc.Create(context.Background(), CreateInput{
+		TenantID:     testTenantID,
 		Name:         "   ",
 		ResourceType: models.ResourceTypeRoom,
 		CreatedBy:    uuid.New(),
@@ -314,6 +342,7 @@ func TestCreate_InvalidType(t *testing.T) {
 	svc, _ := setupService()
 
 	_, err := svc.Create(context.Background(), CreateInput{
+		TenantID:     testTenantID,
 		Name:         "Test",
 		ResourceType: "spaceship",
 		CreatedBy:    uuid.New(),
@@ -328,6 +357,7 @@ func TestCreate_NotAdmin(t *testing.T) {
 	svc, _ := setupService()
 
 	_, err := svc.Create(context.Background(), CreateInput{
+		TenantID:     testTenantID,
 		Name:         "Room B",
 		ResourceType: models.ResourceTypeRoom,
 		CreatedBy:    uuid.New(),
@@ -342,7 +372,7 @@ func TestGet(t *testing.T) {
 	svc, _ := setupService()
 	created := createRoom(t, svc)
 
-	got, err := svc.Get(context.Background(), created.ID)
+	got, err := svc.Get(context.Background(), created.ID, testTenantID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -354,7 +384,7 @@ func TestGet(t *testing.T) {
 func TestGet_NotFound(t *testing.T) {
 	svc, _ := setupService()
 
-	_, err := svc.Get(context.Background(), uuid.New())
+	_, err := svc.Get(context.Background(), uuid.New(), testTenantID)
 	if err != ErrResourceNotFound {
 		t.Errorf("err = %v, want ErrResourceNotFound", err)
 	}
@@ -366,6 +396,7 @@ func TestList_DefaultActiveOnly(t *testing.T) {
 	// Create two resources, deactivate one
 	r1 := createRoom(t, svc)
 	r2, _ := svc.Create(context.Background(), CreateInput{
+		TenantID:     testTenantID,
 		Name:         "Raum B",
 		ResourceType: models.ResourceTypeRoom,
 		CreatedBy:    uuid.New(),
@@ -373,7 +404,7 @@ func TestList_DefaultActiveOnly(t *testing.T) {
 	})
 	repo.resources[r2.ID].IsActive = false
 
-	list, err := svc.List(context.Background(), ResourceFilters{})
+	list, err := svc.List(context.Background(), ResourceFilters{TenantID: testTenantID})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -390,6 +421,7 @@ func TestList_FilterByType(t *testing.T) {
 	createRoom(t, svc)
 
 	_, _ = svc.Create(context.Background(), CreateInput{
+		TenantID:     testTenantID,
 		Name:         "Beamer",
 		ResourceType: models.ResourceTypeEquipment,
 		CreatedBy:    uuid.New(),
@@ -397,7 +429,7 @@ func TestList_FilterByType(t *testing.T) {
 	})
 
 	roomType := models.ResourceTypeRoom
-	list, err := svc.List(context.Background(), ResourceFilters{Type: &roomType})
+	list, err := svc.List(context.Background(), ResourceFilters{TenantID: testTenantID, Type: &roomType})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -411,6 +443,7 @@ func TestList_FilterByCapacity(t *testing.T) {
 	createRoom(t, svc) // capacity = 10
 
 	_, _ = svc.Create(context.Background(), CreateInput{
+		TenantID:     testTenantID,
 		Name:         "Kleine Kammer",
 		ResourceType: models.ResourceTypeRoom,
 		Capacity:     ptrInt(3),
@@ -419,7 +452,7 @@ func TestList_FilterByCapacity(t *testing.T) {
 	})
 
 	minCap := 5
-	list, err := svc.List(context.Background(), ResourceFilters{MinCapacity: &minCap})
+	list, err := svc.List(context.Background(), ResourceFilters{TenantID: testTenantID, MinCapacity: &minCap})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -433,6 +466,7 @@ func TestList_FilterByFloor(t *testing.T) {
 	createRoom(t, svc) // floor = "2. OG"
 
 	_, _ = svc.Create(context.Background(), CreateInput{
+		TenantID:     testTenantID,
 		Name:         "Erdgeschoss Raum",
 		ResourceType: models.ResourceTypeRoom,
 		Floor:        ptrStr("EG"),
@@ -441,7 +475,7 @@ func TestList_FilterByFloor(t *testing.T) {
 	})
 
 	floor := "2. OG"
-	list, err := svc.List(context.Background(), ResourceFilters{Floor: &floor})
+	list, err := svc.List(context.Background(), ResourceFilters{TenantID: testTenantID, Floor: &floor})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -455,13 +489,14 @@ func TestList_FilterByTags(t *testing.T) {
 	createRoom(t, svc) // tags: beamer, whiteboard
 
 	_, _ = svc.Create(context.Background(), CreateInput{
+		TenantID:     testTenantID,
 		Name:         "Raum ohne Ausstattung",
 		ResourceType: models.ResourceTypeRoom,
 		CreatedBy:    uuid.New(),
 		IsAdmin:      true,
 	})
 
-	list, err := svc.List(context.Background(), ResourceFilters{Tags: []string{"beamer"}})
+	list, err := svc.List(context.Background(), ResourceFilters{TenantID: testTenantID, Tags: []string{"beamer"}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -475,7 +510,7 @@ func TestUpdate_Capacity(t *testing.T) {
 	created := createRoom(t, svc)
 
 	newCap := 20
-	updated, err := svc.Update(context.Background(), created.ID, true, UpdateInput{
+	updated, err := svc.Update(context.Background(), created.ID, testTenantID, true, UpdateInput{
 		Capacity: &newCap,
 	})
 	if err != nil {
@@ -491,7 +526,7 @@ func TestUpdate_Name(t *testing.T) {
 	created := createRoom(t, svc)
 
 	newName := "Konferenzraum B"
-	updated, err := svc.Update(context.Background(), created.ID, true, UpdateInput{
+	updated, err := svc.Update(context.Background(), created.ID, testTenantID, true, UpdateInput{
 		Name: &newName,
 	})
 	if err != nil {
@@ -507,7 +542,7 @@ func TestUpdate_EmptyName(t *testing.T) {
 	created := createRoom(t, svc)
 
 	emptyName := "  "
-	_, err := svc.Update(context.Background(), created.ID, true, UpdateInput{
+	_, err := svc.Update(context.Background(), created.ID, testTenantID, true, UpdateInput{
 		Name: &emptyName,
 	})
 	if err != ErrResourceNameRequired {
@@ -520,7 +555,7 @@ func TestUpdate_InvalidType(t *testing.T) {
 	created := createRoom(t, svc)
 
 	badType := "spaceship"
-	_, err := svc.Update(context.Background(), created.ID, true, UpdateInput{
+	_, err := svc.Update(context.Background(), created.ID, testTenantID, true, UpdateInput{
 		ResourceType: &badType,
 	})
 	if err != ErrInvalidResourceType {
@@ -533,7 +568,7 @@ func TestUpdate_NotAdmin(t *testing.T) {
 	created := createRoom(t, svc)
 
 	newName := "Neue Name"
-	_, err := svc.Update(context.Background(), created.ID, false, UpdateInput{
+	_, err := svc.Update(context.Background(), created.ID, testTenantID, false, UpdateInput{
 		Name: &newName,
 	})
 	if err != ErrNotAuthorized {
@@ -545,7 +580,7 @@ func TestUpdate_NotFound(t *testing.T) {
 	svc, _ := setupService()
 
 	newName := "Test"
-	_, err := svc.Update(context.Background(), uuid.New(), true, UpdateInput{
+	_, err := svc.Update(context.Background(), uuid.New(), testTenantID, true, UpdateInput{
 		Name: &newName,
 	})
 	if err != ErrResourceNotFound {
@@ -557,7 +592,7 @@ func TestDelete_SoftDelete(t *testing.T) {
 	svc, repo := setupService()
 	created := createRoom(t, svc)
 
-	err := svc.Delete(context.Background(), created.ID, true)
+	err := svc.Delete(context.Background(), created.ID, testTenantID, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -573,7 +608,7 @@ func TestDelete_NotAdmin(t *testing.T) {
 	svc, _ := setupService()
 	created := createRoom(t, svc)
 
-	err := svc.Delete(context.Background(), created.ID, false)
+	err := svc.Delete(context.Background(), created.ID, testTenantID, false)
 	if err != ErrNotAuthorized {
 		t.Errorf("err = %v, want ErrNotAuthorized", err)
 	}
@@ -582,7 +617,7 @@ func TestDelete_NotAdmin(t *testing.T) {
 func TestDelete_NotFound(t *testing.T) {
 	svc, _ := setupService()
 
-	err := svc.Delete(context.Background(), uuid.New(), true)
+	err := svc.Delete(context.Background(), uuid.New(), testTenantID, true)
 	if err != ErrResourceNotFound {
 		t.Errorf("err = %v, want ErrResourceNotFound", err)
 	}
@@ -593,7 +628,7 @@ func TestSetTags(t *testing.T) {
 	created := createRoom(t, svc)
 
 	// Replace tags
-	err := svc.SetTags(context.Background(), created.ID, true, []string{"tv", "telefon"})
+	err := svc.SetTags(context.Background(), created.ID, testTenantID, true, []string{"tv", "telefon"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -606,7 +641,7 @@ func TestSetTags_NotAdmin(t *testing.T) {
 	svc, _ := setupService()
 	created := createRoom(t, svc)
 
-	err := svc.SetTags(context.Background(), created.ID, false, []string{"new"})
+	err := svc.SetTags(context.Background(), created.ID, testTenantID, false, []string{"new"})
 	if err != ErrNotAuthorized {
 		t.Errorf("err = %v, want ErrNotAuthorized", err)
 	}
@@ -615,7 +650,7 @@ func TestSetTags_NotAdmin(t *testing.T) {
 func TestSetTags_ResourceNotFound(t *testing.T) {
 	svc, _ := setupService()
 
-	err := svc.SetTags(context.Background(), uuid.New(), true, []string{"new"})
+	err := svc.SetTags(context.Background(), uuid.New(), testTenantID, true, []string{"new"})
 	if err != ErrResourceNotFound {
 		t.Errorf("err = %v, want ErrResourceNotFound", err)
 	}
@@ -630,7 +665,7 @@ func TestBook_Success(t *testing.T) {
 	start := time.Now().Add(time.Hour)
 	end := start.Add(2 * time.Hour)
 
-	booking, err := svc.Book(context.Background(), actorID, created.ID, eventID, start, end)
+	booking, err := svc.Book(context.Background(), actorID, created.ID, eventID, testTenantID, start, end)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -659,7 +694,7 @@ func TestBook_InvalidTimeRange(t *testing.T) {
 	start := time.Now().Add(2 * time.Hour)
 	end := time.Now().Add(time.Hour) // end before start
 
-	_, err := svc.Book(context.Background(), uuid.New(), created.ID, uuid.New(), start, end)
+	_, err := svc.Book(context.Background(), uuid.New(), created.ID, uuid.New(), testTenantID, start, end)
 	if err != ErrInvalidBookingTimeRange {
 		t.Errorf("err = %v, want ErrInvalidBookingTimeRange", err)
 	}
@@ -670,7 +705,7 @@ func TestBook_EqualStartEnd(t *testing.T) {
 	created := createRoom(t, svc)
 
 	now := time.Now().Add(time.Hour)
-	_, err := svc.Book(context.Background(), uuid.New(), created.ID, uuid.New(), now, now)
+	_, err := svc.Book(context.Background(), uuid.New(), created.ID, uuid.New(), testTenantID, now, now)
 	if err != ErrInvalidBookingTimeRange {
 		t.Errorf("err = %v, want ErrInvalidBookingTimeRange", err)
 	}
@@ -681,7 +716,7 @@ func TestBook_ResourceNotFound(t *testing.T) {
 
 	start := time.Now().Add(time.Hour)
 	end := start.Add(time.Hour)
-	_, err := svc.Book(context.Background(), uuid.New(), uuid.New(), uuid.New(), start, end)
+	_, err := svc.Book(context.Background(), uuid.New(), uuid.New(), uuid.New(), testTenantID, start, end)
 	if err != ErrResourceNotFound {
 		t.Errorf("err = %v, want ErrResourceNotFound", err)
 	}
@@ -694,7 +729,7 @@ func TestBook_InactiveResource(t *testing.T) {
 
 	start := time.Now().Add(time.Hour)
 	end := start.Add(time.Hour)
-	_, err := svc.Book(context.Background(), uuid.New(), created.ID, uuid.New(), start, end)
+	_, err := svc.Book(context.Background(), uuid.New(), created.ID, uuid.New(), testTenantID, start, end)
 	if err != ErrResourceInactive {
 		t.Errorf("err = %v, want ErrResourceInactive", err)
 	}
@@ -715,14 +750,14 @@ func TestBook_DoubleBooking_ConflictError(t *testing.T) {
 	// First booking succeeds
 	start := time.Now().Add(time.Hour)
 	end := start.Add(2 * time.Hour)
-	_, err := svc.Book(context.Background(), uuid.New(), created.ID, uuid.New(), start, end)
+	_, err := svc.Book(context.Background(), uuid.New(), created.ID, uuid.New(), testTenantID, start, end)
 	if err != nil {
 		t.Fatalf("first booking failed: %v", err)
 	}
 
 	// Second booking conflicts (simulate EXCLUDE constraint)
 	repo.conflictOnNext = true
-	_, err = svc.Book(context.Background(), uuid.New(), created.ID, uuid.New(), start, end)
+	_, err = svc.Book(context.Background(), uuid.New(), created.ID, uuid.New(), testTenantID, start, end)
 	if err == nil {
 		t.Fatal("expected error for double booking")
 	}
@@ -748,10 +783,10 @@ func TestBook_DoubleBooking_ErrorMessage(t *testing.T) {
 
 	start := time.Now().Add(time.Hour)
 	end := start.Add(2 * time.Hour)
-	_, _ = svc.Book(context.Background(), uuid.New(), created.ID, uuid.New(), start, end)
+	_, _ = svc.Book(context.Background(), uuid.New(), created.ID, uuid.New(), testTenantID, start, end)
 
 	repo.conflictOnNext = true
-	_, err := svc.Book(context.Background(), uuid.New(), created.ID, uuid.New(), start, end)
+	_, err := svc.Book(context.Background(), uuid.New(), created.ID, uuid.New(), testTenantID, start, end)
 
 	conflictErr, ok := err.(*BookingConflictError)
 	if !ok {
@@ -771,9 +806,9 @@ func TestCancelBooking_Success(t *testing.T) {
 	start := time.Now().Add(time.Hour)
 	end := start.Add(2 * time.Hour)
 
-	booking, _ := svc.Book(context.Background(), actorID, created.ID, uuid.New(), start, end)
+	booking, _ := svc.Book(context.Background(), actorID, created.ID, uuid.New(), testTenantID, start, end)
 
-	err := svc.CancelBooking(context.Background(), booking.ID, actorID)
+	err := svc.CancelBooking(context.Background(), booking.ID, actorID, testTenantID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -793,10 +828,10 @@ func TestCancelBooking_NotOwner(t *testing.T) {
 	start := time.Now().Add(time.Hour)
 	end := start.Add(2 * time.Hour)
 
-	booking, _ := svc.Book(context.Background(), actorID, created.ID, uuid.New(), start, end)
+	booking, _ := svc.Book(context.Background(), actorID, created.ID, uuid.New(), testTenantID, start, end)
 
 	otherUser := uuid.New()
-	err := svc.CancelBooking(context.Background(), booking.ID, otherUser)
+	err := svc.CancelBooking(context.Background(), booking.ID, otherUser, testTenantID)
 	if err != ErrNotBookingOwner {
 		t.Errorf("err = %v, want ErrNotBookingOwner", err)
 	}
@@ -810,10 +845,10 @@ func TestCancelBooking_AlreadyCancelled(t *testing.T) {
 	start := time.Now().Add(time.Hour)
 	end := start.Add(2 * time.Hour)
 
-	booking, _ := svc.Book(context.Background(), actorID, created.ID, uuid.New(), start, end)
-	_ = svc.CancelBooking(context.Background(), booking.ID, actorID)
+	booking, _ := svc.Book(context.Background(), actorID, created.ID, uuid.New(), testTenantID, start, end)
+	_ = svc.CancelBooking(context.Background(), booking.ID, actorID, testTenantID)
 
-	err := svc.CancelBooking(context.Background(), booking.ID, actorID)
+	err := svc.CancelBooking(context.Background(), booking.ID, actorID, testTenantID)
 	if err != ErrBookingAlreadyCancelled {
 		t.Errorf("err = %v, want ErrBookingAlreadyCancelled", err)
 	}
@@ -822,7 +857,7 @@ func TestCancelBooking_AlreadyCancelled(t *testing.T) {
 func TestCancelBooking_NotFound(t *testing.T) {
 	svc, _ := setupService()
 
-	err := svc.CancelBooking(context.Background(), uuid.New(), uuid.New())
+	err := svc.CancelBooking(context.Background(), uuid.New(), uuid.New(), testTenantID)
 	if err != ErrBookingNotFound {
 		t.Errorf("err = %v, want ErrBookingNotFound", err)
 	}
@@ -836,11 +871,11 @@ func TestCancelBooking_ThenRebook(t *testing.T) {
 	start := time.Now().Add(time.Hour)
 	end := start.Add(2 * time.Hour)
 
-	booking, _ := svc.Book(context.Background(), actorID, created.ID, uuid.New(), start, end)
-	_ = svc.CancelBooking(context.Background(), booking.ID, actorID)
+	booking, _ := svc.Book(context.Background(), actorID, created.ID, uuid.New(), testTenantID, start, end)
+	_ = svc.CancelBooking(context.Background(), booking.ID, actorID, testTenantID)
 
 	// Re-book same slot should succeed (no conflict since cancelled)
-	newBooking, err := svc.Book(context.Background(), actorID, created.ID, uuid.New(), start, end)
+	newBooking, err := svc.Book(context.Background(), actorID, created.ID, uuid.New(), testTenantID, start, end)
 	if err != nil {
 		t.Fatalf("re-booking after cancel failed: %v", err)
 	}
@@ -857,9 +892,9 @@ func TestListAvailability(t *testing.T) {
 	baseDate := time.Date(2026, 6, 15, 12, 0, 0, 0, time.UTC)
 	start := baseDate
 	end := baseDate.Add(2 * time.Hour)
-	_, _ = svc.Book(context.Background(), uuid.New(), created.ID, uuid.New(), start, end)
+	_, _ = svc.Book(context.Background(), uuid.New(), created.ID, uuid.New(), testTenantID, start, end)
 
-	bookings, err := svc.ListAvailability(context.Background(), created.ID, baseDate)
+	bookings, err := svc.ListAvailability(context.Background(), created.ID, testTenantID, baseDate)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -871,7 +906,7 @@ func TestListAvailability(t *testing.T) {
 func TestListAvailability_ResourceNotFound(t *testing.T) {
 	svc, _ := setupService()
 
-	_, err := svc.ListAvailability(context.Background(), uuid.New(), time.Now())
+	_, err := svc.ListAvailability(context.Background(), uuid.New(), testTenantID, time.Now())
 	if err != ErrResourceNotFound {
 		t.Errorf("err = %v, want ErrResourceNotFound", err)
 	}
@@ -884,7 +919,7 @@ func TestFindAvailable(t *testing.T) {
 	start := time.Now().Add(time.Hour)
 	end := start.Add(2 * time.Hour)
 
-	available, err := svc.FindAvailable(context.Background(), start, end, ResourceFilters{})
+	available, err := svc.FindAvailable(context.Background(), testTenantID, start, end, ResourceFilters{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -899,8 +934,61 @@ func TestFindAvailable_InvalidTimeRange(t *testing.T) {
 	end := time.Now()
 	start := end.Add(time.Hour)
 
-	_, err := svc.FindAvailable(context.Background(), start, end, ResourceFilters{})
+	_, err := svc.FindAvailable(context.Background(), testTenantID, start, end, ResourceFilters{})
 	if err != ErrInvalidBookingTimeRange {
 		t.Errorf("err = %v, want ErrInvalidBookingTimeRange", err)
+	}
+}
+
+// TestResourceRepo_TenantIsolation verifies that resources created for TenantA
+// are not visible when querying as TenantB.
+func TestResourceRepo_TenantIsolation(t *testing.T) {
+	svc, _ := setupService()
+	ctx := context.Background()
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	// Create resource as TenantA
+	resA, err := svc.Create(ctx, CreateInput{
+		TenantID:     tenantA,
+		Name:         "TenantA Konferenzraum",
+		ResourceType: models.ResourceTypeRoom,
+		Capacity:     ptrInt(10),
+		CreatedBy:    uuid.New(),
+		IsAdmin:      true,
+	})
+	if err != nil {
+		t.Fatalf("create resource: %v", err)
+	}
+
+	// Get as TenantB → should not find it
+	_, err = svc.Get(ctx, resA.ID, tenantB)
+	if err != ErrResourceNotFound {
+		t.Errorf("Get as TenantB: err = %v, want ErrResourceNotFound", err)
+	}
+
+	// Get as TenantA → should find it
+	found, err := svc.Get(ctx, resA.ID, tenantA)
+	if err != nil {
+		t.Fatalf("Get as TenantA: unexpected error: %v", err)
+	}
+	if found.ID != resA.ID {
+		t.Errorf("found.ID = %v, want %v", found.ID, resA.ID)
+	}
+
+	// Delete as TenantB → should not delete
+	err = svc.Delete(ctx, resA.ID, tenantB, true)
+	if err != ErrResourceNotFound {
+		t.Errorf("Delete as TenantB: err = %v, want ErrResourceNotFound", err)
+	}
+
+	// Resource should still be active (TenantB delete was blocked)
+	still, err := svc.Get(ctx, resA.ID, tenantA)
+	if err != nil {
+		t.Fatalf("Get after failed cross-tenant delete: %v", err)
+	}
+	if !still.IsActive {
+		t.Error("resource should still be active after blocked cross-tenant delete")
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/notification/event"
 	"github.com/kmuhub/kmuhub/internal/notification/integration"
@@ -63,6 +64,11 @@ func WithIntegration(repo integration.Repository, linkService *integration.Accou
 // ============================================================================
 
 func (s *NotificationGRPCServer) ListNotifications(ctx context.Context, req *notificationv1.ListNotificationsRequest) (*notificationv1.ListNotificationsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
@@ -78,7 +84,7 @@ func (s *NotificationGRPCServer) ListNotifications(ctx context.Context, req *not
 		isRead = req.IsRead
 	}
 
-	notifications, total, err := s.notifService.ListNotifications(ctx, userID, moduleID, isRead, int(req.Page), int(req.PageSize))
+	notifications, total, err := s.notifService.ListNotifications(ctx, tenantID, userID, moduleID, isRead, int(req.Page), int(req.PageSize))
 	if err != nil {
 		return nil, mapNotificationError(err)
 	}
@@ -95,12 +101,17 @@ func (s *NotificationGRPCServer) ListNotifications(ctx context.Context, req *not
 }
 
 func (s *NotificationGRPCServer) GetUnreadCount(ctx context.Context, req *notificationv1.GetUnreadCountRequest) (*notificationv1.GetUnreadCountResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	count, err := s.notifService.GetUnreadCount(ctx, userID)
+	count, err := s.notifService.GetUnreadCount(ctx, tenantID, userID)
 	if err != nil {
 		return nil, mapNotificationError(err)
 	}
@@ -111,6 +122,11 @@ func (s *NotificationGRPCServer) GetUnreadCount(ctx context.Context, req *notifi
 }
 
 func (s *NotificationGRPCServer) MarkNotificationRead(ctx context.Context, req *notificationv1.MarkNotificationReadRequest) (*notificationv1.MarkNotificationReadResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	notifID, err := uuid.Parse(req.NotificationId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid notification_id")
@@ -121,7 +137,7 @@ func (s *NotificationGRPCServer) MarkNotificationRead(ctx context.Context, req *
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	notif, err := s.notifService.MarkRead(ctx, notifID, userID)
+	notif, err := s.notifService.MarkRead(ctx, tenantID, notifID, userID)
 	if err != nil {
 		return nil, mapNotificationError(err)
 	}
@@ -132,12 +148,17 @@ func (s *NotificationGRPCServer) MarkNotificationRead(ctx context.Context, req *
 }
 
 func (s *NotificationGRPCServer) MarkAllNotificationsRead(ctx context.Context, req *notificationv1.MarkAllNotificationsReadRequest) (*notificationv1.MarkAllNotificationsReadResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	count, err := s.notifService.MarkAllRead(ctx, userID, req.ModuleId)
+	count, err := s.notifService.MarkAllRead(ctx, tenantID, userID, req.ModuleId)
 	if err != nil {
 		return nil, mapNotificationError(err)
 	}
@@ -152,12 +173,17 @@ func (s *NotificationGRPCServer) MarkAllNotificationsRead(ctx context.Context, r
 // ============================================================================
 
 func (s *NotificationGRPCServer) GetNotificationPreferences(ctx context.Context, req *notificationv1.GetNotificationPreferencesRequest) (*notificationv1.GetNotificationPreferencesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	prefs, err := s.prefService.GetPreferences(ctx, userID, req.ModuleId)
+	prefs, err := s.prefService.GetPreferences(ctx, tenantID, userID, req.ModuleId)
 	if err != nil {
 		return nil, mapNotificationError(err)
 	}
@@ -173,12 +199,18 @@ func (s *NotificationGRPCServer) GetNotificationPreferences(ctx context.Context,
 }
 
 func (s *NotificationGRPCServer) UpdateNotificationPreference(ctx context.Context, req *notificationv1.UpdateNotificationPreferenceRequest) (*notificationv1.UpdateNotificationPreferenceResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
 	pref := &models.NotificationPreference{
+		TenantID:     tenantID,
 		UserID:       userID,
 		EventTypeKey: req.EventTypeKey,
 		ModuleID:     req.ModuleId,
@@ -201,12 +233,17 @@ func (s *NotificationGRPCServer) UpdateNotificationPreference(ctx context.Contex
 // ============================================================================
 
 func (s *NotificationGRPCServer) MuteResource(ctx context.Context, req *notificationv1.MuteResourceRequest) (*notificationv1.MuteResourceResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	mute, err := s.prefService.MuteResource(ctx, userID, req.ModuleId, req.ResourceId)
+	mute, err := s.prefService.MuteResource(ctx, tenantID, userID, req.ModuleId, req.ResourceId)
 	if err != nil {
 		return nil, mapNotificationError(err)
 	}
@@ -217,12 +254,17 @@ func (s *NotificationGRPCServer) MuteResource(ctx context.Context, req *notifica
 }
 
 func (s *NotificationGRPCServer) UnmuteResource(ctx context.Context, req *notificationv1.UnmuteResourceRequest) (*notificationv1.UnmuteResourceResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	if err := s.prefService.UnmuteResource(ctx, userID, req.ModuleId, req.ResourceId); err != nil {
+	if err := s.prefService.UnmuteResource(ctx, tenantID, userID, req.ModuleId, req.ResourceId); err != nil {
 		return nil, mapNotificationError(err)
 	}
 
@@ -230,12 +272,17 @@ func (s *NotificationGRPCServer) UnmuteResource(ctx context.Context, req *notifi
 }
 
 func (s *NotificationGRPCServer) ListMutedResources(ctx context.Context, req *notificationv1.ListMutedResourcesRequest) (*notificationv1.ListMutedResourcesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	mutes, total, err := s.prefService.ListMutedResources(ctx, userID, req.ModuleId, int(req.Page), int(req.PageSize))
+	mutes, total, err := s.prefService.ListMutedResources(ctx, tenantID, userID, req.ModuleId, int(req.Page), int(req.PageSize))
 	if err != nil {
 		return nil, mapNotificationError(err)
 	}
@@ -256,12 +303,17 @@ func (s *NotificationGRPCServer) ListMutedResources(ctx context.Context, req *no
 // ============================================================================
 
 func (s *NotificationGRPCServer) GetQuietHours(ctx context.Context, req *notificationv1.GetQuietHoursRequest) (*notificationv1.GetQuietHoursResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	qh, err := s.prefService.GetQuietHours(ctx, userID)
+	qh, err := s.prefService.GetQuietHours(ctx, tenantID, userID)
 	if err != nil {
 		return nil, mapNotificationError(err)
 	}
@@ -272,6 +324,11 @@ func (s *NotificationGRPCServer) GetQuietHours(ctx context.Context, req *notific
 }
 
 func (s *NotificationGRPCServer) UpdateQuietHours(ctx context.Context, req *notificationv1.UpdateQuietHoursRequest) (*notificationv1.UpdateQuietHoursResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
@@ -282,7 +339,7 @@ func (s *NotificationGRPCServer) UpdateQuietHours(ctx context.Context, req *noti
 		daysOfWeek[i] = int(d)
 	}
 
-	qh, err := s.prefService.UpdateQuietHours(ctx, userID, req.StartTime, req.EndTime, req.Timezone, daysOfWeek, req.Enabled)
+	qh, err := s.prefService.UpdateQuietHours(ctx, tenantID, userID, req.StartTime, req.EndTime, req.Timezone, daysOfWeek, req.Enabled)
 	if err != nil {
 		return nil, mapNotificationError(err)
 	}
@@ -293,6 +350,11 @@ func (s *NotificationGRPCServer) UpdateQuietHours(ctx context.Context, req *noti
 }
 
 func (s *NotificationGRPCServer) ToggleManualDND(ctx context.Context, req *notificationv1.ToggleManualDNDRequest) (*notificationv1.ToggleManualDNDResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
@@ -304,7 +366,7 @@ func (s *NotificationGRPCServer) ToggleManualDND(ctx context.Context, req *notif
 		untilPtr = &t
 	}
 
-	qh, err := s.prefService.ToggleManualDND(ctx, userID, req.Enabled, untilPtr)
+	qh, err := s.prefService.ToggleManualDND(ctx, tenantID, userID, req.Enabled, untilPtr)
 	if err != nil {
 		return nil, mapNotificationError(err)
 	}

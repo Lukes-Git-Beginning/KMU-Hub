@@ -255,9 +255,13 @@ func (r *PostgresRepository) ListReplies(ctx context.Context, filter ThreadListF
 
 	extraConditions := ""
 
+	// P2-6: Cursor-Lookup scoped to tenant_id to prevent cross-tenant TOCTOU cursor replay.
 	if filter.Before != nil {
 		var cursorTime time.Time
-		if err := r.pool.QueryRow(ctx, `SELECT created_at FROM messages WHERE id = $1`, *filter.Before).Scan(&cursorTime); err != nil {
+		if err := r.pool.QueryRow(ctx,
+			`SELECT created_at FROM messages WHERE id = $1 AND tenant_id = $2`,
+			*filter.Before, filter.TenantID,
+		).Scan(&cursorTime); err != nil {
 			if !errors.Is(err, pgx.ErrNoRows) {
 				return nil, err
 			}
@@ -268,7 +272,10 @@ func (r *PostgresRepository) ListReplies(ctx context.Context, filter ThreadListF
 		}
 	} else if filter.After != nil {
 		var cursorTime time.Time
-		if err := r.pool.QueryRow(ctx, `SELECT created_at FROM messages WHERE id = $1`, *filter.After).Scan(&cursorTime); err != nil {
+		if err := r.pool.QueryRow(ctx,
+			`SELECT created_at FROM messages WHERE id = $1 AND tenant_id = $2`,
+			*filter.After, filter.TenantID,
+		).Scan(&cursorTime); err != nil {
 			if !errors.Is(err, pgx.ErrNoRows) {
 				return nil, err
 			}

@@ -112,7 +112,10 @@ export function useConfirmInitiatorConsent() {
   return useMutation({
     mutationFn: (recordingId: string) => confirmInitiatorConsent(recordingId),
     onSuccess: (_data, recordingId) => {
+      // Invalidate the specific recording entry AND the global recordings list
+      // so any poll/list that was open before consent re-fetches the stamped state.
       queryClient.invalidateQueries({ queryKey: ['recordings', recordingId] })
+      queryClient.invalidateQueries({ queryKey: ['recordings'] })
     },
   })
 }

@@ -447,12 +447,18 @@ func (s *InboxGRPCServer) BulkArchive(ctx context.Context, req *inboxv1.BulkArch
 // ============================================================================
 
 func (s *InboxGRPCServer) CreateTeamInbox(ctx context.Context, req *inboxv1.CreateTeamInboxRequest) (*inboxv1.CreateTeamInboxResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
 	inbox := &models.TeamInbox{
+		TenantID:       tenantID,
 		Name:           req.Name,
 		AssignmentMode: assignmentModeToString(req.AssignmentMode),
 		Visibility:     visibilityToString(req.Visibility),
@@ -473,6 +479,11 @@ func (s *InboxGRPCServer) CreateTeamInbox(ctx context.Context, req *inboxv1.Crea
 }
 
 func (s *InboxGRPCServer) UpdateTeamInbox(ctx context.Context, req *inboxv1.UpdateTeamInboxRequest) (*inboxv1.UpdateTeamInboxResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	teamInboxID, err := uuid.Parse(req.TeamInboxId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid team_inbox_id")
@@ -484,7 +495,7 @@ func (s *InboxGRPCServer) UpdateTeamInbox(ctx context.Context, req *inboxv1.Upda
 	}
 
 	// Get existing inbox to apply partial updates
-	existing, err := s.teamService.GetTeamInbox(ctx, teamInboxID)
+	existing, err := s.teamService.GetTeamInbox(ctx, tenantID, teamInboxID)
 	if err != nil {
 		return nil, mapInboxError(err)
 	}
@@ -513,6 +524,11 @@ func (s *InboxGRPCServer) UpdateTeamInbox(ctx context.Context, req *inboxv1.Upda
 }
 
 func (s *InboxGRPCServer) DeleteTeamInbox(ctx context.Context, req *inboxv1.DeleteTeamInboxRequest) (*inboxv1.DeleteTeamInboxResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	teamInboxID, err := uuid.Parse(req.TeamInboxId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid team_inbox_id")
@@ -523,7 +539,7 @@ func (s *InboxGRPCServer) DeleteTeamInbox(ctx context.Context, req *inboxv1.Dele
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	if err := s.teamService.DeleteTeamInbox(ctx, teamInboxID, userID); err != nil {
+	if err := s.teamService.DeleteTeamInbox(ctx, tenantID, teamInboxID, userID); err != nil {
 		return nil, mapInboxError(err)
 	}
 
@@ -531,12 +547,17 @@ func (s *InboxGRPCServer) DeleteTeamInbox(ctx context.Context, req *inboxv1.Dele
 }
 
 func (s *InboxGRPCServer) ListTeamInboxes(ctx context.Context, req *inboxv1.ListTeamInboxesRequest) (*inboxv1.ListTeamInboxesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	inboxes, err := s.teamService.ListByUser(ctx, userID)
+	inboxes, err := s.teamService.ListByUser(ctx, tenantID, userID)
 	if err != nil {
 		return nil, mapInboxError(err)
 	}
@@ -642,7 +663,7 @@ func (s *InboxGRPCServer) ClaimMessage(ctx context.Context, req *inboxv1.ClaimMe
 		return nil, status.Error(codes.FailedPrecondition, "message is not in a team inbox")
 	}
 
-	if err := s.teamService.ClaimMessage(ctx, *msg.TeamInboxID, msgID, userID); err != nil {
+	if err := s.teamService.ClaimMessage(ctx, tenantID, *msg.TeamInboxID, msgID, userID); err != nil {
 		return nil, mapInboxError(err)
 	}
 
@@ -662,6 +683,11 @@ func (s *InboxGRPCServer) ClaimMessage(ctx context.Context, req *inboxv1.ClaimMe
 // ============================================================================
 
 func (s *InboxGRPCServer) CreateRoutingRule(ctx context.Context, req *inboxv1.CreateRoutingRuleRequest) (*inboxv1.CreateRoutingRuleResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
@@ -678,6 +704,7 @@ func (s *InboxGRPCServer) CreateRoutingRule(ctx context.Context, req *inboxv1.Cr
 	}
 
 	rule := &models.RoutingRule{
+		TenantID:   tenantID,
 		Name:       req.Name,
 		Conditions: conditionsJSON,
 		Actions:    actionsJSON,
@@ -701,12 +728,17 @@ func (s *InboxGRPCServer) CreateRoutingRule(ctx context.Context, req *inboxv1.Cr
 }
 
 func (s *InboxGRPCServer) UpdateRoutingRule(ctx context.Context, req *inboxv1.UpdateRoutingRuleRequest) (*inboxv1.UpdateRoutingRuleResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	ruleID, err := uuid.Parse(req.RuleId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid rule_id")
 	}
 
-	existing, err := s.routingService.GetByID(ctx, ruleID)
+	existing, err := s.routingService.GetByID(ctx, tenantID, ruleID)
 	if err != nil {
 		return nil, mapInboxError(err)
 	}
@@ -749,12 +781,17 @@ func (s *InboxGRPCServer) UpdateRoutingRule(ctx context.Context, req *inboxv1.Up
 }
 
 func (s *InboxGRPCServer) DeleteRoutingRule(ctx context.Context, req *inboxv1.DeleteRoutingRuleRequest) (*inboxv1.DeleteRoutingRuleResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	ruleID, err := uuid.Parse(req.RuleId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid rule_id")
 	}
 
-	if err := s.routingService.Delete(ctx, ruleID); err != nil {
+	if err := s.routingService.Delete(ctx, tenantID, ruleID); err != nil {
 		return nil, mapInboxError(err)
 	}
 
@@ -762,7 +799,12 @@ func (s *InboxGRPCServer) DeleteRoutingRule(ctx context.Context, req *inboxv1.De
 }
 
 func (s *InboxGRPCServer) ListRoutingRules(ctx context.Context, req *inboxv1.ListRoutingRulesRequest) (*inboxv1.ListRoutingRulesResponse, error) {
-	rules, err := s.routingService.ListAll(ctx)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	rules, err := s.routingService.ListAll(ctx, tenantID)
 	if err != nil {
 		return nil, mapInboxError(err)
 	}
@@ -1068,7 +1110,7 @@ func jsonToStruct(data json.RawMessage) (*structpb.Struct, error) {
 	s := &structpb.Struct{}
 	if err := s.UnmarshalJSON(data); err != nil {
 		// If it fails as a Struct (e.g., it's an array), wrap it
-		wrapper := map[string]interface{}{}
+		wrapper := map[string]any{}
 		if wrapErr := json.Unmarshal(data, &wrapper); wrapErr == nil {
 			return structpb.NewStruct(wrapper)
 		}

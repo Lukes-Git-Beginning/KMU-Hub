@@ -24,10 +24,10 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) Create(ctx context.Context, att *models.EmailAttachment) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO email_attachments (id, message_id, filename, content_type,
+		`INSERT INTO email_attachments (id, tenant_id, message_id, filename, content_type,
 			size_bytes, minio_key, content_id, is_inline, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-		att.ID, att.MessageID, att.Filename, att.ContentType,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+		att.ID, att.TenantID, att.MessageID, att.Filename, att.ContentType,
 		att.SizeBytes, att.MinIOKey, att.ContentID, att.IsInline, att.CreatedAt,
 	)
 	if err != nil {
@@ -36,12 +36,12 @@ func (r *PostgresRepository) Create(ctx context.Context, att *models.EmailAttach
 	return nil
 }
 
-func (r *PostgresRepository) GetByMessage(ctx context.Context, messageID uuid.UUID) ([]*models.EmailAttachment, error) {
+func (r *PostgresRepository) GetByMessage(ctx context.Context, messageID uuid.UUID, tenantID uuid.UUID) ([]*models.EmailAttachment, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, message_id, filename, content_type, size_bytes, minio_key,
+		`SELECT id, tenant_id, message_id, filename, content_type, size_bytes, minio_key,
 			content_id, is_inline, created_at
-		 FROM email_attachments WHERE message_id = $1
-		 ORDER BY created_at ASC`, messageID,
+		 FROM email_attachments WHERE message_id = $1 AND tenant_id = $2
+		 ORDER BY created_at ASC`, messageID, tenantID,
 	)
 	if err != nil {
 		return nil, err
@@ -51,7 +51,7 @@ func (r *PostgresRepository) GetByMessage(ctx context.Context, messageID uuid.UU
 	var attachments []*models.EmailAttachment
 	for rows.Next() {
 		var att models.EmailAttachment
-		if scanErr := rows.Scan(&att.ID, &att.MessageID, &att.Filename, &att.ContentType,
+		if scanErr := rows.Scan(&att.ID, &att.TenantID, &att.MessageID, &att.Filename, &att.ContentType,
 			&att.SizeBytes, &att.MinIOKey, &att.ContentID, &att.IsInline,
 			&att.CreatedAt); scanErr != nil {
 			return nil, scanErr
@@ -61,10 +61,10 @@ func (r *PostgresRepository) GetByMessage(ctx context.Context, messageID uuid.UU
 	return attachments, rows.Err()
 }
 
-func (r *PostgresRepository) GetMinIOKeyByID(ctx context.Context, id uuid.UUID) (string, error) {
+func (r *PostgresRepository) GetMinIOKeyByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (string, error) {
 	var minioKey string
 	err := r.pool.QueryRow(ctx,
-		`SELECT minio_key FROM email_attachments WHERE id = $1`, id,
+		`SELECT minio_key FROM email_attachments WHERE id = $1 AND tenant_id = $2`, id, tenantID,
 	).Scan(&minioKey)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

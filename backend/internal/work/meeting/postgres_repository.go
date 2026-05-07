@@ -24,27 +24,27 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) CreateMeeting(ctx context.Context, m *Meeting) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO meetings (id, title, description, agenda, organizer_id, status,
+		`INSERT INTO meetings (id, tenant_id, title, description, agenda, organizer_id, status,
 		  scheduled_start, scheduled_end, actual_start, actual_end, room_name,
 		  calendar_event_id, recurring_meeting_id, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
-		m.ID, m.Title, m.Description, m.Agenda, m.OrganizerID, m.Status,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+		m.ID, m.TenantID, m.Title, m.Description, m.Agenda, m.OrganizerID, m.Status,
 		m.ScheduledStart, m.ScheduledEnd, m.ActualStart, m.ActualEnd, m.RoomName,
 		m.CalendarEventID, m.RecurringMeetingID, m.CreatedAt, m.UpdatedAt,
 	)
 	return err
 }
 
-func (r *PostgresRepository) GetMeeting(ctx context.Context, id uuid.UUID) (*Meeting, error) {
+func (r *PostgresRepository) GetMeeting(ctx context.Context, id, tenantID uuid.UUID) (*Meeting, error) {
 	var m Meeting
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, title, description, agenda, organizer_id, status,
+		`SELECT id, tenant_id, title, description, agenda, organizer_id, status,
 		  scheduled_start, scheduled_end, actual_start, actual_end, room_name,
 		  calendar_event_id, recurring_meeting_id, created_at, updated_at
-		 FROM meetings WHERE id = $1`,
-		id,
+		 FROM meetings WHERE id = $1 AND tenant_id = $2`,
+		id, tenantID,
 	).Scan(
-		&m.ID, &m.Title, &m.Description, &m.Agenda, &m.OrganizerID, &m.Status,
+		&m.ID, &m.TenantID, &m.Title, &m.Description, &m.Agenda, &m.OrganizerID, &m.Status,
 		&m.ScheduledStart, &m.ScheduledEnd, &m.ActualStart, &m.ActualEnd, &m.RoomName,
 		&m.CalendarEventID, &m.RecurringMeetingID, &m.CreatedAt, &m.UpdatedAt,
 	)
@@ -59,11 +59,11 @@ func (r *PostgresRepository) GetMeeting(ctx context.Context, id uuid.UUID) (*Mee
 
 func (r *PostgresRepository) UpdateMeeting(ctx context.Context, m *Meeting) error {
 	tag, err := r.pool.Exec(ctx,
-		`UPDATE meetings SET title=$2, description=$3, agenda=$4, status=$5,
-		  scheduled_start=$6, scheduled_end=$7, actual_start=$8, actual_end=$9,
-		  room_name=$10, calendar_event_id=$11, recurring_meeting_id=$12, updated_at=$13
-		 WHERE id=$1`,
-		m.ID, m.Title, m.Description, m.Agenda, m.Status,
+		`UPDATE meetings SET title=$3, description=$4, agenda=$5, status=$6,
+		  scheduled_start=$7, scheduled_end=$8, actual_start=$9, actual_end=$10,
+		  room_name=$11, calendar_event_id=$12, recurring_meeting_id=$13, updated_at=$14
+		 WHERE id=$1 AND tenant_id=$2`,
+		m.ID, m.TenantID, m.Title, m.Description, m.Agenda, m.Status,
 		m.ScheduledStart, m.ScheduledEnd, m.ActualStart, m.ActualEnd,
 		m.RoomName, m.CalendarEventID, m.RecurringMeetingID, m.UpdatedAt,
 	)
@@ -76,8 +76,8 @@ func (r *PostgresRepository) UpdateMeeting(ctx context.Context, m *Meeting) erro
 	return nil
 }
 
-func (r *PostgresRepository) DeleteMeeting(ctx context.Context, id uuid.UUID) error {
-	tag, err := r.pool.Exec(ctx, `DELETE FROM meetings WHERE id=$1`, id)
+func (r *PostgresRepository) DeleteMeeting(ctx context.Context, id, tenantID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM meetings WHERE id=$1 AND tenant_id=$2`, id, tenantID)
 	if err != nil {
 		return fmt.Errorf("delete meeting: %w", err)
 	}
@@ -91,6 +91,11 @@ func (r *PostgresRepository) ListMeetings(ctx context.Context, filter MeetingFil
 	var conditions []string
 	var args []any
 	argIdx := 1
+
+	// Tenant isolation is mandatory
+	conditions = append(conditions, fmt.Sprintf("m.tenant_id = $%d", argIdx))
+	args = append(args, filter.TenantID)
+	argIdx++
 
 	if filter.OrganizerID != nil {
 		conditions = append(conditions, fmt.Sprintf("m.organizer_id = $%d", argIdx))
@@ -119,7 +124,7 @@ func (r *PostgresRepository) ListMeetings(ctx context.Context, filter MeetingFil
 		argIdx++
 	}
 
-	query := `SELECT m.id, m.title, m.description, m.agenda, m.organizer_id, m.status,
+	query := `SELECT m.id, m.tenant_id, m.title, m.description, m.agenda, m.organizer_id, m.status,
 		m.scheduled_start, m.scheduled_end, m.actual_start, m.actual_end, m.room_name,
 		m.calendar_event_id, m.recurring_meeting_id, m.created_at, m.updated_at
 		FROM meetings m`
@@ -146,7 +151,7 @@ func (r *PostgresRepository) ListMeetings(ctx context.Context, filter MeetingFil
 	for rows.Next() {
 		var m Meeting
 		if err := rows.Scan(
-			&m.ID, &m.Title, &m.Description, &m.Agenda, &m.OrganizerID, &m.Status,
+			&m.ID, &m.TenantID, &m.Title, &m.Description, &m.Agenda, &m.OrganizerID, &m.Status,
 			&m.ScheduledStart, &m.ScheduledEnd, &m.ActualStart, &m.ActualEnd, &m.RoomName,
 			&m.CalendarEventID, &m.RecurringMeetingID, &m.CreatedAt, &m.UpdatedAt,
 		); err != nil {

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -25,28 +26,28 @@ func NewMockRepository() *MockRepository {
 	return &MockRepository{}
 }
 
-func (m *MockRepository) SearchContacts(ctx context.Context, query string, limit int) ([]*models.SearchResult, error) {
+func (m *MockRepository) SearchContacts(ctx context.Context, tenantID uuid.UUID, query string, limit int) ([]*models.SearchResult, error) {
 	if m.searchErr != nil {
 		return nil, m.searchErr
 	}
 	return m.filterByLimit(m.contacts, limit), nil
 }
 
-func (m *MockRepository) SearchCompanies(ctx context.Context, query string, limit int) ([]*models.SearchResult, error) {
+func (m *MockRepository) SearchCompanies(ctx context.Context, tenantID uuid.UUID, query string, limit int) ([]*models.SearchResult, error) {
 	if m.searchErr != nil {
 		return nil, m.searchErr
 	}
 	return m.filterByLimit(m.companies, limit), nil
 }
 
-func (m *MockRepository) SearchDeals(ctx context.Context, query string, limit int) ([]*models.SearchResult, error) {
+func (m *MockRepository) SearchDeals(ctx context.Context, tenantID uuid.UUID, query string, limit int) ([]*models.SearchResult, error) {
 	if m.searchErr != nil {
 		return nil, m.searchErr
 	}
 	return m.filterByLimit(m.deals, limit), nil
 }
 
-func (m *MockRepository) SearchActivities(ctx context.Context, query string, limit int) ([]*models.SearchResult, error) {
+func (m *MockRepository) SearchActivities(ctx context.Context, tenantID uuid.UUID, query string, limit int) ([]*models.SearchResult, error) {
 	if m.searchErr != nil {
 		return nil, m.searchErr
 	}
@@ -328,6 +329,53 @@ func TestService_Search_TrimsQuery(t *testing.T) {
 	assert.Len(t, results, 1)
 }
 
+// ============================================================================
+// Tenant Isolation Tests
+// ============================================================================
+
+func TestService_Search_TenantIsolation(t *testing.T) {
+	// This test verifies that TenantID is propagated into SearchInput and
+	// therefore into each repo call. The mock doesn't filter by tenant —
+	// the real isolation happens in the postgres_repository WHERE tenant_id = $1
+	// clause on every FTS query (SearchContacts, SearchCompanies, SearchDeals,
+	// SearchActivities). Here we verify the plumbing is correct.
+	t.Run("TenantID_in_SearchInput_propagated_to_repo", func(t *testing.T) {
+		repo := &tenantCapturingMockRepo{}
+		svc := NewService(repo)
+
+		tenantID := uuid.New()
+
+		_, _ = svc.Search(context.Background(), SearchInput{
+			Query:    "acme",
+			Limit:    10,
+			TenantID: tenantID,
+		})
+
+		assert.Equal(t, tenantID, repo.capturedTenantID,
+			"TenantID must be forwarded to every repo.Search* call")
+	})
+}
+
+// tenantCapturingMockRepo records the tenantID passed to SearchContacts
+// to verify propagation from SearchInput through service to repo.
+type tenantCapturingMockRepo struct {
+	capturedTenantID uuid.UUID
+}
+
+func (m *tenantCapturingMockRepo) SearchContacts(_ context.Context, tenantID uuid.UUID, _ string, _ int) ([]*models.SearchResult, error) {
+	m.capturedTenantID = tenantID
+	return nil, nil
+}
+func (m *tenantCapturingMockRepo) SearchCompanies(_ context.Context, tenantID uuid.UUID, _ string, _ int) ([]*models.SearchResult, error) {
+	return nil, nil
+}
+func (m *tenantCapturingMockRepo) SearchDeals(_ context.Context, tenantID uuid.UUID, _ string, _ int) ([]*models.SearchResult, error) {
+	return nil, nil
+}
+func (m *tenantCapturingMockRepo) SearchActivities(_ context.Context, tenantID uuid.UUID, _ string, _ int) ([]*models.SearchResult, error) {
+	return nil, nil
+}
+
 func TestService_Search_ContinuesOnPartialFailure(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
@@ -380,28 +428,28 @@ type PartialFailureMockRepository struct {
 	failActivities bool
 }
 
-func (m *PartialFailureMockRepository) SearchContacts(ctx context.Context, query string, limit int) ([]*models.SearchResult, error) {
+func (m *PartialFailureMockRepository) SearchContacts(ctx context.Context, tenantID uuid.UUID, query string, limit int) ([]*models.SearchResult, error) {
 	if m.failContacts {
 		return nil, errors.New("contacts search failed")
 	}
 	return m.contacts, nil
 }
 
-func (m *PartialFailureMockRepository) SearchCompanies(ctx context.Context, query string, limit int) ([]*models.SearchResult, error) {
+func (m *PartialFailureMockRepository) SearchCompanies(ctx context.Context, tenantID uuid.UUID, query string, limit int) ([]*models.SearchResult, error) {
 	if m.failCompanies {
 		return nil, errors.New("companies search failed")
 	}
 	return m.companies, nil
 }
 
-func (m *PartialFailureMockRepository) SearchDeals(ctx context.Context, query string, limit int) ([]*models.SearchResult, error) {
+func (m *PartialFailureMockRepository) SearchDeals(ctx context.Context, tenantID uuid.UUID, query string, limit int) ([]*models.SearchResult, error) {
 	if m.failDeals {
 		return nil, errors.New("deals search failed")
 	}
 	return m.deals, nil
 }
 
-func (m *PartialFailureMockRepository) SearchActivities(ctx context.Context, query string, limit int) ([]*models.SearchResult, error) {
+func (m *PartialFailureMockRepository) SearchActivities(ctx context.Context, tenantID uuid.UUID, query string, limit int) ([]*models.SearchResult, error) {
 	if m.failActivities {
 		return nil, errors.New("activities search failed")
 	}

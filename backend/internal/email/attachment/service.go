@@ -37,6 +37,7 @@ func (s *Service) CreateFromStream(
 	reader io.Reader,
 	contentID string,
 	isInline bool,
+	tenantID uuid.UUID,
 ) (*models.EmailAttachment, error) {
 	// Upload to MinIO (streaming, no full memory buffering)
 	minioKey, err := s.store.Upload(ctx, accountID, messageUID, filename, reader, size, contentType)
@@ -47,6 +48,7 @@ func (s *Service) CreateFromStream(
 	// Create DB record
 	att := &models.EmailAttachment{
 		ID:          uuid.New(),
+		TenantID:    tenantID,
 		MessageID:   messageID,
 		Filename:    filename,
 		ContentType: contentType,
@@ -66,6 +68,7 @@ func (s *Service) CreateFromStream(
 	slog.Info("attachment created",
 		"attachment_id", att.ID,
 		"message_id", messageID,
+		"tenant_id", tenantID,
 		"filename", filename,
 		"size", size,
 	)
@@ -73,14 +76,14 @@ func (s *Service) CreateFromStream(
 	return att, nil
 }
 
-// GetByMessage returns all attachments for a message.
-func (s *Service) GetByMessage(ctx context.Context, messageID uuid.UUID) ([]*models.EmailAttachment, error) {
-	return s.repo.GetByMessage(ctx, messageID)
+// GetByMessage returns all attachments for a message scoped to a tenant.
+func (s *Service) GetByMessage(ctx context.Context, messageID uuid.UUID, tenantID uuid.UUID) ([]*models.EmailAttachment, error) {
+	return s.repo.GetByMessage(ctx, messageID, tenantID)
 }
 
 // GetDownloadURL returns a presigned URL for downloading an attachment.
-func (s *Service) GetDownloadURL(ctx context.Context, attachmentID uuid.UUID) (string, error) {
-	minioKey, err := s.repo.GetMinIOKeyByID(ctx, attachmentID)
+func (s *Service) GetDownloadURL(ctx context.Context, attachmentID uuid.UUID, tenantID uuid.UUID) (string, error) {
+	minioKey, err := s.repo.GetMinIOKeyByID(ctx, attachmentID, tenantID)
 	if err != nil {
 		return "", err
 	}

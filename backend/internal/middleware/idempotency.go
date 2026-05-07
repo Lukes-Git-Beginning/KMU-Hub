@@ -157,9 +157,12 @@ func Idempotency(repo idempotency.Repository, mode IdempotencyMode) func(http.Ha
 			// Store the response asynchronously to avoid blocking the client.
 			// context.WithoutCancel ensures the goroutine isn't cancelled when the
 			// request context is done (which happens as soon as ServeHTTP returns).
+			// tenantID is captured from the request context so the UPDATE is scoped
+			// to the correct tenant (composite PK: tenant_id, key).
+			capturedTenantID := tenantID
 			completeCtx := context.WithoutCancel(r.Context())
 			go func() {
-				if err := repo.Complete(completeCtx, idempotencyKey, crw.statusCode, crw.body.Bytes()); err != nil {
+				if err := repo.Complete(completeCtx, capturedTenantID, idempotencyKey, crw.statusCode, crw.body.Bytes()); err != nil {
 					if !errors.Is(err, idempotency.ErrKeyMissing) {
 						slog.Error("idempotency complete failed", "key", idempotencyKey, "error", err)
 					}

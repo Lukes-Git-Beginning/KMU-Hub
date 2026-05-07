@@ -53,8 +53,10 @@ type Repository interface {
 	Get(ctx context.Context, tenantID uuid.UUID, key string) (*Record, error)
 
 	// Complete stores the response for a previously reserved key.
+	// tenantID is required to scope the UPDATE to the correct tenant and prevent
+	// cross-tenant cache-replay via the composite PK (tenant_id, key).
 	// Returns ErrKeyMissing when the key no longer exists (e.g. cleaned up).
-	Complete(ctx context.Context, key string, status int, body []byte) error
+	Complete(ctx context.Context, tenantID uuid.UUID, key string, status int, body []byte) error
 
 	// Cleanup deletes expired records and returns the number of rows deleted.
 	Cleanup(ctx context.Context) (int, error)
@@ -154,20 +156,21 @@ func (r *postgresRepository) Get(ctx context.Context, tenantID uuid.UUID, key st
 	return rec, nil
 }
 
-func (r *postgresRepository) Complete(ctx context.Context, key string, status int, body []byte) error {
+func (r *postgresRepository) Complete(ctx context.Context, tenantID uuid.UUID, key string, status int, body []byte) error {
 	const q = `
 		UPDATE idempotency_keys
-		SET response_status = $2,
-		    response_body   = $3,
+		SET response_status = $3,
+		    response_body   = $4,
 		    completed_at    = NOW()
-		WHERE key = $1`
+		WHERE tenant_id = $1 AND key = $2`
 
-	tag, err := r.pool.Exec(ctx, q, key, status, body)
+	tag, err := r.pool.Exec(ctx, q, tenantID, key, status, body)
 	if err != nil {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		// The cleanup worker ran between Reserve and Complete — key is gone.
+		// Either the cleanup worker ran between Reserve and Complete (key is gone),
+		// or the tenantID does not match (cross-tenant attempt — treated as missing).
 		return ErrKeyMissing
 	}
 	return nil

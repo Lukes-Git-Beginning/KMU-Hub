@@ -41,6 +41,7 @@ var ValidMeetingRSVPStatuses = map[string]bool{
 // Meeting represents a scheduled or in-progress meeting
 type Meeting struct {
 	ID                 uuid.UUID  `json:"id"`
+	TenantID           uuid.UUID  `json:"tenant_id"`
 	Title              string     `json:"title"`
 	Description        *string    `json:"description,omitempty"`
 	Agenda             *string    `json:"agenda,omitempty"`

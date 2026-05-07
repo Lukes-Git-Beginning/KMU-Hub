@@ -3,6 +3,7 @@ package search
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kmuhub/kmuhub/internal/models"
@@ -18,19 +19,20 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{pool: pool}
 }
 
-func (r *PostgresRepository) SearchContacts(ctx context.Context, query string, limit int) ([]*models.SearchResult, error) {
+func (r *PostgresRepository) SearchContacts(ctx context.Context, tenantID uuid.UUID, query string, limit int) ([]*models.SearchResult, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT
 			id::text,
 			'contact' as entity_type,
 			first_name || ' ' || last_name as title,
 			COALESCE(email, '') as subtitle,
-			ts_rank(search_vector, plainto_tsquery('german', $1)) as score
+			ts_rank(search_vector, plainto_tsquery('german', $2)) as score
 		FROM contacts
-		WHERE search_vector @@ plainto_tsquery('german', $1)
+		WHERE tenant_id = $1
+		  AND search_vector @@ plainto_tsquery('german', $2)
 		ORDER BY score DESC
-		LIMIT $2
-	`, query, limit)
+		LIMIT $3
+	`, tenantID, query, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -39,19 +41,20 @@ func (r *PostgresRepository) SearchContacts(ctx context.Context, query string, l
 	return scanSearchResults(rows)
 }
 
-func (r *PostgresRepository) SearchCompanies(ctx context.Context, query string, limit int) ([]*models.SearchResult, error) {
+func (r *PostgresRepository) SearchCompanies(ctx context.Context, tenantID uuid.UUID, query string, limit int) ([]*models.SearchResult, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT
 			id::text,
 			'company' as entity_type,
 			name as title,
 			COALESCE(industry, '') as subtitle,
-			ts_rank(search_vector, plainto_tsquery('german', $1)) as score
+			ts_rank(search_vector, plainto_tsquery('german', $2)) as score
 		FROM companies
-		WHERE search_vector @@ plainto_tsquery('german', $1)
+		WHERE tenant_id = $1
+		  AND search_vector @@ plainto_tsquery('german', $2)
 		ORDER BY score DESC
-		LIMIT $2
-	`, query, limit)
+		LIMIT $3
+	`, tenantID, query, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -60,19 +63,20 @@ func (r *PostgresRepository) SearchCompanies(ctx context.Context, query string, 
 	return scanSearchResults(rows)
 }
 
-func (r *PostgresRepository) SearchDeals(ctx context.Context, query string, limit int) ([]*models.SearchResult, error) {
+func (r *PostgresRepository) SearchDeals(ctx context.Context, tenantID uuid.UUID, query string, limit int) ([]*models.SearchResult, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT
 			id::text,
 			'deal' as entity_type,
 			name as title,
 			COALESCE(value::text || ' ' || currency, '') as subtitle,
-			ts_rank(search_vector, plainto_tsquery('german', $1)) as score
+			ts_rank(search_vector, plainto_tsquery('german', $2)) as score
 		FROM deals
-		WHERE search_vector @@ plainto_tsquery('german', $1)
+		WHERE tenant_id = $1
+		  AND search_vector @@ plainto_tsquery('german', $2)
 		ORDER BY score DESC
-		LIMIT $2
-	`, query, limit)
+		LIMIT $3
+	`, tenantID, query, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -81,19 +85,20 @@ func (r *PostgresRepository) SearchDeals(ctx context.Context, query string, limi
 	return scanSearchResults(rows)
 }
 
-func (r *PostgresRepository) SearchActivities(ctx context.Context, query string, limit int) ([]*models.SearchResult, error) {
+func (r *PostgresRepository) SearchActivities(ctx context.Context, tenantID uuid.UUID, query string, limit int) ([]*models.SearchResult, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT
 			id::text,
 			'activity' as entity_type,
 			subject as title,
 			activity_type::text as subtitle,
-			ts_rank(search_vector, plainto_tsquery('german', $1)) as score
+			ts_rank(search_vector, plainto_tsquery('german', $2)) as score
 		FROM activities
-		WHERE search_vector @@ plainto_tsquery('german', $1)
+		WHERE tenant_id = $1
+		  AND search_vector @@ plainto_tsquery('german', $2)
 		ORDER BY score DESC
-		LIMIT $2
-	`, query, limit)
+		LIMIT $3
+	`, tenantID, query, limit)
 	if err != nil {
 		return nil, err
 	}

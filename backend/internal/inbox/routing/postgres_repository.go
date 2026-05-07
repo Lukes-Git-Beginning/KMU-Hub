@@ -23,12 +23,12 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) Create(ctx context.Context, rule *models.RoutingRule) error {
 	query := `
-		INSERT INTO routing_rules (id, name, channel, conditions, actions, priority,
+		INSERT INTO routing_rules (id, tenant_id, name, channel, conditions, actions, priority,
 			is_active, created_by, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())`
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())`
 
 	_, err := r.pool.Exec(ctx, query,
-		rule.ID, rule.Name, rule.Channel, rule.Conditions, rule.Actions,
+		rule.ID, rule.TenantID, rule.Name, rule.Channel, rule.Conditions, rule.Actions,
 		rule.Priority, rule.IsActive, rule.CreatedBy,
 	)
 	return err
@@ -37,12 +37,12 @@ func (r *PostgresRepository) Create(ctx context.Context, rule *models.RoutingRul
 func (r *PostgresRepository) Update(ctx context.Context, rule *models.RoutingRule) error {
 	query := `
 		UPDATE routing_rules SET
-			name = $2, channel = $3, conditions = $4, actions = $5,
-			priority = $6, is_active = $7, updated_at = NOW()
-		WHERE id = $1`
+			name = $3, channel = $4, conditions = $5, actions = $6,
+			priority = $7, is_active = $8, updated_at = NOW()
+		WHERE id = $1 AND tenant_id = $2`
 
 	tag, err := r.pool.Exec(ctx, query,
-		rule.ID, rule.Name, rule.Channel, rule.Conditions, rule.Actions,
+		rule.ID, rule.TenantID, rule.Name, rule.Channel, rule.Conditions, rule.Actions,
 		rule.Priority, rule.IsActive,
 	)
 	if err != nil {
@@ -54,8 +54,8 @@ func (r *PostgresRepository) Update(ctx context.Context, rule *models.RoutingRul
 	return nil
 }
 
-func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	tag, err := r.pool.Exec(ctx, "DELETE FROM routing_rules WHERE id = $1", id)
+func (r *PostgresRepository) Delete(ctx context.Context, tenantID, id uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx, "DELETE FROM routing_rules WHERE id = $1 AND tenant_id = $2", id, tenantID)
 	if err != nil {
 		return err
 	}
@@ -65,15 +65,15 @@ func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.RoutingRule, error) {
+func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.RoutingRule, error) {
 	query := `
-		SELECT id, name, channel, conditions, actions, priority,
+		SELECT id, tenant_id, name, channel, conditions, actions, priority,
 			is_active, created_by, created_at, updated_at
-		FROM routing_rules WHERE id = $1`
+		FROM routing_rules WHERE id = $1 AND tenant_id = $2`
 
 	rule := &models.RoutingRule{}
-	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&rule.ID, &rule.Name, &rule.Channel, &rule.Conditions, &rule.Actions,
+	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(
+		&rule.ID, &rule.TenantID, &rule.Name, &rule.Channel, &rule.Conditions, &rule.Actions,
 		&rule.Priority, &rule.IsActive, &rule.CreatedBy, &rule.CreatedAt, &rule.UpdatedAt,
 	)
 	if err == pgx.ErrNoRows {
@@ -82,10 +82,10 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models
 	return rule, err
 }
 
-func (r *PostgresRepository) ListActive(ctx context.Context, channel *string) ([]*models.RoutingRule, error) {
-	where := "WHERE is_active = true"
-	args := []interface{}{}
-	argIdx := 1
+func (r *PostgresRepository) ListActive(ctx context.Context, tenantID uuid.UUID, channel *string) ([]*models.RoutingRule, error) {
+	where := "WHERE tenant_id = $1 AND is_active = true"
+	args := []interface{}{tenantID}
+	argIdx := 2
 
 	if channel != nil {
 		where += fmt.Sprintf(" AND (channel IS NULL OR channel = $%d)", argIdx)
@@ -93,7 +93,7 @@ func (r *PostgresRepository) ListActive(ctx context.Context, channel *string) ([
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id, name, channel, conditions, actions, priority,
+		SELECT id, tenant_id, name, channel, conditions, actions, priority,
 			is_active, created_by, created_at, updated_at
 		FROM routing_rules %s
 		ORDER BY priority ASC`, where)
@@ -108,7 +108,7 @@ func (r *PostgresRepository) ListActive(ctx context.Context, channel *string) ([
 	for rows.Next() {
 		rule := &models.RoutingRule{}
 		if err := rows.Scan(
-			&rule.ID, &rule.Name, &rule.Channel, &rule.Conditions, &rule.Actions,
+			&rule.ID, &rule.TenantID, &rule.Name, &rule.Channel, &rule.Conditions, &rule.Actions,
 			&rule.Priority, &rule.IsActive, &rule.CreatedBy, &rule.CreatedAt, &rule.UpdatedAt,
 		); err != nil {
 			return nil, err
@@ -119,14 +119,15 @@ func (r *PostgresRepository) ListActive(ctx context.Context, channel *string) ([
 	return rules, rows.Err()
 }
 
-func (r *PostgresRepository) ListAll(ctx context.Context) ([]*models.RoutingRule, error) {
+func (r *PostgresRepository) ListAll(ctx context.Context, tenantID uuid.UUID) ([]*models.RoutingRule, error) {
 	query := `
-		SELECT id, name, channel, conditions, actions, priority,
+		SELECT id, tenant_id, name, channel, conditions, actions, priority,
 			is_active, created_by, created_at, updated_at
 		FROM routing_rules
+		WHERE tenant_id = $1
 		ORDER BY priority ASC, created_at ASC`
 
-	rows, err := r.pool.Query(ctx, query)
+	rows, err := r.pool.Query(ctx, query, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +137,7 @@ func (r *PostgresRepository) ListAll(ctx context.Context) ([]*models.RoutingRule
 	for rows.Next() {
 		rule := &models.RoutingRule{}
 		if err := rows.Scan(
-			&rule.ID, &rule.Name, &rule.Channel, &rule.Conditions, &rule.Actions,
+			&rule.ID, &rule.TenantID, &rule.Name, &rule.Channel, &rule.Conditions, &rule.Actions,
 			&rule.Priority, &rule.IsActive, &rule.CreatedBy, &rule.CreatedAt, &rule.UpdatedAt,
 		); err != nil {
 			return nil, err

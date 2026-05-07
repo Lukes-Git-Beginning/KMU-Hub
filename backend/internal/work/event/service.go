@@ -74,7 +74,7 @@ func (s *Service) Create(ctx context.Context, actorID uuid.UUID, input CreateInp
 	}
 
 	// Check calendar permissions
-	cal, err := s.calendarRepo.GetByID(ctx, input.CalendarID)
+	cal, err := s.calendarRepo.GetByID(ctx, input.CalendarID, input.TenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +198,7 @@ func (s *Service) UpdateEvent(ctx context.Context, eventID, actorID, tenantID uu
 
 	// Check permission: must be creator or have edit access to calendar
 	if evt.CreatedBy != actorID {
-		if permErr := s.requireCalendarEditPermission(ctx, evt.CalendarID, actorID); permErr != nil {
+		if permErr := s.requireCalendarEditPermission(ctx, evt.CalendarID, actorID, evt.TenantID); permErr != nil {
 			return nil, permErr
 		}
 	}
@@ -234,7 +234,7 @@ func (s *Service) UpdateRecurringEvent(ctx context.Context, eventID, actorID, te
 
 	// Check permission
 	if evt.CreatedBy != actorID {
-		if permErr := s.requireCalendarEditPermission(ctx, evt.CalendarID, actorID); permErr != nil {
+		if permErr := s.requireCalendarEditPermission(ctx, evt.CalendarID, actorID, evt.TenantID); permErr != nil {
 			return nil, permErr
 		}
 	}
@@ -501,7 +501,7 @@ func (s *Service) SetReminders(ctx context.Context, eventID, actorID, tenantID u
 
 	// Check permission
 	if evt.CreatedBy != actorID {
-		if permErr := s.requireCalendarEditPermission(ctx, evt.CalendarID, actorID); permErr != nil {
+		if permErr := s.requireCalendarEditPermission(ctx, evt.CalendarID, actorID, evt.TenantID); permErr != nil {
 			return permErr
 		}
 	}
@@ -695,8 +695,8 @@ func (s *Service) emitEvent(ctx context.Context, eventType string, actorID, even
 }
 
 // requireCalendarEditPermission checks if the actor has edit or admin on the calendar
-func (s *Service) requireCalendarEditPermission(ctx context.Context, calendarID, actorID uuid.UUID) error {
-	cal, err := s.calendarRepo.GetByID(ctx, calendarID)
+func (s *Service) requireCalendarEditPermission(ctx context.Context, calendarID, actorID, tenantID uuid.UUID) error {
+	cal, err := s.calendarRepo.GetByID(ctx, calendarID, tenantID)
 	if err != nil {
 		return ErrInsufficientPermission
 	}

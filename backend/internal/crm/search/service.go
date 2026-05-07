@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -31,9 +32,10 @@ type SearchInput struct {
 	Query       string
 	EntityTypes []models.SearchEntityType // Empty = search all
 	Limit       int
+	TenantID    uuid.UUID
 }
 
-// Search performs a full-text search across CRM entities
+// Search performs a full-text search across CRM entities, scoped to a tenant
 func (s *Service) Search(ctx context.Context, input SearchInput) ([]*models.SearchResult, error) {
 	// Validate query
 	query := strings.TrimSpace(input.Query)
@@ -90,13 +92,13 @@ func (s *Service) Search(ctx context.Context, input SearchInput) ([]*models.Sear
 
 		switch et {
 		case models.SearchEntityContact:
-			results, err = s.repo.SearchContacts(ctx, query, limitPerType)
+			results, err = s.repo.SearchContacts(ctx, input.TenantID, query, limitPerType)
 		case models.SearchEntityCompany:
-			results, err = s.repo.SearchCompanies(ctx, query, limitPerType)
+			results, err = s.repo.SearchCompanies(ctx, input.TenantID, query, limitPerType)
 		case models.SearchEntityDeal:
-			results, err = s.repo.SearchDeals(ctx, query, limitPerType)
+			results, err = s.repo.SearchDeals(ctx, input.TenantID, query, limitPerType)
 		case models.SearchEntityActivity:
-			results, err = s.repo.SearchActivities(ctx, query, limitPerType)
+			results, err = s.repo.SearchActivities(ctx, input.TenantID, query, limitPerType)
 		}
 
 		if err != nil {

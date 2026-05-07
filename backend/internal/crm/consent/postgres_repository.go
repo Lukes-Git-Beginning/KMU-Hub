@@ -23,23 +23,23 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 func (r *PostgresRepository) CreateConsentRecord(ctx context.Context, record *ConsentRecord) error {
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO consent_records
-			(id, contact_id, consent_type, granted, legal_basis, source, ip_address, notes, granted_at, revoked_at, created_by, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-		record.ID, record.ContactID, record.ConsentType, record.Granted, record.LegalBasis,
+			(id, tenant_id, contact_id, consent_type, granted, legal_basis, source, ip_address, notes, granted_at, revoked_at, created_by, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+		record.ID, record.TenantID, record.ContactID, record.ConsentType, record.Granted, record.LegalBasis,
 		record.Source, record.IPAddress, record.Notes,
 		record.GrantedAt, record.RevokedAt, record.CreatedBy, record.CreatedAt,
 	)
 	return err
 }
 
-func (r *PostgresRepository) GetConsentHistory(ctx context.Context, contactID uuid.UUID, consentType string) ([]*ConsentRecord, error) {
+func (r *PostgresRepository) GetConsentHistory(ctx context.Context, tenantID, contactID uuid.UUID, consentType string) ([]*ConsentRecord, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, contact_id, consent_type, granted, legal_basis, source, ip_address::text, notes,
 		        granted_at, revoked_at, created_by, created_at
 		 FROM consent_records
-		 WHERE contact_id = $1 AND consent_type = $2
+		 WHERE tenant_id = $1 AND contact_id = $2 AND consent_type = $3
 		 ORDER BY created_at DESC`,
-		contactID, consentType,
+		tenantID, contactID, consentType,
 	)
 	if err != nil {
 		return nil, err
@@ -57,16 +57,16 @@ func (r *PostgresRepository) GetConsentHistory(ctx context.Context, contactID uu
 	return records, rows.Err()
 }
 
-func (r *PostgresRepository) GetLatestConsents(ctx context.Context, contactID uuid.UUID) ([]*ConsentRecord, error) {
-	// Get the latest record per consent type (DISTINCT ON)
+func (r *PostgresRepository) GetLatestConsents(ctx context.Context, tenantID, contactID uuid.UUID) ([]*ConsentRecord, error) {
+	// Get the latest record per consent type (DISTINCT ON), scoped to tenant
 	rows, err := r.pool.Query(ctx,
 		`SELECT DISTINCT ON (consent_type)
 		        id, contact_id, consent_type, granted, legal_basis, source, ip_address::text, notes,
 		        granted_at, revoked_at, created_by, created_at
 		 FROM consent_records
-		 WHERE contact_id = $1
+		 WHERE tenant_id = $1 AND contact_id = $2
 		 ORDER BY consent_type, created_at DESC`,
-		contactID,
+		tenantID, contactID,
 	)
 	if err != nil {
 		return nil, err
@@ -190,15 +190,15 @@ func scanConsentRecordRow(row pgx.Row) (*ConsentRecord, error) {
 	return &rec, nil
 }
 
-// GetLastConsentByType returns the latest consent record for a contact/type pair.
-func (r *PostgresRepository) GetLastConsentByType(ctx context.Context, contactID uuid.UUID, consentType string) (*ConsentRecord, error) {
+// GetLastConsentByType returns the latest consent record for a contact/type pair, scoped to tenant.
+func (r *PostgresRepository) GetLastConsentByType(ctx context.Context, tenantID, contactID uuid.UUID, consentType string) (*ConsentRecord, error) {
 	return scanConsentRecordRow(r.pool.QueryRow(ctx,
 		`SELECT id, contact_id, consent_type, granted, legal_basis, source, ip_address::text, notes,
 		        granted_at, revoked_at, created_by, created_at
 		 FROM consent_records
-		 WHERE contact_id = $1 AND consent_type = $2
+		 WHERE tenant_id = $1 AND contact_id = $2 AND consent_type = $3
 		 ORDER BY created_at DESC LIMIT 1`,
-		contactID, consentType,
+		tenantID, contactID, consentType,
 	))
 }
 

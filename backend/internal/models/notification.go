@@ -44,6 +44,7 @@ type Notification struct {
 // NotificationPreference represents a user's notification preference
 type NotificationPreference struct {
 	ID           uuid.UUID  `json:"id"`
+	TenantID     uuid.UUID  `json:"tenant_id"`
 	UserID       uuid.UUID  `json:"user_id"`
 	EventTypeKey *string    `json:"event_type_key,omitempty"`
 	ModuleID     *string    `json:"module_id,omitempty"`
@@ -57,6 +58,7 @@ type NotificationPreference struct {
 // NotificationMute represents a muted resource for a user
 type NotificationMute struct {
 	ID         uuid.UUID `json:"id"`
+	TenantID   uuid.UUID `json:"tenant_id"`
 	UserID     uuid.UUID `json:"user_id"`
 	ModuleID   string    `json:"module_id"`
 	ResourceID string    `json:"resource_id"`
@@ -66,6 +68,7 @@ type NotificationMute struct {
 // QuietHours represents a user's quiet hours configuration
 type QuietHours struct {
 	ID            uuid.UUID  `json:"id"`
+	TenantID      uuid.UUID  `json:"tenant_id"`
 	UserID        uuid.UUID  `json:"user_id"`
 	StartTime     string     `json:"start_time"`
 	EndTime       string     `json:"end_time"`

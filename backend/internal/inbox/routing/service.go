@@ -19,6 +19,12 @@ type EmailSender interface {
 	Send(ctx context.Context, to string, subject string, body string) error
 }
 
+// tenantRuleCache holds rules and refresh time for a single tenant.
+type tenantRuleCache struct {
+	rules       []*models.RoutingRule
+	lastRefresh time.Time
+}
+
 // Service handles routing rule business logic including evaluation,
 // action execution, and rule caching.
 type Service struct {
@@ -26,11 +32,10 @@ type Service struct {
 	messageRepo message.Repository
 	emailSender EmailSender
 
-	// Rule cache with 60s TTL
-	cacheMu     sync.RWMutex
-	cachedRules []*models.RoutingRule
-	lastRefresh time.Time
-	cacheTTL    time.Duration
+	// Rule cache with 60s TTL, keyed by tenantID
+	cacheMu  sync.RWMutex
+	cache    map[uuid.UUID]*tenantRuleCache
+	cacheTTL time.Duration
 }
 
 // NewService creates a new routing service.
@@ -39,6 +44,7 @@ func NewService(repo Repository, messageRepo message.Repository, emailSender Ema
 		repo:        repo,
 		messageRepo: messageRepo,
 		emailSender: emailSender,
+		cache:       make(map[uuid.UUID]*tenantRuleCache),
 		cacheTTL:    60 * time.Second,
 	}
 }
@@ -61,8 +67,8 @@ func (s *Service) Create(ctx context.Context, rule *models.RoutingRule) error {
 		return err
 	}
 
-	// Invalidate cache
-	s.invalidateCache()
+	// Invalidate cache for this tenant
+	s.invalidateCache(rule.TenantID)
 	return nil
 }
 
@@ -80,33 +86,33 @@ func (s *Service) Update(ctx context.Context, rule *models.RoutingRule) error {
 		return err
 	}
 
-	s.invalidateCache()
+	s.invalidateCache(rule.TenantID)
 	return nil
 }
 
-// Delete deletes a routing rule.
-func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
-	if err := s.repo.Delete(ctx, id); err != nil {
+// Delete deletes a routing rule within a tenant.
+func (s *Service) Delete(ctx context.Context, tenantID, id uuid.UUID) error {
+	if err := s.repo.Delete(ctx, tenantID, id); err != nil {
 		return err
 	}
-	s.invalidateCache()
+	s.invalidateCache(tenantID)
 	return nil
 }
 
-// GetByID retrieves a routing rule by ID.
-func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*models.RoutingRule, error) {
-	return s.repo.GetByID(ctx, id)
+// GetByID retrieves a routing rule by ID within a tenant.
+func (s *Service) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.RoutingRule, error) {
+	return s.repo.GetByID(ctx, tenantID, id)
 }
 
-// ListAll returns all routing rules.
-func (s *Service) ListAll(ctx context.Context) ([]*models.RoutingRule, error) {
-	return s.repo.ListAll(ctx)
+// ListAll returns all routing rules within a tenant.
+func (s *Service) ListAll(ctx context.Context, tenantID uuid.UUID) ([]*models.RoutingRule, error) {
+	return s.repo.ListAll(ctx, tenantID)
 }
 
 // EvaluateAndApply loads active rules (cached), evaluates them in priority order,
 // and on first match executes all actions. First-match-wins semantics.
 func (s *Service) EvaluateAndApply(ctx context.Context, msg *models.InboxMessage) error {
-	rules, err := s.getCachedRules(ctx, &msg.Channel)
+	rules, err := s.getCachedRules(ctx, msg.TenantID, &msg.Channel)
 	if err != nil {
 		return fmt.Errorf("load routing rules: %w", err)
 	}
@@ -309,36 +315,38 @@ func (s *Service) actionAutoReply(ctx context.Context, msg *models.InboxMessage,
 }
 
 // getCachedRules returns rules from cache if fresh, otherwise refreshes from DB.
-func (s *Service) getCachedRules(ctx context.Context, channel *string) ([]*models.RoutingRule, error) {
+func (s *Service) getCachedRules(ctx context.Context, tenantID uuid.UUID, channel *string) ([]*models.RoutingRule, error) {
 	s.cacheMu.RLock()
-	if s.cachedRules != nil && time.Since(s.lastRefresh) < s.cacheTTL {
-		rules := s.filterByChannel(s.cachedRules, channel)
+	if tc, ok := s.cache[tenantID]; ok && tc.rules != nil && time.Since(tc.lastRefresh) < s.cacheTTL {
+		rules := s.filterByChannel(tc.rules, channel)
 		s.cacheMu.RUnlock()
 		return rules, nil
 	}
 	s.cacheMu.RUnlock()
 
-	return s.refreshCache(ctx, channel)
+	return s.refreshCache(ctx, tenantID, channel)
 }
 
-// refreshCache reloads rules from the database.
-func (s *Service) refreshCache(ctx context.Context, channel *string) ([]*models.RoutingRule, error) {
+// refreshCache reloads rules from the database for a given tenant.
+func (s *Service) refreshCache(ctx context.Context, tenantID uuid.UUID, channel *string) ([]*models.RoutingRule, error) {
 	s.cacheMu.Lock()
 	defer s.cacheMu.Unlock()
 
 	// Double-check after acquiring write lock
-	if s.cachedRules != nil && time.Since(s.lastRefresh) < s.cacheTTL {
-		return s.filterByChannel(s.cachedRules, channel), nil
+	if tc, ok := s.cache[tenantID]; ok && tc.rules != nil && time.Since(tc.lastRefresh) < s.cacheTTL {
+		return s.filterByChannel(tc.rules, channel), nil
 	}
 
 	// Load all active rules (not filtered by channel) for cache
-	rules, err := s.repo.ListActive(ctx, nil)
+	rules, err := s.repo.ListActive(ctx, tenantID, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	s.cachedRules = rules
-	s.lastRefresh = time.Now()
+	s.cache[tenantID] = &tenantRuleCache{
+		rules:       rules,
+		lastRefresh: time.Now(),
+	}
 
 	return s.filterByChannel(rules, channel), nil
 }
@@ -359,12 +367,11 @@ func (s *Service) filterByChannel(rules []*models.RoutingRule, channel *string) 
 	return filtered
 }
 
-// invalidateCache forces a cache refresh on next access.
-func (s *Service) invalidateCache() {
+// invalidateCache forces a cache refresh on next access for a given tenant.
+func (s *Service) invalidateCache(tenantID uuid.UUID) {
 	s.cacheMu.Lock()
 	defer s.cacheMu.Unlock()
-	s.cachedRules = nil
-	s.lastRefresh = time.Time{}
+	delete(s.cache, tenantID)
 }
 
 // validateConditions checks that conditions JSON is valid.

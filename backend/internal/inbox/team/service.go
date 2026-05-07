@@ -78,7 +78,7 @@ func (s *Service) UpdateTeamInbox(ctx context.Context, inbox *models.TeamInbox, 
 }
 
 // DeleteTeamInbox deletes a team inbox. Only admin members can delete.
-func (s *Service) DeleteTeamInbox(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
+func (s *Service) DeleteTeamInbox(ctx context.Context, tenantID, id uuid.UUID, userID uuid.UUID) error {
 	role, err := s.repo.GetMemberRole(ctx, id, userID)
 	if err != nil {
 		return err
@@ -87,24 +87,24 @@ func (s *Service) DeleteTeamInbox(ctx context.Context, id uuid.UUID, userID uuid
 		return ErrNotTeamAdmin
 	}
 
-	return s.repo.DeleteTeamInbox(ctx, id)
+	return s.repo.DeleteTeamInbox(ctx, tenantID, id)
 }
 
-// GetTeamInbox retrieves a team inbox by ID.
-func (s *Service) GetTeamInbox(ctx context.Context, id uuid.UUID) (*models.TeamInbox, error) {
-	return s.repo.GetTeamInbox(ctx, id)
+// GetTeamInbox retrieves a team inbox by ID within a tenant.
+func (s *Service) GetTeamInbox(ctx context.Context, tenantID, id uuid.UUID) (*models.TeamInbox, error) {
+	return s.repo.GetTeamInbox(ctx, tenantID, id)
 }
 
-// ListByUser returns all team inboxes where the user is a member.
-func (s *Service) ListByUser(ctx context.Context, userID uuid.UUID) ([]*models.TeamInbox, error) {
-	return s.repo.ListByUser(ctx, userID)
+// ListByUser returns all team inboxes where the user is a member within a tenant.
+func (s *Service) ListByUser(ctx context.Context, tenantID, userID uuid.UUID) ([]*models.TeamInbox, error) {
+	return s.repo.ListByUser(ctx, tenantID, userID)
 }
 
 // ClaimMessage allows a user to manually claim an unassigned message in a team inbox.
 // Manual claiming is not allowed in round-robin assignment mode.
-func (s *Service) ClaimMessage(ctx context.Context, teamInboxID uuid.UUID, messageID uuid.UUID, userID uuid.UUID) error {
+func (s *Service) ClaimMessage(ctx context.Context, tenantID, teamInboxID uuid.UUID, messageID uuid.UUID, userID uuid.UUID) error {
 	// Verify team inbox exists and check assignment mode
-	inbox, err := s.repo.GetTeamInbox(ctx, teamInboxID)
+	inbox, err := s.repo.GetTeamInbox(ctx, tenantID, teamInboxID)
 	if err != nil {
 		return err
 	}
@@ -136,8 +136,8 @@ func (s *Service) ClaimMessage(ctx context.Context, teamInboxID uuid.UUID, messa
 
 // AutoAssignMessage assigns a message using round-robin among team inbox members.
 // If the selected member's claim fails (race condition), retries with the next index (max 3 retries).
-func (s *Service) AutoAssignMessage(ctx context.Context, teamInboxID uuid.UUID, messageID uuid.UUID) error {
-	inbox, err := s.repo.GetTeamInbox(ctx, teamInboxID)
+func (s *Service) AutoAssignMessage(ctx context.Context, tenantID, teamInboxID uuid.UUID, messageID uuid.UUID) error {
+	inbox, err := s.repo.GetTeamInbox(ctx, tenantID, teamInboxID)
 	if err != nil {
 		return err
 	}
@@ -162,7 +162,7 @@ func (s *Service) AutoAssignMessage(ctx context.Context, teamInboxID uuid.UUID, 
 	// Retry up to 3 times for race conditions
 	const maxRetries = 3
 	for i := 0; i < maxRetries; i++ {
-		index, err := s.repo.IncrementAssigneeIndex(ctx, teamInboxID)
+		index, err := s.repo.IncrementAssigneeIndex(ctx, tenantID, teamInboxID)
 		if err != nil {
 			return fmt.Errorf("increment assignee index: %w", err)
 		}

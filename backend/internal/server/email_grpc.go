@@ -40,9 +40,9 @@ type EmailGRPCServer struct {
 // EmailContactLinkRepository defines the interface for CRM email linking.
 type EmailContactLinkRepository interface {
 	Create(ctx context.Context, link *models.EmailContactLink) error
-	GetByMessageID(ctx context.Context, messageID uuid.UUID) ([]*models.EmailContactLink, error)
-	GetByContactID(ctx context.Context, contactID uuid.UUID, page, perPage int) ([]*models.EmailMessage, int, error)
-	Delete(ctx context.Context, messageID, contactID uuid.UUID) error
+	GetByMessageID(ctx context.Context, messageID uuid.UUID, tenantID uuid.UUID) ([]*models.EmailContactLink, error)
+	GetByContactID(ctx context.Context, contactID uuid.UUID, tenantID uuid.UUID, page, perPage int) ([]*models.EmailMessage, int, error)
+	Delete(ctx context.Context, messageID, contactID uuid.UUID, tenantID uuid.UUID) error
 }
 
 // NewEmailGRPCServer creates a new Email gRPC server.
@@ -75,6 +75,11 @@ func NewEmailGRPCServer(
 // ============================================================================
 
 func (s *EmailGRPCServer) CreateEmailAccount(ctx context.Context, req *emailv1.CreateEmailAccountRequest) (*emailv1.CreateEmailAccountResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
@@ -93,7 +98,7 @@ func (s *EmailGRPCServer) CreateEmailAccount(ctx context.Context, req *emailv1.C
 		UseSSL:       req.UseSsl,
 	}
 
-	acct, err := s.accountService.Create(ctx, input)
+	acct, err := s.accountService.Create(ctx, tenantID, input)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
@@ -111,12 +116,17 @@ func (s *EmailGRPCServer) CreateEmailAccount(ctx context.Context, req *emailv1.C
 }
 
 func (s *EmailGRPCServer) GetEmailAccount(ctx context.Context, req *emailv1.GetEmailAccountRequest) (*emailv1.GetEmailAccountResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	acct, err := s.accountService.GetByUserID(ctx, userID)
+	acct, err := s.accountService.GetByUserIDAndTenant(ctx, userID, tenantID)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
@@ -127,6 +137,11 @@ func (s *EmailGRPCServer) GetEmailAccount(ctx context.Context, req *emailv1.GetE
 }
 
 func (s *EmailGRPCServer) UpdateEmailAccount(ctx context.Context, req *emailv1.UpdateEmailAccountRequest) (*emailv1.UpdateEmailAccountResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid account id")
@@ -170,7 +185,7 @@ func (s *EmailGRPCServer) UpdateEmailAccount(ctx context.Context, req *emailv1.U
 		input.SyncEnabled = &v
 	}
 
-	acct, err := s.accountService.Update(ctx, id, input)
+	acct, err := s.accountService.Update(ctx, id, tenantID, input)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
@@ -181,6 +196,11 @@ func (s *EmailGRPCServer) UpdateEmailAccount(ctx context.Context, req *emailv1.U
 }
 
 func (s *EmailGRPCServer) DeleteEmailAccount(ctx context.Context, req *emailv1.DeleteEmailAccountRequest) (*emailv1.DeleteEmailAccountResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid account id")
@@ -189,7 +209,7 @@ func (s *EmailGRPCServer) DeleteEmailAccount(ctx context.Context, req *emailv1.D
 	// Stop sync worker before deleting
 	s.syncEngine.StopWorker(id)
 
-	if err := s.accountService.Delete(ctx, id); err != nil {
+	if err := s.accountService.Delete(ctx, id, tenantID); err != nil {
 		return nil, mapEmailError(err)
 	}
 
@@ -361,7 +381,7 @@ func (s *EmailGRPCServer) GetMessage(ctx context.Context, req *emailv1.GetMessag
 	protoMsg := toEmailMessageInfo(msg)
 
 	// Fetch attachments
-	attachments, err := s.attachmentService.GetByMessage(ctx, id)
+	attachments, err := s.attachmentService.GetByMessage(ctx, id, tenantID)
 	if err == nil {
 		for _, att := range attachments {
 			protoMsg.Attachments = append(protoMsg.Attachments, toEmailAttachmentInfo(att))
@@ -476,6 +496,11 @@ func (s *EmailGRPCServer) DeleteMessage(ctx context.Context, req *emailv1.Delete
 // ============================================================================
 
 func (s *EmailGRPCServer) SendEmail(ctx context.Context, req *emailv1.SendEmailRequest) (*emailv1.SendEmailResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	accountID, err := uuid.Parse(req.AccountId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid account_id")
@@ -483,6 +508,7 @@ func (s *EmailGRPCServer) SendEmail(ctx context.Context, req *emailv1.SendEmailR
 
 	input := send.SendInput{
 		AccountID: accountID,
+		TenantID:  tenantID,
 		To:        toSendAddresses(req.To),
 		CC:        toSendAddresses(req.Cc),
 		BCC:       toSendAddresses(req.Bcc),
@@ -507,6 +533,11 @@ func (s *EmailGRPCServer) SendEmail(ctx context.Context, req *emailv1.SendEmailR
 }
 
 func (s *EmailGRPCServer) SaveDraft(ctx context.Context, req *emailv1.SaveDraftRequest) (*emailv1.SaveDraftResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	accountID, err := uuid.Parse(req.AccountId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid account_id")
@@ -514,6 +545,7 @@ func (s *EmailGRPCServer) SaveDraft(ctx context.Context, req *emailv1.SaveDraftR
 
 	input := send.DraftInput{
 		AccountID: accountID,
+		TenantID:  tenantID,
 		Subject:   req.Subject,
 		BodyHTML:  req.BodyHtml,
 		BodyText:  req.BodyText,
@@ -553,6 +585,7 @@ func (s *EmailGRPCServer) ReplyEmail(ctx context.Context, req *emailv1.ReplyEmai
 
 	input := send.ReplyInput{
 		AccountID:   accountID,
+		TenantID:    tenantID,
 		OriginalMsg: origMsg,
 		BodyHTML:    req.BodyHtml,
 		BodyText:    req.BodyText,
@@ -597,6 +630,7 @@ func (s *EmailGRPCServer) ForwardEmail(ctx context.Context, req *emailv1.Forward
 
 	input := send.ForwardInput{
 		AccountID:   accountID,
+		TenantID:    tenantID,
 		OriginalMsg: origMsg,
 		To:          toSendAddresses(req.To),
 		BodyHTML:    req.BodyHtml,
@@ -616,18 +650,23 @@ func (s *EmailGRPCServer) ForwardEmail(ctx context.Context, req *emailv1.Forward
 // ============================================================================
 
 func (s *EmailGRPCServer) CreateSignature(ctx context.Context, req *emailv1.CreateSignatureRequest) (*emailv1.CreateSignatureResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	sig, err := s.signatureService.Create(ctx, userID, req.Name, req.HtmlContent)
+	sig, err := s.signatureService.Create(ctx, userID, tenantID, req.Name, req.HtmlContent)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
 
 	if req.IsDefault {
-		if err := s.signatureService.SetDefault(ctx, sig.ID); err != nil {
+		if err := s.signatureService.SetDefault(ctx, sig.ID, tenantID); err != nil {
 			return nil, mapEmailError(err)
 		}
 		sig.IsDefault = true
@@ -637,12 +676,17 @@ func (s *EmailGRPCServer) CreateSignature(ctx context.Context, req *emailv1.Crea
 }
 
 func (s *EmailGRPCServer) GetSignature(ctx context.Context, req *emailv1.GetSignatureRequest) (*emailv1.GetSignatureResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid signature id")
 	}
 
-	sig, err := s.signatureService.GetByID(ctx, id)
+	sig, err := s.signatureService.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
@@ -651,12 +695,17 @@ func (s *EmailGRPCServer) GetSignature(ctx context.Context, req *emailv1.GetSign
 }
 
 func (s *EmailGRPCServer) ListSignatures(ctx context.Context, req *emailv1.ListSignaturesRequest) (*emailv1.ListSignaturesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	sigs, err := s.signatureService.ListByUser(ctx, userID)
+	sigs, err := s.signatureService.ListByUser(ctx, userID, tenantID)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
@@ -670,6 +719,11 @@ func (s *EmailGRPCServer) ListSignatures(ctx context.Context, req *emailv1.ListS
 }
 
 func (s *EmailGRPCServer) UpdateSignature(ctx context.Context, req *emailv1.UpdateSignatureRequest) (*emailv1.UpdateSignatureResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid signature id")
@@ -684,13 +738,13 @@ func (s *EmailGRPCServer) UpdateSignature(ctx context.Context, req *emailv1.Upda
 		htmlContent = *req.HtmlContent
 	}
 
-	sig, err := s.signatureService.Update(ctx, id, name, htmlContent)
+	sig, err := s.signatureService.Update(ctx, id, tenantID, name, htmlContent)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
 
 	if req.IsDefault != nil && *req.IsDefault {
-		if err := s.signatureService.SetDefault(ctx, id); err != nil {
+		if err := s.signatureService.SetDefault(ctx, id, tenantID); err != nil {
 			return nil, mapEmailError(err)
 		}
 		sig.IsDefault = true
@@ -700,12 +754,17 @@ func (s *EmailGRPCServer) UpdateSignature(ctx context.Context, req *emailv1.Upda
 }
 
 func (s *EmailGRPCServer) DeleteSignature(ctx context.Context, req *emailv1.DeleteSignatureRequest) (*emailv1.DeleteSignatureResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid signature id")
 	}
 
-	if err := s.signatureService.Delete(ctx, id); err != nil {
+	if err := s.signatureService.Delete(ctx, id, tenantID); err != nil {
 		return nil, mapEmailError(err)
 	}
 
@@ -713,16 +772,21 @@ func (s *EmailGRPCServer) DeleteSignature(ctx context.Context, req *emailv1.Dele
 }
 
 func (s *EmailGRPCServer) SetDefaultSignature(ctx context.Context, req *emailv1.SetDefaultSignatureRequest) (*emailv1.SetDefaultSignatureResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid signature id")
 	}
 
-	if err := s.signatureService.SetDefault(ctx, id); err != nil {
+	if err := s.signatureService.SetDefault(ctx, id, tenantID); err != nil {
 		return nil, mapEmailError(err)
 	}
 
-	sig, err := s.signatureService.GetByID(ctx, id)
+	sig, err := s.signatureService.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
@@ -735,12 +799,17 @@ func (s *EmailGRPCServer) SetDefaultSignature(ctx context.Context, req *emailv1.
 // ============================================================================
 
 func (s *EmailGRPCServer) GetEmailContactLinks(ctx context.Context, req *emailv1.GetEmailContactLinksRequest) (*emailv1.GetEmailContactLinksResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	msgID, err := uuid.Parse(req.MessageId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
 	}
 
-	links, err := s.linkRepo.GetByMessageID(ctx, msgID)
+	links, err := s.linkRepo.GetByMessageID(ctx, msgID, tenantID)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
@@ -754,6 +823,11 @@ func (s *EmailGRPCServer) GetEmailContactLinks(ctx context.Context, req *emailv1
 }
 
 func (s *EmailGRPCServer) LinkEmailToContact(ctx context.Context, req *emailv1.LinkEmailToContactRequest) (*emailv1.LinkEmailToContactResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	msgID, err := uuid.Parse(req.MessageId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
@@ -766,6 +840,7 @@ func (s *EmailGRPCServer) LinkEmailToContact(ctx context.Context, req *emailv1.L
 
 	link := &models.EmailContactLink{
 		ID:        uuid.New(),
+		TenantID:  tenantID,
 		MessageID: msgID,
 		ContactID: contactID,
 		LinkType:  req.LinkType,
@@ -784,6 +859,11 @@ func (s *EmailGRPCServer) LinkEmailToContact(ctx context.Context, req *emailv1.L
 }
 
 func (s *EmailGRPCServer) UnlinkEmailFromContact(ctx context.Context, req *emailv1.UnlinkEmailFromContactRequest) (*emailv1.UnlinkEmailFromContactResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	msgID, err := uuid.Parse(req.MessageId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
@@ -794,7 +874,7 @@ func (s *EmailGRPCServer) UnlinkEmailFromContact(ctx context.Context, req *email
 		return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
 	}
 
-	if err := s.linkRepo.Delete(ctx, msgID, contactID); err != nil {
+	if err := s.linkRepo.Delete(ctx, msgID, contactID, tenantID); err != nil {
 		return nil, mapEmailError(err)
 	}
 
@@ -802,6 +882,11 @@ func (s *EmailGRPCServer) UnlinkEmailFromContact(ctx context.Context, req *email
 }
 
 func (s *EmailGRPCServer) GetContactEmails(ctx context.Context, req *emailv1.GetContactEmailsRequest) (*emailv1.GetContactEmailsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	contactID, err := uuid.Parse(req.ContactId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
@@ -816,7 +901,7 @@ func (s *EmailGRPCServer) GetContactEmails(ctx context.Context, req *emailv1.Get
 		perPage = 50
 	}
 
-	messages, total, err := s.linkRepo.GetByContactID(ctx, contactID, page, perPage)
+	messages, total, err := s.linkRepo.GetByContactID(ctx, contactID, tenantID, page, perPage)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
@@ -896,6 +981,11 @@ func (s *EmailGRPCServer) SetReadFlag(ctx context.Context, req *emailv1.SetReadF
 // ============================================================================
 
 func (s *EmailGRPCServer) UploadAttachment(ctx context.Context, req *emailv1.UploadAttachmentRequest) (*emailv1.UploadAttachmentResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	accountID, err := uuid.Parse(req.AccountId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid account_id")
@@ -913,6 +1003,7 @@ func (s *EmailGRPCServer) UploadAttachment(ctx context.Context, req *emailv1.Upl
 		reader,
 		"",
 		false,
+		tenantID,
 	)
 	if err != nil {
 		return nil, mapEmailError(err)
@@ -926,18 +1017,23 @@ func (s *EmailGRPCServer) UploadAttachment(ctx context.Context, req *emailv1.Upl
 }
 
 func (s *EmailGRPCServer) GetAttachmentDownloadURL(ctx context.Context, req *emailv1.GetAttachmentDownloadURLRequest) (*emailv1.GetAttachmentDownloadURLResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid attachment id")
 	}
 
-	url, err := s.attachmentService.GetDownloadURL(ctx, id)
+	url, err := s.attachmentService.GetDownloadURL(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
 
 	// Get attachment metadata for the response
-	attachments, _ := s.attachmentService.GetByMessage(ctx, uuid.Nil)
+	attachments, _ := s.attachmentService.GetByMessage(ctx, uuid.Nil, tenantID)
 	var filename, contentType string
 	var sizeBytes int64
 	for _, att := range attachments {

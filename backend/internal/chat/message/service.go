@@ -452,6 +452,7 @@ func (s *Service) GetThreadReplies(ctx context.Context, input GetThreadRepliesIn
 	}
 
 	filter := ThreadListFilter{
+		TenantID:        input.TenantID, // P2-6: propagate tenant for cursor-lookup isolation
 		ParentMessageID: input.ParentMessageID,
 		Limit:           input.Limit + 1,
 		Before:          input.Before,

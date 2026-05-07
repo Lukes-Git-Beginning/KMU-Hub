@@ -14,27 +14,27 @@ type Repository interface {
 	// Create persists a new notification.
 	Create(ctx context.Context, notif *models.Notification) error
 
-	// GetByID retrieves a notification by its ID.
-	GetByID(ctx context.Context, id uuid.UUID) (*models.Notification, error)
+	// GetByID retrieves a notification by its ID within a tenant.
+	GetByID(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) (*models.Notification, error)
 
 	// List retrieves notifications for a user with optional filtering.
 	List(ctx context.Context, filter ListFilter, offset, limit int) ([]*models.Notification, int, error)
 
-	// GetUnreadCount returns the number of unread notifications for a user.
-	GetUnreadCount(ctx context.Context, userID uuid.UUID) (int, error)
+	// GetUnreadCount returns the number of unread notifications for a user within a tenant.
+	GetUnreadCount(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID) (int, error)
 
-	// MarkRead marks a single notification as read.
-	MarkRead(ctx context.Context, id uuid.UUID, readAt time.Time) error
+	// MarkRead marks a single notification as read within a tenant.
+	MarkRead(ctx context.Context, tenantID uuid.UUID, id uuid.UUID, readAt time.Time) error
 
-	// MarkAllRead marks all unread notifications as read for a user, optionally filtered by module.
-	MarkAllRead(ctx context.Context, userID uuid.UUID, moduleID *string, readAt time.Time) (int, error)
+	// MarkAllRead marks all unread notifications as read for a user within a tenant, optionally filtered by module.
+	MarkAllRead(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, moduleID *string, readAt time.Time) (int, error)
 
-	// MarkDeliveredDesktop marks a notification as delivered via desktop push.
-	MarkDeliveredDesktop(ctx context.Context, id uuid.UUID) error
+	// MarkDeliveredDesktop marks a notification as delivered via desktop push within a tenant.
+	MarkDeliveredDesktop(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) error
 
 	// FindRecentByGroupKey finds the most recent notification with the same group key
-	// within a time window. Used for smart grouping.
-	FindRecentByGroupKey(ctx context.Context, userID uuid.UUID, groupKey string, since time.Time) (*models.Notification, error)
+	// within a time window and tenant. Used for smart grouping.
+	FindRecentByGroupKey(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, groupKey string, since time.Time) (*models.Notification, error)
 
 	// IncrementGroupCount increments the group count of a notification.
 	IncrementGroupCount(ctx context.Context, id uuid.UUID, newTitle string) error
@@ -55,6 +55,7 @@ type Repository interface {
 
 // ListFilter contains filtering options for listing notifications.
 type ListFilter struct {
+	TenantID uuid.UUID
 	UserID   uuid.UUID
 	ModuleID *string
 	IsRead   *bool

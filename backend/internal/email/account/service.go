@@ -74,15 +74,15 @@ func NewService(repo Repository, encryptor VaultEncryptor) *Service {
 }
 
 // Create creates a new email account with encrypted credentials.
-func (s *Service) Create(ctx context.Context, input CreateInput) (*models.EmailAccount, error) {
+func (s *Service) Create(ctx context.Context, tenantID uuid.UUID, input CreateInput) (*models.EmailAccount, error) {
 	// Validate email address
 	trimmed := strings.TrimSpace(input.EmailAddress)
 	if _, err := mail.ParseAddress(trimmed); err != nil {
 		return nil, fmt.Errorf("invalid email address: %w", err)
 	}
 
-	// Check if user already has an account
-	existing, _ := s.repo.GetByUserID(ctx, input.UserID)
+	// Check if user already has an account within this tenant
+	existing, _ := s.repo.GetByUserIDAndTenant(ctx, input.UserID, tenantID)
 	if existing != nil {
 		return nil, ErrAccountExists
 	}
@@ -110,6 +110,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.EmailA
 	now := time.Now().UTC()
 	account := &models.EmailAccount{
 		ID:                uuid.New(),
+		TenantID:          tenantID,
 		UserID:            input.UserID,
 		EmailAddress:      trimmed,
 		DisplayName:       strings.TrimSpace(input.DisplayName),
@@ -148,8 +149,8 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.EmailA
 }
 
 // GetByID retrieves an email account by ID (without decrypted password).
-func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*models.EmailAccount, error) {
-	account, err := s.repo.GetByID(ctx, id)
+func (s *Service) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.EmailAccount, error) {
+	account, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -157,9 +158,9 @@ func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*models.EmailAccou
 	return account, nil
 }
 
-// GetByUserID retrieves an email account by user ID (without decrypted password).
-func (s *Service) GetByUserID(ctx context.Context, userID uuid.UUID) (*models.EmailAccount, error) {
-	account, err := s.repo.GetByUserID(ctx, userID)
+// GetByUserIDAndTenant retrieves an email account by user ID and tenant (without decrypted password).
+func (s *Service) GetByUserIDAndTenant(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID) (*models.EmailAccount, error) {
+	account, err := s.repo.GetByUserIDAndTenant(ctx, userID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -168,8 +169,8 @@ func (s *Service) GetByUserID(ctx context.Context, userID uuid.UUID) (*models.Em
 }
 
 // GetDecryptedCredentials returns the decrypted IMAP/SMTP credentials for connection.
-func (s *Service) GetDecryptedCredentials(ctx context.Context, accountID uuid.UUID) (*Credentials, error) {
-	account, err := s.repo.GetByID(ctx, accountID)
+func (s *Service) GetDecryptedCredentials(ctx context.Context, accountID uuid.UUID, tenantID uuid.UUID) (*Credentials, error) {
+	account, err := s.repo.GetByID(ctx, accountID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -191,8 +192,8 @@ func (s *Service) GetDecryptedCredentials(ctx context.Context, accountID uuid.UU
 }
 
 // Update updates an existing email account.
-func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (*models.EmailAccount, error) {
-	account, err := s.repo.GetByID(ctx, id)
+func (s *Service) Update(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, input UpdateInput) (*models.EmailAccount, error) {
+	account, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -250,19 +251,20 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (
 }
 
 // Delete removes an email account.
-func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
-	account, err := s.repo.GetByID(ctx, id)
+func (s *Service) Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	account, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return err
 	}
 
-	if err := s.repo.Delete(ctx, id); err != nil {
+	if err := s.repo.Delete(ctx, id, tenantID); err != nil {
 		return fmt.Errorf("failed to delete account: %w", err)
 	}
 
 	slog.Info("email account deleted",
 		"account_id", account.ID,
 		"user_id", account.UserID,
+		"tenant_id", tenantID,
 	)
 
 	return nil
@@ -301,14 +303,19 @@ func (s *Service) TestConnection(ctx context.Context, input CreateInput) error {
 	return nil
 }
 
-// ListActive returns all sync-enabled accounts (for sync engine startup).
-func (s *Service) ListActive(ctx context.Context) ([]*models.EmailAccount, error) {
-	return s.repo.ListActive(ctx)
+// ListActive returns all sync-enabled accounts for a tenant (for sync engine startup).
+func (s *Service) ListActive(ctx context.Context, tenantID uuid.UUID) ([]*models.EmailAccount, error) {
+	return s.repo.ListActive(ctx, tenantID)
+}
+
+// ListAllActive returns all sync-enabled accounts across all tenants (for sync engine bootstrap).
+func (s *Service) ListAllActive(ctx context.Context) ([]*models.EmailAccount, error) {
+	return s.repo.ListAllActive(ctx)
 }
 
 // UpdateLastSync updates the last_sync_at timestamp for an account.
-func (s *Service) UpdateLastSync(ctx context.Context, accountID uuid.UUID) error {
-	account, err := s.repo.GetByID(ctx, accountID)
+func (s *Service) UpdateLastSync(ctx context.Context, accountID uuid.UUID, tenantID uuid.UUID) error {
+	account, err := s.repo.GetByID(ctx, accountID, tenantID)
 	if err != nil {
 		return err
 	}

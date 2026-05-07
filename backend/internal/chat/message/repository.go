@@ -61,6 +61,7 @@ type ListFilter struct {
 
 // ThreadListFilter contains filtering options for listing thread replies
 type ThreadListFilter struct {
+	TenantID        uuid.UUID // P2-6: Required for cursor-lookup tenant isolation
 	ParentMessageID uuid.UUID
 	Limit           int
 	Before          *uuid.UUID

@@ -19,7 +19,7 @@ func NewService(repo Repository) *Service {
 }
 
 // GrantConsent records a consent grant for a contact.
-func (s *Service) GrantConsent(ctx context.Context, contactID uuid.UUID, consentType, source, legalBasis string, ip *string, createdBy *uuid.UUID) (*ConsentRecord, error) {
+func (s *Service) GrantConsent(ctx context.Context, tenantID, contactID uuid.UUID, consentType, source, legalBasis string, ip *string, createdBy *uuid.UUID) (*ConsentRecord, error) {
 	if !ValidConsentTypes[consentType] {
 		return nil, ErrInvalidConsentType
 	}
@@ -38,6 +38,7 @@ func (s *Service) GrantConsent(ctx context.Context, contactID uuid.UUID, consent
 	now := time.Now()
 	record := &ConsentRecord{
 		ID:          uuid.New(),
+		TenantID:    tenantID,
 		ContactID:   contactID,
 		ConsentType: consentType,
 		Granted:     true,
@@ -54,6 +55,7 @@ func (s *Service) GrantConsent(ctx context.Context, contactID uuid.UUID, consent
 	}
 
 	slog.Info("consent.granted",
+		"tenant_id", tenantID,
 		"contact_id", contactID,
 		"consent_type", consentType,
 		"legal_basis", legalBasis,
@@ -63,7 +65,7 @@ func (s *Service) GrantConsent(ctx context.Context, contactID uuid.UUID, consent
 }
 
 // RevokeConsent records a consent revocation for a contact.
-func (s *Service) RevokeConsent(ctx context.Context, contactID uuid.UUID, consentType, notes string, revokedBy *uuid.UUID) (*ConsentRecord, error) {
+func (s *Service) RevokeConsent(ctx context.Context, tenantID, contactID uuid.UUID, consentType, notes string, revokedBy *uuid.UUID) (*ConsentRecord, error) {
 	if !ValidConsentTypes[consentType] {
 		return nil, ErrInvalidConsentType
 	}
@@ -79,6 +81,7 @@ func (s *Service) RevokeConsent(ctx context.Context, contactID uuid.UUID, consen
 	now := time.Now()
 	record := &ConsentRecord{
 		ID:          uuid.New(),
+		TenantID:    tenantID,
 		ContactID:   contactID,
 		ConsentType: consentType,
 		Granted:     false,
@@ -94,6 +97,7 @@ func (s *Service) RevokeConsent(ctx context.Context, contactID uuid.UUID, consen
 	}
 
 	slog.Info("consent.revoked",
+		"tenant_id", tenantID,
 		"contact_id", contactID,
 		"consent_type", consentType,
 	)
@@ -101,9 +105,9 @@ func (s *Service) RevokeConsent(ctx context.Context, contactID uuid.UUID, consen
 	return record, nil
 }
 
-// GetContactConsents returns the current consent status for all types for a contact.
-func (s *Service) GetContactConsents(ctx context.Context, contactID uuid.UUID) (*ConsentSummary, error) {
-	records, err := s.repo.GetLatestConsents(ctx, contactID)
+// GetContactConsents returns the current consent status for all types for a contact (scoped to tenant).
+func (s *Service) GetContactConsents(ctx context.Context, tenantID, contactID uuid.UUID) (*ConsentSummary, error) {
+	records, err := s.repo.GetLatestConsents(ctx, tenantID, contactID)
 	if err != nil {
 		return nil, err
 	}
@@ -118,12 +122,12 @@ func (s *Service) GetContactConsents(ctx context.Context, contactID uuid.UUID) (
 	return summary, nil
 }
 
-// GetConsentHistory returns the full consent history for a contact and consent type.
-func (s *Service) GetConsentHistory(ctx context.Context, contactID uuid.UUID, consentType string) ([]*ConsentRecord, error) {
+// GetConsentHistory returns the full consent history for a contact and consent type (scoped to tenant).
+func (s *Service) GetConsentHistory(ctx context.Context, tenantID, contactID uuid.UUID, consentType string) ([]*ConsentRecord, error) {
 	if !ValidConsentTypes[consentType] {
 		return nil, ErrInvalidConsentType
 	}
-	return s.repo.GetConsentHistory(ctx, contactID, consentType)
+	return s.repo.GetConsentHistory(ctx, tenantID, contactID, consentType)
 }
 
 // RequestDeletion creates a GDPR Art. 17 erasure request.

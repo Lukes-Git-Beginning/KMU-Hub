@@ -50,9 +50,9 @@ func (g *Grouper) ProcessNotification(ctx context.Context, notif *models.Notific
 		return &GroupResult{Notification: notif, IsNew: true}, nil
 	}
 
-	// Check for recent notification with same group key
+	// Check for recent notification with same group key (tenant-scoped)
 	since := notif.CreatedAt.Add(-g.windowDuration)
-	existing, err := g.repo.FindRecentByGroupKey(ctx, notif.UserID, *notif.GroupKey, since)
+	existing, err := g.repo.FindRecentByGroupKey(ctx, notif.TenantID, notif.UserID, *notif.GroupKey, since)
 	if err != nil {
 		return nil, err
 	}

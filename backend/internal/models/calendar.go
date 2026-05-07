@@ -37,6 +37,7 @@ var ValidCalendarPermissions = map[string]bool{
 // Calendar represents a personal or shared calendar
 type Calendar struct {
 	ID           uuid.UUID `json:"id"`
+	TenantID     uuid.UUID `json:"tenant_id"`
 	Name         string    `json:"name"`
 	Description  *string   `json:"description,omitempty"`
 	CalendarType string    `json:"calendar_type"`
@@ -59,6 +60,7 @@ type CalendarWithMemberInfo struct {
 // CalendarMember represents a user's membership in a calendar
 type CalendarMember struct {
 	CalendarID    uuid.UUID `json:"calendar_id"`
+	TenantID      uuid.UUID `json:"tenant_id"`
 	UserID        uuid.UUID `json:"user_id"`
 	Permission    string    `json:"permission"`
 	ColorOverride *string   `json:"color_override,omitempty"`

@@ -41,7 +41,7 @@ type CreateInput struct {
 }
 
 // Create creates a new calendar
-func (s *Service) Create(ctx context.Context, userID uuid.UUID, input CreateInput) (*models.Calendar, error) {
+func (s *Service) Create(ctx context.Context, userID, tenantID uuid.UUID, input CreateInput) (*models.Calendar, error) {
 	// Validate name
 	name := strings.TrimSpace(input.Name)
 	if name == "" {
@@ -71,6 +71,7 @@ func (s *Service) Create(ctx context.Context, userID uuid.UUID, input CreateInpu
 	now := time.Now()
 	cal := &models.Calendar{
 		ID:           uuid.New(),
+		TenantID:     tenantID,
 		Name:         name,
 		Description:  input.Description,
 		CalendarType: input.CalendarType,
@@ -91,25 +92,26 @@ func (s *Service) Create(ctx context.Context, userID uuid.UUID, input CreateInpu
 		"name", cal.Name,
 		"type", cal.CalendarType,
 		"owner_id", userID,
+		"tenant_id", tenantID,
 	)
 
 	return cal, nil
 }
 
 // Get retrieves a calendar by ID
-func (s *Service) Get(ctx context.Context, calendarID uuid.UUID) (*models.Calendar, error) {
-	return s.repo.GetByID(ctx, calendarID)
+func (s *Service) Get(ctx context.Context, calendarID, tenantID uuid.UUID) (*models.Calendar, error) {
+	return s.repo.GetByID(ctx, calendarID, tenantID)
 }
 
 // ListByUser lists all calendars a user owns or is a member of.
 // Ensures the personal calendar exists first.
-func (s *Service) ListByUser(ctx context.Context, userID uuid.UUID) ([]models.CalendarWithMemberInfo, error) {
+func (s *Service) ListByUser(ctx context.Context, userID, tenantID uuid.UUID) ([]models.CalendarWithMemberInfo, error) {
 	// Ensure personal calendar exists
-	if _, err := s.repo.EnsurePersonalCalendar(ctx, userID); err != nil {
+	if _, err := s.repo.EnsurePersonalCalendar(ctx, userID, tenantID); err != nil {
 		return nil, err
 	}
 
-	return s.repo.ListByUser(ctx, userID)
+	return s.repo.ListByUser(ctx, userID, tenantID)
 }
 
 // UpdateInput contains fields that can be updated on a calendar
@@ -121,8 +123,8 @@ type UpdateInput struct {
 }
 
 // Update updates an existing calendar. Only owner or admin can update.
-func (s *Service) Update(ctx context.Context, calendarID, actorID uuid.UUID, input UpdateInput) (*models.Calendar, error) {
-	cal, err := s.repo.GetByID(ctx, calendarID)
+func (s *Service) Update(ctx context.Context, calendarID, actorID, tenantID uuid.UUID, input UpdateInput) (*models.Calendar, error) {
+	cal, err := s.repo.GetByID(ctx, calendarID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -169,8 +171,8 @@ func (s *Service) Update(ctx context.Context, calendarID, actorID uuid.UUID, inp
 }
 
 // Delete deletes a calendar. Only owner can delete. Cannot delete default calendar.
-func (s *Service) Delete(ctx context.Context, calendarID, actorID uuid.UUID) error {
-	cal, err := s.repo.GetByID(ctx, calendarID)
+func (s *Service) Delete(ctx context.Context, calendarID, actorID, tenantID uuid.UUID) error {
+	cal, err := s.repo.GetByID(ctx, calendarID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -183,7 +185,7 @@ func (s *Service) Delete(ctx context.Context, calendarID, actorID uuid.UUID) err
 		return ErrCannotDeleteDefaultCalendar
 	}
 
-	if deleteErr := s.repo.Delete(ctx, calendarID); deleteErr != nil {
+	if deleteErr := s.repo.Delete(ctx, calendarID, tenantID); deleteErr != nil {
 		return deleteErr
 	}
 
@@ -193,8 +195,8 @@ func (s *Service) Delete(ctx context.Context, calendarID, actorID uuid.UUID) err
 }
 
 // AddMember adds a user as a member of a calendar. Only owner or admin can add members.
-func (s *Service) AddMember(ctx context.Context, calendarID, actorID, targetUserID uuid.UUID, permission string) error {
-	cal, err := s.repo.GetByID(ctx, calendarID)
+func (s *Service) AddMember(ctx context.Context, calendarID, actorID, targetUserID uuid.UUID, tenantID uuid.UUID, permission string) error {
+	cal, err := s.repo.GetByID(ctx, calendarID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -219,6 +221,7 @@ func (s *Service) AddMember(ctx context.Context, calendarID, actorID, targetUser
 	now := time.Now()
 	member := &models.CalendarMember{
 		CalendarID: calendarID,
+		TenantID:   tenantID,
 		UserID:     targetUserID,
 		Permission: permission,
 		IsVisible:  true,
@@ -239,8 +242,8 @@ func (s *Service) AddMember(ctx context.Context, calendarID, actorID, targetUser
 }
 
 // RemoveMember removes a user from a calendar. Only owner or admin can remove members.
-func (s *Service) RemoveMember(ctx context.Context, calendarID, actorID, targetUserID uuid.UUID) error {
-	cal, err := s.repo.GetByID(ctx, calendarID)
+func (s *Service) RemoveMember(ctx context.Context, calendarID, actorID, targetUserID, tenantID uuid.UUID) error {
+	cal, err := s.repo.GetByID(ctx, calendarID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -270,8 +273,8 @@ func (s *Service) RemoveMember(ctx context.Context, calendarID, actorID, targetU
 }
 
 // UpdateMemberPermission changes a member's permission level. Only owner or admin can change.
-func (s *Service) UpdateMemberPermission(ctx context.Context, calendarID, actorID, targetUserID uuid.UUID, permission string) error {
-	cal, err := s.repo.GetByID(ctx, calendarID)
+func (s *Service) UpdateMemberPermission(ctx context.Context, calendarID, actorID, targetUserID, tenantID uuid.UUID, permission string) error {
+	cal, err := s.repo.GetByID(ctx, calendarID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -312,21 +315,21 @@ func (s *Service) UpdateMemberPermission(ctx context.Context, calendarID, actorI
 }
 
 // ListMembers returns all members of a calendar
-func (s *Service) ListMembers(ctx context.Context, calendarID uuid.UUID) ([]models.CalendarMember, error) {
-	if _, err := s.repo.GetByID(ctx, calendarID); err != nil {
+func (s *Service) ListMembers(ctx context.Context, calendarID, tenantID uuid.UUID) ([]models.CalendarMember, error) {
+	if _, err := s.repo.GetByID(ctx, calendarID, tenantID); err != nil {
 		return nil, err
 	}
 	return s.repo.ListMembers(ctx, calendarID)
 }
 
 // ListBrowsable lists shared calendars the user can subscribe to
-func (s *Service) ListBrowsable(ctx context.Context, userID uuid.UUID) ([]models.Calendar, error) {
-	return s.repo.ListBrowsable(ctx, userID)
+func (s *Service) ListBrowsable(ctx context.Context, userID, tenantID uuid.UUID) ([]models.Calendar, error) {
+	return s.repo.ListBrowsable(ctx, userID, tenantID)
 }
 
 // Subscribe subscribes a user to a shared calendar with view permission
-func (s *Service) Subscribe(ctx context.Context, calendarID, userID uuid.UUID) error {
-	cal, err := s.repo.GetByID(ctx, calendarID)
+func (s *Service) Subscribe(ctx context.Context, calendarID, userID, tenantID uuid.UUID) error {
+	cal, err := s.repo.GetByID(ctx, calendarID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -354,8 +357,8 @@ func (s *Service) Subscribe(ctx context.Context, calendarID, userID uuid.UUID) e
 }
 
 // Unsubscribe removes a user's subscription from a calendar
-func (s *Service) Unsubscribe(ctx context.Context, calendarID, userID uuid.UUID) error {
-	cal, err := s.repo.GetByID(ctx, calendarID)
+func (s *Service) Unsubscribe(ctx context.Context, calendarID, userID, tenantID uuid.UUID) error {
+	cal, err := s.repo.GetByID(ctx, calendarID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -378,7 +381,7 @@ func (s *Service) Unsubscribe(ctx context.Context, calendarID, userID uuid.UUID)
 }
 
 // CreateCategory creates a new event category for a user
-func (s *Service) CreateCategory(ctx context.Context, userID uuid.UUID, name, color string) (*models.EventCategory, error) {
+func (s *Service) CreateCategory(ctx context.Context, userID, tenantID uuid.UUID, name, color string) (*models.EventCategory, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, ErrCategoryNameRequired
@@ -394,6 +397,7 @@ func (s *Service) CreateCategory(ctx context.Context, userID uuid.UUID, name, co
 	now := time.Now()
 	cat := &models.EventCategory{
 		ID:        uuid.New(),
+		TenantID:  tenantID,
 		UserID:    userID,
 		Name:      name,
 		Color:     color,
@@ -415,13 +419,13 @@ func (s *Service) CreateCategory(ctx context.Context, userID uuid.UUID, name, co
 }
 
 // ListCategories lists all event categories for a user
-func (s *Service) ListCategories(ctx context.Context, userID uuid.UUID) ([]models.EventCategory, error) {
-	return s.repo.ListCategories(ctx, userID)
+func (s *Service) ListCategories(ctx context.Context, userID, tenantID uuid.UUID) ([]models.EventCategory, error) {
+	return s.repo.ListCategories(ctx, userID, tenantID)
 }
 
 // DeleteCategory deletes an event category owned by the user
-func (s *Service) DeleteCategory(ctx context.Context, categoryID, userID uuid.UUID) error {
-	if deleteErr := s.repo.DeleteCategory(ctx, categoryID, userID); deleteErr != nil {
+func (s *Service) DeleteCategory(ctx context.Context, categoryID, userID, tenantID uuid.UUID) error {
+	if deleteErr := s.repo.DeleteCategory(ctx, categoryID, userID, tenantID); deleteErr != nil {
 		return deleteErr
 	}
 

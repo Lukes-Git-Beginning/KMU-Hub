@@ -90,8 +90,17 @@ func (s *Service) StartRecording(ctx context.Context, callID *uuid.UUID, meeting
 	now := time.Now()
 	retentionExpires := now.Add(RetentionDays * 24 * time.Hour)
 
+	// Extract optional tenantID (variadic for backwards-compatibility with call-sites that
+	// do not yet pass a tenant). When provided it is stored on the recording row so the
+	// repository layer can enforce tenant_id-scoped queries.
+	var tid uuid.UUID
+	if len(tenantID) > 0 {
+		tid = tenantID[0]
+	}
+
 	rec := &Recording{
 		ID:                 uuid.New(),
+		TenantID:           tid,
 		CallID:             callID,
 		MeetingID:          meetingID,
 		StartedBy:          &startedBy,

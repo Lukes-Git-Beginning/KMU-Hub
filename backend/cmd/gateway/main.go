@@ -176,10 +176,19 @@ func main() {
 	// =========================================================================
 	authMiddleware := middleware.Auth(localAuthService)
 
-	// Idempotency deduplication middleware (WarnMode until frontend fully sends headers).
+	// Idempotency deduplication middleware.
+	// Default: WarnMode (logs missing header, does not block) — safe for production
+	// until all clients reliably send the Idempotency-Key header.
+	// Set IDEMPOTENCY_MODE=hard to enable HardMode (400 on missing key).
+	// Dev compose sets this to "hard" by default for early regression detection.
 	// Combined with authMiddleware so the chain is: Auth → Idempotency → Handler.
 	// This guarantees tenant+user context is populated before idempotency reads it.
-	idempotencyMW := middleware.Idempotency(idempotencyRepo, middleware.WarnMode)
+	idempotencyMode := middleware.WarnMode
+	if os.Getenv("IDEMPOTENCY_MODE") == "hard" {
+		idempotencyMode = middleware.HardMode
+		slog.Info("idempotency running in HardMode — missing Idempotency-Key returns 400")
+	}
+	idempotencyMW := middleware.Idempotency(idempotencyRepo, idempotencyMode)
 	authWithIdempotency := func(next http.Handler) http.Handler {
 		return authMiddleware(idempotencyMW(next))
 	}

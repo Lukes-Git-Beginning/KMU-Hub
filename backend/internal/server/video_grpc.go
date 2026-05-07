@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/work/meeting"
 	"github.com/kmuhub/kmuhub/internal/work/presence"
 	"github.com/kmuhub/kmuhub/internal/work/reaction"
@@ -226,7 +227,11 @@ func (s *VideoGRPCServer) StartRecording(ctx context.Context, req *videov1.Start
 		}
 	} else if meetingID != nil {
 		// Option 1: pull attendees from meeting_attendees via meeting service
-		mwa, getErr := s.meetingService.GetMeeting(ctx, *meetingID)
+		tenantID, tenantErr := middleware.GetTenantID(ctx)
+		if tenantErr != nil {
+			return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+		}
+		mwa, getErr := s.meetingService.GetMeeting(ctx, *meetingID, tenantID)
 		if getErr != nil {
 			return nil, mapMeetingError(getErr)
 		}
@@ -564,6 +569,11 @@ func (s *VideoGRPCServer) ConfirmInitiatorConsent(ctx context.Context, req *vide
 // ============================================================================
 
 func (s *VideoGRPCServer) CreateMeeting(ctx context.Context, req *videov1.CreateMeetingRequest) (*videov1.Meeting, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+
 	organizerID, err := uuid.Parse(req.OrganizerId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid organizer_id")
@@ -579,6 +589,7 @@ func (s *VideoGRPCServer) CreateMeeting(ctx context.Context, req *videov1.Create
 	}
 
 	input := meeting.CreateMeetingInput{
+		TenantID:       tenantID,
 		Title:          req.Title,
 		Description:    req.Description,
 		Agenda:         req.Agenda,
@@ -609,7 +620,7 @@ func (s *VideoGRPCServer) CreateMeeting(ctx context.Context, req *videov1.Create
 	}
 
 	// Re-fetch with attendees
-	mwa, err := s.meetingService.GetMeeting(ctx, m.ID)
+	mwa, err := s.meetingService.GetMeeting(ctx, m.ID, tenantID)
 	if err != nil {
 		return nil, mapMeetingError(err)
 	}
@@ -618,12 +629,17 @@ func (s *VideoGRPCServer) CreateMeeting(ctx context.Context, req *videov1.Create
 }
 
 func (s *VideoGRPCServer) GetMeeting(ctx context.Context, req *videov1.GetMeetingRequest) (*videov1.Meeting, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+
 	id, err := uuid.Parse(req.MeetingId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
 	}
 
-	mwa, err := s.meetingService.GetMeeting(ctx, id)
+	mwa, err := s.meetingService.GetMeeting(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapMeetingError(err)
 	}
@@ -632,6 +648,11 @@ func (s *VideoGRPCServer) GetMeeting(ctx context.Context, req *videov1.GetMeetin
 }
 
 func (s *VideoGRPCServer) UpdateMeeting(ctx context.Context, req *videov1.UpdateMeetingRequest) (*videov1.Meeting, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+
 	id, err := uuid.Parse(req.MeetingId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
@@ -651,7 +672,7 @@ func (s *VideoGRPCServer) UpdateMeeting(ctx context.Context, req *videov1.Update
 		input.ScheduledEnd = &t
 	}
 
-	m, err := s.meetingService.UpdateMeeting(ctx, id, input)
+	m, err := s.meetingService.UpdateMeeting(ctx, id, tenantID, input)
 	if err != nil {
 		return nil, mapMeetingError(err)
 	}
@@ -663,11 +684,11 @@ func (s *VideoGRPCServer) UpdateMeeting(ctx context.Context, req *videov1.Update
 			if parseErr != nil {
 				continue
 			}
-			_ = s.meetingService.AddAttendee(ctx, m.ID, aid)
+			_ = s.meetingService.AddAttendee(ctx, m.ID, aid, tenantID)
 		}
 	}
 
-	mwa, err := s.meetingService.GetMeeting(ctx, m.ID)
+	mwa, err := s.meetingService.GetMeeting(ctx, m.ID, tenantID)
 	if err != nil {
 		return nil, mapMeetingError(err)
 	}
@@ -676,12 +697,17 @@ func (s *VideoGRPCServer) UpdateMeeting(ctx context.Context, req *videov1.Update
 }
 
 func (s *VideoGRPCServer) DeleteMeeting(ctx context.Context, req *videov1.DeleteMeetingRequest) (*emptypb.Empty, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+
 	id, err := uuid.Parse(req.MeetingId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
 	}
 
-	if err := s.meetingService.DeleteMeeting(ctx, id); err != nil {
+	if err := s.meetingService.DeleteMeeting(ctx, id, tenantID); err != nil {
 		return nil, mapMeetingError(err)
 	}
 
@@ -730,17 +756,22 @@ func (s *VideoGRPCServer) ListMeetings(ctx context.Context, req *videov1.ListMee
 }
 
 func (s *VideoGRPCServer) StartMeeting(ctx context.Context, req *videov1.StartMeetingRequest) (*videov1.StartMeetingResponse, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+
 	id, err := uuid.Parse(req.MeetingId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
 	}
 
-	m, err := s.meetingService.StartMeeting(ctx, id)
+	m, err := s.meetingService.StartMeeting(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapMeetingError(err)
 	}
 
-	mwa, getErr := s.meetingService.GetMeeting(ctx, m.ID)
+	mwa, getErr := s.meetingService.GetMeeting(ctx, m.ID, tenantID)
 	if getErr != nil {
 		return nil, mapMeetingError(getErr)
 	}
@@ -754,12 +785,17 @@ func (s *VideoGRPCServer) StartMeeting(ctx context.Context, req *videov1.StartMe
 }
 
 func (s *VideoGRPCServer) EndMeeting(ctx context.Context, req *videov1.EndMeetingRequest) (*videov1.MeetingSummary, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+
 	id, err := uuid.Parse(req.MeetingId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
 	}
 
-	summary, err := s.meetingService.EndMeeting(ctx, id)
+	summary, err := s.meetingService.EndMeeting(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapMeetingError(err)
 	}
@@ -772,6 +808,11 @@ func (s *VideoGRPCServer) EndMeeting(ctx context.Context, req *videov1.EndMeetin
 // ============================================================================
 
 func (s *VideoGRPCServer) SaveMeetingNotes(ctx context.Context, req *videov1.SaveMeetingNotesRequest) (*videov1.MeetingNotes, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+
 	meetingID, err := uuid.Parse(req.MeetingId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
@@ -782,7 +823,7 @@ func (s *VideoGRPCServer) SaveMeetingNotes(ctx context.Context, req *videov1.Sav
 		return nil, status.Error(codes.InvalidArgument, "invalid author_id")
 	}
 
-	notes, err := s.meetingService.SaveNotes(ctx, meetingID, authorID, req.Content, req.IsPrivate)
+	notes, err := s.meetingService.SaveNotes(ctx, meetingID, authorID, tenantID, req.Content, req.IsPrivate)
 	if err != nil {
 		return nil, mapMeetingError(err)
 	}
@@ -791,6 +832,11 @@ func (s *VideoGRPCServer) SaveMeetingNotes(ctx context.Context, req *videov1.Sav
 }
 
 func (s *VideoGRPCServer) GetMeetingNotes(ctx context.Context, req *videov1.GetMeetingNotesRequest) (*videov1.MeetingNotes, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+
 	meetingID, err := uuid.Parse(req.MeetingId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
@@ -809,7 +855,7 @@ func (s *VideoGRPCServer) GetMeetingNotes(ctx context.Context, req *videov1.GetM
 	// Since the meeting service doesn't expose GetNotes directly, we use the service's internal notes.
 	// This is a deviation: we need to access the notes via the service in a more direct way.
 	// For now, we'll use SaveNotes pattern to return the latest notes for the user.
-	notes, err := s.meetingService.SaveNotes(ctx, meetingID, userID, "", false)
+	notes, err := s.meetingService.SaveNotes(ctx, meetingID, userID, tenantID, "", false)
 	if err != nil {
 		// If content is empty, it will fail validation.
 		// We need a different approach: return empty notes or add a GetNotes method.
@@ -824,12 +870,17 @@ func (s *VideoGRPCServer) GetMeetingNotes(ctx context.Context, req *videov1.GetM
 }
 
 func (s *VideoGRPCServer) GetPreviousMeetingNotes(ctx context.Context, req *videov1.GetPreviousMeetingNotesRequest) (*videov1.MeetingNotes, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+
 	meetingID, err := uuid.Parse(req.CurrentMeetingId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid current_meeting_id")
 	}
 
-	notes, err := s.meetingService.GetPreviousMeetingNotes(ctx, meetingID)
+	notes, err := s.meetingService.GetPreviousMeetingNotes(ctx, meetingID, tenantID)
 	if err != nil {
 		return nil, mapMeetingError(err)
 	}
@@ -918,12 +969,17 @@ func (s *VideoGRPCServer) DeleteActionItem(ctx context.Context, req *videov1.Del
 }
 
 func (s *VideoGRPCServer) ListActionItems(ctx context.Context, req *videov1.ListActionItemsRequest) (*videov1.ListActionItemsResponse, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+
 	meetingID, err := uuid.Parse(req.MeetingId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
 	}
 
-	items, err := s.meetingService.ListActionItems(ctx, meetingID)
+	items, err := s.meetingService.ListActionItems(ctx, meetingID, tenantID)
 	if err != nil {
 		return nil, mapMeetingError(err)
 	}
@@ -939,6 +995,11 @@ func (s *VideoGRPCServer) ListActionItems(ctx context.Context, req *videov1.List
 }
 
 func (s *VideoGRPCServer) ConvertActionItemsToTasks(ctx context.Context, req *videov1.ConvertActionItemsToTasksRequest) (*videov1.ConvertActionItemsToTasksResponse, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
@@ -964,7 +1025,8 @@ func (s *VideoGRPCServer) ConvertActionItemsToTasks(ctx context.Context, req *vi
 
 	for _, itemID := range itemIDs {
 		// Create a task from the action item description
-		items, listErr := s.meetingService.ListActionItems(ctx, uuid.Nil)
+		// Note: ListActionItems requires a meeting ID; using uuid.Nil lists all unscoped items
+		items, listErr := s.meetingService.ListActionItems(ctx, uuid.Nil, tenantID)
 		if listErr != nil {
 			// Try to get the item directly by creating a task with the item ID info
 			continue
@@ -1056,7 +1118,12 @@ func (s *VideoGRPCServer) SetPresenceStatus(ctx context.Context, req *videov1.Se
 }
 
 func (s *VideoGRPCServer) UpdatePresenceConfig(ctx context.Context, req *videov1.UpdatePresenceConfigRequest) (*emptypb.Empty, error) {
-	if err := s.presenceService.UpdateConfig(ctx, int(req.AwayTimeoutSeconds), uuid.Nil); err != nil {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant_id in token")
+	}
+
+	if err := s.presenceService.UpdateConfig(ctx, int(req.AwayTimeoutSeconds), tenantID); err != nil {
 		return nil, mapPresenceError(err)
 	}
 

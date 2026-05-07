@@ -23,6 +23,7 @@ var ValidResourceTypes = map[string]bool{
 // Resource represents a bookable resource (room, equipment, vehicle)
 type Resource struct {
 	ID           uuid.UUID `json:"id"`
+	TenantID     uuid.UUID `json:"tenant_id"`
 	Name         string    `json:"name"`
 	ResourceType string    `json:"resource_type"`
 	Capacity     *int      `json:"capacity,omitempty"`
@@ -39,6 +40,7 @@ type Resource struct {
 // ResourceBooking represents a time-bounded reservation of a resource
 type ResourceBooking struct {
 	ID           uuid.UUID  `json:"id"`
+	TenantID     uuid.UUID  `json:"tenant_id"`
 	ResourceID   uuid.UUID  `json:"resource_id"`
 	EventID      uuid.UUID  `json:"event_id"`
 	BookedBy     uuid.UUID  `json:"booked_by"`

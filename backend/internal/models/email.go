@@ -33,6 +33,7 @@ const (
 // EmailAccount represents an IMAP/SMTP email account configured by a user.
 type EmailAccount struct {
 	ID                uuid.UUID  `json:"id"`
+	TenantID          uuid.UUID  `json:"tenant_id"`
 	UserID            uuid.UUID  `json:"user_id"`
 	EmailAddress      string     `json:"email_address"`
 	DisplayName       string     `json:"display_name"`
@@ -120,6 +121,7 @@ func (m *EmailMessage) BccAddressesJSON() ([]byte, error) {
 // EmailContactLink represents the junction between an email message and a CRM contact.
 type EmailContactLink struct {
 	ID        uuid.UUID `json:"id"`
+	TenantID  uuid.UUID `json:"tenant_id"`
 	MessageID uuid.UUID `json:"message_id"`
 	ContactID uuid.UUID `json:"contact_id"`
 	LinkType  string    `json:"link_type"` // auto, manual
@@ -129,6 +131,7 @@ type EmailContactLink struct {
 // EmailAttachment represents metadata for an email attachment stored in MinIO.
 type EmailAttachment struct {
 	ID          uuid.UUID `json:"id"`
+	TenantID    uuid.UUID `json:"tenant_id"`
 	MessageID   uuid.UUID `json:"message_id"`
 	Filename    string    `json:"filename"`
 	ContentType string    `json:"content_type"`
@@ -142,6 +145,7 @@ type EmailAttachment struct {
 // EmailSignature represents a per-user HTML email signature.
 type EmailSignature struct {
 	ID          uuid.UUID `json:"id"`
+	TenantID    uuid.UUID `json:"tenant_id"`
 	UserID      uuid.UUID `json:"user_id"`
 	Name        string    `json:"name"`
 	HTMLContent string    `json:"html_content"`

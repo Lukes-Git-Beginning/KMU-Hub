@@ -34,7 +34,8 @@ func NewService(repo Repository) *Service {
 // Evaluate determines whether and how to deliver a notification to a user.
 // Pipeline: urgent bypass -> resource mute -> event-type pref -> module default
 // -> system default -> low priority override -> quiet hours check
-func (s *Service) Evaluate(ctx context.Context, userID uuid.UUID, event models.EventPayload) (*DeliveryDecision, error) {
+// tenantID is used for all tenant-scoped preference lookups.
+func (s *Service) Evaluate(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, event models.EventPayload) (*DeliveryDecision, error) {
 	// Step 1: Urgent priority bypasses all filters
 	if event.Priority == models.PriorityUrgent {
 		return &DeliveryDecision{
@@ -48,7 +49,7 @@ func (s *Service) Evaluate(ctx context.Context, userID uuid.UUID, event models.E
 
 	// Step 2: Check resource muting
 	if event.ResourceID != "" {
-		muted, err := s.repo.IsResourceMuted(ctx, userID, event.ModuleID, event.ResourceID)
+		muted, err := s.repo.IsResourceMuted(ctx, tenantID, userID, event.ModuleID, event.ResourceID)
 		if err != nil {
 			return nil, err
 		}
@@ -61,14 +62,14 @@ func (s *Service) Evaluate(ctx context.Context, userID uuid.UUID, event models.E
 	}
 
 	// Step 3: Check event-type preference
-	pref, err := s.repo.GetEventTypePreference(ctx, userID, event.Type)
+	pref, err := s.repo.GetEventTypePreference(ctx, tenantID, userID, event.Type)
 	if err != nil && !errors.Is(err, ErrPreferenceNotFound) {
 		return nil, err
 	}
 
 	// Step 4: Fall back to module default
 	if pref == nil {
-		pref, err = s.repo.GetModuleDefault(ctx, userID, event.ModuleID)
+		pref, err = s.repo.GetModuleDefault(ctx, tenantID, userID, event.ModuleID)
 		if err != nil && !errors.Is(err, ErrPreferenceNotFound) {
 			return nil, err
 		}
@@ -106,7 +107,7 @@ func (s *Service) Evaluate(ctx context.Context, userID uuid.UUID, event models.E
 	}
 
 	// Step 7: Check quiet hours (only for normal priority)
-	inQuietHours, err := s.isInQuietHours(ctx, userID)
+	inQuietHours, err := s.isInQuietHours(ctx, tenantID, userID)
 	if err != nil {
 		slog.Warn("quiet hours check failed, proceeding with normal delivery",
 			"user_id", userID,
@@ -123,8 +124,8 @@ func (s *Service) Evaluate(ctx context.Context, userID uuid.UUID, event models.E
 }
 
 // isInQuietHours checks whether the user is currently in their quiet hours.
-func (s *Service) isInQuietHours(ctx context.Context, userID uuid.UUID) (bool, error) {
-	qh, err := s.repo.GetQuietHours(ctx, userID)
+func (s *Service) isInQuietHours(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID) (bool, error) {
+	qh, err := s.repo.GetQuietHours(ctx, tenantID, userID)
 	if err != nil {
 		if errors.Is(err, ErrQuietHoursNotFound) {
 			return false, nil
@@ -205,9 +206,9 @@ func (s *Service) isInQuietHours(ctx context.Context, userID uuid.UUID) (bool, e
 // CRUD Operations
 // ============================================================================
 
-// GetPreferences returns all preferences for a user, optionally filtered by module.
-func (s *Service) GetPreferences(ctx context.Context, userID uuid.UUID, moduleID *string) ([]*models.NotificationPreference, error) {
-	return s.repo.ListPreferences(ctx, userID, moduleID)
+// GetPreferences returns all preferences for a user within a tenant, optionally filtered by module.
+func (s *Service) GetPreferences(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, moduleID *string) ([]*models.NotificationPreference, error) {
+	return s.repo.ListPreferences(ctx, tenantID, userID, moduleID)
 }
 
 // UpdatePreference creates or updates a notification preference.
@@ -224,10 +225,10 @@ func (s *Service) UpdatePreference(ctx context.Context, pref *models.Notificatio
 	return s.repo.UpsertPreference(ctx, pref)
 }
 
-// MuteResource mutes notifications for a specific resource.
-func (s *Service) MuteResource(ctx context.Context, userID uuid.UUID, moduleID, resourceID string) (*models.NotificationMute, error) {
+// MuteResource mutes notifications for a specific resource within a tenant.
+func (s *Service) MuteResource(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, moduleID, resourceID string) (*models.NotificationMute, error) {
 	// Check if already muted
-	muted, err := s.repo.IsResourceMuted(ctx, userID, moduleID, resourceID)
+	muted, err := s.repo.IsResourceMuted(ctx, tenantID, userID, moduleID, resourceID)
 	if err != nil {
 		return nil, err
 	}
@@ -237,6 +238,7 @@ func (s *Service) MuteResource(ctx context.Context, userID uuid.UUID, moduleID, 
 
 	mute := &models.NotificationMute{
 		ID:         uuid.New(),
+		TenantID:   tenantID,
 		UserID:     userID,
 		ModuleID:   moduleID,
 		ResourceID: resourceID,
@@ -249,13 +251,13 @@ func (s *Service) MuteResource(ctx context.Context, userID uuid.UUID, moduleID, 
 	return mute, nil
 }
 
-// UnmuteResource removes a mute for a specific resource.
-func (s *Service) UnmuteResource(ctx context.Context, userID uuid.UUID, moduleID, resourceID string) error {
-	return s.repo.DeleteMute(ctx, userID, moduleID, resourceID)
+// UnmuteResource removes a mute for a specific resource within a tenant.
+func (s *Service) UnmuteResource(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, moduleID, resourceID string) error {
+	return s.repo.DeleteMute(ctx, tenantID, userID, moduleID, resourceID)
 }
 
-// ListMutedResources returns muted resources for a user.
-func (s *Service) ListMutedResources(ctx context.Context, userID uuid.UUID, moduleID *string, page, pageSize int) ([]*models.NotificationMute, int, error) {
+// ListMutedResources returns muted resources for a user within a tenant.
+func (s *Service) ListMutedResources(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, moduleID *string, page, pageSize int) ([]*models.NotificationMute, int, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -263,16 +265,16 @@ func (s *Service) ListMutedResources(ctx context.Context, userID uuid.UUID, modu
 		pageSize = 50
 	}
 	offset := (page - 1) * pageSize
-	return s.repo.ListMutes(ctx, userID, moduleID, offset, pageSize)
+	return s.repo.ListMutes(ctx, tenantID, userID, moduleID, offset, pageSize)
 }
 
-// GetQuietHours returns the quiet hours configuration for a user.
-func (s *Service) GetQuietHours(ctx context.Context, userID uuid.UUID) (*models.QuietHours, error) {
-	return s.repo.GetQuietHours(ctx, userID)
+// GetQuietHours returns the quiet hours configuration for a user within a tenant.
+func (s *Service) GetQuietHours(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID) (*models.QuietHours, error) {
+	return s.repo.GetQuietHours(ctx, tenantID, userID)
 }
 
-// UpdateQuietHours creates or updates quiet hours for a user.
-func (s *Service) UpdateQuietHours(ctx context.Context, userID uuid.UUID, startTime, endTime, timezone string, daysOfWeek []int, enabled bool) (*models.QuietHours, error) {
+// UpdateQuietHours creates or updates quiet hours for a user within a tenant.
+func (s *Service) UpdateQuietHours(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, startTime, endTime, timezone string, daysOfWeek []int, enabled bool) (*models.QuietHours, error) {
 	// Validate timezone
 	if _, err := time.LoadLocation(timezone); err != nil {
 		return nil, ErrInvalidTimezone
@@ -294,7 +296,7 @@ func (s *Service) UpdateQuietHours(ctx context.Context, userID uuid.UUID, startT
 	}
 
 	// Retrieve existing or create new
-	qh, err := s.repo.GetQuietHours(ctx, userID)
+	qh, err := s.repo.GetQuietHours(ctx, tenantID, userID)
 	if err != nil && !errors.Is(err, ErrQuietHoursNotFound) {
 		return nil, err
 	}
@@ -303,6 +305,7 @@ func (s *Service) UpdateQuietHours(ctx context.Context, userID uuid.UUID, startT
 	if qh == nil {
 		qh = &models.QuietHours{
 			ID:        uuid.New(),
+			TenantID:  tenantID,
 			UserID:    userID,
 			CreatedAt: now,
 		}
@@ -321,9 +324,9 @@ func (s *Service) UpdateQuietHours(ctx context.Context, userID uuid.UUID, startT
 	return qh, nil
 }
 
-// ToggleManualDND toggles manual Do Not Disturb mode.
-func (s *Service) ToggleManualDND(ctx context.Context, userID uuid.UUID, enabled bool, until *time.Time) (*models.QuietHours, error) {
-	qh, err := s.repo.GetQuietHours(ctx, userID)
+// ToggleManualDND toggles manual Do Not Disturb mode within a tenant.
+func (s *Service) ToggleManualDND(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, enabled bool, until *time.Time) (*models.QuietHours, error) {
+	qh, err := s.repo.GetQuietHours(ctx, tenantID, userID)
 	if err != nil && !errors.Is(err, ErrQuietHoursNotFound) {
 		return nil, err
 	}
@@ -332,6 +335,7 @@ func (s *Service) ToggleManualDND(ctx context.Context, userID uuid.UUID, enabled
 	if qh == nil {
 		qh = &models.QuietHours{
 			ID:         uuid.New(),
+			TenantID:   tenantID,
 			UserID:     userID,
 			StartTime:  "18:00",
 			EndTime:    "08:00",

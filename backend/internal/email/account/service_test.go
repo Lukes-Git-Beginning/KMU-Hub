@@ -62,9 +62,12 @@ func (r *mockRepo) Create(ctx context.Context, account *models.EmailAccount) err
 	return nil
 }
 
-func (r *mockRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.EmailAccount, error) {
+func (r *mockRepo) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.EmailAccount, error) {
 	a, ok := r.accounts[id]
 	if !ok {
+		return nil, ErrAccountNotFound
+	}
+	if a.TenantID != tenantID {
 		return nil, ErrAccountNotFound
 	}
 	// Return a copy to avoid mutation
@@ -72,9 +75,12 @@ func (r *mockRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.EmailAcco
 	return &copy, nil
 }
 
-func (r *mockRepo) GetByUserID(ctx context.Context, userID uuid.UUID) (*models.EmailAccount, error) {
+func (r *mockRepo) GetByUserIDAndTenant(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID) (*models.EmailAccount, error) {
 	a, ok := r.byUser[userID]
 	if !ok {
+		return nil, ErrAccountNotFound
+	}
+	if a.TenantID != tenantID {
 		return nil, ErrAccountNotFound
 	}
 	copy := *a
@@ -91,9 +97,12 @@ func (r *mockRepo) Update(ctx context.Context, account *models.EmailAccount) err
 	return nil
 }
 
-func (r *mockRepo) Delete(ctx context.Context, id uuid.UUID) error {
+func (r *mockRepo) Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
 	a, ok := r.accounts[id]
 	if !ok {
+		return ErrAccountNotFound
+	}
+	if a.TenantID != tenantID {
 		return ErrAccountNotFound
 	}
 	delete(r.accounts, id)
@@ -101,7 +110,17 @@ func (r *mockRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (r *mockRepo) ListActive(ctx context.Context) ([]*models.EmailAccount, error) {
+func (r *mockRepo) ListActive(ctx context.Context, tenantID uuid.UUID) ([]*models.EmailAccount, error) {
+	var result []*models.EmailAccount
+	for _, a := range r.accounts {
+		if a.SyncEnabled && a.TenantID == tenantID {
+			result = append(result, a)
+		}
+	}
+	return result, nil
+}
+
+func (r *mockRepo) ListAllActive(ctx context.Context) ([]*models.EmailAccount, error) {
 	var result []*models.EmailAccount
 	for _, a := range r.accounts {
 		if a.SyncEnabled {
@@ -128,6 +147,9 @@ func validInput() CreateInput {
 	}
 }
 
+// testTenantID is the canonical tenant used across test cases.
+var testTenantID = uuid.MustParse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+
 func TestService_Create(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		repo := newMockRepo()
@@ -135,10 +157,11 @@ func TestService_Create(t *testing.T) {
 		svc := NewService(repo, enc)
 
 		input := validInput()
-		account, err := svc.Create(context.Background(), input)
+		account, err := svc.Create(context.Background(), testTenantID, input)
 
 		require.NoError(t, err)
 		assert.NotEqual(t, uuid.Nil, account.ID)
+		assert.Equal(t, testTenantID, account.TenantID)
 		assert.Equal(t, input.UserID, account.UserID)
 		assert.Equal(t, input.EmailAddress, account.EmailAddress)
 		assert.Equal(t, input.DisplayName, account.DisplayName)
@@ -161,7 +184,7 @@ func TestService_Create(t *testing.T) {
 		svc := NewService(repo, enc)
 
 		input := validInput()
-		_, err := svc.Create(context.Background(), input)
+		_, err := svc.Create(context.Background(), testTenantID, input)
 
 		require.NoError(t, err)
 		// Verify the stored value in repo is encrypted
@@ -169,17 +192,17 @@ func TestService_Create(t *testing.T) {
 		assert.Equal(t, encryptedValue, stored.PasswordEncrypted)
 	})
 
-	t.Run("duplicate user rejected", func(t *testing.T) {
+	t.Run("duplicate user same tenant rejected", func(t *testing.T) {
 		repo := newMockRepo()
 		enc := &mockEncryptor{}
 		svc := NewService(repo, enc)
 
 		input := validInput()
-		_, err := svc.Create(context.Background(), input)
+		_, err := svc.Create(context.Background(), testTenantID, input)
 		require.NoError(t, err)
 
-		// Same user again
-		_, err = svc.Create(context.Background(), input)
+		// Same user, same tenant again
+		_, err = svc.Create(context.Background(), testTenantID, input)
 		assert.ErrorIs(t, err, ErrAccountExists)
 	})
 
@@ -190,7 +213,7 @@ func TestService_Create(t *testing.T) {
 
 		input := validInput()
 		input.EmailAddress = "not-an-email"
-		_, err := svc.Create(context.Background(), input)
+		_, err := svc.Create(context.Background(), testTenantID, input)
 		assert.Error(t, err)
 	})
 
@@ -201,7 +224,7 @@ func TestService_Create(t *testing.T) {
 
 		input := validInput()
 		input.Password = ""
-		_, err := svc.Create(context.Background(), input)
+		_, err := svc.Create(context.Background(), testTenantID, input)
 		assert.Error(t, err)
 	})
 
@@ -215,7 +238,7 @@ func TestService_Create(t *testing.T) {
 		svc := NewService(repo, enc)
 
 		input := validInput()
-		_, err := svc.Create(context.Background(), input)
+		_, err := svc.Create(context.Background(), testTenantID, input)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "encrypt")
 	})
@@ -228,12 +251,35 @@ func TestService_Create(t *testing.T) {
 		input := validInput()
 		input.IMAPPort = 0
 		input.SMTPPort = 0
-		account, err := svc.Create(context.Background(), input)
+		account, err := svc.Create(context.Background(), testTenantID, input)
 
 		require.NoError(t, err)
 		stored := repo.accounts[account.ID]
 		assert.Equal(t, 993, stored.IMAPPort)
 		assert.Equal(t, 587, stored.SMTPPort)
+	})
+}
+
+func TestService_TenantIsolation(t *testing.T) {
+	t.Run("tenant A account not visible to tenant B", func(t *testing.T) {
+		repo := newMockRepo()
+		enc := &mockEncryptor{}
+		svc := NewService(repo, enc)
+
+		tenantA := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+		tenantB := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+
+		input := validInput()
+		accountA, err := svc.Create(context.Background(), tenantA, input)
+		require.NoError(t, err)
+
+		// Tenant B tries to fetch tenant A's account by ID
+		_, err = svc.GetByID(context.Background(), accountA.ID, tenantB)
+		assert.ErrorIs(t, err, ErrAccountNotFound)
+
+		// Tenant B tries to fetch tenant A's account by user ID
+		_, err = svc.GetByUserIDAndTenant(context.Background(), input.UserID, tenantB)
+		assert.ErrorIs(t, err, ErrAccountNotFound)
 	})
 }
 
@@ -244,10 +290,10 @@ func TestService_GetDecryptedCredentials(t *testing.T) {
 		svc := NewService(repo, enc)
 
 		input := validInput()
-		account, err := svc.Create(context.Background(), input)
+		account, err := svc.Create(context.Background(), testTenantID, input)
 		require.NoError(t, err)
 
-		creds, err := svc.GetDecryptedCredentials(context.Background(), account.ID)
+		creds, err := svc.GetDecryptedCredentials(context.Background(), account.ID, testTenantID)
 		require.NoError(t, err)
 
 		assert.Equal(t, input.IMAPHost, creds.IMAPHost)
@@ -264,7 +310,7 @@ func TestService_GetDecryptedCredentials(t *testing.T) {
 		enc := &mockEncryptor{}
 		svc := NewService(repo, enc)
 
-		_, err := svc.GetDecryptedCredentials(context.Background(), uuid.New())
+		_, err := svc.GetDecryptedCredentials(context.Background(), uuid.New(), testTenantID)
 		assert.ErrorIs(t, err, ErrAccountNotFound)
 	})
 
@@ -278,10 +324,10 @@ func TestService_GetDecryptedCredentials(t *testing.T) {
 		svc := NewService(repo, enc)
 
 		input := validInput()
-		account, err := svc.Create(context.Background(), input)
+		account, err := svc.Create(context.Background(), testTenantID, input)
 		require.NoError(t, err)
 
-		_, err = svc.GetDecryptedCredentials(context.Background(), account.ID)
+		_, err = svc.GetDecryptedCredentials(context.Background(), account.ID, testTenantID)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "decrypt")
 	})
@@ -294,11 +340,11 @@ func TestService_Update(t *testing.T) {
 		svc := NewService(repo, enc)
 
 		input := validInput()
-		account, err := svc.Create(context.Background(), input)
+		account, err := svc.Create(context.Background(), testTenantID, input)
 		require.NoError(t, err)
 
 		newEmail := "new@example.com"
-		updated, err := svc.Update(context.Background(), account.ID, UpdateInput{
+		updated, err := svc.Update(context.Background(), account.ID, testTenantID, UpdateInput{
 			EmailAddress: &newEmail,
 		})
 
@@ -319,12 +365,12 @@ func TestService_Update(t *testing.T) {
 		svc := NewService(repo, enc)
 
 		input := validInput()
-		account, err := svc.Create(context.Background(), input)
+		account, err := svc.Create(context.Background(), testTenantID, input)
 		require.NoError(t, err)
 		assert.Equal(t, 1, encryptCalls)
 
 		newPass := "newpassword"
-		_, err = svc.Update(context.Background(), account.ID, UpdateInput{
+		_, err = svc.Update(context.Background(), account.ID, testTenantID, UpdateInput{
 			Password: &newPass,
 		})
 
@@ -340,7 +386,7 @@ func TestService_Update(t *testing.T) {
 		svc := NewService(repo, enc)
 
 		newEmail := "test@example.com"
-		_, err := svc.Update(context.Background(), uuid.New(), UpdateInput{
+		_, err := svc.Update(context.Background(), uuid.New(), testTenantID, UpdateInput{
 			EmailAddress: &newEmail,
 		})
 		assert.ErrorIs(t, err, ErrAccountNotFound)
@@ -354,13 +400,13 @@ func TestService_Delete(t *testing.T) {
 		svc := NewService(repo, enc)
 
 		input := validInput()
-		account, err := svc.Create(context.Background(), input)
+		account, err := svc.Create(context.Background(), testTenantID, input)
 		require.NoError(t, err)
 
-		err = svc.Delete(context.Background(), account.ID)
+		err = svc.Delete(context.Background(), account.ID, testTenantID)
 		require.NoError(t, err)
 
-		_, err = svc.GetByID(context.Background(), account.ID)
+		_, err = svc.GetByID(context.Background(), account.ID, testTenantID)
 		assert.ErrorIs(t, err, ErrAccountNotFound)
 	})
 
@@ -369,7 +415,7 @@ func TestService_Delete(t *testing.T) {
 		enc := &mockEncryptor{}
 		svc := NewService(repo, enc)
 
-		err := svc.Delete(context.Background(), uuid.New())
+		err := svc.Delete(context.Background(), uuid.New(), testTenantID)
 		assert.ErrorIs(t, err, ErrAccountNotFound)
 	})
 }
@@ -379,23 +425,23 @@ func TestService_ListActive(t *testing.T) {
 	enc := &mockEncryptor{}
 	svc := NewService(repo, enc)
 
-	// Create active account
+	// Create active account for testTenantID
 	input1 := validInput()
-	_, err := svc.Create(context.Background(), input1)
+	_, err := svc.Create(context.Background(), testTenantID, input1)
 	require.NoError(t, err)
 
-	// Create another user, disable sync
+	// Create another user for testTenantID, disable sync
 	input2 := validInput()
 	input2.UserID = uuid.New()
 	input2.EmailAddress = "other@example.com"
-	account2, err := svc.Create(context.Background(), input2)
+	account2, err := svc.Create(context.Background(), testTenantID, input2)
 	require.NoError(t, err)
 
 	disabled := false
-	_, err = svc.Update(context.Background(), account2.ID, UpdateInput{SyncEnabled: &disabled})
+	_, err = svc.Update(context.Background(), account2.ID, testTenantID, UpdateInput{SyncEnabled: &disabled})
 	require.NoError(t, err)
 
-	active, err := svc.ListActive(context.Background())
+	active, err := svc.ListActive(context.Background(), testTenantID)
 	require.NoError(t, err)
 	assert.Len(t, active, 1)
 }
@@ -406,25 +452,25 @@ func TestService_GetByID(t *testing.T) {
 	svc := NewService(repo, enc)
 
 	input := validInput()
-	created, err := svc.Create(context.Background(), input)
+	created, err := svc.Create(context.Background(), testTenantID, input)
 	require.NoError(t, err)
 
-	got, err := svc.GetByID(context.Background(), created.ID)
+	got, err := svc.GetByID(context.Background(), created.ID, testTenantID)
 	require.NoError(t, err)
 	assert.Equal(t, created.ID, got.ID)
 	assert.Empty(t, got.PasswordEncrypted)
 }
 
-func TestService_GetByUserID(t *testing.T) {
+func TestService_GetByUserIDAndTenant(t *testing.T) {
 	repo := newMockRepo()
 	enc := &mockEncryptor{}
 	svc := NewService(repo, enc)
 
 	input := validInput()
-	_, err := svc.Create(context.Background(), input)
+	_, err := svc.Create(context.Background(), testTenantID, input)
 	require.NoError(t, err)
 
-	got, err := svc.GetByUserID(context.Background(), input.UserID)
+	got, err := svc.GetByUserIDAndTenant(context.Background(), input.UserID, testTenantID)
 	require.NoError(t, err)
 	assert.Equal(t, input.EmailAddress, got.EmailAddress)
 	assert.Empty(t, got.PasswordEncrypted)

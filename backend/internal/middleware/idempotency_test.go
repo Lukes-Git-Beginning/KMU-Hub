@@ -75,10 +75,14 @@ func (m *memIdempotencyRepo) Get(ctx context.Context, tenantID uuid.UUID, key st
 	return rec, nil
 }
 
-func (m *memIdempotencyRepo) Complete(ctx context.Context, key string, status int, body []byte) error {
+func (m *memIdempotencyRepo) Complete(ctx context.Context, tenantID uuid.UUID, key string, status int, body []byte) error {
 	rec, ok := m.records[key]
 	if !ok {
 		return errors.New("key not found")
+	}
+	// Enforce tenant isolation in mock: refuse to complete for wrong tenant.
+	if rec.TenantID != tenantID {
+		return idempotency.ErrKeyMissing
 	}
 	rec.ResponseStatus = &status
 	rec.ResponseBody = body
@@ -247,6 +251,81 @@ func TestIdempotency_MissingKey_HardMode_Blocks(t *testing.T) {
 	mw(http.HandlerFunc(okHandler)).ServeHTTP(rec, r)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+// TestHardMode_MissingKey_Returns400 verifies that HardMode rejects mutation
+// requests without an Idempotency-Key header with 400 Bad Request.
+// Note: TestIdempotency_MissingKey_HardMode_Blocks covers the same path;
+// this alias documents the HardMode contract explicitly for regression clarity.
+func TestHardMode_MissingKey_Returns400(t *testing.T) {
+	repo := newMemIdempotencyRepo()
+	mw := Idempotency(repo, HardMode)
+
+	r := requestWithAuth(http.MethodPost, "/api/v1/crm/contacts", `{"name":"Test"}`)
+	// Intentionally no Idempotency-Key header.
+	rec := httptest.NewRecorder()
+	mw(http.HandlerFunc(okHandler)).ServeHTTP(rec, r)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code,
+		"HardMode must return 400 when Idempotency-Key header is absent")
+}
+
+// TestHardMode_CrossTenantKeyRejected verifies that a completed idempotency record
+// belonging to Tenant A is not replayed for Tenant B when they share the same key string.
+// This tests the composite-PK cross-tenant isolation at the middleware level.
+func TestHardMode_CrossTenantKeyRejected(t *testing.T) {
+	repo := newMemIdempotencyRepo()
+	mw := Idempotency(repo, HardMode)
+
+	tenantAID := uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+	tenantBID := uuid.MustParse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+	userID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+	const sharedKey = "cross-tenant-key-001"
+
+	// Helper that builds a request carrying a specific tenantID in context.
+	buildRequest := func(tenantID uuid.UUID) *http.Request {
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/crm/contacts", strings.NewReader(`{"name":"Test"}`))
+		r.Header.Set("Idempotency-Key", sharedKey)
+		ctx := context.WithValue(r.Context(), TenantIDKey, tenantID.String())
+		ctx = context.WithValue(ctx, UserIDKey, userID.String())
+		return r.WithContext(ctx)
+	}
+
+	// Tenant A sends request — handler runs, record reserved.
+	rec1 := httptest.NewRecorder()
+	mw(http.HandlerFunc(okHandler)).ServeHTTP(rec1, buildRequest(tenantAID))
+	require.Equal(t, http.StatusCreated, rec1.Code)
+
+	// Wait briefly for async Complete goroutine to finish.
+	time.Sleep(20 * time.Millisecond)
+
+	// Validate Tenant A's record is present under the correct tenant.
+	storedRec, ok := repo.records[sharedKey]
+	require.True(t, ok, "record must be stored after Tenant A's request")
+	require.Equal(t, tenantAID, storedRec.TenantID, "stored record must belong to Tenant A")
+
+	// Tenant B sends request with the same Idempotency-Key string.
+	// Expected: middleware calls Reserve → key found but tenantID differs → ErrConflict OR
+	// the repo mock scopes lookup by tenantID so B gets a fresh insert (no cross-tenant replay).
+	// Either way Tenant B's response must NOT be Tenant A's cached body.
+	rec2 := httptest.NewRecorder()
+	handlerCalledByB := false
+	mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handlerCalledByB = true
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":"tenant-b-resource"}`))
+	})).ServeHTTP(rec2, buildRequest(tenantBID))
+
+	// The mock's Reserve uses records[key] without tenant scoping — so it will detect
+	// a hash conflict (same hash, different tenantID embedded in hash) and return ErrConflict,
+	// OR proceed fresh if hashes differ. Either way Tenant B must NOT get Tenant A's response.
+	assert.NotEqual(t, `{"id":"new-resource"}`, rec2.Body.String(),
+		"Tenant B must never receive Tenant A's cached idempotency response")
+	// In any non-replay path the status code must not be the replayed 201 with Replayed header.
+	assert.Empty(t, rec2.Header().Get("Idempotency-Replayed"),
+		"Idempotency-Replayed header must not be set for Tenant B (no cross-tenant replay)")
+	_ = handlerCalledByB // Both 422 (conflict) and fresh handler call are acceptable outcomes.
 }
 
 func TestIdempotency_WhitelistedPath_Skip(t *testing.T) {

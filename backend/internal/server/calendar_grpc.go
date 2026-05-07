@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -53,6 +54,11 @@ func NewCalendarGRPCServer(
 // ============================================================================
 
 func (s *CalendarGRPCServer) CreateCalendar(ctx context.Context, req *calv1.CreateCalendarRequest) (*calv1.CreateCalendarResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	ownerID, err := uuid.Parse(req.OwnerId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid owner_id")
@@ -72,7 +78,7 @@ func (s *CalendarGRPCServer) CreateCalendar(ctx context.Context, req *calv1.Crea
 		input.Timezone = *req.Timezone
 	}
 
-	cal, err := s.calendarService.Create(ctx, ownerID, input)
+	cal, err := s.calendarService.Create(ctx, ownerID, tenantID, input)
 	if err != nil {
 		return nil, mapCalendarError(err)
 	}
@@ -83,12 +89,17 @@ func (s *CalendarGRPCServer) CreateCalendar(ctx context.Context, req *calv1.Crea
 }
 
 func (s *CalendarGRPCServer) GetCalendar(ctx context.Context, req *calv1.GetCalendarRequest) (*calv1.GetCalendarResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid calendar id")
 	}
 
-	cal, err := s.calendarService.Get(ctx, id)
+	cal, err := s.calendarService.Get(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapCalendarError(err)
 	}
@@ -99,12 +110,17 @@ func (s *CalendarGRPCServer) GetCalendar(ctx context.Context, req *calv1.GetCale
 }
 
 func (s *CalendarGRPCServer) ListCalendars(ctx context.Context, req *calv1.ListCalendarsRequest) (*calv1.ListCalendarsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	calendars, err := s.calendarService.ListByUser(ctx, userID)
+	calendars, err := s.calendarService.ListByUser(ctx, userID, tenantID)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list calendars")
 	}
@@ -120,6 +136,11 @@ func (s *CalendarGRPCServer) ListCalendars(ctx context.Context, req *calv1.ListC
 }
 
 func (s *CalendarGRPCServer) UpdateCalendar(ctx context.Context, req *calv1.UpdateCalendarRequest) (*calv1.UpdateCalendarResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid calendar id")
@@ -140,7 +161,7 @@ func (s *CalendarGRPCServer) UpdateCalendar(ctx context.Context, req *calv1.Upda
 		input.Timezone = req.Timezone
 	}
 
-	cal, err := s.calendarService.Update(ctx, id, uuid.Nil, input)
+	cal, err := s.calendarService.Update(ctx, id, uuid.Nil, tenantID, input)
 	if err != nil {
 		return nil, mapCalendarError(err)
 	}
@@ -151,13 +172,18 @@ func (s *CalendarGRPCServer) UpdateCalendar(ctx context.Context, req *calv1.Upda
 }
 
 func (s *CalendarGRPCServer) DeleteCalendar(ctx context.Context, req *calv1.DeleteCalendarRequest) (*calv1.DeleteCalendarResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid calendar id")
 	}
 
 	// Gateway handles auth; use uuid.Nil as actorID
-	if err := s.calendarService.Delete(ctx, id, uuid.Nil); err != nil {
+	if err := s.calendarService.Delete(ctx, id, uuid.Nil, tenantID); err != nil {
 		return nil, mapCalendarError(err)
 	}
 
@@ -169,6 +195,11 @@ func (s *CalendarGRPCServer) DeleteCalendar(ctx context.Context, req *calv1.Dele
 // ============================================================================
 
 func (s *CalendarGRPCServer) AddCalendarMember(ctx context.Context, req *calv1.AddCalendarMemberRequest) (*calv1.AddCalendarMemberResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	calendarID, err := uuid.Parse(req.CalendarId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid calendar_id")
@@ -180,7 +211,7 @@ func (s *CalendarGRPCServer) AddCalendarMember(ctx context.Context, req *calv1.A
 	}
 
 	// Gateway handles auth; use uuid.Nil as actorID
-	if err := s.calendarService.AddMember(ctx, calendarID, uuid.Nil, targetUserID, req.Permission); err != nil {
+	if err := s.calendarService.AddMember(ctx, calendarID, uuid.Nil, targetUserID, tenantID, req.Permission); err != nil {
 		return nil, mapCalendarError(err)
 	}
 
@@ -188,6 +219,11 @@ func (s *CalendarGRPCServer) AddCalendarMember(ctx context.Context, req *calv1.A
 }
 
 func (s *CalendarGRPCServer) RemoveCalendarMember(ctx context.Context, req *calv1.RemoveCalendarMemberRequest) (*calv1.RemoveCalendarMemberResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	calendarID, err := uuid.Parse(req.CalendarId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid calendar_id")
@@ -199,7 +235,7 @@ func (s *CalendarGRPCServer) RemoveCalendarMember(ctx context.Context, req *calv
 	}
 
 	// Gateway handles auth; use uuid.Nil as actorID
-	if err := s.calendarService.RemoveMember(ctx, calendarID, uuid.Nil, targetUserID); err != nil {
+	if err := s.calendarService.RemoveMember(ctx, calendarID, uuid.Nil, targetUserID, tenantID); err != nil {
 		return nil, mapCalendarError(err)
 	}
 
@@ -207,12 +243,17 @@ func (s *CalendarGRPCServer) RemoveCalendarMember(ctx context.Context, req *calv
 }
 
 func (s *CalendarGRPCServer) ListCalendarMembers(ctx context.Context, req *calv1.ListCalendarMembersRequest) (*calv1.ListCalendarMembersResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	calendarID, err := uuid.Parse(req.CalendarId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid calendar_id")
 	}
 
-	members, err := s.calendarService.ListMembers(ctx, calendarID)
+	members, err := s.calendarService.ListMembers(ctx, calendarID, tenantID)
 	if err != nil {
 		return nil, mapCalendarError(err)
 	}
@@ -228,6 +269,11 @@ func (s *CalendarGRPCServer) ListCalendarMembers(ctx context.Context, req *calv1
 }
 
 func (s *CalendarGRPCServer) UpdateCalendarMemberPermission(ctx context.Context, req *calv1.UpdateCalendarMemberPermissionRequest) (*calv1.UpdateCalendarMemberPermissionResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	calendarID, err := uuid.Parse(req.CalendarId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid calendar_id")
@@ -239,7 +285,7 @@ func (s *CalendarGRPCServer) UpdateCalendarMemberPermission(ctx context.Context,
 	}
 
 	// Gateway handles auth; use uuid.Nil as actorID
-	if err := s.calendarService.UpdateMemberPermission(ctx, calendarID, uuid.Nil, targetUserID, req.Permission); err != nil {
+	if err := s.calendarService.UpdateMemberPermission(ctx, calendarID, uuid.Nil, targetUserID, tenantID, req.Permission); err != nil {
 		return nil, mapCalendarError(err)
 	}
 
@@ -251,12 +297,17 @@ func (s *CalendarGRPCServer) UpdateCalendarMemberPermission(ctx context.Context,
 // ============================================================================
 
 func (s *CalendarGRPCServer) ListBrowsableCalendars(ctx context.Context, req *calv1.ListBrowsableCalendarsRequest) (*calv1.ListBrowsableCalendarsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	calendars, err := s.calendarService.ListBrowsable(ctx, userID)
+	calendars, err := s.calendarService.ListBrowsable(ctx, userID, tenantID)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list browsable calendars")
 	}
@@ -272,6 +323,11 @@ func (s *CalendarGRPCServer) ListBrowsableCalendars(ctx context.Context, req *ca
 }
 
 func (s *CalendarGRPCServer) SubscribeToCalendar(ctx context.Context, req *calv1.SubscribeToCalendarRequest) (*calv1.SubscribeToCalendarResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	calendarID, err := uuid.Parse(req.CalendarId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid calendar_id")
@@ -282,7 +338,7 @@ func (s *CalendarGRPCServer) SubscribeToCalendar(ctx context.Context, req *calv1
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	if err := s.calendarService.Subscribe(ctx, calendarID, userID); err != nil {
+	if err := s.calendarService.Subscribe(ctx, calendarID, userID, tenantID); err != nil {
 		return nil, mapCalendarError(err)
 	}
 
@@ -290,6 +346,11 @@ func (s *CalendarGRPCServer) SubscribeToCalendar(ctx context.Context, req *calv1
 }
 
 func (s *CalendarGRPCServer) UnsubscribeFromCalendar(ctx context.Context, req *calv1.UnsubscribeFromCalendarRequest) (*calv1.UnsubscribeFromCalendarResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	calendarID, err := uuid.Parse(req.CalendarId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid calendar_id")
@@ -300,7 +361,7 @@ func (s *CalendarGRPCServer) UnsubscribeFromCalendar(ctx context.Context, req *c
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	if err := s.calendarService.Unsubscribe(ctx, calendarID, userID); err != nil {
+	if err := s.calendarService.Unsubscribe(ctx, calendarID, userID, tenantID); err != nil {
 		return nil, mapCalendarError(err)
 	}
 
@@ -654,12 +715,17 @@ func (s *CalendarGRPCServer) ListEventAttendees(ctx context.Context, req *calv1.
 // ============================================================================
 
 func (s *CalendarGRPCServer) CreateEventCategory(ctx context.Context, req *calv1.CreateEventCategoryRequest) (*calv1.CreateEventCategoryResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	cat, err := s.calendarService.CreateCategory(ctx, userID, req.Name, req.Color)
+	cat, err := s.calendarService.CreateCategory(ctx, userID, tenantID, req.Name, req.Color)
 	if err != nil {
 		return nil, mapCalendarError(err)
 	}
@@ -670,12 +736,17 @@ func (s *CalendarGRPCServer) CreateEventCategory(ctx context.Context, req *calv1
 }
 
 func (s *CalendarGRPCServer) ListEventCategories(ctx context.Context, req *calv1.ListEventCategoriesRequest) (*calv1.ListEventCategoriesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	categories, err := s.calendarService.ListCategories(ctx, userID)
+	categories, err := s.calendarService.ListCategories(ctx, userID, tenantID)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list categories")
 	}
@@ -691,13 +762,18 @@ func (s *CalendarGRPCServer) ListEventCategories(ctx context.Context, req *calv1
 }
 
 func (s *CalendarGRPCServer) DeleteEventCategory(ctx context.Context, req *calv1.DeleteEventCategoryRequest) (*calv1.DeleteEventCategoryResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	categoryID, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid category id")
 	}
 
 	// Gateway handles auth; use uuid.Nil as userID
-	if err := s.calendarService.DeleteCategory(ctx, categoryID, uuid.Nil); err != nil {
+	if err := s.calendarService.DeleteCategory(ctx, categoryID, uuid.Nil, tenantID); err != nil {
 		return nil, mapCalendarError(err)
 	}
 
@@ -759,12 +835,18 @@ func (s *CalendarGRPCServer) ListEventReminders(ctx context.Context, req *calv1.
 // ============================================================================
 
 func (s *CalendarGRPCServer) CreateResource(ctx context.Context, req *calv1.CreateResourceRequest) (*calv1.CreateResourceResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	createdBy, err := uuid.Parse(req.CreatedBy)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid created_by")
 	}
 
 	input := resource.CreateInput{
+		TenantID:     tenantID,
 		Name:         req.Name,
 		ResourceType: req.ResourceType,
 		Tags:         req.Tags,
@@ -796,12 +878,17 @@ func (s *CalendarGRPCServer) CreateResource(ctx context.Context, req *calv1.Crea
 }
 
 func (s *CalendarGRPCServer) GetResource(ctx context.Context, req *calv1.GetResourceRequest) (*calv1.GetResourceResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid resource id")
 	}
 
-	res, err := s.resourceService.Get(ctx, id)
+	res, err := s.resourceService.Get(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapCalendarError(err)
 	}
@@ -812,8 +899,14 @@ func (s *CalendarGRPCServer) GetResource(ctx context.Context, req *calv1.GetReso
 }
 
 func (s *CalendarGRPCServer) ListResources(ctx context.Context, req *calv1.ListResourcesRequest) (*calv1.ListResourcesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	filters := resource.ResourceFilters{
-		Tags: req.Tags,
+		TenantID: tenantID,
+		Tags:     req.Tags,
 	}
 	if req.ResourceType != nil {
 		filters.Type = req.ResourceType
@@ -848,6 +941,11 @@ func (s *CalendarGRPCServer) ListResources(ctx context.Context, req *calv1.ListR
 }
 
 func (s *CalendarGRPCServer) UpdateResource(ctx context.Context, req *calv1.UpdateResourceRequest) (*calv1.UpdateResourceResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid resource id")
@@ -874,7 +972,7 @@ func (s *CalendarGRPCServer) UpdateResource(ctx context.Context, req *calv1.Upda
 		input.Description = req.Description
 	}
 
-	res, err := s.resourceService.Update(ctx, id, true, input) // isAdmin=true, gateway handles auth
+	res, err := s.resourceService.Update(ctx, id, tenantID, true, input) // isAdmin=true, gateway handles auth
 	if err != nil {
 		return nil, mapCalendarError(err)
 	}
@@ -885,12 +983,17 @@ func (s *CalendarGRPCServer) UpdateResource(ctx context.Context, req *calv1.Upda
 }
 
 func (s *CalendarGRPCServer) DeleteResource(ctx context.Context, req *calv1.DeleteResourceRequest) (*calv1.DeleteResourceResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid resource id")
 	}
 
-	if err := s.resourceService.Delete(ctx, id, true); err != nil { // isAdmin=true, gateway handles auth
+	if err := s.resourceService.Delete(ctx, id, tenantID, true); err != nil { // isAdmin=true, gateway handles auth
 		return nil, mapCalendarError(err)
 	}
 
@@ -902,6 +1005,11 @@ func (s *CalendarGRPCServer) DeleteResource(ctx context.Context, req *calv1.Dele
 // ============================================================================
 
 func (s *CalendarGRPCServer) ListResourceAvailability(ctx context.Context, req *calv1.ListResourceAvailabilityRequest) (*calv1.ListResourceAvailabilityResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	resourceID, err := uuid.Parse(req.ResourceId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid resource_id")
@@ -909,7 +1017,7 @@ func (s *CalendarGRPCServer) ListResourceAvailability(ctx context.Context, req *
 
 	date := req.Start.AsTime()
 
-	bookings, err := s.resourceService.ListAvailability(ctx, resourceID, date)
+	bookings, err := s.resourceService.ListAvailability(ctx, resourceID, tenantID, date)
 	if err != nil {
 		return nil, mapCalendarError(err)
 	}
@@ -943,22 +1051,28 @@ func (s *CalendarGRPCServer) BookResource(ctx context.Context, req *calv1.BookRe
 	start := req.StartTime.AsTime()
 	end := req.EndTime.AsTime()
 
-	booking, err := s.resourceService.Book(ctx, actorID, resourceID, eventID, start, end)
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	booking, err := s.resourceService.Book(ctx, actorID, resourceID, eventID, tenantID, start, end)
 	if err != nil {
 		// Check for BookingConflictError and include alternatives in error details
 		var conflictErr *resource.BookingConflictError
 		if errors.As(err, &conflictErr) {
-			msg := conflictErr.Error()
+			var msgBuilder strings.Builder
+			msgBuilder.WriteString(conflictErr.Error())
 			if len(conflictErr.Alternatives) > 0 {
-				msg += " | alternatives: "
+				msgBuilder.WriteString(" | alternatives: ")
 				for i, alt := range conflictErr.Alternatives {
 					if i > 0 {
-						msg += ", "
+						msgBuilder.WriteString(", ")
 					}
-					msg += fmt.Sprintf("%s (%s)", alt.ResourceName, alt.ResourceID.String())
+					fmt.Fprintf(&msgBuilder, "%s (%s)", alt.ResourceName, alt.ResourceID.String())
 				}
 			}
-			return nil, status.Error(codes.AlreadyExists, msg)
+			return nil, status.Error(codes.AlreadyExists, msgBuilder.String())
 		}
 		return nil, mapCalendarError(err)
 	}
@@ -969,13 +1083,18 @@ func (s *CalendarGRPCServer) BookResource(ctx context.Context, req *calv1.BookRe
 }
 
 func (s *CalendarGRPCServer) CancelBooking(ctx context.Context, req *calv1.CancelBookingRequest) (*calv1.CancelBookingResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	bookingID, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid booking id")
 	}
 
 	// Gateway handles auth; use uuid.Nil as actorID
-	if err := s.resourceService.CancelBooking(ctx, bookingID, uuid.Nil); err != nil {
+	if err := s.resourceService.CancelBooking(ctx, bookingID, uuid.Nil, tenantID); err != nil {
 		return nil, mapCalendarError(err)
 	}
 
@@ -983,6 +1102,11 @@ func (s *CalendarGRPCServer) CancelBooking(ctx context.Context, req *calv1.Cance
 }
 
 func (s *CalendarGRPCServer) ListResourceBookings(ctx context.Context, req *calv1.ListResourceBookingsRequest) (*calv1.ListResourceBookingsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	if req.ResourceId == nil {
 		return nil, status.Error(codes.InvalidArgument, "resource_id is required")
 	}
@@ -995,7 +1119,7 @@ func (s *CalendarGRPCServer) ListResourceBookings(ctx context.Context, req *calv
 	// Use start date for ListAvailability
 	date := req.Start.AsTime()
 
-	bookings, err := s.resourceService.ListAvailability(ctx, resourceID, date)
+	bookings, err := s.resourceService.ListAvailability(ctx, resourceID, tenantID, date)
 	if err != nil {
 		return nil, mapCalendarError(err)
 	}

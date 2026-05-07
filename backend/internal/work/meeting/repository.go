@@ -11,9 +11,9 @@ import (
 type Repository interface {
 	// Meeting CRUD
 	CreateMeeting(ctx context.Context, m *Meeting) error
-	GetMeeting(ctx context.Context, id uuid.UUID) (*Meeting, error)
+	GetMeeting(ctx context.Context, id, tenantID uuid.UUID) (*Meeting, error)
 	UpdateMeeting(ctx context.Context, m *Meeting) error
-	DeleteMeeting(ctx context.Context, id uuid.UUID) error
+	DeleteMeeting(ctx context.Context, id, tenantID uuid.UUID) error
 	ListMeetings(ctx context.Context, filter MeetingFilter) ([]Meeting, error)
 
 	// Attendees
@@ -38,6 +38,7 @@ type Repository interface {
 
 // MeetingFilter contains filtering parameters for listing meetings
 type MeetingFilter struct {
+	TenantID    uuid.UUID
 	OrganizerID *uuid.UUID
 	AttendeeID  *uuid.UUID
 	Status      *string

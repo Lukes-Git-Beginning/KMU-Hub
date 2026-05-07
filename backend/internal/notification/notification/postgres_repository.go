@@ -43,14 +43,14 @@ func (r *PostgresRepository) Create(ctx context.Context, notif *models.Notificat
 	return err
 }
 
-func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Notification, error) {
+func (r *PostgresRepository) GetByID(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) (*models.Notification, error) {
 	query := `
 		SELECT id, user_id, event_type_key, module_id, priority, actor_id, resource_id,
 			title, body, deep_link, group_key, group_count, is_read, read_at, delivered_desktop, created_at
-		FROM notifications WHERE id = $1`
+		FROM notifications WHERE id = $1 AND tenant_id = $2`
 
 	notif := &models.Notification{}
-	err := r.pool.QueryRow(ctx, query, id).Scan(
+	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(
 		&notif.ID, &notif.UserID, &notif.EventTypeKey, &notif.ModuleID, &notif.Priority,
 		&notif.ActorID, &notif.ResourceID, &notif.Title, &notif.Body, &notif.DeepLink,
 		&notif.GroupKey, &notif.GroupCount, &notif.IsRead, &notif.ReadAt, &notif.DeliveredDesktop, &notif.CreatedAt,
@@ -62,9 +62,9 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models
 }
 
 func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset, limit int) ([]*models.Notification, int, error) {
-	where := "WHERE user_id = $1"
-	args := []interface{}{filter.UserID}
-	argIdx := 2
+	where := "WHERE tenant_id = $1 AND user_id = $2"
+	args := []interface{}{filter.TenantID, filter.UserID}
+	argIdx := 3
 
 	if filter.ModuleID != nil {
 		where += fmt.Sprintf(" AND module_id = $%d", argIdx)
@@ -117,27 +117,27 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset
 	return notifications, total, rows.Err()
 }
 
-func (r *PostgresRepository) GetUnreadCount(ctx context.Context, userID uuid.UUID) (int, error) {
+func (r *PostgresRepository) GetUnreadCount(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID) (int, error) {
 	var count int
 	err := r.pool.QueryRow(ctx,
-		"SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND is_read = false",
-		userID,
+		"SELECT COUNT(*) FROM notifications WHERE tenant_id = $1 AND user_id = $2 AND is_read = false",
+		tenantID, userID,
 	).Scan(&count)
 	return count, err
 }
 
-func (r *PostgresRepository) MarkRead(ctx context.Context, id uuid.UUID, readAt time.Time) error {
+func (r *PostgresRepository) MarkRead(ctx context.Context, tenantID uuid.UUID, id uuid.UUID, readAt time.Time) error {
 	tag, err := r.pool.Exec(ctx,
-		"UPDATE notifications SET is_read = true, read_at = $2 WHERE id = $1 AND is_read = false",
-		id, readAt,
+		"UPDATE notifications SET is_read = true, read_at = $3 WHERE id = $1 AND tenant_id = $2 AND is_read = false",
+		id, tenantID, readAt,
 	)
 	if err != nil {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		// Check if it exists
+		// Check if it exists within the tenant
 		var exists bool
-		_ = r.pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM notifications WHERE id = $1)", id).Scan(&exists)
+		_ = r.pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM notifications WHERE id = $1 AND tenant_id = $2)", id, tenantID).Scan(&exists)
 		if !exists {
 			return ErrNotificationNotFound
 		}
@@ -146,19 +146,19 @@ func (r *PostgresRepository) MarkRead(ctx context.Context, id uuid.UUID, readAt 
 	return nil
 }
 
-func (r *PostgresRepository) MarkAllRead(ctx context.Context, userID uuid.UUID, moduleID *string, readAt time.Time) (int, error) {
+func (r *PostgresRepository) MarkAllRead(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, moduleID *string, readAt time.Time) (int, error) {
 	var tag interface{ RowsAffected() int64 }
 	var err error
 
 	if moduleID != nil {
 		tag, err = r.pool.Exec(ctx,
-			"UPDATE notifications SET is_read = true, read_at = $3 WHERE user_id = $1 AND module_id = $2 AND is_read = false",
-			userID, *moduleID, readAt,
+			"UPDATE notifications SET is_read = true, read_at = $4 WHERE tenant_id = $1 AND user_id = $2 AND module_id = $3 AND is_read = false",
+			tenantID, userID, *moduleID, readAt,
 		)
 	} else {
 		tag, err = r.pool.Exec(ctx,
-			"UPDATE notifications SET is_read = true, read_at = $2 WHERE user_id = $1 AND is_read = false",
-			userID, readAt,
+			"UPDATE notifications SET is_read = true, read_at = $3 WHERE tenant_id = $1 AND user_id = $2 AND is_read = false",
+			tenantID, userID, readAt,
 		)
 	}
 	if err != nil {
@@ -167,25 +167,25 @@ func (r *PostgresRepository) MarkAllRead(ctx context.Context, userID uuid.UUID, 
 	return int(tag.RowsAffected()), nil
 }
 
-func (r *PostgresRepository) MarkDeliveredDesktop(ctx context.Context, id uuid.UUID) error {
+func (r *PostgresRepository) MarkDeliveredDesktop(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) error {
 	_, err := r.pool.Exec(ctx,
-		"UPDATE notifications SET delivered_desktop = true WHERE id = $1",
-		id,
+		"UPDATE notifications SET delivered_desktop = true WHERE id = $1 AND tenant_id = $2",
+		id, tenantID,
 	)
 	return err
 }
 
-func (r *PostgresRepository) FindRecentByGroupKey(ctx context.Context, userID uuid.UUID, groupKey string, since time.Time) (*models.Notification, error) {
+func (r *PostgresRepository) FindRecentByGroupKey(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, groupKey string, since time.Time) (*models.Notification, error) {
 	query := `
 		SELECT id, user_id, event_type_key, module_id, priority, actor_id, resource_id,
 			title, body, deep_link, group_key, group_count, is_read, read_at, delivered_desktop, created_at
 		FROM notifications
-		WHERE user_id = $1 AND group_key = $2 AND created_at >= $3 AND is_read = false
+		WHERE tenant_id = $1 AND user_id = $2 AND group_key = $3 AND created_at >= $4 AND is_read = false
 		ORDER BY created_at DESC
 		LIMIT 1`
 
 	notif := &models.Notification{}
-	err := r.pool.QueryRow(ctx, query, userID, groupKey, since).Scan(
+	err := r.pool.QueryRow(ctx, query, tenantID, userID, groupKey, since).Scan(
 		&notif.ID, &notif.UserID, &notif.EventTypeKey, &notif.ModuleID, &notif.Priority,
 		&notif.ActorID, &notif.ResourceID, &notif.Title, &notif.Body, &notif.DeepLink,
 		&notif.GroupKey, &notif.GroupCount, &notif.IsRead, &notif.ReadAt, &notif.DeliveredDesktop, &notif.CreatedAt,
