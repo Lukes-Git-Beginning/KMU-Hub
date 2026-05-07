@@ -424,7 +424,6 @@ func (r *PostgresRepository) GetStats(ctx context.Context, tenantID uuid.UUID, f
 	if to != nil {
 		conditions = append(conditions, fmt.Sprintf("end_time <= $%d", argNum))
 		args = append(args, *to)
-		argNum++
 	}
 
 	whereClause := "WHERE " + strings.Join(conditions, " AND ")

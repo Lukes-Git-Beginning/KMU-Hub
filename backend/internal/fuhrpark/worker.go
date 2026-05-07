@@ -24,7 +24,6 @@ func stableHash(s string) int64 {
 // one replica runs per interval.
 type TuevWorker struct {
 	repo          Repository
-	pool          interface{ QueryRow(ctx context.Context, sql string, args ...any) interface{ Scan(dest ...any) error } }
 	logger        *slog.Logger
 	claimInterval time.Duration
 	runInterval   time.Duration

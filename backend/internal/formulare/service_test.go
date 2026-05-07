@@ -1031,17 +1031,9 @@ func TestCreateWebhook_DefaultEvents(t *testing.T) {
 // ============================================================================
 
 func TestGetWebhook_MasksSecret(t *testing.T) {
-	svc, repo := newSvc()
+	svc, _ := newSvc()
 	schema := mustCreateSchema(t, svc)
 	w := mustCreateWebhook(t, svc, schema.ID, true)
-
-	// Verify the raw stored secret is not masked.
-	repo.mu.Lock()
-	stored := repo.webhooks[w.ID]
-	repo.mu.Unlock()
-	if stored.Secret == nil || *stored.Secret == "super-secret-key-1234" {
-		// ok — stored plaintext
-	}
 
 	// Get via service — should be masked.
 	fetched, err := svc.GetWebhook(context.Background(), w.ID, testTenant)

@@ -315,7 +315,6 @@ func (r *PostgresRepository) ListAttachments(ctx context.Context, tenantID, repo
 	if lineID != nil {
 		conditions = append(conditions, fmt.Sprintf("line_id = $%d", argNum))
 		args = append(args, *lineID)
-		argNum++
 	}
 
 	whereClause := "WHERE " + strings.Join(conditions, " AND ")

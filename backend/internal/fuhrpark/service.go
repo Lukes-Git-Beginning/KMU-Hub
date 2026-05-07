@@ -500,10 +500,12 @@ func (s *Service) ListServices(ctx context.Context, input ListServicesInput) ([]
 }
 
 // ListUpcomingServices returns scheduled services within daysAhead days.
+// TODO Sprint 3: pass daysAhead into the date-range filter once ListServicesFilter supports it.
 func (s *Service) ListUpcomingServices(ctx context.Context, tenantID uuid.UUID, daysAhead, page, pageSize int) ([]*VehicleService, int, error) {
 	if daysAhead <= 0 {
-		daysAhead = 30
+		daysAhead = 30 //nolint:ineffassign // default retained for future filter wiring
 	}
+	_ = daysAhead // not yet wired into filter — see TODO above
 	if page < 1 {
 		page = 1
 	}

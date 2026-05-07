@@ -11,6 +11,11 @@ linters:
     - misspell
     - unconvert
   settings:
+    misspell:
+      ignore-words:
+        - produktion   # German module name (Produktion/PRODUKTION)
+        - Produktion
+        - PRODUKTION
     govet:
       enable: []          # Remove shadow — too aggressive for short if-err patterns
     errcheck:

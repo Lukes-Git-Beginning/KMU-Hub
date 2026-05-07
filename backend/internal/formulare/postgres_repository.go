@@ -337,7 +337,6 @@ func (r *PostgresRepository) ListSubmissionsForExport(ctx context.Context, formS
 	if filter.SubmittedBefore != nil {
 		conditions = append(conditions, fmt.Sprintf("submitted_at <= $%d", argNum))
 		args = append(args, *filter.SubmittedBefore)
-		argNum++
 	}
 
 	whereClause := "WHERE " + strings.Join(conditions, " AND ")

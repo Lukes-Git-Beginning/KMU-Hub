@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -15,31 +14,8 @@ import (
 	berichtev1 "github.com/kmuhub/kmuhub/proto/berichte/v1"
 )
 
-// ============================================================================
-// Mock service
-// ============================================================================
-
-type mockBerichteService struct {
-	createDefinitionFn  func(ctx context.Context, in berichte.CreateDefinitionInput) (*berichte.Definition, error)
-	getDefinitionFn     func(ctx context.Context, tenantID, definitionID uuid.UUID) (*berichte.Definition, error)
-	updateDefinitionFn  func(ctx context.Context, in berichte.UpdateDefinitionInput) (*berichte.Definition, error)
-	deleteDefinitionFn  func(ctx context.Context, tenantID, definitionID uuid.UUID) error
-	listDefinitionsFn   func(ctx context.Context, in berichte.ListDefinitionsInput) ([]*berichte.Definition, int, error)
-	runReportFn         func(ctx context.Context, in berichte.RunReportInput) (*berichte.ReportResult, *berichte.Run, error)
-	getCachedResultFn   func(ctx context.Context, tenantID, definitionID uuid.UUID, params json.RawMessage) (*berichte.ReportResult, error)
-	invalidateCacheFn   func(ctx context.Context, tenantID, definitionID uuid.UUID) (int, error)
-	createScheduleFn    func(ctx context.Context, in berichte.CreateScheduleInput) (*berichte.Schedule, error)
-	updateScheduleFn    func(ctx context.Context, in berichte.UpdateScheduleInput) (*berichte.Schedule, error)
-	deleteScheduleFn    func(ctx context.Context, tenantID, scheduleID uuid.UUID) error
-	listSchedulesFn     func(ctx context.Context, in berichte.ListSchedulesInput) ([]*berichte.Schedule, int, error)
-	toggleScheduleFn    func(ctx context.Context, tenantID, scheduleID uuid.UUID, active bool) (*berichte.Schedule, error)
-	getDashboardKPIsFn  func(ctx context.Context, tenantID uuid.UUID, modules []string) ([]berichte.KPI, error)
-}
-
-// berichteSvcAdapter wraps the mock to match *berichte.Service call sites.
-// Since berichte_grpc.go uses *berichte.Service directly (not an interface),
-// we test via a real thin service backed by mock repository.
-// Instead: we test the server's UUID-validation paths by calling gRPC handlers
+// berichte_grpc.go uses *berichte.Service directly (not an interface).
+// We test the server's UUID-validation paths by calling gRPC handlers
 // directly with a nil service (UUID parse errors happen before any service call).
 
 // newTestBerichteServer returns a server with a nil service for UUID-validation tests.

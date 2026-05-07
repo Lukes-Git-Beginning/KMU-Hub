@@ -353,11 +353,8 @@ func TestMessages_NoTenant_Returns401(t *testing.T) {
 func TestMessages_EmptyTid_Returns401(t *testing.T) {
 	routes := NewChatRoutes(registryWithService("chat"))
 	rec := httptest.NewRecorder()
-	req := reqWithEmptyTenant(http.MethodPost, "/")
-	req.Header.Set("Content-Type", "application/json")
-	req = withChiURLParam(req, "id", uuid.New().String())
-	// Re-attach the body after reqWithEmptyTenant (which calls httptest.NewRequest with empty body).
-	// We need to decode a valid body, so wrap with a real body reader.
+	// Build req2 directly with a real body — reqWithEmptyTenant returned an empty body
+	// and the result was not used after chi URL-param attachment.
 	req2 := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"content":"hello"}`))
 	req2.Header.Set("Content-Type", "application/json")
 	ctx := context.WithValue(req2.Context(), middleware.TenantIDKey, "")

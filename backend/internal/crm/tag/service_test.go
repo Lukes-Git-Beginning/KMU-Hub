@@ -114,12 +114,6 @@ func (m *MockRepository) SetInUse(id uuid.UUID, inUse bool) {
 	m.inUseTagIDs[id] = inUse
 }
 
-// helper — inserts a tag directly into the mock with the given tenantID
-func (m *MockRepository) insertTag(tenantID uuid.UUID, tag *models.Tag) {
-	tag.TenantID = tenantID
-	m.tags[tag.ID] = tag
-}
-
 // ============================================================================
 // Create Tests
 // ============================================================================
