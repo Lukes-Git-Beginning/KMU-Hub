@@ -1,0 +1,19 @@
+# gosec baseline configuration
+# Sprint 3 S3.2 — initial baseline, harden in followup
+global:
+  nosec: true
+  audit: false
+  exclude-dir:
+    - vendor
+    - .git
+    - testdata
+
+exclude-generated: true
+
+exclude-rules:
+  # G104: errors unhandled — common in tests, deferred cleanup paths
+  - "G104"
+  # G304: file path via variable — used in config/migration loaders, reviewed
+  - "G304"
+  # G108: profiling endpoint exposed — health/metrics endpoints, not production-facing
+  - "G108"

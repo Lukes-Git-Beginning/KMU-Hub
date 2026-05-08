@@ -5,11 +5,13 @@ on:
     branches: [main, develop]
     paths:
       - "backend/**"
+      - "desktop/**"
       - ".github/workflows/ci.yml"
   pull_request:
     branches: [main, develop]
     paths:
       - "backend/**"
+      - "desktop/**"
       - ".github/workflows/ci.yml"
 
 env:
@@ -393,6 +395,86 @@ jobs:
             echo "=== $log Service Logs ==="
             cat /tmp/$log.log || true
           done
+
+  gosec:
+    name: gosec (Go Security)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: backend/go.sum
+
+      - name: Run gosec
+        uses: securego/gosec@master
+        with:
+          args: >-
+            -fmt sarif
+            -out gosec.sarif
+            -conf backend/.gosec.yaml
+            ./backend/...
+
+      - name: Upload SARIF artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gosec-sarif
+          path: gosec.sarif
+          retention-days: 30
+
+  trivy:
+    name: trivy (Filesystem Vuln Scan)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run trivy filesystem scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+          format: sarif
+          output: trivy.sarif
+
+      - name: Upload SARIF artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-sarif
+          path: trivy.sarif
+          retention-days: 30
+
+  npm-audit:
+    name: npm audit (Desktop Dependencies)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Run npm audit
+        working-directory: desktop
+        run: npm audit --audit-level=high --omit=dev
 
   openapi-validate:
     name: Validate OpenAPI

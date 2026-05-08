@@ -179,6 +179,33 @@ Welle-3.5-Verschaerfung der W2D-C-Lehre: gRPC-Server lasen `tenant_id` aus den P
 - **AVV/DPA** (Auftragsverarbeitungsvertrag): Blocker fuer Pilot-Onboarding mit echten Kundendaten — wartet auf UG-Gruendung 01.05.2026
 - AGB, DSGVO-Pruefung durch Anwalt
 
+## CI Security-Scans (Sprint 3 S3.2, ab 2026-05-08)
+
+| Scan | Tool | Wann | Severity-Threshold | Baseline |
+|---|---|---|---|---|
+| Source-Code Go | `gosec` | Jeder Push | HIGH/CRITICAL | `backend/.gosec.yaml` (G104/G304/G108) |
+| Filesystem Vulns | `trivy` (fs-scan) | Jeder Push | HIGH,CRITICAL | `ignore-unfixed: true` |
+| NPM-Dependencies | `npm audit --omit=dev` | Jeder Push | high | kein continue-on-error (0 Findings lokal) |
+
+**Baseline-Status:** `gosec` und `trivy` laufen mit `continue-on-error: true` fuer initiale Baseline-Akzeptanz. Verschaerfung (exit-code: 1 fuer gosec, SARIF-Upload zu GitHub Code Scanning) in S3.2-Followup. `npm-audit` ist hart — 0 Vulnerabilities stand 2026-05-08.
+
+**Konfiguration:**
+- gosec-Exclusions: `backend/.gosec.yaml` — G104 (unhandled errors in tests), G304 (file path via variable, reviewed), G108 (profiling endpoint, not prod-facing)
+- trivy ignoriert unfixed CVEs (`ignore-unfixed: true`) um Noise durch unactionable upstream-Findings zu reduzieren
+- SARIF-Artefakte werden 30 Tage aufbewahrt (Artefakt-Download, kein GitHub Code Scanning erforderlich)
+
+**Local Run:**
+```bash
+# gosec
+cd backend && gosec -conf .gosec.yaml ./...
+
+# trivy
+trivy fs --severity HIGH,CRITICAL --ignore-unfixed .
+
+# npm-audit
+cd desktop && npm audit --audit-level=high --omit=dev
+```
+
 ## Verwandte Notes
 - [[architektur]] — Service-Architektur
 - [[api]] — Endpoints & Auth-Flow
