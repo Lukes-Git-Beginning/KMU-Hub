@@ -3,6 +3,7 @@ package dialer
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -91,6 +92,7 @@ func (r *mockCampaignRepo) GetAgentStats(_ context.Context, _ uuid.UUID) (*Agent
 func (r *mockCampaignRepo) UpdateCampaignCounts(_ context.Context, _ uuid.UUID) error { return nil }
 
 type mockCallRepo struct {
+	mu       sync.Mutex
 	sessions map[uuid.UUID]*CallSession
 	events   []*CallEvent
 }
@@ -100,10 +102,14 @@ func newMockCallRepo() *mockCallRepo {
 }
 
 func (r *mockCallRepo) CreateSession(_ context.Context, s *CallSession) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.sessions[s.ID] = s
 	return nil
 }
 func (r *mockCallRepo) GetSessionByID(_ context.Context, id uuid.UUID, tenantID uuid.UUID) (*CallSession, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	s, ok := r.sessions[id]
 	if !ok {
 		return nil, ErrCallSessionNotFound
@@ -112,17 +118,45 @@ func (r *mockCallRepo) GetSessionByID(_ context.Context, id uuid.UUID, tenantID 
 	if tenantID != uuid.Nil && s.TenantID != uuid.Nil && s.TenantID != tenantID {
 		return nil, ErrCallSessionNotFound
 	}
-	return s, nil
+	// Return a copy to avoid data races on the caller side.
+	copy := *s
+	return &copy, nil
 }
 func (r *mockCallRepo) UpdateSession(_ context.Context, s *CallSession) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.sessions[s.ID] = s
 	return nil
 }
 func (r *mockCallRepo) AppendEvent(_ context.Context, e *CallEvent) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.events = append(r.events, e)
 	return nil
 }
+
+// UpdateSessionWithEvent atomically (under the mock's mutex) updates the
+// session and appends the event. This simulates the transactional behaviour of
+// the real Postgres implementation without requiring a live database.
+func (r *mockCallRepo) UpdateSessionWithEvent(_ context.Context, s *CallSession, e *CallEvent) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.sessions[s.ID]; !ok {
+		return ErrCallSessionNotFound
+	}
+	// Tenant isolation check.
+	existing := r.sessions[s.ID]
+	if s.TenantID != uuid.Nil && existing.TenantID != uuid.Nil && existing.TenantID != s.TenantID {
+		return ErrCallSessionNotFound
+	}
+	r.sessions[s.ID] = s
+	r.events = append(r.events, e)
+	return nil
+}
+
 func (r *mockCallRepo) ListEventsBySession(_ context.Context, sessionID uuid.UUID) ([]*CallEvent, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	var result []*CallEvent
 	for _, e := range r.events {
 		if e.DialerCallSessionID == sessionID {
@@ -457,5 +491,103 @@ func TestInitiateDialerCall_TenantIDTagged(t *testing.T) {
 	}
 	if session.TenantID != tenantA {
 		t.Errorf("expected TenantID=%s on new session, got %s", tenantA, session.TenantID)
+	}
+}
+
+// ============================================================================
+// Transaction / Concurrent-call tests
+// ============================================================================
+
+// TestLogCallOutcome_Concurrent_SameSession verifies that two concurrent calls
+// to LogCallOutcome for the same session do not cause data races. Both calls
+// must succeed (the mock is not idempotent at this layer — idempotency is
+// enforced by the HTTP middleware). The test uses the race detector (-race) to
+// detect any unsynchronised map/slice access inside mockCallRepo.
+func TestLogCallOutcome_Concurrent_SameSession(t *testing.T) {
+	t.Parallel()
+
+	h := newTestHarness()
+	tenantID := uuid.New()
+	sessionID := uuid.New()
+	ccID := uuid.New()
+	realContactID := uuid.New()
+	outcomeID := uuid.New()
+
+	h.calls.sessions[sessionID] = &CallSession{
+		ID:                sessionID,
+		TenantID:          tenantID,
+		CampaignContactID: ccID,
+		AgentID:           uuid.New(),
+		CreatedAt:         time.Now(),
+		UpdatedAt:         time.Now(),
+	}
+	h.calls.events = append(h.calls.events, &CallEvent{
+		ID:                  uuid.New(),
+		DialerCallSessionID: sessionID,
+		EventType:           CallEventInitiated,
+		OccurredAt:          time.Now().Add(-20 * time.Second),
+	})
+	h.outcomes.outcomes[outcomeID] = &CallOutcome{
+		ID:         outcomeID,
+		Label:      "Erreicht",
+		IsPositive: true,
+	}
+	h.campaigns.contacts[ccID] = &CampaignContact{
+		ID:         ccID,
+		CampaignID: uuid.New(),
+		ContactID:  realContactID,
+	}
+
+	const workers = 5
+	errs := make([]error, workers)
+	var wg sync.WaitGroup
+	wg.Add(workers)
+	for i := 0; i < workers; i++ {
+		i := i
+		go func() {
+			defer wg.Done()
+			_, errs[i] = h.svc.LogCallOutcome(
+				context.Background(),
+				tenantID,
+				sessionID,
+				outcomeID,
+				nil, nil, nil, nil,
+			)
+		}()
+	}
+	wg.Wait()
+
+	// All goroutines must complete without a panic or nil-pointer dereference.
+	// Errors are acceptable (e.g. concurrent UpdateSession on same ID), but the
+	// mock must not corrupt its internal state. Count successes for diagnostics.
+	successes := 0
+	for _, err := range errs {
+		if err == nil {
+			successes++
+		}
+	}
+	if successes == 0 {
+		t.Errorf("expected at least one successful LogCallOutcome, all %d goroutines failed: %v", workers, errs)
+	}
+
+	// Verify the session was updated at least once (outcome set).
+	h.calls.mu.Lock()
+	finalSession := h.calls.sessions[sessionID]
+	h.calls.mu.Unlock()
+	if finalSession == nil || finalSession.OutcomeID == nil {
+		t.Error("expected OutcomeID to be set on session after concurrent LogCallOutcome")
+	}
+
+	// Verify at least one OUTCOME_LOGGED event was appended.
+	h.calls.mu.Lock()
+	outcomeEvents := 0
+	for _, e := range h.calls.events {
+		if e.EventType == CallEventOutcomeLogged {
+			outcomeEvents++
+		}
+	}
+	h.calls.mu.Unlock()
+	if outcomeEvents == 0 {
+		t.Error("expected at least one OUTCOME_LOGGED event to be appended")
 	}
 }

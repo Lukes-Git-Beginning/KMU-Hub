@@ -643,10 +643,6 @@ func (s *Service) LogCallOutcome(
 	session.DurationSeconds = &durationSecs
 	session.UpdatedAt = now
 
-	if err := s.calls.UpdateSession(ctx, session); err != nil {
-		return nil, fmt.Errorf("log outcome – update session: %w", err)
-	}
-
 	outcomeEvent := &CallEvent{
 		ID:                  uuid.New(),
 		DialerCallSessionID: sessionID,
@@ -654,11 +650,9 @@ func (s *Service) LogCallOutcome(
 		Payload:             map[string]any{"outcome_id": outcomeID.String(), "outcome_label": outcome.Label},
 		OccurredAt:          now,
 	}
-	if err := s.calls.AppendEvent(ctx, outcomeEvent); err != nil {
-		slog.WarnContext(ctx, "dialer: append OUTCOME_LOGGED event failed",
-			"session_id", sessionID,
-			"error", err,
-		)
+	// Atomically persist session update + event to prevent partial writes.
+	if err := s.calls.UpdateSessionWithEvent(ctx, session, outcomeEvent); err != nil {
+		return nil, fmt.Errorf("log outcome – persist session and event: %w", err)
 	}
 
 	// Update campaign contact status based on outcome type.

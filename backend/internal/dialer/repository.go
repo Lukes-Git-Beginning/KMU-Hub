@@ -42,6 +42,10 @@ type CallRepository interface {
 	UpdateSession(ctx context.Context, s *CallSession) error
 	AppendEvent(ctx context.Context, e *CallEvent) error
 	ListEventsBySession(ctx context.Context, sessionID uuid.UUID) ([]*CallEvent, error)
+	// UpdateSessionWithEvent atomically updates a call session and appends an
+	// event in a single database transaction. This prevents partial writes when
+	// LogCallOutcome is interrupted after UpdateSession but before AppendEvent.
+	UpdateSessionWithEvent(ctx context.Context, s *CallSession, e *CallEvent) error
 }
 
 // OutcomeRepository handles persistence for call outcomes (per-tenant configurable).

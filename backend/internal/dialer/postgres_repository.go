@@ -555,6 +555,54 @@ func (r *PostgresCallRepository) UpdateSession(ctx context.Context, s *CallSessi
 	return nil
 }
 
+// UpdateSessionWithEvent atomically updates a call session and appends a call
+// event in one BEGIN/COMMIT block. A failure in either step rolls back both,
+// preventing the half-write that would otherwise occur if the process crashes
+// between the two independent Exec calls.
+func (r *PostgresCallRepository) UpdateSessionWithEvent(ctx context.Context, s *CallSession, e *CallEvent) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("UpdateSessionWithEvent begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	tag, err := tx.Exec(ctx,
+		`UPDATE dialer_call_sessions
+		 SET call_session_id = $1, outcome_id = $2, duration_seconds = $3,
+		     notes = $4, next_action = $5, appointment_id = $6,
+		     updated_at = $7, wrap_up_completed_at = $8
+		 WHERE id = $9 AND tenant_id = $10`,
+		s.CallSessionID, s.OutcomeID, s.DurationSeconds,
+		s.Notes, s.NextAction, s.AppointmentID,
+		s.UpdatedAt, s.WrapUpCompletedAt,
+		s.ID, s.TenantID,
+	)
+	if err != nil {
+		return fmt.Errorf("UpdateSessionWithEvent update session: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrCallSessionNotFound
+	}
+
+	payloadJSON, err := json.Marshal(e.Payload)
+	if err != nil {
+		return fmt.Errorf("UpdateSessionWithEvent marshal event payload: %w", err)
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO dialer_call_events
+		    (id, dialer_call_session_id, event_type, payload, occurred_at)
+		 VALUES ($1,$2,$3,$4,$5)`,
+		e.ID, e.DialerCallSessionID, e.EventType, payloadJSON, e.OccurredAt,
+	); err != nil {
+		return fmt.Errorf("UpdateSessionWithEvent append event: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("UpdateSessionWithEvent commit: %w", err)
+	}
+	return nil
+}
+
 func (r *PostgresCallRepository) AppendEvent(ctx context.Context, e *CallEvent) error {
 	payloadJSON, err := json.Marshal(e.Payload)
 	if err != nil {
