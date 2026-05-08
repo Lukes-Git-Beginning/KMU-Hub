@@ -1,240 +1,251 @@
-# KMU Hub
+# Cosmi
 
-All-in-One CRM fuer DACH-KMUs mit EU-Datensouveraenitaet.
+> All-in-One CRM für DACH-KMUs mit EU-Datensouveränität — maßgeschneidert durch einwöchige Onsite-Prozessanalyse.
+
+**Hersteller:** Zentria UG (i.G.) · **Software:** Cosmi · **Production:** [app.zentria.tech](https://app.zentria.tech)
 
 ---
 
 ## Vision
 
-Ein CRM-System, das durch eine einwoechige Onsite-Prozessanalyse massgeschneidert wird. Statt starrer Standardsoftware passt sich KMU Hub an bestehende Workflows an — durch konfigurationsbasierte Anpassung und ein WASM-Plugin-System fuer komplexe Erweiterungen.
+Standardsoftware zwingt KMUs in Workflows, die nicht zu ihren Prozessen passen. Cosmi dreht das Verhältnis um: Eine einwöchige Onsite-Prozessanalyse beim Pilot-Kunden ist Teil des Onboardings, das Ergebnis fließt direkt in die Konfiguration der Instanz. Branchenmodule decken Handwerk, Fuhrpark, Vermietung, Schichten, Rapporte, Vertragsverwaltung und mehr ab — als first-class Module, nicht als Add-Ons.
 
-**Zielgruppe:** Branchenunabhaengige KMUs im DACH-Raum (5–200 Mitarbeiter)
+**Zielgruppe:** Branchenunabhängige KMUs im DACH-Raum, 5–200 Mitarbeiter.
 
-**Kerneigenschaften:**
+**USP:**
 
-- EU-Datensouveraenitaet (Hosting ausschliesslich in der EU)
-- SaaS- und Self-Hosted-Optionen
-- Deutschland-First: EUR, MWSt-konform, de-DE Locale
-- DSGVO-konform mit Audit-Logging und Datenschutz-Vault
-- 3-Tier Preismodell: Starter, Business, Enterprise
+- **Onsite-Maßanfertigung** statt SaaS-One-Size-Fits-All
+- **EU-Datensouveränität** — Hosting ausschließlich in der EU (Hetzner Nürnberg/Falkenstein)
+- **Self-Hosted oder SaaS** — eine Codebase, beide Modelle
+- **Instanz-pro-Pilot** ab Stufe Orbit (eigene Datenbank, kein Multi-Tenancy-Compromise)
+- **DACH-First** — EUR, MWSt-konform, GoBD-tauglich, DSGVO mit Audit-Logging und Vault-Service
 
 ---
 
-## Tech-Stack
+## Status
 
-| Komponente | Technologie |
-|------------|-------------|
-| Backend | Go — Microservices + API Gateway |
-| Desktop | Electron + React 19 + TypeScript |
-| Mobile | React Native (geplant) |
-| Datenbank | PostgreSQL 16 |
-| Cache | Redis 7 |
-| Dateispeicher | MinIO (S3-kompatibel) |
-| Video/Voice | LiveKit (self-hostable) |
-| Kollaboration | Collabora (WOPI-Protokoll) |
-| Inter-Service | gRPC mit Protocol Buffers |
-| CI/CD | GitHub Actions |
-| Hosting | EU-only (Hetzner/OVH) |
+| | |
+|---|---|
+| **Phase** | Pre-Launch (Sprint 3 abgeschlossen 2026-05-08) |
+| **Launch-Datum** | 2026-07-01 (ZFA-Pilot-0) |
+| **Version** | 0.1.0 (Pre-Release) |
+| **Production** | [app.zentria.tech](https://app.zentria.tech) — 25 Application-Services, Migration-Head 115, alle Container healthy |
+| **Repo** | `github.com/Lukes-Git-Beginning/KMU-Hub` (privat) |
+| **Roadmap** | [`docs/ROADMAP.md`](docs/ROADMAP.md) (Single Source of Truth, 6-Sprint-Plan bis Launch) |
+| **Code-Reife** | Kombinierte Launch-Reife 3.7 (Rigorosum Runde 2 — Note 4.1; Runde 3 in Sprint 5) |
 
-### Frontend-Stack
+---
 
-- **UI:** Radix UI + Tailwind CSS 4.0 + Lucide Icons
-- **State:** Zustand 5.0 + TanStack Query 5.0 (mit Persistence)
-- **Routing:** React Router 7.0 (Hash-basiert fuer Electron)
-- **Build:** Electron Vite 5.0 + TypeScript 5.7
+## Module
 
-### Backend-Stack
+14 first-class Module + 5 Kommunikations-/Admin-Module. Jedes Modul ist via Feature-Flag (`modules.<name>`) toggleable und gehört zu einem Pricing-Tier.
 
-- **Routing:** chi/v5
-- **Datenbank:** pgx/v5 (PostgreSQL Driver)
-- **E-Mail:** go-imap/v2 + go-smtp + go-message
-- **Kalender:** go-webdav + go-ical (CalDAV)
-- **Dokumente:** docconv/v2 (Konvertierung)
-- **Automation:** expr-lang (Regelauswertung)
-- **Integrationen:** Teams Bot Framework + Slack API
+### Kernmodule (Cosmi-Tier)
+
+| Modul | Beschreibung |
+|---|---|
+| **CRM** | Kontakte, Deals, Pipeline, Custom Fields, Tags, Consent-Management |
+| **Chat** | Echtzeit-Kommunikation, Threads, Reactions, Datei-Austausch |
+| **E-Mail** | IMAP/SMTP mit CRM-Verknüpfung |
+| **Kalender** | Termine + CalDAV-Sync, Ressourcen-Buchung |
+| **Aufgaben & Projekte** | Kanban, Gantt, Zeiterfassung, Task-Dependencies |
+| **Dokumente** | OnlyOffice/Collabora WOPI-Integration, Volltextsuche |
+| **Finanzen** | Rechnungen (ZUGFeRD), Angebote, Mahnwesen, DATEV-Export, Bexio/Lexware-Sync |
+| **Personal (HR)** | Mitarbeiter, ArbZG-Compliance, Abwesenheiten |
+| **Wiki** | FTS-basierte interne Wissensbasis |
+| **Helpdesk** | SLA-Engine, Ticket-Merge, Queues, Canned Responses |
+| **Berichte** | Custom Reports mit PDF/CSV/XLSX-Export, Scheduled Runs |
+| **Formulare** | Schemas + Submissions + HMAC-signierte Webhooks |
+| **Video & Voice** | LiveKit (self-hostable), Recording mit Pre-Consent-Flow |
+| **Dialer** | Outbound-Campaigns, Agent-Queue, Outcome-Tracking |
+
+### Branchenmodule (Cosmi-Branchenpaket)
+
+| Modul | Beschreibung |
+|---|---|
+| **Fuhrpark** | Fahrzeuge, TÜV-Reminder-Cron, Service-Historie, Schadenserfassung |
+| **Inventar** | Lagerverwaltung, Stock-Warnings |
+| **Einkauf** | Bestellungen, Wareneingang, Lieferanten |
+| **Produktion** | Produktionsaufträge, Stücklisten |
+| **Rapporte** | GPS-getaggte Tagesrapporte mit Approval-Workflow |
+| **Schichten** | Schichtplanung mit ArbZG-§5-Pre-Check (DST-aware) |
+| **Vermietung** | Mietobjekte mit GIST-tstzrange-Doppelbuchungs-Schutz |
+| **Verträge** | Vertragsverwaltung, Laufzeiten, Kündigungsfristen |
+
+### Kommunikation & Admin
+
+Unified Inbox · Notifications · Teams-Bot · Slack-Bot · Automation-Engine (Trigger/Condition/Action) · Sicherheit (2FA, Audit-Log, GDPR-Export/Erasure, Vault) · RBAC (admin/manager/member, resource:action-Permissions) · Feature-Flag-Registry (16 Flags, Live)
+
+Vollständige Modul-Scope-Matrix mit Tabellen/RPCs/Hooks: [`docs/MODULES_SCOPE_MATRIX.md`](docs/MODULES_SCOPE_MATRIX.md)
+
+---
+
+## Pricing
+
+**Modul-x-User-Modell** (siehe [`docs/PRICING.md`](docs/PRICING.md)):
+
+- **Cosmi** (SaaS) — Kernmodule + optionale Module pro User/Monat
+- **Cosmi Branchenpaket** — Cosmi + alle Branchenmodule
+- **Orbit** (Self-Hosted) — Pod (single-tenant) / Station (multi-tenant) / Command (Enterprise)
+
+Onsite-Prozessanalyse + Maßanfertigung als einmalige Onboarding-Pauschale.
 
 ---
 
 ## Architektur
 
 ```
-                        ┌─────────────┐
-                        │   Desktop   │
-                        │  (Electron) │
-                        └──────┬──────┘
-                               │ HTTPS
-                        ┌──────▼──────┐
-                        │   Gateway   │
-                        │   (HTTP)    │
-                        └──────┬──────┘
-                               │ gRPC
-          ┌────────────────────┼────────────────────┐
-          │         │          │          │          │
-     ┌────▼───┐ ┌──▼───┐ ┌───▼──┐ ┌────▼───┐ ┌───▼────┐
-     │  Auth  │ │ CRM  │ │ Chat │ │  Work  │ │ Email  │
-     └────────┘ └──────┘ └──────┘ └────────┘ └────────┘
-          │         │          │          │          │
-     ┌────▼───┐ ┌──▼────┐ ┌──▼───┐ ┌───▼────┐ ┌───▼──────┐
-     │Notif.  │ │  Biz  │ │ Doc  │ │Automat.│ │  CalDAV  │
-     └────────┘ └───────┘ └──────┘ └────────┘ └──────────┘
-                               │
-                        ┌──────▼──────┐
-                        │ PostgreSQL  │
-                        │ Redis/MinIO │
-                        └─────────────┘
+                          ┌─────────────────┐
+                          │  Desktop / PWA  │
+                          │ Electron + React│
+                          └────────┬────────┘
+                                   │ HTTPS (Caddy + Let's Encrypt)
+                          ┌────────▼────────┐
+                          │     Gateway     │
+                          │  (HTTP, chi/v5) │
+                          └────────┬────────┘
+                                   │ gRPC (mTLS optional)
+   ┌──────────────────────────────┼──────────────────────────────┐
+   │                               │                                │
+   │  Kern-Services (10):           │   Branchen-Services (8):       │
+   │  auth · crm · chat · work       │   inventar · einkauf · produktion │
+   │  email · document · biz         │   vertraege · rapporte · schichten│
+   │  notification · automation      │   fuhrpark · vermietung           │
+   │  plugin · dialer                │                                │
+   │  wiki · helpdesk · berichte     │   Realtime / Files:             │
+   │  formulare                      │   livekit · livekit-egress      │
+   │                                 │   minio · onlyoffice            │
+   └────────────────┬────────────────┴──────────────┬─────────────┘
+                    │                                │
+              ┌─────▼─────┐                    ┌────▼─────┐
+              │ PostgreSQL │                    │ Redis 7.4 │
+              │  (pgvector│                    │  (Cache,  │
+              │   + 115   │                    │   Rate-   │
+              │ Migrations)│                    │   Limit)  │
+              └────────────┘                    └───────────┘
 ```
 
-**Prinzipien:**
+**25 Application-Services + Caddy + Postgres + Redis + MinIO + LiveKit (×2) + Monitoring (Prometheus/Grafana/Alertmanager).**
 
-- **Thick Services, Thin Handlers** — Business-Logik in Service-Layer, Handler nur fuer I/O
-- **API-First** — OpenAPI-Spec vor Implementation
-- **Graceful Degradation** — Services fallen unabhaengig aus
-- **Structured Logging** — slog fuer alle Services
-- **Idempotente Operationen** — Alle API-Calls sicher wiederholbar
-- **Migrations-Only** — Datenbankschema ausschliesslich via golang-migrate
+### Architektur-Prinzipien
 
----
+- **Thick Services, Thin Handlers** — Business-Logik im Service-Layer, Handler nur Parse/Call/Respond
+- **API-First** — OpenAPI-Spec (`backend/api/openapi.yaml`, ~14k Zeilen) vor Implementation
+- **Migrations-Only** — Schema ausschließlich via golang-migrate (`make migrate-create name=xxx`), nie manuelles SQL
+- **Structured Logging** — `slog` durchgängig, kein `fmt.Println`
+- **Idempotente Operationen** — `Idempotency-Key`-Header auf POST/PUT/PATCH/DELETE (HardMode in Dev, WarnMode in Prod bis Pilot-1)
+- **Tenant-Isolation Option-B** — `tenant_id UUID NOT NULL` auf ~123 Tabellen, JWT-Claim `tid` durchgängig per `middleware.GetTenantID(ctx)`
+- **Graceful Degradation** — Services können unabhängig ausfallen (CRM ohne Chat etc.)
+- **Security-First** — JWT (15min) + Refresh-Rotation, RBAC, IP-Filter mit Fail-Close, CORS-Allowlist (keine Wildcards), CSP, HSTS, Vault-Service für OAuth/API-Keys, DOMPurify-HTML-Sanitization, Pre-Recording-Consent
 
-## Module & Features
-
-### Kernmodule
-
-| Modul | Beschreibung |
-|-------|-------------|
-| **CRM** | Kontakte, Deals, Opportunities, Pipeline-Management, Custom Fields, Tags |
-| **Chat** | Interne Echtzeit-Kommunikation mit Dateiaustausch |
-| **E-Mail** | IMAP/SMTP-Integration mit CRM-Verknuepfung |
-| **Kalender** | Terminplanung mit CalDAV-Synchronisation |
-| **Aufgaben & Projekte** | Kanban-Boards, Gantt-Charts, Zeiterfassung |
-| **Dokumente** | Dateiverwaltung mit WOPI-Kollaboration (Collabora) und Volltextsuche |
-| **Finanzen** | Rechnungen, Angebote, Mahnwesen, DATEV-Export |
-| **Personal (HR)** | Mitarbeiterverwaltung, Abwesenheiten, Organigramm |
-| **Dashboard** | Konfigurierbares Dashboard mit Widgets |
-
-### Kommunikation & Zusammenarbeit
-
-| Modul | Beschreibung |
-|-------|-------------|
-| **Video & Voice** | Videokonferenzen und Sprachanrufe via LiveKit |
-| **Unified Inbox** | Kanaluebergreifende Nachrichtenaggregation (E-Mail, Chat, Benachrichtigungen) |
-| **Benachrichtigungen** | Push-Notifications mit Praeferenzsteuerung |
-| **Teams-Integration** | Bidirektionale Benachrichtigungen via Adaptive Cards |
-| **Slack-Integration** | Bidirektionale Benachrichtigungen via Block Kit |
-
-### System & Administration
-
-| Modul | Beschreibung |
-|-------|-------------|
-| **Automation** | Regelbasierte Workflows mit Trigger/Condition/Action-Engine |
-| **Sicherheit** | Zwei-Faktor-Authentifizierung, Audit-Logging, DSGVO-Compliance |
-| **Verwaltung** | Benutzerverwaltung, Rollen & Berechtigungen, Einladungssystem |
-| **Einstellungen** | Organisations-, Benutzer- und Modulkonfiguration |
-
-### Branchenmodule (Plugin-Kandidaten)
-
-Fuhrpark, Produktion, Rapporte, Schichten, Inventar, Einkauf, Helpdesk, Vermietung, Vertraege, Formulare
+ADRs: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Lessons aus Vorgängerprojekt: [`docs/LEARNINGS.md`](docs/LEARNINGS.md).
 
 ---
 
-## Projektstruktur
+## Tech-Stack
+
+| Komponente | Technologie |
+|---|---|
+| Backend | Go 1.25 — 25 Microservices, gRPC + Protocol Buffers |
+| Routing | chi/v5 (HTTP), gRPC mit Interceptor-Stack |
+| Datenbank | PostgreSQL 16 (`pgvector/pgvector:pg16`), pgx/v5 Driver |
+| Cache | Redis 7.4 (Rate-Limit, Idempotency, Agent-Status) |
+| Files | MinIO (S3-kompatibel) |
+| Video | LiveKit + Egress (self-hostable, coturn TURN-Server in Falkenstein) |
+| Documents | OnlyOffice DocumentServer (WOPI-Protokoll) |
+| Desktop | Electron + React 19 + TypeScript 5.7 + Vite 5 |
+| Mobile | PWA auf Desktop-Basis (kein React Native) |
+| UI | Radix UI + Tailwind CSS 4 + Lucide Icons + Magic UI |
+| State | Zustand 5 + TanStack Query 5 (Persistence + Offline-Queue) |
+| i18n | i18next v26 + i18next-icu (de/en/fr/it) |
+| CI/CD | GitHub Actions (lint/test/build/E2E/smoke/security-scans), automated CD via `cd.yml` |
+| Provisioning | Ansible (Pilot-Onboarding, 4 Roles + 50 Tasks, ansible-lint production-profile) |
+| Hosting | Hetzner Cloud (EU) — App-Server CPX42 Nürnberg, TURN-Server CAX11 Falkenstein |
+
+---
+
+## Repository-Struktur
 
 ```
 KMU Hub/
-├── backend/
-│   ├── api/                    # OpenAPI-Spezifikation
-│   ├── cmd/                    # Service-Binaries (10 Services + Gateway)
-│   ├── internal/               # Interne Packages (auth, crm, chat, ...)
-│   ├── migrations/             # PostgreSQL-Migrationen (53 Paare)
-│   ├── proto/                  # Protocol Buffer Definitionen (14 Services)
-│   └── Makefile                # Build, Test, Lint, Migrate, Proto
-├── desktop/
-│   ├── src/
-│   │   ├── main/               # Electron Main Process
-│   │   ├── preload/            # Preload Scripts
-│   │   └── renderer/
-│   │       └── src/
-│   │           ├── api/        # API Client, Types, TanStack Query Hooks
-│   │           ├── components/ # Shared UI-Komponenten
-│   │           ├── modules/    # Feature-Module (34 Module)
-│   │           ├── stores/     # Zustand State Stores
-│   │           └── themes/     # 5-Layer Desk-Theme-System
-│   └── package.json
+├── backend/                           # Go Microservices
+│   ├── api/openapi.yaml               # OpenAPI-Spec (~14k Zeilen)
+│   ├── cmd/                           # 25 Service-Binaries
+│   ├── internal/                      # Service-Implementierungen
+│   ├── migrations/                    # PostgreSQL-Migrationen (115 Paare)
+│   ├── proto/                         # Protocol-Buffer-Definitionen
+│   └── Makefile                       # Build, Test, Lint, Migrate, Proto
+├── desktop/                           # Electron-App
+│   └── src/renderer/src/
+│       ├── api/                       # API-Clients + TanStack-Query-Hooks
+│       ├── modules/                   # Feature-Module
+│       ├── stores/                    # Zustand State Stores
+│       └── themes/                    # 5-Layer Desk-Theme-System
 ├── deploy/
-│   └── docker/
-│       └── docker-compose.yml  # Lokale Entwicklung + Self-Hosted
+│   ├── docker/                        # docker-compose.yml + .prod.yml + Caddyfile
+│   ├── ansible/                       # Pilot-Provisioning (S3.1)
+│   ├── turn/                          # coturn-Setup
+│   ├── hetzner/                       # Hetzner-Firewall + coturn-TLS
+│   ├── k8s/                           # Kubernetes-Manifeste (sekundär)
+│   └── scripts/                       # deploy.sh, rollback.sh, healthcheck.sh, smoke.sh, backup.sh
 ├── docs/
-│   ├── ARCHITECTURE.md         # Architektur-Entscheidungen
-│   ├── LEARNINGS.md            # Lessons Learned
-│   └── PRICING.md              # Preismodell
-├── .github/
-│   └── workflows/
-│       └── ci.yml              # CI-Pipeline
-├── .planning/                  # GSD Planungsdateien
-├── CLAUDE.md                   # Entwicklungsrichtlinien
+│   ├── ROADMAP.md                     # 6-Sprint-Plan bis Launch (Single Source of Truth)
+│   ├── ARCHITECTURE.md                # ADRs
+│   ├── LEARNINGS.md                   # Lessons aus Vorgängerprojekt
+│   ├── PRICING.md                     # Pricing-Modell
+│   └── MODULES_SCOPE_MATRIX.md        # 14 Module × Tabellen/RPCs/Flags
+├── .knowledge/                        # Obsidian Knowledge Base (Architektur, Datenbank, ...)
+├── .github/workflows/                 # ci.yml, ci-desktop.yml, cd.yml, security-review.yml
+├── CLAUDE.md                          # Entwicklungsrichtlinien
 └── README.md
 ```
 
 ---
 
-## Voraussetzungen
-
-- **Go** >= 1.25
-- **Node.js** >= 20
-- **PostgreSQL** >= 16
-- **Redis** >= 7
-- **protoc** (Protocol Buffer Compiler)
-- **Docker & Docker Compose** (optional, fuer lokale Infrastruktur)
-- **Make** (fuer Backend-Build-Kommandos)
-
----
-
 ## Quickstart
+
+### Voraussetzungen
+
+- **Go** ≥ 1.25
+- **Node.js** ≥ 20
+- **Docker & Docker Compose** (für lokale Infrastruktur)
+- **PostgreSQL** ≥ 16 + **Redis** ≥ 7 (oder per Docker Compose, siehe unten)
+- **protoc** (Protocol-Buffer-Compiler)
+- **Make**
 
 ### Mit Docker (empfohlen)
 
 ```bash
+# Env-File anlegen
+cp deploy/docker/PRODUCTION_TEMPLATE deploy/docker/.env
+# .env editieren — alle Secrets setzen
+
 # Infrastruktur + alle Services starten
-cd deploy/docker
-docker-compose up -d
+docker compose -f deploy/docker/docker-compose.yml up -d
 
-# Status pruefen
-docker-compose ps
+# Status prüfen
+docker compose -f deploy/docker/docker-compose.yml ps
 
-# Logs verfolgen
-docker-compose logs -f gateway
+# Gateway-Logs verfolgen
+docker compose -f deploy/docker/docker-compose.yml logs -f gateway
 ```
+
+Dev-Environment hat `IDEMPOTENCY_MODE=hard` als Default (siehe `.env.example`).
 
 ### Manuell
 
 ```bash
-# Backend bauen
+# Backend bauen + Migrationen + Gateway starten
 cd backend
 make build
-
-# Migrationen ausfuehren
 make migrate-up
-
-# Gateway starten (HTTP-Einstiegspunkt)
 make run-gateway
 
-# In einem neuen Terminal: Desktop-App starten
+# In neuem Terminal: Desktop-App starten
 cd desktop
 npm install
 npm run dev
 ```
-
-### Umgebungsvariablen
-
-Erstelle eine `.env`-Datei basierend auf `.env.example` (falls vorhanden) oder konfiguriere folgende Bereiche:
-
-- **Datenbank:** PostgreSQL-Verbindung
-- **Cache:** Redis-Verbindung
-- **Dateispeicher:** MinIO/S3-Konfiguration
-- **Video:** LiveKit-Verbindung
-- **E-Mail:** IMAP/SMTP-Server
-- **Integrationen:** Teams und Slack Credentials (optional)
-
-> **Hinweis:** `.env`-Dateien werden NICHT committed. Secrets ausschliesslich ueber Umgebungsvariablen konfigurieren.
 
 ---
 
@@ -245,129 +256,139 @@ Erstelle eine `.env`-Datei basierend auf `.env.example` (falls vorhanden) oder k
 ```bash
 cd backend
 
-# Alle Services bauen
+# Build (alle 25 Services)
 make build
-
-# Einzelne Services starten
-make run-gateway
-make run-auth
-make run-crm
-make run-chat
-make run-notification
-make run-work
-make run-automation
+make build-prod          # mit -tags no_wasm (Production-Build)
 
 # Tests
-make test                      # Unit Tests
-make test-coverage             # Mit Coverage-Report
+make test                # Unit-Tests + Race-Detector
+make test-coverage       # mit Coverage-Report
+make e2e-test            # Integration-Tests (Build-Tag e2e)
+make smoke-test          # Smoke-Tests gegen lokales Gateway
 
 # Linting
-make lint                      # golangci-lint
+make lint                # golangci-lint v2.8
 
 # Datenbank
-make migrate-up                # Migrationen ausfuehren
-make migrate-down              # Letzte Migration zurueckrollen
-make migrate-create name=xxx   # Neue Migration erstellen
+make migrate-up
+make migrate-down
+make migrate-create name=xxx
 
 # Protocol Buffers
-make proto                     # Proto-Dateien kompilieren
+make proto
+
+# Einzel-Service-Run
+make run-gateway
+make run-auth
+# (analog für alle weiteren Services)
 ```
 
 ### Desktop
 
 ```bash
 cd desktop
-
-npm install                    # Dependencies installieren
-npm run dev                    # Electron im Dev-Modus
-npm run build                  # Production Build
-npm run test                   # Tests
-npm run lint                   # ESLint
+npm install
+npm run dev              # Electron im Dev-Modus
+npm run build            # Production-Build
+npm run typecheck        # TypeScript-Check
+npm test                 # Vitest
+npm run lint             # ESLint
 ```
 
-### Docker
+### Demo-Mode
 
-```bash
-cd deploy/docker
-
-docker-compose up -d           # Alle Services starten
-docker-compose down            # Stoppen
-docker-compose logs -f <name>  # Service-Logs
-```
+Für Frontend-Tests ohne Backend: `RENDERER_VITE_DEMO_MODE=true npm run dev` — aktiviert einen Fetch-Interceptor mit realistischen Mock-Daten (`desktop/src/renderer/src/mocks/`).
 
 ---
 
-## CI/CD
+## Deployment
 
-Die CI-Pipeline (GitHub Actions) prueft bei jedem Push:
+### Self-Hosted (Orbit-Tier)
 
-1. **Lint** — golangci-lint mit projektspezifischer Konfiguration
-2. **Test** — Unit Tests mit Race Detector und Coverage (PostgreSQL + Redis Containers)
-3. **Build** — Kompilierung aller 10 Services
-4. **E2E** — End-to-End Integrationstests
-5. **OpenAPI** — Validierung der API-Spezifikation
+Docker-Compose-Setup mit täglichem Backup-Cron, Update via Image-Tags. Alle Daten verbleiben beim Kunden. Komplette Anleitung in `deploy/docker/PRODUCTION_TEMPLATE` und [`.knowledge/deployment.md`](.knowledge/deployment.md).
 
-Coverage-Artefakte werden 30 Tage aufbewahrt.
+### SaaS (Cosmi-Tier)
+
+**Instanz-pro-Pilot-Modell** ab M3:
+
+- **App-Server pro Pilot:** Hetzner CPX42 (16 GB RAM) — eigene Datenbank, eigene Domain (`<pilot>.zentria.tech`)
+- **Geteilter TURN-Server:** Hetzner CAX11 in Falkenstein (`turn.zentria.tech`)
+- **Provisioning:** Ansible-Playbook (`deploy/ansible/site.yml`) — foundation + secrets + app-deploy + turn-Roles, Pilot-Onboarding in <30 Min
+
+```bash
+# Pilot-Inventory editieren
+vim deploy/ansible/inventory/hosts.yml      # IP einsetzen
+ansible-vault create deploy/ansible/inventory/group_vars/pilots/vault.yml
+
+# Real-Apply (nur von Linux-Control-Node — Windows kann nur Syntax-Check via Docker)
+cd deploy/ansible
+ansible-playbook -i inventory/hosts.yml site.yml --ask-vault-pass
+```
+
+### CI/CD
+
+GitHub Actions auf jeden Push:
+
+| Job | Tool | Trigger |
+|---|---|---|
+| Lint | golangci-lint v2.8 | `backend/` |
+| Test | go test + Race-Detector | `backend/` |
+| Build | go build | nach Lint+Test |
+| E2E | Integration-Tests mit Service-Containers | nach Lint+Test |
+| Smoke | Go-Smoke-Tests | nach E2E |
+| OpenAPI | Spec-Validierung | parallel |
+| Security | gosec + trivy + npm audit | parallel |
+| Desktop | typecheck + lint + test + build | `desktop/` |
+| CD | SSH-Deploy auf Production | nach erfolgreichem CI auf main |
+
+CD-Pipeline ist concurrency-gated (`production`-Group), nutzt `deploy.sh` mit Auto-Rollback bei Health-Check- oder Smoke-Failure, postet Slack-Notification.
 
 ---
 
 ## API
 
-Die REST-API wird ueber den Gateway-Service bereitgestellt. Die vollstaendige Spezifikation liegt in `backend/api/openapi.yaml` (~14.000 Zeilen).
+REST-API über den Gateway-Service. Vollständige Spezifikation: `backend/api/openapi.yaml` (~14.000 Zeilen, 28 Endpoint-Domains).
 
-API-Client-Types fuer das Frontend werden automatisch generiert:
+API-Client-Types für das Frontend werden generiert:
 
 ```bash
 cd desktop
 npx openapi-typescript ../backend/api/openapi.yaml -o src/renderer/src/api/types.ts
 ```
 
+Authentifizierung: JWT Access (15min) + Opaque Refresh-Token (7d) mit Rotation und Theft-Detection. Tenant-Claim `tid` ist Pflicht — fehlend/leer → 401.
+
 ---
 
 ## Themes
 
-KMU Hub verfuegt ueber ein 5-Layer Desk-Theme-System mit 5 Themes:
+5-Layer Desk-Theme-System mit OKLCH-Farbtokens und 77 PNG-Hintergrund-Assets:
 
-- **Cozy** — Warme Holztoene
-- **Dreamy** — Sanfte Pastellfarben
-- **Raumstation** — Dunkles Sci-Fi
-- **Clean** — Minimalistisch hell
-- **Minimal** — Reduziert und fokussiert
+- **Cozy** — warme Holztöne
+- **Dreamy** — sanfte Pastellfarben
+- **Raumstation** — dunkles Sci-Fi
+- **Clean** — minimalistisch hell
+- **Minimal** — reduziert und fokussiert
 
-Themes verwenden OKLCH-Farbtokens und 77 PNG-Assets fuer den Schreibtisch-Hintergrund.
-
----
-
-## Deployment
-
-### Self-Hosted (Kunden)
-
-- Docker Compose Setup fuer einfaches Deployment
-- Automatische Backups via Cron
-- Update-Mechanismus ueber Docker Image Tags
-- Alle Daten verbleiben beim Kunden
-
-### SaaS
-
-- Kubernetes auf Hetzner Cloud (EU)
-- Blue-Green Deployment
-- Automatische Skalierung
-- EU-Datensouveraenitaet garantiert
+Designphilosophie + Motion-Tokens + Anti-Patterns: [`.knowledge/design.md`](.knowledge/design.md)
 
 ---
 
 ## Dokumentation
 
-| Dokument | Beschreibung |
-|----------|-------------|
-| [`CLAUDE.md`](CLAUDE.md) | Entwicklungsrichtlinien, Architekturregeln, Kommandos |
+| Dokument | Inhalt |
+|---|---|
+| [`CLAUDE.md`](CLAUDE.md) | Entwicklungsrichtlinien, Architektur-Regeln, Kommandos |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | 6-Sprint-Plan bis Launch 2026-07-01 (Single Source of Truth) |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Architektur-Entscheidungen (ADRs) |
-| [`docs/LEARNINGS.md`](docs/LEARNINGS.md) | Lessons Learned aus Vorgaengerprojekt |
-| [`docs/PRICING.md`](docs/PRICING.md) | Preismodell fuer DACH-Markt |
-| [`backend/api/openapi.yaml`](backend/api/openapi.yaml) | REST-API Spezifikation |
+| [`docs/LEARNINGS.md`](docs/LEARNINGS.md) | Lessons Learned aus Vorgängerprojekt |
+| [`docs/PRICING.md`](docs/PRICING.md) | Modul-x-User Preismodell |
+| [`docs/MODULES_SCOPE_MATRIX.md`](docs/MODULES_SCOPE_MATRIX.md) | 14 Module × Tabellen/RPCs/Hooks/Flags |
+| [`backend/api/openapi.yaml`](backend/api/openapi.yaml) | REST-API-Spezifikation |
+| [`.knowledge/`](.knowledge/) | Obsidian Knowledge Base (Architektur, Datenbank, Security, Deployment, …) |
 
 ---
 
 ## Lizenz
 
-Proprietaer. Alle Rechte vorbehalten.
+Proprietär. Alle Rechte vorbehalten. Zentria UG (i.G.).
