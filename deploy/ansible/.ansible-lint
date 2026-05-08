@@ -9,3 +9,6 @@ skip_list:
   # Secret fact names match the actual env var names (POSTGRES_PASSWORD etc.)
   # to map 1:1 to the .env.production template — uppercase is intentional.
   - var-naming[pattern]
+  # Role names with hyphens (app-deploy, livekit-egress) are pre-established
+  # conventions in this project and match Docker Compose service names for clarity.
+  - role-name

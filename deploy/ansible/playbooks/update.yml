@@ -1,8 +1,6 @@
 ---
-- name: Update pilot apps (re-deploy)
+- name: Update pilot apps (re-deploy app-deploy role only, skip foundation/secrets)
   hosts: pilots
   become: yes
-  tasks:
-    - name: Placeholder for app-deploy role
-      ansible.builtin.debug:
-        msg: "app-deploy role added in Welle 3"
+  roles:
+    - app-deploy

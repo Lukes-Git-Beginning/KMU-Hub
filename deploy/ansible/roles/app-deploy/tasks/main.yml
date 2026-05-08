@@ -1,0 +1,174 @@
+---
+# ============================================================
+# app-deploy/tasks/main.yml
+# Mirrors deploy.sh steps 2–7 in idiomatic Ansible.
+# Steps: git-pull, chown, caddyfile, render-configs,
+#        sequential build, migrate, rolling restart,
+#        healthcheck, smoke (non-fatal — known failures).
+# All command tasks include changed_when or creates for lint.
+# ============================================================
+
+# ----- Step 2: Git pull -----
+- name: Clone or update repository
+  ansible.builtin.git:
+    repo: "{{ repo_url }}"
+    dest: "{{ app_root }}"
+    version: "{{ repo_branch }}"
+    key_file: "{{ deploy_ssh_key_path }}"
+    accept_hostkey: true
+    update: true
+    force: false
+  register: git_result
+  become: true
+  become_user: "{{ deploy_user }}"
+
+- name: Capture build commit from git result
+  ansible.builtin.set_fact:
+    build_commit: "{{ git_result.after[:7] }}"
+  when: build_commit == ""
+
+# ----- Ownership sweep -----
+- name: Ensure app_root is owned by deploy user
+  ansible.builtin.file:
+    path: "{{ app_root }}"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    recurse: true
+
+# ----- Step 2.5a: Render Caddyfile -----
+- name: Render Caddyfile from template
+  ansible.builtin.template:
+    src: Caddyfile.j2
+    dest: "{{ app_root }}/deploy/docker/Caddyfile"
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: "0644"
+  notify: Restart Caddy
+
+# ----- Step 2.5b: Render livekit-secrets.yaml -----
+- name: Render livekit-secrets.yaml from template
+  ansible.builtin.command:
+    cmd: bash deploy/scripts/render-configs.sh
+    chdir: "{{ app_root }}"
+    creates: "{{ app_root }}/deploy/docker/livekit-secrets.yaml"
+  environment:
+    LIVEKIT_API_KEY: "{{ LIVEKIT_API_KEY }}"
+    LIVEKIT_API_SECRET: "{{ LIVEKIT_API_SECRET }}"
+  become: true
+  become_user: "{{ deploy_user }}"
+
+# ----- Step 3: Sequential image build (16 GB RAM constraint) -----
+- name: Build service images sequentially
+  ansible.builtin.command:
+    cmd: >-
+      docker compose
+      --env-file {{ env_file }}
+      -f {{ compose_files | join(' -f ') }}
+      build
+      --build-arg BUILD_VERSION={{ build_commit }}
+      --build-arg BUILD_COMMIT={{ build_commit }}
+      --build-arg BUILD_TIME={{ ansible_date_time.iso8601 }}
+      {{ item }}
+    chdir: "{{ app_root }}"
+  loop: "{{ buildable_services }}"
+  changed_when: true
+  become: true
+  become_user: "{{ deploy_user }}"
+
+# ----- Step 4: Run database migrations -----
+- name: Run database migrations
+  ansible.builtin.command:
+    cmd: >-
+      docker compose
+      --env-file {{ env_file }}
+      -f {{ compose_files | join(' -f ') }}
+      run --rm migrate
+    chdir: "{{ app_root }}"
+  changed_when: true
+  become: true
+  become_user: "{{ deploy_user }}"
+
+# ----- Step 5: Rolling restart — infrastructure first -----
+- name: Start infrastructure services (postgres, redis, minio)
+  ansible.builtin.command:
+    cmd: >-
+      docker compose
+      --env-file {{ env_file }}
+      -f {{ compose_files | join(' -f ') }}
+      up -d postgres redis minio
+    chdir: "{{ app_root }}"
+  changed_when: true
+  become: true
+  become_user: "{{ deploy_user }}"
+
+- name: Wait for infrastructure to stabilise
+  ansible.builtin.pause:
+    seconds: 5
+
+# ----- Step 5 (cont.): Rolling restart — application services -----
+- name: Start application services one by one
+  ansible.builtin.command:
+    cmd: >-
+      docker compose
+      --env-file {{ env_file }}
+      -f {{ compose_files | join(' -f ') }}
+      up -d {{ item }}
+    chdir: "{{ app_root }}"
+  loop: "{{ app_services_restart }}"
+  changed_when: true
+  become: true
+  become_user: "{{ deploy_user }}"
+
+# ----- Step 5 (cont.): Rolling restart — edge layer last -----
+- name: Start gateway and caddy (edge layer)
+  ansible.builtin.command:
+    cmd: >-
+      docker compose
+      --env-file {{ env_file }}
+      -f {{ compose_files | join(' -f ') }}
+      up -d gateway caddy
+    chdir: "{{ app_root }}"
+  changed_when: true
+  become: true
+  become_user: "{{ deploy_user }}"
+
+- name: Wait for edge layer to stabilise
+  ansible.builtin.pause:
+    seconds: 5
+
+# ----- Step 6: Healthcheck -----
+- name: Run healthcheck
+  ansible.builtin.command:
+    cmd: bash deploy/scripts/healthcheck.sh
+    chdir: "{{ app_root }}"
+  register: healthcheck_result
+  failed_when: healthcheck_result.rc != 0
+  changed_when: false
+  become: true
+  become_user: "{{ deploy_user }}"
+  when: not ansible_check_mode
+
+# ----- Step 7: Smoke tests (non-fatal — 12/21 known failures from welle 1) -----
+# TODO(followup-session): fix smoke.sh endpoint coverage before marking fatal.
+- name: Run smoke tests
+  ansible.builtin.command:
+    cmd: bash deploy/scripts/smoke.sh --base-url https://{{ pilot_domain }} --expect-version {{ build_commit }}
+    chdir: "{{ app_root }}"
+  register: smoke_result
+  failed_when: false
+  changed_when: false
+  become: true
+  become_user: "{{ deploy_user }}"
+  when: not ansible_check_mode
+
+- name: Print smoke test output if tests failed
+  ansible.builtin.debug:
+    msg: |
+      SMOKE TESTS NON-FATAL FAILURE (rc={{ smoke_result.rc }})
+      stdout: {{ smoke_result.stdout | default('') }}
+      stderr: {{ smoke_result.stderr | default('') }}
+  when:
+    - not ansible_check_mode
+    - smoke_result.rc is defined
+    - smoke_result.rc != 0

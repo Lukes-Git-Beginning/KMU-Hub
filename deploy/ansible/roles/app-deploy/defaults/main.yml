@@ -1,0 +1,80 @@
+---
+deploy_user: deploy
+app_root: /opt/kmuhub
+repo_url: git@github.com:Lukes-Git-Beginning/KMU-Hub.git
+repo_branch: main
+deploy_ssh_key_path: /home/{{ deploy_user }}/.ssh/github_deploy
+
+compose_files:
+  - "{{ app_root }}/deploy/docker/docker-compose.yml"
+  - "{{ app_root }}/deploy/docker/docker-compose.prod.yml"
+
+env_file: "{{ app_root }}/.env.production"
+
+# Populated from git module's `after` field at runtime.
+# Override at playbook level: -e build_commit=abc1234
+build_commit: ""
+
+# Services to build sequentially (RAM constraint: 16 GB CPX42, no parallel build).
+# Matches deploy.sh BUILDABLE_SERVICES; postgres/redis/minio/livekit pull-only.
+buildable_services:
+  - auth
+  - crm
+  - chat
+  - notification
+  - work
+  - email
+  - document
+  - biz
+  - automation
+  - plugin
+  - dialer
+  - wiki
+  - helpdesk
+  - berichte
+  - formulare
+  - inventar
+  - einkauf
+  - produktion
+  - vertraege
+  - rapporte
+  - schichten
+  - fuhrpark
+  - vermietung
+  - gateway
+  - migrate
+
+# Application services restarted after infra (livekit/egress included, caddy/gateway last).
+app_services_restart:
+  - auth
+  - crm
+  - chat
+  - notification
+  - work
+  - email
+  - document
+  - biz
+  - automation
+  - plugin
+  - dialer
+  - wiki
+  - helpdesk
+  - berichte
+  - formulare
+  - inventar
+  - einkauf
+  - produktion
+  - vertraege
+  - rapporte
+  - schichten
+  - fuhrpark
+  - vermietung
+  - livekit
+  - livekit-egress
+
+caddy_security_headers:
+  - '-Server ""'
+  - 'X-Frame-Options "DENY"'
+  - 'X-Content-Type-Options "nosniff"'
+  - 'Referrer-Policy "strict-origin-when-cross-origin"'
+  - 'Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"'

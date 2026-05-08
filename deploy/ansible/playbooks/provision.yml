@@ -1,13 +1,15 @@
 ---
-- name: Provision pilot hosts (foundation + secrets)
+- name: Provision pilot hosts (foundation + secrets + app-deploy)
   hosts: pilots
   become: yes
   roles:
     - foundation
     - secrets
+    - app-deploy
 
-- name: Provision TURN host (foundation only — turn role added in Welle 3)
+- name: Provision TURN host (foundation + turn)
   hosts: turn
   become: yes
   roles:
     - foundation
+    - turn

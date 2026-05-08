@@ -1,0 +1,21 @@
+{{ pilot_domain }} {
+	reverse_proxy gateway:8080
+
+	header {
+{% for header in caddy_security_headers %}
+		{{ header }}
+{% endfor %}
+	}
+}
+
+# Fallback: IP-based access (HTTP only, remove once domain works)
+:80 {
+	reverse_proxy gateway:8080
+
+	header {
+		-Server ""
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+}
