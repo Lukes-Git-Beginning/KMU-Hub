@@ -111,7 +111,7 @@ log "Step 4/5: Restarting services..."
 $COMPOSE up -d postgres redis minio
 sleep 5
 
-for svc in auth crm chat notification work email document biz automation plugin; do
+for svc in auth crm chat notification work email document biz automation plugin dialer wiki helpdesk berichte formulare inventar einkauf produktion vertraege rapporte schichten fuhrpark vermietung livekit livekit-egress; do
     log "  Starting $svc..."
     $COMPOSE up -d "$svc"
     sleep 3
