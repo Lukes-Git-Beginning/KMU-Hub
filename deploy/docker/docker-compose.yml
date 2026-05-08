@@ -45,7 +45,10 @@ services:
       retries: 5
 
   createbucket:
-    image: minio/mc:RELEASE.2025-04-16T19-25-36Z
+    # Original April pin was withdrawn from Docker Hub. Bumped to nearest
+    # available Quay/Hub release. mc is a one-shot bucket-init client; tag
+    # drift is low risk because the surface (mc alias / mc mb) is stable.
+    image: minio/mc:RELEASE.2025-05-21T01-59-54Z
     depends_on:
       minio:
         condition: service_healthy
