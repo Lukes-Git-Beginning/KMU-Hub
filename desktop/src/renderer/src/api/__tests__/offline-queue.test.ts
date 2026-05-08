@@ -5,7 +5,7 @@
  */
 import 'fake-indexeddb/auto'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { enqueue, drain, peek, clear, getDeadLetter } from '../offline-queue'
+import { enqueue, drain, peek, clear, getDeadLetter, retryDeadLetter } from '../offline-queue'
 
 // Reset IndexedDB state between tests via the queue's own clear() helper.
 beforeEach(async () => {
@@ -175,6 +175,85 @@ describe('dead-letter', () => {
 
     const deadLetter = await getDeadLetter()
     expect(deadLetter).toHaveLength(2)
+  })
+})
+
+describe('retryDeadLetter', () => {
+  it('moves item from dead-letter back into the active queue with reset retryCount', async () => {
+    const { set } = await import('idb-keyval')
+
+    // Seed a dead-letter entry directly.
+    await set('cosmi-mutation-dead-letter', [
+      {
+        idempotencyKey: 'retry-key-1',
+        method: 'POST',
+        path: '/api/v1/crm/contacts',
+        body: '{"name":"Retry"}',
+        headers: {},
+        createdAt: Date.now(),
+        retryCount: 5,
+        lastError: 'HTTP 500',
+      },
+    ])
+
+    await retryDeadLetter('retry-key-1')
+
+    // Dead-letter must be empty after retry.
+    const deadLetter = await getDeadLetter()
+    expect(deadLetter).toHaveLength(0)
+
+    // Item must be in the active queue with retryCount reset to 0.
+    const queue = await peek()
+    expect(queue).toHaveLength(1)
+    expect(queue[0].idempotencyKey).toBe('retry-key-1')
+    expect(queue[0].retryCount).toBe(0)
+    expect(queue[0].lastError).toBeNull()
+  })
+
+  it('is a no-op when the idempotency key is not found in dead-letter', async () => {
+    await retryDeadLetter('nonexistent-key')
+
+    const queue = await peek()
+    const deadLetter = await getDeadLetter()
+    expect(queue).toHaveLength(0)
+    expect(deadLetter).toHaveLength(0)
+  })
+
+  it('only removes the targeted item when multiple dead-letter entries exist', async () => {
+    const { set } = await import('idb-keyval')
+
+    await set('cosmi-mutation-dead-letter', [
+      {
+        idempotencyKey: 'dl-a',
+        method: 'POST',
+        path: '/api/v1/a',
+        body: null,
+        headers: {},
+        createdAt: Date.now(),
+        retryCount: 5,
+        lastError: 'HTTP 503',
+      },
+      {
+        idempotencyKey: 'dl-b',
+        method: 'PUT',
+        path: '/api/v1/b',
+        body: '{}',
+        headers: {},
+        createdAt: Date.now(),
+        retryCount: 5,
+        lastError: 'HTTP 500',
+      },
+    ])
+
+    await retryDeadLetter('dl-a')
+
+    const deadLetter = await getDeadLetter()
+    expect(deadLetter).toHaveLength(1)
+    expect(deadLetter[0].idempotencyKey).toBe('dl-b')
+
+    const queue = await peek()
+    expect(queue).toHaveLength(1)
+    expect(queue[0].idempotencyKey).toBe('dl-a')
   })
 })
 

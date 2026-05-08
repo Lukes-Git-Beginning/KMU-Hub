@@ -8,7 +8,7 @@
  * Hides automatically once the queue is empty and the device is online.
  */
 import { useEffect, useState, useCallback } from 'react'
-import { peek, drain, getDeadLetter, type QueuedMutation } from '@/api/offline-queue'
+import { peek, drain, getDeadLetter, retryDeadLetter, type QueuedMutation } from '@/api/offline-queue'
 import { useAuthStore } from '@/stores/auth'
 import { API_BASE_URL } from '@/lib/constants'
 import { cn } from '@/lib'
@@ -17,7 +17,9 @@ interface OfflineBannerState {
   isOnline: boolean
   queuedCount: number
   deadLetterCount: number
+  deadLetterItems: QueuedMutation[]
   isDraining: boolean
+  retryingKey: string | null
   lastDrainResult: { replayed: number; failed: number } | null
 }
 
@@ -26,7 +28,9 @@ export function OfflineBanner() {
     isOnline: navigator.onLine,
     queuedCount: 0,
     deadLetterCount: 0,
+    deadLetterItems: [],
     isDraining: false,
+    retryingKey: null,
     lastDrainResult: null,
   })
 
@@ -37,6 +41,7 @@ export function OfflineBanner() {
       isOnline: navigator.onLine,
       queuedCount: queue.length,
       deadLetterCount: deadLetter.length,
+      deadLetterItems: deadLetter,
     }))
   }, [])
 
@@ -75,6 +80,15 @@ export function OfflineBanner() {
       lastDrainResult: { replayed: result.replayed, failed: result.failed },
     }))
   }, [state.isDraining, state.isOnline, refreshCounts])
+
+  const handleRetryDeadLetter = useCallback(async (idempotencyKey: string) => {
+    if (state.retryingKey !== null) return
+
+    setState((prev) => ({ ...prev, retryingKey: idempotencyKey }))
+    await retryDeadLetter(idempotencyKey)
+    await refreshCounts()
+    setState((prev) => ({ ...prev, retryingKey: null }))
+  }, [state.retryingKey, refreshCounts])
 
   // Only show when offline OR when there are queued/dead-letter items.
   const visible = !state.isOnline || state.queuedCount > 0 || state.deadLetterCount > 0
@@ -145,6 +159,31 @@ export function OfflineBanner() {
           {state.lastDrainResult.replayed > 0 && `${state.lastDrainResult.replayed} gesendet`}
           {state.lastDrainResult.failed > 0 && ` · ${state.lastDrainResult.failed} fehlgeschlagen`}
         </span>
+      )}
+
+      {/* Dead-letter recovery — one retry button per failed item */}
+      {state.deadLetterItems.length > 0 && (
+        <ul className="mt-1 w-full space-y-1" aria-label="Fehlgeschlagene Aktionen">
+          {state.deadLetterItems.map((item) => (
+            <li key={item.idempotencyKey} className="flex items-center justify-between gap-2 text-xs">
+              <span className="truncate opacity-70">
+                {item.method} {item.path}
+                {item.lastError && <> — {item.lastError}</>}
+              </span>
+              <button
+                onClick={() => handleRetryDeadLetter(item.idempotencyKey)}
+                disabled={state.retryingKey !== null}
+                aria-label={`Aktion erneut senden: ${item.method} ${item.path}`}
+                className={cn(
+                  'shrink-0 rounded border border-current/30 px-2 py-0.5 text-xs font-semibold',
+                  'transition-opacity hover:opacity-80 disabled:opacity-50',
+                )}
+              >
+                {state.retryingKey === item.idempotencyKey ? 'Wird gesendet…' : 'Erneut senden'}
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   )

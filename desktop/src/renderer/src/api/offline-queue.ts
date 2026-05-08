@@ -220,3 +220,28 @@ export async function clear(): Promise<void> {
 export async function getDeadLetter(): Promise<QueuedMutation[]> {
   return readDeadLetter()
 }
+
+/**
+ * Moves a single dead-letter item back into the active queue for retry.
+ * The item's retryCount is reset to 0 so it gets MAX_RETRIES fresh attempts.
+ * No-ops silently if the item is not found in the dead-letter store.
+ *
+ * @param idempotencyKey - the stable idempotency key of the item to retry
+ */
+export async function retryDeadLetter(idempotencyKey: string): Promise<void> {
+  const deadLetter = await readDeadLetter()
+  const idx = deadLetter.findIndex((item) => item.idempotencyKey === idempotencyKey)
+  if (idx === -1) {
+    // Item not found — already retried or drained; nothing to do.
+    return
+  }
+
+  const [item] = deadLetter.splice(idx, 1)
+  await writeDeadLetter(deadLetter)
+
+  // Re-enqueue with a fresh retry counter.
+  const revived: QueuedMutation = { ...item, retryCount: 0, lastError: null }
+  const queue = await readQueue()
+  queue.push(revived)
+  await writeQueue(queue)
+}

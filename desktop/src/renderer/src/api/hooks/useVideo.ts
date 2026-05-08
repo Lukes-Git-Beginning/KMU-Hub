@@ -184,9 +184,12 @@ export function useSetRecordingConsent() {
       consented: boolean
     }) => setRecordingConsent(recordingId, consented),
     onSuccess: (_data, variables) => {
+      // Invalidate the specific consent entry AND the global recordings list.
+      // The list view shows a consent-status indicator that must reflect the updated state.
       queryClient.invalidateQueries({
         queryKey: ['recordings', variables.recordingId, 'consent'],
       })
+      queryClient.invalidateQueries({ queryKey: ['recordings'] })
     },
   })
 }
