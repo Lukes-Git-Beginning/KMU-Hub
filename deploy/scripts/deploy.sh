@@ -147,10 +147,14 @@ set +a
 "$SCRIPT_DIR/render-configs.sh"
 
 # Step 3: Build images with version info
+# Built sequentially per service to keep peak RAM under 16GB on CPX42 hosts.
+# 24 parallel Go builds via buildx-bake exceed memory and trigger OOM-killer.
 log "Step 3/7: Building images..."
 BUILD_VERSION=$(git describe --tags --always 2>/dev/null || echo "$NEW_SHA")
 BUILD_COMMIT=$(git rev-parse --short HEAD)
 BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+BUILDABLE_SERVICES="auth crm chat notification work email document biz automation plugin dialer wiki helpdesk berichte formulare inventar einkauf produktion vertraege rapporte schichten fuhrpark vermietung gateway migrate"
 
 if [[ -n "$SERVICE" ]]; then
     $COMPOSE build \
@@ -159,10 +163,14 @@ if [[ -n "$SERVICE" ]]; then
         --build-arg BUILD_TIME="$BUILD_TIME" \
         "$SERVICE"
 else
-    $COMPOSE build \
-        --build-arg BUILD_VERSION="$BUILD_VERSION" \
-        --build-arg BUILD_COMMIT="$BUILD_COMMIT" \
-        --build-arg BUILD_TIME="$BUILD_TIME"
+    for svc in $BUILDABLE_SERVICES; do
+        log "  Building $svc..."
+        $COMPOSE build \
+            --build-arg BUILD_VERSION="$BUILD_VERSION" \
+            --build-arg BUILD_COMMIT="$BUILD_COMMIT" \
+            --build-arg BUILD_TIME="$BUILD_TIME" \
+            "$svc"
+    done
 fi
 
 # Step 4: Run migrations
