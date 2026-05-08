@@ -52,7 +52,11 @@ done
 # Infrastructure
 check "PostgreSQL" "$COMPOSE exec -T postgres pg_isready -U kmuhub"
 check "Redis" "$COMPOSE exec -T redis redis-cli ping"
-check "Caddy (HTTPS)" "curl -ksf https://localhost/health"
+# Caddy serves TLS only for the configured domain (app.zentria.tech in prod);
+# https://localhost has no matching cert and fails the TLS handshake.
+# Override CADDY_HEALTHCHECK_HOST in non-prod environments as needed.
+CADDY_HEALTHCHECK_HOST="${CADDY_HEALTHCHECK_HOST:-app.zentria.tech}"
+check "Caddy (HTTPS)" "curl -ksf --resolve $CADDY_HEALTHCHECK_HOST:443:127.0.0.1 https://$CADDY_HEALTHCHECK_HOST/health"
 
 echo ""
 echo "===================="
