@@ -195,6 +195,55 @@ Drei Anti-Pattern, die Welle 1 hinterlassen hat. Vor jedem neuen Modul-Wiring pr
 - **Fix:** 409 explizit als Retry-Class behandeln (`Retry-After`-Header respektieren), nicht als terminales Failure. Queue setzt das Item zurueck in den Pending-Pool und versucht es nach Backoff neu. `Content-Type: application/json` nur setzen wenn das Item tatsaechlich einen Body hat (sonst lehnt das Backend mit 400 ab).
 - **Pattern in:** `desktop/src/renderer/src/api/offline-queue.ts` (Welle-3.5-Fix).
 
+## Welle-1-Hotfix-Lessons (Sprint 3 Welle 1, 2026-05-08)
+
+Aus dem Marathon-Deploy `980eba3` → `3abec5f` (Migration 81 → 115). 9 Hotfix-Commits, 7 versteckte Production-Bugs. Details in MEMORY `project_sprint3_welle1_deploy.md`.
+
+### Image-Pin ohne Expiration-Tracking ist fragil
+
+- **Symptom 1 (`minio/mc`):** `docker compose up -d createbucket` failt mit `Error response from daemon: pull access denied for minio/mc:RELEASE.2025-04-16T19-25-36Z`. Image war vom Docker-Hub-Maintainer geloescht.
+- **Symptom 2 (`redis`):** `redis_1 | Bad file format reading the append only file: make a backup of your AOF file, then use ./redis-check-aof --fix`. Persistent-Volume hat RDB-v12 (geschrieben von redis 7.4+) — `redis:7.2.7-alpine` kann es nicht lesen.
+- **Ursache:** Image-Pinning ohne Tracking. `latest` ist instabil, aber explizite Pins koennen entweder geloescht werden (minio/mc) oder Down-Grade beim Volume-Swap sein (redis).
+- **Fix:** Tags rotieren auf neuere Releases (minio/mc: `2025-05-21...`, redis: `7.4-alpine`).
+- **Followup:** Renovate/Dependabot fuer Image-Tags konfigurieren — automatisches PR bei Image-Updates plus CI-Smoke-Test.
+
+### Migration referenziert FK ohne dass Tabelle existiert
+
+- **Symptom:** Migrate-Run failt mit `pq: relation "tenants" does not exist` bei Migration 000114, obwohl die Migration auf Dev gegruent gerunnt war.
+- **Ursache:** Auf Dev existierte `tenants` aus alten Test-Setups. Production-DB war essenziell leer (91 KB pg_dump) und kannte die Tabelle nicht. Migrations 000114+115 referenzierten `tenants(id)` ohne Bootstrap-Statement.
+- **Fix:** `CREATE TABLE IF NOT EXISTS tenants(...)` + Sentinel-Insert (`'00000000-0000-0000-0000-000000000001'`) am Anfang von 000114 nachgereicht (`c7a9a76`). Idempotent — laeuft auf Dev no-op, auf Prod legt es Tabelle + Sentinel an.
+- **Lesson:** Lokaler `make migrate-up` von leerer DB als Pre-Commit-Hook OR CI-Job. Welle 1 hat 9 Migrations gleichzeitig drauf gehabt — alle gegen Schemas getestet, keine gegen leere DB.
+
+### healthcheck.sh hatte drei unabhaengige Bugs
+
+1. **`set -e` + `((HEALTHY++))`:** `set -e` bricht bei Exit-Code != 0 ab. `((HEALTHY++))` evaluiert zuerst, dann inkrementiert — wenn `HEALTHY=0`, ist der Pre-Increment-Wert `0` → exit 1 → set-e killt das Script nach dem ersten gesunden Service. Fix: `HEALTHY=$((HEALTHY+1))`.
+2. **Compose-Pfad-Drift:** Skript suchte Compose-Files unter `/opt/kmuhub/`, die liegen aber in `/opt/kmuhub/deploy/docker/`. Selbe Bug-Klasse wie `980eba3`-Fix in `deploy.sh`. Fix: `COMPOSE_FILES_DIR + ENV_FILE` aus `deploy.sh` uebernommen.
+3. **Caddy-Domain hardcoded:** Skript curlte `https://localhost`, Caddy hat aber Vhost auf `app.zentria.tech`. Cert-Mismatch. Fix: `--resolve $CADDY_HEALTHCHECK_HOST:443:127.0.0.1`.
+- **Lesson:** Standalone-Skripte werden nie integrativ getestet. Bei der naechsten Runde `healthcheck.sh` in `deploy.sh` als Step nutzen, damit Drift sofort auffaellt.
+
+### Parallel `docker buildx bake` killt 16-GB-Hosts
+
+- **Symptom:** `docker buildx bake` ohne `--parallel`-Flag killt sich selbst mit `failed to execute bake: signal: killed` nach 2-3 Minuten. Server hat 24 Go-Microservices, jeder Build ~1 GB → >24 GB Memory.
+- **Ursache:** CPX42 hat 16 GB RAM ohne Swap. OOM-Kill.
+- **Fix:** Step 3 in `deploy.sh` macht jetzt `for svc in app_services; do compose build $svc; done`. Sequenziell, jeder Service schliesst seinen Prozess vor dem naechsten. Build-Dauer ~10 Min, akzeptabel.
+- **Followup:** CCX21 (32 GB) fuer Pilot-1 evaluieren — dann waere parallel-bake wieder moeglich, Build-Dauer ~3-4 Min.
+
+### Native-Windows-Ansible funktioniert nicht
+
+- **Symptom:** `pip install --user ansible-core` durchlaufen, aber `ansible-playbook --version` failt mit `ModuleNotFoundError: No module named 'grp'` (in `ansible/cli/__init__.py`).
+- **Ursache:** Ansible nutzt das Unix-only `grp`-Modul (Posix Group-Database) — wird auf Windows nicht ausgeliefert. CPython auf Windows hat das Modul nicht im Standard-Library-Pool.
+- **Fix (Windows-Dev-Box):** Ansible via Docker-Container nutzen — `willhallonline/ansible:latest` enthaelt ansible-core 2.19 + Collections (`community.general`, `community.docker`, `community.crypto`, `ansible.posix`) + `ansible-lint`. Wrapper-Pattern:
+  ```bash
+  MSYS_NO_PATHCONV=1 docker run --rm \
+    -e ANSIBLE_ROLES_PATH=/work/deploy/ansible/roles \
+    -v "/c/Users/Luke/Documents/KMU Hub:/work" \
+    -w /work/deploy/ansible \
+    willhallonline/ansible:latest \
+    ansible-playbook -i inventory/hosts.yml --syntax-check site.yml
+  ```
+  `MSYS_NO_PATHCONV=1` ist ZWINGEND in Git-Bash, sonst translatiert MSYS `/work` zu `C:/Program Files/Git/work`.
+- **Real-Apply** gegen Linux-Server weiterhin nur von einer Linux-Control-Node. Docker-Wrapper deckt nur Syntax-Check / Lint / List-Tasks / `--check`-Dry-Run ab.
+
 ## Git-Workflow & Recovery (Sprint 1+)
 
 - **Branch-Strategie:** Ab Sprint 1 (2026-04-18) ist **direct-to-main** Default. Keine Feature-Branches, keine PRs — ausser der User fordert explizit einen PR. Sprint 0 lief noch mit PRs.

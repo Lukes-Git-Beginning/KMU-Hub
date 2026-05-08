@@ -4,6 +4,64 @@ updated: 2026-05-08
 ---
 # Milestones
 
+## Sprint 3 Closure 2026-05-08 — Welle 1 Production-Deploy + Welle 2/3 Ansible + Dialer-Coverage
+
+**14 Direct-to-Main-Commits** an einem Marathon-Tag (8h+). Sprint-3-Gate erreicht, **8/8 Pflicht-Tasks done**. Plan-Files: `~/.claude/plans/wir-machen-weiter-an-adaptive-lark.md` (Welle 0/1) + `~/.claude/plans/wir-machen-weiter-an-abstract-cray.md` (Welle 2/3/4).
+
+### Welle 1 — Production-Deploy 81 → 115 (Marathon)
+
+Server-Deploy von Migration **81 → 115** (34 Migrations-Ramp), 32 Container healthy auf `3abec5f`. **9 Hotfix-Commits** zur Deploy-Infrastruktur (7 versteckte Production-Bugs aufgedeckt):
+
+| # | SHA | Bug |
+|---|---|---|
+| 1 | `089c2d4` | rollback.sh-Service-Liste hatte nur 10 von 25 Sprint-2-Services |
+| 2 | `f4add92` | PRODUCTION_TEMPLATE fehlte SLACK_WEBHOOK_URL fuer Alertmanager |
+| 3 | `53dd5b6` | `docker buildx bake` parallel-build OOM bei 16 GB RAM (24 Go-Builds gleichzeitig) — serial-Loop-Fix |
+| 4 | `c7a9a76` | Migrations 000114+115 referenzieren `tenants(id)` ohne dass `tenants`-Tabelle je angelegt wurde — `CREATE TABLE IF NOT EXISTS` + Sentinel an Anfang von 000114 |
+| 5 | `3c1ffcd` | `redis:7.2.7-alpine` kann RDB-v12 (von 7.4+) nicht lesen — Pin auf `redis:7.4-alpine` |
+| 6 | `32588ed` | `minio/mc:RELEASE.2025-04-16T19-25-36Z` aus Docker Hub entfernt — Tag-Rotation auf 2025-05-21 |
+| 7 | `7da7ed8` | healthcheck.sh `((HEALTHY++))` mit `set -e` brach nach erstem [OK] ab — `HEALTHY=$((HEALTHY + 1))` |
+| 8 | `61b0996` | healthcheck.sh nutzt veralteten compose-Pfad (vor `deploy/docker`-Refactor) — `COMPOSE_FILES_DIR + ENV_FILE` align mit deploy.sh |
+| 9 | `3abec5f` | healthcheck.sh checkt `https://localhost` statt configured Domain — `--resolve $CADDY_HEALTHCHECK_HOST:443:127.0.0.1` |
+
+Smoke-Test 12/21 PASS (9 known-broken Tests deferred — siehe MEMORY `project_sprint3_welle1_deploy.md`). Alle 25 Application-Services + Caddy + Postgres + Redis (7.4) + MinIO + Prometheus + Grafana + Alertmanager healthy. OnlyOffice unhealthy seit 2 Monaten (separater Bug).
+
+### Welle 2/3 — S3.7 Dialer + S3.1 Ansible
+
+| Commit | Welle | Inhalt |
+|---|---|---|
+| `1f6c4c0 test(dialer)` | 2A | Dialer-Coverage 12% → **31.8%** (./internal/dialer/...). 4 neue Test-Files: `phone_test.go` (NormalizePhoneE164 + FormatDuration table-driven), `redis_agent_store_test.go` (ValidateTransition-State-Machine + parseAgentStatusData), `dialer_grpc_test.go` (mapDialerError 10 Sentinels + Handler-Tests). `service_test.go` 607 → 1169 LOC (9 Service-Methoden Cover). **Bonus-Fix:** `mapDialerError` mappt `consent.ErrNoConsent` jetzt auf `codes.PermissionDenied` (war `codes.Internal`). |
+| `a8d77fc feat(ansible)` | 2B | `deploy/ansible/` greenfield: `ansible.cfg` + `site.yml` + provision/update playbooks + inventory hosts.yml (pilot-0-zfa + turn-shared, Platzhalter-IPs) + group_vars + roles/foundation (19 Tasks: apt + docker + UFW incl. **7882/udp gap-fix** + fail2ban + cron) + roles/secrets (2 Tasks: 12 Secrets via openssl + env.production.j2). 18 Files, ~570 LOC. |
+| `71f7c90 feat(ansible)` | 3A | roles/app-deploy (15 Tasks: git pull + render-configs + serial-build + migrate + rolling-restart + healthcheck + smoke). `templates/Caddyfile.j2` mit `{{ pilot_domain }}` + `caddy_security_headers`-Loop. `playbooks/provision.yml` pilots-Play jetzt `foundation + secrets + app-deploy`. `.ansible-lint` `role-name`-Skip mit Begruendung (app-deploy-Hyphen). |
+| `562e9c5 feat(ansible)` | 3B | roles/turn (14 Tasks: coturn + UFW 3478/5349/relay-range + Let's Encrypt via certbot standalone + Renew-Hook + turnserver.conf.j2). DNS-Helper: optional `community.general.cloudflare_dns`-Task gated auf `cloudflare_api_token`. |
+| `d8f917e docs(roadmap)` | 4 | Sprint-3-Closure ROADMAP-Update — S3.1 + S3.7 als done, Migration-Head 115, Sprint-3-Gate erreicht. |
+
+**Ansible-Stand:** 4 Roles, **50 Tasks**, ansible-lint **production-profile 0 failures** ueber alle Roles. Tooling: Native-Windows-Ansible nicht funktioniert (`No module named 'grp'`), Verifikation via Docker-Wrapper (`willhallonline/ansible:latest` + `MSYS_NO_PATHCONV=1` + Volume-Mount). Pattern reproduzierbar fuer kuenftige Ansible-Arbeit.
+
+**Sprint-3-Tasks Final:**
+
+| Task | Status |
+|---|---|
+| S3.MT.2 Option-B Phase 2 (~38 Tabellen) | ✅ Migrations 000114+115 (gestern + heute Hotfix `c7a9a76`) |
+| S3.1 Ansible-Playbook | ✅ `a8d77fc` + `71f7c90` + `562e9c5` |
+| S3.2 CI Security-Scans | ✅ gosec + trivy + npm audit |
+| S3.3 Dialer LogCallOutcome Tx | ✅ UpdateSessionWithEvent atomic |
+| S3.4 Image-Tags pinnen | ✅ + 2 Welle-1-Korrekturen (redis 7.4, minio/mc Tag-Rotation) |
+| S3.5 Alertmanager + Slack | ✅ (`SLACK_WEBHOOK_URL` Server-Set noch offen, kein Blocker) |
+| S3.6 cd.yml Auto-Deploy | ✅ workflow_run-Trigger |
+| S3.7 Dialer-Coverage 12% → 30% | ✅ `1f6c4c0` (31.8% real) |
+
+S3.MT.4 Audit auf Sprint 5 verschoben (User-Entscheidung). **Naechste Schritte:** Sprint 4 ab 2026-06-08 (`finance_invoices.line_items`-Normalisierung nach ADR-0007, Skeleton in `a1a8d54` bereit) → Sprint 5 (Peer-Review + Rigorosum Runde 3) → Launch 01.07.
+
+**Lessons:**
+- **Image-Pinning ohne expiration-tracking ist fragil.** minio/mc-Tags rotieren weg, redis-Pins koennen Down-grade sein. Sprint-3-Image-Pin-Commit `7a22d83` brauchte 2 Korrekturen.
+- **Migrations 000114/115 wurden gestern committed ohne lokalen Migrate-Run-Test.** Der `tenants`-FK-Bug waere bei einem `migrate up` von leerer DB sofort aufgefallen. Strategischer Followup: lokaler `make migrate-up` Pre-Commit-Hook ODER CI-Job der eine fresh-DB hochzieht.
+- **healthcheck.sh hatte 3 Bugs gleichzeitig** (`set -e` vs `((counter++))`, Pfad-Drift, Domain-Hardcode). Nie integrativ getestet. Cleanup uebernommen.
+- **Subagent-STOP-Direktive funktioniert.** Welle-2-Stream-B-V1 stoppte sauber am Pre-Check (Ansible-Tooling fehlt) ohne Files anzulegen — Lesson aus Welle 4B (partielle Verifikation als "alles gruen") funktional bewiesen.
+- **Server-DB war leer (91 KB pg_dump)** — Backfills in Hot-Risk-Migrations 000114/115 waren risikolos. Bei Pilot-1 mit Million-Row-Tabellen anders bewerten.
+- **deploy.sh inline-rollback rebuilds redundant** wenn `PREV_SHA == NEW_SHA` (followup).
+- **Server-RAM 16 GB ohne Swap** — knapp fuer parallel Go-Builds. Serial-Build-Fix gut, langfristig CCX21 (32 GB) fuer Pilot-1 evaluieren.
+
 ## Sprint 3 Session 2026-05-08 — Option-B Phase 2 Abschluss + CI Security + Dialer-Tx
 
 **9 Direct-to-Main-Commits** in 4 Wellen (8.5h). 6 von 8 Sprint-3-Pflicht-Tasks erledigt. S3.MT.2 (Option-B Phase 2) komplett. Build/Vet/Test/tsc/npm test alle gruen. Plan-File: `~/.claude/plans/wir-haben-heute-von-composed-emerson.md`.

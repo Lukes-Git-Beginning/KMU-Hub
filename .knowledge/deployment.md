@@ -4,11 +4,13 @@ updated: 2026-05-08
 ---
 # Deployment & Infrastruktur
 
-> **Aktueller Prod-Stand (2026-04-20):** `app.zentria.tech` auf `980eba3`, Migration-Head 81, alle 15 Business-Services healthy. Erster Full-Redeploy seit 2026-03-08 — Details in MEMORY `project_server_redeploy_20260419.md`. **Migration-Drift lokal/main → Prod: 81 → 115 (34 Migrations ausstehend).** Server-Deploy mit Migration-Ramp 82→115 ist naechste Ops-Aktion (nach S3.1 Ansible, Sprint 3 Rest).
+> **Aktueller Prod-Stand (2026-05-08):** `app.zentria.tech` auf `3abec5f`, Migration-Head **115**, alle 25 Application-Services + Caddy + Postgres + Redis (7.4) + MinIO + Prometheus + Grafana + Alertmanager healthy (32 Container). Welle-1-Marathon-Deploy 81→115 mit 9 Hotfix-Commits dokumentiert in MEMORY `project_sprint3_welle1_deploy.md`. OnlyOffice unhealthy seit 2 Monaten (separater Bug, kein Pilot-Blocker). **Lokal/main = Prod synchron** — kein Migration-Drift mehr.
 >
-> **skip-worktree-Status (Stand 2026-05-08):** `docker-compose.yml` kann entfernt werden (alle Patches in main — siehe Sprint-2-TODOs-Tabelle unten). `livekit.yaml` bleibt skip-worktree bis `render-configs.sh`-Workflow beim naechsten Deploy aktiviert ist. Cleanup-Schritte in der Server-Side-Patches-Sektion unten.
+> **skip-worktree-Status (Stand 2026-05-08 nach Welle-1-Marathon):** keine aktiven Markierungen mehr. `livekit.yaml`-Patch aus alter Era ist obsolet (livekit-secrets.yaml-render-overlay ersetzt das per `render-configs.sh` in `deploy.sh` Step 2.5).
 >
-> **Welle 4B (2026-05-07):** `deploy/docker/docker-compose.yml` und `backend/.env.example` setzen `IDEMPOTENCY_MODE=hard` im Gateway-Environment fuer Dev. Production bleibt unset → WarnMode default. Prod-Cutover auf HardMode ist Sprint-3-Aktion nach Pilot-1.
+> **Welle 4B (2026-05-07):** `deploy/docker/docker-compose.yml` und `backend/.env.example` setzen `IDEMPOTENCY_MODE=hard` im Gateway-Environment fuer Dev. Production bleibt unset → WarnMode default. Prod-Cutover auf HardMode ist post-Pilot-1-Aktion.
+>
+> **Ansible-Playbook (Sprint 3, 2026-05-08):** `deploy/ansible/` ist live mit 4 Roles (foundation/secrets/app-deploy/turn) und 50 Tasks insgesamt. Inventory `pilots` + `turn` mit Platzhalter-IPs (Pilot-0-IP wird vor Real-Provisioning gesetzt). ansible-lint **production-profile 0 failures**. Verifikation auf Windows via Docker-Wrapper (`willhallonline/ansible:latest` + `MSYS_NO_PATHCONV=1`). Details siehe Abschnitt "Ansible Pilot-Provisioning" unten.
 
 ## Docker Compose (Lokal + Self-Hosted)
 Datei: `deploy/docker/docker-compose.yml`
@@ -16,10 +18,11 @@ Datei: `deploy/docker/docker-compose.yml`
 ### Infrastruktur-Container
 | Service | Image | Port | Zweck |
 |---------|-------|------|-------|
-| postgres | postgres:16-alpine | 5432 | Hauptdatenbank |
-| redis | redis:7-alpine | 6379 | Cache + Rate Limiting |
-| minio | minio:latest | 9000/9001 | S3-kompatibler File-Storage |
-| onlyoffice | onlyoffice/documentserver | 8088/8443 | Document-Editing |
+| postgres | pgvector/pgvector:pg16 | 5432 | Hauptdatenbank (Volume `docker_pgdata`) |
+| redis | redis:7.4-alpine | 6379 | Cache + Rate Limiting (Pin auf 7.4 wegen RDB-v12-Kompat) |
+| minio | minio/minio:RELEASE.2025-05-21T... | 9000/9001 | S3-kompatibler File-Storage |
+| minio/mc | minio/mc:RELEASE.2025-05-21T... | — | Bucket-Init (Tag-Rotation siehe Welle 1) |
+| onlyoffice | onlyoffice/documentserver | 8088/8443 | Document-Editing (unhealthy seit 2 Monaten) |
 | livekit | livekit-server | 7880/7881/7882 | Video/Audio (WebRTC) |
 | livekit-egress | livekit-egress | — | Recording-Koordination |
 
@@ -97,9 +100,22 @@ Flow: `lock → snapshot → backup → pull → build → migrate → rolling r
 - `--env-file /opt/kmuhub/.env.production` wird jetzt an jeden `docker compose`-Call uebergeben (vorher: Prod-Env wurde ignoriert)
 - Rolling-Restart-Liste um `dialer wiki helpdesk berichte formulare` erweitert
 
-**Noch offen (Sprint 2):**
-- `livekit`, `livekit-egress` fehlen in der Restart-Liste — nach einem Deploy laeuft LiveKit weiter mit altem Config-Mount. Workaround: manuell `$COMPOSE up -d --force-recreate livekit livekit-egress` nach dem Script.
-- Auto-Rollback-Pfad referenziert `$DATABASE_URL` als Shell-Var (nicht aus env-file) — funktioniert nur wenn vor dem Script `source .env.production` gemacht wurde.
+**Gefixt in Welle-1-Marathon (2026-05-08, 9 Hotfix-Commits):**
+- `089c2d4` rollback.sh-Service-Liste auf alle 25 Sprint-2-Services erweitert (vorher 10)
+- `f4add92` `SLACK_WEBHOOK_URL=` Slot in PRODUCTION_TEMPLATE (Alertmanager-Slack-Pfad)
+- `53dd5b6` Step 3 Build laeuft jetzt **seriell** (`for svc in app_services; do compose build $svc; done`) — parallel-bake killt 16-GB-Hosts mit OOM
+- `c7a9a76` Migration 000114: `CREATE TABLE IF NOT EXISTS tenants` als Bootstrap am Anfang (FK-Resolution-Fix; vorher referenzierten 000114+115 `tenants(id)` ohne dass die Tabelle je angelegt war)
+- `3c1ffcd` redis Pin auf 7.4-alpine (vorher 7.2.7 — RDB-v12 von 7.4+ unlesbar)
+- `32588ed` minio/mc image-Tag-Rotation (vorheriger Tag aus Docker Hub entfernt)
+- `7da7ed8` `healthcheck.sh` `((HEALTHY++))` → `HEALTHY=$((HEALTHY+1))` (set -e brach nach erstem [OK] ab)
+- `61b0996` `healthcheck.sh` Compose-Pfad align mit `deploy.sh` (`COMPOSE_FILES_DIR + ENV_FILE`)
+- `3abec5f` `healthcheck.sh` `--resolve $CADDY_HEALTHCHECK_HOST:443:127.0.0.1` (vorher `https://localhost`, Caddy-Vhost-Mismatch)
+
+**Bekannte Issues (Sprint 4-Followups):**
+- `livekit`/`livekit-egress` Restart bei Deploy → manuell `$COMPOSE up -d --force-recreate livekit livekit-egress` nach Script.
+- Auto-Rollback `$DATABASE_URL` als Shell-Var (nicht aus env-file) — vor Script `source .env.production` noetig.
+- Auto-Rollback rebuilds redundant wenn `PREV_SHA == NEW_SHA` (followup).
+- `SLACK_WEBHOOK_URL` fehlt noch in `/opt/kmuhub/.env.production` auf dem Server — Alertmanager laeuft stumm. Manuelles Set noetig.
 
 ### rollback.sh — Manueller Rollback
 - `./rollback.sh` — Rollback zum vorherigen Deploy (aus deploy-history.log)
@@ -125,8 +141,9 @@ Flags: `--base-url URL`, `--verbose`, `--expect-version SHA`
 Cleanup: Smoke-User wird am Ende per DELETE entfernt.
 
 ### healthcheck.sh — Docker Service Health
-- Prüft alle 10 Services + Gateway + Postgres + Redis + Caddy
+- Prueft alle 25 Application-Services + Gateway + Postgres + Redis + Caddy + Monitoring (Prometheus/Grafana/Alertmanager)
 - Exit 0 = healthy, Exit 2 = failures
+- Welle-1-Hotfix: `set -e` + `((HEALTHY++))` Bash-Bug behoben (`HEALTHY=$((HEALTHY+1))`); Compose-Pfad align mit `deploy.sh`; Caddy-Healthcheck nutzt `--resolve $CADDY_HEALTHCHECK_HOST:443:127.0.0.1` statt hardcoded `https://localhost`. Welle-1-Standalone: 14/14 ✅.
 
 ### backup.sh / restore.sh — Datenbank-Backup
 - Backup-Cron taeglich 02:00 (in `deploy`-User-crontab)
@@ -145,25 +162,13 @@ Cleanup: Smoke-User wird am Ende per DELETE entfernt.
 9. Smoke Tests — bei Fehler: Auto-Rollback
 10. Erfolg loggen + Lock freigeben
 
-## Server-Side Patches via `skip-worktree` (2026-04-19/20, Stand 2026-05-08)
+## Server-Side Patches via `skip-worktree` (Historisch, 2026-04-19/20)
 
-Auf dem Prod-Server waren zwei Dateien lokal gepatched. Stand 2026-05-08 (Sprint 3 Welle 0) sind die meisten Fixes in `main` committed — siehe Aktualisierung unten. Siehe auch MEMORY `project_server_redeploy_20260419.md`.
+> **Status (2026-05-08):** Keine aktiven Markierungen mehr. Welle-1-Marathon hat alle Patches aus `main` durch das `render-configs.sh`-Workflow ersetzt. Sektion bleibt fuer Recovery-Lessons. Siehe MEMORY `project_server_redeploy_20260419.md` + `project_sprint3_welle1_deploy.md`.
 
-**`livekit.yaml`** bleibt skip-worktree, weil LiveKit keine ENV-Substitution im yaml unterstuetzt. **Loesung in main**: `deploy/scripts/render-configs.sh` rendert `livekit-secrets.yaml` via `envsubst` aus Template + `.env.production`-Vars; `deploy.sh` ruft das in Step 2.5 vor jedem Build auf. Beim naechsten Server-Deploy wird `livekit.yaml` aus skip-worktree entfernt und das gerenderte File genutzt.
-
-**`docker-compose.yml`** kann von skip-worktree entfernt werden — alle Patches sind in main:
-- `DATABASE_URL`/`POSTGRES_PASSWORD` via `${...}` parametrisiert (Sprint 2)
-- `RegisterHealth` registriert sowohl GET als auch HEAD (`backend/internal/server/http.go:46-47`), `wget --spider` funktioniert sauber
-- `formulare`-Service registriert `/health` (Konsistenz mit allen anderen Services)
-
-**Server-Side-Cleanup-Schritte (naechster Deploy):**
-```bash
-# 1. skip-worktree entfernen
-sudo -u deploy bash -c "cd /opt/kmuhub && git update-index --no-skip-worktree deploy/docker/docker-compose.yml deploy/docker/livekit.yaml"
-# 2. lokale livekit.yaml umbenennen (wird ersetzt durch render-configs.sh)
-sudo mv /opt/kmuhub/deploy/docker/livekit.yaml /opt/kmuhub/deploy/docker/livekit.yaml.legacy
-# 3. Pull + Deploy (deploy.sh ruft render-configs.sh in Step 2.5 auf)
-```
+Auf dem Prod-Server waren zwei Dateien lokal gepatched (`livekit.yaml` + `docker-compose.yml`). Sprint-3-Welle-1-Deploy hat den Cleanup ausgefuehrt:
+- `docker-compose.yml`: `DATABASE_URL`/`POSTGRES_PASSWORD` via `${...}` parametrisiert (Sprint 2), `wget --spider` durch `wget -qO-` ersetzt, `formulare` `/health` aligned
+- `livekit.yaml`: ersetzt durch `livekit-secrets.yaml`-Render-Overlay (`render-configs.sh` + `deploy.sh` Step 2.5 + `envsubst`-Template aus `.env.production`)
 
 ## Sprint-2-TODOs fuer Deploy-Hygiene (Stand 2026-05-08)
 
@@ -236,6 +241,80 @@ Package-Level Vars in `backend/internal/gateway/route_health.go`:
 - `deploy/docker/docker-compose.prod.yml` setzt `JWT_ENABLED: "true"` explizit (vorher: Dev-Default geerbt)
 - Secret muss in `/opt/kmuhub/.env.production` als `ONLYOFFICE_JWT_SECRET` + gleicher Wert im Document-Service gepflegt sein
 - `smoke.sh` enthaelt seit Sprint 0 einen JWT-Check gegen den OnlyOffice-Container
+
+## Ansible Pilot-Provisioning (S3.1, 2026-05-08)
+
+`deploy/ansible/` ist die Pilot-Onboarding-Schicht — eine Pilot-Instanz wird in <30 Min vollautomatisch deployed (Voraussetzung fuer das Instanz-pro-Pilot-Modell ab M3, siehe MEMORY `project_multi_tenancy.md`).
+
+### Verzeichnis-Struktur
+```
+deploy/ansible/
+├── .ansible-lint                              # role-name skip mit Begruendung (app-deploy-Hyphen)
+├── README.md                                  # Run-Anleitung + Vault-Setup
+├── ansible.cfg                                # roles_path, inventory, host_key_checking=False
+├── inventory/
+│   ├── hosts.yml                              # pilot-0-zfa + turn-shared (PLATZHALTER_IP)
+│   └── group_vars/{all,pilots,turn}.yml
+├── site.yml                                   # import_playbook: provision.yml
+├── playbooks/
+│   ├── provision.yml                          # foundation + secrets + app-deploy fuer pilots; foundation + turn fuer turn-Hosts
+│   └── update.yml                             # nur app-deploy (re-run)
+└── roles/
+    ├── foundation/                            # 19 Tasks: apt + docker + UFW + fail2ban + cron
+    ├── secrets/                               #  2 Tasks: 12 Secrets via openssl + env.production.j2
+    ├── app-deploy/                            # 15 Tasks: git pull + render-configs + serial-build + migrate + rolling-restart + healthcheck + smoke
+    └── turn/                                  # 14 Tasks: coturn + UFW (3478/5349/relay) + Let's Encrypt + Renew-Hook
+```
+
+### Roles im Detail
+
+| Role | Source-of-Truth | Pflicht-Variablen | Notiz |
+|---|---|---|---|
+| `foundation` | `deploy/scripts/setup-cron.sh`, `deploy/turn/setup.sh`, `deploy/hetzner/firewall.sh` | `deploy_user_pubkeys` (zwingend in `vault.yml`) | UFW oeffnet 22/80/443/7881-tcp/**7882-udp**/50000-60000-udp (7882/udp ist Lueckenfix vs. `firewall.sh`) |
+| `secrets` | `deploy/docker/PRODUCTION_TEMPLATE` | `env_target_path` (default `/opt/kmuhub/.env.production`) | 12 Secrets generiert (`JWT_SECRET`, `VAULT_MASTER_SECRET`, `WOPI_JWT_SECRET`, `ONLYOFFICE_JWT_SECRET`, `LIVEKIT_API_KEY/SECRET/WEBHOOK_SECRET`, `TURN_SECRET`, `POSTGRES_PASSWORD`, `MINIO_ROOT_PASSWORD`, `MINIO_SECRET_KEY`, `GF_SECURITY_ADMIN_PASSWORD`); `no_log: true` aktiv |
+| `app-deploy` | `deploy/scripts/deploy.sh` Steps 2.5-7 | `repo_url`, `deploy_ssh_key_path`, `pilot_domain` | Build laeuft seriell ueber `app_services` (16 GB RAM-Constraint), Caddyfile.j2 mit `{{ pilot_domain }}` und `{{ caddy_security_headers }}`-Loop, smoke `failed_when: false` (12/21 Known-Broken bis Repair) |
+| `turn` | `deploy/turn/turnserver.conf.template`, `deploy/hetzner/coturn-setup.sh` | `turn_realm`, `certbot_email`, `cloudflare_api_token` (optional) | TLS via Let's Encrypt standalone + Renew-Hook `/etc/letsencrypt/renewal-hooks/deploy/coturn.sh`; optional Cloudflare-DNS-Helper gated auf `cloudflare_api_token` |
+
+### Verifikation auf Windows-Dev-Box
+
+Native-Windows-Ansible funktioniert NICHT (`No module named 'grp'` — Unix-only). Verifikation laeuft in einem Docker-Container:
+
+```bash
+# Setup einmalig: Image pullen
+docker pull willhallonline/ansible:latest
+
+# Wrapper-Pattern (MSYS_NO_PATHCONV ZWINGEND fuer Git-Bash, sonst Path-Translation)
+MSYS_NO_PATHCONV=1 docker run --rm \
+  -e ANSIBLE_ROLES_PATH=/work/deploy/ansible/roles \
+  -v "/c/Users/Luke/Documents/KMU Hub:/work" \
+  -w /work/deploy/ansible \
+  willhallonline/ansible:latest \
+  ansible-playbook -i inventory/hosts.yml --syntax-check site.yml
+
+# ansible-lint production-profile (Image hat es vorinstalliert)
+MSYS_NO_PATHCONV=1 docker run --rm \
+  -v "/c/Users/Luke/Documents/KMU Hub:/work" \
+  -w /work/deploy/ansible \
+  willhallonline/ansible:latest \
+  ansible-lint roles/
+```
+
+Real-Apply gegen Linux-Server weiterhin nur von einer Linux-Control-Node moeglich. Pilot-0-IP wird vor Real-Provisioning in `inventory/hosts.yml` gesetzt (nach Hetzner-VM-Bestellung + ZFA-Akquise-Bestaetigung).
+
+### Vault-Setup (Operator-Pflicht vor erstem Run)
+
+```bash
+ansible-vault create deploy/ansible/inventory/group_vars/pilots/vault.yml
+# darin definieren: deploy_user_pubkeys (List[String]), cloudflare_api_token (optional)
+ansible-playbook -i inventory/hosts.yml site.yml --ask-vault-pass
+```
+
+KEIN `vault.yml` mit Pseudo-Secrets im Repo — Operator initialisiert selbst. README dokumentiert das Pattern.
+
+### Status & Followups
+- ansible-lint **production-profile 0 failures** ueber alle 4 Roles
+- Welle-3-Subagent-Drift war benign (beide Streams haben `provision.yml` an disjunkten Plays editiert, `git pull --rebase` hat sauber gemerged)
+- **Out-of-Scope heute:** Real-Apply gegen Test-VM (Multipass/Vagrant-Setup) — separater Tag
 
 ## Kubernetes (Sekundaer)
 - Manifeste: `deploy/k8s/` (base/, overlays/, namespace.yaml)

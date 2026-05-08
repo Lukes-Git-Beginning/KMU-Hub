@@ -143,6 +143,7 @@ Welle-3.5-Verschaerfung der W2D-C-Lehre: gRPC-Server lasen `tenant_id` aus den P
 - **Transactional Skip:** `ChannelEmail` + Contact ohne E-Mail → `nil` (nichts zu senden, kein Consent noetig)
 - **Block-Log:** `slog.Warn("consent_block", "contact_id", id, "channel", ch)` + `ErrNoConsent`
 - **Status:** Launch-Blocker R1-P0.2 erledigt (PR #10). Gateway-Wiring via additive `NewServiceWithConsent()`-Constructors — Full-Wiring als separater Schritt im cmd-Paket.
+- **gRPC-Mapping (Sprint 3 Welle 2A, Commit `1f6c4c0`, 2026-05-08):** `mapDialerError` in `backend/internal/server/dialer_grpc.go` mappt `consent.ErrNoConsent` jetzt auf `codes.PermissionDenied` (vorher fiel es durch auf `codes.Internal`, weil keine explizite Sentinel-Klausel). Test-Case in `dialer_grpc_test.go::TestMapDialerError` deckt alle 10 Sentinels ab (`ErrCampaignNotFound`, `ErrCallSessionNotFound`, `ErrOutcomeNotFound`, `ErrCampaignNotDraft`, `ErrCampaignNotActive`, `ErrInvalidStatusTransition`, `ErrNoContactsAvailable`, `ErrContactAlreadyInCampaign`, `ErrAgentNotAvailable`, `ErrCampaignHasNoContacts`, plus `consent.ErrNoConsent` → `PermissionDenied` plus `nil` → `nil` plus unknown → `Internal`).
 
 ## Prod-Secrets Startup-Assertion (2026-04-18, Sprint 0 S0.3)
 
