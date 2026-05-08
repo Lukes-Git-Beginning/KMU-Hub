@@ -141,42 +141,38 @@ Cleanup: Smoke-User wird am Ende per DELETE entfernt.
 9. Smoke Tests — bei Fehler: Auto-Rollback
 10. Erfolg loggen + Lock freigeben
 
-## Server-Side Patches via `skip-worktree` (2026-04-19/20)
+## Server-Side Patches via `skip-worktree` (2026-04-19/20, Stand 2026-05-08)
 
-Auf dem Prod-Server sind zwei Dateien lokal gepatched und aus Git-Sight genommen, weil die noetigen Fixes noch nicht in `main` committed sind. Siehe MEMORY `project_server_redeploy_20260419.md`.
+Auf dem Prod-Server waren zwei Dateien lokal gepatched. Stand 2026-05-08 (Sprint 3 Welle 0) sind die meisten Fixes in `main` committed — siehe Aktualisierung unten. Siehe auch MEMORY `project_server_redeploy_20260419.md`.
 
-| Datei | Lokaler Patch | Grund |
-|-------|---------------|-------|
-| `deploy/docker/livekit.yaml` | `devkey: devsecret` ersetzt durch echten `LIVEKIT_API_KEY`/`LIVEKIT_API_SECRET` aus `.env.production` | LiveKit unterstuetzt keine ENV-Substitution in yaml |
-| `deploy/docker/docker-compose.yml` | 18× `DATABASE_URL`/`POSTGRES_PASSWORD` von hardcoded `kmuhub_dev` auf `${DATABASE_URL}`/`${POSTGRES_PASSWORD}`; alle `wget --spider` durch `-q -O /dev/null`; formulare-Healthcheck auf `/healthz` | Backend-`/health` supported nur GET (nicht HEAD); formulare registriert `/healthz` statt `/health`; compose-File-Fixes muessen sauber in einem PR zusammengefasst werden |
+**`livekit.yaml`** bleibt skip-worktree, weil LiveKit keine ENV-Substitution im yaml unterstuetzt. **Loesung in main**: `deploy/scripts/render-configs.sh` rendert `livekit-secrets.yaml` via `envsubst` aus Template + `.env.production`-Vars; `deploy.sh` ruft das in Step 2.5 vor jedem Build auf. Beim naechsten Server-Deploy wird `livekit.yaml` aus skip-worktree entfernt und das gerenderte File genutzt.
 
-**Fuer PRs, die diese Files aendern:**
+**`docker-compose.yml`** kann von skip-worktree entfernt werden — alle Patches sind in main:
+- `DATABASE_URL`/`POSTGRES_PASSWORD` via `${...}` parametrisiert (Sprint 2)
+- `RegisterHealth` registriert sowohl GET als auch HEAD (`backend/internal/server/http.go:46-47`), `wget --spider` funktioniert sauber
+- `formulare`-Service registriert `/health` (Konsistenz mit allen anderen Services)
+
+**Server-Side-Cleanup-Schritte (naechster Deploy):**
 ```bash
-# Auf Server vor Pull
-sudo -u deploy bash -c "cd /opt/kmuhub && git update-index --no-skip-worktree deploy/docker/livekit.yaml deploy/docker/docker-compose.yml"
-# Lokale Versionen sichern
-sudo cp deploy/docker/livekit.yaml /tmp/livekit_local.yaml
-# Pull
-sudo -u deploy bash -c "cd /opt/kmuhub && GIT_SSH_COMMAND=... git pull origin main"
-# Re-patch nach dem Pull (falls PR die Files nicht komplett fixt)
-sudo -u deploy bash -c "cd /opt/kmuhub && git update-index --skip-worktree deploy/docker/livekit.yaml deploy/docker/docker-compose.yml"
+# 1. skip-worktree entfernen
+sudo -u deploy bash -c "cd /opt/kmuhub && git update-index --no-skip-worktree deploy/docker/docker-compose.yml deploy/docker/livekit.yaml"
+# 2. lokale livekit.yaml umbenennen (wird ersetzt durch render-configs.sh)
+sudo mv /opt/kmuhub/deploy/docker/livekit.yaml /opt/kmuhub/deploy/docker/livekit.yaml.legacy
+# 3. Pull + Deploy (deploy.sh ruft render-configs.sh in Step 2.5 auf)
 ```
 
-**Status Prod-Server (`sudo -u deploy git ls-files -v | grep ^S`):**
-```
-S deploy/docker/docker-compose.yml
-S deploy/docker/livekit.yaml
-```
+## Sprint-2-TODOs fuer Deploy-Hygiene (Stand 2026-05-08)
 
-## Sprint-2-TODOs fuer Deploy-Hygiene
-
-1. `docker-compose.yml` — 18× hardcoded `kmuhub_dev` eliminieren, alle Services auf `${DATABASE_URL}` / `${POSTGRES_PASSWORD}`
-2. Backend — `/health` auch fuer HEAD-Requests registrieren (Go: `router.HEAD("/health", ...)`), ODER alle Healthchecks explizit auf GET (`wget -q -O /dev/null ...`)
-3. `formulare`-Service — `/health` registrieren (zusaetzlich zu `/healthz`) fuer Konsistenz
-4. `deploy.sh` — `livekit` + `livekit-egress` in Rolling-Restart-Liste ergaenzen
-5. `livekit.yaml` Template-Renderer — z.B. `envsubst` in einem Pre-Start-Hook, damit Secrets via env-File kommen koennen
-6. Backup-Cron Root-Cause fixen (fehlt `/var/log/kmuhub-backup.log`, vermutlich Permission- oder Working-Dir-Problem)
-7. `jq` auf Prod-Server installieren (`sudo apt install jq`) — ohne bleibt `smoke.sh` nicht lauffaehig
+| # | Item | Status |
+|---|---|---|
+| 1 | `docker-compose.yml` 18× hardcoded `kmuhub_dev` eliminieren | ✅ **erledigt** in main, `${DATABASE_URL}`/`${POSTGRES_PASSWORD}` ueberall |
+| 2 | Backend `/health` HEAD-Support | ✅ **erledigt** — `RegisterHealth` registriert GET+HEAD (`backend/internal/server/http.go:46-47`) |
+| 3 | `formulare`-Service `/health` registrieren | ✅ **erledigt** — Service nutzt `/health` wie alle anderen (`backend/cmd/formulare/main.go:86`) |
+| 4 | `deploy.sh` `livekit`+`livekit-egress` in Rolling-Restart-Liste | ✅ **erledigt** in main |
+| 5 | `livekit.yaml` Template-Renderer | ✅ **erledigt** — `deploy/scripts/render-configs.sh` + `deploy.sh` Step 2.5 |
+| 6 | `deploy.sh` Sprint-2-Services in Rolling-Restart (Welle 0 Sprint 3) | ✅ **erledigt 2026-05-08** — inventar/einkauf/produktion/vertraege/rapporte/schichten/fuhrpark/vermietung in beiden Listen (deploy + rollback) |
+| 7 | Backup-Cron Root-Cause `/var/log/kmuhub-backup.log` | ⏭ Server-Operations (eigener Block) |
+| 8 | `jq` auf Prod-Server installieren | ⏭ Server-Operations (eigener Block) |
 
 ## PostgreSQL Tuning (docker-compose.prod.yml, 2026-04-08)
 Fuer Hetzner CPX42 (16GB RAM):
