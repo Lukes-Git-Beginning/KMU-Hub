@@ -20,6 +20,18 @@ type mockCampaignRepo struct {
 	stats     *CampaignStats
 
 	updateStatusCalls []struct{ ID uuid.UUID; Status string }
+
+	// nextContact, when non-nil, is returned by GetNextPendingContact.
+	// When nextContact is nil and nextContactQueueEmpty is true, returns nil,nil
+	// (triggering the service's auto-complete path).
+	// When both are their zero values, returns nil, ErrNoContactsAvailable.
+	nextContact            *CampaignContact
+	nextContactQueueEmpty  bool
+
+	// addedContacts records the contacts slice passed to AddContacts for assertions.
+	addedContacts []CampaignContact
+	// addedSkipped is the skipped count returned from AddContacts.
+	addedSkipped int
 }
 
 func newMockCampaignRepo() *mockCampaignRepo {
@@ -55,9 +67,17 @@ func (r *mockCampaignRepo) UpdateStatus(_ context.Context, id uuid.UUID, status 
 }
 func (r *mockCampaignRepo) Delete(_ context.Context, _ uuid.UUID) error { return nil }
 func (r *mockCampaignRepo) AddContacts(_ context.Context, _ uuid.UUID, contacts []CampaignContact) (int, int, error) {
-	return len(contacts), 0, nil
+	r.addedContacts = append(r.addedContacts, contacts...)
+	return len(contacts), r.addedSkipped, nil
 }
 func (r *mockCampaignRepo) GetNextPendingContact(_ context.Context, _ uuid.UUID) (*CampaignContact, error) {
+	if r.nextContact != nil {
+		return r.nextContact, nil
+	}
+	if r.nextContactQueueEmpty {
+		// Simulate exhausted queue: nil contact, no error → triggers auto-complete.
+		return nil, nil
+	}
 	return nil, ErrNoContactsAvailable
 }
 func (r *mockCampaignRepo) ListContacts(_ context.Context, _ uuid.UUID, _ *string, _, _ int) ([]*CampaignContact, int, error) {
@@ -589,5 +609,561 @@ func TestLogCallOutcome_Concurrent_SameSession(t *testing.T) {
 	h.calls.mu.Unlock()
 	if outcomeEvents == 0 {
 		t.Error("expected at least one OUTCOME_LOGGED event to be appended")
+	}
+}
+
+// ============================================================================
+// Campaign Lifecycle — Start / Pause / Archive
+// ============================================================================
+
+func TestStartCampaign_HappyPath(t *testing.T) {
+	h := newTestHarness()
+	campaignID := uuid.New()
+	h.campaigns.campaigns[campaignID] = &Campaign{
+		ID:           campaignID,
+		Status:       CampaignStatusDraft,
+		ContactCount: 3,
+	}
+
+	c, err := h.svc.StartCampaign(context.Background(), campaignID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.Status != CampaignStatusActive {
+		t.Errorf("expected status=active, got %s", c.Status)
+	}
+	if len(h.campaigns.updateStatusCalls) != 1 || h.campaigns.updateStatusCalls[0].Status != CampaignStatusActive {
+		t.Error("expected UpdateStatus(active) to be called once")
+	}
+}
+
+func TestStartCampaign_AlreadyActive(t *testing.T) {
+	h := newTestHarness()
+	campaignID := uuid.New()
+	h.campaigns.campaigns[campaignID] = &Campaign{
+		ID:           campaignID,
+		Status:       CampaignStatusActive,
+		ContactCount: 1,
+	}
+
+	_, err := h.svc.StartCampaign(context.Background(), campaignID)
+	if !errors.Is(err, ErrCampaignNotDraft) {
+		t.Errorf("expected ErrCampaignNotDraft, got %v", err)
+	}
+}
+
+func TestStartCampaign_NotFound(t *testing.T) {
+	h := newTestHarness()
+	_, err := h.svc.StartCampaign(context.Background(), uuid.New())
+	if !errors.Is(err, ErrCampaignNotFound) {
+		t.Errorf("expected ErrCampaignNotFound, got %v", err)
+	}
+}
+
+func TestPauseCampaign_ActiveToPaused(t *testing.T) {
+	h := newTestHarness()
+	campaignID := uuid.New()
+	h.campaigns.campaigns[campaignID] = &Campaign{ID: campaignID, Status: CampaignStatusActive}
+
+	c, err := h.svc.PauseCampaign(context.Background(), campaignID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.Status != CampaignStatusPaused {
+		t.Errorf("expected status=paused, got %s", c.Status)
+	}
+}
+
+func TestPauseCampaign_PausedToActive(t *testing.T) {
+	h := newTestHarness()
+	campaignID := uuid.New()
+	h.campaigns.campaigns[campaignID] = &Campaign{ID: campaignID, Status: CampaignStatusPaused}
+
+	c, err := h.svc.PauseCampaign(context.Background(), campaignID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.Status != CampaignStatusActive {
+		t.Errorf("expected status=active, got %s", c.Status)
+	}
+}
+
+func TestPauseCampaign_InvalidTransition(t *testing.T) {
+	h := newTestHarness()
+	campaignID := uuid.New()
+	h.campaigns.campaigns[campaignID] = &Campaign{ID: campaignID, Status: CampaignStatusDraft}
+
+	_, err := h.svc.PauseCampaign(context.Background(), campaignID)
+	if !errors.Is(err, ErrInvalidStatusTransition) {
+		t.Errorf("expected ErrInvalidStatusTransition, got %v", err)
+	}
+}
+
+func TestArchiveCampaign_CompletedToArchived(t *testing.T) {
+	h := newTestHarness()
+	campaignID := uuid.New()
+	h.campaigns.campaigns[campaignID] = &Campaign{ID: campaignID, Status: CampaignStatusCompleted}
+
+	err := h.svc.ArchiveCampaign(context.Background(), campaignID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(h.campaigns.updateStatusCalls) != 1 || h.campaigns.updateStatusCalls[0].Status != CampaignStatusArchived {
+		t.Error("expected UpdateStatus(archived) to be called once")
+	}
+}
+
+func TestArchiveCampaign_PausedToArchived(t *testing.T) {
+	h := newTestHarness()
+	campaignID := uuid.New()
+	h.campaigns.campaigns[campaignID] = &Campaign{ID: campaignID, Status: CampaignStatusPaused}
+
+	if err := h.svc.ArchiveCampaign(context.Background(), campaignID); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestArchiveCampaign_NotFound(t *testing.T) {
+	h := newTestHarness()
+	err := h.svc.ArchiveCampaign(context.Background(), uuid.New())
+	if !errors.Is(err, ErrCampaignNotFound) {
+		t.Errorf("expected ErrCampaignNotFound, got %v", err)
+	}
+}
+
+func TestArchiveCampaign_InvalidFromActive(t *testing.T) {
+	h := newTestHarness()
+	campaignID := uuid.New()
+	h.campaigns.campaigns[campaignID] = &Campaign{ID: campaignID, Status: CampaignStatusActive}
+
+	err := h.svc.ArchiveCampaign(context.Background(), campaignID)
+	if !errors.Is(err, ErrInvalidStatusTransition) {
+		t.Errorf("expected ErrInvalidStatusTransition, got %v", err)
+	}
+}
+
+// ============================================================================
+// CompleteWrapUp + SaveCallNotes
+// ============================================================================
+
+func TestCompleteWrapUp_Happy(t *testing.T) {
+	h := newTestHarness()
+	tenantID := uuid.New()
+	sessionID := uuid.New()
+	ccID := uuid.New()
+	campaignID := uuid.New()
+
+	h.calls.sessions[sessionID] = &CallSession{
+		ID:                sessionID,
+		TenantID:          tenantID,
+		CampaignContactID: ccID,
+		AgentID:           uuid.New(),
+		CreatedAt:         time.Now(),
+		UpdatedAt:         time.Now(),
+	}
+	h.campaigns.contacts[ccID] = &CampaignContact{
+		ID:         ccID,
+		CampaignID: campaignID,
+		ContactID:  uuid.New(),
+	}
+	// All contacts done — campaign should auto-complete.
+	h.campaigns.stats = &CampaignStats{PendingContacts: 0, CallbackContacts: 0}
+	h.campaigns.campaigns[campaignID] = &Campaign{ID: campaignID, Status: CampaignStatusActive}
+
+	err := h.svc.CompleteWrapUp(context.Background(), tenantID, sessionID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// WrapUpCompletedAt must be set on the stored session.
+	h.calls.mu.Lock()
+	stored := h.calls.sessions[sessionID]
+	h.calls.mu.Unlock()
+	if stored.WrapUpCompletedAt == nil {
+		t.Error("expected WrapUpCompletedAt to be set")
+	}
+
+	// Campaign auto-complete: UpdateStatus should have been called with "completed".
+	hasCompleted := false
+	for _, call := range h.campaigns.updateStatusCalls {
+		if call.Status == CampaignStatusCompleted {
+			hasCompleted = true
+		}
+	}
+	if !hasCompleted {
+		t.Error("expected campaign to be auto-completed")
+	}
+}
+
+func TestCompleteWrapUp_SessionNotFound(t *testing.T) {
+	h := newTestHarness()
+	err := h.svc.CompleteWrapUp(context.Background(), uuid.New(), uuid.New())
+	if !errors.Is(err, ErrCallSessionNotFound) {
+		t.Errorf("expected ErrCallSessionNotFound, got %v", err)
+	}
+}
+
+func TestSaveCallNotes_Happy(t *testing.T) {
+	h := newTestHarness()
+	tenantID := uuid.New()
+	sessionID := uuid.New()
+
+	h.calls.sessions[sessionID] = &CallSession{
+		ID:       sessionID,
+		TenantID: tenantID,
+		AgentID:  uuid.New(),
+	}
+
+	err := h.svc.SaveCallNotes(context.Background(), tenantID, sessionID, "Test note")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	h.calls.mu.Lock()
+	stored := h.calls.sessions[sessionID]
+	h.calls.mu.Unlock()
+	if stored.Notes == nil || *stored.Notes != "Test note" {
+		t.Errorf("expected notes=%q, got %v", "Test note", stored.Notes)
+	}
+}
+
+func TestSaveCallNotes_CrossTenantBlocked(t *testing.T) {
+	h := newTestHarness()
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	sessionID := uuid.New()
+
+	h.calls.sessions[sessionID] = &CallSession{
+		ID:       sessionID,
+		TenantID: tenantA,
+		AgentID:  uuid.New(),
+	}
+
+	err := h.svc.SaveCallNotes(context.Background(), tenantB, sessionID, "Should fail")
+	if !errors.Is(err, ErrCallSessionNotFound) {
+		t.Errorf("expected ErrCallSessionNotFound for cross-tenant access, got %v", err)
+	}
+}
+
+// ============================================================================
+// GetNextContact + AddContactsToCampaign
+// ============================================================================
+
+func TestGetNextContact_Happy(t *testing.T) {
+	h := newTestHarness()
+	campaignID := uuid.New()
+	contactID := uuid.New()
+	ccID := uuid.New()
+
+	h.campaigns.campaigns[campaignID] = &Campaign{ID: campaignID, Status: CampaignStatusActive}
+	h.campaigns.nextContact = &CampaignContact{
+		ID:        ccID,
+		ContactID: contactID,
+		Status:    ContactStatusPending,
+	}
+	h.bridge.contactDetails[contactID] = &ContactDetails{
+		ID:    contactID,
+		Name:  "Hans Müller",
+		Phone: "+4915112345678",
+	}
+
+	cc, err := h.svc.GetNextContact(context.Background(), campaignID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cc.ContactName != "Hans Müller" {
+		t.Errorf("expected enriched name, got %q", cc.ContactName)
+	}
+	if cc.ContactPhone != "+4915112345678" {
+		t.Errorf("expected enriched phone, got %q", cc.ContactPhone)
+	}
+}
+
+func TestGetNextContact_QueueExhausted(t *testing.T) {
+	h := newTestHarness()
+	campaignID := uuid.New()
+	h.campaigns.campaigns[campaignID] = &Campaign{ID: campaignID, Status: CampaignStatusActive}
+	// Signal exhausted queue: repo returns nil,nil to trigger auto-complete path.
+	h.campaigns.nextContactQueueEmpty = true
+
+	_, err := h.svc.GetNextContact(context.Background(), campaignID)
+	if !errors.Is(err, ErrNoContactsAvailable) {
+		t.Errorf("expected ErrNoContactsAvailable, got %v", err)
+	}
+	// Campaign must have been transitioned to completed.
+	hasCompleted := false
+	for _, call := range h.campaigns.updateStatusCalls {
+		if call.Status == CampaignStatusCompleted {
+			hasCompleted = true
+		}
+	}
+	if !hasCompleted {
+		t.Error("expected campaign to be auto-completed when queue is exhausted")
+	}
+}
+
+func TestGetNextContact_CampaignNotActive(t *testing.T) {
+	h := newTestHarness()
+	campaignID := uuid.New()
+	h.campaigns.campaigns[campaignID] = &Campaign{ID: campaignID, Status: CampaignStatusPaused}
+
+	_, err := h.svc.GetNextContact(context.Background(), campaignID)
+	if !errors.Is(err, ErrCampaignNotActive) {
+		t.Errorf("expected ErrCampaignNotActive, got %v", err)
+	}
+}
+
+func TestAddContactsToCampaign_PhoneNormalization(t *testing.T) {
+	h := newTestHarness()
+	campaignID := uuid.New()
+	h.campaigns.campaigns[campaignID] = &Campaign{ID: campaignID, Status: CampaignStatusDraft}
+
+	contactWithPhone := uuid.New()
+	contactNoPhone := uuid.New()
+	contactBadPhone := uuid.New()
+
+	h.bridge.contactDetails[contactWithPhone] = &ContactDetails{
+		ID:    contactWithPhone,
+		Name:  "Good Contact",
+		Phone: "0151 12345678",
+	}
+	h.bridge.contactDetails[contactNoPhone] = &ContactDetails{
+		ID:    contactNoPhone,
+		Name:  "No Phone",
+		Phone: "",
+	}
+	h.bridge.contactDetails[contactBadPhone] = &ContactDetails{
+		ID:    contactBadPhone,
+		Name:  "Bad Phone",
+		Phone: "abc-invalid",
+	}
+
+	added, skipped, err := h.svc.AddContactsToCampaign(
+		context.Background(),
+		campaignID,
+		[]uuid.UUID{contactWithPhone, contactNoPhone, contactBadPhone},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// All three contacts were fetched successfully — none are skipped at fetch time.
+	// Phone normalization warns but does not skip, so added=3, skipped=0.
+	if added != 3 {
+		t.Errorf("expected added=3, got %d", added)
+	}
+	if skipped != 0 {
+		t.Errorf("expected skipped=0, got %d", skipped)
+	}
+	// Verify the normalized phone is stored for the contact with a valid number.
+	found := false
+	for _, cc := range h.campaigns.addedContacts {
+		if cc.ContactID == contactWithPhone {
+			found = true
+			if cc.ContactPhone != "+4915112345678" {
+				t.Errorf("expected normalized phone +4915112345678, got %q", cc.ContactPhone)
+			}
+		}
+	}
+	if !found {
+		t.Error("contact with valid phone not found in added contacts")
+	}
+}
+
+func TestAddContactsToCampaign_BridgeFetchFailSkips(t *testing.T) {
+	h := newTestHarness()
+	campaignID := uuid.New()
+	h.campaigns.campaigns[campaignID] = &Campaign{ID: campaignID, Status: CampaignStatusDraft}
+
+	// Only one contact registered in bridge; two others will fail → skipped.
+	knownID := uuid.New()
+	h.bridge.contactDetails[knownID] = &ContactDetails{ID: knownID, Name: "Known", Phone: "+4915112345678"}
+
+	added, skipped, err := h.svc.AddContactsToCampaign(
+		context.Background(),
+		campaignID,
+		[]uuid.UUID{knownID, uuid.New(), uuid.New()},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if added != 1 {
+		t.Errorf("expected added=1, got %d", added)
+	}
+	if skipped != 2 {
+		t.Errorf("expected skipped=2, got %d", skipped)
+	}
+}
+
+func TestAddContactsToCampaign_CampaignNotDraft(t *testing.T) {
+	h := newTestHarness()
+	campaignID := uuid.New()
+	h.campaigns.campaigns[campaignID] = &Campaign{ID: campaignID, Status: CampaignStatusActive}
+
+	_, _, err := h.svc.AddContactsToCampaign(context.Background(), campaignID, []uuid.UUID{uuid.New()}, nil)
+	if !errors.Is(err, ErrCampaignNotDraft) {
+		t.Errorf("expected ErrCampaignNotDraft, got %v", err)
+	}
+}
+
+// ============================================================================
+// CreateCallOutcome + UpdateCallOutcome nil-pointer guards
+// ============================================================================
+
+func TestCreateCallOutcome_Happy(t *testing.T) {
+	h := newTestHarness()
+	tenantID := uuid.New()
+
+	o, err := h.svc.CreateCallOutcome(context.Background(), tenantID, "Erreicht", "#00AA00", true, false, false, 1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if o.Label != "Erreicht" {
+		t.Errorf("expected label=Erreicht, got %q", o.Label)
+	}
+	if o.TenantID != tenantID {
+		t.Errorf("expected tenant_id to be set")
+	}
+	if !o.IsActive {
+		t.Error("expected IsActive=true for new outcome")
+	}
+}
+
+func TestUpdateCallOutcome_AllNilPointers(t *testing.T) {
+	h := newTestHarness()
+	outcomeID := uuid.New()
+	h.outcomes.outcomes[outcomeID] = &CallOutcome{
+		ID:            outcomeID,
+		Label:         "Original",
+		Color:         "#FF0000",
+		IsPositive:    false,
+		IsCallback:    false,
+		IsAppointment: false,
+		SortOrder:     5,
+		IsActive:      true,
+	}
+
+	// All optional fields nil — should be a no-op (no field changes).
+	o, err := h.svc.UpdateCallOutcome(context.Background(), outcomeID, nil, nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if o.Label != "Original" {
+		t.Errorf("expected label unchanged, got %q", o.Label)
+	}
+}
+
+func TestUpdateCallOutcome_PartialUpdate(t *testing.T) {
+	h := newTestHarness()
+	outcomeID := uuid.New()
+	h.outcomes.outcomes[outcomeID] = &CallOutcome{
+		ID:       outcomeID,
+		Label:    "Old",
+		SortOrder: 1,
+		IsActive: true,
+	}
+
+	newLabel := "New"
+	newSort := 99
+	inactive := false
+
+	o, err := h.svc.UpdateCallOutcome(context.Background(), outcomeID, &newLabel, nil, nil, nil, nil, &newSort, &inactive)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if o.Label != "New" {
+		t.Errorf("expected label=New, got %q", o.Label)
+	}
+	if o.SortOrder != 99 {
+		t.Errorf("expected sort_order=99, got %d", o.SortOrder)
+	}
+	if o.IsActive {
+		t.Error("expected IsActive=false after patch")
+	}
+}
+
+func TestUpdateCallOutcome_NotFound(t *testing.T) {
+	h := newTestHarness()
+	_, err := h.svc.UpdateCallOutcome(context.Background(), uuid.New(), nil, nil, nil, nil, nil, nil, nil)
+	if !errors.Is(err, ErrOutcomeNotFound) {
+		t.Errorf("expected ErrOutcomeNotFound, got %v", err)
+	}
+}
+
+// ============================================================================
+// Simple smoke tests for uncovered service functions
+// ============================================================================
+
+func TestSkipContact_Happy(t *testing.T) {
+	h := newTestHarness()
+	if err := h.svc.SkipContact(context.Background(), uuid.New()); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestRequeueContact_Happy(t *testing.T) {
+	h := newTestHarness()
+	if err := h.svc.RequeueContact(context.Background(), uuid.New()); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestListCampaignContacts_Happy(t *testing.T) {
+	h := newTestHarness()
+	contacts, total, err := h.svc.ListCampaignContacts(context.Background(), uuid.New(), nil, 1, 20)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if total != 0 || contacts != nil {
+		t.Errorf("expected empty result from mock, got %d/%v", total, contacts)
+	}
+}
+
+func TestListCallOutcomes_Happy(t *testing.T) {
+	h := newTestHarness()
+	list, err := h.svc.ListCallOutcomes(context.Background(), uuid.New(), false)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if list != nil {
+		t.Errorf("expected nil list from mock, got %v", list)
+	}
+}
+
+func TestDeleteCallOutcome_Happy(t *testing.T) {
+	h := newTestHarness()
+	outcomeID := uuid.New()
+	h.outcomes.outcomes[outcomeID] = &CallOutcome{ID: outcomeID, Label: "To Delete"}
+	if err := h.svc.DeleteCallOutcome(context.Background(), outcomeID); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestGetCampaignDashboard_Happy(t *testing.T) {
+	h := newTestHarness()
+	campaignID := uuid.New()
+	h.campaigns.campaigns[campaignID] = &Campaign{ID: campaignID, Status: CampaignStatusActive}
+
+	stats, err := h.svc.GetCampaignDashboard(context.Background(), campaignID)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if stats == nil {
+		t.Error("expected non-nil stats")
+	}
+}
+
+func TestStartCampaign_NoContacts(t *testing.T) {
+	h := newTestHarness()
+	campaignID := uuid.New()
+	h.campaigns.campaigns[campaignID] = &Campaign{
+		ID:           campaignID,
+		Status:       CampaignStatusDraft,
+		ContactCount: 0, // no contacts
+	}
+	_, err := h.svc.StartCampaign(context.Background(), campaignID)
+	if !errors.Is(err, ErrCampaignHasNoContacts) {
+		t.Errorf("expected ErrCampaignHasNoContacts, got %v", err)
 	}
 }

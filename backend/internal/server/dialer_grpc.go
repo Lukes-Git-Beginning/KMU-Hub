@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/kmuhub/kmuhub/internal/crm/consent"
 	"github.com/kmuhub/kmuhub/internal/dialer"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	dialerv1 "github.com/kmuhub/kmuhub/proto/dialer/v1"
@@ -911,6 +912,8 @@ func mapDialerError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, dialer.ErrCampaignHasNoContacts):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, consent.ErrNoConsent):
+		return status.Error(codes.PermissionDenied, err.Error())
 	default:
 		return status.Error(codes.Internal, err.Error())
 	}
