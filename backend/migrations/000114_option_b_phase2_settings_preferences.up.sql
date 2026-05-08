@@ -4,6 +4,23 @@
 -- All ALTERs use ADD COLUMN IF NOT EXISTS to be idempotent.
 
 -- ============================================================================
+-- BOOTSTRAP: tenants table for FK references in this and subsequent migrations.
+-- The codebase runs in single-tenant bootstrap mode; the sentinel row pins all
+-- existing data to one logical tenant. This is the first migration that
+-- references tenants(id) via FK, so we create the table here.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS tenants (
+    id UUID PRIMARY KEY,
+    name TEXT NOT NULL DEFAULT 'Default Tenant',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO tenants (id, name)
+VALUES ('00000000-0000-0000-0000-000000000001', 'Default Tenant')
+ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================================
 -- GROUP A: User Settings / Dashboard Preferences
 -- ============================================================================
 
