@@ -12,10 +12,14 @@ check() {
     local name=$1 cmd=$2
     if eval "$cmd" > /dev/null 2>&1; then
         echo "  [OK]   $name"
-        ((HEALTHY++))
+        # `((var++))` returns exit code 1 when the pre-increment value is 0.
+        # Under `set -e` that aborts the script on the very first OK check
+        # (which is exactly what happened during the 2026-05-08 deploy).
+        # Use arithmetic assignment instead — `=` is always exit 0.
+        HEALTHY=$((HEALTHY + 1))
     else
         echo "  [FAIL] $name"
-        ((FAILED++))
+        FAILED=$((FAILED + 1))
     fi
 }
 
