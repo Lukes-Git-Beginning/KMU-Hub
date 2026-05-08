@@ -1,0 +1,17 @@
+---
+galaxy_info:
+  role_name: foundation
+  author: zentria
+  description: Base system setup for KMU Hub pilot hosts (Docker, UFW, fail2ban, deploy user)
+  license: proprietary
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - all
+  galaxy_tags:
+    - docker
+    - ufw
+    - fail2ban
+    - system
+dependencies: []

@@ -1,0 +1,168 @@
+---
+# ============================================================
+# foundation/tasks/main.yml
+# Base system setup: apt, Docker, deploy user, UFW, fail2ban,
+# backup cron, directory layout.
+# All tasks are idempotent (no bare command: without creates:/removes:).
+# ============================================================
+
+# ----- apt: prerequisites -----
+- name: Update apt cache and upgrade packages
+  ansible.builtin.apt:
+    update_cache: true
+    upgrade: dist
+    cache_valid_time: 3600
+
+- name: Install prerequisite packages for Docker repo
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+    state: present
+
+# ----- Docker: repository setup -----
+- name: Create /etc/apt/keyrings directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Add Docker GPG key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+    force: false
+
+- name: Add Docker apt repository (deb822 format)
+  ansible.builtin.deb822_repository:
+    name: docker
+    types: deb
+    uris: https://download.docker.com/linux/ubuntu
+    suites: "{{ ansible_distribution_release }}"
+    components: stable
+    signed_by: /etc/apt/keyrings/docker.asc
+    state: present
+  notify: Restart docker
+
+# ----- apt: install packages -----
+- name: Install apt packages (Docker + tooling)
+  ansible.builtin.apt:
+    name: "{{ apt_packages }}"
+    state: present
+    update_cache: true
+
+# ----- Deploy user -----
+- name: Create deploy user
+  ansible.builtin.user:
+    name: "{{ deploy_user }}"
+    shell: /bin/bash
+    groups: docker
+    append: true
+    create_home: true
+    state: present
+
+- name: Grant deploy user passwordless sudo
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers.d/{{ deploy_user }}
+    line: "{{ deploy_user }} ALL=(ALL) NOPASSWD:ALL"
+    create: true
+    mode: "0440"
+    validate: "visudo -cf %s"
+
+- name: Add authorized SSH keys for deploy user
+  ansible.posix.authorized_key:
+    user: "{{ deploy_user }}"
+    key: "{{ item }}"
+    state: present
+  loop: "{{ deploy_user_pubkeys }}"
+  when: deploy_user_pubkeys | length > 0
+
+# ----- UFW firewall -----
+- name: Set UFW default incoming policy to deny
+  community.general.ufw:
+    direction: incoming
+    policy: deny
+
+- name: Set UFW default outgoing policy to allow
+  community.general.ufw:
+    direction: outgoing
+    policy: allow
+
+- name: Allow SSH (restricted to admin_cidr if set)
+  community.general.ufw:
+    rule: allow
+    port: "22"
+    proto: tcp
+    from_ip: "{{ admin_cidr if admin_cidr != '' else 'any' }}"
+
+- name: Allow application ports
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+  loop: "{{ ufw_app_ports }}"
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+  notify: Reload ufw
+
+# ----- fail2ban -----
+- name: Configure fail2ban jail.local for sshd
+  ansible.builtin.copy:
+    dest: /etc/fail2ban/jail.local
+    content: |
+      [DEFAULT]
+      bantime  = 3600
+      findtime = 600
+      maxretry = 5
+
+      [sshd]
+      enabled  = true
+      port     = ssh
+      logpath  = %(sshd_log)s
+      backend  = %(sshd_backend)s
+    mode: "0644"
+  notify: Restart fail2ban
+
+- name: Enable and start fail2ban
+  ansible.builtin.systemd:
+    name: fail2ban
+    enabled: true
+    state: started
+
+# ----- Application directories -----
+- name: Create application directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: "0755"
+  loop:
+    - /opt/kmuhub
+    - /opt/kmuhub/logs
+    - /opt/kmuhub/backups
+
+# ----- Backup cron -----
+- name: Set up nightly backup cron job
+  ansible.builtin.cron:
+    name: kmuhub backup
+    user: "{{ deploy_user }}"
+    minute: "0"
+    hour: "2"
+    day: "*"
+    month: "*"
+    weekday: "*"
+    job: "/opt/kmuhub/deploy/scripts/backup.sh >> /opt/kmuhub/logs/backup.log 2>&1"
+    state: present
+
+# ----- Enable and start Docker -----
+- name: Enable and start Docker daemon
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started

@@ -1,0 +1,24 @@
+---
+deploy_user: deploy
+admin_cidr: ""
+deploy_user_pubkeys: []
+ufw_app_ports:
+  - { port: "80", proto: tcp }
+  - { port: "443", proto: tcp }
+  - { port: "7881", proto: tcp }
+  - { port: "7882", proto: udp }
+  - { port: "50000:60000", proto: udp }
+apt_packages:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin
+  - fail2ban
+  - ufw
+  - unattended-upgrades
+  - jq
+  - gettext-base
+  - certbot
+  - python3-pip
+  - git

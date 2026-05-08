@@ -1,0 +1,12 @@
+compose_path: /opt/kmuhub/deploy/docker
+env_path: /opt/kmuhub/.env.production
+pilot_database_url: "postgres://kmuhub:{{ POSTGRES_PASSWORD }}@postgres:5432/kmuhub?sslmode=disable"
+pilot_redis_url: "redis://redis:6379/0"
+gateway_http_port: "8080"
+cors_allowed_origins: "https://{{ pilot_domain }}"
+rate_limit_rps: "100"
+file_size_limit_mb: "100"
+behind_proxy: "true"
+access_token_expiry: "15m"
+refresh_token_expiry: "168h"
+gf_users_allow_sign_up: "false"

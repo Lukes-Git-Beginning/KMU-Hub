@@ -1,0 +1,5 @@
+deploy_user: deploy
+repo_url: git@github.com:Lukes-Git-Beginning/KMU-Hub.git
+repo_branch: main
+deploy_user_pubkeys: []
+admin_cidr: ""

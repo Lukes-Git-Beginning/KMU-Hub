@@ -1,0 +1,13 @@
+---
+- name: Provision pilot hosts (foundation + secrets)
+  hosts: pilots
+  become: yes
+  roles:
+    - foundation
+    - secrets
+
+- name: Provision TURN host (foundation only — turn role added in Welle 3)
+  hosts: turn
+  become: yes
+  roles:
+    - foundation

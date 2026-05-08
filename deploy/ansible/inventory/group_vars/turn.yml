@@ -1,0 +1,5 @@
+turn_listening_port: 3478
+turn_tls_listening_port: 5349
+turn_min_port: 49152
+turn_max_port: 65535
+turn_external_ip: "{{ ansible_host }}"

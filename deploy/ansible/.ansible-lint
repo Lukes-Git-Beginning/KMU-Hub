@@ -1,0 +1,11 @@
+---
+# ansible-lint configuration for KMU Hub Ansible roles
+profile: basic
+
+skip_list:
+  # Cross-role shared variables (deploy_user, admin_cidr etc.) are intentionally
+  # defined without role prefix — they are consumed by multiple roles via group_vars.
+  - var-naming[no-role-prefix]
+  # Secret fact names match the actual env var names (POSTGRES_PASSWORD etc.)
+  # to map 1:1 to the .env.production template — uppercase is intentional.
+  - var-naming[pattern]
