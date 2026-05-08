@@ -34,17 +34,18 @@ const (
 
 // DocumentFolder represents a folder in the document hierarchy.
 type DocumentFolder struct {
-	ID        uuid.UUID `json:"id"`
-	Name      string    `json:"name"`
+	ID        uuid.UUID  `json:"id"`
+	TenantID  uuid.UUID  `json:"tenant_id"`
+	Name      string     `json:"name"`
 	ParentID  *uuid.UUID `json:"parent_id,omitempty"`
-	SpaceType string    `json:"space_type"`
-	SpaceID   uuid.UUID `json:"space_id"`
-	IsSystem  bool      `json:"is_system"`
-	Icon      string    `json:"icon"`
-	CreatedBy uuid.UUID `json:"created_by"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	FileCount int       `json:"file_count"` // Computed, not stored
+	SpaceType string     `json:"space_type"`
+	SpaceID   uuid.UUID  `json:"space_id"`
+	IsSystem  bool       `json:"is_system"`
+	Icon      string     `json:"icon"`
+	CreatedBy uuid.UUID  `json:"created_by"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+	FileCount int        `json:"file_count"` // Computed, not stored
 }
 
 // DocumentFile represents a file stored in the document system.

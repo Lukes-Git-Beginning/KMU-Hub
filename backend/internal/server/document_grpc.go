@@ -63,12 +63,18 @@ func NewDocumentGRPCServer(
 // ============================================================================
 
 func (s *DocumentGRPCServer) CreateFolder(ctx context.Context, req *documentv1.CreateFolderRequest) (*documentv1.CreateFolderResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	createdBy, err := uuid.Parse(req.CreatedBy)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid created_by")
 	}
 
 	input := folder.CreateInput{
+		TenantID:  tenantID,
 		Name:      req.Name,
 		SpaceType: spaceTypeFromProto(req.SpaceType),
 		SpaceID:   parseUUIDOrNil(req.SpaceId),
@@ -93,12 +99,17 @@ func (s *DocumentGRPCServer) CreateFolder(ctx context.Context, req *documentv1.C
 }
 
 func (s *DocumentGRPCServer) GetFolder(ctx context.Context, req *documentv1.GetFolderRequest) (*documentv1.GetFolderResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid folder id")
 	}
 
-	f, err := s.folderService.GetByID(ctx, id)
+	f, err := s.folderService.GetByID(ctx, tenantID, id)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}
@@ -107,7 +118,12 @@ func (s *DocumentGRPCServer) GetFolder(ctx context.Context, req *documentv1.GetF
 }
 
 func (s *DocumentGRPCServer) ListFolders(ctx context.Context, req *documentv1.ListFoldersRequest) (*documentv1.ListFoldersResponse, error) {
-	filter := folder.ListFilter{}
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	filter := folder.ListFilter{TenantID: tenantID}
 
 	if req.ParentId != "" {
 		pid, err := uuid.Parse(req.ParentId)
@@ -144,6 +160,11 @@ func (s *DocumentGRPCServer) ListFolders(ctx context.Context, req *documentv1.Li
 }
 
 func (s *DocumentGRPCServer) UpdateFolder(ctx context.Context, req *documentv1.UpdateFolderRequest) (*documentv1.UpdateFolderResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid folder id")
@@ -164,11 +185,11 @@ func (s *DocumentGRPCServer) UpdateFolder(ctx context.Context, req *documentv1.U
 		input.Icon = req.Icon
 	}
 
-	if err := s.folderService.Update(ctx, id, input); err != nil {
+	if err := s.folderService.Update(ctx, tenantID, id, input); err != nil {
 		return nil, mapDocumentError(err)
 	}
 
-	f, err := s.folderService.GetByID(ctx, id)
+	f, err := s.folderService.GetByID(ctx, tenantID, id)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}
@@ -177,12 +198,17 @@ func (s *DocumentGRPCServer) UpdateFolder(ctx context.Context, req *documentv1.U
 }
 
 func (s *DocumentGRPCServer) DeleteFolder(ctx context.Context, req *documentv1.DeleteFolderRequest) (*documentv1.DeleteFolderResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid folder id")
 	}
 
-	if err := s.folderService.Delete(ctx, id); err != nil {
+	if err := s.folderService.Delete(ctx, tenantID, id); err != nil {
 		return nil, mapDocumentError(err)
 	}
 
@@ -212,12 +238,17 @@ func (s *DocumentGRPCServer) GetFolderPath(ctx context.Context, req *documentv1.
 }
 
 func (s *DocumentGRPCServer) InitializeUserSpace(ctx context.Context, req *documentv1.InitializeUserSpaceRequest) (*documentv1.InitializeUserSpaceResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	if err := s.folderService.InitializeUserSpace(ctx, userID); err != nil {
+	if err := s.folderService.InitializeUserSpace(ctx, tenantID, userID); err != nil {
 		return nil, mapDocumentError(err)
 	}
 
@@ -225,12 +256,17 @@ func (s *DocumentGRPCServer) InitializeUserSpace(ctx context.Context, req *docum
 }
 
 func (s *DocumentGRPCServer) InitializeTeamSpace(ctx context.Context, req *documentv1.InitializeTeamSpaceRequest) (*documentv1.InitializeTeamSpaceResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	teamID, err := uuid.Parse(req.TeamId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid team_id")
 	}
 
-	if err := s.folderService.InitializeTeamSpace(ctx, teamID, "Team"); err != nil {
+	if err := s.folderService.InitializeTeamSpace(ctx, tenantID, teamID, "Team"); err != nil {
 		return nil, mapDocumentError(err)
 	}
 

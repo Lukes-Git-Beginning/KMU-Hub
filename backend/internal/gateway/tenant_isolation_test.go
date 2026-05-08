@@ -776,3 +776,86 @@ func TestTenantIsolation_Channels(t *testing.T) {
 		t.Errorf("tenant B channels request rejected with 401")
 	}
 }
+
+// ============================================================================
+// S3.MT.2 — Dashboard tenant isolation (Migration 000114)
+// ============================================================================
+
+// TestDashboard_GetLayout_NoTenant_Returns401 verifies that HandleGetDashboard
+// rejects requests that carry no tenant context at all (no JWT / no tid key).
+func TestDashboard_GetLayout_NoTenant_Returns401(t *testing.T) {
+	routes := NewDashboardRoutes(NewDashboardService(newMockDashboardRepo()))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/dashboard/layout", nil)
+	routes.HandleGetDashboard(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+// TestDashboard_GetLayout_EmptyTid_Returns401 verifies that a legacy JWT with
+// an empty tid claim is refused — no placeholder substitution is allowed.
+func TestDashboard_GetLayout_EmptyTid_Returns401(t *testing.T) {
+	routes := NewDashboardRoutes(NewDashboardService(newMockDashboardRepo()))
+	rec := httptest.NewRecorder()
+	req := reqWithEmptyTenant(http.MethodGet, "/api/v1/dashboard/layout")
+	routes.HandleGetDashboard(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+// TestDashboard_GetLayout_ValidTid_PassesTenantCheck verifies that a request
+// with a valid tenantID proceeds past the tenant gate (result is anything but 401).
+func TestDashboard_GetLayout_ValidTid_PassesTenantCheck(t *testing.T) {
+	routes := NewDashboardRoutes(NewDashboardService(newMockDashboardRepo()))
+	rec := httptest.NewRecorder()
+	req := reqWithTenant(http.MethodGet, "/api/v1/dashboard/layout", uuid.New())
+	routes.HandleGetDashboard(rec, req)
+	if rec.Code == http.StatusUnauthorized {
+		t.Errorf("valid tid should not be rejected with 401; body = %s", rec.Body.String())
+	}
+}
+
+// TestDashboard_SaveLayout_NoTenant_Returns401 verifies that HandleSaveDashboard
+// rejects requests without a tenant context before attempting any DB write.
+func TestDashboard_SaveLayout_NoTenant_Returns401(t *testing.T) {
+	routes := NewDashboardRoutes(NewDashboardService(newMockDashboardRepo()))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/dashboard/layout",
+		strings.NewReader(`{"layout":[],"active_widgets":[]}`))
+	req.Header.Set("Content-Type", "application/json")
+	routes.HandleSaveDashboard(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+// TestDashboard_ResetLayout_NoTenant_Returns401 verifies that HandleResetToDefaults
+// rejects requests without a tenant context.
+func TestDashboard_ResetLayout_NoTenant_Returns401(t *testing.T) {
+	routes := NewDashboardRoutes(NewDashboardService(newMockDashboardRepo()))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/dashboard/layout", nil)
+	routes.HandleResetToDefaults(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+// TestDashboard_TwoTenants_IndependentContexts verifies that two requests with
+// distinct tenantIDs are handled independently — neither is rejected with 401,
+// and the handler reads context without shared mutable state between tenants.
+func TestDashboard_TwoTenants_IndependentContexts(t *testing.T) {
+	routes := NewDashboardRoutes(NewDashboardService(newMockDashboardRepo()))
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	recA := httptest.NewRecorder()
+	reqA := reqWithTenant(http.MethodGet, "/api/v1/dashboard/layout", tenantA)
+	routes.HandleGetDashboard(recA, reqA)
+
+	recB := httptest.NewRecorder()
+	reqB := reqWithTenant(http.MethodGet, "/api/v1/dashboard/layout", tenantB)
+	routes.HandleGetDashboard(recB, reqB)
+
+	if recA.Code == http.StatusUnauthorized {
+		t.Errorf("tenant A dashboard request rejected with 401")
+	}
+	if recB.Code == http.StatusUnauthorized {
+		t.Errorf("tenant B dashboard request rejected with 401")
+	}
+}

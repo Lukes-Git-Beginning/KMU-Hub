@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/alicebob/miniredis/v2"
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,7 +48,7 @@ func (m *mockDashboardRepo) UpsertDefaultLayout(_ context.Context, def *models.D
 	return def, nil
 }
 
-func (m *mockDashboardRepo) GetUserLayout(_ context.Context, userID string) (*models.UserDashboardLayout, error) {
+func (m *mockDashboardRepo) GetUserLayout(_ context.Context, _ uuid.UUID, userID string) (*models.UserDashboardLayout, error) {
 	m.getUserCalls++
 	if l, ok := m.users[userID]; ok {
 		return l, nil
@@ -61,7 +62,7 @@ func (m *mockDashboardRepo) UpsertUserLayout(_ context.Context, layout *models.U
 	return layout, nil
 }
 
-func (m *mockDashboardRepo) DeleteUserLayout(_ context.Context, userID string) error {
+func (m *mockDashboardRepo) DeleteUserLayout(_ context.Context, _ uuid.UUID, userID string) error {
 	m.deleteUserCalls++
 	if _, ok := m.users[userID]; !ok {
 		return ErrDashboardNotFound
@@ -156,8 +157,8 @@ func TestCachedDashboard_GetUserLayout_CacheHit(t *testing.T) {
 		Layout: json.RawMessage(`{"custom":true}`),
 	}
 
-	_, _ = repo.GetUserLayout(context.Background(), "user-1")
-	l, err := repo.GetUserLayout(context.Background(), "user-1")
+	_, _ = repo.GetUserLayout(context.Background(), uuid.Nil, "user-1")
+	l, err := repo.GetUserLayout(context.Background(), uuid.Nil, "user-1")
 	require.NoError(t, err)
 	assert.Equal(t, "user-1", l.UserID)
 	assert.Equal(t, 1, inner.getUserCalls)
@@ -172,7 +173,7 @@ func TestCachedDashboard_UpsertUserLayout_InvalidatesCache(t *testing.T) {
 	}
 
 	// Populate cache
-	_, _ = repo.GetUserLayout(context.Background(), "user-1")
+	_, _ = repo.GetUserLayout(context.Background(), uuid.Nil, "user-1")
 
 	// Upsert invalidates
 	_, _ = repo.UpsertUserLayout(context.Background(), &models.UserDashboardLayout{
@@ -180,7 +181,7 @@ func TestCachedDashboard_UpsertUserLayout_InvalidatesCache(t *testing.T) {
 		Layout: json.RawMessage(`{"new":true}`),
 	})
 
-	_, _ = repo.GetUserLayout(context.Background(), "user-1")
+	_, _ = repo.GetUserLayout(context.Background(), uuid.Nil, "user-1")
 	assert.Equal(t, 2, inner.getUserCalls)
 }
 
@@ -193,14 +194,14 @@ func TestCachedDashboard_DeleteUserLayout_InvalidatesCache(t *testing.T) {
 	}
 
 	// Populate cache
-	_, _ = repo.GetUserLayout(context.Background(), "user-1")
+	_, _ = repo.GetUserLayout(context.Background(), uuid.Nil, "user-1")
 
 	// Delete invalidates
-	err := repo.DeleteUserLayout(context.Background(), "user-1")
+	err := repo.DeleteUserLayout(context.Background(), uuid.Nil, "user-1")
 	require.NoError(t, err)
 
 	// Should hit DB again (and get NotFound since deleted)
-	_, err = repo.GetUserLayout(context.Background(), "user-1")
+	_, err = repo.GetUserLayout(context.Background(), uuid.Nil, "user-1")
 	assert.ErrorIs(t, err, ErrDashboardNotFound)
 	assert.Equal(t, 2, inner.getUserCalls)
 }

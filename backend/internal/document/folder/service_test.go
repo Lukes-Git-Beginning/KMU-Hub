@@ -46,7 +46,7 @@ func (m *MockRepository) Create(_ context.Context, folder *models.DocumentFolder
 	return nil
 }
 
-func (m *MockRepository) GetByID(_ context.Context, id uuid.UUID) (*models.DocumentFolder, error) {
+func (m *MockRepository) GetByID(_ context.Context, _ uuid.UUID, id uuid.UUID) (*models.DocumentFolder, error) {
 	if m.failGetByID {
 		return nil, ErrFolderNotFound
 	}
@@ -82,7 +82,7 @@ func (m *MockRepository) List(_ context.Context, filter ListFilter) ([]*models.D
 	return result, len(result), nil
 }
 
-func (m *MockRepository) Update(_ context.Context, id uuid.UUID, input UpdateInput) error {
+func (m *MockRepository) Update(_ context.Context, _ uuid.UUID, id uuid.UUID, input UpdateInput) error {
 	if m.failUpdate {
 		return errors.New("repo update error")
 	}
@@ -102,7 +102,7 @@ func (m *MockRepository) Update(_ context.Context, id uuid.UUID, input UpdateInp
 	return nil
 }
 
-func (m *MockRepository) Delete(_ context.Context, id uuid.UUID) error {
+func (m *MockRepository) Delete(_ context.Context, _ uuid.UUID, id uuid.UUID) error {
 	if m.failDelete {
 		return errors.New("repo delete error")
 	}
@@ -123,7 +123,7 @@ func (m *MockRepository) GetPath(_ context.Context, id uuid.UUID) ([]models.Fold
 	}, nil
 }
 
-func (m *MockRepository) GetChildren(_ context.Context, parentID uuid.UUID) ([]*models.DocumentFolder, error) {
+func (m *MockRepository) GetChildren(_ context.Context, _ uuid.UUID, parentID uuid.UUID) ([]*models.DocumentFolder, error) {
 	var result []*models.DocumentFolder
 	for _, f := range m.folders {
 		if f.ParentID != nil && *f.ParentID == parentID {
@@ -254,7 +254,7 @@ func TestGetByID_Success(t *testing.T) {
 	svc, repo := newTestService()
 	seeded := seedFolder(repo, "Test", false)
 
-	folder, err := svc.GetByID(context.Background(), seeded.ID)
+	folder, err := svc.GetByID(context.Background(), uuid.Nil, seeded.ID)
 
 	require.NoError(t, err)
 	assert.Equal(t, seeded.ID, folder.ID)
@@ -264,7 +264,7 @@ func TestGetByID_Success(t *testing.T) {
 func TestGetByID_NotFound(t *testing.T) {
 	svc, _ := newTestService()
 
-	folder, err := svc.GetByID(context.Background(), uuid.New())
+	folder, err := svc.GetByID(context.Background(), uuid.Nil, uuid.New())
 
 	assert.Nil(t, folder)
 	assert.ErrorIs(t, err, ErrFolderNotFound)
@@ -275,7 +275,7 @@ func TestUpdate_Success(t *testing.T) {
 	seeded := seedFolder(repo, "Old Name", false)
 	newName := "New Name"
 
-	err := svc.Update(context.Background(), seeded.ID, UpdateInput{Name: &newName})
+	err := svc.Update(context.Background(), uuid.Nil, seeded.ID, UpdateInput{Name: &newName})
 
 	require.NoError(t, err)
 	assert.Equal(t, newName, repo.folders[seeded.ID].Name)
@@ -286,7 +286,7 @@ func TestUpdate_SystemFolderReject(t *testing.T) {
 	seeded := seedFolder(repo, "System Folder", true)
 	newName := "Renamed"
 
-	err := svc.Update(context.Background(), seeded.ID, UpdateInput{Name: &newName})
+	err := svc.Update(context.Background(), uuid.Nil, seeded.ID, UpdateInput{Name: &newName})
 
 	assert.ErrorIs(t, err, ErrCannotRenameSystemFolder)
 }
@@ -295,7 +295,7 @@ func TestDelete_Success(t *testing.T) {
 	svc, repo := newTestService()
 	seeded := seedFolder(repo, "To Delete", false)
 
-	err := svc.Delete(context.Background(), seeded.ID)
+	err := svc.Delete(context.Background(), uuid.Nil, seeded.ID)
 
 	require.NoError(t, err)
 	_, ok := repo.folders[seeded.ID]
@@ -306,7 +306,7 @@ func TestDelete_SystemFolder(t *testing.T) {
 	svc, repo := newTestService()
 	seeded := seedFolder(repo, "System", true)
 
-	err := svc.Delete(context.Background(), seeded.ID)
+	err := svc.Delete(context.Background(), uuid.Nil, seeded.ID)
 
 	assert.ErrorIs(t, err, ErrCannotDeleteSystemFolder)
 	// Folder should still exist
@@ -330,7 +330,7 @@ func TestInitializeUserSpace_Success(t *testing.T) {
 	svc, repo := newTestService()
 	userID := uuid.New()
 
-	err := svc.InitializeUserSpace(context.Background(), userID)
+	err := svc.InitializeUserSpace(context.Background(), uuid.Nil, userID)
 
 	require.NoError(t, err)
 
@@ -358,7 +358,7 @@ func TestInitializeTeamSpace_Success(t *testing.T) {
 	svc, repo := newTestService()
 	teamID := uuid.New()
 
-	err := svc.InitializeTeamSpace(context.Background(), teamID, "Engineering")
+	err := svc.InitializeTeamSpace(context.Background(), uuid.Nil, teamID, "Engineering")
 
 	require.NoError(t, err)
 
@@ -391,7 +391,7 @@ func TestCircularReference(t *testing.T) {
 	repo.descendants[parent.ID] = map[uuid.UUID]bool{child.ID: true}
 
 	// Try to move parent into child (circular)
-	err := svc.Update(context.Background(), parent.ID, UpdateInput{ParentID: &child.ID})
+	err := svc.Update(context.Background(), uuid.Nil, parent.ID, UpdateInput{ParentID: &child.ID})
 
 	assert.ErrorIs(t, err, ErrCircularParent)
 }

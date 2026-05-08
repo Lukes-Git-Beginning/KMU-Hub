@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -20,11 +21,11 @@ type DashboardRepository interface {
 	// UpsertDefaultLayout creates or updates the default layout for a role.
 	UpsertDefaultLayout(ctx context.Context, def *models.DashboardDefault) (*models.DashboardDefault, error)
 	// GetUserLayout returns a user's personal layout override.
-	GetUserLayout(ctx context.Context, userID string) (*models.UserDashboardLayout, error)
+	GetUserLayout(ctx context.Context, tenantID uuid.UUID, userID string) (*models.UserDashboardLayout, error)
 	// UpsertUserLayout creates or updates a user's personal layout.
 	UpsertUserLayout(ctx context.Context, layout *models.UserDashboardLayout) (*models.UserDashboardLayout, error)
 	// DeleteUserLayout removes a user's personal layout override (reset to defaults).
-	DeleteUserLayout(ctx context.Context, userID string) error
+	DeleteUserLayout(ctx context.Context, tenantID uuid.UUID, userID string) error
 }
 
 // PostgresDashboardRepository implements DashboardRepository using PostgreSQL.
@@ -74,12 +75,12 @@ func (r *PostgresDashboardRepository) UpsertDefaultLayout(ctx context.Context, d
 }
 
 // GetUserLayout retrieves a user's personal dashboard layout.
-func (r *PostgresDashboardRepository) GetUserLayout(ctx context.Context, userID string) (*models.UserDashboardLayout, error) {
+func (r *PostgresDashboardRepository) GetUserLayout(ctx context.Context, tenantID uuid.UUID, userID string) (*models.UserDashboardLayout, error) {
 	var l models.UserDashboardLayout
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, user_id, layout, active_widgets, created_at, updated_at
 		 FROM user_dashboard_layouts
-		 WHERE user_id = $1`, userID,
+		 WHERE tenant_id = $1 AND user_id = $2`, tenantID, userID,
 	).Scan(&l.ID, &l.UserID, &l.Layout, &l.ActiveWidgets, &l.CreatedAt, &l.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -94,14 +95,14 @@ func (r *PostgresDashboardRepository) GetUserLayout(ctx context.Context, userID 
 func (r *PostgresDashboardRepository) UpsertUserLayout(ctx context.Context, layout *models.UserDashboardLayout) (*models.UserDashboardLayout, error) {
 	var l models.UserDashboardLayout
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO user_dashboard_layouts (user_id, layout, active_widgets, updated_at)
-		 VALUES ($1, $2, $3, NOW())
+		`INSERT INTO user_dashboard_layouts (tenant_id, user_id, layout, active_widgets, updated_at)
+		 VALUES ($1, $2, $3, $4, NOW())
 		 ON CONFLICT ON CONSTRAINT uq_user_dashboard_layouts_user_id DO UPDATE
 		 SET layout = EXCLUDED.layout,
 		     active_widgets = EXCLUDED.active_widgets,
 		     updated_at = NOW()
 		 RETURNING id, user_id, layout, active_widgets, created_at, updated_at`,
-		layout.UserID, layout.Layout, layout.ActiveWidgets,
+		layout.TenantID, layout.UserID, layout.Layout, layout.ActiveWidgets,
 	).Scan(&l.ID, &l.UserID, &l.Layout, &l.ActiveWidgets, &l.CreatedAt, &l.UpdatedAt)
 	if err != nil {
 		return nil, err
@@ -110,9 +111,9 @@ func (r *PostgresDashboardRepository) UpsertUserLayout(ctx context.Context, layo
 }
 
 // DeleteUserLayout removes a user's personal layout override.
-func (r *PostgresDashboardRepository) DeleteUserLayout(ctx context.Context, userID string) error {
+func (r *PostgresDashboardRepository) DeleteUserLayout(ctx context.Context, tenantID uuid.UUID, userID string) error {
 	result, err := r.pool.Exec(ctx,
-		`DELETE FROM user_dashboard_layouts WHERE user_id = $1`, userID,
+		`DELETE FROM user_dashboard_layouts WHERE tenant_id = $1 AND user_id = $2`, tenantID, userID,
 	)
 	if err != nil {
 		return err

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/kmuhub/kmuhub/internal/cache"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
@@ -42,10 +43,10 @@ func (r *CachedDashboardRepository) UpsertDefaultLayout(ctx context.Context, def
 	return result, nil
 }
 
-func (r *CachedDashboardRepository) GetUserLayout(ctx context.Context, userID string) (*models.UserDashboardLayout, error) {
-	key := keyDashboardUser + userID
+func (r *CachedDashboardRepository) GetUserLayout(ctx context.Context, tenantID uuid.UUID, userID string) (*models.UserDashboardLayout, error) {
+	key := keyDashboardUser + tenantID.String() + ":" + userID
 	return cache.Get(ctx, r.cache, key, ttlDashboardLayout, func(ctx context.Context) (*models.UserDashboardLayout, error) {
-		return r.inner.GetUserLayout(ctx, userID)
+		return r.inner.GetUserLayout(ctx, tenantID, userID)
 	})
 }
 
@@ -54,15 +55,15 @@ func (r *CachedDashboardRepository) UpsertUserLayout(ctx context.Context, layout
 	if err != nil {
 		return nil, err
 	}
-	cache.Delete(ctx, r.cache, keyDashboardUser+layout.UserID)
+	cache.Delete(ctx, r.cache, keyDashboardUser+layout.TenantID.String()+":"+layout.UserID)
 	return result, nil
 }
 
-func (r *CachedDashboardRepository) DeleteUserLayout(ctx context.Context, userID string) error {
-	if err := r.inner.DeleteUserLayout(ctx, userID); err != nil {
+func (r *CachedDashboardRepository) DeleteUserLayout(ctx context.Context, tenantID uuid.UUID, userID string) error {
+	if err := r.inner.DeleteUserLayout(ctx, tenantID, userID); err != nil {
 		return err
 	}
-	cache.Delete(ctx, r.cache, keyDashboardUser+userID)
+	cache.Delete(ctx, r.cache, keyDashboardUser+tenantID.String()+":"+userID)
 	return nil
 }
 

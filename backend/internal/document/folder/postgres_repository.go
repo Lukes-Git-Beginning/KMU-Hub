@@ -25,28 +25,29 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) Create(ctx context.Context, folder *models.DocumentFolder) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO document_folders (id, name, parent_id, space_type, space_id, is_system, icon, created_by, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-		folder.ID, folder.Name, folder.ParentID, folder.SpaceType, folder.SpaceID,
+		`INSERT INTO document_folders (id, tenant_id, name, parent_id, space_type, space_id, is_system, icon, created_by, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+		folder.ID, folder.TenantID, folder.Name, folder.ParentID, folder.SpaceType, folder.SpaceID,
 		folder.IsSystem, folder.Icon, folder.CreatedBy, folder.CreatedAt, folder.UpdatedAt,
 	)
 	return err
 }
 
-func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.DocumentFolder, error) {
+func (r *PostgresRepository) GetByID(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) (*models.DocumentFolder, error) {
 	row := r.pool.QueryRow(ctx,
-		`SELECT f.id, f.name, f.parent_id, f.space_type, f.space_id, f.is_system, f.icon, f.created_by, f.created_at, f.updated_at,
+		`SELECT f.id, f.tenant_id, f.name, f.parent_id, f.space_type, f.space_id, f.is_system, f.icon, f.created_by, f.created_at, f.updated_at,
 		        COALESCE((SELECT COUNT(*) FROM document_files df WHERE df.folder_id = f.id AND NOT df.is_deleted), 0) AS file_count
 		 FROM document_folders f
-		 WHERE f.id = $1`, id,
+		 WHERE f.tenant_id = $1 AND f.id = $2`, tenantID, id,
 	)
 	return r.scanFolder(row)
 }
 
 func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*models.DocumentFolder, int, error) {
-	var conditions []string
-	var args []any
-	argNum := 1
+	// tenant_id is always the first filter for cross-tenant isolation
+	conditions := []string{fmt.Sprintf("f.tenant_id = $%d", 1)}
+	args := []any{filter.TenantID}
+	argNum := 2
 
 	if filter.ParentID != nil {
 		conditions = append(conditions, fmt.Sprintf("f.parent_id = $%d", argNum))
@@ -71,10 +72,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 		args = append(args, *filter.SpaceID)
 	}
 
-	whereClause := ""
-	if len(conditions) > 0 {
-		whereClause = "WHERE " + strings.Join(conditions, " AND ")
-	}
+	whereClause := "WHERE " + strings.Join(conditions, " AND ")
 
 	// Count total
 	var total int
@@ -85,7 +83,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 
 	// Query folders with file count, system folders first, then by name
 	query := fmt.Sprintf(`
-		SELECT f.id, f.name, f.parent_id, f.space_type, f.space_id, f.is_system, f.icon, f.created_by, f.created_at, f.updated_at,
+		SELECT f.id, f.tenant_id, f.name, f.parent_id, f.space_type, f.space_id, f.is_system, f.icon, f.created_by, f.created_at, f.updated_at,
 		       COALESCE((SELECT COUNT(*) FROM document_files df WHERE df.folder_id = f.id AND NOT df.is_deleted), 0) AS file_count
 		FROM document_folders f
 		%s
@@ -110,7 +108,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 	return folders, total, rows.Err()
 }
 
-func (r *PostgresRepository) Update(ctx context.Context, id uuid.UUID, input UpdateInput) error {
+func (r *PostgresRepository) Update(ctx context.Context, tenantID uuid.UUID, id uuid.UUID, input UpdateInput) error {
 	var setClauses []string
 	var args []any
 	argNum := 1
@@ -139,9 +137,9 @@ func (r *PostgresRepository) Update(ctx context.Context, id uuid.UUID, input Upd
 
 	setClauses = append(setClauses, "updated_at = NOW()")
 
-	query := fmt.Sprintf("UPDATE document_folders SET %s WHERE id = $%d",
-		strings.Join(setClauses, ", "), argNum)
-	args = append(args, id)
+	query := fmt.Sprintf("UPDATE document_folders SET %s WHERE tenant_id = $%d AND id = $%d",
+		strings.Join(setClauses, ", "), argNum, argNum+1)
+	args = append(args, tenantID, id)
 
 	tag, err := r.pool.Exec(ctx, query, args...)
 	if err != nil {
@@ -153,16 +151,17 @@ func (r *PostgresRepository) Update(ctx context.Context, id uuid.UUID, input Upd
 	return nil
 }
 
-func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (r *PostgresRepository) Delete(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) error {
 	// Soft-delete files in this folder first (cascade handles subfolder deletion via FK)
 	_, err := r.pool.Exec(ctx,
-		`UPDATE document_files SET is_deleted = TRUE, deleted_at = NOW() WHERE folder_id = $1 AND NOT is_deleted`, id)
+		`UPDATE document_files SET is_deleted = TRUE, deleted_at = NOW()
+		 WHERE folder_id = $1 AND tenant_id = $2 AND NOT is_deleted`, id, tenantID)
 	if err != nil {
 		return err
 	}
 
 	// Delete the folder (CASCADE will remove subfolders, and their files will be handled by FK ON DELETE CASCADE)
-	tag, err := r.pool.Exec(ctx, `DELETE FROM document_folders WHERE id = $1`, id)
+	tag, err := r.pool.Exec(ctx, `DELETE FROM document_folders WHERE tenant_id = $1 AND id = $2`, tenantID, id)
 	if err != nil {
 		return err
 	}
@@ -206,13 +205,13 @@ func (r *PostgresRepository) GetPath(ctx context.Context, id uuid.UUID) ([]model
 	return segments, rows.Err()
 }
 
-func (r *PostgresRepository) GetChildren(ctx context.Context, parentID uuid.UUID) ([]*models.DocumentFolder, error) {
+func (r *PostgresRepository) GetChildren(ctx context.Context, tenantID uuid.UUID, parentID uuid.UUID) ([]*models.DocumentFolder, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT f.id, f.name, f.parent_id, f.space_type, f.space_id, f.is_system, f.icon, f.created_by, f.created_at, f.updated_at,
+		`SELECT f.id, f.tenant_id, f.name, f.parent_id, f.space_type, f.space_id, f.is_system, f.icon, f.created_by, f.created_at, f.updated_at,
 		        COALESCE((SELECT COUNT(*) FROM document_files df WHERE df.folder_id = f.id AND NOT df.is_deleted), 0) AS file_count
 		 FROM document_folders f
-		 WHERE f.parent_id = $1
-		 ORDER BY f.is_system DESC, f.name ASC`, parentID)
+		 WHERE f.tenant_id = $1 AND f.parent_id = $2
+		 ORDER BY f.is_system DESC, f.name ASC`, tenantID, parentID)
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +260,7 @@ func (r *PostgresRepository) IsDescendant(ctx context.Context, folderID, potenti
 func (r *PostgresRepository) scanFolder(row pgx.Row) (*models.DocumentFolder, error) {
 	var f models.DocumentFolder
 	err := row.Scan(
-		&f.ID, &f.Name, &f.ParentID, &f.SpaceType, &f.SpaceID,
+		&f.ID, &f.TenantID, &f.Name, &f.ParentID, &f.SpaceType, &f.SpaceID,
 		&f.IsSystem, &f.Icon, &f.CreatedBy, &f.CreatedAt, &f.UpdatedAt,
 		&f.FileCount,
 	)
@@ -278,7 +277,7 @@ func (r *PostgresRepository) scanFolder(row pgx.Row) (*models.DocumentFolder, er
 func (r *PostgresRepository) scanFolderFromRows(rows pgx.Rows) (*models.DocumentFolder, error) {
 	var f models.DocumentFolder
 	err := rows.Scan(
-		&f.ID, &f.Name, &f.ParentID, &f.SpaceType, &f.SpaceID,
+		&f.ID, &f.TenantID, &f.Name, &f.ParentID, &f.SpaceType, &f.SpaceID,
 		&f.IsSystem, &f.Icon, &f.CreatedBy, &f.CreatedAt, &f.UpdatedAt,
 		&f.FileCount,
 	)

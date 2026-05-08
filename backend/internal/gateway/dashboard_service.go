@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 
+	"github.com/google/uuid"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -41,9 +42,9 @@ func hardcodedDefaultLayout() *models.DashboardLayoutResponse {
 
 // GetDashboard returns the effective dashboard layout for a user.
 // Priority: user override > role default > hardcoded default.
-func (s *DashboardService) GetDashboard(ctx context.Context, userID, role string) (*models.DashboardLayoutResponse, error) {
+func (s *DashboardService) GetDashboard(ctx context.Context, tenantID uuid.UUID, userID, role string) (*models.DashboardLayoutResponse, error) {
 	// 1. Try user-specific layout
-	userLayout, err := s.repo.GetUserLayout(ctx, userID)
+	userLayout, err := s.repo.GetUserLayout(ctx, tenantID, userID)
 	if err == nil {
 		return &models.DashboardLayoutResponse{
 			Layout:        userLayout.Layout,
@@ -87,8 +88,9 @@ func (s *DashboardService) GetDashboard(ctx context.Context, userID, role string
 }
 
 // SaveDashboard saves a user's personal dashboard layout.
-func (s *DashboardService) SaveDashboard(ctx context.Context, userID string, layout, activeWidgets json.RawMessage) (*models.DashboardLayoutResponse, error) {
+func (s *DashboardService) SaveDashboard(ctx context.Context, tenantID uuid.UUID, userID string, layout, activeWidgets json.RawMessage) (*models.DashboardLayoutResponse, error) {
 	saved, err := s.repo.UpsertUserLayout(ctx, &models.UserDashboardLayout{
+		TenantID:      tenantID,
 		UserID:        userID,
 		Layout:        layout,
 		ActiveWidgets: activeWidgets,
@@ -110,8 +112,8 @@ func (s *DashboardService) SaveDashboard(ctx context.Context, userID string, lay
 }
 
 // ResetToDefaults removes a user's personal layout override.
-func (s *DashboardService) ResetToDefaults(ctx context.Context, userID string) error {
-	err := s.repo.DeleteUserLayout(ctx, userID)
+func (s *DashboardService) ResetToDefaults(ctx context.Context, tenantID uuid.UUID, userID string) error {
+	err := s.repo.DeleteUserLayout(ctx, tenantID, userID)
 	if err != nil && !errors.Is(err, ErrDashboardNotFound) {
 		slog.Error("failed to delete user dashboard layout",
 			"user_id", userID,

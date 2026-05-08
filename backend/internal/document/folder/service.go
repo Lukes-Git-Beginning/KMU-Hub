@@ -30,6 +30,7 @@ func NewService(repo Repository) *Service {
 
 // CreateInput contains the data needed to create a folder.
 type CreateInput struct {
+	TenantID  uuid.UUID
 	Name      string
 	ParentID  *uuid.UUID
 	SpaceType string
@@ -56,14 +57,14 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Docume
 
 	// Validate parent exists if provided
 	if input.ParentID != nil {
-		_, err := s.repo.GetByID(ctx, *input.ParentID)
+		_, err := s.repo.GetByID(ctx, input.TenantID, *input.ParentID)
 		if err != nil {
 			return nil, ErrFolderNotFound
 		}
 	}
 
 	// Check for duplicate name in same parent
-	siblings, _, err := s.repo.List(ctx, ListFilter{ParentID: input.ParentID, SpaceType: &input.SpaceType, SpaceID: &input.SpaceID})
+	siblings, _, err := s.repo.List(ctx, ListFilter{TenantID: input.TenantID, ParentID: input.ParentID, SpaceType: &input.SpaceType, SpaceID: &input.SpaceID})
 	if err != nil {
 		return nil, err
 	}
@@ -81,6 +82,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Docume
 	now := time.Now()
 	folder := &models.DocumentFolder{
 		ID:        uuid.New(),
+		TenantID:  input.TenantID,
 		Name:      name,
 		ParentID:  input.ParentID,
 		SpaceType: input.SpaceType,
@@ -107,9 +109,9 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Docume
 	return folder, nil
 }
 
-// GetByID retrieves a folder by ID.
-func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*models.DocumentFolder, error) {
-	folder, err := s.repo.GetByID(ctx, id)
+// GetByID retrieves a folder by ID, scoped to tenant.
+func (s *Service) GetByID(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) (*models.DocumentFolder, error) {
+	folder, err := s.repo.GetByID(ctx, tenantID, id)
 	if err != nil {
 		return nil, err
 	}
@@ -121,9 +123,9 @@ func (s *Service) List(ctx context.Context, filter ListFilter) ([]*models.Docume
 	return s.repo.List(ctx, filter)
 }
 
-// Update updates an existing folder with validation.
-func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) error {
-	folder, err := s.repo.GetByID(ctx, id)
+// Update updates an existing folder with validation, scoped to tenant.
+func (s *Service) Update(ctx context.Context, tenantID uuid.UUID, id uuid.UUID, input UpdateInput) error {
+	folder, err := s.repo.GetByID(ctx, tenantID, id)
 	if err != nil {
 		return err
 	}
@@ -149,6 +151,7 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) e
 			parentID = input.ParentID
 		}
 		siblings, _, listErr := s.repo.List(ctx, ListFilter{
+			TenantID:  tenantID,
 			ParentID:  parentID,
 			SpaceType: &folder.SpaceType,
 			SpaceID:   &folder.SpaceID,
@@ -181,7 +184,7 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) e
 		}
 	}
 
-	if err := s.repo.Update(ctx, id, input); err != nil {
+	if err := s.repo.Update(ctx, tenantID, id, input); err != nil {
 		return err
 	}
 
@@ -192,9 +195,9 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) e
 	return nil
 }
 
-// Delete deletes a folder after validation.
-func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
-	folder, err := s.repo.GetByID(ctx, id)
+// Delete deletes a folder after validation, scoped to tenant.
+func (s *Service) Delete(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) error {
+	folder, err := s.repo.GetByID(ctx, tenantID, id)
 	if err != nil {
 		return err
 	}
@@ -203,7 +206,7 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 		return ErrCannotDeleteSystemFolder
 	}
 
-	if err := s.repo.Delete(ctx, id); err != nil {
+	if err := s.repo.Delete(ctx, tenantID, id); err != nil {
 		return err
 	}
 
@@ -222,12 +225,13 @@ func (s *Service) GetPath(ctx context.Context, id uuid.UUID) ([]models.FolderPat
 
 // InitializeUserSpace creates a personal root folder with default subfolders for a new user.
 // Default subfolders: "Dokumente", "Bilder", "Vorlagen" (all system folders).
-func (s *Service) InitializeUserSpace(ctx context.Context, userID uuid.UUID) error {
+func (s *Service) InitializeUserSpace(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID) error {
 	now := time.Now()
 
 	// Create personal root folder
 	root := &models.DocumentFolder{
 		ID:        uuid.New(),
+		TenantID:  tenantID,
 		Name:      "Meine Dateien",
 		ParentID:  nil,
 		SpaceType: models.FolderSpacePersonal,
@@ -255,6 +259,7 @@ func (s *Service) InitializeUserSpace(ctx context.Context, userID uuid.UUID) err
 	for _, d := range defaults {
 		sub := &models.DocumentFolder{
 			ID:        uuid.New(),
+			TenantID:  tenantID,
 			Name:      d.name,
 			ParentID:  &root.ID,
 			SpaceType: models.FolderSpacePersonal,
@@ -280,12 +285,13 @@ func (s *Service) InitializeUserSpace(ctx context.Context, userID uuid.UUID) err
 
 // InitializeTeamSpace creates a team root folder with default subfolders for a new team.
 // Default subfolders: "Allgemein", "Projekte", "Vorlagen" (all system folders).
-func (s *Service) InitializeTeamSpace(ctx context.Context, teamID uuid.UUID, teamName string) error {
+func (s *Service) InitializeTeamSpace(ctx context.Context, tenantID uuid.UUID, teamID uuid.UUID, teamName string) error {
 	now := time.Now()
 
 	// Create team root folder
 	root := &models.DocumentFolder{
 		ID:        uuid.New(),
+		TenantID:  tenantID,
 		Name:      teamName,
 		ParentID:  nil,
 		SpaceType: models.FolderSpaceTeam,
@@ -313,6 +319,7 @@ func (s *Service) InitializeTeamSpace(ctx context.Context, teamID uuid.UUID, tea
 	for _, d := range defaults {
 		sub := &models.DocumentFolder{
 			ID:        uuid.New(),
+			TenantID:  tenantID,
 			Name:      d.name,
 			ParentID:  &root.ID,
 			SpaceType: models.FolderSpaceTeam,

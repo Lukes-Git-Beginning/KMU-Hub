@@ -50,12 +50,17 @@ func (d *DashboardRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 
 // HandleGetDashboard returns the effective dashboard layout for the authenticated user.
 func (d *DashboardRoutes) HandleGetDashboard(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
 	userID := middleware.GetUserID(r.Context())
 
 	// Determine user's primary role for default fallback
 	role := primaryRole(middleware.GetUserRoles(r.Context()))
 
-	layout, err := d.service.GetDashboard(r.Context(), userID, role)
+	layout, err := d.service.GetDashboard(r.Context(), tenantID, userID, role)
 	if err != nil {
 		slog.Error("failed to get dashboard",
 			"user_id", userID,
@@ -76,6 +81,11 @@ type saveDashboardRequest struct {
 
 // HandleSaveDashboard saves the authenticated user's personal dashboard layout.
 func (d *DashboardRoutes) HandleSaveDashboard(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
 	userID := middleware.GetUserID(r.Context())
 
 	var req saveDashboardRequest
@@ -95,7 +105,7 @@ func (d *DashboardRoutes) HandleSaveDashboard(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	layout, err := d.service.SaveDashboard(r.Context(), userID, req.Layout, req.ActiveWidgets)
+	layout, err := d.service.SaveDashboard(r.Context(), tenantID, userID, req.Layout, req.ActiveWidgets)
 	if err != nil {
 		response.Error(w, http.StatusInternalServerError, "failed to save dashboard layout")
 		return
@@ -106,9 +116,14 @@ func (d *DashboardRoutes) HandleSaveDashboard(w http.ResponseWriter, r *http.Req
 
 // HandleResetToDefaults removes the user's personal layout override.
 func (d *DashboardRoutes) HandleResetToDefaults(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
 	userID := middleware.GetUserID(r.Context())
 
-	if err := d.service.ResetToDefaults(r.Context(), userID); err != nil {
+	if err := d.service.ResetToDefaults(r.Context(), tenantID, userID); err != nil {
 		response.Error(w, http.StatusInternalServerError, "failed to reset dashboard layout")
 		return
 	}
