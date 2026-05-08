@@ -1,6 +1,6 @@
 ---
 tags: [deployment, docker, ci-cd]
-updated: 2026-05-07
+updated: 2026-05-08
 ---
 # Deployment & Infrastruktur
 
@@ -198,7 +198,8 @@ Konfiguriert als `command:` Args im postgres Service.
 - **Git Pull:** `sudo GIT_SSH_COMMAND='ssh -i /home/deploy/.ssh/github_deploy' git pull origin main`
 - **HTTPS:** Caddy + Let's Encrypt, HSTS, HTTP/2
 - **Firewall:** Hetzner Cloud Firewall `kmuhub-fw` (7 Regeln: SSH/80/443/7880/7881/7882-UDP/ICMP, Source Any IPv4+IPv6)
-- **Monitoring:** Prometheus + Grafana (localhost-only, SSH-Tunnel)
+- **Monitoring:** Prometheus + Grafana + Alertmanager (alle localhost-only, SSH-Tunnel)
+- **Alertmanager:** `prom/alertmanager:v0.27.0`, Port 9093, Config `deploy/docker/alertmanager.yml` — Slack-Alerts via `${SLACK_WEBHOOK_URL}` (`.env.production`), 3 Rules: ServiceDown (2m), HighErrorRate (5%), DBConnectionsHigh (80% max_connections)
 
 ### TURN-Server CAX11 (seit 2026-04-19)
 - **Server:** CAX11 (ARM Ampere, 2 vCPU, 4GB RAM, 40GB SSD, 20TB Traffic, ~€3.80/M), Ubuntu 24.04, Falkenstein (fsn1)

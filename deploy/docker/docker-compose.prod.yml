@@ -218,7 +218,7 @@ services:
   # ===== Reverse Proxy =====
 
   caddy:
-    image: caddy:2-alpine
+    image: caddy:2.8-alpine
     ports:
       - "80:80"
       - "443:443"
@@ -239,7 +239,7 @@ services:
   # ===== Monitoring =====
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.55.1
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - ./prometheus/rules:/etc/prometheus/rules
@@ -252,8 +252,26 @@ services:
     restart: unless-stopped
     logging: *default-logging
 
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    ports:
+      - "127.0.0.1:9093:9093"
+    restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.1"
+
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.4.0
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
@@ -273,3 +291,4 @@ volumes:
   caddy_config:
   prometheus_data:
   grafana_data:
+  alertmanager_data:

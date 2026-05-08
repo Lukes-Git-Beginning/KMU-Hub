@@ -3,12 +3,12 @@ groups:
     rules:
       - alert: ServiceDown
         expr: up == 0
-        for: 30s
+        for: 2m
         labels:
           severity: critical
         annotations:
           summary: "Service {{ $labels.job }} is down"
-          description: "{{ $labels.job }} has been unreachable for more than 30 seconds."
+          description: "{{ $labels.job }} has been unreachable for more than 2 minutes."
 
       - alert: HighErrorRate
         expr: |
@@ -34,6 +34,19 @@ groups:
         annotations:
           summary: "High P99 latency on {{ $labels.job }}"
           description: "{{ $labels.job }} P99 latency is above 2 seconds for the last 5 minutes."
+
+      - alert: DBConnectionsHigh
+        expr: |
+          pg_stat_activity_count
+          / on() group_left()
+          pg_settings_max_connections
+          > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL connections above 80% of max_connections"
+          description: "Active DB connections exceed 80% of max_connections for more than 5 minutes."
 
   - name: infrastructure
     rules:

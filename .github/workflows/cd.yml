@@ -1,6 +1,12 @@
 name: CD
 
 on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       skip_backup:
@@ -12,6 +18,10 @@ on:
           - "false"
           - "true"
 
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
 env:
   DEPLOY_HOST: 178.104.38.195
   DEPLOY_USER: deploy
@@ -22,6 +32,11 @@ jobs:
     name: Deploy to Production
     runs-on: ubuntu-latest
     environment: production
+    # For workflow_run trigger: only deploy when CI succeeded.
+    # workflow_dispatch bypasses this check (manual override).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -60,6 +75,20 @@ jobs:
           VERSION=$(echo "$HEALTH" | jq -r '.version // "unknown"' 2>/dev/null)
           COMMIT=$(echo "$HEALTH" | jq -r '.commit // "unknown"' 2>/dev/null)
           echo "Deployed version: $VERSION (commit: $COMMIT)"
+
+      - name: Notify Slack on success
+        if: success()
+        run: |
+          curl -s -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+            -H 'Content-type: application/json' \
+            --data "{\"text\":\":white_check_mark: Deploy to production succeeded — commit \`${{ github.sha }}\`\"}"
+
+      - name: Notify Slack on failure
+        if: failure()
+        run: |
+          curl -s -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+            -H 'Content-type: application/json' \
+            --data "{\"text\":\":x: Deploy to production FAILED — commit \`${{ github.sha }}\` — check <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|the run>\"}"
 
       - name: Cleanup SSH key
         if: always()
