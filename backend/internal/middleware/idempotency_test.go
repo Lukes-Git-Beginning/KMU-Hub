@@ -170,8 +170,16 @@ func TestIdempotency_Replay_ReturnsCached(t *testing.T) {
 	mw(http.HandlerFunc(okHandler)).ServeHTTP(rec1, r1)
 	require.Equal(t, http.StatusCreated, rec1.Code)
 
-	// Wait briefly for async Complete goroutine
-	time.Sleep(20 * time.Millisecond)
+	// Wait deterministically for async Complete goroutine.
+	require.True(t,
+		assert.Eventually(t, func() bool {
+			repo.mu.Lock()
+			defer repo.mu.Unlock()
+			rec, ok := repo.records["key-replay-001"]
+			return ok && rec.CompletedAt != nil
+		}, 2*time.Second, 5*time.Millisecond),
+		"record must be completed before replay check",
+	)
 
 	// Second call — should be replayed from cache
 	r2 := requestWithAuth(http.MethodPost, "/api/v1/crm/contacts", `{"name":"Test"}`)
@@ -305,8 +313,17 @@ func TestHardMode_CrossTenantKeyRejected(t *testing.T) {
 	mw(http.HandlerFunc(okHandler)).ServeHTTP(rec1, buildRequest(tenantAID))
 	require.Equal(t, http.StatusCreated, rec1.Code)
 
-	// Wait briefly for async Complete goroutine to finish.
-	time.Sleep(20 * time.Millisecond)
+	// Wait deterministically for async Complete goroutine to persist the record.
+	// Using Eventually avoids the flaky 20ms sleep that can fail on slow CI agents.
+	require.True(t,
+		assert.Eventually(t, func() bool {
+			repo.mu.Lock()
+			defer repo.mu.Unlock()
+			rec, ok := repo.records[sharedKey]
+			return ok && rec.CompletedAt != nil
+		}, 2*time.Second, 5*time.Millisecond),
+		"idempotency record for Tenant A must be completed before cross-tenant check",
+	)
 
 	// Validate Tenant A's record is present under the correct tenant.
 	storedRec, ok := repo.records[sharedKey]

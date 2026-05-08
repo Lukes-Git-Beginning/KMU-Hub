@@ -205,6 +205,19 @@ func (r *PostgresRepository) UpdateMemberColorOverride(ctx context.Context, cale
 
 // Discovery & Subscription
 
+// ListBrowsable returns shared calendars within the tenant that the given user
+// has not yet subscribed to (i.e. calendars available for discovery/joining).
+//
+// Semantics (verified against Welle 4B retrofit):
+//   - Only calendars with calendar_type = 'shared' are included. Personal and
+//     holiday calendars are never shown in the browse/discover view.
+//   - The tenant_id filter is mandatory: a user must never see shared calendars
+//     from a different tenant. This filter was added in Migration 000109 (Welle 4B).
+//   - Calendars owned by the requesting user are excluded (already in their list).
+//   - Calendars the user is already a member of are excluded via NOT EXISTS.
+//
+// Note: the calendar_type = 'shared' condition was present before Welle 4B and
+// was intentionally retained after the tenant_id retrofit (F9 Sprint 3 review).
 func (r *PostgresRepository) ListBrowsable(ctx context.Context, userID, tenantID uuid.UUID) ([]models.Calendar, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT c.id, c.tenant_id, c.name, c.description, c.calendar_type, c.color, c.owner_id,

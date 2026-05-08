@@ -102,7 +102,20 @@ func (r *PostgresRepository) ListActive(ctx context.Context, tenantID uuid.UUID)
 	return accounts, rows.Err()
 }
 
-// ListAllActive returns all sync-enabled accounts across all tenants (for sync engine bootstrap).
+// ListAllActive returns all sync-enabled accounts across ALL tenants.
+//
+// INTERNAL — cross-tenant system query. This function intentionally omits the
+// tenant_id filter because it is called exclusively by the background sync
+// engine, which must bootstrap IMAP/SMTP connections for every active account
+// regardless of tenant boundary.
+//
+// Authorised callers (audit list — add new callers here before merging):
+//   - internal/email/sync/engine.go → Engine.startSyncLoops (service startup)
+//   - internal/email/sync/engine.go → Engine.triggerImmediateSync (manual re-sync)
+//
+// MUST NOT be called from HTTP handlers or gRPC service methods. Any new caller
+// that is not a background system worker must use ListActive(ctx, tenantID)
+// instead, which enforces tenant isolation.
 func (r *PostgresRepository) ListAllActive(ctx context.Context) ([]*models.EmailAccount, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, tenant_id, user_id, email_address, display_name,

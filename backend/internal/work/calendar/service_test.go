@@ -1553,5 +1553,61 @@ func TestCalendarRepo_TenantIsolation(t *testing.T) {
 	assert.Equal(t, calA.ID, found.ID)
 }
 
+// ============================================================================
+// F6 — DB-Level Cross-Tenant Isolation Tests (Sprint 3 Welle 1)
+//
+// These tests verify that the repository mock correctly enforces tenant_id
+// scoping at the data layer. They simulate the same guarantee that the real
+// Postgres repository provides via the WHERE tenant_id = $N predicates added
+// in Migration 000109 (Welle 4B).
+//
+// Pattern: Tenant A inserts → Tenant B reads → result must be empty / not found.
+// ============================================================================
+
+// TestCalendarCrossTenantIsolation_DBLevel verifies that a calendar created
+// under Tenant A is never returned when listing calendars for Tenant B.
+// This covers both ListByUser (owned/subscribed list) and ListBrowsable
+// (shared calendar discovery), ensuring two independently scoped repository
+// calls cannot leak data across tenant boundaries.
+func TestCalendarCrossTenantIsolation_DBLevel(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	userA := uuid.New()
+	userB := uuid.New()
+
+	// Tenant A creates a personal calendar.
+	_, err := svc.Create(context.Background(), userA, tenantA, CreateInput{
+		Name:         "Tenant A Private Calendar",
+		CalendarType: models.CalendarTypePersonal,
+	})
+	require.NoError(t, err)
+
+	// Tenant A creates a shared calendar (could be discovered if browsable).
+	_, err = svc.Create(context.Background(), userA, tenantA, CreateInput{
+		Name:         "Tenant A Shared Calendar",
+		CalendarType: models.CalendarTypeShared,
+	})
+	require.NoError(t, err)
+
+	// Tenant B lists their own calendars — must not see any of Tenant A's calendars.
+	calsByB, err := svc.ListByUser(context.Background(), userB, tenantB)
+	require.NoError(t, err)
+	for _, c := range calsByB {
+		assert.NotEqual(t, tenantA, c.TenantID,
+			"calendar from tenant A must not appear in tenant B's list: %s", c.Name)
+	}
+
+	// Tenant B browses discoverable shared calendars — must not see Tenant A's shared calendar.
+	browsable, err := svc.ListBrowsable(context.Background(), userB, tenantB)
+	require.NoError(t, err)
+	for _, c := range browsable {
+		assert.NotEqual(t, tenantA, c.TenantID,
+			"shared calendar from tenant A must not appear in tenant B's browse list: %s", c.Name)
+	}
+}
+
 // Suppress unused import for fmt
 var _ = fmt.Sprintf
