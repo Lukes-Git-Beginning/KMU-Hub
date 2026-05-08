@@ -1,6 +1,6 @@
 ---
 tags: [testing, qualitaet]
-updated: 2026-05-07
+updated: 2026-05-08
 ---
 # Test-Strategie
 
@@ -43,6 +43,11 @@ type MockRepository struct {
 - **Cross-Tenant-Isolation-Tests Welle 4B** (2026-05-07, Sprint 2 Welle 4B Stream 2D) — `gateway/tenant_isolation_test.go` um **12 Sub-Tests** erweitert: `TestTenantIsolation_Pipeline_Stages`, `_CalendarEvents`, `_TimeEntries`, `_Automations`, `_SavedFilters`, `_CustomFields`, `_EmailMessages`, `_InboxMessages`, `_Dialer_Campaigns`, `_AuditLog`, `_Recordings`, `_Channels`. Pattern: Two-Tenant-Smoke (`recA.Code != 401 && recB.Code != 401`). Echte DB-Backed Cross-Tenant-Boundary-Tests sind in `docs/sprint2-welle4b-followups.md` als F6 fuer Sprint 3 deferred. Plus 3 finance JSONB-Subtests in `gateway/route_biz_test.go` (`TestFinanceLineItems_JSONBTenantIsolation`) — bestaetigen dass `finance_line_items` als JSONB in Parent-Tabellen ausreichend per `tenant_id` isoliert sind (kein Schema-Change noetig).
 - **Idempotency HardMode-Tests Welle 4B** (2026-05-07, Sprint 2 Welle 4B Stream 2C) — `idempotency/postgres_repository_test.go` mit `TestComplete_TenantFilter` + `TestGet_TenantIsolation` (Composite-PK-Verteidigung gegen Cross-Tenant-Replay), `middleware/idempotency_test.go` mit `TestHardMode_MissingKey_Returns400` + `TestHardMode_CrossTenantKeyRejected` (HardMode-Verhalten). F7 (`time.Sleep(20ms)`-Flakiness) deferred auf Sprint 3.
 - **Recording Service-Test Welle 4B** (2026-05-07, Sprint 2 Welle 4B P2-2) — `work/recording/service_test.go` `TestStartRecording_TenantIsolation` mit `tenantAwareRepo`-Wrapper. Vorher pruefte der Test nur String-Existenz; jetzt echter Service-Aufruf mit Mock-Repos: TenantA erstellt Recording → `rec.TenantID == tenantA` ✓ → TenantB-Repo gibt ErrNotFound ✓.
+- **Cross-Tenant-Tests Sprint 3 Welle 1A** (2026-05-08) — 4 echte DB-Backed Cross-Tenant-Boundary-Tests (F6) fuer Calendar-Events, Email-Messages, Recordings in `gateway/tenant_isolation_test.go`. Schliessen den Welle-4B-Followup, der HTTP-Smoke durch DB-getriebene Two-Tenant-Scenarios ersetzt. **Gesamt Cross-Tenant-Tests: ~30** (10 W2D + 4 W3.5 + 12 W4B + 4 Sprint3-F6).
+- **Idempotency Flaky-Fix Sprint 3 Welle 1A** (2026-05-08) — `assert.Eventually(t, condition, 100*time.Millisecond, 5*time.Millisecond, "msg")` ersetzt `time.Sleep(20ms)` in `TestHardMode_CrossTenantKeyRejected` und `TestIdempotency_Replay_ReturnsCached`. Eliminiert Timing-Abhaengigkeit auf langsamen CI-Agents (F7-Followup).
+- **Dialer Concurrent-Test Sprint 3** (2026-05-08) — `TestLogCallOutcome_Concurrent_SameSession` in `dialer/service_test.go`: 5 parallele Goroutinen rufen `LogCallOutcome` auf denselben Session-UUID auf. `mockCallRepo` mit `sync.Mutex` geschuetzt. Verifiziert atomare `UpdateSessionWithEvent`-Transaktion (kein Split-Brain).
+- **Cross-Tenant-Tests Sprint 3 Welle 2B/3** (2026-05-08) — 8 neue Cross-Tenant-Tests fuer bexio-EntityMappings, lexware-SyncLogs, message_reactions, chat_files Isolation in `gateway/tenant_isolation_test.go` und den jeweiligen Repository-Tests.
+- **Sprint-4-Skeleton-Tests** (2026-05-08, Commit `a1a8d54`) — 3 `t.Skip("ADR-0007: pending")` Tests in `backend/internal/biz/invoice/jsonb_test.go` als Tests-as-Documentation fuer die geplante `finance_line_items`-Normalisierung nach ADR-0007. Keine echte Implementierung, aber der Test-Frame dokumentiert Expected-Behavior vor der Migration.
 
 ## Desktop (Electron/React)
 - Framework: Vitest + jsdom, Setup: `test/setup.ts`

@@ -4,7 +4,9 @@ updated: 2026-05-08
 ---
 # Deployment & Infrastruktur
 
-> **Aktueller Prod-Stand (2026-04-20):** `app.zentria.tech` auf `980eba3`, Migration-Head 81, alle 15 Business-Services healthy. Erster Full-Redeploy seit 2026-03-08 — Details in MEMORY `project_server_redeploy_20260419.md`. **Wichtig:** Auf dem Server sind `deploy/docker/livekit.yaml` und `deploy/docker/docker-compose.yml` via `git update-index --skip-worktree` aus Git-Sight genommen, weil sie lokale Patches + Secrets enthalten, die noch nicht in `main` committed sind. Nächste PRs, die diese Files ändern, müssen vor dem Pull `--no-skip-worktree` + manuellen Re-Patch durchlaufen.
+> **Aktueller Prod-Stand (2026-04-20):** `app.zentria.tech` auf `980eba3`, Migration-Head 81, alle 15 Business-Services healthy. Erster Full-Redeploy seit 2026-03-08 — Details in MEMORY `project_server_redeploy_20260419.md`. **Migration-Drift lokal/main → Prod: 81 → 115 (34 Migrations ausstehend).** Server-Deploy mit Migration-Ramp 82→115 ist naechste Ops-Aktion (nach S3.1 Ansible, Sprint 3 Rest).
+>
+> **skip-worktree-Status (Stand 2026-05-08):** `docker-compose.yml` kann entfernt werden (alle Patches in main — siehe Sprint-2-TODOs-Tabelle unten). `livekit.yaml` bleibt skip-worktree bis `render-configs.sh`-Workflow beim naechsten Deploy aktiviert ist. Cleanup-Schritte in der Server-Side-Patches-Sektion unten.
 >
 > **Welle 4B (2026-05-07):** `deploy/docker/docker-compose.yml` und `backend/.env.example` setzen `IDEMPOTENCY_MODE=hard` im Gateway-Environment fuer Dev. Production bleibt unset → WarnMode default. Prod-Cutover auf HardMode ist Sprint-3-Aktion nach Pilot-1.
 
@@ -57,6 +59,7 @@ Datei: `deploy/docker/docker-compose.yml`
   4. **E2E** — Integration Tests (abhaengig von Lint+Test)
   5. **Smoke** — Go Smoke Tests (abhaengig von E2E)
   6. **OpenAPI Validate** — Spec-Validierung
+  7. **Security-Scans** (S3.2, ab 2026-05-08) — gosec + trivy fs-scan + npm audit parallel (eigene Job-Gruppe, `continue-on-error: true` initial). Details: [[security]] CI Security-Scans.
 - Service-Container: postgres:16-alpine + redis:7-alpine
 
 ### Desktop CI Pipeline (`.github/workflows/ci-desktop.yml`)
@@ -69,11 +72,12 @@ Datei: `deploy/docker/docker-compose.yml`
 - **`security-review.yml`** — Security-fokussiertes Code-Review bei PRs
 
 ### CD Pipeline (`.github/workflows/cd.yml`)
-- **Trigger:** `workflow_dispatch` (manuell, mit optional `skip_backup`)
+- **Trigger:** `workflow_run` (nach erfolgreichem `ci.yml` auf main) + `workflow_dispatch` (manuell, mit optional `skip_backup`)
+- **Concurrency-Group:** `production` — parallele Deploys werden abgebrochen (`cancel-in-progress: false`, neuere warten)
 - **Environment:** `production` (GitHub Environment Protection)
 - SSH auf Hetzner-Server, fuehrt `deploy.sh` aus
-- Post-Deploy: Remote Health Check via curl gegen `https://app.zentria.tech/health`
-- **Secret:** `HETZNER_SSH_KEY`
+- Post-Deploy: Remote Health Check via curl gegen `https://app.zentria.tech/health` + Slack-Notify bei Erfolg/Fehler
+- **Secret:** `HETZNER_SSH_KEY`, `SLACK_WEBHOOK_URL`
 
 ## Deploy Scripts (`deploy/scripts/`)
 

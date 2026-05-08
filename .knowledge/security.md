@@ -1,6 +1,6 @@
 ---
 tags: [security, auth, compliance, gdpr]
-updated: 2026-05-07
+updated: 2026-05-08
 ---
 # Security & Compliance
 
@@ -187,7 +187,14 @@ Welle-3.5-Verschaerfung der W2D-C-Lehre: gRPC-Server lasen `tenant_id` aus den P
 | Filesystem Vulns | `trivy` (fs-scan) | Jeder Push | HIGH,CRITICAL | `ignore-unfixed: true` |
 | NPM-Dependencies | `npm audit --omit=dev` | Jeder Push | high | kein continue-on-error (0 Findings lokal) |
 
-**Baseline-Status:** `gosec` und `trivy` laufen mit `continue-on-error: true` fuer initiale Baseline-Akzeptanz. Verschaerfung (exit-code: 1 fuer gosec, SARIF-Upload zu GitHub Code Scanning) in S3.2-Followup. `npm-audit` ist hart — 0 Vulnerabilities stand 2026-05-08.
+**Baseline-Status:** `gosec` und `trivy` laufen mit `continue-on-error: true` fuer initiale Baseline-Akzeptanz. Verschaerfung (exit-code: 1 fuer gosec, SARIF-Upload zu GitHub Code Scanning) als S3.2-Followup. `npm-audit` ist hart — 0 Vulnerabilities stand 2026-05-08.
+
+**Cross-Tenant-Test-Gesamtstand (Stand 2026-05-08): ~30 Tests**
+- W2D: 10 Tests (`tenant_isolation_test.go` no-tenant/empty-tid/valid-tid-Pattern)
+- W3.5: 4 Tests (`/recordings/{id}/initiator-consent` Two-Tenant-Scenario)
+- W4B: 12 Tests (Pipeline-Stages/Calendar/TimeEntries/Automations/SavedFilters/CustomFields/Email/Inbox/Dialer/AuditLog/Recordings/Channels)
+- Sprint 3 F6: 4 DB-Backed Tests (Calendar-Events, Email-Messages, Recordings)
+- Sprint 3 Welle 2B/3: 8 Tests (bexio/lexware EntityMappings/SyncLogs, message_reactions, chat_files)
 
 **Konfiguration:**
 - gosec-Exclusions: `backend/.gosec.yaml` — G104 (unhandled errors in tests), G304 (file path via variable, reviewed), G108 (profiling endpoint, not prod-facing)

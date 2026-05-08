@@ -1,6 +1,6 @@
 ---
 tags: [architektur, backend, frontend, ci-cd]
-updated: 2026-05-07
+updated: 2026-05-08
 ---
 # Architektur
 
@@ -229,6 +229,24 @@ Drei Sub-Wellen (4B.1 + 4B.2 + 4B.3), zwei Direct-to-Main-Commits. Schliesst die
 
 Pause-Gates zwischen 4B.1 ↔ 4B.2 ↔ 4B.3 wie in `feedback_pause_between_waves.md` gefordert. 4 P2/P3-Followups (echte DB-Backed Cross-Tenant-Tests, idempotency-time.Sleep-flaky, ListAllActive-Caller-Audit, ListBrowsable-shared-Filter-Frage) in `docs/sprint2-welle4b-followups.md` deferred.
 
+## Sprint 3 Session 2026-05-08 — Option-B Phase 2 Abschluss + Dialer-Tx + CI-Security
+
+9 Direct-to-Main-Commits in 4 Wellen. Option-B Phase 2 komplett (Migrations 000114+000115, ~38 neue Tabellen). Alle Sprint-2-Server-Drift-Fixes in main geschlossen.
+
+**Dialer-Transaktion-Pattern** (`backend/internal/dialer/postgres_repository.go`):
+`UpdateSessionWithEvent` ist jetzt eine **atomare Tx-Methode**: öffnet Transaktion, updated `dialer_call_sessions` und inserted `dialer_call_events` im selben Commit-Block. Verhindert Split-Brain bei Concurrent-Calls auf denselben Session-State. Neuer Concurrent-Test `TestLogCallOutcome_Concurrent_SameSession` mit 5 Goroutinen + Mutex auf `mockCallRepo`. Pattern fuer kuenftige Event-Sourcing-Repos: immer Session-Update + Event-Append in einer Transaktion kapseln.
+
+**Repository-Layer Neue Wirings (Sprint 3):**
+- `gateway/cached_dashboard_repository.go` — `tenantID` im Cache-Key (Dashboard-Isolation)
+- `document/folder` postgres_repository — `tenant_id`-First-Filter auf allen SELECTs
+- `biz/bexio`, `biz/lexware` — `ListEntityMappings`/`ListSyncLogs` mit JOIN-Tenant-Fence
+
+**Welle-4B-Followups erledigt (Sprint 3 Welle 1A):**
+- F6: Echte DB-Backed Cross-Tenant-Tests fuer Calendar/Email/Recordings (`test(welle4b): close f6-f9 followups`)
+- F7: `assert.Eventually` statt `time.Sleep(20ms)` in `TestHardMode_CrossTenantKeyRejected` und `TestIdempotency_Replay_ReturnsCached`
+- F8: `ListAllActive` Audit-Kommentar bestaetigt (kein Intent-Change)
+- F9: `ListBrowsable` shared-Filter-Semantik verifiziert und bestaetigt
+
 ## Sprint 2 Welle 3.5 — Hardening-Sweep (2026-04-29)
 
 Bugfix-Sweep nach Welle 3 (Commit `d443ab4`, 34 Findings closed: 17 P0 + 17 P1, P2/P3 in `docs/sprint2-welle3-followups.md` deferred). Drei Themen-Cluster:
@@ -277,21 +295,23 @@ Pause-Gate: Nach Welle 3.5 → User-Review + Welle-4-Plan (Idempotency HardMode,
 
 ## CI/CD
 
-### Workflows (5 Dateien in `.github/workflows/`)
+### Workflows (6 Dateien in `.github/workflows/`)
 
 | Workflow | Trigger | Zweck |
 |----------|---------|-------|
-| `ci.yml` | Push/PR auf main/develop (backend/**) | Lint → Test → Build → E2E → Smoke → OpenAPI Validate |
+| `ci.yml` | Push/PR auf main/develop (backend/**) | Lint → Test → Build → E2E → Smoke → OpenAPI Validate + Security-Scans |
 | `ci-desktop.yml` | Push/PR auf main/develop (desktop/**) | Lint → Typecheck → Test → Build |
-| `cd.yml` | Manual (workflow_dispatch) | SSH → deploy.sh → Health Check |
+| `cd.yml` | `workflow_run` (nach ci.yml success) + `workflow_dispatch` | SSH → deploy.sh → Health Check → Slack-Notify; concurrency-Group verhindert parallele Deploys |
 | `claude-pr.yml` | PR open/sync, @claude Mention | Automatisches Claude Code PR-Review |
 | `security-review.yml` | PR | Security-fokussiertes Code-Review |
+| `security-scans.yml` | Jeder Push (S3.2, ab 2026-05-08) | gosec + trivy fs-scan + npm audit parallel (3 Jobs) — Details: [[security]] |
 
 ### CI Details
 - Go 1.25.6, golangci-lint v2.8 (action v7)
 - Postgres + Redis Service Containers fuer Tests
 - E2E: `backend/test/e2e/` (Build Tag `e2e`)
-- Smoke: Dual — Bash (`smoke.sh`, 19 Tests) + Go (`test/smoke/`, 11 Tests)
+- Smoke: Dual — Bash (`smoke.sh`, 22 Tests) + Go (`test/smoke/`, 11 Tests)
+- Image-Tags in `docker-compose.yml` + `docker-compose.prod.yml` seit S3.4 gepinnt (kein `latest`)
 
 ## Config-Dateien
 
@@ -473,10 +493,10 @@ Alle mutierenden API-Calls muessen sicher wiederholbar sein. Idempotency-Keys fu
 
 ### 11. Tenant-Modell
 
-Cosmi ist aktuell **Single-Tenant-only**. Multi-Tenant-Support (Option-B-Full mit `tenant_id` auf ~50 Tabellen) ist fuer Sprint 2/3 geplant. Bis dahin:
-- Kein SaaS mit mehreren Mandanten auf einer DB-Instanz
+Cosmi ist aktuell **Single-Tenant-only**. Option-B-Full-Retrofit ist **abgeschlossen** (Sprint 2+3, Migrations 000106–000115, ~123 Tabellen retrofitted). Neue Tabellen MUESSEN `tenant_id` von Anfang an haben.
 - Self-Hosted: Ein Deployment pro Kunde (Hetzner-Instanz pro Pilot ab M3, ~287 EUR/M bei 10 Piloten)
-- Neue Tabellen MUESSEN `tenant_id` von Anfang an haben — auch wenn der Wert vor Migration noch konstant ist
+- Sentinel-UUID fuer Single-Tenant: `00000000-0000-0000-0000-000000000001`
+- Dashboard-Cache-Key enthaelt `tenantID` seit Sprint 3 (`gateway/cached_dashboard_repository.go`)
 
 Details: `project_multi_tenancy.md` im Memory-Index.
 

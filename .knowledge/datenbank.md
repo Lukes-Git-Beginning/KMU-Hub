@@ -1,14 +1,14 @@
 ---
 tags: [datenbank, schema, migrations, ai-first, tenant-isolation]
-updated: 2026-05-07
+updated: 2026-05-08
 ---
 # Datenbank
 
 ## Überblick
 - PostgreSQL 16 mit `pgvector/pgvector:pg16`-Image + Redis 7 (nur Cache, KEIN Dual-Write)
 - Änderungen NUR via golang-migrate (`make migrate-create name=xxx`)
-- 113 Migration-Paare in `backend/migrations/` (Sprint 1 Welle 2: 076 wiki, 077 helpdesk; Welle 5: 079 berichte; Welle 6: 080 seed_berichte_permissions; S1.3: 081 formulare; Sprint 2 Welle 1: 082 consent FK + gdpr-FK, 083+084 inventar, 085+086 einkauf, 087+088 produktion, 089+090 vertraege, 091 video; Sprint 2 Welle 2A: 092+093 rapporte, 094+095 schichten, 096+097 fuhrpark, 098+099 vermietung; Sprint 2 Welle 2C Bugfix-Sweep: 100 rapporte_approve_permission, 101 vermietung_gist_overlap_unique_inspection, 102 schichten_shift_assignments_tenant_unique, 103 schichten_shift_capacity; Sprint 2 Welle 2D: 104 users_tenant_id; Sprint 2 Welle 3: 105 idempotency_keys, 106 tenant_id_retrofit_phase1, 107 recordings_pre_consent_audit; Sprint 2 Welle 3.5: 108 idempotency_keys_composite_pk; Sprint 2 Welle 4B: 109 calendar_work_phase2, 110 email_notification_phase2, 111 security_crm_aux_phase2, 112 automation_exec_channels_phase2, 113 idempotency_complete_tenant_pk_alignment)
-- **Prod-Stand seit 2026-04-19:** Migration-Head `81`. Welle 1 + Welle 2A + Welle 2C + Welle 2D + Welle 3 + Welle 3.5 + Welle 4B bringen Head auf `113` (lokal/main, Server-Deploy ausstehend). Volume: `docker_pgdata` (nicht `docker_postgres-data`).
+- **115 Migration-Paare** in `backend/migrations/` (Sprint 1 Welle 2: 076 wiki, 077 helpdesk; Welle 5: 079 berichte; Welle 6: 080 seed_berichte_permissions; S1.3: 081 formulare; Sprint 2 Welle 1: 082 consent FK + gdpr-FK, 083+084 inventar, 085+086 einkauf, 087+088 produktion, 089+090 vertraege, 091 video; Sprint 2 Welle 2A: 092+093 rapporte, 094+095 schichten, 096+097 fuhrpark, 098+099 vermietung; Sprint 2 Welle 2C Bugfix-Sweep: 100 rapporte_approve_permission, 101 vermietung_gist_overlap_unique_inspection, 102 schichten_shift_assignments_tenant_unique, 103 schichten_shift_capacity; Sprint 2 Welle 2D: 104 users_tenant_id; Sprint 2 Welle 3: 105 idempotency_keys, 106 tenant_id_retrofit_phase1, 107 recordings_pre_consent_audit; Sprint 2 Welle 3.5: 108 idempotency_keys_composite_pk; Sprint 2 Welle 4B: 109 calendar_work_phase2, 110 email_notification_phase2, 111 security_crm_aux_phase2, 112 automation_exec_channels_phase2, 113 idempotency_complete_tenant_pk_alignment; **Sprint 3 Welle 2A: 114 option_b_phase2_settings_preferences; Sprint 3 Welle 2B: 115 option_b_phase2_integrations_chat**)
+- **Prod-Stand seit 2026-04-19:** Migration-Head `81`. Lokal/main auf `115` (Server-Deploy ausstehend — 34 Migrations Drift). Volume: `docker_pgdata` (nicht `docker_postgres-data`).
 - Index-Konvention: `idx_{table}_{column}`
 - **AI-First-Foundation** seit Migration 071 (siehe Abschnitt unten)
 - **Seed-Idempotenz:** Migration `000079` (berichte) wurde in `980eba3` um `ON CONFLICT DO NOTHING` erweitert, damit ein Re-Run keine Duplikate erzeugt. Gleiches Muster fuer alle zukuenftigen Seed-Migrations anwenden.
@@ -198,6 +198,23 @@ Top-30+ Tabellen-Retrofit auf den verbleibenden Hot-Path-Tabellen, plus Idempote
 - 16+ Repository-Wirings (work/calendar+meeting+resource, email/*, notification/*, inbox/*, crm/tag+consent+search) mit tenant_id-First-Filter.
 - chat/message Cursor-Lookup: ThreadListFilter bekommt TenantID-Field, Cursor-Decode-Query filtert tenant_id (P2-6-Fix).
 - crm/activity AddTags: Loop mit N Einzel-INSERTs → Single `INSERT ... SELECT $1, unnest($2::uuid[])` (P3-3-Fix).
+
+### Sprint 3 Welle 2 — Option-B Phase 2 Abschluss (Migrations 114–115, 2026-05-08)
+
+Option-B Phase 2 ist damit **komplett** (~38 Tabellen in zwei Batches). Alle ALTERs defensiv mit `ADD COLUMN IF NOT EXISTS`. JOINs-Backfill-Pattern wie in 000112 wo kein direkter Owner-Bezug vorhanden. Gesamt retrofittete Tabellen: **~123** (85 vor Sprint 3 + 16 + 22 neu). Plan-Inventar: `docs/sprint3-option-b-phase2-plan.md` (~190 Tabellen, Status-Tracking pro Gruppe).
+
+**Standard-Pattern aller Phase-2-Migrations:**
+```sql
+ALTER TABLE <name> ADD COLUMN IF NOT EXISTS tenant_id UUID;
+UPDATE <name> SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+ALTER TABLE <name> ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE <name> ADD CONSTRAINT fk_<name>_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) NOT VALID;
+CREATE INDEX IF NOT EXISTS idx_<name>_tenant_id ON <name>(tenant_id);
+```
+
+- **000114 option_b_phase2_settings_preferences:** 16 Tabellen in 4 Gruppen — Gruppe A: `user_dashboard_layouts`, `user_preferences`, `task_preferences`; Gruppe B: `document_folders`, `document_file_versions`, `document_shares`, `document_tags`, `document_file_tags`, `document_entity_links`, `wopi_locks`; Gruppe C: `user_sessions`, `app_specific_passwords`, `recovery_codes`, `gdpr_deletion_requests`; Gruppe D (partial): `caldav_push_subscriptions`. Repository-Wirings: `gateway/cached_dashboard_repository.go` nutzt jetzt `tenantID` im Cache-Key; `document/folder` postgres_repository mit `tenant_id`-First-Filter.
+
+- **000115 option_b_phase2_integrations_chat:** 22 Tabellen in 3 Gruppen — Gruppe D (rest): `caldav_sync_versions`, `caldav_change_log`; Gruppe E: 13 Integration-Mapping-Tabellen (`bexio_*`, `lexware_*`, `datev_*`); Gruppe F: `chat_files`, `message_reactions`, `message_mentions`, `call_sessions`, `call_participants`, `guest_sessions`, `guest_channel_config`. Repository-Wirings: `biz/bexio` und `biz/lexware` — neue Methoden `ListEntityMappings`/`ListSyncLogs` mit JOIN-Tenant-Fence. 8 neue Cross-Tenant-Tests fuer bexio/lexware/message_reactions/chat_files.
 
 ### Sprint 2 Welle 2D — JWT-Tenant-Hardening (Migration 104)
 

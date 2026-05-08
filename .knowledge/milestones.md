@@ -1,8 +1,39 @@
 ---
 tags: [fortschritt, milestones]
-updated: 2026-05-07
+updated: 2026-05-08
 ---
 # Milestones
+
+## Sprint 3 Session 2026-05-08 — Option-B Phase 2 Abschluss + CI Security + Dialer-Tx
+
+**9 Direct-to-Main-Commits** in 4 Wellen (8.5h). 6 von 8 Sprint-3-Pflicht-Tasks erledigt. S3.MT.2 (Option-B Phase 2) komplett. Build/Vet/Test/tsc/npm test alle gruen. Plan-File: `~/.claude/plans/wir-haben-heute-von-composed-emerson.md`.
+
+| Commit | Welle | Summary |
+|--------|-------|---------|
+| `5a3023a chore(deploy)` | 0 | Sprint-2-Server-Drift-Fixes: 8 Sprint-2-Services in deploy.sh-Restart-Liste; 5 von 5 Sprint-2-TODOs als done markiert |
+| `76e4986 test(welle4b)` | 1A | F6-F9 Followups + Pre-Consent-Test-Refactor: DB-Backed Cross-Tenant-Tests Calendar/Email/Recordings, assert.Eventually statt time.Sleep (F7), F8+F9 verifiziert |
+| `291e1f7 fix(welle3-p2)` | 1B | Frontend P2-Followups: useSetRecordingConsent global invalidate, offline-queue retryDeadLetter, OfflineBanner Retry-Buttons, 3 neue Vitest-Cases |
+| `7a22d83 chore(deploy)` | 1C | Image-Tags gepinnt (S3.4), Alertmanager v0.27 + alertmanager.yml + DBConnectionsHigh-Rule (S3.5), cd.yml workflow_run-Trigger + concurrency-Group + Slack-Notify (S3.6) |
+| `241686e ci` | 1D | 3 parallele CI-Jobs: gosec + trivy fs-scan + npm audit (S3.2); .gosec.yaml-Baseline (G104/G304/G108) |
+| `0cba503 feat(tenant)` | 2A | Migration 000114: 16 Tabellen (user-dashboard/preferences/document-layer/security-auth/caldav-push). Repos: dashboard tenantID-Cache-Key, document/folder |
+| `eab0181 fix(dialer)` | 2C | UpdateSessionWithEvent atomare Tx, Mutex auf mockCallRepo, TestLogCallOutcome_Concurrent_SameSession (S3.3) |
+| `298f8ea feat(tenant)` | 2B/3 | Migration 000115: 22 Tabellen (caldav-sync/integration-mappings/chat-call-guest). Repos: bexio + lexware; 8 neue Cross-Tenant-Tests |
+| `a1a8d54 docs(adr)` | 3 | ADR-0007 Finance Line Items Normalization, Sprint-4-Plan, 3 Skeleton-Tests `t.Skip("ADR-0007: pending")` |
+
+**Sprint-3-Tasks:**
+
+| Task | Status |
+|------|--------|
+| S3.MT.2 Option-B Phase 2 (~38 Tabellen) | ✅ Migrations 000114 + 000115 |
+| S3.2 CI Security-Scans | ✅ gosec + trivy + npm audit |
+| S3.3 Dialer LogCallOutcome Tx | ✅ UpdateSessionWithEvent atomic |
+| S3.4 Image-Tags pinnen | ✅ docker-compose.yml + .prod.yml |
+| S3.5 Alertmanager + Slack | ✅ prom/alertmanager:v0.27.0 |
+| S3.6 cd.yml Auto-Deploy | ✅ workflow_run-Trigger |
+| S3.1 Ansible-Playbook | ⏭ Naechste Session (5 PT) |
+| S3.7 Dialer-Coverage 12 → 30% | ⏭ Naechste Session (8 PT) |
+
+**Naechste Schritte:** S3.1 Ansible + S3.7 Dialer-Coverage → Server-Deploy (Migrations 82→115) → Sprint 4 (Start 2026-06-08, finance_line_items-Normalisierung nach ADR-0007).
 
 ## Sprint 2 Welle 4B Session 2026-05-07 — Option-B Phase 2 + Idempotency HardMode-Bereitschaft
 

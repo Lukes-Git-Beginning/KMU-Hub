@@ -1,6 +1,6 @@
 ---
 tags: [troubleshooting, debug]
-updated: 2026-05-07
+updated: 2026-05-08
 ---
 # Troubleshooting & Bekannte Probleme
 
@@ -169,12 +169,14 @@ Drei Anti-Pattern, die Welle 1 hinterlassen hat. Vor jedem neuen Modul-Wiring pr
 - **Fix:** `tenantID, err := middleware.GetTenantID(ctx)` in jedem gRPC-Handler. Proto-Feld bleibt im Wire-Format, wird aber serverseitig ignoriert oder hoechstens fuer Logging genutzt. Welle 3.5 hat das Pattern auf 14+ Methoden in chat/crm/work/video/dialer-gRPC umgestellt.
 - **Test:** Tenant-Isolation-Tests muessen einen Two-Tenant-Scenario abdecken (User Tenant A schickt Request mit `tenant_id=B` im Body — Backend muss `tenant_id=A` aus dem Context durchsetzen).
 
-## Stale IDE-Diagnostics bei Cross-Stream-Subagent-Refactor (Welle 4B, 2026-05-07)
+## Stale IDE-Diagnostics bei Cross-Stream-Subagent-Refactor (Welle 4B, 2026-05-07 — bestaetigt Sprint 3, 2026-05-08)
 
 - **Symptom:** Subagent-Output sagt "alles gruen — go build/vet/test alle pass". IDE-Diagnostics-Stream meldet aber kurz danach Sig-Drift in `cmd/*/main.go` oder `server/*_grpc.go` mit Compiler-Errors wie `*X.PostgresRepository does not implement Y.Repository (wrong type for method Z)`.
 - **Ursache:** IDE-Diagnostics arbeiten auf einem Snapshot des File-System-Zustands der manchmal hinter dem letzten Subagent-Save haengt. Bei Subagents die ueber 100+ Files refactoren und am Ende einen Sweep ueber Wirings machen, kommt das Diagnostic-Update nicht synchron mit dem letzten Save.
-- **Fix:** Authoritative Verifikation ist immer `cd backend && go build ./...` (frischer Build vom Disk-State). Nicht auf IDE-Diagnostics als Compiler-Authority verlassen — die sind ein Hilfsmittel, nicht die Source of Truth.
-- **Beispiel Welle 4B:** Drei Mal trafen Diagnostics mit "PostgresRepository implementiert Interface nicht" — `go build ./...` direkt war jedes Mal clean. Im Welle-4B-Bilanz-Memory dokumentiert (`project_sprint2_welle4b.md`).
+- **Fix:** **Authoritative Verifikation ist immer `cd backend && go build -tags no_wasm ./...` + `go vet ./...` + `go test ./...`** (frischer Build vom Disk-State). Wenn alle drei gruen sind, ist der Code korrekt — unabhaengig davon was der LSP-Cache zeigt. Nicht auf IDE-Diagnostics als Compiler-Authority verlassen.
+- **Beispiel Welle 4B:** Drei Mal trafen Diagnostics mit "PostgresRepository implementiert Interface nicht" — `go build ./...` direkt war jedes Mal clean.
+- **Sprint 3 bestaetigt:** Das Muster wiederholte sich in Welle 2A (cmd/dialer/main.go, cmd/document/main.go schienen broken laut LSP). `go build -tags no_wasm ./...` war clean. LSP-Cache-Refresh loest das Symptom, Code-Aenderungen wegen LSP-Errors sind falsche Behandlung.
+- Im Session-Memory dokumentiert: `project_sprint2_welle4b.md` + `project_sprint3_session_20260508.md`.
 
 ## Frontend-Mutation-Patterns (Welle 3.5)
 
