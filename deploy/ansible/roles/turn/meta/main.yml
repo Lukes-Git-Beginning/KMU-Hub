@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  author: Cosmi-DevOps
+  description: Provision coturn TURN server with Let's Encrypt TLS
+  license: proprietary
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - all
+dependencies:
+  - role: foundation

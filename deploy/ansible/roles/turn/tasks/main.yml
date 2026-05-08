@@ -1,0 +1,173 @@
+---
+# =============================================================================
+# roles/turn/tasks/main.yml — Provision coturn TURN server with Let's Encrypt
+# =============================================================================
+# Production path: TLS on port 5349 + plain on 3478 (LiveKit dual-transport).
+# Source of truth: deploy/hetzner/coturn-setup.sh
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# 1. System packages
+# ---------------------------------------------------------------------------
+- name: Update apt cache and install coturn, certbot, ufw
+  ansible.builtin.apt:
+    name:
+      - coturn
+      - certbot
+      - ufw
+      - openssl
+      - curl
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# ---------------------------------------------------------------------------
+# 2. UFW firewall rules
+# ---------------------------------------------------------------------------
+- name: Configure UFW rules for TURN ports
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+    state: enabled
+  loop: "{{ ufw_turn_ports }}"
+  loop_control:
+    label: "{{ item.port }}/{{ item.proto }}"
+
+# ---------------------------------------------------------------------------
+# 3. DNS helper — optional Cloudflare A record (gated on cloudflare_api_token)
+# ---------------------------------------------------------------------------
+- name: Create Cloudflare A record for TURN realm (optional)
+  community.general.cloudflare_dns:
+    domain: "{{ turn_realm.split('.', 1)[1] }}"
+    record: "{{ turn_realm.split('.', 1)[0] }}"
+    type: A
+    value: "{{ turn_external_ip }}"
+    api_token: "{{ cloudflare_api_token }}"
+    state: present
+  when: cloudflare_api_token is defined
+  delegate_to: localhost
+  run_once: true
+
+# ---------------------------------------------------------------------------
+# 4. Stop coturn before certbot (certbot standalone needs port 80)
+# ---------------------------------------------------------------------------
+- name: Stop coturn so certbot standalone can bind port 80
+  ansible.builtin.systemd:
+    name: coturn
+    state: stopped
+  failed_when: false
+
+# ---------------------------------------------------------------------------
+# 5. Obtain Let's Encrypt TLS certificate via certbot standalone
+# ---------------------------------------------------------------------------
+- name: Obtain Let's Encrypt certificate for TURN realm
+  ansible.builtin.command:
+    cmd: >
+      certbot certonly
+      --standalone
+      --non-interactive
+      --agree-tos
+      -m {{ certbot_email }}
+      -d {{ turn_realm }}
+    creates: /etc/letsencrypt/live/{{ turn_realm }}/fullchain.pem
+  notify: Restart coturn
+
+# ---------------------------------------------------------------------------
+# 6. Fix Let's Encrypt directory permissions for coturn user
+# ---------------------------------------------------------------------------
+- name: Allow coturn user to read Let's Encrypt certs
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: "g+rx"
+    recurse: true
+  loop:
+    - /etc/letsencrypt/live
+    - /etc/letsencrypt/archive
+  failed_when: false
+
+# ---------------------------------------------------------------------------
+# 7. Install certbot renewal hook to restart coturn after renewal
+# ---------------------------------------------------------------------------
+- name: Ensure certbot renewal-hooks deploy directory exists
+  ansible.builtin.file:
+    path: /etc/letsencrypt/renewal-hooks/deploy
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+
+- name: Install coturn restart hook for certbot renewals
+  ansible.builtin.copy:
+    dest: /etc/letsencrypt/renewal-hooks/deploy/coturn.sh
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      systemctl reload-or-restart coturn
+    mode: "0755"
+    owner: root
+    group: root
+
+# ---------------------------------------------------------------------------
+# 8. Render turnserver.conf from Jinja2 template
+# ---------------------------------------------------------------------------
+- name: Render /etc/turnserver.conf from template
+  ansible.builtin.template:
+    src: turnserver.conf.j2
+    dest: /etc/turnserver.conf
+    owner: root
+    group: root
+    mode: "0640"
+  notify: Restart coturn
+
+# ---------------------------------------------------------------------------
+# 9. Ensure log file exists with correct ownership
+# ---------------------------------------------------------------------------
+- name: Ensure turnserver log file exists and is writable
+  ansible.builtin.file:
+    path: /var/log/turnserver.log
+    state: touch
+    owner: turnserver
+    group: turnserver
+    mode: "0640"
+  failed_when: false
+  changed_when: false
+
+# ---------------------------------------------------------------------------
+# 10. Patch /etc/default/coturn — TURNSERVER_ENABLED=1 required on Ubuntu
+# ---------------------------------------------------------------------------
+- name: Enable coturn via /etc/default/coturn
+  ansible.builtin.lineinfile:
+    path: /etc/default/coturn
+    regexp: "^#?TURNSERVER_ENABLED="
+    line: "TURNSERVER_ENABLED=1"
+    create: true
+    mode: "0644"
+  notify: Restart coturn
+
+# ---------------------------------------------------------------------------
+# 11. Flush handlers (ensure coturn is restarted before health check)
+# ---------------------------------------------------------------------------
+- name: Flush handlers to apply pending coturn restarts
+  ansible.builtin.meta: flush_handlers
+
+# ---------------------------------------------------------------------------
+# 12. Enable and start coturn service
+# ---------------------------------------------------------------------------
+- name: Enable and start coturn service
+  ansible.builtin.systemd:
+    name: coturn
+    enabled: true
+    state: started
+    daemon_reload: true
+
+# ---------------------------------------------------------------------------
+# 13. Health check — wait for TURN port to be available
+# ---------------------------------------------------------------------------
+- name: Wait for coturn to listen on TURN port
+  ansible.builtin.wait_for:
+    port: "{{ turn_listening_port }}"
+    host: 127.0.0.1
+    timeout: 15
+  register: turn_healthcheck
+  failed_when: false
