@@ -162,12 +162,13 @@ func (r *PostgresRepository) UpsertEntityMapping(ctx context.Context, mapping *m
 
 func (r *PostgresRepository) ListEntityMappings(ctx context.Context, configID uuid.UUID, entityType string) ([]models.BexioEntityMapping, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, config_id, entity_type, kmuhub_id, bexio_id,
-			last_synced_at, bexio_updated_at, kmuhub_updated_at, sync_direction,
-			created_at, updated_at
-		FROM bexio_entity_mappings
-		WHERE config_id = $1 AND entity_type = $2
-		ORDER BY created_at`,
+		`SELECT bem.id, bem.config_id, bem.entity_type, bem.kmuhub_id, bem.bexio_id,
+			bem.last_synced_at, bem.bexio_updated_at, bem.kmuhub_updated_at, bem.sync_direction,
+			bem.created_at, bem.updated_at
+		FROM bexio_entity_mappings bem
+		JOIN integration_configs ic ON ic.id = bem.config_id AND ic.id = $1
+		WHERE bem.config_id = $1 AND bem.entity_type = $2
+		ORDER BY bem.created_at`,
 		configID, entityType,
 	)
 	if err != nil {
@@ -318,12 +319,13 @@ func (r *PostgresRepository) ListSyncLogs(ctx context.Context, configID uuid.UUI
 	}
 
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, config_id, sync_type, status,
-			items_processed, items_created, items_updated, items_failed,
-			error_message, started_at, completed_at, metadata
-		FROM bexio_sync_log
-		WHERE config_id = $1
-		ORDER BY started_at DESC
+		`SELECT bsl.id, bsl.config_id, bsl.sync_type, bsl.status,
+			bsl.items_processed, bsl.items_created, bsl.items_updated, bsl.items_failed,
+			bsl.error_message, bsl.started_at, bsl.completed_at, bsl.metadata
+		FROM bexio_sync_log bsl
+		JOIN integration_configs ic ON ic.id = bsl.config_id AND ic.id = $1
+		WHERE bsl.config_id = $1
+		ORDER BY bsl.started_at DESC
 		LIMIT $2`,
 		configID, limit,
 	)

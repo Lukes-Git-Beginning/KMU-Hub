@@ -157,12 +157,13 @@ func (r *PostgresRepository) UpsertEntityMapping(ctx context.Context, mapping *m
 
 func (r *PostgresRepository) ListEntityMappings(ctx context.Context, configID uuid.UUID, entityType string) ([]models.LexwareEntityMapping, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, config_id, entity_type, kmuhub_id, lexware_id, lexware_version,
-			last_synced_at, lexware_updated_at, kmuhub_updated_at, sync_direction,
-			created_at, updated_at
-		FROM lexware_entity_mappings
-		WHERE config_id = $1 AND entity_type = $2
-		ORDER BY created_at`,
+		`SELECT lem.id, lem.config_id, lem.entity_type, lem.kmuhub_id, lem.lexware_id, lem.lexware_version,
+			lem.last_synced_at, lem.lexware_updated_at, lem.kmuhub_updated_at, lem.sync_direction,
+			lem.created_at, lem.updated_at
+		FROM lexware_entity_mappings lem
+		JOIN integration_configs ic ON ic.id = lem.config_id AND ic.id = $1
+		WHERE lem.config_id = $1 AND lem.entity_type = $2
+		ORDER BY lem.created_at`,
 		configID, entityType,
 	)
 	if err != nil {
@@ -315,12 +316,13 @@ func (r *PostgresRepository) ListSyncLogs(ctx context.Context, configID uuid.UUI
 	}
 
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, config_id, sync_type, status,
-			items_processed, items_created, items_updated, items_failed,
-			error_message, started_at, completed_at, metadata
-		FROM lexware_sync_log
-		WHERE config_id = $1
-		ORDER BY started_at DESC
+		`SELECT lsl.id, lsl.config_id, lsl.sync_type, lsl.status,
+			lsl.items_processed, lsl.items_created, lsl.items_updated, lsl.items_failed,
+			lsl.error_message, lsl.started_at, lsl.completed_at, lsl.metadata
+		FROM lexware_sync_log lsl
+		JOIN integration_configs ic ON ic.id = lsl.config_id AND ic.id = $1
+		WHERE lsl.config_id = $1
+		ORDER BY lsl.started_at DESC
 		LIMIT $2`,
 		configID, limit,
 	)

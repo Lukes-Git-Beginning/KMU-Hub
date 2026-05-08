@@ -179,13 +179,32 @@ Priorisiert weil:
 
 ---
 
-## 4. Migration 000115 (nächste Welle) — Integration-Mappings + Chat
+## 4. Migration 000115 — Integration-Mappings + Chat  ✅ DONE (S3.MT.2B, 2026-05-08)
 
-**Scope: ~15 Tabellen (Gruppe D rest + E + F)**
+**Scope: 22 Tabellen (Gruppe D-Rest + E + F)**
 
-- bexio/lexware/datev/integration mapping-Tabellen (config_id-basierter Backfill)
-- chat_files, message_reactions, message_mentions, call_sessions, call_participants
-- guest_sessions, guest_channel_config
+- Gruppe D-Rest (2): caldav_sync_versions, caldav_change_log (backfill via calendars→contacts→sentinel)
+- Gruppe E (13): bexio_entity_mappings, bexio_field_mappings, bexio_sync_log, lexware_entity_mappings,
+  lexware_field_mappings, lexware_sync_log, lexware_webhook_subscriptions, datev_upload_configs,
+  datev_upload_log, integration_channel_mappings, integration_account_links, integration_delivery_log,
+  integration_link_tokens (sentinel — ephemeral, no FK)
+- Gruppe F (7): chat_files, message_reactions, message_mentions, call_sessions (before participants),
+  call_participants, guest_sessions, guest_channel_config
+
+**Repository-Wirings:**
+- `biz/bexio/postgres_repository.go`: ListEntityMappings + ListSyncLogs mit JOIN auf integration_configs (Tenant-Fence)
+- `biz/lexware/postgres_repository.go`: ListEntityMappings + ListSyncLogs mit JOIN auf integration_configs (Tenant-Fence)
+- Interfaces unverändert (config_id bereits 1:1 Tenant-Proxy)
+
+**Cross-Tenant-Tests (4 neue Dateien):**
+- `biz/bexio/tenant_isolation_test.go` — 2 Tests (ListEntityMappings + ListSyncLogs Isolation)
+- `biz/lexware/tenant_isolation_test.go` — 2 Tests (ListEntityMappings + ListSyncLogs Isolation)
+- `work/reaction/tenant_isolation_test.go` — 2 Tests (message_reactions Isolation + Batch)
+- `chat/file/tenant_isolation_test.go` — 2 Tests (chat_files ChannelIsolation + GetFileByID)
+
+**SKIP (dokumentiert):**
+- `integration_link_tokens`: kein user-FK für Backfill → sentinel; kein Repo-Wiring nötig (ephemeral tokens)
+- `datev_upload_configs`: kein direkter integration_configs-FK in allen Fällen → sentinel-Fallback in Migration
 
 ---
 
