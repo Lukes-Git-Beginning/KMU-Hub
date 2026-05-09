@@ -65,7 +65,7 @@ section() {
 section "Infrastructure"
 
 # 1. Gateway health = 200 + healthy
-HEALTH_RESP=$(curl -sf -w "\n%{http_code}" "$BASE_URL/health" 2>/dev/null) || HEALTH_RESP=$'\n000'
+HEALTH_RESP=$(curl -s -w "\n%{http_code}" "$BASE_URL/health" 2>/dev/null) || HEALTH_RESP=$'\n000'
 HEALTH_CODE=$(echo "$HEALTH_RESP" | tail -1)
 HEALTH_BODY=$(echo "$HEALTH_RESP" | sed '$d')
 
@@ -101,7 +101,7 @@ else
 fi
 
 # 4. Response time < 2s
-RESP_TIME=$(curl -sf -o /dev/null -w "%{time_total}" "$BASE_URL/health" 2>/dev/null || echo "99")
+RESP_TIME=$(curl -s -o /dev/null -w "%{time_total}" "$BASE_URL/health" 2>/dev/null || echo "99")
 if (( $(echo "$RESP_TIME < 2.0" | bc -l 2>/dev/null || echo 0) )); then
     pass "Health response time ${RESP_TIME}s < 2s"
 else
@@ -135,7 +135,7 @@ SMOKE_EMAIL="smoke-$(date +%s)@test.kmuhub.local"
 SMOKE_PASS="SmokeTest123!"
 
 # 6. Register
-REG_RESP=$(curl -sf -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/auth/register" \
+REG_RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/auth/register" \
     -H "Content-Type: application/json" \
     -d "{\"email\":\"$SMOKE_EMAIL\",\"password\":\"$SMOKE_PASS\",\"first_name\":\"Smoke\",\"last_name\":\"Test\"}" 2>/dev/null) || REG_RESP=$'\n000'
 REG_CODE=$(echo "$REG_RESP" | tail -1)
@@ -147,7 +147,7 @@ else
 fi
 
 # 7. Login = 200 + JWT
-LOGIN_RESP=$(curl -sf -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/auth/login" \
+LOGIN_RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/auth/login" \
     -H "Content-Type: application/json" \
     -d "{\"email\":\"$SMOKE_EMAIL\",\"password\":\"$SMOKE_PASS\"}" 2>/dev/null) || LOGIN_RESP=$'\n000'
 LOGIN_CODE=$(echo "$LOGIN_RESP" | tail -1)
@@ -167,7 +167,7 @@ fi
 
 # 8. /auth/me with token
 if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
-    ME_CODE=$(curl -sf -o /dev/null -w "%{http_code}" "$BASE_URL/api/v1/auth/me" \
+    ME_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/v1/auth/me" \
         -H "Authorization: Bearer $SMOKE_TOKEN" 2>/dev/null || echo "000")
     if [[ "$ME_CODE" == "200" ]]; then
         pass "GET /auth/me with token = 200"
@@ -185,7 +185,7 @@ section "CRM CRUD"
 
 if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
     # 9. Create contact
-    CONTACT_RESP=$(curl -sf -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/contacts" \
+    CONTACT_RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/contacts" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $SMOKE_TOKEN" \
         -d '{"first_name":"Smoke","last_name":"Contact","email":"smoke-contact@test.kmuhub.local"}' 2>/dev/null) || CONTACT_RESP=$'\n000'
@@ -201,7 +201,7 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
 
     # 10. Get contact
     if [[ -n "$SMOKE_CONTACT_ID" ]]; then
-        GET_CODE=$(curl -sf -o /dev/null -w "%{http_code}" "$BASE_URL/api/v1/contacts/$SMOKE_CONTACT_ID" \
+        GET_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/v1/contacts/$SMOKE_CONTACT_ID" \
             -H "Authorization: Bearer $SMOKE_TOKEN" 2>/dev/null || echo "000")
         if [[ "$GET_CODE" == "200" ]]; then
             pass "GET /contacts/$SMOKE_CONTACT_ID = 200"
@@ -214,7 +214,7 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
 
     # 11. Delete contact
     if [[ -n "$SMOKE_CONTACT_ID" ]]; then
-        DEL_CODE=$(curl -sf -o /dev/null -w "%{http_code}" -X DELETE "$BASE_URL/api/v1/contacts/$SMOKE_CONTACT_ID" \
+        DEL_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$BASE_URL/api/v1/contacts/$SMOKE_CONTACT_ID" \
             -H "Authorization: Bearer $SMOKE_TOKEN" 2>/dev/null || echo "000")
         if [[ "$DEL_CODE" == "200" || "$DEL_CODE" == "204" ]]; then
             pass "DELETE /contacts/$SMOKE_CONTACT_ID = $DEL_CODE"
@@ -236,7 +236,7 @@ fi
 section "Security"
 
 # 12. Unauthenticated /contacts = 401
-UNAUTH_CODE=$(curl -sf -o /dev/null -w "%{http_code}" "$BASE_URL/api/v1/contacts" 2>/dev/null || echo "000")
+UNAUTH_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/v1/contacts" 2>/dev/null || echo "000")
 if [[ "$UNAUTH_CODE" == "401" ]]; then
     pass "Unauthenticated /contacts = 401"
 else
@@ -263,7 +263,7 @@ fi
 
 # 14b. OnlyOffice JWT — request without JWT token must return 401/403
 OO_PORT="${ONLYOFFICE_PORT:-8088}"
-OO_RESP=$(curl -sf -o /dev/null -w "%{http_code}" "http://localhost:${OO_PORT}/web-apps/apps/api/documents/api.js" 2>/dev/null || echo "000")
+OO_RESP=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${OO_PORT}/web-apps/apps/api/documents/api.js" 2>/dev/null || echo "000")
 if [[ "$OO_RESP" == "401" || "$OO_RESP" == "403" ]]; then
     pass "OnlyOffice JWT active (unauthenticated request = $OO_RESP)"
 elif [[ "$OO_RESP" == "000" ]]; then
@@ -278,7 +278,7 @@ fi
 section "Performance"
 
 # 15. /health < 500ms
-PERF_HEALTH=$(curl -sf -o /dev/null -w "%{time_total}" "$BASE_URL/health" 2>/dev/null || echo "99")
+PERF_HEALTH=$(curl -s -o /dev/null -w "%{time_total}" "$BASE_URL/health" 2>/dev/null || echo "99")
 if (( $(echo "$PERF_HEALTH < 0.5" | bc -l 2>/dev/null || echo 0) )); then
     pass "Health response ${PERF_HEALTH}s < 500ms"
 else
@@ -287,7 +287,7 @@ fi
 
 # 16. /auth/login < 2s
 if [[ -n "$SMOKE_TOKEN" ]]; then
-    PERF_LOGIN=$(curl -sf -o /dev/null -w "%{time_total}" -X POST "$BASE_URL/api/v1/auth/login" \
+    PERF_LOGIN=$(curl -s -o /dev/null -w "%{time_total}" -X POST "$BASE_URL/api/v1/auth/login" \
         -H "Content-Type: application/json" \
         -d "{\"email\":\"$SMOKE_EMAIL\",\"password\":\"$SMOKE_PASS\"}" 2>/dev/null || echo "99")
     if (( $(echo "$PERF_LOGIN < 2.0" | bc -l 2>/dev/null || echo 0) )); then
@@ -301,7 +301,7 @@ fi
 
 # 17. /contacts list < 1s
 if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
-    PERF_CONTACTS=$(curl -sf -o /dev/null -w "%{time_total}" "$BASE_URL/api/v1/contacts" \
+    PERF_CONTACTS=$(curl -s -o /dev/null -w "%{time_total}" "$BASE_URL/api/v1/contacts" \
         -H "Authorization: Bearer $SMOKE_TOKEN" 2>/dev/null || echo "99")
     if (( $(echo "$PERF_CONTACTS < 1.0" | bc -l 2>/dev/null || echo 0) )); then
         pass "Contacts list ${PERF_CONTACTS}s < 1s"
@@ -319,10 +319,10 @@ section "Cross-Service"
 
 # 18. Chat channel (create + verify)
 if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
-    CHAN_RESP=$(curl -sf -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/chat/channels" \
+    CHAN_RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/chat/channels" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $SMOKE_TOKEN" \
-        -d '{"name":"smoke-test-channel","type":"public"}' 2>/dev/null) || CHAN_RESP=$'\n000'
+        -d '{"name":"smoke-test-channel","is_private":false}' 2>/dev/null) || CHAN_RESP=$'\n000'
     CHAN_CODE=$(echo "$CHAN_RESP" | tail -1)
     if [[ "$CHAN_CODE" == "201" || "$CHAN_CODE" == "200" ]]; then
         pass "Create chat channel = $CHAN_CODE"
@@ -335,7 +335,7 @@ fi
 
 # 19. Dashboard endpoint reachable
 if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
-    DASH_CODE=$(curl -sf -o /dev/null -w "%{http_code}" "$BASE_URL/api/v1/dashboard" \
+    DASH_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/v1/dashboard/layout" \
         -H "Authorization: Bearer $SMOKE_TOKEN" 2>/dev/null || echo "000")
     if [[ "$DASH_CODE" == "200" ]]; then
         pass "Dashboard endpoint = 200"
@@ -357,7 +357,7 @@ fi
 section "Berichte"
 
 if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
-    DEFS_RESP=$(curl -sf -w "\n%{http_code}" "$BASE_URL/api/v1/berichte/definitions" \
+    DEFS_RESP=$(curl -s -w "\n%{http_code}" "$BASE_URL/api/v1/berichte/definitions" \
         -H "Authorization: Bearer $SMOKE_TOKEN" 2>/dev/null || echo $'\n000')
     DEFS_CODE=$(echo "$DEFS_RESP" | tail -1)
     DEFS_BODY=$(echo "$DEFS_RESP" | sed '$d')
@@ -373,7 +373,7 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
         # 20. Run a report (first definition in the list)
         FIRST_DEF_ID=$(echo "$DEFS_BODY" | jq -r '.[0].id' 2>/dev/null || echo "")
         if [[ -n "$FIRST_DEF_ID" && "$FIRST_DEF_ID" != "null" ]]; then
-            RUN_CODE=$(curl -sf -o /dev/null -w "%{http_code}" -X POST \
+            RUN_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
                 "$BASE_URL/api/v1/berichte/definitions/$FIRST_DEF_ID/run" \
                 -H "Content-Type: application/json" \
                 -H "Authorization: Bearer $SMOKE_TOKEN" \
@@ -385,7 +385,7 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
             fi
 
             # 21. Export as PDF
-            EXPORT_MIME=$(curl -sf -o /dev/null -w "%{content_type}" -X POST \
+            EXPORT_MIME=$(curl -s -o /dev/null -w "%{content_type}" -X POST \
                 "$BASE_URL/api/v1/berichte/definitions/$FIRST_DEF_ID/export?format=pdf" \
                 -H "Content-Type: application/json" \
                 -H "Authorization: Bearer $SMOKE_TOKEN" \
@@ -414,7 +414,7 @@ fi
 section "Cleanup"
 
 if [[ -n "$SMOKE_USER_ID" && -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
-    CLEANUP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" -X DELETE "$BASE_URL/api/v1/auth/users/$SMOKE_USER_ID" \
+    CLEANUP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$BASE_URL/api/v1/auth/users/$SMOKE_USER_ID" \
         -H "Authorization: Bearer $SMOKE_TOKEN" 2>/dev/null || echo "000")
     if [[ "$CLEANUP_CODE" == "200" || "$CLEANUP_CODE" == "204" || "$CLEANUP_CODE" == "404" ]]; then
         echo "  Smoke user cleaned up ($SMOKE_EMAIL)"
