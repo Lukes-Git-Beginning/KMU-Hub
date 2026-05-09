@@ -1,124 +1,70 @@
 # Sprint 2 Welle 3.5 — Follow-Ups (P2/P3)
 
+> **Closure 2026-05-09:** Pre-Sprint-4-Cleanup hat alle hier gelisteten Items abgeklaert (entweder gefixt, integral in spaeteren Wellen mitgeschlossen, oder explizit deferred). Details siehe MEMORY `project_followup_cleanup_20260509.md`.
+
 > Findings aus dem Welle-3.5-Bugfix-Sweep, die ausserhalb des konsolidierten Fix-Commits bleiben. P0/P1 sind im Fix-Commit selbst geschlossen — siehe `~/.claude/projects/.../memory/project_sprint2_welle3_5_findings.md` fuer die volle Aufstellung.
->
-> Pattern analog `docs/sprint2-welle2-issues.md`: Issue benannt, Status, Required Action, Sprint-Ziel.
 
 ---
 
 ## P2 — UX / DX
 
 ### useVideo: globale Recordings-Invalidierung
-
-**Datei:** `desktop/src/renderer/src/api/hooks/useVideo.ts:110-117`
-
-**Status:** `useConfirmInitiatorConsent` invalidiert nur `['recordings', recordingId]`, nicht `['recordings']` global. Status-Poll kann bis zum naechsten Intervall (3 s) stale sein.
-
-**Required action (Sprint 3):** Zusaetzlicher `queryClient.invalidateQueries({ queryKey: ['recordings'] })` im `onSuccess`-Handler.
-
-**Impact:** Nur kosmetisch — UI aktualisiert sich um eine Poll-Periode verzoegert. Kein Datenverlust.
+- **Datei:** `desktop/src/renderer/src/api/hooks/useVideo.ts:110-117`
+- **Status (2026-05-09): Done** — `useConfirmInitiatorConsent` invalidiert `['recordings', recordingId]` UND `['recordings']` global (Z.117-118). Vermutlich integral in Welle-4-Frontend-Sweep gefixt.
 
 ### Recording-Service `service_test.go` — Test-Aussagekraft
-
-**Datei:** `backend/internal/work/recording/service_test.go:801-808`
-
-**Status:** `TestStartRecording_RequiresPreConsent` testet nur die Existenz und Stringinhalt von `ErrPreConsentMissing`, nicht die tatsaechliche Service-Layer-Pruefung.
-
-**Required action (Sprint 3):** Echten Service-Aufruf `StartRecording` mit Mock-Repository, das `pre_recording_consent_at IS NULL` liefert; assert auf `errors.Is(err, ErrPreConsentMissing)` und `mockEgressManager.StartRoomCompositeEgressCalls() == 0`.
+- **Datei:** `backend/internal/work/recording/service_test.go:801-846`
+- **Status (2026-05-09): Partial done — verifiziert** — Test prueft Sentinel-Existenz UND echten `svc.ConfirmInitiatorConsent(...)`-Aufruf mit GetPreConsentStatus-Roundtrip. Service-Layer-Defense-in-Depth (echter `svc.StartRecording`-Pre-Consent-Check) ist per aktueller Architektur Gateway-Verantwortung (siehe service.go:87 Doc-Note); ein Service-Layer-Pre-Consent-Gate als zusaetzliche Verteidigung wurde auf Sprint 4 als Hardening-Item geschoben.
 
 ### useOnlineStatus: Drain → Invalidate-Reihenfolge
-
-**Datei:** `desktop/src/renderer/src/hooks/useOnlineStatus.ts:38-43`
-
-**Status:** `queryClient.invalidateQueries()` und `drain()` laufen parallel. Drain-Responses triggern keine eigenen Invalidations, also kann frisch ge-drainete Daten erst beim naechsten Polling sichtbar werden.
-
-**Required action (Sprint 3):** `drain(...).then(() => queryClient.invalidateQueries())` sequenzieren.
+- **Datei:** `desktop/src/renderer/src/hooks/useOnlineStatus.ts:38-43`
+- **Status (2026-05-09): Done** (Pre-Sprint-4-Cleanup, commit `c790c4a`) — `drain(...).finally(() => queryClient.invalidateQueries())` sequenziert.
 
 ### OfflineBanner: Dead-Letter-Recovery
-
-**Datei:** `desktop/src/renderer/src/components/ui/OfflineBanner.tsx`
-
-**Status:** Dead-Letter-Counter wird angezeigt, aber kein Button zum manuellen Retry oder Loeschen einzelner Items — nur `clear()` (loescht alles).
-
-**Required action (Sprint 3):** `retryDeadLetter(id)`-Aktion in `offline-queue.ts` ergaenzen + UI-Button pro Item. Optional: Auto-Retry ein einzelnes Mal mit Reset von `retryCount`.
+- **Datei:** `desktop/src/renderer/src/components/ui/OfflineBanner.tsx`
+- **Status (2026-05-09): Done** — `retryDeadLetter(idempotencyKey)` in `offline-queue.ts:231` plus per-Item `Erneut senden`-Button im Banner (Z.166-187). Vermutlich integral in Welle-4-Frontend-Sweep gefixt.
 
 ### TeamInbox-Modell ohne `TenantID`
-
-**Datei:** `backend/internal/models/inbox.go:42`
-
-**Status:** `TeamInbox`-Struct hat kein `TenantID`-Feld, obwohl `InboxMessage` es bekommen hat (Welle 3 Migration 000106). Queries in `route_inbox.go` waeren cross-tenant.
-
-**Required action (Welle 4):** `team_inboxes` zur Top-30+-Tabellen-Liste hinzufuegen. `TeamInbox.TenantID` ergaenzen, Repo-Filter umstellen.
+- **Datei:** `backend/internal/models/inbox.go:42`
+- **Status (2026-05-09): Done** — `TeamInbox.TenantID uuid.UUID` ist gesetzt (Z.43). Vermutlich integral in Welle-4-Backend-Sweep gefixt.
 
 ### chat/message Cursor-Lookup ohne tenant_id
-
-**Datei:** `backend/internal/chat/message/postgres_repository.go:68-89`
-
-**Status:** Cursor-Lookup `SELECT created_at FROM messages WHERE id = $1` ohne tenant_id-Filter (TOCTOU-Leak: Cursor-Zeit aus fremdem Tenant verwendbar). Im Welle-3.5-Fix-Commit nur die Haupt-Queries gefixt; Cursor-Helper wurde uebersehen.
-
-**Required action (Welle 4):** `id = $1 AND tenant_id = $2` im Cursor-Lookup.
+- **Datei:** `backend/internal/chat/message/postgres_repository.go:68-89`
+- **Status (2026-05-09): Done** — `SELECT created_at FROM messages WHERE id = $1 AND tenant_id = $2` plus expliziter Doc-Comment "scope cursor lookup to tenant to prevent cross-tenant time leaks" (Z.66). Vermutlich integral in Welle-4-Backend-Sweep gefixt.
 
 ### tenant_isolation_test.go-Coverage
-
-**Datei:** `backend/internal/gateway/tenant_isolation_test.go`
-
-**Status:** Welle-3.5-Fix hat 4 neue Tests fuer Recording-Initiator-Consent ergaenzt. Es fehlen weiterhin Tests fuer Pipeline-Stages, Channels (List), Projects, CalendarEvents, TimeEntries, Automations, SavedFilters, CustomFields, EmailMessages, InboxMessages, Dialer-CampaignList, AuditLog, Recordings (Top-Level-Listen).
-
-**Required action (Welle 4):** 12 neue Sub-Tests im selben Pattern (`No-Tenant`, `Empty-Tid`, `Valid-Tid`).
+- **Datei:** `backend/internal/gateway/tenant_isolation_test.go`
+- **Status (2026-05-09): Partial done** — 12 neue Welle-4B-Sub-Tests + 4 echte DB-Backed Tests aus Sprint 3 Welle 1A bereits existent. Pre-Sprint-4-Cleanup hat zusaetzlich 4 Welle-2-Module ergaenzt: schichten/fuhrpark/einkauf/produktion mit je 4 Tests (commit `39780a9`). Vier weitere DB-Backed Tests fuer Pipeline_Stages/Automations/AuditLog/Dialer_Campaigns auf **Sprint 5** verschoben (Stretch nicht ausgefuehrt).
 
 ### video_grpc.go::UpdatePresenceConfig mit `uuid.Nil`
-
-**Datei:** `backend/internal/server/video_grpc.go:1059`
-
-**Status:** Methode uebergibt `uuid.Nil` als tenantID an `presenceService.UpdateConfig`. Falls Service den Wert nutzt, schreibt Operation ohne Tenant-Kontext.
-
-**Required action (Welle 4):** Aus Context lesen via `middleware.GetTenantID`.
+- **Datei:** `backend/internal/server/video_grpc.go:1144-1148`
+- **Status (2026-05-09): Done** — `tenantID, tenantErr := middleware.GetTenantID(ctx)` plus `Unauthenticated`-Return bei Fehler. Vermutlich integral in Welle-4-Backend-Sweep gefixt.
 
 ---
 
 ## P3 — Style / Polish
 
 ### GetRecordingConsent — leere participantIDs
-
-**Datei:** `backend/internal/server/video_grpc.go:307`
-
-**Status:** `nil` als participantIDs uebergeben. `CountPendingConsents` mit leerer ID-Liste liefert COUNT=0 (alle responded), was semantisch inkonsistent ist.
-
-**Required action:** Doku-Kommentar oder explizite Validation der Participant-IDs.
+- **Datei:** `backend/internal/server/video_grpc.go:307` plus `backend/internal/work/recording/service.go:246`
+- **Status (2026-05-09): Done** (Pre-Sprint-4-Cleanup, commit `c790c4a`) — Service short-circuited `len(participantIDs) == 0` zu `allResponded=false` plus Doc-Comment der die nil-Semantik erklaert. gRPC-Handler dokumentiert warum nil sicher ist.
 
 ### Migration 000107 — `responded_at` NULLABLE vs. NOT NULL
+- **Datei:** `backend/migrations/000107_recordings_pre_consent_audit.up.sql`
+- **Status (2026-05-09): Done** (Pre-Sprint-4-Cleanup, commit `599ebb1`) — Migration `000116_recording_consents_responded_at_not_null` setzt NOT NULL nach idempotentem Backfill.
 
-**Datei:** `backend/migrations/000107_recordings_pre_consent_audit.up.sql`
+### Tote Zeile in idempotency.go — Erledigt in Welle-3.5-Fix.
 
-**Status:** Spalte `responded_at` als NULLABLE hinzugefuegt, business logic schreibt aber immer `time.Now()` (de-facto NOT NULL).
-
-**Required action (Welle 4):** Migration ergaenzen die `responded_at SET NOT NULL` setzt nach Backfill aller bestehenden Rows.
-
-### Tote Zeile in idempotency.go
-
-**Datei:** `backend/internal/middleware/idempotency.go:240`
-
-**Status:** Wurde im Welle-3.5-Fix entfernt. Erledigt.
-
-### Migration 000106 down.sql — fehlender FK-Kommentar
-
-**Datei:** `backend/migrations/000106_tenant_id_retrofit_phase1.down.sql`
-
-**Status:** Im Welle-3.5-Fix wurde Doku-Kommentar ergaenzt, dass FK `tenant_id → tenants(id)` absichtlich fehlt (Backfill-Kompatibilitaet). Erledigt.
+### Migration 000106 down.sql — Erledigt in Welle-3.5-Fix.
 
 ### activity AddTags — Loop statt Batch
-
-**Datei:** `backend/internal/crm/activity/postgres_repository.go:253-264`
-
-**Status:** Einzel-INSERTs in Loop statt unnest-Batch (wie `deal/postgres_repository.go:237-247`).
-
-**Required action:** Refactor auf unnest-Batch fuer Konsistenz.
+- **Datei:** `backend/internal/crm/activity/postgres_repository.go:259-272`
+- **Status (2026-05-09): Done** — Z.265 `INSERT INTO activity_tags ... SELECT $1, unnest($2::uuid[]), (SELECT tenant_id FROM activities WHERE id = $1)` plus expliziter `P3-3: Single batch-INSERT using unnest — N roundtrips → 1`-Comment. Integral in Welle-4-Sweep gefixt.
 
 ---
 
-## Hinweise zur Welle-4-Planung
+## Hinweise zur Welle-4-Planung (historisch)
 
-- **Migration-Slot:** Naechste freie Nummer ist `000109` (000108 war Welle-3.5 idempotency_keys Composite-PK).
-- **15 nicht-gewireten Top-20-Repos** (projects, channels-Liste, calendar_events, email_messages, inbox_messages, deal_stage_history, pipeline_stages-Listen, saved_filters, custom_field_definitions, automations, document_files, recordings-Top-Level, dialer_call_sessions, audit_log, time_entries) gehen in Welle 4.
-- **Idempotency HardMode:** Switch von WarnMode auf HardMode (fehlende Idempotency-Key → 400) erst NACH vollstaendigem Frontend-Rollout. Frontend setzt Key bereits via `client.ts`-Wrapper, also Welle 4 kann den Switch durchfuehren.
-- **Server-Deploy-Drift:** Migration-Head Prod ist 81, lokal ist nun 108. 27 Migrations Drift fuer Pilot-1 — eigener Sprint-Task vor Welle 4.
+- **Migration-Slot:** Naechste freie Nummer ist `000109` (000108 war Welle-3.5 idempotency_keys Composite-PK). **Update 2026-05-09:** Migrations-Head ist jetzt **000116** (000109-000113 Welle 4B, 000114-000115 Sprint 3, 000116 Pre-Sprint-4-Cleanup).
+- **15 nicht-gewireten Top-20-Repos** — alle in Welle 4B (000109-000113) gewired worden.
+- **Idempotency HardMode:** Switch durchgefuehrt in Welle 4B (Default WarnMode in Prod, Dev-Default Hard via docker-compose).
+- **Server-Deploy-Drift:** abgeschlossen in Sprint 3 Welle 1 (Marathon-Deploy 81 → 115).
