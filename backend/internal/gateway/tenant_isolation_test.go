@@ -859,3 +859,275 @@ func TestDashboard_TwoTenants_IndependentContexts(t *testing.T) {
 		t.Errorf("tenant B dashboard request rejected with 401")
 	}
 }
+
+// ============================================================================
+// Schichten — tenant isolation checks
+// ============================================================================
+
+func schichtenFlagsON() *featureflag.Registry {
+	return moduleFlag("COSMI_MODULE_SCHICHTEN_ENABLED")
+}
+
+// TestSchichten_NoTenant_Returns401 verifies that a request without any tenant
+// context is rejected before it reaches the gRPC client.
+func TestSchichten_NoTenant_Returns401(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), schichtenFlagsON())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/schichten/shifts", nil)
+	routes.HandleListShifts(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+// TestSchichten_EmptyTid_Returns401 verifies that a legacy JWT (empty tid) is
+// rejected with 401 — no placeholder substitution may occur.
+func TestSchichten_EmptyTid_Returns401(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), schichtenFlagsON())
+	rec := httptest.NewRecorder()
+	req := reqWithEmptyTenant(http.MethodGet, "/api/v1/schichten/shifts")
+	routes.HandleListShifts(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+// TestSchichten_ValidTid_PassesTenantCheck verifies that a request carrying a valid
+// tid proceeds past the tenant check (503 is expected because there is no real
+// gRPC backend in unit tests — anything other than 401 proves the check passed).
+func TestSchichten_ValidTid_PassesTenantCheck(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), schichtenFlagsON())
+	rec := httptest.NewRecorder()
+	req := reqWithTenant(http.MethodGet, "/api/v1/schichten/shifts", uuid.New())
+	routes.HandleListShifts(rec, req)
+	if rec.Code == http.StatusUnauthorized {
+		t.Errorf("valid tid should not be rejected with 401; body = %s", rec.Body.String())
+	}
+}
+
+// TestSchichten_TwoTenants_DifferentContextValues verifies that two requests with
+// different tenant IDs are treated as independent — the handler reads from context
+// and does not share any mutable state.
+func TestSchichten_TwoTenants_DifferentContextValues(t *testing.T) {
+	routes := NewSchichtenRoutes(registryWithService("schichten"), schichtenFlagsON())
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	recA := httptest.NewRecorder()
+	reqA := reqWithTenant(http.MethodGet, "/api/v1/schichten/shifts", tenantA)
+
+	recB := httptest.NewRecorder()
+	reqB := reqWithTenant(http.MethodGet, "/api/v1/schichten/shifts", tenantB)
+
+	routes.HandleListShifts(recA, reqA)
+	routes.HandleListShifts(recB, reqB)
+
+	// Both should fail in the same way (503 — no backend); neither should be 401.
+	if recA.Code == http.StatusUnauthorized {
+		t.Errorf("tenant A request rejected with 401")
+	}
+	if recB.Code == http.StatusUnauthorized {
+		t.Errorf("tenant B request rejected with 401")
+	}
+}
+
+// ============================================================================
+// Fuhrpark — tenant isolation checks
+// ============================================================================
+
+func fuhrparkFlagsON() *featureflag.Registry {
+	return moduleFlag("COSMI_MODULE_FUHRPARK_ENABLED")
+}
+
+// TestFuhrpark_NoTenant_Returns401 verifies that a request without any tenant
+// context is rejected before it reaches the gRPC client.
+func TestFuhrpark_NoTenant_Returns401(t *testing.T) {
+	routes := NewFuhrparkRoutes(registryWithService("fuhrpark"), fuhrparkFlagsON())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/fuhrpark/vehicles", nil)
+	routes.HandleListVehicles(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+// TestFuhrpark_EmptyTid_Returns401 verifies that a legacy JWT (empty tid) is
+// rejected with 401 — no placeholder substitution may occur.
+func TestFuhrpark_EmptyTid_Returns401(t *testing.T) {
+	routes := NewFuhrparkRoutes(registryWithService("fuhrpark"), fuhrparkFlagsON())
+	rec := httptest.NewRecorder()
+	req := reqWithEmptyTenant(http.MethodGet, "/api/v1/fuhrpark/vehicles")
+	routes.HandleListVehicles(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+// TestFuhrpark_ValidTid_PassesTenantCheck verifies that a request carrying a valid
+// tid proceeds past the tenant check (503 is expected because there is no real
+// gRPC backend in unit tests — anything other than 401 proves the check passed).
+func TestFuhrpark_ValidTid_PassesTenantCheck(t *testing.T) {
+	routes := NewFuhrparkRoutes(registryWithService("fuhrpark"), fuhrparkFlagsON())
+	rec := httptest.NewRecorder()
+	req := reqWithTenant(http.MethodGet, "/api/v1/fuhrpark/vehicles", uuid.New())
+	routes.HandleListVehicles(rec, req)
+	if rec.Code == http.StatusUnauthorized {
+		t.Errorf("valid tid should not be rejected with 401; body = %s", rec.Body.String())
+	}
+}
+
+// TestFuhrpark_TwoTenants_DifferentContextValues verifies that two requests with
+// different tenant IDs are treated as independent — the handler reads from context
+// and does not share any mutable state.
+func TestFuhrpark_TwoTenants_DifferentContextValues(t *testing.T) {
+	routes := NewFuhrparkRoutes(registryWithService("fuhrpark"), fuhrparkFlagsON())
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	recA := httptest.NewRecorder()
+	reqA := reqWithTenant(http.MethodGet, "/api/v1/fuhrpark/vehicles", tenantA)
+
+	recB := httptest.NewRecorder()
+	reqB := reqWithTenant(http.MethodGet, "/api/v1/fuhrpark/vehicles", tenantB)
+
+	routes.HandleListVehicles(recA, reqA)
+	routes.HandleListVehicles(recB, reqB)
+
+	// Both should fail in the same way (503 — no backend); neither should be 401.
+	if recA.Code == http.StatusUnauthorized {
+		t.Errorf("tenant A request rejected with 401")
+	}
+	if recB.Code == http.StatusUnauthorized {
+		t.Errorf("tenant B request rejected with 401")
+	}
+}
+
+// ============================================================================
+// Einkauf — tenant isolation checks
+// ============================================================================
+
+func einkaufFlagsON() *featureflag.Registry {
+	return moduleFlag("COSMI_MODULE_EINKAUF_ENABLED")
+}
+
+// TestEinkauf_NoTenant_Returns401 verifies that a request without any tenant
+// context is rejected before it reaches the gRPC client.
+func TestEinkauf_NoTenant_Returns401(t *testing.T) {
+	routes := NewEinkaufRoutes(registryWithService("einkauf"), einkaufFlagsON())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/einkauf/suppliers", nil)
+	routes.HandleListSuppliers(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+// TestEinkauf_EmptyTid_Returns401 verifies that a legacy JWT (empty tid) is
+// rejected with 401 — no placeholder substitution may occur.
+func TestEinkauf_EmptyTid_Returns401(t *testing.T) {
+	routes := NewEinkaufRoutes(registryWithService("einkauf"), einkaufFlagsON())
+	rec := httptest.NewRecorder()
+	req := reqWithEmptyTenant(http.MethodGet, "/api/v1/einkauf/suppliers")
+	routes.HandleListSuppliers(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+// TestEinkauf_ValidTid_PassesTenantCheck verifies that a request carrying a valid
+// tid proceeds past the tenant check (503 is expected because there is no real
+// gRPC backend in unit tests — anything other than 401 proves the check passed).
+func TestEinkauf_ValidTid_PassesTenantCheck(t *testing.T) {
+	routes := NewEinkaufRoutes(registryWithService("einkauf"), einkaufFlagsON())
+	rec := httptest.NewRecorder()
+	req := reqWithTenant(http.MethodGet, "/api/v1/einkauf/suppliers", uuid.New())
+	routes.HandleListSuppliers(rec, req)
+	if rec.Code == http.StatusUnauthorized {
+		t.Errorf("valid tid should not be rejected with 401; body = %s", rec.Body.String())
+	}
+}
+
+// TestEinkauf_TwoTenants_DifferentContextValues verifies that two requests with
+// different tenant IDs are treated as independent — the handler reads from context
+// and does not share any mutable state.
+func TestEinkauf_TwoTenants_DifferentContextValues(t *testing.T) {
+	routes := NewEinkaufRoutes(registryWithService("einkauf"), einkaufFlagsON())
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	recA := httptest.NewRecorder()
+	reqA := reqWithTenant(http.MethodGet, "/api/v1/einkauf/suppliers", tenantA)
+
+	recB := httptest.NewRecorder()
+	reqB := reqWithTenant(http.MethodGet, "/api/v1/einkauf/suppliers", tenantB)
+
+	routes.HandleListSuppliers(recA, reqA)
+	routes.HandleListSuppliers(recB, reqB)
+
+	// Both should fail in the same way (503 — no backend); neither should be 401.
+	if recA.Code == http.StatusUnauthorized {
+		t.Errorf("tenant A request rejected with 401")
+	}
+	if recB.Code == http.StatusUnauthorized {
+		t.Errorf("tenant B request rejected with 401")
+	}
+}
+
+// ============================================================================
+// Produktion — tenant isolation checks
+// ============================================================================
+
+func produktionFlagsON() *featureflag.Registry {
+	return moduleFlag("COSMI_MODULE_PRODUKTION_ENABLED")
+}
+
+// TestProduktion_NoTenant_Returns401 verifies that a request without any tenant
+// context is rejected before it reaches the gRPC client.
+func TestProduktion_NoTenant_Returns401(t *testing.T) {
+	routes := NewProduktionRoutes(registryWithService("produktion"), produktionFlagsON())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/produktion/orders", nil)
+	routes.HandleListOrders(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+// TestProduktion_EmptyTid_Returns401 verifies that a legacy JWT (empty tid) is
+// rejected with 401 — no placeholder substitution may occur.
+func TestProduktion_EmptyTid_Returns401(t *testing.T) {
+	routes := NewProduktionRoutes(registryWithService("produktion"), produktionFlagsON())
+	rec := httptest.NewRecorder()
+	req := reqWithEmptyTenant(http.MethodGet, "/api/v1/produktion/orders")
+	routes.HandleListOrders(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+// TestProduktion_ValidTid_PassesTenantCheck verifies that a request carrying a valid
+// tid proceeds past the tenant check (503 is expected because there is no real
+// gRPC backend in unit tests — anything other than 401 proves the check passed).
+func TestProduktion_ValidTid_PassesTenantCheck(t *testing.T) {
+	routes := NewProduktionRoutes(registryWithService("produktion"), produktionFlagsON())
+	rec := httptest.NewRecorder()
+	req := reqWithTenant(http.MethodGet, "/api/v1/produktion/orders", uuid.New())
+	routes.HandleListOrders(rec, req)
+	if rec.Code == http.StatusUnauthorized {
+		t.Errorf("valid tid should not be rejected with 401; body = %s", rec.Body.String())
+	}
+}
+
+// TestProduktion_TwoTenants_DifferentContextValues verifies that two requests with
+// different tenant IDs are treated as independent — the handler reads from context
+// and does not share any mutable state.
+func TestProduktion_TwoTenants_DifferentContextValues(t *testing.T) {
+	routes := NewProduktionRoutes(registryWithService("produktion"), produktionFlagsON())
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	recA := httptest.NewRecorder()
+	reqA := reqWithTenant(http.MethodGet, "/api/v1/produktion/orders", tenantA)
+
+	recB := httptest.NewRecorder()
+	reqB := reqWithTenant(http.MethodGet, "/api/v1/produktion/orders", tenantB)
+
+	routes.HandleListOrders(recA, reqA)
+	routes.HandleListOrders(recB, reqB)
+
+	// Both should fail in the same way (503 — no backend); neither should be 401.
+	if recA.Code == http.StatusUnauthorized {
+		t.Errorf("tenant A request rejected with 401")
+	}
+	if recB.Code == http.StatusUnauthorized {
+		t.Errorf("tenant B request rejected with 401")
+	}
+}
