@@ -1,6 +1,6 @@
 ---
 tags: [troubleshooting, debug]
-updated: 2026-05-09
+updated: 2026-05-09c
 ---
 # Troubleshooting & Bekannte Probleme
 
@@ -194,6 +194,41 @@ Drei Anti-Pattern, die Welle 1 hinterlassen hat. Vor jedem neuen Modul-Wiring pr
 - **Symptom:** Offline-Queue drained beim `online`-Event. Backend antwortet 409 Conflict (Idempotency-Key in-flight). Queue interpretiert non-2xx als generic-fail oder schlimmer als Success und droppt das Item.
 - **Fix:** 409 explizit als Retry-Class behandeln (`Retry-After`-Header respektieren), nicht als terminales Failure. Queue setzt das Item zurueck in den Pending-Pool und versucht es nach Backoff neu. `Content-Type: application/json` nur setzen wenn das Item tatsaechlich einen Body hat (sonst lehnt das Backend mit 400 ab).
 - **Pattern in:** `desktop/src/renderer/src/api/offline-queue.ts` (Welle-3.5-Fix).
+
+## nano + Shell-Heredoc-Verwechslung beim Env-Edit (2026-05-09)
+
+- **Symptom:** Nach `sudo nano /opt/kmuhub/.env.production` ist die Variable scheinbar gesetzt, aber Docker liest sie nicht. Eine `.env.production.save`-Datei mit aktuellem Timestamp existiert. Manchmal endet die `.save`-Datei mit einer literalen Zeile `EOF`.
+- **Ursache:** Eine Shell-Anleitung mit `sudo tee -a file <<EOF` ... `EOF` wurde komplett in den nano-Buffer reingepasted, statt in die Shell. Nano interpretiert den Block als Datei-Inhalt — die `tee -a`-Zeile, der Variablen-Wert, und die `EOF`-Markierung landen alle als Text. Beim Schliessen mit `Ctrl+C` oder Session-Abbruch (statt `Ctrl+O`) speichert nano nicht in die Original-Datei sondern legt `.env.production.save` als Crash-Recovery-Backup an. Die echte `.env.production` bleibt unveraendert.
+- **Diagnose:**
+  ```bash
+  sudo grep -c '^TARGET_VAR=' /opt/kmuhub/.env.production       # erwartet: 1, ist: 0
+  sudo ls -la /opt/kmuhub/.env.production.save                  # falls vorhanden → nano-Crash
+  sudo tail -3 /opt/kmuhub/.env.production.save                 # literal EOF am Ende → Heredoc-Paste-Bug
+  ```
+- **Recovery (idempotent):**
+  ```bash
+  sudo cp /opt/kmuhub/.env.production /opt/kmuhub/.env.production.bak.$(date +%s)
+  sudo grep '^TARGET_VAR=' /opt/kmuhub/.env.production.save | sudo tee -a /opt/kmuhub/.env.production > /dev/null
+  sudo rm /opt/kmuhub/.env.production.save   # enthaelt potentiell sensitive Werte
+  ```
+- **Praevention:** Heredoc-Bloecke (`<<EOF ... EOF`) gehoeren in die Shell, NIEMALS in einen Editor. Wenn nano gewollt ist: nur den `KEY=value`-String selber tippen, keinen `tee`-Befehl drumrum.
+
+## render-configs.sh schreibt literal `${OLD_VAR}` weil Server-Code-Pull fehlt (2026-05-09)
+
+- **Symptom:** Nach Variablen-Refactor (z.B. `SLACK_WEBHOOK_URL` → `ALERT_WEBHOOK_URL`) zeigt die gerenderte Config-Datei (`alertmanager.yml`) noch literal `slack_api_url: "${SLACK_WEBHOOK_URL}"`. envsubst hat nichts ersetzt obwohl die neue Variable in `.env.production` steht.
+- **Ursache:** Der Code-Refactor wurde in main commited, aber der Production-Server hat den Pull noch nicht gemacht. `render-configs.sh` und `alertmanager.yml.tmpl` auf dem Server sind noch die alte Version mit `${OLD_VAR}`. envsubst's Whitelist-Mode kennt nur die alte Variable, die aber nicht mehr in `.env.production` definiert ist → leerer String, oder das literale `${OLD_VAR}` bleibt durchgereicht.
+- **Diagnose:**
+  ```bash
+  sudo grep NEW_VAR /opt/kmuhub/deploy/scripts/render-configs.sh        # 0 Treffer = Pull fehlt
+  sudo ls /opt/kmuhub/deploy/docker/<config>.yml.tmpl                   # File-not-found = Pull fehlt
+  ```
+- **Fix:** `git pull` machen, dann render-configs.sh erneut laufen lassen:
+  ```bash
+  cd /opt/kmuhub
+  sudo GIT_SSH_COMMAND='ssh -i /home/deploy/.ssh/github_deploy' git pull origin main
+  sudo bash -c 'set -a && source .env.production && deploy/scripts/render-configs.sh'
+  ```
+- **Praevention:** Bei Variablen-Refactor in `render-configs.sh` oder Template-Files immer mit `git pull origin main` auf dem Server starten, NICHT direkt mit `render-configs.sh`. Alternative: voller `deploy.sh`-Run (zieht git+migrate+build+restart in einem Schritt).
 
 ## smoke.sh `curl -sf` + `-w "%{http_code}"`-Konkat-Bug (2026-05-09, `308e9b2`)
 
