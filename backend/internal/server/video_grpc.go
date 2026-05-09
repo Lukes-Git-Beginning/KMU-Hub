@@ -310,6 +310,11 @@ func (s *VideoGRPCServer) GetRecordingConsent(ctx context.Context, req *videov1.
 		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
 	}
 
+	// participantIDs == nil signals "list every consent on file but do not
+	// compute an authoritative all-consented decision". See the doc-comment
+	// on Service.GetConsentStatus for why nil is safe here (allConsented is
+	// returned as false in that case so callers do not start recordings on
+	// the basis of a meaningless zero count).
 	allConsented, consents, err := s.recordingService.GetConsentStatus(ctx, recordingID, nil)
 	if err != nil {
 		return nil, mapRecordingError(err)

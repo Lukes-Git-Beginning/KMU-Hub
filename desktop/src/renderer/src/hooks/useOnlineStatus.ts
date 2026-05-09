@@ -34,13 +34,17 @@ export function useOnlineStatus() {
         wsManager.connect(accessToken)
       }
 
-      // Run drain + invalidateQueries in parallel so neither blocks the other.
+      // Drain queued offline mutations FIRST, then invalidate queries so the
+      // refetch picks up the freshly drained server state. Running both in
+      // parallel raced: invalidate fired before drain finished, so the UI
+      // showed pre-drain data until the next polling tick.
       // Drain errors are non-fatal; the OfflineBanner provides manual retry.
       const { accessToken: tokenForDrain } = useAuthStore.getState()
-      Promise.all([
-        queryClient.invalidateQueries(),
-        drain(API_BASE_URL, () => tokenForDrain).catch(() => undefined),
-      ]).catch(() => undefined)
+      drain(API_BASE_URL, () => tokenForDrain)
+        .catch(() => undefined)
+        .finally(() => {
+          queryClient.invalidateQueries().catch(() => undefined)
+        })
 
       // Clear "was offline" indicator after 3 seconds
       setTimeout(() => setWasOffline(false), 3000)

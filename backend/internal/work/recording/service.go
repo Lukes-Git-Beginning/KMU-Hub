@@ -243,10 +243,23 @@ func (s *Service) SetConsent(ctx context.Context, recordingID, userID uuid.UUID,
 }
 
 // GetConsentStatus checks whether all specified participants have responded to consent.
+//
+// participantIDs == nil/empty is intentionally not treated as "all participants":
+// the underlying CountPendingConsents query unnests the array, so an empty input
+// returns 0 unconditionally and would falsely report allResponded == true. When
+// the caller cannot supply the expected participant set (e.g. read-only GET
+// endpoints that just list current consents), we return allResponded = false so
+// downstream code never starts a recording based on a meaningless zero count.
+// The list of stored consents is still returned so the UI can render them.
 func (s *Service) GetConsentStatus(ctx context.Context, recordingID uuid.UUID, participantIDs []uuid.UUID) (bool, []RecordingConsent, error) {
 	consents, err := s.repo.GetConsents(ctx, recordingID)
 	if err != nil {
 		return false, nil, fmt.Errorf("get consents: %w", err)
+	}
+
+	if len(participantIDs) == 0 {
+		// Cannot decide allResponded without an expected participant list.
+		return false, consents, nil
 	}
 
 	pending, err := s.repo.CountPendingConsents(ctx, recordingID, participantIDs)
