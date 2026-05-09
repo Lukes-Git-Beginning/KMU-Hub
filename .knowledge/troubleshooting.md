@@ -1,6 +1,6 @@
 ---
 tags: [troubleshooting, debug]
-updated: 2026-05-08
+updated: 2026-05-09
 ---
 # Troubleshooting & Bekannte Probleme
 
@@ -194,6 +194,15 @@ Drei Anti-Pattern, die Welle 1 hinterlassen hat. Vor jedem neuen Modul-Wiring pr
 - **Symptom:** Offline-Queue drained beim `online`-Event. Backend antwortet 409 Conflict (Idempotency-Key in-flight). Queue interpretiert non-2xx als generic-fail oder schlimmer als Success und droppt das Item.
 - **Fix:** 409 explizit als Retry-Class behandeln (`Retry-After`-Header respektieren), nicht als terminales Failure. Queue setzt das Item zurueck in den Pending-Pool und versucht es nach Backoff neu. `Content-Type: application/json` nur setzen wenn das Item tatsaechlich einen Body hat (sonst lehnt das Backend mit 400 ab).
 - **Pattern in:** `desktop/src/renderer/src/api/offline-queue.ts` (Welle-3.5-Fix).
+
+## smoke.sh `curl -sf` + `-w "%{http_code}"`-Konkat-Bug (2026-05-09, `308e9b2`)
+
+- **Symptom:** Smoke-Test 1 (`/contacts` unauthenticated) failt mit `expected '401', got '401000'`. Test-Logik korrekt, aber das verglichene Code-String-Argument enthaelt zwei Werte hintereinander.
+- **Ursache:** Pattern `curl -sf -o /dev/null -w "%{http_code}" "$URL" || echo "000"`. Mit `-f` setzt curl Exit 22 bei HTTP >= 400, ABER hat den Code via `-w` schon auf stdout geschrieben. Der `||`-Fallback `echo "000"` wird zusaetzlich getriggert → Output ist die Konkatenation `401` + `000` = `"401000"`.
+- **Fix:** `-f` aus allen `-w "%{http_code}"`- und `-w "%{time_total}"`-Patterns entfernen, nur `-s` lassen. Die `|| echo "000"`-Fallback fuer Connection-Failures bleibt erhalten und greift dann nur noch wenn curl wirklich keine Connection bekam (curl exit != 0 ohne Output).
+- **Seiteneffekt-Fund:** Beim Audit der Fix-Stellen kamen zwei outdated Endpoints heraus: Chat-Channel-POST braucht `is_private: false` (nicht `type: public`), Dashboard ist `/api/v1/dashboard/layout` (nicht `/api/v1/dashboard`).
+- **Followup:** Tests 9/10/11 (Contacts CRUD) bleiben rot — frisch registrierte Smoke-User landen auf Default-Rolle `member` mit Read-Only-Permissions. Service-User-Bootstrap fuer Smoke-Tests ist eigene Sprint-4-Task.
+- **Lesson:** Die `curl -sf -w "%{http_code}"`-Kombination ist ein subtiler Anti-Pattern in Shell-basierten Smoke-Tests. Wer einen HTTP-Code zurueck will, darf das `-f` nicht setzen — sonst ueberlagern Exit-Code- und Output-Logik.
 
 ## Welle-1-Hotfix-Lessons (Sprint 3 Welle 1, 2026-05-08)
 
