@@ -9,7 +9,10 @@
 #   LIVEKIT_API_KEY, LIVEKIT_API_SECRET
 #
 # Optional env vars (allowed to be empty):
-#   SLACK_WEBHOOK_URL — empty means Alertmanager runs without notifications
+#   ALERT_WEBHOOK_URL — Slack-format webhook URL for Alertmanager.
+#                      We use Discord's slack-compatible endpoint
+#                      (https://discord.com/api/webhooks/<id>/<token>/slack).
+#                      Empty means Alertmanager runs without notifications.
 #
 # Run before `docker compose up` so mounted overlay files exist.
 # Idempotent — safe to run multiple times.
@@ -62,7 +65,7 @@ if grep -q '\${LIVEKIT' "$OUT"; then
   exit 1
 fi
 
-# Render alertmanager.yml from template (SLACK_WEBHOOK_URL is optional).
+# Render alertmanager.yml from template (ALERT_WEBHOOK_URL is optional).
 # Empty value yields `slack_api_url: ""` which Alertmanager accepts —
 # alerts simply aren't sent until the webhook is provided.
 ALERT_TMPL="$DOCKER_DIR/alertmanager.yml.tmpl"
@@ -74,15 +77,15 @@ if [ ! -f "$ALERT_TMPL" ]; then
 fi
 
 log "Rendering $ALERT_TMPL -> $ALERT_OUT"
-SLACK_WEBHOOK_URL="${SLACK_WEBHOOK_URL:-}" envsubst '$SLACK_WEBHOOK_URL' < "$ALERT_TMPL" > "$ALERT_OUT"
+ALERT_WEBHOOK_URL="${ALERT_WEBHOOK_URL:-}" envsubst '$ALERT_WEBHOOK_URL' < "$ALERT_TMPL" > "$ALERT_OUT"
 
-if grep -q '\${SLACK_WEBHOOK_URL' "$ALERT_OUT"; then
+if grep -q '\${ALERT_WEBHOOK_URL' "$ALERT_OUT"; then
   echo "ERROR: Unresolved placeholder in $ALERT_OUT — env-var substitution failed" >&2
   exit 1
 fi
 
-if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
-  log "WARNING: SLACK_WEBHOOK_URL empty — Alertmanager will run without notifications"
+if [ -z "${ALERT_WEBHOOK_URL:-}" ]; then
+  log "WARNING: ALERT_WEBHOOK_URL empty — Alertmanager will run without notifications"
 fi
 
 log "Done."

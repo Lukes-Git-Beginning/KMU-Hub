@@ -192,13 +192,13 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 | S3.2 | Dependency-Security-Scans (`trivy`, `gosec`, `npm audit`) in CI | 2d | R1-P1.2 |
 | S3.3 | Dialer `LogCallOutcome` in Transaktion + Integration-Test | 2d | R1-P1.3 |
 | S3.4 | Prod-Image-Tags pinnen (7× `latest` → Version-Hash) | 30min | R1-P1.4 |
-| S3.5 | Alertmanager + Slack-Webhook | 1d | R1-P1.5 |
+| S3.5 | Alertmanager + Discord-Webhook (Slack-Compat-Mode) | 1d | R1-P1.5 |
 | S3.6 | `cd.yml` Auto-Deploy auf main-merge (mit Green-Gate) | 1d | R1-P1.6 |
 | S3.7 | Dialer-Test-Coverage 12% → ≥30% | 8d | R1-P1.8 (parallel) |
 
 **Parallelitaets-Model:** 1 Worktree Option-B + 1 Infra/Ansible + 1 Test-Coverage. Multi-Tenancy-Migration muss zuerst fertig sein, bevor Ansible-Blueprint diese Schema-Version kennt.
 
-**Progress Sprint 3 (Stand 2026-05-08, abgeschlossen):** ✅ **8/8 Tasks done.** S3.MT.2 Option-B Phase 2 ✅ (Migrations 000114+115, ~38 neue Tabellen mit `tenant_id`, gestern committed). S3.2 trivy/gosec/npm audit ✅. S3.3 Dialer-Tx ✅. S3.4 Image-Pins ✅ (heute 2 Korrekturen fuer withdrawn redis 7.2.7 + minio/mc tag-rotation). S3.5 Alertmanager + Slack ✅ (`SLACK_WEBHOOK_URL` Server-Env-Set noch ausstehend, kein Blocker). S3.6 `cd.yml` ✅. **Production-Server-Deploy 2026-05-08:** Migration 81 → 115, 32 Container healthy auf `3abec5f`, 9 Hotfix-Commits zur Deploy-Infrastruktur (serial-build OOM-Fix, tenants-Tabellen-Bootstrap, redis 7.4-bump, healthcheck.sh dreifach gefixt). **Welle 2 + 3 (heute):** S3.7 Dialer-Coverage 12% → **31.8%** (Commit `1f6c4c0`, 4 neue Test-Files, Bonus-Fix `consent.ErrNoConsent` → `codes.PermissionDenied`). S3.1 Ansible-Playbook komplett (Phase 1 `a8d77fc` foundation+secrets+inventory, Phase 2A `71f7c90` app-deploy+Caddyfile.j2 mit `pilot_domain`-Templating, Phase 2B `562e9c5` turn+Let's-Encrypt+DNS-Helper). 4 Roles, 50 Ansible-Tasks insgesamt, ansible-lint production-profile **0 failures**. Tooling-Notiz: Ansible-Verifikation laeuft ueber Docker-Wrapper (`willhallonline/ansible:latest`), weil Native-Windows-Ansible nicht funktioniert. **S3.MT.4 Audit** verschoben auf Sprint 5 (laut User-Entscheidung). Gate S3 bestanden.
+**Progress Sprint 3 (Stand 2026-05-08, abgeschlossen):** ✅ **8/8 Tasks done.** S3.MT.2 Option-B Phase 2 ✅ (Migrations 000114+115, ~38 neue Tabellen mit `tenant_id`, gestern committed). S3.2 trivy/gosec/npm audit ✅. S3.3 Dialer-Tx ✅. S3.4 Image-Pins ✅ (heute 2 Korrekturen fuer withdrawn redis 7.2.7 + minio/mc tag-rotation). S3.5 Alertmanager + Discord ✅ (`ALERT_WEBHOOK_URL` Server-Env-Set + GitHub-Secret-Update noch ausstehend nach 2026-05-09-Refactor, kein Blocker). S3.6 `cd.yml` ✅. **Production-Server-Deploy 2026-05-08:** Migration 81 → 115, 32 Container healthy auf `3abec5f`, 9 Hotfix-Commits zur Deploy-Infrastruktur (serial-build OOM-Fix, tenants-Tabellen-Bootstrap, redis 7.4-bump, healthcheck.sh dreifach gefixt). **Welle 2 + 3 (heute):** S3.7 Dialer-Coverage 12% → **31.8%** (Commit `1f6c4c0`, 4 neue Test-Files, Bonus-Fix `consent.ErrNoConsent` → `codes.PermissionDenied`). S3.1 Ansible-Playbook komplett (Phase 1 `a8d77fc` foundation+secrets+inventory, Phase 2A `71f7c90` app-deploy+Caddyfile.j2 mit `pilot_domain`-Templating, Phase 2B `562e9c5` turn+Let's-Encrypt+DNS-Helper). 4 Roles, 50 Ansible-Tasks insgesamt, ansible-lint production-profile **0 failures**. Tooling-Notiz: Ansible-Verifikation laeuft ueber Docker-Wrapper (`willhallonline/ansible:latest`), weil Native-Windows-Ansible nicht funktioniert. **S3.MT.4 Audit** verschoben auf Sprint 5 (laut User-Entscheidung). Gate S3 bestanden.
 
 **Ende Sprint 3:** Alle ~50 Tabellen mit tenant_id + RLS, Ansible-Playbook mit Option-B deployt eine Pilot-Instanz in <30 Min, CI hat trivy/gosec/npm audit gruen.
 
@@ -290,7 +290,7 @@ Quelle: Rigorosum Runde 1 (wild-wren, 2026-04-18) + Rigorosum Runde 2 Vertiefung
 | R1-P1.2 | Dependency-Security-Scans in CI | Pending | S3 |
 | R1-P1.3 | Dialer LogCallOutcome Transaktion | Pending | S3 |
 | R1-P1.4 | Prod-Image-Tags pinnen | Pending | S3 |
-| R1-P1.5 | Alertmanager + Slack | Pending | S3 |
+| R1-P1.5 | Alertmanager + Discord (Slack-Compat) | Pending | S3 |
 | R1-P1.6 | cd.yml Auto-Deploy | Pending | S3 |
 | R1-P1.7 | Input-Validation-Framework | Pending | S4 |
 | R1-P1.8 | Dialer-Coverage 12 → 30% | Pending | S3 |
@@ -435,7 +435,7 @@ Jeder Sprint endet mit einem harten Gate. Ohne gruenes Gate kein Fortschritt.
 - [ ] Ansible-Playbook: `ansible-playbook bootstrap-pilot.yml -i pilot-test` deployt vollstaendige Cosmi-Instanz auf frischen Hetzner-Host in <30 Min, Option-B-Schema korrekt
 - [ ] CI hat trivy+gosec+npm audit, keine High/Critical CVEs
 - [ ] Dialer-Coverage ≥30%
-- [ ] Alertmanager sendet Test-Alert in Slack
+- [ ] Alertmanager sendet Test-Alert in Discord (`#cosmi-prod-alerts` via `ALERT_WEBHOOK_URL` mit `/slack`-Suffix)
 - [ ] cd.yml deployt automatisch bei main-merge
 
 ### Gate S4 (2026-06-21)

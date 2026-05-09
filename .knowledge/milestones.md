@@ -47,7 +47,7 @@ Smoke-Test 12/21 PASS (9 known-broken Tests deferred — siehe MEMORY `project_s
 | S3.2 CI Security-Scans | ✅ gosec + trivy + npm audit |
 | S3.3 Dialer LogCallOutcome Tx | ✅ UpdateSessionWithEvent atomic |
 | S3.4 Image-Tags pinnen | ✅ + 2 Welle-1-Korrekturen (redis 7.4, minio/mc Tag-Rotation) |
-| S3.5 Alertmanager + Slack | ✅ (`SLACK_WEBHOOK_URL` Server-Set noch offen, kein Blocker) |
+| S3.5 Alertmanager + Discord | ✅ (Slack→Discord-Refactor 2026-05-09: Variable `ALERT_WEBHOOK_URL`, Discord-Slack-Compat-Mode. Server-Env-Set + GitHub-Secret-Update noch offen, kein Blocker) |
 | S3.6 cd.yml Auto-Deploy | ✅ workflow_run-Trigger |
 | S3.7 Dialer-Coverage 12% → 30% | ✅ `1f6c4c0` (31.8% real) |
 

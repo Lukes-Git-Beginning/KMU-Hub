@@ -56,10 +56,11 @@ GF_SECURITY_ADMIN_PASSWORD=CHANGE_ME_GRAFANA_PASSWORD
 GF_USERS_ALLOW_SIGN_UP=false
 
 # ===== ALERTING =====
-# Alertmanager Slack webhook for production alerts (DBConnectionsHigh, etc.)
-# Get from https://api.slack.com/messaging/webhooks
+# Alertmanager webhook for production alerts (ServiceDown, HighErrorRate, DBConnectionsHigh).
+# Slack-format payload — Discord's slack-compatible endpoint works:
+#   https://discord.com/api/webhooks/<id>/<token>/slack   (note the /slack suffix)
 # If empty, Alertmanager runs without sending alerts (no crash, but no notifications).
-SLACK_WEBHOOK_URL=
+ALERT_WEBHOOK_URL=
 
 # ===== OPTIONAL INTEGRATIONS =====
 # Uncomment and fill in as needed:

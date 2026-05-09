@@ -1,6 +1,6 @@
 ---
 tags: [deployment, docker, ci-cd]
-updated: 2026-05-08
+updated: 2026-05-09b
 ---
 # Deployment & Infrastruktur
 
@@ -80,7 +80,7 @@ Datei: `deploy/docker/docker-compose.yml`
 - **Environment:** `production` (GitHub Environment Protection)
 - SSH auf Hetzner-Server, fuehrt `deploy.sh` aus
 - Post-Deploy: Remote Health Check via curl gegen `https://app.zentria.tech/health` + Slack-Notify bei Erfolg/Fehler
-- **Secret:** `HETZNER_SSH_KEY`, `SLACK_WEBHOOK_URL`
+- **Secret:** `HETZNER_SSH_KEY`, `ALERT_WEBHOOK_URL` (Discord-Webhook im Slack-Compat-Mode, siehe Alertmanager-Block unten)
 
 ## Deploy Scripts (`deploy/scripts/`)
 
@@ -102,7 +102,7 @@ Flow: `lock → snapshot → backup → pull → build → migrate → rolling r
 
 **Gefixt in Welle-1-Marathon (2026-05-08, 9 Hotfix-Commits):**
 - `089c2d4` rollback.sh-Service-Liste auf alle 25 Sprint-2-Services erweitert (vorher 10)
-- `f4add92` `SLACK_WEBHOOK_URL=` Slot in PRODUCTION_TEMPLATE (Alertmanager-Slack-Pfad)
+- `f4add92` `SLACK_WEBHOOK_URL=` Slot in PRODUCTION_TEMPLATE (Alertmanager-Webhook-Pfad — 2026-05-09 in Discord-Refactor zu `ALERT_WEBHOOK_URL` umbenannt)
 - `53dd5b6` Step 3 Build laeuft jetzt **seriell** (`for svc in app_services; do compose build $svc; done`) — parallel-bake killt 16-GB-Hosts mit OOM
 - `c7a9a76` Migration 000114: `CREATE TABLE IF NOT EXISTS tenants` als Bootstrap am Anfang (FK-Resolution-Fix; vorher referenzierten 000114+115 `tenants(id)` ohne dass die Tabelle je angelegt war)
 - `3c1ffcd` redis Pin auf 7.4-alpine (vorher 7.2.7 — RDB-v12 von 7.4+ unlesbar)
@@ -115,7 +115,7 @@ Flow: `lock → snapshot → backup → pull → build → migrate → rolling r
 - `livekit`/`livekit-egress` Restart bei Deploy → manuell `$COMPOSE up -d --force-recreate livekit livekit-egress` nach Script.
 - Auto-Rollback `$DATABASE_URL` als Shell-Var (nicht aus env-file) — vor Script `source .env.production` noetig.
 - Auto-Rollback rebuilds redundant wenn `PREV_SHA == NEW_SHA` (followup).
-- `SLACK_WEBHOOK_URL` fehlt noch in `/opt/kmuhub/.env.production` auf dem Server — Alertmanager laeuft stumm. Manuelles Set noetig.
+- `ALERT_WEBHOOK_URL` muss noch in `/opt/kmuhub/.env.production` auf dem Server gesetzt werden — Alertmanager laeuft sonst stumm. Architektur seit Discord-Refactor (2026-05-09): `alertmanager.yml.tmpl` wird von `render-configs.sh` mit `envsubst '$ALERT_WEBHOOK_URL'` gerendert, leerer Wert → `slack_api_url: ""` (Alertmanager startet sauber, sendet nur nicht). Discord-Webhook fuer `#cosmi-prod-alerts` im zentria-intel-Server, **`/slack`-Suffix angehaengt** fuer Slack-Format-Kompatibilitaet. Aktivierung: Webhook in `.env.production` setzen + `render-configs.sh` + Alertmanager-Restart (oder voller `deploy.sh`-Run).
 
 ### rollback.sh — Manueller Rollback
 - `./rollback.sh` — Rollback zum vorherigen Deploy (aus deploy-history.log)
@@ -134,7 +134,7 @@ Laeuft ohne Go-Toolchain auf jedem Server, <30 Sekunden.
 | CRM CRUD (3) | POST, GET, DELETE /contacts |
 | Security (3) | Unauth 401, CORS-Headers, HSTS |
 | Performance (3) | /health <500ms, /auth/login <2s, /contacts <1s |
-| Cross-Service (2) | Chat-Channel, Dashboard |
+| Cross-Service (2) | Chat-Channel (POST `is_private: false`), Dashboard (`/api/v1/dashboard/layout`) |
 | Berichte (3) | GET /berichte/definitions, POST /run, POST /export?format=pdf (MIME-Check) — gated durch `modules.berichte`, 404 akzeptiert wenn Flag OFF |
 
 Flags: `--base-url URL`, `--verbose`, `--expect-version SHA`
@@ -178,7 +178,7 @@ Auf dem Prod-Server waren zwei Dateien lokal gepatched (`livekit.yaml` + `docker
 | 2 | Backend `/health` HEAD-Support | ✅ **erledigt** — `RegisterHealth` registriert GET+HEAD (`backend/internal/server/http.go:46-47`) |
 | 3 | `formulare`-Service `/health` registrieren | ✅ **erledigt** — Service nutzt `/health` wie alle anderen (`backend/cmd/formulare/main.go:86`) |
 | 4 | `deploy.sh` `livekit`+`livekit-egress` in Rolling-Restart-Liste | ✅ **erledigt** in main |
-| 5 | `livekit.yaml` Template-Renderer | ✅ **erledigt** — `deploy/scripts/render-configs.sh` + `deploy.sh` Step 2.5 |
+| 5 | `livekit.yaml` Template-Renderer | ✅ **erledigt** — `deploy/scripts/render-configs.sh` + `deploy.sh` Step 2.5. Erweitert 2026-05-09 (`68c0f99`) um `alertmanager.yml.tmpl` (Volume-Mount-Pfad interpoliert `${ALERT_WEBHOOK_URL}` nie, jetzt envsubst-Render). Discord-Refactor 2026-05-09b: Variable von `SLACK_WEBHOOK_URL` zu `ALERT_WEBHOOK_URL` (provider-agnostisch, Discord-Slack-Compat-Mode via `/slack`-Suffix). |
 | 6 | `deploy.sh` Sprint-2-Services in Rolling-Restart (Welle 0 Sprint 3) | ✅ **erledigt 2026-05-08** — inventar/einkauf/produktion/vertraege/rapporte/schichten/fuhrpark/vermietung in beiden Listen (deploy + rollback) |
 | 7 | Backup-Cron Root-Cause `/var/log/kmuhub-backup.log` | ⏭ Server-Operations (eigener Block) |
 | 8 | `jq` auf Prod-Server installieren | ⏭ Server-Operations (eigener Block) |
@@ -208,7 +208,7 @@ Konfiguriert als `command:` Args im postgres Service.
 - **HTTPS:** Caddy + Let's Encrypt, HSTS, HTTP/2
 - **Firewall:** Hetzner Cloud Firewall `kmuhub-fw` (7 Regeln: SSH/80/443/7880/7881/7882-UDP/ICMP, Source Any IPv4+IPv6)
 - **Monitoring:** Prometheus + Grafana + Alertmanager (alle localhost-only, SSH-Tunnel)
-- **Alertmanager:** `prom/alertmanager:v0.27.0`, Port 9093, Config `deploy/docker/alertmanager.yml` — Slack-Alerts via `${SLACK_WEBHOOK_URL}` (`.env.production`), 3 Rules: ServiceDown (2m), HighErrorRate (5%), DBConnectionsHigh (80% max_connections)
+- **Alertmanager:** `prom/alertmanager:v0.27.0`, Port 9093, Config wird zur Deploy-Zeit aus `deploy/docker/alertmanager.yml.tmpl` via `render-configs.sh` (Step 2.5 in `deploy.sh`) gerendert (`alertmanager.yml` ist `.gitignore`d). Webhook via `${ALERT_WEBHOOK_URL}` aus `.env.production` — Discord-Webhook im **Slack-Compat-Mode** (URL endet auf `/slack`), Receiver `slack_configs` bleibt unveraendert. Channel `#cosmi-prod-alerts` im zentria-intel-Discord-Server. Empty → `slack_api_url: ""`, Service startet sauber ohne Notifications. 3 Rules: ServiceDown (2m), HighErrorRate (5%), DBConnectionsHigh (80% max_connections).
 
 ### TURN-Server CAX11 (seit 2026-04-19)
 - **Server:** CAX11 (ARM Ampere, 2 vCPU, 4GB RAM, 40GB SSD, 20TB Traffic, ~€3.80/M), Ubuntu 24.04, Falkenstein (fsn1)

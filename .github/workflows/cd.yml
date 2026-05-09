@@ -76,17 +76,17 @@ jobs:
           COMMIT=$(echo "$HEALTH" | jq -r '.commit // "unknown"' 2>/dev/null)
           echo "Deployed version: $VERSION (commit: $COMMIT)"
 
-      - name: Notify Slack on success
+      - name: Notify Discord on success
         if: success()
         run: |
-          curl -s -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+          curl -s -X POST "${{ secrets.ALERT_WEBHOOK_URL }}" \
             -H 'Content-type: application/json' \
             --data "{\"text\":\":white_check_mark: Deploy to production succeeded — commit \`${{ github.sha }}\`\"}"
 
-      - name: Notify Slack on failure
+      - name: Notify Discord on failure
         if: failure()
         run: |
-          curl -s -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+          curl -s -X POST "${{ secrets.ALERT_WEBHOOK_URL }}" \
             -H 'Content-type: application/json' \
             --data "{\"text\":\":x: Deploy to production FAILED — commit \`${{ github.sha }}\` — check <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|the run>\"}"
 
