@@ -178,6 +178,29 @@ else
     fail "GET /auth/me skipped (no token)" ""
 fi
 
+# 8b. Bootstrap smoke user to manager role (optional — requires SMOKE_ADMIN_TOKEN).
+# Default registration assigns the read-only 'member' role, which makes the
+# subsequent CRUD tests fail with 403. Setting SMOKE_ADMIN_TOKEN to a
+# long-lived admin JWT (e.g. as a CI secret + .env.production entry) lets the
+# smoke run upgrade the just-registered user to 'manager' so the CRUD
+# assertions actually exercise the write path.
+if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" && -n "$SMOKE_USER_ID" && "$SMOKE_USER_ID" != "null" ]]; then
+    if [[ -n "${SMOKE_ADMIN_TOKEN:-}" ]]; then
+        ROLE_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            "$BASE_URL/api/v1/auth/users/$SMOKE_USER_ID/roles" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $SMOKE_ADMIN_TOKEN" \
+            -d '{"role":"manager"}' 2>/dev/null || echo "000")
+        if [[ "$ROLE_CODE" =~ ^(200|201|204)$ ]]; then
+            pass "Bootstrap smoke user to manager (role upgrade $ROLE_CODE)"
+        else
+            fail "Role upgrade returned $ROLE_CODE — CRUD tests will fail with 403" ""
+        fi
+    else
+        echo "  [SKIP] Role bootstrap — SMOKE_ADMIN_TOKEN not set; Tests 9/10/11 will return 403"
+    fi
+fi
+
 # ==========================================
 # CRM CRUD Tests (3)
 # ==========================================
