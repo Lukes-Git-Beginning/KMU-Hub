@@ -3,9 +3,13 @@
 #
 # Currently handles:
 #   - deploy/docker/livekit-secrets.yaml.tmpl -> livekit-secrets.yaml
+#   - deploy/docker/alertmanager.yml.tmpl    -> alertmanager.yml
 #
 # Required env vars (whitelist passed to envsubst):
 #   LIVEKIT_API_KEY, LIVEKIT_API_SECRET
+#
+# Optional env vars (allowed to be empty):
+#   SLACK_WEBHOOK_URL — empty means Alertmanager runs without notifications
 #
 # Run before `docker compose up` so mounted overlay files exist.
 # Idempotent — safe to run multiple times.
@@ -56,6 +60,29 @@ envsubst '$LIVEKIT_API_KEY $LIVEKIT_API_SECRET' < "$TMPL" > "$OUT"
 if grep -q '\${LIVEKIT' "$OUT"; then
   echo "ERROR: Unresolved placeholder in $OUT — env-var substitution failed" >&2
   exit 1
+fi
+
+# Render alertmanager.yml from template (SLACK_WEBHOOK_URL is optional).
+# Empty value yields `slack_api_url: ""` which Alertmanager accepts —
+# alerts simply aren't sent until the webhook is provided.
+ALERT_TMPL="$DOCKER_DIR/alertmanager.yml.tmpl"
+ALERT_OUT="$DOCKER_DIR/alertmanager.yml"
+
+if [ ! -f "$ALERT_TMPL" ]; then
+  echo "ERROR: Template not found: $ALERT_TMPL" >&2
+  exit 1
+fi
+
+log "Rendering $ALERT_TMPL -> $ALERT_OUT"
+SLACK_WEBHOOK_URL="${SLACK_WEBHOOK_URL:-}" envsubst '$SLACK_WEBHOOK_URL' < "$ALERT_TMPL" > "$ALERT_OUT"
+
+if grep -q '\${SLACK_WEBHOOK_URL' "$ALERT_OUT"; then
+  echo "ERROR: Unresolved placeholder in $ALERT_OUT — env-var substitution failed" >&2
+  exit 1
+fi
+
+if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+  log "WARNING: SLACK_WEBHOOK_URL empty — Alertmanager will run without notifications"
 fi
 
 log "Done."
