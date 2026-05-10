@@ -1,10 +1,10 @@
 ---
 tags: [index]
-updated: 2026-05-08
+updated: 2026-05-10
 ---
 # Cosmi — Knowledge Base
 
-## Projektstand (2026-05-08)
+## Projektstand (2026-05-10)
 - **Sprint 0 abgeschlossen:** Alle 7 R1-P0-Blocker + Cleanup + Modul-Scope-Matrix gemerged (9 PRs), Gate S0 bestanden
 - **Sprint 1 abgeschlossen (2026-04-26):** 7/7 Module live + 5/5 R2-P0 Batch A done, Gate S1 bestanden
 - **Sprint 2 Welle 1 done (2026-04-26):** inventar/einkauf/produktion + 20-Blocker-Bugfix-Sweep (`ad04191`) auf main
@@ -15,6 +15,7 @@ updated: 2026-05-08
 - **Sprint 2 Welle 4A done (2026-04-29):** ✅ `4ff5fa2 feat(welle4a): wire repos with tenantID + idempotency client coverage` — 4 parallele Sonnet-Subagents, 109 Files. Backend: Repository-Layer-Wirings ueber automation/chat/crm/dialer/document/email/inbox/security/work-Domaenen + 10 gRPC-Handler auf `middleware.GetTenantID(ctx)` umgestellt. Frontend: neuer `api/utils/authenticatedFetch.ts`-Helper, 32 API-Clients refactored, neue 29-Case Idempotency-Coverage-Test-Suite. Build+Vet+Test+tsc+npm test gruen (202/202). Details: [[milestones]].
 - **Sprint 2 Welle 4B done (2026-05-07):** ✅ Drei Sub-Wellen, 10 Sonnet-Subagents, 2 Commits `b868fb6` + `1b1eb37` — 114 Files kumuliert. 5 neue Migrations 000109-000113 (Calendar/Email/Inbox/Notification/Security/CRM-Aux/Automation-Exec/Channels-Memberships, ~49 tenant_id-Spalten + JOIN-Backfill + Idempotency partial Index). 16+ Repository-Wirings + 13 gRPC-Handler. Idempotency `Complete()`-Composite-PK-Fix + HardMode-Env-Flag (Default WarnMode, Dev-Default Hard). 12 Cross-Tenant-Tests + 3 finance JSONB-Tests + 8 P2-Followups integral. 4B.3-Sweep schloss 2 P0 (StartRecording uuid.Nil, crm_grpc 12x Spoof) + 3 P1 + integral F10. 4 P2/P3 deferred in `docs/sprint2-welle4b-followups.md`. Build+Vet+Test+tsc+npm test gruen (202/202). Details: [[milestones]].
 - **Sprint 3 abgeschlossen (2026-05-08):** ✅ **8/8 Tasks done.** Welle-Tagesgesamt: 14 Direct-to-Main-Commits. **Welle 0+1 (Marathon):** 9 Hotfix-Commits zur Deploy-Infrastruktur (rollback.sh-Service-Liste, Alertmanager-Webhook-Template, serial-build OOM-Fix, **tenants-Tabellen-Bootstrap in 000114**, redis 7.4-bump, minio/mc image-rotation, healthcheck.sh dreifach gefixt) + Production-Server **Migration 81 → 115 deployed**, 32 Container healthy auf `3abec5f`. **Welle 2:** `1f6c4c0` (Dialer-Coverage 12% → 31.8% + Bonus-Fix `consent.ErrNoConsent` → `codes.PermissionDenied`) + `a8d77fc` (ansible foundation+secrets, 19+2 Tasks, 12 generierte Secrets). **Welle 3:** `71f7c90` (ansible app-deploy + Caddyfile.j2, 15 Tasks) + `562e9c5` (ansible turn + DNS-Helper, 14 Tasks). **Welle 4:** `d8f917e` ROADMAP-Closure. 4 Ansible-Roles, 50 Tasks, ansible-lint **production-profile 0 failures**. Tooling: Docker-Wrapper (`willhallonline/ansible:latest` + `MSYS_NO_PATHCONV=1`) weil Native-Windows-Ansible nicht funktioniert. Details: [[milestones]] + [[deployment]] + [[testing]] + [[troubleshooting]].
+- **Sprint 4 Welle 0.5/0.6/1 abgeschlossen (2026-05-10):** ✅ **RLS-Foundation live in Production** — Migration-Head **`119`**, Code `25af970`, 14/14 Container healthy. Welle 0.5: tenant-default fix + Migration 117 + CORS. Welle 0.6: gRPC-Tenant-Foundation chat-service + channel_memberships-Wiring-Gap-Fix. Welle 1: Migration 118 RLS-Helpers/Procedures, Migration 119 Child-Tabellen-Backfill (4 Dialer/Recording-Tabellen + consent_records NOT NULL), 13 stille NOT-NULL-Wiring-Gaps geschlossen, gRPC-Tenant-Inbound-Interceptor in 4 Pilot-0-Services (auth/crm/dialer/work), 28 grpc-default-Branches mit slog. **--skip-smoke-Flag** in deploy.sh als Notbremse fuer False-Positive-Smoke-Cascades. Drei neue Production-Lessons (psql-User=kmuhub, Migration-Backfill-Spalten verifizieren, Auto-Rollback rollback nur Code → Drift moeglich). Details: [[milestones]] + [[datenbank]] + [[security]] + [[architektur]] + [[troubleshooting]] + [[deployment]].
 - **Launch-Datum:** **2026-07-01** (+4 Wochen nach Rigorosum Runde 2)
 - **Alle 20 Feature-Phasen abgeschlossen** (103/103 Plans)
 - **Branding:** "Cosmi" (Software), "Zentria" (Firma), zentria.tech

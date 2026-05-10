@@ -1,8 +1,48 @@
 ---
 tags: [troubleshooting, debug]
-updated: 2026-05-09c
+updated: 2026-05-10
 ---
 # Troubleshooting & Bekannte Probleme
+
+## Production-DB-Zugriff (Sprint 4 Welle 1 Lesson)
+
+**psql-User ist `kmuhub`, nicht `postgres`.** `docker-compose.yml` setzt `POSTGRES_USER: kmuhub` und `POSTGRES_DB: kmuhub`. Default-`postgres`-Role existiert nicht in der Production-DB. Manuelle ad-hoc-SQL-Commands:
+
+```bash
+sudo docker compose --env-file /opt/kmuhub/.env.production \
+  -f /opt/kmuhub/deploy/docker/docker-compose.yml \
+  -f /opt/kmuhub/deploy/docker/docker-compose.prod.yml \
+  exec -T postgres psql -U kmuhub -d kmuhub -c "SELECT ..."
+```
+
+`-U postgres` crasht mit `FATAL: role "postgres" does not exist`.
+
+## Auto-Rollback-Drift (Sprint 4 Welle 1 Lesson)
+
+`deploy.sh` Auto-Rollback bei Smoke-Failure rollback **nur Code, nicht DB-Migrations**. Wenn die fehlgeschlagene Welle eine Schema-Änderung enthielt (z.B. NOT-NULL-Spalte), entsteht Drift: DB hat die Spalte, Code kennt sie nicht → naechste INSERT crasht.
+
+**Triage bei Smoke-Fail nach Schema-Aenderung:**
+1. Pruefen ob Smoke-Failure echtes Problem oder False-Positive (z.B. `SMOKE_ADMIN_TOKEN` expired, OnlyOffice known issue).
+2. Wenn False-Positive: `deploy.sh --skip-smoke` als Forward-Fix. Code+Schema kommen wieder ueberein.
+3. Wenn echtes Problem: vor `--skip-smoke` erst echten Bug fixen, sonst kettenwirkung.
+
+`--skip-smoke` ist die Notbremse, sparingly nutzen — der Smoke ist die letzte Schutzschicht vor Prod-Regression.
+
+## Migration-Backfill-Spaltennamen IMMER verifizieren (Sprint 4 Welle 1 Lesson)
+
+Migration 000119 wurde anhand von Welle-0.6-Pattern geschrieben, aber `dialer_call_events.session_id` war eine Annahme — echte Spalte heisst `dialer_call_session_id`. Crash beim Production-Deploy, dirty `schema_migrations`-Tabelle.
+
+**Pre-Flight vor Migrations mit Backfill-JOINs:**
+```bash
+grep -A20 "CREATE TABLE.*<table>" backend/migrations/*.sql
+```
+Spaltennamen visuell verifizieren, nicht annehmen. golang-migrate killt sonst die Tx in der Mitte und hinterlaesst die Migration als `version=N, dirty=true`.
+
+**Recovery aus dirty=true:**
+```bash
+psql -U kmuhub -d kmuhub -c "UPDATE schema_migrations SET version=<previous>, dirty=false;"
+# dann re-deploy mit gefixter Migration
+```
 
 ## Architektur-Fehler (NICHT wiederholen)
 Aus Vorgaenger-Projekt (slot_booking_webapp) gelernt:

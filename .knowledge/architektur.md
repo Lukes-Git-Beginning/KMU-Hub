@@ -1,6 +1,6 @@
 ---
-tags: [architektur, backend, frontend, ci-cd]
-updated: 2026-05-08
+tags: [architektur, backend, frontend, ci-cd, rls]
+updated: 2026-05-10
 ---
 # Architektur
 
@@ -211,6 +211,27 @@ Modul-spezifische Patterns:
 - **Approval-State-Machine (`rapporte`):** `Draft → Submitted → Approved/Rejected`, nach Approved blockt jeder Edit/Rollback (`ErrAlreadyApproved`).
 
 Subagent-Strategie: 4 parallele Sonnet-Subagents schreiben direkt auf main, Done-Reports max 200 Worte. Race-Risiken auf shared Files (`config.go`, `cmd/gateway/main.go`, `docker-compose.yml`) wurden durch Edit-Tool-Konfliktdetection aufgeloest. Self-Commit-Anomalie: ein Subagent (fuhrpark) hat eigenmaechtig commited — fuer kuenftige Briefings explizit `kein git add/commit` ergaenzen. Details: `memory/project_sprint2_welle2.md`.
+
+## Sprint 4 Welle 1 — RLS-Foundation + Wiring-Gap-Sweep + Pilot-0-Interceptor + Error-Mapper-Audit (2026-05-10)
+
+7 Direct-to-Main-Commits, live in Production auf `25af970` mit Migration-Head 119. Welle 1 legt die Foundation für Row-Level-Security (Aktivierung kommt in Welle 2), schliesst 13 stille NOT-NULL-Wiring-Gaps aus Welle 4B und macht den `mapChatError`-Antipattern (Welle 0.6) systemweit unmöglich.
+
+| Commit | Inhalt |
+|--------|--------|
+| `e4568f0 feat(welle1a)` | Migration 118 RLS-Foundation: `current_tenant_id/user_id/role`, `is_system_context`, `enable_tenant_rls()/_via_join()` Procedures, Database-GUC-Defaults. Pool-Layer: `database.WithSystemContext` + `database.BeginRLSTx` (set_config LOCAL). `postgres.go` AfterRelease-Reset. 10 Worker-Sites (`berichte/scheduler`, `automation/trigger.poller`, `fuhrpark/worker`, `email/sync.worker+engine`, `vertraege`, `formulare`, `biz/lexware+bexio`, `inbox/StartSnoozeWorker`) wrappen Entry-Context mit `WithSystemContext`. |
+| `0bc867e feat(welle1b-stream-c)` | Wiring für 7 Tabellen (Stream C, vom Sub-Agent eigenmächtig commited): `automation_executions`, `task_entity_links`, `task_custom_field_values`, `user_project_preferences`, `document_file_versions`, `document_shares`, `document_tags`. Service-Sigs erweitert: `task.SetCustomFieldValues(tenantID)`, `tag.CreateTag(tenantID)`. |
+| `f501d97 feat(welle1b)` | Stream A+B + Migration 119. Wiring für 8 weitere Tabellen: `UserSession`, `RecoveryCode`, `AppSpecificPassword`, `PushSubscription`, `ChatFile`, `Mention`, `GuestSession`/`GuestChannelConfig`, `CallSession`/`CallParticipant`. Migration 119 backfilled `dialer_campaign_contacts/agent_status_log/call_events + recording_consents` (siehe [[datenbank]]) + promotet `consent_records.tenant_id` auf NOT NULL. Service-Sigs: `auth.session.CreateSession(tenantID)`, `auth.totp.generateRecoveryCodes(tenantID)`, `caldav.AppPasswordService.Create(tenantID)`. INSERT-SELECT-Trick für `message_reactions` (Tenant aus Parent-Message via Subquery, kein Interface-Bruch). |
+| `9e2a9fa feat(welle1c)` | 28 grpc-Default-Branches in 23 `*_grpc.go`-Files mit `slog.Error("unhandled <service> service error", "error", err)` versehen. Pattern aus `chat_grpc.go` `mapChatError` (3d6ff8d). 17 BORDERLINE-Branches verlieren zusätzlich den `err.Error()`-Leak im gRPC-Status. 20 Files mit `log/slog`-Import erweitert. |
+| `ba93d9d feat(welle1d)` | `middleware.TenantInboundUnaryInterceptor` in 4 Pilot-0-Services (`cmd/auth`, `cmd/crm`, `cmd/dialer`, `cmd/work`) wired. Gateway-Outbound-Interceptor war seit Welle 0.6 schon GLOBAL aktiv (`internal/gateway/registry.go:94`). Auth-Service-Edge-Case dokumentiert: Login/Register/RefreshToken/AcceptInvitation/Validate2FALogin sind unauthenticated, brauchen Whitelist falls Welle 5 den Interceptor hardenet. Neue `internal/middleware/grpc_tenant_test.go` mit 4 Unit-Tests. |
+| `043dd53 fix(welle1b)` | Hotfix nach Production-Deploy-Crash: `dialer_call_events.dialer_call_session_id` (echter Spaltenname, nicht `session_id`). Migration 119 Backfill-JOIN korrigiert. |
+| `25af970 feat(deploy)` | `--skip-smoke`-Flag in deploy.sh — Notbremse für False-Positive-Smoke-Cascades wenn DB schon forward gewandert ist und Auto-Rollback Drift erzeugen würde (siehe [[deployment]] + [[troubleshooting]]). |
+
+**Welle-1-Pattern für künftige RLS-Wellen:** Migration mit `enable_tenant_rls('<table>')` → Repository-INSERT-Wiring (Spalte + Bind) → Service-Konstruktion mit `middleware.GetTenantID(ctx)` ODER `parent.TenantID` → Cross-Tenant-Test in `tenant_isolation_test.go` (Pattern aus Welle 4B `b868fb6`). System-Operationen (Worker, Migrations, Audit-Inserts) wrappen Entry-Context mit `database.WithSystemContext(ctx)`.
+
+**Cross-Stream-Lessons:**
+- Sub-Agents committen gelegentlich eigenmächtig trotz expliziter "do not commit"-Anweisung (Stream C in dieser Welle, fuhrpark in Welle 2A). Bei parallelen Wellen einkalkulieren.
+- 5 parallele Streams produzierten 4 Cross-Stream-Compile-Konflikte (Service-Signaturen erweitert, Tests/Adapter nicht mitgezogen). Hauptsession patcht im Konsolidierungs-Pass.
+- Production-Deploy hatte 3 Anläufe: Migration-119-Spaltenname-Bug → Hotfix → Smoke-False-Positive (SMOKE_ADMIN_TOKEN expired) → Auto-Rollback zog Code zurück aber NICHT Migrations → Drift → `--skip-smoke`-Flag als finaler Forward.
 
 ## Sprint 2 Welle 4B — Option-B Phase 2 + Idempotency HardMode-Bereitschaft (2026-05-07)
 

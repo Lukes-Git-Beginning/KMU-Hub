@@ -1,10 +1,10 @@
 ---
 tags: [deployment, docker, ci-cd]
-updated: 2026-05-09b
+updated: 2026-05-10
 ---
 # Deployment & Infrastruktur
 
-> **Aktueller Prod-Stand (2026-05-08):** `app.zentria.tech` auf `3abec5f`, Migration-Head **115**, alle 25 Application-Services + Caddy + Postgres + Redis (7.4) + MinIO + Prometheus + Grafana + Alertmanager healthy (32 Container). Welle-1-Marathon-Deploy 81→115 mit 9 Hotfix-Commits dokumentiert in MEMORY `project_sprint3_welle1_deploy.md`. OnlyOffice unhealthy seit 2 Monaten (separater Bug, kein Pilot-Blocker). **Lokal/main = Prod synchron** — kein Migration-Drift mehr.
+> **Aktueller Prod-Stand (2026-05-10 nach Sprint 4 Welle 1):** `app.zentria.tech` auf `25af970`, Migration-Head **119**, alle 14 Pflicht-Services healthy (Gateway+Auth+CRM+Chat+Notification+Work+Email+Document+Biz+Automation+Plugin+PostgreSQL+Redis+Caddy). Welle 1 brachte: RLS-Foundation (Migration 118), Child-Backfill 4 Tabellen (Migration 119), gRPC-Tenant-Inbound-Interceptor in 4 Pilot-0-Services (auth/crm/dialer/work), 28 grpc-default-Branches mit slog. Drei Deploy-Anlaeufe noetig: Migration-119-Spaltenname-Bug (`session_id`→`dialer_call_session_id`) → Hotfix → Smoke-False-Positive (SMOKE_ADMIN_TOKEN expired) → Auto-Rollback erzeugte Code-DB-Drift → `--skip-smoke`-Flag als Forward-Fix. OnlyOffice unhealthy seit 2 Monaten (separater Bug, kein Pilot-Blocker). **Lokal/main = Prod synchron** — kein Migration-Drift mehr.
 >
 > **skip-worktree-Status (Stand 2026-05-08 nach Welle-1-Marathon):** keine aktiven Markierungen mehr. `livekit.yaml`-Patch aus alter Era ist obsolet (livekit-secrets.yaml-render-overlay ersetzt das per `render-configs.sh` in `deploy.sh` Step 2.5).
 >
@@ -89,11 +89,11 @@ Flow: `lock → snapshot → backup → pull → build → migrate → rolling r
 - **Deployment Lock:** PID-File (`/opt/kmuhub/.deploy.lock`), verhindert parallele Deploys
 - **Pre-Deploy Snapshot:** `PREV_SHA` + Migrations-Stand
 - **Build-Args:** `--build-arg BUILD_VERSION/BUILD_COMMIT/BUILD_TIME` für ldflags
-- **Auto-Rollback:** Bei Health-Check- oder Smoke-Failure: checkout PREV_SHA, migrate down, rebuild, restart
+- **Auto-Rollback:** Bei Health-Check- oder Smoke-Failure: checkout PREV_SHA, **rebuild Code, restart Container — aber KEIN `migrate down`**. Code geht zurück, DB-Schema bleibt vorne → Drift moeglich. Bei Schema-aendernden Wellen: Smoke-Failure-Triage VOR re-deploy, ggf. `--skip-smoke` als Notbremse (Welle 1 Lesson 2026-05-10).
 - **Deploy-History:** TSV-Log (`/opt/kmuhub/deploy-history.log`): timestamp, prev_sha, new_sha, status, duration
 - **No-Change Detection:** Skipped wenn SHA identisch
-- Flags: `--skip-backup`, `--service=<name>`
-- **Aufruf auf Prod:** `sudo env GIT_SSH_COMMAND='ssh -i /home/deploy/.ssh/github_deploy' /opt/kmuhub/deploy/scripts/deploy.sh` (GIT_SSH_COMMAND noetig, weil root keinen eigenen GitHub-Key hat)
+- Flags: `--skip-backup`, `--skip-smoke` (seit `25af970`, 2026-05-10), `--force`, `--service=<name>`
+- **Aufruf auf Prod:** `sudo GIT_SSH_COMMAND='ssh -i /home/deploy/.ssh/github_deploy' bash /opt/kmuhub/deploy/scripts/deploy.sh --force` (GIT_SSH_COMMAND noetig, weil root keinen eigenen GitHub-Key hat — Inline-Env-Form, sudo `env_reset` strippt sonst die Variable). Absoluter Pfad zwingend, deploy@-User landet im `/home/deploy/`.
 
 **Gefixt in `980eba3` (2026-04-19):**
 - `COMPOSE_FILES_DIR` und `ENV_FILE` getrennt vom Git-`COMPOSE_DIR` (vorher: Script suchte Compose-Files unter `/opt/kmuhub/`, die aber in `/opt/kmuhub/deploy/docker/` liegen)

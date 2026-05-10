@@ -1,8 +1,27 @@
 ---
 tags: [fortschritt, milestones]
-updated: 2026-05-08
+updated: 2026-05-10
 ---
 # Milestones
+
+## Sprint 4 Welle 1 — RLS-Foundation live in Production (2026-05-10)
+
+7 Direct-to-Main-Commits, 3 Production-Deploy-Anlaeufe. Migration-Head **119**, Code `25af970`, 14/14 Container healthy. **RLS-Foundation gelegt**, Aktivierung kommt in Welle 2.
+
+**Was ging live:**
+- Migration 118 (rls_foundation): `current_tenant_id/user_id/role`, `is_system_context`, `enable_tenant_rls()` Procedure (Standard-Policy-Generator), `enable_tenant_rls_via_join()` Fallback. ALTER DATABASE-GUC-Defaults.
+- Migration 119 (child_tables_tenant_id_backfill): 4 Dialer/Recording-Tabellen bekommen eigene `tenant_id`-Spalten + Backfill via JOIN + NOT NULL + FK valid + Index. `consent_records.tenant_id` von NULLABLE auf NOT NULL promotet.
+- Pool-Layer: `database.WithSystemContext` + `database.BeginRLSTx` + `postgres.go` AfterRelease-GUC-Reset. 10 Worker-Sites wrappen Entry-Context fuer Bypass.
+- gRPC-Tenant-Inbound-Interceptor in 4 Pilot-0-Services (auth, crm, dialer, work) — chat hatte ihn schon seit Welle 0.6.
+- 13 stille NOT-NULL-Wiring-Gaps aus Welle 4B geschlossen (UserSession, RecoveryCode, AppSpecificPassword, PushSubscription, ChatFile, Mention, GuestSession, GuestChannelConfig, CallSession, CallParticipant, automation_executions, task_entity_links, task_custom_field_values, document_*).
+- 28 grpc-default-Branches in 23 *_grpc.go-Files mit `slog.Error` versehen (mapChatError-Pattern aus Welle 0.6).
+
+**Drei Production-Deploy-Lessons** (siehe [[troubleshooting]] + [[deployment]]):
+1. psql-User in Production ist `kmuhub`, nicht `postgres`.
+2. Migration-Backfill-Spaltennamen IMMER gegen echte CREATE-TABLE-Statements verifizieren.
+3. `deploy.sh` Auto-Rollback bei Smoke-Failure rollback nur Code, nicht DB → Drift moeglich. `--skip-smoke`-Flag (`25af970`) ist Notbremse.
+
+Memory: `project_sprint4_welle1.md`. Plan-File: `~/.claude/plans/sprint-4-welle-1-lovely-rain.md`.
 
 ## Sprint 3 Closure 2026-05-08 — Welle 1 Production-Deploy + Welle 2/3 Ansible + Dialer-Coverage
 

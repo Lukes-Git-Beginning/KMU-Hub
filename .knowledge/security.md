@@ -1,8 +1,24 @@
 ---
-tags: [security, auth, compliance, gdpr]
-updated: 2026-05-08
+tags: [security, auth, compliance, gdpr, rls, multi-tenant]
+updated: 2026-05-10
 ---
 # Security & Compliance
+
+## Multi-Tenant Isolation: 4 Schichten
+
+1. **JWT-Claim** (`tid`) — Auth-Layer issued seit Welle 2D. Required, fail-closed.
+2. **HTTP-Middleware** `middleware.GetTenantID(ctx)` — extrahiert `tid` aus Request-Context, returnt `ErrMissingTenantID` bei Fehlen.
+3. **Repository-Filter** — `WHERE tenant_id = $X` in jedem SELECT/UPDATE/DELETE; `tenant_id`-Spalte+Bind in jedem INSERT.
+4. **PostgreSQL RLS** (Welle 1+, Aktivierung in Welle 2+) — Foundation seit Migration 118 in [[datenbank]]. Defense-in-Depth: selbst wenn Layer 3 vergessen wird, filtert die DB.
+
+**RLS-Helpers** (Migration 118): `current_tenant_id()`, `current_user_id()`, `current_app_role()`, `is_system_context()`. Standard-Policy-Generator: `enable_tenant_rls(table_name)` setzt `USING (tenant_id = current_tenant_id() OR is_system_context()) WITH CHECK (...)`. Pool-Layer setzt die GUCs via `database.BeginRLSTx(ctx, pool)` LOCAL pro Tx; `WithSystemContext(ctx)` markiert Worker für Bypass.
+
+## gRPC-Tenant-Trust (Welle 0.6 + Welle 1d)
+
+Gateway propagiert `tenant_id` und `user_id` als gRPC-Metadata an Backend-Services:
+- **Outbound** (`middleware.TenantOutboundUnaryInterceptor` in `internal/gateway/registry.go:94`) — seit Welle 0.6 GLOBAL für alle Service-Verbindungen.
+- **Inbound** (`middleware.TenantInboundUnaryInterceptor`) — seit Welle 0.6 in chat-service, seit Welle 1d in `cmd/auth`, `cmd/crm`, `cmd/dialer`, `cmd/work`. Restliche 16 Services in Welle 5.
+- Inbound ist **soft** (handler wird immer aufgerufen, GetTenantID liefert dann ErrMissingTenantID falls Metadata fehlt) — Login/Register/AcceptInvitation funktionieren ohne Whitelist. Falls Welle 5 hardenet: Whitelist-Methods sind `/auth.AuthService/{Login,Register,RefreshToken,AcceptInvitation,Validate2FALogin}`.
 
 ## Authentifizierung
 - JWT Access Token: 15min Expiry, Claims: `uid`, `tid` (Tenant), `roles`, `perms`

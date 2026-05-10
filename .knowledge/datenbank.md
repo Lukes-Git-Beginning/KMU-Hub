@@ -1,14 +1,46 @@
 ---
-tags: [datenbank, schema, migrations, ai-first, tenant-isolation]
-updated: 2026-05-08
+tags: [datenbank, schema, migrations, ai-first, tenant-isolation, rls]
+updated: 2026-05-10
 ---
 # Datenbank
 
 ## Überblick
 - PostgreSQL 16 mit `pgvector/pgvector:pg16`-Image + Redis 7 (nur Cache, KEIN Dual-Write)
 - Änderungen NUR via golang-migrate (`make migrate-create name=xxx`)
-- **116 Migration-Paare** in `backend/migrations/` (Sprint 1 Welle 2: 076 wiki, 077 helpdesk; Welle 5: 079 berichte; Welle 6: 080 seed_berichte_permissions; S1.3: 081 formulare; Sprint 2 Welle 1: 082 consent FK + gdpr-FK, 083+084 inventar, 085+086 einkauf, 087+088 produktion, 089+090 vertraege, 091 video; Sprint 2 Welle 2A: 092+093 rapporte, 094+095 schichten, 096+097 fuhrpark, 098+099 vermietung; Sprint 2 Welle 2C Bugfix-Sweep: 100 rapporte_approve_permission, 101 vermietung_gist_overlap_unique_inspection, 102 schichten_shift_assignments_tenant_unique, 103 schichten_shift_capacity; Sprint 2 Welle 2D: 104 users_tenant_id; Sprint 2 Welle 3: 105 idempotency_keys, 106 tenant_id_retrofit_phase1, 107 recordings_pre_consent_audit; Sprint 2 Welle 3.5: 108 idempotency_keys_composite_pk; Sprint 2 Welle 4B: 109 calendar_work_phase2, 110 email_notification_phase2, 111 security_crm_aux_phase2, 112 automation_exec_channels_phase2, 113 idempotency_complete_tenant_pk_alignment; Sprint 3 Welle 2A: 114 option_b_phase2_settings_preferences; Sprint 3 Welle 2B: 115 option_b_phase2_integrations_chat; **Pre-Sprint-4-Cleanup: 116 recording_consents_responded_at_not_null**)
-- **Prod-Stand seit 2026-05-09:** Migration-Head **`116`** (lokal+main). Migration 116 (`responded_at NOT NULL`) via Pre-Sprint-4-Cleanup-Commit `599ebb1` geaddet — laeuft bei naechstem `deploy.sh`-Run. Volume: `docker_pgdata` (nicht `docker_postgres-data`).
+- **119 Migration-Paare** in `backend/migrations/` (siehe Sprint-2/3-Liste in der vorherigen Version dieser Note für Migrations 076–116; **Sprint 4 Welle 0.5: 117 users_tenant_default_and_fk; Welle 1a: 118 rls_foundation; Welle 1b: 119 child_tables_tenant_id_backfill**)
+- **Prod-Stand seit 2026-05-10:** Migration-Head **`119`** (deployed mit Code `25af970`). Volume: `docker_pgdata` (nicht `docker_postgres-data`). psql-User in Production ist **`kmuhub`**, nicht `postgres` — siehe [[troubleshooting]].
+
+## RLS-Foundation (Migration 118, Sprint 4 Welle 1a)
+
+Sprint 4 Welle 1 hat die PostgreSQL-Row-Level-Security-Foundation eingezogen. **Noch keine Tabelle hat aktive Policy** — das ist Welle-2-Scope. Migration 118 stellt nur die Helpers bereit:
+
+- `current_tenant_id() RETURNS uuid` — STABLE, liest `app.tenant_id`-GUC, returnt NULL bei leerem oder ungültigem Setting
+- `current_user_id() RETURNS uuid` — analog für `app.user_id`
+- `current_app_role() RETURNS text` — liest `app.role`
+- `is_system_context() RETURNS boolean` — true wenn `app.role = 'system'` (Worker-Bypass)
+- `enable_tenant_rls(table_name text)` PROCEDURE — aktiviert RLS auf einer Tabelle mit Standard-Policy: `USING (tenant_id = current_tenant_id() OR is_system_context())` plus identische `WITH CHECK`. FORCE ROW LEVEL SECURITY damit auch der Owner gefiltert wird.
+- `enable_tenant_rls_via_join(child, parent, fk, parent_pk)` PROCEDURE — Fallback für Child-Tabellen die tenant transitiv via JOIN ableiten. Kein Aufruf in Welle 1, eigene Spalten bevorzugt.
+- Database-Defaults: `ALTER DATABASE kmuhub SET app.tenant_id = ''` (analog für user_id, role) damit `set_config(..., true)` LOCAL in Tx greift.
+
+## RLS-Wiring auf App-Ebene
+
+- **Pool-Hooks** in `backend/internal/database/postgres.go` `AfterRelease` resetten die GUCs beim Release der Connection — Defence-in-Depth gegen non-Tx-Pfade.
+- **Tx-Wrapper** `database.BeginRLSTx(ctx, pool)` (neu in `backend/internal/database/transaction.go`): startet Tx + setzt `app.tenant_id/user_id/role` LOCAL via `set_config(..., true)`. Tenant aus `middleware.GetTenantID(ctx)`, im System-Context (`database.WithSystemContext(ctx)`) wird `app.role='system'` gesetzt → Policy bypassed.
+- **Worker** wrappen ihren Entry-Context: 10 Sites in `berichte/scheduler`, `automation/trigger`, `fuhrpark`, `email/sync` (worker+engine), `vertraege`, `formulare`, `biz/lexware+bexio`, `inbox/message.StartSnoozeWorker`. Pattern: `ctx = database.WithSystemContext(ctx)` als erstes Statement der Run/Start-Methode.
+- **gRPC-Tenant-Trust:** Gateway-Outbound-Interceptor seit Welle 0.6 global aktiv (alle Service-Verbindungen). Welle 1d hat den Inbound-Interceptor in 4 Pilot-0-Services (auth, crm, dialer, work) wired (chat hatte ihn schon seit Welle 0.6).
+
+## Migration 119 — Child-Tabellen-Backfill (Welle 1b)
+
+Vier Child-Tabellen, die ihre Tenant-Zugehörigkeit bisher nur transitiv via FK ableiteten, bekommen eigene `tenant_id`-Spalten + Backfill via JOIN + NOT NULL + FK NOT VALID + VALIDATE + Index:
+
+- `dialer_campaign_contacts` (campaign_id → dialer_campaigns.tenant_id)
+- `dialer_agent_status_log` (campaign_id → dialer_campaigns.tenant_id, fallback user_id → users.tenant_id)
+- `dialer_call_events` (**dialer_call_session_id** → dialer_call_sessions.tenant_id; nicht `session_id` — echter Spaltenname, war Production-Bug in Anlauf 1)
+- `recording_consents` (recording_id → recordings.tenant_id)
+
+Plus `consent_records.tenant_id` von NULLABLE auf NOT NULL promotet (Spalte war seit Migration 111 da, aber nullable).
+
+Backfill-Asserts (RAISE EXCEPTION wenn nach UPDATE noch NULL-Rows existieren) decken Orphan-FK-Rows auf — wenn Migration crasht, ist die DB in keinem inkonsistenten State.
 - Index-Konvention: `idx_{table}_{column}`
 - **AI-First-Foundation** seit Migration 071 (siehe Abschnitt unten)
 - **Seed-Idempotenz:** Migration `000079` (berichte) wurde in `980eba3` um `ON CONFLICT DO NOTHING` erweitert, damit ein Re-Run keine Duplikate erzeugt. Gleiches Muster fuer alle zukuenftigen Seed-Migrations anwenden.
