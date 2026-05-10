@@ -190,6 +190,7 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" && -n "$SMOKE_USER_ID" && "$
             "$BASE_URL/api/v1/users/$SMOKE_USER_ID/roles" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $SMOKE_ADMIN_TOKEN" \
+            -H "Idempotency-Key: $(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)" \
             -d '{"role_name":"manager"}' 2>/dev/null || echo "000")
         if [[ "$ROLE_CODE" =~ ^(200|201|204)$ ]]; then
             pass "Bootstrap smoke user to manager (role upgrade $ROLE_CODE)"
@@ -211,6 +212,7 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
     CONTACT_RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/contacts" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $SMOKE_TOKEN" \
+        -H "Idempotency-Key: $(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)" \
         -d '{"first_name":"Smoke","last_name":"Contact","email":"smoke-contact@test.kmuhub.local"}' 2>/dev/null) || CONTACT_RESP=$'\n000'
     CONTACT_CODE=$(echo "$CONTACT_RESP" | tail -1)
     CONTACT_BODY=$(echo "$CONTACT_RESP" | sed '$d')
@@ -238,7 +240,8 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
     # 11. Delete contact
     if [[ -n "$SMOKE_CONTACT_ID" ]]; then
         DEL_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$BASE_URL/api/v1/contacts/$SMOKE_CONTACT_ID" \
-            -H "Authorization: Bearer $SMOKE_TOKEN" 2>/dev/null || echo "000")
+            -H "Authorization: Bearer $SMOKE_TOKEN" \
+            -H "Idempotency-Key: $(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)" 2>/dev/null || echo "000")
         if [[ "$DEL_CODE" == "200" || "$DEL_CODE" == "204" ]]; then
             pass "DELETE /contacts/$SMOKE_CONTACT_ID = $DEL_CODE"
         else
@@ -379,6 +382,7 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
     CHAN_RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/chat/channels" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $SMOKE_TOKEN" \
+        -H "Idempotency-Key: $(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)" \
         -d '{"name":"smoke-test-channel","is_private":false}' 2>/dev/null) || CHAN_RESP=$'\n000'
     CHAN_CODE=$(echo "$CHAN_RESP" | tail -1)
     if [[ "$CHAN_CODE" == "201" || "$CHAN_CODE" == "200" ]]; then
@@ -434,6 +438,7 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
                 "$BASE_URL/api/v1/berichte/definitions/$FIRST_DEF_ID/run" \
                 -H "Content-Type: application/json" \
                 -H "Authorization: Bearer $SMOKE_TOKEN" \
+                -H "Idempotency-Key: $(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)" \
                 -d '{}' 2>/dev/null || echo "000")
             if [[ "$RUN_CODE" == "200" ]]; then
                 pass "POST /berichte/definitions/{id}/run = 200"
@@ -446,6 +451,7 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
                 "$BASE_URL/api/v1/berichte/definitions/$FIRST_DEF_ID/export?format=pdf" \
                 -H "Content-Type: application/json" \
                 -H "Authorization: Bearer $SMOKE_TOKEN" \
+                -H "Idempotency-Key: $(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)" \
                 -d '{}' 2>/dev/null || echo "")
             if [[ "$EXPORT_MIME" == application/pdf* ]]; then
                 pass "POST /berichte/definitions/{id}/export?format=pdf returns application/pdf"
@@ -472,7 +478,8 @@ section "Cleanup"
 
 if [[ -n "$SMOKE_USER_ID" && -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
     CLEANUP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$BASE_URL/api/v1/auth/users/$SMOKE_USER_ID" \
-        -H "Authorization: Bearer $SMOKE_TOKEN" 2>/dev/null || echo "000")
+        -H "Authorization: Bearer $SMOKE_TOKEN" \
+        -H "Idempotency-Key: $(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)" 2>/dev/null || echo "000")
     if [[ "$CLEANUP_CODE" == "200" || "$CLEANUP_CODE" == "204" || "$CLEANUP_CODE" == "404" ]]; then
         echo "  Smoke user cleaned up ($SMOKE_EMAIL)"
     else
