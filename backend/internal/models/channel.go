@@ -67,6 +67,7 @@ type ChannelWithRelations struct {
 type ChannelMembership struct {
 	ChannelID  uuid.UUID   `json:"channel_id"`
 	UserID     uuid.UUID   `json:"user_id"`
+	TenantID   uuid.UUID   `json:"tenant_id"`
 	Role       ChannelRole `json:"role"`
 	JoinedAt   time.Time   `json:"joined_at"`
 	LastReadAt *time.Time  `json:"last_read_at,omitempty"`

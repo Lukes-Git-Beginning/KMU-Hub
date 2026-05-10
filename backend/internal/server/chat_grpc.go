@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -1161,6 +1162,11 @@ func mapChatError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 
 	default:
+		// Log the original error so unmapped failures (DB constraint violations,
+		// connection errors, …) don't vanish into a generic codes.Internal.
+		// Without this, a missing tenant_id INSERT silently surfaces as 500
+		// "internal error" with empty service logs — see Welle-0.6 debug session.
+		slog.Error("unmapped chat service error", "error", err)
 		return status.Error(codes.Internal, "internal server error")
 	}
 }

@@ -151,9 +151,9 @@ func (r *PostgresRepository) Delete(ctx context.Context, id, tenantID uuid.UUID)
 
 func (r *PostgresRepository) AddMember(ctx context.Context, membership *models.ChannelMembership) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO channel_memberships (channel_id, user_id, role, joined_at, last_read_at)
-		 VALUES ($1, $2, $3, $4, $5)`,
-		membership.ChannelID, membership.UserID, membership.Role, membership.JoinedAt, membership.LastReadAt,
+		`INSERT INTO channel_memberships (channel_id, user_id, tenant_id, role, joined_at, last_read_at)
+		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		membership.ChannelID, membership.UserID, membership.TenantID, membership.Role, membership.JoinedAt, membership.LastReadAt,
 	)
 	return err
 }
@@ -399,16 +399,16 @@ func (r *PostgresRepository) CreateDMChannel(ctx context.Context, channel *model
 
 	// Insert both memberships
 	_, err = tx.Exec(ctx,
-		`INSERT INTO channel_memberships (channel_id, user_id, role, joined_at) VALUES ($1, $2, $3, $4)`,
-		mem1.ChannelID, mem1.UserID, mem1.Role, mem1.JoinedAt,
+		`INSERT INTO channel_memberships (channel_id, user_id, tenant_id, role, joined_at) VALUES ($1, $2, $3, $4, $5)`,
+		mem1.ChannelID, mem1.UserID, mem1.TenantID, mem1.Role, mem1.JoinedAt,
 	)
 	if err != nil {
 		return err
 	}
 
 	_, err = tx.Exec(ctx,
-		`INSERT INTO channel_memberships (channel_id, user_id, role, joined_at) VALUES ($1, $2, $3, $4)`,
-		mem2.ChannelID, mem2.UserID, mem2.Role, mem2.JoinedAt,
+		`INSERT INTO channel_memberships (channel_id, user_id, tenant_id, role, joined_at) VALUES ($1, $2, $3, $4, $5)`,
+		mem2.ChannelID, mem2.UserID, mem2.TenantID, mem2.Role, mem2.JoinedAt,
 	)
 	if err != nil {
 		return err

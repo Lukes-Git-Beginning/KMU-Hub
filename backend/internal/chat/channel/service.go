@@ -72,6 +72,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Channe
 	ownerMembership := &models.ChannelMembership{
 		ChannelID: channel.ID,
 		UserID:    input.CreatedBy,
+		TenantID:  input.TenantID,
 		Role:      models.ChannelRoleOwner,
 		JoinedAt:  now,
 	}
@@ -87,6 +88,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Channe
 		membership := &models.ChannelMembership{
 			ChannelID: channel.ID,
 			UserID:    memberID,
+			TenantID:  input.TenantID,
 			Role:      models.ChannelRoleMember,
 			JoinedAt:  now,
 		}
@@ -313,6 +315,7 @@ func (s *Service) Join(ctx context.Context, channelID, userID, tenantID uuid.UUI
 	membership := &models.ChannelMembership{
 		ChannelID: channelID,
 		UserID:    userID,
+		TenantID:  tenantID,
 		Role:      models.ChannelRoleMember,
 		JoinedAt:  time.Now(),
 	}
@@ -465,6 +468,7 @@ func (s *Service) AddMember(ctx context.Context, channelID, userID, inviterID, t
 	membership := &models.ChannelMembership{
 		ChannelID: channelID,
 		UserID:    userID,
+		TenantID:  tenantID,
 		Role:      models.ChannelRoleMember,
 		JoinedAt:  time.Now(),
 	}
@@ -598,12 +602,14 @@ func (s *Service) GetOrCreateDM(ctx context.Context, input GetOrCreateDMInput) (
 	mem1 := &models.ChannelMembership{
 		ChannelID: channel.ID,
 		UserID:    user1,
+		TenantID:  input.TenantID,
 		Role:      models.ChannelRoleMember,
 		JoinedAt:  now,
 	}
 	mem2 := &models.ChannelMembership{
 		ChannelID: channel.ID,
 		UserID:    user2,
+		TenantID:  input.TenantID,
 		Role:      models.ChannelRoleMember,
 		JoinedAt:  now,
 	}
