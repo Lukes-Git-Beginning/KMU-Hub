@@ -16,7 +16,7 @@
 
 | Komponente | Technologie |
 |-----------|-------------|
-| Backend | Go (API Gateway + 11 gRPC-Microservices) |
+| Backend | Go (API Gateway + 24 gRPC-Microservices) |
 | Desktop | Electron + React 19 + TypeScript |
 | Mobile | PWA (Phase E, auf Desktop-Basis) |
 | Datenbank | PostgreSQL 16 + Redis 7 (Cache only) |
@@ -95,7 +95,7 @@ Single Source of Truth fuer projektspezifisches Wissen. Notes haben YAML-Frontma
 | `stack.md` | Strategy Decisions, Frontend-Bibliotheken, dompurify, Mobile=PWA |
 | `i18n.md` | i18next-Architektur, Schluessel-Konventionen, ICU-Plural-Bug |
 | `design.md` | Design-System, Themes, UI/UX-Direktiven, Magic UI, LanguageSwitcher |
-| `datenbank.md` | Schema, 77 Migrations |
+| `datenbank.md` | Schema, 116 Migrations |
 | `api.md` | 28 Endpoint-Domains, Auth-Flow |
 | `security.md` | JWT, RBAC, Consent-Enforcement, Prod-Secrets-Assertion, DOMPurify |
 | `integrationen.md` | Bexio, Lexware, DATEV, LiveKit, OnlyOffice JWT, Plugin-WASM (off) |

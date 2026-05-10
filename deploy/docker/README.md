@@ -1,6 +1,6 @@
 # Docker Deployment
 
-Compose-Stack fuer KMU Hub: 16 Microservices + Postgres + Redis + MinIO + LiveKit + OnlyOffice + Caddy + Prometheus + Grafana.
+Compose-Stack fuer KMU Hub: 24 Microservices + Gateway + Postgres + Redis + MinIO + LiveKit + OnlyOffice + Caddy + Prometheus + Grafana.
 
 ## Required Environment Variables
 
@@ -8,7 +8,7 @@ Compose-Stack fuer KMU Hub: 16 Microservices + Postgres + Redis + MinIO + LiveKi
 
 | Variable | Beispiel (Dev) | Beispiel (Prod) | Wer braucht es? |
 |---|---|---|---|
-| `DATABASE_URL` | `postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable` | aus `.env.production` (Hetzner) | Alle 16 Backend-Services + `migrate` |
+| `DATABASE_URL` | `postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable` | aus `.env.production` (Hetzner) | Alle 24 Backend-Services + `migrate` |
 | `POSTGRES_PASSWORD` | `kmuhub_dev` | strong, min 32 Zeichen | `postgres`-Service |
 | `LIVEKIT_API_KEY` | `devkey` | aus `.env.production` | `render-configs.sh` (Welle 1.2) |
 | `LIVEKIT_API_SECRET` | `devsecret` | aus `.env.production` | `render-configs.sh` (Welle 1.2) |

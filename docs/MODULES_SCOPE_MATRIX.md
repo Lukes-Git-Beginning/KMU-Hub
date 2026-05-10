@@ -1,6 +1,6 @@
 # Modules Scope Matrix — 14 Cosmi-Module
 
-**Stand:** 2026-04-18
+**Stand:** 2026-05-10
 **Purpose:** Basis fuer Feature-Flag-Registry (S0.6), Sprint-1/2-Planung, Pilot-Segmentierung
 **Single Source of Truth:** [docs/ROADMAP.md §5](./ROADMAP.md) — diese Matrix extrahiert operative Details.
 
@@ -10,22 +10,22 @@
 
 ## Uebersicht
 
-| Modul | Sprint | Pilot-Prio | Flag-Key | FE-LOC | Backend-Pkg | Status | Tabellen |
-|---|---|---|---|---|---|---|---|
-| wiki | S1 | Dienstleister | `modules.wiki` | 1297 | `backend/internal/wiki/` (neu) | Neubau | 3 |
-| berichte | S1 | Dienstleister | `modules.berichte` | 1186 | `backend/internal/berichte/` (neu) | Neubau | 2 |
-| formulare | S1 | Cross | `modules.formulare` | 2238 | `backend/internal/formulare/` (neu) | Neubau | 2 |
-| helpdesk | S1 | Dienstleister | `modules.helpdesk` | 2041 | `backend/internal/helpdesk/` (neu) | Neubau | 4 |
-| vertraege | S1 | Dienstleister | `modules.vertraege` | 1899 | `backend/internal/vertraege/` (neu) | Neubau | 3 |
-| buchhaltung | S1 | Cross | `modules.buchhaltung` | 1524 | `backend/internal/biz/` (erweitern) | Completion | 4 (vorhanden) |
-| video | S1 | Cross | `modules.video` | 459 | `backend/internal/work/` (erweitern) | Completion | 3 (vorhanden) |
-| rapporte | S2 | Handwerk | `modules.rapporte` | 2686 | `backend/internal/rapporte/` (neu) | Neubau | 3 |
-| schichten | S2 | Handwerk | `modules.schichten` | 1406 | `backend/internal/schichten/` (neu) | Neubau | 3 |
-| fuhrpark | S2 | Handwerk | `modules.fuhrpark` | 2299 | `backend/internal/fuhrpark/` (neu) | Neubau | 3 |
-| vermietung | S2 | Handwerk | `modules.vermietung` | 2028 | `backend/internal/vermietung/` (neu) | Neubau | 3 |
-| inventar | S2 | Cross | `modules.inventar` | 1460 | `backend/internal/inventar/` (neu) | Neubau | 3 |
-| einkauf | S2 | Cross | `modules.einkauf` | 1724 | `backend/internal/einkauf/` (neu) | Neubau | 3 |
-| produktion | S2 | Handwerk | `modules.produktion` | 1674 | `backend/internal/produktion/` (neu) | Neubau | 3 |
+| Modul | Sprint | Pilot-Prio | Flag-Key | FE-LOC | Backend-Pkg | Status | Tabellen | Migrations |
+|---|---|---|---|---|---|---|---|---|
+| wiki | S1 | Dienstleister | `modules.wiki` | 1297 | `backend/internal/wiki/` ✅ | Live (Sprint 1) | 3 | 1 (000076) |
+| berichte | S1 | Dienstleister | `modules.berichte` | 1186 | `backend/internal/berichte/` ✅ | Live (Sprint 1) | 2 | 2 (000079–080) |
+| formulare | S1 | Cross | `modules.formulare` | 2238 | `backend/internal/formulare/` ✅ | Live (Sprint 1) | 2 | 1 (000081) |
+| helpdesk | S1 | Dienstleister | `modules.helpdesk` | 2041 | `backend/internal/helpdesk/` ✅ | Live (Sprint 1) | 4 | 1 (000077) |
+| vertraege | S1 | Dienstleister | `modules.vertraege` | 1899 | `backend/internal/vertraege/` ✅ | Live (Sprint 1) | 3 | 2 (000089–090) |
+| buchhaltung | S1 | Cross | `modules.buchhaltung` | 1524 | `backend/internal/biz/` ✅ | Completion | 4 (vorhanden) | — |
+| video | S1 | Cross | `modules.video` | 459 | `backend/internal/work/` ✅ | Completion | 3 (vorhanden) | — |
+| rapporte | S2 | Handwerk | `modules.rapporte` | 2686 | `backend/internal/rapporte/` ✅ | Live (Sprint 2) | 3 | 3 (000092–093, 100) |
+| schichten | S2 | Handwerk | `modules.schichten` | 1406 | `backend/internal/schichten/` ✅ | Live (Sprint 2) | 3 | 4 (000094–095, 102–103) |
+| fuhrpark | S2 | Handwerk | `modules.fuhrpark` | 2299 | `backend/internal/fuhrpark/` ✅ | Live (Sprint 2) | 3 | 2 (000096–097) |
+| vermietung | S2 | Handwerk | `modules.vermietung` | 2028 | `backend/internal/vermietung/` ✅ | Live (Sprint 2) | 3 | 3 (000098–099, 101) |
+| inventar | S2 | Cross | `modules.inventar` | 1460 | `backend/internal/inventar/` ✅ | Live (Sprint 2) | 3 | 2 (000083–084) |
+| einkauf | S2 | Cross | `modules.einkauf` | 1724 | `backend/internal/einkauf/` ✅ | Live (Sprint 2) | 3 | 2 (000085–086) |
+| produktion | S2 | Handwerk | `modules.produktion` | 1674 | `backend/internal/produktion/` ✅ | Live (Sprint 2) | 3 | 2 (000087–088) |
 
 ---
 
@@ -38,9 +38,9 @@
 - **Frontend-Hook (geplant):** `desktop/src/renderer/src/api/hooks/useWiki.ts`
 - **Flag-Key:** `modules.wiki`
 - **Frontend-Stand:** 1297 LOC in `desktop/src/renderer/src/modules/wiki/` (12 Files), Mock-Store in `stores/wiki.ts`
-- **Backend-Stand:** kein Package, keine Migration
+- **Backend-Stand:** ✅ Package vorhanden (`backend/internal/wiki/`), 1 Migration (000076)
 - **Besonderheiten:** PostgreSQL Full-Text-Search (FTS) auf `wiki_articles.content`, TipTap-JSON-Format fuer Rich-Content, Share-Links via kurzem Token, Versionierung automatisch bei jedem Save
-- **Aktion Sprint 1:** Neues `backend/internal/wiki/`-Package anlegen, Migration fuer 3 Tabellen (inkl. `tenant_id`), Hook ersetzt Mock-Store, FTS-Index `idx_wiki_articles_fts` (GIN)
+- **Status Sprint 1:** Live — Package, Migration 000076, FTS-Index `idx_wiki_articles_fts` (GIN) vorhanden
 
 ---
 
@@ -51,9 +51,9 @@
 - **Frontend-Hook (geplant):** `desktop/src/renderer/src/api/hooks/useBerichte.ts`
 - **Flag-Key:** `modules.berichte`
 - **Frontend-Stand:** 1186 LOC, 1 File, Mock-Store in `stores/berichte.ts`
-- **Backend-Stand:** kein Package, keine Migration
-- **Besonderheiten:** `report_definitions.query_config` als JSONB (Aggregations-Konfiguration), `report_cache` mit TTL-Spalte fuer automatischen Verfall, PDF/CSV-Export als Stream
-- **Aktion Sprint 1:** Neues `backend/internal/berichte/`-Package, Migration fuer 2 Tabellen (inkl. `tenant_id`), DB-Views fuer Aggregationen
+- **Backend-Stand:** ✅ Package vorhanden (`backend/internal/berichte/`), 2 Migrations (000079 create, 000080 seed_permissions)
+- **Besonderheiten:** `report_definitions.query_config` als JSONB (Aggregations-Konfiguration), `report_cache` mit TTL-Spalte fuer automatischen Verfall, PDF/CSV/XLSX-Export, In-Process-Cron-Scheduler
+- **Status Sprint 1:** Live — Package, Migrations 000079–080, Export-Layer (80.2% Cov), gRPC-Server Ports 50063/9103
 
 ---
 
@@ -64,9 +64,9 @@
 - **Frontend-Hook (geplant):** `desktop/src/renderer/src/api/hooks/useFormulare.ts`
 - **Flag-Key:** `modules.formulare`
 - **Frontend-Stand:** 2238 LOC, 1 File, Mock-Store in `stores/formulare.ts`
-- **Backend-Stand:** kein Package, keine Migration
-- **Besonderheiten:** `form_schemas.schema` als JSONB (JSON Schema Draft-7), `form_submissions.data` als JSONB, Webhook-Trigger bei neuer Submission, Public-URL fuer externe Einsendungen
-- **Aktion Sprint 1:** Neues `backend/internal/formulare/`-Package, Migration fuer 2 Tabellen (inkl. `tenant_id`), Webhook-Delivery-Queue
+- **Backend-Stand:** ✅ Package vorhanden (`backend/internal/formulare/`), 1 Migration (000081)
+- **Besonderheiten:** `form_schemas.schema` als JSONB (JSON Schema Draft-7), `form_submissions.data` als JSONB, Webhook-Worker (HMAC-SHA256, Exp-Backoff, Dead-Letter), CSV+XLSX Export
+- **Status Sprint 1:** Live — Package, Migration 000081, Webhook-Delivery-Queue vorhanden
 
 ---
 
@@ -77,9 +77,9 @@
 - **Frontend-Hook (geplant):** `desktop/src/renderer/src/api/hooks/useHelpdesk.ts`
 - **Flag-Key:** `modules.helpdesk`
 - **Frontend-Stand:** 2041 LOC in `desktop/src/renderer/src/modules/helpdesk/` (7 Files), Mock-Store
-- **Backend-Stand:** kein Package, keine Migration
+- **Backend-Stand:** ✅ Package vorhanden (`backend/internal/helpdesk/`), 1 Migration (000077)
 - **Besonderheiten:** Ticket-Merge (Duplikat-Erkennung), SLA-Tracking via `due_at`-Spalte, Canned Responses fuer schnelle Antworten, Queue-basiertes Routing, Agenten-Zuweisung
-- **Aktion Sprint 1:** Neues `backend/internal/helpdesk/`-Package, Migration fuer 4 Tabellen (inkl. `tenant_id`), SLA-Warning-Trigger
+- **Status Sprint 1:** Live — Package, Migration 000077, 22 RPCs, SLA + Merge vorhanden
 
 ---
 
@@ -90,9 +90,9 @@
 - **Frontend-Hook (geplant):** `desktop/src/renderer/src/api/hooks/useVertraege.ts`
 - **Flag-Key:** `modules.vertraege`
 - **Frontend-Stand:** 1899 LOC in `desktop/src/renderer/src/modules/vertraege/` (2 Files), Mock-Store
-- **Backend-Stand:** kein Package, keine Migration
-- **Besonderheiten:** Laufzeit-Engine berechnet `expires_at` und triggert Erinnerungen N Tage vor Ablauf, `contract_parties` linked zu `contacts`/`companies`, Skribble-Placeholder fuer e-Signatur (Phase D), Vertrags-PDF-Upload via MinIO
-- **Aktion Sprint 1:** Neues `backend/internal/vertraege/`-Package, Migration fuer 3 Tabellen (inkl. `tenant_id`), Cron-basierter Reminder-Check
+- **Backend-Stand:** ✅ Package vorhanden (`backend/internal/vertraege/`), 2 Migrations (000089 create, 000090 seed_permissions)
+- **Besonderheiten:** Laufzeit-Engine berechnet `expires_at` und triggert Erinnerungen N Tage vor Ablauf, `contract_parties` linked zu `contacts`/`companies`, advisory-lock-claim, 5+60min Ticker, Vertrags-PDF-Upload via MinIO
+- **Status Sprint 1:** Live — Package, Migrations 000089–090, Cron-basierter Reminder-Check vorhanden
 
 ---
 
@@ -135,9 +135,9 @@
 - **Frontend-Hook (geplant):** `desktop/src/renderer/src/api/hooks/useRapporte.ts`
 - **Flag-Key:** `modules.rapporte`
 - **Frontend-Stand:** 2686 LOC in `desktop/src/renderer/src/modules/rapporte/` (3 Files), Mock-Store
-- **Backend-Stand:** kein Package, keine Migration
+- **Backend-Stand:** ✅ Package vorhanden (`backend/internal/rapporte/`), 3 Migrations (000092 create, 000093 seed_permissions, 000100 rapporte_approve_permission)
 - **Besonderheiten:** Foto-Uploads pro Rapport-Zeile via MinIO, GPS-Tag optional (`lat`, `lon` Spalten auf `work_reports`), mehrstufiger Approval-Flow (Submitted → Approved/Rejected), Export als PDF fuer Kundenunterschrift
-- **Aktion Sprint 2:** Neues `backend/internal/rapporte/`-Package, Migration fuer 3 Tabellen (inkl. `tenant_id`), MinIO-Attachment-Upload
+- **Status Sprint 2:** Live — Package, Migrations 000092–093+100, MinIO-Attachment-Upload vorhanden
 
 ---
 
@@ -148,9 +148,9 @@
 - **Frontend-Hook (geplant):** `desktop/src/renderer/src/api/hooks/useSchichten.ts`
 - **Flag-Key:** `modules.schichten`
 - **Frontend-Stand:** 1406 LOC, 1 File, Mock-Store
-- **Backend-Stand:** kein Package, keine Migration
-- **Besonderheiten:** ArbZG §5 Backend-Check (min. 11h Ruhezeit zwischen Schichten — Warning wenn verletzt), Schicht-Templates fuer Wochenmuster, Publish-Flow (Entwurf → Veroeffentlicht → Mitarbeiter sehen)
-- **Aktion Sprint 2:** Neues `backend/internal/schichten/`-Package, Migration fuer 3 Tabellen (inkl. `tenant_id`), ArbZG-Pruef-Service
+- **Backend-Stand:** ✅ Package vorhanden (`backend/internal/schichten/`), 4 Migrations (000094 create, 000095 seed_permissions, 000102 shift_assignments_tenant_unique, 000103 shift_capacity)
+- **Besonderheiten:** ArbZG §5 Backend-Check (min. 11h Ruhezeit zwischen Schichten, DST-aware — Warning wenn verletzt), Schicht-Templates fuer Wochenmuster, Publish-Flow (Entwurf → Veroeffentlicht → Mitarbeiter sehen)
+- **Status Sprint 2:** Live — Package, Migrations 000094–095+102–103, ArbZG-Pruef-Service vorhanden
 
 ---
 
@@ -161,9 +161,9 @@
 - **Frontend-Hook (geplant):** `desktop/src/renderer/src/api/hooks/useFuhrpark.ts`
 - **Flag-Key:** `modules.fuhrpark`
 - **Frontend-Stand:** 2299 LOC in `desktop/src/renderer/src/modules/fuhrpark/` (2 Files), Mock-Store
-- **Backend-Stand:** kein Package, keine Migration
-- **Besonderheiten:** TUeV-Reminder via `tuev_due_date` + Cron-basierter Check (7 Tage / 1 Tag vor Faelligkeit), Fahrzeug-Service-History vollstaendig protokolliert, Schaden-Meldungen mit Foto-Upload (MinIO), Fuel-Tracking optional
-- **Aktion Sprint 2:** Neues `backend/internal/fuhrpark/`-Package, Migration fuer 3 Tabellen (inkl. `tenant_id`), TUeV-Reminder-Cron
+- **Backend-Stand:** ✅ Package vorhanden (`backend/internal/fuhrpark/`), 2 Migrations (000096 create, 000097 seed_permissions)
+- **Besonderheiten:** TUeV-Reminder via `tuev_due_date` + Cron-basierter Check via advisory-lock (7d/1d vor Faelligkeit), Fahrzeug-Service-History vollstaendig protokolliert, Schaden-Meldungen mit Foto-Upload (MinIO), Fuel-Tracking optional
+- **Status Sprint 2:** Live — Package, Migrations 000096–097, TUeV-Reminder-Cron vorhanden
 
 ---
 
@@ -174,9 +174,9 @@
 - **Frontend-Hook (geplant):** `desktop/src/renderer/src/api/hooks/useVermietung.ts`
 - **Flag-Key:** `modules.vermietung`
 - **Frontend-Stand:** 2028 LOC in `desktop/src/renderer/src/modules/vermietung/` (2 Files), Mock-Store
-- **Backend-Stand:** kein Package, keine Migration
-- **Besonderheiten:** Zustandsprotokolle (Uebergabe-/Ruecknahme-Inspektion) mit Foto-Uploads, Verfuegbarkeits-Check via `rentals.start_date`/`end_date` Ueberschneidungs-Query, Kalender-View fuer Auslastung
-- **Aktion Sprint 2:** Neues `backend/internal/vermietung/`-Package, Migration fuer 3 Tabellen (inkl. `tenant_id`), Verfuegbarkeits-Index `idx_rentals_object_dates`
+- **Backend-Stand:** ✅ Package vorhanden (`backend/internal/vermietung/`), 3 Migrations (000098 create, 000099 seed_permissions, 000101 gist_overlap_unique_inspection)
+- **Besonderheiten:** Zustandsprotokolle (Uebergabe-/Ruecknahme-Inspektion) mit Foto-Uploads, Verfuegbarkeits-Check via GIST tstzrange-Overlap-Index, Kalender-View fuer Auslastung
+- **Status Sprint 2:** Live — Package, Migrations 000098–099+101, Verfuegbarkeits-Index vorhanden
 
 ---
 
@@ -187,9 +187,9 @@
 - **Frontend-Hook (geplant):** `desktop/src/renderer/src/api/hooks/useInventar.ts`
 - **Flag-Key:** `modules.inventar`
 - **Frontend-Stand:** 1460 LOC, 1 File, Mock-Store
-- **Backend-Stand:** kein Package, keine Migration
+- **Backend-Stand:** ✅ Package vorhanden (`backend/internal/inventar/`), 2 Migrations (000083 create, 000084 seed_permissions)
 - **Besonderheiten:** Bestands-Alarm via `stock_warnings` — automatisch generiert wenn `inventory_items.quantity <= min_quantity`, doppelte Buchfuehrung via `inventory_movements` (jede Bestandsaenderung trackt Bewegungstyp + User), Barcode-Feld optional
-- **Aktion Sprint 2:** Neues `backend/internal/inventar/`-Package, Migration fuer 3 Tabellen (inkl. `tenant_id`), Bestands-Alarm-Trigger
+- **Status Sprint 2:** Live — Package, Migrations 000083–084, Bestands-Alarm-Trigger vorhanden
 
 ---
 
@@ -200,9 +200,9 @@
 - **Frontend-Hook (geplant):** `desktop/src/renderer/src/api/hooks/useEinkauf.ts`
 - **Flag-Key:** `modules.einkauf`
 - **Frontend-Stand:** 1724 LOC, 1 File, Mock-Store
-- **Backend-Stand:** kein Package, keine Migration
+- **Backend-Stand:** ✅ Package vorhanden (`backend/internal/einkauf/`), 2 Migrations (000085 create, 000086 seed_permissions)
 - **Besonderheiten:** Wareneingangs-Flow: `ReceiveGoods` bucht automatisch in `inventory_movements` (Cross-Modul-Abhaengigkeit zu `inventar`), PO-Lifecycle Submit → Sent → PartiallyReceived → Received → Closed, Lieferanten-Katalog mit Kontakt-Link zu `contacts`
-- **Aktion Sprint 2:** Neues `backend/internal/einkauf/`-Package, Migration fuer 3 Tabellen (inkl. `tenant_id`), Wareneingangs-Event triggert Inventar-Bewegung
+- **Status Sprint 2:** Live — Package, Migrations 000085–086, Wareneingangs-Flow vorhanden
 
 ---
 
@@ -213,20 +213,19 @@
 - **Frontend-Hook (geplant):** `desktop/src/renderer/src/api/hooks/useProduktion.ts`
 - **Flag-Key:** `modules.produktion`
 - **Frontend-Stand:** 1674 LOC in `desktop/src/renderer/src/modules/produktion/` (2 Files), Mock-Store
-- **Backend-Stand:** kein Package, keine Migration
-- **Besonderheiten:** Maschinenbelegungs-Konflikt-Check (Ueberschneidung in `machine_bookings`), Produktionsplan verknuepft Orders mit Zeitfenstern, Kapazitaets-Uebersicht per Maschine/Woche
-- **Aktion Sprint 2:** Neues `backend/internal/produktion/`-Package, Migration fuer 3 Tabellen (inkl. `tenant_id`), Belegungs-Konflikt-Pruefung
+- **Backend-Stand:** ✅ Package vorhanden (`backend/internal/produktion/`), 2 Migrations (000087 create, 000088 seed_permissions)
+- **Besonderheiten:** Maschinenbelegungs-Konflikt-Check via advisory-lock (Ueberschneidung in `machine_bookings`), Produktionsplan verknuepft Orders mit Zeitfenstern, Kapazitaets-Uebersicht per Maschine/Woche
+- **Status Sprint 2:** Live — Package, Migrations 000087–088, Belegungs-Konflikt-Pruefung vorhanden
 
 ---
 
-## Naechste Schritte
+## Stand (2026-05-10)
 
-1. **S0.6 (Feature-Flag-Registry):** Nutzt alle 14 Flag-Keys oben plus `plugins.wasm=false` (Default OFF). Registry in `backend/internal/featureflag/registry.go`.
-2. **Sprint 1 (2026-04-28 bis 2026-05-11):** S1-Module implementieren (wiki, berichte, formulare, helpdesk, vertraege, buchhaltung-Completion, video-Completion).
-3. **Sprint 2 (2026-05-12 bis 2026-05-25):** S2-Module (rapporte, schichten, fuhrpark, vermietung, inventar, einkauf, produktion).
-4. **Multi-Tenancy:** Alle neuen Modul-Tabellen brauchen `tenant_id UUID NOT NULL` von Anfang an — Option-B-Full-Retrofit (siehe `.knowledge/` project_multi_tenancy).
-5. **Feature-Flag-Default:** Alle Modul-Flags starten OFF. Pilot-Aktivierung pro Pilot-Deployment via Env-Var.
+Alle 14 Module haben funktionierende Backend-Packages und Migrations. Die "Neubau"-Eintraege aus Sprint-0-Planung sind obsolet — alle Module sind live (Migration-Head 116). Feature-Flag-Registry aktiv (16 Flags). Option-B-Full-Retrofit durch Sprint 2+3 abgeschlossen (Migrations 000104–000115).
+
+Naechste offene Punkte: Sprint 4 (`finance_invoice_lines`-Normalisierung nach ADR-0007), Sprint 5 (Peer-Review, Rigorosum Runde 3).
 
 ## Aenderungshistorie
 
 - 2026-04-18: Initial — Sprint-0 Task S0.9.
+- 2026-05-10: Refresh nach Sprint 1+2+3 — alle 12 "Neubau"-Module auf "Live" aktualisiert, reale Package-/Migration-Counts eingetragen, Spalte "Migrations" hinzugefuegt.
