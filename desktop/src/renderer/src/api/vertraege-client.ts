@@ -19,7 +19,7 @@ import type {
   ListRemindersResponse,
   UploadDocumentResponse,
 } from './vertraege-types'
-import { authenticatedRequest } from './utils/authenticatedFetch'
+import { authenticatedRequest, authenticatedBlobRequest } from './utils/authenticatedFetch'
 
 // ---------------------------------------------------------------------------
 // Request helper
@@ -89,7 +89,10 @@ export function uploadDocument(contractId: string) {
 }
 
 export function exportContract(contractId: string) {
-  return fetch(`${API_BASE_URL}${BASE}/contracts/${contractId}/export`)
+  return authenticatedBlobRequest({
+    method: 'GET',
+    path: `${BASE}/contracts/${contractId}/export`,
+  })
 }
 
 // ---------------------------------------------------------------------------

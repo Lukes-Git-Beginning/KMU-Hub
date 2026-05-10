@@ -5,8 +5,7 @@
  * from GET /api/v1/crm/contacts/{id}/timeline.
  */
 import { useQuery } from '@tanstack/react-query'
-import { API_BASE_URL } from '@/lib/constants'
-import { useAuthStore } from '@/stores/auth'
+import { authenticatedRequest } from '@/api/utils/authenticatedFetch'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -36,20 +35,11 @@ async function fetchTimeline(
   offset: number,
   limit: number,
 ): Promise<TimelineResult> {
-  const token = useAuthStore.getState().accessToken
-  const url = `${API_BASE_URL}/api/v1/crm/contacts/${contactId}/timeline?offset=${offset}&limit=${limit}`
-
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+  return authenticatedRequest<TimelineResult>({
+    method: 'GET',
+    path: `/api/v1/crm/contacts/${contactId}/timeline`,
+    params: { offset, limit },
   })
-
-  if (!res.ok) {
-    throw new Error(`Timeline fetch failed: ${res.status}`)
-  }
-
-  return res.json()
 }
 
 // ---------------------------------------------------------------------------

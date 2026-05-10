@@ -7,8 +7,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../client'
-import { API_BASE_URL } from '@/lib/constants'
-import { useAuthStore } from '@/stores/auth'
+import { authenticatedRequest } from '@/api/utils/authenticatedFetch'
 import type { components } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -60,29 +59,15 @@ export function useAttachFile() {
       file: File
     }) => {
       // Step 1: Upload file via multipart form data
-      // openapi-fetch does not support multipart natively, so use fetch directly
+      // authenticatedRequest handles auth injection; FormData body bypasses JSON serialisation
       const formData = new FormData()
       formData.append('file', file)
-      // The upload endpoint requires a channel_id but for task files we use a
-      // task-specific identifier. The backend work file upload uses a dedicated
-      // endpoint pattern. We'll use the task files endpoint directly which
-      // accepts the file metadata after upload.
-      // For now, upload directly and attach metadata.
-      const token = useAuthStore.getState().accessToken
-      const uploadRes = await fetch(`${API_BASE_URL}/api/v1/files/upload`, {
+
+      const uploadData = await authenticatedRequest<Record<string, string>>({
         method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        path: '/api/v1/files/upload',
         body: formData,
       })
-
-      if (!uploadRes.ok) {
-        const errBody = await uploadRes.text().catch(() => '')
-        throw new Error(
-          `Datei-Upload fehlgeschlagen (${uploadRes.status}): ${errBody}`
-        )
-      }
-
-      const uploadData = await uploadRes.json()
       const storageKey: string = uploadData.storage_key ?? uploadData.key ?? ''
       const thumbnailKey: string = uploadData.thumbnail_key ?? ''
 
