@@ -14,4 +14,5 @@ var (
 	ErrInvalidCustomField = errors.New("invalid custom field")
 	ErrCannotMergeSelf    = errors.New("cannot merge a contact with itself")
 	ErrAlreadyMerged      = errors.New("contact has already been merged")
+	ErrInvalidTenant      = errors.New("tenant_id is required")
 )

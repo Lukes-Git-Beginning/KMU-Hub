@@ -12,9 +12,6 @@ import (
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
-// defaultTenantID is used in single-tenant mode until multi-tenant support is added.
-var defaultTenantID = uuid.MustParse("00000000-0000-0000-0000-000000000000")
-
 // Service handles contact business logic
 type Service struct {
 	repo Repository
@@ -44,7 +41,7 @@ type CreateInput struct {
 func (s *Service) Create(ctx context.Context, input CreateInput) (*models.ContactWithRelations, error) {
 	tenantID := input.TenantID
 	if tenantID == uuid.Nil {
-		tenantID = defaultTenantID
+		return nil, ErrInvalidTenant
 	}
 
 	// Validate first name
@@ -138,13 +135,11 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Contac
 	return s.getWithRelations(ctx, contact, tenantID)
 }
 
-// GetByID retrieves a contact by ID
-func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*models.ContactWithRelations, error) {
-	return s.GetByIDWithTenant(ctx, id, defaultTenantID)
-}
-
-// GetByIDWithTenant retrieves a contact by ID scoped to a tenant
-func (s *Service) GetByIDWithTenant(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.ContactWithRelations, error) {
+// GetByID retrieves a contact by ID scoped to a tenant
+func (s *Service) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.ContactWithRelations, error) {
+	if tenantID == uuid.Nil {
+		return nil, ErrInvalidTenant
+	}
 	contact, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, ErrContactNotFound
@@ -169,7 +164,7 @@ type ListInput struct {
 func (s *Service) List(ctx context.Context, input ListInput) ([]*models.ContactWithRelations, int, error) {
 	tenantID := input.TenantID
 	if tenantID == uuid.Nil {
-		tenantID = defaultTenantID
+		return nil, 0, ErrInvalidTenant
 	}
 
 	if input.Page < 1 {
@@ -214,13 +209,11 @@ type UpdateInput struct {
 	CustomFields map[uuid.UUID]any
 }
 
-// Update updates an existing contact
-func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (*models.ContactWithRelations, error) {
-	return s.UpdateWithTenant(ctx, id, input, defaultTenantID)
-}
-
-// UpdateWithTenant updates an existing contact scoped to a tenant
-func (s *Service) UpdateWithTenant(ctx context.Context, id uuid.UUID, input UpdateInput, tenantID uuid.UUID) (*models.ContactWithRelations, error) {
+// Update updates an existing contact scoped to a tenant
+func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput, tenantID uuid.UUID) (*models.ContactWithRelations, error) {
+	if tenantID == uuid.Nil {
+		return nil, ErrInvalidTenant
+	}
 	contact, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, ErrContactNotFound
@@ -304,13 +297,11 @@ func (s *Service) UpdateWithTenant(ctx context.Context, id uuid.UUID, input Upda
 	return s.getWithRelations(ctx, contact, tenantID)
 }
 
-// Delete removes a contact
-func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
-	return s.DeleteWithTenant(ctx, id, defaultTenantID)
-}
-
-// DeleteWithTenant removes a contact scoped to a tenant
-func (s *Service) DeleteWithTenant(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+// Delete removes a contact scoped to a tenant
+func (s *Service) Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+	if tenantID == uuid.Nil {
+		return ErrInvalidTenant
+	}
 	contact, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return ErrContactNotFound
@@ -337,9 +328,12 @@ func (s *Service) DeleteWithTenant(ctx context.Context, id uuid.UUID, tenantID u
 	return nil
 }
 
-// AddTags adds tags to a contact
-func (s *Service) AddTags(ctx context.Context, contactID uuid.UUID, tagIDs []uuid.UUID) (*models.ContactWithRelations, error) {
-	contact, err := s.repo.GetByID(ctx, contactID, defaultTenantID)
+// AddTags adds tags to a contact scoped to a tenant
+func (s *Service) AddTags(ctx context.Context, contactID uuid.UUID, tagIDs []uuid.UUID, tenantID uuid.UUID) (*models.ContactWithRelations, error) {
+	if tenantID == uuid.Nil {
+		return nil, ErrInvalidTenant
+	}
+	contact, err := s.repo.GetByID(ctx, contactID, tenantID)
 	if err != nil {
 		return nil, ErrContactNotFound
 	}
@@ -359,12 +353,15 @@ func (s *Service) AddTags(ctx context.Context, contactID uuid.UUID, tagIDs []uui
 		return nil, addErr
 	}
 
-	return s.getWithRelations(ctx, contact, defaultTenantID)
+	return s.getWithRelations(ctx, contact, tenantID)
 }
 
-// RemoveTags removes tags from a contact
-func (s *Service) RemoveTags(ctx context.Context, contactID uuid.UUID, tagIDs []uuid.UUID) (*models.ContactWithRelations, error) {
-	contact, err := s.repo.GetByID(ctx, contactID, defaultTenantID)
+// RemoveTags removes tags from a contact scoped to a tenant
+func (s *Service) RemoveTags(ctx context.Context, contactID uuid.UUID, tagIDs []uuid.UUID, tenantID uuid.UUID) (*models.ContactWithRelations, error) {
+	if tenantID == uuid.Nil {
+		return nil, ErrInvalidTenant
+	}
+	contact, err := s.repo.GetByID(ctx, contactID, tenantID)
 	if err != nil {
 		return nil, ErrContactNotFound
 	}
@@ -373,7 +370,7 @@ func (s *Service) RemoveTags(ctx context.Context, contactID uuid.UUID, tagIDs []
 		return nil, removeErr
 	}
 
-	return s.getWithRelations(ctx, contact, defaultTenantID)
+	return s.getWithRelations(ctx, contact, tenantID)
 }
 
 // enrichWithRelationsBatch loads all relations for a slice of contacts in batch.
@@ -479,14 +476,12 @@ type DuplicateCandidate struct {
 	MatchType  string                       `json:"match_type"` // "email_exact", "name_fuzzy", "phone_exact"
 }
 
-// FindDuplicates returns potential duplicate contacts for the given contact ID.
+// FindDuplicates returns potential duplicate contacts for the given contact ID scoped to a tenant.
 // Matches by: exact email (similarity 1.0), trigram name (>= 0.7), exact phone (0.9).
-func (s *Service) FindDuplicates(ctx context.Context, contactID uuid.UUID) ([]*DuplicateCandidate, error) {
-	return s.FindDuplicatesWithTenant(ctx, contactID, defaultTenantID)
-}
-
-// FindDuplicatesWithTenant returns potential duplicate contacts scoped to a tenant.
-func (s *Service) FindDuplicatesWithTenant(ctx context.Context, contactID uuid.UUID, tenantID uuid.UUID) ([]*DuplicateCandidate, error) {
+func (s *Service) FindDuplicates(ctx context.Context, contactID uuid.UUID, tenantID uuid.UUID) ([]*DuplicateCandidate, error) {
+	if tenantID == uuid.Nil {
+		return nil, ErrInvalidTenant
+	}
 	// Verify contact exists
 	if _, err := s.repo.GetByID(ctx, contactID, tenantID); err != nil {
 		return nil, ErrContactNotFound
@@ -508,15 +503,13 @@ func (s *Service) FindDuplicatesWithTenant(ctx context.Context, contactID uuid.U
 	return candidates, nil
 }
 
-// MergeContacts merges a duplicate contact into a primary contact.
+// MergeContacts merges a duplicate contact into a primary contact scoped to a tenant.
 // All activities, deals, tags, and custom fields are reassigned to the primary.
 // The duplicate is soft-deleted by setting merged_into_id.
-func (s *Service) MergeContacts(ctx context.Context, primaryID, duplicateID uuid.UUID) (*models.ContactWithRelations, error) {
-	return s.MergeContactsWithTenant(ctx, primaryID, duplicateID, defaultTenantID)
-}
-
-// MergeContactsWithTenant merges contacts scoped to a tenant.
-func (s *Service) MergeContactsWithTenant(ctx context.Context, primaryID, duplicateID uuid.UUID, tenantID uuid.UUID) (*models.ContactWithRelations, error) {
+func (s *Service) MergeContacts(ctx context.Context, primaryID, duplicateID uuid.UUID, tenantID uuid.UUID) (*models.ContactWithRelations, error) {
+	if tenantID == uuid.Nil {
+		return nil, ErrInvalidTenant
+	}
 	if primaryID == duplicateID {
 		return nil, ErrCannotMergeSelf
 	}
@@ -550,9 +543,12 @@ func (s *Service) MergeContactsWithTenant(ctx context.Context, primaryID, duplic
 	return s.getWithRelations(ctx, primary, tenantID)
 }
 
-// GetByEmail retrieves a contact by email address (used by import merge logic).
-func (s *Service) GetByEmail(ctx context.Context, email string) (*models.Contact, error) {
-	return s.repo.GetByEmail(ctx, email, defaultTenantID)
+// GetByEmail retrieves a contact by email address scoped to a tenant (used by import merge logic).
+func (s *Service) GetByEmail(ctx context.Context, email string, tenantID uuid.UUID) (*models.Contact, error) {
+	if tenantID == uuid.Nil {
+		return nil, ErrInvalidTenant
+	}
+	return s.repo.GetByEmail(ctx, email, tenantID)
 }
 
 // CreateForImport creates a contact without the usual validation (used by bulk import).
@@ -561,7 +557,7 @@ func (s *Service) CreateForImport(ctx context.Context, contact *models.Contact) 
 		contact.Visibility = "shared"
 	}
 	if contact.TenantID == uuid.Nil {
-		contact.TenantID = defaultTenantID
+		return ErrInvalidTenant
 	}
 	return s.repo.Create(ctx, contact)
 }
@@ -570,26 +566,32 @@ func (s *Service) CreateForImport(ctx context.Context, contact *models.Contact) 
 func (s *Service) UpdateForImport(ctx context.Context, contact *models.Contact) error {
 	tenantID := contact.TenantID
 	if tenantID == uuid.Nil {
-		tenantID = defaultTenantID
+		return ErrInvalidTenant
 	}
 	return s.repo.Update(ctx, contact, tenantID)
 }
 
-// ListByIDs retrieves contacts by a list of IDs (used by export).
-func (s *Service) ListByIDs(ctx context.Context, ids []uuid.UUID) ([]*models.Contact, error) {
-	return s.repo.ListByIDs(ctx, ids, defaultTenantID)
+// ListByIDs retrieves contacts by a list of IDs scoped to a tenant (used by export).
+func (s *Service) ListByIDs(ctx context.Context, ids []uuid.UUID, tenantID uuid.UUID) ([]*models.Contact, error) {
+	if tenantID == uuid.Nil {
+		return nil, ErrInvalidTenant
+	}
+	return s.repo.ListByIDs(ctx, ids, tenantID)
 }
 
-// ListVisible retrieves all contacts visible to the given user (used by export all).
-func (s *Service) ListVisible(ctx context.Context, userID uuid.UUID, isAdmin bool) ([]*models.Contact, error) {
-	return s.repo.ListAll(ctx, userID, isAdmin, defaultTenantID)
+// ListVisible retrieves all contacts visible to the given user scoped to a tenant (used by export all).
+func (s *Service) ListVisible(ctx context.Context, userID uuid.UUID, isAdmin bool, tenantID uuid.UUID) ([]*models.Contact, error) {
+	if tenantID == uuid.Nil {
+		return nil, ErrInvalidTenant
+	}
+	return s.repo.ListAll(ctx, userID, isAdmin, tenantID)
 }
 
 // ListWithVisibility retrieves contacts with visibility filtering.
 func (s *Service) ListWithVisibility(ctx context.Context, userID uuid.UUID, isAdmin bool, input ListInput) ([]*models.ContactWithRelations, int, error) {
 	tenantID := input.TenantID
 	if tenantID == uuid.Nil {
-		tenantID = defaultTenantID
+		return nil, 0, ErrInvalidTenant
 	}
 
 	if input.Page < 1 {
@@ -623,9 +625,12 @@ func (s *Service) ListWithVisibility(ctx context.Context, userID uuid.UUID, isAd
 	return results, total, nil
 }
 
-// UpdateVisibility updates the visibility and owner of a contact.
-func (s *Service) UpdateVisibility(ctx context.Context, contactID uuid.UUID, visibility string, ownerID *uuid.UUID) error {
-	return s.repo.UpdateVisibility(ctx, contactID, visibility, ownerID, defaultTenantID)
+// UpdateVisibility updates the visibility and owner of a contact scoped to a tenant.
+func (s *Service) UpdateVisibility(ctx context.Context, contactID uuid.UUID, visibility string, ownerID *uuid.UUID, tenantID uuid.UUID) error {
+	if tenantID == uuid.Nil {
+		return ErrInvalidTenant
+	}
+	return s.repo.UpdateVisibility(ctx, contactID, visibility, ownerID, tenantID)
 }
 
 // Helper to trim and nil empty strings

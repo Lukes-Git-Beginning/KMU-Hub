@@ -42,6 +42,9 @@ func TestMapCRMError(t *testing.T) {
 		{"invalid color", tag.ErrInvalidColor, codes.InvalidArgument},
 		{"invalid entity type (tag)", tag.ErrInvalidEntityType, codes.InvalidArgument},
 		{"tag in use", tag.ErrTagInUse, codes.FailedPrecondition},
+		// --- Tenant errors ---
+		{"contact invalid tenant", contact.ErrInvalidTenant, codes.Unauthenticated},
+		{"company invalid tenant", company.ErrInvalidTenant, codes.Unauthenticated},
 		// --- Contact errors ---
 		{"contact not found", contact.ErrContactNotFound, codes.NotFound},
 		{"email exists", contact.ErrEmailExists, codes.AlreadyExists},

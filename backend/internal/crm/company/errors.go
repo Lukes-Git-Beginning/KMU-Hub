@@ -11,4 +11,5 @@ var (
 	ErrInvalidCustomField = errors.New("invalid custom field")
 	ErrCannotMergeSelf    = errors.New("cannot merge a company with itself")
 	ErrAlreadyMerged      = errors.New("company has already been merged")
+	ErrInvalidTenant      = errors.New("tenant_id is required")
 )

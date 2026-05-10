@@ -43,7 +43,7 @@ var (
 )
 
 // SetVisibility sets the visibility of a contact. The userID must be the owner of the contact.
-func (s *VisibilityService) SetVisibility(ctx context.Context, contactID uuid.UUID, visibility string, userID uuid.UUID) error {
+func (s *VisibilityService) SetVisibility(ctx context.Context, contactID uuid.UUID, visibility string, userID uuid.UUID, tenantID uuid.UUID) error {
 	if !isValidVisibility(visibility) {
 		return ErrInvalidVisibility
 	}
@@ -53,7 +53,7 @@ func (s *VisibilityService) SetVisibility(ctx context.Context, contactID uuid.UU
 		ownerID = &userID
 	}
 
-	if err := s.contactRepo.UpdateVisibility(ctx, contactID, visibility, ownerID, uuid.MustParse("00000000-0000-0000-0000-000000000000")); err != nil {
+	if err := s.contactRepo.UpdateVisibility(ctx, contactID, visibility, ownerID, tenantID); err != nil {
 		return err
 	}
 
@@ -67,8 +67,8 @@ func (s *VisibilityService) SetVisibility(ctx context.Context, contactID uuid.UU
 }
 
 // SetOwner sets the owner of a personal contact.
-func (s *VisibilityService) SetOwner(ctx context.Context, contactID uuid.UUID, ownerID uuid.UUID) error {
-	if err := s.contactRepo.UpdateVisibility(ctx, contactID, VisibilityPersonal, &ownerID, uuid.MustParse("00000000-0000-0000-0000-000000000000")); err != nil {
+func (s *VisibilityService) SetOwner(ctx context.Context, contactID uuid.UUID, ownerID uuid.UUID, tenantID uuid.UUID) error {
+	if err := s.contactRepo.UpdateVisibility(ctx, contactID, VisibilityPersonal, &ownerID, tenantID); err != nil {
 		return err
 	}
 
@@ -81,14 +81,14 @@ func (s *VisibilityService) SetOwner(ctx context.Context, contactID uuid.UUID, o
 }
 
 // AdminOverride allows an admin to change visibility regardless of ownership.
-func (s *VisibilityService) AdminOverride(ctx context.Context, contactID uuid.UUID, visibility string) error {
+func (s *VisibilityService) AdminOverride(ctx context.Context, contactID uuid.UUID, visibility string, tenantID uuid.UUID) error {
 	if !isValidVisibility(visibility) {
 		return ErrInvalidVisibility
 	}
 
 	// Admin override clears the owner when setting to shared
 	var ownerID *uuid.UUID
-	if err := s.contactRepo.UpdateVisibility(ctx, contactID, visibility, ownerID, uuid.MustParse("00000000-0000-0000-0000-000000000000")); err != nil {
+	if err := s.contactRepo.UpdateVisibility(ctx, contactID, visibility, ownerID, tenantID); err != nil {
 		return err
 	}
 

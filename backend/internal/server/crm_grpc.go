@@ -375,6 +375,11 @@ func (s *CRMGRPCServer) DeleteTag(ctx context.Context, req *crmv1.DeleteTagReque
 // ============================================================================
 
 func (s *CRMGRPCServer) CreateContact(ctx context.Context, req *crmv1.CreateContactRequest) (*crmv1.CreateContactResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	createdBy, err := uuid.Parse(req.CreatedBy)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid created_by user id")
@@ -384,6 +389,7 @@ func (s *CRMGRPCServer) CreateContact(ctx context.Context, req *crmv1.CreateCont
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
 		CreatedBy: createdBy,
+		TenantID:  tenantID,
 	}
 
 	if req.Email != "" {
@@ -442,12 +448,17 @@ func (s *CRMGRPCServer) CreateContact(ctx context.Context, req *crmv1.CreateCont
 }
 
 func (s *CRMGRPCServer) GetContact(ctx context.Context, req *crmv1.GetContactRequest) (*crmv1.GetContactResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid contact id")
 	}
 
-	c, err := s.contactService.GetByID(ctx, id)
+	c, err := s.contactService.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -458,6 +469,11 @@ func (s *CRMGRPCServer) GetContact(ctx context.Context, req *crmv1.GetContactReq
 }
 
 func (s *CRMGRPCServer) ListContacts(ctx context.Context, req *crmv1.ListContactsRequest) (*crmv1.ListContactsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	input := contact.ListInput{
 		Search:           req.Search,
 		Page:             int(req.Page),
@@ -465,6 +481,7 @@ func (s *CRMGRPCServer) ListContacts(ctx context.Context, req *crmv1.ListContact
 		SortBy:           req.SortBy,
 		SortDesc:         req.SortDesc,
 		VisibilityFilter: req.VisibilityFilter,
+		TenantID:         tenantID,
 	}
 
 	if req.CompanyId != nil {
@@ -524,6 +541,11 @@ func (s *CRMGRPCServer) ListContacts(ctx context.Context, req *crmv1.ListContact
 }
 
 func (s *CRMGRPCServer) UpdateContact(ctx context.Context, req *crmv1.UpdateContactRequest) (*crmv1.UpdateContactResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid contact id")
@@ -578,7 +600,7 @@ func (s *CRMGRPCServer) UpdateContact(ctx context.Context, req *crmv1.UpdateCont
 		}
 	}
 
-	c, err := s.contactService.Update(ctx, id, input)
+	c, err := s.contactService.Update(ctx, id, input, tenantID)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -589,12 +611,17 @@ func (s *CRMGRPCServer) UpdateContact(ctx context.Context, req *crmv1.UpdateCont
 }
 
 func (s *CRMGRPCServer) DeleteContact(ctx context.Context, req *crmv1.DeleteContactRequest) (*crmv1.DeleteContactResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid contact id")
 	}
 
-	if err := s.contactService.Delete(ctx, id); err != nil {
+	if err := s.contactService.Delete(ctx, id, tenantID); err != nil {
 		return nil, mapCRMError(err)
 	}
 
@@ -602,6 +629,11 @@ func (s *CRMGRPCServer) DeleteContact(ctx context.Context, req *crmv1.DeleteCont
 }
 
 func (s *CRMGRPCServer) AddContactTags(ctx context.Context, req *crmv1.AddContactTagsRequest) (*crmv1.AddContactTagsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	contactID, err := uuid.Parse(req.ContactId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
@@ -616,7 +648,7 @@ func (s *CRMGRPCServer) AddContactTags(ctx context.Context, req *crmv1.AddContac
 		tagIDs = append(tagIDs, tagID)
 	}
 
-	c, err := s.contactService.AddTags(ctx, contactID, tagIDs)
+	c, err := s.contactService.AddTags(ctx, contactID, tagIDs, tenantID)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -627,6 +659,11 @@ func (s *CRMGRPCServer) AddContactTags(ctx context.Context, req *crmv1.AddContac
 }
 
 func (s *CRMGRPCServer) RemoveContactTags(ctx context.Context, req *crmv1.RemoveContactTagsRequest) (*crmv1.RemoveContactTagsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	contactID, err := uuid.Parse(req.ContactId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
@@ -641,7 +678,7 @@ func (s *CRMGRPCServer) RemoveContactTags(ctx context.Context, req *crmv1.Remove
 		tagIDs = append(tagIDs, tagID)
 	}
 
-	c, err := s.contactService.RemoveTags(ctx, contactID, tagIDs)
+	c, err := s.contactService.RemoveTags(ctx, contactID, tagIDs, tenantID)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -656,6 +693,11 @@ func (s *CRMGRPCServer) RemoveContactTags(ctx context.Context, req *crmv1.Remove
 // ============================================================================
 
 func (s *CRMGRPCServer) CreateCompany(ctx context.Context, req *crmv1.CreateCompanyRequest) (*crmv1.CreateCompanyResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	createdBy, err := uuid.Parse(req.CreatedBy)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid created_by user id")
@@ -664,6 +706,7 @@ func (s *CRMGRPCServer) CreateCompany(ctx context.Context, req *crmv1.CreateComp
 	input := company.CreateInput{
 		Name:      req.Name,
 		CreatedBy: createdBy,
+		TenantID:  tenantID,
 	}
 
 	if req.Domain != "" {
@@ -725,12 +768,17 @@ func (s *CRMGRPCServer) CreateCompany(ctx context.Context, req *crmv1.CreateComp
 }
 
 func (s *CRMGRPCServer) GetCompany(ctx context.Context, req *crmv1.GetCompanyRequest) (*crmv1.GetCompanyResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid company id")
 	}
 
-	c, err := s.companyService.GetByID(ctx, id)
+	c, err := s.companyService.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -741,12 +789,18 @@ func (s *CRMGRPCServer) GetCompany(ctx context.Context, req *crmv1.GetCompanyReq
 }
 
 func (s *CRMGRPCServer) ListCompanies(ctx context.Context, req *crmv1.ListCompaniesRequest) (*crmv1.ListCompaniesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	input := company.ListInput{
 		Search:   req.Search,
 		Page:     int(req.Page),
 		PageSize: int(req.PageSize),
 		SortBy:   req.SortBy,
 		SortDesc: req.SortDesc,
+		TenantID: tenantID,
 	}
 
 	if req.Industry != "" {
@@ -778,6 +832,11 @@ func (s *CRMGRPCServer) ListCompanies(ctx context.Context, req *crmv1.ListCompan
 }
 
 func (s *CRMGRPCServer) UpdateCompany(ctx context.Context, req *crmv1.UpdateCompanyRequest) (*crmv1.UpdateCompanyResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid company id")
@@ -827,7 +886,7 @@ func (s *CRMGRPCServer) UpdateCompany(ctx context.Context, req *crmv1.UpdateComp
 		}
 	}
 
-	c, err := s.companyService.Update(ctx, id, input)
+	c, err := s.companyService.Update(ctx, id, input, tenantID)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -838,12 +897,17 @@ func (s *CRMGRPCServer) UpdateCompany(ctx context.Context, req *crmv1.UpdateComp
 }
 
 func (s *CRMGRPCServer) DeleteCompany(ctx context.Context, req *crmv1.DeleteCompanyRequest) (*crmv1.DeleteCompanyResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid company id")
 	}
 
-	if err := s.companyService.Delete(ctx, id); err != nil {
+	if err := s.companyService.Delete(ctx, id, tenantID); err != nil {
 		return nil, mapCRMError(err)
 	}
 
@@ -851,6 +915,11 @@ func (s *CRMGRPCServer) DeleteCompany(ctx context.Context, req *crmv1.DeleteComp
 }
 
 func (s *CRMGRPCServer) GetCompanyContacts(ctx context.Context, req *crmv1.GetCompanyContactsRequest) (*crmv1.GetCompanyContactsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	companyID, err := uuid.Parse(req.CompanyId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid company_id")
@@ -860,6 +929,7 @@ func (s *CRMGRPCServer) GetCompanyContacts(ctx context.Context, req *crmv1.GetCo
 		CompanyID: &companyID,
 		Page:      int(req.Page),
 		PageSize:  int(req.PageSize),
+		TenantID:  tenantID,
 	}
 
 	contacts, total, err := s.contactService.List(ctx, input)
@@ -2016,12 +2086,22 @@ func (s *CRMGRPCServer) ImportContactsCSV(ctx context.Context, req *crmv1.Import
 		return nil, status.Error(codes.Unimplemented, "import service not configured")
 	}
 
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	result, err := s.importService.ImportCSV(ctx, bytes.NewReader(req.FileContent), req.FieldMapping, req.Visibility, userID, req.MergeByEmail)
+	// Wrap the contact service with a tenant-scoped adapter so the import
+	// provider is bound to the caller's tenant for this request.
+	provider := emailcontact.NewTenantScopedAdapter(s.contactService, tenantID)
+	importSvc := emailcontact.NewImportService(provider, nil)
+
+	result, err := importSvc.ImportCSV(ctx, bytes.NewReader(req.FileContent), req.FieldMapping, req.Visibility, userID, req.MergeByEmail)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "import failed: %v", err)
 	}
@@ -2034,12 +2114,20 @@ func (s *CRMGRPCServer) ImportContactsVCard(ctx context.Context, req *crmv1.Impo
 		return nil, status.Error(codes.Unimplemented, "import service not configured")
 	}
 
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	result, err := s.importService.ImportVCard(ctx, bytes.NewReader(req.FileContent), req.Visibility, userID, req.MergeByEmail)
+	provider := emailcontact.NewTenantScopedAdapter(s.contactService, tenantID)
+	importSvc := emailcontact.NewImportService(provider, nil)
+
+	result, err := importSvc.ImportVCard(ctx, bytes.NewReader(req.FileContent), req.Visibility, userID, req.MergeByEmail)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "import failed: %v", err)
 	}
@@ -2052,6 +2140,11 @@ func (s *CRMGRPCServer) ExportContactsCSV(ctx context.Context, req *crmv1.Export
 		return nil, status.Error(codes.Unimplemented, "export service not configured")
 	}
 
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	var ids []uuid.UUID
 	for _, idStr := range req.ContactIds {
 		id, err := uuid.Parse(idStr)
@@ -2061,17 +2154,20 @@ func (s *CRMGRPCServer) ExportContactsCSV(ctx context.Context, req *crmv1.Export
 		ids = append(ids, id)
 	}
 
+	provider := emailcontact.NewTenantScopedAdapter(s.contactService, tenantID)
+	exportSvc := emailcontact.NewExportService(provider, nil)
+
 	var data []byte
 	var exportErr error
 
 	if len(ids) > 0 {
-		data, exportErr = s.exportService.ExportCSV(ctx, ids, req.Fields)
+		data, exportErr = exportSvc.ExportCSV(ctx, ids, req.Fields)
 	} else {
 		userID, err := uuid.Parse(req.UserId)
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 		}
-		data, exportErr = s.exportService.ExportAllCSV(ctx, userID, req.Fields, req.IsAdmin)
+		data, exportErr = exportSvc.ExportAllCSV(ctx, userID, req.Fields, req.IsAdmin)
 	}
 
 	if exportErr != nil {
@@ -2090,6 +2186,11 @@ func (s *CRMGRPCServer) ExportContactsVCard(ctx context.Context, req *crmv1.Expo
 		return nil, status.Error(codes.Unimplemented, "export service not configured")
 	}
 
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	var ids []uuid.UUID
 	for _, idStr := range req.ContactIds {
 		id, err := uuid.Parse(idStr)
@@ -2099,7 +2200,10 @@ func (s *CRMGRPCServer) ExportContactsVCard(ctx context.Context, req *crmv1.Expo
 		ids = append(ids, id)
 	}
 
-	data, err := s.exportService.ExportVCard(ctx, ids)
+	provider := emailcontact.NewTenantScopedAdapter(s.contactService, tenantID)
+	exportSvc := emailcontact.NewExportService(provider, nil)
+
+	data, err := exportSvc.ExportVCard(ctx, ids)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "export failed: %v", err)
 	}
@@ -2134,6 +2238,11 @@ func (s *CRMGRPCServer) PreviewImportCSV(ctx context.Context, req *crmv1.Preview
 }
 
 func (s *CRMGRPCServer) UpdateContactVisibility(ctx context.Context, req *crmv1.UpdateContactVisibilityRequest) (*crmv1.UpdateContactVisibilityResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	contactID, err := uuid.Parse(req.ContactId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
@@ -2146,11 +2255,11 @@ func (s *CRMGRPCServer) UpdateContactVisibility(ctx context.Context, req *crmv1.
 
 	if s.visibilityService != nil {
 		if req.IsAdmin {
-			if visErr := s.visibilityService.AdminOverride(ctx, contactID, req.Visibility); visErr != nil {
+			if visErr := s.visibilityService.AdminOverride(ctx, contactID, req.Visibility, tenantID); visErr != nil {
 				return nil, mapCRMError(visErr)
 			}
 		} else {
-			if visErr := s.visibilityService.SetVisibility(ctx, contactID, req.Visibility, userID); visErr != nil {
+			if visErr := s.visibilityService.SetVisibility(ctx, contactID, req.Visibility, userID, tenantID); visErr != nil {
 				return nil, mapCRMError(visErr)
 			}
 		}
@@ -2160,13 +2269,13 @@ func (s *CRMGRPCServer) UpdateContactVisibility(ctx context.Context, req *crmv1.
 		if req.Visibility == "personal" {
 			ownerID = &userID
 		}
-		if visErr := s.contactService.UpdateVisibility(ctx, contactID, req.Visibility, ownerID); visErr != nil {
+		if visErr := s.contactService.UpdateVisibility(ctx, contactID, req.Visibility, ownerID, tenantID); visErr != nil {
 			return nil, mapCRMError(visErr)
 		}
 	}
 
 	// Return updated contact
-	c, err := s.contactService.GetByID(ctx, contactID)
+	c, err := s.contactService.GetByID(ctx, contactID, tenantID)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -2544,6 +2653,11 @@ func mapCRMError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, tag.ErrTagInUse):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	// Tenant errors (contact and company share the same message)
+	case errors.Is(err, contact.ErrInvalidTenant):
+		return status.Error(codes.Unauthenticated, err.Error())
+	case errors.Is(err, company.ErrInvalidTenant):
+		return status.Error(codes.Unauthenticated, err.Error())
 	// Contact errors
 	case errors.Is(err, contact.ErrContactNotFound):
 		return status.Error(codes.NotFound, err.Error())
@@ -2681,12 +2795,17 @@ func mapCRMError(err error) error {
 // ============================================================================
 
 func (s *CRMGRPCServer) FindContactDuplicates(ctx context.Context, req *crmv1.FindContactDuplicatesRequest) (*crmv1.FindContactDuplicatesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	contactID, err := uuid.Parse(req.ContactId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
 	}
 
-	candidates, err := s.contactService.FindDuplicates(ctx, contactID)
+	candidates, err := s.contactService.FindDuplicates(ctx, contactID, tenantID)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -2707,6 +2826,11 @@ func (s *CRMGRPCServer) FindContactDuplicates(ctx context.Context, req *crmv1.Fi
 }
 
 func (s *CRMGRPCServer) MergeContacts(ctx context.Context, req *crmv1.MergeContactsRequest) (*crmv1.MergeContactsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	primaryID, err := uuid.Parse(req.PrimaryId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid primary_id")
@@ -2716,7 +2840,7 @@ func (s *CRMGRPCServer) MergeContacts(ctx context.Context, req *crmv1.MergeConta
 		return nil, status.Error(codes.InvalidArgument, "invalid duplicate_id")
 	}
 
-	merged, err := s.contactService.MergeContacts(ctx, primaryID, duplicateID)
+	merged, err := s.contactService.MergeContacts(ctx, primaryID, duplicateID, tenantID)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -2727,12 +2851,17 @@ func (s *CRMGRPCServer) MergeContacts(ctx context.Context, req *crmv1.MergeConta
 }
 
 func (s *CRMGRPCServer) FindCompanyDuplicates(ctx context.Context, req *crmv1.FindCompanyDuplicatesRequest) (*crmv1.FindCompanyDuplicatesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	companyID, err := uuid.Parse(req.CompanyId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid company_id")
 	}
 
-	candidates, err := s.companyService.FindDuplicates(ctx, companyID)
+	candidates, err := s.companyService.FindDuplicates(ctx, companyID, tenantID)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -2753,6 +2882,11 @@ func (s *CRMGRPCServer) FindCompanyDuplicates(ctx context.Context, req *crmv1.Fi
 }
 
 func (s *CRMGRPCServer) MergeCompanies(ctx context.Context, req *crmv1.MergeCompaniesRequest) (*crmv1.MergeCompaniesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	primaryID, err := uuid.Parse(req.PrimaryId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid primary_id")
@@ -2762,7 +2896,7 @@ func (s *CRMGRPCServer) MergeCompanies(ctx context.Context, req *crmv1.MergeComp
 		return nil, status.Error(codes.InvalidArgument, "invalid duplicate_id")
 	}
 
-	merged, err := s.companyService.MergeCompanies(ctx, primaryID, duplicateID)
+	merged, err := s.companyService.MergeCompanies(ctx, primaryID, duplicateID, tenantID)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}

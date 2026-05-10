@@ -29,8 +29,9 @@ func TestSetVisibility_Shared(t *testing.T) {
 
 	contactID := uuid.New()
 	userID := uuid.New()
+	tenantID := uuid.New()
 
-	err := svc.SetVisibility(context.Background(), contactID, VisibilityShared, userID)
+	err := svc.SetVisibility(context.Background(), contactID, VisibilityShared, userID, tenantID)
 	if err != nil {
 		t.Fatalf("SetVisibility failed: %v", err)
 	}
@@ -49,8 +50,9 @@ func TestSetVisibility_Personal(t *testing.T) {
 
 	contactID := uuid.New()
 	userID := uuid.New()
+	tenantID := uuid.New()
 
-	err := svc.SetVisibility(context.Background(), contactID, VisibilityPersonal, userID)
+	err := svc.SetVisibility(context.Background(), contactID, VisibilityPersonal, userID, tenantID)
 	if err != nil {
 		t.Fatalf("SetVisibility failed: %v", err)
 	}
@@ -67,7 +69,7 @@ func TestSetVisibility_Invalid(t *testing.T) {
 	repo := &mockContactRepository{}
 	svc := NewVisibilityService(repo, nil)
 
-	err := svc.SetVisibility(context.Background(), uuid.New(), "invalid", uuid.New())
+	err := svc.SetVisibility(context.Background(), uuid.New(), "invalid", uuid.New(), uuid.New())
 	if err != ErrInvalidVisibility {
 		t.Errorf("expected ErrInvalidVisibility, got %v", err)
 	}
@@ -82,8 +84,9 @@ func TestAdminOverride_Shared(t *testing.T) {
 	svc := NewVisibilityService(repo, nil)
 
 	contactID := uuid.New()
+	tenantID := uuid.New()
 
-	err := svc.AdminOverride(context.Background(), contactID, VisibilityShared)
+	err := svc.AdminOverride(context.Background(), contactID, VisibilityShared, tenantID)
 	if err != nil {
 		t.Fatalf("AdminOverride failed: %v", err)
 	}
@@ -100,7 +103,7 @@ func TestAdminOverride_Invalid(t *testing.T) {
 	repo := &mockContactRepository{}
 	svc := NewVisibilityService(repo, nil)
 
-	err := svc.AdminOverride(context.Background(), uuid.New(), "bogus")
+	err := svc.AdminOverride(context.Background(), uuid.New(), "bogus", uuid.New())
 	if err != ErrInvalidVisibility {
 		t.Errorf("expected ErrInvalidVisibility, got %v", err)
 	}
@@ -112,8 +115,9 @@ func TestSetOwner(t *testing.T) {
 
 	contactID := uuid.New()
 	ownerID := uuid.New()
+	tenantID := uuid.New()
 
-	err := svc.SetOwner(context.Background(), contactID, ownerID)
+	err := svc.SetOwner(context.Background(), contactID, ownerID, tenantID)
 	if err != nil {
 		t.Fatalf("SetOwner failed: %v", err)
 	}

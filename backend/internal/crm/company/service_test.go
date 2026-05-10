@@ -157,6 +157,7 @@ func TestService_Create_Success(t *testing.T) {
 	input := CreateInput{
 		Name:      "Acme Corp",
 		CreatedBy: uuid.New(),
+		TenantID:  uuid.New(),
 	}
 
 	company, err := svc.Create(context.Background(), input)
@@ -190,6 +191,7 @@ func TestService_Create_WithAllFields(t *testing.T) {
 		Country:       &country,
 		Notes:         &notes,
 		CreatedBy:     uuid.New(),
+		TenantID:      uuid.New(),
 	}
 
 	company, err := svc.Create(context.Background(), input)
@@ -216,6 +218,7 @@ func TestService_Create_WithTags(t *testing.T) {
 		Name:      "Acme Corp",
 		TagIDs:    []uuid.UUID{tagID},
 		CreatedBy: uuid.New(),
+		TenantID:  uuid.New(),
 	}
 
 	company, err := svc.Create(context.Background(), input)
@@ -231,6 +234,7 @@ func TestService_Create_NameRequired(t *testing.T) {
 	input := CreateInput{
 		Name:      "",
 		CreatedBy: uuid.New(),
+		TenantID:  uuid.New(),
 	}
 
 	_, err := svc.Create(context.Background(), input)
@@ -245,6 +249,7 @@ func TestService_Create_NameTrimmed(t *testing.T) {
 	input := CreateInput{
 		Name:      "  Acme Corp  ",
 		CreatedBy: uuid.New(),
+		TenantID:  uuid.New(),
 	}
 
 	company, err := svc.Create(context.Background(), input)
@@ -261,6 +266,7 @@ func TestService_Create_InvalidTag(t *testing.T) {
 		Name:      "Acme Corp",
 		TagIDs:    []uuid.UUID{uuid.New()}, // Non-existent tag
 		CreatedBy: uuid.New(),
+		TenantID:  uuid.New(),
 	}
 
 	_, err := svc.Create(context.Background(), input)
@@ -279,11 +285,27 @@ func TestService_Create_WrongTagType(t *testing.T) {
 		Name:      "Acme Corp",
 		TagIDs:    []uuid.UUID{tagID},
 		CreatedBy: uuid.New(),
+		TenantID:  uuid.New(),
 	}
 
 	_, err := svc.Create(context.Background(), input)
 
 	assert.ErrorIs(t, err, ErrTagNotFound)
+}
+
+func TestService_Create_InvalidTenant(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	input := CreateInput{
+		Name:      "Acme Corp",
+		CreatedBy: uuid.New(),
+		TenantID:  uuid.Nil, // missing tenant
+	}
+
+	_, err := svc.Create(context.Background(), input)
+
+	assert.ErrorIs(t, err, ErrInvalidTenant)
 }
 
 // ============================================================================
@@ -294,6 +316,7 @@ func TestService_GetByID_Success(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
 	companyID := uuid.New()
 	repo.companies[companyID] = &models.Company{
 		ID:        companyID,
@@ -303,7 +326,7 @@ func TestService_GetByID_Success(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	company, err := svc.GetByID(context.Background(), companyID)
+	company, err := svc.GetByID(context.Background(), companyID, tenantID)
 
 	require.NoError(t, err)
 	assert.Equal(t, companyID, company.ID)
@@ -314,9 +337,18 @@ func TestService_GetByID_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	_, err := svc.GetByID(context.Background(), uuid.New())
+	_, err := svc.GetByID(context.Background(), uuid.New(), uuid.New())
 
 	assert.ErrorIs(t, err, ErrCompanyNotFound)
+}
+
+func TestService_GetByID_InvalidTenant(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	_, err := svc.GetByID(context.Background(), uuid.New(), uuid.Nil)
+
+	assert.ErrorIs(t, err, ErrInvalidTenant)
 }
 
 // ============================================================================
@@ -327,7 +359,7 @@ func TestService_List_Empty(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	companies, total, err := svc.List(context.Background(), ListInput{})
+	companies, total, err := svc.List(context.Background(), ListInput{TenantID: uuid.New()})
 
 	require.NoError(t, err)
 	assert.Empty(t, companies)
@@ -338,6 +370,7 @@ func TestService_List_WithCompanies(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
 	for i := 0; i < 3; i++ {
 		id := uuid.New()
 		repo.companies[id] = &models.Company{
@@ -349,7 +382,7 @@ func TestService_List_WithCompanies(t *testing.T) {
 		}
 	}
 
-	companies, total, err := svc.List(context.Background(), ListInput{})
+	companies, total, err := svc.List(context.Background(), ListInput{TenantID: tenantID})
 
 	require.NoError(t, err)
 	assert.Len(t, companies, 3)
@@ -360,6 +393,7 @@ func TestService_List_DefaultPagination(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
 	// Create 25 companies
 	for i := 0; i < 25; i++ {
 		id := uuid.New()
@@ -375,6 +409,7 @@ func TestService_List_DefaultPagination(t *testing.T) {
 	companies, total, err := svc.List(context.Background(), ListInput{
 		Page:     0, // Should default to 1
 		PageSize: 0, // Should default to 20
+		TenantID: tenantID,
 	})
 
 	require.NoError(t, err)
@@ -386,6 +421,7 @@ func TestService_List_Pagination(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
 	for i := 0; i < 5; i++ {
 		id := uuid.New()
 		repo.companies[id] = &models.Company{
@@ -400,11 +436,21 @@ func TestService_List_Pagination(t *testing.T) {
 	companies, total, err := svc.List(context.Background(), ListInput{
 		Page:     2,
 		PageSize: 2,
+		TenantID: tenantID,
 	})
 
 	require.NoError(t, err)
 	assert.Len(t, companies, 2)
 	assert.Equal(t, 5, total)
+}
+
+func TestService_List_InvalidTenant(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	_, _, err := svc.List(context.Background(), ListInput{TenantID: uuid.Nil})
+
+	assert.ErrorIs(t, err, ErrInvalidTenant)
 }
 
 // ============================================================================
@@ -415,6 +461,7 @@ func TestService_Update_Success(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
 	companyID := uuid.New()
 	repo.companies[companyID] = &models.Company{
 		ID:        companyID,
@@ -427,7 +474,7 @@ func TestService_Update_Success(t *testing.T) {
 	newName := "New Name"
 	company, err := svc.Update(context.Background(), companyID, UpdateInput{
 		Name: &newName,
-	})
+	}, tenantID)
 
 	require.NoError(t, err)
 	assert.Equal(t, "New Name", company.Name)
@@ -440,7 +487,7 @@ func TestService_Update_NotFound(t *testing.T) {
 	newName := "New Name"
 	_, err := svc.Update(context.Background(), uuid.New(), UpdateInput{
 		Name: &newName,
-	})
+	}, uuid.New())
 
 	assert.ErrorIs(t, err, ErrCompanyNotFound)
 }
@@ -449,6 +496,7 @@ func TestService_Update_EmptyName(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
 	companyID := uuid.New()
 	repo.companies[companyID] = &models.Company{
 		ID:        companyID,
@@ -461,7 +509,7 @@ func TestService_Update_EmptyName(t *testing.T) {
 	emptyName := ""
 	_, err := svc.Update(context.Background(), companyID, UpdateInput{
 		Name: &emptyName,
-	})
+	}, tenantID)
 
 	assert.ErrorIs(t, err, ErrNameRequired)
 }
@@ -470,6 +518,7 @@ func TestService_Update_AllFields(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
 	companyID := uuid.New()
 	repo.companies[companyID] = &models.Company{
 		ID:        companyID,
@@ -497,7 +546,7 @@ func TestService_Update_AllFields(t *testing.T) {
 		City:          &newCity,
 		Country:       &newCountry,
 		Notes:         &newNotes,
-	})
+	}, tenantID)
 
 	require.NoError(t, err)
 	assert.Equal(t, "New Name", company.Name)
@@ -518,6 +567,7 @@ func TestService_Delete_Success(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
 	companyID := uuid.New()
 	repo.companies[companyID] = &models.Company{
 		ID:        companyID,
@@ -527,7 +577,7 @@ func TestService_Delete_Success(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	err := svc.Delete(context.Background(), companyID)
+	err := svc.Delete(context.Background(), companyID, tenantID)
 
 	require.NoError(t, err)
 	assert.NotContains(t, repo.companies, companyID)
@@ -537,7 +587,7 @@ func TestService_Delete_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	err := svc.Delete(context.Background(), uuid.New())
+	err := svc.Delete(context.Background(), uuid.New(), uuid.New())
 
 	assert.ErrorIs(t, err, ErrCompanyNotFound)
 }
@@ -546,6 +596,7 @@ func TestService_Delete_HasContacts(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
 	companyID := uuid.New()
 	repo.companies[companyID] = &models.Company{
 		ID:        companyID,
@@ -556,7 +607,7 @@ func TestService_Delete_HasContacts(t *testing.T) {
 	}
 	repo.SetContactCount(companyID, 5)
 
-	err := svc.Delete(context.Background(), companyID)
+	err := svc.Delete(context.Background(), companyID, tenantID)
 
 	assert.ErrorIs(t, err, ErrCompanyInUse)
 	assert.Contains(t, repo.companies, companyID) // Not deleted
@@ -570,6 +621,7 @@ func TestService_AddTags_Success(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
 	companyID := uuid.New()
 	repo.companies[companyID] = &models.Company{
 		ID:        companyID,
@@ -582,7 +634,7 @@ func TestService_AddTags_Success(t *testing.T) {
 	tagID := uuid.New()
 	repo.AddValidTag(tagID, models.EntityTypeCompany)
 
-	company, err := svc.AddTags(context.Background(), companyID, []uuid.UUID{tagID})
+	company, err := svc.AddTags(context.Background(), companyID, []uuid.UUID{tagID}, tenantID)
 
 	require.NoError(t, err)
 	assert.Equal(t, companyID, company.ID)
@@ -595,7 +647,7 @@ func TestService_AddTags_CompanyNotFound(t *testing.T) {
 	tagID := uuid.New()
 	repo.AddValidTag(tagID, models.EntityTypeCompany)
 
-	_, err := svc.AddTags(context.Background(), uuid.New(), []uuid.UUID{tagID})
+	_, err := svc.AddTags(context.Background(), uuid.New(), []uuid.UUID{tagID}, uuid.New())
 
 	assert.ErrorIs(t, err, ErrCompanyNotFound)
 }
@@ -604,6 +656,7 @@ func TestService_AddTags_InvalidTag(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
 	companyID := uuid.New()
 	repo.companies[companyID] = &models.Company{
 		ID:        companyID,
@@ -613,7 +666,7 @@ func TestService_AddTags_InvalidTag(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	_, err := svc.AddTags(context.Background(), companyID, []uuid.UUID{uuid.New()})
+	_, err := svc.AddTags(context.Background(), companyID, []uuid.UUID{uuid.New()}, tenantID)
 
 	assert.ErrorIs(t, err, ErrTagNotFound)
 }
@@ -626,6 +679,7 @@ func TestService_RemoveTags_Success(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
 	companyID := uuid.New()
 	repo.companies[companyID] = &models.Company{
 		ID:        companyID,
@@ -635,7 +689,7 @@ func TestService_RemoveTags_Success(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	company, err := svc.RemoveTags(context.Background(), companyID, []uuid.UUID{uuid.New()})
+	company, err := svc.RemoveTags(context.Background(), companyID, []uuid.UUID{uuid.New()}, tenantID)
 
 	require.NoError(t, err)
 	assert.Equal(t, companyID, company.ID)
@@ -645,7 +699,100 @@ func TestService_RemoveTags_CompanyNotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	_, err := svc.RemoveTags(context.Background(), uuid.New(), []uuid.UUID{uuid.New()})
+	_, err := svc.RemoveTags(context.Background(), uuid.New(), []uuid.UUID{uuid.New()}, uuid.New())
 
 	assert.ErrorIs(t, err, ErrCompanyNotFound)
+}
+
+// ============================================================================
+// Cross-Tenant Isolation Tests (B.3)
+// ============================================================================
+
+// TestService_CrossTenant_GetByID_NilTenantRejected verifies that a nil tenantID
+// (missing JWT / unauthenticated request) is rejected before any repository call.
+func TestService_CrossTenant_GetByID_NilTenantRejected(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	tenantA := uuid.New()
+	company, err := svc.Create(context.Background(), CreateInput{
+		Name: "TenantA Corp", CreatedBy: uuid.New(), TenantID: tenantA,
+	})
+	require.NoError(t, err)
+
+	// Nil tenantID must be rejected before reaching the repo.
+	_, err = svc.GetByID(context.Background(), company.ID, uuid.Nil)
+	assert.ErrorIs(t, err, ErrInvalidTenant)
+}
+
+func TestService_CrossTenant_Delete_NilTenantRejected(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	tenantA := uuid.New()
+	company, err := svc.Create(context.Background(), CreateInput{
+		Name: "TenantA Corp", CreatedBy: uuid.New(), TenantID: tenantA,
+	})
+	require.NoError(t, err)
+
+	err = svc.Delete(context.Background(), company.ID, uuid.Nil)
+	assert.ErrorIs(t, err, ErrInvalidTenant)
+}
+
+func TestService_CrossTenant_Update_NilTenantRejected(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	tenantA := uuid.New()
+	company, err := svc.Create(context.Background(), CreateInput{
+		Name: "TenantA Corp", CreatedBy: uuid.New(), TenantID: tenantA,
+	})
+	require.NoError(t, err)
+
+	newName := "Updated"
+	_, err = svc.Update(context.Background(), company.ID, UpdateInput{Name: &newName}, uuid.Nil)
+	assert.ErrorIs(t, err, ErrInvalidTenant)
+}
+
+// TestService_CrossTenant_GetByID_DifferentTenantUsesOwnScope verifies that when
+// TenantB calls GetByID with TenantB's ID, it uses TenantB's scope.
+// The mock doesn't enforce DB-level isolation (that's the real repo's job), but
+// we confirm TenantB's tenantID flows through (no nil-rejection for a valid UUID).
+func TestService_CrossTenant_GetByID_TenantBScopePassedThrough(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	company, err := svc.Create(context.Background(), CreateInput{
+		Name: "TenantA Corp", CreatedBy: uuid.New(), TenantID: tenantA,
+	})
+	require.NoError(t, err)
+
+	// In production, the real repo would return ErrCompanyNotFound (no row for tenantB).
+	// The mock has no tenant filter, so it returns the row; but we verify no panic,
+	// and that a valid tenantB UUID does NOT get rejected by the service guard.
+	_, err = svc.GetByID(context.Background(), company.ID, tenantB)
+	// Mock returns the row — this is the expected mock behaviour.
+	require.NoError(t, err)
+}
+
+func TestService_CrossTenant_MergeCompanies_NilTenantRejected(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+
+	tenantA := uuid.New()
+	c1, err := svc.Create(context.Background(), CreateInput{
+		Name: "Primary Corp", CreatedBy: uuid.New(), TenantID: tenantA,
+	})
+	require.NoError(t, err)
+
+	c2, err := svc.Create(context.Background(), CreateInput{
+		Name: "Duplicate Corp", CreatedBy: uuid.New(), TenantID: tenantA,
+	})
+	require.NoError(t, err)
+
+	_, err = svc.MergeCompanies(context.Background(), c1.ID, c2.ID, uuid.Nil)
+	assert.ErrorIs(t, err, ErrInvalidTenant)
 }
