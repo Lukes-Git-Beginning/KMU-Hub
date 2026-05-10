@@ -15,6 +15,7 @@ DEPLOY_START=$(date +%s)
 while [[ $# -gt 0 ]]; do
     case $1 in
         --skip-backup) SKIP_BACKUP=true; shift ;;
+        --skip-smoke) SKIP_SMOKE=true; shift ;;
         --force) FORCE=true; shift ;;
         --service=*) SERVICE="${1#*=}"; shift ;;
         *) echo "Unknown option: $1"; exit 1 ;;
@@ -212,7 +213,9 @@ fi
 
 # Step 7: Smoke tests
 log "Step 7/7: Running smoke tests..."
-if [[ -f "$SCRIPT_DIR/smoke.sh" ]]; then
+if [[ "${SKIP_SMOKE:-false}" == "true" ]]; then
+    log "Smoke tests skipped (--skip-smoke). Run manually: deploy/scripts/smoke.sh --base-url https://app.zentria.tech"
+elif [[ -f "$SCRIPT_DIR/smoke.sh" ]]; then
     if ! "$SCRIPT_DIR/smoke.sh" --base-url https://app.zentria.tech --expect-version "$BUILD_COMMIT"; then
         log "Smoke tests FAILED — initiating auto-rollback..."
         rollback "$PREV_SHA"
