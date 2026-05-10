@@ -42,6 +42,7 @@ func (s *Service) Register(ctx context.Context, email, password, firstName, last
 
 	user := &models.User{
 		ID:           uuid.New(),
+		TenantID:     models.DefaultTenantID,
 		Email:        email,
 		PasswordHash: string(hash),
 		FirstName:    firstName,
@@ -402,6 +403,7 @@ func (s *Service) AcceptInvitation(ctx context.Context, token, password, firstNa
 
 	user := &models.User{
 		ID:           uuid.New(),
+		TenantID:     models.DefaultTenantID,
 		Email:        inv.Email,
 		PasswordHash: string(pwHash),
 		FirstName:    firstName,

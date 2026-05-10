@@ -197,6 +197,29 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" && -n "$SMOKE_USER_ID" && "$
         else
             fail "Role upgrade returned $ROLE_CODE — CRUD tests will fail with 403" ""
         fi
+
+        # 8c. Re-login to refresh JWT after role upgrade. AssignRole only writes
+        # to user_roles in the DB — it does NOT invalidate or rotate the existing
+        # access token. Permissions are baked into the JWT at login time
+        # (auth/service.go:createTokenPair → tokenMaker.CreateAccessToken), so
+        # the original SMOKE_TOKEN still carries member-only claims and would
+        # produce 403s on the manager-only CRUD endpoints below.
+        RELOG_RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/auth/login" \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"$SMOKE_EMAIL\",\"password\":\"$SMOKE_PASS\"}" 2>/dev/null) || RELOG_RESP=$'\n000'
+        RELOG_CODE=$(echo "$RELOG_RESP" | tail -1)
+        RELOG_BODY=$(echo "$RELOG_RESP" | sed '$d')
+        if [[ "$RELOG_CODE" == "200" ]]; then
+            NEW_TOKEN=$(echo "$RELOG_BODY" | jq -r '.access_token // empty' 2>/dev/null || echo "")
+            if [[ -n "$NEW_TOKEN" && "$NEW_TOKEN" != "null" ]]; then
+                SMOKE_TOKEN="$NEW_TOKEN"
+                pass "Re-login after role upgrade refreshes JWT (manager claims now active)"
+            else
+                fail "Re-login returned 200 but no access_token in body" "$RELOG_BODY"
+            fi
+        else
+            fail "Re-login after role upgrade failed (HTTP $RELOG_CODE)" "$RELOG_BODY"
+        fi
     else
         echo "  [SKIP] Role bootstrap — SMOKE_ADMIN_TOKEN not set; Tests 9/10/11 will return 403"
     fi
@@ -302,7 +325,10 @@ fi
 # Requires SMOKE_ADMIN_TOKEN (manager role) — otherwise SKIP like tests 9-11.
 if [[ -n "${SMOKE_ADMIN_TOKEN:-}" ]]; then
     IDEM_KEY="smoke-idem-$(date +%s)"
-    IDEM_BODY='{"contact_id":"00000000-0000-0000-0000-000000000001","outcome":"answered","duration_seconds":30,"notes":"smoke-idempotency-test"}'
+    # POST /api/v1/dialer/outcomes creates an outcome DEFINITION (label/color/flags),
+    # not a call-log entry. Required field per createCallOutcomeRequest in
+    # backend/internal/gateway/route_dialer.go: label.
+    IDEM_BODY="{\"label\":\"smoke-outcome-$(date +%s)\",\"color\":\"#00FF00\",\"is_positive\":true,\"is_callback\":false,\"is_appointment\":false,\"sort_order\":99}"
 
     IDEM_RESP1=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/dialer/outcomes" \
         -H "Content-Type: application/json" \
@@ -379,7 +405,7 @@ section "Cross-Service"
 
 # 18. Chat channel (create + verify)
 if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
-    CHAN_RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/chat/channels" \
+    CHAN_RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/channels" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $SMOKE_TOKEN" \
         -H "Idempotency-Key: $(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)" \

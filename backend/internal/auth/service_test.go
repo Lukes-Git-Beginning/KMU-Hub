@@ -374,6 +374,9 @@ func TestService_Register(t *testing.T) {
 				// Default role assigned
 				roles := repo.userRoles[user.ID]
 				assert.Contains(t, roles, "member")
+				// Default tenant assigned (sprint-4 welle-0.5: prevent uuid.Nil tenant)
+				assert.Equal(t, models.DefaultTenantID, user.TenantID,
+					"Register must set TenantID to models.DefaultTenantID, got %s", user.TenantID)
 			}
 		})
 	}
@@ -897,6 +900,9 @@ func TestService_AcceptInvitation(t *testing.T) {
 				assert.NotNil(t, tokens)
 				assert.NotEmpty(t, tokens.AccessToken)
 				assert.NotEmpty(t, tokens.RefreshToken)
+				// Default tenant assigned (sprint-4 welle-0.5: prevent uuid.Nil tenant)
+				assert.Equal(t, models.DefaultTenantID, user.TenantID,
+					"AcceptInvitation must set TenantID to models.DefaultTenantID, got %s", user.TenantID)
 			}
 		})
 	}
