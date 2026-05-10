@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kmuhub/kmuhub/internal/automation/workflow"
+	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -47,6 +48,7 @@ func NewTimeTriggerPoller(
 
 // Start begins the polling loop. It blocks until the context is cancelled.
 func (p *TimeTriggerPoller) Start(ctx context.Context) {
+	ctx = database.WithSystemContext(ctx)
 	slog.Info("time trigger poller started", "interval", p.interval)
 
 	// Run immediately on start

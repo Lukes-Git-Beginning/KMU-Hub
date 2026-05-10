@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -43,6 +44,7 @@ func NewScheduler(service *Service, repo Repository, configRepo IntegrationConfi
 
 // StartAll loads all active Lexware integrations and starts their schedulers.
 func (s *Scheduler) StartAll(ctx context.Context) error {
+	ctx = database.WithSystemContext(ctx)
 	s.parentCtx = ctx
 
 	// Single-tenant mode: look up the one lexware config.

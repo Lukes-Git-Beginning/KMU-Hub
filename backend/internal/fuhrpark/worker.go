@@ -6,6 +6,8 @@ import (
 	"hash/fnv"
 	"log/slog"
 	"time"
+
+	"github.com/kmuhub/kmuhub/internal/database"
 )
 
 // tuevCronLockKey is a stable int64 derived from the string "fuhrpark_tuev_cron".
@@ -63,6 +65,7 @@ func NewTuevWorker(repo Repository, pool any, logger *slog.Logger) *TuevWorker {
 // advisory lock, runs the TUEV scan, and releases the lock automatically when
 // the transaction ends.
 func (w *TuevWorker) Run(ctx context.Context, acquireLockAndRun func(ctx context.Context) error) error {
+	ctx = database.WithSystemContext(ctx)
 	w.logger.Info("fuhrpark TUEV worker starting",
 		"claim_interval", w.claimInterval,
 		"run_interval", w.runInterval,

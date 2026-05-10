@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/inbox/adapter"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
@@ -189,6 +190,7 @@ func (s *Service) Update(ctx context.Context, msg *models.InboxMessage) error {
 // and un-snoozes them. On unsnooze, items reappear as unread in the inbox.
 // The worker emits a pg_notify event so the gateway can push WebSocket updates.
 func (s *Service) StartSnoozeWorker(ctx context.Context, interval time.Duration) {
+	ctx = database.WithSystemContext(ctx)
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()

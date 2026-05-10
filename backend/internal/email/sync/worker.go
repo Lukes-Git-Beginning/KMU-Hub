@@ -9,6 +9,7 @@ import (
 	"github.com/emersion/go-imap/v2"
 	"github.com/google/uuid"
 
+	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/email/account"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
@@ -96,6 +97,7 @@ func newWorker(
 
 // Run executes the sync loop with connection management and reconnection.
 func (w *Worker) Run(ctx context.Context) {
+	ctx = database.WithSystemContext(ctx)
 	backoff := initialBackoff
 
 	for {

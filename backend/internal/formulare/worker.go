@@ -12,6 +12,8 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/kmuhub/kmuhub/internal/database"
 )
 
 // backoffDurations defines exponential retry delays indexed by attempt number (1-based).
@@ -60,6 +62,7 @@ func NewWebhookWorker(repo Repository, logger *slog.Logger) *WebhookWorker {
 
 // Run blocks until ctx is done, polling and dispatching deliveries on each tick.
 func (w *WebhookWorker) Run(ctx context.Context) error {
+	ctx = database.WithSystemContext(ctx)
 	w.logger.Info("formulare webhook worker starting",
 		"poll_interval", w.pollInterval,
 		"batch_size", w.batchSize,

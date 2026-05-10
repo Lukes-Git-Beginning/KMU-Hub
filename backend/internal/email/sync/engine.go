@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/email/account"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
@@ -75,6 +76,7 @@ func NewEngine(
 
 // Start loads all active accounts and starts a worker goroutine per account.
 func (e *Engine) Start(ctx context.Context) error {
+	ctx = database.WithSystemContext(ctx)
 	ctx, cancel := context.WithCancel(ctx)
 	e.cancelFn = cancel
 

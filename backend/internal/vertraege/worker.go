@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 	"time"
+
+	"github.com/kmuhub/kmuhub/internal/database"
 )
 
 // ReminderWorker polls for due reminders and marks them as sent.
@@ -32,6 +34,7 @@ func NewReminderWorker(repo Repository, logger *slog.Logger) *ReminderWorker {
 
 // Run blocks until ctx is cancelled, processing reminders and contract expiry on each tick.
 func (w *ReminderWorker) Run(ctx context.Context) error {
+	ctx = database.WithSystemContext(ctx)
 	w.logger.Info("vertraege reminder worker starting",
 		"poll_interval", w.pollInterval,
 		"expiry_interval", w.expiryInterval,

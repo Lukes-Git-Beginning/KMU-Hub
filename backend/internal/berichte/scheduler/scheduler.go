@@ -25,6 +25,7 @@ import (
 	"github.com/robfig/cron/v3"
 
 	"github.com/kmuhub/kmuhub/internal/berichte"
+	"github.com/kmuhub/kmuhub/internal/database"
 )
 
 // ============================================================================
@@ -139,6 +140,7 @@ func New(repo ScheduleRepository, runner Runner, export Exporter, mailer Mailer,
 // Run blocks until ctx is cancelled. Processes one tick immediately so
 // startup-time overdue schedules do not wait.
 func (s *Scheduler) Run(ctx context.Context) error {
+	ctx = database.WithSystemContext(ctx)
 	s.log.Info("berichte scheduler started", "tick", s.tick.String())
 	defer s.log.Info("berichte scheduler stopped")
 

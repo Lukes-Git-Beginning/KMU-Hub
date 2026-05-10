@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -41,6 +42,7 @@ func NewScheduler(service *Service, repo Repository, configRepo IntegrationConfi
 
 // StartAll loads all active Bexio integrations and starts their schedulers.
 func (s *Scheduler) StartAll(ctx context.Context) error {
+	ctx = database.WithSystemContext(ctx)
 	s.parentCtx = ctx
 
 	// For now, we look up the single bexio config (single-tenant mode).
