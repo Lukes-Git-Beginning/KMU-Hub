@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // RetentionDays is the default retention period for completed recordings (DSGVO compliance)
@@ -16,6 +18,16 @@ const RetentionDays = 30
 type EgressManager interface {
 	StartRoomCompositeEgress(ctx context.Context, roomName, templateURL string, s3Config S3Config) (string, error)
 	StopEgress(ctx context.Context, egressID string) error
+}
+
+// PreConsentChecker verifies that an initiator has explicitly confirmed pre-recording consent
+// before a recording is allowed to start. Checked in the service layer so that direct
+// gRPC calls (bypassing the HTTP gateway) cannot skip the consent gate.
+//
+// Implementations look up whether the given initiator has an active pre-consent token
+// for the specified call or meeting session scoped to the tenant.
+type PreConsentChecker interface {
+	HasInitiatorConsented(ctx context.Context, callID *uuid.UUID, meetingID *uuid.UUID, initiatorID uuid.UUID, tenantID uuid.UUID) (bool, error)
 }
 
 // S3Config holds the S3-compatible storage configuration for recordings
@@ -30,6 +42,7 @@ type S3Config struct {
 type Service struct {
 	repo          Repository
 	egressManager EgressManager // nil if not configured
+	preConsent    PreConsentChecker // nil disables the service-layer gate (legacy/test mode)
 	s3Config      S3Config
 	templateURL   string
 	enabled       bool
@@ -37,14 +50,19 @@ type Service struct {
 
 // NewService creates a new recording service.
 // If egressManager is nil, the service operates in disabled mode.
-func NewService(repo Repository, egressManager EgressManager, templateURL string, s3Config S3Config) *Service {
-	return &Service{
+// The preConsent gate is disabled when checker is nil (backward-compatible).
+func NewService(repo Repository, egressManager EgressManager, templateURL string, s3Config S3Config, checker ...PreConsentChecker) *Service {
+	svc := &Service{
 		repo:          repo,
 		egressManager: egressManager,
 		s3Config:      s3Config,
 		templateURL:   templateURL,
 		enabled:       egressManager != nil,
 	}
+	if len(checker) > 0 {
+		svc.preConsent = checker[0]
+	}
+	return svc
 }
 
 // StartRecording initiates a recording for a call or meeting.
@@ -70,6 +88,27 @@ func (s *Service) StartRecording(ctx context.Context, callID *uuid.UUID, meeting
 
 	if len(participants) == 0 {
 		return nil, ErrNoParticipants
+	}
+
+	// --- Service-layer gate: initiator pre-recording consent (R2-P0.4 / W3-2 Defense-in-Depth) ---
+	// This check mirrors the HTTP-gateway dialog gate so that direct gRPC calls (service-to-service
+	// or external clients bypassing the gateway) cannot start a recording without the initiator's
+	// explicit consent acknowledgement.
+	//
+	// The gate is only active when a PreConsentChecker is wired (production path via NewService).
+	// Legacy callers and tests that do not supply a checker skip the gate gracefully.
+	if s.preConsent != nil {
+		var tid uuid.UUID
+		if len(tenantID) > 0 {
+			tid = tenantID[0]
+		}
+		consented, err := s.preConsent.HasInitiatorConsented(ctx, callID, meetingID, startedBy, tid)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "pre-consent check failed: %v", err)
+		}
+		if !consented {
+			return nil, status.Error(codes.FailedPrecondition, "initiator pre-consent missing")
+		}
 	}
 
 	// Extract participant IDs for the consent gate

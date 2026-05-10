@@ -10,6 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // --- Mock EgressManager ---
@@ -988,4 +990,127 @@ func TestStartRecording_TenantIsolation(t *testing.T) {
 	repoB := &tenantAwareRepo{mockRepo: base, allowedTenantID: tenantB}
 	_, err = repoB.GetRecording(context.Background(), rec.ID)
 	assert.ErrorIs(t, err, ErrNotFound, "TenantB must not access TenantA recordings")
+}
+
+// ============================================================================
+// W3-2: Service-layer Defense-in-Depth — initiator pre-consent gate (Sprint 4)
+//
+// Verifies that StartRecording enforces the pre-consent check at the service layer
+// when a PreConsentChecker is wired, so that direct gRPC callers (bypassing the
+// HTTP gateway dialog gate) cannot start recordings without initiator consent.
+// ============================================================================
+
+// mockPreConsentChecker is a controllable test double for PreConsentChecker.
+type mockPreConsentChecker struct {
+	consented bool
+	err       error
+	called    bool
+	lastCallID *uuid.UUID
+	lastMeetingID *uuid.UUID
+	lastInitiatorID uuid.UUID
+	lastTenantID uuid.UUID
+}
+
+func (m *mockPreConsentChecker) HasInitiatorConsented(
+	_ context.Context,
+	callID *uuid.UUID,
+	meetingID *uuid.UUID,
+	initiatorID uuid.UUID,
+	tenantID uuid.UUID,
+) (bool, error) {
+	m.called = true
+	m.lastCallID = callID
+	m.lastMeetingID = meetingID
+	m.lastInitiatorID = initiatorID
+	m.lastTenantID = tenantID
+	return m.consented, m.err
+}
+
+// TestStartRecording_ServiceLayerGate_BlocksWithoutPreConsent verifies that StartRecording
+// returns codes.FailedPrecondition when the PreConsentChecker denies the initiator.
+// This closes the direct-gRPC bypass identified in W3-2 Defense-in-Depth.
+func TestStartRecording_ServiceLayerGate_BlocksWithoutPreConsent(t *testing.T) {
+	repo := newMockRepo()
+	egress := newMockEgressManager()
+	checker := &mockPreConsentChecker{consented: false}
+
+	svc := NewService(repo, egress, "https://template.example.com", S3Config{Bucket: "recordings"}, checker)
+
+	callID := uuid.New()
+	starter := uuid.New()
+	tenantID := uuid.New()
+
+	_, err := svc.StartRecording(
+		context.Background(),
+		&callID, nil, "room-guard-test",
+		starter,
+		makeParticipants(starter),
+		tenantID,
+	)
+
+	require.Error(t, err)
+	st, ok := status.FromError(err)
+	require.True(t, ok, "error must be a gRPC status error")
+	assert.Equal(t, codes.FailedPrecondition, st.Code(), "must return FailedPrecondition when pre-consent is missing")
+	assert.True(t, checker.called, "PreConsentChecker must be consulted")
+	assert.Equal(t, &callID, checker.lastCallID)
+	assert.Equal(t, starter, checker.lastInitiatorID)
+	assert.Equal(t, tenantID, checker.lastTenantID)
+}
+
+// TestStartRecording_ServiceLayerGate_AllowsWithPreConsent verifies that StartRecording
+// proceeds past the service-layer gate when the PreConsentChecker grants the initiator.
+// All-consented override is applied via pendingOverride to isolate the gate under test.
+func TestStartRecording_ServiceLayerGate_AllowsWithPreConsent(t *testing.T) {
+	repo := newMockRepo()
+	egress := newMockEgressManager()
+	checker := &mockPreConsentChecker{consented: true}
+
+	zero := 0
+	repo.pendingOverride = &zero
+
+	svc := NewService(repo, egress, "https://template.example.com", S3Config{Bucket: "recordings"}, checker)
+
+	callID := uuid.New()
+	starter := uuid.New()
+	tenantID := uuid.New()
+
+	rec, err := svc.StartRecording(
+		context.Background(),
+		&callID, nil, "room-guard-test",
+		starter,
+		makeParticipants(starter),
+		tenantID,
+	)
+
+	require.NoError(t, err, "StartRecording must succeed when pre-consent is granted")
+	assert.NotNil(t, rec)
+	assert.Equal(t, RecordingStatusActive, rec.Status)
+	assert.True(t, checker.called, "PreConsentChecker must be consulted even on success")
+}
+
+// TestStartRecording_ServiceLayerGate_SkippedWhenNilChecker verifies that StartRecording
+// behaves as before (no gate) when no PreConsentChecker is provided — ensuring backward
+// compatibility for legacy callers and existing tests.
+func TestStartRecording_ServiceLayerGate_SkippedWhenNilChecker(t *testing.T) {
+	repo := newMockRepo()
+	egress := newMockEgressManager()
+
+	// No checker passed — gate must be inactive
+	svc := NewService(repo, egress, "https://template.example.com", S3Config{Bucket: "recordings"})
+
+	callID := uuid.New()
+	starter := uuid.New()
+	zero := 0
+	repo.pendingOverride = &zero
+
+	rec, err := svc.StartRecording(
+		context.Background(),
+		&callID, nil, "room-legacy",
+		starter,
+		makeParticipants(starter),
+	)
+
+	require.NoError(t, err, "StartRecording without checker must succeed (backward compat)")
+	assert.NotNil(t, rec)
 }
