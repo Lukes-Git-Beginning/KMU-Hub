@@ -83,7 +83,7 @@ CREATE INDEX IF NOT EXISTS idx_dialer_agent_status_log_tenant_id
     ON dialer_agent_status_log(tenant_id);
 
 -- ============================================================================
--- 3) dialer_call_events (session_id -> dialer_call_sessions.tenant_id)
+-- 3) dialer_call_events (dialer_call_session_id -> dialer_call_sessions.tenant_id)
 -- ============================================================================
 
 ALTER TABLE dialer_call_events ADD COLUMN IF NOT EXISTS tenant_id UUID;
@@ -91,13 +91,13 @@ ALTER TABLE dialer_call_events ADD COLUMN IF NOT EXISTS tenant_id UUID;
 UPDATE dialer_call_events dce
    SET tenant_id = dcs.tenant_id
   FROM dialer_call_sessions dcs
- WHERE dce.session_id = dcs.id
+ WHERE dce.dialer_call_session_id = dcs.id
    AND dce.tenant_id IS NULL;
 
 DO $$
 BEGIN
     IF (SELECT COUNT(*) FROM dialer_call_events WHERE tenant_id IS NULL) > 0 THEN
-        RAISE EXCEPTION 'dialer_call_events has rows with NULL tenant_id after backfill — orphan session_id?';
+        RAISE EXCEPTION 'dialer_call_events has rows with NULL tenant_id after backfill — orphan dialer_call_session_id?';
     END IF;
 END$$;
 
