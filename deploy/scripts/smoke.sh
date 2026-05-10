@@ -187,7 +187,7 @@ fi
 if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" && -n "$SMOKE_USER_ID" && "$SMOKE_USER_ID" != "null" ]]; then
     if [[ -n "${SMOKE_ADMIN_TOKEN:-}" ]]; then
         ROLE_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-            "$BASE_URL/api/v1/auth/users/$SMOKE_USER_ID/roles" \
+            "$BASE_URL/api/v1/users/$SMOKE_USER_ID/roles" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $SMOKE_ADMIN_TOKEN" \
             -d '{"role":"manager"}' 2>/dev/null || echo "000")
