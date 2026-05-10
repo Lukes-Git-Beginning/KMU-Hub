@@ -136,7 +136,7 @@ func (m *mockTaskRepo) RemoveFile(_ context.Context, _ uuid.UUID) error        {
 func (m *mockTaskRepo) ListFiles(_ context.Context, _ uuid.UUID) ([]models.TaskFile, error) {
 	return nil, nil
 }
-func (m *mockTaskRepo) SetCustomFieldValues(_ context.Context, _ uuid.UUID, _ map[uuid.UUID]any) error {
+func (m *mockTaskRepo) SetCustomFieldValues(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ map[uuid.UUID]any) error {
 	return nil
 }
 func (m *mockTaskRepo) GetCustomFieldValues(_ context.Context, _ uuid.UUID) (map[string]any, error) {

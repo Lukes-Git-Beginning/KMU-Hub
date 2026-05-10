@@ -115,7 +115,7 @@ func (we *WorkflowEngine) Execute(ctx context.Context, auto models.Automation, e
 	env := buildEnvFromPayload(evt)
 
 	// Log execution start
-	we.logger.LogStart(ctx, executionID, auto.ID, chainID, evt)
+	we.logger.LogStart(ctx, executionID, auto.TenantID, auto.ID, chainID, evt)
 
 	// Parse conditions
 	var condConfig models.ConditionConfig

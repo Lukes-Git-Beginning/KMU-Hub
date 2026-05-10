@@ -134,6 +134,7 @@ func (s *Service) Upload(ctx context.Context, input UploadInput) (*models.Docume
 	// Create initial version record
 	version := &models.DocumentFileVersion{
 		ID:            uuid.New(),
+		TenantID:      input.TenantID,
 		FileID:        fileID,
 		VersionNumber: 1,
 		StorageKey:    storageKey,
@@ -279,6 +280,7 @@ func (s *Service) Copy(ctx context.Context, fileID, targetFolderID, userID uuid.
 	// Create initial version for copy
 	version := &models.DocumentFileVersion{
 		ID:            uuid.New(),
+		TenantID:      tenantID,
 		FileID:        newFileID,
 		VersionNumber: 1,
 		StorageKey:    newStorageKey,
@@ -373,6 +375,7 @@ func (s *Service) CreateVersion(ctx context.Context, fileID uuid.UUID, tenantID 
 
 	version := &models.DocumentFileVersion{
 		ID:            uuid.New(),
+		TenantID:      tenantID,
 		FileID:        fileID,
 		VersionNumber: newVersionNumber,
 		VersionLabel:  input.Label,
@@ -451,6 +454,7 @@ func (s *Service) RevertVersion(ctx context.Context, fileID uuid.UUID, versionNu
 	revertLabel := fmt.Sprintf("Reverted from v%d", versionNumber)
 	version := &models.DocumentFileVersion{
 		ID:            uuid.New(),
+		TenantID:      tenantID,
 		FileID:        fileID,
 		VersionNumber: newVersionNumber,
 		VersionLabel:  &revertLabel,

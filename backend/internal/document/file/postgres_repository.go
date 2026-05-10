@@ -215,9 +215,9 @@ func (r *PostgresRepository) SoftDelete(ctx context.Context, id uuid.UUID, tenan
 
 func (r *PostgresRepository) CreateVersion(ctx context.Context, version *models.DocumentFileVersion) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO document_file_versions (id, file_id, version_number, version_label, storage_key, file_size, created_by, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		version.ID, version.FileID, version.VersionNumber, version.VersionLabel,
+		`INSERT INTO document_file_versions (id, tenant_id, file_id, version_number, version_label, storage_key, file_size, created_by, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		version.ID, version.TenantID, version.FileID, version.VersionNumber, version.VersionLabel,
 		version.StorageKey, version.FileSize, version.CreatedBy, version.CreatedAt,
 	)
 	return err
@@ -225,7 +225,7 @@ func (r *PostgresRepository) CreateVersion(ctx context.Context, version *models.
 
 func (r *PostgresRepository) ListVersions(ctx context.Context, fileID uuid.UUID) ([]*models.DocumentFileVersion, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, file_id, version_number, version_label, storage_key, file_size, created_by, created_at
+		`SELECT id, tenant_id, file_id, version_number, version_label, storage_key, file_size, created_by, created_at
 		 FROM document_file_versions
 		 WHERE file_id = $1
 		 ORDER BY version_number DESC`, fileID)
@@ -237,7 +237,7 @@ func (r *PostgresRepository) ListVersions(ctx context.Context, fileID uuid.UUID)
 	var versions []*models.DocumentFileVersion
 	for rows.Next() {
 		var v models.DocumentFileVersion
-		if scanErr := rows.Scan(&v.ID, &v.FileID, &v.VersionNumber, &v.VersionLabel,
+		if scanErr := rows.Scan(&v.ID, &v.TenantID, &v.FileID, &v.VersionNumber, &v.VersionLabel,
 			&v.StorageKey, &v.FileSize, &v.CreatedBy, &v.CreatedAt); scanErr != nil {
 			return nil, scanErr
 		}
@@ -249,10 +249,10 @@ func (r *PostgresRepository) ListVersions(ctx context.Context, fileID uuid.UUID)
 func (r *PostgresRepository) GetVersion(ctx context.Context, fileID uuid.UUID, versionNumber int) (*models.DocumentFileVersion, error) {
 	var v models.DocumentFileVersion
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, file_id, version_number, version_label, storage_key, file_size, created_by, created_at
+		`SELECT id, tenant_id, file_id, version_number, version_label, storage_key, file_size, created_by, created_at
 		 FROM document_file_versions
 		 WHERE file_id = $1 AND version_number = $2`, fileID, versionNumber,
-	).Scan(&v.ID, &v.FileID, &v.VersionNumber, &v.VersionLabel,
+	).Scan(&v.ID, &v.TenantID, &v.FileID, &v.VersionNumber, &v.VersionLabel,
 		&v.StorageKey, &v.FileSize, &v.CreatedBy, &v.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrVersionNotFound

@@ -183,7 +183,7 @@ func (m *mockRepo) ListFiles(_ context.Context, _ uuid.UUID) ([]models.TaskFile,
 	return nil, nil
 }
 
-func (m *mockRepo) SetCustomFieldValues(_ context.Context, _ uuid.UUID, _ map[uuid.UUID]any) error {
+func (m *mockRepo) SetCustomFieldValues(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ map[uuid.UUID]any) error {
 	return nil
 }
 

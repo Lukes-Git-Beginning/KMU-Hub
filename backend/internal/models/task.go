@@ -134,6 +134,7 @@ type TaskComment struct {
 // TaskEntityLink connects a task to a CRM entity
 type TaskEntityLink struct {
 	ID                uuid.UUID `json:"id"`
+	TenantID          uuid.UUID `json:"tenant_id"`
 	TaskID            uuid.UUID `json:"task_id"`
 	EntityType        string    `json:"entity_type"` // "contact", "company", "deal", "channel", "message"
 	EntityID          uuid.UUID `json:"entity_id"`

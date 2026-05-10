@@ -312,10 +312,10 @@ func (r *PostgresRepository) GetForTemplate(ctx context.Context, projectID uuid.
 func (r *PostgresRepository) GetUserPreference(ctx context.Context, userID, projectID uuid.UUID) (*models.UserProjectPreference, error) {
 	var pref models.UserProjectPreference
 	err := r.pool.QueryRow(ctx,
-		`SELECT user_id, project_id, view_type, list_group_by, list_sort_by, list_sort_desc, updated_at
+		`SELECT tenant_id, user_id, project_id, view_type, list_group_by, list_sort_by, list_sort_desc, updated_at
 		 FROM user_project_preferences WHERE user_id = $1 AND project_id = $2`,
 		userID, projectID,
-	).Scan(&pref.UserID, &pref.ProjectID, &pref.ViewType, &pref.ListGroupBy, &pref.ListSortBy, &pref.ListSortDesc, &pref.UpdatedAt)
+	).Scan(&pref.TenantID, &pref.UserID, &pref.ProjectID, &pref.ViewType, &pref.ListGroupBy, &pref.ListSortBy, &pref.ListSortDesc, &pref.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil // No preference set, return nil (caller uses defaults)
 	}
@@ -327,11 +327,11 @@ func (r *PostgresRepository) GetUserPreference(ctx context.Context, userID, proj
 
 func (r *PostgresRepository) SetUserPreference(ctx context.Context, pref *models.UserProjectPreference) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO user_project_preferences (user_id, project_id, view_type, list_group_by, list_sort_by, list_sort_desc, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		`INSERT INTO user_project_preferences (tenant_id, user_id, project_id, view_type, list_group_by, list_sort_by, list_sort_desc, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		 ON CONFLICT (user_id, project_id) DO UPDATE SET
-		 view_type = $3, list_group_by = $4, list_sort_by = $5, list_sort_desc = $6, updated_at = $7`,
-		pref.UserID, pref.ProjectID, pref.ViewType, pref.ListGroupBy, pref.ListSortBy, pref.ListSortDesc, pref.UpdatedAt,
+		 tenant_id = $1, view_type = $4, list_group_by = $5, list_sort_by = $6, list_sort_desc = $7, updated_at = $8`,
+		pref.TenantID, pref.UserID, pref.ProjectID, pref.ViewType, pref.ListGroupBy, pref.ListSortBy, pref.ListSortDesc, pref.UpdatedAt,
 	)
 	return err
 }

@@ -471,9 +471,9 @@ func (r *PostgresRepository) ListActivities(ctx context.Context, taskID uuid.UUI
 
 func (r *PostgresRepository) LinkEntity(ctx context.Context, link *models.TaskEntityLink) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO task_entity_links (id, task_id, entity_type, entity_id, created_by, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		link.ID, link.TaskID, link.EntityType, link.EntityID, link.CreatedBy, link.CreatedAt,
+		`INSERT INTO task_entity_links (id, tenant_id, task_id, entity_type, entity_id, created_by, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		link.ID, link.TenantID, link.TaskID, link.EntityType, link.EntityID, link.CreatedBy, link.CreatedAt,
 	)
 	return err
 }
@@ -572,7 +572,7 @@ func (r *PostgresRepository) ListFiles(ctx context.Context, taskID uuid.UUID) ([
 	return files, rows.Err()
 }
 
-func (r *PostgresRepository) SetCustomFieldValues(ctx context.Context, taskID uuid.UUID, values map[uuid.UUID]any) error {
+func (r *PostgresRepository) SetCustomFieldValues(ctx context.Context, taskID uuid.UUID, tenantID uuid.UUID, values map[uuid.UUID]any) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -586,10 +586,10 @@ func (r *PostgresRepository) SetCustomFieldValues(ctx context.Context, taskID uu
 			return marshalErr
 		}
 		_, execErr := tx.Exec(ctx,
-			`INSERT INTO task_custom_field_values (task_id, field_id, value, created_at, updated_at)
-			 VALUES ($1, $2, $3, $4, $4)
-			 ON CONFLICT (task_id, field_id) DO UPDATE SET value = $3, updated_at = $4`,
-			taskID, fieldID, jsonVal, now,
+			`INSERT INTO task_custom_field_values (task_id, tenant_id, field_id, value, created_at, updated_at)
+			 VALUES ($1, $2, $3, $4, $5, $5)
+			 ON CONFLICT (task_id, field_id) DO UPDATE SET value = $4, updated_at = $5`,
+			taskID, tenantID, fieldID, jsonVal, now,
 		)
 		if execErr != nil {
 			return execErr

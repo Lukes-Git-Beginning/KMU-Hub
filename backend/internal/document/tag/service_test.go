@@ -64,7 +64,7 @@ func TestCreateTag_Success(t *testing.T) {
 	}
 	svc := NewService(repo)
 
-	tag, err := svc.CreateTag(context.Background(), "Important", "", uuid.New())
+	tag, err := svc.CreateTag(context.Background(), "Important", "", uuid.New(), uuid.New())
 
 	require.NoError(t, err)
 	require.NotNil(t, tag)
@@ -77,7 +77,7 @@ func TestCreateTag_EmptyName(t *testing.T) {
 	repo := &MockRepository{}
 	svc := NewService(repo)
 
-	tag, err := svc.CreateTag(context.Background(), "", "", uuid.New())
+	tag, err := svc.CreateTag(context.Background(), "", "", uuid.New(), uuid.New())
 
 	assert.Nil(t, tag)
 	assert.ErrorIs(t, err, ErrTagNameRequired)
@@ -88,7 +88,7 @@ func TestCreateTag_NameTooLong(t *testing.T) {
 	svc := NewService(repo)
 
 	longName := strings.Repeat("a", 101)
-	tag, err := svc.CreateTag(context.Background(), longName, "", uuid.New())
+	tag, err := svc.CreateTag(context.Background(), longName, "", uuid.New(), uuid.New())
 
 	assert.Nil(t, tag)
 	assert.ErrorIs(t, err, ErrTagNameTooLong)
@@ -98,7 +98,7 @@ func TestCreateTag_InvalidColor(t *testing.T) {
 	repo := &MockRepository{}
 	svc := NewService(repo)
 
-	tag, err := svc.CreateTag(context.Background(), "Test", "red", uuid.New())
+	tag, err := svc.CreateTag(context.Background(), "Test", "red", uuid.New(), uuid.New())
 
 	assert.Nil(t, tag)
 	assert.ErrorIs(t, err, ErrInvalidColor)
@@ -112,7 +112,7 @@ func TestCreateTag_ValidColor(t *testing.T) {
 	}
 	svc := NewService(repo)
 
-	tag, err := svc.CreateTag(context.Background(), "Urgent", "#FF0000", uuid.New())
+	tag, err := svc.CreateTag(context.Background(), "Urgent", "#FF0000", uuid.New(), uuid.New())
 
 	require.NoError(t, err)
 	require.NotNil(t, tag)
@@ -129,7 +129,7 @@ func TestCreateTag_EmptyColor(t *testing.T) {
 	}
 	svc := NewService(repo)
 
-	tag, err := svc.CreateTag(context.Background(), "NoColor", "", uuid.New())
+	tag, err := svc.CreateTag(context.Background(), "NoColor", "", uuid.New(), uuid.New())
 
 	require.NoError(t, err)
 	require.NotNil(t, tag)

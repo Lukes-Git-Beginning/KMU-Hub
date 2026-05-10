@@ -68,6 +68,7 @@ type ProjectStatus struct {
 
 // UserProjectPreference stores per-user view settings for a project
 type UserProjectPreference struct {
+	TenantID     uuid.UUID `json:"tenant_id"`
 	UserID       uuid.UUID `json:"user_id"`
 	ProjectID    uuid.UUID `json:"project_id"`
 	ViewType     string    `json:"view_type"`     // "list", "kanban"

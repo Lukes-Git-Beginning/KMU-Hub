@@ -273,12 +273,12 @@ func (r *PostgresRepository) CreateExecution(ctx context.Context, e *models.Auto
 
 	query := `
 		INSERT INTO automation_executions (
-			id, automation_id, chain_id, trigger_event, condition_result,
+			id, tenant_id, automation_id, chain_id, trigger_event, condition_result,
 			status, steps, error_message, started_at, completed_at, duration_ms
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
 
 	_, err := r.pool.Exec(ctx, query,
-		e.ID, e.AutomationID, e.ChainID, e.TriggerEvent, e.ConditionResult,
+		e.ID, e.TenantID, e.AutomationID, e.ChainID, e.TriggerEvent, e.ConditionResult,
 		e.Status, e.Steps, e.ErrorMessage, e.StartedAt, e.CompletedAt, e.DurationMs,
 	)
 	return err
@@ -306,13 +306,13 @@ func (r *PostgresRepository) UpdateExecution(ctx context.Context, e *models.Auto
 
 func (r *PostgresRepository) GetExecution(ctx context.Context, id uuid.UUID) (*models.AutomationExecution, error) {
 	query := `
-		SELECT id, automation_id, chain_id, trigger_event, condition_result,
+		SELECT id, tenant_id, automation_id, chain_id, trigger_event, condition_result,
 			status, steps, error_message, started_at, completed_at, duration_ms
 		FROM automation_executions WHERE id = $1`
 
 	e := &models.AutomationExecution{}
 	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&e.ID, &e.AutomationID, &e.ChainID, &e.TriggerEvent, &e.ConditionResult,
+		&e.ID, &e.TenantID, &e.AutomationID, &e.ChainID, &e.TriggerEvent, &e.ConditionResult,
 		&e.Status, &e.Steps, &e.ErrorMessage, &e.StartedAt, &e.CompletedAt, &e.DurationMs,
 	)
 	if err != nil {
@@ -365,7 +365,7 @@ func (r *PostgresRepository) ListExecutions(ctx context.Context, filter Executio
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id, automation_id, chain_id, trigger_event, condition_result,
+		SELECT id, tenant_id, automation_id, chain_id, trigger_event, condition_result,
 			status, steps, error_message, started_at, completed_at, duration_ms,
 			COUNT(*) OVER() AS total_count
 		FROM automation_executions %s
@@ -386,7 +386,7 @@ func (r *PostgresRepository) ListExecutions(ctx context.Context, filter Executio
 	for rows.Next() {
 		e := &models.AutomationExecution{}
 		err := rows.Scan(
-			&e.ID, &e.AutomationID, &e.ChainID, &e.TriggerEvent, &e.ConditionResult,
+			&e.ID, &e.TenantID, &e.AutomationID, &e.ChainID, &e.TriggerEvent, &e.ConditionResult,
 			&e.Status, &e.Steps, &e.ErrorMessage, &e.StartedAt, &e.CompletedAt, &e.DurationMs,
 			&totalCount,
 		)

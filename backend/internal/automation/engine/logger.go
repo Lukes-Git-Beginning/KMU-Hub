@@ -26,7 +26,7 @@ func NewExecutionLogger(execRepo workflow.ExecutionRepository) *ExecutionLogger 
 }
 
 // LogStart creates a new execution record with status "running".
-func (l *ExecutionLogger) LogStart(ctx context.Context, execID, automationID, chainID uuid.UUID, evt models.EventPayload) {
+func (l *ExecutionLogger) LogStart(ctx context.Context, execID, tenantID, automationID, chainID uuid.UUID, evt models.EventPayload) {
 	evtJSON, err := json.Marshal(evt)
 	if err != nil {
 		slog.Error("failed to marshal event for execution log",
@@ -38,6 +38,7 @@ func (l *ExecutionLogger) LogStart(ctx context.Context, execID, automationID, ch
 
 	exec := &models.AutomationExecution{
 		ID:           execID,
+		TenantID:     tenantID,
 		AutomationID: automationID,
 		ChainID:      chainID,
 		TriggerEvent: evtJSON,

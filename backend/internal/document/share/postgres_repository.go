@@ -23,9 +23,9 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) Create(ctx context.Context, share *models.DocumentShare) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO document_shares (id, entity_type, entity_id, shared_with_user_id, permission, shared_by, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		share.ID, share.EntityType, share.EntityID, share.SharedWithUserID,
+		`INSERT INTO document_shares (id, tenant_id, entity_type, entity_id, shared_with_user_id, permission, shared_by, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		share.ID, share.TenantID, share.EntityType, share.EntityID, share.SharedWithUserID,
 		share.Permission, share.SharedBy, share.CreatedAt,
 	)
 	return err

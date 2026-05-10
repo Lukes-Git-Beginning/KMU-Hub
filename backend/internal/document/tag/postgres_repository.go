@@ -26,11 +26,11 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 // Create inserts a new tag into the database.
 func (r *PostgresRepository) Create(ctx context.Context, tag *models.DocumentTag) error {
 	query := `
-		INSERT INTO document_tags (id, name, color, created_by, created_at)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO document_tags (id, tenant_id, name, color, created_by, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
 	`
 	_, err := r.pool.Exec(ctx, query,
-		tag.ID, tag.Name, tag.Color, tag.CreatedBy, tag.CreatedAt,
+		tag.ID, tag.TenantID, tag.Name, tag.Color, tag.CreatedBy, tag.CreatedAt,
 	)
 	if err != nil {
 		var pgErr *pgconn.PgError

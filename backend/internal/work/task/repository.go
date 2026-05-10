@@ -52,7 +52,7 @@ type Repository interface {
 	ListFiles(ctx context.Context, taskID uuid.UUID) ([]models.TaskFile, error)
 
 	// Custom fields
-	SetCustomFieldValues(ctx context.Context, taskID uuid.UUID, values map[uuid.UUID]any) error
+	SetCustomFieldValues(ctx context.Context, taskID uuid.UUID, tenantID uuid.UUID, values map[uuid.UUID]any) error
 	GetCustomFieldValues(ctx context.Context, taskID uuid.UUID) (map[string]any, error)
 
 	// Search

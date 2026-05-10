@@ -564,6 +564,11 @@ func (s *DocumentGRPCServer) RevertFileVersion(ctx context.Context, req *documen
 // ============================================================================
 
 func (s *DocumentGRPCServer) ShareEntity(ctx context.Context, req *documentv1.ShareEntityRequest) (*documentv1.ShareEntityResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+
 	entityID, err := uuid.Parse(req.EntityId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid entity_id")
@@ -580,6 +585,7 @@ func (s *DocumentGRPCServer) ShareEntity(ctx context.Context, req *documentv1.Sh
 	}
 
 	input := share.ShareInput{
+		TenantID:         tenantID,
 		EntityType:       req.EntityType,
 		EntityID:         entityID,
 		SharedWithUserID: sharedWith,
@@ -672,12 +678,17 @@ func (s *DocumentGRPCServer) ListSharedWithMe(ctx context.Context, req *document
 // ============================================================================
 
 func (s *DocumentGRPCServer) CreateTag(ctx context.Context, req *documentv1.CreateTagRequest) (*documentv1.CreateTagResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+
 	createdBy, err := uuid.Parse(req.CreatedBy)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid created_by")
 	}
 
-	t, err := s.tagService.CreateTag(ctx, req.Name, req.Color, createdBy)
+	t, err := s.tagService.CreateTag(ctx, req.Name, req.Color, createdBy, tenantID)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}

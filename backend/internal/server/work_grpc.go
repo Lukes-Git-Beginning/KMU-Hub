@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -571,7 +572,7 @@ func (s *WorkGRPCServer) CreateTask(ctx context.Context, req *workv1.CreateTaskR
 			}
 			cfMap[fieldID] = value
 		}
-		_ = s.taskRepo.SetCustomFieldValues(ctx, result.ID, cfMap)
+		_ = s.taskRepo.SetCustomFieldValues(ctx, result.ID, taskTenantID, cfMap)
 		// Refresh result
 		if result, err = s.taskService.GetByID(ctx, taskTenantID, result.ID); err != nil {
 			return nil, mapWorkError(err)
@@ -743,7 +744,7 @@ func (s *WorkGRPCServer) UpdateTask(ctx context.Context, req *workv1.UpdateTaskR
 			}
 			cfMap[fieldID] = value
 		}
-		_ = s.taskRepo.SetCustomFieldValues(ctx, id, cfMap)
+		_ = s.taskRepo.SetCustomFieldValues(ctx, id, tenantID, cfMap)
 		if result, err = s.taskService.GetByID(ctx, tenantID, id); err != nil {
 			return nil, mapWorkError(err)
 		}
@@ -1011,6 +1012,11 @@ func (s *WorkGRPCServer) ListTaskComments(ctx context.Context, req *workv1.ListT
 // ============================================================================
 
 func (s *WorkGRPCServer) LinkEntityToTask(ctx context.Context, req *workv1.LinkEntityToTaskRequest) (*workv1.LinkEntityToTaskResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+
 	taskID, err := uuid.Parse(req.TaskId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid task_id")
@@ -1028,6 +1034,7 @@ func (s *WorkGRPCServer) LinkEntityToTask(ctx context.Context, req *workv1.LinkE
 
 	link := &models.TaskEntityLink{
 		ID:         uuid.New(),
+		TenantID:   tenantID,
 		TaskID:     taskID,
 		EntityType: req.EntityType,
 		EntityID:   entityID,
@@ -1212,15 +1219,20 @@ func (s *WorkGRPCServer) ListTaskFiles(ctx context.Context, req *workv1.ListTask
 // ============================================================================
 
 func (s *WorkGRPCServer) SetTaskCustomFieldValues(ctx context.Context, req *workv1.SetTaskCustomFieldValuesRequest) (*workv1.SetTaskCustomFieldValuesResponse, error) {
-	taskID, err := uuid.Parse(req.TaskId)
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+
+	taskID, parseErr := uuid.Parse(req.TaskId)
+	if parseErr != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid task_id")
 	}
 
 	values := make(map[uuid.UUID]any)
 	for _, v := range req.Values {
-		fieldID, parseErr := uuid.Parse(v.FieldId)
-		if parseErr != nil {
+		fieldID, fieldErr := uuid.Parse(v.FieldId)
+		if fieldErr != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid field_id")
 		}
 		var val any
@@ -1230,7 +1242,7 @@ func (s *WorkGRPCServer) SetTaskCustomFieldValues(ctx context.Context, req *work
 		values[fieldID] = val
 	}
 
-	if err := s.taskRepo.SetCustomFieldValues(ctx, taskID, values); err != nil {
+	if err := s.taskRepo.SetCustomFieldValues(ctx, taskID, tenantID, values); err != nil {
 		return nil, mapWorkError(err)
 	}
 
@@ -1312,6 +1324,11 @@ func (s *WorkGRPCServer) GetUserProjectPreference(ctx context.Context, req *work
 }
 
 func (s *WorkGRPCServer) SetUserProjectPreference(ctx context.Context, req *workv1.SetUserProjectPreferenceRequest) (*workv1.SetUserProjectPreferenceResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
@@ -1326,12 +1343,18 @@ func (s *WorkGRPCServer) SetUserProjectPreference(ctx context.Context, req *work
 	pref, _ := s.projectService.GetUserPreference(ctx, userID, projectID)
 	if pref == nil {
 		pref = &models.UserProjectPreference{
+			TenantID:     tenantID,
 			UserID:       userID,
 			ProjectID:    projectID,
 			ViewType:     "list",
 			ListGroupBy:  "status",
 			ListSortBy:   "sort_order",
 			ListSortDesc: false,
+		}
+	} else {
+		// Ensure TenantID is set on existing preferences (backfill path)
+		if pref.TenantID == uuid.Nil {
+			pref.TenantID = tenantID
 		}
 	}
 
@@ -1921,6 +1944,7 @@ func mapTimeEntryError(err error) error {
 	case errors.Is(err, timeentry.ErrCannotDeleteOthers):
 		return status.Error(codes.PermissionDenied, err.Error())
 	default:
+		slog.Error("unhandled timeentry service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}
 }
@@ -2041,6 +2065,7 @@ func mapWorkError(err error) error {
 	case errors.Is(err, comment.ErrCannotDeleteOthersComment):
 		return status.Error(codes.PermissionDenied, err.Error())
 	default:
+		slog.Error("unhandled work service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}
 }

@@ -34,6 +34,7 @@ func NewService(repo Repository) *Service {
 
 // ShareInput contains the data needed to share an entity.
 type ShareInput struct {
+	TenantID         uuid.UUID
 	EntityType       string
 	EntityID         uuid.UUID
 	SharedWithUserID uuid.UUID
@@ -66,6 +67,7 @@ func (s *Service) ShareEntity(ctx context.Context, input ShareInput) (*models.Do
 
 	share := &models.DocumentShare{
 		ID:               uuid.New(),
+		TenantID:         input.TenantID,
 		EntityType:       input.EntityType,
 		EntityID:         input.EntityID,
 		SharedWithUserID: input.SharedWithUserID,

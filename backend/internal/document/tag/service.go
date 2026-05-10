@@ -26,7 +26,7 @@ func NewService(repo Repository) *Service {
 
 // CreateTag creates a new document tag.
 // Validates name (1-100 chars) and optional color format (#RRGGBB or empty).
-func (s *Service) CreateTag(ctx context.Context, name, color string, userID uuid.UUID) (*models.DocumentTag, error) {
+func (s *Service) CreateTag(ctx context.Context, name, color string, userID uuid.UUID, tenantID uuid.UUID) (*models.DocumentTag, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, ErrTagNameRequired
@@ -48,6 +48,7 @@ func (s *Service) CreateTag(ctx context.Context, name, color string, userID uuid
 	now := time.Now()
 	tag := &models.DocumentTag{
 		ID:        uuid.New(),
+		TenantID:  tenantID,
 		Name:      name,
 		Color:     colorPtr,
 		CreatedBy: userID,

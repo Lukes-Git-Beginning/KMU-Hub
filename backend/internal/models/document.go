@@ -72,6 +72,7 @@ type DocumentFile struct {
 // DocumentFileVersion represents a specific version of a file.
 type DocumentFileVersion struct {
 	ID            uuid.UUID `json:"id"`
+	TenantID      uuid.UUID `json:"tenant_id"`
 	FileID        uuid.UUID `json:"file_id"`
 	VersionNumber int       `json:"version_number"`
 	VersionLabel  *string   `json:"version_label,omitempty"`
@@ -84,6 +85,7 @@ type DocumentFileVersion struct {
 // DocumentShare represents a sharing relationship between a file/folder and a user.
 type DocumentShare struct {
 	ID                 uuid.UUID `json:"id"`
+	TenantID           uuid.UUID `json:"tenant_id"`
 	EntityType         string    `json:"entity_type"` // "file" or "folder"
 	EntityID           uuid.UUID `json:"entity_id"`
 	SharedWithUserID   uuid.UUID `json:"shared_with_user_id"`
@@ -97,6 +99,7 @@ type DocumentShare struct {
 // DocumentTag represents a label that can be applied to files.
 type DocumentTag struct {
 	ID        uuid.UUID `json:"id"`
+	TenantID  uuid.UUID `json:"tenant_id"`
 	Name      string    `json:"name"`
 	Color     *string   `json:"color,omitempty"`
 	FileCount int       `json:"file_count"` // Computed, not stored

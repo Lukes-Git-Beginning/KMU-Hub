@@ -31,6 +31,7 @@ type Automation struct {
 // AutomationExecution represents a single execution of an automation workflow.
 type AutomationExecution struct {
 	ID              uuid.UUID       `json:"id"`
+	TenantID        uuid.UUID       `json:"tenant_id"`
 	AutomationID    uuid.UUID       `json:"automation_id"`
 	ChainID         uuid.UUID       `json:"chain_id"`
 	TriggerEvent    json.RawMessage `json:"trigger_event"`
