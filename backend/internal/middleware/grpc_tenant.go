@@ -28,17 +28,16 @@ const (
 // from context but the gateway handlers never propagated it).
 func TenantOutboundUnaryInterceptor() grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		md, _ := metadata.FromOutgoingContext(ctx)
-		md = md.Copy()
-
+		// AppendToOutgoingContext is nil-safe: it constructs an MD if none
+		// exists, otherwise merges into the existing one. Avoids the
+		// nil-map panic that `md.Set` would trigger when no metadata has
+		// been attached yet.
 		if tenantID, err := GetTenantID(ctx); err == nil {
-			md.Set(gRPCTenantHeader, tenantID.String())
+			ctx = metadata.AppendToOutgoingContext(ctx, gRPCTenantHeader, tenantID.String())
 		}
 		if userID := GetUserID(ctx); userID != "" {
-			md.Set(gRPCUserHeader, userID)
+			ctx = metadata.AppendToOutgoingContext(ctx, gRPCUserHeader, userID)
 		}
-
-		ctx = metadata.NewOutgoingContext(ctx, md)
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}
 }
