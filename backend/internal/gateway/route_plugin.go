@@ -181,6 +181,12 @@ func (pr *PluginRoutes) HandleDeleteManifest(w http.ResponseWriter, r *http.Requ
 // ============================================================================
 
 func (pr *PluginRoutes) HandleListInstallations(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant context")
+		return
+	}
+
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -188,7 +194,7 @@ func (pr *PluginRoutes) HandleListInstallations(w http.ResponseWriter, r *http.R
 	}
 
 	resp, err := client.ListInstallations(r.Context(), &pluginv1.ListInstallationsRequest{
-		TenantId: r.URL.Query().Get("tenant_id"),
+		TenantId: tenantID.String(),
 		Status:   r.URL.Query().Get("status"),
 	})
 	if err != nil {
@@ -407,6 +413,12 @@ func (pr *PluginRoutes) HandleGetSettingsSchema(w http.ResponseWriter, r *http.R
 // ============================================================================
 
 func (pr *PluginRoutes) HandleListValidationRules(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant context")
+		return
+	}
+
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -414,7 +426,7 @@ func (pr *PluginRoutes) HandleListValidationRules(w http.ResponseWriter, r *http
 	}
 
 	resp, err := client.ListValidationRules(r.Context(), &pluginv1.ListValidationRulesRequest{
-		TenantId:   r.URL.Query().Get("tenant_id"),
+		TenantId:   tenantID.String(),
 		EntityType: r.URL.Query().Get("entity_type"),
 	})
 	if err != nil {
@@ -489,6 +501,12 @@ func (pr *PluginRoutes) HandleDeleteValidationRule(w http.ResponseWriter, r *htt
 // ============================================================================
 
 func (pr *PluginRoutes) HandleListWorkflowRules(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant context")
+		return
+	}
+
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -496,7 +514,7 @@ func (pr *PluginRoutes) HandleListWorkflowRules(w http.ResponseWriter, r *http.R
 	}
 
 	resp, err := client.ListWorkflowRules(r.Context(), &pluginv1.ListWorkflowRulesRequest{
-		TenantId:     r.URL.Query().Get("tenant_id"),
+		TenantId:     tenantID.String(),
 		TriggerEvent: r.URL.Query().Get("trigger_event"),
 	})
 	if err != nil {
@@ -588,6 +606,12 @@ func (pr *PluginRoutes) HandleListTemplates(w http.ResponseWriter, r *http.Reque
 }
 
 func (pr *PluginRoutes) HandleApplyTemplate(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant context")
+		return
+	}
+
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -595,7 +619,6 @@ func (pr *PluginRoutes) HandleApplyTemplate(w http.ResponseWriter, r *http.Reque
 	}
 
 	var body struct {
-		TenantID  string `json:"tenant_id"`
 		AppliedBy string `json:"applied_by"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -604,7 +627,7 @@ func (pr *PluginRoutes) HandleApplyTemplate(w http.ResponseWriter, r *http.Reque
 	}
 
 	resp, err := client.ApplyIndustryTemplate(r.Context(), &pluginv1.ApplyIndustryTemplateRequest{
-		TenantId:   body.TenantID,
+		TenantId:   tenantID.String(),
 		TemplateId: chi.URLParam(r, "template_id"),
 		AppliedBy:  body.AppliedBy,
 	})
@@ -620,6 +643,12 @@ func (pr *PluginRoutes) HandleApplyTemplate(w http.ResponseWriter, r *http.Reque
 // ============================================================================
 
 func (pr *PluginRoutes) HandleListExecutionLogs(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant context")
+		return
+	}
+
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -634,7 +663,7 @@ func (pr *PluginRoutes) HandleListExecutionLogs(w http.ResponseWriter, r *http.R
 	}
 
 	resp, err := client.ListExecutionLogs(r.Context(), &pluginv1.ListExecutionLogsRequest{
-		TenantId:       r.URL.Query().Get("tenant_id"),
+		TenantId:       tenantID.String(),
 		InstallationId: r.URL.Query().Get("installation_id"),
 		Limit:          limit,
 	})

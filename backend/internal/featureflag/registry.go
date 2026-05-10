@@ -99,6 +99,10 @@ func NewRegistry() *Registry {
 	// risk: safe | llm_toggle_safe: true | description: enables config-based plugins (JSON/YAML declarative plugins)
 	r.register(Flag{Key: "plugins.config", DefaultEnabled: true, EnvVar: "COSMI_CONFIG_PLUGINS_ENABLED", Description: "enables config-based (declarative) plugins", Risk: SafeRisk, LLMToggleSafe: true})
 
+	// risk: security | llm_toggle_safe: false | description: enables Plugin HTTP API routes (Phase D, off by default)
+	// To enable temporarily in dev: COSMI_PLUGIN_API_ENABLED=true in .env
+	r.register(Flag{Key: "plugins.api", DefaultEnabled: false, EnvVar: "COSMI_PLUGIN_API_ENABLED", Description: "enables Plugin HTTP API routes — off until Phase D", Risk: SecurityRisk, LLMToggleSafe: false})
+
 	return r
 }
 

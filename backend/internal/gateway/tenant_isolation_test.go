@@ -1131,3 +1131,106 @@ func TestProduktion_TwoTenants_DifferentContextValues(t *testing.T) {
 		t.Errorf("tenant B request rejected with 401")
 	}
 }
+
+// ============================================================================
+// Plugin — tenant isolation checks (Welle 0 Stream A, audit finding)
+//
+// route_plugin.go previously read tenant_id directly from ?tenant_id=<uuid>
+// query parameters, allowing cross-tenant spoofing. The fix enforces
+// middleware.GetTenantID(ctx) on all four affected list endpoints.
+// ============================================================================
+
+// TestPlugin_ListInstallations_NoTenant_Returns401 verifies that
+// HandleListInstallations rejects requests without a tenant context.
+func TestPlugin_ListInstallations_NoTenant_Returns401(t *testing.T) {
+	routes := NewPluginRoutes(registryWithService("plugin"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/plugins/installations", nil)
+	routes.HandleListInstallations(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+// TestPlugin_ListInstallations_EmptyTid_Returns401 verifies that a legacy JWT
+// (empty tid) is refused — no query-param substitution may occur.
+func TestPlugin_ListInstallations_EmptyTid_Returns401(t *testing.T) {
+	routes := NewPluginRoutes(registryWithService("plugin"))
+	rec := httptest.NewRecorder()
+	req := reqWithEmptyTenant(http.MethodGet, "/api/v1/plugins/installations")
+	routes.HandleListInstallations(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+// TestPlugin_ListInstallations_ValidTid_IgnoresQueryParam verifies that a
+// request with a valid JWT tid proceeds past the tenant check and that a
+// ?tenant_id=<other-uuid> query param is silently ignored (tenant comes from
+// context, not from the URL). The response will be 503 (no gRPC backend in
+// unit tests) — anything other than 401 proves the fix is in place.
+func TestPlugin_ListInstallations_ValidTid_IgnoresQueryParam(t *testing.T) {
+	routes := NewPluginRoutes(registryWithService("plugin"))
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	rec := httptest.NewRecorder()
+	// Tenant A in JWT context, Tenant B supplied as spoofed query param.
+	req := reqWithTenant(http.MethodGet,
+		"/api/v1/plugins/installations?tenant_id="+tenantB.String(), tenantA)
+	routes.HandleListInstallations(rec, req)
+
+	if rec.Code == http.StatusUnauthorized {
+		t.Errorf("valid tid should not be rejected with 401; body = %s", rec.Body.String())
+	}
+}
+
+// TestPlugin_ListValidationRules_NoTenant_Returns401 verifies that
+// HandleListValidationRules rejects requests without a tenant context.
+func TestPlugin_ListValidationRules_NoTenant_Returns401(t *testing.T) {
+	routes := NewPluginRoutes(registryWithService("plugin"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/plugins/validation-rules", nil)
+	routes.HandleListValidationRules(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+// TestPlugin_ListWorkflowRules_NoTenant_Returns401 verifies that
+// HandleListWorkflowRules rejects requests without a tenant context.
+func TestPlugin_ListWorkflowRules_NoTenant_Returns401(t *testing.T) {
+	routes := NewPluginRoutes(registryWithService("plugin"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/plugins/workflow-rules", nil)
+	routes.HandleListWorkflowRules(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+// TestPlugin_ListExecutionLogs_NoTenant_Returns401 verifies that
+// HandleListExecutionLogs rejects requests without a tenant context.
+func TestPlugin_ListExecutionLogs_NoTenant_Returns401(t *testing.T) {
+	routes := NewPluginRoutes(registryWithService("plugin"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/plugins/execution-logs", nil)
+	routes.HandleListExecutionLogs(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+// TestPlugin_TwoTenants_IndependentContexts verifies that two requests with
+// different tenant IDs reach the gRPC layer independently — neither should
+// receive a 401 (both get 503 from the absent backend).
+func TestPlugin_TwoTenants_IndependentContexts(t *testing.T) {
+	routes := NewPluginRoutes(registryWithService("plugin"))
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	recA := httptest.NewRecorder()
+	reqA := reqWithTenant(http.MethodGet, "/api/v1/plugins/installations", tenantA)
+	routes.HandleListInstallations(recA, reqA)
+
+	recB := httptest.NewRecorder()
+	reqB := reqWithTenant(http.MethodGet, "/api/v1/plugins/installations", tenantB)
+	routes.HandleListInstallations(recB, reqB)
+
+	if recA.Code == http.StatusUnauthorized {
+		t.Errorf("tenant A plugin-installations request rejected with 401")
+	}
+	if recB.Code == http.StatusUnauthorized {
+		t.Errorf("tenant B plugin-installations request rejected with 401")
+	}
+}

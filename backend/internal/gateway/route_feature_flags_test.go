@@ -52,8 +52,8 @@ func TestHandleGetFlags_ReturnsAllFlags(t *testing.T) {
 		t.Errorf("version = %q, want %q", resp.Version, "v1")
 	}
 
-	// Expect all 16 flags
-	const wantCount = 16
+	// Expect all 17 flags (14 modules + plugins.wasm + plugins.config + plugins.api)
+	const wantCount = 17
 	if len(resp.Flags) != wantCount {
 		t.Errorf("flags count = %d, want %d", len(resp.Flags), wantCount)
 	}
@@ -73,6 +73,7 @@ func TestHandleGetFlags_ReturnsAllFlags(t *testing.T) {
 
 	checkFlag("plugins.wasm", false)
 	checkFlag("plugins.config", true)
+	checkFlag("plugins.api", false)
 	checkFlag("modules.wiki", false)
 	checkFlag("modules.produktion", false)
 }

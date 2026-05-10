@@ -228,7 +228,6 @@ func main() {
 		gateway.NewHRRoutes(registry, bizExt),
 		gateway.NewInboxRoutes(registry),
 		gateway.NewAutomationRoutes(registry),
-		gateway.NewPluginRoutes(registry),
 		gateway.NewDialerRoutes(registry),
 		gateway.NewWikiRoutes(registry, flagRegistry),
 		gateway.NewHelpdeskRoutes(registry, flagRegistry),
@@ -251,6 +250,16 @@ func main() {
 	for _, reg := range registrars {
 		reg.RegisterRoutes(r, authWithIdempotency)
 		slog.Info("routes registered", "service", reg.ServiceName())
+	}
+
+	// Plugin API routes — gated behind plugins.api flag (Phase D, off by default).
+	// To enable in dev: COSMI_PLUGIN_API_ENABLED=true
+	if flagRegistry.IsEnabled("plugins.api") {
+		pluginRoutes := gateway.NewPluginRoutes(registry)
+		pluginRoutes.RegisterRoutes(r, authWithIdempotency)
+		slog.Info("routes registered", "service", pluginRoutes.ServiceName())
+	} else {
+		slog.Info("plugin API routes disabled (plugins.api=false)")
 	}
 
 	// WOPI protocol routes (root-level, no standard auth -- uses WOPI access_token)
