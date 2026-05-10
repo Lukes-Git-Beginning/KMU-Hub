@@ -190,7 +190,7 @@ if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" && -n "$SMOKE_USER_ID" && "$
             "$BASE_URL/api/v1/users/$SMOKE_USER_ID/roles" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $SMOKE_ADMIN_TOKEN" \
-            -d '{"role":"manager"}' 2>/dev/null || echo "000")
+            -d '{"role_name":"manager"}' 2>/dev/null || echo "000")
         if [[ "$ROLE_CODE" =~ ^(200|201|204)$ ]]; then
             pass "Bootstrap smoke user to manager (role upgrade $ROLE_CODE)"
         else
