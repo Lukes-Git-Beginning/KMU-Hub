@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -619,6 +620,7 @@ func mapHelpdeskError(err error) error {
 	case errors.Is(err, helpdesk.ErrAlreadyMerged):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
-		return status.Error(codes.Internal, err.Error())
+		slog.Error("unhandled helpdesk service error", "error", err)
+		return status.Error(codes.Internal, "internal error")
 	}
 }

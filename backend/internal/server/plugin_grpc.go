@@ -814,7 +814,8 @@ func mapPluginError(err error) error {
 	case isInvalidArgument(err):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
-		return status.Error(codes.Internal, err.Error())
+		slog.Error("unhandled plugin service error", "error", err)
+		return status.Error(codes.Internal, "internal error")
 	}
 }
 

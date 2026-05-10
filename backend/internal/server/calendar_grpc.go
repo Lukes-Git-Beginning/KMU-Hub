@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -1649,6 +1650,7 @@ func mapCalendarError(err error) error {
 	case errors.Is(err, livekit.ErrLiveKitNotConfigured):
 		return status.Error(codes.Unavailable, err.Error())
 	default:
+		slog.Error("unhandled calendar service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}
 }

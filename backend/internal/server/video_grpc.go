@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	"errors"
-	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -1550,6 +1550,7 @@ func mapVideoError(err error) error {
 	case errors.Is(err, video.ErrNoTargetUsers):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
+		slog.Error("unhandled video service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}
 }
@@ -1573,6 +1574,7 @@ func mapRecordingError(err error) error {
 	case errors.Is(err, recording.ErrInvalidStatus):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
+		slog.Error("unhandled recording service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}
 }
@@ -1608,6 +1610,7 @@ func mapMeetingError(err error) error {
 	case errors.Is(err, meeting.ErrInvalidRSVP):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
+		slog.Error("unhandled meeting service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}
 }
@@ -1619,6 +1622,7 @@ func mapPresenceError(err error) error {
 	case errors.Is(err, presence.ErrInvalidAwayTimeout):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
-		return status.Error(codes.Internal, fmt.Sprintf("presence error: %v", err))
+		slog.Error("unhandled presence service error", "error", err)
+		return status.Error(codes.Internal, "internal error")
 	}
 }

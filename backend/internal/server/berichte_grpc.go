@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -642,6 +643,7 @@ func mapBerichteError(err error) error {
 	case errors.Is(err, berichte.ErrExecutorUnavailable):
 		return status.Error(codes.Unavailable, err.Error())
 	default:
-		return status.Error(codes.Internal, err.Error())
+		slog.Error("unhandled berichte service error", "error", err)
+		return status.Error(codes.Internal, "internal error")
 	}
 }

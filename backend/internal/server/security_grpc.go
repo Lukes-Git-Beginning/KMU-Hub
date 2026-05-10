@@ -777,6 +777,7 @@ func mapSecurityError(err error) error {
 	case errors.Is(err, gdpr.ErrExportNotReady):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
+		slog.Error("unhandled security service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}
 }

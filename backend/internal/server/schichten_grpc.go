@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -532,6 +533,7 @@ func mapSchichtenError(err error) error {
 	case errors.Is(err, schichten.ErrArbzgViolation):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
+		slog.Error("unhandled schichten service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}
 }

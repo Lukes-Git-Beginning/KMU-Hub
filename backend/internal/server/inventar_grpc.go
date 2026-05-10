@@ -6,6 +6,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -585,6 +586,7 @@ func mapInventarError(err error) error {
 	case errors.Is(err, inventar.ErrInvalidInput):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
-		return status.Error(codes.Internal, err.Error())
+		slog.Error("unhandled inventar service error", "error", err)
+		return status.Error(codes.Internal, "internal error")
 	}
 }

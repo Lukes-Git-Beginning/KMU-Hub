@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -915,6 +916,7 @@ func mapDialerError(err error) error {
 	case errors.Is(err, consent.ErrNoConsent):
 		return status.Error(codes.PermissionDenied, err.Error())
 	default:
-		return status.Error(codes.Internal, err.Error())
+		slog.Error("unhandled dialer service error", "error", err)
+		return status.Error(codes.Internal, "internal error")
 	}
 }

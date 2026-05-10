@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -767,6 +768,7 @@ func mapFormulareError(err error) error {
 	case errors.Is(err, formulare.ErrWebhookInactive):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
-		return status.Error(codes.Internal, err.Error())
+		slog.Error("unhandled formulare service error", "error", err)
+		return status.Error(codes.Internal, "internal error")
 	}
 }

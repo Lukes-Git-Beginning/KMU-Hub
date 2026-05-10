@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -783,6 +784,7 @@ func mapDomainError(err error) error {
 	case errors.Is(err, workflow.ErrCircuitBreakerOpen):
 		return status.Error(codes.ResourceExhausted, err.Error())
 	default:
-		return status.Errorf(codes.Internal, "internal error: %v", err)
+		slog.Error("unhandled automation service error", "error", err)
+		return status.Error(codes.Internal, "internal error")
 	}
 }

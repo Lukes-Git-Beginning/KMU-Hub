@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -1178,6 +1179,7 @@ func mapInboxError(err error) error {
 	case errors.Is(err, routing.ErrInvalidAction):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
-		return status.Error(codes.Internal, "internal server error")
+		slog.Error("unhandled inbox service error", "error", err)
+		return status.Error(codes.Internal, "internal error")
 	}
 }

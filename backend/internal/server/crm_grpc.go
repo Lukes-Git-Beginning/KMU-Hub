@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -2786,6 +2787,7 @@ func mapCRMError(err error) error {
 	case errors.Is(err, company.ErrAlreadyMerged):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
+		slog.Error("unhandled crm service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}
 }

@@ -287,6 +287,7 @@ func mapBexioError(err error) error {
 	case errors.Is(err, bexio.ErrBexioServerError):
 		return status.Error(codes.Unavailable, err.Error())
 	default:
+		slog.Error("unhandled bexio service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}
 }

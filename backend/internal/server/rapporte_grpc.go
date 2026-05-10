@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -598,6 +599,7 @@ func mapRapporteError(err error) error {
 	case errors.Is(err, rapporte.ErrInvalidInput):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
-		return status.Error(codes.Internal, err.Error())
+		slog.Error("unhandled rapporte service error", "error", err)
+		return status.Error(codes.Internal, "internal error")
 	}
 }

@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -554,6 +555,7 @@ func mapVertraegeError(err error) error {
 	case errors.Is(err, vertraege.ErrInvalidInput):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
-		return status.Error(codes.Internal, err.Error())
+		slog.Error("unhandled vertraege service error", "error", err)
+		return status.Error(codes.Internal, "internal error")
 	}
 }

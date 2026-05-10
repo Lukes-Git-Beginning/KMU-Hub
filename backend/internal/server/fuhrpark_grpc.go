@@ -6,6 +6,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -722,6 +723,7 @@ func mapFuhrparkError(err error) error {
 	case errors.Is(err, fuhrpark.ErrInvalidTransition):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
-		return status.Errorf(codes.Internal, "internal error: %v", err)
+		slog.Error("unhandled fuhrpark service error", "error", err)
+		return status.Error(codes.Internal, "internal error")
 	}
 }

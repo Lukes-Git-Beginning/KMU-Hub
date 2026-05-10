@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -648,6 +649,7 @@ func mapEinkaufError(err error) error {
 	case errors.Is(err, einkauf.ErrExceedsOrderedQty):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
-		return status.Error(codes.Internal, err.Error())
+		slog.Error("unhandled einkauf service error", "error", err)
+		return status.Error(codes.Internal, "internal error")
 	}
 }

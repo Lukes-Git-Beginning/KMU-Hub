@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -485,6 +486,7 @@ func mapWikiError(err error) error {
 	case errors.Is(err, wiki.ErrInvalidContent):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
-		return status.Error(codes.Internal, err.Error())
+		slog.Error("unhandled wiki service error", "error", err)
+		return status.Error(codes.Internal, "internal error")
 	}
 }

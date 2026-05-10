@@ -311,6 +311,7 @@ func mapLexwareError(err error) error {
 	case errors.Is(err, lexware.ErrLexwareServerError):
 		return status.Error(codes.Unavailable, err.Error())
 	default:
+		slog.Error("unhandled lexware service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}
 }
