@@ -295,6 +295,40 @@ else
     fail "OnlyOffice JWT may be disabled — unauthenticated request returned $OO_RESP, expected 401/403" ""
 fi
 
+# 14c. Idempotency: two identical POSTs with same Idempotency-Key must not duplicate
+# Requires SMOKE_ADMIN_TOKEN (manager role) — otherwise SKIP like tests 9-11.
+if [[ -n "${SMOKE_ADMIN_TOKEN:-}" ]]; then
+    IDEM_KEY="smoke-idem-$(date +%s)"
+    IDEM_BODY='{"contact_id":"00000000-0000-0000-0000-000000000001","outcome":"answered","duration_seconds":30,"notes":"smoke-idempotency-test"}'
+
+    IDEM_RESP1=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/dialer/outcomes" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $SMOKE_ADMIN_TOKEN" \
+        -H "Idempotency-Key: $IDEM_KEY" \
+        -d "$IDEM_BODY" 2>/dev/null) || IDEM_RESP1=$'\n000'
+    IDEM_CODE1=$(echo "$IDEM_RESP1" | tail -1)
+    IDEM_BODY1=$(echo "$IDEM_RESP1" | sed '$d')
+
+    IDEM_RESP2=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/dialer/outcomes" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $SMOKE_ADMIN_TOKEN" \
+        -H "Idempotency-Key: $IDEM_KEY" \
+        -d "$IDEM_BODY" 2>/dev/null) || IDEM_RESP2=$'\n000'
+    IDEM_CODE2=$(echo "$IDEM_RESP2" | tail -1)
+    IDEM_BODY2=$(echo "$IDEM_RESP2" | sed '$d')
+
+    if [[ "$IDEM_CODE1" =~ ^(200|201)$ ]] && [[ "$IDEM_CODE2" =~ ^(200|201)$ ]] && [[ "$IDEM_BODY1" == "$IDEM_BODY2" ]]; then
+        pass "Idempotency: duplicate POST with same key returns cached response (codes: $IDEM_CODE1/$IDEM_CODE2)"
+    elif [[ "$IDEM_CODE1" =~ ^(200|201)$ ]] && [[ "$IDEM_CODE2" == "400" ]]; then
+        # HardMode: second POST blocked — acceptable, not a duplicate row created
+        pass "Idempotency HardMode: second POST with duplicate key rejected 400 (no duplicate row)"
+    else
+        fail "Idempotency: unexpected codes $IDEM_CODE1/$IDEM_CODE2 or response mismatch" "$IDEM_BODY2"
+    fi
+else
+    echo "  [SKIP] Idempotency check — SMOKE_ADMIN_TOKEN not set"
+fi
+
 # ==========================================
 # Performance Tests (3)
 # ==========================================
