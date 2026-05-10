@@ -9,6 +9,7 @@ import (
 // ChatFile represents a file uploaded in a chat channel
 type ChatFile struct {
 	ID           uuid.UUID  `json:"id"`
+	TenantID     uuid.UUID  `json:"tenant_id"`
 	MessageID    *uuid.UUID `json:"message_id,omitempty"`
 	ChannelID    uuid.UUID  `json:"channel_id"`
 	Filename     string     `json:"filename"`

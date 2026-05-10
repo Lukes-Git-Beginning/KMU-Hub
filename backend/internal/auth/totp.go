@@ -128,7 +128,7 @@ func (s *Service) Verify2FA(ctx context.Context, userID uuid.UUID, code string) 
 	}
 
 	// Generate recovery codes
-	plainCodes, hashedCodes, err := generateRecoveryCodes(userID)
+	plainCodes, hashedCodes, err := generateRecoveryCodes(userID, user.TenantID)
 	if err != nil {
 		return nil, fmt.Errorf("generate recovery codes: %w", err)
 	}
@@ -203,7 +203,7 @@ func (s *Service) RegenerateRecoveryCodes(ctx context.Context, userID uuid.UUID,
 		return nil, err
 	}
 
-	plainCodes, hashedCodes, err := generateRecoveryCodes(userID)
+	plainCodes, hashedCodes, err := generateRecoveryCodes(userID, user.TenantID)
 	if err != nil {
 		return nil, fmt.Errorf("generate recovery codes: %w", err)
 	}
@@ -400,7 +400,7 @@ func (s *Service) validateRecoveryCode(ctx context.Context, userID uuid.UUID, co
 }
 
 // generateRecoveryCodes creates a set of recovery codes and their hashed counterparts.
-func generateRecoveryCodes(userID uuid.UUID) (plain []string, hashed []*models.RecoveryCode, err error) {
+func generateRecoveryCodes(userID uuid.UUID, tenantID uuid.UUID) (plain []string, hashed []*models.RecoveryCode, err error) {
 	now := time.Now()
 	for i := 0; i < recoveryCodeCount; i++ {
 		b := make([]byte, recoveryCodeLength/2) // 5 bytes = 10 hex chars
@@ -411,6 +411,7 @@ func generateRecoveryCodes(userID uuid.UUID) (plain []string, hashed []*models.R
 		plain = append(plain, code)
 		hashed = append(hashed, &models.RecoveryCode{
 			ID:        uuid.New(),
+			TenantID:  tenantID,
 			UserID:    userID,
 			CodeHash:  hashRecoveryCode(code),
 			CreatedAt: now,

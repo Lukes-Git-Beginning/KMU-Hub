@@ -535,6 +535,7 @@ func (s *Service) processMentions(ctx context.Context, messageID, channelID, ten
 		for _, memberID := range memberIDs {
 			mentions = append(mentions, models.Mention{
 				MessageID:   messageID,
+				TenantID:    tenantID,
 				UserID:      memberID,
 				MentionType: mentionType,
 				CreatedAt:   now,
@@ -552,6 +553,7 @@ func (s *Service) processMentions(ctx context.Context, messageID, channelID, ten
 			}
 			mentions = append(mentions, models.Mention{
 				MessageID:   messageID,
+				TenantID:    tenantID,
 				UserID:      userID,
 				MentionType: models.MentionTypeUser,
 				CreatedAt:   now,

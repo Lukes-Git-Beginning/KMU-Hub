@@ -21,9 +21,9 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) CreateCallSession(ctx context.Context, session *CallSession) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO call_sessions (id, call_type, status, room_name, initiator_id, channel_id, created_at, ended_at, duration_seconds)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-		session.ID, session.CallType, session.Status, session.RoomName,
+		`INSERT INTO call_sessions (id, tenant_id, call_type, status, room_name, initiator_id, channel_id, created_at, ended_at, duration_seconds)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+		session.ID, session.TenantID, session.CallType, session.Status, session.RoomName,
 		session.InitiatorID, session.ChannelID, session.CreatedAt,
 		session.EndedAt, session.DurationSeconds,
 	)
@@ -103,10 +103,10 @@ func (r *PostgresRepository) ListActiveCallsForUser(ctx context.Context, userID 
 
 func (r *PostgresRepository) AddParticipant(ctx context.Context, p *CallParticipant) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO call_participants (call_id, user_id, joined_at, left_at, has_video, has_audio)
-		 VALUES ($1, $2, $3, $4, $5, $6)
-		 ON CONFLICT (call_id, user_id) DO UPDATE SET left_at = NULL, joined_at = $3, has_video = $5, has_audio = $6`,
-		p.CallID, p.UserID, p.JoinedAt, p.LeftAt, p.HasVideo, p.HasAudio,
+		`INSERT INTO call_participants (call_id, tenant_id, user_id, joined_at, left_at, has_video, has_audio)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		 ON CONFLICT (call_id, user_id) DO UPDATE SET left_at = NULL, joined_at = $4, has_video = $6, has_audio = $7`,
+		p.CallID, p.TenantID, p.UserID, p.JoinedAt, p.LeftAt, p.HasVideo, p.HasAudio,
 	)
 	return err
 }

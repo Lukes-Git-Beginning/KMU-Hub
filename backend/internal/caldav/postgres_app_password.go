@@ -22,11 +22,11 @@ func NewPostgresAppPasswordRepository(pool *pgxpool.Pool) *PostgresAppPasswordRe
 func (r *PostgresAppPasswordRepository) Create(ctx context.Context, pw *models.AppSpecificPassword) error {
 	query := `
 		INSERT INTO app_specific_passwords (
-			id, user_id, label, password_hash, password_prefix, scope, created_at
-		) VALUES ($1, $2, $3, $4, $5, $6, NOW())`
+			id, tenant_id, user_id, label, password_hash, password_prefix, scope, created_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`
 
 	_, err := r.pool.Exec(ctx, query,
-		pw.ID, pw.UserID, pw.Label, pw.PasswordHash, pw.PasswordPrefix, pw.Scope,
+		pw.ID, pw.TenantID, pw.UserID, pw.Label, pw.PasswordHash, pw.PasswordPrefix, pw.Scope,
 	)
 	return err
 }

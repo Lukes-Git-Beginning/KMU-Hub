@@ -9,7 +9,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kmuhub/kmuhub/internal/middleware"
 )
+
+// tenantCtx returns a context with the given tenant_id set, mirroring what
+// the Auth middleware does in production.
+func tenantCtx(tenantID uuid.UUID) context.Context {
+	return context.WithValue(context.Background(), middleware.TenantIDKey, tenantID.String())
+}
 
 // MockRepository implements Repository for testing.
 type MockRepository struct {
@@ -111,7 +119,7 @@ func TestCreateSession_Success(t *testing.T) {
 	}
 	svc := NewService(repo)
 
-	result, err := svc.CreateSession(context.Background(), CreateSessionInput{
+	result, err := svc.CreateSession(tenantCtx(uuid.Nil), CreateSessionInput{
 		ChannelID:   uuid.New(),
 		DisplayName: "Test Guest",
 	})
@@ -171,7 +179,7 @@ func TestValidateToken_Success(t *testing.T) {
 	}
 	svc := NewService(repo)
 
-	result, err := svc.CreateSession(context.Background(), CreateSessionInput{
+	result, err := svc.CreateSession(tenantCtx(uuid.Nil), CreateSessionInput{
 		ChannelID:   uuid.New(),
 		DisplayName: "Validator",
 	})
@@ -265,7 +273,7 @@ func TestCreateConfig_Success(t *testing.T) {
 
 	channelID := uuid.New()
 	createdBy := uuid.New()
-	config, err := svc.CreateConfig(context.Background(), CreateConfigInput{
+	config, err := svc.CreateConfig(tenantCtx(uuid.Nil), CreateConfigInput{
 		ChannelID: channelID,
 		CreatedBy: createdBy,
 	})
@@ -344,7 +352,7 @@ func TestCreateSession_RepoError(t *testing.T) {
 	}
 	svc := NewService(repo)
 
-	result, err := svc.CreateSession(context.Background(), CreateSessionInput{
+	result, err := svc.CreateSession(tenantCtx(uuid.Nil), CreateSessionInput{
 		ChannelID:   uuid.New(),
 		DisplayName: "Test",
 	})

@@ -35,6 +35,7 @@ var ValidCallStatuses = map[string]bool{
 // CallSession represents an active or completed video/voice call
 type CallSession struct {
 	ID              uuid.UUID  `json:"id"`
+	TenantID        uuid.UUID  `json:"tenant_id"`
 	CallType        string     `json:"call_type"`
 	Status          string     `json:"status"`
 	RoomName        string     `json:"room_name"`
@@ -48,6 +49,7 @@ type CallSession struct {
 // CallParticipant represents a user participating in a call
 type CallParticipant struct {
 	CallID   uuid.UUID  `json:"call_id"`
+	TenantID uuid.UUID  `json:"tenant_id"`
 	UserID   uuid.UUID  `json:"user_id"`
 	JoinedAt time.Time  `json:"joined_at"`
 	LeftAt   *time.Time `json:"left_at,omitempty"`

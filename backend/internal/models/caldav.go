@@ -28,6 +28,7 @@ const (
 // for CalDAV/CardDAV HTTP Basic Auth.
 type AppSpecificPassword struct {
 	ID             uuid.UUID  `json:"id"`
+	TenantID       uuid.UUID  `json:"tenant_id" db:"tenant_id"`
 	UserID         uuid.UUID  `json:"user_id"`
 	Label          string     `json:"label"`
 	PasswordHash   string     `json:"-"`

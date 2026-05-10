@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -144,9 +145,15 @@ func (s *Service) Upload(ctx context.Context, input UploadInput) (*models.ChatFi
 		}
 	}
 
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, fmt.Errorf("upload file: %w", tenantErr)
+	}
+
 	// Create DB record
 	chatFile := &models.ChatFile{
 		ID:           fileID,
+		TenantID:     tenantID,
 		MessageID:    input.MessageID,
 		ChannelID:    input.ChannelID,
 		Filename:     input.Filename,

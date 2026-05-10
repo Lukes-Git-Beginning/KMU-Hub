@@ -38,7 +38,7 @@ type CalDAVUserPreferenceService interface {
 // This interface breaks the import cycle between gateway and caldav packages.
 type CalDAVPasswordService interface {
 	Validate(ctx context.Context, username, password string) (uuid.UUID, error)
-	Create(ctx context.Context, userID uuid.UUID, label string) (string, *CalDAVPasswordInfo, error)
+	Create(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, label string) (string, *CalDAVPasswordInfo, error)
 	List(ctx context.Context, userID uuid.UUID) ([]*CalDAVPasswordInfo, error)
 	Revoke(ctx context.Context, id, userID uuid.UUID) error
 	IsOrgEnabled(ctx context.Context) (bool, error)
@@ -211,6 +211,12 @@ func (c *CalDAVRoutes) handleCreatePassword(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "invalid tenant")
+		return
+	}
+
 	var req struct {
 		Label string `json:"label"`
 	}
@@ -223,7 +229,7 @@ func (c *CalDAVRoutes) handleCreatePassword(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	plaintext, pw, err := c.pwService.Create(r.Context(), userID, req.Label)
+	plaintext, pw, err := c.pwService.Create(r.Context(), userID, tenantID, req.Label)
 	if err != nil {
 		slog.Error("failed to create app password", "user_id", userID, "error", err)
 		response.Error(w, http.StatusInternalServerError, "failed to create password")

@@ -9,6 +9,7 @@ import (
 // GuestSession represents a guest visitor's chat session
 type GuestSession struct {
 	ID             uuid.UUID  `json:"id"`
+	TenantID       uuid.UUID  `json:"tenant_id"`
 	TokenHash      string     `json:"-"` // never exposed in API responses
 	ChannelID      uuid.UUID  `json:"channel_id"`
 	DisplayName    string     `json:"display_name"`
@@ -24,6 +25,7 @@ type GuestSession struct {
 // GuestChannelConfig holds per-channel guest chat settings
 type GuestChannelConfig struct {
 	ID               uuid.UUID `json:"id"`
+	TenantID         uuid.UUID `json:"tenant_id"`
 	ChannelID        uuid.UUID `json:"channel_id"`
 	WelcomeMessage   string    `json:"welcome_message"`
 	LogoURL          *string   `json:"logo_url,omitempty"`

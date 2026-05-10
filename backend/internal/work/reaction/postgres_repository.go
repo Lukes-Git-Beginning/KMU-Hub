@@ -20,8 +20,10 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) AddReaction(ctx context.Context, messageID, userID uuid.UUID, emoji string) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO message_reactions (message_id, user_id, emoji, created_at)
-		 VALUES ($1, $2, $3, $4)
+		`INSERT INTO message_reactions (message_id, tenant_id, user_id, emoji, created_at)
+		 SELECT $1, m.tenant_id, $2, $3, $4
+		 FROM messages m
+		 WHERE m.id = $1
 		 ON CONFLICT DO NOTHING`,
 		messageID, userID, emoji, time.Now(),
 	)

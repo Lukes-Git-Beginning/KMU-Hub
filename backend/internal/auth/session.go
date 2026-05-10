@@ -12,11 +12,12 @@ import (
 )
 
 // CreateSession creates a new user session with device metadata parsed from user agent.
-func (s *Service) CreateSession(ctx context.Context, userID uuid.UUID, ipAddress, userAgent string, refreshTokenID uuid.UUID) (*models.UserSession, error) {
+func (s *Service) CreateSession(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, ipAddress, userAgent string, refreshTokenID uuid.UUID) (*models.UserSession, error) {
 	deviceName, deviceType := parseUserAgent(userAgent)
 
 	session := &models.UserSession{
 		ID:             uuid.New(),
+		TenantID:       tenantID,
 		UserID:         userID,
 		RefreshTokenID: &refreshTokenID,
 		DeviceName:     deviceName,

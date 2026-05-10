@@ -11,8 +11,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
+
+// tenantCtx returns a context with the given tenant_id set, mirroring what
+// the Auth middleware does in production.
+func tenantCtx(tenantID uuid.UUID) context.Context {
+	return context.WithValue(context.Background(), middleware.TenantIDKey, tenantID.String())
+}
 
 // ============================================================================
 // Mocks
@@ -278,7 +285,7 @@ func TestService_Upload(t *testing.T) {
 		svc, repo, _, _, _ := setupTestService()
 		channelID, userID := setupChannel(repo)
 
-		result, err := svc.Upload(context.Background(), UploadInput{
+		result, err := svc.Upload(tenantCtx(uuid.Nil), UploadInput{
 			ChannelID: channelID,
 			Filename:  "document.pdf",
 			MimeType:  "application/pdf",
@@ -302,7 +309,7 @@ func TestService_Upload(t *testing.T) {
 		thumbGen.canGen = true
 		channelID, userID := setupChannel(repo)
 
-		result, err := svc.Upload(context.Background(), UploadInput{
+		result, err := svc.Upload(tenantCtx(uuid.Nil), UploadInput{
 			ChannelID: channelID,
 			Filename:  "photo.jpg",
 			MimeType:  "image/jpeg",

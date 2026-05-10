@@ -18,6 +18,7 @@ const (
 // Mention represents a mention in a message
 type Mention struct {
 	MessageID   uuid.UUID   `json:"message_id"`
+	TenantID    uuid.UUID   `json:"tenant_id"`
 	UserID      uuid.UUID   `json:"user_id"`
 	MentionType MentionType `json:"mention_type"`
 	CreatedAt   time.Time   `json:"created_at"`

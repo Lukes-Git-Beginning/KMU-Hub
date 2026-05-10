@@ -8,7 +8,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kmuhub/kmuhub/internal/middleware"
 )
+
+// tenantCtx returns a context with the given tenant_id set, as the middleware
+// Auth handler would do in production.
+func tenantCtx(tenantID uuid.UUID) context.Context {
+	return context.WithValue(context.Background(), middleware.TenantIDKey, tenantID.String())
+}
 
 // --- Mock RoomManager ---
 
@@ -176,7 +184,7 @@ func TestCreateCall_Success(t *testing.T) {
 	initiator := uuid.New()
 	target := uuid.New()
 
-	session, token, err := svc.CreateCall(context.Background(), initiator, CallTypeOneToOne, []uuid.UUID{target}, nil)
+	session, token, err := svc.CreateCall(tenantCtx(uuid.Nil), initiator, CallTypeOneToOne, []uuid.UUID{target}, nil)
 
 	require.NoError(t, err)
 	assert.NotNil(t, session)
@@ -205,7 +213,7 @@ func TestCreateCall_WithChannelID(t *testing.T) {
 	target := uuid.New()
 	channelID := uuid.New()
 
-	session, _, err := svc.CreateCall(context.Background(), initiator, CallTypeGroup, []uuid.UUID{target}, &channelID)
+	session, _, err := svc.CreateCall(tenantCtx(uuid.Nil), initiator, CallTypeGroup, []uuid.UUID{target}, &channelID)
 
 	require.NoError(t, err)
 	assert.NotNil(t, session.ChannelID)
@@ -219,7 +227,7 @@ func TestCreateCall_FailsWhenLiveKitDisabled(t *testing.T) {
 	initiator := uuid.New()
 	target := uuid.New()
 
-	session, token, err := svc.CreateCall(context.Background(), initiator, CallTypeOneToOne, []uuid.UUID{target}, nil)
+	session, token, err := svc.CreateCall(tenantCtx(uuid.Nil), initiator, CallTypeOneToOne, []uuid.UUID{target}, nil)
 
 	assert.ErrorIs(t, err, ErrLiveKitNotConfigured)
 	assert.Nil(t, session)
@@ -231,7 +239,7 @@ func TestCreateCall_FailsWithInvalidCallType(t *testing.T) {
 	rm := newMockRoomManager()
 	svc := NewService(repo, rm)
 
-	_, _, err := svc.CreateCall(context.Background(), uuid.New(), "invalid", []uuid.UUID{uuid.New()}, nil)
+	_, _, err := svc.CreateCall(tenantCtx(uuid.Nil), uuid.New(), "invalid", []uuid.UUID{uuid.New()}, nil)
 	assert.ErrorIs(t, err, ErrInvalidCallType)
 }
 
@@ -240,7 +248,7 @@ func TestCreateCall_FailsWithNoTargets(t *testing.T) {
 	rm := newMockRoomManager()
 	svc := NewService(repo, rm)
 
-	_, _, err := svc.CreateCall(context.Background(), uuid.New(), CallTypeOneToOne, nil, nil)
+	_, _, err := svc.CreateCall(tenantCtx(uuid.Nil), uuid.New(), CallTypeOneToOne, nil, nil)
 	assert.ErrorIs(t, err, ErrNoTargetUsers)
 }
 
@@ -252,7 +260,7 @@ func TestCreateCall_GroupCallMaxParticipants(t *testing.T) {
 	initiator := uuid.New()
 	targets := []uuid.UUID{uuid.New(), uuid.New()}
 
-	session, _, err := svc.CreateCall(context.Background(), initiator, CallTypeGroup, targets, nil)
+	session, _, err := svc.CreateCall(tenantCtx(uuid.Nil), initiator, CallTypeGroup, targets, nil)
 	require.NoError(t, err)
 
 	// Verify the room was created with group max participants
@@ -266,12 +274,12 @@ func TestJoinCall_Success(t *testing.T) {
 
 	// Create a call first
 	initiator := uuid.New()
-	session, _, err := svc.CreateCall(context.Background(), initiator, CallTypeGroup, []uuid.UUID{uuid.New()}, nil)
+	session, _, err := svc.CreateCall(tenantCtx(uuid.Nil), initiator, CallTypeGroup, []uuid.UUID{uuid.New()}, nil)
 	require.NoError(t, err)
 
 	// Join the call
 	joiner := uuid.New()
-	token, err := svc.JoinCall(context.Background(), session.ID, joiner, "Max Mustermann")
+	token, err := svc.JoinCall(tenantCtx(uuid.Nil), session.ID, joiner, "Max Mustermann")
 
 	require.NoError(t, err)
 	assert.Equal(t, "mock-token-123", token)
@@ -292,14 +300,14 @@ func TestJoinCall_RejectsEndedCall(t *testing.T) {
 
 	// Create and end a call
 	initiator := uuid.New()
-	session, _, err := svc.CreateCall(context.Background(), initiator, CallTypeOneToOne, []uuid.UUID{uuid.New()}, nil)
+	session, _, err := svc.CreateCall(tenantCtx(uuid.Nil), initiator, CallTypeOneToOne, []uuid.UUID{uuid.New()}, nil)
 	require.NoError(t, err)
 
-	err = svc.EndCall(context.Background(), session.ID, initiator)
+	err = svc.EndCall(tenantCtx(uuid.Nil), session.ID, initiator)
 	require.NoError(t, err)
 
 	// Try to join ended call
-	_, err = svc.JoinCall(context.Background(), session.ID, uuid.New(), "Late Joiner")
+	_, err = svc.JoinCall(tenantCtx(uuid.Nil), session.ID, uuid.New(), "Late Joiner")
 	assert.ErrorIs(t, err, ErrCallEnded)
 }
 
@@ -310,16 +318,16 @@ func TestJoinCall_RejectsAtMaxParticipants(t *testing.T) {
 
 	// Create a 1:1 call
 	initiator := uuid.New()
-	session, _, err := svc.CreateCall(context.Background(), initiator, CallTypeOneToOne, []uuid.UUID{uuid.New()}, nil)
+	session, _, err := svc.CreateCall(tenantCtx(uuid.Nil), initiator, CallTypeOneToOne, []uuid.UUID{uuid.New()}, nil)
 	require.NoError(t, err)
 
 	// Join with second participant (fills 1:1 capacity)
 	joiner := uuid.New()
-	_, err = svc.JoinCall(context.Background(), session.ID, joiner, "Joiner")
+	_, err = svc.JoinCall(tenantCtx(uuid.Nil), session.ID, joiner, "Joiner")
 	require.NoError(t, err)
 
 	// Third participant should be rejected
-	_, err = svc.JoinCall(context.Background(), session.ID, uuid.New(), "Third")
+	_, err = svc.JoinCall(tenantCtx(uuid.Nil), session.ID, uuid.New(), "Third")
 	assert.ErrorIs(t, err, ErrMaxParticipants)
 }
 
@@ -327,7 +335,7 @@ func TestJoinCall_FailsWhenLiveKitDisabled(t *testing.T) {
 	repo := newMockRepo()
 	svc := NewService(repo, nil)
 
-	_, err := svc.JoinCall(context.Background(), uuid.New(), uuid.New(), "User")
+	_, err := svc.JoinCall(tenantCtx(uuid.Nil), uuid.New(), uuid.New(), "User")
 	assert.ErrorIs(t, err, ErrLiveKitNotConfigured)
 }
 
@@ -337,10 +345,10 @@ func TestEndCall_Success(t *testing.T) {
 	svc := NewService(repo, rm)
 
 	initiator := uuid.New()
-	session, _, err := svc.CreateCall(context.Background(), initiator, CallTypeOneToOne, []uuid.UUID{uuid.New()}, nil)
+	session, _, err := svc.CreateCall(tenantCtx(uuid.Nil), initiator, CallTypeOneToOne, []uuid.UUID{uuid.New()}, nil)
 	require.NoError(t, err)
 
-	err = svc.EndCall(context.Background(), session.ID, initiator)
+	err = svc.EndCall(tenantCtx(uuid.Nil), session.ID, initiator)
 	require.NoError(t, err)
 
 	updated := repo.sessions[session.ID]
@@ -356,14 +364,14 @@ func TestEndCall_Idempotent(t *testing.T) {
 	svc := NewService(repo, rm)
 
 	initiator := uuid.New()
-	session, _, err := svc.CreateCall(context.Background(), initiator, CallTypeOneToOne, []uuid.UUID{uuid.New()}, nil)
+	session, _, err := svc.CreateCall(tenantCtx(uuid.Nil), initiator, CallTypeOneToOne, []uuid.UUID{uuid.New()}, nil)
 	require.NoError(t, err)
 
 	// End twice - should not error
-	err = svc.EndCall(context.Background(), session.ID, initiator)
+	err = svc.EndCall(tenantCtx(uuid.Nil), session.ID, initiator)
 	require.NoError(t, err)
 
-	err = svc.EndCall(context.Background(), session.ID, initiator)
+	err = svc.EndCall(tenantCtx(uuid.Nil), session.ID, initiator)
 	require.NoError(t, err)
 }
 
@@ -372,7 +380,7 @@ func TestEndCall_NotFound(t *testing.T) {
 	rm := newMockRoomManager()
 	svc := NewService(repo, rm)
 
-	err := svc.EndCall(context.Background(), uuid.New(), uuid.New())
+	err := svc.EndCall(tenantCtx(uuid.Nil), uuid.New(), uuid.New())
 	assert.ErrorIs(t, err, ErrNotFound)
 }
 
@@ -382,10 +390,10 @@ func TestGetCall_Success(t *testing.T) {
 	svc := NewService(repo, rm)
 
 	initiator := uuid.New()
-	session, _, err := svc.CreateCall(context.Background(), initiator, CallTypeGroup, []uuid.UUID{uuid.New()}, nil)
+	session, _, err := svc.CreateCall(tenantCtx(uuid.Nil), initiator, CallTypeGroup, []uuid.UUID{uuid.New()}, nil)
 	require.NoError(t, err)
 
-	result, err := svc.GetCall(context.Background(), session.ID)
+	result, err := svc.GetCall(tenantCtx(uuid.Nil), session.ID)
 	require.NoError(t, err)
 	assert.Equal(t, session.ID, result.ID)
 	assert.Len(t, result.Participants, 1) // initiator
@@ -399,17 +407,17 @@ func TestListActiveCalls(t *testing.T) {
 	initiator := uuid.New()
 
 	// Create two calls
-	session1, _, err := svc.CreateCall(context.Background(), initiator, CallTypeGroup, []uuid.UUID{uuid.New()}, nil)
+	session1, _, err := svc.CreateCall(tenantCtx(uuid.Nil), initiator, CallTypeGroup, []uuid.UUID{uuid.New()}, nil)
 	require.NoError(t, err)
 
-	_, _, err = svc.CreateCall(context.Background(), initiator, CallTypeOneToOne, []uuid.UUID{uuid.New()}, nil)
+	_, _, err = svc.CreateCall(tenantCtx(uuid.Nil), initiator, CallTypeOneToOne, []uuid.UUID{uuid.New()}, nil)
 	require.NoError(t, err)
 
 	// End first call
-	err = svc.EndCall(context.Background(), session1.ID, initiator)
+	err = svc.EndCall(tenantCtx(uuid.Nil), session1.ID, initiator)
 	require.NoError(t, err)
 
-	calls, err := svc.ListActiveCalls(context.Background(), initiator)
+	calls, err := svc.ListActiveCalls(tenantCtx(uuid.Nil), initiator)
 	require.NoError(t, err)
 	assert.Len(t, calls, 1) // Only the second call is still active
 }
@@ -420,11 +428,11 @@ func TestHandleParticipantLeft_AutoEndsCall(t *testing.T) {
 	svc := NewService(repo, rm)
 
 	initiator := uuid.New()
-	session, _, err := svc.CreateCall(context.Background(), initiator, CallTypeOneToOne, []uuid.UUID{uuid.New()}, nil)
+	session, _, err := svc.CreateCall(tenantCtx(uuid.Nil), initiator, CallTypeOneToOne, []uuid.UUID{uuid.New()}, nil)
 	require.NoError(t, err)
 
 	// Participant leaves
-	err = svc.HandleParticipantLeft(context.Background(), session.RoomName, initiator.String())
+	err = svc.HandleParticipantLeft(tenantCtx(uuid.Nil), session.RoomName, initiator.String())
 	require.NoError(t, err)
 
 	// Call should be auto-ended
@@ -439,16 +447,16 @@ func TestHandleParticipantLeft_DoesNotEndWithRemainingParticipants(t *testing.T)
 	svc := NewService(repo, rm)
 
 	initiator := uuid.New()
-	session, _, err := svc.CreateCall(context.Background(), initiator, CallTypeGroup, []uuid.UUID{uuid.New()}, nil)
+	session, _, err := svc.CreateCall(tenantCtx(uuid.Nil), initiator, CallTypeGroup, []uuid.UUID{uuid.New()}, nil)
 	require.NoError(t, err)
 
 	// Add a second participant
 	joiner := uuid.New()
-	_, err = svc.JoinCall(context.Background(), session.ID, joiner, "Joiner")
+	_, err = svc.JoinCall(tenantCtx(uuid.Nil), session.ID, joiner, "Joiner")
 	require.NoError(t, err)
 
 	// First participant leaves
-	err = svc.HandleParticipantLeft(context.Background(), session.RoomName, initiator.String())
+	err = svc.HandleParticipantLeft(tenantCtx(uuid.Nil), session.RoomName, initiator.String())
 	require.NoError(t, err)
 
 	// Call should still be active (joiner remains)
@@ -462,10 +470,10 @@ func TestHandleRoomFinished_EndsCall(t *testing.T) {
 	svc := NewService(repo, rm)
 
 	initiator := uuid.New()
-	session, _, err := svc.CreateCall(context.Background(), initiator, CallTypeOneToOne, []uuid.UUID{uuid.New()}, nil)
+	session, _, err := svc.CreateCall(tenantCtx(uuid.Nil), initiator, CallTypeOneToOne, []uuid.UUID{uuid.New()}, nil)
 	require.NoError(t, err)
 
-	err = svc.HandleRoomFinished(context.Background(), session.RoomName)
+	err = svc.HandleRoomFinished(tenantCtx(uuid.Nil), session.RoomName)
 	require.NoError(t, err)
 
 	updated := repo.sessions[session.ID]
@@ -480,15 +488,15 @@ func TestHandleRoomFinished_IdempotentForEndedCall(t *testing.T) {
 	svc := NewService(repo, rm)
 
 	initiator := uuid.New()
-	session, _, err := svc.CreateCall(context.Background(), initiator, CallTypeOneToOne, []uuid.UUID{uuid.New()}, nil)
+	session, _, err := svc.CreateCall(tenantCtx(uuid.Nil), initiator, CallTypeOneToOne, []uuid.UUID{uuid.New()}, nil)
 	require.NoError(t, err)
 
 	// End call first
-	err = svc.EndCall(context.Background(), session.ID, initiator)
+	err = svc.EndCall(tenantCtx(uuid.Nil), session.ID, initiator)
 	require.NoError(t, err)
 
 	// Room finished webhook should be idempotent
-	err = svc.HandleRoomFinished(context.Background(), session.RoomName)
+	err = svc.HandleRoomFinished(tenantCtx(uuid.Nil), session.RoomName)
 	require.NoError(t, err)
 }
 
@@ -498,12 +506,12 @@ func TestHandleParticipantJoined(t *testing.T) {
 	svc := NewService(repo, rm)
 
 	initiator := uuid.New()
-	session, _, err := svc.CreateCall(context.Background(), initiator, CallTypeGroup, []uuid.UUID{uuid.New()}, nil)
+	session, _, err := svc.CreateCall(tenantCtx(uuid.Nil), initiator, CallTypeGroup, []uuid.UUID{uuid.New()}, nil)
 	require.NoError(t, err)
 
 	// Webhook: new participant joins
 	joiner := uuid.New()
-	err = svc.HandleParticipantJoined(context.Background(), session.RoomName, joiner.String())
+	err = svc.HandleParticipantJoined(tenantCtx(uuid.Nil), session.RoomName, joiner.String())
 	require.NoError(t, err)
 
 	// Verify participant was added
@@ -523,6 +531,6 @@ func TestNewService_DisabledMode(t *testing.T) {
 
 	// EndCall should still work (it does not require LiveKit for DB updates)
 	// But CreateCall should fail
-	_, _, err := svc.CreateCall(context.Background(), uuid.New(), CallTypeOneToOne, []uuid.UUID{uuid.New()}, nil)
+	_, _, err := svc.CreateCall(tenantCtx(uuid.Nil), uuid.New(), CallTypeOneToOne, []uuid.UUID{uuid.New()}, nil)
 	assert.ErrorIs(t, err, ErrLiveKitNotConfigured)
 }

@@ -18,6 +18,7 @@ const (
 // PushSubscription represents a WebDAV-Push notification subscription.
 type PushSubscription struct {
 	ID             uuid.UUID `json:"id"`
+	TenantID       uuid.UUID `json:"tenant_id"`
 	UserID         uuid.UUID `json:"user_id"`
 	CollectionType string    `json:"collection_type"`
 	CollectionID   uuid.UUID `json:"collection_id"`
@@ -44,6 +45,7 @@ func NewPushSubscriptionService(pool *pgxpool.Pool) *PushSubscriptionService {
 func (s *PushSubscriptionService) Subscribe(
 	ctx context.Context,
 	userID uuid.UUID,
+	tenantID uuid.UUID,
 	collectionType string,
 	collectionID uuid.UUID,
 	pushURL string,
@@ -58,18 +60,18 @@ func (s *PushSubscriptionService) Subscribe(
 	var sub PushSubscription
 	err := s.pool.QueryRow(ctx,
 		`INSERT INTO caldav_push_subscriptions
-			(user_id, collection_type, collection_id, push_url, push_topic, expires_at)
-		 VALUES ($1, $2, $3, $4, $5, $6)
+			(tenant_id, user_id, collection_type, collection_id, push_url, push_topic, expires_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
 		 ON CONFLICT (user_id, collection_type, collection_id, push_url)
 		 DO UPDATE SET
 			push_topic = EXCLUDED.push_topic,
 			expires_at = EXCLUDED.expires_at,
 			updated_at = NOW()
-		 RETURNING id, user_id, collection_type, collection_id, push_url, push_topic,
+		 RETURNING id, tenant_id, user_id, collection_type, collection_id, push_url, push_topic,
 		           expires_at, created_at, updated_at`,
-		userID, collectionType, collectionID, pushURL, pushTopic, expiresAt,
+		tenantID, userID, collectionType, collectionID, pushURL, pushTopic, expiresAt,
 	).Scan(
-		&sub.ID, &sub.UserID, &sub.CollectionType, &sub.CollectionID,
+		&sub.ID, &sub.TenantID, &sub.UserID, &sub.CollectionType, &sub.CollectionID,
 		&sub.PushURL, &sub.PushTopic, &sub.ExpiresAt, &sub.CreatedAt, &sub.UpdatedAt,
 	)
 	if err != nil {

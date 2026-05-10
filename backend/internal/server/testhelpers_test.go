@@ -613,6 +613,9 @@ func newMultipartUploadRequest(t *testing.T, userID, channelID, filename, mimeTy
 
 	if userID != "" {
 		ctx := context.WithValue(req.Context(), middleware.UserIDKey, userID)
+		// Stamp a tenant id alongside the user so service code that calls
+		// middleware.GetTenantID(ctx) (Welle 1b file/upload wiring) succeeds.
+		ctx = context.WithValue(ctx, middleware.TenantIDKey, uuid.New().String())
 		req = req.WithContext(ctx)
 	}
 
@@ -648,6 +651,9 @@ func newMultipartUploadRequestWithMessageID(t *testing.T, userID, channelID, mes
 
 	if userID != "" {
 		ctx := context.WithValue(req.Context(), middleware.UserIDKey, userID)
+		// Stamp a tenant id alongside the user so service code that calls
+		// middleware.GetTenantID(ctx) (Welle 1b file/upload wiring) succeeds.
+		ctx = context.WithValue(ctx, middleware.TenantIDKey, uuid.New().String())
 		req = req.WithContext(ctx)
 	}
 

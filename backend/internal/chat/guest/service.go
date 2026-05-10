@@ -4,11 +4,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/kmuhub/kmuhub/internal/middleware"
 )
 
 // Service handles guest session lifecycle management
@@ -42,6 +45,11 @@ func (s *Service) CreateSession(ctx context.Context, input CreateSessionInput) (
 		expiryHours = config.TokenExpiryHours
 	}
 
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, fmt.Errorf("create guest session: %w", tenantErr)
+	}
+
 	// Generate opaque token and hash for storage
 	token := uuid.New().String()
 	tokenHash := hashToken(token)
@@ -49,6 +57,7 @@ func (s *Service) CreateSession(ctx context.Context, input CreateSessionInput) (
 	now := time.Now()
 	session := &GuestSession{
 		ID:             uuid.New(),
+		TenantID:       tenantID,
 		TokenHash:      tokenHash,
 		ChannelID:      input.ChannelID,
 		DisplayName:    displayName,
@@ -132,9 +141,15 @@ func (s *Service) CleanupExpired(ctx context.Context) (int, error) {
 
 // CreateConfig creates guest channel configuration with defaults for nil fields
 func (s *Service) CreateConfig(ctx context.Context, input CreateConfigInput) (*GuestChannelConfig, error) {
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return nil, fmt.Errorf("create guest config: %w", tenantErr)
+	}
+
 	now := time.Now()
 	config := &GuestChannelConfig{
 		ID:               uuid.New(),
+		TenantID:         tenantID,
 		ChannelID:        input.ChannelID,
 		WelcomeMessage:   "Willkommen! Wie können wir Ihnen helfen?",
 		PrimaryColor:     "#3b82f6",

@@ -15,13 +15,15 @@ import (
 
 // mockRepository implements Repository for testing
 type mockRepository struct {
-	users         map[uuid.UUID]*models.User
-	usersByEmail  map[string]*models.User
-	refreshTokens map[string]*models.RefreshToken // keyed by token_hash
-	userRoles     map[uuid.UUID][]string
-	userPerms     map[uuid.UUID][]string
-	invitations   map[uuid.UUID]*models.Invitation
-	invByToken    map[string]*models.Invitation
+	users          map[uuid.UUID]*models.User
+	usersByEmail   map[string]*models.User
+	refreshTokens  map[string]*models.RefreshToken // keyed by token_hash
+	userRoles      map[uuid.UUID][]string
+	userPerms      map[uuid.UUID][]string
+	invitations    map[uuid.UUID]*models.Invitation
+	invByToken     map[string]*models.Invitation
+	sessions       []*models.UserSession
+	recoveryCodes  []*models.RecoveryCode
 }
 
 func newMockRepository() *mockRepository {
@@ -33,6 +35,8 @@ func newMockRepository() *mockRepository {
 		userPerms:     make(map[uuid.UUID][]string),
 		invitations:   make(map[uuid.UUID]*models.Invitation),
 		invByToken:    make(map[string]*models.Invitation),
+		sessions:      nil,
+		recoveryCodes: nil,
 	}
 }
 
@@ -239,6 +243,7 @@ func (m *mockRepository) Enable2FA(_ context.Context, userID uuid.UUID, encrypte
 	user.TwoFactorPendingSecret = ""
 	now := time.Now()
 	user.TwoFactorEnabledAt = &now
+	m.recoveryCodes = append(m.recoveryCodes, recoveryCodes...)
 	return nil
 }
 
@@ -280,7 +285,8 @@ func (m *mockRepository) UpsertTwoFactorPolicy(_ context.Context, _ *models.TwoF
 
 // Session management mock methods
 
-func (m *mockRepository) CreateSession(_ context.Context, _ *models.UserSession) error {
+func (m *mockRepository) CreateSession(_ context.Context, session *models.UserSession) error {
+	m.sessions = append(m.sessions, session)
 	return nil
 }
 
@@ -990,4 +996,49 @@ func TestService_GetProfile(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, user.Email, profile.Email)
 	assert.Contains(t, roles, "member")
+}
+
+// TestService_CreateSession_TenantID verifies that CreateSession propagates TenantID
+// from the caller into the persisted UserSession entity (wiring-gap closure for
+// user_sessions.tenant_id NOT NULL — Sprint 4 Welle 1b Stream A).
+func TestService_CreateSession_TenantID(t *testing.T) {
+	svc, repo := newTestService()
+	tenantID := uuid.New()
+	userID := uuid.New()
+	refreshTokenID := uuid.New()
+
+	session, err := svc.CreateSession(
+		context.Background(),
+		userID,
+		tenantID,
+		"127.0.0.1",
+		"Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+		refreshTokenID,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, tenantID, session.TenantID,
+		"CreateSession must propagate tenantID into UserSession.TenantID")
+	require.Len(t, repo.sessions, 1)
+	assert.Equal(t, tenantID, repo.sessions[0].TenantID,
+		"persisted UserSession must carry tenant_id (not uuid.Nil)")
+}
+
+// TestService_RecoveryCode_TenantID verifies that recovery codes generated during
+// 2FA setup carry the user's TenantID (wiring-gap closure for
+// recovery_codes.tenant_id NOT NULL — Sprint 4 Welle 1b Stream A).
+func TestService_RecoveryCode_TenantID(t *testing.T) {
+	tenantID := uuid.New()
+	userID := uuid.New()
+	codes, hashed, err := generateRecoveryCodes(userID, tenantID)
+	require.NoError(t, err)
+	assert.Len(t, codes, recoveryCodeCount)
+	require.Len(t, hashed, recoveryCodeCount)
+	for i, rc := range hashed {
+		assert.Equal(t, tenantID, rc.TenantID,
+			"RecoveryCode[%d] must have TenantID set (not uuid.Nil)", i)
+		assert.Equal(t, userID, rc.UserID,
+			"RecoveryCode[%d] must have correct UserID", i)
+		assert.NotEmpty(t, rc.CodeHash,
+			"RecoveryCode[%d] must have non-empty CodeHash", i)
+	}
 }

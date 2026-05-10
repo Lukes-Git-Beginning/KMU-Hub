@@ -339,16 +339,16 @@ func (r *PostgresRepository) CreateMentions(ctx context.Context, messageID uuid.
 	}
 
 	// Batch insert mentions
-	query := `INSERT INTO message_mentions (message_id, user_id, mention_type, created_at) VALUES `
+	query := `INSERT INTO message_mentions (message_id, tenant_id, user_id, mention_type, created_at) VALUES `
 	var args []any
 	argNum := 1
 	for i, m := range mentions {
 		if i > 0 {
 			query += ", "
 		}
-		query += fmt.Sprintf("($%d, $%d, $%d, $%d)", argNum, argNum+1, argNum+2, argNum+3)
-		args = append(args, messageID, m.UserID, string(m.MentionType), m.CreatedAt)
-		argNum += 4
+		query += fmt.Sprintf("($%d, $%d, $%d, $%d, $%d)", argNum, argNum+1, argNum+2, argNum+3, argNum+4)
+		args = append(args, messageID, m.TenantID, m.UserID, string(m.MentionType), m.CreatedAt)
+		argNum += 5
 	}
 	query += " ON CONFLICT DO NOTHING"
 

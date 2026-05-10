@@ -24,9 +24,9 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) CreateFile(ctx context.Context, file *models.ChatFile) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO chat_files (id, message_id, channel_id, filename, mime_type, file_size, storage_key, thumbnail_key, uploaded_by, is_deleted, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-		file.ID, file.MessageID, file.ChannelID, file.Filename, file.MimeType,
+		`INSERT INTO chat_files (id, tenant_id, message_id, channel_id, filename, mime_type, file_size, storage_key, thumbnail_key, uploaded_by, is_deleted, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+		file.ID, file.TenantID, file.MessageID, file.ChannelID, file.Filename, file.MimeType,
 		file.FileSize, file.StorageKey, file.ThumbnailKey, file.UploadedBy,
 		file.IsDeleted, file.CreatedAt,
 	)

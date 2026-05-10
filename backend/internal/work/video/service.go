@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/kmuhub/kmuhub/internal/middleware"
 )
 
 // MaxGroupParticipants is the maximum number of participants in a group call
@@ -55,6 +57,11 @@ func (s *Service) CreateCall(ctx context.Context, initiatorID uuid.UUID, callTyp
 		return nil, "", ErrNoTargetUsers
 	}
 
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, "", fmt.Errorf("create call: %w", err)
+	}
+
 	// Determine max participants based on call type
 	var maxParticipants uint32
 	if callType == CallTypeOneToOne {
@@ -74,6 +81,7 @@ func (s *Service) CreateCall(ctx context.Context, initiatorID uuid.UUID, callTyp
 	now := time.Now()
 	session := &CallSession{
 		ID:          uuid.New(),
+		TenantID:    tenantID,
 		CallType:    callType,
 		Status:      CallStatusRinging,
 		RoomName:    roomName,
@@ -96,6 +104,7 @@ func (s *Service) CreateCall(ctx context.Context, initiatorID uuid.UUID, callTyp
 	// Add initiator as first participant
 	participant := &CallParticipant{
 		CallID:   session.ID,
+		TenantID: tenantID,
 		UserID:   initiatorID,
 		JoinedAt: now,
 		HasVideo: true,
@@ -152,10 +161,11 @@ func (s *Service) JoinCall(ctx context.Context, callID, userID uuid.UUID, displa
 		return "", ErrMaxParticipants
 	}
 
-	// Add participant
+	// Add participant (inherit tenant from parent session)
 	now := time.Now()
 	participant := &CallParticipant{
 		CallID:   callID,
+		TenantID: session.TenantID,
 		UserID:   userID,
 		JoinedAt: now,
 		HasVideo: true,
@@ -274,6 +284,7 @@ func (s *Service) HandleParticipantJoined(ctx context.Context, roomName, userIde
 	now := time.Now()
 	participant := &CallParticipant{
 		CallID:   session.ID,
+		TenantID: session.TenantID,
 		UserID:   userID,
 		JoinedAt: now,
 		HasVideo: true,

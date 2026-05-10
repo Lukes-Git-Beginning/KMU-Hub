@@ -29,9 +29,9 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) CreateSession(ctx context.Context, session *GuestSession) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO guest_sessions (id, token_hash, channel_id, display_name, email, ip_address, user_agent, last_activity_at, is_active, created_at, expires_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-		session.ID, session.TokenHash, session.ChannelID, session.DisplayName,
+		`INSERT INTO guest_sessions (id, tenant_id, token_hash, channel_id, display_name, email, ip_address, user_agent, last_activity_at, is_active, created_at, expires_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+		session.ID, session.TenantID, session.TokenHash, session.ChannelID, session.DisplayName,
 		session.Email, session.IPAddress, session.UserAgent,
 		session.LastActivityAt, session.IsActive, session.CreatedAt, session.ExpiresAt,
 	)
@@ -137,9 +137,9 @@ func (r *PostgresRepository) CleanupExpiredSessions(ctx context.Context) (int, e
 
 func (r *PostgresRepository) CreateConfig(ctx context.Context, config *GuestChannelConfig) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO guest_channel_config (id, channel_id, welcome_message, logo_url, primary_color, token_expiry_hours, max_file_size_mb, allowed_file_types, is_active, created_by, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-		config.ID, config.ChannelID, config.WelcomeMessage, config.LogoURL,
+		`INSERT INTO guest_channel_config (id, tenant_id, channel_id, welcome_message, logo_url, primary_color, token_expiry_hours, max_file_size_mb, allowed_file_types, is_active, created_by, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+		config.ID, config.TenantID, config.ChannelID, config.WelcomeMessage, config.LogoURL,
 		config.PrimaryColor, config.TokenExpiryHours, config.MaxFileSizeMB,
 		config.AllowedFileTypes, config.IsActive, config.CreatedBy,
 		config.CreatedAt, config.UpdatedAt,

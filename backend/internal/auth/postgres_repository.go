@@ -345,9 +345,9 @@ func (r *PostgresRepository) Enable2FA(ctx context.Context, userID uuid.UUID, en
 	// Insert new recovery codes
 	for _, code := range recoveryCodes {
 		_, err = tx.Exec(ctx,
-			`INSERT INTO recovery_codes (id, user_id, code_hash, created_at)
-			 VALUES ($1, $2, $3, $4)`,
-			code.ID, code.UserID, code.CodeHash, code.CreatedAt,
+			`INSERT INTO recovery_codes (id, tenant_id, user_id, code_hash, created_at)
+			 VALUES ($1, $2, $3, $4, $5)`,
+			code.ID, code.TenantID, code.UserID, code.CodeHash, code.CreatedAt,
 		)
 		if err != nil {
 			return err
@@ -437,9 +437,9 @@ func (r *PostgresRepository) ReplaceRecoveryCodes(ctx context.Context, userID uu
 	// Insert new codes
 	for _, code := range codes {
 		_, err = tx.Exec(ctx,
-			`INSERT INTO recovery_codes (id, user_id, code_hash, created_at)
-			 VALUES ($1, $2, $3, $4)`,
-			code.ID, code.UserID, code.CodeHash, code.CreatedAt,
+			`INSERT INTO recovery_codes (id, tenant_id, user_id, code_hash, created_at)
+			 VALUES ($1, $2, $3, $4, $5)`,
+			code.ID, code.TenantID, code.UserID, code.CodeHash, code.CreatedAt,
 		)
 		if err != nil {
 			return err
@@ -502,9 +502,9 @@ func (r *PostgresRepository) UpsertTwoFactorPolicy(ctx context.Context, policy *
 
 func (r *PostgresRepository) CreateSession(ctx context.Context, session *models.UserSession) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO user_sessions (id, user_id, refresh_token_id, device_name, device_type, ip_address, location, user_agent, last_active_at, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-		session.ID, session.UserID, session.RefreshTokenID,
+		`INSERT INTO user_sessions (id, tenant_id, user_id, refresh_token_id, device_name, device_type, ip_address, location, user_agent, last_active_at, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+		session.ID, session.TenantID, session.UserID, session.RefreshTokenID,
 		session.DeviceName, session.DeviceType, session.IPAddress,
 		session.Location, session.UserAgent,
 		session.LastActiveAt, session.CreatedAt,

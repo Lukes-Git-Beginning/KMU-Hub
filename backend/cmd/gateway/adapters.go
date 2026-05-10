@@ -68,8 +68,8 @@ func (a *caldavPasswordAdapter) Validate(ctx context.Context, username, password
 	return a.svc.Validate(ctx, username, password)
 }
 
-func (a *caldavPasswordAdapter) Create(ctx context.Context, userID uuid.UUID, label string) (string, *gateway.CalDAVPasswordInfo, error) {
-	plaintext, pw, err := a.svc.Create(ctx, userID, label)
+func (a *caldavPasswordAdapter) Create(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, label string) (string, *gateway.CalDAVPasswordInfo, error) {
+	plaintext, pw, err := a.svc.Create(ctx, userID, tenantID, label)
 	if err != nil {
 		return "", nil, err
 	}

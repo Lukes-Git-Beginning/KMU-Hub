@@ -62,6 +62,7 @@ type AuditFilter struct {
 // RecoveryCode represents a hashed single-use 2FA recovery code.
 type RecoveryCode struct {
 	ID        uuid.UUID  `json:"id"`
+	TenantID  uuid.UUID  `json:"tenant_id" db:"tenant_id"`
 	UserID    uuid.UUID  `json:"user_id"`
 	CodeHash  string     `json:"-"`
 	UsedAt    *time.Time `json:"used_at,omitempty"`
@@ -81,6 +82,7 @@ type TwoFactorPolicy struct {
 // UserSession represents an active user session with device metadata.
 type UserSession struct {
 	ID             uuid.UUID  `json:"id"`
+	TenantID       uuid.UUID  `json:"tenant_id" db:"tenant_id"`
 	UserID         uuid.UUID  `json:"user_id"`
 	RefreshTokenID *uuid.UUID `json:"refresh_token_id,omitempty"`
 	DeviceName     string     `json:"device_name,omitempty"`

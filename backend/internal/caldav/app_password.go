@@ -48,7 +48,7 @@ func (s *AppPasswordService) Pool() *pgxpool.Pool {
 
 // Create generates a new app-specific password for the given user.
 // Returns the plaintext password (shown once) and the persisted record.
-func (s *AppPasswordService) Create(ctx context.Context, userID uuid.UUID, label string) (string, *models.AppSpecificPassword, error) {
+func (s *AppPasswordService) Create(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, label string) (string, *models.AppSpecificPassword, error) {
 	// Generate 32-byte random password (64 hex chars)
 	raw := make([]byte, passwordBytes)
 	if _, err := rand.Read(raw); err != nil {
@@ -64,6 +64,7 @@ func (s *AppPasswordService) Create(ctx context.Context, userID uuid.UUID, label
 
 	pw := &models.AppSpecificPassword{
 		ID:             uuid.New(),
+		TenantID:       tenantID,
 		UserID:         userID,
 		Label:          label,
 		PasswordHash:   string(hash),
