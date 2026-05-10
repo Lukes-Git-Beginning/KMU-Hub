@@ -11,6 +11,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
+
+	"github.com/kmuhub/kmuhub/internal/middleware"
 )
 
 // ServiceConnection holds the gRPC connection state for a single backend service.
@@ -89,6 +91,7 @@ func (r *ServiceRegistry) GetConnection(name string) (*grpc.ClientConn, error) {
 			Timeout:             10 * time.Second,
 			PermitWithoutStream: true,
 		}),
+		grpc.WithUnaryInterceptor(middleware.TenantOutboundUnaryInterceptor()),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gRPC client for %q at %s: %w", name, svc.address, err)
