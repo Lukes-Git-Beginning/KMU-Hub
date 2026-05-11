@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
 
 // Service provides audit logging and chain verification functionality.
@@ -25,6 +26,13 @@ func NewService(repo Repository) *Service {
 // LogEvent records an audit event. It never returns an error to the caller;
 // failures are logged internally to avoid disrupting business operations.
 // tenantID is the tenant that owns this audit entry (sentinel UUID for system events).
+//
+// LogEvent always runs under sysctx (system context). audit_log has RLS
+// enabled by migration 000120; without sysctx the WITH CHECK clause rejects
+// inserts whose tenant_id does not match current_tenant_id(). Callers from
+// pre-JWT paths (Login, Register) and worker goroutines have no tenant in
+// their ctx, but the audit record itself still carries the explicit
+// tenantID argument so cross-tenant isolation on reads is preserved.
 func (s *Service) LogEvent(
 	ctx context.Context,
 	tenantID uuid.UUID,
@@ -33,6 +41,8 @@ func (s *Service) LogEvent(
 	details map[string]interface{},
 	ipAddress, userAgent, result string,
 ) {
+	ctx = sysctx.With(ctx)
+
 	entry := &models.AuditEntry{
 		ID:         uuid.New(),
 		TenantID:   tenantID,
