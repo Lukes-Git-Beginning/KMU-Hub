@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+
+	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
 
 // hmacSignaturePrefix is the prefix used in the X-Signature header.
@@ -67,7 +69,12 @@ func NewWebhookHandler(client *Client, repo Repository, emitter EventEmitter) *W
 }
 
 // RegisterWebhooks registers webhook subscriptions for all relevant events.
+// System operation invoked from OAuth-setup or sync-init flows; wrap in sysctx
+// so the UpsertWebhookSubscription INSERTs into lexware_webhook_subscriptions
+// (RLS-enabled in mig 122) pass WITH CHECK regardless of caller context.
 func (wh *WebhookHandler) RegisterWebhooks(ctx context.Context, configID, tenantID uuid.UUID, callbackURL string) error {
+	ctx = sysctx.With(ctx)
+
 	eventTypes := []string{
 		"contact.created",
 		"contact.changed",
@@ -107,7 +114,11 @@ func (wh *WebhookHandler) RegisterWebhooks(ctx context.Context, configID, tenant
 }
 
 // UnregisterWebhooks removes all webhook subscriptions for a config.
+// System operation; wrap in sysctx so the DeleteWebhookSubscription writes
+// pass RLS regardless of caller context.
 func (wh *WebhookHandler) UnregisterWebhooks(ctx context.Context, configID, tenantID uuid.UUID) error {
+	ctx = sysctx.With(ctx)
+
 	subs, err := wh.repo.ListWebhookSubscriptions(ctx, configID)
 	if err != nil {
 		return fmt.Errorf("lexware: list webhook subscriptions: %w", err)
@@ -133,7 +144,11 @@ func (wh *WebhookHandler) UnregisterWebhooks(ctx context.Context, configID, tena
 }
 
 // HandleEvent processes an incoming webhook event.
+// Pre-JWT path (HMAC-validated webhook, no user JWT): wrap in sysctx so any
+// downstream emitter writes that touch RLS-enabled tables pass WITH CHECK.
 func (wh *WebhookHandler) HandleEvent(ctx context.Context, configID, tenantID uuid.UUID, event LexwareWebhookEvent) error {
+	ctx = sysctx.With(ctx)
+
 	slog.Info("lexware webhook event received",
 		"event_type", event.EventType,
 		"resource_id", event.ResourceID,

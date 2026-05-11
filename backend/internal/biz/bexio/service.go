@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
 
 // Service is the central orchestrator for all Bexio integration operations.
@@ -70,7 +71,12 @@ func (s *Service) GetAuthorizationURL(state string) string {
 }
 
 // HandleOAuthCallback exchanges the authorization code and sets up the integration.
+// Pre-JWT path (OAuth redirect). Wrap at the service-layer entry point so the
+// post-callback emitter.Emit + GetConnectionStatus + scheduler.AddTenant calls
+// also run under sysctx (oauthHandler.HandleCallback wraps only its own ctx).
 func (s *Service) HandleOAuthCallback(ctx context.Context, tenantID uuid.UUID, code string) error {
+	ctx = sysctx.With(ctx)
+
 	if err := s.oauthHandler.HandleCallback(ctx, tenantID, code); err != nil {
 		return err
 	}

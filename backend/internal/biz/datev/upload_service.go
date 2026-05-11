@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
 
 type UploadService struct {
@@ -60,10 +61,15 @@ func (s *UploadService) GetAuthorizationURL(tenantID uuid.UUID, redirectURL, aut
 	return s.oauthManager.GetAuthorizationURL(tenantID, redirectURL, authBaseURL)
 }
 
+// HandleOAuthCallback exchanges the DATEV authorization code for tokens.
+// Pre-JWT path (OAuth redirect from DATEV with state token, no user JWT):
+// wrap in sysctx so the underlying ExchangeCode INSERTs into integration_configs
+// and vault_secrets (RLS-enabled in mig 122) pass WITH CHECK.
 func (s *UploadService) HandleOAuthCallback(ctx context.Context, tenantID uuid.UUID, code, redirectURL string) error {
 	if s.oauthManager == nil {
 		return fmt.Errorf("datev: OAuth not configured")
 	}
+	ctx = sysctx.With(ctx)
 	return s.oauthManager.ExchangeCode(ctx, tenantID, code, redirectURL)
 }
 

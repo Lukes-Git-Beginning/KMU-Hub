@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
+	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
 
 // Service handles guest session lifecycle management
@@ -28,8 +29,14 @@ func NewService(repo Repository) *Service {
 	}
 }
 
-// CreateSession generates a new guest session with an opaque token
+// CreateSession generates a new guest session with an opaque token.
+// Pre-JWT path (public endpoint, guest token issued here): wrap in sysctx so
+// the INSERT into guest_sessions/guest_channel_config (RLS-enabled in mig 122)
+// passes the WITH CHECK clause. tenant_id is still set explicitly from the
+// channel→tenant lookup, so the policy bypass is not a tenant-scoping bypass.
 func (s *Service) CreateSession(ctx context.Context, input CreateSessionInput) (*TokenResult, error) {
+	ctx = sysctx.With(ctx)
+
 	displayName := strings.TrimSpace(input.DisplayName)
 	if displayName == "" {
 		return nil, ErrDisplayNameRequired
@@ -86,8 +93,13 @@ func (s *Service) CreateSession(ctx context.Context, input CreateSessionInput) (
 	}, nil
 }
 
-// ValidateToken validates an opaque guest token and returns the session
+// ValidateToken validates an opaque guest token and returns the session.
+// Pre-JWT path (caller has only the guest token, no user JWT): wrap in sysctx
+// so the SELECT and the best-effort UpdateLastActivity write succeed under
+// guest_sessions RLS.
 func (s *Service) ValidateToken(ctx context.Context, token string) (*GuestSession, error) {
+	ctx = sysctx.With(ctx)
+
 	if token == "" {
 		return nil, ErrInvalidToken
 	}
@@ -127,8 +139,12 @@ func (s *Service) DeactivateSession(ctx context.Context, sessionID uuid.UUID) er
 	return nil
 }
 
-// CleanupExpired deactivates all expired guest sessions
+// CleanupExpired deactivates all expired guest sessions. Worker path —
+// callers normally pass database.WithSystemContext(ctx) already, but wrap
+// defensively so a direct call from a non-worker context still passes RLS.
 func (s *Service) CleanupExpired(ctx context.Context) (int, error) {
+	ctx = sysctx.With(ctx)
+
 	count, err := s.repo.CleanupExpiredSessions(ctx)
 	if err != nil {
 		return 0, err

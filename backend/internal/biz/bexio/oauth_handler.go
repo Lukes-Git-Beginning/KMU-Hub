@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
 
 // ConnectionStatus represents the current Bexio connection state.
@@ -72,7 +73,13 @@ func (h *OAuthHandler) GetAuthorizationURL(state string) string {
 }
 
 // HandleCallback exchanges the authorization code for tokens and sets up the integration.
+// Pre-JWT path (OAuth redirect from Bexio with state token, no user JWT): wrap in
+// sysctx so the INSERTs into integration_configs / bexio_sync_configs /
+// bexio_field_mappings (all RLS-enabled in mig 122) pass WITH CHECK. tenant_id
+// is set explicitly from the state-token-resolved tenantID parameter.
 func (h *OAuthHandler) HandleCallback(ctx context.Context, tenantID uuid.UUID, code string) error {
+	ctx = sysctx.With(ctx)
+
 	// Exchange code for tokens
 	if err := h.tokenManager.ExchangeCode(ctx, tenantID, code, h.config.RedirectURL); err != nil {
 		return fmt.Errorf("bexio oauth callback: %w", err)

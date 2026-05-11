@@ -280,7 +280,8 @@ func (s *AuthGRPCServer) AcceptInvitation(ctx context.Context, req *authv1.Accep
 		return nil, mapError(err)
 	}
 
-	_, roles, _ := s.authService.GetUser(ctx, user.ID)
+	lookupCtx := sysctx.With(ctx)
+	_, roles, _ := s.authService.GetUser(lookupCtx, user.ID)
 
 	return &authv1.AcceptInvitationResponse{
 		User:         toUserInfo(user, roles),
