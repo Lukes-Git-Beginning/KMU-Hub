@@ -98,6 +98,7 @@ type UserSession struct {
 // VaultSecret represents an encrypted secret stored in the vault.
 type VaultSecret struct {
 	ID             uuid.UUID  `json:"id"`
+	TenantID       uuid.UUID  `json:"tenant_id"`
 	KeyName        string     `json:"key_name"`
 	EncryptedValue string     `json:"-"`
 	KeyVersion     int        `json:"key_version"`
@@ -110,6 +111,7 @@ type VaultSecret struct {
 // GDPRExportRequest tracks a user's data export request through the approval workflow.
 type GDPRExportRequest struct {
 	ID                uuid.UUID  `json:"id"`
+	TenantID          uuid.UUID  `json:"tenant_id"`
 	UserID            uuid.UUID  `json:"user_id"`
 	Status            string     `json:"status"`
 	RequestedAt       time.Time  `json:"requested_at"`
@@ -125,6 +127,7 @@ type GDPRExportRequest struct {
 // GDPRErasureLog records details of a GDPR right-to-erasure execution.
 type GDPRErasureLog struct {
 	ID               uuid.UUID         `json:"id"`
+	TenantID         uuid.UUID         `json:"tenant_id"`
 	OriginalUserID   uuid.UUID         `json:"original_user_id"`
 	AnonymizedLabel  string            `json:"anonymized_label"`
 	ExecutedBy       uuid.UUID         `json:"executed_by"`
@@ -136,6 +139,7 @@ type GDPRErasureLog struct {
 // PasswordPolicy defines organization-wide password requirements.
 type PasswordPolicy struct {
 	ID                uuid.UUID  `json:"id"`
+	TenantID          uuid.UUID  `json:"tenant_id"`
 	MinLength         int        `json:"min_length"`
 	RequireUppercase  bool       `json:"require_uppercase"`
 	RequireLowercase  bool       `json:"require_lowercase"`
@@ -151,6 +155,7 @@ type PasswordPolicy struct {
 // PasswordHistoryEntry records a previous password hash for reuse prevention.
 type PasswordHistoryEntry struct {
 	ID           uuid.UUID `json:"id"`
+	TenantID     uuid.UUID `json:"tenant_id"`
 	UserID       uuid.UUID `json:"user_id"`
 	PasswordHash string    `json:"-"`
 	CreatedAt    time.Time `json:"created_at"`
@@ -159,6 +164,7 @@ type PasswordHistoryEntry struct {
 // IPAccessRule defines an IP allow/block list entry.
 type IPAccessRule struct {
 	ID          uuid.UUID  `json:"id"`
+	TenantID    uuid.UUID  `json:"tenant_id"`
 	IPCIDR      string     `json:"ip_cidr"`
 	RuleType    string     `json:"rule_type"`
 	Description string     `json:"description,omitempty"`

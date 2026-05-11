@@ -111,6 +111,7 @@ type TaskWithRelations struct {
 // TaskDependency represents a relationship between two tasks
 type TaskDependency struct {
 	ID             uuid.UUID `json:"id"`
+	TenantID       uuid.UUID `json:"tenant_id"`
 	SourceTaskID   uuid.UUID `json:"source_task_id"`
 	TargetTaskID   uuid.UUID `json:"target_task_id"`
 	DependencyType string    `json:"dependency_type"` // "blocks", "blocked_by", "relates_to", "duplicates"
@@ -120,15 +121,16 @@ type TaskDependency struct {
 
 // TaskComment represents a comment on a task
 type TaskComment struct {
-	ID               uuid.UUID  `json:"id"`
-	TaskID           uuid.UUID  `json:"task_id"`
-	AuthorID         uuid.UUID  `json:"author_id"`
-	AuthorName       string     `json:"author_name"` // denormalized from users table
-	Content          string     `json:"content"`
-	QuotedCommentID  *uuid.UUID `json:"quoted_comment_id,omitempty"`
-	QuotedPreview    *string    `json:"quoted_content_preview,omitempty"` // first N chars of quoted comment
-	CreatedAt        time.Time  `json:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at"`
+	ID              uuid.UUID  `json:"id"`
+	TenantID        uuid.UUID  `json:"tenant_id"`
+	TaskID          uuid.UUID  `json:"task_id"`
+	AuthorID        uuid.UUID  `json:"author_id"`
+	AuthorName      string     `json:"author_name"` // denormalized from users table
+	Content         string     `json:"content"`
+	QuotedCommentID *uuid.UUID `json:"quoted_comment_id,omitempty"`
+	QuotedPreview   *string    `json:"quoted_content_preview,omitempty"` // first N chars of quoted comment
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
 }
 
 // TaskEntityLink connects a task to a CRM entity
@@ -146,6 +148,7 @@ type TaskEntityLink struct {
 // TaskActivity records a change event on a task for the activity log
 type TaskActivity struct {
 	ID        uuid.UUID        `json:"id"`
+	TenantID  uuid.UUID        `json:"tenant_id"`
 	TaskID    uuid.UUID        `json:"task_id"`
 	ActorID   uuid.UUID        `json:"actor_id"`
 	ActorName string           `json:"actor_name"` // denormalized from users table
@@ -159,6 +162,7 @@ type TaskActivity struct {
 // TaskFile represents a file attached to a task
 type TaskFile struct {
 	ID             uuid.UUID `json:"id"`
+	TenantID       uuid.UUID `json:"tenant_id"`
 	TaskID         uuid.UUID `json:"task_id"`
 	Filename       string    `json:"filename"`
 	MimeType       string    `json:"mime_type"`

@@ -47,6 +47,7 @@ type ProjectWithDetails struct {
 // ProjectMember represents a user's membership in a project
 type ProjectMember struct {
 	ProjectID uuid.UUID `json:"project_id"`
+	TenantID  uuid.UUID `json:"tenant_id"`
 	UserID    uuid.UUID `json:"user_id"`
 	Role      string    `json:"role"` // "owner", "member", "viewer"
 	AddedAt   time.Time `json:"added_at"`
@@ -57,6 +58,7 @@ type ProjectMember struct {
 // ProjectStatus represents a customizable status column in a project
 type ProjectStatus struct {
 	ID        uuid.UUID `json:"id"`
+	TenantID  uuid.UUID `json:"tenant_id"`
 	ProjectID uuid.UUID `json:"project_id"`
 	Name      string    `json:"name"`
 	Color     *string   `json:"color,omitempty"`
