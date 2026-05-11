@@ -78,6 +78,7 @@ type HRCompanySettings struct {
 // EmployeeProfile extends users with HR-specific data.
 type EmployeeProfile struct {
 	ID                    uuid.UUID      `json:"id"`
+	TenantID              uuid.UUID      `json:"tenant_id"`
 	UserID                uuid.UUID      `json:"user_id"`
 	Department            string         `json:"department"`
 	PositionTitle         string         `json:"position_title"`

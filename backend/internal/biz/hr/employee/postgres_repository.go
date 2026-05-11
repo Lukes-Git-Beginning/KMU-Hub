@@ -30,13 +30,13 @@ func NewPostgresEmployeeRepo(pool *pgxpool.Pool) *PostgresEmployeeRepo {
 func (r *PostgresEmployeeRepo) Create(ctx context.Context, profile *models.EmployeeProfile) error {
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO hr_employee_profiles (
-			id, user_id, department, position_title, contract_type,
+			id, tenant_id, user_id, department, position_title, contract_type,
 			work_days_per_week, annual_leave_days, manager_user_id, start_date,
 			emergency_contact_name, emergency_contact_phone,
 			address_street, address_city, address_postal_code, address_country,
 			created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
-		profile.ID, profile.UserID, profile.Department, profile.PositionTitle, profile.ContractType,
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+		profile.ID, profile.TenantID, profile.UserID, profile.Department, profile.PositionTitle, profile.ContractType,
 		profile.WorkDaysPerWeek, profile.AnnualLeaveDays, profile.ManagerUserID, profile.StartDate,
 		profile.EmergencyContactName, profile.EmergencyContactPhone,
 		profile.AddressStreet, profile.AddressCity, profile.AddressPostalCode, profile.AddressCountry,
@@ -47,7 +47,7 @@ func (r *PostgresEmployeeRepo) Create(ctx context.Context, profile *models.Emplo
 
 func (r *PostgresEmployeeRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.EmployeeProfile, error) {
 	row := r.pool.QueryRow(ctx,
-		`SELECT ep.id, ep.user_id, ep.department, ep.position_title, ep.contract_type,
+		`SELECT ep.id, ep.tenant_id, ep.user_id, ep.department, ep.position_title, ep.contract_type,
 			ep.work_days_per_week, ep.annual_leave_days, ep.manager_user_id, ep.start_date,
 			ep.emergency_contact_name, ep.emergency_contact_phone,
 			ep.address_street, ep.address_city, ep.address_postal_code, ep.address_country,
@@ -66,7 +66,7 @@ func (r *PostgresEmployeeRepo) GetByID(ctx context.Context, id uuid.UUID) (*mode
 
 func (r *PostgresEmployeeRepo) GetByUserID(ctx context.Context, userID uuid.UUID) (*models.EmployeeProfile, error) {
 	row := r.pool.QueryRow(ctx,
-		`SELECT ep.id, ep.user_id, ep.department, ep.position_title, ep.contract_type,
+		`SELECT ep.id, ep.tenant_id, ep.user_id, ep.department, ep.position_title, ep.contract_type,
 			ep.work_days_per_week, ep.annual_leave_days, ep.manager_user_id, ep.start_date,
 			ep.emergency_contact_name, ep.emergency_contact_phone,
 			ep.address_street, ep.address_city, ep.address_postal_code, ep.address_country,
@@ -130,7 +130,7 @@ func (r *PostgresEmployeeRepo) List(ctx context.Context, filter EmployeeFilter) 
 	offset := (page - 1) * perPage
 
 	query := fmt.Sprintf(`
-		SELECT ep.id, ep.user_id, ep.department, ep.position_title, ep.contract_type,
+		SELECT ep.id, ep.tenant_id, ep.user_id, ep.department, ep.position_title, ep.contract_type,
 			ep.work_days_per_week, ep.annual_leave_days, ep.manager_user_id, ep.start_date,
 			ep.emergency_contact_name, ep.emergency_contact_phone,
 			ep.address_street, ep.address_city, ep.address_postal_code, ep.address_country,
@@ -174,13 +174,13 @@ func (r *PostgresEmployeeRepo) Update(ctx context.Context, profile *models.Emplo
 			emergency_contact_name = $8, emergency_contact_phone = $9,
 			address_street = $10, address_city = $11, address_postal_code = $12, address_country = $13,
 			updated_at = $14
-		WHERE id = $15`,
+		WHERE id = $15 AND tenant_id = $16`,
 		profile.Department, profile.PositionTitle, profile.ContractType,
 		profile.WorkDaysPerWeek, profile.AnnualLeaveDays, profile.ManagerUserID,
 		profile.StartDate,
 		profile.EmergencyContactName, profile.EmergencyContactPhone,
 		profile.AddressStreet, profile.AddressCity, profile.AddressPostalCode, profile.AddressCountry,
-		profile.UpdatedAt, profile.ID,
+		profile.UpdatedAt, profile.ID, profile.TenantID,
 	)
 	return err
 }
@@ -333,7 +333,7 @@ func (r *PostgresEmployeeDocRepo) Delete(ctx context.Context, id uuid.UUID) erro
 func scanEmployeeProfile(row pgx.Row) (*models.EmployeeProfile, error) {
 	var p models.EmployeeProfile
 	err := row.Scan(
-		&p.ID, &p.UserID, &p.Department, &p.PositionTitle, &p.ContractType,
+		&p.ID, &p.TenantID, &p.UserID, &p.Department, &p.PositionTitle, &p.ContractType,
 		&p.WorkDaysPerWeek, &p.AnnualLeaveDays, &p.ManagerUserID, &p.StartDate,
 		&p.EmergencyContactName, &p.EmergencyContactPhone,
 		&p.AddressStreet, &p.AddressCity, &p.AddressPostalCode, &p.AddressCountry,
@@ -352,7 +352,7 @@ func scanEmployeeProfile(row pgx.Row) (*models.EmployeeProfile, error) {
 func scanEmployeeProfileFromRows(rows pgx.Rows) (*models.EmployeeProfile, error) {
 	var p models.EmployeeProfile
 	err := rows.Scan(
-		&p.ID, &p.UserID, &p.Department, &p.PositionTitle, &p.ContractType,
+		&p.ID, &p.TenantID, &p.UserID, &p.Department, &p.PositionTitle, &p.ContractType,
 		&p.WorkDaysPerWeek, &p.AnnualLeaveDays, &p.ManagerUserID, &p.StartDate,
 		&p.EmergencyContactName, &p.EmergencyContactPhone,
 		&p.AddressStreet, &p.AddressCity, &p.AddressPostalCode, &p.AddressCountry,
