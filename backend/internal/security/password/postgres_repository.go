@@ -78,8 +78,8 @@ func (r *PostgresRepository) UpdatePolicy(ctx context.Context, policy *models.Pa
 
 func (r *PostgresRepository) AddPasswordHistory(ctx context.Context, userID uuid.UUID, passwordHash string) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO password_history (id, user_id, password_hash, created_at)
-		 VALUES ($1, $2, $3, $4)`,
+		`INSERT INTO password_history (id, user_id, tenant_id, password_hash, created_at)
+		 VALUES ($1, $2, (SELECT tenant_id FROM users WHERE id = $2), $3, $4)`,
 		uuid.New(), userID, passwordHash, time.Now().UTC(),
 	)
 	return err

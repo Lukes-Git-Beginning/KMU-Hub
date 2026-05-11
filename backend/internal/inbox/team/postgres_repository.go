@@ -112,8 +112,8 @@ func (r *PostgresRepository) ListByUser(ctx context.Context, tenantID, userID uu
 
 func (r *PostgresRepository) AddMember(ctx context.Context, member *models.TeamInboxMember) error {
 	query := `
-		INSERT INTO team_inbox_members (team_inbox_id, user_id, role, created_at)
-		VALUES ($1, $2, $3, NOW())`
+		INSERT INTO team_inbox_members (team_inbox_id, user_id, role, created_at, tenant_id)
+		VALUES ($1, $2, $3, NOW(), (SELECT tenant_id FROM team_inboxes WHERE id = $1))`
 
 	_, err := r.pool.Exec(ctx, query, member.TeamInboxID, member.UserID, member.Role)
 	if err != nil {

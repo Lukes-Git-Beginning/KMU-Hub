@@ -331,8 +331,9 @@ func (r *PostgresFolderRepository) Create(ctx context.Context, folder *models.Em
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO email_folders (id, account_id, name, imap_name, folder_type,
 			uid_validity, highest_uid, message_count, unread_count, sort_order,
-			created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+			created_at, updated_at, tenant_id)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+		         (SELECT tenant_id FROM email_accounts WHERE id = $2))`,
 		folder.ID, folder.AccountID, folder.Name, folder.IMAPName, folder.FolderType,
 		folder.UIDValidity, folder.HighestUID, folder.MessageCount, folder.UnreadCount,
 		folder.SortOrder, folder.CreatedAt, folder.UpdatedAt,

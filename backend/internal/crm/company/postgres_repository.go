@@ -173,16 +173,17 @@ func (r *PostgresRepository) GetTags(ctx context.Context, companyID uuid.UUID) (
 }
 
 func (r *PostgresRepository) AddTags(ctx context.Context, companyID uuid.UUID, tagIDs []uuid.UUID) error {
-	for _, tagID := range tagIDs {
-		_, err := r.pool.Exec(ctx,
-			`INSERT INTO company_tags (company_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-			companyID, tagID,
-		)
-		if err != nil {
-			return err
-		}
+	if len(tagIDs) == 0 {
+		return nil
 	}
-	return nil
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO company_tags (company_id, tag_id, tenant_id)
+		 SELECT $1, unnest($2::uuid[]),
+		        (SELECT tenant_id FROM companies WHERE id = $1)
+		 ON CONFLICT DO NOTHING`,
+		companyID, tagIDs,
+	)
+	return err
 }
 
 func (r *PostgresRepository) RemoveTags(ctx context.Context, companyID uuid.UUID, tagIDs []uuid.UUID) error {

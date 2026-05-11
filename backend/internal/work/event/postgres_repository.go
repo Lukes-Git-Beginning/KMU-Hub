@@ -176,8 +176,8 @@ func (r *PostgresRepository) ListRecurringOverlapping(ctx context.Context, calen
 
 func (r *PostgresRepository) AddAttendee(ctx context.Context, attendee *models.EventAttendee) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO event_attendees (event_id, user_id, rsvp_status, responded_at, created_at)
-		 VALUES ($1, $2, $3, $4, $5)`,
+		`INSERT INTO event_attendees (event_id, user_id, rsvp_status, responded_at, created_at, tenant_id)
+		 VALUES ($1, $2, $3, $4, $5, (SELECT tenant_id FROM calendar_events WHERE id = $1))`,
 		attendee.EventID, attendee.UserID, attendee.RSVPStatus,
 		attendee.RespondedAt, attendee.CreatedAt,
 	)
@@ -275,8 +275,9 @@ func (r *PostgresRepository) ListAttendeeEventIDs(ctx context.Context, userID uu
 func (r *PostgresRepository) CreateException(ctx context.Context, exception *models.EventException) error {
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO event_exceptions (id, event_id, original_date, is_cancelled, title, description,
-		 location, start_time, end_time, resource_id, created_at, updated_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+		 location, start_time, end_time, resource_id, created_at, updated_at, tenant_id)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,
+		         (SELECT tenant_id FROM calendar_events WHERE id = $2))`,
 		exception.ID, exception.EventID, exception.OriginalDate, exception.IsCancelled,
 		exception.Title, exception.Description, exception.Location,
 		exception.StartTime, exception.EndTime, exception.ResourceID,
@@ -343,8 +344,9 @@ func (r *PostgresRepository) SetReminders(ctx context.Context, eventID uuid.UUID
 	now := time.Now()
 	for _, minutes := range minutesBefore {
 		if _, insErr := tx.Exec(ctx,
-			`INSERT INTO event_reminders (id, event_id, minutes_before, created_at)
-			 VALUES ($1, $2, $3, $4)`,
+			`INSERT INTO event_reminders (id, event_id, minutes_before, created_at, tenant_id)
+			 VALUES ($1, $2, $3, $4,
+			         (SELECT tenant_id FROM calendar_events WHERE id = $2))`,
 			uuid.New(), eventID, minutes, now,
 		); insErr != nil {
 			return insErr

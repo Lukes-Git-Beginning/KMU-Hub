@@ -166,7 +166,8 @@ func (r *PostgresRepository) ListMeetings(ctx context.Context, filter MeetingFil
 
 func (r *PostgresRepository) AddAttendee(ctx context.Context, meetingID, userID uuid.UUID) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO meeting_attendees (meeting_id, user_id, rsvp_status) VALUES ($1, $2, 'pending')
+		`INSERT INTO meeting_attendees (meeting_id, user_id, rsvp_status, tenant_id)
+		 VALUES ($1, $2, 'pending', (SELECT tenant_id FROM meetings WHERE id = $1))
 		 ON CONFLICT (meeting_id, user_id) DO NOTHING`,
 		meetingID, userID,
 	)
@@ -220,8 +221,8 @@ func (r *PostgresRepository) GetAttendees(ctx context.Context, meetingID uuid.UU
 
 func (r *PostgresRepository) SaveNotes(ctx context.Context, notes *MeetingNotes) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO meeting_notes (id, meeting_id, author_id, content, is_private, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		`INSERT INTO meeting_notes (id, meeting_id, author_id, content, is_private, created_at, updated_at, tenant_id)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, (SELECT tenant_id FROM meetings WHERE id = $2))
 		 ON CONFLICT (meeting_id, author_id) WHERE is_private = $5
 		 DO UPDATE SET content = EXCLUDED.content, updated_at = EXCLUDED.updated_at`,
 		notes.ID, notes.MeetingID, notes.AuthorID, notes.Content, notes.IsPrivate,

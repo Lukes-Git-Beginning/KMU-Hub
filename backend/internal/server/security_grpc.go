@@ -603,8 +603,14 @@ func (s *SecurityGRPCServer) CreateIPRule(ctx context.Context, req *securityv1.C
 		return nil, status.Error(codes.InvalidArgument, "rule_type must be 'allow' or 'block'")
 	}
 
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to determine tenant")
+	}
+
 	rule := &models.IPAccessRule{
 		ID:          uuid.New(),
+		TenantID:    tenantID,
 		IPCIDR:      req.IpCidr,
 		RuleType:    req.RuleType,
 		Description: req.Description,
@@ -619,10 +625,10 @@ func (s *SecurityGRPCServer) CreateIPRule(ctx context.Context, req *securityv1.C
 		rule.CreatedBy = &parsed
 	}
 
-	_, err := s.pool.Exec(ctx,
-		`INSERT INTO ip_access_rules (id, ip_cidr, rule_type, description, created_by, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		rule.ID, rule.IPCIDR, rule.RuleType, rule.Description, rule.CreatedBy, rule.CreatedAt,
+	_, err = s.pool.Exec(ctx,
+		`INSERT INTO ip_access_rules (id, tenant_id, ip_cidr, rule_type, description, created_by, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		rule.ID, rule.TenantID, rule.IPCIDR, rule.RuleType, rule.Description, rule.CreatedBy, rule.CreatedAt,
 	)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to create IP rule")

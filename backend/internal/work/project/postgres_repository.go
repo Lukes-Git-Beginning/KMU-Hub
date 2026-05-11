@@ -169,8 +169,8 @@ func (r *PostgresRepository) KeyExists(ctx context.Context, tenantID uuid.UUID, 
 
 func (r *PostgresRepository) AddMember(ctx context.Context, projectID, userID uuid.UUID, role string) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO project_members (project_id, user_id, role, added_at)
-		 VALUES ($1, $2, $3, $4)
+		`INSERT INTO project_members (project_id, user_id, role, added_at, tenant_id)
+		 VALUES ($1, $2, $3, $4, (SELECT tenant_id FROM projects WHERE id = $1))
 		 ON CONFLICT (project_id, user_id) DO NOTHING`,
 		projectID, userID, role, time.Now(),
 	)

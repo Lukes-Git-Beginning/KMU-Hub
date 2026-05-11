@@ -361,8 +361,9 @@ func (r *PostgresRepository) GetDepth(ctx context.Context, taskID uuid.UUID) (in
 
 func (r *PostgresRepository) CreateDependency(ctx context.Context, dep *models.TaskDependency) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO task_dependencies (id, source_task_id, target_task_id, dependency_type, created_by, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		`INSERT INTO task_dependencies (id, source_task_id, target_task_id, dependency_type, created_by, created_at, tenant_id)
+		 VALUES ($1, $2, $3, $4, $5, $6,
+		         (SELECT p.tenant_id FROM tasks t JOIN projects p ON t.project_id = p.id WHERE t.id = $2))`,
 		dep.ID, dep.SourceTaskID, dep.TargetTaskID, dep.DependencyType, dep.CreatedBy, dep.CreatedAt,
 	)
 	return err
@@ -420,8 +421,9 @@ func (r *PostgresRepository) HasCycle(ctx context.Context, sourceID, targetID uu
 
 func (r *PostgresRepository) CreateActivity(ctx context.Context, activity *models.TaskActivity) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO task_activities (id, task_id, actor_id, action, field_name, old_value, new_value, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		`INSERT INTO task_activities (id, task_id, actor_id, action, field_name, old_value, new_value, created_at, tenant_id)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
+		         (SELECT p.tenant_id FROM tasks t JOIN projects p ON t.project_id = p.id WHERE t.id = $2))`,
 		activity.ID, activity.TaskID, activity.ActorID, activity.Action,
 		activity.FieldName, activity.OldValue, activity.NewValue, activity.CreatedAt,
 	)
@@ -533,8 +535,9 @@ func (r *PostgresRepository) ListTasksForEntity(ctx context.Context, entityType 
 
 func (r *PostgresRepository) AttachFile(ctx context.Context, file *models.TaskFile) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO task_files (id, task_id, filename, mime_type, file_size, storage_key, thumbnail_key, uploaded_by, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		`INSERT INTO task_files (id, task_id, filename, mime_type, file_size, storage_key, thumbnail_key, uploaded_by, created_at, tenant_id)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
+		         (SELECT p.tenant_id FROM tasks t JOIN projects p ON t.project_id = p.id WHERE t.id = $2))`,
 		file.ID, file.TaskID, file.Filename, file.MimeType, file.FileSize,
 		file.StorageKey, file.ThumbnailKey, file.UploadedBy, file.CreatedAt,
 	)

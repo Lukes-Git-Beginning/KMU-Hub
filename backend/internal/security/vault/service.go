@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -111,8 +112,14 @@ func (s *Service) SetSecret(ctx context.Context, keyName, plaintext, description
 		return nil
 	}
 
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return fmt.Errorf("vault: failed to determine tenant: %w", err)
+	}
+
 	secret := &models.VaultSecret{
 		ID:             uuid.New(),
+		TenantID:       tenantID,
 		KeyName:        keyName,
 		EncryptedValue: encrypted,
 		KeyVersion:     currentKeyVersion,

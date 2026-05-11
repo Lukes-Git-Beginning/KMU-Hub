@@ -186,7 +186,10 @@ func (r *PostgresRepository) SetTags(ctx context.Context, resourceID uuid.UUID, 
 
 	if len(tags) > 0 {
 		for _, tag := range tags {
-			_, err = tx.Exec(ctx, `INSERT INTO resource_tags (resource_id, tag) VALUES ($1, $2)`, resourceID, tag)
+			_, err = tx.Exec(ctx,
+				`INSERT INTO resource_tags (resource_id, tag, tenant_id)
+				 VALUES ($1, $2, (SELECT tenant_id FROM resources WHERE id = $1))`,
+				resourceID, tag)
 			if err != nil {
 				return fmt.Errorf("insert tag: %w", err)
 			}

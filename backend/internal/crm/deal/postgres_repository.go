@@ -245,8 +245,9 @@ func (r *PostgresRepository) AddTags(ctx context.Context, dealID uuid.UUID, tagI
 		return nil
 	}
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO deal_tags (deal_id, tag_id)
-		 SELECT $1, unnest($2::uuid[])
+		`INSERT INTO deal_tags (deal_id, tag_id, tenant_id)
+		 SELECT $1, unnest($2::uuid[]),
+		        (SELECT tenant_id FROM deals WHERE id = $1)
 		 ON CONFLICT DO NOTHING`,
 		dealID, tagIDs)
 	return err

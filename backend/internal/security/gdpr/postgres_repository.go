@@ -30,8 +30,8 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) CreateExportRequest(ctx context.Context, req *models.GDPRExportRequest) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO gdpr_export_requests (id, user_id, status, requested_at)
-		 VALUES ($1, $2, $3, $4)`,
+		`INSERT INTO gdpr_export_requests (id, user_id, tenant_id, status, requested_at)
+		 VALUES ($1, $2, (SELECT tenant_id FROM users WHERE id = $2), $3, $4)`,
 		req.ID, req.UserID, req.Status, req.RequestedAt,
 	)
 	return err
@@ -175,8 +175,8 @@ func (r *PostgresRepository) MarkDownloaded(ctx context.Context, id uuid.UUID) e
 
 func (r *PostgresRepository) CreateErasureLog(ctx context.Context, entry *models.GDPRErasureLog) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO gdpr_erasure_log (id, original_user_id, anonymized_label, executed_by, executed_at, modules_affected, confirmation_hash)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		`INSERT INTO gdpr_erasure_log (id, tenant_id, original_user_id, anonymized_label, executed_by, executed_at, modules_affected, confirmation_hash)
+		 VALUES ($1, (SELECT tenant_id FROM users WHERE id = $2), $2, $3, $4, $5, $6, $7)`,
 		entry.ID, entry.OriginalUserID, entry.AnonymizedLabel,
 		entry.ExecutedBy, entry.ExecutedAt, entry.ModulesAffected, entry.ConfirmationHash,
 	)

@@ -24,8 +24,9 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) Create(ctx context.Context, comment *models.TaskComment) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO task_comments (id, task_id, author_id, content, quoted_comment_id, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		`INSERT INTO task_comments (id, task_id, author_id, content, quoted_comment_id, created_at, updated_at, tenant_id)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7,
+		         (SELECT p.tenant_id FROM tasks t JOIN projects p ON t.project_id = p.id WHERE t.id = $2))`,
 		comment.ID, comment.TaskID, comment.AuthorID, comment.Content,
 		comment.QuotedCommentID, comment.CreatedAt, comment.UpdatedAt,
 	)

@@ -107,7 +107,8 @@ func TestService_LogEvent_Success(t *testing.T) {
 	assert.Equal(t, "192.168.1.1", entry.IPAddress)
 	assert.Equal(t, "Mozilla/5.0", entry.UserAgent)
 	assert.Equal(t, "success", entry.Result)
-	assert.Empty(t, entry.Details)
+	// nil details are normalized to '{}' by the service (consistent JSONB storage)
+	assert.Equal(t, "{}", entry.Details)
 }
 
 func TestService_LogEvent_WithDetails(t *testing.T) {
@@ -166,7 +167,8 @@ func TestService_LogEvent_NilDetails(t *testing.T) {
 	)
 
 	require.Len(t, repo.entries, 1)
-	assert.Empty(t, repo.entries[0].Details)
+	// nil details are normalized to '{}' by the service (consistent JSONB storage)
+	assert.Equal(t, "{}", repo.entries[0].Details)
 }
 
 func TestService_LogEvent_RepoError(t *testing.T) {

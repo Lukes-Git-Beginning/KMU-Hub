@@ -252,8 +252,8 @@ func (r *PostgresRepository) ListBrowsable(ctx context.Context, userID, tenantID
 
 func (r *PostgresRepository) Subscribe(ctx context.Context, calendarID, userID uuid.UUID) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO calendar_members (calendar_id, user_id, permission, is_visible, created_at)
-		 VALUES ($1, $2, 'view', true, $3)`,
+		`INSERT INTO calendar_members (calendar_id, user_id, permission, is_visible, created_at, tenant_id)
+		 VALUES ($1, $2, 'view', true, $3, (SELECT tenant_id FROM calendars WHERE id = $1))`,
 		calendarID, userID, time.Now(),
 	)
 	if err != nil {
@@ -359,8 +359,8 @@ func (r *PostgresRepository) UpsertPreferences(ctx context.Context, prefs *model
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO user_calendar_preferences
 		 (user_id, default_view, week_days, default_reminder_minutes, default_allday_reminder_minutes,
-		  subdivision_code, show_task_deadlines, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		  subdivision_code, show_task_deadlines, updated_at, tenant_id)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, (SELECT tenant_id FROM users WHERE id = $1))
 		 ON CONFLICT (user_id) DO UPDATE SET
 		 default_view = $2, week_days = $3, default_reminder_minutes = $4,
 		 default_allday_reminder_minutes = $5, subdivision_code = $6,

@@ -9,8 +9,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
+
+// testTenantID is the default-tenant sentinel used in unit tests.
+var testTenantID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
+
+// testCtx returns a context pre-loaded with the test tenant so that
+// middleware.GetTenantID succeeds inside service methods.
+func testCtx() context.Context {
+	return context.WithValue(context.Background(), middleware.TenantIDKey, testTenantID.String())
+}
 
 const testMasterSecret = "this-is-a-test-master-secret-key!"
 
@@ -125,7 +135,7 @@ func TestNewService_ShortSecret(t *testing.T) {
 func TestGetSecret_Success(t *testing.T) {
 	repo := NewMockRepository()
 	svc := newTestService(t, repo)
-	ctx := context.Background()
+	ctx := testCtx()
 
 	// Set a secret first, then retrieve it (round-trip)
 	createdBy := uuid.New()
@@ -175,7 +185,7 @@ func TestGetSecret_RepoError(t *testing.T) {
 func TestSetSecret_CreateNew(t *testing.T) {
 	repo := NewMockRepository()
 	svc := newTestService(t, repo)
-	ctx := context.Background()
+	ctx := testCtx()
 	createdBy := uuid.New()
 
 	err := svc.SetSecret(ctx, "api-key", "my-api-key-value", "External API key", createdBy)
@@ -197,7 +207,7 @@ func TestSetSecret_CreateNew(t *testing.T) {
 func TestSetSecret_UpdateExisting(t *testing.T) {
 	repo := NewMockRepository()
 	svc := newTestService(t, repo)
-	ctx := context.Background()
+	ctx := testCtx()
 	createdBy := uuid.New()
 
 	// Create initial secret
@@ -246,7 +256,7 @@ func TestSetSecret_RepoCreateError(t *testing.T) {
 	repoErr := errors.New("disk full")
 	repo.createErr = repoErr
 
-	err := svc.SetSecret(context.Background(), "key", "value", "desc", uuid.New())
+	err := svc.SetSecret(testCtx(), "key", "value", "desc", uuid.New())
 
 	assert.ErrorIs(t, err, repoErr)
 }
@@ -258,7 +268,7 @@ func TestSetSecret_RepoCreateError(t *testing.T) {
 func TestListSecrets_Success(t *testing.T) {
 	repo := NewMockRepository()
 	svc := newTestService(t, repo)
-	ctx := context.Background()
+	ctx := testCtx()
 
 	// Populate via SetSecret for realistic data
 	require.NoError(t, svc.SetSecret(ctx, "key-1", "val-1", "First", uuid.New()))
@@ -287,7 +297,7 @@ func TestListSecrets_Empty(t *testing.T) {
 func TestDeleteSecret_Success(t *testing.T) {
 	repo := NewMockRepository()
 	svc := newTestService(t, repo)
-	ctx := context.Background()
+	ctx := testCtx()
 
 	require.NoError(t, svc.SetSecret(ctx, "to-delete", "val", "desc", uuid.New()))
 	secretID := repo.secrets["to-delete"].ID

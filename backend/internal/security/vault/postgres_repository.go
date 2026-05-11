@@ -26,10 +26,10 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 func (r *PostgresRepository) GetByKeyName(ctx context.Context, keyName string) (*models.VaultSecret, error) {
 	var s models.VaultSecret
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, key_name, encrypted_value, key_version, description, created_by, created_at, updated_at
+		`SELECT id, tenant_id, key_name, encrypted_value, key_version, description, created_by, created_at, updated_at
 		 FROM vault_secrets WHERE key_name = $1`, keyName,
 	).Scan(
-		&s.ID, &s.KeyName, &s.EncryptedValue, &s.KeyVersion,
+		&s.ID, &s.TenantID, &s.KeyName, &s.EncryptedValue, &s.KeyVersion,
 		&s.Description, &s.CreatedBy, &s.CreatedAt, &s.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -43,7 +43,7 @@ func (r *PostgresRepository) GetByKeyName(ctx context.Context, keyName string) (
 
 func (r *PostgresRepository) List(ctx context.Context) ([]*models.VaultSecret, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, key_name, key_version, description, created_by, created_at, updated_at
+		`SELECT id, tenant_id, key_name, key_version, description, created_by, created_at, updated_at
 		 FROM vault_secrets ORDER BY key_name`,
 	)
 	if err != nil {
@@ -55,7 +55,7 @@ func (r *PostgresRepository) List(ctx context.Context) ([]*models.VaultSecret, e
 	for rows.Next() {
 		var s models.VaultSecret
 		if scanErr := rows.Scan(
-			&s.ID, &s.KeyName, &s.KeyVersion,
+			&s.ID, &s.TenantID, &s.KeyName, &s.KeyVersion,
 			&s.Description, &s.CreatedBy, &s.CreatedAt, &s.UpdatedAt,
 		); scanErr != nil {
 			return nil, scanErr
@@ -68,9 +68,9 @@ func (r *PostgresRepository) List(ctx context.Context) ([]*models.VaultSecret, e
 
 func (r *PostgresRepository) Create(ctx context.Context, secret *models.VaultSecret) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO vault_secrets (id, key_name, encrypted_value, key_version, description, created_by, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		secret.ID, secret.KeyName, secret.EncryptedValue, secret.KeyVersion,
+		`INSERT INTO vault_secrets (id, tenant_id, key_name, encrypted_value, key_version, description, created_by, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		secret.ID, secret.TenantID, secret.KeyName, secret.EncryptedValue, secret.KeyVersion,
 		secret.Description, secret.CreatedBy, secret.CreatedAt, secret.UpdatedAt,
 	)
 	return err

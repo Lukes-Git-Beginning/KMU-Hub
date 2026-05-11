@@ -24,8 +24,8 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) Create(ctx context.Context, status *models.ProjectStatus) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO project_statuses (id, project_id, name, color, sort_order, is_default, is_closed, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		`INSERT INTO project_statuses (id, project_id, name, color, sort_order, is_default, is_closed, created_at, tenant_id)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, (SELECT tenant_id FROM projects WHERE id = $2))`,
 		status.ID, status.ProjectID, status.Name, status.Color,
 		status.SortOrder, status.IsDefault, status.IsClosed, status.CreatedAt,
 	)
@@ -151,8 +151,9 @@ func (r *PostgresRepository) NameExistsInProject(ctx context.Context, projectID 
 
 func (r *PostgresRepository) CopyStatusesForProject(ctx context.Context, sourceProjectID, targetProjectID uuid.UUID) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO project_statuses (id, project_id, name, color, sort_order, is_default, is_closed, created_at)
-		 SELECT uuid_generate_v4(), $2, name, color, sort_order, is_default, is_closed, $3
+		`INSERT INTO project_statuses (id, project_id, name, color, sort_order, is_default, is_closed, created_at, tenant_id)
+		 SELECT uuid_generate_v4(), $2, name, color, sort_order, is_default, is_closed, $3,
+		        (SELECT tenant_id FROM projects WHERE id = $2)
 		 FROM project_statuses WHERE project_id = $1 ORDER BY sort_order ASC`,
 		sourceProjectID, targetProjectID, time.Now(),
 	)
