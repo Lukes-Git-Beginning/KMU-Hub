@@ -19,6 +19,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/formulare"
 	"github.com/kmuhub/kmuhub/internal/health"
 	"github.com/kmuhub/kmuhub/internal/metrics"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server"
 	formularev1 "github.com/kmuhub/kmuhub/proto/formulare/v1"
 )
@@ -61,6 +62,7 @@ func main() {
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			metricsRegistry.GRPCUnaryInterceptor(),
+			middleware.TenantInboundUnaryInterceptor(),
 		),
 		grpc.ChainStreamInterceptor(
 			metricsRegistry.GRPCStreamInterceptor(),

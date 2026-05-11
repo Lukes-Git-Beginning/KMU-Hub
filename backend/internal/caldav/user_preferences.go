@@ -6,6 +6,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
 
 // CalDAVUserInfo holds user metadata for admin CalDAV management.
@@ -47,6 +49,10 @@ func NewPostgresUserPreferenceRepository(pool *pgxpool.Pool) *PostgresUserPrefer
 
 // GetCalDAVEnabled returns whether CalDAV is enabled for the given user.
 func (r *PostgresUserPreferenceRepository) GetCalDAVEnabled(ctx context.Context, userID uuid.UUID) (bool, error) {
+	// CalDAV/CardDAV requests authenticate via BasicAuth — no JWT, no tenant.
+	// Without sysctx the post-RLS read returns zero rows.
+	ctx = sysctx.With(ctx)
+
 	var enabled bool
 	err := r.pool.QueryRow(ctx,
 		`SELECT COALESCE(caldav_enabled, false) FROM users WHERE id = $1`,
@@ -60,6 +66,10 @@ func (r *PostgresUserPreferenceRepository) GetCalDAVEnabled(ctx context.Context,
 
 // SetCalDAVEnabled enables or disables CalDAV for the given user.
 func (r *PostgresUserPreferenceRepository) SetCalDAVEnabled(ctx context.Context, userID uuid.UUID, enabled bool) error {
+	// JWT-authed admin path, but the surrounding handler does not always set
+	// tenant context (admin can target any user). System-context for users-write.
+	ctx = sysctx.With(ctx)
+
 	_, err := r.pool.Exec(ctx,
 		`UPDATE users SET caldav_enabled = $1 WHERE id = $2`,
 		enabled, userID,
@@ -69,6 +79,9 @@ func (r *PostgresUserPreferenceRepository) SetCalDAVEnabled(ctx context.Context,
 
 // ListCalDAVUsers returns all users that have CalDAV enabled, with password counts.
 func (r *PostgresUserPreferenceRepository) ListCalDAVUsers(ctx context.Context) ([]CalDAVUserInfo, error) {
+	// Admin endpoint that lists users across the entire deployment.
+	ctx = sysctx.With(ctx)
+
 	rows, err := r.pool.Query(ctx,
 		`SELECT u.id, u.email, u.first_name, u.last_name, u.caldav_enabled,
 		        (SELECT COUNT(*) FROM app_specific_passwords asp
@@ -108,6 +121,10 @@ func (r *PostgresUserPreferenceRepository) ListCalDAVUsers(ctx context.Context) 
 // RevokeAllUserPasswords revokes all active app-specific passwords for a user.
 // Returns the number of rows affected.
 func (r *PostgresUserPreferenceRepository) RevokeAllUserPasswords(ctx context.Context, userID uuid.UUID) (int64, error) {
+	// app_specific_passwords is not yet a Pilot-0 table but the admin context
+	// is cross-tenant by nature; keep symmetric with the other methods.
+	ctx = sysctx.With(ctx)
+
 	tag, err := r.pool.Exec(ctx,
 		`UPDATE app_specific_passwords
 		 SET revoked_at = NOW()

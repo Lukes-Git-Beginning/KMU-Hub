@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/kmuhub/kmuhub/internal/sysctx"
 	securityv1 "github.com/kmuhub/kmuhub/proto/security/v1"
 )
 
@@ -89,7 +90,7 @@ func (a *AuditLogger) processEvent(event auditEvent) {
 
 	action := deriveActionFromMethod(event.method, event.path)
 
-	_, err = client.CreateAuditEntry(context.Background(), &securityv1.CreateAuditEntryRequest{
+	_, err = client.CreateAuditEntry(eventCtx(), &securityv1.CreateAuditEntryRequest{
 		UserId:     event.userID,
 		Action:     action,
 		Target:     event.path,
@@ -106,6 +107,14 @@ func (a *AuditLogger) processEvent(event auditEvent) {
 // Close drains the event channel. Call during graceful shutdown.
 func (a *AuditLogger) Close() {
 	close(a.events)
+}
+
+// eventCtx returns the context used by the worker for audit-log writes.
+// Wrapped with sysctx.With so the audit_log SELECT used for hash-chain
+// previous-hash lookup bypasses the per-tenant RLS policy — the worker
+// has no per-request tenant.
+func eventCtx() context.Context {
+	return sysctx.With(context.Background())
 }
 
 func shouldAudit(r *http.Request) bool {

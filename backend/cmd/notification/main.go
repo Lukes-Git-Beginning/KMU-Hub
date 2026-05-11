@@ -25,6 +25,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/inbox/routing"
 	"github.com/kmuhub/kmuhub/internal/inbox/team"
 	"github.com/kmuhub/kmuhub/internal/metrics"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/notification/delivery"
 	"github.com/kmuhub/kmuhub/internal/notification/event"
@@ -179,6 +180,7 @@ func main() {
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			metricsRegistry.GRPCUnaryInterceptor(),
+			middleware.TenantInboundUnaryInterceptor(),
 		),
 		grpc.ChainStreamInterceptor(
 			metricsRegistry.GRPCStreamInterceptor(),

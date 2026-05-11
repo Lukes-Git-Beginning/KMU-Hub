@@ -16,6 +16,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/idempotency"
 	"github.com/kmuhub/kmuhub/internal/server/response"
+	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
 
 // IdempotencyMode controls whether missing Idempotency-Key headers are blocked
@@ -221,9 +222,18 @@ func (c *capturingResponseWriter) Write(b []byte) (int, error) {
 // so only one replica runs the cleanup per hour. Value is arbitrary but must be constant.
 const idempotencyCleanupLockKey int64 = 0x49444D50 // "IDMP" in ASCII
 
+// cleanupCtx returns the ctx the cleanup worker uses for repo calls. Wrapped
+// with sysctx.With so the post-RLS DELETE on idempotency_keys is admitted —
+// the worker has no per-request tenant.
+func cleanupCtx(ctx context.Context) context.Context {
+	return sysctx.With(ctx)
+}
+
 // IdempotencyCleanupWorker runs a periodic cleanup of expired idempotency keys.
 // pg_try_advisory_lock ensures leader election: only one replica deletes per tick.
 func IdempotencyCleanupWorker(ctx context.Context, repo idempotency.Repository) {
+	ctx = cleanupCtx(ctx)
+
 	ticker := time.NewTicker(time.Hour)
 	defer ticker.Stop()
 

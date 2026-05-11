@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kmuhub/kmuhub/internal/gateway"
+	"github.com/kmuhub/kmuhub/internal/sysctx"
 	crmv1 "github.com/kmuhub/kmuhub/proto/crm/v1"
 )
 
@@ -380,6 +381,12 @@ func (b *CardDAVBackend) DeleteAddressObject(ctx context.Context, path string) e
 // checkCompanyContactPermission verifies the user has admin or manager role
 // for modifying company (shared) contacts.
 func (b *CardDAVBackend) checkCompanyContactPermission(ctx context.Context, userID uuid.UUID) error {
+	// CardDAV's BasicAuth middleware injects userID but no tenant. After RLS
+	// activation, a direct read on `users` would return zero rows.
+	// App-passwords are single-tenant in practice (Welle-3 follow-up: inject
+	// tenant_id from app_specific_passwords for proper multi-tenant CardDAV).
+	ctx = sysctx.With(ctx)
+
 	var role string
 	err := b.pool.QueryRow(ctx,
 		`SELECT role FROM users WHERE id = $1`,
@@ -401,6 +408,9 @@ func (b *CardDAVBackend) checkPersonalContactOwnership(ctx context.Context, user
 	if err != nil {
 		return webdav.NewHTTPError(http.StatusBadRequest, err)
 	}
+
+	// Same rationale as checkCompanyContactPermission — BasicAuth has no tenant.
+	ctx = sysctx.With(ctx)
 
 	var ownerID *uuid.UUID
 	err = b.pool.QueryRow(ctx,

@@ -31,6 +31,7 @@ import (
 	emailsync "github.com/kmuhub/kmuhub/internal/email/sync"
 	"github.com/kmuhub/kmuhub/internal/health"
 	"github.com/kmuhub/kmuhub/internal/metrics"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/security/vault"
 	"github.com/kmuhub/kmuhub/internal/server"
 	emailv1 "github.com/kmuhub/kmuhub/proto/email/v1"
@@ -122,6 +123,7 @@ func main() {
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			metricsRegistry.GRPCUnaryInterceptor(),
+			middleware.TenantInboundUnaryInterceptor(),
 		),
 		grpc.ChainStreamInterceptor(
 			metricsRegistry.GRPCStreamInterceptor(),
