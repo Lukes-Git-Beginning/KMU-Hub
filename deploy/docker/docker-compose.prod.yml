@@ -264,7 +264,10 @@ services:
       - '--config.file=/etc/alertmanager/alertmanager.yml'
       - '--storage.path=/alertmanager'
     ports:
-      - "127.0.0.1:9093:9093"
+      # Host bind moved to 9193 to avoid collision with chat service health port (9093).
+      # Container internal still listens on 9093; prometheus and other compose services
+      # reach it as alertmanager:9093 via the docker network.
+      - "127.0.0.1:9193:9093"
     restart: unless-stopped
     logging: *default-logging
     deploy:
