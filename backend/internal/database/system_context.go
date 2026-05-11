@@ -1,33 +1,21 @@
 package database
 
-import "context"
+import (
+	"context"
 
-// systemContextKey marks a context as operating in system-bypass mode.
-// BeginRLSTx reads it and sets app.role='system', which the RLS policies
-// installed by enable_tenant_rls() treat as a tenant-filter bypass via
-// is_system_context() returning true.
-//
-// Use exactly one path: WithSystemContext at the entry point of any code
-// that runs without a per-request tenant — schedulers, pollers, audit-log
-// inserts, migration helpers, healthcheck probes that touch RLS-enabled
-// tables.
-type contextKey int
-
-const (
-	systemContextKey contextKey = iota
+	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
 
-// WithSystemContext marks ctx as a system operation. Subsequent calls to
-// IsSystemContext(ctx) return true, and BeginRLSTx will set app.role='system'
-// on the spawned transaction so RLS policies admit the operation regardless
-// of tenant.
+// WithSystemContext marks ctx as a system operation. Re-export of
+// sysctx.With kept for backward compatibility with the 10 worker sites
+// wrapped in Welle 1. New callers (notably internal/auth, which would
+// import-cycle through this package) should use sysctx.With directly.
 func WithSystemContext(ctx context.Context) context.Context {
-	return context.WithValue(ctx, systemContextKey, true)
+	return sysctx.With(ctx)
 }
 
-// IsSystemContext reports whether ctx (or one of its parents) was wrapped
-// with WithSystemContext.
+// IsSystemContext reports whether ctx was wrapped with WithSystemContext
+// (or sysctx.With). Re-export of sysctx.Is.
 func IsSystemContext(ctx context.Context) bool {
-	v, _ := ctx.Value(systemContextKey).(bool)
-	return v
+	return sysctx.Is(ctx)
 }

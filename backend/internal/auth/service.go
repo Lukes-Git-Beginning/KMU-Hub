@@ -12,6 +12,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
 
 const bcryptCost = 12
@@ -30,6 +31,10 @@ func NewService(repo Repository, tokenMaker *TokenMaker) *Service {
 }
 
 func (s *Service) Register(ctx context.Context, email, password, firstName, lastName string) (*models.User, *models.TokenPair, error) {
+	// Pre-JWT path: no tenant context in caller ctx. RLS policies on users
+	// would reject the lookup without system bypass.
+	ctx = sysctx.With(ctx)
+
 	existing, _ := s.repo.GetUserByEmail(ctx, email)
 	if existing != nil {
 		return nil, nil, ErrUserExists
@@ -70,6 +75,10 @@ func (s *Service) Register(ctx context.Context, email, password, firstName, last
 }
 
 func (s *Service) Login(ctx context.Context, email, password string) (*models.LoginResult, error) {
+	// Pre-JWT path: caller has no tenant in ctx. RLS would otherwise
+	// reject the user lookup.
+	ctx = sysctx.With(ctx)
+
 	user, err := s.repo.GetUserByEmail(ctx, email)
 	if err != nil {
 		return nil, ErrInvalidCredentials
@@ -120,6 +129,10 @@ func (s *Service) Login(ctx context.Context, email, password string) (*models.Lo
 
 // CompleteTwoFactorLogin validates the 2FA code after credential verification and issues full tokens.
 func (s *Service) CompleteTwoFactorLogin(ctx context.Context, pendingToken, code string, isRecoveryCode bool) (*models.User, *models.TokenPair, error) {
+	// Pre-JWT path: pending token is not a JWT. The DB reads below
+	// (Validate2FALogin → recovery_codes; GetUserByID) need RLS bypass.
+	ctx = sysctx.With(ctx)
+
 	// Validate the pending token
 	userID, err := s.tokenMaker.ValidatePendingToken(pendingToken)
 	if err != nil {
@@ -156,6 +169,10 @@ func (s *Service) CompleteTwoFactorLogin(ctx context.Context, pendingToken, code
 }
 
 func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*models.TokenPair, error) {
+	// Pre-JWT path: the access token has expired by definition, no tenant
+	// in ctx. RLS bypass needed for the user_sessions + users lookups.
+	ctx = sysctx.With(ctx)
+
 	hash := HashToken(refreshToken)
 
 	stored, err := s.repo.GetRefreshTokenByHash(ctx, hash)
@@ -198,6 +215,10 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*model
 }
 
 func (s *Service) Logout(ctx context.Context, refreshToken string) error {
+	// Logout takes the same opaque refresh token as RefreshToken, so the
+	// user_sessions lookup is unauthenticated by the same logic.
+	ctx = sysctx.With(ctx)
+
 	hash := HashToken(refreshToken)
 
 	stored, err := s.repo.GetRefreshTokenByHash(ctx, hash)
@@ -380,6 +401,10 @@ func (s *Service) CreateInvitation(ctx context.Context, email, role string, crea
 
 // AcceptInvitation creates a user from an invitation
 func (s *Service) AcceptInvitation(ctx context.Context, token, password, firstName, lastName string) (*models.User, *models.TokenPair, error) {
+	// Pre-JWT path: invitation token is opaque, no tenant context in ctx.
+	// invitations + users + user_roles lookups all need RLS bypass.
+	ctx = sysctx.With(ctx)
+
 	hash := HashToken(token)
 
 	inv, err := s.repo.GetInvitationByToken(ctx, hash)

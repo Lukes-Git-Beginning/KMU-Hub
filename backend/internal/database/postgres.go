@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/kmuhub/kmuhub/internal/middleware"
 )
 
 func NewPostgresPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
@@ -21,12 +24,63 @@ func NewPostgresPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, er
 	config.HealthCheckPeriod = time.Minute
 	config.ConnConfig.ConnectTimeout = 10 * time.Second
 
+	// PrepareConn stamps the connection's session GUCs (app.tenant_id,
+	// app.user_id, app.role) from the caller context. RLS policies installed
+	// by enable_tenant_rls() filter against these GUCs — without them the
+	// policies admit nothing.
+	//
+	// Behaviour:
+	//   - System context (database.WithSystemContext): app.role='system'.
+	//     Policies bypass the tenant filter via is_system_context().
+	//   - Authenticated request: tenant via middleware.GetTenantID(ctx),
+	//     user via middleware.GetUserID(ctx). app.role='user'.
+	//   - Unauthenticated/missing tenant outside system mode: returns
+	//     (true, nil), GUCs stay at AfterRelease's '' default. RLS policies
+	//     then filter every row away — caller sees empty results, which is
+	//     the safe default. Login, Register, and other pre-JWT paths must
+	//     wrap with WithSystemContext.
+	//
+	// Scope is session (third arg false to set_config); AfterRelease resets
+	// before the connection returns to the pool. BeginRLSTx still applies
+	// LOCAL-scoped overrides for explicit multi-statement transactions.
+	config.PrepareConn = func(ctx context.Context, conn *pgx.Conn) (bool, error) {
+		if IsSystemContext(ctx) {
+			if _, err := conn.Exec(ctx,
+				`SELECT set_config('app.tenant_id', '', false),
+                        set_config('app.user_id',   '', false),
+                        set_config('app.role',      'system', false)`); err != nil {
+				return false, fmt.Errorf("set system-context guc: %w", err)
+			}
+			return true, nil
+		}
+
+		tenantID, terr := middleware.GetTenantID(ctx)
+		if terr != nil {
+			return true, nil
+		}
+
+		userStr := ""
+		if uid := middleware.GetUserID(ctx); uid != "" {
+			if _, perr := uuid.Parse(uid); perr == nil {
+				userStr = uid
+			}
+		}
+
+		if _, err := conn.Exec(ctx,
+			`SELECT set_config('app.tenant_id', $1, false),
+                    set_config('app.user_id',   $2, false),
+                    set_config('app.role',      'user',  false)`,
+			tenantID.String(), userStr); err != nil {
+			return false, fmt.Errorf("set tenant-context guc: %w", err)
+		}
+		return true, nil
+	}
+
 	// AfterRelease clears the RLS session GUCs before the connection
-	// returns to the pool. BeginRLSTx already sets them with LOCAL scope
-	// (revert at COMMIT/ROLLBACK), so this is defence-in-depth against
-	// any code path that runs SQL outside a managed transaction. Returning
-	// false discards the connection on reset failure rather than handing
-	// back a possibly-tainted one.
+	// returns to the pool. BeforeAcquire stamps fresh values on the next
+	// caller, so without this reset a connection could leak a previous
+	// caller's tenant. Returning false discards the connection on reset
+	// failure rather than handing back a possibly-tainted one.
 	config.AfterRelease = func(conn *pgx.Conn) bool {
 		_, err := conn.Exec(context.Background(),
 			`SELECT set_config('app.tenant_id', '', false),
