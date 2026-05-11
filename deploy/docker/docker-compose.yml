@@ -67,7 +67,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: ["${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}", "up"]
+    # Uses MIGRATION_DATABASE_URL (kmuhub Superuser) so DDL like CREATE EXTENSION,
+    # ALTER TABLE ENABLE ROW LEVEL SECURITY, CREATE POLICY keeps working.
+    # The app services use DATABASE_URL with the non-superuser kmuhub_app role
+    # so RLS policies introduced in migration 000120 actually enforce.
+    command: ["${MIGRATION_DATABASE_URL:?MIGRATION_DATABASE_URL must be set in deploy/docker/.env or .env.production (kmuhub Superuser for DDL)}", "up"]
     restart: on-failure
 
   auth:

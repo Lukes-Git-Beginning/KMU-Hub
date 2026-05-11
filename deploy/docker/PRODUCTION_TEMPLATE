@@ -4,10 +4,20 @@
 # ===================================================================
 
 # ===== DATABASE =====
+# Sprint 4 Welle 2 (Migration 000121): two roles, two URLs.
+# - kmuhub      : Postgres Superuser created by the official image — bypasses RLS.
+#                 Used ONLY by the migrate container for DDL (CREATE EXTENSION,
+#                 ALTER TABLE ENABLE ROW LEVEL SECURITY, CREATE POLICY).
+# - kmuhub_app  : NOSUPERUSER NOBYPASSRLS role created by migration 000121.
+#                 Used by all app services so RLS policies actually enforce.
+# After migration 000121 runs the first time, set the kmuhub_app password via:
+#   ALTER ROLE kmuhub_app WITH PASSWORD 'KMUHUB_APP_DB_PASSWORD value';
 POSTGRES_USER=kmuhub
 POSTGRES_PASSWORD=CHANGE_ME_STRONG_PASSWORD
 POSTGRES_DB=kmuhub
-DATABASE_URL=postgres://kmuhub:CHANGE_ME_STRONG_PASSWORD@postgres:5432/kmuhub?sslmode=disable
+KMUHUB_APP_DB_PASSWORD=CHANGE_ME_STRONG_APP_PASSWORD
+DATABASE_URL=postgres://kmuhub_app:CHANGE_ME_STRONG_APP_PASSWORD@postgres:5432/kmuhub?sslmode=disable
+MIGRATION_DATABASE_URL=postgres://kmuhub:CHANGE_ME_STRONG_PASSWORD@postgres:5432/kmuhub?sslmode=disable
 
 # ===== CACHE =====
 REDIS_URL=redis://redis:6379
