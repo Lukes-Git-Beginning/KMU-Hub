@@ -58,6 +58,15 @@ func (s *Service) LogEvent(
 		}
 	}
 
+	// audit_log.details is jsonb. The repository binds entry.Details as a
+	// Go string, and Postgres' json input parser rejects the empty string
+	// with SQLSTATE 22P02. Normalize the zero value to '{}' so callers
+	// passing nil details (or whose json.Marshal failed above) still record
+	// the audit entry instead of silently dropping it.
+	if entry.Details == "" {
+		entry.Details = "{}"
+	}
+
 	if err := s.repo.Create(ctx, entry); err != nil {
 		slog.Error("failed to create audit entry",
 			"action", action,

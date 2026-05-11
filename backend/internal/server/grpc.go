@@ -11,6 +11,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/sysctx"
 	authv1 "github.com/kmuhub/kmuhub/proto/auth/v1"
 )
 
@@ -56,7 +57,12 @@ func (s *AuthGRPCServer) Login(ctx context.Context, req *authv1.LoginRequest) (*
 
 	var roles []string
 	if result.User != nil {
-		_, roles, err = s.authService.GetUser(ctx, result.User.ID)
+		// Login is a pre-JWT path: the request ctx has no tenant set, so
+		// GetUser would hit RLS with zero GUCs and return 0 rows. Wrap with
+		// system context for the post-login user fetch (matches the wrap
+		// inside Service.Login itself).
+		lookupCtx := sysctx.With(ctx)
+		_, roles, err = s.authService.GetUser(lookupCtx, result.User.ID)
 		if err != nil {
 			return nil, mapError(err)
 		}
@@ -341,7 +347,10 @@ func (s *AuthGRPCServer) Validate2FALogin(ctx context.Context, req *authv1.Valid
 
 	var roles []string
 	if user != nil {
-		_, roles, err = s.authService.GetUser(ctx, user.ID)
+		// Pre-JWT path (same as Login): wrap with system context for the
+		// post-2FA user fetch so the RLS-enabled users table is readable.
+		lookupCtx := sysctx.With(ctx)
+		_, roles, err = s.authService.GetUser(lookupCtx, user.ID)
 		if err != nil {
 			return nil, mapError(err)
 		}
