@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,15 +26,16 @@ func NewPostgresPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, er
 	config.ConnConfig.ConnectTimeout = 10 * time.Second
 
 	// PrepareConn stamps the connection's session GUCs (app.tenant_id,
-	// app.user_id, app.role) from the caller context. RLS policies installed
-	// by enable_tenant_rls() filter against these GUCs — without them the
-	// policies admit nothing.
+	// app.user_id, app.role, app.user_roles) from the caller context. RLS
+	// policies installed by enable_tenant_rls() filter against these GUCs —
+	// without them the policies admit nothing.
 	//
 	// Behaviour:
 	//   - System context (database.WithSystemContext): app.role='system'.
 	//     Policies bypass the tenant filter via is_system_context().
 	//   - Authenticated request: tenant via middleware.GetTenantID(ctx),
-	//     user via middleware.GetUserID(ctx). app.role='user'.
+	//     user via middleware.GetUserID(ctx), roles via
+	//     middleware.GetUserRoles(ctx). app.role='user'.
 	//   - Unauthenticated/missing tenant outside system mode: returns
 	//     (true, nil), GUCs stay at AfterRelease's '' default. RLS policies
 	//     then filter every row away — caller sees empty results, which is
@@ -46,9 +48,10 @@ func NewPostgresPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, er
 	config.PrepareConn = func(ctx context.Context, conn *pgx.Conn) (bool, error) {
 		if IsSystemContext(ctx) {
 			if _, err := conn.Exec(ctx,
-				`SELECT set_config('app.tenant_id', '', false),
-                        set_config('app.user_id',   '', false),
-                        set_config('app.role',      'system', false)`); err != nil {
+				`SELECT set_config('app.tenant_id',  '', false),
+                        set_config('app.user_id',    '', false),
+                        set_config('app.role',       'system', false),
+                        set_config('app.user_roles', '', false)`); err != nil {
 				return false, fmt.Errorf("set system-context guc: %w", err)
 			}
 			return true, nil
@@ -66,11 +69,17 @@ func NewPostgresPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, er
 			}
 		}
 
+		rolesStr := ""
+		if roles := middleware.GetUserRoles(ctx); len(roles) > 0 {
+			rolesStr = strings.Join(roles, ",")
+		}
+
 		if _, err := conn.Exec(ctx,
-			`SELECT set_config('app.tenant_id', $1, false),
-                    set_config('app.user_id',   $2, false),
-                    set_config('app.role',      'user',  false)`,
-			tenantID.String(), userStr); err != nil {
+			`SELECT set_config('app.tenant_id',  $1, false),
+                    set_config('app.user_id',    $2, false),
+                    set_config('app.role',       'user', false),
+                    set_config('app.user_roles', $3, false)`,
+			tenantID.String(), userStr, rolesStr); err != nil {
 			return false, fmt.Errorf("set tenant-context guc: %w", err)
 		}
 		return true, nil
@@ -83,9 +92,10 @@ func NewPostgresPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, er
 	// failure rather than handing back a possibly-tainted one.
 	config.AfterRelease = func(conn *pgx.Conn) bool {
 		_, err := conn.Exec(context.Background(),
-			`SELECT set_config('app.tenant_id', '', false),
-                    set_config('app.user_id',   '', false),
-                    set_config('app.role',      '', false)`)
+			`SELECT set_config('app.tenant_id',  '', false),
+                    set_config('app.user_id',    '', false),
+                    set_config('app.role',       '', false),
+                    set_config('app.user_roles', '', false)`)
 		return err == nil
 	}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -13,15 +14,19 @@ import (
 )
 
 // BeginRLSTx starts a transaction whose session-level GUCs (app.tenant_id,
-// app.user_id, app.role) match the caller context. RLS policies installed
-// by enable_tenant_rls() filter against these GUCs — without them the
-// connection sees an empty tenant and policies reject every row.
+// app.user_id, app.role, app.user_roles) match the caller context. RLS
+// policies installed by enable_tenant_rls() filter against these GUCs —
+// without them the connection sees an empty tenant and policies reject every
+// row.
 //
 // Behaviour:
 //   - System context (WithSystemContext): sets app.role='system'. Policies
 //     admit every row via is_system_context().
 //   - Authenticated request: pulls tenant via middleware.GetTenantID(ctx)
-//     and user via middleware.GetUserID(ctx). Sets app.role='user'.
+//     and user via middleware.GetUserID(ctx). Sets app.role='user'. The
+//     user's role list (e.g. "admin,hr_admin,manager") is exposed via
+//     app.user_roles for role-aware policies such as hr_document_access
+//     (mig 000127).
 //   - Unauthenticated context outside system mode: returns
 //     ErrMissingTenantContext. Callers must wrap with WithSystemContext or
 //     run on a non-RLS code path.
@@ -41,6 +46,7 @@ func BeginRLSTx(ctx context.Context, pool *pgxpool.Pool) (pgx.Tx, error) {
 	role := "user"
 	tenantStr := ""
 	userStr := ""
+	rolesStr := ""
 
 	if IsSystemContext(ctx) {
 		role = "system"
@@ -56,13 +62,17 @@ func BeginRLSTx(ctx context.Context, pool *pgxpool.Pool) (pgx.Tx, error) {
 				userStr = uid
 			}
 		}
+		if roles := middleware.GetUserRoles(ctx); len(roles) > 0 {
+			rolesStr = strings.Join(roles, ",")
+		}
 	}
 
 	_, err = tx.Exec(ctx,
-		`SELECT set_config('app.tenant_id', $1, true),
-                set_config('app.user_id',   $2, true),
-                set_config('app.role',      $3, true)`,
-		tenantStr, userStr, role,
+		`SELECT set_config('app.tenant_id',  $1, true),
+                set_config('app.user_id',    $2, true),
+                set_config('app.role',       $3, true),
+                set_config('app.user_roles', $4, true)`,
+		tenantStr, userStr, role, rolesStr,
 	)
 	if err != nil {
 		_ = tx.Rollback(ctx)
