@@ -131,6 +131,28 @@ fi
 # ==========================================
 section "Auth Flow"
 
+# Refresh SMOKE_ADMIN_TOKEN from a long-lived admin credential pair. Default
+# access tokens are short-lived (15 min) which makes a static SMOKE_ADMIN_TOKEN
+# expire between deploy.sh runs and the role-upgrade call below silently fail.
+# When SMOKE_ADMIN_EMAIL + SMOKE_ADMIN_PASSWORD are present, log in and replace
+# any stale SMOKE_ADMIN_TOKEN with a fresh one. This keeps the static-token
+# fallback for environments where the credentials are not configured.
+if [[ -n "${SMOKE_ADMIN_EMAIL:-}" && -n "${SMOKE_ADMIN_PASSWORD:-}" ]]; then
+    ADMIN_LOGIN_RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/auth/login" \
+        -H "Content-Type: application/json" \
+        -d "{\"email\":\"$SMOKE_ADMIN_EMAIL\",\"password\":\"$SMOKE_ADMIN_PASSWORD\"}" 2>/dev/null) || ADMIN_LOGIN_RESP=$'\n000'
+    ADMIN_LOGIN_CODE=$(echo "$ADMIN_LOGIN_RESP" | tail -1)
+    ADMIN_LOGIN_BODY=$(echo "$ADMIN_LOGIN_RESP" | sed '$d')
+    if [[ "$ADMIN_LOGIN_CODE" == "200" ]]; then
+        FRESH_ADMIN_TOKEN=$(echo "$ADMIN_LOGIN_BODY" | jq -r '.access_token // empty' 2>/dev/null || echo "")
+        if [[ -n "$FRESH_ADMIN_TOKEN" && "$FRESH_ADMIN_TOKEN" != "null" ]]; then
+            SMOKE_ADMIN_TOKEN="$FRESH_ADMIN_TOKEN"
+            export SMOKE_ADMIN_TOKEN
+            echo "  [INFO] Refreshed SMOKE_ADMIN_TOKEN via login as $SMOKE_ADMIN_EMAIL"
+        fi
+    fi
+fi
+
 SMOKE_EMAIL="smoke-$(date +%s)@test.kmuhub.local"
 SMOKE_PASS="SmokeTest123!"
 

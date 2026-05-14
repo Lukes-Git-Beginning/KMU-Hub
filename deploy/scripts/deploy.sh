@@ -66,10 +66,21 @@ rollback() {
     build_version=$(git -C "$COMPOSE_DIR" describe --tags --always 2>/dev/null || echo "rollback")
     build_commit=$(git -C "$COMPOSE_DIR" rev-parse --short HEAD)
 
-    $COMPOSE build \
-        --build-arg BUILD_VERSION="$build_version" \
-        --build-arg BUILD_COMMIT="$build_commit" \
-        --build-arg BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    # Rebuild serially — parallel `compose build` of all 24+ Go services has
+    # hit OOM-kill on the 8 GB host (memory: feedback_swap_for_compose_builds.md
+    # plus rollback's own learning during welle 3.4 on 2026-05-11). Matches the
+    # serial pattern of Step 3 above so behaviour stays consistent.
+    local build_time
+    build_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    local rollback_buildable="auth crm chat notification work email document biz automation plugin dialer wiki helpdesk berichte formulare inventar einkauf produktion vertraege rapporte schichten fuhrpark vermietung gateway migrate"
+    for svc in $rollback_buildable; do
+        log "AUTO-ROLLBACK: building $svc..."
+        $COMPOSE build \
+            --build-arg BUILD_VERSION="$build_version" \
+            --build-arg BUILD_COMMIT="$build_commit" \
+            --build-arg BUILD_TIME="$build_time" \
+            "$svc"
+    done
 
     $COMPOSE up -d postgres redis minio
     sleep 5
