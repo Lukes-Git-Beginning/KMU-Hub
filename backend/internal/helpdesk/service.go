@@ -247,6 +247,7 @@ func (s *Service) AddMessage(
 
 	m := &TicketMessage{
 		ID:          uuid.New(),
+		TenantID:    ticket.TenantID,
 		TicketID:    ticketID,
 		AuthorID:    authorID,
 		Body:        body,

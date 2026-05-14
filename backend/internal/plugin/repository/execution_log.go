@@ -19,11 +19,15 @@ func NewExecutionLogRepository(pool *pgxpool.Pool) *ExecutionLogRepository {
 	return &ExecutionLogRepository{pool: pool}
 }
 
-// Create inserts a new execution log entry
+// Create inserts a new execution log entry. tenant_id is derived from the
+// owning plugin installation via subquery so RLS (mig 000126) is satisfied
+// without changing the callsite signature.
 func (r *ExecutionLogRepository) Create(ctx context.Context, log *models.PluginExecutionLog) error {
 	_, err := r.pool.Exec(ctx, `
-		INSERT INTO plugin_execution_log (id, installation_id, hook_type, module, entity_type, entity_id, duration_ms, status, error_message, request_data, response_data, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+		INSERT INTO plugin_execution_log (id, installation_id, tenant_id, hook_type, module, entity_type, entity_id, duration_ms, status, error_message, request_data, response_data, created_at)
+		SELECT $1, $2, pi.tenant_id, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+		FROM plugin_installations pi
+		WHERE pi.id = $2`,
 		log.ID, log.InstallationID, log.HookType, log.Module, log.EntityType, log.EntityID,
 		log.DurationMs, log.Status, log.ErrorMessage, log.RequestData, log.ResponseData, log.CreatedAt,
 	)

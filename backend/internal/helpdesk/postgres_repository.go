@@ -175,16 +175,17 @@ func (r *PostgresRepository) CreateMessage(ctx context.Context, m *TicketMessage
 	}
 	_, err = r.pool.Exec(ctx,
 		`INSERT INTO ticket_messages
-		    (id, ticket_id, author_id, body, internal, attachments, created_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-		m.ID, m.TicketID, m.AuthorID, m.Body, m.Internal, attachJSON, m.CreatedAt,
+		    (id, tenant_id, ticket_id, author_id, body, internal, attachments, created_at)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+		m.ID, m.TenantID, m.TicketID, m.AuthorID, m.Body, m.Internal, attachJSON, m.CreatedAt,
 	)
 	return err
 }
 
+// ListMessagesByTicket — tenant scoping is enforced via RLS (mig 000126).
 func (r *PostgresRepository) ListMessagesByTicket(ctx context.Context, ticketID uuid.UUID) ([]*TicketMessage, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, ticket_id, author_id, body, internal, attachments, created_at
+		`SELECT id, tenant_id, ticket_id, author_id, body, internal, attachments, created_at
 		 FROM ticket_messages
 		 WHERE ticket_id = $1
 		 ORDER BY created_at ASC`,
@@ -444,7 +445,7 @@ func scanMessageFromRows(rows pgx.Rows) (*TicketMessage, error) {
 		attachJSON  []byte
 	)
 	err := rows.Scan(
-		&m.ID, &m.TicketID, &m.AuthorID, &m.Body, &m.Internal, &attachJSON, &m.CreatedAt,
+		&m.ID, &m.TenantID, &m.TicketID, &m.AuthorID, &m.Body, &m.Internal, &attachJSON, &m.CreatedAt,
 	)
 	if err != nil {
 		return nil, err

@@ -84,6 +84,7 @@ type Ticket struct {
 // TicketMessage is a single reply or internal note on a ticket.
 type TicketMessage struct {
 	ID          uuid.UUID   `json:"id"`
+	TenantID    uuid.UUID   `json:"tenant_id"`
 	TicketID    uuid.UUID   `json:"ticket_id"`
 	AuthorID    uuid.UUID   `json:"author_id"`
 	Body        string      `json:"body"`

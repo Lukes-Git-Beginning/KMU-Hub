@@ -167,3 +167,15 @@ Datenbank muss relational (CRM-Daten), performant (Chat), und self-hostable sein
 - KEIN Dual-Write Pattern
 - PostgreSQL ist die einzige Datenquelle
 - Redis-Daten sind jederzeit aus PostgreSQL rekonstruierbar
+
+## System-Global Tables (No RLS)
+
+Folgende Tabellen sind bewusst NICHT RLS-aktiviert. Sie sind system-globaler Natur (Schema-Metadata, kontext-unabhaengige Konfiguration, Seed-Daten). Alle anderen Tabellen sind ab Sprint 4 Welle 4 RLS-pflichtig.
+
+| Tabelle | Grund |
+|---|---|
+| `schema_migrations` | golang-migrate State-Tabelle, kein Tenant-Kontext |
+| `caldav_settings` | Server-globale CalDAV-Defaults, key-value-Store ohne Tenant-Bezug |
+| `industry_templates` | System-Seed-Daten (Branchen-Templates), shared read-only |
+
+Jede neue Tabelle in `backend/migrations/` muss entweder `tenant_id UUID NOT NULL` + RLS-Policy haben oder explizit hier eingetragen werden mit Begruendung.

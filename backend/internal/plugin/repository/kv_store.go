@@ -36,11 +36,15 @@ func (r *KVStoreRepository) Get(ctx context.Context, installationID uuid.UUID, k
 	return value, true, nil
 }
 
-// Set inserts or updates a key-value pair
+// Set inserts or updates a key-value pair. tenant_id is derived from the
+// owning plugin installation via subquery so RLS (mig 000126) and the caller
+// signature stay decoupled — the installation already encodes the tenancy.
 func (r *KVStoreRepository) Set(ctx context.Context, installationID uuid.UUID, key string, value json.RawMessage) error {
 	_, err := r.pool.Exec(ctx, `
-		INSERT INTO plugin_kv_store (id, installation_id, key, value, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, NOW(), NOW())
+		INSERT INTO plugin_kv_store (id, installation_id, tenant_id, key, value, created_at, updated_at)
+		SELECT $1, $2, pi.tenant_id, $3, $4, NOW(), NOW()
+		FROM plugin_installations pi
+		WHERE pi.id = $2
 		ON CONFLICT (installation_id, key)
 		DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
 		uuid.New(), installationID, key, value,
