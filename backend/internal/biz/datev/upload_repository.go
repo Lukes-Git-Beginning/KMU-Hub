@@ -25,6 +25,7 @@ type IntegrationConfigRepo interface {
 
 type IntegrationConfig struct {
 	ID                  uuid.UUID      `json:"id"`
+	TenantID            uuid.UUID      `json:"tenant_id"`
 	Platform            string         `json:"platform"`
 	IsActive            bool           `json:"is_active"`
 	CredentialsVaultKey string         `json:"credentials_vault_key"`

@@ -31,6 +31,7 @@ type IntegrationConfigRepo interface {
 // IntegrationConfig mirrors the integration_configs table row.
 type IntegrationConfig struct {
 	ID                 uuid.UUID      `json:"id"`
+	TenantID           uuid.UUID      `json:"tenant_id"`
 	Platform           string         `json:"platform"`
 	IsActive           bool           `json:"is_active"`
 	CredentialsVaultKey string        `json:"credentials_vault_key"`
@@ -89,6 +90,7 @@ func (h *OAuthHandler) HandleCallback(ctx context.Context, tenantID uuid.UUID, c
 	now := time.Now().UTC()
 	ic := &IntegrationConfig{
 		ID:                 uuid.New(),
+		TenantID:           tenantID,
 		Platform:           "bexio",
 		IsActive:           true,
 		CredentialsVaultKey: vaultKey(tenantID),

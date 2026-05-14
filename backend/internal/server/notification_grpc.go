@@ -614,6 +614,11 @@ func (s *NotificationGRPCServer) CreateIntegrationConfig(ctx context.Context, re
 		return nil, status.Error(codes.Unavailable, "integration not configured")
 	}
 
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+
 	if !integration.ValidPlatforms[req.Platform] {
 		return nil, status.Error(codes.InvalidArgument, "invalid platform")
 	}
@@ -626,6 +631,7 @@ func (s *NotificationGRPCServer) CreateIntegrationConfig(ctx context.Context, re
 	now := time.Now()
 	cfg := &integration.IntegrationConfig{
 		ID:                  uuid.New(),
+		TenantID:            tenantID,
 		Platform:            req.Platform,
 		IsActive:            false, // Start inactive until tested
 		CredentialsVaultKey: req.CredentialsVaultKey,

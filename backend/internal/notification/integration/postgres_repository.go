@@ -26,25 +26,26 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) CreateConfig(ctx context.Context, cfg *IntegrationConfig) error {
 	query := `
-		INSERT INTO integration_configs (id, platform, is_active, credentials_vault_key, metadata, created_by, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+		INSERT INTO integration_configs (id, tenant_id, platform, is_active, credentials_vault_key, metadata, created_by, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
 	_, err := r.pool.Exec(ctx, query,
-		cfg.ID, cfg.Platform, cfg.IsActive, cfg.CredentialsVaultKey,
+		cfg.ID, cfg.TenantID, cfg.Platform, cfg.IsActive, cfg.CredentialsVaultKey,
 		cfg.Metadata, cfg.CreatedBy, cfg.CreatedAt, cfg.UpdatedAt,
 	)
 	return err
 }
 
+// GetConfigByPlatform — tenant scoping is enforced via RLS (mig 000125).
 func (r *PostgresRepository) GetConfigByPlatform(ctx context.Context, platform string) (*IntegrationConfig, error) {
 	query := `
-		SELECT id, platform, is_active, credentials_vault_key, metadata, created_by, created_at, updated_at
+		SELECT id, tenant_id, platform, is_active, credentials_vault_key, metadata, created_by, created_at, updated_at
 		FROM integration_configs
 		WHERE platform = $1`
 
 	cfg := &IntegrationConfig{}
 	err := r.pool.QueryRow(ctx, query, platform).Scan(
-		&cfg.ID, &cfg.Platform, &cfg.IsActive, &cfg.CredentialsVaultKey,
+		&cfg.ID, &cfg.TenantID, &cfg.Platform, &cfg.IsActive, &cfg.CredentialsVaultKey,
 		&cfg.Metadata, &cfg.CreatedBy, &cfg.CreatedAt, &cfg.UpdatedAt,
 	)
 	if err == pgx.ErrNoRows {
@@ -71,9 +72,10 @@ func (r *PostgresRepository) UpdateConfig(ctx context.Context, cfg *IntegrationC
 	return nil
 }
 
+// ListConfigs — tenant scoping is enforced via RLS (mig 000125).
 func (r *PostgresRepository) ListConfigs(ctx context.Context) ([]*IntegrationConfig, error) {
 	query := `
-		SELECT id, platform, is_active, credentials_vault_key, metadata, created_by, created_at, updated_at
+		SELECT id, tenant_id, platform, is_active, credentials_vault_key, metadata, created_by, created_at, updated_at
 		FROM integration_configs
 		ORDER BY platform ASC`
 
@@ -87,7 +89,7 @@ func (r *PostgresRepository) ListConfigs(ctx context.Context) ([]*IntegrationCon
 	for rows.Next() {
 		cfg := &IntegrationConfig{}
 		err := rows.Scan(
-			&cfg.ID, &cfg.Platform, &cfg.IsActive, &cfg.CredentialsVaultKey,
+			&cfg.ID, &cfg.TenantID, &cfg.Platform, &cfg.IsActive, &cfg.CredentialsVaultKey,
 			&cfg.Metadata, &cfg.CreatedBy, &cfg.CreatedAt, &cfg.UpdatedAt,
 		)
 		if err != nil {

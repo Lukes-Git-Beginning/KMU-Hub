@@ -37,9 +37,9 @@ func TestTenantIsolation_Bexio_DB(t *testing.T) {
 	})
 	defer testutil.CleanupRow(t, pool, "users", userID)
 
-	// Seed integration_configs (UNIQUE on platform — we use a suffixed platform name trick
-	// not possible due to CHECK constraint, so we use a unique vault key pattern).
+	// Seed integration_configs — UNIQUE on (platform, tenant_id) since mig 000125.
 	cfgID := testutil.SeedRow(t, pool, "integration_configs", map[string]any{
+		"tenant_id":             testutil.TenantA,
 		"platform":              "bexio",
 		"credentials_vault_key": "bexio/" + uuid.New().String(),
 		"created_by":            userID,

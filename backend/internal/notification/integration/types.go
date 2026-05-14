@@ -26,9 +26,10 @@ const (
 	DeliveryStatusRateLimited = "rate_limited"
 )
 
-// IntegrationConfig represents a platform integration configuration (one per platform per org).
+// IntegrationConfig represents a platform integration configuration (one per platform per tenant).
 type IntegrationConfig struct {
 	ID                  uuid.UUID       `json:"id"`
+	TenantID            uuid.UUID       `json:"tenant_id"`
 	Platform            string          `json:"platform"`
 	IsActive            bool            `json:"is_active"`
 	CredentialsVaultKey string          `json:"credentials_vault_key"`

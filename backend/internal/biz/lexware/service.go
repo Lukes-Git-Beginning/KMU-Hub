@@ -64,6 +64,7 @@ func (s *Service) Connect(ctx context.Context, tenantID uuid.UUID, apiKey string
 	}
 
 	config := &IntegrationConfig{
+		TenantID:            tenantID,
 		Platform:            "lexware",
 		IsActive:            true,
 		CredentialsVaultKey: vaultKey,

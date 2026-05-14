@@ -34,8 +34,9 @@ func TestTenantIsolation_Lexware_DB(t *testing.T) {
 	})
 	defer testutil.CleanupRow(t, pool, "users", userID)
 
-	// integration_configs.
+	// integration_configs — UNIQUE on (platform, tenant_id) since mig 000125.
 	cfgID := testutil.SeedRow(t, pool, "integration_configs", map[string]any{
+		"tenant_id":             testutil.TenantA,
 		"platform":              "lexware",
 		"credentials_vault_key": "lexware/" + uuid.New().String(),
 		"created_by":            userID,

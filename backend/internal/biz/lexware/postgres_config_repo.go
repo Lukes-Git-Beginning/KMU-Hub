@@ -22,9 +22,10 @@ func NewPostgresIntegrationConfigRepo(pool *pgxpool.Pool) *PostgresIntegrationCo
 }
 
 // GetByPlatform returns the integration config for a given platform.
+// Tenant scoping is enforced via RLS (mig 000125).
 func (r *PostgresIntegrationConfigRepo) GetByPlatform(ctx context.Context, platform string) (*IntegrationConfig, error) {
 	query := `
-		SELECT id, platform, is_active, credentials_vault_key, metadata, created_by, created_at, updated_at
+		SELECT id, tenant_id, platform, is_active, credentials_vault_key, metadata, created_by, created_at, updated_at
 		FROM integration_configs
 		WHERE platform = $1`
 
@@ -32,7 +33,7 @@ func (r *PostgresIntegrationConfigRepo) GetByPlatform(ctx context.Context, platf
 	var metadataJSON []byte
 
 	err := r.pool.QueryRow(ctx, query, platform).Scan(
-		&cfg.ID, &cfg.Platform, &cfg.IsActive, &cfg.CredentialsVaultKey,
+		&cfg.ID, &cfg.TenantID, &cfg.Platform, &cfg.IsActive, &cfg.CredentialsVaultKey,
 		&metadataJSON, &cfg.CreatedBy, &cfg.CreatedAt, &cfg.UpdatedAt,
 	)
 	if err != nil {
@@ -62,13 +63,13 @@ func (r *PostgresIntegrationConfigRepo) Upsert(ctx context.Context, config *Inte
 
 	now := time.Now()
 	query := `
-		INSERT INTO integration_configs (id, platform, is_active, credentials_vault_key, metadata, created_by, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		ON CONFLICT (platform) DO UPDATE SET
-			is_active = $3, credentials_vault_key = $4, metadata = $5, updated_at = $8`
+		INSERT INTO integration_configs (id, tenant_id, platform, is_active, credentials_vault_key, metadata, created_by, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		ON CONFLICT (platform, tenant_id) DO UPDATE SET
+			is_active = $4, credentials_vault_key = $5, metadata = $6, updated_at = $9`
 
 	_, err = r.pool.Exec(ctx, query,
-		config.ID, config.Platform, config.IsActive, config.CredentialsVaultKey,
+		config.ID, config.TenantID, config.Platform, config.IsActive, config.CredentialsVaultKey,
 		metadataJSON, config.CreatedBy, now, now,
 	)
 	if err != nil {
