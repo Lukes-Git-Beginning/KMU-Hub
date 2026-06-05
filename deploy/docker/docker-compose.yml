@@ -476,6 +476,8 @@ services:
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-devsecret}
       LIVEKIT_WS_URL: "${LIVEKIT_WS_URL:-ws://livekit:7880}"
+      # Required by the production assertion whenever the LiveKit pair is set.
+      LIVEKIT_WEBHOOK_SECRET: ${LIVEKIT_WEBHOOK_SECRET:-devsecret}
     ports:
       - "50061:50061"
       - "9101:9101"
