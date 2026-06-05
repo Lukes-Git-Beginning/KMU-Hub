@@ -3,6 +3,7 @@ package gdpr
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -17,7 +18,12 @@ import (
 // Mock Repository
 // ============================================================================
 
+// MockRepository mimics the copy semantics of a real database: reads return
+// snapshots, not shared pointers. ApproveExport spawns ExecuteExportAsync in a
+// goroutine that re-fetches and mutates the same request — shared pointers
+// made the approval tests race with it (flaky under -race in CI).
 type MockRepository struct {
+	mu               sync.Mutex
 	exports          map[uuid.UUID]*models.GDPRExportRequest
 	exportsByToken   map[string]*models.GDPRExportRequest
 	erasureLogs      []*models.GDPRErasureLog
@@ -45,7 +51,10 @@ func (m *MockRepository) CreateExportRequest(_ context.Context, req *models.GDPR
 	if m.createExportErr != nil {
 		return m.createExportErr
 	}
-	m.exports[req.ID] = req
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	stored := *req
+	m.exports[req.ID] = &stored
 	return nil
 }
 
@@ -53,17 +62,22 @@ func (m *MockRepository) GetExportRequest(_ context.Context, id uuid.UUID) (*mod
 	if m.getExportErr != nil {
 		return nil, m.getExportErr
 	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	req, ok := m.exports[id]
 	if !ok {
 		return nil, errors.New("export request not found")
 	}
-	return req, nil
+	snapshot := *req
+	return &snapshot, nil
 }
 
 func (m *MockRepository) ListExportRequests(_ context.Context, userID uuid.UUID, status string) ([]*models.GDPRExportRequest, error) {
 	if m.listExportsErr != nil {
 		return nil, m.listExportsErr
 	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	var result []*models.GDPRExportRequest
 	for _, req := range m.exports {
 		if userID != uuid.Nil && req.UserID != userID {
@@ -72,7 +86,8 @@ func (m *MockRepository) ListExportRequests(_ context.Context, userID uuid.UUID,
 		if status != "" && req.Status != status {
 			continue
 		}
-		result = append(result, req)
+		snapshot := *req
+		result = append(result, &snapshot)
 	}
 	return result, nil
 }
@@ -81,7 +96,10 @@ func (m *MockRepository) UpdateExportStatus(_ context.Context, req *models.GDPRE
 	if m.updateExportErr != nil {
 		return m.updateExportErr
 	}
-	m.exports[req.ID] = req
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	stored := *req
+	m.exports[req.ID] = &stored
 	return nil
 }
 
@@ -89,6 +107,8 @@ func (m *MockRepository) StoreExportResult(_ context.Context, id uuid.UUID, data
 	if m.storeExportResultErr != nil {
 		return m.storeExportResultErr
 	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	req, ok := m.exports[id]
 	if !ok {
 		return errors.New("export request not found")
@@ -107,17 +127,22 @@ func (m *MockRepository) GetExportByToken(_ context.Context, token string) (*mod
 	if m.getExportByTokenErr != nil {
 		return nil, m.getExportByTokenErr
 	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	req, ok := m.exportsByToken[token]
 	if !ok {
 		return nil, errors.New("export request not found by token")
 	}
-	return req, nil
+	snapshot := *req
+	return &snapshot, nil
 }
 
 func (m *MockRepository) MarkDownloaded(_ context.Context, id uuid.UUID) error {
 	if m.markDownloadedErr != nil {
 		return m.markDownloadedErr
 	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if req, ok := m.exports[id]; ok {
 		now := time.Now().UTC()
 		req.DownloadedAt = &now
