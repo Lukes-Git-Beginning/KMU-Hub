@@ -125,8 +125,10 @@ func main() {
 		// NewRoomManagerWithTURN: pass TURN_SECRET + COTURN_HOST from config.
 		// Both default to "" when not set, transparently disabling TURN until
 		// the coturn CAX11 env vars are populated.
+		// Room management talks to the LiveKit server API — use the internal
+		// docker-network URL, NOT the public WSS URL (unroutable from here).
 		roomMgr = livekit.NewRoomManagerWithTURN(
-			cfg.LiveKitAPIKey, cfg.LiveKitAPISecret, cfg.LiveKitWSURL,
+			cfg.LiveKitAPIKey, cfg.LiveKitAPISecret, cfg.LiveKitServerAPIURL(),
 			cfg.TURNSecret, cfg.COTURNHost,
 		)
 	}
@@ -134,7 +136,7 @@ func main() {
 
 	var egressMgr recording.EgressManager
 	if cfg.LiveKitAPIKey != "" && cfg.LiveKitAPISecret != "" && cfg.LiveKitEgressTemplateURL != "" {
-		egressMgr = livekit.NewEgressManager(cfg.LiveKitAPIKey, cfg.LiveKitAPISecret, cfg.LiveKitWSURL)
+		egressMgr = livekit.NewEgressManager(cfg.LiveKitAPIKey, cfg.LiveKitAPISecret, cfg.LiveKitServerAPIURL())
 	}
 	recordingService := recording.NewService(recordingRepo, egressMgr, cfg.LiveKitEgressTemplateURL, recording.S3Config{
 		Endpoint:  cfg.MinIOEndpoint,
@@ -169,7 +171,9 @@ func main() {
 	calv1.RegisterCalendarServiceServer(grpcServer, calendarGRPC)
 
 	// Register VideoService gRPC server (same binary, same port as WorkService + CalendarService)
-	videoGRPC := server.NewVideoGRPCServer(videoService, meetingService, recordingService, presenceService, reactionService, taskService)
+	// roomMgr doubles as the meeting-join token generator; cfg.LiveKitWSURL is the
+	// PUBLIC signaling URL embedded in join responses for clients.
+	videoGRPC := server.NewVideoGRPCServer(videoService, meetingService, recordingService, presenceService, reactionService, taskService, roomMgr, cfg.LiveKitWSURL)
 	videov1.RegisterVideoServiceServer(grpcServer, videoGRPC)
 
 	// Initialize gRPC metrics after service registration

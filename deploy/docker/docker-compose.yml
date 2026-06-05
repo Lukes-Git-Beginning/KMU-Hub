@@ -261,7 +261,11 @@ services:
       WORK_HEALTH_PORT: ":9095"
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-devsecret}
+      # Public signaling URL — returned to clients in join responses.
       LIVEKIT_WS_URL: "${LIVEKIT_WS_URL:-ws://livekit:7880}"
+      # Server API (room/egress twirp) always goes over the docker network;
+      # the public WSS URL is not routable from inside the compose network.
+      LIVEKIT_INTERNAL_URL: ws://livekit:7880
       LIVEKIT_EGRESS_TEMPLATE_URL: ""
       LIVEKIT_WEBHOOK_SECRET: ${LIVEKIT_WEBHOOK_SECRET:-devsecret}
       MINIO_ENDPOINT: minio:9000

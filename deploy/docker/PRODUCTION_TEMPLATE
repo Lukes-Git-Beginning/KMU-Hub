@@ -57,7 +57,10 @@ ONLYOFFICE_JWT_SECRET=CHANGE_ME_MINIMUM_32_CHARS_RANDOM
 # ===== VIDEO (LiveKit) =====
 LIVEKIT_API_KEY=CHANGE_ME_LIVEKIT_KEY
 LIVEKIT_API_SECRET=CHANGE_ME_MINIMUM_32_CHARS
-LIVEKIT_WS_URL=wss://YOUR_DOMAIN_OR_IP:7443
+# Public signaling URL clients connect to. Caddy proxies /rtc* on the app
+# domain to livekit:7880, so this is the app domain itself — NOT :7443
+# (that port was never mapped anywhere).
+LIVEKIT_WS_URL=wss://YOUR_DOMAIN
 LIVEKIT_WEBHOOK_SECRET=CHANGE_ME_WEBHOOK_SECRET
 
 # ===== TURN / coturn (Sprint 1 R2.1) =====

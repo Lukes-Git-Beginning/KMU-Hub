@@ -1,12 +1,22 @@
 app.zentria.tech {
-	reverse_proxy gateway:8080
-
 	header {
 		-Server
 		X-Frame-Options "DENY"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+
+	# LiveKit signaling (WebSocket) + token validation. Only /rtc* is exposed —
+	# the twirp admin API stays internal. Media flows over WebRTC (7881/7882 +
+	# TURN), so this proxy carries signaling only.
+	# LIVEKIT_WS_URL in .env.production points here: wss://app.zentria.tech
+	handle /rtc* {
+		reverse_proxy livekit:7880
+	}
+
+	handle {
+		reverse_proxy gateway:8080
 	}
 }
 

@@ -99,6 +99,11 @@ type Config struct {
 	LiveKitAPIKey    string `env:"LIVEKIT_API_KEY,default="`
 	LiveKitAPISecret string `env:"LIVEKIT_API_SECRET,default="`
 	LiveKitWSURL     string `env:"LIVEKIT_WS_URL,default="`
+	// LiveKit server API endpoint for room/egress management (twirp over HTTP).
+	// Inside docker the public WSS URL is not routable from the backend, so this
+	// points at the internal service address (ws://livekit:7880). Empty falls
+	// back to LIVEKIT_WS_URL — see LiveKitServerAPIURL().
+	LiveKitInternalURL string `env:"LIVEKIT_INTERNAL_URL,default="`
 
 	// LiveKit Egress (Recording -- optional, requires LiveKit Egress service)
 	LiveKitEgressTemplateURL string `env:"LIVEKIT_EGRESS_TEMPLATE_URL,default="`
@@ -152,6 +157,17 @@ type Config struct {
 
 	// Env controls production secret validation ("production" enables hard checks)
 	Env string `env:"COSMI_ENV,default=development"`
+}
+
+// LiveKitServerAPIURL returns the URL backend services use for LiveKit server
+// API calls (room create/delete, egress — twirp over HTTP). Prefers the
+// internal docker-network address; falls back to the public WS URL so
+// single-host setups without the override keep working.
+func (c *Config) LiveKitServerAPIURL() string {
+	if c.LiveKitInternalURL != "" {
+		return c.LiveKitInternalURL
+	}
+	return c.LiveKitWSURL
 }
 
 func Load(ctx context.Context) (*Config, error) {

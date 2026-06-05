@@ -1,10 +1,19 @@
 {{ pilot_domain }} {
-	reverse_proxy gateway:8080
-
 	header {
 {% for header in caddy_security_headers %}
 		{{ header }}
 {% endfor %}
+	}
+
+	# LiveKit signaling (WebSocket) + token validation. Only /rtc* is exposed —
+	# the twirp admin API stays internal. LIVEKIT_WS_URL points at the pilot
+	# domain itself (wss://{{ pilot_domain }}).
+	handle /rtc* {
+		reverse_proxy livekit:7880
+	}
+
+	handle {
+		reverse_proxy gateway:8080
 	}
 }
 
