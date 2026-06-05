@@ -177,6 +177,9 @@ jobs:
       REDIS_URL: redis://localhost:6379
       JWT_SECRET: ci-e2e-test-secret-minimum-32-characters
       GATEWAY_URL: http://localhost:8080
+      # E2E flows fire requests in tight succession against one user — the
+      # production default (100 rps) trips. CI-only, production stays at 100.
+      RATE_LIMIT_RPS: 1000
 
     steps:
       - name: Checkout
@@ -223,6 +226,7 @@ jobs:
           go build -o bin/chat ./cmd/chat
           go build -o bin/work ./cmd/work
           go build -o bin/document ./cmd/document
+          go build -o bin/dialer ./cmd/dialer
 
       - name: Start auth service
         working-directory: backend
@@ -309,6 +313,23 @@ jobs:
             sleep 1
           done
 
+      - name: Start dialer service
+        working-directory: backend
+        run: |
+          ./bin/dialer > /tmp/dialer.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:9101/health > /dev/null 2>&1; then
+              echo "Dialer service healthy"
+              break
+            fi
+            if [ "$i" = "30" ]; then
+              echo "Dialer service failed to start"
+              cat /tmp/dialer.log
+              exit 1
+            fi
+            sleep 1
+          done
+
       - name: Start gateway service
         working-directory: backend
         run: |
@@ -343,6 +364,8 @@ jobs:
           cat /tmp/work.log || true
           echo "=== Document Service Logs ==="
           cat /tmp/document.log || true
+          echo "=== Dialer Service Logs ==="
+          cat /tmp/dialer.log || true
           echo "=== Gateway Service Logs ==="
           cat /tmp/gateway.log || true
 
@@ -381,6 +404,8 @@ jobs:
       REDIS_URL: redis://localhost:6379
       JWT_SECRET: ci-smoke-test-secret-minimum-32-characters
       SMOKE_URL: http://localhost:8080
+      # Same CI-only headroom as the e2e job — production stays at 100 rps.
+      RATE_LIMIT_RPS: 1000
 
     steps:
       - name: Checkout
