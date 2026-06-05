@@ -43,7 +43,9 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16-alpine
+        # Must match deploy/docker/docker-compose.yml — migration 000072
+        # needs the pgvector extension, plain postgres images lack it.
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_DB: kmuhub_test
           POSTGRES_USER: kmuhub_test
@@ -143,7 +145,9 @@ jobs:
     needs: [lint, test]
     services:
       postgres:
-        image: postgres:16-alpine
+        # Must match deploy/docker/docker-compose.yml — migration 000072
+        # needs the pgvector extension, plain postgres images lack it.
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_DB: kmuhub_test
           POSTGRES_USER: kmuhub_test
@@ -325,7 +329,9 @@ jobs:
     needs: [e2e]
     services:
       postgres:
-        image: postgres:16-alpine
+        # Must match deploy/docker/docker-compose.yml — migration 000072
+        # needs the pgvector extension, plain postgres images lack it.
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_DB: kmuhub_test
           POSTGRES_USER: kmuhub_test
