@@ -36,7 +36,7 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/sethvargo/go-envconfig v1.3.0
 	github.com/shopspring/decimal v1.4.0
-	github.com/slack-go/slack v0.17.3
+	github.com/slack-go/slack v0.23.1
 	github.com/stretchr/testify v1.11.1
 	github.com/teambition/rrule-go v1.8.2
 	github.com/tetratelabs/wazero v1.9.0
