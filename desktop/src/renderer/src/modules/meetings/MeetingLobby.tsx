@@ -67,7 +67,7 @@ function formatTime(isoDate: string): string {
   return libFormatTime(isoDate, { hour: '2-digit', minute: '2-digit' })
 }
 
-function formatDate(isoDate: string): string {
+function formatLongDate(isoDate: string): string {
   return libFormatDate(isoDate, { weekday: 'long', day: 'numeric', month: 'long' })
 }
 
@@ -182,7 +182,7 @@ export function MeetingLobby({ meetingId, onJoinMeeting, onCancel }: MeetingLobb
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
             <span className="flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5" />
-              {formatDate(meeting.scheduled_start)}
+              {formatLongDate(meeting.scheduled_start)}
             </span>
             <span className="flex items-center gap-1">
               <Clock className="h-3.5 w-3.5" />

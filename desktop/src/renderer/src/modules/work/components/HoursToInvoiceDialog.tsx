@@ -14,7 +14,8 @@ import {
   Calculator,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatCurrency, formatDate } from '@/lib'
+import { formatCurrency } from '@/lib'
+import { formatDate } from '@/lib/format'
 import {
   Dialog,
   DialogContent,

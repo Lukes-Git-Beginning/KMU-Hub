@@ -39,7 +39,7 @@ const statusConfig: Record<string, { key: string; bg: string }> = {
   archived: { key: 'wiki.status.archived', bg: 'bg-warning-light text-warning' },
 }
 
-function formatDate(dateStr: string): string {
+function formatShortDate(dateStr: string): string {
   const normalized = dateStr.includes('T') ? dateStr : dateStr + 'T00:00:00'
   return libFormatDate(normalized)
 }
@@ -153,7 +153,7 @@ export default function WikiPage() {
                           <span>{article.authorName}</span>
                           <span>·</span>
                           <Clock className="h-2.5 w-2.5" />
-                          <span>{formatDate(article.lastEditedAt)}</span>
+                          <span>{formatShortDate(article.lastEditedAt)}</span>
                         </div>
 
                         {/* Status + tags row */}

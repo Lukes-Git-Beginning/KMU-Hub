@@ -7,7 +7,7 @@ import { formatDate as libFormatDate } from '@/lib/format'
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatDate(dateStr: string): string {
+function formatShortDate(dateStr: string): string {
   const normalized = dateStr.includes('T') ? dateStr : dateStr + 'T00:00:00'
   return libFormatDate(normalized, { day: '2-digit', month: 'short', year: 'numeric' })
 }
@@ -45,7 +45,7 @@ export function WikiVersionItem({ version, isCurrent }: WikiVersionItemProps) {
         <p className="text-[11px] text-muted-foreground italic mt-0.5">{version.changeNote}</p>
         <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground">
           <Clock className="h-2.5 w-2.5" />
-          {formatDate(version.editedAt)}
+          {formatShortDate(version.editedAt)}
         </div>
       </div>
     </div>

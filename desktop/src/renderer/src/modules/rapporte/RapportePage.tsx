@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { formatDate } from '@/lib/format'
 import {
   Search,
   Plus,

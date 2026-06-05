@@ -12,7 +12,7 @@ function formatTime(timestamp: string): string {
   return libFormatTime(timestamp, { hour: '2-digit', minute: '2-digit' })
 }
 
-function formatDate(timestamp: string): string {
+function formatDayHeading(timestamp: string): string {
   return libFormatDate(timestamp, { weekday: 'short', day: '2-digit', month: 'short' })
 }
 
@@ -52,7 +52,7 @@ export function MessageItem({ message: msg, showDate }: MessageItemProps) {
         <div className="flex items-center gap-3 py-2">
           <div className="flex-1 border-t border-border" />
           <span className="text-[10px] text-muted-foreground shrink-0">
-            {formatDate(msg.timestamp)}
+            {formatDayHeading(msg.timestamp)}
           </span>
           <div className="flex-1 border-t border-border" />
         </div>

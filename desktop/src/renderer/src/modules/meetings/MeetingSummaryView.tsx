@@ -54,7 +54,7 @@ function formatDuration(minutes: number): string {
   return `${m}min`
 }
 
-function formatDate(isoDate: string): string {
+function formatFullDate(isoDate: string): string {
   return libFormatDate(isoDate, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 
@@ -124,7 +124,7 @@ export function MeetingSummaryView({ meetingId, summary }: MeetingSummaryViewPro
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-foreground mb-1">{meeting.title}</h1>
         <p className="text-sm text-muted-foreground">
-          {formatDate(meeting.scheduled_start)}
+          {formatFullDate(meeting.scheduled_start)}
         </p>
         {meeting.status === 'completed' && (
           <Badge variant="secondary" className="mt-2">

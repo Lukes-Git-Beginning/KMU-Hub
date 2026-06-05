@@ -16,7 +16,8 @@ import {
   Plus,
   Clock,
 } from 'lucide-react'
-import { cn, formatDate } from '@/lib'
+import { cn } from '@/lib'
+import { formatDate } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'

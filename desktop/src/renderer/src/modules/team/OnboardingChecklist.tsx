@@ -12,7 +12,6 @@ import {
   Briefcase,
   Monitor,
   FileText,
-  CheckCircle2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { EmptyState, InlineStat } from '@/components/shared'

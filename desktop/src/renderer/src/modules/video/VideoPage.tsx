@@ -37,7 +37,9 @@ function formatDuration(minutes: number): string {
   return h > 0 ? `${h} Std ${m} Min` : `${m} Min`
 }
 
-function formatDate(dateStr: string, t: (key: string) => string): string {
+// Renamed from formatDate: the local declaration collided with the
+// formatDate import from @/lib/format (Babel: duplicate declaration).
+function formatRelativeDate(dateStr: string, t: (key: string) => string): string {
   const d = new Date(dateStr)
   const today = new Date()
   const yesterday = new Date()
@@ -163,7 +165,7 @@ function CallHistoryRow({ entry }: { entry: CallHistoryEntry }) {
         </div>
       </div>
 
-      <div className="text-xs text-muted-foreground">{formatDate(entry.date, t)}</div>
+      <div className="text-xs text-muted-foreground">{formatRelativeDate(entry.date, t)}</div>
 
       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <button className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground" title={t('video.history.videoanruf')} aria-label={t('video.history.videoanruf')}>
@@ -292,7 +294,7 @@ export default function VideoPage() {
 
   // Group history by date
   const groupedHistory = filteredHistory.reduce<Record<string, CallHistoryEntry[]>>((acc, entry) => {
-    const key = formatDate(entry.date, t)
+    const key = formatRelativeDate(entry.date, t)
     if (!acc[key]) acc[key] = []
     acc[key].push(entry)
     return acc
