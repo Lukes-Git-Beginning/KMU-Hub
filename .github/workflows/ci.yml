@@ -457,13 +457,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run trivy filesystem scan
+      # trivy ignores the severity filter when emitting SARIF (by design, so
+      # code scanning can filter), which made exit-code 1 fire on MEDIUM
+      # findings too. Split: a table-format gate that actually enforces
+      # HIGH/CRITICAL, plus a non-failing SARIF pass for the artifact.
+      - name: Run trivy gate (HIGH/CRITICAL)
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: fs
           scan-ref: .
           severity: HIGH,CRITICAL
           exit-code: "1"
+          ignore-unfixed: true
+          format: table
+
+      - name: Run trivy SARIF report
+        if: always()
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          exit-code: "0"
           ignore-unfixed: true
           format: sarif
           output: trivy.sarif
