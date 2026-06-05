@@ -1,14 +1,14 @@
 ---
 tags: [datenbank, schema, migrations, ai-first, tenant-isolation, rls]
-updated: 2026-06-05
+updated: 2026-06-06
 ---
 # Datenbank
 
 ## Überblick
 - PostgreSQL 16 mit `pgvector/pgvector:pg16`-Image + Redis 7 (nur Cache, KEIN Dual-Write)
 - Änderungen NUR via golang-migrate (`make migrate-create name=xxx`)
-- **129 Migration-Paare** in `backend/migrations/` (076–116 siehe Sprint-2/3-Liste in der Vorversion dieser Note; **Sprint 4: 117 users_tenant_default_and_fk · 118 rls_foundation · 119 child_tables_tenant_id_backfill · 120–124 RLS-Wellen 2+3 · 125–127 RLS-Welle 4 · 128 fix_hr_document_policy_sysctx · 129 seed_missing_module_permissions** — 35 nie geseedete Modul-Permissions admin-only nachgezogen, siehe [[security]] RBAC)
-- **Prod-Stand seit 2026-06-05:** Migration-Head **`129`** (deployed mit Code `91a3014c` — **erster automatischer CD-Deploy**, siehe [[deployment]]). Volume: `docker_pgdata` (nicht `docker_postgres-data`). psql-User in Production ist **`kmuhub`**, nicht `postgres` — siehe [[troubleshooting]].
+- **131 Migration-Paare** in `backend/migrations/` (076–116 siehe Sprint-2/3-Liste in der Vorversion dieser Note; **Sprint 4: 117 users_tenant_default_and_fk · 118 rls_foundation · 119 child_tables_tenant_id_backfill · 120–124 RLS-Wellen 2+3 · 125–127 RLS-Welle 4 · 128 fix_hr_document_policy_sysctx · 129 seed_missing_module_permissions** [35 nie geseedete Modul-Permissions admin-only, siehe [[security]] RBAC] **· 130 dialer outcome_id-Partial-Indizes + ~10 FK ON DELETE (R2-P1.8/.9) · 131 seed meetings:write fuer admin+manager+member (R2-P1.5)** — 131er-Review-Gate-Fund: Guard auf Bestands-Funktion braucht Seeds fuer ALLE bisher berechtigten Rollen, nicht nur admin)
+- **Prod-Stand seit 2026-06-05 Abend:** Migration-Head **`131`** (Code `564f238b`, COSMI_ENV=production scharf — siehe [[deployment]]). Volume: `docker_pgdata` (nicht `docker_postgres-data`). psql-User in Production ist **`kmuhub`**, nicht `postgres` — siehe [[troubleshooting]].
 
 ## RLS-Foundation (Migration 118, Sprint 4 Welle 1a)
 

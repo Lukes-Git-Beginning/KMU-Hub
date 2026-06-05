@@ -1,6 +1,6 @@
 ---
 tags: [integrationen, bexio, lexware, livekit, plugin, wasm]
-updated: 2026-04-18
+updated: 2026-06-06
 ---
 # Externe Integrationen
 
@@ -30,23 +30,36 @@ updated: 2026-04-18
 - Gateway: `/api/v1/datev/upload` (CSV-Upload)
 - Code: `backend/internal/biz/datev/`
 
-## LiveKit (JWT)
+## Circuit-Breaker fuer Bexio + DATEV (2026-06-05, `5dd862eb`, R2-P1.4)
+- Neues Package `backend/internal/circuitbreaker` — 3-State (closed/open/half-open), injectable clock fuer Tests
+- Bexio- und DATEV-HTTP-Clients laufen durch den Breaker; DATEV zusaetzlich mit Retry
+- Verhindert Kaskaden bei haengenden Drittanbieter-APIs (Graceful-Degradation-Regel #8)
+
+## LiveKit (JWT) — seit 2026-06-05 in Prod end-to-end funktional
 - 1:1 und Gruppen-Calls (WebRTC)
 - Room-Erstellung via JWT-Tokens
 - Recording mit DSGVO-Consent-Management
-- Egress-Service fuer Aufnahmen (MinIO-Storage)
+- Egress-Service fuer Aufnahmen (MinIO-Storage) — Prod-Credentials via gerendertem `egress-secrets.yaml` (siehe [[deployment]])
 - Feature-Flagged: Graceful Disable wenn API-Key/Secret nicht gesetzt
 - Code: `backend/internal/work/livekit/`
 - Docker: LiveKit Server (7880/7881 TCP, 7882 UDP) + Egress Container
 - `rtc.use_external_ip: true` seit 2026-04-19 aktiv (bessere direct ICE candidates)
+
+### URL-Split intern/public (2026-06-05, `7d492bb6`)
+- **`LIVEKIT_INTERNAL_URL`** (`ws://livekit:7880` in Compose) — Server-API (Room-/Egress-twirp). `cfg.LiveKitServerAPIURL()` faellt auf `LIVEKIT_WS_URL` zurueck wenn leer.
+- **`LIVEKIT_WS_URL`** (`wss://app.zentria.tech` in Prod) — PUBLIC Signaling-URL, geht via `ws_url` in Join/Start-Responses an die Clients. Caddy proxyt `/rtc*` → `livekit:7880` (nur Signaling+`/rtc/validate`; twirp bleibt intern).
+- **Hintergrund:** Vorher teilten sich beide Zwecke EINE Variable; der Template-Wert `wss://…:7443` war nie erreichbar (Port nirgends gemappt) → CreateRoom connection refused. Zusaetzlich waren `token`/`ws_url` in `JoinCallResponse`/`StartMeetingResponse` IMMER leer ("populated by gateway" = nie existenter Code) — `VideoGRPCServer` bekommt seitdem `tokenGen` (RoomManager) + `publicWSURL` und stellt den Organizer-Token selbst aus. Incident-Historie: `docs/livekit-env-production-followups.md`.
+- **Verifikations-Muster:** Login → `POST /api/v1/video/calls` → `POST /calls/{id}/join` → `GET https://app.zentria.tech/rtc/validate?access_token=<token>` → 200.
+- **Offen:** Calendar-Event-`GenerateJoinToken` liefert in `ws_url` einen Meeting-LINK (`…/room/{name}`) statt der Signaling-URL — Event-Flow-Verdrahtung pruefen (Sprint 4/5).
+- **Webhook-Validierung:** Gateway validiert LiveKit-Webhooks mit dem API-Pair, siehe [[security]] "Realtime-Haertung".
 
 ## TURN-Server (coturn, self-hosted, seit 2026-04-19)
 - **Zweck:** Relay-Fallback fuer WebRTC-Clients hinter symmetric NAT / restriktiven Firewalls
 - **Host:** `turn.zentria.tech:3478` (Hetzner CAX11 FSN1, Details [[deployment#turn-server-cax11-seit-2026-04-19]])
 - **Protokoll:** plain TURN/UDP (MVP, kein TLS); `lt-cred-mech` mit `use-auth-secret`
 - **Secret-Sharing:** `static-auth-secret` in `/etc/turnserver.conf` = `TURN_SECRET` in `.env.production` auf App-Server
-- **Client-Auth:** Per-Session-Credentials via HMAC-SHA1, im LiveKit `AccessToken` (Sprint-2-Task S2.R2.1b)
-- **Einschraenkung:** LiveKit-Wiring im video-Service noch offen — coturn laeuft, wird aber bis Implementation nicht von Clients genutzt
+- **Client-Auth:** Per-Session-Credentials via HMAC-SHA1, eingebettet als Metadata-JSON im LiveKit `AccessToken` (`RoomManager.GenerateToken` + `Service.TURNIceServers`) — Wiring seit R2-P0.1 (2026-04-26, `e4b98b9`+`ad04191`) LIVE
+- **Assertion-Guard:** TURN-Symmetrie (`COTURN_HOST`↔`TURN_SECRET` beide oder keiner) wird in Prod beim Start erzwungen, siehe [[security]]
 - **Deploy-Doku:** `deploy/turn/livekit-integration.md` (Option B)
 
 ## CalDAV/CardDAV (go-webdav)

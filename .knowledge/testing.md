@@ -1,6 +1,6 @@
 ---
 tags: [testing, qualitaet]
-updated: 2026-06-05
+updated: 2026-06-06
 ---
 # Test-Strategie
 
@@ -79,10 +79,12 @@ Zwei Varianten mit gleicher Abdeckung:
 
 ### Bash (`deploy/scripts/smoke.sh`)
 - Curl/jq-basiert, keine Go-Toolchain nötig
-- 22 Tests in 7 Kategorien: Infra (5), Auth (3), CRM CRUD (3), Security (3), Performance (3), Cross-Service (2), Berichte (3, gated by `modules.berichte` — 404 akzeptiert wenn Flag OFF)
+- 24 Tests (Kategorien: Infra, Auth, CRM CRUD, Security, Performance, Cross-Service, Berichte gated by `modules.berichte`) — **24/24 PASS in Prod seit 2026-06-05**, `--skip-smoke` aus `cd.yml` entfernt (`914a12dd`)
+- Token-Bootstrap: `SMOKE_ADMIN_EMAIL`+`PASSWORD` gesetzt ⇒ frischer Login ueberschreibt stales `SMOKE_ADMIN_TOKEN` — JWT-Rotationen brechen den Smoke nicht
 - Flags: `--base-url`, `--verbose`, `--expect-version`
 - Smoke-User Cleanup am Ende
 - Wird als Gate im `deploy.sh` nach Health Check ausgefuehrt
+- **Followup:** Test 25 LiveKit-Token-Probe (`/rtc/validate`=200) — siehe `docs/livekit-env-production-followups.md`
 
 ### Go (`backend/test/smoke/`)
 - Build-Tag: `//go:build smoke`

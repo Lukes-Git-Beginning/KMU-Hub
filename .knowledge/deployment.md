@@ -1,16 +1,34 @@
 ---
 tags: [deployment, docker, ci-cd]
-updated: 2026-06-05
+updated: 2026-06-06
 ---
 # Deployment & Infrastruktur
 
-> **Aktueller Prod-Stand (2026-06-05 nach E2E-Modernisierung):** `app.zentria.tech` auf `91a3014c`, Migration-Head **129**, alle 14 Pflicht-Services healthy, 23 registered services. **Erster automatischer CD-Deploy** (workflow_run nach gruenem CI) erfolgreich durchgelaufen — Migrations 118→129 in einem Rutsch, kein Rollback. **Lokal/main = Prod synchron, jeder gruene Push auf main deployt seither automatisch.** Davor (2026-05-10, Sprint 4 Welle 1, `25af970`/Head 119): RLS-Foundation, Child-Backfill, gRPC-Tenant-Inbound-Interceptor in 4 Pilot-0-Services, drei Deploy-Anlaeufe (Migration-119-Spaltenname-Bug → Smoke-False-Positive → `--skip-smoke` als Forward-Fix).
+> **Aktueller Prod-Stand (2026-06-06 frueh, nach LiveKit/COSMI_ENV-Cluster):** `app.zentria.tech` auf `564f238b`, Migration-Head **131**, alle Container healthy, **`COSMI_ENV=production` SCHARF** (Prod-Secrets-Assertion aktiv), Smoke **24/24**, **Video-Calls erstmals end-to-end funktional** (`/rtc/validate`=200). Alle Compose-Secrets laufen jetzt ueber `${VAR:-dev-default}`-Interpolation aus `.env.production` (vorher: Dev-Secrets in Prod, Incident-Doku `docs/livekit-env-production-followups.md`). Davor (2026-06-05 nach E2E-Modernisierung): `91a3014c`, Head 129, erster automatischer CD-Deploy. **Lokal/main = Prod synchron, jeder gruene Push auf main deployt automatisch.**
 >
 > **skip-worktree-Status (Stand 2026-05-08 nach Welle-1-Marathon):** keine aktiven Markierungen mehr. `livekit.yaml`-Patch aus alter Era ist obsolet (livekit-secrets.yaml-render-overlay ersetzt das per `render-configs.sh` in `deploy.sh` Step 2.5).
 >
 > **Welle 4B (2026-05-07):** `deploy/docker/docker-compose.yml` und `backend/.env.example` setzen `IDEMPOTENCY_MODE=hard` im Gateway-Environment fuer Dev. Production bleibt unset → WarnMode default. Prod-Cutover auf HardMode ist post-Pilot-1-Aktion.
 >
 > **Ansible-Playbook (Sprint 3, 2026-05-08):** `deploy/ansible/` ist live mit 4 Roles (foundation/secrets/app-deploy/turn) und 50 Tasks insgesamt. Inventory `pilots` + `turn` mit Platzhalter-IPs (Pilot-0-IP wird vor Real-Provisioning gesetzt). ansible-lint **production-profile 0 failures**. Verifikation auf Windows via Docker-Wrapper (`willhallonline/ansible:latest` + `MSYS_NO_PATHCONV=1`). Details siehe Abschnitt "Ansible Pilot-Provisioning" unten.
+
+## Compose-Secret-Interpolation (2026-06-05, `68158907`)
+
+**Hardrule:** JEDES Secret in der Basis-Compose steht als `${VAR:-<dev-default>}` — Dev bleibt
+zero-config, Production gewinnt automatisch via `--env-file /opt/kmuhub/.env.production`.
+Niemals Secret-Literale in `environment:`-Bloecke (Incident: Dev-`JWT_SECRET`/`minioadmin`/
+`devkey` liefen monatelang in Prod, weil das Prod-Overlay nur 3 von ~20 Secret-Stellen abdeckte).
+
+- Interpoliert: `JWT_SECRET` (24 Services), `VAULT_MASTER_SECRET`, `WOPI_JWT_SECRET`,
+  `MINIO_ROOT_USER/PASSWORD` (inkl. createbucket-Args), `MINIO_ACCESS_KEY/SECRET_KEY`,
+  `LIVEKIT_API_KEY/SECRET/WEBHOOK_SECRET`, `LIVEKIT_WS_URL`, `COSMI_ENV` (alle 24 Services)
+- **Gerenderte Secret-Configs** via `render-configs.sh` (deploy.sh Step 2.5, alle `.gitignore`d):
+  `livekit-secrets.yaml`, **`egress-secrets.yaml`** (neu — Prod-Overlay mountet es ueber
+  `/etc/egress.yaml`; das eingecheckte `egress.yaml` bleibt Dev-only), `alertmanager.yml`
+- Prod-Overlay deckt seit 2026-06-05 ALLE Services mit logging+resource-limits (vorher fehlten
+  dialer + die 9 Welle-2/3-Module komplett)
+- Verifikation lokal: `docker compose --env-file <dummy> -f docker-compose.yml [-f docker-compose.prod.yml] config` und auf 0 Dev-Marker greppen
+- Gegenstueck im Backend: Requirements-Assertion, siehe [[security]] "Prod-Secrets Startup-Assertion"
 
 ## Docker Compose (Lokal + Self-Hosted)
 Datei: `deploy/docker/docker-compose.yml`
@@ -65,7 +83,7 @@ Datei: `deploy/docker/docker-compose.yml`
   7. **Security-Scans** (S3.2, ab 2026-05-08) — gosec + trivy fs-scan + npm audit parallel (eigene Job-Gruppe, `continue-on-error: true` initial). Details: [[security]] CI Security-Scans.
 - Service-Container: pgvector/pgvector:pg16 + redis:7-alpine
 - **Komplett gruen seit 2026-06-05** (rot seit 2026-03-08; Repair + E2E-Modernisierung, Lessons in Memory `feedback_ci_lessons_20260605.md`)
-- **Paths-Filter:** CI triggert nur auf `backend/**`, `desktop/**`, `ci.yml` — docs-/`.knowledge/`-Commits triggern weder CI noch CD
+- **Paths-Filter:** CI triggert nur auf `backend/**`, `desktop/**`, `ci.yml` — docs-/`.knowledge/`-Commits triggern weder CI noch CD. **Achtung:** auch `deploy/**`-only-Commits triggern kein CI, und CD haengt per `workflow_run` an CI → fuer reine Deploy-Aenderungen `gh workflow run CD --ref main` dispatchen (Lesson 2026-06-05, `ce2a5e5d`)
 
 ### Desktop CI Pipeline (`.github/workflows/ci-desktop.yml`)
 - **Trigger:** Push auf main/develop, PRs (nur bei desktop/ Aenderungen)
@@ -127,8 +145,11 @@ Flow: `lock → snapshot → backup → pull → build → migrate → rolling r
 - Steps: Lock → Backup → Checkout → Rebuild → Restart → Health Check → Log
 - **Wichtig:** macht KEIN `migrate down`. Nur der interne Auto-Rollback-Pfad in `deploy.sh` berechnet und fuehrt `migrate down N` aus. Bei manuellem Rollback ueber ein Schema-Aenderung hinweg: vorher explizit `$COMPOSE run --rm migrate -path /migrations -database "$DATABASE_URL" down N`.
 
-### smoke.sh — Curl/jq Smoke Tests (22 Tests, 7 Kategorien)
-Laeuft ohne Go-Toolchain auf jedem Server, <30 Sekunden.
+### smoke.sh — Curl/jq Smoke Tests (24 Tests, Stand 2026-06-05: 24/24 PASS)
+Laeuft ohne Go-Toolchain auf jedem Server, <30 Sekunden. `--skip-smoke` aus `cd.yml` entfernt
+(`914a12dd`) — Smoke gated wieder jeden CD-Deploy mit Auto-Rollback. Token-Bootstrap: bei
+gesetzten `SMOKE_ADMIN_EMAIL`+`PASSWORD` loggt das Skript IMMER frisch ein und ueberschreibt
+ein stales `SMOKE_ADMIN_TOKEN` — JWT-Rotationen brechen den Smoke daher nicht.
 
 | Kategorie | Tests |
 |-----------|-------|
@@ -208,7 +229,7 @@ Konfiguriert als `command:` Args im postgres Service.
 - **App-Pfad:** `/opt/kmuhub/`, `.env.production` direkt dort (NICHT in `deploy/docker/`)
 - **Compose:** aus `deploy/docker/` mit `-f docker-compose.yml -f docker-compose.prod.yml`
 - **Git Pull:** `sudo GIT_SSH_COMMAND='ssh -i /home/deploy/.ssh/github_deploy' git pull origin main`
-- **HTTPS:** Caddy + Let's Encrypt, HSTS, HTTP/2
+- **HTTPS:** Caddy + Let's Encrypt, HSTS, HTTP/2. Seit `7d492bb6`: `handle /rtc*` proxyt auf `livekit:7880` (LiveKit-Signaling mit TLS; twirp-Admin-API bleibt intern; Media via WebRTC-Ports 7881/7882 + TURN). `LIVEKIT_WS_URL=wss://app.zentria.tech` in `.env.production`. **Caddyfile-Aenderungen brauchen `docker compose restart caddy`** (Mount-Inhalt triggert kein Recreate)
 - **Firewall:** Hetzner Cloud Firewall `kmuhub-fw` (7 Regeln: SSH/80/443/7880/7881/7882-UDP/ICMP, Source Any IPv4+IPv6)
 - **Monitoring:** Prometheus + Grafana + Alertmanager (alle localhost-only, SSH-Tunnel)
 - **Alertmanager:** `prom/alertmanager:v0.27.0`, Port 9093, Config wird zur Deploy-Zeit aus `deploy/docker/alertmanager.yml.tmpl` via `render-configs.sh` (Step 2.5 in `deploy.sh`) gerendert (`alertmanager.yml` ist `.gitignore`d). Webhook via `${ALERT_WEBHOOK_URL}` aus `.env.production` — Discord-Webhook im **Slack-Compat-Mode** (URL endet auf `/slack`), Receiver `slack_configs` bleibt unveraendert. Channel `#cosmi-prod-alerts` im zentria-intel-Discord-Server. Empty → `slack_api_url: ""`, Service startet sauber ohne Notifications. 3 Rules: ServiceDown (2m), HighErrorRate (5%), DBConnectionsHigh (80% max_connections).

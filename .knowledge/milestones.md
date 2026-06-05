@@ -1,8 +1,18 @@
 ---
 tags: [fortschritt, milestones]
-updated: 2026-05-10
+updated: 2026-06-06
 ---
 # Milestones
+
+## 2026-06-05 — Triple-Session: CI/E2E gruen + R2-P1-Batch + LiveKit/COSMI_ENV-Cluster
+
+Drei Sessions an einem Tag, Production am Ende auf `564f238b`, Migration-Head **131**:
+
+1. **E2E-Modernisierung** (`dc6502c2`…`91a3014c` + `598e6a69`): CI nach 3 Monaten Rot komplett gruen, E2E-Suite gegen API-Drift modernisiert, Admin-Bootstrap-Pattern, Migration 129 (35 nie geseedete Permissions). **Erster automatischer CD-Deploy.**
+2. **R2-P1-Batch 9/10 + letzter P0** (`f5788d8d`/`98337921`/`5dd862eb`/`19d5adb7`): LiveKit-Webhook-Auth, Tenant-Semaphor, Recording-Cleanup, FK-Hygiene (130), WS-Token-Revalidierung, Organizer-only (131), Circuit-Breaker, Redis-WS-State, Join-with-Consent (R2-P0.4) → **alle 16 P0 dicht**. Smoke 24/24 (erstmals), `--skip-smoke` entfernt, CI Desktop erstmals gruen.
+3. **LiveKit/COSMI_ENV-Cluster** (`68158907`…`ce2a5e5d`, 11 Befunde F-A–F-K): Production lief auf Dev-Secrets ALLER 24 Services (Compose-Overlay-Gap) — Secret-Interpolations-Sweep, Requirements-Assertion, LiveKit-URL-Split + Caddy-`/rtc*`, echte Join-Tokens, RLS-Read-Fix. **`COSMI_ENV=production` SCHARF (R1-P0.3 erstmals wirklich aktiv), Video-Calls erstmals end-to-end funktional** (`/rtc/validate`=200). Incident-Historie: `docs/livekit-env-production-followups.md`.
+
+Offen fuer Rest-Sprint-4: Finance ADR-0007 (Kernstueck) + S4.1 Input-Validation + S4.10 Partitionierung.
 
 ## Sprint 4 Welle 1 — RLS-Foundation live in Production (2026-05-10)
 

@@ -1,8 +1,27 @@
 ---
 tags: [troubleshooting, debug]
-updated: 2026-06-05
+updated: 2026-06-06
 ---
 # Troubleshooting & Bekannte Probleme
+
+## Compose-Overlay-Gap: Dev-Secrets liefen in Production (2026-06-05)
+
+**Symptom-Klasse:** Feature funktioniert "irgendwie nicht" in Prod (Video-Calls tot, Webhook-Validierung
+im Skip-Modus), obwohl `.env.production` korrekte Werte hat. **Ursache:** Die Basis-Compose hardkodierte
+Secrets in `environment:`-Bloecken; das Prod-Overlay ueberschrieb nur 3 von ~20 Stellen — alle 24
+Services liefen mit Dev-`JWT_SECRET`, `minioadmin`, `devkey`. Diagnose-Muster (wertfrei!):
+`docker exec <c> printenv <VAR> | grep -c <dev-marker>` → Count statt Wert.
+**Fix-Architektur:** `${VAR:-dev-default}`-Interpolation ueberall + Requirements-Assertion, siehe
+[[deployment]] + [[security]]. Incident-Historie: `docs/livekit-env-production-followups.md` (F-A–F-K).
+
+Drei verwandte Fallen aus derselben Session:
+- **"Populated by gateway"-Kommentare luegen:** `JoinCallResponse.ws_url`/`StartMeetingResponse.token`
+  waren IMMER leer — der Kommentar beschrieb nie existenten Code, der Desktop-Client speiste die leeren
+  Felder direkt in die LiveKit-Connection. Bei "X wird woanders befuellt"-Kommentaren: Befuellung grep-verifizieren.
+- **RLS-Read-Gap, dritter Fund:** `call_sessions`-SELECTs lasen `tenant_id` nicht → Join-INSERT in
+  `call_participants` mit `uuid.Nil` → SQLSTATE 42501. Wer TenantID vererbt, MUSS sie zuruecklesen.
+- **CI-Paths-Filter:** `deploy/**`-only-Commits triggern kein CI; CD haengt an CI →
+  `gh workflow run CD --ref main`.
 
 ## Production-DB-Zugriff (Sprint 4 Welle 1 Lesson)
 

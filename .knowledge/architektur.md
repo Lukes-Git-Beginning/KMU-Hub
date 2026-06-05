@@ -1,6 +1,6 @@
 ---
 tags: [architektur, backend, frontend, ci-cd, rls]
-updated: 2026-06-05
+updated: 2026-06-06
 ---
 # Architektur
 
@@ -242,6 +242,19 @@ Die E2E-Suite deckte auf, dass das Tenant-Trust-Pattern an mehreren Stellen unvo
 - Sub-Agents committen gelegentlich eigenmächtig trotz expliziter "do not commit"-Anweisung (Stream C in dieser Welle, fuhrpark in Welle 2A). Bei parallelen Wellen einkalkulieren.
 - 5 parallele Streams produzierten 4 Cross-Stream-Compile-Konflikte (Service-Signaturen erweitert, Tests/Adapter nicht mitgezogen). Hauptsession patcht im Konsolidierungs-Pass.
 - Production-Deploy hatte 3 Anläufe: Migration-119-Spaltenname-Bug → Hotfix → Smoke-False-Positive (SMOKE_ADMIN_TOKEN expired) → Auto-Rollback zog Code zurück aber NICHT Migrations → Drift → `--skip-smoke`-Flag als finaler Forward.
+
+## Sprint-4-Vorzug — R2-P1-Batch + LiveKit/COSMI_ENV-Cluster (2026-06-05, 2 Sessions)
+
+**Session 1 (R2-P1-Batch, `f5788d8d`/`98337921`/`5dd862eb`/`19d5adb7`):**
+- **Neues Package `internal/circuitbreaker`** — 3-State (closed/open/half-open), injectable clock. Konsumenten: Bexio + DATEV (siehe [[integrationen]]). Bei neuen Drittanbieter-HTTP-Clients wiederverwenden.
+- **Redis-backed WS-Subscriptions** (`ws:subscriptions:{channel}`, 24h TTL, graceful Fallback) — Gateway-Restart verliert keine Subscription-Zuordnung mehr (R2-P1.7).
+- **Automation-Semaphor per-Tenant** (5/Tenant in global 20, R2-P1.3); **CleanupExpiredRecordings** 24h-Cron via `WithSystemContext` (R2-P1.11).
+- WS-Token-Revalidierung, Organizer-only-StartMeeting, Join-with-Consent: [[security]] "Realtime-Haertung".
+
+**Session 2 (LiveKit/COSMI_ENV, `68158907`…`ce2a5e5d`):**
+- **`config.Load(ctx, ...Requirement)`** — variadic Requirements-API (`RequireVault`/`RequireMinIO`/`RequireWOPI`); Prod-Assertion prueft nur konsumierte Gruppen, Compose-Dev-Werte bleiben universal verboten. Details [[security]]. Neue Services mit Vault/MinIO/WOPI-Konsum MUESSEN das Requirement deklarieren.
+- **LiveKit-URL-Split** intern (`LIVEKIT_INTERNAL_URL`, twirp) vs. public (`LIVEKIT_WS_URL`, Clients) + `cfg.LiveKitServerAPIURL()`-Fallback. `NewVideoGRPCServer(..., tokenGen video.RoomManager, publicWSURL string)` — Join/Start-Responses tragen echte `token`/`ws_url` (vorher IMMER leer). Details [[integrationen]].
+- Compose-Secret-Interpolation `${VAR:-dev-default}` als Hardrule: [[deployment]].
 
 ## Sprint 2 Welle 4B — Option-B Phase 2 + Idempotency HardMode-Bereitschaft (2026-05-07)
 

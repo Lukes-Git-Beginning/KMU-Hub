@@ -1,6 +1,6 @@
 ---
 tags: [security, auth, compliance, gdpr, rls, multi-tenant]
-updated: 2026-06-05
+updated: 2026-06-06
 ---
 # Security & Compliance
 
@@ -8,7 +8,7 @@ updated: 2026-06-05
 
 1. **JWT-Claim** (`tid`) — Auth-Layer issued seit Welle 2D. Required, fail-closed.
 2. **HTTP-Middleware** `middleware.GetTenantID(ctx)` — extrahiert `tid` aus Request-Context, returnt `ErrMissingTenantID` bei Fehlen.
-3. **Repository-Filter** — `WHERE tenant_id = $X` in jedem SELECT/UPDATE/DELETE; `tenant_id`-Spalte+Bind in jedem INSERT.
+3. **Repository-Filter** — `WHERE tenant_id = $X` in jedem SELECT/UPDATE/DELETE; `tenant_id`-Spalte+Bind in jedem INSERT. **Read-Side-Pflicht:** Wer `tenant_id` aus einem geladenen Entity in Folge-INSERTs vererbt, MUSS sie im SELECT zuruecklesen — dritter Fund dieser Klasse 2026-06-05 (`call_sessions` → `call_participants`-Join schlug mit RLS 42501 fehl, `5f16f0d9`).
 4. **PostgreSQL RLS** (Welle 1+, Aktivierung in Welle 2+) — Foundation seit Migration 118 in [[datenbank]]. Defense-in-Depth: selbst wenn Layer 3 vergessen wird, filtert die DB.
 
 **RLS-Helpers** (Migration 118): `current_tenant_id()`, `current_user_id()`, `current_app_role()`, `is_system_context()`. Standard-Policy-Generator: `enable_tenant_rls(table_name)` setzt `USING (tenant_id = current_tenant_id() OR is_system_context()) WITH CHECK (...)`. Pool-Layer setzt die GUCs via `database.BeginRLSTx(ctx, pool)` LOCAL pro Tx; `WithSystemContext(ctx)` markiert Worker für Bypass.
@@ -67,6 +67,14 @@ Gateway propagiert `tenant_id` und `user_id` als gRPC-Metadata an Backend-Servic
 - **Endpoint:** `POST /api/v1/video/recordings/{id}/initiator-consent` (gRPC `ConfirmInitiatorConsent` via `proto/video/v1/video_pre_consent_ext.go` — Handfile-Extension-Pattern, kein Proto-Regen). Welle 3.5: `MarkInitiatorConsent` + `GetPreConsentStatus` filtern jetzt `WHERE id=$1 AND tenant_id=$2` mit `RowsAffected==0`-Sentinel; `route_video.go` setzt RBAC-Permission-Middleware vor den Endpoint.
 - **Frontend-Flow:** `RecordingInitiatorDialog` (Radix AlertDialog, non-dismissible) wird in `CallControls.handleRecordToggle` gezeigt nachdem `startRecording.mutate()` die DB-Row reserviert hat. `handleConfirmStart` ruft `confirmInitiatorConsent`, was den Stamp setzt — Welle 3.5 wrappt den Call in `try/catch` mit `sonner.toast.error`, damit ein fehlgeschlagener Stamp keinen Orphan-Recording-State ohne sichtbares Feedback erzeugt. `handleRecordToggle` guarded zusaetzlich gegen Doppelklick via `startRecording.isPending || stopRecording.isPending || confirmInitiatorConsent.isPending`. `RecordingActiveBanner` (roter Top-Stripe) ist sichtbar waehrend `recordings.status='active'` — i18n-Keys `features.video.recordingBanner.*` und `features.video.recordingInitiator.*`.
 - **Audit-Trail:** Backend-Tests `TestStartRecording_RequiresPreConsent` + Roundtrip-Tests. Frontend-Tests in `CallControls.test.tsx` validieren dass `confirmInitiatorConsent` vor `startRecording` aufgerufen wird. `gateway/tenant_isolation_test.go` hat 4 zusaetzliche Cases (Welle 3.5) fuer `/recordings/{id}/initiator-consent`: no-tenant, empty-tid, valid-tid, two-tenant-Scenario.
+
+## Realtime-Haertung (2026-06-05, R2-P1-Batch + LiveKit-Cluster)
+
+- **LiveKit-Webhook-Signatur-Validierung** (`f5788d8d`, R2-P1.1): Gateway validiert `POST /api/v1/webhooks/livekit` via `lkwebhook.Receive` (Authorization-JWT + SHA-256-Body-Hash) mit dem **API-Pair** — LiveKit signiert mit Key/Secret, NICHT mit einem separaten Webhook-Secret (`LIVEKIT_WEBHOOK_SECRET` wird zur Laufzeit nicht genutzt, nur von der Assertion verlangt). Ohne Pair: graceful Skip + `slog.Warn` — seit dem Compose-Fix bekommt das Gateway das Pair (Skip-Modus in Prod beendet).
+- **WS-Token-Revalidierung** (`98337921`, R2-P1.6): 5-min-Ticker revalidiert das JWT in laufenden WS-Sessions, Close mit `StatusPolicyViolation` bei Expiry/Invalidierung.
+- **StartMeeting Organizer-only + `meetings:write`** (`98337921`, R2-P1.5): Migration 000131 seedet `meetings:write` fuer admin+manager+member (Lesson: Guard auf BESTANDS-Funktion braucht Seeds fuer alle bisher berechtigten Rollen — Umkehrung der 129er-Lesson).
+- **Join-with-Consent** (`19d5adb7`, R2-P0.4, letzter offener P0): MeetingLobby blockt Join bei aktivem Recording bis Consent-Antwort; Decline = Join blurred/muted; `RecordingActiveBanner` in MeetingRoomView (10s-Polling + WS `recording.started`).
+- **Automation-Semaphor per-Tenant** (`f5788d8d`, R2-P1.3): 5 parallele Executions/Tenant innerhalb global 20.
 
 ## Audit Logger (2026-04-08)
 - Buffered Channel (Kapazitaet 1000) + Worker Pool (10 Worker)
@@ -163,13 +171,22 @@ Welle-3.5-Verschaerfung der W2D-C-Lehre: gRPC-Server lasen `tenant_id` aus den P
 - **Status:** Launch-Blocker R1-P0.2 erledigt (PR #10). Gateway-Wiring via additive `NewServiceWithConsent()`-Constructors — Full-Wiring als separater Schritt im cmd-Paket.
 - **gRPC-Mapping (Sprint 3 Welle 2A, Commit `1f6c4c0`, 2026-05-08):** `mapDialerError` in `backend/internal/server/dialer_grpc.go` mappt `consent.ErrNoConsent` jetzt auf `codes.PermissionDenied` (vorher fiel es durch auf `codes.Internal`, weil keine explizite Sentinel-Klausel). Test-Case in `dialer_grpc_test.go::TestMapDialerError` deckt alle 10 Sentinels ab (`ErrCampaignNotFound`, `ErrCallSessionNotFound`, `ErrOutcomeNotFound`, `ErrCampaignNotDraft`, `ErrCampaignNotActive`, `ErrInvalidStatusTransition`, `ErrNoContactsAvailable`, `ErrContactAlreadyInCampaign`, `ErrAgentNotAvailable`, `ErrCampaignHasNoContacts`, plus `consent.ErrNoConsent` → `PermissionDenied` plus `nil` → `nil` plus unknown → `Internal`).
 
-## Prod-Secrets Startup-Assertion (2026-04-18, Sprint 0 S0.3)
+## Prod-Secrets Startup-Assertion (S0.3, scharf + Requirements-API seit 2026-06-05)
 
-- Wenn `COSMI_ENV=production`, erzwingt `backend/internal/config/config.go` nicht-leere Werte fuer:
-  - `JWT_SECRET`, `VAULT_MASTER_SECRET`, `WOPI_JWT_SECRET`, `MINIO_SECRET_KEY`
-- Dev-Default-Werte (wie `change-me`, `dev-secret`) werden in Prod explizit abgelehnt.
-- Tests: `backend/internal/config/config_test.go` (TestValidateProductionSecrets).
-- Service-Start ohne Secret → harter Abbruch, keine stillen Fallbacks.
+> **Incident 2026-06-05:** Die Assertion lief in Production NIE (`COSMI_ENV` war nirgends
+> gesetzt) — und Production lief auf den hartkodierten Dev-Secrets der Basis-Compose
+> (Dev-`JWT_SECRET` auf allen 24 Services!). Vollstaendige Befund-Historie (F-A–F-K):
+> `docs/livekit-env-production-followups.md`. Seit dem Fix-Cluster ist
+> `COSMI_ENV=production` auf dem Prod-Server SCHARF.
+
+- **Aktivierung:** `COSMI_ENV=production` (case-insensitive) in `Load()` → `validateProductionSecrets`. Fehler → `os.Exit(1)` in allen 24 mains.
+- **Requirements-API (`78043a63`):** `config.Load(ctx, ...Requirement)` — Services deklarieren konsumierte Secret-Gruppen: `RequireVault` (auth, email, biz), `RequireMinIO` (chat, work, email, document, gateway), `RequireWOPI` (document, gateway). Schlanke Modul-Services rufen `Load(ctx)` und werden nur an den universellen Checks gemessen (sonst riss der Go-Default-Rueckfall ihren Start — R1-P0.3 war nie mit den Welle-2-Services kompatibel).
+- **Zweigeteilte Deny-Lists** in `config.go`:
+  - `composeDevSecrets` (immer verboten, auch ohne Requirement): `docker-dev-secret-…`, `docker-dev-wopi-…`, `docker-dev-vault-…`, `minioadmin`, `devkey`, `devsecret` — ein solcher Wert in Prod heisst Compose/Overlay-Gap.
+  - `configDefaultSecrets` ("env not set"-Marker, nur bei Requirement verboten): `wopi-dev-secret-change-me`, `kmuhub`/`kmuhub_dev`, leere Strings.
+- **Universal:** `JWT_SECRET` (Compose-Dev-Wert + Mindestlaenge 32), LiveKit-Trio wenn Key ODER Secret gesetzt (inkl. non-empty `LIVEKIT_WEBHOOK_SECRET`), TURN-Symmetrie `COTURN_HOST`↔`TURN_SECRET`.
+- **Regel fuer neue Services:** Secret-Gruppe konsumiert ⇒ Requirement im main deklarieren; neuer Dev-Default ⇒ in `composeDevSecrets` eintragen + Testfall.
+- Tests: `config_test.go` (required-vs-lean-Semantik, Compose-Dev-Werte, JWT-Laenge, TURN-Symmetrie).
 
 ## Frontend HTML Sanitization (2026-04-18, Sprint 0 S0.4)
 
