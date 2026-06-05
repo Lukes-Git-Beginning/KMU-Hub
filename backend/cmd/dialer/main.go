@@ -65,9 +65,13 @@ func main() {
 	// Redis agent status store
 	agentStore := dialer.NewAgentStatusStore(redisClient)
 
-	// CRM bridge via gRPC (lazy connection to CRM service)
+	// CRM bridge via gRPC (lazy connection to CRM service). The outbound
+	// interceptor re-propagates the x-tenant-id/x-user-id metadata that the
+	// inbound interceptor unpacked — CRM's handlers are tenant-scoped and
+	// reject calls without it.
 	crmConn, err := grpc.NewClient(cfg.CRMGRPCAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(middleware.TenantOutboundUnaryInterceptor()),
 	)
 	if err != nil {
 		slog.Error("failed to connect to crm service", "error", err)

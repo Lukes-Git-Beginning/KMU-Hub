@@ -69,9 +69,18 @@ func (s *DialerGRPCServer) CreateCampaign(ctx context.Context, req *dialerv1.Cre
 		settings = &cs
 	}
 
-	// createdBy is not in proto v1 — use zero UUID; will be replaced by server-side
-	// user extraction once proto v2 adds the field.
+	// createdBy is not in proto v1 — read the caller from the x-user-id
+	// metadata the gateway propagates. dialer_campaigns.created_by has an FK
+	// to users, so a zero UUID would be rejected by the database.
 	var createdBy uuid.UUID
+	if uid := middleware.GetUserID(ctx); uid != "" {
+		if parsed, parseErr := uuid.Parse(uid); parseErr == nil {
+			createdBy = parsed
+		}
+	}
+	if createdBy == uuid.Nil {
+		return nil, status.Error(codes.Unauthenticated, "missing caller identity")
+	}
 
 	c, err := s.svc.CreateCampaign(ctx, tenantID, createdBy, req.GetName(), req.Description, campaignModeFromProto(req.GetMode()), assignedAgentIDs, settings)
 	if err != nil {
@@ -98,9 +107,11 @@ func (s *DialerGRPCServer) GetCampaign(ctx context.Context, req *dialerv1.GetCam
 }
 
 func (s *DialerGRPCServer) ListCampaigns(ctx context.Context, req *dialerv1.ListCampaignsRequest) (*dialerv1.ListCampaignsResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	// Tenant comes from the gateway-propagated metadata, never from the request
+	// payload (spoofable) — same trust pattern as GetCampaign.
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
 	}
 
 	var statusFilter *string
@@ -416,9 +427,9 @@ func (s *DialerGRPCServer) CompleteWrapUp(ctx context.Context, req *dialerv1.Com
 // ============================================================================
 
 func (s *DialerGRPCServer) SetAgentStatus(ctx context.Context, req *dialerv1.SetAgentStatusRequest) (*dialerv1.AgentStatus, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
 	}
 
 	userID, err := uuid.Parse(req.GetUserId())
@@ -477,9 +488,9 @@ func (s *DialerGRPCServer) GetCampaignAgents(ctx context.Context, req *dialerv1.
 // ============================================================================
 
 func (s *DialerGRPCServer) ListCallOutcomes(ctx context.Context, req *dialerv1.ListCallOutcomesRequest) (*dialerv1.ListCallOutcomesResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
 	}
 
 	includeInactive := false
@@ -499,9 +510,9 @@ func (s *DialerGRPCServer) ListCallOutcomes(ctx context.Context, req *dialerv1.L
 }
 
 func (s *DialerGRPCServer) CreateCallOutcome(ctx context.Context, req *dialerv1.CreateCallOutcomeRequest) (*dialerv1.CallOutcome, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
 	}
 
 	o, err := s.svc.CreateCallOutcome(ctx, tenantID,

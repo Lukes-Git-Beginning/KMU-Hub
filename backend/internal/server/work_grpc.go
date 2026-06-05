@@ -766,7 +766,17 @@ func (s *WorkGRPCServer) DeleteTask(ctx context.Context, req *workv1.DeleteTaskR
 		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
 	}
 
-	if err := s.taskService.Delete(ctx, tenantID, id, uuid.Nil); err != nil {
+	// DeleteTaskRequest carries no actor field — read the caller from the
+	// x-user-id metadata the gateway propagates. uuid.Nil would always fail
+	// the project-membership check in the service.
+	actorID := uuid.Nil
+	if uid := middleware.GetUserID(ctx); uid != "" {
+		if parsed, parseErr := uuid.Parse(uid); parseErr == nil {
+			actorID = parsed
+		}
+	}
+
+	if err := s.taskService.Delete(ctx, tenantID, id, actorID); err != nil {
 		return nil, mapWorkError(err)
 	}
 

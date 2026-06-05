@@ -167,8 +167,8 @@ func (r *PostgresCampaignRepository) AddContacts(ctx context.Context, campaignID
 	for _, cc := range contacts {
 		batch.Queue(
 			`INSERT INTO dialer_campaign_contacts
-			    (id, campaign_id, contact_id, position, status, created_at, updated_at)
-			 VALUES ($1, $2, $3, $4, 'pending', NOW(), NOW())
+			    (id, tenant_id, campaign_id, contact_id, position, status, created_at, updated_at)
+			 VALUES ($1, (SELECT tenant_id FROM dialer_campaigns WHERE id = $2), $2, $3, $4, 'pending', NOW(), NOW())
 			 ON CONFLICT ON CONSTRAINT uq_campaign_contact DO NOTHING`,
 			cc.ID, campaignID, cc.ContactID, cc.Position,
 		)
@@ -525,8 +525,10 @@ func (r *PostgresCallRepository) CreateSession(ctx context.Context, s *CallSessi
 }
 
 func (r *PostgresCallRepository) GetSessionByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*CallSession, error) {
+	// tenant_id MUST be scanned: UpdateSession/UpdateSessionWithEvent filter on
+	// s.TenantID — a zero value there makes every later UPDATE match 0 rows.
 	row := r.pool.QueryRow(ctx,
-		`SELECT id, campaign_contact_id, call_session_id, agent_id, outcome_id,
+		`SELECT id, tenant_id, campaign_contact_id, call_session_id, agent_id, outcome_id,
 		        duration_seconds, notes, next_action, appointment_id,
 		        created_at, updated_at, wrap_up_completed_at
 		 FROM dialer_call_sessions WHERE id = $1 AND tenant_id = $2`, id, tenantID,
@@ -590,8 +592,8 @@ func (r *PostgresCallRepository) UpdateSessionWithEvent(ctx context.Context, s *
 	}
 	if _, err := tx.Exec(ctx,
 		`INSERT INTO dialer_call_events
-		    (id, dialer_call_session_id, event_type, payload, occurred_at)
-		 VALUES ($1,$2,$3,$4,$5)`,
+		    (id, tenant_id, dialer_call_session_id, event_type, payload, occurred_at)
+		 VALUES ($1, (SELECT tenant_id FROM dialer_call_sessions WHERE id = $2), $2, $3, $4, $5)`,
 		e.ID, e.DialerCallSessionID, e.EventType, payloadJSON, e.OccurredAt,
 	); err != nil {
 		return fmt.Errorf("UpdateSessionWithEvent append event: %w", err)
@@ -610,8 +612,8 @@ func (r *PostgresCallRepository) AppendEvent(ctx context.Context, e *CallEvent) 
 	}
 	_, err = r.pool.Exec(ctx,
 		`INSERT INTO dialer_call_events
-		    (id, dialer_call_session_id, event_type, payload, occurred_at)
-		 VALUES ($1,$2,$3,$4,$5)`,
+		    (id, tenant_id, dialer_call_session_id, event_type, payload, occurred_at)
+		 VALUES ($1, (SELECT tenant_id FROM dialer_call_sessions WHERE id = $2), $2, $3, $4, $5)`,
 		e.ID, e.DialerCallSessionID, e.EventType, payloadJSON, e.OccurredAt,
 	)
 	return err
@@ -793,8 +795,8 @@ func NewPostgresAgentStatusRepository(pool *pgxpool.Pool) *PostgresAgentStatusRe
 func (r *PostgresAgentStatusRepository) LogStatusChange(ctx context.Context, entry *AgentStatusLogEntry) error {
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO dialer_agent_status_log
-		    (id, user_id, campaign_id, status, previous_status, changed_at, changed_by)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+		    (id, tenant_id, user_id, campaign_id, status, previous_status, changed_at, changed_by)
+		 VALUES ($1, (SELECT tenant_id FROM users WHERE id = $2), $2, $3, $4, $5, $6, $7)`,
 		entry.ID, entry.UserID, entry.CampaignID, entry.Status,
 		entry.PreviousStatus, entry.ChangedAt, entry.ChangedBy,
 	)
@@ -870,7 +872,7 @@ func scanCampaignContact(row scannable) (*CampaignContact, error) {
 func scanCallSession(row scannable) (*CallSession, error) {
 	var s CallSession
 	err := row.Scan(
-		&s.ID, &s.CampaignContactID, &s.CallSessionID, &s.AgentID, &s.OutcomeID,
+		&s.ID, &s.TenantID, &s.CampaignContactID, &s.CallSessionID, &s.AgentID, &s.OutcomeID,
 		&s.DurationSeconds, &s.Notes, &s.NextAction, &s.AppointmentID,
 		&s.CreatedAt, &s.UpdatedAt, &s.WrapUpCompletedAt,
 	)

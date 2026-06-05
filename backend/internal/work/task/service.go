@@ -204,6 +204,9 @@ func (s *Service) Update(ctx context.Context, tenantID, taskID uuid.UUID, input 
 	}
 
 	task := &existing.Task
+	// GetByID does not scan tenant_id, but repo.Update filters on it — restore
+	// it from the (already tenant-verified) lookup, or the UPDATE matches 0 rows.
+	task.TenantID = tenantID
 
 	if input.Title != nil {
 		title := strings.TrimSpace(*input.Title)

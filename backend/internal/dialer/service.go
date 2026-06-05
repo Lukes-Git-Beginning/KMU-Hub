@@ -95,6 +95,12 @@ func (s *Service) CreateCampaign(
 		cs = *settings
 	}
 
+	// dialer_campaigns.assigned_agent_ids is NOT NULL — a nil slice would be
+	// encoded as SQL NULL by pgx and violate the constraint.
+	if assignedAgentIDs == nil {
+		assignedAgentIDs = []uuid.UUID{}
+	}
+
 	// Ensure the tenant has default outcomes before the campaign goes live.
 	if err := s.outcomes.EnsureDefaults(ctx, tenantID); err != nil {
 		slog.WarnContext(ctx, "dialer: ensure default outcomes failed",

@@ -27,6 +27,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/document/wopi"
 	"github.com/kmuhub/kmuhub/internal/health"
 	"github.com/kmuhub/kmuhub/internal/metrics"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/server"
 	documentv1 "github.com/kmuhub/kmuhub/proto/document/v1"
@@ -118,10 +119,13 @@ func main() {
 	// Metrics
 	metricsRegistry := metrics.NewRegistry()
 
-	// gRPC server
+	// gRPC server. TenantInboundUnaryInterceptor unpacks the gateway-propagated
+	// x-tenant-id/x-user-id metadata into context — document_grpc.go handlers
+	// read the tenant via middleware.GetTenantID(ctx).
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			metricsRegistry.GRPCUnaryInterceptor(),
+			middleware.TenantInboundUnaryInterceptor(),
 		),
 		grpc.ChainStreamInterceptor(
 			metricsRegistry.GRPCStreamInterceptor(),
