@@ -170,31 +170,59 @@ func (c *Config) LiveKitServerAPIURL() string {
 	return c.LiveKitWSURL
 }
 
-func Load(ctx context.Context) (*Config, error) {
+// Load reads the configuration from the environment. Services pass the secret
+// groups they actually consume (RequireVault, RequireMinIO, RequireWOPI) so the
+// production assertion can demand real values for them; lean services call
+// Load(ctx) and are only held to the universal checks (JWT, LiveKit-if-on, TURN).
+func Load(ctx context.Context, requirements ...Requirement) (*Config, error) {
 	var cfg Config
 	if err := envconfig.Process(ctx, &cfg); err != nil {
 		return nil, err
 	}
 	if strings.EqualFold(cfg.Env, "production") {
-		if err := validateProductionSecrets(&cfg); err != nil {
+		if err := validateProductionSecrets(&cfg, requirements); err != nil {
 			return nil, fmt.Errorf("production secret validation failed: %w", err)
 		}
 	}
 	return &cfg, nil
 }
 
-// knownDevSecrets lists values that are safe in dev but must never reach production.
-// Each var carries every known dev value: the config-level default AND the
-// docker-compose dev value (they differ — the compose values previously slipped
-// past this check because only the config defaults were blocked).
-var knownDevSecrets = map[string][]string{
-	"JWT_SECRET":             {"docker-dev-secret-minimum-32-characters"},
-	"WOPI_JWT_SECRET":        {"wopi-dev-secret-change-me", "docker-dev-wopi-secret-minimum-32-characters"},
-	"MINIO_ACCESS_KEY":       {"minioadmin"},
-	"MINIO_SECRET_KEY":       {"kmuhub_dev", "minioadmin"},
-	"VAULT_MASTER_SECRET":    {"", "docker-dev-vault-secret-minimum-32-characters-long"},
-	"LIVEKIT_API_KEY":        {"devkey"},
-	"LIVEKIT_API_SECRET":     {"devsecret"},
+// Requirement marks a secret group a service actually consumes. Production
+// validation enforces presence + strength only for required groups — a lean
+// module service (formulare, vertraege, …) never receives WOPI/MinIO/Vault env
+// from compose and must not be refused over their unused Go defaults.
+// Explicitly configured dev values are rejected regardless of requirements.
+type Requirement int
+
+const (
+	// RequireVault — service decrypts/encrypts via VAULT_MASTER_SECRET (auth, email, biz).
+	RequireVault Requirement = iota
+	// RequireMinIO — service talks to MinIO (chat, work, email, document, gateway).
+	RequireMinIO
+	// RequireWOPI — service signs/validates WOPI tokens (document, gateway).
+	RequireWOPI
+)
+
+// composeDevSecrets are the docker-compose dev values. A service that receives
+// one of these in production got it through a compose/overlay gap — always refuse,
+// whether or not the service declared the requirement.
+var composeDevSecrets = map[string][]string{
+	"JWT_SECRET":          {"docker-dev-secret-minimum-32-characters"},
+	"WOPI_JWT_SECRET":     {"docker-dev-wopi-secret-minimum-32-characters"},
+	"MINIO_ACCESS_KEY":    {"minioadmin"},
+	"MINIO_SECRET_KEY":    {"minioadmin"},
+	"VAULT_MASTER_SECRET": {"docker-dev-vault-secret-minimum-32-characters-long"},
+	"LIVEKIT_API_KEY":     {"devkey"},
+	"LIVEKIT_API_SECRET":  {"devsecret"},
+}
+
+// configDefaultSecrets are the Go-config defaults — they mean "env not set".
+// Only refused when the service declared it requires the group.
+var configDefaultSecrets = map[string][]string{
+	"WOPI_JWT_SECRET":        {"wopi-dev-secret-change-me", ""},
+	"MINIO_ACCESS_KEY":       {"kmuhub", ""},
+	"MINIO_SECRET_KEY":       {"kmuhub_dev", ""},
+	"VAULT_MASTER_SECRET":    {""},
 	"LIVEKIT_WEBHOOK_SECRET": {""},
 }
 
@@ -202,19 +230,23 @@ var knownDevSecrets = map[string][]string{
 // token forgery brute-forceable regardless of whether the value is a known default.
 const minJWTSecretLength = 32
 
-func validateProductionSecrets(cfg *Config) error {
+func validateProductionSecrets(cfg *Config, requirements []Requirement) error {
+	required := make(map[Requirement]bool, len(requirements))
+	for _, r := range requirements {
+		required[r] = true
+	}
+
 	type check struct {
-		name      string
-		value     string
-		dev       []string
-		skipEmpty bool // if true, skip the check when value is empty (optional integration)
+		name     string
+		value    string
+		required bool // also refuse the "env not set" config defaults
 	}
 	checks := []check{
-		{"JWT_SECRET", cfg.JWTSecret, knownDevSecrets["JWT_SECRET"], false},
-		{"WOPI_JWT_SECRET", cfg.WOPIJWTSecret, knownDevSecrets["WOPI_JWT_SECRET"], false},
-		{"MINIO_ACCESS_KEY", cfg.MinIOAccessKey, knownDevSecrets["MINIO_ACCESS_KEY"], false},
-		{"MINIO_SECRET_KEY", cfg.MinIOSecretKey, knownDevSecrets["MINIO_SECRET_KEY"], false},
-		{"VAULT_MASTER_SECRET", cfg.VaultMasterSecret, knownDevSecrets["VAULT_MASTER_SECRET"], false},
+		{"JWT_SECRET", cfg.JWTSecret, true},
+		{"WOPI_JWT_SECRET", cfg.WOPIJWTSecret, required[RequireWOPI]},
+		{"MINIO_ACCESS_KEY", cfg.MinIOAccessKey, required[RequireMinIO]},
+		{"MINIO_SECRET_KEY", cfg.MinIOSecretKey, required[RequireMinIO]},
+		{"VAULT_MASTER_SECRET", cfg.VaultMasterSecret, required[RequireVault]},
 	}
 
 	// LiveKit secrets are only validated when LiveKit is configured.
@@ -222,10 +254,10 @@ func validateProductionSecrets(cfg *Config) error {
 	liveKitConfigured := cfg.LiveKitAPIKey != "" || cfg.LiveKitAPISecret != ""
 	if liveKitConfigured {
 		checks = append(checks,
-			check{"LIVEKIT_API_KEY", cfg.LiveKitAPIKey, knownDevSecrets["LIVEKIT_API_KEY"], false},
-			check{"LIVEKIT_API_SECRET", cfg.LiveKitAPISecret, knownDevSecrets["LIVEKIT_API_SECRET"], false},
+			check{"LIVEKIT_API_KEY", cfg.LiveKitAPIKey, true},
+			check{"LIVEKIT_API_SECRET", cfg.LiveKitAPISecret, true},
 			// LIVEKIT_WEBHOOK_SECRET must be set when LiveKit is active in production.
-			check{"LIVEKIT_WEBHOOK_SECRET", cfg.LiveKitWebhookSecret, knownDevSecrets["LIVEKIT_WEBHOOK_SECRET"], false},
+			check{"LIVEKIT_WEBHOOK_SECRET", cfg.LiveKitWebhookSecret, true},
 		)
 	}
 
@@ -251,10 +283,11 @@ func validateProductionSecrets(cfg *Config) error {
 	}
 
 	for _, c := range checks {
-		if c.skipEmpty && c.value == "" {
-			continue
+		denied := composeDevSecrets[c.name]
+		if c.required {
+			denied = append(denied, configDefaultSecrets[c.name]...)
 		}
-		for _, dev := range c.dev {
+		for _, dev := range denied {
 			if c.value == dev {
 				if dev == "" {
 					errs = append(errs, fmt.Sprintf("%s must be set in production (currently empty)", c.name))

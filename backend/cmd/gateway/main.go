@@ -14,11 +14,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/kmuhub/kmuhub/internal/cache"
 	"github.com/kmuhub/kmuhub/internal/auth"
+	"github.com/kmuhub/kmuhub/internal/cache"
 	"github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/chat/guest"
-	"github.com/kmuhub/kmuhub/internal/inbox/adapter"
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/document/wopi"
@@ -26,6 +25,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/gateway"
 	"github.com/kmuhub/kmuhub/internal/health"
 	"github.com/kmuhub/kmuhub/internal/idempotency"
+	"github.com/kmuhub/kmuhub/internal/inbox/adapter"
 	"github.com/kmuhub/kmuhub/internal/metrics"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server"
@@ -39,7 +39,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cfg, err := config.Load(ctx)
+	cfg, err := config.Load(ctx, config.RequireMinIO, config.RequireWOPI)
 	if err != nil {
 		slog.Error("failed to load config", "error", err)
 		os.Exit(1)

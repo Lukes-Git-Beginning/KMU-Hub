@@ -44,41 +44,66 @@ func TestValidateProductionSecrets(t *testing.T) {
 
 	t.Run("production mode is case-insensitive", func(t *testing.T) {
 		t.Setenv("COSMI_ENV", "Production")
-		t.Setenv("JWT_SECRET", prodJWT)
-		// remaining dev defaults → should still fail
+		// compose dev JWT is always refused in production — proves the
+		// case-insensitive match arms the validation.
+		t.Setenv("JWT_SECRET", "docker-dev-secret-minimum-32-characters")
 		_, err := Load(context.Background())
 		if err == nil {
 			t.Fatal("Load() should fail for 'Production' (case-insensitive)")
 		}
 	})
 
-	// --- per-var rejection: config-level dev defaults ---
+	// --- requirements: config defaults refused only for services that need the group ---
 
-	t.Run("dev default rejected in production — WOPI_JWT_SECRET", func(t *testing.T) {
-		setStrongProdSecrets(t)
-		t.Setenv("WOPI_JWT_SECRET", "wopi-dev-secret-change-me")
-		if _, err := Load(context.Background()); err == nil {
-			t.Fatal("Load() should fail in production with dev WOPI_JWT_SECRET")
-		}
-	})
-
-	t.Run("dev default rejected in production — MINIO_SECRET_KEY", func(t *testing.T) {
-		setStrongProdSecrets(t)
-		t.Setenv("MINIO_SECRET_KEY", "kmuhub_dev")
-		if _, err := Load(context.Background()); err == nil {
-			t.Fatal("Load() should fail in production with dev MINIO_SECRET_KEY")
-		}
-	})
-
-	t.Run("empty VAULT_MASTER_SECRET rejected in production", func(t *testing.T) {
+	t.Run("required vault refuses go-default in production", func(t *testing.T) {
 		setStrongProdSecrets(t)
 		t.Setenv("VAULT_MASTER_SECRET", "")
-		if _, err := Load(context.Background()); err == nil {
-			t.Fatal("Load() should fail in production with empty VAULT_MASTER_SECRET")
+		if _, err := Load(context.Background(), RequireVault); err == nil {
+			t.Fatal("Load(RequireVault) should fail in production with empty VAULT_MASTER_SECRET")
 		}
 	})
 
-	// --- per-var rejection: docker-compose dev values (previously slipped past) ---
+	t.Run("lean service ignores vault go-default in production", func(t *testing.T) {
+		setStrongProdSecrets(t)
+		t.Setenv("VAULT_MASTER_SECRET", "")
+		if _, err := Load(context.Background()); err != nil {
+			t.Fatalf("Load() without RequireVault should ignore empty VAULT_MASTER_SECRET: %v", err)
+		}
+	})
+
+	t.Run("required wopi refuses go-default in production", func(t *testing.T) {
+		setStrongProdSecrets(t)
+		t.Setenv("WOPI_JWT_SECRET", "wopi-dev-secret-change-me")
+		if _, err := Load(context.Background(), RequireWOPI); err == nil {
+			t.Fatal("Load(RequireWOPI) should fail in production with dev-default WOPI_JWT_SECRET")
+		}
+	})
+
+	t.Run("lean service ignores wopi go-default in production", func(t *testing.T) {
+		setStrongProdSecrets(t)
+		t.Setenv("WOPI_JWT_SECRET", "wopi-dev-secret-change-me")
+		if _, err := Load(context.Background()); err != nil {
+			t.Fatalf("Load() without RequireWOPI should ignore the WOPI go-default: %v", err)
+		}
+	})
+
+	t.Run("required minio refuses go-default in production", func(t *testing.T) {
+		setStrongProdSecrets(t)
+		t.Setenv("MINIO_SECRET_KEY", "kmuhub_dev")
+		if _, err := Load(context.Background(), RequireMinIO); err == nil {
+			t.Fatal("Load(RequireMinIO) should fail in production with dev MINIO_SECRET_KEY")
+		}
+	})
+
+	t.Run("lean service ignores minio go-default in production", func(t *testing.T) {
+		setStrongProdSecrets(t)
+		t.Setenv("MINIO_SECRET_KEY", "kmuhub_dev")
+		if _, err := Load(context.Background()); err != nil {
+			t.Fatalf("Load() without RequireMinIO should ignore the MinIO go-default: %v", err)
+		}
+	})
+
+	// --- compose dev values: refused for EVERY service, required or not ---
 
 	t.Run("compose dev value rejected in production — JWT_SECRET", func(t *testing.T) {
 		setStrongProdSecrets(t)
@@ -92,7 +117,7 @@ func TestValidateProductionSecrets(t *testing.T) {
 		setStrongProdSecrets(t)
 		t.Setenv("WOPI_JWT_SECRET", "docker-dev-wopi-secret-minimum-32-characters")
 		if _, err := Load(context.Background()); err == nil {
-			t.Fatal("Load() should fail in production with compose dev WOPI_JWT_SECRET")
+			t.Fatal("Load() should fail in production with compose dev WOPI_JWT_SECRET even without RequireWOPI")
 		}
 	})
 
@@ -100,7 +125,7 @@ func TestValidateProductionSecrets(t *testing.T) {
 		setStrongProdSecrets(t)
 		t.Setenv("VAULT_MASTER_SECRET", "docker-dev-vault-secret-minimum-32-characters-long")
 		if _, err := Load(context.Background()); err == nil {
-			t.Fatal("Load() should fail in production with compose dev VAULT_MASTER_SECRET")
+			t.Fatal("Load() should fail in production with compose dev VAULT_MASTER_SECRET even without RequireVault")
 		}
 	})
 
@@ -108,7 +133,7 @@ func TestValidateProductionSecrets(t *testing.T) {
 		setStrongProdSecrets(t)
 		t.Setenv("MINIO_ACCESS_KEY", "minioadmin")
 		if _, err := Load(context.Background()); err == nil {
-			t.Fatal("Load() should fail in production with MINIO_ACCESS_KEY=minioadmin")
+			t.Fatal("Load() should fail in production with MINIO_ACCESS_KEY=minioadmin even without RequireMinIO")
 		}
 	})
 
@@ -116,7 +141,14 @@ func TestValidateProductionSecrets(t *testing.T) {
 		setStrongProdSecrets(t)
 		t.Setenv("MINIO_SECRET_KEY", "minioadmin")
 		if _, err := Load(context.Background()); err == nil {
-			t.Fatal("Load() should fail in production with MINIO_SECRET_KEY=minioadmin")
+			t.Fatal("Load() should fail in production with MINIO_SECRET_KEY=minioadmin even without RequireMinIO")
+		}
+	})
+
+	t.Run("all strong secrets pass with all requirements", func(t *testing.T) {
+		setStrongProdSecrets(t)
+		if _, err := Load(context.Background(), RequireVault, RequireMinIO, RequireWOPI); err != nil {
+			t.Fatalf("Load() with all requirements should succeed with strong secrets: %v", err)
 		}
 	})
 

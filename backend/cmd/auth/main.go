@@ -35,7 +35,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cfg, err := config.Load(ctx)
+	cfg, err := config.Load(ctx, config.RequireVault)
 	if err != nil {
 		slog.Error("failed to load config", "error", err)
 		os.Exit(1)
