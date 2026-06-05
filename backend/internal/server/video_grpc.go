@@ -772,7 +772,12 @@ func (s *VideoGRPCServer) StartMeeting(ctx context.Context, req *videov1.StartMe
 		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
 	}
 
-	m, err := s.meetingService.StartMeeting(ctx, id, tenantID)
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	m, err := s.meetingService.StartMeeting(ctx, id, tenantID, userID)
 	if err != nil {
 		return nil, mapMeetingError(err)
 	}
@@ -1589,6 +1594,8 @@ func mapMeetingError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, meeting.ErrInvalidTimeRange):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, meeting.ErrNotOrganizer):
+		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, meeting.ErrNotScheduled):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, meeting.ErrNotInProgress):

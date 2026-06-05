@@ -19,4 +19,5 @@ var (
 	ErrNotRecurring          = errors.New("meeting is not part of a recurring series")
 	ErrNoPreviousNotes       = errors.New("no previous meeting notes found")
 	ErrNoAttendeesProvided   = errors.New("at least one attendee is required")
+	ErrNotOrganizer          = errors.New("only the meeting organizer can perform this action")
 )

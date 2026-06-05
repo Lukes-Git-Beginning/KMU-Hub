@@ -339,7 +339,7 @@ func TestUpdateMeeting_NotScheduled(t *testing.T) {
 	require.NoError(t, err)
 
 	// Start the meeting
-	_, err = svc.StartMeeting(ctx, m.ID, testTenantID)
+	_, err = svc.StartMeeting(ctx, m.ID, testTenantID, input.OrganizerID)
 	require.NoError(t, err)
 
 	newTitle := "Updated"
@@ -368,7 +368,7 @@ func TestDeleteMeeting_InProgress(t *testing.T) {
 	m, err := svc.CreateMeeting(ctx, input)
 	require.NoError(t, err)
 
-	_, err = svc.StartMeeting(ctx, m.ID, testTenantID)
+	_, err = svc.StartMeeting(ctx, m.ID, testTenantID, input.OrganizerID)
 	require.NoError(t, err)
 
 	err = svc.DeleteMeeting(ctx, m.ID, testTenantID)
@@ -383,7 +383,7 @@ func TestStartMeeting_Success(t *testing.T) {
 	m, err := svc.CreateMeeting(ctx, input)
 	require.NoError(t, err)
 
-	started, err := svc.StartMeeting(ctx, m.ID, testTenantID)
+	started, err := svc.StartMeeting(ctx, m.ID, testTenantID, input.OrganizerID)
 	require.NoError(t, err)
 	assert.Equal(t, MeetingStatusInProgress, started.Status)
 	assert.NotNil(t, started.ActualStart)
@@ -398,11 +398,39 @@ func TestStartMeeting_AlreadyInProgress(t *testing.T) {
 	m, err := svc.CreateMeeting(ctx, input)
 	require.NoError(t, err)
 
-	_, err = svc.StartMeeting(ctx, m.ID, testTenantID)
+	_, err = svc.StartMeeting(ctx, m.ID, testTenantID, input.OrganizerID)
 	require.NoError(t, err)
 
-	_, err = svc.StartMeeting(ctx, m.ID, testTenantID)
+	_, err = svc.StartMeeting(ctx, m.ID, testTenantID, input.OrganizerID)
 	assert.ErrorIs(t, err, ErrNotScheduled)
+}
+
+func TestStartMeeting_NotOrganizer(t *testing.T) {
+	svc, _ := newTestService()
+	ctx := context.Background()
+	input := validCreateInput()
+
+	m, err := svc.CreateMeeting(ctx, input)
+	require.NoError(t, err)
+
+	nonOrganizer := uuid.New()
+	_, err = svc.StartMeeting(ctx, m.ID, testTenantID, nonOrganizer)
+	assert.ErrorIs(t, err, ErrNotOrganizer)
+}
+
+func TestStartMeeting_OrganizerCanStart(t *testing.T) {
+	svc, _ := newTestService()
+	ctx := context.Background()
+	input := validCreateInput()
+
+	m, err := svc.CreateMeeting(ctx, input)
+	require.NoError(t, err)
+
+	started, err := svc.StartMeeting(ctx, m.ID, testTenantID, input.OrganizerID)
+	require.NoError(t, err)
+	assert.Equal(t, MeetingStatusInProgress, started.Status)
+	assert.NotNil(t, started.ActualStart)
+	assert.NotNil(t, started.RoomName)
 }
 
 func TestEndMeeting_Success(t *testing.T) {
@@ -413,7 +441,7 @@ func TestEndMeeting_Success(t *testing.T) {
 	m, err := svc.CreateMeeting(ctx, input)
 	require.NoError(t, err)
 
-	_, err = svc.StartMeeting(ctx, m.ID, testTenantID)
+	_, err = svc.StartMeeting(ctx, m.ID, testTenantID, input.OrganizerID)
 	require.NoError(t, err)
 
 	summary, err := svc.EndMeeting(ctx, m.ID, testTenantID)
@@ -445,7 +473,7 @@ func TestLifecycle_ScheduledToInProgressToCompleted(t *testing.T) {
 	assert.Equal(t, MeetingStatusScheduled, m.Status)
 
 	// Start
-	started, err := svc.StartMeeting(ctx, m.ID, testTenantID)
+	started, err := svc.StartMeeting(ctx, m.ID, testTenantID, input.OrganizerID)
 	require.NoError(t, err)
 	assert.Equal(t, MeetingStatusInProgress, started.Status)
 	assert.NotNil(t, started.ActualStart)
@@ -482,7 +510,7 @@ func TestCancelMeeting_NotScheduled(t *testing.T) {
 	m, err := svc.CreateMeeting(ctx, input)
 	require.NoError(t, err)
 
-	_, err = svc.StartMeeting(ctx, m.ID, testTenantID)
+	_, err = svc.StartMeeting(ctx, m.ID, testTenantID, input.OrganizerID)
 	require.NoError(t, err)
 
 	_, err = svc.CancelMeeting(ctx, m.ID, testTenantID)
@@ -497,7 +525,7 @@ func TestSaveNotes_Success(t *testing.T) {
 	m, err := svc.CreateMeeting(ctx, input)
 	require.NoError(t, err)
 
-	_, err = svc.StartMeeting(ctx, m.ID, testTenantID)
+	_, err = svc.StartMeeting(ctx, m.ID, testTenantID, input.OrganizerID)
 	require.NoError(t, err)
 
 	authorID := uuid.New()
@@ -527,7 +555,7 @@ func TestSaveNotes_EmptyContent(t *testing.T) {
 	m, err := svc.CreateMeeting(ctx, input)
 	require.NoError(t, err)
 
-	_, err = svc.StartMeeting(ctx, m.ID, testTenantID)
+	_, err = svc.StartMeeting(ctx, m.ID, testTenantID, input.OrganizerID)
 	require.NoError(t, err)
 
 	_, err = svc.SaveNotes(ctx, m.ID, uuid.New(), testTenantID, "   ", false)
@@ -754,7 +782,7 @@ func TestEndMeeting_WithNotesAndActionItems(t *testing.T) {
 	m, err := svc.CreateMeeting(ctx, input)
 	require.NoError(t, err)
 
-	_, err = svc.StartMeeting(ctx, m.ID, testTenantID)
+	_, err = svc.StartMeeting(ctx, m.ID, testTenantID, input.OrganizerID)
 	require.NoError(t, err)
 
 	// Add notes

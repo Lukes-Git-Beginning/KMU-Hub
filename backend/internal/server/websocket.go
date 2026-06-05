@@ -27,6 +27,9 @@ const (
 	msgBurstSize = 20
 	// wsAuthProtocol is the subprotocol marker used for Sec-WebSocket-Protocol auth.
 	wsAuthProtocol = "access_token"
+	// wsTokenRevalidateInterval is how often in-session tokens are re-checked.
+	// A revoked or expired token detected during this tick closes the connection.
+	wsTokenRevalidateInterval = 5 * time.Minute
 )
 
 // GuestSessionValidator validates guest tokens and enforces rate limits.
@@ -320,7 +323,7 @@ func (h *WebSocketHub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// Handle messages
 	ctx := r.Context()
-	h.handleConnection(ctx, conn, userID)
+	h.handleConnection(ctx, conn, userID, token)
 }
 
 // handleGuestWebSocket handles WebSocket connections for guest users.
@@ -409,7 +412,20 @@ func (h *WebSocketHub) unregisterConnection(userID string, conn *websocket.Conn)
 	_ = conn.Close(websocket.StatusNormalClosure, "connection closed")
 }
 
-func (h *WebSocketHub) handleConnection(ctx context.Context, conn *websocket.Conn, userID string) {
+// handleConnection drives the read-loop for an authenticated WebSocket connection.
+// rawToken is the original JWT string used during the handshake; it is re-validated
+// periodically so that revoked or expired tokens are caught in-session.
+func (h *WebSocketHub) handleConnection(ctx context.Context, conn *websocket.Conn, userID, rawToken string) {
+	// Start the periodic token-revalidation goroutine.
+	// It runs independently of the read-loop (which blocks on wsjson.Read) and
+	// terminates either when ctx is cancelled (normal disconnect) or when it
+	// closes the connection itself (token no longer valid).
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		h.revalidateTokenLoop(ctx, conn, userID, rawToken)
+	}()
+
 	for {
 		var msg WSMessage
 		err := wsjson.Read(ctx, conn, &msg)
@@ -419,10 +435,48 @@ func (h *WebSocketHub) handleConnection(ctx context.Context, conn *websocket.Con
 			} else {
 				slog.Error("websocket read error", "user_id", userID, "error", err)
 			}
+			// Wait for the revalidation goroutine to finish before returning so
+			// that the deferred unregisterConnection in HandleWebSocket runs last.
+			<-done
 			return
 		}
 
 		h.handleMessage(ctx, conn, userID, &msg)
+	}
+}
+
+// revalidateTokenLoop runs in a separate goroutine and re-validates rawToken every
+// wsTokenRevalidateInterval. If the token has expired or been revoked the connection
+// is closed with StatusPolicyViolation, which wakes the blocked wsjson.Read in
+// handleConnection and causes the normal disconnect path (defer unregisterConnection)
+// to execute. The goroutine exits when ctx is done or after it closes the connection.
+func (h *WebSocketHub) revalidateTokenLoop(ctx context.Context, conn *websocket.Conn, userID, rawToken string) {
+	h.revalidateTokenLoopWithInterval(ctx, conn, userID, rawToken, wsTokenRevalidateInterval)
+}
+
+// revalidateTokenLoopWithInterval is the internal implementation of revalidateTokenLoop
+// with a configurable tick interval. It exists to allow unit tests to inject a short
+// interval without waiting for the 5-minute production constant.
+func (h *WebSocketHub) revalidateTokenLoopWithInterval(ctx context.Context, conn *websocket.Conn, userID, rawToken string, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if _, err := h.tokenMaker.ValidateAccessToken(rawToken); err != nil {
+				slog.Info("ws connection closed: token no longer valid",
+					"user_id", userID,
+					"reason", err,
+				)
+				// Close with PolicyViolation so the client knows the session ended
+				// due to an auth failure (distinct from a normal closure).
+				_ = conn.Close(websocket.StatusPolicyViolation, "token expired or revoked")
+				return
+			}
+		}
 	}
 }
 

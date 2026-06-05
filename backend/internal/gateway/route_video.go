@@ -119,13 +119,17 @@ func (vr *VideoRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 	r.Route("/api/v1/meetings", func(r chi.Router) {
 		r.Use(authMiddleware)
 
-		r.Post("/", vr.HandleCreateMeeting)
+		// Creating a meeting requires meetings:write permission (seeded in 000131).
+		r.With(middleware.RequirePermission("meetings", "write")).Post("/", vr.HandleCreateMeeting)
 		r.Get("/", vr.HandleListMeetings)
 		r.Get("/{id}", vr.HandleGetMeeting)
-		r.Put("/{id}", vr.HandleUpdateMeeting)
-		r.Delete("/{id}", vr.HandleDeleteMeeting)
-		r.Post("/{id}/start", vr.HandleStartMeeting)
-		r.Post("/{id}/end", vr.HandleEndMeeting)
+		r.With(middleware.RequirePermission("meetings", "write")).Put("/{id}", vr.HandleUpdateMeeting)
+		r.With(middleware.RequirePermission("meetings", "write")).Delete("/{id}", vr.HandleDeleteMeeting)
+		// Only the organizer may start a meeting; the service enforces the organizer
+		// check — the permission guard here ensures the caller is at least an
+		// authenticated user with meetings:write capability.
+		r.With(middleware.RequirePermission("meetings", "write")).Post("/{id}/start", vr.HandleStartMeeting)
+		r.With(middleware.RequirePermission("meetings", "write")).Post("/{id}/end", vr.HandleEndMeeting)
 
 		// Notes
 		r.Put("/{id}/notes", vr.HandleSaveMeetingNotes)

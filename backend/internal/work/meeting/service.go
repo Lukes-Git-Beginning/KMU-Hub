@@ -240,11 +240,16 @@ func (s *Service) ListMeetings(ctx context.Context, filter MeetingFilter) ([]Mee
 	return s.repo.ListMeetings(ctx, filter)
 }
 
-// StartMeeting transitions a scheduled meeting to in_progress
-func (s *Service) StartMeeting(ctx context.Context, id, tenantID uuid.UUID) (*Meeting, error) {
+// StartMeeting transitions a scheduled meeting to in_progress.
+// Only the meeting organizer (identified by userID) is allowed to start a meeting.
+func (s *Service) StartMeeting(ctx context.Context, id, tenantID, userID uuid.UUID) (*Meeting, error) {
 	m, err := s.repo.GetMeeting(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
+	}
+
+	if m.OrganizerID != userID {
+		return nil, ErrNotOrganizer
 	}
 
 	if m.Status != MeetingStatusScheduled {
