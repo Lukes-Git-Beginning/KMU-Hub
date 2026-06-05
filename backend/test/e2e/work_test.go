@@ -4,24 +4,30 @@ package e2e
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"testing"
+	"time"
 )
 
 func TestWorkProjectFlow(t *testing.T) {
 	base := gatewayURL()
 	waitForHealth(t, base)
 
-	token, _ := registerAndLogin(t, base)
+	token, _ := registerAndLoginAdmin(t, base)
 
 	var projectID string
 
-	// Create project
+	// Create project. project_key is required (uppercase A-Z0-9, 2-10 chars,
+	// unique per tenant among active projects) — derive it from the clock so
+	// repeated runs against a persistent DB do not collide.
+	projectKey := fmt.Sprintf("E%d", time.Now().Unix()%1_000_000_000)
+
 	t.Run("create_project", func(t *testing.T) {
 		resp, body := postJSON(t, base+"/api/v1/projects", map[string]interface{}{
 			"name":        "E2E Test Project",
+			"project_key": projectKey,
 			"description": "Project created by E2E test",
-			"color":       "#10B981",
 		}, token)
 		requireStatus(t, resp, body, http.StatusCreated)
 
@@ -87,9 +93,8 @@ func TestWorkProjectFlow(t *testing.T) {
 	var statusID string
 	t.Run("create_project_status", func(t *testing.T) {
 		resp, body := postJSON(t, base+"/api/v1/projects/"+projectID+"/statuses", map[string]interface{}{
-			"name":     "To Do",
-			"color":    "#6B7280",
-			"position": 1,
+			"name":  "To Do",
+			"color": "#6B7280",
 		}, token)
 		requireStatus(t, resp, body, http.StatusCreated)
 

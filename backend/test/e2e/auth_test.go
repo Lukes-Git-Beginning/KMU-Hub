@@ -268,8 +268,6 @@ func TestChangePassword(t *testing.T) {
 }
 
 func TestInvitationFlow(t *testing.T) {
-	t.Skip("Skipping: requires admin seed data not available in CI")
-
 	base := gatewayURL()
 	waitForHealth(t, base)
 
@@ -292,19 +290,22 @@ func TestInvitationFlow(t *testing.T) {
 	if err := json.Unmarshal(body, &adminAuth); err != nil {
 		t.Fatalf("failed to decode admin login response: %v", err)
 	}
-	adminToken := adminAuth.AccessToken
 	adminUserID := adminAuth.User["id"].(string)
 
-	_, _ = postJSON(t, base+"/api/v1/users/"+adminUserID+"/roles", map[string]string{
-		"role_name": "admin",
-	}, adminToken)
+	// Bootstrap: a fresh registration only has the member role, so the role
+	// assignment API would 403. Promote directly in the DB, then re-login —
+	// permissions are baked into the JWT at login time.
+	promoteToAdmin(t, adminUserID)
 
 	resp, body = postJSON(t, base+"/api/v1/auth/login", map[string]string{
 		"email":    adminEmail,
 		"password": adminPassword,
 	}, "")
-	json.Unmarshal(body, &adminAuth)
-	adminToken = adminAuth.AccessToken
+	requireStatus(t, resp, body, http.StatusOK)
+	if err := json.Unmarshal(body, &adminAuth); err != nil {
+		t.Fatalf("failed to decode admin re-login response: %v", err)
+	}
+	adminToken := adminAuth.AccessToken
 
 	invitedEmail := fmt.Sprintf("invited-%d@test.com", time.Now().UnixNano())
 	var invitationToken string

@@ -11,24 +11,23 @@ func TestDocumentFolderFlow(t *testing.T) {
 	base := gatewayURL()
 	waitForHealth(t, base)
 
-	token, _ := registerAndLogin(t, base)
+	token, _ := registerAndLoginAdmin(t, base)
 
 	var folderID string
 
-	// Create folder
+	// Create folder. The gateway writes the folder object at the top level
+	// of the response (no {"folder": ...} envelope).
 	t.Run("create_folder", func(t *testing.T) {
 		resp, body := postJSON(t, base+"/api/v1/documents/folders", map[string]interface{}{
 			"name":       "E2E Test Folder",
-			"space_type": "user",
+			"space_type": "personal",
 		}, token)
 		requireStatus(t, resp, body, http.StatusCreated)
 
-		var result struct {
-			Folder map[string]interface{} `json:"folder"`
-		}
-		decodeBody(t, body, &result)
+		var folder map[string]interface{}
+		decodeBody(t, body, &folder)
 
-		id, ok := result.Folder["id"].(string)
+		id, ok := folder["id"].(string)
 		if !ok || id == "" {
 			t.Fatal("expected folder id")
 		}
@@ -40,13 +39,11 @@ func TestDocumentFolderFlow(t *testing.T) {
 		resp, body := getJSON(t, base+"/api/v1/documents/folders/"+folderID, token)
 		requireStatus(t, resp, body, http.StatusOK)
 
-		var result struct {
-			Folder map[string]interface{} `json:"folder"`
-		}
-		decodeBody(t, body, &result)
+		var folder map[string]interface{}
+		decodeBody(t, body, &folder)
 
-		if result.Folder["name"] != "E2E Test Folder" {
-			t.Fatalf("expected folder name, got %v", result.Folder["name"])
+		if folder["name"] != "E2E Test Folder" {
+			t.Fatalf("expected folder name, got %v", folder["name"])
 		}
 	})
 
@@ -60,17 +57,16 @@ func TestDocumentFolderFlow(t *testing.T) {
 	var subfolderID string
 	t.Run("create_subfolder", func(t *testing.T) {
 		resp, body := postJSON(t, base+"/api/v1/documents/folders", map[string]interface{}{
-			"name":      "E2E Subfolder",
-			"parent_id": folderID,
+			"name":       "E2E Subfolder",
+			"parent_id":  folderID,
+			"space_type": "personal",
 		}, token)
 		requireStatus(t, resp, body, http.StatusCreated)
 
-		var result struct {
-			Folder map[string]interface{} `json:"folder"`
-		}
-		decodeBody(t, body, &result)
+		var folder map[string]interface{}
+		decodeBody(t, body, &folder)
 
-		id, ok := result.Folder["id"].(string)
+		id, ok := folder["id"].(string)
 		if !ok || id == "" {
 			t.Fatal("expected subfolder id")
 		}
@@ -115,7 +111,7 @@ func TestDocumentFileMetadata(t *testing.T) {
 	base := gatewayURL()
 	waitForHealth(t, base)
 
-	token, _ := registerAndLogin(t, base)
+	token, _ := registerAndLoginAdmin(t, base)
 
 	// List files (should be empty initially)
 	t.Run("list_files_empty", func(t *testing.T) {

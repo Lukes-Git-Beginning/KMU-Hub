@@ -11,7 +11,7 @@ func TestChatChannelFlow(t *testing.T) {
 	base := gatewayURL()
 	waitForHealth(t, base)
 
-	token, userID := registerAndLogin(t, base)
+	token, _ := registerAndLoginAdmin(t, base)
 
 	var channelID string
 
@@ -20,8 +20,7 @@ func TestChatChannelFlow(t *testing.T) {
 		resp, body := postJSON(t, base+"/api/v1/channels", map[string]interface{}{
 			"name":        "e2e-test-channel",
 			"description": "E2E test channel",
-			"type":        "public",
-			"created_by":  userID,
+			"is_private":  false,
 		}, token)
 		requireStatus(t, resp, body, http.StatusCreated)
 
@@ -161,15 +160,15 @@ func TestChatDMFlow(t *testing.T) {
 	base := gatewayURL()
 	waitForHealth(t, base)
 
-	token1, userID1 := registerAndLogin(t, base)
-	token2, userID2 := registerAndLogin(t, base)
+	token1, _ := registerAndLoginAdmin(t, base)
+	token2, userID2 := registerAndLoginAdmin(t, base)
 
 	var dmChannelID string
 
 	// Create DM
 	t.Run("create_dm", func(t *testing.T) {
 		resp, body := postJSON(t, base+"/api/v1/channels/dm", map[string]interface{}{
-			"user_id": userID2,
+			"other_user_id": userID2,
 		}, token1)
 		requireStatus(t, resp, body, http.StatusCreated)
 
@@ -213,6 +212,4 @@ func TestChatDMFlow(t *testing.T) {
 		resp, body := getJSON(t, base+"/api/v1/channels/dm", token1)
 		requireStatus(t, resp, body, http.StatusOK)
 	})
-
-	_ = userID1
 }

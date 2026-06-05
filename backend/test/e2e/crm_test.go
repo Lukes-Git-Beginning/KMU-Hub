@@ -4,26 +4,31 @@ package e2e
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"testing"
+	"time"
 )
 
 func TestCRMContactFlow(t *testing.T) {
 	base := gatewayURL()
 	waitForHealth(t, base)
 
-	token, _ := registerAndLogin(t, base)
+	token, _ := registerAndLoginAdmin(t, base)
 
 	var contactID string
+
+	// Unique per run — contact emails are unique per tenant and the local DB
+	// is persistent, so static addresses 409 on re-runs.
+	contactEmail := fmt.Sprintf("e2e-contact-%d@example.com", time.Now().UnixNano())
 
 	// Create contact
 	t.Run("create_contact", func(t *testing.T) {
 		resp, body := postJSON(t, base+"/api/v1/contacts", map[string]interface{}{
 			"first_name": "Max",
 			"last_name":  "Mustermann",
-			"email":      "max@example.com",
+			"email":      contactEmail,
 			"phone":      "+49 170 1234567",
-			"type":       "person",
 		}, token)
 		requireStatus(t, resp, body, http.StatusCreated)
 
@@ -63,9 +68,8 @@ func TestCRMContactFlow(t *testing.T) {
 		resp, body := putJSON(t, base+"/api/v1/contacts/"+contactID, map[string]interface{}{
 			"first_name": "Maximilian",
 			"last_name":  "Mustermann",
-			"email":      "max@example.com",
+			"email":      contactEmail,
 			"phone":      "+49 170 1234567",
-			"type":       "person",
 		}, token)
 		requireStatus(t, resp, body, http.StatusOK)
 
@@ -126,7 +130,7 @@ func TestCRMCompanyFlow(t *testing.T) {
 	base := gatewayURL()
 	waitForHealth(t, base)
 
-	token, _ := registerAndLogin(t, base)
+	token, _ := registerAndLoginAdmin(t, base)
 
 	var companyID string
 
@@ -187,25 +191,24 @@ func TestCRMDealFlow(t *testing.T) {
 	base := gatewayURL()
 	waitForHealth(t, base)
 
-	token, _ := registerAndLogin(t, base)
+	token, _ := registerAndLoginAdmin(t, base)
 
 	// First create a pipeline stage
 	var stageID string
 	t.Run("create_pipeline_stage", func(t *testing.T) {
 		resp, body := postJSON(t, base+"/api/v1/pipeline-stages", map[string]interface{}{
-			"name":      "Prospect",
-			"position":  1,
-			"color":     "#3B82F6",
-			"is_closed": false,
+			"name":        "Prospect",
+			"color":       "#3B82F6",
+			"probability": 10.0,
 		}, token)
 		requireStatus(t, resp, body, http.StatusCreated)
 
 		var result struct {
-			PipelineStage map[string]interface{} `json:"pipeline_stage"`
+			Stage map[string]interface{} `json:"stage"`
 		}
 		decodeBody(t, body, &result)
 
-		id, ok := result.PipelineStage["id"].(string)
+		id, ok := result.Stage["id"].(string)
 		if !ok || id == "" {
 			t.Fatal("expected pipeline stage id")
 		}
@@ -218,8 +221,7 @@ func TestCRMDealFlow(t *testing.T) {
 		resp, body := postJSON(t, base+"/api/v1/contacts", map[string]interface{}{
 			"first_name": "Deal",
 			"last_name":  "Contact",
-			"email":      "deal@example.com",
-			"type":       "person",
+			"email":      fmt.Sprintf("e2e-deal-%d@example.com", time.Now().UnixNano()),
 		}, token)
 		requireStatus(t, resp, body, http.StatusCreated)
 
@@ -233,7 +235,7 @@ func TestCRMDealFlow(t *testing.T) {
 	var dealID string
 	t.Run("create_deal", func(t *testing.T) {
 		resp, body := postJSON(t, base+"/api/v1/deals", map[string]interface{}{
-			"title":      "Big Deal",
+			"name":       "Big Deal",
 			"value":      50000.0,
 			"currency":   "EUR",
 			"stage_id":   stageID,
@@ -262,8 +264,8 @@ func TestCRMDealFlow(t *testing.T) {
 		}
 		decodeBody(t, body, &result)
 
-		if result.Deal["title"] != "Big Deal" {
-			t.Fatalf("expected title Big Deal, got %v", result.Deal["title"])
+		if result.Deal["name"] != "Big Deal" {
+			t.Fatalf("expected name Big Deal, got %v", result.Deal["name"])
 		}
 	})
 
@@ -281,10 +283,9 @@ func TestCRMDealFlow(t *testing.T) {
 
 	t.Run("update_deal", func(t *testing.T) {
 		resp, body := putJSON(t, base+"/api/v1/deals/"+dealID, map[string]interface{}{
-			"title":    "Big Deal Updated",
+			"name":     "Big Deal Updated",
 			"value":    75000.0,
 			"currency": "EUR",
-			"stage_id": stageID,
 		}, token)
 		requireStatus(t, resp, body, http.StatusOK)
 	})

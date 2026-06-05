@@ -4,12 +4,15 @@ package e2e
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 func gatewayURL() string {
@@ -134,6 +137,83 @@ func registerAndLogin(t *testing.T, base string) (accessToken, userID string) {
 	id, ok := authResp.User["id"].(string)
 	if !ok || id == "" {
 		t.Fatal("expected user id in login response")
+	}
+
+	return authResp.AccessToken, id
+}
+
+// promoteToAdmin grants the admin role to the given user via direct DB update.
+// Fresh registrations only get the read-only member role, so flow tests that
+// exercise write endpoints need this. Permissions are baked into the JWT at
+// login time — callers MUST re-login afterwards for the role to take effect.
+func promoteToAdmin(t *testing.T, userID string) {
+	t.Helper()
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		t.Fatal("DATABASE_URL not set — required to promote e2e users to admin")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	conn, err := pgx.Connect(ctx, dbURL)
+	if err != nil {
+		t.Fatalf("failed to connect to database: %v", err)
+	}
+	defer conn.Close(ctx)
+
+	_, err = conn.Exec(ctx, `
+		INSERT INTO user_roles (user_id, role_id)
+		SELECT $1, r.id FROM roles r WHERE r.name = 'admin'
+		ON CONFLICT DO NOTHING`, userID)
+	if err != nil {
+		t.Fatalf("failed to assign admin role: %v", err)
+	}
+}
+
+// registerAndLoginAdmin creates a new user, promotes it to admin in the DB,
+// and logs in again so the returned token carries the admin permissions.
+func registerAndLoginAdmin(t *testing.T, base string) (accessToken, userID string) {
+	t.Helper()
+	email := fmt.Sprintf("e2e-admin-%d@test.com", time.Now().UnixNano())
+	password := "SecurePass123!"
+
+	postJSON(t, base+"/api/v1/auth/register", map[string]string{
+		"email":      email,
+		"password":   password,
+		"first_name": "E2E",
+		"last_name":  "Admin",
+	}, "")
+
+	resp, body := postJSON(t, base+"/api/v1/auth/login", map[string]string{
+		"email":    email,
+		"password": password,
+	}, "")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("login failed: %d %s", resp.StatusCode, string(body))
+	}
+
+	var authResp authResponse
+	if err := json.Unmarshal(body, &authResp); err != nil {
+		t.Fatalf("failed to decode login response: %v", err)
+	}
+	id, ok := authResp.User["id"].(string)
+	if !ok || id == "" {
+		t.Fatal("expected user id in login response")
+	}
+
+	promoteToAdmin(t, id)
+
+	// Re-login: the first JWT still carries the member-only permission set.
+	resp, body = postJSON(t, base+"/api/v1/auth/login", map[string]string{
+		"email":    email,
+		"password": password,
+	}, "")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("re-login after admin promotion failed: %d %s", resp.StatusCode, string(body))
+	}
+	if err := json.Unmarshal(body, &authResp); err != nil {
+		t.Fatalf("failed to decode re-login response: %v", err)
 	}
 
 	return authResp.AccessToken, id

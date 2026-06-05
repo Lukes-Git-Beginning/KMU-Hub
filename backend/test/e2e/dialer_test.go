@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 )
 
 // TestDialerCampaignFlow exercises the full dialer flow:
@@ -14,7 +15,7 @@ import (
 func TestDialerCampaignFlow(t *testing.T) {
 	base := gatewayURL()
 	waitForHealth(t, base)
-	token, _ := registerAndLogin(t, base)
+	token, _ := registerAndLoginAdmin(t, base)
 
 	// 1. List outcomes (EnsureDefaults fires on first campaign creation).
 	resp, body := getJSON(t, base+"/api/v1/dialer/outcomes", token)
@@ -29,11 +30,11 @@ func TestDialerCampaignFlow(t *testing.T) {
 	}
 	decodeBody(t, body, &outcomesResp)
 
-	// 2. Create a campaign.
+	// 2. Create a campaign (mode is the numeric proto enum: 1 = preview).
 	resp, body = postJSON(t, base+"/api/v1/dialer/campaigns", map[string]interface{}{
 		"name":        "E2E Test Campaign",
 		"description": "Automated test campaign",
-		"mode":        "preview",
+		"mode":        1,
 	}, token)
 	requireStatus(t, resp, body, http.StatusCreated)
 
@@ -50,16 +51,21 @@ func TestDialerCampaignFlow(t *testing.T) {
 	resp, body = postJSON(t, base+"/api/v1/contacts", map[string]interface{}{
 		"first_name": "Dialer",
 		"last_name":  "TestContact",
-		"email":      "dialer-e2e@test.com",
+		"email":      fmt.Sprintf("e2e-dialer-%d@test.com", time.Now().UnixNano()),
 		"phone":      "+491512345678",
 	}, token)
 	requireStatus(t, resp, body, http.StatusCreated)
 
 	var contactResp struct {
-		ID string `json:"id"`
+		Contact struct {
+			ID string `json:"id"`
+		} `json:"contact"`
 	}
 	decodeBody(t, body, &contactResp)
-	contactID := contactResp.ID
+	contactID := contactResp.Contact.ID
+	if contactID == "" {
+		t.Fatal("expected contact ID")
+	}
 
 	// 4. Add contact to campaign.
 	resp, body = postJSON(t, fmt.Sprintf("%s/api/v1/dialer/campaigns/%s/contacts", base, campaignID), map[string]interface{}{
@@ -132,12 +138,12 @@ func TestDialerCampaignFlow(t *testing.T) {
 	}, token)
 	requireStatus(t, resp, body, http.StatusOK)
 
-	// 10. Complete wrap-up.
-	resp, body = postJSON(t, fmt.Sprintf("%s/api/v1/dialer/calls/%s/complete", base, sessionID), nil, token)
+	// 10. Complete wrap-up (handler requires a JSON body; agent_id defaults to caller).
+	resp, body = postJSON(t, fmt.Sprintf("%s/api/v1/dialer/calls/%s/complete", base, sessionID), map[string]interface{}{}, token)
 	requireStatus(t, resp, body, http.StatusOK)
 
 	// 11. Verify CRM timeline has the call activity.
-	resp, body = getJSON(t, fmt.Sprintf("%s/api/v1/crm/contacts/%s/timeline?offset=0&limit=10", base, contactID), token)
+	resp, body = getJSON(t, fmt.Sprintf("%s/api/v1/contacts/%s/timeline?offset=0&limit=10", base, contactID), token)
 	requireStatus(t, resp, body, http.StatusOK)
 
 	var timelineResp struct {
