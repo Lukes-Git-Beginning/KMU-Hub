@@ -171,6 +171,22 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      # chat + document services hard-require object storage on startup.
+      # bitnami image: starts the server without a command override
+      # (GitHub service containers cannot pass one). Credentials match the
+      # dev defaults in internal/config/config.go.
+      minio:
+        image: bitnami/minio:latest
+        env:
+          MINIO_ROOT_USER: kmuhub
+          MINIO_ROOT_PASSWORD: kmuhub_dev
+        ports:
+          - 9000:9000
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     env:
       DATABASE_URL: postgres://kmuhub_test:kmuhub_test@localhost:5432/kmuhub_test?sslmode=disable
@@ -352,6 +368,22 @@ jobs:
           - 6379:6379
         options: >-
           --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      # chat + document services hard-require object storage on startup.
+      # bitnami image: starts the server without a command override
+      # (GitHub service containers cannot pass one). Credentials match the
+      # dev defaults in internal/config/config.go.
+      minio:
+        image: bitnami/minio:latest
+        env:
+          MINIO_ROOT_USER: kmuhub
+          MINIO_ROOT_PASSWORD: kmuhub_dev
+        ports:
+          - 9000:9000
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
