@@ -1,6 +1,6 @@
 ---
 tags: [troubleshooting, debug]
-updated: 2026-05-10
+updated: 2026-06-05
 ---
 # Troubleshooting & Bekannte Probleme
 
@@ -206,8 +206,25 @@ Drei Anti-Pattern, die Welle 1 hinterlassen hat. Vor jedem neuen Modul-Wiring pr
 
 ### gRPC liest `tenant_id` aus Proto-Request statt aus Context (Welle 3.5)
 - **Symptom:** gRPC-Server-Methode ruft `req.GetTenantId()` und filtert damit Repos. Funktioniert im Happy-Path. Bei Service-zu-Service-Calls oder einem kompromittierten Gateway kann ein Caller eine fremde TenantID ins Request-Feld schreiben — der Repo-Filter folgt willig.
-- **Fix:** `tenantID, err := middleware.GetTenantID(ctx)` in jedem gRPC-Handler. Proto-Feld bleibt im Wire-Format, wird aber serverseitig ignoriert oder hoechstens fuer Logging genutzt. Welle 3.5 hat das Pattern auf 14+ Methoden in chat/crm/work/video/dialer-gRPC umgestellt.
+- **Fix:** `tenantID, err := middleware.GetTenantID(ctx)` in jedem gRPC-Handler. Proto-Feld bleibt im Wire-Format, wird aber serverseitig ignoriert oder hoechstens fuer Logging genutzt. Welle 3.5 hat das Pattern auf 14+ Methoden in chat/crm/work/video/dialer-gRPC umgestellt. **Nachzuegler-Sweep 2026-06-05 (`a02f3632`):** 4 Dialer-Leftovers (ListCampaigns/SetAgentStatus/ListCallOutcomes/CreateCallOutcome) gaben "missing or invalid tenant_id" 400 weil das Gateway die Felder nie setzte.
 - **Test:** Tenant-Isolation-Tests muessen einen Two-Tenant-Scenario abdecken (User Tenant A schickt Request mit `tenant_id=B` im Body — Backend muss `tenant_id=A` aus dem Context durchsetzen).
+
+### Phantom-404: GetByID filtert tenant_id, scannt sie aber nicht (E2E-Modernisierung, 2026-06-05)
+- **Symptom:** GET auf eine Ressource funktioniert, UPDATE/DELETE derselben Ressource liefert "not found" — obwohl Row existiert und Tenant stimmt.
+- **Ursache:** Repo-`GetByID` hat `WHERE id=$1 AND tenant_id=$2`, nimmt `tenant_id` aber nicht in SELECT+Scan auf → `model.TenantID = uuid.Nil`. Das folgende `UPDATE ... WHERE id=$X AND tenant_id=model.TenantID` matcht 0 Rows → `ErrNotFound`.
+- **War in:** `work/task.GetByID` (Task-Update 404) + `dialer.GetSessionByID` (LogCallOutcome 404). Systematischer Sweep aller Repos = Followup F2 in `docs/e2e-modernization-followups.md`.
+- **Fix:** tenant_id in SELECT+Scan aufnehmen ODER im Service nach dem Load `model.TenantID = tenantID` setzen (durch den gefilterten Load bereits verifiziert).
+
+### gRPC-Service ohne TenantInboundUnaryInterceptor / Bridge ohne Outbound (2026-06-05)
+- **Symptom 1:** Jeder tenant-scoped RPC eines Services gibt "missing tenant context" — `cmd/<service>/main.go` hat den `middleware.TenantInboundUnaryInterceptor()` nicht registriert (war: document).
+- **Symptom 2:** Service-zu-Service-Call (z.B. Dialer→CRM-Bridge) gibt Unauthenticated — die direkte gRPC-Connection hat keinen `TenantOutboundUnaryInterceptor` als DialOption (Gateway-Connections sind global abgedeckt, direkte Bruecken NICHT).
+- **Symptom 3:** FK-Verletzung auf `created_by`/Membership-Check schlaegt immer fehl — Handler uebergibt `uuid.Nil` als Actor statt `middleware.GetUserID(ctx)` (x-user-id-Metadata) zu lesen (war: work DeleteTask, dialer CreateCampaign).
+- **Checkliste neuer Service:** Inbound-Interceptor in ChainUnaryInterceptor · jede ausgehende Service-Bridge mit Outbound-Interceptor · Tenant aus ctx, Actor aus ctx.
+
+### RequirePermission-Guard ohne Permission-Seed → 403 fuer ALLE inkl. Admin (Migration 129, 2026-06-05)
+- **Symptom:** Komplette Modul-Routen geben 403 "insufficient permissions" fuer jeden User — auch Admin. Monatelang unbemerkt, wenn das Modul nie end-to-end getestet wird.
+- **Ursache:** `RequirePermission("documents", "read")` & Co. referenzierten Permissions, die keine Migration je in die `permissions`-Tabelle geschrieben hat. Admin bekommt neue Permissions NICHT automatisch (Migration-000002-CROSS-JOIN galt nur fuer den damaligen Bestand). 35 Strings betroffen (documents/email/finance/formulare/helpdesk/hr/inbox/wiki/automations/search/settings/recording).
+- **Fix + Praevention:** Migration 129 (admin-only). Diff-Check Code-vs-DB vor Modul-Launches — Kommando in [[security]] RBAC + Memory `feedback_permission_seed_check.md`. Permissions sind JWT-Snapshot → nach Seed Re-Login noetig.
 
 ## Stale IDE-Diagnostics bei Cross-Stream-Subagent-Refactor (Welle 4B, 2026-05-07 — bestaetigt Sprint 3, 2026-05-08)
 

@@ -1,14 +1,14 @@
 ---
 tags: [datenbank, schema, migrations, ai-first, tenant-isolation, rls]
-updated: 2026-05-10
+updated: 2026-06-05
 ---
 # Datenbank
 
 ## Überblick
 - PostgreSQL 16 mit `pgvector/pgvector:pg16`-Image + Redis 7 (nur Cache, KEIN Dual-Write)
 - Änderungen NUR via golang-migrate (`make migrate-create name=xxx`)
-- **119 Migration-Paare** in `backend/migrations/` (siehe Sprint-2/3-Liste in der vorherigen Version dieser Note für Migrations 076–116; **Sprint 4 Welle 0.5: 117 users_tenant_default_and_fk; Welle 1a: 118 rls_foundation; Welle 1b: 119 child_tables_tenant_id_backfill**)
-- **Prod-Stand seit 2026-05-10:** Migration-Head **`119`** (deployed mit Code `25af970`). Volume: `docker_pgdata` (nicht `docker_postgres-data`). psql-User in Production ist **`kmuhub`**, nicht `postgres` — siehe [[troubleshooting]].
+- **129 Migration-Paare** in `backend/migrations/` (076–116 siehe Sprint-2/3-Liste in der Vorversion dieser Note; **Sprint 4: 117 users_tenant_default_and_fk · 118 rls_foundation · 119 child_tables_tenant_id_backfill · 120–124 RLS-Wellen 2+3 · 125–127 RLS-Welle 4 · 128 fix_hr_document_policy_sysctx · 129 seed_missing_module_permissions** — 35 nie geseedete Modul-Permissions admin-only nachgezogen, siehe [[security]] RBAC)
+- **Prod-Stand seit 2026-06-05:** Migration-Head **`129`** (deployed mit Code `91a3014c` — **erster automatischer CD-Deploy**, siehe [[deployment]]). Volume: `docker_pgdata` (nicht `docker_postgres-data`). psql-User in Production ist **`kmuhub`**, nicht `postgres` — siehe [[troubleshooting]].
 
 ## RLS-Foundation (Migration 118, Sprint 4 Welle 1a)
 

@@ -1,6 +1,6 @@
 ---
 tags: [security, auth, compliance, gdpr, rls, multi-tenant]
-updated: 2026-05-10
+updated: 2026-06-05
 ---
 # Security & Compliance
 
@@ -32,6 +32,8 @@ Gateway propagiert `tenant_id` und `user_id` als gRPC-Metadata an Backend-Servic
 - Middleware: `RequireRole(roles...)`, `RequirePermission(resource, action)`
 - 403 Forbidden bei unzureichenden Rechten
 - Neue Modul-Permissions landen als eigene Seed-Migration (`08x_seed_<modul>_permissions.up.sql`) mit Admin-Default-Grant
+- **Permission-Seed-Pflicht (Lesson 2026-06-05, Migration 129):** Diese Doktrin wurde fuer 35 Permissions NICHT befolgt — documents/email/finance/formulare/helpdesk/hr/inbox/wiki/automations/search/settings/recording hatten `RequirePermission`-Guards ohne DB-Rows → **403 fuer JEDEN inkl. Admin**, monatelang unbemerkt. Admin bekommt NICHT automatisch neue Permissions (Migration-000002-CROSS-JOIN galt nur fuer damals existierende). Migration 129 seedet die 35 **admin-only**; Manager/Member-Mapping pro Modul ist Produktentscheidung (Followup F1 in `docs/e2e-modernization-followups.md`). Diff-Check Code-vs-DB vor jedem Modul-Launch: `grep -rhoP 'RequirePermission\("\K[^"]+", "[^"]+' --include='*.go' internal/gateway internal/server | sed 's/", "/:/' | sort -u` gegen `select resource||':'||action from permissions`.
+- **JWT-Snapshot:** Rollen/Permissions werden beim Login ins Token gebacken (kein DB-Lookup zur Request-Zeit) — nach Rollenaenderung oder Permission-Seed ist Re-Login zwingend. E2E/Smoke nutzen deshalb `registerAndLoginAdmin` (DB-Promote + Re-Login), siehe [[testing]].
 
 ## Middleware-Stack (Reihenfolge)
 1. Metrics → 2. RequestID → 3. SecurityHeaders → 4. Logging → 5. CORS → 6. IP Filter → 7. Rate Limiting → 8. Audit Logger → 9. Auth (JWT) → 10. RBAC → 11. Idempotency (WarnMode bis Welle 4)

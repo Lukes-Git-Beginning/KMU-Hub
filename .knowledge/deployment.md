@@ -1,10 +1,10 @@
 ---
 tags: [deployment, docker, ci-cd]
-updated: 2026-05-10
+updated: 2026-06-05
 ---
 # Deployment & Infrastruktur
 
-> **Aktueller Prod-Stand (2026-05-10 nach Sprint 4 Welle 1):** `app.zentria.tech` auf `25af970`, Migration-Head **119**, alle 14 Pflicht-Services healthy (Gateway+Auth+CRM+Chat+Notification+Work+Email+Document+Biz+Automation+Plugin+PostgreSQL+Redis+Caddy). Welle 1 brachte: RLS-Foundation (Migration 118), Child-Backfill 4 Tabellen (Migration 119), gRPC-Tenant-Inbound-Interceptor in 4 Pilot-0-Services (auth/crm/dialer/work), 28 grpc-default-Branches mit slog. Drei Deploy-Anlaeufe noetig: Migration-119-Spaltenname-Bug (`session_id`→`dialer_call_session_id`) → Hotfix → Smoke-False-Positive (SMOKE_ADMIN_TOKEN expired) → Auto-Rollback erzeugte Code-DB-Drift → `--skip-smoke`-Flag als Forward-Fix. OnlyOffice unhealthy seit 2 Monaten (separater Bug, kein Pilot-Blocker). **Lokal/main = Prod synchron** — kein Migration-Drift mehr.
+> **Aktueller Prod-Stand (2026-06-05 nach E2E-Modernisierung):** `app.zentria.tech` auf `91a3014c`, Migration-Head **129**, alle 14 Pflicht-Services healthy, 23 registered services. **Erster automatischer CD-Deploy** (workflow_run nach gruenem CI) erfolgreich durchgelaufen — Migrations 118→129 in einem Rutsch, kein Rollback. **Lokal/main = Prod synchron, jeder gruene Push auf main deployt seither automatisch.** Davor (2026-05-10, Sprint 4 Welle 1, `25af970`/Head 119): RLS-Foundation, Child-Backfill, gRPC-Tenant-Inbound-Interceptor in 4 Pilot-0-Services, drei Deploy-Anlaeufe (Migration-119-Spaltenname-Bug → Smoke-False-Positive → `--skip-smoke` als Forward-Fix).
 >
 > **skip-worktree-Status (Stand 2026-05-08 nach Welle-1-Marathon):** keine aktiven Markierungen mehr. `livekit.yaml`-Patch aus alter Era ist obsolet (livekit-secrets.yaml-render-overlay ersetzt das per `render-configs.sh` in `deploy.sh` Step 2.5).
 >
@@ -59,11 +59,13 @@ Datei: `deploy/docker/docker-compose.yml`
   1. **Lint** — golangci-lint v2.8
   2. **Test** — `go test ./... -race`, Coverage-Report, 30-Tage-Artifact
   3. **Build** — `make build` (abhaengig von Lint+Test)
-  4. **E2E** — Integration Tests (abhaengig von Lint+Test)
-  5. **Smoke** — Go Smoke Tests (abhaengig von E2E)
+  4. **E2E** — Integration Tests (abhaengig von Lint+Test). Startet auth/crm/chat/work/document/**dialer**/gateway als Binaries + MinIO via docker-run; Job-Env `RATE_LIMIT_RPS=1000` (CI-only, Prod bleibt 100). **Lesson 2026-06-05:** Service-Liste muss mit `test/e2e/` synchron bleiben — der Dialer fehlte und `dialer_test.go` konnte nie gruen werden.
+  5. **Smoke** — Go Smoke Tests (abhaengig von E2E), ebenfalls `RATE_LIMIT_RPS=1000`
   6. **OpenAPI Validate** — Spec-Validierung
   7. **Security-Scans** (S3.2, ab 2026-05-08) — gosec + trivy fs-scan + npm audit parallel (eigene Job-Gruppe, `continue-on-error: true` initial). Details: [[security]] CI Security-Scans.
-- Service-Container: postgres:16-alpine + redis:7-alpine
+- Service-Container: pgvector/pgvector:pg16 + redis:7-alpine
+- **Komplett gruen seit 2026-06-05** (rot seit 2026-03-08; Repair + E2E-Modernisierung, Lessons in Memory `feedback_ci_lessons_20260605.md`)
+- **Paths-Filter:** CI triggert nur auf `backend/**`, `desktop/**`, `ci.yml` — docs-/`.knowledge/`-Commits triggern weder CI noch CD
 
 ### Desktop CI Pipeline (`.github/workflows/ci-desktop.yml`)
 - **Trigger:** Push auf main/develop, PRs (nur bei desktop/ Aenderungen)
@@ -75,6 +77,7 @@ Datei: `deploy/docker/docker-compose.yml`
 - **`security-review.yml`** — Security-fokussiertes Code-Review bei PRs
 
 ### CD Pipeline (`.github/workflows/cd.yml`)
+- ✅ **LIVE seit 2026-06-05** — erster automatischer Production-Deploy erfolgreich (Run `27017597354`, 18m04s, Code `91a3014c`, Migrations 118→129, 14/14 Container healthy, kein Rollback). **Jeder gruene Push auf main deployt seither automatisch nach Production.**
 - **Trigger:** `workflow_run` (nach erfolgreichem `ci.yml` auf main) + `workflow_dispatch` (manuell, mit optional `skip_backup`)
 - **Concurrency-Group:** `production` — parallele Deploys werden abgebrochen (`cancel-in-progress: false`, neuere warten)
 - **Environment:** `production` (GitHub Environment Protection)

@@ -1,6 +1,6 @@
 ---
 tags: [architektur, backend, frontend, ci-cd, rls]
-updated: 2026-05-10
+updated: 2026-06-05
 ---
 # Architektur
 
@@ -227,6 +227,16 @@ Subagent-Strategie: 4 parallele Sonnet-Subagents schreiben direkt auf main, Done
 | `25af970 feat(deploy)` | `--skip-smoke`-Flag in deploy.sh — Notbremse für False-Positive-Smoke-Cascades wenn DB schon forward gewandert ist und Auto-Rollback Drift erzeugen würde (siehe [[deployment]] + [[troubleshooting]]). |
 
 **Welle-1-Pattern für künftige RLS-Wellen:** Migration mit `enable_tenant_rls('<table>')` → Repository-INSERT-Wiring (Spalte + Bind) → Service-Konstruktion mit `middleware.GetTenantID(ctx)` ODER `parent.TenantID` → Cross-Tenant-Test in `tenant_isolation_test.go` (Pattern aus Welle 4B `b868fb6`). System-Operationen (Worker, Migrations, Audit-Inserts) wrappen Entry-Context mit `database.WithSystemContext(ctx)`.
+
+## E2E-Modernisierung — gRPC-Tenant/Actor-Trust komplettiert (2026-06-05, `a02f3632`)
+
+Die E2E-Suite deckte auf, dass das Tenant-Trust-Pattern an mehreren Stellen unvollstaendig war. Kanonischer Stand seither:
+
+- **Inbound-Interceptor ist Pflicht fuer JEDEN gRPC-Service.** `cmd/document` war der letzte ohne `middleware.TenantInboundUnaryInterceptor()` — jeder tenant-scoped Document-RPC failte mit "missing tenant context". Checkliste fuer neue Services: Interceptor in `grpc.ChainUnaryInterceptor` registrieren.
+- **Service-zu-Service-Verbindungen brauchen den OUTBOUND-Interceptor ebenfalls.** Gateway→Service ist global abgedeckt (`registry.go`), aber direkte Bruecken wie Dialer→CRM (`cmd/dialer/main.go` crmConn) muessen `grpc.WithUnaryInterceptor(middleware.TenantOutboundUnaryInterceptor())` als DialOption setzen — sonst ist der Folge-Call Unauthenticated. Der Outbound liest Tenant+User aus dem ctx, den der Inbound befuellt hat (Re-Propagation).
+- **Tenant NIE aus Request-Proto-Feldern lesen** (spoofbar + Gateway setzt sie nicht mehr): 4 Dialer-RPC-Leftovers (ListCampaigns/SetAgentStatus/ListCallOutcomes/CreateCallOutcome) auf `middleware.GetTenantID(ctx)` umgestellt. Die 7 `tenant_id`-Felder in dialer.proto sind jetzt tote Felder (Cleanup = Followup F3).
+- **Actor-IDs (created_by/deleted_by) aus `middleware.GetUserID(ctx)`** (x-user-id-Metadata), nicht uuid.Nil und nicht Proto-Felder: `work_grpc.DeleteTask` (uuid.Nil failte den Membership-Check fuer jeden Caller) + `dialer_grpc.CreateCampaign` (uuid.Nil verletzte den users-FK).
+- **Read-Seite-Falle (2× gefunden):** Repo-`GetByID` filtert per tenant_id, scannt die Spalte aber nicht → `model.TenantID = uuid.Nil` → tenant-gefilterte UPDATEs matchen 0 Rows → **Phantom-404**. Details + Sweep-Followup F2: [[troubleshooting]].
 
 **Cross-Stream-Lessons:**
 - Sub-Agents committen gelegentlich eigenmächtig trotz expliziter "do not commit"-Anweisung (Stream C in dieser Welle, fuhrpark in Welle 2A). Bei parallelen Wellen einkalkulieren.
