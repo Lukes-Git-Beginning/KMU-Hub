@@ -4,7 +4,9 @@ package smoke
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 )
@@ -78,14 +80,15 @@ func TestAuthRegisterAndLogin(t *testing.T) {
 
 func TestCRMContactCRUD(t *testing.T) {
 	base := smokeURL()
-	token, userID := registerAndLogin(t, base)
+	token, userID := registerAndLoginAdmin(t, base)
 	defer cleanupUser(t, base, userID, token)
 
-	// Create contact
+	// Create contact (unique email — contacts are unique per tenant and an
+	// aborted previous run may have left the static address behind)
 	createResp, createBody := doPost(t, base+"/api/v1/contacts", map[string]string{
 		"first_name": "Smoke",
 		"last_name":  "Contact",
-		"email":      "smoke-contact@test.kmuhub.local",
+		"email":      fmt.Sprintf("smoke-contact-%d@test.kmuhub.local", time.Now().UnixNano()),
 	}, token)
 
 	if createResp.StatusCode != http.StatusCreated && createResp.StatusCode != http.StatusOK {
@@ -120,11 +123,19 @@ func TestSecurityUnauthenticated(t *testing.T) {
 func TestSecurityCORSHeaders(t *testing.T) {
 	base := smokeURL()
 
+	// The gateway only answers preflights for allowlisted origins
+	// (CORS_ALLOWED_ORIGINS, default localhost:3000/5173). Against production
+	// set SMOKE_CORS_ORIGIN=https://app.zentria.tech.
+	origin := os.Getenv("SMOKE_CORS_ORIGIN")
+	if origin == "" {
+		origin = "http://localhost:3000"
+	}
+
 	req, err := http.NewRequest(http.MethodOptions, base+"/api/v1/contacts", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	req.Header.Set("Origin", "https://app.zentria.tech")
+	req.Header.Set("Origin", origin)
 	req.Header.Set("Access-Control-Request-Method", "GET")
 
 	resp, err := http.DefaultClient.Do(req)
@@ -204,16 +215,16 @@ func TestPerformanceContactsList(t *testing.T) {
 
 func TestCrossServiceChat(t *testing.T) {
 	base := smokeURL()
-	token, userID := registerAndLogin(t, base)
+	token, userID := registerAndLoginAdmin(t, base)
 	defer cleanupUser(t, base, userID, token)
 
-	resp, body := doPost(t, base+"/api/v1/chat/channels", map[string]string{
-		"name": "smoke-test-channel",
-		"type": "public",
+	resp, body := doPost(t, base+"/api/v1/channels", map[string]interface{}{
+		"name":       "smoke-test-channel",
+		"is_private": false,
 	}, token)
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		t.Fatalf("POST /chat/channels: expected 201 or 200, got %d: %s", resp.StatusCode, string(body))
+		t.Fatalf("POST /channels: expected 201 or 200, got %d: %s", resp.StatusCode, string(body))
 	}
 }
 

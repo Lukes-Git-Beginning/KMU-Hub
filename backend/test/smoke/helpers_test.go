@@ -4,12 +4,15 @@ package smoke
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 func smokeURL() string {
@@ -135,6 +138,79 @@ func registerAndLogin(t *testing.T, base string) (accessToken, userID string) {
 	if !ok || id == "" {
 		t.Fatal("expected user id in login response")
 	}
+
+	return auth.AccessToken, id
+}
+
+// promoteToAdmin grants the admin role to the given user via direct DB
+// update. Fresh registrations only get the read-only member role, so smoke
+// tests that exercise write endpoints need this. Skips the test when no
+// DATABASE_URL is available (e.g. when pointing SMOKE_URL at production).
+// Permissions are baked into the JWT at login time — re-login afterwards.
+func promoteToAdmin(t *testing.T, userID string) {
+	t.Helper()
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		t.Skip("DATABASE_URL not set — cannot promote smoke user to admin")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	conn, err := pgx.Connect(ctx, dbURL)
+	if err != nil {
+		t.Fatalf("failed to connect to database: %v", err)
+	}
+	defer conn.Close(ctx)
+
+	_, err = conn.Exec(ctx, `
+		INSERT INTO user_roles (user_id, role_id)
+		SELECT $1, r.id FROM roles r WHERE r.name = 'admin'
+		ON CONFLICT DO NOTHING`, userID)
+	if err != nil {
+		t.Fatalf("failed to assign admin role: %v", err)
+	}
+}
+
+// registerAndLoginAdmin creates a new user, promotes it to admin in the DB,
+// and logs in again so the returned token carries the admin permissions.
+func registerAndLoginAdmin(t *testing.T, base string) (accessToken, userID string) {
+	t.Helper()
+	email, password := smokeCredentials()
+
+	doPost(t, base+"/api/v1/auth/register", map[string]string{
+		"email":      email,
+		"password":   password,
+		"first_name": "Smoke",
+		"last_name":  "Admin",
+	}, "")
+
+	resp, body := doPost(t, base+"/api/v1/auth/login", map[string]string{
+		"email":    email,
+		"password": password,
+	}, "")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("login failed: %d %s", resp.StatusCode, string(body))
+	}
+
+	var auth authResponse
+	decodeBody(t, body, &auth)
+	id, ok := auth.User["id"].(string)
+	if !ok || id == "" {
+		t.Fatal("expected user id in login response")
+	}
+
+	promoteToAdmin(t, id)
+
+	// Re-login: the first JWT still carries the member-only permission set.
+	resp, body = doPost(t, base+"/api/v1/auth/login", map[string]string{
+		"email":    email,
+		"password": password,
+	}, "")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("re-login after admin promotion failed: %d %s", resp.StatusCode, string(body))
+	}
+	decodeBody(t, body, &auth)
 
 	return auth.AccessToken, id
 }
