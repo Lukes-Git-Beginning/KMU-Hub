@@ -1,6 +1,6 @@
 ---
 tags: [testing, qualitaet]
-updated: 2026-05-10
+updated: 2026-06-05
 ---
 # Test-Strategie
 
@@ -65,10 +65,13 @@ type MockRepository struct {
 
 ## E2E Tests
 - **Datei:** `backend/test/e2e/` (Build-Tag `//go:build e2e`)
-- CI-Job vorhanden (nach Unit Tests), mit Service-Containers
-- Tests fuer: CRM, Chat, Work, Document, Dialer Services
+- CI-Job vorhanden (nach Unit Tests), mit Service-Containers — startet auth/crm/chat/work/document/**dialer**/gateway, `RATE_LIMIT_RPS=1000` (CI-only)
+- Tests fuer: Auth (inkl. InvitationFlow), CRM, Chat, Work, Document, Dialer Services — **komplett gruen seit 2026-06-05** (Modernisierung nach 3 Monaten API-Drift)
 - Helpers: `doRequest`, `registerAndLogin`, `requireStatus`, `decodeBody`
+- **Admin-Bootstrap (seit 2026-06-05):** `promoteToAdmin(t, userID)` promotet Test-User per Direkt-DB-INSERT in `user_roles` (pgx via `DATABASE_URL`), danach **Re-Login zwingend** (Permissions sind JWT-Snapshot). `registerAndLoginAdmin` kapselt register→login→promote→re-login. Noetig weil `/auth/register` nur die read-only `member`-Rolle vergibt.
+- Contact-Emails/project_keys pro Run einzigartig generieren (persistente lokale DB → 409 bei statischen Werten)
 - **Makefile:** `make e2e-test`
+- **Lokales Rig:** Container `kmuhub-ci-test` (pgvector, Port 55432) + `kmuhub-ci-redis` (56379) + `kmuhub-ci-minio` (9000), Services seriell bauen mit `-ldflags="-w -s"` (Windows-Linker-OOM)
 
 ## Smoke Tests (Pilot-Readiness)
 Zwei Varianten mit gleicher Abdeckung:
@@ -85,8 +88,10 @@ Zwei Varianten mit gleicher Abdeckung:
 - `smoke_test.go` (11 Tests) + `helpers_test.go`
 - Konfigurierbar via `SMOKE_URL` env var (default: `http://localhost:8080`)
 - `SMOKE_EXPECT_VERSION` für Version-Verification
+- `SMOKE_CORS_ORIGIN` fuer den CORS-Preflight-Test (default `http://localhost:3000` = Dev-Allowlist; gegen Prod `https://app.zentria.tech` setzen)
+- Admin-Bootstrap wie E2E (`registerAndLoginAdmin`), skippt sauber wenn `DATABASE_URL` fehlt (z. B. gegen Production)
 - **Makefile:** `make smoke-test` (lokal), `make smoke-prod` (gegen Prod)
-- CI-Job: Laeuft nach E2E in der Pipeline
+- CI-Job: Laeuft nach E2E in der Pipeline — **gruen seit 2026-06-05**
 
 ## Coverage-Ziele
 - **Gesamt:** 80%+ Minimum
