@@ -3,6 +3,12 @@
 # CHANGE ALL "CHANGE_ME" VALUES BEFORE DEPLOYMENT
 # ===================================================================
 
+# ===== ENVIRONMENT =====
+# "production" arms the startup secrets assertion in every service: dev-default
+# secrets and short/empty required values refuse to boot (config.Load -> exit 1).
+# Deploy order matters — wire real secret values FIRST, then set this flag.
+COSMI_ENV=production
+
 # ===== DATABASE =====
 # Sprint 4 Welle 2 (Migration 000121): two roles, two URLs.
 # - kmuhub      : Postgres Superuser created by the official image — bypasses RLS.

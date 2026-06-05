@@ -1,0 +1,16 @@
+# Template for the production egress config — rendered by
+# deploy/scripts/render-configs.sh (envsubst) into egress-secrets.yaml,
+# which docker-compose.prod.yml mounts over /etc/egress.yaml.
+# Dev keeps using the static egress.yaml with dev credentials.
+log_level: info
+api_key: ${LIVEKIT_API_KEY}
+api_secret: ${LIVEKIT_API_SECRET}
+ws_url: ws://livekit:7880
+redis:
+  address: redis:6379
+s3:
+  access_key: ${MINIO_ACCESS_KEY}
+  secret: ${MINIO_SECRET_KEY}
+  endpoint: http://minio:9000
+  bucket: kmuhub-files
+  force_path_style: true

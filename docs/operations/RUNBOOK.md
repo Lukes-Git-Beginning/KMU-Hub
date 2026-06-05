@@ -65,7 +65,7 @@ docker compose restart onlyoffice
 docker compose logs --tail=50 onlyoffice  # erwartet: "JWT secret loaded"
 ```
 
-Hinweis: Das Secret muss auch im Gateway-Service als `DOCUMENT_JWT_SECRET` synchronisiert werden — beide Werte muessen identisch sein, sonst lehnt OnlyOffice WOPI-Tokens ab.
+Hinweis: `ONLYOFFICE_JWT_SECRET` konfiguriert ausschliesslich den DocumentServer-Container (docker-compose.prod.yml mappt es auf dessen `JWT_SECRET`). Der Go-Code (gateway + document) nutzt fuer das WOPI-Protokoll ein eigenes Secret: `WOPI_JWT_SECRET`. Eine Variable `DOCUMENT_JWT_SECRET` existiert nicht — falls sie noch in `/opt/kmuhub/.env.production` steht, ist sie eine wirkungslose Altlast.
 
 ### TURN-Server unerreichbar
 

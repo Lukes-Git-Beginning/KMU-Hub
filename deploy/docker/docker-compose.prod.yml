@@ -88,6 +88,11 @@ services:
 
   livekit-egress:
     logging: *default-logging
+    # Same container path as the base mount — compose merges volumes by target,
+    # so the rendered secrets file (real LiveKit key + MinIO credentials from
+    # .env.production, written by render-configs.sh) replaces the dev egress.yaml.
+    volumes:
+      - ./egress-secrets.yaml:/etc/egress.yaml
 
   # ===== Go Microservices =====
 
@@ -196,6 +201,78 @@ services:
           cpus: "0.25"
 
   formulare:
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+
+  dialer:
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+
+  inventar:
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+
+  einkauf:
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+
+  produktion:
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+
+  vertraege:
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+
+  fuhrpark:
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+
+  vermietung:
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+
+  rapporte:
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+
+  schichten:
     logging: *default-logging
     deploy:
       resources:

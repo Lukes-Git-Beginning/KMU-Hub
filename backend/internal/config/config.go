@@ -17,12 +17,12 @@ type Config struct {
 	AccessTokenExpiry  time.Duration `env:"ACCESS_TOKEN_EXPIRY,default=15m"`
 	RefreshTokenExpiry time.Duration `env:"REFRESH_TOKEN_EXPIRY,default=168h"`
 
-	AuthGRPCPort    string `env:"AUTH_GRPC_PORT,default=:50051"`
-	AuthGRPCAddress string `env:"AUTH_GRPC_ADDRESS,default=localhost:50051"`
-	CRMGRPCPort     string `env:"CRM_GRPC_PORT,default=:50052"`
-	CRMGRPCAddress  string `env:"CRM_GRPC_ADDRESS,default=localhost:50052"`
-	ChatGRPCPort             string `env:"CHAT_GRPC_PORT,default=:50053"`
-	ChatGRPCAddress          string `env:"CHAT_GRPC_ADDRESS,default=localhost:50053"`
+	AuthGRPCPort            string `env:"AUTH_GRPC_PORT,default=:50051"`
+	AuthGRPCAddress         string `env:"AUTH_GRPC_ADDRESS,default=localhost:50051"`
+	CRMGRPCPort             string `env:"CRM_GRPC_PORT,default=:50052"`
+	CRMGRPCAddress          string `env:"CRM_GRPC_ADDRESS,default=localhost:50052"`
+	ChatGRPCPort            string `env:"CHAT_GRPC_PORT,default=:50053"`
+	ChatGRPCAddress         string `env:"CHAT_GRPC_ADDRESS,default=localhost:50053"`
 	NotificationGRPCPort    string `env:"NOTIFICATION_GRPC_PORT,default=:50054"`
 	NotificationGRPCAddress string `env:"NOTIFICATION_GRPC_ADDRESS,default=localhost:50054"`
 	WorkGRPCPort            string `env:"WORK_GRPC_PORT,default=:50055"`
@@ -63,16 +63,16 @@ type Config struct {
 	FuhrparkGRPCAddress     string `env:"FUHRPARK_GRPC_ADDRESS,default=localhost:50076"`
 	VermietungGRPCPort      string `env:"VERMIETUNG_GRPC_PORT,default=:50077"`
 	VermietungGRPCAddress   string `env:"VERMIETUNG_GRPC_ADDRESS,default=localhost:50077"`
-	GatewayHTTPPort          string `env:"GATEWAY_HTTP_PORT,default=:8080"`
+	GatewayHTTPPort         string `env:"GATEWAY_HTTP_PORT,default=:8080"`
 
 	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS,delimiter=;,default=http://localhost:3000;http://localhost:5173"`
 
 	RateLimitRPS int  `env:"RATE_LIMIT_RPS,default=100"`
 	BehindProxy  bool `env:"BEHIND_PROXY,default=false"`
 
-	MetricsPort    string `env:"METRICS_PORT,default=:9090"`
-	HealthPort     string `env:"HEALTH_PORT,default=:9091"`
-	CRMHealthPort  string `env:"CRM_HEALTH_PORT,default=:9092"`
+	MetricsPort            string `env:"METRICS_PORT,default=:9090"`
+	HealthPort             string `env:"HEALTH_PORT,default=:9091"`
+	CRMHealthPort          string `env:"CRM_HEALTH_PORT,default=:9092"`
 	ChatHealthPort         string `env:"CHAT_HEALTH_PORT,default=:9093"`
 	NotificationHealthPort string `env:"NOTIFICATION_HEALTH_PORT,default=:9094"`
 	WorkHealthPort         string `env:"WORK_HEALTH_PORT,default=:9095"`
@@ -168,24 +168,35 @@ func Load(ctx context.Context) (*Config, error) {
 }
 
 // knownDevSecrets lists values that are safe in dev but must never reach production.
-var knownDevSecrets = map[string]string{
-	"WOPI_JWT_SECRET":      "wopi-dev-secret-change-me",
-	"MINIO_SECRET_KEY":     "kmuhub_dev",
-	"VAULT_MASTER_SECRET":  "",
-	"LIVEKIT_API_KEY":      "devkey",
-	"LIVEKIT_API_SECRET":   "devsecret",
-	"LIVEKIT_WEBHOOK_SECRET": "",
+// Each var carries every known dev value: the config-level default AND the
+// docker-compose dev value (they differ — the compose values previously slipped
+// past this check because only the config defaults were blocked).
+var knownDevSecrets = map[string][]string{
+	"JWT_SECRET":             {"docker-dev-secret-minimum-32-characters"},
+	"WOPI_JWT_SECRET":        {"wopi-dev-secret-change-me", "docker-dev-wopi-secret-minimum-32-characters"},
+	"MINIO_ACCESS_KEY":       {"minioadmin"},
+	"MINIO_SECRET_KEY":       {"kmuhub_dev", "minioadmin"},
+	"VAULT_MASTER_SECRET":    {"", "docker-dev-vault-secret-minimum-32-characters-long"},
+	"LIVEKIT_API_KEY":        {"devkey"},
+	"LIVEKIT_API_SECRET":     {"devsecret"},
+	"LIVEKIT_WEBHOOK_SECRET": {""},
 }
+
+// minJWTSecretLength is enforced in production only — short HMAC keys make
+// token forgery brute-forceable regardless of whether the value is a known default.
+const minJWTSecretLength = 32
 
 func validateProductionSecrets(cfg *Config) error {
 	type check struct {
 		name      string
 		value     string
-		dev       string
+		dev       []string
 		skipEmpty bool // if true, skip the check when value is empty (optional integration)
 	}
 	checks := []check{
+		{"JWT_SECRET", cfg.JWTSecret, knownDevSecrets["JWT_SECRET"], false},
 		{"WOPI_JWT_SECRET", cfg.WOPIJWTSecret, knownDevSecrets["WOPI_JWT_SECRET"], false},
+		{"MINIO_ACCESS_KEY", cfg.MinIOAccessKey, knownDevSecrets["MINIO_ACCESS_KEY"], false},
 		{"MINIO_SECRET_KEY", cfg.MinIOSecretKey, knownDevSecrets["MINIO_SECRET_KEY"], false},
 		{"VAULT_MASTER_SECRET", cfg.VaultMasterSecret, knownDevSecrets["VAULT_MASTER_SECRET"], false},
 	}
@@ -203,6 +214,10 @@ func validateProductionSecrets(cfg *Config) error {
 	}
 
 	var errs []string
+
+	if len(cfg.JWTSecret) < minJWTSecretLength {
+		errs = append(errs, fmt.Sprintf("JWT_SECRET must be at least %d characters in production", minJWTSecretLength))
+	}
 
 	// TURN must be configured symmetrically. A half-configured TURN (host without
 	// secret, or vice-versa) issues join tokens with TURN URLs but invalid credentials,
@@ -223,11 +238,14 @@ func validateProductionSecrets(cfg *Config) error {
 		if c.skipEmpty && c.value == "" {
 			continue
 		}
-		if c.value == c.dev {
-			if c.dev == "" {
-				errs = append(errs, fmt.Sprintf("%s must be set in production (currently empty)", c.name))
-			} else {
-				errs = append(errs, fmt.Sprintf("%s must not use the dev default value in production", c.name))
+		for _, dev := range c.dev {
+			if c.value == dev {
+				if dev == "" {
+					errs = append(errs, fmt.Sprintf("%s must be set in production (currently empty)", c.name))
+				} else {
+					errs = append(errs, fmt.Sprintf("%s must not use the dev default value in production", c.name))
+				}
+				break
 			}
 		}
 	}

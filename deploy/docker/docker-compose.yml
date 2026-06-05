@@ -31,8 +31,8 @@ services:
     image: minio/minio:RELEASE.2025-04-22T22-12-26Z
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -54,7 +54,7 @@ services:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
-      mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
       mc mb --ignore-existing myminio/kmuhub-files;
       exit 0;
       "
@@ -88,12 +88,13 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-minimum-32-characters}
+      COSMI_ENV: ${COSMI_ENV:-development}
       ACCESS_TOKEN_EXPIRY: 15m
       REFRESH_TOKEN_EXPIRY: 168h
       AUTH_GRPC_PORT: ":50051"
       HEALTH_PORT: ":9091"
-      VAULT_MASTER_SECRET: docker-dev-vault-secret-minimum-32-characters-long
+      VAULT_MASTER_SECRET: ${VAULT_MASTER_SECRET:-docker-dev-vault-secret-minimum-32-characters-long}
     ports:
       - "50051:50051"
       - "9091:9091"
@@ -119,7 +120,8 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-minimum-32-characters}
+      COSMI_ENV: ${COSMI_ENV:-development}
       CRM_GRPC_PORT: ":50052"
       CRM_HEALTH_PORT: ":9092"
     ports:
@@ -148,12 +150,13 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
-      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-minimum-32-characters}
+      COSMI_ENV: ${COSMI_ENV:-development}
       CHAT_GRPC_PORT: ":50053"
       CHAT_HEALTH_PORT: ":9093"
       MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
       MINIO_BUCKET: kmuhub-files
       MINIO_USE_SSL: "false"
       FILE_SIZE_LIMIT_MB: "50"
@@ -179,7 +182,8 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
-      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-minimum-32-characters}
+      COSMI_ENV: ${COSMI_ENV:-development}
       NOTIFICATION_GRPC_PORT: ":50054"
       NOTIFICATION_HEALTH_PORT: ":9094"
       # Teams/Slack integration (optional -- integration disabled when not set)
@@ -251,17 +255,18 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-minimum-32-characters}
+      COSMI_ENV: ${COSMI_ENV:-development}
       WORK_GRPC_PORT: ":50055"
       WORK_HEALTH_PORT: ":9095"
-      LIVEKIT_API_KEY: devkey
-      LIVEKIT_API_SECRET: devsecret
-      LIVEKIT_WS_URL: ws://livekit:7880
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-devsecret}
+      LIVEKIT_WS_URL: "${LIVEKIT_WS_URL:-ws://livekit:7880}"
       LIVEKIT_EGRESS_TEMPLATE_URL: ""
-      LIVEKIT_WEBHOOK_SECRET: devsecret
+      LIVEKIT_WEBHOOK_SECRET: ${LIVEKIT_WEBHOOK_SECRET:-devsecret}
       MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
       MINIO_BUCKET: kmuhub-files
       MINIO_USE_SSL: "false"
     ports:
@@ -290,13 +295,14 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
-      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-minimum-32-characters}
+      COSMI_ENV: ${COSMI_ENV:-development}
       EMAIL_GRPC_PORT: ":50056"
       EMAIL_HEALTH_PORT: ":9096"
-      VAULT_MASTER_SECRET: docker-dev-vault-secret-minimum-32-characters-long
+      VAULT_MASTER_SECRET: ${VAULT_MASTER_SECRET:-docker-dev-vault-secret-minimum-32-characters-long}
       MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
       MINIO_BUCKET: kmuhub-files
       MINIO_USE_SSL: "false"
     ports:
@@ -325,13 +331,14 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
-      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-minimum-32-characters}
+      COSMI_ENV: ${COSMI_ENV:-development}
       DOCUMENT_GRPC_PORT: ":50057"
       DOCUMENT_HEALTH_PORT: ":9097"
-      WOPI_JWT_SECRET: docker-dev-wopi-secret-minimum-32-characters
+      WOPI_JWT_SECRET: ${WOPI_JWT_SECRET:-docker-dev-wopi-secret-minimum-32-characters}
       MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
       MINIO_BUCKET: kmuhub-files
       MINIO_USE_SSL: "false"
       FILE_SIZE_LIMIT_MB: "50"
@@ -360,11 +367,12 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-minimum-32-characters}
+      COSMI_ENV: ${COSMI_ENV:-development}
       BIZ_GRPC_PORT: ":50058"
       BIZ_HEALTH_PORT: ":9098"
       CRM_GRPC_ADDRESS: crm:50052
-      VAULT_MASTER_SECRET: docker-dev-vault-secret-minimum-32-characters-long
+      VAULT_MASTER_SECRET: ${VAULT_MASTER_SECRET:-docker-dev-vault-secret-minimum-32-characters-long}
       # Lexware Office (optional -- integration disabled when not set)
       LEXWARE_API_BASE_URL: "https://api.lexoffice.io"
       # DATEV API (optional -- requires partner registration, integration disabled when not set)
@@ -398,7 +406,8 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-minimum-32-characters}
+      COSMI_ENV: ${COSMI_ENV:-development}
       AUTOMATION_GRPC_PORT: ":50059"
       AUTOMATION_HEALTH_PORT: ":9099"
       CRM_GRPC_ADDRESS: crm:50052
@@ -427,7 +436,8 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
-      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-minimum-32-characters}
+      COSMI_ENV: ${COSMI_ENV:-development}
       PLUGIN_GRPC_PORT: ":50060"
       PLUGIN_HEALTH_PORT: ":9100"
     ports:
@@ -455,12 +465,13 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-minimum-32-characters}
+      COSMI_ENV: ${COSMI_ENV:-development}
       DIALER_GRPC_PORT: ":50061"
       DIALER_HEALTH_PORT: ":9101"
-      LIVEKIT_API_KEY: devkey
-      LIVEKIT_API_SECRET: devsecret
-      LIVEKIT_WS_URL: ws://livekit:7880
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-devsecret}
+      LIVEKIT_WS_URL: "${LIVEKIT_WS_URL:-ws://livekit:7880}"
     ports:
       - "50061:50061"
       - "9101:9101"
@@ -483,7 +494,8 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
-      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-minimum-32-characters}
+      COSMI_ENV: ${COSMI_ENV:-development}
       WIKI_GRPC_PORT: ":50062"
       WIKI_HEALTH_PORT: ":9102"
     ports:
@@ -508,7 +520,8 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
-      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-minimum-32-characters}
+      COSMI_ENV: ${COSMI_ENV:-development}
       HELPDESK_GRPC_PORT: ":50065"
       HELPDESK_HEALTH_PORT: ":9105"
     ports:
@@ -533,7 +546,8 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
-      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-minimum-32-characters}
+      COSMI_ENV: ${COSMI_ENV:-development}
       BERICHTE_GRPC_PORT: ":50063"
       BERICHTE_HEALTH_PORT: ":9103"
     ports:
@@ -558,7 +572,8 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
-      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-minimum-32-characters}
+      COSMI_ENV: ${COSMI_ENV:-development}
       FORMULARE_GRPC_PORT: ":50064"
       FORMULARE_HEALTH_PORT: ":9104"
     ports:
@@ -583,7 +598,8 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
-      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-minimum-32-characters}
+      COSMI_ENV: ${COSMI_ENV:-development}
       INVENTAR_GRPC_PORT: ":50070"
       INVENTAR_HEALTH_PORT: ":9110"
     ports:
@@ -608,7 +624,8 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
-      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-minimum-32-characters}
+      COSMI_ENV: ${COSMI_ENV:-development}
       EINKAUF_GRPC_PORT: ":50071"
       EINKAUF_HEALTH_PORT: ":9111"
     ports:
@@ -633,7 +650,8 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
-      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-minimum-32-characters}
+      COSMI_ENV: ${COSMI_ENV:-development}
       PRODUKTION_GRPC_PORT: ":50072"
       PRODUKTION_HEALTH_PORT: ":9112"
     ports:
@@ -658,7 +676,8 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
-      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-minimum-32-characters}
+      COSMI_ENV: ${COSMI_ENV:-development}
       VERTRAEGE_GRPC_PORT: ":50073"
       VERTRAEGE_HEALTH_PORT: ":9113"
     ports:
@@ -683,7 +702,8 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
-      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-minimum-32-characters}
+      COSMI_ENV: ${COSMI_ENV:-development}
       FUHRPARK_GRPC_PORT: ":50076"
       FUHRPARK_HEALTH_PORT: ":9116"
     ports:
@@ -708,7 +728,8 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
-      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-minimum-32-characters}
+      COSMI_ENV: ${COSMI_ENV:-development}
       VERMIETUNG_GRPC_PORT: ":50077"
       VERMIETUNG_HEALTH_PORT: ":9117"
     ports:
@@ -733,7 +754,8 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
-      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-minimum-32-characters}
+      COSMI_ENV: ${COSMI_ENV:-development}
       RAPPORTE_GRPC_PORT: ":50074"
       RAPPORTE_HEALTH_PORT: ":9114"
     ports:
@@ -758,7 +780,8 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
-      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-minimum-32-characters}
+      COSMI_ENV: ${COSMI_ENV:-development}
       SCHICHTEN_GRPC_PORT: ":50075"
       SCHICHTEN_HEALTH_PORT: ":9115"
     ports:
@@ -852,7 +875,8 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in deploy/docker/.env or .env.production}
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-minimum-32-characters}
+      COSMI_ENV: ${COSMI_ENV:-development}
       ACCESS_TOKEN_EXPIRY: 15m
       REFRESH_TOKEN_EXPIRY: 168h
       AUTH_GRPC_ADDRESS: auth:50051
@@ -901,15 +925,19 @@ services:
       FUHRPARK_GRPC_PORT: ":50076"
       VERMIETUNG_GRPC_ADDRESS: vermietung:50077
       VERMIETUNG_GRPC_PORT: ":50077"
-      WOPI_JWT_SECRET: docker-dev-wopi-secret-minimum-32-characters
+      WOPI_JWT_SECRET: ${WOPI_JWT_SECRET:-docker-dev-wopi-secret-minimum-32-characters}
       GATEWAY_HTTP_PORT: ":8080"
       METRICS_PORT: ":9090"
       CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:-http://localhost:3000;http://localhost:5173;http://localhost:8080}"
       RATE_LIMIT_RPS: 100
-      LIVEKIT_WEBHOOK_SECRET: devsecret
+      # LiveKit signs webhooks with the API key/secret pair (not a separate webhook
+      # secret) — without these the gateway skips webhook signature validation.
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-devsecret}
+      LIVEKIT_WEBHOOK_SECRET: ${LIVEKIT_WEBHOOK_SECRET:-devsecret}
       MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
       # HardMode in Dev so missing Idempotency-Key triggers 400 during local development.
       # Production leaves this unset (defaults to WarnMode) until Sprint 3 cutover.
       IDEMPOTENCY_MODE: hard

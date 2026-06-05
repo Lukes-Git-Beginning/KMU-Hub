@@ -3,10 +3,11 @@
 #
 # Currently handles:
 #   - deploy/docker/livekit-secrets.yaml.tmpl -> livekit-secrets.yaml
+#   - deploy/docker/egress.yaml.tmpl          -> egress-secrets.yaml
 #   - deploy/docker/alertmanager.yml.tmpl    -> alertmanager.yml
 #
 # Required env vars (whitelist passed to envsubst):
-#   LIVEKIT_API_KEY, LIVEKIT_API_SECRET
+#   LIVEKIT_API_KEY, LIVEKIT_API_SECRET, MINIO_ACCESS_KEY, MINIO_SECRET_KEY
 #
 # Optional env vars (allowed to be empty):
 #   ALERT_WEBHOOK_URL — Slack-format webhook URL for Alertmanager.
@@ -32,7 +33,7 @@ if ! command -v envsubst >/dev/null 2>&1; then
 fi
 
 # Verify required env vars are set (and non-empty)
-REQUIRED_VARS=(LIVEKIT_API_KEY LIVEKIT_API_SECRET)
+REQUIRED_VARS=(LIVEKIT_API_KEY LIVEKIT_API_SECRET MINIO_ACCESS_KEY MINIO_SECRET_KEY)
 MISSING=()
 for var in "${REQUIRED_VARS[@]}"; do
   if [ -z "${!var:-}" ]; then
@@ -62,6 +63,25 @@ envsubst '$LIVEKIT_API_KEY $LIVEKIT_API_SECRET' < "$TMPL" > "$OUT"
 # Quick sanity check: rendered file must not contain bare '${' anymore.
 if grep -q '\${LIVEKIT' "$OUT"; then
   echo "ERROR: Unresolved placeholder in $OUT — env-var substitution failed" >&2
+  exit 1
+fi
+
+# Render egress-secrets.yaml from template. The prod overlay mounts this over
+# /etc/egress.yaml so the egress worker signs with the real LiveKit key and
+# uploads recordings with the real MinIO credentials (dev keeps egress.yaml).
+EGRESS_TMPL="$DOCKER_DIR/egress.yaml.tmpl"
+EGRESS_OUT="$DOCKER_DIR/egress-secrets.yaml"
+
+if [ ! -f "$EGRESS_TMPL" ]; then
+  echo "ERROR: Template not found: $EGRESS_TMPL" >&2
+  exit 1
+fi
+
+log "Rendering $EGRESS_TMPL -> $EGRESS_OUT"
+envsubst '$LIVEKIT_API_KEY $LIVEKIT_API_SECRET $MINIO_ACCESS_KEY $MINIO_SECRET_KEY' < "$EGRESS_TMPL" > "$EGRESS_OUT"
+
+if grep -qE '\$\{(LIVEKIT|MINIO)' "$EGRESS_OUT"; then
+  echo "ERROR: Unresolved placeholder in $EGRESS_OUT — env-var substitution failed" >&2
   exit 1
 fi
 
