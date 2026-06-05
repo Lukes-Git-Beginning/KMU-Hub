@@ -171,22 +171,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-      # chat + document services hard-require object storage on startup.
-      # bitnami image: starts the server without a command override
-      # (GitHub service containers cannot pass one). Credentials match the
-      # dev defaults in internal/config/config.go.
-      minio:
-        image: bitnami/minio:latest
-        env:
-          MINIO_ROOT_USER: kmuhub
-          MINIO_ROOT_PASSWORD: kmuhub_dev
-        ports:
-          - 9000:9000
-        options: >-
-          --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     env:
       DATABASE_URL: postgres://kmuhub_test:kmuhub_test@localhost:5432/kmuhub_test?sslmode=disable
@@ -209,6 +193,26 @@ jobs:
 
       - name: Run migrations
         run: migrate -path backend/migrations -database "$DATABASE_URL" up
+
+      - name: Start MinIO
+        # chat + document exit on startup without object storage. Same pinned
+        # image as deploy/docker/docker-compose.yml; docker-run step because
+        # GitHub service containers cannot pass the `server /data` command.
+        # Credentials match the dev defaults in internal/config/config.go.
+        run: |
+          docker run -d --name minio -p 9000:9000             -e MINIO_ROOT_USER=kmuhub -e MINIO_ROOT_PASSWORD=kmuhub_dev             minio/minio:RELEASE.2025-04-22T22-12-26Z server /data
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:9000/minio/health/live > /dev/null 2>&1; then
+              echo "MinIO healthy"
+              break
+            fi
+            if [ "$i" = "30" ]; then
+              echo "MinIO failed to start"
+              docker logs minio
+              exit 1
+            fi
+            sleep 1
+          done
 
       - name: Build services
         working-directory: backend
@@ -371,22 +375,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-      # chat + document services hard-require object storage on startup.
-      # bitnami image: starts the server without a command override
-      # (GitHub service containers cannot pass one). Credentials match the
-      # dev defaults in internal/config/config.go.
-      minio:
-        image: bitnami/minio:latest
-        env:
-          MINIO_ROOT_USER: kmuhub
-          MINIO_ROOT_PASSWORD: kmuhub_dev
-        ports:
-          - 9000:9000
-        options: >-
-          --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     env:
       DATABASE_URL: postgres://kmuhub_test:kmuhub_test@localhost:5432/kmuhub_test?sslmode=disable
@@ -409,6 +397,26 @@ jobs:
 
       - name: Run migrations
         run: migrate -path backend/migrations -database "$DATABASE_URL" up
+
+      - name: Start MinIO
+        # chat + document exit on startup without object storage. Same pinned
+        # image as deploy/docker/docker-compose.yml; docker-run step because
+        # GitHub service containers cannot pass the `server /data` command.
+        # Credentials match the dev defaults in internal/config/config.go.
+        run: |
+          docker run -d --name minio -p 9000:9000             -e MINIO_ROOT_USER=kmuhub -e MINIO_ROOT_PASSWORD=kmuhub_dev             minio/minio:RELEASE.2025-04-22T22-12-26Z server /data
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:9000/minio/health/live > /dev/null 2>&1; then
+              echo "MinIO healthy"
+              break
+            fi
+            if [ "$i" = "30" ]; then
+              echo "MinIO failed to start"
+              docker logs minio
+              exit 1
+            fi
+            sleep 1
+          done
 
       - name: Build and start services
         working-directory: backend
