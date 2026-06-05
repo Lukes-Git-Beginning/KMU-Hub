@@ -101,10 +101,13 @@ jobs:
       - name: Check coverage
         working-directory: backend
         run: |
-          echo "=== Coverage report ==="
-          go tool cover -func=coverage.out
+          # Exclude generated proto stubs — they carry zero handwritten logic
+          # and dilute the ratio (10.9% raw vs 20.0% real at time of writing).
+          grep -v "github.com/kmuhub/kmuhub/proto/" coverage.out > coverage_filtered.out
+          echo "=== Coverage report (generated proto code excluded) ==="
+          go tool cover -func=coverage_filtered.out
           echo ""
-          TOTAL=$(go tool cover -func=coverage.out | tail -1 | awk '{print $3}' | sed 's/%//')
+          TOTAL=$(go tool cover -func=coverage_filtered.out | tail -1 | awk '{print $3}' | sed 's/%//')
           echo "Total coverage: ${TOTAL}%"
           THRESHOLD=15
           if [ "$(echo "$TOTAL < $THRESHOLD" | bc -l)" = "1" ]; then
