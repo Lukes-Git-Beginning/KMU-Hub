@@ -218,7 +218,7 @@ func main() {
 		gateway.NewNotificationRoutes(registry),
 		gateway.NewWorkRoutes(registry),
 		gateway.NewCalendarRoutes(registry),
-		gateway.NewVideoRoutes(registry),
+		gateway.NewVideoRoutes(registry, cfg.LiveKitAPIKey, cfg.LiveKitAPISecret),
 		gateway.NewSecurityRoutes(registry),
 		gateway.NewEmailRoutes(registry),
 		gateway.NewDocumentRoutes(registry),

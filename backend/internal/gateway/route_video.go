@@ -2,9 +2,13 @@ package gateway
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
+
+	lkauth "github.com/livekit/protocol/auth"
+	lkwebhook "github.com/livekit/protocol/webhook"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -19,12 +23,28 @@ const liveKitEgressStatusComplete int32 = 3
 // VideoRoutes handles HTTP routes for the Video service.
 // Video runs in the same binary as Work, so we reuse the "work" gRPC connection.
 type VideoRoutes struct {
-	registry *ServiceRegistry
+	registry    *ServiceRegistry
+	lkKeyProv   lkauth.KeyProvider // nil when LIVEKIT_API_KEY/SECRET are not configured
 }
 
 // NewVideoRoutes creates a new VideoRoutes with the given service registry.
-func NewVideoRoutes(registry *ServiceRegistry) *VideoRoutes {
-	return &VideoRoutes{registry: registry}
+//
+// livekitAPIKey and livekitAPISecret are used to validate incoming LiveKit webhook
+// signatures via the Authorization JWT header (LIVEKIT_API_KEY / LIVEKIT_API_SECRET).
+// LiveKit signs webhooks with the API-Key/Secret pair — NOT a separate webhook secret —
+// so LIVEKIT_WEBHOOK_SECRET from config is intentionally unused here.
+// When both values are empty, signature validation is disabled with a startup warning
+// (graceful degradation for dev/staging environments).
+func NewVideoRoutes(registry *ServiceRegistry, livekitAPIKey, livekitAPISecret string) *VideoRoutes {
+	vr := &VideoRoutes{registry: registry}
+
+	if livekitAPIKey == "" || livekitAPISecret == "" {
+		slog.Warn("livekit webhook signature validation disabled: LIVEKIT_API_KEY or LIVEKIT_API_SECRET not configured")
+	} else {
+		vr.lkKeyProv = lkauth.NewSimpleKeyProvider(livekitAPIKey, livekitAPISecret)
+	}
+
+	return vr
 }
 
 // ServiceName returns the backend service name (shares "work" gRPC port).
@@ -1165,13 +1185,37 @@ type liveKitWebhookEvent struct {
 }
 
 func (vr *VideoRoutes) HandleLiveKitWebhook(w http.ResponseWriter, r *http.Request) {
-	// Read the raw body for webhook validation.
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "failed to read request body")
-		return
+	// --- Signature validation ---
+	// When a key provider is configured (LIVEKIT_API_KEY + LIVEKIT_API_SECRET set),
+	// lkwebhook.Receive reads and verifies the Authorization JWT header, checks the
+	// SHA-256 body hash embedded in the token claims, and returns the raw body.
+	// If no key provider is configured (dev/staging), we fall back to reading the
+	// body manually and skip validation (startup already logged a warning).
+	var body []byte
+
+	if vr.lkKeyProv != nil {
+		var err error
+		body, err = lkwebhook.Receive(r, vr.lkKeyProv)
+		if err != nil {
+			if errors.Is(err, lkwebhook.ErrNoAuthHeader) {
+				slog.Warn("livekit webhook: missing Authorization header — rejecting request")
+				response.Error(w, http.StatusUnauthorized, "missing webhook authorization")
+				return
+			}
+			slog.Warn("livekit webhook: invalid signature — rejecting request", "error", err)
+			response.Error(w, http.StatusUnauthorized, "invalid webhook signature")
+			return
+		}
+	} else {
+		// Validation disabled: accept all requests (no secret configured).
+		defer r.Body.Close()
+		var err error
+		body, err = io.ReadAll(r.Body)
+		if err != nil {
+			response.Error(w, http.StatusBadRequest, "failed to read request body")
+			return
+		}
 	}
-	defer r.Body.Close()
 
 	var evt liveKitWebhookEvent
 	if err := json.Unmarshal(body, &evt); err != nil {

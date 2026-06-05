@@ -213,6 +213,44 @@ func main() {
 		}
 	}()
 
+	// Start recording cleanup goroutine.
+	// Runs once after a 1-minute startup delay, then every 24 hours.
+	// Uses a system context so the cross-tenant query bypasses RLS row filtering
+	// (recordings table has no app-visible tenant_id enforced at this path).
+	// Errors are logged but never propagate — a transient failure must not crash
+	// or degrade any other service in this binary.
+	go func() {
+		cleanupCtx := database.WithSystemContext(ctx)
+		select {
+		case <-time.After(1 * time.Minute):
+		case <-ctx.Done():
+			return
+		}
+
+		cleanupTicker := time.NewTicker(24 * time.Hour)
+		defer cleanupTicker.Stop()
+
+		runCleanup := func() {
+			n, err := recordingService.CleanupExpiredRecordings(cleanupCtx)
+			if err != nil {
+				slog.Error("recording cleanup failed", "error", err)
+				return
+			}
+			slog.Info("recording cleanup completed", "deleted", n)
+		}
+
+		runCleanup() // initial run immediately after startup delay
+
+		for {
+			select {
+			case <-cleanupTicker.C:
+				runCleanup()
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 

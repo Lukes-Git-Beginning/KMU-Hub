@@ -388,7 +388,7 @@ func TestMessages_ValidTid_PassesTenantCheck(t *testing.T) {
 // ============================================================================
 
 func TestRecordingInitiatorConsent_NoTenant_Returns401(t *testing.T) {
-	routes := NewVideoRoutes(registryWithService("work"))
+	routes := NewVideoRoutes(registryWithService("work"), "", "")
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/", nil)
 	req = withChiURLParam(req, "id", uuid.New().String())
@@ -397,7 +397,7 @@ func TestRecordingInitiatorConsent_NoTenant_Returns401(t *testing.T) {
 }
 
 func TestRecordingInitiatorConsent_EmptyTid_Returns401(t *testing.T) {
-	routes := NewVideoRoutes(registryWithService("work"))
+	routes := NewVideoRoutes(registryWithService("work"), "", "")
 	rec := httptest.NewRecorder()
 	req := reqWithEmptyTenant(http.MethodPost, "/")
 	req = withChiURLParam(req, "id", uuid.New().String())
@@ -406,7 +406,7 @@ func TestRecordingInitiatorConsent_EmptyTid_Returns401(t *testing.T) {
 }
 
 func TestRecordingInitiatorConsent_ValidTid_PassesTenantCheck(t *testing.T) {
-	routes := NewVideoRoutes(registryWithService("work"))
+	routes := NewVideoRoutes(registryWithService("work"), "", "")
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/", nil)
 	req = withTenantID(req, uuid.New())
@@ -422,7 +422,7 @@ func TestRecordingInitiatorConsent_ValidTid_PassesTenantCheck(t *testing.T) {
 // gRPC layer (where MarkInitiatorConsent then enforces tenant_id at the DB
 // level — see recording/postgres_repository.go::MarkInitiatorConsent).
 func TestRecordingInitiatorConsent_TwoTenants_IndependentContexts(t *testing.T) {
-	routes := NewVideoRoutes(registryWithService("work"))
+	routes := NewVideoRoutes(registryWithService("work"), "", "")
 	tenantA := uuid.New()
 	tenantB := uuid.New()
 	recordingID := uuid.New().String()
@@ -730,7 +730,7 @@ func TestTenantIsolation_AuditLog(t *testing.T) {
 func TestTenantIsolation_Recordings(t *testing.T) {
 	// HandleListRecordings delegates all tenant enforcement to the gRPC layer.
 	// Verify that two distinct tenant contexts both pass the HTTP layer without 401.
-	routes := NewVideoRoutes(registryWithService("work"))
+	routes := NewVideoRoutes(registryWithService("work"), "", "")
 
 	tenantA := uuid.New()
 	tenantB := uuid.New()

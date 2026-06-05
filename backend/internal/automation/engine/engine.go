@@ -18,8 +18,14 @@ import (
 )
 
 const (
-	// maxConcurrentExecutions limits parallel workflow executions.
+	// maxConcurrentExecutions is the global upper bound on parallel workflow
+	// executions across all tenants.
 	maxConcurrentExecutions = 20
+
+	// maxConcurrentExecutionsPerTenant is the per-tenant upper bound.
+	// A single tenant can hold at most this many slots simultaneously, which
+	// prevents noisy-neighbour starvation of other tenants.
+	maxConcurrentExecutionsPerTenant = 5
 
 	// actionTimeout is the per-action execution timeout.
 	actionTimeout = 10 * time.Second
@@ -38,11 +44,20 @@ type WorkflowEngine struct {
 	workflowRepo   workflow.Repository
 	execRepo       workflow.ExecutionRepository
 
+	// semaphore is the global concurrency cap across all tenants.
 	semaphore chan struct{}
 
-	// Circuit breaker: tracks executions per automation per hour
-	mu              sync.Mutex
+	// mu protects both executionCounts (circuit breaker) and tenantSemaphores.
+	mu sync.Mutex
+
+	// Circuit breaker: tracks executions per automation per hour.
 	executionCounts map[uuid.UUID]*circuitState
+
+	// tenantSemaphores is a per-tenant concurrency cap (maxConcurrentExecutionsPerTenant).
+	// The map is lazily populated and never evicted: with the current single-tenant
+	// deployment this is a non-issue; in multi-tenant operation the number of distinct
+	// tenants is bounded and small (<<1000), so unbounded growth is acceptable.
+	tenantSemaphores map[uuid.UUID]chan struct{}
 }
 
 // circuitState tracks execution count and window for circuit breaker.
@@ -60,13 +75,14 @@ func NewWorkflowEngine(
 	execRepo workflow.ExecutionRepository,
 ) *WorkflowEngine {
 	return &WorkflowEngine{
-		condEvaluator:   evaluator,
-		actionRegistry:  registry,
-		logger:          logger,
-		workflowRepo:    repo,
-		execRepo:        execRepo,
-		semaphore:       make(chan struct{}, maxConcurrentExecutions),
-		executionCounts: make(map[uuid.UUID]*circuitState),
+		condEvaluator:    evaluator,
+		actionRegistry:   registry,
+		logger:           logger,
+		workflowRepo:     repo,
+		execRepo:         execRepo,
+		semaphore:        make(chan struct{}, maxConcurrentExecutions),
+		executionCounts:  make(map[uuid.UUID]*circuitState),
+		tenantSemaphores: make(map[uuid.UUID]chan struct{}),
 	}
 }
 
@@ -94,14 +110,41 @@ func (we *WorkflowEngine) Execute(ctx context.Context, auto models.Automation, e
 		return workflow.ErrCircuitBreakerOpen
 	}
 
-	// Acquire semaphore slot (non-blocking: return if full)
+	// Acquire global semaphore slot first (non-blocking: drop if full).
 	select {
 	case we.semaphore <- struct{}{}:
-		defer func() { <-we.semaphore }()
+		// acquired; released after the tenant slot is also released (see defer below)
 	default:
-		slog.Warn("execution semaphore full, skipping",
+		slog.Warn("global execution semaphore full, skipping",
 			"automation_id", auto.ID,
+			"tenant_id", auto.TenantID,
 			"max_concurrent", maxConcurrentExecutions,
+		)
+		return nil
+	}
+
+	// Acquire per-tenant semaphore slot (non-blocking: release global and drop).
+	tenantID := auto.TenantID
+	if tenantID == uuid.Nil {
+		slog.Warn("automation has nil tenant_id, using nil bucket",
+			"automation_id", auto.ID,
+		)
+	}
+	tenantSem := we.tenantSemaphore(tenantID)
+	select {
+	case tenantSem <- struct{}{}:
+		// acquired both slots; set up deferred release in reverse acquisition order
+		defer func() {
+			<-tenantSem
+			<-we.semaphore
+		}()
+	default:
+		// release global slot we already acquired
+		<-we.semaphore
+		slog.Warn("per-tenant execution semaphore full, skipping",
+			"automation_id", auto.ID,
+			"tenant_id", tenantID,
+			"max_concurrent_per_tenant", maxConcurrentExecutionsPerTenant,
 		)
 		return nil
 	}
@@ -267,6 +310,19 @@ func (we *WorkflowEngine) trackExecution(automationID uuid.UUID) {
 	}
 
 	state.count++
+}
+
+// tenantSemaphore returns the buffered channel used as a per-tenant semaphore,
+// creating it lazily on first access. mu must NOT be held by the caller.
+func (we *WorkflowEngine) tenantSemaphore(tenantID uuid.UUID) chan struct{} {
+	we.mu.Lock()
+	defer we.mu.Unlock()
+	sem, ok := we.tenantSemaphores[tenantID]
+	if !ok {
+		sem = make(chan struct{}, maxConcurrentExecutionsPerTenant)
+		we.tenantSemaphores[tenantID] = sem
+	}
+	return sem
 }
 
 // buildEnvFromPayload converts an EventPayload into a flat environment map

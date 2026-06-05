@@ -1,11 +1,16 @@
 package gateway
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	lkauth "github.com/livekit/protocol/auth"
 )
 
 // buildLiveKitWebhookReq constructs a POST request that simulates a LiveKit webhook.
@@ -19,7 +24,7 @@ func buildLiveKitWebhookReq(t *testing.T, event liveKitWebhookEvent) *http.Reque
 }
 
 func TestHandleLiveKitWebhook_InvalidJSON(t *testing.T) {
-	routes := NewVideoRoutes(emptyRegistry())
+	routes := NewVideoRoutes(emptyRegistry(), "", "")
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/v1/webhooks/livekit", strings.NewReader("{invalid"))
 	routes.HandleLiveKitWebhook(rec, req)
@@ -28,7 +33,7 @@ func TestHandleLiveKitWebhook_InvalidJSON(t *testing.T) {
 }
 
 func TestHandleLiveKitWebhook_ParticipantJoined_Returns200(t *testing.T) {
-	routes := NewVideoRoutes(emptyRegistry())
+	routes := NewVideoRoutes(emptyRegistry(), "", "")
 	rec := httptest.NewRecorder()
 	req := buildLiveKitWebhookReq(t, liveKitWebhookEvent{
 		Event: "participant_joined",
@@ -45,7 +50,7 @@ func TestHandleLiveKitWebhook_EgressEndedComplete_AttemptsGRPC(t *testing.T) {
 	// When a complete egress_ended event arrives with a registered "work" service,
 	// the handler should attempt a gRPC call and return 200 regardless of gRPC outcome
 	// (the webhook must always ack 200 to LiveKit).
-	routes := NewVideoRoutes(registryWithService("work"))
+	routes := NewVideoRoutes(registryWithService("work"), "", "")
 	rec := httptest.NewRecorder()
 	req := buildLiveKitWebhookReq(t, liveKitWebhookEvent{
 		Event: "egress_ended",
@@ -87,7 +92,7 @@ func TestHandleLiveKitWebhook_EgressEndedComplete_AttemptsGRPC(t *testing.T) {
 func TestHandleLiveKitWebhook_EgressEndedFailed_AttemptsGRPC(t *testing.T) {
 	// A non-complete egress should call FailRecordingByEgress.
 	// Webhook still returns 200.
-	routes := NewVideoRoutes(registryWithService("work"))
+	routes := NewVideoRoutes(registryWithService("work"), "", "")
 	rec := httptest.NewRecorder()
 	req := buildLiveKitWebhookReq(t, liveKitWebhookEvent{
 		Event: "egress_ended",
@@ -115,7 +120,7 @@ func TestHandleLiveKitWebhook_EgressEndedFailed_AttemptsGRPC(t *testing.T) {
 
 func TestHandleLiveKitWebhook_EgressEndedMissingID_Returns200(t *testing.T) {
 	// Missing egress_id → skip gRPC call, log warning, still return 200.
-	routes := NewVideoRoutes(emptyRegistry())
+	routes := NewVideoRoutes(emptyRegistry(), "", "")
 	rec := httptest.NewRecorder()
 	req := buildLiveKitWebhookReq(t, liveKitWebhookEvent{
 		Event: "egress_ended",
@@ -136,6 +141,80 @@ func TestHandleLiveKitWebhook_EgressEndedMissingID_Returns200(t *testing.T) {
 			Status:   3,
 		},
 	})
+	routes.HandleLiveKitWebhook(rec, req)
+	assertStatus(t, rec, http.StatusOK)
+}
+
+// buildSignedLiveKitWebhookReq constructs a POST request with a valid LiveKit
+// Authorization JWT signed with the given key/secret pair.  The token embeds the
+// SHA-256 hash of the body, exactly as LiveKit's server does.
+func buildSignedLiveKitWebhookReq(t *testing.T, apiKey, apiSecret string, body []byte) *http.Request {
+	t.Helper()
+
+	sha := sha256.Sum256(body)
+	hash := base64.StdEncoding.EncodeToString(sha[:])
+
+	at := lkauth.NewAccessToken(apiKey, apiSecret).
+		SetValidFor(5 * time.Minute).
+		SetSha256(hash)
+
+	token, err := at.ToJWT()
+	if err != nil {
+		t.Fatalf("failed to build livekit webhook token: %v", err)
+	}
+
+	req := httptest.NewRequest("POST", "/api/v1/webhooks/livekit", strings.NewReader(string(body)))
+	req.Header.Set("Authorization", token)
+	return req
+}
+
+// TestHandleLiveKitWebhook_MissingSignature_Returns401 verifies that a request without
+// an Authorization header is rejected with 401 when a key provider is configured.
+func TestHandleLiveKitWebhook_MissingSignature_Returns401(t *testing.T) {
+	routes := NewVideoRoutes(emptyRegistry(), "test-api-key", "test-api-secret-32charslong!!")
+	rec := httptest.NewRecorder()
+	body, _ := json.Marshal(liveKitWebhookEvent{Event: "participant_joined"})
+	req := httptest.NewRequest("POST", "/api/v1/webhooks/livekit", strings.NewReader(string(body)))
+	// No Authorization header set.
+	routes.HandleLiveKitWebhook(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+	assertErrorContains(t, rec, "missing webhook authorization")
+}
+
+// TestHandleLiveKitWebhook_InvalidSignature_Returns401 verifies that a request signed
+// with the wrong secret is rejected with 401.
+func TestHandleLiveKitWebhook_InvalidSignature_Returns401(t *testing.T) {
+	routes := NewVideoRoutes(emptyRegistry(), "test-api-key", "test-api-secret-32charslong!!")
+	rec := httptest.NewRecorder()
+	body, _ := json.Marshal(liveKitWebhookEvent{Event: "participant_joined"})
+	// Sign with a different (wrong) secret.
+	req := buildSignedLiveKitWebhookReq(t, "test-api-key", "completely-wrong-secret-value!!", body)
+	routes.HandleLiveKitWebhook(rec, req)
+	assertStatus(t, rec, http.StatusUnauthorized)
+	assertErrorContains(t, rec, "invalid webhook signature")
+}
+
+// TestHandleLiveKitWebhook_ValidSignature_Returns200 verifies that a correctly signed
+// request is accepted when a key provider is configured.
+func TestHandleLiveKitWebhook_ValidSignature_Returns200(t *testing.T) {
+	const apiKey = "test-api-key"
+	const apiSecret = "test-api-secret-32charslong!!"
+	routes := NewVideoRoutes(emptyRegistry(), apiKey, apiSecret)
+	rec := httptest.NewRecorder()
+	body, _ := json.Marshal(liveKitWebhookEvent{Event: "participant_joined"})
+	req := buildSignedLiveKitWebhookReq(t, apiKey, apiSecret, body)
+	routes.HandleLiveKitWebhook(rec, req)
+	assertStatus(t, rec, http.StatusOK)
+}
+
+// TestHandleLiveKitWebhook_NoSecretConfigured_Accepts verifies that requests are
+// accepted without any Authorization header when no key provider is configured
+// (graceful degradation for dev/staging).
+func TestHandleLiveKitWebhook_NoSecretConfigured_Accepts(t *testing.T) {
+	routes := NewVideoRoutes(emptyRegistry(), "", "") // no key/secret
+	rec := httptest.NewRecorder()
+	req := buildLiveKitWebhookReq(t, liveKitWebhookEvent{Event: "room_finished"})
+	// No Authorization header — should still be accepted.
 	routes.HandleLiveKitWebhook(rec, req)
 	assertStatus(t, rec, http.StatusOK)
 }
