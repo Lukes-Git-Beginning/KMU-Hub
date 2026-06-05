@@ -13,8 +13,11 @@ DROP FUNCTION IF EXISTS current_app_role();
 DROP FUNCTION IF EXISTS current_user_id();
 DROP FUNCTION IF EXISTS current_tenant_id();
 
-ALTER DATABASE kmuhub RESET app.role;
-ALTER DATABASE kmuhub RESET app.user_id;
-ALTER DATABASE kmuhub RESET app.tenant_id;
+DO $$
+BEGIN
+    EXECUTE format('ALTER DATABASE %I RESET app.role', current_database());
+    EXECUTE format('ALTER DATABASE %I RESET app.user_id', current_database());
+    EXECUTE format('ALTER DATABASE %I RESET app.tenant_id', current_database());
+END$$;
 
 COMMIT;

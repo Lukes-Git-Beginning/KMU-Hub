@@ -17,7 +17,7 @@ BEGIN
         REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM kmuhub_app;
         REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM kmuhub_app;
         REVOKE USAGE ON SCHEMA public FROM kmuhub_app;
-        REVOKE CONNECT ON DATABASE kmuhub FROM kmuhub_app;
+        EXECUTE format('REVOKE CONNECT ON DATABASE %I FROM kmuhub_app', current_database());
 
         -- Drop the role
         DROP ROLE kmuhub_app;

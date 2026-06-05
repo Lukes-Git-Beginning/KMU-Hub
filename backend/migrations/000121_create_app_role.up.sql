@@ -37,8 +37,12 @@ BEGIN
     END IF;
 END$$;
 
--- 2) Database-level connect privilege.
-GRANT CONNECT ON DATABASE kmuhub TO kmuhub_app;
+-- 2) Database-level connect privilege. current_database() keeps this
+--    portable (CI uses kmuhub_test, self-hosted installs may pick any name).
+DO $$
+BEGIN
+    EXECUTE format('GRANT CONNECT ON DATABASE %I TO kmuhub_app', current_database());
+END$$;
 
 -- 3) Schema usage and existing object privileges.
 GRANT USAGE ON SCHEMA public TO kmuhub_app;

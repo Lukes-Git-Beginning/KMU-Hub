@@ -26,9 +26,14 @@ BEGIN;
 -- 1) Database-level defaults so SET LOCAL inside transactions sees an
 --    initialized GUC. Empty string is the "no tenant" sentinel — treated
 --    by current_tenant_id() as NULL.
-ALTER DATABASE kmuhub SET app.tenant_id = '';
-ALTER DATABASE kmuhub SET app.user_id = '';
-ALTER DATABASE kmuhub SET app.role = '';
+--    current_database() keeps this portable across environments (CI uses
+--    kmuhub_test, self-hosted installs may pick any name).
+DO $$
+BEGIN
+    EXECUTE format('ALTER DATABASE %I SET app.tenant_id = ''''', current_database());
+    EXECUTE format('ALTER DATABASE %I SET app.user_id = ''''', current_database());
+    EXECUTE format('ALTER DATABASE %I SET app.role = ''''', current_database());
+END$$;
 
 -- 2) Helper functions. STABLE so the planner can cache them within a
 --    statement but re-evaluate per query (cannot be IMMUTABLE — they

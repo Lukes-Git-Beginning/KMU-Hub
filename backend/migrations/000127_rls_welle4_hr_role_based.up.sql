@@ -39,7 +39,10 @@ $$;
 -- Default GUC at database level so SET LOCAL has something to override
 -- ============================================================================
 
-ALTER DATABASE kmuhub SET app.user_roles = '';
+DO $$
+BEGIN
+    EXECUTE format('ALTER DATABASE %I SET app.user_roles = ''''', current_database());
+END$$;
 
 -- ============================================================================
 -- Replace tenant_isolation on hr_employee_documents with role-aware policy
