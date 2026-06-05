@@ -20,7 +20,7 @@ jobs:
           fetch-depth: 2
 
       - name: Run Claude Security Review
-        uses: anthropics/claude-code-security-review@main
+        uses: anthropics/claude-code-security-review@0c6a49f1fa56a1d472575da86a94dbc1edb78eda # pinned from @main, 2026-06-05 — no release tags exist, SHA of HEAD (2026-02-11)
         with:
           claude-api-key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           comment-pr: true

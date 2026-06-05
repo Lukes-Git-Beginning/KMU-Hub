@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -13,12 +14,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/kmuhub/kmuhub/internal/circuitbreaker"
 )
 
 const (
-	maxRetries      = 3
-	initialBackoff  = 1 * time.Second
-	backoffMultiple = 2
+	maxRetries     = 3
+	initialBackoff = 1 * time.Second
 )
 
 // Client is the HTTP client for the Bexio REST API v2.0.
@@ -26,10 +28,14 @@ type Client struct {
 	httpClient   *http.Client
 	tokenManager *TokenManager
 	rateLimiter  *RateLimiter
+	breaker      *circuitbreaker.CircuitBreaker
 	baseURL      string
 }
 
 // NewClient creates a new Bexio API client.
+//
+// The embedded circuit breaker trips after 5 consecutive post-retry failures
+// and stays open for 30 s before allowing a probe request through.
 func NewClient(config ClientConfig, vault VaultService) *Client {
 	tm := NewTokenManager(vault, config.ClientID, config.ClientSecret, config.TokenURL)
 
@@ -37,6 +43,7 @@ func NewClient(config ClientConfig, vault VaultService) *Client {
 		httpClient:   &http.Client{Timeout: 30 * time.Second},
 		tokenManager: tm,
 		rateLimiter:  NewRateLimiter(),
+		breaker:      circuitbreaker.New("bexio"),
 		baseURL:      strings.TrimRight(config.BaseURL, "/"),
 	}
 }
@@ -46,9 +53,36 @@ func (c *Client) TokenManager() *TokenManager {
 	return c.tokenManager
 }
 
-// do executes an authenticated request against the Bexio API with rate limiting,
-// automatic token refresh on 401, and exponential backoff on 429.
+// do executes an authenticated request against the Bexio API with rate
+// limiting, automatic token refresh on 401, exponential backoff on 5xx/429,
+// and circuit-breaker protection.
+//
+// The circuit breaker wraps the entire retry loop: it counts one outcome (pass
+// or fail) per call to do(), not per individual retry attempt. This means
+// transient hiccups that resolve within the retry window are invisible to the
+// breaker, which only trips when the downstream is consistently unreachable
+// after all retries have been exhausted.
 func (c *Client) do(ctx context.Context, tenantID uuid.UUID, method, path string, body, result any) error {
+	breakerErr := c.breaker.Execute(func() error {
+		return c.doWithRetry(ctx, tenantID, method, path, body, result)
+	})
+
+	// Surface ErrCircuitOpen directly so callers can distinguish a shed request
+	// from a genuine API error.
+	if errors.Is(breakerErr, circuitbreaker.ErrCircuitOpen) {
+		slog.Warn("bexio request shed by circuit breaker",
+			"method", method,
+			"path", path,
+			"tenant_id", tenantID,
+		)
+		return breakerErr
+	}
+	return breakerErr
+}
+
+// doWithRetry contains the actual retry loop. It is called by do() inside the
+// circuit breaker's Execute closure.
+func (c *Client) doWithRetry(ctx context.Context, tenantID uuid.UUID, method, path string, body, result any) error {
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
@@ -66,18 +100,18 @@ func (c *Client) do(ctx context.Context, tenantID uuid.UUID, method, path string
 			}
 		}
 
-		// Wait for rate limiter
+		// Wait for rate limiter.
 		if err := c.rateLimiter.Wait(ctx); err != nil {
 			return fmt.Errorf("bexio: rate limiter wait cancelled: %w", err)
 		}
 
-		// Get access token
+		// Get access token.
 		token, err := c.tokenManager.GetAccessToken(ctx, tenantID)
 		if err != nil {
 			return fmt.Errorf("bexio: failed to get access token: %w", err)
 		}
 
-		// Build request
+		// Build request.
 		reqURL := c.baseURL + "/" + strings.TrimLeft(path, "/")
 		var bodyReader io.Reader
 		if body != nil {
@@ -99,18 +133,18 @@ func (c *Client) do(ctx context.Context, tenantID uuid.UUID, method, path string
 		if body != nil {
 			req.Header.Set("Content-Type", "application/json")
 		} else if method == http.MethodGet {
-			// Bexio quirk: GET requests need Content-Length: 0
+			// Bexio quirk: GET requests need Content-Length: 0.
 			req.Header.Set("Content-Length", "0")
 		}
 
-		// Execute
+		// Execute.
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("bexio: request failed: %w", err)
 			continue
 		}
 
-		// Update rate limiter from response headers
+		// Update rate limiter from response headers.
 		c.rateLimiter.UpdateFromHeaders(resp.Header)
 
 		respBody, err := io.ReadAll(resp.Body)
@@ -133,7 +167,7 @@ func (c *Client) do(ctx context.Context, tenantID uuid.UUID, method, path string
 			continue
 
 		case resp.StatusCode == http.StatusUnauthorized:
-			// Try refreshing the token once
+			// Try refreshing the token once.
 			if attempt == 0 {
 				if _, refreshErr := c.tokenManager.RefreshAccessToken(ctx, tenantID); refreshErr != nil {
 					return ErrBexioUnauthorized

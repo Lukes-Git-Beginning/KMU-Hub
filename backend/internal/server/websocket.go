@@ -12,6 +12,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/metrics"
@@ -30,6 +31,16 @@ const (
 	// wsTokenRevalidateInterval is how often in-session tokens are re-checked.
 	// A revoked or expired token detected during this tick closes the connection.
 	wsTokenRevalidateInterval = 5 * time.Minute
+
+	// wsSubscriptionKeyPrefix is the Redis key prefix for channel subscription sets.
+	// Key format: ws:subscriptions:{channelID}  →  Redis Set of userIDs
+	wsSubscriptionKeyPrefix = "ws:subscriptions:"
+	// wsSubscriptionTTL is the TTL for subscription keys. Refreshed on every Subscribe call.
+	// 24h ensures keys are cleaned up even if SREM is missed (e.g. crash without graceful shutdown).
+	wsSubscriptionTTL = 24 * time.Hour
+	// wsRedisOpTimeout is the per-operation timeout for Redis calls made by the hub.
+	// Redis ops are best-effort; a short timeout prevents a slow Redis from blocking WS handlers.
+	wsRedisOpTimeout = 2 * time.Second
 )
 
 // GuestSessionValidator validates guest tokens and enforces rate limits.
@@ -136,6 +147,20 @@ type WebSocketHub struct {
 	// Optional metrics registry for Prometheus instrumentation
 	metrics *metrics.Registry
 
+	// redisClient is an optional Redis client used to persist channel subscription state.
+	//
+	// When set, subscriptions are mirrored to Redis Sets under ws:subscriptions:{channelID}
+	// (TTL 24h). This serves two purposes:
+	//   1. Recovery: after a gateway restart the subscription state can be inspected
+	//      (currently read-back is not implemented; the local map is rebuilt on reconnect).
+	//   2. Future cross-instance broadcasts (Phase D): multiple gateway instances can
+	//      read each other's subscriber sets and forward messages accordingly.
+	//
+	// The local in-memory channelMembers map remains the authoritative source for all
+	// current broadcasts. Redis is a best-effort backing store only — a nil client or
+	// any Redis error is logged as slog.Warn and never interrupts the WebSocket flow.
+	redisClient *redis.Client
+
 	mu sync.RWMutex
 }
 
@@ -236,6 +261,15 @@ func (h *WebSocketHub) SetGuestService(svc GuestSessionValidator) {
 // SetMetrics injects an optional metrics registry for Prometheus instrumentation.
 func (h *WebSocketHub) SetMetrics(reg *metrics.Registry) {
 	h.metrics = reg
+}
+
+// SetRedisClient injects an optional Redis client for subscription-state persistence.
+// When set, channel subscriptions are mirrored to Redis (SADD/SREM/EXPIRE) so the
+// state survives gateway restarts and enables future cross-instance broadcasts (Phase D).
+// Must be called before the hub starts handling connections.
+// A nil client disables Redis backing silently (graceful degradation).
+func (h *WebSocketHub) SetRedisClient(client *redis.Client) {
+	h.redisClient = client
 }
 
 // extractToken reads the auth token from Sec-WebSocket-Protocol header first,
@@ -380,7 +414,6 @@ func (h *WebSocketHub) registerConnection(userID string, conn *websocket.Conn) {
 
 func (h *WebSocketHub) unregisterConnection(userID string, conn *websocket.Conn) {
 	h.mu.Lock()
-	defer h.mu.Unlock()
 
 	if conns, ok := h.connections[userID]; ok {
 		delete(conns, conn)
@@ -389,11 +422,16 @@ func (h *WebSocketHub) unregisterConnection(userID string, conn *websocket.Conn)
 		}
 	}
 
-	// Remove user from all channel subscriptions
+	// Collect the channels this user was subscribed to before removing them,
+	// so we can issue Redis SREM calls outside the lock.
+	var subscribedChannels []string
 	for channelID, members := range h.channelMembers {
-		delete(members, userID)
-		if len(members) == 0 {
-			delete(h.channelMembers, channelID)
+		if _, isMember := members[userID]; isMember {
+			subscribedChannels = append(subscribedChannels, channelID)
+			delete(members, userID)
+			if len(members) == 0 {
+				delete(h.channelMembers, channelID)
+			}
 		}
 	}
 
@@ -407,6 +445,14 @@ func (h *WebSocketHub) unregisterConnection(userID string, conn *websocket.Conn)
 
 	if h.metrics != nil {
 		h.metrics.WSConnectionsActive.WithLabelValues("user").Dec()
+	}
+
+	h.mu.Unlock()
+
+	// Mirror all channel removals to Redis after releasing the lock.
+	// Best-effort: errors are logged as warnings, never block cleanup.
+	for _, channelID := range subscribedChannels {
+		h.redisUnsubscribe(channelID, userID)
 	}
 
 	_ = conn.Close(websocket.StatusNormalClosure, "connection closed")
@@ -632,6 +678,10 @@ func (h *WebSocketHub) handleSubscribeChannel(ctx context.Context, conn *websock
 	h.channelMembers[msg.ChannelID][userID] = struct{}{}
 	h.mu.Unlock()
 
+	// Mirror to Redis for state persistence and future cross-instance broadcasts (Phase D).
+	// Best-effort: errors are logged as warnings, the local map is authoritative.
+	h.redisSubscribe(msg.ChannelID, userID)
+
 	slog.Info("user subscribed to channel", "user_id", userID, "channel_id", msg.ChannelID)
 }
 
@@ -648,6 +698,9 @@ func (h *WebSocketHub) handleUnsubscribeChannel(userID string, msg *WSMessage) {
 		}
 	}
 	h.mu.Unlock()
+
+	// Mirror unsubscribe to Redis.
+	h.redisUnsubscribe(msg.ChannelID, userID)
 
 	slog.Info("user unsubscribed from channel", "user_id", userID, "channel_id", msg.ChannelID)
 }
@@ -1246,4 +1299,50 @@ func (h *WebSocketHub) cleanupPresenceSubscriptions(userID string) {
 func ValidateChannelID(channelID string) bool {
 	_, err := uuid.Parse(channelID)
 	return err == nil
+}
+
+// ============================================================================
+// Redis subscription backing-store helpers
+// ============================================================================
+
+// wsSubscriptionKey returns the Redis key for the subscription set of a channel.
+func wsSubscriptionKey(channelID string) string {
+	return wsSubscriptionKeyPrefix + channelID
+}
+
+// redisSubscribe adds userID to the Redis subscription set for channelID and refreshes
+// the TTL. All errors are logged as warnings; the local map state is never affected.
+func (h *WebSocketHub) redisSubscribe(channelID, userID string) {
+	if h.redisClient == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), wsRedisOpTimeout)
+	defer cancel()
+
+	key := wsSubscriptionKey(channelID)
+	if err := h.redisClient.SAdd(ctx, key, userID).Err(); err != nil {
+		slog.Warn("ws redis: SADD subscription failed",
+			"channel_id", channelID, "user_id", userID, "error", err)
+		return
+	}
+	// Refresh TTL on every subscribe so active channels never expire while in use.
+	if err := h.redisClient.Expire(ctx, key, wsSubscriptionTTL).Err(); err != nil {
+		slog.Warn("ws redis: EXPIRE subscription failed",
+			"channel_id", channelID, "user_id", userID, "error", err)
+	}
+}
+
+// redisUnsubscribe removes userID from the Redis subscription set for channelID.
+// All errors are logged as warnings; the local map state is never affected.
+func (h *WebSocketHub) redisUnsubscribe(channelID, userID string) {
+	if h.redisClient == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), wsRedisOpTimeout)
+	defer cancel()
+
+	if err := h.redisClient.SRem(ctx, wsSubscriptionKey(channelID), userID).Err(); err != nil {
+		slog.Warn("ws redis: SREM subscription failed",
+			"channel_id", channelID, "user_id", userID, "error", err)
+	}
 }

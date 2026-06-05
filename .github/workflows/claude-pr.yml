@@ -26,7 +26,7 @@ jobs:
           fetch-depth: 0
 
       - name: Claude Code Review
-        uses: anthropics/claude-code-action@main
+        uses: anthropics/claude-code-action@v1.0.137 # pinned from @main, 2026-06-05
         with:
           anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
@@ -70,7 +70,7 @@ jobs:
           fetch-depth: 0
 
       - name: Claude Interactive Response
-        uses: anthropics/claude-code-action@main
+        uses: anthropics/claude-code-action@v1.0.137 # pinned from @main, 2026-06-05
         with:
           anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
@@ -89,7 +89,7 @@ jobs:
           fetch-depth: 0
 
       - name: Claude Issue Investigation
-        uses: anthropics/claude-code-action@main
+        uses: anthropics/claude-code-action@v1.0.137 # pinned from @main, 2026-06-05
         with:
           anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |

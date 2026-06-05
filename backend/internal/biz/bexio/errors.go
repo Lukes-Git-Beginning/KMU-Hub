@@ -1,6 +1,10 @@
 package bexio
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/kmuhub/kmuhub/internal/circuitbreaker"
+)
 
 // API errors returned by the Bexio client.
 var (
@@ -8,6 +12,12 @@ var (
 	ErrBexioRateLimited  = errors.New("bexio: rate limited (too many requests)")
 	ErrBexioNotFound     = errors.New("bexio: resource not found")
 	ErrBexioServerError  = errors.New("bexio: server error")
+
+	// ErrBexioCircuitOpen is returned when the embedded circuit breaker is open
+	// and the request has been shed without reaching Bexio. Callers can use
+	// errors.Is(err, ErrBexioCircuitOpen) or errors.Is(err,
+	// circuitbreaker.ErrCircuitOpen) — both work because this is an alias.
+	ErrBexioCircuitOpen = circuitbreaker.ErrCircuitOpen
 )
 
 // Sync errors.

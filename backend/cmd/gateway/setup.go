@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/emersion/go-webdav/caldav"
 	"github.com/emersion/go-webdav/carddav"
@@ -30,8 +31,11 @@ type notificationDeliveryPayload struct {
 }
 
 // setupWebSocketHub creates the WebSocket hub using lazy connections from the registry.
+// redisClient is optional — when non-nil it backs channel subscription state in Redis
+// (SADD/SREM under ws:subscriptions:{channelID}) for restart-recovery and future
+// cross-instance broadcasts (Phase D). Passing nil disables Redis backing silently.
 // Returns nil if either chat or auth service connections cannot be obtained.
-func setupWebSocketHub(registry *gateway.ServiceRegistry, tokenMaker *auth.TokenMaker, allowedOrigins []string) *server.WebSocketHub {
+func setupWebSocketHub(registry *gateway.ServiceRegistry, tokenMaker *auth.TokenMaker, allowedOrigins []string, redisClient *redis.Client) *server.WebSocketHub {
 	chatConn, err := registry.GetConnection("chat")
 	if err != nil {
 		slog.Warn("chat connection unavailable for websocket hub", "error", err)
@@ -46,13 +50,20 @@ func setupWebSocketHub(registry *gateway.ServiceRegistry, tokenMaker *auth.Token
 	}
 	authClient := authv1.NewAuthServiceClient(authConn)
 
-	return server.NewWebSocketHub(chatClient, tokenMaker, func(ctx context.Context, userID string) (string, string, error) {
+	hub := server.NewWebSocketHub(chatClient, tokenMaker, func(ctx context.Context, userID string) (string, string, error) {
 		resp, err := authClient.GetUser(ctx, &authv1.GetUserRequest{UserId: userID})
 		if err != nil {
 			return "", "", err
 		}
 		return resp.User.FirstName, resp.User.LastName, nil
 	}, allowedOrigins)
+
+	// Wire Redis for subscription-state persistence.
+	// The same Redis client used for rate limiting / idempotency is reused here;
+	// the ws: key namespace does not collide with existing keys.
+	hub.SetRedisClient(redisClient)
+
+	return hub
 }
 
 // startNotificationDeliveryListener listens on the PostgreSQL notification_delivery channel

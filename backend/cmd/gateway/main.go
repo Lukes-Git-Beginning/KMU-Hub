@@ -307,7 +307,7 @@ func main() {
 	// =========================================================================
 	// WebSocket hub (cross-cutting: needs chat + auth gRPC clients)
 	// =========================================================================
-	wsHub := setupWebSocketHub(registry, tokenMaker, cfg.CORSAllowedOrigins)
+	wsHub := setupWebSocketHub(registry, tokenMaker, cfg.CORSAllowedOrigins, redisClient)
 	if wsHub != nil {
 		wsHub.SetMetrics(metricsRegistry)
 		// Wire guest service to WebSocket hub for guest token validation

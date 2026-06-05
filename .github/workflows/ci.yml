@@ -500,7 +500,7 @@ jobs:
       - name: Run gosec
         # gosec -conf only accepts JSON, not YAML — exclusions live here as
         # flags instead, mirroring the gosec excludes in backend/.golangci.yml.
-        uses: securego/gosec@master
+        uses: securego/gosec@v2.27.1 # pinned from @master, 2026-06-05
         with:
           args: >-
             -fmt sarif
@@ -530,7 +530,7 @@ jobs:
       # findings too. Split: a table-format gate that actually enforces
       # HIGH/CRITICAL, plus a non-failing SARIF pass for the artifact.
       - name: Run trivy gate (HIGH/CRITICAL)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0 # pinned from @master, 2026-06-05
         with:
           scan-type: fs
           scan-ref: .
@@ -541,7 +541,7 @@ jobs:
 
       - name: Run trivy SARIF report
         if: always()
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0 # pinned from @master, 2026-06-05
         with:
           scan-type: fs
           scan-ref: .
