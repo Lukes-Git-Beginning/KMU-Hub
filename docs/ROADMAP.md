@@ -226,6 +226,8 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 
 **Parallelitaets-Model:** 1 Finance-Worktree (normalize + test) + 1 Security/Validation + 1 DB-Ops. Finance-Test-Coverage laeuft mindestens parallel mit Normalisierung.
 
+**Progress Sprint-4-Vorzug (2026-06-05, zwei Sessions):** Session 1 (Vormittag): S4.2–S4.9 + S4.11 ✅ (R2-P1-Batch 9/10, Commits `f5788d8d`/`98337921`/`5dd862eb`), R2-P0.4 ✅ (`19d5adb7`), Smoke 24/24 + CI Desktop erstmals gruen. Session 2 (Abend): **LiveKit/COSMI_ENV-Cluster komplett geschlossen** — Production-Secrets-Sweep (alle 24 Services liefen mit Dev-JWT_SECRET/MinIO/WOPI/Vault aus der Basis-Compose!), `${VAR:-dev-default}`-Interpolation + Assertion-Haertung mit Requirements-API (`config.Load(ctx, ...Requirement)`), LiveKit-URL-Split intern/public + Caddy-`/rtc*`-Proxy + echte Join-Tokens (StartMeeting/JoinCall lieferten IMMER leere token/ws_url!), RLS-Read-Gap `call_sessions.tenant_id`, `COSMI_ENV=production` scharf. **Video-Calls in Production erstmals end-to-end funktional** (`/rtc/validate` = 200). 5 Commits `68158907`/`7d492bb6`/`5f16f0d9`/`78043a63`/`ce2a5e5d`, Befund-Historie `docs/livekit-env-production-followups.md`. Restscope Sprint 4: S4.FI.1/2 (Finance, Kernstueck) + S4.1 (Input-Validation) + S4.10 (Partitionierung).
+
 **Ende Sprint 4:** finance_invoices relational, Finance-Coverage ≥50%, alle R1-P1 + R2-P1 erledigt.
 
 ---
@@ -266,51 +268,51 @@ Quelle: Rigorosum Runde 1 (wild-wren, 2026-04-18) + Rigorosum Runde 2 Vertiefung
 | R1-P0.6 | Feature-Flag-Registry (inkl. WASM-OFF) | ✅ Done | #11 |
 | R1-P0.7 | ICU-Plural-Klammern-Fix | ✅ Done | #3 |
 
-**Runde 2 P0 (9 Items, Sprint 1+2) — 7/9 done:**
+**Runde 2 P0 (9 Items, Sprint 1+2) — ✅ ALLE 9 DONE (Stand 2026-06-05):**
 
 | # | Task | Status | Sprint |
 |---|---|---|---|
 | R2-P0.1 | TURN/STUN coturn self-hosted + `use_external_ip: true` + LiveKit-Wiring | ✅ Done 2026-04-26 (`e4b98b9`+`ad04191`) — coturn live (CAX11 FSN1, `turn.zentria.tech:3478`), LiveKit `use_external_ip: true`, video-service schreibt HMAC-SHA1-TURN-Credentials als Metadata-JSON in AccessToken, config-Symmetrie-Check, README korrigiert | S1 |
 | R2-P0.2 | LiveKit-Secrets Startup-Assertion | ✅ Done (`310c803`) | S1 |
 | R2-P0.3 | Recording-Consent-Bug (`video_grpc.go:213` — alle Teilnehmer) | ✅ Done (`efd752a`) | S1 |
-| R2-P0.4 | Frontend Recording-Consent-Modal + Banner (Join-with-Consent) | Pending | S2 Welle 2/3 |
+| R2-P0.4 | Frontend Recording-Consent-Modal + Banner (Join-with-Consent) | ✅ Done 2026-06-05 (`19d5adb7`, MeetingLobby + RecordingActiveBanner) | S4-Vorzug |
 | R2-P0.5 | Egress-Webhook ruft `CompleteRecording` | ✅ Done (`d8f89d4`) | S1 |
 | R2-P0.6 | Lexware-Webhook HMAC-Signatur-Validierung | ✅ Done (`787c327`) | S1 |
-| R2-P0.7 | Offline-Queue Desktop-WS (IndexedDB + Reconciliation) | Pending | S2 Welle 2/3 |
+| R2-P0.7 | Offline-Queue Desktop-WS (IndexedDB + Reconciliation) | ✅ Done 2026-04-28 (`174a7e4`, idb-keyval + Idempotency-Middleware) | S2 Welle 3 |
 | R2-P0.8 | `consent_records.created_by` ON DELETE SET NULL | ✅ Done 2026-04-26 (`2245ecb`, Migration 000082) | S2 Welle 0 |
 | R2-P0.9 | `gdpr_deletion_requests.contact_id` zirkulaere FK aufloesen | ✅ Done 2026-04-26 (`2245ecb`, Migration 000082) | S2 Welle 0 |
 
 ### P1 — Vor Pilot-1 (Ende Sprint 4)
 
-**Runde 1 P1 (8 Items, Sprint 3+4):**
+**Runde 1 P1 (8 Items, Sprint 3+4) — 7/8 done:**
 
 | # | Task | Status | Sprint |
 |---|---|---|---|
-| R1-P1.1 | Ansible Instanz-pro-Pilot (mit Option-B-Schema) | Pending | S3 |
-| R1-P1.2 | Dependency-Security-Scans in CI | Pending | S3 |
-| R1-P1.3 | Dialer LogCallOutcome Transaktion | Pending | S3 |
-| R1-P1.4 | Prod-Image-Tags pinnen | Pending | S3 |
-| R1-P1.5 | Alertmanager + Discord (Slack-Compat) | Pending | S3 |
-| R1-P1.6 | cd.yml Auto-Deploy | Pending | S3 |
+| R1-P1.1 | Ansible Instanz-pro-Pilot (mit Option-B-Schema) | ✅ Done 2026-05-08 (`a8d77fc`+`71f7c90`+`562e9c5`, 4 Roles, 50 Tasks) | S3 |
+| R1-P1.2 | Dependency-Security-Scans in CI | ✅ Done 2026-05-08 (`241686e`, trivy/gosec/npm audit) | S3 |
+| R1-P1.3 | Dialer LogCallOutcome Transaktion | ✅ Done 2026-05-08 (`eab0181`) | S3 |
+| R1-P1.4 | Prod-Image-Tags pinnen | ✅ Done 2026-05-08 (`7a22d83`) | S3 |
+| R1-P1.5 | Alertmanager + Discord (Slack-Compat) | ✅ Done 2026-05-08/09 (`7a22d83`+`2330add`, live in #cosmi-prod-alerts) | S3 |
+| R1-P1.6 | cd.yml Auto-Deploy | ✅ Done 2026-05-08 (`7a22d83`) | S3 |
 | R1-P1.7 | Input-Validation-Framework | Pending | S4 |
-| R1-P1.8 | Dialer-Coverage 12 → 30% | Pending | S3 |
+| R1-P1.8 | Dialer-Coverage 12 → 30% | ✅ Done 2026-05-08 (`1f6c4c0`, 31.8%) | S3 |
 
-**Runde 2 P1 (12 Items, Sprint 4):**
+**Runde 2 P1 (12 Items, Sprint 4) — 10/12 done:**
 
 | # | Task | Status | Sprint |
 |---|---|---|---|
-| R2-P1.1 | LiveKit-Webhook-Signatur-Validierung | Pending | S4 |
+| R2-P1.1 | LiveKit-Webhook-Signatur-Validierung | ✅ Done 2026-06-05 (`f5788d8d`) | S4 |
 | R2-P1.2 | WASM-Plugin-System Feature-Flag OFF | ✅ Done | S0 (zusammen mit R1-P0.6, PR #11) |
-| R2-P1.3 | Automation-Semaphor tenant-isolieren | Pending | S4 |
-| R2-P1.4 | Bexio+DATEV Circuit-Breaker/Retry | Pending | S4 |
-| R2-P1.5 | StartMeeting Rollen-Check + Organizer-only | Pending | S4 |
-| R2-P1.6 | WS-Token in-session revalidieren | Pending | S4 |
-| R2-P1.7 | Redis-backed WS-Subscription-State | Pending | S4 |
-| R2-P1.8 | Dialer `outcome_id`-Indizes (Migration 000076) | Pending | S4 |
-| R2-P1.9 | ~10 FKs ohne ON DELETE nachziehen (Migration 000077) | Pending | S4 |
-| R2-P1.10 | Partitionierung + pg_cron-Retention | Pending | S4 |
-| R2-P1.11 | `CleanupExpiredRecordings`-Cronjob | Pending | S4 |
-| R2-P1.12 | `finance_invoices.line_items` normalisieren | Pending | S4 |
+| R2-P1.3 | Automation-Semaphor tenant-isolieren | ✅ Done 2026-06-05 (`f5788d8d`, 5/Tenant in global 20) | S4 |
+| R2-P1.4 | Bexio+DATEV Circuit-Breaker/Retry | ✅ Done 2026-06-05 (`5dd862eb`, internal/circuitbreaker) | S4 |
+| R2-P1.5 | StartMeeting Rollen-Check + Organizer-only | ✅ Done 2026-06-05 (`98337921`, Migration 000131) | S4 |
+| R2-P1.6 | WS-Token in-session revalidieren | ✅ Done 2026-06-05 (`98337921`, 5-min-Ticker) | S4 |
+| R2-P1.7 | Redis-backed WS-Subscription-State | ✅ Done 2026-06-05 (`5dd862eb`) | S4 |
+| R2-P1.8 | Dialer `outcome_id`-Indizes | ✅ Done 2026-06-05 (`98337921`, Migration 000130) | S4 |
+| R2-P1.9 | ~10 FKs ohne ON DELETE nachziehen | ✅ Done 2026-06-05 (`98337921`, Migration 000130) | S4 |
+| R2-P1.10 | Partitionierung + pg_cron-Retention | Pending (S4.10 abgespalten — kein pg_cron im pgvector-Image, braucht Maintenance-Window) | S4 |
+| R2-P1.11 | `CleanupExpiredRecordings`-Cronjob | ✅ Done 2026-06-05 (`f5788d8d`, 24h-Cron) | S4 |
+| R2-P1.12 | `finance_invoices.line_items` normalisieren | Pending (Sprint-4-Kernstück, ADR-0007) | S4 |
 
 ### P2 — Vor Pilot-Skalierung (Post-Launch Phase C, August–November)
 
