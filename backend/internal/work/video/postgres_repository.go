@@ -32,11 +32,13 @@ func (r *PostgresRepository) CreateCallSession(ctx context.Context, session *Cal
 
 func (r *PostgresRepository) GetCallSession(ctx context.Context, id uuid.UUID) (*CallSession, error) {
 	var s CallSession
+	// tenant_id MUST be selected: JoinCall and the webhook handler inherit it
+	// into call_participants INSERTs — a Nil tenant violates the RLS policy.
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, call_type, status, room_name, initiator_id, channel_id, created_at, ended_at, duration_seconds
+		`SELECT id, tenant_id, call_type, status, room_name, initiator_id, channel_id, created_at, ended_at, duration_seconds
 		 FROM call_sessions WHERE id = $1`,
 		id,
-	).Scan(&s.ID, &s.CallType, &s.Status, &s.RoomName, &s.InitiatorID,
+	).Scan(&s.ID, &s.TenantID, &s.CallType, &s.Status, &s.RoomName, &s.InitiatorID,
 		&s.ChannelID, &s.CreatedAt, &s.EndedAt, &s.DurationSeconds)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
@@ -50,10 +52,10 @@ func (r *PostgresRepository) GetCallSession(ctx context.Context, id uuid.UUID) (
 func (r *PostgresRepository) GetCallSessionByRoomName(ctx context.Context, roomName string) (*CallSession, error) {
 	var s CallSession
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, call_type, status, room_name, initiator_id, channel_id, created_at, ended_at, duration_seconds
+		`SELECT id, tenant_id, call_type, status, room_name, initiator_id, channel_id, created_at, ended_at, duration_seconds
 		 FROM call_sessions WHERE room_name = $1`,
 		roomName,
-	).Scan(&s.ID, &s.CallType, &s.Status, &s.RoomName, &s.InitiatorID,
+	).Scan(&s.ID, &s.TenantID, &s.CallType, &s.Status, &s.RoomName, &s.InitiatorID,
 		&s.ChannelID, &s.CreatedAt, &s.EndedAt, &s.DurationSeconds)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
@@ -75,7 +77,7 @@ func (r *PostgresRepository) UpdateCallSession(ctx context.Context, session *Cal
 
 func (r *PostgresRepository) ListActiveCallsForUser(ctx context.Context, userID uuid.UUID) ([]CallSession, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT cs.id, cs.call_type, cs.status, cs.room_name, cs.initiator_id,
+		`SELECT cs.id, cs.tenant_id, cs.call_type, cs.status, cs.room_name, cs.initiator_id,
 		        cs.channel_id, cs.created_at, cs.ended_at, cs.duration_seconds
 		 FROM call_sessions cs
 		 JOIN call_participants cp ON cs.id = cp.call_id
@@ -91,7 +93,7 @@ func (r *PostgresRepository) ListActiveCallsForUser(ctx context.Context, userID 
 	var sessions []CallSession
 	for rows.Next() {
 		var s CallSession
-		if scanErr := rows.Scan(&s.ID, &s.CallType, &s.Status, &s.RoomName,
+		if scanErr := rows.Scan(&s.ID, &s.TenantID, &s.CallType, &s.Status, &s.RoomName,
 			&s.InitiatorID, &s.ChannelID, &s.CreatedAt, &s.EndedAt,
 			&s.DurationSeconds); scanErr != nil {
 			return nil, scanErr
