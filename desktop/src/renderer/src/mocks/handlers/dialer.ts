@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
 import { IDS } from '../data/shared-ids'
-import { daysAgo, daysFromNow, hoursAgo, now } from '../data/date-helpers'
+import { daysAgo, hoursAgo } from '../data/date-helpers'
 
 const API = API_BASE_URL
 
@@ -65,7 +65,7 @@ let agentStatus: AgentDialerStatus = 'available'
 let activeCampaignId: string | null = IDS.dialer.kampagneKaltAkquise
 let activeSessionId: string | null = null
 
-let campaigns: Campaign[] = [
+const campaigns: Campaign[] = [
   {
     id: IDS.dialer.kampagneKaltAkquise,
     tenant_id: 'tenant-001',
@@ -102,7 +102,7 @@ let campaigns: Campaign[] = [
   },
 ]
 
-let campaignContacts: CampaignContact[] = [
+const campaignContacts: CampaignContact[] = [
   // 3 completed
   {
     id: IDS.dialer.cc001, campaign_id: IDS.dialer.kampagneKaltAkquise,
@@ -166,14 +166,14 @@ let campaignContacts: CampaignContact[] = [
   },
 ]
 
-let callOutcomes: CallOutcome[] = [
+const callOutcomes: CallOutcome[] = [
   { id: IDS.dialer.outcomeErreicht, tenant_id: 'tenant-001', label: 'Erreicht', color: '#22c55e', is_positive: true, is_callback: false, is_appointment: false, sort_order: 0, is_active: true },
   { id: IDS.dialer.outcomeNichtErreicht, tenant_id: 'tenant-001', label: 'Nicht erreicht', color: '#ef4444', is_positive: false, is_callback: false, is_appointment: false, sort_order: 1, is_active: true },
   { id: IDS.dialer.outcomeWiedervorlage, tenant_id: 'tenant-001', label: 'Wiedervorlage', color: '#f59e0b', is_positive: false, is_callback: true, is_appointment: false, sort_order: 2, is_active: true },
   { id: IDS.dialer.outcomeTermin, tenant_id: 'tenant-001', label: 'Termin vereinbart', color: '#3b82f6', is_positive: true, is_callback: false, is_appointment: true, sort_order: 3, is_active: true },
 ]
 
-let callSessions: Array<{
+const callSessions: Array<{
   id: string
   campaign_contact_id: string
   call_session_id: string | null

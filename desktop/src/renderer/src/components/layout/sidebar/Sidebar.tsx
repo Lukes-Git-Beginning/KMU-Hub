@@ -19,7 +19,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { Shield, LayoutGrid } from 'lucide-react'
+import { Shield } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useSettingsStore } from '@/stores/settings'
 import { useTenantMode } from '@/hooks/useTenantMode'

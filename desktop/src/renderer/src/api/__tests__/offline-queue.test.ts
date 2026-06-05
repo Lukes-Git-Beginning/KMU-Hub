@@ -134,7 +134,7 @@ describe('dead-letter', () => {
     vi.stubGlobal('setTimeout', (fn: () => void) => { fn(); return 0 })
 
     await enqueue('POST', '/api/v1/test', null, {}, 'dl-key')
-    let queue = await peek()
+    const queue = await peek()
     queue[0].retryCount = 4
     await set('cosmi-mutation-queue', queue)
 

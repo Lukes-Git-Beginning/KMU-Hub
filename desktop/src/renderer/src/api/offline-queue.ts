@@ -102,7 +102,7 @@ export async function drain(
   baseUrl: string,
   getAccessToken: () => string | null,
 ): Promise<{ replayed: number; failed: number; deadLettered: number }> {
-  let queue = await readQueue()
+  const queue = await readQueue()
   if (queue.length === 0) {
     return { replayed: 0, failed: 0, deadLettered: 0 }
   }

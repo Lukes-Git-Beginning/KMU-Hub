@@ -5,7 +5,7 @@ import DOMPurify from 'dompurify'
  * Blocks javascript: and data: URIs.
  */
 const SAFE_URI_REGEXP =
-  /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i
+  /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.:-]|$))/i
 
 /**
  * Creates a fresh DOMPurify instance and configures it.

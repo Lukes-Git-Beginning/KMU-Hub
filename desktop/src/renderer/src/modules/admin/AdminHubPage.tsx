@@ -46,21 +46,23 @@ export default function AdminHubPage() {
   const contentRef = useRef<HTMLDivElement>(null)
 
   const canAccess = userHasRole(user, ['admin', 'it_support'])
-  if (!canAccess) {
-    return <Navigate to="/" replace />
-  }
 
   // Derive active tab from current pathname
   const activeTab: AdminTab = ROUTE_TO_TAB[location.pathname] ?? 'it'
 
+  // Move focus to content region on tab switch (no-op when access is denied)
+  useEffect(() => {
+    if (!canAccess) return
+    contentRef.current?.focus()
+  }, [activeTab, canAccess])
+
+  if (!canAccess) {
+    return <Navigate to="/" replace />
+  }
+
   const handleTabChange = (tab: AdminTab) => {
     navigate(TAB_TO_ROUTE[tab])
   }
-
-  // Move focus to content region on tab switch
-  useEffect(() => {
-    contentRef.current?.focus()
-  }, [activeTab])
 
   const tabs: { key: AdminTab; labelKey: string }[] = [
     { key: 'it', labelKey: 'admin.hub.tabs.it' },

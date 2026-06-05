@@ -11,7 +11,6 @@
  * Keyboard shortcuts: j/k nav, Escape deselect.
  */
 import { useEffect, useCallback, useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 import { useKommunikationStore } from '@/stores/kommunikation'
 import { useInboxMessages } from '@/api/hooks/useInbox'
 import type { InboxListFilter, InboxChannel } from '@/api/inbox-types'

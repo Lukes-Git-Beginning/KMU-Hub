@@ -12,7 +12,6 @@ import {
   Check,
   Mail,
   Calendar,
-  Receipt,
   Lock,
   Copy,
   Eye,
@@ -32,7 +31,6 @@ import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 import { DESK_BACKGROUNDS } from '@/components/layout/DeskEnvironment'
 import { canSeeSettingsTab } from '@/config/roles'
-import { Link } from 'react-router-dom'
 import { MailSettingsTab } from './tabs/MailSettingsTab'
 import { CalendarSettingsTab } from './tabs/CalendarSettingsTab'
 import { PrivacySettingsTab } from './tabs/PrivacySettingsTab'
@@ -50,7 +48,6 @@ import { useTourStore } from '@/stores/tour'
 import { branding } from '@/config/branding'
 import { useTenantMode } from '@/hooks/useTenantMode'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight } from 'lucide-react'
 import { formatDate } from '@/lib/format'
 
 type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notifications' | 'mail' | 'calendar' | 'company' | 'billing' | 'it-admin' | 'integrations' | 'privacy' | 'ai' | 'about'
