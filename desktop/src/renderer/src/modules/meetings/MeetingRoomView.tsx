@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Mic,
@@ -20,6 +20,10 @@ import {
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib'
 import type { Meeting } from '@/stores/meetings'
+import { useActiveMeetingRecording } from '@/api/hooks/useVideo'
+import { RecordingConsentDialog } from '@/features/video/RecordingConsentDialog'
+import { useWSSubscription } from '@/hooks/useWebSocket'
+import { useQueryClient } from '@tanstack/react-query'
 
 type SidebarTab = 'participants' | 'chat' | 'settings'
 
@@ -31,6 +35,7 @@ interface MeetingRoomViewProps {
 
 export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const [isMuted, setIsMuted] = useState(false)
   const [isCameraOff, setIsCameraOff] = useState(false)
   const [isScreenSharing, setIsScreenSharing] = useState(false)
@@ -39,11 +44,45 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
   const [isMaximized, setIsMaximized] = useState(false)
   const [elapsed, setElapsed] = useState(0)
 
-   
+  // Pending consent: set when recording.started WS event arrives mid-session
+  // (recording ID is extracted from the event payload for the consent API call)
+  const [pendingConsentRecordingId, setPendingConsentRecordingId] = useState<string | null>(null)
+  const [hasResponded, setHasResponded] = useState(false)
+
+  // Poll for active recording — no LiveKit context in MeetingRoomView so
+  // useIsRecording() is not available. Falls back to a 10-second polling cycle.
+  const { data: activeRecording } = useActiveMeetingRecording(open ? meeting.id : undefined)
+  const isRecordingActive = !!activeRecording
+
+  // Subscribe to the recording.started WS event so in-session participants
+  // receive an immediate consent prompt without waiting for the next poll cycle.
+  const handleRecordingStarted = useCallback(
+    (data: Record<string, unknown>) => {
+      const meetingId = data.meeting_id as string | undefined
+      const recordingId = data.recording_id as string | undefined
+      if (!open || !recordingId || meetingId !== meeting.id) return
+      // Invalidate the polling query so the banner appears immediately
+      void queryClient.invalidateQueries({ queryKey: ['recordings', 'active', meeting.id] })
+      // Show consent dialog if the user has not yet responded
+      if (!hasResponded) {
+        setPendingConsentRecordingId(recordingId)
+      }
+    },
+    [open, meeting.id, hasResponded, queryClient],
+  )
+  useWSSubscription('recording.started', handleRecordingStarted)
+
+  const handleConsentRespond = useCallback(() => {
+    setHasResponded(true)
+    setPendingConsentRecordingId(null)
+  }, [])
+
   useEffect(() => {
     if (!open) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- timer tick update
       setElapsed(0)
+      setHasResponded(false)
+      setPendingConsentRecordingId(null)
       return
     }
     const interval = setInterval(() => setElapsed((e) => e + 1), 1000)
@@ -76,6 +115,29 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
 
   return (
     <div className="dark fixed inset-0 z-[60] flex flex-col bg-background">
+      {/* Recording-active banner — shown whenever a recording is detected via polling */}
+      {isRecordingActive && (
+        <div
+          role="status"
+          aria-label={t('features.video.recordingBanner.title')}
+          className="flex items-center gap-2 bg-red-600 px-4 py-1.5 text-sm font-medium text-white"
+        >
+          <span aria-hidden="true" className="h-2.5 w-2.5 animate-pulse rounded-full bg-white" />
+          <span className="tracking-wide uppercase text-xs">
+            {t('features.video.recordingBanner.status')}
+          </span>
+        </div>
+      )}
+
+      {/* Consent dialog — shown when recording starts during an active meeting session */}
+      {pendingConsentRecordingId && (
+        <RecordingConsentDialog
+          recordingId={pendingConsentRecordingId}
+          open={true}
+          onRespond={handleConsentRespond}
+        />
+      )}
+
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-2 bg-card/80">
         <div className="flex items-center gap-3">

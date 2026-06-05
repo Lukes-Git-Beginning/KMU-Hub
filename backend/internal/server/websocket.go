@@ -224,6 +224,9 @@ const (
 
 	// Reaction events
 	WSReactionToggled = "reaction.toggled" // Server -> Client
+
+	// Recording events
+	WSRecordingStarted = "recording.started" // Server -> Client
 )
 
 // WSMessage represents a WebSocket message
@@ -1264,6 +1267,53 @@ func (h *WebSocketHub) BroadcastCallEnded(ctx context.Context, targetUserID stri
 		Type:    WSCallEnded,
 		Message: mustMarshal(callData),
 	})
+}
+
+// BroadcastRecordingStarted notifies all connected users who are members of
+// the given meeting / room that a recording has started. Receivers are expected
+// to respond with a consent decision (accept/decline) via the standard
+// /recordings/{id}/consent REST endpoint.
+//
+// The event is sent tenant-wide (all connected users) because meeting membership
+// is enforced at the REST layer; the WS hub has no meeting-membership index.
+// Receivers that are not in the meeting simply ignore the event.
+//
+// Payload shape:
+//
+//	{
+//	  "meeting_id":   "<uuid>",
+//	  "recording_id": "<uuid>",
+//	  "initiated_by": "<user_uuid>"
+//	}
+func (h *WebSocketHub) BroadcastRecordingStarted(ctx context.Context, meetingID, recordingID, initiatedBy string) {
+	payload := map[string]interface{}{
+		"meeting_id":   meetingID,
+		"recording_id": recordingID,
+		"initiated_by": initiatedBy,
+	}
+
+	h.mu.RLock()
+	userIDs := make([]string, 0, len(h.connections))
+	for userID := range h.connections {
+		userIDs = append(userIDs, userID)
+	}
+	h.mu.RUnlock()
+
+	msg := WSMessage{
+		Type:    WSRecordingStarted,
+		Message: mustMarshal(payload),
+	}
+
+	for _, userID := range userIDs {
+		h.sendToUser(ctx, userID, msg)
+	}
+
+	slog.Info("broadcast recording.started",
+		"meeting_id", meetingID,
+		"recording_id", recordingID,
+		"initiated_by", initiatedBy,
+		"recipients", len(userIDs),
+	)
 }
 
 // BroadcastReactionToggled broadcasts a reaction toggle event to all members

@@ -255,6 +255,27 @@ export function useUpdateRecordingMetadata() {
 }
 
 /**
+ * Poll for an active recording for a given meeting.
+ *
+ * Used by MeetingRoomView (no LiveKit context) and MeetingLobby to detect
+ * whether recording is in progress without relying on the LiveKit useIsRecording
+ * hook. Polls every 10 seconds while the component is mounted.
+ *
+ * Returns the first recording with status === 'active', or null when no active
+ * recording exists. Stops polling once the recording reaches a terminal state.
+ */
+export function useActiveMeetingRecording(meetingId: string | undefined) {
+  return useQuery({
+    queryKey: ['recordings', 'active', meetingId],
+    queryFn: () => listRecordings({ meeting_id: meetingId }),
+    enabled: !!meetingId,
+    refetchInterval: 10_000,
+    select: (recordings) =>
+      recordings.find((r) => r.status === 'active') ?? null,
+  })
+}
+
+/**
  * List all recordings for a specific meeting with optional pagination.
  * Distinct from useRecordings which filters by call_id or meeting_id via the general endpoint.
  */

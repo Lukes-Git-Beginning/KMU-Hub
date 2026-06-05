@@ -4,8 +4,13 @@
  * Split layout: left side has camera preview (PreJoinScreen from video feature),
  * right side shows meeting details, agenda, attendees, and "Letzte Notizen"
  * for recurring meetings.
+ *
+ * Join-with-Consent (R2-P0.4): if the meeting is already being recorded when the
+ * user tries to join, the join button is replaced by an explicit Accept / Decline
+ * banner. Accept = consent submitted + join; Decline = consent declined + join
+ * (user is anonymized in the recording per GDPR).
  */
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Calendar,
@@ -25,6 +30,7 @@ import {
   usePreviousMeetingNotes,
   useStartMeeting,
 } from '@/api/hooks/useMeetings'
+import { useActiveMeetingRecording, useSetRecordingConsent } from '@/api/hooks/useVideo'
 import { useVideoStore } from '@/stores/video'
 import type { RsvpStatus } from '@/api/video-types'
 import { formatDate as libFormatDate, formatTime as libFormatTime } from '@/lib/format'
@@ -75,30 +81,76 @@ export function MeetingLobby({ meetingId, onJoinMeeting, onCancel }: MeetingLobb
   const { data: previousNotes } = usePreviousMeetingNotes(meetingId)
   const startMutation = useStartMeeting()
   const setActiveCall = useVideoStore((s) => s.setActiveCall)
+  const setConsent = useSetRecordingConsent()
 
   const [previousNotesExpanded, setPreviousNotesExpanded] = useState(true)
+  // Tracks whether the user has acknowledged the recording notice in the lobby.
+  // null = no active recording / not checked yet
+  // false = declined (join with anonymization)
+  // true  = accepted (join with full recording)
+  const [recordingConsentGiven, setRecordingConsentGiven] = useState<boolean | null>(null)
 
-  const handleJoin = (_audioEnabled: boolean, _videoEnabled: boolean) => {
-    if (!meeting) return
+  // Check for an active recording so the lobby can show the consent notice.
+  const { data: activeRecording } = useActiveMeetingRecording(meetingId)
+  const activeRecordingId = activeRecording?.id ?? null
 
-    // If meeting is still scheduled, start it (organizer action)
-    if (meeting.status === 'scheduled') {
-      startMutation.mutate(meetingId, {
-        onSuccess: (response) => {
-          // Set active call in video store for the call view
-          setActiveCall(
-            { ...meeting, status: 'in_progress', room_name: meeting.room_name ?? meetingId } as never,
-            response.token,
-            response.ws_url,
-          )
-          onJoinMeeting?.()
-        },
-      })
-    } else {
-      // Meeting already in progress -- join directly
-      onJoinMeeting?.()
+  // Whether the consent banner should be shown:
+  // active recording present AND user has not yet responded.
+  const showConsentNotice = !!activeRecordingId && recordingConsentGiven === null
+
+  const performJoin = useCallback(
+    (_audioEnabled: boolean, _videoEnabled: boolean) => {
+      if (!meeting) return
+      if (meeting.status === 'scheduled') {
+        startMutation.mutate(meetingId, {
+          onSuccess: (response) => {
+            setActiveCall(
+              { ...meeting, status: 'in_progress', room_name: meeting.room_name ?? meetingId } as never,
+              response.token,
+              response.ws_url,
+            )
+            onJoinMeeting?.()
+          },
+        })
+      } else {
+        onJoinMeeting?.()
+      }
+    },
+    [meeting, meetingId, startMutation, setActiveCall, onJoinMeeting],
+  )
+
+  const handleJoin = useCallback(
+    (audioEnabled: boolean, videoEnabled: boolean) => {
+      // If a recording is active and the user has not yet given consent,
+      // block the join until they respond to the consent notice.
+      if (showConsentNotice) return
+      performJoin(audioEnabled, videoEnabled)
+    },
+    [showConsentNotice, performJoin],
+  )
+
+  const handleConsentAccept = useCallback(async () => {
+    if (!activeRecordingId) return
+    try {
+      await setConsent.mutateAsync({ recordingId: activeRecordingId, consented: true })
+    } catch {
+      // Non-fatal: the join proceeds regardless; consent will be re-requested
+      // by the in-room consent dialog if the mutation failed.
     }
-  }
+    setRecordingConsentGiven(true)
+    performJoin(true, true)
+  }, [activeRecordingId, setConsent, performJoin])
+
+  const handleConsentDecline = useCallback(async () => {
+    if (!activeRecordingId) return
+    try {
+      await setConsent.mutateAsync({ recordingId: activeRecordingId, consented: false })
+    } catch {
+      // Non-fatal: user joins anonymized; backend will treat missing consent as declined.
+    }
+    setRecordingConsentGiven(false)
+    performJoin(true, true)
+  }, [activeRecordingId, setConsent, performJoin])
 
   if (isLoading || !meeting) {
     return (
@@ -215,15 +267,58 @@ export function MeetingLobby({ meetingId, onJoinMeeting, onCancel }: MeetingLobb
           </div>
         )}
 
-        {/* Join Button (large, prominent) */}
-        <Button
-          className="w-full h-12 text-base"
-          onClick={() => handleJoin(true, true)}
-          disabled={startMutation.isPending}
-        >
-          <Phone className="mr-2 h-5 w-5" />
-          {startMutation.isPending ? t('meetings.lobby.starting') : t('meetings.lobby.joinMeeting')}
-        </Button>
+        {/* Recording consent notice — shown when the meeting is already being recorded.
+            The user must explicitly accept or decline before joining.
+            DSGVO Art. 6(1)(a): explicit consent required before joining a recorded session. */}
+        {showConsentNotice && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50/60 p-4 dark:border-red-900/40 dark:bg-red-900/10">
+            <div className="flex items-start gap-3">
+              {/* Recording indicator — pulsing dot */}
+              <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
+                <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-600" />
+              </span>
+              <div className="flex-1 space-y-3">
+                <p className="text-sm font-medium text-foreground">
+                  {t('meetings.lobby.recordingActiveNotice')}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {t('meetings.lobby.recordingActiveInfo')}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => void handleConsentDecline()}
+                    disabled={setConsent.isPending || startMutation.isPending}
+                  >
+                    {t('meetings.lobby.recordingActiveDecline')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="flex-1 bg-green-600 text-white hover:bg-green-700"
+                    onClick={() => void handleConsentAccept()}
+                    disabled={setConsent.isPending || startMutation.isPending}
+                  >
+                    {t('meetings.lobby.recordingActiveAccept')}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Join Button (large, prominent) — hidden when consent notice is shown */}
+        {!showConsentNotice && (
+          <Button
+            className="w-full h-12 text-base"
+            onClick={() => handleJoin(true, true)}
+            disabled={startMutation.isPending}
+          >
+            <Phone className="mr-2 h-5 w-5" />
+            {startMutation.isPending ? t('meetings.lobby.starting') : t('meetings.lobby.joinMeeting')}
+          </Button>
+        )}
       </div>
     </div>
   )

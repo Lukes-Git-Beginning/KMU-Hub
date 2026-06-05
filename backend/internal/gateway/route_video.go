@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -20,11 +21,20 @@ import (
 // for recording completion. A value of 3 means EGRESS_COMPLETE in LiveKit's proto.
 const liveKitEgressStatusComplete int32 = 3
 
+// recordingBroadcaster is the minimal interface VideoRoutes needs to push
+// real-time recording events to connected clients via the WebSocket hub.
+// Using an interface avoids a direct import of the server package (circular
+// import risk) and makes the handler testable without a real WS hub.
+type recordingBroadcaster interface {
+	BroadcastRecordingStarted(ctx context.Context, meetingID, recordingID, initiatedBy string)
+}
+
 // VideoRoutes handles HTTP routes for the Video service.
 // Video runs in the same binary as Work, so we reuse the "work" gRPC connection.
 type VideoRoutes struct {
 	registry    *ServiceRegistry
-	lkKeyProv   lkauth.KeyProvider // nil when LIVEKIT_API_KEY/SECRET are not configured
+	lkKeyProv   lkauth.KeyProvider   // nil when LIVEKIT_API_KEY/SECRET are not configured
+	wsHub       recordingBroadcaster // optional; set via SetWSHub after hub construction
 }
 
 // NewVideoRoutes creates a new VideoRoutes with the given service registry.
@@ -45,6 +55,14 @@ func NewVideoRoutes(registry *ServiceRegistry, livekitAPIKey, livekitAPISecret s
 	}
 
 	return vr
+}
+
+// SetWSHub injects the WebSocket hub so that recording events can be pushed
+// to connected clients in real time. Must be called after the hub is constructed
+// (i.e. after setupWebSocketHub in main.go). A nil hub is safe; recording events
+// are silently skipped — clients fall back to polling.
+func (vr *VideoRoutes) SetWSHub(hub recordingBroadcaster) {
+	vr.wsHub = hub
 }
 
 // ServiceName returns the backend service name (shares "work" gRPC port).
@@ -380,6 +398,20 @@ func (vr *VideoRoutes) HandleStartRecording(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		respondGRPCError(w, err)
 		return
+	}
+
+	// Push recording.started WS event so participants receive a real-time
+	// consent prompt without polling. Only fires for meeting-context recordings
+	// (call-context uses LiveKit's native useIsRecording hook instead).
+	// Best-effort: hub may be nil (dev without WS) or the broadcast may fail;
+	// neither case should block the HTTP response.
+	if vr.wsHub != nil && req.MeetingID != nil && *req.MeetingID != "" {
+		go vr.wsHub.BroadcastRecordingStarted(
+			context.Background(),
+			*req.MeetingID,
+			resp.GetId(),
+			userID,
+		)
 	}
 
 	response.JSON(w, http.StatusCreated, resp)

@@ -211,6 +211,10 @@ func main() {
 
 	isProd := strings.EqualFold(cfg.Env, "production")
 
+	// videoRoutes is kept as a named variable so the WS hub can be injected
+	// after hub construction (hub depends on chat gRPC client, built below).
+	videoRoutes := gateway.NewVideoRoutes(registry, cfg.LiveKitAPIKey, cfg.LiveKitAPISecret)
+
 	registrars := []gateway.RouteRegistrar{
 		gateway.NewAuthRoutes(registry),
 		gateway.NewCRMRoutes(registry, crmExt),
@@ -218,7 +222,7 @@ func main() {
 		gateway.NewNotificationRoutes(registry),
 		gateway.NewWorkRoutes(registry),
 		gateway.NewCalendarRoutes(registry),
-		gateway.NewVideoRoutes(registry, cfg.LiveKitAPIKey, cfg.LiveKitAPISecret),
+		videoRoutes,
 		gateway.NewSecurityRoutes(registry),
 		gateway.NewEmailRoutes(registry),
 		gateway.NewDocumentRoutes(registry),
@@ -312,6 +316,9 @@ func main() {
 		wsHub.SetMetrics(metricsRegistry)
 		// Wire guest service to WebSocket hub for guest token validation
 		wsHub.SetGuestService(&guestServiceAdapter{svc: guestService})
+		// Wire hub into video routes so recording.started events can be pushed
+		// in real-time to meeting participants.
+		videoRoutes.SetWSHub(wsHub)
 
 		r.Get("/api/v1/ws", wsHub.HandleWebSocket)
 
