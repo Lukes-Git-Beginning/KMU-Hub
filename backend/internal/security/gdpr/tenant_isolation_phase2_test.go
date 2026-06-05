@@ -1,7 +1,7 @@
 package gdpr
 
 // Cross-tenant isolation tests for GDPR tables (Migration 000122 + 000124).
-// gdpr_deletion_requests — NOT NULL from mig 000114, RLS in mig 000122.
+// gdpr_deletion_requests — NOT NULL from mig 000114, RLS in mig 000122. contact_id FK NOT NULL.
 // gdpr_export_requests   — NOT NULL after backfill in mig 000124, RLS in mig 000124.
 // gdpr_erasure_log       — NOT NULL after backfill in mig 000124, RLS in mig 000124.
 //
@@ -37,10 +37,20 @@ func TestTenantIsolation_GDPR(t *testing.T) {
 	})
 	defer testutil.CleanupRow(t, pool, "users", userID)
 
-	// gdpr_deletion_requests — tenant_id only, no FK deps.
+	// Seed a contact for TenantA (gdpr_deletion_requests.contact_id FK NOT NULL).
+	contactID := testutil.SeedRow(t, pool, "contacts", map[string]any{
+		"tenant_id":  testutil.TenantA,
+		"first_name": "GDPR",
+		"last_name":  "Test",
+		"created_by": userID,
+	})
+	defer testutil.CleanupRow(t, pool, "contacts", contactID)
+
+	// gdpr_deletion_requests — contact_id FK NOT NULL, requested_by nullable FK to users.
 	delReqID := testutil.SeedRow(t, pool, "gdpr_deletion_requests", map[string]any{
-		"tenant_id": testutil.TenantA,
-		"user_id":   userID,
+		"tenant_id":    testutil.TenantA,
+		"contact_id":   contactID,
+		"requested_by": userID,
 	})
 	defer testutil.CleanupRow(t, pool, "gdpr_deletion_requests", delReqID)
 
@@ -79,7 +89,6 @@ func TestTenantIsolation_GDPR(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			testutil.AssertRowCount(t, pool, ctxA, tc.table, tc.id, 1)
 			testutil.AssertRowCount(t, pool, ctxB, tc.table, tc.id, 0)
 		})

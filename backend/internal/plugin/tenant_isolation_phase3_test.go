@@ -94,7 +94,6 @@ func TestTenantIsolation_PluginKVStore_DB(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			testutil.AssertRowCount(t, pool, ctxA, tc.table, tc.idA, 1)
 			testutil.AssertRowCount(t, pool, ctxA, tc.table, tc.idB, 0)
 			testutil.AssertRowCount(t, pool, ctxB, tc.table, tc.idB, 1)

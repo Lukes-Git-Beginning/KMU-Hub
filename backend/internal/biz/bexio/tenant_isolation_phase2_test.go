@@ -26,20 +26,26 @@ func TestTenantIsolation_Bexio_DB(t *testing.T) {
 	pool := testutil.PoolFromEnv(t)
 	defer pool.Close()
 
-	testutil.EnsureTenant(t, pool, testutil.TenantA, "Tenant A")
-	testutil.EnsureTenant(t, pool, testutil.TenantB, "Tenant B")
+	// Fresh random tenants per run: integration_configs is UNIQUE on
+	// (platform, tenant_id) and platform has a CHECK constraint, so the
+	// shared TenantA fixture would collide with the parallel phase3 test.
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantA, "Bexio P2 Tenant A")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantA)
+	testutil.EnsureTenant(t, pool, tenantB, "Bexio P2 Tenant B")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantB)
 
-	// Seed a user for TenantA (integration_configs.created_by FK).
+	// Seed a user for tenantA (integration_configs.created_by FK).
 	userID := testutil.SeedRow(t, pool, "users", map[string]any{
-		"tenant_id":     testutil.TenantA,
+		"tenant_id":     tenantA,
 		"email":         fmt.Sprintf("bexio-test-%s@tenanta.local", uuid.New().String()[:8]),
 		"password_hash": "$argon2id$v=19$test",
 	})
 	defer testutil.CleanupRow(t, pool, "users", userID)
 
-	// Seed integration_configs — UNIQUE on (platform, tenant_id) since mig 000125.
 	cfgID := testutil.SeedRow(t, pool, "integration_configs", map[string]any{
-		"tenant_id":             testutil.TenantA,
+		"tenant_id":             tenantA,
 		"platform":              "bexio",
 		"credentials_vault_key": "bexio/" + uuid.New().String(),
 		"created_by":            userID,
@@ -48,7 +54,7 @@ func TestTenantIsolation_Bexio_DB(t *testing.T) {
 
 	// bexio_entity_mappings.
 	mapID := testutil.SeedRow(t, pool, "bexio_entity_mappings", map[string]any{
-		"tenant_id":   testutil.TenantA,
+		"tenant_id":   tenantA,
 		"config_id":   cfgID,
 		"entity_type": "contact",
 		"kmuhub_id":   uuid.New(),
@@ -58,7 +64,7 @@ func TestTenantIsolation_Bexio_DB(t *testing.T) {
 
 	// bexio_field_mappings (UNIQUE on config_id + entity_type).
 	fmID := testutil.SeedRow(t, pool, "bexio_field_mappings", map[string]any{
-		"tenant_id":   testutil.TenantA,
+		"tenant_id":   tenantA,
 		"config_id":   cfgID,
 		"entity_type": "invoice",
 	})
@@ -66,15 +72,15 @@ func TestTenantIsolation_Bexio_DB(t *testing.T) {
 
 	// bexio_sync_log.
 	logID := testutil.SeedRow(t, pool, "bexio_sync_log", map[string]any{
-		"tenant_id":   testutil.TenantA,
+		"tenant_id":   tenantA,
 		"config_id":   cfgID,
 		"sync_type":   "contact_full",
 		"status":      "completed",
 	})
 	defer testutil.CleanupRow(t, pool, "bexio_sync_log", logID)
 
-	ctxA := testutil.WithTenantCtx(context.Background(), testutil.TenantA)
-	ctxB := testutil.WithTenantCtx(context.Background(), testutil.TenantB)
+	ctxA := testutil.WithTenantCtx(context.Background(), tenantA)
+	ctxB := testutil.WithTenantCtx(context.Background(), tenantB)
 
 	tests := []struct {
 		name  string
@@ -89,7 +95,6 @@ func TestTenantIsolation_Bexio_DB(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			testutil.AssertRowCount(t, pool, ctxA, tc.table, tc.id, 1)
 			testutil.AssertRowCount(t, pool, ctxB, tc.table, tc.id, 0)
 		})

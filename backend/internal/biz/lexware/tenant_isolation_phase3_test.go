@@ -20,25 +20,32 @@ func TestTenantIsolation_LexwareSyncConfigs_DB(t *testing.T) {
 	pool := testutil.PoolFromEnv(t)
 	defer pool.Close()
 
-	testutil.EnsureTenant(t, pool, testutil.TenantA, "Tenant A")
-	testutil.EnsureTenant(t, pool, testutil.TenantB, "Tenant B")
+	// Fresh random tenants per run: integration_configs is UNIQUE on
+	// (platform, tenant_id) and platform has a CHECK constraint, so the
+	// shared TenantA fixture would collide with the parallel sibling test.
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantA, "Lexware P3 Tenant A")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantA)
+	testutil.EnsureTenant(t, pool, tenantB, "Lexware P3 Tenant B")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantB)
 
 	userA := testutil.SeedRow(t, pool, "users", map[string]any{
-		"tenant_id":     testutil.TenantA,
+		"tenant_id":     tenantA,
 		"email":         "lw-cfg-a-" + uuid.New().String()[:8] + "@a.local",
 		"password_hash": "$argon2id$v=19$test",
 	})
 	defer testutil.CleanupRow(t, pool, "users", userA)
 
 	userB := testutil.SeedRow(t, pool, "users", map[string]any{
-		"tenant_id":     testutil.TenantB,
+		"tenant_id":     tenantB,
 		"email":         "lw-cfg-b-" + uuid.New().String()[:8] + "@b.local",
 		"password_hash": "$argon2id$v=19$test",
 	})
 	defer testutil.CleanupRow(t, pool, "users", userB)
 
 	cfgA := testutil.SeedRow(t, pool, "integration_configs", map[string]any{
-		"tenant_id":             testutil.TenantA,
+		"tenant_id":             tenantA,
 		"platform":              "lexware",
 		"credentials_vault_key": "lexware/" + uuid.New().String(),
 		"created_by":            userA,
@@ -46,7 +53,7 @@ func TestTenantIsolation_LexwareSyncConfigs_DB(t *testing.T) {
 	defer testutil.CleanupRow(t, pool, "integration_configs", cfgA)
 
 	cfgB := testutil.SeedRow(t, pool, "integration_configs", map[string]any{
-		"tenant_id":             testutil.TenantB,
+		"tenant_id":             tenantB,
 		"platform":              "lexware",
 		"credentials_vault_key": "lexware/" + uuid.New().String(),
 		"created_by":            userB,
@@ -54,22 +61,21 @@ func TestTenantIsolation_LexwareSyncConfigs_DB(t *testing.T) {
 	defer testutil.CleanupRow(t, pool, "integration_configs", cfgB)
 
 	syncA := testutil.SeedRow(t, pool, "lexware_sync_configs", map[string]any{
-		"tenant_id": testutil.TenantA,
+		"tenant_id": tenantA,
 		"config_id": cfgA,
 	})
 	defer testutil.CleanupRow(t, pool, "lexware_sync_configs", syncA)
 
 	syncB := testutil.SeedRow(t, pool, "lexware_sync_configs", map[string]any{
-		"tenant_id": testutil.TenantB,
+		"tenant_id": tenantB,
 		"config_id": cfgB,
 	})
 	defer testutil.CleanupRow(t, pool, "lexware_sync_configs", syncB)
 
-	ctxA := testutil.WithTenantCtx(context.Background(), testutil.TenantA)
-	ctxB := testutil.WithTenantCtx(context.Background(), testutil.TenantB)
+	ctxA := testutil.WithTenantCtx(context.Background(), tenantA)
+	ctxB := testutil.WithTenantCtx(context.Background(), tenantB)
 
 	t.Run("lexware_sync_configs", func(t *testing.T) {
-		t.Parallel()
 		testutil.AssertRowCount(t, pool, ctxA, "lexware_sync_configs", syncA, 1)
 		testutil.AssertRowCount(t, pool, ctxA, "lexware_sync_configs", syncB, 0)
 		testutil.AssertRowCount(t, pool, ctxB, "lexware_sync_configs", syncB, 1)

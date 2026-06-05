@@ -52,19 +52,15 @@ func TestTenantIsolation_Tags(t *testing.T) {
 	ctxB := testutil.WithTenantCtx(context.Background(), testutil.TenantB)
 
 	t.Run("tags_tenant_a_visible_to_a", func(t *testing.T) {
-		t.Parallel()
 		testutil.AssertRowCount(t, pool, ctxA, "tags", tagID, 1)
 	})
 	t.Run("tags_tenant_a_invisible_to_b", func(t *testing.T) {
-		t.Parallel()
 		testutil.AssertRowCount(t, pool, ctxB, "tags", tagID, 0)
 	})
 	t.Run("tags_tenant_b_visible_to_b", func(t *testing.T) {
-		t.Parallel()
 		testutil.AssertRowCount(t, pool, ctxB, "tags", tagB, 1)
 	})
 	t.Run("tags_tenant_b_invisible_to_a", func(t *testing.T) {
-		t.Parallel()
 		testutil.AssertRowCount(t, pool, ctxA, "tags", tagB, 0)
 	})
 }

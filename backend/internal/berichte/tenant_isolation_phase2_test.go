@@ -78,7 +78,6 @@ func TestTenantIsolation_Berichte(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			testutil.AssertRowCount(t, pool, ctxA, tc.table, tc.id, 1)
 			testutil.AssertRowCount(t, pool, ctxB, tc.table, tc.id, 0)
 		})

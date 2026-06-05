@@ -56,7 +56,6 @@ func TestTenantIsolation_TicketMessages_DB(t *testing.T) {
 	ctxB := testutil.WithTenantCtx(context.Background(), testutil.TenantB)
 
 	t.Run("ticket_messages", func(t *testing.T) {
-		t.Parallel()
 		testutil.AssertRowCount(t, pool, ctxA, "ticket_messages", msgA, 1)
 		testutil.AssertRowCount(t, pool, ctxA, "ticket_messages", msgB, 0)
 		testutil.AssertRowCount(t, pool, ctxB, "ticket_messages", msgB, 1)

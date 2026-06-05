@@ -31,11 +31,12 @@ func TestTenantIsolation_Inventar(t *testing.T) {
 	})
 	defer testutil.CleanupRow(t, pool, "inventory_items", itemID)
 
-	// Seed an inventory_movement for tenant A.
+	// Seed an inventory_movement for tenant A — movement_type NOT NULL, CHECK IN ('in','out','adjustment','transfer').
 	movID := testutil.SeedRow(t, pool, "inventory_movements", map[string]any{
-		"tenant_id": testutil.TenantA,
-		"item_id":   itemID,
-		"quantity":  10,
+		"tenant_id":     testutil.TenantA,
+		"item_id":       itemID,
+		"movement_type": "in",
+		"quantity":      10,
 	})
 	defer testutil.CleanupRow(t, pool, "inventory_movements", movID)
 
@@ -62,7 +63,6 @@ func TestTenantIsolation_Inventar(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			testutil.AssertRowCount(t, pool, ctxA, tc.table, tc.id, 1)
 			testutil.AssertRowCount(t, pool, ctxB, tc.table, tc.id, 0)
 		})

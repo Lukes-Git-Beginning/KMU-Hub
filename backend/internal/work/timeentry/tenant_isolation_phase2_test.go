@@ -35,18 +35,20 @@ func TestTenantIsolation_TimeEntries(t *testing.T) {
 
 	// Seed a project for TenantA (tasks require project_id FK).
 	projID := testutil.SeedRow(t, pool, "projects", map[string]any{
-		"tenant_id":  testutil.TenantA,
-		"name":       "Test Project " + uuid.New().String()[:6],
-		"created_by": userID,
+		"tenant_id":   testutil.TenantA,
+		"name":        "Test Project " + uuid.New().String()[:6],
+		"project_key": "TE" + uuid.New().String()[:6],
+		"created_by":  userID,
 	})
 	defer testutil.CleanupRow(t, pool, "projects", projID)
 
 	// Seed a task for TenantA.
 	taskID := testutil.SeedRow(t, pool, "tasks", map[string]any{
-		"tenant_id":  testutil.TenantA,
-		"project_id": projID,
-		"title":      "Test Task",
-		"created_by": userID,
+		"tenant_id":   testutil.TenantA,
+		"project_id":  projID,
+		"title":       "Test Task",
+		"created_by":  userID,
+		"task_number": 1,
 	})
 	defer testutil.CleanupRow(t, pool, "tasks", taskID)
 

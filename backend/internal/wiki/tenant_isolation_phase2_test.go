@@ -51,7 +51,6 @@ func TestTenantIsolation_Wiki(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			id := testutil.SeedRow(t, pool, tc.table, tc.seed)
 			defer testutil.CleanupRow(t, pool, tc.table, id)
 

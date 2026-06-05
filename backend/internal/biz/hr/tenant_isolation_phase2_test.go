@@ -14,6 +14,7 @@ package hr
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -34,6 +35,14 @@ func TestTenantIsolation_HR_Standard(t *testing.T) {
 	testutil.EnsureTenant(t, pool, testutil.TenantA, "Tenant A")
 	testutil.EnsureTenant(t, pool, testutil.TenantB, "Tenant B")
 
+	// Seed a user for TenantA — employee_id FK in hr_leave_requests/balances/work_time_entries all reference users(id).
+	employeeID := testutil.SeedRow(t, pool, "users", map[string]any{
+		"tenant_id":     testutil.TenantA,
+		"email":         fmt.Sprintf("hr-emp-%s@tenanta.local", uuid.New().String()[:8]),
+		"password_hash": "$argon2id$v=19$test",
+	})
+	defer testutil.CleanupRow(t, pool, "users", employeeID)
+
 	// hr_company_settings — one per tenant.
 	hrSettingsID := testutil.SeedRow(t, pool, "hr_company_settings", map[string]any{
 		"tenant_id": testutil.TenantA,
@@ -48,11 +57,10 @@ func TestTenantIsolation_HR_Standard(t *testing.T) {
 	})
 	defer testutil.CleanupRow(t, pool, "hr_leave_types", leaveTypeID)
 
-	// hr_leave_requests — requires employee_id (users FK) and leave_type_id.
-	// We use a new UUID for employee_id; the RLS test only needs tenant_id to be set.
+	// hr_leave_requests — employee_id FK to users(id) NOT NULL.
 	leaveReqID := testutil.SeedRow(t, pool, "hr_leave_requests", map[string]any{
 		"tenant_id":     testutil.TenantA,
-		"employee_id":   uuid.New(),
+		"employee_id":   employeeID,
 		"leave_type_id": leaveTypeID,
 		"start_date":    time.Now().UTC().Format("2006-01-02"),
 		"end_date":      time.Now().UTC().Add(3 * 24 * time.Hour).Format("2006-01-02"),
@@ -60,20 +68,20 @@ func TestTenantIsolation_HR_Standard(t *testing.T) {
 	})
 	defer testutil.CleanupRow(t, pool, "hr_leave_requests", leaveReqID)
 
-	// hr_leave_balances.
+	// hr_leave_balances — employee_id FK to users(id) NOT NULL.
 	leaveBal := testutil.SeedRow(t, pool, "hr_leave_balances", map[string]any{
 		"tenant_id":   testutil.TenantA,
-		"employee_id": uuid.New(),
+		"employee_id": employeeID,
 		"year":        2026,
 		"entitlement": "20.0",
 		"remaining":   "20.0",
 	})
 	defer testutil.CleanupRow(t, pool, "hr_leave_balances", leaveBal)
 
-	// hr_work_time_entries.
+	// hr_work_time_entries — employee_id FK to users(id) NOT NULL.
 	wteID := testutil.SeedRow(t, pool, "hr_work_time_entries", map[string]any{
 		"tenant_id":   testutil.TenantA,
-		"employee_id": uuid.New(),
+		"employee_id": employeeID,
 		"clock_in":    time.Now().UTC(),
 	})
 	defer testutil.CleanupRow(t, pool, "hr_work_time_entries", wteID)
@@ -96,7 +104,6 @@ func TestTenantIsolation_HR_Standard(t *testing.T) {
 	for _, tc := range standardTests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			testutil.AssertRowCount(t, pool, ctxA, tc.table, tc.id, 1)
 			testutil.AssertRowCount(t, pool, ctxB, tc.table, tc.id, 0)
 		})
@@ -138,19 +145,15 @@ func TestTenantIsolation_HR_SystemSeedRows(t *testing.T) {
 
 	// Both tenants must see system-seed rows (zero-UUID tenant_id permitted by USING clause).
 	t.Run("hr_leave_types_system_seed_visible_to_A", func(t *testing.T) {
-		t.Parallel()
 		testutil.AssertRowCount(t, pool, ctxA, "hr_leave_types", sysLeaveTypeID, 1)
 	})
 	t.Run("hr_leave_types_system_seed_visible_to_B", func(t *testing.T) {
-		t.Parallel()
 		testutil.AssertRowCount(t, pool, ctxB, "hr_leave_types", sysLeaveTypeID, 1)
 	})
 	t.Run("hr_document_categories_system_seed_visible_to_A", func(t *testing.T) {
-		t.Parallel()
 		testutil.AssertRowCount(t, pool, ctxA, "hr_document_categories", sysDocCatID, 1)
 	})
 	t.Run("hr_document_categories_system_seed_visible_to_B", func(t *testing.T) {
-		t.Parallel()
 		testutil.AssertRowCount(t, pool, ctxB, "hr_document_categories", sysDocCatID, 1)
 	})
 }

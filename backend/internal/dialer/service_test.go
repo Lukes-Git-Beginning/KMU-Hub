@@ -220,6 +220,7 @@ func (r *mockAgentStatusRepo) LogStatusChange(_ context.Context, _ *AgentStatusL
 }
 
 type mockCRMBridge struct {
+	mu               sync.Mutex
 	lastCallActivity *CallActivityInput
 	contactDetails   map[uuid.UUID]*ContactDetails
 }
@@ -229,7 +230,9 @@ func newMockCRMBridge() *mockCRMBridge {
 }
 
 func (b *mockCRMBridge) CreateCallActivity(_ context.Context, input CallActivityInput) error {
+	b.mu.Lock()
 	b.lastCallActivity = &input
+	b.mu.Unlock()
 	return nil
 }
 func (b *mockCRMBridge) GetContactDetails(_ context.Context, id uuid.UUID) (*ContactDetails, error) {
@@ -240,6 +243,11 @@ func (b *mockCRMBridge) GetContactDetails(_ context.Context, id uuid.UUID) (*Con
 }
 func (b *mockCRMBridge) ResolveFilterContacts(_ context.Context, _ uuid.UUID) ([]ContactImport, error) {
 	return nil, nil
+}
+func (b *mockCRMBridge) LastCallActivity() *CallActivityInput {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.lastCallActivity
 }
 
 // ---------------------------------------------------------------------------
@@ -336,11 +344,11 @@ func TestLogCallOutcome_ResolvesRealContactID(t *testing.T) {
 	}
 
 	// Verify that the CRM bridge received the real contact ID, not the ccID.
-	if h.bridge.lastCallActivity == nil {
+	if h.bridge.LastCallActivity() == nil {
 		t.Fatal("expected CRM bridge to be called")
 	}
-	if h.bridge.lastCallActivity.ContactID != realContactID {
-		t.Errorf("CRM bridge got ContactID=%s, want %s", h.bridge.lastCallActivity.ContactID, realContactID)
+	if h.bridge.LastCallActivity().ContactID != realContactID {
+		t.Errorf("CRM bridge got ContactID=%s, want %s", h.bridge.LastCallActivity().ContactID, realContactID)
 	}
 }
 
@@ -376,12 +384,12 @@ func TestLogCallOutcome_FallsBackWhenContactNotFound(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if h.bridge.lastCallActivity == nil {
+	if h.bridge.LastCallActivity() == nil {
 		t.Fatal("expected CRM bridge to be called")
 	}
 	// Falls back to CampaignContactID when lookup fails.
-	if h.bridge.lastCallActivity.ContactID != ccID {
-		t.Errorf("CRM bridge got ContactID=%s, want fallback %s", h.bridge.lastCallActivity.ContactID, ccID)
+	if h.bridge.LastCallActivity().ContactID != ccID {
+		t.Errorf("CRM bridge got ContactID=%s, want fallback %s", h.bridge.LastCallActivity().ContactID, ccID)
 	}
 }
 
