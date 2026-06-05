@@ -79,8 +79,11 @@ func TestRevalidateTokenLoop_ExpiredToken(t *testing.T) {
 
 	// Connect as a client.
 	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http")
-	clientConn, _, dialErr := websocket.Dial(context.Background(), wsURL, nil)
+	clientConn, dialResp, dialErr := websocket.Dial(context.Background(), wsURL, nil)
 	require.NoError(t, dialErr)
+	if dialResp != nil && dialResp.Body != nil {
+		defer dialResp.Body.Close()
+	}
 
 	// The server should close the connection within a short window because the
 	// token is already expired.
@@ -139,8 +142,11 @@ func TestRevalidateTokenLoop_ValidToken(t *testing.T) {
 	defer srv.Close()
 
 	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http")
-	clientConn, _, dialErr := websocket.Dial(context.Background(), wsURL, nil)
+	clientConn, dialResp, dialErr := websocket.Dial(context.Background(), wsURL, nil)
 	require.NoError(t, dialErr)
+	if dialResp != nil && dialResp.Body != nil {
+		defer dialResp.Body.Close()
+	}
 
 	// Let several ticks pass; the connection should remain open.
 	time.Sleep(20 * time.Millisecond)
