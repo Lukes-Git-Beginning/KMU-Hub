@@ -75,9 +75,22 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: backend/go.sum
 
+      - name: Install golang-migrate
+        run: go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.17.0
+
+      - name: Run migrations
+        # Superuser URL — DDL needs kmuhub_test (table owner). Tests below
+        # connect as kmuhub_app so RLS policies actually apply (NOBYPASSRLS).
+        run: migrate -path backend/migrations -database "postgres://kmuhub_test:kmuhub_test@localhost:5432/kmuhub_test?sslmode=disable" up
+
+      - name: Set app role password
+        # Migration 000121 creates kmuhub_app with a placeholder password.
+        # Mirror the local-dev convention from backend/.env.example.
+        run: PGPASSWORD=kmuhub_test psql -h localhost -U kmuhub_test -d kmuhub_test -c "ALTER ROLE kmuhub_app WITH PASSWORD 'app_dev'"
+
       - name: Run tests with race detector
         env:
-          DATABASE_URL: postgres://kmuhub_test:kmuhub_test@localhost:5432/kmuhub_test?sslmode=disable
+          DATABASE_URL: postgres://kmuhub_app:app_dev@localhost:5432/kmuhub_test?sslmode=disable
           REDIS_URL: redis://localhost:6379
           JWT_SECRET: ci-test-secret-minimum-32-characters
         working-directory: backend
@@ -411,12 +424,15 @@ jobs:
           cache-dependency-path: backend/go.sum
 
       - name: Run gosec
+        # gosec -conf only accepts JSON, not YAML — exclusions live here as
+        # flags instead, mirroring the gosec excludes in backend/.golangci.yml.
         uses: securego/gosec@master
         with:
           args: >-
             -fmt sarif
             -out gosec.sarif
-            -conf backend/.gosec.yaml
+            -exclude=G101,G104,G108,G109,G115,G304,G402,G404
+            -exclude-dir=proto
             ./backend/...
 
       - name: Upload SARIF artifact
