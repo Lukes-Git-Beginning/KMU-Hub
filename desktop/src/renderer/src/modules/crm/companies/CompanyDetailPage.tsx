@@ -96,7 +96,7 @@ export default function CompanyDetailPage() {
     try {
       await deleteCompany.mutateAsync(id)
       toast.success(t('crm.companies.deleted'))
-      navigate('/crm/companies')
+      navigate('/kontakte/firmen')
     } catch {
       toast.error(t('crm.companies.deleteError'))
     }
@@ -140,7 +140,7 @@ export default function CompanyDetailPage() {
           <Button
             variant="outline"
             className="mt-4"
-            onClick={() => navigate('/crm/companies')}
+            onClick={() => navigate('/kontakte/firmen')}
           >
             {t('crm.backToList')}
           </Button>
@@ -157,7 +157,7 @@ export default function CompanyDetailPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate('/crm/companies')}
+            onClick={() => navigate('/kontakte/firmen')}
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
             {t('common.back')}
@@ -307,7 +307,7 @@ export default function CompanyDetailPage() {
                   {contacts.map((contact) => (
                     <Link
                       key={contact.id}
-                      to={`/crm/contacts/${contact.id}`}
+                      to="/kontakte"
                       className="flex items-center gap-2 rounded-md p-2 text-sm hover:bg-accent transition-colors"
                     >
                       <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center text-xs font-medium">

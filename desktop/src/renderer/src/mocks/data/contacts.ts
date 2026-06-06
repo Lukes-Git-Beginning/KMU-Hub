@@ -330,7 +330,7 @@ const contacts = [
     phone: '+49 89 4523 1101',
     company_name: 'Gruber Maschinenbau AG',
     company_id: IDS.companies.gruberMaschinenbau,
-    title: 'Geschaeftsfuehrer',
+    title: 'Geschäftsführer',
     tags: [
       { id: 'tag-c1', name: 'Entscheider', color: '#EF4444' },
       { id: 'tag-c2', name: 'VIP', color: '#F59E0B' },
@@ -367,7 +367,7 @@ const contacts = [
     tags: [
       { id: 'tag-c4', name: 'Entscheider', color: '#EF4444' },
     ],
-    notes: 'Gruender und Inhaber. Entscheidet ueber grosse Investitionen persönlich.',
+    notes: 'Gründer und Inhaber. Entscheidet über große Investitionen persönlich.',
     address: { street: 'Industriestrasse 42', zip: '85748', city: 'Garching bei München', country: 'DE' },
     created_at: monthsAgo(14),
   },
@@ -416,11 +416,11 @@ const contacts = [
     phone: '+43 1 512 78 10',
     company_name: 'Alpen Logistik GmbH',
     company_id: IDS.companies.alpenLogistik,
-    title: 'Geschaeftsfuehrer',
+    title: 'Geschäftsführer',
     tags: [
       { id: 'tag-c8', name: 'Entscheider', color: '#EF4444' },
     ],
-    notes: 'Sucht Loesung für Fuhrparkmanagement und Auftragsverwaltung.',
+    notes: 'Sucht Lösung für Fuhrparkmanagement und Auftragsverwaltung.',
     address: { street: 'Lagerstrasse 8', zip: '1030', city: 'Wien', country: 'AT' },
     created_at: monthsAgo(3),
   },
@@ -558,7 +558,7 @@ const contacts = [
     tags: [
       { id: 'tag-c18', name: 'Kreativ', color: '#EC4899' },
     ],
-    notes: 'Legt grossen Wert auf UX. Moechte White-Label-Loesung.',
+    notes: 'Legt großen Wert auf UX. Möchte White-Label-Lösung.',
     address: { street: 'Mariahilfer Strasse 88', zip: '1070', city: 'Wien', country: 'AT' },
     created_at: monthsAgo(6),
   },
@@ -570,7 +570,7 @@ const contacts = [
     phone: '+43 1 789 23 15',
     company_name: 'Wiener Design Studio',
     company_id: IDS.companies.wienerDesign,
-    title: 'Geschaeftsfuehrer',
+    title: 'Geschäftsführer',
     tags: [
       { id: 'tag-c19', name: 'Entscheider', color: '#EF4444' },
     ],
@@ -691,12 +691,12 @@ const contacts = [
     phone: '+41 31 987 65 10',
     company_name: 'Bern Solar Technik AG',
     company_id: IDS.companies.bernSolar,
-    title: 'Geschaeftsfuehrer',
+    title: 'Geschäftsführer',
     tags: [
       { id: 'tag-c27', name: 'GreenTech', color: '#059669' },
       { id: 'tag-c28', name: 'Entscheider', color: '#EF4444' },
     ],
-    notes: 'Wachsendes Unternehmen, sucht skalierbare CRM-Loesung für Vertriebsteam.',
+    notes: 'Wachsendes Unternehmen, sucht skalierbare CRM-Lösung für Vertriebsteam.',
     address: { street: 'Sonnenbergstrasse 22', zip: '3013', city: 'Bern', country: 'CH' },
     created_at: monthsAgo(4),
   },
@@ -715,7 +715,7 @@ const contacts = [
       { id: 'tag-c29', name: 'Vertrieb', color: '#F59E0B' },
       { id: 'tag-c30', name: 'Partner', color: '#8B5CF6' },
     ],
-    notes: 'Vertreibt unsere Loesung als Reseller im Norden. Guter Kontakt.',
+    notes: 'Vertreibt unsere Lösung als Reseller im Norden. Guter Kontakt.',
     address: { street: 'Jungfernstieg 50', zip: '20354', city: 'Hamburg', country: 'DE' },
     created_at: monthsAgo(12),
   },
@@ -731,7 +731,7 @@ const contacts = [
     tags: [
       { id: 'tag-c31', name: 'Technik', color: '#3B82F6' },
     ],
-    notes: 'Fuehrt technische Pre-Sales-Demos bei Endkunden durch.',
+    notes: 'Führt technische Pre-Sales-Demos bei Endkunden durch.',
     address: { street: 'Jungfernstieg 50', zip: '20354', city: 'Hamburg', country: 'DE' },
     created_at: monthsAgo(12),
   },
@@ -752,7 +752,7 @@ const deals = [
   // --- Lead (4) ---
   {
     id: IDS.deals.backupLoesung,
-    name: 'Backup & Disaster Recovery Loesung',
+    name: 'Backup & Disaster Recovery Lösung',
     value: 15000,
     currency: 'EUR' as const,
     stageId: IDS.stages.lead,
@@ -781,8 +781,8 @@ const deals = [
     expectedCloseDate: daysFromNow(120),
     probability: 10,
     tags: [{ id: 'tag-d2', name: 'Netzwerk', color: '#3B82F6' }],
-    created_at: daysAgo(3),
-    updated_at: daysAgo(3),
+    created_at: daysAgo(20),
+    updated_at: daysAgo(18),
   },
   {
     id: IDS.deals.kiBeratung,
@@ -815,8 +815,8 @@ const deals = [
     expectedCloseDate: daysFromNow(60),
     probability: 10,
     tags: [{ id: 'tag-d4', name: 'Schulung', color: '#F59E0B' }],
-    created_at: daysAgo(7),
-    updated_at: daysAgo(4),
+    created_at: daysAgo(40),
+    updated_at: daysAgo(33),
   },
 
   // --- Qualifiziert (4) ---
@@ -854,8 +854,8 @@ const deals = [
       { id: 'tag-d6', name: 'Security', color: '#DC2626' },
       { id: 'tag-d7', name: 'Compliance', color: '#F97316' },
     ],
-    created_at: daysAgo(14),
-    updated_at: daysAgo(2),
+    created_at: daysAgo(28),
+    updated_at: daysAgo(22),
   },
   {
     id: IDS.deals.mobileApp,
@@ -928,7 +928,7 @@ const deals = [
     probability: 50,
     tags: [{ id: 'tag-d12', name: 'ERP', color: '#F59E0B' }],
     created_at: daysAgo(35),
-    updated_at: daysAgo(2),
+    updated_at: daysAgo(16),
   },
   {
     id: IDS.deals.iotPlattform,
@@ -1147,8 +1147,8 @@ const activities = [
     deal_id: IDS.deals.hrDigitalisierung,
     user_id: IDS.users.julia,
     completed: false,
-    due_date: daysFromNow(2),
-    created_at: daysAgo(3),
+    due_date: daysAgo(3),
+    created_at: daysAgo(8),
   },
   {
     id: 'act-005',
@@ -1212,7 +1212,7 @@ const activities = [
     deal_id: IDS.deals.consultingProjekt,
     user_id: IDS.users.stefan,
     completed: false,
-    due_date: daysFromNow(3),
+    due_date: daysFromNow(0),
     created_at: daysAgo(4),
   },
   {
@@ -1277,7 +1277,7 @@ const activities = [
     deal_id: IDS.deals.datenbankOptimierung,
     user_id: IDS.users.thomas,
     completed: false,
-    due_date: daysFromNow(4),
+    due_date: daysFromNow(20),
     created_at: daysAgo(2),
   },
   {

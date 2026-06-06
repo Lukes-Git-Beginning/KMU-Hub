@@ -26,7 +26,7 @@ import { OfflineBanner } from '@/components/ui/OfflineBanner'
 
 // Lazy-loaded module pages — existing (backend-connected)
 const DashboardPage = lazy(() => import('@/modules/dashboard/DashboardPage'))
-const CRMLayout = lazy(() => import('@/modules/crm/CRMLayout'))
+
 const ChatLayout = lazy(() => import('@/modules/chat/ChatLayout'))
 const WorkLayout = lazy(() => import('@/modules/work/WorkLayout'))
 const KalenderPage = lazy(() => import('@/modules/kalender/KalenderPage'))
@@ -49,7 +49,14 @@ const CalDAVAdminPage = lazy(() => import('@/modules/admin/CalDAVAdminPage'))
 const PluginListPage = lazy(() => import('@/modules/admin/plugins/PluginListPage'))
 
 // New module pages from design integration (mock data, Zustand stores)
+const KontakteLayout = lazy(() => import('@/modules/kontakte/KontakteLayout'))
 const KontaktePage = lazy(() => import('@/modules/kontakte/KontaktePage'))
+const CompaniesListPage = lazy(() => import('@/modules/crm/companies/CompaniesListPage'))
+const CompanyDetailPage = lazy(() => import('@/modules/crm/companies/CompanyDetailPage'))
+const DealsListPage = lazy(() => import('@/modules/crm/deals/DealsListPage'))
+const LeadsInboxPage = lazy(() => import('@/modules/kontakte/leads/LeadsInboxPage'))
+const DealDetailPage = lazy(() => import('@/modules/crm/deals/DealDetailPage'))
+const ActivitiesListPage = lazy(() => import('@/modules/crm/activities/ActivitiesListPage'))
 const DokumentePage = lazy(() => import('@/modules/dokumente/DokumentePage'))
 const MailsPage = lazy(() => import('@/modules/mails/MailsPage'))
 const TeamPage = lazy(() => import('@/modules/team/TeamPage'))
@@ -183,7 +190,7 @@ const router = createHashRouter([
     children: [
       // Core modules (backend-connected)
       { index: true, element: lazyRoute(DashboardPage) },
-      { path: 'crm/*', element: lazyRoute(CRMLayout) },
+      { path: 'crm/*', element: <Navigate to="/kontakte" replace /> },
       { path: 'chat/*', element: lazyRoute(ChatLayout) },
       { path: 'work/*', element: lazyRoute(WorkLayout) },
       { path: 'kalender', element: lazyRoute(KalenderPage) },
@@ -210,8 +217,20 @@ const router = createHashRouter([
       // Plugin admin
       { path: 'admin/plugins', element: lazyRoute(PluginListPage) },
 
-      // New modules from design integration
-      { path: 'kontakte', element: lazyRoute(KontaktePage) },
+      // Kontakte — Kunden-Zentrale (Kontakte + Firmen + Pipeline + Aktivitäten)
+      {
+        path: 'kontakte',
+        element: lazyRoute(KontakteLayout),
+        children: [
+          { index: true, element: lazyRoute(KontaktePage) },
+          { path: 'firmen', element: lazyRoute(CompaniesListPage) },
+          { path: 'firmen/:id', element: lazyRoute(CompanyDetailPage) },
+          { path: 'leads', element: lazyRoute(LeadsInboxPage) },
+          { path: 'pipeline', element: lazyRoute(DealsListPage) },
+          { path: 'pipeline/:id', element: lazyRoute(DealDetailPage) },
+          { path: 'aktivitaeten', element: lazyRoute(ActivitiesListPage) },
+        ],
+      },
       { path: 'dokumente', element: lazyRoute(DokumentePage) },
       { path: 'mails', element: lazyRoute(MailsPage) },
       { path: 'kommunikation', element: lazyRoute(KommunikationPage) },

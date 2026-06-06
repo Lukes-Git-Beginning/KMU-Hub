@@ -24,6 +24,83 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
+import { useContacts } from '@/api/hooks/useContacts'
+import { useCompanies } from '@/api/hooks/useCompanies'
+
+// ---------------------------------------------------------------------------
+// Searchable entity picker (contact / company) with free-text fallback.
+// Renders suggestions inline (not absolutely positioned) to avoid clipping
+// inside the dialog's scroll container.
+// ---------------------------------------------------------------------------
+
+interface EntityOption {
+  id: string
+  label: string
+  sublabel?: string
+}
+
+function EntityCombobox({
+  value,
+  onChange,
+  options,
+  placeholder,
+  icon: Icon,
+  label,
+}: {
+  value: string
+  onChange: (value: string) => void
+  options: EntityOption[]
+  placeholder: string
+  icon: typeof User
+  label: string
+}) {
+  const [focused, setFocused] = useState(false)
+  const q = value.trim().toLowerCase()
+  const matches =
+    focused && q
+      ? options
+          .filter((o) => o.label.toLowerCase().includes(q) && o.label.toLowerCase() !== q)
+          .slice(0, 6)
+      : []
+
+  return (
+    <div className="space-y-1.5">
+      <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+        {label}
+      </label>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setTimeout(() => setFocused(false), 150)}
+        placeholder={placeholder}
+        autoComplete="off"
+        className="h-9 w-full rounded-md border border-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
+      />
+      {matches.length > 0 && (
+        <ul className="overflow-hidden rounded-md border border-border bg-popover shadow-sm">
+          {matches.map((o) => (
+            <li key={o.id}>
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { onChange(o.label); setFocused(false) }}
+                className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent"
+              >
+                <span className="truncate text-foreground">{o.label}</span>
+                {o.sublabel && (
+                  <span className="shrink-0 truncate text-xs text-muted-foreground">{o.sublabel}</span>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
 
 // ---------------------------------------------------------------------------
 // Pipeline stages
@@ -110,6 +187,19 @@ export function DealFormDialog({
   const [notes, setNotes] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
+
+  // Existing contacts / companies for the pickers (free-text still allowed).
+  const { data: contactsData } = useContacts({ page_size: 200 })
+  const { data: companiesData } = useCompanies({ page_size: 200 })
+  const contactOptions: EntityOption[] = (contactsData?.contacts ?? []).map((c) => ({
+    id: c.id ?? `${c.firstName}-${c.lastName}`,
+    label: `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim(),
+    sublabel: c.companyName ?? undefined,
+  })).filter((o) => o.label)
+  const companyOptions: EntityOption[] = (companiesData?.companies ?? []).map((c) => ({
+    id: c.id ?? c.name ?? '',
+    label: c.name ?? '',
+  })).filter((o) => o.label)
 
   useEffect(() => {
     if (open && initialData) {
@@ -328,34 +418,24 @@ export function DealFormDialog({
             </div>
           </div>
 
-          {/* Contact + Company */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                <User className="h-3.5 w-3.5 text-muted-foreground" />
-                {t('crm.field.contact')}
-              </label>
-              <input
-                type="text"
-                value={contactName}
-                onChange={(e) => setContactName(e.target.value)}
-                placeholder="Thomas Weber"
-                className="h-9 w-full rounded-md border border-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                {t('crm.field.company')}
-              </label>
-              <input
-                type="text"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                placeholder="ABC GmbH"
-                className="h-9 w-full rounded-md border border-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
-              />
-            </div>
+          {/* Contact + Company — searchable pickers (free text allowed) */}
+          <div className="grid grid-cols-2 items-start gap-3">
+            <EntityCombobox
+              value={contactName}
+              onChange={setContactName}
+              options={contactOptions}
+              placeholder="Thomas Weber"
+              icon={User}
+              label={t('crm.field.contact')}
+            />
+            <EntityCombobox
+              value={companyName}
+              onChange={setCompanyName}
+              options={companyOptions}
+              placeholder="ABC GmbH"
+              icon={Building2}
+              label={t('crm.field.company')}
+            />
           </div>
 
           {/* Tags */}

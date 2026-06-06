@@ -1,9 +1,8 @@
 /**
  * Deals list page with toggle between table view and pipeline (Kanban) view.
  *
- * Table view shows deals with columns for name, stage, value, contact,
- * expected close date, and tags. Pipeline view renders the DealPipelineView
- * component with horizontal stage columns.
+ * Table view: sortable columns (server-side via sort_by/sort_desc params),
+ * checkbox multi-select, and bulk-delete. Pipeline view is read-only (unchanged).
  */
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -13,17 +12,32 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   LayoutList,
   Columns3,
+  BarChart3,
   TrendingUp,
+  Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useDeals, useCreateDeal } from '@/api/hooks/useDeals'
+import { useDeals, useCreateDeal, useDeleteDeal } from '@/api/hooks/useDeals'
 import { usePipelineStages } from '@/api/hooks/usePipelineStages'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   Table,
   TableBody,
@@ -33,11 +47,19 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import DealPipelineView from './DealPipelineView'
+import DealForecastView from './DealForecastView'
 import { PageHeader } from '@/components/shared'
 import { DealFormDialog, type DealFormData } from './DealFormDialog'
 import { formatDate } from '@/lib/format'
 
 const PAGE_SIZE = 20
+
+type DealSortField = 'name' | 'value' | 'created_at' | 'updated_at' | 'expected_close_date'
+
+interface SortState {
+  field: DealSortField
+  desc: boolean
+}
 
 function formatCurrency(value?: number, currency?: string): string {
   if (value == null) return '-'
@@ -49,15 +71,29 @@ function formatCurrency(value?: number, currency?: string): string {
   }).format(value)
 }
 
+function SortIcon({ field, sort }: { field: DealSortField; sort: SortState }) {
+  if (sort.field !== field) return null
+  return sort.desc ? (
+    <ChevronDown className="ml-1 inline h-3.5 w-3.5 shrink-0" />
+  ) : (
+    <ChevronUp className="ml-1 inline h-3.5 w-3.5 shrink-0" />
+  )
+}
+
 export default function DealsListPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const [view, setView] = useState<'list' | 'pipeline'>('list')
+  const [view, setView] = useState<'list' | 'pipeline' | 'forecast'>('list')
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(1)
+  const [sort, setSort] = useState<SortState>({ field: 'created_at', desc: true })
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+
   const createDeal = useCreateDeal()
+  const deleteDeal = useDeleteDeal()
   const { data: stagesData } = usePipelineStages()
   const stages = stagesData?.stages ?? []
 
@@ -69,15 +105,54 @@ export default function DealsListPage() {
     return () => clearTimeout(timer)
   }, [search])
 
+  // Clear selection when page/search/sort changes
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [page, debouncedSearch, sort.field, sort.desc])
+
   const { data, isLoading, error, refetch } = useDeals({
     page,
     page_size: PAGE_SIZE,
     search: debouncedSearch || undefined,
+    sort_by: sort.field,
+    sort_desc: sort.desc,
   })
 
   const deals = data?.deals ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  function toggleSort(field: DealSortField) {
+    setSort((prev) =>
+      prev.field === field ? { field, desc: !prev.desc } : { field, desc: false }
+    )
+    setPage(1)
+  }
+
+  // Selection helpers
+  const allOnPageSelected =
+    deals.length > 0 && deals.every((d) => d.id && selectedIds.has(d.id))
+  const someOnPageSelected =
+    deals.some((d) => d.id && selectedIds.has(d.id)) && !allOnPageSelected
+
+  function toggleSelectAll() {
+    if (allOnPageSelected) {
+      const next = new Set(selectedIds)
+      deals.forEach((d) => { if (d.id) next.delete(d.id) })
+      setSelectedIds(next)
+    } else {
+      const next = new Set(selectedIds)
+      deals.forEach((d) => { if (d.id) next.add(d.id) })
+      setSelectedIds(next)
+    }
+  }
+
+  function toggleSelectOne(id: string) {
+    const next = new Set(selectedIds)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setSelectedIds(next)
+  }
 
   async function handleCreate(form: DealFormData) {
     try {
@@ -99,6 +174,25 @@ export default function DealsListPage() {
       toast.success(t('crm.deals.created'))
     } catch {
       toast.error(t('crm.deals.createError'))
+    }
+  }
+
+  async function handleBulkDelete() {
+    const ids = Array.from(selectedIds)
+    let errorCount = 0
+    for (const id of ids) {
+      try {
+        await deleteDeal.mutateAsync(id)
+      } catch {
+        errorCount++
+      }
+    }
+    setSelectedIds(new Set())
+    setShowBulkDeleteDialog(false)
+    if (errorCount > 0) {
+      toast.error(t('crm.bulk.deleteError'))
+    } else {
+      toast.success(t('crm.bulk.deleted', { count: ids.length }))
     }
   }
 
@@ -142,10 +236,20 @@ export default function DealsListPage() {
               <Button
                 variant={view === 'pipeline' ? 'secondary' : 'ghost'}
                 size="sm"
-                className="rounded-l-none"
+                className="rounded-none border-x border-border"
                 onClick={() => setView('pipeline')}
+                title={t('crm.deals.stage')}
               >
                 <Columns3 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={view === 'forecast' ? 'secondary' : 'ghost'}
+                size="sm"
+                className="rounded-l-none"
+                onClick={() => setView('forecast')}
+                title={t('crm.deals.forecast.view')}
+              >
+                <BarChart3 className="h-4 w-4" />
               </Button>
             </div>
             <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
@@ -158,6 +262,8 @@ export default function DealsListPage() {
 
       {view === 'pipeline' ? (
         <DealPipelineView />
+      ) : view === 'forecast' ? (
+        <DealForecastView />
       ) : (
         <>
           {/* Search bar */}
@@ -170,6 +276,31 @@ export default function DealsListPage() {
               className="pl-9"
             />
           </div>
+
+          {/* Bulk action bar */}
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/50 px-4 py-2">
+              <span className="text-sm font-medium text-foreground">
+                {t('crm.bulk.selected', { count: selectedIds.size })}
+              </span>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => setShowBulkDeleteDialog(true)}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                {t('common.delete')}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedIds(new Set())}
+              >
+                {t('crm.bulk.clearSelection')}
+              </Button>
+            </div>
+          )}
 
           {isLoading ? (
             <div className="space-y-3">
@@ -200,11 +331,37 @@ export default function DealsListPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{t('crm.field.name')}</TableHead>
+                    {/* Checkbox column */}
+                    <TableHead className="w-10 pr-0">
+                      <Checkbox
+                        checked={allOnPageSelected ? true : someOnPageSelected ? 'indeterminate' : false}
+                        onCheckedChange={toggleSelectAll}
+                        aria-label={t('common.actions')}
+                      />
+                    </TableHead>
+                    <TableHead
+                      className="cursor-pointer select-none"
+                      onClick={() => toggleSort('name')}
+                    >
+                      {t('crm.field.name')}
+                      <SortIcon field="name" sort={sort} />
+                    </TableHead>
                     <TableHead>{t('crm.deals.stage')}</TableHead>
-                    <TableHead>{t('crm.deals.value')}</TableHead>
+                    <TableHead
+                      className="cursor-pointer select-none"
+                      onClick={() => toggleSort('value')}
+                    >
+                      {t('crm.deals.value')}
+                      <SortIcon field="value" sort={sort} />
+                    </TableHead>
                     <TableHead>{t('crm.field.contact')}</TableHead>
-                    <TableHead>{t('crm.deals.expectedClose')}</TableHead>
+                    <TableHead
+                      className="cursor-pointer select-none"
+                      onClick={() => toggleSort('expected_close_date')}
+                    >
+                      {t('crm.deals.expectedClose')}
+                      <SortIcon field="expected_close_date" sort={sort} />
+                    </TableHead>
                     <TableHead>{t('crm.field.tags')}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -213,11 +370,17 @@ export default function DealsListPage() {
                     <TableRow
                       key={deal.id}
                       className="cursor-pointer"
-                      onClick={() => navigate(`/crm/deals/${deal.id}`)}
+                      onClick={() => deal.id && navigate(`/kontakte/pipeline/${deal.id}`)}
+                      data-state={deal.id && selectedIds.has(deal.id) ? 'selected' : undefined}
                     >
-                      <TableCell className="font-medium">
-                        {deal.name}
+                      <TableCell className="pr-0" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={!!(deal.id && selectedIds.has(deal.id))}
+                          onCheckedChange={() => deal.id && toggleSelectOne(deal.id)}
+                          aria-label={deal.name}
+                        />
                       </TableCell>
+                      <TableCell className="font-medium">{deal.name}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{deal.stageName || '-'}</Badge>
                       </TableCell>
@@ -294,6 +457,26 @@ export default function DealsListPage() {
         onSubmit={handleCreate}
         stages={stages}
       />
+
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('crm.bulk.deleteTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('crm.bulk.deleteConfirm', { count: selectedIds.size })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleBulkDelete}
+            >
+              {t('common.delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

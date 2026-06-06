@@ -132,7 +132,7 @@ export default function DealDetailPage() {
     try {
       await deleteDeal.mutateAsync(id)
       toast.success(t('crm.deals.deleted'))
-      navigate('/crm/deals')
+      navigate('/kontakte/pipeline')
     } catch {
       toast.error(t('crm.deals.deleteError'))
     }
@@ -152,7 +152,7 @@ export default function DealDetailPage() {
         navigate('/finanzen')
       },
       onError: () => {
-        alert(t('crm.deals.quoteError'))
+        toast.error(t('crm.deals.quoteError'))
       },
     })
   }
@@ -195,7 +195,7 @@ export default function DealDetailPage() {
           <Button
             variant="outline"
             className="mt-4"
-            onClick={() => navigate('/crm/deals')}
+            onClick={() => navigate('/kontakte/pipeline')}
           >
             {t('crm.backToList')}
           </Button>
@@ -212,7 +212,7 @@ export default function DealDetailPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate('/crm/deals')}
+            onClick={() => navigate('/kontakte/pipeline')}
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
             {t('common.back')}
@@ -289,7 +289,7 @@ export default function DealDetailPage() {
                 <div>
                   <p className="text-xs text-muted-foreground">{t('crm.field.contact')}</p>
                   <Link
-                    to={`/crm/contacts/${deal.contactId}`}
+                    to="/kontakte"
                     className="text-sm text-primary hover:underline"
                   >
                     {deal.contactName || t('crm.field.contact')}
@@ -304,7 +304,7 @@ export default function DealDetailPage() {
                 <div>
                   <p className="text-xs text-muted-foreground">{t('crm.field.company')}</p>
                   <Link
-                    to={`/crm/companies/${deal.companyId}`}
+                    to={`/kontakte/firmen/${deal.companyId}`}
                     className="text-sm text-primary hover:underline"
                   >
                     {deal.companyName || t('crm.field.company')}

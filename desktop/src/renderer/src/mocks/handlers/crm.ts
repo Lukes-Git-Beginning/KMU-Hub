@@ -12,6 +12,25 @@ import {
 } from '../data/contacts'
 
 // ---------------------------------------------------------------------------
+// Helper: flatten a company.address object into a string. OpenAPI defines
+// CompanyInfo.address as a string ("street, zip city, country"); the mock data
+// keeps it structured for readability, so normalize on the way out.
+// ---------------------------------------------------------------------------
+function normalizeCompany<T extends { address?: unknown }>(c: T): T {
+  const addr = c.address
+  if (addr && typeof addr === 'object') {
+    const a = addr as { street?: string; zip?: string; city?: string; country?: string }
+    const parts = [
+      a.street,
+      [a.zip, a.city].filter(Boolean).join(' ').trim(),
+      a.country,
+    ].filter(Boolean)
+    return { ...c, address: parts.join(', ') }
+  }
+  return c
+}
+
+// ---------------------------------------------------------------------------
 // Helper: transform snake_case contact to camelCase (matches OpenAPI schema)
 // ---------------------------------------------------------------------------
 function contactToCamel(c: Record<string, unknown>) {
@@ -150,7 +169,7 @@ export const crmHandlers = [
     const paged = filtered.slice(start, start + pageSize)
 
     return HttpResponse.json({
-      companies: paged,
+      companies: paged.map(normalizeCompany),
       total: filtered.length,
       page,
       page_size: pageSize,
@@ -162,7 +181,17 @@ export const crmHandlers = [
     if (!company) {
       return HttpResponse.json({ error: 'Company not found' }, { status: 404 })
     }
-    return HttpResponse.json(company)
+    return HttpResponse.json({ company: normalizeCompany(company) })
+  }),
+
+  http.get(`${API}/api/v1/companies/:id/contacts`, ({ params }) => {
+    const linked = mockContacts.contacts.filter(
+      (c) => (c as unknown as Record<string, unknown>).company_id === params.id,
+    )
+    return HttpResponse.json({
+      contacts: linked.map((c) => contactToCamel(c as unknown as Record<string, unknown>)),
+      total: linked.length,
+    })
   }),
 
   http.post(`${API}/api/v1/companies`, async ({ request }) => {
@@ -198,6 +227,9 @@ export const crmHandlers = [
     const url = new URL(request.url)
     const search = url.searchParams.get('search') ?? url.searchParams.get('q') ?? ''
     const stageId = url.searchParams.get('stage_id') ?? ''
+    const contactId = url.searchParams.get('contact_id') ?? ''
+    const sortBy = url.searchParams.get('sort_by') ?? 'created_at'
+    const sortDesc = url.searchParams.get('sort_desc') === 'true'
     const page = Number(url.searchParams.get('page') ?? 1)
     const pageSize = Number(url.searchParams.get('page_size') ?? 50)
 
@@ -210,6 +242,35 @@ export const crmHandlers = [
     if (stageId) {
       filtered = filtered.filter((d) => d.stageId === stageId)
     }
+    if (contactId) {
+      filtered = filtered.filter((d) => d.contactId === contactId)
+    }
+
+    // Sort before paging
+    filtered = [...filtered].sort((a, b) => {
+      let cmp = 0
+      const ra = a as Record<string, unknown>
+      const rb = b as Record<string, unknown>
+      if (sortBy === 'name') {
+        cmp = String(ra.name ?? '').localeCompare(String(rb.name ?? ''), 'de')
+      } else if (sortBy === 'value') {
+        cmp = (Number(ra.value) || 0) - (Number(rb.value) || 0)
+      } else if (sortBy === 'expected_close_date') {
+        const aD = ra.expectedCloseDate ? new Date(ra.expectedCloseDate as string).getTime() : 0
+        const bD = rb.expectedCloseDate ? new Date(rb.expectedCloseDate as string).getTime() : 0
+        cmp = aD - bD
+      } else if (sortBy === 'updated_at') {
+        const aD = ra.updated_at ? new Date(ra.updated_at as string).getTime() : 0
+        const bD = rb.updated_at ? new Date(rb.updated_at as string).getTime() : 0
+        cmp = aD - bD
+      } else {
+        // created_at (default)
+        const aD = ra.created_at ? new Date(ra.created_at as string).getTime() : 0
+        const bD = rb.created_at ? new Date(rb.created_at as string).getTime() : 0
+        cmp = aD - bD
+      }
+      return sortDesc ? -cmp : cmp
+    })
 
     const start = (page - 1) * pageSize
     const paged = filtered.slice(start, start + pageSize)
@@ -227,7 +288,7 @@ export const crmHandlers = [
     if (!deal) {
       return HttpResponse.json({ error: 'Deal not found' }, { status: 404 })
     }
-    return HttpResponse.json(deal)
+    return HttpResponse.json({ deal })
   }),
 
   http.post(`${API}/api/v1/deals`, async ({ request }) => {
@@ -258,6 +319,25 @@ export const crmHandlers = [
     return new HttpResponse(null, { status: 204 })
   }),
 
+  // Move deal to another stage (drag-and-drop). Mutates the in-memory mock
+  // array in place so the change persists across refetches in the demo.
+  http.post(`${API}/api/v1/deals/:id/stage`, async ({ params, request }) => {
+    const deal = getDealById(params.id as string) as
+      | (Record<string, unknown> & { stageId?: string; stageName?: string })
+      | undefined
+    if (!deal) {
+      return HttpResponse.json({ error: 'Deal not found' }, { status: 404 })
+    }
+    const body = (await request.json()) as { stage_id?: string }
+    const targetStage = mockPipelineStages.stages.find((s) => s.id === body.stage_id)
+    if (body.stage_id) {
+      deal.stageId = body.stage_id
+      if (targetStage) deal.stageName = targetStage.name
+      deal.updated_at = new Date().toISOString()
+    }
+    return HttpResponse.json({ deal })
+  }),
+
   // ---- Pipeline Stages --------------------------------------------------
 
   http.get(`${API}/api/v1/pipeline-stages`, () => {
@@ -278,7 +358,7 @@ export const crmHandlers = [
   http.get(`${API}/api/v1/activities`, ({ request }) => {
     const url = new URL(request.url)
     const search = url.searchParams.get('search') ?? url.searchParams.get('q') ?? ''
-    const type = url.searchParams.get('type') ?? ''
+    const type = url.searchParams.get('activity_type') ?? url.searchParams.get('type') ?? ''
     const contactId = url.searchParams.get('contact_id') ?? ''
     const dealId = url.searchParams.get('deal_id') ?? ''
     const page = Number(url.searchParams.get('page') ?? 1)
@@ -300,15 +380,25 @@ export const crmHandlers = [
       filtered = filtered.filter((a) => a.deal_id === dealId)
     }
 
-    // Sort by created_at descending when requested
-    const sortBy = url.searchParams.get('sort_by')
+    // Sort by requested field
+    const sortBy = url.searchParams.get('sort_by') ?? 'created_at'
     const sortDesc = url.searchParams.get('sort_desc') === 'true'
-    if (sortBy === 'created_at') {
-      filtered = [...filtered].sort((a, b) => {
-        const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        return sortDesc ? -diff : diff
-      })
-    }
+    filtered = [...filtered].sort((a, b) => {
+      const ra = a as Record<string, unknown>
+      const rb = b as Record<string, unknown>
+      let cmp = 0
+      if (sortBy === 'subject') {
+        cmp = String(ra.subject ?? '').localeCompare(String(rb.subject ?? ''), 'de')
+      } else if (sortBy === 'due_date') {
+        const aD = ra.due_date ? new Date(ra.due_date as string).getTime() : 0
+        const bD = rb.due_date ? new Date(rb.due_date as string).getTime() : 0
+        cmp = aD - bD
+      } else {
+        // created_at (default)
+        cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      }
+      return sortDesc ? -cmp : cmp
+    })
 
     const start = (page - 1) * pageSize
     const paged = filtered.slice(start, start + pageSize)
@@ -333,10 +423,112 @@ export const crmHandlers = [
     const body = (await request.json()) as Record<string, unknown>
     const created = {
       id: `act-new-${Date.now()}`,
+      // mock data keys off `type`; the API/form sends `activity_type`
+      type: (body.activity_type as string) ?? (body.type as string) ?? 'note',
+      completed: false,
       ...body,
       created_at: new Date().toISOString(),
     }
-    return HttpResponse.json(created, { status: 201 })
+    // Persist so created follow-ups show up in list + Wiedervorlage views.
+    mockActivities.activities.unshift(created as unknown as (typeof mockActivities.activities)[number])
+    return HttpResponse.json(enrichActivity(created), { status: 201 })
+  }),
+
+  http.post(`${API}/api/v1/activities/:id/complete`, ({ params }) => {
+    const activity = mockActivities.activities.find((a) => a.id === params.id) as
+      | (Record<string, unknown> & { completed?: boolean })
+      | undefined
+    if (!activity) return HttpResponse.json({ error: 'Activity not found' }, { status: 404 })
+    activity.completed = true
+    activity.completed_at = new Date().toISOString()
+    return HttpResponse.json(enrichActivity(activity))
+  }),
+
+  http.patch(`${API}/api/v1/activities/:id`, async ({ params, request }) => {
+    const activity = mockActivities.activities.find((a) => a.id === params.id) as
+      | Record<string, unknown>
+      | undefined
+    if (!activity) return HttpResponse.json({ error: 'Activity not found' }, { status: 404 })
+    const body = (await request.json()) as Record<string, unknown>
+    Object.assign(activity, body)
+    if (body.activity_type) activity.type = body.activity_type
+    return HttpResponse.json(enrichActivity(activity))
+  }),
+
+  http.delete(`${API}/api/v1/activities/:id`, ({ params }) => {
+    const idx = mockActivities.activities.findIndex((a) => a.id === params.id)
+    if (idx === -1) return HttpResponse.json({ error: 'Activity not found' }, { status: 404 })
+    mockActivities.activities.splice(idx, 1)
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  // ---- Tags -------------------------------------------------------------
+
+  // All tag definitions used across demo contacts/companies (deduplicated by id)
+  // These are returned for GET /api/v1/tags so the TagPopover can list them.
+  http.get(`${API}/api/v1/tags`, () => {
+    const tags = [
+      { id: 'tag-c1',  name: 'Entscheider',  color: '#EF4444', entityType: 'contact' },
+      { id: 'tag-c2',  name: 'VIP',           color: '#F59E0B', entityType: 'contact' },
+      { id: 'tag-c3',  name: 'Technik',       color: '#3B82F6', entityType: 'contact' },
+      { id: 'tag-c5',  name: 'Partner',       color: '#8B5CF6', entityType: 'contact' },
+      { id: 'tag-c7',  name: 'Vertrieb',      color: '#F59E0B', entityType: 'contact' },
+      { id: 'tag-c9',  name: 'Einkauf',       color: '#10B981', entityType: 'contact' },
+      { id: 'tag-c12', name: 'Beratung',      color: '#8B5CF6', entityType: 'contact' },
+      { id: 'tag-c17', name: 'Bestandskunde', color: '#10B981', entityType: 'contact' },
+      { id: 'tag-c18', name: 'Neukunde',      color: '#F59E0B', entityType: 'contact' },
+      { id: 'tag-c19', name: 'Interessent',   color: '#6366F1', entityType: 'contact' },
+    ]
+    return HttpResponse.json({ tags })
+  }),
+
+  // POST /api/v1/contacts/:id/tags — add tags
+  http.post(`${API}/api/v1/contacts/:id/tags`, async ({ params }) => {
+    const existing = getContactById(params.id as string)
+    if (!existing) {
+      return HttpResponse.json({ error: 'Contact not found' }, { status: 404 })
+    }
+    // Return the updated contact info (tags merged — demo doesn't mutate in-memory)
+    const updated = contactToCamel(existing as unknown as Record<string, unknown>)
+    return HttpResponse.json({ contact: updated })
+  }),
+
+  // DELETE /api/v1/contacts/:id/tags — remove tags
+  http.delete(`${API}/api/v1/contacts/:id/tags`, async ({ params }) => {
+    const existing = getContactById(params.id as string)
+    if (!existing) {
+      return HttpResponse.json({ error: 'Contact not found' }, { status: 404 })
+    }
+    // Return the updated contact info
+    const updated = contactToCamel(existing as unknown as Record<string, unknown>)
+    return HttpResponse.json({ contact: updated })
+  }),
+
+  // GET /api/v1/crm/contacts/:id/timeline — timeline events for a contact
+  // useContactTimeline calls GET /api/v1/crm/contacts/{id}/timeline
+  http.get(`${API}/api/v1/crm/contacts/:id/timeline`, ({ params, request }) => {
+    const contactId = params.id as string
+    const url = new URL(request.url)
+    const offset = Number(url.searchParams.get('offset') ?? 0)
+    const limit = Number(url.searchParams.get('limit') ?? 20)
+
+    const contactActivities = mockActivities.activities
+      .filter((a) => a.contact_id === contactId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+    const events = contactActivities.slice(offset, offset + limit).map((a) => ({
+      id: a.id,
+      event_type: 'activity',
+      occurred_at: a.created_at,
+      title: (a as Record<string, unknown>).subject as string ?? (a as Record<string, unknown>).description as string ?? 'Aktivität',
+      description: (a as Record<string, unknown>).description as string | undefined,
+      created_by_name: 'TechVision Team',
+      metadata: {
+        activity_type: a.type,
+      },
+    }))
+
+    return HttpResponse.json({ events, total: contactActivities.length })
   }),
 
   // ---- Global Search ----------------------------------------------------

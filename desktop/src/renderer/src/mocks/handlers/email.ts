@@ -7,6 +7,8 @@ import {
   mockEmailMessagesById,
   mockSignatures,
 } from '../data/emails'
+import { IDS } from '../data/shared-ids'
+import { daysAgo, hoursAgo } from '../data/date-helpers'
 
 const API = API_BASE_URL
 
@@ -113,5 +115,84 @@ export const emailHandlers = [
   // Email links for a message (cross-module links)
   http.get(`${API}/api/v1/email/links/message/:id`, () => {
     return HttpResponse.json({ links: [] })
+  }),
+
+  // Contact emails — get emails linked to a specific contact
+  // emailLinkApi.getContactEmails → GET /api/v1/email/links/contact/:id
+  http.get(`${API}/api/v1/email/links/contact/:contactId`, ({ params }) => {
+    const contactId = params.contactId as string
+
+    // Return contact-specific demo emails for contacts that have mock data.
+    // For the primary demo contact (mueller) return 3 plausible entries;
+    // for all others return 2 generic ones so the section is never empty.
+    const isMueller = contactId === IDS.contacts.mueller
+
+    const demoMessages = isMueller
+      ? [
+          {
+            id: `ce-${contactId}-1`,
+            subject: 'Angebot: IT-Infrastruktur Modernisierung',
+            from: { name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' },
+            to: [{ name: 'Hans Müller', email: 'h.mueller@techvision.de' }],
+            date: daysAgo(2),
+            is_read: true,
+            is_starred: false,
+            has_attachments: true,
+            folder_id: IDS.emailFolders.sent,
+            thread_id: `th-ce-${contactId}-1`,
+          },
+          {
+            id: `ce-${contactId}-2`,
+            subject: 'RE: Terminbestätigung Onboarding',
+            from: { name: 'Hans Müller', email: 'h.mueller@techvision.de' },
+            to: [{ name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' }],
+            date: daysAgo(5),
+            is_read: true,
+            is_starred: false,
+            has_attachments: false,
+            folder_id: IDS.emailFolders.inbox,
+            thread_id: `th-ce-${contactId}-2`,
+          },
+          {
+            id: `ce-${contactId}-3`,
+            subject: 'Willkommen bei TechVision — Erste Schritte',
+            from: { name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' },
+            to: [{ name: 'Hans Müller', email: 'h.mueller@techvision.de' }],
+            date: hoursAgo(72),
+            is_read: true,
+            is_starred: true,
+            has_attachments: false,
+            folder_id: IDS.emailFolders.sent,
+            thread_id: `th-ce-${contactId}-3`,
+          },
+        ]
+      : [
+          {
+            id: `ce-${contactId}-1`,
+            subject: 'Erste Kontaktaufnahme',
+            from: { name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' },
+            to: [{ name: 'Kontakt', email: 'kontakt@firma.de' }],
+            date: daysAgo(7),
+            is_read: true,
+            is_starred: false,
+            has_attachments: false,
+            folder_id: IDS.emailFolders.sent,
+            thread_id: `th-ce-${contactId}-1`,
+          },
+          {
+            id: `ce-${contactId}-2`,
+            subject: 'Unterlagen wie besprochen',
+            from: { name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' },
+            to: [{ name: 'Kontakt', email: 'kontakt@firma.de' }],
+            date: daysAgo(14),
+            is_read: true,
+            is_starred: false,
+            has_attachments: true,
+            folder_id: IDS.emailFolders.sent,
+            thread_id: `th-ce-${contactId}-2`,
+          },
+        ]
+
+    return HttpResponse.json({ messages: demoMessages, total: demoMessages.length })
   }),
 ]

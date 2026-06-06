@@ -1,20 +1,41 @@
 /**
- * Companies list page with search, pagination, and navigation to detail.
+ * Companies list page with search, sort, bulk-select, pagination, and navigation.
  *
- * Displays companies in a table with columns for name, website,
- * contacts count, tags, and creation date.
+ * Sort is client-side (name asc/desc, createdAt asc/desc) because the
+ * /api/v1/companies endpoint has no sort_by param. All data for the current
+ * page is already fetched — sorting just reorders the in-memory slice.
  */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Plus, Search, ChevronLeft, ChevronRight, Building2 } from 'lucide-react'
+import {
+  Plus,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  ChevronDown,
+  Building2,
+  Trash2,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared'
-import { useCompanies, useCreateCompany } from '@/api/hooks/useCompanies'
+import { useCompanies, useCreateCompany, useDeleteCompany } from '@/api/hooks/useCompanies'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   Table,
   TableBody,
@@ -28,6 +49,22 @@ import { formatDate } from '@/lib/format'
 
 const PAGE_SIZE = 20
 
+type SortField = 'name' | 'createdAt'
+
+interface SortState {
+  field: SortField
+  desc: boolean
+}
+
+function SortIcon({ field, sort }: { field: SortField; sort: SortState }) {
+  if (sort.field !== field) return null
+  return sort.desc ? (
+    <ChevronDown className="ml-1 inline h-3.5 w-3.5 shrink-0" />
+  ) : (
+    <ChevronUp className="ml-1 inline h-3.5 w-3.5 shrink-0" />
+  )
+}
+
 export default function CompaniesListPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -35,7 +72,12 @@ export default function CompaniesListPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(1)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [sort, setSort] = useState<SortState>({ field: 'name', desc: false })
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false)
+
   const createCompany = useCreateCompany()
+  const deleteCompany = useDeleteCompany()
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -45,15 +87,66 @@ export default function CompaniesListPage() {
     return () => clearTimeout(timer)
   }, [search])
 
+  // Clear selection when page/search changes
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [page, debouncedSearch])
+
   const { data, isLoading, error, refetch } = useCompanies({
     page,
     page_size: PAGE_SIZE,
     search: debouncedSearch || undefined,
   })
 
-  const companies = data?.companies ?? []
+  // Client-side sort of the current page slice
+  const companies = useMemo(() => {
+    const raw = data?.companies ?? []
+    return [...raw].sort((a, b) => {
+      let cmp = 0
+      if (sort.field === 'name') {
+        cmp = (a.name ?? '').localeCompare(b.name ?? '', 'de')
+      } else {
+        const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0
+        const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0
+        cmp = aDate - bDate
+      }
+      return sort.desc ? -cmp : cmp
+    })
+  }, [data?.companies, sort])
+
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  function toggleSort(field: SortField) {
+    setSort((prev) =>
+      prev.field === field ? { field, desc: !prev.desc } : { field, desc: false }
+    )
+  }
+
+  // Selection helpers
+  const allOnPageSelected =
+    companies.length > 0 && companies.every((c) => c.id && selectedIds.has(c.id))
+  const someOnPageSelected =
+    companies.some((c) => c.id && selectedIds.has(c.id)) && !allOnPageSelected
+
+  function toggleSelectAll() {
+    if (allOnPageSelected) {
+      const next = new Set(selectedIds)
+      companies.forEach((c) => { if (c.id) next.delete(c.id) })
+      setSelectedIds(next)
+    } else {
+      const next = new Set(selectedIds)
+      companies.forEach((c) => { if (c.id) next.add(c.id) })
+      setSelectedIds(next)
+    }
+  }
+
+  function toggleSelectOne(id: string) {
+    const next = new Set(selectedIds)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setSelectedIds(next)
+  }
 
   async function handleCreate(form: CompanyFormData) {
     const addressParts = [form.street, [form.zip, form.city].filter(Boolean).join(' '), form.country].filter(Boolean)
@@ -74,6 +167,25 @@ export default function CompaniesListPage() {
       toast.success(t('crm.companies.created'))
     } catch {
       toast.error(t('crm.companies.createError'))
+    }
+  }
+
+  async function handleBulkDelete() {
+    const ids = Array.from(selectedIds)
+    let errorCount = 0
+    for (const id of ids) {
+      try {
+        await deleteCompany.mutateAsync(id)
+      } catch {
+        errorCount++
+      }
+    }
+    setSelectedIds(new Set())
+    setShowBulkDeleteDialog(false)
+    if (errorCount > 0) {
+      toast.error(t('crm.bulk.deleteError'))
+    } else {
+      toast.success(t('crm.bulk.deleted', { count: ids.length }))
     }
   }
 
@@ -120,6 +232,31 @@ export default function CompaniesListPage() {
         />
       </div>
 
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/50 px-4 py-2">
+          <span className="text-sm font-medium text-foreground">
+            {t('crm.bulk.selected', { count: selectedIds.size })}
+          </span>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setShowBulkDeleteDialog(true)}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            {t('common.delete')}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelectedIds(new Set())}
+          >
+            {t('crm.bulk.clearSelection')}
+          </Button>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="space-y-3">
           {Array.from({ length: 8 }).map((_, i) => (
@@ -149,12 +286,32 @@ export default function CompaniesListPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{t('crm.field.name')}</TableHead>
+                {/* Checkbox column */}
+                <TableHead className="w-10 pr-0">
+                  <Checkbox
+                    checked={allOnPageSelected ? true : someOnPageSelected ? 'indeterminate' : false}
+                    onCheckedChange={toggleSelectAll}
+                    aria-label={t('common.actions')}
+                  />
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer select-none"
+                  onClick={() => toggleSort('name')}
+                >
+                  {t('crm.field.name')}
+                  <SortIcon field="name" sort={sort} />
+                </TableHead>
                 <TableHead>{t('crm.field.website')}</TableHead>
                 <TableHead>{t('crm.field.industry')}</TableHead>
                 <TableHead>{t('crm.contacts.title')}</TableHead>
                 <TableHead>{t('crm.field.tags')}</TableHead>
-                <TableHead>{t('crm.field.created')}</TableHead>
+                <TableHead
+                  className="cursor-pointer select-none"
+                  onClick={() => toggleSort('createdAt')}
+                >
+                  {t('crm.field.created')}
+                  <SortIcon field="createdAt" sort={sort} />
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -162,8 +319,16 @@ export default function CompaniesListPage() {
                 <TableRow
                   key={company.id}
                   className="cursor-pointer"
-                  onClick={() => navigate(`/crm/companies/${company.id}`)}
+                  onClick={() => company.id && navigate(`/kontakte/firmen/${company.id}`)}
+                  data-state={company.id && selectedIds.has(company.id) ? 'selected' : undefined}
                 >
+                  <TableCell className="pr-0" onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={!!(company.id && selectedIds.has(company.id))}
+                      onCheckedChange={() => company.id && toggleSelectOne(company.id)}
+                      aria-label={company.name}
+                    />
+                  </TableCell>
                   <TableCell className="font-medium">{company.name}</TableCell>
                   <TableCell className="text-muted-foreground">
                     {company.website ? (
@@ -202,9 +367,7 @@ export default function CompaniesListPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {company.createdAt
-                      ? formatDate(company.createdAt)
-                      : '-'}
+                    {company.createdAt ? formatDate(company.createdAt) : '-'}
                   </TableCell>
                 </TableRow>
               ))}
@@ -245,6 +408,26 @@ export default function CompaniesListPage() {
         onOpenChange={setShowCreateDialog}
         onSubmit={handleCreate}
       />
+
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('crm.bulk.deleteTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('crm.bulk.deleteConfirm', { count: selectedIds.size })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleBulkDelete}
+            >
+              {t('common.delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

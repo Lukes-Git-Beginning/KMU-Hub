@@ -50,8 +50,17 @@ interface ConsentEntry {
 // Mock data
 // ---------------------------------------------------------------------------
 
+// Stable per-contact variant so different contacts show different consent
+// states (not a single empty default). Real contact IDs are UUIDs, so we hash
+// the ID into 3 buckets: 0 = fully granted (with metadata rows), 1 = profiling
+// revoked, 2 = nothing granted yet.
+const consentVariant = (contactId: string): 0 | 1 | 2 =>
+  ([...contactId].reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % 3) as 0 | 1 | 2
+
 const createMockConsents = (contactId: string): ConsentEntry[] => {
-  const isVip = contactId === 'c4' || contactId === 'c12'
+  const variant = consentVariant(contactId)
+  const isVip = variant === 0
+  const isRevoked = variant === 1
   return [
     {
       id: 'consent-email',
@@ -102,8 +111,8 @@ const createMockConsents = (contactId: string): ConsentEntry[] => {
       granted: false,
       grantedAt: null,
       source: null,
-      revokedAt: contactId === 'c9' ? '2025-11-15' : null,
-      history: contactId === 'c9'
+      revokedAt: isRevoked ? '2025-11-15' : null,
+      history: isRevoked
         ? [
             { action: 'revoked', date: '2025-11-15', source: 'E-Mail-Bestätigung' },
             { action: 'granted', date: '2025-08-01', source: 'Webformular' },
@@ -121,8 +130,8 @@ const consentSources = [
   'Webformular',
   'Vertrag',
   'E-Mail-Bestätigung',
-  'Muendlich (Telefon)',
-  'Muendlich (persönlich)',
+  'Mündlich (Telefon)',
+  'Mündlich (persönlich)',
   'Import',
 ]
 
@@ -331,34 +340,34 @@ export function ConsentPanel({ contactId, contactName }: ConsentPanelProps) {
                 )}
               </div>
 
-              {/* Metadata */}
+              {/* Metadata — flex-wrap so items stack instead of overflowing */}
               {(consent.grantedAt || consent.revokedAt) && (
-                <div className="mt-2 flex items-center gap-3 pl-6 text-[10px] text-muted-foreground">
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 pl-6 text-[10px] text-muted-foreground">
                   {consent.grantedAt && (
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-2.5 w-2.5" />
-                      {t('kontakte.consent.grantedAt')}: {consent.grantedAt}
+                    <span className="flex items-center gap-1 shrink-0">
+                      <Clock className="h-2.5 w-2.5 shrink-0" />
+                      <span className="truncate max-w-[120px]">{t('kontakte.consent.grantedAt')}: {consent.grantedAt}</span>
                     </span>
                   )}
                   {consent.source && (
-                    <span>{t('kontakte.consent.source')}: {consent.source}</span>
+                    <span className="truncate max-w-[140px]">{t('kontakte.consent.source')}: {consent.source}</span>
                   )}
                   {consent.source === 'E-Mail-Bestätigung' && (
-                    <span className="flex items-center gap-1 rounded-full bg-primary-light px-1.5 py-0 text-[9px] font-medium text-primary">
-                      <BadgeCheck className="h-2.5 w-2.5" />
+                    <span className="flex items-center gap-1 shrink-0 rounded-full bg-primary-light px-1.5 py-0 text-[9px] font-medium text-primary">
+                      <BadgeCheck className="h-2.5 w-2.5 shrink-0" />
                       DOI
                     </span>
                   )}
                   {consent.revokedAt && (
-                    <span className="text-warning flex items-center gap-1">
-                      <AlertTriangle className="h-2.5 w-2.5" />
-                      {t('kontakte.consent.revokedAt')}: {consent.revokedAt}
+                    <span className="text-warning flex items-center gap-1 shrink-0">
+                      <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
+                      <span className="truncate max-w-[120px]">{t('kontakte.consent.revokedAt')}: {consent.revokedAt}</span>
                     </span>
                   )}
                   {consent.history.length > 0 && (
                     <button
                       onClick={() => toggleHistory(consent.id)}
-                      className="flex items-center gap-0.5 text-primary hover:underline"
+                      className="flex items-center gap-0.5 shrink-0 text-primary hover:underline"
                     >
                       {expandedHistory.has(consent.id) ? (
                         <ChevronDown className="h-2.5 w-2.5" />

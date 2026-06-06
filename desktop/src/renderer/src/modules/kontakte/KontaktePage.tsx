@@ -21,6 +21,8 @@ import {
   FolderOpen,
   Settings2,
   Loader2,
+  List,
+  LayoutGrid,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact } from '@/api/hooks/useContacts'
@@ -28,6 +30,7 @@ import { useContactsStore, type Contact } from '@/stores/contacts'
 import { useNavigationStore } from '@/stores/navigation'
 import { useMeetingsStore } from '@/stores/meetings'
 import { ItemActions, ConfirmDialog, EmptyState, type ActionItem } from '@/components/shared'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { ContactFormDialog } from './ContactFormDialog'
 import { ContactDetailPanel } from './ContactDetailPanel'
 import { ImportContactsDialog } from './ImportContactsDialog'
@@ -37,6 +40,7 @@ import { backendContactToUI, uiFormToCreateRequest, uiFormToUpdateRequest } from
 
 type CategoryFilter = 'all' | 'employee' | 'customer' | 'partner' | `group:${string}`
 type SortField = 'name' | 'company' | 'lastContact'
+type ViewMode = 'list' | 'grid'
 
 const _categoryLabels: Record<string, string> = {
   employee: 'employee',
@@ -58,8 +62,7 @@ const statusLabelKeys: Record<string, string> = {
 
 export default function KontaktePage() {
   const { t } = useTranslation()
-  const { groups, favoriteIds, toggleFavorite } =
-    useContactsStore()
+  const { groups, favoriteIds, toggleFavorite } = useContactsStore()
   const { startCall, endCall, activeCallContactId, activeCallContactName } = useMeetingsStore()
   const navigate = useNavigate()
   const setIntent = useNavigationStore((s) => s.setIntent)
@@ -78,7 +81,10 @@ export default function KontaktePage() {
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all')
   const [sortField, setSortField] = useState<SortField>('name')
-  const [selectedContactId, setSelectedContactId] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
+
+  // Modal state — which contact is open in the detail modal
+  const [detailContactId, setDetailContactId] = useState<string | null>(null)
 
   // Dialog state
   const [formOpen, setFormOpen] = useState(false)
@@ -103,7 +109,7 @@ export default function KontaktePage() {
           c.lastName.toLowerCase().includes(q) ||
           c.company.toLowerCase().includes(q) ||
           c.email.toLowerCase().includes(q) ||
-          c.tags.some((t) => t.toLowerCase().includes(q))
+          c.tags.some((tag) => tag.toLowerCase().includes(q))
         )
       }
       return true
@@ -114,7 +120,7 @@ export default function KontaktePage() {
       return new Date(b.lastContact).getTime() - new Date(a.lastContact).getTime()
     })
 
-  const selectedContact = contacts.find((c) => c.id === selectedContactId) || null
+  const detailContact = contacts.find((c) => c.id === detailContactId) || null
   const deleteTarget = contacts.find((c) => c.id === deleteConfirmId)
 
   const categories: { key: CategoryFilter; label: string; icon: typeof User; count: number }[] = [
@@ -142,7 +148,7 @@ export default function KontaktePage() {
     if (deleteConfirmId) {
       await deleteContactMutation.mutateAsync(deleteConfirmId)
       toast.success(t('kontakte.toast.contactDeleted'))
-      if (selectedContactId === deleteConfirmId) setSelectedContactId(null)
+      if (detailContactId === deleteConfirmId) setDetailContactId(null)
       setDeleteConfirmId(null)
     }
   }
@@ -309,12 +315,8 @@ export default function KontaktePage() {
                 .map((c) => (
                   <button
                     key={c.id}
-                    onClick={() => setSelectedContactId(c.id)}
-                    className={`flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors ${
-                      selectedContactId === c.id
-                        ? 'bg-primary-light text-primary font-medium'
-                        : 'text-foreground hover:bg-secondary'
-                    }`}
+                    onClick={() => setDetailContactId(c.id)}
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors text-foreground hover:bg-secondary"
                   >
                     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-light text-[10px] font-medium text-primary">
                       {c.initials}
@@ -327,13 +329,9 @@ export default function KontaktePage() {
         )}
       </aside>
 
-      {/* Contact list */}
-      <div
-        className={`flex flex-col border-r border-border overflow-hidden ${
-          selectedContact ? 'hidden md:flex w-80' : 'flex-1'
-        }`}
-      >
-        {/* Search + New */}
+      {/* Main content — full width */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Toolbar: Search + Sort + View Toggle + Import + New */}
         <div className="flex items-center gap-2 border-b border-border px-4 py-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -346,6 +344,8 @@ export default function KontaktePage() {
               className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
           </div>
+
+          {/* Sort */}
           <button
             onClick={() => {
               const next: SortField[] = ['name', 'company', 'lastContact']
@@ -357,6 +357,41 @@ export default function KontaktePage() {
           >
             <ArrowUpDown className="h-4 w-4" />
           </button>
+
+          {/* View mode toggle — segmented control */}
+          <div
+            role="group"
+            aria-label={t('kontakte.view.toggleAriaLabel')}
+            className="flex rounded-lg border border-border overflow-hidden"
+          >
+            <button
+              onClick={() => setViewMode('list')}
+              className={`flex items-center gap-1 px-2.5 py-1.5 text-xs transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+              }`}
+              aria-pressed={viewMode === 'list'}
+              title={t('kontakte.view.list')}
+            >
+              <List className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{t('kontakte.view.list')}</span>
+            </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`flex items-center gap-1 px-2.5 py-1.5 text-xs transition-colors border-l border-border ${
+                viewMode === 'grid'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+              }`}
+              aria-pressed={viewMode === 'grid'}
+              title={t('kontakte.view.grid')}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{t('kontakte.view.grid')}</span>
+            </button>
+          </div>
+
           <button
             onClick={() => setImportOpen(true)}
             className="rounded-lg border border-border p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
@@ -377,7 +412,7 @@ export default function KontaktePage() {
           </button>
         </div>
 
-        {/* Sort indicator */}
+        {/* Count + sort indicator */}
         <div className="flex items-center gap-2 px-4 py-1.5 border-b border-border-muted text-xs text-muted-foreground">
           <span>{isLoading ? '…' : filtered.length} {t('kontakte.list.contacts')}</span>
           <span>·</span>
@@ -386,7 +421,7 @@ export default function KontaktePage() {
           </span>
         </div>
 
-        {/* List */}
+        {/* Contact list / grid */}
         <div className="flex-1 overflow-y-auto">
           {isLoading && (
             <div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
@@ -401,40 +436,6 @@ export default function KontaktePage() {
               <p className="text-xs text-muted-foreground">{t('kontakte.error.startGateway')}</p>
             </div>
           )}
-
-          {!isLoading && !isError && filtered.map((contact) => (
-            <button
-              key={contact.id}
-              type="button"
-              className={`group flex w-full items-center gap-3 border-b border-border-muted px-4 py-3 text-left transition-colors hover:bg-secondary/50 cursor-pointer ${
-                selectedContactId === contact.id ? 'bg-primary-light/50 border-l-2 border-l-primary' : ''
-              }`}
-              onClick={() => setSelectedContactId(contact.id)}
-            >
-              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-light text-sm font-medium text-primary">
-                {contact.initials}
-                {contact.isFavorite && (
-                  <Star className="absolute -top-1 -right-1 h-3 w-3 fill-yellow-400 text-yellow-400" />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-foreground truncate">
-                    {contact.firstName} {contact.lastName}
-                  </span>
-                  <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] ${statusColors[contact.status]}`}>
-                    {t(statusLabelKeys[contact.status])}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground truncate">
-                  {contact.jobTitle}{contact.jobTitle && contact.company ? ' · ' : ''}{contact.company}
-                </p>
-              </div>
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                <ItemActions items={getContactActions(contact)} />
-              </div>
-            </button>
-          ))}
 
           {!isLoading && !isError && filtered.length === 0 && (
             <EmptyState
@@ -458,37 +459,206 @@ export default function KontaktePage() {
               }
             />
           )}
+
+          {/* ---------------------------------------------------------------- */}
+          {/* LIST VIEW                                                         */}
+          {/* ---------------------------------------------------------------- */}
+          {!isLoading && !isError && filtered.length > 0 && viewMode === 'list' && (
+            <div>
+              {filtered.map((contact) => (
+                <button
+                  key={contact.id}
+                  type="button"
+                  className="group flex w-full items-center gap-3 border-b border-border-muted px-4 py-3 text-left transition-colors hover:bg-secondary/50 cursor-pointer"
+                  onClick={() => setDetailContactId(contact.id)}
+                >
+                  <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-light text-sm font-medium text-primary">
+                    {contact.initials}
+                    {contact.isFavorite && (
+                      <Star className="absolute -top-1 -right-1 h-3 w-3 fill-yellow-400 text-yellow-400" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-foreground truncate">
+                        {contact.firstName} {contact.lastName}
+                      </span>
+                      <span className={`inline-flex shrink-0 rounded-full px-1.5 py-0.5 text-[10px] ${statusColors[contact.status]}`}>
+                        {t(statusLabelKeys[contact.status])}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {contact.jobTitle}{contact.jobTitle && contact.company ? ' · ' : ''}{contact.company}
+                    </p>
+                  </div>
+                  {/* Quick-action pills — visible on hover */}
+                  <div className="hidden group-hover:flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => handleCall(contact)}
+                      className="rounded-md border border-border p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                      title={t('kontakte.action.call')}
+                    >
+                      <Phone className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleEmail(contact)}
+                      className="rounded-md border border-border p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                      title={t('kontakte.action.sendEmail')}
+                    >
+                      <Mail className="h-3.5 w-3.5" />
+                    </button>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <ItemActions items={getContactActions(contact)} />
+                    </div>
+                  </div>
+                  {/* Fallback: three-dot menu only (no hover on touch) */}
+                  <div className="group-hover:hidden shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <ItemActions items={getContactActions(contact)} />
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* ---------------------------------------------------------------- */}
+          {/* GRID VIEW                                                         */}
+          {/* ---------------------------------------------------------------- */}
+          {!isLoading && !isError && filtered.length > 0 && viewMode === 'grid' && (
+            <div className="p-4 grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+              {filtered.map((contact) => (
+                <button
+                  key={contact.id}
+                  type="button"
+                  onClick={() => setDetailContactId(contact.id)}
+                  className="group relative flex flex-col items-center gap-2.5 rounded-xl border border-border bg-card p-4 text-center transition-colors hover:bg-secondary/60 hover:border-primary/30 cursor-pointer"
+                >
+                  {/* Favorite star */}
+                  {contact.isFavorite && (
+                    <Star className="absolute top-2 right-2 h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                  )}
+
+                  {/* Avatar */}
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary-light text-base font-medium text-primary">
+                    {contact.initials}
+                  </div>
+
+                  {/* Name */}
+                  <div className="w-full min-w-0">
+                    <p className="text-sm font-semibold text-foreground truncate leading-tight">
+                      {contact.firstName} {contact.lastName}
+                    </p>
+                    {contact.jobTitle || contact.company ? (
+                      <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                        {contact.jobTitle}
+                        {contact.jobTitle && contact.company ? ' · ' : ''}
+                        {contact.company}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  {/* Status badge */}
+                  <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] leading-tight ${statusColors[contact.status]}`}>
+                    {t(statusLabelKeys[contact.status])}
+                  </span>
+
+                  {/* Contact quick-info */}
+                  <div className="w-full min-w-0 space-y-1">
+                    {contact.email && (
+                      <p className="flex items-center gap-1 text-[11px] text-muted-foreground truncate">
+                        <Mail className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{contact.email}</span>
+                      </p>
+                    )}
+                    {(contact.phone || contact.mobile) && (
+                      <p className="flex items-center gap-1 text-[11px] text-muted-foreground truncate">
+                        <Phone className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{contact.phone || contact.mobile}</span>
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Tags (max 2 visible) */}
+                  {contact.tags.length > 0 && (
+                    <div className="flex flex-wrap justify-center gap-1 w-full">
+                      {contact.tags.slice(0, 2).map((tag) => (
+                        <span
+                          key={tag}
+                          className="rounded-full border border-border bg-secondary px-1.5 py-0.5 text-[10px] text-foreground truncate max-w-[70px]"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                      {contact.tags.length > 2 && (
+                        <span className="rounded-full border border-border bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          +{contact.tags.length - 2}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Hover quick-actions */}
+                  <div
+                    className="hidden group-hover:flex items-center gap-1 mt-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={() => handleCall(contact)}
+                      className="rounded-md border border-border p-1 text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
+                      title={t('kontakte.action.call')}
+                    >
+                      <Phone className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleEmail(contact)}
+                      className="rounded-md border border-border p-1 text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
+                      title={t('kontakte.action.sendEmail')}
+                    >
+                      <Mail className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleMessage(contact)}
+                      className="rounded-md border border-border p-1 text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
+                      title={t('kontakte.action.message')}
+                    >
+                      <MessageSquare className="h-3.5 w-3.5" />
+                    </button>
+                    <ItemActions items={getContactActions(contact)} />
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Detail panel */}
-      {selectedContact ? (
-        <div className="animate-slide-in-right">
-        <ContactDetailPanel
-          contact={selectedContact}
-          onClose={() => setSelectedContactId(null)}
-          onEdit={(c) => {
-            setEditContact(c)
-            setFormOpen(true)
-          }}
-          onDelete={(id) => setDeleteConfirmId(id)}
-          onEmail={handleEmail}
-          onCall={handleCall}
-          onMessage={handleMessage}
-          onToggleFavorite={toggleFavorite}
-        />
-        </div>
-      ) : (
-        <div className="hidden md:flex flex-1 items-center justify-center text-muted-foreground">
-          <div className="text-center">
-            <User className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">{t('kontakte.empty.selectContact')}</p>
-            <p className="text-xs mt-1 text-muted-foreground/60">
-              {t('kontakte.empty.orCreateNew')}
-            </p>
-          </div>
-        </div>
-      )}
+      {/* -------------------------------------------------------------------- */}
+      {/* Contact Detail Modal                                                  */}
+      {/* -------------------------------------------------------------------- */}
+      <Dialog
+        open={!!detailContact}
+        onOpenChange={(open) => { if (!open) setDetailContactId(null) }}
+      >
+        <DialogContent className="max-w-4xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
+          {detailContact && (
+            <ContactDetailPanel
+              contact={detailContact}
+              onClose={() => setDetailContactId(null)}
+              onEdit={(c) => {
+                setEditContact(c)
+                setFormOpen(true)
+              }}
+              onDelete={(id) => {
+                setDeleteConfirmId(id)
+                setDetailContactId(null)
+              }}
+              onEmail={handleEmail}
+              onCall={handleCall}
+              onMessage={handleMessage}
+              onToggleFavorite={toggleFavorite}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Form Dialog */}
       <ContactFormDialog
