@@ -55,6 +55,7 @@ const CompaniesListPage = lazy(() => import('@/modules/crm/companies/CompaniesLi
 const CompanyDetailPage = lazy(() => import('@/modules/crm/companies/CompanyDetailPage'))
 const DealsListPage = lazy(() => import('@/modules/crm/deals/DealsListPage'))
 const LeadsInboxPage = lazy(() => import('@/modules/kontakte/leads/LeadsInboxPage'))
+const AuswertungenPage = lazy(() => import('@/modules/kontakte/AuswertungenPage'))
 const DealDetailPage = lazy(() => import('@/modules/crm/deals/DealDetailPage'))
 const ActivitiesListPage = lazy(() => import('@/modules/crm/activities/ActivitiesListPage'))
 const DokumentePage = lazy(() => import('@/modules/dokumente/DokumentePage'))
@@ -229,6 +230,7 @@ const router = createHashRouter([
           { path: 'pipeline', element: lazyRoute(DealsListPage) },
           { path: 'pipeline/:id', element: lazyRoute(DealDetailPage) },
           { path: 'aktivitaeten', element: lazyRoute(ActivitiesListPage) },
+          { path: 'auswertungen', element: lazyRoute(AuswertungenPage) },
         ],
       },
       { path: 'dokumente', element: lazyRoute(DokumentePage) },

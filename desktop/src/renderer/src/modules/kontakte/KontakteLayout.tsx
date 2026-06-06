@@ -7,7 +7,7 @@
  */
 import { NavLink, Outlet } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Users, Building2, TrendingUp, Activity, Inbox } from 'lucide-react'
+import { Users, Building2, TrendingUp, Activity, Inbox, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
 const kontakteNavItems = [
@@ -16,6 +16,7 @@ const kontakteNavItems = [
   { to: '/kontakte/firmen', icon: Building2, labelKey: 'crm.nav.companies', end: false },
   { to: '/kontakte/pipeline', icon: TrendingUp, labelKey: 'crm.nav.deals', end: false },
   { to: '/kontakte/aktivitaeten', icon: Activity, labelKey: 'crm.nav.activities', end: false },
+  { to: '/kontakte/auswertungen', icon: BarChart3, labelKey: 'crm.nav.reports', end: false },
 ] as const
 
 export default function KontakteLayout() {

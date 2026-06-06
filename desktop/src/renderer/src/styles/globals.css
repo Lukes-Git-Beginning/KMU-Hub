@@ -2490,41 +2490,35 @@
 }
 
 /* ═══════════════════════════════════════════════════════════
-   CUSTOM SCROLLBARS
+   SCROLLBARS — hidden globally for a natural, app-like feel.
+   Scrolling stays fully functional (wheel / trackpad / touch /
+   keyboard). Add the .show-scrollbar class to opt back in.
    ═══════════════════════════════════════════════════════════ */
-::-webkit-scrollbar {
+* {
+  scrollbar-width: none;       /* Firefox */
+  -ms-overflow-style: none;    /* legacy Edge */
+}
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* Opt-in: restore a thin scrollbar where it is genuinely useful */
+.show-scrollbar {
+  scrollbar-width: thin;
+}
+.show-scrollbar::-webkit-scrollbar {
   width: 7px;
   height: 7px;
 }
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
+.show-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(140, 140, 150, 0.35);
   border-radius: 100px;
   border: 1px solid transparent;
   background-clip: padding-box;
 }
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(120, 120, 130, 0.55);
-  background-clip: padding-box;
-}
-
-::-webkit-scrollbar-corner {
-  background: transparent;
-}
-
-/* Dark mode scrollbars */
-.dark ::-webkit-scrollbar-thumb {
+.dark .show-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(100, 105, 115, 0.4);
-  background-clip: padding-box;
-}
-
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(120, 125, 135, 0.6);
   background-clip: padding-box;
 }
 
