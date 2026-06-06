@@ -329,9 +329,9 @@ export function ConsentPanel({ contactId, contactName }: ConsentPanelProps) {
                     <X className="h-3 w-3" />
                     {t('kontakte.consent.revoke')}
                   </button>
-                ) : (
+                ) : isGranting ? null : (
                   <button
-                    onClick={() => setGrantingId(isGranting ? null : consent.id)}
+                    onClick={() => setGrantingId(consent.id)}
                     className="flex items-center gap-1 rounded-md border border-success/30 px-2.5 py-1 text-[11px] font-medium text-success hover:bg-success-light transition-colors"
                   >
                     <Check className="h-3 w-3" />

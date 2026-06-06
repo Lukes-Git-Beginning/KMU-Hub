@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -16,27 +16,30 @@ import {
   Trash2,
   Copy,
   Download,
-  ArrowUpDown,
-  Upload,
+  FileDown,
   FolderOpen,
+  FolderPlus,
   Settings2,
   Loader2,
   List,
   LayoutGrid,
+  Clock,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact } from '@/api/hooks/useContacts'
 import { useContactsStore, type Contact } from '@/stores/contacts'
 import { useNavigationStore } from '@/stores/navigation'
 import { useMeetingsStore } from '@/stores/meetings'
-import { ItemActions, ConfirmDialog, EmptyState, type ActionItem } from '@/components/shared'
+import { ItemActions, ConfirmDialog, EmptyState, SortMenu, type ActionItem, type SortDirection } from '@/components/shared'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { ContactFormDialog } from './ContactFormDialog'
 import { ContactDetailPanel } from './ContactDetailPanel'
 import { ImportContactsDialog } from './ImportContactsDialog'
 import { GroupManagerDialog } from './GroupManagerDialog'
+import { GroupAssignDialog } from './GroupAssignDialog'
 import { CallOverlay } from '@/modules/meetings/CallOverlay'
 import { backendContactToUI, uiFormToCreateRequest, uiFormToUpdateRequest } from './adapters'
+import { formatDate } from '@/lib/format'
 
 type CategoryFilter = 'all' | 'employee' | 'customer' | 'partner' | `group:${string}`
 type SortField = 'name' | 'company' | 'lastContact'
@@ -81,6 +84,7 @@ export default function KontaktePage() {
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all')
   const [sortField, setSortField] = useState<SortField>('name')
+  const [sortDir, setSortDir] = useState<SortDirection>('asc')
   const [viewMode, setViewMode] = useState<ViewMode>('list')
 
   // Modal state — which contact is open in the detail modal
@@ -92,6 +96,7 @@ export default function KontaktePage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [importOpen, setImportOpen] = useState(false)
   const [groupManagerOpen, setGroupManagerOpen] = useState(false)
+  const [groupAssignContact, setGroupAssignContact] = useState<Contact | null>(null)
 
   const filtered = contacts
     .filter((c) => {
@@ -115,13 +120,18 @@ export default function KontaktePage() {
       return true
     })
     .sort((a, b) => {
-      if (sortField === 'name') return `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`)
-      if (sortField === 'company') return a.company.localeCompare(b.company)
-      return new Date(b.lastContact).getTime() - new Date(a.lastContact).getTime()
+      let cmp: number
+      if (sortField === 'name') cmp = `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`)
+      else if (sortField === 'company') cmp = a.company.localeCompare(b.company)
+      else cmp = new Date(a.lastContact).getTime() - new Date(b.lastContact).getTime()
+      return sortDir === 'asc' ? cmp : -cmp
     })
 
   const detailContact = contacts.find((c) => c.id === detailContactId) || null
   const deleteTarget = contacts.find((c) => c.id === deleteConfirmId)
+
+  const sortFieldLabel = (f: SortField) =>
+    f === 'name' ? t('kontakte.sort.name') : f === 'company' ? t('kontakte.sort.company') : t('kontakte.sort.lastContact')
 
   const categories: { key: CategoryFilter; label: string; icon: typeof User; count: number }[] = [
     { key: 'all', label: t('kontakte.category.all'), icon: Users, count: contacts.length },
@@ -208,6 +218,11 @@ export default function KontaktePage() {
         toggleFavorite(c.id)
         toast.success(c.isFavorite ? t('kontakte.toast.removedFromFavorites') : t('kontakte.toast.addedToFavorites'))
       },
+    },
+    {
+      label: t('kontakte.action.assignToGroup'),
+      icon: FolderPlus,
+      onClick: () => setGroupAssignContact(c),
     },
     {
       label: t('kontakte.action.sendEmail'),
@@ -331,8 +346,8 @@ export default function KontaktePage() {
 
       {/* Main content — full width */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Toolbar: Search + Sort + View Toggle + Import + New */}
-        <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+        {/* Toolbar: Search (fills) + controls cluster (right) */}
+        <div className="flex items-center gap-3 border-b border-border px-4 py-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
@@ -345,18 +360,20 @@ export default function KontaktePage() {
             />
           </div>
 
-          {/* Sort */}
-          <button
-            onClick={() => {
-              const next: SortField[] = ['name', 'company', 'lastContact']
-              setSortField(next[(next.indexOf(sortField) + 1) % next.length])
-            }}
-            className="rounded-lg border border-border p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-            title={t('kontakte.sort.label', { field: sortField === 'name' ? t('kontakte.sort.name') : sortField === 'company' ? t('kontakte.sort.company') : t('kontakte.sort.lastContact') })}
-            aria-label={t('kontakte.sort.label', { field: sortField === 'name' ? t('kontakte.sort.name') : sortField === 'company' ? t('kontakte.sort.company') : t('kontakte.sort.lastContact') })}
-          >
-            <ArrowUpDown className="h-4 w-4" />
-          </button>
+          {/* Right-aligned controls cluster */}
+          <div className="flex items-center gap-2 shrink-0">
+
+          {/* Sort — field + direction (reusable) */}
+          <SortMenu
+            options={[
+              { value: 'name', label: t('kontakte.sort.name') },
+              { value: 'company', label: t('kontakte.sort.company') },
+              { value: 'lastContact', label: t('kontakte.sort.lastContact') },
+            ]}
+            field={sortField}
+            direction={sortDir}
+            onChange={(f, d) => { setSortField(f as SortField); setSortDir(d) }}
+          />
 
           {/* View mode toggle — segmented control */}
           <div
@@ -398,18 +415,19 @@ export default function KontaktePage() {
             title={t('kontakte.action.importContacts')}
             aria-label={t('kontakte.action.importContacts')}
           >
-            <Upload className="h-4 w-4" />
+            <FileDown className="h-4 w-4" />
           </button>
           <button
             onClick={() => {
               setEditContact(null)
               setFormOpen(true)
             }}
-            className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
             <Plus className="h-4 w-4" />
-            <span className="hidden lg:inline">{t('kontakte.action.new')}</span>
+            <span>{t('kontakte.action.new')}</span>
           </button>
+          </div>
         </div>
 
         {/* Count + sort indicator */}
@@ -417,7 +435,7 @@ export default function KontaktePage() {
           <span>{isLoading ? '…' : filtered.length} {t('kontakte.list.contacts')}</span>
           <span>·</span>
           <span>
-            {t('kontakte.sort.sortedBy', { field: sortField === 'name' ? t('kontakte.sort.name') : sortField === 'company' ? t('kontakte.sort.company') : t('kontakte.sort.lastContact') })}
+            {t('kontakte.sort.sortedBy', { field: sortFieldLabel(sortField) })}
           </span>
         </div>
 
@@ -465,58 +483,96 @@ export default function KontaktePage() {
           {/* ---------------------------------------------------------------- */}
           {!isLoading && !isError && filtered.length > 0 && viewMode === 'list' && (
             <div>
-              {filtered.map((contact) => (
-                <button
-                  key={contact.id}
-                  type="button"
-                  className="group flex w-full items-center gap-3 border-b border-border-muted px-4 py-3 text-left transition-colors hover:bg-secondary/50 cursor-pointer"
-                  onClick={() => setDetailContactId(contact.id)}
-                >
-                  <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-light text-sm font-medium text-primary">
-                    {contact.initials}
-                    {contact.isFavorite && (
-                      <Star className="absolute -top-1 -right-1 h-3 w-3 fill-yellow-400 text-yellow-400" />
+              {filtered.map((contact, idx) => {
+                const letter = (contact.lastName?.[0] ?? '#').toUpperCase()
+                const prevLetter = idx > 0 ? (filtered[idx - 1].lastName?.[0] ?? '#').toUpperCase() : null
+                const showDivider = sortField === 'name' && letter !== prevLetter
+                const phone = contact.phone || contact.mobile
+                return (
+                  <Fragment key={contact.id}>
+                    {showDivider && (
+                      <div className="sticky top-0 z-10 border-b border-border-muted bg-secondary/80 px-4 py-1 text-xs font-semibold text-muted-foreground backdrop-blur">
+                        {letter}
+                      </div>
                     )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-foreground truncate">
-                        {contact.firstName} {contact.lastName}
-                      </span>
-                      <span className={`inline-flex shrink-0 rounded-full px-1.5 py-0.5 text-[10px] ${statusColors[contact.status]}`}>
-                        {t(statusLabelKeys[contact.status])}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {contact.jobTitle}{contact.jobTitle && contact.company ? ' · ' : ''}{contact.company}
-                    </p>
-                  </div>
-                  {/* Quick-action pills — visible on hover */}
-                  <div className="hidden group-hover:flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={() => handleCall(contact)}
-                      className="rounded-md border border-border p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                      title={t('kontakte.action.call')}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      className="group flex w-full items-center gap-3 border-b border-border-muted px-4 py-3 text-left transition-colors hover:bg-secondary/50 cursor-pointer focus-visible:outline-none focus-visible:bg-secondary/50"
+                      onClick={() => setDetailContactId(contact.id)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailContactId(contact.id) } }}
                     >
-                      <Phone className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleEmail(contact)}
-                      className="rounded-md border border-border p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                      title={t('kontakte.action.sendEmail')}
-                    >
-                      <Mail className="h-3.5 w-3.5" />
-                    </button>
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <ItemActions items={getContactActions(contact)} />
+                      <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-light text-sm font-medium text-primary">
+                        {contact.initials}
+                        {contact.isFavorite && (
+                          <Star className="absolute -top-1 -right-1 h-3 w-3 fill-yellow-400 text-yellow-400" />
+                        )}
+                      </div>
+                      {/* Name + company */}
+                      <div className="min-w-0 flex-1 sm:flex-none sm:w-52 lg:w-64">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-foreground truncate">
+                            {contact.firstName} {contact.lastName}
+                          </span>
+                          <span className={`inline-flex shrink-0 rounded-full px-1.5 py-0.5 text-[10px] ${statusColors[contact.status]}`}>
+                            {t(statusLabelKeys[contact.status])}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {contact.jobTitle}{contact.jobTitle && contact.company ? ' · ' : ''}{contact.company}
+                        </p>
+                      </div>
+                      {/* Contact info — fills the middle */}
+                      <div className="hidden min-w-0 flex-1 flex-col justify-center gap-0.5 text-xs text-muted-foreground sm:flex">
+                        {contact.email && (
+                          <span className="flex items-center gap-1.5 truncate">
+                            <Mail className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{contact.email}</span>
+                          </span>
+                        )}
+                        {phone && (
+                          <span className="flex items-center gap-1.5 truncate">
+                            <Phone className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{phone}</span>
+                          </span>
+                        )}
+                      </div>
+                      {/* Last contact */}
+                      <div
+                        className="hidden w-28 shrink-0 items-center justify-end gap-1.5 text-xs text-muted-foreground lg:flex"
+                        title={t('kontakte.sort.lastContact')}
+                      >
+                        <Clock className="h-3 w-3 shrink-0" />
+                        {formatDate(contact.lastContact)}
+                      </div>
+                      {/* Quick-action pills — visible on hover */}
+                      <div className="hidden group-hover:flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => handleCall(contact)}
+                          className="rounded-md border border-border p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                          title={t('kontakte.action.call')}
+                        >
+                          <Phone className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleEmail(contact)}
+                          className="rounded-md border border-border p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                          title={t('kontakte.action.sendEmail')}
+                        >
+                          <Mail className="h-3.5 w-3.5" />
+                        </button>
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <ItemActions items={getContactActions(contact)} />
+                        </div>
+                      </div>
+                      {/* Fallback: three-dot menu only (no hover on touch) */}
+                      <div className="group-hover:hidden shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <ItemActions items={getContactActions(contact)} />
+                      </div>
                     </div>
-                  </div>
-                  {/* Fallback: three-dot menu only (no hover on touch) */}
-                  <div className="group-hover:hidden shrink-0" onClick={(e) => e.stopPropagation()}>
-                    <ItemActions items={getContactActions(contact)} />
-                  </div>
-                </button>
-              ))}
+                  </Fragment>
+                )
+              })}
             </div>
           )}
 
@@ -526,11 +582,13 @@ export default function KontaktePage() {
           {!isLoading && !isError && filtered.length > 0 && viewMode === 'grid' && (
             <div className="p-4 grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
               {filtered.map((contact) => (
-                <button
+                <div
                   key={contact.id}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setDetailContactId(contact.id)}
-                  className="group relative flex flex-col items-center gap-2.5 rounded-xl border border-border bg-card p-4 text-center transition-colors hover:bg-secondary/60 hover:border-primary/30 cursor-pointer"
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailContactId(contact.id) } }}
+                  className="group relative flex flex-col items-center gap-2.5 overflow-hidden rounded-xl border border-border bg-card p-4 text-center transition-colors hover:bg-secondary/60 hover:border-primary/30 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                 >
                   {/* Favorite star */}
                   {contact.isFavorite && (
@@ -596,9 +654,9 @@ export default function KontaktePage() {
                     </div>
                   )}
 
-                  {/* Hover quick-actions */}
+                  {/* Hover quick-actions — overlay at the bottom, no layout shift */}
                   <div
-                    className="hidden group-hover:flex items-center gap-1 mt-1"
+                    className="absolute inset-x-0 bottom-0 hidden items-center justify-center gap-1 border-t border-border bg-card/95 px-2 py-2 backdrop-blur-sm group-hover:flex group-focus-within:flex"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <button
@@ -624,7 +682,7 @@ export default function KontaktePage() {
                     </button>
                     <ItemActions items={getContactActions(contact)} />
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           )}
@@ -638,7 +696,7 @@ export default function KontaktePage() {
         open={!!detailContact}
         onOpenChange={(open) => { if (!open) setDetailContactId(null) }}
       >
-        <DialogContent className="max-w-4xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
+        <DialogContent showCloseButton={false} className="max-w-4xl p-0 overflow-hidden max-h-[90vh] flex flex-col rounded-2xl">
           {detailContact && (
             <ContactDetailPanel
               contact={detailContact}
@@ -700,6 +758,14 @@ export default function KontaktePage() {
       <GroupManagerDialog
         open={groupManagerOpen}
         onOpenChange={setGroupManagerOpen}
+      />
+
+      {/* Assign contact to groups */}
+      <GroupAssignDialog
+        contact={groupAssignContact}
+        open={!!groupAssignContact}
+        onOpenChange={(o) => { if (!o) setGroupAssignContact(null) }}
+        onManageGroups={() => setGroupManagerOpen(true)}
       />
 
       {/* Call Overlay */}

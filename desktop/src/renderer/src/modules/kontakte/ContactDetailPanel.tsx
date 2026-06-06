@@ -251,6 +251,13 @@ export function ContactDetailPanel({
             >
               <Trash2 className="h-4 w-4" />
             </button>
+            <button
+              onClick={onClose}
+              className="ml-1 rounded-md p-1.5 text-primary-foreground/70 hover:bg-primary-foreground/20 hover:text-primary-foreground transition-colors"
+              title={t('common.close')}
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
         </div>
 

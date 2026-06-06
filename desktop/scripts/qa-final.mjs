@@ -1,0 +1,20 @@
+import { chromium } from 'playwright'
+import { resolve } from 'node:path'
+import { mkdir } from 'node:fs/promises'
+const BASE='http://localhost:5173'; const outDir=resolve('.qa-screenshots/final-qa'); await mkdir(outDir,{recursive:true})
+const STUB=`const noop=()=>Promise.resolve();const h={get:(_t,p)=>p==='then'?undefined:new Proxy(noop,h),apply:()=>Promise.resolve()};window.electronAPI=new Proxy(noop,h)`
+const ONB=`try{const K='cosmi-ui';const r=localStorage.getItem(K);const p=r?JSON.parse(r):{state:{},version:0};p.state={...(p.state||{}),onboardingCompleted:true};localStorage.setItem(K,JSON.stringify(p))}catch(e){}`
+const RAW=/\b(kontakte|crm|common|leads)\.[a-z]+\.[a-z._]+/i
+const browser=await chromium.launch(); const out=[]
+async function P(){const ctx=await browser.newContext({viewport:{width:1440,height:900}});await ctx.addInitScript(STUB);await ctx.addInitScript(ONB);const page=await ctx.newPage();const errs=[];page.on('pageerror',e=>errs.push(String(e)));return{ctx,page,errs}}
+async function raw(page){return page.evaluate((re)=>{const rx=new RegExp(re);return [...new Set(Array.from(document.querySelectorAll('body *')).filter(n=>n.children.length===0&&rx.test(n.textContent||'')).map(n=>n.textContent.trim()))].slice(0,10)},RAW.source)}
+async function step(name,fn){const {ctx,page,errs}=await P();try{const r=await fn(page,errs);out.push({step:name,...r,errs:errs.length})}catch(e){out.push({step:name,error:String(e).split('\n')[0],errs:errs.length})}finally{await ctx.close()}}
+
+await step('modal',async(page)=>{await page.goto(`${BASE}/#/kontakte`,{waitUntil:'domcontentloaded'});await page.waitForTimeout(1700);await page.getByText('Karl Bauer',{exact:false}).first().click();await page.waitForTimeout(900);await page.screenshot({path:resolve(outDir,'modal.png')});return{rawKeys:await raw(page)}})
+await step('forecast',async(page)=>{await page.goto(`${BASE}/#/kontakte/pipeline`,{waitUntil:'domcontentloaded'});await page.waitForTimeout(1700);await page.locator('div.rounded-md.border > button').nth(2).click();await page.waitForTimeout(900);return{rawKeys:await raw(page)}})
+await step('pipeline',async(page)=>{await page.goto(`${BASE}/#/kontakte/pipeline`,{waitUntil:'domcontentloaded'});await page.waitForTimeout(1700);await page.locator('div.rounded-md.border > button').nth(1).click();await page.waitForTimeout(900);return{rawKeys:await raw(page),wonButtons:await page.getByRole('button',{name:'Gewonnen'}).count()}})
+await step('grid-hover',async(page)=>{await page.goto(`${BASE}/#/kontakte`,{waitUntil:'domcontentloaded'});await page.waitForTimeout(1700);await page.getByRole('button',{name:'Raster'}).click();await page.waitForTimeout(800);const card=page.locator('div.grid > div[role="button"]').first();const b1=await card.boundingBox();await card.hover();await page.waitForTimeout(400);const b2=await card.boundingBox();await page.screenshot({path:resolve(outDir,'grid-hover.png')});return{heightBefore:Math.round(b1.height),heightAfter:Math.round(b2.height),stable:Math.abs(b1.height-b2.height)<2}})
+await step('group-assign',async(page)=>{await page.goto(`${BASE}/#/kontakte`,{waitUntil:'domcontentloaded'});await page.waitForTimeout(1700);await page.locator('button[aria-haspopup="menu"]:visible').first().click();await page.waitForTimeout(500);const items=await page.getByRole('menuitem').allInnerTexts().catch(()=>[]);let dlg=0,rows=0;const a=page.getByRole('menuitem',{name:/Zu Gruppe/}).first();if(await a.count()){await a.click();await page.waitForTimeout(500);dlg=await page.getByText(/Gruppen von/).count();rows=await page.locator('[role="dialog"] label').count();await page.screenshot({path:resolve(outDir,'group-assign.png')})}return{menuItemCount:items.length,dialogOpen:dlg,groupRows:rows}})
+await step('activities-bulk',async(page)=>{await page.goto(`${BASE}/#/kontakte/aktivitaeten`,{waitUntil:'domcontentloaded'});await page.waitForTimeout(1700);await page.locator('button[role="checkbox"]').nth(1).click().catch(()=>{});await page.waitForTimeout(400);return{rawKeys:await raw(page)}})
+
+await browser.close(); console.log(JSON.stringify(out,null,2))
