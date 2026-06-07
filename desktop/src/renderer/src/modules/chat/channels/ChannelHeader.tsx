@@ -5,7 +5,7 @@
  * Actions: members list button, search messages button.
  */
 import { useTranslation } from 'react-i18next'
-import { Hash, Users } from 'lucide-react'
+import { Hash, Users, Search } from 'lucide-react'
 import { useChannel, useChannelMembers } from '@/api/hooks/useChannels'
 import { useTypingIndicator } from '@/api/hooks/useMessages'
 import { Button } from '@/components/ui/button'
@@ -19,9 +19,11 @@ interface ChannelHeaderProps {
   channelId: string
   membersActive?: boolean
   onToggleMembers?: () => void
+  searchActive?: boolean
+  onToggleSearch?: () => void
 }
 
-export function ChannelHeader({ channelId, membersActive, onToggleMembers }: ChannelHeaderProps) {
+export function ChannelHeader({ channelId, membersActive, onToggleMembers, searchActive, onToggleSearch }: ChannelHeaderProps) {
   const { t } = useTranslation()
   const { data: channelData } = useChannel(channelId)
   const { data: membersData } = useChannelMembers(channelId)
@@ -63,6 +65,21 @@ export function ChannelHeader({ channelId, membersActive, onToggleMembers }: Cha
             </TooltipTrigger>
             <TooltipContent>{t('chat.header.members', { count: memberCount })}</TooltipContent>
           </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-8 w-8 ${searchActive ? 'bg-secondary text-foreground' : ''}`}
+                onClick={onToggleSearch}
+                aria-pressed={searchActive}
+              >
+                <Search className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t('chat.header.searchMessages')}</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
@@ -78,7 +95,7 @@ export function ChannelHeader({ channelId, membersActive, onToggleMembers }: Cha
   )
 }
 
-function getTypingText(typingUsers: string[], t: (key: string, opts?: Record<string, unknown>) => string): string | null {
+function getTypingText(typingUsers: string[], t: ReturnType<typeof useTranslation>['t']): string | null {
   if (typingUsers.length === 0) return null
   if (typingUsers.length === 1) return t('chat.header.typingOne', { user: typingUsers[0] })
   if (typingUsers.length === 2) return t('chat.header.typingTwo', { user1: typingUsers[0], user2: typingUsers[1] })

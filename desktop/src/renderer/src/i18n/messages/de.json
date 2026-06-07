@@ -8110,5 +8110,11 @@
   "kommunikation.settings.display.enterToSend": "Mit Enter senden",
   "chat.messages.editHint": "Enter zum Speichern, Esc zum Abbrechen",
   "chat.messages.replyCount": "{count, plural, one {# Antwort} other {# Antworten}}",
-  "chat.thread.replyCount": "{count, plural, one {# Antwort} other {# Antworten}}"
+  "chat.thread.replyCount": "{count, plural, one {# Antwort} other {# Antworten}}",
+  "chat.search.title": "Nachrichten durchsuchen",
+  "chat.search.placeholder": "Suchbegriff eingeben...",
+  "chat.search.allChannels": "In allen Channels suchen",
+  "chat.search.hint": "Mindestens 2 Zeichen eingeben.",
+  "chat.search.noResults": "Keine Treffer für „{query}“.",
+  "chat.search.resultCount": "{count, plural, one {# Treffer} other {# Treffer}}"
 }

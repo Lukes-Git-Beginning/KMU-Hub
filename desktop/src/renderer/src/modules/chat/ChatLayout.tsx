@@ -13,6 +13,7 @@ import { ChannelHeader } from './channels/ChannelHeader'
 import { MessageList } from './messages/MessageList'
 import { MessageInput } from './messages/MessageInput'
 import { ThreadPanel } from './threads/ThreadPanel'
+import { ChannelSearchPanel } from './channels/ChannelSearchPanel'
 import { ChannelMemberList } from '@/components/chat/ChannelMemberList'
 
 export default function ChatLayout() {
@@ -20,16 +21,18 @@ export default function ChatLayout() {
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null)
   const [selectedThreadMessageId, setSelectedThreadMessageId] = useState<string | null>(null)
   const [showMembers, setShowMembers] = useState(false)
+  const [showSearch, setShowSearch] = useState(false)
 
   const handleSelectChannel = (id: string) => {
     setSelectedChannelId(id)
     setSelectedThreadMessageId(null)
   }
 
-  // Members panel and thread panel share the right slot — keep them exclusive.
+  // Thread, members and search share the right slot — keep them mutually exclusive.
   const handleOpenThread = (messageId: string) => {
     setSelectedThreadMessageId(messageId)
     setShowMembers(false)
+    setShowSearch(false)
   }
 
   const handleCloseThread = () => {
@@ -39,6 +42,13 @@ export default function ChatLayout() {
   const handleToggleMembers = () => {
     setShowMembers((v) => !v)
     setSelectedThreadMessageId(null)
+    setShowSearch(false)
+  }
+
+  const handleToggleSearch = () => {
+    setShowSearch((v) => !v)
+    setSelectedThreadMessageId(null)
+    setShowMembers(false)
   }
 
   return (
@@ -59,6 +69,8 @@ export default function ChatLayout() {
               channelId={selectedChannelId}
               membersActive={showMembers}
               onToggleMembers={handleToggleMembers}
+              searchActive={showSearch}
+              onToggleSearch={handleToggleSearch}
             />
             <MessageList
               channelId={selectedChannelId}
@@ -92,10 +104,17 @@ export default function ChatLayout() {
         </div>
       )}
 
-      {/* Members panel (exclusive with thread panel) */}
+      {/* Members panel (exclusive with thread/search) */}
       {showMembers && selectedChannelId && !selectedThreadMessageId && (
         <div className="w-[280px] shrink-0">
           <ChannelMemberList channelId={selectedChannelId} />
+        </div>
+      )}
+
+      {/* Search panel (exclusive with thread/members) */}
+      {showSearch && selectedChannelId && !selectedThreadMessageId && !showMembers && (
+        <div className="w-[320px] shrink-0">
+          <ChannelSearchPanel channelId={selectedChannelId} onClose={() => setShowSearch(false)} />
         </div>
       )}
     </div>

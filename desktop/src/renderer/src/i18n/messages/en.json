@@ -8110,5 +8110,11 @@
   "kommunikation.settings.display.enterToSend": "Send with Enter",
   "chat.messages.editHint": "Enter to save, Esc to cancel",
   "chat.messages.replyCount": "{count, plural, one {# reply} other {# replies}}",
-  "chat.thread.replyCount": "{count, plural, one {# reply} other {# replies}}"
+  "chat.thread.replyCount": "{count, plural, one {# reply} other {# replies}}",
+  "chat.search.title": "Search messages",
+  "chat.search.placeholder": "Enter search term...",
+  "chat.search.allChannels": "Search all channels",
+  "chat.search.hint": "Type at least 2 characters.",
+  "chat.search.noResults": "No matches for “{query}”.",
+  "chat.search.resultCount": "{count, plural, one {# result} other {# results}}"
 }

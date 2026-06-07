@@ -148,4 +148,44 @@ export const chatHandlers = [
   http.get(`${API}/api/v1/messages/:id/thread`, () => {
     return HttpResponse.json({ messages: [], has_more: false })
   }),
+
+  // Full-text search across channel messages (demo: scans mock messages)
+  http.get(`${API}/api/v1/chat/search`, ({ request }) => {
+    const url = new URL(request.url)
+    const q = (url.searchParams.get('q') ?? '').toLowerCase().trim()
+    const channelFilter = url.searchParams.get('channel_id')
+    const channels = mockChannels.channels ?? []
+    const channelName = (id: string) => channels.find((c) => c.id === id)?.name ?? ''
+
+    const results: Record<string, unknown>[] = []
+    if (q.length >= 2) {
+      for (const [chId, bucket] of Object.entries(mockMessagesByChannel)) {
+        if (channelFilter && chId !== channelFilter) continue
+        const msgs = (bucket as { messages?: Array<Record<string, string>> }).messages ?? []
+        for (const m of msgs) {
+          const content = m.content ?? ''
+          const idx = content.toLowerCase().indexOf(q)
+          if (idx < 0) continue
+          const snippet =
+            content.slice(0, idx) +
+            '<mark>' +
+            content.slice(idx, idx + q.length) +
+            '</mark>' +
+            content.slice(idx + q.length)
+          results.push({
+            type: 'message',
+            id: m.id,
+            channel_id: chId,
+            channel_name: channelName(chId),
+            score: 1,
+            snippet,
+            created_at: m.created_at,
+            first_name: m.sender_first_name,
+            last_name: m.sender_last_name,
+          })
+        }
+      }
+    }
+    return HttpResponse.json({ results, total: results.length })
+  }),
 ]

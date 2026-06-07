@@ -8076,5 +8076,11 @@
   "kommunikation.settings.display.enterToSend": "Envoyer avec Entrée",
   "chat.messages.editHint": "Entrée pour enregistrer, Échap pour annuler",
   "chat.messages.replyCount": "{count, plural, one {# réponse} other {# réponses}}",
-  "chat.thread.replyCount": "{count, plural, one {# réponse} other {# réponses}}"
+  "chat.thread.replyCount": "{count, plural, one {# réponse} other {# réponses}}",
+  "chat.search.title": "Rechercher des messages",
+  "chat.search.placeholder": "Saisir un terme...",
+  "chat.search.allChannels": "Rechercher dans tous les canaux",
+  "chat.search.hint": "Saisissez au moins 2 caractères.",
+  "chat.search.noResults": "Aucun résultat pour « {query} ».",
+  "chat.search.resultCount": "{count, plural, one {# résultat} other {# résultats}}"
 }

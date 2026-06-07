@@ -78,6 +78,19 @@ try {
     await page.keyboard.press('Escape')
   }
 
+  // Full-text search panel
+  const searchBtn = page.locator('button:has(svg.lucide-search)').last()
+  await searchBtn.click({ timeout: 4000 }).catch((e) => { out.searchBtnErr = String(e).split('\n')[0] })
+  await page.waitForTimeout(600)
+  out.searchPanelVisible = await page.getByText(/Nachrichten durchsuchen/).first().isVisible().catch(() => false)
+  // widen to all channels, then search a word that exists in mock messages
+  await page.getByText(/In allen Channels suchen/).first().click({ timeout: 3000 }).catch(() => {})
+  const searchInput = page.getByPlaceholder(/Suchbegriff/).first()
+  await searchInput.fill('Meeting').catch((e) => { out.searchFillErr = String(e).split('\n')[0] })
+  await page.waitForTimeout(1200)
+  out.searchHasResults = await page.locator('mark').first().isVisible().catch(() => false)
+  await page.screenshot({ path: resolve(outDir, 'team-chat-search.png'), fullPage: true })
+
   out.rawKeys = await scanRawKeys(page)
 } catch (err) {
   out.error = String(err).split('\n')[0]

@@ -217,5 +217,17 @@ Strategie: Cosmi macht Vorkette (Angebot→Zahlungseingang) eigenständig, über
 
 ---
 
+## 🟠 kommunikation (Team-Chat + Posteingang, vereintes Modul, Stand 2026-06-08)
+
+> Beim Scharfschalten: echte gRPC-Endpoints existieren überwiegend, aber im **Demo-Mode (MSW)** fehlen Handler — FE-seitig nachgebaut wo nötig. Echtes Backend / Verkabelung durch Luke:
+
+- **Chat-Reactions Service-Mismatch:** FE `useReactions`/`useToggleReaction` (`components/chat/`) gehen an **`/api/v1/video/reactions/*`** (video-client), nicht an den chat-Service. chat-proto hat eigene `ToggleReaction/ListReactions/GetReactionSummary`. → Entweder chat-Reactions-Endpoints am chat-Service exponieren + FE-Hook umstellen, oder bewusst video-reactions für chat mitnutzen. Aktuell nutzt MessageBubble noch den lokalen Mock-Reaction-State (kein Demo-Handler für reactions).
+- **Chat-Volltextsuche:** `GET /api/v1/chat/search?q=&channel_id=` (SearchChat-RPC) existiert im Backend; FE-Hook `useChatSearch` + Demo-Handler (durchsucht Mock-Messages) jetzt gebaut. Realer Index/Ranking + File-Treffer = Luke.
+- **File-Upload im Chat:** `sendMessage` überträgt noch keine `files`; FileDropZone erzeugt nur lokale Previews. Braucht Upload-Endpoint + `SendMessage` mit FileInfo.
+- **Gruppen-DMs, Pin/Lesezeichen, Channel-Notification-Settings:** im chat-proto nicht vorhanden — Neubau.
+- **Mentions-Inbox:** `GetUserMentions` existiert (proto), kein FE-View/Demo-Handler.
+- **Posteingang (Inbox):** Demo-Handler fehlen für `snooze`, `claim`, `teams` (CRUD), `rules` (CRUD) — echte Endpoints existieren. Zusätzlich Backend-Neubau: Conversation-**Status** (offen/wartend/gelöst/geschlossen), echtes **Threading** (mehrere Msg/Conversation), **Tags-CRUD**, **Forward**, **SLA-Tracking**.
+- **Audio/Video aus Chat + Bots/Webhooks/Slash-Commands:** keine RPCs — kompletter Neubau (Phase 5 baut UI-Shell/Bridge).
+
 # Hinweis zur Arbeitsweise (Claude = FE, Luke = BE)
 Die meisten 🟡-Punkte (FE-Page von Mock-Store auf fertige TanStack-Hooks umstellen) brauchen KEIN Backend von Luke — die Hooks + Endpoints existieren bereits. Luke-Bedarf = nur die 🔴- und cross-cutting-Punkte oben.
