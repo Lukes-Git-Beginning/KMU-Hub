@@ -33,6 +33,9 @@ import {
 import { useUserModules } from '@/api/hooks/useModuleAssignments'
 import { useInsightSettings } from '@/api/hooks/useBilling'
 import { useNavigationStore } from '@/stores/navigation'
+import { useAuthStore } from '@/stores/auth'
+import { useModuleLeadsStore } from '@/stores/moduleLeads'
+import { LEADABLE_MODULES } from '@/lib/module-settings'
 import { DEFAULT_INSIGHT_SETTINGS } from '@/lib/pricing'
 import { MODULE_DISPLAY_NAMES } from './ModuleAssignmentTab'
 import { formatRelativeTime, formatDate } from '@/lib/format'
@@ -235,6 +238,9 @@ export function MemberDetailPanel({
               onManage={() => onEdit()}
             />
           )}
+
+          {/* Erweiterte Moduleinstellungen (Modul-Leiter) — admin/it only */}
+          {employee?.userId && <EmployeeModuleLeadSection userId={employee.userId} />}
 
           {/* Documents */}
           <DocumentsSection memberId={memberId} documents={documents ?? []} />
@@ -501,6 +507,81 @@ function EmployeeModulesSection({
             {t('team.member.modules.manage')}
             <ArrowRight className="h-3 w-3" aria-hidden="true" />
           </button>
+        </div>
+      )}
+    </section>
+  )
+}
+
+// ============================================================
+// Employee Module-Lead Section ("erweiterte Moduleinstellungen")
+// Admin/IT delegates tenant-wide settings rights per module.
+// ============================================================
+function EmployeeModuleLeadSection({ userId }: { userId: string }) {
+  const { t } = useTranslation()
+  const viewer = useAuthStore((s) => s.user)
+  const { data: userGrants = [] } = useUserModules(userId)
+  const leadModules = useModuleLeadsStore((s) => s.leads[userId] ?? [])
+  const toggleLead = useModuleLeadsStore((s) => s.toggleLead)
+  const [expanded, setExpanded] = useState(false)
+
+  // Only admins / IT-support may delegate Modul-Leiter rights.
+  const canManage = viewer?.roles.some((r) => ['admin', 'it_support'].includes(r))
+
+  // Modules the employee has access to AND that expose tenant-wide settings.
+  const leadable = userGrants
+    .map((g) => g.moduleId)
+    .filter((m) => LEADABLE_MODULES.includes(m))
+
+  if (!canManage || leadable.length === 0) return null
+
+  const Chevron = expanded ? ChevronUp : ChevronDown
+  const activeCount = leadable.filter((m) => leadModules.includes(m)).length
+
+  return (
+    <section className="space-y-2">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex items-center gap-1 w-full text-left"
+        aria-expanded={expanded}
+      >
+        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {t('team.member.moduleLead.title')}{activeCount > 0 ? ` (${activeCount})` : ''}
+        </h4>
+        <Chevron className="h-3 w-3 text-muted-foreground ml-auto" aria-hidden="true" />
+      </button>
+
+      {expanded && (
+        <div className="space-y-1.5">
+          <p className="text-[10px] leading-relaxed text-muted-foreground">
+            {t('team.member.moduleLead.hint')}
+          </p>
+          {leadable.map((m) => {
+            const isLead = leadModules.includes(m)
+            const moduleName = MODULE_DISPLAY_NAMES[m] ?? m
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => toggleLead(userId, m)}
+                aria-pressed={isLead}
+                className={`flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-xs transition-colors ${
+                  isLead ? 'bg-primary-light text-primary' : 'bg-secondary/30 text-foreground hover:bg-secondary'
+                }`}
+              >
+                <span className="font-medium truncate">{moduleName}</span>
+                <span
+                  className={`flex h-4 w-7 shrink-0 items-center rounded-full px-0.5 transition-colors ${
+                    isLead ? 'justify-end bg-primary' : 'justify-start bg-border'
+                  }`}
+                  aria-hidden="true"
+                >
+                  <span className="h-3 w-3 rounded-full bg-white shadow-sm" />
+                </span>
+              </button>
+            )
+          })}
         </div>
       )}
     </section>

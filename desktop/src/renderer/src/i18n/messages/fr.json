@@ -7690,5 +7690,14 @@
   "work.views.gantt": "Gantt",
   "work.views.kanban": "Kanban",
   "work.views.list": "Liste",
-  "work.views.utilization": "Utilisation"
+  "work.views.utilization": "Utilisation",
+  "settings.scope.personal": "Personnel",
+  "settings.scope.tenant": "Pour tous",
+  "settings.scope.lockedHint": "Ces paramètres s'appliquent à toute l'équipe et ne peuvent être modifiés que par le responsable du module. Ils sont affichés en lecture seule.",
+  "settings.calendar.section.personalTitle": "Affichage personnel",
+  "settings.calendar.section.personalDesc": "Ne s'applique qu'à vous — affichage par défaut, début de semaine et rappel.",
+  "settings.calendar.section.tenantTitle": "Heures de travail et jours fériés",
+  "settings.calendar.section.tenantDesc": "S'applique à toute l'équipe — heures de travail et région des jours fériés.",
+  "team.member.moduleLead.title": "Paramètres de module avancés",
+  "team.member.moduleLead.hint": "Activez les modules pour lesquels cet employé peut gérer les paramètres de toute l'équipe (responsable du module)."
 }

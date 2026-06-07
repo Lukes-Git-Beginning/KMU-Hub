@@ -12,3 +12,9 @@ export { AnimatedList } from './AnimatedList'
 export { LoadingSpinner } from './LoadingSpinner'
 export { LayoutSwitcher } from './LayoutSwitcher'
 export { PaletteSwitcher } from './PaletteSwitcher'
+export {
+  ModuleSettingsShell,
+  type ModuleSettingsSection,
+  type ModuleSettingsShellProps,
+} from './ModuleSettingsShell'
+export { useSettingsSectionScope, type ScopeContextValue } from './module-settings-scope'

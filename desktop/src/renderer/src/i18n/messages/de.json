@@ -7724,5 +7724,14 @@
   "work.views.gantt": "Gantt",
   "work.views.kanban": "Kanban",
   "work.views.list": "Liste",
-  "work.views.utilization": "Auslastung"
+  "work.views.utilization": "Auslastung",
+  "settings.scope.personal": "Persönlich",
+  "settings.scope.tenant": "Für alle",
+  "settings.scope.lockedHint": "Diese Einstellungen gelten für das ganze Team und können nur von der Modulleitung geändert werden. Du siehst sie schreibgeschützt.",
+  "settings.calendar.section.personalTitle": "Persönliche Ansicht",
+  "settings.calendar.section.personalDesc": "Gilt nur für dich — Standardansicht, Wochenstart und Erinnerung.",
+  "settings.calendar.section.tenantTitle": "Arbeitszeiten & Feiertage",
+  "settings.calendar.section.tenantDesc": "Gilt für das ganze Team — Arbeitszeiten und Feiertagsregion.",
+  "team.member.moduleLead.title": "Erweiterte Moduleinstellungen",
+  "team.member.moduleLead.hint": "Aktiviere Module, für die dieser Mitarbeiter die teamweiten Einstellungen verwalten darf (Modulleitung)."
 }

@@ -7724,5 +7724,14 @@
   "work.views.gantt": "Gantt",
   "work.views.kanban": "Kanban",
   "work.views.list": "List",
-  "work.views.utilization": "Utilization"
+  "work.views.utilization": "Utilization",
+  "settings.scope.personal": "Personal",
+  "settings.scope.tenant": "Org-wide",
+  "settings.scope.lockedHint": "These settings apply to the whole team and can only be changed by the module lead. They are shown read-only.",
+  "settings.calendar.section.personalTitle": "Personal view",
+  "settings.calendar.section.personalDesc": "Applies only to you — default view, week start and reminder.",
+  "settings.calendar.section.tenantTitle": "Working hours & holidays",
+  "settings.calendar.section.tenantDesc": "Applies to the whole team — working hours and holiday region.",
+  "team.member.moduleLead.title": "Advanced module settings",
+  "team.member.moduleLead.hint": "Enable modules for which this employee may manage the team-wide settings (module lead)."
 }

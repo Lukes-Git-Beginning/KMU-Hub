@@ -7690,5 +7690,14 @@
   "work.views.gantt": "Gantt",
   "work.views.kanban": "Kanban",
   "work.views.list": "Lista",
-  "work.views.utilization": "Utilizzo"
+  "work.views.utilization": "Utilizzo",
+  "settings.scope.personal": "Personale",
+  "settings.scope.tenant": "Per tutti",
+  "settings.scope.lockedHint": "Queste impostazioni valgono per tutto il team e possono essere modificate solo dal responsabile del modulo. Sono mostrate in sola lettura.",
+  "settings.calendar.section.personalTitle": "Vista personale",
+  "settings.calendar.section.personalDesc": "Vale solo per te — vista predefinita, inizio settimana e promemoria.",
+  "settings.calendar.section.tenantTitle": "Orario di lavoro e festività",
+  "settings.calendar.section.tenantDesc": "Vale per tutto il team — orario di lavoro e regione delle festività.",
+  "team.member.moduleLead.title": "Impostazioni avanzate del modulo",
+  "team.member.moduleLead.hint": "Attiva i moduli per cui questo dipendente può gestire le impostazioni di tutto il team (responsabile del modulo)."
 }
