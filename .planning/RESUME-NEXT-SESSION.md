@@ -1,0 +1,34 @@
+# ▶ HIER STARTEN
+
+> Autonomer Bau-Lauf. Ziel: alle ~25 Module „settings-komplett" durcharbeiten (gründlich > schnell). Reihenfolge in `module-phase-plans.md` (Entscheidungs-Log oben).
+
+## Stand (2026-06-07, autonomer Lauf)
+Branch `main`, direct-to-main, origin synchron. Commits dieser Session:
+- `1f9e487` Settings-Fundament (scope personal/tenant, Modul-Leiter, Lock)
+- `348a057` Modul-Einstellungs-Fenster (Overlay statt Route, MODULE + COSMI, aktives Modul markiert)
+- `abef77d` CRM-Panel B1 (Pipeline + Eigene Felder)
+- `2c27163` CRM Tags + Persönlich/Für-alle-Bereiche + Button-Umbau (Admin-Btn raus, → „Modul-Einstellungen")
+
+## ✅ Fertig
+- **Settings-Fundament** + **Modul-Einstellungs-Fenster** (App-Shell). Öffnet links unten „Modul-Einstellungen" als Overlay. Links Modul-Liste (Gruppe MODULE + COSMI/Allgemein), rechts Inhalt, aktives Modul vorausgewählt. Persönliche Settings bleiben oben rechts (Profil-Menü → /settings).
+- **Kontakte Phase 7 = KOMPLETT.** CRM-Eintrag im Fenster mit zwei Bereichen: **Persönlich** (Standard-Ansicht/Dichte/Avatare, real verdrahtet) + **Für alle** (Pipeline-Editor, Eigene Felder, Tag-Verwaltung).
+
+## ⚙ Architektur-Bausteine (für JEDES weitere Modul nutzen)
+- `components/shared/ModuleSettingsShell` — Sektionen mit `scope: 'personal'|'tenant'`, rendert automatisch Bereich-Header „Persönlich"/„Für alle" + Lock für Nicht-Leiter.
+- `modules/settings/module-settings-registry.tsx` — hier jeden Modul-Eintrag registrieren (Gruppe `module`, `navMatch`, `roles`).
+- `components/shared/ColorSwatchPicker` + `lib/swatch-colors` · `stores/moduleLeads` + `hooks/useModuleSettings` (useIsModuleLead) · `stores/<modul>Prefs.ts` für persönliche Prefs.
+- **i18n: i18next-ICU → einfache Klammern `{var}`** (NICHT `{{var}}`). Audit: `scripts/i18n-audit.mjs`. QA: `scripts/qa-*.mjs` (Playwright gegen :5173, `npm run dev`).
+
+## ▶ NÄCHSTE SCHRITTE (in Reihenfolge)
+Pro Modul: Features + **Moduleinstellungen mitbauen** (Persönlich + Für-alle) + Screenshot-QA @ Breiten + i18n ×4 + commit/push.
+1. **Kontakte Phase 8** — Finanzberatungs-Tiefe (Darien: Variante 1): „Empfohlen von" = Kontakt-Picker + Empfehler-Report · Mandanten-Segmente A/B/C regelbasiert (Umsatzpotenzial) · Beratungsprotokoll-Tab (Felder nach Finanzberatungs-Standard defaulten).
+2. **finanzen** — P1: buchhaltung-Modul löschen (dead code, `git rm` + Test nach finanzen) · ExpensesTab/TransactionsTab Zustand→TanStack Query. Dann P2-P4 (Angebot→Rechnung, wiederkehrend, Fremdwährung CHF/USD, Mahnwesen; EÜR-Standard + doppelte BuHa optional; SKR03/04 + DATEV). **+ finanzen-Moduleinstellungen** (Persönlich + Für-alle).
+3. **team** → **kommunikation** → **work** → … (Reihenfolge `module-phase-plans.md`). **mails zurückgestellt** (Backend-Arch mit Luke). **security ans Ende** (DSGVO mit Luke).
+
+## Offene Domänen-Fragen (Darien, wenn Zeit)
+- Kontakte P8: welche Felder braucht ein Beratungsprotokoll fachlich? (DSGVO/Doku-Pflicht Finanzberatung) — aktuell Claude-Defaults.
+
+## Arbeitsregeln
+- Keine sichtbaren Scrollbars · Zurück-Buttons in Detail-Views · keine ASCII-Umlaute · keine Emojis in UI · wiederverwendbar in `shared/` bauen.
+- Pro Bau-Einheit: typecheck (`npx tsc --noEmit -p tsconfig.web.json`) + lint + Screenshot-QA (Raw-Keys @ voller Breite!) + commit/push.
+- Backend-Bedarf → `.planning/backend-gaps.md` für Luke.
