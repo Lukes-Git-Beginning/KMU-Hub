@@ -16,7 +16,7 @@ import { CrmSettingsPanel } from './panels/CrmSettingsPanel'
 import { FinanceSettingsPanel } from './panels/FinanceSettingsPanel'
 import { CalendarSettingsTab } from './tabs/CalendarSettingsTab'
 import { MailSettingsTab } from './tabs/MailSettingsTab'
-import { TeamSettingsTab } from './tabs/TeamSettingsTab'
+import { TeamSettingsPanel } from './panels/TeamSettingsPanel'
 import { CompanySettingsTab } from './tabs/CompanySettingsTab'
 import { BillingSettingsTab } from './tabs/BillingSettingsTab'
 import { IntegrationSettingsTab } from './tabs/IntegrationSettingsTab'
@@ -51,7 +51,7 @@ export const SETTINGS_ENTRIES: SettingsEntry[] = [
   { id: 'finance', group: 'module', labelKey: 'moduleSettings.entries.finance', icon: Receipt, navMatch: ['/finanzen', '/buchhaltung'], component: FinanceSettingsPanel },
   { id: 'calendar', group: 'module', labelKey: 'moduleSettings.entries.calendar', icon: Calendar, navMatch: ['/kalender'], component: CalendarSettingsTab },
   { id: 'mail', group: 'module', labelKey: 'moduleSettings.entries.mail', icon: Mail, navMatch: ['/mails'], component: MailSettingsTab },
-  { id: 'team', group: 'module', labelKey: 'moduleSettings.entries.team', icon: Users, navMatch: ['/team'], roles: ['admin', 'hr'], component: TeamSettingsTab },
+  { id: 'team', group: 'module', labelKey: 'moduleSettings.entries.team', icon: Users, navMatch: ['/team'], roles: ['admin', 'hr'], component: TeamSettingsPanel },
 
   // ── COSMI (Allgemein) ──
   { id: 'company', group: 'cosmi', labelKey: 'moduleSettings.entries.company', icon: Building2, roles: ['admin'], component: CompanySettingsTab },

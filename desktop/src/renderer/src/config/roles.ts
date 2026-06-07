@@ -48,9 +48,8 @@ export const TEAM_TAB_ROLES: Record<string, RoleId[]> = {
   requests:        ['admin', 'manager', 'hr'],
   korrekturen:     ['admin', 'manager', 'hr'],
   personalakte:    ['admin', 'hr'],
-  integrationen:   ['admin', 'hr'],
+  lohnvorbereitung: ['admin', 'hr'],
   schulungen:      ['admin', 'manager', 'hr'],
-  einstellungen:   ['admin', 'hr'],
   onboarding:      ['admin', 'manager', 'hr'],
   modulzuteilung:  ['admin', 'it_support'],
 }

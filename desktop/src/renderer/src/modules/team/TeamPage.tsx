@@ -21,13 +21,12 @@ import {
   Scale,
   Award,
   Loader2,
-  Link2,
   FolderOpen,
   ListChecks,
   Network,
   UserCircle,
-  Settings,
   Package,
+  Banknote,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth'
@@ -51,12 +50,12 @@ import { EditMemberDialog } from './EditMemberDialog'
 import { HRApprovalDialog } from './HRApprovalDialog'
 import { AbsenceCalendar } from './AbsenceCalendar'
 import { TimeCorrectionPanel } from './TimeCorrectionPanel'
-import { HRIntegrationPanel } from './HRIntegrationPanel'
+import { PayrollPrepPanel } from './PayrollPrepPanel'
 import { PersonnelDocuments } from './PersonnelDocuments'
 import { OnboardingChecklist } from './OnboardingChecklist'
 import { OrgChart } from './OrgChart'
 import { SelfServiceView } from './SelfServiceView'
-import { TeamSettingsTab } from '@/modules/settings/tabs/TeamSettingsTab'
+import { useTeamPrefsStore } from '@/stores/teamPrefs'
 import {
   Dialog,
   DialogContent,
@@ -76,7 +75,7 @@ import {
 } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 
-type TabKey = 'members' | 'requests' | 'absences' | 'korrekturen' | 'personalakte' | 'onboarding' | 'orgchart' | 'integrationen' | 'schulungen' | 'selfservice' | 'einstellungen' | 'modulzuteilung'
+type TabKey = 'members' | 'requests' | 'absences' | 'korrekturen' | 'personalakte' | 'onboarding' | 'orgchart' | 'lohnvorbereitung' | 'schulungen' | 'selfservice' | 'modulzuteilung'
 
 const contractTypeLabels: Record<string, string> = {
   full_time: 'Vollzeit',
@@ -162,7 +161,11 @@ export default function TeamPage() {
   const { data: pendingRequestsData } = useLeaveRequests({ status: 'pending' })
 
   const user = useAuthStore((s) => s.user)
-  const [tab, setTab] = useState<TabKey>('members')
+  // Personal pref: open at a fixed start tab (unless "last").
+  const [tab, setTab] = useState<TabKey>(() => {
+    const st = useTeamPrefsStore.getState().startTab
+    return st !== 'last' ? (st as TabKey) : 'members'
+  })
   const [initialFilter, setInitialFilter] = useState<ModuleAssignmentInitialFilter | undefined>(undefined)
 
   // Consume navigation intent for module-assignment tab
@@ -179,7 +182,7 @@ export default function TeamPage() {
   // If active tab gets restricted (role switch), fall back to 'members'
   const effectiveTab: TabKey = canSeeTeamTab(user, tab) ? tab : 'members'
   const [search, setSearch] = useState('')
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => useTeamPrefsStore.getState().defaultView)
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
   const [selectedMemberName, setSelectedMemberName] = useState<string>('')
   const [selectedMemberInitials, setSelectedMemberInitials] = useState<string>('')
@@ -316,11 +319,10 @@ export default function TeamPage() {
             { key: 'personalakte' as const, label: t('team.page.tab.personnel'), icon: FolderOpen },
             { key: 'onboarding' as const, label: t('team.page.tab.onboarding'), icon: ListChecks },
             { key: 'orgchart' as const, label: t('team.page.tab.orgchart'), icon: Network },
-            { key: 'integrationen' as const, label: t('team.page.tab.integrations'), icon: Link2 },
+            { key: 'lohnvorbereitung' as const, label: t('team.page.tab.payroll'), icon: Banknote },
             { key: 'modulzuteilung' as const, label: t('team.page.tab.moduleAssignment'), icon: Package },
             { key: 'schulungen' as const, label: t('team.page.tab.trainings'), icon: GraduationCap },
             { key: 'selfservice' as const, label: t('team.page.tab.selfservice'), icon: UserCircle },
-            { key: 'einstellungen' as const, label: t('team.page.tab.settings'), icon: Settings },
           ])
             .filter((tab_item) => canSeeTeamTab(user, tab_item.key))
             .map((tab_item) => (
@@ -473,8 +475,8 @@ export default function TeamPage() {
       {/* Organigramm Tab (7.5) */}
       {effectiveTab === 'orgchart' && <OrgChart />}
 
-      {/* Integrationen Tab (7.1 + 7.2 — replaces old Lohn tab) */}
-      {effectiveTab === 'integrationen' && <HRIntegrationPanel />}
+      {/* Lohnvorbereitung Tab — monthly payroll run (DATEV handover) */}
+      {effectiveTab === 'lohnvorbereitung' && <PayrollPrepPanel />}
 
       {/* Modul-Zuteilung Tab */}
       {effectiveTab === 'modulzuteilung' && (
@@ -637,9 +639,6 @@ export default function TeamPage() {
 
       {/* Self-Service Tab (7.6) */}
       {effectiveTab === 'selfservice' && <SelfServiceView />}
-
-      {/* Einstellungen Tab (HR settings moved from global Settings) */}
-      {effectiveTab === 'einstellungen' && <TeamSettingsTab />}
 
       {/* Member Detail Panel */}
       {selectedMemberId && (

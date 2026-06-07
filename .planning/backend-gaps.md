@@ -65,6 +65,9 @@ Folgende Verknüpfungen konnten im ContactDetailPanel NICHT gebaut werden, weil 
 ### team
 - Onboarding-Workflow-API (Template + Checklist)
 - DATEV-**HR-Lohn**-Endpoint (bestehender `route_datev_upload.go` ist nur Buchungsdaten)
+- **Lohnvorbereitung / Lohnlauf (P-team, 2026-06-07)** — siehe `team-datev-lohn-spec.md`. FE mock-first gebaut (`PayrollPrepPanel` + `payrollRuns`/`payrollSettings`-Stores). Backend: `payroll_runs` (period, group, status locked/exported, exported_at, employee_count) + **DATEV-Datei-Generierung** (LODAS / Lohn&Gehalt-Format mit Lohnarten + Abwesenheitsschlüssel) bzw. **Lohnimportdatenservice** (DATEVconnect, Akkreditierung). Bewegungsdaten-Aggregation aus Zeiterfassung+Abwesenheiten pro Periode/Gruppe. tenant_settings (module_id='team', key='payroll.*') für Berater-/Mandanten-Nr + Mappings.
+- **Lohnauswertungsdatenservice** (Phase 2): Abrechnungen/Auswertungen zurück nach Cosmi importieren.
+- ⚠ **Demo-Daten-Lücke (modulweit, vorbestehend):** `/api/v1/hr/employees` liefert im Demo-Mode `userName` leer → ganzes team-Modul zeigt „Unbekannt" (Members + Lohnvorbereitung). Demo-Fixtures sollten `userName` befüllen.
 
 ## ⚪ Später / Post-Launch / Architektur
 - dialer: Gesprächsaufzeichnung (recording_url, an Video-Infra gekoppelt), AMD, Predictive (Phase 3 — bewusst)

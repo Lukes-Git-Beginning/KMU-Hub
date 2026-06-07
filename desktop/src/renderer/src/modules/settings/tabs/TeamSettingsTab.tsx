@@ -11,7 +11,7 @@ import { ConfirmDialog } from '@/components/shared'
 import { useSettingsStore, type LeaveType } from '@/stores/settings'
 import { useHRSettings, useUpdateHRSettings } from '@/api/hooks/hr-hooks'
 
-export function TeamSettingsTab() {
+export function TeamSettingsTab({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation()
   const { teamAdmin, updateTeamAdmin } = useSettingsStore()
 
@@ -83,8 +83,12 @@ export function TeamSettingsTab() {
 
   return (
     <div className="max-w-2xl">
-      <h2 className="text-foreground mb-1">{t('settings.team.title')}</h2>
-      <p className="text-sm text-muted-foreground mb-6">{t('settings.team.subtitle')}</p>
+      {!embedded && (
+        <>
+          <h2 className="text-foreground mb-1">{t('settings.team.title')}</h2>
+          <p className="text-sm text-muted-foreground mb-6">{t('settings.team.subtitle')}</p>
+        </>
+      )}
 
       {/* Departments */}
       <section className="mb-8">
