@@ -593,9 +593,30 @@ export default function KontaktePage() {
           {/* ---------------------------------------------------------------- */}
           {/* GRID VIEW                                                         */}
           {/* ---------------------------------------------------------------- */}
-          {!isLoading && !isError && filtered.length > 0 && viewMode === 'grid' && (
-            <div className="p-4 grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-              {filtered.map((contact) => (
+          {!isLoading && !isError && filtered.length > 0 && viewMode === 'grid' && (() => {
+            // Group by initial letter (same as list view) when sorting by name.
+            const groups: { letter: string | null; items: typeof filtered }[] = []
+            if (sortField === 'name') {
+              for (const c of filtered) {
+                const letter = (c.lastName?.[0] ?? '#').toUpperCase()
+                const last = groups[groups.length - 1]
+                if (last && last.letter === letter) last.items.push(c)
+                else groups.push({ letter, items: [c] })
+              }
+            } else {
+              groups.push({ letter: null, items: filtered })
+            }
+            return (
+              <div className="p-4 space-y-5">
+                {groups.map((group) => (
+                  <div key={group.letter ?? 'all'}>
+                    {group.letter && (
+                      <div className="sticky top-0 z-10 mb-3 border-b border-border-muted bg-secondary/80 px-1 py-1 text-xs font-semibold text-muted-foreground backdrop-blur">
+                        {group.letter}
+                      </div>
+                    )}
+                    <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                      {group.items.map((contact) => (
                 <div
                   key={contact.id}
                   role="button"
@@ -697,9 +718,13 @@ export default function KontaktePage() {
                     <ItemActions items={getContactActions(contact)} />
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
         </div>
       </div>
 

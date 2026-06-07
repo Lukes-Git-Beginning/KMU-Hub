@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ConfirmDialog } from '@/components/shared'
+import { useContacts } from '@/api/hooks/useContacts'
 import { useAdvisoryProtocolsStore } from '@/stores/advisoryProtocols'
 import {
   ADVISORY_LOCATIONS,
@@ -196,6 +197,12 @@ export default function AdvisoryProtocolEditor() {
   const updateStore = useAdvisoryProtocolsStore((s) => s.update)
   const finalizeStore = useAdvisoryProtocolsStore((s) => s.finalize)
 
+  const { data: contactsData } = useContacts({ page_size: 200 })
+  const contactName = useMemo(() => {
+    const c = (contactsData?.contacts ?? []).find((x) => x.id === contactId)
+    return c ? `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim() : ''
+  }, [contactsData, contactId])
+
   const [form, setForm] = useState<AdvisoryProtocol | null>(stored ?? null)
   const [activeSection, setActiveSection] = useState('s1')
   const [confirmFinalize, setConfirmFinalize] = useState(false)
@@ -273,9 +280,12 @@ export default function AdvisoryProtocolEditor() {
           {t('common.back')}
         </button>
         <div className="ml-1 min-w-0">
-          <h2 className="truncate text-base font-semibold text-foreground">
+          <h2 className="truncate text-base font-semibold leading-tight text-foreground">
             {t('advisory.title')}
           </h2>
+          {contactName && (
+            <p className="truncate text-xs text-muted-foreground">{contactName}</p>
+          )}
         </div>
         {readOnly ? (
           <Badge variant="secondary" className="ml-2 gap-1">
