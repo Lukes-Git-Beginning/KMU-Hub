@@ -20,7 +20,6 @@ import { ModuleLoadingFallback } from '@/components/layout/ModuleShell'
 import LoginPage from '@/modules/auth/LoginPage'
 import RegisterPage from '@/modules/auth/RegisterPage'
 import { DEV_PROFILES } from '@/config/roles'
-import { ProfileSwitcher } from '@/components/dev/ProfileSwitcher'
 import NotificationToast from '@/modules/notifications/NotificationToast'
 import { OfflineBanner } from '@/components/ui/OfflineBanner'
 
@@ -314,7 +313,7 @@ export default function App() {
           <Toaster richColors position="bottom-right" closeButton />
           <NotificationToast />
           <OfflineBanner />
-          {DEV_BYPASS_AUTH && <ProfileSwitcher />}
+          {/* Dev profile switcher temporarily hidden per request (DEV_BYPASS_AUTH still drives the default mock user). */}
         </TooltipProvider>
       </I18nProvider>
     </PersistQueryClientProvider>
