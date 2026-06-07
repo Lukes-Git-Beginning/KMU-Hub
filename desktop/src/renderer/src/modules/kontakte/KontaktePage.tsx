@@ -1,6 +1,6 @@
-import { useState, Fragment } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Search,
   Plus,
@@ -91,6 +91,18 @@ export default function KontaktePage() {
 
   // Modal state — which contact is open in the detail modal
   const [detailContactId, setDetailContactId] = useState<string | null>(null)
+
+  // Re-open the detail modal when returning from the advisory-protocol editor
+  // (it navigates back with ?contact=<id>). Consume the param once.
+  const [searchParams, setSearchParams] = useSearchParams()
+  useEffect(() => {
+    const contactParam = searchParams.get('contact')
+    if (contactParam) {
+      setDetailContactId(contactParam)
+      searchParams.delete('contact')
+      setSearchParams(searchParams, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
 
   // Dialog state
   const [formOpen, setFormOpen] = useState(false)

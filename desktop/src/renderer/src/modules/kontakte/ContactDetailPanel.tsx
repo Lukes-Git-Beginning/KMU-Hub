@@ -25,7 +25,13 @@ import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ContactTimeline } from '@/modules/crm/contacts/ContactTimeline'
+import { AdvisoryProtocolsTab } from '@/modules/kontakte/advisory/AdvisoryProtocolsTab'
+import { ReferredByField } from '@/modules/kontakte/ReferredByField'
+import { useAuthStore } from '@/stores/auth'
+import { useSegmentSettingsStore } from '@/stores/segmentSettings'
+import { computeSegment, SEGMENT_META } from '@/lib/segments'
 import { useTags, useAddContactTags, useRemoveContactTags } from '@/api/hooks/useContactTags'
 import { useDeals } from '@/api/hooks/useDeals'
 import { useContactEmails } from '@/api/hooks/useEmail'
@@ -212,6 +218,9 @@ export function ContactDetailPanel({
   const { t } = useTranslation()
   const navigate = useNavigate()
   const status = statusConfig[contact.status]
+  const authUser = useAuthStore((s) => s.user)
+  const advisorName = authUser ? `${authUser.firstName} ${authUser.lastName}`.trim() : ''
+  const segmentThresholds = useSegmentSettingsStore((s) => s.thresholds)
 
   // --- 360° data hooks ---
   const { data: dealsData } = useDeals({ contact_id: contact.id, page_size: 5 })
@@ -221,6 +230,14 @@ export function ContactDetailPanel({
   const contactDeals = (dealsData as { deals?: Record<string, unknown>[] } | undefined)?.deals ?? []
   const contactEmails = (emailsData as { messages?: Record<string, unknown>[] } | undefined)?.messages ?? []
   const contactTasks = (tasksData as { tasks?: Record<string, unknown>[] } | undefined)?.tasks ?? []
+
+  // Mandanten-Segment (rule-based by revenue potential = sum of deal values)
+  const revenuePotential = contactDeals.reduce(
+    (sum, d) => sum + (((d as { value?: number }).value) ?? 0),
+    0,
+  )
+  const segment = computeSegment(revenuePotential, segmentThresholds)
+  const segMeta = SEGMENT_META[segment]
 
   return (
     <div className="flex h-full flex-col overflow-hidden min-h-0">
@@ -291,6 +308,13 @@ export function ContactDetailPanel({
               <span className="rounded-full bg-primary-foreground/20 px-2 py-0.5 text-xs text-primary-foreground">
                 {t(categoryLabelKeys[contact.category] ?? 'kontakte.category.customer')}
               </span>
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-primary-foreground/20 px-2 py-0.5 text-xs text-primary-foreground"
+                title={t('crm.segment.badgeTooltip')}
+              >
+                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: segMeta.color }} />
+                {t('crm.segment.badge', { segment })}
+              </span>
             </div>
           </div>
         </div>
@@ -322,9 +346,18 @@ export function ContactDetailPanel({
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Two-column body                                                      */}
+      {/* Tabs: Übersicht + Beratungsprotokolle                                */}
       {/* ------------------------------------------------------------------ */}
-      <div className="flex flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+      <Tabs defaultValue="overview" className="flex flex-1 flex-col overflow-hidden min-h-0">
+        <TabsList className="shrink-0 gap-1 px-6 pt-1">
+          <TabsTrigger value="overview">{t('kontakte.detail.tabOverview')}</TabsTrigger>
+          <TabsTrigger value="advisory">{t('advisory.tab.title')}</TabsTrigger>
+        </TabsList>
+
+        <TabsContent
+          value="overview"
+          className="mt-0 flex flex-1 flex-col overflow-y-auto min-h-0 lg:flex-row lg:overflow-hidden"
+        >
         {/* Left column: stammdaten */}
         <div className="p-5 space-y-5 min-w-0 border-b border-border lg:flex-1 lg:max-w-[340px] lg:overflow-y-auto lg:border-b-0 lg:border-r lg:border-border">
 
@@ -441,6 +474,15 @@ export function ContactDetailPanel({
               {t('kontakte.detail.tags')}
             </h3>
             <TagEditor contactId={contact.id} tagNames={contact.tags} />
+          </section>
+
+          {/* Empfohlen von */}
+          <Separator />
+          <section>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
+              {t('kontakte.referral.title')}
+            </h3>
+            <ReferredByField contactId={contact.id} />
           </section>
 
           {/* Projects */}
@@ -632,7 +674,12 @@ export function ContactDetailPanel({
           </h3>
           <ContactTimeline contactId={contact.id} />
         </div>
-      </div>
+        </TabsContent>
+
+        <TabsContent value="advisory" className="mt-0 flex-1 overflow-y-auto p-5">
+          <AdvisoryProtocolsTab contactId={contact.id} advisorName={advisorName} onNavigate={onClose} />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

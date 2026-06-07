@@ -10,11 +10,13 @@ import { useTranslation } from 'react-i18next'
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
-import { TrendingUp, Banknote, Target, Inbox, CalendarClock } from 'lucide-react'
+import { TrendingUp, Banknote, Target, Inbox, CalendarClock, UserCheck } from 'lucide-react'
 import { usePipelineStages } from '@/api/hooks/usePipelineStages'
 import { useDeals } from '@/api/hooks/useDeals'
 import { useLeads } from '@/api/hooks/useLeads'
 import { useActivities } from '@/api/hooks/useActivities'
+import { useContacts } from '@/api/hooks/useContacts'
+import { useReferralsStore } from '@/stores/referrals'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/shared'
 import { useChartTheme, categoricalPalette } from '@/modules/berichte/utils/chartTheme'
@@ -45,6 +47,8 @@ export default function AuswertungenPage() {
   const { data: dealsData, isLoading: dl } = useDeals({ page_size: 200 })
   const { data: leads, isLoading: ll } = useLeads()
   const { data: actData, isLoading: al } = useActivities({ page_size: 200 })
+  const { data: contactsData } = useContacts({ page_size: 200 })
+  const referredBy = useReferralsStore((s) => s.referredBy)
   const isLoading = sl || dl || ll || al
 
   const stages = useMemo(() => stagesData?.stages ?? [], [stagesData])
@@ -101,6 +105,23 @@ export default function AuswertungenPage() {
 
     return { openValue, weighted, winRate, wonCount, lostCount, funnel, openLeads, leadSources, activityTypes: activityTypes, dueActivities, totalDeals: deals.length }
   }, [stages, deals, allLeads, activities, theme.primary, t])
+
+  // Empfehler-Report: count how many contacts each referrer brought in.
+  const topReferrers = useMemo(() => {
+    const contacts = contactsData?.contacts ?? []
+    const nameOf = (id: string) => {
+      const c = contacts.find((x) => x.id === id)
+      return c ? `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim() : t('kontakte.referral.unknown')
+    }
+    const counts = new Map<string, number>()
+    for (const referrerId of Object.values(referredBy)) {
+      if (referrerId) counts.set(referrerId, (counts.get(referrerId) ?? 0) + 1)
+    }
+    return [...counts.entries()]
+      .map(([id, count]) => ({ id, name: nameOf(id), count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8)
+  }, [contactsData, referredBy, t])
 
   if (isLoading) {
     return (
@@ -231,6 +252,31 @@ export default function AuswertungenPage() {
                 <Tooltip contentStyle={tooltipStyle} />
               </PieChart>
             </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* Empfehler-Report */}
+        <div className="rounded-xl border border-border bg-card p-4">
+          <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-foreground">
+            <UserCheck className="h-4 w-4 text-muted-foreground" />
+            {t('kontakte.referral.reportTitle')}
+          </h3>
+          {topReferrers.length === 0 ? (
+            <p className="py-8 text-center text-xs text-muted-foreground">{t('kontakte.referral.reportEmpty')}</p>
+          ) : (
+            <ul className="space-y-2">
+              {topReferrers.map((r, i) => (
+                <li key={r.id} className="flex items-center gap-3">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-medium text-muted-foreground">
+                    {i + 1}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm text-foreground">{r.name}</span>
+                  <span className="shrink-0 text-sm font-semibold text-primary">
+                    {t('kontakte.referral.reportCount', { count: r.count })}
+                  </span>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       </div>

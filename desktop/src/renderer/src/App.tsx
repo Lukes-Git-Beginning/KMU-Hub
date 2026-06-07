@@ -55,6 +55,7 @@ const CompanyDetailPage = lazy(() => import('@/modules/crm/companies/CompanyDeta
 const DealsListPage = lazy(() => import('@/modules/crm/deals/DealsListPage'))
 const LeadsInboxPage = lazy(() => import('@/modules/kontakte/leads/LeadsInboxPage'))
 const AuswertungenPage = lazy(() => import('@/modules/kontakte/AuswertungenPage'))
+const AdvisoryProtocolEditor = lazy(() => import('@/modules/kontakte/advisory/AdvisoryProtocolEditor'))
 const DealDetailPage = lazy(() => import('@/modules/crm/deals/DealDetailPage'))
 const ActivitiesListPage = lazy(() => import('@/modules/crm/activities/ActivitiesListPage'))
 const DokumentePage = lazy(() => import('@/modules/dokumente/DokumentePage'))
@@ -230,6 +231,7 @@ const router = createHashRouter([
           { path: 'pipeline/:id', element: lazyRoute(DealDetailPage) },
           { path: 'aktivitaeten', element: lazyRoute(ActivitiesListPage) },
           { path: 'auswertungen', element: lazyRoute(AuswertungenPage) },
+          { path: 'protokoll/:contactId/:protocolId', element: lazyRoute(AdvisoryProtocolEditor) },
         ],
       },
       { path: 'dokumente', element: lazyRoute(DokumentePage) },
