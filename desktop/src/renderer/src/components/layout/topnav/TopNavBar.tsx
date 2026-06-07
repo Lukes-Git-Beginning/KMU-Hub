@@ -82,6 +82,12 @@ function TopNavTab({ item }: { item: NavItemConfig }) {
     <NavLink
       to={item.to}
       end={item.to === '/'}
+      onClick={(e) => {
+        if (item.onActivate) {
+          e.preventDefault()
+          item.onActivate()
+        }
+      }}
       className={({ isActive }) =>
         cn(
           'flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium',

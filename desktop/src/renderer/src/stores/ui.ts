@@ -75,6 +75,12 @@ interface UIState {
   // Onboarding
   onboardingCompleted: boolean
 
+  // Module-settings overlay (transient — not persisted)
+  isSettingsOverlayOpen: boolean
+  settingsOverlayEntry?: string
+  openSettingsOverlay: (entryId?: string) => void
+  closeSettingsOverlay: () => void
+
   setBackgroundPattern: (pattern: string) => void
   setDeskBackground: (bg: string | null) => void
 
@@ -144,6 +150,14 @@ export const useUIStore = create<UIState>()(
       deskDecorations: buildDefaultDecorations(DEFAULT_DESK_THEME_ID),
       deskDecorationsVisible: true,
       onboardingCompleted: false,
+
+      // Module-settings overlay
+      isSettingsOverlayOpen: false,
+      settingsOverlayEntry: undefined,
+      openSettingsOverlay: (entryId) =>
+        set({ isSettingsOverlayOpen: true, settingsOverlayEntry: entryId }),
+      closeSettingsOverlay: () =>
+        set({ isSettingsOverlayOpen: false, settingsOverlayEntry: undefined }),
 
       setPinnedModules: (pinnedModules) =>
         set({ pinnedModules }),
@@ -245,6 +259,12 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: 'cosmi-ui',
+      // Keep the transient settings-overlay state out of persistence so it
+      // never reopens itself on reload.
+      partialize: (s) => {
+        const { isSettingsOverlayOpen: _o, settingsOverlayEntry: _e, ...rest } = s
+        return rest
+      },
     }
   )
 )

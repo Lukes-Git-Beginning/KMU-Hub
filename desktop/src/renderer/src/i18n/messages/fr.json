@@ -7699,5 +7699,18 @@
   "settings.calendar.section.tenantTitle": "Heures de travail et jours fériés",
   "settings.calendar.section.tenantDesc": "S'applique à toute l'équipe — heures de travail et région des jours fériés.",
   "team.member.moduleLead.title": "Paramètres de module avancés",
-  "team.member.moduleLead.hint": "Activez les modules pour lesquels cet employé peut gérer les paramètres de toute l'équipe (responsable du module)."
+  "team.member.moduleLead.hint": "Activez les modules pour lesquels cet employé peut gérer les paramètres de toute l'équipe (responsable du module).",
+  "moduleSettings.title": "Paramètres",
+  "moduleSettings.groups.module": "Modules",
+  "moduleSettings.groups.cosmi": "Cosmi (Général)",
+  "moduleSettings.activeBadge": "Actif",
+  "moduleSettings.empty": "Aucun paramètre disponible.",
+  "moduleSettings.entries.finance": "Finances",
+  "moduleSettings.entries.calendar": "Calendrier",
+  "moduleSettings.entries.mail": "E-mail",
+  "moduleSettings.entries.team": "Équipe",
+  "moduleSettings.entries.company": "Entreprise",
+  "moduleSettings.entries.billing": "Facturation",
+  "moduleSettings.entries.integrations": "Intégrations",
+  "moduleSettings.entries.it": "IT et système"
 }

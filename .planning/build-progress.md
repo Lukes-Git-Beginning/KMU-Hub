@@ -123,3 +123,20 @@ Darien-Screenshot-Feedback an der Kontakte-UX → UX-Rework:
 - [x] **i18n:** 9 Keys ×4 Sprachen (`settings.scope.*`, `settings.calendar.section.*`, `team.member.moduleLead.*`). Audit: 0 missing.
 - [x] **QA (`scripts/qa-settings-fundament.mjs`):** Kalender @ 1440/720 (Admin, unlocked, beide Badges, 0 Raw-Keys, 0 Errors) + Member-Lock-Zustand (Hinweis-Banner + ausgegraute tenant-Sektion + Schloss-Badge, in-place Profilwechsel). typecheck 0 Fehler, lint 0 Errors.
 - [x] **backend-gaps:** `tenant_module_leads` + `tenant_settings`/`user_settings`-Scope-Tabellen für Luke dokumentiert.
+
+---
+
+## Modul-Einstellungs-Fenster (App-Shell) — ⏳ Commit A ✅, Commit B (CRM-Panel) offen
+
+> Darien-Feedback (2026-06-07): „Einstellungen" links unten soll ein **Fenster/Overlay** öffnen (kein Routing), darin NUR Modul-Einstellungen + ein „Cosmi (Allgemein)"-Bereich (Admin-Inhalte verteilt). Persönliche Settings bleiben oben rechts übers Profil-Menü. Aufbau: linke Modul-Liste + rechter Inhalt (klassischer Settings-Aufbau, Cosmi-Optik), aktives Modul vorausgewählt + markiert.
+
+**Commit A — Fenster-Shell ✅ (typecheck 0, lint 0, QA grün):**
+- [x] `SettingsOverlay.tsx` — Overlay (kein Routing), linke Navi (Gruppen MODULE / COSMI), rechter Inhalt, Esc/Backdrop/X schließt, kontext-sensitive Vorauswahl (`resolveEntryForPath`) + „Aktiv"-Badge.
+- [x] `module-settings-registry.tsx` — deklarative Eintrags-Registry mit RBAC. MODULE: Finanzen/Kalender/Mail/Team · COSMI: Firma/Abrechnung/Integrationen/IT (bestehende Tab-Komponenten wiederverwendet).
+- [x] UI-Store: `isSettingsOverlayOpen` + `openSettingsOverlay`/`closeSettingsOverlay` (transient, aus Persistenz ausgeschlossen).
+- [x] „Einstellungen"-Button (links unten) in allen 4 Layouts (Sidebar/Classic/Dock/TopNav) auf Overlay-Öffnen umgestellt (`onActivate` am NavItem, `preventDefault` statt Navigation). Profil-Menü oben rechts → /settings (persönlich) bleibt.
+- [x] `/settings` auf **Persönlich** verschlankt (Mail/Kalender raus, leben im Fenster).
+- [x] i18n `moduleSettings.*` ×4 (Audit 0 missing). QA (`scripts/qa-module-settings.mjs`): öffnet als Dialog, beide Gruppen, Aktiv-Badge, **Route bleibt stabil** (kein Wegnavigieren), Kalender-Scope-Sektionen im Fenster, Esc schließt, 0 Errors/Raw-Keys.
+- ⚠ QA-Selektor bei 820px traf den (kollabierten) Trigger nicht — Overlay selbst ist responsiv; reiner Test-Selektor-Punkt.
+
+**Commit B — CRM-Settings-Panel (Kontakte Phase 7) offen:** Pipeline-Stage-Editor (Hooks da) · Custom-Fields (CustomFieldsConfig) · Tag-Verwaltung (CRUD-Hooks fehlen) · Lead-Scoring-Regeln (Store auslagern) → als erster MODULE-Eintrag „CRM" auf `ModuleSettingsShell`.

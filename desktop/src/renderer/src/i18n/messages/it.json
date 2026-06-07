@@ -7699,5 +7699,18 @@
   "settings.calendar.section.tenantTitle": "Orario di lavoro e festività",
   "settings.calendar.section.tenantDesc": "Vale per tutto il team — orario di lavoro e regione delle festività.",
   "team.member.moduleLead.title": "Impostazioni avanzate del modulo",
-  "team.member.moduleLead.hint": "Attiva i moduli per cui questo dipendente può gestire le impostazioni di tutto il team (responsabile del modulo)."
+  "team.member.moduleLead.hint": "Attiva i moduli per cui questo dipendente può gestire le impostazioni di tutto il team (responsabile del modulo).",
+  "moduleSettings.title": "Impostazioni",
+  "moduleSettings.groups.module": "Moduli",
+  "moduleSettings.groups.cosmi": "Cosmi (Generale)",
+  "moduleSettings.activeBadge": "Attivo",
+  "moduleSettings.empty": "Nessuna impostazione disponibile.",
+  "moduleSettings.entries.finance": "Finanze",
+  "moduleSettings.entries.calendar": "Calendario",
+  "moduleSettings.entries.mail": "E-mail",
+  "moduleSettings.entries.team": "Team",
+  "moduleSettings.entries.company": "Azienda",
+  "moduleSettings.entries.billing": "Fatturazione",
+  "moduleSettings.entries.integrations": "Integrazioni",
+  "moduleSettings.entries.it": "IT e sistema"
 }

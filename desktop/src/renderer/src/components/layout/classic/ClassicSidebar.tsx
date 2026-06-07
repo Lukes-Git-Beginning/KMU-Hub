@@ -89,6 +89,12 @@ function ClassicNavItem({ item }: { item: NavItemConfig }) {
         <NavLink
           to={item.to}
           end={item.to === '/'}
+          onClick={(e) => {
+            if (item.onActivate) {
+              e.preventDefault()
+              item.onActivate()
+            }
+          }}
           className="relative flex items-center justify-center rounded-xl p-1.5 transition-all duration-150"
         >
           <div

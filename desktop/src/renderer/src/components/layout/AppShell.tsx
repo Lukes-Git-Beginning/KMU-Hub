@@ -32,6 +32,7 @@ import { PageTransitionOutlet } from './PageTransitionOutlet'
 import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard'
 import { TourOverlay } from '@/components/shared/TourOverlay'
 import { PasswordExpiryDialog } from '@/components/shared/PasswordExpiryDialog'
+import { SettingsOverlay } from '@/modules/settings/SettingsOverlay'
 import { DockBar } from './dock/DockBar'
 import { TopNavBar } from './topnav/TopNavBar'
 import { ClassicSidebar } from './classic/ClassicSidebar'
@@ -108,6 +109,7 @@ export function AppShell() {
       <IncomingCallOverlay />
       <TourOverlay />
       <PasswordExpiryDialog />
+      <SettingsOverlay />
       {!onboardingCompleted && <OnboardingWizard />}
     </PresenceProvider>
   )

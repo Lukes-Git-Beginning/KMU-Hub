@@ -51,6 +51,11 @@ export interface NavItemConfig {
   enabled: boolean
   section: 'main' | 'bottom'
   color: NavItemColor
+  /**
+   * Optional click override. When set, renderers call this instead of
+   * navigating to `to` (used to open the settings overlay rather than route).
+   */
+  onActivate?: () => void
 }
 
 /** Look up a nav item's color by module ID. Returns a default gray if not found. */

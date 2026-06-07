@@ -7733,5 +7733,18 @@
   "settings.calendar.section.tenantTitle": "Working hours & holidays",
   "settings.calendar.section.tenantDesc": "Applies to the whole team — working hours and holiday region.",
   "team.member.moduleLead.title": "Advanced module settings",
-  "team.member.moduleLead.hint": "Enable modules for which this employee may manage the team-wide settings (module lead)."
+  "team.member.moduleLead.hint": "Enable modules for which this employee may manage the team-wide settings (module lead).",
+  "moduleSettings.title": "Settings",
+  "moduleSettings.groups.module": "Modules",
+  "moduleSettings.groups.cosmi": "Cosmi (General)",
+  "moduleSettings.activeBadge": "Active",
+  "moduleSettings.empty": "No settings available.",
+  "moduleSettings.entries.finance": "Finance",
+  "moduleSettings.entries.calendar": "Calendar",
+  "moduleSettings.entries.mail": "Email",
+  "moduleSettings.entries.team": "Team",
+  "moduleSettings.entries.company": "Company",
+  "moduleSettings.entries.billing": "Billing",
+  "moduleSettings.entries.integrations": "Integrations",
+  "moduleSettings.entries.it": "IT & System"
 }

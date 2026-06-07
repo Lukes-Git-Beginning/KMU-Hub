@@ -58,7 +58,13 @@ function NavItem({
         <NavLink
           to={item.to}
           end={item.to === '/'}
-          onClick={onItemClick}
+          onClick={(e) => {
+            if (item.onActivate) {
+              e.preventDefault()
+              item.onActivate()
+            }
+            onItemClick?.()
+          }}
           className={cn(
             'group relative flex items-center rounded-lg transition-all duration-150',
             collapsed ? 'justify-center p-2' : 'gap-2.5 px-2.5 py-1.5',

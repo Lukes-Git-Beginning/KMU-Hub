@@ -31,8 +31,6 @@ import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 import { DESK_BACKGROUNDS } from '@/components/layout/DeskEnvironment'
 import { canSeeSettingsTab } from '@/config/roles'
-import { MailSettingsTab } from './tabs/MailSettingsTab'
-import { CalendarSettingsTab } from './tabs/CalendarSettingsTab'
 import { PrivacySettingsTab } from './tabs/PrivacySettingsTab'
 import { PaletteSwitcher } from '@/components/shared/PaletteSwitcher'
 import { LayoutSwitcher } from '@/components/shared/LayoutSwitcher'
@@ -46,11 +44,10 @@ import { ITAdminTab } from './tabs/ITAdminTab'
 import { ThemePreview } from './ThemePreview'
 import { useTourStore } from '@/stores/tour'
 import { branding } from '@/config/branding'
-import { useTenantMode } from '@/hooks/useTenantMode'
 import { useNavigate } from 'react-router-dom'
 import { formatDate } from '@/lib/format'
 
-type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notifications' | 'mail' | 'calendar' | 'company' | 'billing' | 'it-admin' | 'integrations' | 'privacy' | 'ai' | 'about'
+type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notifications' | 'company' | 'billing' | 'it-admin' | 'integrations' | 'privacy' | 'ai' | 'about'
 
 interface TabConfig {
   key: TabKey
@@ -70,8 +67,6 @@ const ALL_TABS: TabConfigExtended[] = [
   { key: 'language', labelKey: 'settings.tabs.language', icon: Globe, groupKey: 'settings.groups.personal' },
   { key: 'security', labelKey: 'settings.tabs.security', icon: Shield, groupKey: 'settings.groups.personal' },
   { key: 'notifications', labelKey: 'settings.tabs.notifications', icon: Bell, groupKey: 'settings.groups.personal' },
-  { key: 'mail', labelKey: 'settings.tabs.mail', icon: Mail, groupKey: 'settings.groups.modules' },
-  { key: 'calendar', labelKey: 'settings.tabs.calendar', icon: Calendar, groupKey: 'settings.groups.modules' },
   { key: 'company', labelKey: 'settings.tabs.company', icon: Landmark, groupKey: 'settings.groups.admin', adminOnly: true },
   { key: 'billing', labelKey: 'settings.tabs.billing', icon: CreditCard, groupKey: 'settings.groups.admin', adminOnly: true },
   { key: 'it-admin', labelKey: 'settings.tabs.itAdmin', icon: Monitor, groupKey: 'settings.groups.admin', adminOnly: true },
@@ -92,7 +87,6 @@ export default function SettingsPage() {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<TabKey>('profile')
   const user = useAuthStore((s) => s.user)
-  const { isDistributed } = useTenantMode()
   const navigate = useNavigate()
 
   // Filter tabs:
@@ -173,8 +167,6 @@ export default function SettingsPage() {
         {effectiveTab === 'language' && <LanguageTab />}
         {effectiveTab === 'security' && <SecurityTab />}
         {effectiveTab === 'notifications' && <NotificationSettingsTab />}
-        {effectiveTab === 'mail' && <MailSettingsTab />}
-        {effectiveTab === 'calendar' && <CalendarSettingsTab />}
         {effectiveTab === 'company' && <CompanySettingsTab />}
         {effectiveTab === 'billing' && <BillingSettingsTab />}
         {effectiveTab === 'it-admin' && <ITAdminTab />}

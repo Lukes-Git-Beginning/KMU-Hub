@@ -7733,5 +7733,18 @@
   "settings.calendar.section.tenantTitle": "Arbeitszeiten & Feiertage",
   "settings.calendar.section.tenantDesc": "Gilt für das ganze Team — Arbeitszeiten und Feiertagsregion.",
   "team.member.moduleLead.title": "Erweiterte Moduleinstellungen",
-  "team.member.moduleLead.hint": "Aktiviere Module, für die dieser Mitarbeiter die teamweiten Einstellungen verwalten darf (Modulleitung)."
+  "team.member.moduleLead.hint": "Aktiviere Module, für die dieser Mitarbeiter die teamweiten Einstellungen verwalten darf (Modulleitung).",
+  "moduleSettings.title": "Einstellungen",
+  "moduleSettings.groups.module": "Module",
+  "moduleSettings.groups.cosmi": "Cosmi (Allgemein)",
+  "moduleSettings.activeBadge": "Aktiv",
+  "moduleSettings.empty": "Keine Einstellungen verfügbar.",
+  "moduleSettings.entries.finance": "Finanzen",
+  "moduleSettings.entries.calendar": "Kalender",
+  "moduleSettings.entries.mail": "E-Mail",
+  "moduleSettings.entries.team": "Team",
+  "moduleSettings.entries.company": "Firma",
+  "moduleSettings.entries.billing": "Abrechnung",
+  "moduleSettings.entries.integrations": "Integrationen",
+  "moduleSettings.entries.it": "IT & System"
 }

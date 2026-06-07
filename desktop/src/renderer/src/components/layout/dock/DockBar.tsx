@@ -85,7 +85,7 @@ function DockItem({ item }: { item: NavItemConfig }) {
       <TooltipTrigger asChild>
         <button
           data-dock-item
-          onClick={() => navigate(item.to)}
+          onClick={() => (item.onActivate ? item.onActivate() : navigate(item.to))}
           aria-label={item.label}
           aria-current={isActive ? 'page' : undefined}
           className="relative flex items-center justify-center origin-bottom transition-transform duration-150 ease-out"

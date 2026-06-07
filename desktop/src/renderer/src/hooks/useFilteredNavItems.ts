@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth'
 import { useProfileStore } from '@/stores/profile'
+import { useUIStore } from '@/stores/ui'
 import { canSeeNavItem } from '@/config/roles'
 import { isModuleAllowedForProfile } from '@/config/business-profiles'
 import { navItems, type NavItemConfig } from '@/components/layout/sidebar/nav-items'
@@ -32,6 +33,7 @@ export function useFilteredNavItems() {
   const devShowAll = useProfileStore((s) => s.devShowAllModules)
   const enabledOptionals = useProfileStore((s) => s.enabledOptionalModules)
   const { isEnabled: isFlagEnabled, isLoading: flagsLoading } = useFeatureFlags()
+  const openSettingsOverlay = useUIStore((s) => s.openSettingsOverlay)
 
   return useMemo(() => {
     const resolve = (item: NavItemConfig): NavItemConfig => ({
@@ -40,6 +42,9 @@ export function useFilteredNavItems() {
       badge: item.badge
         ? { ...item.badge, value: item.badge.value ? t(item.badge.value) : item.badge.value }
         : item.badge,
+      // The bottom "Einstellungen" item opens the module-settings overlay
+      // instead of navigating to a route.
+      onActivate: item.id === 'settings' ? () => openSettingsOverlay() : undefined,
     })
 
     const filter = (items: NavItemConfig[]) =>
@@ -69,5 +74,5 @@ export function useFilteredNavItems() {
       bottomItems: filter(bottom).map(resolve),
       allItems: filter(navItems).map(resolve),
     }
-  }, [t, user, businessProfileId, devShowAll, enabledOptionals, isFlagEnabled, flagsLoading])
+  }, [t, user, businessProfileId, devShowAll, enabledOptionals, isFlagEnabled, flagsLoading, openSettingsOverlay])
 }
