@@ -1,5 +1,18 @@
 # ▶ HIER STARTEN
 
+## ⏯ AKTIVER BATCH (Stand 2026-06-08) — „team-Lohn + Kommunikation-Merge"
+Feinplan: `.planning/batch-kommunikation-feinplan.md`. Fünfer-Batch, direct-to-main, origin synchron.
+- ✅ **Phase 1** Lohn-Stammdaten am Mitarbeiterprofil (`520b77c`)
+- ✅ **Phase 2** Modul-Merge chat+kommunikation → ein Modul, Umschalter Team|Posteingang (`b242dd0`)
+- 🟡 **Phase 3** Team-Chat scharf — TEILWEISE: mark-read/Member-Panel/Inline-Edit/Raw-Key-Fix (`f3d2364`) + Volltextsuche (`8b6a3a0`). **OFFEN:** Reactions (Service-Mismatch FE→video statt chat, mit Luke klären), File-Upload (sendMessage+files), Channel-Join/Leave-UI (Hooks+Handler da, nur UI), Mentions-Inbox (GetUserMentions+View+Handler). Details: `backend-gaps.md` → kommunikation-Sektion.
+- ⏳ **Phase 4** Posteingang scharf (Snooze/Claim/Assign/Bulk/Routing/Team-Inbox verdrahten + Demo-Handler; Status/Threading/Tags mock-first). Demo-Handler fehlen für snooze/claim/teams/rules.
+- ⏳ **Phase 5** Synergie (interne Notizen+@Kollegen im Kunden-Thread, Collision), Call-Bridge ins video-Modul, Slash-Command-Mock-Shell, KommunikationSettingsPanel tenant-Sektionen (Kanäle/Routing/Team-Inbox/Canned/Retention), backend-gaps final.
+- **Entscheidungen Darien:** Merge-UI = Umschalter · Audio/Video = echte video-Bridge · Bots/Slash = Mock-Shell+Doku · **Demo-Handler bauen wo nötig** (Mock-first verdrahtbar) · Phasen-Position bei Auflistung mit angeben (~140-Phasen-Plan).
+- **Verifikations-Setup:** gescopter `tsconfig.pNcheck.json` (extends web, inkl. global.d.ts/vite-env.d.ts/i18next.d.ts + geänderte Dateien) → `node_modules/.bin/tsc --noEmit -p ...` (NIE busy-wait-Loop danebenlaufen lassen — bremst tsc aus!). QA: `scripts/qa-*.mjs` gegen `npm run dev` :5173.
+
+---
+
+
 > Autonomer Bau-Lauf. Ziel: alle ~25 Module „settings-komplett" durcharbeiten (gründlich > schnell). Reihenfolge in `module-phase-plans.md` (Entscheidungs-Log oben).
 
 ## Stand (2026-06-07, autonomer Lauf)
