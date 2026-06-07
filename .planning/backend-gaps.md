@@ -116,11 +116,21 @@ Folgende Verknüpfungen konnten im ContactDetailPanel NICHT gebaut werden, weil 
 - Share-Token-Routes in `route_wiki.go` registrieren (Repo-Methoden existieren) + öffentl. Read-Endpoint
 - Artikel-Templates-Endpoint (FE-Dialog existiert)
 
-### finanzen (Vollersatz-Ziel)
-- XRechnung-UBL-XML-Generator (ZUGFeRD ist da)
-- Wiederkehrende Rechnungen (Tabelle + Scheduler + CRUD)
-- Open-Banking/CAMT.053-Import + Zahlungsabgleich-Matching
-- `currency`-Feld + Wechselkurslogik (aktuell EUR hardcoded)
+### finanzen (Symbiose-Ziel — NICHT Vollersatz, siehe finanzen-buchhaltung-strategy.md)
+Strategie: Cosmi macht Vorkette (Angebot→Zahlungseingang) eigenständig, übergibt an DATEV/Bexio. Steuerberater macht Kontierung/Bilanz/USt/Lohn.
+- **DATEV EXTF-Export (DE, Launch-kritisch):** Buchungsstapel (EXTF ASCII/CSV, Windows-1252) + Belegbilder-ZIP. Settings: Berater-Nr., Mandanten-Nr., Sachkonto-Länge, Steuerkennzeichen→Konto-Mapping. EXTF-Spec öffentlich, kein DATEV-Marktplatz-Partner nötig.
+- **Bexio-API (CH, Launch-kritisch):** OAuth2, Rechnungen/Kontakte bidirektional sync.
+- **E-Rechnung (Launch-Blocker):** XRechnung-UBL + ZUGFeRD 2.x (EN-16931) Generierung Ausgang + Empfang/XML-Extraktion Eingang. Empfangspflicht DE seit 01.01.2025.
+- **GoBD-Belegarchiv (Launch-Blocker):** unveränderbar, Änderungshistorie, 8 J. Retention.
+- Wiederkehrende Rechnungen (Tabelle + Scheduler + CRUD) · OP-Liste · mehrstufiges Mahnwesen
+- Zahlungsabgleich: CAMT.053/MT940-Import + Matching · später finAPI/HBCI-Banking
+- `currency`-Feld + Wechselkurslogik (aktuell EUR hardcoded; CHF/USD)
+- BMD-Export (AT) + Lexware/lexoffice-Anbindung (Selbstbucher) — Post-Launch
+
+### kontakte — Beratungsprotokoll (Finanzberatung, P8) — siehe kontakte-p8-beratungsprotokoll-spec.md
+- `advisory_protocols`-Tabelle (contact_id, ~40 Felder über 8 Abschnitte, **immutable nach Aushändigung**, 10-Jahre-Retention, DSGVO Art.6(1)(c)). Endpoints CRUD + PDF-Export (Aushändigung).
+- „Empfohlen von"-Feld am Contact (Self-Referenz) + Empfehler-Report-Aggregation.
+- Mandanten-Segment A/B/C (regelbasiert nach Umsatzpotenzial) — Feld + Berechnungsregel.
 
 ### automatisierung
 - Branch-/Merge-Step im Workflow-Modell + Engine (aktuell sequenziell)

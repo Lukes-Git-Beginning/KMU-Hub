@@ -21,8 +21,8 @@ Branch `main`, direct-to-main, origin synchron. Commits dieser Session:
 
 ## ▶ NÄCHSTE SCHRITTE (in Reihenfolge)
 Pro Modul: Features + **Moduleinstellungen mitbauen** (Persönlich + Für-alle) + Screenshot-QA @ Breiten + i18n ×4 + commit/push.
-1. **Kontakte Phase 8** — Finanzberatungs-Tiefe (Darien: Variante 1): „Empfohlen von" = Kontakt-Picker + Empfehler-Report · Mandanten-Segmente A/B/C regelbasiert (Umsatzpotenzial) · Beratungsprotokoll-Tab (Felder nach Finanzberatungs-Standard defaulten).
-2. **finanzen** — P1: buchhaltung-Modul löschen (dead code, `git rm` + Test nach finanzen) · ExpensesTab/TransactionsTab Zustand→TanStack Query. Dann P2-P4 (Angebot→Rechnung, wiederkehrend, Fremdwährung CHF/USD, Mahnwesen; EÜR-Standard + doppelte BuHa optional; SKR03/04 + DATEV). **+ finanzen-Moduleinstellungen** (Persönlich + Für-alle).
+1. **Kontakte Phase 8** — Finanzberatungs-Tiefe (Darien: Variante 1, recherchiert): Beratungsprotokoll-Tab nach `kontakte-p8-beratungsprotokoll-spec.md` (8 Abschnitte, rechtlich fundiert) · „Empfohlen von" = Kontakt-Picker + Empfehler-Report · Mandanten-Segmente A/B/C regelbasiert.
+2. **finanzen** — ⚠ **KEINE Löschung** (Darien: behalten). Strategie = **Symbiose** (`finanzen-buchhaltung-strategy.md`): Cosmi macht Vorkette (Angebot→Zahlungseingang) eigenständig + DATEV-EXTF-Export/Bexio als Integration; Steuerberater macht Rest. Bau: ExpensesTab/TransactionsTab Zustand→TanStack Query · Faktura-Kette · E-Rechnung (Launch-Blocker) · DATEV-Export in „Für alle"-Settings. `modules/buchhaltung/` (dead folder) NICHT anfassen ohne Darien-OK. **+ finanzen-Moduleinstellungen** (Persönlich + Für-alle).
 3. **team** → **kommunikation** → **work** → … (Reihenfolge `module-phase-plans.md`). **mails zurückgestellt** (Backend-Arch mit Luke). **security ans Ende** (DSGVO mit Luke).
 
 ## Offene Domänen-Fragen (Darien, wenn Zeit)
