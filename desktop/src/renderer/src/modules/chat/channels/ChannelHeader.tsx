@@ -5,7 +5,7 @@
  * Actions: members list button, search messages button.
  */
 import { useTranslation } from 'react-i18next'
-import { Hash, Users, Search } from 'lucide-react'
+import { Hash, Users } from 'lucide-react'
 import { useChannel, useChannelMembers } from '@/api/hooks/useChannels'
 import { useTypingIndicator } from '@/api/hooks/useMessages'
 import { Button } from '@/components/ui/button'
@@ -17,9 +17,11 @@ import {
 
 interface ChannelHeaderProps {
   channelId: string
+  membersActive?: boolean
+  onToggleMembers?: () => void
 }
 
-export function ChannelHeader({ channelId }: ChannelHeaderProps) {
+export function ChannelHeader({ channelId, membersActive, onToggleMembers }: ChannelHeaderProps) {
   const { t } = useTranslation()
   const { data: channelData } = useChannel(channelId)
   const { data: membersData } = useChannelMembers(channelId)
@@ -49,20 +51,17 @@ export function ChannelHeader({ channelId }: ChannelHeaderProps) {
         <div className="flex items-center gap-1 shrink-0">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-8 w-8 ${membersActive ? 'bg-secondary text-foreground' : ''}`}
+                onClick={onToggleMembers}
+                aria-pressed={membersActive}
+              >
                 <Users className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>{t('chat.header.members', { count: memberCount })}</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Search className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{t('chat.header.searchMessages')}</TooltipContent>
           </Tooltip>
         </div>
       </div>

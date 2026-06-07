@@ -12,6 +12,7 @@ import { de } from 'date-fns/locale'
 import { Loader2 } from 'lucide-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useMessages, useMessageWebSocket, useEditMessage, useDeleteMessage, type MessageInfo } from '@/api/hooks/useMessages'
+import { useMarkChannelRead } from '@/api/hooks/useChannels'
 import { useAuthStore } from '@/stores/auth'
 import { MessageBubble } from './MessageBubble'
 
@@ -42,6 +43,16 @@ export function MessageList({ channelId, onOpenThread }: MessageListProps) {
 
   const editMessage = useEditMessage()
   const deleteMessage = useDeleteMessage()
+  const markRead = useMarkChannelRead()
+
+  // Mark the channel read once its newest message is known (and whenever the
+  // channel changes or a new message arrives). Clears the unread badge.
+  const latestMessageId = messages.length > 0 ? messages[messages.length - 1]?.id : undefined
+  useEffect(() => {
+    if (channelId && latestMessageId) {
+      markRead.mutate({ channelId, messageId: latestMessageId })
+    }
+  }, [channelId, latestMessageId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Flatten grouped messages into a single array for virtualizer
   const flatItems = useMemo<FlatItem[]>(() => {
@@ -90,12 +101,13 @@ export function MessageList({ channelId, onOpenThread }: MessageListProps) {
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
-  const handleEdit = useCallback((messageId: string, content: string) => {
-    const newContent = window.prompt(t('chat.messages.editPrompt'), content)
-    if (newContent !== null && newContent.trim() !== content) {
-      editMessage.mutate({ messageId, content: newContent.trim() })
+  // Inline edit: MessageBubble owns the editing UI and passes the new content.
+  const handleEdit = useCallback((messageId: string, newContent: string) => {
+    const trimmed = newContent.trim()
+    if (trimmed) {
+      editMessage.mutate({ messageId, content: trimmed })
     }
-  }, [editMessage, t])
+  }, [editMessage])
 
   const handleDelete = useCallback((messageId: string) => {
     if (window.confirm(t('chat.messages.deleteConfirm'))) {

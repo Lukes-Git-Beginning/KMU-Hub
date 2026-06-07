@@ -8107,5 +8107,8 @@
   "kommunikation.settings.display.density": "Density",
   "kommunikation.settings.display.densityComfortable": "Comfortable",
   "kommunikation.settings.display.densityCompact": "Compact",
-  "kommunikation.settings.display.enterToSend": "Send with Enter"
+  "kommunikation.settings.display.enterToSend": "Send with Enter",
+  "chat.messages.editHint": "Enter to save, Esc to cancel",
+  "chat.messages.replyCount": "{count, plural, one {# reply} other {# replies}}",
+  "chat.thread.replyCount": "{count, plural, one {# reply} other {# replies}}"
 }

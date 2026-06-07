@@ -47,7 +47,21 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete, 
   const [showActions, setShowActions] = useState(false)
   const [reactions, setReactions] = useState<Reaction[]>(() => generateMockReactions(message.id ?? ''))
   const [showPicker, setShowPicker] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
   const presenceMap = usePresenceStore((s) => s.presenceMap)
+
+  const startEdit = useCallback(() => {
+    setDraft(message.content ?? '')
+    setEditing(true)
+  }, [message.content])
+
+  const submitEdit = useCallback(() => {
+    if (message.id && draft.trim() && draft.trim() !== (message.content ?? '')) {
+      onEdit?.(message.id, draft)
+    }
+    setEditing(false)
+  }, [draft, message.id, message.content, onEdit])
 
   const presence = message.created_by ? presenceMap[message.created_by] ?? 'offline' : 'offline'
 
@@ -137,9 +151,38 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete, 
           )}
         </div>
 
-        <div className="text-sm text-foreground whitespace-pre-wrap break-words">
-          {renderedContent}
-        </div>
+        {editing ? (
+          <div className="mt-1">
+            <textarea
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  submitEdit()
+                } else if (e.key === 'Escape') {
+                  setEditing(false)
+                }
+              }}
+              rows={Math.min(6, Math.max(1, draft.split('\n').length))}
+              className="w-full resize-none rounded-md border border-border bg-input-background px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+            />
+            <div className="mt-1 flex items-center gap-2">
+              <button onClick={submitEdit} className="rounded px-2 py-0.5 text-xs font-medium text-primary hover:underline">
+                {t('common.save')}
+              </button>
+              <button onClick={() => setEditing(false)} className="rounded px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground">
+                {t('common.cancel')}
+              </button>
+              <span className="text-[10px] text-muted-foreground">{t('chat.messages.editHint')}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm text-foreground whitespace-pre-wrap break-words">
+            {renderedContent}
+          </div>
+        )}
 
         {/* File attachments */}
         {attachments && attachments.length > 0 && (
@@ -214,7 +257,7 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete, 
                     variant="ghost"
                     size="icon"
                     className="h-6 w-6"
-                    onClick={() => message.id && onEdit?.(message.id, message.content ?? '')}
+                    onClick={startEdit}
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>

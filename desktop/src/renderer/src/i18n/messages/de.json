@@ -8107,5 +8107,8 @@
   "kommunikation.settings.display.density": "Dichte",
   "kommunikation.settings.display.densityComfortable": "Komfortabel",
   "kommunikation.settings.display.densityCompact": "Kompakt",
-  "kommunikation.settings.display.enterToSend": "Mit Enter senden"
+  "kommunikation.settings.display.enterToSend": "Mit Enter senden",
+  "chat.messages.editHint": "Enter zum Speichern, Esc zum Abbrechen",
+  "chat.messages.replyCount": "{count, plural, one {# Antwort} other {# Antworten}}",
+  "chat.thread.replyCount": "{count, plural, one {# Antwort} other {# Antworten}}"
 }

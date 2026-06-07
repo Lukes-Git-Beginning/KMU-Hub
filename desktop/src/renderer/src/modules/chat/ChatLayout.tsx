@@ -13,22 +13,31 @@ import { ChannelHeader } from './channels/ChannelHeader'
 import { MessageList } from './messages/MessageList'
 import { MessageInput } from './messages/MessageInput'
 import { ThreadPanel } from './threads/ThreadPanel'
+import { ChannelMemberList } from '@/components/chat/ChannelMemberList'
 
 export default function ChatLayout() {
   const { t } = useTranslation()
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null)
   const [selectedThreadMessageId, setSelectedThreadMessageId] = useState<string | null>(null)
+  const [showMembers, setShowMembers] = useState(false)
 
   const handleSelectChannel = (id: string) => {
     setSelectedChannelId(id)
     setSelectedThreadMessageId(null)
   }
 
+  // Members panel and thread panel share the right slot — keep them exclusive.
   const handleOpenThread = (messageId: string) => {
     setSelectedThreadMessageId(messageId)
+    setShowMembers(false)
   }
 
   const handleCloseThread = () => {
+    setSelectedThreadMessageId(null)
+  }
+
+  const handleToggleMembers = () => {
+    setShowMembers((v) => !v)
     setSelectedThreadMessageId(null)
   }
 
@@ -46,7 +55,11 @@ export default function ChatLayout() {
       <div className="flex flex-1 flex-col min-w-0">
         {selectedChannelId ? (
           <>
-            <ChannelHeader channelId={selectedChannelId} />
+            <ChannelHeader
+              channelId={selectedChannelId}
+              membersActive={showMembers}
+              onToggleMembers={handleToggleMembers}
+            />
             <MessageList
               channelId={selectedChannelId}
               onOpenThread={handleOpenThread}
@@ -76,6 +89,13 @@ export default function ChatLayout() {
             channelId={selectedChannelId}
             onClose={handleCloseThread}
           />
+        </div>
+      )}
+
+      {/* Members panel (exclusive with thread panel) */}
+      {showMembers && selectedChannelId && !selectedThreadMessageId && (
+        <div className="w-[280px] shrink-0">
+          <ChannelMemberList channelId={selectedChannelId} />
         </div>
       )}
     </div>

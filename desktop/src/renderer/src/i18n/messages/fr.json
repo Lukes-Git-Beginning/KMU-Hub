@@ -8073,5 +8073,8 @@
   "kommunikation.settings.display.density": "Densité",
   "kommunikation.settings.display.densityComfortable": "Confortable",
   "kommunikation.settings.display.densityCompact": "Compacte",
-  "kommunikation.settings.display.enterToSend": "Envoyer avec Entrée"
+  "kommunikation.settings.display.enterToSend": "Envoyer avec Entrée",
+  "chat.messages.editHint": "Entrée pour enregistrer, Échap pour annuler",
+  "chat.messages.replyCount": "{count, plural, one {# réponse} other {# réponses}}",
+  "chat.thread.replyCount": "{count, plural, one {# réponse} other {# réponses}}"
 }
