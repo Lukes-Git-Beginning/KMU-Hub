@@ -9,7 +9,7 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { CheckCircle2, Lock, Download, UserPlus, TrendingUp, Loader2, FileText } from 'lucide-react'
+import { CheckCircle2, Lock, Download, UserPlus, TrendingUp, Loader2, FileText, AlertTriangle } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -23,6 +23,8 @@ import { EmptyState } from '@/components/shared'
 import { useEmployees } from '@/api/hooks/hr-hooks'
 import { usePayrollSettingsStore } from '@/stores/payrollSettings'
 import { usePayrollRunsStore } from '@/stores/payrollRuns'
+import { usePayrollMasterDataStore, missingRequiredFields } from '@/stores/payrollMasterData'
+import type { PayrollMasterData } from '@/stores/payrollMasterData'
 import { PayrollDeductionPreview } from './PayrollDeductionPreview'
 import { formatDate } from '@/lib/format'
 
@@ -45,21 +47,30 @@ interface ChangeRow {
   overtime: number
   absenceDays: number
   oneTime: number
+  /** Lohn-Stammdaten unvollständig — missing required fields block a clean export. */
+  incomplete: boolean
 }
 
-function buildRow(emp: { id: string; userName?: string; department?: string }, groupIds: string[]): ChangeRow {
+function buildRow(
+  emp: { id: string; userName?: string; department?: string },
+  groupIds: string[],
+  master: PayrollMasterData | undefined,
+): ChangeRow {
   const h = hashStr(emp.id)
   const stamm: StammChange = h % 13 === 0 ? 'new' : h % 7 === 0 ? 'salary' : h % 17 === 0 ? 'leaver' : null
+  // Group: prefer the employee's real Abrechnungsgruppe, else stable hash fallback.
+  const masterGroup = master?.payrollGroupId && groupIds.includes(master.payrollGroupId) ? master.payrollGroupId : undefined
   return {
     id: emp.id,
     name: emp.userName ?? 'Unbekannt',
     department: emp.department ?? '',
-    groupId: groupIds.length ? groupIds[h % groupIds.length] : 'all',
+    groupId: masterGroup ?? (groupIds.length ? groupIds[h % groupIds.length] : 'all'),
     stamm,
     hours: 150 + (h % 31),
     overtime: h % 8,
     absenceDays: (h >> 3) % 6,
     oneTime: h % 4 === 0 ? 200 + (h % 800) : 0,
+    incomplete: missingRequiredFields(master).length > 0,
   }
 }
 
@@ -80,6 +91,7 @@ export function PayrollPrepPanel() {
   const { data: employeesData, isLoading } = useEmployees()
   const groups = usePayrollSettingsStore((s) => s.groups)
   const target = usePayrollSettingsStore((s) => s.target)
+  const masterData = usePayrollMasterDataStore((s) => s.data)
   const runs = usePayrollRunsStore((s) => s.runs)
   const lock = usePayrollRunsStore((s) => s.lock)
   const unlock = usePayrollRunsStore((s) => s.unlock)
@@ -98,11 +110,12 @@ export function PayrollPrepPanel() {
   const employees = useMemo(() => employeesData?.employees ?? [], [employeesData])
 
   const rows = useMemo(
-    () => employees.map((e) => buildRow(e, groupIds)).filter((r) => r.groupId === groupId),
-    [employees, groupIds, groupId],
+    () => employees.map((e) => buildRow(e, groupIds, masterData[e.id])).filter((r) => r.groupId === groupId),
+    [employees, groupIds, groupId, masterData],
   )
 
   const changeCount = rows.filter((r) => r.stamm !== null).length
+  const incompleteCount = rows.filter((r) => r.incomplete).length
   const groupName = groups.find((g) => g.id === groupId)?.name ?? ''
   const periodLabel = months.find((m) => m.value === period)?.label ?? period
 
@@ -148,6 +161,12 @@ export function PayrollPrepPanel() {
           {changeCount > 0 && (
             <Badge variant="outline" className="text-xs">{t('team.payroll.run.changes', { count: changeCount })}</Badge>
           )}
+          {incompleteCount > 0 && (
+            <Badge variant="outline" className="gap-1 border-warning/40 text-xs text-warning-foreground">
+              <AlertTriangle className="h-3 w-3" />
+              {t('team.payroll.run.incompleteWarning', { count: incompleteCount })}
+            </Badge>
+          )}
           {locked ? (
             <>
               <Badge variant="secondary" className="gap-1"><Lock className="h-3 w-3" />{t('team.payroll.run.locked')}</Badge>
@@ -182,7 +201,15 @@ export function PayrollPrepPanel() {
           {rows.map((r) => (
             <div key={r.id} className="grid grid-cols-[1fr_140px_1fr_120px] items-center gap-3 border-b border-border-muted px-4 py-3 last:border-b-0">
               <div className="min-w-0">
-                <p className="truncate text-sm text-foreground">{r.name}</p>
+                <p className="flex items-center gap-1.5 truncate text-sm text-foreground">
+                  {r.name}
+                  {r.incomplete && (
+                    <AlertTriangle
+                      className="h-3 w-3 shrink-0 text-warning-foreground"
+                      aria-label={t('team.payroll.run.incompleteRow')}
+                    />
+                  )}
+                </p>
                 {r.department && <p className="text-[11px] text-muted-foreground">{r.department}</p>}
               </div>
               <div>{stammBadge(r.stamm)}</div>

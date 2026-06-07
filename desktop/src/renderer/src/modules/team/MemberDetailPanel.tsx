@@ -38,6 +38,7 @@ import { useModuleLeadsStore } from '@/stores/moduleLeads'
 import { LEADABLE_MODULES } from '@/lib/module-settings'
 import { DEFAULT_INSIGHT_SETTINGS } from '@/lib/pricing'
 import { MODULE_DISPLAY_NAMES } from './ModuleAssignmentTab'
+import { EmployeePayrollData } from './EmployeePayrollData'
 import { formatRelativeTime, formatDate } from '@/lib/format'
 
 const contractTypeKeys: Record<string, string> = {
@@ -241,6 +242,9 @@ export function MemberDetailPanel({
 
           {/* Erweiterte Moduleinstellungen (Modul-Leiter) — admin/it only */}
           {employee?.userId && <EmployeeModuleLeadSection userId={employee.userId} />}
+
+          {/* Lohn-Stammdaten (hr_only) */}
+          <EmployeePayrollData employeeId={memberId} />
 
           {/* Documents */}
           <DocumentsSection memberId={memberId} documents={documents ?? []} />
