@@ -19,8 +19,20 @@ Branch `main`, direct-to-main, origin synchron. Commits dieser Session:
 - `components/shared/ColorSwatchPicker` + `lib/swatch-colors` · `stores/moduleLeads` + `hooks/useModuleSettings` (useIsModuleLead) · `stores/<modul>Prefs.ts` für persönliche Prefs.
 - **i18n: i18next-ICU → einfache Klammern `{var}`** (NICHT `{{var}}`). Audit: `scripts/i18n-audit.mjs`. QA: `scripts/qa-*.mjs` (Playwright gegen :5173, `npm run dev`).
 
-## ⭐ NÄCHSTE SESSION STARTET HIER (Darien-Vorgabe 2026-06-07)
-**Lohn-Stammdaten an Mitarbeiterprofilen bauen** — Spec liegt fertig in `.planning/team-lohn-stammdaten-spec.md` (recherchiert, noch NICHT gebaut). Lohnvorbereitung bleibt im team-Modul (entschieden); dafür müssen die lohn-relevanten Stammdaten (Steuer/SV/Beschäftigung/Bezüge/Bank) ans Profil. Mock-first: `stores/payrollMasterData.ts` + `lib/payroll-enums.ts` + `EmployeePayrollData.tsx`-Sektion im MemberDetailPanel (hr_only), speist PayrollPrepPanel. Danach normal weiter mit Modul **kommunikation**.
+## ⭐ NÄCHSTE SESSION STARTET HIER (neues Terminal, 2026-06-07)
+
+**NEUER STANDARD-WORKFLOW: Fünfer-Phasen-Batches** (Memory `feedback_five_phase_batches`). Zyklus pro Batch:
+1. Nächste **5 Phasen** identifizieren (aus `module-phase-plans.md`, >140 Phasen gesamt)
+2. Gründliche **Recherche + Ist-Abgleich**
+3. **Besprechen** mit Darien (VOR dem Bauen)
+4. Alle **5 Phasen ausführen** (bauen + QA + commit/push)
+5. Gemeinsames **Review** + Rest anpassen
+
+**Konkret Schritt 1 für den nächsten Batch — Phase 1 steht schon fest:**
+- **Phase 1 = Lohn-Stammdaten am Mitarbeiterprofil** (Spec fertig: `.planning/team-lohn-stammdaten-spec.md`, recherchiert, NICHT gebaut). Mock-first: `stores/payrollMasterData.ts` + `lib/payroll-enums.ts` + `EmployeePayrollData.tsx` (hr_only) im MemberDetailPanel, speist PayrollPrepPanel. Lohnvorbereitung bleibt in team (entschieden).
+- **Phasen 2–5:** aus `module-phase-plans.md` identifizieren (Modul **kommunikation** ist als Nächstes dran; mails davor zurückgestellt). Beim Start: Phasenplan lesen, die 5 zusammenstellen, recherchieren, dann mit Darien besprechen.
+
+→ Beim Wiedereinstieg: erst `git fetch` + Stand prüfen, dann diesen Batch-Zyklus starten.
 
 ## ▶ NÄCHSTE SCHRITTE (in Reihenfolge)
 Pro Modul: Features + **Moduleinstellungen mitbauen** (Persönlich + Für-alle) + Screenshot-QA @ Breiten + i18n ×4 + commit/push.
