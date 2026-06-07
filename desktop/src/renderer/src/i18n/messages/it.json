@@ -4203,7 +4203,7 @@
   "layout.navItems.helpdesk": "Helpdesk",
   "layout.navItems.infrastructure": "Infrastruttura",
   "layout.navItems.inventar": "Inventario",
-  "layout.navItems.kommunikation": "Posta in arrivo",
+  "layout.navItems.kommunikation": "Comunicazione",
   "layout.navItems.mail": "E-mail",
   "layout.navItems.meetings": "Riunioni",
   "layout.navItems.produktion": "Produzione",
@@ -8061,5 +8061,17 @@
   "team.payroll.masterData.enums.payType.fixed": "Stipendio fisso",
   "team.payroll.masterData.enums.payType.hourly": "Paga oraria",
   "team.payroll.run.incompleteWarning": "{count} incompleti",
-  "team.payroll.run.incompleteRow": "Dati busta paga incompleti"
+  "team.payroll.run.incompleteRow": "Dati busta paga incompleti",
+  "moduleSettings.entries.kommunikation": "Comunicazione",
+  "kommunikation.bereich.team": "Team",
+  "kommunikation.bereich.posteingang": "Posta in arrivo",
+  "kommunikation.settings.title": "Comunicazione",
+  "kommunikation.settings.desc": "Configura la chat del team e la posta in arrivo dei clienti secondo le tue preferenze.",
+  "kommunikation.settings.display.title": "Visualizzazione",
+  "kommunikation.settings.display.desc": "Area iniziale, densità e comportamento di inserimento.",
+  "kommunikation.settings.display.defaultArea": "Area iniziale",
+  "kommunikation.settings.display.density": "Densità",
+  "kommunikation.settings.display.densityComfortable": "Comoda",
+  "kommunikation.settings.display.densityCompact": "Compatta",
+  "kommunikation.settings.display.enterToSend": "Invia con Invio"
 }

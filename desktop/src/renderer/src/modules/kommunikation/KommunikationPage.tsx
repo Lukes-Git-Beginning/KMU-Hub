@@ -1,18 +1,22 @@
 /**
- * Kommunikation — Unified External Inbox.
+ * Kommunikation — unified communication module.
  *
- * Three-column layout:
- *   Left  (w-80):    ConversationList — channel tabs, filters, conversation items
- *   Center (flex-1):  ConversationThread — message timeline + reply composer
- *   Right  (w-72):    ContextPanel — CRM contact, deals, tickets, activity
+ * One module, two areas switched via a segmented control at the top:
+ *   • Team        → internal team chat (channels, DMs, threads)  [ChatLayout]
+ *   • Posteingang → omnichannel customer inbox (conversations)    [InboxView]
  *
- * Data from useInboxMessages (TanStack Query). UI state from useKommunikationStore.
- *
- * Keyboard shortcuts: j/k nav, Escape deselect.
+ * The active area is reflected in the `?bereich=team|posteingang` query param
+ * (so /chat can redirect into the Team area). Without a param the user's
+ * personal default (kommunikationPrefs) decides.
  */
 import { useEffect, useCallback, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { MessageSquare, Inbox } from 'lucide-react'
+import ChatLayout from '@/modules/chat/ChatLayout'
 import { useKommunikationStore } from '@/stores/kommunikation'
-import { useInboxMessages } from '@/api/hooks/useInbox'
+import { useKommunikationPrefs, type KommunikationBereich } from '@/stores/kommunikationPrefs'
+import { useInboxMessages, useUnreadCount } from '@/api/hooks/useInbox'
 import type { InboxListFilter, InboxChannel } from '@/api/inbox-types'
 import { ConversationList } from './ConversationList'
 import { ConversationThread } from './ConversationThread'
@@ -21,10 +25,93 @@ import { NewConversationDialog } from './NewConversationDialog'
 import { ChannelSettingsDialog } from './ChannelSettingsDialog'
 
 // ---------------------------------------------------------------------------
-// Main page
+// Root: area switcher + the two areas
 // ---------------------------------------------------------------------------
 
 export default function KommunikationPage() {
+  const { t } = useTranslation()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const defaultBereich = useKommunikationPrefs((s) => s.defaultBereich)
+  const { data: inboxUnread } = useUnreadCount()
+
+  const paramBereich = searchParams.get('bereich') as KommunikationBereich | null
+  const bereich: KommunikationBereich = paramBereich === 'team' || paramBereich === 'posteingang' ? paramBereich : defaultBereich
+
+  const setBereich = (next: KommunikationBereich) => {
+    const params = new URLSearchParams(searchParams)
+    params.set('bereich', next)
+    setSearchParams(params, { replace: true })
+  }
+
+  const posteingangUnread = inboxUnread?.total ?? 0
+
+  return (
+    <div className="flex h-full flex-col overflow-hidden animate-fade-in">
+      {/* Area switcher */}
+      <div className="flex shrink-0 items-center gap-1 border-b border-border px-3 py-2">
+        <div className="inline-flex items-center gap-0.5 rounded-lg bg-secondary/60 p-0.5">
+          <SwitchTab
+            active={bereich === 'team'}
+            icon={MessageSquare}
+            label={t('kommunikation.bereich.team')}
+            onClick={() => setBereich('team')}
+          />
+          <SwitchTab
+            active={bereich === 'posteingang'}
+            icon={Inbox}
+            label={t('kommunikation.bereich.posteingang')}
+            badge={posteingangUnread}
+            onClick={() => setBereich('posteingang')}
+          />
+        </div>
+      </div>
+
+      {/* Active area */}
+      <div className="min-h-0 flex-1">
+        {bereich === 'team' ? <ChatLayout /> : <InboxView />}
+      </div>
+    </div>
+  )
+}
+
+function SwitchTab({
+  active,
+  icon: Icon,
+  label,
+  badge,
+  onClick,
+}: {
+  active: boolean
+  icon: typeof MessageSquare
+  label: string
+  badge?: number
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+        active ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+      }`}
+    >
+      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      {label}
+      {badge !== undefined && badge > 0 && (
+        <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
+    </button>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Posteingang — omnichannel customer inbox (formerly the whole page)
+// ---------------------------------------------------------------------------
+
+function InboxView() {
   const activeChannel = useKommunikationStore((s) => s.activeChannel)
   const searchQuery = useKommunikationStore((s) => s.searchQuery)
   const selectedId = useKommunikationStore((s) => s.selectedConversationId)
@@ -101,7 +188,7 @@ export default function KommunikationPage() {
 
   return (
     <>
-      <div className="flex h-full overflow-hidden animate-fade-in">
+      <div className="flex h-full overflow-hidden">
         {/* Left: Conversation list */}
         <ConversationList
           messages={messages}

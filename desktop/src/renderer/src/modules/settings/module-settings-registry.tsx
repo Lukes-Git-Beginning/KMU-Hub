@@ -4,6 +4,7 @@ import {
   Receipt,
   Calendar,
   Mail,
+  MessagesSquare,
   Users,
   Building2,
   CreditCard,
@@ -17,6 +18,7 @@ import { CrmSettingsPanel } from './panels/CrmSettingsPanel'
 import { FinanceSettingsPanel } from './panels/FinanceSettingsPanel'
 import { CalendarSettingsTab } from './tabs/CalendarSettingsTab'
 import { MailSettingsTab } from './tabs/MailSettingsTab'
+import { KommunikationSettingsPanel } from '@/modules/kommunikation/KommunikationSettingsPanel'
 import { TeamSettingsPanel } from './panels/TeamSettingsPanel'
 import { CompanySettingsTab } from './tabs/CompanySettingsTab'
 import { BillingSettingsTab } from './tabs/BillingSettingsTab'
@@ -53,6 +55,7 @@ export const SETTINGS_ENTRIES: SettingsEntry[] = [
   { id: 'finance', group: 'module', labelKey: 'moduleSettings.entries.finance', icon: Receipt, navMatch: ['/finanzen', '/buchhaltung'], component: FinanceSettingsPanel },
   { id: 'calendar', group: 'module', labelKey: 'moduleSettings.entries.calendar', icon: Calendar, navMatch: ['/kalender'], component: CalendarSettingsTab },
   { id: 'mail', group: 'module', labelKey: 'moduleSettings.entries.mail', icon: Mail, navMatch: ['/mails'], component: MailSettingsTab },
+  { id: 'kommunikation', group: 'module', labelKey: 'moduleSettings.entries.kommunikation', icon: MessagesSquare, navMatch: ['/kommunikation', '/chat'], component: KommunikationSettingsPanel },
   { id: 'team', group: 'module', labelKey: 'moduleSettings.entries.team', icon: Users, navMatch: ['/team'], roles: ['admin', 'hr'], component: TeamSettingsPanel },
 
   // ── COSMI (Allgemein) ──

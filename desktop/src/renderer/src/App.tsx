@@ -26,7 +26,6 @@ import { OfflineBanner } from '@/components/ui/OfflineBanner'
 // Lazy-loaded module pages — existing (backend-connected)
 const DashboardPage = lazy(() => import('@/modules/dashboard/DashboardPage'))
 
-const ChatLayout = lazy(() => import('@/modules/chat/ChatLayout'))
 const WorkLayout = lazy(() => import('@/modules/work/WorkLayout'))
 const KalenderPage = lazy(() => import('@/modules/kalender/KalenderPage'))
 const VideoPage = lazy(() => import('@/modules/video/VideoPage'))
@@ -192,7 +191,7 @@ const router = createHashRouter([
       // Core modules (backend-connected)
       { index: true, element: lazyRoute(DashboardPage) },
       { path: 'crm/*', element: <Navigate to="/kontakte" replace /> },
-      { path: 'chat/*', element: lazyRoute(ChatLayout) },
+      { path: 'chat/*', element: <Navigate to="/kommunikation?bereich=team" replace /> },
       { path: 'work/*', element: lazyRoute(WorkLayout) },
       { path: 'kalender', element: lazyRoute(KalenderPage) },
       { path: 'video/*', element: lazyRoute(VideoPage) },

@@ -4233,7 +4233,7 @@
   "layout.navItems.helpdesk": "Helpdesk",
   "layout.navItems.infrastructure": "Infrastructure",
   "layout.navItems.inventar": "Inventory",
-  "layout.navItems.kommunikation": "Inbox",
+  "layout.navItems.kommunikation": "Communication",
   "layout.navItems.mail": "Email",
   "layout.navItems.meetings": "Meetings",
   "layout.navItems.produktion": "Production",
@@ -8095,5 +8095,17 @@
   "team.payroll.masterData.enums.payType.fixed": "Fixed salary",
   "team.payroll.masterData.enums.payType.hourly": "Hourly wage",
   "team.payroll.run.incompleteWarning": "{count} incomplete",
-  "team.payroll.run.incompleteRow": "Payroll master data incomplete"
+  "team.payroll.run.incompleteRow": "Payroll master data incomplete",
+  "moduleSettings.entries.kommunikation": "Communication",
+  "kommunikation.bereich.team": "Team",
+  "kommunikation.bereich.posteingang": "Inbox",
+  "kommunikation.settings.title": "Communication",
+  "kommunikation.settings.desc": "Set up team chat and customer inbox to your liking.",
+  "kommunikation.settings.display.title": "Display",
+  "kommunikation.settings.display.desc": "Start area, density and input behaviour.",
+  "kommunikation.settings.display.defaultArea": "Start area",
+  "kommunikation.settings.display.density": "Density",
+  "kommunikation.settings.display.densityComfortable": "Comfortable",
+  "kommunikation.settings.display.densityCompact": "Compact",
+  "kommunikation.settings.display.enterToSend": "Send with Enter"
 }

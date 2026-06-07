@@ -4233,7 +4233,7 @@
   "layout.navItems.helpdesk": "Helpdesk",
   "layout.navItems.infrastructure": "Infrastruktur",
   "layout.navItems.inventar": "Inventar",
-  "layout.navItems.kommunikation": "Posteingang",
+  "layout.navItems.kommunikation": "Kommunikation",
   "layout.navItems.mail": "E-Mail",
   "layout.navItems.meetings": "Meetings",
   "layout.navItems.produktion": "Produktion",
@@ -8095,5 +8095,17 @@
   "team.payroll.masterData.enums.payType.fixed": "Festgehalt",
   "team.payroll.masterData.enums.payType.hourly": "Stundenlohn",
   "team.payroll.run.incompleteWarning": "{count} unvollständig",
-  "team.payroll.run.incompleteRow": "Lohn-Stammdaten unvollständig"
+  "team.payroll.run.incompleteRow": "Lohn-Stammdaten unvollständig",
+  "moduleSettings.entries.kommunikation": "Kommunikation",
+  "kommunikation.bereich.team": "Team",
+  "kommunikation.bereich.posteingang": "Posteingang",
+  "kommunikation.settings.title": "Kommunikation",
+  "kommunikation.settings.desc": "Team-Chat und Kundenposteingang nach deinen Vorlieben einrichten.",
+  "kommunikation.settings.display.title": "Anzeige",
+  "kommunikation.settings.display.desc": "Startbereich, Dichte und Eingabeverhalten.",
+  "kommunikation.settings.display.defaultArea": "Startbereich",
+  "kommunikation.settings.display.density": "Dichte",
+  "kommunikation.settings.display.densityComfortable": "Komfortabel",
+  "kommunikation.settings.display.densityCompact": "Kompakt",
+  "kommunikation.settings.display.enterToSend": "Mit Enter senden"
 }

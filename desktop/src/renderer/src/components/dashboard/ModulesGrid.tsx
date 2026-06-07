@@ -49,11 +49,10 @@ const ALL_MODULES: ModuleConfig[] = [
   { id: 'documents', nameKey: 'dashboard.modules.documents.name', descriptionKey: 'dashboard.modules.documents.description', path: '/dokumente', stats: { labelKey: 'dashboard.modules.documents.stat', value: 89 }, isActive: true },
   { id: 'wiki', nameKey: 'dashboard.modules.wiki.name', descriptionKey: 'dashboard.modules.wiki.description', path: '/wiki', stats: { labelKey: 'dashboard.modules.wiki.stat', value: 47 }, isActive: true },
 
-  // ── Communication ──
-  { id: 'chat', nameKey: 'dashboard.modules.chat.name', descriptionKey: 'dashboard.modules.chat.description', path: '/chat', stats: { labelKey: 'dashboard.modules.chat.stat', value: 37 }, isActive: true },
+  // ── Communication ── (chat + inbox merged into one module)
+  { id: 'chat', nameKey: 'dashboard.modules.kommunikation.name', descriptionKey: 'dashboard.modules.kommunikation.description', path: '/kommunikation', stats: { labelKey: 'dashboard.modules.kommunikation.stat', value: 45 }, isActive: true },
   { id: 'mail', nameKey: 'dashboard.modules.mail.name', descriptionKey: 'dashboard.modules.mail.description', path: '/mails', stats: { labelKey: 'dashboard.modules.mail.stat', value: 12 }, isActive: true },
   { id: 'meetings', nameKey: 'dashboard.modules.meetings.name', descriptionKey: 'dashboard.modules.meetings.description', path: '/meetings', stats: { labelKey: 'dashboard.modules.meetings.stat', value: 4 }, isActive: true },
-  { id: 'kommunikation', nameKey: 'dashboard.modules.kommunikation.name', descriptionKey: 'dashboard.modules.kommunikation.description', path: '/kommunikation', stats: { labelKey: 'dashboard.modules.kommunikation.stat', value: 8 }, isActive: true },
 
   // ── CRM & Sales ──
   { id: 'crm', nameKey: 'dashboard.modules.crm.name', descriptionKey: 'dashboard.modules.crm.description', path: '/crm', stats: { labelKey: 'dashboard.modules.crm.stat', value: 12 }, isActive: true },

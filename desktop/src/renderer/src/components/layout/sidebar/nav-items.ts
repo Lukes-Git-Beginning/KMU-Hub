@@ -4,7 +4,6 @@ import {
   ListChecks,
   FileText,
   Receipt,
-  MessageSquare,
   MessageSquareText,
   Users,
   Mail,
@@ -86,7 +85,9 @@ export const navItems: NavItemConfig[] = [
   { id: 'dashboard', to: '/', icon: LayoutDashboard, label: 'layout.navItems.dashboard', enabled: true, section: 'main', color: { h: 240, s: 72 } },
   { id: 'projects', to: '/work/projects', icon: FolderKanban, label: 'layout.navItems.projects', enabled: true, section: 'main', color: { h: 255, s: 68 } },
   { id: 'tasks', to: '/work/my-tasks', icon: ListChecks, label: 'layout.navItems.tasks', enabled: true, section: 'main', badge: { type: 'text', value: '5' }, color: { h: 217, s: 78 } },
-  { id: 'chat', to: '/chat', icon: MessageSquare, label: 'layout.navItems.chat', enabled: true, section: 'main', badge: { type: 'text', value: '3' }, color: { h: 195, s: 82 } },
+  // Unified communication (internal team chat + customer inbox). id stays 'chat'
+  // to preserve module assignment + pin state; route/label point to the merged module.
+  { id: 'chat', to: '/kommunikation', icon: MessageSquareText, label: 'layout.navItems.kommunikation', enabled: true, section: 'main', badge: { type: 'text', value: '3' }, color: { h: 195, s: 82 } },
   { id: 'contacts', to: '/kontakte', icon: Contact, label: 'layout.navItems.contacts', enabled: true, section: 'main', color: { h: 162, s: 68 } },
 
   // ── Team & HR ──
@@ -99,7 +100,6 @@ export const navItems: NavItemConfig[] = [
   { id: 'documents', to: '/dokumente', icon: FileText, label: 'layout.navItems.documents', enabled: true, section: 'main', color: { h: 152, s: 62 } },
   { id: 'wiki', to: '/wiki', icon: BookOpen, label: 'layout.navItems.wiki', enabled: true, section: 'main', color: { h: 168, s: 58 } },
   { id: 'mail', to: '/mails', icon: Mail, label: 'layout.navItems.mail', enabled: true, section: 'main', badge: { type: 'text', value: '12' }, color: { h: 205, s: 78 } },
-  { id: 'kommunikation', to: '/kommunikation', icon: MessageSquareText, label: 'layout.navItems.kommunikation', enabled: true, section: 'main', badge: { type: 'text', value: '' }, color: { h: 185, s: 72 } },
 
   // ── Finance ──
   { id: 'finance', to: '/finanzen', icon: Receipt, label: 'layout.navItems.finance', enabled: true, section: 'main', badge: { type: 'text', value: 'layout.navItems.badgeNew' }, color: { h: 38, s: 88 } },

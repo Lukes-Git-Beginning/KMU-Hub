@@ -4203,7 +4203,7 @@
   "layout.navItems.helpdesk": "Helpdesk",
   "layout.navItems.infrastructure": "Infrastructure",
   "layout.navItems.inventar": "Inventaire",
-  "layout.navItems.kommunikation": "Boîte de réception",
+  "layout.navItems.kommunikation": "Communication",
   "layout.navItems.mail": "E-mail",
   "layout.navItems.meetings": "Réunions",
   "layout.navItems.produktion": "Production",
@@ -8061,5 +8061,17 @@
   "team.payroll.masterData.enums.payType.fixed": "Salaire fixe",
   "team.payroll.masterData.enums.payType.hourly": "Salaire horaire",
   "team.payroll.run.incompleteWarning": "{count} incomplet(s)",
-  "team.payroll.run.incompleteRow": "Données de paie incomplètes"
+  "team.payroll.run.incompleteRow": "Données de paie incomplètes",
+  "moduleSettings.entries.kommunikation": "Communication",
+  "kommunikation.bereich.team": "Équipe",
+  "kommunikation.bereich.posteingang": "Boîte de réception",
+  "kommunikation.settings.title": "Communication",
+  "kommunikation.settings.desc": "Configurez le chat d’équipe et la boîte de réception client selon vos préférences.",
+  "kommunikation.settings.display.title": "Affichage",
+  "kommunikation.settings.display.desc": "Zone de départ, densité et comportement de saisie.",
+  "kommunikation.settings.display.defaultArea": "Zone de départ",
+  "kommunikation.settings.display.density": "Densité",
+  "kommunikation.settings.display.densityComfortable": "Confortable",
+  "kommunikation.settings.display.densityCompact": "Compacte",
+  "kommunikation.settings.display.enterToSend": "Envoyer avec Entrée"
 }
