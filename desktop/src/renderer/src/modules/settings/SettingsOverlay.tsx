@@ -83,9 +83,9 @@ export function SettingsOverlay() {
         if (e.target === e.currentTarget) close()
       }}
     >
-      <div className="flex h-[85vh] w-full max-w-5xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl animate-scale-in">
+      <div className="flex h-[90vh] w-full max-w-7xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl animate-scale-in">
         {/* ── Left nav ── */}
-        <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-secondary/20">
+        <aside className="flex w-64 shrink-0 flex-col border-r border-border bg-secondary/20">
           <div className="px-5 pb-2 pt-5">
             <h2 className="text-sm font-semibold text-foreground">{t('moduleSettings.title')}</h2>
           </div>

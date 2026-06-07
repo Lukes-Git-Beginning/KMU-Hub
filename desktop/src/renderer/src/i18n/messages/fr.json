@@ -3794,6 +3794,8 @@
   "kontakte.detail.recentActivities": "Activités récentes",
   "kontakte.detail.socialMedia": "Réseaux sociaux",
   "kontakte.detail.tags": "Tags",
+  "moduleSettings.entries.moduleAssignment": "Attribution de modules",
+  "team.moduleAssignment.subtitle": "Quels modules chaque employé peut utiliser (impacte la facturation).",
   "common.add": "Ajouter",
   "team.page.tab.payroll": "Préparation paie",
   "team.payroll.absenceKey": "Clé",

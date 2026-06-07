@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { DetailPanel } from '@/components/shared'
 import { toast } from 'sonner'
-import { useNavigate } from 'react-router-dom'
+import { useUIStore } from '@/stores/ui'
 import {
   useEmployee,
   useEmployeeLeaveBalance,
@@ -433,8 +433,8 @@ function EmployeeModulesSection({
   onManage: () => void
 }) {
   const { t, i18n } = useTranslation()
-  const navigate = useNavigate()
   const { setIntent } = useNavigationStore()
+  const openSettingsOverlay = useUIStore((s) => s.openSettingsOverlay)
   const { data: userGrants = [] } = useUserModules(userId)
   const { data: insightSettings } = useInsightSettings()
   const minInactivityDays = insightSettings?.minInactivityDays ?? DEFAULT_INSIGHT_SETTINGS.minInactivityDays
@@ -453,7 +453,7 @@ function EmployeeModulesSection({
       data: { userIds: [userId] },
     })
     onManage()
-    navigate('/team')
+    openSettingsOverlay('modulzuteilung')
   }
 
   const Chevron = expanded ? ChevronUp : ChevronDown

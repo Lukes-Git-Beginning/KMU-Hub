@@ -9,6 +9,7 @@ import {
   CreditCard,
   Plug,
   Monitor,
+  Package,
   type LucideIcon,
 } from 'lucide-react'
 import type { RoleId } from '@/config/roles'
@@ -21,6 +22,7 @@ import { CompanySettingsTab } from './tabs/CompanySettingsTab'
 import { BillingSettingsTab } from './tabs/BillingSettingsTab'
 import { IntegrationSettingsTab } from './tabs/IntegrationSettingsTab'
 import { ITAdminTab } from './tabs/ITAdminTab'
+import { ModuleAssignmentSettingsPanel } from './panels/ModuleAssignmentSettingsPanel'
 
 /**
  * Registry for the Module-Settings overlay (opened from the bottom-left
@@ -56,6 +58,7 @@ export const SETTINGS_ENTRIES: SettingsEntry[] = [
   // ── COSMI (Allgemein) ──
   { id: 'company', group: 'cosmi', labelKey: 'moduleSettings.entries.company', icon: Building2, roles: ['admin'], component: CompanySettingsTab },
   { id: 'billing', group: 'cosmi', labelKey: 'moduleSettings.entries.billing', icon: CreditCard, roles: ['admin'], component: BillingSettingsTab },
+  { id: 'modulzuteilung', group: 'cosmi', labelKey: 'moduleSettings.entries.moduleAssignment', icon: Package, roles: ['admin', 'it_support'], component: ModuleAssignmentSettingsPanel },
   { id: 'integrations', group: 'cosmi', labelKey: 'moduleSettings.entries.integrations', icon: Plug, roles: ['admin'], component: IntegrationSettingsTab },
   { id: 'it', group: 'cosmi', labelKey: 'moduleSettings.entries.it', icon: Monitor, roles: ['admin', 'it_support'], component: ITAdminTab },
 ]

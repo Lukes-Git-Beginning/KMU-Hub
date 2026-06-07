@@ -11,7 +11,6 @@
  */
 import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
 import {
   CreditCard,
   Receipt,
@@ -49,6 +48,7 @@ import {
   useInvoiceHistory,
 } from '@/api/hooks/useBilling'
 import { useNavigationStore } from '@/stores/navigation'
+import { useUIStore } from '@/stores/ui'
 import { InlineStat } from '@/components/shared'
 
 // ───────────────────────── Statische Basis-Assignments (für Kosten-Berechnung) ─────────────────────────
@@ -84,8 +84,8 @@ function formatDate(iso: string, locale: string, monthStyle: 'short' | 'long' = 
 
 export function BillingSettingsTab() {
   const { t, i18n } = useTranslation()
-  const navigate = useNavigate()
   const navigationStore = useNavigationStore()
+  const openSettingsOverlay = useUIStore((s) => s.openSettingsOverlay)
 
   // Notification-Layer: feuert Bell-Notification wenn neue Recommendations erscheinen.
   useBillingRecommendationNotifier()
@@ -137,9 +137,9 @@ export function BillingSettingsTab() {
         type: 'open-team-modulzuteilung',
         data: { moduleId, userIds },
       })
-      void navigate('/team')
+      openSettingsOverlay('modulzuteilung')
     },
-    [navigationStore, navigate],
+    [navigationStore, openSettingsOverlay],
   )
 
   const handleTeamLink = useCallback(() => {
@@ -147,8 +147,8 @@ export function BillingSettingsTab() {
       type: 'open-team-modulzuteilung',
       data: {},
     })
-    void navigate('/team')
-  }, [navigationStore, navigate])
+    openSettingsOverlay('modulzuteilung')
+  }, [navigationStore, openSettingsOverlay])
 
   return (
     <div className="max-w-4xl">

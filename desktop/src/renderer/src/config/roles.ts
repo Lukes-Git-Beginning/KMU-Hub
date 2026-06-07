@@ -51,7 +51,6 @@ export const TEAM_TAB_ROLES: Record<string, RoleId[]> = {
   lohnvorbereitung: ['admin', 'hr'],
   schulungen:      ['admin', 'manager', 'hr'],
   onboarding:      ['admin', 'manager', 'hr'],
-  modulzuteilung:  ['admin', 'it_support'],
 }
 
 // ---- Mock user profiles for design testing ----

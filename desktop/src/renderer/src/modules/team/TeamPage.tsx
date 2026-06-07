@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -25,7 +25,6 @@ import {
   ListChecks,
   Network,
   UserCircle,
-  Package,
   Banknote,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -43,7 +42,6 @@ import { useEmployees, useLeaveRequests, useUpdateEmployee } from '@/api/hooks/h
 import type { EmployeeProfile, LeaveRequest } from '@/api/hr-types'
 import { ItemActions, ConfirmDialog, EmptyState, PageHeader, type ActionItem } from '@/components/shared'
 import { MemberDetailPanel } from './MemberDetailPanel'
-import { ModuleAssignmentTab, type ModuleAssignmentInitialFilter } from './ModuleAssignmentTab'
 import { InviteMemberDialog } from './InviteMemberDialog'
 import { CreateEmployeeWizard } from './CreateEmployeeWizard'
 import { EditMemberDialog } from './EditMemberDialog'
@@ -75,7 +73,7 @@ import {
 } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 
-type TabKey = 'members' | 'requests' | 'absences' | 'korrekturen' | 'personalakte' | 'onboarding' | 'orgchart' | 'lohnvorbereitung' | 'schulungen' | 'selfservice' | 'modulzuteilung'
+type TabKey = 'members' | 'requests' | 'absences' | 'korrekturen' | 'personalakte' | 'onboarding' | 'orgchart' | 'lohnvorbereitung' | 'schulungen' | 'selfservice'
 
 const contractTypeLabels: Record<string, string> = {
   full_time: 'Vollzeit',
@@ -166,19 +164,6 @@ export default function TeamPage() {
     const st = useTeamPrefsStore.getState().startTab
     return st !== 'last' ? (st as TabKey) : 'members'
   })
-  const [initialFilter, setInitialFilter] = useState<ModuleAssignmentInitialFilter | undefined>(undefined)
-
-  // Consume navigation intent for module-assignment tab
-  const navigationStore = useNavigationStore()
-  useEffect(() => {
-    const intent = navigationStore.intent
-    if (intent?.type === 'open-team-modulzuteilung') {
-      setTab('modulzuteilung')
-      setInitialFilter(intent.data as ModuleAssignmentInitialFilter)
-      navigationStore.clearIntent()
-    }
-  }, [navigationStore.intent]) // eslint-disable-line react-hooks/exhaustive-deps
-
   // If active tab gets restricted (role switch), fall back to 'members'
   const effectiveTab: TabKey = canSeeTeamTab(user, tab) ? tab : 'members'
   const [search, setSearch] = useState('')
@@ -320,7 +305,6 @@ export default function TeamPage() {
             { key: 'onboarding' as const, label: t('team.page.tab.onboarding'), icon: ListChecks },
             { key: 'orgchart' as const, label: t('team.page.tab.orgchart'), icon: Network },
             { key: 'lohnvorbereitung' as const, label: t('team.page.tab.payroll'), icon: Banknote },
-            { key: 'modulzuteilung' as const, label: t('team.page.tab.moduleAssignment'), icon: Package },
             { key: 'schulungen' as const, label: t('team.page.tab.trainings'), icon: GraduationCap },
             { key: 'selfservice' as const, label: t('team.page.tab.selfservice'), icon: UserCircle },
           ])
@@ -477,23 +461,6 @@ export default function TeamPage() {
 
       {/* Lohnvorbereitung Tab — monthly payroll run (DATEV handover) */}
       {effectiveTab === 'lohnvorbereitung' && <PayrollPrepPanel />}
-
-      {/* Modul-Zuteilung Tab */}
-      {effectiveTab === 'modulzuteilung' && (
-        <ModuleAssignmentTab
-          initialFilter={initialFilter}
-          onSelectMember={(userId, name) => {
-            // Find the employee record by userId to get the internal ID
-            const emp = apiEmployees.find((e) => e.userId === userId)
-            if (emp) {
-              const initials = getInitials(name)
-              setSelectedMemberId(emp.id)
-              setSelectedMemberName(name)
-              setSelectedMemberInitials(initials)
-            }
-          }}
-        />
-      )}
 
       {/* Schulungen Tab (still Zustand mock) */}
       {effectiveTab === 'schulungen' && (

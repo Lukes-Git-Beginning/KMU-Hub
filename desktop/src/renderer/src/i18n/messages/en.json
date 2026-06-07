@@ -3824,6 +3824,8 @@
   "kontakte.detail.recentActivities": "Recent activities",
   "kontakte.detail.socialMedia": "Social media",
   "kontakte.detail.tags": "Tags",
+  "moduleSettings.entries.moduleAssignment": "Module assignment",
+  "team.moduleAssignment.subtitle": "Which modules each employee may use (affects billing).",
   "common.add": "Add",
   "team.page.tab.payroll": "Payroll prep",
   "team.payroll.absenceKey": "Key",

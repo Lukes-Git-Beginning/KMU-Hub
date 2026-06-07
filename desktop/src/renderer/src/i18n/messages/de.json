@@ -3824,6 +3824,8 @@
   "kontakte.detail.recentActivities": "Letzte Aktivitäten",
   "kontakte.detail.socialMedia": "Social Media",
   "kontakte.detail.tags": "Tags",
+  "moduleSettings.entries.moduleAssignment": "Modul-Zuteilung",
+  "team.moduleAssignment.subtitle": "Welche Module welcher Mitarbeiter nutzen darf (wirkt auf die Abrechnung).",
   "common.add": "Hinzufügen",
   "team.page.tab.payroll": "Lohnvorbereitung",
   "team.payroll.absenceKey": "Schlüssel",
