@@ -146,4 +146,16 @@ Darien-Screenshot-Feedback an der Kontakte-UX → UX-Rework:
 - [x] i18n `crm.settings.*` + `moduleSettings.entries.crm` ×4. **⚠ Fund:** Codebase nutzt **i18next-ICU** → einfache `{name}`-Klammern, nicht `{{name}}`. Erst doppelte verwendet → Toast/Deal-Count roh; per Screenshot-QA gefangen + auf ICU-Syntax korrigiert. (Lehre: neue interpolierte Keys IMMER `{var}`.)
 - [x] QA (`scripts/qa-crm-settings.mjs`): CRM aktiv markiert, 6 Phasen rendern, „Neue Phase" hinzufügen funktioniert (Toast korrekt interpoliert), Deal-Counts echte Zahlen, 0 Errors/Raw-Keys.
 
-**Commit B2 — offen:** Tag-Verwaltung (CRUD-Hooks + Mock fehlen) · Lead-Scoring-Regeln (Konstanten in Store auslagern) als weitere CRM-Sektionen.
+**Commit B2 — Tag-Verwaltung + Shell-Umbenennung ✅ (typecheck 0, lint 0, QA grün):**
+- [x] **Tag-Verwaltung** (`TagManager`) als 3. CRM-Sektion — Tags anlegen/umbenennen/Farbe/löschen. Mock-Tags auf Modul-Ebene + CRUD-Handler (POST/PATCH/DELETE /tags); Hooks `useCreateTag/useUpdateTag/useDeleteTag` (raw fetch, da nicht im OpenAPI → backend-gap).
+- [x] **Color-Picker** nach `components/shared/ColorSwatchPicker` extrahiert (Pipeline + Tags teilen ihn); Palette in `lib/swatch-colors.ts` (Fast-Refresh-clean).
+- [x] **Darien-Feedback umgesetzt:** „Administration"-Button (links unten) entfernt — Admin-Inhalte leben im COSMI-Bereich des Fensters. „Einstellungen"-Button + Fenstertitel → **„Modul-Einstellungen"** (4 Sprachen).
+- [x] QA (`qa-crm-settings.mjs`): Sidebar (kein Administration, „Modul-Einstellungen" da), 3 CRM-Sektionen, Add-Stage, 0 Errors/Raw-Keys.
+
+**Commit B3 — Persönlich/Für-alle-Bereiche ✅ (typecheck 0, lint 0, QA grün) (Darien-Feedback 2026-06-07):**
+- [x] `ModuleSettingsShell` gruppiert Sektionen jetzt nach Scope in **zwei klar getrennte Bereiche** mit Headern: „PERSÖNLICH" (Untertitel „nur für dich…") + „FÜR ALLE" (Untertitel „nur die Modulleitung kann das ändern", Lock-Hinweis für Nicht-Leiter). Gilt automatisch für JEDES Modul-Panel (auch Calendar).
+- [x] **Persönlicher CRM-Bereich** (`CrmPersonalPrefs` + `stores/crmPrefs.ts`): Standard-Ansicht (Liste/Raster), Dichte (Komfortabel/Kompakt), Avatare-Toggle. **Real verdrahtet:** KontaktePage initialisiert `viewMode` aus `defaultContactView` (keine tote UI).
+- [x] i18n `crm.settings.personal.*` + `settings.scope.*GroupDesc` ×4. QA: beide Bereich-Header + persönliche Sektion rendern, 0 Errors/Raw-Keys.
+- **Muster steht** für alle weiteren Module: pro Modul je eine `personal`- und `tenant`-Sektionsgruppe mit sinnvollen Funktionen.
+
+**Kontakte Phase 7 = ABGESCHLOSSEN** (CRM-Panel: Persönlich + Pipeline + Felder + Tags, im Modul-Einstellungs-Fenster).

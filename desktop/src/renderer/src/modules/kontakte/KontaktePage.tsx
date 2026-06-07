@@ -28,6 +28,7 @@ import {
 import { toast } from 'sonner'
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact } from '@/api/hooks/useContacts'
 import { useContactsStore, type Contact } from '@/stores/contacts'
+import { useCrmPrefsStore } from '@/stores/crmPrefs'
 import { useNavigationStore } from '@/stores/navigation'
 import { useMeetingsStore } from '@/stores/meetings'
 import { ItemActions, ConfirmDialog, EmptyState, SortMenu, type ActionItem, type SortDirection } from '@/components/shared'
@@ -85,7 +86,8 @@ export default function KontaktePage() {
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all')
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDir, setSortDir] = useState<SortDirection>('asc')
-  const [viewMode, setViewMode] = useState<ViewMode>('list')
+  // Initialise from the user's personal CRM default (Modul-Einstellungen → CRM → Persönlich).
+  const [viewMode, setViewMode] = useState<ViewMode>(() => useCrmPrefsStore.getState().defaultContactView)
 
   // Modal state — which contact is open in the detail modal
   const [detailContactId, setDetailContactId] = useState<string | null>(null)

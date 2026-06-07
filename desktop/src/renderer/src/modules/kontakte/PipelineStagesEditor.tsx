@@ -16,12 +16,9 @@ import {
   useDeletePipelineStage,
   useReorderPipelineStages,
 } from '@/api/hooks/usePipelineStages'
-import { ConfirmDialog } from '@/components/shared'
+import { ConfirmDialog, ColorSwatchPicker, SWATCH_COLORS } from '@/components/shared'
 
-const STAGE_COLORS = [
-  '#6B7280', '#3B82F6', '#06B6D4', '#10B981',
-  '#F59E0B', '#F97316', '#EF4444', '#8B5CF6', '#EC4899',
-]
+const STAGE_COLORS = SWATCH_COLORS
 
 interface Stage {
   id: string
@@ -113,7 +110,7 @@ export function PipelineStagesEditor() {
             </div>
 
             {/* Colour */}
-            <ColorPopover
+            <ColorSwatchPicker
               value={stage.color}
               onChange={(color) => updateStage.mutate({ id: stage.id, color })}
             />
@@ -171,7 +168,7 @@ export function PipelineStagesEditor() {
       {adding ? (
         <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
           <div className="flex items-center gap-2">
-            <ColorPopover value={newColor} onChange={setNewColor} />
+            <ColorSwatchPicker value={newColor} onChange={setNewColor} />
             <input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
@@ -225,35 +222,6 @@ export function PipelineStagesEditor() {
         variant="destructive"
         onConfirm={handleDelete}
       />
-    </div>
-  )
-}
-
-function ColorPopover({ value, onChange }: { value: string; onChange: (c: string) => void }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <div className="relative shrink-0">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        aria-label="Farbe"
-        className="h-5 w-5 rounded-full border border-border"
-        style={{ backgroundColor: value }}
-      />
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-7 z-20 grid grid-cols-3 gap-1.5 rounded-lg border border-border bg-card p-2 shadow-lg">
-            {STAGE_COLORS.map((c) => (
-              <button
-                key={c}
-                onClick={() => { onChange(c); setOpen(false) }}
-                className="h-5 w-5 rounded-full border border-border transition-transform hover:scale-110"
-                style={{ backgroundColor: c }}
-              />
-            ))}
-          </div>
-        </>
-      )}
     </div>
   )
 }

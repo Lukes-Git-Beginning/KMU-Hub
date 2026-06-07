@@ -37,9 +37,18 @@ const out = []
   try {
     await page.goto(`${BASE}/#/kontakte`, { waitUntil: 'domcontentloaded' })
     await page.waitForTimeout(1600)
+    // sidebar button checks: admin gone, settings renamed
+    const sidebar = await page.evaluate(() => ({
+      hasAdmin: document.body.textContent.includes('Administration'),
+      hasModulSettings: document.body.textContent.includes('Modul-Einstellungen'),
+    }))
+    out.push({ step: 'sidebar', ...sidebar })
     await openSettingsOverlay(page)
     const sections = await page.evaluate(() =>
-      ['Pipeline-Phasen', 'Eigene Felder'].filter((s) => document.body.textContent.includes(s)))
+      ['Persönliche Ansicht', 'Pipeline-Phasen', 'Eigene Felder', 'Tag-Verwaltung'].filter((s) => document.body.textContent.includes(s)))
+    const scopeGroups = await page.evaluate(() =>
+      ['Persönlich', 'Für alle'].filter((g) => document.body.textContent.includes(g)))
+    out.push({ step: 'scope-groups', groups: scopeGroups })
     const stages = await page.evaluate(() =>
       ['Lead', 'Qualifiziert', 'Angebot', 'Gewonnen'].filter((s) => document.body.textContent.includes(s)))
     const rk = await rawKeys(page)

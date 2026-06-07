@@ -52,56 +52,42 @@ export function ModuleSettingsShell({
   const { t } = useTranslation()
   const isLead = useIsModuleLead(moduleId)
 
-  const hasTenantSections = sections.some((s) => s.scope === 'tenant')
+  const personalSections = sections.filter((s) => s.scope === 'personal')
+  const tenantSections = sections.filter((s) => s.scope === 'tenant')
 
   return (
     <div className="max-w-2xl">
       <h2 className="text-foreground mb-1">{t(titleKey)}</h2>
       {descriptionKey && <p className="text-sm text-muted-foreground mb-6">{t(descriptionKey)}</p>}
 
-      {/* Lock hint when tenant sections exist but the user cannot edit them. */}
-      {hasTenantSections && !isLead && (
-        <div className="mb-6 flex items-start gap-3 rounded-lg border border-border bg-secondary/40 px-4 py-3">
-          <Lock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-          <p className="text-xs leading-relaxed text-muted-foreground">{t('settings.scope.lockedHint')}</p>
-        </div>
-      )}
-
       {intro}
 
-      <div className="space-y-6">
-        {sections.map((section) => {
-          const editable = section.scope === 'personal' || isLead
-          const Icon = section.icon
-          return (
-            <ModuleSettingsScopeContext.Provider key={section.id} value={{ scope: section.scope, editable }}>
-              <section className="rounded-xl border border-border bg-card p-5">
-                <header className="mb-4 flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-2.5">
-                    {Icon && (
-                      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-light">
-                        <Icon className="h-4 w-4 text-primary" />
-                      </span>
-                    )}
-                    <div>
-                      <h3 className="text-sm font-medium text-foreground">{t(section.titleKey)}</h3>
-                      {section.descriptionKey && (
-                        <p className="mt-0.5 text-xs text-muted-foreground">{t(section.descriptionKey)}</p>
-                      )}
-                    </div>
-                  </div>
-                  <ScopeBadge scope={section.scope} editable={editable} />
-                </header>
+      <div className="space-y-8">
+        {/* Persönlich — everyone can adapt the module to their own workflow. */}
+        {personalSections.length > 0 && (
+          <div>
+            <ScopeGroupHeader scope="personal" editable />
+            <div className="space-y-6">
+              {personalSections.map((section) => renderSection(section, true, t))}
+            </div>
+          </div>
+        )}
 
-                {/* Native fieldset[disabled] cascades to inputs/buttons; the scope
-                    context covers custom controls that opt in. */}
-                <fieldset disabled={!editable} className={editable ? 'min-w-0' : 'min-w-0 opacity-60'}>
-                  {section.children}
-                </fieldset>
-              </section>
-            </ModuleSettingsScopeContext.Provider>
-          )
-        })}
+        {/* Für alle — tenant-wide; only a Modul-Leiter / admin may change these. */}
+        {tenantSections.length > 0 && (
+          <div>
+            <ScopeGroupHeader scope="tenant" editable={isLead} />
+            {!isLead && (
+              <div className="mb-4 flex items-start gap-3 rounded-lg border border-border bg-secondary/40 px-4 py-3">
+                <Lock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                <p className="text-xs leading-relaxed text-muted-foreground">{t('settings.scope.lockedHint')}</p>
+              </div>
+            )}
+            <div className="space-y-6">
+              {tenantSections.map((section) => renderSection(section, isLead, t))}
+            </div>
+          </div>
+        )}
       </div>
 
       {footer && <div className="mt-6">{footer}</div>}
@@ -109,28 +95,54 @@ export function ModuleSettingsShell({
   )
 }
 
-// ─────────────────────────── Scope badge ───────────────────────────
-
-function ScopeBadge({ scope, editable }: { scope: SettingsScope; editable: boolean }) {
-  const { t } = useTranslation()
-
-  if (scope === 'personal') {
-    return (
-      <span className="flex shrink-0 items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-[10px] font-medium text-muted-foreground">
-        <UserIcon className="h-3 w-3" />
-        {t('settings.scope.personal')}
-      </span>
-    )
-  }
-
+function renderSection(section: ModuleSettingsSection, editable: boolean, t: (k: string) => string) {
+  const Icon = section.icon
   return (
-    <span
-      className={`flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-medium ${
-        editable ? 'bg-primary-light text-primary' : 'bg-secondary text-muted-foreground'
-      }`}
-    >
-      {editable ? <Users className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
-      {t('settings.scope.tenant')}
-    </span>
+    <ModuleSettingsScopeContext.Provider key={section.id} value={{ scope: section.scope, editable }}>
+      <section className="rounded-xl border border-border bg-card p-5">
+        <header className="mb-4 flex items-start gap-2.5">
+          {Icon && (
+            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-light">
+              <Icon className="h-4 w-4 text-primary" />
+            </span>
+          )}
+          <div>
+            <h3 className="text-sm font-medium text-foreground">{t(section.titleKey)}</h3>
+            {section.descriptionKey && (
+              <p className="mt-0.5 text-xs text-muted-foreground">{t(section.descriptionKey)}</p>
+            )}
+          </div>
+        </header>
+
+        {/* Native fieldset[disabled] cascades to inputs/buttons; the scope
+            context covers custom controls that opt in. */}
+        <fieldset disabled={!editable} className={editable ? 'min-w-0' : 'min-w-0 opacity-60'}>
+          {section.children}
+        </fieldset>
+      </section>
+    </ModuleSettingsScopeContext.Provider>
+  )
+}
+
+// ─────────────────────── Scope group header ───────────────────────
+
+function ScopeGroupHeader({ scope, editable }: { scope: SettingsScope; editable: boolean }) {
+  const { t } = useTranslation()
+  const isPersonal = scope === 'personal'
+  const Icon = isPersonal ? UserIcon : editable ? Users : Lock
+  return (
+    <div className="mb-3 flex items-center gap-2">
+      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-secondary">
+        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+      </span>
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wider text-foreground">
+          {t(isPersonal ? 'settings.scope.personal' : 'settings.scope.tenant')}
+        </p>
+        <p className="text-[11px] text-muted-foreground">
+          {t(isPersonal ? 'settings.scope.personalGroupDesc' : 'settings.scope.tenantGroupDesc')}
+        </p>
+      </div>
+    </div>
   )
 }

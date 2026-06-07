@@ -12,6 +12,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../client'
+import { API_BASE_URL } from '@/lib/constants'
 
 // ---------------------------------------------------------------------------
 // Shared Tag shape (mirrors OpenAPI TagInfo)
@@ -70,6 +71,57 @@ export function useAddContactTags() {
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
       queryClient.invalidateQueries({ queryKey: ['contacts', variables.contactId] })
     },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Tag-definition CRUD (tenant-wide tag management).
+//
+// These endpoints are not yet in the OpenAPI spec (see backend-gaps), so they
+// use raw fetch — MSW intercepts them in demo mode all the same.
+// ---------------------------------------------------------------------------
+
+export function useCreateTag() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: { name: string; color: string }) => {
+      const res = await fetch(`${API_BASE_URL}/api/v1/tags`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...body, entity_type: 'contact' }),
+      })
+      if (!res.ok) throw new Error('Failed to create tag')
+      return res.json()
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tags', 'contact'] }),
+  })
+}
+
+export function useUpdateTag() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...body }: { id: string; name?: string; color?: string }) => {
+      const res = await fetch(`${API_BASE_URL}/api/v1/tags/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) throw new Error('Failed to update tag')
+      return res.json()
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tags', 'contact'] }),
+  })
+}
+
+export function useDeleteTag() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`${API_BASE_URL}/api/v1/tags/${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Failed to delete tag')
+      return res.json()
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tags', 'contact'] }),
   })
 }
 

@@ -11,6 +11,21 @@ import {
   getDealById,
 } from '../data/contacts'
 
+// Tenant-wide contact tag definitions — mutable so the tag manager (CRM
+// settings) can create/rename/recolour/delete them in demo mode.
+const mockContactTags: { id: string; name: string; color: string; entityType: string }[] = [
+  { id: 'tag-c1', name: 'Entscheider', color: '#EF4444', entityType: 'contact' },
+  { id: 'tag-c2', name: 'VIP', color: '#F59E0B', entityType: 'contact' },
+  { id: 'tag-c3', name: 'Technik', color: '#3B82F6', entityType: 'contact' },
+  { id: 'tag-c5', name: 'Partner', color: '#8B5CF6', entityType: 'contact' },
+  { id: 'tag-c7', name: 'Vertrieb', color: '#F59E0B', entityType: 'contact' },
+  { id: 'tag-c9', name: 'Einkauf', color: '#10B981', entityType: 'contact' },
+  { id: 'tag-c12', name: 'Beratung', color: '#8B5CF6', entityType: 'contact' },
+  { id: 'tag-c17', name: 'Bestandskunde', color: '#10B981', entityType: 'contact' },
+  { id: 'tag-c18', name: 'Neukunde', color: '#F59E0B', entityType: 'contact' },
+  { id: 'tag-c19', name: 'Interessent', color: '#6366F1', entityType: 'contact' },
+]
+
 // ---------------------------------------------------------------------------
 // Helper: flatten a company.address object into a string. OpenAPI defines
 // CompanyInfo.address as a string ("street, zip city, country"); the mock data
@@ -509,19 +524,37 @@ export const crmHandlers = [
   // All tag definitions used across demo contacts/companies (deduplicated by id)
   // These are returned for GET /api/v1/tags so the TagPopover can list them.
   http.get(`${API}/api/v1/tags`, () => {
-    const tags = [
-      { id: 'tag-c1',  name: 'Entscheider',  color: '#EF4444', entityType: 'contact' },
-      { id: 'tag-c2',  name: 'VIP',           color: '#F59E0B', entityType: 'contact' },
-      { id: 'tag-c3',  name: 'Technik',       color: '#3B82F6', entityType: 'contact' },
-      { id: 'tag-c5',  name: 'Partner',       color: '#8B5CF6', entityType: 'contact' },
-      { id: 'tag-c7',  name: 'Vertrieb',      color: '#F59E0B', entityType: 'contact' },
-      { id: 'tag-c9',  name: 'Einkauf',       color: '#10B981', entityType: 'contact' },
-      { id: 'tag-c12', name: 'Beratung',      color: '#8B5CF6', entityType: 'contact' },
-      { id: 'tag-c17', name: 'Bestandskunde', color: '#10B981', entityType: 'contact' },
-      { id: 'tag-c18', name: 'Neukunde',      color: '#F59E0B', entityType: 'contact' },
-      { id: 'tag-c19', name: 'Interessent',   color: '#6366F1', entityType: 'contact' },
-    ]
-    return HttpResponse.json({ tags })
+    return HttpResponse.json({ tags: mockContactTags })
+  }),
+
+  // POST /api/v1/tags — create a tag definition
+  http.post(`${API}/api/v1/tags`, async ({ request }) => {
+    const body = (await request.json()) as { name: string; color?: string; entity_type?: string }
+    const tag = {
+      id: `tag-${Date.now()}`,
+      name: body.name,
+      color: body.color ?? '#6B7280',
+      entityType: body.entity_type ?? 'contact',
+    }
+    mockContactTags.push(tag)
+    return HttpResponse.json({ tag })
+  }),
+
+  // PATCH /api/v1/tags/:id — rename / recolour
+  http.patch(`${API}/api/v1/tags/:id`, async ({ request, params }) => {
+    const tag = mockContactTags.find((t) => t.id === params.id)
+    if (!tag) return new HttpResponse(null, { status: 404 })
+    const body = (await request.json()) as { name?: string; color?: string }
+    if (body.name !== undefined) tag.name = body.name
+    if (body.color !== undefined) tag.color = body.color
+    return HttpResponse.json({ tag })
+  }),
+
+  // DELETE /api/v1/tags/:id — remove a tag definition
+  http.delete(`${API}/api/v1/tags/:id`, ({ params }) => {
+    const idx = mockContactTags.findIndex((t) => t.id === params.id)
+    if (idx >= 0) mockContactTags.splice(idx, 1)
+    return HttpResponse.json({ success: true })
   }),
 
   // POST /api/v1/contacts/:id/tags — add tags
