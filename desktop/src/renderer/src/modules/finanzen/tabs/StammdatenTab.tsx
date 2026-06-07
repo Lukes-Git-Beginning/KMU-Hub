@@ -27,7 +27,7 @@ import {
 import { toast } from 'sonner'
 import { useCompanySettings, useUpdateCompanySettings } from '@/api/hooks/useFinance'
 
-export function StammdatenTab() {
+export function StammdatenTab({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation()
   const { data: settings, isLoading } = useCompanySettings()
   const updateMutation = useUpdateCompanySettings()
@@ -119,14 +119,16 @@ export function StammdatenTab() {
 
   return (
     <div className="max-w-2xl space-y-0">
-      <div className="mb-6">
-        <h2 className="text-base font-semibold text-foreground">
-          {t('finanzen.stammdaten.title', { defaultValue: 'Firmen-Stammdaten' })}
-        </h2>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          {t('finanzen.stammdaten.subtitle', { defaultValue: 'Daten die auf Rechnungen erscheinen' })}
-        </p>
-      </div>
+      {!embedded && (
+        <div className="mb-6">
+          <h2 className="text-base font-semibold text-foreground">
+            {t('finanzen.stammdaten.title', { defaultValue: 'Firmen-Stammdaten' })}
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {t('finanzen.stammdaten.subtitle', { defaultValue: 'Daten die auf Rechnungen erscheinen' })}
+          </p>
+        </div>
+      )}
 
       {/* ── Firma ──────────────────────────────────────── */}
       <section className="mb-8">

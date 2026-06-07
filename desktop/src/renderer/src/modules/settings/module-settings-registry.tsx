@@ -13,8 +13,8 @@ import {
 } from 'lucide-react'
 import type { RoleId } from '@/config/roles'
 import { CrmSettingsPanel } from './panels/CrmSettingsPanel'
+import { FinanceSettingsPanel } from './panels/FinanceSettingsPanel'
 import { CalendarSettingsTab } from './tabs/CalendarSettingsTab'
-import { FinanceSettingsTab } from './tabs/FinanceSettingsTab'
 import { MailSettingsTab } from './tabs/MailSettingsTab'
 import { TeamSettingsTab } from './tabs/TeamSettingsTab'
 import { CompanySettingsTab } from './tabs/CompanySettingsTab'
@@ -48,7 +48,7 @@ export interface SettingsEntry {
 export const SETTINGS_ENTRIES: SettingsEntry[] = [
   // ── MODULE ──
   { id: 'crm', group: 'module', labelKey: 'moduleSettings.entries.crm', icon: Contact, navMatch: ['/kontakte', '/crm'], component: CrmSettingsPanel },
-  { id: 'finance', group: 'module', labelKey: 'moduleSettings.entries.finance', icon: Receipt, navMatch: ['/finanzen', '/buchhaltung'], component: FinanceSettingsTab },
+  { id: 'finance', group: 'module', labelKey: 'moduleSettings.entries.finance', icon: Receipt, navMatch: ['/finanzen', '/buchhaltung'], component: FinanceSettingsPanel },
   { id: 'calendar', group: 'module', labelKey: 'moduleSettings.entries.calendar', icon: Calendar, navMatch: ['/kalender'], component: CalendarSettingsTab },
   { id: 'mail', group: 'module', labelKey: 'moduleSettings.entries.mail', icon: Mail, navMatch: ['/mails'], component: MailSettingsTab },
   { id: 'team', group: 'module', labelKey: 'moduleSettings.entries.team', icon: Users, navMatch: ['/team'], roles: ['admin', 'hr'], component: TeamSettingsTab },

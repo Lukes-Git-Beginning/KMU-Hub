@@ -25,7 +25,7 @@ const BUCHHALTUNGS_INTEGRATIONS = INTEGRATION_REGISTRY.filter(
   (d) => d.category === 'buchhaltung',
 )
 
-export function FinanzIntegrationenTab() {
+export function FinanzIntegrationenTab({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation()
   const [activeIntegrationId, setActiveIntegrationId] = useState<string | null>(null)
   const integrationStore = useIntegrationStore()
@@ -55,14 +55,16 @@ export function FinanzIntegrationenTab() {
 
   return (
     <div className="max-w-3xl">
-      <div className="mb-6">
-        <h2 className="text-base font-semibold text-foreground">
-          {t('finanzen.integrationen.title', { defaultValue: 'Buchhaltungs-Integrationen' })}
-        </h2>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          {t('finanzen.integrationen.subtitle', { defaultValue: 'Verknüpfung zu externen Buchhaltungs-Systemen' })}
-        </p>
-      </div>
+      {!embedded && (
+        <div className="mb-6">
+          <h2 className="text-base font-semibold text-foreground">
+            {t('finanzen.integrationen.title', { defaultValue: 'Buchhaltungs-Integrationen' })}
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {t('finanzen.integrationen.subtitle', { defaultValue: 'Verknüpfung zu externen Buchhaltungs-Systemen' })}
+          </p>
+        </div>
+      )}
 
       {BUCHHALTUNGS_INTEGRATIONS.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-12 text-center">

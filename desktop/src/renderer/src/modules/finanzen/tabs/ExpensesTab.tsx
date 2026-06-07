@@ -9,14 +9,17 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, Receipt, Search } from 'lucide-react'
 import { toast } from 'sonner'
-import { useFinanceStore } from '@/stores/finance'
+import { useExpenses, useApproveExpense, useRejectExpense, useDeleteExpense } from '@/api/hooks/useFinanceLedger'
 import { ItemActions, ConfirmDialog, EmptyState } from '@/components/shared'
 import { formatCurrency } from '@/lib/format'
 import { ExpenseFormDialog } from '../ExpenseFormDialog'
 
 export function ExpensesTab() {
   const { t, i18n } = useTranslation()
-  const { expenses, approveExpense, rejectExpense, deleteExpense } = useFinanceStore()
+  const { data: expenses = [] } = useExpenses()
+  const approveExpense = useApproveExpense()
+  const rejectExpense = useRejectExpense()
+  const deleteExpense = useDeleteExpense()
 
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
@@ -115,14 +118,14 @@ export function ExpensesTab() {
                         {
                           label: t('buchhaltung.actions.approve'),
                           onClick: () => {
-                            approveExpense(exp.id)
+                            approveExpense.mutate(exp.id)
                             toast.success(t('buchhaltung.toast.approved'))
                           },
                         },
                         {
                           label: t('buchhaltung.actions.reject'),
                           onClick: () => {
-                            rejectExpense(exp.id)
+                            rejectExpense.mutate(exp.id)
                             toast.success(t('buchhaltung.toast.rejected'))
                           },
                         },
@@ -151,7 +154,7 @@ export function ExpensesTab() {
         variant="destructive"
         onConfirm={() => {
           if (confirmDelete) {
-            deleteExpense(confirmDelete.id)
+            deleteExpense.mutate(confirmDelete.id)
             toast.success(t('buchhaltung.toast.deleted'))
             setConfirmDelete(null)
           }

@@ -16,7 +16,7 @@ import { toast } from 'sonner'
 import { useSettingsStore } from '@/stores/settings'
 import { useDunningConfig, useUpdateDunningConfig } from '@/api/hooks/useFinance'
 
-export function FinanceSettingsTab() {
+export function FinanceSettingsTab({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation()
   const { finance, updateFinance } = useSettingsStore()
 
@@ -76,10 +76,14 @@ export function FinanceSettingsTab() {
 
   return (
     <div className="max-w-2xl">
-      <h2 className="text-foreground mb-1">{t('settings.finance.title')}</h2>
-      <p className="text-sm text-muted-foreground mb-6">
-        {t('settings.finance.subtitle')}
-      </p>
+      {!embedded && (
+        <>
+          <h2 className="text-foreground mb-1">{t('settings.finance.title')}</h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            {t('settings.finance.subtitle')}
+          </p>
+        </>
+      )}
 
       {/* ── Invoice settings ─────────────────────────── */}
       <section className="mb-8">

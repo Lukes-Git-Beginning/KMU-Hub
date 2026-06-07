@@ -39,7 +39,7 @@ export function IntegrationCard({ definition, status, onClick }: IntegrationCard
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="text-sm font-medium text-foreground">{definition.name}</h3>
-            <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{definition.description}</p>
+            <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{t(definition.description)}</p>
           </div>
         </div>
         <div className="mt-3 flex items-center justify-between">
@@ -60,7 +60,7 @@ export function IntegrationCard({ definition, status, onClick }: IntegrationCard
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-medium text-foreground">{definition.name}</h3>
-          <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{definition.description}</p>
+          <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{t(definition.description)}</p>
         </div>
       </div>
       <div className="mt-3 flex items-center justify-between">

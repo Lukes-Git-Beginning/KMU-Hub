@@ -9,7 +9,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowDownRight, ArrowUpRight, Search } from 'lucide-react'
 import { toast } from 'sonner'
-import { useFinanceStore } from '@/stores/finance'
+import { useTransactions, useDeleteTransaction } from '@/api/hooks/useFinanceLedger'
 import { ItemActions, ConfirmDialog, EmptyState } from '@/components/shared'
 import { formatCurrency } from '@/lib/format'
 import { Receipt } from 'lucide-react'
@@ -18,7 +18,8 @@ type TypeFilter = 'all' | 'income' | 'expense'
 
 export function TransactionsTab() {
   const { t, i18n } = useTranslation()
-  const { transactions, deleteTransaction } = useFinanceStore()
+  const { data: transactions = [] } = useTransactions()
+  const deleteTransaction = useDeleteTransaction()
 
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
@@ -194,7 +195,7 @@ export function TransactionsTab() {
         variant="destructive"
         onConfirm={() => {
           if (confirmDelete) {
-            deleteTransaction(confirmDelete.id)
+            deleteTransaction.mutate(confirmDelete.id)
             toast.success(t('buchhaltung.toast.deleted'))
             setConfirmDelete(null)
           }

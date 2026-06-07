@@ -15,9 +15,6 @@ import {
   Link2,
   Landmark,
   Timer,
-  Settings as SettingsIcon,
-  Building2,
-  Plug,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ItemActions, ConfirmDialog, EmptyState, PageHeader } from '@/components/shared'
@@ -60,11 +57,7 @@ import { EInvoiceBadge, EInvoiceDetailDialog } from './EInvoiceIndicator'
 import { HoursToInvoiceDialog } from './HoursToInvoiceDialog'
 import { BankingWidget } from './BankingWidget'
 import { AnimatedCheckmark } from '@/components/shared/AnimatedCheckmark'
-import { FinanceSettingsTab } from '@/modules/settings/tabs/FinanceSettingsTab'
-import { StammdatenTab } from './tabs/StammdatenTab'
-import { FinanzIntegrationenTab } from './tabs/FinanzIntegrationenTab'
-import { useAuthStore } from '@/stores/auth'
-import { userHasRole } from '@/config/roles'
+import { useFinancePrefsStore } from '@/stores/financePrefs'
 import { formatDate } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
@@ -147,11 +140,20 @@ export default function FinanzenPage() {
     quoteFilter,
   } = useFinanceUIStore()
 
-  const user = useAuthStore((s) => s.user)
-  const canSeeSettingsTab = userHasRole(user, ['admin'])
-  // Falls admin-only Tabs restricted sind (Rollenwechsel) -> auf dashboard zurueckfallen
-  const adminOnlyTabs: FinanceTabKey[] = ['settings', 'stammdaten', 'finanz-integrationen']
-  const effectiveTab: FinanceTabKey = adminOnlyTabs.includes(activeTab) && !canSeeSettingsTab ? 'dashboard' : activeTab
+  // Settings/Stammdaten/Integrationen moved to the module-settings overlay
+  // (FinanceSettingsPanel). Guard persisted state pointing at a removed tab.
+  const retiredTabs: FinanceTabKey[] = ['settings', 'stammdaten', 'finanz-integrationen']
+  const effectiveTab: FinanceTabKey = retiredTabs.includes(activeTab) ? 'dashboard' : activeTab
+
+  // Personal pref: open at a fixed start tab (unless "last").
+  const startTab = useFinancePrefsStore((s) => s.startTab)
+  useEffect(() => {
+    if (startTab !== 'last' && !retiredTabs.includes(startTab)) {
+      setActiveTab(startTab)
+    }
+    // run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const [search, setSearch] = useState('')
 
@@ -412,10 +414,6 @@ export default function FinanzenPage() {
     count?: number
   }[] = [
     { key: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-    // Stammdaten: 2. Position (admin only) — oft erster Setup-Schritt
-    ...(canSeeSettingsTab
-      ? [{ key: 'stammdaten' as const, label: t('finanzen.tabs.stammdaten', { defaultValue: 'Stammdaten' }), icon: Building2 }]
-      : []),
     {
       key: 'invoices',
       label: t('finanzen.tabs.invoices', { count: invoicesData?.total ?? 0 }),
@@ -445,12 +443,6 @@ export default function FinanzenPage() {
     { key: 'belegkette', label: t('finanzen.tabs.belegkette'), icon: Link2 },
     { key: 'banking', label: t('finanzen.tabs.banking'), icon: Landmark },
     { key: 'export', label: t('finanzen.tabs.export'), icon: Download },
-    ...(canSeeSettingsTab
-      ? [
-          { key: 'finanz-integrationen' as const, label: t('finanzen.tabs.integrationen', { defaultValue: 'Integrationen' }), icon: Plug },
-          { key: 'settings' as const, label: t('finanzen.tabs.settings'), icon: SettingsIcon },
-        ]
-      : []),
   ]
 
   return (
@@ -888,15 +880,6 @@ export default function FinanzenPage() {
           </div>
         </div>
       )}
-
-      {/* Stammdaten Tab — admin only */}
-      {effectiveTab === 'stammdaten' && <StammdatenTab />}
-
-      {/* Finanz-Integrationen Tab — admin only */}
-      {effectiveTab === 'finanz-integrationen' && <FinanzIntegrationenTab />}
-
-      {/* Settings Tab — admin only (firmenweite Buchhaltungs-Konfiguration) */}
-      {effectiveTab === 'settings' && <FinanceSettingsTab />}
 
       {/* Invoice Detail Panel */}
       {selectedInvoiceId && (
