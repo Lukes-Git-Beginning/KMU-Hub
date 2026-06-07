@@ -353,6 +353,48 @@ export const crmHandlers = [
     return HttpResponse.json({ stages })
   }),
 
+  http.post(`${API}/api/v1/pipeline-stages`, async ({ request }) => {
+    const body = (await request.json()) as {
+      name: string; color: string; is_won: boolean; is_lost: boolean; probability: number
+    }
+    const maxOrder = mockPipelineStages.stages.reduce((m, s) => Math.max(m, s.order), 0)
+    const stage = {
+      id: `stage-${Date.now()}`,
+      name: body.name,
+      order: maxOrder + 1,
+      probability: body.probability,
+      color: body.color,
+      is_won: body.is_won,
+      is_lost: body.is_lost,
+    }
+    mockPipelineStages.stages.push(stage)
+    return HttpResponse.json({ stage })
+  }),
+
+  http.patch(`${API}/api/v1/pipeline-stages/:id`, async ({ request, params }) => {
+    const stage = mockPipelineStages.stages.find((s) => s.id === params.id)
+    if (!stage) return new HttpResponse(null, { status: 404 })
+    const body = (await request.json()) as Partial<typeof stage>
+    Object.assign(stage, body)
+    return HttpResponse.json({ stage })
+  }),
+
+  http.delete(`${API}/api/v1/pipeline-stages/:id`, ({ params }) => {
+    const idx = mockPipelineStages.stages.findIndex((s) => s.id === params.id)
+    if (idx >= 0) mockPipelineStages.stages.splice(idx, 1)
+    return HttpResponse.json({ success: true })
+  }),
+
+  http.post(`${API}/api/v1/pipeline-stages/reorder`, async ({ request }) => {
+    const { stage_ids } = (await request.json()) as { stage_ids: string[] }
+    stage_ids.forEach((id, i) => {
+      const stage = mockPipelineStages.stages.find((s) => s.id === id)
+      if (stage) stage.order = i + 1
+    })
+    mockPipelineStages.stages.sort((a, b) => a.order - b.order)
+    return HttpResponse.json({ success: true })
+  }),
+
   // ---- Activities -------------------------------------------------------
 
   http.get(`${API}/api/v1/activities`, ({ request }) => {

@@ -139,4 +139,11 @@ Darien-Screenshot-Feedback an der Kontakte-UX → UX-Rework:
 - [x] i18n `moduleSettings.*` ×4 (Audit 0 missing). QA (`scripts/qa-module-settings.mjs`): öffnet als Dialog, beide Gruppen, Aktiv-Badge, **Route bleibt stabil** (kein Wegnavigieren), Kalender-Scope-Sektionen im Fenster, Esc schließt, 0 Errors/Raw-Keys.
 - ⚠ QA-Selektor bei 820px traf den (kollabierten) Trigger nicht — Overlay selbst ist responsiv; reiner Test-Selektor-Punkt.
 
-**Commit B — CRM-Settings-Panel (Kontakte Phase 7) offen:** Pipeline-Stage-Editor (Hooks da) · Custom-Fields (CustomFieldsConfig) · Tag-Verwaltung (CRUD-Hooks fehlen) · Lead-Scoring-Regeln (Store auslagern) → als erster MODULE-Eintrag „CRM" auf `ModuleSettingsShell`.
+**Commit B1 — CRM-Settings-Panel (Kontakte Phase 7, Teil 1) ✅ (typecheck 0, lint 0, QA grün):**
+- [x] `CrmSettingsPanel` als erster MODULE-Eintrag „CRM" (Kontext-Vorauswahl greift: aus Kontakte → CRM aktiv markiert). Auf `ModuleSettingsShell`, beide Sektionen tenant-scoped („Für alle").
+- [x] **Pipeline-Phasen-Editor** (`PipelineStagesEditor`) — Liste mit Inline-Edit (Name/Wahrscheinlichkeit), Farb-Swatches, Reorder (↑/↓), Add/Delete, Gewonnen/Verloren-Marker, Deal-Count. Hooks waren da; **Mock-Handler für POST/PATCH/DELETE/reorder** ergänzt (`mocks/handlers/crm.ts`, in-memory).
+- [x] **Eigene Felder** — `CustomFieldsConfig`-Body extrahiert zu wiederverwendbarem `CustomFieldsManager` (Dialog + CRM-Panel teilen ihn).
+- [x] i18n `crm.settings.*` + `moduleSettings.entries.crm` ×4. **⚠ Fund:** Codebase nutzt **i18next-ICU** → einfache `{name}`-Klammern, nicht `{{name}}`. Erst doppelte verwendet → Toast/Deal-Count roh; per Screenshot-QA gefangen + auf ICU-Syntax korrigiert. (Lehre: neue interpolierte Keys IMMER `{var}`.)
+- [x] QA (`scripts/qa-crm-settings.mjs`): CRM aktiv markiert, 6 Phasen rendern, „Neue Phase" hinzufügen funktioniert (Toast korrekt interpoliert), Deal-Counts echte Zahlen, 0 Errors/Raw-Keys.
+
+**Commit B2 — offen:** Tag-Verwaltung (CRUD-Hooks + Mock fehlen) · Lead-Scoring-Regeln (Konstanten in Store auslagern) als weitere CRM-Sektionen.

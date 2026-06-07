@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react'
 import {
+  Contact,
   Receipt,
   Calendar,
   Mail,
@@ -11,6 +12,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import type { RoleId } from '@/config/roles'
+import { CrmSettingsPanel } from './panels/CrmSettingsPanel'
 import { CalendarSettingsTab } from './tabs/CalendarSettingsTab'
 import { FinanceSettingsTab } from './tabs/FinanceSettingsTab'
 import { MailSettingsTab } from './tabs/MailSettingsTab'
@@ -45,6 +47,7 @@ export interface SettingsEntry {
 
 export const SETTINGS_ENTRIES: SettingsEntry[] = [
   // ── MODULE ──
+  { id: 'crm', group: 'module', labelKey: 'moduleSettings.entries.crm', icon: Contact, navMatch: ['/kontakte', '/crm'], component: CrmSettingsPanel },
   { id: 'finance', group: 'module', labelKey: 'moduleSettings.entries.finance', icon: Receipt, navMatch: ['/finanzen', '/buchhaltung'], component: FinanceSettingsTab },
   { id: 'calendar', group: 'module', labelKey: 'moduleSettings.entries.calendar', icon: Calendar, navMatch: ['/kalender'], component: CalendarSettingsTab },
   { id: 'mail', group: 'module', labelKey: 'moduleSettings.entries.mail', icon: Mail, navMatch: ['/mails'], component: MailSettingsTab },
