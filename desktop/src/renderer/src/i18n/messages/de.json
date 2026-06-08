@@ -8283,5 +8283,10 @@
   "work.myTasks.dueNone": "Ohne Fälligkeit",
   "work.myTasks.dueOverdue": "Überfällig",
   "work.myTasks.dueThisWeek": "Diese Woche",
-  "work.myTasks.dueLater": "Später"
+  "work.myTasks.dueLater": "Später",
+  "work.labels.title": "Labels",
+  "work.labels.add": "Label",
+  "work.labels.noneDefined": "Keine Labels definiert",
+  "work.labels.manageHint": "In den Moduleinstellungen verwalten",
+  "work.filter.labels": "Labels"
 }

@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   Calendar,
   RotateCcw,
+  Tag,
 } from 'lucide-react'
 import { cn } from '@/lib'
 import { Button } from '@/components/ui/button'
@@ -23,12 +24,14 @@ import {
 } from '@/components/ui/popover'
 import { Badge } from '@/components/ui/badge'
 import { useProjects } from '@/api/hooks/useProjects'
+import { useWorkSettingsStore } from '@/stores/workSettings'
 
 export interface TaskFilters {
   projectIds: string[]
   assigneeIds: string[]
   statusIds: string[]
   priorities: string[]
+  labelIds: string[]
   dueDateFrom?: string
   dueDateTo?: string
   includeCompleted: boolean
@@ -39,6 +42,7 @@ const EMPTY_FILTERS: TaskFilters = {
   assigneeIds: [],
   statusIds: [],
   priorities: [],
+  labelIds: [],
   dueDateFrom: undefined,
   dueDateTo: undefined,
   includeCompleted: false,
@@ -66,12 +70,14 @@ export default function TaskFilterBar({
   const { t } = useTranslation()
   const { data: projectsData } = useProjects({ page_size: 100 })
   const projects = projectsData?.projects ?? []
+  const labels = useWorkSettingsStore((s) => s.labels)
 
   const activeFilterCount = [
     filters.projectIds.length > 0,
     filters.assigneeIds.length > 0,
     filters.statusIds.length > 0,
     filters.priorities.length > 0,
+    filters.labelIds.length > 0,
     !!filters.dueDateFrom || !!filters.dueDateTo,
     filters.includeCompleted,
   ].filter(Boolean).length
@@ -218,6 +224,56 @@ export default function TaskFilterBar({
           </div>
         </PopoverContent>
       </Popover>
+
+      {/* Label filter */}
+      {labels.length > 0 && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                'h-7 gap-1 text-xs',
+                filters.labelIds.length > 0 && 'border-primary text-primary'
+              )}
+            >
+              <Tag className="h-3.5 w-3.5" />
+              {t('work.filter.labels')}
+              {filters.labelIds.length > 0 && (
+                <Badge variant="secondary" className="h-4 min-w-4 px-1 text-xs rounded-full">
+                  {filters.labelIds.length}
+                </Badge>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-52 p-1" align="start">
+            <div className="max-h-56 space-y-0.5 overflow-y-auto">
+              {labels.map((label) => (
+                <button
+                  key={label.id}
+                  type="button"
+                  className={cn(
+                    'flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors',
+                    filters.labelIds.includes(label.id) && 'bg-accent'
+                  )}
+                  onClick={() =>
+                    onFiltersChange({
+                      ...filters,
+                      labelIds: toggleArrayValue(filters.labelIds, label.id),
+                    })
+                  }
+                >
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: label.color }} />
+                  <span className="flex-1 truncate text-left">{label.name}</span>
+                  {filters.labelIds.includes(label.id) && (
+                    <span className="h-3 w-3 shrink-0 rounded-sm border bg-primary border-primary" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+      )}
 
       {/* Due date filter */}
       <Popover>

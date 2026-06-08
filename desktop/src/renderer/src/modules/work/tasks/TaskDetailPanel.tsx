@@ -33,6 +33,8 @@ import { useWorkStore } from '@/stores/work'
 import StatusBadge from '../components/StatusBadge'
 import PriorityBadge from '../components/PriorityBadge'
 import type { Priority } from '../components/PriorityBadge'
+import TaskLabelChips from '../components/TaskLabelChips'
+import TaskLabelPicker from '../components/TaskLabelPicker'
 
 export default function TaskDetailPanel() {
   const { t } = useTranslation()
@@ -438,6 +440,17 @@ export default function TaskDetailPanel() {
                         </div>
                       </PopoverContent>
                     </Popover>
+                  </div>
+                </div>
+
+                {/* Labels */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    {t('work.labels.title')}
+                  </label>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {activeTaskId && <TaskLabelChips taskId={activeTaskId} />}
+                    {activeTaskId && <TaskLabelPicker taskId={activeTaskId} />}
                   </div>
                 </div>
 

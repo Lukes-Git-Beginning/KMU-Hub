@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/global.d.ts",
+    "src/renderer/src/vite-env.d.ts",
+    "src/renderer/src/i18n/i18next.d.ts",
+    "src/renderer/src/stores/taskLabels.ts",
+    "src/renderer/src/modules/work/components/TaskLabelChips.tsx",
+    "src/renderer/src/modules/work/components/TaskLabelPicker.tsx",
+    "src/renderer/src/modules/work/components/TaskFilterBar.tsx",
+    "src/renderer/src/modules/work/components/TaskSearchView.tsx",
+    "src/renderer/src/modules/work/kanban/KanbanCard.tsx",
+    "src/renderer/src/modules/work/list/TaskRow.tsx",
+    "src/renderer/src/modules/work/tasks/TaskDetailPanel.tsx",
+    "src/renderer/src/modules/work/tasks/TaskDetailPage.tsx",
+    "src/renderer/src/modules/work/settings/LabelTaxonomyManager.tsx"
+  ]
+}

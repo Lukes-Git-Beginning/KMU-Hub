@@ -30,6 +30,7 @@ import { useWorkStore } from '@/stores/work'
 import StatusBadge from '../components/StatusBadge'
 import PriorityBadge from '../components/PriorityBadge'
 import type { Priority } from '../components/PriorityBadge'
+import TaskLabelChips from '../components/TaskLabelChips'
 
 interface TaskData {
   id?: string
@@ -227,6 +228,9 @@ export default function TaskRow({
           </button>
         )}
       </div>
+
+      {/* Labels */}
+      {task.id && <TaskLabelChips taskId={task.id} max={2} size="xs" className="shrink-0" />}
 
       {/* Blocked indicator */}
       {task.has_blocked_deps && (

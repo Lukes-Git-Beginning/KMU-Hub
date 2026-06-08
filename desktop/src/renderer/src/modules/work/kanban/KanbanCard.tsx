@@ -13,6 +13,7 @@ import { cn } from '@/lib'
 import type { TaskData } from '../list/TaskRow'
 import PriorityBadge from '../components/PriorityBadge'
 import type { Priority } from '../components/PriorityBadge'
+import TaskLabelChips from '../components/TaskLabelChips'
 
 interface KanbanCardProps {
   task: TaskData
@@ -116,6 +117,9 @@ export default function KanbanCard({
       >
         {task.title}
       </p>
+
+      {/* Labels */}
+      {task.id && <TaskLabelChips taskId={task.id} max={3} size="xs" className="mt-2" />}
 
       {/* Bottom row: assignee, due date, subtask progress */}
       <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">

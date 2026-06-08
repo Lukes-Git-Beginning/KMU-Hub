@@ -8249,5 +8249,10 @@
   "work.myTasks.dueNone": "Sans échéance",
   "work.myTasks.dueOverdue": "En retard",
   "work.myTasks.dueThisWeek": "Cette semaine",
-  "work.myTasks.dueLater": "Plus tard"
+  "work.myTasks.dueLater": "Plus tard",
+  "work.labels.title": "Étiquettes",
+  "work.labels.add": "Étiquette",
+  "work.labels.noneDefined": "Aucune étiquette définie",
+  "work.labels.manageHint": "Gérer dans les réglages du module",
+  "work.filter.labels": "Étiquettes"
 }

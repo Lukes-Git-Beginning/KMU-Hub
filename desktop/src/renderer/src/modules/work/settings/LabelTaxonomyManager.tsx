@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { Plus, Trash2, Tags as TagsIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkSettingsStore, type WorkLabel } from '@/stores/workSettings'
+import { useTaskLabelsStore } from '@/stores/taskLabels'
 import { ConfirmDialog, ColorSwatchPicker, SWATCH_COLORS } from '@/components/shared'
 
 export function LabelTaxonomyManager() {
@@ -18,6 +19,7 @@ export function LabelTaxonomyManager() {
   const addLabel = useWorkSettingsStore((s) => s.addLabel)
   const updateLabel = useWorkSettingsStore((s) => s.updateLabel)
   const removeLabel = useWorkSettingsStore((s) => s.removeLabel)
+  const purgeLabelFromTasks = useTaskLabelsStore((s) => s.purgeLabel)
 
   const [adding, setAdding] = useState(false)
   const [newName, setNewName] = useState('')
@@ -37,6 +39,7 @@ export function LabelTaxonomyManager() {
   const handleDelete = () => {
     if (!deleteTarget) return
     const name = deleteTarget.name
+    purgeLabelFromTasks(deleteTarget.id)
     removeLabel(deleteTarget.id)
     toast.success(t('work.settings.labels.deleted', { name }))
     setDeleteTarget(null)

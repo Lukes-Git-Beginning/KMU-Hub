@@ -9,7 +9,7 @@
  *   status, priority, assignee, and due date
  * - Pagination at bottom
  */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -28,6 +28,8 @@ import PriorityBadge from './PriorityBadge'
 import type { Priority } from './PriorityBadge'
 import TaskFilterBar, { EMPTY_FILTERS } from './TaskFilterBar'
 import type { TaskFilters } from './TaskFilterBar'
+import TaskLabelChips from './TaskLabelChips'
+import { useTaskLabelsStore } from '@/stores/taskLabels'
 
 const PAGE_SIZE = 20
 
@@ -76,9 +78,21 @@ export default function TaskSearchView() {
     page_size: PAGE_SIZE,
   })
 
-  const tasks = data?.tasks ?? []
-  const total = data?.total ?? 0
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const allTasks = data?.tasks ?? []
+  const labelsByTask = useTaskLabelsStore((s) => s.byTask)
+
+  // Label filter is mock-first → applied client-side over the fetched page.
+  const tasks = useMemo(() => {
+    if (filters.labelIds.length === 0) return allTasks
+    return allTasks.filter((task) => {
+      const ids = (task.id && labelsByTask[task.id]) || []
+      return filters.labelIds.some((lid) => ids.includes(lid))
+    })
+  }, [allTasks, filters.labelIds, labelsByTask])
+
+  const labelFilterActive = filters.labelIds.length > 0
+  const total = labelFilterActive ? tasks.length : data?.total ?? 0
+  const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / PAGE_SIZE))
 
   return (
     <div className="p-6 space-y-4">
@@ -161,6 +175,9 @@ export default function TaskSearchView() {
                     {highlightText(task.title ?? '', debouncedQuery)}
                   </span>
 
+                  {/* Labels */}
+                  {task.id && <TaskLabelChips taskId={task.id} max={2} size="xs" className="shrink-0" />}
+
                   {/* Status */}
                   {task.status_name && (
                     <StatusBadge
@@ -199,8 +216,8 @@ export default function TaskSearchView() {
             })}
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
+          {/* Pagination (hidden while the client-side label filter is active) */}
+          {totalPages > 1 && !labelFilterActive && (
             <div className="flex items-center justify-between pt-2">
               <p className="text-sm text-muted-foreground">
                 {t('work.pagination.page', { page, totalPages })}

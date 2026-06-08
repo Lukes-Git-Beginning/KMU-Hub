@@ -8283,5 +8283,10 @@
   "work.myTasks.dueNone": "No due date",
   "work.myTasks.dueOverdue": "Overdue",
   "work.myTasks.dueThisWeek": "This week",
-  "work.myTasks.dueLater": "Later"
+  "work.myTasks.dueLater": "Later",
+  "work.labels.title": "Labels",
+  "work.labels.add": "Label",
+  "work.labels.noneDefined": "No labels defined",
+  "work.labels.manageHint": "Manage in module settings",
+  "work.filter.labels": "Labels"
 }

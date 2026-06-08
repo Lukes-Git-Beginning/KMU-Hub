@@ -46,6 +46,8 @@ import CommentThread from '../components/CommentThread'
 import ActivityLog from '../components/ActivityLog'
 import TaskFileAttachments from '../components/TaskFileAttachments'
 import DependencyList from '../components/DependencyList'
+import TaskLabelChips from '../components/TaskLabelChips'
+import TaskLabelPicker from '../components/TaskLabelPicker'
 import TaskCreateDialog from '../components/TaskCreateDialog'
 import TaskLinkField from '../components/TaskLinkField'
 import CustomFieldsSection from '../components/CustomFieldsSection'
@@ -589,6 +591,19 @@ export default function TaskDetailPage() {
                 </div>
               </PopoverContent>
             </Popover>
+          </div>
+
+          <Separator />
+
+          {/* Labels */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">
+              {t('work.labels.title')}
+            </label>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {taskId && <TaskLabelChips taskId={taskId} />}
+              {taskId && <TaskLabelPicker taskId={taskId} />}
+            </div>
           </div>
 
           <Separator />
