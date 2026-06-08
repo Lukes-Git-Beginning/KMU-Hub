@@ -449,6 +449,36 @@ func (r *PostgresRepository) ReplaceRecoveryCodes(ctx context.Context, userID uu
 	return tx.Commit(ctx)
 }
 
+// Password reset token methods
+
+func (r *PostgresRepository) CreatePasswordResetToken(ctx context.Context, token *models.PasswordResetToken) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO password_reset_tokens (id, tenant_id, user_id, token_hash, expires_at, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		token.ID, token.TenantID, token.UserID, token.TokenHash, token.ExpiresAt, token.CreatedAt,
+	)
+	return err
+}
+
+func (r *PostgresRepository) GetPasswordResetToken(ctx context.Context, tokenHash string) (*models.PasswordResetToken, error) {
+	var t models.PasswordResetToken
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, tenant_id, user_id, token_hash, expires_at, used_at, created_at
+		 FROM password_reset_tokens WHERE token_hash = $1`, tokenHash,
+	).Scan(&t.ID, &t.TenantID, &t.UserID, &t.TokenHash, &t.ExpiresAt, &t.UsedAt, &t.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrResetTokenInvalid
+	}
+	return &t, err
+}
+
+func (r *PostgresRepository) MarkPasswordResetTokenUsed(ctx context.Context, id uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1`, id,
+	)
+	return err
+}
+
 // Two-factor policy methods
 
 func (r *PostgresRepository) GetTwoFactorPolicy(ctx context.Context, roleName string) (*models.TwoFactorPolicy, error) {

@@ -155,6 +155,16 @@ type Config struct {
 	MinIOUseSSL     bool   `env:"MINIO_USE_SSL,default=false"`
 	FileSizeLimitMB int    `env:"FILE_SIZE_LIMIT_MB,default=50"`
 
+	// System SMTP (transactional emails: password-reset, system notifications)
+	// Optional — if not set, transactional emails are logged but not sent.
+	SystemSMTPHost     string `env:"SYSTEM_SMTP_HOST,default="`
+	SystemSMTPPort     int    `env:"SYSTEM_SMTP_PORT,default=587"`
+	SystemSMTPUser     string `env:"SYSTEM_SMTP_USER,default="`
+	SystemSMTPPassword string `env:"SYSTEM_SMTP_PASSWORD,default="`
+	SystemSMTPFrom     string `env:"SYSTEM_SMTP_FROM,default=noreply@zentria.tech"`
+	// PasswordResetBaseURL is the frontend origin for reset links.
+	PasswordResetBaseURL string `env:"PASSWORD_RESET_BASE_URL,default=https://app.zentria.tech/reset-password"`
+
 	// Env controls production secret validation ("production" enables hard checks)
 	Env string `env:"COSMI_ENV,default=development"`
 }

@@ -3190,6 +3190,184 @@ func (x *UpdateTwoFactorPolicyResponse) GetPolicy() *TwoFactorPolicy {
 	return nil
 }
 
+type RequestPasswordResetRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RequestPasswordResetRequest) Reset() {
+	*x = RequestPasswordResetRequest{}
+	mi := &file_proto_auth_v1_auth_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RequestPasswordResetRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RequestPasswordResetRequest) ProtoMessage() {}
+
+func (x *RequestPasswordResetRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_auth_v1_auth_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RequestPasswordResetRequest.ProtoReflect.Descriptor instead.
+func (*RequestPasswordResetRequest) Descriptor() ([]byte, []int) {
+	return file_proto_auth_v1_auth_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *RequestPasswordResetRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+type RequestPasswordResetResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Always returns the same message regardless of whether the email exists,
+	// to prevent user enumeration.
+	Message       string `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RequestPasswordResetResponse) Reset() {
+	*x = RequestPasswordResetResponse{}
+	mi := &file_proto_auth_v1_auth_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RequestPasswordResetResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RequestPasswordResetResponse) ProtoMessage() {}
+
+func (x *RequestPasswordResetResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_auth_v1_auth_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RequestPasswordResetResponse.ProtoReflect.Descriptor instead.
+func (*RequestPasswordResetResponse) Descriptor() ([]byte, []int) {
+	return file_proto_auth_v1_auth_proto_rawDescGZIP(), []int{61}
+}
+
+func (x *RequestPasswordResetResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type ResetPasswordRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	NewPassword   string                 `protobuf:"bytes,2,opt,name=new_password,json=newPassword,proto3" json:"new_password,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResetPasswordRequest) Reset() {
+	*x = ResetPasswordRequest{}
+	mi := &file_proto_auth_v1_auth_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResetPasswordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResetPasswordRequest) ProtoMessage() {}
+
+func (x *ResetPasswordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_auth_v1_auth_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResetPasswordRequest.ProtoReflect.Descriptor instead.
+func (*ResetPasswordRequest) Descriptor() ([]byte, []int) {
+	return file_proto_auth_v1_auth_proto_rawDescGZIP(), []int{62}
+}
+
+func (x *ResetPasswordRequest) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+func (x *ResetPasswordRequest) GetNewPassword() string {
+	if x != nil {
+		return x.NewPassword
+	}
+	return ""
+}
+
+type ResetPasswordResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResetPasswordResponse) Reset() {
+	*x = ResetPasswordResponse{}
+	mi := &file_proto_auth_v1_auth_proto_msgTypes[63]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResetPasswordResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResetPasswordResponse) ProtoMessage() {}
+
+func (x *ResetPasswordResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_auth_v1_auth_proto_msgTypes[63]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResetPasswordResponse.ProtoReflect.Descriptor instead.
+func (*ResetPasswordResponse) Descriptor() ([]byte, []int) {
+	return file_proto_auth_v1_auth_proto_rawDescGZIP(), []int{63}
+}
+
 var File_proto_auth_v1_auth_proto protoreflect.FileDescriptor
 
 const file_proto_auth_v1_auth_proto_rawDesc = "" +
@@ -3407,7 +3585,15 @@ const file_proto_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
 	"updated_by\x18\x04 \x01(\tR\tupdatedBy\"Q\n" +
 	"\x1dUpdateTwoFactorPolicyResponse\x120\n" +
-	"\x06policy\x18\x01 \x01(\v2\x18.auth.v1.TwoFactorPolicyR\x06policy2\xbb\x11\n" +
+	"\x06policy\x18\x01 \x01(\v2\x18.auth.v1.TwoFactorPolicyR\x06policy\"3\n" +
+	"\x1bRequestPasswordResetRequest\x12\x14\n" +
+	"\x05email\x18\x01 \x01(\tR\x05email\"8\n" +
+	"\x1cRequestPasswordResetResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"O\n" +
+	"\x14ResetPasswordRequest\x12\x14\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\x12!\n" +
+	"\fnew_password\x18\x02 \x01(\tR\vnewPassword\"\x17\n" +
+	"\x15ResetPasswordResponse2\xf0\x12\n" +
 	"\vAuthService\x12?\n" +
 	"\bRegister\x12\x18.auth.v1.RegisterRequest\x1a\x19.auth.v1.RegisterResponse\x126\n" +
 	"\x05Login\x12\x15.auth.v1.LoginRequest\x1a\x16.auth.v1.LoginResponse\x12K\n" +
@@ -3441,7 +3627,9 @@ const file_proto_auth_v1_auth_proto_rawDesc = "" +
 	"\x10TerminateSession\x12 .auth.v1.TerminateSessionRequest\x1a!.auth.v1.TerminateSessionResponse\x12c\n" +
 	"\x14TerminateAllSessions\x12$.auth.v1.TerminateAllSessionsRequest\x1a%.auth.v1.TerminateAllSessionsResponse\x12]\n" +
 	"\x12GetTwoFactorPolicy\x12\".auth.v1.GetTwoFactorPolicyRequest\x1a#.auth.v1.GetTwoFactorPolicyResponse\x12f\n" +
-	"\x15UpdateTwoFactorPolicy\x12%.auth.v1.UpdateTwoFactorPolicyRequest\x1a&.auth.v1.UpdateTwoFactorPolicyResponseB/Z-github.com/kmuhub/kmuhub/proto/auth/v1;authv1b\x06proto3"
+	"\x15UpdateTwoFactorPolicy\x12%.auth.v1.UpdateTwoFactorPolicyRequest\x1a&.auth.v1.UpdateTwoFactorPolicyResponse\x12c\n" +
+	"\x14RequestPasswordReset\x12$.auth.v1.RequestPasswordResetRequest\x1a%.auth.v1.RequestPasswordResetResponse\x12N\n" +
+	"\rResetPassword\x12\x1d.auth.v1.ResetPasswordRequest\x1a\x1e.auth.v1.ResetPasswordResponseB/Z-github.com/kmuhub/kmuhub/proto/auth/v1;authv1b\x06proto3"
 
 var (
 	file_proto_auth_v1_auth_proto_rawDescOnce sync.Once
@@ -3455,7 +3643,7 @@ func file_proto_auth_v1_auth_proto_rawDescGZIP() []byte {
 	return file_proto_auth_v1_auth_proto_rawDescData
 }
 
-var file_proto_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 60)
+var file_proto_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 64)
 var file_proto_auth_v1_auth_proto_goTypes = []any{
 	(*RegisterRequest)(nil),                 // 0: auth.v1.RegisterRequest
 	(*RegisterResponse)(nil),                // 1: auth.v1.RegisterResponse
@@ -3517,7 +3705,11 @@ var file_proto_auth_v1_auth_proto_goTypes = []any{
 	(*GetTwoFactorPolicyResponse)(nil),      // 57: auth.v1.GetTwoFactorPolicyResponse
 	(*UpdateTwoFactorPolicyRequest)(nil),    // 58: auth.v1.UpdateTwoFactorPolicyRequest
 	(*UpdateTwoFactorPolicyResponse)(nil),   // 59: auth.v1.UpdateTwoFactorPolicyResponse
-	(*timestamppb.Timestamp)(nil),           // 60: google.protobuf.Timestamp
+	(*RequestPasswordResetRequest)(nil),     // 60: auth.v1.RequestPasswordResetRequest
+	(*RequestPasswordResetResponse)(nil),    // 61: auth.v1.RequestPasswordResetResponse
+	(*ResetPasswordRequest)(nil),            // 62: auth.v1.ResetPasswordRequest
+	(*ResetPasswordResponse)(nil),           // 63: auth.v1.ResetPasswordResponse
+	(*timestamppb.Timestamp)(nil),           // 64: google.protobuf.Timestamp
 }
 var file_proto_auth_v1_auth_proto_depIdxs = []int32{
 	22, // 0: auth.v1.RegisterResponse.user:type_name -> auth.v1.UserInfo
@@ -3530,10 +3722,10 @@ var file_proto_auth_v1_auth_proto_depIdxs = []int32{
 	27, // 7: auth.v1.ListInvitationsResponse.invitations:type_name -> auth.v1.InvitationInfo
 	22, // 8: auth.v1.AcceptInvitationResponse.user:type_name -> auth.v1.UserInfo
 	22, // 9: auth.v1.Validate2FALoginResponse.user:type_name -> auth.v1.UserInfo
-	60, // 10: auth.v1.SessionInfo.last_active_at:type_name -> google.protobuf.Timestamp
-	60, // 11: auth.v1.SessionInfo.created_at:type_name -> google.protobuf.Timestamp
+	64, // 10: auth.v1.SessionInfo.last_active_at:type_name -> google.protobuf.Timestamp
+	64, // 11: auth.v1.SessionInfo.created_at:type_name -> google.protobuf.Timestamp
 	48, // 12: auth.v1.ListSessionsResponse.sessions:type_name -> auth.v1.SessionInfo
-	60, // 13: auth.v1.TwoFactorPolicy.updated_at:type_name -> google.protobuf.Timestamp
+	64, // 13: auth.v1.TwoFactorPolicy.updated_at:type_name -> google.protobuf.Timestamp
 	55, // 14: auth.v1.GetTwoFactorPolicyResponse.policies:type_name -> auth.v1.TwoFactorPolicy
 	55, // 15: auth.v1.UpdateTwoFactorPolicyResponse.policy:type_name -> auth.v1.TwoFactorPolicy
 	0,  // 16: auth.v1.AuthService.Register:input_type -> auth.v1.RegisterRequest
@@ -3564,36 +3756,40 @@ var file_proto_auth_v1_auth_proto_depIdxs = []int32{
 	53, // 41: auth.v1.AuthService.TerminateAllSessions:input_type -> auth.v1.TerminateAllSessionsRequest
 	56, // 42: auth.v1.AuthService.GetTwoFactorPolicy:input_type -> auth.v1.GetTwoFactorPolicyRequest
 	58, // 43: auth.v1.AuthService.UpdateTwoFactorPolicy:input_type -> auth.v1.UpdateTwoFactorPolicyRequest
-	1,  // 44: auth.v1.AuthService.Register:output_type -> auth.v1.RegisterResponse
-	3,  // 45: auth.v1.AuthService.Login:output_type -> auth.v1.LoginResponse
-	5,  // 46: auth.v1.AuthService.RefreshToken:output_type -> auth.v1.RefreshTokenResponse
-	7,  // 47: auth.v1.AuthService.Logout:output_type -> auth.v1.LogoutResponse
-	9,  // 48: auth.v1.AuthService.ValidateToken:output_type -> auth.v1.ValidateTokenResponse
-	11, // 49: auth.v1.AuthService.GetUser:output_type -> auth.v1.GetUserResponse
-	13, // 50: auth.v1.AuthService.ListUsers:output_type -> auth.v1.ListUsersResponse
-	15, // 51: auth.v1.AuthService.UpdateUser:output_type -> auth.v1.UpdateUserResponse
-	17, // 52: auth.v1.AuthService.AssignRole:output_type -> auth.v1.AssignRoleResponse
-	19, // 53: auth.v1.AuthService.RemoveRole:output_type -> auth.v1.RemoveRoleResponse
-	21, // 54: auth.v1.AuthService.CheckPermission:output_type -> auth.v1.CheckPermissionResponse
-	24, // 55: auth.v1.AuthService.GetProfile:output_type -> auth.v1.GetProfileResponse
-	26, // 56: auth.v1.AuthService.ChangePassword:output_type -> auth.v1.ChangePasswordResponse
-	29, // 57: auth.v1.AuthService.CreateInvitation:output_type -> auth.v1.CreateInvitationResponse
-	31, // 58: auth.v1.AuthService.ListInvitations:output_type -> auth.v1.ListInvitationsResponse
-	33, // 59: auth.v1.AuthService.AcceptInvitation:output_type -> auth.v1.AcceptInvitationResponse
-	35, // 60: auth.v1.AuthService.CancelInvitation:output_type -> auth.v1.CancelInvitationResponse
-	37, // 61: auth.v1.AuthService.Setup2FA:output_type -> auth.v1.Setup2FAResponse
-	39, // 62: auth.v1.AuthService.Verify2FA:output_type -> auth.v1.Verify2FAResponse
-	41, // 63: auth.v1.AuthService.Validate2FALogin:output_type -> auth.v1.Validate2FALoginResponse
-	43, // 64: auth.v1.AuthService.Disable2FA:output_type -> auth.v1.Disable2FAResponse
-	45, // 65: auth.v1.AuthService.RegenerateRecoveryCodes:output_type -> auth.v1.RegenerateRecoveryCodesResponse
-	47, // 66: auth.v1.AuthService.AdminReset2FA:output_type -> auth.v1.AdminReset2FAResponse
-	50, // 67: auth.v1.AuthService.ListSessions:output_type -> auth.v1.ListSessionsResponse
-	52, // 68: auth.v1.AuthService.TerminateSession:output_type -> auth.v1.TerminateSessionResponse
-	54, // 69: auth.v1.AuthService.TerminateAllSessions:output_type -> auth.v1.TerminateAllSessionsResponse
-	57, // 70: auth.v1.AuthService.GetTwoFactorPolicy:output_type -> auth.v1.GetTwoFactorPolicyResponse
-	59, // 71: auth.v1.AuthService.UpdateTwoFactorPolicy:output_type -> auth.v1.UpdateTwoFactorPolicyResponse
-	44, // [44:72] is the sub-list for method output_type
-	16, // [16:44] is the sub-list for method input_type
+	60, // 44: auth.v1.AuthService.RequestPasswordReset:input_type -> auth.v1.RequestPasswordResetRequest
+	62, // 45: auth.v1.AuthService.ResetPassword:input_type -> auth.v1.ResetPasswordRequest
+	1,  // 46: auth.v1.AuthService.Register:output_type -> auth.v1.RegisterResponse
+	3,  // 47: auth.v1.AuthService.Login:output_type -> auth.v1.LoginResponse
+	5,  // 48: auth.v1.AuthService.RefreshToken:output_type -> auth.v1.RefreshTokenResponse
+	7,  // 49: auth.v1.AuthService.Logout:output_type -> auth.v1.LogoutResponse
+	9,  // 50: auth.v1.AuthService.ValidateToken:output_type -> auth.v1.ValidateTokenResponse
+	11, // 51: auth.v1.AuthService.GetUser:output_type -> auth.v1.GetUserResponse
+	13, // 52: auth.v1.AuthService.ListUsers:output_type -> auth.v1.ListUsersResponse
+	15, // 53: auth.v1.AuthService.UpdateUser:output_type -> auth.v1.UpdateUserResponse
+	17, // 54: auth.v1.AuthService.AssignRole:output_type -> auth.v1.AssignRoleResponse
+	19, // 55: auth.v1.AuthService.RemoveRole:output_type -> auth.v1.RemoveRoleResponse
+	21, // 56: auth.v1.AuthService.CheckPermission:output_type -> auth.v1.CheckPermissionResponse
+	24, // 57: auth.v1.AuthService.GetProfile:output_type -> auth.v1.GetProfileResponse
+	26, // 58: auth.v1.AuthService.ChangePassword:output_type -> auth.v1.ChangePasswordResponse
+	29, // 59: auth.v1.AuthService.CreateInvitation:output_type -> auth.v1.CreateInvitationResponse
+	31, // 60: auth.v1.AuthService.ListInvitations:output_type -> auth.v1.ListInvitationsResponse
+	33, // 61: auth.v1.AuthService.AcceptInvitation:output_type -> auth.v1.AcceptInvitationResponse
+	35, // 62: auth.v1.AuthService.CancelInvitation:output_type -> auth.v1.CancelInvitationResponse
+	37, // 63: auth.v1.AuthService.Setup2FA:output_type -> auth.v1.Setup2FAResponse
+	39, // 64: auth.v1.AuthService.Verify2FA:output_type -> auth.v1.Verify2FAResponse
+	41, // 65: auth.v1.AuthService.Validate2FALogin:output_type -> auth.v1.Validate2FALoginResponse
+	43, // 66: auth.v1.AuthService.Disable2FA:output_type -> auth.v1.Disable2FAResponse
+	45, // 67: auth.v1.AuthService.RegenerateRecoveryCodes:output_type -> auth.v1.RegenerateRecoveryCodesResponse
+	47, // 68: auth.v1.AuthService.AdminReset2FA:output_type -> auth.v1.AdminReset2FAResponse
+	50, // 69: auth.v1.AuthService.ListSessions:output_type -> auth.v1.ListSessionsResponse
+	52, // 70: auth.v1.AuthService.TerminateSession:output_type -> auth.v1.TerminateSessionResponse
+	54, // 71: auth.v1.AuthService.TerminateAllSessions:output_type -> auth.v1.TerminateAllSessionsResponse
+	57, // 72: auth.v1.AuthService.GetTwoFactorPolicy:output_type -> auth.v1.GetTwoFactorPolicyResponse
+	59, // 73: auth.v1.AuthService.UpdateTwoFactorPolicy:output_type -> auth.v1.UpdateTwoFactorPolicyResponse
+	61, // 74: auth.v1.AuthService.RequestPasswordReset:output_type -> auth.v1.RequestPasswordResetResponse
+	63, // 75: auth.v1.AuthService.ResetPassword:output_type -> auth.v1.ResetPasswordResponse
+	46, // [46:76] is the sub-list for method output_type
+	16, // [16:46] is the sub-list for method input_type
 	16, // [16:16] is the sub-list for extension type_name
 	16, // [16:16] is the sub-list for extension extendee
 	0,  // [0:16] is the sub-list for field type_name
@@ -3611,7 +3807,7 @@ func file_proto_auth_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_auth_v1_auth_proto_rawDesc), len(file_proto_auth_v1_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   60,
+			NumMessages:   64,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

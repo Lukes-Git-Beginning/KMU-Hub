@@ -31,4 +31,10 @@ var (
 
 	// Session errors
 	ErrSessionNotFound = errors.New("session not found")
+
+	// Password reset errors
+	ErrResetTokenInvalid = errors.New("password reset token is invalid")
+	ErrResetTokenExpired = errors.New("password reset token has expired")
+	ErrResetTokenUsed    = errors.New("password reset token has already been used")
+	ErrPasswordTooWeak   = errors.New("password does not meet strength requirements")
 )

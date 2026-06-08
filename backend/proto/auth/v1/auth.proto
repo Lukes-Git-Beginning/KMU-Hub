@@ -45,6 +45,10 @@ service AuthService {
   // Two-Factor Policy
   rpc GetTwoFactorPolicy(GetTwoFactorPolicyRequest) returns (GetTwoFactorPolicyResponse);
   rpc UpdateTwoFactorPolicy(UpdateTwoFactorPolicyRequest) returns (UpdateTwoFactorPolicyResponse);
+
+  // Password Reset
+  rpc RequestPasswordReset(RequestPasswordResetRequest) returns (RequestPasswordResetResponse);
+  rpc ResetPassword(ResetPasswordRequest) returns (ResetPasswordResponse);
 }
 
 message RegisterRequest {
@@ -359,3 +363,24 @@ message UpdateTwoFactorPolicyRequest {
 message UpdateTwoFactorPolicyResponse {
   TwoFactorPolicy policy = 1;
 }
+
+// ---------------------------------------------------------------------------
+// Password Reset messages
+// ---------------------------------------------------------------------------
+
+message RequestPasswordResetRequest {
+  string email = 1;
+}
+
+message RequestPasswordResetResponse {
+  // Always returns the same message regardless of whether the email exists,
+  // to prevent user enumeration.
+  string message = 1;
+}
+
+message ResetPasswordRequest {
+  string token       = 1;
+  string new_password = 2;
+}
+
+message ResetPasswordResponse {}

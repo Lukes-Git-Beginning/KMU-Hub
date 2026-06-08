@@ -49,6 +49,11 @@ type Repository interface {
 	ListTwoFactorPolicies(ctx context.Context) ([]*models.TwoFactorPolicy, error)
 	UpsertTwoFactorPolicy(ctx context.Context, policy *models.TwoFactorPolicy) error
 
+	// Password reset token methods
+	CreatePasswordResetToken(ctx context.Context, token *models.PasswordResetToken) error
+	GetPasswordResetToken(ctx context.Context, tokenHash string) (*models.PasswordResetToken, error)
+	MarkPasswordResetTokenUsed(ctx context.Context, id uuid.UUID) error
+
 	// Session management methods
 	CreateSession(ctx context.Context, session *models.UserSession) error
 	GetSession(ctx context.Context, id uuid.UUID) (*models.UserSession, error)

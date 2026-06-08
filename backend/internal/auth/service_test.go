@@ -15,28 +15,30 @@ import (
 
 // mockRepository implements Repository for testing
 type mockRepository struct {
-	users          map[uuid.UUID]*models.User
-	usersByEmail   map[string]*models.User
-	refreshTokens  map[string]*models.RefreshToken // keyed by token_hash
-	userRoles      map[uuid.UUID][]string
-	userPerms      map[uuid.UUID][]string
-	invitations    map[uuid.UUID]*models.Invitation
-	invByToken     map[string]*models.Invitation
-	sessions       []*models.UserSession
-	recoveryCodes  []*models.RecoveryCode
+	users              map[uuid.UUID]*models.User
+	usersByEmail       map[string]*models.User
+	refreshTokens      map[string]*models.RefreshToken // keyed by token_hash
+	userRoles          map[uuid.UUID][]string
+	userPerms          map[uuid.UUID][]string
+	invitations        map[uuid.UUID]*models.Invitation
+	invByToken         map[string]*models.Invitation
+	sessions           []*models.UserSession
+	recoveryCodes      []*models.RecoveryCode
+	passwordResetTokens map[string]*models.PasswordResetToken // keyed by token_hash
 }
 
 func newMockRepository() *mockRepository {
 	return &mockRepository{
-		users:         make(map[uuid.UUID]*models.User),
-		usersByEmail:  make(map[string]*models.User),
-		refreshTokens: make(map[string]*models.RefreshToken),
-		userRoles:     make(map[uuid.UUID][]string),
-		userPerms:     make(map[uuid.UUID][]string),
-		invitations:   make(map[uuid.UUID]*models.Invitation),
-		invByToken:    make(map[string]*models.Invitation),
-		sessions:      nil,
-		recoveryCodes: nil,
+		users:               make(map[uuid.UUID]*models.User),
+		usersByEmail:        make(map[string]*models.User),
+		refreshTokens:       make(map[string]*models.RefreshToken),
+		userRoles:           make(map[uuid.UUID][]string),
+		userPerms:           make(map[uuid.UUID][]string),
+		invitations:         make(map[uuid.UUID]*models.Invitation),
+		invByToken:          make(map[string]*models.Invitation),
+		sessions:            nil,
+		recoveryCodes:       nil,
+		passwordResetTokens: make(map[string]*models.PasswordResetToken),
 	}
 }
 
@@ -311,6 +313,32 @@ func (m *mockRepository) DeleteSession(_ context.Context, _ uuid.UUID) error {
 }
 
 func (m *mockRepository) DeleteAllUserSessions(_ context.Context, _ uuid.UUID, _ *uuid.UUID) error {
+	return nil
+}
+
+// Password reset token methods
+
+func (m *mockRepository) CreatePasswordResetToken(_ context.Context, token *models.PasswordResetToken) error {
+	m.passwordResetTokens[token.TokenHash] = token
+	return nil
+}
+
+func (m *mockRepository) GetPasswordResetToken(_ context.Context, tokenHash string) (*models.PasswordResetToken, error) {
+	t, ok := m.passwordResetTokens[tokenHash]
+	if !ok {
+		return nil, ErrResetTokenInvalid
+	}
+	return t, nil
+}
+
+func (m *mockRepository) MarkPasswordResetTokenUsed(_ context.Context, id uuid.UUID) error {
+	for _, t := range m.passwordResetTokens {
+		if t.ID == id {
+			now := time.Now()
+			t.UsedAt = &now
+			return nil
+		}
+	}
 	return nil
 }
 

@@ -52,6 +52,17 @@ func main() {
 	tokenMaker := auth.NewTokenMaker(cfg.JWTSecret, cfg.AccessTokenExpiry, cfg.RefreshTokenExpiry)
 	authService := auth.NewService(repo, tokenMaker)
 
+	// Wire password-reset mailer (graceful: logs if SMTP not configured).
+	mailer := &systemMailer{
+		host:     cfg.SystemSMTPHost,
+		port:     cfg.SystemSMTPPort,
+		username: cfg.SystemSMTPUser,
+		password: cfg.SystemSMTPPassword,
+		from:     cfg.SystemSMTPFrom,
+	}
+	authService.SetMailer(mailer)
+	authService.SetResetBaseURL(cfg.PasswordResetBaseURL)
+
 	// Security services
 	var vaultService *vault.Service
 	if cfg.VaultMasterSecret != "" {
@@ -74,6 +85,8 @@ func main() {
 
 	passwordRepo := password.NewPostgresRepository(pool)
 	passwordService := password.NewService(passwordRepo)
+	// Wire password strength validator into auth service (used during reset).
+	authService.SetPasswordValidator(passwordService)
 
 	gdprRepo := gdpr.NewPostgresRepository(pool)
 	gdprService := gdpr.NewService(gdprRepo)

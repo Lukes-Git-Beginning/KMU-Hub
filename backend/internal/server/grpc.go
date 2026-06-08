@@ -581,6 +581,26 @@ func toUserInfo(user *models.User, roles []string) *authv1.UserInfo {
 	}
 }
 
+// ============================================================================
+// Password Reset Handlers
+// ============================================================================
+
+func (s *AuthGRPCServer) RequestPasswordReset(ctx context.Context, req *authv1.RequestPasswordResetRequest) (*authv1.RequestPasswordResetResponse, error) {
+	// Intentionally ignores the error — always returns the same response
+	// to prevent user enumeration.
+	_ = s.authService.RequestPasswordReset(ctx, req.Email)
+	return &authv1.RequestPasswordResetResponse{
+		Message: "If an account with that email exists, a reset link has been sent.",
+	}, nil
+}
+
+func (s *AuthGRPCServer) ResetPassword(ctx context.Context, req *authv1.ResetPasswordRequest) (*authv1.ResetPasswordResponse, error) {
+	if err := s.authService.ResetPassword(ctx, req.Token, req.NewPassword); err != nil {
+		return nil, mapError(err)
+	}
+	return &authv1.ResetPasswordResponse{}, nil
+}
+
 func mapError(err error) error {
 	switch {
 	case errors.Is(err, auth.ErrUserExists):
@@ -617,6 +637,14 @@ func mapError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, auth.ErrSessionNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, auth.ErrResetTokenInvalid):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, auth.ErrResetTokenExpired):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, auth.ErrResetTokenUsed):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, auth.ErrPasswordTooWeak):
+		return status.Error(codes.InvalidArgument, err.Error())
 	default:
 		return status.Error(codes.Internal, "internal error")
 	}

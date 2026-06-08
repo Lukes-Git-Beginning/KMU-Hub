@@ -17,10 +17,26 @@ import (
 
 const bcryptCost = 12
 
+// passwordResetExpiry is how long a reset link remains valid.
+const passwordResetExpiry = 1 * time.Hour
+
+// PasswordValidator is the narrow interface the service uses to check
+// password strength. The concrete implementation wraps
+// security/password.Service.
+type PasswordValidator interface {
+	ValidatePassword(ctx context.Context, password string) (valid bool, reasons []string, err error)
+}
+
 type Service struct {
-	repo       Repository
-	tokenMaker *TokenMaker
-	vaultSvc   VaultEncryptor
+	repo              Repository
+	tokenMaker        *TokenMaker
+	vaultSvc          VaultEncryptor
+	mailer            Mailer
+	passwordValidator PasswordValidator
+	// resetBaseURL is the frontend URL prefix for reset links,
+	// e.g. "https://app.zentria.tech/reset-password". The plain token
+	// is appended as a query parameter: ?token=<plaintext>.
+	resetBaseURL string
 }
 
 func NewService(repo Repository, tokenMaker *TokenMaker) *Service {
@@ -28,6 +44,21 @@ func NewService(repo Repository, tokenMaker *TokenMaker) *Service {
 		repo:       repo,
 		tokenMaker: tokenMaker,
 	}
+}
+
+// SetMailer injects the transactional mailer (called from cmd/auth/main.go).
+func (s *Service) SetMailer(m Mailer) {
+	s.mailer = m
+}
+
+// SetPasswordValidator injects the password-strength validator.
+func (s *Service) SetPasswordValidator(v PasswordValidator) {
+	s.passwordValidator = v
+}
+
+// SetResetBaseURL sets the frontend base URL for password-reset links.
+func (s *Service) SetResetBaseURL(url string) {
+	s.resetBaseURL = url
 }
 
 func (s *Service) Register(ctx context.Context, email, password, firstName, lastName string) (*models.User, *models.TokenPair, error) {
@@ -485,4 +516,116 @@ func generateSecureToken() string {
 	b := make([]byte, 32)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+// ============================================================================
+// Password Reset
+// ============================================================================
+
+// RequestPasswordReset initiates a password-reset flow for the given email.
+// To prevent user enumeration the method always returns nil — callers must
+// respond with the same HTTP 200 body whether or not the email is known.
+func (s *Service) RequestPasswordReset(ctx context.Context, email string) error {
+	// Pre-JWT path: no tenant in ctx, need RLS bypass to read users by email.
+	sysCtx := sysctx.With(ctx)
+
+	user, err := s.repo.GetUserByEmail(sysCtx, email)
+	if err != nil {
+		// Unknown email — silently succeed (no enumeration leak).
+		slog.Info("password reset requested for unknown email", "email", email)
+		return nil
+	}
+
+	plain := generateSecureToken()
+	hash := HashToken(plain)
+
+	prt := &models.PasswordResetToken{
+		ID:        uuid.New(),
+		TenantID:  user.TenantID,
+		UserID:    user.ID,
+		TokenHash: hash,
+		ExpiresAt: time.Now().Add(passwordResetExpiry),
+		CreatedAt: time.Now(),
+	}
+
+	if err := s.repo.CreatePasswordResetToken(sysCtx, prt); err != nil {
+		slog.Error("failed to create password reset token", "user_id", user.ID, "error", err)
+		// Still return nil to avoid timing-based enumeration.
+		return nil
+	}
+
+	if s.mailer != nil {
+		baseURL := s.resetBaseURL
+		if baseURL == "" {
+			baseURL = "https://app.zentria.tech/reset-password"
+		}
+		resetLink := fmt.Sprintf("%s?token=%s", baseURL, plain)
+		name := user.FirstName
+		if name == "" {
+			name = user.Email
+		}
+		if mailErr := s.mailer.SendPasswordResetEmail(sysCtx, user.Email, name, resetLink); mailErr != nil {
+			slog.Error("failed to send password reset email", "user_id", user.ID, "error", mailErr)
+		}
+	} else {
+		slog.Warn("mailer not configured, password reset email not sent", "user_id", user.ID)
+	}
+
+	slog.Info("password reset token issued", "user_id", user.ID)
+	return nil
+}
+
+// ResetPassword validates the reset token, checks password strength, updates
+// the password, marks the token as used, and revokes all refresh tokens.
+func (s *Service) ResetPassword(ctx context.Context, token, newPassword string) error {
+	// Pre-JWT path: no tenant in ctx.
+	sysCtx := sysctx.With(ctx)
+
+	hash := HashToken(token)
+
+	prt, err := s.repo.GetPasswordResetToken(sysCtx, hash)
+	if err != nil {
+		return ErrResetTokenInvalid
+	}
+
+	if prt.UsedAt != nil {
+		return ErrResetTokenUsed
+	}
+
+	if time.Now().After(prt.ExpiresAt) {
+		return ErrResetTokenExpired
+	}
+
+	// Strength check via injected validator (if wired).
+	if s.passwordValidator != nil {
+		valid, reasons, valErr := s.passwordValidator.ValidatePassword(sysCtx, newPassword)
+		if valErr != nil {
+			slog.Warn("password validator error during reset, skipping strength check", "error", valErr)
+		} else if !valid {
+			slog.Info("password reset rejected: weak password", "reasons", reasons)
+			return ErrPasswordTooWeak
+		}
+	}
+
+	pwHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcryptCost)
+	if err != nil {
+		return fmt.Errorf("hash password: %w", err)
+	}
+
+	if err := s.repo.UpdatePassword(sysCtx, prt.UserID, string(pwHash)); err != nil {
+		return fmt.Errorf("update password: %w", err)
+	}
+
+	// Mark token as consumed (idempotent on double-call).
+	if err := s.repo.MarkPasswordResetTokenUsed(sysCtx, prt.ID); err != nil {
+		slog.Error("failed to mark reset token used", "token_id", prt.ID, "error", err)
+	}
+
+	// Revoke all active refresh tokens so old sessions are invalidated.
+	if err := s.repo.RevokeAllUserTokens(sysCtx, prt.UserID); err != nil {
+		slog.Error("failed to revoke tokens after password reset", "user_id", prt.UserID, "error", err)
+	}
+
+	slog.Info("password reset completed", "user_id", prt.UserID)
+	return nil
 }

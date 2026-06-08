@@ -397,6 +397,18 @@ func (m *authMockRepo) DeleteAllUserSessions(_ context.Context, userID uuid.UUID
 	return nil
 }
 
+func (m *authMockRepo) CreatePasswordResetToken(_ context.Context, _ *models.PasswordResetToken) error {
+	return nil
+}
+
+func (m *authMockRepo) GetPasswordResetToken(_ context.Context, _ string) (*models.PasswordResetToken, error) {
+	return nil, auth.ErrResetTokenInvalid
+}
+
+func (m *authMockRepo) MarkPasswordResetTokenUsed(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
 // ---------------------------------------------------------------------------
 // Auth test helpers
 // ---------------------------------------------------------------------------

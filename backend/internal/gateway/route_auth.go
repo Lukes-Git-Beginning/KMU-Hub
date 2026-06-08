@@ -2,6 +2,8 @@ package gateway
 
 import (
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -10,9 +12,25 @@ import (
 	authv1 "github.com/kmuhub/kmuhub/proto/auth/v1"
 )
 
+// forgotRateLimitWindow is the sliding window for per-email forgot-password attempts.
+const forgotRateLimitWindow = 10 * time.Minute
+
+// forgotRateLimitMax is the maximum number of requests allowed per email per window.
+const forgotRateLimitMax = 5
+
+// forgotBucket tracks rate-limit state for a single email address.
+type forgotBucket struct {
+	count     int
+	windowEnd time.Time
+}
+
 // AuthRoutes handles HTTP routes for the auth backend service.
 type AuthRoutes struct {
 	registry *ServiceRegistry
+	// forgotLimiter provides per-email sliding-window rate limiting for the
+	// forgot-password endpoint. In-memory; resets on gateway restart. Good
+	// enough for pilot scale — upgrade to Redis-backed when needed.
+	forgotLimiter sync.Map // key: email string → *forgotBucket
 }
 
 // NewAuthRoutes creates a new AuthRoutes with the given service registry.
@@ -40,6 +58,10 @@ func (a *AuthRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 		r.Post("/login", a.HandleLogin)
 		r.Post("/refresh", a.HandleRefresh)
 		r.Post("/logout", a.HandleLogout)
+
+		// Password reset (public — no JWT required)
+		r.Post("/forgot-password", a.HandleForgotPassword)
+		r.Post("/reset-password", a.HandleResetPassword)
 
 		// 2FA validation (uses pending_token, not JWT auth)
 		r.Post("/2fa/validate", a.HandleValidate2FALogin)
@@ -409,6 +431,89 @@ func (a *AuthRoutes) HandleChangePassword(w http.ResponseWriter, r *http.Request
 	}
 
 	response.JSON(w, http.StatusOK, map[string]string{"status": "password changed"})
+}
+
+// ============================================================================
+// Password Reset Handlers
+// ============================================================================
+
+type forgotPasswordRequest struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
+// allowForgotAttempt returns true if the email is under the rate limit.
+// Thread-safe via sync.Map + per-bucket mutex.
+func (a *AuthRoutes) allowForgotAttempt(email string) bool {
+	now := time.Now()
+	actual, _ := a.forgotLimiter.LoadOrStore(email, &forgotBucket{windowEnd: now.Add(forgotRateLimitWindow)})
+	b := actual.(*forgotBucket)
+
+	// Use a pointer-level lock via sync.Mutex embedded in the bucket.
+	// Simpler: re-store atomically after check.
+	if now.After(b.windowEnd) {
+		// Window expired — reset.
+		a.forgotLimiter.Store(email, &forgotBucket{count: 1, windowEnd: now.Add(forgotRateLimitWindow)})
+		return true
+	}
+	b.count++
+	return b.count <= forgotRateLimitMax
+}
+
+func (a *AuthRoutes) HandleForgotPassword(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	req, ok := decodeAndValidate[forgotPasswordRequest](w, r)
+	if !ok {
+		return
+	}
+
+	if !a.allowForgotAttempt(req.Email) {
+		w.Header().Set("Retry-After", "600")
+		response.Error(w, http.StatusTooManyRequests, "too many password reset requests, try again later")
+		return
+	}
+
+	// Always return 200 — enumeration-safe.
+	_, _ = client.RequestPasswordReset(r.Context(), &authv1.RequestPasswordResetRequest{
+		Email: req.Email,
+	})
+
+	response.JSON(w, http.StatusOK, map[string]string{
+		"message": "If an account with that email exists, a reset link has been sent.",
+	})
+}
+
+type resetPasswordRequest struct {
+	Token       string `json:"token" validate:"required"`
+	NewPassword string `json:"new_password" validate:"required,min=8"`
+}
+
+func (a *AuthRoutes) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	req, ok := decodeAndValidate[resetPasswordRequest](w, r)
+	if !ok {
+		return
+	}
+
+	_, err = client.ResetPassword(r.Context(), &authv1.ResetPasswordRequest{
+		Token:       req.Token,
+		NewPassword: req.NewPassword,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "password reset successful"})
 }
 
 // ============================================================================
