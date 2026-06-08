@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -16,9 +15,9 @@ import (
 // ============================================================================
 
 type createProjectRequest struct {
-	Name        string  `json:"name"`
+	Name        string  `json:"name" validate:"required"`
 	Description *string `json:"description,omitempty"`
-	ProjectKey  string  `json:"project_key"`
+	ProjectKey  string  `json:"project_key" validate:"required"`
 }
 
 func (w *WorkRoutes) HandleCreateProject(wr http.ResponseWriter, r *http.Request) {
@@ -30,14 +29,8 @@ func (w *WorkRoutes) HandleCreateProject(wr http.ResponseWriter, r *http.Request
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createProjectRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Name == "" || req.ProjectKey == "" {
-		response.Error(wr, http.StatusBadRequest, "name and project_key are required")
+	req, ok := decodeAndValidate[createProjectRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -104,7 +97,7 @@ func (w *WorkRoutes) HandleListProjects(wr http.ResponseWriter, r *http.Request)
 }
 
 type updateProjectRequest struct {
-	Name        *string `json:"name,omitempty"`
+	Name        *string `json:"name,omitempty" validate:"omitempty,min=1"`
 	Description *string `json:"description,omitempty"`
 }
 
@@ -120,9 +113,8 @@ func (w *WorkRoutes) HandleUpdateProject(wr http.ResponseWriter, r *http.Request
 		return
 	}
 
-	var req updateProjectRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateProjectRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -169,8 +161,8 @@ func (w *WorkRoutes) HandleArchiveProject(wr http.ResponseWriter, r *http.Reques
 // ============================================================================
 
 type addProjectMemberRequest struct {
-	UserID string `json:"user_id"`
-	Role   string `json:"role"`
+	UserID string `json:"user_id" validate:"required,uuid"`
+	Role   string `json:"role" validate:"required,oneof=owner admin member viewer"`
 }
 
 func (w *WorkRoutes) HandleAddProjectMember(wr http.ResponseWriter, r *http.Request) {
@@ -185,9 +177,8 @@ func (w *WorkRoutes) HandleAddProjectMember(wr http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var req addProjectMemberRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[addProjectMemberRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -247,7 +238,7 @@ func (w *WorkRoutes) HandleListProjectMembers(wr http.ResponseWriter, r *http.Re
 }
 
 type updateProjectMemberRoleRequest struct {
-	Role string `json:"role"`
+	Role string `json:"role" validate:"required,oneof=owner admin member viewer"`
 }
 
 func (w *WorkRoutes) HandleUpdateProjectMemberRole(wr http.ResponseWriter, r *http.Request) {
@@ -260,9 +251,8 @@ func (w *WorkRoutes) HandleUpdateProjectMemberRole(wr http.ResponseWriter, r *ht
 	projectID := chi.URLParam(r, "id")
 	memberUserID := chi.URLParam(r, "userId")
 
-	var req updateProjectMemberRoleRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateProjectMemberRoleRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -284,7 +274,7 @@ func (w *WorkRoutes) HandleUpdateProjectMemberRole(wr http.ResponseWriter, r *ht
 // ============================================================================
 
 type saveAsTemplateRequest struct {
-	TemplateName string `json:"template_name"`
+	TemplateName string `json:"template_name" validate:"required"`
 }
 
 func (w *WorkRoutes) HandleSaveProjectAsTemplate(wr http.ResponseWriter, r *http.Request) {
@@ -297,9 +287,8 @@ func (w *WorkRoutes) HandleSaveProjectAsTemplate(wr http.ResponseWriter, r *http
 	userID := middleware.GetUserID(r.Context())
 	projectID := chi.URLParam(r, "id")
 
-	var req saveAsTemplateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[saveAsTemplateRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -316,10 +305,10 @@ func (w *WorkRoutes) HandleSaveProjectAsTemplate(wr http.ResponseWriter, r *http
 	response.JSON(wr, http.StatusCreated, resp)
 }
 
-type createFromTemplateRequest struct {
-	TemplateID string `json:"template_id"`
-	Name       string `json:"name"`
-	ProjectKey string `json:"project_key"`
+type createProjectFromTemplateRequest struct {
+	TemplateID string `json:"template_id" validate:"required,uuid"`
+	Name       string `json:"name" validate:"required"`
+	ProjectKey string `json:"project_key" validate:"required"`
 }
 
 func (w *WorkRoutes) HandleCreateProjectFromTemplate(wr http.ResponseWriter, r *http.Request) {
@@ -331,9 +320,8 @@ func (w *WorkRoutes) HandleCreateProjectFromTemplate(wr http.ResponseWriter, r *
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createFromTemplateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[createProjectFromTemplateRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -356,7 +344,7 @@ func (w *WorkRoutes) HandleCreateProjectFromTemplate(wr http.ResponseWriter, r *
 // ============================================================================
 
 type createStatusRequest struct {
-	Name      string  `json:"name"`
+	Name      string  `json:"name" validate:"required"`
 	Color     *string `json:"color,omitempty"`
 	IsDefault bool    `json:"is_default"`
 	IsClosed  bool    `json:"is_closed"`
@@ -371,9 +359,8 @@ func (w *WorkRoutes) HandleCreateProjectStatus(wr http.ResponseWriter, r *http.R
 
 	projectID := chi.URLParam(r, "id")
 
-	var req createStatusRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[createStatusRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -397,7 +384,7 @@ func (w *WorkRoutes) HandleCreateProjectStatus(wr http.ResponseWriter, r *http.R
 }
 
 type updateStatusRequest struct {
-	Name      *string `json:"name,omitempty"`
+	Name      *string `json:"name,omitempty" validate:"omitempty,min=1"`
 	Color     *string `json:"color,omitempty"`
 	IsDefault *bool   `json:"is_default,omitempty"`
 	IsClosed  *bool   `json:"is_closed,omitempty"`
@@ -412,9 +399,8 @@ func (w *WorkRoutes) HandleUpdateProjectStatus(wr http.ResponseWriter, r *http.R
 
 	statusID := chi.URLParam(r, "id")
 
-	var req updateStatusRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateStatusRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -460,7 +446,7 @@ func (w *WorkRoutes) HandleDeleteProjectStatus(wr http.ResponseWriter, r *http.R
 }
 
 type reorderStatusesRequest struct {
-	StatusIDs []string `json:"status_ids"`
+	StatusIDs []string `json:"status_ids" validate:"required,min=1,dive,uuid"`
 }
 
 func (w *WorkRoutes) HandleReorderProjectStatuses(wr http.ResponseWriter, r *http.Request) {
@@ -472,9 +458,8 @@ func (w *WorkRoutes) HandleReorderProjectStatuses(wr http.ResponseWriter, r *htt
 
 	projectID := chi.URLParam(r, "id")
 
-	var req reorderStatusesRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[reorderStatusesRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -553,9 +538,8 @@ func (w *WorkRoutes) HandleSetUserProjectPreference(wr http.ResponseWriter, r *h
 	userID := middleware.GetUserID(r.Context())
 	projectID := chi.URLParam(r, "id")
 
-	var req setPreferenceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[setPreferenceRequest](wr, r)
+	if !ok {
 		return
 	}
 

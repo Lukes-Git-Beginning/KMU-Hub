@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -35,7 +34,6 @@ func (fr *FormulareRoutes) getClient() (formularev1.FormulareServiceClient, erro
 	}
 	return formularev1.NewFormulareServiceClient(conn), nil
 }
-
 
 // RegisterRoutes mounts all Formulare HTTP routes behind the feature flag modules.formulare.
 // Routes are only registered if the flag is enabled.
@@ -100,7 +98,7 @@ func (fr *FormulareRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http
 // ============================================================================
 
 type createFormSchemaRequest struct {
-	Title       string `json:"title"`
+	Title       string `json:"title"                validate:"required"`
 	Description string `json:"description,omitempty"`
 	Fields      []byte `json:"fields,omitempty"`
 	IsTemplate  bool   `json:"is_template,omitempty"`
@@ -128,11 +126,11 @@ type createSubmissionRequest struct {
 }
 
 type updateSubmissionStatusRequest struct {
-	Status string `json:"status"`
+	Status string `json:"status" validate:"required,oneof=new read archived"`
 }
 
 type createWebhookRequest struct {
-	URL    string   `json:"url"`
+	URL    string   `json:"url"            validate:"required,url"`
 	Secret *string  `json:"secret,omitempty"`
 	Events []string `json:"events,omitempty"`
 	Active bool     `json:"active,omitempty"`
@@ -195,13 +193,8 @@ func (fr *FormulareRoutes) HandleCreateFormSchema(w http.ResponseWriter, r *http
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createFormSchemaRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.Title == "" {
-		response.Error(w, http.StatusBadRequest, "title is required")
+	req, ok := decodeAndValidate[createFormSchemaRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -271,9 +264,8 @@ func (fr *FormulareRoutes) HandleUpdateFormSchema(w http.ResponseWriter, r *http
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req updateFormSchemaRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateFormSchemaRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -342,9 +334,8 @@ func (fr *FormulareRoutes) HandleDuplicateFormSchema(w http.ResponseWriter, r *h
 		return
 	}
 
-	var req duplicateFormSchemaRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[duplicateFormSchemaRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -383,9 +374,8 @@ func (fr *FormulareRoutes) HandleCreateSubmission(w http.ResponseWriter, r *http
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createSubmissionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[createSubmissionRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -491,9 +481,8 @@ func (fr *FormulareRoutes) HandleUpdateSubmissionStatus(w http.ResponseWriter, r
 		return
 	}
 
-	var req updateSubmissionStatusRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateSubmissionStatusRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -505,9 +494,6 @@ func (fr *FormulareRoutes) HandleUpdateSubmissionStatus(w http.ResponseWriter, r
 		status = formularev1.FormSubmissionStatus_FORM_SUBMISSION_STATUS_READ
 	case "archived":
 		status = formularev1.FormSubmissionStatus_FORM_SUBMISSION_STATUS_ARCHIVED
-	default:
-		response.Error(w, http.StatusBadRequest, "status must be one of: new, read, archived")
-		return
 	}
 
 	resp, err := client.UpdateSubmissionStatus(r.Context(), &formularev1.UpdateSubmissionStatusRequest{
@@ -632,13 +618,8 @@ func (fr *FormulareRoutes) HandleCreateWebhook(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var req createWebhookRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.URL == "" {
-		response.Error(w, http.StatusBadRequest, "url is required")
+	req, ok := decodeAndValidate[createWebhookRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -704,9 +685,8 @@ func (fr *FormulareRoutes) HandleUpdateWebhook(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var req updateWebhookRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateWebhookRequest](w, r)
+	if !ok {
 		return
 	}
 

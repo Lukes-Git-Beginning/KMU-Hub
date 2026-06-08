@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -81,8 +80,8 @@ func (w *WorkRoutes) HandleGetActiveTimer(wr http.ResponseWriter, r *http.Reques
 }
 
 type addManualTimeEntryRequest struct {
-	StartedAt       string  `json:"started_at"`
-	DurationSeconds int     `json:"duration_seconds"`
+	StartedAt       string  `json:"started_at" validate:"required"`
+	DurationSeconds int     `json:"duration_seconds" validate:"gt=0"`
 	Description     *string `json:"description,omitempty"`
 }
 
@@ -99,9 +98,8 @@ func (w *WorkRoutes) HandleAddManualTimeEntry(wr http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var req addManualTimeEntryRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[addManualTimeEntryRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -132,7 +130,7 @@ func (w *WorkRoutes) HandleAddManualTimeEntry(wr http.ResponseWriter, r *http.Re
 
 type updateTimeEntryRequest struct {
 	StartedAt       *string `json:"started_at,omitempty"`
-	DurationSeconds *int    `json:"duration_seconds,omitempty"`
+	DurationSeconds *int    `json:"duration_seconds,omitempty" validate:"omitempty,gt=0"`
 	Description     *string `json:"description,omitempty"`
 }
 
@@ -149,9 +147,8 @@ func (w *WorkRoutes) HandleUpdateTimeEntry(wr http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var req updateTimeEntryRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateTimeEntryRequest](wr, r)
+	if !ok {
 		return
 	}
 

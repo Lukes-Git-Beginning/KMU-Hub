@@ -48,7 +48,7 @@ func TestHandleCreateChannel_MissingName(t *testing.T) {
 	req = withUserID(req, "user-123")
 	routes.HandleCreateChannel(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "name is required")
+	assertValidationError(t, rec, "name")
 }
 
 func TestHandleGetChannel_ServiceUnavailable(t *testing.T) {
@@ -167,4 +167,41 @@ func TestHandleGetOrCreateDM_NoUserID(t *testing.T) {
 	req := httptest.NewRequest("POST", "/api/v1/channels/dm", jsonBody(t, map[string]interface{}{}))
 	withAuthRequired(routes.HandleGetOrCreateDM)(rec, req)
 	assertStatus(t, rec, http.StatusUnauthorized)
+}
+
+// --- Validation error tests ---
+
+func TestHandleSendMessage_MissingContent(t *testing.T) {
+	routes := NewChatRoutes(registryWithService("chat"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/channels/123/messages", jsonBody(t, map[string]interface{}{
+		"mention_everyone": false,
+	}))
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleSendMessage(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertValidationError(t, rec, "content")
+}
+
+func TestHandleGetOrCreateDM_MissingOtherUserID(t *testing.T) {
+	routes := NewChatRoutes(registryWithService("chat"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/channels/dm", jsonBody(t, map[string]interface{}{}))
+	req = withUserID(req, "user-123")
+	routes.HandleGetOrCreateDM(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertValidationError(t, rec, "other_user_id")
+}
+
+func TestHandleGetOrCreateDM_InvalidOtherUserID(t *testing.T) {
+	routes := NewChatRoutes(registryWithService("chat"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/channels/dm", jsonBody(t, map[string]interface{}{
+		"other_user_id": "not-a-uuid",
+	}))
+	req = withUserID(req, "user-123")
+	routes.HandleGetOrCreateDM(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertValidationError(t, rec, "other_user_id")
 }

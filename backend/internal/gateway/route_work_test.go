@@ -43,12 +43,13 @@ func TestHandleCreateProject_MissingFields(t *testing.T) {
 	routes := NewWorkRoutes(registryWithService("work"))
 
 	tests := []struct {
-		name string
-		body map[string]interface{}
+		name      string
+		body      map[string]interface{}
+		wantField string
 	}{
-		{"empty", map[string]interface{}{}},
-		{"no_key", map[string]interface{}{"name": "Test"}},
-		{"no_name", map[string]interface{}{"project_key": "TST"}},
+		{"empty", map[string]interface{}{}, "name"},
+		{"no_key", map[string]interface{}{"name": "Test"}, "project_key"},
+		{"no_name", map[string]interface{}{"project_key": "TST"}, "name"},
 	}
 
 	for _, tt := range tests {
@@ -58,7 +59,7 @@ func TestHandleCreateProject_MissingFields(t *testing.T) {
 			req = withUserID(req, "user-123")
 			routes.HandleCreateProject(rec, req)
 			assertStatus(t, rec, http.StatusBadRequest)
-			assertErrorContains(t, rec, "name and project_key are required")
+			assertValidationError(t, rec, tt.wantField)
 		})
 	}
 }
@@ -120,10 +121,35 @@ func TestHandleCreateTask_MissingFields(t *testing.T) {
 	req := httptest.NewRequest("POST", "/api/v1/tasks", jsonBody(t, map[string]interface{}{
 		"project_id": "550e8400-e29b-41d4-a716-446655440000",
 	}))
-	req = withUserID(req, "user-123")
+	req = withAuth(req, "user-123", testTenantID)
 	routes.HandleCreateTask(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "title")
+	assertValidationError(t, rec, "title")
+}
+
+func TestHandleCreateTask_MissingProjectID(t *testing.T) {
+	routes := NewWorkRoutes(registryWithService("work"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/tasks", jsonBody(t, map[string]interface{}{
+		"title": "My Task",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleCreateTask(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertValidationError(t, rec, "project_id")
+}
+
+func TestHandleCreateTask_InvalidProjectIDUUID(t *testing.T) {
+	routes := NewWorkRoutes(registryWithService("work"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/tasks", jsonBody(t, map[string]interface{}{
+		"title":      "My Task",
+		"project_id": "not-a-uuid",
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	routes.HandleCreateTask(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertValidationError(t, rec, "project_id")
 }
 
 func TestHandleGetTask_ServiceUnavailable(t *testing.T) {
@@ -143,6 +169,33 @@ func TestHandleGetTask_InvalidUUID(t *testing.T) {
 	routes.HandleGetTask(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleMoveTask_MissingStatusID(t *testing.T) {
+	routes := NewWorkRoutes(registryWithService("work"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/v1/tasks/550e8400-e29b-41d4-a716-446655440000/move", jsonBody(t, map[string]interface{}{
+		"sort_order": 1.0,
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleMoveTask(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertValidationError(t, rec, "status_id")
+}
+
+func TestHandleMoveTask_InvalidStatusIDUUID(t *testing.T) {
+	routes := NewWorkRoutes(registryWithService("work"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/v1/tasks/550e8400-e29b-41d4-a716-446655440000/move", jsonBody(t, map[string]interface{}{
+		"status_id":  "not-a-uuid",
+		"sort_order": 1.0,
+	}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+	routes.HandleMoveTask(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertValidationError(t, rec, "status_id")
 }
 
 // --- Time Entries ---

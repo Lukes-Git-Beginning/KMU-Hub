@@ -136,3 +136,55 @@ func TestHandleListSharedWithMe_ServiceUnavailable(t *testing.T) {
 	routes.HandleListSharedWithMe(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
+
+// --- Validation gap tests (previously unchecked required fields) ---
+
+func TestHandleCreateFolder_MissingName(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/documents/folders", jsonBody(t, map[string]interface{}{
+		"space_type": "personal",
+	}))
+	req = withUserID(req, "user-123")
+	routes.HandleCreateFolder(rec, req)
+	assertValidationError(t, rec, "name")
+}
+
+func TestHandleCreateTag_MissingName(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/documents/tags", jsonBody(t, map[string]interface{}{
+		"color": "#FF0000",
+	}))
+	req = withUserID(req, "user-123")
+	routes.HandleCreateTag(rec, req)
+	assertValidationError(t, rec, "name")
+}
+
+func TestHandleShareEntity_MissingEntityID(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/documents/shares", jsonBody(t, map[string]interface{}{
+		"entity_type":         "file",
+		"shared_with_user_id": "550e8400-e29b-41d4-a716-446655440001",
+		"permission":          "read",
+		// entity_id deliberately omitted
+	}))
+	req = withUserID(req, "user-123")
+	routes.HandleShareEntity(rec, req)
+	assertValidationError(t, rec, "entity_id")
+}
+
+func TestHandleShareEntity_MissingPermission(t *testing.T) {
+	routes := NewDocumentRoutes(registryWithService("document"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/documents/shares", jsonBody(t, map[string]interface{}{
+		"entity_type":         "file",
+		"entity_id":           "550e8400-e29b-41d4-a716-446655440000",
+		"shared_with_user_id": "550e8400-e29b-41d4-a716-446655440001",
+		// permission deliberately omitted
+	}))
+	req = withUserID(req, "user-123")
+	routes.HandleShareEntity(rec, req)
+	assertValidationError(t, rec, "permission")
+}

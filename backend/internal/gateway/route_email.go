@@ -13,6 +13,63 @@ import (
 	emailv1 "github.com/kmuhub/kmuhub/proto/email/v1"
 )
 
+// ============================================================================
+// Local DTOs for email send/compose handlers (S4.1 validation boundary)
+// ============================================================================
+
+// emailAddressStrings converts a slice of plain email strings to []*emailv1.EmailAddress.
+func emailAddressStrings(addrs []string) []*emailv1.EmailAddress {
+	out := make([]*emailv1.EmailAddress, 0, len(addrs))
+	for _, a := range addrs {
+		out = append(out, &emailv1.EmailAddress{Email: a})
+	}
+	return out
+}
+
+type sendEmailDTO struct {
+	AccountID string   `json:"account_id"`
+	To        []string `json:"to" validate:"required,min=1,dive,email"`
+	Cc        []string `json:"cc" validate:"omitempty,dive,email"`
+	Bcc       []string `json:"bcc" validate:"omitempty,dive,email"`
+	Subject   string   `json:"subject"`
+	BodyHtml  string   `json:"body_html"`
+	BodyText  string   `json:"body_text"`
+}
+
+type saveDraftDTO struct {
+	AccountID string   `json:"account_id"`
+	To        []string `json:"to" validate:"omitempty,dive,email"`
+	Cc        []string `json:"cc" validate:"omitempty,dive,email"`
+	Bcc       []string `json:"bcc" validate:"omitempty,dive,email"`
+	Subject   string   `json:"subject"`
+	BodyHtml  string   `json:"body_html"`
+	BodyText  string   `json:"body_text"`
+}
+
+type replyEmailDTO struct {
+	AccountID         string `json:"account_id"`
+	OriginalMessageID string `json:"original_message_id" validate:"required"`
+	BodyHtml          string `json:"body_html"`
+	BodyText          string `json:"body_text"`
+	ReplyAll          bool   `json:"reply_all"`
+}
+
+type forwardEmailDTO struct {
+	AccountID         string   `json:"account_id"`
+	OriginalMessageID string   `json:"original_message_id" validate:"required"`
+	To                []string `json:"to" validate:"required,min=1,dive,email"`
+	BodyHtml          string   `json:"body_html"`
+	BodyText          string   `json:"body_text"`
+}
+
+type setDefaultSignatureDTO struct {
+	UserID string `json:"user_id" validate:"required,uuid"`
+}
+
+type moveToFolderDTO struct {
+	TargetFolderID string `json:"target_folder_id" validate:"required,uuid"`
+}
+
 // EmailRoutes handles HTTP routes for the Email backend service.
 type EmailRoutes struct {
 	registry *ServiceRegistry
@@ -133,6 +190,7 @@ func (e *EmailRoutes) HandleCreateAccount(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// proto-direct: no local DTO (S4.1 boundary)
 	var req emailv1.CreateEmailAccountRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
@@ -172,6 +230,7 @@ func (e *EmailRoutes) HandleUpdateAccount(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// proto-direct: no local DTO (S4.1 boundary)
 	var req emailv1.UpdateEmailAccountRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
@@ -213,6 +272,7 @@ func (e *EmailRoutes) HandleTestConnection(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// proto-direct: no local DTO (S4.1 boundary)
 	var req emailv1.TestEmailConnectionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
@@ -274,6 +334,7 @@ func (e *EmailRoutes) HandleSyncFolders(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// proto-direct: no local DTO (S4.1 boundary)
 	var req emailv1.SyncFoldersRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
@@ -417,11 +478,8 @@ func (e *EmailRoutes) HandleMoveToFolder(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var body struct {
-		TargetFolderID string `json:"target_folder_id"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	body, ok := decodeAndValidate[moveToFolderDTO](w, r)
+	if !ok {
 		return
 	}
 
@@ -466,13 +524,22 @@ func (e *EmailRoutes) HandleSendEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req emailv1.SendEmailRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	dto, ok := decodeAndValidate[sendEmailDTO](w, r)
+	if !ok {
 		return
 	}
 
-	resp, err := client.SendEmail(r.Context(), &req)
+	req := &emailv1.SendEmailRequest{
+		AccountId: dto.AccountID,
+		To:        emailAddressStrings(dto.To),
+		Cc:        emailAddressStrings(dto.Cc),
+		Bcc:       emailAddressStrings(dto.Bcc),
+		Subject:   dto.Subject,
+		BodyHtml:  dto.BodyHtml,
+		BodyText:  dto.BodyText,
+	}
+
+	resp, err := client.SendEmail(r.Context(), req)
 	if err != nil {
 		respondGRPCError(w, err)
 		return
@@ -488,13 +555,22 @@ func (e *EmailRoutes) HandleSaveDraft(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req emailv1.SaveDraftRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	dto, ok := decodeAndValidate[saveDraftDTO](w, r)
+	if !ok {
 		return
 	}
 
-	resp, err := client.SaveDraft(r.Context(), &req)
+	req := &emailv1.SaveDraftRequest{
+		AccountId: dto.AccountID,
+		To:        emailAddressStrings(dto.To),
+		Cc:        emailAddressStrings(dto.Cc),
+		Bcc:       emailAddressStrings(dto.Bcc),
+		Subject:   dto.Subject,
+		BodyHtml:  dto.BodyHtml,
+		BodyText:  dto.BodyText,
+	}
+
+	resp, err := client.SaveDraft(r.Context(), req)
 	if err != nil {
 		respondGRPCError(w, err)
 		return
@@ -510,13 +586,20 @@ func (e *EmailRoutes) HandleReplyEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req emailv1.ReplyEmailRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	dto, ok := decodeAndValidate[replyEmailDTO](w, r)
+	if !ok {
 		return
 	}
 
-	resp, err := client.ReplyEmail(r.Context(), &req)
+	req := &emailv1.ReplyEmailRequest{
+		AccountId:         dto.AccountID,
+		OriginalMessageId: dto.OriginalMessageID,
+		BodyHtml:          dto.BodyHtml,
+		BodyText:          dto.BodyText,
+		ReplyAll:          dto.ReplyAll,
+	}
+
+	resp, err := client.ReplyEmail(r.Context(), req)
 	if err != nil {
 		respondGRPCError(w, err)
 		return
@@ -532,13 +615,20 @@ func (e *EmailRoutes) HandleForwardEmail(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var req emailv1.ForwardEmailRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	dto, ok := decodeAndValidate[forwardEmailDTO](w, r)
+	if !ok {
 		return
 	}
 
-	resp, err := client.ForwardEmail(r.Context(), &req)
+	req := &emailv1.ForwardEmailRequest{
+		AccountId:         dto.AccountID,
+		OriginalMessageId: dto.OriginalMessageID,
+		To:                emailAddressStrings(dto.To),
+		BodyHtml:          dto.BodyHtml,
+		BodyText:          dto.BodyText,
+	}
+
+	resp, err := client.ForwardEmail(r.Context(), req)
 	if err != nil {
 		respondGRPCError(w, err)
 		return
@@ -593,6 +683,7 @@ func (e *EmailRoutes) HandleCreateSignature(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// proto-direct: no local DTO (S4.1 boundary)
 	var req emailv1.CreateSignatureRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
@@ -615,6 +706,7 @@ func (e *EmailRoutes) HandleUpdateSignature(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// proto-direct: no local DTO (S4.1 boundary)
 	var req emailv1.UpdateSignatureRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
@@ -656,11 +748,8 @@ func (e *EmailRoutes) HandleSetDefaultSignature(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	var body struct {
-		UserID string `json:"user_id"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	body, ok := decodeAndValidate[setDefaultSignatureDTO](w, r)
+	if !ok {
 		return
 	}
 
@@ -705,6 +794,7 @@ func (e *EmailRoutes) HandleLinkEmailToContact(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	// proto-direct: no local DTO (S4.1 boundary)
 	var req emailv1.LinkEmailToContactRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
@@ -727,6 +817,7 @@ func (e *EmailRoutes) HandleUnlinkEmailFromContact(w http.ResponseWriter, r *htt
 		return
 	}
 
+	// proto-direct: no local DTO (S4.1 boundary)
 	var req emailv1.UnlinkEmailFromContactRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
@@ -776,6 +867,7 @@ func (e *EmailRoutes) HandleTriggerSync(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// proto-direct: no local DTO (S4.1 boundary)
 	var req emailv1.TriggerSyncRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
@@ -815,6 +907,7 @@ func (e *EmailRoutes) HandleSetReadFlag(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// proto-direct: no local DTO (S4.1 boundary)
 	var req emailv1.SetReadFlagRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
@@ -903,6 +996,7 @@ func (e *EmailRoutes) HandleImportContactsCSV(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// proto-direct: no local DTO (S4.1 boundary)
 	var req emailv1.ImportContactsCSVRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
@@ -925,6 +1019,7 @@ func (e *EmailRoutes) HandleImportContactsVCard(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// proto-direct: no local DTO (S4.1 boundary)
 	var req emailv1.ImportContactsVCardRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
@@ -947,6 +1042,7 @@ func (e *EmailRoutes) HandleExportContactsCSV(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// proto-direct: no local DTO (S4.1 boundary)
 	var req emailv1.ExportContactsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
@@ -969,6 +1065,7 @@ func (e *EmailRoutes) HandleExportContactsVCard(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// proto-direct: no local DTO (S4.1 boundary)
 	var req emailv1.ExportContactsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request body")

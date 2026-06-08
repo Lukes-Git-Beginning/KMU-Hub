@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"io"
 	"net/http"
 	"strconv"
@@ -113,11 +112,11 @@ func (d *DocumentRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 // ============================================================================
 
 type createFolderRequest struct {
-	Name      string `json:"name"`
-	ParentID  string `json:"parent_id"`
-	SpaceType string `json:"space_type"`
-	SpaceID   string `json:"space_id"`
-	Icon      string `json:"icon"`
+	Name      string  `json:"name"       validate:"required"`
+	ParentID  *string `json:"parent_id"  validate:"omitempty,uuid"`
+	SpaceType string  `json:"space_type" validate:"omitempty,oneof=personal team project"`
+	SpaceID   *string `json:"space_id"   validate:"omitempty,uuid"`
+	Icon      string  `json:"icon"`
 }
 
 func (d *DocumentRoutes) HandleCreateFolder(w http.ResponseWriter, r *http.Request) {
@@ -127,19 +126,25 @@ func (d *DocumentRoutes) HandleCreateFolder(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var req createFolderRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[createFolderRequest](w, r)
+	if !ok {
 		return
 	}
 
 	userID := middleware.GetUserID(r.Context())
 
+	var parentID, spaceID string
+	if req.ParentID != nil {
+		parentID = *req.ParentID
+	}
+	if req.SpaceID != nil {
+		spaceID = *req.SpaceID
+	}
 	resp, err := client.CreateFolder(r.Context(), &documentv1.CreateFolderRequest{
 		Name:      req.Name,
-		ParentId:  req.ParentID,
+		ParentId:  parentID,
 		SpaceType: spaceTypeToProto(req.SpaceType),
-		SpaceId:   req.SpaceID,
+		SpaceId:   spaceID,
 		Icon:      req.Icon,
 		CreatedBy: userID,
 	})
@@ -190,7 +195,7 @@ func (d *DocumentRoutes) HandleListFolders(w http.ResponseWriter, r *http.Reques
 
 type updateFolderRequest struct {
 	Name     *string `json:"name"`
-	ParentID *string `json:"parent_id"`
+	ParentID *string `json:"parent_id" validate:"omitempty,uuid"`
 	Icon     *string `json:"icon"`
 }
 
@@ -203,9 +208,8 @@ func (d *DocumentRoutes) HandleUpdateFolder(w http.ResponseWriter, r *http.Reque
 
 	id := chi.URLParam(r, "id")
 
-	var req updateFolderRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateFolderRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -258,7 +262,7 @@ func (d *DocumentRoutes) HandleGetFolderPath(w http.ResponseWriter, r *http.Requ
 }
 
 type initializeUserSpaceRequest struct {
-	UserID string `json:"user_id"`
+	UserID *string `json:"user_id" validate:"omitempty,uuid"`
 }
 
 func (d *DocumentRoutes) HandleInitializeUserSpace(w http.ResponseWriter, r *http.Request) {
@@ -268,13 +272,15 @@ func (d *DocumentRoutes) HandleInitializeUserSpace(w http.ResponseWriter, r *htt
 		return
 	}
 
-	var req initializeUserSpaceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[initializeUserSpaceRequest](w, r)
+	if !ok {
 		return
 	}
 
-	userID := req.UserID
+	var userID string
+	if req.UserID != nil {
+		userID = *req.UserID
+	}
 	if userID == "" {
 		userID = middleware.GetUserID(r.Context())
 	}
@@ -291,7 +297,7 @@ func (d *DocumentRoutes) HandleInitializeUserSpace(w http.ResponseWriter, r *htt
 }
 
 type initializeTeamSpaceRequest struct {
-	TeamID string `json:"team_id"`
+	TeamID *string `json:"team_id" validate:"omitempty,uuid"`
 }
 
 func (d *DocumentRoutes) HandleInitializeTeamSpace(w http.ResponseWriter, r *http.Request) {
@@ -301,14 +307,17 @@ func (d *DocumentRoutes) HandleInitializeTeamSpace(w http.ResponseWriter, r *htt
 		return
 	}
 
-	var req initializeTeamSpaceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[initializeTeamSpaceRequest](w, r)
+	if !ok {
 		return
 	}
 
+	var teamID string
+	if req.TeamID != nil {
+		teamID = *req.TeamID
+	}
 	_, err = client.InitializeTeamSpace(r.Context(), &documentv1.InitializeTeamSpaceRequest{
-		TeamId: req.TeamID,
+		TeamId: teamID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -380,7 +389,7 @@ func (d *DocumentRoutes) HandleListFiles(w http.ResponseWriter, r *http.Request)
 
 type updateFileRequest struct {
 	Filename   *string `json:"filename"`
-	FolderID   *string `json:"folder_id"`
+	FolderID   *string `json:"folder_id"   validate:"omitempty,uuid"`
 	IsFavorite *bool   `json:"is_favorite"`
 }
 
@@ -393,9 +402,8 @@ func (d *DocumentRoutes) HandleUpdateFile(w http.ResponseWriter, r *http.Request
 
 	id := chi.URLParam(r, "id")
 
-	var req updateFileRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateFileRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -431,7 +439,7 @@ func (d *DocumentRoutes) HandleDeleteFile(w http.ResponseWriter, r *http.Request
 }
 
 type copyFileRequest struct {
-	TargetFolderID string `json:"target_folder_id"`
+	TargetFolderID string `json:"target_folder_id" validate:"required,uuid"`
 }
 
 func (d *DocumentRoutes) HandleCopyFile(w http.ResponseWriter, r *http.Request) {
@@ -443,9 +451,8 @@ func (d *DocumentRoutes) HandleCopyFile(w http.ResponseWriter, r *http.Request) 
 
 	id := chi.URLParam(r, "id")
 
-	var req copyFileRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[copyFileRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -462,7 +469,7 @@ func (d *DocumentRoutes) HandleCopyFile(w http.ResponseWriter, r *http.Request) 
 }
 
 type moveFileRequest struct {
-	TargetFolderID string `json:"target_folder_id"`
+	TargetFolderID string `json:"target_folder_id" validate:"required,uuid"`
 }
 
 func (d *DocumentRoutes) HandleMoveFile(w http.ResponseWriter, r *http.Request) {
@@ -474,9 +481,8 @@ func (d *DocumentRoutes) HandleMoveFile(w http.ResponseWriter, r *http.Request) 
 
 	id := chi.URLParam(r, "id")
 
-	var req moveFileRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[moveFileRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -538,7 +544,7 @@ func (d *DocumentRoutes) HandleListFileVersions(w http.ResponseWriter, r *http.R
 }
 
 type revertVersionRequest struct {
-	VersionNumber int32 `json:"version_number"`
+	VersionNumber int32 `json:"version_number" validate:"gt=0"`
 }
 
 func (d *DocumentRoutes) HandleRevertFileVersion(w http.ResponseWriter, r *http.Request) {
@@ -550,9 +556,8 @@ func (d *DocumentRoutes) HandleRevertFileVersion(w http.ResponseWriter, r *http.
 
 	fileID := chi.URLParam(r, "id")
 
-	var req revertVersionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[revertVersionRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -573,8 +578,8 @@ func (d *DocumentRoutes) HandleRevertFileVersion(w http.ResponseWriter, r *http.
 // ============================================================================
 
 type linkFileToEntityRequest struct {
-	EntityType string `json:"entity_type"`
-	EntityID   string `json:"entity_id"`
+	EntityType string `json:"entity_type" validate:"required"`
+	EntityID   string `json:"entity_id"   validate:"required,uuid"`
 }
 
 func (d *DocumentRoutes) HandleLinkFileToEntity(w http.ResponseWriter, r *http.Request) {
@@ -587,9 +592,8 @@ func (d *DocumentRoutes) HandleLinkFileToEntity(w http.ResponseWriter, r *http.R
 	fileID := chi.URLParam(r, "id")
 	userID := middleware.GetUserID(r.Context())
 
-	var req linkFileToEntityRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[linkFileToEntityRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -608,8 +612,8 @@ func (d *DocumentRoutes) HandleLinkFileToEntity(w http.ResponseWriter, r *http.R
 }
 
 type unlinkFileFromEntityRequest struct {
-	EntityType string `json:"entity_type"`
-	EntityID   string `json:"entity_id"`
+	EntityType string `json:"entity_type" validate:"required"`
+	EntityID   string `json:"entity_id"   validate:"required,uuid"`
 }
 
 func (d *DocumentRoutes) HandleUnlinkFileFromEntity(w http.ResponseWriter, r *http.Request) {
@@ -621,9 +625,8 @@ func (d *DocumentRoutes) HandleUnlinkFileFromEntity(w http.ResponseWriter, r *ht
 
 	fileID := chi.URLParam(r, "id")
 
-	var req unlinkFileFromEntityRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[unlinkFileFromEntityRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -664,10 +667,10 @@ func (d *DocumentRoutes) HandleListFileEntityLinks(w http.ResponseWriter, r *htt
 // ============================================================================
 
 type shareEntityRequest struct {
-	EntityType       string `json:"entity_type"`
-	EntityID         string `json:"entity_id"`
-	SharedWithUserID string `json:"shared_with_user_id"`
-	Permission       string `json:"permission"`
+	EntityType       string `json:"entity_type"         validate:"required"`
+	EntityID         string `json:"entity_id"           validate:"required,uuid"`
+	SharedWithUserID string `json:"shared_with_user_id" validate:"required,uuid"`
+	Permission       string `json:"permission"          validate:"required,oneof=read write"`
 }
 
 func (d *DocumentRoutes) HandleShareEntity(w http.ResponseWriter, r *http.Request) {
@@ -679,9 +682,8 @@ func (d *DocumentRoutes) HandleShareEntity(w http.ResponseWriter, r *http.Reques
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req shareEntityRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[shareEntityRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -701,9 +703,9 @@ func (d *DocumentRoutes) HandleShareEntity(w http.ResponseWriter, r *http.Reques
 }
 
 type unshareEntityRequest struct {
-	EntityType       string `json:"entity_type"`
-	EntityID         string `json:"entity_id"`
-	SharedWithUserID string `json:"shared_with_user_id"`
+	EntityType       string `json:"entity_type"         validate:"required"`
+	EntityID         string `json:"entity_id"           validate:"required,uuid"`
+	SharedWithUserID string `json:"shared_with_user_id" validate:"required,uuid"`
 }
 
 func (d *DocumentRoutes) HandleUnshareEntity(w http.ResponseWriter, r *http.Request) {
@@ -713,9 +715,8 @@ func (d *DocumentRoutes) HandleUnshareEntity(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var req unshareEntityRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[unshareEntityRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -804,7 +805,7 @@ func (d *DocumentRoutes) HandleListTags(w http.ResponseWriter, r *http.Request) 
 }
 
 type createDocumentTagRequest struct {
-	Name  string `json:"name"`
+	Name  string `json:"name"  validate:"required"`
 	Color string `json:"color"`
 }
 
@@ -817,9 +818,8 @@ func (d *DocumentRoutes) HandleCreateTag(w http.ResponseWriter, r *http.Request)
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createDocumentTagRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[createDocumentTagRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -854,8 +854,8 @@ func (d *DocumentRoutes) HandleDeleteTag(w http.ResponseWriter, r *http.Request)
 }
 
 type tagFileRequest struct {
-	FileID string `json:"file_id"`
-	TagID  string `json:"tag_id"`
+	FileID string `json:"file_id" validate:"required,uuid"`
+	TagID  string `json:"tag_id"  validate:"required,uuid"`
 }
 
 func (d *DocumentRoutes) HandleTagFile(w http.ResponseWriter, r *http.Request) {
@@ -865,9 +865,8 @@ func (d *DocumentRoutes) HandleTagFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req tagFileRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[tagFileRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -884,8 +883,8 @@ func (d *DocumentRoutes) HandleTagFile(w http.ResponseWriter, r *http.Request) {
 }
 
 type untagFileRequest struct {
-	FileID string `json:"file_id"`
-	TagID  string `json:"tag_id"`
+	FileID string `json:"file_id" validate:"required,uuid"`
+	TagID  string `json:"tag_id"  validate:"required,uuid"`
 }
 
 func (d *DocumentRoutes) HandleUntagFile(w http.ResponseWriter, r *http.Request) {
@@ -895,9 +894,8 @@ func (d *DocumentRoutes) HandleUntagFile(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var req untagFileRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[untagFileRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -986,7 +984,7 @@ func (d *DocumentRoutes) HandleListVirtualFiles(w http.ResponseWriter, r *http.R
 // ============================================================================
 
 type generateWOPITokenRequest struct {
-	FileID string `json:"file_id"`
+	FileID string `json:"file_id" validate:"required,uuid"`
 }
 
 func (d *DocumentRoutes) HandleGenerateWOPIToken(w http.ResponseWriter, r *http.Request) {
@@ -998,9 +996,8 @@ func (d *DocumentRoutes) HandleGenerateWOPIToken(w http.ResponseWriter, r *http.
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req generateWOPITokenRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[generateWOPITokenRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -1014,7 +1011,7 @@ func (d *DocumentRoutes) HandleGenerateWOPIToken(w http.ResponseWriter, r *http.
 	}
 
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"access_token":    resp.AccessToken,
+		"access_token":     resp.AccessToken,
 		"access_token_ttl": resp.TtlSeconds,
 	})
 }

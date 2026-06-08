@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -99,10 +98,10 @@ func (ch *ChatRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 // ============================================================================
 
 type createChannelRequest struct {
-	Name             string   `json:"name"`
+	Name             string   `json:"name" validate:"required"`
 	Description      string   `json:"description"`
 	IsPrivate        bool     `json:"is_private"`
-	InitialMemberIDs []string `json:"initial_member_ids"`
+	InitialMemberIDs []string `json:"initial_member_ids" validate:"omitempty,dive,uuid"`
 }
 
 func (ch *ChatRoutes) HandleCreateChannel(w http.ResponseWriter, r *http.Request) {
@@ -114,14 +113,8 @@ func (ch *ChatRoutes) HandleCreateChannel(w http.ResponseWriter, r *http.Request
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createChannelRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Name == "" {
-		response.Error(w, http.StatusBadRequest, "name is required")
+	req, ok := decodeAndValidate[createChannelRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -197,7 +190,7 @@ func (ch *ChatRoutes) HandleListChannels(w http.ResponseWriter, r *http.Request)
 }
 
 type updateChannelRequest struct {
-	Name        *string `json:"name,omitempty"`
+	Name        *string `json:"name,omitempty" validate:"omitempty,min=1"`
 	Description *string `json:"description,omitempty"`
 }
 
@@ -215,9 +208,8 @@ func (ch *ChatRoutes) HandleUpdateChannel(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	var req updateChannelRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateChannelRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -377,7 +369,7 @@ func (ch *ChatRoutes) HandleGetChannelMembers(w http.ResponseWriter, r *http.Req
 }
 
 type updateMemberRoleRequest struct {
-	Role string `json:"role"`
+	Role string `json:"role" validate:"required,oneof=admin member"`
 }
 
 func (ch *ChatRoutes) HandleUpdateMemberRole(w http.ResponseWriter, r *http.Request) {
@@ -403,14 +395,8 @@ func (ch *ChatRoutes) HandleUpdateMemberRole(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var req updateMemberRoleRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Role == "" {
-		response.Error(w, http.StatusBadRequest, "role is required")
+	req, ok := decodeAndValidate[updateMemberRoleRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -433,9 +419,9 @@ func (ch *ChatRoutes) HandleUpdateMemberRole(w http.ResponseWriter, r *http.Requ
 // ============================================================================
 
 type sendMessageRequest struct {
-	Content          string   `json:"content"`
-	ParentMessageID  *string  `json:"parent_message_id,omitempty"`
-	MentionedUserIDs []string `json:"mentioned_user_ids,omitempty"`
+	Content          string   `json:"content" validate:"required"`
+	ParentMessageID  *string  `json:"parent_message_id,omitempty" validate:"omitempty,uuid"`
+	MentionedUserIDs []string `json:"mentioned_user_ids,omitempty" validate:"omitempty,dive,uuid"`
 	MentionEveryone  bool     `json:"mention_everyone,omitempty"`
 }
 
@@ -453,14 +439,8 @@ func (ch *ChatRoutes) HandleSendMessage(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var req sendMessageRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Content == "" {
-		response.Error(w, http.StatusBadRequest, "content is required")
+	req, ok := decodeAndValidate[sendMessageRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -471,27 +451,16 @@ func (ch *ChatRoutes) HandleSendMessage(w http.ResponseWriter, r *http.Request) 
 	}
 
 	grpcReq := &chatv1.SendMessageRequest{
-		TenantId:        tenantID.String(),
-		ChannelId:       channelID,
-		Content:         req.Content,
-		CreatedBy:       userID,
-		MentionEveryone: req.MentionEveryone,
+		TenantId:         tenantID.String(),
+		ChannelId:        channelID,
+		Content:          req.Content,
+		CreatedBy:        userID,
+		MentionEveryone:  req.MentionEveryone,
+		MentionedUserIds: req.MentionedUserIDs,
 	}
 
-	if req.ParentMessageID != nil && *req.ParentMessageID != "" {
-		if _, parseErr := uuid.Parse(*req.ParentMessageID); parseErr != nil {
-			response.Error(w, http.StatusBadRequest, "invalid parent_message_id")
-			return
-		}
+	if req.ParentMessageID != nil {
 		grpcReq.ParentMessageId = req.ParentMessageID
-	}
-
-	for _, idStr := range req.MentionedUserIDs {
-		if _, parseErr := uuid.Parse(idStr); parseErr != nil {
-			response.Error(w, http.StatusBadRequest, "invalid mentioned_user_id")
-			return
-		}
-		grpcReq.MentionedUserIds = append(grpcReq.MentionedUserIds, idStr)
 	}
 
 	resp, err := client.SendMessage(r.Context(), grpcReq)
@@ -542,7 +511,7 @@ func (ch *ChatRoutes) HandleGetMessages(w http.ResponseWriter, r *http.Request) 
 }
 
 type updateMessageRequest struct {
-	Content string `json:"content"`
+	Content string `json:"content" validate:"required"`
 }
 
 func (ch *ChatRoutes) HandleUpdateMessage(w http.ResponseWriter, r *http.Request) {
@@ -559,14 +528,8 @@ func (ch *ChatRoutes) HandleUpdateMessage(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	var req updateMessageRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Content == "" {
-		response.Error(w, http.StatusBadRequest, "content is required")
+	req, ok := decodeAndValidate[updateMessageRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -614,7 +577,7 @@ func (ch *ChatRoutes) HandleDeleteMessage(w http.ResponseWriter, r *http.Request
 // ============================================================================
 
 type getOrCreateDMRequest struct {
-	OtherUserID string `json:"other_user_id"`
+	OtherUserID string `json:"other_user_id" validate:"required,uuid"`
 }
 
 func (ch *ChatRoutes) HandleGetOrCreateDM(w http.ResponseWriter, r *http.Request) {
@@ -626,19 +589,8 @@ func (ch *ChatRoutes) HandleGetOrCreateDM(w http.ResponseWriter, r *http.Request
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req getOrCreateDMRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.OtherUserID == "" {
-		response.Error(w, http.StatusBadRequest, "other_user_id is required")
-		return
-	}
-
-	if _, err := uuid.Parse(req.OtherUserID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid other_user_id")
+	req, ok := decodeAndValidate[getOrCreateDMRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -730,7 +682,7 @@ func (ch *ChatRoutes) HandleGetThreadReplies(w http.ResponseWriter, r *http.Requ
 // ============================================================================
 
 type markChannelReadRequest struct {
-	MessageID string `json:"message_id"`
+	MessageID string `json:"message_id" validate:"required,uuid"`
 }
 
 func (ch *ChatRoutes) HandleMarkChannelRead(w http.ResponseWriter, r *http.Request) {
@@ -747,19 +699,8 @@ func (ch *ChatRoutes) HandleMarkChannelRead(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var req markChannelReadRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.MessageID == "" {
-		response.Error(w, http.StatusBadRequest, "message_id is required")
-		return
-	}
-
-	if _, err := uuid.Parse(req.MessageID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid message_id")
+	req, ok := decodeAndValidate[markChannelReadRequest](w, r)
+	if !ok {
 		return
 	}
 

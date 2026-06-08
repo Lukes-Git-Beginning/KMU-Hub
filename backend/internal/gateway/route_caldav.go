@@ -2,7 +2,6 @@ package gateway
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"time"
@@ -217,15 +216,10 @@ func (c *CalDAVRoutes) handleCreatePassword(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var req struct {
-		Label string `json:"label"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.Label == "" {
-		response.Error(w, http.StatusBadRequest, "label is required")
+	req, ok := decodeAndValidate[struct {
+		Label string `json:"label" validate:"required"`
+	}](w, r)
+	if !ok {
 		return
 	}
 
@@ -367,11 +361,10 @@ func (c *CalDAVRoutes) handleAdminGetSettings(w http.ResponseWriter, r *http.Req
 
 // handleAdminSetSettings sets org-wide CalDAV/CardDAV enabled/disabled.
 func (c *CalDAVRoutes) handleAdminSetSettings(w http.ResponseWriter, r *http.Request) {
-	var req struct {
+	req, ok := decodeAndValidate[struct {
 		Enabled bool `json:"enabled"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	}](w, r)
+	if !ok {
 		return
 	}
 

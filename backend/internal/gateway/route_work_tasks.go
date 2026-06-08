@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -16,13 +15,13 @@ import (
 // ============================================================================
 
 type createTaskRequest struct {
-	ProjectID    string                    `json:"project_id"`
-	Title        string                    `json:"title"`
+	ProjectID    string                    `json:"project_id" validate:"required,uuid"`
+	Title        string                    `json:"title" validate:"required"`
 	Description  *string                   `json:"description,omitempty"`
-	StatusID     *string                   `json:"status_id,omitempty"`
-	Priority     string                    `json:"priority"`
-	AssigneeID   *string                   `json:"assignee_id,omitempty"`
-	ParentTaskID *string                   `json:"parent_task_id,omitempty"`
+	StatusID     *string                   `json:"status_id,omitempty" validate:"omitempty,uuid"`
+	Priority     string                    `json:"priority" validate:"omitempty,oneof=low medium high critical"`
+	AssigneeID   *string                   `json:"assignee_id,omitempty" validate:"omitempty,uuid"`
+	ParentTaskID *string                   `json:"parent_task_id,omitempty" validate:"omitempty,uuid"`
 	DueDate      *string                   `json:"due_date,omitempty"`
 	CustomFields []workCustomFieldValueReq `json:"custom_fields,omitempty"`
 }
@@ -41,14 +40,8 @@ func (w *WorkRoutes) HandleCreateTask(wr http.ResponseWriter, r *http.Request) {
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createTaskRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Title == "" {
-		response.Error(wr, http.StatusBadRequest, "title is required")
+	req, ok := decodeAndValidate[createTaskRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -173,11 +166,11 @@ func (w *WorkRoutes) HandleListTasks(wr http.ResponseWriter, r *http.Request) {
 }
 
 type updateTaskRequest struct {
-	Title        *string                   `json:"title,omitempty"`
+	Title        *string                   `json:"title,omitempty" validate:"omitempty,min=1"`
 	Description  *string                   `json:"description,omitempty"`
-	StatusID     *string                   `json:"status_id,omitempty"`
-	Priority     *string                   `json:"priority,omitempty"`
-	AssigneeID   *string                   `json:"assignee_id,omitempty"`
+	StatusID     *string                   `json:"status_id,omitempty" validate:"omitempty,uuid"`
+	Priority     *string                   `json:"priority,omitempty" validate:"omitempty,oneof=low medium high critical"`
+	AssigneeID   *string                   `json:"assignee_id,omitempty" validate:"omitempty,uuid"`
 	DueDate      *string                   `json:"due_date,omitempty"`
 	CustomFields []workCustomFieldValueReq `json:"custom_fields,omitempty"`
 }
@@ -195,9 +188,8 @@ func (w *WorkRoutes) HandleUpdateTask(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req updateTaskRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateTaskRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -262,7 +254,7 @@ func (w *WorkRoutes) HandleDeleteTask(wr http.ResponseWriter, r *http.Request) {
 }
 
 type moveTaskRequest struct {
-	StatusID  string  `json:"status_id"`
+	StatusID  string  `json:"status_id" validate:"required,uuid"`
 	SortOrder float64 `json:"sort_order"`
 }
 
@@ -276,9 +268,8 @@ func (w *WorkRoutes) HandleMoveTask(wr http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r.Context())
 	taskID := chi.URLParam(r, "id")
 
-	var req moveTaskRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[moveTaskRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -323,8 +314,8 @@ func (w *WorkRoutes) HandleListSubtasks(wr http.ResponseWriter, r *http.Request)
 // ============================================================================
 
 type createDependencyRequest struct {
-	TargetTaskID   string `json:"target_task_id"`
-	DependencyType string `json:"dependency_type"`
+	TargetTaskID   string `json:"target_task_id" validate:"required,uuid"`
+	DependencyType string `json:"dependency_type" validate:"omitempty,oneof=blocks blocked_by relates_to duplicates"`
 }
 
 func (w *WorkRoutes) HandleCreateTaskDependency(wr http.ResponseWriter, r *http.Request) {
@@ -337,9 +328,8 @@ func (w *WorkRoutes) HandleCreateTaskDependency(wr http.ResponseWriter, r *http.
 	userID := middleware.GetUserID(r.Context())
 	sourceTaskID := chi.URLParam(r, "id")
 
-	var req createDependencyRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[createDependencyRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -399,8 +389,8 @@ func (w *WorkRoutes) HandleListTaskDependencies(wr http.ResponseWriter, r *http.
 // ============================================================================
 
 type createCommentRequest struct {
-	Content         string  `json:"content"`
-	QuotedCommentID *string `json:"quoted_comment_id,omitempty"`
+	Content         string  `json:"content" validate:"required"`
+	QuotedCommentID *string `json:"quoted_comment_id,omitempty" validate:"omitempty,uuid"`
 }
 
 func (w *WorkRoutes) HandleCreateTaskComment(wr http.ResponseWriter, r *http.Request) {
@@ -413,9 +403,8 @@ func (w *WorkRoutes) HandleCreateTaskComment(wr http.ResponseWriter, r *http.Req
 	userID := middleware.GetUserID(r.Context())
 	taskID := chi.URLParam(r, "id")
 
-	var req createCommentRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[createCommentRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -438,7 +427,7 @@ func (w *WorkRoutes) HandleCreateTaskComment(wr http.ResponseWriter, r *http.Req
 }
 
 type updateCommentRequest struct {
-	Content string `json:"content"`
+	Content string `json:"content" validate:"required"`
 }
 
 func (w *WorkRoutes) HandleUpdateTaskComment(wr http.ResponseWriter, r *http.Request) {
@@ -450,9 +439,8 @@ func (w *WorkRoutes) HandleUpdateTaskComment(wr http.ResponseWriter, r *http.Req
 
 	commentID := chi.URLParam(r, "id")
 
-	var req updateCommentRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateCommentRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -513,8 +501,8 @@ func (w *WorkRoutes) HandleListTaskComments(wr http.ResponseWriter, r *http.Requ
 // ============================================================================
 
 type linkEntityRequest struct {
-	EntityType string `json:"entity_type"`
-	EntityID   string `json:"entity_id"`
+	EntityType string `json:"entity_type" validate:"required"`
+	EntityID   string `json:"entity_id" validate:"required,uuid"`
 }
 
 func (w *WorkRoutes) HandleLinkEntityToTask(wr http.ResponseWriter, r *http.Request) {
@@ -527,9 +515,8 @@ func (w *WorkRoutes) HandleLinkEntityToTask(wr http.ResponseWriter, r *http.Requ
 	userID := middleware.GetUserID(r.Context())
 	taskID := chi.URLParam(r, "id")
 
-	var req linkEntityRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[linkEntityRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -647,10 +634,10 @@ func (w *WorkRoutes) HandleListTaskActivities(wr http.ResponseWriter, r *http.Re
 // ============================================================================
 
 type attachFileRequest struct {
-	Filename     string  `json:"filename"`
-	MimeType     string  `json:"mime_type"`
-	FileSize     int64   `json:"file_size"`
-	StorageKey   string  `json:"storage_key"`
+	Filename     string  `json:"filename" validate:"required"`
+	MimeType     string  `json:"mime_type" validate:"required"`
+	FileSize     int64   `json:"file_size" validate:"gt=0"`
+	StorageKey   string  `json:"storage_key" validate:"required"`
 	ThumbnailKey *string `json:"thumbnail_key,omitempty"`
 }
 
@@ -664,9 +651,8 @@ func (w *WorkRoutes) HandleAttachFileToTask(wr http.ResponseWriter, r *http.Requ
 	userID := middleware.GetUserID(r.Context())
 	taskID := chi.URLParam(r, "id")
 
-	var req attachFileRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[attachFileRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -733,7 +719,7 @@ func (w *WorkRoutes) HandleListTaskFiles(wr http.ResponseWriter, r *http.Request
 // ============================================================================
 
 type setCustomFieldsRequest struct {
-	Values []workCustomFieldValueReq `json:"values"`
+	Values []workCustomFieldValueReq `json:"values" validate:"required,min=1"`
 }
 
 func (w *WorkRoutes) HandleSetTaskCustomFieldValues(wr http.ResponseWriter, r *http.Request) {
@@ -745,9 +731,8 @@ func (w *WorkRoutes) HandleSetTaskCustomFieldValues(wr http.ResponseWriter, r *h
 
 	taskID := chi.URLParam(r, "id")
 
-	var req setCustomFieldsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[setCustomFieldsRequest](wr, r)
+	if !ok {
 		return
 	}
 

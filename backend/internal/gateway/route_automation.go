@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -78,6 +77,17 @@ func (ar *AutomationRoutes) RegisterRoutes(r chi.Router, authMiddleware func(htt
 // CRUD Handlers
 // ============================================================================
 
+type createAutomationRequest struct {
+	Name          string          `json:"name"         validate:"required"`
+	Description   string          `json:"description"`
+	Scope         string          `json:"scope"        validate:"omitempty,oneof=personal team organization"`
+	TriggerType   string          `json:"trigger_type" validate:"required"`
+	TriggerConfig json.RawMessage `json:"trigger_config"`
+	Conditions    json.RawMessage `json:"conditions"`
+	Actions       json.RawMessage `json:"actions"`
+	MaxSteps      int32           `json:"max_steps"`
+}
+
 func (ar *AutomationRoutes) HandleCreateAutomation(w http.ResponseWriter, r *http.Request) {
 	client, err := ar.getClient()
 	if err != nil {
@@ -87,27 +97,8 @@ func (ar *AutomationRoutes) HandleCreateAutomation(w http.ResponseWriter, r *htt
 
 	userID := middleware.GetUserID(r.Context())
 
-	var body struct {
-		Name          string          `json:"name"`
-		Description   string          `json:"description"`
-		Scope         string          `json:"scope"`
-		TriggerType   string          `json:"trigger_type"`
-		TriggerConfig json.RawMessage `json:"trigger_config"`
-		Conditions    json.RawMessage `json:"conditions"`
-		Actions       json.RawMessage `json:"actions"`
-		MaxSteps      int32           `json:"max_steps"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if body.Name == "" {
-		response.Error(w, http.StatusBadRequest, "name is required")
-		return
-	}
-	if body.TriggerType == "" {
-		response.Error(w, http.StatusBadRequest, "trigger_type is required")
+	body, ok := decodeAndValidate[createAutomationRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -485,6 +476,10 @@ func (ar *AutomationRoutes) HandleListTemplates(w http.ResponseWriter, r *http.R
 	response.JSON(w, http.StatusOK, resp)
 }
 
+type createFromTemplateRequest struct {
+	Name string `json:"name" validate:"required"`
+}
+
 func (ar *AutomationRoutes) HandleCreateFromTemplate(w http.ResponseWriter, r *http.Request) {
 	client, err := ar.getClient()
 	if err != nil {
@@ -496,15 +491,8 @@ func (ar *AutomationRoutes) HandleCreateFromTemplate(w http.ResponseWriter, r *h
 
 	templateID := chi.URLParam(r, "templateId")
 
-	var body struct {
-		Name string `json:"name"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if body.Name == "" {
-		response.Error(w, http.StatusBadRequest, "name is required")
+	body, ok := decodeAndValidate[createFromTemplateRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -563,6 +551,11 @@ func (ar *AutomationRoutes) HandleTestCondition(w http.ResponseWriter, r *http.R
 	response.JSON(w, http.StatusOK, resp)
 }
 
+type dryRunRequest struct {
+	AutomationID string                 `json:"automation_id" validate:"required,uuid"`
+	SampleEnv    map[string]interface{} `json:"sample_env"`
+}
+
 func (ar *AutomationRoutes) HandleDryRun(w http.ResponseWriter, r *http.Request) {
 	client, err := ar.getClient()
 	if err != nil {
@@ -570,17 +563,8 @@ func (ar *AutomationRoutes) HandleDryRun(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var body struct {
-		AutomationID string                 `json:"automation_id"`
-		SampleEnv    map[string]interface{} `json:"sample_env"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if _, parseErr := uuid.Parse(body.AutomationID); parseErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid automation_id")
+	body, ok := decodeAndValidate[dryRunRequest](w, r)
+	if !ok {
 		return
 	}
 

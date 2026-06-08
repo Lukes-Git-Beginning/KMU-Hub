@@ -237,9 +237,8 @@ func (n *NotificationRoutes) HandleUpdatePreference(w http.ResponseWriter, r *ht
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req updatePreferenceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updatePreferenceRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -297,8 +296,8 @@ func (n *NotificationRoutes) HandleListEventTypes(w http.ResponseWriter, r *http
 // ============================================================================
 
 type muteResourceRequest struct {
-	ModuleID   string `json:"module_id"`
-	ResourceID string `json:"resource_id"`
+	ModuleID   string `json:"module_id"   validate:"required"`
+	ResourceID string `json:"resource_id" validate:"required"`
 }
 
 func (n *NotificationRoutes) HandleMuteResource(w http.ResponseWriter, r *http.Request) {
@@ -310,14 +309,8 @@ func (n *NotificationRoutes) HandleMuteResource(w http.ResponseWriter, r *http.R
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req muteResourceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.ModuleID == "" || req.ResourceID == "" {
-		response.Error(w, http.StatusBadRequest, "module_id and resource_id are required")
+	req, ok := decodeAndValidate[muteResourceRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -335,8 +328,8 @@ func (n *NotificationRoutes) HandleMuteResource(w http.ResponseWriter, r *http.R
 }
 
 type unmuteResourceRequest struct {
-	ModuleID   string `json:"module_id"`
-	ResourceID string `json:"resource_id"`
+	ModuleID   string `json:"module_id"   validate:"required"`
+	ResourceID string `json:"resource_id" validate:"required"`
 }
 
 func (n *NotificationRoutes) HandleUnmuteResource(w http.ResponseWriter, r *http.Request) {
@@ -348,14 +341,8 @@ func (n *NotificationRoutes) HandleUnmuteResource(w http.ResponseWriter, r *http
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req unmuteResourceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.ModuleID == "" || req.ResourceID == "" {
-		response.Error(w, http.StatusBadRequest, "module_id and resource_id are required")
+	req, ok := decodeAndValidate[unmuteResourceRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -443,9 +430,8 @@ func (n *NotificationRoutes) HandleUpdateQuietHours(w http.ResponseWriter, r *ht
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req updateQuietHoursRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateQuietHoursRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -484,9 +470,8 @@ func (n *NotificationRoutes) HandleToggleDND(w http.ResponseWriter, r *http.Requ
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req toggleDNDRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[toggleDNDRequest](w, r)
+	if !ok {
 		return
 	}
 

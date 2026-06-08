@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -112,9 +111,9 @@ func (cr *CalendarRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 // ============================================================================
 
 type createCalendarRequest struct {
-	Name         string  `json:"name"`
+	Name         string  `json:"name"          validate:"required"`
 	Description  *string `json:"description,omitempty"`
-	CalendarType string  `json:"calendar_type"`
+	CalendarType string  `json:"calendar_type" validate:"required"`
 	Color        string  `json:"color"`
 	Timezone     string  `json:"timezone"`
 }
@@ -127,28 +126,28 @@ type updateCalendarRequest struct {
 }
 
 type addCalendarMemberRequest struct {
-	UserID     string `json:"user_id"`
-	Permission string `json:"permission"`
+	UserID     string `json:"user_id"    validate:"required,uuid"`
+	Permission string `json:"permission" validate:"required"`
 }
 
 type updateCalendarMemberPermissionRequest struct {
-	Permission string `json:"permission"`
+	Permission string `json:"permission" validate:"required"`
 }
 
 type createEventRequest struct {
-	CalendarID   string   `json:"calendar_id"`
-	Title        string   `json:"title"`
+	CalendarID   string   `json:"calendar_id"    validate:"required,uuid"`
+	Title        string   `json:"title"          validate:"required"`
 	Description  *string  `json:"description,omitempty"`
 	Location     *string  `json:"location,omitempty"`
-	ResourceID   *string  `json:"resource_id,omitempty"`
-	StartTime    string   `json:"start_time"`
-	EndTime      string   `json:"end_time"`
+	ResourceID   *string  `json:"resource_id,omitempty"  validate:"omitempty,uuid"`
+	StartTime    string   `json:"start_time"     validate:"required"`
+	EndTime      string   `json:"end_time"       validate:"required"`
 	IsAllDay     bool     `json:"is_all_day"`
 	Timezone     string   `json:"timezone"`
 	RRule        *string  `json:"rrule,omitempty"`
 	HasVideoCall bool     `json:"has_video_call"`
-	CategoryID   *string  `json:"category_id,omitempty"`
-	AttendeeIDs  []string `json:"attendee_ids,omitempty"`
+	CategoryID   *string  `json:"category_id,omitempty"  validate:"omitempty,uuid"`
+	AttendeeIDs  []string `json:"attendee_ids,omitempty" validate:"omitempty,dive,uuid"`
 }
 
 type updateEventRequest struct {
@@ -164,23 +163,23 @@ type updateEventRequest struct {
 }
 
 type updateRecurringEventRequest struct {
-	Scope        string             `json:"scope"` // "this", "this_and_future", "all"
-	OriginalDate string             `json:"original_date"`
+	Scope        string             `json:"scope"          validate:"required,oneof=this this_and_future all"`
+	OriginalDate string             `json:"original_date"  validate:"required"`
 	Changes      updateEventRequest `json:"changes"`
 }
 
 type rsvpRequest struct {
-	Status string `json:"status"`
+	Status string `json:"status" validate:"required,oneof=accepted declined tentative"`
 }
 
 type setRemindersRequest struct {
-	MinutesBefore []int32 `json:"minutes_before"`
+	MinutesBefore []int32 `json:"minutes_before" validate:"omitempty,dive,gte=0"`
 }
 
 type createResourceRequest struct {
-	Name         string   `json:"name"`
-	ResourceType string   `json:"resource_type"`
-	Capacity     *int32   `json:"capacity,omitempty"`
+	Name         string   `json:"name"          validate:"required"`
+	ResourceType string   `json:"resource_type" validate:"required"`
+	Capacity     *int32   `json:"capacity,omitempty"   validate:"omitempty,gt=0"`
 	Floor        *string  `json:"floor,omitempty"`
 	Location     *string  `json:"location,omitempty"`
 	Description  *string  `json:"description,omitempty"`
@@ -190,26 +189,26 @@ type createResourceRequest struct {
 type updateResourceRequest struct {
 	Name         *string `json:"name,omitempty"`
 	ResourceType *string `json:"resource_type,omitempty"`
-	Capacity     *int32  `json:"capacity,omitempty"`
+	Capacity     *int32  `json:"capacity,omitempty" validate:"omitempty,gt=0"`
 	Floor        *string `json:"floor,omitempty"`
 	Location     *string `json:"location,omitempty"`
 	Description  *string `json:"description,omitempty"`
 }
 
 type bookResourceRequest struct {
-	ResourceID string `json:"resource_id"`
-	EventID    string `json:"event_id"`
-	StartTime  string `json:"start_time"`
-	EndTime    string `json:"end_time"`
+	ResourceID string `json:"resource_id" validate:"required,uuid"`
+	EventID    string `json:"event_id"    validate:"required,uuid"`
+	StartTime  string `json:"start_time"  validate:"required"`
+	EndTime    string `json:"end_time"    validate:"required"`
 }
 
 type seedHolidaysRequest struct {
-	Year        int32  `json:"year"`
-	CountryCode string `json:"country_code"`
+	Year        int32  `json:"year"         validate:"gt=0"`
+	CountryCode string `json:"country_code" validate:"required"`
 }
 
 type createEventCategoryRequest struct {
-	Name  string `json:"name"`
+	Name  string `json:"name"  validate:"required"`
 	Color string `json:"color"`
 }
 
@@ -223,7 +222,7 @@ type updateCalPreferencesRequest struct {
 }
 
 type generateJoinTokenRequest struct {
-	DisplayName string `json:"display_name"`
+	DisplayName string `json:"display_name" validate:"required"`
 }
 
 // ============================================================================
@@ -239,14 +238,8 @@ func (cr *CalendarRoutes) HandleCreateCalendar(wr http.ResponseWriter, r *http.R
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createCalendarRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Name == "" {
-		response.Error(wr, http.StatusBadRequest, "name is required")
+	req, ok := decodeAndValidate[createCalendarRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -327,9 +320,8 @@ func (cr *CalendarRoutes) HandleUpdateCalendar(wr http.ResponseWriter, r *http.R
 		return
 	}
 
-	var req updateCalendarRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateCalendarRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -410,9 +402,8 @@ func (cr *CalendarRoutes) HandleAddCalendarMember(wr http.ResponseWriter, r *htt
 
 	calendarID := chi.URLParam(r, "id")
 
-	var req addCalendarMemberRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[addCalendarMemberRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -461,9 +452,8 @@ func (cr *CalendarRoutes) HandleUpdateCalendarMemberPermission(wr http.ResponseW
 	calendarID := chi.URLParam(r, "id")
 	memberUserID := chi.URLParam(r, "userId")
 
-	var req updateCalendarMemberPermissionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateCalendarMemberPermissionRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -610,14 +600,8 @@ func (cr *CalendarRoutes) HandleCreateEvent(wr http.ResponseWriter, r *http.Requ
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createEventRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Title == "" || req.CalendarID == "" {
-		response.Error(wr, http.StatusBadRequest, "title and calendar_id are required")
+	req, ok := decodeAndValidate[createEventRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -699,9 +683,8 @@ func (cr *CalendarRoutes) HandleUpdateEvent(wr http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var req updateEventRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateEventRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -776,9 +759,8 @@ func (cr *CalendarRoutes) HandleUpdateRecurringEvent(wr http.ResponseWriter, r *
 		return
 	}
 
-	var req updateRecurringEventRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateRecurringEventRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -846,9 +828,8 @@ func (cr *CalendarRoutes) HandleRSVPToEvent(wr http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var req rsvpRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[rsvpRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -904,9 +885,8 @@ func (cr *CalendarRoutes) HandleSetEventReminders(wr http.ResponseWriter, r *htt
 		return
 	}
 
-	var req setRemindersRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[setRemindersRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -978,14 +958,8 @@ func (cr *CalendarRoutes) HandleCreateEventCategory(wr http.ResponseWriter, r *h
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createEventCategoryRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Name == "" {
-		response.Error(wr, http.StatusBadRequest, "name is required")
+	req, ok := decodeAndValidate[createEventCategoryRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -1076,14 +1050,8 @@ func (cr *CalendarRoutes) HandleCreateResource(wr http.ResponseWriter, r *http.R
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createResourceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Name == "" {
-		response.Error(wr, http.StatusBadRequest, "name is required")
+	req, ok := decodeAndValidate[createResourceRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -1138,9 +1106,8 @@ func (cr *CalendarRoutes) HandleUpdateResource(wr http.ResponseWriter, r *http.R
 		return
 	}
 
-	var req updateResourceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateResourceRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -1252,9 +1219,8 @@ func (cr *CalendarRoutes) HandleBookResource(wr http.ResponseWriter, r *http.Req
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req bookResourceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[bookResourceRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -1364,14 +1330,8 @@ func (cr *CalendarRoutes) HandleSeedHolidays(wr http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var req seedHolidaysRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.CountryCode == "" || req.Year == 0 {
-		response.Error(wr, http.StatusBadRequest, "country_code and year are required")
+	req, ok := decodeAndValidate[seedHolidaysRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -1420,9 +1380,8 @@ func (cr *CalendarRoutes) HandleUpdateCalendarPreferences(wr http.ResponseWriter
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req updateCalPreferencesRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateCalPreferencesRequest](wr, r)
+	if !ok {
 		return
 	}
 
@@ -1520,9 +1479,8 @@ func (cr *CalendarRoutes) HandleGenerateJoinToken(wr http.ResponseWriter, r *htt
 		return
 	}
 
-	var req generateJoinTokenRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[generateJoinTokenRequest](wr, r)
+	if !ok {
 		return
 	}
 

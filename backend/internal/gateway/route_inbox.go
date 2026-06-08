@@ -291,6 +291,10 @@ func (ir *InboxRoutes) HandleUnarchiveMessage(w http.ResponseWriter, r *http.Req
 	response.JSON(w, http.StatusOK, resp)
 }
 
+type snoozeMessageRequest struct {
+	SnoozeUntil string `json:"snooze_until" validate:"required"`
+}
+
 func (ir *InboxRoutes) HandleSnoozeMessage(w http.ResponseWriter, r *http.Request) {
 	client, err := ir.getInboxClient()
 	if err != nil {
@@ -305,11 +309,8 @@ func (ir *InboxRoutes) HandleSnoozeMessage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var body struct {
-		SnoozeUntil string `json:"snooze_until"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	body, ok := decodeAndValidate[snoozeMessageRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -320,8 +321,8 @@ func (ir *InboxRoutes) HandleSnoozeMessage(w http.ResponseWriter, r *http.Reques
 	}
 
 	resp, err := client.SnoozeMessage(r.Context(), &inboxv1.SnoozeMessageRequest{
-		MessageId:  messageID,
-		UserId:     userID,
+		MessageId:   messageID,
+		UserId:      userID,
 		SnoozeUntil: timestamppb.New(snoozeUntil),
 	})
 	if err != nil {
@@ -358,6 +359,10 @@ func (ir *InboxRoutes) HandleUnsnoozeMessage(w http.ResponseWriter, r *http.Requ
 	response.JSON(w, http.StatusOK, resp)
 }
 
+type replyToMessageRequest struct {
+	Body string `json:"body" validate:"required"`
+}
+
 func (ir *InboxRoutes) HandleReplyToMessage(w http.ResponseWriter, r *http.Request) {
 	client, err := ir.getInboxClient()
 	if err != nil {
@@ -372,16 +377,8 @@ func (ir *InboxRoutes) HandleReplyToMessage(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var body struct {
-		Body string `json:"body"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if body.Body == "" {
-		response.Error(w, http.StatusBadRequest, "body is required")
+	body, ok := decodeAndValidate[replyToMessageRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -398,6 +395,10 @@ func (ir *InboxRoutes) HandleReplyToMessage(w http.ResponseWriter, r *http.Reque
 	response.JSON(w, http.StatusOK, resp)
 }
 
+type assignMessageRequest struct {
+	AssigneeID string `json:"assignee_id" validate:"required,uuid"`
+}
+
 func (ir *InboxRoutes) HandleAssignMessage(w http.ResponseWriter, r *http.Request) {
 	client, err := ir.getInboxClient()
 	if err != nil {
@@ -412,16 +413,8 @@ func (ir *InboxRoutes) HandleAssignMessage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var body struct {
-		AssigneeID string `json:"assignee_id"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if body.AssigneeID == "" {
-		response.Error(w, http.StatusBadRequest, "assignee_id is required")
+	body, ok := decodeAndValidate[assignMessageRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -458,6 +451,10 @@ func (ir *InboxRoutes) HandleGetUnreadCount(w http.ResponseWriter, r *http.Reque
 	response.JSON(w, http.StatusOK, resp)
 }
 
+type bulkIDsRequest struct {
+	IDs []string `json:"ids" validate:"required,min=1,dive,uuid"`
+}
+
 func (ir *InboxRoutes) HandleBulkMarkRead(w http.ResponseWriter, r *http.Request) {
 	client, err := ir.getInboxClient()
 	if err != nil {
@@ -467,16 +464,8 @@ func (ir *InboxRoutes) HandleBulkMarkRead(w http.ResponseWriter, r *http.Request
 
 	userID := middleware.GetUserID(r.Context())
 
-	var body struct {
-		IDs []string `json:"ids"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if len(body.IDs) == 0 {
-		response.Error(w, http.StatusBadRequest, "ids is required")
+	body, ok := decodeAndValidate[bulkIDsRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -501,16 +490,8 @@ func (ir *InboxRoutes) HandleBulkArchive(w http.ResponseWriter, r *http.Request)
 
 	userID := middleware.GetUserID(r.Context())
 
-	var body struct {
-		IDs []string `json:"ids"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if len(body.IDs) == 0 {
-		response.Error(w, http.StatusBadRequest, "ids is required")
+	body, ok := decodeAndValidate[bulkIDsRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -530,6 +511,13 @@ func (ir *InboxRoutes) HandleBulkArchive(w http.ResponseWriter, r *http.Request)
 // Team Inbox Handlers
 // ============================================================================
 
+type createTeamInboxRequest struct {
+	Name           string `json:"name" validate:"required"`
+	Description    string `json:"description"`
+	AssignmentMode string `json:"assignment_mode" validate:"omitempty,oneof=manual round_robin"`
+	Visibility     string `json:"visibility" validate:"omitempty,oneof=open private"`
+}
+
 func (ir *InboxRoutes) HandleCreateTeamInbox(w http.ResponseWriter, r *http.Request) {
 	client, err := ir.getInboxClient()
 	if err != nil {
@@ -539,19 +527,8 @@ func (ir *InboxRoutes) HandleCreateTeamInbox(w http.ResponseWriter, r *http.Requ
 
 	userID := middleware.GetUserID(r.Context())
 
-	var body struct {
-		Name           string `json:"name"`
-		Description    string `json:"description"`
-		AssignmentMode string `json:"assignment_mode"`
-		Visibility     string `json:"visibility"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if body.Name == "" {
-		response.Error(w, http.StatusBadRequest, "name is required")
+	body, ok := decodeAndValidate[createTeamInboxRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -572,6 +549,13 @@ func (ir *InboxRoutes) HandleCreateTeamInbox(w http.ResponseWriter, r *http.Requ
 	response.JSON(w, http.StatusCreated, resp)
 }
 
+type updateTeamInboxRequest struct {
+	Name           *string `json:"name,omitempty" validate:"omitempty,min=1"`
+	Description    *string `json:"description,omitempty"`
+	AssignmentMode *string `json:"assignment_mode,omitempty" validate:"omitempty,oneof=manual round_robin"`
+	Visibility     *string `json:"visibility,omitempty" validate:"omitempty,oneof=open private"`
+}
+
 func (ir *InboxRoutes) HandleUpdateTeamInbox(w http.ResponseWriter, r *http.Request) {
 	client, err := ir.getInboxClient()
 	if err != nil {
@@ -586,14 +570,8 @@ func (ir *InboxRoutes) HandleUpdateTeamInbox(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var body struct {
-		Name           *string `json:"name,omitempty"`
-		Description    *string `json:"description,omitempty"`
-		AssignmentMode *string `json:"assignment_mode,omitempty"`
-		Visibility     *string `json:"visibility,omitempty"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	body, ok := decodeAndValidate[updateTeamInboxRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -672,6 +650,11 @@ func (ir *InboxRoutes) HandleListTeamInboxes(w http.ResponseWriter, r *http.Requ
 	response.JSON(w, http.StatusOK, resp)
 }
 
+type addTeamMemberRequest struct {
+	MemberUserID string `json:"member_user_id" validate:"required,uuid"`
+	Role         string `json:"role" validate:"required"`
+}
+
 func (ir *InboxRoutes) HandleAddTeamMember(w http.ResponseWriter, r *http.Request) {
 	client, err := ir.getInboxClient()
 	if err != nil {
@@ -686,17 +669,8 @@ func (ir *InboxRoutes) HandleAddTeamMember(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var body struct {
-		MemberUserID string `json:"member_user_id"`
-		Role         string `json:"role"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if body.MemberUserID == "" {
-		response.Error(w, http.StatusBadRequest, "member_user_id is required")
+	body, ok := decodeAndValidate[addTeamMemberRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -804,6 +778,14 @@ func (ir *InboxRoutes) HandleClaimMessage(w http.ResponseWriter, r *http.Request
 // Routing Rule Handlers
 // ============================================================================
 
+type createRoutingRuleRequest struct {
+	Name       string          `json:"name" validate:"required"`
+	Channel    *string         `json:"channel,omitempty"`
+	Conditions json.RawMessage `json:"conditions"`
+	Actions    json.RawMessage `json:"actions"`
+	Priority   int32           `json:"priority"`
+}
+
 func (ir *InboxRoutes) HandleCreateRoutingRule(w http.ResponseWriter, r *http.Request) {
 	client, err := ir.getInboxClient()
 	if err != nil {
@@ -813,20 +795,8 @@ func (ir *InboxRoutes) HandleCreateRoutingRule(w http.ResponseWriter, r *http.Re
 
 	userID := middleware.GetUserID(r.Context())
 
-	var body struct {
-		Name       string          `json:"name"`
-		Channel    *string         `json:"channel,omitempty"`
-		Conditions json.RawMessage `json:"conditions"`
-		Actions    json.RawMessage `json:"actions"`
-		Priority   int32           `json:"priority"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if body.Name == "" {
-		response.Error(w, http.StatusBadRequest, "name is required")
+	body, ok := decodeAndValidate[createRoutingRuleRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -864,6 +834,15 @@ func (ir *InboxRoutes) HandleCreateRoutingRule(w http.ResponseWriter, r *http.Re
 	response.JSON(w, http.StatusCreated, resp)
 }
 
+type updateRoutingRuleRequest struct {
+	Name       *string          `json:"name,omitempty" validate:"omitempty,min=1"`
+	Channel    *string          `json:"channel,omitempty"`
+	Conditions *json.RawMessage `json:"conditions,omitempty"`
+	Actions    *json.RawMessage `json:"actions,omitempty"`
+	Priority   *int32           `json:"priority,omitempty"`
+	IsActive   *bool            `json:"is_active,omitempty"`
+}
+
 func (ir *InboxRoutes) HandleUpdateRoutingRule(w http.ResponseWriter, r *http.Request) {
 	client, err := ir.getInboxClient()
 	if err != nil {
@@ -878,16 +857,8 @@ func (ir *InboxRoutes) HandleUpdateRoutingRule(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var body struct {
-		Name       *string          `json:"name,omitempty"`
-		Channel    *string          `json:"channel,omitempty"`
-		Conditions *json.RawMessage `json:"conditions,omitempty"`
-		Actions    *json.RawMessage `json:"actions,omitempty"`
-		Priority   *int32           `json:"priority,omitempty"`
-		IsActive   *bool            `json:"is_active,omitempty"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	body, ok := decodeAndValidate[updateRoutingRuleRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -993,8 +964,8 @@ func (ir *InboxRoutes) HandleTestRoutingRule(w http.ResponseWriter, r *http.Requ
 	userID := middleware.GetUserID(r.Context())
 
 	var body struct {
-		Conditions  json.RawMessage              `json:"conditions"`
-		TestMessage *inboxv1.InboxMessageInfo     `json:"test_message"`
+		Conditions  json.RawMessage           `json:"conditions"`
+		TestMessage *inboxv1.InboxMessageInfo `json:"test_message"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
