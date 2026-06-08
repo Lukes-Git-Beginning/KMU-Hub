@@ -62,8 +62,9 @@ try {
   // 3) Deactivate quiet hours → options (save button, weekdays, pickers) disappear
   await qhSwitch.click()
   await page.waitForTimeout(500)
+  // Options collapse (stay in DOM but 0-height/hidden) → isVisible must be false
   out.saveVisibleWhenInactive = await page.getByText(/Ruhezeiten speichern/).first().isVisible().catch(() => false)
-  out.timePickersWhenInactive = await page.locator('button:has(svg.lucide-clock)').count()
+  out.timePickerVisibleWhenInactive = await page.locator('button:has(svg.lucide-clock)').first().isVisible().catch(() => false)
   await page.screenshot({ path: resolve(outDir, '03-inactive-options-hidden.png'), fullPage: true })
 
   out.rawKeys = await scanRawKeys(page)
