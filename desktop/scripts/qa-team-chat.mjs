@@ -91,6 +91,31 @@ try {
   out.searchHasResults = await page.locator('mark').first().isVisible().catch(() => false)
   await page.screenshot({ path: resolve(outDir, 'team-chat-search.png'), fullPage: true })
 
+  // --- Channel leave (member channel: entwicklung → leave enabled) ---
+  await page.getByText('entwicklung', { exact: false }).first().click({ timeout: 5000 }).catch((e) => { out.entwicklungClickErr = String(e).split('\n')[0] })
+  await page.waitForTimeout(800)
+  const menuBtn = page.getByRole('button', { name: /Kanal-Menü/ }).first()
+  out.menuVisible = await menuBtn.isVisible().catch(() => false)
+  await menuBtn.click({ timeout: 4000 }).catch((e) => { out.menuClickErr = String(e).split('\n')[0] })
+  await page.waitForTimeout(400)
+  out.leaveItemVisible = await page.getByText(/^Kanal verlassen$/).first().isVisible().catch(() => false)
+  await page.screenshot({ path: resolve(outDir, 'team-chat-leave-menu.png'), fullPage: false })
+  await page.getByText(/^Kanal verlassen$/).first().click({ timeout: 4000 }).catch((e) => { out.leaveClickErr = String(e).split('\n')[0] })
+  await page.waitForTimeout(400)
+  out.leaveDialogVisible = await page.getByText(/Neue Nachrichten siehst du/).first().isVisible().catch(() => false)
+  await page.screenshot({ path: resolve(outDir, 'team-chat-leave-dialog.png'), fullPage: false })
+  await page.getByRole('button', { name: /Abbrechen/ }).first().click({ timeout: 3000 }).catch(() => {})
+  await page.waitForTimeout(400)
+
+  // --- Owner channel (allgemein → leave blocked) ---
+  await page.getByText('allgemein', { exact: false }).first().click({ timeout: 5000 }).catch(() => {})
+  await page.waitForTimeout(700)
+  await page.getByRole('button', { name: /Kanal-Menü/ }).first().click({ timeout: 4000 }).catch(() => {})
+  await page.waitForTimeout(400)
+  out.ownerBlockedVisible = await page.getByText(/Eigentümer kann nicht verlassen/).first().isVisible().catch(() => false)
+  await page.screenshot({ path: resolve(outDir, 'team-chat-owner-blocked.png'), fullPage: false })
+  await page.keyboard.press('Escape').catch(() => {})
+
   out.rawKeys = await scanRawKeys(page)
 } catch (err) {
   out.error = String(err).split('\n')[0]

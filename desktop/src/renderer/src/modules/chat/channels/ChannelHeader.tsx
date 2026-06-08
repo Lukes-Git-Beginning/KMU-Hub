@@ -2,11 +2,13 @@
  * Header bar for the selected chat channel.
  *
  * Shows channel name, member count, description, and typing indicators.
- * Actions: members list button, search messages button.
+ * Actions: members list button, search messages button, channel overflow
+ * menu (leave) for members, join button for non-members of public channels.
  */
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Hash, Users, Search } from 'lucide-react'
-import { useChannel, useChannelMembers } from '@/api/hooks/useChannels'
+import { Hash, Users, Search, MoreVertical, LogOut, UserPlus } from 'lucide-react'
+import { useChannel, useChannelMembers, useJoinChannel, useLeaveChannel } from '@/api/hooks/useChannels'
 import { useTypingIndicator } from '@/api/hooks/useMessages'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,6 +16,22 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog'
 
 interface ChannelHeaderProps {
   channelId: string
@@ -21,19 +39,36 @@ interface ChannelHeaderProps {
   onToggleMembers?: () => void
   searchActive?: boolean
   onToggleSearch?: () => void
+  onLeftChannel?: (channelId: string) => void
 }
 
-export function ChannelHeader({ channelId, membersActive, onToggleMembers, searchActive, onToggleSearch }: ChannelHeaderProps) {
+export function ChannelHeader({ channelId, membersActive, onToggleMembers, searchActive, onToggleSearch, onLeftChannel }: ChannelHeaderProps) {
   const { t } = useTranslation()
   const { data: channelData } = useChannel(channelId)
   const { data: membersData } = useChannelMembers(channelId)
   const { typingUsers } = useTypingIndicator(channelId)
+  const joinChannel = useJoinChannel()
+  const leaveChannel = useLeaveChannel()
+  const [confirmLeave, setConfirmLeave] = useState(false)
 
   const channel = channelData?.channel
   const memberCount = membersData?.total ?? channel?.member_count ?? 0
   const isDM = channel?.is_dm ?? false
+  const isMember = !!channel?.my_role
+  const isOwner = channel?.my_role === 'owner'
+  const canJoin = !isMember && !isDM && !channel?.is_private
 
   const typingText = getTypingText(typingUsers, t)
+
+  const handleLeave = async () => {
+    try {
+      await leaveChannel.mutateAsync(channelId)
+      setConfirmLeave(false)
+      onLeftChannel?.(channelId)
+    } catch {
+      setConfirmLeave(false)
+    }
+  }
 
   return (
     <div className="flex flex-col border-b border-border bg-card px-4 py-2">
@@ -51,6 +86,19 @@ export function ChannelHeader({ channelId, membersActive, onToggleMembers, searc
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
+          {canJoin && (
+            <Button
+              variant="default"
+              size="sm"
+              className="h-8 gap-1.5"
+              onClick={() => joinChannel.mutate(channelId)}
+              disabled={joinChannel.isPending}
+            >
+              <UserPlus className="h-4 w-4" />
+              {t('chat.header.join')}
+            </Button>
+          )}
+
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -80,6 +128,31 @@ export function ChannelHeader({ channelId, membersActive, onToggleMembers, searc
             </TooltipTrigger>
             <TooltipContent>{t('chat.header.searchMessages')}</TooltipContent>
           </Tooltip>
+
+          {isMember && !isDM && (
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={t('chat.header.menu')}>
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>{t('chat.header.menu')}</TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  disabled={isOwner}
+                  onSelect={() => !isOwner && setConfirmLeave(true)}
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  {isOwner ? t('chat.header.leaveOwnerBlocked') : t('chat.header.leave')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
 
@@ -91,6 +164,30 @@ export function ChannelHeader({ channelId, membersActive, onToggleMembers, searc
           </p>
         </div>
       )}
+
+      <AlertDialog open={confirmLeave} onOpenChange={setConfirmLeave}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('chat.leaveDialog.title')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('chat.leaveDialog.description', { channel: channel?.name ?? '' })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => {
+                e.preventDefault()
+                handleLeave()
+              }}
+              disabled={leaveChannel.isPending}
+            >
+              {t('chat.leaveDialog.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -14,6 +14,7 @@ export const mockChannels = {
       is_private: false,
       description: 'Allgemeiner Kanal für das ganze Team',
       member_count: 18,
+      my_role: 'owner',
       created_at: daysAgo(180),
     },
     {
@@ -23,6 +24,7 @@ export const mockChannels = {
       is_private: false,
       description: 'Entwicklung, PRs, Deployments und technische Diskussionen',
       member_count: 8,
+      my_role: 'member',
       created_at: daysAgo(180),
     },
     {
@@ -32,6 +34,7 @@ export const mockChannels = {
       is_private: false,
       description: 'Sales-Pipeline, Kundenfeedback, Angebote',
       member_count: 6,
+      my_role: 'member',
       created_at: daysAgo(170),
     },
     {
@@ -41,6 +44,7 @@ export const mockChannels = {
       is_private: false,
       description: 'UI/UX, Mockups, Design-Reviews',
       member_count: 5,
+      my_role: 'member',
       created_at: daysAgo(165),
     },
     {
@@ -50,6 +54,7 @@ export const mockChannels = {
       is_private: false,
       description: 'Kunden-Support-Tickets und Eskalationen',
       member_count: 7,
+      my_role: 'member',
       created_at: daysAgo(160),
     },
     {
@@ -59,6 +64,7 @@ export const mockChannels = {
       is_private: false,
       description: 'Off-topic, Memes und Pausengespräche',
       member_count: 18,
+      my_role: 'member',
       created_at: daysAgo(180),
     },
     {
@@ -68,6 +74,7 @@ export const mockChannels = {
       is_private: true,
       description: 'Internes Projekt Alpha — nur Kernteam',
       member_count: 4,
+      my_role: 'member',
       created_at: daysAgo(30),
     },
     {
@@ -77,6 +84,7 @@ export const mockChannels = {
       is_private: false,
       description: 'Offizielle Ankündigungen der Geschaeftsleitung',
       member_count: 18,
+      my_role: 'admin',
       created_at: daysAgo(180),
     },
   ],

@@ -28,6 +28,13 @@ export default function ChatLayout() {
     setSelectedThreadMessageId(null)
   }
 
+  const handleLeftChannel = () => {
+    setSelectedChannelId(null)
+    setSelectedThreadMessageId(null)
+    setShowMembers(false)
+    setShowSearch(false)
+  }
+
   // Thread, members and search share the right slot — keep them mutually exclusive.
   const handleOpenThread = (messageId: string) => {
     setSelectedThreadMessageId(messageId)
@@ -71,6 +78,7 @@ export default function ChatLayout() {
               onToggleMembers={handleToggleMembers}
               searchActive={showSearch}
               onToggleSearch={handleToggleSearch}
+              onLeftChannel={handleLeftChannel}
             />
             <MessageList
               channelId={selectedChannelId}
