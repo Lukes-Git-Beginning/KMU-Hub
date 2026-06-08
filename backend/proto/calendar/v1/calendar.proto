@@ -70,6 +70,18 @@ service CalendarService {
 
   // LiveKit
   rpc GenerateJoinToken(GenerateJoinTokenRequest) returns (GenerateJoinTokenResponse);
+
+  // Booking Pages (Admin)
+  rpc CreateBookingPage(CreateBookingPageRequest) returns (CreateBookingPageResponse);
+  rpc GetBookingPage(GetBookingPageRequest) returns (GetBookingPageResponse);
+  rpc UpdateBookingPage(UpdateBookingPageRequest) returns (UpdateBookingPageResponse);
+  rpc DeleteBookingPage(DeleteBookingPageRequest) returns (DeleteBookingPageResponse);
+  rpc ListBookingPages(ListBookingPagesRequest) returns (ListBookingPagesResponse);
+
+  // Booking Pages (Public — no auth required)
+  rpc GetPublicBookingPage(GetPublicBookingPageRequest) returns (GetPublicBookingPageResponse);
+  rpc GetAvailability(GetAvailabilityRequest) returns (GetAvailabilityResponse);
+  rpc CreatePublicBooking(CreatePublicBookingRequest) returns (CreatePublicBookingResponse);
 }
 
 // ============================================================================
@@ -717,4 +729,162 @@ message GenerateJoinTokenResponse {
   string token = 1;
   string room_name = 2;
   string ws_url = 3;
+}
+
+// ============================================================================
+// Booking Page Core Types
+// ============================================================================
+
+// BookingServiceProto represents a bookable service inside a booking page.
+message BookingServiceProto {
+  string id = 1;
+  string name = 2;
+  int32 duration_min = 3;
+  string price = 4;            // e.g. "120.00" (decimal string, EUR)
+  optional string description = 5;
+}
+
+// AvailabilitySlotProto is a single bookable time slot within a day.
+message AvailabilitySlotProto {
+  string start = 1;   // "HH:MM"
+  string end = 2;     // "HH:MM"
+}
+
+// BookingPageProto is the admin-visible representation of a booking page.
+message BookingPageProto {
+  string id = 1;
+  string tenant_id = 2;
+  string calendar_id = 3;
+  string slug = 4;
+  string company_name = 5;
+  optional string logo_url = 6;
+  repeated BookingServiceProto services = 7;
+  string availability_rules_json = 8;  // raw JSON blob for admin editing
+  bool active = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+// PublicBookingPageProto is the public (unauthenticated) representation — no internal IDs.
+message PublicBookingPageProto {
+  string slug = 1;
+  string company_name = 2;
+  optional string logo_url = 3;
+  repeated BookingServiceProto services = 4;
+}
+
+// PublicBookingProto represents a submitted public booking.
+message PublicBookingProto {
+  string id = 1;
+  string booking_page_id = 2;
+  string service_id = 3;
+  string customer_name = 4;
+  string customer_email = 5;
+  optional string customer_phone = 6;
+  optional string notes = 7;
+  string date = 8;       // DATE as YYYY-MM-DD
+  string time_slot = 9;  // "HH:MM" start time
+  string status = 10;    // "confirmed" | "cancelled" | "completed"
+  google.protobuf.Timestamp created_at = 11;
+}
+
+// ============================================================================
+// Booking Page Admin RPCs
+// ============================================================================
+
+message CreateBookingPageRequest {
+  string calendar_id = 1;
+  string slug = 2;
+  string company_name = 3;
+  optional string logo_url = 4;
+  repeated BookingServiceProto services = 5;
+  string availability_rules_json = 6;
+}
+
+message CreateBookingPageResponse {
+  BookingPageProto page = 1;
+}
+
+message GetBookingPageRequest {
+  string id = 1;
+}
+
+message GetBookingPageResponse {
+  BookingPageProto page = 1;
+}
+
+message UpdateBookingPageRequest {
+  string id = 1;
+  optional string company_name = 2;
+  optional string logo_url = 3;
+  repeated BookingServiceProto services = 4;
+  optional string availability_rules_json = 5;
+  optional bool active = 6;
+}
+
+message UpdateBookingPageResponse {
+  BookingPageProto page = 1;
+}
+
+message DeleteBookingPageRequest {
+  string id = 1;
+}
+
+message DeleteBookingPageResponse {}
+
+message ListBookingPagesRequest {
+  bool include_inactive = 1;
+}
+
+message ListBookingPagesResponse {
+  repeated BookingPageProto pages = 1;
+}
+
+// ============================================================================
+// Booking Pages Public RPCs
+// ============================================================================
+
+message GetPublicBookingPageRequest {
+  string slug = 1;
+}
+
+message GetPublicBookingPageResponse {
+  PublicBookingPageProto page = 1;
+}
+
+message GetAvailabilityRequest {
+  string slug = 1;
+  string date_from = 2;  // inclusive, YYYY-MM-DD
+  string date_to = 3;    // inclusive, YYYY-MM-DD
+  optional string service_id = 4;  // if provided, uses service-specific duration
+}
+
+// AvailabilityDayProto holds the free slots for a single day.
+message AvailabilityDayProto {
+  string date = 1;               // YYYY-MM-DD
+  repeated string slots = 2;    // free slot start times "HH:MM"
+}
+
+message GetAvailabilityResponse {
+  repeated AvailabilityDayProto days = 1;
+}
+
+message PublicBookingCustomerProto {
+  string name = 1;
+  string email = 2;
+  optional string phone = 3;
+  optional string notes = 4;
+}
+
+message CreatePublicBookingRequest {
+  string slug = 1;
+  string service_id = 2;
+  string date = 3;       // YYYY-MM-DD
+  string time_slot = 4;  // "HH:MM"
+  PublicBookingCustomerProto customer = 5;
+  optional string idempotency_key = 6;  // client-supplied, maps to UNIQUE constraint backstop
+}
+
+message CreatePublicBookingResponse {
+  PublicBookingProto booking = 1;
 }

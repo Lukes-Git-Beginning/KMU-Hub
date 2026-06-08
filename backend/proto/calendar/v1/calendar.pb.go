@@ -5923,6 +5923,1416 @@ func (x *GenerateJoinTokenResponse) GetWsUrl() string {
 	return ""
 }
 
+// BookingServiceProto represents a bookable service inside a booking page.
+type BookingServiceProto struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	DurationMin   int32                  `protobuf:"varint,3,opt,name=duration_min,json=durationMin,proto3" json:"duration_min,omitempty"`
+	Price         string                 `protobuf:"bytes,4,opt,name=price,proto3" json:"price,omitempty"` // e.g. "120.00" (decimal string, EUR)
+	Description   *string                `protobuf:"bytes,5,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BookingServiceProto) Reset() {
+	*x = BookingServiceProto{}
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[94]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BookingServiceProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BookingServiceProto) ProtoMessage() {}
+
+func (x *BookingServiceProto) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[94]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BookingServiceProto.ProtoReflect.Descriptor instead.
+func (*BookingServiceProto) Descriptor() ([]byte, []int) {
+	return file_proto_calendar_v1_calendar_proto_rawDescGZIP(), []int{94}
+}
+
+func (x *BookingServiceProto) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *BookingServiceProto) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *BookingServiceProto) GetDurationMin() int32 {
+	if x != nil {
+		return x.DurationMin
+	}
+	return 0
+}
+
+func (x *BookingServiceProto) GetPrice() string {
+	if x != nil {
+		return x.Price
+	}
+	return ""
+}
+
+func (x *BookingServiceProto) GetDescription() string {
+	if x != nil && x.Description != nil {
+		return *x.Description
+	}
+	return ""
+}
+
+// AvailabilitySlotProto is a single bookable time slot within a day.
+type AvailabilitySlotProto struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Start         string                 `protobuf:"bytes,1,opt,name=start,proto3" json:"start,omitempty"` // "HH:MM"
+	End           string                 `protobuf:"bytes,2,opt,name=end,proto3" json:"end,omitempty"`     // "HH:MM"
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AvailabilitySlotProto) Reset() {
+	*x = AvailabilitySlotProto{}
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[95]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AvailabilitySlotProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AvailabilitySlotProto) ProtoMessage() {}
+
+func (x *AvailabilitySlotProto) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[95]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AvailabilitySlotProto.ProtoReflect.Descriptor instead.
+func (*AvailabilitySlotProto) Descriptor() ([]byte, []int) {
+	return file_proto_calendar_v1_calendar_proto_rawDescGZIP(), []int{95}
+}
+
+func (x *AvailabilitySlotProto) GetStart() string {
+	if x != nil {
+		return x.Start
+	}
+	return ""
+}
+
+func (x *AvailabilitySlotProto) GetEnd() string {
+	if x != nil {
+		return x.End
+	}
+	return ""
+}
+
+// BookingPageProto is the admin-visible representation of a booking page.
+type BookingPageProto struct {
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	Id                    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId              string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	CalendarId            string                 `protobuf:"bytes,3,opt,name=calendar_id,json=calendarId,proto3" json:"calendar_id,omitempty"`
+	Slug                  string                 `protobuf:"bytes,4,opt,name=slug,proto3" json:"slug,omitempty"`
+	CompanyName           string                 `protobuf:"bytes,5,opt,name=company_name,json=companyName,proto3" json:"company_name,omitempty"`
+	LogoUrl               *string                `protobuf:"bytes,6,opt,name=logo_url,json=logoUrl,proto3,oneof" json:"logo_url,omitempty"`
+	Services              []*BookingServiceProto `protobuf:"bytes,7,rep,name=services,proto3" json:"services,omitempty"`
+	AvailabilityRulesJson string                 `protobuf:"bytes,8,opt,name=availability_rules_json,json=availabilityRulesJson,proto3" json:"availability_rules_json,omitempty"` // raw JSON blob for admin editing
+	Active                bool                   `protobuf:"varint,9,opt,name=active,proto3" json:"active,omitempty"`
+	CreatedAt             *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt             *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *BookingPageProto) Reset() {
+	*x = BookingPageProto{}
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[96]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BookingPageProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BookingPageProto) ProtoMessage() {}
+
+func (x *BookingPageProto) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[96]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BookingPageProto.ProtoReflect.Descriptor instead.
+func (*BookingPageProto) Descriptor() ([]byte, []int) {
+	return file_proto_calendar_v1_calendar_proto_rawDescGZIP(), []int{96}
+}
+
+func (x *BookingPageProto) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *BookingPageProto) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *BookingPageProto) GetCalendarId() string {
+	if x != nil {
+		return x.CalendarId
+	}
+	return ""
+}
+
+func (x *BookingPageProto) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+func (x *BookingPageProto) GetCompanyName() string {
+	if x != nil {
+		return x.CompanyName
+	}
+	return ""
+}
+
+func (x *BookingPageProto) GetLogoUrl() string {
+	if x != nil && x.LogoUrl != nil {
+		return *x.LogoUrl
+	}
+	return ""
+}
+
+func (x *BookingPageProto) GetServices() []*BookingServiceProto {
+	if x != nil {
+		return x.Services
+	}
+	return nil
+}
+
+func (x *BookingPageProto) GetAvailabilityRulesJson() string {
+	if x != nil {
+		return x.AvailabilityRulesJson
+	}
+	return ""
+}
+
+func (x *BookingPageProto) GetActive() bool {
+	if x != nil {
+		return x.Active
+	}
+	return false
+}
+
+func (x *BookingPageProto) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *BookingPageProto) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+// PublicBookingPageProto is the public (unauthenticated) representation — no internal IDs.
+type PublicBookingPageProto struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Slug          string                 `protobuf:"bytes,1,opt,name=slug,proto3" json:"slug,omitempty"`
+	CompanyName   string                 `protobuf:"bytes,2,opt,name=company_name,json=companyName,proto3" json:"company_name,omitempty"`
+	LogoUrl       *string                `protobuf:"bytes,3,opt,name=logo_url,json=logoUrl,proto3,oneof" json:"logo_url,omitempty"`
+	Services      []*BookingServiceProto `protobuf:"bytes,4,rep,name=services,proto3" json:"services,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PublicBookingPageProto) Reset() {
+	*x = PublicBookingPageProto{}
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[97]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PublicBookingPageProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PublicBookingPageProto) ProtoMessage() {}
+
+func (x *PublicBookingPageProto) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[97]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PublicBookingPageProto.ProtoReflect.Descriptor instead.
+func (*PublicBookingPageProto) Descriptor() ([]byte, []int) {
+	return file_proto_calendar_v1_calendar_proto_rawDescGZIP(), []int{97}
+}
+
+func (x *PublicBookingPageProto) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+func (x *PublicBookingPageProto) GetCompanyName() string {
+	if x != nil {
+		return x.CompanyName
+	}
+	return ""
+}
+
+func (x *PublicBookingPageProto) GetLogoUrl() string {
+	if x != nil && x.LogoUrl != nil {
+		return *x.LogoUrl
+	}
+	return ""
+}
+
+func (x *PublicBookingPageProto) GetServices() []*BookingServiceProto {
+	if x != nil {
+		return x.Services
+	}
+	return nil
+}
+
+// PublicBookingProto represents a submitted public booking.
+type PublicBookingProto struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	BookingPageId string                 `protobuf:"bytes,2,opt,name=booking_page_id,json=bookingPageId,proto3" json:"booking_page_id,omitempty"`
+	ServiceId     string                 `protobuf:"bytes,3,opt,name=service_id,json=serviceId,proto3" json:"service_id,omitempty"`
+	CustomerName  string                 `protobuf:"bytes,4,opt,name=customer_name,json=customerName,proto3" json:"customer_name,omitempty"`
+	CustomerEmail string                 `protobuf:"bytes,5,opt,name=customer_email,json=customerEmail,proto3" json:"customer_email,omitempty"`
+	CustomerPhone *string                `protobuf:"bytes,6,opt,name=customer_phone,json=customerPhone,proto3,oneof" json:"customer_phone,omitempty"`
+	Notes         *string                `protobuf:"bytes,7,opt,name=notes,proto3,oneof" json:"notes,omitempty"`
+	Date          string                 `protobuf:"bytes,8,opt,name=date,proto3" json:"date,omitempty"`                         // DATE as YYYY-MM-DD
+	TimeSlot      string                 `protobuf:"bytes,9,opt,name=time_slot,json=timeSlot,proto3" json:"time_slot,omitempty"` // "HH:MM" start time
+	Status        string                 `protobuf:"bytes,10,opt,name=status,proto3" json:"status,omitempty"`                    // "confirmed" | "cancelled" | "completed"
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PublicBookingProto) Reset() {
+	*x = PublicBookingProto{}
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[98]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PublicBookingProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PublicBookingProto) ProtoMessage() {}
+
+func (x *PublicBookingProto) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[98]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PublicBookingProto.ProtoReflect.Descriptor instead.
+func (*PublicBookingProto) Descriptor() ([]byte, []int) {
+	return file_proto_calendar_v1_calendar_proto_rawDescGZIP(), []int{98}
+}
+
+func (x *PublicBookingProto) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *PublicBookingProto) GetBookingPageId() string {
+	if x != nil {
+		return x.BookingPageId
+	}
+	return ""
+}
+
+func (x *PublicBookingProto) GetServiceId() string {
+	if x != nil {
+		return x.ServiceId
+	}
+	return ""
+}
+
+func (x *PublicBookingProto) GetCustomerName() string {
+	if x != nil {
+		return x.CustomerName
+	}
+	return ""
+}
+
+func (x *PublicBookingProto) GetCustomerEmail() string {
+	if x != nil {
+		return x.CustomerEmail
+	}
+	return ""
+}
+
+func (x *PublicBookingProto) GetCustomerPhone() string {
+	if x != nil && x.CustomerPhone != nil {
+		return *x.CustomerPhone
+	}
+	return ""
+}
+
+func (x *PublicBookingProto) GetNotes() string {
+	if x != nil && x.Notes != nil {
+		return *x.Notes
+	}
+	return ""
+}
+
+func (x *PublicBookingProto) GetDate() string {
+	if x != nil {
+		return x.Date
+	}
+	return ""
+}
+
+func (x *PublicBookingProto) GetTimeSlot() string {
+	if x != nil {
+		return x.TimeSlot
+	}
+	return ""
+}
+
+func (x *PublicBookingProto) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *PublicBookingProto) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+type CreateBookingPageRequest struct {
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	CalendarId            string                 `protobuf:"bytes,1,opt,name=calendar_id,json=calendarId,proto3" json:"calendar_id,omitempty"`
+	Slug                  string                 `protobuf:"bytes,2,opt,name=slug,proto3" json:"slug,omitempty"`
+	CompanyName           string                 `protobuf:"bytes,3,opt,name=company_name,json=companyName,proto3" json:"company_name,omitempty"`
+	LogoUrl               *string                `protobuf:"bytes,4,opt,name=logo_url,json=logoUrl,proto3,oneof" json:"logo_url,omitempty"`
+	Services              []*BookingServiceProto `protobuf:"bytes,5,rep,name=services,proto3" json:"services,omitempty"`
+	AvailabilityRulesJson string                 `protobuf:"bytes,6,opt,name=availability_rules_json,json=availabilityRulesJson,proto3" json:"availability_rules_json,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *CreateBookingPageRequest) Reset() {
+	*x = CreateBookingPageRequest{}
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[99]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateBookingPageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateBookingPageRequest) ProtoMessage() {}
+
+func (x *CreateBookingPageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[99]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateBookingPageRequest.ProtoReflect.Descriptor instead.
+func (*CreateBookingPageRequest) Descriptor() ([]byte, []int) {
+	return file_proto_calendar_v1_calendar_proto_rawDescGZIP(), []int{99}
+}
+
+func (x *CreateBookingPageRequest) GetCalendarId() string {
+	if x != nil {
+		return x.CalendarId
+	}
+	return ""
+}
+
+func (x *CreateBookingPageRequest) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+func (x *CreateBookingPageRequest) GetCompanyName() string {
+	if x != nil {
+		return x.CompanyName
+	}
+	return ""
+}
+
+func (x *CreateBookingPageRequest) GetLogoUrl() string {
+	if x != nil && x.LogoUrl != nil {
+		return *x.LogoUrl
+	}
+	return ""
+}
+
+func (x *CreateBookingPageRequest) GetServices() []*BookingServiceProto {
+	if x != nil {
+		return x.Services
+	}
+	return nil
+}
+
+func (x *CreateBookingPageRequest) GetAvailabilityRulesJson() string {
+	if x != nil {
+		return x.AvailabilityRulesJson
+	}
+	return ""
+}
+
+type CreateBookingPageResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Page          *BookingPageProto      `protobuf:"bytes,1,opt,name=page,proto3" json:"page,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateBookingPageResponse) Reset() {
+	*x = CreateBookingPageResponse{}
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[100]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateBookingPageResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateBookingPageResponse) ProtoMessage() {}
+
+func (x *CreateBookingPageResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[100]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateBookingPageResponse.ProtoReflect.Descriptor instead.
+func (*CreateBookingPageResponse) Descriptor() ([]byte, []int) {
+	return file_proto_calendar_v1_calendar_proto_rawDescGZIP(), []int{100}
+}
+
+func (x *CreateBookingPageResponse) GetPage() *BookingPageProto {
+	if x != nil {
+		return x.Page
+	}
+	return nil
+}
+
+type GetBookingPageRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetBookingPageRequest) Reset() {
+	*x = GetBookingPageRequest{}
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[101]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBookingPageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBookingPageRequest) ProtoMessage() {}
+
+func (x *GetBookingPageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[101]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBookingPageRequest.ProtoReflect.Descriptor instead.
+func (*GetBookingPageRequest) Descriptor() ([]byte, []int) {
+	return file_proto_calendar_v1_calendar_proto_rawDescGZIP(), []int{101}
+}
+
+func (x *GetBookingPageRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type GetBookingPageResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Page          *BookingPageProto      `protobuf:"bytes,1,opt,name=page,proto3" json:"page,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetBookingPageResponse) Reset() {
+	*x = GetBookingPageResponse{}
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[102]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBookingPageResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBookingPageResponse) ProtoMessage() {}
+
+func (x *GetBookingPageResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[102]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBookingPageResponse.ProtoReflect.Descriptor instead.
+func (*GetBookingPageResponse) Descriptor() ([]byte, []int) {
+	return file_proto_calendar_v1_calendar_proto_rawDescGZIP(), []int{102}
+}
+
+func (x *GetBookingPageResponse) GetPage() *BookingPageProto {
+	if x != nil {
+		return x.Page
+	}
+	return nil
+}
+
+type UpdateBookingPageRequest struct {
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	Id                    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	CompanyName           *string                `protobuf:"bytes,2,opt,name=company_name,json=companyName,proto3,oneof" json:"company_name,omitempty"`
+	LogoUrl               *string                `protobuf:"bytes,3,opt,name=logo_url,json=logoUrl,proto3,oneof" json:"logo_url,omitempty"`
+	Services              []*BookingServiceProto `protobuf:"bytes,4,rep,name=services,proto3" json:"services,omitempty"`
+	AvailabilityRulesJson *string                `protobuf:"bytes,5,opt,name=availability_rules_json,json=availabilityRulesJson,proto3,oneof" json:"availability_rules_json,omitempty"`
+	Active                *bool                  `protobuf:"varint,6,opt,name=active,proto3,oneof" json:"active,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *UpdateBookingPageRequest) Reset() {
+	*x = UpdateBookingPageRequest{}
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[103]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateBookingPageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateBookingPageRequest) ProtoMessage() {}
+
+func (x *UpdateBookingPageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[103]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateBookingPageRequest.ProtoReflect.Descriptor instead.
+func (*UpdateBookingPageRequest) Descriptor() ([]byte, []int) {
+	return file_proto_calendar_v1_calendar_proto_rawDescGZIP(), []int{103}
+}
+
+func (x *UpdateBookingPageRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateBookingPageRequest) GetCompanyName() string {
+	if x != nil && x.CompanyName != nil {
+		return *x.CompanyName
+	}
+	return ""
+}
+
+func (x *UpdateBookingPageRequest) GetLogoUrl() string {
+	if x != nil && x.LogoUrl != nil {
+		return *x.LogoUrl
+	}
+	return ""
+}
+
+func (x *UpdateBookingPageRequest) GetServices() []*BookingServiceProto {
+	if x != nil {
+		return x.Services
+	}
+	return nil
+}
+
+func (x *UpdateBookingPageRequest) GetAvailabilityRulesJson() string {
+	if x != nil && x.AvailabilityRulesJson != nil {
+		return *x.AvailabilityRulesJson
+	}
+	return ""
+}
+
+func (x *UpdateBookingPageRequest) GetActive() bool {
+	if x != nil && x.Active != nil {
+		return *x.Active
+	}
+	return false
+}
+
+type UpdateBookingPageResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Page          *BookingPageProto      `protobuf:"bytes,1,opt,name=page,proto3" json:"page,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateBookingPageResponse) Reset() {
+	*x = UpdateBookingPageResponse{}
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[104]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateBookingPageResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateBookingPageResponse) ProtoMessage() {}
+
+func (x *UpdateBookingPageResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[104]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateBookingPageResponse.ProtoReflect.Descriptor instead.
+func (*UpdateBookingPageResponse) Descriptor() ([]byte, []int) {
+	return file_proto_calendar_v1_calendar_proto_rawDescGZIP(), []int{104}
+}
+
+func (x *UpdateBookingPageResponse) GetPage() *BookingPageProto {
+	if x != nil {
+		return x.Page
+	}
+	return nil
+}
+
+type DeleteBookingPageRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteBookingPageRequest) Reset() {
+	*x = DeleteBookingPageRequest{}
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[105]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteBookingPageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteBookingPageRequest) ProtoMessage() {}
+
+func (x *DeleteBookingPageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[105]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteBookingPageRequest.ProtoReflect.Descriptor instead.
+func (*DeleteBookingPageRequest) Descriptor() ([]byte, []int) {
+	return file_proto_calendar_v1_calendar_proto_rawDescGZIP(), []int{105}
+}
+
+func (x *DeleteBookingPageRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type DeleteBookingPageResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteBookingPageResponse) Reset() {
+	*x = DeleteBookingPageResponse{}
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[106]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteBookingPageResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteBookingPageResponse) ProtoMessage() {}
+
+func (x *DeleteBookingPageResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[106]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteBookingPageResponse.ProtoReflect.Descriptor instead.
+func (*DeleteBookingPageResponse) Descriptor() ([]byte, []int) {
+	return file_proto_calendar_v1_calendar_proto_rawDescGZIP(), []int{106}
+}
+
+type ListBookingPagesRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	IncludeInactive bool                   `protobuf:"varint,1,opt,name=include_inactive,json=includeInactive,proto3" json:"include_inactive,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ListBookingPagesRequest) Reset() {
+	*x = ListBookingPagesRequest{}
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[107]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBookingPagesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBookingPagesRequest) ProtoMessage() {}
+
+func (x *ListBookingPagesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[107]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBookingPagesRequest.ProtoReflect.Descriptor instead.
+func (*ListBookingPagesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_calendar_v1_calendar_proto_rawDescGZIP(), []int{107}
+}
+
+func (x *ListBookingPagesRequest) GetIncludeInactive() bool {
+	if x != nil {
+		return x.IncludeInactive
+	}
+	return false
+}
+
+type ListBookingPagesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Pages         []*BookingPageProto    `protobuf:"bytes,1,rep,name=pages,proto3" json:"pages,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBookingPagesResponse) Reset() {
+	*x = ListBookingPagesResponse{}
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[108]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBookingPagesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBookingPagesResponse) ProtoMessage() {}
+
+func (x *ListBookingPagesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[108]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBookingPagesResponse.ProtoReflect.Descriptor instead.
+func (*ListBookingPagesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_calendar_v1_calendar_proto_rawDescGZIP(), []int{108}
+}
+
+func (x *ListBookingPagesResponse) GetPages() []*BookingPageProto {
+	if x != nil {
+		return x.Pages
+	}
+	return nil
+}
+
+type GetPublicBookingPageRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Slug          string                 `protobuf:"bytes,1,opt,name=slug,proto3" json:"slug,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPublicBookingPageRequest) Reset() {
+	*x = GetPublicBookingPageRequest{}
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[109]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPublicBookingPageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPublicBookingPageRequest) ProtoMessage() {}
+
+func (x *GetPublicBookingPageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[109]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPublicBookingPageRequest.ProtoReflect.Descriptor instead.
+func (*GetPublicBookingPageRequest) Descriptor() ([]byte, []int) {
+	return file_proto_calendar_v1_calendar_proto_rawDescGZIP(), []int{109}
+}
+
+func (x *GetPublicBookingPageRequest) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+type GetPublicBookingPageResponse struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Page          *PublicBookingPageProto `protobuf:"bytes,1,opt,name=page,proto3" json:"page,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPublicBookingPageResponse) Reset() {
+	*x = GetPublicBookingPageResponse{}
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[110]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPublicBookingPageResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPublicBookingPageResponse) ProtoMessage() {}
+
+func (x *GetPublicBookingPageResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[110]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPublicBookingPageResponse.ProtoReflect.Descriptor instead.
+func (*GetPublicBookingPageResponse) Descriptor() ([]byte, []int) {
+	return file_proto_calendar_v1_calendar_proto_rawDescGZIP(), []int{110}
+}
+
+func (x *GetPublicBookingPageResponse) GetPage() *PublicBookingPageProto {
+	if x != nil {
+		return x.Page
+	}
+	return nil
+}
+
+type GetAvailabilityRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Slug          string                 `protobuf:"bytes,1,opt,name=slug,proto3" json:"slug,omitempty"`
+	DateFrom      string                 `protobuf:"bytes,2,opt,name=date_from,json=dateFrom,proto3" json:"date_from,omitempty"`          // inclusive, YYYY-MM-DD
+	DateTo        string                 `protobuf:"bytes,3,opt,name=date_to,json=dateTo,proto3" json:"date_to,omitempty"`                // inclusive, YYYY-MM-DD
+	ServiceId     *string                `protobuf:"bytes,4,opt,name=service_id,json=serviceId,proto3,oneof" json:"service_id,omitempty"` // if provided, uses service-specific duration
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAvailabilityRequest) Reset() {
+	*x = GetAvailabilityRequest{}
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[111]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAvailabilityRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAvailabilityRequest) ProtoMessage() {}
+
+func (x *GetAvailabilityRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[111]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAvailabilityRequest.ProtoReflect.Descriptor instead.
+func (*GetAvailabilityRequest) Descriptor() ([]byte, []int) {
+	return file_proto_calendar_v1_calendar_proto_rawDescGZIP(), []int{111}
+}
+
+func (x *GetAvailabilityRequest) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+func (x *GetAvailabilityRequest) GetDateFrom() string {
+	if x != nil {
+		return x.DateFrom
+	}
+	return ""
+}
+
+func (x *GetAvailabilityRequest) GetDateTo() string {
+	if x != nil {
+		return x.DateTo
+	}
+	return ""
+}
+
+func (x *GetAvailabilityRequest) GetServiceId() string {
+	if x != nil && x.ServiceId != nil {
+		return *x.ServiceId
+	}
+	return ""
+}
+
+// AvailabilityDayProto holds the free slots for a single day.
+type AvailabilityDayProto struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Date          string                 `protobuf:"bytes,1,opt,name=date,proto3" json:"date,omitempty"`   // YYYY-MM-DD
+	Slots         []string               `protobuf:"bytes,2,rep,name=slots,proto3" json:"slots,omitempty"` // free slot start times "HH:MM"
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AvailabilityDayProto) Reset() {
+	*x = AvailabilityDayProto{}
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[112]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AvailabilityDayProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AvailabilityDayProto) ProtoMessage() {}
+
+func (x *AvailabilityDayProto) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[112]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AvailabilityDayProto.ProtoReflect.Descriptor instead.
+func (*AvailabilityDayProto) Descriptor() ([]byte, []int) {
+	return file_proto_calendar_v1_calendar_proto_rawDescGZIP(), []int{112}
+}
+
+func (x *AvailabilityDayProto) GetDate() string {
+	if x != nil {
+		return x.Date
+	}
+	return ""
+}
+
+func (x *AvailabilityDayProto) GetSlots() []string {
+	if x != nil {
+		return x.Slots
+	}
+	return nil
+}
+
+type GetAvailabilityResponse struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Days          []*AvailabilityDayProto `protobuf:"bytes,1,rep,name=days,proto3" json:"days,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAvailabilityResponse) Reset() {
+	*x = GetAvailabilityResponse{}
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[113]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAvailabilityResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAvailabilityResponse) ProtoMessage() {}
+
+func (x *GetAvailabilityResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[113]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAvailabilityResponse.ProtoReflect.Descriptor instead.
+func (*GetAvailabilityResponse) Descriptor() ([]byte, []int) {
+	return file_proto_calendar_v1_calendar_proto_rawDescGZIP(), []int{113}
+}
+
+func (x *GetAvailabilityResponse) GetDays() []*AvailabilityDayProto {
+	if x != nil {
+		return x.Days
+	}
+	return nil
+}
+
+type PublicBookingCustomerProto struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Email         string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
+	Phone         *string                `protobuf:"bytes,3,opt,name=phone,proto3,oneof" json:"phone,omitempty"`
+	Notes         *string                `protobuf:"bytes,4,opt,name=notes,proto3,oneof" json:"notes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PublicBookingCustomerProto) Reset() {
+	*x = PublicBookingCustomerProto{}
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[114]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PublicBookingCustomerProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PublicBookingCustomerProto) ProtoMessage() {}
+
+func (x *PublicBookingCustomerProto) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[114]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PublicBookingCustomerProto.ProtoReflect.Descriptor instead.
+func (*PublicBookingCustomerProto) Descriptor() ([]byte, []int) {
+	return file_proto_calendar_v1_calendar_proto_rawDescGZIP(), []int{114}
+}
+
+func (x *PublicBookingCustomerProto) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *PublicBookingCustomerProto) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *PublicBookingCustomerProto) GetPhone() string {
+	if x != nil && x.Phone != nil {
+		return *x.Phone
+	}
+	return ""
+}
+
+func (x *PublicBookingCustomerProto) GetNotes() string {
+	if x != nil && x.Notes != nil {
+		return *x.Notes
+	}
+	return ""
+}
+
+type CreatePublicBookingRequest struct {
+	state          protoimpl.MessageState      `protogen:"open.v1"`
+	Slug           string                      `protobuf:"bytes,1,opt,name=slug,proto3" json:"slug,omitempty"`
+	ServiceId      string                      `protobuf:"bytes,2,opt,name=service_id,json=serviceId,proto3" json:"service_id,omitempty"`
+	Date           string                      `protobuf:"bytes,3,opt,name=date,proto3" json:"date,omitempty"`                         // YYYY-MM-DD
+	TimeSlot       string                      `protobuf:"bytes,4,opt,name=time_slot,json=timeSlot,proto3" json:"time_slot,omitempty"` // "HH:MM"
+	Customer       *PublicBookingCustomerProto `protobuf:"bytes,5,opt,name=customer,proto3" json:"customer,omitempty"`
+	IdempotencyKey *string                     `protobuf:"bytes,6,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"` // client-supplied, maps to UNIQUE constraint backstop
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *CreatePublicBookingRequest) Reset() {
+	*x = CreatePublicBookingRequest{}
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[115]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreatePublicBookingRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreatePublicBookingRequest) ProtoMessage() {}
+
+func (x *CreatePublicBookingRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[115]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreatePublicBookingRequest.ProtoReflect.Descriptor instead.
+func (*CreatePublicBookingRequest) Descriptor() ([]byte, []int) {
+	return file_proto_calendar_v1_calendar_proto_rawDescGZIP(), []int{115}
+}
+
+func (x *CreatePublicBookingRequest) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+func (x *CreatePublicBookingRequest) GetServiceId() string {
+	if x != nil {
+		return x.ServiceId
+	}
+	return ""
+}
+
+func (x *CreatePublicBookingRequest) GetDate() string {
+	if x != nil {
+		return x.Date
+	}
+	return ""
+}
+
+func (x *CreatePublicBookingRequest) GetTimeSlot() string {
+	if x != nil {
+		return x.TimeSlot
+	}
+	return ""
+}
+
+func (x *CreatePublicBookingRequest) GetCustomer() *PublicBookingCustomerProto {
+	if x != nil {
+		return x.Customer
+	}
+	return nil
+}
+
+func (x *CreatePublicBookingRequest) GetIdempotencyKey() string {
+	if x != nil && x.IdempotencyKey != nil {
+		return *x.IdempotencyKey
+	}
+	return ""
+}
+
+type CreatePublicBookingResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Booking       *PublicBookingProto    `protobuf:"bytes,1,opt,name=booking,proto3" json:"booking,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreatePublicBookingResponse) Reset() {
+	*x = CreatePublicBookingResponse{}
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[116]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreatePublicBookingResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreatePublicBookingResponse) ProtoMessage() {}
+
+func (x *CreatePublicBookingResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_calendar_v1_calendar_proto_msgTypes[116]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreatePublicBookingResponse.ProtoReflect.Descriptor instead.
+func (*CreatePublicBookingResponse) Descriptor() ([]byte, []int) {
+	return file_proto_calendar_v1_calendar_proto_rawDescGZIP(), []int{116}
+}
+
+func (x *CreatePublicBookingResponse) GetBooking() *PublicBookingProto {
+	if x != nil {
+		return x.Booking
+	}
+	return nil
+}
+
 var File_proto_calendar_v1_calendar_proto protoreflect.FileDescriptor
 
 const file_proto_calendar_v1_calendar_proto_rawDesc = "" +
@@ -6507,14 +7917,133 @@ const file_proto_calendar_v1_calendar_proto_rawDesc = "" +
 	"\x19GenerateJoinTokenResponse\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12\x1b\n" +
 	"\troom_name\x18\x02 \x01(\tR\broomName\x12\x15\n" +
-	"\x06ws_url\x18\x03 \x01(\tR\x05wsUrl*q\n" +
+	"\x06ws_url\x18\x03 \x01(\tR\x05wsUrl\"\xa9\x01\n" +
+	"\x13BookingServiceProto\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +
+	"\fduration_min\x18\x03 \x01(\x05R\vdurationMin\x12\x14\n" +
+	"\x05price\x18\x04 \x01(\tR\x05price\x12%\n" +
+	"\vdescription\x18\x05 \x01(\tH\x00R\vdescription\x88\x01\x01B\x0e\n" +
+	"\f_description\"?\n" +
+	"\x15AvailabilitySlotProto\x12\x14\n" +
+	"\x05start\x18\x01 \x01(\tR\x05start\x12\x10\n" +
+	"\x03end\x18\x02 \x01(\tR\x03end\"\xc8\x03\n" +
+	"\x10BookingPageProto\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vcalendar_id\x18\x03 \x01(\tR\n" +
+	"calendarId\x12\x12\n" +
+	"\x04slug\x18\x04 \x01(\tR\x04slug\x12!\n" +
+	"\fcompany_name\x18\x05 \x01(\tR\vcompanyName\x12\x1e\n" +
+	"\blogo_url\x18\x06 \x01(\tH\x00R\alogoUrl\x88\x01\x01\x12<\n" +
+	"\bservices\x18\a \x03(\v2 .calendar.v1.BookingServiceProtoR\bservices\x126\n" +
+	"\x17availability_rules_json\x18\b \x01(\tR\x15availabilityRulesJson\x12\x16\n" +
+	"\x06active\x18\t \x01(\bR\x06active\x129\n" +
+	"\n" +
+	"created_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAtB\v\n" +
+	"\t_logo_url\"\xba\x01\n" +
+	"\x16PublicBookingPageProto\x12\x12\n" +
+	"\x04slug\x18\x01 \x01(\tR\x04slug\x12!\n" +
+	"\fcompany_name\x18\x02 \x01(\tR\vcompanyName\x12\x1e\n" +
+	"\blogo_url\x18\x03 \x01(\tH\x00R\alogoUrl\x88\x01\x01\x12<\n" +
+	"\bservices\x18\x04 \x03(\v2 .calendar.v1.BookingServiceProtoR\bservicesB\v\n" +
+	"\t_logo_url\"\x9f\x03\n" +
+	"\x12PublicBookingProto\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12&\n" +
+	"\x0fbooking_page_id\x18\x02 \x01(\tR\rbookingPageId\x12\x1d\n" +
+	"\n" +
+	"service_id\x18\x03 \x01(\tR\tserviceId\x12#\n" +
+	"\rcustomer_name\x18\x04 \x01(\tR\fcustomerName\x12%\n" +
+	"\x0ecustomer_email\x18\x05 \x01(\tR\rcustomerEmail\x12*\n" +
+	"\x0ecustomer_phone\x18\x06 \x01(\tH\x00R\rcustomerPhone\x88\x01\x01\x12\x19\n" +
+	"\x05notes\x18\a \x01(\tH\x01R\x05notes\x88\x01\x01\x12\x12\n" +
+	"\x04date\x18\b \x01(\tR\x04date\x12\x1b\n" +
+	"\ttime_slot\x18\t \x01(\tR\btimeSlot\x12\x16\n" +
+	"\x06status\x18\n" +
+	" \x01(\tR\x06status\x129\n" +
+	"\n" +
+	"created_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAtB\x11\n" +
+	"\x0f_customer_phoneB\b\n" +
+	"\x06_notes\"\x95\x02\n" +
+	"\x18CreateBookingPageRequest\x12\x1f\n" +
+	"\vcalendar_id\x18\x01 \x01(\tR\n" +
+	"calendarId\x12\x12\n" +
+	"\x04slug\x18\x02 \x01(\tR\x04slug\x12!\n" +
+	"\fcompany_name\x18\x03 \x01(\tR\vcompanyName\x12\x1e\n" +
+	"\blogo_url\x18\x04 \x01(\tH\x00R\alogoUrl\x88\x01\x01\x12<\n" +
+	"\bservices\x18\x05 \x03(\v2 .calendar.v1.BookingServiceProtoR\bservices\x126\n" +
+	"\x17availability_rules_json\x18\x06 \x01(\tR\x15availabilityRulesJsonB\v\n" +
+	"\t_logo_url\"N\n" +
+	"\x19CreateBookingPageResponse\x121\n" +
+	"\x04page\x18\x01 \x01(\v2\x1d.calendar.v1.BookingPageProtoR\x04page\"'\n" +
+	"\x15GetBookingPageRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"K\n" +
+	"\x16GetBookingPageResponse\x121\n" +
+	"\x04page\x18\x01 \x01(\v2\x1d.calendar.v1.BookingPageProtoR\x04page\"\xcf\x02\n" +
+	"\x18UpdateBookingPageRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12&\n" +
+	"\fcompany_name\x18\x02 \x01(\tH\x00R\vcompanyName\x88\x01\x01\x12\x1e\n" +
+	"\blogo_url\x18\x03 \x01(\tH\x01R\alogoUrl\x88\x01\x01\x12<\n" +
+	"\bservices\x18\x04 \x03(\v2 .calendar.v1.BookingServiceProtoR\bservices\x12;\n" +
+	"\x17availability_rules_json\x18\x05 \x01(\tH\x02R\x15availabilityRulesJson\x88\x01\x01\x12\x1b\n" +
+	"\x06active\x18\x06 \x01(\bH\x03R\x06active\x88\x01\x01B\x0f\n" +
+	"\r_company_nameB\v\n" +
+	"\t_logo_urlB\x1a\n" +
+	"\x18_availability_rules_jsonB\t\n" +
+	"\a_active\"N\n" +
+	"\x19UpdateBookingPageResponse\x121\n" +
+	"\x04page\x18\x01 \x01(\v2\x1d.calendar.v1.BookingPageProtoR\x04page\"*\n" +
+	"\x18DeleteBookingPageRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x1b\n" +
+	"\x19DeleteBookingPageResponse\"D\n" +
+	"\x17ListBookingPagesRequest\x12)\n" +
+	"\x10include_inactive\x18\x01 \x01(\bR\x0fincludeInactive\"O\n" +
+	"\x18ListBookingPagesResponse\x123\n" +
+	"\x05pages\x18\x01 \x03(\v2\x1d.calendar.v1.BookingPageProtoR\x05pages\"1\n" +
+	"\x1bGetPublicBookingPageRequest\x12\x12\n" +
+	"\x04slug\x18\x01 \x01(\tR\x04slug\"W\n" +
+	"\x1cGetPublicBookingPageResponse\x127\n" +
+	"\x04page\x18\x01 \x01(\v2#.calendar.v1.PublicBookingPageProtoR\x04page\"\x95\x01\n" +
+	"\x16GetAvailabilityRequest\x12\x12\n" +
+	"\x04slug\x18\x01 \x01(\tR\x04slug\x12\x1b\n" +
+	"\tdate_from\x18\x02 \x01(\tR\bdateFrom\x12\x17\n" +
+	"\adate_to\x18\x03 \x01(\tR\x06dateTo\x12\"\n" +
+	"\n" +
+	"service_id\x18\x04 \x01(\tH\x00R\tserviceId\x88\x01\x01B\r\n" +
+	"\v_service_id\"@\n" +
+	"\x14AvailabilityDayProto\x12\x12\n" +
+	"\x04date\x18\x01 \x01(\tR\x04date\x12\x14\n" +
+	"\x05slots\x18\x02 \x03(\tR\x05slots\"P\n" +
+	"\x17GetAvailabilityResponse\x125\n" +
+	"\x04days\x18\x01 \x03(\v2!.calendar.v1.AvailabilityDayProtoR\x04days\"\x90\x01\n" +
+	"\x1aPublicBookingCustomerProto\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
+	"\x05email\x18\x02 \x01(\tR\x05email\x12\x19\n" +
+	"\x05phone\x18\x03 \x01(\tH\x00R\x05phone\x88\x01\x01\x12\x19\n" +
+	"\x05notes\x18\x04 \x01(\tH\x01R\x05notes\x88\x01\x01B\b\n" +
+	"\x06_phoneB\b\n" +
+	"\x06_notes\"\x87\x02\n" +
+	"\x1aCreatePublicBookingRequest\x12\x12\n" +
+	"\x04slug\x18\x01 \x01(\tR\x04slug\x12\x1d\n" +
+	"\n" +
+	"service_id\x18\x02 \x01(\tR\tserviceId\x12\x12\n" +
+	"\x04date\x18\x03 \x01(\tR\x04date\x12\x1b\n" +
+	"\ttime_slot\x18\x04 \x01(\tR\btimeSlot\x12C\n" +
+	"\bcustomer\x18\x05 \x01(\v2'.calendar.v1.PublicBookingCustomerProtoR\bcustomer\x12,\n" +
+	"\x0fidempotency_key\x18\x06 \x01(\tH\x00R\x0eidempotencyKey\x88\x01\x01B\x12\n" +
+	"\x10_idempotency_key\"X\n" +
+	"\x1bCreatePublicBookingResponse\x129\n" +
+	"\abooking\x18\x01 \x01(\v2\x1f.calendar.v1.PublicBookingProtoR\abooking*q\n" +
 	"\x13RecurringEventScope\x12%\n" +
 	"!RECURRING_EVENT_SCOPE_UNSPECIFIED\x10\x00\x12\x0e\n" +
 	"\n" +
 	"THIS_EVENT\x10\x01\x12\x13\n" +
 	"\x0fTHIS_AND_FUTURE\x10\x02\x12\x0e\n" +
 	"\n" +
-	"ALL_EVENTS\x10\x032\xfc\x1e\n" +
+	"ALL_EVENTS\x10\x032\x99%\n" +
 	"\x0fCalendarService\x12Y\n" +
 	"\x0eCreateCalendar\x12\".calendar.v1.CreateCalendarRequest\x1a#.calendar.v1.CreateCalendarResponse\x12P\n" +
 	"\vGetCalendar\x12\x1f.calendar.v1.GetCalendarRequest\x1a .calendar.v1.GetCalendarResponse\x12V\n" +
@@ -6555,7 +8084,15 @@ const file_proto_calendar_v1_calendar_proto_rawDesc = "" +
 	"\x16GetCalendarPreferences\x12*.calendar.v1.GetCalendarPreferencesRequest\x1a+.calendar.v1.GetCalendarPreferencesResponse\x12z\n" +
 	"\x19UpdateCalendarPreferences\x12-.calendar.v1.UpdateCalendarPreferencesRequest\x1a..calendar.v1.UpdateCalendarPreferencesResponse\x12w\n" +
 	"\x18ListTaskDeadlinesInRange\x12,.calendar.v1.ListTaskDeadlinesInRangeRequest\x1a-.calendar.v1.ListTaskDeadlinesInRangeResponse\x12b\n" +
-	"\x11GenerateJoinToken\x12%.calendar.v1.GenerateJoinTokenRequest\x1a&.calendar.v1.GenerateJoinTokenResponseB7Z5github.com/kmuhub/kmuhub/proto/calendar/v1;calendarv1b\x06proto3"
+	"\x11GenerateJoinToken\x12%.calendar.v1.GenerateJoinTokenRequest\x1a&.calendar.v1.GenerateJoinTokenResponse\x12b\n" +
+	"\x11CreateBookingPage\x12%.calendar.v1.CreateBookingPageRequest\x1a&.calendar.v1.CreateBookingPageResponse\x12Y\n" +
+	"\x0eGetBookingPage\x12\".calendar.v1.GetBookingPageRequest\x1a#.calendar.v1.GetBookingPageResponse\x12b\n" +
+	"\x11UpdateBookingPage\x12%.calendar.v1.UpdateBookingPageRequest\x1a&.calendar.v1.UpdateBookingPageResponse\x12b\n" +
+	"\x11DeleteBookingPage\x12%.calendar.v1.DeleteBookingPageRequest\x1a&.calendar.v1.DeleteBookingPageResponse\x12_\n" +
+	"\x10ListBookingPages\x12$.calendar.v1.ListBookingPagesRequest\x1a%.calendar.v1.ListBookingPagesResponse\x12k\n" +
+	"\x14GetPublicBookingPage\x12(.calendar.v1.GetPublicBookingPageRequest\x1a).calendar.v1.GetPublicBookingPageResponse\x12\\\n" +
+	"\x0fGetAvailability\x12#.calendar.v1.GetAvailabilityRequest\x1a$.calendar.v1.GetAvailabilityResponse\x12h\n" +
+	"\x13CreatePublicBooking\x12'.calendar.v1.CreatePublicBookingRequest\x1a(.calendar.v1.CreatePublicBookingResponseB7Z5github.com/kmuhub/kmuhub/proto/calendar/v1;calendarv1b\x06proto3"
 
 var (
 	file_proto_calendar_v1_calendar_proto_rawDescOnce sync.Once
@@ -6570,7 +8107,7 @@ func file_proto_calendar_v1_calendar_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_calendar_v1_calendar_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_calendar_v1_calendar_proto_msgTypes = make([]protoimpl.MessageInfo, 94)
+var file_proto_calendar_v1_calendar_proto_msgTypes = make([]protoimpl.MessageInfo, 117)
 var file_proto_calendar_v1_calendar_proto_goTypes = []any{
 	(RecurringEventScope)(0),                       // 0: calendar.v1.RecurringEventScope
 	(*CalendarProto)(nil),                          // 1: calendar.v1.CalendarProto
@@ -6667,34 +8204,57 @@ var file_proto_calendar_v1_calendar_proto_goTypes = []any{
 	(*ListTaskDeadlinesInRangeResponse)(nil),       // 92: calendar.v1.ListTaskDeadlinesInRangeResponse
 	(*GenerateJoinTokenRequest)(nil),               // 93: calendar.v1.GenerateJoinTokenRequest
 	(*GenerateJoinTokenResponse)(nil),              // 94: calendar.v1.GenerateJoinTokenResponse
-	(*timestamppb.Timestamp)(nil),                  // 95: google.protobuf.Timestamp
+	(*BookingServiceProto)(nil),                    // 95: calendar.v1.BookingServiceProto
+	(*AvailabilitySlotProto)(nil),                  // 96: calendar.v1.AvailabilitySlotProto
+	(*BookingPageProto)(nil),                       // 97: calendar.v1.BookingPageProto
+	(*PublicBookingPageProto)(nil),                 // 98: calendar.v1.PublicBookingPageProto
+	(*PublicBookingProto)(nil),                     // 99: calendar.v1.PublicBookingProto
+	(*CreateBookingPageRequest)(nil),               // 100: calendar.v1.CreateBookingPageRequest
+	(*CreateBookingPageResponse)(nil),              // 101: calendar.v1.CreateBookingPageResponse
+	(*GetBookingPageRequest)(nil),                  // 102: calendar.v1.GetBookingPageRequest
+	(*GetBookingPageResponse)(nil),                 // 103: calendar.v1.GetBookingPageResponse
+	(*UpdateBookingPageRequest)(nil),               // 104: calendar.v1.UpdateBookingPageRequest
+	(*UpdateBookingPageResponse)(nil),              // 105: calendar.v1.UpdateBookingPageResponse
+	(*DeleteBookingPageRequest)(nil),               // 106: calendar.v1.DeleteBookingPageRequest
+	(*DeleteBookingPageResponse)(nil),              // 107: calendar.v1.DeleteBookingPageResponse
+	(*ListBookingPagesRequest)(nil),                // 108: calendar.v1.ListBookingPagesRequest
+	(*ListBookingPagesResponse)(nil),               // 109: calendar.v1.ListBookingPagesResponse
+	(*GetPublicBookingPageRequest)(nil),            // 110: calendar.v1.GetPublicBookingPageRequest
+	(*GetPublicBookingPageResponse)(nil),           // 111: calendar.v1.GetPublicBookingPageResponse
+	(*GetAvailabilityRequest)(nil),                 // 112: calendar.v1.GetAvailabilityRequest
+	(*AvailabilityDayProto)(nil),                   // 113: calendar.v1.AvailabilityDayProto
+	(*GetAvailabilityResponse)(nil),                // 114: calendar.v1.GetAvailabilityResponse
+	(*PublicBookingCustomerProto)(nil),             // 115: calendar.v1.PublicBookingCustomerProto
+	(*CreatePublicBookingRequest)(nil),             // 116: calendar.v1.CreatePublicBookingRequest
+	(*CreatePublicBookingResponse)(nil),            // 117: calendar.v1.CreatePublicBookingResponse
+	(*timestamppb.Timestamp)(nil),                  // 118: google.protobuf.Timestamp
 }
 var file_proto_calendar_v1_calendar_proto_depIdxs = []int32{
-	95,  // 0: calendar.v1.CalendarProto.created_at:type_name -> google.protobuf.Timestamp
-	95,  // 1: calendar.v1.CalendarProto.updated_at:type_name -> google.protobuf.Timestamp
+	118, // 0: calendar.v1.CalendarProto.created_at:type_name -> google.protobuf.Timestamp
+	118, // 1: calendar.v1.CalendarProto.updated_at:type_name -> google.protobuf.Timestamp
 	1,   // 2: calendar.v1.CalendarWithMemberInfoProto.calendar:type_name -> calendar.v1.CalendarProto
-	95,  // 3: calendar.v1.CalendarMemberProto.created_at:type_name -> google.protobuf.Timestamp
-	95,  // 4: calendar.v1.CalendarEventProto.start_time:type_name -> google.protobuf.Timestamp
-	95,  // 5: calendar.v1.CalendarEventProto.end_time:type_name -> google.protobuf.Timestamp
-	95,  // 6: calendar.v1.CalendarEventProto.recurrence_end:type_name -> google.protobuf.Timestamp
-	95,  // 7: calendar.v1.CalendarEventProto.created_at:type_name -> google.protobuf.Timestamp
-	95,  // 8: calendar.v1.CalendarEventProto.updated_at:type_name -> google.protobuf.Timestamp
+	118, // 3: calendar.v1.CalendarMemberProto.created_at:type_name -> google.protobuf.Timestamp
+	118, // 4: calendar.v1.CalendarEventProto.start_time:type_name -> google.protobuf.Timestamp
+	118, // 5: calendar.v1.CalendarEventProto.end_time:type_name -> google.protobuf.Timestamp
+	118, // 6: calendar.v1.CalendarEventProto.recurrence_end:type_name -> google.protobuf.Timestamp
+	118, // 7: calendar.v1.CalendarEventProto.created_at:type_name -> google.protobuf.Timestamp
+	118, // 8: calendar.v1.CalendarEventProto.updated_at:type_name -> google.protobuf.Timestamp
 	4,   // 9: calendar.v1.ExpandedEventProto.event:type_name -> calendar.v1.CalendarEventProto
-	95,  // 10: calendar.v1.ExpandedEventProto.original_date:type_name -> google.protobuf.Timestamp
-	95,  // 11: calendar.v1.EventAttendeeProto.responded_at:type_name -> google.protobuf.Timestamp
-	95,  // 12: calendar.v1.EventAttendeeProto.created_at:type_name -> google.protobuf.Timestamp
-	95,  // 13: calendar.v1.EventExceptionProto.start_time:type_name -> google.protobuf.Timestamp
-	95,  // 14: calendar.v1.EventExceptionProto.end_time:type_name -> google.protobuf.Timestamp
-	95,  // 15: calendar.v1.EventExceptionProto.created_at:type_name -> google.protobuf.Timestamp
-	95,  // 16: calendar.v1.EventExceptionProto.updated_at:type_name -> google.protobuf.Timestamp
-	95,  // 17: calendar.v1.EventReminderProto.created_at:type_name -> google.protobuf.Timestamp
-	95,  // 18: calendar.v1.ResourceProto.created_at:type_name -> google.protobuf.Timestamp
-	95,  // 19: calendar.v1.ResourceProto.updated_at:type_name -> google.protobuf.Timestamp
-	95,  // 20: calendar.v1.ResourceBookingProto.start_time:type_name -> google.protobuf.Timestamp
-	95,  // 21: calendar.v1.ResourceBookingProto.end_time:type_name -> google.protobuf.Timestamp
-	95,  // 22: calendar.v1.ResourceBookingProto.cancelled_at:type_name -> google.protobuf.Timestamp
-	95,  // 23: calendar.v1.ResourceBookingProto.created_at:type_name -> google.protobuf.Timestamp
-	95,  // 24: calendar.v1.EventCategoryProto.created_at:type_name -> google.protobuf.Timestamp
+	118, // 10: calendar.v1.ExpandedEventProto.original_date:type_name -> google.protobuf.Timestamp
+	118, // 11: calendar.v1.EventAttendeeProto.responded_at:type_name -> google.protobuf.Timestamp
+	118, // 12: calendar.v1.EventAttendeeProto.created_at:type_name -> google.protobuf.Timestamp
+	118, // 13: calendar.v1.EventExceptionProto.start_time:type_name -> google.protobuf.Timestamp
+	118, // 14: calendar.v1.EventExceptionProto.end_time:type_name -> google.protobuf.Timestamp
+	118, // 15: calendar.v1.EventExceptionProto.created_at:type_name -> google.protobuf.Timestamp
+	118, // 16: calendar.v1.EventExceptionProto.updated_at:type_name -> google.protobuf.Timestamp
+	118, // 17: calendar.v1.EventReminderProto.created_at:type_name -> google.protobuf.Timestamp
+	118, // 18: calendar.v1.ResourceProto.created_at:type_name -> google.protobuf.Timestamp
+	118, // 19: calendar.v1.ResourceProto.updated_at:type_name -> google.protobuf.Timestamp
+	118, // 20: calendar.v1.ResourceBookingProto.start_time:type_name -> google.protobuf.Timestamp
+	118, // 21: calendar.v1.ResourceBookingProto.end_time:type_name -> google.protobuf.Timestamp
+	118, // 22: calendar.v1.ResourceBookingProto.cancelled_at:type_name -> google.protobuf.Timestamp
+	118, // 23: calendar.v1.ResourceBookingProto.created_at:type_name -> google.protobuf.Timestamp
+	118, // 24: calendar.v1.EventCategoryProto.created_at:type_name -> google.protobuf.Timestamp
 	1,   // 25: calendar.v1.CreateCalendarResponse.calendar:type_name -> calendar.v1.CalendarProto
 	1,   // 26: calendar.v1.GetCalendarResponse.calendar:type_name -> calendar.v1.CalendarProto
 	2,   // 27: calendar.v1.ListCalendarsResponse.calendars:type_name -> calendar.v1.CalendarWithMemberInfoProto
@@ -6704,19 +8264,19 @@ var file_proto_calendar_v1_calendar_proto_depIdxs = []int32{
 	3,   // 31: calendar.v1.UpdateCalendarMemberPermissionResponse.member:type_name -> calendar.v1.CalendarMemberProto
 	1,   // 32: calendar.v1.ListBrowsableCalendarsResponse.calendars:type_name -> calendar.v1.CalendarProto
 	3,   // 33: calendar.v1.SubscribeToCalendarResponse.member:type_name -> calendar.v1.CalendarMemberProto
-	95,  // 34: calendar.v1.CreateEventRequest.start_time:type_name -> google.protobuf.Timestamp
-	95,  // 35: calendar.v1.CreateEventRequest.end_time:type_name -> google.protobuf.Timestamp
+	118, // 34: calendar.v1.CreateEventRequest.start_time:type_name -> google.protobuf.Timestamp
+	118, // 35: calendar.v1.CreateEventRequest.end_time:type_name -> google.protobuf.Timestamp
 	4,   // 36: calendar.v1.CreateEventResponse.event:type_name -> calendar.v1.CalendarEventProto
 	5,   // 37: calendar.v1.GetEventResponse.event:type_name -> calendar.v1.ExpandedEventProto
-	95,  // 38: calendar.v1.ListEventsInRangeRequest.start:type_name -> google.protobuf.Timestamp
-	95,  // 39: calendar.v1.ListEventsInRangeRequest.end:type_name -> google.protobuf.Timestamp
+	118, // 38: calendar.v1.ListEventsInRangeRequest.start:type_name -> google.protobuf.Timestamp
+	118, // 39: calendar.v1.ListEventsInRangeRequest.end:type_name -> google.protobuf.Timestamp
 	5,   // 40: calendar.v1.ListEventsInRangeResponse.events:type_name -> calendar.v1.ExpandedEventProto
-	95,  // 41: calendar.v1.UpdateEventRequest.start_time:type_name -> google.protobuf.Timestamp
-	95,  // 42: calendar.v1.UpdateEventRequest.end_time:type_name -> google.protobuf.Timestamp
+	118, // 41: calendar.v1.UpdateEventRequest.start_time:type_name -> google.protobuf.Timestamp
+	118, // 42: calendar.v1.UpdateEventRequest.end_time:type_name -> google.protobuf.Timestamp
 	4,   // 43: calendar.v1.UpdateEventResponse.event:type_name -> calendar.v1.CalendarEventProto
 	0,   // 44: calendar.v1.UpdateRecurringEventRequest.scope:type_name -> calendar.v1.RecurringEventScope
-	95,  // 45: calendar.v1.UpdateRecurringEventRequest.start_time:type_name -> google.protobuf.Timestamp
-	95,  // 46: calendar.v1.UpdateRecurringEventRequest.end_time:type_name -> google.protobuf.Timestamp
+	118, // 45: calendar.v1.UpdateRecurringEventRequest.start_time:type_name -> google.protobuf.Timestamp
+	118, // 46: calendar.v1.UpdateRecurringEventRequest.end_time:type_name -> google.protobuf.Timestamp
 	4,   // 47: calendar.v1.UpdateRecurringEventResponse.event:type_name -> calendar.v1.CalendarEventProto
 	4,   // 48: calendar.v1.UpdateRecurringEventResponse.new_series:type_name -> calendar.v1.CalendarEventProto
 	6,   // 49: calendar.v1.RSVPToEventResponse.attendee:type_name -> calendar.v1.EventAttendeeProto
@@ -6729,108 +8289,139 @@ var file_proto_calendar_v1_calendar_proto_depIdxs = []int32{
 	9,   // 56: calendar.v1.GetResourceResponse.resource:type_name -> calendar.v1.ResourceProto
 	9,   // 57: calendar.v1.ListResourcesResponse.resources:type_name -> calendar.v1.ResourceProto
 	9,   // 58: calendar.v1.UpdateResourceResponse.resource:type_name -> calendar.v1.ResourceProto
-	95,  // 59: calendar.v1.ListResourceAvailabilityRequest.start:type_name -> google.protobuf.Timestamp
-	95,  // 60: calendar.v1.ListResourceAvailabilityRequest.end:type_name -> google.protobuf.Timestamp
+	118, // 59: calendar.v1.ListResourceAvailabilityRequest.start:type_name -> google.protobuf.Timestamp
+	118, // 60: calendar.v1.ListResourceAvailabilityRequest.end:type_name -> google.protobuf.Timestamp
 	10,  // 61: calendar.v1.ListResourceAvailabilityResponse.bookings:type_name -> calendar.v1.ResourceBookingProto
-	95,  // 62: calendar.v1.BookResourceRequest.start_time:type_name -> google.protobuf.Timestamp
-	95,  // 63: calendar.v1.BookResourceRequest.end_time:type_name -> google.protobuf.Timestamp
+	118, // 62: calendar.v1.BookResourceRequest.start_time:type_name -> google.protobuf.Timestamp
+	118, // 63: calendar.v1.BookResourceRequest.end_time:type_name -> google.protobuf.Timestamp
 	10,  // 64: calendar.v1.BookResourceResponse.booking:type_name -> calendar.v1.ResourceBookingProto
-	95,  // 65: calendar.v1.ListResourceBookingsRequest.start:type_name -> google.protobuf.Timestamp
-	95,  // 66: calendar.v1.ListResourceBookingsRequest.end:type_name -> google.protobuf.Timestamp
+	118, // 65: calendar.v1.ListResourceBookingsRequest.start:type_name -> google.protobuf.Timestamp
+	118, // 66: calendar.v1.ListResourceBookingsRequest.end:type_name -> google.protobuf.Timestamp
 	10,  // 67: calendar.v1.ListResourceBookingsResponse.bookings:type_name -> calendar.v1.ResourceBookingProto
-	95,  // 68: calendar.v1.ListHolidaysRequest.start:type_name -> google.protobuf.Timestamp
-	95,  // 69: calendar.v1.ListHolidaysRequest.end:type_name -> google.protobuf.Timestamp
+	118, // 68: calendar.v1.ListHolidaysRequest.start:type_name -> google.protobuf.Timestamp
+	118, // 69: calendar.v1.ListHolidaysRequest.end:type_name -> google.protobuf.Timestamp
 	11,  // 70: calendar.v1.ListHolidaysResponse.holidays:type_name -> calendar.v1.PublicHolidayProto
 	13,  // 71: calendar.v1.GetCalendarPreferencesResponse.preferences:type_name -> calendar.v1.CalendarPreferencesProto
 	13,  // 72: calendar.v1.UpdateCalendarPreferencesResponse.preferences:type_name -> calendar.v1.CalendarPreferencesProto
-	95,  // 73: calendar.v1.ListTaskDeadlinesInRangeRequest.start:type_name -> google.protobuf.Timestamp
-	95,  // 74: calendar.v1.ListTaskDeadlinesInRangeRequest.end:type_name -> google.protobuf.Timestamp
+	118, // 73: calendar.v1.ListTaskDeadlinesInRangeRequest.start:type_name -> google.protobuf.Timestamp
+	118, // 74: calendar.v1.ListTaskDeadlinesInRangeRequest.end:type_name -> google.protobuf.Timestamp
 	14,  // 75: calendar.v1.ListTaskDeadlinesInRangeResponse.deadlines:type_name -> calendar.v1.TaskDeadlineStubProto
-	15,  // 76: calendar.v1.CalendarService.CreateCalendar:input_type -> calendar.v1.CreateCalendarRequest
-	17,  // 77: calendar.v1.CalendarService.GetCalendar:input_type -> calendar.v1.GetCalendarRequest
-	19,  // 78: calendar.v1.CalendarService.ListCalendars:input_type -> calendar.v1.ListCalendarsRequest
-	21,  // 79: calendar.v1.CalendarService.UpdateCalendar:input_type -> calendar.v1.UpdateCalendarRequest
-	23,  // 80: calendar.v1.CalendarService.DeleteCalendar:input_type -> calendar.v1.DeleteCalendarRequest
-	25,  // 81: calendar.v1.CalendarService.AddCalendarMember:input_type -> calendar.v1.AddCalendarMemberRequest
-	27,  // 82: calendar.v1.CalendarService.RemoveCalendarMember:input_type -> calendar.v1.RemoveCalendarMemberRequest
-	29,  // 83: calendar.v1.CalendarService.ListCalendarMembers:input_type -> calendar.v1.ListCalendarMembersRequest
-	31,  // 84: calendar.v1.CalendarService.UpdateCalendarMemberPermission:input_type -> calendar.v1.UpdateCalendarMemberPermissionRequest
-	33,  // 85: calendar.v1.CalendarService.ListBrowsableCalendars:input_type -> calendar.v1.ListBrowsableCalendarsRequest
-	35,  // 86: calendar.v1.CalendarService.SubscribeToCalendar:input_type -> calendar.v1.SubscribeToCalendarRequest
-	37,  // 87: calendar.v1.CalendarService.UnsubscribeFromCalendar:input_type -> calendar.v1.UnsubscribeFromCalendarRequest
-	39,  // 88: calendar.v1.CalendarService.CreateEvent:input_type -> calendar.v1.CreateEventRequest
-	41,  // 89: calendar.v1.CalendarService.GetEvent:input_type -> calendar.v1.GetEventRequest
-	43,  // 90: calendar.v1.CalendarService.ListEventsInRange:input_type -> calendar.v1.ListEventsInRangeRequest
-	45,  // 91: calendar.v1.CalendarService.UpdateEvent:input_type -> calendar.v1.UpdateEventRequest
-	47,  // 92: calendar.v1.CalendarService.DeleteEvent:input_type -> calendar.v1.DeleteEventRequest
-	49,  // 93: calendar.v1.CalendarService.UpdateRecurringEvent:input_type -> calendar.v1.UpdateRecurringEventRequest
-	51,  // 94: calendar.v1.CalendarService.RSVPToEvent:input_type -> calendar.v1.RSVPToEventRequest
-	53,  // 95: calendar.v1.CalendarService.ListEventAttendees:input_type -> calendar.v1.ListEventAttendeesRequest
-	55,  // 96: calendar.v1.CalendarService.CreateEventCategory:input_type -> calendar.v1.CreateEventCategoryRequest
-	57,  // 97: calendar.v1.CalendarService.ListEventCategories:input_type -> calendar.v1.ListEventCategoriesRequest
-	59,  // 98: calendar.v1.CalendarService.DeleteEventCategory:input_type -> calendar.v1.DeleteEventCategoryRequest
-	61,  // 99: calendar.v1.CalendarService.SetEventReminders:input_type -> calendar.v1.SetEventRemindersRequest
-	63,  // 100: calendar.v1.CalendarService.ListEventReminders:input_type -> calendar.v1.ListEventRemindersRequest
-	65,  // 101: calendar.v1.CalendarService.CreateResource:input_type -> calendar.v1.CreateResourceRequest
-	67,  // 102: calendar.v1.CalendarService.GetResource:input_type -> calendar.v1.GetResourceRequest
-	69,  // 103: calendar.v1.CalendarService.ListResources:input_type -> calendar.v1.ListResourcesRequest
-	71,  // 104: calendar.v1.CalendarService.UpdateResource:input_type -> calendar.v1.UpdateResourceRequest
-	73,  // 105: calendar.v1.CalendarService.DeleteResource:input_type -> calendar.v1.DeleteResourceRequest
-	75,  // 106: calendar.v1.CalendarService.ListResourceAvailability:input_type -> calendar.v1.ListResourceAvailabilityRequest
-	77,  // 107: calendar.v1.CalendarService.BookResource:input_type -> calendar.v1.BookResourceRequest
-	79,  // 108: calendar.v1.CalendarService.CancelBooking:input_type -> calendar.v1.CancelBookingRequest
-	81,  // 109: calendar.v1.CalendarService.ListResourceBookings:input_type -> calendar.v1.ListResourceBookingsRequest
-	83,  // 110: calendar.v1.CalendarService.ListHolidays:input_type -> calendar.v1.ListHolidaysRequest
-	85,  // 111: calendar.v1.CalendarService.SeedHolidays:input_type -> calendar.v1.SeedHolidaysRequest
-	87,  // 112: calendar.v1.CalendarService.GetCalendarPreferences:input_type -> calendar.v1.GetCalendarPreferencesRequest
-	89,  // 113: calendar.v1.CalendarService.UpdateCalendarPreferences:input_type -> calendar.v1.UpdateCalendarPreferencesRequest
-	91,  // 114: calendar.v1.CalendarService.ListTaskDeadlinesInRange:input_type -> calendar.v1.ListTaskDeadlinesInRangeRequest
-	93,  // 115: calendar.v1.CalendarService.GenerateJoinToken:input_type -> calendar.v1.GenerateJoinTokenRequest
-	16,  // 116: calendar.v1.CalendarService.CreateCalendar:output_type -> calendar.v1.CreateCalendarResponse
-	18,  // 117: calendar.v1.CalendarService.GetCalendar:output_type -> calendar.v1.GetCalendarResponse
-	20,  // 118: calendar.v1.CalendarService.ListCalendars:output_type -> calendar.v1.ListCalendarsResponse
-	22,  // 119: calendar.v1.CalendarService.UpdateCalendar:output_type -> calendar.v1.UpdateCalendarResponse
-	24,  // 120: calendar.v1.CalendarService.DeleteCalendar:output_type -> calendar.v1.DeleteCalendarResponse
-	26,  // 121: calendar.v1.CalendarService.AddCalendarMember:output_type -> calendar.v1.AddCalendarMemberResponse
-	28,  // 122: calendar.v1.CalendarService.RemoveCalendarMember:output_type -> calendar.v1.RemoveCalendarMemberResponse
-	30,  // 123: calendar.v1.CalendarService.ListCalendarMembers:output_type -> calendar.v1.ListCalendarMembersResponse
-	32,  // 124: calendar.v1.CalendarService.UpdateCalendarMemberPermission:output_type -> calendar.v1.UpdateCalendarMemberPermissionResponse
-	34,  // 125: calendar.v1.CalendarService.ListBrowsableCalendars:output_type -> calendar.v1.ListBrowsableCalendarsResponse
-	36,  // 126: calendar.v1.CalendarService.SubscribeToCalendar:output_type -> calendar.v1.SubscribeToCalendarResponse
-	38,  // 127: calendar.v1.CalendarService.UnsubscribeFromCalendar:output_type -> calendar.v1.UnsubscribeFromCalendarResponse
-	40,  // 128: calendar.v1.CalendarService.CreateEvent:output_type -> calendar.v1.CreateEventResponse
-	42,  // 129: calendar.v1.CalendarService.GetEvent:output_type -> calendar.v1.GetEventResponse
-	44,  // 130: calendar.v1.CalendarService.ListEventsInRange:output_type -> calendar.v1.ListEventsInRangeResponse
-	46,  // 131: calendar.v1.CalendarService.UpdateEvent:output_type -> calendar.v1.UpdateEventResponse
-	48,  // 132: calendar.v1.CalendarService.DeleteEvent:output_type -> calendar.v1.DeleteEventResponse
-	50,  // 133: calendar.v1.CalendarService.UpdateRecurringEvent:output_type -> calendar.v1.UpdateRecurringEventResponse
-	52,  // 134: calendar.v1.CalendarService.RSVPToEvent:output_type -> calendar.v1.RSVPToEventResponse
-	54,  // 135: calendar.v1.CalendarService.ListEventAttendees:output_type -> calendar.v1.ListEventAttendeesResponse
-	56,  // 136: calendar.v1.CalendarService.CreateEventCategory:output_type -> calendar.v1.CreateEventCategoryResponse
-	58,  // 137: calendar.v1.CalendarService.ListEventCategories:output_type -> calendar.v1.ListEventCategoriesResponse
-	60,  // 138: calendar.v1.CalendarService.DeleteEventCategory:output_type -> calendar.v1.DeleteEventCategoryResponse
-	62,  // 139: calendar.v1.CalendarService.SetEventReminders:output_type -> calendar.v1.SetEventRemindersResponse
-	64,  // 140: calendar.v1.CalendarService.ListEventReminders:output_type -> calendar.v1.ListEventRemindersResponse
-	66,  // 141: calendar.v1.CalendarService.CreateResource:output_type -> calendar.v1.CreateResourceResponse
-	68,  // 142: calendar.v1.CalendarService.GetResource:output_type -> calendar.v1.GetResourceResponse
-	70,  // 143: calendar.v1.CalendarService.ListResources:output_type -> calendar.v1.ListResourcesResponse
-	72,  // 144: calendar.v1.CalendarService.UpdateResource:output_type -> calendar.v1.UpdateResourceResponse
-	74,  // 145: calendar.v1.CalendarService.DeleteResource:output_type -> calendar.v1.DeleteResourceResponse
-	76,  // 146: calendar.v1.CalendarService.ListResourceAvailability:output_type -> calendar.v1.ListResourceAvailabilityResponse
-	78,  // 147: calendar.v1.CalendarService.BookResource:output_type -> calendar.v1.BookResourceResponse
-	80,  // 148: calendar.v1.CalendarService.CancelBooking:output_type -> calendar.v1.CancelBookingResponse
-	82,  // 149: calendar.v1.CalendarService.ListResourceBookings:output_type -> calendar.v1.ListResourceBookingsResponse
-	84,  // 150: calendar.v1.CalendarService.ListHolidays:output_type -> calendar.v1.ListHolidaysResponse
-	86,  // 151: calendar.v1.CalendarService.SeedHolidays:output_type -> calendar.v1.SeedHolidaysResponse
-	88,  // 152: calendar.v1.CalendarService.GetCalendarPreferences:output_type -> calendar.v1.GetCalendarPreferencesResponse
-	90,  // 153: calendar.v1.CalendarService.UpdateCalendarPreferences:output_type -> calendar.v1.UpdateCalendarPreferencesResponse
-	92,  // 154: calendar.v1.CalendarService.ListTaskDeadlinesInRange:output_type -> calendar.v1.ListTaskDeadlinesInRangeResponse
-	94,  // 155: calendar.v1.CalendarService.GenerateJoinToken:output_type -> calendar.v1.GenerateJoinTokenResponse
-	116, // [116:156] is the sub-list for method output_type
-	76,  // [76:116] is the sub-list for method input_type
-	76,  // [76:76] is the sub-list for extension type_name
-	76,  // [76:76] is the sub-list for extension extendee
-	0,   // [0:76] is the sub-list for field type_name
+	95,  // 76: calendar.v1.BookingPageProto.services:type_name -> calendar.v1.BookingServiceProto
+	118, // 77: calendar.v1.BookingPageProto.created_at:type_name -> google.protobuf.Timestamp
+	118, // 78: calendar.v1.BookingPageProto.updated_at:type_name -> google.protobuf.Timestamp
+	95,  // 79: calendar.v1.PublicBookingPageProto.services:type_name -> calendar.v1.BookingServiceProto
+	118, // 80: calendar.v1.PublicBookingProto.created_at:type_name -> google.protobuf.Timestamp
+	95,  // 81: calendar.v1.CreateBookingPageRequest.services:type_name -> calendar.v1.BookingServiceProto
+	97,  // 82: calendar.v1.CreateBookingPageResponse.page:type_name -> calendar.v1.BookingPageProto
+	97,  // 83: calendar.v1.GetBookingPageResponse.page:type_name -> calendar.v1.BookingPageProto
+	95,  // 84: calendar.v1.UpdateBookingPageRequest.services:type_name -> calendar.v1.BookingServiceProto
+	97,  // 85: calendar.v1.UpdateBookingPageResponse.page:type_name -> calendar.v1.BookingPageProto
+	97,  // 86: calendar.v1.ListBookingPagesResponse.pages:type_name -> calendar.v1.BookingPageProto
+	98,  // 87: calendar.v1.GetPublicBookingPageResponse.page:type_name -> calendar.v1.PublicBookingPageProto
+	113, // 88: calendar.v1.GetAvailabilityResponse.days:type_name -> calendar.v1.AvailabilityDayProto
+	115, // 89: calendar.v1.CreatePublicBookingRequest.customer:type_name -> calendar.v1.PublicBookingCustomerProto
+	99,  // 90: calendar.v1.CreatePublicBookingResponse.booking:type_name -> calendar.v1.PublicBookingProto
+	15,  // 91: calendar.v1.CalendarService.CreateCalendar:input_type -> calendar.v1.CreateCalendarRequest
+	17,  // 92: calendar.v1.CalendarService.GetCalendar:input_type -> calendar.v1.GetCalendarRequest
+	19,  // 93: calendar.v1.CalendarService.ListCalendars:input_type -> calendar.v1.ListCalendarsRequest
+	21,  // 94: calendar.v1.CalendarService.UpdateCalendar:input_type -> calendar.v1.UpdateCalendarRequest
+	23,  // 95: calendar.v1.CalendarService.DeleteCalendar:input_type -> calendar.v1.DeleteCalendarRequest
+	25,  // 96: calendar.v1.CalendarService.AddCalendarMember:input_type -> calendar.v1.AddCalendarMemberRequest
+	27,  // 97: calendar.v1.CalendarService.RemoveCalendarMember:input_type -> calendar.v1.RemoveCalendarMemberRequest
+	29,  // 98: calendar.v1.CalendarService.ListCalendarMembers:input_type -> calendar.v1.ListCalendarMembersRequest
+	31,  // 99: calendar.v1.CalendarService.UpdateCalendarMemberPermission:input_type -> calendar.v1.UpdateCalendarMemberPermissionRequest
+	33,  // 100: calendar.v1.CalendarService.ListBrowsableCalendars:input_type -> calendar.v1.ListBrowsableCalendarsRequest
+	35,  // 101: calendar.v1.CalendarService.SubscribeToCalendar:input_type -> calendar.v1.SubscribeToCalendarRequest
+	37,  // 102: calendar.v1.CalendarService.UnsubscribeFromCalendar:input_type -> calendar.v1.UnsubscribeFromCalendarRequest
+	39,  // 103: calendar.v1.CalendarService.CreateEvent:input_type -> calendar.v1.CreateEventRequest
+	41,  // 104: calendar.v1.CalendarService.GetEvent:input_type -> calendar.v1.GetEventRequest
+	43,  // 105: calendar.v1.CalendarService.ListEventsInRange:input_type -> calendar.v1.ListEventsInRangeRequest
+	45,  // 106: calendar.v1.CalendarService.UpdateEvent:input_type -> calendar.v1.UpdateEventRequest
+	47,  // 107: calendar.v1.CalendarService.DeleteEvent:input_type -> calendar.v1.DeleteEventRequest
+	49,  // 108: calendar.v1.CalendarService.UpdateRecurringEvent:input_type -> calendar.v1.UpdateRecurringEventRequest
+	51,  // 109: calendar.v1.CalendarService.RSVPToEvent:input_type -> calendar.v1.RSVPToEventRequest
+	53,  // 110: calendar.v1.CalendarService.ListEventAttendees:input_type -> calendar.v1.ListEventAttendeesRequest
+	55,  // 111: calendar.v1.CalendarService.CreateEventCategory:input_type -> calendar.v1.CreateEventCategoryRequest
+	57,  // 112: calendar.v1.CalendarService.ListEventCategories:input_type -> calendar.v1.ListEventCategoriesRequest
+	59,  // 113: calendar.v1.CalendarService.DeleteEventCategory:input_type -> calendar.v1.DeleteEventCategoryRequest
+	61,  // 114: calendar.v1.CalendarService.SetEventReminders:input_type -> calendar.v1.SetEventRemindersRequest
+	63,  // 115: calendar.v1.CalendarService.ListEventReminders:input_type -> calendar.v1.ListEventRemindersRequest
+	65,  // 116: calendar.v1.CalendarService.CreateResource:input_type -> calendar.v1.CreateResourceRequest
+	67,  // 117: calendar.v1.CalendarService.GetResource:input_type -> calendar.v1.GetResourceRequest
+	69,  // 118: calendar.v1.CalendarService.ListResources:input_type -> calendar.v1.ListResourcesRequest
+	71,  // 119: calendar.v1.CalendarService.UpdateResource:input_type -> calendar.v1.UpdateResourceRequest
+	73,  // 120: calendar.v1.CalendarService.DeleteResource:input_type -> calendar.v1.DeleteResourceRequest
+	75,  // 121: calendar.v1.CalendarService.ListResourceAvailability:input_type -> calendar.v1.ListResourceAvailabilityRequest
+	77,  // 122: calendar.v1.CalendarService.BookResource:input_type -> calendar.v1.BookResourceRequest
+	79,  // 123: calendar.v1.CalendarService.CancelBooking:input_type -> calendar.v1.CancelBookingRequest
+	81,  // 124: calendar.v1.CalendarService.ListResourceBookings:input_type -> calendar.v1.ListResourceBookingsRequest
+	83,  // 125: calendar.v1.CalendarService.ListHolidays:input_type -> calendar.v1.ListHolidaysRequest
+	85,  // 126: calendar.v1.CalendarService.SeedHolidays:input_type -> calendar.v1.SeedHolidaysRequest
+	87,  // 127: calendar.v1.CalendarService.GetCalendarPreferences:input_type -> calendar.v1.GetCalendarPreferencesRequest
+	89,  // 128: calendar.v1.CalendarService.UpdateCalendarPreferences:input_type -> calendar.v1.UpdateCalendarPreferencesRequest
+	91,  // 129: calendar.v1.CalendarService.ListTaskDeadlinesInRange:input_type -> calendar.v1.ListTaskDeadlinesInRangeRequest
+	93,  // 130: calendar.v1.CalendarService.GenerateJoinToken:input_type -> calendar.v1.GenerateJoinTokenRequest
+	100, // 131: calendar.v1.CalendarService.CreateBookingPage:input_type -> calendar.v1.CreateBookingPageRequest
+	102, // 132: calendar.v1.CalendarService.GetBookingPage:input_type -> calendar.v1.GetBookingPageRequest
+	104, // 133: calendar.v1.CalendarService.UpdateBookingPage:input_type -> calendar.v1.UpdateBookingPageRequest
+	106, // 134: calendar.v1.CalendarService.DeleteBookingPage:input_type -> calendar.v1.DeleteBookingPageRequest
+	108, // 135: calendar.v1.CalendarService.ListBookingPages:input_type -> calendar.v1.ListBookingPagesRequest
+	110, // 136: calendar.v1.CalendarService.GetPublicBookingPage:input_type -> calendar.v1.GetPublicBookingPageRequest
+	112, // 137: calendar.v1.CalendarService.GetAvailability:input_type -> calendar.v1.GetAvailabilityRequest
+	116, // 138: calendar.v1.CalendarService.CreatePublicBooking:input_type -> calendar.v1.CreatePublicBookingRequest
+	16,  // 139: calendar.v1.CalendarService.CreateCalendar:output_type -> calendar.v1.CreateCalendarResponse
+	18,  // 140: calendar.v1.CalendarService.GetCalendar:output_type -> calendar.v1.GetCalendarResponse
+	20,  // 141: calendar.v1.CalendarService.ListCalendars:output_type -> calendar.v1.ListCalendarsResponse
+	22,  // 142: calendar.v1.CalendarService.UpdateCalendar:output_type -> calendar.v1.UpdateCalendarResponse
+	24,  // 143: calendar.v1.CalendarService.DeleteCalendar:output_type -> calendar.v1.DeleteCalendarResponse
+	26,  // 144: calendar.v1.CalendarService.AddCalendarMember:output_type -> calendar.v1.AddCalendarMemberResponse
+	28,  // 145: calendar.v1.CalendarService.RemoveCalendarMember:output_type -> calendar.v1.RemoveCalendarMemberResponse
+	30,  // 146: calendar.v1.CalendarService.ListCalendarMembers:output_type -> calendar.v1.ListCalendarMembersResponse
+	32,  // 147: calendar.v1.CalendarService.UpdateCalendarMemberPermission:output_type -> calendar.v1.UpdateCalendarMemberPermissionResponse
+	34,  // 148: calendar.v1.CalendarService.ListBrowsableCalendars:output_type -> calendar.v1.ListBrowsableCalendarsResponse
+	36,  // 149: calendar.v1.CalendarService.SubscribeToCalendar:output_type -> calendar.v1.SubscribeToCalendarResponse
+	38,  // 150: calendar.v1.CalendarService.UnsubscribeFromCalendar:output_type -> calendar.v1.UnsubscribeFromCalendarResponse
+	40,  // 151: calendar.v1.CalendarService.CreateEvent:output_type -> calendar.v1.CreateEventResponse
+	42,  // 152: calendar.v1.CalendarService.GetEvent:output_type -> calendar.v1.GetEventResponse
+	44,  // 153: calendar.v1.CalendarService.ListEventsInRange:output_type -> calendar.v1.ListEventsInRangeResponse
+	46,  // 154: calendar.v1.CalendarService.UpdateEvent:output_type -> calendar.v1.UpdateEventResponse
+	48,  // 155: calendar.v1.CalendarService.DeleteEvent:output_type -> calendar.v1.DeleteEventResponse
+	50,  // 156: calendar.v1.CalendarService.UpdateRecurringEvent:output_type -> calendar.v1.UpdateRecurringEventResponse
+	52,  // 157: calendar.v1.CalendarService.RSVPToEvent:output_type -> calendar.v1.RSVPToEventResponse
+	54,  // 158: calendar.v1.CalendarService.ListEventAttendees:output_type -> calendar.v1.ListEventAttendeesResponse
+	56,  // 159: calendar.v1.CalendarService.CreateEventCategory:output_type -> calendar.v1.CreateEventCategoryResponse
+	58,  // 160: calendar.v1.CalendarService.ListEventCategories:output_type -> calendar.v1.ListEventCategoriesResponse
+	60,  // 161: calendar.v1.CalendarService.DeleteEventCategory:output_type -> calendar.v1.DeleteEventCategoryResponse
+	62,  // 162: calendar.v1.CalendarService.SetEventReminders:output_type -> calendar.v1.SetEventRemindersResponse
+	64,  // 163: calendar.v1.CalendarService.ListEventReminders:output_type -> calendar.v1.ListEventRemindersResponse
+	66,  // 164: calendar.v1.CalendarService.CreateResource:output_type -> calendar.v1.CreateResourceResponse
+	68,  // 165: calendar.v1.CalendarService.GetResource:output_type -> calendar.v1.GetResourceResponse
+	70,  // 166: calendar.v1.CalendarService.ListResources:output_type -> calendar.v1.ListResourcesResponse
+	72,  // 167: calendar.v1.CalendarService.UpdateResource:output_type -> calendar.v1.UpdateResourceResponse
+	74,  // 168: calendar.v1.CalendarService.DeleteResource:output_type -> calendar.v1.DeleteResourceResponse
+	76,  // 169: calendar.v1.CalendarService.ListResourceAvailability:output_type -> calendar.v1.ListResourceAvailabilityResponse
+	78,  // 170: calendar.v1.CalendarService.BookResource:output_type -> calendar.v1.BookResourceResponse
+	80,  // 171: calendar.v1.CalendarService.CancelBooking:output_type -> calendar.v1.CancelBookingResponse
+	82,  // 172: calendar.v1.CalendarService.ListResourceBookings:output_type -> calendar.v1.ListResourceBookingsResponse
+	84,  // 173: calendar.v1.CalendarService.ListHolidays:output_type -> calendar.v1.ListHolidaysResponse
+	86,  // 174: calendar.v1.CalendarService.SeedHolidays:output_type -> calendar.v1.SeedHolidaysResponse
+	88,  // 175: calendar.v1.CalendarService.GetCalendarPreferences:output_type -> calendar.v1.GetCalendarPreferencesResponse
+	90,  // 176: calendar.v1.CalendarService.UpdateCalendarPreferences:output_type -> calendar.v1.UpdateCalendarPreferencesResponse
+	92,  // 177: calendar.v1.CalendarService.ListTaskDeadlinesInRange:output_type -> calendar.v1.ListTaskDeadlinesInRangeResponse
+	94,  // 178: calendar.v1.CalendarService.GenerateJoinToken:output_type -> calendar.v1.GenerateJoinTokenResponse
+	101, // 179: calendar.v1.CalendarService.CreateBookingPage:output_type -> calendar.v1.CreateBookingPageResponse
+	103, // 180: calendar.v1.CalendarService.GetBookingPage:output_type -> calendar.v1.GetBookingPageResponse
+	105, // 181: calendar.v1.CalendarService.UpdateBookingPage:output_type -> calendar.v1.UpdateBookingPageResponse
+	107, // 182: calendar.v1.CalendarService.DeleteBookingPage:output_type -> calendar.v1.DeleteBookingPageResponse
+	109, // 183: calendar.v1.CalendarService.ListBookingPages:output_type -> calendar.v1.ListBookingPagesResponse
+	111, // 184: calendar.v1.CalendarService.GetPublicBookingPage:output_type -> calendar.v1.GetPublicBookingPageResponse
+	114, // 185: calendar.v1.CalendarService.GetAvailability:output_type -> calendar.v1.GetAvailabilityResponse
+	117, // 186: calendar.v1.CalendarService.CreatePublicBooking:output_type -> calendar.v1.CreatePublicBookingResponse
+	139, // [139:187] is the sub-list for method output_type
+	91,  // [91:139] is the sub-list for method input_type
+	91,  // [91:91] is the sub-list for extension type_name
+	91,  // [91:91] is the sub-list for extension extendee
+	0,   // [0:91] is the sub-list for field type_name
 }
 
 func init() { file_proto_calendar_v1_calendar_proto_init() }
@@ -6863,13 +8454,22 @@ func file_proto_calendar_v1_calendar_proto_init() {
 	file_proto_calendar_v1_calendar_proto_msgTypes[80].OneofWrappers = []any{}
 	file_proto_calendar_v1_calendar_proto_msgTypes[82].OneofWrappers = []any{}
 	file_proto_calendar_v1_calendar_proto_msgTypes[88].OneofWrappers = []any{}
+	file_proto_calendar_v1_calendar_proto_msgTypes[94].OneofWrappers = []any{}
+	file_proto_calendar_v1_calendar_proto_msgTypes[96].OneofWrappers = []any{}
+	file_proto_calendar_v1_calendar_proto_msgTypes[97].OneofWrappers = []any{}
+	file_proto_calendar_v1_calendar_proto_msgTypes[98].OneofWrappers = []any{}
+	file_proto_calendar_v1_calendar_proto_msgTypes[99].OneofWrappers = []any{}
+	file_proto_calendar_v1_calendar_proto_msgTypes[103].OneofWrappers = []any{}
+	file_proto_calendar_v1_calendar_proto_msgTypes[111].OneofWrappers = []any{}
+	file_proto_calendar_v1_calendar_proto_msgTypes[114].OneofWrappers = []any{}
+	file_proto_calendar_v1_calendar_proto_msgTypes[115].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_calendar_v1_calendar_proto_rawDesc), len(file_proto_calendar_v1_calendar_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   94,
+			NumMessages:   117,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

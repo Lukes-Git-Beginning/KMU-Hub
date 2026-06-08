@@ -215,6 +215,9 @@ func main() {
 	// after hub construction (hub depends on chat gRPC client, built below).
 	videoRoutes := gateway.NewVideoRoutes(registry, cfg.LiveKitAPIKey, cfg.LiveKitAPISecret)
 
+	// Booking routes — admin (via registrars) + public (outside loop)
+	bookingRoutes := gateway.NewBookingRoutes(registry)
+
 	registrars := []gateway.RouteRegistrar{
 		gateway.NewAuthRoutes(registry),
 		gateway.NewCRMRoutes(registry, crmExt),
@@ -249,6 +252,7 @@ func main() {
 		gateway.NewDashboardRoutes(dashboardService),
 		gateway.NewFeatureFlagRoutes(flagRegistry),
 		gateway.NewHealthRoutes(healthCheckers, registry),
+		bookingRoutes,
 	}
 
 	for _, reg := range registrars {
@@ -286,6 +290,10 @@ func main() {
 	guestRoutes := gateway.NewGuestRoutes(guestService, registry)
 	guestRoutes.RegisterPublicRoutes(r)
 	slog.Info("routes registered", "service", "guest")
+
+	// Public booking routes (no auth middleware)
+	bookingRoutes.RegisterPublicRoutes(r)
+	slog.Info("routes registered", "service", "booking-public")
 
 	// Guest inbox adapter
 	guestAdapter := adapter.NewGuestAdapter(pool)

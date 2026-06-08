@@ -3,6 +3,16 @@ package calendar
 import "errors"
 
 var (
+	// Booking Page errors
+	ErrBookingPageNotFound            = errors.New("booking page not found")
+	ErrBookingPageSlugRequired        = errors.New("booking page slug is required")
+	ErrBookingPageCompanyNameRequired = errors.New("company name is required")
+	ErrBookingPageInvalidRules        = errors.New("invalid availability rules")
+	ErrBookingServiceNotFound         = errors.New("service not found on this booking page")
+	ErrBookingSlotUnavailable         = errors.New("the requested time slot is not available")
+	ErrBookingSlotInPast              = errors.New("the requested time slot is in the past or within the lead time")
+
+	// Calendar errors
 	ErrCalendarNotFound          = errors.New("calendar not found")
 	ErrCalendarNameRequired      = errors.New("calendar name is required")
 	ErrInvalidCalendarType       = errors.New("invalid calendar type")

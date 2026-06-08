@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -21,6 +22,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/work/livekit"
 	"github.com/kmuhub/kmuhub/internal/work/resource"
 	calv1 "github.com/kmuhub/kmuhub/proto/calendar/v1"
+	emailv1 "github.com/kmuhub/kmuhub/proto/email/v1"
 )
 
 // CalendarGRPCServer implements the Calendar gRPC service
@@ -31,6 +33,8 @@ type CalendarGRPCServer struct {
 	resourceService *resource.Service
 	holidayService  *holiday.Service
 	livekitService  *livekit.Service
+	bookingService  *calendar.BookingService
+	emailClient     emailv1.EmailServiceClient // nil if email service unavailable
 }
 
 // NewCalendarGRPCServer creates a new Calendar gRPC server
@@ -48,6 +52,16 @@ func NewCalendarGRPCServer(
 		holidayService:  holidaySvc,
 		livekitService:  livekitSvc,
 	}
+}
+
+// SetBookingService injects the booking service (call after construction).
+func (s *CalendarGRPCServer) SetBookingService(svc *calendar.BookingService) {
+	s.bookingService = svc
+}
+
+// SetEmailClient injects the email gRPC client for booking confirmations.
+func (s *CalendarGRPCServer) SetEmailClient(c emailv1.EmailServiceClient) {
+	s.emailClient = c
 }
 
 // ============================================================================
@@ -1649,8 +1663,365 @@ func mapCalendarError(err error) error {
 	// LiveKit errors
 	case errors.Is(err, livekit.ErrLiveKitNotConfigured):
 		return status.Error(codes.Unavailable, err.Error())
+	// Booking page errors
+	case errors.Is(err, calendar.ErrBookingPageNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, calendar.ErrBookingPageSlugRequired),
+		errors.Is(err, calendar.ErrBookingPageCompanyNameRequired),
+		errors.Is(err, calendar.ErrBookingPageInvalidRules):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, calendar.ErrBookingServiceNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, calendar.ErrBookingSlotUnavailable),
+		errors.Is(err, calendar.ErrBookingSlotInPast):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
 		slog.Error("unhandled calendar service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}
+}
+
+// ============================================================================
+// Booking Page Admin RPCs
+// ============================================================================
+
+func (s *CalendarGRPCServer) CreateBookingPage(ctx context.Context, req *calv1.CreateBookingPageRequest) (*calv1.CreateBookingPageResponse, error) {
+	if s.bookingService == nil {
+		return nil, status.Error(codes.Unimplemented, "booking service not configured")
+	}
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
+	calID, err := uuid.Parse(req.GetCalendarId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid calendar_id")
+	}
+
+	input := calendar.CreateBookingPageInput{
+		CalendarID:            calID,
+		Slug:                  req.GetSlug(),
+		CompanyName:           req.GetCompanyName(),
+		AvailabilityRulesJSON: req.GetAvailabilityRulesJson(),
+	}
+	if v := req.GetLogoUrl(); v != "" {
+		input.LogoURL = &v
+	}
+	for _, svc := range req.GetServices() {
+		bs := protoToBookingService(svc)
+		input.Services = append(input.Services, bs)
+	}
+
+	page, err := s.bookingService.CreateBookingPage(ctx, tenantID, input)
+	if err != nil {
+		return nil, mapCalendarError(err)
+	}
+	return &calv1.CreateBookingPageResponse{Page: bookingPageToProto(page)}, nil
+}
+
+func (s *CalendarGRPCServer) GetBookingPage(ctx context.Context, req *calv1.GetBookingPageRequest) (*calv1.GetBookingPageResponse, error) {
+	if s.bookingService == nil {
+		return nil, status.Error(codes.Unimplemented, "booking service not configured")
+	}
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+	id, err := uuid.Parse(req.GetId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid id")
+	}
+	page, err := s.bookingService.GetBookingPage(ctx, id, tenantID)
+	if err != nil {
+		return nil, mapCalendarError(err)
+	}
+	return &calv1.GetBookingPageResponse{Page: bookingPageToProto(page)}, nil
+}
+
+func (s *CalendarGRPCServer) ListBookingPages(ctx context.Context, req *calv1.ListBookingPagesRequest) (*calv1.ListBookingPagesResponse, error) {
+	if s.bookingService == nil {
+		return nil, status.Error(codes.Unimplemented, "booking service not configured")
+	}
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+	pages, err := s.bookingService.ListBookingPages(ctx, tenantID, req.GetIncludeInactive())
+	if err != nil {
+		return nil, mapCalendarError(err)
+	}
+	var protos []*calv1.BookingPageProto
+	for _, p := range pages {
+		pp := p
+		protos = append(protos, bookingPageToProto(&pp))
+	}
+	return &calv1.ListBookingPagesResponse{Pages: protos}, nil
+}
+
+func (s *CalendarGRPCServer) UpdateBookingPage(ctx context.Context, req *calv1.UpdateBookingPageRequest) (*calv1.UpdateBookingPageResponse, error) {
+	if s.bookingService == nil {
+		return nil, status.Error(codes.Unimplemented, "booking service not configured")
+	}
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+	id, err := uuid.Parse(req.GetId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid id")
+	}
+
+	input := calendar.UpdateBookingPageInput{}
+	if v := req.GetCompanyName(); v != "" {
+		input.CompanyName = &v
+	}
+	if v := req.GetLogoUrl(); v != "" {
+		input.LogoURL = &v
+	}
+	if len(req.GetServices()) > 0 {
+		svcs := make([]models.BookingService, 0, len(req.GetServices()))
+		for _, s := range req.GetServices() {
+			svcs = append(svcs, protoToBookingService(s))
+		}
+		input.Services = svcs
+	}
+	if v := req.GetAvailabilityRulesJson(); v != "" {
+		input.AvailabilityRulesJSON = &v
+	}
+	if req.Active != nil {
+		a := req.GetActive()
+		input.Active = &a
+	}
+
+	page, err := s.bookingService.UpdateBookingPage(ctx, id, tenantID, input)
+	if err != nil {
+		return nil, mapCalendarError(err)
+	}
+	return &calv1.UpdateBookingPageResponse{Page: bookingPageToProto(page)}, nil
+}
+
+func (s *CalendarGRPCServer) DeleteBookingPage(ctx context.Context, req *calv1.DeleteBookingPageRequest) (*calv1.DeleteBookingPageResponse, error) {
+	if s.bookingService == nil {
+		return nil, status.Error(codes.Unimplemented, "booking service not configured")
+	}
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+	id, err := uuid.Parse(req.GetId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid id")
+	}
+	if err := s.bookingService.DeleteBookingPage(ctx, id, tenantID); err != nil {
+		return nil, mapCalendarError(err)
+	}
+	return &calv1.DeleteBookingPageResponse{}, nil
+}
+
+// ============================================================================
+// Booking Pages Public RPCs
+// ============================================================================
+
+func (s *CalendarGRPCServer) GetPublicBookingPage(ctx context.Context, req *calv1.GetPublicBookingPageRequest) (*calv1.GetPublicBookingPageResponse, error) {
+	if s.bookingService == nil {
+		return nil, status.Error(codes.Unimplemented, "booking service not configured")
+	}
+	page, err := s.bookingService.GetPublicBookingPage(ctx, req.GetSlug())
+	if err != nil {
+		return nil, mapCalendarError(err)
+	}
+
+	svcs := make([]*calv1.BookingServiceProto, 0, len(page.Services))
+	for _, svc := range page.Services {
+		s := svc
+		svcs = append(svcs, bookingServiceToProto(&s))
+	}
+	pub := &calv1.PublicBookingPageProto{
+		Slug:        page.Slug,
+		CompanyName: page.CompanyName,
+		LogoUrl:     page.LogoURL,
+		Services:    svcs,
+	}
+	return &calv1.GetPublicBookingPageResponse{Page: pub}, nil
+}
+
+func (s *CalendarGRPCServer) GetAvailability(ctx context.Context, req *calv1.GetAvailabilityRequest) (*calv1.GetAvailabilityResponse, error) {
+	if s.bookingService == nil {
+		return nil, status.Error(codes.Unimplemented, "booking service not configured")
+	}
+	from, err := parseBookingDate(req.GetDateFrom())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid date_from: "+err.Error())
+	}
+	to, err := parseBookingDate(req.GetDateTo())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid date_to: "+err.Error())
+	}
+
+	days, err := s.bookingService.GetAvailability(ctx, calendar.GetAvailabilityInput{
+		Slug:      req.GetSlug(),
+		DateFrom:  from,
+		DateTo:    to,
+		ServiceID: req.GetServiceId(),
+	})
+	if err != nil {
+		return nil, mapCalendarError(err)
+	}
+
+	var dayProtos []*calv1.AvailabilityDayProto
+	for _, d := range days {
+		dayProtos = append(dayProtos, &calv1.AvailabilityDayProto{
+			Date:  d.Date.Format("2006-01-02"),
+			Slots: d.Slots,
+		})
+	}
+	return &calv1.GetAvailabilityResponse{Days: dayProtos}, nil
+}
+
+func (s *CalendarGRPCServer) CreatePublicBooking(ctx context.Context, req *calv1.CreatePublicBookingRequest) (*calv1.CreatePublicBookingResponse, error) {
+	if s.bookingService == nil {
+		return nil, status.Error(codes.Unimplemented, "booking service not configured")
+	}
+
+	date, err := parseBookingDate(req.GetDate())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid date: "+err.Error())
+	}
+
+	cust := req.GetCustomer()
+	if cust == nil {
+		return nil, status.Error(codes.InvalidArgument, "customer is required")
+	}
+
+	input := calendar.CreatePublicBookingInput{
+		Slug:          req.GetSlug(),
+		ServiceID:     req.GetServiceId(),
+		Date:          date,
+		TimeSlot:      req.GetTimeSlot(),
+		CustomerName:  cust.GetName(),
+		CustomerEmail: cust.GetEmail(),
+	}
+	if v := cust.GetPhone(); v != "" {
+		input.CustomerPhone = &v
+	}
+	if v := cust.GetNotes(); v != "" {
+		input.Notes = &v
+	}
+
+	// Wire email client if available.
+	var emailCli calendar.PublicBookingEmailClient
+	if s.emailClient != nil {
+		emailCli = &grpcEmailClientAdapter{client: s.emailClient}
+	}
+
+	result, err := s.bookingService.CreatePublicBooking(ctx, emailCli, nil, input)
+	if err != nil {
+		return nil, mapCalendarError(err)
+	}
+
+	return &calv1.CreatePublicBookingResponse{Booking: publicBookingToProto(result.Booking)}, nil
+}
+
+// ============================================================================
+// Booking proto <-> model converters
+// ============================================================================
+
+func bookingPageToProto(p *models.BookingPage) *calv1.BookingPageProto {
+	if p == nil {
+		return nil
+	}
+	rulesJSON, _ := json.Marshal(p.AvailabilityRules)
+	svcs := make([]*calv1.BookingServiceProto, 0, len(p.Services))
+	for _, s := range p.Services {
+		sc := s
+		svcs = append(svcs, bookingServiceToProto(&sc))
+	}
+	return &calv1.BookingPageProto{
+		Id:                  p.ID.String(),
+		TenantId:            p.TenantID.String(),
+		CalendarId:          p.CalendarID.String(),
+		Slug:                p.Slug,
+		CompanyName:         p.CompanyName,
+		LogoUrl:             p.LogoURL,
+		Services:            svcs,
+		AvailabilityRulesJson: string(rulesJSON),
+		Active:              p.Active,
+		CreatedAt:           timestamppb.New(p.CreatedAt),
+		UpdatedAt:           timestamppb.New(p.UpdatedAt),
+	}
+}
+
+func bookingServiceToProto(s *models.BookingService) *calv1.BookingServiceProto {
+	return &calv1.BookingServiceProto{
+		Id:          s.ID,
+		Name:        s.Name,
+		DurationMin: int32(s.DurationMin),
+		Price:       s.Price,
+		Description: s.Description,
+	}
+}
+
+func protoToBookingService(p *calv1.BookingServiceProto) models.BookingService {
+	bs := models.BookingService{
+		ID:          p.GetId(),
+		Name:        p.GetName(),
+		DurationMin: int(p.GetDurationMin()),
+		Price:       p.GetPrice(),
+	}
+	if v := p.GetDescription(); v != "" {
+		bs.Description = &v
+	}
+	return bs
+}
+
+func publicBookingToProto(b *models.PublicBooking) *calv1.PublicBookingProto {
+	if b == nil {
+		return nil
+	}
+	pb := &calv1.PublicBookingProto{
+		Id:            b.ID.String(),
+		BookingPageId: b.BookingPageID.String(),
+		ServiceId:     b.ServiceID,
+		CustomerName:  b.CustomerName,
+		CustomerEmail: b.CustomerEmail,
+		Date:          b.Date.Format("2006-01-02"),
+		TimeSlot:      b.TimeSlot,
+		Status:        b.Status,
+		CreatedAt:     timestamppb.New(b.CreatedAt),
+	}
+	if b.CustomerPhone != nil {
+		pb.CustomerPhone = b.CustomerPhone
+	}
+	if b.Notes != nil {
+		pb.Notes = b.Notes
+	}
+	return pb
+}
+
+// parseBookingDate parses a YYYY-MM-DD string into a time.Time.
+func parseBookingDate(s string) (time.Time, error) {
+	return time.Parse("2006-01-02", s)
+}
+
+// grpcEmailClientAdapter wraps the email gRPC client as a PublicBookingEmailClient.
+type grpcEmailClientAdapter struct {
+	client emailv1.EmailServiceClient
+}
+
+func (a *grpcEmailClientAdapter) SendConfirmation(ctx context.Context, email calendar.PublicBookingConfirmationEmail) error {
+	body := fmt.Sprintf(
+		"Ihre Buchung wurde bestätigt.\n\nService: %s\nDatum: %s\nUhrzeit: %s\nUnternehmen: %s\n",
+		email.ServiceName, email.Date, email.TimeSlot, email.CompanyName,
+	)
+	_, err := a.client.SendEmail(ctx, &emailv1.SendEmailRequest{
+		AccountId: "system",
+		To: []*emailv1.EmailAddress{
+			{Email: email.ToEmail, Name: email.ToName},
+		},
+		Subject:  fmt.Sprintf("Buchungsbestätigung — %s", email.ServiceName),
+		BodyText: body,
+		BodyHtml: "<pre>" + body + "</pre>",
+	})
+	return err
 }

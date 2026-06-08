@@ -109,6 +109,8 @@ tags:
     description: Inbox routing rules (create, update, delete, test)
   - name: automations
     description: Automation workflow management (CRUD, enable/disable, execution logs, templates, catalog, testing)
+  - name: public-booking
+    description: Public booking pages and slot reservation (unauthenticated)
 
 paths:
   /health:
@@ -262,6 +264,60 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/auth/forgot-password:
+    post:
+      summary: Request password reset
+      description: >
+        Initiates a password-reset flow. Always returns 200 regardless of whether
+        the email is registered (prevents user enumeration). Rate-limited per email.
+      tags: [auth]
+      operationId: forgotPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordRequest"
+      responses:
+        "200":
+          description: Reset email sent (or silently suppressed if email unknown)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          description: Too many reset requests for this email
+
+  /api/v1/auth/reset-password:
+    post:
+      summary: Reset password with token
+      description: >
+        Validates the single-use reset token (1-hour expiry), checks password strength,
+        updates the password, and revokes all active refresh tokens.
+      tags: [auth]
+      operationId: resetPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordRequest"
+      responses:
+        "200":
+          description: Password updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /api/v1/invitations:
     post:
@@ -5979,6 +6035,115 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/calendar/booking-pages:
+    get:
+      summary: List booking pages (admin)
+      tags: [calendar]
+      operationId: listBookingPages
+      security: [{bearerAuth: []}]
+      parameters:
+        - name: include_inactive
+          in: query
+          schema: {type: boolean, default: false}
+      responses:
+        "200": {description: List of booking pages}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+    post:
+      summary: Create booking page (admin)
+      tags: [calendar]
+      operationId: createBookingPage
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/BookingPageInput"}
+      responses:
+        "201": {description: Created booking page}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+  /api/v1/calendar/booking-pages/{id}:
+    get:
+      summary: Get booking page (admin)
+      tags: [calendar]
+      operationId: getBookingPage
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200": {description: Booking page}
+        "404": {$ref: "#/components/responses/NotFound"}
+    put:
+      summary: Update booking page (admin)
+      tags: [calendar]
+      operationId: updateBookingPage
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/BookingPageUpdateInput"}
+      responses:
+        "200": {description: Updated booking page}
+        "404": {$ref: "#/components/responses/NotFound"}
+    delete:
+      summary: Delete booking page (admin)
+      tags: [calendar]
+      operationId: deleteBookingPage
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200": {description: Deleted}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /api/v1/public/booking-pages/{slug}:
+    get:
+      summary: Get public booking page by slug (no auth)
+      tags: [public-booking]
+      operationId: getPublicBookingPage
+      security: []
+      parameters:
+        - {name: slug, in: path, required: true, schema: {type: string}}
+      responses:
+        "200": {description: Public booking page}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /api/v1/public/booking-pages/{slug}/availability:
+    get:
+      summary: Get available slots for a booking page (no auth)
+      tags: [public-booking]
+      operationId: getPublicAvailability
+      security: []
+      parameters:
+        - {name: slug, in: path, required: true, schema: {type: string}}
+        - {name: date_from, in: query, required: true, schema: {type: string, format: date}}
+        - {name: date_to, in: query, required: true, schema: {type: string, format: date}}
+        - {name: service_id, in: query, schema: {type: string}}
+      responses:
+        "200": {description: Available slots per day}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /api/v1/public/bookings:
+    post:
+      summary: Create a public booking (no auth)
+      tags: [public-booking]
+      operationId: createPublicBooking
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/PublicBookingInput"}
+      responses:
+        "201": {description: Booking confirmed}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/Conflict"}
+        "410": {description: Slot in the past or within lead time}
+        "429": {description: Rate limited}
+
   # ===========================================================================
   # Video Calls
   # ===========================================================================
@@ -9289,6 +9454,24 @@ components:
           format: password
           minLength: 8
 
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    ResetPasswordRequest:
+      type: object
+      required: [token, new_password]
+      properties:
+        token:
+          type: string
+        new_password:
+          type: string
+          minLength: 8
+
     CreateInvitationRequest:
       type: object
       required: [email, role]
@@ -12167,6 +12350,57 @@ components:
         url:
           type: string
           description: LiveKit WebSocket URL
+
+    # =========================================================================
+    # Booking Page Schemas
+    # =========================================================================
+
+    BookingServiceInput:
+      type: object
+      required: [id, name, duration_min, price]
+      properties:
+        id: {type: string}
+        name: {type: string}
+        duration_min: {type: integer, minimum: 1}
+        price: {type: string}
+        description: {type: string, nullable: true}
+
+    BookingPageInput:
+      type: object
+      required: [calendar_id, slug, company_name, availability_rules]
+      properties:
+        calendar_id: {type: string, format: uuid}
+        slug: {type: string, pattern: "^[a-z0-9][a-z0-9\\-]{1,61}[a-z0-9]$"}
+        company_name: {type: string}
+        logo_url: {type: string, nullable: true}
+        services: {type: array, items: {$ref: "#/components/schemas/BookingServiceInput"}}
+        availability_rules: {type: string, description: "JSON blob (AvailabilityRules)"}
+
+    BookingPageUpdateInput:
+      type: object
+      properties:
+        company_name: {type: string}
+        logo_url: {type: string, nullable: true}
+        services: {type: array, items: {$ref: "#/components/schemas/BookingServiceInput"}}
+        availability_rules: {type: string}
+        active: {type: boolean}
+
+    PublicBookingInput:
+      type: object
+      required: [slug, service_id, date, time_slot, customer]
+      properties:
+        slug: {type: string}
+        service_id: {type: string}
+        date: {type: string, format: date}
+        time_slot: {type: string, example: "09:00"}
+        customer:
+          type: object
+          required: [name, email]
+          properties:
+            name: {type: string}
+            email: {type: string, format: email}
+            phone: {type: string, nullable: true}
+            notes: {type: string, nullable: true}
 
     # =========================================================================
     # Video Call Schemas

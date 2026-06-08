@@ -84,9 +84,11 @@ func main() {
 	eventRepo := event.NewPostgresRepository(pool)
 	resourceRepo := resource.NewPostgresRepository(pool)
 	holidayRepo := holiday.NewPostgresRepository(pool)
+	bookingRepo := calendar.NewPostgresBookingRepository(pool)
 
 	// Calendar domain services
 	calendarService := calendar.NewService(calendarRepo)
+	bookingService := calendar.NewBookingService(bookingRepo)
 	// NewServiceWithTURN: pass TURN_SECRET + COTURN_HOST from config.
 	// Both default to "" when not set, so TURN is transparently disabled
 	// until the coturn CPX11 is provisioned and the env vars are populated.
@@ -168,6 +170,7 @@ func main() {
 
 	// Register CalendarService gRPC server (same binary, same port as WorkService)
 	calendarGRPC := server.NewCalendarGRPCServer(calendarService, eventService, resourceService, holidayService, livekitService)
+	calendarGRPC.SetBookingService(bookingService)
 	calv1.RegisterCalendarServiceServer(grpcServer, calendarGRPC)
 
 	// Register VideoService gRPC server (same binary, same port as WorkService + CalendarService)

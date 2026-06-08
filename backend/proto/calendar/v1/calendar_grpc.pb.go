@@ -59,6 +59,14 @@ const (
 	CalendarService_UpdateCalendarPreferences_FullMethodName      = "/calendar.v1.CalendarService/UpdateCalendarPreferences"
 	CalendarService_ListTaskDeadlinesInRange_FullMethodName       = "/calendar.v1.CalendarService/ListTaskDeadlinesInRange"
 	CalendarService_GenerateJoinToken_FullMethodName              = "/calendar.v1.CalendarService/GenerateJoinToken"
+	CalendarService_CreateBookingPage_FullMethodName              = "/calendar.v1.CalendarService/CreateBookingPage"
+	CalendarService_GetBookingPage_FullMethodName                 = "/calendar.v1.CalendarService/GetBookingPage"
+	CalendarService_UpdateBookingPage_FullMethodName              = "/calendar.v1.CalendarService/UpdateBookingPage"
+	CalendarService_DeleteBookingPage_FullMethodName              = "/calendar.v1.CalendarService/DeleteBookingPage"
+	CalendarService_ListBookingPages_FullMethodName               = "/calendar.v1.CalendarService/ListBookingPages"
+	CalendarService_GetPublicBookingPage_FullMethodName           = "/calendar.v1.CalendarService/GetPublicBookingPage"
+	CalendarService_GetAvailability_FullMethodName                = "/calendar.v1.CalendarService/GetAvailability"
+	CalendarService_CreatePublicBooking_FullMethodName            = "/calendar.v1.CalendarService/CreatePublicBooking"
 )
 
 // CalendarServiceClient is the client API for CalendarService service.
@@ -117,6 +125,16 @@ type CalendarServiceClient interface {
 	ListTaskDeadlinesInRange(ctx context.Context, in *ListTaskDeadlinesInRangeRequest, opts ...grpc.CallOption) (*ListTaskDeadlinesInRangeResponse, error)
 	// LiveKit
 	GenerateJoinToken(ctx context.Context, in *GenerateJoinTokenRequest, opts ...grpc.CallOption) (*GenerateJoinTokenResponse, error)
+	// Booking Pages (Admin)
+	CreateBookingPage(ctx context.Context, in *CreateBookingPageRequest, opts ...grpc.CallOption) (*CreateBookingPageResponse, error)
+	GetBookingPage(ctx context.Context, in *GetBookingPageRequest, opts ...grpc.CallOption) (*GetBookingPageResponse, error)
+	UpdateBookingPage(ctx context.Context, in *UpdateBookingPageRequest, opts ...grpc.CallOption) (*UpdateBookingPageResponse, error)
+	DeleteBookingPage(ctx context.Context, in *DeleteBookingPageRequest, opts ...grpc.CallOption) (*DeleteBookingPageResponse, error)
+	ListBookingPages(ctx context.Context, in *ListBookingPagesRequest, opts ...grpc.CallOption) (*ListBookingPagesResponse, error)
+	// Booking Pages (Public — no auth required)
+	GetPublicBookingPage(ctx context.Context, in *GetPublicBookingPageRequest, opts ...grpc.CallOption) (*GetPublicBookingPageResponse, error)
+	GetAvailability(ctx context.Context, in *GetAvailabilityRequest, opts ...grpc.CallOption) (*GetAvailabilityResponse, error)
+	CreatePublicBooking(ctx context.Context, in *CreatePublicBookingRequest, opts ...grpc.CallOption) (*CreatePublicBookingResponse, error)
 }
 
 type calendarServiceClient struct {
@@ -527,6 +545,86 @@ func (c *calendarServiceClient) GenerateJoinToken(ctx context.Context, in *Gener
 	return out, nil
 }
 
+func (c *calendarServiceClient) CreateBookingPage(ctx context.Context, in *CreateBookingPageRequest, opts ...grpc.CallOption) (*CreateBookingPageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateBookingPageResponse)
+	err := c.cc.Invoke(ctx, CalendarService_CreateBookingPage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *calendarServiceClient) GetBookingPage(ctx context.Context, in *GetBookingPageRequest, opts ...grpc.CallOption) (*GetBookingPageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetBookingPageResponse)
+	err := c.cc.Invoke(ctx, CalendarService_GetBookingPage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *calendarServiceClient) UpdateBookingPage(ctx context.Context, in *UpdateBookingPageRequest, opts ...grpc.CallOption) (*UpdateBookingPageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateBookingPageResponse)
+	err := c.cc.Invoke(ctx, CalendarService_UpdateBookingPage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *calendarServiceClient) DeleteBookingPage(ctx context.Context, in *DeleteBookingPageRequest, opts ...grpc.CallOption) (*DeleteBookingPageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteBookingPageResponse)
+	err := c.cc.Invoke(ctx, CalendarService_DeleteBookingPage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *calendarServiceClient) ListBookingPages(ctx context.Context, in *ListBookingPagesRequest, opts ...grpc.CallOption) (*ListBookingPagesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBookingPagesResponse)
+	err := c.cc.Invoke(ctx, CalendarService_ListBookingPages_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *calendarServiceClient) GetPublicBookingPage(ctx context.Context, in *GetPublicBookingPageRequest, opts ...grpc.CallOption) (*GetPublicBookingPageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPublicBookingPageResponse)
+	err := c.cc.Invoke(ctx, CalendarService_GetPublicBookingPage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *calendarServiceClient) GetAvailability(ctx context.Context, in *GetAvailabilityRequest, opts ...grpc.CallOption) (*GetAvailabilityResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAvailabilityResponse)
+	err := c.cc.Invoke(ctx, CalendarService_GetAvailability_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *calendarServiceClient) CreatePublicBooking(ctx context.Context, in *CreatePublicBookingRequest, opts ...grpc.CallOption) (*CreatePublicBookingResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreatePublicBookingResponse)
+	err := c.cc.Invoke(ctx, CalendarService_CreatePublicBooking_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CalendarServiceServer is the server API for CalendarService service.
 // All implementations must embed UnimplementedCalendarServiceServer
 // for forward compatibility.
@@ -583,6 +681,16 @@ type CalendarServiceServer interface {
 	ListTaskDeadlinesInRange(context.Context, *ListTaskDeadlinesInRangeRequest) (*ListTaskDeadlinesInRangeResponse, error)
 	// LiveKit
 	GenerateJoinToken(context.Context, *GenerateJoinTokenRequest) (*GenerateJoinTokenResponse, error)
+	// Booking Pages (Admin)
+	CreateBookingPage(context.Context, *CreateBookingPageRequest) (*CreateBookingPageResponse, error)
+	GetBookingPage(context.Context, *GetBookingPageRequest) (*GetBookingPageResponse, error)
+	UpdateBookingPage(context.Context, *UpdateBookingPageRequest) (*UpdateBookingPageResponse, error)
+	DeleteBookingPage(context.Context, *DeleteBookingPageRequest) (*DeleteBookingPageResponse, error)
+	ListBookingPages(context.Context, *ListBookingPagesRequest) (*ListBookingPagesResponse, error)
+	// Booking Pages (Public — no auth required)
+	GetPublicBookingPage(context.Context, *GetPublicBookingPageRequest) (*GetPublicBookingPageResponse, error)
+	GetAvailability(context.Context, *GetAvailabilityRequest) (*GetAvailabilityResponse, error)
+	CreatePublicBooking(context.Context, *CreatePublicBookingRequest) (*CreatePublicBookingResponse, error)
 	mustEmbedUnimplementedCalendarServiceServer()
 }
 
@@ -712,6 +820,30 @@ func (UnimplementedCalendarServiceServer) ListTaskDeadlinesInRange(context.Conte
 }
 func (UnimplementedCalendarServiceServer) GenerateJoinToken(context.Context, *GenerateJoinTokenRequest) (*GenerateJoinTokenResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GenerateJoinToken not implemented")
+}
+func (UnimplementedCalendarServiceServer) CreateBookingPage(context.Context, *CreateBookingPageRequest) (*CreateBookingPageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateBookingPage not implemented")
+}
+func (UnimplementedCalendarServiceServer) GetBookingPage(context.Context, *GetBookingPageRequest) (*GetBookingPageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetBookingPage not implemented")
+}
+func (UnimplementedCalendarServiceServer) UpdateBookingPage(context.Context, *UpdateBookingPageRequest) (*UpdateBookingPageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateBookingPage not implemented")
+}
+func (UnimplementedCalendarServiceServer) DeleteBookingPage(context.Context, *DeleteBookingPageRequest) (*DeleteBookingPageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteBookingPage not implemented")
+}
+func (UnimplementedCalendarServiceServer) ListBookingPages(context.Context, *ListBookingPagesRequest) (*ListBookingPagesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBookingPages not implemented")
+}
+func (UnimplementedCalendarServiceServer) GetPublicBookingPage(context.Context, *GetPublicBookingPageRequest) (*GetPublicBookingPageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetPublicBookingPage not implemented")
+}
+func (UnimplementedCalendarServiceServer) GetAvailability(context.Context, *GetAvailabilityRequest) (*GetAvailabilityResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetAvailability not implemented")
+}
+func (UnimplementedCalendarServiceServer) CreatePublicBooking(context.Context, *CreatePublicBookingRequest) (*CreatePublicBookingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreatePublicBooking not implemented")
 }
 func (UnimplementedCalendarServiceServer) mustEmbedUnimplementedCalendarServiceServer() {}
 func (UnimplementedCalendarServiceServer) testEmbeddedByValue()                         {}
@@ -1454,6 +1586,150 @@ func _CalendarService_GenerateJoinToken_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CalendarService_CreateBookingPage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateBookingPageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CalendarServiceServer).CreateBookingPage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CalendarService_CreateBookingPage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CalendarServiceServer).CreateBookingPage(ctx, req.(*CreateBookingPageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CalendarService_GetBookingPage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBookingPageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CalendarServiceServer).GetBookingPage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CalendarService_GetBookingPage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CalendarServiceServer).GetBookingPage(ctx, req.(*GetBookingPageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CalendarService_UpdateBookingPage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateBookingPageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CalendarServiceServer).UpdateBookingPage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CalendarService_UpdateBookingPage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CalendarServiceServer).UpdateBookingPage(ctx, req.(*UpdateBookingPageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CalendarService_DeleteBookingPage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteBookingPageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CalendarServiceServer).DeleteBookingPage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CalendarService_DeleteBookingPage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CalendarServiceServer).DeleteBookingPage(ctx, req.(*DeleteBookingPageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CalendarService_ListBookingPages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBookingPagesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CalendarServiceServer).ListBookingPages(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CalendarService_ListBookingPages_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CalendarServiceServer).ListBookingPages(ctx, req.(*ListBookingPagesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CalendarService_GetPublicBookingPage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPublicBookingPageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CalendarServiceServer).GetPublicBookingPage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CalendarService_GetPublicBookingPage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CalendarServiceServer).GetPublicBookingPage(ctx, req.(*GetPublicBookingPageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CalendarService_GetAvailability_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAvailabilityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CalendarServiceServer).GetAvailability(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CalendarService_GetAvailability_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CalendarServiceServer).GetAvailability(ctx, req.(*GetAvailabilityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CalendarService_CreatePublicBooking_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreatePublicBookingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CalendarServiceServer).CreatePublicBooking(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CalendarService_CreatePublicBooking_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CalendarServiceServer).CreatePublicBooking(ctx, req.(*CreatePublicBookingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CalendarService_ServiceDesc is the grpc.ServiceDesc for CalendarService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1620,6 +1896,38 @@ var CalendarService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GenerateJoinToken",
 			Handler:    _CalendarService_GenerateJoinToken_Handler,
+		},
+		{
+			MethodName: "CreateBookingPage",
+			Handler:    _CalendarService_CreateBookingPage_Handler,
+		},
+		{
+			MethodName: "GetBookingPage",
+			Handler:    _CalendarService_GetBookingPage_Handler,
+		},
+		{
+			MethodName: "UpdateBookingPage",
+			Handler:    _CalendarService_UpdateBookingPage_Handler,
+		},
+		{
+			MethodName: "DeleteBookingPage",
+			Handler:    _CalendarService_DeleteBookingPage_Handler,
+		},
+		{
+			MethodName: "ListBookingPages",
+			Handler:    _CalendarService_ListBookingPages_Handler,
+		},
+		{
+			MethodName: "GetPublicBookingPage",
+			Handler:    _CalendarService_GetPublicBookingPage_Handler,
+		},
+		{
+			MethodName: "GetAvailability",
+			Handler:    _CalendarService_GetAvailability_Handler,
+		},
+		{
+			MethodName: "CreatePublicBooking",
+			Handler:    _CalendarService_CreatePublicBooking_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
