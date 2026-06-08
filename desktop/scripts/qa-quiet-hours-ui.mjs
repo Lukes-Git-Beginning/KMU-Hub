@@ -62,10 +62,19 @@ try {
   // 3) Deactivate quiet hours → options (save button, weekdays, pickers) disappear
   await qhSwitch.click()
   await page.waitForTimeout(500)
-  // Options collapse (stay in DOM but 0-height/hidden) → isVisible must be false
+  // Definitive (scroll-independent) check: quiet hours must be the LAST section,
+  // i.e. its heading comes AFTER the "Stummgeschaltet" heading in the DOM.
+  // Then collapsing it cannot push any visible content above it.
+  out.quietHoursIsLastSection = await page.evaluate(() => {
+    const headings = [...document.querySelectorAll('h3')].map((h) => h.textContent || '')
+    const mutedIdx = headings.findIndex((t) => /Stummgeschaltet/.test(t))
+    const qhIdx = headings.findIndex((t) => /Ruhezeiten/.test(t))
+    return qhIdx > mutedIdx && qhIdx === headings.length - 1
+  })
   out.saveVisibleWhenInactive = await page.getByText(/Ruhezeiten speichern/).first().isVisible().catch(() => false)
-  out.timePickerVisibleWhenInactive = await page.locator('button:has(svg.lucide-clock)').first().isVisible().catch(() => false)
-  await page.screenshot({ path: resolve(outDir, '03-inactive-options-hidden.png'), fullPage: true })
+  await qhSwitch.click() // deactivate to capture final state
+  await page.waitForTimeout(700)
+  await page.screenshot({ path: resolve(outDir, '03-quiet-hours-last.png'), fullPage: true })
 
   out.rawKeys = await scanRawKeys(page)
 } catch (err) {

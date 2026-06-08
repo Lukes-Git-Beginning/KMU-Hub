@@ -194,8 +194,47 @@ export function NotificationSettingsTab() {
 
       <Separator className="mb-8" />
 
-      {/* ── Quiet Hours ──────────────────────────────── */}
+      {/* ── Muted Resources ──────────────────────────── */}
       <section className="mb-8">
+        <div className="flex items-center gap-2 mb-4">
+          <VolumeX className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-medium text-foreground">{t('settings.notifications.muted.title')}</h3>
+        </div>
+
+        {(!mutedResources || mutedResources.length === 0) ? (
+          <p className="text-xs text-muted-foreground italic">{t('settings.notifications.muted.empty')}</p>
+        ) : (
+          <div className="space-y-1.5">
+            {mutedResources.map((mute) => (
+              <div
+                key={mute.id}
+                className="flex items-center justify-between rounded-md border border-border px-3 py-2"
+              >
+                <div>
+                  <p className="text-sm text-foreground">{mute.resource_label ?? mute.resource_id}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {mute.resource_type} · {t('settings.notifications.muted.since', { date: formatDate(mute.muted_at) })}
+                  </p>
+                </div>
+                <button
+                  onClick={() => unmuteMutation.mutate(mute.id, {
+                    onSuccess: () => toast.success(t('settings.notifications.muted.unmuteSuccess')),
+                  })}
+                  className="text-muted-foreground hover:text-error transition-colors"
+                  disabled={unmuteMutation.isPending}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <Separator className="mb-8" />
+
+      {/* ── Quiet Hours (last section — collapsing it must not push other content) ─ */}
+      <section>
         <div className="flex items-center gap-2 mb-4">
           <Moon className="h-4 w-4 text-muted-foreground" />
           <h3 className="text-sm font-medium text-foreground">{t('settings.notifications.quietHours.title')}</h3>
@@ -264,45 +303,6 @@ export function NotificationSettingsTab() {
                 </div>
               </div>
             </div>
-          </div>
-        )}
-      </section>
-
-      <Separator className="mb-8" />
-
-      {/* ── Muted Resources ──────────────────────────── */}
-      <section>
-        <div className="flex items-center gap-2 mb-4">
-          <VolumeX className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground">{t('settings.notifications.muted.title')}</h3>
-        </div>
-
-        {(!mutedResources || mutedResources.length === 0) ? (
-          <p className="text-xs text-muted-foreground italic">{t('settings.notifications.muted.empty')}</p>
-        ) : (
-          <div className="space-y-1.5">
-            {mutedResources.map((mute) => (
-              <div
-                key={mute.id}
-                className="flex items-center justify-between rounded-md border border-border px-3 py-2"
-              >
-                <div>
-                  <p className="text-sm text-foreground">{mute.resource_label ?? mute.resource_id}</p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {mute.resource_type} · {t('settings.notifications.muted.since', { date: formatDate(mute.muted_at) })}
-                  </p>
-                </div>
-                <button
-                  onClick={() => unmuteMutation.mutate(mute.id, {
-                    onSuccess: () => toast.success(t('settings.notifications.muted.unmuteSuccess')),
-                  })}
-                  className="text-muted-foreground hover:text-error transition-colors"
-                  disabled={unmuteMutation.isPending}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
           </div>
         )}
       </section>
