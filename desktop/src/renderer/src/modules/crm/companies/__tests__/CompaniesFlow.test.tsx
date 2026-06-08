@@ -53,6 +53,7 @@ vi.mock('@/api/hooks/useCompanies', () => ({
     mutateAsync: mockMutateAsync,
     isPending: false,
   }),
+  useDeleteCompany: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }))
 
 function createQueryClient() {

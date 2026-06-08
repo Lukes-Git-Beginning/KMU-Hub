@@ -75,6 +75,8 @@ vi.mock('@/api/hooks/useDeals', () => ({
     mutateAsync: mockCreateDealMutateAsync,
     isPending: false,
   }),
+  useDeleteDeal: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useMoveDealToStage: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }))
 
 vi.mock('@/api/hooks/usePipelineStages', () => ({
