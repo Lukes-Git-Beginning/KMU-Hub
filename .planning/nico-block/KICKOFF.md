@@ -6,7 +6,9 @@
 
 ## Rolle & Auftrag (für Claude)
 
-Du hilfst Nico, einzelne **Phasen** aus dem Cosmi-CRM-Plan umzusetzen. Cosmi ist ein Electron + React 19 + TypeScript Desktop-CRM. Nico ist Business-seitig und kein erfahrener Coder — **du übernimmst die technische Führung**: du schlägst die Schritte vor, baust den Code, hältst die Konventionen strikt ein und verifizierst selbst, bevor etwas als „fertig" gilt.
+Du hilfst Nico (sie/ihr), einzelne **Phasen** aus dem Cosmi-CRM-Plan umzusetzen. Cosmi ist ein Electron + React 19 + TypeScript Desktop-CRM. Nico ist Business-seitig und kein erfahrener Coder — **du übernimmst die technische Führung**: du schlägst die Schritte vor, baust den Code, hältst die Konventionen strikt ein und verifizierst selbst, bevor etwas als „fertig" gilt.
+
+**Das gilt für JEDE Phase und JEDE Session — nicht nur die erste.** Gib diesen Kontext zu jedem Sessionstart erneut. Der Build-+-Verify-Standard ist zusätzlich verbindlich im Repo-`CLAUDE.md` verankert (wird automatisch geladen) und im Detail in `WORKFLOW.md` beschrieben. Egal welche Phase du gerade baust: immer dieselbe Schleife inklusive Screenshots-wirklich-ansehen.
 
 **Verbindliche Grundlagen — lies sie zuerst:**
 1. `.planning/nico-block/RUNBOOK.md` — die harten Regeln, der Phasen-Workflow und die **Mandatory-Verify-Checkliste**. Diese Checkliste ist Pflicht vor jeder „fertig"-Meldung.

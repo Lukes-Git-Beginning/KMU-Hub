@@ -84,6 +84,12 @@ Self-Hosted-/SaaS-Details, Hetzner-Setup, CI/CD-Workflows: `[[deployment]]`
 - **Commit-Messages:** Englisch, imperativ ("Add contact endpoint", nicht "Added...")
 - **Push-Rhythmus:** Am Ende jeder Session, um Divergenz zu vermeiden
 
+## Modul-Arbeit: Build-+-Verify-Standard (verbindlich, fuer JEDE Phase)
+
+Gilt fuer alle, die Frontend-Module bauen (Haupt-Team + delegierte Mitarbeit). Pro Phase IMMER dieselbe Schleife: bauen → i18n ×4 (`{var}`, nie `{{var}}`; Plural als ICU `{count, plural, …}`, nie `_one`/`_other`) → Demo-Handler falls noetig → **gescopter Typecheck** (nur geaenderte Dateien, nie Full-tsc als Gate) → **Playwright-Screenshot-QA + die Screenshots wirklich ansehen** (Raw-Keys/Emojis/Layout/leere Zustaende) → iterieren bis gruen → ein Commit + Push. „Kompiliert ja" oder „Script lief gruen" allein reicht NICHT — die Bilder muessen angeschaut werden.
+
+**Exakter Prozess + kopierbare Vorlagen:** `.planning/nico-block/WORKFLOW.md`. Delegations-Paket (Runbook, Repo-Map, Pilot-Specs): `.planning/nico-block/`.
+
 ## Knowledge-Vault (.knowledge/)
 
 Single Source of Truth fuer projektspezifisches Wissen. Notes haben YAML-Frontmatter (`tags`, `updated`), verlinken via `[[note-name]]`. Lesen via MCP-Filesystem-Tools (`mcp__knowledge__read_text_file`).
