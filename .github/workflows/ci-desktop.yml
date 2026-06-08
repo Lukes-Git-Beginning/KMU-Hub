@@ -12,6 +12,12 @@ on:
       - "desktop/**"
       - ".github/workflows/ci-desktop.yml"
 
+# Cancel superseded runs on the same ref to avoid burning Actions minutes on
+# commits that a later push has already obsoleted.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     name: Lint

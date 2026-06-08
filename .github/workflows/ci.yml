@@ -17,6 +17,13 @@ on:
 env:
   GO_VERSION: "1.25.6"
 
+# Cancel superseded runs on the same ref — bursts of pushes (esp. on main)
+# otherwise run the full Test+E2E+Smoke suite in parallel and burn Actions
+# minutes on commits that are already obsolete.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     name: Lint
