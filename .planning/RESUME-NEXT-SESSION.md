@@ -1,5 +1,11 @@
 # ▶ HIER STARTEN
 
+## 👥 DELEGATION AN NICO (Stand 2026-06-08) — läuft parallel
+Nico (sie/ihr, kein erfahrener Coder, hat Claude Code + VS Code) übernimmt den Block **Content & Self-Service** (wiki/formulare/berichte/notifications). Komplettes Paket: **`.planning/nico-block/`** (README → RUNBOOK → WORKFLOW → KICKOFF → phase-01/02 → BACKLOG). Sie startet mit **Pilot phase-01 (notifications Ruhezeiten/DND)** + **phase-02 (berichte Sparkline)**.
+- **Build-+-Verify-Standard ist jetzt im Repo-`CLAUDE.md` verankert** (gilt auto für jede Session/Phase, alle).
+- **▶ Review-Auftrag Haupt-Team:** Wenn Nico „fertig" meldet (Commit-SHA + Verify-Checkliste + Screenshots) → gegen die Definition-of-Done der jeweiligen Spec prüfen. Pilot grün → Block freigeben + Backlog-Specs schreiben. Hohe Fehlerrate → Scope enger fassen.
+- **Realismus:** 3–5 Phasen/Tag/Person, nicht 10. Engpass = Review-Gate.
+
 ## ⏯ AKTIVER BATCH (Stand 2026-06-08) — „team-Lohn + Kommunikation-Merge"
 Feinplan: `.planning/batch-kommunikation-feinplan.md`. Fünfer-Batch, direct-to-main, origin synchron.
 - ✅ **Phase 1** Lohn-Stammdaten am Mitarbeiterprofil (`520b77c`)
