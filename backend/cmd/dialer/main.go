@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/kmuhub/kmuhub/internal/config"
+	"github.com/kmuhub/kmuhub/internal/crm/consent"
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/dialer"
 	"github.com/kmuhub/kmuhub/internal/health"
@@ -83,8 +84,12 @@ func main() {
 	// Event emitter for notification bus
 	eventEmitter := dialer.NewPGEventEmitter(pool)
 
+	// Consent asserter — enforces active phone consent before any outbound call.
+	consentRepo := consent.NewPostgresAssertRepo(pool)
+	consentAsserter := consent.NewAsserter(consentRepo, logger)
+
 	// Dialer service
-	dialerService := dialer.NewService(campaignRepo, callRepo, outcomeRepo, agentStatusRepo, agentStore, crmBridge, eventEmitter)
+	dialerService := dialer.NewServiceWithConsent(campaignRepo, callRepo, outcomeRepo, agentStatusRepo, agentStore, crmBridge, eventEmitter, consentAsserter)
 
 	metricsRegistry := metrics.NewRegistry()
 
