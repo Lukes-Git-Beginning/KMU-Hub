@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Input } from '@/components/ui/input'
+import { TimePicker } from '@/components/shared/TimePicker'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
@@ -216,40 +216,45 @@ export function NotificationSettingsTab() {
               <Switch checked={qhActive} onCheckedChange={setQhActive} />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>{t('settings.notifications.quietHours.from')}</Label>
-                <Input type="time" value={qhStart} onChange={(e) => setQhStart(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>{t('settings.notifications.quietHours.to')}</Label>
-                <Input type="time" value={qhEnd} onChange={(e) => setQhEnd(e.target.value)} />
-              </div>
-            </div>
+            {/* Options only matter when quiet hours are active — hide them otherwise. */}
+            {qhActive && (
+              <div className="space-y-4 animate-fade-in">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>{t('settings.notifications.quietHours.from')}</Label>
+                    <TimePicker value={qhStart} onChange={setQhStart} ariaLabel={t('settings.notifications.quietHours.from')} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>{t('settings.notifications.quietHours.to')}</Label>
+                    <TimePicker value={qhEnd} onChange={setQhEnd} ariaLabel={t('settings.notifications.quietHours.to')} />
+                  </div>
+                </div>
 
-            <div className="space-y-1.5">
-              <Label>{t('settings.notifications.quietHours.weekdays')}</Label>
-              <div className="flex gap-2">
-                {DAY_LABEL_KEYS.map((key, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => toggleDay(idx)}
-                    className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium transition-colors ${
-                      qhDays.includes(idx)
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-secondary text-muted-foreground hover:bg-secondary/80'
-                    }`}
-                  >
-                    {t(key)}
-                  </button>
-                ))}
-              </div>
-            </div>
+                <div className="space-y-1.5">
+                  <Label>{t('settings.notifications.quietHours.weekdays')}</Label>
+                  <div className="flex gap-2">
+                    {DAY_LABEL_KEYS.map((key, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => toggleDay(idx)}
+                        className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium transition-colors ${
+                          qhDays.includes(idx)
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-secondary text-muted-foreground hover:bg-secondary/80'
+                        }`}
+                      >
+                        {t(key)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-            <Button onClick={handleSaveQuietHours} size="sm" disabled={qhMutation.isPending}>
-              <Save className="mr-1.5 h-4 w-4" />
-              {t('settings.notifications.quietHours.saveButton')}
-            </Button>
+                <Button onClick={handleSaveQuietHours} size="sm" disabled={qhMutation.isPending}>
+                  <Save className="mr-1.5 h-4 w-4" />
+                  {t('settings.notifications.quietHours.saveButton')}
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </section>
