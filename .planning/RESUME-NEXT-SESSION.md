@@ -4,6 +4,9 @@
 Nico (sie/ihr, kein erfahrener Coder, hat Claude Code + VS Code) übernimmt den Block **Content & Self-Service** (wiki/formulare/berichte/notifications). Komplettes Paket: **`.planning/nico-block/`** (README → RUNBOOK → WORKFLOW → KICKOFF → phase-01/02 → BACKLOG). Sie startet mit **Pilot phase-01 (notifications Ruhezeiten/DND)** + **phase-02 (berichte Sparkline)**.
 - **Build-+-Verify-Standard ist jetzt im Repo-`CLAUDE.md` verankert** (gilt auto für jede Session/Phase, alle).
 - **▶ Review-Auftrag Haupt-Team:** Wenn Nico „fertig" meldet (Commit-SHA + Verify-Checkliste + Screenshots) → gegen die Definition-of-Done der jeweiligen Spec prüfen. Pilot grün → Block freigeben + Backlog-Specs schreiben. Hohe Fehlerrate → Scope enger fassen.
+- **✅ Phase 01 REVIEW-GRÜN + GEMERGT** (2026-06-08, Merge-Commit `de88c3f`): notifications Demo-Mock-Handler-Fix (quiet-hours/dnd/mutes type-safe + stateful), QA grün, Settings→Benachrichtigungen läuft jetzt im Demo. **Morgen: Nico grünes Licht für Phase 02 (berichte Sparkline)** geben.
+- **Backlog aus Phase-01-Review (2 Mini-Bugs):** (1) ASCII-„oe" in bestehenden notifications-i18n-Keys („Bitte nicht stoeren" → „stören"); (2) OpenAPI-Drift: `/notifications/dnd` nur POST in Spec, Client nutzt auch GET/DELETE → spec-sync (Luke).
+- **Zwei-Terminal-Setup ab morgen:** sauber mit zwei Klonen (`.planning/two-terminal-nico-workflow.md`) — Review-Klon `KMU-Hub-review` (Port 5174) via `git clone` anlegen.
 - **Realismus:** 3–5 Phasen/Tag/Person, nicht 10. Engpass = Review-Gate.
 
 ## ⏯ AKTIVER BATCH (Stand 2026-06-08, Pause → weiter 2026-06-09) — „team-Lohn + Kommunikation-Merge"
