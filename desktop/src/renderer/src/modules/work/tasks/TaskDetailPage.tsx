@@ -7,7 +7,7 @@
  */
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import {
   ArrowLeft,
   Calendar,
@@ -62,10 +62,18 @@ export default function TaskDetailPage() {
     taskId: string
   }>()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const { data: taskData, isLoading, error, refetch } = useTask(taskId ?? '')
   const task = taskData?.task
   const effectiveProjectId = projectId ?? task?.project_id ?? ''
+
+  // Go back to wherever we came from (My Tasks, search, project board…). Falls
+  // back to the project board when the page was opened directly (no history).
+  function handleBack() {
+    if (location.key && location.key !== 'default') navigate(-1)
+    else navigate(`/work/projects/${effectiveProjectId}`)
+  }
 
   const { data: projectData } = useProject(effectiveProjectId)
   const { data: statusesData } = useProjectStatuses(effectiveProjectId)
@@ -197,15 +205,24 @@ export default function TaskDetailPage() {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Top breadcrumb bar */}
-      <div className="flex items-center gap-2 border-b border-border px-6 py-2">
+      <div className="flex items-center gap-1 border-b border-border px-6 py-2">
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => navigate(`/work/projects/${effectiveProjectId}`)}
+          onClick={handleBack}
+          aria-label={t('common.back')}
+          title={t('common.back')}
+          className="px-2"
         >
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          {project?.name ?? 'Projekt'}
+          <ArrowLeft className="h-4 w-4" />
         </Button>
+        <button
+          type="button"
+          onClick={() => navigate(`/work/projects/${effectiveProjectId}`)}
+          className="rounded px-1.5 py-1 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          {project?.name ?? t('work.settings.project')}
+        </button>
         {taskKey && (
           <>
             <span className="text-muted-foreground">/</span>
