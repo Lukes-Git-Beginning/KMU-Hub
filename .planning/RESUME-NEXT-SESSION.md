@@ -6,8 +6,10 @@ Nico (sie/ihr, kein erfahrener Coder, hat Claude Code + VS Code) übernimmt den 
 - **▶ Review-Auftrag Haupt-Team:** Wenn Nico „fertig" meldet (Commit-SHA + Verify-Checkliste + Screenshots) → gegen die Definition-of-Done der jeweiligen Spec prüfen. Pilot grün → Block freigeben + Backlog-Specs schreiben. Hohe Fehlerrate → Scope enger fassen.
 - **Realismus:** 3–5 Phasen/Tag/Person, nicht 10. Engpass = Review-Gate.
 
-## ⏯ AKTIVER BATCH (Stand 2026-06-08) — „team-Lohn + Kommunikation-Merge"
-Feinplan: `.planning/batch-kommunikation-feinplan.md`. Fünfer-Batch, direct-to-main, origin synchron.
+## ⏯ AKTIVER BATCH (Stand 2026-06-08, Pause → weiter 2026-06-09) — „team-Lohn + Kommunikation-Merge"
+Feinplan: `.planning/batch-kommunikation-feinplan.md`. Fünfer-Batch, direct-to-main, origin synchron (HEAD `42b2752`).
+
+**▶ MORGEN HIER STARTEN: Phase 4 (Posteingang scharfschalten).** ZUERST 15 Min echten Inbox-Backend-Stand verifizieren (proto/gateway/service-impl) — Lektion aus Phase 3: Notizen waren veraltet, 3/4 Items waren backend-fertig → Phase halbierte sich. Schätzung Darien gegeben: Phase 4 ~1 Session, Phase 5 ~1,5–2 Sessions, gesamt ~2,5–3 (kann auf ~2 schrumpfen wenn Inbox-Backend so komplett ist wie der Feinplan sagt). Verifikations-Setup unten (`tsconfig.pNcheck.json` + `scripts/qa-*.mjs` gegen `npm run dev` :5173).
 - ✅ **Phase 1** Lohn-Stammdaten am Mitarbeiterprofil (`520b77c`)
 - ✅ **Phase 2** Modul-Merge chat+kommunikation → ein Modul, Umschalter Team|Posteingang (`b242dd0`)
 - ✅ **Phase 3** Team-Chat scharf — KOMPLETT. mark-read/Member-Panel/Inline-Edit/Raw-Key-Fix (`f3d2364`) + Volltextsuche (`8b6a3a0`) + **Join/Leave-UI** (`3c05079`, echt) + **Mentions-Inbox** (`dcfa12b`, echt — Backend war doch da) + **File-Upload** (`7c0c7ff`, echt — `POST /api/v1/files/upload` mit `message_id`) + **Reactions** (`2ac5893`, session-persistenter Store, Backend wirklich nicht verdrahtet → backend-gaps). Befund: nur Reactions ist echter Backend-Gap; Mentions+File-Upload waren backend-fertig.
