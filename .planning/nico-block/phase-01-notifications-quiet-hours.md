@@ -1,52 +1,40 @@
-# Phase 01 (Pilot) — Notifications: Ruhezeiten & „Nicht stören"-UI
+# Phase 01 (Pilot) — Notifications-Einstellungen im Demo-Modus lauffähig machen
 
-> **Modul:** notifications · **Risiko:** niedrig · **Backend:** vollständig vorhanden (OpenAPI + MSW-Handler + Hooks) — reine FE-Arbeit, kein neuer Handler nötig.
-> Dies ist eine **Pilot-Phase**: bewusst gut abgesteckt, damit der Workflow einmal sauber durchläuft.
+> **Modul:** notifications · **Risiko:** niedrig · **Art:** Demo-Mock-Handler-Fix (kein neues UI).
+> **Wichtig (korrigiert 2026-06-08):** Die UI existiert bereits — `desktop/src/renderer/src/modules/settings/tabs/NotificationSettingsTab.tsx` (erreichbar via Einstellungen → „Benachrichtigungen", eingebunden in `SettingsPage.tsx`). Sie hat DND-Toggle, Quiet Hours (Aktiv-Toggle + Start/Ende + Wochentage + Save) und Muted-Resources. **Nicht** nochmal bauen, **kein** zweiter Einstiegspunkt (kein Duplikat).
+> Das Problem: Im **Demo-Modus** funktioniert dieses Tab nicht — die Mock-Handler liefern ein falsches Schema und es fehlen die Schreib-Endpunkte. Genau das reparierst du.
 
 ## Ziel
-Im Benachrichtigungs-Center (`/notifications`) einen neuen Einstellungs-Abschnitt **„Ruhezeiten & Nicht stören"** ergänzen:
-- **Nicht stören (DND)**: ein Toggle, der DND an/aus schaltet (zeigt aktuellen Status).
-- **Ruhezeiten (Quiet Hours)**: Start-/End-Uhrzeit (z.B. 22:00–07:00) aktivierbar, in der keine Benachrichtigungen stören.
+Den bestehenden `NotificationSettingsTab` im **Demo-Modus** voll lauffähig machen: Quiet-Hours- + DND-Daten laden korrekt, und Speichern/Umschalten funktioniert ohne Netzwerkfehler.
 
-Alles ist FE-seitig zu verdrahten — die Hooks + der Demo-Handler liefern schon Daten.
+## Der konkrete Bug (von Nicos Discovery, bitte selbst gegenprüfen)
+- **Schema-Mismatch:**
+  - Handler `mocks/handlers/notifications.ts` (~Z. 219–232) liefert `{enabled, start, end, timezone, override_urgent}` bzw. für DND `{enabled, until}`.
+  - Client `api/notification-client.ts` (~Z. 13–24) erwartet aber `{quiet_hours: {start_time, end_time, is_active, days, timezone}}` bzw. für DND `{is_active, expires_at}`.
+- **Fehlende Endpunkte:** Für quiet-hours und dnd gibt es nur GET — **PUT/POST/DELETE fehlen** → die Mutations (`useUpdateQuietHours`, `useEnableDND`, `useDisableDND`, mute/unmute) werfen im Demo Network-Errors.
 
-## Ist-Stand (was schon da ist)
-- Seite: `desktop/src/renderer/src/modules/notifications/NotificationCenter.tsx`. Darin die Komponente **`PreferencesPanel`** (ca. Zeile 255–350) mit den bestehenden Event-Typ-Checkboxen (in_app / desktop_push je Modul).
-- Fertige Hooks in `desktop/src/renderer/src/api/hooks/useNotifications.ts` (ca. Z. 220–266):
-  - `useQuietHours()` / `useUpdateQuietHours()`
-  - `useDNDStatus()` / `useEnableDND()` / `useDisableDND()`
-- Demo-Handler liefert dafür Daten: `desktop/src/renderer/src/mocks/handlers/notifications.ts` (quiet-hours + dnd-Endpunkte vorhanden). **Kein** neuer Handler nötig.
+## Aufgabe
+1. **Wahrheit feststellen:** Lies `api/notification-client.ts` (die genauen Request-/Response-Typen) + die zugehörigen Hooks in `api/hooks/useNotifications.ts` + die OpenAPI-Typen in `api/types.ts` (such nach `notifications/quiet-hours`, `notifications/dnd`, `notifications/mutes`). **Die Client-/OpenAPI-Typen sind die Wahrheit** — der Handler muss sich danach richten, nicht umgekehrt.
+2. **GET-Handler korrigieren:** Quiet-Hours + DND so zurückgeben, wie der Client sie erwartet (Feldnamen exakt: `start_time`/`end_time`/`is_active`/`days`/`timezone` bzw. `is_active`/`expires_at`).
+3. **Schreib-Endpunkte ergänzen:** PUT/POST/DELETE (je nachdem was die Hooks aufrufen — schau in `notification-client.ts` welche Methode + Pfad) für quiet-hours, dnd (enable/disable) und mutes. **Stateful im Handler** (ein Modul-lokales Objekt im Speicher), damit ein Save sichtbar erhalten bleibt, solange die App läuft — Muster: wie andere Handler mit veränderbarem State in `mocks/handlers/` arbeiten.
+4. **Keine UI-Änderung** nötig, außer es fällt ein echter Bug im Tab auf (dann minimal + dokumentieren).
 
-## Muster-Vorlage (im gleichen Stil bauen)
-Die bestehenden Preference-Checkboxen in **`PreferencesPanel`** (`NotificationCenter.tsx` ~Z. 292–342) zeigen exakt das Pattern: Hook lesen → Wert anzeigen → bei Änderung Mutation aufrufen. Bau den neuen Abschnitt genauso. Für den Toggle das vorhandene Switch-/Toggle-Muster aus `components/ui/` verwenden (oder den Toggle-Stil, der im Repo schon für Schalter genutzt wird — z.B. in `KommunikationSettingsPanel.tsx` der `role="switch"`-Button).
+## Muster-Vorlage
+Andere Handler in `mocks/handlers/` zeigen den MSW-Stil (`http.get/put/post/delete`, `HttpResponse.json`). Ein Beispiel für einen Handler, der geschriebene Werte im Speicher hält + zurückgibt, findest du in den vorhandenen Handlern (z.B. inbox/chat) — gleiches Muster für quiet-hours/dnd.
 
-## Schritte
-1. `git pull`. App läuft (`npm run dev`), öffne `/notifications` → „Einstellungen" sichtbar.
-2. In `PreferencesPanel` einen neuen Abschnitt unter den Event-Typ-Checkboxen einfügen: Überschrift „Ruhezeiten & Nicht stören".
-3. **DND-Toggle**: `useDNDStatus()` lesen → Toggle-Zustand. onChange → `useEnableDND()` bzw. `useDisableDND()`.
-4. **Quiet Hours**: `useQuietHours()` lesen → ein Aktiv-Toggle + zwei `<input type="time">` (Start/Ende). Änderungen → `useUpdateQuietHours()` (mit den Feldern, die der Hook erwartet — schau in `useNotifications.ts` + `api/notification-client.ts` nach den genauen Feldnamen).
-5. Lade-/Leerzustand sauber behandeln (während Hook lädt: nichts kaputt anzeigen).
-6. i18n: neue Texte als Keys unter `notifications.*` in alle 4 Sprachen (de/en/fr/it).
-7. Verifizieren (siehe unten), commit, push, „fertig" melden.
-
-## i18n-Keys (neu, Präfix `notifications.`)
-Lege passende Keys an, z.B.:
-- `notifications.quietHours.title` = „Ruhezeiten & Nicht stören"
-- `notifications.quietHours.dnd` = „Nicht stören"
-- `notifications.quietHours.dndDesc` = „Alle Benachrichtigungen vorübergehend stummschalten"
-- `notifications.quietHours.enable` = „Ruhezeiten aktiv"
-- `notifications.quietHours.from` = „Von" · `notifications.quietHours.to` = „Bis"
-(EN/FR/IT entsprechend.) Interpolation `{var}`, **nie** `{{var}}`.
-
-## Demo-Handler
-**Keiner nötig** — `mocks/handlers/notifications.ts` bedient quiet-hours + dnd bereits.
+## i18n
+Keine neuen Keys nötig (UI existiert, Keys unter `settings.notifications.*` sind da). Falls du doch Text ergänzt → 4 Sprachen, `{var}`.
 
 ## Definition-of-Done
-- [ ] Neuer Abschnitt „Ruhezeiten & Nicht stören" im PreferencesPanel sichtbar.
-- [ ] DND-Toggle schaltet (Status wird gelesen + geändert, keine Konsolenfehler).
-- [ ] Quiet-Hours: Aktiv-Toggle + Start/Ende-Zeit, Änderung wird gespeichert (Mutation feuert).
-- [ ] Alle Texte i18n in 4 Sprachen, keine Raw-Keys sichtbar.
-- [ ] Gescopter Typecheck grün, QA-Script grün, Screenshot @1440px sauber, keine pageErrors.
+- [ ] Einstellungen → „Benachrichtigungen" lädt im Demo **echte** Quiet-Hours- + DND-Werte (keine leeren/undefined-Felder).
+- [ ] DND an/aus schalten funktioniert ohne Konsolenfehler (Status ändert sich sichtbar).
+- [ ] Quiet Hours: Zeit/Aktiv/Wochentage ändern + **Speichern** funktioniert ohne Netzwerkfehler; nach Speichern bleibt der Wert erhalten (stateful Handler).
+- [ ] Muted-Resources hinzufügen/entfernen funktioniert (falls die UI das anbietet).
+- [ ] Keine pageErrors, keine Raw-Keys.
+- [ ] Gescopter Typecheck grün, QA-Script grün, Screenshot @1440px zeigt das gefüllte, funktionierende Tab.
 
 ## QA-Hinweis
-Schreib ein `desktop/scripts/qa-notif-quiet-hours.mjs` (kopiere ein bestehendes `qa-*.mjs` als Vorlage): App auf `/#/notifications` öffnen → „Einstellungen"-Tab → prüfen, dass „Ruhezeiten" sichtbar ist, DND-Toggle klickbar ist, Zeit-Inputs vorhanden sind, und der Raw-Key-Scan + pageErrors leer sind.
+`desktop/scripts/qa-notif-settings.mjs` (Vorlage aus bestehendem `qa-*.mjs`): App auf `/#/settings` öffnen → Tab „Benachrichtigungen" anklicken → prüfen, dass Quiet-Hours-Felder befüllt sind, DND-Toggle klickbar ist und ein Save **keinen** pageError wirft. Screenshot des Tabs. (Den genauen Settings-Routen-/Tab-Selektor im Code nachsehen.)
+
+## Hinweis fürs Review
+Dieser Fix lässt auch das **schon vorhandene** Settings-Tab im Demo funktionieren — also Mehrwert über die Phase hinaus. Backend selbst ist real vorhanden (OpenAPI + internal/notification); nur die Demo-Mock-Schicht hing hinterher.

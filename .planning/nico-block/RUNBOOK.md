@@ -60,7 +60,7 @@ Diese Regeln gelten IMMER. Wenn Claude etwas vorschlägt, das dagegen verstößt
 ## 2. Der Phasen-Workflow (so läuft JEDE Phase ab)
 
 1. **Pull**: `git pull` (Stand aktuell holen).
-2. **Spec lesen**: Öffne `.planning/nico-block/phase-XX-<name>.md`. Sie nennt Ziel, Dateien, Muster-Vorlage, i18n-Keys, Demo-Handler-Bedarf, Definition-of-Done (DoD).
+2. **Spec lesen + gegen Ist-Stand prüfen**: Öffne `.planning/nico-block/phase-XX-<name>.md`. Sie nennt Ziel, Dateien, Muster-Vorlage, i18n-Keys, Demo-Handler-Bedarf, Definition-of-Done (DoD). **Die Spec ist eine Momentaufnahme** — das Repo entwickelt sich schnell (Luke pusht in Wellen, teils 100+ Commits). Bevor du baust: kurz verifizieren, dass die Annahmen der Spec noch stimmen (existiert die UI schon? matchen die Hooks/Schemas?). **Bei Abweichung: melden, nicht blind bauen** (so wie bei Phase 01 geschehen — das ist genau richtig).
 3. **Muster ansehen**: Die Spec verweist auf ein bereits gebautes Modul als Vorlage. Schau es dir an — du baust im gleichen Stil.
 4. **Bauen** mit Claude Code: Gib Claude die Spec als Kontext („Wir arbeiten Phase XX ab, hier ist die Spec: …"). Arbeite die DoD-Punkte ab.
 5. **i18n** in alle 4 Sprachen (Claude kann ein kleines Script schreiben wie die `add-*-i18n.mjs` in `desktop/scripts/`).
