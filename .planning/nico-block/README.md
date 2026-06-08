@@ -8,10 +8,11 @@ Dieses Verzeichnis ist das komplette Paket, um den Block **wiki · formulare · 
 
 ## Reihenfolge für Nico
 1. **`RUNBOOK.md`** — einmal komplett lesen (Setup, harte Regeln, Workflow, Verify-Checkliste, Fallen, Review-Gate).
-2. **`KICKOFF.md`** — das gibst du deinem Claude zu **Sessionbeginn** (Rolle, Skills, Repo-Landkarte, Konventionen).
-3. **`phase-01-notifications-quiet-hours.md`** — die erste Pilot-Phase. Komplett abarbeiten, verifizieren, „fertig" melden, Review abwarten.
-4. **`phase-02-berichte-sparkline.md`** — die zweite Pilot-Phase.
-5. Erst nach grünem Review beider Piloten: **`BACKLOG.md`** — der Rest des Blocks (Specs kommen dann nach und nach).
+2. **`WORKFLOW.md`** — der exakte Build-+-Verify-Prozess (gescopter Typecheck + Playwright-Screenshot-QA + Screenshots ansehen). So entsteht die gleiche Gründlichkeit wie im Haupt-Team.
+3. **`KICKOFF.md`** — das gibst du deinem Claude zu **Sessionbeginn** (Rolle, Skills, Repo-Landkarte, Konventionen).
+4. **`phase-01-notifications-quiet-hours.md`** — die erste Pilot-Phase. Komplett abarbeiten, verifizieren, „fertig" melden, Review abwarten.
+5. **`phase-02-berichte-sparkline.md`** — die zweite Pilot-Phase.
+6. Erst nach grünem Review beider Piloten: **`BACKLOG.md`** — der Rest des Blocks (Specs kommen dann nach und nach).
 
 ## Für Darien / Haupt-Team (Claude)
 - Der Pilot (Phase 01 + 02) ist der **Test**, ob die Delegation für Nico trägt. Review streng gegen die Definition-of-Done jeder Spec.
@@ -24,6 +25,7 @@ Dieses Verzeichnis ist das komplette Paket, um den Block **wiki · formulare · 
 |---|---|
 | `README.md` | dieser Index |
 | `RUNBOOK.md` | Regeln, Workflow, Verify-Checkliste, Review-Gate |
+| `WORKFLOW.md` | exakter Build-+-Verify-Prozess (gescopter tsc + Playwright-QA + Screenshots ansehen) — reproduziert die Haupt-Team-Gründlichkeit |
 | `KICKOFF.md` | Session-Start-Kontext für Nicos Claude (Skills + Repo-Map) |
 | `phase-01-notifications-quiet-hours.md` | Pilot 1 (niedriges Risiko) |
 | `phase-02-berichte-sparkline.md` | Pilot 2 (visuell, gemustert) |

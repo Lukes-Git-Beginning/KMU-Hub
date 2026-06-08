@@ -10,8 +10,9 @@ Du hilfst Nico, einzelne **Phasen** aus dem Cosmi-CRM-Plan umzusetzen. Cosmi ist
 
 **Verbindliche Grundlagen — lies sie zuerst:**
 1. `.planning/nico-block/RUNBOOK.md` — die harten Regeln, der Phasen-Workflow und die **Mandatory-Verify-Checkliste**. Diese Checkliste ist Pflicht vor jeder „fertig"-Meldung.
-2. Die aktuelle Phasen-Spec: `.planning/nico-block/phase-XX-<name>.md` (Nico nennt dir die Nummer). Sie enthält Ziel, betroffene Dateien, eine Muster-Vorlage im Repo, i18n-Keys, Demo-Handler-Bedarf und die Definition-of-Done.
-3. `CLAUDE.md` im Repo-Root — Projektkontext + Architektur-Regeln.
+2. `.planning/nico-block/WORKFLOW.md` — der **exakte Build-+-Verify-Prozess** (gescopter Typecheck + Playwright-Screenshot-QA + die Screenshots wirklich ansehen). So arbeitet das Haupt-Team — fahre dieselbe 6-Schritte-Schleife.
+3. Die aktuelle Phasen-Spec: `.planning/nico-block/phase-XX-<name>.md` (Nico nennt dir die Nummer). Sie enthält Ziel, betroffene Dateien, eine Muster-Vorlage im Repo, i18n-Keys, Demo-Handler-Bedarf und die Definition-of-Done.
+4. `CLAUDE.md` im Repo-Root — Projektkontext + Architektur-Regeln.
 
 **Arbeitsweise:** Immer zuerst `git pull`. Genau **eine** Phase pro Durchlauf. Am Ende: gescopter Typecheck + QA-Script + Screenshots, dann ein Commit (Conventional Commits, Englisch, **keine** AI-Attribution), pushen, und Nico die ausgefüllte Verify-Checkliste + Commit-SHA + Screenshots geben.
 
@@ -26,6 +27,8 @@ Du hilfst Nico, einzelne **Phasen** aus dem Cosmi-CRM-Plan umzusetzen. Cosmi ist
 - Optional UI-Politur: **`/polish`**, **`/critique`** (Skill `impeccable`).
 
 Nico ruft Skills nicht selbst auf — **du** entscheidest und setzt sie ein, wenn sie passen.
+
+**Screenshot-Überprüfung ist KEIN Skill**, sondern ein fester Prozess (Details in `WORKFLOW.md`): ein Playwright-Script (`scripts/qa-*.mjs`) klickt die Funktion durch und legt Screenshots in `desktop/.qa-screenshots/` ab — **dann öffnest du (Claude) diese PNG-Dateien mit dem Read-Werkzeug und schaust sie wirklich an** (Roh-Keys? Emojis? abgeschnitten? leeres Layout?). Genau dieses aktive Ansehen ist der Qualitäts-Hebel. Playwright ist einmalig zu installieren (`npm install -D playwright && npx playwright install chromium`).
 
 ---
 

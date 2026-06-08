@@ -21,8 +21,13 @@
    npm run dev         # startet Vite auf http://localhost:5173 — lass das Fenster offen
    ```
    Im Browser `http://localhost:5173` öffnen → die App läuft im Demo-Modus (ohne Backend).
-4. **Node-Check**: `node --version` (muss vorhanden sein, für i18n-Scripts + QA).
-5. **Lies einmal** zur Orientierung: `CLAUDE.md` (Repo-Root) + diese Datei + deine erste Phasen-Spec.
+4. **Playwright** (für die Screenshot-QA, einmalig, im Ordner `desktop/`):
+   ```
+   npm install -D playwright
+   npx playwright install chromium
+   ```
+5. **Node-Check**: `node --version` (muss vorhanden sein, für i18n-Scripts + QA).
+6. **Lies einmal** zur Orientierung: `CLAUDE.md` (Repo-Root) + diese Datei + **`WORKFLOW.md`** (der Verify-Prozess) + deine erste Phasen-Spec.
 
 ### Welche Claude-Code-Skills du nutzt
 - **`frontend-design`** — wird automatisch geladen, sorgt für Cosmi-Design-Qualität. Nichts tun.
