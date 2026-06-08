@@ -209,6 +209,13 @@ export default function AuslastungReport({ projectId: _projectId }: AuslastungRe
 
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-auto p-4 space-y-6">
+        {/* Preview notice — capacity/utilization aggregates are not yet provided
+            by the backend; this is a design preview with sample data. */}
+        <div className="flex items-start gap-2.5 rounded-lg border border-border bg-secondary/40 px-4 py-2.5">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <p className="text-xs leading-relaxed text-muted-foreground">{t('work.utilization.previewBanner')}</p>
+        </div>
+
         {/* Summary cards */}
         <div className="grid grid-cols-3 gap-4">
           <div className="rounded-lg border border-border bg-card p-3">

@@ -20,7 +20,10 @@ import {
   ChevronRight,
   Copy,
   LayoutTemplate,
+  LayoutGrid,
+  Table2,
 } from 'lucide-react'
+import ProjectPortfolioView from './ProjectPortfolioView'
 import { cn } from '@/lib'
 import {
   useProjects,
@@ -50,6 +53,7 @@ export default function ProjectsListPage() {
   const [page, setPage] = useState(1)
   const [createOpen, setCreateOpen] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
+  const [viewMode, setViewMode] = useState<'cards' | 'portfolio'>('cards')
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false)
   const [templateName, setTemplateName] = useState('')
   const [templateKey, setTemplateKey] = useState('')
@@ -66,7 +70,7 @@ export default function ProjectsListPage() {
 
   const { data, isLoading, error, refetch } = useProjects({
     page,
-    page_size: PAGE_SIZE,
+    page_size: viewMode === 'portfolio' ? 100 : PAGE_SIZE,
     search: debouncedSearch || undefined,
     templates_only: showTemplates || undefined,
   })
@@ -169,6 +173,34 @@ export default function ProjectsListPage() {
           <LayoutTemplate className="h-3.5 w-3.5" />
           {t('work.projects.templates')}
         </Button>
+
+        {/* View toggle: cards | portfolio */}
+        <div className="ml-auto flex items-center rounded-md border border-border">
+          <button
+            type="button"
+            onClick={() => setViewMode('cards')}
+            title={t('work.portfolio.viewCards')}
+            className={cn(
+              'flex h-8 items-center gap-1 rounded-l-md px-2.5 text-xs transition-colors',
+              viewMode === 'cards' ? 'bg-secondary font-medium text-foreground' : 'text-muted-foreground hover:bg-secondary/50'
+            )}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+            {t('work.portfolio.viewCards')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('portfolio')}
+            title={t('work.portfolio.viewPortfolio')}
+            className={cn(
+              'flex h-8 items-center gap-1 rounded-r-md px-2.5 text-xs transition-colors',
+              viewMode === 'portfolio' ? 'bg-secondary font-medium text-foreground' : 'text-muted-foreground hover:bg-secondary/50'
+            )}
+          >
+            <Table2 className="h-3.5 w-3.5" />
+            {t('work.portfolio.viewPortfolio')}
+          </button>
+        </div>
       </div>
 
       {/* Project cards */}
@@ -191,6 +223,8 @@ export default function ProjectsListPage() {
           }
           action={!debouncedSearch && !showTemplates ? { label: t('work.projects.createFirst'), onClick: () => setCreateOpen(true) } : undefined}
         />
+      ) : viewMode === 'portfolio' ? (
+        <ProjectPortfolioView projects={projects} />
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">

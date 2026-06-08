@@ -246,7 +246,7 @@ function ProjectBoardView() {
       {/* Budget section (shown for list and kanban views) */}
       {(view === 'list' || view === 'kanban') && (
         <BudgetSection
-          budget={50000}
+          projectId={id ?? ''}
           projectName={project.name}
         />
       )}

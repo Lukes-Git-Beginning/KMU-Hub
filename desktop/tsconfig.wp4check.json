@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/global.d.ts",
+    "src/renderer/src/vite-env.d.ts",
+    "src/renderer/src/i18n/i18next.d.ts",
+    "src/renderer/src/modules/work/projects/ProjectPortfolioView.tsx",
+    "src/renderer/src/modules/work/projects/ProjectsListPage.tsx",
+    "src/renderer/src/modules/work/projects/ProjectDetailPage.tsx",
+    "src/renderer/src/modules/work/components/BudgetSection.tsx",
+    "src/renderer/src/modules/work/components/AuslastungReport.tsx",
+    "src/renderer/src/modules/work/tasks/TaskDetailPage.tsx"
+  ]
+}

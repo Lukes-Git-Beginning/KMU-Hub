@@ -18,58 +18,73 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib'
 import { formatCurrency } from '@/lib'
-
-// ---------------------------------------------------------------------------
-// Mock data
-// ---------------------------------------------------------------------------
-
-interface MockTimeData {
-  person: string
-  hours: number
-  rate: number
-}
-
-// TODO: Replace MOCK_TIME_DATA with API call — Backend needed: GET /api/v1/projects/{id}/time-entries?grouped_by=person
-// This mock provides per-person time entry data for the budget/hours breakdown.
-const MOCK_TIME_DATA: MockTimeData[] = [
-  { person: 'Anna Müller', hours: 64, rate: 150 },
-  { person: 'Thomas Fischer', hours: 48, rate: 140 },
-  { person: 'Max Schmidt', hours: 32, rate: 130 },
-  { person: 'Sara Weber', hours: 24, rate: 145 },
-]
+import { useTasks } from '@/api/hooks/useTasks'
+import { useWorkSettingsStore } from '@/stores/workSettings'
 
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
 
 interface BudgetSectionProps {
-  /** Project's planned budget. Falls back to 50000 if not set. */
-  budget?: number
+  /** Project whose tasks drive the budget estimate. */
+  projectId: string
   /** Project name for display. */
   projectName?: string
+}
+
+interface TaskLike {
+  estimated_hours?: number
+  assignee_name?: string
+  status_name?: string
+  is_closed?: boolean
+  completed_at?: string
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
+/**
+ * Budget is derived (no budget field on the backend yet): planned = sum of task
+ * effort estimates × hourly rate (work settings); actual = effort of completed
+ * tasks × rate. Honest approximation, flagged in the UI. Backend gap tracked.
+ */
 export default function BudgetSection({
-  budget = 50000,
+  projectId,
   projectName: _projectName,
 }: BudgetSectionProps) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(true)
+  const rate = useWorkSettingsStore((s) => s.defaultHourlyRate)
+  const { data } = useTasks({ project_id: projectId, include_completed: true, page_size: 200 })
 
-  // Calculate actual costs from mock time entries
-  const { totalCosts, totalHours, breakdownRows } = useMemo(() => {
-    const rows = MOCK_TIME_DATA.map((entry) => ({
-      ...entry,
-      total: entry.hours * entry.rate,
-    }))
-    const costs = rows.reduce((sum, r) => sum + r.total, 0)
-    const hours = rows.reduce((sum, r) => sum + r.hours, 0)
-    return { totalCosts: costs, totalHours: hours, breakdownRows: rows }
-  }, [])
+  const { budget, plannedHours, totalCosts, totalHours, breakdownRows } = useMemo(() => {
+    const tasks = (data?.tasks ?? []) as TaskLike[]
+    const CLOSED_NAMES = ['erledigt', 'fertig', 'abgeschlossen', 'done', 'closed', 'geschlossen']
+    const byPerson = new Map<string, number>()
+    let planned = 0
+    let doneHrs = 0
+    for (const task of tasks) {
+      const hours = task.estimated_hours ?? 0
+      if (hours <= 0) continue
+      planned += hours
+      const statusClosed = task.status_name ? CLOSED_NAMES.includes(task.status_name.toLowerCase()) : false
+      const isDone = task.is_closed === true || Boolean(task.completed_at) || statusClosed
+      if (isDone) doneHrs += hours
+      const person = task.assignee_name || t('work.tasks.unassigned')
+      byPerson.set(person, (byPerson.get(person) ?? 0) + hours)
+    }
+    const rows = [...byPerson.entries()]
+      .map(([person, hours]) => ({ person, hours, rate, total: hours * rate }))
+      .sort((a, b) => b.hours - a.hours)
+    return {
+      budget: planned * rate,
+      plannedHours: planned,
+      totalCosts: doneHrs * rate,
+      totalHours: doneHrs,
+      breakdownRows: rows,
+    }
+  }, [data?.tasks, rate, t])
 
   const remaining = budget - totalCosts
   const percentage = budget > 0 ? (totalCosts / budget) * 100 : 0
@@ -106,6 +121,12 @@ export default function BudgetSection({
           <Wallet className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-medium text-foreground">
             {t('work.budget.title')}
+          </span>
+          <span
+            className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+            title={t('work.budget.estimatedHint')}
+          >
+            {t('work.budget.estimated')}
           </span>
           {/* Compact status when collapsed */}
           {!expanded && (
@@ -232,15 +253,15 @@ export default function BudgetSection({
                 </span>
               </div>
             ))}
-            {/* Total row */}
+            {/* Total row — planned effort, consistent with the per-person rows */}
             <div className="grid grid-cols-[1fr_70px_80px_90px] gap-2 items-center px-3 py-2 border-t-2 border-border bg-secondary/30">
               <span className="text-xs font-semibold text-foreground">{t('work.budget.total')}</span>
               <span className="text-xs font-semibold text-foreground text-right font-mono">
-                {totalHours.toFixed(0)}h
+                {plannedHours.toFixed(0)}h
               </span>
               <span />
               <span className="text-xs font-semibold text-foreground text-right">
-                {formatCurrency(totalCosts)}
+                {formatCurrency(budget)}
               </span>
             </div>
           </div>
