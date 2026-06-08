@@ -4,6 +4,7 @@ import {
   MessageCircle,
   Bell,
   Star,
+  Check,
 } from 'lucide-react'
 import type { InboxMessage, InboxChannel } from '@/api/inbox-types'
 import { formatDate } from '@/lib/format'
@@ -58,12 +59,18 @@ interface ConversationListItemProps {
   message: InboxMessage
   isSelected: boolean
   onSelect: (id: string) => void
+  selectionMode?: boolean
+  isChecked?: boolean
+  onToggleCheck?: (id: string) => void
 }
 
 export function ConversationListItem({
   message: msg,
   isSelected,
   onSelect,
+  selectionMode = false,
+  isChecked = false,
+  onToggleCheck,
 }: ConversationListItemProps) {
   const { t } = useTranslation()
   const ch = channelIcon[msg.channel]
@@ -72,15 +79,28 @@ export function ConversationListItem({
 
   return (
     <button
-      onClick={() => onSelect(msg.id)}
+      onClick={() => (selectionMode ? onToggleCheck?.(msg.id) : onSelect(msg.id))}
       className={`flex w-full items-start gap-3 px-3 py-3 text-left transition-colors border-b border-border/50 ${
-        isSelected
+        isSelected && !selectionMode
           ? 'bg-primary/5'
-          : isUnread
-            ? 'bg-accent/30 hover:bg-accent/50'
-            : 'hover:bg-accent/50'
+          : isChecked
+            ? 'bg-primary/10'
+            : isUnread
+              ? 'bg-accent/30 hover:bg-accent/50'
+              : 'hover:bg-accent/50'
       }`}
     >
+      {/* Selection checkbox */}
+      {selectionMode && (
+        <div
+          className={`mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+            isChecked ? 'border-primary bg-primary text-primary-foreground' : 'border-border'
+          }`}
+        >
+          {isChecked && <Check className="h-3 w-3" />}
+        </div>
+      )}
+
       {/* Avatar */}
       <div className="relative shrink-0">
         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-light text-xs font-medium text-primary">

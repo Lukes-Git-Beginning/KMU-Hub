@@ -226,7 +226,13 @@ Strategie: Cosmi macht Vorkette (Angebot→Zahlungseingang) eigenständig, über
 - **✅ File-Upload im Chat (FE verdrahtet):** `POST /api/v1/files/upload` (multipart, nimmt `channel_id` + optional `message_id`) + `GET /{id}/files` + download/thumbnail existieren, `MessageInfo.files` (FileInfo) ist in proto+OpenAPI. FE lädt jetzt beim Senden via `useChatFileUpload` mit `message_id` hoch und rendert `message.files`. **Luke (optional/nice):** echter Storage/Virus-Scan/Thumbnail-Gen statt Stub; `GetFileThumbnailURL` für Bild-Previews verdrahten.
 - **Gruppen-DMs, Pin/Lesezeichen, Channel-Notification-Settings:** im chat-proto nicht vorhanden — Neubau.
 - **✅ Mentions-Inbox (FE verdrahtet):** `GET /api/v1/messages/mentions` (`GetUserMentions`) + `UserMentionsResponse` in OpenAPI. FE-Hook `useUserMentions` + `MentionsPanel` + Demo-Handler gebaut. Real out-of-the-box.
-- **Posteingang (Inbox):** Demo-Handler fehlen für `snooze`, `claim`, `teams` (CRUD), `rules` (CRUD) — echte Endpoints existieren. Zusätzlich Backend-Neubau: Conversation-**Status** (offen/wartend/gelöst/geschlossen), echtes **Threading** (mehrere Msg/Conversation), **Tags-CRUD**, **Forward**, **SLA-Tracking**.
+- **✅ Posteingang (Inbox) scharfgeschaltet (Phase 4, 2026-06-08, FE):** Snooze/Claim/Assign verdrahtet (SnoozePopover/Assignee-Picker via `useEmployees`), Bulk-Toolbar (BulkMarkRead/Archive), Team-Postfächer + Routing-Regeln in `KommunikationSettingsPanel` (FÜR-ALLE, tenant-scoped). **Demo-Handler (MSW) ergänzt** für `snooze`/`unsnooze`/`claim` + Team-Inbox-CRUD+Members + Routing-Rules-CRUD+test (zustandsbehaftet). Echte gRPC-Endpoints existieren — Luke verdrahtet Gateway/Service falls noch offen.
+  - **Backend-Neubau nötig (FE läuft mock-first als verdrahtungs-bereites Overlay):**
+    - **Inbox-Status** (offen/wartend/gelöst/geschlossen): kein Feld in `InboxMessage`/proto. FE-Overlay `stores/inboxStatus.ts` (persistiert). → `status`-Feld + Filter im `ListMessagesRequest` + Set-Status-RPC.
+    - **Threading** (mehrere Msg/Conversation): kein Thread-RPC. FE synthetisiert Seed + persistiert Replies/Notizen in `stores/inboxThread.ts`. → `ListThreadMessages`/Conversation-Modell.
+    - **Tags-CRUD:** `repeated string tags` existiert, aber kein Add/Remove-RPC. FE-Overlay `stores/inboxTags.ts`. → `AddTag`/`RemoveTag`-RPC.
+    - **Forward:** kein RPC. FE = `ForwardDialog` (Empfänger+Notiz) mit Erfolgs-Toast. → `ForwardMessage`-RPC.
+    - **SLA-Tracking:** noch nicht modelliert.
 - **Audio/Video aus Chat + Bots/Webhooks/Slash-Commands:** keine RPCs — kompletter Neubau (Phase 5 baut UI-Shell/Bridge).
 
 # Hinweis zur Arbeitsweise (Claude = FE, Luke = BE)

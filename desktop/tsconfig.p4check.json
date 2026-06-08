@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/global.d.ts",
+    "src/renderer/src/vite-env.d.ts",
+    "src/renderer/src/i18n/i18next.d.ts",
+    "src/renderer/src/mocks/handlers/inbox.ts",
+    "src/renderer/src/stores/inboxStatus.ts",
+    "src/renderer/src/stores/inboxTags.ts",
+    "src/renderer/src/stores/inboxThread.ts",
+    "src/renderer/src/modules/kommunikation/ForwardDialog.tsx",
+    "src/renderer/src/modules/kommunikation/ConversationThreadHeader.tsx",
+    "src/renderer/src/modules/kommunikation/ConversationThread.tsx",
+    "src/renderer/src/modules/kommunikation/ConversationListItem.tsx",
+    "src/renderer/src/modules/kommunikation/ConversationList.tsx",
+    "src/renderer/src/modules/kommunikation/KommunikationSettingsPanel.tsx"
+  ]
+}

@@ -171,6 +171,102 @@ const inboxMessages = [
 ]
 
 // ---------------------------------------------------------------------------
+// Team inboxes — stateful mock store
+// ---------------------------------------------------------------------------
+
+interface MockTeamInbox {
+  id: string
+  name: string
+  description?: string
+  assignment_mode: 'manual' | 'round_robin'
+  visibility: 'open' | 'private'
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+const teamInboxes: MockTeamInbox[] = [
+  {
+    id: 'team-sales',
+    name: 'Vertrieb',
+    description: 'Eingehende Verkaufsanfragen und Angebote',
+    assignment_mode: 'round_robin',
+    visibility: 'open',
+    created_by: IDS.users.thomas,
+    created_at: daysAgo(40),
+    updated_at: daysAgo(3),
+  },
+  {
+    id: 'team-support',
+    name: 'Support',
+    description: 'Technische Anfragen und Tickets',
+    assignment_mode: 'manual',
+    visibility: 'open',
+    created_by: IDS.users.markus,
+    created_at: daysAgo(38),
+    updated_at: daysAgo(1),
+  },
+]
+
+const teamMembers: Record<string, { team_inbox_id: string; user_id: string; role: 'admin' | 'member'; created_at: string }[]> = {
+  'team-sales': [
+    { team_inbox_id: 'team-sales', user_id: IDS.users.thomas, role: 'admin', created_at: daysAgo(40) },
+    { team_inbox_id: 'team-sales', user_id: IDS.users.julia, role: 'member', created_at: daysAgo(20) },
+  ],
+  'team-support': [
+    { team_inbox_id: 'team-support', user_id: IDS.users.markus, role: 'admin', created_at: daysAgo(38) },
+    { team_inbox_id: 'team-support', user_id: IDS.users.stefan, role: 'member', created_at: daysAgo(15) },
+  ],
+}
+
+let nextTeamId = 1
+
+// ---------------------------------------------------------------------------
+// Routing rules — stateful mock store
+// ---------------------------------------------------------------------------
+
+interface MockRoutingRule {
+  id: string
+  name: string
+  channel?: 'email' | 'chat' | 'notification'
+  conditions: unknown
+  actions: { type: string; config: Record<string, unknown> }[]
+  priority: number
+  is_active: boolean
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+const routingRules: MockRoutingRule[] = [
+  {
+    id: 'rule-001',
+    name: 'Demo-Anfragen an Vertrieb',
+    channel: 'email',
+    conditions: { and: [{ field: 'subject', operator: 'contains', value: 'Demo' }] },
+    actions: [{ type: 'route_to_team', config: { team_inbox_id: 'team-sales' } }],
+    priority: 10,
+    is_active: true,
+    created_by: IDS.users.thomas,
+    created_at: daysAgo(30),
+    updated_at: daysAgo(30),
+  },
+  {
+    id: 'rule-002',
+    name: 'Support-Tickets taggen',
+    conditions: { or: [{ field: 'preview', operator: 'contains', value: 'Fehler' }, { field: 'tags', operator: 'in', value: 'Support' }] },
+    actions: [{ type: 'add_tags', config: { tags: 'Support,Dringend' } }],
+    priority: 20,
+    is_active: true,
+    created_by: IDS.users.markus,
+    created_at: daysAgo(25),
+    updated_at: daysAgo(5),
+  },
+]
+
+let nextRuleId = 3
+
+// ---------------------------------------------------------------------------
 // Handlers
 // ---------------------------------------------------------------------------
 
@@ -269,6 +365,21 @@ export const inboxHandlers = [
     return new HttpResponse(null, { status: 204 })
   }),
 
+  // Claim (assign to current user)
+  http.post(`${API}/api/v1/inbox/messages/:id/claim`, () => {
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  // Snooze
+  http.post(`${API}/api/v1/inbox/messages/:id/snooze`, () => {
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  // Unsnooze
+  http.post(`${API}/api/v1/inbox/messages/:id/unsnooze`, () => {
+    return new HttpResponse(null, { status: 204 })
+  }),
+
   // Bulk read
   http.post(`${API}/api/v1/inbox/messages/bulk/read`, () => {
     return new HttpResponse(null, { status: 204 })
@@ -277,5 +388,108 @@ export const inboxHandlers = [
   // Bulk archive
   http.post(`${API}/api/v1/inbox/messages/bulk/archive`, () => {
     return new HttpResponse(null, { status: 204 })
+  }),
+
+  // -- Team inboxes --------------------------------------------------------
+
+  http.get(`${API}/api/v1/inbox/teams`, () => {
+    return HttpResponse.json(teamInboxes)
+  }),
+
+  http.post(`${API}/api/v1/inbox/teams`, async ({ request }) => {
+    const body = (await request.json()) as Partial<MockTeamInbox>
+    const team: MockTeamInbox = {
+      id: `team-new-${nextTeamId++}`,
+      name: body.name ?? 'Neues Postfach',
+      description: body.description,
+      assignment_mode: body.assignment_mode ?? 'manual',
+      visibility: body.visibility ?? 'open',
+      created_by: IDS.users.thomas,
+      created_at: minutesAgo(0),
+      updated_at: minutesAgo(0),
+    }
+    teamInboxes.push(team)
+    teamMembers[team.id] = []
+    return HttpResponse.json(team, { status: 201 })
+  }),
+
+  http.put(`${API}/api/v1/inbox/teams/:id`, async ({ params, request }) => {
+    const body = (await request.json()) as Partial<MockTeamInbox>
+    const team = teamInboxes.find((tt) => tt.id === params.id)
+    if (!team) return HttpResponse.json({ error: 'Not found' }, { status: 404 })
+    Object.assign(team, body, { updated_at: minutesAgo(0) })
+    return HttpResponse.json(team)
+  }),
+
+  http.delete(`${API}/api/v1/inbox/teams/:id`, ({ params }) => {
+    const idx = teamInboxes.findIndex((tt) => tt.id === params.id)
+    if (idx >= 0) teamInboxes.splice(idx, 1)
+    delete teamMembers[params.id as string]
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  http.get(`${API}/api/v1/inbox/teams/:id/members`, ({ params }) => {
+    return HttpResponse.json(teamMembers[params.id as string] ?? [])
+  }),
+
+  http.post(`${API}/api/v1/inbox/teams/:id/members`, async ({ params, request }) => {
+    const body = (await request.json()) as { user_id: string; role: 'admin' | 'member' }
+    const teamId = params.id as string
+    teamMembers[teamId] = teamMembers[teamId] ?? []
+    teamMembers[teamId].push({ team_inbox_id: teamId, user_id: body.user_id, role: body.role, created_at: minutesAgo(0) })
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  http.delete(`${API}/api/v1/inbox/teams/:id/members/:userId`, ({ params }) => {
+    const teamId = params.id as string
+    if (teamMembers[teamId]) {
+      teamMembers[teamId] = teamMembers[teamId].filter((m) => m.user_id !== params.userId)
+    }
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  // -- Routing rules -------------------------------------------------------
+
+  http.get(`${API}/api/v1/inbox/rules`, () => {
+    return HttpResponse.json([...routingRules].sort((a, b) => a.priority - b.priority))
+  }),
+
+  http.post(`${API}/api/v1/inbox/rules`, async ({ request }) => {
+    const body = (await request.json()) as Partial<MockRoutingRule>
+    const rule: MockRoutingRule = {
+      id: `rule-new-${nextRuleId++}`,
+      name: body.name ?? 'Neue Regel',
+      channel: body.channel,
+      conditions: body.conditions ?? { and: [] },
+      actions: body.actions ?? [],
+      priority: body.priority ?? 100,
+      is_active: body.is_active ?? true,
+      created_by: IDS.users.thomas,
+      created_at: minutesAgo(0),
+      updated_at: minutesAgo(0),
+    }
+    routingRules.push(rule)
+    return HttpResponse.json(rule, { status: 201 })
+  }),
+
+  http.put(`${API}/api/v1/inbox/rules/:id`, async ({ params, request }) => {
+    const body = (await request.json()) as Partial<MockRoutingRule>
+    const rule = routingRules.find((r) => r.id === params.id)
+    if (!rule) return HttpResponse.json({ error: 'Not found' }, { status: 404 })
+    Object.assign(rule, body, { updated_at: minutesAgo(0) })
+    return HttpResponse.json(rule)
+  }),
+
+  http.delete(`${API}/api/v1/inbox/rules/:id`, ({ params }) => {
+    const idx = routingRules.findIndex((r) => r.id === params.id)
+    if (idx >= 0) routingRules.splice(idx, 1)
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  http.post(`${API}/api/v1/inbox/rules/test`, async ({ request }) => {
+    // Mock: simple deterministic match based on whether conditions has any leaf with a value
+    const body = (await request.json()) as { conditions: { and?: unknown[]; or?: unknown[] }; message: Record<string, unknown> }
+    const hasConditions = !!(body.conditions?.and?.length || body.conditions?.or?.length)
+    return HttpResponse.json({ matches: hasConditions })
   }),
 ]

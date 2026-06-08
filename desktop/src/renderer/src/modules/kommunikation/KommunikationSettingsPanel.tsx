@@ -1,15 +1,21 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LayoutGrid, MessageSquare, Inbox } from 'lucide-react'
+import { LayoutGrid, MessageSquare, Inbox, Users, GitBranch, Plus, Settings2 } from 'lucide-react'
 import { ModuleSettingsShell } from '@/components/shared/ModuleSettingsShell'
 import type { ModuleSettingsSection } from '@/components/shared/ModuleSettingsShell'
 import { useKommunikationPrefs } from '@/stores/kommunikationPrefs'
+import { useTeamInboxes, useCreateTeamInbox } from '@/api/hooks/useInbox'
+import type { TeamInbox } from '@/api/inbox-types'
+import { TeamInboxSettings } from './TeamInboxSettings'
+import { RoutingRulesEditor } from './RoutingRulesEditor'
 
 /**
  * Module settings for the unified Kommunikation module (moduleId 'chat').
  *
- * Phase 2: personal display preferences (default area, density, enter-to-send).
- * Tenant-wide sections (channels, routing rules, team inbox, canned responses,
- * retention) are added in later phases.
+ * Personal: display preferences (default area, density, enter-to-send).
+ * Tenant (Modul-Leiter only, gated by ModuleSettingsShell lock):
+ *   • Team-Postfächer (TeamInboxSettings)
+ *   • Routing-Regeln (RoutingRulesEditor)
  */
 export function KommunikationSettingsPanel() {
   const { t } = useTranslation()
@@ -79,6 +85,22 @@ export function KommunikationSettingsPanel() {
         </div>
       ),
     },
+    {
+      id: 'teamInboxes',
+      titleKey: 'kommunikation.settings.teamInboxes.title',
+      descriptionKey: 'kommunikation.settings.teamInboxes.desc',
+      scope: 'tenant',
+      icon: Users,
+      children: <TeamInboxSection />,
+    },
+    {
+      id: 'routing',
+      titleKey: 'kommunikation.settings.routing.title',
+      descriptionKey: 'kommunikation.settings.routing.desc',
+      scope: 'tenant',
+      icon: GitBranch,
+      children: <RoutingRulesEditor />,
+    },
   ]
 
   return (
@@ -88,6 +110,88 @@ export function KommunikationSettingsPanel() {
       descriptionKey="kommunikation.settings.desc"
       sections={sections}
     />
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Team inbox section
+// ---------------------------------------------------------------------------
+
+function TeamInboxSection() {
+  const { t } = useTranslation()
+  const { data: teams, isLoading } = useTeamInboxes()
+  const createTeam = useCreateTeamInbox()
+  const [editingTeam, setEditingTeam] = useState<TeamInbox | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+
+  const openTeam = (team: TeamInbox) => {
+    setEditingTeam(team)
+    setSettingsOpen(true)
+  }
+
+  const handleCreate = () => {
+    createTeam.mutate(
+      { name: t('kommunikation.teamInbox.defaultName'), assignment_mode: 'manual', visibility: 'open' },
+      { onSuccess: (team) => openTeam(team) },
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-foreground">{t('kommunikation.teamInbox.listTitle')}</h3>
+        <button
+          onClick={handleCreate}
+          disabled={createTeam.isPending}
+          className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          {t('kommunikation.teamInbox.create')}
+        </button>
+      </div>
+
+      <div className="space-y-1">
+        {isLoading && (
+          <div className="space-y-2">
+            {[1, 2].map((i) => (
+              <div key={i} className="h-14 animate-pulse rounded-md bg-secondary" />
+            ))}
+          </div>
+        )}
+        {teams?.map((team) => (
+          <button
+            key={team.id}
+            onClick={() => openTeam(team)}
+            className="flex w-full items-center gap-3 rounded-md border border-border px-3 py-2.5 text-left hover:bg-secondary/50 transition-colors"
+          >
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Users className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-foreground truncate">{team.name}</span>
+                <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-secondary-foreground">
+                  {team.assignment_mode === 'round_robin'
+                    ? t('kommunikation.inbox.roundRobin')
+                    : t('kommunikation.teamInbox.manual')}
+                </span>
+              </div>
+              {team.description && (
+                <p className="text-[11px] text-muted-foreground truncate">{team.description}</p>
+              )}
+            </div>
+            <Settings2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </button>
+        ))}
+        {!isLoading && (!teams || teams.length === 0) && (
+          <p className="py-4 text-center text-xs text-muted-foreground">
+            {t('kommunikation.teamInbox.empty')}
+          </p>
+        )}
+      </div>
+
+      <TeamInboxSettings team={editingTeam} open={settingsOpen} onOpenChange={setSettingsOpen} />
+    </div>
   )
 }
 

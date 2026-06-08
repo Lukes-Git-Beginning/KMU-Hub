@@ -1,12 +1,14 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MessageSquareText, Loader2 } from 'lucide-react'
 import { useKommunikationStore } from '@/stores/kommunikation'
 import { useInboxMessage, useMarkRead, useReplyToMessage } from '@/api/hooks/useInbox'
+import { useInboxThread, buildThreadSeed } from '@/stores/inboxThread'
 import { ConversationThreadHeader } from './ConversationThreadHeader'
 import { MessageTimeline } from './MessageTimeline'
 import { ReplyComposer } from './ReplyComposer'
 import type { InboxChannel } from '@/api/inbox-types'
+import type { ConversationMessage } from '@/types/communication'
 
 // ---------------------------------------------------------------------------
 // Channel mapping helper
@@ -32,6 +34,15 @@ export function ConversationThread() {
   const { data: message, isLoading } = useInboxMessage(selectedId ?? '')
   const markRead = useMarkRead()
   const replyMutation = useReplyToMessage()
+  const appended = useInboxThread((s) => (selectedId ? s.appended[selectedId] : undefined))
+  const appendMessage = useInboxThread((s) => s.appendMessage)
+
+  // Mock-first thread: deterministic seed history + persisted replies/notes.
+  // Replace with a backend thread API when available (backend-gaps.md).
+  const threadMessages = useMemo<ConversationMessage[]>(() => {
+    if (!message) return []
+    return [...buildThreadSeed(message), ...(appended ?? [])]
+  }, [message, appended])
 
   // Mark message as read when selected
   useEffect(() => {
@@ -77,10 +88,35 @@ export function ConversationThread() {
 
   const handleReply = (content: string) => {
     replyMutation.mutate({ id: message.id, body: content })
+    // Mock-first: extend the local thread so the sent reply is visible.
+    appendMessage(message.id, {
+      id: `${message.id}-reply-${threadMessages.length}`,
+      conversationId: message.id,
+      direction: 'outbound',
+      senderName: message.assigned_to || t('kommunikation.thread.you'),
+      senderId: message.assigned_to ?? message.user_id,
+      content,
+      timestamp: new Date().toISOString(),
+      isRead: true,
+      attachments: [],
+    })
   }
 
-  const handleInternalNote = (_content: string) => {
-    // TODO: No internal note API exists yet — currently a no-op
+  const handleInternalNote = (content: string) => {
+    if (!content.trim()) return
+    // Mock-first: internal notes live in the local thread overlay (Phase 5
+    // wires presence/collision). Backend internal-note API: backend-gaps.md.
+    appendMessage(message.id, {
+      id: `${message.id}-note-${threadMessages.length}`,
+      conversationId: message.id,
+      direction: 'internal',
+      senderName: message.assigned_to || t('kommunikation.thread.you'),
+      senderId: message.assigned_to ?? message.user_id,
+      content,
+      timestamp: new Date().toISOString(),
+      isRead: true,
+      attachments: [],
+    })
   }
 
   return (
@@ -88,22 +124,8 @@ export function ConversationThread() {
       {/* Header: subject, channel, tags */}
       <ConversationThreadHeader message={message} />
 
-      {/* Message timeline */}
-      {/* TODO: InboxMessage does not have a messages[] thread — showing single message preview as content.
-         A thread/messages API is needed for full conversation threading. */}
-      <MessageTimeline messages={[
-        {
-          id: message.id,
-          conversationId: message.id,
-          direction: 'inbound' as const,
-          senderName: message.sender_name,
-          senderId: message.sender_id ?? message.user_id,
-          content: message.preview,
-          timestamp: message.received_at,
-          isRead: message.is_read,
-          attachments: [],
-        },
-      ]} />
+      {/* Message timeline — mock-first thread (seed history + persisted replies) */}
+      <MessageTimeline messages={threadMessages} />
 
       {/* Reply composer */}
       <ReplyComposer
