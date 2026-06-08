@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -102,8 +101,8 @@ func (a *AuthRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 // ============================================================================
 
 type registerRequest struct {
-	Email     string `json:"email"`
-	Password  string `json:"password"`
+	Email     string `json:"email" validate:"required,email"`
+	Password  string `json:"password" validate:"required,min=8"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
 }
@@ -115,14 +114,8 @@ func (a *AuthRoutes) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req registerRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Email == "" || req.Password == "" {
-		response.Error(w, http.StatusBadRequest, "email and password are required")
+	req, ok := decodeAndValidate[registerRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -141,8 +134,8 @@ func (a *AuthRoutes) HandleRegister(w http.ResponseWriter, r *http.Request) {
 }
 
 type loginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required"`
 }
 
 func (a *AuthRoutes) HandleLogin(w http.ResponseWriter, r *http.Request) {
@@ -152,14 +145,8 @@ func (a *AuthRoutes) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req loginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Email == "" || req.Password == "" {
-		response.Error(w, http.StatusBadRequest, "email and password are required")
+	req, ok := decodeAndValidate[loginRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -176,7 +163,7 @@ func (a *AuthRoutes) HandleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 type refreshRequest struct {
-	RefreshToken string `json:"refresh_token"`
+	RefreshToken string `json:"refresh_token" validate:"required"`
 }
 
 func (a *AuthRoutes) HandleRefresh(w http.ResponseWriter, r *http.Request) {
@@ -186,9 +173,8 @@ func (a *AuthRoutes) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req refreshRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[refreshRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -204,7 +190,7 @@ func (a *AuthRoutes) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 }
 
 type logoutRequest struct {
-	RefreshToken string `json:"refresh_token"`
+	RefreshToken string `json:"refresh_token" validate:"required"`
 }
 
 func (a *AuthRoutes) HandleLogout(w http.ResponseWriter, r *http.Request) {
@@ -214,9 +200,8 @@ func (a *AuthRoutes) HandleLogout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req logoutRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[logoutRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -272,8 +257,8 @@ func (a *AuthRoutes) HandleListUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateUserRequest struct {
-	FirstName *string `json:"first_name,omitempty"`
-	LastName  *string `json:"last_name,omitempty"`
+	FirstName *string `json:"first_name,omitempty" validate:"omitempty,min=1"`
+	LastName  *string `json:"last_name,omitempty" validate:"omitempty,min=1"`
 	IsActive  *bool   `json:"is_active,omitempty"`
 }
 
@@ -289,9 +274,8 @@ func (a *AuthRoutes) HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req updateUserRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateUserRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -316,7 +300,7 @@ func (a *AuthRoutes) HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 type assignRoleRequest struct {
-	RoleName string `json:"role_name"`
+	RoleName string `json:"role_name" validate:"required,oneof=admin manager member"`
 }
 
 func (a *AuthRoutes) HandleAssignRole(w http.ResponseWriter, r *http.Request) {
@@ -331,9 +315,8 @@ func (a *AuthRoutes) HandleAssignRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req assignRoleRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[assignRoleRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -361,9 +344,8 @@ func (a *AuthRoutes) HandleRemoveRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req assignRoleRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[assignRoleRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -398,8 +380,8 @@ func (a *AuthRoutes) HandleGetProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 type changePasswordRequest struct {
-	OldPassword string `json:"old_password"`
-	NewPassword string `json:"new_password"`
+	OldPassword string `json:"old_password" validate:"required"`
+	NewPassword string `json:"new_password" validate:"required,min=8"`
 }
 
 func (a *AuthRoutes) HandleChangePassword(w http.ResponseWriter, r *http.Request) {
@@ -411,14 +393,8 @@ func (a *AuthRoutes) HandleChangePassword(w http.ResponseWriter, r *http.Request
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req changePasswordRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.OldPassword == "" || req.NewPassword == "" {
-		response.Error(w, http.StatusBadRequest, "old_password and new_password are required")
+	req, ok := decodeAndValidate[changePasswordRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -440,8 +416,8 @@ func (a *AuthRoutes) HandleChangePassword(w http.ResponseWriter, r *http.Request
 // ============================================================================
 
 type createInvitationRequest struct {
-	Email string `json:"email"`
-	Role  string `json:"role"`
+	Email string `json:"email" validate:"required,email"`
+	Role  string `json:"role" validate:"required,oneof=admin manager member"`
 }
 
 func (a *AuthRoutes) HandleCreateInvitation(w http.ResponseWriter, r *http.Request) {
@@ -453,14 +429,8 @@ func (a *AuthRoutes) HandleCreateInvitation(w http.ResponseWriter, r *http.Reque
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createInvitationRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Email == "" || req.Role == "" {
-		response.Error(w, http.StatusBadRequest, "email and role are required")
+	req, ok := decodeAndValidate[createInvitationRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -494,9 +464,9 @@ func (a *AuthRoutes) HandleListInvitations(w http.ResponseWriter, r *http.Reques
 }
 
 type acceptInvitationRequest struct {
-	Password  string `json:"password"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
+	Password  string `json:"password" validate:"required,min=8"`
+	FirstName string `json:"first_name" validate:"required"`
+	LastName  string `json:"last_name" validate:"required"`
 }
 
 func (a *AuthRoutes) HandleAcceptInvitation(w http.ResponseWriter, r *http.Request) {
@@ -512,14 +482,8 @@ func (a *AuthRoutes) HandleAcceptInvitation(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var req acceptInvitationRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Password == "" || req.FirstName == "" || req.LastName == "" {
-		response.Error(w, http.StatusBadRequest, "password, first_name, and last_name are required")
+	req, ok := decodeAndValidate[acceptInvitationRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -583,7 +547,7 @@ func (a *AuthRoutes) HandleSetup2FA(w http.ResponseWriter, r *http.Request) {
 }
 
 type verify2FARequest struct {
-	Code string `json:"code"`
+	Code string `json:"code" validate:"required,len=6"`
 }
 
 func (a *AuthRoutes) HandleVerify2FA(w http.ResponseWriter, r *http.Request) {
@@ -595,14 +559,8 @@ func (a *AuthRoutes) HandleVerify2FA(w http.ResponseWriter, r *http.Request) {
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req verify2FARequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Code == "" {
-		response.Error(w, http.StatusBadRequest, "code is required")
+	req, ok := decodeAndValidate[verify2FARequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -619,8 +577,8 @@ func (a *AuthRoutes) HandleVerify2FA(w http.ResponseWriter, r *http.Request) {
 }
 
 type validate2FALoginRequest struct {
-	PendingToken   string `json:"pending_token"`
-	Code           string `json:"code"`
+	PendingToken   string `json:"pending_token" validate:"required"`
+	Code           string `json:"code" validate:"required"`
 	IsRecoveryCode bool   `json:"is_recovery_code"`
 }
 
@@ -631,14 +589,8 @@ func (a *AuthRoutes) HandleValidate2FALogin(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var req validate2FALoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.PendingToken == "" || req.Code == "" {
-		response.Error(w, http.StatusBadRequest, "pending_token and code are required")
+	req, ok := decodeAndValidate[validate2FALoginRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -656,7 +608,7 @@ func (a *AuthRoutes) HandleValidate2FALogin(w http.ResponseWriter, r *http.Reque
 }
 
 type disable2FARequest struct {
-	Code string `json:"code"`
+	Code string `json:"code" validate:"required"`
 }
 
 func (a *AuthRoutes) HandleDisable2FA(w http.ResponseWriter, r *http.Request) {
@@ -668,9 +620,8 @@ func (a *AuthRoutes) HandleDisable2FA(w http.ResponseWriter, r *http.Request) {
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req disable2FARequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[disable2FARequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -687,7 +638,7 @@ func (a *AuthRoutes) HandleDisable2FA(w http.ResponseWriter, r *http.Request) {
 }
 
 type regenerateCodesRequest struct {
-	Code string `json:"code"`
+	Code string `json:"code" validate:"required"`
 }
 
 func (a *AuthRoutes) HandleRegenerateRecoveryCodes(w http.ResponseWriter, r *http.Request) {
@@ -699,9 +650,8 @@ func (a *AuthRoutes) HandleRegenerateRecoveryCodes(w http.ResponseWriter, r *htt
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req regenerateCodesRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[regenerateCodesRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -718,8 +668,8 @@ func (a *AuthRoutes) HandleRegenerateRecoveryCodes(w http.ResponseWriter, r *htt
 }
 
 type adminReset2FARequest struct {
-	UserID string `json:"user_id"`
-	Reason string `json:"reason"`
+	UserID string `json:"user_id" validate:"required,uuid"`
+	Reason string `json:"reason" validate:"required"`
 }
 
 func (a *AuthRoutes) HandleAdminReset2FA(w http.ResponseWriter, r *http.Request) {
@@ -735,14 +685,8 @@ func (a *AuthRoutes) HandleAdminReset2FA(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var req adminReset2FARequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.UserID == "" || req.Reason == "" {
-		response.Error(w, http.StatusBadRequest, "user_id and reason are required")
+	req, ok := decodeAndValidate[adminReset2FARequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -780,9 +724,9 @@ func (a *AuthRoutes) HandleGetTwoFactorPolicy(w http.ResponseWriter, r *http.Req
 }
 
 type updateTwoFactorPolicyRequest struct {
-	RoleName        string `json:"role_name"`
+	RoleName        string `json:"role_name" validate:"required,oneof=admin manager member"`
 	Enforced        bool   `json:"enforced"`
-	GracePeriodDays int32  `json:"grace_period_days"`
+	GracePeriodDays int32  `json:"grace_period_days" validate:"omitempty,gte=0,lte=365"`
 }
 
 func (a *AuthRoutes) HandleUpdateTwoFactorPolicy(w http.ResponseWriter, r *http.Request) {
@@ -798,14 +742,8 @@ func (a *AuthRoutes) HandleUpdateTwoFactorPolicy(w http.ResponseWriter, r *http.
 		return
 	}
 
-	var req updateTwoFactorPolicyRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.RoleName == "" {
-		response.Error(w, http.StatusBadRequest, "role_name is required")
+	req, ok := decodeAndValidate[updateTwoFactorPolicyRequest](w, r)
+	if !ok {
 		return
 	}
 

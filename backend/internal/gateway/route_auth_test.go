@@ -33,13 +33,14 @@ func TestHandleRegister_MissingFields(t *testing.T) {
 	routes := NewAuthRoutes(registryWithService("auth"))
 
 	tests := []struct {
-		name string
-		body map[string]interface{}
+		name      string
+		body      map[string]interface{}
+		wantField string
 	}{
-		{"empty", map[string]interface{}{}},
-		{"no_password", map[string]interface{}{"email": "test@example.com"}},
-		{"no_email", map[string]interface{}{"password": "secret123"}},
-		{"empty_strings", map[string]interface{}{"email": "", "password": ""}},
+		{"empty", map[string]interface{}{}, "email"},
+		{"no_password", map[string]interface{}{"email": "test@example.com"}, "password"},
+		{"no_email", map[string]interface{}{"password": "secret123"}, "email"},
+		{"empty_strings", map[string]interface{}{"email": "", "password": ""}, "email"},
 	}
 
 	for _, tt := range tests {
@@ -47,10 +48,29 @@ func TestHandleRegister_MissingFields(t *testing.T) {
 			rec := httptest.NewRecorder()
 			req := httptest.NewRequest("POST", "/api/v1/auth/register", jsonBody(t, tt.body))
 			routes.HandleRegister(rec, req)
-			assertStatus(t, rec, http.StatusBadRequest)
-			assertErrorContains(t, rec, "email and password are required")
+			assertValidationError(t, rec, tt.wantField)
 		})
 	}
+}
+
+func TestHandleRegister_InvalidEmailFormat(t *testing.T) {
+	routes := NewAuthRoutes(registryWithService("auth"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/auth/register", jsonBody(t, map[string]interface{}{
+		"email": "not-an-email", "password": "longenough1",
+	}))
+	routes.HandleRegister(rec, req)
+	assertValidationError(t, rec, "email")
+}
+
+func TestHandleRegister_ShortPassword(t *testing.T) {
+	routes := NewAuthRoutes(registryWithService("auth"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/auth/register", jsonBody(t, map[string]interface{}{
+		"email": "valid@example.com", "password": "short",
+	}))
+	routes.HandleRegister(rec, req)
+	assertValidationError(t, rec, "password")
 }
 
 // --- HandleLogin ---
@@ -74,8 +94,17 @@ func TestHandleLogin_MissingFields(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/v1/auth/login", jsonBody(t, map[string]interface{}{}))
 	routes.HandleLogin(rec, req)
-	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "email and password are required")
+	assertValidationError(t, rec, "email")
+}
+
+func TestHandleLogin_InvalidEmailFormat(t *testing.T) {
+	routes := NewAuthRoutes(registryWithService("auth"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/auth/login", jsonBody(t, map[string]interface{}{
+		"email": "nope", "password": "whatever",
+	}))
+	routes.HandleLogin(rec, req)
+	assertValidationError(t, rec, "email")
 }
 
 // --- HandleRefresh ---
@@ -165,8 +194,7 @@ func TestHandleChangePassword_MissingFields(t *testing.T) {
 	}))
 	req = withUserID(req, "user-123")
 	routes.HandleChangePassword(rec, req)
-	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "required")
+	assertValidationError(t, rec, "new_password")
 }
 
 // --- HandleListUsers ---
@@ -236,6 +264,16 @@ func TestHandleCreateInvitation_MissingEmail(t *testing.T) {
 	}))
 	req = withUserID(req, "admin-123")
 	routes.HandleCreateInvitation(rec, req)
-	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "email")
+	assertValidationError(t, rec, "email")
+}
+
+func TestHandleCreateInvitation_InvalidRole(t *testing.T) {
+	routes := NewAuthRoutes(registryWithService("auth"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/invitations", jsonBody(t, map[string]interface{}{
+		"email": "new@example.com", "role": "superuser",
+	}))
+	req = withUserID(req, "admin-123")
+	routes.HandleCreateInvitation(rec, req)
+	assertValidationError(t, rec, "role")
 }

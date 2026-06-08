@@ -94,6 +94,46 @@ func assertErrorContains(t *testing.T, rec *httptest.ResponseRecorder, substr st
 	}
 }
 
+// validationErrorBody mirrors the structured validation error response shape
+// produced by decodeAndValidate (see internal/validation.ErrorBody).
+type validationErrorBody struct {
+	Error   string `json:"error"`
+	Code    string `json:"code"`
+	Details []struct {
+		Field string `json:"field"`
+		Rule  string `json:"rule"`
+		Param string `json:"param"`
+	} `json:"details"`
+}
+
+// assertValidationError checks that the response is a structured validation
+// failure (HTTP 400, code "validation_failed") whose details include the given
+// field name. Use this for inputs rejected by decodeAndValidate; for malformed
+// JSON (which yields the plain {"error": "invalid request body"} shape) use
+// assertErrorContains instead.
+func assertValidationError(t *testing.T, rec *httptest.ResponseRecorder, wantField string) {
+	t.Helper()
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d; body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+	var body validationErrorBody
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("failed to decode validation error response: %v; body = %s", err, rec.Body.String())
+	}
+	if body.Code != "validation_failed" {
+		t.Errorf("code = %q, want %q; body = %s", body.Code, "validation_failed", rec.Body.String())
+	}
+	if body.Error == "" {
+		t.Errorf("error string must be non-empty; body = %s", rec.Body.String())
+	}
+	for _, d := range body.Details {
+		if d.Field == wantField {
+			return
+		}
+	}
+	t.Errorf("validation details missing field %q; body = %s", wantField, rec.Body.String())
+}
+
 // testServiceUnavailable is a generic test for any handler that gets a gRPC client first.
 // It verifies that when the service is not registered, the handler returns 503.
 // A valid TenantID is set in the context so that the tenant check does not interfere.

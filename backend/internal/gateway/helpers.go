@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
+	"github.com/kmuhub/kmuhub/internal/validation"
 )
 
 // respondGRPCError translates a gRPC error into an appropriate HTTP error response.
@@ -107,6 +109,37 @@ func validateUUIDParam(w http.ResponseWriter, r *http.Request, param string) (st
 		return "", false
 	}
 	return raw, true
+}
+
+// decodeAndValidate decodes the JSON request body into a value of type T and
+// validates it against its `validate` struct tags via the shared validation
+// package. On a decode error it writes a 400 with the contract-stable
+// {"error": "invalid request body"} shape; on a validation error it writes a
+// 400 with the structured {"error", "code": "validation_failed", "details": [...]}
+// body. In both failure cases it returns (zero, false) and the caller must
+// return immediately. On success it returns (value, true).
+//
+// This is the single entry point for "Parse → Validate" in thin handlers:
+//
+//	req, ok := decodeAndValidate[createContactRequest](w, r)
+//	if !ok {
+//	    return
+//	}
+func decodeAndValidate[T any](w http.ResponseWriter, r *http.Request) (T, bool) {
+	var req T
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return req, false
+	}
+	if err := validation.Validate(&req); err != nil {
+		if body, ok := validation.ErrorBody(err); ok {
+			response.JSON(w, http.StatusBadRequest, body)
+		} else {
+			response.Error(w, http.StatusBadRequest, "validation failed")
+		}
+		return req, false
+	}
+	return req, true
 }
 
 // RequireAuthenticated is a chi middleware that rejects requests without
