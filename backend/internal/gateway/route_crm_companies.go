@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -14,7 +13,7 @@ import (
 // ============================================================================
 
 type createCompanyRequest struct {
-	Name          string                    `json:"name"`
+	Name          string                    `json:"name" validate:"required"`
 	Domain        string                    `json:"domain"`
 	Industry      string                    `json:"industry"`
 	EmployeeCount int32                     `json:"employee_count"`
@@ -22,7 +21,7 @@ type createCompanyRequest struct {
 	City          string                    `json:"city"`
 	Country       string                    `json:"country"`
 	Notes         string                    `json:"notes"`
-	TagIDs        []string                  `json:"tag_ids"`
+	TagIDs        []string                  `json:"tag_ids" validate:"omitempty,dive,uuid"`
 	CustomFields  []customFieldValueRequest `json:"custom_fields"`
 }
 
@@ -35,14 +34,8 @@ func (c *CRMRoutes) HandleCreateCompany(w http.ResponseWriter, r *http.Request) 
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createCompanyRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Name == "" {
-		response.Error(w, http.StatusBadRequest, "name is required")
+	req, ok := decodeAndValidate[createCompanyRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -128,7 +121,7 @@ func (c *CRMRoutes) HandleListCompanies(w http.ResponseWriter, r *http.Request) 
 }
 
 type updateCompanyRequest struct {
-	Name          *string                   `json:"name,omitempty"`
+	Name          *string                   `json:"name,omitempty" validate:"omitempty,min=1"`
 	Domain        *string                   `json:"domain,omitempty"`
 	Industry      *string                   `json:"industry,omitempty"`
 	EmployeeCount *int32                    `json:"employee_count,omitempty"`
@@ -151,9 +144,8 @@ func (c *CRMRoutes) HandleUpdateCompany(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var req updateCompanyRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateCompanyRequest](w, r)
+	if !ok {
 		return
 	}
 

@@ -32,6 +32,60 @@ func TestHandleCreateInvoice_InvalidJSON(t *testing.T) {
 	assertErrorContains(t, rec, "invalid request body")
 }
 
+func TestHandleCreateInvoice_MissingCustomer(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/finance/invoices", jsonBody(t, map[string]interface{}{
+		"line_items":   []interface{}{map[string]interface{}{"description": "x"}},
+		"tax_mode":     "standard",
+		"invoice_date": "2026-01-01",
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreateInvoice(rec, req)
+	assertValidationError(t, rec, "customer")
+}
+
+func TestHandleCreateInvoice_MissingLineItems(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/finance/invoices", jsonBody(t, map[string]interface{}{
+		"customer":     map[string]interface{}{"name": "ACME"},
+		"tax_mode":     "standard",
+		"invoice_date": "2026-01-01",
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreateInvoice(rec, req)
+	assertValidationError(t, rec, "line_items")
+}
+
+func TestHandleCreateInvoice_InvalidTaxMode(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/finance/invoices", jsonBody(t, map[string]interface{}{
+		"customer":     map[string]interface{}{"name": "ACME"},
+		"line_items":   []interface{}{map[string]interface{}{"description": "x"}},
+		"tax_mode":     "invalid_mode",
+		"invoice_date": "2026-01-01",
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreateInvoice(rec, req)
+	assertValidationError(t, rec, "tax_mode")
+}
+
+func TestHandleCreateInvoice_InvalidInvoiceDate(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/finance/invoices", jsonBody(t, map[string]interface{}{
+		"customer":     map[string]interface{}{"name": "ACME"},
+		"line_items":   []interface{}{map[string]interface{}{"description": "x"}},
+		"tax_mode":     "standard",
+		"invoice_date": "not-a-date",
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreateInvoice(rec, req)
+	assertValidationError(t, rec, "invoice_date")
+}
+
 func TestHandleListInvoices_ServiceUnavailable(t *testing.T) {
 	routes := NewBizRoutes(emptyRegistry())
 	rec := httptest.NewRecorder()
@@ -63,6 +117,46 @@ func TestHandleCreateQuote_InvalidJSON(t *testing.T) {
 	req = withTenantID(req, testTenantID)
 	routes.HandleCreateQuote(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleCreateQuote_MissingCustomer(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/finance/quotes", jsonBody(t, map[string]interface{}{
+		"line_items": []interface{}{map[string]interface{}{"description": "x"}},
+		"tax_mode":   "standard",
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreateQuote(rec, req)
+	assertValidationError(t, rec, "customer")
+}
+
+func TestHandleCreateQuote_InvalidTaxMode(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/finance/quotes", jsonBody(t, map[string]interface{}{
+		"customer":   map[string]interface{}{"name": "ACME"},
+		"line_items": []interface{}{map[string]interface{}{"description": "x"}},
+		"tax_mode":   "bogus",
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreateQuote(rec, req)
+	assertValidationError(t, rec, "tax_mode")
+}
+
+func TestHandleCreateQuote_InvalidValidUntil(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/finance/quotes", jsonBody(t, map[string]interface{}{
+		"customer":    map[string]interface{}{"name": "ACME"},
+		"line_items":  []interface{}{map[string]interface{}{"description": "x"}},
+		"tax_mode":    "standard",
+		"valid_until": "31.12.2026", // wrong format
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreateQuote(rec, req)
+	assertValidationError(t, rec, "valid_until")
 }
 
 func TestHandleListQuotes_ServiceUnavailable(t *testing.T) {
@@ -96,6 +190,33 @@ func TestHandleCreateCreditNote_InvalidJSON(t *testing.T) {
 	req = withTenantID(req, testTenantID)
 	routes.HandleCreateCreditNote(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleCreateCreditNote_MissingCustomer(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/finance/credit-notes", jsonBody(t, map[string]interface{}{
+		"line_items": []interface{}{map[string]interface{}{"description": "x"}},
+		"tax_mode":   "standard",
+		"reason":     "duplicate",
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreateCreditNote(rec, req)
+	assertValidationError(t, rec, "customer")
+}
+
+func TestHandleCreateCreditNote_MissingReason(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/finance/credit-notes", jsonBody(t, map[string]interface{}{
+		"customer":   map[string]interface{}{"name": "ACME"},
+		"line_items": []interface{}{map[string]interface{}{"description": "x"}},
+		"tax_mode":   "standard",
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreateCreditNote(rec, req)
+	assertValidationError(t, rec, "reason")
 }
 
 func TestHandleListCreditNotes_ServiceUnavailable(t *testing.T) {
@@ -131,6 +252,90 @@ func TestHandleUpdateCompanySettings_InvalidJSON(t *testing.T) {
 	req = withTenantID(req, testTenantID)
 	routes.HandleUpdateCompanySettings(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleUpdateCompanySettings_InvalidIBAN(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/v1/finance/settings", jsonBody(t, map[string]interface{}{
+		"iban": "NOTANIBAN",
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleUpdateCompanySettings(rec, req)
+	assertValidationError(t, rec, "iban")
+}
+
+func TestHandleUpdateCompanySettings_InvalidBIC(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/v1/finance/settings", jsonBody(t, map[string]interface{}{
+		"bic": "!!BAD",
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleUpdateCompanySettings(rec, req)
+	assertValidationError(t, rec, "bic")
+}
+
+func TestHandleUpdateCompanySettings_InvalidLogoURL(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/api/v1/finance/settings", jsonBody(t, map[string]interface{}{
+		"logo_url": "not a url",
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleUpdateCompanySettings(rec, req)
+	assertValidationError(t, rec, "logo_url")
+}
+
+// --- Payment ---
+
+func TestHandleRecordPayment_InvalidJSON(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/finance/invoices/id/payments", invalidJSON())
+	req = withTenantID(req, testTenantID)
+	routes.HandleRecordPayment(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleRecordPayment_MissingAmount(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/finance/invoices/id/payments", jsonBody(t, map[string]interface{}{
+		"payment_date": "2026-01-01",
+		"method":       "bank_transfer",
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleRecordPayment(rec, req)
+	assertValidationError(t, rec, "amount")
+}
+
+func TestHandleRecordPayment_InvalidPaymentDate(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/finance/invoices/id/payments", jsonBody(t, map[string]interface{}{
+		"amount":       "100.00",
+		"payment_date": "01/01/2026",
+		"method":       "bank_transfer",
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleRecordPayment(rec, req)
+	assertValidationError(t, rec, "payment_date")
+}
+
+func TestHandleRecordPayment_InvalidMethod(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/finance/invoices/id/payments", jsonBody(t, map[string]interface{}{
+		"amount":       "100.00",
+		"payment_date": "2026-01-01",
+		"method":       "bitcoin",
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleRecordPayment(rec, req)
+	assertValidationError(t, rec, "method")
 }
 
 // --- Dunning ---
@@ -141,6 +346,52 @@ func TestHandleListDunnings_ServiceUnavailable(t *testing.T) {
 	req := httptest.NewRequest("GET", "/api/v1/finance/dunning", nil)
 	routes.HandleListDunnings(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleCreateDunning_MissingInvoiceID(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/finance/dunning/detect", jsonBody(t, map[string]interface{}{
+		"level": 1,
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreateDunning(rec, req)
+	assertValidationError(t, rec, "invoice_id")
+}
+
+func TestHandleCreateDunning_InvalidInvoiceIDFormat(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/finance/dunning/detect", jsonBody(t, map[string]interface{}{
+		"invoice_id": "not-a-uuid",
+		"level":      1,
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreateDunning(rec, req)
+	assertValidationError(t, rec, "invoice_id")
+}
+
+// --- DATEV Export ---
+
+func TestHandleExportDATEV_MissingDates(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/finance/export/datev", jsonBody(t, map[string]interface{}{}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleExportDATEV(rec, req)
+	assertValidationError(t, rec, "start_date")
+}
+
+func TestHandleExportDATEV_InvalidDateFormat(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/finance/export/datev", jsonBody(t, map[string]interface{}{
+		"start_date": "01.01.2026",
+		"end_date":   "31.12.2026",
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleExportDATEV(rec, req)
+	assertValidationError(t, rec, "start_date")
 }
 
 // ============================================================================

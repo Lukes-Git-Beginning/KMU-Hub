@@ -2,7 +2,6 @@ package gateway
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"net/http"
 
@@ -82,13 +81,13 @@ func getGuestSession(ctx context.Context) *guest.GuestSession {
 }
 
 // ============================================================================
-// Handlers
+// Request types
 // ============================================================================
 
 type createSessionRequest struct {
-	ChannelID   string  `json:"channel_id"`
-	DisplayName string  `json:"display_name"`
-	Email       *string `json:"email,omitempty"`
+	ChannelID   string  `json:"channel_id" validate:"required,uuid"`
+	DisplayName string  `json:"display_name" validate:"required"`
+	Email       *string `json:"email,omitempty" validate:"omitempty,email"`
 }
 
 type createSessionResponse struct {
@@ -96,27 +95,30 @@ type createSessionResponse struct {
 	Session *guest.GuestSession `json:"session"`
 }
 
+type validateTokenRequest struct {
+	Token string `json:"token" validate:"required"`
+}
+
+type guestSendMessageRequest struct {
+	Content string `json:"content" validate:"required"`
+}
+
+// ============================================================================
+// Handlers
+// ============================================================================
+
 func (g *GuestRoutes) HandleCreateSession(w http.ResponseWriter, r *http.Request) {
-	var req createSessionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	channelID, err := uuid.Parse(req.ChannelID)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid channel_id")
-		return
-	}
-
-	if req.DisplayName == "" {
-		response.Error(w, http.StatusBadRequest, "display_name is required")
+	req, ok := decodeAndValidate[createSessionRequest](w, r)
+	if !ok {
 		return
 	}
 
 	// Extract IP and user agent from request
 	ip := r.RemoteAddr
 	ua := r.UserAgent()
+
+	// channel_id UUID already validated by tag; parse is guaranteed to succeed
+	channelID, _ := uuid.Parse(req.ChannelID)
 
 	result, err := g.guestService.CreateSession(r.Context(), guest.CreateSessionInput{
 		ChannelID:   channelID,
@@ -137,19 +139,9 @@ func (g *GuestRoutes) HandleCreateSession(w http.ResponseWriter, r *http.Request
 	})
 }
 
-type validateTokenRequest struct {
-	Token string `json:"token"`
-}
-
 func (g *GuestRoutes) HandleValidateToken(w http.ResponseWriter, r *http.Request) {
-	var req validateTokenRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Token == "" {
-		response.Error(w, http.StatusBadRequest, "token is required")
+	req, ok := decodeAndValidate[validateTokenRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -163,7 +155,7 @@ func (g *GuestRoutes) HandleValidateToken(w http.ResponseWriter, r *http.Request
 	config, _ := g.guestService.GetConfig(r.Context(), session.ChannelID)
 
 	type resp struct {
-		Session *guest.GuestSession      `json:"session"`
+		Session *guest.GuestSession       `json:"session"`
 		Config  *guest.GuestChannelConfig `json:"config,omitempty"`
 	}
 
@@ -213,10 +205,6 @@ func (g *GuestRoutes) HandleGetMessages(w http.ResponseWriter, r *http.Request) 
 	response.JSON(w, http.StatusOK, resp)
 }
 
-type guestSendMessageRequest struct {
-	Content string `json:"content"`
-}
-
 func (g *GuestRoutes) HandleSendMessage(w http.ResponseWriter, r *http.Request) {
 	client, err := g.getChatClient()
 	if err != nil {
@@ -236,14 +224,8 @@ func (g *GuestRoutes) HandleSendMessage(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var req guestSendMessageRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Content == "" {
-		response.Error(w, http.StatusBadRequest, "content is required")
+	req, ok := decodeAndValidate[guestSendMessageRequest](w, r)
+	if !ok {
 		return
 	}
 

@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -145,8 +144,8 @@ func (ir *IntegrationRoutes) HandleGetConfig(w http.ResponseWriter, r *http.Requ
 }
 
 type createConfigRequest struct {
-	Platform            string `json:"platform"`
-	CredentialsVaultKey string `json:"credentials_vault_key"`
+	Platform            string `json:"platform" validate:"required"`
+	CredentialsVaultKey string `json:"credentials_vault_key" validate:"required"`
 	Metadata            string `json:"metadata"`
 }
 
@@ -159,9 +158,8 @@ func (ir *IntegrationRoutes) HandleCreateConfig(w http.ResponseWriter, r *http.R
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createConfigRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[createConfigRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -207,9 +205,8 @@ func (ir *IntegrationRoutes) HandleUpdateConfig(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	var req updateConfigRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateConfigRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -318,9 +315,9 @@ func (ir *IntegrationRoutes) HandleListMappings(w http.ResponseWriter, r *http.R
 }
 
 type createMappingRequest struct {
-	ChannelID   string   `json:"channel_id"`
-	ChannelName string   `json:"channel_name"`
-	Modules     []string `json:"modules"`
+	ChannelID   string   `json:"channel_id" validate:"required"`
+	ChannelName string   `json:"channel_name" validate:"required"`
+	Modules     []string `json:"modules" validate:"required,min=1"`
 }
 
 func (ir *IntegrationRoutes) HandleCreateMapping(w http.ResponseWriter, r *http.Request) {
@@ -341,9 +338,8 @@ func (ir *IntegrationRoutes) HandleCreateMapping(w http.ResponseWriter, r *http.
 		return
 	}
 
-	var req createMappingRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[createMappingRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -362,9 +358,9 @@ func (ir *IntegrationRoutes) HandleCreateMapping(w http.ResponseWriter, r *http.
 }
 
 type updateMappingRequest struct {
-	ChannelID   string   `json:"channel_id"`
-	ChannelName string   `json:"channel_name"`
-	Modules     []string `json:"modules"`
+	ChannelID   string   `json:"channel_id" validate:"required"`
+	ChannelName string   `json:"channel_name" validate:"required"`
+	Modules     []string `json:"modules" validate:"required,min=1"`
 	IsActive    bool     `json:"is_active"`
 }
 
@@ -380,9 +376,8 @@ func (ir *IntegrationRoutes) HandleUpdateMapping(w http.ResponseWriter, r *http.
 		return
 	}
 
-	var req updateMappingRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateMappingRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -429,7 +424,7 @@ func (ir *IntegrationRoutes) HandleDeleteMapping(w http.ResponseWriter, r *http.
 // ============================================================================
 
 type linkAccountRequest struct {
-	Token string `json:"token"`
+	Token string `json:"token" validate:"required"`
 }
 
 func (ir *IntegrationRoutes) HandleLinkAccount(w http.ResponseWriter, r *http.Request) {
@@ -441,9 +436,8 @@ func (ir *IntegrationRoutes) HandleLinkAccount(w http.ResponseWriter, r *http.Re
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req linkAccountRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[linkAccountRequest](w, r)
+	if !ok {
 		return
 	}
 

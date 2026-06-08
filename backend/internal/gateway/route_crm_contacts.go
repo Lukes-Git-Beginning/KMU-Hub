@@ -2,7 +2,6 @@ package gateway
 
 import (
 	"bytes"
-	"encoding/json"
 	"net/http"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -20,14 +19,14 @@ type customFieldValueRequest struct {
 }
 
 type createContactRequest struct {
-	FirstName    string                    `json:"first_name"`
-	LastName     string                    `json:"last_name"`
-	Email        string                    `json:"email"`
-	Phone        string                    `json:"phone"`
-	CompanyID    *string                   `json:"company_id,omitempty"`
+	FirstName    string                    `json:"first_name" validate:"required"`
+	LastName     string                    `json:"last_name" validate:"required"`
+	Email        string                    `json:"email" validate:"omitempty,email"`
+	Phone        string                    `json:"phone" validate:"omitempty,phone_dach"`
+	CompanyID    *string                   `json:"company_id,omitempty" validate:"omitempty,uuid"`
 	Position     string                    `json:"position"`
 	Notes        string                    `json:"notes"`
-	TagIDs       []string                  `json:"tag_ids"`
+	TagIDs       []string                  `json:"tag_ids" validate:"omitempty,dive,uuid"`
 	CustomFields []customFieldValueRequest `json:"custom_fields"`
 }
 
@@ -40,14 +39,8 @@ func (c *CRMRoutes) HandleCreateContact(w http.ResponseWriter, r *http.Request) 
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createContactRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.FirstName == "" || req.LastName == "" {
-		response.Error(w, http.StatusBadRequest, "first_name and last_name are required")
+	req, ok := decodeAndValidate[createContactRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -146,11 +139,11 @@ func (c *CRMRoutes) HandleListContacts(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateContactRequest struct {
-	FirstName    *string                   `json:"first_name,omitempty"`
-	LastName     *string                   `json:"last_name,omitempty"`
-	Email        *string                   `json:"email,omitempty"`
-	Phone        *string                   `json:"phone,omitempty"`
-	CompanyID    *string                   `json:"company_id,omitempty"`
+	FirstName    *string                   `json:"first_name,omitempty" validate:"omitempty,min=1"`
+	LastName     *string                   `json:"last_name,omitempty" validate:"omitempty,min=1"`
+	Email        *string                   `json:"email,omitempty" validate:"omitempty,email"`
+	Phone        *string                   `json:"phone,omitempty" validate:"omitempty,phone_dach"`
+	CompanyID    *string                   `json:"company_id,omitempty" validate:"omitempty,uuid"`
 	Position     *string                   `json:"position,omitempty"`
 	Notes        *string                   `json:"notes,omitempty"`
 	CustomFields []customFieldValueRequest `json:"custom_fields"`
@@ -168,9 +161,8 @@ func (c *CRMRoutes) HandleUpdateContact(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var req updateContactRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateContactRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -234,7 +226,7 @@ func (c *CRMRoutes) HandleDeleteContact(w http.ResponseWriter, r *http.Request) 
 }
 
 type modifyContactTagsRequest struct {
-	TagIDs []string `json:"tag_ids"`
+	TagIDs []string `json:"tag_ids" validate:"omitempty,dive,uuid"`
 }
 
 func (c *CRMRoutes) HandleAddContactTags(w http.ResponseWriter, r *http.Request) {
@@ -249,9 +241,8 @@ func (c *CRMRoutes) HandleAddContactTags(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var req modifyContactTagsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[modifyContactTagsRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -279,9 +270,8 @@ func (c *CRMRoutes) HandleRemoveContactTags(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var req modifyContactTagsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[modifyContactTagsRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -441,7 +431,7 @@ func (c *CRMRoutes) HandlePreviewImportCSV(w http.ResponseWriter, r *http.Reques
 }
 
 type exportContactsCSVRequest struct {
-	ContactIDs []string `json:"contact_ids"`
+	ContactIDs []string `json:"contact_ids" validate:"omitempty,dive,uuid"`
 	Fields     []string `json:"fields"`
 }
 
@@ -455,9 +445,8 @@ func (c *CRMRoutes) HandleExportContactsCSV(w http.ResponseWriter, r *http.Reque
 	userID := middleware.GetUserID(r.Context())
 	isAdmin := middleware.IsAdmin(r.Context())
 
-	var req exportContactsCSVRequest
-	if decErr := json.NewDecoder(r.Body).Decode(&req); decErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[exportContactsCSVRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -479,7 +468,7 @@ func (c *CRMRoutes) HandleExportContactsCSV(w http.ResponseWriter, r *http.Reque
 }
 
 type exportContactsVCardRequest struct {
-	ContactIDs []string `json:"contact_ids"`
+	ContactIDs []string `json:"contact_ids" validate:"omitempty,dive,uuid"`
 }
 
 func (c *CRMRoutes) HandleExportContactsVCard(w http.ResponseWriter, r *http.Request) {
@@ -492,9 +481,8 @@ func (c *CRMRoutes) HandleExportContactsVCard(w http.ResponseWriter, r *http.Req
 	userID := middleware.GetUserID(r.Context())
 	isAdmin := middleware.IsAdmin(r.Context())
 
-	var req exportContactsVCardRequest
-	if decErr := json.NewDecoder(r.Body).Decode(&req); decErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[exportContactsVCardRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -515,7 +503,7 @@ func (c *CRMRoutes) HandleExportContactsVCard(w http.ResponseWriter, r *http.Req
 }
 
 type updateContactVisibilityRequest struct {
-	Visibility string `json:"visibility"`
+	Visibility string `json:"visibility" validate:"required,oneof=shared personal"`
 }
 
 func (c *CRMRoutes) HandleUpdateContactVisibility(w http.ResponseWriter, r *http.Request) {
@@ -533,14 +521,8 @@ func (c *CRMRoutes) HandleUpdateContactVisibility(w http.ResponseWriter, r *http
 	userID := middleware.GetUserID(r.Context())
 	isAdmin := middleware.IsAdmin(r.Context())
 
-	var req updateContactVisibilityRequest
-	if decErr := json.NewDecoder(r.Body).Decode(&req); decErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Visibility != "shared" && req.Visibility != "personal" {
-		response.Error(w, http.StatusBadRequest, "visibility must be 'shared' or 'personal'")
+	req, ok := decodeAndValidate[updateContactVisibilityRequest](w, r)
+	if !ok {
 		return
 	}
 

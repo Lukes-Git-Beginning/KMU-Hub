@@ -1,11 +1,9 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
@@ -70,6 +68,54 @@ func (sr *SecurityRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		r.With(middleware.RequireRole("admin")).Post("/ip-rules", sr.HandleCreateIPRule)
 		r.With(middleware.RequireRole("admin")).Delete("/ip-rules/{id}", sr.HandleDeleteIPRule)
 	})
+}
+
+// ============================================================================
+// Request types
+// ============================================================================
+
+type setVaultSecretRequest struct {
+	KeyName        string `json:"key_name" validate:"required"`
+	PlaintextValue string `json:"plaintext_value" validate:"required"`
+	Description    string `json:"description"`
+}
+
+type approveExportRequest struct {
+	ReviewNote string `json:"review_note"`
+}
+
+type denyExportRequest struct {
+	ReviewNote string `json:"review_note"`
+}
+
+type previewErasureRequest struct {
+	UserID string `json:"user_id" validate:"required,uuid"`
+}
+
+type executeErasureRequest struct {
+	UserID        string `json:"user_id" validate:"required,uuid"`
+	AdminPassword string `json:"admin_password" validate:"required"`
+}
+
+type updatePasswordPolicyRequest struct {
+	MinLength         int32   `json:"min_length"`
+	RequireUppercase  bool    `json:"require_uppercase"`
+	RequireLowercase  bool    `json:"require_lowercase"`
+	RequireDigit      bool    `json:"require_digit"`
+	RequireSpecial    bool    `json:"require_special"`
+	MinEntropy        float64 `json:"min_entropy"`
+	MaxAgeDays        int32   `json:"max_age_days"`
+	PreventReuseCount int32   `json:"prevent_reuse_count"`
+}
+
+type validatePasswordHTTPRequest struct {
+	Password string `json:"password" validate:"required"`
+}
+
+type createIPRuleRequest struct {
+	IPCIDR      string `json:"ip_cidr" validate:"required"`
+	RuleType    string `json:"rule_type" validate:"required,oneof=allow block"`
+	Description string `json:"description"`
 }
 
 // ============================================================================
@@ -191,12 +237,6 @@ func (sr *SecurityRoutes) HandleGetVaultSecret(w http.ResponseWriter, r *http.Re
 	response.JSON(w, http.StatusOK, resp)
 }
 
-type setVaultSecretRequest struct {
-	KeyName        string `json:"key_name"`
-	PlaintextValue string `json:"plaintext_value"`
-	Description    string `json:"description"`
-}
-
 func (sr *SecurityRoutes) HandleSetVaultSecret(w http.ResponseWriter, r *http.Request) {
 	client, err := sr.getSecurityClient()
 	if err != nil {
@@ -206,14 +246,8 @@ func (sr *SecurityRoutes) HandleSetVaultSecret(w http.ResponseWriter, r *http.Re
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req setVaultSecretRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.KeyName == "" || req.PlaintextValue == "" {
-		response.Error(w, http.StatusBadRequest, "key_name and plaintext_value are required")
+	req, ok := decodeAndValidate[setVaultSecretRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -309,10 +343,6 @@ func (sr *SecurityRoutes) HandleListDataExports(w http.ResponseWriter, r *http.R
 	response.JSON(w, http.StatusOK, resp)
 }
 
-type approveExportRequest struct {
-	ReviewNote string `json:"review_note"`
-}
-
 func (sr *SecurityRoutes) HandleApproveDataExport(w http.ResponseWriter, r *http.Request) {
 	client, err := sr.getSecurityClient()
 	if err != nil {
@@ -327,9 +357,8 @@ func (sr *SecurityRoutes) HandleApproveDataExport(w http.ResponseWriter, r *http
 
 	adminID := middleware.GetUserID(r.Context())
 
-	var req approveExportRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[approveExportRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -346,10 +375,6 @@ func (sr *SecurityRoutes) HandleApproveDataExport(w http.ResponseWriter, r *http
 	response.JSON(w, http.StatusOK, resp)
 }
 
-type denyExportRequest struct {
-	ReviewNote string `json:"review_note"`
-}
-
 func (sr *SecurityRoutes) HandleDenyDataExport(w http.ResponseWriter, r *http.Request) {
 	client, err := sr.getSecurityClient()
 	if err != nil {
@@ -364,9 +389,8 @@ func (sr *SecurityRoutes) HandleDenyDataExport(w http.ResponseWriter, r *http.Re
 
 	adminID := middleware.GetUserID(r.Context())
 
-	var req denyExportRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[denyExportRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -410,10 +434,6 @@ func (sr *SecurityRoutes) HandleGetExportDownload(w http.ResponseWriter, r *http
 	_, _ = w.Write(resp.Data)
 }
 
-type previewErasureRequest struct {
-	UserID string `json:"user_id"`
-}
-
 func (sr *SecurityRoutes) HandlePreviewErasure(w http.ResponseWriter, r *http.Request) {
 	client, err := sr.getSecurityClient()
 	if err != nil {
@@ -421,14 +441,8 @@ func (sr *SecurityRoutes) HandlePreviewErasure(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var req previewErasureRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if _, err := uuid.Parse(req.UserID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid user_id")
+	req, ok := decodeAndValidate[previewErasureRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -443,11 +457,6 @@ func (sr *SecurityRoutes) HandlePreviewErasure(w http.ResponseWriter, r *http.Re
 	response.JSON(w, http.StatusOK, resp)
 }
 
-type executeErasureRequest struct {
-	UserID        string `json:"user_id"`
-	AdminPassword string `json:"admin_password"`
-}
-
 func (sr *SecurityRoutes) HandleExecuteErasure(w http.ResponseWriter, r *http.Request) {
 	client, err := sr.getSecurityClient()
 	if err != nil {
@@ -457,14 +466,8 @@ func (sr *SecurityRoutes) HandleExecuteErasure(w http.ResponseWriter, r *http.Re
 
 	adminID := middleware.GetUserID(r.Context())
 
-	var req executeErasureRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if _, err := uuid.Parse(req.UserID); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid user_id")
+	req, ok := decodeAndValidate[executeErasureRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -501,17 +504,6 @@ func (sr *SecurityRoutes) HandleGetPasswordPolicy(w http.ResponseWriter, r *http
 	response.JSON(w, http.StatusOK, resp)
 }
 
-type updatePasswordPolicyRequest struct {
-	MinLength         int32   `json:"min_length"`
-	RequireUppercase  bool    `json:"require_uppercase"`
-	RequireLowercase  bool    `json:"require_lowercase"`
-	RequireDigit      bool    `json:"require_digit"`
-	RequireSpecial    bool    `json:"require_special"`
-	MinEntropy        float64 `json:"min_entropy"`
-	MaxAgeDays        int32   `json:"max_age_days"`
-	PreventReuseCount int32   `json:"prevent_reuse_count"`
-}
-
 func (sr *SecurityRoutes) HandleUpdatePasswordPolicy(w http.ResponseWriter, r *http.Request) {
 	client, err := sr.getSecurityClient()
 	if err != nil {
@@ -521,9 +513,8 @@ func (sr *SecurityRoutes) HandleUpdatePasswordPolicy(w http.ResponseWriter, r *h
 
 	adminID := middleware.GetUserID(r.Context())
 
-	var req updatePasswordPolicyRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updatePasswordPolicyRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -548,10 +539,6 @@ func (sr *SecurityRoutes) HandleUpdatePasswordPolicy(w http.ResponseWriter, r *h
 	response.JSON(w, http.StatusOK, resp)
 }
 
-type validatePasswordHTTPRequest struct {
-	Password string `json:"password"`
-}
-
 func (sr *SecurityRoutes) HandleValidatePassword(w http.ResponseWriter, r *http.Request) {
 	client, err := sr.getSecurityClient()
 	if err != nil {
@@ -561,14 +548,8 @@ func (sr *SecurityRoutes) HandleValidatePassword(w http.ResponseWriter, r *http.
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req validatePasswordHTTPRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Password == "" {
-		response.Error(w, http.StatusBadRequest, "password is required")
+	req, ok := decodeAndValidate[validatePasswordHTTPRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -608,12 +589,6 @@ func (sr *SecurityRoutes) HandleListIPRules(w http.ResponseWriter, r *http.Reque
 	response.JSON(w, http.StatusOK, resp)
 }
 
-type createIPRuleRequest struct {
-	IPCIDR      string `json:"ip_cidr"`
-	RuleType    string `json:"rule_type"`
-	Description string `json:"description"`
-}
-
 func (sr *SecurityRoutes) HandleCreateIPRule(w http.ResponseWriter, r *http.Request) {
 	client, err := sr.getSecurityClient()
 	if err != nil {
@@ -623,14 +598,8 @@ func (sr *SecurityRoutes) HandleCreateIPRule(w http.ResponseWriter, r *http.Requ
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createIPRuleRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.IPCIDR == "" || req.RuleType == "" {
-		response.Error(w, http.StatusBadRequest, "ip_cidr and rule_type are required")
+	req, ok := decodeAndValidate[createIPRuleRequest](w, r)
+	if !ok {
 		return
 	}
 

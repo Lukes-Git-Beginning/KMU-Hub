@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -17,11 +16,11 @@ import (
 // ============================================================================
 
 type createCreditNoteRequest struct {
-	OriginalInvoiceID string                  `json:"original_invoice_id"`
-	Customer          *bizv1.CustomerSnapshot `json:"customer"`
-	LineItems         []*bizv1.LineItem       `json:"line_items"`
-	TaxMode           string                  `json:"tax_mode"`
-	Reason            string                  `json:"reason"`
+	OriginalInvoiceID string                  `json:"original_invoice_id" validate:"omitempty,uuid"`
+	Customer          *bizv1.CustomerSnapshot `json:"customer"            validate:"required"`
+	LineItems         []*bizv1.LineItem       `json:"line_items"          validate:"required,min=1"`
+	TaxMode           string                  `json:"tax_mode"            validate:"required,oneof=standard reverse_charge kleinunternehmer"`
+	Reason            string                  `json:"reason"              validate:"required"`
 }
 
 func (b *BizRoutes) HandleCreateCreditNote(w http.ResponseWriter, r *http.Request) {
@@ -38,9 +37,8 @@ func (b *BizRoutes) HandleCreateCreditNote(w http.ResponseWriter, r *http.Reques
 	}
 	userID := middleware.GetUserID(r.Context())
 
-	var req createCreditNoteRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[createCreditNoteRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -175,9 +173,9 @@ func (b *BizRoutes) HandleGenerateCreditNotePDF(w http.ResponseWriter, r *http.R
 // ============================================================================
 
 type recordPaymentRequest struct {
-	Amount      string `json:"amount"`
-	PaymentDate string `json:"payment_date"`
-	Method      string `json:"method"`
+	Amount      string `json:"amount"       validate:"required"`
+	PaymentDate string `json:"payment_date" validate:"required,datetime=2006-01-02"`
+	Method      string `json:"method"       validate:"required,oneof=bank_transfer cash credit_card other"`
 	Reference   string `json:"reference"`
 	Notes       string `json:"notes"`
 }
@@ -197,9 +195,8 @@ func (b *BizRoutes) HandleRecordPayment(w http.ResponseWriter, r *http.Request) 
 	userID := middleware.GetUserID(r.Context())
 	invoiceID := chi.URLParam(r, "id")
 
-	var req recordPaymentRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[recordPaymentRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -316,8 +313,8 @@ func (b *BizRoutes) HandleListDunnings(w http.ResponseWriter, r *http.Request) {
 }
 
 type createDunningRequest struct {
-	InvoiceID string `json:"invoice_id"`
-	Level     int32  `json:"level"`
+	InvoiceID string `json:"invoice_id" validate:"required,uuid"`
+	Level     int32  `json:"level"      validate:"required,gte=1,lte=3"`
 	Fee       string `json:"fee"`
 	Interest  string `json:"interest"`
 }
@@ -336,9 +333,8 @@ func (b *BizRoutes) HandleCreateDunning(w http.ResponseWriter, r *http.Request) 
 	}
 	userID := middleware.GetUserID(r.Context())
 
-	var req createDunningRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[createDunningRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -400,11 +396,11 @@ func (b *BizRoutes) HandleEscalateDunning(w http.ResponseWriter, r *http.Request
 
 	// The escalate endpoint uses the dunning ID from the URL, but the proto
 	// uses invoice_id. We need to get the invoice_id from the request body.
-	var req struct {
-		InvoiceID string `json:"invoice_id"`
+	type escalateDunningRequest struct {
+		InvoiceID string `json:"invoice_id" validate:"required,uuid"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[escalateDunningRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -472,9 +468,9 @@ func (b *BizRoutes) HandleGetDunningConfig(w http.ResponseWriter, r *http.Reques
 }
 
 type updateDunningConfigRequest struct {
-	Level1DaysAfterDue    int32  `json:"level1_days_after_due"`
-	Level2DaysAfterLevel1 int32  `json:"level2_days_after_level1"`
-	Level3DaysAfterLevel2 int32  `json:"level3_days_after_level2"`
+	Level1DaysAfterDue    int32  `json:"level1_days_after_due"    validate:"gte=0"`
+	Level2DaysAfterLevel1 int32  `json:"level2_days_after_level1" validate:"gte=0"`
+	Level3DaysAfterLevel2 int32  `json:"level3_days_after_level2" validate:"gte=0"`
 	Level1Fee             string `json:"level1_fee"`
 	Level2Fee             string `json:"level2_fee"`
 	Level3Fee             string `json:"level3_fee"`
@@ -493,9 +489,8 @@ func (b *BizRoutes) HandleUpdateDunningConfig(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var req updateDunningConfigRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateDunningConfigRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -552,9 +547,9 @@ func (b *BizRoutes) HandleGetFinanceDashboard(w http.ResponseWriter, r *http.Req
 // ============================================================================
 
 type exportDATEVRequest struct {
-	StartDate       string `json:"start_date"`
-	EndDate         string `json:"end_date"`
-	FiscalYearStart string `json:"fiscal_year_start"`
+	StartDate       string `json:"start_date"        validate:"required,datetime=2006-01-02"`
+	EndDate         string `json:"end_date"          validate:"required,datetime=2006-01-02"`
+	FiscalYearStart string `json:"fiscal_year_start" validate:"omitempty,datetime=2006-01-02"`
 }
 
 func (b *BizRoutes) HandleExportDATEV(w http.ResponseWriter, r *http.Request) {
@@ -570,9 +565,8 @@ func (b *BizRoutes) HandleExportDATEV(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req exportDATEVRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[exportDATEVRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -746,11 +740,11 @@ func (b *BizRoutes) HandleUpdateDunningStatus(w http.ResponseWriter, r *http.Req
 	}
 	id := chi.URLParam(r, "id")
 
-	var req struct {
-		Status string `json:"status"`
+	type updateDunningStatusRequest struct {
+		Status string `json:"status" validate:"required,oneof=draft sent paid"`
 	}
-	if decodeErr := json.NewDecoder(r.Body).Decode(&req); decodeErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateDunningStatusRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -813,12 +807,12 @@ func (b *BizRoutes) HandleGenerateGoBDExport(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var req struct {
-		FromDate string `json:"from_date"`
-		ToDate   string `json:"to_date"`
+	type generateGoBDExportRequest struct {
+		FromDate string `json:"from_date" validate:"required,datetime=2006-01-02"`
+		ToDate   string `json:"to_date"   validate:"required,datetime=2006-01-02"`
 	}
-	if decodeErr := json.NewDecoder(r.Body).Decode(&req); decodeErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[generateGoBDExportRequest](w, r)
+	if !ok {
 		return
 	}
 

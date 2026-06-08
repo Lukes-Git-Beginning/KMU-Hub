@@ -37,7 +37,9 @@ func TestHandleLiveKitWebhook_ParticipantJoined_Returns200(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := buildLiveKitWebhookReq(t, liveKitWebhookEvent{
 		Event: "participant_joined",
-		Room:  struct{ Name string `json:"name"` }{Name: "room-abc"},
+		Room: struct {
+			Name string `json:"name"`
+		}{Name: "room-abc"},
 		Participant: struct {
 			Identity string `json:"identity"`
 		}{Identity: "user-123"},

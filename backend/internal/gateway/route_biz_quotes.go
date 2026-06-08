@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -16,12 +15,12 @@ import (
 // ============================================================================
 
 type createQuoteRequest struct {
-	Customer   *bizv1.CustomerSnapshot `json:"customer"`
-	LineItems  []*bizv1.LineItem       `json:"line_items"`
-	TaxMode    string                  `json:"tax_mode"`
-	ValidUntil string                  `json:"valid_until"`
+	Customer   *bizv1.CustomerSnapshot `json:"customer"    validate:"required"`
+	LineItems  []*bizv1.LineItem       `json:"line_items"  validate:"required,min=1"`
+	TaxMode    string                  `json:"tax_mode"    validate:"required,oneof=standard reverse_charge kleinunternehmer"`
+	ValidUntil string                  `json:"valid_until" validate:"omitempty,datetime=2006-01-02"`
 	Notes      string                  `json:"notes"`
-	DealID     string                  `json:"deal_id"`
+	DealID     string                  `json:"deal_id"     validate:"omitempty,uuid"`
 }
 
 func (b *BizRoutes) HandleCreateQuote(w http.ResponseWriter, r *http.Request) {
@@ -38,9 +37,8 @@ func (b *BizRoutes) HandleCreateQuote(w http.ResponseWriter, r *http.Request) {
 	}
 	userID := middleware.GetUserID(r.Context())
 
-	var req createQuoteRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[createQuoteRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -125,8 +123,8 @@ func (b *BizRoutes) HandleGetQuote(w http.ResponseWriter, r *http.Request) {
 type updateQuoteRequest struct {
 	Customer   *bizv1.CustomerSnapshot `json:"customer"`
 	LineItems  []*bizv1.LineItem       `json:"line_items"`
-	TaxMode    string                  `json:"tax_mode"`
-	ValidUntil string                  `json:"valid_until"`
+	TaxMode    string                  `json:"tax_mode"    validate:"omitempty,oneof=standard reverse_charge kleinunternehmer"`
+	ValidUntil string                  `json:"valid_until" validate:"omitempty,datetime=2006-01-02"`
 	Notes      string                  `json:"notes"`
 }
 
@@ -144,9 +142,8 @@ func (b *BizRoutes) HandleUpdateQuote(w http.ResponseWriter, r *http.Request) {
 	}
 	id := chi.URLParam(r, "id")
 
-	var req updateQuoteRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateQuoteRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -272,9 +269,9 @@ func (b *BizRoutes) HandleRejectQuote(w http.ResponseWriter, r *http.Request) {
 }
 
 type convertQuoteRequest struct {
-	InvoiceDate  string `json:"invoice_date"`
-	DueDate      string `json:"due_date"`
-	DeliveryDate string `json:"delivery_date"`
+	InvoiceDate  string `json:"invoice_date"  validate:"required,datetime=2006-01-02"`
+	DueDate      string `json:"due_date"      validate:"omitempty,datetime=2006-01-02"`
+	DeliveryDate string `json:"delivery_date" validate:"omitempty,datetime=2006-01-02"`
 	PaymentTerms string `json:"payment_terms"`
 }
 
@@ -292,9 +289,8 @@ func (b *BizRoutes) HandleConvertQuoteToInvoice(w http.ResponseWriter, r *http.R
 	}
 	id := chi.URLParam(r, "id")
 
-	var req convertQuoteRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[convertQuoteRequest](w, r)
+	if !ok {
 		return
 	}
 

@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -14,7 +13,7 @@ import (
 // ============================================================================
 
 type createPipelineStageRequest struct {
-	Name        string  `json:"name"`
+	Name        string  `json:"name" validate:"required"`
 	Color       string  `json:"color"`
 	IsWon       bool    `json:"is_won"`
 	IsLost      bool    `json:"is_lost"`
@@ -28,14 +27,8 @@ func (c *CRMRoutes) HandleCreatePipelineStage(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var req createPipelineStageRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Name == "" {
-		response.Error(w, http.StatusBadRequest, "name is required")
+	req, ok := decodeAndValidate[createPipelineStageRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -92,7 +85,7 @@ func (c *CRMRoutes) HandleListPipelineStages(w http.ResponseWriter, r *http.Requ
 }
 
 type updatePipelineStageRequest struct {
-	Name        *string  `json:"name,omitempty"`
+	Name        *string  `json:"name,omitempty" validate:"omitempty,min=1"`
 	Color       *string  `json:"color,omitempty"`
 	IsWon       *bool    `json:"is_won,omitempty"`
 	IsLost      *bool    `json:"is_lost,omitempty"`
@@ -111,9 +104,8 @@ func (c *CRMRoutes) HandleUpdatePipelineStage(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var req updatePipelineStageRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updatePipelineStageRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -165,7 +157,7 @@ func (c *CRMRoutes) HandleDeletePipelineStage(w http.ResponseWriter, r *http.Req
 }
 
 type reorderPipelineStagesRequest struct {
-	StageIDs []string `json:"stage_ids"`
+	StageIDs []string `json:"stage_ids" validate:"required,min=1,dive,uuid"`
 }
 
 func (c *CRMRoutes) HandleReorderPipelineStages(w http.ResponseWriter, r *http.Request) {
@@ -175,14 +167,8 @@ func (c *CRMRoutes) HandleReorderPipelineStages(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	var req reorderPipelineStagesRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if len(req.StageIDs) == 0 {
-		response.Error(w, http.StatusBadRequest, "stage_ids is required")
+	req, ok := decodeAndValidate[reorderPipelineStagesRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -202,16 +188,16 @@ func (c *CRMRoutes) HandleReorderPipelineStages(w http.ResponseWriter, r *http.R
 // ============================================================================
 
 type createDealRequest struct {
-	Name              string                    `json:"name"`
+	Name              string                    `json:"name" validate:"required"`
 	Value             float64                   `json:"value"`
 	Currency          string                    `json:"currency"`
-	StageID           string                    `json:"stage_id"`
-	ContactID         *string                   `json:"contact_id,omitempty"`
-	CompanyID         *string                   `json:"company_id,omitempty"`
-	OwnerID           *string                   `json:"owner_id,omitempty"`
+	StageID           string                    `json:"stage_id" validate:"required,uuid"`
+	ContactID         *string                   `json:"contact_id,omitempty" validate:"omitempty,uuid"`
+	CompanyID         *string                   `json:"company_id,omitempty" validate:"omitempty,uuid"`
+	OwnerID           *string                   `json:"owner_id,omitempty" validate:"omitempty,uuid"`
 	ExpectedCloseDate string                    `json:"expected_close_date"`
 	Notes             string                    `json:"notes"`
-	TagIDs            []string                  `json:"tag_ids"`
+	TagIDs            []string                  `json:"tag_ids" validate:"omitempty,dive,uuid"`
 	CustomFields      []customFieldValueRequest `json:"custom_fields"`
 }
 
@@ -230,14 +216,8 @@ func (c *CRMRoutes) HandleCreateDeal(w http.ResponseWriter, r *http.Request) {
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createDealRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Name == "" || req.StageID == "" {
-		response.Error(w, http.StatusBadRequest, "name and stage_id are required")
+	req, ok := decodeAndValidate[createDealRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -362,12 +342,12 @@ func (c *CRMRoutes) HandleListDeals(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateDealRequest struct {
-	Name              *string                   `json:"name,omitempty"`
+	Name              *string                   `json:"name,omitempty" validate:"omitempty,min=1"`
 	Value             *float64                  `json:"value,omitempty"`
 	Currency          *string                   `json:"currency,omitempty"`
-	ContactID         *string                   `json:"contact_id,omitempty"`
-	CompanyID         *string                   `json:"company_id,omitempty"`
-	OwnerID           *string                   `json:"owner_id,omitempty"`
+	ContactID         *string                   `json:"contact_id,omitempty" validate:"omitempty,uuid"`
+	CompanyID         *string                   `json:"company_id,omitempty" validate:"omitempty,uuid"`
+	OwnerID           *string                   `json:"owner_id,omitempty" validate:"omitempty,uuid"`
 	ExpectedCloseDate *string                   `json:"expected_close_date,omitempty"`
 	Notes             *string                   `json:"notes,omitempty"`
 	CustomFields      []customFieldValueRequest `json:"custom_fields"`
@@ -385,9 +365,8 @@ func (c *CRMRoutes) HandleUpdateDeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req updateDealRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateDealRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -466,7 +445,7 @@ func (c *CRMRoutes) HandleDeleteDeal(w http.ResponseWriter, r *http.Request) {
 }
 
 type moveDealToStageRequest struct {
-	StageID string `json:"stage_id"`
+	StageID string `json:"stage_id" validate:"required,uuid"`
 }
 
 func (c *CRMRoutes) HandleMoveDealToStage(w http.ResponseWriter, r *http.Request) {
@@ -481,14 +460,8 @@ func (c *CRMRoutes) HandleMoveDealToStage(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	var req moveDealToStageRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.StageID == "" {
-		response.Error(w, http.StatusBadRequest, "stage_id is required")
+	req, ok := decodeAndValidate[moveDealToStageRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -512,7 +485,7 @@ func (c *CRMRoutes) HandleMoveDealToStage(w http.ResponseWriter, r *http.Request
 }
 
 type modifyDealTagsRequest struct {
-	TagIDs []string `json:"tag_ids"`
+	TagIDs []string `json:"tag_ids" validate:"omitempty,dive,uuid"`
 }
 
 func (c *CRMRoutes) HandleAddDealTags(w http.ResponseWriter, r *http.Request) {
@@ -520,9 +493,7 @@ func (c *CRMRoutes) HandleAddDealTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req modifyDealTagsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	if _, ok := decodeAndValidate[modifyDealTagsRequest](w, r); !ok {
 		return
 	}
 
@@ -534,9 +505,7 @@ func (c *CRMRoutes) HandleRemoveDealTags(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var req modifyDealTagsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	if _, ok := decodeAndValidate[modifyDealTagsRequest](w, r); !ok {
 		return
 	}
 

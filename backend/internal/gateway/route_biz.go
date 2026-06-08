@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -183,20 +182,20 @@ func (b *BizRoutes) HandleGetCompanySettings(w http.ResponseWriter, r *http.Requ
 type updateCompanySettingsRequest struct {
 	Name                     string `json:"name"`
 	Street                   string `json:"street"`
-	PLZ                      string `json:"plz"`
+	PLZ                      string `json:"plz"                validate:"omitempty,plz_dach"`
 	City                     string `json:"city"`
 	Country                  string `json:"country"`
-	Steuernummer             string `json:"steuernummer"`
-	UstIdNr                  string `json:"ust_id_nr"`
+	Steuernummer             string `json:"steuernummer"        validate:"omitempty,steuernr"`
+	UstIdNr                  string `json:"ust_id_nr"           validate:"omitempty,ustid_dach"`
 	Handelsregister          string `json:"handelsregister"`
 	BankName                 string `json:"bank_name"`
-	IBAN                     string `json:"iban"`
-	BIC                      string `json:"bic"`
-	LogoURL                  string `json:"logo_url"`
+	IBAN                     string `json:"iban"               validate:"omitempty,iban"`
+	BIC                      string `json:"bic"                validate:"omitempty,bic"`
+	LogoURL                  string `json:"logo_url"           validate:"omitempty,url"`
 	AccentColor              string `json:"accent_color"`
 	IsKleinunternehmer       bool   `json:"is_kleinunternehmer"`
-	DefaultPaymentTermsDays  int32  `json:"default_payment_terms_days"`
-	DefaultQuoteValidityDays int32  `json:"default_quote_validity_days"`
+	DefaultPaymentTermsDays  int32  `json:"default_payment_terms_days"  validate:"omitempty,gte=0"`
+	DefaultQuoteValidityDays int32  `json:"default_quote_validity_days" validate:"omitempty,gte=0"`
 	Basiszinssatz            string `json:"basiszinssatz"`
 }
 
@@ -213,9 +212,8 @@ func (b *BizRoutes) HandleUpdateCompanySettings(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	var req updateCompanySettingsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateCompanySettingsRequest](w, r)
+	if !ok {
 		return
 	}
 

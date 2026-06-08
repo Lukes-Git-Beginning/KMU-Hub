@@ -42,25 +42,60 @@ func TestHandleCreateContact_InvalidJSON(t *testing.T) {
 func TestHandleCreateContact_MissingFields(t *testing.T) {
 	routes := NewCRMRoutes(registryWithService("crm"), nil)
 
-	tests := []struct {
-		name string
-		body map[string]interface{}
-	}{
-		{"empty", map[string]interface{}{}},
-		{"no_last_name", map[string]interface{}{"first_name": "Max"}},
-		{"no_first_name", map[string]interface{}{"last_name": "Muster"}},
-	}
+	t.Run("empty", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/api/v1/contacts", jsonBody(t, map[string]interface{}{}))
+		req = withUserID(req, "user-123")
+		routes.HandleCreateContact(rec, req)
+		assertStatus(t, rec, http.StatusBadRequest)
+		assertValidationError(t, rec, "first_name")
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			rec := httptest.NewRecorder()
-			req := httptest.NewRequest("POST", "/api/v1/contacts", jsonBody(t, tt.body))
-			req = withUserID(req, "user-123")
-			routes.HandleCreateContact(rec, req)
-			assertStatus(t, rec, http.StatusBadRequest)
-			assertErrorContains(t, rec, "first_name and last_name are required")
-		})
-	}
+	t.Run("no_last_name", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/api/v1/contacts", jsonBody(t, map[string]interface{}{"first_name": "Max"}))
+		req = withUserID(req, "user-123")
+		routes.HandleCreateContact(rec, req)
+		assertStatus(t, rec, http.StatusBadRequest)
+		assertValidationError(t, rec, "last_name")
+	})
+
+	t.Run("no_first_name", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/api/v1/contacts", jsonBody(t, map[string]interface{}{"last_name": "Muster"}))
+		req = withUserID(req, "user-123")
+		routes.HandleCreateContact(rec, req)
+		assertStatus(t, rec, http.StatusBadRequest)
+		assertValidationError(t, rec, "first_name")
+	})
+}
+
+func TestHandleCreateContact_InvalidEmail(t *testing.T) {
+	routes := NewCRMRoutes(registryWithService("crm"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/contacts", jsonBody(t, map[string]interface{}{
+		"first_name": "Max",
+		"last_name":  "Muster",
+		"email":      "not-an-email",
+	}))
+	req = withUserID(req, "user-123")
+	routes.HandleCreateContact(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertValidationError(t, rec, "email")
+}
+
+func TestHandleCreateContact_InvalidCompanyID(t *testing.T) {
+	routes := NewCRMRoutes(registryWithService("crm"), nil)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/contacts", jsonBody(t, map[string]interface{}{
+		"first_name": "Max",
+		"last_name":  "Muster",
+		"company_id": "not-a-uuid",
+	}))
+	req = withUserID(req, "user-123")
+	routes.HandleCreateContact(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertValidationError(t, rec, "company_id")
 }
 
 func TestHandleGetContact_ServiceUnavailable(t *testing.T) {
@@ -133,7 +168,7 @@ func TestHandleCreateCompany_MissingName(t *testing.T) {
 	req = withUserID(req, "user-123")
 	routes.HandleCreateCompany(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "name is required")
+	assertValidationError(t, rec, "name")
 }
 
 func TestHandleGetCompany_InvalidUUID(t *testing.T) {
@@ -169,8 +204,7 @@ func TestHandleCreateCustomField_MissingFields(t *testing.T) {
 	}))
 	req = withUserID(req, "user-123")
 	routes.HandleCreateCustomField(rec, req)
-	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "required")
+	assertValidationError(t, rec, "field_name")
 }
 
 func TestHandleGetCustomField_InvalidUUID(t *testing.T) {
@@ -206,7 +240,7 @@ func TestHandleCreateTag_MissingFields(t *testing.T) {
 	}))
 	routes.HandleCreateTag(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "name and entity_type are required")
+	assertValidationError(t, rec, "entity_type")
 }
 
 func TestHandleGetTag_InvalidUUID(t *testing.T) {

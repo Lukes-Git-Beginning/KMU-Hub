@@ -103,3 +103,31 @@ func TestHandleLexwareWebhook_MissingSignatureHeader_Returns401(t *testing.T) {
 	assertStatus(t, rec, http.StatusUnauthorized)
 	assertErrorContains(t, rec, "missing webhook signature")
 }
+
+// ============================================================================
+// HandleConnect validation tests
+// ============================================================================
+
+// TestHandleLexwareConnect_MissingAPIKey verifies that api_key is required.
+// Uses registryWithService("biz") so the gRPC client is obtained; getTenantID
+// runs next (tenant set in context); decodeAndValidate fires last and rejects the empty body.
+func TestHandleLexwareConnect_MissingAPIKey(t *testing.T) {
+	routes := &LexwareRoutes{registry: registryWithService("biz")}
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/integrations/lexware/connect",
+		strings.NewReader(`{}`))
+	req = withTenantID(req, testTenantID)
+	routes.HandleConnect(rec, req)
+	assertValidationError(t, rec, "api_key")
+}
+
+// TestHandleLexwareConnect_InvalidJSON verifies 400 on malformed JSON.
+func TestHandleLexwareConnect_InvalidJSON(t *testing.T) {
+	routes := &LexwareRoutes{registry: registryWithService("biz")}
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/integrations/lexware/connect",
+		strings.NewReader("{invalid"))
+	req = withTenantID(req, testTenantID)
+	routes.HandleConnect(rec, req)
+	assertErrorContains(t, rec, "invalid request body")
+}

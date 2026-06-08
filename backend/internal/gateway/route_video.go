@@ -32,9 +32,9 @@ type recordingBroadcaster interface {
 // VideoRoutes handles HTTP routes for the Video service.
 // Video runs in the same binary as Work, so we reuse the "work" gRPC connection.
 type VideoRoutes struct {
-	registry    *ServiceRegistry
-	lkKeyProv   lkauth.KeyProvider   // nil when LIVEKIT_API_KEY/SECRET are not configured
-	wsHub       recordingBroadcaster // optional; set via SetWSHub after hub construction
+	registry  *ServiceRegistry
+	lkKeyProv lkauth.KeyProvider   // nil when LIVEKIT_API_KEY/SECRET are not configured
+	wsHub     recordingBroadcaster // optional; set via SetWSHub after hub construction
 }
 
 // NewVideoRoutes creates a new VideoRoutes with the given service registry.
@@ -172,13 +172,13 @@ func (vr *VideoRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 
 type createCallRequest struct {
 	CallType       string   `json:"call_type"`
-	ParticipantIDs []string `json:"participant_ids"`
-	ChannelID      *string  `json:"channel_id,omitempty"`
+	ParticipantIDs []string `json:"participant_ids" validate:"required,min=1"`
+	ChannelID      *string  `json:"channel_id,omitempty" validate:"omitempty,uuid"`
 }
 
 type startRecordingRequest struct {
-	CallID    *string `json:"call_id,omitempty"`
-	MeetingID *string `json:"meeting_id,omitempty"`
+	CallID    *string `json:"call_id,omitempty" validate:"omitempty,uuid"`
+	MeetingID *string `json:"meeting_id,omitempty" validate:"omitempty,uuid"`
 }
 
 type setRecordingConsentRequest struct {
@@ -186,33 +186,33 @@ type setRecordingConsentRequest struct {
 }
 
 type createMeetingHTTPRequest struct {
-	Title              string   `json:"title"`
+	Title              string   `json:"title" validate:"required"`
 	Description        *string  `json:"description,omitempty"`
 	Agenda             *string  `json:"agenda,omitempty"`
-	ScheduledStart     string   `json:"scheduled_start"`
-	ScheduledEnd       string   `json:"scheduled_end"`
-	CalendarEventID    *string  `json:"calendar_event_id,omitempty"`
-	RecurringMeetingID *string  `json:"recurring_meeting_id,omitempty"`
+	ScheduledStart     string   `json:"scheduled_start" validate:"required"`
+	ScheduledEnd       string   `json:"scheduled_end" validate:"required"`
+	CalendarEventID    *string  `json:"calendar_event_id,omitempty" validate:"omitempty,uuid"`
+	RecurringMeetingID *string  `json:"recurring_meeting_id,omitempty" validate:"omitempty,uuid"`
 	AttendeeUserIDs    []string `json:"attendee_user_ids,omitempty"`
 }
 
 type updateMeetingHTTPRequest struct {
-	Title          *string `json:"title,omitempty"`
-	Description    *string `json:"description,omitempty"`
-	Agenda         *string `json:"agenda,omitempty"`
-	ScheduledStart *string `json:"scheduled_start,omitempty"`
-	ScheduledEnd   *string `json:"scheduled_end,omitempty"`
+	Title           *string  `json:"title,omitempty"`
+	Description     *string  `json:"description,omitempty"`
+	Agenda          *string  `json:"agenda,omitempty"`
+	ScheduledStart  *string  `json:"scheduled_start,omitempty"`
+	ScheduledEnd    *string  `json:"scheduled_end,omitempty"`
 	AttendeeUserIDs []string `json:"attendee_user_ids,omitempty"`
 }
 
 type saveMeetingNotesRequest struct {
-	Content   string `json:"content"`
+	Content   string `json:"content" validate:"required"`
 	IsPrivate bool   `json:"is_private"`
 }
 
 type createActionItemHTTPRequest struct {
-	Description string  `json:"description"`
-	AssigneeID  *string `json:"assignee_id,omitempty"`
+	Description string  `json:"description" validate:"required"`
+	AssigneeID  *string `json:"assignee_id,omitempty" validate:"omitempty,uuid"`
 	SortOrder   *int32  `json:"sort_order,omitempty"`
 }
 
@@ -224,20 +224,20 @@ type updateActionItemHTTPRequest struct {
 }
 
 type convertActionItemsRequest struct {
-	ActionItemIDs []string `json:"action_item_ids"`
-	ProjectID     string   `json:"project_id"`
+	ActionItemIDs []string `json:"action_item_ids" validate:"required,min=1"`
+	ProjectID     string   `json:"project_id" validate:"required,uuid"`
 }
 
 type setPresenceStatusRequest struct {
-	Status string `json:"status"`
+	Status string `json:"status" validate:"required,oneof=online away dnd in_call offline"`
 }
 
 type bulkPresenceRequest struct {
-	UserIDs []string `json:"user_ids"`
+	UserIDs []string `json:"user_ids" validate:"required,min=1"`
 }
 
 type updatePresenceConfigHTTPRequest struct {
-	AwayTimeoutSeconds int32 `json:"away_timeout_seconds"`
+	AwayTimeoutSeconds int32 `json:"away_timeout_seconds" validate:"required,gt=0"`
 }
 
 // ============================================================================
@@ -253,9 +253,8 @@ func (vr *VideoRoutes) HandleCreateCall(w http.ResponseWriter, r *http.Request) 
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createCallRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[createCallRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -384,9 +383,8 @@ func (vr *VideoRoutes) HandleStartRecording(w http.ResponseWriter, r *http.Reque
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req startRecordingRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[startRecordingRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -455,9 +453,8 @@ func (vr *VideoRoutes) HandleSetRecordingConsent(w http.ResponseWriter, r *http.
 		return
 	}
 
-	var req setRecordingConsentRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[setRecordingConsentRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -564,14 +561,8 @@ func (vr *VideoRoutes) HandleCreateMeeting(w http.ResponseWriter, r *http.Reques
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createMeetingHTTPRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Title == "" {
-		response.Error(w, http.StatusBadRequest, "title is required")
+	req, ok := decodeAndValidate[createMeetingHTTPRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -587,15 +578,15 @@ func (vr *VideoRoutes) HandleCreateMeeting(w http.ResponseWriter, r *http.Reques
 	}
 
 	grpcReq := &videov1.CreateMeetingRequest{
-		Title:           req.Title,
-		Description:     req.Description,
-		Agenda:          req.Agenda,
-		OrganizerId:     userID,
-		ScheduledStart:  startTime,
-		ScheduledEnd:    endTime,
-		CalendarEventId: req.CalendarEventID,
+		Title:              req.Title,
+		Description:        req.Description,
+		Agenda:             req.Agenda,
+		OrganizerId:        userID,
+		ScheduledStart:     startTime,
+		ScheduledEnd:       endTime,
+		CalendarEventId:    req.CalendarEventID,
 		RecurringMeetingId: req.RecurringMeetingID,
-		AttendeeUserIds: req.AttendeeUserIDs,
+		AttendeeUserIds:    req.AttendeeUserIDs,
 	}
 
 	resp, err := client.CreateMeeting(r.Context(), grpcReq)
@@ -640,9 +631,8 @@ func (vr *VideoRoutes) HandleUpdateMeeting(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var req updateMeetingHTTPRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateMeetingHTTPRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -822,9 +812,8 @@ func (vr *VideoRoutes) HandleSaveMeetingNotes(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var req saveMeetingNotesRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[saveMeetingNotesRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -908,9 +897,8 @@ func (vr *VideoRoutes) HandleCreateActionItem(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var req createActionItemHTTPRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[createActionItemHTTPRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -942,9 +930,8 @@ func (vr *VideoRoutes) HandleUpdateActionItem(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var req updateActionItemHTTPRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateActionItemHTTPRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -1020,9 +1007,8 @@ func (vr *VideoRoutes) HandleConvertActionItemsToTasks(w http.ResponseWriter, r 
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req convertActionItemsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[convertActionItemsRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -1070,9 +1056,8 @@ func (vr *VideoRoutes) HandleGetBulkPresence(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var req bulkPresenceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[bulkPresenceRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -1096,9 +1081,8 @@ func (vr *VideoRoutes) HandleSetPresenceStatus(w http.ResponseWriter, r *http.Re
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req setPresenceStatusRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[setPresenceStatusRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -1135,9 +1119,8 @@ func (vr *VideoRoutes) HandleUpdatePresenceConfig(w http.ResponseWriter, r *http
 		return
 	}
 
-	var req updatePresenceConfigHTTPRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updatePresenceConfigHTTPRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -1212,10 +1195,10 @@ type liveKitWebhookEvent struct {
 		Duration int64 `json:"duration"`
 		// FileResults holds details about uploaded recording files.
 		FileResults []struct {
-			Filename  string `json:"filename"`
-			Location  string `json:"location"`
-			Size      int64  `json:"size"`
-			Duration  int64  `json:"duration"`
+			Filename string `json:"filename"`
+			Location string `json:"location"`
+			Size     int64  `json:"size"`
+			Duration int64  `json:"duration"`
 		} `json:"file_results"`
 	} `json:"egress_info"`
 }
@@ -1428,10 +1411,10 @@ func (vr *VideoRoutes) HandleGetRecordingConsents(w http.ResponseWriter, r *http
 
 type tagRecordingConsentsRequest struct {
 	Snapshot []struct {
-		UserID      string `json:"user_id"`
-		DisplayName string `json:"display_name"`
+		UserID      string `json:"user_id" validate:"required"`
+		DisplayName string `json:"display_name" validate:"required"`
 		JoinedAt    string `json:"joined_at,omitempty"`
-	} `json:"snapshot"`
+	} `json:"snapshot" validate:"required,min=1,dive"`
 }
 
 // HandleTagRecordingWithConsents overwrites the consent snapshot on a recording.
@@ -1448,9 +1431,8 @@ func (vr *VideoRoutes) HandleTagRecordingWithConsents(w http.ResponseWriter, r *
 		return
 	}
 
-	var req tagRecordingConsentsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[tagRecordingConsentsRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -1496,9 +1478,8 @@ func (vr *VideoRoutes) HandleUpdateRecordingMetadata(w http.ResponseWriter, r *h
 		return
 	}
 
-	var req updateRecordingMetadataRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateRecordingMetadataRequest](w, r)
+	if !ok {
 		return
 	}
 

@@ -44,6 +44,18 @@ func TestHandleCreateCampaign_InvalidJSON(t *testing.T) {
 	assertErrorContains(t, rec, "invalid request body")
 }
 
+func TestHandleCreateCampaign_MissingName(t *testing.T) {
+	routes := NewDialerRoutes(registryWithService("dialer"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/dialer/campaigns", jsonBody(t, map[string]interface{}{
+		"mode": 1,
+	}))
+	req = withUserID(req, "user-123")
+	routes.HandleCreateCampaign(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertValidationError(t, rec, "name")
+}
+
 func TestHandleGetCampaign_ServiceUnavailable(t *testing.T) {
 	routes := NewDialerRoutes(emptyRegistry())
 	rec := httptest.NewRecorder()
@@ -163,6 +175,28 @@ func TestHandleAddContactsToCampaign_InvalidJSON(t *testing.T) {
 	routes.HandleAddContactsToCampaign(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid request body")
+}
+
+func TestHandleInitiateDialerCall_MissingCampaignContactID(t *testing.T) {
+	routes := NewDialerRoutes(registryWithService("dialer"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/dialer/calls", jsonBody(t, map[string]interface{}{}))
+	req = withUserID(req, "user-123")
+	routes.HandleInitiateDialerCall(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertValidationError(t, rec, "campaign_contact_id")
+}
+
+func TestHandleInitiateDialerCall_InvalidUUIDInBody(t *testing.T) {
+	routes := NewDialerRoutes(registryWithService("dialer"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/dialer/calls", jsonBody(t, map[string]interface{}{
+		"campaign_contact_id": "not-a-uuid",
+	}))
+	req = withUserID(req, "user-123")
+	routes.HandleInitiateDialerCall(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertValidationError(t, rec, "campaign_contact_id")
 }
 
 func TestHandleGetNextContact_InvalidUUID(t *testing.T) {

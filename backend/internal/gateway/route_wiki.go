@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -34,7 +33,6 @@ func (wr *WikiRoutes) getWikiClient() (wikiv1.WikiServiceClient, error) {
 	}
 	return wikiv1.NewWikiServiceClient(conn), nil
 }
-
 
 // RegisterRoutes mounts all Wiki HTTP routes behind the feature flag modules.wiki.
 // Routes are only registered if the flag is enabled.
@@ -84,15 +82,15 @@ func (wr *WikiRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 // ============================================================================
 
 type createArticleRequest struct {
-	Title      string  `json:"title"`
+	Title      string  `json:"title" validate:"required"`
 	Slug       string  `json:"slug,omitempty"`
 	Content    []byte  `json:"content,omitempty"`
-	CategoryID *string `json:"category_id,omitempty"`
+	CategoryID *string `json:"category_id,omitempty" validate:"omitempty,uuid"`
 	Published  bool    `json:"published"`
 }
 
 type updateArticleRequest struct {
-	Title      *string `json:"title,omitempty"`
+	Title      *string `json:"title,omitempty" validate:"omitempty,min=1"`
 	Slug       *string `json:"slug,omitempty"`
 	Content    []byte  `json:"content,omitempty"`
 	CategoryID *string `json:"category_id,omitempty"` // empty string = clear
@@ -100,14 +98,14 @@ type updateArticleRequest struct {
 }
 
 type uploadAttachmentRequest struct {
-	FileRef string `json:"file_ref"`
+	FileRef string `json:"file_ref" validate:"required"`
 	Mime    string `json:"mime"`
 	Size    int64  `json:"size"`
 }
 
 type createCategoryRequest struct {
-	Name     string  `json:"name"`
-	ParentID *string `json:"parent_id,omitempty"`
+	Name     string  `json:"name" validate:"required"`
+	ParentID *string `json:"parent_id,omitempty" validate:"omitempty,uuid"`
 	Position int32   `json:"position"`
 }
 
@@ -174,13 +172,8 @@ func (wr *WikiRoutes) HandleCreateArticle(w http.ResponseWriter, r *http.Request
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createArticleRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.Title == "" {
-		response.Error(w, http.StatusBadRequest, "title is required")
+	req, ok := decodeAndValidate[createArticleRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -249,9 +242,8 @@ func (wr *WikiRoutes) HandleUpdateArticle(w http.ResponseWriter, r *http.Request
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req updateArticleRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateArticleRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -454,13 +446,8 @@ func (wr *WikiRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.Requ
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req uploadAttachmentRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.FileRef == "" {
-		response.Error(w, http.StatusBadRequest, "file_ref is required")
+	req, ok := decodeAndValidate[uploadAttachmentRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -546,13 +533,8 @@ func (wr *WikiRoutes) HandleCreateCategory(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var req createCategoryRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.Name == "" {
-		response.Error(w, http.StatusBadRequest, "name is required")
+	req, ok := decodeAndValidate[createCategoryRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -570,4 +552,3 @@ func (wr *WikiRoutes) HandleCreateCategory(w http.ResponseWriter, r *http.Reques
 	}
 	response.JSON(w, http.StatusCreated, resp)
 }
-

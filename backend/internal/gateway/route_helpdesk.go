@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -82,6 +81,78 @@ func (h *HelpdeskRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 }
 
 // ============================================================================
+// Request types
+// ============================================================================
+
+type createTicketRequest struct {
+	Subject    string  `json:"subject" validate:"required,max=200"`
+	Priority   string  `json:"priority" validate:"omitempty,oneof=low normal high urgent"`
+	AssigneeID *string `json:"assignee_id,omitempty" validate:"omitempty,uuid"`
+	QueueID    *string `json:"queue_id,omitempty" validate:"omitempty,uuid"`
+}
+
+type updateTicketRequest struct {
+	Subject    *string `json:"subject,omitempty" validate:"omitempty,min=1,max=200"`
+	Priority   *string `json:"priority,omitempty" validate:"omitempty,oneof=low normal high urgent"`
+	AssigneeID *string `json:"assignee_id,omitempty" validate:"omitempty,uuid"`
+	QueueID    *string `json:"queue_id,omitempty" validate:"omitempty,uuid"`
+}
+
+type assignTicketRequest struct {
+	AssigneeID string `json:"assignee_id" validate:"required,uuid"`
+}
+
+type mergeTicketsRequest struct {
+	TargetTicketID string `json:"target_ticket_id" validate:"required,uuid"`
+}
+
+type addMessageRequest struct {
+	Body        string   `json:"body" validate:"required"`
+	Internal    bool     `json:"internal"`
+	Attachments []string `json:"attachments"`
+}
+
+type createQueueRequest struct {
+	Name              string  `json:"name" validate:"required"`
+	DefaultAssigneeID *string `json:"default_assignee_id,omitempty" validate:"omitempty,uuid"`
+	SLAPolicyID       *string `json:"sla_policy_id,omitempty" validate:"omitempty,uuid"`
+}
+
+type updateQueueRequest struct {
+	Name              *string `json:"name,omitempty" validate:"omitempty,min=1"`
+	DefaultAssigneeID *string `json:"default_assignee_id,omitempty" validate:"omitempty,uuid"`
+	SLAPolicyID       *string `json:"sla_policy_id,omitempty" validate:"omitempty,uuid"`
+}
+
+type createCannedResponseRequest struct {
+	Name string `json:"name" validate:"required"`
+	Body string `json:"body" validate:"required"`
+}
+
+type updateCannedResponseRequest struct {
+	Name *string `json:"name,omitempty" validate:"omitempty,min=1"`
+	Body *string `json:"body,omitempty" validate:"omitempty,min=1"`
+}
+
+type createSLAPolicyRequest struct {
+	Name              string  `json:"name" validate:"required"`
+	FirstResponseMins int32   `json:"first_response_mins"`
+	ResolutionMins    int32   `json:"resolution_mins"`
+	BusinessHours     *string `json:"business_hours,omitempty"`
+}
+
+type updateSLAPolicyRequest struct {
+	Name              *string `json:"name,omitempty" validate:"omitempty,min=1"`
+	FirstResponseMins *int32  `json:"first_response_mins,omitempty"`
+	ResolutionMins    *int32  `json:"resolution_mins,omitempty"`
+	BusinessHours     *string `json:"business_hours,omitempty"`
+}
+
+type applySLAPolicyRequest struct {
+	SLAPolicyID string `json:"sla_policy_id" validate:"required,uuid"`
+}
+
+// ============================================================================
 // Ticket Handlers
 // ============================================================================
 
@@ -94,27 +165,17 @@ func (h *HelpdeskRoutes) HandleCreateTicket(w http.ResponseWriter, r *http.Reque
 
 	userID := middleware.GetUserID(r.Context())
 
-	var body struct {
-		Subject    string  `json:"subject"`
-		Priority   string  `json:"priority"`
-		AssigneeID *string `json:"assignee_id,omitempty"`
-		QueueID    *string `json:"queue_id,omitempty"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if body.Subject == "" {
-		response.Error(w, http.StatusBadRequest, "subject is required")
+	req, ok := decodeAndValidate[createTicketRequest](w, r)
+	if !ok {
 		return
 	}
 
 	grpcReq := &helpdeskv1.CreateTicketRequest{
 		RequesterId: userID,
-		Subject:     body.Subject,
-		Priority:    body.Priority,
-		AssigneeId:  body.AssigneeID,
-		QueueId:     body.QueueID,
+		Subject:     req.Subject,
+		Priority:    req.Priority,
+		AssigneeId:  req.AssigneeID,
+		QueueId:     req.QueueID,
 	}
 
 	resp, err := client.CreateTicket(r.Context(), grpcReq)
@@ -185,23 +246,17 @@ func (h *HelpdeskRoutes) HandleUpdateTicket(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var body struct {
-		Subject    *string `json:"subject,omitempty"`
-		Priority   *string `json:"priority,omitempty"`
-		AssigneeID *string `json:"assignee_id,omitempty"`
-		QueueID    *string `json:"queue_id,omitempty"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateTicketRequest](w, r)
+	if !ok {
 		return
 	}
 
 	grpcReq := &helpdeskv1.UpdateTicketRequest{
 		TicketId:   ticketID,
-		Subject:    body.Subject,
-		Priority:   body.Priority,
-		AssigneeId: body.AssigneeID,
-		QueueId:    body.QueueID,
+		Subject:    req.Subject,
+		Priority:   req.Priority,
+		AssigneeId: req.AssigneeID,
+		QueueId:    req.QueueID,
 	}
 
 	resp, err := client.UpdateTicket(r.Context(), grpcReq)
@@ -267,21 +322,14 @@ func (h *HelpdeskRoutes) HandleAssignTicket(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var body struct {
-		AssigneeID string `json:"assignee_id"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if body.AssigneeID == "" {
-		response.Error(w, http.StatusBadRequest, "assignee_id is required")
+	req, ok := decodeAndValidate[assignTicketRequest](w, r)
+	if !ok {
 		return
 	}
 
 	resp, err := client.AssignTicket(r.Context(), &helpdeskv1.AssignTicketRequest{
 		TicketId:   ticketID,
-		AssigneeId: body.AssigneeID,
+		AssigneeId: req.AssigneeID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -303,21 +351,14 @@ func (h *HelpdeskRoutes) HandleMergeTickets(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var body struct {
-		TargetTicketID string `json:"target_ticket_id"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if body.TargetTicketID == "" {
-		response.Error(w, http.StatusBadRequest, "target_ticket_id is required")
+	req, ok := decodeAndValidate[mergeTicketsRequest](w, r)
+	if !ok {
 		return
 	}
 
 	_, err = client.MergeTickets(r.Context(), &helpdeskv1.MergeTicketsRequest{
 		SourceTicketId: sourceID,
-		TargetTicketId: body.TargetTicketID,
+		TargetTicketId: req.TargetTicketID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -345,26 +386,17 @@ func (h *HelpdeskRoutes) HandleAddMessage(w http.ResponseWriter, r *http.Request
 
 	userID := middleware.GetUserID(r.Context())
 
-	var body struct {
-		Body        string   `json:"body"`
-		Internal    bool     `json:"internal"`
-		Attachments []string `json:"attachments"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if body.Body == "" {
-		response.Error(w, http.StatusBadRequest, "body is required")
+	req, ok := decodeAndValidate[addMessageRequest](w, r)
+	if !ok {
 		return
 	}
 
 	resp, err := client.AddMessage(r.Context(), &helpdeskv1.AddMessageRequest{
 		TicketId:    ticketID,
 		AuthorId:    userID,
-		Body:        body.Body,
-		Internal:    body.Internal,
-		Attachments: body.Attachments,
+		Body:        req.Body,
+		Internal:    req.Internal,
+		Attachments: req.Attachments,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -406,24 +438,15 @@ func (h *HelpdeskRoutes) HandleCreateQueue(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var body struct {
-		Name              string  `json:"name"`
-		DefaultAssigneeID *string `json:"default_assignee_id,omitempty"`
-		SLAPolicyID       *string `json:"sla_policy_id,omitempty"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if body.Name == "" {
-		response.Error(w, http.StatusBadRequest, "name is required")
+	req, ok := decodeAndValidate[createQueueRequest](w, r)
+	if !ok {
 		return
 	}
 
 	resp, err := client.CreateQueue(r.Context(), &helpdeskv1.CreateQueueRequest{
-		Name:              body.Name,
-		DefaultAssigneeId: body.DefaultAssigneeID,
-		SlaPolicyId:       body.SLAPolicyID,
+		Name:              req.Name,
+		DefaultAssigneeId: req.DefaultAssigneeID,
+		SlaPolicyId:       req.SLAPolicyID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -461,21 +484,16 @@ func (h *HelpdeskRoutes) HandleUpdateQueue(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var body struct {
-		Name              *string `json:"name,omitempty"`
-		DefaultAssigneeID *string `json:"default_assignee_id,omitempty"`
-		SLAPolicyID       *string `json:"sla_policy_id,omitempty"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateQueueRequest](w, r)
+	if !ok {
 		return
 	}
 
 	resp, err := client.UpdateQueue(r.Context(), &helpdeskv1.UpdateQueueRequest{
 		QueueId:           queueID,
-		Name:              body.Name,
-		DefaultAssigneeId: body.DefaultAssigneeID,
-		SlaPolicyId:       body.SLAPolicyID,
+		Name:              req.Name,
+		DefaultAssigneeId: req.DefaultAssigneeID,
+		SlaPolicyId:       req.SLAPolicyID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -517,26 +535,14 @@ func (h *HelpdeskRoutes) HandleCreateCannedResponse(w http.ResponseWriter, r *ht
 		return
 	}
 
-	var body struct {
-		Name string `json:"name"`
-		Body string `json:"body"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if body.Name == "" {
-		response.Error(w, http.StatusBadRequest, "name is required")
-		return
-	}
-	if body.Body == "" {
-		response.Error(w, http.StatusBadRequest, "body is required")
+	req, ok := decodeAndValidate[createCannedResponseRequest](w, r)
+	if !ok {
 		return
 	}
 
 	resp, err := client.CreateCannedResponse(r.Context(), &helpdeskv1.CreateCannedResponseRequest{
-		Name: body.Name,
-		Body: body.Body,
+		Name: req.Name,
+		Body: req.Body,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -574,19 +580,15 @@ func (h *HelpdeskRoutes) HandleUpdateCannedResponse(w http.ResponseWriter, r *ht
 		return
 	}
 
-	var body struct {
-		Name *string `json:"name,omitempty"`
-		Body *string `json:"body,omitempty"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateCannedResponseRequest](w, r)
+	if !ok {
 		return
 	}
 
 	resp, err := client.UpdateCannedResponse(r.Context(), &helpdeskv1.UpdateCannedResponseRequest{
 		CannedResponseId: crID,
-		Name:             body.Name,
-		Body:             body.Body,
+		Name:             req.Name,
+		Body:             req.Body,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -628,26 +630,16 @@ func (h *HelpdeskRoutes) HandleCreateSLAPolicy(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var body struct {
-		Name              string  `json:"name"`
-		FirstResponseMins int32   `json:"first_response_mins"`
-		ResolutionMins    int32   `json:"resolution_mins"`
-		BusinessHours     *string `json:"business_hours,omitempty"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if body.Name == "" {
-		response.Error(w, http.StatusBadRequest, "name is required")
+	req, ok := decodeAndValidate[createSLAPolicyRequest](w, r)
+	if !ok {
 		return
 	}
 
 	resp, err := client.CreateSLAPolicy(r.Context(), &helpdeskv1.CreateSLAPolicyRequest{
-		Name:              body.Name,
-		FirstResponseMins: body.FirstResponseMins,
-		ResolutionMins:    body.ResolutionMins,
-		BusinessHours:     body.BusinessHours,
+		Name:              req.Name,
+		FirstResponseMins: req.FirstResponseMins,
+		ResolutionMins:    req.ResolutionMins,
+		BusinessHours:     req.BusinessHours,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -685,23 +677,17 @@ func (h *HelpdeskRoutes) HandleUpdateSLAPolicy(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var body struct {
-		Name              *string `json:"name,omitempty"`
-		FirstResponseMins *int32  `json:"first_response_mins,omitempty"`
-		ResolutionMins    *int32  `json:"resolution_mins,omitempty"`
-		BusinessHours     *string `json:"business_hours,omitempty"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateSLAPolicyRequest](w, r)
+	if !ok {
 		return
 	}
 
 	resp, err := client.UpdateSLAPolicy(r.Context(), &helpdeskv1.UpdateSLAPolicyRequest{
 		SlaPolicyId:       policyID,
-		Name:              body.Name,
-		FirstResponseMins: body.FirstResponseMins,
-		ResolutionMins:    body.ResolutionMins,
-		BusinessHours:     body.BusinessHours,
+		Name:              req.Name,
+		FirstResponseMins: req.FirstResponseMins,
+		ResolutionMins:    req.ResolutionMins,
+		BusinessHours:     req.BusinessHours,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -723,21 +709,14 @@ func (h *HelpdeskRoutes) HandleApplySLAPolicy(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var body struct {
-		SLAPolicyID string `json:"sla_policy_id"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if body.SLAPolicyID == "" {
-		response.Error(w, http.StatusBadRequest, "sla_policy_id is required")
+	req, ok := decodeAndValidate[applySLAPolicyRequest](w, r)
+	if !ok {
 		return
 	}
 
 	resp, err := client.ApplySLAPolicy(r.Context(), &helpdeskv1.ApplySLAPolicyRequest{
 		TicketId:    ticketID,
-		SlaPolicyId: body.SLAPolicyID,
+		SlaPolicyId: req.SLAPolicyID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

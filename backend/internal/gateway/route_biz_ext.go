@@ -1,13 +1,11 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
-	"github.com/kmuhub/kmuhub/internal/server/response"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
 )
 
@@ -36,15 +34,15 @@ func (b *BizExtRoutes) getBizClient() (bizv1.FinanceServiceClient, error) {
 // ============================================================================
 
 type createInvoiceFromTimeRequest struct {
-	EmployeeID      string `json:"employee_id"`
-	CustomerName    string `json:"customer_name"`
+	EmployeeID      string `json:"employee_id" validate:"required,uuid"`
+	CustomerName    string `json:"customer_name" validate:"required"`
 	CustomerAddress string `json:"customer_address"`
-	CustomerEmail   string `json:"customer_email"`
-	DateFrom        string `json:"date_from"` // YYYY-MM-DD
-	DateTo          string `json:"date_to"`   // YYYY-MM-DD
-	HourlyRate      string `json:"hourly_rate"`
+	CustomerEmail   string `json:"customer_email" validate:"omitempty,email"`
+	DateFrom        string `json:"date_from" validate:"required,datetime=2006-01-02"` // YYYY-MM-DD
+	DateTo          string `json:"date_to" validate:"required,datetime=2006-01-02"`   // YYYY-MM-DD
+	HourlyRate      string `json:"hourly_rate" validate:"required"`
 	Description     string `json:"description"`
-	TaxMode         string `json:"tax_mode"` // default: "standard"
+	TaxMode         string `json:"tax_mode" validate:"omitempty,oneof=standard reverse_charge kleinunternehmer"` // default: "standard"
 }
 
 // HandleCreateInvoiceFromTime is a thin proxy: it decodes the HTTP request,
@@ -57,9 +55,8 @@ func (b *BizExtRoutes) HandleCreateInvoiceFromTime(w http.ResponseWriter, r *htt
 	}
 	userID := middleware.GetUserID(r.Context())
 
-	var req createInvoiceFromTimeRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[createInvoiceFromTimeRequest](w, r)
+	if !ok {
 		return
 	}
 

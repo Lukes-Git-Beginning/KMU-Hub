@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -96,55 +95,55 @@ func (dr *DialerRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Ha
 // ============================================================================
 
 type createCampaignRequest struct {
-	Name             string   `json:"name"`
+	Name             string   `json:"name" validate:"required"`
 	Description      *string  `json:"description,omitempty"`
-	Mode             int32    `json:"mode"`
-	AssignedAgentIDs []string `json:"assigned_agent_ids,omitempty"`
+	Mode             int32    `json:"mode" validate:"oneof=0 1 2 3"`
+	AssignedAgentIDs []string `json:"assigned_agent_ids,omitempty" validate:"omitempty,dive,uuid"`
 	Settings         *string  `json:"settings,omitempty"`
 }
 
 type updateCampaignRequest struct {
-	Name             *string  `json:"name,omitempty"`
+	Name             *string  `json:"name,omitempty" validate:"omitempty,min=1"`
 	Description      *string  `json:"description,omitempty"`
-	AssignedAgentIDs []string `json:"assigned_agent_ids,omitempty"`
+	AssignedAgentIDs []string `json:"assigned_agent_ids,omitempty" validate:"omitempty,dive,uuid"`
 	Settings         *string  `json:"settings,omitempty"`
 }
 
 type addContactsToCampaignRequest struct {
-	ContactIDs []string `json:"contact_ids,omitempty"`
+	ContactIDs []string `json:"contact_ids,omitempty" validate:"omitempty,dive,uuid"`
 	FilterID   *string  `json:"filter_id,omitempty"`
 }
 
 type initiateDialerCallRequest struct {
-	CampaignContactID string  `json:"campaign_contact_id"`
-	AgentID           string  `json:"agent_id"`
+	CampaignContactID string  `json:"campaign_contact_id" validate:"required,uuid"`
+	AgentID           string  `json:"agent_id" validate:"omitempty,uuid"`
 	CallSessionID     *string `json:"call_session_id,omitempty"`
 }
 
 type logCallOutcomeRequest struct {
-	OutcomeID     string  `json:"outcome_id"`
+	OutcomeID     string  `json:"outcome_id" validate:"required,uuid"`
 	Notes         *string `json:"notes,omitempty"`
 	NextAction    *string `json:"next_action,omitempty"`
 	CallbackAt    *string `json:"callback_at,omitempty"`
-	AppointmentID *string `json:"appointment_id,omitempty"`
+	AppointmentID *string `json:"appointment_id,omitempty" validate:"omitempty,uuid"`
 }
 
 type saveCallNotesRequest struct {
-	Notes string `json:"notes"`
+	Notes string `json:"notes" validate:"required"`
 }
 
 type completeWrapUpRequest struct {
-	AgentID string `json:"agent_id"`
+	AgentID string `json:"agent_id" validate:"omitempty,uuid"`
 }
 
 type setAgentStatusRequest struct {
-	UserID     string  `json:"user_id"`
-	Status     int32   `json:"status"`
-	CampaignID *string `json:"campaign_id,omitempty"`
+	UserID     string  `json:"user_id" validate:"omitempty,uuid"`
+	Status     int32   `json:"status" validate:"oneof=0 1 2 3 4 5"`
+	CampaignID *string `json:"campaign_id,omitempty" validate:"omitempty,uuid"`
 }
 
 type createCallOutcomeRequest struct {
-	Label         string `json:"label"`
+	Label         string `json:"label" validate:"required"`
 	Color         string `json:"color"`
 	IsPositive    bool   `json:"is_positive"`
 	IsCallback    bool   `json:"is_callback"`
@@ -153,7 +152,7 @@ type createCallOutcomeRequest struct {
 }
 
 type updateCallOutcomeRequest struct {
-	Label         *string `json:"label,omitempty"`
+	Label         *string `json:"label,omitempty" validate:"omitempty,min=1"`
 	Color         *string `json:"color,omitempty"`
 	IsPositive    *bool   `json:"is_positive,omitempty"`
 	IsCallback    *bool   `json:"is_callback,omitempty"`
@@ -203,14 +202,8 @@ func (dr *DialerRoutes) HandleCreateCampaign(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var req createCampaignRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Name == "" {
-		response.Error(w, http.StatusBadRequest, "name is required")
+	req, ok := decodeAndValidate[createCampaignRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -268,9 +261,8 @@ func (dr *DialerRoutes) HandleUpdateCampaign(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var req updateCampaignRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateCampaignRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -391,9 +383,8 @@ func (dr *DialerRoutes) HandleAddContactsToCampaign(w http.ResponseWriter, r *ht
 		return
 	}
 
-	var req addContactsToCampaignRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[addContactsToCampaignRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -548,14 +539,8 @@ func (dr *DialerRoutes) HandleInitiateDialerCall(w http.ResponseWriter, r *http.
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req initiateDialerCallRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.CampaignContactID == "" {
-		response.Error(w, http.StatusBadRequest, "campaign_contact_id is required")
+	req, ok := decodeAndValidate[initiateDialerCallRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -591,14 +576,8 @@ func (dr *DialerRoutes) HandleLogCallOutcome(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var req logCallOutcomeRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.OutcomeID == "" {
-		response.Error(w, http.StatusBadRequest, "outcome_id is required")
+	req, ok := decodeAndValidate[logCallOutcomeRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -645,9 +624,8 @@ func (dr *DialerRoutes) HandleSaveCallNotes(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var req saveCallNotesRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[saveCallNotesRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -677,9 +655,8 @@ func (dr *DialerRoutes) HandleCompleteWrapUp(w http.ResponseWriter, r *http.Requ
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req completeWrapUpRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[completeWrapUpRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -740,9 +717,8 @@ func (dr *DialerRoutes) HandleSetAgentStatus(w http.ResponseWriter, r *http.Requ
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req setAgentStatusRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[setAgentStatusRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -824,14 +800,8 @@ func (dr *DialerRoutes) HandleCreateCallOutcome(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	var req createCallOutcomeRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Label == "" {
-		response.Error(w, http.StatusBadRequest, "label is required")
+	req, ok := decodeAndValidate[createCallOutcomeRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -863,9 +833,8 @@ func (dr *DialerRoutes) HandleUpdateCallOutcome(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	var req updateCallOutcomeRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateCallOutcomeRequest](w, r)
+	if !ok {
 		return
 	}
 

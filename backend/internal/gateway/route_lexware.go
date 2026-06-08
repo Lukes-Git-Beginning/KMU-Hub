@@ -101,15 +101,11 @@ func (lr *LexwareRoutes) HandleConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var body struct {
-		APIKey string `json:"api_key"`
+	type connectLexwareRequest struct {
+		APIKey string `json:"api_key" validate:"required"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if body.APIKey == "" {
-		response.Error(w, http.StatusBadRequest, "api_key is required")
+	body, ok := decodeAndValidate[connectLexwareRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -237,12 +233,14 @@ func (lr *LexwareRoutes) HandleTriggerSync(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var body struct {
+	type triggerLexwareSyncRequest struct {
 		SyncType string `json:"sync_type"`
 	}
+	var body triggerLexwareSyncRequest
 	if r.Body != nil {
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			response.Error(w, http.StatusBadRequest, "invalid request body")
+		var ok bool
+		body, ok = decodeAndValidate[triggerLexwareSyncRequest](w, r)
+		if !ok {
 			return
 		}
 	}
@@ -400,11 +398,11 @@ func (lr *LexwareRoutes) HandleUpdateFieldMappings(w http.ResponseWriter, r *htt
 	}
 	entityType := chi.URLParam(r, "entity_type")
 
-	var body struct {
-		Mappings []*bizv1.LexwareFieldMappingEntry `json:"mappings"`
+	type updateLexwareFieldMappingsRequest struct {
+		Mappings []*bizv1.LexwareFieldMappingEntry `json:"mappings" validate:"required,min=1"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	body, ok := decodeAndValidate[updateLexwareFieldMappingsRequest](w, r)
+	if !ok {
 		return
 	}
 

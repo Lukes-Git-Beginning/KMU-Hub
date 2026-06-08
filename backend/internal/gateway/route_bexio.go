@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -212,12 +211,14 @@ func (br *BexioRoutes) HandleTriggerSync(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var body struct {
+	type triggerBexioSyncRequest struct {
 		SyncType string `json:"sync_type"`
 	}
+	var body triggerBexioSyncRequest
 	if r.Body != nil {
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			response.Error(w, http.StatusBadRequest, "invalid request body")
+		var ok bool
+		body, ok = decodeAndValidate[triggerBexioSyncRequest](w, r)
+		if !ok {
 			return
 		}
 	}
@@ -378,11 +379,11 @@ func (br *BexioRoutes) HandleUpdateFieldMappings(w http.ResponseWriter, r *http.
 	}
 	entityType := chi.URLParam(r, "entity_type")
 
-	var body struct {
-		Mappings []*bizv1.BexioFieldMappingEntry `json:"mappings"`
+	type updateBexioFieldMappingsRequest struct {
+		Mappings []*bizv1.BexioFieldMappingEntry `json:"mappings" validate:"required,min=1"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	body, ok := decodeAndValidate[updateBexioFieldMappingsRequest](w, r)
+	if !ok {
 		return
 	}
 

@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -58,8 +57,8 @@ func (c *CRMExtRoutes) HandleFindContactDuplicates(w http.ResponseWriter, r *htt
 }
 
 type mergeContactsRequest struct {
-	PrimaryID   string `json:"primary_id"`
-	DuplicateID string `json:"duplicate_id"`
+	PrimaryID   string `json:"primary_id" validate:"required,uuid"`
+	DuplicateID string `json:"duplicate_id" validate:"required,uuid"`
 }
 
 func (c *CRMExtRoutes) HandleMergeContacts(w http.ResponseWriter, r *http.Request) {
@@ -69,9 +68,8 @@ func (c *CRMExtRoutes) HandleMergeContacts(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var req mergeContactsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[mergeContactsRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -113,8 +111,8 @@ func (c *CRMExtRoutes) HandleFindCompanyDuplicates(w http.ResponseWriter, r *htt
 }
 
 type mergeCompaniesRequest struct {
-	PrimaryID   string `json:"primary_id"`
-	DuplicateID string `json:"duplicate_id"`
+	PrimaryID   string `json:"primary_id" validate:"required,uuid"`
+	DuplicateID string `json:"duplicate_id" validate:"required,uuid"`
 }
 
 func (c *CRMExtRoutes) HandleMergeCompanies(w http.ResponseWriter, r *http.Request) {
@@ -124,9 +122,8 @@ func (c *CRMExtRoutes) HandleMergeCompanies(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var req mergeCompaniesRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[mergeCompaniesRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -205,9 +202,9 @@ func (c *CRMExtRoutes) HandleGetConsents(w http.ResponseWriter, r *http.Request)
 }
 
 type grantConsentRequest struct {
-	ConsentType string  `json:"consent_type"`
-	Source      string  `json:"source"`
-	LegalBasis  string  `json:"legal_basis"`
+	ConsentType string  `json:"consent_type" validate:"required"`
+	Source      string  `json:"source" validate:"required"`
+	LegalBasis  string  `json:"legal_basis" validate:"required"`
 	IPAddress   *string `json:"ip_address,omitempty"`
 }
 
@@ -218,9 +215,8 @@ func (c *CRMExtRoutes) HandleGrantConsent(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	var req grantConsentRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[grantConsentRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -257,9 +253,8 @@ func (c *CRMExtRoutes) HandleRevokeConsent(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var req revokeConsentRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[revokeConsentRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -316,9 +311,8 @@ func (c *CRMExtRoutes) HandleRequestDeletion(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var req requestDeletionBody
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[requestDeletionBody](w, r)
+	if !ok {
 		return
 	}
 

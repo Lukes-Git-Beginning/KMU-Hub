@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -16,15 +15,15 @@ import (
 // ============================================================================
 
 type createInvoiceRequest struct {
-	Customer      *bizv1.CustomerSnapshot `json:"customer"`
-	LineItems     []*bizv1.LineItem       `json:"line_items"`
-	TaxMode       string                  `json:"tax_mode"`
-	InvoiceDate   string                  `json:"invoice_date"`
-	DeliveryDate  string                  `json:"delivery_date"`
-	DueDate       string                  `json:"due_date"`
+	Customer      *bizv1.CustomerSnapshot `json:"customer"       validate:"required"`
+	LineItems     []*bizv1.LineItem       `json:"line_items"     validate:"required,min=1"`
+	TaxMode       string                  `json:"tax_mode"       validate:"required,oneof=standard reverse_charge kleinunternehmer"`
+	InvoiceDate   string                  `json:"invoice_date"   validate:"required,datetime=2006-01-02"`
+	DeliveryDate  string                  `json:"delivery_date"  validate:"omitempty,datetime=2006-01-02"`
+	DueDate       string                  `json:"due_date"       validate:"omitempty,datetime=2006-01-02"`
 	PaymentTerms  string                  `json:"payment_terms"`
 	Notes         string                  `json:"notes"`
-	SourceQuoteID string                  `json:"source_quote_id"`
+	SourceQuoteID string                  `json:"source_quote_id" validate:"omitempty,uuid"`
 }
 
 func (b *BizRoutes) HandleCreateInvoice(w http.ResponseWriter, r *http.Request) {
@@ -41,9 +40,8 @@ func (b *BizRoutes) HandleCreateInvoice(w http.ResponseWriter, r *http.Request) 
 	}
 	userID := middleware.GetUserID(r.Context())
 
-	var req createInvoiceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[createInvoiceRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -130,10 +128,10 @@ func (b *BizRoutes) HandleGetInvoice(w http.ResponseWriter, r *http.Request) {
 type updateInvoiceRequest struct {
 	Customer     *bizv1.CustomerSnapshot `json:"customer"`
 	LineItems    []*bizv1.LineItem       `json:"line_items"`
-	TaxMode      string                  `json:"tax_mode"`
-	InvoiceDate  string                  `json:"invoice_date"`
-	DeliveryDate string                  `json:"delivery_date"`
-	DueDate      string                  `json:"due_date"`
+	TaxMode      string                  `json:"tax_mode"      validate:"omitempty,oneof=standard reverse_charge kleinunternehmer"`
+	InvoiceDate  string                  `json:"invoice_date"  validate:"omitempty,datetime=2006-01-02"`
+	DeliveryDate string                  `json:"delivery_date" validate:"omitempty,datetime=2006-01-02"`
+	DueDate      string                  `json:"due_date"      validate:"omitempty,datetime=2006-01-02"`
 	PaymentTerms string                  `json:"payment_terms"`
 	Notes        string                  `json:"notes"`
 }
@@ -152,9 +150,8 @@ func (b *BizRoutes) HandleUpdateInvoice(w http.ResponseWriter, r *http.Request) 
 	}
 	id := chi.URLParam(r, "id")
 
-	var req updateInvoiceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateInvoiceRequest](w, r)
+	if !ok {
 		return
 	}
 

@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -205,13 +204,13 @@ func (dr *DatevUploadRoutes) HandleUploadBuchungsstapel(w http.ResponseWriter, r
 		return
 	}
 
-	var body struct {
-		StartDate       string `json:"start_date"`
-		EndDate         string `json:"end_date"`
-		FiscalYearStart string `json:"fiscal_year_start"`
+	type uploadBuchungsstapelRequest struct {
+		StartDate       string `json:"start_date" validate:"omitempty,datetime=2006-01-02"`
+		EndDate         string `json:"end_date" validate:"omitempty,datetime=2006-01-02"`
+		FiscalYearStart string `json:"fiscal_year_start" validate:"omitempty,datetime=2006-01-02"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	body, ok := decodeAndValidate[uploadBuchungsstapelRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -319,13 +318,13 @@ func (dr *DatevUploadRoutes) HandleUpdateUploadConfig(w http.ResponseWriter, r *
 		return
 	}
 
-	var body struct {
+	type updateDatevUploadConfigRequest struct {
 		ClientNumber      string `json:"client_number"`
 		AutoUploadEnabled bool   `json:"auto_upload_enabled"`
 		UploadAfterExport bool   `json:"upload_after_export"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	body, ok := decodeAndValidate[updateDatevUploadConfigRequest](w, r)
+	if !ok {
 		return
 	}
 

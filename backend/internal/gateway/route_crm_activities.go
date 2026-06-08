@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -15,15 +14,15 @@ import (
 // ============================================================================
 
 type createActivityRequest struct {
-	ActivityType string                    `json:"activity_type"`
-	Subject      string                    `json:"subject"`
+	ActivityType string                    `json:"activity_type" validate:"required"`
+	Subject      string                    `json:"subject" validate:"required"`
 	Description  string                    `json:"description"`
-	ContactID    *string                   `json:"contact_id,omitempty"`
-	CompanyID    *string                   `json:"company_id,omitempty"`
-	DealID       *string                   `json:"deal_id,omitempty"`
+	ContactID    *string                   `json:"contact_id,omitempty" validate:"omitempty,uuid"`
+	CompanyID    *string                   `json:"company_id,omitempty" validate:"omitempty,uuid"`
+	DealID       *string                   `json:"deal_id,omitempty" validate:"omitempty,uuid"`
 	AssignedTo   *string                   `json:"assigned_to,omitempty"`
 	DueDate      string                    `json:"due_date"`
-	TagIDs       []string                  `json:"tag_ids"`
+	TagIDs       []string                  `json:"tag_ids" validate:"omitempty,dive,uuid"`
 	CustomFields []customFieldValueRequest `json:"custom_fields"`
 }
 
@@ -42,14 +41,8 @@ func (c *CRMRoutes) HandleCreateActivity(w http.ResponseWriter, r *http.Request)
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createActivityRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.ActivityType == "" || req.Subject == "" {
-		response.Error(w, http.StatusBadRequest, "activity_type and subject are required")
+	req, ok := decodeAndValidate[createActivityRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -172,11 +165,11 @@ func (c *CRMRoutes) HandleListActivities(w http.ResponseWriter, r *http.Request)
 }
 
 type updateActivityRequest struct {
-	Subject      *string                   `json:"subject,omitempty"`
+	Subject      *string                   `json:"subject,omitempty" validate:"omitempty,min=1"`
 	Description  *string                   `json:"description,omitempty"`
-	ContactID    *string                   `json:"contact_id,omitempty"`
-	CompanyID    *string                   `json:"company_id,omitempty"`
-	DealID       *string                   `json:"deal_id,omitempty"`
+	ContactID    *string                   `json:"contact_id,omitempty" validate:"omitempty,uuid"`
+	CompanyID    *string                   `json:"company_id,omitempty" validate:"omitempty,uuid"`
+	DealID       *string                   `json:"deal_id,omitempty" validate:"omitempty,uuid"`
 	AssignedTo   *string                   `json:"assigned_to,omitempty"`
 	DueDate      *string                   `json:"due_date,omitempty"`
 	CustomFields []customFieldValueRequest `json:"custom_fields"`
@@ -194,9 +187,8 @@ func (c *CRMRoutes) HandleUpdateActivity(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var req updateActivityRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateActivityRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -293,7 +285,7 @@ func (c *CRMRoutes) HandleCompleteActivity(w http.ResponseWriter, r *http.Reques
 }
 
 type modifyActivityTagsRequest struct {
-	TagIDs []string `json:"tag_ids"`
+	TagIDs []string `json:"tag_ids" validate:"omitempty,dive,uuid"`
 }
 
 func (c *CRMRoutes) HandleAddActivityTags(w http.ResponseWriter, r *http.Request) {
@@ -301,9 +293,7 @@ func (c *CRMRoutes) HandleAddActivityTags(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	var req modifyActivityTagsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	if _, ok := decodeAndValidate[modifyActivityTagsRequest](w, r); !ok {
 		return
 	}
 
@@ -315,9 +305,7 @@ func (c *CRMRoutes) HandleRemoveActivityTags(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var req modifyActivityTagsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	if _, ok := decodeAndValidate[modifyActivityTagsRequest](w, r); !ok {
 		return
 	}
 
@@ -368,9 +356,9 @@ func (c *CRMRoutes) HandleSearch(w http.ResponseWriter, r *http.Request) {
 // ============================================================================
 
 type createSavedFilterRequest struct {
-	Name       string `json:"name"`
-	EntityType string `json:"entity_type"`
-	FilterJSON string `json:"filter_json"`
+	Name       string `json:"name" validate:"required"`
+	EntityType string `json:"entity_type" validate:"required"`
+	FilterJSON string `json:"filter_json" validate:"required"`
 	IsDefault  bool   `json:"is_default"`
 }
 
@@ -383,14 +371,8 @@ func (c *CRMRoutes) HandleCreateSavedFilter(w http.ResponseWriter, r *http.Reque
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createSavedFilterRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Name == "" || req.EntityType == "" || req.FilterJSON == "" {
-		response.Error(w, http.StatusBadRequest, "name, entity_type, and filter_json are required")
+	req, ok := decodeAndValidate[createSavedFilterRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -453,8 +435,8 @@ func (c *CRMRoutes) HandleListSavedFilters(w http.ResponseWriter, r *http.Reques
 }
 
 type updateSavedFilterRequest struct {
-	Name       *string `json:"name,omitempty"`
-	FilterJSON *string `json:"filter_json,omitempty"`
+	Name       *string `json:"name,omitempty" validate:"omitempty,min=1"`
+	FilterJSON *string `json:"filter_json,omitempty" validate:"omitempty,min=1"`
 	IsDefault  *bool   `json:"is_default,omitempty"`
 }
 
@@ -470,9 +452,8 @@ func (c *CRMRoutes) HandleUpdateSavedFilter(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var req updateSavedFilterRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateSavedFilterRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -619,10 +600,10 @@ func (c *CRMRoutes) HandleGetActivityReport(w http.ResponseWriter, r *http.Reque
 // ============================================================================
 
 type createCustomFieldRequest struct {
-	EntityType   string   `json:"entity_type"`
-	FieldName    string   `json:"field_name"`
-	FieldLabel   string   `json:"field_label"`
-	FieldType    string   `json:"field_type"`
+	EntityType   string   `json:"entity_type" validate:"required"`
+	FieldName    string   `json:"field_name" validate:"required"`
+	FieldLabel   string   `json:"field_label" validate:"required"`
+	FieldType    string   `json:"field_type" validate:"required"`
 	Options      []string `json:"options,omitempty"`
 	DefaultValue *string  `json:"default_value,omitempty"`
 	IsRequired   bool     `json:"is_required"`
@@ -638,14 +619,8 @@ func (c *CRMRoutes) HandleCreateCustomField(w http.ResponseWriter, r *http.Reque
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createCustomFieldRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.EntityType == "" || req.FieldName == "" || req.FieldLabel == "" || req.FieldType == "" {
-		response.Error(w, http.StatusBadRequest, "entity_type, field_name, field_label, and field_type are required")
+	req, ok := decodeAndValidate[createCustomFieldRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -717,7 +692,7 @@ func (c *CRMRoutes) HandleListCustomFields(w http.ResponseWriter, r *http.Reques
 }
 
 type updateCustomFieldRequest struct {
-	FieldLabel   *string  `json:"field_label,omitempty"`
+	FieldLabel   *string  `json:"field_label,omitempty" validate:"omitempty,min=1"`
 	Options      []string `json:"options,omitempty"`
 	DefaultValue *string  `json:"default_value,omitempty"`
 	IsRequired   *bool    `json:"is_required,omitempty"`
@@ -736,9 +711,8 @@ func (c *CRMRoutes) HandleUpdateCustomField(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var req updateCustomFieldRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateCustomFieldRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -794,9 +768,9 @@ func (c *CRMRoutes) HandleDeleteCustomField(w http.ResponseWriter, r *http.Reque
 // ============================================================================
 
 type createTagRequest struct {
-	Name       string `json:"name"`
+	Name       string `json:"name" validate:"required"`
 	Color      string `json:"color"`
-	EntityType string `json:"entity_type"`
+	EntityType string `json:"entity_type" validate:"required"`
 }
 
 func (c *CRMRoutes) HandleCreateTag(w http.ResponseWriter, r *http.Request) {
@@ -806,14 +780,8 @@ func (c *CRMRoutes) HandleCreateTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req createTagRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Name == "" || req.EntityType == "" {
-		response.Error(w, http.StatusBadRequest, "name and entity_type are required")
+	req, ok := decodeAndValidate[createTagRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -875,7 +843,7 @@ func (c *CRMRoutes) HandleListTags(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateTagRequest struct {
-	Name  *string `json:"name,omitempty"`
+	Name  *string `json:"name,omitempty" validate:"omitempty,min=1"`
 	Color *string `json:"color,omitempty"`
 }
 
@@ -891,9 +859,8 @@ func (c *CRMRoutes) HandleUpdateTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req updateTagRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateTagRequest](w, r)
+	if !ok {
 		return
 	}
 
