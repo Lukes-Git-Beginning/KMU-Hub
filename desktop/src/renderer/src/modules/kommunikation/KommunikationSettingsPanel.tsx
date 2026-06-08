@@ -1,13 +1,18 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LayoutGrid, MessageSquare, Inbox, Users, GitBranch, Plus, Settings2 } from 'lucide-react'
+import { LayoutGrid, MessageSquare, Inbox, Users, GitBranch, Plus, Settings2, Bell, Circle, MessageSquareReply, Plug, Webhook, ShieldCheck, Mail } from 'lucide-react'
 import { ModuleSettingsShell } from '@/components/shared/ModuleSettingsShell'
 import type { ModuleSettingsSection } from '@/components/shared/ModuleSettingsShell'
-import { useKommunikationPrefs } from '@/stores/kommunikationPrefs'
+import { useKommunikationPrefs, type MutableChannel } from '@/stores/kommunikationPrefs'
+import { usePresenceStore } from '@/stores/presence'
+import type { PresenceLevel } from '@/api/video-types'
 import { useTeamInboxes, useCreateTeamInbox } from '@/api/hooks/useInbox'
 import type { TeamInbox } from '@/api/inbox-types'
 import { TeamInboxSettings } from './TeamInboxSettings'
 import { RoutingRulesEditor } from './RoutingRulesEditor'
+import { CannedResponseManager } from './CannedResponseManager'
+import { WebhookConfig } from './WebhookConfig'
+import { ChannelSettingsDialog } from './ChannelSettingsDialog'
 
 /**
  * Module settings for the unified Kommunikation module (moduleId 'chat').
@@ -86,6 +91,22 @@ export function KommunikationSettingsPanel() {
       ),
     },
     {
+      id: 'presence',
+      titleKey: 'kommunikation.settings.presence.title',
+      descriptionKey: 'kommunikation.settings.presence.desc',
+      scope: 'personal',
+      icon: Circle,
+      children: <PresenceSection />,
+    },
+    {
+      id: 'notifications',
+      titleKey: 'kommunikation.settings.notifications.title',
+      descriptionKey: 'kommunikation.settings.notifications.desc',
+      scope: 'personal',
+      icon: Bell,
+      children: <NotificationsSection />,
+    },
+    {
       id: 'teamInboxes',
       titleKey: 'kommunikation.settings.teamInboxes.title',
       descriptionKey: 'kommunikation.settings.teamInboxes.desc',
@@ -100,6 +121,43 @@ export function KommunikationSettingsPanel() {
       scope: 'tenant',
       icon: GitBranch,
       children: <RoutingRulesEditor />,
+    },
+    {
+      id: 'channels',
+      titleKey: 'kommunikation.settings.channels.title',
+      descriptionKey: 'kommunikation.settings.channels.desc',
+      scope: 'tenant',
+      icon: Plug,
+      children: <ChannelsSection />,
+    },
+    {
+      id: 'canned',
+      titleKey: 'kommunikation.settings.canned.title',
+      descriptionKey: 'kommunikation.settings.canned.desc',
+      scope: 'tenant',
+      icon: MessageSquareReply,
+      children: <CannedResponseManager />,
+    },
+    {
+      id: 'webhooks',
+      titleKey: 'kommunikation.settings.webhooks.title',
+      descriptionKey: 'kommunikation.settings.webhooks.desc',
+      scope: 'tenant',
+      icon: Webhook,
+      children: <WebhookConfig />,
+    },
+    {
+      id: 'retention',
+      titleKey: 'kommunikation.settings.retention.title',
+      descriptionKey: 'kommunikation.settings.retention.desc',
+      scope: 'tenant',
+      icon: ShieldCheck,
+      children: (
+        <div className="flex items-start gap-3 rounded-lg border border-border bg-secondary/30 p-3">
+          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <p className="text-xs leading-relaxed text-muted-foreground">{t('kommunikation.settings.retention.notice')}</p>
+        </div>
+      ),
     },
   ]
 
@@ -191,6 +249,108 @@ function TeamInboxSection() {
       </div>
 
       <TeamInboxSettings team={editingTeam} open={settingsOpen} onOpenChange={setSettingsOpen} />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Presence (own status) — personal
+// ---------------------------------------------------------------------------
+
+const STATUS_OPTIONS: { value: PresenceLevel; labelKey: string; dot: string }[] = [
+  { value: 'online', labelKey: 'kommunikation.settings.presence.online', dot: 'bg-emerald-500' },
+  { value: 'away', labelKey: 'kommunikation.settings.presence.away', dot: 'bg-amber-400' },
+  { value: 'dnd', labelKey: 'kommunikation.settings.presence.dnd', dot: 'bg-red-500' },
+]
+
+function PresenceSection() {
+  const { t } = useTranslation()
+  const myStatus = usePresenceStore((s) => s.myStatus)
+  const setMyStatus = usePresenceStore((s) => s.setMyStatus)
+
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {STATUS_OPTIONS.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          onClick={() => setMyStatus(opt.value)}
+          aria-pressed={myStatus === opt.value}
+          className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-medium transition-colors ${
+            myStatus === opt.value ? 'border-primary bg-primary-light text-primary' : 'border-border text-foreground hover:bg-secondary'
+          }`}
+        >
+          <span className={`h-2 w-2 rounded-full ${opt.dot}`} />
+          {t(opt.labelKey)}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Notifications (per-channel mute) — personal
+// ---------------------------------------------------------------------------
+
+const MUTE_CHANNELS: { value: MutableChannel; labelKey: string; icon: typeof Mail }[] = [
+  { value: 'email', labelKey: 'kommunikation.channels.email', icon: Mail },
+  { value: 'chat', labelKey: 'kommunikation.settings.notifications.chat', icon: MessageSquare },
+  { value: 'notification', labelKey: 'kommunikation.settings.notifications.system', icon: Bell },
+]
+
+function NotificationsSection() {
+  const { t } = useTranslation()
+  const muted = useKommunikationPrefs((s) => s.mutedChannels)
+  const toggle = useKommunikationPrefs((s) => s.toggleMutedChannel)
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-muted-foreground">{t('kommunikation.settings.notifications.hint')}</p>
+      {MUTE_CHANNELS.map((c) => {
+        const Icon = c.icon
+        const isMuted = muted.includes(c.value)
+        return (
+          <label key={c.value} className="flex items-center justify-between gap-4 rounded-md border border-border px-3 py-2">
+            <span className="flex items-center gap-2 text-xs text-foreground">
+              <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+              {t(c.labelKey)}
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={!isMuted}
+              onClick={() => toggle(c.value)}
+              className={`flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors ${
+                isMuted ? 'justify-start bg-border' : 'justify-end bg-primary'
+              }`}
+            >
+              <span className="h-4 w-4 rounded-full bg-white shadow-sm" />
+            </button>
+          </label>
+        )
+      })}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Channels (connect shell) — tenant
+// ---------------------------------------------------------------------------
+
+function ChannelsSection() {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-muted-foreground">{t('kommunikation.settings.channels.hint')}</p>
+      <button
+        onClick={() => setOpen(true)}
+        className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
+      >
+        <Plug className="h-3.5 w-3.5" />
+        {t('kommunikation.settings.channels.manage')}
+      </button>
+      <ChannelSettingsDialog open={open} onOpenChange={setOpen} />
     </div>
   )
 }

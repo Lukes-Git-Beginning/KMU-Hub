@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { StickyNote, Send } from 'lucide-react'
+import { MentionTextarea } from './MentionTextarea'
 
 // ---------------------------------------------------------------------------
 // Component
@@ -41,19 +42,11 @@ export function InternalNoteComposer({ onSend }: InternalNoteComposerProps) {
         <span className="text-[11px] font-medium text-warning">{t('kommunikation.note.internalNote')}</span>
         <span className="text-[10px] text-muted-foreground">{t('kommunikation.note.teamOnly')}</span>
       </div>
-      <textarea
+      <MentionTextarea
         value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-            e.preventDefault()
-            handleSend()
-          }
-          if (e.key === 'Escape') {
-            setExpanded(false)
-            setText('')
-          }
-        }}
+        onChange={setText}
+        onSubmit={handleSend}
+        onEscape={() => { setExpanded(false); setText('') }}
         placeholder={t('kommunikation.note.placeholder')}
         rows={2}
         className="w-full rounded-md border border-warning/20 bg-transparent px-2.5 py-1.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-warning/40 resize-none"

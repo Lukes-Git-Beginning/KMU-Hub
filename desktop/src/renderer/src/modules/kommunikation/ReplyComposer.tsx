@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Send, Paperclip, ChevronDown } from 'lucide-react'
+import { toast } from 'sonner'
 import type { CommunicationChannel } from '@/types/communication'
 import { CannedResponsePicker } from './CannedResponsePicker'
 import { InternalNoteComposer } from './InternalNoteComposer'
+import { MentionTextarea } from './MentionTextarea'
+import { SlashCommandPalette, type SlashCommand } from './SlashCommandPalette'
 
 // ---------------------------------------------------------------------------
 // Channel config
@@ -45,12 +48,14 @@ export function ReplyComposer({
     setText((prev) => (prev ? prev + '\n' + content : content))
   }
 
-  // Detect /shortcut patterns
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault()
-      handleSend()
-    }
+  // Slash-command palette opens while the whole input is a `/command` being typed
+  const slashMatch = text.match(/^\/(\w*)$/)
+  const slashQuery = slashMatch ? slashMatch[1] : null
+
+  const handleSlashSelect = (cmd: SlashCommand) => {
+    // Mock-shell: no bot backend yet (backend-gaps.md)
+    toast.info(t('kommunikation.slash.executed', { command: cmd.name }))
+    setText('')
   }
 
   return (
@@ -65,15 +70,24 @@ export function ReplyComposer({
           <ChevronDown className="h-3 w-3 text-muted-foreground" />
         </div>
 
-        {/* Text input */}
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={t('kommunikation.reply.placeholder')}
-          rows={3}
-          className="w-full bg-transparent px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground resize-none"
-        />
+        {/* Text input (with @mention + /slash support) */}
+        <div className="relative px-3 py-2">
+          {slashQuery !== null && (
+            <SlashCommandPalette
+              query={slashQuery}
+              onSelect={handleSlashSelect}
+              onClose={() => setText('')}
+            />
+          )}
+          <MentionTextarea
+            value={text}
+            onChange={setText}
+            onSubmit={handleSend}
+            placeholder={t('kommunikation.reply.placeholder')}
+            rows={3}
+            className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground resize-none"
+          />
+        </div>
 
         {/* Toolbar */}
         <div className="flex items-center justify-between px-2 py-1.5 border-t border-border/50">

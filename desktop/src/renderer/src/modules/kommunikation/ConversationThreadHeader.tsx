@@ -20,6 +20,8 @@ import {
   X,
   ChevronDown,
   Star,
+  Phone,
+  Video,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { InboxMessage, InboxChannel } from '@/api/inbox-types'
@@ -34,6 +36,7 @@ import {
   useSnoozeMessage,
 } from '@/api/hooks/useInbox'
 import { useEmployees } from '@/api/hooks/hr-hooks'
+import { useMeetingsStore } from '@/stores/meetings'
 import { useKommunikationStore } from '@/stores/kommunikation'
 import { useInboxStatus } from '@/stores/inboxStatus'
 import { useInboxTags, SUGGESTED_TAGS } from '@/stores/inboxTags'
@@ -81,6 +84,7 @@ export function ConversationThreadHeader({ message: msg }: ConversationThreadHea
   const assignMsg = useAssignMessage()
   const claimMsg = useClaimMessage()
   const snoozeMsg = useSnoozeMessage()
+  const startCall = useMeetingsStore((s) => s.startCall)
 
   const { data: employeesData } = useEmployees()
   const employees = employeesData?.employees ?? []
@@ -142,6 +146,12 @@ export function ConversationThreadHeader({ message: msg }: ConversationThreadHea
 
   const suggestions = SUGGESTED_TAGS.filter((s) => !tags.includes(s))
 
+  // Bridge into the video module (same path as Team/Kontakte call buttons).
+  const handleCall = (kind: 'audio' | 'video') => {
+    startCall(msg.crm_contact_id ?? msg.sender_id ?? msg.id, msg.sender_name)
+    toast.success(t(kind === 'video' ? 'kommunikation.call.startingVideo' : 'kommunikation.call.startingAudio', { name: msg.sender_name }))
+  }
+
   return (
     <div className="border-b border-border px-4 py-3">
       {/* Row 1: Subject + actions */}
@@ -186,6 +196,24 @@ export function ConversationThreadHeader({ message: msg }: ConversationThreadHea
             ))}
           </PopoverContent>
         </Popover>
+
+        {/* Audio call */}
+        <button
+          onClick={() => handleCall('audio')}
+          className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          title={t('kommunikation.call.audio')}
+        >
+          <Phone className="h-4 w-4" />
+        </button>
+
+        {/* Video call */}
+        <button
+          onClick={() => handleCall('video')}
+          className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          title={t('kommunikation.call.video')}
+        >
+          <Video className="h-4 w-4" />
+        </button>
 
         {/* Snooze */}
         <SnoozePopover onSnooze={handleSnooze}>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { MessageSquareText, Loader2 } from 'lucide-react'
+import { MessageSquareText, Loader2, Eye } from 'lucide-react'
+import { getCollision } from '@/lib/inbox-collision'
 import { useKommunikationStore } from '@/stores/kommunikation'
 import { useInboxMessage, useMarkRead, useReplyToMessage } from '@/api/hooks/useInbox'
 import { useInboxThread, buildThreadSeed } from '@/stores/inboxThread'
@@ -43,6 +44,8 @@ export function ConversationThread() {
     if (!message) return []
     return [...buildThreadSeed(message), ...(appended ?? [])]
   }, [message, appended])
+
+  const collision = selectedId ? getCollision(selectedId) : null
 
   // Mark message as read when selected
   useEffect(() => {
@@ -123,6 +126,16 @@ export function ConversationThread() {
     <div className="flex flex-1 flex-col overflow-hidden">
       {/* Header: subject, channel, tags */}
       <ConversationThreadHeader message={message} />
+
+      {/* Collision hint — a colleague is viewing this conversation (mock-first) */}
+      {collision && (
+        <div className="flex items-center gap-2 border-b border-warning/20 bg-warning/5 px-4 py-1.5">
+          <Eye className="h-3.5 w-3.5 shrink-0 text-warning" />
+          <span className="text-[11px] text-warning">
+            {t('kommunikation.collision.editing', { name: collision.name })}
+          </span>
+        </div>
+      )}
 
       {/* Message timeline — mock-first thread (seed history + persisted replies) */}
       <MessageTimeline messages={threadMessages} />

@@ -233,7 +233,15 @@ Strategie: Cosmi macht Vorkette (Angebot→Zahlungseingang) eigenständig, über
     - **Tags-CRUD:** `repeated string tags` existiert, aber kein Add/Remove-RPC. FE-Overlay `stores/inboxTags.ts`. → `AddTag`/`RemoveTag`-RPC.
     - **Forward:** kein RPC. FE = `ForwardDialog` (Empfänger+Notiz) mit Erfolgs-Toast. → `ForwardMessage`-RPC.
     - **SLA-Tracking:** noch nicht modelliert.
-- **Audio/Video aus Chat + Bots/Webhooks/Slash-Commands:** keine RPCs — kompletter Neubau (Phase 5 baut UI-Shell/Bridge).
+- **Audio/Video aus Chat + Bots/Webhooks/Slash-Commands:** keine RPCs — kompletter Neubau.
+- **✅ Synergie + Moduleinstellungen (Phase 5, 2026-06-08, FE):**
+  - **Interne Notizen + @Mention im Kunden-Thread:** verdrahtet — `InternalNoteComposer`/`ReplyComposer` nutzen jetzt `MentionTextarea` (wraps chat-`MentionAutocomplete`); interne Notizen landen als `direction:'internal'` im Thread-Overlay (`stores/inboxThread.ts`). **Backend nötig:** interne-Notiz-Persistenz + echtes @Mention-Notify. ⚠ Demo zeigt „Unbekannt" in Mention/Assignee-Listen, weil `EmployeeProfile.userName` im Demo-Seed leer ist (modulweit, Luke → Demo-Daten).
+  - **Collision-Hinweis „X bearbeitet gerade":** Mock-first deterministisch (`lib/inbox-collision.ts`). **Backend nötig:** Live-Presence-pro-Conversation (Viewers-Event).
+  - **Call-Bridge:** Audio/Video-Buttons im Thread-Header → `useMeetingsStore().startCall` (gleicher Pfad wie Team/Kontakte). Echte LiveKit-Calls aus dem Posteingang heraus brauchen `createCall`-Verkabelung + ggf. Kunde→user_id-Mapping.
+  - **Slash-Commands + Webhooks:** Mock-Shell (`SlashCommandPalette` /giphy /umfrage /erinnerung; `WebhookConfig`). **Backend nötig:** Bot/Command-Runtime + Webhook-CRUD/-Delivery.
+  - **Canned Responses:** CRUD-UI (`CannedResponseManager`) auf Store-Backing (`updateCannedResponse` ergänzt). **Backend nötig:** Canned-Response-CRUD-Endpoints.
+  - **Channels-Connect (`ChannelSettingsDialog`):** Mock-Connect (Toast). **Backend nötig:** echte OAuth/Connect-Flows E-Mail/WhatsApp/Widget.
+  - **Per-Channel-Mute / eigener Status:** FE-Prefs (`kommunikationPrefs.mutedChannels`, `presence.myStatus`). **Backend nötig:** serverseitige Notification-Routing-Beachtung.
 
 # Hinweis zur Arbeitsweise (Claude = FE, Luke = BE)
 Die meisten 🟡-Punkte (FE-Page von Mock-Store auf fertige TanStack-Hooks umstellen) brauchen KEIN Backend von Luke — die Hooks + Endpoints existieren bereits. Luke-Bedarf = nur die 🔴- und cross-cutting-Punkte oben.

@@ -37,6 +37,7 @@ interface KommunikationState {
 
   // Actions — canned responses
   addCannedResponse: (response: Omit<CannedResponse, 'id' | 'usageCount'>) => void
+  updateCannedResponse: (id: string, patch: Partial<Omit<CannedResponse, 'id' | 'usageCount'>>) => void
   deleteCannedResponse: (id: string) => void
   incrementCannedResponseUsage: (id: string) => void
 }
@@ -145,6 +146,13 @@ export const useKommunikationStore = create<KommunikationState>()(
           cannedResponses: [...state.cannedResponses, { ...response, id, usageCount: 0 }],
         }))
       },
+
+      updateCannedResponse: (id, patch) =>
+        set((state) => ({
+          cannedResponses: state.cannedResponses.map((r) =>
+            r.id === id ? { ...r, ...patch } : r,
+          ),
+        })),
 
       deleteCannedResponse: (id) =>
         set((state) => ({

@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/global.d.ts",
+    "src/renderer/src/vite-env.d.ts",
+    "src/renderer/src/i18n/i18next.d.ts",
+    "src/renderer/src/lib/inbox-collision.ts",
+    "src/renderer/src/stores/kommunikationPrefs.ts",
+    "src/renderer/src/stores/kommunikation.ts",
+    "src/renderer/src/modules/kommunikation/MentionTextarea.tsx",
+    "src/renderer/src/modules/kommunikation/SlashCommandPalette.tsx",
+    "src/renderer/src/modules/kommunikation/ReplyComposer.tsx",
+    "src/renderer/src/modules/kommunikation/InternalNoteComposer.tsx",
+    "src/renderer/src/modules/kommunikation/ConversationThreadHeader.tsx",
+    "src/renderer/src/modules/kommunikation/ConversationThread.tsx",
+    "src/renderer/src/modules/kommunikation/CannedResponseManager.tsx",
+    "src/renderer/src/modules/kommunikation/WebhookConfig.tsx",
+    "src/renderer/src/modules/kommunikation/KommunikationSettingsPanel.tsx"
+  ]
+}
