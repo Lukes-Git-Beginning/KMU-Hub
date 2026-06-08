@@ -150,6 +150,35 @@ export const chatHandlers = [
     return HttpResponse.json(mockMentions)
   }),
 
+  // File upload (multipart) — echoes a FileInfo so demo mode works
+  http.post(`${API}/api/v1/files/upload`, async ({ request }) => {
+    const form = await request.formData().catch(() => null)
+    const file = form?.get('file')
+    const channelId = form?.get('channel_id')
+    const messageId = form?.get('message_id')
+    const name = file instanceof File ? file.name : 'datei'
+    const size = file instanceof File ? file.size : 0
+    const mime = file instanceof File ? file.type : 'application/octet-stream'
+    return HttpResponse.json(
+      {
+        file: {
+          id: `file-up-${Date.now()}`,
+          message_id: messageId ?? undefined,
+          channel_id: channelId ?? undefined,
+          filename: name,
+          mime_type: mime,
+          file_size: size,
+          uploaded_by: 'usr-e1',
+          uploader_first_name: 'Stefan',
+          uploader_last_name: 'Müller',
+          has_thumbnail: false,
+          created_at: new Date().toISOString(),
+        },
+      },
+      { status: 201 },
+    )
+  }),
+
   // Thread replies
   http.get(`${API}/api/v1/messages/:id/thread`, () => {
     return HttpResponse.json({ messages: [], has_more: false })

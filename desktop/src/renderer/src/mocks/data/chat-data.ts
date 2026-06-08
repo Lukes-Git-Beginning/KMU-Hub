@@ -211,7 +211,7 @@ export const mockMessagesByChannel: Record<
       },
       {
         id: 'msg-a-002',
-        content: 'Hat jemand den Zugang zum neuen Staging-Server?',
+        content: 'Hat jemand den Zugang zum neuen Staging-Server? Doku hängt an.',
         channel_id: IDS.channels.allgemein,
         sender_id: IDS.users.felix,
         sender_name: 'Felix Richter',
@@ -219,6 +219,20 @@ export const mockMessagesByChannel: Record<
         reply_count: 2,
         reactions: [],
         edited_at: null,
+        files: [
+          {
+            id: 'file-a-002-1',
+            channel_id: IDS.channels.allgemein,
+            filename: 'staging-zugang.pdf',
+            mime_type: 'application/pdf',
+            file_size: 248320,
+            uploaded_by: IDS.users.felix,
+            uploader_first_name: 'Felix',
+            uploader_last_name: 'Richter',
+            has_thumbnail: false,
+            created_at: hoursAgo(3.5),
+          },
+        ],
       },
       {
         id: 'msg-a-003',

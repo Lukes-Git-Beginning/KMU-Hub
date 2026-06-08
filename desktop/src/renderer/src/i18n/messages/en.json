@@ -1006,6 +1006,7 @@
   "chat.input.dragDropHint": "Drag & drop files into the chat",
   "chat.input.placeholder": "Write a message... (@mention)",
   "chat.input.send": "Send (Enter)",
+  "chat.input.uploadFailed": "{name} couldn't be uploaded.",
   "chat.leaveDialog.confirm": "Leave",
   "chat.leaveDialog.description": "You're leaving \"{channel}\". You'll only see new messages after rejoining.",
   "chat.leaveDialog.title": "Leave channel?",

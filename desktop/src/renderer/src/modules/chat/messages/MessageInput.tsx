@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { Send, Paperclip } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSendMessage, useSendTypingIndicator } from '@/api/hooks/useMessages'
+import { useChatFileUpload } from '@/api/hooks/useChatFileUpload'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -17,7 +18,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { MentionAutocomplete } from './MentionAutocomplete'
-import { FileDropZone, type AttachedFile } from './FileDropZone'
+import { FileDropZone, fileToAttachment, type AttachedFile } from './FileDropZone'
 import { FileAttachmentCard } from './FileAttachmentCard'
 
 interface MessageInputProps {
@@ -32,30 +33,50 @@ export function MessageInput({ channelId, parentMessageId, placeholder }: Messag
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
   const [pendingFiles, setPendingFiles] = useState<AttachedFile[]>([])
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const sendMessage = useSendMessage()
+  const uploadFile = useChatFileUpload()
   const sendTyping = useSendTypingIndicator(channelId)
 
   const handleSend = useCallback(async () => {
     const trimmed = content.trim()
-    if (!trimmed) return
+    if (!trimmed && pendingFiles.length === 0) return
 
+    const filesToUpload = pendingFiles
     try {
-      await sendMessage.mutateAsync({
+      const result = await sendMessage.mutateAsync({
         channelId,
-        content: trimmed,
+        content: trimmed || ' ',
         parentMessageId,
       })
       setContent('')
       setPendingFiles([])
-
-      // Reset textarea height
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto'
       }
+
+      // Attach files to the just-created message (real upload endpoint).
+      const messageId = (result as { message?: { id?: string } } | undefined)?.message?.id
+      for (const f of filesToUpload) {
+        if (f.raw) {
+          await uploadFile.mutateAsync({ channelId, file: f.raw, messageId }).catch((err) => {
+            toast.error(t('chat.input.uploadFailed', { name: f.name }))
+            throw err
+          })
+        }
+      }
     } catch {
-      // Error is handled by useMutation
+      // Error is handled by useMutation / toast above
     }
-  }, [content, channelId, parentMessageId, sendMessage])
+  }, [content, pendingFiles, channelId, parentMessageId, sendMessage, uploadFile, t])
+
+  const handleFilePick = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    if (files.length > 0) {
+      setPendingFiles((prev) => [...prev, ...files.map(fileToAttachment)])
+    }
+    e.target.value = ''
+  }, [])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -110,7 +131,7 @@ export function MessageInput({ channelId, parentMessageId, placeholder }: Messag
   )
 
   const handleAttachClick = useCallback(() => {
-    toast.info(t('chat.input.dragDropHint'))
+    fileInputRef.current?.click()
   }, [])
 
   const handleFilesAdded = useCallback((files: AttachedFile[]) => {
@@ -148,6 +169,13 @@ export function MessageInput({ channelId, parentMessageId, placeholder }: Messag
             />
           )}
 
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={handleFilePick}
+          />
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

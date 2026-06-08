@@ -1006,6 +1006,7 @@
   "chat.input.dragDropHint": "Glissez-déposez des fichiers dans le chat",
   "chat.input.placeholder": "Écrire un message... (@Mention)",
   "chat.input.send": "Envoyer (Entrée)",
+  "chat.input.uploadFailed": "Échec du téléversement de {name}.",
   "chat.leaveDialog.confirm": "Quitter",
   "chat.leaveDialog.description": "Vous quittez « {channel} ». Vous ne verrez les nouveaux messages qu'après avoir rejoint.",
   "chat.leaveDialog.title": "Quitter le canal ?",

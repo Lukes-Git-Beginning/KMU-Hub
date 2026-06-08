@@ -105,6 +105,15 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete, 
   // Render message content with mention highlights
   const renderedContent = renderContent(message.content ?? '')
 
+  // Map server-side FileInfo to the attachment card shape.
+  const fileAttachments: AttachedFile[] = (message.files ?? []).map((f) => ({
+    id: f.id ?? '',
+    name: f.filename ?? '',
+    size: f.file_size ?? 0,
+    type: f.mime_type ?? '',
+    isImage: (f.mime_type ?? '').startsWith('image/'),
+  }))
+
   if (message.is_deleted) {
     return (
       <div className="flex items-start gap-3 px-4 py-1.5 opacity-50">
@@ -184,10 +193,13 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete, 
           </div>
         )}
 
-        {/* File attachments */}
-        {attachments && attachments.length > 0 && (
+        {/* File attachments (server FileInfo + optional local previews) */}
+        {(fileAttachments.length > 0 || (attachments && attachments.length > 0)) && (
           <div className="mt-1.5 flex flex-wrap gap-2">
-            {attachments.map((file) => (
+            {fileAttachments.map((file) => (
+              <FileAttachmentCard key={file.id} file={file} compact />
+            ))}
+            {attachments?.map((file) => (
               <FileAttachmentCard key={file.id} file={file} compact />
             ))}
           </div>

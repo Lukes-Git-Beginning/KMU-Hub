@@ -1006,6 +1006,7 @@
   "chat.input.dragDropHint": "Trascina i file nella chat",
   "chat.input.placeholder": "Scrivi un messaggio... (@menzione)",
   "chat.input.send": "Invia (Invio)",
+  "chat.input.uploadFailed": "Impossibile caricare {name}.",
   "chat.leaveDialog.confirm": "Abbandona",
   "chat.leaveDialog.description": "Stai abbandonando «{channel}». Vedrai i nuovi messaggi solo dopo esserti unito di nuovo.",
   "chat.leaveDialog.title": "Abbandonare il canale?",

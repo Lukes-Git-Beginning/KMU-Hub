@@ -15,6 +15,8 @@ export interface AttachedFile {
   type: string
   isImage: boolean
   previewUrl?: string
+  /** Raw File for upload. Absent for files reconstructed from server FileInfo. */
+  raw?: File
 }
 
 interface FileDropZoneProps {
@@ -34,8 +36,11 @@ function fileToAttachment(file: File): AttachedFile {
     type: file.type,
     isImage,
     previewUrl: isImage ? URL.createObjectURL(file) : undefined,
+    raw: file,
   }
 }
+
+export { fileToAttachment }
 
 export function FileDropZone({ children, onFilesAdded, disabled }: FileDropZoneProps) {
   const { t } = useTranslation()
