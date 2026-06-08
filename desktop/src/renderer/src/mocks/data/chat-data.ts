@@ -130,6 +130,52 @@ export const mockDMs = {
 }
 
 // ---------------------------------------------------------------------------
+// Mentions (where the current user was @mentioned)
+// ---------------------------------------------------------------------------
+
+export const mockMentions = {
+  mentions: [
+    {
+      message_id: 'men-1',
+      channel_id: IDS.channels.entwicklung,
+      content: '@du kannst du den PR zum Auth-Refactor heute noch reviewen?',
+      mention_type: 'user',
+      sender_first_name: 'Markus',
+      sender_last_name: 'Weber',
+      created_at: minutesAgo(35),
+    },
+    {
+      message_id: 'men-2',
+      channel_id: IDS.channels.vertrieb,
+      content: 'Kurze Rückfrage @du — passt das Angebot für Kunde Meier so?',
+      mention_type: 'user',
+      sender_first_name: 'Julia',
+      sender_last_name: 'Hoffmann',
+      created_at: hoursAgo(3),
+    },
+    {
+      message_id: 'men-3',
+      channel_id: IDS.channels.announcements,
+      content: '@alle Teammeeting morgen um 10 Uhr verschiebt sich auf 11 Uhr.',
+      mention_type: 'everyone',
+      sender_first_name: 'Stefan',
+      sender_last_name: 'Müller',
+      created_at: daysAgo(1),
+    },
+    {
+      message_id: 'men-4',
+      channel_id: IDS.channels.design,
+      content: '@du die neuen Mockups liegen im Figma — Feedback bis Freitag?',
+      mention_type: 'user',
+      sender_first_name: 'Thomas',
+      sender_last_name: 'Braun',
+      created_at: daysAgo(2),
+    },
+  ],
+  total: 4,
+}
+
+// ---------------------------------------------------------------------------
 // Unread counts
 // ---------------------------------------------------------------------------
 

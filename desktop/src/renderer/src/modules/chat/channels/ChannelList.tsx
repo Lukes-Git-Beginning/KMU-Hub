@@ -6,7 +6,7 @@
  */
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Hash, Plus, Search } from 'lucide-react'
+import { Hash, Plus, Search, AtSign } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useChannels, useDMs, useUnreadCounts, type ChannelInfo } from '@/api/hooks/useChannels'
 import { usePresenceStore } from '@/stores/presence'
@@ -28,9 +28,11 @@ const PRESENCE_DOT_COLORS: Record<string, string> = {
 interface ChannelListProps {
   selectedChannelId: string | null
   onSelectChannel: (id: string) => void
+  mentionsActive?: boolean
+  onToggleMentions?: () => void
 }
 
-export function ChannelList({ selectedChannelId, onSelectChannel }: ChannelListProps) {
+export function ChannelList({ selectedChannelId, onSelectChannel, mentionsActive, onToggleMentions }: ChannelListProps) {
   const { t } = useTranslation()
   const [filter, setFilter] = useState('')
   const [showCreateDialog, setShowCreateDialog] = useState(false)
@@ -70,6 +72,23 @@ export function ChannelList({ selectedChannelId, onSelectChannel }: ChannelListP
             className="pl-9 h-9"
           />
         </div>
+      </div>
+
+      {/* Mentions inbox entry */}
+      <div className="px-3 pb-1">
+        <button
+          onClick={onToggleMentions}
+          className={cn(
+            'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
+            mentionsActive
+              ? 'bg-secondary text-secondary-foreground'
+              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+          )}
+          aria-pressed={mentionsActive}
+        >
+          <AtSign className="h-4 w-4 shrink-0" />
+          <span className="flex-1 truncate text-left">{t('chat.mentions.title')}</span>
+        </button>
       </div>
 
       <ScrollArea className="flex-1">

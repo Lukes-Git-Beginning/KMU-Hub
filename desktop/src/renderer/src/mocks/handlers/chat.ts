@@ -6,6 +6,7 @@ import {
   mockUnread,
   mockMessagesByChannel,
   mockChannelMembers,
+  mockMentions,
 } from '../data/chat-data'
 
 const API = API_BASE_URL
@@ -142,6 +143,11 @@ export const chatHandlers = [
   // Delete message
   http.delete(`${API}/api/v1/messages/:id`, () => {
     return HttpResponse.json({ success: true })
+  }),
+
+  // User mentions across all channels
+  http.get(`${API}/api/v1/messages/mentions`, () => {
+    return HttpResponse.json(mockMentions)
   }),
 
   // Thread replies

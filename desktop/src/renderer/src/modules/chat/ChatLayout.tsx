@@ -14,6 +14,7 @@ import { MessageList } from './messages/MessageList'
 import { MessageInput } from './messages/MessageInput'
 import { ThreadPanel } from './threads/ThreadPanel'
 import { ChannelSearchPanel } from './channels/ChannelSearchPanel'
+import { MentionsPanel } from './MentionsPanel'
 import { ChannelMemberList } from '@/components/chat/ChannelMemberList'
 
 export default function ChatLayout() {
@@ -22,10 +23,12 @@ export default function ChatLayout() {
   const [selectedThreadMessageId, setSelectedThreadMessageId] = useState<string | null>(null)
   const [showMembers, setShowMembers] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
+  const [showMentions, setShowMentions] = useState(false)
 
   const handleSelectChannel = (id: string) => {
     setSelectedChannelId(id)
     setSelectedThreadMessageId(null)
+    setShowMentions(false)
   }
 
   const handleLeftChannel = () => {
@@ -35,11 +38,12 @@ export default function ChatLayout() {
     setShowSearch(false)
   }
 
-  // Thread, members and search share the right slot — keep them mutually exclusive.
+  // Thread, members, search and mentions share the right slot — keep them mutually exclusive.
   const handleOpenThread = (messageId: string) => {
     setSelectedThreadMessageId(messageId)
     setShowMembers(false)
     setShowSearch(false)
+    setShowMentions(false)
   }
 
   const handleCloseThread = () => {
@@ -50,12 +54,21 @@ export default function ChatLayout() {
     setShowMembers((v) => !v)
     setSelectedThreadMessageId(null)
     setShowSearch(false)
+    setShowMentions(false)
   }
 
   const handleToggleSearch = () => {
     setShowSearch((v) => !v)
     setSelectedThreadMessageId(null)
     setShowMembers(false)
+    setShowMentions(false)
+  }
+
+  const handleToggleMentions = () => {
+    setShowMentions((v) => !v)
+    setSelectedThreadMessageId(null)
+    setShowMembers(false)
+    setShowSearch(false)
   }
 
   return (
@@ -65,6 +78,8 @@ export default function ChatLayout() {
         <ChannelList
           selectedChannelId={selectedChannelId}
           onSelectChannel={handleSelectChannel}
+          mentionsActive={showMentions}
+          onToggleMentions={handleToggleMentions}
         />
       </aside>
 
@@ -123,6 +138,16 @@ export default function ChatLayout() {
       {showSearch && selectedChannelId && !selectedThreadMessageId && !showMembers && (
         <div className="w-[320px] shrink-0">
           <ChannelSearchPanel channelId={selectedChannelId} onClose={() => setShowSearch(false)} />
+        </div>
+      )}
+
+      {/* Mentions panel (cross-channel, available without a selected channel) */}
+      {showMentions && !selectedThreadMessageId && (
+        <div className="w-[320px] shrink-0">
+          <MentionsPanel
+            onClose={() => setShowMentions(false)}
+            onSelectChannel={handleSelectChannel}
+          />
         </div>
       )}
     </div>
