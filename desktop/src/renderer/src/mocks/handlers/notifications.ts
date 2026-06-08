@@ -2,6 +2,7 @@ import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
 import { IDS } from '../data/shared-ids'
 import { minutesAgo, hoursAgo, daysAgo } from '../data/date-helpers'
+import type { QuietHours, DNDStatus, MutedResource } from '@/api/notification-client'
 
 const API = API_BASE_URL
 
@@ -173,6 +174,25 @@ const eventTypes = [
 ]
 
 // ---------------------------------------------------------------------------
+// Mutable state — quiet hours, DND, mutes
+// ---------------------------------------------------------------------------
+
+let quietHoursState: QuietHours = {
+  start_time: '22:00',
+  end_time: '07:00',
+  days: [0, 1, 2, 3, 4, 5, 6],
+  timezone: 'Europe/Berlin',
+  is_active: true,
+}
+
+let dndState: DNDStatus = {
+  is_active: false,
+}
+
+const mutesState: MutedResource[] = []
+let muteIdCounter = 1
+
+// ---------------------------------------------------------------------------
 // Handlers
 // ---------------------------------------------------------------------------
 
@@ -215,24 +235,63 @@ export const notificationHandlers = [
     return HttpResponse.json({ event_types: eventTypes })
   }),
 
-  // Quiet hours
+  // Quiet hours — get
   http.get(`${API}/api/v1/notifications/quiet-hours`, () => {
-    return HttpResponse.json({
-      enabled: true,
-      start: '22:00',
-      end: '07:00',
-      timezone: 'Europe/Berlin',
-      override_urgent: true,
-    })
+    return HttpResponse.json({ quiet_hours: quietHoursState })
   }),
 
-  // DND status
+  // Quiet hours — update (stateful)
+  http.put(`${API}/api/v1/notifications/quiet-hours`, async ({ request }) => {
+    const patch = (await request.json().catch(() => ({}))) as Partial<QuietHours>
+    quietHoursState = { ...quietHoursState, ...patch }
+    return HttpResponse.json({ quiet_hours: quietHoursState })
+  }),
+
+  // DND — get status
   http.get(`${API}/api/v1/notifications/dnd`, () => {
-    return HttpResponse.json({ enabled: false, until: null })
+    return HttpResponse.json(dndState)
   }),
 
-  // Muted resources — empty
+  // DND — enable (stateful)
+  http.post(`${API}/api/v1/notifications/dnd`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as { expires_at?: string }
+    dndState = { is_active: true, expires_at: body.expires_at }
+    return HttpResponse.json(dndState)
+  }),
+
+  // DND — disable (stateful)
+  http.delete(`${API}/api/v1/notifications/dnd`, () => {
+    dndState = { is_active: false }
+    return HttpResponse.json({})
+  }),
+
+  // Muted resources — list (stateful)
   http.get(`${API}/api/v1/notifications/mutes`, () => {
-    return HttpResponse.json({ mutes: [] })
+    return HttpResponse.json({ mutes: mutesState })
+  }),
+
+  // Muted resources — add (stateful)
+  http.post(`${API}/api/v1/notifications/mutes`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as {
+      resource_type: string
+      resource_id: string
+      resource_label?: string
+    }
+    const mute: MutedResource = {
+      id: `mute-${muteIdCounter++}`,
+      resource_type: body.resource_type,
+      resource_id: body.resource_id,
+      resource_label: body.resource_label,
+      muted_at: new Date().toISOString(),
+    }
+    mutesState.push(mute)
+    return HttpResponse.json({ mute })
+  }),
+
+  // Muted resources — remove (stateful)
+  http.delete(`${API}/api/v1/notifications/mutes/:id`, ({ params }) => {
+    const idx = mutesState.findIndex((m) => m.id === params.id)
+    if (idx !== -1) mutesState.splice(idx, 1)
+    return HttpResponse.json({})
   }),
 ]
