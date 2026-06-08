@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -34,7 +33,6 @@ func (ir *InventarRoutes) getClient() (inventarv1.InventarServiceClient, error) 
 	}
 	return inventarv1.NewInventarServiceClient(conn), nil
 }
-
 
 // RegisterRoutes mounts all Inventar HTTP routes behind the feature flag modules.inventar.
 // Routes are only registered if the flag is enabled.
@@ -91,11 +89,11 @@ func (ir *InventarRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 // ============================================================================
 
 type createItemRequest struct {
-	Name        string  `json:"name"`
-	SKU         string  `json:"sku"`
-	Barcode     *string `json:"barcode,omitempty"`
-	Quantity    int64   `json:"quantity"`
-	MinQuantity int64   `json:"min_quantity"`
+	Name        string  `json:"name"                   validate:"required"`
+	SKU         string  `json:"sku"                    validate:"required"`
+	Barcode     *string `json:"barcode,omitempty"      validate:"omitempty"`
+	Quantity    int64   `json:"quantity"               validate:"gte=0"`
+	MinQuantity int64   `json:"min_quantity"           validate:"gte=0"`
 	Unit        string  `json:"unit"`
 	Location    *string `json:"location,omitempty"`
 }
@@ -111,29 +109,29 @@ type updateItemRequest struct {
 
 type adjustStockRequest struct {
 	Delta       int64   `json:"delta"`
-	PerformedBy *string `json:"performed_by,omitempty"`
+	PerformedBy *string `json:"performed_by,omitempty" validate:"omitempty,uuid"`
 	Reason      string  `json:"reason"`
 }
 
 type transferStockRequest struct {
-	FromItemID  string  `json:"from_item_id"`
-	ToItemID    string  `json:"to_item_id"`
-	Quantity    int64   `json:"quantity"`
-	PerformedBy *string `json:"performed_by,omitempty"`
+	FromItemID  string  `json:"from_item_id"           validate:"required,uuid"`
+	ToItemID    string  `json:"to_item_id"             validate:"required,uuid"`
+	Quantity    int64   `json:"quantity"               validate:"gt=0"`
+	PerformedBy *string `json:"performed_by,omitempty" validate:"omitempty,uuid"`
 	Reason      string  `json:"reason"`
 }
 
 type recordMovementRequest struct {
-	MovementType string  `json:"movement_type"`
-	Quantity     int64   `json:"quantity"`
-	PerformedBy  *string `json:"performed_by,omitempty"`
+	MovementType string  `json:"movement_type"          validate:"required,oneof=in out adjustment"`
+	Quantity     int64   `json:"quantity"               validate:"gt=0"`
+	PerformedBy  *string `json:"performed_by,omitempty" validate:"omitempty,uuid"`
 	Reason       string  `json:"reason"`
 }
 
 type createWarningRequest struct {
-	ItemID          string `json:"item_id"`
-	Threshold       int64  `json:"threshold"`
-	CurrentQuantity int64  `json:"current_quantity"`
+	ItemID          string `json:"item_id"          validate:"required,uuid"`
+	Threshold       int64  `json:"threshold"        validate:"gt=0"`
+	CurrentQuantity int64  `json:"current_quantity" validate:"gte=0"`
 }
 
 type updateWarningRequest struct {
@@ -141,7 +139,7 @@ type updateWarningRequest struct {
 }
 
 type acknowledgeWarningRequest struct {
-	AcknowledgedBy string `json:"acknowledged_by"`
+	AcknowledgedBy string `json:"acknowledged_by" validate:"omitempty,uuid"`
 }
 
 // ============================================================================
@@ -196,17 +194,8 @@ func (ir *InventarRoutes) HandleCreateItem(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var req createItemRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.Name == "" {
-		response.Error(w, http.StatusBadRequest, "name is required")
-		return
-	}
-	if req.SKU == "" {
-		response.Error(w, http.StatusBadRequest, "sku is required")
+	req, ok := decodeAndValidate[createItemRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -274,9 +263,8 @@ func (ir *InventarRoutes) HandleUpdateItem(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var req updateItemRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateItemRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -350,9 +338,8 @@ func (ir *InventarRoutes) HandleAdjustStock(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var req adjustStockRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[adjustStockRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -384,13 +371,8 @@ func (ir *InventarRoutes) HandleTransferStock(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var req transferStockRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.FromItemID == "" || req.ToItemID == "" {
-		response.Error(w, http.StatusBadRequest, "from_item_id and to_item_id are required")
+	req, ok := decodeAndValidate[transferStockRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -492,9 +474,8 @@ func (ir *InventarRoutes) HandleRecordMovement(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var req recordMovementRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[recordMovementRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -563,13 +544,8 @@ func (ir *InventarRoutes) HandleCreateWarning(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var req createWarningRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.ItemID == "" {
-		response.Error(w, http.StatusBadRequest, "item_id is required")
+	req, ok := decodeAndValidate[createWarningRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -603,9 +579,8 @@ func (ir *InventarRoutes) HandleUpdateWarning(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var req updateWarningRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateWarningRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -638,9 +613,8 @@ func (ir *InventarRoutes) HandleAcknowledgeWarning(w http.ResponseWriter, r *htt
 		return
 	}
 
-	var req acknowledgeWarningRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[acknowledgeWarningRequest](w, r)
+	if !ok {
 		return
 	}
 	if req.AcknowledgedBy == "" {

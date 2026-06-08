@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -34,7 +33,6 @@ func (vr *VertraegeRoutes) getClient() (vertraegev1.VertraegeServiceClient, erro
 	}
 	return vertraegev1.NewVertraegeServiceClient(conn), nil
 }
-
 
 // RegisterRoutes mounts all Vertraege HTTP routes behind the feature flag.
 func (vr *VertraegeRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
@@ -86,10 +84,10 @@ func (vr *VertraegeRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http
 // ============================================================================
 
 type createContractRequest struct {
-	ContractNumber string `json:"contract_number"`
-	Title          string `json:"title"`
-	ContractType   string `json:"contract_type"`
-	StartsOn       string `json:"starts_on"` // RFC3339 date
+	ContractNumber string `json:"contract_number"    validate:"required"`
+	Title          string `json:"title"              validate:"required"`
+	ContractType   string `json:"contract_type"      validate:"required"`
+	StartsOn       string `json:"starts_on"` // RFC3339 date — optional, no parse in original
 	EndsOn         string `json:"ends_on,omitempty"`
 	DocumentURL    string `json:"document_url,omitempty"`
 	Notes          string `json:"notes,omitempty"`
@@ -107,18 +105,18 @@ type updateContractRequest struct {
 }
 
 type addPartyRequest struct {
-	PartyType      string `json:"party_type"`
-	ContactID      string `json:"contact_id,omitempty"`
-	CompanyID      string `json:"company_id,omitempty"`
+	PartyType      string `json:"party_type"          validate:"required"`
+	ContactID      string `json:"contact_id,omitempty"  validate:"omitempty,uuid"`
+	CompanyID      string `json:"company_id,omitempty"  validate:"omitempty,uuid"`
 	ExternalName   string `json:"external_name,omitempty"`
-	RoleInContract string `json:"role_in_contract"`
+	RoleInContract string `json:"role_in_contract"    validate:"required"`
 	SignedOn       string `json:"signed_on,omitempty"`
 }
 
 type createReminderRequest struct {
 	RemindAt     string `json:"remind_at"`
 	ReminderType string `json:"reminder_type"`
-	Subject      string `json:"subject"`
+	Subject      string `json:"subject" validate:"required"`
 	Message      string `json:"message,omitempty"`
 }
 
@@ -183,21 +181,8 @@ func (vr *VertraegeRoutes) HandleCreateContract(w http.ResponseWriter, r *http.R
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createContractRequest
-	if decErr := json.NewDecoder(r.Body).Decode(&req); decErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.ContractNumber == "" {
-		response.Error(w, http.StatusBadRequest, "contract_number is required")
-		return
-	}
-	if req.Title == "" {
-		response.Error(w, http.StatusBadRequest, "title is required")
-		return
-	}
-	if req.ContractType == "" {
-		response.Error(w, http.StatusBadRequest, "contract_type is required")
+	req, ok := decodeAndValidate[createContractRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -266,9 +251,8 @@ func (vr *VertraegeRoutes) HandleUpdateContract(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	var req updateContractRequest
-	if decErr := json.NewDecoder(r.Body).Decode(&req); decErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateContractRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -440,17 +424,8 @@ func (vr *VertraegeRoutes) HandleAddParty(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	var req addPartyRequest
-	if decErr := json.NewDecoder(r.Body).Decode(&req); decErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.PartyType == "" {
-		response.Error(w, http.StatusBadRequest, "party_type is required")
-		return
-	}
-	if req.RoleInContract == "" {
-		response.Error(w, http.StatusBadRequest, "role_in_contract is required")
+	req, ok := decodeAndValidate[addPartyRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -531,8 +506,8 @@ func (vr *VertraegeRoutes) HandleListReminders(w http.ResponseWriter, r *http.Re
 	onlyPending := q.Get("only_pending") == "true" || q.Get("only_pending") == "1"
 
 	resp, err := client.ListReminders(r.Context(), &vertraegev1.ListRemindersRequest{
-		TenantId:   tenantID.String(),
-		ContractId: id,
+		TenantId:    tenantID.String(),
+		ContractId:  id,
 		OnlyPending: onlyPending,
 	})
 	if err != nil {
@@ -559,13 +534,8 @@ func (vr *VertraegeRoutes) HandleCreateReminder(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	var req createReminderRequest
-	if decErr := json.NewDecoder(r.Body).Decode(&req); decErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.Subject == "" {
-		response.Error(w, http.StatusBadRequest, "subject is required")
+	req, ok := decodeAndValidate[createReminderRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -602,9 +572,8 @@ func (vr *VertraegeRoutes) HandleUpdateReminder(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	var req updateReminderRequest
-	if decErr := json.NewDecoder(r.Body).Decode(&req); decErr != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateReminderRequest](w, r)
+	if !ok {
 		return
 	}
 

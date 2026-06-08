@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -35,7 +34,6 @@ func (br *BerichteRoutes) getClient() (berichtev1.BerichteServiceClient, error) 
 	}
 	return berichtev1.NewBerichteServiceClient(conn), nil
 }
-
 
 // RegisterRoutes mounts all Berichte HTTP routes behind the feature flag modules.berichte.
 // Routes are only registered if the flag is enabled.
@@ -86,9 +84,9 @@ func (br *BerichteRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 // ============================================================================
 
 type createDefinitionRequest struct {
-	Name          string `json:"name"`
+	Name          string `json:"name"           validate:"required"`
 	Description   string `json:"description,omitempty"`
-	Module        string `json:"module"`
+	Module        string `json:"module"         validate:"required"`
 	Kind          string `json:"kind,omitempty"`
 	QueryConfig   []byte `json:"query_config,omitempty"`
 	DefaultFormat string `json:"default_format,omitempty"`
@@ -114,11 +112,11 @@ type exportReportRequest struct {
 }
 
 type createScheduleRequest struct {
-	DefinitionID   string   `json:"definition_id"`
-	Name           string   `json:"name"`
-	CronExpression string   `json:"cron_expression"`
-	Recipients     []string `json:"recipients,omitempty"`
-	Format         string   `json:"format,omitempty"`
+	DefinitionID   string   `json:"definition_id"             validate:"omitempty,uuid"`
+	Name           string   `json:"name"                      validate:"required"`
+	CronExpression string   `json:"cron_expression"           validate:"required"`
+	Recipients     []string `json:"recipients,omitempty"      validate:"omitempty,dive,email"`
+	Format         string   `json:"format,omitempty"          validate:"omitempty,oneof=pdf csv xlsx"`
 	Params         []byte   `json:"params,omitempty"`
 	Active         bool     `json:"active"`
 }
@@ -200,17 +198,8 @@ func (br *BerichteRoutes) HandleCreateDefinition(w http.ResponseWriter, r *http.
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createDefinitionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.Name == "" {
-		response.Error(w, http.StatusBadRequest, "name is required")
-		return
-	}
-	if req.Module == "" {
-		response.Error(w, http.StatusBadRequest, "module is required")
+	req, ok := decodeAndValidate[createDefinitionRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -281,9 +270,8 @@ func (br *BerichteRoutes) HandleUpdateDefinition(w http.ResponseWriter, r *http.
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req updateDefinitionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateDefinitionRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -356,9 +344,8 @@ func (br *BerichteRoutes) HandleRunReport(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	var req runReportRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[runReportRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -403,9 +390,8 @@ func (br *BerichteRoutes) HandleExportReport(w http.ResponseWriter, r *http.Requ
 		format = "pdf"
 	}
 
-	var req exportReportRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[exportReportRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -535,17 +521,8 @@ func (br *BerichteRoutes) HandleCreateSchedule(w http.ResponseWriter, r *http.Re
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createScheduleRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.Name == "" {
-		response.Error(w, http.StatusBadRequest, "name is required")
-		return
-	}
-	if req.CronExpression == "" {
-		response.Error(w, http.StatusBadRequest, "cron_expression is required")
+	req, ok := decodeAndValidate[createScheduleRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -586,22 +563,21 @@ func (br *BerichteRoutes) HandleUpdateSchedule(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var req updateScheduleRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateScheduleRequest](w, r)
+	if !ok {
 		return
 	}
 
 	grpcReq := &berichtev1.UpdateScheduleRequest{
-		TenantId:      tenantID.String(),
-		ScheduleId:    id,
-		Name:          req.Name,
+		TenantId:       tenantID.String(),
+		ScheduleId:     id,
+		Name:           req.Name,
 		CronExpression: req.CronExpression,
-		Recipients:    req.Recipients,
-		RecipientsSet: req.RecipientsSet,
-		Format:        req.Format,
-		Params:        req.Params,
-		Active:        req.Active,
+		Recipients:     req.Recipients,
+		RecipientsSet:  req.RecipientsSet,
+		Format:         req.Format,
+		Params:         req.Params,
+		Active:         req.Active,
 	}
 
 	resp, err := client.UpdateSchedule(r.Context(), grpcReq)
@@ -657,9 +633,8 @@ func (br *BerichteRoutes) HandleToggleSchedule(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var req toggleScheduleRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[toggleScheduleRequest](w, r)
+	if !ok {
 		return
 	}
 

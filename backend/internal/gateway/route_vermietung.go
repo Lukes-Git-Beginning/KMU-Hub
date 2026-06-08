@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -37,7 +36,6 @@ func (vr *VermietungRoutes) getClient() (vermietungv1.VermietungServiceClient, e
 	}
 	return vermietungv1.NewVermietungServiceClient(conn), nil
 }
-
 
 // RegisterRoutes mounts all Vermietung HTTP routes behind the feature flag modules.vermietung.
 func (vr *VermietungRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
@@ -103,11 +101,11 @@ func (vr *VermietungRoutes) RegisterRoutes(r chi.Router, authMiddleware func(htt
 // ============================================================================
 
 type createObjectRequest struct {
-	Name        string  `json:"name"`
+	Name        string  `json:"name"       validate:"required"`
 	Description *string `json:"description,omitempty"`
 	Category    string  `json:"category"`
-	DailyRate   float64 `json:"daily_rate"`
-	Deposit     float64 `json:"deposit"`
+	DailyRate   float64 `json:"daily_rate" validate:"gt=0"`
+	Deposit     float64 `json:"deposit"    validate:"gte=0"`
 	Location    *string `json:"location,omitempty"`
 	Notes       *string `json:"notes,omitempty"`
 }
@@ -124,12 +122,12 @@ type updateObjectRequest struct {
 }
 
 type createRentalRequest struct {
-	ObjectID    string  `json:"object_id"`
-	ContactID   *string `json:"contact_id,omitempty"`
-	RenterName  string  `json:"renter_name"`
-	StartDate   string  `json:"start_date"` // RFC3339
-	EndDate     string  `json:"end_date"`   // RFC3339
-	TotalPrice  float64 `json:"total_price"`
+	ObjectID    string  `json:"object_id"             validate:"required,uuid"`
+	ContactID   *string `json:"contact_id,omitempty"  validate:"omitempty,uuid"`
+	RenterName  string  `json:"renter_name"           validate:"required"`
+	StartDate   string  `json:"start_date"            validate:"required"` // RFC3339
+	EndDate     string  `json:"end_date"              validate:"required"` // RFC3339
+	TotalPrice  float64 `json:"total_price"           validate:"gte=0"`
 	DepositPaid bool    `json:"deposit_paid"`
 	Notes       *string `json:"notes,omitempty"`
 }
@@ -144,10 +142,10 @@ type updateRentalRequest struct {
 }
 
 type createInspectionRequest struct {
-	Kind        string   `json:"kind"` // handover|return
+	Kind        string   `json:"kind"                  validate:"required,oneof=handover return"` // handover|return
 	Notes       string   `json:"notes"`
 	PhotoURLs   []string `json:"photo_urls,omitempty"`
-	PerformedBy *string  `json:"performed_by,omitempty"`
+	PerformedBy *string  `json:"performed_by,omitempty" validate:"omitempty,uuid"`
 }
 
 type updateInspectionRequest struct {
@@ -208,13 +206,8 @@ func (vr *VermietungRoutes) HandleCreateObject(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var req createObjectRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.Name == "" {
-		response.Error(w, http.StatusBadRequest, "name is required")
+	req, ok := decodeAndValidate[createObjectRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -280,9 +273,8 @@ func (vr *VermietungRoutes) HandleUpdateObject(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var req updateObjectRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateObjectRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -456,17 +448,8 @@ func (vr *VermietungRoutes) HandleCreateRental(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var req createRentalRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.ObjectID == "" {
-		response.Error(w, http.StatusBadRequest, "object_id is required")
-		return
-	}
-	if req.RenterName == "" {
-		response.Error(w, http.StatusBadRequest, "renter_name is required")
+	req, ok := decodeAndValidate[createRentalRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -546,9 +529,8 @@ func (vr *VermietungRoutes) HandleUpdateRental(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var req updateRentalRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateRentalRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -726,13 +708,8 @@ func (vr *VermietungRoutes) HandleCreateInspection(w http.ResponseWriter, r *htt
 		return
 	}
 
-	var req createInspectionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.Kind == "" {
-		response.Error(w, http.StatusBadRequest, "kind is required (handover or return)")
+	req, ok := decodeAndValidate[createInspectionRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -796,9 +773,8 @@ func (vr *VermietungRoutes) HandleUpdateInspection(w http.ResponseWriter, r *htt
 		return
 	}
 
-	var req updateInspectionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateInspectionRequest](w, r)
+	if !ok {
 		return
 	}
 

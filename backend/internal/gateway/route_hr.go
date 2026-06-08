@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 	"time"
 
@@ -108,14 +107,14 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 // ============================================================================
 
 type createLeaveRequestHTTPReq struct {
-	LeaveTypeID       string `json:"leave_type_id"`
-	StartDate         string `json:"start_date"`
-	EndDate           string `json:"end_date"`
-	IsHalfDayStart    bool   `json:"is_half_day_start"`
-	IsHalfDayEnd      bool   `json:"is_half_day_end"`
-	HalfDayPeriodStart string `json:"half_day_period_start"`
-	HalfDayPeriodEnd   string `json:"half_day_period_end"`
-	Reason            string `json:"reason"`
+	LeaveTypeID        string `json:"leave_type_id"          validate:"omitempty,uuid"`
+	StartDate          string `json:"start_date"`
+	EndDate            string `json:"end_date"`
+	IsHalfDayStart     bool   `json:"is_half_day_start"`
+	IsHalfDayEnd       bool   `json:"is_half_day_end"`
+	HalfDayPeriodStart string `json:"half_day_period_start"  validate:"omitempty,oneof=morning afternoon"`
+	HalfDayPeriodEnd   string `json:"half_day_period_end"    validate:"omitempty,oneof=morning afternoon"`
+	Reason             string `json:"reason"`
 }
 
 func (h *HRRoutes) HandleCreateLeaveRequest(w http.ResponseWriter, r *http.Request) {
@@ -132,9 +131,8 @@ func (h *HRRoutes) HandleCreateLeaveRequest(w http.ResponseWriter, r *http.Reque
 	}
 	userID := middleware.GetUserID(r.Context())
 
-	var req createLeaveRequestHTTPReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[createLeaveRequestHTTPReq](w, r)
+	if !ok {
 		return
 	}
 
@@ -149,6 +147,7 @@ func (h *HRRoutes) HandleCreateLeaveRequest(w http.ResponseWriter, r *http.Reque
 		Reason:         req.Reason,
 	}
 
+	// oneof tag guarantees only valid values reach here; default stays UNSPECIFIED
 	if req.HalfDayPeriodStart == "morning" {
 		grpcReq.HalfDayPeriodStart = hrv1.HalfDayPeriod_HALF_DAY_MORNING
 	} else if req.HalfDayPeriodStart == "afternoon" {
@@ -223,6 +222,10 @@ func (h *HRRoutes) HandleGetLeaveRequest(w http.ResponseWriter, r *http.Request)
 	response.JSON(w, http.StatusOK, resp.LeaveRequest)
 }
 
+type approveLeaveRequestHTTPReq struct {
+	Comment string `json:"comment"`
+}
+
 func (h *HRRoutes) HandleApproveLeaveRequest(w http.ResponseWriter, r *http.Request) {
 	client, err := h.getHRClient()
 	if err != nil {
@@ -233,11 +236,8 @@ func (h *HRRoutes) HandleApproveLeaveRequest(w http.ResponseWriter, r *http.Requ
 	id := chi.URLParam(r, "id")
 	approverID := middleware.GetUserID(r.Context())
 
-	var req struct {
-		Comment string `json:"comment"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[approveLeaveRequestHTTPReq](w, r)
+	if !ok {
 		return
 	}
 
@@ -254,6 +254,10 @@ func (h *HRRoutes) HandleApproveLeaveRequest(w http.ResponseWriter, r *http.Requ
 	response.JSON(w, http.StatusOK, resp.LeaveRequest)
 }
 
+type rejectLeaveRequestHTTPReq struct {
+	Comment string `json:"comment"`
+}
+
 func (h *HRRoutes) HandleRejectLeaveRequest(w http.ResponseWriter, r *http.Request) {
 	client, err := h.getHRClient()
 	if err != nil {
@@ -264,11 +268,8 @@ func (h *HRRoutes) HandleRejectLeaveRequest(w http.ResponseWriter, r *http.Reque
 	id := chi.URLParam(r, "id")
 	approverID := middleware.GetUserID(r.Context())
 
-	var req struct {
-		Comment string `json:"comment"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[rejectLeaveRequestHTTPReq](w, r)
+	if !ok {
 		return
 	}
 
@@ -403,9 +404,8 @@ func (h *HRRoutes) HandleRecordSickLeave(w http.ResponseWriter, r *http.Request)
 	}
 	userID := middleware.GetUserID(r.Context())
 
-	var req recordSickLeaveHTTPReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[recordSickLeaveHTTPReq](w, r)
+	if !ok {
 		return
 	}
 
@@ -707,10 +707,10 @@ func (h *HRRoutes) HandleWeeklySummary(w http.ResponseWriter, r *http.Request) {
 }
 
 type submitCorrectionHTTPReq struct {
-	OriginalEntryID       string `json:"original_entry_id"`
-	CorrectedClockIn      string `json:"corrected_clock_in"`
-	CorrectedClockOut     string `json:"corrected_clock_out"`
-	CorrectedBreakMinutes int32  `json:"corrected_break_minutes"`
+	OriginalEntryID       string `json:"original_entry_id"        validate:"omitempty,uuid"`
+	CorrectedClockIn      string `json:"corrected_clock_in"        validate:"required"`
+	CorrectedClockOut     string `json:"corrected_clock_out"       validate:"required"`
+	CorrectedBreakMinutes int32  `json:"corrected_break_minutes"   validate:"gte=0"`
 	Reason                string `json:"reason"`
 }
 
@@ -728,12 +728,12 @@ func (h *HRRoutes) HandleSubmitCorrection(w http.ResponseWriter, r *http.Request
 	}
 	userID := middleware.GetUserID(r.Context())
 
-	var req submitCorrectionHTTPReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[submitCorrectionHTTPReq](w, r)
+	if !ok {
 		return
 	}
 
+	// RFC3339 parsing remains as code — tags only assert non-empty
 	clockIn, err := time.Parse(time.RFC3339, req.CorrectedClockIn)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid corrected_clock_in format, use RFC3339")
@@ -894,13 +894,13 @@ func (h *HRRoutes) HandleGetEmployee(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateEmployeeHTTPReq struct {
-	Department     string `json:"department"`
-	PositionTitle  string `json:"position_title"`
-	ContractType   string `json:"contract_type"`
-	WorkDaysPerWeek int32 `json:"work_days_per_week"`
-	AnnualLeaveDays int32 `json:"annual_leave_days"`
-	ManagerUserID  string `json:"manager_user_id"`
-	StartDate      string `json:"start_date"`
+	Department      string `json:"department"`
+	PositionTitle   string `json:"position_title"`
+	ContractType    string `json:"contract_type"      validate:"omitempty,oneof=full_time part_time mini_job intern temporary"`
+	WorkDaysPerWeek int32  `json:"work_days_per_week" validate:"omitempty,gte=1,lte=7"`
+	AnnualLeaveDays int32  `json:"annual_leave_days"  validate:"omitempty,gte=0"`
+	ManagerUserID   string `json:"manager_user_id"`
+	StartDate       string `json:"start_date"`
 }
 
 func (h *HRRoutes) HandleUpdateEmployee(w http.ResponseWriter, r *http.Request) {
@@ -912,9 +912,8 @@ func (h *HRRoutes) HandleUpdateEmployee(w http.ResponseWriter, r *http.Request) 
 
 	id := chi.URLParam(r, "id")
 
-	var req updateEmployeeHTTPReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateEmployeeHTTPReq](w, r)
+	if !ok {
 		return
 	}
 
@@ -940,10 +939,10 @@ func (h *HRRoutes) HandleUpdateEmployee(w http.ResponseWriter, r *http.Request) 
 
 type updateSelfProfileHTTPReq struct {
 	EmergencyContactName  string `json:"emergency_contact_name"`
-	EmergencyContactPhone string `json:"emergency_contact_phone"`
+	EmergencyContactPhone string `json:"emergency_contact_phone" validate:"omitempty,phone_dach"`
 	AddressStreet         string `json:"address_street"`
 	AddressCity           string `json:"address_city"`
-	AddressPostalCode     string `json:"address_postal_code"`
+	AddressPostalCode     string `json:"address_postal_code"     validate:"omitempty,plz_dach"`
 	AddressCountry        string `json:"address_country"`
 }
 
@@ -956,9 +955,8 @@ func (h *HRRoutes) HandleUpdateSelfProfile(w http.ResponseWriter, r *http.Reques
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req updateSelfProfileHTTPReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateSelfProfileHTTPReq](w, r)
+	if !ok {
 		return
 	}
 
@@ -1000,8 +998,8 @@ func (h *HRRoutes) HandleListEmployeeDocuments(w http.ResponseWriter, r *http.Re
 }
 
 type uploadDocumentHTTPReq struct {
-	CategoryID string `json:"category_id"`
-	FileID     string `json:"file_id"`
+	CategoryID string `json:"category_id" validate:"omitempty,uuid"`
+	FileID     string `json:"file_id"     validate:"omitempty,uuid"`
 	Notes      string `json:"notes"`
 }
 
@@ -1020,9 +1018,8 @@ func (h *HRRoutes) HandleUploadEmployeeDocument(w http.ResponseWriter, r *http.R
 	employeeID := chi.URLParam(r, "id")
 	uploadedBy := middleware.GetUserID(r.Context())
 
-	var req uploadDocumentHTTPReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[uploadDocumentHTTPReq](w, r)
+	if !ok {
 		return
 	}
 
@@ -1071,9 +1068,9 @@ func (h *HRRoutes) HandleGetHRSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateHRSettingsHTTPReq struct {
-	AUThresholdDays        int32  `json:"au_threshold_days"`
+	AUThresholdDays        int32  `json:"au_threshold_days"         validate:"omitempty,gte=0"`
 	ShowAbsenceReason      bool   `json:"show_absence_reason"`
-	DefaultAnnualLeaveDays int32  `json:"default_annual_leave_days"`
+	DefaultAnnualLeaveDays int32  `json:"default_annual_leave_days" validate:"omitempty,gte=0"`
 	Timezone               string `json:"timezone"`
 }
 
@@ -1090,9 +1087,8 @@ func (h *HRRoutes) HandleUpdateHRSettings(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	var req updateHRSettingsHTTPReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateHRSettingsHTTPReq](w, r)
+	if !ok {
 		return
 	}
 

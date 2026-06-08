@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -37,7 +36,6 @@ func (sr *SchichtenRoutes) getClient() (schichtenv1.SchichtenServiceClient, erro
 	}
 	return schichtenv1.NewSchichtenServiceClient(conn), nil
 }
-
 
 // RegisterRoutes mounts all Schichten HTTP routes behind the feature flag modules.schichten.
 func (sr *SchichtenRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
@@ -90,12 +88,12 @@ func (sr *SchichtenRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http
 // ============================================================================
 
 type createShiftRequest struct {
-	Title       string  `json:"title"`
+	Title       string  `json:"title"       validate:"required"`
 	Description string  `json:"description"`
-	StartTime   string  `json:"start_time"` // RFC3339
-	EndTime     string  `json:"end_time"`   // RFC3339
+	StartTime   string  `json:"start_time"  validate:"required"` // RFC3339
+	EndTime     string  `json:"end_time"    validate:"required"` // RFC3339
 	Location    *string `json:"location,omitempty"`
-	CreatedBy   *string `json:"created_by,omitempty"`
+	CreatedBy   *string `json:"created_by,omitempty" validate:"omitempty,uuid"`
 }
 
 type updateShiftRequest struct {
@@ -107,22 +105,22 @@ type updateShiftRequest struct {
 }
 
 type publishShiftsRequest struct {
-	From string `json:"from"` // RFC3339
-	To   string `json:"to"`   // RFC3339
+	From string `json:"from" validate:"required"` // RFC3339
+	To   string `json:"to"   validate:"required"` // RFC3339
 }
 
 type assignEmployeeRequest struct {
-	EmployeeID string  `json:"employee_id"`
-	AssignedBy *string `json:"assigned_by,omitempty"`
+	EmployeeID string  `json:"employee_id"           validate:"required,uuid"`
+	AssignedBy *string `json:"assigned_by,omitempty" validate:"omitempty,uuid"`
 }
 
 type createTemplateRequest struct {
-	Name            string  `json:"name"`
+	Name            string  `json:"name"             validate:"required"`
 	Description     string  `json:"description"`
-	DayOfWeek       int32   `json:"day_of_week"`
-	StartHour       int32   `json:"start_hour"`
-	StartMinute     int32   `json:"start_minute"`
-	DurationMinutes int32   `json:"duration_minutes"`
+	DayOfWeek       int32   `json:"day_of_week"      validate:"gte=0,lte=6"`
+	StartHour       int32   `json:"start_hour"       validate:"gte=0,lte=23"`
+	StartMinute     int32   `json:"start_minute"     validate:"gte=0,lte=59"`
+	DurationMinutes int32   `json:"duration_minutes" validate:"gt=0"`
 	Location        *string `json:"location,omitempty"`
 }
 
@@ -137,9 +135,9 @@ type updateTemplateRequest struct {
 }
 
 type applyTemplateRequest struct {
-	RangeStart string  `json:"range_start"` // RFC3339
-	RangeEnd   string  `json:"range_end"`   // RFC3339
-	CreatedBy  *string `json:"created_by,omitempty"`
+	RangeStart string  `json:"range_start"           validate:"required"` // RFC3339
+	RangeEnd   string  `json:"range_end"             validate:"required"` // RFC3339
+	CreatedBy  *string `json:"created_by,omitempty"  validate:"omitempty,uuid"`
 }
 
 // ============================================================================
@@ -190,13 +188,8 @@ func (sr *SchichtenRoutes) HandleCreateShift(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var req createShiftRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.Title == "" {
-		response.Error(w, http.StatusBadRequest, "title is required")
+	req, ok := decodeAndValidate[createShiftRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -274,9 +267,8 @@ func (sr *SchichtenRoutes) HandleUpdateShift(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var req updateShiftRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateShiftRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -352,9 +344,8 @@ func (sr *SchichtenRoutes) HandlePublishShifts(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var req publishShiftsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[publishShiftsRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -430,13 +421,8 @@ func (sr *SchichtenRoutes) HandleAssignEmployee(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	var req assignEmployeeRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.EmployeeID == "" {
-		response.Error(w, http.StatusBadRequest, "employee_id is required")
+	req, ok := decodeAndValidate[assignEmployeeRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -530,13 +516,8 @@ func (sr *SchichtenRoutes) HandleCreateTemplate(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	var req createTemplateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.Name == "" {
-		response.Error(w, http.StatusBadRequest, "name is required")
+	req, ok := decodeAndValidate[createTemplateRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -574,9 +555,8 @@ func (sr *SchichtenRoutes) HandleUpdateTemplate(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	var req updateTemplateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateTemplateRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -645,9 +625,8 @@ func (sr *SchichtenRoutes) HandleApplyTemplate(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var req applyTemplateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[applyTemplateRequest](w, r)
+	if !ok {
 		return
 	}
 

@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -33,7 +32,6 @@ func (fr *FuhrparkRoutes) getClient() (fuhrparkv1.FuhrparkServiceClient, error) 
 	}
 	return fuhrparkv1.NewFuhrparkServiceClient(conn), nil
 }
-
 
 // RegisterRoutes mounts all Fuhrpark HTTP routes behind the feature flag modules.fuhrpark.
 func (fr *FuhrparkRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
@@ -102,16 +100,16 @@ func (fr *FuhrparkRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 // ============================================================================
 
 type createVehicleRequest struct {
-	LicensePlate     string  `json:"license_plate"`
-	Make             string  `json:"make"`
-	Model            string  `json:"model"`
-	Year             int32   `json:"year"`
+	LicensePlate     string  `json:"license_plate"              validate:"required"`
+	Make             string  `json:"make"                       validate:"required"`
+	Model            string  `json:"model"                      validate:"required"`
+	Year             int32   `json:"year"                       validate:"omitempty,gte=1900,lte=2100"`
 	VIN              *string `json:"vin,omitempty"`
 	Color            *string `json:"color,omitempty"`
-	FuelType         string  `json:"fuel_type"`
-	MileageKm        int64   `json:"mileage_km"`
+	FuelType         string  `json:"fuel_type"                  validate:"omitempty,oneof=petrol diesel electric hybrid other"`
+	MileageKm        int64   `json:"mileage_km"                 validate:"gte=0"`
 	TuevDueDate      *string `json:"tuev_due_date,omitempty"`
-	AssignedDriverID *string `json:"assigned_driver_id,omitempty"`
+	AssignedDriverID *string `json:"assigned_driver_id,omitempty" validate:"omitempty,uuid"`
 	Notes            *string `json:"notes,omitempty"`
 }
 
@@ -122,19 +120,19 @@ type updateVehicleRequest struct {
 	Year             *int32  `json:"year,omitempty"`
 	VIN              *string `json:"vin,omitempty"`
 	Color            *string `json:"color,omitempty"`
-	FuelType         *string `json:"fuel_type,omitempty"`
+	FuelType         *string `json:"fuel_type,omitempty"           validate:"omitempty,oneof=petrol diesel electric hybrid other"`
 	Status           *string `json:"status,omitempty"`
 	MileageKm        *int64  `json:"mileage_km,omitempty"`
 	TuevDueDate      *string `json:"tuev_due_date,omitempty"`
-	AssignedDriverID *string `json:"assigned_driver_id,omitempty"`
+	AssignedDriverID *string `json:"assigned_driver_id,omitempty"  validate:"omitempty,uuid"`
 	Notes            *string `json:"notes,omitempty"`
 }
 
 type scheduleServiceRequest struct {
-	ServiceType string  `json:"service_type"`
+	ServiceType string  `json:"service_type"          validate:"required"`
 	Description *string `json:"description,omitempty"`
-	ScheduledAt string  `json:"scheduled_at"`
-	CostCents   *int64  `json:"cost_cents,omitempty"`
+	ScheduledAt string  `json:"scheduled_at"          validate:"required"`
+	CostCents   *int64  `json:"cost_cents,omitempty"  validate:"omitempty,gte=0"`
 	Workshop    *string `json:"workshop,omitempty"`
 	MileageKm   *int64  `json:"mileage_km,omitempty"`
 	Notes       *string `json:"notes,omitempty"`
@@ -158,11 +156,11 @@ type completeServiceRequest struct {
 }
 
 type reportDamageRequest struct {
-	Description string   `json:"description"`
-	Severity    string   `json:"severity"`
-	ReportedBy  *string  `json:"reported_by,omitempty"`
+	Description string   `json:"description"           validate:"required"`
+	Severity    string   `json:"severity"              validate:"omitempty,oneof=minor moderate major totalled"`
+	ReportedBy  *string  `json:"reported_by,omitempty" validate:"omitempty,uuid"`
 	PhotoKeys   []string `json:"photo_keys,omitempty"`
-	CostCents   *int64   `json:"cost_cents,omitempty"`
+	CostCents   *int64   `json:"cost_cents,omitempty"  validate:"omitempty,gte=0"`
 	Notes       *string  `json:"notes,omitempty"`
 }
 
@@ -233,17 +231,8 @@ func (fr *FuhrparkRoutes) HandleCreateVehicle(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var req createVehicleRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.LicensePlate == "" {
-		response.Error(w, http.StatusBadRequest, "license_plate is required")
-		return
-	}
-	if req.Make == "" || req.Model == "" {
-		response.Error(w, http.StatusBadRequest, "make and model are required")
+	req, ok := decodeAndValidate[createVehicleRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -315,9 +304,8 @@ func (fr *FuhrparkRoutes) HandleUpdateVehicle(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var req updateVehicleRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateVehicleRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -429,13 +417,8 @@ func (fr *FuhrparkRoutes) HandleScheduleService(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	var req scheduleServiceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.ServiceType == "" {
-		response.Error(w, http.StatusBadRequest, "service_type is required")
+	req, ok := decodeAndValidate[scheduleServiceRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -533,9 +516,8 @@ func (fr *FuhrparkRoutes) HandleUpdateService(w http.ResponseWriter, r *http.Req
 	if !ok {
 		return
 	}
-	var req updateServiceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateServiceRequest](w, r)
+	if !ok {
 		return
 	}
 	resp, err := client.UpdateService(r.Context(), &fuhrparkv1.UpdateServiceRequest{
@@ -598,9 +580,8 @@ func (fr *FuhrparkRoutes) HandleCompleteService(w http.ResponseWriter, r *http.R
 	if !ok {
 		return
 	}
-	var req completeServiceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[completeServiceRequest](w, r)
+	if !ok {
 		return
 	}
 	resp, err := client.CompleteService(r.Context(), &fuhrparkv1.CompleteServiceRequest{
@@ -660,13 +641,8 @@ func (fr *FuhrparkRoutes) HandleReportDamage(w http.ResponseWriter, r *http.Requ
 	if !ok {
 		return
 	}
-	var req reportDamageRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.Description == "" {
-		response.Error(w, http.StatusBadRequest, "description is required")
+	req, ok := decodeAndValidate[reportDamageRequest](w, r)
+	if !ok {
 		return
 	}
 	resp, err := client.ReportDamage(r.Context(), &fuhrparkv1.ReportDamageRequest{
@@ -762,9 +738,8 @@ func (fr *FuhrparkRoutes) HandleUpdateDamage(w http.ResponseWriter, r *http.Requ
 	if !ok {
 		return
 	}
-	var req updateDamageRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateDamageRequest](w, r)
+	if !ok {
 		return
 	}
 	resp, err := client.UpdateDamage(r.Context(), &fuhrparkv1.UpdateDamageRequest{
@@ -799,9 +774,8 @@ func (fr *FuhrparkRoutes) HandleResolveDamage(w http.ResponseWriter, r *http.Req
 	if !ok {
 		return
 	}
-	var req resolveDamageRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[resolveDamageRequest](w, r)
+	if !ok {
 		return
 	}
 	resp, err := client.ResolveDamage(r.Context(), &fuhrparkv1.ResolveDamageRequest{

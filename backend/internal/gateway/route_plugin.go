@@ -122,6 +122,7 @@ func (pr *PluginRoutes) HandleListManifests(w http.ResponseWriter, r *http.Reque
 }
 
 func (pr *PluginRoutes) HandleCreateManifest(w http.ResponseWriter, r *http.Request) {
+	// proto-direct: no local DTO (S4.1 boundary)
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -205,6 +206,7 @@ func (pr *PluginRoutes) HandleListInstallations(w http.ResponseWriter, r *http.R
 }
 
 func (pr *PluginRoutes) HandleInstallPlugin(w http.ResponseWriter, r *http.Request) {
+	// proto-direct: no local DTO (S4.1 boundary)
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -297,6 +299,11 @@ func (pr *PluginRoutes) HandleUninstallPlugin(w http.ResponseWriter, r *http.Req
 // Permission Handlers
 // ============================================================================
 
+type approvePermissionsHTTPReq struct {
+	Permissions []string `json:"permissions" validate:"required,min=1"`
+	GrantedBy   string   `json:"granted_by"  validate:"required,uuid"`
+}
+
 func (pr *PluginRoutes) HandleApprovePermissions(w http.ResponseWriter, r *http.Request) {
 	client, err := pr.getClient()
 	if err != nil {
@@ -304,12 +311,8 @@ func (pr *PluginRoutes) HandleApprovePermissions(w http.ResponseWriter, r *http.
 		return
 	}
 
-	var body struct {
-		Permissions []string `json:"permissions"`
-		GrantedBy   string   `json:"granted_by"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	body, ok := decodeAndValidate[approvePermissionsHTTPReq](w, r)
+	if !ok {
 		return
 	}
 
@@ -437,6 +440,7 @@ func (pr *PluginRoutes) HandleListValidationRules(w http.ResponseWriter, r *http
 }
 
 func (pr *PluginRoutes) HandleCreateValidationRule(w http.ResponseWriter, r *http.Request) {
+	// proto-direct: no local DTO (S4.1 boundary)
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -458,6 +462,7 @@ func (pr *PluginRoutes) HandleCreateValidationRule(w http.ResponseWriter, r *htt
 }
 
 func (pr *PluginRoutes) HandleUpdateValidationRule(w http.ResponseWriter, r *http.Request) {
+	// proto-direct: no local DTO (S4.1 boundary)
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -525,6 +530,7 @@ func (pr *PluginRoutes) HandleListWorkflowRules(w http.ResponseWriter, r *http.R
 }
 
 func (pr *PluginRoutes) HandleCreateWorkflowRule(w http.ResponseWriter, r *http.Request) {
+	// proto-direct: no local DTO (S4.1 boundary)
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -546,6 +552,7 @@ func (pr *PluginRoutes) HandleCreateWorkflowRule(w http.ResponseWriter, r *http.
 }
 
 func (pr *PluginRoutes) HandleUpdateWorkflowRule(w http.ResponseWriter, r *http.Request) {
+	// proto-direct: no local DTO (S4.1 boundary)
 	client, err := pr.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, pr.ServiceName())
@@ -605,6 +612,10 @@ func (pr *PluginRoutes) HandleListTemplates(w http.ResponseWriter, r *http.Reque
 	response.JSON(w, http.StatusOK, resp.GetTemplates())
 }
 
+type applyTemplateHTTPReq struct {
+	AppliedBy string `json:"applied_by" validate:"required,uuid"`
+}
+
 func (pr *PluginRoutes) HandleApplyTemplate(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
@@ -618,11 +629,8 @@ func (pr *PluginRoutes) HandleApplyTemplate(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var body struct {
-		AppliedBy string `json:"applied_by"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	body, ok := decodeAndValidate[applyTemplateHTTPReq](w, r)
+	if !ok {
 		return
 	}
 

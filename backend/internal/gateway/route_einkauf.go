@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -34,7 +33,6 @@ func (er *EinkaufRoutes) getClient() (einkaufv1.EinkaufServiceClient, error) {
 	}
 	return einkaufv1.NewEinkaufServiceClient(conn), nil
 }
-
 
 // RegisterRoutes mounts all Einkauf HTTP routes behind the feature flag modules.einkauf.
 // Routes are only registered if the flag is enabled.
@@ -95,9 +93,9 @@ func (er *EinkaufRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 // ============================================================================
 
 type createSupplierRequest struct {
-	Name         string `json:"name"`
-	ContactID    string `json:"contact_id,omitempty"`
-	Email        string `json:"email,omitempty"`
+	Name         string `json:"name"               validate:"required"`
+	ContactID    string `json:"contact_id,omitempty" validate:"omitempty,uuid"`
+	Email        string `json:"email,omitempty"    validate:"omitempty,email"`
 	Phone        string `json:"phone,omitempty"`
 	Address      string `json:"address,omitempty"`
 	PaymentTerms string `json:"payment_terms,omitempty"`
@@ -115,8 +113,8 @@ type updateSupplierRequest struct {
 }
 
 type createPORequest struct {
-	SupplierID           string `json:"supplier_id"`
-	PONumber             string `json:"po_number"`
+	SupplierID           string `json:"supplier_id"             validate:"required,uuid"`
+	PONumber             string `json:"po_number"               validate:"required"`
 	OrderDate            string `json:"order_date,omitempty"`
 	ExpectedDeliveryDate string `json:"expected_delivery_date,omitempty"`
 	Currency             string `json:"currency,omitempty"`
@@ -133,10 +131,10 @@ type updatePORequest struct {
 }
 
 type addPOLineRequest struct {
-	ProductName  string `json:"product_name"`
+	ProductName  string `json:"product_name"          validate:"required"`
 	SKU          string `json:"sku,omitempty"`
-	Quantity     string `json:"quantity"`
-	UnitPrice    string `json:"unit_price"`
+	Quantity     string `json:"quantity"              validate:"required"`
+	UnitPrice    string `json:"unit_price"            validate:"required"`
 	TaxRate      string `json:"tax_rate,omitempty"`
 	LinePosition int32  `json:"line_position,omitempty"`
 }
@@ -156,7 +154,7 @@ type partialReceiveItem struct {
 }
 
 type partialReceiveRequest struct {
-	Items []partialReceiveItem `json:"items"`
+	Items []partialReceiveItem `json:"items" validate:"required,min=1"`
 }
 
 // ============================================================================
@@ -208,13 +206,8 @@ func (er *EinkaufRoutes) HandleCreateSupplier(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var req createSupplierRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.Name == "" {
-		response.Error(w, http.StatusBadRequest, "name is required")
+	req, ok := decodeAndValidate[createSupplierRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -284,9 +277,8 @@ func (er *EinkaufRoutes) HandleUpdateSupplier(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var req updateSupplierRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateSupplierRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -391,17 +383,8 @@ func (er *EinkaufRoutes) HandleCreatePO(w http.ResponseWriter, r *http.Request) 
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createPORequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.SupplierID == "" {
-		response.Error(w, http.StatusBadRequest, "supplier_id is required")
-		return
-	}
-	if req.PONumber == "" {
-		response.Error(w, http.StatusBadRequest, "po_number is required")
+	req, ok := decodeAndValidate[createPORequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -467,9 +450,8 @@ func (er *EinkaufRoutes) HandleUpdatePO(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var req updatePORequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updatePORequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -595,9 +577,8 @@ func (er *EinkaufRoutes) HandlePartialReceive(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var req partialReceiveRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[partialReceiveRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -716,21 +697,8 @@ func (er *EinkaufRoutes) HandleAddPOLine(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var req addPOLineRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.ProductName == "" {
-		response.Error(w, http.StatusBadRequest, "product_name is required")
-		return
-	}
-	if req.Quantity == "" {
-		response.Error(w, http.StatusBadRequest, "quantity is required")
-		return
-	}
-	if req.UnitPrice == "" {
-		response.Error(w, http.StatusBadRequest, "unit_price is required")
+	req, ok := decodeAndValidate[addPOLineRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -775,20 +743,19 @@ func (er *EinkaufRoutes) HandleUpdatePOLine(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var req updatePOLineRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updatePOLineRequest](w, r)
+	if !ok {
 		return
 	}
 
 	grpcReq := &einkaufv1.UpdatePOLineRequest{
-		TenantId:    tenantID.String(),
-		LineId:      lineID,
-		ProductName: req.ProductName,
-		Sku:         req.SKU,
-		Quantity:    req.Quantity,
-		UnitPrice:   req.UnitPrice,
-		TaxRate:     req.TaxRate,
+		TenantId:     tenantID.String(),
+		LineId:       lineID,
+		ProductName:  req.ProductName,
+		Sku:          req.SKU,
+		Quantity:     req.Quantity,
+		UnitPrice:    req.UnitPrice,
+		TaxRate:      req.TaxRate,
 		LinePosition: req.LinePosition,
 	}
 

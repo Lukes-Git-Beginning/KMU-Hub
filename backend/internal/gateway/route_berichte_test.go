@@ -114,8 +114,7 @@ func TestHandleCreateDefinition_MissingName(t *testing.T) {
 		jsonBody(t, map[string]interface{}{"module": "crm"}))
 	req = withAuth(req, "user-123", testTenantID)
 	routes.HandleCreateDefinition(rec, req)
-	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "name is required")
+	assertValidationError(t, rec, "name")
 }
 
 func TestHandleCreateDefinition_MissingModule(t *testing.T) {
@@ -125,8 +124,7 @@ func TestHandleCreateDefinition_MissingModule(t *testing.T) {
 		jsonBody(t, map[string]interface{}{"name": "My Report"}))
 	req = withAuth(req, "user-123", testTenantID)
 	routes.HandleCreateDefinition(rec, req)
-	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "module is required")
+	assertValidationError(t, rec, "module")
 }
 
 func TestHandleGetDefinition_ServiceUnavailable(t *testing.T) {
@@ -324,8 +322,7 @@ func TestHandleCreateSchedule_MissingName(t *testing.T) {
 		jsonBody(t, map[string]interface{}{"cron_expression": "0 8 * * 1"}))
 	req = withAuth(req, "user-123", testTenantID)
 	routes.HandleCreateSchedule(rec, req)
-	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "name is required")
+	assertValidationError(t, rec, "name")
 }
 
 func TestHandleCreateSchedule_MissingCron(t *testing.T) {
@@ -335,8 +332,7 @@ func TestHandleCreateSchedule_MissingCron(t *testing.T) {
 		jsonBody(t, map[string]interface{}{"name": "Weekly"}))
 	req = withAuth(req, "user-123", testTenantID)
 	routes.HandleCreateSchedule(rec, req)
-	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "cron_expression is required")
+	assertValidationError(t, rec, "cron_expression")
 }
 
 func TestHandleUpdateSchedule_InvalidUUID(t *testing.T) {

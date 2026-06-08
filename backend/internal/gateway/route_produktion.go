@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 	"time"
 
@@ -36,7 +35,6 @@ func (pr *ProduktionRoutes) getClient() (produktionv1.ProduktionServiceClient, e
 	}
 	return produktionv1.NewProduktionServiceClient(conn), nil
 }
-
 
 // RegisterRoutes mounts all Produktion HTTP routes behind the feature flag modules.produktion.
 // Routes are only registered if the flag is enabled.
@@ -95,11 +93,11 @@ func (pr *ProduktionRoutes) RegisterRoutes(r chi.Router, authMiddleware func(htt
 // ============================================================================
 
 type createOrderRequest struct {
-	OrderNumber  string `json:"order_number"`
-	ProductName  string `json:"product_name"`
-	Quantity     int    `json:"quantity"`
-	PlannedStart string `json:"planned_start"` // RFC3339
-	PlannedEnd   string `json:"planned_end"`   // RFC3339
+	OrderNumber  string `json:"order_number"   validate:"required"`
+	ProductName  string `json:"product_name"   validate:"required"`
+	Quantity     int    `json:"quantity"       validate:"gt=0"`
+	PlannedStart string `json:"planned_start"  validate:"required"` // RFC3339
+	PlannedEnd   string `json:"planned_end"    validate:"required"` // RFC3339
 	Priority     int    `json:"priority"`
 	Notes        string `json:"notes,omitempty"`
 }
@@ -114,10 +112,10 @@ type updateOrderRequest struct {
 }
 
 type createBookingRequest struct {
-	MachineID         string `json:"machine_id"`
-	ProductionOrderID string `json:"production_order_id"`
-	StartsAt          string `json:"starts_at"` // RFC3339
-	EndsAt            string `json:"ends_at"`   // RFC3339
+	MachineID         string `json:"machine_id"          validate:"required,uuid"`
+	ProductionOrderID string `json:"production_order_id" validate:"required,uuid"`
+	StartsAt          string `json:"starts_at"           validate:"required"` // RFC3339
+	EndsAt            string `json:"ends_at"             validate:"required"` // RFC3339
 	Notes             string `json:"notes,omitempty"`
 }
 
@@ -130,10 +128,10 @@ type updateBookingRequest struct {
 }
 
 type createPlanRequest struct {
-	Name                 string  `json:"name"`
+	Name                 string  `json:"name"                   validate:"required"`
 	WeekNumber           int     `json:"week_number"`
 	Year                 int     `json:"year"`
-	TotalCapacityHours   float64 `json:"total_capacity_hours"`
+	TotalCapacityHours   float64 `json:"total_capacity_hours"   validate:"gt=0"`
 	PlannedCapacityHours float64 `json:"planned_capacity_hours,omitempty"`
 	Notes                string  `json:"notes,omitempty"`
 }
@@ -214,17 +212,8 @@ func (pr *ProduktionRoutes) HandleCreateOrder(w http.ResponseWriter, r *http.Req
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createOrderRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.OrderNumber == "" {
-		response.Error(w, http.StatusBadRequest, "order_number is required")
-		return
-	}
-	if req.ProductName == "" {
-		response.Error(w, http.StatusBadRequest, "product_name is required")
+	req, ok := decodeAndValidate[createOrderRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -304,9 +293,8 @@ func (pr *ProduktionRoutes) HandleUpdateOrder(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var req updateOrderRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateOrderRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -514,17 +502,8 @@ func (pr *ProduktionRoutes) HandleCreateMachineBooking(w http.ResponseWriter, r 
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createBookingRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.MachineID == "" {
-		response.Error(w, http.StatusBadRequest, "machine_id is required")
-		return
-	}
-	if req.ProductionOrderID == "" {
-		response.Error(w, http.StatusBadRequest, "production_order_id is required")
+	req, ok := decodeAndValidate[createBookingRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -574,9 +553,8 @@ func (pr *ProduktionRoutes) HandleUpdateMachineBooking(w http.ResponseWriter, r 
 		return
 	}
 
-	var req updateBookingRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateBookingRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -654,13 +632,8 @@ func (pr *ProduktionRoutes) HandleCreatePlan(w http.ResponseWriter, r *http.Requ
 
 	userID := middleware.GetUserID(r.Context())
 
-	var req createPlanRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.Name == "" {
-		response.Error(w, http.StatusBadRequest, "name is required")
+	req, ok := decodeAndValidate[createPlanRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -728,9 +701,8 @@ func (pr *ProduktionRoutes) HandleUpdatePlan(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var req updatePlanRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updatePlanRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -798,4 +770,3 @@ func (pr *ProduktionRoutes) HandleGetCapacityOverview(w http.ResponseWriter, r *
 	}
 	response.JSON(w, http.StatusOK, resp)
 }
-

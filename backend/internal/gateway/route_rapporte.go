@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -34,7 +33,6 @@ func (rr *RapporteRoutes) getClient() (rapportev1.RapporteServiceClient, error) 
 	}
 	return rapportev1.NewRapporteServiceClient(conn), nil
 }
-
 
 // RegisterRoutes mounts all Rapporte HTTP routes behind the feature flag modules.rapporte.
 func (rr *RapporteRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
@@ -95,9 +93,9 @@ func (rr *RapporteRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 // ============================================================================
 
 type createReportRequest struct {
-	Title       string   `json:"title"`
+	Title       string   `json:"title"       validate:"required"`
 	Description string   `json:"description"`
-	AuthorID    string   `json:"author_id"`
+	AuthorID    string   `json:"author_id"   validate:"required,uuid"`
 	Lat         *float64 `json:"lat,omitempty"`
 	Lon         *float64 `json:"lon,omitempty"`
 	ReportDate  string   `json:"report_date,omitempty"`
@@ -112,13 +110,13 @@ type updateReportRequest struct {
 }
 
 type approveRejectRequest struct {
-	ReviewerID string `json:"reviewer_id"`
+	ReviewerID string `json:"reviewer_id" validate:"required,uuid"`
 	ReviewNote string `json:"review_note"`
 }
 
 type addLineRequest struct {
-	Description string  `json:"description"`
-	Quantity    float64 `json:"quantity"`
+	Description string  `json:"description" validate:"required"`
+	Quantity    float64 `json:"quantity"    validate:"gt=0"`
 	Unit        string  `json:"unit"`
 	Notes       string  `json:"notes"`
 	Position    int32   `json:"position"`
@@ -133,12 +131,12 @@ type updateLineRequest struct {
 }
 
 type rapporteUploadAttachmentRequest struct {
-	LineID      *string `json:"line_id,omitempty"`
-	Filename    string  `json:"filename"`
+	LineID      *string `json:"line_id,omitempty"  validate:"omitempty,uuid"`
+	Filename    string  `json:"filename"            validate:"required"`
 	ContentType string  `json:"content_type"`
-	SizeBytes   int64   `json:"size_bytes"`
-	ObjectKey   string  `json:"object_key"`
-	UploadedBy  string  `json:"uploaded_by"`
+	SizeBytes   int64   `json:"size_bytes"          validate:"gt=0"`
+	ObjectKey   string  `json:"object_key"          validate:"required"`
+	UploadedBy  string  `json:"uploaded_by"         validate:"required,uuid"`
 }
 
 // ============================================================================
@@ -193,17 +191,8 @@ func (rr *RapporteRoutes) HandleCreateReport(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var req createReportRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.Title == "" {
-		response.Error(w, http.StatusBadRequest, "title is required")
-		return
-	}
-	if req.AuthorID == "" {
-		response.Error(w, http.StatusBadRequest, "author_id is required")
+	req, ok := decodeAndValidate[createReportRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -270,9 +259,8 @@ func (rr *RapporteRoutes) HandleUpdateReport(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var req updateReportRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateReportRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -371,13 +359,8 @@ func (rr *RapporteRoutes) HandleApproveReport(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var req approveRejectRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.ReviewerID == "" {
-		response.Error(w, http.StatusBadRequest, "reviewer_id is required")
+	req, ok := decodeAndValidate[approveRejectRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -411,13 +394,8 @@ func (rr *RapporteRoutes) HandleRejectReport(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var req approveRejectRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.ReviewerID == "" {
-		response.Error(w, http.StatusBadRequest, "reviewer_id is required")
+	req, ok := decodeAndValidate[approveRejectRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -483,13 +461,8 @@ func (rr *RapporteRoutes) HandleAddLine(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var req addLineRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.Description == "" {
-		response.Error(w, http.StatusBadRequest, "description is required")
+	req, ok := decodeAndValidate[addLineRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -526,9 +499,8 @@ func (rr *RapporteRoutes) HandleUpdateLine(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var req updateLineRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	req, ok := decodeAndValidate[updateLineRequest](w, r)
+	if !ok {
 		return
 	}
 
@@ -636,13 +608,8 @@ func (rr *RapporteRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.
 		return
 	}
 
-	var req rapporteUploadAttachmentRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.Filename == "" || req.ObjectKey == "" || req.UploadedBy == "" {
-		response.Error(w, http.StatusBadRequest, "filename, object_key and uploaded_by are required")
+	req, ok := decodeAndValidate[rapporteUploadAttachmentRequest](w, r)
+	if !ok {
 		return
 	}
 

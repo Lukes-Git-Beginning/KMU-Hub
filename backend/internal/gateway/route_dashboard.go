@@ -88,18 +88,17 @@ func (d *DashboardRoutes) HandleSaveDashboard(w http.ResponseWriter, r *http.Req
 	}
 	userID := middleware.GetUserID(r.Context())
 
-	var req saveDashboardRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	// decodeAndValidate handles JSON decode; json.RawMessage fields carry no validate tags.
+	req, ok := decodeAndValidate[saveDashboardRequest](w, r)
+	if !ok {
 		return
 	}
 
+	// Content validation for json.RawMessage fields cannot use struct tags — keep as code.
 	if len(req.Layout) == 0 || len(req.ActiveWidgets) == 0 {
 		response.Error(w, http.StatusBadRequest, "layout and active_widgets are required")
 		return
 	}
-
-	// Validate JSON arrays
 	if !json.Valid(req.Layout) || !json.Valid(req.ActiveWidgets) {
 		response.Error(w, http.StatusBadRequest, "layout and active_widgets must be valid JSON")
 		return
@@ -170,17 +169,17 @@ func (d *DashboardRoutes) HandleSaveDefaults(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var req saveDefaultsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
+	// decodeAndValidate handles JSON decode; json.RawMessage fields carry no validate tags.
+	req, ok := decodeAndValidate[saveDefaultsRequest](w, r)
+	if !ok {
 		return
 	}
 
+	// Content validation for json.RawMessage fields cannot use struct tags — keep as code.
 	if len(req.Layout) == 0 || len(req.ActiveWidgets) == 0 {
 		response.Error(w, http.StatusBadRequest, "layout and active_widgets are required")
 		return
 	}
-
 	if !json.Valid(req.Layout) || !json.Valid(req.ActiveWidgets) {
 		response.Error(w, http.StatusBadRequest, "layout and active_widgets must be valid JSON")
 		return
