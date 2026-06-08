@@ -16,7 +16,7 @@ Lies ZUERST in dieser Reihenfolge und befolge sie strikt:
 3. .planning/nico-block/KICKOFF.md + .planning/nico-block/RUNBOOK.md + .planning/nico-block/WORKFLOW.md  (Rolle + Build-+-Verify-Prozess)
 
 Deine Lane (NUR diese Module, in dieser Reihenfolge): wiki → formulare → berichte → notifications.
-Die Phasen je Modul stehen in .planning/module-phase-plans.md (Module mit „→ Strom N" markiert).
+Fertige Pilot-Specs: .planning/nico-block/wiki-settings.md, .planning/nico-block/formulare-settings.md (+ die bestehenden phase-01/02 für notifications/berichte). Folgephasen je Modul in .planning/module-phase-plans.md (Module mit „→ Strom N" markiert).
 
 Branch-Modell (Marathon): einmal `git checkout main && git pull && git checkout -B marathon/nico`.
 Pro Phase: bauen → i18n ×4 → gescopter tsc → Playwright-Screenshot-QA → Screenshots WIRKLICH mit Read ansehen → Review-Faden in .planning/reviews/<modul>.md → ein Commit → `git push -u origin marathon/nico`.
@@ -39,7 +39,7 @@ Lies ZUERST in dieser Reihenfolge und befolge sie strikt:
 4. .planning/nico-block/RUNBOOK.md + .planning/nico-block/WORKFLOW.md  (Build-+-Verify-Prozess — gilt für alle Ströme)
 
 Deine Lane (NUR diese Module): calendar → dokumente → zeiterfassung.
-Phasen je Modul in .planning/module-phase-plans.md (Module mit „→ Strom D" markiert). Guter Start: calendar P1 (Views — reines FE).
+Fertige Pilot-Specs in .planning/dein-pc-block/: calendar-p1-views.md (START HIER), zeiterfassung-p1-standalone.md, dokumente-settings.md. Folgephasen in .planning/module-phase-plans.md (Module mit „→ Strom D" markiert).
 
 Branch-Modell: einmal `git checkout main && git pull && git checkout -B marathon/dein-pc`.
 Pro Phase: bauen → i18n ×4 → gescopter tsc → Playwright-Screenshot-QA → Screenshots WIRKLICH ansehen → Review-Faden in .planning/reviews/<modul>.md → Commit → `git push -u origin marathon/dein-pc`.
@@ -63,7 +63,7 @@ Lies ZUERST:
 
 VORMITTAG — Backend-P0: .planning/backend-handover-luke.md, P0 zuerst (E-Rechnung/GoBD/DATEV/Bexio, Online-Terminbuchung, Dialer-Consent, DSGVO). Deine Domäne — Architektur nach CLAUDE.md (Thick Services/Thin Handlers, golang-migrate, slog, tenant_id). Backend-Commits auf deinem üblichen Repo/Branch.
 
-NACHMITTAG — FE-Lane (NUR diese Module): vertraege → dashboard → profil. Pilot: .planning/luke-block/phase-01-vertraege-settings.md, dann BACKLOG.md. Phasen in .planning/module-phase-plans.md (Module mit „→ Strom L" markiert).
+NACHMITTAG — FE-Lane (NUR diese Module): vertraege → dashboard → profil. Fertige Pilot-Specs: .planning/luke-block/phase-01-vertraege-settings.md (START HIER), dann dashboard-settings.md, profil-p1-presence.md; danach BACKLOG.md. Phasen in .planning/module-phase-plans.md (Module mit „→ Strom L" markiert).
 FE-Branch: einmal `git checkout main && git pull && git checkout -B marathon/luke-fe`. Pro Phase: bauen → i18n ×4 → gescopter tsc → QA → Screenshots ansehen → Review-Faden → Commit → `git push -u origin marathon/luke-fe`. NIE nach main. Hot Files additiv. Backend- und FE-Arbeit getrennt halten.
 ```
 

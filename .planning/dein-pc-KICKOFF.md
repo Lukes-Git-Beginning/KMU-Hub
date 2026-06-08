@@ -20,6 +20,7 @@ Du baust am Cosmi-CRM (Electron + React 19 + TypeScript Desktop-CRM) als **Strom
 - **Nie nach `main` pushen. Nie `main` auschecken/mergen. `main` heute nicht mitten am Tag pullen.** Darien merged + reviewt später.
 
 ## Lane & Phasen (nur diese Module)
+**Fertige Pilot-Specs:** `.planning/dein-pc-block/` (README → `calendar-p1-views.md` START → `zeiterfassung-p1-standalone.md` → `dokumente-settings.md`). Danach Folgephasen aus dem Plan.
 In `module-phase-plans.md` mit „→ Strom D" markiert:
 - **calendar** (nur Layout-Shell, Views = Platzhalter): **P1 Views** (Tag/Woche/Monat + Mini-Cal + Kalender-Liste) — reines FE, guter Start · P2 Events-CRUD + RRULE + DnD + Erinnerungen (mock-first) · P3 mehrere/geteilte Kalender (FE) · …
 - **dokumente** (sehr vollständig): P1 „Coming-soon" beseitigen (Move/Copy, granulare Rechte, Datei-Kommentare — mock-first) · P2 Metadaten/Tags · …

@@ -12,6 +12,7 @@ Dieses Verzeichnis ist das komplette Paket, um den Block **wiki · formulare · 
 3. **`KICKOFF.md`** — das gibst du deinem Claude zu **Sessionbeginn** (Rolle, Skills, Repo-Landkarte, Konventionen).
 4. **`phase-01-notifications-quiet-hours.md`** — die erste Pilot-Phase. Komplett abarbeiten, verifizieren, „fertig" melden, Review abwarten.
 5. **`phase-02-berichte-sparkline.md`** — die zweite Pilot-Phase.
+5b. **Marathon-Lane-Specs (fertig):** `wiki-settings.md` + `formulare-settings.md` (Modul-Einstellungen, FE, mock-first) für die restlichen Lane-Module. Folgephasen je Modul in `../module-phase-plans.md`.
 6. Erst nach grünem Review beider Piloten: **`BACKLOG.md`** — der Rest des Blocks (Specs kommen dann nach und nach).
 
 ## Für Darien / Haupt-Team (Claude)
