@@ -26,7 +26,14 @@ import type { EnumOption } from '@/lib/payroll-enums'
  * Collapsible, view + inline-edit, grouped by DATEV topic areas. Feeds the
  * Lohnvorbereitung. MOCK-FIRST overlay (payrollMasterData store) — see spec.
  */
-export function EmployeePayrollData({ employeeId }: { employeeId: string }) {
+export function EmployeePayrollData({
+  employeeId,
+  embedded = false,
+}: {
+  employeeId: string
+  /** When true, render content always-open without the collapse toggle. */
+  embedded?: boolean
+}) {
   const { t } = useTranslation()
   const viewer = useAuthStore((s) => s.user)
   const stored = usePayrollMasterDataStore((s) => s.data[employeeId])
@@ -34,6 +41,7 @@ export function EmployeePayrollData({ employeeId }: { employeeId: string }) {
   const groups = usePayrollSettingsStore((s) => s.groups)
 
   const [expanded, setExpanded] = useState(false)
+  const showContent = embedded || expanded
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<PayrollMasterData>({})
 
@@ -64,25 +72,25 @@ export function EmployeePayrollData({ employeeId }: { employeeId: string }) {
     <section className="space-y-2">
       <button
         type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center gap-2 text-left"
-        aria-expanded={expanded}
+        onClick={() => { if (!embedded) setExpanded((v) => !v) }}
+        className={`flex w-full items-center gap-2 text-left ${embedded ? 'cursor-default' : ''}`}
+        aria-expanded={showContent}
       >
-        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           {t('team.payroll.masterData.title')}
         </h4>
         {complete ? (
-          <CheckCircle2 className="h-3 w-3 text-success" aria-label={t('team.payroll.masterData.complete')} />
+          <CheckCircle2 className="h-3.5 w-3.5 text-success" aria-label={t('team.payroll.masterData.complete')} />
         ) : (
-          <span className="flex items-center gap-1 rounded-full bg-warning/10 px-1.5 py-0.5 text-[9px] font-medium text-warning-foreground">
+          <span className="flex items-center gap-1 rounded-full bg-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-warning-foreground">
             <AlertTriangle className="h-2.5 w-2.5" aria-hidden="true" />
             {t('team.payroll.masterData.incomplete')}
           </span>
         )}
-        <Chevron className="ml-auto h-3 w-3 text-muted-foreground" aria-hidden="true" />
+        {!embedded && <Chevron className="ml-auto h-3 w-3 text-muted-foreground" aria-hidden="true" />}
       </button>
 
-      {expanded && (
+      {showContent && (
         <div className="space-y-3">
           {/* Edit / Save toolbar */}
           <div className="flex items-center justify-end gap-2">
@@ -342,7 +350,7 @@ function formatEur(n: number): string {
 function Group({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5 rounded-lg border border-border-muted bg-secondary/20 p-2.5">
-      <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
       <div className="space-y-1.5">{children}</div>
     </div>
   )
@@ -351,7 +359,7 @@ function Group({ label, children }: { label: string; children: React.ReactNode }
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] items-center gap-2">
-      <Label className="text-[11px] text-muted-foreground">
+      <Label className="text-xs text-muted-foreground">
         {label}
         {required && <span className="ml-0.5 text-warning-foreground">*</span>}
       </Label>
@@ -361,7 +369,7 @@ function Field({ label, required, children }: { label: string; required?: boolea
 }
 
 function View({ value }: { value?: string }) {
-  return <span className="block truncate text-xs text-foreground">{value && value.length > 0 ? value : '—'}</span>
+  return <span className="block truncate text-sm text-foreground">{value && value.length > 0 ? value : '—'}</span>
 }
 
 function ViewEnum<T extends string>({ value, options }: { value?: T; options: EnumOption<T>[] }) {

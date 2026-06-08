@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   Mail,
@@ -70,6 +71,7 @@ export function MemberDetailPanel({
   onEdit,
 }: MemberDetailPanelProps) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const { data: employee, isLoading } = useEmployee(memberId)
   const { data: balance } = useEmployeeLeaveBalance(employee?.userId ?? '')
   const { data: documents } = useEmployeeDocuments(memberId)
@@ -88,7 +90,15 @@ export function MemberDetailPanel({
   const tenure = employee ? getTenure(employee.startDate) : ''
 
   return (
-    <DetailPanel open title={t('team.detail.title')} onClose={onClose}>
+    <DetailPanel
+      open
+      title={t('team.detail.title')}
+      onClose={onClose}
+      onExpand={() => {
+        navigate(`/team/member/${memberId}`)
+        onClose()
+      }}
+    >
       {/* Header with gradient */}
       <div className="relative -mx-5 -mt-1 mb-4">
         <div
@@ -265,18 +275,22 @@ export function MemberDetailPanel({
 // ============================================================
 // Documents Section with upload
 // ============================================================
-function DocumentsSection({
+export function DocumentsSection({
   memberId,
   documents,
+  embedded = false,
 }: {
   memberId: string
   documents: { id: string; fileName?: string; categoryName?: string; createdAt: string }[]
+  /** When true, render content always-open without the collapse toggle. */
+  embedded?: boolean
 }) {
   const { t } = useTranslation()
   const { data: categories } = useDocumentCategories(memberId)
   const uploadMutation = useUploadEmployeeDocument()
 
   const [expanded, setExpanded] = useState(false)
+  const showContent = embedded || expanded
   const [showUpload, setShowUpload] = useState(false)
   const [categoryId, setCategoryId] = useState('')
   const [notes, setNotes] = useState('')
@@ -314,22 +328,22 @@ function DocumentsSection({
   return (
     <section className="space-y-2">
       <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1 w-full text-left"
+        onClick={() => { if (!embedded) setExpanded(!expanded) }}
+        className={`flex items-center gap-1 w-full text-left ${embedded ? 'cursor-default' : ''}`}
       >
-        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           {t('team.documents.title')} ({documents.length})
         </h4>
-        <Chevron className="h-3 w-3 text-muted-foreground ml-auto" />
+        {!embedded && <Chevron className="h-3 w-3 text-muted-foreground ml-auto" />}
       </button>
 
-      {expanded && (
+      {showContent && (
         <div className="space-y-2">
           {/* Document list */}
           {documents.length > 0 ? (
             <div className="space-y-1">
               {documents.map((doc) => (
-                <div key={doc.id} className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div key={doc.id} className="flex items-center gap-2 text-sm text-muted-foreground">
                   <FileText className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{doc.fileName ?? doc.categoryName ?? t('team.documents.document')}</span>
                   <span className="text-[10px] ml-auto shrink-0">
@@ -339,7 +353,7 @@ function DocumentsSection({
               ))}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground italic">{t('team.documents.noDocuments')}</p>
+            <p className="text-sm text-muted-foreground italic">{t('team.documents.noDocuments')}</p>
           )}
 
           {/* Upload area */}
@@ -429,7 +443,7 @@ function DocumentsSection({
 // ============================================================
 // Employee Modules Section
 // ============================================================
-function EmployeeModulesSection({
+export function EmployeeModulesSection({
   userId,
   onManage,
 }: {
@@ -521,7 +535,7 @@ function EmployeeModulesSection({
 // Employee Module-Lead Section ("erweiterte Moduleinstellungen")
 // Admin/IT delegates tenant-wide settings rights per module.
 // ============================================================
-function EmployeeModuleLeadSection({ userId }: { userId: string }) {
+export function EmployeeModuleLeadSection({ userId }: { userId: string }) {
   const { t } = useTranslation()
   const viewer = useAuthStore((s) => s.user)
   const { data: userGrants = [] } = useUserModules(userId)

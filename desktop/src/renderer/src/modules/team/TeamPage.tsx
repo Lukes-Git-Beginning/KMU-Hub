@@ -41,7 +41,7 @@ import { useNavigationStore } from '@/stores/navigation'
 import { useEmployees, useLeaveRequests, useUpdateEmployee } from '@/api/hooks/hr-hooks'
 import type { EmployeeProfile, LeaveRequest } from '@/api/hr-types'
 import { ItemActions, ConfirmDialog, EmptyState, PageHeader, type ActionItem } from '@/components/shared'
-import { MemberDetailPanel } from './MemberDetailPanel'
+import { MemberProfileDialog } from './MemberProfileDialog'
 import { InviteMemberDialog } from './InviteMemberDialog'
 import { CreateEmployeeWizard } from './CreateEmployeeWizard'
 import { EditMemberDialog } from './EditMemberDialog'
@@ -169,8 +169,6 @@ export default function TeamPage() {
   const [search, setSearch] = useState('')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => useTeamPrefsStore.getState().defaultView)
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
-  const [selectedMemberName, setSelectedMemberName] = useState<string>('')
-  const [selectedMemberInitials, setSelectedMemberInitials] = useState<string>('')
   const [showInvite, setShowInvite] = useState(false)
   const [showCreateWizard, setShowCreateWizard] = useState(false)
   const [editMember, _setEditMember] = useState<EmployeeProfile | null>(null)
@@ -248,7 +246,7 @@ export default function TeamPage() {
     const name = emp.userName ?? 'Unbekannt'
     const initials = getInitials(name)
     return [
-      { label: t('team.page.action.viewProfile'), onClick: () => { setSelectedMemberId(emp.id); setSelectedMemberName(name); setSelectedMemberInitials(initials) } },
+      { label: t('team.page.action.viewProfile'), onClick: () => setSelectedMemberId(emp.id) },
       { label: t('team.page.action.sendEmail'), icon: Mail, onClick: () => handleEmail(name, emp.userEmail) },
       { label: t('team.page.action.call'), icon: Phone, onClick: () => handleCall(name, initials) },
       { label: t('team.page.action.sendMessage'), icon: MessageSquare, onClick: () => handleMessage(name) },
@@ -390,7 +388,7 @@ export default function TeamPage() {
                     onEmail={() => handleEmail(name, emp.userEmail)}
                     onMessage={() => handleMessage(name)}
                     onCall={() => handleCall(name, initials)}
-                    onClick={() => { setSelectedMemberId(emp.id); setSelectedMemberName(name); setSelectedMemberInitials(initials) }}
+                    onClick={() => setSelectedMemberId(emp.id)}
                   />
                 )
               })}
@@ -410,7 +408,7 @@ export default function TeamPage() {
                     activity={activityByName.get(name)}
                     onEmail={() => handleEmail(name, emp.userEmail)}
                     onMessage={() => handleMessage(name)}
-                    onClick={() => { setSelectedMemberId(emp.id); setSelectedMemberName(name); setSelectedMemberInitials(initials) }}
+                    onClick={() => setSelectedMemberId(emp.id)}
                   />
                 )
               })}
@@ -607,19 +605,12 @@ export default function TeamPage() {
       {/* Self-Service Tab (7.6) */}
       {effectiveTab === 'selfservice' && <SelfServiceView />}
 
-      {/* Member Detail Panel */}
-      {selectedMemberId && (
-        <MemberDetailPanel
-          memberId={selectedMemberId}
-          memberName={selectedMemberName}
-          memberInitials={selectedMemberInitials}
-          onClose={() => setSelectedMemberId(null)}
-          onEmail={() => { handleEmail(selectedMemberName); setSelectedMemberId(null) }}
-          onCall={() => { handleCall(selectedMemberName, selectedMemberInitials); setSelectedMemberId(null) }}
-          onMessage={() => { handleMessage(selectedMemberName); setSelectedMemberId(null) }}
-          onEdit={() => { setSelectedMemberId(null) }}
-        />
-      )}
+      {/* Member profile — in-app window */}
+      <MemberProfileDialog
+        memberId={selectedMemberId}
+        open={!!selectedMemberId}
+        onOpenChange={(o) => { if (!o) setSelectedMemberId(null) }}
+      />
 
       {/* Create Employee Wizard */}
       {showCreateWizard && (
@@ -694,9 +685,15 @@ function EmployeeCard({ employee, name, initials, actions, activity, onEmail, on
       : 'bg-gray-400'
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-[var(--shadow-card-hover)]">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
+      className="cursor-pointer rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
       <div className="flex items-start justify-between mb-3">
-        <button onClick={onClick} className="flex items-center gap-3 text-left">
+        <div className="flex items-center gap-3 text-left">
           <div className="relative">
             <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-light text-sm font-medium text-primary">
               {initials}
@@ -709,8 +706,10 @@ function EmployeeCard({ employee, name, initials, actions, activity, onEmail, on
             <h4 className="text-sm font-medium text-foreground">{name}</h4>
             <p className="text-xs text-muted-foreground">{employee.positionTitle ?? ''}</p>
           </div>
-        </button>
-        <ItemActions items={actions} />
+        </div>
+        <div onClick={(e) => e.stopPropagation()}>
+          <ItemActions items={actions} />
+        </div>
       </div>
 
       {/* Current activity */}
@@ -742,7 +741,10 @@ function EmployeeCard({ employee, name, initials, actions, activity, onEmail, on
         </div>
       </div>
 
-      <div className="flex gap-1.5 border-t border-border-muted pt-3">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="flex gap-1.5 border-t border-border-muted pt-3"
+      >
         <button
           onClick={onEmail}
           className="flex-1 flex items-center justify-center gap-1 rounded-md border border-border py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"

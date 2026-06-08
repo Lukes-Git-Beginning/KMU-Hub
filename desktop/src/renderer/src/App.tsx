@@ -60,6 +60,7 @@ const ActivitiesListPage = lazy(() => import('@/modules/crm/activities/Activitie
 const DokumentePage = lazy(() => import('@/modules/dokumente/DokumentePage'))
 const MailsPage = lazy(() => import('@/modules/mails/MailsPage'))
 const TeamPage = lazy(() => import('@/modules/team/TeamPage'))
+const MemberDetailPage = lazy(() => import('@/modules/team/MemberDetailPage'))
 const FinanzenPage = lazy(() => import('@/modules/finanzen/FinanzenPage'))
 const InfrastrukturPage = lazy(() => import('@/modules/admin/InfrastrukturPage'))
 const ProfilPage = lazy(() => import('@/modules/profil/ProfilPage'))
@@ -238,6 +239,7 @@ const router = createHashRouter([
       { path: 'kommunikation', element: lazyRoute(KommunikationPage) },
       { path: 'automatisierung', element: lazyRoute(AutomatisierungPage) },
       { path: 'team', element: lazyRoute(TeamPage) },
+      { path: 'team/member/:id', element: lazyRoute(MemberDetailPage) },
       { path: 'finanzen', element: lazyRoute(FinanzenPage) },
       { path: 'infrastruktur', element: lazyRoute(InfrastrukturPage) },
       { path: 'profil', element: lazyRoute(ProfilPage) },
