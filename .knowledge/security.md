@@ -1,6 +1,6 @@
 ---
 tags: [security, auth, compliance, gdpr, rls, multi-tenant]
-updated: 2026-06-06
+updated: 2026-06-08
 ---
 # Security & Compliance
 
@@ -154,9 +154,21 @@ Welle-3.5-Verschaerfung der W2D-C-Lehre: gRPC-Server lasen `tenant_id` aus den P
 - Geladen beim App-Start → `useAuthStore.initialize()`
 
 ## Input Validation
+
 - Prepared Statements durchgehend (kein String-Concatenation)
-- Request-Parsing + Validierung pro Endpoint
-- Email-Validierung, Passwort-Strength-Checks
+- Passwort-Strength-Checks (`go-password-validator`)
+
+### Validation-Framework (S4.1, R1-P1.7, ab 2026-06-08)
+
+Zentrales `go-playground/validator/v10`-Framework fuer alle HTTP-Mutation-Handler. Folgt "Thick Services, Thin Handlers": Validierung im Handler zwischen Parse und gRPC-Call.
+
+- **`internal/dachfmt/`** (Leaf, dependency-frei) — pure DACH-Format-Funktionen: `NormalizePhoneE164` (DE/AT/CH, **hierher verschoben aus `dialer`** — Single Source of Truth, `dialer` haelt duennen Alias), `ValidateIBAN` (ISO 7064 mod-97 + Laender-Laengen), `ValidateBIC`, `ValidatePLZ`/`ValidatePLZAny`, `ValidateUStIDDACH`/`ValidateUStIDEU` (VIES-Tabelle aller EU + CH), `ValidateSteuernummer`/`ForBundesland`.
+- **`internal/validation/`** — Singleton-`validator` (lazy `sync.Once`), `RegisterTagNameFunc` ⇒ `details[].field` = JSON-Name. 7 Custom-Validatoren: `phone_dach`, `iban`, `bic`, `plz_dach`, `ustid_dach`, `ustid_eu`, `steuernr`. Custom-Validatoren scheitern auf Leerstring (wie Builtin `email`) ⇒ optionale Felder brauchen `omitempty,<rule>`. `Validate(s) error` → `*Errors`; `ErrorBody(err) (any, bool)` baut den Response-Body.
+- **`gateway.decodeAndValidate[T](w, r) (T, bool)`** (`helpers.go`) — der eine Parse+Validate-Einstieg. Decode-Fehler → `{"error":"invalid request body"}` (Contract-stabil); Validation-Fehler → strukturierte 400.
+- **Error-Shape:** `{"error": "<lesbarer Aggregat-String>", "code": "validation_failed", "details": [{"field","rule","param"}]}`. `error`-Feld bleibt (Frontend `authenticatedFetch.ts` liest nur `.error`); `code`+`details` additiv fuer Field-Level-UI + Frontend-i18n-Mapping. **Backend bleibt EN-only** (kein i18n), Lokalisierung Frontend-seitig via `code`/`rule`.
+- **Grenze:** Verschachtelte Proto-Typen (`*bizv1.LineItem`) tragen keine `validate`-Tags → nur `required`/`min=1`; tiefere Line-Validierung bleibt DB-CHECK (ADR-0007 Migr. 132: `quantity>0`, `tax_rate 0–100`) + Service-Layer.
+- **Test-Helper:** `assertValidationError(t, rec, "field")` (`testutil_test.go`) prueft 400 + `code=="validation_failed"` + Feld in `details`; Malformed-JSON-Tests bleiben auf `assertErrorContains(rec, "invalid request body")`.
+- **Status:** Welle 1 (Foundation + `route_auth.go` Referenz, Commit `3937ff2d`) + Welle 2 (Finance/Integrations/Dialer/CRM/Helpdesk, `cb784f79`) live — **240 `validate`-Tags / 128 Call-Sites / 22 Route-Files**. **Offen: Welle 3** (Collaboration: work/calendar/chat/email/inbox/document/automation/formulare/notification) **+ Welle 4** (Modul-Services rapporte/schichten/fuhrpark/vermietung/inventar/einkauf/produktion/vertraege/hr/plugin/berichte etc.). **Webhook-Handler (LiveKit/Lexware) bewusst NICHT** ueber `decodeAndValidate` — Raw-Body-Signatur-Validierung zuerst. Keine Migration.
 
 ## Consent Enforcement (2026-04-18, Sprint 0 S0.2)
 

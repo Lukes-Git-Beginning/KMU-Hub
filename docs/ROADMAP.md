@@ -230,6 +230,8 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 
 **Progress S4.FI (2026-06-08):** ✅ **S4.FI.1 + S4.FI.2 erledigt** (ADR-0007 relationaler Cutover). Migrationen **000132** (3 Line-Tabellen `finance_invoice_lines`/`finance_quote_lines`/`finance_credit_note_lines` mit FK CASCADE + RLS + `tax_rate`-CHECK DACH-sicher 0–100, statt DE-only; + `locked_at`/`locked_by` auf finance_invoices) + **000133** (idempotenter Backfill + Lock-Migration aus snapshot_data). Repos invoice/quote/creditnote auf relationale Lines umgestellt (atomare Tx, Bulk-Read ohne N+1); `service_gobd.go`-Lock auf echte Spalten (snapshot_data-Hack raus). **Sauberer Cutover ohne Dual-Write/Feature-Flag** (keine Prod-Finance-Daten). `line_items` JSONB-Spalte bleibt synchron befuellt → gRPC/pdf/datev/dashboard unveraendert (kein API-Bruch — Proto war schon `repeated LineItem`); **JSONB-Drop deferred auf Sprint 5**. Test-Coverage via testcontainers-go-Integrationstests (echtes PG16, RLS/Constraints/Idempotenz/Tenant-Isolation): **invoice 69.6% · quote 63.7% · creditnote 51.3%**. ⚠ Integrationstests sind `//go:build integration`-gated → CI muss `-tags=integration` (+Docker) laufen lassen, damit die Coverage CI-seitig zaehlt (Follow-up CI-Workflow).
 
+**Progress S4.1 (2026-06-08):** 🔄 **Welle 1+2 von 4 erledigt** (R1-P1.7, Input-Validation). User-Scope-Entscheidung: **ALLE ~380 Mutation-Handler** (nicht nur 20) + **maximale DACH-Validatoren** + strukturierte Error-Shape. Welle 1 (`3937ff2d`): `go-playground/validator/v10`-Foundation — neue Packages `internal/dachfmt` (IBAN mod-97/BIC/PLZ/USt-IdNr-EU-VIES/Steuernummer + `NormalizePhoneE164` aus dialer extrahiert) + `internal/validation` (Singleton, 7 Custom-Validatoren, `decodeAndValidate[T]`-Helper, Error-Shape `{error, code:"validation_failed", details}`), `route_auth.go` als Referenz. Welle 2 (`cb784f79`): Finance/Integrations/Dialer/CRM/Helpdesk — **240 `validate`-Tags / 128 Call-Sites / 22 Route-Files**; Webhook-Handler (LiveKit/Lexware) bewusst raw (Signatur zuerst). **Offen: Welle 3** (Collaboration: work/calendar/caldav/chat/email/inbox/document/wopi/automation/formulare/notification) **+ Welle 4** (Modul-Services: rapporte/schichten/fuhrpark/vermietung/inventar/einkauf/produktion/vertraege/hr/plugin/berichte/dashboard/search/registrar/feature_flags). Keine Migration. Details siehe [[security]] "Validation-Framework".
+
 **Ende Sprint 4:** finance_invoices relational, Finance-Coverage ≥50%, alle R1-P1 + R2-P1 erledigt.
 
 ---
@@ -296,7 +298,7 @@ Quelle: Rigorosum Runde 1 (wild-wren, 2026-04-18) + Rigorosum Runde 2 Vertiefung
 | R1-P1.4 | Prod-Image-Tags pinnen | ✅ Done 2026-05-08 (`7a22d83`) | S3 |
 | R1-P1.5 | Alertmanager + Discord (Slack-Compat) | ✅ Done 2026-05-08/09 (`7a22d83`+`2330add`, live in #cosmi-prod-alerts) | S3 |
 | R1-P1.6 | cd.yml Auto-Deploy | ✅ Done 2026-05-08 (`7a22d83`) | S3 |
-| R1-P1.7 | Input-Validation-Framework | Pending | S4 |
+| R1-P1.7 | Input-Validation-Framework | In Arbeit — Welle 1+2 done (`3937ff2d`+`cb784f79`), Welle 3+4 offen | S4 |
 | R1-P1.8 | Dialer-Coverage 12 → 30% | ✅ Done 2026-05-08 (`1f6c4c0`, 31.8%) | S3 |
 
 **Runde 2 P1 (12 Items, Sprint 4) — 10/12 done:**
