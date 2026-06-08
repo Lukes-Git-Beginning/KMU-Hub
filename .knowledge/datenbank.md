@@ -1,14 +1,14 @@
 ---
 tags: [datenbank, schema, migrations, ai-first, tenant-isolation, rls]
-updated: 2026-06-06
+updated: 2026-06-08
 ---
 # Datenbank
 
 ## Überblick
 - PostgreSQL 16 mit `pgvector/pgvector:pg16`-Image + Redis 7 (nur Cache, KEIN Dual-Write)
 - Änderungen NUR via golang-migrate (`make migrate-create name=xxx`)
-- **131 Migration-Paare** in `backend/migrations/` (076–116 siehe Sprint-2/3-Liste in der Vorversion dieser Note; **Sprint 4: 117 users_tenant_default_and_fk · 118 rls_foundation · 119 child_tables_tenant_id_backfill · 120–124 RLS-Wellen 2+3 · 125–127 RLS-Welle 4 · 128 fix_hr_document_policy_sysctx · 129 seed_missing_module_permissions** [35 nie geseedete Modul-Permissions admin-only, siehe [[security]] RBAC] **· 130 dialer outcome_id-Partial-Indizes + ~10 FK ON DELETE (R2-P1.8/.9) · 131 seed meetings:write fuer admin+manager+member (R2-P1.5)** — 131er-Review-Gate-Fund: Guard auf Bestands-Funktion braucht Seeds fuer ALLE bisher berechtigten Rollen, nicht nur admin)
-- **Prod-Stand seit 2026-06-05 Abend:** Migration-Head **`131`** (Code `564f238b`, COSMI_ENV=production scharf — siehe [[deployment]]). Volume: `docker_pgdata` (nicht `docker_postgres-data`). psql-User in Production ist **`kmuhub`**, nicht `postgres` — siehe [[troubleshooting]].
+- **133 Migration-Paare** in `backend/migrations/` (076–116 siehe Sprint-2/3-Liste in der Vorversion dieser Note; **Sprint 4: 117 users_tenant_default_and_fk · 118 rls_foundation · 119 child_tables_tenant_id_backfill · 120–124 RLS-Wellen 2+3 · 125–127 RLS-Welle 4 · 128 fix_hr_document_policy_sysctx · 129 seed_missing_module_permissions** [35 nie geseedete Modul-Permissions admin-only, siehe [[security]] RBAC] **· 130 dialer outcome_id-Partial-Indizes + ~10 FK ON DELETE (R2-P1.8/.9) · 131 seed meetings:write fuer admin+manager+member (R2-P1.5)** — 131er-Review-Gate-Fund: Guard auf Bestands-Funktion braucht Seeds fuer ALLE bisher berechtigten Rollen, nicht nur admin · **132 add_finance_line_tables · 133 backfill_finance_line_tables** = ADR-0007 finance line_items relational, siehe Abschnitt unten)
+- **Prod-Stand seit 2026-06-05 Abend:** Migration-Head **`131`** (Code `564f238b`, COSMI_ENV=production scharf — siehe [[deployment]]). **2026-06-08:** Migr. **132/133** (ADR-0007 finance-lines, Commit `3e4c9055`) gepusht → CD deployt, Head wird **`133`**. Volume: `docker_pgdata` (nicht `docker_postgres-data`). psql-User in Production ist **`kmuhub`**, nicht `postgres` — siehe [[troubleshooting]].
 
 ## RLS-Foundation (Migration 118, Sprint 4 Welle 1a)
 
@@ -95,6 +95,7 @@ Backfill-Asserts (RAISE EXCEPTION wenn nach UPDATE noch NULL-Rows existieren) de
 - `finance_invoices` — invoice_date, delivery_date, due_date, payment_terms, company_snapshot (JSONB)
 - `finance_payments` — payment_date, amount, method, invoice_id
 - `finance_credit_notes` — Gutschriften (Reverse Invoices)
+- **Positionen seit ADR-0007 (Migr. 132) relational** — `finance_invoice_lines`/`finance_quote_lines`/`finance_credit_note_lines`; `line_items` JSONB bleibt vorerst synchron (Drop Sprint 5). Detail-Abschnitt unten.
 
 ### Email/Inbox
 - `email_accounts` — IMAP/SMTP/OAuth Konfiguration
@@ -137,6 +138,11 @@ Backfill-Asserts (RAISE EXCEPTION wenn nach UPDATE noch NULL-Rows existieren) de
 ### Finance Erweiterungen (Migration 061)
 - `finance_invoices.zugferd_profile VARCHAR(20)` — NULL = plain PDF, sonst 'MINIMUM' / 'BASIC_WL' / 'EN16931'
 - `finance_invoices.time_tracking_source JSONB` — Audit-Trail fuer Zeiterfassung→Rechnung
+
+### Finance Line-Items relational (Migrations 132/133, ADR-0007, Sprint 4 S4.FI, 2026-06-08)
+- **Migration 132** legt `finance_invoice_lines` / `finance_quote_lines` / `finance_credit_note_lines` an: PK `gen_random_uuid()`, FK auf Parent `ON DELETE CASCADE`, denormalisiertes `tenant_id UUID NOT NULL`, `position/description/quantity/unit_price/tax_rate/line_total`, CHECKs (`quantity>0`, `unit_price>=0`, `tax_rate>=0 AND <=100` — **DACH-sicher**, nicht DE-only 0/7/19, akzeptiert AT/CH-Sätze; `position>=1`). RLS via `enable_tenant_rls()` (Policy `tenant_isolation`). Plus `finance_invoices.locked_at TIMESTAMPTZ` + `locked_by UUID` — ersetzen den `snapshot_data`-JSONB-Lock-Hack (GoBD, `service_gobd.go`).
+- **Migration 133** = idempotenter Backfill (NOT-EXISTS-Guard, Position aus Array-Ordinalität, fehlendes `line_total` = `quantity*unit_price`) + Lock-Migration aus `snapshot_data`. End-to-end verifiziert (up/down/up + Idempotenz).
+- **Sauberer Cutover (kein Dual-Write/Feature-Flag):** invoice/quote/creditnote-Repos schreiben+lesen relational in atomarer Tx (`pool.Begin`, Bulk-Load via `WHERE <fk>=ANY($1)`, kein N+1, Decimals verlustfrei als String). `app.tenant_id`-GUC kommt automatisch via `PrepareConn`-Hook → Tx erbt ihn (WITH-CHECK erfüllt). `line_items` JSONB bleibt synchron mitbefüllt (Safety-Net + Dashboard-Direktread) → **gRPC/pdf/datev/dashboard/Frontend unverändert** (Proto war schon `repeated LineItem`, kein API-Bruch). **JSONB-DROP deferred Sprint 5.** Commit `3e4c9055`. Tests via testcontainers-go → [[testing]].
 - `hr_employee_profiles.hourly_rate DECIMAL(10,2)` — Stundensatz fuer Rechnungsstellung
 
 ### Dialer (Migrations 063-067)
