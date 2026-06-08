@@ -26,8 +26,19 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{pool: pool}
 }
 
+// querier is satisfied by both *pgxpool.Pool and pgx.Tx — used by loadInvoiceLines.
+type querier interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}
+
 func (r *PostgresRepository) Create(ctx context.Context, inv *models.Invoice) error {
-	_, err := r.pool.Exec(ctx,
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	_, err = tx.Exec(ctx,
 		`INSERT INTO finance_invoices (
 			id, tenant_id, invoice_number, status,
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
@@ -53,7 +64,15 @@ func (r *PostgresRepository) Create(ctx context.Context, inv *models.Invoice) er
 		inv.SnapshotData, inv.SourceQuoteID, inv.Notes,
 		inv.CreatedBy, inv.CreatedAt, inv.UpdatedAt,
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("insert finance_invoices: %w", err)
+	}
+
+	if err := r.insertInvoiceLines(ctx, tx, inv); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Invoice, error) {
@@ -64,12 +83,30 @@ func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID
 			subtotal, total_tax, gross_total,
 			invoice_date, delivery_date, due_date, payment_terms,
 			snapshot_data, source_quote_id, notes,
+			zugferd_profile, time_tracking_source, locked_at, locked_by,
 			created_by, created_at, updated_at
 		FROM finance_invoices
 		WHERE tenant_id = $1 AND id = $2`,
 		tenantID, id,
 	)
-	return r.scanInvoice(row)
+	inv, err := r.scanInvoice(row)
+	if err != nil {
+		return nil, err
+	}
+
+	linesByID, err := loadInvoiceLines(ctx, r.pool, []uuid.UUID{inv.ID})
+	if err != nil {
+		return nil, err
+	}
+	if lines, ok := linesByID[inv.ID]; ok {
+		raw, marshalErr := marshalLineItems(lines)
+		if marshalErr != nil {
+			return nil, marshalErr
+		}
+		inv.LineItems = raw
+	}
+
+	return inv, nil
 }
 
 func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filter ListFilter) ([]*models.Invoice, int, error) {
@@ -133,6 +170,7 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 			subtotal, total_tax, gross_total,
 			invoice_date, delivery_date, due_date, payment_terms,
 			snapshot_data, source_quote_id, notes,
+			zugferd_profile, time_tracking_source, locked_at, locked_by,
 			created_by, created_at, updated_at
 		FROM finance_invoices %s
 		ORDER BY created_at DESC
@@ -155,12 +193,42 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 		}
 		invoices = append(invoices, inv)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
 
-	return invoices, total, rows.Err()
+	// Bulk-load line items — one query for all invoices in the page (avoids N+1).
+	if len(invoices) > 0 {
+		ids := make([]uuid.UUID, len(invoices))
+		for i, inv := range invoices {
+			ids[i] = inv.ID
+		}
+		linesByID, linesErr := loadInvoiceLines(ctx, r.pool, ids)
+		if linesErr != nil {
+			return nil, 0, linesErr
+		}
+		for _, inv := range invoices {
+			if lines, ok := linesByID[inv.ID]; ok {
+				raw, marshalErr := marshalLineItems(lines)
+				if marshalErr != nil {
+					return nil, 0, marshalErr
+				}
+				inv.LineItems = raw
+			}
+		}
+	}
+
+	return invoices, total, nil
 }
 
 func (r *PostgresRepository) Update(ctx context.Context, inv *models.Invoice) error {
-	_, err := r.pool.Exec(ctx,
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	_, err = tx.Exec(ctx,
 		`UPDATE finance_invoices SET
 			invoice_number = $1, status = $2,
 			customer_name = $3, customer_address = $4, customer_email = $5, customer_ust_id_nr = $6,
@@ -168,17 +236,36 @@ func (r *PostgresRepository) Update(ctx context.Context, inv *models.Invoice) er
 			subtotal = $11, total_tax = $12, gross_total = $13,
 			invoice_date = $14, delivery_date = $15, due_date = $16, payment_terms = $17,
 			snapshot_data = $18, notes = $19,
-			updated_at = $20
-		WHERE tenant_id = $21 AND id = $22`,
+			locked_at = $20, locked_by = $21,
+			updated_at = $22
+		WHERE tenant_id = $23 AND id = $24`,
 		inv.InvoiceNumber, inv.Status,
 		inv.CustomerName, inv.CustomerAddress, inv.CustomerEmail, inv.CustomerUStIDNr,
 		inv.CompanySnapshotRaw, inv.TaxMode, inv.LineItems, inv.TaxBreakdownRaw,
 		inv.Subtotal, inv.TotalTax, inv.GrossTotal,
 		inv.InvoiceDate, inv.DeliveryDate, inv.DueDate, inv.PaymentTerms,
 		inv.SnapshotData, inv.Notes,
+		inv.LockedAt, inv.LockedBy,
 		inv.UpdatedAt, inv.TenantID, inv.ID,
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("update finance_invoices: %w", err)
+	}
+
+	// Delete and re-insert lines (replace strategy — no partial-update complexity).
+	_, err = tx.Exec(ctx,
+		`DELETE FROM finance_invoice_lines WHERE invoice_id = $1 AND tenant_id = $2`,
+		inv.ID, inv.TenantID,
+	)
+	if err != nil {
+		return fmt.Errorf("delete invoice lines: %w", err)
+	}
+
+	if err := r.insertInvoiceLines(ctx, tx, inv); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (r *PostgresRepository) UpdateStatus(ctx context.Context, tenantID, id uuid.UUID, status string) error {
@@ -187,6 +274,21 @@ func (r *PostgresRepository) UpdateStatus(ctx context.Context, tenantID, id uuid
 		status, tenantID, id,
 	)
 	return err
+}
+
+// SetLock sets locked_at and locked_by on the invoice without triggering a
+// full Update (which would unnecessarily re-write all line items).
+// Used by LockInvoice (service_gobd.go).
+func (r *PostgresRepository) SetLock(ctx context.Context, tenantID, id uuid.UUID, lockedAt time.Time, lockedBy uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE finance_invoices SET locked_at = $1, locked_by = $2, updated_at = $3
+		WHERE id = $4 AND tenant_id = $5`,
+		lockedAt, lockedBy, lockedAt, id, tenantID,
+	)
+	if err != nil {
+		return fmt.Errorf("set invoice lock: %w", err)
+	}
+	return nil
 }
 
 // GetOverdue returns all sent invoices past their due date for a tenant.
@@ -198,6 +300,7 @@ func (r *PostgresRepository) GetOverdue(ctx context.Context, tenantID uuid.UUID)
 			subtotal, total_tax, gross_total,
 			invoice_date, delivery_date, due_date, payment_terms,
 			snapshot_data, source_quote_id, notes,
+			zugferd_profile, time_tracking_source, locked_at, locked_by,
 			created_by, created_at, updated_at
 		FROM finance_invoices
 		WHERE tenant_id = $1 AND status = 'sent' AND due_date < NOW()
@@ -217,7 +320,31 @@ func (r *PostgresRepository) GetOverdue(ctx context.Context, tenantID uuid.UUID)
 		}
 		invoices = append(invoices, inv)
 	}
-	return invoices, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if len(invoices) > 0 {
+		ids := make([]uuid.UUID, len(invoices))
+		for i, inv := range invoices {
+			ids[i] = inv.ID
+		}
+		linesByID, linesErr := loadInvoiceLines(ctx, r.pool, ids)
+		if linesErr != nil {
+			return nil, linesErr
+		}
+		for _, inv := range invoices {
+			if lines, ok := linesByID[inv.ID]; ok {
+				raw, marshalErr := marshalLineItems(lines)
+				if marshalErr != nil {
+					return nil, marshalErr
+				}
+				inv.LineItems = raw
+			}
+		}
+	}
+
+	return invoices, nil
 }
 
 func (r *PostgresRepository) GetByQuoteID(ctx context.Context, tenantID, quoteID uuid.UUID) (*models.Invoice, error) {
@@ -228,12 +355,30 @@ func (r *PostgresRepository) GetByQuoteID(ctx context.Context, tenantID, quoteID
 			subtotal, total_tax, gross_total,
 			invoice_date, delivery_date, due_date, payment_terms,
 			snapshot_data, source_quote_id, notes,
+			zugferd_profile, time_tracking_source, locked_at, locked_by,
 			created_by, created_at, updated_at
 		FROM finance_invoices
 		WHERE tenant_id = $1 AND source_quote_id = $2`,
 		tenantID, quoteID,
 	)
-	return r.scanInvoice(row)
+	inv, err := r.scanInvoice(row)
+	if err != nil {
+		return nil, err
+	}
+
+	linesByID, err := loadInvoiceLines(ctx, r.pool, []uuid.UUID{inv.ID})
+	if err != nil {
+		return nil, err
+	}
+	if lines, ok := linesByID[inv.ID]; ok {
+		raw, marshalErr := marshalLineItems(lines)
+		if marshalErr != nil {
+			return nil, marshalErr
+		}
+		inv.LineItems = raw
+	}
+
+	return inv, nil
 }
 
 // LinkTimeTracking persists the time_tracking_source JSONB column on an invoice.
@@ -341,6 +486,7 @@ func (r *PostgresRepository) ListForGoBDExport(ctx context.Context, tenantID uui
 			subtotal, total_tax, gross_total,
 			invoice_date, delivery_date, due_date, payment_terms,
 			snapshot_data, source_quote_id, notes,
+			zugferd_profile, time_tracking_source, locked_at, locked_by,
 			created_by, created_at, updated_at
 		FROM finance_invoices
 		WHERE tenant_id = $1
@@ -364,20 +510,51 @@ func (r *PostgresRepository) ListForGoBDExport(ctx context.Context, tenantID uui
 		}
 		invoices = append(invoices, inv)
 	}
-	return invoices, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate GoBD export rows: %w", err)
+	}
+
+	if len(invoices) > 0 {
+		ids := make([]uuid.UUID, len(invoices))
+		for i, inv := range invoices {
+			ids[i] = inv.ID
+		}
+		linesByID, linesErr := loadInvoiceLines(ctx, r.pool, ids)
+		if linesErr != nil {
+			return nil, linesErr
+		}
+		for _, inv := range invoices {
+			if lines, ok := linesByID[inv.ID]; ok {
+				raw, marshalErr := marshalLineItems(lines)
+				if marshalErr != nil {
+					return nil, marshalErr
+				}
+				inv.LineItems = raw
+			}
+		}
+	}
+
+	return invoices, nil
 }
 
-// scanInvoice scans a single row into an Invoice model.
+// ============================================================================
+// Scan helpers
+// ============================================================================
+
+// scanInvoice scans a single pgx.Row into an Invoice model.
+// Scans all 29 columns including the new zugferd_profile, time_tracking_source,
+// locked_at, locked_by (latent-bug fix + ADR-0007 lock columns).
 func (r *PostgresRepository) scanInvoice(row pgx.Row) (*models.Invoice, error) {
 	var inv models.Invoice
-	var subtotalFloat, totalTaxFloat, grossTotalFloat float64
+	var subtotalStr, totalTaxStr, grossTotalStr string
 	err := row.Scan(
 		&inv.ID, &inv.TenantID, &inv.InvoiceNumber, &inv.Status,
 		&inv.CustomerName, &inv.CustomerAddress, &inv.CustomerEmail, &inv.CustomerUStIDNr,
 		&inv.CompanySnapshotRaw, &inv.TaxMode, &inv.LineItems, &inv.TaxBreakdownRaw,
-		&subtotalFloat, &totalTaxFloat, &grossTotalFloat,
+		&subtotalStr, &totalTaxStr, &grossTotalStr,
 		&inv.InvoiceDate, &inv.DeliveryDate, &inv.DueDate, &inv.PaymentTerms,
 		&inv.SnapshotData, &inv.SourceQuoteID, &inv.Notes,
+		&inv.ZUGFeRDProfile, &inv.TimeTrackingSource, &inv.LockedAt, &inv.LockedBy,
 		&inv.CreatedBy, &inv.CreatedAt, &inv.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -386,33 +563,115 @@ func (r *PostgresRepository) scanInvoice(row pgx.Row) (*models.Invoice, error) {
 	if err != nil {
 		return nil, err
 	}
-	inv.Subtotal = decimal.NewFromFloat(subtotalFloat)
-	inv.TotalTax = decimal.NewFromFloat(totalTaxFloat)
-	inv.GrossTotal = decimal.NewFromFloat(grossTotalFloat)
+	inv.Subtotal, _ = decimal.NewFromString(subtotalStr)
+	inv.TotalTax, _ = decimal.NewFromString(totalTaxStr)
+	inv.GrossTotal, _ = decimal.NewFromString(grossTotalStr)
 	return &inv, nil
 }
 
-// scanInvoiceFromRows scans from a rows iterator.
+// scanInvoiceFromRows scans from a pgx.Rows iterator.
 func (r *PostgresRepository) scanInvoiceFromRows(rows pgx.Rows) (*models.Invoice, error) {
 	var inv models.Invoice
-	var subtotalFloat, totalTaxFloat, grossTotalFloat float64
+	var subtotalStr, totalTaxStr, grossTotalStr string
 	err := rows.Scan(
 		&inv.ID, &inv.TenantID, &inv.InvoiceNumber, &inv.Status,
 		&inv.CustomerName, &inv.CustomerAddress, &inv.CustomerEmail, &inv.CustomerUStIDNr,
 		&inv.CompanySnapshotRaw, &inv.TaxMode, &inv.LineItems, &inv.TaxBreakdownRaw,
-		&subtotalFloat, &totalTaxFloat, &grossTotalFloat,
+		&subtotalStr, &totalTaxStr, &grossTotalStr,
 		&inv.InvoiceDate, &inv.DeliveryDate, &inv.DueDate, &inv.PaymentTerms,
 		&inv.SnapshotData, &inv.SourceQuoteID, &inv.Notes,
+		&inv.ZUGFeRDProfile, &inv.TimeTrackingSource, &inv.LockedAt, &inv.LockedBy,
 		&inv.CreatedBy, &inv.CreatedAt, &inv.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
-	inv.Subtotal = decimal.NewFromFloat(subtotalFloat)
-	inv.TotalTax = decimal.NewFromFloat(totalTaxFloat)
-	inv.GrossTotal = decimal.NewFromFloat(grossTotalFloat)
+	inv.Subtotal, _ = decimal.NewFromString(subtotalStr)
+	inv.TotalTax, _ = decimal.NewFromString(totalTaxStr)
+	inv.GrossTotal, _ = decimal.NewFromString(grossTotalStr)
 	return &inv, nil
 }
+
+// ============================================================================
+// Line-item helpers
+// ============================================================================
+
+// insertInvoiceLines inserts all line items for inv into finance_invoice_lines within tx.
+// Called from Create and Update (after DELETE). Decimal values are written as
+// their string representation — pgx maps these to NUMERIC correctly.
+func (r *PostgresRepository) insertInvoiceLines(ctx context.Context, tx pgx.Tx, inv *models.Invoice) error {
+	items, err := unmarshalLineItems(inv.LineItems)
+	if err != nil {
+		return fmt.Errorf("unmarshal line items for insert: %w", err)
+	}
+	for i, item := range items {
+		position := item.Position
+		if position < 1 {
+			position = i + 1
+		}
+		_, execErr := tx.Exec(ctx,
+			`INSERT INTO finance_invoice_lines (
+				invoice_id, tenant_id, position, description,
+				quantity, unit_price, tax_rate, line_total,
+				created_at, updated_at
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+			inv.ID, inv.TenantID, position, item.Description,
+			item.Quantity.String(), item.UnitPrice.String(),
+			item.TaxRate.String(), item.LineTotal.String(),
+			inv.CreatedAt, inv.UpdatedAt,
+		)
+		if execErr != nil {
+			return fmt.Errorf("insert invoice line %d: %w", position, execErr)
+		}
+	}
+	return nil
+}
+
+// loadInvoiceLines loads all line items for the given invoice IDs in a single query
+// and returns them grouped by invoice_id. Avoids N+1 for List operations.
+// The row id is mapped to LineItem.ID so callers can identify individual lines.
+func loadInvoiceLines(ctx context.Context, q querier, invoiceIDs []uuid.UUID) (map[uuid.UUID][]models.LineItem, error) {
+	if len(invoiceIDs) == 0 {
+		return nil, nil
+	}
+
+	rows, err := q.Query(ctx,
+		`SELECT id, invoice_id, position, description,
+			quantity, unit_price, tax_rate, line_total
+		FROM finance_invoice_lines
+		WHERE invoice_id = ANY($1)
+		ORDER BY invoice_id, position`,
+		invoiceIDs,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("load invoice lines: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[uuid.UUID][]models.LineItem)
+	for rows.Next() {
+		var lineID, invoiceID uuid.UUID
+		var quantityStr, unitPriceStr, taxRateStr, lineTotalStr string
+		var item models.LineItem
+		if scanErr := rows.Scan(
+			&lineID, &invoiceID, &item.Position, &item.Description,
+			&quantityStr, &unitPriceStr, &taxRateStr, &lineTotalStr,
+		); scanErr != nil {
+			return nil, fmt.Errorf("scan invoice line: %w", scanErr)
+		}
+		item.ID = lineID.String()
+		item.Quantity, _ = decimal.NewFromString(quantityStr)
+		item.UnitPrice, _ = decimal.NewFromString(unitPriceStr)
+		item.TaxRate, _ = decimal.NewFromString(taxRateStr)
+		item.LineTotal, _ = decimal.NewFromString(lineTotalStr)
+		result[invoiceID] = append(result[invoiceID], item)
+	}
+	return result, rows.Err()
+}
+
+// ============================================================================
+// JSON helpers (shared with service.go)
+// ============================================================================
 
 // marshalLineItems converts model line items to JSON for storage.
 func marshalLineItems(items []models.LineItem) (json.RawMessage, error) {

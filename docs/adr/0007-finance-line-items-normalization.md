@@ -2,6 +2,21 @@
 
 ## Status
 
+Accepted — implementiert in Sprint 4 (2026-06-08). Migrationen 000132 (Schema + RLS + Lock-Spalten) + 000133 (Backfill); relationaler Cutover in invoice/quote/creditnote.
+
+**Implementierungs-Notizen / Abweichungen vom ursprünglichen Entwurf (2026-06-08):**
+- **Migrations-Nummern:** 000132/000133 (nicht 114–117 — die waren beim Schreiben des ADR Platzhalter und inzwischen von Option-B-Phase-2 verbraucht; lokaler Head war 000131).
+- **Sauberer Cutover statt Dual-Write/Feature-Flag** (Open Question implizit: kein `modules.finance_lines_relational`-Flag) — begründet durch fehlende Produktiv-Finance-Daten (Pilot-0 nicht gestartet). Die `line_items` JSONB-Spalte bleibt während des Übergangs **synchron mitbefüllt** (eingefrorenes Sicherungsnetz + Dashboard-Direktread bleibt funktional); **DROP deferred auf Sprint 5**.
+- **Kein API-Breaking-Change (Open Question 1 erledigt):** Proto definiert `line_items` bereits als `repeated LineItem`; das In-Memory-Modell behält `LineItems json.RawMessage` als Transport (Repo assembliert es auf dem Read-Pfad aus der relationalen Tabelle). gRPC-Handler, pdf-Generator, datev-Exporter und dashboard bleiben **unverändert**. Kein typisiertes `Lines`-Feld nötig.
+- **`tax_rate`-CHECK DACH-sicher (Open Question 3 entschieden):** `CHECK (tax_rate >= 0 AND tax_rate <= 100)` statt DE-only `IN (0,7,19)` — akzeptiert AT/CH-Sätze ohne Zukunfts-Migration.
+- **RLS (im Original-ADR nicht erfasst):** die neuen Line-Tabellen tragen denormalisiertes `tenant_id NOT NULL` und bekommen die `tenant_isolation`-Policy via `enable_tenant_rls()` (000118), analog zur Finance-RLS aus 000122.
+- **GoBD-Lock:** `snapshot_data`-Hack durch dedizierte `locked_at`/`locked_by`-Spalten ersetzt (`service_gobd.go` + Repo-Methode `SetLock`).
+- **Tests:** testcontainers-go-Integrationstests (`//go:build integration`, echtes PG16 + Migrationen + NOBYPASSRLS-Rolle) decken relationales Roundtrip, Update-Replace, DB-CHECK-Rejection, Backfill-Idempotenz, RLS-Tenant-Isolation und Lock-Spalten ab. Coverage: invoice 69.6% / quote 63.7% / creditnote 51.3%.
+
+---
+
+### Original-Status
+
 Proposed (2026-05-08)
 
 ## Context

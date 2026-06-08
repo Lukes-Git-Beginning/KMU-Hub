@@ -205,6 +205,10 @@ type Invoice struct {
 	Notes             string          `json:"notes"`
 	ZUGFeRDProfile    *string         `json:"zugferd_profile,omitempty"`
 	TimeTrackingSource json.RawMessage `json:"time_tracking_source,omitempty"`
+	// LockedAt and LockedBy replace the snapshot_data lock hack (ADR-0007 / Migration 000132).
+	// Set by LockInvoice; non-nil means the invoice is administratively locked (GoBD §146).
+	LockedAt          *time.Time      `json:"locked_at,omitempty"`
+	LockedBy          *uuid.UUID      `json:"locked_by,omitempty"`
 	CreatedBy         uuid.UUID       `json:"created_by"`
 	CreatedAt         time.Time       `json:"created_at"`
 	UpdatedAt         time.Time       `json:"updated_at"`

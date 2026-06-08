@@ -26,8 +26,19 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{pool: pool}
 }
 
+// querier is satisfied by both *pgxpool.Pool and pgx.Tx — used by loadQuoteLines.
+type querier interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}
+
 func (r *PostgresRepository) Create(ctx context.Context, q *models.Quote) error {
-	_, err := r.pool.Exec(ctx,
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	_, err = tx.Exec(ctx,
 		`INSERT INTO finance_quotes (
 			id, tenant_id, quote_number, status,
 			customer_name, customer_address, customer_email, customer_ust_id_nr,
@@ -50,7 +61,15 @@ func (r *PostgresRepository) Create(ctx context.Context, q *models.Quote) error 
 		q.ValidUntil, q.Notes, q.DealID, q.SourceQuoteID,
 		q.CreatedBy, q.CreatedAt, q.UpdatedAt,
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("insert finance_quotes: %w", err)
+	}
+
+	if err := r.insertQuoteLines(ctx, tx, q); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Quote, error) {
@@ -65,7 +84,24 @@ func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID
 		WHERE tenant_id = $1 AND id = $2`,
 		tenantID, id,
 	)
-	return r.scanQuote(row)
+	q, err := r.scanQuote(row)
+	if err != nil {
+		return nil, err
+	}
+
+	linesByID, err := loadQuoteLines(ctx, r.pool, []uuid.UUID{q.ID})
+	if err != nil {
+		return nil, err
+	}
+	if lines, ok := linesByID[q.ID]; ok {
+		raw, marshalErr := marshalLineItems(lines)
+		if marshalErr != nil {
+			return nil, marshalErr
+		}
+		q.LineItems = raw
+	}
+
+	return q, nil
 }
 
 func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filter ListFilter) ([]*models.Quote, int, error) {
@@ -149,12 +185,42 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 		}
 		quotes = append(quotes, q)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
 
-	return quotes, total, rows.Err()
+	// Bulk-load line items — one query for all quotes in the page (avoids N+1).
+	if len(quotes) > 0 {
+		ids := make([]uuid.UUID, len(quotes))
+		for i, q := range quotes {
+			ids[i] = q.ID
+		}
+		linesByID, linesErr := loadQuoteLines(ctx, r.pool, ids)
+		if linesErr != nil {
+			return nil, 0, linesErr
+		}
+		for _, q := range quotes {
+			if lines, ok := linesByID[q.ID]; ok {
+				raw, marshalErr := marshalLineItems(lines)
+				if marshalErr != nil {
+					return nil, 0, marshalErr
+				}
+				q.LineItems = raw
+			}
+		}
+	}
+
+	return quotes, total, nil
 }
 
 func (r *PostgresRepository) Update(ctx context.Context, q *models.Quote) error {
-	_, err := r.pool.Exec(ctx,
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	_, err = tx.Exec(ctx,
 		`UPDATE finance_quotes SET
 			quote_number = $1, status = $2,
 			customer_name = $3, customer_address = $4, customer_email = $5, customer_ust_id_nr = $6,
@@ -170,7 +236,24 @@ func (r *PostgresRepository) Update(ctx context.Context, q *models.Quote) error 
 		q.ValidUntil, q.Notes, q.DealID,
 		q.UpdatedAt, q.TenantID, q.ID,
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("update finance_quotes: %w", err)
+	}
+
+	// Delete and re-insert lines (replace strategy — no partial-update complexity).
+	_, err = tx.Exec(ctx,
+		`DELETE FROM finance_quote_lines WHERE quote_id = $1 AND tenant_id = $2`,
+		q.ID, q.TenantID,
+	)
+	if err != nil {
+		return fmt.Errorf("delete quote lines: %w", err)
+	}
+
+	if err := r.insertQuoteLines(ctx, tx, q); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (r *PostgresRepository) Delete(ctx context.Context, tenantID, id uuid.UUID) error {
@@ -215,7 +298,31 @@ func (r *PostgresRepository) GetByDealID(ctx context.Context, tenantID, dealID u
 		}
 		quotes = append(quotes, q)
 	}
-	return quotes, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if len(quotes) > 0 {
+		ids := make([]uuid.UUID, len(quotes))
+		for i, q := range quotes {
+			ids[i] = q.ID
+		}
+		linesByID, linesErr := loadQuoteLines(ctx, r.pool, ids)
+		if linesErr != nil {
+			return nil, linesErr
+		}
+		for _, q := range quotes {
+			if lines, ok := linesByID[q.ID]; ok {
+				raw, marshalErr := marshalLineItems(lines)
+				if marshalErr != nil {
+					return nil, marshalErr
+				}
+				q.LineItems = raw
+			}
+		}
+	}
+
+	return quotes, nil
 }
 
 // PostgresNumberSequenceRepo implements NumberSequenceRepo using PostgreSQL with
@@ -390,15 +497,20 @@ func (r *PostgresCompanySettingsRepo) Upsert(ctx context.Context, settings *mode
 	return err
 }
 
-// scanQuote scans a single row into a Quote model.
+// ============================================================================
+// Scan helpers
+// ============================================================================
+
+// scanQuote scans a single pgx.Row into a Quote model.
+// Decimals are scanned as strings to avoid float64 precision loss (ADR-0007).
 func (r *PostgresRepository) scanQuote(row pgx.Row) (*models.Quote, error) {
 	var q models.Quote
-	var subtotalFloat, totalTaxFloat, grossTotalFloat float64
+	var subtotalStr, totalTaxStr, grossTotalStr string
 	err := row.Scan(
 		&q.ID, &q.TenantID, &q.QuoteNumber, &q.Status,
 		&q.CustomerName, &q.CustomerAddress, &q.CustomerEmail, &q.CustomerUStIDNr,
 		&q.TaxMode, &q.LineItems, &q.TaxBreakdownRaw,
-		&subtotalFloat, &totalTaxFloat, &grossTotalFloat,
+		&subtotalStr, &totalTaxStr, &grossTotalStr,
 		&q.ValidUntil, &q.Notes, &q.DealID, &q.SourceQuoteID,
 		&q.CreatedBy, &q.CreatedAt, &q.UpdatedAt,
 	)
@@ -408,32 +520,114 @@ func (r *PostgresRepository) scanQuote(row pgx.Row) (*models.Quote, error) {
 	if err != nil {
 		return nil, err
 	}
-	q.Subtotal = decimal.NewFromFloat(subtotalFloat)
-	q.TotalTax = decimal.NewFromFloat(totalTaxFloat)
-	q.GrossTotal = decimal.NewFromFloat(grossTotalFloat)
+	q.Subtotal, _ = decimal.NewFromString(subtotalStr)
+	q.TotalTax, _ = decimal.NewFromString(totalTaxStr)
+	q.GrossTotal, _ = decimal.NewFromString(grossTotalStr)
 	return &q, nil
 }
 
-// scanQuoteFromRows scans from a rows iterator.
+// scanQuoteFromRows scans from a pgx.Rows iterator.
+// Decimals are scanned as strings to avoid float64 precision loss (ADR-0007).
 func (r *PostgresRepository) scanQuoteFromRows(rows pgx.Rows) (*models.Quote, error) {
 	var q models.Quote
-	var subtotalFloat, totalTaxFloat, grossTotalFloat float64
+	var subtotalStr, totalTaxStr, grossTotalStr string
 	err := rows.Scan(
 		&q.ID, &q.TenantID, &q.QuoteNumber, &q.Status,
 		&q.CustomerName, &q.CustomerAddress, &q.CustomerEmail, &q.CustomerUStIDNr,
 		&q.TaxMode, &q.LineItems, &q.TaxBreakdownRaw,
-		&subtotalFloat, &totalTaxFloat, &grossTotalFloat,
+		&subtotalStr, &totalTaxStr, &grossTotalStr,
 		&q.ValidUntil, &q.Notes, &q.DealID, &q.SourceQuoteID,
 		&q.CreatedBy, &q.CreatedAt, &q.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
-	q.Subtotal = decimal.NewFromFloat(subtotalFloat)
-	q.TotalTax = decimal.NewFromFloat(totalTaxFloat)
-	q.GrossTotal = decimal.NewFromFloat(grossTotalFloat)
+	q.Subtotal, _ = decimal.NewFromString(subtotalStr)
+	q.TotalTax, _ = decimal.NewFromString(totalTaxStr)
+	q.GrossTotal, _ = decimal.NewFromString(grossTotalStr)
 	return &q, nil
 }
+
+// ============================================================================
+// Line-item helpers
+// ============================================================================
+
+// insertQuoteLines inserts all line items for q into finance_quote_lines within tx.
+// Called from Create and Update (after DELETE). Decimal values are written as
+// their string representation — pgx maps these to NUMERIC correctly.
+func (r *PostgresRepository) insertQuoteLines(ctx context.Context, tx pgx.Tx, q *models.Quote) error {
+	items, err := unmarshalLineItems(q.LineItems)
+	if err != nil {
+		return fmt.Errorf("unmarshal line items for insert: %w", err)
+	}
+	for i, item := range items {
+		position := item.Position
+		if position < 1 {
+			position = i + 1
+		}
+		_, execErr := tx.Exec(ctx,
+			`INSERT INTO finance_quote_lines (
+				quote_id, tenant_id, position, description,
+				quantity, unit_price, tax_rate, line_total,
+				created_at, updated_at
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+			q.ID, q.TenantID, position, item.Description,
+			item.Quantity.String(), item.UnitPrice.String(),
+			item.TaxRate.String(), item.LineTotal.String(),
+			q.CreatedAt, q.UpdatedAt,
+		)
+		if execErr != nil {
+			return fmt.Errorf("insert quote line %d: %w", position, execErr)
+		}
+	}
+	return nil
+}
+
+// loadQuoteLines loads all line items for the given quote IDs in a single query
+// and returns them grouped by quote_id. Avoids N+1 for List operations.
+// The row id is mapped to LineItem.ID so callers can identify individual lines.
+func loadQuoteLines(ctx context.Context, q querier, quoteIDs []uuid.UUID) (map[uuid.UUID][]models.LineItem, error) {
+	if len(quoteIDs) == 0 {
+		return nil, nil
+	}
+
+	rows, err := q.Query(ctx,
+		`SELECT id, quote_id, position, description,
+			quantity, unit_price, tax_rate, line_total
+		FROM finance_quote_lines
+		WHERE quote_id = ANY($1)
+		ORDER BY quote_id, position`,
+		quoteIDs,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("load quote lines: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[uuid.UUID][]models.LineItem)
+	for rows.Next() {
+		var lineID, quoteID uuid.UUID
+		var quantityStr, unitPriceStr, taxRateStr, lineTotalStr string
+		var item models.LineItem
+		if scanErr := rows.Scan(
+			&lineID, &quoteID, &item.Position, &item.Description,
+			&quantityStr, &unitPriceStr, &taxRateStr, &lineTotalStr,
+		); scanErr != nil {
+			return nil, fmt.Errorf("scan quote line: %w", scanErr)
+		}
+		item.ID = lineID.String()
+		item.Quantity, _ = decimal.NewFromString(quantityStr)
+		item.UnitPrice, _ = decimal.NewFromString(unitPriceStr)
+		item.TaxRate, _ = decimal.NewFromString(taxRateStr)
+		item.LineTotal, _ = decimal.NewFromString(lineTotalStr)
+		result[quoteID] = append(result[quoteID], item)
+	}
+	return result, rows.Err()
+}
+
+// ============================================================================
+// JSON helpers (shared with service.go)
+// ============================================================================
 
 // marshalLineItems converts model line items to JSON for storage.
 func marshalLineItems(items []models.LineItem) (json.RawMessage, error) {

@@ -26,8 +26,6 @@ import (
 // Sprint 4: Replace the skip with assertions on the relational roundtrip
 // (Create Invoice → INSERT finance_invoice_lines → GetByID → compare Lines).
 func TestLineItemsJSONBRoundtrip(t *testing.T) {
-	t.Skip("ADR-0007: pending Sprint 4 implementation — replace with relational roundtrip test")
-
 	original := []models.LineItem{
 		{
 			ID:          "line-1",
@@ -87,8 +85,6 @@ func TestLineItemsJSONBRoundtrip(t *testing.T) {
 // Sprint 4: Extend with DB-backed assertions once tax_breakdown is computed
 // from finance_invoice_lines.
 func TestTaxBreakdownRoundtrip(t *testing.T) {
-	t.Skip("ADR-0007: pending Sprint 4 implementation — verify tax_by_rate key normalization")
-
 	original := models.TaxBreakdown{
 		Subtotal: decimal.NewFromFloat(165.50),
 		TaxByRate: map[string]decimal.Decimal{
@@ -137,8 +133,6 @@ func TestTaxBreakdownRoundtrip(t *testing.T) {
 // Sprint 4: Extend to verify that a DB row with corrupt line_items JSONB is
 // handled gracefully by the repository (returns error, not panic).
 func TestCorruptLineItemsHandling(t *testing.T) {
-	t.Skip("ADR-0007: pending Sprint 4 implementation — add DB-backed corrupt-row scenario")
-
 	corruptInputs := []struct {
 		name  string
 		input []byte

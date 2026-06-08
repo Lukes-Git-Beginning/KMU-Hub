@@ -3,6 +3,15 @@
 > Detailplan zu ADR-0007. Standalone-Dokument für Sprint-4-Execution.
 > ADR (Architektur-Entscheidung + Schema-DDL + Backfill-SQL): `docs/adr/0007-finance-line-items-normalization.md`
 
+## ✅ STATUS: IMPLEMENTIERT (2026-06-08)
+
+Relationaler Cutover umgesetzt. **Reale Migrations-Nummern: `000132` (Schema+RLS+Lock-Spalten) + `000133` (Backfill)** — NICHT die unten genannten 114–117 (waren Platzhalter, inzwischen von Option-B-Phase-2 verbraucht; Head war 000131). Wichtigste Abweichungen vom Plan unten (Details in der ADR-Status-Sektion):
+- **Phase 1+2 (Schema + Backfill):** ✅ done, end-to-end verifiziert (up/down/up + Backfill-Idempotenz + Lock-Migration aus snapshot_data).
+- **Phase 3 (Code):** ✅ invoice/quote/creditnote-Repos relational (atomare Tx, Bulk-Read). **Sauberer Cutover OHNE Dual-Write/Feature-Flag** (keine Prod-Daten) — `modules.finance_lines_relational` wurde NICHT angelegt. `line_items` JSONB bleibt synchron befüllt → **gRPC/pdf/datev/dashboard unverändert** (Proto war schon `repeated LineItem`, kein API-Bruch; kein Frontend-Change). Dashboard-Task gegenstandslos (nutzt kein `jsonb_array_elements`).
+- **`tax_rate`-CHECK DACH-sicher** `>= 0 AND <= 100` (nicht DE-only).
+- **Phase 4 (JSONB-Drop):** ⏭ deferred auf Sprint 5 (nach Konfidenz-Fenster).
+- **Tests:** testcontainers-go statt nur Service-Unit-Tests. Coverage invoice 69.6% / quote 63.7% / creditnote 51.3%. ⚠ `//go:build integration`-gated → CI braucht `-tags=integration` (Follow-up).
+
 ## Ziel
 
 `line_items JSONB` in `finance_invoices`, `finance_quotes`, `finance_credit_notes`

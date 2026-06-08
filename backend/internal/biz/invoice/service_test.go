@@ -114,6 +114,14 @@ func (m *MockRepository) LinkTimeTracking(_ context.Context, _ uuid.UUID, _ json
 	return nil
 }
 
+func (m *MockRepository) SetLock(_ context.Context, _, id uuid.UUID, lockedAt time.Time, lockedBy uuid.UUID) error {
+	if inv, ok := m.invoices[id]; ok {
+		inv.LockedAt = &lockedAt
+		inv.LockedBy = &lockedBy
+	}
+	return nil
+}
+
 // InvoiceNumberExists returns false for all numbers (no duplicates in test data by default).
 func (m *MockRepository) InvoiceNumberExists(_ context.Context, _ uuid.UUID, number string) (bool, error) {
 	for _, inv := range m.invoices {

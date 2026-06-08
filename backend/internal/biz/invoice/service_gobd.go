@@ -5,7 +5,6 @@ package invoice
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"regexp"
@@ -73,8 +72,8 @@ type LockInvoiceResult struct {
 }
 
 // LockInvoice administratively locks an invoice, preventing any further modifications.
-// The lock is recorded in snapshot_data JSONB until Sprint 4 adds a dedicated
-// locked_at TIMESTAMPTZ column (migration sprint4_add_invoice_locked_at not yet created).
+// The lock is persisted in the dedicated locked_at / locked_by columns introduced
+// by Migration 000132 (ADR-0007).
 //
 // Only sent, paid, or overdue invoices can be locked (draft invoices should be
 // cancelled or sent first).
@@ -89,37 +88,19 @@ func (s *Service) LockInvoice(ctx context.Context, tenantID, id, lockedBy uuid.U
 		return LockInvoiceResult{}, fmt.Errorf("only sent/paid/overdue invoices can be locked (GoBD: lock applies to completed documents)")
 	}
 
-	// Parse existing snapshot_data once. A corrupt JSONB blob must NOT be silently
-	// overwritten — that would destroy whatever the snapshot was previously holding.
-	var snap map[string]any
-	if len(inv.SnapshotData) > 0 {
-		if parseErr := json.Unmarshal(inv.SnapshotData, &snap); parseErr != nil {
-			return LockInvoiceResult{}, fmt.Errorf("invoice snapshot_data is corrupt for id %s: %w", id, parseErr)
-		}
-		if _, ok := snap["locked_at"]; ok {
-			return LockInvoiceResult{}, ErrInvoiceLocked
-		}
+	if inv.LockedAt != nil {
+		return LockInvoiceResult{}, ErrInvoiceLocked
 	}
 
-	// Record lock in snapshot_data JSONB
-	// TODO Sprint 4: replace with dedicated locked_at/locked_by columns once migration is applied.
 	now := time.Now()
-	if snap == nil {
-		snap = make(map[string]any)
-	}
-	snap["locked_at"] = now.Format(time.RFC3339)
-	snap["locked_by"] = lockedBy.String()
 
-	snapJSON, marshalErr := json.Marshal(snap)
-	if marshalErr != nil {
-		return LockInvoiceResult{}, fmt.Errorf("marshal lock snapshot: %w", marshalErr)
+	if setErr := s.repo.SetLock(ctx, tenantID, id, now, lockedBy); setErr != nil {
+		return LockInvoiceResult{}, fmt.Errorf("persist lock: %w", setErr)
 	}
-	inv.SnapshotData = snapJSON
-	inv.UpdatedAt = now
 
-	if updateErr := s.repo.Update(ctx, inv); updateErr != nil {
-		return LockInvoiceResult{}, fmt.Errorf("persist lock: %w", updateErr)
-	}
+	// Update in-memory representation so callers see the locked state.
+	inv.LockedAt = &now
+	inv.LockedBy = &lockedBy
 
 	slog.Info("invoice locked",
 		"invoice_id", id,
@@ -208,27 +189,8 @@ func (s *Service) ListForGoBDExport(ctx context.Context, tenantID uuid.UUID, fro
 // Lock-state helper
 // ============================================================================
 
-// isInvoiceLocked reports whether inv carries a locked_at marker in its
-// snapshot_data JSONB blob.
-//
-// Design contract (different from LockInvoice's own parse path):
-//   - Corrupt snapshot_data is treated as "not locked" here so that write
-//     guards never hard-block on a corrupt blob. The corruption is logged for
-//     ops awareness. LockInvoice itself errors hard on corruption to prevent
-//     silent overwrites.
-//   - An empty snapshot_data blob means no lock has been recorded → false.
+// isInvoiceLocked reports whether inv is administratively locked.
+// Uses the dedicated locked_at column (ADR-0007 / Migration 000132).
 func isInvoiceLocked(inv *models.Invoice) bool {
-	if len(inv.SnapshotData) == 0 {
-		return false
-	}
-	var snap map[string]any
-	if err := json.Unmarshal(inv.SnapshotData, &snap); err != nil {
-		slog.Warn("invoice snapshot_data is corrupt — treating as unlocked",
-			"invoice_id", inv.ID,
-			"error", err,
-		)
-		return false
-	}
-	_, locked := snap["locked_at"]
-	return locked
+	return inv.LockedAt != nil
 }
