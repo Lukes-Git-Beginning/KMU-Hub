@@ -1,5 +1,15 @@
 # ▶ HIER STARTEN
 
+## 🏃 MARATHON-MODUS (ab 2026-06-09) — 3 Ströme parallel, Darien tagsüber weg
+**Pipeline steht.** Drei Bau-Ströme arbeiten parallel an disjunkten Modul-Lanes auf eigenen Branches; `main` bleibt eingefroren, Darien merged + reviewt beim Zurückkommen.
+- **Starttexte für die 3 Claudes:** `.planning/HANDOFF-TEXTS.md` (Copy-Paste je Strom — DAS gibt Darien morgen früh raus).
+- **Regeln:** `.planning/collision-map.md` (Branch-Modell + Hot Files) · `.planning/multi-stream-workflow.md` (Tagesablauf).
+- **Pakete:** `.planning/nico-block/` (Strom N) · `.planning/luke-block/` (Strom L) · `.planning/dein-pc-KICKOFF.md` (Strom D).
+- **Lanes:** N = wiki·formulare·berichte·notifications · D = calendar·dokumente·zeiterfassung · L = vertraege·dashboard·profil (vorm. Backend-P0). Markiert in `module-phase-plans.md`.
+- **Reviews:** pro Modul `.planning/reviews/<modul>.md` (Strom füllt nach jeder Phase; Darien reviewt gebündelt, aufgeteilt im Team).
+- **Offen für Darien (justierbar):** Lane-Tabelle bestätigen · Lukes Claude-Setup · Remote-Tool/Treiber für Dein-PC · Review-Aufteilung. Defaults greifen, falls nicht geändert.
+- **Branch-Modell** ist bewusste Abweichung vom direct-to-main-Default (begründet: unbeaufsichtigt + 3 parallel) — kippbar.
+
 ## 👥 DELEGATION AN NICO (Stand 2026-06-08) — läuft parallel
 Nico (sie/ihr, kein erfahrener Coder, hat Claude Code + VS Code) übernimmt den Block **Content & Self-Service** (wiki/formulare/berichte/notifications). Komplettes Paket: **`.planning/nico-block/`** (README → RUNBOOK → WORKFLOW → KICKOFF → phase-01/02 → BACKLOG). Sie startet mit **Pilot phase-01 (notifications Ruhezeiten/DND)** + **phase-02 (berichte Sparkline)**.
 - **Build-+-Verify-Standard ist jetzt im Repo-`CLAUDE.md` verankert** (gilt auto für jede Session/Phase, alle).

@@ -2,6 +2,8 @@
 
 > Nico: Öffne Claude Code im Repo-Root (`claude`), und füttere ihm zu Beginn jeder Session diesen Text (oder sag „lies `.planning/nico-block/KICKOFF.md` und `.planning/nico-block/RUNBOOK.md`"). Danach nennst du die Phase, an der du arbeitest.
 
+> **🏃 MARATHON-MODUS ab 2026-06-09:** Nico ist **Strom N** von 3. Zuerst `.planning/collision-map.md` + `.planning/multi-stream-workflow.md` lesen. Branch-Modell: auf **`marathon/nico`** bauen (EIN Strom-Branch, nicht der unten beschriebene Pro-Phase-Branch), pro Phase Commit + `git push origin marathon/nico`, **nie nach `main`**. Lane: wiki·formulare·berichte·notifications. Review-Faden pro Phase in `.planning/reviews/<modul>.md`. Der untenstehende Pro-Phase-Branch-Hinweis gilt nur außerhalb des Marathons.
+
 ---
 
 ## Rolle & Auftrag (für Claude)

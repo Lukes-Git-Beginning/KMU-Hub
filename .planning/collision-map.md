@@ -1,67 +1,51 @@
-# Kollisions-Karte — Multi-Stream-Bau (3 Ströme parallel)
+# Kollisions-Karte — Multi-Stream-Bau (3 Ströme parallel, Branch-Modell)
 
 > **Pflichtlektüre für jeden Bau-Strom (Nico · Luke · Dein-PC).** Verlinkt aus jedem KICKOFF.
-> Zweck: Drei Claude-Sessions bauen gleichzeitig FE-Module und pushen alle nach `main`. Diese Karte sagt, **welche Dateien sich überschneiden** und **wie man sie ohne Bruch anfasst**, damit nichts kaputtgeht.
-> Stand: 2026-06-08 (Kickoff Marathon).
+> Zweck: Drei Claude-Sessions bauen am selben Tag parallel FE-Module. Diese Karte sagt, **wie sie sich nicht ins Gehege kommen** und **welche Dateien beim späteren Zusammenführen kollidieren**.
+> Stand: 2026-06-09 (Marathon-Start). **Modell: Branch-pro-Strom** (Darien merged + reviewt, wenn er zurück ist).
 
 ---
+
+## 0. Warum Branch-pro-Strom (und nicht alle auf `main`)
+Morgen ist Darien weg → **niemand merged/überwacht `main` live**. Drei unbeaufsichtigte Sessions direkt auf `main` = Risiko (eine bricht den Build → blockiert die anderen). Lösung für diesen Marathon: **jeder Strom arbeitet auf seinem eigenen Branch**, `main` bleibt stabil eingefroren. Darien führt die Branches beim Review zusammen. (Bewusste Abweichung vom direct-to-main-Default — gilt nur für den unbeaufsichtigten Parallel-Lauf.)
 
 ## 1. Goldene Regeln (für alle Ströme, nicht verhandelbar)
+1. **Eigener Klon + eigener Branch.** Jeder Strom: eigener Repo-Klon, ein **Strom-Branch** für den Tag:
+   - Nico → `marathon/nico`
+   - Dein-PC → `marathon/dein-pc`
+   - Luke (FE) → `marathon/luke-fe`
+2. **Session-Start einmalig:** `git checkout main && git pull && git checkout -B marathon/<strom>` (oder den bestehenden Strom-Branch auschecken, falls schon angelegt).
+3. **Pro Phase = ein Commit** auf dem Strom-Branch (Conventional, Englisch, **keine** AI-Attribution).
+4. **Nach jeder Phase: `git push -u origin marathon/<strom>`** (Backup + sichtbar). **Niemals nach `main` pushen. Niemals `main` auschecken/mergen.**
+5. **`main` ist heute für dich eingefroren** — du pullst `main` NICHT mitten am Tag (sonst verschiebt sich deine Basis). Nur am allerersten Session-Start einmal.
+6. **Du baust NUR die Module deiner Lane** (Lane-Tabelle §4). Nichts außerhalb.
+7. **Niemals** `--force`, **niemals** `reset --hard`.
 
-1. **Getrennte Klone.** Jeder Strom arbeitet in einem **eigenen** Repo-Klon (eigenes `node_modules`, eigener Dev-Port). Niemals zwei Sessions im selben Ordner.
-2. **`git pull --rebase` VOR jedem Push.** Immer. Drei Ströme bewegen `main` ständig.
-3. **Atomarer Push:** `git add` → `git commit` → `git pull --rebase origin main` → `git push`. So bleibt `main` linear.
-4. **Niemals** `--force`, **niemals** `reset --hard` auf gemeinsame History. Bei Divergenz nur `pull --rebase`.
-5. **Ein Strom = ganze Module** (siehe Lane-Tabelle). Du fasst NUR die Dateien deiner Module an + die Hot Files unten (additiv).
-6. **Hot Files nur ADDITIV.** Nie umstrukturieren/sortieren/formatieren — nur deine Zeilen hinzufügen. Sonst Konflikt mit den anderen.
+## 2. Hot Files — kollidieren erst beim MERGE (nicht während des Tages)
+Weil jeder auf seinem Branch ab demselben `main`-Stand baut, gibt es **während des Tages keine Kollision**. Beim späteren Zusammenführen (Darien) kollidieren genau diese Dateien — alle **additiv** (jeder Strom hat unterschiedliche neue Zeilen). Darien löst sie mit Claude beim Review:
 
----
-
-## 2. Hot Files — die berührt JEDER Strom
-
-Diese Dateien fasst jedes neue Modul/jede Phase an. Hier ist die einzige echte Kollisionsgefahr. Regel pro Datei:
-
-| Hot File | Wofür | Wie anfassen |
+| Hot File | Warum Konflikt beim Merge | Auflösung |
 |---|---|---|
-| `desktop/src/renderer/src/i18n/messages/de.json` · `en.json` · `fr.json` · `it.json` | jede Phase fügt Übersetzungs-Keys | Keys sind **modul-namespaced** (`vertraege.*`, `calendar.*`) → nie inhaltliche Überschneidung. Nur Text-Merge im selben File. **Bei Rebase-Konflikt: beide Blöcke behalten** (additiv), dann weiter. Keys per Script einfügen, nicht von Hand sortieren. |
-| `desktop/src/renderer/src/App.tsx` | neue Route + Lazy-Import pro Modul | Nur **eine Zeile Lazy-Import** + **eine Zeile Route** ergänzen, an der bestehenden Stelle. Nichts umsortieren. |
-| `desktop/src/renderer/src/modules/settings/module-settings-registry.tsx` | Modul-Settings-Eintrag | Nur **einen Eintrag** ans Array anhängen. |
-| Sidebar/Nav-Config (`config/`/`layout/` — Modul-Liste der App-Shell) | neues Modul sichtbar schalten | Nur **einen Eintrag** ergänzen. |
-| `desktop/src/renderer/src/components/shared/index.ts` (Barrel) | neue Shared-Komponente exportieren | Nur **eine Export-Zeile** anhängen. Die Komponente selbst ist eine **neue Datei** (kein Konflikt). |
-| `desktop/src/renderer/src/mocks/handlers/` (Registry/Index) | neuen Demo-Handler registrieren | Handler ist eine **neue Datei** pro Modul; nur **eine Registrierungs-Zeile** ergänzen. |
+| `i18n/messages/{de,en,fr,it}.json` | jeder Strom fügt Keys | **beide Blöcke behalten** (Keys sind modul-namespaced → nie inhaltlich doppelt) |
+| `App.tsx` | jeder fügt Route + Lazy-Import | beide behalten |
+| `module-settings-registry.tsx` | jeder fügt Settings-Eintrag | beide behalten |
+| Sidebar/Nav-Config | neues Modul sichtbar | beide behalten |
+| `components/shared/index.ts` · `mocks/handlers/`-Registry | neue Export/Registrierungs-Zeilen | beide behalten |
 
-**Faustregel:** Wenn ein Rebase-Konflikt auftritt, ist es fast immer in einer dieser Dateien und fast immer **additiv** (beide Seiten haben unterschiedliche neue Zeilen hinzugefügt) → beide behalten, `git rebase --continue`.
+**Damit der Merge leicht bleibt — Regel für alle Ströme:** an Hot Files **nur additiv** arbeiten (deine Zeilen anhängen), **nie** umsortieren/umformatieren. Keys per Script einfügen, nicht von Hand umstrukturieren.
 
----
-
-## 3. Was NICHT kollidiert (beruhigend)
-
-- **Modul-eigene Ordner** (`modules/<deinModul>/…`) — gehören exklusiv deinem Strom.
-- **Modul-eigene Stores** (`stores/<modul>*.ts`) — neue Dateien, kein Konflikt.
-- **Modul-eigene Hooks** (`api/hooks/use<Modul>*.ts`) — neue Dateien.
-- **Modul-eigene Mock-Handler** (`mocks/handlers/<modul>.ts`) — neue Dateien.
-- **Scoped tsconfigs** (`tsconfig.<phase>check.json`) — jeder Strom benennt seine eindeutig (z.B. `tsconfig.vertraege-p1.json`), kein Konflikt.
-- **QA-Scripts** (`scripts/qa-<modul>-*.mjs`) — eindeutige Namen pro Modul.
-
----
+## 3. Was nie kollidiert
+Modul-eigene Ordner (`modules/<deinModul>/`), Stores (`stores/<modul>*`), Hooks (`api/hooks/use<Modul>*`), Mock-Handler (`mocks/handlers/<modul>.ts`), scoped tsconfigs, QA-Scripts — alles neue, modul-spezifische Dateien. Solange jeder in seiner Lane bleibt: null Konflikt.
 
 ## 4. Lane-Zuteilung (VORSCHLAG — Darien bestätigt/justiert)
-
-> Solange nicht bestätigt: nicht starten. Sobald bestätigt, ist diese Tabelle verbindlich — kein Strom baut außerhalb seiner Lane.
-
-| Strom | Treiber | Lane (Module, Reihenfolge) | Klon / Port |
+| Strom | Treiber | Branch | Lane (Module, Reihenfolge) |
 |---|---|---|---|
-| **N — Nico** | Nico | wiki → formulare → berichte → notifications | Nicos Klon, :5173 |
-| **D — Dein PC** | Nico/Luke (remote) | calendar → dokumente → zeiterfassung | Hauptklon, :5173 |
-| **L — Luke (nachm.)** | Luke | vertraege → dashboard → profil | Lukes FE-Klon, :5173 |
-| **L — Luke (vorm.)** | Luke | backend-handover P0 (kein FE) | Backend-Repo |
+| **N — Nico** | Nico | `marathon/nico` | wiki → formulare → berichte → notifications |
+| **D — Dein PC** | Nico/Luke (remote) | `marathon/dein-pc` | calendar → dokumente → zeiterfassung |
+| **L — Luke (nachm.)** | Luke | `marathon/luke-fe` | vertraege → dashboard → profil |
+| **L — Luke (vorm.)** | Luke | — (Backend-Repo) | backend-handover P0 |
 
-**Bewusst NICHT morgen** (BE-lastig / mit Darien): dialer · video · mails · security · automatisierung · finanzen-Tiefe · Branchen.
+**Bewusst NICHT morgen:** dialer · video · mails · security · automatisierung · finanzen-Tiefe · Branchen (BE-lastig / mit Darien).
 
----
-
-## 5. Wenn zwei Ströme doch dieselbe Nicht-Hot-Datei brauchen
-Sollte durch die Modul-Zuteilung kaum vorkommen. Wenn doch (z.B. eine geteilte Komponente in `shared/` muss geändert, nicht nur ergänzt werden):
-1. Kurz im gemeinsamen Kanal abstimmen — **einer nach dem anderen**, nicht parallel.
-2. Wer zuerst fertig ist, committet + pusht; der andere rebased drauf.
-3. Im Zweifel: die Änderung als **neue** Variante/Datei bauen statt die geteilte zu mutieren.
+## 5. Beim Review zusammenführen (Darien, wenn zurück)
+Pro Strom-Branch: Review-Fäden in `reviews/<modul>.md` durchgehen → `git checkout main && git merge --no-ff marathon/<strom>` → Hot-File-Konflikte additiv lösen (beide behalten) → `npm run` Smoke + scoped tsc → push. Ein Strom nach dem anderen.

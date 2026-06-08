@@ -1,37 +1,38 @@
-# Multi-Stream-Workflow — 3 Ströme parallel (Marathon-Modus)
+# Multi-Stream-Workflow — 3 Ströme parallel (Marathon-Modus, Branch-Modell)
 
-> Erweitert `two-terminal-nico-workflow.md` von 2 auf **3 parallele Bau-Ströme**. Gilt ab dem „Alle-Phasen-Durchlauf" (2026-06-09).
-> **Begleitdokumente:** Kollisions-Karte → `collision-map.md` · Review-System → `reviews/_TEMPLATE.md` · Phasen → `module-phase-plans.md` · Delegation → `nico-block/` + `luke-block/`.
+> Erweitert `two-terminal-nico-workflow.md` von 2 auf **3 parallele Bau-Ströme** für den unbeaufsichtigten Tag (Darien weg). Gilt ab 2026-06-09.
+> **Begleitdokumente:** Kollisions-/Branch-Regeln → `collision-map.md` · Review-System → `reviews/_TEMPLATE.md` · Phasen + Lanes → `module-phase-plans.md` · Delegations-Pakete → `nico-block/` · `luke-block/` · Dein-PC → `dein-pc-KICKOFF.md` · Copy-Paste-Starttexte → `HANDOFF-TEXTS.md`.
 
 ## Die drei Ströme
-
 | | **N — Nico** | **D — Dein-PC** | **L — Luke** |
 |---|---|---|---|
 | Maschine | Nicos PC | Dariens PC (remote) | Lukes PC |
-| Treiber | Nico | Nico od. Luke (remote, semi-autonom) | Luke |
-| Lane | Content-Block | Daily-Use-Module | vorm. Backend-P0 / nachm. FE-Block |
-| Klon | eigener | Hauptklon | eigener FE-Klon |
-| Schreibt nach `main` | ja | ja | ja |
+| Treiber/Überwachung | Nico | Nico od. Luke (remote, semi-autonom) | Luke |
+| Branch | `marathon/nico` | `marathon/dein-pc` | `marathon/luke-fe` (+ vorm. Backend-Repo) |
+| Lane | wiki·formulare·berichte·notifications | calendar·dokumente·zeiterfassung | vorm. Backend-P0 / nachm. vertraege·dashboard·profil |
+| KICKOFF | `nico-block/KICKOFF.md` | `dein-pc-KICKOFF.md` | `luke-block/KICKOFF.md` |
 
-Alle drei schreiben nach `main` → **Kollisions-Karte ist Pflicht** (getrennte Klone, `pull --rebase` vor Push, Hot Files nur additiv).
+`main` bleibt heute **eingefroren** — alle bauen auf ihrem Branch ab demselben Stand. Darien merged + reviewt, wenn er zurück ist (`collision-map.md §5`).
 
-## Tagesablauf pro Strom (immer gleich)
-1. **Session-Start:** `git pull --rebase` · KICKOFF des Stroms lesen · Lane + nächste Phase aus `module-phase-plans.md` bestimmen.
-2. **Bauen:** eine Phase nach `nico-block/WORKFLOW.md` (gilt für alle): bauen → i18n ×4 → Demo-Handler falls nötig → gescopter Typecheck (nur geänderte Dateien) → Playwright-Screenshot-QA → **Screenshots wirklich ansehen** → iterieren bis grün.
-3. **Review-Faden notieren:** nach jeder fertigen Phase einen Eintrag in `reviews/<modul>.md` (Pfad zum Hinklicken · worauf achten · Screenshots · offene Punkte). Das ist die Vorlage für den gemeinsamen Feinschliff-Review, wenn Darien zurück ist.
-4. **Commit + Push:** `git add` → `commit` (Conventional, keine AI-Attribution) → `git pull --rebase origin main` → `push`. Ein Commit pro Phase.
-5. **Backend-Bedarf** → `backend-handover-luke.md` (nicht selbst Backend bauen außer Strom L).
+## Tagesablauf pro Strom (immer gleich — gilt für ALLE Claudes)
+1. **Session-Start (einmal):** `git checkout main && git pull && git checkout -B marathon/<strom>`. Dann lesen: `collision-map.md` (PFLICHT), eigener KICKOFF, `multi-stream-workflow.md` (dieses Doc).
+2. **Nächste Phase bestimmen:** in `module-phase-plans.md` die nächste offene Phase **deiner Lane** (Module sind mit „→ Strom X" markiert).
+3. **Bauen — die immer gleiche 6-Schritte-Schleife** (Detail: `nico-block/WORKFLOW.md`, gilt für alle):
+   bauen → **i18n ×4** (`{var}` nicht `{{var}}`, Plural als ICU) → Demo-Handler falls nötig → **gescopter Typecheck** (nur geänderte Dateien, `tsconfig.<phase>check.json`) → **Playwright-Screenshot-QA** (`scripts/qa-<modul>-*.mjs`) → **Screenshots wirklich mit Read ansehen** (Roh-Keys? Emojis? Layout? leere Zustände?) → iterieren bis grün.
+4. **Review-Faden notieren:** nach jeder fertigen Phase einen Eintrag in `reviews/<modul>.md` (Hinklick-Pfad · worauf achten · Screenshots · offene Punkte). Das ist die Vorlage für Dariens Feinschliff-Review.
+5. **Commit + Branch-Push:** ein Commit pro Phase → `git push -u origin marathon/<strom>`. **Nie nach `main`.**
+6. **Backend-Bedarf** → `backend-handover-luke.md` ergänzen (nicht selbst Backend bauen, außer Luke vormittags).
+
+## Harte Regeln (für alle, nicht verhandelbar)
+- **i18n ×4**, einfache Klammern, ICU-Plural · **keine Emojis im UI** · **keine ASCII-Umlaute** (ä/ö/ü/ß echt) · **wiederverwendbar in `shared/` bauen** · keine sichtbaren Scrollbars · Zurück-Buttons in Detail-Views.
+- **Motion:** nur `transform`/`opacity` (GPU), Tokens aus `lib/motion.ts`.
+- **Nur deine Lane**, nur dein Branch, Hot Files nur additiv (`collision-map.md §2`).
+- **„Kompiliert ja" reicht nicht** — die Screenshots müssen angeschaut werden.
 
 ## Cadence (Darien-Entscheidung)
-- **Erst alle bauen, Reviews danach.** Phasen laufen durch; pro Phase entsteht ein Review-Faden. Der Feinschliff-Review (Darien navigiert/wir schauen — wie zuletzt beim Profil-Fenster) passiert **gebündelt**, wenn Darien zurück ist, und wird **unter dem Team aufgeteilt**.
-- **Kein Live-Review-Gate während des Laufs** — die Build-+-Verify-Schleife (scoped tsc + Screenshot-QA) ist die Selbstkontrolle. Qualität vor Tempo: lieber 3 Phasen sauber als 6 halb.
+**Erst alle bauen, Reviews danach + aufgeteilt.** Kein Live-Review-Gate während des Laufs — die Build-+-Verify-Schleife ist die Selbstkontrolle. Qualität vor Tempo: lieber 3 Phasen sauber als 6 halb. Realistisch **3-5 Phasen/Strom/Tag**.
 
-## Konflikt-/Eskalationsregeln
-- **Rebase-Konflikt** (fast immer in einer Hot File, additiv): beide Blöcke behalten → `git rebase --continue`. Siehe `collision-map.md §2`.
-- **CI rot** nach Push: `git revert <sha>` (nie `reset --hard`), Ursache fixen, neu pushen.
-- **Zwei Ströme brauchen dieselbe geteilte Datei:** abstimmen, einer nach dem anderen (`collision-map.md §5`).
-- **Unklarheit über Scope/Domäne:** im Review-Faden als „offene Frage" markieren, weiterbauen, Darien klärt beim Review.
-
-## Rollen-Erkennung (für jeden Claude-Bot beim Start)
-- Arbeitsverzeichnis / KICKOFF bestimmt die Lane. Jeder Strom hat seinen eigenen KICKOFF (`nico-block/KICKOFF.md`, `luke-block/KICKOFF.md`, `dein-pc-KICKOFF.md`), der Lane + Kollisions-Regeln nennt.
-- **Erste Aktion jeder Session:** `git pull --rebase` + `collision-map.md` lesen.
+## Eskalation
+- **Build/QA kriegst du nicht grün:** Phase im Review-Faden als „blockiert + warum" markieren, zur nächsten Phase deiner Lane springen (nicht hängenbleiben).
+- **Domänen-Unklarheit:** im Review-Faden als „offene Frage" notieren, sinnvollen Default bauen, weiter. Darien klärt beim Review.
+- **Du müsstest etwas außerhalb deiner Lane / an `main` anfassen:** NICHT tun → notieren, Darien macht's beim Merge.
