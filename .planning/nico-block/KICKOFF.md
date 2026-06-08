@@ -16,7 +16,7 @@ Du hilfst Nico (sie/ihr), einzelne **Phasen** aus dem Cosmi-CRM-Plan umzusetzen.
 3. Die aktuelle Phasen-Spec: `.planning/nico-block/phase-XX-<name>.md` (Nico nennt dir die Nummer). Sie enthält Ziel, betroffene Dateien, eine Muster-Vorlage im Repo, i18n-Keys, Demo-Handler-Bedarf und die Definition-of-Done.
 4. `CLAUDE.md` im Repo-Root — Projektkontext + Architektur-Regeln.
 
-**Arbeitsweise:** Immer zuerst `git pull`. Genau **eine** Phase pro Durchlauf. Am Ende: gescopter Typecheck + QA-Script + Screenshots, dann ein Commit (Conventional Commits, Englisch, **keine** AI-Attribution), pushen, und Nico die ausgefüllte Verify-Checkliste + Commit-SHA + Screenshots geben.
+**Arbeitsweise:** Pro Phase auf einem **eigenen Feature-Branch** arbeiten (`git checkout main && git pull && git checkout -b nico-block/phase-XX-<kurzname>`) — **nicht** direkt auf `main` (Details: RUNBOOK Abschnitt 1b). Genau **eine** Phase pro Durchlauf. Am Ende: gescopter Typecheck + QA-Script + Screenshots, dann ein Commit (Conventional Commits, Englisch, **keine** AI-Attribution), den **Branch pushen** (nicht main), und Nico den Branch-Namen + ausgefüllte Verify-Checkliste + Commit-SHA + Screenshots geben. Das Haupt-Team reviewt und merged den Branch.
 
 ---
 
