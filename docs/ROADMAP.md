@@ -212,7 +212,7 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 |---|---|---|---|
 | S4.FI.1 | **`finance_invoices.line_items` → `finance_invoice_lines`-Tabelle** (Migration + Backfill + Read-Path-Update + Write-Path-Update + ZUGFeRD-Export-Anpassung) | 3d | R2-P1.12 |
 | S4.FI.2 | **Finance-Test-Coverage ausbauen** — Service-Level Tests fuer Rechnungserstellung, Positions-Summen, Steuerberechnung, Zahlungs-Verbuchung, Dunning-Flow | 5d | Quality |
-| S4.1 | Input-Validation-Framework (`go-playground/validator`) auf 20 kritische Handler | 5d | R1-P1.7 |
+| S4.1 | ✅ Input-Validation-Framework (`go-playground/validator`) — Scope erweitert auf **alle** Mutation-Handler (statt nur 20), 4 Wellen, 2026-06-08 | 5d | R1-P1.7 |
 | S4.2 | LiveKit-Webhook-Signatur-Validierung (Stub aufloesen) | 1d | R2-P1.1 |
 | S4.3 | Automation-Semaphor tenant-isolieren (kein Global-20) | 1d | R2-P1.3 |
 | S4.4 | Bexio + DATEV Circuit-Breaker + DATEV-Retry | 1d | R2-P1.4 |
@@ -298,7 +298,7 @@ Quelle: Rigorosum Runde 1 (wild-wren, 2026-04-18) + Rigorosum Runde 2 Vertiefung
 | R1-P1.4 | Prod-Image-Tags pinnen | ✅ Done 2026-05-08 (`7a22d83`) | S3 |
 | R1-P1.5 | Alertmanager + Discord (Slack-Compat) | ✅ Done 2026-05-08/09 (`7a22d83`+`2330add`, live in #cosmi-prod-alerts) | S3 |
 | R1-P1.6 | cd.yml Auto-Deploy | ✅ Done 2026-05-08 (`7a22d83`) | S3 |
-| R1-P1.7 | Input-Validation-Framework | In Arbeit — Welle 1+2 done (`3937ff2d`+`cb784f79`), Welle 3+4 offen | S4 |
+| R1-P1.7 | Input-Validation-Framework | ✅ Done 2026-06-08 — alle 4 Wellen (`3937ff2d`+`cb784f79`+`45898f4b`+`29e77fb7`), alle JSON-Body-Mutation-Handler ueber ~41 Route-Files (Webhook/WOPI/CalDAV-Protokoll/proto-direct-Passthrough bewusst ausgenommen) | S4 |
 | R1-P1.8 | Dialer-Coverage 12 → 30% | ✅ Done 2026-05-08 (`1f6c4c0`, 31.8%) | S3 |
 
 **Runde 2 P1 (12 Items, Sprint 4) — 10/12 done:**
