@@ -43,7 +43,8 @@ Luke hat **fast alles** gebaut. FE muss primär **verdrahten**, nicht mocken.
 
 ---
 
-## Phase 3 — Team-Chat scharfschalten (kommunikation/chat P2)
+## Phase 3 — Team-Chat scharfschalten (kommunikation/chat P2) ✅ KOMPLETT (2026-06-08)
+> Erledigt: Member-Panel, Inline-Edit, Volltextsuche, Auto-mark-read, Join/Leave-UI, Mentions-Inbox, File-Upload (alle echt), Reactions (session-Store, Backend-Gap). Commits 3c05079/dcfa12b/7c0c7ff/2ac5893.
 **Ziel:** vorhandenes chat-Backend verdrahten statt Stubs.
 **Geändert/verdrahtet:**
 - **Volltextsuche:** Search-Button im ChannelHeader → Such-Panel gegen `SearchChat` (Backend existiert).
