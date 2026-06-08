@@ -16,6 +16,7 @@ import {
   LayoutList,
   Columns3,
   GanttChartSquare,
+  CalendarDays,
   BarChart3,
   Settings,
   Plus,
@@ -37,6 +38,7 @@ import TaskCreateDialog from '../components/TaskCreateDialog'
 import TaskDetailPanel from '../tasks/TaskDetailPanel'
 import TaskDetailPage from '../tasks/TaskDetailPage'
 import GanttChart from '../gantt/GanttChart'
+import WorkCalendarView from '../calendar/WorkCalendarView'
 import HoursToInvoiceDialog from '../components/HoursToInvoiceDialog'
 import BudgetSection from '../components/BudgetSection'
 import AuslastungReport from '../components/AuslastungReport'
@@ -76,14 +78,14 @@ function ProjectBoardView() {
 
   // View type: project-specific preference wins; otherwise the user's personal
   // default view (work settings) is used as the initial value.
-  type ViewType = 'list' | 'kanban' | 'gantt' | 'auslastung'
+  type ViewType = 'list' | 'kanban' | 'gantt' | 'calendar' | 'auslastung'
   const personalDefaultView = useWorkPrefsStore((s) => s.defaultView)
   const [view, setView] = useState<ViewType>(personalDefaultView)
 
 
   useEffect(() => {
     const vt = prefData?.view_type
-    if (vt === 'kanban' || vt === 'list' || vt === 'gantt') {
+    if (vt === 'kanban' || vt === 'list' || vt === 'gantt' || vt === 'calendar') {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local editable state from prop
       setView(vt as ViewType)
     }
@@ -208,6 +210,15 @@ function ProjectBoardView() {
               <GanttChartSquare className="h-4 w-4" />
             </Button>
             <Button
+              variant={view === 'calendar' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="rounded-none border-r border-border"
+              onClick={() => handleViewChange('calendar')}
+              title={t('work.views.calendar')}
+            >
+              <CalendarDays className="h-4 w-4" />
+            </Button>
+            <Button
               variant={view === 'auslastung' ? 'secondary' : 'ghost'}
               size="sm"
               className="rounded-l-none"
@@ -257,6 +268,8 @@ function ProjectBoardView() {
           <TaskListView projectId={id ?? ''} statuses={statuses} />
         ) : view === 'kanban' ? (
           <KanbanBoard projectId={id ?? ''} statuses={kanbanStatuses} />
+        ) : view === 'calendar' ? (
+          <WorkCalendarView projectId={id ?? ''} />
         ) : view === 'auslastung' ? (
           <AuslastungReport projectId={id ?? ''} />
         ) : (

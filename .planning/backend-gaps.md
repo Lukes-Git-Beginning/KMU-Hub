@@ -253,6 +253,7 @@ Strategie: Cosmi macht Vorkette (Angebot→Zahlungseingang) eigenständig, über
 - **🟡 Default-Status-Set:** `stores/workSettings.defaultStatuses` mock-first — das Status-Set, mit dem neue Projekte starten. Aktuell seedet der MSW-Create-Handler ein festes Set. → tenant-Setting `default_project_statuses` + Anwendung in `createProject`.
 - **🟡 Projekt-Vorlagen löschen:** Liste (`templates_only`) + Umbenennen (PUT name) + „aus Vorlage erstellen" (`from-template`) laufen echt. **Löschen fehlt** (kein `DELETE /projects/{id}`-Endpoint im Client/Spec). → Delete-Project-Endpoint oder Template-Archivierung.
 - **🟡 Zeit-Regeln (billable-Default, Stundensatz):** `stores/workSettings.billableByDefault`/`defaultHourlyRate` mock-first. → tenant-Setting; Anwendung beim Anlegen von Time-Entries + Stunden→Rechnung (P4).
+- **🟢 P5 (Kalender-Sicht):** KEIN neuer Backend-Bedarf. `WorkCalendarView` bucketet `useTasks({project_id})` nach `due_date`; Drag = Fälligkeit ändern via bestehendes `PUT /tasks/{id}` (`due_date`). Nur ein latentes Komfort-Feld offen: ein `due_date`-Bereichsfilter im `listTasks`-Query (`due_from`/`due_to`) würde bei sehr vielen Tasks das clientseitige Bucketing entlasten — heute irrelevant (page_size 500).
 
 # Hinweis zur Arbeitsweise (Claude = FE, Luke = BE)
 Die meisten 🟡-Punkte (FE-Page von Mock-Store auf fertige TanStack-Hooks umstellen) brauchen KEIN Backend von Luke — die Hooks + Endpoints existieren bereits. Luke-Bedarf = nur die 🔴- und cross-cutting-Punkte oben.

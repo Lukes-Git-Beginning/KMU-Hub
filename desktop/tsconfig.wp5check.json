@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/global.d.ts",
+    "src/renderer/src/vite-env.d.ts",
+    "src/renderer/src/i18n/i18next.d.ts",
+    "src/renderer/src/modules/work/calendar/calendar-utils.ts",
+    "src/renderer/src/modules/work/calendar/WorkCalendarView.tsx",
+    "src/renderer/src/modules/work/projects/ProjectDetailPage.tsx"
+  ]
+}
