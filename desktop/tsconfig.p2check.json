@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/global.d.ts",
+    "src/renderer/src/vite-env.d.ts",
+    "src/renderer/src/i18n/i18next.d.ts",
+    "src/renderer/src/stores/workPrefs.ts",
+    "src/renderer/src/stores/workSettings.ts",
+    "src/renderer/src/modules/work/settings/WorkPersonalPrefs.tsx",
+    "src/renderer/src/modules/work/settings/LabelTaxonomyManager.tsx",
+    "src/renderer/src/modules/work/settings/WorkCustomFieldsManager.tsx",
+    "src/renderer/src/modules/work/settings/DefaultStatusSetEditor.tsx",
+    "src/renderer/src/modules/work/settings/TimeRulesSettings.tsx",
+    "src/renderer/src/modules/work/settings/ProjectTemplatesManager.tsx",
+    "src/renderer/src/modules/settings/panels/WorkSettingsPanel.tsx",
+    "src/renderer/src/modules/settings/module-settings-registry.tsx",
+    "src/renderer/src/modules/work/WorkLayout.tsx",
+    "src/renderer/src/modules/work/projects/ProjectDetailPage.tsx",
+    "src/renderer/src/modules/work/tasks/MyTasksPage.tsx",
+    "src/renderer/src/mocks/handlers/work.ts"
+  ]
+}

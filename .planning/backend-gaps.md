@@ -243,5 +243,16 @@ Strategie: Cosmi macht Vorkette (Angebot→Zahlungseingang) eigenständig, über
   - **Channels-Connect (`ChannelSettingsDialog`):** Mock-Connect (Toast). **Backend nötig:** echte OAuth/Connect-Flows E-Mail/WhatsApp/Widget.
   - **Per-Channel-Mute / eigener Status:** FE-Prefs (`kommunikationPrefs.mutedChannels`, `presence.myStatus`). **Backend nötig:** serverseitige Notification-Routing-Beachtung.
 
+## 🟠 work (Projekte/Aufgaben, Stand 2026-06-08)
+
+> **P1 (Demo-Mode):** MSW-Handler in `mocks/handlers/work.ts` komplett (zustandsbehaftet) — Demo läuft. Kein Backend-Bedarf, das ist nur Mock.
+> **P2 (WorkSettingsPanel, settings-komplett):** Persönliche Prefs = lokal (`stores/workPrefs`, kein Backend nötig). Tenant-Settings laufen **mock-first** (`stores/workSettings`, lokal persistiert) — brauchen echtes Backend:
+
+- **🔴 Label-Taxonomie + Task-Labels:** `stores/workSettings.labels` ist mock-first. Tasks haben aktuell `tags` (string[]), aber keine strukturierten Labels (Name+Farbe, tenant-verwaltet). → To-do Luke: Label-CRUD (`/api/v1/work/labels` GET/POST/PUT/DELETE) + `label_ids` an Task + Filter im `listTasks`-Query. **P3 baut die Chip-UI/Filter darauf** — bis dahin FE-Store-Backing.
+- **🔴 Custom-Field-Definitionen (Task):** `stores/workSettings.customFields` mock-first. Es gibt bereits `GET/PUT /tasks/{id}/custom-fields` (Werte pro Task, Record<string,string>), aber **keine Definitions-Verwaltung** (Feld anlegen/Typ/Pflicht, tenant-weit). → Definitions-CRUD-Endpoint (`/api/v1/work/custom-fields`) analog CRM.
+- **🟡 Default-Status-Set:** `stores/workSettings.defaultStatuses` mock-first — das Status-Set, mit dem neue Projekte starten. Aktuell seedet der MSW-Create-Handler ein festes Set. → tenant-Setting `default_project_statuses` + Anwendung in `createProject`.
+- **🟡 Projekt-Vorlagen löschen:** Liste (`templates_only`) + Umbenennen (PUT name) + „aus Vorlage erstellen" (`from-template`) laufen echt. **Löschen fehlt** (kein `DELETE /projects/{id}`-Endpoint im Client/Spec). → Delete-Project-Endpoint oder Template-Archivierung.
+- **🟡 Zeit-Regeln (billable-Default, Stundensatz):** `stores/workSettings.billableByDefault`/`defaultHourlyRate` mock-first. → tenant-Setting; Anwendung beim Anlegen von Time-Entries + Stunden→Rechnung (P4).
+
 # Hinweis zur Arbeitsweise (Claude = FE, Luke = BE)
 Die meisten 🟡-Punkte (FE-Page von Mock-Store auf fertige TanStack-Hooks umstellen) brauchen KEIN Backend von Luke — die Hooks + Endpoints existieren bereits. Luke-Bedarf = nur die 🔴- und cross-cutting-Punkte oben.

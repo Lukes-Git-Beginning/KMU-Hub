@@ -11,6 +11,7 @@ import {
   Plug,
   Monitor,
   Package,
+  KanbanSquare,
   type LucideIcon,
 } from 'lucide-react'
 import type { RoleId } from '@/config/roles'
@@ -20,6 +21,7 @@ import { CalendarSettingsTab } from './tabs/CalendarSettingsTab'
 import { MailSettingsTab } from './tabs/MailSettingsTab'
 import { KommunikationSettingsPanel } from '@/modules/kommunikation/KommunikationSettingsPanel'
 import { TeamSettingsPanel } from './panels/TeamSettingsPanel'
+import { WorkSettingsPanel } from './panels/WorkSettingsPanel'
 import { CompanySettingsTab } from './tabs/CompanySettingsTab'
 import { BillingSettingsTab } from './tabs/BillingSettingsTab'
 import { IntegrationSettingsTab } from './tabs/IntegrationSettingsTab'
@@ -57,6 +59,7 @@ export const SETTINGS_ENTRIES: SettingsEntry[] = [
   { id: 'mail', group: 'module', labelKey: 'moduleSettings.entries.mail', icon: Mail, navMatch: ['/mails'], component: MailSettingsTab },
   { id: 'kommunikation', group: 'module', labelKey: 'moduleSettings.entries.kommunikation', icon: MessagesSquare, navMatch: ['/kommunikation', '/chat'], component: KommunikationSettingsPanel },
   { id: 'team', group: 'module', labelKey: 'moduleSettings.entries.team', icon: Users, navMatch: ['/team'], roles: ['admin', 'hr'], component: TeamSettingsPanel },
+  { id: 'work', group: 'module', labelKey: 'moduleSettings.entries.work', icon: KanbanSquare, navMatch: ['/work'], component: WorkSettingsPanel },
 
   // ── COSMI (Allgemein) ──
   { id: 'company', group: 'cosmi', labelKey: 'moduleSettings.entries.company', icon: Building2, roles: ['admin'], component: CompanySettingsTab },

@@ -16,6 +16,9 @@ import {
   ChevronRight,
   Plus,
   FolderKanban,
+  Flag,
+  CircleDot,
+  CalendarClock,
   MoreHorizontal,
   ArrowRight,
 } from 'lucide-react'
@@ -26,6 +29,7 @@ import { EmptyTasks } from '@/components/shared/illustrations'
 import { ListChecks } from 'lucide-react'
 import { useMyTasks, useCreateTask, useUpdateTask } from '@/api/hooks/useTasks'
 import { useProjects } from '@/api/hooks/useProjects'
+import { useWorkPrefsStore, type MyTasksGroupBy } from '@/stores/workPrefs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -76,10 +80,41 @@ interface TaskItem {
 }
 
 interface ProjectGroup {
+  /** Unique render key — distinguishes groups across all grouping modes. */
+  id: string
   projectId: string | null
   projectName: string
   projectKey: string
   tasks: TaskItem[]
+}
+
+const PRIORITY_ORDER = ['urgent', 'high', 'normal', 'medium', 'low']
+
+/** Bucket a task into a group for the given grouping mode. */
+function groupForTask(
+  task: TaskItem,
+  groupBy: MyTasksGroupBy,
+  t: (k: string, opts?: Record<string, unknown>) => string,
+): { key: string; order: number; label: string } {
+  if (groupBy === 'priority') {
+    const p = task.priority === 'medium' ? 'normal' : task.priority ?? 'normal'
+    const order = PRIORITY_ORDER.indexOf(p)
+    return { key: `prio-${p}`, order: order < 0 ? 99 : order, label: t(`work.priority.${p}`) }
+  }
+  if (groupBy === 'status') {
+    const name = task.status_name || t('work.list.noStatus')
+    return { key: `status-${name}`, order: 0, label: name }
+  }
+  if (groupBy === 'dueDate') {
+    if (!task.due_date) return { key: 'due-none', order: 4, label: t('work.myTasks.dueNone') }
+    const diff = Math.ceil((new Date(task.due_date).getTime() - Date.now()) / 86_400_000)
+    if (diff < 0) return { key: 'due-overdue', order: 0, label: t('work.myTasks.dueOverdue') }
+    if (diff === 0) return { key: 'due-today', order: 1, label: t('work.time.today') }
+    if (diff <= 7) return { key: 'due-week', order: 2, label: t('work.myTasks.dueThisWeek') }
+    return { key: 'due-later', order: 3, label: t('work.myTasks.dueLater') }
+  }
+  // project (default) handled separately
+  return { key: '__project__', order: 0, label: '' }
 }
 
 export default function MyTasksPage() {
@@ -99,6 +134,9 @@ export default function MyTasksPage() {
 
   const createTask = useCreateTask()
   const updateTask = useUpdateTask()
+
+  const groupBy = useWorkPrefsStore((s) => s.myTasksGroupBy)
+  const density = useWorkPrefsStore((s) => s.density)
 
   const { data: projectsData } = useProjects({ page_size: 100 })
   const projects = projectsData?.projects ?? []
@@ -132,45 +170,55 @@ export default function MyTasksPage() {
     return tasks.filter((t) => priorityFilter.includes(t.priority ?? 'medium'))
   }, [tasks, priorityFilter])
 
-  // Group tasks by project
+  // Group tasks by the user's chosen dimension (work settings).
   const groups = useMemo(() => {
-    const map = new Map<string, ProjectGroup>()
+    if (groupBy === 'project') {
+      const map = new Map<string, ProjectGroup>()
+      const standaloneKey = '__standalone__'
+      map.set(standaloneKey, {
+        id: standaloneKey,
+        projectId: null,
+        projectName: t('work.myTasks.personal'),
+        projectKey: '',
+        tasks: [],
+      })
+      for (const task of filteredTasks) {
+        const key = task.project_id || standaloneKey
+        if (!map.has(key)) {
+          map.set(key, {
+            id: key,
+            projectId: task.project_id ?? null,
+            projectName: task.project_name || (task.project_key ? `${t('work.settings.project')} ${task.project_key}` : t('work.myTasks.unknown')),
+            projectKey: task.project_key ?? '',
+            tasks: [],
+          })
+        }
+        map.get(key)!.tasks.push(task)
+      }
+      const result: ProjectGroup[] = []
+      const standalone = map.get(standaloneKey)
+      if (standalone && standalone.tasks.length > 0) result.push(standalone)
+      for (const [key, group] of map) {
+        if (key !== standaloneKey && group.tasks.length > 0) result.push(group)
+      }
+      return result
+    }
 
-    // Standalone tasks group (project_id is null or empty)
-    const standaloneKey = '__standalone__'
-    map.set(standaloneKey, {
-      projectId: null,
-      projectName: t('work.myTasks.personal'),
-      projectKey: '',
-      tasks: [],
-    })
-
+    // priority / status / dueDate
+    const map = new Map<string, ProjectGroup & { order: number }>()
     for (const task of filteredTasks) {
-      const key = task.project_id || standaloneKey
+      const { key, order, label } = groupForTask(task, groupBy, t)
       if (!map.has(key)) {
-        map.set(key, {
-          projectId: task.project_id ?? null,
-          projectName: task.project_name || (task.project_key ? `${t('work.settings.project')} ${task.project_key}` : t('work.myTasks.unknown')),
-          projectKey: task.project_key ?? '',
-          tasks: [],
-        })
+        map.set(key, { id: key, projectId: null, projectName: label, projectKey: '', tasks: [], order })
       }
       map.get(key)!.tasks.push(task)
     }
+    return [...map.values()].sort((a, b) => a.order - b.order)
+  }, [filteredTasks, groupBy, t])
 
-    // Only return groups that have tasks, with standalone first
-    const result: ProjectGroup[] = []
-    const standalone = map.get(standaloneKey)
-    if (standalone && standalone.tasks.length > 0) {
-      result.push(standalone)
-    }
-    for (const [key, group] of map) {
-      if (key !== standaloneKey && group.tasks.length > 0) {
-        result.push(group)
-      }
-    }
-    return result
-  }, [filteredTasks])
+  const rowPad = density === 'compact' ? 'py-1' : 'py-2'
+  const GroupIcon =
+    groupBy === 'priority' ? Flag : groupBy === 'status' ? CircleDot : groupBy === 'dueDate' ? CalendarClock : FolderKanban
 
   function formatDueDate(dueDate?: string): string | null {
     if (!dueDate) return null
@@ -346,10 +394,10 @@ export default function MyTasksPage() {
         <>
           <div className="space-y-6">
             {groups.map((group) => (
-              <div key={group.projectId ?? '__standalone__'}>
+              <div key={group.id}>
                 {/* Group header */}
                 <div className="flex items-center gap-2 mb-2">
-                  <FolderKanban className="h-3.5 w-3.5 text-muted-foreground" />
+                  <GroupIcon className="h-3.5 w-3.5 text-muted-foreground" />
                   <h2 className="text-sm font-semibold text-foreground">
                     {group.projectName}
                   </h2>
@@ -374,7 +422,10 @@ export default function MyTasksPage() {
                     return (
                       <div
                         key={task.id}
-                        className="flex items-center gap-3 rounded-md border border-border px-3 py-2 hover:bg-accent/50 cursor-pointer transition-colors"
+                        className={cn(
+                          'flex items-center gap-3 rounded-md border border-border px-3 hover:bg-accent/50 cursor-pointer transition-colors',
+                          rowPad,
+                        )}
                         onClick={() => {
                           if (task.project_id && task.id) {
                             navigate(

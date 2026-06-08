@@ -40,6 +40,7 @@ import GanttChart from '../gantt/GanttChart'
 import HoursToInvoiceDialog from '../components/HoursToInvoiceDialog'
 import BudgetSection from '../components/BudgetSection'
 import AuslastungReport from '../components/AuslastungReport'
+import { useWorkPrefsStore } from '@/stores/workPrefs'
 
 /**
  * Wrapper component that handles nested routing for project detail.
@@ -73,11 +74,13 @@ function ProjectBoardView() {
   const project = data?.project
   const statuses = statusesData?.statuses ?? []
 
-  // View type from preferences (default to list)
+  // View type: project-specific preference wins; otherwise the user's personal
+  // default view (work settings) is used as the initial value.
   type ViewType = 'list' | 'kanban' | 'gantt' | 'auslastung'
-  const [view, setView] = useState<ViewType>('list')
+  const personalDefaultView = useWorkPrefsStore((s) => s.defaultView)
+  const [view, setView] = useState<ViewType>(personalDefaultView)
 
-   
+
   useEffect(() => {
     const vt = prefData?.view_type
     if (vt === 'kanban' || vt === 'list' || vt === 'gantt') {

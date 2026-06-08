@@ -23,6 +23,43 @@ type AnyRecord = Record<string, unknown>
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T
 
 const projects: AnyRecord[] = clone(mockProjects.projects)
+// Seed two reusable project templates so the templates manager has content.
+projects.push(
+  {
+    id: 'prj-tpl-sprint',
+    name: 'Sprint-Projekt',
+    project_key: 'TPL',
+    description: 'Vorlage für zweiwöchige Entwicklungs-Sprints mit Standard-Workflow.',
+    status: 'active',
+    priority: 'medium',
+    is_template: true,
+    owner_id: IDS.users.stefan,
+    owner_name: 'Stefan Müller',
+    progress: 0,
+    member_count: 1,
+    task_count: 0,
+    completed_task_count: 0,
+    created_at: daysAgo(40),
+    updated_at: daysAgo(40),
+  },
+  {
+    id: 'prj-tpl-onboarding',
+    name: 'Kunden-Onboarding',
+    project_key: 'ONB',
+    description: 'Vorlage für die Einführung neuer Kunden inkl. Setup-Checkliste.',
+    status: 'active',
+    priority: 'medium',
+    is_template: true,
+    owner_id: IDS.users.sarah,
+    owner_name: 'Sarah Klein',
+    progress: 0,
+    member_count: 1,
+    task_count: 0,
+    completed_task_count: 0,
+    created_at: daysAgo(25),
+    updated_at: daysAgo(25),
+  },
+)
 const tasks: AnyRecord[] = clone(mockTasks.tasks)
 const statusesByProject: Record<string, AnyRecord[]> = clone(mockProjectStatuses)
 const comments: AnyRecord[] = clone(mockTaskComments.comments)
@@ -508,10 +545,11 @@ export const workHandlers = [
   // GET /api/v1/projects/:id/preferences
   http.get(`${API}/api/v1/projects/:id/preferences`, ({ params }) => {
     const projectId = params.id as string
+    // No stored view_type → leave it unset so the user's personal default view
+    // (work settings) applies on first open. Set once the user picks a view.
     const pref = preferenceByProject[projectId] ?? {
       user_id: IDS.users.stefan,
       project_id: projectId,
-      view_type: 'kanban',
       list_group_by: 'status',
       list_sort_by: 'sort_order',
       list_sort_desc: false,
