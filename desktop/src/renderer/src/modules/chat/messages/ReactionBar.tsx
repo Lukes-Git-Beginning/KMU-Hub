@@ -52,21 +52,3 @@ export function ReactionBar({ reactions, currentUserId, onToggleReaction, onOpen
     </div>
   )
 }
-
-/** Generate sample reactions for demo purposes. */
-// eslint-disable-next-line react-refresh/only-export-components
-export function generateMockReactions(messageId: string): Reaction[] {
-  const hash = messageId.charCodeAt(0) + (messageId.charCodeAt(1) || 0)
-  if (hash % 3 !== 0) return []
-
-  const pool: Reaction[] = [
-    { emoji: '\u{1F44D}', users: ['u1', 'u2'], count: 2 },
-    { emoji: '\u{2764}\u{FE0F}', users: ['u1'], count: 1 },
-    { emoji: '\u{1F604}', users: ['u2', 'u3'], count: 2 },
-    { emoji: '\u{1F389}', users: ['u1', 'u2', 'u3'], count: 3 },
-    { emoji: '\u{1F440}', users: ['u3'], count: 1 },
-  ]
-
-  const count = (hash % 3) + 1
-  return pool.slice(0, count)
-}

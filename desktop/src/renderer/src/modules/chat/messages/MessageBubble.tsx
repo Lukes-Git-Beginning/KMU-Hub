@@ -18,7 +18,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { usePresenceStore } from '@/stores/presence'
-import { ReactionBar, generateMockReactions, type Reaction } from './ReactionBar'
+import { useChatReactionsStore, seedReactions, CURRENT_REACTION_USER } from '@/stores/chatReactions'
+import { ReactionBar } from './ReactionBar'
 import { ReactionPicker } from './ReactionPicker'
 import { FileAttachmentCard } from './FileAttachmentCard'
 import type { AttachedFile } from './FileDropZone'
@@ -44,12 +45,16 @@ interface MessageBubbleProps {
 
 export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete, attachments }: MessageBubbleProps) {
   const { t } = useTranslation()
+  const messageId = message.id ?? ''
   const [showActions, setShowActions] = useState(false)
-  const [reactions, setReactions] = useState<Reaction[]>(() => generateMockReactions(message.id ?? ''))
   const [showPicker, setShowPicker] = useState(false)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const presenceMap = usePresenceStore((s) => s.presenceMap)
+  const storedReactions = useChatReactionsStore((s) => s.byMessage[messageId])
+  const toggleStoreReaction = useChatReactionsStore((s) => s.toggle)
+  // Seeded deterministically for display; the store persists toggles for the session.
+  const reactions = storedReactions ?? seedReactions(messageId)
 
   const startEdit = useCallback(() => {
     setDraft(message.content ?? '')
@@ -66,24 +71,13 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete, 
   const presence = message.created_by ? presenceMap[message.created_by] ?? 'offline' : 'offline'
 
   const handleToggleReaction = useCallback((emoji: string) => {
-    setReactions((prev) => {
-      const existing = prev.find((r) => r.emoji === emoji)
-      if (existing) {
-        if (existing.count <= 1) return prev.filter((r) => r.emoji !== emoji)
-        return prev.map((r) => r.emoji === emoji ? { ...r, count: r.count - 1 } : r)
-      }
-      return [...prev, { emoji, users: ['me'], count: 1 }]
-    })
-  }, [])
+    toggleStoreReaction(messageId, emoji)
+  }, [toggleStoreReaction, messageId])
 
   const handlePickEmoji = useCallback((emoji: string) => {
-    setReactions((prev) => {
-      const existing = prev.find((r) => r.emoji === emoji)
-      if (existing) return prev.map((r) => r.emoji === emoji ? { ...r, count: r.count + 1, users: [...r.users, 'me'] } : r)
-      return [...prev, { emoji, users: ['me'], count: 1 }]
-    })
+    toggleStoreReaction(messageId, emoji)
     setShowPicker(false)
-  }, [])
+  }, [toggleStoreReaction, messageId])
 
   const senderName = [message.sender_first_name, message.sender_last_name]
     .filter(Boolean)
@@ -209,7 +203,7 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete, 
         <div className="relative">
           <ReactionBar
             reactions={reactions}
-            currentUserId="me"
+            currentUserId={CURRENT_REACTION_USER}
             onToggleReaction={handleToggleReaction}
             onOpenPicker={() => setShowPicker(true)}
           />
