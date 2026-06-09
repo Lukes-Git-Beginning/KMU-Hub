@@ -1,0 +1,144 @@
+name: Scans
+
+# Dependency / security scans. These change only when dependencies change, so
+# they don't belong on the per-push hot path. They run weekly as a safety net,
+# whenever a dependency manifest changes, and on demand. Split out of ci.yml on
+# 2026-06-09 to cut per-push Actions minutes.
+on:
+  schedule:
+    - cron: "0 4 * * 1" # Mondays 04:00 UTC
+  push:
+    branches: [main]
+    paths:
+      - "backend/go.mod"
+      - "backend/go.sum"
+      - "desktop/package-lock.json"
+      - ".github/workflows/scans.yml"
+  workflow_dispatch:
+
+env:
+  GO_VERSION: "1.25.6"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gosec:
+    name: gosec (Go Security)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: backend/go.sum
+
+      - name: Run gosec
+        # gosec -conf only accepts JSON, not YAML — exclusions live here as
+        # flags instead, mirroring the gosec excludes in backend/.golangci.yml.
+        uses: securego/gosec@v2.27.1 # pinned from @master, 2026-06-05
+        with:
+          args: >-
+            -fmt sarif
+            -out gosec.sarif
+            -exclude=G101,G104,G108,G109,G115,G304,G402,G404
+            -exclude-dir=proto
+            ./backend/...
+
+      - name: Upload SARIF artifact
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: gosec-sarif
+          path: gosec.sarif
+          retention-days: 30
+
+  trivy:
+    name: trivy (Filesystem Vuln Scan)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    env:
+      # Workspace-relative so the dir is mounted into the trivy Docker action;
+      # persisted across runs so the vuln DB isn't re-downloaded every time.
+      TRIVY_CACHE_DIR: ${{ github.workspace }}/.trivycache
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Compute cache week
+        # Weekly cache key — the vuln DB is refreshed at most daily upstream, so
+        # a per-week key reuses the download across runs (the old run_id key was
+        # unique per run and never hit).
+        id: cachekey
+        run: echo "week=$(date +%Y-%V)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache trivy vuln DB
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.trivycache
+          key: trivy-db-${{ steps.cachekey.outputs.week }}
+          restore-keys: |
+            trivy-db-
+
+      # trivy ignores the severity filter when emitting SARIF (by design, so
+      # code scanning can filter), which made exit-code 1 fire on MEDIUM
+      # findings too. Split: a table-format gate that actually enforces
+      # HIGH/CRITICAL, plus a non-failing SARIF pass for the artifact.
+      - name: Run trivy gate (HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@v0.36.0 # pinned from @master, 2026-06-05
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+          format: table
+
+      - name: Run trivy SARIF report
+        if: always()
+        uses: aquasecurity/trivy-action@v0.36.0 # pinned from @master, 2026-06-05
+        with:
+          scan-type: fs
+          scan-ref: .
+          exit-code: "0"
+          ignore-unfixed: true
+          format: sarif
+          output: trivy.sarif
+
+      - name: Upload SARIF artifact
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: trivy-sarif
+          path: trivy.sarif
+          retention-days: 30
+
+  npm-audit:
+    name: npm audit (Desktop Dependencies)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Run npm audit
+        working-directory: desktop
+        run: npm audit --audit-level=high --omit=dev

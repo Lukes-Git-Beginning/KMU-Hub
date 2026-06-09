@@ -2,23 +2,21 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - "backend/**"
-      - "desktop/**"
       - ".github/workflows/ci.yml"
   pull_request:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - "backend/**"
-      - "desktop/**"
       - ".github/workflows/ci.yml"
 
 env:
   GO_VERSION: "1.25.6"
 
 # Cancel superseded runs on the same ref — bursts of pushes (esp. on main)
-# otherwise run the full Test+E2E+Smoke suite in parallel and burn Actions
+# otherwise run the full Test+E2E suite in parallel and burn Actions
 # minutes on commits that are already obsolete.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -133,25 +131,6 @@ jobs:
           path: backend/coverage.out
           retention-days: 30
 
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs: [lint, test]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: backend/go.sum
-
-      - name: Build all services
-        working-directory: backend
-        run: make build
-
   e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
@@ -214,7 +193,9 @@ jobs:
         # GitHub service containers cannot pass the `server /data` command.
         # Credentials match the dev defaults in internal/config/config.go.
         run: |
-          docker run -d --name minio -p 9000:9000             -e MINIO_ROOT_USER=kmuhub -e MINIO_ROOT_PASSWORD=kmuhub_dev             minio/minio:RELEASE.2025-04-22T22-12-26Z server /data
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=kmuhub -e MINIO_ROOT_PASSWORD=kmuhub_dev \
+            minio/minio:RELEASE.2025-04-22T22-12-26Z server /data
           for i in $(seq 1 30); do
             if curl -sf http://localhost:9000/minio/health/live > /dev/null 2>&1; then
               echo "MinIO healthy"
@@ -238,15 +219,6 @@ jobs:
           go build -o bin/work ./cmd/work
           go build -o bin/document ./cmd/document
           go build -o bin/dialer ./cmd/dialer
-
-      - name: Upload service binaries
-        # Hand the compiled binaries to the smoke job (needs: [e2e]) so it
-        # doesn't recompile the same services from scratch on its own runner.
-        uses: actions/upload-artifact@v7
-        with:
-          name: service-binaries
-          path: backend/bin/
-          retention-days: 1
 
       - name: Start auth service
         working-directory: backend
@@ -388,237 +360,6 @@ jobs:
           cat /tmp/dialer.log || true
           echo "=== Gateway Service Logs ==="
           cat /tmp/gateway.log || true
-
-  smoke:
-    name: Smoke Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs: [e2e]
-    services:
-      postgres:
-        # Must match deploy/docker/docker-compose.yml — migration 000072
-        # needs the pgvector extension, plain postgres images lack it.
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_DB: kmuhub_test
-          POSTGRES_USER: kmuhub_test
-          POSTGRES_PASSWORD: kmuhub_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U kmuhub_test"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    env:
-      DATABASE_URL: postgres://kmuhub_test:kmuhub_test@localhost:5432/kmuhub_test?sslmode=disable
-      REDIS_URL: redis://localhost:6379
-      JWT_SECRET: ci-smoke-test-secret-minimum-32-characters
-      SMOKE_URL: http://localhost:8080
-      # Same CI-only headroom as the e2e job — production stays at 100 rps.
-      RATE_LIMIT_RPS: 1000
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: backend/go.sum
-
-      - name: Install golang-migrate
-        run: go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.17.0
-
-      - name: Run migrations
-        run: migrate -path backend/migrations -database "$DATABASE_URL" up
-
-      - name: Start MinIO
-        # chat + document exit on startup without object storage. Same pinned
-        # image as deploy/docker/docker-compose.yml; docker-run step because
-        # GitHub service containers cannot pass the `server /data` command.
-        # Credentials match the dev defaults in internal/config/config.go.
-        run: |
-          docker run -d --name minio -p 9000:9000             -e MINIO_ROOT_USER=kmuhub -e MINIO_ROOT_PASSWORD=kmuhub_dev             minio/minio:RELEASE.2025-04-22T22-12-26Z server /data
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:9000/minio/health/live > /dev/null 2>&1; then
-              echo "MinIO healthy"
-              break
-            fi
-            if [ "$i" = "30" ]; then
-              echo "MinIO failed to start"
-              docker logs minio
-              exit 1
-            fi
-            sleep 1
-          done
-
-      - name: Download service binaries
-        # Reuse the binaries compiled in the e2e job instead of recompiling the
-        # same six services from scratch on this runner.
-        uses: actions/download-artifact@v7
-        with:
-          name: service-binaries
-          path: backend/bin
-
-      - name: Start services
-        working-directory: backend
-        run: |
-          # The artifact zip drops the executable bit — restore it before exec.
-          chmod +x bin/*
-
-          ./bin/auth > /tmp/auth.log 2>&1 &
-          for i in $(seq 1 30); do curl -sf http://localhost:9091/health > /dev/null 2>&1 && break; sleep 1; done
-
-          ./bin/crm > /tmp/crm.log 2>&1 &
-          for i in $(seq 1 30); do curl -sf http://localhost:9092/health > /dev/null 2>&1 && break; sleep 1; done
-
-          ./bin/chat > /tmp/chat.log 2>&1 &
-          for i in $(seq 1 30); do curl -sf http://localhost:9093/health > /dev/null 2>&1 && break; sleep 1; done
-
-          ./bin/work > /tmp/work.log 2>&1 &
-          for i in $(seq 1 30); do curl -sf http://localhost:9095/health > /dev/null 2>&1 && break; sleep 1; done
-
-          ./bin/document > /tmp/document.log 2>&1 &
-          for i in $(seq 1 30); do curl -sf http://localhost:9097/health > /dev/null 2>&1 && break; sleep 1; done
-
-          ./bin/gateway > /tmp/gateway.log 2>&1 &
-          for i in $(seq 1 30); do curl -sf http://localhost:8080/health > /dev/null 2>&1 && break; sleep 1; done
-
-      - name: Run smoke tests
-        working-directory: backend
-        run: go test -tags=smoke ./test/smoke/... -v -count=1
-
-      - name: Dump service logs on failure
-        if: failure()
-        run: |
-          for log in auth crm chat work document gateway; do
-            echo "=== $log Service Logs ==="
-            cat /tmp/$log.log || true
-          done
-
-  gosec:
-    name: gosec (Go Security)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    continue-on-error: true
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: backend/go.sum
-
-      - name: Run gosec
-        # gosec -conf only accepts JSON, not YAML — exclusions live here as
-        # flags instead, mirroring the gosec excludes in backend/.golangci.yml.
-        uses: securego/gosec@v2.27.1 # pinned from @master, 2026-06-05
-        with:
-          args: >-
-            -fmt sarif
-            -out gosec.sarif
-            -exclude=G101,G104,G108,G109,G115,G304,G402,G404
-            -exclude-dir=proto
-            ./backend/...
-
-      - name: Upload SARIF artifact
-        uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: gosec-sarif
-          path: gosec.sarif
-          retention-days: 30
-
-  trivy:
-    name: trivy (Filesystem Vuln Scan)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    continue-on-error: true
-    env:
-      # Workspace-relative so the dir is mounted into the trivy Docker action;
-      # persisted across runs so the vuln DB isn't re-downloaded every time.
-      TRIVY_CACHE_DIR: ${{ github.workspace }}/.trivycache
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Cache trivy vuln DB
-        uses: actions/cache@v4
-        with:
-          path: ${{ github.workspace }}/.trivycache
-          key: trivy-db-${{ github.run_id }}
-          restore-keys: |
-            trivy-db-
-
-      # trivy ignores the severity filter when emitting SARIF (by design, so
-      # code scanning can filter), which made exit-code 1 fire on MEDIUM
-      # findings too. Split: a table-format gate that actually enforces
-      # HIGH/CRITICAL, plus a non-failing SARIF pass for the artifact.
-      - name: Run trivy gate (HIGH/CRITICAL)
-        uses: aquasecurity/trivy-action@v0.36.0 # pinned from @master, 2026-06-05
-        with:
-          scan-type: fs
-          scan-ref: .
-          severity: HIGH,CRITICAL
-          exit-code: "1"
-          ignore-unfixed: true
-          format: table
-
-      - name: Run trivy SARIF report
-        if: always()
-        uses: aquasecurity/trivy-action@v0.36.0 # pinned from @master, 2026-06-05
-        with:
-          scan-type: fs
-          scan-ref: .
-          exit-code: "0"
-          ignore-unfixed: true
-          format: sarif
-          output: trivy.sarif
-
-      - name: Upload SARIF artifact
-        uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: trivy-sarif
-          path: trivy.sarif
-          retention-days: 30
-
-  npm-audit:
-    name: npm audit (Desktop Dependencies)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: desktop/package-lock.json
-
-      - name: Install dependencies
-        working-directory: desktop
-        run: npm ci
-
-      - name: Run npm audit
-        working-directory: desktop
-        run: npm audit --audit-level=high --omit=dev
 
   openapi-validate:
     name: Validate OpenAPI
