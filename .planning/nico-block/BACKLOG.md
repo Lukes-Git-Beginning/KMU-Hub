@@ -12,10 +12,10 @@
 | **formulare** | 🟡 mittel | 2458-Zeilen-Monolith, Dual-State (Zustand-Draft + TanStack). Kein MSW. Klar gegliedert, aber groß. |
 
 ## Pilot (zuerst)
-- [ ] **Phase 01** — notifications: Ruhezeiten & DND-UI → `phase-01-notifications-quiet-hours.md`
-- [ ] **Phase 02** — berichte: Sparkline in KPI-Karten → `phase-02-berichte-sparkline.md`
+- [x] **Phase 01** — notifications: Ruhezeiten & DND-UI → `phase-01-notifications-quiet-hours.md` (Commit `279dee2`, Demo-Handler-Fix; UI war bereits da)
+- [x] **Phase 02** — berichte: Sparkline in KPI-Karten → `phase-02-berichte-sparkline.md` (Commit `f3a30e2` + ASCII-Fix `7dcbb4b`; inkl. neuem berichte-MSW-Handler, da bisher keiner existierte)
 
-→ **Review-Gate:** Erst wenn beide Piloten grün durch das Review sind, gibt das Haupt-Team den Rest frei + schreibt die nächsten Specs.
+→ **Review-Gate (Stand 2026-06-09):** Beide Piloten von Nico gebaut + selbst-verifiziert (gescopter tsc grün, QA-Script grün, Screenshots geprüft, 0 Raw-Keys/pageErrors). **Branch `marathon/nico` (von HEAD, trägt Phase-01-Fix), gepusht.** ⏳ **Wartet auf Darien-Review.** Grün → wiki-Block freigeben + nächste Specs schreiben.
 
 ## Nach dem Pilot — Kandidaten (grob, je 1 Spec wenn dran)
 
