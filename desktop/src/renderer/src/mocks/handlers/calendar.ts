@@ -88,6 +88,12 @@ export const calendarHandlers = [
     return HttpResponse.json({ event: updated })
   }),
 
+  // RSVP to an event
+  http.post(`${API}/api/v1/calendar/events/:id/rsvp`, async ({ params, request }) => {
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
+    return HttpResponse.json({ event_id: params.id, status: body.status ?? 'pending' })
+  }),
+
   // Update recurring event (scope: this | this_and_future | all)
   http.put(`${API}/api/v1/calendar/events/:id/recurring`, async ({ params, request }) => {
     const existing = mockEvents.events.find((e) => e.id === params.id)

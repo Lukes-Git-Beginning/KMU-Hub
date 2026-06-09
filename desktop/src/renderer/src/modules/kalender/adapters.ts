@@ -63,6 +63,8 @@ export interface CalendarEvent {
   reminder?: string
   videoCall?: boolean
   participants?: Participant[]
+  /** The current user's RSVP for this event, if any. */
+  myRsvp?: RSVPStatus
   isTaskDeadline?: boolean
   isHoliday?: boolean
 }
@@ -116,6 +118,13 @@ function getInitials(firstName: string, lastName: string): string {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
 }
 
+/** Get initials from a full-name string (first + last token). */
+function initialsFromName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+  return (parts[0]?.slice(0, 2) ?? '').toUpperCase()
+}
+
 /** Map RRULE string to German display label. */
 function rruleToDisplay(rrule: string | null): string | undefined {
   if (!rrule) return undefined
@@ -131,6 +140,19 @@ function rruleToDisplay(rrule: string | null): string | undefined {
  * Transform a backend ExpandedEvent to Darien's CalendarEvent UI type.
  */
 export function expandedEventToUI(event: ExpandedEvent): CalendarEvent {
+  // Legacy demo events carry an inline `attendees` array; real ExpandedEvent
+  // exposes attendees via a separate endpoint. Map the inline shape when present.
+  const rawAttendees = (event as unknown as {
+    attendees?: Array<{ name?: string; status?: string }>
+  }).attendees
+  const participants: Participant[] | undefined = rawAttendees?.length
+    ? rawAttendees.map((a) => ({
+        name: a.name ?? '',
+        initials: initialsFromName(a.name ?? ''),
+        rsvp: mapRSVPStatus(a.status ?? 'pending'),
+      }))
+    : undefined
+
   return {
     id: event.id,
     title: event.title,
@@ -146,6 +168,8 @@ export function expandedEventToUI(event: ExpandedEvent): CalendarEvent {
     description: event.description || undefined,
     recurrence: rruleToDisplay(event.rrule),
     videoCall: event.has_video_call,
+    participants,
+    myRsvp: event.my_rsvp ? mapRSVPStatus(event.my_rsvp) : undefined,
   }
 }
 

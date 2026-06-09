@@ -63,3 +63,17 @@
 **Verify:** `scripts/qa-kalender-recurring.mjs` grün (dialogVisible, alle 3 Scopes, rawKeys [] in Detail+Dialog, pageErrors []) · Screenshots Detail-Badge („↻ Wöchentlich") + Dialog angesehen.
 
 ⚠ **tsc-Hinweis (für Darien — projektweit, kein B1-Bug):** Der gescopte tsc über `modules/kalender` zeigt jetzt 6 TS2345-Fehler an dynamischen `t(\`…${x}\`)`-Aufrufen (recurrence-/reminder-/browse-Dropdowns, `kalender.event.newAppointment`). Diese sind **nicht auf von mir geschriebenen Zeilen** — sie entstehen, weil i18next typed-keys bei dynamischen Template-Keys streng sind und meine i18n-Key-Ergänzungen die Union vergrößert haben (TS kippt dann von „loose" auf „error"). Mein Feature-Code nutzt nur statische Keys. Saubere Lösung wäre projektweit ein typsicherer `t()`-Wrapper/Cast für dynamische Keys — bewusst NICHT in B1 gemacht (Scope + bekannt: full-green tsc ist kein Gate, QA ist es).
+
+## ⬜ Phase B2 — Einladungen/RSVP (Teilnehmer + Antwort) (2026-06-09)
+
+**Hinklick-Pfad:** Kalender → Woche → Termin mit Teilnehmern (z.B. „Daily Standup") klicken → Detail-Panel zeigt **Teilnehmerliste mit Status** + **„Deine Antwort"** (Zusagen/Vielleicht/Absagen).
+
+**Gebaut:**
+- **Teilnehmer sichtbar:** `expandedEventToUI` mappt jetzt das (Legacy-)`attendees`-Feld in `participants` (Name/Initialen/RSVP) + `myRsvp` aus `my_rsvp`. Die Detail-Panel-Teilnehmerliste (war bereits gebaut, nie befüllt) zeigt jetzt Namen + Status-Icons.
+- **RSVP-Antwort:** „Deine Antwort"-Buttons (Zusagen/Vielleicht/Absagen) im Detail-Panel, verkabelt mit `useRSVPToEvent` (UI→Backend: maybe→tentative); ausgewählter Zustand hervorgehoben, Toast „Antwort gespeichert". Demo-Handler `POST /events/:id/rsvp` ergänzt.
+
+**Grenzen / offen (für Darien / Backend):**
+- **Einladen/Teilnehmer hinzufügen** (Form-Teilnehmer-Suche ist weiterhin Phantom-UI): bewusst NICHT in B2. Grund: kein „Add-Attendee-zu-bestehendem-Event"-Endpoint/Hook (`UpdateEventRequest` hat keine Attendee-Felder); `CreateEventRequest.attendee_ids` ginge nur beim Erstellen, bräuchte aber User-IDs (TEAM_MEMBERS-Mock hat keine). → Backend-Stück, in backend-handover notieren.
+- RSVP-Auswahl persistiert im Demo nur lokal (Mock echo't `my_rsvp` nicht zurück) — Wiring ist backend-ready.
+
+**Verify:** `scripts/qa-kalender-rsvp.mjs` grün (participantsVisible, rsvpSectionVisible, acceptBtn, rawKeys [], pageErrors []) · Screenshots Teilnehmerliste + „Zusagen"-Auswahl + Toast angesehen · gescopter tsc (gleiche 6 Baseline-typed-key-Hinweise wie oben, keine neuen).

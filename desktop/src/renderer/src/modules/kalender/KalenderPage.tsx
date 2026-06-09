@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useCalendars, useEventCategories, useCreateEventCategory, useDeleteEventCategory } from '@/api/hooks/useCalendars'
-import { useEventsInRange, useCreateEvent, useUpdateEvent, useUpdateRecurringEvent, useDeleteEvent, useTaskDeadlines } from '@/api/hooks/useEvents'
+import { useEventsInRange, useCreateEvent, useUpdateEvent, useUpdateRecurringEvent, useDeleteEvent, useTaskDeadlines, useRSVPToEvent } from '@/api/hooks/useEvents'
 import { useHolidays } from '@/api/hooks/useHolidays'
 import { useAuthStore } from '@/stores/auth'
 import { useSettingsStore } from '@/stores/settings'
+import { cn } from '@/lib/cn'
 import {
   expandedEventToUI, calendarToUI, categoryToUI, deadlineToUI, holidayToUI,
   uiEventToCreateRequest, uiEventToUpdateRequest,
@@ -3069,6 +3070,17 @@ function EventDetailPanel({
   const category = categories.find((c) => c.id === event.categoryId)
   const calendar = calendars.find((c) => c.id === event.calendarId)
 
+  // RSVP: respond to an invitation. Local state reflects the choice
+  // immediately (the demo backend does not echo my_rsvp on refetch).
+  const rsvpMutation = useRSVPToEvent()
+  const [myRsvp, setMyRsvp] = useState<RSVPStatus | undefined>(event.myRsvp)
+  const uiToBackendRsvp = { accepted: 'accepted', declined: 'declined', maybe: 'tentative' } as const
+  const handleRsvp = (status: 'accepted' | 'maybe' | 'declined') => {
+    setMyRsvp(status)
+    rsvpMutation.mutate({ eventId: event.id, status: uiToBackendRsvp[status] })
+    toast.success(t('kalender.rsvp.saved'))
+  }
+
   const rsvpIcon = (status: RSVPStatus) => {
     switch (status) {
       case 'accepted': return <Check className="h-3 w-3 text-success" />
@@ -3196,6 +3208,37 @@ function EventDetailPanel({
                       <span className="text-foreground flex-1">{p.name}</span>
                       {rsvpIcon(p.rsvp)}
                     </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* RSVP — your response */}
+            {!event.isHoliday && !event.isTaskDeadline && (
+              <div className="pt-1">
+                <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                  <Users className="h-3.5 w-3.5 shrink-0" />
+                  <span>{t('kalender.rsvp.yourResponse')}</span>
+                </div>
+                <div className="flex gap-2 pl-5">
+                  {([
+                    { status: 'accepted', label: t('kalender.rsvp.accept'), icon: <Check className="h-3 w-3" /> },
+                    { status: 'maybe', label: t('kalender.rsvp.maybe'), icon: <CircleHelp className="h-3 w-3" /> },
+                    { status: 'declined', label: t('kalender.rsvp.decline'), icon: <CircleX className="h-3 w-3" /> },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.status}
+                      onClick={() => handleRsvp(opt.status)}
+                      className={cn(
+                        'flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors',
+                        myRsvp === opt.status
+                          ? 'border-primary bg-primary-subtle text-primary'
+                          : 'border-border text-muted-foreground hover:bg-secondary hover:text-foreground',
+                      )}
+                    >
+                      {opt.icon}
+                      {opt.label}
+                    </button>
                   ))}
                 </div>
               </div>
