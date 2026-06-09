@@ -262,6 +262,31 @@ export function deadlineToUI(deadline: TaskDeadlineStub): CalendarEvent {
 // ---------------------------------------------------------------------------
 
 /**
+ * Map a UI reminder option (locale-independent constant string) to the
+ * backend `reminder_minutes` array. Returns undefined for "no reminder".
+ *
+ * Note: full round-trip (displaying/editing an existing event's reminder)
+ * needs ExpandedEvent.reminders from the backend + useSetEventReminders on
+ * update — tracked in backend-handover-luke.md. This covers the create path
+ * so the user's choice is no longer silently dropped.
+ */
+const REMINDER_MINUTES_MAP: Record<string, number> = {
+  '5 Minuten': 5,
+  '10 Minuten': 10,
+  '15 Minuten': 15,
+  '30 Minuten': 30,
+  '1 Stunde': 60,
+  '2 Stunden': 120,
+  '1 Tag': 1440,
+}
+
+function reminderToMinutes(display: string | undefined): number[] | undefined {
+  if (!display || display === 'Keine') return undefined
+  const minutes = REMINDER_MINUTES_MAP[display]
+  return minutes !== undefined ? [minutes] : undefined
+}
+
+/**
  * Convert German recurrence label back to RRULE.
  */
 function displayToRrule(display: string | undefined): string | undefined {
@@ -296,6 +321,7 @@ export function uiEventToCreateRequest(
     rrule: displayToRrule(event.recurrence),
     has_video_call: event.videoCall,
     category_id: event.categoryId || undefined,
+    reminder_minutes: reminderToMinutes(event.reminder),
   }
 }
 

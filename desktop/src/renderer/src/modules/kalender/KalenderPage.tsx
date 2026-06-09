@@ -2,9 +2,11 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useCalendars, useEventCategories, useCreateEventCategory, useDeleteEventCategory } from '@/api/hooks/useCalendars'
 import { useEventsInRange, useCreateEvent, useUpdateEvent, useDeleteEvent, useTaskDeadlines } from '@/api/hooks/useEvents'
+import { useHolidays } from '@/api/hooks/useHolidays'
 import { useAuthStore } from '@/stores/auth'
+import { useSettingsStore } from '@/stores/settings'
 import {
-  expandedEventToUI, calendarToUI, categoryToUI, deadlineToUI,
+  expandedEventToUI, calendarToUI, categoryToUI, deadlineToUI, holidayToUI,
   uiEventToCreateRequest, uiEventToUpdateRequest,
   getHolidayCalendar, getDeadlineCalendar,
   type CalendarEvent as AdapterCalendarEvent,
@@ -120,9 +122,8 @@ const RECURRENCE_OPTIONS = ['Keine', 'Täglich', 'Wöchentlich', 'Monatlich', 'J
 const REMINDER_OPTIONS = ['Keine', '5 Minuten', '10 Minuten', '15 Minuten', '30 Minuten', '1 Stunde', '2 Stunden', '1 Tag']
 
 const HOUR_HEIGHT = 60
-const START_HOUR = 7
-const END_HOUR = 20
-const HOURS = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => i + START_HOUR)
+// Work-hour grid bounds are read per-view from the calendar settings store
+// (useWorkHours); no longer module-level constants.
 
 // (Mock events removed — now fetched from API)
 
@@ -307,6 +308,32 @@ function minutesToTime(totalMinutes: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
+/** Current time as minutes-from-midnight, re-evaluated every minute. */
+function useNowMinutes(): number {
+  const [minutes, setMinutes] = useState(() => {
+    const n = new Date()
+    return n.getHours() * 60 + n.getMinutes()
+  })
+  useEffect(() => {
+    const id = setInterval(() => {
+      const n = new Date()
+      setMinutes(n.getHours() * 60 + n.getMinutes())
+    }, 60000)
+    return () => clearInterval(id)
+  }, [])
+  return minutes
+}
+
+/** Work-hour grid bounds + hour ticks from the calendar settings store. */
+function useWorkHours(): { startHour: number; endHour: number; hours: number[] } {
+  const { workStartHour, workEndHour } = useSettingsStore((s) => s.calendar)
+  // Guard against inverted/empty ranges from bad settings.
+  const startHour = Math.min(workStartHour, workEndHour)
+  const endHour = Math.max(workStartHour, workEndHour)
+  const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => i + startHour)
+  return { startHour, endHour, hours }
+}
+
 // ============================================================
 // Main Component
 // ============================================================
@@ -314,7 +341,8 @@ function minutesToTime(totalMinutes: number): string {
 export default function KalenderPage() {
   const { t } = useTranslation()
   const [topTab, setTopTab] = useState<TopTab>('kalender')
-  const [view, setView] = useState<ViewMode>('week')
+  const calSettings = useSettingsStore((s) => s.calendar)
+  const [view, setView] = useState<ViewMode>(calSettings.defaultView)
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
@@ -398,11 +426,21 @@ export default function KalenderPage() {
   const deadlinesVisible = calendars.find((c) => c.id === 'deadlines')?.visible ?? false
   const { data: deadlinesData } = useTaskDeadlines(rangeStart, rangeEnd)
 
+  // ---- API: Holidays ----
+  const holidaysVisible = calendars.find((c) => c.id === 'holidays')?.visible ?? false
+  const [holidayCountry, holidaySubdivision] = (calSettings.holidayRegion || 'DE-BY').split('-')
+  const { data: holidaysData } = useHolidays(
+    currentDate.getFullYear(),
+    holidayCountry,
+    holidaySubdivision,
+  )
+
   const events = useMemo<CalendarEvent[]>(() => {
     const apiEvents = (eventsData?.events ?? []).map(expandedEventToUI)
     const deadlines = deadlinesVisible ? (deadlinesData?.deadlines ?? []).map(deadlineToUI) : []
-    return [...apiEvents, ...deadlines]
-  }, [eventsData, deadlinesData, deadlinesVisible])
+    const holidays = holidaysVisible ? (holidaysData?.holidays ?? []).map(holidayToUI) : []
+    return [...apiEvents, ...deadlines, ...holidays]
+  }, [eventsData, deadlinesData, deadlinesVisible, holidaysData, holidaysVisible])
 
   // ---- Mutations ----
   const createEventMutation = useCreateEvent()
@@ -1783,6 +1821,8 @@ function WeekView({
   onUpdateEvent: (eventId: string, updates: Partial<CalendarEvent>) => void
 }) {
   const { t } = useTranslation()
+  const { startHour: START_HOUR, endHour: END_HOUR, hours: HOURS } = useWorkHours()
+  const nowMinutes = useNowMinutes()
   const weekDays = getWeekDays(currentDate, true) // Mo-Fr
   const [dragState, setDragState] = useState<DragState | null>(null)
   const gridRef = useRef<HTMLDivElement>(null)
@@ -1981,10 +2021,10 @@ function WeekView({
               ))}
 
               {/* Current time indicator */}
-              {isToday(d) && (
+              {isToday(d) && nowMinutes >= START_HOUR * 60 && nowMinutes <= END_HOUR * 60 && (
                 <div
                   className="absolute left-0 right-0 z-10 flex items-center"
-                  style={{ top: ((10 * 60 + 30 - START_HOUR * 60) / 60) * HOUR_HEIGHT }}
+                  style={{ top: ((nowMinutes - START_HOUR * 60) / 60) * HOUR_HEIGHT }}
                 >
                   <div className="h-2.5 w-2.5 -ml-1 rounded-full bg-error" />
                   <div className="flex-1 h-[2px] bg-error" />
@@ -2114,6 +2154,8 @@ function DayView({
   onUpdateEvent: (eventId: string, updates: Partial<CalendarEvent>) => void
 }) {
   const { t } = useTranslation()
+  const { startHour: START_HOUR, endHour: END_HOUR, hours: HOURS } = useWorkHours()
+  const nowMinutes = useNowMinutes()
   const allDay = events.filter((e) => e.isAllDay)
   const timed = events.filter((e) => !e.isAllDay)
   const layouts = layoutOverlappingEvents(timed)
@@ -2262,6 +2304,17 @@ function DayView({
               style={{ top: (hour - START_HOUR) * HOUR_HEIGHT + HOUR_HEIGHT / 2 }}
             />
           ))}
+
+          {/* Current time indicator */}
+          {isToday(currentDate) && nowMinutes >= START_HOUR * 60 && nowMinutes <= END_HOUR * 60 && (
+            <div
+              className="absolute left-0 right-0 z-10 flex items-center"
+              style={{ top: ((nowMinutes - START_HOUR * 60) / 60) * HOUR_HEIGHT }}
+            >
+              <div className="h-2.5 w-2.5 -ml-1 rounded-full bg-error" />
+              <div className="flex-1 h-[2px] bg-error" />
+            </div>
+          )}
 
           {layouts.map(({ event, column, totalColumns }) => {
             const startMin = timeToMinutes(event.startTime)

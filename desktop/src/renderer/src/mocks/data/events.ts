@@ -31,7 +31,7 @@ export const mockCalendars = {
     },
     {
       id: IDS.calendars.meetings,
-      name: 'Besprechungsraeume',
+      name: 'Besprechungsräume',
       color: '#F59E0B',
       owner_id: IDS.users.admin,
       visible: true,
@@ -370,6 +370,48 @@ export const mockEvents = {
 // ---------------------------------------------------------------------------
 // Resources (room booking)
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Public holidays (demo) — built per requested year so navigation stays populated
+// ---------------------------------------------------------------------------
+
+interface HolidaySpec {
+  m: number
+  d: number
+  name: string
+  local: string
+  regional?: boolean
+}
+
+const FIXED_HOLIDAYS: HolidaySpec[] = [
+  { m: 1, d: 1, name: "New Year's Day", local: 'Neujahr' },
+  { m: 5, d: 1, name: 'Labour Day', local: 'Tag der Arbeit' },
+  { m: 10, d: 3, name: 'German Unity Day', local: 'Tag der Deutschen Einheit' },
+  { m: 12, d: 25, name: 'Christmas Day', local: '1. Weihnachtsfeiertag' },
+  { m: 12, d: 26, name: 'Boxing Day', local: '2. Weihnachtsfeiertag' },
+]
+
+const REGIONAL_HOLIDAYS: Record<string, HolidaySpec[]> = {
+  BY: [
+    { m: 1, d: 6, name: 'Epiphany', local: 'Heilige Drei Könige', regional: true },
+    { m: 8, d: 15, name: 'Assumption Day', local: 'Mariä Himmelfahrt', regional: true },
+  ],
+}
+
+export function buildMockHolidays(year: number, country: string, subdivision: string) {
+  const regional = REGIONAL_HOLIDAYS[subdivision] ?? []
+  return [...FIXED_HOLIDAYS, ...regional].map((h, i) => ({
+    id: `hol-${year}-${i}`,
+    date: `${year}-${String(h.m).padStart(2, '0')}-${String(h.d).padStart(2, '0')}`,
+    name: h.name,
+    local_name: h.local,
+    country_code: country,
+    is_global: !h.regional,
+    subdivision_codes: h.regional && subdivision ? [`${country}-${subdivision}`] : [],
+    holiday_type: 'public',
+    year,
+  }))
+}
 
 export const mockResources = {
   resources: [

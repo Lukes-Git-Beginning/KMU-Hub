@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
-import { mockCalendars, mockEvents, mockResources } from '../data/events'
+import { mockCalendars, mockEvents, mockResources, buildMockHolidays } from '../data/events'
 
 const API = API_BASE_URL
 
@@ -75,5 +75,14 @@ export const calendarHandlers = [
   // List resources (rooms)
   http.get(`${API}/api/v1/resources`, () => {
     return HttpResponse.json(mockResources)
+  }),
+
+  // Public holidays (?year=&country_code=&subdivision_code=)
+  http.get(`${API}/api/v1/calendar/holidays`, ({ request }) => {
+    const url = new URL(request.url)
+    const year = Number(url.searchParams.get('year')) || new Date().getFullYear()
+    const country = url.searchParams.get('country_code') || 'DE'
+    const subdivision = url.searchParams.get('subdivision_code') || ''
+    return HttpResponse.json({ holidays: buildMockHolidays(year, country, subdivision) })
   }),
 ]
