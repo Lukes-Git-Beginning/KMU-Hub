@@ -67,6 +67,15 @@ func TestDialerCampaignFlow(t *testing.T) {
 		t.Fatal("expected contact ID")
 	}
 
+	// 3b. Grant active phone consent — required by the consent asserter that
+	//     guards InitiateDialerCall (wired into the dialer service in 1548a067).
+	resp, body = postJSON(t, fmt.Sprintf("%s/api/v1/contacts/%s/consents", base, contactID), map[string]interface{}{
+		"consent_type": "marketing_phone",
+		"source":       "e2e_test",
+		"legal_basis":  "consent",
+	}, token)
+	requireStatus(t, resp, body, http.StatusCreated)
+
 	// 4. Add contact to campaign.
 	resp, body = postJSON(t, fmt.Sprintf("%s/api/v1/dialer/campaigns/%s/contacts", base, campaignID), map[string]interface{}{
 		"contact_ids": []string{contactID},
