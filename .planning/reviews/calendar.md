@@ -44,3 +44,22 @@
 - 🟡 **Reminder voll** (Cluster B + Backend): `ExpandedEvent.reminders` + `useSetEventReminders` auf Update.
 - 🟡 **Cluster B** (Markt-Lücken): Serientermin-Bearbeitung (this/future/all — `useUpdateRecurringEvent` ungenutzt), Einladungen/RSVP (Teilnehmer-Feld ist Phantom-UI), Kalender erstellen/verwalten.
 - 🟡 **Cluster C** (Backend-schwer): Raumbuchung an Ressourcen-API (`RoomBookingView` lokaler State), Terminbuchung/Calendly komplett Mock.
+
+## ⬜ Phase B1 — Serientermin-Bearbeitung (Scope-Dialog) (2026-06-09)
+
+**Hinklick-Pfad:** Kalender → Woche → Serientermin (z.B. „Daily Standup") klicken → Detail-Panel → „Bearbeiten" → „Speichern" → **Dialog „Serientermin bearbeiten"** mit diese/künftige/alle.
+
+**Gebaut:**
+- `RecurringEditDialog` (diese/künftige/alle) — erscheint beim Speichern eines Termins mit Wiederholung; `useUpdateRecurringEvent` (war ungenutzt) jetzt verdrahtet (scope + original_date). Demo-Handler `PUT /events/:id/recurring` ergänzt.
+- Serientermine demo-fähig: rrule aus Legacy-`recurring`-Feld im Events-Handler abgeleitet (`recurringToRrule`), damit `expandedEventToUI` sie als Serie erkennt.
+- **Fehlende `kalender.recurrence.*`-Keys** (none/daily/weekly/…) ×4 ergänzt — waren komplett MISSING, hätten als Raw-Key im Detail-Badge gezeigt (durch B1 erst sichtbar geworden). Plus `kalender.recurring.*` für den Dialog.
+
+**Nebenbei (echter Demo-Bug gefixt):** Events-Mock-Handler las `calendar_ids` nur via `.get()` (erster Wert) → im Demo zeigten sich **nur Events des ersten Kalenders** (= „Mein Kalender"). Jetzt `getAll()` + `includes` → alle sichtbaren Kalender rendern (Daily Standup, Sprint Planning, Team Lunch … erscheinen jetzt).
+
+**Grenzen / offen:**
+- Scope-Dialog gilt nur für **Bearbeiten**. Löschen eines Serientermins → noch ganze Serie (kein scoped-Delete-Endpoint/Hook vorhanden) → Cluster B-Rest / Backend.
+- Im Demo expandiert das Mock-Backend keine Serien in Einzel-Vorkommen → ein Serientermin erscheint einmalig; der Scope-Dialog + Wiring sind aber backend-ready.
+
+**Verify:** `scripts/qa-kalender-recurring.mjs` grün (dialogVisible, alle 3 Scopes, rawKeys [] in Detail+Dialog, pageErrors []) · Screenshots Detail-Badge („↻ Wöchentlich") + Dialog angesehen.
+
+⚠ **tsc-Hinweis (für Darien — projektweit, kein B1-Bug):** Der gescopte tsc über `modules/kalender` zeigt jetzt 6 TS2345-Fehler an dynamischen `t(\`…${x}\`)`-Aufrufen (recurrence-/reminder-/browse-Dropdowns, `kalender.event.newAppointment`). Diese sind **nicht auf von mir geschriebenen Zeilen** — sie entstehen, weil i18next typed-keys bei dynamischen Template-Keys streng sind und meine i18n-Key-Ergänzungen die Union vergrößert haben (TS kippt dann von „loose" auf „error"). Mein Feature-Code nutzt nur statische Keys. Saubere Lösung wäre projektweit ein typsicherer `t()`-Wrapper/Cast für dynamische Keys — bewusst NICHT in B1 gemacht (Scope + bekannt: full-green tsc ist kein Gate, QA ist es).

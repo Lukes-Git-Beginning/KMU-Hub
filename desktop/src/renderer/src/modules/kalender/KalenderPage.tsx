@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useCalendars, useEventCategories, useCreateEventCategory, useDeleteEventCategory } from '@/api/hooks/useCalendars'
-import { useEventsInRange, useCreateEvent, useUpdateEvent, useDeleteEvent, useTaskDeadlines } from '@/api/hooks/useEvents'
+import { useEventsInRange, useCreateEvent, useUpdateEvent, useUpdateRecurringEvent, useDeleteEvent, useTaskDeadlines } from '@/api/hooks/useEvents'
 import { useHolidays } from '@/api/hooks/useHolidays'
 import { useAuthStore } from '@/stores/auth'
 import { useSettingsStore } from '@/stores/settings'
@@ -349,6 +349,9 @@ export default function KalenderPage() {
   const [quickCreate, setQuickCreate] = useState<QuickCreateState | null>(null)
   const [showEventForm, setShowEventForm] = useState(false)
   const [eventFormDefaults, setEventFormDefaults] = useState<Partial<CalendarEvent>>({})
+  // Pending edit of a recurring event — holds the form data until the user
+  // picks a scope (this / this_and_future / all) in the RecurringEditDialog.
+  const [recurringEdit, setRecurringEdit] = useState<Partial<CalendarEvent> | null>(null)
   const [showRoomBooking, setShowRoomBooking] = useState(false)
   const [showCategoryManager, setShowCategoryManager] = useState(false)
   const [showCalendarBrowse, setShowCalendarBrowse] = useState(false)
@@ -445,6 +448,7 @@ export default function KalenderPage() {
   // ---- Mutations ----
   const createEventMutation = useCreateEvent()
   const updateEventMutation = useUpdateEvent()
+  const updateRecurringMutation = useUpdateRecurringEvent()
   const deleteEventMutation = useDeleteEvent()
   const createCategoryMutation = useCreateEventCategory()
   const deleteCategoryMutation = useDeleteEventCategory()
@@ -509,6 +513,14 @@ export default function KalenderPage() {
   // Save event (create or update)
   const handleSaveEvent = useCallback((eventData: Partial<CalendarEvent>) => {
     if (eventData.id) {
+      // Editing a recurring event: ask for scope before applying.
+      // recurrence may be the raw option constant ('Keine') or a translated label.
+      const noneValues = ['Keine', t('kalender.recurrence.none')]
+      const isRecurring = !!eventData.recurrence && !noneValues.includes(eventData.recurrence)
+      if (isRecurring) {
+        setRecurringEdit(eventData)
+        return
+      }
       updateEventMutation.mutate(
         { id: eventData.id, ...uiEventToUpdateRequest(eventData) },
         {
@@ -527,7 +539,26 @@ export default function KalenderPage() {
         },
       )
     }
-  }, [createEventMutation, updateEventMutation, calendars])
+  }, [createEventMutation, updateEventMutation, calendars, t])
+
+  // Apply a recurring-event edit with the chosen scope.
+  const applyRecurringEdit = useCallback((scope: 'this' | 'this_and_future' | 'all') => {
+    const data = recurringEdit
+    if (!data?.id) return
+    updateRecurringMutation.mutate(
+      {
+        id: data.id,
+        scope,
+        original_date: data.date ?? '',
+        ...uiEventToUpdateRequest(data),
+      },
+      {
+        onSuccess: () => toast.success(t('kalender.event.updated')),
+        onError: () => toast.error(t('kalender.event.updateError')),
+      },
+    )
+    setRecurringEdit(null)
+  }, [recurringEdit, updateRecurringMutation, t])
 
   // Delete event handler
   const handleDeleteEvent = useCallback((eventId: string) => {
@@ -732,6 +763,14 @@ export default function KalenderPage() {
                 setShowEventForm(true)
               }}
               onDelete={() => handleDeleteEvent(selectedEvent.id)}
+            />
+          )}
+
+          {/* Recurring-edit scope dialog */}
+          {recurringEdit && (
+            <RecurringEditDialog
+              onCancel={() => setRecurringEdit(null)}
+              onConfirm={applyRecurringEdit}
             />
           )}
 
@@ -2624,6 +2663,59 @@ function QuickCreatePopover({
 // ============================================================
 // Event Form Modal
 // ============================================================
+
+function RecurringEditDialog({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: (scope: 'this' | 'this_and_future' | 'all') => void
+  onCancel: () => void
+}) {
+  const { t } = useTranslation()
+  const options: { scope: 'this' | 'this_and_future' | 'all'; label: string }[] = [
+    { scope: 'this', label: t('kalender.recurring.thisEvent') },
+    { scope: 'this_and_future', label: t('kalender.recurring.thisAndFuture') },
+    { scope: 'all', label: t('kalender.recurring.allEvents') },
+  ]
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center"
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}
+    >
+      <div className="absolute inset-0 bg-black/40" />
+      <div className="relative w-full max-w-sm rounded-xl border border-border bg-card shadow-[var(--shadow-large)] overflow-hidden">
+        <div className="flex items-center gap-2 border-b border-border px-5 py-3">
+          <Repeat className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-medium text-foreground">{t('kalender.recurring.editTitle')}</h3>
+        </div>
+        <div className="px-5 py-4">
+          <p className="mb-4 text-sm text-muted-foreground">{t('kalender.recurring.editDescription')}</p>
+          <div className="space-y-2">
+            {options.map((opt) => (
+              <button
+                key={opt.scope}
+                onClick={() => onConfirm(opt.scope)}
+                className="flex w-full items-center justify-between rounded-lg border border-border px-3 py-2.5 text-left text-sm text-foreground transition-colors hover:bg-secondary"
+              >
+                <span>{opt.label}</span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-end border-t border-border px-5 py-3">
+          <button
+            onClick={onCancel}
+            className="rounded-lg border border-border px-4 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
+          >
+            {t('common.cancel')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function EventFormModal({
   defaults,
