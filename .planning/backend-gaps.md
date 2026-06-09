@@ -61,6 +61,8 @@ Folgende Verknüpfungen konnten im ContactDetailPanel NICHT gebaut werden, weil 
 - Query-Builder: BE-Executor liest `query_config` schon — Editor-Contract festzurren
 - `ExecuteKindCross`-Methode im Executor (datenquellen-übergreifend)
 - Breakout/Pivot-Schema in `RunReportRequest.Params`
+- **Dashboard-KPIs (P-nico-02, 2026-06-09):** `GET /api/v1/berichte/kpis` hatte im Demo-Mode KEINEN MSW-Handler → Dashboard zeigte Leerzustand (keine Karten). Jetzt Demo-Handler `mocks/handlers/berichte.ts` mit statischen KPIs gebaut. Backend: echter KPI-Service (Werte + `change_percent` pro Modul) fehlt.
+- **KPI-Zeitreihe für Sparkline (P-nico-02):** Die KPI-Karten zeigen eine Mini-Trendlinie, deren Verlauf aktuell FE-seitig deterministisch aus `kpi.id` + `change_percent` synthetisiert wird (`buildSparklineSeries` in `DashboardGrid.tsx`). Echte Zeitreihe pro KPI (z.B. letzte 8 Perioden) sollte das Backend liefern → dann `sparklineData` aus echten Punkten speisen.
 
 ### team
 - Onboarding-Workflow-API (Template + Checklist)
