@@ -13,7 +13,8 @@ Wir arbeiten heute im 3-Strom-Marathon am Cosmi-CRM. Du bist Strom N (Content-Bl
 Lies ZUERST in dieser Reihenfolge und befolge sie strikt:
 1. .planning/collision-map.md  (Branch-/Kollisions-Regeln — PFLICHT)
 2. .planning/multi-stream-workflow.md  (Tagesablauf + harte Regeln)
-3. .planning/nico-block/KICKOFF.md + .planning/nico-block/RUNBOOK.md + .planning/nico-block/WORKFLOW.md  (Rolle + Build-+-Verify-Prozess)
+3. .planning/DESIGN-DECISIONS.md  (wie du Design-/Produktentscheidungen triffst wenn niemand danebensitzt — PFLICHT)
+4. .planning/nico-block/KICKOFF.md + .planning/nico-block/RUNBOOK.md + .planning/nico-block/WORKFLOW.md  (Rolle + Build-+-Verify-Prozess)
 
 Deine Lane (NUR diese Module, in dieser Reihenfolge): wiki → formulare → berichte → notifications.
 Fertige Pilot-Specs: .planning/nico-block/wiki-settings.md, .planning/nico-block/formulare-settings.md (+ die bestehenden phase-01/02 für notifications/berichte). Folgephasen je Modul in .planning/module-phase-plans.md (Module mit „→ Strom N" markiert).
@@ -35,8 +36,9 @@ Wir arbeiten heute im 3-Strom-Marathon am Cosmi-CRM. Du bist Strom D, auf Darien
 Lies ZUERST in dieser Reihenfolge und befolge sie strikt:
 1. .planning/collision-map.md  (Branch-/Kollisions-Regeln — PFLICHT)
 2. .planning/multi-stream-workflow.md  (Tagesablauf + harte Regeln)
-3. .planning/dein-pc-KICKOFF.md  (deine Rolle + Lane)
-4. .planning/nico-block/RUNBOOK.md + .planning/nico-block/WORKFLOW.md  (Build-+-Verify-Prozess — gilt für alle Ströme)
+3. .planning/DESIGN-DECISIONS.md  (wie du Design-/Produktentscheidungen triffst wenn niemand danebensitzt — PFLICHT)
+4. .planning/dein-pc-KICKOFF.md  (deine Rolle + Lane)
+5. .planning/nico-block/RUNBOOK.md + .planning/nico-block/WORKFLOW.md  (Build-+-Verify-Prozess — gilt für alle Ströme)
 
 Deine Lane (NUR diese Module): calendar → dokumente → zeiterfassung.
 Fertige Pilot-Specs in .planning/dein-pc-block/: calendar-p1-views.md (START HIER), zeiterfassung-p1-standalone.md, dokumente-settings.md. Folgephasen in .planning/module-phase-plans.md (Module mit „→ Strom D" markiert).
@@ -58,8 +60,9 @@ Wir arbeiten heute im 3-Strom-Marathon am Cosmi-CRM. Du bist Strom L: VORMITTAGS
 Lies ZUERST:
 1. .planning/collision-map.md  (Branch-/Kollisions-Regeln — PFLICHT)
 2. .planning/multi-stream-workflow.md  (Tagesablauf)
-3. .planning/luke-block/KICKOFF.md + .planning/luke-block/RUNBOOK.md  (deine AM/PM-Struktur)
-4. Für den FE-Build: .planning/nico-block/RUNBOOK.md + .planning/nico-block/WORKFLOW.md (identischer Prozess für alle Ströme)
+3. .planning/DESIGN-DECISIONS.md  (wie du Design-/Produktentscheidungen triffst wenn niemand danebensitzt — PFLICHT, für die FE-Lane)
+4. .planning/luke-block/KICKOFF.md + .planning/luke-block/RUNBOOK.md  (deine AM/PM-Struktur)
+5. Für den FE-Build: .planning/nico-block/RUNBOOK.md + .planning/nico-block/WORKFLOW.md (identischer Prozess für alle Ströme)
 
 VORMITTAG — Backend-P0: .planning/backend-handover-luke.md, P0 zuerst (E-Rechnung/GoBD/DATEV/Bexio, Online-Terminbuchung, Dialer-Consent, DSGVO). Deine Domäne — Architektur nach CLAUDE.md (Thick Services/Thin Handlers, golang-migrate, slog, tenant_id). Backend-Commits auf deinem üblichen Repo/Branch.
 
