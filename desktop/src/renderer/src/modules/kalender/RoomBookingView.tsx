@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, ChevronRight, Users, Monitor, X, Clock } from 'lucide-react'
 import { toast } from 'sonner'
+import { useResources } from '@/api/hooks/useResources'
 import {
   Dialog,
   DialogContent,
@@ -46,18 +47,49 @@ const ROOMS: Room[] = [
 
 const HOURS = Array.from({ length: 11 }, (_, i) => i + 8) // 08:00 - 18:00
 
-const MOCK_BOOKINGS: Booking[] = [
-  { id: 'b1', title: 'Sprint Planning', room: 'Raum A — Besprechung', date: '2026-02-09', startTime: '10:00', endTime: '11:30', organizer: 'Anna Müller', participants: 6 },
-  { id: 'b2', title: 'Lunch & Learn', room: 'Raum A — Besprechung', date: '2026-02-09', startTime: '12:30', endTime: '13:30', organizer: 'Max Berg', participants: 5 },
-  { id: 'b3', title: 'Product Roadmap', room: 'Raum B — Klein', date: '2026-02-09', startTime: '16:00', endTime: '17:00', organizer: 'Anna Müller', participants: 3 },
-  { id: 'b4', title: '1:1 Sarah', room: 'Telefonkabine 1', date: '2026-02-09', startTime: '14:00', endTime: '15:00', organizer: 'Darien', participants: 2 },
-  { id: 'b5', title: 'Kundentermin Meier AG', room: 'Raum A — Besprechung', date: '2026-02-10', startTime: '10:00', endTime: '11:30', organizer: 'Peter Keller', participants: 4 },
-  { id: 'b6', title: 'Design Review', room: 'Raum B — Klein', date: '2026-02-10', startTime: '14:00', endTime: '15:30', organizer: 'Jonas Diaz', participants: 3 },
-  { id: 'b7', title: 'HR Gespreach', room: 'Telefonkabine 2', date: '2026-02-10', startTime: '10:00', endTime: '11:00', organizer: 'Lisa Weber', participants: 2 },
-  { id: 'b8', title: 'Code Review', room: 'Raum B — Klein', date: '2026-02-11', startTime: '09:00', endTime: '10:00', organizer: 'Max Berg', participants: 3 },
-  { id: 'b9', title: 'Sprint Demo', room: 'Raum A — Besprechung', date: '2026-02-13', startTime: '10:00', endTime: '11:00', organizer: 'Anna Müller', participants: 8 },
-  { id: 'b10', title: 'Retro', room: 'Raum B — Klein', date: '2026-02-13', startTime: '15:00', endTime: '16:00', organizer: 'Anna Müller', participants: 4 },
+// Demo seed anchored to the current week (dayOffset 0 = Monday). Real bookings
+// come from the resource-availability API once the event-tied booking flow
+// exists (see backend-handover) — this keeps the view populated meanwhile.
+interface BookingSeed {
+  dayOffset: number
+  title: string
+  room: string
+  startTime: string
+  endTime: string
+  organizer: string
+  participants: number
+}
+
+const BOOKING_SEED: BookingSeed[] = [
+  { dayOffset: 0, title: 'Sprint Planning', room: 'Raum A — Besprechung', startTime: '10:00', endTime: '11:30', organizer: 'Anna Müller', participants: 6 },
+  { dayOffset: 0, title: 'Lunch & Learn', room: 'Raum A — Besprechung', startTime: '12:30', endTime: '13:30', organizer: 'Max Berg', participants: 5 },
+  { dayOffset: 0, title: 'Product Roadmap', room: 'Raum B — Klein', startTime: '16:00', endTime: '17:00', organizer: 'Anna Müller', participants: 3 },
+  { dayOffset: 0, title: '1:1 Sarah', room: 'Telefonkabine 1', startTime: '14:00', endTime: '15:00', organizer: 'Du', participants: 2 },
+  { dayOffset: 1, title: 'Kundentermin Meier AG', room: 'Raum A — Besprechung', startTime: '10:00', endTime: '11:30', organizer: 'Peter Keller', participants: 4 },
+  { dayOffset: 1, title: 'Design Review', room: 'Raum B — Klein', startTime: '14:00', endTime: '15:30', organizer: 'Jonas Diaz', participants: 3 },
+  { dayOffset: 1, title: 'HR-Gespräch', room: 'Telefonkabine 2', startTime: '10:00', endTime: '11:00', organizer: 'Lisa Weber', participants: 2 },
+  { dayOffset: 2, title: 'Code Review', room: 'Raum B — Klein', startTime: '09:00', endTime: '10:00', organizer: 'Max Berg', participants: 3 },
+  { dayOffset: 4, title: 'Sprint Demo', room: 'Raum A — Besprechung', startTime: '10:00', endTime: '11:00', organizer: 'Anna Müller', participants: 8 },
+  { dayOffset: 4, title: 'Retro', room: 'Raum B — Klein', startTime: '15:00', endTime: '16:00', organizer: 'Anna Müller', participants: 4 },
 ]
+
+function buildSeedBookings(): Booking[] {
+  const monday = getWeekDays(new Date())[0]
+  return BOOKING_SEED.map((s, i) => {
+    const d = new Date(monday)
+    d.setDate(monday.getDate() + s.dayOffset)
+    return {
+      id: `b${i}`,
+      title: s.title,
+      room: s.room,
+      date: formatDateKey(d),
+      startTime: s.startTime,
+      endTime: s.endTime,
+      organizer: s.organizer,
+      participants: s.participants,
+    }
+  })
+}
 
 const DAYS_SHORT = ['Mo', 'Di', 'Mi', 'Do', 'Fr']
 const MONTHS_DE = [
@@ -202,10 +234,22 @@ interface RoomBookingViewProps {
 
 export function RoomBookingView({ onClose }: RoomBookingViewProps) {
   const { t } = useTranslation()
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 1, 9))
-  const [bookings, setBookings] = useState(MOCK_BOOKINGS)
+  const [currentDate, setCurrentDate] = useState(() => new Date())
+  const [bookings, setBookings] = useState(buildSeedBookings)
   const [quickBook, setQuickBook] = useState<{ room: Room; date: string; hour: number } | null>(null)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+
+  // Rooms from the resource API (falls back to defaults while loading/empty).
+  const { data: resourcesData } = useResources()
+  const rooms = useMemo<Room[]>(() => {
+    const api = (resourcesData?.resources ?? []).map((r) => ({
+      id: r.id,
+      name: r.name,
+      capacity: r.capacity || 0,
+      tags: r.tags || [],
+    }))
+    return api.length ? api : ROOMS
+  }, [resourcesData])
 
   const weekDays = useMemo(() => getWeekDays(currentDate), [currentDate])
   const [selectedDay, setSelectedDay] = useState(0) // index into weekDays
@@ -327,7 +371,7 @@ export function RoomBookingView({ onClose }: RoomBookingViewProps) {
           </div>
 
           {/* Room rows */}
-          {ROOMS.map((room, roomIdx) => {
+          {rooms.map((room, roomIdx) => {
             const roomBookings = dayBookings.filter((b) => b.room === room.name)
             const color = ROOM_COLORS[roomIdx % ROOM_COLORS.length]
 

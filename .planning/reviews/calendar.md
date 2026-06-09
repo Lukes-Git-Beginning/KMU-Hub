@@ -77,3 +77,18 @@
 - RSVP-Auswahl persistiert im Demo nur lokal (Mock echo't `my_rsvp` nicht zurück) — Wiring ist backend-ready.
 
 **Verify:** `scripts/qa-kalender-rsvp.mjs` grün (participantsVisible, rsvpSectionVisible, acceptBtn, rawKeys [], pageErrors []) · Screenshots Teilnehmerliste + „Zusagen"-Auswahl + Toast angesehen · gescopter tsc (gleiche 6 Baseline-typed-key-Hinweise wie oben, keine neuen).
+
+## ⬜ Phase C1 — Raumplanung: Räume aus API + Datum-Fix (2026-06-09)
+
+**Hinklick-Pfad:** Kalender → Toolbar „Raumplanung" (Tür-Icon) → Wochen-Raumbelegung.
+
+**Gebaut (FE mock-first):**
+- **Räume aus der Ressourcen-API:** `RoomBookingView` lädt jetzt `useResources()` statt hartkodierter `ROOMS` (Fallback auf Defaults bei leer/Laden). Mock-Handler `GET /api/v1/calendar/resources` ergänzt (`buildMockCalendarResources`, Namen passend zu den Buchungen). Hinweis: Hooks nutzen `/api/v1/calendar/resources`, der alte Mock lag auf `/api/v1/resources` (Pfad-Mismatch) → neuer Handler.
+- **Datum-Bug gefixt:** Startdatum war hart auf `new Date(2026, 1, 9)` → jetzt heute. Buchungen von festen Feb-2026-Daten auf `dayOffset` umgestellt und an die **aktuelle Woche** verankert (`buildSeedBookings`), sonst war die Ansicht leer/eingefroren.
+
+**Grenzen / Backend (für Luke — wichtig):**
+- **Buchungs-Persistenz ist backend-/modell-geblockt:** Das Backend-Modell ist *event-gebunden* (`BookResourceRequest` braucht `event_id`; der Titel liegt am Event), die UI macht aber freistehende betitelte Buchungen. Voll „echt" = 2-Schritt-Flow (Event anlegen → Ressource dafür buchen) + Titel über das Event. Daher: **Create/Cancel bleiben Demo-lokal** (optimistisch, Toast). `useBookResource`/`useCancelBooking` existieren, aber sinnvoll erst mit dem event-gebundenen Flow nutzbar.
+- **Fehlt:** Tages-/Wochen-Aggregat-Endpoint für Buchungen (aktuell nur `useResourceAvailability(resourceId, date)` pro Ressource — kein „alle Buchungen eines Tages"). Für echtes Laden der Belegung sinnvoll.
+- Day-Tab öffnet auf Montag (`selectedDay=0`), nicht auf heute — bewusst gelassen (pre-existing, kosmetisch).
+
+**Verify:** `scripts/qa-kalender-rooms.mjs` grün (roomVisible, phoneBoothVisible, bookingVisible, rawKeys [], pageErrors []) · Screenshot KW 24 mit Räumen + Buchungen angesehen · gescopter tsc.

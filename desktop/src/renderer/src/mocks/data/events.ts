@@ -413,6 +413,33 @@ export function buildMockHolidays(year: number, country: string, subdivision: st
   }))
 }
 
+// Calendar-service resources (matches /api/v1/calendar/resources shape).
+// Names mirror the room-booking view's references so bookings map by name.
+export function buildMockCalendarResources() {
+  const rooms = [
+    { id: 'res-1', name: 'Raum A — Besprechung', capacity: 8, tags: ['Beamer', 'Whiteboard'], floor: '2. OG' },
+    { id: 'res-2', name: 'Raum B — Klein', capacity: 4, tags: ['Display'], floor: '2. OG' },
+    { id: 'res-3', name: 'Telefonkabine 1', capacity: 1, tags: [], floor: '1. OG' },
+    { id: 'res-4', name: 'Telefonkabine 2', capacity: 1, tags: [], floor: '1. OG' },
+  ]
+  return {
+    resources: rooms.map((r) => ({
+      id: r.id,
+      name: r.name,
+      resource_type: 'room',
+      capacity: r.capacity,
+      floor: r.floor,
+      location: null,
+      description: null,
+      is_active: true,
+      tags: r.tags,
+      created_by: IDS.users.admin,
+      created_at: daysAgo(180),
+      updated_at: daysAgo(180),
+    })),
+  }
+}
+
 export const mockResources = {
   resources: [
     {

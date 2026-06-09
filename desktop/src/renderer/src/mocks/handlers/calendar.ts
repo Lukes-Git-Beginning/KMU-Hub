@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
-import { mockCalendars, mockEvents, mockResources, buildMockHolidays } from '../data/events'
+import { mockCalendars, mockEvents, mockResources, buildMockHolidays, buildMockCalendarResources } from '../data/events'
 
 const API = API_BASE_URL
 
@@ -113,9 +113,14 @@ export const calendarHandlers = [
     return new HttpResponse(null, { status: 204 })
   }),
 
-  // List resources (rooms)
+  // List resources (rooms) — legacy path
   http.get(`${API}/api/v1/resources`, () => {
     return HttpResponse.json(mockResources)
+  }),
+
+  // List resources (rooms) — calendar service path used by useResources
+  http.get(`${API}/api/v1/calendar/resources`, () => {
+    return HttpResponse.json(buildMockCalendarResources())
   }),
 
   // Public holidays (?year=&country_code=&subdivision_code=)
