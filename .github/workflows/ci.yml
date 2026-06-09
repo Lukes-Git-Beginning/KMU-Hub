@@ -28,6 +28,7 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -48,6 +49,7 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       postgres:
         # Must match deploy/docker/docker-compose.yml — migration 000072
@@ -134,6 +136,7 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [lint, test]
     steps:
       - name: Checkout
@@ -152,6 +155,7 @@ jobs:
   e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [lint, test]
     services:
       postgres:
@@ -234,6 +238,15 @@ jobs:
           go build -o bin/work ./cmd/work
           go build -o bin/document ./cmd/document
           go build -o bin/dialer ./cmd/dialer
+
+      - name: Upload service binaries
+        # Hand the compiled binaries to the smoke job (needs: [e2e]) so it
+        # doesn't recompile the same services from scratch on its own runner.
+        uses: actions/upload-artifact@v7
+        with:
+          name: service-binaries
+          path: backend/bin/
+          retention-days: 1
 
       - name: Start auth service
         working-directory: backend
@@ -379,6 +392,7 @@ jobs:
   smoke:
     name: Smoke Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [e2e]
     services:
       postgres:
@@ -450,15 +464,19 @@ jobs:
             sleep 1
           done
 
-      - name: Build and start services
+      - name: Download service binaries
+        # Reuse the binaries compiled in the e2e job instead of recompiling the
+        # same six services from scratch on this runner.
+        uses: actions/download-artifact@v7
+        with:
+          name: service-binaries
+          path: backend/bin
+
+      - name: Start services
         working-directory: backend
         run: |
-          go build -o bin/auth ./cmd/auth
-          go build -o bin/gateway ./cmd/gateway
-          go build -o bin/crm ./cmd/crm
-          go build -o bin/chat ./cmd/chat
-          go build -o bin/work ./cmd/work
-          go build -o bin/document ./cmd/document
+          # The artifact zip drops the executable bit — restore it before exec.
+          chmod +x bin/*
 
           ./bin/auth > /tmp/auth.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:9091/health > /dev/null 2>&1 && break; sleep 1; done
@@ -493,6 +511,7 @@ jobs:
   gosec:
     name: gosec (Go Security)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     continue-on-error: true
     steps:
       - name: Checkout
@@ -527,10 +546,23 @@ jobs:
   trivy:
     name: trivy (Filesystem Vuln Scan)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     continue-on-error: true
+    env:
+      # Workspace-relative so the dir is mounted into the trivy Docker action;
+      # persisted across runs so the vuln DB isn't re-downloaded every time.
+      TRIVY_CACHE_DIR: ${{ github.workspace }}/.trivycache
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Cache trivy vuln DB
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.trivycache
+          key: trivy-db-${{ github.run_id }}
+          restore-keys: |
+            trivy-db-
 
       # trivy ignores the severity filter when emitting SARIF (by design, so
       # code scanning can filter), which made exit-code 1 fire on MEDIUM
@@ -568,6 +600,7 @@ jobs:
   npm-audit:
     name: npm audit (Desktop Dependencies)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -590,9 +623,19 @@ jobs:
   openapi-validate:
     name: Validate OpenAPI
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Setup Node
+        # npm cache so the validator isn't re-fetched from the registry on
+        # every run (reuses the desktop lockfile as the cache key anchor).
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
 
       - name: Validate OpenAPI spec
         run: npx --yes @apidevtools/swagger-cli validate backend/api/openapi.yaml

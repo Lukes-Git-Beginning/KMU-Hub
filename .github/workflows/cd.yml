@@ -31,6 +31,7 @@ jobs:
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment: production
     # For workflow_run trigger: only deploy when CI succeeded.
     # workflow_dispatch bypasses this check (manual override).
