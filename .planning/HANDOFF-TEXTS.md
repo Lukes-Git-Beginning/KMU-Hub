@@ -1,7 +1,22 @@
 # Starttexte für die 3 Claude-Ströme (Copy-Paste)
 
-> **Darien gibt morgen früh jedem Strom seinen Block** (in Claude Code im Repo-Root einfügen). Jeder Block ist selbsttragend: der Claude liest die Pflicht-Docs, kennt seine Lane, seinen Branch und die Regeln. **Erst `git pull` auf `main`, dann den Block geben.**
-> Reihenfolge des Tages: alle drei starten parallel, bauen ihre Lane, pushen ihren Strom-Branch. Darien merged + reviewt später (Branch-Modell, `collision-map.md`).
+> **Darien gibt jedem Strom seinen Block** (in Claude Code im Repo-Root einfügen). Jeder Block ist selbsttragend: der Claude liest die Pflicht-Docs, kennt seine Lane, seinen Branch und die Regeln.
+
+---
+
+## ⚠ TAG 2 (2026-06-10) — FORTSETZUNG: zwei Anpassungen gegenüber den Blöcken unten
+
+**Die Blöcke unten sind der Tag-1-Stand. Für Tag 2 gilt zusätzlich (ZUERST `RESUME-2026-06-10.md` lesen):**
+
+1. **Branch FORTSETZEN, nicht neu erzeugen.** In den Blöcken unten steht `git checkout -B marathon/<strom>` — das ist NUR für Tag 1. **Tag 2 stattdessen:**
+   ```bash
+   git fetch origin && git checkout marathon/<strom> && git pull origin marathon/<strom>
+   ```
+   `checkout -B` würde den Branch von main überschreiben und die gestrige Arbeit löschen.
+2. **Semi-autonom: ein Treiber ist da.** Bei Design-/Klärungsfragen **den anwesenden Treiber fragen** (statt still zu defaulten). Nur für Dariens Spezialwissen → „offene Frage für Darien" notieren. Details: `RESUME-2026-06-10.md`.
+3. **Vor dem Bauen den echten Code-Stand prüfen** (Specs sind teils veraltet — gestern war calendar/kontakte längst weiter als der Plan sagte).
+
+**Was gestern fertig wurde + nächste Phase pro Strom:** siehe Tabelle in `RESUME-2026-06-10.md`. Kurz: D → calendar fertig, weiter mit **dokumente** · N → berichte-Pilots fertig, weiter in der Lane · L → vorm. Backend-P0, nachm. **vertraege**.
 
 ---
 
