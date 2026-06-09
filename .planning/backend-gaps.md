@@ -135,6 +135,15 @@ Strategie: Cosmi macht Vorkette (Angebot→Zahlungseingang) eigenständig, über
 - „Empfohlen von"-Feld am Contact (Self-Referenz) + Empfehler-Report-Aggregation.
 - Mandanten-Segment A/B/C (regelbasiert nach Umsatzpotenzial) — Feld + Berechnungsregel.
 
+#### kontakte P7/P8 — FE-Finish (2026-06-09): mock-first → Backend-Persistenz
+FE ist jetzt komplett (UI + Verdrahtung). Folgende Stores sind localStorage und müssen server-seitig/tenant-weit persistiert werden:
+- **Beratungsprotokoll-PDF:** FE generiert die Geeignetheitserklärung jetzt per `window.print()` (dauerhafter Datenträger, MiFID II/§64 WpHG/FinVermV). **Backend bleibt nötig:** server-seitige PDF-Generierung + **revisionssichere, unveränderliche Ablage** finalisierter Protokolle (10 J.) — `window.print` erfüllt die Aufbewahrungspflicht NICHT (`useAdvisoryProtocolsStore`).
+- **Lead-Scoring-Konfiguration:** Punkte-Regeln + Schwellen jetzt konfigurierbar (`useLeadScoringStore`) → `tenant_settings (module_id='crm', key='leadScoring.*')`. (Score-Feld/Engine am Lead siehe oben.)
+- **Manuelle Segment-Überschreibung:** `useSegmentOverrideStore` pro Kontakt → Feld `contacts.segment_override` (ergänzt die regelbasierte Berechnung).
+- **CustomFields-Definitionen (CRM):** `useContactsStore` localStorage → Definitions-CRUD-Endpoint (analog work, s.u.).
+- **Tags:** `/api/v1/tags` in OpenAPI-Spec aufnehmen (aktuell raw-fetch, untypisiert).
+- Entfernt: `NewsletterPanel` (toter Mock-Stub) — ein echtes Newsletter-/Kampagnen-Feature bräuchte ein E-Mail-Kampagnen-Backend.
+
 ### automatisierung
 - Branch-/Merge-Step im Workflow-Modell + Engine (aktuell sequenziell)
 - `http_request`-Action + inbound `webhook.received`-Trigger

@@ -9,6 +9,7 @@
  * apiClient calls once `/api/v1/leads` lands.
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useLeadScoringStore } from '@/stores/leadScoring'
 
 export type LeadSource = 'manual' | 'csv' | 'dialer'
 export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'disqualified'
@@ -37,9 +38,11 @@ export interface Lead {
 // Scoring — auto-suggestion from source quality + data completeness.
 // ---------------------------------------------------------------------------
 
-const SOURCE_BASE: Record<LeadSource, number> = { dialer: 35, manual: 25, csv: 10 }
-
-/** Compute an auto score 0–100 from source and how complete the lead data is. */
+/**
+ * Compute an auto score 0–100 from source and data completeness. Weights are
+ * read from the configurable lead-scoring store (defaults reproduce the former
+ * hardcoded behaviour). Read via getState() since this runs outside React.
+ */
 export function computeLeadScore(input: {
   source: LeadSource
   email?: string
@@ -47,17 +50,19 @@ export function computeLeadScore(input: {
   company?: string
   notes?: string
 }): number {
-  let score = SOURCE_BASE[input.source] ?? 15
-  if (input.email?.trim()) score += 20
-  if (input.phone?.trim()) score += 15
-  if (input.company?.trim()) score += 20
-  if (input.notes?.trim()) score += 10
-  return Math.min(100, score)
+  const { sourceBase, fieldPoints } = useLeadScoringStore.getState().config
+  let score = sourceBase[input.source] ?? 15
+  if (input.email?.trim()) score += fieldPoints.email
+  if (input.phone?.trim()) score += fieldPoints.phone
+  if (input.company?.trim()) score += fieldPoints.company
+  if (input.notes?.trim()) score += fieldPoints.notes
+  return Math.min(100, Math.max(0, score))
 }
 
 export function scoreToTemperature(score: number): LeadTemperature {
-  if (score >= 66) return 'hot'
-  if (score >= 33) return 'warm'
+  const { hot, warm } = useLeadScoringStore.getState().config.thresholds
+  if (score >= hot) return 'hot'
+  if (score >= warm) return 'warm'
   return 'cold'
 }
 
