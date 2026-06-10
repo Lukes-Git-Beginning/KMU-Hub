@@ -36,8 +36,11 @@ func TestAuthExportHandler_ExportUserData_Integration(t *testing.T) {
 	})
 	defer testutil.CleanupRow(t, pool, "users", userID)
 
+	// RLS: handlers run with the tenant-stamped context the gRPC interceptor provides in production.
+	ctx := testutil.WithTenantCtx(context.Background(), testutil.TenantA)
+
 	h := NewAuthExportHandler(pool)
-	data, err := h.ExportUserData(context.Background(), userID)
+	data, err := h.ExportUserData(ctx, userID)
 
 	require.NoError(t, err)
 	require.NotEmpty(t, data)
@@ -87,8 +90,11 @@ func TestAuthExportHandler_CrossTenant_Integration(t *testing.T) {
 
 	h := NewAuthExportHandler(pool)
 
-	// Export data for userA -- should succeed
-	dataA, err := h.ExportUserData(context.Background(), userA)
+	ctxA := testutil.WithTenantCtx(context.Background(), testutil.TenantA)
+	ctxB := testutil.WithTenantCtx(context.Background(), testutil.TenantB)
+
+	// Export data for userA in tenant A -- should succeed
+	dataA, err := h.ExportUserData(ctxA, userA)
 	require.NoError(t, err)
 	require.NotEmpty(t, dataA)
 
@@ -97,8 +103,12 @@ func TestAuthExportHandler_CrossTenant_Integration(t *testing.T) {
 	sessions := resultA["sessions"].([]interface{})
 	assert.GreaterOrEqual(t, len(sessions), 1, "userA should see their own session")
 
+	// Export userA under tenant B context -- RLS must hide the user entirely
+	_, err = h.ExportUserData(ctxB, userA)
+	assert.Error(t, err, "export across tenants must fail (RLS)")
+
 	// Attempt to export a random user that doesn't exist -- should return error
-	_, err = h.ExportUserData(context.Background(), uuid.New())
+	_, err = h.ExportUserData(ctxA, uuid.New())
 	assert.Error(t, err, "export for non-existent user should return error")
 }
 
@@ -129,15 +139,17 @@ func TestAuthErasureHandler_ExecuteErasure_Integration(t *testing.T) {
 	})
 	defer testutil.CleanupRow(t, pool, "user_sessions", sessionID)
 
+	ctx := testutil.WithTenantCtx(context.Background(), testutil.TenantA)
+
 	h := NewAuthErasureHandler(pool)
-	n, err := h.ExecuteErasure(context.Background(), userID, "Geloeschter Benutzer #1", ErasureAnonymize)
+	n, err := h.ExecuteErasure(ctx, userID, "Geloeschter Benutzer #1", ErasureAnonymize)
 	require.NoError(t, err)
 	assert.Greater(t, n, 0, "should report at least 1 affected record")
 
 	// Verify user is anonymized (email ends in @deleted.invalid, is_active = false)
 	var email string
 	var isActive bool
-	require.NoError(t, pool.QueryRow(context.Background(),
+	require.NoError(t, pool.QueryRow(ctx,
 		`SELECT email, is_active FROM users WHERE id = $1`, userID,
 	).Scan(&email, &isActive))
 
@@ -174,14 +186,16 @@ func TestNotificationErasureHandler_ExecuteErasure_Integration(t *testing.T) {
 	})
 	defer testutil.CleanupRow(t, pool, "notification_preferences", prefID)
 
+	ctx := testutil.WithTenantCtx(context.Background(), testutil.TenantA)
+
 	h := NewNotificationErasureHandler(pool)
-	n, err := h.ExecuteErasure(context.Background(), userID, "Geloeschter Benutzer #1", ErasureDelete)
+	n, err := h.ExecuteErasure(ctx, userID, "Geloeschter Benutzer #1", ErasureDelete)
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, n, 1, "should delete at least 1 preference record")
 
 	// Verify preference is gone
 	var count int
-	require.NoError(t, pool.QueryRow(context.Background(),
+	require.NoError(t, pool.QueryRow(ctx,
 		`SELECT COUNT(*) FROM notification_preferences WHERE user_id = $1`, userID,
 	).Scan(&count))
 	assert.Equal(t, 0, count, "notification preferences should be deleted")
@@ -203,8 +217,10 @@ func TestWorkErasureHandler_Preview_Integration(t *testing.T) {
 	})
 	defer testutil.CleanupRow(t, pool, "users", userID)
 
+	ctx := testutil.WithTenantCtx(context.Background(), testutil.TenantA)
+
 	h := NewWorkErasureHandler(pool)
-	preview, err := h.PreviewErasure(context.Background(), userID)
+	preview, err := h.PreviewErasure(ctx, userID)
 
 	require.NoError(t, err)
 	assert.Equal(t, "work", preview.ModuleName)

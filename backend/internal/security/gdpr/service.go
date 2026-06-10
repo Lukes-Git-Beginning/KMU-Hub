@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -117,9 +118,14 @@ func (s *Service) ApproveExport(ctx context.Context, exportID uuid.UUID, reviewe
 		"reviewer_id", reviewerID,
 	)
 
-	// Trigger async export generation
+	// Trigger async export generation. The tenant must be carried over to the
+	// detached context: the RLS pool hook stamps app.tenant_id from the context,
+	// so a bare Background() would hide every row from the export handlers.
+	bgCtx := context.Background()
+	if tenantID, tErr := middleware.GetTenantID(ctx); tErr == nil {
+		bgCtx = context.WithValue(bgCtx, middleware.TenantIDKey, tenantID.String())
+	}
 	go func() {
-		bgCtx := context.Background()
 		if execErr := s.ExecuteExportAsync(bgCtx, exportID); execErr != nil {
 			slog.Error("gdpr: async export generation failed",
 				"request_id", exportID,
