@@ -63,6 +63,8 @@ export interface CalendarEvent {
   reminder?: string
   videoCall?: boolean
   participants?: Participant[]
+  /** The current user's RSVP for this event, if any. */
+  myRsvp?: RSVPStatus
   isTaskDeadline?: boolean
   isHoliday?: boolean
 }
@@ -116,6 +118,13 @@ function getInitials(firstName: string, lastName: string): string {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
 }
 
+/** Get initials from a full-name string (first + last token). */
+function initialsFromName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+  return (parts[0]?.slice(0, 2) ?? '').toUpperCase()
+}
+
 /** Map RRULE string to German display label. */
 function rruleToDisplay(rrule: string | null): string | undefined {
   if (!rrule) return undefined
@@ -131,6 +140,19 @@ function rruleToDisplay(rrule: string | null): string | undefined {
  * Transform a backend ExpandedEvent to Darien's CalendarEvent UI type.
  */
 export function expandedEventToUI(event: ExpandedEvent): CalendarEvent {
+  // Legacy demo events carry an inline `attendees` array; real ExpandedEvent
+  // exposes attendees via a separate endpoint. Map the inline shape when present.
+  const rawAttendees = (event as unknown as {
+    attendees?: Array<{ name?: string; status?: string }>
+  }).attendees
+  const participants: Participant[] | undefined = rawAttendees?.length
+    ? rawAttendees.map((a) => ({
+        name: a.name ?? '',
+        initials: initialsFromName(a.name ?? ''),
+        rsvp: mapRSVPStatus(a.status ?? 'pending'),
+      }))
+    : undefined
+
   return {
     id: event.id,
     title: event.title,
@@ -146,6 +168,8 @@ export function expandedEventToUI(event: ExpandedEvent): CalendarEvent {
     description: event.description || undefined,
     recurrence: rruleToDisplay(event.rrule),
     videoCall: event.has_video_call,
+    participants,
+    myRsvp: event.my_rsvp ? mapRSVPStatus(event.my_rsvp) : undefined,
   }
 }
 
@@ -262,6 +286,31 @@ export function deadlineToUI(deadline: TaskDeadlineStub): CalendarEvent {
 // ---------------------------------------------------------------------------
 
 /**
+ * Map a UI reminder option (locale-independent constant string) to the
+ * backend `reminder_minutes` array. Returns undefined for "no reminder".
+ *
+ * Note: full round-trip (displaying/editing an existing event's reminder)
+ * needs ExpandedEvent.reminders from the backend + useSetEventReminders on
+ * update — tracked in backend-handover-luke.md. This covers the create path
+ * so the user's choice is no longer silently dropped.
+ */
+const REMINDER_MINUTES_MAP: Record<string, number> = {
+  '5 Minuten': 5,
+  '10 Minuten': 10,
+  '15 Minuten': 15,
+  '30 Minuten': 30,
+  '1 Stunde': 60,
+  '2 Stunden': 120,
+  '1 Tag': 1440,
+}
+
+function reminderToMinutes(display: string | undefined): number[] | undefined {
+  if (!display || display === 'Keine') return undefined
+  const minutes = REMINDER_MINUTES_MAP[display]
+  return minutes !== undefined ? [minutes] : undefined
+}
+
+/**
  * Convert German recurrence label back to RRULE.
  */
 function displayToRrule(display: string | undefined): string | undefined {
@@ -296,6 +345,7 @@ export function uiEventToCreateRequest(
     rrule: displayToRrule(event.recurrence),
     has_video_call: event.videoCall,
     category_id: event.categoryId || undefined,
+    reminder_minutes: reminderToMinutes(event.reminder),
   }
 }
 

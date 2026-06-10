@@ -49,6 +49,12 @@ Folgende Verknüpfungen konnten im ContactDetailPanel NICHT gebaut werden, weil 
 ### dokumente
 - Datei-Kommentare: Comment-Tabelle + Endpoints
 - Externe Share-Links: Token-Store + `GET/POST /api/v1/documents/share-links` (Ablauf, Passwort-Hash) + öffentliches Resolve-Endpoint
+- Tenant-Settings dokumente (2026-06-10, Strom D): `stores/dokumenteSettings.ts` ist mock-first (Dateityp-Gruppen, Standard-Freigabe, OnlyOffice-Schalter, Papierkorb-Tage). Settings-Foundation (Migration 138, `route_settings.go`) liegt inzwischen auf main → nach Merge nur noch FE-Wiring auf `tenant_settings`, kein neues Backend nötig. Enforcement der erlaubten Dateitypen beim Upload wäre Backend-seitig sinnvoll (aktuell nur Verwaltung).
+- Versionsspezifischer Download (2026-06-10, Strom D): `GET /api/v1/documents/files/{id}/versions/{n}/download` fehlt — der „Herunterladen"-Button im Versionsverlauf kann nur die aktuelle Datei laden.
+- Template-Storage (2026-06-10, Strom D): echte Dokument-Vorlagen (.docx/.xlsx/.pptx) + `POST /api/v1/documents/files/from-template/{templateId}` — FE lädt bis dahin generierte Platzhalter-Dateien hoch (TemplateGalleryDialog).
+- Activity-Log (2026-06-10, Strom D, aus Darien-Feedback): `document_activities`-Tabelle + `GET /api/v1/documents/files/{id}/activity` + Schreiben bei Upload/Rename/Move/Copy/Download/Share/Version — FE (Viewer-Info-Panel „Aktivität") ist fertig und läuft mock-first.
+- Thumbnail-Rendering (2026-06-10, Strom D, aus Darien-Feedback): Erstseiten-Vorschau für Kacheln (`thumbnail_key` existiert am Modell, Rendering-Service + Abruf-Endpoint fehlen) — FE zeigt bis dahin eine Seiten-Optik.
+- ⚠ CSP-Hinweis (kein Gap, Review): `frame-src 'self' blob:` neu in `desktop/src/renderer/index.html` (Dokument-Viewer). Der OnlyOffice-iframe (externe `VITE_ONLYOFFICE_URL`) ist von `frame-src` vermutlich weiterhin blockiert — bei OnlyOffice-Scharfschaltung CSP um die Office-Domain erweitern.
 
 ### mails
 - Multi-Account: Tabelle + `ListEmailAccounts` (aktuell 1 Account/User)
@@ -120,6 +126,9 @@ Folgende Verknüpfungen konnten im ContactDetailPanel NICHT gebaut werden, weil 
 - Stundenkonto-Saldo-Endpoint (kumuliert, Perioden-Übertrag)
 - Export-API (CSV / DATEV-Lohn)
 - HR-Worktime-Entry um `project_id`/`customer_id`/`service_code` erweitern
+- Manueller Zeiteintrag: `POST /api/v1/hr/time/entries` fehlt (es gibt nur Clock-In/Out + Korrektur-Workflow)
+- Wochen-Freigabe-Workflow: submit/approve/reject auf Wochenebene
+- ⚠ **Architektur-Entscheidung nötig (Luke + Darien, 2026-06-10):** zwei parallele Zeiterfassungs-UIs — Live-`ZeiterfassungTab` (API-backed) vs. 10 unmounted Store-Views (`profil/tabs/zeiterfassung/`, UI-reich aber Mock) + zwei konkurrierende Topbar-Widgets (`ClockInButton` API vs. `TimeTrackerWidget` Mock). Strom D pausiert das Modul bis zur Entscheidung — Details in `reviews/zeiterfassung.md`.
 
 ### wiki
 - Share-Token-Routes in `route_wiki.go` registrieren (Repo-Methoden existieren) + öffentl. Read-Endpoint

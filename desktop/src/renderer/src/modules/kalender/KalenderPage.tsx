@@ -1,10 +1,13 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useCalendars, useEventCategories, useCreateEventCategory, useDeleteEventCategory } from '@/api/hooks/useCalendars'
-import { useEventsInRange, useCreateEvent, useUpdateEvent, useDeleteEvent, useTaskDeadlines } from '@/api/hooks/useEvents'
+import { useEventsInRange, useCreateEvent, useUpdateEvent, useUpdateRecurringEvent, useDeleteEvent, useTaskDeadlines, useRSVPToEvent } from '@/api/hooks/useEvents'
+import { useHolidays } from '@/api/hooks/useHolidays'
 import { useAuthStore } from '@/stores/auth'
+import { useSettingsStore } from '@/stores/settings'
+import { cn } from '@/lib/cn'
 import {
-  expandedEventToUI, calendarToUI, categoryToUI, deadlineToUI,
+  expandedEventToUI, calendarToUI, categoryToUI, deadlineToUI, holidayToUI,
   uiEventToCreateRequest, uiEventToUpdateRequest,
   getHolidayCalendar, getDeadlineCalendar,
   type CalendarEvent as AdapterCalendarEvent,
@@ -120,9 +123,8 @@ const RECURRENCE_OPTIONS = ['Keine', 'Täglich', 'Wöchentlich', 'Monatlich', 'J
 const REMINDER_OPTIONS = ['Keine', '5 Minuten', '10 Minuten', '15 Minuten', '30 Minuten', '1 Stunde', '2 Stunden', '1 Tag']
 
 const HOUR_HEIGHT = 60
-const START_HOUR = 7
-const END_HOUR = 20
-const HOURS = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => i + START_HOUR)
+// Work-hour grid bounds are read per-view from the calendar settings store
+// (useWorkHours); no longer module-level constants.
 
 // (Mock events removed — now fetched from API)
 
@@ -307,6 +309,32 @@ function minutesToTime(totalMinutes: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
+/** Current time as minutes-from-midnight, re-evaluated every minute. */
+function useNowMinutes(): number {
+  const [minutes, setMinutes] = useState(() => {
+    const n = new Date()
+    return n.getHours() * 60 + n.getMinutes()
+  })
+  useEffect(() => {
+    const id = setInterval(() => {
+      const n = new Date()
+      setMinutes(n.getHours() * 60 + n.getMinutes())
+    }, 60000)
+    return () => clearInterval(id)
+  }, [])
+  return minutes
+}
+
+/** Work-hour grid bounds + hour ticks from the calendar settings store. */
+function useWorkHours(): { startHour: number; endHour: number; hours: number[] } {
+  const { workStartHour, workEndHour } = useSettingsStore((s) => s.calendar)
+  // Guard against inverted/empty ranges from bad settings.
+  const startHour = Math.min(workStartHour, workEndHour)
+  const endHour = Math.max(workStartHour, workEndHour)
+  const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => i + startHour)
+  return { startHour, endHour, hours }
+}
+
 // ============================================================
 // Main Component
 // ============================================================
@@ -314,13 +342,17 @@ function minutesToTime(totalMinutes: number): string {
 export default function KalenderPage() {
   const { t } = useTranslation()
   const [topTab, setTopTab] = useState<TopTab>('kalender')
-  const [view, setView] = useState<ViewMode>('week')
+  const calSettings = useSettingsStore((s) => s.calendar)
+  const [view, setView] = useState<ViewMode>(calSettings.defaultView)
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   const [quickCreate, setQuickCreate] = useState<QuickCreateState | null>(null)
   const [showEventForm, setShowEventForm] = useState(false)
   const [eventFormDefaults, setEventFormDefaults] = useState<Partial<CalendarEvent>>({})
+  // Pending edit of a recurring event — holds the form data until the user
+  // picks a scope (this / this_and_future / all) in the RecurringEditDialog.
+  const [recurringEdit, setRecurringEdit] = useState<Partial<CalendarEvent> | null>(null)
   const [showRoomBooking, setShowRoomBooking] = useState(false)
   const [showCategoryManager, setShowCategoryManager] = useState(false)
   const [showCalendarBrowse, setShowCalendarBrowse] = useState(false)
@@ -398,15 +430,26 @@ export default function KalenderPage() {
   const deadlinesVisible = calendars.find((c) => c.id === 'deadlines')?.visible ?? false
   const { data: deadlinesData } = useTaskDeadlines(rangeStart, rangeEnd)
 
+  // ---- API: Holidays ----
+  const holidaysVisible = calendars.find((c) => c.id === 'holidays')?.visible ?? false
+  const [holidayCountry, holidaySubdivision] = (calSettings.holidayRegion || 'DE-BY').split('-')
+  const { data: holidaysData } = useHolidays(
+    currentDate.getFullYear(),
+    holidayCountry,
+    holidaySubdivision,
+  )
+
   const events = useMemo<CalendarEvent[]>(() => {
     const apiEvents = (eventsData?.events ?? []).map(expandedEventToUI)
     const deadlines = deadlinesVisible ? (deadlinesData?.deadlines ?? []).map(deadlineToUI) : []
-    return [...apiEvents, ...deadlines]
-  }, [eventsData, deadlinesData, deadlinesVisible])
+    const holidays = holidaysVisible ? (holidaysData?.holidays ?? []).map(holidayToUI) : []
+    return [...apiEvents, ...deadlines, ...holidays]
+  }, [eventsData, deadlinesData, deadlinesVisible, holidaysData, holidaysVisible])
 
   // ---- Mutations ----
   const createEventMutation = useCreateEvent()
   const updateEventMutation = useUpdateEvent()
+  const updateRecurringMutation = useUpdateRecurringEvent()
   const deleteEventMutation = useDeleteEvent()
   const createCategoryMutation = useCreateEventCategory()
   const deleteCategoryMutation = useDeleteEventCategory()
@@ -471,6 +514,14 @@ export default function KalenderPage() {
   // Save event (create or update)
   const handleSaveEvent = useCallback((eventData: Partial<CalendarEvent>) => {
     if (eventData.id) {
+      // Editing a recurring event: ask for scope before applying.
+      // recurrence may be the raw option constant ('Keine') or a translated label.
+      const noneValues = ['Keine', t('kalender.recurrence.none')]
+      const isRecurring = !!eventData.recurrence && !noneValues.includes(eventData.recurrence)
+      if (isRecurring) {
+        setRecurringEdit(eventData)
+        return
+      }
       updateEventMutation.mutate(
         { id: eventData.id, ...uiEventToUpdateRequest(eventData) },
         {
@@ -489,7 +540,26 @@ export default function KalenderPage() {
         },
       )
     }
-  }, [createEventMutation, updateEventMutation, calendars])
+  }, [createEventMutation, updateEventMutation, calendars, t])
+
+  // Apply a recurring-event edit with the chosen scope.
+  const applyRecurringEdit = useCallback((scope: 'this' | 'this_and_future' | 'all') => {
+    const data = recurringEdit
+    if (!data?.id) return
+    updateRecurringMutation.mutate(
+      {
+        id: data.id,
+        scope,
+        original_date: data.date ?? '',
+        ...uiEventToUpdateRequest(data),
+      },
+      {
+        onSuccess: () => toast.success(t('kalender.event.updated')),
+        onError: () => toast.error(t('kalender.event.updateError')),
+      },
+    )
+    setRecurringEdit(null)
+  }, [recurringEdit, updateRecurringMutation, t])
 
   // Delete event handler
   const handleDeleteEvent = useCallback((eventId: string) => {
@@ -694,6 +764,14 @@ export default function KalenderPage() {
                 setShowEventForm(true)
               }}
               onDelete={() => handleDeleteEvent(selectedEvent.id)}
+            />
+          )}
+
+          {/* Recurring-edit scope dialog */}
+          {recurringEdit && (
+            <RecurringEditDialog
+              onCancel={() => setRecurringEdit(null)}
+              onConfirm={applyRecurringEdit}
             />
           )}
 
@@ -1783,6 +1861,8 @@ function WeekView({
   onUpdateEvent: (eventId: string, updates: Partial<CalendarEvent>) => void
 }) {
   const { t } = useTranslation()
+  const { startHour: START_HOUR, endHour: END_HOUR, hours: HOURS } = useWorkHours()
+  const nowMinutes = useNowMinutes()
   const weekDays = getWeekDays(currentDate, true) // Mo-Fr
   const [dragState, setDragState] = useState<DragState | null>(null)
   const gridRef = useRef<HTMLDivElement>(null)
@@ -1981,10 +2061,10 @@ function WeekView({
               ))}
 
               {/* Current time indicator */}
-              {isToday(d) && (
+              {isToday(d) && nowMinutes >= START_HOUR * 60 && nowMinutes <= END_HOUR * 60 && (
                 <div
                   className="absolute left-0 right-0 z-10 flex items-center"
-                  style={{ top: ((10 * 60 + 30 - START_HOUR * 60) / 60) * HOUR_HEIGHT }}
+                  style={{ top: ((nowMinutes - START_HOUR * 60) / 60) * HOUR_HEIGHT }}
                 >
                   <div className="h-2.5 w-2.5 -ml-1 rounded-full bg-error" />
                   <div className="flex-1 h-[2px] bg-error" />
@@ -2114,6 +2194,8 @@ function DayView({
   onUpdateEvent: (eventId: string, updates: Partial<CalendarEvent>) => void
 }) {
   const { t } = useTranslation()
+  const { startHour: START_HOUR, endHour: END_HOUR, hours: HOURS } = useWorkHours()
+  const nowMinutes = useNowMinutes()
   const allDay = events.filter((e) => e.isAllDay)
   const timed = events.filter((e) => !e.isAllDay)
   const layouts = layoutOverlappingEvents(timed)
@@ -2262,6 +2344,17 @@ function DayView({
               style={{ top: (hour - START_HOUR) * HOUR_HEIGHT + HOUR_HEIGHT / 2 }}
             />
           ))}
+
+          {/* Current time indicator */}
+          {isToday(currentDate) && nowMinutes >= START_HOUR * 60 && nowMinutes <= END_HOUR * 60 && (
+            <div
+              className="absolute left-0 right-0 z-10 flex items-center"
+              style={{ top: ((nowMinutes - START_HOUR * 60) / 60) * HOUR_HEIGHT }}
+            >
+              <div className="h-2.5 w-2.5 -ml-1 rounded-full bg-error" />
+              <div className="flex-1 h-[2px] bg-error" />
+            </div>
+          )}
 
           {layouts.map(({ event, column, totalColumns }) => {
             const startMin = timeToMinutes(event.startTime)
@@ -2571,6 +2664,59 @@ function QuickCreatePopover({
 // ============================================================
 // Event Form Modal
 // ============================================================
+
+function RecurringEditDialog({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: (scope: 'this' | 'this_and_future' | 'all') => void
+  onCancel: () => void
+}) {
+  const { t } = useTranslation()
+  const options: { scope: 'this' | 'this_and_future' | 'all'; label: string }[] = [
+    { scope: 'this', label: t('kalender.recurring.thisEvent') },
+    { scope: 'this_and_future', label: t('kalender.recurring.thisAndFuture') },
+    { scope: 'all', label: t('kalender.recurring.allEvents') },
+  ]
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center"
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}
+    >
+      <div className="absolute inset-0 bg-black/40" />
+      <div className="relative w-full max-w-sm rounded-xl border border-border bg-card shadow-[var(--shadow-large)] overflow-hidden">
+        <div className="flex items-center gap-2 border-b border-border px-5 py-3">
+          <Repeat className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-medium text-foreground">{t('kalender.recurring.editTitle')}</h3>
+        </div>
+        <div className="px-5 py-4">
+          <p className="mb-4 text-sm text-muted-foreground">{t('kalender.recurring.editDescription')}</p>
+          <div className="space-y-2">
+            {options.map((opt) => (
+              <button
+                key={opt.scope}
+                onClick={() => onConfirm(opt.scope)}
+                className="flex w-full items-center justify-between rounded-lg border border-border px-3 py-2.5 text-left text-sm text-foreground transition-colors hover:bg-secondary"
+              >
+                <span>{opt.label}</span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-end border-t border-border px-5 py-3">
+          <button
+            onClick={onCancel}
+            className="rounded-lg border border-border px-4 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
+          >
+            {t('common.cancel')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function EventFormModal({
   defaults,
@@ -2924,6 +3070,17 @@ function EventDetailPanel({
   const category = categories.find((c) => c.id === event.categoryId)
   const calendar = calendars.find((c) => c.id === event.calendarId)
 
+  // RSVP: respond to an invitation. Local state reflects the choice
+  // immediately (the demo backend does not echo my_rsvp on refetch).
+  const rsvpMutation = useRSVPToEvent()
+  const [myRsvp, setMyRsvp] = useState<RSVPStatus | undefined>(event.myRsvp)
+  const uiToBackendRsvp = { accepted: 'accepted', declined: 'declined', maybe: 'tentative' } as const
+  const handleRsvp = (status: 'accepted' | 'maybe' | 'declined') => {
+    setMyRsvp(status)
+    rsvpMutation.mutate({ eventId: event.id, status: uiToBackendRsvp[status] })
+    toast.success(t('kalender.rsvp.saved'))
+  }
+
   const rsvpIcon = (status: RSVPStatus) => {
     switch (status) {
       case 'accepted': return <Check className="h-3 w-3 text-success" />
@@ -3051,6 +3208,37 @@ function EventDetailPanel({
                       <span className="text-foreground flex-1">{p.name}</span>
                       {rsvpIcon(p.rsvp)}
                     </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* RSVP — your response */}
+            {!event.isHoliday && !event.isTaskDeadline && (
+              <div className="pt-1">
+                <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                  <Users className="h-3.5 w-3.5 shrink-0" />
+                  <span>{t('kalender.rsvp.yourResponse')}</span>
+                </div>
+                <div className="flex gap-2 pl-5">
+                  {([
+                    { status: 'accepted', label: t('kalender.rsvp.accept'), icon: <Check className="h-3 w-3" /> },
+                    { status: 'maybe', label: t('kalender.rsvp.maybe'), icon: <CircleHelp className="h-3 w-3" /> },
+                    { status: 'declined', label: t('kalender.rsvp.decline'), icon: <CircleX className="h-3 w-3" /> },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.status}
+                      onClick={() => handleRsvp(opt.status)}
+                      className={cn(
+                        'flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors',
+                        myRsvp === opt.status
+                          ? 'border-primary bg-primary-subtle text-primary'
+                          : 'border-border text-muted-foreground hover:bg-secondary hover:text-foreground',
+                      )}
+                    >
+                      {opt.icon}
+                      {opt.label}
+                    </button>
                   ))}
                 </div>
               </div>

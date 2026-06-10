@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/global.d.ts",
+    "src/renderer/src/vite-env.d.ts",
+    "src/renderer/src/i18n/i18next.d.ts",
+    "src/renderer/src/stores/dokumentePrefs.ts",
+    "src/renderer/src/stores/dokumenteSettings.ts",
+    "src/renderer/src/modules/dokumente/settings/DokumentePersonalPrefs.tsx",
+    "src/renderer/src/modules/dokumente/settings/DokumenteTenantSettings.tsx",
+    "src/renderer/src/modules/dokumente/settings/DokumenteSettingsPanel.tsx",
+    "src/renderer/src/modules/dokumente/DokumentePage.tsx",
+    "src/renderer/src/modules/settings/module-settings-registry.tsx",
+    "src/renderer/src/mocks/handlers/documents.ts"
+  ]
+}

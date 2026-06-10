@@ -33,6 +33,7 @@ import type {
   SearchFilesResponse,
   ListVirtualFilesResponse,
   DownloadURLResponse,
+  ListActivityResponse,
   WOPITokenResponse,
   SharePermission,
 } from '../types/document-types'
@@ -54,7 +55,7 @@ let refreshPromise: Promise<string | null> | null = null
 
 async function getToken(): Promise<string | undefined> {
   const { useAuthStore } = await import('@/stores/auth')
-  return useAuthStore.getState().accessToken
+  return useAuthStore.getState().accessToken ?? undefined
 }
 
 async function refreshToken(): Promise<string | null> {
@@ -238,6 +239,12 @@ export const documentFileApi = {
   getDownloadURL(id: string) {
     return request<DownloadURLResponse>(
       `/api/v1/documents/files/${id}/download`,
+    )
+  },
+
+  listActivity(id: string) {
+    return request<ListActivityResponse>(
+      `/api/v1/documents/files/${id}/activity`,
     )
   },
 }

@@ -23,7 +23,7 @@ import {
   CheckSquare,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { ConfirmDialog, EmptyState } from '@/components/shared'
+import { ConfirmDialog, EmptyState, SortMenu } from '@/components/shared'
 import { FilePreviewModal } from './FilePreviewModal'
 import { FileDetailPanel } from './FileDetailPanel'
 import { FolderCreateDialog } from './FolderCreateDialog'
@@ -34,7 +34,11 @@ import { VersionHistoryPanel } from './VersionHistoryPanel'
 import { OnlyOfficeEditor, isOnlyOfficeEditable } from './OnlyOfficeEditor'
 import { TemplateGalleryDialog } from './TemplateGalleryDialog'
 import { ShareLinkDialog } from './ShareLinkDialog'
+import { MoveCopyDialog, type MoveCopyMode } from './MoveCopyDialog'
+import { downloadDocumentFile } from './download'
 import { useAIStore, type ClassificationLevel } from '@/stores/ai'
+import { useDokumentePrefsStore } from '@/stores/dokumentePrefs'
+import { useDokumenteSettingsStore } from '@/stores/dokumenteSettings'
 import {
   useDocumentFolders,
   useDocumentFiles,
@@ -53,7 +57,6 @@ import type {
   DocumentFolder,
   FolderSpaceType,
   FileSortField,
-  SortDirection,
 } from '@/api/types/document-types'
 import { formatDate } from '@/lib/format'
 
@@ -103,12 +106,12 @@ function getMimeCategory(mimeType: string): string {
   return 'other'
 }
 
-function getViewPref(folderId: string): 'grid' | 'list' {
+function getViewPref(folderId: string): 'grid' | 'list' | null {
   try {
     const stored = localStorage.getItem(`cosmi-view-pref-${folderId}`)
-    return stored === 'list' ? 'list' : 'grid'
+    return stored === 'list' || stored === 'grid' ? stored : null
   } catch {
-    return 'grid'
+    return null
   }
 }
 
@@ -135,12 +138,19 @@ export default function DokumentePage() {
   const { t } = useTranslation()
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null)
   const [activeSpecialView, setActiveSpecialView] = useState<string | null>(null)
-  const [view, setView] = useState<'grid' | 'list'>(() => getViewPref('default'))
+  // Personal prefs: default view is the fallback for folders without a
+  // per-folder choice; sorting is bound to the toolbar SortMenu and persists.
+  const defaultView = useDokumentePrefsStore((s) => s.defaultView)
+  const density = useDokumentePrefsStore((s) => s.density)
+  const sortField = useDokumentePrefsStore((s) => s.sortField)
+  const sortDir = useDokumentePrefsStore((s) => s.sortDir)
+  const setSort = useDokumentePrefsStore((s) => s.setSort)
+  // Tenant setting: module lead may disable the OnlyOffice editor.
+  const onlyOfficeEnabled = useDokumenteSettingsStore((s) => s.onlyOfficeEnabled)
+  const [view, setView] = useState<'grid' | 'list'>(() => getViewPref('default') ?? defaultView)
   const [search, setSearch] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isDragOver, setIsDragOver] = useState(false)
-  const [sortField] = useState<FileSortField>('date')
-  const [sortDir] = useState<SortDirection>('desc')
 
   // Multi-select
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set())
@@ -165,6 +175,10 @@ export default function DokumentePage() {
   const [versionHistoryTarget, setVersionHistoryTarget] = useState<{
     id: string
     name: string
+  } | null>(null)
+  const [moveCopyTarget, setMoveCopyTarget] = useState<{
+    mode: MoveCopyMode
+    file: DocumentFile
   } | null>(null)
 
   // OnlyOffice editor state
@@ -261,7 +275,7 @@ export default function DokumentePage() {
     setActiveSpecialView(null)
     setSelectedFiles(new Set())
     if (folderId) {
-      setView(getViewPref(folderId))
+      setView(getViewPref(folderId) ?? defaultView)
     }
   }
 
@@ -269,6 +283,13 @@ export default function DokumentePage() {
     setActiveSpecialView(key)
     setActiveFolderId(null)
     setSelectedFiles(new Set())
+  }
+
+  // Real download via expiring URL + temporary anchor
+  const handleDownload = (file: DocumentFile) => {
+    downloadDocumentFile(file.id, file.filename)
+      .then(() => toast.success(t('dokumente.downloading', { name: file.filename })))
+      .catch((err: Error) => toast.error(`${t('common.error')}: ${err.message}`))
   }
 
   // Upload handlers
@@ -517,8 +538,11 @@ export default function DokumentePage() {
         setSelectedFiles(new Set([...selectedFiles, ...range]))
       }
     } else {
+      // Plain click opens the document itself (viewer) — a document should
+      // open like a document, not as a side panel. Multi-select stays on
+      // Ctrl/Shift+click; the side panel remains reachable via "Eigenschaften".
       setSelectedFiles(new Set())
-      setDetailFile(file)
+      setPreviewFile(file)
     }
   }
 
@@ -812,7 +836,18 @@ export default function DokumentePage() {
               <span className="text-xs text-muted-foreground hidden sm:block">
                 {t('dokumente.fileCount', { count: filtered.length })}
               </span>
-              <div className="flex items-center gap-1 ml-auto">
+              <div className="flex items-center gap-2 ml-auto">
+                <SortMenu
+                  options={[
+                    { value: 'name', label: t('dokumente.list.name') },
+                    { value: 'size', label: t('dokumente.list.size') },
+                    { value: 'type', label: t('dokumente.list.type') },
+                    { value: 'date', label: t('dokumente.list.date') },
+                  ]}
+                  field={sortField}
+                  direction={sortDir}
+                  onChange={(f, d) => setSort(f as FileSortField, d)}
+                />
                 <button
                   onClick={() => handleViewChange('grid')}
                   className={`rounded-md p-1.5 transition-colors ${
@@ -987,17 +1022,19 @@ export default function DokumentePage() {
 
               {/* Files */}
               {view === 'grid' ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                <div
+                  className={
+                    density === 'compact'
+                      ? 'grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3'
+                      : 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4'
+                  }
+                >
                   {filtered.map((file) => (
                     <FileContextMenu
                       key={file.id}
                       file={file}
                       onOpen={() => setPreviewFile(file)}
-                      onDownload={() =>
-                        toast.success(
-                          t('dokumente.downloading', { name: file.filename }),
-                        )
-                      }
+                      onDownload={() => handleDownload(file)}
                       onRename={() =>
                         setRenameTarget({
                           id: file.id,
@@ -1005,12 +1042,8 @@ export default function DokumentePage() {
                           type: 'file',
                         })
                       }
-                      onMove={() =>
-                        toast.info(t('dokumente.moveComingSoon'))
-                      }
-                      onCopy={() =>
-                        toast.info(t('dokumente.copyComingSoon'))
-                      }
+                      onMove={() => setMoveCopyTarget({ mode: 'move', file })}
+                      onCopy={() => setMoveCopyTarget({ mode: 'copy', file })}
                       onShare={() =>
                         setShareTarget({
                           type: 'file',
@@ -1027,7 +1060,7 @@ export default function DokumentePage() {
                       onDelete={() => setDeleteConfirmId(file.id)}
                       onProperties={() => setDetailFile(file)}
                       onEditInOnlyOffice={
-                        isOnlyOfficeEditable(file.mime_type)
+                        onlyOfficeEnabled && isOnlyOfficeEditable(file.mime_type)
                           ? () => handleEditInOnlyOffice(file)
                           : undefined
                       }
@@ -1065,11 +1098,7 @@ export default function DokumentePage() {
                       key={file.id}
                       file={file}
                       onOpen={() => setPreviewFile(file)}
-                      onDownload={() =>
-                        toast.success(
-                          t('dokumente.downloading', { name: file.filename }),
-                        )
-                      }
+                      onDownload={() => handleDownload(file)}
                       onRename={() =>
                         setRenameTarget({
                           id: file.id,
@@ -1077,12 +1106,8 @@ export default function DokumentePage() {
                           type: 'file',
                         })
                       }
-                      onMove={() =>
-                        toast.info(t('dokumente.moveComingSoon'))
-                      }
-                      onCopy={() =>
-                        toast.info(t('dokumente.copyComingSoon'))
-                      }
+                      onMove={() => setMoveCopyTarget({ mode: 'move', file })}
+                      onCopy={() => setMoveCopyTarget({ mode: 'copy', file })}
                       onShare={() =>
                         setShareTarget({
                           type: 'file',
@@ -1099,7 +1124,7 @@ export default function DokumentePage() {
                       onDelete={() => setDeleteConfirmId(file.id)}
                       onProperties={() => setDetailFile(file)}
                       onEditInOnlyOffice={
-                        isOnlyOfficeEditable(file.mime_type)
+                        onlyOfficeEnabled && isOnlyOfficeEditable(file.mime_type)
                           ? () => handleEditInOnlyOffice(file)
                           : undefined
                       }
@@ -1192,6 +1217,15 @@ export default function DokumentePage() {
             file={previewFile}
             open={!!previewFile}
             onOpenChange={(open) => !open && setPreviewFile(null)}
+            onRename={(file) =>
+              setRenameTarget({ id: file.id, name: file.filename, type: 'file' })
+            }
+            onShare={(file) =>
+              setShareTarget({ type: 'file', id: file.id, name: file.filename })
+            }
+            onVersionHistory={(file) =>
+              setVersionHistoryTarget({ id: file.id, name: file.filename })
+            }
           />
 
           {/* Detail Panel */}
@@ -1305,6 +1339,7 @@ export default function DokumentePage() {
           <TemplateGalleryDialog
             open={showTemplateGallery}
             onClose={() => setShowTemplateGallery(false)}
+            targetFolderId={activeFolderId}
           />
 
           {/* Share Link Dialog */}
@@ -1314,6 +1349,16 @@ export default function DokumentePage() {
               onClose={() => setShareLinkTarget(null)}
               fileName={shareLinkTarget.name}
               fileId={shareLinkTarget.id}
+            />
+          )}
+
+          {/* Move / Copy Dialog */}
+          {moveCopyTarget && (
+            <MoveCopyDialog
+              open
+              mode={moveCopyTarget.mode}
+              file={moveCopyTarget.file}
+              onOpenChange={(open) => !open && setMoveCopyTarget(null)}
             />
           )}
         </div>
@@ -1442,11 +1487,11 @@ const CLASSIFICATION_COLORS: Record<ClassificationLevel, string> = {
 }
 
 // Classification labels are resolved via t() in the component below
-const CLASSIFICATION_LABEL_KEYS: Record<ClassificationLevel, string> = {
+const CLASSIFICATION_LABEL_KEYS = {
   öffentlich: 'dokumente.classification.public',
   intern: 'dokumente.classification.internal',
   vertraulich: 'dokumente.classification.confidential',
-}
+} as const satisfies Record<ClassificationLevel, string>
 
 function classifyByFilename(filename: string): ClassificationLevel {
   const lower = filename.toLowerCase()
@@ -1493,10 +1538,13 @@ function FileGridCard({
   const cat = getMimeCategory(file.mime_type)
   const Icon = fileTypeIcons[cat] || File
   const colorClass = fileTypeColors[cat] || fileTypeColors.other
+  const density = useDokumentePrefsStore((s) => s.density)
+  const showPreviews = useDokumentePrefsStore((s) => s.showPreviews)
+  const compact = density === 'compact'
 
   return (
     <div
-      className={`group rounded-xl border bg-card p-3 transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5 cursor-pointer ${
+      className={`group rounded-xl border bg-card ${compact ? 'p-2' : 'p-3'} transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:scale-[1.05] hover:-translate-y-0.5 hover:z-10 relative cursor-pointer ${
         isSelected
           ? 'border-primary ring-2 ring-primary/20'
           : 'border-border'
@@ -1507,9 +1555,38 @@ function FileGridCard({
       onDragStart={onDragStart}
     >
       <div
-        className={`flex h-20 items-center justify-center rounded-md ${colorClass} mb-3 relative`}
+        className={`flex ${
+          showPreviews
+            ? compact
+              ? 'h-20 mb-2'
+              : 'h-28 mb-3'
+            : compact
+              ? 'h-14 mb-2'
+              : 'h-20 mb-3'
+        } items-center justify-center rounded-md ${colorClass} relative overflow-hidden`}
       >
-        <Icon className="h-8 w-8" />
+        {showPreviews ? (
+          /* Page-style preview placeholder — real first-page thumbnails need
+             the backend rendering service (see backend-gaps). Paper stays
+             white on purpose, also in dark mode. */
+          <div className="flex h-[86%] w-[62%] flex-col gap-1 rounded-[3px] bg-white p-1.5 shadow-sm">
+            <div className="h-1 w-1/2 rounded-full bg-current opacity-60" />
+            <div className="mt-0.5 h-0.5 w-full rounded-full bg-zinc-200" />
+            <div className="h-0.5 w-full rounded-full bg-zinc-200" />
+            <div className="h-0.5 w-3/4 rounded-full bg-zinc-200" />
+            {!compact && (
+              <>
+                <div className="h-0.5 w-full rounded-full bg-zinc-200" />
+                <div className="h-0.5 w-5/6 rounded-full bg-zinc-200" />
+              </>
+            )}
+            <div className="mt-auto flex items-center justify-end">
+              <Icon className={compact ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
+            </div>
+          </div>
+        ) : (
+          <Icon className="h-8 w-8" />
+        )}
         <div className="absolute top-1.5 right-1.5">
           <ClassificationBadge fileId={file.id} filename={file.filename} />
         </div>
@@ -1575,6 +1652,8 @@ function FileListRow({
   const cat = getMimeCategory(file.mime_type)
   const Icon = fileTypeIcons[cat] || File
   const colorClass = fileTypeColors[cat] || fileTypeColors.other
+  const density = useDokumentePrefsStore((s) => s.density)
+  const compact = density === 'compact'
 
   const typeLabels: Record<string, string> = {
     pdf: 'PDF',
@@ -1588,7 +1667,7 @@ function FileListRow({
 
   return (
     <div
-      className={`group grid grid-cols-[1fr_100px_100px_120px] items-center gap-3 rounded-md px-3 py-2 transition-colors cursor-pointer ${
+      className={`group grid grid-cols-[1fr_100px_100px_120px] items-center gap-3 rounded-md px-3 ${compact ? 'py-1' : 'py-2'} transition-colors cursor-pointer ${
         isSelected
           ? 'bg-primary/5 ring-1 ring-primary/20'
           : 'hover:bg-secondary/50'
@@ -1600,9 +1679,9 @@ function FileListRow({
     >
       <div className="flex items-center gap-3 min-w-0">
         <div
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${colorClass}`}
+          className={`flex ${compact ? 'h-6 w-6' : 'h-8 w-8'} shrink-0 items-center justify-center rounded-md ${colorClass}`}
         >
-          <Icon className="h-4 w-4" />
+          <Icon className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
         </div>
         <div className="min-w-0">
           <p className="text-sm text-foreground truncate">{file.filename}</p>

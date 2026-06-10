@@ -29,6 +29,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { toast } from 'sonner'
 import { DetailPanel } from '@/components/shared'
 import {
   useShares,
@@ -40,6 +41,7 @@ import {
 } from '@/api/hooks/useDocuments'
 import type { DocumentFile } from '@/api/types/document-types'
 import { formatDate } from '@/lib/format'
+import { downloadDocumentFile } from './download'
 
 interface FileDetailPanelProps {
   file: DocumentFile | null
@@ -70,7 +72,8 @@ function getMimeIcon(mimeType: string) {
   return File
 }
 
-function getMimeLabelKey(mimeType: string): string {
+// Return type stays the literal-key union so the typed t() accepts it.
+function getMimeLabelKey(mimeType: string) {
   if (mimeType.startsWith('image/')) return 'dokumente.mimeLabel.image'
   if (mimeType === 'application/pdf') return 'dokumente.mimeLabel.pdf'
   if (mimeType.startsWith('video/')) return 'dokumente.mimeLabel.video'
@@ -203,7 +206,15 @@ export function FileDetailPanel({
           <History className="mr-1.5 h-3.5 w-3.5" />
           {t('dokumente.detail.versions', { count: versions.length })}
         </Button>
-        <Button variant="outline" size="sm">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            downloadDocumentFile(file.id, file.filename)
+              .then(() => toast.success(t('dokumente.downloading', { name: file.filename })))
+              .catch((err: Error) => toast.error(`${t('common.error')}: ${err.message}`))
+          }
+        >
           <Download className="mr-1.5 h-3.5 w-3.5" />
           {t('common.download')}
         </Button>
