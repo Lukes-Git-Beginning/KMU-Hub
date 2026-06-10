@@ -62,6 +62,7 @@ service FinanceService {
   rpc GenerateInvoicePDF(GenerateInvoicePDFRequest) returns (GenerateInvoicePDFResponse);
   rpc GenerateCreditNotePDF(GenerateCreditNotePDFRequest) returns (GenerateCreditNotePDFResponse);
   rpc GenerateDunningPDF(GenerateDunningPDFRequest) returns (GenerateDunningPDFResponse);
+  rpc GenerateZUGFeRDInvoicePDF(GenerateZUGFeRDInvoicePDFRequest) returns (GenerateZUGFeRDInvoicePDFResponse);
 
   // ==================== Time-Tracking → Invoice ====================
   rpc CreateInvoiceFromTimeEntries(CreateInvoiceFromTimeEntriesRequest) returns (CreateInvoiceFromTimeEntriesResponse);
@@ -83,6 +84,20 @@ service FinanceService {
 
   // ==================== GoBD Export ====================
   rpc GenerateGoBDExport(GenerateGoBDExportRequest) returns (GenerateGoBDExportResponse);
+
+  // ==================== GoBD Belegarchiv (§147 AO) ====================
+  rpc ArchiveDocument(ArchiveDocumentRequest) returns (ArchiveDocumentResponse);
+  rpc ArchiveInvoiceDocument(ArchiveInvoiceDocumentRequest) returns (ArchiveInvoiceDocumentResponse);
+  rpc GetGobdDocument(GetGobdDocumentRequest) returns (GetGobdDocumentResponse);
+  rpc ListGobdDocuments(ListGobdDocumentsRequest) returns (ListGobdDocumentsResponse);
+  rpc DownloadGobdDocument(DownloadGobdDocumentRequest) returns (DownloadGobdDocumentResponse);
+  rpc AddDocumentAnnotation(AddDocumentAnnotationRequest) returns (AddDocumentAnnotationResponse);
+
+  // ==================== Incoming Invoices (E-Rechnung Eingang) ====================
+  rpc ImportIncomingInvoice(ImportIncomingInvoiceRequest) returns (ImportIncomingInvoiceResponse);
+  rpc GetIncomingInvoice(GetIncomingInvoiceRequest) returns (GetIncomingInvoiceResponse);
+  rpc ListIncomingInvoices(ListIncomingInvoicesRequest) returns (ListIncomingInvoicesResponse);
+  rpc UpdateIncomingInvoiceStatus(UpdateIncomingInvoiceStatusRequest) returns (UpdateIncomingInvoiceStatusResponse);
 }
 
 // ============================================================================
@@ -217,6 +232,8 @@ message Invoice {
   string created_by = 17;
   google.protobuf.Timestamp created_at = 18;
   google.protobuf.Timestamp updated_at = 19;
+  // Contact-360: CRM contact linked to this invoice (Migration 000141).
+  optional string contact_id = 20;
 }
 
 message CreditNote {
@@ -473,6 +490,8 @@ message CreateInvoiceRequest {
   string notes = 9;
   string source_quote_id = 10;    // Optional
   string created_by = 11;
+  // Contact-360: CRM contact to link to this invoice (Migration 000141).
+  optional string contact_id = 12;
 }
 
 message CreateInvoiceResponse {
@@ -493,6 +512,8 @@ message ListInvoicesRequest {
   InvoiceStatus status = 2;       // Optional filter
   int32 page = 3;
   int32 per_page = 4;
+  // Contact-360 filter: return only invoices linked to this CRM contact.
+  optional string contact_id = 5;
 }
 
 message ListInvoicesResponse {
@@ -788,7 +809,23 @@ message CreateInvoiceFromTimeEntriesRequest {
 }
 
 message CreateInvoiceFromTimeEntriesResponse {
-  Invoice invoice = 1;
+  // JSON-encoded models.Invoice (legacy shape from the formerly hand-written
+  // stub in biz_time.pb.go; the gateway proxies these bytes straight through).
+  bytes invoice_json = 1;
+}
+
+// ============================================================================
+// Deal-to-Quote
+// ============================================================================
+
+message CreateQuoteFromDealRequest {
+  string tenant_id = 1;
+  string deal_id = 2;
+  string created_by = 3;
+}
+
+message CreateQuoteFromDealResponse {
+  Quote quote = 1;
 }
 
 // ============================================================================
@@ -835,7 +872,9 @@ message LockInvoiceRequest {
 }
 
 message LockInvoiceResponse {
-  Invoice invoice = 1;
+  // JSON-encoded models.Invoice (legacy shape from the formerly hand-written
+  // stub in biz_gobd.pb.go; Sprint 4 TODO: replace with typed proto fields).
+  bytes invoice_json = 1;
   string locked_at = 2;            // RFC3339 timestamp of when the lock was applied
 }
 
@@ -901,4 +940,238 @@ message GenerateGoBDExportResponse {
   string filename = 2;
   int32 record_count = 3;
   string format_version = 4;       // e.g., "GoBD-CSV-1.0"
+}
+
+// ============================================================================
+// GoBD Belegarchiv Messages (§147 AO — Revisionssichere Beleg-Ablage)
+// ============================================================================
+
+// GobdDocumentProto represents an immutable archived document.
+message GobdDocumentProto {
+  string id = 1;
+  string tenant_id = 2;
+  string doc_type = 3;                   // gobd_document_type enum value as string
+  string source_invoice_id = 4;          // empty string if null
+  string storage_key = 5;
+  string sha256 = 6;
+  string original_filename = 7;
+  string mime_type = 8;
+  int64 file_size_bytes = 9;
+  google.protobuf.Timestamp archived_at = 10;
+  string archived_by = 11;
+  string retention_until = 12;           // YYYY-MM-DD
+}
+
+// GobdDocumentEventProto represents a single audit trail entry.
+message GobdDocumentEventProto {
+  string id = 1;
+  string tenant_id = 2;
+  string document_id = 3;
+  string event_type = 4;                 // gobd_event_type enum value as string
+  string created_by = 5;
+  google.protobuf.Timestamp created_at = 6;
+  string note = 7;
+  string metadata_json = 8;             // JSON-encoded metadata
+}
+
+// ============================================================================
+// ArchiveDocument Request/Response
+// ============================================================================
+
+message ArchiveDocumentRequest {
+  string tenant_id = 1;
+  string doc_type = 2;                   // required; one of gobd_document_type values
+  string source_invoice_id = 3;          // optional; empty string = null
+  string original_filename = 4;
+  string mime_type = 5;
+  bytes content = 6;                     // raw file bytes (max 50 MiB)
+  string archived_by = 7;               // user ID performing the archival
+}
+
+message ArchiveDocumentResponse {
+  GobdDocumentProto document = 1;
+}
+
+// ============================================================================
+// ArchiveInvoiceDocument Request/Response
+// ============================================================================
+
+message ArchiveInvoiceDocumentRequest {
+  string tenant_id = 1;
+  string invoice_id = 2;                 // must be locked (LockedAt != nil)
+  string archived_by = 3;
+}
+
+message ArchiveInvoiceDocumentResponse {
+  GobdDocumentProto document = 1;
+}
+
+// ============================================================================
+// GetGobdDocument Request/Response
+// ============================================================================
+
+message GetGobdDocumentRequest {
+  string tenant_id = 1;
+  string id = 2;
+}
+
+message GetGobdDocumentResponse {
+  GobdDocumentProto document = 1;
+  repeated GobdDocumentEventProto events = 2;
+}
+
+// ============================================================================
+// ListGobdDocuments Request/Response
+// ============================================================================
+
+message ListGobdDocumentsRequest {
+  string tenant_id = 1;
+  string doc_type = 2;                   // optional filter; empty = all types
+  string source_invoice_id = 3;          // optional filter; empty = all
+  string date_from = 4;                  // optional; YYYY-MM-DD (archived_at >=)
+  string date_to = 5;                    // optional; YYYY-MM-DD (archived_at <=)
+  int32 page = 6;                        // 1-based; defaults to 1
+  int32 per_page = 7;                    // defaults to 50
+}
+
+message ListGobdDocumentsResponse {
+  repeated GobdDocumentProto documents = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 per_page = 4;
+}
+
+// ============================================================================
+// DownloadGobdDocument Request/Response
+// ============================================================================
+
+message DownloadGobdDocumentRequest {
+  string tenant_id = 1;
+  string id = 2;
+  string requested_by = 3;              // user ID (for access audit event)
+}
+
+message DownloadGobdDocumentResponse {
+  string presigned_url = 1;             // valid for 1 hour
+  string original_filename = 2;
+  string mime_type = 3;
+}
+
+// ============================================================================
+// AddDocumentAnnotation Request/Response
+// ============================================================================
+
+message AddDocumentAnnotationRequest {
+  string tenant_id = 1;
+  string document_id = 2;
+  string added_by = 3;
+  string note = 4;
+}
+
+message AddDocumentAnnotationResponse {
+  bool ok = 1;
+}
+
+// ============================================================================
+// ZUGFeRD PDF Generation (previously hand-written in biz_zugferd.pb.go)
+// ============================================================================
+
+message GenerateZUGFeRDInvoicePDFRequest {
+  string id = 1;
+  string tenant_id = 2;
+}
+
+// If ZUGFeRD XML embedding fails, the service returns the plain invoice PDF
+// (graceful degradation) — the caller cannot distinguish the two cases from
+// the response shape alone.
+message GenerateZUGFeRDInvoicePDFResponse {
+  bytes pdf_data = 1;
+  string filename = 2;
+}
+
+// ============================================================================
+// Incoming Invoices (E-Rechnung Eingang)
+// ============================================================================
+
+message IncomingInvoiceLineItem {
+  int32  position    = 1;
+  string description = 2;
+  string quantity    = 3;
+  string unit_price  = 4;
+  string tax_rate    = 5;
+  string line_total  = 6;
+}
+
+message IncomingInvoiceTaxEntry {
+  string tax_rate    = 1;
+  string taxable_net = 2;
+  string tax_amount  = 3;
+}
+
+message IncomingInvoice {
+  string id                = 1;
+  string tenant_id         = 2;
+  string supplier_name     = 3;
+  string supplier_address  = 4;
+  string supplier_vat_id   = 5;
+  string invoice_number    = 6;
+  string invoice_date      = 7;  // YYYY-MM-DD
+  string due_date          = 8;  // YYYY-MM-DD, optional (empty if null)
+  string currency          = 9;
+  repeated IncomingInvoiceLineItem line_items   = 10;
+  repeated IncomingInvoiceTaxEntry tax_breakdown = 11;
+  string subtotal          = 12;
+  string total_tax         = 13;
+  string gross_total       = 14;
+  string source_format     = 15; // zugferd_cii | xrechnung_ubl | xml_only
+  string original_filename = 16;
+  string status            = 17; // received | reviewed | booked | rejected
+  string created_by        = 18;
+  google.protobuf.Timestamp created_at = 19;
+  google.protobuf.Timestamp updated_at = 20;
+}
+
+message ImportIncomingInvoiceRequest {
+  string tenant_id  = 1;
+  string filename   = 2;
+  string mime_type  = 3;  // application/pdf | application/xml | text/xml
+  bytes  content    = 4;
+  string created_by = 5;
+}
+
+message ImportIncomingInvoiceResponse {
+  IncomingInvoice invoice = 1;
+}
+
+message GetIncomingInvoiceRequest {
+  string tenant_id = 1;
+  string id        = 2;
+}
+
+message GetIncomingInvoiceResponse {
+  IncomingInvoice invoice = 1;
+}
+
+message ListIncomingInvoicesRequest {
+  string tenant_id  = 1;
+  string status     = 2;  // optional filter
+  string date_from  = 3;  // YYYY-MM-DD, optional
+  string date_to    = 4;  // YYYY-MM-DD, optional
+  int32  page       = 5;
+  int32  per_page   = 6;
+}
+
+message ListIncomingInvoicesResponse {
+  repeated IncomingInvoice invoices = 1;
+  int32 total                       = 2;
+}
+
+message UpdateIncomingInvoiceStatusRequest {
+  string tenant_id  = 1;
+  string id         = 2;
+  string new_status = 3;  // reviewed | booked | rejected
+}
+
+message UpdateIncomingInvoiceStatusResponse {
+  IncomingInvoice invoice = 1;
 }

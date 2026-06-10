@@ -21,6 +21,8 @@ import (
 	"github.com/kmuhub/kmuhub/internal/biz/dashboard"
 	"github.com/kmuhub/kmuhub/internal/biz/datev"
 	"github.com/kmuhub/kmuhub/internal/biz/dunning"
+	"github.com/kmuhub/kmuhub/internal/biz/einvoice"
+	"github.com/kmuhub/kmuhub/internal/biz/gobdarchive"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/absence"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/employee"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/leave"
@@ -30,6 +32,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/biz/payment"
 	"github.com/kmuhub/kmuhub/internal/biz/pdf"
 	"github.com/kmuhub/kmuhub/internal/biz/quote"
+	chatfile "github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/cache"
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
@@ -67,7 +70,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cfg, err := config.Load(ctx, config.RequireVault)
+	cfg, err := config.Load(ctx, config.RequireVault, config.RequireMinIO)
 	if err != nil {
 		slog.Error("failed to load config", "error", err)
 		os.Exit(1)
@@ -163,6 +166,29 @@ func main() {
 	datevExp := datev.NewExporter()
 
 	// =========================================================================
+	// GoBD Belegarchiv — MinIO file store + service (§147 AO)
+	// =========================================================================
+	var gobdArchiveSvc *gobdarchive.Service
+	gobdFileStore, minioErr := chatfile.NewMinIOStore(
+		cfg.MinIOEndpoint,
+		cfg.MinIOAccessKey,
+		cfg.MinIOSecretKey,
+		cfg.MinIOBucket,
+		cfg.MinIOUseSSL,
+	)
+	if minioErr != nil {
+		slog.Error("failed to connect to minio for gobd archive", "error", minioErr)
+		os.Exit(1)
+	}
+	gobdRepo := gobdarchive.NewPostgresRepository(pool)
+	gobdArchiveSvc = gobdarchive.NewService(gobdRepo, gobdFileStore, invoiceSvc)
+	slog.Info("gobd archive service initialized")
+
+	// Incoming e-invoice processing (E-Rechnung Eingang)
+	einvoiceRepo := einvoice.NewPostgresRepository(pool)
+	einvoiceSvc := einvoice.NewService(einvoiceRepo)
+
+	// =========================================================================
 	// gRPC Server
 	// =========================================================================
 	metricsRegistry := metrics.NewRegistry()
@@ -175,6 +201,8 @@ func main() {
 		grpc.ChainStreamInterceptor(
 			metricsRegistry.GRPCStreamInterceptor(),
 		),
+		grpc.MaxRecvMsgSize(60<<20),
+		grpc.MaxSendMsgSize(60<<20),
 	)
 
 	bizGRPC := server.NewBizGRPCServer(
@@ -189,6 +217,8 @@ func main() {
 		companySettingsRepo,
 		workTimeRepo,
 		crmServiceClient,
+		gobdArchiveSvc,
+		einvoiceSvc,
 	)
 	bizv1.RegisterFinanceServiceServer(grpcServer, bizGRPC)
 

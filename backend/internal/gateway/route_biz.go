@@ -73,6 +73,8 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 	r.Route("/api/v1/finance/invoices", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.With(middleware.RequirePermission("finance", "write")).Post("/", b.HandleCreateInvoice)
+		// E-Rechnung Eingang: PDF (ZUGFeRD) oder XML (XRechnung/CII) importieren
+		r.With(middleware.RequirePermission("finance", "write")).Post("/import", b.HandleImportInvoice)
 		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListInvoices)
 		r.With(middleware.RequirePermission("finance", "read")).Get("/{id}", b.HandleGetInvoice)
 		r.With(middleware.RequirePermission("finance", "write")).Put("/{id}", b.HandleUpdateInvoice)
@@ -148,6 +150,25 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 	r.Route("/api/v1/finance/deals/{dealId}/quote", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.With(middleware.RequirePermission("finance", "write")).Post("/", b.HandleCreateQuoteFromDeal)
+	})
+
+	// GoBD Belegarchiv (§147 AO — revisionssichere Beleg-Ablage)
+	r.Route("/api/v1/finance/gobd-archive", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("gobd-archive", "write")).Post("/", b.HandleArchiveDocument)
+		r.With(middleware.RequirePermission("gobd-archive", "write")).Post("/from-invoice/{invoiceId}", b.HandleArchiveInvoiceDocument)
+		r.With(middleware.RequirePermission("gobd-archive", "read")).Get("/", b.HandleListGobdDocuments)
+		r.With(middleware.RequirePermission("gobd-archive", "read")).Get("/{id}", b.HandleGetGobdDocument)
+		r.With(middleware.RequirePermission("gobd-archive", "read")).Get("/{id}/download", b.HandleDownloadGobdDocument)
+		r.With(middleware.RequirePermission("gobd-archive", "write")).Post("/{id}/annotations", b.HandleAddDocumentAnnotation)
+	})
+
+	// Incoming Invoices (E-Rechnung Eingang) — Liste + Detail + Status-Übergang
+	r.Route("/api/v1/finance/incoming-invoices", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListIncomingInvoices)
+		r.With(middleware.RequirePermission("finance", "read")).Get("/{id}", b.HandleGetIncomingInvoice)
+		r.With(middleware.RequirePermission("finance", "write")).Patch("/{id}/status", b.HandleUpdateIncomingInvoiceStatus)
 	})
 }
 

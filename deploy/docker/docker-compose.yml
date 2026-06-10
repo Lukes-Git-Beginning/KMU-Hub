@@ -366,6 +366,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      minio:
+        condition: service_healthy
+      createbucket:
+        condition: service_completed_successfully
       migrate:
         condition: service_completed_successfully
     environment:
@@ -375,6 +379,12 @@ services:
       COSMI_ENV: ${COSMI_ENV:-development}
       BIZ_GRPC_PORT: ":50058"
       BIZ_HEALTH_PORT: ":9098"
+      # GoBD Belegarchiv (MinIO object storage, RequireMinIO asserts these at startup)
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_BUCKET: kmuhub-files
+      MINIO_USE_SSL: "false"
       CRM_GRPC_ADDRESS: crm:50052
       VAULT_MASTER_SECRET: ${VAULT_MASTER_SECRET:-docker-dev-vault-secret-minimum-32-characters-long}
       # Lexware Office (optional -- integration disabled when not set)

@@ -19,47 +19,64 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	FinanceService_GetCompanySettings_FullMethodName    = "/biz.v1.FinanceService/GetCompanySettings"
-	FinanceService_UpdateCompanySettings_FullMethodName = "/biz.v1.FinanceService/UpdateCompanySettings"
-	FinanceService_CreateQuote_FullMethodName           = "/biz.v1.FinanceService/CreateQuote"
-	FinanceService_GetQuote_FullMethodName              = "/biz.v1.FinanceService/GetQuote"
-	FinanceService_ListQuotes_FullMethodName            = "/biz.v1.FinanceService/ListQuotes"
-	FinanceService_UpdateQuote_FullMethodName           = "/biz.v1.FinanceService/UpdateQuote"
-	FinanceService_DeleteQuote_FullMethodName           = "/biz.v1.FinanceService/DeleteQuote"
-	FinanceService_SendQuote_FullMethodName             = "/biz.v1.FinanceService/SendQuote"
-	FinanceService_AcceptQuote_FullMethodName           = "/biz.v1.FinanceService/AcceptQuote"
-	FinanceService_RejectQuote_FullMethodName           = "/biz.v1.FinanceService/RejectQuote"
-	FinanceService_ExpireQuote_FullMethodName           = "/biz.v1.FinanceService/ExpireQuote"
-	FinanceService_ConvertQuoteToInvoice_FullMethodName = "/biz.v1.FinanceService/ConvertQuoteToInvoice"
-	FinanceService_CreateInvoice_FullMethodName         = "/biz.v1.FinanceService/CreateInvoice"
-	FinanceService_GetInvoice_FullMethodName            = "/biz.v1.FinanceService/GetInvoice"
-	FinanceService_ListInvoices_FullMethodName          = "/biz.v1.FinanceService/ListInvoices"
-	FinanceService_UpdateInvoice_FullMethodName         = "/biz.v1.FinanceService/UpdateInvoice"
-	FinanceService_SendInvoice_FullMethodName           = "/biz.v1.FinanceService/SendInvoice"
-	FinanceService_MarkInvoicePaid_FullMethodName       = "/biz.v1.FinanceService/MarkInvoicePaid"
-	FinanceService_CancelInvoice_FullMethodName         = "/biz.v1.FinanceService/CancelInvoice"
-	FinanceService_CreateCreditNote_FullMethodName      = "/biz.v1.FinanceService/CreateCreditNote"
-	FinanceService_GetCreditNote_FullMethodName         = "/biz.v1.FinanceService/GetCreditNote"
-	FinanceService_ListCreditNotes_FullMethodName       = "/biz.v1.FinanceService/ListCreditNotes"
-	FinanceService_SendCreditNote_FullMethodName        = "/biz.v1.FinanceService/SendCreditNote"
-	FinanceService_RecordPayment_FullMethodName         = "/biz.v1.FinanceService/RecordPayment"
-	FinanceService_ListPayments_FullMethodName          = "/biz.v1.FinanceService/ListPayments"
-	FinanceService_DeletePayment_FullMethodName         = "/biz.v1.FinanceService/DeletePayment"
-	FinanceService_ListDunnings_FullMethodName          = "/biz.v1.FinanceService/ListDunnings"
-	FinanceService_CreateDunning_FullMethodName         = "/biz.v1.FinanceService/CreateDunning"
-	FinanceService_SendDunning_FullMethodName           = "/biz.v1.FinanceService/SendDunning"
-	FinanceService_EscalateDunning_FullMethodName       = "/biz.v1.FinanceService/EscalateDunning"
-	FinanceService_GetDunningConfig_FullMethodName      = "/biz.v1.FinanceService/GetDunningConfig"
-	FinanceService_UpdateDunningConfig_FullMethodName   = "/biz.v1.FinanceService/UpdateDunningConfig"
-	FinanceService_GetFinanceDashboard_FullMethodName   = "/biz.v1.FinanceService/GetFinanceDashboard"
-	FinanceService_ExportDATEV_FullMethodName           = "/biz.v1.FinanceService/ExportDATEV"
-	FinanceService_GenerateQuotePDF_FullMethodName      = "/biz.v1.FinanceService/GenerateQuotePDF"
-	FinanceService_GenerateInvoicePDF_FullMethodName    = "/biz.v1.FinanceService/GenerateInvoicePDF"
-	FinanceService_GenerateCreditNotePDF_FullMethodName = "/biz.v1.FinanceService/GenerateCreditNotePDF"
-	FinanceService_GenerateDunningPDF_FullMethodName             = "/biz.v1.FinanceService/GenerateDunningPDF"
-	FinanceService_CreateInvoiceFromTimeEntries_FullMethodName   = "/biz.v1.FinanceService/CreateInvoiceFromTimeEntries"
-	FinanceService_CreateQuoteFromDeal_FullMethodName            = "/biz.v1.FinanceService/CreateQuoteFromDeal"
-	FinanceService_GenerateZUGFeRDInvoicePDF_FullMethodName      = "/biz.v1.FinanceService/GenerateZUGFeRDInvoicePDF"
+	FinanceService_GetCompanySettings_FullMethodName           = "/biz.v1.FinanceService/GetCompanySettings"
+	FinanceService_UpdateCompanySettings_FullMethodName        = "/biz.v1.FinanceService/UpdateCompanySettings"
+	FinanceService_CreateQuote_FullMethodName                  = "/biz.v1.FinanceService/CreateQuote"
+	FinanceService_GetQuote_FullMethodName                     = "/biz.v1.FinanceService/GetQuote"
+	FinanceService_ListQuotes_FullMethodName                   = "/biz.v1.FinanceService/ListQuotes"
+	FinanceService_UpdateQuote_FullMethodName                  = "/biz.v1.FinanceService/UpdateQuote"
+	FinanceService_DeleteQuote_FullMethodName                  = "/biz.v1.FinanceService/DeleteQuote"
+	FinanceService_SendQuote_FullMethodName                    = "/biz.v1.FinanceService/SendQuote"
+	FinanceService_AcceptQuote_FullMethodName                  = "/biz.v1.FinanceService/AcceptQuote"
+	FinanceService_RejectQuote_FullMethodName                  = "/biz.v1.FinanceService/RejectQuote"
+	FinanceService_ExpireQuote_FullMethodName                  = "/biz.v1.FinanceService/ExpireQuote"
+	FinanceService_ConvertQuoteToInvoice_FullMethodName        = "/biz.v1.FinanceService/ConvertQuoteToInvoice"
+	FinanceService_CreateInvoice_FullMethodName                = "/biz.v1.FinanceService/CreateInvoice"
+	FinanceService_GetInvoice_FullMethodName                   = "/biz.v1.FinanceService/GetInvoice"
+	FinanceService_ListInvoices_FullMethodName                 = "/biz.v1.FinanceService/ListInvoices"
+	FinanceService_UpdateInvoice_FullMethodName                = "/biz.v1.FinanceService/UpdateInvoice"
+	FinanceService_SendInvoice_FullMethodName                  = "/biz.v1.FinanceService/SendInvoice"
+	FinanceService_MarkInvoicePaid_FullMethodName              = "/biz.v1.FinanceService/MarkInvoicePaid"
+	FinanceService_CancelInvoice_FullMethodName                = "/biz.v1.FinanceService/CancelInvoice"
+	FinanceService_CreateCreditNote_FullMethodName             = "/biz.v1.FinanceService/CreateCreditNote"
+	FinanceService_GetCreditNote_FullMethodName                = "/biz.v1.FinanceService/GetCreditNote"
+	FinanceService_ListCreditNotes_FullMethodName              = "/biz.v1.FinanceService/ListCreditNotes"
+	FinanceService_SendCreditNote_FullMethodName               = "/biz.v1.FinanceService/SendCreditNote"
+	FinanceService_RecordPayment_FullMethodName                = "/biz.v1.FinanceService/RecordPayment"
+	FinanceService_ListPayments_FullMethodName                 = "/biz.v1.FinanceService/ListPayments"
+	FinanceService_DeletePayment_FullMethodName                = "/biz.v1.FinanceService/DeletePayment"
+	FinanceService_ListDunnings_FullMethodName                 = "/biz.v1.FinanceService/ListDunnings"
+	FinanceService_CreateDunning_FullMethodName                = "/biz.v1.FinanceService/CreateDunning"
+	FinanceService_SendDunning_FullMethodName                  = "/biz.v1.FinanceService/SendDunning"
+	FinanceService_EscalateDunning_FullMethodName              = "/biz.v1.FinanceService/EscalateDunning"
+	FinanceService_GetDunningConfig_FullMethodName             = "/biz.v1.FinanceService/GetDunningConfig"
+	FinanceService_UpdateDunningConfig_FullMethodName          = "/biz.v1.FinanceService/UpdateDunningConfig"
+	FinanceService_GetFinanceDashboard_FullMethodName          = "/biz.v1.FinanceService/GetFinanceDashboard"
+	FinanceService_ExportDATEV_FullMethodName                  = "/biz.v1.FinanceService/ExportDATEV"
+	FinanceService_GenerateQuotePDF_FullMethodName             = "/biz.v1.FinanceService/GenerateQuotePDF"
+	FinanceService_GenerateInvoicePDF_FullMethodName           = "/biz.v1.FinanceService/GenerateInvoicePDF"
+	FinanceService_GenerateCreditNotePDF_FullMethodName        = "/biz.v1.FinanceService/GenerateCreditNotePDF"
+	FinanceService_GenerateDunningPDF_FullMethodName           = "/biz.v1.FinanceService/GenerateDunningPDF"
+	FinanceService_GenerateZUGFeRDInvoicePDF_FullMethodName    = "/biz.v1.FinanceService/GenerateZUGFeRDInvoicePDF"
+	FinanceService_CreateInvoiceFromTimeEntries_FullMethodName = "/biz.v1.FinanceService/CreateInvoiceFromTimeEntries"
+	FinanceService_CreateQuoteFromDeal_FullMethodName          = "/biz.v1.FinanceService/CreateQuoteFromDeal"
+	FinanceService_GetJournalSummary_FullMethodName            = "/biz.v1.FinanceService/GetJournalSummary"
+	FinanceService_ValidateInvoiceNumber_FullMethodName        = "/biz.v1.FinanceService/ValidateInvoiceNumber"
+	FinanceService_LockInvoice_FullMethodName                  = "/biz.v1.FinanceService/LockInvoice"
+	FinanceService_GetPaymentStats_FullMethodName              = "/biz.v1.FinanceService/GetPaymentStats"
+	FinanceService_UpdateDunningStatus_FullMethodName          = "/biz.v1.FinanceService/UpdateDunningStatus"
+	FinanceService_SendDunningNotice_FullMethodName            = "/biz.v1.FinanceService/SendDunningNotice"
+	FinanceService_GenerateGoBDExport_FullMethodName           = "/biz.v1.FinanceService/GenerateGoBDExport"
+	FinanceService_ArchiveDocument_FullMethodName              = "/biz.v1.FinanceService/ArchiveDocument"
+	FinanceService_ArchiveInvoiceDocument_FullMethodName       = "/biz.v1.FinanceService/ArchiveInvoiceDocument"
+	FinanceService_GetGobdDocument_FullMethodName              = "/biz.v1.FinanceService/GetGobdDocument"
+	FinanceService_ListGobdDocuments_FullMethodName            = "/biz.v1.FinanceService/ListGobdDocuments"
+	FinanceService_DownloadGobdDocument_FullMethodName         = "/biz.v1.FinanceService/DownloadGobdDocument"
+	FinanceService_AddDocumentAnnotation_FullMethodName        = "/biz.v1.FinanceService/AddDocumentAnnotation"
+	FinanceService_ImportIncomingInvoice_FullMethodName        = "/biz.v1.FinanceService/ImportIncomingInvoice"
+	FinanceService_GetIncomingInvoice_FullMethodName           = "/biz.v1.FinanceService/GetIncomingInvoice"
+	FinanceService_ListIncomingInvoices_FullMethodName         = "/biz.v1.FinanceService/ListIncomingInvoices"
+	FinanceService_UpdateIncomingInvoiceStatus_FullMethodName  = "/biz.v1.FinanceService/UpdateIncomingInvoiceStatus"
 )
 
 // FinanceServiceClient is the client API for FinanceService service.
@@ -113,12 +130,11 @@ type FinanceServiceClient interface {
 	GenerateInvoicePDF(ctx context.Context, in *GenerateInvoicePDFRequest, opts ...grpc.CallOption) (*GenerateInvoicePDFResponse, error)
 	GenerateCreditNotePDF(ctx context.Context, in *GenerateCreditNotePDFRequest, opts ...grpc.CallOption) (*GenerateCreditNotePDFResponse, error)
 	GenerateDunningPDF(ctx context.Context, in *GenerateDunningPDFRequest, opts ...grpc.CallOption) (*GenerateDunningPDFResponse, error)
+	GenerateZUGFeRDInvoicePDF(ctx context.Context, in *GenerateZUGFeRDInvoicePDFRequest, opts ...grpc.CallOption) (*GenerateZUGFeRDInvoicePDFResponse, error)
 	// ==================== Time-Tracking → Invoice ====================
 	CreateInvoiceFromTimeEntries(ctx context.Context, in *CreateInvoiceFromTimeEntriesRequest, opts ...grpc.CallOption) (*CreateInvoiceFromTimeEntriesResponse, error)
 	// ==================== Deal-to-Quote ====================
 	CreateQuoteFromDeal(ctx context.Context, in *CreateQuoteFromDealRequest, opts ...grpc.CallOption) (*CreateQuoteFromDealResponse, error)
-	// ==================== ZUGFeRD / Factur-X ====================
-	GenerateZUGFeRDInvoicePDF(ctx context.Context, in *GenerateZUGFeRDInvoicePDFRequest, opts ...grpc.CallOption) (*GenerateZUGFeRDInvoicePDFResponse, error)
 	// ==================== GoBD Journal & Compliance ====================
 	GetJournalSummary(ctx context.Context, in *GetJournalSummaryRequest, opts ...grpc.CallOption) (*GetJournalSummaryResponse, error)
 	ValidateInvoiceNumber(ctx context.Context, in *ValidateInvoiceNumberRequest, opts ...grpc.CallOption) (*ValidateInvoiceNumberResponse, error)
@@ -130,6 +146,18 @@ type FinanceServiceClient interface {
 	SendDunningNotice(ctx context.Context, in *SendDunningNoticeRequest, opts ...grpc.CallOption) (*SendDunningNoticeResponse, error)
 	// ==================== GoBD Export ====================
 	GenerateGoBDExport(ctx context.Context, in *GenerateGoBDExportRequest, opts ...grpc.CallOption) (*GenerateGoBDExportResponse, error)
+	// ==================== GoBD Belegarchiv (§147 AO) ====================
+	ArchiveDocument(ctx context.Context, in *ArchiveDocumentRequest, opts ...grpc.CallOption) (*ArchiveDocumentResponse, error)
+	ArchiveInvoiceDocument(ctx context.Context, in *ArchiveInvoiceDocumentRequest, opts ...grpc.CallOption) (*ArchiveInvoiceDocumentResponse, error)
+	GetGobdDocument(ctx context.Context, in *GetGobdDocumentRequest, opts ...grpc.CallOption) (*GetGobdDocumentResponse, error)
+	ListGobdDocuments(ctx context.Context, in *ListGobdDocumentsRequest, opts ...grpc.CallOption) (*ListGobdDocumentsResponse, error)
+	DownloadGobdDocument(ctx context.Context, in *DownloadGobdDocumentRequest, opts ...grpc.CallOption) (*DownloadGobdDocumentResponse, error)
+	AddDocumentAnnotation(ctx context.Context, in *AddDocumentAnnotationRequest, opts ...grpc.CallOption) (*AddDocumentAnnotationResponse, error)
+	// ==================== Incoming Invoices (E-Rechnung Eingang) ====================
+	ImportIncomingInvoice(ctx context.Context, in *ImportIncomingInvoiceRequest, opts ...grpc.CallOption) (*ImportIncomingInvoiceResponse, error)
+	GetIncomingInvoice(ctx context.Context, in *GetIncomingInvoiceRequest, opts ...grpc.CallOption) (*GetIncomingInvoiceResponse, error)
+	ListIncomingInvoices(ctx context.Context, in *ListIncomingInvoicesRequest, opts ...grpc.CallOption) (*ListIncomingInvoicesResponse, error)
+	UpdateIncomingInvoiceStatus(ctx context.Context, in *UpdateIncomingInvoiceStatusRequest, opts ...grpc.CallOption) (*UpdateIncomingInvoiceStatusResponse, error)
 }
 
 type financeServiceClient struct {
@@ -520,6 +548,16 @@ func (c *financeServiceClient) GenerateDunningPDF(ctx context.Context, in *Gener
 	return out, nil
 }
 
+func (c *financeServiceClient) GenerateZUGFeRDInvoicePDF(ctx context.Context, in *GenerateZUGFeRDInvoicePDFRequest, opts ...grpc.CallOption) (*GenerateZUGFeRDInvoicePDFResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GenerateZUGFeRDInvoicePDFResponse)
+	err := c.cc.Invoke(ctx, FinanceService_GenerateZUGFeRDInvoicePDF_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *financeServiceClient) CreateInvoiceFromTimeEntries(ctx context.Context, in *CreateInvoiceFromTimeEntriesRequest, opts ...grpc.CallOption) (*CreateInvoiceFromTimeEntriesResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateInvoiceFromTimeEntriesResponse)
@@ -534,16 +572,6 @@ func (c *financeServiceClient) CreateQuoteFromDeal(ctx context.Context, in *Crea
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateQuoteFromDealResponse)
 	err := c.cc.Invoke(ctx, FinanceService_CreateQuoteFromDeal_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *financeServiceClient) GenerateZUGFeRDInvoicePDF(ctx context.Context, in *GenerateZUGFeRDInvoicePDFRequest, opts ...grpc.CallOption) (*GenerateZUGFeRDInvoicePDFResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GenerateZUGFeRDInvoicePDFResponse)
-	err := c.cc.Invoke(ctx, FinanceService_GenerateZUGFeRDInvoicePDF_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -620,6 +648,106 @@ func (c *financeServiceClient) GenerateGoBDExport(ctx context.Context, in *Gener
 	return out, nil
 }
 
+func (c *financeServiceClient) ArchiveDocument(ctx context.Context, in *ArchiveDocumentRequest, opts ...grpc.CallOption) (*ArchiveDocumentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ArchiveDocumentResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ArchiveDocument_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) ArchiveInvoiceDocument(ctx context.Context, in *ArchiveInvoiceDocumentRequest, opts ...grpc.CallOption) (*ArchiveInvoiceDocumentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ArchiveInvoiceDocumentResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ArchiveInvoiceDocument_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) GetGobdDocument(ctx context.Context, in *GetGobdDocumentRequest, opts ...grpc.CallOption) (*GetGobdDocumentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetGobdDocumentResponse)
+	err := c.cc.Invoke(ctx, FinanceService_GetGobdDocument_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) ListGobdDocuments(ctx context.Context, in *ListGobdDocumentsRequest, opts ...grpc.CallOption) (*ListGobdDocumentsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListGobdDocumentsResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ListGobdDocuments_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) DownloadGobdDocument(ctx context.Context, in *DownloadGobdDocumentRequest, opts ...grpc.CallOption) (*DownloadGobdDocumentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DownloadGobdDocumentResponse)
+	err := c.cc.Invoke(ctx, FinanceService_DownloadGobdDocument_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) AddDocumentAnnotation(ctx context.Context, in *AddDocumentAnnotationRequest, opts ...grpc.CallOption) (*AddDocumentAnnotationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AddDocumentAnnotationResponse)
+	err := c.cc.Invoke(ctx, FinanceService_AddDocumentAnnotation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) ImportIncomingInvoice(ctx context.Context, in *ImportIncomingInvoiceRequest, opts ...grpc.CallOption) (*ImportIncomingInvoiceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ImportIncomingInvoiceResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ImportIncomingInvoice_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) GetIncomingInvoice(ctx context.Context, in *GetIncomingInvoiceRequest, opts ...grpc.CallOption) (*GetIncomingInvoiceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetIncomingInvoiceResponse)
+	err := c.cc.Invoke(ctx, FinanceService_GetIncomingInvoice_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) ListIncomingInvoices(ctx context.Context, in *ListIncomingInvoicesRequest, opts ...grpc.CallOption) (*ListIncomingInvoicesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListIncomingInvoicesResponse)
+	err := c.cc.Invoke(ctx, FinanceService_ListIncomingInvoices_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) UpdateIncomingInvoiceStatus(ctx context.Context, in *UpdateIncomingInvoiceStatusRequest, opts ...grpc.CallOption) (*UpdateIncomingInvoiceStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateIncomingInvoiceStatusResponse)
+	err := c.cc.Invoke(ctx, FinanceService_UpdateIncomingInvoiceStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FinanceServiceServer is the server API for FinanceService service.
 // All implementations must embed UnimplementedFinanceServiceServer
 // for forward compatibility.
@@ -671,12 +799,11 @@ type FinanceServiceServer interface {
 	GenerateInvoicePDF(context.Context, *GenerateInvoicePDFRequest) (*GenerateInvoicePDFResponse, error)
 	GenerateCreditNotePDF(context.Context, *GenerateCreditNotePDFRequest) (*GenerateCreditNotePDFResponse, error)
 	GenerateDunningPDF(context.Context, *GenerateDunningPDFRequest) (*GenerateDunningPDFResponse, error)
+	GenerateZUGFeRDInvoicePDF(context.Context, *GenerateZUGFeRDInvoicePDFRequest) (*GenerateZUGFeRDInvoicePDFResponse, error)
 	// ==================== Time-Tracking → Invoice ====================
 	CreateInvoiceFromTimeEntries(context.Context, *CreateInvoiceFromTimeEntriesRequest) (*CreateInvoiceFromTimeEntriesResponse, error)
 	// ==================== Deal-to-Quote ====================
 	CreateQuoteFromDeal(context.Context, *CreateQuoteFromDealRequest) (*CreateQuoteFromDealResponse, error)
-	// ==================== ZUGFeRD / Factur-X ====================
-	GenerateZUGFeRDInvoicePDF(context.Context, *GenerateZUGFeRDInvoicePDFRequest) (*GenerateZUGFeRDInvoicePDFResponse, error)
 	// ==================== GoBD Journal & Compliance ====================
 	GetJournalSummary(context.Context, *GetJournalSummaryRequest) (*GetJournalSummaryResponse, error)
 	ValidateInvoiceNumber(context.Context, *ValidateInvoiceNumberRequest) (*ValidateInvoiceNumberResponse, error)
@@ -688,6 +815,18 @@ type FinanceServiceServer interface {
 	SendDunningNotice(context.Context, *SendDunningNoticeRequest) (*SendDunningNoticeResponse, error)
 	// ==================== GoBD Export ====================
 	GenerateGoBDExport(context.Context, *GenerateGoBDExportRequest) (*GenerateGoBDExportResponse, error)
+	// ==================== GoBD Belegarchiv (§147 AO) ====================
+	ArchiveDocument(context.Context, *ArchiveDocumentRequest) (*ArchiveDocumentResponse, error)
+	ArchiveInvoiceDocument(context.Context, *ArchiveInvoiceDocumentRequest) (*ArchiveInvoiceDocumentResponse, error)
+	GetGobdDocument(context.Context, *GetGobdDocumentRequest) (*GetGobdDocumentResponse, error)
+	ListGobdDocuments(context.Context, *ListGobdDocumentsRequest) (*ListGobdDocumentsResponse, error)
+	DownloadGobdDocument(context.Context, *DownloadGobdDocumentRequest) (*DownloadGobdDocumentResponse, error)
+	AddDocumentAnnotation(context.Context, *AddDocumentAnnotationRequest) (*AddDocumentAnnotationResponse, error)
+	// ==================== Incoming Invoices (E-Rechnung Eingang) ====================
+	ImportIncomingInvoice(context.Context, *ImportIncomingInvoiceRequest) (*ImportIncomingInvoiceResponse, error)
+	GetIncomingInvoice(context.Context, *GetIncomingInvoiceRequest) (*GetIncomingInvoiceResponse, error)
+	ListIncomingInvoices(context.Context, *ListIncomingInvoicesRequest) (*ListIncomingInvoicesResponse, error)
+	UpdateIncomingInvoiceStatus(context.Context, *UpdateIncomingInvoiceStatusRequest) (*UpdateIncomingInvoiceStatusResponse, error)
 	mustEmbedUnimplementedFinanceServiceServer()
 }
 
@@ -812,14 +951,14 @@ func (UnimplementedFinanceServiceServer) GenerateCreditNotePDF(context.Context, 
 func (UnimplementedFinanceServiceServer) GenerateDunningPDF(context.Context, *GenerateDunningPDFRequest) (*GenerateDunningPDFResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GenerateDunningPDF not implemented")
 }
+func (UnimplementedFinanceServiceServer) GenerateZUGFeRDInvoicePDF(context.Context, *GenerateZUGFeRDInvoicePDFRequest) (*GenerateZUGFeRDInvoicePDFResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GenerateZUGFeRDInvoicePDF not implemented")
+}
 func (UnimplementedFinanceServiceServer) CreateInvoiceFromTimeEntries(context.Context, *CreateInvoiceFromTimeEntriesRequest) (*CreateInvoiceFromTimeEntriesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateInvoiceFromTimeEntries not implemented")
 }
 func (UnimplementedFinanceServiceServer) CreateQuoteFromDeal(context.Context, *CreateQuoteFromDealRequest) (*CreateQuoteFromDealResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateQuoteFromDeal not implemented")
-}
-func (UnimplementedFinanceServiceServer) GenerateZUGFeRDInvoicePDF(context.Context, *GenerateZUGFeRDInvoicePDFRequest) (*GenerateZUGFeRDInvoicePDFResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method GenerateZUGFeRDInvoicePDF not implemented")
 }
 func (UnimplementedFinanceServiceServer) GetJournalSummary(context.Context, *GetJournalSummaryRequest) (*GetJournalSummaryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetJournalSummary not implemented")
@@ -841,6 +980,36 @@ func (UnimplementedFinanceServiceServer) SendDunningNotice(context.Context, *Sen
 }
 func (UnimplementedFinanceServiceServer) GenerateGoBDExport(context.Context, *GenerateGoBDExportRequest) (*GenerateGoBDExportResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GenerateGoBDExport not implemented")
+}
+func (UnimplementedFinanceServiceServer) ArchiveDocument(context.Context, *ArchiveDocumentRequest) (*ArchiveDocumentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ArchiveDocument not implemented")
+}
+func (UnimplementedFinanceServiceServer) ArchiveInvoiceDocument(context.Context, *ArchiveInvoiceDocumentRequest) (*ArchiveInvoiceDocumentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ArchiveInvoiceDocument not implemented")
+}
+func (UnimplementedFinanceServiceServer) GetGobdDocument(context.Context, *GetGobdDocumentRequest) (*GetGobdDocumentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetGobdDocument not implemented")
+}
+func (UnimplementedFinanceServiceServer) ListGobdDocuments(context.Context, *ListGobdDocumentsRequest) (*ListGobdDocumentsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListGobdDocuments not implemented")
+}
+func (UnimplementedFinanceServiceServer) DownloadGobdDocument(context.Context, *DownloadGobdDocumentRequest) (*DownloadGobdDocumentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DownloadGobdDocument not implemented")
+}
+func (UnimplementedFinanceServiceServer) AddDocumentAnnotation(context.Context, *AddDocumentAnnotationRequest) (*AddDocumentAnnotationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AddDocumentAnnotation not implemented")
+}
+func (UnimplementedFinanceServiceServer) ImportIncomingInvoice(context.Context, *ImportIncomingInvoiceRequest) (*ImportIncomingInvoiceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ImportIncomingInvoice not implemented")
+}
+func (UnimplementedFinanceServiceServer) GetIncomingInvoice(context.Context, *GetIncomingInvoiceRequest) (*GetIncomingInvoiceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetIncomingInvoice not implemented")
+}
+func (UnimplementedFinanceServiceServer) ListIncomingInvoices(context.Context, *ListIncomingInvoicesRequest) (*ListIncomingInvoicesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListIncomingInvoices not implemented")
+}
+func (UnimplementedFinanceServiceServer) UpdateIncomingInvoiceStatus(context.Context, *UpdateIncomingInvoiceStatusRequest) (*UpdateIncomingInvoiceStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateIncomingInvoiceStatus not implemented")
 }
 func (UnimplementedFinanceServiceServer) mustEmbedUnimplementedFinanceServiceServer() {}
 func (UnimplementedFinanceServiceServer) testEmbeddedByValue()                        {}
@@ -1547,6 +1716,24 @@ func _FinanceService_GenerateDunningPDF_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FinanceService_GenerateZUGFeRDInvoicePDF_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateZUGFeRDInvoicePDFRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).GenerateZUGFeRDInvoicePDF(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_GenerateZUGFeRDInvoicePDF_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).GenerateZUGFeRDInvoicePDF(ctx, req.(*GenerateZUGFeRDInvoicePDFRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _FinanceService_CreateInvoiceFromTimeEntries_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateInvoiceFromTimeEntriesRequest)
 	if err := dec(in); err != nil {
@@ -1579,24 +1766,6 @@ func _FinanceService_CreateQuoteFromDeal_Handler(srv interface{}, ctx context.Co
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(FinanceServiceServer).CreateQuoteFromDeal(ctx, req.(*CreateQuoteFromDealRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _FinanceService_GenerateZUGFeRDInvoicePDF_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GenerateZUGFeRDInvoicePDFRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(FinanceServiceServer).GenerateZUGFeRDInvoicePDF(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: FinanceService_GenerateZUGFeRDInvoicePDF_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FinanceServiceServer).GenerateZUGFeRDInvoicePDF(ctx, req.(*GenerateZUGFeRDInvoicePDFRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1723,6 +1892,186 @@ func _FinanceService_GenerateGoBDExport_Handler(srv interface{}, ctx context.Con
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(FinanceServiceServer).GenerateGoBDExport(ctx, req.(*GenerateGoBDExportRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_ArchiveDocument_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ArchiveDocumentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ArchiveDocument(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ArchiveDocument_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ArchiveDocument(ctx, req.(*ArchiveDocumentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_ArchiveInvoiceDocument_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ArchiveInvoiceDocumentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ArchiveInvoiceDocument(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ArchiveInvoiceDocument_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ArchiveInvoiceDocument(ctx, req.(*ArchiveInvoiceDocumentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_GetGobdDocument_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetGobdDocumentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).GetGobdDocument(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_GetGobdDocument_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).GetGobdDocument(ctx, req.(*GetGobdDocumentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_ListGobdDocuments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListGobdDocumentsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ListGobdDocuments(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ListGobdDocuments_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ListGobdDocuments(ctx, req.(*ListGobdDocumentsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_DownloadGobdDocument_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DownloadGobdDocumentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).DownloadGobdDocument(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_DownloadGobdDocument_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).DownloadGobdDocument(ctx, req.(*DownloadGobdDocumentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_AddDocumentAnnotation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddDocumentAnnotationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).AddDocumentAnnotation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_AddDocumentAnnotation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).AddDocumentAnnotation(ctx, req.(*AddDocumentAnnotationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_ImportIncomingInvoice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ImportIncomingInvoiceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ImportIncomingInvoice(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ImportIncomingInvoice_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ImportIncomingInvoice(ctx, req.(*ImportIncomingInvoiceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_GetIncomingInvoice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetIncomingInvoiceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).GetIncomingInvoice(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_GetIncomingInvoice_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).GetIncomingInvoice(ctx, req.(*GetIncomingInvoiceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_ListIncomingInvoices_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListIncomingInvoicesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).ListIncomingInvoices(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_ListIncomingInvoices_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).ListIncomingInvoices(ctx, req.(*ListIncomingInvoicesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_UpdateIncomingInvoiceStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateIncomingInvoiceStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).UpdateIncomingInvoiceStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_UpdateIncomingInvoiceStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).UpdateIncomingInvoiceStatus(ctx, req.(*UpdateIncomingInvoiceStatusRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1887,16 +2236,16 @@ var FinanceService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _FinanceService_GenerateDunningPDF_Handler,
 		},
 		{
+			MethodName: "GenerateZUGFeRDInvoicePDF",
+			Handler:    _FinanceService_GenerateZUGFeRDInvoicePDF_Handler,
+		},
+		{
 			MethodName: "CreateInvoiceFromTimeEntries",
 			Handler:    _FinanceService_CreateInvoiceFromTimeEntries_Handler,
 		},
 		{
 			MethodName: "CreateQuoteFromDeal",
 			Handler:    _FinanceService_CreateQuoteFromDeal_Handler,
-		},
-		{
-			MethodName: "GenerateZUGFeRDInvoicePDF",
-			Handler:    _FinanceService_GenerateZUGFeRDInvoicePDF_Handler,
 		},
 		{
 			MethodName: "GetJournalSummary",
@@ -1925,6 +2274,46 @@ var FinanceService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GenerateGoBDExport",
 			Handler:    _FinanceService_GenerateGoBDExport_Handler,
+		},
+		{
+			MethodName: "ArchiveDocument",
+			Handler:    _FinanceService_ArchiveDocument_Handler,
+		},
+		{
+			MethodName: "ArchiveInvoiceDocument",
+			Handler:    _FinanceService_ArchiveInvoiceDocument_Handler,
+		},
+		{
+			MethodName: "GetGobdDocument",
+			Handler:    _FinanceService_GetGobdDocument_Handler,
+		},
+		{
+			MethodName: "ListGobdDocuments",
+			Handler:    _FinanceService_ListGobdDocuments_Handler,
+		},
+		{
+			MethodName: "DownloadGobdDocument",
+			Handler:    _FinanceService_DownloadGobdDocument_Handler,
+		},
+		{
+			MethodName: "AddDocumentAnnotation",
+			Handler:    _FinanceService_AddDocumentAnnotation_Handler,
+		},
+		{
+			MethodName: "ImportIncomingInvoice",
+			Handler:    _FinanceService_ImportIncomingInvoice_Handler,
+		},
+		{
+			MethodName: "GetIncomingInvoice",
+			Handler:    _FinanceService_GetIncomingInvoice_Handler,
+		},
+		{
+			MethodName: "ListIncomingInvoices",
+			Handler:    _FinanceService_ListIncomingInvoices_Handler,
+		},
+		{
+			MethodName: "UpdateIncomingInvoiceStatus",
+			Handler:    _FinanceService_UpdateIncomingInvoiceStatus_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

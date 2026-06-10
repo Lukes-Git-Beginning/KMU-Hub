@@ -18,6 +18,8 @@ import (
 	"github.com/kmuhub/kmuhub/internal/biz/dashboard"
 	"github.com/kmuhub/kmuhub/internal/biz/datev"
 	"github.com/kmuhub/kmuhub/internal/biz/dunning"
+	"github.com/kmuhub/kmuhub/internal/biz/einvoice"
+	"github.com/kmuhub/kmuhub/internal/biz/gobdarchive"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/timetracking"
 	"github.com/kmuhub/kmuhub/internal/biz/invoice"
 	"github.com/kmuhub/kmuhub/internal/biz/payment"
@@ -48,6 +50,8 @@ type BizGRPCServer struct {
 	companySettings   CompanySettingsRepository
 	timetrackingRepo  timetracking.WorkTimeRepository
 	crmClient         crmv1.CRMServiceClient // optional; nil if CRM service unreachable
+	gobdArchiveSvc    *gobdarchive.Service   // GoBD Belegarchiv (§147 AO)
+	einvoiceSvc       *einvoice.Service      // incoming e-invoice processing (E-Rechnung Eingang)
 }
 
 // NewBizGRPCServer creates a new BizGRPCServer with all finance services.
@@ -63,6 +67,8 @@ func NewBizGRPCServer(
 	companySettings CompanySettingsRepository,
 	timetrackingRepo timetracking.WorkTimeRepository,
 	crmClient crmv1.CRMServiceClient,
+	gobdArchiveSvc *gobdarchive.Service,
+	einvoiceSvc *einvoice.Service,
 ) *BizGRPCServer {
 	return &BizGRPCServer{
 		quoteService:      quoteService,
@@ -76,6 +82,8 @@ func NewBizGRPCServer(
 		companySettings:   companySettings,
 		timetrackingRepo:  timetrackingRepo,
 		crmClient:         crmClient,
+		gobdArchiveSvc:    gobdArchiveSvc,
+		einvoiceSvc:       einvoiceSvc,
 	}
 }
 
@@ -495,6 +503,14 @@ func (s *BizGRPCServer) CreateInvoice(ctx context.Context, req *bizv1.CreateInvo
 		input.SourceQuoteID = &sqid
 	}
 
+	if cid := req.GetContactId(); cid != "" {
+		parsed, parseErr := uuid.Parse(cid)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid contact_id: %v", parseErr)
+		}
+		input.ContactID = &parsed
+	}
+
 	inv, err := s.invoiceService.Create(ctx, input)
 	if err != nil {
 		return nil, mapBizError(err)
@@ -529,6 +545,13 @@ func (s *BizGRPCServer) ListInvoices(ctx context.Context, req *bizv1.ListInvoice
 		Status: invoiceStatusFromProto(req.GetStatus()),
 		Limit:  limit,
 		Offset: offset,
+	}
+	if cid := req.GetContactId(); cid != "" {
+		parsed, parseErr := uuid.Parse(cid)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid contact_id: %v", parseErr)
+		}
+		filter.ContactID = &parsed
 	}
 
 	invoices, total, err := s.invoiceService.List(ctx, tenantID, filter)
