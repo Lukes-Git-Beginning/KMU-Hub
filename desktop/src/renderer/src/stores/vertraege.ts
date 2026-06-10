@@ -9,6 +9,17 @@ export type ContractHistoryActionCode =
   | 'contract_terminated'
   | 'contract_signed'
   | 'reminder_triggered'
+  | 'document_added'
+  | 'document_removed'
+
+/** A document reference attached to a contract (linked via Dokumente-Modul). */
+export interface ContractDocument {
+  fileId: string
+  name: string
+  mimeType?: string
+  size?: number
+  addedAt: string
+}
 
 export interface ContractHistoryEntry {
   date: string
@@ -40,7 +51,9 @@ export interface Contract {
   renewal: 'auto' | 'manual'
   monthlyCost: number
   totalValue: number
+  /** @deprecated Use `documents` instead — kept for legacy migration only */
   documentRef?: string
+  documents?: ContractDocument[]
   notes: string
   history: ContractHistoryEntry[]
   currency?: string
@@ -132,6 +145,8 @@ interface VertraegeStore {
   updateContract: (id: string, updates: Partial<Contract>) => void
   deleteContract: (id: string) => void
   terminateContract: (id: string, reason: string, date: string) => void
+  addDocument: (contractId: string, doc: ContractDocument) => void
+  removeDocument: (contractId: string, fileId: string) => void
 }
 
 const MOCK_CONTRACTS: Contract[] = [
@@ -149,6 +164,10 @@ const MOCK_CONTRACTS: Contract[] = [
     monthlyCost: 4500,
     totalValue: 270000,
     documentRef: 'DOC-MV-001',
+    documents: [
+      { fileId: 'file-005', name: 'Vertrag_Gruber_Maschinenbau.pdf', mimeType: 'application/pdf', size: 540000, addedAt: '2024-01-01' },
+      { fileId: 'file-007', name: 'NDA_Rhein_Consulting.pdf', mimeType: 'application/pdf', size: 180000, addedAt: '2024-01-15' },
+    ],
     notes: 'Hauptsitz in Schwabing. Miete inkl. Nebenkosten und 2 Parkplätze in der Tiefgarage. Kaution EUR 13500 hinterlegt bei der Commerzbank.',
     currency: 'EUR',
     reminderDays: [30, 60, 90],
@@ -172,6 +191,9 @@ const MOCK_CONTRACTS: Contract[] = [
     monthlyCost: 189,
     totalValue: 4536,
     documentRef: 'DOC-SV-003',
+    documents: [
+      { fileId: 'file-006', name: 'SLA_Helvetia_Software.pdf', mimeType: 'application/pdf', size: 320000, addedAt: '2025-01-01' },
+    ],
     notes: 'Business Internet XL mit 10 Gbit/s symmetrisch, inkl. Managed Router und SLA 99.9%. Störungshotline 24/7.',
     currency: 'EUR',
     history: [
@@ -193,6 +215,9 @@ const MOCK_CONTRACTS: Contract[] = [
     monthlyCost: 450,
     totalValue: 5400,
     documentRef: 'DOC-LZ-002',
+    documents: [
+      { fileId: 'file-021', name: 'Wartungsvertrag_Bavaria_Elektro.pdf', mimeType: 'application/pdf', size: 410000, addedAt: '2025-04-01' },
+    ],
     notes: '25 Lizenzen Microsoft 365 Business Premium. Inkl. Exchange Online, Teams, SharePoint und Intune. Verlängerung muss manuell bestätigt werden.',
     currency: 'EUR',
     reminderDays: [30, 60, 90],
@@ -494,6 +519,47 @@ export const useVertraegeStore = create<VertraegeStore>()(
                 }
               : c
           ),
+        })),
+
+      addDocument: (contractId, doc) =>
+        set((state) => ({
+          contracts: state.contracts.map((c) => {
+            if (c.id !== contractId) return c
+            return {
+              ...c,
+              documents: [...(c.documents ?? []), doc],
+              history: [
+                ...c.history,
+                {
+                  date: new Date().toISOString().split('T')[0],
+                  action: 'document_added',
+                  meta: doc.name,
+                  user: 'Aktueller Benutzer',
+                },
+              ],
+            }
+          }),
+        })),
+
+      removeDocument: (contractId, fileId) =>
+        set((state) => ({
+          contracts: state.contracts.map((c) => {
+            if (c.id !== contractId) return c
+            const removed = (c.documents ?? []).find((d) => d.fileId === fileId)
+            return {
+              ...c,
+              documents: (c.documents ?? []).filter((d) => d.fileId !== fileId),
+              history: [
+                ...c.history,
+                {
+                  date: new Date().toISOString().split('T')[0],
+                  action: 'document_removed',
+                  meta: removed?.name ?? fileId,
+                  user: 'Aktueller Benutzer',
+                },
+              ],
+            }
+          }),
         })),
     }),
     { name: 'cosmi-verträge' },

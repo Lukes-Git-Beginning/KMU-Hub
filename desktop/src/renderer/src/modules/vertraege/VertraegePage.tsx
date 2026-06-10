@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Search,
@@ -33,6 +33,10 @@ import {
   FileX,
   BellRing,
   History,
+  Upload,
+  Loader2,
+  History as VersionIcon,
+  FileSearch,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -41,12 +45,17 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { useVertraegeStore, type Contract, type ContractType, type ContractStatus, type ContractTemplate } from '@/stores/vertraege'
+import { useVertraegeStore, type Contract, type ContractType, type ContractStatus, type ContractTemplate, type ContractDocument } from '@/stores/vertraege'
 import { useVertraegePrefsStore } from '@/stores/vertraegePrefs'
 import { useVertraegeSettingsStore } from '@/stores/vertraegeSettings'
 import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
 import { formatCurrency, formatDate } from '@/lib/format'
 import ESignaturDialog from './ESignaturDialog'
+import { FilePreviewModal } from '@/modules/dokumente/FilePreviewModal'
+import { VersionHistoryPanel } from '@/modules/dokumente/VersionHistoryPanel'
+import { useDocumentFiles } from '@/api/hooks/useDocuments'
+import { useDocumentUpload } from '@/api/hooks/useDocumentUpload'
+import type { DocumentFile } from '@/api/types/document-types'
 
 // ─── Type Config ─────────────────────────────────────────────────
 
@@ -73,15 +82,6 @@ const renewalLabelKeys: Record<string, string> = {
   auto: 'vertraege.renewal.auto',
   manual: 'vertraege.renewal.manual',
 }
-
-// ─── Mock Documents ─────────────────────────────────────────────
-
-const MOCK_DOCUMENTS = [
-  'Mietvertrag_2024.pdf',
-  'SLA_Vorlage.pdf',
-  'Rahmenvertrag.pdf',
-  'AGB_2025.pdf',
-]
 
 // ─── Currency Options ───────────────────────────────────────────
 
@@ -130,7 +130,7 @@ interface ContractFormData {
   monthlyCost: number
   notes: string
   currency: string
-  documentRef: string
+  documents: ContractDocument[]
   reminderDays: number[]
 }
 
@@ -166,8 +166,71 @@ function ContractDialog({
     monthlyCost: initial?.monthlyCost ?? 0,
     notes: initial?.notes ?? '',
     currency: initial?.currency ?? 'EUR',
-    documentRef: initial?.documentRef ?? '',
+    documents: initial?.documents ?? [],
     reminderDays: initial ? (initial.reminderDays ?? []) : (personalReminderDays ?? tenantReminderDays),
+  })
+
+  // Document picker state
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerSearch, setPickerSearch] = useState('')
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const upload = useDocumentUpload()
+  const { data: filesData } = useDocumentFiles()
+  const allFiles = filesData?.files ?? []
+
+  const handlePickerSelect = (file: DocumentFile) => {
+    const alreadyAdded = form.documents.some((d) => d.fileId === file.id)
+    if (alreadyAdded) {
+      toast.info(t('vertraege.documents.alreadyAdded'))
+      return
+    }
+    const doc: ContractDocument = {
+      fileId: file.id,
+      name: file.filename,
+      mimeType: file.mime_type,
+      size: file.file_size,
+      addedAt: new Date().toISOString().split('T')[0],
+    }
+    setForm((f) => ({ ...f, documents: [...f.documents, doc] }))
+    setPickerOpen(false)
+    setPickerSearch('')
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    try {
+      setUploadProgress(0)
+      const uploaded = await upload.mutateAsync({
+        folderId: 'fld-verträge',
+        file,
+        onProgress: setUploadProgress,
+      })
+      const doc: ContractDocument = {
+        fileId: uploaded.id,
+        name: uploaded.filename,
+        mimeType: uploaded.mime_type,
+        size: uploaded.file_size,
+        addedAt: new Date().toISOString().split('T')[0],
+      }
+      setForm((f) => ({ ...f, documents: [...f.documents, doc] }))
+      toast.success(t('vertraege.documents.uploadSuccess', { name: uploaded.filename }))
+    } catch (err) {
+      toast.error(t('vertraege.documents.uploadError'))
+    } finally {
+      setUploadProgress(null)
+    }
+  }
+
+  const handleRemoveDoc = (fileId: string) => {
+    setForm((f) => ({ ...f, documents: f.documents.filter((d) => d.fileId !== fileId) }))
+  }
+
+  const filteredPickerFiles = allFiles.filter((f) => {
+    if (!pickerSearch) return true
+    return f.filename.toLowerCase().includes(pickerSearch.toLowerCase())
   })
 
   const isEdit = !!initial
@@ -201,7 +264,19 @@ function ContractDialog({
 
     if (isEdit && initial) {
       updateContract(initial.id, {
-        ...form,
+        title: form.title,
+        type: form.type,
+        partner: form.partner,
+        contractNumber: form.contractNumber,
+        startDate: form.startDate,
+        endDate: form.endDate,
+        noticePeriodDays: form.noticePeriodDays,
+        renewal: form.renewal,
+        monthlyCost: form.monthlyCost,
+        notes: form.notes,
+        currency: form.currency,
+        documents: form.documents,
+        reminderDays: form.reminderDays,
         totalValue: form.endDate
           ? form.monthlyCost * Math.max(1, Math.ceil(
               (new Date(form.endDate).getTime() - new Date(form.startDate).getTime()) / (1000 * 60 * 60 * 24 * 30)
@@ -221,7 +296,19 @@ function ContractDialog({
         : 0
       addContract({
         id: `v-${Date.now()}`,
-        ...form,
+        title: form.title,
+        type: form.type,
+        partner: form.partner,
+        contractNumber: form.contractNumber,
+        startDate: form.startDate,
+        endDate: form.endDate,
+        noticePeriodDays: form.noticePeriodDays,
+        renewal: form.renewal,
+        monthlyCost: form.monthlyCost,
+        notes: form.notes,
+        currency: form.currency,
+        documents: form.documents,
+        reminderDays: form.reminderDays,
         status: 'active',
         totalValue: form.monthlyCost * months,
         history: [
@@ -417,25 +504,115 @@ function ContractDialog({
             </div>
           </div>
 
-          {/* Dokument-Verknüpfung (10.7) */}
+          {/* Dokument-Verknüpfung (Phase 7) */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">
-              {t('vertraege.contractDialog.labelDocument')} <span className="text-xs text-muted-foreground font-normal">({t('common.optional')})</span>
+              {t('vertraege.documents.label')} <span className="text-xs text-muted-foreground font-normal">({t('common.optional')})</span>
             </label>
-            <div className="relative">
-              <select
-                value={form.documentRef}
-                onChange={(e) => setForm((f) => ({ ...f, documentRef: e.target.value }))}
-                className="w-full appearance-none rounded-lg border border-border bg-card pl-9 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
-              >
-                <option value="">{t('vertraege.contractDialog.noDocument')}</option>
-                {MOCK_DOCUMENTS.map((doc) => (
-                  <option key={doc} value={doc}>{doc}</option>
+
+            {/* Verknüpfte Dokumente */}
+            {form.documents.length > 0 && (
+              <div className="space-y-1.5 mb-2">
+                {form.documents.map((doc) => (
+                  <div
+                    key={doc.fileId}
+                    className="flex items-center gap-2 rounded-lg border border-border bg-secondary/30 px-3 py-2"
+                  >
+                    <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
+                    <span className="flex-1 text-sm text-foreground truncate">{doc.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveDoc(doc.fileId)}
+                      aria-label={t('vertraege.documents.remove')}
+                      className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 ))}
-              </select>
-              <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              </div>
+            )}
+
+            {/* Aktionen: Aus Dokumenten wählen + Hochladen */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                aria-label={t('vertraege.documents.pickFromLibrary')}
+                className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground hover:bg-secondary transition-colors"
+              >
+                <FileSearch className="h-3.5 w-3.5" />
+                {t('vertraege.documents.pickFromLibrary')}
+              </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadProgress !== null}
+                aria-label={t('vertraege.documents.upload')}
+                className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground hover:bg-secondary transition-colors disabled:opacity-50"
+              >
+                {uploadProgress !== null ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    {uploadProgress}%
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-3.5 w-3.5" />
+                    {t('vertraege.documents.upload')}
+                  </>
+                )}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={handleFileUpload}
+                accept=".pdf,.docx,.doc,.xlsx,.xls,.png,.jpg,.jpeg"
+              />
             </div>
+
+            {/* Picker Dropdown */}
+            {pickerOpen && (
+              <div className="rounded-lg border border-border bg-card shadow-lg z-10 relative">
+                <div className="p-2 border-b border-border">
+                  <input
+                    type="text"
+                    value={pickerSearch}
+                    onChange={(e) => setPickerSearch(e.target.value)}
+                    placeholder={t('vertraege.documents.pickerSearch')}
+                    className="w-full rounded-md border border-border bg-secondary/30 px-3 py-1.5 text-xs text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-1 focus:ring-focus-ring"
+                    autoFocus
+                  />
+                </div>
+                <div className="max-h-48 overflow-y-auto">
+                  {filteredPickerFiles.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">{t('vertraege.documents.pickerEmpty')}</p>
+                  ) : (
+                    filteredPickerFiles.slice(0, 20).map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => handlePickerSelect(f)}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-left text-xs hover:bg-secondary transition-colors"
+                      >
+                        <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="flex-1 truncate text-foreground">{f.filename}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+                <div className="p-2 border-t border-border">
+                  <button
+                    type="button"
+                    onClick={() => { setPickerOpen(false); setPickerSearch('') }}
+                    className="w-full text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    {t('common.cancel')}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Erinnerungen (10.8) */}
@@ -791,6 +968,10 @@ export default function VertraegePage() {
   const [confirmDelete, setConfirmDelete] = useState<Contract | null>(null)
   const [eSignaturContract, setESignaturContract] = useState<Contract | null>(null)
 
+  // Phase 7: Dokument-Vorschau und Versions-Panel
+  const [previewDoc, setPreviewDoc] = useState<{ file: DocumentFile; open: boolean } | null>(null)
+  const [versionsDoc, setVersionsDoc] = useState<{ fileId: string; name: string; open: boolean } | null>(null)
+
   // ── Computed ──
 
   const activeContracts = useMemo(
@@ -905,6 +1086,7 @@ export default function VertraegePage() {
       notes: '',
       templateId: template.id,
       currency: 'EUR',
+      documents: [],
       history: [],
     }
     setEditContract(prefilled)
@@ -1209,7 +1391,11 @@ export default function VertraegePage() {
         }
       >
         {selectedContract && (
-          <DetailPanelContent contract={selectedContract} />
+          <DetailPanelContent
+            contract={selectedContract}
+            onPreviewDoc={(file) => setPreviewDoc({ file, open: true })}
+            onVersionsDoc={(fileId, name) => setVersionsDoc({ fileId, name, open: true })}
+          />
         )}
       </DetailPanel>
 
@@ -1252,6 +1438,25 @@ export default function VertraegePage() {
         variant="destructive"
         onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
       />
+
+      {/* Phase 7: Dokument-Vorschau */}
+      <FilePreviewModal
+        file={previewDoc?.file ?? null}
+        open={previewDoc?.open ?? false}
+        onOpenChange={(open) => {
+          if (!open) setPreviewDoc(null)
+        }}
+      />
+
+      {/* Phase 7: Versions-Panel */}
+      {versionsDoc && (
+        <VersionHistoryPanel
+          fileId={versionsDoc.fileId}
+          fileName={versionsDoc.name}
+          open={versionsDoc.open}
+          onClose={() => setVersionsDoc(null)}
+        />
+      )}
     </div>
   )
 }
@@ -1265,6 +1470,8 @@ const HISTORY_ACTION_CODES = [
   'contract_terminated',
   'contract_signed',
   'reminder_triggered',
+  'document_added',
+  'document_removed',
 ] as const satisfies readonly string[]
 
 type HistoryActionCode = typeof HISTORY_ACTION_CODES[number]
@@ -1285,6 +1492,10 @@ function getHistoryIcon(action: string) {
       return Pen
     case 'reminder_triggered':
       return BellRing
+    case 'document_added':
+      return FileText
+    case 'document_removed':
+      return FileX
     default:
       return History
   }
@@ -1302,6 +1513,10 @@ function getHistoryIconColor(action: string): string {
       return 'text-info bg-info-light'
     case 'reminder_triggered':
       return 'text-warning bg-warning-light'
+    case 'document_added':
+      return 'text-info bg-info-light'
+    case 'document_removed':
+      return 'text-muted-foreground bg-secondary'
     default:
       return 'text-muted-foreground bg-secondary'
   }
@@ -1439,7 +1654,47 @@ function ReminderSchedule({ contract }: { contract: import('@/stores/vertraege')
 
 // ─── Detail Panel Content ────────────────────────────────────────
 
-function DetailPanelContent({ contract }: { contract: Contract }) {
+// Adapter: ContractDocument → minimal DocumentFile shape for FilePreviewModal
+function contractDocToDocumentFile(doc: ContractDocument): DocumentFile {
+  return {
+    id: doc.fileId,
+    folder_id: 'fld-verträge',
+    filename: doc.name,
+    mime_type: doc.mimeType ?? 'application/octet-stream',
+    file_size: doc.size ?? 0,
+    storage_key: `contract-doc/${doc.fileId}`,
+    thumbnail_key: null,
+    current_version: 1,
+    owner_id: '',
+    is_favorite: false,
+    is_deleted: false,
+    tags: [],
+    created_at: doc.addedAt,
+    updated_at: doc.addedAt,
+  }
+}
+
+function getMimeIcon(mimeType: string) {
+  if (mimeType === 'application/pdf') return FileText
+  if (mimeType.startsWith('image/')) return FileText
+  if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) return FileText
+  return FileText
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(1)} GB`
+  if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${bytes} B`
+}
+
+interface DetailPanelContentProps {
+  contract: Contract
+  onPreviewDoc: (file: DocumentFile) => void
+  onVersionsDoc: (fileId: string, name: string) => void
+}
+
+function DetailPanelContent({ contract, onPreviewDoc, onVersionsDoc }: DetailPanelContentProps) {
   const { t } = useTranslation()
   const typeConf = contractTypeConfig[contract.type]
   const TypeIcon = typeConf.icon
@@ -1643,19 +1898,65 @@ function DetailPanelContent({ contract }: { contract: Contract }) {
         </div>
       )}
 
-      {/* Document reference (10.7 — clickable) */}
-      {contract.documentRef && (
-        <div className="space-y-2">
-          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vertraege.detail.dokument')}</h4>
-          <button
-            onClick={() => toast.info(t('vertraege.detail.documentOpening', { doc: contract.documentRef }))}
-            className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors w-full text-left"
-          >
-            <FileText className="h-4 w-4 text-primary shrink-0" />
-            <span className="font-mono truncate">{contract.documentRef}</span>
-          </button>
-        </div>
-      )}
+      {/* Phase 7: Dokumente-Sektion */}
+      <div className="space-y-2">
+        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          {t('vertraege.documents.sectionTitle')}
+          {(contract.documents?.length ?? 0) > 0 && (
+            <span className="ml-1.5 text-muted-foreground font-normal normal-case">
+              ({contract.documents!.length})
+            </span>
+          )}
+        </h4>
+        {(contract.documents?.length ?? 0) === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-5 text-center">
+            <FileText className="h-6 w-6 text-muted-foreground/40 mb-2" />
+            <p className="text-xs text-muted-foreground">{t('vertraege.documents.emptyState')}</p>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {contract.documents!.map((doc) => {
+              const DocIcon = getMimeIcon(doc.mimeType ?? '')
+              return (
+                <div
+                  key={doc.fileId}
+                  className="flex items-center gap-2 rounded-lg border border-border bg-secondary/20 px-3 py-2 group"
+                >
+                  <DocIcon className="h-4 w-4 text-primary shrink-0" />
+                  <button
+                    onClick={() => onPreviewDoc(contractDocToDocumentFile(doc))}
+                    aria-label={t('vertraege.documents.preview', { name: doc.name })}
+                    className="flex-1 text-left text-sm text-foreground hover:text-primary transition-colors truncate"
+                  >
+                    {doc.name}
+                  </button>
+                  {doc.size != null && (
+                    <span className="text-[10px] text-muted-foreground shrink-0">
+                      {formatBytes(doc.size)}
+                    </span>
+                  )}
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => onVersionsDoc(doc.fileId, doc.name)}
+                          aria-label={t('vertraege.documents.versions', { name: doc.name })}
+                          className="text-muted-foreground hover:text-foreground transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+                        >
+                          <VersionIcon className="h-3.5 w-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">{t('vertraege.documents.versionsTooltip')}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Audit log feed (phase 4) */}
       <AuditLogFeed history={contract.history} />

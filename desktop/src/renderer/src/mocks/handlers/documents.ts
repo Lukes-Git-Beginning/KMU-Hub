@@ -3,6 +3,12 @@ import { API_BASE_URL } from '@/lib/constants'
 import { IDS } from '../data/shared-ids'
 import { daysAgo, hoursAgo } from '../data/date-helpers'
 
+// ---------------------------------------------------------------------------
+// Minimal demo PDF (base64-encoded 1-page blank PDF for iframe preview)
+// ---------------------------------------------------------------------------
+const DEMO_PDF_B64 =
+  'JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2JqCjIgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9LaWRzIFszIDAgUl0KL0NvdW50IDEKPD4KZW5kb2JqCjMgMCBvYmoKPDwKL1R5cGUgL1BhZ2UKL1BhcmVudCAyIDAgUgovTWVkaWFCb3ggWzAgMCA2MTIgNzkyXQo+PgplbmRvYmoKeHJlZgowIDQKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDA5IDAwMDAwIG4gCjAwMDAwMDAwNTggMDAwMDAgbiAKMDAwMDAwMDExNSAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9TaXplIDQKL1Jvb3QgMSAwIFIKPj4Kc3RhcnR4cmVmCjE5NQolJUVPRgo='
+
 const API = API_BASE_URL
 
 // ---------------------------------------------------------------------------
@@ -156,8 +162,9 @@ export const documentHandlers = [
 
     const start = (page - 1) * perPage
     const paginated = filtered.slice(start, start + perPage)
+    const enriched = paginated.map((f) => ({ current_version: 1, is_favorite: false, is_deleted: false, owner_id: f.created_by, storage_key: `demo/${f.id}`, thumbnail_key: null, ...f }))
 
-    return HttpResponse.json({ files: paginated, total: filtered.length, page, per_page: perPage })
+    return HttpResponse.json({ files: enriched, total: filtered.length, page, per_page: perPage })
   }),
 
   // File detail
@@ -166,7 +173,7 @@ export const documentHandlers = [
     if (!file) {
       return HttpResponse.json({ error: 'File not found' }, { status: 404 })
     }
-    return HttpResponse.json({ file })
+    return HttpResponse.json({ file: { current_version: 1, is_favorite: false, is_deleted: false, owner_id: file.created_by, storage_key: `demo/${file.id}`, thumbnail_key: null, ...file } })
   }),
 
   // Delete file
@@ -202,5 +209,194 @@ export const documentHandlers = [
   // Virtual files — empty in demo
   http.get(`${API}/api/v1/documents/virtual`, () => {
     return HttpResponse.json({ files: [], total: 0 })
+  }),
+
+  // ---------------------------------------------------------------------------
+  // File download URL — returns a data-URL so the iframe preview works in demo
+  // ---------------------------------------------------------------------------
+  http.get(`${API}/api/v1/documents/files/:id/download`, ({ params }) => {
+    const file = files.find((f) => f.id === params.id)
+    if (!file) {
+      return HttpResponse.json({ error: 'File not found' }, { status: 404 })
+    }
+    if (file.mime_type === 'application/pdf') {
+      const url = `data:application/pdf;base64,${DEMO_PDF_B64}`
+      return HttpResponse.json({ url })
+    }
+    // For non-PDF files return a placeholder text data-URL
+    const url = `data:text/plain;base64,${btoa(`Demo-Vorschau: ${file.filename}`)}`
+    return HttpResponse.json({ url })
+  }),
+
+  // ---------------------------------------------------------------------------
+  // File versions — returns 2 demo versions per file
+  // ---------------------------------------------------------------------------
+  http.get(`${API}/api/v1/documents/files/:id/versions`, ({ params }) => {
+    const file = files.find((f) => f.id === params.id)
+    if (!file) {
+      return HttpResponse.json({ error: 'File not found' }, { status: 404 })
+    }
+    const versions = [
+      {
+        id: `ver-${params.id}-2`,
+        file_id: params.id,
+        version_number: 2,
+        version_label: 'Aktuelle Version',
+        storage_key: `demo/${params.id}/v2`,
+        file_size: file.file_size,
+        created_by: file.created_by,
+        created_by_name: file.created_by_name,
+        created_at: file.updated_at,
+      },
+      {
+        id: `ver-${params.id}-1`,
+        file_id: params.id,
+        version_number: 1,
+        version_label: 'Ursprungsversion',
+        storage_key: `demo/${params.id}/v1`,
+        file_size: Math.round(file.file_size * 0.9),
+        created_by: file.created_by,
+        created_by_name: file.created_by_name,
+        created_at: daysAgo(30),
+      },
+    ]
+    return HttpResponse.json({ versions })
+  }),
+
+  // Create version (snapshot) — demo no-op
+  http.post(`${API}/api/v1/documents/files/:id/versions`, ({ params }) => {
+    const file = files.find((f) => f.id === params.id)
+    if (!file) return HttpResponse.json({ error: 'File not found' }, { status: 404 })
+    return HttpResponse.json({
+      version: {
+        id: `ver-${params.id}-${Date.now()}`,
+        file_id: params.id,
+        version_number: 3,
+        version_label: null,
+        storage_key: `demo/${params.id}/v3`,
+        file_size: file.file_size,
+        created_by: IDS.users.stefan,
+        created_by_name: 'Stefan Vogel',
+        created_at: new Date().toISOString(),
+      },
+    }, { status: 201 })
+  }),
+
+  // Revert version — demo no-op
+  http.post(`${API}/api/v1/documents/files/:id/versions/:versionNumber/revert`, ({ params }) => {
+    const file = files.find((f) => f.id === params.id)
+    if (!file) return HttpResponse.json({ error: 'File not found' }, { status: 404 })
+    return HttpResponse.json({ success: true })
+  }),
+
+  // ---------------------------------------------------------------------------
+  // File upload — demo: create a fake file entry and return it
+  // ---------------------------------------------------------------------------
+  http.post(`${API}/api/v1/documents/files/upload`, async ({ request }) => {
+    let filename = 'uploaded-file.pdf'
+    let fileSize = 102400
+    let mimeType = 'application/pdf'
+    try {
+      const fd = await request.formData()
+      const f = fd.get('file') as File | null
+      if (f) { filename = f.name; fileSize = f.size; mimeType = f.type || mimeType }
+    } catch { /* ignore parse errors in demo */ }
+    const newFile = {
+      id: `file-upload-${Date.now()}`,
+      filename,
+      name: filename,
+      mime_type: mimeType,
+      file_size: fileSize,
+      folder_id: IDS.folders.verträge,
+      created_by: IDS.users.stefan,
+      created_by_name: 'Stefan Vogel',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      tags: [] as typeof files[0]['tags'],
+      current_version: 1,
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    files.push(newFile as any)
+    return HttpResponse.json({ file: newFile }, { status: 201 })
+  }),
+
+  // ---------------------------------------------------------------------------
+  // Entity links — stub for vertraege ↔ file links (future API-swap)
+  // ---------------------------------------------------------------------------
+  http.get(`${API}/api/v1/documents/files/:id/links`, () => {
+    return HttpResponse.json({ links: [] })
+  }),
+
+  http.post(`${API}/api/v1/documents/files/:id/links`, async ({ params, request }) => {
+    const body = (await request.json()) as Record<string, unknown>
+    return HttpResponse.json({
+      link: {
+        id: `lnk-${Date.now()}`,
+        file_id: params.id,
+        entity_type: body.entity_type ?? 'contract',
+        entity_id: body.entity_id ?? '',
+        entity_name: '',
+        linked_by: IDS.users.stefan,
+        created_at: new Date().toISOString(),
+      },
+    }, { status: 201 })
+  }),
+
+  http.delete(`${API}/api/v1/documents/links/:id`, () => {
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  // Update file metadata (rename etc.)
+  http.patch(`${API}/api/v1/documents/files/:id`, ({ params }) => {
+    const file = files.find((f) => f.id === params.id)
+    if (!file) return HttpResponse.json({ error: 'File not found' }, { status: 404 })
+    return HttpResponse.json({ file })
+  }),
+
+  // Copy / Move
+  http.post(`${API}/api/v1/documents/files/:id/copy`, ({ params }) => {
+    const file = files.find((f) => f.id === params.id)
+    if (!file) return HttpResponse.json({ error: 'File not found' }, { status: 404 })
+    return HttpResponse.json({ file: { ...file, id: `file-copy-${Date.now()}` } }, { status: 201 })
+  }),
+
+  http.patch(`${API}/api/v1/documents/files/:id/move`, ({ params }) => {
+    const file = files.find((f) => f.id === params.id)
+    if (!file) return HttpResponse.json({ error: 'File not found' }, { status: 404 })
+    return HttpResponse.json({ file })
+  }),
+
+  // Share
+  http.get(`${API}/api/v1/documents/shares`, () => {
+    return HttpResponse.json({ shares: [], total: 0 })
+  }),
+
+  http.post(`${API}/api/v1/documents/shares`, () => {
+    return HttpResponse.json({ share: { id: `shr-${Date.now()}` } }, { status: 201 })
+  }),
+
+  http.delete(`${API}/api/v1/documents/shares/:id`, () => {
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  // Tag file / untag
+  http.post(`${API}/api/v1/documents/files/:id/tags`, () => {
+    return HttpResponse.json({})
+  }),
+
+  http.delete(`${API}/api/v1/documents/files/:fileId/tags/:tagId`, () => {
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  // Update folder
+  http.patch(`${API}/api/v1/documents/folders/:id`, ({ params }) => {
+    const folder = folders.find((f) => f.id === params.id)
+    if (!folder) return HttpResponse.json({ error: 'Not found' }, { status: 404 })
+    return HttpResponse.json({ folder })
+  }),
+
+  // WOPI token
+  http.post(`${API}/api/v1/documents/wopi/:id/token`, () => {
+    return HttpResponse.json({ access_token: 'demo-wopi-token', access_token_ttl: 3600000 })
   }),
 ]
