@@ -20,6 +20,7 @@ import {
 import { useDashboardStore, type WidgetId } from '@/stores/dashboard'
 import { useDashboardPrefsStore } from '@/stores/dashboardPrefs'
 import { useDashboardSettingsStore } from '@/stores/dashboardSettings'
+import { useFeatureFlags } from '@/api/hooks/useFeatureFlags'
 import { widgetList, widgetRegistry } from './WidgetRegistry'
 import { WidgetWrapper } from './WidgetWrapper'
 
@@ -84,10 +85,36 @@ export default function WidgetContainer() {
     [debouncedUpdateLayout]
   )
 
+  // Feature-flag gating: widgets whose module is disabled are excluded.
+  // useFeatureFlags is fail-closed app-wide. Here we apply a dashboard-local
+  // fail-open fallback: when flags are unavailable (error / loading / no data),
+  // all module-gated widgets are shown rather than hiding the whole dashboard.
+  // This is intentional and scoped to widget visibility only — not a global policy.
+  const { flags, isLoading: flagsLoading, error: flagsError } = useFeatureFlags()
+  const isWidgetAllowed = (moduleId: string | undefined): boolean => {
+    if (!moduleId) return true // No module gate → always available
+    // DEV QA-override: respect __cosmi_qa_flags__ even in the fail-open path.
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const qaOverride = (window as any).__cosmi_qa_flags__
+      if (qaOverride && typeof qaOverride === 'object' && `modules.${moduleId}` in qaOverride) {
+        return Boolean(qaOverride[`modules.${moduleId}`])
+      }
+    }
+    // Fail-open: flags not yet available → show widget (avoids flash-of-empty-dashboard)
+    if (flagsError || flagsLoading || !flags) return true
+    return flags[`modules.${moduleId}`] ?? false
+  }
+
   // Available widgets that are NOT currently active
-  // Tenant gating (settings panel): only allowed widgets are offered.
+  // Layer 1 — tenant settings (allowedWidgets from DashboardSettingsPanel)
+  // Layer 2 — feature flags (module must be enabled)
   const allowedWidgets = useDashboardSettingsStore((s) => s.allowedWidgets)
-  const pickerWidgets = widgetList.filter((w) => allowedWidgets.includes(w.id as WidgetId))
+  const pickerWidgets = widgetList.filter(
+    (w) =>
+      allowedWidgets.includes(w.id as WidgetId) &&
+      isWidgetAllowed(w.module)
+  )
   const availableWidgets = pickerWidgets.filter(
     (w) => !activeWidgets.includes(w.id)
   )
@@ -115,6 +142,11 @@ export default function WidgetContainer() {
         {activeWidgets.map((widgetId) => {
           const def = widgetRegistry[widgetId]
           if (!def) return null
+
+          // Hide widgets whose module is currently disabled.
+          // The layout entry is intentionally kept in the store so the widget
+          // reappears without reconfiguration when the module is re-enabled.
+          if (!isWidgetAllowed(def.module)) return null
 
           return (
             <div key={widgetId}>

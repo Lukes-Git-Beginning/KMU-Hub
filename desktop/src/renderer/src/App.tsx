@@ -97,6 +97,13 @@ const queryClient = new QueryClient({
   },
 })
 
+// Expose queryClient for Playwright QA scripts in dev/test environments.
+// Tree-shaken in production builds (import.meta.env.DEV = false).
+if (import.meta.env.DEV) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(window as any).__cosmi_queryClient__ = queryClient
+}
+
 // Persist query cache to IndexedDB for offline support.
 // IndexedDB has no practical size limit and avoids blocking the main thread.
 const persister = createAsyncStoragePersister({

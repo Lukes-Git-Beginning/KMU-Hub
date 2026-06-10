@@ -27,6 +27,7 @@ import {
   Cake,
   type LucideIcon,
 } from 'lucide-react'
+import type { ModuleId } from '@/lib/pricing'
 
 /** Props every widget component receives. */
 export interface WidgetProps {
@@ -53,6 +54,15 @@ export interface WidgetDefinition {
   component: LazyExoticComponent<ComponentType<WidgetProps>>
   /** Roles that see this widget by default. */
   roles: string[]
+  /**
+   * Module that must be enabled (feature flag `modules.<module>`) for this
+   * widget to be available. Undefined = always available (no module gate).
+   *
+   * NOTE: This is a static data field — do NOT evaluate i18next.t() here at
+   * module-load time (Registry is loaded during boot, before i18n is ready,
+   * which silently empties all widget names app-wide).
+   */
+  module?: ModuleId
 }
 
 /** All available widget definitions, keyed by ID. */
@@ -66,6 +76,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
     minSize: { w: 2, h: 2 },
     component: lazy(() => import('../../modules/dashboard/widgets/RecentContacts')),
     roles: ['admin', 'manager', 'member'],
+    module: 'crm',
   },
   'deal-pipeline': {
     id: 'deal-pipeline',
@@ -76,6 +87,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
     minSize: { w: 4, h: 3 },
     component: lazy(() => import('../../modules/dashboard/widgets/DealPipeline')),
     roles: ['admin', 'manager'],
+    module: 'crm',
   },
   'unread-messages': {
     id: 'unread-messages',
@@ -86,6 +98,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
     minSize: { w: 2, h: 2 },
     component: lazy(() => import('../../modules/dashboard/widgets/UnreadMessages')),
     roles: ['admin', 'manager', 'member'],
+    module: 'chat',
   },
   'activity-feed': {
     id: 'activity-feed',
@@ -96,6 +109,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
     minSize: { w: 3, h: 3 },
     component: lazy(() => import('../../modules/dashboard/widgets/ActivityFeed')),
     roles: ['admin', 'manager', 'member'],
+    // No module gate: activity feed aggregates cross-module events
   },
   'quick-actions': {
     id: 'quick-actions',
@@ -106,6 +120,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
     minSize: { w: 2, h: 2 },
     component: lazy(() => import('../../modules/dashboard/widgets/QuickActions')),
     roles: ['admin', 'manager', 'member'],
+    // No module gate: quick actions adapts to available modules at runtime
   },
   'notification-summary': {
     id: 'notification-summary',
@@ -116,6 +131,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
     minSize: { w: 2, h: 2 },
     component: lazy(() => import('../../modules/dashboard/widgets/NotificationSummary')),
     roles: ['admin', 'manager', 'member'],
+    // No module gate: notifications are system-wide
   },
   'notification-feed': {
     id: 'notification-feed',
@@ -126,6 +142,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
     minSize: { w: 3, h: 4 },
     component: lazy(() => import('../../modules/dashboard/widgets/NotificationFeedWidget')),
     roles: ['admin', 'manager', 'member'],
+    // No module gate: notifications are system-wide
   },
   'kpi-revenue': {
     id: 'kpi-revenue',
@@ -136,6 +153,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
     minSize: { w: 3, h: 2 },
     component: lazy(() => import('../../modules/dashboard/widgets/KpiRevenue')),
     roles: ['admin', 'manager'],
+    module: 'finance',
   },
   'kpi-tasks': {
     id: 'kpi-tasks',
@@ -146,6 +164,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
     minSize: { w: 3, h: 2 },
     component: lazy(() => import('../../modules/dashboard/widgets/KpiTasks')),
     roles: ['admin', 'manager', 'member'],
+    module: 'tasks',
   },
   'kpi-deals': {
     id: 'kpi-deals',
@@ -156,6 +175,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
     minSize: { w: 3, h: 2 },
     component: lazy(() => import('../../modules/dashboard/widgets/KpiDeals')),
     roles: ['admin', 'manager'],
+    module: 'crm',
   },
   'calendar-upcoming': {
     id: 'calendar-upcoming',
@@ -166,6 +186,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
     minSize: { w: 3, h: 3 },
     component: lazy(() => import('../../modules/dashboard/widgets/CalendarUpcoming')),
     roles: ['admin', 'manager', 'member'],
+    module: 'calendar',
   },
   'team-status': {
     id: 'team-status',
@@ -176,6 +197,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
     minSize: { w: 3, h: 3 },
     component: lazy(() => import('../../modules/dashboard/widgets/TeamStatus')),
     roles: ['admin', 'manager', 'member'],
+    module: 'team',
   },
   'mini-chart': {
     id: 'mini-chart',
@@ -186,6 +208,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
     minSize: { w: 4, h: 2 },
     component: lazy(() => import('../../modules/dashboard/widgets/MiniChart')),
     roles: ['admin', 'manager'],
+    // No module gate: mini-chart is a generic visualization utility
   },
   'my-tasks': {
     id: 'my-tasks',
@@ -196,6 +219,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
     minSize: { w: 3, h: 3 },
     component: lazy(() => import('../../modules/dashboard/widgets/MyTasks')),
     roles: ['admin', 'manager', 'member'],
+    module: 'tasks',
   },
   'my-calendar': {
     id: 'my-calendar',
@@ -206,6 +230,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
     minSize: { w: 3, h: 3 },
     component: lazy(() => import('../../modules/dashboard/widgets/MyCalendar')),
     roles: ['admin', 'manager', 'member'],
+    module: 'calendar',
   },
   'time-clock': {
     id: 'time-clock',
@@ -216,6 +241,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
     minSize: { w: 3, h: 2 },
     component: lazy(() => import('../../modules/dashboard/widgets/TimeClockWidget')),
     roles: ['admin', 'manager', 'member'],
+    module: 'zeiterfassung',
   },
   'team-chat': {
     id: 'team-chat',
@@ -226,6 +252,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
     minSize: { w: 3, h: 3 },
     component: lazy(() => import('../../modules/dashboard/widgets/TeamChat')),
     roles: ['admin', 'manager', 'member'],
+    module: 'chat',
   },
   absences: {
     id: 'absences',
@@ -236,6 +263,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
     minSize: { w: 3, h: 2 },
     component: lazy(() => import('../../modules/dashboard/widgets/Absences')),
     roles: ['admin', 'manager', 'member'],
+    module: 'team',
   },
   birthdays: {
     id: 'birthdays',
@@ -246,6 +274,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
     minSize: { w: 3, h: 2 },
     component: lazy(() => import('../../modules/dashboard/widgets/Birthdays')),
     roles: ['admin', 'manager', 'member'],
+    module: 'team',
   },
 }
 

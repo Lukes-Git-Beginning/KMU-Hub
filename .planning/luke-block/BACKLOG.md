@@ -9,9 +9,9 @@
 - **P4 — CRM/Finanzen-Verknüpfung:** Vertrag ↔ Kontakt/Deal/Rechnung, KI-Fristencheck (Stub).
 
 ## dashboard (vollständig; Layout-Persistenz Mock)
-- **P1 — Widget-Konfiguration + Persistenz-UI** (Backend-Persistenz = dein BE).
-- **P2 — DnD-Resize/Reorder** (dnd-kit, wie Work-Kanban-Muster).
-- **P3 — KPI-Widgets modul-/lizenzabhängig.**
+- **P1 — Widget-Konfiguration + Persistenz-UI** ✅ IMPLEMENTIERT (Phase 2 `0ec5f4f3`). react-grid-layout liefert Drag+Resize via `isDraggable`/`isResizable` im Edit-Mode; Layout-Persistenz in `stores/dashboard.ts` via localStorage + debounced PUT /api/v1/dashboard/layout. Tenant-Settings in `stores/dashboardSettings.ts` mock-first (allowedWidgets, defaultWidgets).
+- **P2 — DnD-Resize/Reorder** ✅ BEREITS IN P1 ENTHALTEN. react-grid-layout liefert 2D-Grid-Drag+Resize nativ; dnd-kit wäre das falsche Werkzeug hier (List-Sortierung vs. 2D-Grid-Layout). Kein separater Build-Step nötig.
+- **P3 — KPI-Widgets modul-/lizenzabhängig** ✅ DIESE PHASE. Widget-Gating per Feature-Flags (`modules.<id>`): `WidgetDefinition.module` Feld, Picker + Grid filtern nach aktivierten Modulen, fail-open bei Backend-Ausfall.
 - **P4 — Modul-übergreifende Übersicht + Alerts (FE), Team-Dashboard.**
 
 ## profil (4 Tabs, gut)
