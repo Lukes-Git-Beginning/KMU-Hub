@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/global.d.ts",
+    "src/renderer/src/vite-env.d.ts",
+    "src/renderer/src/i18n/i18next.d.ts",
+    "src/renderer/src/modules/profil/tabs/ProfilTab.tsx",
+    "src/renderer/src/stores/presence.ts"
+  ]
+}

@@ -1,14 +1,35 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Camera, Save, X, Mail } from 'lucide-react'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Camera, Save, X, Mail, ChevronDown } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useSettingsStore } from '@/stores/settings'
 import { useAuthStore } from '@/stores/auth'
+import { usePresenceStore } from '@/stores/presence'
+import type { PresenceLevel } from '@/api/video-types'
 import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTextEditor'
 import { toast } from 'sonner'
+
+// Manually selectable presence states ('in_call' is system-driven). Dot colors
+// match the kommunikation presence section.
+const PRESENCE_OPTIONS = [
+  { value: 'online', labelKey: 'profil.presence.online', dot: 'bg-emerald-500' },
+  { value: 'away', labelKey: 'profil.presence.away', dot: 'bg-amber-400' },
+  { value: 'dnd', labelKey: 'profil.presence.dnd', dot: 'bg-red-500' },
+  { value: 'offline', labelKey: 'profil.presence.invisible', dot: 'bg-slate-400' },
+] as const satisfies ReadonlyArray<{ value: PresenceLevel; labelKey: string; dot: string }>
+
+// Keep stored avatars comfortably below the localStorage quota (mock-first —
+// the real upload endpoint is pending, see backend-handover).
+const MAX_AVATAR_BYTES = 1.5 * 1024 * 1024
 
 export default function ProfilTab() {
   const { t } = useTranslation()
@@ -22,6 +43,39 @@ export default function ProfilTab() {
   const [hasChanges, setHasChanges] = useState(false)
   const [signatureDraft, setSignatureDraft] = useState(mailSignature)
   const [signatureChanged, setSignatureChanged] = useState(false)
+
+  // Presence (settings panel pattern): persisted in stores/presence.myStatus,
+  // mirrored by the dot on the avatar and the status dots in team/kommunikation.
+  const myStatus = usePresenceStore((s) => s.myStatus)
+  const setMyStatus = usePresenceStore((s) => s.setMyStatus)
+  const currentPresence =
+    PRESENCE_OPTIONS.find((o) => o.value === myStatus) ?? PRESENCE_OPTIONS[0]
+
+  // Avatar upload UI — local preview + mock-first persistence as data URL in
+  // the settings store; the real upload endpoint is Luke's backend (handover).
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+
+  const handleAvatarFile = (file: File | undefined) => {
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      toast.error(t('profil.avatar.errorType'))
+      return
+    }
+    if (file.size > MAX_AVATAR_BYTES) {
+      toast.error(t('profil.avatar.errorSize'))
+      return
+    }
+    setAvatarPreview(URL.createObjectURL(file))
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        updateProfile({ avatarUrl: reader.result })
+        toast.success(t('profil.avatar.saved'))
+      }
+    }
+    reader.readAsDataURL(file)
+  }
 
   const initials = `${form.firstName.charAt(0)}${form.lastName.charAt(0)}`.toUpperCase()
   const role = user?.roles?.includes('admin')
@@ -53,11 +107,33 @@ export default function ProfilTab() {
         <div className="flex items-start gap-5">
           <div className="relative">
             <Avatar className="h-20 w-20 ring-4 ring-primary/20">
+              {(avatarPreview || profile.avatarUrl) && (
+                <AvatarImage src={avatarPreview ?? profile.avatarUrl ?? undefined} alt="" />
+              )}
               <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary">
                 {initials}
               </AvatarFallback>
             </Avatar>
-            <button className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary/90 transition-colors">
+            {/* Presence dot mirrors the picked status */}
+            <span
+              className={`absolute top-0 right-0 h-4 w-4 rounded-full ring-2 ring-card ${currentPresence.dot}`}
+              aria-hidden="true"
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                handleAvatarFile(e.target.files?.[0])
+                e.target.value = ''
+              }}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              aria-label={t('profil.avatar.change')}
+              className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md hover:bg-primary/90 transition-colors"
+            >
               <Camera className="h-4 w-4" />
             </button>
           </div>
@@ -70,9 +146,27 @@ export default function ProfilTab() {
               <Badge variant="outline" className="border-primary/30 text-primary">
                 {role}
               </Badge>
-              <Badge variant="outline" className="border-success/30 text-success">
-                {t('profil.status.online')}
-              </Badge>
+              {/* Presence picker — persisted via stores/presence (myStatus) */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-0.5 text-xs font-medium text-foreground hover:bg-secondary transition-colors"
+                    aria-label={t('profil.presence.pick')}
+                  >
+                    <span className={`h-2 w-2 rounded-full ${currentPresence.dot}`} />
+                    {t(currentPresence.labelKey)}
+                    <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  {PRESENCE_OPTIONS.map((opt) => (
+                    <DropdownMenuItem key={opt.value} onClick={() => setMyStatus(opt.value)}>
+                      <span className={`mr-2 h-2 w-2 rounded-full ${opt.dot}`} />
+                      {t(opt.labelKey)}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
