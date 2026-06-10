@@ -28,6 +28,11 @@ import {
   FileText,
   Bell,
   LayoutTemplate,
+  FilePlus,
+  FilePen,
+  FileX,
+  BellRing,
+  History,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -204,7 +209,7 @@ function ContractDialog({
           : 0,
         history: [
           ...initial.history,
-          { date: new Date().toISOString().split('T')[0], action: 'Vertrag aktualisiert', user: 'Aktueller Benutzer' },
+          { date: new Date().toISOString().split('T')[0], action: 'contract_updated', user: 'Aktueller Benutzer' },
         ],
       })
       toast.success(t('vertraege.contractDialog.updateSuccess', { title: form.title }))
@@ -220,7 +225,7 @@ function ContractDialog({
         status: 'active',
         totalValue: form.monthlyCost * months,
         history: [
-          { date: new Date().toISOString().split('T')[0], action: 'Vertrag angelegt', user: 'Aktueller Benutzer' },
+          { date: new Date().toISOString().split('T')[0], action: 'contract_created', user: 'Aktueller Benutzer' },
         ],
       })
       toast.success(t('vertraege.contractDialog.createSuccess', { title: form.title }))
@@ -774,8 +779,9 @@ export default function VertraegePage() {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
 
-  // Detail panel
-  const [selectedContract, setSelectedContract] = useState<Contract | null>(null)
+  // Detail panel — store the ID, not the snapshot, so mutations are reflected live.
+  const [selectedContractId, setSelectedContractId] = useState<string | null>(null)
+  const selectedContract = contracts.find((c) => c.id === selectedContractId) ?? null
 
   // Dialogs
   const [contractDialogOpen, setContractDialogOpen] = useState(false)
@@ -906,7 +912,7 @@ export default function VertraegePage() {
   }
 
   const getContractActions = (contract: Contract) => [
-    { label: t('vertraege.actions.showDetails'), icon: Eye, onClick: () => setSelectedContract(contract) },
+    { label: t('vertraege.actions.showDetails'), icon: Eye, onClick: () => setSelectedContractId(contract.id) },
     { label: t('common.edit'), icon: Edit, onClick: () => openContractDialog(contract) },
     { label: t('vertraege.actions.signature'), icon: Pen, onClick: () => setESignaturContract(contract) },
     ...(contract.status === 'active' || contract.status === 'expiring'
@@ -918,7 +924,7 @@ export default function VertraegePage() {
   const handleDelete = (contract: Contract) => {
     deleteContract(contract.id)
     setConfirmDelete(null)
-    if (selectedContract?.id === contract.id) setSelectedContract(null)
+    if (selectedContract?.id === contract.id) setSelectedContractId(null)
     toast.success(t('vertraege.delete.success', { title: contract.title }))
   }
 
@@ -1101,7 +1107,7 @@ export default function VertraegePage() {
                       return (
                         <tr
                           key={contract.id}
-                          onClick={() => setSelectedContract(contract)}
+                          onClick={() => setSelectedContractId(contract.id)}
                           className={`border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer ${
                             isSelected ? 'bg-primary-light/30' : ''
                           }`}
@@ -1161,7 +1167,7 @@ export default function VertraegePage() {
       {/* ─── DETAIL PANEL ────────────────────────────────────── */}
       <DetailPanel
         open={!!selectedContract}
-        onClose={() => setSelectedContract(null)}
+        onClose={() => setSelectedContractId(null)}
         title={selectedContract?.title}
         subtitle={selectedContract ? `${selectedContract.contractNumber} · ${selectedContract.partner}` : undefined}
         badge={
@@ -1246,6 +1252,187 @@ export default function VertraegePage() {
         variant="destructive"
         onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
       />
+    </div>
+  )
+}
+
+// ─── Audit-Log helpers ───────────────────────────────────────────
+
+/** Stable action codes that map to i18n keys. */
+const HISTORY_ACTION_CODES = [
+  'contract_created',
+  'contract_updated',
+  'contract_terminated',
+  'contract_signed',
+  'reminder_triggered',
+] as const satisfies readonly string[]
+
+type HistoryActionCode = typeof HISTORY_ACTION_CODES[number]
+
+function isActionCode(action: string): action is HistoryActionCode {
+  return (HISTORY_ACTION_CODES as readonly string[]).includes(action)
+}
+
+function getHistoryIcon(action: string) {
+  switch (action as HistoryActionCode) {
+    case 'contract_created':
+      return FilePlus
+    case 'contract_updated':
+      return FilePen
+    case 'contract_terminated':
+      return FileX
+    case 'contract_signed':
+      return Pen
+    case 'reminder_triggered':
+      return BellRing
+    default:
+      return History
+  }
+}
+
+function getHistoryIconColor(action: string): string {
+  switch (action as HistoryActionCode) {
+    case 'contract_created':
+      return 'text-success bg-success-light'
+    case 'contract_updated':
+      return 'text-primary bg-primary-light'
+    case 'contract_terminated':
+      return 'text-error bg-error-light'
+    case 'contract_signed':
+      return 'text-info bg-info-light'
+    case 'reminder_triggered':
+      return 'text-warning bg-warning-light'
+    default:
+      return 'text-muted-foreground bg-secondary'
+  }
+}
+
+// ─── Audit Log Feed ──────────────────────────────────────────────
+
+function AuditLogFeed({ history }: { history: import('@/stores/vertraege').ContractHistoryEntry[] }) {
+  const { t } = useTranslation()
+
+  const sorted = [...history].reverse()
+
+  return (
+    <div className="space-y-2">
+      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        {t('vertraege.detail.history', { count: history.length })}
+      </h4>
+      {sorted.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-5 text-center">
+          <History className="h-6 w-6 text-muted-foreground/40 mb-2" />
+          <p className="text-xs text-muted-foreground">{t('vertraege.detail.historyEmpty')}</p>
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {sorted.map((entry, idx) => {
+            const Icon = getHistoryIcon(entry.action)
+            const colorClass = getHistoryIconColor(entry.action)
+            const label = isActionCode(entry.action)
+              ? t(`vertraege.history.action.${entry.action}` as const, { meta: entry.meta ?? '' })
+              : entry.action // legacy free-form text fallback
+
+            return (
+              <div
+                key={idx}
+                className="flex items-start gap-3 rounded-md px-2 py-2 transition-colors hover:bg-secondary/40"
+              >
+                <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${colorClass}`}>
+                  <Icon className="h-3.5 w-3.5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm ${idx === 0 ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
+                    {label}
+                  </p>
+                  {entry.meta && (
+                    <p className="text-xs text-muted-foreground/70 mt-0.5 leading-snug truncate" title={entry.meta}>
+                      {entry.meta}
+                    </p>
+                  )}
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {formatDate(entry.date)}&ensp;&middot;&ensp;{entry.user}
+                  </p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Reminder Schedule ───────────────────────────────────────────
+
+function ReminderSchedule({ contract }: { contract: import('@/stores/vertraege').Contract }) {
+  const { t } = useTranslation()
+
+  const { reminderDays, endDate } = contract
+
+  if (!reminderDays || reminderDays.length === 0) {
+    return (
+      <div className="space-y-2">
+        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          {t('vertraege.detail.erinnerungen')}
+        </h4>
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-4 text-center">
+          <Bell className="h-5 w-5 text-muted-foreground/40 mb-1.5" />
+          <p className="text-xs text-muted-foreground">{t('vertraege.detail.reminderNone')}</p>
+        </div>
+      </div>
+    )
+  }
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const schedule = reminderDays
+    .slice()
+    .sort((a, b) => b - a) // largest offset first = earliest date
+    .map((days) => {
+      if (!endDate) {
+        return { days, dateStr: null, isPast: false }
+      }
+      const target = new Date(endDate + 'T00:00:00')
+      target.setDate(target.getDate() - days)
+      const isPast = target.getTime() < today.getTime()
+      return { days, dateStr: target.toISOString().split('T')[0], isPast }
+    })
+
+  return (
+    <div className="space-y-2">
+      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        {t('vertraege.detail.erinnerungen')}
+      </h4>
+      {!endDate ? (
+        <p className="text-xs text-muted-foreground">{t('vertraege.detail.reminderUnbefristet')}</p>
+      ) : (
+        <div className="space-y-1.5">
+          {schedule.map(({ days, dateStr, isPast }) => (
+            <div
+              key={days}
+              className={`flex items-center justify-between rounded-lg border px-3 py-2 ${
+                isPast
+                  ? 'border-border bg-secondary/20 opacity-50'
+                  : 'border-warning/30 bg-warning-light/30'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Bell className={`h-3.5 w-3.5 shrink-0 ${isPast ? 'text-muted-foreground' : 'text-warning'}`} />
+                <span className={`text-xs font-medium ${isPast ? 'text-muted-foreground' : 'text-foreground'}`}>
+                  {t('vertraege.detail.reminderDaysBefore', { days })}
+                </span>
+              </div>
+              {dateStr && (
+                <span className={`text-[10px] tabular-nums ${isPast ? 'text-muted-foreground line-through' : 'text-muted-foreground'}`}>
+                  {formatDate(dateStr)}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -1399,23 +1586,8 @@ function DetailPanelContent({ contract }: { contract: Contract }) {
         </div>
       </div>
 
-      {/* Reminders (10.8) */}
-      {contract.reminderDays && contract.reminderDays.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vertraege.detail.erinnerungen')}</h4>
-          <div className="flex flex-wrap gap-1.5">
-            {contract.reminderDays.map((days) => (
-              <span
-                key={days}
-                className="inline-flex items-center gap-1 rounded-full bg-warning-light px-2 py-0.5 text-[10px] font-medium text-warning"
-              >
-                <Bell className="h-3 w-3" />
-                {t('vertraege.detail.reminderBadge', { days })}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Reminder schedule (phase 4) */}
+      <ReminderSchedule contract={contract} />
 
       {/* Next action hint */}
       {contract.endDate && (contract.status === 'active' || contract.status === 'expiring') && (
@@ -1485,38 +1657,8 @@ function DetailPanelContent({ contract }: { contract: Contract }) {
         </div>
       )}
 
-      {/* History timeline */}
-      <div className="space-y-2">
-        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          {t('vertraege.detail.history', { count: contract.history.length })}
-        </h4>
-        {contract.history.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-2">{t('vertraege.detail.historyEmpty')}</p>
-        ) : (
-          <div className="space-y-0">
-            {[...contract.history].reverse().map((entry, idx) => (
-              <div key={idx} className="flex gap-3 pb-3 last:pb-0">
-                {/* Timeline line */}
-                <div className="flex flex-col items-center">
-                  <div className={`h-2 w-2 rounded-full shrink-0 mt-1.5 ${idx === 0 ? 'bg-primary' : 'bg-border'}`} />
-                  {idx < contract.history.length - 1 && (
-                    <div className="w-px flex-1 bg-border" />
-                  )}
-                </div>
-                {/* Content */}
-                <div className="min-w-0 pb-1">
-                  <p className="text-sm text-foreground">{entry.action}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[10px] text-muted-foreground">{formatDate(entry.date)}</span>
-                    <span className="text-[10px] text-muted-foreground">&middot;</span>
-                    <span className="text-[10px] text-muted-foreground">{entry.user}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Audit log feed (phase 4) */}
+      <AuditLogFeed history={contract.history} />
     </div>
   )
 }

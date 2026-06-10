@@ -1,10 +1,22 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+/** Stable action codes written by store mutations. Legacy mock entries use
+ *  free-form German text which the renderer displays as-is (fallback). */
+export type ContractHistoryActionCode =
+  | 'contract_created'
+  | 'contract_updated'
+  | 'contract_terminated'
+  | 'contract_signed'
+  | 'reminder_triggered'
+
 export interface ContractHistoryEntry {
   date: string
+  /** Either a ContractHistoryActionCode or legacy free-form text. */
   action: string
   user: string
+  /** Optional extra payload for the action label (e.g. termination reason). */
+  meta?: string
 }
 
 export interface ContractSigner {
@@ -426,7 +438,7 @@ export const useVertraegeStore = create<VertraegeStore>()(
           templateId,
           currency: 'EUR',
           history: [
-            { date: today, action: `Aus Vorlage "${template.name}" erstellt`, user: 'Aktueller Benutzer' },
+            { date: today, action: 'contract_created', meta: template.name, user: 'Aktueller Benutzer' },
           ],
           ...overrides,
         }
@@ -435,9 +447,27 @@ export const useVertraegeStore = create<VertraegeStore>()(
 
       updateContract: (id, updates) =>
         set((state) => ({
-          contracts: state.contracts.map((c) =>
-            c.id === id ? { ...c, ...updates } : c
-          ),
+          contracts: state.contracts.map((c) => {
+            if (c.id !== id) return c
+            // Append a history entry unless the caller already supplied one
+            // (ContractDialog passes an updated history array explicitly).
+            const callerProvidesHistory = Array.isArray(updates.history)
+            if (callerProvidesHistory) {
+              return { ...c, ...updates }
+            }
+            return {
+              ...c,
+              ...updates,
+              history: [
+                ...c.history,
+                {
+                  date: new Date().toISOString().split('T')[0],
+                  action: 'contract_updated',
+                  user: 'Aktueller Benutzer',
+                },
+              ],
+            }
+          }),
         })),
 
       deleteContract: (id) =>
@@ -456,7 +486,8 @@ export const useVertraegeStore = create<VertraegeStore>()(
                     ...c.history,
                     {
                       date,
-                      action: `Kündigung eingeleitet: ${reason}`,
+                      action: 'contract_terminated',
+                      meta: reason,
                       user: 'Aktueller Benutzer',
                     },
                   ],
