@@ -265,6 +265,32 @@ function getActivities(file: MockFile): MockActivity[] {
   return activitiesByFile.get(file.id) ?? []
 }
 
+/** Fill the DocumentFile fields the static mock rows don't carry — the
+ *  vertraege ↔ dokumente link (luke-fe P7) reads them via the shared type. */
+function enrich(f: MockFile) {
+  return {
+    current_version: versionsByFile.get(f.id)?.length ?? 1,
+    is_favorite: false,
+    is_deleted: false,
+    owner_id: f.created_by,
+    storage_key: `demo/${f.id}`,
+    thumbnail_key: null,
+    ...f,
+  }
+}
+
+interface MockEntityLink {
+  id: string
+  file_id: string
+  entity_type: string
+  entity_id: string
+  entity_name: string
+  linked_by: string
+  created_at: string
+}
+
+const entityLinks: MockEntityLink[] = []
+
 interface MockShare {
   id: string
   entity_type: string
@@ -405,7 +431,7 @@ export const documentHandlers = [
     const start = (page - 1) * perPage
     const paginated = filtered.slice(start, start + perPage)
 
-    return HttpResponse.json({ files: paginated, total: filtered.length, page, per_page: perPage })
+    return HttpResponse.json({ files: paginated.map(enrich), total: filtered.length, page, per_page: perPage })
   }),
 
   // File detail
@@ -414,7 +440,7 @@ export const documentHandlers = [
     if (!file) {
       return HttpResponse.json({ error: 'File not found' }, { status: 404 })
     }
-    return HttpResponse.json({ file })
+    return HttpResponse.json({ file: enrich(file) })
   }),
 
   // Delete file
@@ -493,7 +519,7 @@ export const documentHandlers = [
     files.push(copy)
     getActivities(src)
     recordActivity(src.id, 'copied', folders.find((f) => f.id === copy.folder_id)?.name ?? null)
-    return HttpResponse.json({ file: copy }, { status: 201 })
+    return HttpResponse.json({ file: enrich(copy) }, { status: 201 })
   }),
 
   // Move file into target folder
@@ -552,7 +578,7 @@ export const documentHandlers = [
       tags: [],
     }
     files.push(newFile)
-    return HttpResponse.json({ file: newFile }, { status: 201 })
+    return HttpResponse.json({ file: enrich(newFile) }, { status: 201 })
   }),
 
   // List versions
@@ -704,9 +730,32 @@ export const documentHandlers = [
     return new HttpResponse(null, { status: 204 })
   }),
 
-  // Entity links — empty in demo
-  http.get(`${API}/api/v1/documents/files/:id/links`, () => {
-    return HttpResponse.json({ links: [] })
+  // Entity links — in-memory so the vertraege ↔ dokumente link round-trips
+  http.get(`${API}/api/v1/documents/files/:id/links`, ({ params }) => {
+    return HttpResponse.json({
+      links: entityLinks.filter((l) => l.file_id === params.id),
+    })
+  }),
+
+  http.post(`${API}/api/v1/documents/files/:id/links`, async ({ params, request }) => {
+    const body = (await request.json()) as { entity_type?: string; entity_id?: string }
+    const link: MockEntityLink = {
+      id: `lnk-${Date.now()}`,
+      file_id: String(params.id),
+      entity_type: body.entity_type ?? 'contract',
+      entity_id: body.entity_id ?? '',
+      entity_name: body.entity_id ?? '',
+      linked_by: IDS.users.markus,
+      created_at: new Date().toISOString(),
+    }
+    entityLinks.push(link)
+    return HttpResponse.json({ link }, { status: 201 })
+  }),
+
+  http.delete(`${API}/api/v1/documents/links/:id`, ({ params }) => {
+    const idx = entityLinks.findIndex((l) => l.id === params.id)
+    if (idx !== -1) entityLinks.splice(idx, 1)
+    return new HttpResponse(null, { status: 204 })
   }),
 
   // File activity (audit trail) — newest first

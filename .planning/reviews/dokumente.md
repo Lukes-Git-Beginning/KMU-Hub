@@ -44,6 +44,18 @@
 **Reviewer-Notizen (beim Feinschliff auszufüllen):**
 - _…_
 
+## 🟡 An Luke — documents.ts-Kollision mit vertraege P7 (2026-06-10, Merge-Brief)
+
+Wir haben heute **parallel** die Demo-Handler fürs Dokumente-Modul gebaut (du in vertraege P7, ich in dokumente P1+Feedback). Für deinen Rebase auf den dokumente-Stand:
+
+**Komplett verwerfen kannst du deine documents.ts-Ergänzungen** — alles existiert auf `marathon/dein-pc` in funktionsfähigerer Form:
+- **Download-URL:** deine `data:`-URLs werden von Chromium in iframes **blockiert** („Dieser Inhalt ist blockiert") — headless-QA sieht das nicht, headed schon. Meine Version: `blob:`-URLs + generiertes **valides** Mini-PDF (deins hat keinen Content-Stream) + **CSP-Fix** (`frame-src 'self' blob:` in index.html, war die eigentliche Blockade). Deine vertraege-Dokumentvorschau funktioniert damit automatisch.
+- Versions/Upload/Copy/Shares/Tags: bei mir mutierend statt statisch (Create/Revert/Move verändern wirklich die Demo-Daten); deine Tag-Handler-Pfade (`POST /files/:id/tags` ohne `:tagId`) matchen den Client nicht.
+- **Schon übernommen von dir** (auf dein-pc, damit dein Rebase-Diff leer wird): enriched File-Felder (`current_version` etc., jetzt dynamisch aus der Versions-Map) und Entity-Links — bei mir mit In-Memory-Roundtrip statt Stub (POST → GET findet ihn → DELETE).
+- Deine PATCH-Varianten (file/move) sind tote Routen (Client nutzt PUT bzw. POST) — nicht mitnehmen.
+
+**Regel-Vorschlag für collision-map:** `mocks/handlers/<modul>.ts` gehört der Modul-Lane; braucht eine fremde Lane Demo-Daten daraus → kurz zurufen statt parallel bauen.
+
 ## ⬜ Feedback-Runde Darien — Dokument-Viewer, Historie, Karten-Vorschau (2026-06-10)
 
 **Dariens 5 Punkte, alle umgesetzt:**
