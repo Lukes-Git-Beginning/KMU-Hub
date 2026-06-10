@@ -1,6 +1,6 @@
 ---
 tags: [deployment, docker, ci-cd]
-updated: 2026-06-06
+updated: 2026-06-09
 ---
 # Deployment & Infrastruktur
 
@@ -71,26 +71,26 @@ Datei: `deploy/docker/docker-compose.yml`
 
 ## CI/CD
 ### CI Pipeline (`.github/workflows/ci.yml`)
-- **Trigger:** Push auf main/develop, PRs (nur bei backend/ Änderungen)
+- **Trigger:** Push auf main, PRs (nur bei `backend/**`-Änderungen)
 - **Go Version:** 1.25.6
-- **Jobs (parallel):**
+- **Jobs (Gate-Kern, seit 2026-06-09 verschlankt):**
   1. **Lint** — golangci-lint v2.8
-  2. **Test** — `go test ./... -race`, Coverage-Report, 30-Tage-Artifact
-  3. **Build** — `make build` (abhaengig von Lint+Test)
-  4. **E2E** — Integration Tests (abhaengig von Lint+Test). Startet auth/crm/chat/work/document/**dialer**/gateway als Binaries + MinIO via docker-run; Job-Env `RATE_LIMIT_RPS=1000` (CI-only, Prod bleibt 100). **Lesson 2026-06-05:** Service-Liste muss mit `test/e2e/` synchron bleiben — der Dialer fehlte und `dialer_test.go` konnte nie gruen werden.
-  5. **Smoke** — Go Smoke Tests (abhaengig von E2E), ebenfalls `RATE_LIMIT_RPS=1000`
-  6. **OpenAPI Validate** — Spec-Validierung
-  7. **Security-Scans** (S3.2, ab 2026-05-08) — gosec + trivy fs-scan + npm audit parallel (eigene Job-Gruppe, `continue-on-error: true` initial). Details: [[security]] CI Security-Scans.
+  2. **Test** — `go test ./... -race`, Coverage-Gate 15%, 30-Tage-Artifact
+  3. **E2E** — Integration Tests (abhaengig von Lint+Test). Startet auth/crm/chat/work/document/**dialer**/gateway als Binaries + MinIO via docker-run; Job-Env `RATE_LIMIT_RPS=1000` (CI-only, Prod bleibt 100). **Lesson 2026-06-05:** Service-Liste muss mit `test/e2e/` synchron bleiben — der Dialer fehlte und `dialer_test.go` konnte nie gruen werden.
+  4. **OpenAPI Validate** — Spec-Validierung
+- **Pipeline-Split 2026-06-09 (`8f6aaa32`):** redundanter `build`-Job entfernt (`go test ./...` kompiliert bereits alle `cmd/*`), `smoke`→`nightly.yml`, Security-Scans (gosec/trivy/npm-audit)→`scans.yml`. Spart per-Push Actions-Minuten (~9 Jobs → 4). Schwere Jobs NICHT zurueck in ci.yml mergen. Siehe Memory `project_ci_pipeline_split_20260609.md`.
 - Service-Container: pgvector/pgvector:pg16 + redis:7-alpine
 - **Komplett gruen seit 2026-06-05** (rot seit 2026-03-08; Repair + E2E-Modernisierung, Lessons in Memory `feedback_ci_lessons_20260605.md`)
-- **Paths-Filter:** CI triggert nur auf `backend/**`, `desktop/**`, `ci.yml` — docs-/`.knowledge/`-Commits triggern weder CI noch CD. **Achtung:** auch `deploy/**`-only-Commits triggern kein CI, und CD haengt per `workflow_run` an CI → fuer reine Deploy-Aenderungen `gh workflow run CD --ref main` dispatchen (Lesson 2026-06-05, `ce2a5e5d`)
+- **Paths-Filter:** CI triggert nur auf `backend/**` + `ci.yml` (NICHT mehr `desktop/**` seit 2026-06-09 — das laeuft separat in ci-desktop.yml). docs-/`.knowledge/`-Commits triggern weder CI noch CD. **Achtung:** auch `deploy/**`-only-Commits triggern kein CI, und CD haengt per `workflow_run` an CI → fuer reine Deploy-Aenderungen `gh workflow run CD --ref main` dispatchen (Lesson 2026-06-05, `ce2a5e5d`)
 
 ### Desktop CI Pipeline (`.github/workflows/ci-desktop.yml`)
-- **Trigger:** Push auf main/develop, PRs (nur bei desktop/ Aenderungen)
+- **Trigger:** Push auf main, PRs (nur bei desktop/ Aenderungen)
 - **Node Version:** 20
-- **Jobs:** Lint → Typecheck → Test → Build
+- **Jobs:** checks (Lint + Typecheck + Test, ein Runner/`npm ci`) → Build
 
 ### Weitere Workflows
+- **`scans.yml`** (seit 2026-06-09) — gosec + trivy fs-scan + npm audit. Trigger: woechentlich (Mo 04:00 UTC) + bei `go.mod`/`go.sum`/`package-lock.json`-Aenderung + `workflow_dispatch`. Trivy-Cache-Key wochenbasiert (vorher `github.run_id` = nie ein Hit). Details: [[security]] CI Security-Scans.
+- **`nightly.yml`** (seit 2026-06-09) — self-contained Go-Smoke-Suite (baut eigene 6 Services, kein e2e-Artefakt). Trigger: taeglich 03:00 UTC + `workflow_dispatch`.
 - **`claude-pr.yml`** — Automatisches Claude Code PR-Review (Architektur-Compliance, Security)
 - **`security-review.yml`** — Security-fokussiertes Code-Review bei PRs
 

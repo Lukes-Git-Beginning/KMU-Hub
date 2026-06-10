@@ -1,6 +1,6 @@
 ---
 tags: [security, auth, compliance, gdpr, rls, multi-tenant]
-updated: 2026-06-08
+updated: 2026-06-09
 ---
 # Security & Compliance
 
@@ -158,6 +158,12 @@ Welle-3.5-Verschaerfung der W2D-C-Lehre: gRPC-Server lasen `tenant_id` aus den P
 - Prepared Statements durchgehend (kein String-Concatenation)
 - Passwort-Strength-Checks (`go-password-validator`)
 
+### Passwort-Reset-Flow (Chain PILOT, 2026-06-09)
+
+- **Endpoints:** `POST /api/v1/auth/forgot-password` (rate-limited per IP+email, immer 200 — kein User-Enumeration-Leak) + `POST /api/v1/auth/reset-password` (single-use Token, Strength-Check via `go-password-validator`, revokiert alle `refresh_tokens` nach erfolgreichem Reset).
+- **Tabelle:** `password_reset_tokens` (Migration 000134) — SHA-256-Hash des Tokens, 1h-Expiry, `used_at` als Single-Use-Guard, `tenant_id NOT NULL`. Details [[datenbank]] Chain PILOT.
+- **Security-Eigenschaften:** Token wird einmalig ausgespielt (SHA-256-Hash in DB), nach Verbrauch `used_at` gesetzt (keine Reuse), Refresh-Token-Revocation beim Reset (Session-Invalidierung), kein Unterschied in der API-Response ob User existiert oder nicht.
+
 ### Validation-Framework (S4.1, R1-P1.7, ab 2026-06-08)
 
 Zentrales `go-playground/validator/v10`-Framework fuer alle HTTP-Mutation-Handler. Folgt "Thick Services, Thin Handlers": Validierung im Handler zwischen Parse und gRPC-Call.
@@ -182,7 +188,7 @@ Zentrales `go-playground/validator/v10`-Framework fuer alle HTTP-Mutation-Handle
 - **Query:** `consent_records WHERE contact_id=$1 AND consent_type=$2 AND granted=true AND revoked_at IS NULL`
 - **Transactional Skip:** `ChannelEmail` + Contact ohne E-Mail → `nil` (nichts zu senden, kein Consent noetig)
 - **Block-Log:** `slog.Warn("consent_block", "contact_id", id, "channel", ch)` + `ErrNoConsent`
-- **Status:** Launch-Blocker R1-P0.2 erledigt (PR #10). Gateway-Wiring via additive `NewServiceWithConsent()`-Constructors — Full-Wiring als separater Schritt im cmd-Paket.
+- **Status:** Launch-Blocker R1-P0.2 erledigt (PR #10). Gateway-Wiring via additive `NewServiceWithConsent()`-Constructors. **Dialer-Wiring Chain PILOT (2026-06-09, `1548a067`):** `cmd/dialer/main.go` rief bisher `dialer.NewService(...)` ohne Consent-Asserter — der nil-safe Guard im Service war tot, `AssertConsent(ChannelPhone)` wurde nie aufgerufen. Jetzt `dialer.NewServiceWithConsent(...)` mit Postgres-Consent-Asserter verdrahtet — analog zu email/send. DSGVO-Consent-Check vor `InitiateDialerCall` ist damit scharf in Production.
 - **gRPC-Mapping (Sprint 3 Welle 2A, Commit `1f6c4c0`, 2026-05-08):** `mapDialerError` in `backend/internal/server/dialer_grpc.go` mappt `consent.ErrNoConsent` jetzt auf `codes.PermissionDenied` (vorher fiel es durch auf `codes.Internal`, weil keine explizite Sentinel-Klausel). Test-Case in `dialer_grpc_test.go::TestMapDialerError` deckt alle 10 Sentinels ab (`ErrCampaignNotFound`, `ErrCallSessionNotFound`, `ErrOutcomeNotFound`, `ErrCampaignNotDraft`, `ErrCampaignNotActive`, `ErrInvalidStatusTransition`, `ErrNoContactsAvailable`, `ErrContactAlreadyInCampaign`, `ErrAgentNotAvailable`, `ErrCampaignHasNoContacts`, plus `consent.ErrNoConsent` → `PermissionDenied` plus `nil` → `nil` plus unknown → `Internal`).
 
 ## Prod-Secrets Startup-Assertion (S0.3, scharf + Requirements-API seit 2026-06-05)
@@ -229,13 +235,15 @@ Zentrales `go-playground/validator/v10`-Framework fuer alle HTTP-Mutation-Handle
 - **AVV/DPA** (Auftragsverarbeitungsvertrag): Blocker fuer Pilot-Onboarding mit echten Kundendaten — wartet auf UG-Gruendung 01.05.2026
 - AGB, DSGVO-Pruefung durch Anwalt
 
-## CI Security-Scans (Sprint 3 S3.2, ab 2026-05-08)
+## CI Security-Scans (Sprint 3 S3.2, ab 2026-05-08; ausgelagert nach `scans.yml` 2026-06-09)
+
+> **Seit 2026-06-09 (`8f6aaa32`):** Diese Scans laufen NICHT mehr bei jedem Push in `ci.yml`, sondern im eigenen Workflow `scans.yml` — woechentlich (Mo 04:00 UTC) + bei Aenderung an `go.mod`/`go.sum`/`package-lock.json` + `workflow_dispatch`. Spart per-Push Actions-Minuten (Dependency-Scans aendern sich nur mit Dependencies). Trivy-Cache-Key jetzt wochenbasiert (vorher `github.run_id` = nie ein Cache-Hit). Memory: `project_ci_pipeline_split_20260609.md`.
 
 | Scan | Tool | Wann | Severity-Threshold | Baseline |
 |---|---|---|---|---|
-| Source-Code Go | `gosec` | Jeder Push | HIGH/CRITICAL | `backend/.gosec.yaml` (G104/G304/G108) |
-| Filesystem Vulns | `trivy` (fs-scan) | Jeder Push | HIGH,CRITICAL | `ignore-unfixed: true` |
-| NPM-Dependencies | `npm audit --omit=dev` | Jeder Push | high | kein continue-on-error (0 Findings lokal) |
+| Source-Code Go | `gosec` | woechentlich + Dep-Aenderung | HIGH/CRITICAL | `backend/.gosec.yaml` (G104/G304/G108) |
+| Filesystem Vulns | `trivy` (fs-scan) | woechentlich + Dep-Aenderung | HIGH,CRITICAL | `ignore-unfixed: true` |
+| NPM-Dependencies | `npm audit --omit=dev` | woechentlich + Dep-Aenderung | high | kein continue-on-error (0 Findings lokal) |
 
 **Baseline-Status:** `gosec` und `trivy` laufen mit `continue-on-error: true` fuer initiale Baseline-Akzeptanz. Verschaerfung (exit-code: 1 fuer gosec, SARIF-Upload zu GitHub Code Scanning) als S3.2-Followup. `npm-audit` ist hart — 0 Vulnerabilities stand 2026-05-08.
 

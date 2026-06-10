@@ -1,6 +1,6 @@
 ---
 tags: [testing, qualitaet]
-updated: 2026-06-08
+updated: 2026-06-09
 ---
 # Test-Strategie
 
@@ -97,20 +97,25 @@ Zwei Varianten mit gleicher Abdeckung:
 - `SMOKE_CORS_ORIGIN` fuer den CORS-Preflight-Test (default `http://localhost:3000` = Dev-Allowlist; gegen Prod `https://app.zentria.tech` setzen)
 - Admin-Bootstrap wie E2E (`registerAndLoginAdmin`), skippt sauber wenn `DATABASE_URL` fehlt (z. B. gegen Production)
 - **Makefile:** `make smoke-test` (lokal), `make smoke-prod` (gegen Prod)
-- CI-Job: Laeuft nach E2E in der Pipeline — **gruen seit 2026-06-05**
+- CI-Job: Seit 2026-06-09 NICHT mehr in `ci.yml` — laeuft in `nightly.yml` (taeglich 03:00 UTC + `workflow_dispatch`), self-contained (baut eigene 6 Services). Per-Push gatet nur noch E2E. **gruen seit 2026-06-05**
 
 ## Coverage-Ziele
 - **Gesamt:** 80%+ Minimum
 - **Kritische Pfade (Auth, Payments, Data):** 95%+
 - **Jeder PR:** Muss Tests für neuen Code enthalten
 
-## Test-Pipeline (CI Reihenfolge)
+## Test-Pipeline (CI Reihenfolge, seit 2026-06-09 verschlankt)
+Per-Push-Gate (`ci.yml`, nur `backend/**`):
 1. **Lint** (parallel) — golangci-lint
-2. **Test** (parallel) — Unit Tests + Race Detector + Coverage
-3. **Build** (nach 1+2) — `make build`
-4. **E2E** (nach 1+2) — Integration Tests mit laufenden Services
-5. **Smoke** (nach 4) — Go Smoke Tests
-6. **OpenAPI Validate** (parallel) — Spec-Validierung
+2. **Test** (parallel) — Unit Tests + Race Detector + Coverage-Gate 15%
+3. **E2E** (nach 1+2) — Integration Tests mit laufenden Services
+4. **OpenAPI Validate** (parallel) — Spec-Validierung
+
+Ausgelagert (Pipeline-Split `8f6aaa32`, spart per-Push Actions-Minuten):
+- **`build`-Job entfernt** — `go test ./...` kompiliert bereits alle `cmd/*`, separater `make build` war redundant.
+- **Smoke** → `nightly.yml` (taeglich + dispatch), self-contained.
+- **Security-Scans** (gosec/trivy/npm-audit) → `scans.yml` (woechentlich + bei Dependency-Aenderung + dispatch).
+- Details: Memory `project_ci_pipeline_split_20260609.md`, [[deployment]] CI/CD.
 
 ## Demo Mode als Testumgebung
 - `RENDERER_VITE_DEMO_MODE=true` — Fetch-Interceptor mit realistischen Mock-Daten

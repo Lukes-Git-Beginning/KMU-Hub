@@ -1,6 +1,6 @@
 ---
 tags: [api, endpoints, openapi]
-updated: 2026-04-28
+updated: 2026-06-09
 ---
 # API-Referenz
 
@@ -13,7 +13,7 @@ updated: 2026-04-28
 
 | Domain | Praefix | Notizen |
 |--------|---------|---------|
-| Auth | `/api/v1/auth/…` | Login, Register, 2FA, Refresh, /auth/me |
+| Auth | `/api/v1/auth/…` | Login, Register, 2FA, Refresh, /auth/me, **forgot-password** (rate-limited/IP+email, kein User-Enumeration-Leak), **reset-password** (single-use SHA-256-Token, Refresh-Token-Revocation) |
 | CRM | `/api/v1/contacts`, `/companies`, `/deals` | Pipeline-Stages, Activities, Custom-Fields, Tags |
 | CRM Extended | `/api/v1/contacts/…/consent`, `/…/duplicates` | Consent-Management, Duplicate Detection (pg_trgm) |
 | Chat | `/api/v1/chat/channels`, `/chat/messages` | Reactions, Presence, Files |
@@ -21,6 +21,8 @@ updated: 2026-04-28
 | Dashboard | `/api/v1/dashboard` | Layout-Management pro User/Rolle |
 | Work | `/api/v1/projects`, `/tasks`, `/time-entries` | Task-Comments, Files, Time Tracking |
 | Calendar | `/api/v1/calendars`, `/events`, `/resources` | Resources, Holidays, Meetings |
+| **Calendar Booking-Pages** (auth) | `/api/v1/calendar/booking-pages`, `/{id}` | CRUD, RequirePermission `booking-pages`, hinter `modules.calendar`-Flag. Verwaltet `booking_pages`+`public_bookings` — siehe [[datenbank]] Chain PILOT |
+| **Public Booking** (unauthenticated) | `/api/v1/public/booking-pages/{slug}`, `/{slug}/availability`, `/bookings` | Eigene Route-Gruppe ohne authMiddleware (Muster `route_guest.go`), IP-Rate-Limit. `GET /{slug}`: öffentliche Page-Info. `GET /{slug}/availability`: freie Slots (aus `availability_rules` minus belegte Calendar-Events). `POST /bookings`: legt Calendar-Event an + Bestaetigungsmail |
 | Video | `/api/v1/video/calls`, `/recordings` | LiveKit-basiert |
 | Finance | `/api/v1/quotes`, `/invoices`, `/datev/export` | Payments, Credit Notes, Dunning, ZUGFeRD |
 | Inbox | `/api/v1/inbox` | Messages, Routing Rules, Teams (Unified Inbox) |
@@ -30,6 +32,7 @@ updated: 2026-04-28
 | Plugin | `/api/v1/plugins/…` | Manifests, Installations, Execution-Logs, Templates |
 | Global Search | `/api/v1/search` | Cross-Service (CRM + Dokumente), 500ms Timeout |
 | Guest Chat | `/api/v1/guest/…` | Public, kein Auth, eigene Session-Tokens |
+| Health | `/health` | Public, kein Auth |
 | Bexio | `/api/v1/integrations/bexio/…` | OAuth-Flow, Sync Trigger/Status/Logs |
 | Lexware | `/api/v1/integrations/lexware/…` | API-Key-basiert |
 | DATEV Upload | `/api/v1/datev/upload` | CSV-Upload (Buchungsstapel) |

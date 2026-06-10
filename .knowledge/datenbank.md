@@ -1,14 +1,14 @@
 ---
 tags: [datenbank, schema, migrations, ai-first, tenant-isolation, rls]
-updated: 2026-06-08
+updated: 2026-06-09
 ---
 # Datenbank
 
 ## Überblick
 - PostgreSQL 16 mit `pgvector/pgvector:pg16`-Image + Redis 7 (nur Cache, KEIN Dual-Write)
 - Änderungen NUR via golang-migrate (`make migrate-create name=xxx`)
-- **133 Migration-Paare** in `backend/migrations/` (076–116 siehe Sprint-2/3-Liste in der Vorversion dieser Note; **Sprint 4: 117 users_tenant_default_and_fk · 118 rls_foundation · 119 child_tables_tenant_id_backfill · 120–124 RLS-Wellen 2+3 · 125–127 RLS-Welle 4 · 128 fix_hr_document_policy_sysctx · 129 seed_missing_module_permissions** [35 nie geseedete Modul-Permissions admin-only, siehe [[security]] RBAC] **· 130 dialer outcome_id-Partial-Indizes + ~10 FK ON DELETE (R2-P1.8/.9) · 131 seed meetings:write fuer admin+manager+member (R2-P1.5)** — 131er-Review-Gate-Fund: Guard auf Bestands-Funktion braucht Seeds fuer ALLE bisher berechtigten Rollen, nicht nur admin · **132 add_finance_line_tables · 133 backfill_finance_line_tables** = ADR-0007 finance line_items relational, siehe Abschnitt unten)
-- **Prod-Stand seit 2026-06-05 Abend:** Migration-Head **`131`** (Code `564f238b`, COSMI_ENV=production scharf — siehe [[deployment]]). **2026-06-08:** Migr. **132/133** (ADR-0007 finance-lines, Commit `3e4c9055`) gepusht → CD deployt, Head wird **`133`**. Volume: `docker_pgdata` (nicht `docker_postgres-data`). psql-User in Production ist **`kmuhub`**, nicht `postgres` — siehe [[troubleshooting]].
+- **136 Migration-Paare** in `backend/migrations/` (076–116 siehe Sprint-2/3-Liste in der Vorversion dieser Note; **Sprint 4: 117 users_tenant_default_and_fk · 118 rls_foundation · 119 child_tables_tenant_id_backfill · 120–124 RLS-Wellen 2+3 · 125–127 RLS-Welle 4 · 128 fix_hr_document_policy_sysctx · 129 seed_missing_module_permissions** [35 nie geseedete Modul-Permissions admin-only, siehe [[security]] RBAC] **· 130 dialer outcome_id-Partial-Indizes + ~10 FK ON DELETE (R2-P1.8/.9) · 131 seed meetings:write fuer admin+manager+member (R2-P1.5)** — 131er-Review-Gate-Fund: Guard auf Bestands-Funktion braucht Seeds fuer ALLE bisher berechtigten Rollen, nicht nur admin · **132 add_finance_line_tables · 133 backfill_finance_line_tables** = ADR-0007 finance line_items relational, siehe Abschnitt unten)
+- **Prod-Stand seit 2026-06-05 Abend:** Migration-Head **`131`** (Code `564f238b`, COSMI_ENV=production scharf — siehe [[deployment]]). **2026-06-08:** Migr. **132/133** (ADR-0007 finance-lines, Commit `3e4c9055`) gepusht → Head **`133`**. **2026-06-09:** Chain PILOT — Migr. **134–136** (password-reset-tokens + booking-pages + RBAC-Seed, Commits `1548a067`+`b4af5739`+`2316d6cd`) → Head **`136`**. Volume: `docker_pgdata` (nicht `docker_postgres-data`). psql-User in Production ist **`kmuhub`**, nicht `postgres` — siehe [[troubleshooting]].
 
 ## RLS-Foundation (Migration 118, Sprint 4 Welle 1a)
 
@@ -315,6 +315,14 @@ Pragmatische Minimal-Version der "AI-First-DB"-Patterns — bewusst ohne Vendor-
 - **Agent-Memory-Tabellen** (`agent_conversations`, `agent_memories`, `agent_tool_calls`) — keine konkrete Agent-Anwendung in Cosmi geplant
 - **Semantic Catalog YAML** — YAGNI für Single-Tenant-Stage, `COMMENT ON` reicht
 - **Spalten-Rename für Naturalness (SNAILS)** — Breaking Change, warten bis nach Multi-Tenancy-Migration (Phase 3)
+
+### Chain PILOT — Auth & Booking (Migrations 134–136, 2026-06-09)
+
+- **000134 create_password_reset_tokens:** Tabelle `password_reset_tokens` — id UUID PK, `tenant_id UUID NOT NULL` (pre-RLS-ready), `user_id UUID FK → users ON DELETE CASCADE`, `token_hash VARCHAR(64) UNIQUE` (SHA-256), `expires_at TIMESTAMPTZ` (1h), `used_at TIMESTAMPTZ NULL`, `created_at`. Single-use, Muster wie refresh_tokens/invitations. RLS-Policy folgt separater Welle.
+- **000135 create_booking_pages:** Zwei Tabellen, beide `tenant_id NOT NULL`:
+  - `booking_pages` — id, tenant_id, `calendar_id FK`, `slug` mit `UNIQUE(tenant_id, slug)`, company_name, logo_url, `services JSONB`, `availability_rules JSONB` (`{weekdays, slots_per_weekday[{start,end}], slot_duration_min, buffer_min, lead_time_hours, breaks[{start,end}]}`), active.
+  - `public_bookings` — id, tenant_id, `booking_page_id FK`, service_id, customer_name/email/phone, notes, date, time_slot, staff_user_id, status, calendar_event_id; `UNIQUE(booking_page_id, customer_email, date, time_slot)` als Doppel-Submit-Backstop.
+- **000136 seed_booking_pages_permissions:** RBAC-Seed: Permissions `booking-pages:read`, `booking-pages:write`, `booking-pages:delete` + Grant an admin-Rolle. Muster 000131 (idempotent ON CONFLICT DO NOTHING).
 
 ## Verwandte Notes
 - [[architektur]] — Service-Architektur, Performance-Patterns

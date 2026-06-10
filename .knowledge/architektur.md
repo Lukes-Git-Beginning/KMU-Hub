@@ -1,6 +1,6 @@
 ---
 tags: [architektur, backend, frontend, ci-cd, rls]
-updated: 2026-06-06
+updated: 2026-06-09
 ---
 # Architektur
 
@@ -68,6 +68,7 @@ Entry Point: `cmd/gateway/main.go` (~324 LoC) + `setup.go` + `adapters.go`.
 | `route_document.go` | Dokumente (CRUD) |
 | `route_email.go` | E-Mail-Konten, IMAP/SMTP |
 | `route_guest.go` | Guest Chat (public, kein Auth) |
+| `route_booking.go` | Public Booking (unauthenticated, IP-Rate-Limit): `GET /api/v1/public/booking-pages/{slug}`, `GET /{slug}/availability`, `POST /bookings` — Muster `route_guest.go`, kein authMiddleware |
 | `route_health.go` | `/health` (public) |
 | `route_hr.go` | HR (Mitarbeiter, Abwesenheit, Urlaub, Schichten) |
 | `route_inbox.go` | Unified Inbox (Messages, Routing, Teams) |
