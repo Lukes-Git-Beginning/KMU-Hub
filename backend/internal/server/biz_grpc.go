@@ -105,6 +105,21 @@ func pageToLimitOffset(page, perPage int32) (int, int) {
 // Company Settings
 // ============================================================================
 
+// requireCompanySettings loads the tenant's company settings for document
+// generation. GetByTenantID returns (nil, nil) when no settings row exists
+// yet — callers dereference the result, so that case must be a clean
+// FailedPrecondition instead of a nil-pointer panic.
+func (s *BizGRPCServer) requireCompanySettings(ctx context.Context, tenantID uuid.UUID) (*models.CompanySettings, error) {
+	settings, err := s.requireCompanySettings(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	if settings == nil {
+		return nil, status.Error(codes.FailedPrecondition, "company settings not configured")
+	}
+	return settings, nil
+}
+
 func (s *BizGRPCServer) GetCompanySettings(ctx context.Context, req *bizv1.GetCompanySettingsRequest) (*bizv1.GetCompanySettingsResponse, error) {
 	tenantID, err := uuid.Parse(req.GetTenantId())
 	if err != nil {
@@ -1170,9 +1185,9 @@ func (s *BizGRPCServer) GenerateQuotePDF(ctx context.Context, req *bizv1.Generat
 		return nil, mapBizError(err)
 	}
 
-	settings, err := s.companySettings.GetByTenantID(ctx, tenantID)
+	settings, err := s.requireCompanySettings(ctx, tenantID)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to load company settings")
+		return nil, err
 	}
 
 	gen := pdf.NewGenerator(*settings)
@@ -1200,9 +1215,9 @@ func (s *BizGRPCServer) GenerateInvoicePDF(ctx context.Context, req *bizv1.Gener
 		return nil, mapBizError(err)
 	}
 
-	settings, err := s.companySettings.GetByTenantID(ctx, tenantID)
+	settings, err := s.requireCompanySettings(ctx, tenantID)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to load company settings")
+		return nil, err
 	}
 
 	gen := pdf.NewGenerator(*settings)
@@ -1230,9 +1245,9 @@ func (s *BizGRPCServer) GenerateCreditNotePDF(ctx context.Context, req *bizv1.Ge
 		return nil, mapBizError(err)
 	}
 
-	settings, err := s.companySettings.GetByTenantID(ctx, tenantID)
+	settings, err := s.requireCompanySettings(ctx, tenantID)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to load company settings")
+		return nil, err
 	}
 
 	gen := pdf.NewGenerator(*settings)
@@ -1266,9 +1281,9 @@ func (s *BizGRPCServer) GenerateDunningPDF(ctx context.Context, req *bizv1.Gener
 		return nil, status.Error(codes.Internal, "failed to load linked invoice for dunning PDF")
 	}
 
-	settings, err := s.companySettings.GetByTenantID(ctx, tenantID)
+	settings, err := s.requireCompanySettings(ctx, tenantID)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to load company settings")
+		return nil, err
 	}
 
 	gen := pdf.NewGenerator(*settings)
@@ -1306,9 +1321,9 @@ func (s *BizGRPCServer) GenerateZUGFeRDInvoicePDF(ctx context.Context, req *bizv
 		return nil, mapBizError(err)
 	}
 
-	settings, err := s.companySettings.GetByTenantID(ctx, tenantID)
+	settings, err := s.requireCompanySettings(ctx, tenantID)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to load company settings")
+		return nil, err
 	}
 
 	// Generate plain PDF first — used as fallback on ZUGFeRD failure.
