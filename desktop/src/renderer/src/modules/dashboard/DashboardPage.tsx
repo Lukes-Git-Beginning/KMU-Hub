@@ -6,15 +6,16 @@ import { Button } from '@/components/ui/button'
 import { AlertsSection, ModulesGrid } from '@/components/dashboard'
 import WidgetContainer from '@/components/widgets/WidgetContainer'
 import { useDashboardStore } from '@/stores/dashboard'
+import { useDashboardPrefsStore } from '@/stores/dashboardPrefs'
 import { QuickActionsBar } from '@/components/dashboard/QuickActionsBar'
 import { ProfileWidgetSuggestions } from '@/components/dashboard/ProfileWidgetSuggestions'
 import { TextReveal } from '@/components/shared/TextReveal'
 
-function getGreetingKey(): string {
+function getGreetingKey() {
   const hour = new Date().getHours()
-  if (hour < 12) return 'dashboard.greeting.morning'
-  if (hour < 18) return 'dashboard.greeting.afternoon'
-  return 'dashboard.greeting.evening'
+  if (hour < 12) return 'dashboard.greeting.morning' as const
+  if (hour < 18) return 'dashboard.greeting.afternoon' as const
+  return 'dashboard.greeting.evening' as const
 }
 
 export default function DashboardPage() {
@@ -24,6 +25,7 @@ export default function DashboardPage() {
   const toggleEditing = useDashboardStore((s) => s.toggleEditing)
   const resetToDefaults = useDashboardStore((s) => s.resetToDefaults)
   const ensureDefaults = useDashboardStore((s) => s.ensureDefaults)
+  const showGreeting = useDashboardPrefsStore((s) => s.showGreeting)
 
   useEffect(() => {
     ensureDefaults()
@@ -32,15 +34,19 @@ export default function DashboardPage() {
   return (
     <div className="h-full overflow-auto">
       <div className="p-4 md:p-8">
-        {/* Greeting Header */}
+        {/* Greeting Header — text part is a personal pref (settings panel) */}
         <div className="mb-8 flex items-start justify-between animate-fade-up">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">
-              <TextReveal text={t(greetingKey)} wordDelay={80} />
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground animate-fade-up" style={{ animationDelay: '200ms' }}>
-              {t('dashboard.greeting.subtitle')}
-            </p>
+            {showGreeting && (
+              <>
+                <h1 className="text-2xl font-semibold text-foreground">
+                  <TextReveal text={t(greetingKey)} wordDelay={80} />
+                </h1>
+                <p className="mt-1 text-sm text-muted-foreground animate-fade-up" style={{ animationDelay: '200ms' }}>
+                  {t('dashboard.greeting.subtitle')}
+                </p>
+              </>
+            )}
           </div>
 
           {/* Dashboard edit controls */}

@@ -17,7 +17,9 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
-import { useDashboardStore } from '@/stores/dashboard'
+import { useDashboardStore, type WidgetId } from '@/stores/dashboard'
+import { useDashboardPrefsStore } from '@/stores/dashboardPrefs'
+import { useDashboardSettingsStore } from '@/stores/dashboardSettings'
 import { widgetList, widgetRegistry } from './WidgetRegistry'
 import { WidgetWrapper } from './WidgetWrapper'
 
@@ -83,9 +85,17 @@ export default function WidgetContainer() {
   )
 
   // Available widgets that are NOT currently active
-  const availableWidgets = widgetList.filter(
+  // Tenant gating (settings panel): only allowed widgets are offered.
+  const allowedWidgets = useDashboardSettingsStore((s) => s.allowedWidgets)
+  const pickerWidgets = widgetList.filter((w) => allowedWidgets.includes(w.id as WidgetId))
+  const availableWidgets = pickerWidgets.filter(
     (w) => !activeWidgets.includes(w.id)
   )
+
+  // Personal density pref (settings panel): compact shrinks rows and gaps.
+  const density = useDashboardPrefsStore((s) => s.density)
+  const rowHeight = density === 'compact' ? 64 : 80
+  const gridMargin: [number, number] = density === 'compact' ? [12, 12] : [16, 16]
 
   return (
     <div ref={containerRef} className="relative w-full">
@@ -93,13 +103,13 @@ export default function WidgetContainer() {
         className="layout"
         layout={layouts}
         cols={12}
-        rowHeight={80}
+        rowHeight={rowHeight}
         width={containerWidth}
         isDraggable={isEditing}
         isResizable={isEditing}
         draggableHandle=".widget-drag-handle"
         compactType="vertical"
-        margin={[16, 16]}
+        margin={gridMargin}
         onLayoutChange={handleLayoutChange}
       >
         {activeWidgets.map((widgetId) => {
@@ -138,7 +148,7 @@ export default function WidgetContainer() {
           </DialogHeader>
 
           <div className="grid grid-cols-2 gap-3 pt-2 max-h-[60vh] overflow-y-auto pr-1">
-            {widgetList.map((widget) => {
+            {pickerWidgets.map((widget) => {
               const isActive = activeWidgets.includes(widget.id)
               const Icon = widget.icon
 

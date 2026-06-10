@@ -1,6 +1,6 @@
 import { useAuthStore } from '@/stores/auth'
 import { useModuleLeadsStore } from '@/stores/moduleLeads'
-import type { ModuleId } from '@/lib/pricing'
+import type { SettingsModuleId } from '@/lib/module-settings'
 
 /**
  * Whether the current user may edit a module's TENANT-wide settings.
@@ -9,7 +9,7 @@ import type { ModuleId } from '@/lib/pricing'
  * Modul-Leiter for that specific module (set by an admin in the Team module).
  * Non-leads see tenant settings read-only with a lock.
  */
-export function useIsModuleLead(moduleId: ModuleId): boolean {
+export function useIsModuleLead(moduleId: SettingsModuleId): boolean {
   const user = useAuthStore((s) => s.user)
   const isLead = useModuleLeadsStore((s) => s.isLead)
   if (!user) return false

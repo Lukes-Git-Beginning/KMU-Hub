@@ -16,6 +16,14 @@ import type { ModuleId } from './pricing'
 export type SettingsScope = 'personal' | 'tenant'
 
 /**
+ * Modules that have a settings panel. Superset of ModuleId: 'dashboard' is a
+ * cross-cutting surface (not a priced/leadable module) but still exposes
+ * tenant-wide settings — editable by admins only, since it cannot be
+ * delegated via LEADABLE_MODULES.
+ */
+export type SettingsModuleId = ModuleId | 'dashboard'
+
+/**
  * Modules that expose a Modul-Leiter role (i.e. have meaningful tenant-wide
  * settings an admin can delegate). Used by the Team module's per-employee
  * "erweiterte Moduleinstellungen" toggle. Keep in sync with ModuleId.

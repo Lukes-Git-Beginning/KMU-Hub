@@ -60,16 +60,17 @@ function VertraegePersonalPrefs() {
   const setDefaultReminderDays = useVertraegePrefsStore((s) => s.setDefaultReminderDays)
   const tenantReminderDays = useVertraegeSettingsStore((s) => s.tenantReminderDays)
 
-  const tabOptions: { id: VertraegeTab; labelKey: string; icon: typeof FileText }[] = [
+  // Literal labelKey inference keeps t() happy under typed i18n keys.
+  const tabOptions = [
     { id: 'aktiv', labelKey: 'vertraege.tab.aktiv', icon: FileText },
     { id: 'auslaufend', labelKey: 'vertraege.tab.auslaufend', icon: Hourglass },
     { id: 'archiv', labelKey: 'vertraege.tab.archiv', icon: Archive },
     { id: 'vorlagen', labelKey: 'vertraege.tab.vorlagen', icon: LayoutTemplate },
-  ]
-  const densityOptions: { id: VertraegeDensity; labelKey: string; icon: typeof Rows3 }[] = [
+  ] as const satisfies ReadonlyArray<{ id: VertraegeTab; labelKey: string; icon: typeof FileText }>
+  const densityOptions = [
     { id: 'comfortable', labelKey: 'vertraege.settings.personal.densityComfortable', icon: Rows3 },
     { id: 'compact', labelKey: 'vertraege.settings.personal.densityCompact', icon: Rows4 },
-  ]
+  ] as const satisfies ReadonlyArray<{ id: VertraegeDensity; labelKey: string; icon: typeof Rows3 }>
 
   const usesTenantDefault = defaultReminderDays === null
   const effectiveReminders = defaultReminderDays ?? tenantReminderDays
