@@ -34,6 +34,8 @@ import { VersionHistoryPanel } from './VersionHistoryPanel'
 import { OnlyOfficeEditor, isOnlyOfficeEditable } from './OnlyOfficeEditor'
 import { TemplateGalleryDialog } from './TemplateGalleryDialog'
 import { ShareLinkDialog } from './ShareLinkDialog'
+import { MoveCopyDialog, type MoveCopyMode } from './MoveCopyDialog'
+import { downloadDocumentFile } from './download'
 import { useAIStore, type ClassificationLevel } from '@/stores/ai'
 import { useDokumentePrefsStore } from '@/stores/dokumentePrefs'
 import { useDokumenteSettingsStore } from '@/stores/dokumenteSettings'
@@ -174,6 +176,10 @@ export default function DokumentePage() {
     id: string
     name: string
   } | null>(null)
+  const [moveCopyTarget, setMoveCopyTarget] = useState<{
+    mode: MoveCopyMode
+    file: DocumentFile
+  } | null>(null)
 
   // OnlyOffice editor state
   const [onlyOfficeEditor, setOnlyOfficeEditor] = useState<{
@@ -277,6 +283,13 @@ export default function DokumentePage() {
     setActiveSpecialView(key)
     setActiveFolderId(null)
     setSelectedFiles(new Set())
+  }
+
+  // Real download via expiring URL + temporary anchor
+  const handleDownload = (file: DocumentFile) => {
+    downloadDocumentFile(file.id, file.filename)
+      .then(() => toast.success(t('dokumente.downloading', { name: file.filename })))
+      .catch((err: Error) => toast.error(`${t('common.error')}: ${err.message}`))
   }
 
   // Upload handlers
@@ -1018,11 +1031,7 @@ export default function DokumentePage() {
                       key={file.id}
                       file={file}
                       onOpen={() => setPreviewFile(file)}
-                      onDownload={() =>
-                        toast.success(
-                          t('dokumente.downloading', { name: file.filename }),
-                        )
-                      }
+                      onDownload={() => handleDownload(file)}
                       onRename={() =>
                         setRenameTarget({
                           id: file.id,
@@ -1030,12 +1039,8 @@ export default function DokumentePage() {
                           type: 'file',
                         })
                       }
-                      onMove={() =>
-                        toast.info(t('dokumente.moveComingSoon'))
-                      }
-                      onCopy={() =>
-                        toast.info(t('dokumente.copyComingSoon'))
-                      }
+                      onMove={() => setMoveCopyTarget({ mode: 'move', file })}
+                      onCopy={() => setMoveCopyTarget({ mode: 'copy', file })}
                       onShare={() =>
                         setShareTarget({
                           type: 'file',
@@ -1090,11 +1095,7 @@ export default function DokumentePage() {
                       key={file.id}
                       file={file}
                       onOpen={() => setPreviewFile(file)}
-                      onDownload={() =>
-                        toast.success(
-                          t('dokumente.downloading', { name: file.filename }),
-                        )
-                      }
+                      onDownload={() => handleDownload(file)}
                       onRename={() =>
                         setRenameTarget({
                           id: file.id,
@@ -1102,12 +1103,8 @@ export default function DokumentePage() {
                           type: 'file',
                         })
                       }
-                      onMove={() =>
-                        toast.info(t('dokumente.moveComingSoon'))
-                      }
-                      onCopy={() =>
-                        toast.info(t('dokumente.copyComingSoon'))
-                      }
+                      onMove={() => setMoveCopyTarget({ mode: 'move', file })}
+                      onCopy={() => setMoveCopyTarget({ mode: 'copy', file })}
                       onShare={() =>
                         setShareTarget({
                           type: 'file',
@@ -1339,6 +1336,16 @@ export default function DokumentePage() {
               onClose={() => setShareLinkTarget(null)}
               fileName={shareLinkTarget.name}
               fileId={shareLinkTarget.id}
+            />
+          )}
+
+          {/* Move / Copy Dialog */}
+          {moveCopyTarget && (
+            <MoveCopyDialog
+              open
+              mode={moveCopyTarget.mode}
+              file={moveCopyTarget.file}
+              onOpenChange={(open) => !open && setMoveCopyTarget(null)}
             />
           )}
         </div>
