@@ -253,14 +253,7 @@ func marshalLineItems(items []ParsedLineItem) (json.RawMessage, error) {
 	}
 	out := make([]jsonItem, 0, len(items))
 	for _, li := range items {
-		out = append(out, jsonItem{
-			Position:    li.Position,
-			Description: li.Description,
-			Quantity:    li.Quantity,
-			UnitPrice:   li.UnitPrice,
-			TaxRate:     li.TaxRate,
-			LineTotal:   li.LineTotal,
-		})
+		out = append(out, jsonItem(li))
 	}
 	b, err := json.Marshal(out)
 	if err != nil {
@@ -278,11 +271,7 @@ func marshalTaxBreakdown(entries []ParsedTaxEntry) (json.RawMessage, error) {
 	}
 	out := make([]jsonEntry, 0, len(entries))
 	for _, e := range entries {
-		out = append(out, jsonEntry{
-			TaxRate:    e.TaxRate,
-			TaxableNet: e.TaxableNet,
-			TaxAmount:  e.TaxAmount,
-		})
+		out = append(out, jsonEntry(e))
 	}
 	b, err := json.Marshal(out)
 	if err != nil {

@@ -1,7 +1,6 @@
 package einvoice
 
 import (
-	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -191,7 +190,7 @@ func buildTestInvoice() models.Invoice {
 	dueDate := time.Date(2024, 3, 31, 0, 0, 0, 0, time.UTC)
 
 	return models.Invoice{
-		InvoiceNumber: fmt.Sprintf("RE-ROUNDTRIP-001"),
+		InvoiceNumber: "RE-ROUNDTRIP-001",
 		CustomerName:  "Testkunde GmbH",
 		InvoiceDate:   invoiceDate,
 		DueDate:       dueDate,
