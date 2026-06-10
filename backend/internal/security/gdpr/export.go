@@ -168,9 +168,9 @@ func (h *AuthExportHandler) ExportUserData(ctx context.Context, userID uuid.UUID
 
 	// Sessions (device/IP metadata -- no token hashes)
 	rows, err := h.pool.Query(ctx,
-		`SELECT id, device_name, device_type,
+		`SELECT id, COALESCE(device_name, ''), COALESCE(device_type, ''),
 		        CASE WHEN ip_address IS NOT NULL THEN host(ip_address) ELSE NULL END,
-		        location, is_current, last_active_at, created_at
+		        COALESCE(location, ''), is_current, last_active_at, created_at
 		 FROM user_sessions WHERE user_id = $1 ORDER BY last_active_at DESC`, userID,
 	)
 	if err != nil {
@@ -754,9 +754,9 @@ func (h *SessionExportHandler) ExportUserData(ctx context.Context, userID uuid.U
 	var out result
 
 	rows, err := h.pool.Query(ctx,
-		`SELECT id, device_name, device_type,
+		`SELECT id, COALESCE(device_name, ''), COALESCE(device_type, ''),
 		        CASE WHEN ip_address IS NOT NULL THEN host(ip_address) ELSE NULL END,
-		        location, is_current, last_active_at, created_at
+		        COALESCE(location, ''), is_current, last_active_at, created_at
 		 FROM user_sessions WHERE user_id = $1 ORDER BY last_active_at DESC`, userID,
 	)
 	if err != nil {
