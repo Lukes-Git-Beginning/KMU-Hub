@@ -1,6 +1,6 @@
 ---
 tags: [api, endpoints, openapi]
-updated: 2026-06-09
+updated: 2026-06-10
 ---
 # API-Referenz
 
@@ -16,6 +16,8 @@ updated: 2026-06-09
 | Auth | `/api/v1/auth/…` | Login, Register, 2FA, Refresh, /auth/me, **forgot-password** (rate-limited/IP+email, kein User-Enumeration-Leak), **reset-password** (single-use SHA-256-Token, Refresh-Token-Revocation) |
 | CRM | `/api/v1/contacts`, `/companies`, `/deals` | Pipeline-Stages, Activities, Custom-Fields, Tags |
 | CRM Extended | `/api/v1/contacts/…/consent`, `/…/duplicates` | Consent-Management, Duplicate Detection (pg_trgm) |
+| **Advisory Protocols** | `/api/v1/contacts/{id}/advisory-protocols`, `/api/v1/advisory-protocols/{id}` (+`/hand-over`, `/pdf`), `/api/v1/contacts/referral-report` | Beratungsprotokoll ZFA (2026-06-10, Migr. 000137): CRUD nur im Draft (410 nach Finalisierung), `POST /hand-over` setzt immutable (idempotent), PDF-Endpoint aktuell 501 (FE nutzt `window.print()`). RBAC `advisory-protocols:{read,write,delete}` — siehe [[datenbank]] |
+| **Settings/Module-Leads** | `/api/v1/tenant/module-leads…` (+`/me`), `/api/v1/settings/{module_id}` (+`/tenant`, `/user`) | 3-Ebenen-Scope (2026-06-10, Migr. 000138): `GET /settings/{module_id}` = serverseitig resolved (user > tenant), tenant-Writes nur Module-Lead/Admin (service-enforced), PUT mit Patch-Semantik `{"settings": {key: value}}`. RBAC `module-leads:{read,write}`, `settings:{read,write}` — siehe [[security]] |
 | Chat | `/api/v1/chat/channels`, `/chat/messages` | Reactions, Presence, Files |
 | Notifications | `/api/v1/notifications` | List, Read, Preferences, Mutes |
 | Dashboard | `/api/v1/dashboard` | Layout-Management pro User/Rolle |
@@ -28,7 +30,7 @@ updated: 2026-06-09
 | Inbox | `/api/v1/inbox` | Messages, Routing Rules, Teams (Unified Inbox) |
 | Automation | `/api/v1/automations` | Workflow CRUD, Execution Logs, Templates |
 | HR | `/api/v1/hr/employees`, `/hr/leave`, `/hr/absences` | Teilt "biz" gRPC-Server |
-| Security | `/api/v1/security/…` | Audit Logs, 2FA, App-Passwords, GDPR Export — teilt "auth" gRPC |
+| Security | `/api/v1/security/…` | Audit Logs, 2FA, App-Passwords, GDPR Export/Erasure (seit 2026-06-10 echte Handler statt Stubs, siehe [[security]]) — teilt "auth" gRPC |
 | Plugin | `/api/v1/plugins/…` | Manifests, Installations, Execution-Logs, Templates |
 | Global Search | `/api/v1/search` | Cross-Service (CRM + Dokumente), 500ms Timeout |
 | Guest Chat | `/api/v1/guest/…` | Public, kein Auth, eigene Session-Tokens |

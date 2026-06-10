@@ -1,6 +1,6 @@
 ---
 tags: [architektur, backend, frontend, ci-cd, rls]
-updated: 2026-06-09
+updated: 2026-06-10
 ---
 # Architektur
 
@@ -36,7 +36,7 @@ Gateway (HTTP/chi) auf Port 8080 → gRPC-Services intern. Tenant-Isolation auf 
 
 Gateway `/health`: status, checks, registered_services, version, commit, build_time (via ldflags)
 
-### Gateway Route-Dateien (41)
+### Gateway Route-Dateien (43)
 
 Alle Handler sind duenne gRPC-Proxies. Keine direkte DB-Abfrage im Gateway (ausser Dashboard, gekapselt).
 Shared Helpers: `validateUUIDParam`, `RequireAuthenticated` Middleware, `respondGRPCError`, `parsePagination`.
@@ -69,6 +69,8 @@ Entry Point: `cmd/gateway/main.go` (~324 LoC) + `setup.go` + `adapters.go`.
 | `route_email.go` | E-Mail-Konten, IMAP/SMTP |
 | `route_guest.go` | Guest Chat (public, kein Auth) |
 | `route_booking.go` | Public Booking (unauthenticated, IP-Rate-Limit): `GET /api/v1/public/booking-pages/{slug}`, `GET /{slug}/availability`, `POST /bookings` — Muster `route_guest.go`, kein authMiddleware |
+| `route_crm_advisory.go` | Beratungsprotokoll ZFA (2026-06-10): CRUD + hand-over + PDF + referral-report. Methode auf `CRMRoutes`, separate Registrierung via `crmRoutes.RegisterAdvisoryRoutes(r, …)` NACH dem Registrar-Loop in `main.go`. Service: `internal/crm/advisoryprotocol` |
+| `route_settings.go` | Settings-Fundament (2026-06-10): Module-Leads CRUD + 3-Ebenen-Settings (`/settings/{module_id}` resolved, `/tenant`, `/user`). Service `internal/settings` **co-located im auth-Binary** (Muster security/auth auf :50051, kein 25. Microservice). Proto-Regen: `make proto-settings` |
 | `route_health.go` | `/health` (public) |
 | `route_hr.go` | HR (Mitarbeiter, Abwesenheit, Urlaub, Schichten) |
 | `route_inbox.go` | Unified Inbox (Messages, Routing, Teams) |

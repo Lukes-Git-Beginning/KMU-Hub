@@ -1,14 +1,14 @@
 ---
 tags: [datenbank, schema, migrations, ai-first, tenant-isolation, rls]
-updated: 2026-06-09
+updated: 2026-06-10
 ---
 # Datenbank
 
 ## Überblick
 - PostgreSQL 16 mit `pgvector/pgvector:pg16`-Image + Redis 7 (nur Cache, KEIN Dual-Write)
 - Änderungen NUR via golang-migrate (`make migrate-create name=xxx`)
-- **136 Migration-Paare** in `backend/migrations/` (076–116 siehe Sprint-2/3-Liste in der Vorversion dieser Note; **Sprint 4: 117 users_tenant_default_and_fk · 118 rls_foundation · 119 child_tables_tenant_id_backfill · 120–124 RLS-Wellen 2+3 · 125–127 RLS-Welle 4 · 128 fix_hr_document_policy_sysctx · 129 seed_missing_module_permissions** [35 nie geseedete Modul-Permissions admin-only, siehe [[security]] RBAC] **· 130 dialer outcome_id-Partial-Indizes + ~10 FK ON DELETE (R2-P1.8/.9) · 131 seed meetings:write fuer admin+manager+member (R2-P1.5)** — 131er-Review-Gate-Fund: Guard auf Bestands-Funktion braucht Seeds fuer ALLE bisher berechtigten Rollen, nicht nur admin · **132 add_finance_line_tables · 133 backfill_finance_line_tables** = ADR-0007 finance line_items relational, siehe Abschnitt unten)
-- **Prod-Stand seit 2026-06-05 Abend:** Migration-Head **`131`** (Code `564f238b`, COSMI_ENV=production scharf — siehe [[deployment]]). **2026-06-08:** Migr. **132/133** (ADR-0007 finance-lines, Commit `3e4c9055`) gepusht → Head **`133`**. **2026-06-09:** Chain PILOT — Migr. **134–136** (password-reset-tokens + booking-pages + RBAC-Seed, Commits `1548a067`+`b4af5739`+`2316d6cd`) → Head **`136`**. Volume: `docker_pgdata` (nicht `docker_postgres-data`). psql-User in Production ist **`kmuhub`**, nicht `postgres` — siehe [[troubleshooting]].
+- **138 Migration-Paare** in `backend/migrations/` (076–116 siehe Sprint-2/3-Liste in der Vorversion dieser Note; **Sprint 4: 117 users_tenant_default_and_fk · 118 rls_foundation · 119 child_tables_tenant_id_backfill · 120–124 RLS-Wellen 2+3 · 125–127 RLS-Welle 4 · 128 fix_hr_document_policy_sysctx · 129 seed_missing_module_permissions** [35 nie geseedete Modul-Permissions admin-only, siehe [[security]] RBAC] **· 130 dialer outcome_id-Partial-Indizes + ~10 FK ON DELETE (R2-P1.8/.9) · 131 seed meetings:write fuer admin+manager+member (R2-P1.5)** — 131er-Review-Gate-Fund: Guard auf Bestands-Funktion braucht Seeds fuer ALLE bisher berechtigten Rollen, nicht nur admin · **132 add_finance_line_tables · 133 backfill_finance_line_tables** = ADR-0007 finance line_items relational, siehe Abschnitt unten)
+- **Prod-Stand seit 2026-06-05 Abend:** Migration-Head **`131`** (Code `564f238b`, COSMI_ENV=production scharf — siehe [[deployment]]). **2026-06-08:** Migr. **132/133** (ADR-0007 finance-lines, Commit `3e4c9055`) gepusht → Head **`133`**. **2026-06-09:** Chain PILOT — Migr. **134–136** (password-reset-tokens + booking-pages + RBAC-Seed, Commits `1548a067`+`b4af5739`+`2316d6cd`) → Head **`136`** (auf Server verifiziert 2026-06-10, clean). **2026-06-10:** Marathon-Tag-2-Welle-1 — Migr. **137/138** (advisory_protocols + settings-foundation, Commits `6b211222`+`360f92e6`) gepusht → Head wird **`138`**; nur statisch geprüft (keine lokale Dev-DB), CD-Migrate testet real. Volume: `docker_pgdata` (nicht `docker_postgres-data`). psql-User in Production ist **`kmuhub`**, nicht `postgres` — siehe [[troubleshooting]].
 
 ## RLS-Foundation (Migration 118, Sprint 4 Welle 1a)
 
@@ -323,6 +323,11 @@ Pragmatische Minimal-Version der "AI-First-DB"-Patterns — bewusst ohne Vendor-
   - `booking_pages` — id, tenant_id, `calendar_id FK`, `slug` mit `UNIQUE(tenant_id, slug)`, company_name, logo_url, `services JSONB`, `availability_rules JSONB` (`{weekdays, slots_per_weekday[{start,end}], slot_duration_min, buffer_min, lead_time_hours, breaks[{start,end}]}`), active.
   - `public_bookings` — id, tenant_id, `booking_page_id FK`, service_id, customer_name/email/phone, notes, date, time_slot, staff_user_id, status, calendar_event_id; `UNIQUE(booking_page_id, customer_email, date, time_slot)` als Doppel-Submit-Backstop.
 - **000136 seed_booking_pages_permissions:** RBAC-Seed: Permissions `booking-pages:read`, `booking-pages:write`, `booking-pages:delete` + Grant an admin-Rolle. Muster 000131 (idempotent ON CONFLICT DO NOTHING).
+
+### Marathon Tag 2 Welle 1 — Beratungsprotokoll & Settings (Migrations 137–138, 2026-06-10)
+
+- **000137 advisory_protocols:** Beratungsprotokoll ZFA (Finanzberatung). Tabelle `advisory_protocols` — 57 typisierte Spalten über 8 Spec-Abschnitte (nur `products` als JSONB, Muster finance line_items), `tenant_id NOT NULL`, `contact_id FK`, Status `draft → finalized` (`handed_over_at`), CHECK `risk_class 1-7`. **Immutability service-seitig erzwungen** (Repo-Muster, DB-Status-Filter als Doppelnetz), 10J-Retention (DSGVO Art. 6(1)(c)). Plus contacts-Erweiterung: `referred_by_contact_id` (Self-FK) + `client_segment` (CHAR(1) CHECK A/B/C). RBAC-Seeds `advisory-protocols:{read,write,delete}`.
+- **000138 create_settings_foundation:** 3-Ebenen-Settings-Modell (Tenant-Default → Modul-Leiter-Override → User-Override). Drei Tabellen, alle `tenant_id NOT NULL`: `tenant_settings` (PK tenant_id+module_id+key, value JSONB), `user_settings` (PK +user_id, FK users CASCADE), `tenant_module_leads` (PK tenant_id+user_id+module_id, granted_by/granted_at). Key-Namespacing wie FE (`payroll.*`). RBAC-Seeds `module-leads:{read,write}` (write admin-only), `settings:{read,write}`. Resolve serverseitig in `internal/settings` — siehe [[architektur]].
 
 ## Verwandte Notes
 - [[architektur]] — Service-Architektur, Performance-Patterns

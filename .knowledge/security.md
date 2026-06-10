@@ -1,6 +1,6 @@
 ---
 tags: [security, auth, compliance, gdpr, rls, multi-tenant]
-updated: 2026-06-09
+updated: 2026-06-10
 ---
 # Security & Compliance
 
@@ -224,6 +224,7 @@ Zentrales `go-playground/validator/v10`-Framework fuer alle HTTP-Mutation-Handle
 - Audit-Logging: `security_audit_logs` Tabelle — vollstaendig aktiv
 - Erasure-Support: GDPR-Loeschbegehren via `gdpr_deletion_requests` Tabelle (status: pending/completed)
 - GDPR-Dateiexport: `/api/v1/security/gdpr/export` + `/gdpr/exports` + `/gdpr/download/{token}`
+- **Export-/Erasure-Handler ECHT seit 2026-06-10** (`47d210d9` — vorher waren ALLE 14 Handler Platzhalter-Stubs!): 7 Export-Handler (auth/crm/chat/work/calendar/sessions/notifications) mit tenant+user-gefilterten SQL-Queries und Datensparsamkeit (keine Token-Hashes/2FA-Secrets, Notifications max 90 Tage/1000). Erasure: anonymize (auth/crm/chat/work — PII → Sentinel, `NOT NULL`-FKs wie `created_by` bleiben auf anonymisiertem User-Record), delete (calendar/notifications), retain (audit, Art. 17(3)(e)). Wiring via Konstruktoren `gdpr.New*Handler(pool)` in `cmd/auth/main.go`
 - Security-Routen teilen den "auth" gRPC-Server (kein separater Service noetig)
 - **Consent Management (Migration 060):**
   - `consent_records`: Einwilligungen pro Kontakt (6 Typen: marketing_email, marketing_phone, profiling, newsletter, data_processing, data_sharing)
