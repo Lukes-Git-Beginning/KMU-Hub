@@ -110,9 +110,9 @@ func pageToLimitOffset(page, perPage int32) (int, int) {
 // yet — callers dereference the result, so that case must be a clean
 // FailedPrecondition instead of a nil-pointer panic.
 func (s *BizGRPCServer) requireCompanySettings(ctx context.Context, tenantID uuid.UUID) (*models.CompanySettings, error) {
-	settings, err := s.requireCompanySettings(ctx, tenantID)
+	settings, err := s.companySettings.GetByTenantID(ctx, tenantID)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, "failed to load company settings")
 	}
 	if settings == nil {
 		return nil, status.Error(codes.FailedPrecondition, "company settings not configured")
