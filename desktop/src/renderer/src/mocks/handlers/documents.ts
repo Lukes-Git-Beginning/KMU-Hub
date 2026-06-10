@@ -10,13 +10,19 @@ const API = API_BASE_URL
 // ---------------------------------------------------------------------------
 
 const folders = [
-  { id: IDS.folders.root, name: 'Meine Dateien', parent_id: null, file_count: 0, created_at: daysAgo(90) },
-  { id: IDS.folders.projekte, name: 'Projekte', parent_id: IDS.folders.root, file_count: 8, created_at: daysAgo(60) },
-  { id: IDS.folders.verträge, name: 'Verträge', parent_id: IDS.folders.root, file_count: 5, created_at: daysAgo(45) },
-  { id: IDS.folders.rechnungen, name: 'Rechnungen', parent_id: IDS.folders.root, file_count: 12, created_at: daysAgo(30) },
-  { id: IDS.folders.marketing, name: 'Marketing', parent_id: IDS.folders.root, file_count: 6, created_at: daysAgo(20) },
-  { id: IDS.folders.vorlagen, name: 'Vorlagen', parent_id: IDS.folders.root, file_count: 4, created_at: daysAgo(80) },
-  { id: IDS.folders.personal, name: 'Personal', parent_id: IDS.folders.root, file_count: 3, created_at: daysAgo(50) },
+  { id: IDS.folders.root, name: 'Meine Dateien', parent_id: null, space_type: 'personal', file_count: 0, created_at: daysAgo(90) },
+  { id: IDS.folders.projekte, name: 'Projekte', parent_id: IDS.folders.root, space_type: 'personal', file_count: 8, created_at: daysAgo(60) },
+  { id: IDS.folders.verträge, name: 'Verträge', parent_id: IDS.folders.root, space_type: 'personal', file_count: 5, created_at: daysAgo(45) },
+  { id: IDS.folders.rechnungen, name: 'Rechnungen', parent_id: IDS.folders.root, space_type: 'personal', file_count: 12, created_at: daysAgo(30) },
+  { id: IDS.folders.marketing, name: 'Marketing', parent_id: IDS.folders.root, space_type: 'personal', file_count: 6, created_at: daysAgo(20) },
+  { id: IDS.folders.vorlagen, name: 'Vorlagen', parent_id: IDS.folders.root, space_type: 'personal', file_count: 4, created_at: daysAgo(80) },
+  { id: IDS.folders.personal, name: 'Personal', parent_id: IDS.folders.root, space_type: 'personal', file_count: 3, created_at: daysAgo(50) },
+  // Team space — own folders so the sidebar sections differ per space
+  { id: 'fld-team-root', name: 'Team-Dateien', parent_id: null, space_type: 'team', file_count: 1, created_at: daysAgo(70) },
+  { id: 'fld-team-vertrieb', name: 'Vertrieb', parent_id: 'fld-team-root', space_type: 'team', file_count: 1, created_at: daysAgo(40) },
+  { id: 'fld-team-intern', name: 'Intern', parent_id: 'fld-team-root', space_type: 'team', file_count: 1, created_at: daysAgo(35) },
+  // Project space
+  { id: 'fld-project-techvision', name: 'Projekt TechVision', parent_id: null, space_type: 'project', file_count: 1, created_at: daysAgo(25) },
 ]
 
 // ---------------------------------------------------------------------------
@@ -76,6 +82,11 @@ const files: MockFile[] = [
   { id: 'file-023', filename: 'Flyer_Messe_2026.pdf', name: 'Flyer_Messe_2026.pdf', mime_type: 'application/pdf', file_size: 8900000, folder_id: IDS.folders.marketing, created_by: IDS.users.lena, created_by_name: 'Lena Braun', created_at: daysAgo(10), updated_at: daysAgo(5), tags: [tags[2]] },
   { id: 'file-024', filename: 'Vertrag_Vorlage.docx', name: 'Vertrag_Vorlage.docx', mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', file_size: 134000, folder_id: IDS.folders.vorlagen, created_by: IDS.users.sophie, created_by_name: 'Sophie Lang', created_at: daysAgo(55), updated_at: daysAgo(12), tags: [tags[3]] },
   { id: 'file-025', filename: 'Gehaltsabrechnung_Muster.pdf', name: 'Gehaltsabrechnung_Muster.pdf', mime_type: 'application/pdf', file_size: 210000, folder_id: IDS.folders.personal, created_by: IDS.users.nina, created_by_name: 'Elena Schuster', created_at: daysAgo(40), updated_at: daysAgo(20), tags: [] },
+  // Team/project space files
+  { id: 'file-026', filename: 'Team_Meeting_Protokoll_Juni.docx', name: 'Team_Meeting_Protokoll_Juni.docx', mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', file_size: 96000, folder_id: 'fld-team-root', created_by: IDS.users.markus, created_by_name: 'Markus Weber', created_at: daysAgo(4), updated_at: daysAgo(4), tags: [] },
+  { id: 'file-027', filename: 'Pitch_Deck_Vertrieb.pdf', name: 'Pitch_Deck_Vertrieb.pdf', mime_type: 'application/pdf', file_size: 4200000, folder_id: 'fld-team-vertrieb', created_by: IDS.users.thomas, created_by_name: 'Thomas Meier', created_at: daysAgo(9), updated_at: daysAgo(6), tags: [] },
+  { id: 'file-028', filename: 'Onboarding_Leitfaden_Intern.pdf', name: 'Onboarding_Leitfaden_Intern.pdf', mime_type: 'application/pdf', file_size: 380000, folder_id: 'fld-team-intern', created_by: IDS.users.nina, created_by_name: 'Elena Schuster', created_at: daysAgo(22), updated_at: daysAgo(22), tags: [] },
+  { id: 'file-029', filename: 'Prozessanalyse_TechVision_Onsite.pdf', name: 'Prozessanalyse_TechVision_Onsite.pdf', mime_type: 'application/pdf', file_size: 1850000, folder_id: 'fld-project-techvision', created_by: IDS.users.stefan, created_by_name: 'Stefan Vogel', created_at: daysAgo(12), updated_at: daysAgo(7), tags: [tags[0]] },
 ]
 
 // ---------------------------------------------------------------------------
@@ -130,6 +141,130 @@ const DEMO_USER_NAMES: Record<string, string> = {
   [IDS.users.felix]: 'Felix Krause',
 }
 
+/** Build a tiny but VALID single-page PDF so the viewer's iframe renders a
+ *  real page in demo mode (Chromium PDF viewer needs correct xref offsets). */
+function buildDemoPdf(title: string): string {
+  const esc = (s: string) =>
+    s.replace(/[\\()]/g, (c) => `\\${c}`).replace(/[^\x20-\xFF]/g, '?')
+  const stream =
+    `BT /F1 20 Tf 64 770 Td (${esc(title)}) Tj ET ` +
+    `BT /F1 11 Tf 64 742 Td (Cosmi Demo-Modus - Platzhalter-Vorschau) Tj ET`
+  const objects = [
+    '<</Type/Catalog/Pages 2 0 R>>',
+    '<</Type/Pages/Kids[3 0 R]/Count 1>>',
+    '<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>',
+    `<</Length ${stream.length}>>\nstream\n${stream}\nendstream`,
+    '<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>',
+  ]
+  let pdf = '%PDF-1.4\n'
+  const offsets: number[] = []
+  objects.forEach((obj, i) => {
+    offsets.push(pdf.length)
+    pdf += `${i + 1} 0 obj\n${obj}\nendobj\n`
+  })
+  const xrefPos = pdf.length
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`
+  for (const off of offsets) pdf += `${String(off).padStart(10, '0')} 00000 n \n`
+  pdf += `trailer\n<</Size ${objects.length + 1}/Root 1 0 R>>\nstartxref\n${xrefPos}\n%%EOF`
+  return pdf
+}
+
+/** SVG placeholder so image files render an actual picture in demo mode. */
+function buildDemoImageSvg(filename: string): string {
+  const safe = filename.replace(/[<>&"']/g, '')
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500">` +
+    `<rect width="800" height="500" fill="#eef2f1"/>` +
+    `<circle cx="190" cy="170" r="46" fill="#d3e3de"/>` +
+    `<path d="M0 420 L240 240 L420 360 L560 280 L800 430 L800 500 L0 500 Z" fill="#c4d8d2"/>` +
+    `<text x="40" y="62" font-family="sans-serif" font-size="26" fill="#3b5f55">${safe}</text>` +
+    `<text x="40" y="92" font-family="sans-serif" font-size="15" fill="#7a948c">Cosmi Demo-Vorschau</text>` +
+    `</svg>`
+  )
+}
+
+/** Demo download/preview URLs as blob: URLs — Chromium blocks data: URLs in
+ *  iframes, blob: works (the demo interceptor runs in the same renderer).
+ *  Cached per file+name so repeated previews don't leak object URLs. */
+const demoFileUrlCache = new Map<string, string>()
+
+function getDemoFileUrl(file: MockFile): string {
+  const cacheKey = `${file.id}:${file.filename}`
+  const cached = demoFileUrlCache.get(cacheKey)
+  if (cached) return cached
+  let blob: Blob
+  if (file.mime_type === 'application/pdf') {
+    const pdf = buildDemoPdf(file.filename)
+    const bytes = Uint8Array.from(pdf, (c) => c.charCodeAt(0) & 0xff)
+    blob = new Blob([bytes], { type: 'application/pdf' })
+  } else if (file.mime_type.startsWith('image/')) {
+    blob = new Blob([buildDemoImageSvg(file.filename)], { type: 'image/svg+xml' })
+  } else {
+    blob = new Blob(
+      [`Cosmi Demo-Modus — Platzhalter-Inhalt für "${file.filename}".`],
+      { type: 'text/plain;charset=utf-8' },
+    )
+  }
+  const url = URL.createObjectURL(blob)
+  demoFileUrlCache.set(cacheKey, url)
+  return url
+}
+
+interface MockActivity {
+  id: string
+  file_id: string
+  action: string
+  actor_id: string
+  actor_name: string
+  detail: string | null
+  created_at: string
+}
+
+const activitiesByFile = new Map<string, MockActivity[]>()
+let activitySeq = 0
+
+function recordActivity(
+  fileId: string,
+  action: string,
+  detail: string | null = null,
+  actor: { id: string; name: string } = { id: IDS.users.markus, name: 'Markus Weber' },
+  createdAt: string = new Date().toISOString(),
+) {
+  const list = activitiesByFile.get(fileId) ?? []
+  list.push({
+    id: `act-${fileId}-${activitySeq++}`,
+    file_id: fileId,
+    action,
+    actor_id: actor.id,
+    actor_name: actor.name,
+    detail,
+    created_at: createdAt,
+  })
+  activitiesByFile.set(fileId, list)
+}
+
+function getActivities(file: MockFile): MockActivity[] {
+  if (!activitiesByFile.has(file.id)) {
+    recordActivity(
+      file.id,
+      'uploaded',
+      null,
+      { id: file.created_by, name: file.created_by_name },
+      file.created_at,
+    )
+    if (file.updated_at !== file.created_at) {
+      recordActivity(
+        file.id,
+        'version_created',
+        null,
+        { id: file.created_by, name: file.created_by_name },
+        file.updated_at,
+      )
+    }
+  }
+  return activitiesByFile.get(file.id) ?? []
+}
+
 interface MockShare {
   id: string
   entity_type: string
@@ -161,13 +296,14 @@ const shares: MockShare[] = [
 // ---------------------------------------------------------------------------
 
 export const documentHandlers = [
-  // List folders (filter by parent_id)
+  // List folders (filter by parent_id and/or space_type)
   http.get(`${API}/api/v1/documents/folders`, ({ request }) => {
     const url = new URL(request.url)
     const parentId = url.searchParams.get('parent_id')
-    const filtered = parentId
-      ? folders.filter((f) => f.parent_id === parentId)
-      : folders
+    const spaceType = url.searchParams.get('space_type')
+    let filtered = folders
+    if (spaceType) filtered = filtered.filter((f) => f.space_type === spaceType)
+    if (parentId) filtered = filtered.filter((f) => f.parent_id === parentId)
     return HttpResponse.json({ folders: filtered, total: filtered.length })
   }),
 
@@ -227,9 +363,8 @@ export const documentHandlers = [
 
   // Init team folder
   http.post(`${API}/api/v1/documents/folders/init/team`, () => {
-    return HttpResponse.json({
-      folder: { id: 'fld-team-root', name: 'Team-Dateien', parent_id: null, file_count: 0, created_at: daysAgo(90) },
-    })
+    const teamRoot = folders.find((f) => f.id === 'fld-team-root')
+    return HttpResponse.json({ folder: teamRoot })
   }),
 
   // List files (filter by folder_id)
@@ -329,6 +464,8 @@ export const documentHandlers = [
       is_favorite?: boolean
     }
     if (typeof body.filename === 'string' && body.filename) {
+      getActivities(file) // seed before recording
+      recordActivity(file.id, 'renamed', body.filename)
       file.filename = body.filename
       file.name = body.filename
     }
@@ -354,6 +491,8 @@ export const documentHandlers = [
       is_favorite: false,
     }
     files.push(copy)
+    getActivities(src)
+    recordActivity(src.id, 'copied', folders.find((f) => f.id === copy.folder_id)?.name ?? null)
     return HttpResponse.json({ file: copy }, { status: 201 })
   }),
 
@@ -364,7 +503,11 @@ export const documentHandlers = [
       return HttpResponse.json({ error: 'File not found' }, { status: 404 })
     }
     const body = (await request.json()) as { target_folder_id?: string }
-    if (body.target_folder_id) file.folder_id = body.target_folder_id
+    if (body.target_folder_id) {
+      getActivities(file)
+      recordActivity(file.id, 'moved', folders.find((f) => f.id === body.target_folder_id)?.name ?? null)
+      file.folder_id = body.target_folder_id
+    }
     file.updated_at = new Date().toISOString()
     return HttpResponse.json({})
   }),
@@ -375,10 +518,16 @@ export const documentHandlers = [
     if (!file) {
       return HttpResponse.json({ error: 'File not found' }, { status: 404 })
     }
-    const content = `Cosmi Demo-Modus — Platzhalter-Inhalt für "${file.filename}".`
-    return HttpResponse.json({
-      url: `data:text/plain;charset=utf-8,${encodeURIComponent(content)}`,
-    })
+    // Mime-appropriate placeholder so the viewer shows a real preview in demo
+    const url = getDemoFileUrl(file)
+    // The viewer also resolves this URL for previews — only log a download
+    // if the last entry isn't already a fresh one (keeps the trail readable)
+    const acts = getActivities(file)
+    const last = acts[acts.length - 1]
+    const fresh = last && last.action === 'downloaded' &&
+      Date.now() - new Date(last.created_at).getTime() < 10 * 60 * 1000
+    if (!fresh) recordActivity(file.id, 'downloaded')
+    return HttpResponse.json({ url })
   }),
 
   // Upload (multipart) — creates a real entry in the demo file list
@@ -438,6 +587,8 @@ export const documentHandlers = [
     }
     versions.push(version)
     file.updated_at = version.created_at
+    getActivities(file)
+    recordActivity(file.id, 'version_created', body.version_label ?? null)
     return HttpResponse.json({ version }, { status: 201 })
   }),
 
@@ -463,6 +614,8 @@ export const documentHandlers = [
       created_at: new Date().toISOString(),
     }
     versions.push(version)
+    getActivities(file)
+    recordActivity(file.id, 'reverted', `Version ${source.version_number}`)
     return HttpResponse.json({ version }, { status: 201 })
   }),
 
@@ -499,6 +652,13 @@ export const documentHandlers = [
       created_at: new Date().toISOString(),
     }
     shares.push(share)
+    if (body.entity_type === 'file') {
+      const file = files.find((f) => f.id === body.entity_id)
+      if (file) {
+        getActivities(file)
+        recordActivity(file.id, 'shared', share.shared_with_user_name)
+      }
+    }
     return HttpResponse.json({ share }, { status: 201 })
   }),
 
@@ -547,6 +707,18 @@ export const documentHandlers = [
   // Entity links — empty in demo
   http.get(`${API}/api/v1/documents/files/:id/links`, () => {
     return HttpResponse.json({ links: [] })
+  }),
+
+  // File activity (audit trail) — newest first
+  http.get(`${API}/api/v1/documents/files/:id/activity`, ({ params }) => {
+    const file = files.find((f) => f.id === params.id)
+    if (!file) {
+      return HttpResponse.json({ error: 'File not found' }, { status: 404 })
+    }
+    const activities = [...getActivities(file)].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    )
+    return HttpResponse.json({ activities })
   }),
 
   // WOPI token (OnlyOffice) — static demo token

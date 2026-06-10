@@ -6,6 +6,7 @@
  */
 import { useTranslation } from 'react-i18next'
 import { LayoutGrid, List, Rows3, Rows4, ArrowUp, ArrowDown } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
 import {
   useDokumentePrefsStore,
   type DokumenteView,
@@ -19,9 +20,11 @@ export function DokumentePersonalPrefs() {
   const sortField = useDokumentePrefsStore((s) => s.sortField)
   const sortDir = useDokumentePrefsStore((s) => s.sortDir)
   const density = useDokumentePrefsStore((s) => s.density)
+  const showPreviews = useDokumentePrefsStore((s) => s.showPreviews)
   const setDefaultView = useDokumentePrefsStore((s) => s.setDefaultView)
   const setSort = useDokumentePrefsStore((s) => s.setSort)
   const setDensity = useDokumentePrefsStore((s) => s.setDensity)
+  const setShowPreviews = useDokumentePrefsStore((s) => s.setShowPreviews)
 
   // `as const` keeps the labelKeys as literal types for the typed t().
   const viewOptions = [
@@ -112,6 +115,19 @@ export function DokumentePersonalPrefs() {
             )
           })}
         </div>
+      </div>
+
+      {/* Tile previews */}
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
+        <span>
+          <span className="block text-sm text-foreground">
+            {t('dokumente.settings.personal.showPreviews')}
+          </span>
+          <span className="block text-xs text-muted-foreground">
+            {t('dokumente.settings.personal.showPreviewsHint')}
+          </span>
+        </span>
+        <Switch checked={showPreviews} onCheckedChange={setShowPreviews} />
       </div>
     </div>
   )

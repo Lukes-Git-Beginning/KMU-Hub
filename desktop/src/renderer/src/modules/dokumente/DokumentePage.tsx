@@ -538,8 +538,11 @@ export default function DokumentePage() {
         setSelectedFiles(new Set([...selectedFiles, ...range]))
       }
     } else {
+      // Plain click opens the document itself (viewer) — a document should
+      // open like a document, not as a side panel. Multi-select stays on
+      // Ctrl/Shift+click; the side panel remains reachable via "Eigenschaften".
       setSelectedFiles(new Set())
-      setDetailFile(file)
+      setPreviewFile(file)
     }
   }
 
@@ -1214,6 +1217,15 @@ export default function DokumentePage() {
             file={previewFile}
             open={!!previewFile}
             onOpenChange={(open) => !open && setPreviewFile(null)}
+            onRename={(file) =>
+              setRenameTarget({ id: file.id, name: file.filename, type: 'file' })
+            }
+            onShare={(file) =>
+              setShareTarget({ type: 'file', id: file.id, name: file.filename })
+            }
+            onVersionHistory={(file) =>
+              setVersionHistoryTarget({ id: file.id, name: file.filename })
+            }
           />
 
           {/* Detail Panel */}
@@ -1327,6 +1339,7 @@ export default function DokumentePage() {
           <TemplateGalleryDialog
             open={showTemplateGallery}
             onClose={() => setShowTemplateGallery(false)}
+            targetFolderId={activeFolderId}
           />
 
           {/* Share Link Dialog */}
@@ -1526,11 +1539,12 @@ function FileGridCard({
   const Icon = fileTypeIcons[cat] || File
   const colorClass = fileTypeColors[cat] || fileTypeColors.other
   const density = useDokumentePrefsStore((s) => s.density)
+  const showPreviews = useDokumentePrefsStore((s) => s.showPreviews)
   const compact = density === 'compact'
 
   return (
     <div
-      className={`group rounded-xl border bg-card ${compact ? 'p-2' : 'p-3'} transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5 cursor-pointer ${
+      className={`group rounded-xl border bg-card ${compact ? 'p-2' : 'p-3'} transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:scale-[1.05] hover:-translate-y-0.5 hover:z-10 relative cursor-pointer ${
         isSelected
           ? 'border-primary ring-2 ring-primary/20'
           : 'border-border'
@@ -1541,9 +1555,38 @@ function FileGridCard({
       onDragStart={onDragStart}
     >
       <div
-        className={`flex ${compact ? 'h-14 mb-2' : 'h-20 mb-3'} items-center justify-center rounded-md ${colorClass} relative`}
+        className={`flex ${
+          showPreviews
+            ? compact
+              ? 'h-20 mb-2'
+              : 'h-28 mb-3'
+            : compact
+              ? 'h-14 mb-2'
+              : 'h-20 mb-3'
+        } items-center justify-center rounded-md ${colorClass} relative overflow-hidden`}
       >
-        <Icon className="h-8 w-8" />
+        {showPreviews ? (
+          /* Page-style preview placeholder — real first-page thumbnails need
+             the backend rendering service (see backend-gaps). Paper stays
+             white on purpose, also in dark mode. */
+          <div className="flex h-[86%] w-[62%] flex-col gap-1 rounded-[3px] bg-white p-1.5 shadow-sm">
+            <div className="h-1 w-1/2 rounded-full bg-current opacity-60" />
+            <div className="mt-0.5 h-0.5 w-full rounded-full bg-zinc-200" />
+            <div className="h-0.5 w-full rounded-full bg-zinc-200" />
+            <div className="h-0.5 w-3/4 rounded-full bg-zinc-200" />
+            {!compact && (
+              <>
+                <div className="h-0.5 w-full rounded-full bg-zinc-200" />
+                <div className="h-0.5 w-5/6 rounded-full bg-zinc-200" />
+              </>
+            )}
+            <div className="mt-auto flex items-center justify-end">
+              <Icon className={compact ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
+            </div>
+          </div>
+        ) : (
+          <Icon className="h-8 w-8" />
+        )}
         <div className="absolute top-1.5 right-1.5">
           <ClassificationBadge fileId={file.id} filename={file.filename} />
         </div>

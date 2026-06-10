@@ -44,6 +44,61 @@
 **Reviewer-Notizen (beim Feinschliff auszufüllen):**
 - _…_
 
+## ⬜ Feedback-Runde Darien — Dokument-Viewer, Historie, Karten-Vorschau (2026-06-10)
+
+**Dariens 5 Punkte, alle umgesetzt:**
+1. **Klick öffnet das Dokument** — Plain-Klick öffnete vorher das rechte DetailPanel; jetzt öffnet er den Viewer. Ctrl/Shift+Klick = Multi-Select wie gehabt, „Eigenschaften" im Kontextmenü erreicht weiterhin das Seitenpanel.
+2. **Viewer mit Aktionen** — `FilePreviewModal` zum Near-Fullscreen-Viewer (92vw/92vh) umgebaut: Toolbar mit Herunterladen/Umbenennen/Teilen/Versionsverlauf/Info; rendert Bild/PDF (iframe)/Text/Video.
+3. **Info-Bereich mit Historie, default minimiert** — Info-Toggle öffnet Sidebar: Details, Tags (hinzufügen/entfernen), **Aktivität** („X hat die Datei hochgeladen/umbenannt/verschoben/heruntergeladen…", mock-first: `GET /files/{id}/activity` + Demo-Handler zeichnet echte Aktionen auf). Backend-Gap notiert.
+4. **Hover vergrößert Karte** — `scale(1.05)` + Lift + Schatten, nur transform (Motion-Hardrule).
+5. **Dateivorschau in Kacheln + Schalter** — Seiten-Optik (weiße Mini-Seite, Textzeilen, Typ-Icon/-Farbe) statt nur Icon; persönliche Pref „Dateivorschau in Kacheln" im Settings-Panel, greift live.
+
+**Zwei dicke Nebenbefunde dabei gefixt:**
+- **CSP blockierte alle blob:-iframes** (kein `frame-src` → default-src 'self'): Der PDF-Viewer zeigte „Dieser Inhalt ist blockiert". Fix: `frame-src 'self' blob:; media-src 'self' blob:` in `index.html`. ⚠ **Für Luke/Security-Review:** eng gehalten; außerdem dürfte der **OnlyOffice-iframe** (externe URL) von derselben CSP blockiert sein — separat prüfen.
+- **Demo-Download-Handler liefert jetzt mime-passende Blob-URLs**: für PDFs ein programmatisch generiertes, valides Mini-PDF (Chromium-PDF-Viewer rendert echte Seite), für Bilder ein SVG-Platzhalter — der Viewer sieht im Demo echt aus. (data:-URLs scheitern an Chromium-Frame-Blocking — deshalb blob:.)
+
+**Hinklick-Pfad:** `/dokumente` → Datei anklicken → Viewer → „Info" → Historie. Hover über Karten. Modul-Einstellungen → Dokumente → „Dateivorschau in Kacheln" aus → Kacheln zeigen wieder Icons.
+
+**Screenshots:** `dokumente-fb-*.png` (Viewer headed mit echtem PDF, Info-Panel mit Historie, Hover, Grid mit/ohne Vorschau)
+
+**Verify:** QA `scripts/qa-dokumente-feedback.mjs` komplett grün (Viewer statt Panel, Info default zu, Toolbar, Aktivität, Switch live) · headed-Check `qa-headed-viewer.mjs` für die PDF-Darstellung (headless Chromium hat keinen PDF-Viewer!) · gescopter tsc · rawKeys [], pageErrors []
+
+**Bekannte offene Punkte / Backend-Bedarf:**
+- 🟡 Activity-Log-Backend (`document_activities`-Tabelle + GET-Endpoint + Schreiben bei Upload/Rename/Move/Download) → backend-gaps
+- 🟡 Echte Erstseiten-Thumbnails für Kacheln (Rendering-Service) → backend-gaps; bis dahin Seiten-Optik
+- 🟡 Viewer-Vorschau „Geteilt"-Aktivität nur bei File-Shares, Ordner-Shares ohne Trail
+
+**Reviewer-Notizen (beim Feinschliff auszufüllen):**
+- _…_
+
+## ⬜ P1-Nachschlag — Demo-Spaces, TemplateGallery real, XHR-Demo-Interceptor (2026-06-10)
+
+**Hinklick-Pfad:**
+- `/dokumente` → Sidebar: TEAM zeigt jetzt **Team-Dateien → Vertrieb/Intern**, PROJEKTE zeigt **Projekt TechVision** (vorher: dieselben 7 Ordner 3×)
+- Ordner „Vorlagen" → **„Aus Vorlage"** → Vorlage anklicken → echte Datei erscheint im Ordner (vorher nur Toast)
+
+**Gebaut:**
+- Demo-Ordner haben jetzt `space_type` + eigene Team-/Projekt-Ordner und 4 neue Dateien geseedet; Folder-Handler filtert nach `space_type`
+- TemplateGalleryDialog lädt eine generierte Platzhalter-Datei via Upload-Endpoint in den aktiven Ordner hoch (funktioniert in Demo UND gegen echtes Backend); Erstell-Zustand sperrt Doppelklicks
+- **Vorbestehender Demo-Bug gefixt (modulübergreifend!):** Der Demo-Modus ist ein reiner fetch-Interceptor — **alle XHR-Uploads (Dokumente-Upload, Drag&Drop, Chat-Datei-Upload) gingen im Demo ins Leere** (`ERR_CONNECTION_REFUSED`). `demo-mode.ts` patcht jetzt zusätzlich `XMLHttpRequest` und routet API-XHRs durch dieselben Handler (inkl. synthetischem Upload-Progress-Event)
+- Typed-t()-Fixes in TemplateGalleryDialog (as-const Keys)
+
+**Worauf achten (Feinschliff):**
+- [ ] Sidebar-Spaces: Benennung „Team-Dateien"/„Projekt TechVision" okay für die Demo-Erzählung?
+- [ ] Template-Erstellung: Platzhalter-Inhalt akzeptabel bis Backend-Template-Storage da ist? (Datei ist Text mit .docx-Endung — OnlyOffice könnte sie im Echtbetrieb nicht öffnen)
+- [ ] Upload per Drag&Drop im Demo einmal manuell gegentesten (XHR-Patch)
+
+**Screenshots:** `dokumente-rest-*.png` (Sidebar, Team-Ordner, Galerie, erstellte Datei in Liste)
+
+**Verify:** `scripts/qa-dokumente-rest.mjs` grün (Spaces sichtbar, Team-Datei sichtbar, **Dialog zu + Datei als exakter Listeneintrag** — der erste QA-Check war ein False Positive auf den Karten-Wrapper und wurde verschärft; der Screenshot hat den echten Upload-Fehler entlarvt) · gescopter tsc inkl. demo-mode.ts · rawKeys [], pageErrors [], failedApi []
+
+**Bekannte offene Punkte / Backend-Bedarf:**
+- 🟡 Template-Storage + Create-from-Template-Endpoint (echte .docx/.xlsx-Vorlagen) → backend-gaps
+- 🟡 Chat-Datei-Upload im Demo profitiert vom XHR-Patch, wurde aber nicht eigens ge-QA-t (Kommunikations-Lane)
+
+**Reviewer-Notizen (beim Feinschliff auszufüllen):**
+- _…_
+
 ## ⬜ P1 — Move/Copy-Dialog, echter Download, Demo-Handler komplett (2026-06-10)
 
 **Hinklick-Pfad:**

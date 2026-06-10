@@ -2,7 +2,8 @@
  * TemplateGalleryDialog — browse and create documents from templates.
  *
  * 5 categories with ~12 mock templates. Search within templates.
- * "Erstellen" adds a new file to the documents store.
+ * "Erstellen" uploads a generated placeholder file into the current folder
+ * (real template copies need backend template storage — see backend-gaps).
  */
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -26,24 +27,17 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
+import { useDocumentUpload } from '@/api/hooks/useDocumentUpload'
 
-interface Template {
-  id: string
-  nameKey: string
-  descKey: string
-  category: string
-  icon: React.ElementType
-  format: string
-}
-
-const CATEGORY_KEYS: Record<string, string> = {
+// `as const` keeps the keys as literal types for the typed t().
+const CATEGORY_KEYS = {
   all: 'dokumente.template.categoryAll',
   'verträge': 'dokumente.template.categoryContracts',
   briefe: 'dokumente.template.categoryLetters',
   formulare: 'dokumente.template.categoryForms',
   rechnungen: 'dokumente.template.categoryInvoices',
   berichte: 'dokumente.template.categoryReports',
-}
+} as const
 
 const CATEGORIES = [
   { id: 'all' },
@@ -52,9 +46,15 @@ const CATEGORIES = [
   { id: 'formulare' },
   { id: 'rechnungen' },
   { id: 'berichte' },
-]
+] as const satisfies readonly { id: keyof typeof CATEGORY_KEYS }[]
 
-const TEMPLATES: Template[] = [
+const FORMAT_MIME: Record<string, string> = {
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+}
+
+const TEMPLATES = [
   // Verträge
   { id: 't1', nameKey: 'dokumente.template.t1Name', descKey: 'dokumente.template.t1Desc', category: 'verträge', icon: FileCheck, format: '.docx' },
   { id: 't2', nameKey: 'dokumente.template.t2Name', descKey: 'dokumente.template.t2Desc', category: 'verträge', icon: FileCheck, format: '.docx' },
@@ -72,20 +72,26 @@ const TEMPLATES: Template[] = [
   // Berichte
   { id: 't11', nameKey: 'dokumente.template.t11Name', descKey: 'dokumente.template.t11Desc', category: 'berichte', icon: BarChart3, format: '.docx' },
   { id: 't12', nameKey: 'dokumente.template.t12Name', descKey: 'dokumente.template.t12Desc', category: 'berichte', icon: Presentation, format: '.pptx' },
-]
+] as const
+
+type Template = (typeof TEMPLATES)[number]
 
 interface TemplateGalleryDialogProps {
   open: boolean
   onClose: () => void
+  /** Folder the created document lands in ('' = root, same as page uploads). */
+  targetFolderId?: string | null
 }
 
-export function TemplateGalleryDialog({ open, onClose }: TemplateGalleryDialogProps) {
+export function TemplateGalleryDialog({ open, onClose, targetFolderId }: TemplateGalleryDialogProps) {
   const { t } = useTranslation()
   const [search, setSearch] = useState('')
-  const [activeCategory, setActiveCategory] = useState('all')
+  const [activeCategory, setActiveCategory] = useState<(typeof CATEGORIES)[number]['id']>('all')
+  const [creatingId, setCreatingId] = useState<string | null>(null)
+  const upload = useDocumentUpload()
 
   const filtered = useMemo(() => {
-    let result = TEMPLATES
+    let result: readonly Template[] = TEMPLATES
     if (activeCategory !== 'all') {
       result = result.filter((tmpl) => tmpl.category === activeCategory)
     }
@@ -98,9 +104,26 @@ export function TemplateGalleryDialog({ open, onClose }: TemplateGalleryDialogPr
     return result
   }, [activeCategory, search, t])
 
+  // Creates a real document: generated placeholder content uploaded into the
+  // current folder (works in demo and against the real upload endpoint).
   const handleCreate = (template: Template) => {
-    toast.success(t('dokumente.template.created', { name: `${t(template.nameKey)}${template.format}` }))
-    onClose()
+    if (creatingId) return
+    const filename = `${t(template.nameKey)}${template.format}`
+    const content = `${t(template.nameKey)}\n\n${t(template.descKey)}\n\n${t('dokumente.template.placeholderBody')}\n`
+    const file = new File([content], filename, {
+      type: FORMAT_MIME[template.format] ?? 'application/octet-stream',
+    })
+    setCreatingId(template.id)
+    upload
+      .mutateAsync({ folderId: targetFolderId ?? '', file })
+      .then(() => {
+        toast.success(t('dokumente.template.created', { name: filename }))
+        onClose()
+      })
+      .catch((err: Error) => {
+        toast.error(`${t('common.error')}: ${err.message}`)
+      })
+      .finally(() => setCreatingId(null))
   }
 
   return (
@@ -153,7 +176,9 @@ export function TemplateGalleryDialog({ open, onClose }: TemplateGalleryDialogPr
               {filtered.map((template) => (
                 <div
                   key={template.id}
-                  className="group rounded-lg border border-border bg-card p-4 hover:border-primary/30 hover:shadow-md transition-all cursor-pointer"
+                  className={`group rounded-lg border border-border bg-card p-4 hover:border-primary/30 hover:shadow-md transition-all cursor-pointer ${
+                    creatingId ? 'pointer-events-none opacity-60' : ''
+                  }`}
                   onClick={() => handleCreate(template)}
                 >
                   <div className="flex items-start gap-3 mb-2">

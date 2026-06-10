@@ -40,6 +40,7 @@ export const documentKeys = {
   files: (params?: ListFilesParams) => ['documents', 'files', params] as const,
   file: (id: string) => ['documents', 'file', id] as const,
   fileDownloadURL: (id: string) => ['documents', 'fileDownloadURL', id] as const,
+  fileActivity: (id: string) => ['documents', 'fileActivity', id] as const,
   versions: (fileId: string) => ['documents', 'versions', fileId] as const,
   shares: (entityType: string, entityId: string) =>
     ['documents', 'shares', entityType, entityId] as const,
@@ -245,6 +246,14 @@ export function useFileDownloadURL(id: string) {
     enabled: !!id,
     staleTime: 60_000, // URLs expire, keep fresh
     gcTime: 120_000,
+  })
+}
+
+export function useFileActivity(id: string) {
+  return useQuery({
+    queryKey: documentKeys.fileActivity(id),
+    queryFn: () => documentFileApi.listActivity(id),
+    enabled: !!id,
   })
 }
 

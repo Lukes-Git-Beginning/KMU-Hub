@@ -22,9 +22,12 @@ interface DokumentePrefsState {
   sortDir: SortDirection
   /** Row/card density. */
   density: DokumenteDensity
+  /** Show document-page previews on grid tiles (instead of plain type icons). */
+  showPreviews: boolean
   setDefaultView: (v: DokumenteView) => void
   setSort: (field: FileSortField, dir: SortDirection) => void
   setDensity: (d: DokumenteDensity) => void
+  setShowPreviews: (show: boolean) => void
 }
 
 export const useDokumentePrefsStore = create<DokumentePrefsState>()(
@@ -34,9 +37,11 @@ export const useDokumentePrefsStore = create<DokumentePrefsState>()(
       sortField: 'date',
       sortDir: 'desc',
       density: 'comfortable',
+      showPreviews: true,
       setDefaultView: (defaultView) => set({ defaultView }),
       setSort: (sortField, sortDir) => set({ sortField, sortDir }),
       setDensity: (density) => set({ density }),
+      setShowPreviews: (showPreviews) => set({ showPreviews }),
     }),
     { name: 'cosmi-dokumente-prefs' },
   ),

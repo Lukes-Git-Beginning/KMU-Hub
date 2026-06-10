@@ -112,6 +112,28 @@ export interface FolderPathSegment {
   name: string
 }
 
+export type DocumentActivityAction =
+  | 'uploaded'
+  | 'renamed'
+  | 'moved'
+  | 'copied'
+  | 'downloaded'
+  | 'shared'
+  | 'version_created'
+  | 'reverted'
+
+/** One entry of a file's audit trail (who did what, when). Mock-first —
+ *  the backend activity log is tracked in .planning/backend-gaps.md. */
+export interface DocumentActivity {
+  id: string
+  file_id: string
+  action: DocumentActivityAction
+  actor_id: string
+  actor_name: string
+  detail: string | null
+  created_at: string
+}
+
 export interface FileSearchResult {
   file: DocumentFile
   rank: number
@@ -240,6 +262,10 @@ export interface ListVirtualFilesResponse {
 
 export interface DownloadURLResponse {
   url: string
+}
+
+export interface ListActivityResponse {
+  activities: DocumentActivity[]
 }
 
 export interface WOPITokenResponse {

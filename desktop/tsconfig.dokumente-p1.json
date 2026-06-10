@@ -8,6 +8,14 @@
     "src/renderer/src/modules/dokumente/download.ts",
     "src/renderer/src/modules/dokumente/FileDetailPanel.tsx",
     "src/renderer/src/modules/dokumente/DokumentePage.tsx",
-    "src/renderer/src/mocks/handlers/documents.ts"
+    "src/renderer/src/modules/dokumente/TemplateGalleryDialog.tsx",
+    "src/renderer/src/modules/dokumente/FilePreviewModal.tsx",
+    "src/renderer/src/modules/dokumente/settings/DokumentePersonalPrefs.tsx",
+    "src/renderer/src/stores/dokumentePrefs.ts",
+    "src/renderer/src/api/types/document-types.ts",
+    "src/renderer/src/api/clients/document-client.ts",
+    "src/renderer/src/api/hooks/useDocuments.ts",
+    "src/renderer/src/mocks/handlers/documents.ts",
+    "src/renderer/src/mocks/demo-mode.ts"
   ]
 }
