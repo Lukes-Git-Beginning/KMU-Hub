@@ -15,7 +15,7 @@
 - [x] **Phase 01** — notifications: Ruhezeiten & DND-UI → `phase-01-notifications-quiet-hours.md` (Commit `279dee2`, Demo-Handler-Fix; UI war bereits da)
 - [x] **Phase 02** — berichte: Sparkline in KPI-Karten → `phase-02-berichte-sparkline.md` (Commit `f3a30e2` + ASCII-Fix `7dcbb4b`; inkl. neuem berichte-MSW-Handler, da bisher keiner existierte)
 
-→ **Review-Gate (Stand 2026-06-09):** Beide Piloten von Nico gebaut + selbst-verifiziert (gescopter tsc grün, QA-Script grün, Screenshots geprüft, 0 Raw-Keys/pageErrors). **Branch `marathon/nico` (von HEAD, trägt Phase-01-Fix), gepusht.** ⏳ **Wartet auf Darien-Review.** Grün → wiki-Block freigeben + nächste Specs schreiben.
+→ **Review-Gate: ✅ GRÜN (Darien, 2026-06-10).** Beide Piloten in main gemergt. Zwei kleine Feinschliff-Aufträge aus dem Review (Sparkline min–max normalisieren + Linienfarbe folgt Badge-Goodness — Details in `reviews/berichte.md`) als Mini-Phase erledigen, **wiki-Block ist freigegeben**. Wichtig: neuen `main` pullen und darauf weiterarbeiten (`marathon/nico` ist gemergt).
 
 ## Nach dem Pilot — Kandidaten (grob, je 1 Spec wenn dran)
 

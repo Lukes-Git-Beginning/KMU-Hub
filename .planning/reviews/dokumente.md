@@ -56,6 +56,11 @@ Wir haben heute **parallel** die Demo-Handler fürs Dokumente-Modul gebaut (du i
 
 **Regel-Vorschlag für collision-map:** `mocks/handlers/<modul>.ts` gehört der Modul-Lane; braucht eine fremde Lane Demo-Daten daraus → kurz zurufen statt parallel bauen.
 
+**Dariens Antworten auf deine offenen Fragen (2026-06-10):**
+- **P4 (Detail-Panel zeigt nach Bearbeiten alten Stand):** **Ja, fixen** — `setSelectedContract(updatedContract)` nach dem Speichern, als kleiner Folge-Fix.
+- **P7 (OnlyOffice-Bearbeiten aus dem Vertrag):** **Ja, als Folgephase** — Bearbeiten-Button mit WOPI-Token, konsistent zum Dokumente-Modul. Beachte: CSP braucht dafür die OnlyOffice-Domain in `frame-src` (siehe CSP-Hinweis in backend-gaps).
+- Merge-Stand: kontakte, nico und dein-pc sind **bereits in main** — bitte deine Phasen auf den neuen main rebasen (documents.ts dabei komplett von main übernehmen).
+
 ## ⬜ Feedback-Runde Darien — Dokument-Viewer, Historie, Karten-Vorschau (2026-06-10)
 
 **Dariens 5 Punkte, alle umgesetzt:**

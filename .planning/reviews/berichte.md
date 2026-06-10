@@ -9,6 +9,16 @@
 <!-- Phasen-Einträge hier anhängen — Struktur aus _TEMPLATE.md kopieren.
      Status-Legende: ⬜ ungereviewt · 🟡 Feedback offen · ✅ grün -->
 
+## ✅ GRÜN — Darien-Review 2026-06-10: Pilot 02 gemergt, 2 Feinschliff-Aufträge für Nico
+
+**Gate ist offen — Nico kann mit der Lane weitermachen (wiki-Block frei).** Pilot 02 ist in main gemergt (Smoke auf Merge-Stand grün: 9/9 Sparklines, rawKeys [], pageErrors []).
+
+**Entscheidungen Darien (als kleine Folge-Phase vor oder parallel zum wiki-Block):**
+1. **Sparkline normalisieren** — Serie auf min–max skalieren, damit die 32px-Höhe genutzt wird und der Trend sichtbar ist.
+2. **Linienfarbe folgt der Badge** — grün/rot je nach Gut/Schlecht-Bewertung (`invertGoodness` beachten), konsistent zur Prozent-Badge.
+
+(Beide Punkte klein, gleiche Dateien `KPICard.tsx`/`DashboardGrid.tsx`; `buildSparklineSeries` dabei gern in `useMemo`.)
+
 ## 🟡 Vor-Review durch Strom D — Nico Pilot 02: KPI-Sparklines (2026-06-10)
 
 > Nicos Review-Gate (BACKLOG `nico-block`) wartet auf Darien. Strom D hat vorgeprüft, damit das Gate schnell geht. **Pilot 01 (notifications-Ruhezeiten, `279dee2`) ist bereits in main gemergt — nur Pilot 02 (`marathon/nico`, 3 Commits) ist offen.**
