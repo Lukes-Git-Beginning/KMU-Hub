@@ -189,6 +189,13 @@ func (s *VertraegeGRPCServer) ListContracts(ctx context.Context, req *vertraegev
 		t := req.GetEndsBefore().AsTime()
 		input.EndsBefore = &t
 	}
+	if req.ContactId != nil {
+		cid, parseErr := uuid.Parse(req.GetContactId())
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid contact_id: %v", parseErr)
+		}
+		input.ContactID = &cid
+	}
 
 	contracts, total, listErr := s.svc.ListContracts(ctx, input)
 	if listErr != nil {

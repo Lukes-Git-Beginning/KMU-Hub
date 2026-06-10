@@ -138,6 +138,8 @@ message ListContractsRequest {
   optional google.protobuf.Timestamp ends_before = 7;
   int32 page = 8;
   int32 page_size = 9;
+  // Contact-360 filter: return only contracts where one of the parties has this contact_id.
+  optional string contact_id = 10;
 }
 
 message ListContractsResponse {

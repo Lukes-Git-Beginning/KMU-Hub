@@ -63,9 +63,15 @@ func (m *MockRepository) List(ctx context.Context, tenantID uuid.UUID, filter Li
 	}
 	var result []*models.Invoice
 	for _, inv := range m.invoices {
-		if inv.TenantID == tenantID {
-			result = append(result, inv)
+		if inv.TenantID != tenantID {
+			continue
 		}
+		if filter.ContactID != nil {
+			if inv.ContactID == nil || *inv.ContactID != *filter.ContactID {
+				continue
+			}
+		}
+		result = append(result, inv)
 	}
 	return result, len(result), nil
 }
@@ -455,6 +461,33 @@ func TestService_List_RepoError(t *testing.T) {
 	_, _, err := svc.List(context.Background(), uuid.New(), ListFilter{})
 
 	assert.Error(t, err)
+}
+
+func TestService_List_FilterByContactID(t *testing.T) {
+	svc, repo, _, _, _ := newTestService()
+	tenantID := uuid.New()
+	contactID := uuid.New()
+	otherContactID := uuid.New()
+
+	// Invoice linked to contactID
+	invA := createDraftInvoice(t, repo, tenantID)
+	invA.ContactID = &contactID
+
+	// Invoice linked to a different contact
+	invB := createDraftInvoice(t, repo, tenantID)
+	invB.ContactID = &otherContactID
+
+	// Invoice with no contact
+	createDraftInvoice(t, repo, tenantID)
+
+	invoices, total, err := svc.List(context.Background(), tenantID, ListFilter{
+		ContactID: &contactID,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, total)
+	require.Len(t, invoices, 1)
+	assert.Equal(t, invA.ID, invoices[0].ID)
 }
 
 // ============================================================================

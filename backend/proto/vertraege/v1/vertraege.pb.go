@@ -828,16 +828,18 @@ func (x *ContractResponse) GetContract() *Contract {
 }
 
 type ListContractsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	Status        *string                `protobuf:"bytes,2,opt,name=status,proto3,oneof" json:"status,omitempty"`
-	ContractType  *string                `protobuf:"bytes,3,opt,name=contract_type,json=contractType,proto3,oneof" json:"contract_type,omitempty"`
-	StartsAfter   *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=starts_after,json=startsAfter,proto3,oneof" json:"starts_after,omitempty"`
-	StartsBefore  *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=starts_before,json=startsBefore,proto3,oneof" json:"starts_before,omitempty"`
-	EndsAfter     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=ends_after,json=endsAfter,proto3,oneof" json:"ends_after,omitempty"`
-	EndsBefore    *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=ends_before,json=endsBefore,proto3,oneof" json:"ends_before,omitempty"`
-	Page          int32                  `protobuf:"varint,8,opt,name=page,proto3" json:"page,omitempty"`
-	PageSize      int32                  `protobuf:"varint,9,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	TenantId     string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Status       *string                `protobuf:"bytes,2,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	ContractType *string                `protobuf:"bytes,3,opt,name=contract_type,json=contractType,proto3,oneof" json:"contract_type,omitempty"`
+	StartsAfter  *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=starts_after,json=startsAfter,proto3,oneof" json:"starts_after,omitempty"`
+	StartsBefore *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=starts_before,json=startsBefore,proto3,oneof" json:"starts_before,omitempty"`
+	EndsAfter    *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=ends_after,json=endsAfter,proto3,oneof" json:"ends_after,omitempty"`
+	EndsBefore   *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=ends_before,json=endsBefore,proto3,oneof" json:"ends_before,omitempty"`
+	Page         int32                  `protobuf:"varint,8,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize     int32                  `protobuf:"varint,9,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// Contact-360 filter: return only contracts where one of the parties has this contact_id.
+	ContactId     *string `protobuf:"bytes,10,opt,name=contact_id,json=contactId,proto3,oneof" json:"contact_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -933,6 +935,13 @@ func (x *ListContractsRequest) GetPageSize() int32 {
 		return x.PageSize
 	}
 	return 0
+}
+
+func (x *ListContractsRequest) GetContactId() string {
+	if x != nil && x.ContactId != nil {
+		return *x.ContactId
+	}
+	return ""
 }
 
 type ListContractsResponse struct {
@@ -2053,7 +2062,7 @@ const file_proto_vertraege_v1_vertraege_proto_rawDesc = "" +
 	"\vcontract_id\x18\x02 \x01(\tR\n" +
 	"contractId\"F\n" +
 	"\x10ContractResponse\x122\n" +
-	"\bcontract\x18\x01 \x01(\v2\x16.vertraege.v1.ContractR\bcontract\"\x96\x04\n" +
+	"\bcontract\x18\x01 \x01(\v2\x16.vertraege.v1.ContractR\bcontract\"\xc9\x04\n" +
 	"\x14ListContractsRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
 	"\x06status\x18\x02 \x01(\tH\x00R\x06status\x88\x01\x01\x12(\n" +
@@ -2065,13 +2074,17 @@ const file_proto_vertraege_v1_vertraege_proto_rawDesc = "" +
 	"\vends_before\x18\a \x01(\v2\x1a.google.protobuf.TimestampH\x05R\n" +
 	"endsBefore\x88\x01\x01\x12\x12\n" +
 	"\x04page\x18\b \x01(\x05R\x04page\x12\x1b\n" +
-	"\tpage_size\x18\t \x01(\x05R\bpageSizeB\t\n" +
+	"\tpage_size\x18\t \x01(\x05R\bpageSize\x12\"\n" +
+	"\n" +
+	"contact_id\x18\n" +
+	" \x01(\tH\x06R\tcontactId\x88\x01\x01B\t\n" +
 	"\a_statusB\x10\n" +
 	"\x0e_contract_typeB\x0f\n" +
 	"\r_starts_afterB\x10\n" +
 	"\x0e_starts_beforeB\r\n" +
 	"\v_ends_afterB\x0e\n" +
-	"\f_ends_before\"c\n" +
+	"\f_ends_beforeB\r\n" +
+	"\v_contact_id\"c\n" +
 	"\x15ListContractsResponse\x124\n" +
 	"\tcontracts\x18\x01 \x03(\v2\x16.vertraege.v1.ContractR\tcontracts\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\"\x86\x03\n" +

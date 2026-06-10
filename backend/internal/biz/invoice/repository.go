@@ -58,12 +58,14 @@ type Repository interface {
 
 // ListFilter contains filtering options for listing invoices.
 type ListFilter struct {
-	Status   string
-	DateFrom *time.Time
-	DateTo   *time.Time
-	Overdue  bool // If true, only returns sent invoices past due_date
-	Limit    int
-	Offset   int
+	Status    string
+	DateFrom  *time.Time
+	DateTo    *time.Time
+	Overdue   bool // If true, only returns sent invoices past due_date
+	// ContactID filters to invoices linked to this CRM contact (Contact-360 view).
+	ContactID *uuid.UUID
+	Limit     int
+	Offset    int
 }
 
 // SequenceInfo carries current state of a number sequence row.

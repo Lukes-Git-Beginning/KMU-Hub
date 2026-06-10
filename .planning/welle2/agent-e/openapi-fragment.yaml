@@ -1,0 +1,251 @@
+# OpenAPI fragment for E-Rechnung Eingang (Incoming Invoices)
+# Splice into: backend/api/openapi.yaml
+# Add paths under the existing finance paths.
+# Add schemas to the components/schemas section.
+
+paths:
+  /finance/invoices/import:
+    post:
+      summary: Import an inbound e-invoice (E-Rechnung Eingang)
+      description: |
+        Accepts a PDF (with embedded ZUGFeRD/Factur-X XML) or a raw XML file
+        (XRechnung UBL or ZUGFeRD CII). Parses and persists the invoice.
+      operationId: importIncomingInvoice
+      tags:
+        - Finance
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: PDF with embedded ZUGFeRD XML, or raw XML (CII/UBL)
+      responses:
+        "201":
+          description: Invoice imported successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncomingInvoice"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Duplicate invoice (same supplier + invoice number already imported)
+        "415":
+          description: Unsupported media type
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /finance/incoming-invoices:
+    get:
+      summary: List incoming invoices
+      operationId: listIncomingInvoices
+      tags:
+        - Finance
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [received, reviewed, booked, rejected]
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Paginated list of incoming invoices
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invoices:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/IncomingInvoice"
+                  total:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /finance/incoming-invoices/{id}:
+    get:
+      summary: Get a single incoming invoice
+      operationId: getIncomingInvoice
+      tags:
+        - Finance
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Incoming invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncomingInvoice"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /finance/incoming-invoices/{id}/status:
+    patch:
+      summary: Update incoming invoice status
+      operationId: updateIncomingInvoiceStatus
+      tags:
+        - Finance
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [reviewed, booked, rejected]
+      responses:
+        "200":
+          description: Updated incoming invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncomingInvoice"
+        "422":
+          description: Invalid status transition
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+components:
+  schemas:
+    IncomingInvoiceLineItem:
+      type: object
+      properties:
+        position:
+          type: integer
+        description:
+          type: string
+        quantity:
+          type: string
+        unit_price:
+          type: string
+        tax_rate:
+          type: string
+        line_total:
+          type: string
+
+    IncomingInvoiceTaxEntry:
+      type: object
+      properties:
+        tax_rate:
+          type: string
+        taxable_net:
+          type: string
+        tax_amount:
+          type: string
+
+    IncomingInvoice:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        supplier_name:
+          type: string
+        supplier_address:
+          type: string
+        supplier_vat_id:
+          type: string
+        invoice_number:
+          type: string
+        invoice_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+          nullable: true
+        currency:
+          type: string
+          example: EUR
+        line_items:
+          type: array
+          items:
+            $ref: "#/components/schemas/IncomingInvoiceLineItem"
+        tax_breakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/IncomingInvoiceTaxEntry"
+        subtotal:
+          type: string
+        total_tax:
+          type: string
+        gross_total:
+          type: string
+        source_format:
+          type: string
+          enum: [zugferd_cii, xrechnung_ubl, xml_only]
+        original_filename:
+          type: string
+        status:
+          type: string
+          enum: [received, reviewed, booked, rejected]
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time

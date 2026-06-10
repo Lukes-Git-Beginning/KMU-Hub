@@ -1,0 +1,54 @@
+============================================================
+FRAGMENT: biz.proto contact_id additions
+============================================================
+
+Determined field numbers by reading backend/proto/biz/v1/biz.proto:
+
+  Invoice message:         highest existing field = 19 (updated_at) → contact_id = 20
+  ListInvoicesRequest:     highest existing field =  4 (per_page)   → contact_id =  5
+  CreateInvoiceRequest:    highest existing field = 11 (created_by)  → contact_id = 12
+
+------------------------------------------------------------
+1. In message Invoice (after field 19 updated_at):
+------------------------------------------------------------
+
+  // Contact-360: CRM contact linked to this invoice (Migration 000141).
+  optional string contact_id = 20;
+
+Full block context:
+  google.protobuf.Timestamp created_at = 18;
+  google.protobuf.Timestamp updated_at = 19;
+  // Contact-360: CRM contact linked to this invoice (Migration 000141).
+  optional string contact_id = 20;
+}
+
+------------------------------------------------------------
+2. In message ListInvoicesRequest (after field 4 per_page):
+------------------------------------------------------------
+
+  // Contact-360 filter: return only invoices linked to this CRM contact.
+  optional string contact_id = 5;
+
+Full block context:
+  string tenant_id = 1;
+  InvoiceStatus status = 2;       // Optional filter
+  int32 page = 3;
+  int32 per_page = 4;
+  // Contact-360 filter: return only invoices linked to this CRM contact.
+  optional string contact_id = 5;
+}
+
+------------------------------------------------------------
+3. In message CreateInvoiceRequest (after field 11 created_by):
+------------------------------------------------------------
+
+  // Contact-360: CRM contact to link to this invoice (Migration 000141).
+  optional string contact_id = 12;
+
+Full block context:
+  string notes = 9;
+  string source_quote_id = 10;    // Optional
+  string created_by = 11;
+  // Contact-360: CRM contact to link to this invoice (Migration 000141).
+  optional string contact_id = 12;
+}

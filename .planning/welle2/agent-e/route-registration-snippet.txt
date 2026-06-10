@@ -1,0 +1,29 @@
+// Patch for: backend/internal/gateway/route_biz.go — RegisterRoutes function.
+// Add the following two route blocks inside RegisterRoutes, after the existing
+// "/api/v1/finance/invoices" block.
+
+// ============================================================================
+// E-Rechnung Import (Eingang)
+// ============================================================================
+// POST /api/v1/finance/invoices/import  — upload PDF or XML e-invoice
+r.Route("/api/v1/finance/invoices/import", func(r chi.Router) {
+    r.Use(authMiddleware)
+    r.With(middleware.RequirePermission("finance", "write")).Post("/", b.HandleImportInvoice)
+})
+
+// Incoming Invoices — list + get + status update
+r.Route("/api/v1/finance/incoming-invoices", func(r chi.Router) {
+    r.Use(authMiddleware)
+    r.With(middleware.RequirePermission("finance", "read")).Get("/", b.HandleListIncomingInvoices)
+    r.With(middleware.RequirePermission("finance", "read")).Get("/{id}", b.HandleGetIncomingInvoice)
+    r.With(middleware.RequirePermission("finance", "write")).Patch("/{id}/status", b.HandleUpdateIncomingInvoiceStatus)
+})
+
+// ============================================================================
+// Permission decision (documented here, no new DB seeds needed):
+// ============================================================================
+// The existing "finance" resource already has seeded permissions:
+//   finance:read   — list and view incoming invoices
+//   finance:write  — import + update status
+// No new permission seeds are required. See Migration 000120 / 000122 for
+// the original finance permission seeds.

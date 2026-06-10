@@ -1,0 +1,55 @@
+// Patch for: backend/cmd/biz/main.go
+// Add the following wiring in the "Initialize Repositories" and "Initialize Services"
+// sections, and update the NewBizGRPCServer call.
+
+// ============================================================================
+// IMPORTS — add to import block:
+// ============================================================================
+// "github.com/kmuhub/kmuhub/internal/biz/einvoice"
+
+// ============================================================================
+// REPOSITORIES SECTION — after dashboardRepo, add:
+// ============================================================================
+
+einvoiceRepo := einvoice.NewPostgresRepository(pool)
+
+// ============================================================================
+// SERVICES SECTION — after datevExp, add:
+// ============================================================================
+
+einvoiceSvc := einvoice.NewService(einvoiceRepo)
+
+// ============================================================================
+// gRPC SERVER — update NewBizGRPCServer call, add einvoiceSvc as last argument:
+// ============================================================================
+
+// Current:
+bizGRPC := server.NewBizGRPCServer(
+    quoteSvc,
+    invoiceSvc,
+    creditNoteSvc,
+    paymentSvc,
+    dunningSvc,
+    dashboardSvc,
+    pdfGen,
+    datevExp,
+    companySettingsRepo,
+    workTimeRepo,
+    crmServiceClient,
+)
+
+// Becomes:
+bizGRPC := server.NewBizGRPCServer(
+    quoteSvc,
+    invoiceSvc,
+    creditNoteSvc,
+    paymentSvc,
+    dunningSvc,
+    dashboardSvc,
+    pdfGen,
+    datevExp,
+    companySettingsRepo,
+    workTimeRepo,
+    crmServiceClient,
+    einvoiceSvc,           // ← new: incoming e-invoice processing
+)

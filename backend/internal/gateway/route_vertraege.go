@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/featureflag"
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -157,6 +158,13 @@ func (vr *VertraegeRoutes) HandleListContracts(w http.ResponseWriter, r *http.Re
 	}
 	if ct := q.Get("contract_type"); ct != "" {
 		grpcReq.ContractType = &ct
+	}
+	if cid := q.Get("contact_id"); cid != "" {
+		if _, parseErr := uuid.Parse(cid); parseErr != nil {
+			http.Error(w, `{"error":"invalid contact_id: must be a valid UUID","code":"INVALID_CONTACT_ID"}`, http.StatusBadRequest)
+			return
+		}
+		grpcReq.ContactId = &cid
 	}
 
 	resp, err := client.ListContracts(r.Context(), grpcReq)

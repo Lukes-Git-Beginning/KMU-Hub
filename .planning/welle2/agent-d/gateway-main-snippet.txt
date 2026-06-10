@@ -1,0 +1,37 @@
+// GATEWAY MAIN.GO SNIPPET — Add to cmd/gateway/main.go
+//
+// The GoBD ArchiveDocument RPC sends raw file bytes (up to 50 MiB) from the
+// gateway to the biz service via gRPC. The default gRPC message size limit
+// (4 MiB) will reject multi-megabyte PDF/document uploads silently.
+//
+// The biz server already sets MaxRecvMsgSize(60<<20) / MaxSendMsgSize(60<<20)
+// (added in cmd/biz/main.go). The gateway gRPC *client* must also be configured
+// to allow sending messages of that size.
+//
+// Two options for the registry (internal/gateway/registry.go) – either is fine:
+
+// === Option A: Per-call override in route_biz_gobd_archive.go ===
+// In HandleArchiveDocument, pass a grpc.CallOption when invoking:
+//
+//   resp, err := client.ArchiveDocument(r.Context(), req,
+//       grpc.MaxCallSendMsgSize(60<<20),
+//   )
+//
+// This is the least-invasive change: only the archive upload RPC gets the
+// larger limit; all other finance RPCs remain at the default 4 MiB.
+
+// === Option B: Connection-level default in registry.go ===
+// Add grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(60<<20)) to the
+// grpc.NewClient call in GetConnection so all biz connections accept large msgs:
+//
+//   conn, err := grpc.NewClient(
+//       svc.address,
+//       grpc.WithTransportCredentials(r.transportCredentials()),
+//       grpc.WithKeepaliveParams(...),
+//       grpc.WithUnaryInterceptor(middleware.TenantOutboundUnaryInterceptor()),
+//       grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(60<<20)),
+//   )
+//
+// RECOMMENDATION: Use Option A (per-call) in route_biz_gobd_archive.go.
+// Avoids accidental memory spikes on every biz connection. Gate reviewer
+// can decide at merge time.

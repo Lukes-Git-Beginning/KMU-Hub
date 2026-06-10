@@ -1,0 +1,106 @@
+============================================================
+FRAGMENT: route_biz_invoices.go contact_id patches
+============================================================
+
+File: backend/internal/gateway/route_biz_invoices.go
+Precondition: biz.proto regenerated with contact_id fields (see biz-proto-fragment.txt)
+
+------------------------------------------------------------
+PATCH A — HandleListInvoices (~line 69): add ?contact_id= query param
+------------------------------------------------------------
+
+FIND (lines 83-89 — the req construction in HandleListInvoices):
+    req := &bizv1.ListInvoicesRequest{
+        TenantId: tenantID,
+        Status:   invoiceStatusToProto(r.URL.Query().Get("status")),
+        Page:     int32(page),
+        PerPage:  int32(pageSize),
+    }
+
+REPLACE WITH:
+    req := &bizv1.ListInvoicesRequest{
+        TenantId: tenantID,
+        Status:   invoiceStatusToProto(r.URL.Query().Get("status")),
+        Page:     int32(page),
+        PerPage:  int32(pageSize),
+    }
+    if cid := r.URL.Query().Get("contact_id"); cid != "" {
+        if _, parseErr := uuid.Parse(cid); parseErr != nil {
+            http.Error(w, `{"error":"invalid contact_id: must be a valid UUID","code":"INVALID_CONTACT_ID"}`, http.StatusBadRequest)
+            return
+        }
+        req.ContactId = &cid
+    }
+
+------------------------------------------------------------
+PATCH B — createInvoiceRequest struct + HandleCreateInvoice: add contact_id body field
+------------------------------------------------------------
+
+FIND (lines 17-27 — createInvoiceRequest struct):
+    type createInvoiceRequest struct {
+        Customer      *bizv1.CustomerSnapshot `json:"customer"       validate:"required"`
+        LineItems     []*bizv1.LineItem       `json:"line_items"     validate:"required,min=1"`
+        TaxMode       string                  `json:"tax_mode"       validate:"required,oneof=standard reverse_charge kleinunternehmer"`
+        InvoiceDate   string                  `json:"invoice_date"   validate:"required,datetime=2006-01-02"`
+        DeliveryDate  string                  `json:"delivery_date"  validate:"omitempty,datetime=2006-01-02"`
+        DueDate       string                  `json:"due_date"       validate:"omitempty,datetime=2006-01-02"`
+        PaymentTerms  string                  `json:"payment_terms"`
+        Notes         string                  `json:"notes"`
+        SourceQuoteID string                  `json:"source_quote_id" validate:"omitempty,uuid"`
+    }
+
+REPLACE WITH:
+    type createInvoiceRequest struct {
+        Customer      *bizv1.CustomerSnapshot `json:"customer"       validate:"required"`
+        LineItems     []*bizv1.LineItem       `json:"line_items"     validate:"required,min=1"`
+        TaxMode       string                  `json:"tax_mode"       validate:"required,oneof=standard reverse_charge kleinunternehmer"`
+        InvoiceDate   string                  `json:"invoice_date"   validate:"required,datetime=2006-01-02"`
+        DeliveryDate  string                  `json:"delivery_date"  validate:"omitempty,datetime=2006-01-02"`
+        DueDate       string                  `json:"due_date"       validate:"omitempty,datetime=2006-01-02"`
+        PaymentTerms  string                  `json:"payment_terms"`
+        Notes         string                  `json:"notes"`
+        SourceQuoteID string                  `json:"source_quote_id" validate:"omitempty,uuid"`
+        ContactID     string                  `json:"contact_id"      validate:"omitempty,uuid"`
+    }
+
+FIND (lines 48-59 — gRPC request construction in HandleCreateInvoice):
+    resp, err := client.CreateInvoice(r.Context(), &bizv1.CreateInvoiceRequest{
+        TenantId:      tenantID,
+        Customer:      req.Customer,
+        LineItems:     req.LineItems,
+        TaxMode:       taxModeToProto(req.TaxMode),
+        InvoiceDate:   req.InvoiceDate,
+        DeliveryDate:  req.DeliveryDate,
+        DueDate:       req.DueDate,
+        PaymentTerms:  req.PaymentTerms,
+        Notes:         req.Notes,
+        SourceQuoteId: req.SourceQuoteID,
+        CreatedBy:     userID,
+    })
+
+REPLACE WITH:
+    grpcCreateReq := &bizv1.CreateInvoiceRequest{
+        TenantId:      tenantID,
+        Customer:      req.Customer,
+        LineItems:     req.LineItems,
+        TaxMode:       taxModeToProto(req.TaxMode),
+        InvoiceDate:   req.InvoiceDate,
+        DeliveryDate:  req.DeliveryDate,
+        DueDate:       req.DueDate,
+        PaymentTerms:  req.PaymentTerms,
+        Notes:         req.Notes,
+        SourceQuoteId: req.SourceQuoteID,
+        CreatedBy:     userID,
+    }
+    if req.ContactID != "" {
+        grpcCreateReq.ContactId = &req.ContactID
+    }
+    resp, err := client.CreateInvoice(r.Context(), grpcCreateReq)
+
+------------------------------------------------------------
+IMPORT: add uuid to route_biz_invoices.go imports:
+------------------------------------------------------------
+
+    "github.com/google/uuid"
+
+(add to the import block — already present in route_vertraege.go as reference)

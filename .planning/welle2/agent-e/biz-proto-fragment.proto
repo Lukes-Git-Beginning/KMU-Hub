@@ -1,0 +1,92 @@
+// ==================== Incoming Invoices (E-Rechnung Eingang) ====================
+// Add these RPCs to the FinanceService service block in biz.proto.
+
+  rpc ImportIncomingInvoice(ImportIncomingInvoiceRequest) returns (ImportIncomingInvoiceResponse);
+  rpc GetIncomingInvoice(GetIncomingInvoiceRequest) returns (GetIncomingInvoiceResponse);
+  rpc ListIncomingInvoices(ListIncomingInvoicesRequest) returns (ListIncomingInvoicesResponse);
+  rpc UpdateIncomingInvoiceStatus(UpdateIncomingInvoiceStatusRequest) returns (UpdateIncomingInvoiceStatusResponse);
+
+// ==================== New Messages ====================
+
+message IncomingInvoiceLineItem {
+  int32  position    = 1;
+  string description = 2;
+  string quantity    = 3;
+  string unit_price  = 4;
+  string tax_rate    = 5;
+  string line_total  = 6;
+}
+
+message IncomingInvoiceTaxEntry {
+  string tax_rate    = 1;
+  string taxable_net = 2;
+  string tax_amount  = 3;
+}
+
+message IncomingInvoice {
+  string id                = 1;
+  string tenant_id         = 2;
+  string supplier_name     = 3;
+  string supplier_address  = 4;
+  string supplier_vat_id   = 5;
+  string invoice_number    = 6;
+  string invoice_date      = 7;  // YYYY-MM-DD
+  string due_date          = 8;  // YYYY-MM-DD, optional (empty if null)
+  string currency          = 9;
+  repeated IncomingInvoiceLineItem line_items   = 10;
+  repeated IncomingInvoiceTaxEntry tax_breakdown = 11;
+  string subtotal          = 12;
+  string total_tax         = 13;
+  string gross_total       = 14;
+  string source_format     = 15; // zugferd_cii | xrechnung_ubl | xml_only
+  string original_filename = 16;
+  string status            = 17; // received | reviewed | booked | rejected
+  string created_by        = 18;
+  google.protobuf.Timestamp created_at = 19;
+  google.protobuf.Timestamp updated_at = 20;
+}
+
+message ImportIncomingInvoiceRequest {
+  string tenant_id  = 1;
+  string filename   = 2;
+  string mime_type  = 3;  // application/pdf | application/xml | text/xml
+  bytes  content    = 4;
+  string created_by = 5;
+}
+
+message ImportIncomingInvoiceResponse {
+  IncomingInvoice invoice = 1;
+}
+
+message GetIncomingInvoiceRequest {
+  string tenant_id = 1;
+  string id        = 2;
+}
+
+message GetIncomingInvoiceResponse {
+  IncomingInvoice invoice = 1;
+}
+
+message ListIncomingInvoicesRequest {
+  string tenant_id  = 1;
+  string status     = 2;  // optional filter
+  string date_from  = 3;  // YYYY-MM-DD, optional
+  string date_to    = 4;  // YYYY-MM-DD, optional
+  int32  page       = 5;
+  int32  per_page   = 6;
+}
+
+message ListIncomingInvoicesResponse {
+  repeated IncomingInvoice invoices = 1;
+  int32 total                       = 2;
+}
+
+message UpdateIncomingInvoiceStatusRequest {
+  string tenant_id  = 1;
+  string id         = 2;
+  string new_status = 3;  // reviewed | booked | rejected
+}
+
+message UpdateIncomingInvoiceStatusResponse {
+  IncomingInvoice invoice = 1;
+}

@@ -62,6 +62,8 @@ type ListContractsInput struct {
 	EndsBefore   *time.Time
 	Page         int
 	PageSize     int
+	// ContactID filters to contracts where at least one party has this contact_id.
+	ContactID *uuid.UUID
 }
 
 // ============================================================================
@@ -253,6 +255,7 @@ func (s *Service) ListContracts(ctx context.Context, input ListContractsInput) (
 		StartsBefore: input.StartsBefore,
 		EndsAfter:    input.EndsAfter,
 		EndsBefore:   input.EndsBefore,
+		ContactID:    input.ContactID,
 	}
 	return s.repo.ListContracts(ctx, input.TenantID, filter, offset, input.PageSize)
 }

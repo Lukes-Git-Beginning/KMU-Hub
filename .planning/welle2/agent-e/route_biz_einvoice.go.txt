@@ -1,0 +1,200 @@
+// Full content of: backend/internal/gateway/route_biz_einvoice.go
+// Splice instructions: create this as a new file alongside route_biz_invoices.go.
+// BizRoutes struct is defined in route_biz.go — this file adds methods to it.
+
+package gateway
+
+import (
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+
+	"github.com/kmuhub/kmuhub/internal/middleware"
+	"github.com/kmuhub/kmuhub/internal/server/response"
+	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
+)
+
+// ============================================================================
+// Incoming Invoice (E-Rechnung Eingang) Handlers
+// ============================================================================
+
+// HandleImportInvoice accepts a multipart/form-data POST with a "file" field
+// containing a PDF or XML e-invoice file.
+func (b *BizRoutes) HandleImportInvoice(w http.ResponseWriter, r *http.Request) {
+	client, err := b.getBizClient()
+	if err != nil {
+		respondServiceUnavailable(w, b.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	userID := middleware.GetUserID(r.Context())
+
+	// Parse multipart form (max 10 MiB)
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		http.Error(w, "invalid multipart form: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, "file field is required", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// Validate MIME type
+	mimeType := header.Header.Get("Content-Type")
+	if mimeType == "" {
+		mimeType = "application/octet-stream"
+	}
+	if !isEInvoiceMIME(mimeType) {
+		http.Error(w, "unsupported file type: expected application/pdf, application/xml, or text/xml", http.StatusUnsupportedMediaType)
+		return
+	}
+
+	// Read file contents
+	var content []byte
+	buf := make([]byte, 10<<20)
+	n, readErr := file.Read(buf)
+	if readErr != nil && readErr.Error() != "EOF" {
+		http.Error(w, "failed to read uploaded file", http.StatusInternalServerError)
+		return
+	}
+	content = buf[:n]
+
+	if len(content) == 0 {
+		http.Error(w, "uploaded file is empty", http.StatusBadRequest)
+		return
+	}
+
+	resp, err := client.ImportIncomingInvoice(r.Context(), &bizv1.ImportIncomingInvoiceRequest{
+		TenantId:  tenantID,
+		Filename:  header.Filename,
+		MimeType:  mimeType,
+		Content:   content,
+		CreatedBy: userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, resp.Invoice)
+}
+
+// HandleListIncomingInvoices lists incoming invoices with optional filters.
+func (b *BizRoutes) HandleListIncomingInvoices(w http.ResponseWriter, r *http.Request) {
+	client, err := b.getBizClient()
+	if err != nil {
+		respondServiceUnavailable(w, b.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+
+	page, pageSize := parsePagination(r, 1, 50)
+	q := r.URL.Query()
+
+	resp, err := client.ListIncomingInvoices(r.Context(), &bizv1.ListIncomingInvoicesRequest{
+		TenantId: tenantID,
+		Status:   q.Get("status"),
+		DateFrom: q.Get("date_from"),
+		DateTo:   q.Get("date_to"),
+		Page:     int32(page),
+		PerPage:  int32(pageSize),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"invoices": resp.Invoices,
+		"total":    resp.Total,
+	})
+}
+
+// HandleGetIncomingInvoice retrieves a single incoming invoice by ID.
+func (b *BizRoutes) HandleGetIncomingInvoice(w http.ResponseWriter, r *http.Request) {
+	client, err := b.getBizClient()
+	if err != nil {
+		respondServiceUnavailable(w, b.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	id := chi.URLParam(r, "id")
+
+	resp, err := client.GetIncomingInvoice(r.Context(), &bizv1.GetIncomingInvoiceRequest{
+		TenantId: tenantID,
+		Id:       id,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp.Invoice)
+}
+
+// updateIncomingInvoiceStatusRequest is the JSON body for status update.
+type updateIncomingInvoiceStatusRequest struct {
+	Status string `json:"status" validate:"required,oneof=reviewed booked rejected"`
+}
+
+// HandleUpdateIncomingInvoiceStatus transitions the status of an incoming invoice.
+func (b *BizRoutes) HandleUpdateIncomingInvoiceStatus(w http.ResponseWriter, r *http.Request) {
+	client, err := b.getBizClient()
+	if err != nil {
+		respondServiceUnavailable(w, b.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	id := chi.URLParam(r, "id")
+
+	req, ok := decodeAndValidate[updateIncomingInvoiceStatusRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.UpdateIncomingInvoiceStatus(r.Context(), &bizv1.UpdateIncomingInvoiceStatusRequest{
+		TenantId:  tenantID,
+		Id:        id,
+		NewStatus: req.Status,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp.Invoice)
+}
+
+// isEInvoiceMIME returns true for MIME types supported by the e-invoice import endpoint.
+func isEInvoiceMIME(mimeType string) bool {
+	switch mimeType {
+	case "application/pdf", "application/xml", "text/xml",
+		"application/octet-stream": // browsers may send this for .pdf/.xml without explicit type
+		return true
+	default:
+		return false
+	}
+}

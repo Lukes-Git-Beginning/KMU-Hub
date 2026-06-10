@@ -209,6 +209,9 @@ type Invoice struct {
 	// Set by LockInvoice; non-nil means the invoice is administratively locked (GoBD §146).
 	LockedAt          *time.Time      `json:"locked_at,omitempty"`
 	LockedBy          *uuid.UUID      `json:"locked_by,omitempty"`
+	// ContactID links this invoice to a CRM contact for Contact-360 view (Migration 000141).
+	// Populated via backfill (source_quote_id→deal→contact) and on manual creation.
+	ContactID         *uuid.UUID      `json:"contact_id,omitempty"`
 	CreatedBy         uuid.UUID       `json:"created_by"`
 	CreatedAt         time.Time       `json:"created_at"`
 	UpdatedAt         time.Time       `json:"updated_at"`

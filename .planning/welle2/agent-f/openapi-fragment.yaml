@@ -1,0 +1,75 @@
+============================================================
+FRAGMENT: openapi.yaml contact_id additions
+============================================================
+
+NOTE: The vertraege/contracts paths were NOT found in backend/api/openapi.yaml
+(the module may not yet be documented there). If vertraege paths exist, add the
+contact_id query param mirroring the invoice pattern below.
+
+------------------------------------------------------------
+1. GET /api/v1/finance/invoices — add contact_id query parameter
+------------------------------------------------------------
+
+LOCATION: Line ~7341 (get: summary: "List invoices"), under `parameters:`
+
+ADD after the existing parameters (- $ref: "#/components/parameters/page_size"):
+
+        - name: contact_id
+          in: query
+          description: Filter to invoices linked to this CRM contact (Contact-360 view)
+          schema:
+            type: string
+            format: uuid
+
+Full updated parameters block:
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, sent, paid, overdue, cancelled]
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/page_size"
+        - name: contact_id
+          in: query
+          description: Filter to invoices linked to this CRM contact (Contact-360 view)
+          schema:
+            type: string
+            format: uuid
+
+------------------------------------------------------------
+2. Invoice schema (~line 13701) — add contact_id property
+------------------------------------------------------------
+
+LOCATION: After `updated_at` property (line ~13749), before the blank line closing Invoice:
+
+ADD:
+        contact_id:
+          type: string
+          format: uuid
+          description: CRM contact linked to this invoice (Contact-360, Migration 000141)
+
+------------------------------------------------------------
+3. CreateInvoiceRequest schema (~line 13751) — add contact_id property
+------------------------------------------------------------
+
+LOCATION: After `source_quote_id` property (line ~13779):
+
+ADD:
+        contact_id:
+          type: string
+          format: uuid
+          description: CRM contact to link to this invoice (Contact-360, Migration 000141)
+
+------------------------------------------------------------
+4. (If vertraege contracts path exists) GET /api/v1/vertraege/contracts
+------------------------------------------------------------
+
+If the path is found, add contact_id query param under its GET parameters:
+
+        - name: contact_id
+          in: query
+          description: Filter to contracts where at least one party has this contact_id
+          schema:
+            type: string
+            format: uuid

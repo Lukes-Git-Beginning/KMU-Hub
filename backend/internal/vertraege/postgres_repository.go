@@ -123,6 +123,12 @@ func (r *PostgresRepository) ListContracts(ctx context.Context, tenantID uuid.UU
 		args = append(args, *filter.EndsBefore)
 		n++
 	}
+	if filter.ContactID != nil {
+		conditions = append(conditions, fmt.Sprintf(
+			"EXISTS (SELECT 1 FROM contract_parties cp WHERE cp.contract_id = contracts.id AND cp.contact_id = $%d)", n))
+		args = append(args, *filter.ContactID)
+		n++
+	}
 
 	where := "WHERE " + strings.Join(conditions, " AND ")
 

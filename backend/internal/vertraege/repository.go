@@ -9,12 +9,14 @@ import (
 
 // ListContractsFilter holds optional filter criteria for listing contracts.
 type ListContractsFilter struct {
-	Status    *ContractStatus
-	Type      *ContractType
+	Status       *ContractStatus
+	Type         *ContractType
 	StartsAfter  *time.Time
 	StartsBefore *time.Time
 	EndsAfter    *time.Time
 	EndsBefore   *time.Time
+	// ContactID filters to contracts where at least one party has this contact_id.
+	ContactID *uuid.UUID
 }
 
 // Repository defines the persistence interface for the vertraege module.

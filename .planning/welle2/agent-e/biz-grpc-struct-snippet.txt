@@ -1,0 +1,43 @@
+// Patch for: backend/internal/server/biz_grpc.go
+// Apply: add einvoiceSvc field to BizGRPCServer struct + constructor parameter.
+
+// ============================================================================
+// STRUCT FIELD — add after the existing "crmClient" field:
+// ============================================================================
+
+// Current (last field in struct):
+    crmClient crmv1.CRMServiceClient
+
+// Becomes:
+    crmClient    crmv1.CRMServiceClient // optional; nil if CRM service unreachable
+    einvoiceSvc  *einvoice.Service      // incoming e-invoice processing
+
+// ============================================================================
+// IMPORT — add to the server package import block in biz_grpc.go:
+// ============================================================================
+
+    "github.com/kmuhub/kmuhub/internal/biz/einvoice"
+
+// ============================================================================
+// CONSTRUCTOR PARAMETER — add as last parameter to NewBizGRPCServer:
+// ============================================================================
+
+// Current last param:
+    crmClient crmv1.CRMServiceClient,
+) *BizGRPCServer {
+    return &BizGRPCServer{
+        ...
+        crmClient: crmClient,
+    }
+}
+
+// Becomes:
+    crmClient    crmv1.CRMServiceClient,
+    einvoiceSvc  *einvoice.Service,
+) *BizGRPCServer {
+    return &BizGRPCServer{
+        ...
+        crmClient:   crmClient,
+        einvoiceSvc: einvoiceSvc,
+    }
+}

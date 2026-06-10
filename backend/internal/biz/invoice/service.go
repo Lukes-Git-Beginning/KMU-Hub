@@ -89,7 +89,9 @@ type CreateInput struct {
 	PaymentTermsDays int
 	Notes            string
 	SourceQuoteID    *uuid.UUID
-	UserID           uuid.UUID
+	// ContactID links this invoice to a CRM contact for Contact-360 view.
+	ContactID *uuid.UUID
+	UserID    uuid.UUID
 }
 
 // Create creates a new draft invoice with tax calculation.
@@ -173,6 +175,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Invoic
 		PaymentTerms:    paymentTerms,
 		SourceQuoteID:   input.SourceQuoteID,
 		Notes:           input.Notes,
+		ContactID:       input.ContactID,
 		CreatedBy:       input.UserID,
 		CreatedAt:       now,
 		UpdatedAt:       now,

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
@@ -24,6 +25,7 @@ type createInvoiceRequest struct {
 	PaymentTerms  string                  `json:"payment_terms"`
 	Notes         string                  `json:"notes"`
 	SourceQuoteID string                  `json:"source_quote_id" validate:"omitempty,uuid"`
+	ContactID     string                  `json:"contact_id"      validate:"omitempty,uuid"`
 }
 
 func (b *BizRoutes) HandleCreateInvoice(w http.ResponseWriter, r *http.Request) {
@@ -45,7 +47,7 @@ func (b *BizRoutes) HandleCreateInvoice(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	resp, err := client.CreateInvoice(r.Context(), &bizv1.CreateInvoiceRequest{
+	grpcCreateReq := &bizv1.CreateInvoiceRequest{
 		TenantId:      tenantID,
 		Customer:      req.Customer,
 		LineItems:     req.LineItems,
@@ -57,7 +59,11 @@ func (b *BizRoutes) HandleCreateInvoice(w http.ResponseWriter, r *http.Request) 
 		Notes:         req.Notes,
 		SourceQuoteId: req.SourceQuoteID,
 		CreatedBy:     userID,
-	})
+	}
+	if req.ContactID != "" {
+		grpcCreateReq.ContactId = &req.ContactID
+	}
+	resp, err := client.CreateInvoice(r.Context(), grpcCreateReq)
 	if err != nil {
 		respondGRPCError(w, err)
 		return
@@ -85,6 +91,13 @@ func (b *BizRoutes) HandleListInvoices(w http.ResponseWriter, r *http.Request) {
 		Status:   invoiceStatusToProto(r.URL.Query().Get("status")),
 		Page:     int32(page),
 		PerPage:  int32(pageSize),
+	}
+	if cid := r.URL.Query().Get("contact_id"); cid != "" {
+		if _, parseErr := uuid.Parse(cid); parseErr != nil {
+			http.Error(w, `{"error":"invalid contact_id: must be a valid UUID","code":"INVALID_CONTACT_ID"}`, http.StatusBadRequest)
+			return
+		}
+		req.ContactId = &cid
 	}
 
 	resp, err := client.ListInvoices(r.Context(), req)

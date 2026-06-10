@@ -7350,6 +7350,12 @@ paths:
             enum: [draft, sent, paid, overdue, cancelled]
         - $ref: "#/components/parameters/page"
         - $ref: "#/components/parameters/page_size"
+        - name: contact_id
+          in: query
+          description: Filter to invoices linked to this CRM contact (Contact-360 view)
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
           description: List of invoices
@@ -9739,6 +9745,368 @@ paths:
               schema: { $ref: "#/components/schemas/SettingsResponse" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/finance/gobd-archive:
+    get:
+      summary: List GoBD archived documents
+      operationId: listGobdDocuments
+      tags: [GoBD Archive]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: doc_type
+          schema:
+            type: string
+            enum: [invoice, credit_note, receipt, contract, correspondence, other]
+          description: Filter by document type
+        - in: query
+          name: source_invoice_id
+          schema:
+            type: string
+            format: uuid
+          description: Filter by linked invoice ID
+        - in: query
+          name: date_from
+          schema:
+            type: string
+            format: date
+          description: Lower bound for archived_at (YYYY-MM-DD)
+        - in: query
+          name: date_to
+          schema:
+            type: string
+            format: date
+          description: Upper bound for archived_at (YYYY-MM-DD)
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: per_page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Paginated list of archived documents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GobdDocumentList"
+        "401":
+          description: Unauthorized
+    post:
+      summary: Archive a new document (Beleg archivieren)
+      operationId: archiveDocument
+      tags: [GoBD Archive]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, doc_type]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Document file (max 50 MiB)
+                doc_type:
+                  type: string
+                  enum: [invoice, credit_note, receipt, contract, correspondence, other]
+                source_invoice_id:
+                  type: string
+                  format: uuid
+                  description: Optional — links the document to a finance_invoices record
+      responses:
+        "201":
+          description: Document archived successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GobdDocument"
+        "400":
+          description: Validation error (empty file, unknown doc_type, file too large)
+        "401":
+          description: Unauthorized
+
+  /api/v1/finance/gobd-archive/from-invoice/{invoiceId}:
+    post:
+      summary: Archive the PDF of a locked invoice
+      description: |
+        Generates the invoice PDF and archives it. The invoice must be locked
+        (LockedAt set) — GoBD requires finalizing documents before archiving.
+      operationId: archiveInvoiceDocument
+      tags: [GoBD Archive]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: invoiceId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "201":
+          description: Invoice document archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GobdDocument"
+        "400":
+          description: Invoice not locked
+        "404":
+          description: Invoice not found
+
+  /api/v1/finance/gobd-archive/{id}:
+    get:
+      summary: Get a single GoBD document with its audit trail
+      operationId: getGobdDocument
+      tags: [GoBD Archive]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Document with events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GobdDocumentWithEvents"
+        "404":
+          description: Document not found
+
+  /api/v1/finance/gobd-archive/{id}/download:
+    get:
+      summary: Get a presigned download URL for a GoBD document
+      operationId: downloadGobdDocument
+      tags: [GoBD Archive]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Presigned URL valid for 1 hour
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GobdDownloadResponse"
+        "404":
+          description: Document not found
+
+  /api/v1/finance/gobd-archive/{id}/annotations:
+    post:
+      summary: Add a text annotation to a GoBD document
+      description: |
+        Appends an annotation event to the immutable audit trail.
+        The document itself is not modified (GoBD immutability).
+      operationId: addDocumentAnnotation
+      tags: [GoBD Archive]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              properties:
+                note:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+      responses:
+        "201":
+          description: Annotation added
+        "404":
+          description: Document not found
+
+  /api/v1/finance/invoices/import:
+    post:
+      summary: Import an inbound e-invoice (E-Rechnung Eingang)
+      description: |
+        Accepts a PDF (with embedded ZUGFeRD/Factur-X XML) or a raw XML file
+        (XRechnung UBL or ZUGFeRD CII). Parses and persists the invoice.
+      operationId: importIncomingInvoice
+      tags:
+        - Finance
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: PDF with embedded ZUGFeRD XML, or raw XML (CII/UBL)
+      responses:
+        "201":
+          description: Invoice imported successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncomingInvoice"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Duplicate invoice (same supplier + invoice number already imported)
+        "415":
+          description: Unsupported media type
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/finance/incoming-invoices:
+    get:
+      summary: List incoming invoices
+      operationId: listIncomingInvoices
+      tags:
+        - Finance
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [received, reviewed, booked, rejected]
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Paginated list of incoming invoices
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invoices:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/IncomingInvoice"
+                  total:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/finance/incoming-invoices/{id}:
+    get:
+      summary: Get a single incoming invoice
+      operationId: getIncomingInvoice
+      tags:
+        - Finance
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Incoming invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncomingInvoice"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/finance/incoming-invoices/{id}/status:
+    patch:
+      summary: Update incoming invoice status
+      operationId: updateIncomingInvoiceStatus
+      tags:
+        - Finance
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [reviewed, booked, rejected]
+      responses:
+        "200":
+          description: Updated incoming invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncomingInvoice"
+        "422":
+          description: Invalid status transition
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
 components:
   securitySchemes:
@@ -13747,6 +14115,10 @@ components:
         updated_at:
           type: string
           format: date-time
+        contact_id:
+          type: string
+          format: uuid
+          description: CRM contact linked to this invoice (Contact-360, Migration 000141)
 
     CreateInvoiceRequest:
       type: object
@@ -13777,6 +14149,10 @@ components:
         source_quote_id:
           type: string
           format: uuid
+        contact_id:
+          type: string
+          format: uuid
+          description: CRM contact to link to this invoice (Contact-360, Migration 000141)
 
     UpdateInvoiceRequest:
       type: object
@@ -14662,6 +15038,192 @@ components:
           workStartHour: 8
           payroll.beraterNr: "12345"
           payroll.mandantNr: "67890"
+    GobdDocument:
+      type: object
+      description: An immutable archived GoBD document (§147 AO)
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        doc_type:
+          type: string
+          enum: [invoice, credit_note, receipt, contract, correspondence, other]
+        source_invoice_id:
+          type: string
+          format: uuid
+          nullable: true
+        storage_key:
+          type: string
+        sha256:
+          type: string
+          description: Hex-encoded SHA-256 checksum of the file contents (64 chars)
+        original_filename:
+          type: string
+        mime_type:
+          type: string
+        file_size_bytes:
+          type: integer
+          format: int64
+        archived_at:
+          type: string
+          format: date-time
+        archived_by:
+          type: string
+          format: uuid
+        retention_until:
+          type: string
+          format: date
+          description: "31.12 of (archive_year + 8) — minimum §147 AO retention deadline"
+
+    GobdDocumentEvent:
+      type: object
+      description: An audit trail entry for a GoBD document
+      properties:
+        id:
+          type: string
+          format: uuid
+        document_id:
+          type: string
+          format: uuid
+        event_type:
+          type: string
+          enum: [archived, annotation, access, integrity_check]
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        note:
+          type: string
+        metadata_json:
+          type: string
+          description: JSON-encoded event metadata
+
+    GobdDocumentWithEvents:
+      type: object
+      properties:
+        document:
+          $ref: "#/components/schemas/GobdDocument"
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/GobdDocumentEvent"
+
+    GobdDocumentList:
+      type: object
+      properties:
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/GobdDocument"
+        total:
+          type: integer
+        page:
+          type: integer
+        per_page:
+          type: integer
+
+    GobdDownloadResponse:
+      type: object
+      properties:
+        presigned_url:
+          type: string
+          format: uri
+          description: Presigned MinIO/S3 URL valid for 1 hour
+        original_filename:
+          type: string
+        mime_type:
+          type: string
+
+    IncomingInvoiceLineItem:
+      type: object
+      properties:
+        position:
+          type: integer
+        description:
+          type: string
+        quantity:
+          type: string
+        unit_price:
+          type: string
+        tax_rate:
+          type: string
+        line_total:
+          type: string
+
+    IncomingInvoiceTaxEntry:
+      type: object
+      properties:
+        tax_rate:
+          type: string
+        taxable_net:
+          type: string
+        tax_amount:
+          type: string
+
+    IncomingInvoice:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        supplier_name:
+          type: string
+        supplier_address:
+          type: string
+        supplier_vat_id:
+          type: string
+        invoice_number:
+          type: string
+        invoice_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+          nullable: true
+        currency:
+          type: string
+          example: EUR
+        line_items:
+          type: array
+          items:
+            $ref: "#/components/schemas/IncomingInvoiceLineItem"
+        tax_breakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/IncomingInvoiceTaxEntry"
+        subtotal:
+          type: string
+        total_tax:
+          type: string
+        gross_total:
+          type: string
+        source_format:
+          type: string
+          enum: [zugferd_cii, xrechnung_ubl, xml_only]
+        original_filename:
+          type: string
+        status:
+          type: string
+          enum: [received, reviewed, booked, rejected]
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
   responses:
     BadRequest:
       description: Bad request

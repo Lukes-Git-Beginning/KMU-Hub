@@ -86,6 +86,19 @@ func (m *mockRepository) ListContracts(_ context.Context, tenantID uuid.UUID, fi
 		if filter.Type != nil && c.ContractType != *filter.Type {
 			continue
 		}
+		if filter.ContactID != nil {
+			// Check whether any party for this contract has the requested contact_id.
+			hasContact := false
+			for _, p := range m.parties {
+				if p.ContractID == c.ID && p.ContactID != nil && *p.ContactID == *filter.ContactID {
+					hasContact = true
+					break
+				}
+			}
+			if !hasContact {
+				continue
+			}
+		}
 		result = append(result, c)
 	}
 	total := len(result)
@@ -440,6 +453,49 @@ func TestService_ListContracts_FilterByStatus(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, total)
 	assert.Len(t, contracts, 2)
+}
+
+func TestService_ListContracts_FilterByContactID(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	contactID := uuid.New()
+	otherContactID := uuid.New()
+
+	// Contract A: party with contactID
+	cA := addContract(repo, tenantID, "CT-A", "Contract A", ContractStatusDraft)
+	repo.parties[uuid.New()] = &ContractParty{
+		ID:         uuid.New(),
+		TenantID:   tenantID,
+		ContractID: cA.ID,
+		PartyType:  PartyTypeContact,
+		ContactID:  &contactID,
+	}
+
+	// Contract B: party with a different contact
+	cB := addContract(repo, tenantID, "CT-B", "Contract B", ContractStatusActive)
+	repo.parties[uuid.New()] = &ContractParty{
+		ID:         uuid.New(),
+		TenantID:   tenantID,
+		ContractID: cB.ID,
+		PartyType:  PartyTypeContact,
+		ContactID:  &otherContactID,
+	}
+
+	// Contract C: no parties at all
+	addContract(repo, tenantID, "CT-C", "Contract C", ContractStatusDraft)
+
+	contracts, total, err := svc.ListContracts(context.Background(), ListContractsInput{
+		TenantID:  tenantID,
+		ContactID: &contactID,
+		PageSize:  20,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, total)
+	require.Len(t, contracts, 1)
+	assert.Equal(t, cA.ID, contracts[0].ID)
 }
 
 // ============================================================================
