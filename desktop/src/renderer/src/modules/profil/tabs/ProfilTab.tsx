@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Camera, Save, X, Mail, ChevronDown } from 'lucide-react'
+import { Camera, Save, X, Mail, ChevronDown, Bell, BellOff, Volume2, VolumeX, Palette, Shield, ExternalLink } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,9 +15,16 @@ import {
 import { useSettingsStore } from '@/stores/settings'
 import { useAuthStore } from '@/stores/auth'
 import { usePresenceStore } from '@/stores/presence'
+import { useNotificationsStore } from '@/stores/notifications'
 import type { PresenceLevel } from '@/api/video-types'
 import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTextEditor'
 import { toast } from 'sonner'
+import { useNavigate } from 'react-router-dom'
+import {
+  useDNDStatus,
+  useEnableDND,
+  useDisableDND,
+} from '@/api/hooks/useNotifications'
 
 // Manually selectable presence states ('in_call' is system-driven). Dot colors
 // match the kommunikation presence section.
@@ -31,6 +39,9 @@ const PRESENCE_OPTIONS = [
 // the real upload endpoint is pending, see backend-handover).
 const MAX_AVATAR_BYTES = 1.5 * 1024 * 1024
 
+// Role keys that map to i18n translations. Unknown roles are displayed raw.
+const KNOWN_ROLE_KEYS = ['admin', 'manager', 'employee'] as const satisfies ReadonlyArray<string>
+
 export default function ProfilTab() {
   const { t } = useTranslation()
   const profile = useSettingsStore((s) => s.profile)
@@ -38,6 +49,7 @@ export default function ProfilTab() {
   const mailSignature = useSettingsStore((s) => s.mail.signature)
   const updateMail = useSettingsStore((s) => s.updateMail)
   const user = useAuthStore((s) => s.user)
+  const navigate = useNavigate()
 
   const [form, setForm] = useState({ ...profile })
   const [hasChanges, setHasChanges] = useState(false)
@@ -50,6 +62,29 @@ export default function ProfilTab() {
   const setMyStatus = usePresenceStore((s) => s.setMyStatus)
   const currentPresence =
     PRESENCE_OPTIONS.find((o) => o.value === myStatus) ?? PRESENCE_OPTIONS[0]
+
+  // Sound toggle — purely local, always available.
+  const soundEnabled = useNotificationsStore((s) => s.soundEnabled)
+  const toggleSound = useNotificationsStore((s) => s.toggleSound)
+
+  // DND — backend-driven via React Query. isLoading = backend unreachable in dev.
+  const { data: dndStatus, isLoading: dndLoading, isError: dndError } = useDNDStatus()
+  const enableDND = useEnableDND()
+  const disableDND = useDisableDND()
+  const dndBackendAvailable = !dndLoading && !dndError
+
+  const handleToggleDND = () => {
+    if (!dndBackendAvailable) return
+    if (dndStatus?.is_active) {
+      disableDND.mutate(undefined, {
+        onSuccess: () => toast.success(t('settings.notifications.dnd.deactivated')),
+      })
+    } else {
+      enableDND.mutate(undefined, {
+        onSuccess: () => toast.success(t('settings.notifications.dnd.activated')),
+      })
+    }
+  }
 
   // Avatar upload UI — local preview + mock-first persistence as data URL in
   // the settings store; the real upload endpoint is Luke's backend (handover).
@@ -78,11 +113,20 @@ export default function ProfilTab() {
   }
 
   const initials = `${form.firstName.charAt(0)}${form.lastName.charAt(0)}`.toUpperCase()
-  const role = user?.roles?.includes('admin')
-    ? t('profil.role.admin')
-    : user?.roles?.includes('manager')
-      ? t('profil.role.manager')
-      : t('profil.role.employee')
+
+  // Derive role label: map known roles to i18n keys, fall back to first raw role.
+  // user may be null in dev without backend (Electron stub + no login).
+  const roleLabel: string = (() => {
+    if (!user?.roles?.length) return '—'
+    const firstRole = user.roles[0]
+    if ((KNOWN_ROLE_KEYS as ReadonlyArray<string>).includes(firstRole)) {
+      return t(`profil.role.${firstRole}` as Parameters<typeof t>[0])
+    }
+    return firstRole
+  })()
+
+  // Email from auth store (single source of truth), falls back to profile store.
+  const displayEmail = user?.email ?? form.email
 
   const handleChange = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -144,7 +188,7 @@ export default function ProfilTab() {
             <p className="text-sm text-muted-foreground">{form.position}</p>
             <div className="flex items-center gap-2 mt-2">
               <Badge variant="outline" className="border-primary/30 text-primary">
-                {role}
+                {roleLabel}
               </Badge>
               {/* Presence picker — persisted via stores/presence (myStatus) */}
               <DropdownMenu>
@@ -168,6 +212,71 @@ export default function ProfilTab() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Notification Quick-Card */}
+      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Bell className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold text-foreground">{t('profil.notifications.title')}</h3>
+          </div>
+          <button
+            onClick={() => navigate('/settings', { state: { tab: 'notifications' } })}
+            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+            aria-label={t('profil.notifications.allSettings')}
+          >
+            {t('profil.notifications.allSettings')}
+            <ExternalLink className="h-3 w-3" />
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {/* DND toggle */}
+          <div className="flex items-center justify-between rounded-lg border border-border bg-background px-4 py-3">
+            <div className="flex items-center gap-3">
+              <BellOff className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-foreground">{t('profil.notifications.dnd.label')}</p>
+                <p className="text-xs text-muted-foreground">
+                  {dndLoading
+                    ? t('profil.notifications.dnd.loading')
+                    : dndError
+                      ? t('profil.notifications.dnd.unavailable')
+                      : dndStatus?.is_active
+                        ? t('settings.notifications.dnd.statusActive')
+                        : t('settings.notifications.dnd.statusInactive')}
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={dndBackendAvailable ? (dndStatus?.is_active ?? false) : false}
+              onCheckedChange={handleToggleDND}
+              disabled={!dndBackendAvailable || enableDND.isPending || disableDND.isPending}
+              aria-label={t('profil.notifications.dnd.label')}
+            />
+          </div>
+
+          {/* Sound toggle */}
+          <div className="flex items-center justify-between rounded-lg border border-border bg-background px-4 py-3">
+            <div className="flex items-center gap-3">
+              {soundEnabled ? (
+                <Volume2 className="h-4 w-4 text-muted-foreground shrink-0" />
+              ) : (
+                <VolumeX className="h-4 w-4 text-muted-foreground shrink-0" />
+              )}
+              <div>
+                <p className="text-sm font-medium text-foreground">{t('profil.notifications.sound.label')}</p>
+                <p className="text-xs text-muted-foreground">{t('profil.notifications.sound.desc')}</p>
+              </div>
+            </div>
+            <Switch
+              checked={soundEnabled}
+              onCheckedChange={toggleSound}
+              aria-label={t('profil.notifications.sound.label')}
+            />
           </div>
         </div>
       </div>
@@ -230,22 +339,53 @@ export default function ProfilTab() {
         </div>
       </div>
 
-      {/* Read-Only Info */}
+      {/* Account Info — real data from auth store */}
       <div className="rounded-xl border border-border bg-card p-6 space-y-4">
         <h3 className="font-semibold text-foreground">{t('profil.info.accountInfo')}</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <p className="text-xs text-muted-foreground">{t('profil.info.role')}</p>
-            <p className="text-sm font-medium text-foreground">{role}</p>
+            <p className="text-sm font-medium text-foreground">{roleLabel}</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">{t('profil.info.department')}</p>
-            <p className="text-sm font-medium text-foreground">Management</p>
+            <p className="text-xs text-muted-foreground">{t('profil.field.email')}</p>
+            <p className="text-sm font-medium text-foreground">{displayEmail || '—'}</p>
           </div>
-          <div>
-            <p className="text-xs text-muted-foreground">{t('profil.info.memberSince')}</p>
-            <p className="text-sm font-medium text-foreground">Januar 2024</p>
-          </div>
+          {/* memberSince removed: User object has no created_at field.
+              Backend /auth/me needs a created_at field — open Darien question, see profil.md Phase 6. */}
+        </div>
+      </div>
+
+      {/* Settings Shortcuts */}
+      <div className="rounded-xl border border-border bg-card p-6 space-y-3">
+        <h3 className="font-semibold text-foreground">{t('profil.shortcuts.title')}</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button
+            onClick={() => navigate('/settings', { state: { tab: 'appearance' } })}
+            className="flex items-center gap-3 rounded-lg border border-border bg-background px-4 py-3 text-left hover:bg-secondary transition-colors group"
+            aria-label={t('profil.shortcuts.appearance')}
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 group-hover:bg-primary/15 transition-colors">
+              <Palette className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">{t('profil.shortcuts.appearance')}</p>
+              <p className="text-xs text-muted-foreground">{t('profil.shortcuts.appearanceDesc')}</p>
+            </div>
+          </button>
+          <button
+            onClick={() => navigate('/settings', { state: { tab: 'security' } })}
+            className="flex items-center gap-3 rounded-lg border border-border bg-background px-4 py-3 text-left hover:bg-secondary transition-colors group"
+            aria-label={t('profil.shortcuts.security')}
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 group-hover:bg-primary/15 transition-colors">
+              <Shield className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">{t('profil.shortcuts.security')}</p>
+              <p className="text-xs text-muted-foreground">{t('profil.shortcuts.securityDesc')}</p>
+            </div>
+          </button>
         </div>
       </div>
 
