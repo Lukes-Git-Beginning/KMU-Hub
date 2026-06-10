@@ -1,10 +1,11 @@
-import { SlidersHorizontal, GitBranch, ListPlus, Tags, Gauge } from 'lucide-react'
+import { SlidersHorizontal, GitBranch, ListPlus, Tags, Gauge, Flame } from 'lucide-react'
 import { ModuleSettingsShell, type ModuleSettingsSection } from '@/components/shared'
 import { CrmPersonalPrefs } from '@/modules/kontakte/CrmPersonalPrefs'
 import { PipelineStagesEditor } from '@/modules/kontakte/PipelineStagesEditor'
 import { CustomFieldsManager } from '@/modules/kontakte/CustomFieldsManager'
 import { TagManager } from '@/modules/kontakte/TagManager'
 import { SegmentSettings } from '@/modules/kontakte/SegmentSettings'
+import { LeadScoringSettings } from '@/modules/kontakte/LeadScoringSettings'
 
 /**
  * CrmSettingsPanel — the "CRM" entry of the module-settings overlay (Kontakte
@@ -51,6 +52,14 @@ export function CrmSettingsPanel() {
       scope: 'tenant',
       icon: Gauge,
       children: <SegmentSettings />,
+    },
+    {
+      id: 'leadScoring',
+      titleKey: 'crm.settings.leadScoring.title',
+      descriptionKey: 'crm.settings.leadScoring.desc',
+      scope: 'tenant',
+      icon: Flame,
+      children: <LeadScoringSettings />,
     },
   ]
 

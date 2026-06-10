@@ -18,6 +18,7 @@ import {
   Plus,
   Trash2,
   ShieldCheck,
+  FileText,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,6 +37,8 @@ import {
 import { ConfirmDialog } from '@/components/shared'
 import { useContacts } from '@/api/hooks/useContacts'
 import { useAdvisoryProtocolsStore } from '@/stores/advisoryProtocols'
+import { useSettingsStore } from '@/stores/settings'
+import { AdvisoryProtocolPrint } from './AdvisoryProtocolPrint'
 import {
   ADVISORY_LOCATIONS,
   ADVISORY_OCCASIONS,
@@ -203,9 +206,12 @@ export default function AdvisoryProtocolEditor() {
     return c ? `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim() : ''
   }, [contactsData, contactId])
 
+  const companyName = useSettingsStore((s) => s.finance.companyName)
+
   const [form, setForm] = useState<AdvisoryProtocol | null>(stored ?? null)
   const [activeSection, setActiveSection] = useState('s1')
   const [confirmFinalize, setConfirmFinalize] = useState(false)
+  const [showPrint, setShowPrint] = useState(false)
 
   const readOnly = form?.status === 'finalized'
 
@@ -298,6 +304,10 @@ export default function AdvisoryProtocolEditor() {
           </Badge>
         )}
         <div className="ml-auto flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowPrint(true)}>
+            <FileText className="mr-2 h-4 w-4" />
+            {t('advisory.print.action')}
+          </Button>
           {!readOnly && (
             <>
               <Button variant="outline" size="sm" onClick={handleSave}>
@@ -312,6 +322,15 @@ export default function AdvisoryProtocolEditor() {
           )}
         </div>
       </header>
+
+      {showPrint && (
+        <AdvisoryProtocolPrint
+          protocol={form}
+          contactName={contactName}
+          company={companyName}
+          onClose={() => setShowPrint(false)}
+        />
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* Section nav */}

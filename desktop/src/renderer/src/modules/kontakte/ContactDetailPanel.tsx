@@ -31,7 +31,8 @@ import { AdvisoryProtocolsTab } from '@/modules/kontakte/advisory/AdvisoryProtoc
 import { ReferredByField } from '@/modules/kontakte/ReferredByField'
 import { useAuthStore } from '@/stores/auth'
 import { useSegmentSettingsStore } from '@/stores/segmentSettings'
-import { computeSegment, SEGMENT_META } from '@/lib/segments'
+import { useSegmentOverrideStore } from '@/stores/segmentOverride'
+import { computeSegment, SEGMENT_META, type MandantSegment } from '@/lib/segments'
 import { useTags, useAddContactTags, useRemoveContactTags } from '@/api/hooks/useContactTags'
 import { useDeals } from '@/api/hooks/useDeals'
 import { useContactEmails } from '@/api/hooks/useEmail'
@@ -236,7 +237,10 @@ export function ContactDetailPanel({
     (sum, d) => sum + (((d as { value?: number }).value) ?? 0),
     0,
   )
-  const segment = computeSegment(revenuePotential, segmentThresholds)
+  const ruleSegment = computeSegment(revenuePotential, segmentThresholds)
+  const segmentOverride = useSegmentOverrideStore((s) => s.overrides[contact.id])
+  const setSegmentOverride = useSegmentOverrideStore((s) => s.set)
+  const segment = segmentOverride ?? ruleSegment
   const segMeta = SEGMENT_META[segment]
 
   return (
@@ -308,13 +312,39 @@ export function ContactDetailPanel({
               <span className="rounded-full bg-primary-foreground/20 px-2 py-0.5 text-xs text-primary-foreground">
                 {t(categoryLabelKeys[contact.category] ?? 'kontakte.category.customer')}
               </span>
-              <span
-                className="inline-flex items-center gap-1 rounded-full bg-primary-foreground/20 px-2 py-0.5 text-xs text-primary-foreground"
-                title={t('crm.segment.badgeTooltip')}
-              >
-                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: segMeta.color }} />
-                {t('crm.segment.badge', { segment })}
-              </span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    className="inline-flex items-center gap-1 rounded-full bg-primary-foreground/20 px-2 py-0.5 text-xs text-primary-foreground transition-colors hover:bg-primary-foreground/30"
+                    title={t('crm.segment.badgeTooltip')}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: segMeta.color }} />
+                    {t('crm.segment.badge', { segment })}
+                    {segmentOverride && <span className="opacity-70">·{t('crm.segment.manual')}</span>}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-56">
+                  <p className="mb-2 text-xs font-medium text-foreground">{t('crm.segment.setManual')}</p>
+                  <div className="space-y-1">
+                    {(['A', 'B', 'C'] as MandantSegment[]).map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => setSegmentOverride(contact.id, s)}
+                        className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-secondary ${segmentOverride === s ? 'bg-secondary font-medium' : ''}`}
+                      >
+                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: SEGMENT_META[s].color }} />
+                        {t('crm.segment.badge', { segment: s })}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setSegmentOverride(contact.id, null)}
+                      className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-secondary ${!segmentOverride ? 'font-medium text-foreground' : ''}`}
+                    >
+                      {t('crm.segment.auto', { segment: ruleSegment })}
+                    </button>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         </div>
