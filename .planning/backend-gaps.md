@@ -1,19 +1,23 @@
 # Backend-Gaps für Luke
 
 > Was im Backend fehlt oder nicht „ready zum Verknüpfen" ist, damit das Frontend zu Feature-Parität andocken kann.
-> Claude sammelt, Darien reicht an Luke weiter. Stand: Welle 1 (2026-06-01).
+> Claude sammelt, Darien reicht an Luke weiter. Stand: Welle 1 (2026-06-01). **Status-Update 2026-06-10 (additiv, ✅-Markierungen):** erledigte Punkte aus Chain PILOT (2026-06-09) + Marathon-Tag-2-Wellen 1+2 (2026-06-10) sind inline markiert.
 > Priorität: 🔴 ZFA-Pilot-kritisch · 🟠 wichtig · ⚪ später/Post-Launch.
+
+## ✅ Erledigt seit 2026-06-09 (nicht ursprünglich in dieser Liste)
+- **GDPR-Export/-Erasure-Handler echt** (waren Stubs): alle 14 Handler auf echte SQL, tenant+user-gefiltert, Art.-17(3)(e)-Retention (`47d210d9`, 2026-06-10).
+- **Beratungsprotokoll ZFA**: `advisory_protocols` Migration 000137 + 7 CRM-RPCs (`6b211222`, 2026-06-10) — Detail-Eintrag unten ebenfalls markiert.
 
 ## 🔴 ZFA-Pilot-kritisch
 
-### kalender — Terminbuchungs-Link (Online-Terminbuchung)
+### ✅ kalender — Terminbuchungs-Link (Online-Terminbuchung) — ERLEDIGT 2026-06-09 (Chain PILOT, Migrationen 000135/000136)
 ZFA-Akquise hängt an Online-Terminbuchung. FE-Flow existiert komplett als Mock, BE fehlt ganz.
 - `GET/POST/PUT/DELETE /api/v1/calendar/booking-pages` — Buchungsseiten (Slug, Services, Verfügbarkeitsregeln)
 - `GET /api/v1/public/book/:slug` — **öffentlich/unauthenticated** (Kunde bucht ohne Login)
 - `GET .../availability?date=&service=` — freie Slots aus Kalender-Belegung berechnen
 - `POST /api/v1/public/bookings` — öffentliche Terminanlage → erzeugt Event + Bestätigung
 
-### dialer — DSGVO-Consent-Absicherung (⚠ Risiko, nicht nur Feature)
+### ✅ dialer — DSGVO-Consent-Absicherung — ERLEDIGT 2026-06-09 (Chain PILOT, Asserter in `cmd/dialer/main.go` verdrahtet + Regressionstest)
 `consentAsserter` ist im Standard-`NewService`-Konstruktor `nil` — nur `NewServiceWithConsent` verdrahtet den Einwilligungs-Check. Prüfen, ob der Standard-Konstruktor irgendwo aktiv ist → sonst Anrufe ohne Consent möglich. Für Finanzberatung heikel.
 
 ## 🟠 Wichtig (Kern-Module, ZFA-relevant)
@@ -21,7 +25,7 @@ ZFA-Akquise hängt an Online-Terminbuchung. FE-Flow existiert komplett als Mock,
 ### kontakte
 - XLSX/Excel-Import-Endpoint (CSV/vCard existieren, XLSX fehlt)
 
-#### Kontakte/360° — fehlende Hooks/Endpoints für Kunden-360°-Ansicht
+#### ✅ Kontakte/360° — fehlende Hooks/Endpoints für Kunden-360°-Ansicht — BACKEND ERLEDIGT 2026-06-10 (Welle 2, `52a74373`, Migration 000141): `GET /contracts?contact_id=` (contract_parties-EXISTS) + `GET /finance/invoices?contact_id=` (contact_id-Spalte + Backfill quote→deal→contact). FE-Hooks nachziehen = Claude/FE-Lane.
 Folgende Verknüpfungen konnten im ContactDetailPanel NICHT gebaut werden, weil Hooks + Endpoints fehlen:
 - **Verträge am Kontakt**: kein `GET /api/v1/contracts?contact_id={id}` und kein Frontend-Hook `useContactContracts(contactId)`. Vertragsservice hat nur generisches CRUD; die Filterung nach `contact_id` fehlt im Modell und der Route.
 - **Rechnungen am Kontakt**: kein `GET /api/v1/finance/invoices?contact_id={id}` und kein Frontend-Hook `useContactInvoices(contactId)`. finance_line_items hat keinen direkten Kontakt-FK; Normalisierung (Sprint 4) Voraussetzung.
@@ -80,7 +84,7 @@ Folgende Verknüpfungen konnten im ContactDetailPanel NICHT gebaut werden, weil 
 # Welle 2 — System, Produktivität, Finanzen, Automatisierung, Video
 
 ## 🔴 Pre-Launch wichtig
-- **security — „Passwort vergessen"-Flow**: Login hat keinen Reset-Link; BE-Endpoint (Mail-Token) fehlt. Vor Launch nötig.
+- ✅ **security — „Passwort vergessen"-Flow** — ERLEDIGT 2026-06-09 (Chain PILOT, Migration 000134: `password_reset_tokens` + forgot/reset-Endpoints, rate-limited, kein Enumeration-Leak).
 - **profil/settings — User-Preferences-Persistenz**: Sprache/Theme/Region nur client-seitig (Store/localStorage). Für Multi-Device BE-Endpoint `GET/PUT /users/preferences`. (Für Electron-Single-Device tolerierbar.)
 
 ## 🟠 Wichtig
@@ -97,7 +101,7 @@ Folgende Verknüpfungen konnten im ContactDetailPanel NICHT gebaut werden, weil 
 - Workspace-Branding-Persistenz (`/api/v1/tenant/branding`) — aktuell nur localStorage
 - Modul-Aktivierungs-Toggle exponieren (Flag-Registry existiert)
 
-#### Settings-Fundament (Scope-Hierarchie, FE seit 2026-06-07 mock-first)
+#### ✅ Settings-Fundament (Scope-Hierarchie) — ERLEDIGT 2026-06-10 (Welle 1, `360f92e6`, Migration 000138: `tenant_settings`/`user_settings`/`tenant_module_leads`, 3-Ebenen-Resolve serverseitig, tenant-Writes nur Lead/Admin, co-located im auth-Binary). FE-Umstellung localStorage→Endpoints = nächster Schritt.
 3-Ebenen-Modell: **Tenant-Default → Modul-Leiter-Override (tenant-weit) → User-Override (persönlich)**. FE komplett gebaut (`ModuleSettingsShell`, `useIsModuleLead`, `useModuleLeadsStore`), persistiert aktuell nur in localStorage.
 - **`tenant_module_leads`-Tabelle** (`tenant_id`, `user_id`, `module_id`, `granted_by`, `granted_at`) — wer ist Modul-Leiter für welches Modul. Admin setzt das im Team-Modul (MemberDetailPanel → „Erweiterte Moduleinstellungen"). Endpoints: `GET /api/v1/tenant/module-leads?user_id=`, `PUT/DELETE .../module-leads/{user_id}/{module_id}`.
 - **Settings-Scope-Persistenz**: zwei Ebenen statt einem Blob. `tenant_settings` (`tenant_id`, `module_id`, `key`, `value`) für tenant-weite Defaults (nur Modul-Leiter/Admin schreibbar) + `user_settings` (`user_id`, `module_id`, `key`, `value`) für persönliche Overrides. Resolve-Reihenfolge serverseitig erzwingen (RBAC: tenant-Writes nur mit module-lead/admin).
@@ -121,16 +125,16 @@ Folgende Verknüpfungen konnten im ContactDetailPanel NICHT gebaut werden, weil 
 
 ### finanzen (Symbiose-Ziel — NICHT Vollersatz, siehe finanzen-buchhaltung-strategy.md)
 Strategie: Cosmi macht Vorkette (Angebot→Zahlungseingang) eigenständig, übergibt an DATEV/Bexio. Steuerberater macht Kontierung/Bilanz/USt/Lohn.
-- **DATEV EXTF-Export (DE, Launch-kritisch):** Buchungsstapel (EXTF ASCII/CSV, Windows-1252) + Belegbilder-ZIP. Settings: Berater-Nr., Mandanten-Nr., Sachkonto-Länge, Steuerkennzeichen→Konto-Mapping. EXTF-Spec öffentlich, kein DATEV-Marktplatz-Partner nötig.
-- **Bexio-API (CH, Launch-kritisch):** OAuth2, Rechnungen/Kontakte bidirektional sync.
-- **E-Rechnung (Launch-Blocker):** XRechnung-UBL + ZUGFeRD 2.x (EN-16931) Generierung Ausgang + Empfang/XML-Extraktion Eingang. Empfangspflicht DE seit 01.01.2025.
-- **GoBD-Belegarchiv (Launch-Blocker):** unveränderbar, Änderungshistorie, 8 J. Retention.
+- ✅ **DATEV EXTF-Export (DE, Launch-kritisch)** — EXISTIERT KOMPLETT (Befund 2026-06-10: `internal/biz/datev/exporter.go`, EXTF ASCII/CSV Windows-1252, `POST /finance/export/datev`; Liste war veraltet).
+- **Bexio-API (CH, Launch-kritisch):** OAuth2, Rechnungen/Kontakte bidirektional sync. *(Status-Check 2026-06-10: Service-Gerüst `internal/biz/bexio/` existiert substanziell — Scope-Abgleich gegen Welle 7 läuft, siehe `.planning/bexio-scope-check.md`.)*
+- ✅ **E-Rechnung (Launch-Blocker)** — ERLEDIGT 2026-06-10 (Welle 2, `887d5b36`, Migration 000140): Ausgang existierte (XRechnung-UBL + ZUGFeRD); Eingang neu — `POST /finance/invoices/import` (multipart, CII/UBL-Parser + PDF-Extraktion via pdfcpu) + `finance_incoming_invoices` (received→reviewed→booked/rejected).
+- ✅ **GoBD-Belegarchiv (Launch-Blocker)** — ERLEDIGT 2026-06-10 (Welle 2, `45a8ed61`, Migration 000139): `gobd_documents` immutable + SHA-256 + `gobd_document_events` append-only, Retention 31.12.(Jahr+8), Routen `/finance/gobd-archive`, MinIO-Storage.
 - Wiederkehrende Rechnungen (Tabelle + Scheduler + CRUD) · OP-Liste · mehrstufiges Mahnwesen
 - Zahlungsabgleich: CAMT.053/MT940-Import + Matching · später finAPI/HBCI-Banking
 - `currency`-Feld + Wechselkurslogik (aktuell EUR hardcoded; CHF/USD)
 - BMD-Export (AT) + Lexware/lexoffice-Anbindung (Selbstbucher) — Post-Launch
 
-### kontakte — Beratungsprotokoll (Finanzberatung, P8) — siehe kontakte-p8-beratungsprotokoll-spec.md
+### ✅ kontakte — Beratungsprotokoll (Finanzberatung, P8) — BACKEND ERLEDIGT 2026-06-10 (Welle 1, `6b211222`, Migration 000137: 57 Spalten/8 Abschnitte, Immutability nach HandOver, `referred_by_contact_id` + `client_segment` A/B/C, 7 CRM-RPCs; PDF-Endpoint = 501-Stub, FE nutzt window.print)
 - `advisory_protocols`-Tabelle (contact_id, ~40 Felder über 8 Abschnitte, **immutable nach Aushändigung**, 10-Jahre-Retention, DSGVO Art.6(1)(c)). Endpoints CRUD + PDF-Export (Aushändigung).
 - „Empfohlen von"-Feld am Contact (Self-Referenz) + Empfehler-Report-Aggregation.
 - Mandanten-Segment A/B/C (regelbasiert nach Umsatzpotenzial) — Feld + Berechnungsregel.
