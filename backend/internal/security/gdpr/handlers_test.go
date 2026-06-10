@@ -78,6 +78,7 @@ func TestAuthExportHandler_CrossTenant_Integration(t *testing.T) {
 
 	// Seed a session for userA
 	sessionID := testutil.SeedRow(t, pool, "user_sessions", map[string]any{
+		"tenant_id":   testutil.TenantA,
 		"user_id":     userA,
 		"device_name": "Test Device",
 		"device_type": "desktop",
@@ -121,6 +122,7 @@ func TestAuthErasureHandler_ExecuteErasure_Integration(t *testing.T) {
 
 	// Seed a session
 	sessionID := testutil.SeedRow(t, pool, "user_sessions", map[string]any{
+		"tenant_id":   testutil.TenantA,
 		"user_id":     userID,
 		"device_name": "Phone",
 		"device_type": "mobile",
@@ -164,9 +166,10 @@ func TestNotificationErasureHandler_ExecuteErasure_Integration(t *testing.T) {
 
 	// Seed a notification preference
 	prefID := testutil.SeedRow(t, pool, "notification_preferences", map[string]any{
-		"user_id":    userID,
-		"module_id":  "crm",
-		"in_app":     true,
+		"tenant_id":    testutil.TenantA,
+		"user_id":      userID,
+		"module_id":    "crm",
+		"in_app":       true,
 		"desktop_push": true,
 	})
 	defer testutil.CleanupRow(t, pool, "notification_preferences", prefID)
