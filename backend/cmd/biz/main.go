@@ -125,6 +125,10 @@ func main() {
 		crmConn, crmErr := grpc.NewClient(
 			cfg.CRMGRPCAddress,
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			// Propagate tenant/user from the inbound biz context to CRM —
+			// CRM handlers read the tenant from metadata and answer
+			// Unauthenticated without it (CreateQuoteFromDeal orchestration).
+			grpc.WithUnaryInterceptor(middleware.TenantOutboundUnaryInterceptor()),
 		)
 		if crmErr != nil {
 			slog.Warn("failed to connect to CRM service, deal value sync and quote-from-deal disabled",
