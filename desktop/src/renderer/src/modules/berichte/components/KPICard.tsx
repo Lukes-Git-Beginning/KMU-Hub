@@ -1,6 +1,9 @@
 import { ArrowDownRight, ArrowUpRight, ChevronRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { Line, LineChart, ResponsiveContainer } from 'recharts'
 import type { DashboardKPI } from '@/api/berichte-types'
+import { useChartTheme } from '../utils/chartTheme'
+import { usePrefersReducedMotion } from '../utils/chartMotion'
 
 interface KPICardProps {
   kpi: DashboardKPI
@@ -11,13 +14,27 @@ interface KPICardProps {
    * the caller can invert the goodness interpretation.
    */
   invertGoodness?: boolean
+  /**
+   * Optional mini trend series rendered as a sparkline at the bottom of the
+   * card. When omitted or empty the card renders exactly as before.
+   */
+  sparklineData?: { value: number }[]
 }
 
-export function KPICard({ kpi, active = false, onClick, invertGoodness = false }: KPICardProps) {
+export function KPICard({
+  kpi,
+  active = false,
+  onClick,
+  invertGoodness = false,
+  sparklineData,
+}: KPICardProps) {
   const { t } = useTranslation()
+  const theme = useChartTheme()
+  const prefersReducedMotion = usePrefersReducedMotion()
   const change = kpi.change_percent ?? 0
   const isPositive = change >= 0
   const isGood = invertGoodness ? !isPositive : isPositive
+  const hasSparkline = !!sparklineData && sparklineData.length > 0
 
   const content = (
     <>
@@ -53,6 +70,22 @@ export function KPICard({ kpi, active = false, onClick, invertGoodness = false }
         {kpi.unit && <span className="text-sm text-muted-foreground">{kpi.unit}</span>}
       </div>
       <p className="text-[10px] text-muted-foreground">{t('berichte.dashboard.vorMonat')}</p>
+      {hasSparkline && (
+        <div className="mt-2 h-8" aria-hidden="true">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={sparklineData} margin={{ top: 2, right: 0, bottom: 2, left: 0 }}>
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke={theme.primary}
+                strokeWidth={2}
+                dot={false}
+                isAnimationActive={!prefersReducedMotion}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </>
   )
 

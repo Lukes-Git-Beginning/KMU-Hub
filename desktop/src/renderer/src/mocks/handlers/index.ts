@@ -20,6 +20,7 @@ import { dashboardHandlers } from './dashboard'
 import { settingsHandlers } from './settings'
 import { hrHandlers } from './hr'
 import { dialerHandlers } from './dialer'
+import { berichteHandlers } from './berichte'
 
 export const handlers = [
   ...authHandlers,
@@ -40,4 +41,5 @@ export const handlers = [
   ...settingsHandlers,
   ...hrHandlers,
   ...dialerHandlers,
+  ...berichteHandlers,
 ]
