@@ -37,6 +37,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { useVertraegeStore, type Contract, type ContractType, type ContractStatus, type ContractTemplate } from '@/stores/vertraege'
+import { useVertraegePrefsStore } from '@/stores/vertraegePrefs'
+import { useVertraegeSettingsStore } from '@/stores/vertraegeSettings'
 import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
 import { formatCurrency, formatDate } from '@/lib/format'
 import ESignaturDialog from './ESignaturDialog'
@@ -140,20 +142,27 @@ function ContractDialog({
   const addContract = useVertraegeStore((s) => s.addContract)
   const updateContract = useVertraegeStore((s) => s.updateContract)
 
+  // Tenant defaults ("Für alle") + personal reminder override (settings panel).
+  const enabledTypes = useVertraegeSettingsStore((s) => s.enabledTypes)
+  const tenantNoticePeriodDays = useVertraegeSettingsStore((s) => s.defaultNoticePeriodDays)
+  const tenantRenewal = useVertraegeSettingsStore((s) => s.defaultRenewal)
+  const tenantReminderDays = useVertraegeSettingsStore((s) => s.tenantReminderDays)
+  const personalReminderDays = useVertraegePrefsStore((s) => s.defaultReminderDays)
+
   const [form, setForm] = useState<ContractFormData>({
     title: initial?.title ?? '',
-    type: initial?.type ?? 'servicevertrag',
+    type: initial?.type ?? (enabledTypes.includes('servicevertrag') ? 'servicevertrag' : enabledTypes[0]),
     partner: initial?.partner ?? '',
     contractNumber: initial?.contractNumber ?? '',
     startDate: initial?.startDate ?? '',
     endDate: initial?.endDate ?? '',
-    noticePeriodDays: initial?.noticePeriodDays ?? 30,
-    renewal: initial?.renewal ?? 'auto',
+    noticePeriodDays: initial?.noticePeriodDays ?? tenantNoticePeriodDays,
+    renewal: initial?.renewal ?? tenantRenewal,
     monthlyCost: initial?.monthlyCost ?? 0,
     notes: initial?.notes ?? '',
     currency: initial?.currency ?? 'EUR',
     documentRef: initial?.documentRef ?? '',
-    reminderDays: initial?.reminderDays ?? [],
+    reminderDays: initial ? (initial.reminderDays ?? []) : (personalReminderDays ?? tenantReminderDays),
   })
 
   const isEdit = !!initial
@@ -221,6 +230,8 @@ function ContractDialog({
 
   if (!open) return null
 
+  // Tenant taxonomy: only enabled types are offered; a disabled type stays
+  // visible while editing a contract that already uses it.
   const typeOptions: { key: ContractType; labelKey: string; icon: typeof Building }[] = [
     { key: 'mietvertrag', labelKey: 'vertraege.type.mietvertrag', icon: Building },
     { key: 'liefervertrag', labelKey: 'vertraege.type.liefervertrag', icon: Truck },
@@ -228,7 +239,7 @@ function ContractDialog({
     { key: 'arbeitsvertrag', labelKey: 'vertraege.type.arbeitsvertrag', icon: UserCheck },
     { key: 'lizenz', labelKey: 'vertraege.type.lizenz', icon: KeyRound },
     { key: 'versicherung', labelKey: 'vertraege.type.versicherung', icon: Shield },
-  ]
+  ].filter((o) => enabledTypes.includes(o.key) || form.type === o.key)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -755,7 +766,11 @@ export default function VertraegePage() {
   const { t } = useTranslation()
   const { contracts, contractTemplates, deleteContract, updateContract } = useVertraegeStore()
 
-  const [tab, setTab] = useState<TabKey>('aktiv')
+  // Personal prefs (settings panel): default tab on open + table density.
+  const defaultTab = useVertraegePrefsStore((s) => s.defaultTab)
+  const density = useVertraegePrefsStore((s) => s.density)
+
+  const [tab, setTab] = useState<TabKey>(defaultTab)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
 
@@ -1062,7 +1077,7 @@ export default function VertraegePage() {
           ) : (
             <TooltipProvider delayDuration={300}>
               <div className="overflow-x-auto rounded-lg border border-border">
-                <table className="w-full text-sm">
+                <table className={`w-full text-sm ${density === 'compact' ? '[&_td]:py-1.5 [&_th]:py-2' : ''}`}>
                   <thead>
                     <tr className="border-b border-border bg-card">
                       <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('vertraege.table.vertragsnr')}</th>

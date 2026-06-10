@@ -12,6 +12,7 @@ import {
   Monitor,
   Package,
   KanbanSquare,
+  FileSignature,
   type LucideIcon,
 } from 'lucide-react'
 import type { RoleId } from '@/config/roles'
@@ -27,6 +28,7 @@ import { BillingSettingsTab } from './tabs/BillingSettingsTab'
 import { IntegrationSettingsTab } from './tabs/IntegrationSettingsTab'
 import { ITAdminTab } from './tabs/ITAdminTab'
 import { ModuleAssignmentSettingsPanel } from './panels/ModuleAssignmentSettingsPanel'
+import { VertraegeSettingsPanel } from '@/modules/vertraege/settings/VertraegeSettingsPanel'
 
 /**
  * Registry for the Module-Settings overlay (opened from the bottom-left
@@ -60,6 +62,7 @@ export const SETTINGS_ENTRIES: SettingsEntry[] = [
   { id: 'kommunikation', group: 'module', labelKey: 'moduleSettings.entries.kommunikation', icon: MessagesSquare, navMatch: ['/kommunikation', '/chat'], component: KommunikationSettingsPanel },
   { id: 'team', group: 'module', labelKey: 'moduleSettings.entries.team', icon: Users, navMatch: ['/team'], roles: ['admin', 'hr'], component: TeamSettingsPanel },
   { id: 'work', group: 'module', labelKey: 'moduleSettings.entries.work', icon: KanbanSquare, navMatch: ['/work'], component: WorkSettingsPanel },
+  { id: 'vertraege', group: 'module', labelKey: 'moduleSettings.entries.vertraege', icon: FileSignature, navMatch: ['/vertraege'], component: VertraegeSettingsPanel },
 
   // ── COSMI (Allgemein) ──
   { id: 'company', group: 'cosmi', labelKey: 'moduleSettings.entries.company', icon: Building2, roles: ['admin'], component: CompanySettingsTab },
