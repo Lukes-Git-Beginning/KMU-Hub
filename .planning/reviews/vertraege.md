@@ -110,5 +110,41 @@
 
 ---
 
+## Phase 8 — E-Signatur EES (Hybrid-Flow mit Canvas)  ·  marathon/luke-fe  ·  Status: ⬜ ungereviewt
+
+**Hinklicken (Pfad in der App):**
+- Route: `/vertraege` → Zeile „Müller Metallbau Rahmenvertrag" anklicken → DetailPanel rechts → Unterschriften-Sektion sichtbar (2 Signer)
+- Signatur-Dialog: Footer-Button „Unterschrift" oder ItemActions-Eintrag „Unterschrift" → Dialog „Digitale Unterschrift" öffnet
+- Canvas-Flow: „Jetzt unterschreiben" bei Hans Müller → Canvas-Step → Unterschrift einzeichnen → „Speichern" (Canvas) → „Unterschrift übernehmen" → Badge wechselt auf „Unterschrieben", Thumbnail sichtbar
+- Dispatch-Flow: „Unterzeichner hinzufügen" → Name + E-Mail → „Zur Unterschrift senden" → Status aller pending Signer wechselt auf sent, Dialog schließt
+- Rapporte: Smoke-Test `/rapporte` — kein Import-Fehler durch Canvas-Umzug
+
+**Was gebaut wurde:**
+1. **SignatureCanvas extrahiert** nach `components/signature/SignatureCanvas.tsx` mit konfigurierbaren `hintKey`/`clearKey`-Props. `modules/rapporte/SignatureCanvas.tsx` leitet jetzt nur noch re-export weiter (1-Zeiler). Rapporte-Smoke grün.
+2. **Store** (`stores/vertraege.ts`): `ContractSigner` um `signatureDataUrl?: string` + `signedVia?: 'canvas' | 'dispatch'` erweitert. Neue Actions `signSigner` (schreibt `contract_signed`-History-Eintrag) + `updateSigners` (ersetzt Signer-Array ohne spurious `contract_updated`).
+3. **ESignaturDialog** komplett neu: Hybrid-Modus mit inline Canvas-Step (kein zweiter Dialog-Layer), pro Signer „Jetzt unterschreiben"-Button, Thumbnail-img nach Signatur. Dispatch-Flow (Abwesende) bleibt funktional.
+4. **Text-Entschärfung**: Titel entfernt „— Skribble"; infoBanner ersetzt Skribble-Claim durch ehrlichen EES-Hinweis; Skribble erscheint als disabled „Bald verfügbar"-Zeile. Kein „rechtlich bindend".
+5. **DetailPanel SignerSection**: kompakte Signer-Liste (Name, Status-Badge, signedAt, Thumbnail bei Canvas-Signatur), Leer-Zustand mit dashed border.
+6. **i18n ×4**: alle neuen Keys punktuell eingefügt (de/en/fr/it), {var}-Syntax, keine {{var}}.
+
+**Canvas-Extraktion begründet (rapporte-Touch):**
+Die CLAUDE.md-Regel „nie Komponenten duplizieren" erforderte die Extraktion. rapporte/SignatureCanvas.tsx ist ein minimaler Re-Export — keine Logik- oder i18n-Änderung. Die rapporte.signature.*-Keys bleiben vollständig aktiv (hintKey-Default bleibt `rapporte.signature.hint`). Risiko: minimal (1 Zeile, kein Typ-Change). Playwright-Smoke verifiziert.
+
+**Offene Fragen für Darien:**
+1. **Rechtsstufe EES vs. QES (Kosten-Frage):** Wann wird Skribble-Integration gebaut? EES (Canvas) reicht für Rahmenverträge intern, aber für formgebundene Verträge (Arbeitsverträge, Mietverträge > 1 Jahr) ist QES/AES rechtlich geboten. Entscheidung: Pilot-Start mit EES + klarer Kommunikation, Skribble frühestens Phase D.
+2. **Dispatch-E-Mails real versenden:** Der `handleSend`-Flow setzt Signer auf `sent` — aber keine E-Mail geht raus. Backend-Endpunkt für E-Signatur-Dispatch fehlt. Scope: POST /api/v1/contracts/{id}/dispatch-signature (Darien-Estimation nötig).
+3. **signers-Persistenz beim API-Swap:** Signers inkl. `signatureDataUrl` leben im localStorage-Store. Beim Backend-Swap muss `signers` in der `contracts`-Tabelle gespeichert werden (kein `signature_provider`-Feld im aktuellen Schema — ist Phase-D-Placeholder laut `integrationen.md`). Die Canvas-DataURL ist ein Base64-PNG — Ablage in S3/MinIO mit separatem `contract_signatures`-Endpoint sinnvoll statt BLOB in DB.
+
+**Screenshots:** `desktop/.qa-screenshots/vertraege-esignatur/` (a–f, inkl. c1-canvas-drawn, c2-signed-with-thumbnail) — QA `desktop/scripts/qa-vertraege-esignatur.mjs`
+
+**Bekannte Einschränkungen (Demo-Modus):**
+- Lukas Brunner (Alt-Bestand) hat kein `signatureDataUrl` — bewusst kein Fake-DataUrl (spezifikationskonform). Thumbnail erscheint nur für neue Canvas-Signaturen.
+- `signedVia='dispatch'` wird beim Dispatch-Flow nicht auf existierende Signer geschrieben (nur neue pending Signer bekommen das Flag) — sauber für Phase D.
+
+**Reviewer-Notizen (beim Feinschliff auszufüllen):**
+- _<hier trägt der Reviewer Feedback ein → wird zu TaskCreate-Items>_
+
+---
+
 <!-- Phasen-Einträge hier anhängen — Struktur aus _TEMPLATE.md kopieren.
      Status-Legende: ⬜ ungereviewt · 🟡 Feedback offen · ✅ grün -->

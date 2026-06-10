@@ -1423,8 +1423,9 @@ export default function VertraegePage() {
           open={!!eSignaturContract}
           onClose={() => setESignaturContract(null)}
           contract={eSignaturContract}
-          onUpdateSigners={(signers) => {
-            updateContract(eSignaturContract.id, { signers })
+          onUpdateSigners={(_signers) => {
+            // Signers mutations are handled directly in ESignaturDialog via the store.
+            // This callback is kept for external callers that still pass signers.
           }}
         />
       )}
@@ -1686,6 +1687,68 @@ function formatBytes(bytes: number): string {
   if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`
   if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`
   return `${bytes} B`
+}
+
+// ─── Signer Section ──────────────────────────────────────────────
+
+function SignerSection({ contract }: { contract: Contract }) {
+  const { t } = useTranslation()
+  const signers = contract.signers ?? []
+
+  return (
+    <div className="space-y-2">
+      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        {t('vertraege.detail.signaturen')}
+        {signers.length > 0 && (
+          <span className="ml-1.5 text-muted-foreground font-normal normal-case">({signers.length})</span>
+        )}
+      </h4>
+
+      {signers.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-4 text-center">
+          <Pen className="h-5 w-5 text-muted-foreground/40 mb-1.5" />
+          <p className="text-xs text-muted-foreground">{t('vertraege.detail.signaturen.none')}</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {signers.map((signer, idx) => {
+            const statusConf: { labelKey: string; colorClass: string } = {
+              pending: { labelKey: 'vertraege.esignatur.status.pending', colorClass: 'bg-secondary text-muted-foreground' },
+              sent: { labelKey: 'vertraege.esignatur.status.sent', colorClass: 'bg-info-light text-info' },
+              viewed: { labelKey: 'vertraege.esignatur.status.viewed', colorClass: 'bg-warning-light text-warning' },
+              signed: { labelKey: 'vertraege.esignatur.status.signed', colorClass: 'bg-success-light text-success' },
+              declined: { labelKey: 'vertraege.esignatur.status.declined', colorClass: 'bg-error-light text-error' },
+            }[signer.status]
+
+            return (
+              <div key={idx} className="rounded-lg border border-border bg-secondary/20 px-3 py-2.5 space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium text-foreground truncate">{signer.name}</span>
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0 ${statusConf.colorClass}`}>
+                    {t(statusConf.labelKey)}
+                  </span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">{signer.email}</p>
+                {signer.status === 'signed' && signer.signedAt && (
+                  <p className="text-[10px] text-muted-foreground">
+                    {t('vertraege.detail.signaturen.signedAt', { date: formatDate(signer.signedAt) })}
+                  </p>
+                )}
+                {/* Thumbnail — only for canvas signatures */}
+                {signer.status === 'signed' && signer.signatureDataUrl && (
+                  <img
+                    src={signer.signatureDataUrl}
+                    alt={t('vertraege.esignatur.signatureThumbnailAlt')}
+                    className="h-9 w-20 rounded border border-border object-contain bg-white mt-1"
+                  />
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
 }
 
 interface DetailPanelContentProps {
@@ -1957,6 +2020,9 @@ function DetailPanelContent({ contract, onPreviewDoc, onVersionsDoc }: DetailPan
           </div>
         )}
       </div>
+
+      {/* Signer section (phase 8) */}
+      <SignerSection contract={contract} />
 
       {/* Audit log feed (phase 4) */}
       <AuditLogFeed history={contract.history} />

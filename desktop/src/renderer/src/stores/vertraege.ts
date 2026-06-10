@@ -36,6 +36,10 @@ export interface ContractSigner {
   status: 'pending' | 'sent' | 'viewed' | 'signed' | 'declined'
   signedAt?: string
   order: number
+  /** Base64 PNG data URL — present when signed via the on-site canvas (EES). */
+  signatureDataUrl?: string
+  /** How the signer completed (or will complete) the signing step. */
+  signedVia?: 'canvas' | 'dispatch'
 }
 
 export interface Contract {
@@ -147,6 +151,14 @@ interface VertraegeStore {
   terminateContract: (id: string, reason: string, date: string) => void
   addDocument: (contractId: string, doc: ContractDocument) => void
   removeDocument: (contractId: string, fileId: string) => void
+  /** Sign a single signer via canvas or mark as sent via dispatch.
+   *  Always appends a contract_signed history entry. */
+  signSigner: (contractId: string, signerIndex: number, opts: {
+    via: 'canvas' | 'dispatch'
+    signatureDataUrl?: string
+  }) => void
+  /** Replace the signers array without adding a spurious contract_updated entry. */
+  updateSigners: (contractId: string, signers: ContractSigner[]) => void
 }
 
 const MOCK_CONTRACTS: Contract[] = [
@@ -559,6 +571,45 @@ export const useVertraegeStore = create<VertraegeStore>()(
                 },
               ],
             }
+          }),
+        })),
+
+      signSigner: (contractId, signerIndex, { via, signatureDataUrl }) =>
+        set((state) => ({
+          contracts: state.contracts.map((c) => {
+            if (c.id !== contractId) return c
+            const signers = (c.signers ?? []).map((s, i) => {
+              if (i !== signerIndex) return s
+              return {
+                ...s,
+                status: 'signed' as const,
+                signedAt: new Date().toISOString(),
+                signedVia: via,
+                ...(signatureDataUrl != null ? { signatureDataUrl } : {}),
+              }
+            })
+            const signedSigner = signers[signerIndex]
+            return {
+              ...c,
+              signers,
+              history: [
+                ...c.history,
+                {
+                  date: new Date().toISOString().split('T')[0],
+                  action: 'contract_signed' as const,
+                  meta: signedSigner?.name ?? '',
+                  user: 'Aktueller Benutzer',
+                },
+              ],
+            }
+          }),
+        })),
+
+      updateSigners: (contractId, signers) =>
+        set((state) => ({
+          contracts: state.contracts.map((c) => {
+            if (c.id !== contractId) return c
+            return { ...c, signers }
           }),
         })),
     }),
