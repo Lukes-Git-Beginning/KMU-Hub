@@ -9316,6 +9316,430 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /api/v1/contacts/{contactId}/advisory-protocols:
+    get:
+      summary: List advisory protocols for a contact
+      operationId: listAdvisoryProtocols
+      tags: [advisory-protocols]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: contactId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of protocols
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  protocols:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdvisoryProtocol'
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      summary: Create a new advisory protocol draft for a contact
+      operationId: createAdvisoryProtocol
+      tags: [advisory-protocols]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: contactId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '201':
+          description: Protocol created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  protocol:
+                    $ref: '#/components/schemas/AdvisoryProtocol'
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Contact not found
+
+  /api/v1/advisory-protocols/{id}:
+    get:
+      summary: Get an advisory protocol by ID
+      operationId: getAdvisoryProtocol
+      tags: [advisory-protocols]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Protocol
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  protocol:
+                    $ref: '#/components/schemas/AdvisoryProtocol'
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      summary: Update an advisory protocol draft (draft-only)
+      operationId: updateAdvisoryProtocol
+      tags: [advisory-protocols]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdvisoryProtocolUpdate'
+      responses:
+        '200':
+          description: Updated protocol
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  protocol:
+                    $ref: '#/components/schemas/AdvisoryProtocol'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '410':
+          description: Protocol is finalized and immutable
+    delete:
+      summary: Delete an advisory protocol draft (draft-only)
+      operationId: deleteAdvisoryProtocol
+      tags: [advisory-protocols]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '410':
+          description: Protocol is finalized and cannot be deleted
+
+  /api/v1/advisory-protocols/{id}/hand-over:
+    post:
+      summary: >
+        Finalize and mark the protocol as handed over to the customer.
+        After this call the protocol is immutable (legal document).
+        Idempotent — safe to call twice.
+      operationId: handOverAdvisoryProtocol
+      tags: [advisory-protocols]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Finalized protocol
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  protocol:
+                    $ref: '#/components/schemas/AdvisoryProtocol'
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/advisory-protocols/{id}/pdf:
+    get:
+      summary: >
+        Server-side PDF of the advisory protocol (Geeignetheitserklärung).
+        Currently returns 501 — use FE window.print() path for now.
+        Will be wired to GeneratePDF once a dedicated streaming RPC is added.
+      operationId: getAdvisoryProtocolPDF
+      tags: [advisory-protocols]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: PDF binary
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '501':
+          description: Not yet implemented on server side
+
+  /api/v1/contacts/referral-report:
+    get:
+      summary: Aggregated referral count per referrer (all contacts in the tenant)
+      operationId: getReferralReport
+      tags: [advisory-protocols]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Referral report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ReferralReportEntry'
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/v1/tenant/module-leads:
+    get:
+      summary: List module-lead assignments for the tenant
+      operationId: listModuleLeads
+      tags: [Settings]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: query
+          schema: { type: string, format: uuid }
+          description: Filter by user ID
+        - name: module_id
+          in: query
+          schema: { type: string }
+          description: Filter by module ID
+      responses:
+        "200":
+          description: List of module leads
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  leads:
+                    type: array
+                    items: { $ref: "#/components/schemas/ModuleLead" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/tenant/module-leads/me:
+    get:
+      summary: Get module IDs the current user is a lead for
+      operationId: getMyModuleLeads
+      tags: [Settings]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lead modules for the caller
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  module_ids:
+                    type: array
+                    items: { type: string }
+                    description: Module IDs where the caller is lead (empty for non-leads)
+                  is_admin:
+                    type: boolean
+                    description: True when the caller is an admin (implicitly leads all modules)
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/tenant/module-leads/{user_id}/{module_id}:
+    put:
+      summary: Grant module-lead rights to a user (admin only)
+      operationId: grantModuleLead
+      tags: [Settings]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: module_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Module lead granted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ModuleLead" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    delete:
+      summary: Revoke module-lead rights from a user (admin only)
+      operationId: revokeModuleLead
+      tags: [Settings]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: module_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Module lead revoked
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/settings/{module_id}:
+    get:
+      summary: Get resolved settings (user > tenant, server-side merge)
+      operationId: getResolvedSettings
+      tags: [Settings]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: module_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Resolved settings map
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettingsResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/settings/{module_id}/tenant:
+    get:
+      summary: Get raw tenant-scope settings for a module
+      operationId: getTenantSettings
+      tags: [Settings]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: module_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Tenant-scope settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettingsResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    put:
+      summary: Update tenant-scope settings (module-lead or admin only)
+      operationId: putTenantSettings
+      tags: [Settings]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: module_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PutSettingsRequest" }
+      responses:
+        "200":
+          description: Updated tenant settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettingsResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Forbidden — caller is not a module-lead or admin for this module
+
+  /api/v1/settings/{module_id}/user:
+    get:
+      summary: Get the caller's user-scope settings for a module
+      operationId: getUserSettings
+      tags: [Settings]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: module_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: User-scope settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettingsResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    put:
+      summary: Update the caller's user-scope settings for a module
+      operationId: putUserSettings
+      tags: [Settings]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: module_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PutSettingsRequest" }
+      responses:
+        "200":
+          description: Updated user settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettingsResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -14083,6 +14507,161 @@ components:
         total_executions: { type: integer }
         success_rate: { type: number, format: float }
 
+    AdvisoryProduct:
+      type: object
+      required: [id, name, risk_class, risks]
+      properties:
+        id:         { type: string }
+        name:       { type: string }
+        isin:       { type: string, nullable: true }
+        category:   { type: string, nullable: true }
+        risk_class: { type: integer, minimum: 1, maximum: 7, description: 'PRIIP SRI 1-7' }
+        opportunities: { type: string, nullable: true }
+        risks:      { type: string }
+        costs_one_time: { type: number, format: double, nullable: true }
+        costs_running:  { type: number, format: double, nullable: true }
+        recommended: { type: boolean }
+
+    AdvisoryProtocol:
+      type: object
+      required: [id, tenant_id, contact_id, created_by, status, risk_class]
+      properties:
+        id:          { type: string, format: uuid }
+        tenant_id:   { type: string, format: uuid }
+        contact_id:  { type: string, format: uuid }
+        created_by:  { type: string, format: uuid }
+        status:      { type: string, enum: [draft, finalized] }
+        handed_over_at: { type: string, format: date-time, nullable: true }
+        # § 1
+        date:             { type: string, format: date, nullable: true }
+        time_from:        { type: string }
+        time_to:          { type: string }
+        location:         { type: string, enum: [office, phone, video, onsite, ''] }
+        advisor:          { type: string }
+        occasion:         { type: string, enum: [initial, followup, event, ''] }
+        occasion_note:    { type: string }
+        customer_category: { type: string, enum: [private, professional, ''] }
+        # § 2
+        birth_date:       { type: string, format: date, nullable: true }
+        marital_status:   { type: string }
+        tax_status:       { type: string }
+        # § 3
+        known_asset_classes: { type: array, items: { type: string } }
+        past_transactions:   { type: string }
+        financial_education: { type: string }
+        professional_experience: { type: string }
+        self_assessment:     { type: integer, minimum: 1, maximum: 5, nullable: true }
+        # § 4
+        monthly_net_income:    { type: number, format: double, nullable: true }
+        recurring_liabilities: { type: number, format: double, nullable: true }
+        liquid_assets:         { type: number, format: double, nullable: true }
+        current_investments:   { type: number, format: double, nullable: true }
+        real_estate:           { type: string }
+        existing_insurance:    { type: string }
+        max_loss_capacity_abs: { type: number, format: double, nullable: true }
+        max_loss_capacity_pct: { type: number, format: double, nullable: true }
+        # § 5
+        investment_purpose: { type: array, items: { type: string } }
+        horizon:            { type: string }
+        risk_tolerance:     { type: string }
+        risk_capacity:      { type: string }
+        risk_class:         { type: integer, minimum: 1, maximum: 7 }
+        esg_preference:     { type: boolean }
+        esg_details:        { type: string }
+        one_time_amount:    { type: number, format: double, nullable: true }
+        monthly_savings:    { type: number, format: double, nullable: true }
+        # § 6
+        products: { type: array, items: { $ref: '#/components/schemas/AdvisoryProduct' } }
+        # § 7
+        recommendation_summary: { type: string }
+        suitability_reasoning:  { type: string }
+        goal_reference:         { type: string }
+        alternatives:           { type: string }
+        not_recommended:        { type: string }
+        # § 8
+        main_concerns:          { type: string }
+        warnings_given:         { type: array, items: { type: string } }
+        document_delivered:     { type: boolean }
+        document_delivered_date: { type: string, format: date, nullable: true }
+        delivery_form:          { type: string, enum: [paper, email, portal] }
+        advisor_signature:      { type: string }
+        customer_confirmation:  { type: boolean }
+        document_waiver:        { type: boolean }
+        followup_date:          { type: string, format: date, nullable: true }
+        internal_notes:         { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    AdvisoryProtocolUpdate:
+      # Same shape as AdvisoryProtocol minus read-only server fields.
+      # The FE sends a full snapshot; the server ignores id/tenant_id/status/created_by.
+      allOf:
+        - $ref: '#/components/schemas/AdvisoryProtocol'
+
+    ReferralReportEntry:
+      type: object
+      properties:
+        referrer_id:         { type: string, format: uuid }
+        referrer_first_name: { type: string }
+        referrer_last_name:  { type: string }
+        referred_count:      { type: integer }
+    ModuleLead:
+      type: object
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        module_id:
+          type: string
+          description: One of the ModuleId values (see lib/pricing.ts)
+        granted_by:
+          type: string
+          format: uuid
+        granted_at:
+          type: string
+          format: date-time
+      required: [tenant_id, user_id, module_id, granted_at]
+
+    SettingEntry:
+      type: object
+      properties:
+        key:
+          type: string
+          description: Setting key (e.g. "defaultView", "payroll.beraterNr")
+        value:
+          description: Any JSON value (string, number, boolean, array, object)
+      required: [key, value]
+
+    SettingsResponse:
+      type: object
+      properties:
+        entries:
+          type: array
+          items: { $ref: "#/components/schemas/SettingEntry" }
+
+    PutSettingsRequest:
+      type: object
+      description: >
+        Flat map of key → value. Patch semantics — only supplied keys are written;
+        others are untouched. Example:
+          {"defaultView": "week", "workStartHour": 8, "payroll.beraterNr": "12345"}
+      properties:
+        settings:
+          type: object
+          additionalProperties: true
+          description: >
+            Key-value pairs where values can be any JSON type.
+            Keys should follow the payroll.* namespacing convention for payroll settings.
+      required: [settings]
+      example:
+        settings:
+          defaultView: "week"
+          workStartHour: 8
+          payroll.beraterNr: "12345"
+          payroll.mandantNr: "67890"
   responses:
     BadRequest:
       description: Bad request

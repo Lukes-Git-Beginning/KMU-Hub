@@ -218,9 +218,12 @@ func main() {
 	// Booking routes — admin (via registrars) + public (outside loop)
 	bookingRoutes := gateway.NewBookingRoutes(registry)
 
+	// CRM routes — standard (via registrars) + advisory protocols (outside loop)
+	crmRoutes := gateway.NewCRMRoutes(registry, crmExt)
+
 	registrars := []gateway.RouteRegistrar{
 		gateway.NewAuthRoutes(registry),
-		gateway.NewCRMRoutes(registry, crmExt),
+		crmRoutes,
 		gateway.NewChatRoutes(registry),
 		gateway.NewNotificationRoutes(registry),
 		gateway.NewWorkRoutes(registry),
@@ -253,12 +256,17 @@ func main() {
 		gateway.NewFeatureFlagRoutes(flagRegistry),
 		gateway.NewHealthRoutes(healthCheckers, registry),
 		bookingRoutes,
+		gateway.NewSettingsRoutes(registry),
 	}
 
 	for _, reg := range registrars {
 		reg.RegisterRoutes(r, authWithIdempotency)
 		slog.Info("routes registered", "service", reg.ServiceName())
 	}
+
+	// Advisory-protocol routes (CRM, separate registration — ZFA Beratungsprotokoll)
+	crmRoutes.RegisterAdvisoryRoutes(r, authWithIdempotency)
+	slog.Info("routes registered", "service", "crm-advisory")
 
 	// Plugin API routes — gated behind plugins.api flag (Phase D, off by default).
 	// To enable in dev: COSMI_PLUGIN_API_ENABLED=true

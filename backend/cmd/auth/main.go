@@ -24,8 +24,10 @@ import (
 	"github.com/kmuhub/kmuhub/internal/security/password"
 	"github.com/kmuhub/kmuhub/internal/security/vault"
 	"github.com/kmuhub/kmuhub/internal/server"
+	"github.com/kmuhub/kmuhub/internal/settings"
 	authv1 "github.com/kmuhub/kmuhub/proto/auth/v1"
 	securityv1 "github.com/kmuhub/kmuhub/proto/security/v1"
+	settingsv1 "github.com/kmuhub/kmuhub/proto/settings/v1"
 )
 
 func main() {
@@ -92,19 +94,19 @@ func main() {
 	gdprService := gdpr.NewService(gdprRepo)
 
 	// Register default GDPR export and erasure handlers
-	gdprService.RegisterExportHandler(&gdpr.AuthExportHandler{})
-	gdprService.RegisterExportHandler(&gdpr.CRMExportHandler{})
-	gdprService.RegisterExportHandler(&gdpr.ChatExportHandler{})
-	gdprService.RegisterExportHandler(&gdpr.WorkExportHandler{})
-	gdprService.RegisterExportHandler(&gdpr.CalendarExportHandler{})
-	gdprService.RegisterExportHandler(&gdpr.SessionExportHandler{})
-	gdprService.RegisterExportHandler(&gdpr.NotificationExportHandler{})
-	gdprService.RegisterErasureHandler(&gdpr.AuthErasureHandler{})
-	gdprService.RegisterErasureHandler(&gdpr.CRMErasureHandler{})
-	gdprService.RegisterErasureHandler(&gdpr.ChatErasureHandler{})
-	gdprService.RegisterErasureHandler(&gdpr.WorkErasureHandler{})
-	gdprService.RegisterErasureHandler(&gdpr.CalendarErasureHandler{})
-	gdprService.RegisterErasureHandler(&gdpr.NotificationErasureHandler{})
+	gdprService.RegisterExportHandler(gdpr.NewAuthExportHandler(pool))
+	gdprService.RegisterExportHandler(gdpr.NewCRMExportHandler(pool))
+	gdprService.RegisterExportHandler(gdpr.NewChatExportHandler(pool))
+	gdprService.RegisterExportHandler(gdpr.NewWorkExportHandler(pool))
+	gdprService.RegisterExportHandler(gdpr.NewCalendarExportHandler(pool))
+	gdprService.RegisterExportHandler(gdpr.NewSessionExportHandler(pool))
+	gdprService.RegisterExportHandler(gdpr.NewNotificationExportHandler(pool))
+	gdprService.RegisterErasureHandler(gdpr.NewAuthErasureHandler(pool))
+	gdprService.RegisterErasureHandler(gdpr.NewCRMErasureHandler(pool))
+	gdprService.RegisterErasureHandler(gdpr.NewChatErasureHandler(pool))
+	gdprService.RegisterErasureHandler(gdpr.NewWorkErasureHandler(pool))
+	gdprService.RegisterErasureHandler(gdpr.NewCalendarErasureHandler(pool))
+	gdprService.RegisterErasureHandler(gdpr.NewNotificationErasureHandler(pool))
 	gdprService.RegisterErasureHandler(&gdpr.AuditErasureHandler{})
 
 	// Metrics
@@ -124,6 +126,13 @@ func main() {
 
 	securityGRPC := server.NewSecurityGRPCServer(auditService, vaultService, gdprService, passwordService, pool)
 	securityv1.RegisterSecurityServiceServer(grpcServer, securityGRPC)
+
+	// Settings foundation (tenant/user settings + module leads) — co-located in auth process
+	settingsRepo := settings.NewPostgresRepository(pool)
+	settingsRoleChecker := settings.NewPostgresRoleChecker(pool)
+	settingsSvc := settings.NewService(settingsRepo, settingsRoleChecker)
+	settingsGRPC := server.NewSettingsGRPCServer(settingsSvc)
+	settingsv1.RegisterSettingsServiceServer(grpcServer, settingsGRPC)
 
 	// Initialize gRPC metrics after service registration
 	metricsRegistry.InitializeGRPCMetrics(grpcServer)

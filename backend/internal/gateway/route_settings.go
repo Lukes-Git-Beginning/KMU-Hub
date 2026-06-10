@@ -1,0 +1,433 @@
+package gateway
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	"google.golang.org/protobuf/types/known/structpb"
+
+	"github.com/kmuhub/kmuhub/internal/middleware"
+	"github.com/kmuhub/kmuhub/internal/server/response"
+	settingsv1 "github.com/kmuhub/kmuhub/proto/settings/v1"
+)
+
+// SettingsRoutes handles HTTP routes for the Settings service.
+// Settings runs in the same binary as auth (port :50051), so we reuse the "auth"
+// gRPC connection — identical pattern to SecurityRoutes.
+type SettingsRoutes struct {
+	registry *ServiceRegistry
+}
+
+// NewSettingsRoutes creates a new SettingsRoutes with the given service registry.
+func NewSettingsRoutes(registry *ServiceRegistry) *SettingsRoutes {
+	return &SettingsRoutes{registry: registry}
+}
+
+// ServiceName returns "auth" because the Settings gRPC server is co-located
+// with the auth service on port :50051.
+func (sr *SettingsRoutes) ServiceName() string { return "auth" }
+
+// getSettingsClient lazily obtains a gRPC client for the Settings service.
+func (sr *SettingsRoutes) getSettingsClient() (settingsv1.SettingsServiceClient, error) {
+	conn, err := sr.registry.GetConnection("auth")
+	if err != nil {
+		return nil, err
+	}
+	return settingsv1.NewSettingsServiceClient(conn), nil
+}
+
+// RegisterRoutes registers all settings and module-lead HTTP routes.
+//
+// Routes summary:
+//
+//	GET    /api/v1/tenant/module-leads                          — list all leads (?user_id=, ?module_id=)
+//	GET    /api/v1/tenant/module-leads/me                       — my lead modules
+//	PUT    /api/v1/tenant/module-leads/{user_id}/{module_id}    — grant (admin, module-leads:write)
+//	DELETE /api/v1/tenant/module-leads/{user_id}/{module_id}    — revoke (admin, module-leads:write)
+//
+//	GET    /api/v1/settings/{module_id}                         — resolved (user > tenant)
+//	GET    /api/v1/settings/{module_id}/tenant                  — tenant-scope raw
+//	PUT    /api/v1/settings/{module_id}/tenant                  — update tenant-scope (lead/admin)
+//	GET    /api/v1/settings/{module_id}/user                    — my user-scope raw
+//	PUT    /api/v1/settings/{module_id}/user                    — update my user-scope
+func (sr *SettingsRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
+	r.Route("/api/v1/tenant/module-leads", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("module-leads", "read")).Get("/", sr.HandleListModuleLeads)
+		r.With(middleware.RequirePermission("module-leads", "read")).Get("/me", sr.HandleGetMyModuleLeads)
+		r.With(middleware.RequirePermission("module-leads", "write")).Put("/{user_id}/{module_id}", sr.HandleGrantModuleLead)
+		r.With(middleware.RequirePermission("module-leads", "write")).Delete("/{user_id}/{module_id}", sr.HandleRevokeModuleLead)
+	})
+
+	r.Route("/api/v1/settings/{module_id}", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("settings", "read")).Get("/", sr.HandleGetResolvedSettings)
+		r.With(middleware.RequirePermission("settings", "read")).Get("/tenant", sr.HandleGetTenantSettings)
+		r.With(middleware.RequirePermission("settings", "write")).Put("/tenant", sr.HandlePutTenantSettings)
+		r.With(middleware.RequirePermission("settings", "read")).Get("/user", sr.HandleGetUserSettings)
+		r.With(middleware.RequirePermission("settings", "write")).Put("/user", sr.HandlePutUserSettings)
+	})
+}
+
+// ============================================================================
+// Module-lead handlers
+// ============================================================================
+
+// HandleListModuleLeads lists module-lead assignments.
+// Optional query params: user_id (UUID), module_id (string).
+func (sr *SettingsRoutes) HandleListModuleLeads(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSettingsClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+
+	req := &settingsv1.ListModuleLeadsRequest{TenantId: tenantID.String()}
+	if uid := r.URL.Query().Get("user_id"); uid != "" {
+		req.UserId = &uid
+	}
+	if mid := r.URL.Query().Get("module_id"); mid != "" {
+		req.ModuleId = &mid
+	}
+
+	resp, err := client.ListModuleLeads(r.Context(), req)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// HandleGetMyModuleLeads returns the module IDs the caller leads.
+// FE: used by useIsModuleLead hook to hydrate the moduleLeads store.
+func (sr *SettingsRoutes) HandleGetMyModuleLeads(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSettingsClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	resp, err := client.GetMyModuleLeads(r.Context(), &settingsv1.GetMyModuleLeadsRequest{
+		TenantId: tenantID.String(),
+		UserId:   userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// HandleGrantModuleLead grants module-lead rights to a user.
+// Guard: RequirePermission("module-leads","write") — admin only via migration seed.
+func (sr *SettingsRoutes) HandleGrantModuleLead(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSettingsClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+	callerID := middleware.GetUserID(r.Context())
+	if callerID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	targetUserID, ok := validateUUIDParam(w, r, "user_id")
+	if !ok {
+		return
+	}
+	moduleID := chi.URLParam(r, "module_id")
+	if moduleID == "" {
+		response.Error(w, http.StatusBadRequest, "module_id is required")
+		return
+	}
+
+	resp, err := client.GrantModuleLead(r.Context(), &settingsv1.GrantModuleLeadRequest{
+		TenantId:  tenantID.String(),
+		UserId:    targetUserID,
+		ModuleId:  moduleID,
+		GrantedBy: callerID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// HandleRevokeModuleLead revokes module-lead rights.
+// Guard: RequirePermission("module-leads","write") — admin only via migration seed.
+func (sr *SettingsRoutes) HandleRevokeModuleLead(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSettingsClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+
+	targetUserID, ok := validateUUIDParam(w, r, "user_id")
+	if !ok {
+		return
+	}
+	moduleID := chi.URLParam(r, "module_id")
+	if moduleID == "" {
+		response.Error(w, http.StatusBadRequest, "module_id is required")
+		return
+	}
+
+	_, err = client.RevokeModuleLead(r.Context(), &settingsv1.RevokeModuleLeadRequest{
+		TenantId: tenantID.String(),
+		UserId:   targetUserID,
+		ModuleId: moduleID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusNoContent, nil)
+}
+
+// ============================================================================
+// Settings handlers
+// ============================================================================
+
+// HandleGetResolvedSettings returns merged settings (user wins over tenant).
+func (sr *SettingsRoutes) HandleGetResolvedSettings(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSettingsClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+	moduleID := chi.URLParam(r, "module_id")
+
+	resp, err := client.GetResolvedSettings(r.Context(), &settingsv1.GetResolvedSettingsRequest{
+		TenantId: tenantID.String(),
+		UserId:   userID,
+		ModuleId: moduleID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// HandleGetTenantSettings returns raw tenant-scope settings for a module.
+func (sr *SettingsRoutes) HandleGetTenantSettings(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSettingsClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+	moduleID := chi.URLParam(r, "module_id")
+
+	resp, err := client.GetTenantSettings(r.Context(), &settingsv1.GetTenantSettingsRequest{
+		TenantId: tenantID.String(),
+		ModuleId: moduleID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// putSettingsRequest is the HTTP request body for PUT /settings/{module_id}/tenant|user.
+// Using a flat map gives a friendlier API surface: {"defaultView":"week","workStartHour":8}
+// instead of the array-of-entries proto format.
+type putSettingsRequest struct {
+	Settings map[string]json.RawMessage `json:"settings" validate:"required"`
+}
+
+// HandlePutTenantSettings updates tenant-scope settings.
+// Service-level RBAC: caller must be admin OR module-lead for this module.
+func (sr *SettingsRoutes) HandlePutTenantSettings(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSettingsClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+	callerID := middleware.GetUserID(r.Context())
+	if callerID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+	moduleID := chi.URLParam(r, "module_id")
+
+	req, ok := decodeAndValidate[putSettingsRequest](w, r)
+	if !ok {
+		return
+	}
+
+	entries, err := rawMapToSettingEntries(req.Settings)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid settings value: "+err.Error())
+		return
+	}
+
+	resp, err := client.PutTenantSettings(r.Context(), &settingsv1.PutTenantSettingsRequest{
+		TenantId:  tenantID.String(),
+		ModuleId:  moduleID,
+		UpdatedBy: callerID,
+		Entries:   entries,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// HandleGetUserSettings returns raw user-scope settings.
+func (sr *SettingsRoutes) HandleGetUserSettings(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSettingsClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+	moduleID := chi.URLParam(r, "module_id")
+
+	resp, err := client.GetUserSettings(r.Context(), &settingsv1.GetUserSettingsRequest{
+		TenantId: tenantID.String(),
+		UserId:   userID,
+		ModuleId: moduleID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// HandlePutUserSettings updates the caller's user-scope settings (own user only).
+func (sr *SettingsRoutes) HandlePutUserSettings(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSettingsClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing tenant context")
+		return
+	}
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+	moduleID := chi.URLParam(r, "module_id")
+
+	req, ok := decodeAndValidate[putSettingsRequest](w, r)
+	if !ok {
+		return
+	}
+
+	entries, err := rawMapToSettingEntries(req.Settings)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid settings value: "+err.Error())
+		return
+	}
+
+	resp, err := client.PutUserSettings(r.Context(), &settingsv1.PutUserSettingsRequest{
+		TenantId: tenantID.String(),
+		UserId:   userID,
+		ModuleId: moduleID,
+		Entries:  entries,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Conversion helpers (HTTP ↔ proto)
+// ============================================================================
+
+// rawMapToSettingEntries converts a map[string]json.RawMessage from the HTTP
+// request body into proto SettingEntry slice. Each raw JSON value is unmarshaled
+// into a structpb.Value so the gRPC layer can forward it as JSONB.
+func rawMapToSettingEntries(m map[string]json.RawMessage) ([]*settingsv1.SettingEntry, error) {
+	entries := make([]*settingsv1.SettingEntry, 0, len(m))
+	for k, raw := range m {
+		var anyVal interface{}
+		if err := json.Unmarshal(raw, &anyVal); err != nil {
+			return nil, err
+		}
+		protoVal, err := structpb.NewValue(anyVal)
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, &settingsv1.SettingEntry{
+			Key:   k,
+			Value: protoVal,
+		})
+	}
+	return entries, nil
+}

@@ -1,0 +1,155 @@
+syntax = "proto3";
+
+package settings.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/kmuhub/kmuhub/proto/settings/v1;settingsv1";
+
+// SettingsService manages the 3-level scope hierarchy:
+//   tenant-default → Modul-Leiter-override (tenant-wide) → user-override (personal)
+//
+// Module-lead grant/revoke lives here too because it gates who may write tenant-scope
+// settings. Admin role implicitly leads all modules — the service enforces this, not
+// the database.
+service SettingsService {
+  // Module-lead management (admin only for write)
+  rpc ListModuleLeads(ListModuleLeadsRequest)   returns (ListModuleLeadsResponse);
+  rpc GrantModuleLead(GrantModuleLeadRequest)   returns (ModuleLead);
+  rpc RevokeModuleLead(RevokeModuleLeadRequest) returns (RevokeModuleLeadResponse);
+  // "Am I a lead?" fast-path used by the FE useIsModuleLead hook
+  rpc GetMyModuleLeads(GetMyModuleLeadsRequest) returns (GetMyModuleLeadsResponse);
+
+  // Resolved settings (user > tenant > not-set), returned as a flat key→value map
+  rpc GetResolvedSettings(GetResolvedSettingsRequest) returns (GetResolvedSettingsResponse);
+
+  // Tenant-scope settings (Modul-Leiter or admin only for write)
+  rpc GetTenantSettings(GetTenantSettingsRequest) returns (GetTenantSettingsResponse);
+  rpc PutTenantSettings(PutTenantSettingsRequest) returns (PutTenantSettingsResponse);
+
+  // User-scope settings (own user only)
+  rpc GetUserSettings(GetUserSettingsRequest) returns (GetUserSettingsResponse);
+  rpc PutUserSettings(PutUserSettingsRequest) returns (PutUserSettingsResponse);
+}
+
+// ============================================================================
+// Domain Messages
+// ============================================================================
+
+message ModuleLead {
+  string tenant_id  = 1;
+  string user_id    = 2;
+  string module_id  = 3;
+  string granted_by = 4;
+  google.protobuf.Timestamp granted_at = 5;
+}
+
+// A single key→JSONB setting entry.
+// value is encoded as google.protobuf.Value so callers can pass any JSON shape
+// (string, number, boolean, array, object) without a dedicated wrapper type.
+message SettingEntry {
+  string                 key   = 1;
+  google.protobuf.Value  value = 2;
+}
+
+// ============================================================================
+// Module-Lead Requests / Responses
+// ============================================================================
+
+message ListModuleLeadsRequest {
+  string tenant_id = 1;
+  // Optional: filter by user_id
+  optional string user_id   = 2;
+  // Optional: filter by module_id
+  optional string module_id = 3;
+}
+
+message ListModuleLeadsResponse {
+  repeated ModuleLead leads = 1;
+}
+
+message GrantModuleLeadRequest {
+  string tenant_id  = 1;
+  string user_id    = 2;
+  string module_id  = 3;
+  string granted_by = 4;
+}
+
+message RevokeModuleLeadRequest {
+  string tenant_id = 1;
+  string user_id   = 2;
+  string module_id = 3;
+}
+
+message RevokeModuleLeadResponse {}
+
+message GetMyModuleLeadsRequest {
+  string tenant_id = 1;
+  string user_id   = 2;
+}
+
+message GetMyModuleLeadsResponse {
+  // module_ids the caller is lead for (empty if none; admin = all)
+  repeated string module_ids = 1;
+  bool            is_admin   = 2;
+}
+
+// ============================================================================
+// Settings Requests / Responses
+// ============================================================================
+
+message GetResolvedSettingsRequest {
+  string tenant_id = 1;
+  string user_id   = 2;
+  string module_id = 3;
+}
+
+// Resolved map: user overrides win over tenant defaults.
+// Keys not set at any level are absent from the map.
+message GetResolvedSettingsResponse {
+  repeated SettingEntry entries = 1;
+}
+
+message GetTenantSettingsRequest {
+  string tenant_id = 1;
+  string module_id = 2;
+}
+
+message GetTenantSettingsResponse {
+  repeated SettingEntry entries = 1;
+}
+
+message PutTenantSettingsRequest {
+  string tenant_id   = 1;
+  string module_id   = 2;
+  string updated_by  = 3;
+  // Patch semantics: only supplied keys are written; others are untouched.
+  repeated SettingEntry entries = 4;
+}
+
+message PutTenantSettingsResponse {
+  repeated SettingEntry entries = 1;
+}
+
+message GetUserSettingsRequest {
+  string tenant_id = 1;
+  string user_id   = 2;
+  string module_id = 3;
+}
+
+message GetUserSettingsResponse {
+  repeated SettingEntry entries = 1;
+}
+
+message PutUserSettingsRequest {
+  string tenant_id  = 1;
+  string user_id    = 2;
+  string module_id  = 3;
+  // Patch semantics: only supplied keys are written; others are untouched.
+  repeated SettingEntry entries = 4;
+}
+
+message PutUserSettingsResponse {
+  repeated SettingEntry entries = 1;
+}

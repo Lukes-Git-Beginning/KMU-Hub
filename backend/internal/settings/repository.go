@@ -1,0 +1,26 @@
+package settings
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+)
+
+// Repository is the storage abstraction for settings and module-leads.
+type Repository interface {
+	// Module-leads
+	ListModuleLeads(ctx context.Context, tenantID uuid.UUID, userID *uuid.UUID, moduleID *string) ([]*ModuleLead, error)
+	GetModuleLead(ctx context.Context, tenantID, userID uuid.UUID, moduleID string) (*ModuleLead, error)
+	GrantModuleLead(ctx context.Context, tenantID, userID uuid.UUID, moduleID string, grantedBy *uuid.UUID) (*ModuleLead, error)
+	RevokeModuleLead(ctx context.Context, tenantID, userID uuid.UUID, moduleID string) error
+	IsModuleLead(ctx context.Context, tenantID, userID uuid.UUID, moduleID string) (bool, error)
+	ListLeadModulesForUser(ctx context.Context, tenantID, userID uuid.UUID) ([]string, error)
+
+	// Tenant settings
+	GetTenantSettings(ctx context.Context, tenantID uuid.UUID, moduleID string) ([]*SettingEntry, error)
+	PutTenantSettings(ctx context.Context, tenantID uuid.UUID, moduleID string, updatedBy *uuid.UUID, entries []*SettingEntry) ([]*SettingEntry, error)
+
+	// User settings
+	GetUserSettings(ctx context.Context, tenantID, userID uuid.UUID, moduleID string) ([]*SettingEntry, error)
+	PutUserSettings(ctx context.Context, tenantID, userID uuid.UUID, moduleID string, entries []*SettingEntry) ([]*SettingEntry, error)
+}
