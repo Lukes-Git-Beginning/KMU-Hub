@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rsm:CrossIndustryInvoice
+	xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
+	xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
+	xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
+
+	<rsm:ExchangedDocumentContext>
+		<ram:GuidelineSpecifiedDocumentContextParameter>
+			<ram:ID>urn:cen.eu:en16931:2017#compliant#urn:factur-x.eu:1p0:en16931</ram:ID>
+		</ram:GuidelineSpecifiedDocumentContextParameter>
+	</rsm:ExchangedDocumentContext>
+
+	<rsm:ExchangedDocument>
+		<ram:ID>RE-TEST-2024-001</ram:ID>
+		<ram:TypeCode>380</ram:TypeCode>
+		<ram:IssueDateTime>
+			<udt:DateTimeString format="102">20240115</udt:DateTimeString>
+		</ram:IssueDateTime>
+	</rsm:ExchangedDocument>
+
+	<rsm:SupplyChainTradeTransaction>
+		<ram:ApplicableHeaderTradeAgreement>
+			<ram:SellerTradeParty>
+				<ram:Name>Lieferant GmbH</ram:Name>
+				<ram:PostalTradeAddress>
+					<ram:PostcodeCode>10115</ram:PostcodeCode>
+					<ram:LineOne>Musterstraße 42</ram:LineOne>
+					<ram:CityName>Berlin</ram:CityName>
+					<ram:CountryID>DE</ram:CountryID>
+				</ram:PostalTradeAddress>
+				<ram:SpecifiedTaxRegistration>
+					<ram:ID schemeID="VA">DE123456789</ram:ID>
+				</ram:SpecifiedTaxRegistration>
+			</ram:SellerTradeParty>
+			<ram:BuyerTradeParty>
+				<ram:Name>Käufer AG</ram:Name>
+			</ram:BuyerTradeParty>
+		</ram:ApplicableHeaderTradeAgreement>
+
+		<ram:ApplicableHeaderTradeDelivery/>
+
+		<ram:ApplicableHeaderTradeSettlement>
+			<ram:PaymentReference>RE-TEST-2024-001</ram:PaymentReference>
+			<ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
+			<ram:SpecifiedTradePaymentTerms>
+				<ram:DueDateDateTime>
+					<udt:DateTimeString format="102">20240214</udt:DateTimeString>
+				</ram:DueDateDateTime>
+			</ram:SpecifiedTradePaymentTerms>
+			<ram:ApplicableTradeTax>
+				<ram:TypeCode>VAT</ram:TypeCode>
+				<ram:RateApplicablePercent>19.00</ram:RateApplicablePercent>
+				<ram:BasisAmount>300.00</ram:BasisAmount>
+				<ram:CalculatedAmount>57.00</ram:CalculatedAmount>
+			</ram:ApplicableTradeTax>
+			<ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+				<ram:LineTotalAmount>300.00</ram:LineTotalAmount>
+				<ram:TaxTotalAmount currencyID="EUR">57.00</ram:TaxTotalAmount>
+				<ram:GrandTotalAmount>357.00</ram:GrandTotalAmount>
+				<ram:DuePayableAmount>357.00</ram:DuePayableAmount>
+			</ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+		</ram:ApplicableHeaderTradeSettlement>
+
+		<ram:IncludedSupplyChainTradeLineItem>
+			<ram:AssociatedDocumentLineDocument>
+				<ram:LineID>1</ram:LineID>
+			</ram:AssociatedDocumentLineDocument>
+			<ram:SpecifiedTradeProduct>
+				<ram:Name>Beratungsleistung</ram:Name>
+			</ram:SpecifiedTradeProduct>
+			<ram:SpecifiedLineTradeAgreement>
+				<ram:NetPriceProductTradePrice>
+					<ram:ChargeAmount>150.00</ram:ChargeAmount>
+				</ram:NetPriceProductTradePrice>
+			</ram:SpecifiedLineTradeAgreement>
+			<ram:SpecifiedLineTradeDelivery>
+				<ram:BilledQuantity unitCode="C62">2.00</ram:BilledQuantity>
+			</ram:SpecifiedLineTradeDelivery>
+			<ram:SpecifiedLineTradeSettlement>
+				<ram:ApplicableTradeTax>
+					<ram:TypeCode>VAT</ram:TypeCode>
+					<ram:RateApplicablePercent>19.00</ram:RateApplicablePercent>
+				</ram:ApplicableTradeTax>
+				<ram:SpecifiedTradeSettlementLineMonetarySummation>
+					<ram:LineTotalAmount>300.00</ram:LineTotalAmount>
+				</ram:SpecifiedTradeSettlementLineMonetarySummation>
+			</ram:SpecifiedLineTradeSettlement>
+		</ram:IncludedSupplyChainTradeLineItem>
+	</rsm:SupplyChainTradeTransaction>
+</rsm:CrossIndustryInvoice>

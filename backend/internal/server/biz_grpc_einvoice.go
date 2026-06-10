@@ -1,0 +1,223 @@
+package server
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"log/slog"
+	"time"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
+
+	"github.com/kmuhub/kmuhub/internal/biz/einvoice"
+	"github.com/kmuhub/kmuhub/internal/models"
+	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
+)
+
+// ============================================================================
+// Incoming Invoices (E-Rechnung Eingang)
+// ============================================================================
+
+func (s *BizGRPCServer) ImportIncomingInvoice(ctx context.Context, req *bizv1.ImportIncomingInvoiceRequest) (*bizv1.ImportIncomingInvoiceResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+	createdBy, err := uuid.Parse(req.GetCreatedBy())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid created_by")
+	}
+	if len(req.GetContent()) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "content is required")
+	}
+
+	inv, err := s.einvoiceSvc.Import(ctx, einvoice.ImportInput{
+		TenantID:  tenantID,
+		CreatedBy: createdBy,
+		Filename:  req.GetFilename(),
+		Content:   req.GetContent(),
+		MimeType:  req.GetMimeType(),
+	})
+	if err != nil {
+		return nil, mapEInvoiceError(err)
+	}
+
+	return &bizv1.ImportIncomingInvoiceResponse{
+		Invoice: toProtoIncomingInvoice(inv),
+	}, nil
+}
+
+func (s *BizGRPCServer) GetIncomingInvoice(ctx context.Context, req *bizv1.GetIncomingInvoiceRequest) (*bizv1.GetIncomingInvoiceResponse, error) {
+	tenantID, id, err := parseTenantAndID(req.GetTenantId(), req.GetId())
+	if err != nil {
+		return nil, err
+	}
+
+	inv, err := s.einvoiceSvc.Get(ctx, tenantID, id)
+	if err != nil {
+		return nil, mapEInvoiceError(err)
+	}
+
+	return &bizv1.GetIncomingInvoiceResponse{Invoice: toProtoIncomingInvoice(inv)}, nil
+}
+
+func (s *BizGRPCServer) ListIncomingInvoices(ctx context.Context, req *bizv1.ListIncomingInvoicesRequest) (*bizv1.ListIncomingInvoicesResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+
+	input := einvoice.ListInput{
+		Status:  req.GetStatus(),
+		Page:    int(req.GetPage()),
+		PerPage: int(req.GetPerPage()),
+	}
+	if req.GetDateFrom() != "" {
+		t, parseErr := time.Parse("2006-01-02", req.GetDateFrom())
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid date_from")
+		}
+		input.DateFrom = &t
+	}
+	if req.GetDateTo() != "" {
+		t, parseErr := time.Parse("2006-01-02", req.GetDateTo())
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid date_to")
+		}
+		input.DateTo = &t
+	}
+
+	invoices, total, err := s.einvoiceSvc.List(ctx, tenantID, input)
+	if err != nil {
+		return nil, mapEInvoiceError(err)
+	}
+
+	protoInvoices := make([]*bizv1.IncomingInvoice, 0, len(invoices))
+	for _, inv := range invoices {
+		protoInvoices = append(protoInvoices, toProtoIncomingInvoice(inv))
+	}
+
+	return &bizv1.ListIncomingInvoicesResponse{
+		Invoices: protoInvoices,
+		Total:    int32(total),
+	}, nil
+}
+
+func (s *BizGRPCServer) UpdateIncomingInvoiceStatus(ctx context.Context, req *bizv1.UpdateIncomingInvoiceStatusRequest) (*bizv1.UpdateIncomingInvoiceStatusResponse, error) {
+	tenantID, id, err := parseTenantAndID(req.GetTenantId(), req.GetId())
+	if err != nil {
+		return nil, err
+	}
+
+	inv, err := s.einvoiceSvc.UpdateStatus(ctx, tenantID, id, req.GetNewStatus())
+	if err != nil {
+		return nil, mapEInvoiceError(err)
+	}
+
+	return &bizv1.UpdateIncomingInvoiceStatusResponse{Invoice: toProtoIncomingInvoice(inv)}, nil
+}
+
+// ============================================================================
+// Proto conversion helpers
+// ============================================================================
+
+func toProtoIncomingInvoice(inv *models.IncomingInvoice) *bizv1.IncomingInvoice {
+	if inv == nil {
+		return nil
+	}
+
+	pi := &bizv1.IncomingInvoice{
+		Id:               inv.ID.String(),
+		TenantId:         inv.TenantID.String(),
+		SupplierName:     inv.SupplierName,
+		SupplierAddress:  inv.SupplierAddress,
+		SupplierVatId:    inv.SupplierVATID,
+		InvoiceNumber:    inv.InvoiceNumber,
+		InvoiceDate:      inv.InvoiceDate.Format("2006-01-02"),
+		Currency:         inv.Currency,
+		Subtotal:         inv.Subtotal.StringFixed(2),
+		TotalTax:         inv.TotalTax.StringFixed(2),
+		GrossTotal:       inv.GrossTotal.StringFixed(2),
+		SourceFormat:     inv.SourceFormat,
+		OriginalFilename: inv.OriginalFilename,
+		Status:           inv.Status,
+		CreatedBy:        inv.CreatedBy.String(),
+		CreatedAt:        timestamppb.New(inv.CreatedAt),
+		UpdatedAt:        timestamppb.New(inv.UpdatedAt),
+	}
+
+	if inv.DueDate != nil {
+		pi.DueDate = inv.DueDate.Format("2006-01-02")
+	}
+
+	type jsonLineItem struct {
+		Position    int             `json:"position"`
+		Description string          `json:"description"`
+		Quantity    decimal.Decimal `json:"quantity"`
+		UnitPrice   decimal.Decimal `json:"unit_price"`
+		TaxRate     decimal.Decimal `json:"tax_rate"`
+		LineTotal   decimal.Decimal `json:"line_total"`
+	}
+	var lineItems []jsonLineItem
+	if err := json.Unmarshal(inv.LineItems, &lineItems); err == nil {
+		for _, li := range lineItems {
+			pi.LineItems = append(pi.LineItems, &bizv1.IncomingInvoiceLineItem{
+				Position:    int32(li.Position),
+				Description: li.Description,
+				Quantity:    li.Quantity.StringFixed(4),
+				UnitPrice:   li.UnitPrice.StringFixed(4),
+				TaxRate:     li.TaxRate.StringFixed(2),
+				LineTotal:   li.LineTotal.StringFixed(4),
+			})
+		}
+	} else {
+		slog.Warn("toProtoIncomingInvoice: failed to parse line_items", "id", inv.ID, "error", err)
+	}
+
+	type jsonTaxEntry struct {
+		TaxRate    decimal.Decimal `json:"tax_rate"`
+		TaxableNet decimal.Decimal `json:"taxable_net"`
+		TaxAmount  decimal.Decimal `json:"tax_amount"`
+	}
+	var taxBreakdown []jsonTaxEntry
+	if err := json.Unmarshal(inv.TaxBreakdownRaw, &taxBreakdown); err == nil {
+		for _, te := range taxBreakdown {
+			pi.TaxBreakdown = append(pi.TaxBreakdown, &bizv1.IncomingInvoiceTaxEntry{
+				TaxRate:    te.TaxRate.StringFixed(2),
+				TaxableNet: te.TaxableNet.StringFixed(2),
+				TaxAmount:  te.TaxAmount.StringFixed(2),
+			})
+		}
+	}
+
+	return pi
+}
+
+// ============================================================================
+// Error mapping
+// ============================================================================
+
+func mapEInvoiceError(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, einvoice.ErrNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, einvoice.ErrDuplicateInvoice):
+		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, einvoice.ErrNoEmbeddedXML),
+		errors.Is(err, einvoice.ErrUnsupportedFormat),
+		errors.Is(err, einvoice.ErrParseFailed):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, einvoice.ErrInvalidStatusTransition):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	default:
+		slog.Error("unhandled einvoice error", "error", err)
+		return status.Error(codes.Internal, "internal server error")
+	}
+}
