@@ -11,6 +11,7 @@ import { useEmployees } from '@/api/hooks/hr-hooks'
 import { useBulkPresence } from '@/api/hooks/usePresence'
 import type { PresenceLevel } from '@/api/video-types'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
+import { UserProfileTrigger } from '@/components/user/UserProfileCard'
 
 type UIStatus = 'online' | 'away' | 'busy' | 'offline'
 
@@ -60,6 +61,7 @@ function TeamStatus(_props: WidgetProps) {
   const team = useMemo(() => {
     return employees.map((e) => ({
       id: e.id,
+      userId: e.userId,
       name: e.userName ?? `${e.department ?? t('dashboard.teamStatus.employee')}`,
       role: e.positionTitle ?? e.department ?? '',
       status: mapPresence(presenceMap?.[e.userId]?.status),
@@ -113,16 +115,25 @@ function TeamStatus(_props: WidgetProps) {
         {sorted.map((member) => (
           <div
             key={member.id}
-            role="button"
-            tabIndex={0}
-            className="flex items-center gap-3 px-4 py-2 hover:bg-accent/50 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset"
+            className="flex items-center gap-3 px-4 py-2 hover:bg-accent/50 transition-colors"
           >
             <div className="relative">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                {member.avatar}
-              </div>
+              {member.userId ? (
+                <UserProfileTrigger userId={member.userId} name={member.name}>
+                  <button
+                    type="button"
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                  >
+                    {member.avatar}
+                  </button>
+                </UserProfileTrigger>
+              ) : (
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                  {member.avatar}
+                </div>
+              )}
               <span
-                className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card ${STATUS_CONFIG[member.status].color}`}
+                className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card pointer-events-none ${STATUS_CONFIG[member.status].color}`}
               />
             </div>
             <div className="min-w-0 flex-1">

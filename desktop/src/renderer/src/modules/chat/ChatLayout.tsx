@@ -5,7 +5,7 @@
  * Right: thread panel (350px, conditional). Empty state shown when
  * no channel is selected.
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MessageSquare } from 'lucide-react'
 import { ChannelList } from './channels/ChannelList'
@@ -16,10 +16,13 @@ import { ThreadPanel } from './threads/ThreadPanel'
 import { ChannelSearchPanel } from './channels/ChannelSearchPanel'
 import { MentionsPanel } from './MentionsPanel'
 import { ChannelMemberList } from '@/components/chat/ChannelMemberList'
+import { useNavigationStore } from '@/stores/navigation'
 
 export default function ChatLayout() {
   const { t } = useTranslation()
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null)
+  const intent = useNavigationStore((s) => s.intent)
+  const consumeIntent = useNavigationStore((s) => s.consumeIntent)
   const [selectedThreadMessageId, setSelectedThreadMessageId] = useState<string | null>(null)
   const [showMembers, setShowMembers] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
@@ -37,6 +40,20 @@ export default function ChatLayout() {
     setShowMembers(false)
     setShowSearch(false)
   }
+
+  // Consume send-message intent: if channelId is provided (from UserProfileCard ping-to-chat),
+  // select that DM channel directly. Reacts to the store value (not mount-only) because the
+  // card can be opened from inside the chat (MessageBubble, ChannelMemberList) while ChatLayout
+  // stays mounted. Only send-message intents with channelId are consumed — other intent types
+  // are left for their own consumers. Name-matching fallback is intentionally NOT implemented:
+  // existing callers (TeamPage, MemberProfileContent, KontaktePage) do not pass channelId.
+  useEffect(() => {
+    if (intent?.type === 'send-message' && intent.data.channelId) {
+      consumeIntent()
+      handleSelectChannel(intent.data.channelId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intent])
 
   // Thread, members, search and mentions share the right slot — keep them mutually exclusive.
   const handleOpenThread = (messageId: string) => {

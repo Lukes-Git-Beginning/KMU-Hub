@@ -13,6 +13,9 @@ const API = API_BASE_URL
 function toHrEmployee(e: (typeof EMPLOYEES)[number]) {
   return {
     id: `usr-${e.id}`,
+    userId: `usr-${e.id}`,
+    userName: `${e.firstName} ${e.lastName}`,
+    userEmail: e.email,
     first_name: e.firstName,
     last_name: e.lastName,
     initials: e.initials,
@@ -21,9 +24,11 @@ function toHrEmployee(e: (typeof EMPLOYEES)[number]) {
     mobile: e.mobile,
     role: e.role,
     job_title: e.jobTitle,
+    positionTitle: e.jobTitle,
     department: e.department,
     department_id: e.departmentId,
     contract_type: e.contractType,
+    contractType: e.contractType,
     workload: e.workload,
     join_date: e.joinDate,
     location: e.location,

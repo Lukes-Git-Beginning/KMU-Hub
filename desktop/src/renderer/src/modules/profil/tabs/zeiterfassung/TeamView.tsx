@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/cn'
 import { useTimeTrackingStore } from '@/stores/timetracking'
+import { UserProfileTrigger } from '@/components/user/UserProfileCard'
 
 export default function TeamView() {
   const { t } = useTranslation()
@@ -50,11 +51,15 @@ export default function TeamView() {
             >
               {/* Avatar */}
               <div className="relative">
-                <Avatar className="h-10 w-10">
-                  <AvatarFallback className="text-sm">{member.userInitials}</AvatarFallback>
-                </Avatar>
+                <UserProfileTrigger userId={member.userId} name={member.userName}>
+                  <button type="button" className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback className="text-sm">{member.userInitials}</AvatarFallback>
+                    </Avatar>
+                  </button>
+                </UserProfileTrigger>
                 <span className={cn(
-                  'absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card',
+                  'absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card pointer-events-none',
                   status.dotClass,
                 )}>
                   {status.animate && (
