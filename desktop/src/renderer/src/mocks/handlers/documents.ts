@@ -145,6 +145,8 @@ export const documentHandlers = [
     const tagId = url.searchParams.get('tag_id')
     const page = parseInt(url.searchParams.get('page') || '1')
     const perPage = parseInt(url.searchParams.get('per_page') || '50')
+    const sortField = url.searchParams.get('sort_field') || 'date'
+    const sortDir = url.searchParams.get('sort_dir') || 'desc'
 
     let filtered = [...files]
     if (folderId) {
@@ -153,6 +155,20 @@ export const documentHandlers = [
     if (tagId) {
       filtered = filtered.filter((f) => f.tags.some((t) => t.id === tagId))
     }
+
+    const dir = sortDir === 'asc' ? 1 : -1
+    filtered.sort((a, b) => {
+      switch (sortField) {
+        case 'name':
+          return dir * a.filename.localeCompare(b.filename, undefined, { sensitivity: 'base' })
+        case 'size':
+          return dir * (a.file_size - b.file_size)
+        case 'type':
+          return dir * a.mime_type.localeCompare(b.mime_type)
+        default:
+          return dir * (new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime())
+      }
+    })
 
     const start = (page - 1) * perPage
     const paginated = filtered.slice(start, start + perPage)

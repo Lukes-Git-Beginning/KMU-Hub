@@ -45,6 +45,7 @@ Folgende Verknüpfungen konnten im ContactDetailPanel NICHT gebaut werden, weil 
 ### dokumente
 - Datei-Kommentare: Comment-Tabelle + Endpoints
 - Externe Share-Links: Token-Store + `GET/POST /api/v1/documents/share-links` (Ablauf, Passwort-Hash) + öffentliches Resolve-Endpoint
+- Tenant-Settings dokumente (2026-06-10, Strom D): `stores/dokumenteSettings.ts` ist mock-first (Dateityp-Gruppen, Standard-Freigabe, OnlyOffice-Schalter, Papierkorb-Tage). Settings-Foundation (Migration 138, `route_settings.go`) liegt inzwischen auf main → nach Merge nur noch FE-Wiring auf `tenant_settings`, kein neues Backend nötig. Enforcement der erlaubten Dateitypen beim Upload wäre Backend-seitig sinnvoll (aktuell nur Verwaltung).
 
 ### mails
 - Multi-Account: Tabelle + `ListEmailAccounts` (aktuell 1 Account/User)
