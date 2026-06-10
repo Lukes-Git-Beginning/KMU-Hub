@@ -16,6 +16,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/cache"
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/crm/activity"
+	"github.com/kmuhub/kmuhub/internal/crm/advisoryprotocol"
 	"github.com/kmuhub/kmuhub/internal/crm/company"
 	"github.com/kmuhub/kmuhub/internal/crm/consent"
 	"github.com/kmuhub/kmuhub/internal/crm/contact"
@@ -104,6 +105,12 @@ func main() {
 		),
 	)
 	crmGRPC := server.NewCRMGRPCServer(customFieldService, tagService, contactService, companyService, pipelineStageService, dealService, activityService, consentService, searchService, savedFilterService, reportService)
+
+	// Advisory protocols (ZFA Beratungsprotokoll, immutable nach Aushändigung)
+	advisoryRepo := advisoryprotocol.NewPostgresRepository(pool)
+	advisoryService := advisoryprotocol.NewService(advisoryRepo)
+	crmGRPC.SetAdvisoryProtocolService(advisoryService)
+
 	crmv1.RegisterCRMServiceServer(grpcServer, crmGRPC)
 
 	// Initialize gRPC metrics after service registration

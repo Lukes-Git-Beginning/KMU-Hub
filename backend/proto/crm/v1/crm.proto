@@ -99,6 +99,15 @@ service CRMService {
   rpc GetConsentHistory(GetConsentHistoryRequest) returns (GetConsentHistoryResponse);
   rpc RequestDeletion(RequestDeletionRequest) returns (RequestDeletionResponse);
   rpc ProcessDeletion(ProcessDeletionRequest) returns (ProcessDeletionResponse);
+
+  // Advisory Protocols (Beratungsprotokolle — P8)
+  rpc CreateAdvisoryProtocol(CreateAdvisoryProtocolRequest) returns (CreateAdvisoryProtocolResponse);
+  rpc GetAdvisoryProtocol(GetAdvisoryProtocolRequest) returns (GetAdvisoryProtocolResponse);
+  rpc ListAdvisoryProtocols(ListAdvisoryProtocolsRequest) returns (ListAdvisoryProtocolsResponse);
+  rpc UpdateAdvisoryProtocol(UpdateAdvisoryProtocolRequest) returns (UpdateAdvisoryProtocolResponse);
+  rpc DeleteAdvisoryProtocol(DeleteAdvisoryProtocolRequest) returns (DeleteAdvisoryProtocolResponse);
+  rpc HandOverAdvisoryProtocol(HandOverAdvisoryProtocolRequest) returns (HandOverAdvisoryProtocolResponse);
+  rpc GetReferralReport(GetReferralReportRequest) returns (GetReferralReportResponse);
 }
 
 // ============================================================================
@@ -1117,3 +1126,102 @@ message ProcessDeletionRequest {
 message ProcessDeletionResponse {
   string status = 1;  // "completed"
 }
+
+// ============================================================================
+// Advisory Protocol Messages (P8)
+// ============================================================================
+
+message AdvisoryProductProto {
+  string id = 1;
+  string name = 2;
+  optional string isin = 3;
+  optional string category = 4;
+  int32 risk_class = 5;
+  optional string opportunities = 6;
+  string risks = 7;
+  optional double costs_one_time = 8;
+  optional double costs_running = 9;
+  bool recommended = 10;
+}
+
+message AdvisoryProtocolProto {
+  string id = 1;
+  string tenant_id = 2;
+  string contact_id = 3;
+  string created_by = 4;
+  string status = 5;
+  optional string handed_over_at = 6;
+  optional string date = 7;
+  string time_from = 8;
+  string time_to = 9;
+  string location = 10;
+  string advisor = 11;
+  string occasion = 12;
+  string occasion_note = 13;
+  string customer_category = 14;
+  optional string birth_date = 15;
+  string marital_status = 16;
+  string tax_status = 17;
+  repeated string known_asset_classes = 18;
+  string past_transactions = 19;
+  string financial_education = 20;
+  string professional_experience = 21;
+  optional int32 self_assessment = 22;
+  optional double monthly_net_income = 23;
+  optional double recurring_liabilities = 24;
+  optional double liquid_assets = 25;
+  optional double current_investments = 26;
+  string real_estate = 27;
+  string existing_insurance = 28;
+  optional double max_loss_capacity_abs = 29;
+  optional double max_loss_capacity_pct = 30;
+  repeated string investment_purpose = 31;
+  string horizon = 32;
+  string risk_tolerance = 33;
+  string risk_capacity = 34;
+  int32 risk_class = 35;
+  bool esg_preference = 36;
+  string esg_details = 37;
+  optional double one_time_amount = 38;
+  optional double monthly_savings = 39;
+  repeated AdvisoryProductProto products = 40;
+  string recommendation_summary = 41;
+  string suitability_reasoning = 42;
+  string goal_reference = 43;
+  string alternatives = 44;
+  string not_recommended = 45;
+  string main_concerns = 46;
+  repeated string warnings_given = 47;
+  bool document_delivered = 48;
+  optional string document_delivered_date = 49;
+  string delivery_form = 50;
+  string advisor_signature = 51;
+  bool customer_confirmation = 52;
+  bool document_waiver = 53;
+  optional string followup_date = 54;
+  string internal_notes = 55;
+  string created_at = 56;
+  string updated_at = 57;
+}
+
+message CreateAdvisoryProtocolRequest { string contact_id = 1; }
+message CreateAdvisoryProtocolResponse { AdvisoryProtocolProto protocol = 1; }
+message GetAdvisoryProtocolRequest { string id = 1; }
+message GetAdvisoryProtocolResponse { AdvisoryProtocolProto protocol = 1; }
+message ListAdvisoryProtocolsRequest { string contact_id = 1; }
+message ListAdvisoryProtocolsResponse { repeated AdvisoryProtocolProto protocols = 1; }
+message UpdateAdvisoryProtocolRequest { string id = 1; AdvisoryProtocolProto protocol = 2; }
+message UpdateAdvisoryProtocolResponse { AdvisoryProtocolProto protocol = 1; }
+message DeleteAdvisoryProtocolRequest { string id = 1; }
+message DeleteAdvisoryProtocolResponse { bool ok = 1; }
+message HandOverAdvisoryProtocolRequest { string id = 1; }
+message HandOverAdvisoryProtocolResponse { AdvisoryProtocolProto protocol = 1; }
+
+message ReferralReportEntry {
+  string referrer_id = 1;
+  string referrer_first_name = 2;
+  string referrer_last_name = 3;
+  int32 referred_count = 4;
+}
+message GetReferralReportRequest {}
+message GetReferralReportResponse { repeated ReferralReportEntry entries = 1; }

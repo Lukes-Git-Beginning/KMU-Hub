@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/kmuhub/kmuhub/internal/crm/activity"
+	"github.com/kmuhub/kmuhub/internal/crm/advisoryprotocol"
 	"github.com/kmuhub/kmuhub/internal/crm/company"
 	"github.com/kmuhub/kmuhub/internal/crm/consent"
 	"github.com/kmuhub/kmuhub/internal/crm/contact"
@@ -32,20 +33,21 @@ import (
 // CRMGRPCServer implements the CRM gRPC service
 type CRMGRPCServer struct {
 	crmv1.UnimplementedCRMServiceServer
-	customFieldService   *customfield.Service
-	tagService           *tag.Service
-	contactService       *contact.Service
-	companyService       *company.Service
-	pipelineStageService *pipelinestage.Service
-	dealService          *deal.Service
-	activityService      *activity.Service
-	consentService       *consent.Service
-	searchService        *search.Service
-	savedFilterService   *savedfilter.Service
-	reportService        *report.Service
-	importService        *emailcontact.ImportService
-	exportService        *emailcontact.ExportService
-	visibilityService    *emailcontact.VisibilityService
+	customFieldService      *customfield.Service
+	tagService              *tag.Service
+	contactService          *contact.Service
+	companyService          *company.Service
+	pipelineStageService    *pipelinestage.Service
+	dealService             *deal.Service
+	activityService         *activity.Service
+	consentService          *consent.Service
+	searchService           *search.Service
+	savedFilterService      *savedfilter.Service
+	reportService           *report.Service
+	advisoryProtocolService *advisoryprotocol.Service
+	importService           *emailcontact.ImportService
+	exportService           *emailcontact.ExportService
+	visibilityService       *emailcontact.VisibilityService
 }
 
 // NewCRMGRPCServer creates a new CRM gRPC server
@@ -75,6 +77,11 @@ func NewCRMGRPCServer(
 		savedFilterService:   savedFilterService,
 		reportService:        reportService,
 	}
+}
+
+// SetAdvisoryProtocolService wires in the advisory protocol service (called from cmd/crm/main.go).
+func (s *CRMGRPCServer) SetAdvisoryProtocolService(svc *advisoryprotocol.Service) {
+	s.advisoryProtocolService = svc
 }
 
 // SetImportExportServices sets the import/export/visibility services.
@@ -2786,6 +2793,15 @@ func mapCRMError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, company.ErrAlreadyMerged):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	// Advisory protocol errors
+	case errors.Is(err, advisoryprotocol.ErrProtocolNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, advisoryprotocol.ErrProtocolFinalized):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, advisoryprotocol.ErrContactNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, advisoryprotocol.ErrInvalidRiskClass):
+		return status.Error(codes.InvalidArgument, err.Error())
 	default:
 		slog.Error("unhandled crm service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
