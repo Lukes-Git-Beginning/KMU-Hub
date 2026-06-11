@@ -38,13 +38,19 @@ func (f *FileRoutes) getDocumentClient() (documentv1.DocumentServiceClient, erro
 // RegisterRoutes registers presigned URL routes.
 // Both routes require authentication — the tenant ID is read from the JWT
 // by the Auth middleware and propagated to the document service via gRPC metadata.
+//
+// NOTE: /api/v1/files is already mounted by the chat file routes (route_chat.go),
+// so a second r.Route() on the same pattern would panic chi at startup. Register
+// the concrete paths in a Group instead — static segments take precedence over
+// the mounted subrouter's catch-all.
 func (f *FileRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
-	r.Route("/api/v1/files", func(r chi.Router) {
+	r.Group(func(r chi.Router) {
 		r.Use(authMiddleware)
+		r.Use(RequireAuthenticated)
 		r.With(middleware.RequirePermission("files", "write")).
-			Post("/presign-upload", f.HandlePresignUpload)
+			Post("/api/v1/files/presign-upload", f.HandlePresignUpload)
 		r.With(middleware.RequirePermission("files", "read")).
-			Get("/presign-download", f.HandlePresignDownload)
+			Get("/api/v1/files/presign-download", f.HandlePresignDownload)
 	})
 }
 
