@@ -224,6 +224,10 @@ func (s *MockFileStore) GetPresignedURL(_ context.Context, key string, _ time.Du
 	return "https://minio.local/" + key, nil
 }
 
+func (s *MockFileStore) GetPresignedUploadURL(_ context.Context, key string, _ time.Duration) (string, error) {
+	return "https://minio.local/upload/" + key, nil
+}
+
 // MockScanner
 type MockScanner struct {
 	scanErr error

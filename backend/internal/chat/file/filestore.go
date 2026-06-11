@@ -13,6 +13,7 @@ type FileStore interface {
 	Download(ctx context.Context, key string) (io.ReadCloser, error)
 	Delete(ctx context.Context, key string) error
 	GetPresignedURL(ctx context.Context, key string, expiry time.Duration) (string, error)
+	GetPresignedUploadURL(ctx context.Context, key string, expiry time.Duration) (string, error)
 }
 
 // UnavailableStore is a FileStore that always returns an error.
@@ -32,5 +33,8 @@ func (s *UnavailableStore) Delete(_ context.Context, _ string) error {
 	return errors.New("file storage unavailable")
 }
 func (s *UnavailableStore) GetPresignedURL(_ context.Context, _ string, _ time.Duration) (string, error) {
+	return "", errors.New("file storage unavailable")
+}
+func (s *UnavailableStore) GetPresignedUploadURL(_ context.Context, _ string, _ time.Duration) (string, error) {
 	return "", errors.New("file storage unavailable")
 }

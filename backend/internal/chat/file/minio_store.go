@@ -69,3 +69,11 @@ func (s *MinIOStore) GetPresignedURL(ctx context.Context, key string, expiry tim
 	}
 	return url.String(), nil
 }
+
+func (s *MinIOStore) GetPresignedUploadURL(ctx context.Context, key string, expiry time.Duration) (string, error) {
+	url, err := s.client.PresignedPutObject(ctx, s.bucket, key, expiry)
+	if err != nil {
+		return "", err
+	}
+	return url.String(), nil
+}

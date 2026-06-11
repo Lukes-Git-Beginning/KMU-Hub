@@ -54,6 +54,10 @@ service DocumentService {
   // ==================== WOPI operations ====================
   rpc GenerateWOPIToken(GenerateWOPITokenRequest) returns (GenerateWOPITokenResponse);
   rpc GetWOPIDiscovery(GetWOPIDiscoveryRequest) returns (GetWOPIDiscoveryResponse);
+
+  // ==================== Presigned URL operations ====================
+  rpc GetPresignedUploadURL(GetPresignedUploadURLRequest) returns (GetPresignedUploadURLResponse);
+  rpc GetPresignedDownloadURL(GetPresignedDownloadURLRequest) returns (GetPresignedDownloadURLResponse);
 }
 
 // ============================================================================
@@ -549,4 +553,30 @@ message WOPIAction {
   string name = 2;                    // e.g., "view", "edit"
   string ext = 3;                     // e.g., "docx", "xlsx"
   string url_src = 4;
+}
+
+// ============================================================================
+// Presigned URL Request/Response Messages
+// ============================================================================
+
+message GetPresignedUploadURLRequest {
+  string scope = 1;                   // e.g., "avatar", "chat", "rapporte"
+  string file_name = 2;              // Original filename with extension
+  string content_type = 3;           // MIME type, e.g., "image/png"
+  int64 size_bytes = 4;              // Expected upload size in bytes
+}
+
+message GetPresignedUploadURLResponse {
+  string upload_url = 1;             // Presigned PUT URL for direct browser upload
+  string object_key = 2;            // Key to reference the object afterwards
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+message GetPresignedDownloadURLRequest {
+  string object_key = 1;            // Storage key (must be owned by requesting tenant)
+}
+
+message GetPresignedDownloadURLResponse {
+  string download_url = 1;
+  google.protobuf.Timestamp expires_at = 2;
 }

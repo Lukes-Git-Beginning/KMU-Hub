@@ -251,6 +251,7 @@ func main() {
 		gateway.NewSchichtenRoutes(registry, flagRegistry),
 		gateway.NewVermietungRoutes(registry, flagRegistry),
 		gateway.NewFuhrparkRoutes(registry, flagRegistry),
+		gateway.NewFileRoutes(registry),
 		gateway.NewGlobalSearchRoutes(registry),
 		gateway.NewDashboardRoutes(dashboardService),
 		gateway.NewFeatureFlagRoutes(flagRegistry),

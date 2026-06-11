@@ -565,6 +565,10 @@ func (m *fileMockStore) GetPresignedURL(_ context.Context, _ string, _ time.Dura
 	return "https://example.com/presigned", nil
 }
 
+func (m *fileMockStore) GetPresignedUploadURL(_ context.Context, _ string, _ time.Duration) (string, error) {
+	return "https://example.com/presigned-upload", nil
+}
+
 // ---------------------------------------------------------------------------
 // File upload mock scanner (implements file.FileScanner)
 // ---------------------------------------------------------------------------

@@ -19,40 +19,42 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	DocumentService_CreateFolder_FullMethodName         = "/document.v1.DocumentService/CreateFolder"
-	DocumentService_GetFolder_FullMethodName            = "/document.v1.DocumentService/GetFolder"
-	DocumentService_ListFolders_FullMethodName          = "/document.v1.DocumentService/ListFolders"
-	DocumentService_UpdateFolder_FullMethodName         = "/document.v1.DocumentService/UpdateFolder"
-	DocumentService_DeleteFolder_FullMethodName         = "/document.v1.DocumentService/DeleteFolder"
-	DocumentService_GetFolderPath_FullMethodName        = "/document.v1.DocumentService/GetFolderPath"
-	DocumentService_InitializeUserSpace_FullMethodName  = "/document.v1.DocumentService/InitializeUserSpace"
-	DocumentService_InitializeTeamSpace_FullMethodName  = "/document.v1.DocumentService/InitializeTeamSpace"
-	DocumentService_GetFile_FullMethodName              = "/document.v1.DocumentService/GetFile"
-	DocumentService_ListFiles_FullMethodName            = "/document.v1.DocumentService/ListFiles"
-	DocumentService_UpdateFile_FullMethodName           = "/document.v1.DocumentService/UpdateFile"
-	DocumentService_DeleteFile_FullMethodName           = "/document.v1.DocumentService/DeleteFile"
-	DocumentService_CopyFile_FullMethodName             = "/document.v1.DocumentService/CopyFile"
-	DocumentService_MoveFile_FullMethodName             = "/document.v1.DocumentService/MoveFile"
-	DocumentService_GetFileDownloadURL_FullMethodName   = "/document.v1.DocumentService/GetFileDownloadURL"
-	DocumentService_CreateFileVersion_FullMethodName    = "/document.v1.DocumentService/CreateFileVersion"
-	DocumentService_ListFileVersions_FullMethodName     = "/document.v1.DocumentService/ListFileVersions"
-	DocumentService_RevertFileVersion_FullMethodName    = "/document.v1.DocumentService/RevertFileVersion"
-	DocumentService_ShareEntity_FullMethodName          = "/document.v1.DocumentService/ShareEntity"
-	DocumentService_UnshareEntity_FullMethodName        = "/document.v1.DocumentService/UnshareEntity"
-	DocumentService_ListShares_FullMethodName           = "/document.v1.DocumentService/ListShares"
-	DocumentService_ListSharedWithMe_FullMethodName     = "/document.v1.DocumentService/ListSharedWithMe"
-	DocumentService_CreateTag_FullMethodName            = "/document.v1.DocumentService/CreateTag"
-	DocumentService_ListTags_FullMethodName             = "/document.v1.DocumentService/ListTags"
-	DocumentService_DeleteTag_FullMethodName            = "/document.v1.DocumentService/DeleteTag"
-	DocumentService_TagFile_FullMethodName              = "/document.v1.DocumentService/TagFile"
-	DocumentService_UntagFile_FullMethodName            = "/document.v1.DocumentService/UntagFile"
-	DocumentService_LinkFileToEntity_FullMethodName     = "/document.v1.DocumentService/LinkFileToEntity"
-	DocumentService_UnlinkFileFromEntity_FullMethodName = "/document.v1.DocumentService/UnlinkFileFromEntity"
-	DocumentService_ListFileEntityLinks_FullMethodName  = "/document.v1.DocumentService/ListFileEntityLinks"
-	DocumentService_SearchFiles_FullMethodName          = "/document.v1.DocumentService/SearchFiles"
-	DocumentService_ListVirtualFiles_FullMethodName     = "/document.v1.DocumentService/ListVirtualFiles"
-	DocumentService_GenerateWOPIToken_FullMethodName    = "/document.v1.DocumentService/GenerateWOPIToken"
-	DocumentService_GetWOPIDiscovery_FullMethodName     = "/document.v1.DocumentService/GetWOPIDiscovery"
+	DocumentService_CreateFolder_FullMethodName            = "/document.v1.DocumentService/CreateFolder"
+	DocumentService_GetFolder_FullMethodName               = "/document.v1.DocumentService/GetFolder"
+	DocumentService_ListFolders_FullMethodName             = "/document.v1.DocumentService/ListFolders"
+	DocumentService_UpdateFolder_FullMethodName            = "/document.v1.DocumentService/UpdateFolder"
+	DocumentService_DeleteFolder_FullMethodName            = "/document.v1.DocumentService/DeleteFolder"
+	DocumentService_GetFolderPath_FullMethodName           = "/document.v1.DocumentService/GetFolderPath"
+	DocumentService_InitializeUserSpace_FullMethodName     = "/document.v1.DocumentService/InitializeUserSpace"
+	DocumentService_InitializeTeamSpace_FullMethodName     = "/document.v1.DocumentService/InitializeTeamSpace"
+	DocumentService_GetFile_FullMethodName                 = "/document.v1.DocumentService/GetFile"
+	DocumentService_ListFiles_FullMethodName               = "/document.v1.DocumentService/ListFiles"
+	DocumentService_UpdateFile_FullMethodName              = "/document.v1.DocumentService/UpdateFile"
+	DocumentService_DeleteFile_FullMethodName              = "/document.v1.DocumentService/DeleteFile"
+	DocumentService_CopyFile_FullMethodName                = "/document.v1.DocumentService/CopyFile"
+	DocumentService_MoveFile_FullMethodName                = "/document.v1.DocumentService/MoveFile"
+	DocumentService_GetFileDownloadURL_FullMethodName      = "/document.v1.DocumentService/GetFileDownloadURL"
+	DocumentService_CreateFileVersion_FullMethodName       = "/document.v1.DocumentService/CreateFileVersion"
+	DocumentService_ListFileVersions_FullMethodName        = "/document.v1.DocumentService/ListFileVersions"
+	DocumentService_RevertFileVersion_FullMethodName       = "/document.v1.DocumentService/RevertFileVersion"
+	DocumentService_ShareEntity_FullMethodName             = "/document.v1.DocumentService/ShareEntity"
+	DocumentService_UnshareEntity_FullMethodName           = "/document.v1.DocumentService/UnshareEntity"
+	DocumentService_ListShares_FullMethodName              = "/document.v1.DocumentService/ListShares"
+	DocumentService_ListSharedWithMe_FullMethodName        = "/document.v1.DocumentService/ListSharedWithMe"
+	DocumentService_CreateTag_FullMethodName               = "/document.v1.DocumentService/CreateTag"
+	DocumentService_ListTags_FullMethodName                = "/document.v1.DocumentService/ListTags"
+	DocumentService_DeleteTag_FullMethodName               = "/document.v1.DocumentService/DeleteTag"
+	DocumentService_TagFile_FullMethodName                 = "/document.v1.DocumentService/TagFile"
+	DocumentService_UntagFile_FullMethodName               = "/document.v1.DocumentService/UntagFile"
+	DocumentService_LinkFileToEntity_FullMethodName        = "/document.v1.DocumentService/LinkFileToEntity"
+	DocumentService_UnlinkFileFromEntity_FullMethodName    = "/document.v1.DocumentService/UnlinkFileFromEntity"
+	DocumentService_ListFileEntityLinks_FullMethodName     = "/document.v1.DocumentService/ListFileEntityLinks"
+	DocumentService_SearchFiles_FullMethodName             = "/document.v1.DocumentService/SearchFiles"
+	DocumentService_ListVirtualFiles_FullMethodName        = "/document.v1.DocumentService/ListVirtualFiles"
+	DocumentService_GenerateWOPIToken_FullMethodName       = "/document.v1.DocumentService/GenerateWOPIToken"
+	DocumentService_GetWOPIDiscovery_FullMethodName        = "/document.v1.DocumentService/GetWOPIDiscovery"
+	DocumentService_GetPresignedUploadURL_FullMethodName   = "/document.v1.DocumentService/GetPresignedUploadURL"
+	DocumentService_GetPresignedDownloadURL_FullMethodName = "/document.v1.DocumentService/GetPresignedDownloadURL"
 )
 
 // DocumentServiceClient is the client API for DocumentService service.
@@ -100,6 +102,9 @@ type DocumentServiceClient interface {
 	// ==================== WOPI operations ====================
 	GenerateWOPIToken(ctx context.Context, in *GenerateWOPITokenRequest, opts ...grpc.CallOption) (*GenerateWOPITokenResponse, error)
 	GetWOPIDiscovery(ctx context.Context, in *GetWOPIDiscoveryRequest, opts ...grpc.CallOption) (*GetWOPIDiscoveryResponse, error)
+	// ==================== Presigned URL operations ====================
+	GetPresignedUploadURL(ctx context.Context, in *GetPresignedUploadURLRequest, opts ...grpc.CallOption) (*GetPresignedUploadURLResponse, error)
+	GetPresignedDownloadURL(ctx context.Context, in *GetPresignedDownloadURLRequest, opts ...grpc.CallOption) (*GetPresignedDownloadURLResponse, error)
 }
 
 type documentServiceClient struct {
@@ -450,6 +455,26 @@ func (c *documentServiceClient) GetWOPIDiscovery(ctx context.Context, in *GetWOP
 	return out, nil
 }
 
+func (c *documentServiceClient) GetPresignedUploadURL(ctx context.Context, in *GetPresignedUploadURLRequest, opts ...grpc.CallOption) (*GetPresignedUploadURLResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPresignedUploadURLResponse)
+	err := c.cc.Invoke(ctx, DocumentService_GetPresignedUploadURL_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *documentServiceClient) GetPresignedDownloadURL(ctx context.Context, in *GetPresignedDownloadURLRequest, opts ...grpc.CallOption) (*GetPresignedDownloadURLResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPresignedDownloadURLResponse)
+	err := c.cc.Invoke(ctx, DocumentService_GetPresignedDownloadURL_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DocumentServiceServer is the server API for DocumentService service.
 // All implementations must embed UnimplementedDocumentServiceServer
 // for forward compatibility.
@@ -495,6 +520,9 @@ type DocumentServiceServer interface {
 	// ==================== WOPI operations ====================
 	GenerateWOPIToken(context.Context, *GenerateWOPITokenRequest) (*GenerateWOPITokenResponse, error)
 	GetWOPIDiscovery(context.Context, *GetWOPIDiscoveryRequest) (*GetWOPIDiscoveryResponse, error)
+	// ==================== Presigned URL operations ====================
+	GetPresignedUploadURL(context.Context, *GetPresignedUploadURLRequest) (*GetPresignedUploadURLResponse, error)
+	GetPresignedDownloadURL(context.Context, *GetPresignedDownloadURLRequest) (*GetPresignedDownloadURLResponse, error)
 	mustEmbedUnimplementedDocumentServiceServer()
 }
 
@@ -606,6 +634,12 @@ func (UnimplementedDocumentServiceServer) GenerateWOPIToken(context.Context, *Ge
 }
 func (UnimplementedDocumentServiceServer) GetWOPIDiscovery(context.Context, *GetWOPIDiscoveryRequest) (*GetWOPIDiscoveryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetWOPIDiscovery not implemented")
+}
+func (UnimplementedDocumentServiceServer) GetPresignedUploadURL(context.Context, *GetPresignedUploadURLRequest) (*GetPresignedUploadURLResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetPresignedUploadURL not implemented")
+}
+func (UnimplementedDocumentServiceServer) GetPresignedDownloadURL(context.Context, *GetPresignedDownloadURLRequest) (*GetPresignedDownloadURLResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetPresignedDownloadURL not implemented")
 }
 func (UnimplementedDocumentServiceServer) mustEmbedUnimplementedDocumentServiceServer() {}
 func (UnimplementedDocumentServiceServer) testEmbeddedByValue()                         {}
@@ -1240,6 +1274,42 @@ func _DocumentService_GetWOPIDiscovery_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DocumentService_GetPresignedUploadURL_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPresignedUploadURLRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).GetPresignedUploadURL(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_GetPresignedUploadURL_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).GetPresignedUploadURL(ctx, req.(*GetPresignedUploadURLRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DocumentService_GetPresignedDownloadURL_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPresignedDownloadURLRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DocumentServiceServer).GetPresignedDownloadURL(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DocumentService_GetPresignedDownloadURL_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DocumentServiceServer).GetPresignedDownloadURL(ctx, req.(*GetPresignedDownloadURLRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DocumentService_ServiceDesc is the grpc.ServiceDesc for DocumentService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1382,6 +1452,14 @@ var DocumentService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetWOPIDiscovery",
 			Handler:    _DocumentService_GetWOPIDiscovery_Handler,
+		},
+		{
+			MethodName: "GetPresignedUploadURL",
+			Handler:    _DocumentService_GetPresignedUploadURL_Handler,
+		},
+		{
+			MethodName: "GetPresignedDownloadURL",
+			Handler:    _DocumentService_GetPresignedDownloadURL_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

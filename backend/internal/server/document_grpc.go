@@ -960,6 +960,37 @@ func (s *DocumentGRPCServer) GenerateWOPIToken(ctx context.Context, req *documen
 	}, nil
 }
 
+// ============================================================================
+// Presigned URL Operations
+// ============================================================================
+
+func (s *DocumentGRPCServer) GetPresignedUploadURL(ctx context.Context, req *documentv1.GetPresignedUploadURLRequest) (*documentv1.GetPresignedUploadURLResponse, error) {
+	result, err := s.fileService.GetPresignedUploadURL(ctx, req.Scope, req.FileName, req.ContentType, req.SizeBytes)
+	if err != nil {
+		// Service already returns gRPC status errors.
+		return nil, err
+	}
+
+	return &documentv1.GetPresignedUploadURLResponse{
+		UploadUrl: result.URL,
+		ObjectKey: result.ObjectKey,
+		ExpiresAt: timestamppb.New(result.ExpiresAt),
+	}, nil
+}
+
+func (s *DocumentGRPCServer) GetPresignedDownloadURL(ctx context.Context, req *documentv1.GetPresignedDownloadURLRequest) (*documentv1.GetPresignedDownloadURLResponse, error) {
+	result, err := s.fileService.GetPresignedDownloadURL(ctx, req.ObjectKey)
+	if err != nil {
+		// Service already returns gRPC status errors.
+		return nil, err
+	}
+
+	return &documentv1.GetPresignedDownloadURLResponse{
+		DownloadUrl: result.URL,
+		ExpiresAt:   timestamppb.New(result.ExpiresAt),
+	}, nil
+}
+
 func (s *DocumentGRPCServer) GetWOPIDiscovery(ctx context.Context, req *documentv1.GetWOPIDiscoveryRequest) (*documentv1.GetWOPIDiscoveryResponse, error) {
 	// Return a static list of supported actions for OnlyOffice
 	actions := []*documentv1.WOPIAction{

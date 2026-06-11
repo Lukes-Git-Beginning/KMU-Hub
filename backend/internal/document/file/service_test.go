@@ -55,6 +55,10 @@ func (m *MockFileStore) GetPresignedURL(_ context.Context, key string, _ time.Du
 	return "https://example.com/download/" + key, nil
 }
 
+func (m *MockFileStore) GetPresignedUploadURL(_ context.Context, key string, _ time.Duration) (string, error) {
+	return "https://example.com/upload/" + key, nil
+}
+
 // --- Mock Repository ---
 
 type MockRepository struct {
