@@ -6,6 +6,7 @@
  * field on the backend yet, so health is honest: "behind schedule" compares
  * elapsed time against completed-task ratio). All data from useProjects.
  */
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { cn } from '@/lib'
@@ -29,6 +30,11 @@ interface ProjectPortfolioViewProps {
 
 type Health = 'done' | 'overdue' | 'atRisk' | 'onTrack'
 
+// Module-level initializer — called once by useState lazy-init, never during render.
+function getTimestamp(): number {
+  return Date.now()
+}
+
 const STATUS_STYLE: Record<string, string> = {
   active: 'bg-primary-light text-primary',
   completed: 'bg-success/15 text-success',
@@ -43,10 +49,9 @@ const HEALTH_STYLE: Record<Health, string> = {
   overdue: 'bg-destructive',
 }
 
-function deriveHealth(p: PortfolioProject): Health {
+function deriveHealth(p: PortfolioProject, now: number): Health {
   const progress = p.progress ?? 0
   if (p.status === 'completed' || progress >= 100) return 'done'
-  const now = Date.now()
   const end = p.end_date ? new Date(p.end_date).getTime() : null
   if (end && end < now) return 'overdue'
   // Schedule vs. progress: how much of the timeline has elapsed?
@@ -61,11 +66,14 @@ function deriveHealth(p: PortfolioProject): Health {
 export default function ProjectPortfolioView({ projects }: ProjectPortfolioViewProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  // Capture current timestamp once at mount — keeps deriveHealth and
+  // formatDue pure (no Date.now() calls scattered through render logic).
+  const [now] = useState<number>(getTimestamp)
 
   function formatDue(date?: string): { label: string; overdue: boolean } {
     if (!date) return { label: '–', overdue: false }
     const d = new Date(date)
-    const overdue = d.getTime() < Date.now()
+    const overdue = d.getTime() < now
     return {
       label: d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }),
       overdue,
@@ -91,7 +99,7 @@ export default function ProjectPortfolioView({ projects }: ProjectPortfolioViewP
           const done = p.completed_task_count ?? 0
           const total = p.task_count ?? 0
           const due = formatDue(p.end_date)
-          const health = deriveHealth(p)
+          const health = deriveHealth(p, now)
           return (
             <button
               key={p.id}
