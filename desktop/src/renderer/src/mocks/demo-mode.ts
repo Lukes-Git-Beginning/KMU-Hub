@@ -104,6 +104,7 @@ if (DEMO_MODE) {
     if (!url || !url.includes('/api/v1/')) {
       return origSend.call(this, body as XMLHttpRequestBodyInit | null)
     }
+    // eslint-disable-next-line @typescript-eslint/no-this-alias -- capture the XHR instance for the detached async replay below
     const xhr = this
     void (async () => {
       if (_loadPromise) {
