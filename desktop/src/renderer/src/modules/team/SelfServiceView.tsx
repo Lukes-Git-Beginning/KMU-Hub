@@ -62,7 +62,7 @@ const CURRENT_USER = {
   location: 'Berlin',
   joinDate: '2024-09-15',
   manager: 'Michael Berg',
-  contractType: 'Vollzeit',
+  contractType: 'full_time',
   workload: 100,
   employeeId: 'DE-2024-0042',
 }
@@ -173,7 +173,7 @@ export function SelfServiceView() {
                 { icon: Phone, label: t('team.selfService.phoneLabel'), value: CURRENT_USER.phone },
                 { icon: MapPin, label: t('team.member.location'), value: CURRENT_USER.location },
                 { icon: Building2, label: t('team.member.department'), value: CURRENT_USER.department },
-                { icon: Briefcase, label: t('team.member.contractType'), value: `${CURRENT_USER.contractType} (${CURRENT_USER.workload}%)` },
+                { icon: Briefcase, label: t('team.member.contractType'), value: `${t({ full_time: 'team.contractType.fullTime', part_time: 'team.contractType.partTime', mini_job: 'team.contractType.miniJob', intern: 'team.contractType.internship', temporary: 'team.contractType.temporary' }[CURRENT_USER.contractType] ?? 'team.contractType.fullTime')} (${CURRENT_USER.workload}%)` },
                 { icon: Calendar, label: t('team.selfService.joinDate'), value: formatDate(CURRENT_USER.joinDate) },
                 { icon: User, label: t('team.selfService.manager'), value: CURRENT_USER.manager },
               ].map((item) => {

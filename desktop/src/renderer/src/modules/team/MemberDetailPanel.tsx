@@ -45,8 +45,12 @@ import { formatRelativeTime, formatDate } from '@/lib/format'
 const contractTypeKeys: Record<string, string> = {
   full_time: 'team.contractType.fullTime',
   part_time: 'team.contractType.partTime',
+  mini_job:  'team.contractType.miniJob',
+  intern:    'team.contractType.internship',
+  temporary: 'team.contractType.temporary',
+  // legacy aliases — kept for any cached data still in transit
   praktikum: 'team.contractType.internship',
-  freelance: 'team.contractType.freelance',
+  freelance: 'team.contractType.temporary',
 }
 
 interface MemberDetailPanelProps {

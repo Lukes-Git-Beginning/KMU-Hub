@@ -22,11 +22,12 @@ import { toast } from 'sonner'
 import { useCreateEmployee, useEmployees } from '@/api/hooks/hr-hooks'
 import type { ContractType } from '@/api/hr-types'
 
-const contractTypeMap: Record<string, ContractType> = {
-  Vollzeit: 'full_time',
-  Teilzeit: 'part_time',
-  Praktikum: 'praktikum',
-  Freelance: 'freelance',
+const CONTRACT_TYPE_LABELS: Record<ContractType, string> = {
+  full_time: 'team.contractType.fullTime',
+  part_time: 'team.contractType.partTime',
+  mini_job:  'team.contractType.miniJob',
+  intern:    'team.contractType.internship',
+  temporary: 'team.contractType.temporary',
 }
 
 interface InviteMemberDialogProps {
@@ -50,7 +51,7 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
   const [phone, setPhone] = useState('')
   const [role, setRole] = useState('')
   const [department, setDepartment] = useState('')
-  const [contractType, setContractType] = useState<'Vollzeit' | 'Teilzeit' | 'Praktikum' | 'Freelance'>('Vollzeit')
+  const [contractType, setContractType] = useState<ContractType>('full_time')
   const [workload, setWorkload] = useState(100)
   // TODO: location is not in EmployeeProfile — kept for UI but not sent to API
   const [location, setLocation] = useState('Berlin')
@@ -63,7 +64,7 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
     setPhone('')
     setRole('')
     setDepartment('')
-    setContractType('Vollzeit')
+    setContractType('full_time')
     setWorkload(100)
     setLocation('Berlin')
     setWelcomeMessage('')
@@ -82,7 +83,7 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
         roles: ['member'],
         department: department || undefined,
         positionTitle: role.trim() || undefined,
-        contractType: contractTypeMap[contractType],
+        contractType: contractType,
         workDaysPerWeek: 5,
         annualLeaveDays: 25,
         workloadPercent: workload,
@@ -179,15 +180,14 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>{t('team.member.contractType')}</Label>
-              <Select value={contractType} onValueChange={(v) => setContractType(v as typeof contractType)}>
+              <Select value={contractType} onValueChange={(v) => setContractType(v as ContractType)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Vollzeit">{t('team.contractType.fullTime')}</SelectItem>
-                  <SelectItem value="Teilzeit">{t('team.contractType.partTime')}</SelectItem>
-                  <SelectItem value="Praktikum">{t('team.contractType.internship')}</SelectItem>
-                  <SelectItem value="Freelance">{t('team.contractType.freelance')}</SelectItem>
+                  {(Object.entries(CONTRACT_TYPE_LABELS) as [ContractType, string][]).map(([k, labelKey]) => (
+                    <SelectItem key={k} value={k}>{t(labelKey)}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

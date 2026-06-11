@@ -80,16 +80,16 @@ export function MemberProfileContent({ memberId, onNavigateAway, onClose }: Memb
     .slice(0, 2)
     .toUpperCase()
 
-  const contractLabel =
-    employee?.contractType === 'full_time'
-      ? t('team.contractType.fullTime')
-      : employee?.contractType === 'part_time'
-        ? t('team.contractType.partTime')
-        : employee?.contractType === 'praktikum'
-          ? t('team.contractType.internship')
-          : employee?.contractType === 'freelance'
-            ? t('team.contractType.freelance')
-            : ''
+  const CONTRACT_TYPE_KEYS: Record<string, string> = {
+    full_time: 'team.contractType.fullTime',
+    part_time: 'team.contractType.partTime',
+    mini_job:  'team.contractType.miniJob',
+    intern:    'team.contractType.internship',
+    temporary: 'team.contractType.temporary',
+  }
+  const contractLabel = employee?.contractType
+    ? t(CONTRACT_TYPE_KEYS[employee.contractType] ?? 'team.contractType.fullTime')
+    : ''
   const tenure = employee ? getTenure(employee.startDate) : ''
   const canViewPayroll = viewer?.roles.some((r) => ['admin', 'hr'].includes(r)) ?? false
   const canManageLeads = viewer?.roles.some((r) => ['admin', 'it_support'].includes(r)) ?? false

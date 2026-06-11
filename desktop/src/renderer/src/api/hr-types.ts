@@ -152,7 +152,7 @@ export interface AbsenceEntry {
 // Employee profiles
 // ---------------------------------------------------------------------------
 
-export type ContractType = 'full_time' | 'part_time' | 'praktikum' | 'freelance'
+export type ContractType = 'full_time' | 'part_time' | 'mini_job' | 'intern' | 'temporary'
 
 export interface EmployeeProfile {
   id: string

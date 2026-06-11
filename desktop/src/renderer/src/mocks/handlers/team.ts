@@ -110,15 +110,15 @@ export const teamHandlers = [
 
     let filtered = [...hrEmployees]
     if (dept) {
-      filtered = filtered.filter((e) => e.department_id === dept)
+      filtered = filtered.filter((e) => e.departmentId === dept)
     }
     if (search) {
       const q = search.toLowerCase()
       filtered = filtered.filter(
         (e) =>
-          e.first_name.toLowerCase().includes(q) ||
-          e.last_name.toLowerCase().includes(q) ||
-          e.email.toLowerCase().includes(q),
+          (e.firstName ?? '').toLowerCase().includes(q) ||
+          (e.lastName ?? '').toLowerCase().includes(q) ||
+          (e.email ?? '').toLowerCase().includes(q),
       )
     }
 

@@ -147,8 +147,9 @@ const ROLE_OPTIONS = [
 const CONTRACT_LABEL_KEYS: Record<string, string> = {
   full_time: 'team.contractType.fullTime',
   part_time: 'team.contractType.partTime',
-  praktikum: 'team.contractType.internship',
-  freelance: 'team.contractType.freelance',
+  mini_job:  'team.contractType.miniJob',
+  intern:    'team.contractType.internship',
+  temporary: 'team.contractType.temporary',
 }
 
 const DOC_CATEGORY_KEYS = [

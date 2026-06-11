@@ -75,11 +75,12 @@ import { Checkbox } from '@/components/ui/checkbox'
 
 type TabKey = 'members' | 'requests' | 'absences' | 'korrekturen' | 'personalakte' | 'onboarding' | 'orgchart' | 'lohnvorbereitung' | 'schulungen' | 'selfservice'
 
-const contractTypeLabels: Record<string, string> = {
-  full_time: 'Vollzeit',
-  part_time: 'Teilzeit',
-  praktikum: 'Praktikum',
-  freelance: 'Freelancer',
+const contractTypeI18nKeys: Record<string, string> = {
+  full_time: 'team.contractType.fullTime',
+  part_time: 'team.contractType.partTime',
+  mini_job:  'team.contractType.miniJob',
+  intern:    'team.contractType.internship',
+  temporary: 'team.contractType.temporary',
 }
 
 const leaveStatusColors: Record<string, string> = {
@@ -737,7 +738,7 @@ function EmployeeCard({ employee, name, initials, actions, activity, onEmail, on
         </div>
         <div className="flex items-center gap-2">
           <Clock className="h-3 w-3" />
-          <span>{contractTypeLabels[employee.contractType] ? t(`team.contractType.${employee.contractType === 'full_time' ? 'fullTime' : employee.contractType === 'part_time' ? 'partTime' : employee.contractType === 'praktikum' ? 'internship' : 'freelance'}`, { defaultValue: contractTypeLabels[employee.contractType] }) : employee.contractType}</span>
+          <span>{contractTypeI18nKeys[employee.contractType] ? t(contractTypeI18nKeys[employee.contractType]) : employee.contractType}</span>
         </div>
       </div>
 

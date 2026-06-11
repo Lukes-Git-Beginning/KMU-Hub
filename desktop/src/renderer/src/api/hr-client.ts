@@ -16,6 +16,7 @@ import type {
   ArbZGComplianceResult,
   AbsenceEntry,
   EmployeeProfile,
+  ContractType,
   EmployeeDocument,
   HRDocumentCategory,
   HRSettings,
@@ -48,6 +49,145 @@ async function request<T>(
     }
   }
   return authenticatedRequest<T>({ method, path, body })
+}
+
+// ---------------------------------------------------------------------------
+// ContractType adapter
+//
+// The backend serialises Proto enums as integers (encoding/json on pb.go
+// structs): 0=unspecified, 1=full_time, 2=part_time, 3=mini_job,
+// 4=intern, 5=temporary. The gateway also emits the Go-generated constant
+// names (CONTRACT_FULL_TIME etc.) in some edge cases. Demo-mode MSW
+// handlers already return camelCase strings. The adapter accepts all three
+// formats and normalises to the canonical ContractType union.
+// ---------------------------------------------------------------------------
+
+const PROTO_INT_TO_CONTRACT: Record<number, ContractType> = {
+  1: 'full_time',
+  2: 'part_time',
+  3: 'mini_job',
+  4: 'intern',
+  5: 'temporary',
+}
+
+const PROTO_STRING_TO_CONTRACT: Record<string, ContractType> = {
+  CONTRACT_FULL_TIME: 'full_time',
+  CONTRACT_PART_TIME: 'part_time',
+  CONTRACT_MINI_JOB: 'mini_job',
+  CONTRACT_INTERN: 'intern',
+  CONTRACT_TEMPORARY: 'temporary',
+  // legacy FE values — mapped to nearest Proto equivalent
+  praktikum: 'intern',
+  freelance: 'temporary',
+  // already-canonical pass-through
+  full_time: 'full_time',
+  part_time: 'part_time',
+  mini_job: 'mini_job',
+  intern: 'intern',
+  temporary: 'temporary',
+}
+
+function normaliseContractType(raw: unknown): ContractType {
+  if (typeof raw === 'number') {
+    return PROTO_INT_TO_CONTRACT[raw] ?? 'full_time'
+  }
+  if (typeof raw === 'string') {
+    return PROTO_STRING_TO_CONTRACT[raw] ?? 'full_time'
+  }
+  return 'full_time'
+}
+
+/**
+ * Adapts a raw backend or demo-mode employee payload to a typed EmployeeProfile.
+ *
+ * Tolerates both snake_case (real backend via encoding/json on pb.go) and
+ * camelCase (MSW demo handlers). Uses `?? ` chaining: snake_case first,
+ * camelCase fallback.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function adaptEmployee(raw: Record<string, any>): EmployeeProfile {
+  return {
+    id:                    raw.id                                               ?? '',
+    userId:                raw.user_id              ?? raw.userId               ?? raw.id ?? '',
+    userName:              raw.user_name            ?? raw.userName,
+    userEmail:             raw.user_email           ?? raw.userEmail,
+    department:            raw.department,
+    positionTitle:         raw.position_title       ?? raw.positionTitle,
+    contractType:          normaliseContractType(raw.contract_type ?? raw.contractType),
+    workDaysPerWeek:       raw.work_days_per_week   ?? raw.workDaysPerWeek      ?? 5,
+    annualLeaveDays:       raw.annual_leave_days    ?? raw.annualLeaveDays      ?? 0,
+    managerUserId:         raw.manager_user_id      ?? raw.managerUserId,
+    managerName:           raw.manager_name         ?? raw.managerName,
+    startDate:             raw.start_date           ?? raw.startDate            ?? '',
+    emergencyContactName:  raw.emergency_contact_name  ?? raw.emergencyContactName,
+    emergencyContactPhone: raw.emergency_contact_phone ?? raw.emergencyContactPhone,
+    addressStreet:         raw.address_street       ?? raw.addressStreet,
+    addressCity:           raw.address_city         ?? raw.addressCity,
+    addressPostalCode:     raw.address_postal_code  ?? raw.addressPostalCode,
+    addressCountry:        raw.address_country      ?? raw.addressCountry       ?? '',
+    createdAt:             raw.created_at           ?? raw.createdAt            ?? '',
+    updatedAt:             raw.updated_at           ?? raw.updatedAt            ?? '',
+  }
+}
+
+/**
+ * Converts a CreateEmployeeInput / UpdateEmployeeInput to the snake_case
+ * body the gateway expects (contract_type as string slug, not integer).
+ */
+function toSnakeCaseEmployeeBody(data: CreateEmployeeInput): Record<string, unknown> {
+  return {
+    first_name:              data.firstName,
+    last_name:               data.lastName,
+    email:                   data.email,
+    phone:                   data.phone,
+    temporary_password:      data.temporaryPassword,
+    roles:                   data.roles,
+    department:              data.department,
+    position_title:          data.positionTitle,
+    contract_type:           data.contractType,
+    work_days_per_week:      data.workDaysPerWeek,
+    annual_leave_days:       data.annualLeaveDays,
+    workload_percent:        data.workloadPercent,
+    manager_user_id:         data.managerUserId,
+    start_date:              data.startDate,
+    location:                data.location,
+    address_street:          data.addressStreet,
+    address_city:            data.addressCity,
+    address_postal_code:     data.addressPostalCode,
+    address_country:         data.addressCountry,
+    emergency_contact_name:  data.emergencyContactName,
+    emergency_contact_phone: data.emergencyContactPhone,
+    send_invite_email:       data.sendInviteEmail,
+  }
+}
+
+function toSnakeCaseUpdateBody(data: UpdateEmployeeInput): Record<string, unknown> {
+  return {
+    department:              data.department,
+    position_title:          data.positionTitle,
+    contract_type:           data.contractType,
+    work_days_per_week:      data.workDaysPerWeek,
+    annual_leave_days:       data.annualLeaveDays,
+    manager_user_id:         data.managerUserId,
+    start_date:              data.startDate,
+    emergency_contact_name:  data.emergencyContactName,
+    emergency_contact_phone: data.emergencyContactPhone,
+    address_street:          data.addressStreet,
+    address_city:            data.addressCity,
+    address_postal_code:     data.addressPostalCode,
+    address_country:         data.addressCountry,
+  }
+}
+
+function toSnakeCaseSelfBody(data: UpdateSelfProfileInput): Record<string, unknown> {
+  return {
+    emergency_contact_name:  data.emergencyContactName,
+    emergency_contact_phone: data.emergencyContactPhone,
+    address_street:          data.addressStreet,
+    address_city:            data.addressCity,
+    address_postal_code:     data.addressPostalCode,
+    address_country:         data.addressCountry,
+  }
 }
 
 function qs(params: Record<string, unknown>): string {
@@ -217,41 +357,54 @@ export const hrAbsenceApi = {
 // ---------------------------------------------------------------------------
 
 export const hrEmployeeApi = {
-  list(params: Record<string, unknown> = {}) {
-    return request<{ employees: EmployeeProfile[]; total: number }>(
+  async list(params: Record<string, unknown> = {}) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<{ employees: any[]; total: number }>(
       `/api/v1/hr/employees${qs(params)}`,
     )
+    return {
+      employees: (raw.employees ?? []).map(adaptEmployee),
+      total: raw.total ?? 0,
+    }
   },
 
-  create(data: CreateEmployeeInput) {
-    return request<{ employee: EmployeeProfile }>('/api/v1/hr/employees', {
+  async create(data: CreateEmployeeInput) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<{ employee: any }>('/api/v1/hr/employees', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(toSnakeCaseEmployeeBody(data)),
     })
+    return { employee: adaptEmployee(raw.employee) }
   },
 
-  getSelf() {
-    return request<{ employee: EmployeeProfile }>('/api/v1/hr/employees/me')
+  async getSelf() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<{ employee: any }>('/api/v1/hr/employees/me')
+    return { employee: adaptEmployee(raw.employee) }
   },
 
-  updateSelf(data: UpdateSelfProfileInput) {
-    return request<{ employee: EmployeeProfile }>('/api/v1/hr/employees/me', {
+  async updateSelf(data: UpdateSelfProfileInput) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<{ employee: any }>('/api/v1/hr/employees/me', {
       method: 'PUT',
-      body: JSON.stringify(data),
+      body: JSON.stringify(toSnakeCaseSelfBody(data)),
     })
+    return { employee: adaptEmployee(raw.employee) }
   },
 
-  get(id: string) {
-    return request<{ employee: EmployeeProfile }>(
-      `/api/v1/hr/employees/${id}`,
-    )
+  async get(id: string) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<{ employee: any }>(`/api/v1/hr/employees/${id}`)
+    return { employee: adaptEmployee(raw.employee) }
   },
 
-  update(id: string, data: UpdateEmployeeInput) {
-    return request<{ employee: EmployeeProfile }>(
+  async update(id: string, data: UpdateEmployeeInput) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await request<{ employee: any }>(
       `/api/v1/hr/employees/${id}`,
-      { method: 'PUT', body: JSON.stringify(data) },
+      { method: 'PUT', body: JSON.stringify(toSnakeCaseUpdateBody(data)) },
     )
+    return { employee: adaptEmployee(raw.employee) }
   },
 
   listDocuments(id: string) {

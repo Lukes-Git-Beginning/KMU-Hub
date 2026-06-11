@@ -23,8 +23,9 @@ import type { EmployeeProfile, ContractType } from '@/api/hr-types'
 const contractTypeKeys: Record<ContractType, string> = {
   full_time: 'team.contractType.fullTime',
   part_time: 'team.contractType.partTime',
-  praktikum: 'team.contractType.internship',
-  freelance: 'team.contractType.freelance',
+  mini_job:  'team.contractType.miniJob',
+  intern:    'team.contractType.internship',
+  temporary: 'team.contractType.temporary',
 }
 
 interface EditMemberDialogProps {
