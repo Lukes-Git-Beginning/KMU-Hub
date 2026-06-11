@@ -85,6 +85,21 @@ service WorkService {
   rpc DeleteTimeEntry(DeleteTimeEntryRequest) returns (DeleteTimeEntryResponse);
   rpc ListTimeEntries(ListTimeEntriesRequest) returns (ListTimeEntriesResponse);
   rpc GetTaskTimeSummary(GetTaskTimeSummaryRequest) returns (GetTaskTimeSummaryResponse);
+
+  // Labels
+  rpc CreateLabel(CreateLabelRequest) returns (CreateLabelResponse);
+  rpc GetLabel(GetLabelRequest) returns (GetLabelResponse);
+  rpc ListLabels(ListLabelsRequest) returns (ListLabelsResponse);
+  rpc UpdateLabel(UpdateLabelRequest) returns (UpdateLabelResponse);
+  rpc DeleteLabel(DeleteLabelRequest) returns (DeleteLabelResponse);
+  rpc SetTaskLabels(SetTaskLabelsRequest) returns (SetTaskLabelsResponse);
+
+  // Custom Field Definitions
+  rpc CreateCustomFieldDefinition(CreateCustomFieldDefinitionRequest) returns (CreateCustomFieldDefinitionResponse);
+  rpc GetCustomFieldDefinition(GetCustomFieldDefinitionRequest) returns (GetCustomFieldDefinitionResponse);
+  rpc ListCustomFieldDefinitions(ListCustomFieldDefinitionsRequest) returns (ListCustomFieldDefinitionsResponse);
+  rpc UpdateCustomFieldDefinition(UpdateCustomFieldDefinitionRequest) returns (UpdateCustomFieldDefinitionResponse);
+  rpc DeleteCustomFieldDefinition(DeleteCustomFieldDefinitionRequest) returns (DeleteCustomFieldDefinitionResponse);
 }
 
 // ============================================================================
@@ -153,6 +168,7 @@ message TaskProto {
   bool has_blocked_deps = 21;
   optional string project_key = 22;  // Denormalized for display like "ACME-42"
   map<string, string> custom_fields = 23;
+  repeated string label_ids = 24;
 }
 
 message TaskDependencyProto {
@@ -414,6 +430,7 @@ message CreateTaskRequest {
   optional google.protobuf.Timestamp due_date = 8;
   string created_by = 9;
   repeated CustomFieldValueInput custom_fields = 10;
+  repeated string label_ids = 12;
 }
 
 message CreateTaskResponse {
@@ -443,6 +460,7 @@ message ListTasksRequest {
   string sort_by = 11;
   bool sort_desc = 12;
   bool include_completed = 13;
+  repeated string filter_label_ids = 15;
 }
 
 message ListTasksResponse {
@@ -460,6 +478,7 @@ message UpdateTaskRequest {
   optional google.protobuf.Timestamp due_date = 7;
   string updated_by = 8;
   repeated CustomFieldValueInput custom_fields = 9;
+  repeated string label_ids = 10;
 }
 
 message UpdateTaskResponse {
@@ -828,3 +847,114 @@ message GetTaskTimeSummaryRequest {
 message GetTaskTimeSummaryResponse {
   TimeSummaryProto summary = 1;
 }
+
+// ============================================================================
+// Label Messages
+// ============================================================================
+
+message LabelProto {
+  string id = 1;
+  string name = 2;
+  string color = 3;
+}
+
+message CreateLabelRequest {
+  string name = 1;
+  string color = 2;
+}
+
+message CreateLabelResponse {
+  LabelProto label = 1;
+}
+
+message GetLabelRequest {
+  string id = 1;
+}
+
+message GetLabelResponse {
+  LabelProto label = 1;
+}
+
+message ListLabelsRequest {}
+
+message ListLabelsResponse {
+  repeated LabelProto labels = 1;
+}
+
+message UpdateLabelRequest {
+  string id = 1;
+  string name = 2;
+  string color = 3;
+}
+
+message UpdateLabelResponse {
+  LabelProto label = 1;
+}
+
+message DeleteLabelRequest {
+  string id = 1;
+}
+
+message DeleteLabelResponse {}
+
+message SetTaskLabelsRequest {
+  string task_id = 1;
+  repeated string label_ids = 2;
+}
+
+message SetTaskLabelsResponse {}
+
+// ============================================================================
+// Custom Field Definition Messages
+// ============================================================================
+
+message CustomFieldDefinitionProto {
+  string id = 1;
+  string name = 2;
+  string field_type = 3;
+  repeated string options = 4;
+  int32 position = 5;
+}
+
+message CreateCustomFieldDefinitionRequest {
+  string name = 1;
+  string field_type = 2;
+  repeated string options = 3;
+  int32 position = 4;
+}
+
+message CreateCustomFieldDefinitionResponse {
+  CustomFieldDefinitionProto definition = 1;
+}
+
+message GetCustomFieldDefinitionRequest {
+  string id = 1;
+}
+
+message GetCustomFieldDefinitionResponse {
+  CustomFieldDefinitionProto definition = 1;
+}
+
+message ListCustomFieldDefinitionsRequest {}
+
+message ListCustomFieldDefinitionsResponse {
+  repeated CustomFieldDefinitionProto definitions = 1;
+}
+
+message UpdateCustomFieldDefinitionRequest {
+  string id = 1;
+  string name = 2;
+  string field_type = 3;
+  repeated string options = 4;
+  int32 position = 5;
+}
+
+message UpdateCustomFieldDefinitionResponse {
+  CustomFieldDefinitionProto definition = 1;
+}
+
+message DeleteCustomFieldDefinitionRequest {
+  string id = 1;
+}
+
+message DeleteCustomFieldDefinitionResponse {}

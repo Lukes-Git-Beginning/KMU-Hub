@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v6.33.4
-// source: work/v1/work.proto
+// source: proto/work/v1/work.proto
 
 package workv1
 
@@ -19,57 +19,68 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	WorkService_CreateProject_FullMethodName             = "/work.v1.WorkService/CreateProject"
-	WorkService_GetProject_FullMethodName                = "/work.v1.WorkService/GetProject"
-	WorkService_ListProjects_FullMethodName              = "/work.v1.WorkService/ListProjects"
-	WorkService_UpdateProject_FullMethodName             = "/work.v1.WorkService/UpdateProject"
-	WorkService_ArchiveProject_FullMethodName            = "/work.v1.WorkService/ArchiveProject"
-	WorkService_AddProjectMember_FullMethodName          = "/work.v1.WorkService/AddProjectMember"
-	WorkService_RemoveProjectMember_FullMethodName       = "/work.v1.WorkService/RemoveProjectMember"
-	WorkService_ListProjectMembers_FullMethodName        = "/work.v1.WorkService/ListProjectMembers"
-	WorkService_UpdateProjectMemberRole_FullMethodName   = "/work.v1.WorkService/UpdateProjectMemberRole"
-	WorkService_SaveProjectAsTemplate_FullMethodName     = "/work.v1.WorkService/SaveProjectAsTemplate"
-	WorkService_CreateProjectFromTemplate_FullMethodName = "/work.v1.WorkService/CreateProjectFromTemplate"
-	WorkService_CreateProjectStatus_FullMethodName       = "/work.v1.WorkService/CreateProjectStatus"
-	WorkService_UpdateProjectStatus_FullMethodName       = "/work.v1.WorkService/UpdateProjectStatus"
-	WorkService_DeleteProjectStatus_FullMethodName       = "/work.v1.WorkService/DeleteProjectStatus"
-	WorkService_ReorderProjectStatuses_FullMethodName    = "/work.v1.WorkService/ReorderProjectStatuses"
-	WorkService_ListProjectStatuses_FullMethodName       = "/work.v1.WorkService/ListProjectStatuses"
-	WorkService_CreateTask_FullMethodName                = "/work.v1.WorkService/CreateTask"
-	WorkService_GetTask_FullMethodName                   = "/work.v1.WorkService/GetTask"
-	WorkService_ListTasks_FullMethodName                 = "/work.v1.WorkService/ListTasks"
-	WorkService_UpdateTask_FullMethodName                = "/work.v1.WorkService/UpdateTask"
-	WorkService_DeleteTask_FullMethodName                = "/work.v1.WorkService/DeleteTask"
-	WorkService_MoveTask_FullMethodName                  = "/work.v1.WorkService/MoveTask"
-	WorkService_ListSubtasks_FullMethodName              = "/work.v1.WorkService/ListSubtasks"
-	WorkService_CreateTaskDependency_FullMethodName      = "/work.v1.WorkService/CreateTaskDependency"
-	WorkService_DeleteTaskDependency_FullMethodName      = "/work.v1.WorkService/DeleteTaskDependency"
-	WorkService_ListTaskDependencies_FullMethodName      = "/work.v1.WorkService/ListTaskDependencies"
-	WorkService_CreateTaskComment_FullMethodName         = "/work.v1.WorkService/CreateTaskComment"
-	WorkService_UpdateTaskComment_FullMethodName         = "/work.v1.WorkService/UpdateTaskComment"
-	WorkService_DeleteTaskComment_FullMethodName         = "/work.v1.WorkService/DeleteTaskComment"
-	WorkService_ListTaskComments_FullMethodName          = "/work.v1.WorkService/ListTaskComments"
-	WorkService_LinkEntityToTask_FullMethodName          = "/work.v1.WorkService/LinkEntityToTask"
-	WorkService_UnlinkEntityFromTask_FullMethodName      = "/work.v1.WorkService/UnlinkEntityFromTask"
-	WorkService_ListTaskEntityLinks_FullMethodName       = "/work.v1.WorkService/ListTaskEntityLinks"
-	WorkService_ListEntityTasks_FullMethodName           = "/work.v1.WorkService/ListEntityTasks"
-	WorkService_ListTaskActivities_FullMethodName        = "/work.v1.WorkService/ListTaskActivities"
-	WorkService_AttachFileToTask_FullMethodName          = "/work.v1.WorkService/AttachFileToTask"
-	WorkService_RemoveTaskFile_FullMethodName            = "/work.v1.WorkService/RemoveTaskFile"
-	WorkService_ListTaskFiles_FullMethodName             = "/work.v1.WorkService/ListTaskFiles"
-	WorkService_SetTaskCustomFieldValues_FullMethodName  = "/work.v1.WorkService/SetTaskCustomFieldValues"
-	WorkService_GetTaskCustomFieldValues_FullMethodName  = "/work.v1.WorkService/GetTaskCustomFieldValues"
-	WorkService_GetUserProjectPreference_FullMethodName  = "/work.v1.WorkService/GetUserProjectPreference"
-	WorkService_SetUserProjectPreference_FullMethodName  = "/work.v1.WorkService/SetUserProjectPreference"
-	WorkService_SearchTasks_FullMethodName               = "/work.v1.WorkService/SearchTasks"
-	WorkService_StartTimer_FullMethodName                = "/work.v1.WorkService/StartTimer"
-	WorkService_StopTimer_FullMethodName                 = "/work.v1.WorkService/StopTimer"
-	WorkService_GetActiveTimer_FullMethodName            = "/work.v1.WorkService/GetActiveTimer"
-	WorkService_AddManualTimeEntry_FullMethodName        = "/work.v1.WorkService/AddManualTimeEntry"
-	WorkService_UpdateTimeEntry_FullMethodName           = "/work.v1.WorkService/UpdateTimeEntry"
-	WorkService_DeleteTimeEntry_FullMethodName           = "/work.v1.WorkService/DeleteTimeEntry"
-	WorkService_ListTimeEntries_FullMethodName           = "/work.v1.WorkService/ListTimeEntries"
-	WorkService_GetTaskTimeSummary_FullMethodName        = "/work.v1.WorkService/GetTaskTimeSummary"
+	WorkService_CreateProject_FullMethodName               = "/work.v1.WorkService/CreateProject"
+	WorkService_GetProject_FullMethodName                  = "/work.v1.WorkService/GetProject"
+	WorkService_ListProjects_FullMethodName                = "/work.v1.WorkService/ListProjects"
+	WorkService_UpdateProject_FullMethodName               = "/work.v1.WorkService/UpdateProject"
+	WorkService_ArchiveProject_FullMethodName              = "/work.v1.WorkService/ArchiveProject"
+	WorkService_AddProjectMember_FullMethodName            = "/work.v1.WorkService/AddProjectMember"
+	WorkService_RemoveProjectMember_FullMethodName         = "/work.v1.WorkService/RemoveProjectMember"
+	WorkService_ListProjectMembers_FullMethodName          = "/work.v1.WorkService/ListProjectMembers"
+	WorkService_UpdateProjectMemberRole_FullMethodName     = "/work.v1.WorkService/UpdateProjectMemberRole"
+	WorkService_SaveProjectAsTemplate_FullMethodName       = "/work.v1.WorkService/SaveProjectAsTemplate"
+	WorkService_CreateProjectFromTemplate_FullMethodName   = "/work.v1.WorkService/CreateProjectFromTemplate"
+	WorkService_CreateProjectStatus_FullMethodName         = "/work.v1.WorkService/CreateProjectStatus"
+	WorkService_UpdateProjectStatus_FullMethodName         = "/work.v1.WorkService/UpdateProjectStatus"
+	WorkService_DeleteProjectStatus_FullMethodName         = "/work.v1.WorkService/DeleteProjectStatus"
+	WorkService_ReorderProjectStatuses_FullMethodName      = "/work.v1.WorkService/ReorderProjectStatuses"
+	WorkService_ListProjectStatuses_FullMethodName         = "/work.v1.WorkService/ListProjectStatuses"
+	WorkService_CreateTask_FullMethodName                  = "/work.v1.WorkService/CreateTask"
+	WorkService_GetTask_FullMethodName                     = "/work.v1.WorkService/GetTask"
+	WorkService_ListTasks_FullMethodName                   = "/work.v1.WorkService/ListTasks"
+	WorkService_UpdateTask_FullMethodName                  = "/work.v1.WorkService/UpdateTask"
+	WorkService_DeleteTask_FullMethodName                  = "/work.v1.WorkService/DeleteTask"
+	WorkService_MoveTask_FullMethodName                    = "/work.v1.WorkService/MoveTask"
+	WorkService_ListSubtasks_FullMethodName                = "/work.v1.WorkService/ListSubtasks"
+	WorkService_CreateTaskDependency_FullMethodName        = "/work.v1.WorkService/CreateTaskDependency"
+	WorkService_DeleteTaskDependency_FullMethodName        = "/work.v1.WorkService/DeleteTaskDependency"
+	WorkService_ListTaskDependencies_FullMethodName        = "/work.v1.WorkService/ListTaskDependencies"
+	WorkService_CreateTaskComment_FullMethodName           = "/work.v1.WorkService/CreateTaskComment"
+	WorkService_UpdateTaskComment_FullMethodName           = "/work.v1.WorkService/UpdateTaskComment"
+	WorkService_DeleteTaskComment_FullMethodName           = "/work.v1.WorkService/DeleteTaskComment"
+	WorkService_ListTaskComments_FullMethodName            = "/work.v1.WorkService/ListTaskComments"
+	WorkService_LinkEntityToTask_FullMethodName            = "/work.v1.WorkService/LinkEntityToTask"
+	WorkService_UnlinkEntityFromTask_FullMethodName        = "/work.v1.WorkService/UnlinkEntityFromTask"
+	WorkService_ListTaskEntityLinks_FullMethodName         = "/work.v1.WorkService/ListTaskEntityLinks"
+	WorkService_ListEntityTasks_FullMethodName             = "/work.v1.WorkService/ListEntityTasks"
+	WorkService_ListTaskActivities_FullMethodName          = "/work.v1.WorkService/ListTaskActivities"
+	WorkService_AttachFileToTask_FullMethodName            = "/work.v1.WorkService/AttachFileToTask"
+	WorkService_RemoveTaskFile_FullMethodName              = "/work.v1.WorkService/RemoveTaskFile"
+	WorkService_ListTaskFiles_FullMethodName               = "/work.v1.WorkService/ListTaskFiles"
+	WorkService_SetTaskCustomFieldValues_FullMethodName    = "/work.v1.WorkService/SetTaskCustomFieldValues"
+	WorkService_GetTaskCustomFieldValues_FullMethodName    = "/work.v1.WorkService/GetTaskCustomFieldValues"
+	WorkService_GetUserProjectPreference_FullMethodName    = "/work.v1.WorkService/GetUserProjectPreference"
+	WorkService_SetUserProjectPreference_FullMethodName    = "/work.v1.WorkService/SetUserProjectPreference"
+	WorkService_SearchTasks_FullMethodName                 = "/work.v1.WorkService/SearchTasks"
+	WorkService_StartTimer_FullMethodName                  = "/work.v1.WorkService/StartTimer"
+	WorkService_StopTimer_FullMethodName                   = "/work.v1.WorkService/StopTimer"
+	WorkService_GetActiveTimer_FullMethodName              = "/work.v1.WorkService/GetActiveTimer"
+	WorkService_AddManualTimeEntry_FullMethodName          = "/work.v1.WorkService/AddManualTimeEntry"
+	WorkService_UpdateTimeEntry_FullMethodName             = "/work.v1.WorkService/UpdateTimeEntry"
+	WorkService_DeleteTimeEntry_FullMethodName             = "/work.v1.WorkService/DeleteTimeEntry"
+	WorkService_ListTimeEntries_FullMethodName             = "/work.v1.WorkService/ListTimeEntries"
+	WorkService_GetTaskTimeSummary_FullMethodName          = "/work.v1.WorkService/GetTaskTimeSummary"
+	WorkService_CreateLabel_FullMethodName                 = "/work.v1.WorkService/CreateLabel"
+	WorkService_GetLabel_FullMethodName                    = "/work.v1.WorkService/GetLabel"
+	WorkService_ListLabels_FullMethodName                  = "/work.v1.WorkService/ListLabels"
+	WorkService_UpdateLabel_FullMethodName                 = "/work.v1.WorkService/UpdateLabel"
+	WorkService_DeleteLabel_FullMethodName                 = "/work.v1.WorkService/DeleteLabel"
+	WorkService_SetTaskLabels_FullMethodName               = "/work.v1.WorkService/SetTaskLabels"
+	WorkService_CreateCustomFieldDefinition_FullMethodName = "/work.v1.WorkService/CreateCustomFieldDefinition"
+	WorkService_GetCustomFieldDefinition_FullMethodName    = "/work.v1.WorkService/GetCustomFieldDefinition"
+	WorkService_ListCustomFieldDefinitions_FullMethodName  = "/work.v1.WorkService/ListCustomFieldDefinitions"
+	WorkService_UpdateCustomFieldDefinition_FullMethodName = "/work.v1.WorkService/UpdateCustomFieldDefinition"
+	WorkService_DeleteCustomFieldDefinition_FullMethodName = "/work.v1.WorkService/DeleteCustomFieldDefinition"
 )
 
 // WorkServiceClient is the client API for WorkService service.
@@ -141,6 +152,19 @@ type WorkServiceClient interface {
 	DeleteTimeEntry(ctx context.Context, in *DeleteTimeEntryRequest, opts ...grpc.CallOption) (*DeleteTimeEntryResponse, error)
 	ListTimeEntries(ctx context.Context, in *ListTimeEntriesRequest, opts ...grpc.CallOption) (*ListTimeEntriesResponse, error)
 	GetTaskTimeSummary(ctx context.Context, in *GetTaskTimeSummaryRequest, opts ...grpc.CallOption) (*GetTaskTimeSummaryResponse, error)
+	// Labels
+	CreateLabel(ctx context.Context, in *CreateLabelRequest, opts ...grpc.CallOption) (*CreateLabelResponse, error)
+	GetLabel(ctx context.Context, in *GetLabelRequest, opts ...grpc.CallOption) (*GetLabelResponse, error)
+	ListLabels(ctx context.Context, in *ListLabelsRequest, opts ...grpc.CallOption) (*ListLabelsResponse, error)
+	UpdateLabel(ctx context.Context, in *UpdateLabelRequest, opts ...grpc.CallOption) (*UpdateLabelResponse, error)
+	DeleteLabel(ctx context.Context, in *DeleteLabelRequest, opts ...grpc.CallOption) (*DeleteLabelResponse, error)
+	SetTaskLabels(ctx context.Context, in *SetTaskLabelsRequest, opts ...grpc.CallOption) (*SetTaskLabelsResponse, error)
+	// Custom Field Definitions
+	CreateCustomFieldDefinition(ctx context.Context, in *CreateCustomFieldDefinitionRequest, opts ...grpc.CallOption) (*CreateCustomFieldDefinitionResponse, error)
+	GetCustomFieldDefinition(ctx context.Context, in *GetCustomFieldDefinitionRequest, opts ...grpc.CallOption) (*GetCustomFieldDefinitionResponse, error)
+	ListCustomFieldDefinitions(ctx context.Context, in *ListCustomFieldDefinitionsRequest, opts ...grpc.CallOption) (*ListCustomFieldDefinitionsResponse, error)
+	UpdateCustomFieldDefinition(ctx context.Context, in *UpdateCustomFieldDefinitionRequest, opts ...grpc.CallOption) (*UpdateCustomFieldDefinitionResponse, error)
+	DeleteCustomFieldDefinition(ctx context.Context, in *DeleteCustomFieldDefinitionRequest, opts ...grpc.CallOption) (*DeleteCustomFieldDefinitionResponse, error)
 }
 
 type workServiceClient struct {
@@ -661,6 +685,116 @@ func (c *workServiceClient) GetTaskTimeSummary(ctx context.Context, in *GetTaskT
 	return out, nil
 }
 
+func (c *workServiceClient) CreateLabel(ctx context.Context, in *CreateLabelRequest, opts ...grpc.CallOption) (*CreateLabelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateLabelResponse)
+	err := c.cc.Invoke(ctx, WorkService_CreateLabel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workServiceClient) GetLabel(ctx context.Context, in *GetLabelRequest, opts ...grpc.CallOption) (*GetLabelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetLabelResponse)
+	err := c.cc.Invoke(ctx, WorkService_GetLabel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workServiceClient) ListLabels(ctx context.Context, in *ListLabelsRequest, opts ...grpc.CallOption) (*ListLabelsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListLabelsResponse)
+	err := c.cc.Invoke(ctx, WorkService_ListLabels_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workServiceClient) UpdateLabel(ctx context.Context, in *UpdateLabelRequest, opts ...grpc.CallOption) (*UpdateLabelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateLabelResponse)
+	err := c.cc.Invoke(ctx, WorkService_UpdateLabel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workServiceClient) DeleteLabel(ctx context.Context, in *DeleteLabelRequest, opts ...grpc.CallOption) (*DeleteLabelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteLabelResponse)
+	err := c.cc.Invoke(ctx, WorkService_DeleteLabel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workServiceClient) SetTaskLabels(ctx context.Context, in *SetTaskLabelsRequest, opts ...grpc.CallOption) (*SetTaskLabelsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetTaskLabelsResponse)
+	err := c.cc.Invoke(ctx, WorkService_SetTaskLabels_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workServiceClient) CreateCustomFieldDefinition(ctx context.Context, in *CreateCustomFieldDefinitionRequest, opts ...grpc.CallOption) (*CreateCustomFieldDefinitionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateCustomFieldDefinitionResponse)
+	err := c.cc.Invoke(ctx, WorkService_CreateCustomFieldDefinition_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workServiceClient) GetCustomFieldDefinition(ctx context.Context, in *GetCustomFieldDefinitionRequest, opts ...grpc.CallOption) (*GetCustomFieldDefinitionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCustomFieldDefinitionResponse)
+	err := c.cc.Invoke(ctx, WorkService_GetCustomFieldDefinition_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workServiceClient) ListCustomFieldDefinitions(ctx context.Context, in *ListCustomFieldDefinitionsRequest, opts ...grpc.CallOption) (*ListCustomFieldDefinitionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListCustomFieldDefinitionsResponse)
+	err := c.cc.Invoke(ctx, WorkService_ListCustomFieldDefinitions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workServiceClient) UpdateCustomFieldDefinition(ctx context.Context, in *UpdateCustomFieldDefinitionRequest, opts ...grpc.CallOption) (*UpdateCustomFieldDefinitionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateCustomFieldDefinitionResponse)
+	err := c.cc.Invoke(ctx, WorkService_UpdateCustomFieldDefinition_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workServiceClient) DeleteCustomFieldDefinition(ctx context.Context, in *DeleteCustomFieldDefinitionRequest, opts ...grpc.CallOption) (*DeleteCustomFieldDefinitionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteCustomFieldDefinitionResponse)
+	err := c.cc.Invoke(ctx, WorkService_DeleteCustomFieldDefinition_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WorkServiceServer is the server API for WorkService service.
 // All implementations must embed UnimplementedWorkServiceServer
 // for forward compatibility.
@@ -730,6 +864,19 @@ type WorkServiceServer interface {
 	DeleteTimeEntry(context.Context, *DeleteTimeEntryRequest) (*DeleteTimeEntryResponse, error)
 	ListTimeEntries(context.Context, *ListTimeEntriesRequest) (*ListTimeEntriesResponse, error)
 	GetTaskTimeSummary(context.Context, *GetTaskTimeSummaryRequest) (*GetTaskTimeSummaryResponse, error)
+	// Labels
+	CreateLabel(context.Context, *CreateLabelRequest) (*CreateLabelResponse, error)
+	GetLabel(context.Context, *GetLabelRequest) (*GetLabelResponse, error)
+	ListLabels(context.Context, *ListLabelsRequest) (*ListLabelsResponse, error)
+	UpdateLabel(context.Context, *UpdateLabelRequest) (*UpdateLabelResponse, error)
+	DeleteLabel(context.Context, *DeleteLabelRequest) (*DeleteLabelResponse, error)
+	SetTaskLabels(context.Context, *SetTaskLabelsRequest) (*SetTaskLabelsResponse, error)
+	// Custom Field Definitions
+	CreateCustomFieldDefinition(context.Context, *CreateCustomFieldDefinitionRequest) (*CreateCustomFieldDefinitionResponse, error)
+	GetCustomFieldDefinition(context.Context, *GetCustomFieldDefinitionRequest) (*GetCustomFieldDefinitionResponse, error)
+	ListCustomFieldDefinitions(context.Context, *ListCustomFieldDefinitionsRequest) (*ListCustomFieldDefinitionsResponse, error)
+	UpdateCustomFieldDefinition(context.Context, *UpdateCustomFieldDefinitionRequest) (*UpdateCustomFieldDefinitionResponse, error)
+	DeleteCustomFieldDefinition(context.Context, *DeleteCustomFieldDefinitionRequest) (*DeleteCustomFieldDefinitionResponse, error)
 	mustEmbedUnimplementedWorkServiceServer()
 }
 
@@ -892,6 +1039,39 @@ func (UnimplementedWorkServiceServer) ListTimeEntries(context.Context, *ListTime
 }
 func (UnimplementedWorkServiceServer) GetTaskTimeSummary(context.Context, *GetTaskTimeSummaryRequest) (*GetTaskTimeSummaryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetTaskTimeSummary not implemented")
+}
+func (UnimplementedWorkServiceServer) CreateLabel(context.Context, *CreateLabelRequest) (*CreateLabelResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateLabel not implemented")
+}
+func (UnimplementedWorkServiceServer) GetLabel(context.Context, *GetLabelRequest) (*GetLabelResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetLabel not implemented")
+}
+func (UnimplementedWorkServiceServer) ListLabels(context.Context, *ListLabelsRequest) (*ListLabelsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListLabels not implemented")
+}
+func (UnimplementedWorkServiceServer) UpdateLabel(context.Context, *UpdateLabelRequest) (*UpdateLabelResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateLabel not implemented")
+}
+func (UnimplementedWorkServiceServer) DeleteLabel(context.Context, *DeleteLabelRequest) (*DeleteLabelResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteLabel not implemented")
+}
+func (UnimplementedWorkServiceServer) SetTaskLabels(context.Context, *SetTaskLabelsRequest) (*SetTaskLabelsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetTaskLabels not implemented")
+}
+func (UnimplementedWorkServiceServer) CreateCustomFieldDefinition(context.Context, *CreateCustomFieldDefinitionRequest) (*CreateCustomFieldDefinitionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateCustomFieldDefinition not implemented")
+}
+func (UnimplementedWorkServiceServer) GetCustomFieldDefinition(context.Context, *GetCustomFieldDefinitionRequest) (*GetCustomFieldDefinitionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetCustomFieldDefinition not implemented")
+}
+func (UnimplementedWorkServiceServer) ListCustomFieldDefinitions(context.Context, *ListCustomFieldDefinitionsRequest) (*ListCustomFieldDefinitionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListCustomFieldDefinitions not implemented")
+}
+func (UnimplementedWorkServiceServer) UpdateCustomFieldDefinition(context.Context, *UpdateCustomFieldDefinitionRequest) (*UpdateCustomFieldDefinitionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateCustomFieldDefinition not implemented")
+}
+func (UnimplementedWorkServiceServer) DeleteCustomFieldDefinition(context.Context, *DeleteCustomFieldDefinitionRequest) (*DeleteCustomFieldDefinitionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteCustomFieldDefinition not implemented")
 }
 func (UnimplementedWorkServiceServer) mustEmbedUnimplementedWorkServiceServer() {}
 func (UnimplementedWorkServiceServer) testEmbeddedByValue()                     {}
@@ -1832,6 +2012,204 @@ func _WorkService_GetTaskTimeSummary_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WorkService_CreateLabel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateLabelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkServiceServer).CreateLabel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkService_CreateLabel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkServiceServer).CreateLabel(ctx, req.(*CreateLabelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkService_GetLabel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetLabelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkServiceServer).GetLabel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkService_GetLabel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkServiceServer).GetLabel(ctx, req.(*GetLabelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkService_ListLabels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListLabelsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkServiceServer).ListLabels(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkService_ListLabels_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkServiceServer).ListLabels(ctx, req.(*ListLabelsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkService_UpdateLabel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateLabelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkServiceServer).UpdateLabel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkService_UpdateLabel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkServiceServer).UpdateLabel(ctx, req.(*UpdateLabelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkService_DeleteLabel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteLabelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkServiceServer).DeleteLabel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkService_DeleteLabel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkServiceServer).DeleteLabel(ctx, req.(*DeleteLabelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkService_SetTaskLabels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetTaskLabelsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkServiceServer).SetTaskLabels(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkService_SetTaskLabels_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkServiceServer).SetTaskLabels(ctx, req.(*SetTaskLabelsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkService_CreateCustomFieldDefinition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateCustomFieldDefinitionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkServiceServer).CreateCustomFieldDefinition(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkService_CreateCustomFieldDefinition_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkServiceServer).CreateCustomFieldDefinition(ctx, req.(*CreateCustomFieldDefinitionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkService_GetCustomFieldDefinition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCustomFieldDefinitionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkServiceServer).GetCustomFieldDefinition(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkService_GetCustomFieldDefinition_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkServiceServer).GetCustomFieldDefinition(ctx, req.(*GetCustomFieldDefinitionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkService_ListCustomFieldDefinitions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListCustomFieldDefinitionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkServiceServer).ListCustomFieldDefinitions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkService_ListCustomFieldDefinitions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkServiceServer).ListCustomFieldDefinitions(ctx, req.(*ListCustomFieldDefinitionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkService_UpdateCustomFieldDefinition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateCustomFieldDefinitionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkServiceServer).UpdateCustomFieldDefinition(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkService_UpdateCustomFieldDefinition_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkServiceServer).UpdateCustomFieldDefinition(ctx, req.(*UpdateCustomFieldDefinitionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkService_DeleteCustomFieldDefinition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteCustomFieldDefinitionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkServiceServer).DeleteCustomFieldDefinition(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkService_DeleteCustomFieldDefinition_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkServiceServer).DeleteCustomFieldDefinition(ctx, req.(*DeleteCustomFieldDefinitionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WorkService_ServiceDesc is the grpc.ServiceDesc for WorkService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2043,7 +2421,51 @@ var WorkService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "GetTaskTimeSummary",
 			Handler:    _WorkService_GetTaskTimeSummary_Handler,
 		},
+		{
+			MethodName: "CreateLabel",
+			Handler:    _WorkService_CreateLabel_Handler,
+		},
+		{
+			MethodName: "GetLabel",
+			Handler:    _WorkService_GetLabel_Handler,
+		},
+		{
+			MethodName: "ListLabels",
+			Handler:    _WorkService_ListLabels_Handler,
+		},
+		{
+			MethodName: "UpdateLabel",
+			Handler:    _WorkService_UpdateLabel_Handler,
+		},
+		{
+			MethodName: "DeleteLabel",
+			Handler:    _WorkService_DeleteLabel_Handler,
+		},
+		{
+			MethodName: "SetTaskLabels",
+			Handler:    _WorkService_SetTaskLabels_Handler,
+		},
+		{
+			MethodName: "CreateCustomFieldDefinition",
+			Handler:    _WorkService_CreateCustomFieldDefinition_Handler,
+		},
+		{
+			MethodName: "GetCustomFieldDefinition",
+			Handler:    _WorkService_GetCustomFieldDefinition_Handler,
+		},
+		{
+			MethodName: "ListCustomFieldDefinitions",
+			Handler:    _WorkService_ListCustomFieldDefinitions_Handler,
+		},
+		{
+			MethodName: "UpdateCustomFieldDefinition",
+			Handler:    _WorkService_UpdateCustomFieldDefinition_Handler,
+		},
+		{
+			MethodName: "DeleteCustomFieldDefinition",
+			Handler:    _WorkService_DeleteCustomFieldDefinition_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "work/v1/work.proto",
+	Metadata: "proto/work/v1/work.proto",
 }

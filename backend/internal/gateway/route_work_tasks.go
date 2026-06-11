@@ -155,6 +155,9 @@ func (w *WorkRoutes) HandleListTasks(wr http.ResponseWriter, r *http.Request) {
 	if ptid := q.Get("parent_task_id"); ptid != "" {
 		grpcReq.ParentTaskId = &ptid
 	}
+	if labelIDs := labelIDsFromQuery(r, "label_ids"); len(labelIDs) > 0 {
+		grpcReq.FilterLabelIds = labelIDs
+	}
 
 	resp, err := client.ListTasks(r.Context(), grpcReq)
 	if err != nil {

@@ -10108,6 +10108,321 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  # ============================================================================
+  # Work Labels
+  # ============================================================================
+
+  /api/v1/work/labels:
+    get:
+      summary: List all labels for the tenant
+      tags: [work-labels]
+      operationId: listWorkLabels
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Label list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  labels:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/WorkLabel"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      summary: Create a new label
+      tags: [work-labels]
+      operationId: createWorkLabel
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  maxLength: 100
+                color:
+                  type: string
+                  pattern: '^#[0-9A-Fa-f]{6}$'
+                  default: "#6b7280"
+      responses:
+        "201":
+          description: Created label
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  label:
+                    $ref: "#/components/schemas/WorkLabel"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Label name already exists
+
+  /api/v1/work/labels/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    get:
+      summary: Get a label by ID
+      tags: [work-labels]
+      operationId: getWorkLabel
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Label
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  label:
+                    $ref: "#/components/schemas/WorkLabel"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      summary: Update a label
+      tags: [work-labels]
+      operationId: updateWorkLabel
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  maxLength: 100
+                color:
+                  type: string
+                  pattern: '^#[0-9A-Fa-f]{6}$'
+      responses:
+        "200":
+          description: Updated label
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  label:
+                    $ref: "#/components/schemas/WorkLabel"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      summary: Delete a label
+      tags: [work-labels]
+      operationId: deleteWorkLabel
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/tasks/{id}/labels:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    put:
+      summary: Replace all labels assigned to a task
+      tags: [work-labels]
+      operationId: setTaskLabels
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        "204":
+          description: Labels updated
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ============================================================================
+  # Work Custom Field Definitions
+  # ============================================================================
+
+  /api/v1/work/custom-fields:
+    get:
+      summary: List all custom field definitions for the tenant
+      tags: [work-custom-fields]
+      operationId: listWorkCustomFieldDefinitions
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Custom field definition list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  definitions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/WorkCustomFieldDefinition"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      summary: Create a new custom field definition
+      tags: [work-custom-fields]
+      operationId: createWorkCustomFieldDefinition
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, field_type]
+              properties:
+                name:
+                  type: string
+                  maxLength: 100
+                field_type:
+                  type: string
+                  enum: [text, number, date, boolean, select, multi_select, url, email, phone]
+                options:
+                  type: array
+                  items:
+                    type: string
+                position:
+                  type: integer
+                  default: 0
+      responses:
+        "201":
+          description: Created definition
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  definition:
+                    $ref: "#/components/schemas/WorkCustomFieldDefinition"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Field name already exists
+
+  /api/v1/work/custom-fields/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    get:
+      summary: Get a custom field definition by ID
+      tags: [work-custom-fields]
+      operationId: getWorkCustomFieldDefinition
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Custom field definition
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  definition:
+                    $ref: "#/components/schemas/WorkCustomFieldDefinition"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      summary: Update a custom field definition
+      tags: [work-custom-fields]
+      operationId: updateWorkCustomFieldDefinition
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, field_type]
+              properties:
+                name:
+                  type: string
+                  maxLength: 100
+                field_type:
+                  type: string
+                  enum: [text, number, date, boolean, select, multi_select, url, email, phone]
+                options:
+                  type: array
+                  items:
+                    type: string
+                position:
+                  type: integer
+      responses:
+        "200":
+          description: Updated definition
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  definition:
+                    $ref: "#/components/schemas/WorkCustomFieldDefinition"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      summary: Delete a custom field definition
+      tags: [work-custom-fields]
+      operationId: deleteWorkCustomFieldDefinition
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -12179,6 +12494,43 @@ components:
           type: object
           additionalProperties:
             type: string
+        label_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    WorkLabel:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 100
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+
+    WorkCustomFieldDefinition:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 100
+        field_type:
+          type: string
+          enum: [text, number, date, boolean, select, multi_select, url, email, phone]
+        options:
+          type: array
+          items:
+            type: string
+        position:
+          type: integer
 
     TaskDependencyResponse:
       type: object

@@ -113,6 +113,9 @@ func (w *WorkRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 
 		// Timer
 		r.With(middleware.RequirePermission("tasks", "write")).Post("/{id}/timer/start", w.HandleStartTimer)
+
+		// Labels
+		r.With(middleware.RequirePermission("work_labels", "write")).Put("/{id}/labels", w.HandleSetTaskLabels)
 	})
 
 	// Timer (user-level)
@@ -164,6 +167,26 @@ func (w *WorkRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 	r.Route("/api/v1/work/search", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.With(middleware.RequirePermission("tasks", "read")).Get("/", w.HandleSearchTasks)
+	})
+
+	// Work labels
+	r.Route("/api/v1/work/labels", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("work_labels", "read")).Get("/", w.HandleListLabels)
+		r.With(middleware.RequirePermission("work_labels", "write")).Post("/", w.HandleCreateLabel)
+		r.With(middleware.RequirePermission("work_labels", "read")).Get("/{id}", w.HandleGetLabel)
+		r.With(middleware.RequirePermission("work_labels", "write")).Put("/{id}", w.HandleUpdateLabel)
+		r.With(middleware.RequirePermission("work_labels", "delete")).Delete("/{id}", w.HandleDeleteLabel)
+	})
+
+	// Work custom field definitions
+	r.Route("/api/v1/work/custom-fields", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("work_custom_fields", "read")).Get("/", w.HandleListCustomFieldDefinitions)
+		r.With(middleware.RequirePermission("work_custom_fields", "write")).Post("/", w.HandleCreateCustomFieldDefinition)
+		r.With(middleware.RequirePermission("work_custom_fields", "read")).Get("/{id}", w.HandleGetCustomFieldDefinition)
+		r.With(middleware.RequirePermission("work_custom_fields", "write")).Put("/{id}", w.HandleUpdateCustomFieldDefinition)
+		r.With(middleware.RequirePermission("work_custom_fields", "delete")).Delete("/{id}", w.HandleDeleteCustomFieldDefinition)
 	})
 }
 

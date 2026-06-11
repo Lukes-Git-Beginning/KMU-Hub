@@ -23,8 +23,10 @@ import (
 	"github.com/kmuhub/kmuhub/internal/server"
 	"github.com/kmuhub/kmuhub/internal/work/calendar"
 	"github.com/kmuhub/kmuhub/internal/work/comment"
+	"github.com/kmuhub/kmuhub/internal/work/customfield"
 	"github.com/kmuhub/kmuhub/internal/work/event"
 	"github.com/kmuhub/kmuhub/internal/work/holiday"
+	"github.com/kmuhub/kmuhub/internal/work/label"
 	"github.com/kmuhub/kmuhub/internal/work/livekit"
 	"github.com/kmuhub/kmuhub/internal/work/meeting"
 	"github.com/kmuhub/kmuhub/internal/work/presence"
@@ -165,7 +167,13 @@ func main() {
 			metricsRegistry.GRPCStreamInterceptor(),
 		),
 	)
-	workGRPC := server.NewWorkGRPCServer(projectService, statusService, taskService, taskRepo, commentService, timeEntryService)
+	// Label and custom field repositories + services
+	labelRepo := label.NewPostgresRepository(pool)
+	labelService := label.NewService(labelRepo)
+	customFieldRepo := customfield.NewPostgresRepository(pool)
+	customFieldService := customfield.NewService(customFieldRepo)
+
+	workGRPC := server.NewWorkGRPCServer(projectService, statusService, taskService, taskRepo, commentService, timeEntryService, labelService, customFieldService)
 	workv1.RegisterWorkServiceServer(grpcServer, workGRPC)
 
 	// Register CalendarService gRPC server (same binary, same port as WorkService)

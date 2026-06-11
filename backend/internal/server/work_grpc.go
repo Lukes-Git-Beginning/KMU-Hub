@@ -15,6 +15,8 @@ import (
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/work/comment"
+	"github.com/kmuhub/kmuhub/internal/work/customfield"
+	"github.com/kmuhub/kmuhub/internal/work/label"
 	"github.com/kmuhub/kmuhub/internal/work/project"
 	wstatus "github.com/kmuhub/kmuhub/internal/work/status"
 	"github.com/kmuhub/kmuhub/internal/work/task"
@@ -25,12 +27,14 @@ import (
 // WorkGRPCServer implements the Work gRPC service
 type WorkGRPCServer struct {
 	workv1.UnimplementedWorkServiceServer
-	projectService   *project.Service
-	statusService    *wstatus.Service
-	taskService      *task.Service
-	taskRepo         task.Repository
-	commentService   *comment.Service
-	timeEntryService *timeentry.Service
+	projectService      *project.Service
+	statusService       *wstatus.Service
+	taskService         *task.Service
+	taskRepo            task.Repository
+	commentService      *comment.Service
+	timeEntryService    *timeentry.Service
+	labelService        *label.Service
+	customFieldService  *customfield.Service
 }
 
 // NewWorkGRPCServer creates a new Work gRPC server
@@ -41,14 +45,18 @@ func NewWorkGRPCServer(
 	taskRepo task.Repository,
 	commentService *comment.Service,
 	timeEntryService *timeentry.Service,
+	labelService *label.Service,
+	customFieldService *customfield.Service,
 ) *WorkGRPCServer {
 	return &WorkGRPCServer{
-		projectService:   projectService,
-		statusService:    statusService,
-		taskService:      taskService,
-		taskRepo:         taskRepo,
-		commentService:   commentService,
-		timeEntryService: timeEntryService,
+		projectService:     projectService,
+		statusService:      statusService,
+		taskService:        taskService,
+		taskRepo:           taskRepo,
+		commentService:     commentService,
+		timeEntryService:   timeEntryService,
+		labelService:       labelService,
+		customFieldService: customFieldService,
 	}
 }
 
@@ -1985,6 +1993,191 @@ func generateTemplateKey(name string) string {
 	return key + uuid.New().String()[:4]
 }
 
+// ============================================================================
+// Labels
+// ============================================================================
+
+func (s *WorkGRPCServer) CreateLabel(ctx context.Context, req *workv1.CreateLabelRequest) (*workv1.CreateLabelResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	color := req.Color
+	if color == "" {
+		color = "#6b7280"
+	}
+
+	l, err := s.labelService.Create(ctx, tenantID.String(), req.Name, color)
+	if err != nil {
+		return nil, mapWorkError(err)
+	}
+	return &workv1.CreateLabelResponse{Label: labelToProto(l)}, nil
+}
+
+func (s *WorkGRPCServer) GetLabel(ctx context.Context, req *workv1.GetLabelRequest) (*workv1.GetLabelResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	l, err := s.labelService.GetByID(ctx, tenantID.String(), req.Id)
+	if err != nil {
+		return nil, mapWorkError(err)
+	}
+	return &workv1.GetLabelResponse{Label: labelToProto(l)}, nil
+}
+
+func (s *WorkGRPCServer) ListLabels(ctx context.Context, _ *workv1.ListLabelsRequest) (*workv1.ListLabelsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	labels, err := s.labelService.List(ctx, tenantID.String())
+	if err != nil {
+		return nil, mapWorkError(err)
+	}
+
+	protos := make([]*workv1.LabelProto, 0, len(labels))
+	for _, l := range labels {
+		protos = append(protos, labelToProto(l))
+	}
+	return &workv1.ListLabelsResponse{Labels: protos}, nil
+}
+
+func (s *WorkGRPCServer) UpdateLabel(ctx context.Context, req *workv1.UpdateLabelRequest) (*workv1.UpdateLabelResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	l, err := s.labelService.Update(ctx, tenantID.String(), req.Id, req.Name, req.Color)
+	if err != nil {
+		return nil, mapWorkError(err)
+	}
+	return &workv1.UpdateLabelResponse{Label: labelToProto(l)}, nil
+}
+
+func (s *WorkGRPCServer) DeleteLabel(ctx context.Context, req *workv1.DeleteLabelRequest) (*workv1.DeleteLabelResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	if err := s.labelService.Delete(ctx, tenantID.String(), req.Id); err != nil {
+		return nil, mapWorkError(err)
+	}
+	return &workv1.DeleteLabelResponse{}, nil
+}
+
+func (s *WorkGRPCServer) SetTaskLabels(ctx context.Context, req *workv1.SetTaskLabelsRequest) (*workv1.SetTaskLabelsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	if err := s.labelService.SetTaskLabels(ctx, tenantID.String(), req.TaskId, req.LabelIds); err != nil {
+		return nil, mapWorkError(err)
+	}
+	return &workv1.SetTaskLabelsResponse{}, nil
+}
+
+// ============================================================================
+// Custom Field Definitions
+// ============================================================================
+
+func (s *WorkGRPCServer) CreateCustomFieldDefinition(ctx context.Context, req *workv1.CreateCustomFieldDefinitionRequest) (*workv1.CreateCustomFieldDefinitionResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	d, err := s.customFieldService.Create(ctx, tenantID.String(), req.Name, req.FieldType, req.Options, int(req.Position))
+	if err != nil {
+		return nil, mapWorkError(err)
+	}
+	return &workv1.CreateCustomFieldDefinitionResponse{Definition: customFieldToProto(d)}, nil
+}
+
+func (s *WorkGRPCServer) GetCustomFieldDefinition(ctx context.Context, req *workv1.GetCustomFieldDefinitionRequest) (*workv1.GetCustomFieldDefinitionResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	d, err := s.customFieldService.GetByID(ctx, tenantID.String(), req.Id)
+	if err != nil {
+		return nil, mapWorkError(err)
+	}
+	return &workv1.GetCustomFieldDefinitionResponse{Definition: customFieldToProto(d)}, nil
+}
+
+func (s *WorkGRPCServer) ListCustomFieldDefinitions(ctx context.Context, _ *workv1.ListCustomFieldDefinitionsRequest) (*workv1.ListCustomFieldDefinitionsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	defs, err := s.customFieldService.List(ctx, tenantID.String())
+	if err != nil {
+		return nil, mapWorkError(err)
+	}
+
+	protos := make([]*workv1.CustomFieldDefinitionProto, 0, len(defs))
+	for _, d := range defs {
+		protos = append(protos, customFieldToProto(d))
+	}
+	return &workv1.ListCustomFieldDefinitionsResponse{Definitions: protos}, nil
+}
+
+func (s *WorkGRPCServer) UpdateCustomFieldDefinition(ctx context.Context, req *workv1.UpdateCustomFieldDefinitionRequest) (*workv1.UpdateCustomFieldDefinitionResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	d, err := s.customFieldService.Update(ctx, tenantID.String(), req.Id, req.Name, req.FieldType, req.Options, int(req.Position))
+	if err != nil {
+		return nil, mapWorkError(err)
+	}
+	return &workv1.UpdateCustomFieldDefinitionResponse{Definition: customFieldToProto(d)}, nil
+}
+
+func (s *WorkGRPCServer) DeleteCustomFieldDefinition(ctx context.Context, req *workv1.DeleteCustomFieldDefinitionRequest) (*workv1.DeleteCustomFieldDefinitionResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	if err := s.customFieldService.Delete(ctx, tenantID.String(), req.Id); err != nil {
+		return nil, mapWorkError(err)
+	}
+	return &workv1.DeleteCustomFieldDefinitionResponse{}, nil
+}
+
+// ============================================================================
+// Proto converters
+// ============================================================================
+
+func labelToProto(l *label.Label) *workv1.LabelProto {
+	return &workv1.LabelProto{
+		Id:    l.ID,
+		Name:  l.Name,
+		Color: l.Color,
+	}
+}
+
+func customFieldToProto(d *customfield.Definition) *workv1.CustomFieldDefinitionProto {
+	return &workv1.CustomFieldDefinitionProto{
+		Id:        d.ID,
+		Name:      d.Name,
+		FieldType: d.FieldType,
+		Options:   d.Options,
+		Position:  int32(d.Position),
+	}
+}
+
 // mapWorkError maps work service errors to gRPC status errors
 func mapWorkError(err error) error {
 	switch {
@@ -2074,6 +2267,24 @@ func mapWorkError(err error) error {
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, comment.ErrCannotDeleteOthersComment):
 		return status.Error(codes.PermissionDenied, err.Error())
+	// Label errors
+	case errors.Is(err, label.ErrNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, label.ErrDuplicateName):
+		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, label.ErrNameRequired):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, label.ErrColorInvalid):
+		return status.Error(codes.InvalidArgument, err.Error())
+	// Custom field errors
+	case errors.Is(err, customfield.ErrNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, customfield.ErrDuplicateName):
+		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, customfield.ErrNameRequired):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, customfield.ErrInvalidFieldType):
+		return status.Error(codes.InvalidArgument, err.Error())
 	default:
 		slog.Error("unhandled work service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
