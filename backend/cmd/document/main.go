@@ -53,14 +53,29 @@ func main() {
 	}
 	defer pool.Close()
 
-	// MinIO file store for document storage (reuse chat/file MinIO adapter)
-	fileStore, err := chatfile.NewMinIOStore(
-		cfg.MinIOEndpoint,
-		cfg.MinIOAccessKey,
-		cfg.MinIOSecretKey,
-		cfg.MinIOBucket,
-		cfg.MinIOUseSSL,
-	)
+	// MinIO file store for document storage (reuse chat/file MinIO adapter).
+	// When MINIO_PUBLIC_ENDPOINT is set, presigned URLs are signed with the
+	// public-facing endpoint so they are reachable from the browser / Electron.
+	var fileStore chatfile.FileStore
+	if cfg.MinIOPublicEndpoint != "" {
+		fileStore, err = chatfile.NewMinIOStoreWithPublicEndpoint(
+			cfg.MinIOEndpoint,
+			cfg.MinIOAccessKey,
+			cfg.MinIOSecretKey,
+			cfg.MinIOBucket,
+			cfg.MinIOUseSSL,
+			cfg.MinIOPublicEndpoint,
+			cfg.MinIOPublicUseSSL,
+		)
+	} else {
+		fileStore, err = chatfile.NewMinIOStore(
+			cfg.MinIOEndpoint,
+			cfg.MinIOAccessKey,
+			cfg.MinIOSecretKey,
+			cfg.MinIOBucket,
+			cfg.MinIOUseSSL,
+		)
+	}
 	if err != nil {
 		slog.Error("failed to connect to minio", "error", err)
 		os.Exit(1)

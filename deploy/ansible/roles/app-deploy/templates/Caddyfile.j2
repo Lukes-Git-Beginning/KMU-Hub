@@ -17,6 +17,12 @@
 	}
 }
 
+{% if minio_public_domain is defined %}
+{{ minio_public_domain }} {
+	reverse_proxy minio:9000
+}
+
+{% endif %}
 # Fallback: IP-based access (HTTP only, remove once domain works)
 :80 {
 	reverse_proxy gateway:8080

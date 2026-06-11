@@ -156,7 +156,11 @@ type Config struct {
 	MinIOSecretKey  string `env:"MINIO_SECRET_KEY,default=kmuhub_dev"`
 	MinIOBucket     string `env:"MINIO_BUCKET,default=kmuhub-files"`
 	MinIOUseSSL     bool   `env:"MINIO_USE_SSL,default=false"`
-	FileSizeLimitMB int    `env:"FILE_SIZE_LIMIT_MB,default=50"`
+	// MinIOPublicEndpoint is the browser-reachable endpoint for presigned URLs
+	// (e.g. s3.zentria.tech). When empty, presign falls back to MinIOEndpoint.
+	MinIOPublicEndpoint string `env:"MINIO_PUBLIC_ENDPOINT,default="`
+	MinIOPublicUseSSL   bool   `env:"MINIO_PUBLIC_USE_SSL,default=false"`
+	FileSizeLimitMB     int    `env:"FILE_SIZE_LIMIT_MB,default=50"`
 
 	// System SMTP (transactional emails: password-reset, system notifications)
 	// Optional — if not set, transactional emails are logged but not sent.

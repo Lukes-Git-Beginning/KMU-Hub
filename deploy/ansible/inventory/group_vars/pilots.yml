@@ -10,3 +10,6 @@ behind_proxy: "true"
 access_token_expiry: "15m"
 refresh_token_expiry: "168h"
 gf_users_allow_sign_up: "false"
+# Public MinIO endpoint proxied by Caddy — browser-reachable for presigned URLs.
+# Must match the DNS A-record pointing at this server. Default: s3.zentria.tech
+minio_public_domain: "s3.zentria.tech"

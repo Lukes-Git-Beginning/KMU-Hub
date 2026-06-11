@@ -53,14 +53,29 @@ func main() {
 	fileRepo := file.NewPostgresRepository(pool)
 	searchRepo := search.NewPostgresRepository(pool)
 
-	// Initialize MinIO file store
-	fileStore, err := file.NewMinIOStore(
-		cfg.MinIOEndpoint,
-		cfg.MinIOAccessKey,
-		cfg.MinIOSecretKey,
-		cfg.MinIOBucket,
-		cfg.MinIOUseSSL,
-	)
+	// Initialize MinIO file store.
+	// When MINIO_PUBLIC_ENDPOINT is set, presigned URLs are signed with the
+	// public-facing endpoint so they are reachable from the browser / Electron.
+	var fileStore file.FileStore
+	if cfg.MinIOPublicEndpoint != "" {
+		fileStore, err = file.NewMinIOStoreWithPublicEndpoint(
+			cfg.MinIOEndpoint,
+			cfg.MinIOAccessKey,
+			cfg.MinIOSecretKey,
+			cfg.MinIOBucket,
+			cfg.MinIOUseSSL,
+			cfg.MinIOPublicEndpoint,
+			cfg.MinIOPublicUseSSL,
+		)
+	} else {
+		fileStore, err = file.NewMinIOStore(
+			cfg.MinIOEndpoint,
+			cfg.MinIOAccessKey,
+			cfg.MinIOSecretKey,
+			cfg.MinIOBucket,
+			cfg.MinIOUseSSL,
+		)
+	}
 	if err != nil {
 		slog.Error("failed to connect to minio", "error", err)
 		os.Exit(1)
