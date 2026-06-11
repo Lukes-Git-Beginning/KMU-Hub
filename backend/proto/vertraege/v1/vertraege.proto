@@ -30,6 +30,9 @@ service VertraegeService {
 
   // Export (text dump for now; Sprint 3 adds PDF renderer)
   rpc ExportContract(ExportContractRequest) returns (ExportContractResponse);
+
+  // Signature
+  rpc SaveSignature(SaveContractSignatureRequest) returns (ContractResponse);
 }
 
 // ============================================================================
@@ -55,6 +58,9 @@ message Contract {
   // Populated only by GetContract
   repeated ContractParty parties = 15;
   repeated ContractReminder reminders = 16;
+  string signature_data = 17; // data:image/png;base64,... or data:image/svg+xml;base64,...
+  optional google.protobuf.Timestamp signed_at = 18;
+  string signed_by = 19;
 }
 
 message ContractParty {
@@ -250,4 +256,15 @@ message ExportContractResponse {
   bytes payload = 1;
   string content_type = 2;
   string filename = 3;
+}
+
+// ============================================================================
+// Signature
+// ============================================================================
+
+message SaveContractSignatureRequest {
+  string tenant_id = 1;
+  string contract_id = 2;
+  string signature_data = 3; // data:image/png;base64,... or data:image/svg+xml;base64,...
+  string signed_by = 4;
 }

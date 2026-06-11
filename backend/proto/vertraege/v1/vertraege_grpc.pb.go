@@ -33,6 +33,7 @@ const (
 	VertraegeService_ListReminders_FullMethodName  = "/vertraege.v1.VertraegeService/ListReminders"
 	VertraegeService_UploadDocument_FullMethodName = "/vertraege.v1.VertraegeService/UploadDocument"
 	VertraegeService_ExportContract_FullMethodName = "/vertraege.v1.VertraegeService/ExportContract"
+	VertraegeService_SaveSignature_FullMethodName  = "/vertraege.v1.VertraegeService/SaveSignature"
 )
 
 // VertraegeServiceClient is the client API for VertraegeService service.
@@ -58,6 +59,8 @@ type VertraegeServiceClient interface {
 	UploadDocument(ctx context.Context, in *UploadDocumentRequest, opts ...grpc.CallOption) (*UploadDocumentResponse, error)
 	// Export (text dump for now; Sprint 3 adds PDF renderer)
 	ExportContract(ctx context.Context, in *ExportContractRequest, opts ...grpc.CallOption) (*ExportContractResponse, error)
+	// Signature
+	SaveSignature(ctx context.Context, in *SaveContractSignatureRequest, opts ...grpc.CallOption) (*ContractResponse, error)
 }
 
 type vertraegeServiceClient struct {
@@ -208,6 +211,16 @@ func (c *vertraegeServiceClient) ExportContract(ctx context.Context, in *ExportC
 	return out, nil
 }
 
+func (c *vertraegeServiceClient) SaveSignature(ctx context.Context, in *SaveContractSignatureRequest, opts ...grpc.CallOption) (*ContractResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ContractResponse)
+	err := c.cc.Invoke(ctx, VertraegeService_SaveSignature_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // VertraegeServiceServer is the server API for VertraegeService service.
 // All implementations must embed UnimplementedVertraegeServiceServer
 // for forward compatibility.
@@ -231,6 +244,8 @@ type VertraegeServiceServer interface {
 	UploadDocument(context.Context, *UploadDocumentRequest) (*UploadDocumentResponse, error)
 	// Export (text dump for now; Sprint 3 adds PDF renderer)
 	ExportContract(context.Context, *ExportContractRequest) (*ExportContractResponse, error)
+	// Signature
+	SaveSignature(context.Context, *SaveContractSignatureRequest) (*ContractResponse, error)
 	mustEmbedUnimplementedVertraegeServiceServer()
 }
 
@@ -282,6 +297,9 @@ func (UnimplementedVertraegeServiceServer) UploadDocument(context.Context, *Uplo
 }
 func (UnimplementedVertraegeServiceServer) ExportContract(context.Context, *ExportContractRequest) (*ExportContractResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ExportContract not implemented")
+}
+func (UnimplementedVertraegeServiceServer) SaveSignature(context.Context, *SaveContractSignatureRequest) (*ContractResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SaveSignature not implemented")
 }
 func (UnimplementedVertraegeServiceServer) mustEmbedUnimplementedVertraegeServiceServer() {}
 func (UnimplementedVertraegeServiceServer) testEmbeddedByValue()                          {}
@@ -556,6 +574,24 @@ func _VertraegeService_ExportContract_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _VertraegeService_SaveSignature_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveContractSignatureRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VertraegeServiceServer).SaveSignature(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VertraegeService_SaveSignature_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VertraegeServiceServer).SaveSignature(ctx, req.(*SaveContractSignatureRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // VertraegeService_ServiceDesc is the grpc.ServiceDesc for VertraegeService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -618,6 +654,10 @@ var VertraegeService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ExportContract",
 			Handler:    _VertraegeService_ExportContract_Handler,
+		},
+		{
+			MethodName: "SaveSignature",
+			Handler:    _VertraegeService_SaveSignature_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

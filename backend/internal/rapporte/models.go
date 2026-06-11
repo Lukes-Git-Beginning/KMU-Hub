@@ -18,21 +18,24 @@ const (
 
 // WorkReport is a field work report created by a technician or employee.
 type WorkReport struct {
-	ID          uuid.UUID    `json:"id"`
-	TenantID    uuid.UUID    `json:"tenant_id"`
-	Title       string       `json:"title"`
-	Description string       `json:"description"`
-	Status      ReportStatus `json:"status"`
-	AuthorID    uuid.UUID    `json:"author_id"`
-	ReviewerID  *uuid.UUID   `json:"reviewer_id,omitempty"`
-	ReviewedAt  *time.Time   `json:"reviewed_at,omitempty"`
-	ReviewNote  string       `json:"review_note"`
-	Lat         *float64     `json:"lat,omitempty"`
-	Lon         *float64     `json:"lon,omitempty"`
-	ReportDate  time.Time    `json:"report_date"`
-	CreatedAt   time.Time    `json:"created_at"`
-	UpdatedAt   time.Time    `json:"updated_at"`
-	DeletedAt   *time.Time   `json:"deleted_at,omitempty"`
+	ID            uuid.UUID    `json:"id"`
+	TenantID      uuid.UUID    `json:"tenant_id"`
+	Title         string       `json:"title"`
+	Description   string       `json:"description"`
+	Status        ReportStatus `json:"status"`
+	AuthorID      uuid.UUID    `json:"author_id"`
+	ReviewerID    *uuid.UUID   `json:"reviewer_id,omitempty"`
+	ReviewedAt    *time.Time   `json:"reviewed_at,omitempty"`
+	ReviewNote    string       `json:"review_note"`
+	Lat           *float64     `json:"lat,omitempty"`
+	Lon           *float64     `json:"lon,omitempty"`
+	ReportDate    time.Time    `json:"report_date"`
+	SignatureData *string      `json:"signature_data,omitempty"`
+	SignedAt      *time.Time   `json:"signed_at,omitempty"`
+	SignedBy      *string      `json:"signed_by,omitempty"`
+	CreatedAt     time.Time    `json:"created_at"`
+	UpdatedAt     time.Time    `json:"updated_at"`
+	DeletedAt     *time.Time   `json:"deleted_at,omitempty"`
 }
 
 // ReportLine is a single line item within a work report.

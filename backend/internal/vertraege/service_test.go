@@ -211,6 +211,28 @@ func (m *mockRepository) MarkReminderSent(_ context.Context, reminderID uuid.UUI
 	return nil
 }
 
+func (m *mockRepository) SaveSignature(_ context.Context, tenantID, contractID, signatureData, signedBy string) (*Contract, error) {
+	contractUUID, err := uuid.Parse(contractID)
+	if err != nil {
+		return nil, ErrContractNotFound
+	}
+	tenantUUID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, ErrContractNotFound
+	}
+	c, ok := m.contracts[contractUUID]
+	if !ok || c.TenantID != tenantUUID {
+		return nil, ErrContractNotFound
+	}
+	now := time.Now()
+	c.SignatureData = &signatureData
+	c.SignedAt = &now
+	c.SignedBy = &signedBy
+	c.UpdatedAt = now
+	m.contracts[contractUUID] = c
+	return c, nil
+}
+
 // compile-time interface check
 var _ Repository = (*mockRepository)(nil)
 

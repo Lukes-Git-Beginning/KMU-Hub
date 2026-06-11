@@ -34,6 +34,9 @@ service RapporteService {
   rpc GetReportStats(GetReportStatsRequest) returns (ReportStatsResponse);
   rpc ListPendingApprovals(ListPendingApprovalsRequest) returns (ListReportsResponse);
   rpc ExportPDF(ExportPDFRequest) returns (ExportPDFResponse);
+
+  // Signature
+  rpc SaveSignature(SaveReportSignatureRequest) returns (ReportResponse);
 }
 
 // ============================================================================
@@ -55,6 +58,9 @@ message WorkReport {
   string report_date = 12; // YYYY-MM-DD
   google.protobuf.Timestamp created_at = 13;
   google.protobuf.Timestamp updated_at = 14;
+  string signature_data = 15; // data:image/png;base64,... or data:image/svg+xml;base64,...
+  optional google.protobuf.Timestamp signed_at = 16;
+  string signed_by = 17;
 }
 
 message ReportLine {
@@ -272,4 +278,15 @@ message ExportPDFResponse {
   bytes payload = 1;
   string content_type = 2;
   string filename = 3;
+}
+
+// ============================================================================
+// Signature
+// ============================================================================
+
+message SaveReportSignatureRequest {
+  string tenant_id = 1;
+  string report_id = 2;
+  string signature_data = 3; // data:image/png;base64,... or data:image/svg+xml;base64,...
+  string signed_by = 4;
 }

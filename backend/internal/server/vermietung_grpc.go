@@ -515,6 +515,27 @@ func (s *VermietungGRPCServer) UploadInspectionPhoto(ctx context.Context, req *v
 }
 
 // ============================================================================
+// Signature RPC
+// ============================================================================
+
+func (s *VermietungGRPCServer) SaveSignature(ctx context.Context, req *vermietungv1.SaveRentalSignatureRequest) (*vermietungv1.RentalResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	rentalID, err := uuid.Parse(req.GetRentalId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid rental_id: %v", err)
+	}
+
+	rental, err := s.svc.SaveSignature(ctx, tenantID.String(), rentalID.String(), req.GetSignatureData(), req.GetSignedBy())
+	if err != nil {
+		return nil, mapVermietungError(err)
+	}
+	return &vermietungv1.RentalResponse{Rental: rentalToProto(rental)}, nil
+}
+
+// ============================================================================
 // Calendar & Report RPCs
 // ============================================================================
 

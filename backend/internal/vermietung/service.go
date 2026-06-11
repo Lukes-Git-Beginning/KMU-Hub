@@ -604,6 +604,53 @@ func (s *Service) UploadInspectionPhoto(ctx context.Context, tenantID, inspectio
 }
 
 // ============================================================================
+// Signature
+// ============================================================================
+
+// signatureValidPrefixes lists the accepted MIME-type prefixes for EES inline signatures.
+var signatureValidPrefixes = []string{
+	"data:image/png;base64,",
+	"data:image/svg+xml;base64,",
+}
+
+const signatureMaxBytes = 1_048_576 // 1 MiB
+
+// SaveSignature stores an EES inline signature for a rental.
+// Validates the data-URI prefix, enforces the 1 MiB size limit, and delegates persistence.
+func (s *Service) SaveSignature(ctx context.Context, tenantID, rentalID, signatureData, signedBy string) (*Rental, error) {
+	if signatureData == "" {
+		return nil, ErrInvalidInput
+	}
+
+	hasValidPrefix := false
+	for _, prefix := range signatureValidPrefixes {
+		if len(signatureData) >= len(prefix) && signatureData[:len(prefix)] == prefix {
+			hasValidPrefix = true
+			break
+		}
+	}
+	if !hasValidPrefix {
+		return nil, ErrInvalidInput
+	}
+
+	if len(signatureData) > signatureMaxBytes {
+		return nil, ErrInvalidInput
+	}
+
+	if strings.TrimSpace(signedBy) == "" {
+		return nil, ErrInvalidInput
+	}
+
+	rental, err := s.repo.SaveSignature(ctx, tenantID, rentalID, signatureData, signedBy)
+	if err != nil {
+		return nil, fmt.Errorf("save rental signature: %w", err)
+	}
+
+	slog.Info("rental signature saved", "rental_id", rentalID, "tenant_id", tenantID, "signed_by", signedBy)
+	return rental, nil
+}
+
+// ============================================================================
 // Calendar
 // ============================================================================
 

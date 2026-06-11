@@ -38,6 +38,9 @@ type Repository interface {
 	GetRental(ctx context.Context, tenantID, rentalID uuid.UUID) (*Rental, error)
 	ListRentals(ctx context.Context, tenantID uuid.UUID, filter ListRentalsFilter, offset, limit int) ([]*Rental, int, error)
 
+	// SaveSignature persists an EES inline signature for a rental and returns the updated record.
+	SaveSignature(ctx context.Context, tenantID, rentalID, signatureData, signedBy string) (*Rental, error)
+
 	// HasOverlap returns true when any non-cancelled rental for objectID overlaps
 	// the given date range, optionally excluding a specific rental (for updates).
 	HasOverlap(ctx context.Context, tenantID, objectID uuid.UUID, start, end time.Time, excludeRentalID *uuid.UUID) (bool, error)

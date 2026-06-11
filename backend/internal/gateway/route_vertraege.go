@@ -57,6 +57,7 @@ func (vr *VertraegeRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http
 
 				r.With(middleware.RequirePermission("vertraege:contract", "write")).Post("/document", vr.HandleUploadDocument)
 				r.With(middleware.RequirePermission("vertraege:contract", "read")).Get("/export", vr.HandleExportContract)
+				r.With(middleware.RequirePermission("vertraege:contract", "write")).Put("/signature", vr.HandleSaveContractSignature)
 
 				// Parties
 				r.Route("/parties", func(r chi.Router) {
@@ -112,6 +113,11 @@ type addPartyRequest struct {
 	ExternalName   string `json:"external_name,omitempty"`
 	RoleInContract string `json:"role_in_contract"    validate:"required"`
 	SignedOn       string `json:"signed_on,omitempty"`
+}
+
+type saveContractSignatureRequest struct {
+	SignatureData string `json:"signature_data" validate:"required"`
+	SignedBy      string `json:"signed_by"      validate:"required"`
 }
 
 type createReminderRequest struct {
@@ -381,6 +387,45 @@ func (vr *VertraegeRoutes) HandleExportContract(w http.ResponseWriter, r *http.R
 	w.Header().Set("Content-Disposition", "attachment; filename="+formatFilename(filename))
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(resp.GetPayload())
+}
+
+// ============================================================================
+// Signature Handler
+// ============================================================================
+
+func (vr *VertraegeRoutes) HandleSaveContractSignature(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := vr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+
+	contractID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[saveContractSignatureRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.SaveSignature(r.Context(), &vertraegev1.SaveContractSignatureRequest{
+		TenantId:      tenantID.String(),
+		ContractId:    contractID,
+		SignatureData: req.SignatureData,
+		SignedBy:      req.SignedBy,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
 }
 
 // ============================================================================

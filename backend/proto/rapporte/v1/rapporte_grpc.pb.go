@@ -37,6 +37,7 @@ const (
 	RapporteService_GetReportStats_FullMethodName       = "/rapporte.v1.RapporteService/GetReportStats"
 	RapporteService_ListPendingApprovals_FullMethodName = "/rapporte.v1.RapporteService/ListPendingApprovals"
 	RapporteService_ExportPDF_FullMethodName            = "/rapporte.v1.RapporteService/ExportPDF"
+	RapporteService_SaveSignature_FullMethodName        = "/rapporte.v1.RapporteService/SaveSignature"
 )
 
 // RapporteServiceClient is the client API for RapporteService service.
@@ -66,6 +67,8 @@ type RapporteServiceClient interface {
 	GetReportStats(ctx context.Context, in *GetReportStatsRequest, opts ...grpc.CallOption) (*ReportStatsResponse, error)
 	ListPendingApprovals(ctx context.Context, in *ListPendingApprovalsRequest, opts ...grpc.CallOption) (*ListReportsResponse, error)
 	ExportPDF(ctx context.Context, in *ExportPDFRequest, opts ...grpc.CallOption) (*ExportPDFResponse, error)
+	// Signature
+	SaveSignature(ctx context.Context, in *SaveReportSignatureRequest, opts ...grpc.CallOption) (*ReportResponse, error)
 }
 
 type rapporteServiceClient struct {
@@ -256,6 +259,16 @@ func (c *rapporteServiceClient) ExportPDF(ctx context.Context, in *ExportPDFRequ
 	return out, nil
 }
 
+func (c *rapporteServiceClient) SaveSignature(ctx context.Context, in *SaveReportSignatureRequest, opts ...grpc.CallOption) (*ReportResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReportResponse)
+	err := c.cc.Invoke(ctx, RapporteService_SaveSignature_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RapporteServiceServer is the server API for RapporteService service.
 // All implementations must embed UnimplementedRapporteServiceServer
 // for forward compatibility.
@@ -283,6 +296,8 @@ type RapporteServiceServer interface {
 	GetReportStats(context.Context, *GetReportStatsRequest) (*ReportStatsResponse, error)
 	ListPendingApprovals(context.Context, *ListPendingApprovalsRequest) (*ListReportsResponse, error)
 	ExportPDF(context.Context, *ExportPDFRequest) (*ExportPDFResponse, error)
+	// Signature
+	SaveSignature(context.Context, *SaveReportSignatureRequest) (*ReportResponse, error)
 	mustEmbedUnimplementedRapporteServiceServer()
 }
 
@@ -346,6 +361,9 @@ func (UnimplementedRapporteServiceServer) ListPendingApprovals(context.Context, 
 }
 func (UnimplementedRapporteServiceServer) ExportPDF(context.Context, *ExportPDFRequest) (*ExportPDFResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ExportPDF not implemented")
+}
+func (UnimplementedRapporteServiceServer) SaveSignature(context.Context, *SaveReportSignatureRequest) (*ReportResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SaveSignature not implemented")
 }
 func (UnimplementedRapporteServiceServer) mustEmbedUnimplementedRapporteServiceServer() {}
 func (UnimplementedRapporteServiceServer) testEmbeddedByValue()                         {}
@@ -692,6 +710,24 @@ func _RapporteService_ExportPDF_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RapporteService_SaveSignature_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveReportSignatureRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RapporteServiceServer).SaveSignature(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RapporteService_SaveSignature_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RapporteServiceServer).SaveSignature(ctx, req.(*SaveReportSignatureRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RapporteService_ServiceDesc is the grpc.ServiceDesc for RapporteService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -770,6 +806,10 @@ var RapporteService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ExportPDF",
 			Handler:    _RapporteService_ExportPDF_Handler,
+		},
+		{
+			MethodName: "SaveSignature",
+			Handler:    _RapporteService_SaveSignature_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -434,6 +434,27 @@ func (s *RapporteGRPCServer) DeleteAttachment(ctx context.Context, req *rapporte
 }
 
 // ============================================================================
+// Signature RPC
+// ============================================================================
+
+func (s *RapporteGRPCServer) SaveSignature(ctx context.Context, req *rapportev1.SaveReportSignatureRequest) (*rapportev1.ReportResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	reportID, err := uuid.Parse(req.GetReportId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid report_id: %v", err)
+	}
+
+	report, err := s.svc.SaveSignature(ctx, tenantID, reportID, req.GetSignatureData(), req.GetSignedBy())
+	if err != nil {
+		return nil, mapRapporteError(err)
+	}
+	return &rapportev1.ReportResponse{Report: rapporteReportToProto(report)}, nil
+}
+
+// ============================================================================
 // Stats & Export RPCs
 // ============================================================================
 

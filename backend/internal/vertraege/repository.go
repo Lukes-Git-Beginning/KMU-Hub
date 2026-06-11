@@ -29,6 +29,9 @@ type Repository interface {
 	DeleteContract(ctx context.Context, tenantID, contractID uuid.UUID) error
 	ContractNumberExists(ctx context.Context, tenantID uuid.UUID, number string, excludeID *uuid.UUID) (bool, error)
 
+	// SaveSignature persists an EES inline signature for a contract and returns the updated record.
+	SaveSignature(ctx context.Context, tenantID, contractID, signatureData, signedBy string) (*Contract, error)
+
 	// Auto-expiry: marks active contracts as expired when ends_on < today
 	ExpireContracts(ctx context.Context) (int64, error)
 

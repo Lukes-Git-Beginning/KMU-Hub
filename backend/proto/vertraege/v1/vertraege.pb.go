@@ -39,8 +39,11 @@ type Contract struct {
 	CreatedAt         *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt         *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	// Populated only by GetContract
-	Parties       []*ContractParty    `protobuf:"bytes,15,rep,name=parties,proto3" json:"parties,omitempty"`
-	Reminders     []*ContractReminder `protobuf:"bytes,16,rep,name=reminders,proto3" json:"reminders,omitempty"`
+	Parties       []*ContractParty       `protobuf:"bytes,15,rep,name=parties,proto3" json:"parties,omitempty"`
+	Reminders     []*ContractReminder    `protobuf:"bytes,16,rep,name=reminders,proto3" json:"reminders,omitempty"`
+	SignatureData string                 `protobuf:"bytes,17,opt,name=signature_data,json=signatureData,proto3" json:"signature_data,omitempty"` // data:image/png;base64,... or data:image/svg+xml;base64,...
+	SignedAt      *timestamppb.Timestamp `protobuf:"bytes,18,opt,name=signed_at,json=signedAt,proto3,oneof" json:"signed_at,omitempty"`
+	SignedBy      string                 `protobuf:"bytes,19,opt,name=signed_by,json=signedBy,proto3" json:"signed_by,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -185,6 +188,27 @@ func (x *Contract) GetReminders() []*ContractReminder {
 		return x.Reminders
 	}
 	return nil
+}
+
+func (x *Contract) GetSignatureData() string {
+	if x != nil {
+		return x.SignatureData
+	}
+	return ""
+}
+
+func (x *Contract) GetSignedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.SignedAt
+	}
+	return nil
+}
+
+func (x *Contract) GetSignedBy() string {
+	if x != nil {
+		return x.SignedBy
+	}
+	return ""
 }
 
 type ContractParty struct {
@@ -1946,11 +1970,79 @@ func (x *ExportContractResponse) GetFilename() string {
 	return ""
 }
 
+type SaveContractSignatureRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ContractId    string                 `protobuf:"bytes,2,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"`
+	SignatureData string                 `protobuf:"bytes,3,opt,name=signature_data,json=signatureData,proto3" json:"signature_data,omitempty"` // data:image/png;base64,... or data:image/svg+xml;base64,...
+	SignedBy      string                 `protobuf:"bytes,4,opt,name=signed_by,json=signedBy,proto3" json:"signed_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveContractSignatureRequest) Reset() {
+	*x = SaveContractSignatureRequest{}
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveContractSignatureRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveContractSignatureRequest) ProtoMessage() {}
+
+func (x *SaveContractSignatureRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_vertraege_v1_vertraege_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveContractSignatureRequest.ProtoReflect.Descriptor instead.
+func (*SaveContractSignatureRequest) Descriptor() ([]byte, []int) {
+	return file_proto_vertraege_v1_vertraege_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *SaveContractSignatureRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *SaveContractSignatureRequest) GetContractId() string {
+	if x != nil {
+		return x.ContractId
+	}
+	return ""
+}
+
+func (x *SaveContractSignatureRequest) GetSignatureData() string {
+	if x != nil {
+		return x.SignatureData
+	}
+	return ""
+}
+
+func (x *SaveContractSignatureRequest) GetSignedBy() string {
+	if x != nil {
+		return x.SignedBy
+	}
+	return ""
+}
+
 var File_proto_vertraege_v1_vertraege_proto protoreflect.FileDescriptor
 
 const file_proto_vertraege_v1_vertraege_proto_rawDesc = "" +
 	"\n" +
-	"\"proto/vertraege/v1/vertraege.proto\x12\fvertraege.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xea\x05\n" +
+	"\"proto/vertraege/v1/vertraege.proto\x12\fvertraege.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xfa\x06\n" +
 	"\bContract\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12'\n" +
@@ -1971,12 +2063,17 @@ const file_proto_vertraege_v1_vertraege_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x125\n" +
 	"\aparties\x18\x0f \x03(\v2\x1b.vertraege.v1.ContractPartyR\aparties\x12<\n" +
-	"\treminders\x18\x10 \x03(\v2\x1e.vertraege.v1.ContractReminderR\tremindersB\n" +
+	"\treminders\x18\x10 \x03(\v2\x1e.vertraege.v1.ContractReminderR\treminders\x12%\n" +
+	"\x0esignature_data\x18\x11 \x01(\tR\rsignatureData\x12<\n" +
+	"\tsigned_at\x18\x12 \x01(\v2\x1a.google.protobuf.TimestampH\x04R\bsignedAt\x88\x01\x01\x12\x1b\n" +
+	"\tsigned_by\x18\x13 \x01(\tR\bsignedByB\n" +
 	"\n" +
 	"\b_ends_onB\x0f\n" +
 	"\r_document_urlB\r\n" +
 	"\v_created_byB\x15\n" +
-	"\x13_signature_provider\"\xcf\x03\n" +
+	"\x13_signature_providerB\f\n" +
+	"\n" +
+	"_signed_at\"\xcf\x03\n" +
 	"\rContractParty\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1f\n" +
@@ -2171,7 +2268,14 @@ const file_proto_vertraege_v1_vertraege_proto_rawDesc = "" +
 	"\x16ExportContractResponse\x12\x18\n" +
 	"\apayload\x18\x01 \x01(\fR\apayload\x12!\n" +
 	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x12\x1a\n" +
-	"\bfilename\x18\x03 \x01(\tR\bfilename2\xd7\t\n" +
+	"\bfilename\x18\x03 \x01(\tR\bfilename\"\xa0\x01\n" +
+	"\x1cSaveContractSignatureRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vcontract_id\x18\x02 \x01(\tR\n" +
+	"contractId\x12%\n" +
+	"\x0esignature_data\x18\x03 \x01(\tR\rsignatureData\x12\x1b\n" +
+	"\tsigned_by\x18\x04 \x01(\tR\bsignedBy2\xb4\n" +
+	"\n" +
 	"\x10VertraegeService\x12U\n" +
 	"\x0eCreateContract\x12#.vertraege.v1.CreateContractRequest\x1a\x1e.vertraege.v1.ContractResponse\x12U\n" +
 	"\x0eUpdateContract\x12#.vertraege.v1.UpdateContractRequest\x1a\x1e.vertraege.v1.ContractResponse\x12[\n" +
@@ -2186,7 +2290,8 @@ const file_proto_vertraege_v1_vertraege_proto_rawDesc = "" +
 	"\x0eDeleteReminder\x12#.vertraege.v1.DeleteReminderRequest\x1a$.vertraege.v1.DeleteReminderResponse\x12X\n" +
 	"\rListReminders\x12\".vertraege.v1.ListRemindersRequest\x1a#.vertraege.v1.ListRemindersResponse\x12[\n" +
 	"\x0eUploadDocument\x12#.vertraege.v1.UploadDocumentRequest\x1a$.vertraege.v1.UploadDocumentResponse\x12[\n" +
-	"\x0eExportContract\x12#.vertraege.v1.ExportContractRequest\x1a$.vertraege.v1.ExportContractResponseB9Z7github.com/kmuhub/kmuhub/proto/vertraege/v1;vertraegev1b\x06proto3"
+	"\x0eExportContract\x12#.vertraege.v1.ExportContractRequest\x1a$.vertraege.v1.ExportContractResponse\x12[\n" +
+	"\rSaveSignature\x12*.vertraege.v1.SaveContractSignatureRequest\x1a\x1e.vertraege.v1.ContractResponseB9Z7github.com/kmuhub/kmuhub/proto/vertraege/v1;vertraegev1b\x06proto3"
 
 var (
 	file_proto_vertraege_v1_vertraege_proto_rawDescOnce sync.Once
@@ -2200,100 +2305,104 @@ func file_proto_vertraege_v1_vertraege_proto_rawDescGZIP() []byte {
 	return file_proto_vertraege_v1_vertraege_proto_rawDescData
 }
 
-var file_proto_vertraege_v1_vertraege_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
+var file_proto_vertraege_v1_vertraege_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
 var file_proto_vertraege_v1_vertraege_proto_goTypes = []any{
-	(*Contract)(nil),               // 0: vertraege.v1.Contract
-	(*ContractParty)(nil),          // 1: vertraege.v1.ContractParty
-	(*ContractReminder)(nil),       // 2: vertraege.v1.ContractReminder
-	(*CreateContractRequest)(nil),  // 3: vertraege.v1.CreateContractRequest
-	(*UpdateContractRequest)(nil),  // 4: vertraege.v1.UpdateContractRequest
-	(*DeleteContractRequest)(nil),  // 5: vertraege.v1.DeleteContractRequest
-	(*DeleteContractResponse)(nil), // 6: vertraege.v1.DeleteContractResponse
-	(*GetContractRequest)(nil),     // 7: vertraege.v1.GetContractRequest
-	(*ContractResponse)(nil),       // 8: vertraege.v1.ContractResponse
-	(*ListContractsRequest)(nil),   // 9: vertraege.v1.ListContractsRequest
-	(*ListContractsResponse)(nil),  // 10: vertraege.v1.ListContractsResponse
-	(*AddPartyRequest)(nil),        // 11: vertraege.v1.AddPartyRequest
-	(*RemovePartyRequest)(nil),     // 12: vertraege.v1.RemovePartyRequest
-	(*RemovePartyResponse)(nil),    // 13: vertraege.v1.RemovePartyResponse
-	(*ListPartiesRequest)(nil),     // 14: vertraege.v1.ListPartiesRequest
-	(*PartyResponse)(nil),          // 15: vertraege.v1.PartyResponse
-	(*ListPartiesResponse)(nil),    // 16: vertraege.v1.ListPartiesResponse
-	(*CreateReminderRequest)(nil),  // 17: vertraege.v1.CreateReminderRequest
-	(*UpdateReminderRequest)(nil),  // 18: vertraege.v1.UpdateReminderRequest
-	(*DeleteReminderRequest)(nil),  // 19: vertraege.v1.DeleteReminderRequest
-	(*DeleteReminderResponse)(nil), // 20: vertraege.v1.DeleteReminderResponse
-	(*ListRemindersRequest)(nil),   // 21: vertraege.v1.ListRemindersRequest
-	(*ReminderResponse)(nil),       // 22: vertraege.v1.ReminderResponse
-	(*ListRemindersResponse)(nil),  // 23: vertraege.v1.ListRemindersResponse
-	(*UploadDocumentRequest)(nil),  // 24: vertraege.v1.UploadDocumentRequest
-	(*UploadDocumentResponse)(nil), // 25: vertraege.v1.UploadDocumentResponse
-	(*ExportContractRequest)(nil),  // 26: vertraege.v1.ExportContractRequest
-	(*ExportContractResponse)(nil), // 27: vertraege.v1.ExportContractResponse
-	(*timestamppb.Timestamp)(nil),  // 28: google.protobuf.Timestamp
+	(*Contract)(nil),                     // 0: vertraege.v1.Contract
+	(*ContractParty)(nil),                // 1: vertraege.v1.ContractParty
+	(*ContractReminder)(nil),             // 2: vertraege.v1.ContractReminder
+	(*CreateContractRequest)(nil),        // 3: vertraege.v1.CreateContractRequest
+	(*UpdateContractRequest)(nil),        // 4: vertraege.v1.UpdateContractRequest
+	(*DeleteContractRequest)(nil),        // 5: vertraege.v1.DeleteContractRequest
+	(*DeleteContractResponse)(nil),       // 6: vertraege.v1.DeleteContractResponse
+	(*GetContractRequest)(nil),           // 7: vertraege.v1.GetContractRequest
+	(*ContractResponse)(nil),             // 8: vertraege.v1.ContractResponse
+	(*ListContractsRequest)(nil),         // 9: vertraege.v1.ListContractsRequest
+	(*ListContractsResponse)(nil),        // 10: vertraege.v1.ListContractsResponse
+	(*AddPartyRequest)(nil),              // 11: vertraege.v1.AddPartyRequest
+	(*RemovePartyRequest)(nil),           // 12: vertraege.v1.RemovePartyRequest
+	(*RemovePartyResponse)(nil),          // 13: vertraege.v1.RemovePartyResponse
+	(*ListPartiesRequest)(nil),           // 14: vertraege.v1.ListPartiesRequest
+	(*PartyResponse)(nil),                // 15: vertraege.v1.PartyResponse
+	(*ListPartiesResponse)(nil),          // 16: vertraege.v1.ListPartiesResponse
+	(*CreateReminderRequest)(nil),        // 17: vertraege.v1.CreateReminderRequest
+	(*UpdateReminderRequest)(nil),        // 18: vertraege.v1.UpdateReminderRequest
+	(*DeleteReminderRequest)(nil),        // 19: vertraege.v1.DeleteReminderRequest
+	(*DeleteReminderResponse)(nil),       // 20: vertraege.v1.DeleteReminderResponse
+	(*ListRemindersRequest)(nil),         // 21: vertraege.v1.ListRemindersRequest
+	(*ReminderResponse)(nil),             // 22: vertraege.v1.ReminderResponse
+	(*ListRemindersResponse)(nil),        // 23: vertraege.v1.ListRemindersResponse
+	(*UploadDocumentRequest)(nil),        // 24: vertraege.v1.UploadDocumentRequest
+	(*UploadDocumentResponse)(nil),       // 25: vertraege.v1.UploadDocumentResponse
+	(*ExportContractRequest)(nil),        // 26: vertraege.v1.ExportContractRequest
+	(*ExportContractResponse)(nil),       // 27: vertraege.v1.ExportContractResponse
+	(*SaveContractSignatureRequest)(nil), // 28: vertraege.v1.SaveContractSignatureRequest
+	(*timestamppb.Timestamp)(nil),        // 29: google.protobuf.Timestamp
 }
 var file_proto_vertraege_v1_vertraege_proto_depIdxs = []int32{
-	28, // 0: vertraege.v1.Contract.starts_on:type_name -> google.protobuf.Timestamp
-	28, // 1: vertraege.v1.Contract.ends_on:type_name -> google.protobuf.Timestamp
-	28, // 2: vertraege.v1.Contract.created_at:type_name -> google.protobuf.Timestamp
-	28, // 3: vertraege.v1.Contract.updated_at:type_name -> google.protobuf.Timestamp
+	29, // 0: vertraege.v1.Contract.starts_on:type_name -> google.protobuf.Timestamp
+	29, // 1: vertraege.v1.Contract.ends_on:type_name -> google.protobuf.Timestamp
+	29, // 2: vertraege.v1.Contract.created_at:type_name -> google.protobuf.Timestamp
+	29, // 3: vertraege.v1.Contract.updated_at:type_name -> google.protobuf.Timestamp
 	1,  // 4: vertraege.v1.Contract.parties:type_name -> vertraege.v1.ContractParty
 	2,  // 5: vertraege.v1.Contract.reminders:type_name -> vertraege.v1.ContractReminder
-	28, // 6: vertraege.v1.ContractParty.signed_on:type_name -> google.protobuf.Timestamp
-	28, // 7: vertraege.v1.ContractParty.created_at:type_name -> google.protobuf.Timestamp
-	28, // 8: vertraege.v1.ContractReminder.remind_at:type_name -> google.protobuf.Timestamp
-	28, // 9: vertraege.v1.ContractReminder.created_at:type_name -> google.protobuf.Timestamp
-	28, // 10: vertraege.v1.ContractReminder.sent_at:type_name -> google.protobuf.Timestamp
-	28, // 11: vertraege.v1.CreateContractRequest.starts_on:type_name -> google.protobuf.Timestamp
-	28, // 12: vertraege.v1.CreateContractRequest.ends_on:type_name -> google.protobuf.Timestamp
-	28, // 13: vertraege.v1.UpdateContractRequest.starts_on:type_name -> google.protobuf.Timestamp
-	28, // 14: vertraege.v1.UpdateContractRequest.ends_on:type_name -> google.protobuf.Timestamp
-	0,  // 15: vertraege.v1.ContractResponse.contract:type_name -> vertraege.v1.Contract
-	28, // 16: vertraege.v1.ListContractsRequest.starts_after:type_name -> google.protobuf.Timestamp
-	28, // 17: vertraege.v1.ListContractsRequest.starts_before:type_name -> google.protobuf.Timestamp
-	28, // 18: vertraege.v1.ListContractsRequest.ends_after:type_name -> google.protobuf.Timestamp
-	28, // 19: vertraege.v1.ListContractsRequest.ends_before:type_name -> google.protobuf.Timestamp
-	0,  // 20: vertraege.v1.ListContractsResponse.contracts:type_name -> vertraege.v1.Contract
-	28, // 21: vertraege.v1.AddPartyRequest.signed_on:type_name -> google.protobuf.Timestamp
-	1,  // 22: vertraege.v1.PartyResponse.party:type_name -> vertraege.v1.ContractParty
-	1,  // 23: vertraege.v1.ListPartiesResponse.parties:type_name -> vertraege.v1.ContractParty
-	28, // 24: vertraege.v1.CreateReminderRequest.remind_at:type_name -> google.protobuf.Timestamp
-	28, // 25: vertraege.v1.UpdateReminderRequest.remind_at:type_name -> google.protobuf.Timestamp
-	2,  // 26: vertraege.v1.ReminderResponse.reminder:type_name -> vertraege.v1.ContractReminder
-	2,  // 27: vertraege.v1.ListRemindersResponse.reminders:type_name -> vertraege.v1.ContractReminder
-	3,  // 28: vertraege.v1.VertraegeService.CreateContract:input_type -> vertraege.v1.CreateContractRequest
-	4,  // 29: vertraege.v1.VertraegeService.UpdateContract:input_type -> vertraege.v1.UpdateContractRequest
-	5,  // 30: vertraege.v1.VertraegeService.DeleteContract:input_type -> vertraege.v1.DeleteContractRequest
-	7,  // 31: vertraege.v1.VertraegeService.GetContract:input_type -> vertraege.v1.GetContractRequest
-	9,  // 32: vertraege.v1.VertraegeService.ListContracts:input_type -> vertraege.v1.ListContractsRequest
-	11, // 33: vertraege.v1.VertraegeService.AddParty:input_type -> vertraege.v1.AddPartyRequest
-	12, // 34: vertraege.v1.VertraegeService.RemoveParty:input_type -> vertraege.v1.RemovePartyRequest
-	14, // 35: vertraege.v1.VertraegeService.ListParties:input_type -> vertraege.v1.ListPartiesRequest
-	17, // 36: vertraege.v1.VertraegeService.CreateReminder:input_type -> vertraege.v1.CreateReminderRequest
-	18, // 37: vertraege.v1.VertraegeService.UpdateReminder:input_type -> vertraege.v1.UpdateReminderRequest
-	19, // 38: vertraege.v1.VertraegeService.DeleteReminder:input_type -> vertraege.v1.DeleteReminderRequest
-	21, // 39: vertraege.v1.VertraegeService.ListReminders:input_type -> vertraege.v1.ListRemindersRequest
-	24, // 40: vertraege.v1.VertraegeService.UploadDocument:input_type -> vertraege.v1.UploadDocumentRequest
-	26, // 41: vertraege.v1.VertraegeService.ExportContract:input_type -> vertraege.v1.ExportContractRequest
-	8,  // 42: vertraege.v1.VertraegeService.CreateContract:output_type -> vertraege.v1.ContractResponse
-	8,  // 43: vertraege.v1.VertraegeService.UpdateContract:output_type -> vertraege.v1.ContractResponse
-	6,  // 44: vertraege.v1.VertraegeService.DeleteContract:output_type -> vertraege.v1.DeleteContractResponse
-	8,  // 45: vertraege.v1.VertraegeService.GetContract:output_type -> vertraege.v1.ContractResponse
-	10, // 46: vertraege.v1.VertraegeService.ListContracts:output_type -> vertraege.v1.ListContractsResponse
-	15, // 47: vertraege.v1.VertraegeService.AddParty:output_type -> vertraege.v1.PartyResponse
-	13, // 48: vertraege.v1.VertraegeService.RemoveParty:output_type -> vertraege.v1.RemovePartyResponse
-	16, // 49: vertraege.v1.VertraegeService.ListParties:output_type -> vertraege.v1.ListPartiesResponse
-	22, // 50: vertraege.v1.VertraegeService.CreateReminder:output_type -> vertraege.v1.ReminderResponse
-	22, // 51: vertraege.v1.VertraegeService.UpdateReminder:output_type -> vertraege.v1.ReminderResponse
-	20, // 52: vertraege.v1.VertraegeService.DeleteReminder:output_type -> vertraege.v1.DeleteReminderResponse
-	23, // 53: vertraege.v1.VertraegeService.ListReminders:output_type -> vertraege.v1.ListRemindersResponse
-	25, // 54: vertraege.v1.VertraegeService.UploadDocument:output_type -> vertraege.v1.UploadDocumentResponse
-	27, // 55: vertraege.v1.VertraegeService.ExportContract:output_type -> vertraege.v1.ExportContractResponse
-	42, // [42:56] is the sub-list for method output_type
-	28, // [28:42] is the sub-list for method input_type
-	28, // [28:28] is the sub-list for extension type_name
-	28, // [28:28] is the sub-list for extension extendee
-	0,  // [0:28] is the sub-list for field type_name
+	29, // 6: vertraege.v1.Contract.signed_at:type_name -> google.protobuf.Timestamp
+	29, // 7: vertraege.v1.ContractParty.signed_on:type_name -> google.protobuf.Timestamp
+	29, // 8: vertraege.v1.ContractParty.created_at:type_name -> google.protobuf.Timestamp
+	29, // 9: vertraege.v1.ContractReminder.remind_at:type_name -> google.protobuf.Timestamp
+	29, // 10: vertraege.v1.ContractReminder.created_at:type_name -> google.protobuf.Timestamp
+	29, // 11: vertraege.v1.ContractReminder.sent_at:type_name -> google.protobuf.Timestamp
+	29, // 12: vertraege.v1.CreateContractRequest.starts_on:type_name -> google.protobuf.Timestamp
+	29, // 13: vertraege.v1.CreateContractRequest.ends_on:type_name -> google.protobuf.Timestamp
+	29, // 14: vertraege.v1.UpdateContractRequest.starts_on:type_name -> google.protobuf.Timestamp
+	29, // 15: vertraege.v1.UpdateContractRequest.ends_on:type_name -> google.protobuf.Timestamp
+	0,  // 16: vertraege.v1.ContractResponse.contract:type_name -> vertraege.v1.Contract
+	29, // 17: vertraege.v1.ListContractsRequest.starts_after:type_name -> google.protobuf.Timestamp
+	29, // 18: vertraege.v1.ListContractsRequest.starts_before:type_name -> google.protobuf.Timestamp
+	29, // 19: vertraege.v1.ListContractsRequest.ends_after:type_name -> google.protobuf.Timestamp
+	29, // 20: vertraege.v1.ListContractsRequest.ends_before:type_name -> google.protobuf.Timestamp
+	0,  // 21: vertraege.v1.ListContractsResponse.contracts:type_name -> vertraege.v1.Contract
+	29, // 22: vertraege.v1.AddPartyRequest.signed_on:type_name -> google.protobuf.Timestamp
+	1,  // 23: vertraege.v1.PartyResponse.party:type_name -> vertraege.v1.ContractParty
+	1,  // 24: vertraege.v1.ListPartiesResponse.parties:type_name -> vertraege.v1.ContractParty
+	29, // 25: vertraege.v1.CreateReminderRequest.remind_at:type_name -> google.protobuf.Timestamp
+	29, // 26: vertraege.v1.UpdateReminderRequest.remind_at:type_name -> google.protobuf.Timestamp
+	2,  // 27: vertraege.v1.ReminderResponse.reminder:type_name -> vertraege.v1.ContractReminder
+	2,  // 28: vertraege.v1.ListRemindersResponse.reminders:type_name -> vertraege.v1.ContractReminder
+	3,  // 29: vertraege.v1.VertraegeService.CreateContract:input_type -> vertraege.v1.CreateContractRequest
+	4,  // 30: vertraege.v1.VertraegeService.UpdateContract:input_type -> vertraege.v1.UpdateContractRequest
+	5,  // 31: vertraege.v1.VertraegeService.DeleteContract:input_type -> vertraege.v1.DeleteContractRequest
+	7,  // 32: vertraege.v1.VertraegeService.GetContract:input_type -> vertraege.v1.GetContractRequest
+	9,  // 33: vertraege.v1.VertraegeService.ListContracts:input_type -> vertraege.v1.ListContractsRequest
+	11, // 34: vertraege.v1.VertraegeService.AddParty:input_type -> vertraege.v1.AddPartyRequest
+	12, // 35: vertraege.v1.VertraegeService.RemoveParty:input_type -> vertraege.v1.RemovePartyRequest
+	14, // 36: vertraege.v1.VertraegeService.ListParties:input_type -> vertraege.v1.ListPartiesRequest
+	17, // 37: vertraege.v1.VertraegeService.CreateReminder:input_type -> vertraege.v1.CreateReminderRequest
+	18, // 38: vertraege.v1.VertraegeService.UpdateReminder:input_type -> vertraege.v1.UpdateReminderRequest
+	19, // 39: vertraege.v1.VertraegeService.DeleteReminder:input_type -> vertraege.v1.DeleteReminderRequest
+	21, // 40: vertraege.v1.VertraegeService.ListReminders:input_type -> vertraege.v1.ListRemindersRequest
+	24, // 41: vertraege.v1.VertraegeService.UploadDocument:input_type -> vertraege.v1.UploadDocumentRequest
+	26, // 42: vertraege.v1.VertraegeService.ExportContract:input_type -> vertraege.v1.ExportContractRequest
+	28, // 43: vertraege.v1.VertraegeService.SaveSignature:input_type -> vertraege.v1.SaveContractSignatureRequest
+	8,  // 44: vertraege.v1.VertraegeService.CreateContract:output_type -> vertraege.v1.ContractResponse
+	8,  // 45: vertraege.v1.VertraegeService.UpdateContract:output_type -> vertraege.v1.ContractResponse
+	6,  // 46: vertraege.v1.VertraegeService.DeleteContract:output_type -> vertraege.v1.DeleteContractResponse
+	8,  // 47: vertraege.v1.VertraegeService.GetContract:output_type -> vertraege.v1.ContractResponse
+	10, // 48: vertraege.v1.VertraegeService.ListContracts:output_type -> vertraege.v1.ListContractsResponse
+	15, // 49: vertraege.v1.VertraegeService.AddParty:output_type -> vertraege.v1.PartyResponse
+	13, // 50: vertraege.v1.VertraegeService.RemoveParty:output_type -> vertraege.v1.RemovePartyResponse
+	16, // 51: vertraege.v1.VertraegeService.ListParties:output_type -> vertraege.v1.ListPartiesResponse
+	22, // 52: vertraege.v1.VertraegeService.CreateReminder:output_type -> vertraege.v1.ReminderResponse
+	22, // 53: vertraege.v1.VertraegeService.UpdateReminder:output_type -> vertraege.v1.ReminderResponse
+	20, // 54: vertraege.v1.VertraegeService.DeleteReminder:output_type -> vertraege.v1.DeleteReminderResponse
+	23, // 55: vertraege.v1.VertraegeService.ListReminders:output_type -> vertraege.v1.ListRemindersResponse
+	25, // 56: vertraege.v1.VertraegeService.UploadDocument:output_type -> vertraege.v1.UploadDocumentResponse
+	27, // 57: vertraege.v1.VertraegeService.ExportContract:output_type -> vertraege.v1.ExportContractResponse
+	8,  // 58: vertraege.v1.VertraegeService.SaveSignature:output_type -> vertraege.v1.ContractResponse
+	44, // [44:59] is the sub-list for method output_type
+	29, // [29:44] is the sub-list for method input_type
+	29, // [29:29] is the sub-list for extension type_name
+	29, // [29:29] is the sub-list for extension extendee
+	0,  // [0:29] is the sub-list for field type_name
 }
 
 func init() { file_proto_vertraege_v1_vertraege_proto_init() }
@@ -2315,7 +2424,7 @@ func file_proto_vertraege_v1_vertraege_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_vertraege_v1_vertraege_proto_rawDesc), len(file_proto_vertraege_v1_vertraege_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   28,
+			NumMessages:   29,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

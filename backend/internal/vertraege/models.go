@@ -57,20 +57,23 @@ const (
 
 // Contract is the central aggregate for a Vertrag (contract).
 type Contract struct {
-	ID                 uuid.UUID      `json:"id"`
-	TenantID           uuid.UUID      `json:"tenant_id"`
-	ContractNumber     string         `json:"contract_number"`
-	Title              string         `json:"title"`
-	ContractType       ContractType   `json:"contract_type"`
-	Status             ContractStatus `json:"status"`
-	StartsOn           time.Time      `json:"starts_on"`
-	EndsOn             *time.Time     `json:"ends_on,omitempty"`   // nil = open-ended
-	DocumentURL        *string        `json:"document_url,omitempty"` // MinIO path
-	Notes              string         `json:"notes"`
-	CreatedBy          *uuid.UUID     `json:"created_by,omitempty"`
-	SignatureProvider  *string        `json:"signature_provider,omitempty"` // Phase D: Skribble
-	CreatedAt          time.Time      `json:"created_at"`
-	UpdatedAt          time.Time      `json:"updated_at"`
+	ID                uuid.UUID      `json:"id"`
+	TenantID          uuid.UUID      `json:"tenant_id"`
+	ContractNumber    string         `json:"contract_number"`
+	Title             string         `json:"title"`
+	ContractType      ContractType   `json:"contract_type"`
+	Status            ContractStatus `json:"status"`
+	StartsOn          time.Time      `json:"starts_on"`
+	EndsOn            *time.Time     `json:"ends_on,omitempty"`          // nil = open-ended
+	DocumentURL       *string        `json:"document_url,omitempty"`     // MinIO path
+	Notes             string         `json:"notes"`
+	CreatedBy         *uuid.UUID     `json:"created_by,omitempty"`
+	SignatureProvider *string        `json:"signature_provider,omitempty"` // Phase D: Skribble
+	SignatureData     *string        `json:"signature_data,omitempty"`     // EES inline: base64 PNG or SVG
+	SignedAt          *time.Time     `json:"signed_at,omitempty"`
+	SignedBy          *string        `json:"signed_by,omitempty"`
+	CreatedAt         time.Time      `json:"created_at"`
+	UpdatedAt         time.Time      `json:"updated_at"`
 
 	// Populated only when GetContract is called
 	Parties   []*ContractParty    `json:"parties,omitempty"`

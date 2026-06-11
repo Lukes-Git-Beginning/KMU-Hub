@@ -74,6 +74,9 @@ func (vr *VermietungRoutes) RegisterRoutes(r chi.Router, authMiddleware func(htt
 				r.With(middleware.RequirePermission("vermietung:rental", "write")).Post("/start", vr.HandleStartRental)
 				r.With(middleware.RequirePermission("vermietung:rental", "write")).Post("/end", vr.HandleEndRental)
 
+				// Signature
+				r.With(middleware.RequirePermission("vermietung:rental", "write")).Put("/signature", vr.HandleSaveRentalSignature)
+
 				// Inspections scoped to a rental
 				r.Route("/inspections", func(r chi.Router) {
 					r.With(middleware.RequirePermission("vermietung:inspection", "read")).Get("/", vr.HandleListInspections)
@@ -139,6 +142,11 @@ type updateRentalRequest struct {
 	TotalPrice  *float64 `json:"total_price,omitempty"`
 	DepositPaid *bool    `json:"deposit_paid,omitempty"`
 	Notes       *string  `json:"notes,omitempty"`
+}
+
+type saveRentalSignatureRequest struct {
+	SignatureData string `json:"signature_data" validate:"required"`
+	SignedBy      string `json:"signed_by"      validate:"required"`
 }
 
 type createInspectionRequest struct {
@@ -647,6 +655,45 @@ func (vr *VermietungRoutes) HandleEndRental(w http.ResponseWriter, r *http.Reque
 	resp, err := client.EndRental(r.Context(), &vermietungv1.EndRentalRequest{
 		TenantId: tenantID.String(),
 		RentalId: id,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Signature Handler
+// ============================================================================
+
+func (vr *VermietungRoutes) HandleSaveRentalSignature(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := vr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, vr.ServiceName())
+		return
+	}
+
+	rentalID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[saveRentalSignatureRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.SaveSignature(r.Context(), &vermietungv1.SaveRentalSignatureRequest{
+		TenantId:      tenantID.String(),
+		RentalId:      rentalID,
+		SignatureData: req.SignatureData,
+		SignedBy:      req.SignedBy,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

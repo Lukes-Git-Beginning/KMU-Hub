@@ -218,6 +218,20 @@ func (m *mockRepository) GetReportStatsCounts(_ context.Context, tenantID uuid.U
 	return counts, nil
 }
 
+func (m *mockRepository) SaveSignature(_ context.Context, tenantID, reportID uuid.UUID, signatureData, signedBy string) (*WorkReport, error) {
+	rep, ok := m.reports[reportID]
+	if !ok || rep.TenantID != tenantID || rep.DeletedAt != nil {
+		return nil, ErrReportNotFound
+	}
+	now := time.Now()
+	rep.SignatureData = &signatureData
+	rep.SignedAt = &now
+	rep.SignedBy = &signedBy
+	rep.UpdatedAt = now
+	m.reports[reportID] = rep
+	return rep, nil
+}
+
 // compile-time interface check
 var _ Repository = (*mockRepository)(nil)
 

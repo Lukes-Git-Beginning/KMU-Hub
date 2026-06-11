@@ -2,6 +2,7 @@ package rapporte
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -578,6 +579,43 @@ func (s *Service) ListPendingApprovals(ctx context.Context, tenantID uuid.UUID, 
 		Page:     page,
 		PageSize: pageSize,
 	})
+}
+
+// ============================================================================
+// Signature methods
+// ============================================================================
+
+// SaveSignature stores a customer signature on a report.
+// signatureData must be a PNG or SVG data URL, capped at 1 MB.
+// signedBy is a free-text identifier (e.g. customer name or user ID string).
+func (s *Service) SaveSignature(ctx context.Context, tenantID, reportID uuid.UUID, signatureData, signedBy string) (*WorkReport, error) {
+	if tenantID == uuid.Nil || reportID == uuid.Nil {
+		return nil, errors.New("tenantID and reportID are required")
+	}
+	if signatureData == "" {
+		return nil, errors.New("signature_data is required")
+	}
+	if !strings.HasPrefix(signatureData, "data:image/png;base64,") && !strings.HasPrefix(signatureData, "data:image/svg+xml;base64,") {
+		return nil, errors.New("signature_data must be a valid data URL (data:image/png;base64,... or data:image/svg+xml;base64,...)")
+	}
+	if len(signatureData) > 1_048_576 { // 1 MB
+		return nil, errors.New("signature_data exceeds maximum size of 1 MB")
+	}
+	if signedBy == "" {
+		return nil, errors.New("signed_by is required")
+	}
+
+	report, err := s.repo.SaveSignature(ctx, tenantID, reportID, signatureData, signedBy)
+	if err != nil {
+		return nil, fmt.Errorf("save signature: %w", err)
+	}
+
+	slog.Info("report signature saved",
+		"report_id", reportID,
+		"tenant_id", tenantID,
+		"signed_by", signedBy,
+	)
+	return report, nil
 }
 
 // ExportPDF generates a stub PDF for a report with a customer-signature placeholder.

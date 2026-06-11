@@ -43,19 +43,22 @@ type RentalObject struct {
 
 // Rental represents a booking of a RentalObject for a date range.
 type Rental struct {
-	ID          uuid.UUID    `json:"id"`
-	TenantID    uuid.UUID    `json:"tenant_id"`
-	ObjectID    uuid.UUID    `json:"object_id"`
-	ContactID   *uuid.UUID   `json:"contact_id,omitempty"`
-	RenterName  string       `json:"renter_name"`
-	StartDate   time.Time    `json:"start_date"`
-	EndDate     time.Time    `json:"end_date"`
-	Status      RentalStatus `json:"status"`
-	TotalPrice  float64      `json:"total_price"`
-	DepositPaid bool         `json:"deposit_paid"`
-	Notes       *string      `json:"notes,omitempty"`
-	CreatedAt   time.Time    `json:"created_at"`
-	UpdatedAt   time.Time    `json:"updated_at"`
+	ID            uuid.UUID    `json:"id"`
+	TenantID      uuid.UUID    `json:"tenant_id"`
+	ObjectID      uuid.UUID    `json:"object_id"`
+	ContactID     *uuid.UUID   `json:"contact_id,omitempty"`
+	RenterName    string       `json:"renter_name"`
+	StartDate     time.Time    `json:"start_date"`
+	EndDate       time.Time    `json:"end_date"`
+	Status        RentalStatus `json:"status"`
+	TotalPrice    float64      `json:"total_price"`
+	DepositPaid   bool         `json:"deposit_paid"`
+	Notes         *string      `json:"notes,omitempty"`
+	SignatureData *string      `json:"signature_data,omitempty"`
+	SignedAt      *time.Time   `json:"signed_at,omitempty"`
+	SignedBy      *string      `json:"signed_by,omitempty"`
+	CreatedAt     time.Time    `json:"created_at"`
+	UpdatedAt     time.Time    `json:"updated_at"`
 }
 
 // RentalInspection records the condition of a rental object at handover or return.

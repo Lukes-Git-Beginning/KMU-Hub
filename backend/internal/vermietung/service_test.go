@@ -237,6 +237,28 @@ func (m *mockRepository) GetInspectionByKind(ctx context.Context, tenantID, rent
 	return nil, ErrInspectionNotFound
 }
 
+func (m *mockRepository) SaveSignature(ctx context.Context, tenantID, rentalID, signatureData, signedBy string) (*Rental, error) {
+	rentalUUID, err := uuid.Parse(rentalID)
+	if err != nil {
+		return nil, ErrRentalNotFound
+	}
+	tenantUUID, err := uuid.Parse(tenantID)
+	if err != nil {
+		return nil, ErrRentalNotFound
+	}
+	r, ok := m.rentals[rentalUUID]
+	if !ok || r.TenantID != tenantUUID {
+		return nil, ErrRentalNotFound
+	}
+	now := time.Now()
+	r.SignatureData = &signatureData
+	r.SignedAt = &now
+	r.SignedBy = &signedBy
+	r.UpdatedAt = now
+	m.rentals[rentalUUID] = r
+	return r, nil
+}
+
 // compile-time interface check
 var _ Repository = (*mockRepository)(nil)
 

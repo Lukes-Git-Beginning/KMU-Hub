@@ -22,6 +22,25 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{pool: pool}
 }
 
+// SaveSignature updates a contract's inline EES signature fields and returns the updated record.
+// Returns ErrContractNotFound when no contract with the given id+tenant_id exists.
+func (r *PostgresRepository) SaveSignature(ctx context.Context, tenantID, contractID, signatureData, signedBy string) (*Contract, error) {
+	c, err := r.scanContract(r.pool.QueryRow(ctx, `
+		UPDATE contracts
+		SET signature_data = $3, signed_at = NOW(), signed_by = $4, updated_at = NOW()
+		WHERE id = $1 AND tenant_id = $2
+		RETURNING id, tenant_id, contract_number, title, contract_type, status,
+		          starts_on, ends_on, document_url, notes, created_by, signature_provider,
+		          signature_data, signed_at, signed_by,
+		          created_at, updated_at`,
+		contractID, tenantID, signatureData, signedBy,
+	))
+	if err != nil {
+		return nil, err // scanContract already wraps ErrContractNotFound / fmt.Errorf
+	}
+	return c, nil
+}
+
 // compile-time interface check
 var _ Repository = (*PostgresRepository)(nil)
 
@@ -34,10 +53,12 @@ func (r *PostgresRepository) CreateContract(ctx context.Context, c *Contract) er
 		INSERT INTO contracts
 		    (id, tenant_id, contract_number, title, contract_type, status,
 		     starts_on, ends_on, document_url, notes, created_by, signature_provider,
+		     signature_data, signed_at, signed_by,
 		     created_at, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
 		c.ID, c.TenantID, c.ContractNumber, c.Title, c.ContractType, c.Status,
 		c.StartsOn, c.EndsOn, c.DocumentURL, c.Notes, c.CreatedBy, c.SignatureProvider,
+		c.SignatureData, c.SignedAt, c.SignedBy,
 		c.CreatedAt, c.UpdatedAt,
 	)
 	return err
@@ -60,6 +81,7 @@ func (r *PostgresRepository) GetContract(ctx context.Context, tenantID, contract
 	c, err := r.scanContract(r.pool.QueryRow(ctx, `
 		SELECT id, tenant_id, contract_number, title, contract_type, status,
 		       starts_on, ends_on, document_url, notes, created_by, signature_provider,
+		       signature_data, signed_at, signed_by,
 		       created_at, updated_at
 		FROM contracts
 		WHERE id=$1 AND tenant_id=$2`,
@@ -142,6 +164,7 @@ func (r *PostgresRepository) ListContracts(ctx context.Context, tenantID uuid.UU
 	query := fmt.Sprintf(`
 		SELECT id, tenant_id, contract_number, title, contract_type, status,
 		       starts_on, ends_on, document_url, notes, created_by, signature_provider,
+		       signature_data, signed_at, signed_by,
 		       created_at, updated_at
 		FROM contracts %s
 		ORDER BY created_at DESC
@@ -375,6 +398,7 @@ func (r *PostgresRepository) scanContract(row pgx.Row) (*Contract, error) {
 	err := row.Scan(
 		&c.ID, &c.TenantID, &c.ContractNumber, &c.Title, &c.ContractType, &c.Status,
 		&c.StartsOn, &c.EndsOn, &c.DocumentURL, &c.Notes, &c.CreatedBy, &c.SignatureProvider,
+		&c.SignatureData, &c.SignedAt, &c.SignedBy,
 		&c.CreatedAt, &c.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -391,6 +415,7 @@ func (r *PostgresRepository) scanContractFromRows(rows pgx.Rows) (*Contract, err
 	err := rows.Scan(
 		&c.ID, &c.TenantID, &c.ContractNumber, &c.Title, &c.ContractType, &c.Status,
 		&c.StartsOn, &c.EndsOn, &c.DocumentURL, &c.Notes, &c.CreatedBy, &c.SignatureProvider,
+		&c.SignatureData, &c.SignedAt, &c.SignedBy,
 		&c.CreatedAt, &c.UpdatedAt,
 	)
 	if err != nil {

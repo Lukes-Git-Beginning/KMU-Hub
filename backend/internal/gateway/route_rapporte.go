@@ -53,6 +53,9 @@ func (rr *RapporteRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 			r.With(middleware.RequirePermission("rapporte:report", "write")).Patch("/", rr.HandleUpdateReport)
 			r.With(middleware.RequirePermission("rapporte:report", "write")).Delete("/", rr.HandleDeleteReport)
 
+			// Signature
+			r.With(middleware.RequirePermission("rapporte:report", "write")).Put("/signature", rr.HandleSaveReportSignature)
+
 			// State transitions
 			r.With(middleware.RequirePermission("rapporte:report", "write")).Post("/submit", rr.HandleSubmitReport)
 			// Bug #3: approve/reject require dedicated "approve" action, not generic "write"
@@ -128,6 +131,11 @@ type updateLineRequest struct {
 	Unit        *string  `json:"unit,omitempty"`
 	Notes       *string  `json:"notes,omitempty"`
 	Position    *int32   `json:"position,omitempty"`
+}
+
+type saveReportSignatureRequest struct {
+	SignatureData string `json:"signature_data" validate:"required"`
+	SignedBy      string `json:"signed_by"      validate:"required"`
 }
 
 type rapporteUploadAttachmentRequest struct {
@@ -658,6 +666,45 @@ func (rr *RapporteRoutes) HandleDeleteAttachment(w http.ResponseWriter, r *http.
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// ============================================================================
+// Signature Handler
+// ============================================================================
+
+func (rr *RapporteRoutes) HandleSaveReportSignature(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := rr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, rr.ServiceName())
+		return
+	}
+
+	reportID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[saveReportSignatureRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.SaveSignature(r.Context(), &rapportev1.SaveReportSignatureRequest{
+		TenantId:      tenantID.String(),
+		ReportId:      reportID,
+		SignatureData: req.SignatureData,
+		SignedBy:      req.SignedBy,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
 }
 
 // ============================================================================

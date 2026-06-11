@@ -206,13 +206,16 @@ func (r *PostgresRepository) GetRental(ctx context.Context, tenantID, rentalID u
 	var rental Rental
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, object_id, contact_id, renter_name, start_date, end_date,
-		        status, total_price, deposit_paid, notes, created_at, updated_at
+		        status, total_price, deposit_paid, notes,
+		        signature_data, signed_at, signed_by,
+		        created_at, updated_at
 		 FROM rentals WHERE id = $1 AND tenant_id = $2`,
 		rentalID, tenantID,
 	).Scan(
 		&rental.ID, &rental.TenantID, &rental.ObjectID, &rental.ContactID, &rental.RenterName,
 		&rental.StartDate, &rental.EndDate, &rental.Status, &rental.TotalPrice, &rental.DepositPaid,
-		&rental.Notes, &rental.CreatedAt, &rental.UpdatedAt,
+		&rental.Notes, &rental.SignatureData, &rental.SignedAt, &rental.SignedBy,
+		&rental.CreatedAt, &rental.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrRentalNotFound
@@ -265,7 +268,9 @@ func (r *PostgresRepository) ListRentals(ctx context.Context, tenantID uuid.UUID
 
 	query := fmt.Sprintf(`
 		SELECT id, tenant_id, object_id, contact_id, renter_name, start_date, end_date,
-		       status, total_price, deposit_paid, notes, created_at, updated_at
+		       status, total_price, deposit_paid, notes,
+		       signature_data, signed_at, signed_by,
+		       created_at, updated_at
 		FROM rentals %s
 		ORDER BY start_date ASC
 		LIMIT $%d OFFSET $%d
@@ -452,7 +457,8 @@ func (r *PostgresRepository) scanRentalFromRows(rows pgx.Rows) (*Rental, error) 
 	err := rows.Scan(
 		&rental.ID, &rental.TenantID, &rental.ObjectID, &rental.ContactID, &rental.RenterName,
 		&rental.StartDate, &rental.EndDate, &rental.Status, &rental.TotalPrice, &rental.DepositPaid,
-		&rental.Notes, &rental.CreatedAt, &rental.UpdatedAt,
+		&rental.Notes, &rental.SignatureData, &rental.SignedAt, &rental.SignedBy,
+		&rental.CreatedAt, &rental.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("scan rental row: %w", err)
@@ -470,6 +476,34 @@ func (r *PostgresRepository) scanInspectionFromRows(rows pgx.Rows) (*RentalInspe
 		return nil, fmt.Errorf("scan rental inspection row: %w", err)
 	}
 	return &ins, nil
+}
+
+// SaveSignature updates a rental's signature fields and returns the updated record.
+// Returns ErrRentalNotFound when no rental with the given id+tenant_id exists.
+func (r *PostgresRepository) SaveSignature(ctx context.Context, tenantID, rentalID, signatureData, signedBy string) (*Rental, error) {
+	var rental Rental
+	err := r.pool.QueryRow(ctx,
+		`UPDATE rentals
+		 SET signature_data = $3, signed_at = NOW(), signed_by = $4, updated_at = NOW()
+		 WHERE id = $1 AND tenant_id = $2
+		 RETURNING id, tenant_id, object_id, contact_id, renter_name, start_date, end_date,
+		           status, total_price, deposit_paid, notes,
+		           signature_data, signed_at, signed_by,
+		           created_at, updated_at`,
+		rentalID, tenantID, signatureData, signedBy,
+	).Scan(
+		&rental.ID, &rental.TenantID, &rental.ObjectID, &rental.ContactID, &rental.RenterName,
+		&rental.StartDate, &rental.EndDate, &rental.Status, &rental.TotalPrice, &rental.DepositPaid,
+		&rental.Notes, &rental.SignatureData, &rental.SignedAt, &rental.SignedBy,
+		&rental.CreatedAt, &rental.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrRentalNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("save rental signature: %w", err)
+	}
+	return &rental, nil
 }
 
 // compile-time interface check

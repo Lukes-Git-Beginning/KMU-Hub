@@ -75,13 +75,17 @@ func (r *PostgresRepository) GetReport(ctx context.Context, tenantID, reportID u
 	var rep WorkReport
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, title, description, status, author_id, reviewer_id,
-		        reviewed_at, review_note, lat, lon, report_date, created_at, updated_at, deleted_at
+		        reviewed_at, review_note, lat, lon, report_date,
+		        signature_data, signed_at, signed_by,
+		        created_at, updated_at, deleted_at
 		 FROM work_reports WHERE id=$1 AND tenant_id=$2 AND deleted_at IS NULL`,
 		reportID, tenantID,
 	).Scan(
 		&rep.ID, &rep.TenantID, &rep.Title, &rep.Description, &rep.Status,
 		&rep.AuthorID, &rep.ReviewerID, &rep.ReviewedAt, &rep.ReviewNote,
-		&rep.Lat, &rep.Lon, &rep.ReportDate, &rep.CreatedAt, &rep.UpdatedAt, &rep.DeletedAt,
+		&rep.Lat, &rep.Lon, &rep.ReportDate,
+		&rep.SignatureData, &rep.SignedAt, &rep.SignedBy,
+		&rep.CreatedAt, &rep.UpdatedAt, &rep.DeletedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrReportNotFound
@@ -132,7 +136,9 @@ func (r *PostgresRepository) ListReports(ctx context.Context, tenantID uuid.UUID
 
 	query := fmt.Sprintf(`
 		SELECT id, tenant_id, title, description, status, author_id, reviewer_id,
-		       reviewed_at, review_note, lat, lon, report_date, created_at, updated_at, deleted_at
+		       reviewed_at, review_note, lat, lon, report_date,
+		       signature_data, signed_at, signed_by,
+		       created_at, updated_at, deleted_at
 		FROM work_reports %s
 		ORDER BY report_date DESC, created_at DESC
 		LIMIT $%d OFFSET $%d
@@ -410,10 +416,41 @@ func (r *PostgresRepository) scanReportFromRows(rows pgx.Rows) (*WorkReport, err
 	err := rows.Scan(
 		&rep.ID, &rep.TenantID, &rep.Title, &rep.Description, &rep.Status,
 		&rep.AuthorID, &rep.ReviewerID, &rep.ReviewedAt, &rep.ReviewNote,
-		&rep.Lat, &rep.Lon, &rep.ReportDate, &rep.CreatedAt, &rep.UpdatedAt, &rep.DeletedAt,
+		&rep.Lat, &rep.Lon, &rep.ReportDate,
+		&rep.SignatureData, &rep.SignedAt, &rep.SignedBy,
+		&rep.CreatedAt, &rep.UpdatedAt, &rep.DeletedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("scan work report row: %w", err)
+	}
+	return &rep, nil
+}
+
+// SaveSignature writes signature_data, signed_at and signed_by atomically.
+// Returns ErrReportNotFound when no live report with (id, tenant_id) exists.
+func (r *PostgresRepository) SaveSignature(ctx context.Context, tenantID, reportID uuid.UUID, signatureData, signedBy string) (*WorkReport, error) {
+	var rep WorkReport
+	err := r.pool.QueryRow(ctx, `
+		UPDATE work_reports
+		SET signature_data=$3, signed_at=NOW(), signed_by=$4, updated_at=NOW()
+		WHERE id=$1 AND tenant_id=$2 AND deleted_at IS NULL
+		RETURNING id, tenant_id, title, description, status, author_id, reviewer_id,
+		          reviewed_at, review_note, lat, lon, report_date,
+		          signature_data, signed_at, signed_by,
+		          created_at, updated_at, deleted_at`,
+		reportID, tenantID, signatureData, signedBy,
+	).Scan(
+		&rep.ID, &rep.TenantID, &rep.Title, &rep.Description, &rep.Status,
+		&rep.AuthorID, &rep.ReviewerID, &rep.ReviewedAt, &rep.ReviewNote,
+		&rep.Lat, &rep.Lon, &rep.ReportDate,
+		&rep.SignatureData, &rep.SignedAt, &rep.SignedBy,
+		&rep.CreatedAt, &rep.UpdatedAt, &rep.DeletedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrReportNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("save signature: %w", err)
 	}
 	return &rep, nil
 }

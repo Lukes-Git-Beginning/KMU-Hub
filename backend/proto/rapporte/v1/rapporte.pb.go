@@ -38,6 +38,9 @@ type WorkReport struct {
 	ReportDate    string                 `protobuf:"bytes,12,opt,name=report_date,json=reportDate,proto3" json:"report_date,omitempty"` // YYYY-MM-DD
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	SignatureData string                 `protobuf:"bytes,15,opt,name=signature_data,json=signatureData,proto3" json:"signature_data,omitempty"` // data:image/png;base64,... or data:image/svg+xml;base64,...
+	SignedAt      *timestamppb.Timestamp `protobuf:"bytes,16,opt,name=signed_at,json=signedAt,proto3,oneof" json:"signed_at,omitempty"`
+	SignedBy      string                 `protobuf:"bytes,17,opt,name=signed_by,json=signedBy,proto3" json:"signed_by,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -168,6 +171,27 @@ func (x *WorkReport) GetUpdatedAt() *timestamppb.Timestamp {
 		return x.UpdatedAt
 	}
 	return nil
+}
+
+func (x *WorkReport) GetSignatureData() string {
+	if x != nil {
+		return x.SignatureData
+	}
+	return ""
+}
+
+func (x *WorkReport) GetSignedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.SignedAt
+	}
+	return nil
+}
+
+func (x *WorkReport) GetSignedBy() string {
+	if x != nil {
+		return x.SignedBy
+	}
+	return ""
 }
 
 type ReportLine struct {
@@ -2142,11 +2166,79 @@ func (x *ExportPDFResponse) GetFilename() string {
 	return ""
 }
 
+type SaveReportSignatureRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ReportId      string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
+	SignatureData string                 `protobuf:"bytes,3,opt,name=signature_data,json=signatureData,proto3" json:"signature_data,omitempty"` // data:image/png;base64,... or data:image/svg+xml;base64,...
+	SignedBy      string                 `protobuf:"bytes,4,opt,name=signed_by,json=signedBy,proto3" json:"signed_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveReportSignatureRequest) Reset() {
+	*x = SaveReportSignatureRequest{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveReportSignatureRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveReportSignatureRequest) ProtoMessage() {}
+
+func (x *SaveReportSignatureRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveReportSignatureRequest.ProtoReflect.Descriptor instead.
+func (*SaveReportSignatureRequest) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *SaveReportSignatureRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *SaveReportSignatureRequest) GetReportId() string {
+	if x != nil {
+		return x.ReportId
+	}
+	return ""
+}
+
+func (x *SaveReportSignatureRequest) GetSignatureData() string {
+	if x != nil {
+		return x.SignatureData
+	}
+	return ""
+}
+
+func (x *SaveReportSignatureRequest) GetSignedBy() string {
+	if x != nil {
+		return x.SignedBy
+	}
+	return ""
+}
+
 var File_proto_rapporte_v1_rapporte_proto protoreflect.FileDescriptor
 
 const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\n" +
-	" proto/rapporte/v1/rapporte.proto\x12\vrapporte.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa4\x04\n" +
+	" proto/rapporte/v1/rapporte.proto\x12\vrapporte.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb4\x05\n" +
 	"\n" +
 	"WorkReport\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
@@ -2169,11 +2261,16 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAtB\x0e\n" +
+	"updated_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12%\n" +
+	"\x0esignature_data\x18\x0f \x01(\tR\rsignatureData\x12<\n" +
+	"\tsigned_at\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampH\x04R\bsignedAt\x88\x01\x01\x12\x1b\n" +
+	"\tsigned_by\x18\x11 \x01(\tR\bsignedByB\x0e\n" +
 	"\f_reviewer_idB\x0e\n" +
 	"\f_reviewed_atB\x06\n" +
 	"\x04_latB\x06\n" +
-	"\x04_lon\"\xd0\x02\n" +
+	"\x04_lonB\f\n" +
+	"\n" +
+	"_signed_at\"\xd0\x02\n" +
 	"\n" +
 	"ReportLine\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
@@ -2353,7 +2450,12 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\x11ExportPDFResponse\x12\x18\n" +
 	"\apayload\x18\x01 \x01(\fR\apayload\x12!\n" +
 	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x12\x1a\n" +
-	"\bfilename\x18\x03 \x01(\tR\bfilename2\xd7\v\n" +
+	"\bfilename\x18\x03 \x01(\tR\bfilename\"\x9a\x01\n" +
+	"\x1aSaveReportSignatureRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
+	"\treport_id\x18\x02 \x01(\tR\breportId\x12%\n" +
+	"\x0esignature_data\x18\x03 \x01(\tR\rsignatureData\x12\x1b\n" +
+	"\tsigned_by\x18\x04 \x01(\tR\bsignedBy2\xae\f\n" +
 	"\x0fRapporteService\x12M\n" +
 	"\fCreateReport\x12 .rapporte.v1.CreateReportRequest\x1a\x1b.rapporte.v1.ReportResponse\x12G\n" +
 	"\tGetReport\x12\x1d.rapporte.v1.GetReportRequest\x1a\x1b.rapporte.v1.ReportResponse\x12M\n" +
@@ -2374,7 +2476,8 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\x10DeleteAttachment\x12$.rapporte.v1.DeleteAttachmentRequest\x1a%.rapporte.v1.DeleteAttachmentResponse\x12V\n" +
 	"\x0eGetReportStats\x12\".rapporte.v1.GetReportStatsRequest\x1a .rapporte.v1.ReportStatsResponse\x12b\n" +
 	"\x14ListPendingApprovals\x12(.rapporte.v1.ListPendingApprovalsRequest\x1a .rapporte.v1.ListReportsResponse\x12J\n" +
-	"\tExportPDF\x12\x1d.rapporte.v1.ExportPDFRequest\x1a\x1e.rapporte.v1.ExportPDFResponseB7Z5github.com/kmuhub/kmuhub/proto/rapporte/v1;rapportev1b\x06proto3"
+	"\tExportPDF\x12\x1d.rapporte.v1.ExportPDFRequest\x1a\x1e.rapporte.v1.ExportPDFResponse\x12U\n" +
+	"\rSaveSignature\x12'.rapporte.v1.SaveReportSignatureRequest\x1a\x1b.rapporte.v1.ReportResponseB7Z5github.com/kmuhub/kmuhub/proto/rapporte/v1;rapportev1b\x06proto3"
 
 var (
 	file_proto_rapporte_v1_rapporte_proto_rawDescOnce sync.Once
@@ -2388,7 +2491,7 @@ func file_proto_rapporte_v1_rapporte_proto_rawDescGZIP() []byte {
 	return file_proto_rapporte_v1_rapporte_proto_rawDescData
 }
 
-var file_proto_rapporte_v1_rapporte_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
+var file_proto_rapporte_v1_rapporte_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
 var file_proto_rapporte_v1_rapporte_proto_goTypes = []any{
 	(*WorkReport)(nil),                  // 0: rapporte.v1.WorkReport
 	(*ReportLine)(nil),                  // 1: rapporte.v1.ReportLine
@@ -2422,62 +2525,66 @@ var file_proto_rapporte_v1_rapporte_proto_goTypes = []any{
 	(*ListPendingApprovalsRequest)(nil), // 29: rapporte.v1.ListPendingApprovalsRequest
 	(*ExportPDFRequest)(nil),            // 30: rapporte.v1.ExportPDFRequest
 	(*ExportPDFResponse)(nil),           // 31: rapporte.v1.ExportPDFResponse
-	(*timestamppb.Timestamp)(nil),       // 32: google.protobuf.Timestamp
+	(*SaveReportSignatureRequest)(nil),  // 32: rapporte.v1.SaveReportSignatureRequest
+	(*timestamppb.Timestamp)(nil),       // 33: google.protobuf.Timestamp
 }
 var file_proto_rapporte_v1_rapporte_proto_depIdxs = []int32{
-	32, // 0: rapporte.v1.WorkReport.reviewed_at:type_name -> google.protobuf.Timestamp
-	32, // 1: rapporte.v1.WorkReport.created_at:type_name -> google.protobuf.Timestamp
-	32, // 2: rapporte.v1.WorkReport.updated_at:type_name -> google.protobuf.Timestamp
-	32, // 3: rapporte.v1.ReportLine.created_at:type_name -> google.protobuf.Timestamp
-	32, // 4: rapporte.v1.ReportLine.updated_at:type_name -> google.protobuf.Timestamp
-	32, // 5: rapporte.v1.ReportAttachment.created_at:type_name -> google.protobuf.Timestamp
-	0,  // 6: rapporte.v1.ReportResponse.report:type_name -> rapporte.v1.WorkReport
-	0,  // 7: rapporte.v1.ListReportsResponse.reports:type_name -> rapporte.v1.WorkReport
-	1,  // 8: rapporte.v1.LineResponse.line:type_name -> rapporte.v1.ReportLine
-	1,  // 9: rapporte.v1.ListLinesResponse.lines:type_name -> rapporte.v1.ReportLine
-	2,  // 10: rapporte.v1.ListAttachmentsResponse.attachments:type_name -> rapporte.v1.ReportAttachment
-	2,  // 11: rapporte.v1.AttachmentResponse.attachment:type_name -> rapporte.v1.ReportAttachment
-	3,  // 12: rapporte.v1.RapporteService.CreateReport:input_type -> rapporte.v1.CreateReportRequest
-	4,  // 13: rapporte.v1.RapporteService.GetReport:input_type -> rapporte.v1.GetReportRequest
-	5,  // 14: rapporte.v1.RapporteService.UpdateReport:input_type -> rapporte.v1.UpdateReportRequest
-	6,  // 15: rapporte.v1.RapporteService.DeleteReport:input_type -> rapporte.v1.DeleteReportRequest
-	9,  // 16: rapporte.v1.RapporteService.ListReports:input_type -> rapporte.v1.ListReportsRequest
-	11, // 17: rapporte.v1.RapporteService.SubmitReport:input_type -> rapporte.v1.SubmitReportRequest
-	12, // 18: rapporte.v1.RapporteService.ApproveReport:input_type -> rapporte.v1.ApproveReportRequest
-	13, // 19: rapporte.v1.RapporteService.RejectReport:input_type -> rapporte.v1.RejectReportRequest
-	14, // 20: rapporte.v1.RapporteService.AddLine:input_type -> rapporte.v1.AddLineRequest
-	15, // 21: rapporte.v1.RapporteService.UpdateLine:input_type -> rapporte.v1.UpdateLineRequest
-	16, // 22: rapporte.v1.RapporteService.DeleteLine:input_type -> rapporte.v1.DeleteLineRequest
-	19, // 23: rapporte.v1.RapporteService.ListLines:input_type -> rapporte.v1.ListLinesRequest
-	21, // 24: rapporte.v1.RapporteService.UploadAttachment:input_type -> rapporte.v1.UploadAttachmentRequest
-	22, // 25: rapporte.v1.RapporteService.ListAttachments:input_type -> rapporte.v1.ListAttachmentsRequest
-	25, // 26: rapporte.v1.RapporteService.DeleteAttachment:input_type -> rapporte.v1.DeleteAttachmentRequest
-	27, // 27: rapporte.v1.RapporteService.GetReportStats:input_type -> rapporte.v1.GetReportStatsRequest
-	29, // 28: rapporte.v1.RapporteService.ListPendingApprovals:input_type -> rapporte.v1.ListPendingApprovalsRequest
-	30, // 29: rapporte.v1.RapporteService.ExportPDF:input_type -> rapporte.v1.ExportPDFRequest
-	8,  // 30: rapporte.v1.RapporteService.CreateReport:output_type -> rapporte.v1.ReportResponse
-	8,  // 31: rapporte.v1.RapporteService.GetReport:output_type -> rapporte.v1.ReportResponse
-	8,  // 32: rapporte.v1.RapporteService.UpdateReport:output_type -> rapporte.v1.ReportResponse
-	7,  // 33: rapporte.v1.RapporteService.DeleteReport:output_type -> rapporte.v1.DeleteReportResponse
-	10, // 34: rapporte.v1.RapporteService.ListReports:output_type -> rapporte.v1.ListReportsResponse
-	8,  // 35: rapporte.v1.RapporteService.SubmitReport:output_type -> rapporte.v1.ReportResponse
-	8,  // 36: rapporte.v1.RapporteService.ApproveReport:output_type -> rapporte.v1.ReportResponse
-	8,  // 37: rapporte.v1.RapporteService.RejectReport:output_type -> rapporte.v1.ReportResponse
-	18, // 38: rapporte.v1.RapporteService.AddLine:output_type -> rapporte.v1.LineResponse
-	18, // 39: rapporte.v1.RapporteService.UpdateLine:output_type -> rapporte.v1.LineResponse
-	17, // 40: rapporte.v1.RapporteService.DeleteLine:output_type -> rapporte.v1.DeleteLineResponse
-	20, // 41: rapporte.v1.RapporteService.ListLines:output_type -> rapporte.v1.ListLinesResponse
-	24, // 42: rapporte.v1.RapporteService.UploadAttachment:output_type -> rapporte.v1.AttachmentResponse
-	23, // 43: rapporte.v1.RapporteService.ListAttachments:output_type -> rapporte.v1.ListAttachmentsResponse
-	26, // 44: rapporte.v1.RapporteService.DeleteAttachment:output_type -> rapporte.v1.DeleteAttachmentResponse
-	28, // 45: rapporte.v1.RapporteService.GetReportStats:output_type -> rapporte.v1.ReportStatsResponse
-	10, // 46: rapporte.v1.RapporteService.ListPendingApprovals:output_type -> rapporte.v1.ListReportsResponse
-	31, // 47: rapporte.v1.RapporteService.ExportPDF:output_type -> rapporte.v1.ExportPDFResponse
-	30, // [30:48] is the sub-list for method output_type
-	12, // [12:30] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	33, // 0: rapporte.v1.WorkReport.reviewed_at:type_name -> google.protobuf.Timestamp
+	33, // 1: rapporte.v1.WorkReport.created_at:type_name -> google.protobuf.Timestamp
+	33, // 2: rapporte.v1.WorkReport.updated_at:type_name -> google.protobuf.Timestamp
+	33, // 3: rapporte.v1.WorkReport.signed_at:type_name -> google.protobuf.Timestamp
+	33, // 4: rapporte.v1.ReportLine.created_at:type_name -> google.protobuf.Timestamp
+	33, // 5: rapporte.v1.ReportLine.updated_at:type_name -> google.protobuf.Timestamp
+	33, // 6: rapporte.v1.ReportAttachment.created_at:type_name -> google.protobuf.Timestamp
+	0,  // 7: rapporte.v1.ReportResponse.report:type_name -> rapporte.v1.WorkReport
+	0,  // 8: rapporte.v1.ListReportsResponse.reports:type_name -> rapporte.v1.WorkReport
+	1,  // 9: rapporte.v1.LineResponse.line:type_name -> rapporte.v1.ReportLine
+	1,  // 10: rapporte.v1.ListLinesResponse.lines:type_name -> rapporte.v1.ReportLine
+	2,  // 11: rapporte.v1.ListAttachmentsResponse.attachments:type_name -> rapporte.v1.ReportAttachment
+	2,  // 12: rapporte.v1.AttachmentResponse.attachment:type_name -> rapporte.v1.ReportAttachment
+	3,  // 13: rapporte.v1.RapporteService.CreateReport:input_type -> rapporte.v1.CreateReportRequest
+	4,  // 14: rapporte.v1.RapporteService.GetReport:input_type -> rapporte.v1.GetReportRequest
+	5,  // 15: rapporte.v1.RapporteService.UpdateReport:input_type -> rapporte.v1.UpdateReportRequest
+	6,  // 16: rapporte.v1.RapporteService.DeleteReport:input_type -> rapporte.v1.DeleteReportRequest
+	9,  // 17: rapporte.v1.RapporteService.ListReports:input_type -> rapporte.v1.ListReportsRequest
+	11, // 18: rapporte.v1.RapporteService.SubmitReport:input_type -> rapporte.v1.SubmitReportRequest
+	12, // 19: rapporte.v1.RapporteService.ApproveReport:input_type -> rapporte.v1.ApproveReportRequest
+	13, // 20: rapporte.v1.RapporteService.RejectReport:input_type -> rapporte.v1.RejectReportRequest
+	14, // 21: rapporte.v1.RapporteService.AddLine:input_type -> rapporte.v1.AddLineRequest
+	15, // 22: rapporte.v1.RapporteService.UpdateLine:input_type -> rapporte.v1.UpdateLineRequest
+	16, // 23: rapporte.v1.RapporteService.DeleteLine:input_type -> rapporte.v1.DeleteLineRequest
+	19, // 24: rapporte.v1.RapporteService.ListLines:input_type -> rapporte.v1.ListLinesRequest
+	21, // 25: rapporte.v1.RapporteService.UploadAttachment:input_type -> rapporte.v1.UploadAttachmentRequest
+	22, // 26: rapporte.v1.RapporteService.ListAttachments:input_type -> rapporte.v1.ListAttachmentsRequest
+	25, // 27: rapporte.v1.RapporteService.DeleteAttachment:input_type -> rapporte.v1.DeleteAttachmentRequest
+	27, // 28: rapporte.v1.RapporteService.GetReportStats:input_type -> rapporte.v1.GetReportStatsRequest
+	29, // 29: rapporte.v1.RapporteService.ListPendingApprovals:input_type -> rapporte.v1.ListPendingApprovalsRequest
+	30, // 30: rapporte.v1.RapporteService.ExportPDF:input_type -> rapporte.v1.ExportPDFRequest
+	32, // 31: rapporte.v1.RapporteService.SaveSignature:input_type -> rapporte.v1.SaveReportSignatureRequest
+	8,  // 32: rapporte.v1.RapporteService.CreateReport:output_type -> rapporte.v1.ReportResponse
+	8,  // 33: rapporte.v1.RapporteService.GetReport:output_type -> rapporte.v1.ReportResponse
+	8,  // 34: rapporte.v1.RapporteService.UpdateReport:output_type -> rapporte.v1.ReportResponse
+	7,  // 35: rapporte.v1.RapporteService.DeleteReport:output_type -> rapporte.v1.DeleteReportResponse
+	10, // 36: rapporte.v1.RapporteService.ListReports:output_type -> rapporte.v1.ListReportsResponse
+	8,  // 37: rapporte.v1.RapporteService.SubmitReport:output_type -> rapporte.v1.ReportResponse
+	8,  // 38: rapporte.v1.RapporteService.ApproveReport:output_type -> rapporte.v1.ReportResponse
+	8,  // 39: rapporte.v1.RapporteService.RejectReport:output_type -> rapporte.v1.ReportResponse
+	18, // 40: rapporte.v1.RapporteService.AddLine:output_type -> rapporte.v1.LineResponse
+	18, // 41: rapporte.v1.RapporteService.UpdateLine:output_type -> rapporte.v1.LineResponse
+	17, // 42: rapporte.v1.RapporteService.DeleteLine:output_type -> rapporte.v1.DeleteLineResponse
+	20, // 43: rapporte.v1.RapporteService.ListLines:output_type -> rapporte.v1.ListLinesResponse
+	24, // 44: rapporte.v1.RapporteService.UploadAttachment:output_type -> rapporte.v1.AttachmentResponse
+	23, // 45: rapporte.v1.RapporteService.ListAttachments:output_type -> rapporte.v1.ListAttachmentsResponse
+	26, // 46: rapporte.v1.RapporteService.DeleteAttachment:output_type -> rapporte.v1.DeleteAttachmentResponse
+	28, // 47: rapporte.v1.RapporteService.GetReportStats:output_type -> rapporte.v1.ReportStatsResponse
+	10, // 48: rapporte.v1.RapporteService.ListPendingApprovals:output_type -> rapporte.v1.ListReportsResponse
+	31, // 49: rapporte.v1.RapporteService.ExportPDF:output_type -> rapporte.v1.ExportPDFResponse
+	8,  // 50: rapporte.v1.RapporteService.SaveSignature:output_type -> rapporte.v1.ReportResponse
+	32, // [32:51] is the sub-list for method output_type
+	13, // [13:32] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_proto_rapporte_v1_rapporte_proto_init() }
@@ -2499,7 +2606,7 @@ func file_proto_rapporte_v1_rapporte_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_rapporte_v1_rapporte_proto_rawDesc), len(file_proto_rapporte_v1_rapporte_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   32,
+			NumMessages:   33,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

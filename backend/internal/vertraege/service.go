@@ -432,3 +432,50 @@ func (s *Service) DeleteReminder(ctx context.Context, tenantID, reminderID uuid.
 func (s *Service) ListReminders(ctx context.Context, tenantID, contractID uuid.UUID, onlyPending bool) ([]*ContractReminder, error) {
 	return s.repo.ListReminders(ctx, tenantID, contractID, onlyPending)
 }
+
+// ============================================================================
+// Signature
+// ============================================================================
+
+// contractSignatureValidPrefixes lists the accepted MIME-type prefixes for EES inline signatures.
+var contractSignatureValidPrefixes = []string{
+	"data:image/png;base64,",
+	"data:image/svg+xml;base64,",
+}
+
+const contractSignatureMaxBytes = 1_048_576 // 1 MiB
+
+// SaveSignature stores an EES inline signature for a contract.
+// Validates the data-URI prefix, enforces the 1 MiB size limit, and delegates persistence.
+func (s *Service) SaveSignature(ctx context.Context, tenantID, contractID, signatureData, signedBy string) (*Contract, error) {
+	if signatureData == "" {
+		return nil, ErrInvalidInput
+	}
+
+	hasValidPrefix := false
+	for _, prefix := range contractSignatureValidPrefixes {
+		if len(signatureData) >= len(prefix) && signatureData[:len(prefix)] == prefix {
+			hasValidPrefix = true
+			break
+		}
+	}
+	if !hasValidPrefix {
+		return nil, ErrInvalidInput
+	}
+
+	if len(signatureData) > contractSignatureMaxBytes {
+		return nil, ErrInvalidInput
+	}
+
+	if strings.TrimSpace(signedBy) == "" {
+		return nil, ErrInvalidInput
+	}
+
+	contract, err := s.repo.SaveSignature(ctx, tenantID, contractID, signatureData, signedBy)
+	if err != nil {
+		return nil, fmt.Errorf("save contract signature: %w", err)
+	}
+
+	slog.Info("contract signature saved", "contract_id", contractID, "tenant_id", tenantID, "signed_by", signedBy)
+	return contract, nil
+}

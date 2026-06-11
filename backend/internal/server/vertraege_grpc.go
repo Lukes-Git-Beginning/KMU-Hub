@@ -251,6 +251,27 @@ func (s *VertraegeGRPCServer) ExportContract(ctx context.Context, req *vertraege
 }
 
 // ============================================================================
+// Signature RPC
+// ============================================================================
+
+func (s *VertraegeGRPCServer) SaveSignature(ctx context.Context, req *vertraegev1.SaveContractSignatureRequest) (*vertraegev1.ContractResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	contractID, err := uuid.Parse(req.GetContractId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid contract_id: %v", err)
+	}
+
+	contract, err := s.svc.SaveSignature(ctx, tenantID.String(), contractID.String(), req.GetSignatureData(), req.GetSignedBy())
+	if err != nil {
+		return nil, mapVertraegeError(err)
+	}
+	return &vertraegev1.ContractResponse{Contract: vertraegeContractToProto(contract)}, nil
+}
+
+// ============================================================================
 // Party RPCs
 // ============================================================================
 

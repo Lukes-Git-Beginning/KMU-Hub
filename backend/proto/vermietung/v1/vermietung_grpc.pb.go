@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v6.33.4
-// source: vermietung/v1/vermietung.proto
+// source: proto/vermietung/v1/vermietung.proto
 
 package vermietungv1
 
@@ -39,6 +39,7 @@ const (
 	VermietungService_UploadInspectionPhoto_FullMethodName = "/vermietung.v1.VermietungService/UploadInspectionPhoto"
 	VermietungService_GetRentalCalendar_FullMethodName     = "/vermietung.v1.VermietungService/GetRentalCalendar"
 	VermietungService_ExportRentalReport_FullMethodName    = "/vermietung.v1.VermietungService/ExportRentalReport"
+	VermietungService_SaveSignature_FullMethodName         = "/vermietung.v1.VermietungService/SaveSignature"
 )
 
 // VermietungServiceClient is the client API for VermietungService service.
@@ -70,6 +71,8 @@ type VermietungServiceClient interface {
 	// Calendar & Reports
 	GetRentalCalendar(ctx context.Context, in *GetRentalCalendarRequest, opts ...grpc.CallOption) (*GetRentalCalendarResponse, error)
 	ExportRentalReport(ctx context.Context, in *ExportRentalReportRequest, opts ...grpc.CallOption) (*ExportRentalReportResponse, error)
+	// Signature
+	SaveSignature(ctx context.Context, in *SaveRentalSignatureRequest, opts ...grpc.CallOption) (*RentalResponse, error)
 }
 
 type vermietungServiceClient struct {
@@ -280,6 +283,16 @@ func (c *vermietungServiceClient) ExportRentalReport(ctx context.Context, in *Ex
 	return out, nil
 }
 
+func (c *vermietungServiceClient) SaveSignature(ctx context.Context, in *SaveRentalSignatureRequest, opts ...grpc.CallOption) (*RentalResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RentalResponse)
+	err := c.cc.Invoke(ctx, VermietungService_SaveSignature_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // VermietungServiceServer is the server API for VermietungService service.
 // All implementations must embed UnimplementedVermietungServiceServer
 // for forward compatibility.
@@ -309,6 +322,8 @@ type VermietungServiceServer interface {
 	// Calendar & Reports
 	GetRentalCalendar(context.Context, *GetRentalCalendarRequest) (*GetRentalCalendarResponse, error)
 	ExportRentalReport(context.Context, *ExportRentalReportRequest) (*ExportRentalReportResponse, error)
+	// Signature
+	SaveSignature(context.Context, *SaveRentalSignatureRequest) (*RentalResponse, error)
 	mustEmbedUnimplementedVermietungServiceServer()
 }
 
@@ -378,6 +393,9 @@ func (UnimplementedVermietungServiceServer) GetRentalCalendar(context.Context, *
 }
 func (UnimplementedVermietungServiceServer) ExportRentalReport(context.Context, *ExportRentalReportRequest) (*ExportRentalReportResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ExportRentalReport not implemented")
+}
+func (UnimplementedVermietungServiceServer) SaveSignature(context.Context, *SaveRentalSignatureRequest) (*RentalResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SaveSignature not implemented")
 }
 func (UnimplementedVermietungServiceServer) mustEmbedUnimplementedVermietungServiceServer() {}
 func (UnimplementedVermietungServiceServer) testEmbeddedByValue()                           {}
@@ -760,6 +778,24 @@ func _VermietungService_ExportRentalReport_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _VermietungService_SaveSignature_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveRentalSignatureRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VermietungServiceServer).SaveSignature(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VermietungService_SaveSignature_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VermietungServiceServer).SaveSignature(ctx, req.(*SaveRentalSignatureRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // VermietungService_ServiceDesc is the grpc.ServiceDesc for VermietungService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -847,7 +883,11 @@ var VermietungService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "ExportRentalReport",
 			Handler:    _VermietungService_ExportRentalReport_Handler,
 		},
+		{
+			MethodName: "SaveSignature",
+			Handler:    _VermietungService_SaveSignature_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "vermietung/v1/vermietung.proto",
+	Metadata: "proto/vermietung/v1/vermietung.proto",
 }

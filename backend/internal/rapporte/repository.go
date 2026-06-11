@@ -29,6 +29,10 @@ type Repository interface {
 	// AtomicRejectReport updates status from 'submitted' → 'rejected' in one SQL statement.
 	AtomicRejectReport(ctx context.Context, tenantID, reportID, reviewerID uuid.UUID, reviewNote string) (bool, error)
 
+	// SaveSignature stores a customer signature on a report atomically.
+	// Returns ErrReportNotFound when no row matches (id, tenant_id) or the report is deleted.
+	SaveSignature(ctx context.Context, tenantID, reportID uuid.UUID, signatureData, signedBy string) (*WorkReport, error)
+
 	// GetReportStatsCounts returns a map of status → count using a GROUP BY query.
 	// More efficient than fetching all rows for stats aggregation.
 	GetReportStatsCounts(ctx context.Context, tenantID uuid.UUID) (map[string]int, error)

@@ -36,6 +36,9 @@ service VermietungService {
   // Calendar & Reports
   rpc GetRentalCalendar(GetRentalCalendarRequest) returns (GetRentalCalendarResponse);
   rpc ExportRentalReport(ExportRentalReportRequest) returns (ExportRentalReportResponse);
+
+  // Signature
+  rpc SaveSignature(SaveRentalSignatureRequest) returns (RentalResponse);
 }
 
 // ============================================================================
@@ -71,6 +74,9 @@ message Rental {
   optional string notes = 11;
   google.protobuf.Timestamp created_at = 12;
   google.protobuf.Timestamp updated_at = 13;
+  string signature_data = 14; // data:image/png;base64,... or data:image/svg+xml;base64,...
+  optional google.protobuf.Timestamp signed_at = 15;
+  string signed_by = 16;
 }
 
 message RentalInspection {
@@ -315,4 +321,15 @@ message ExportRentalReportResponse {
   bytes payload = 1;
   string content_type = 2;
   string filename = 3;
+}
+
+// ============================================================================
+// Signature
+// ============================================================================
+
+message SaveRentalSignatureRequest {
+  string tenant_id = 1;
+  string rental_id = 2;
+  string signature_data = 3; // data:image/png;base64,... or data:image/svg+xml;base64,...
+  string signed_by = 4;
 }
