@@ -8,11 +8,14 @@ import DashboardPage from '../DashboardPage'
 const mockEnsureDefaults = vi.fn()
 const mockToggleEditing = vi.fn()
 const mockResetToDefaults = vi.fn()
+const mockSetScope = vi.fn()
 let mockIsEditing = false
 
 vi.mock('@/stores/dashboard', () => ({
   useDashboardStore: (selector: (s: Record<string, unknown>) => unknown) =>
     selector({
+      scope: 'personal',
+      setScope: mockSetScope,
       isEditing: mockIsEditing,
       toggleEditing: mockToggleEditing,
       resetToDefaults: mockResetToDefaults,
