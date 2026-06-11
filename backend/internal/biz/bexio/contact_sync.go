@@ -156,6 +156,13 @@ func (cs *ContactSyncer) SyncContacts(ctx context.Context, configID, tenantID uu
 }
 
 func (cs *ContactSyncer) syncInbound(ctx context.Context, configID, tenantID uuid.UUID, updatedSince *time.Time, mappings []models.BexioFieldMappingEntry, result *SyncResult) {
+	// G2: ContactService may not be wired; skip inbound create/update paths
+	// that call into the CRM to avoid nil-pointer panics.
+	if cs.contacts == nil {
+		slog.Warn("bexio: contact service not wired, skipping inbound sync")
+		return
+	}
+
 	bexioContacts, err := cs.client.ListContacts(ctx, tenantID, updatedSince)
 	if err != nil {
 		slog.Error("bexio: failed to list contacts from Bexio", "error", err)
@@ -233,6 +240,13 @@ func (cs *ContactSyncer) syncInbound(ctx context.Context, configID, tenantID uui
 }
 
 func (cs *ContactSyncer) syncOutbound(ctx context.Context, configID, tenantID uuid.UUID, since time.Time, mappings []models.BexioFieldMappingEntry, result *SyncResult) {
+	// G2: ContactService may not be wired (e.g. CRM gRPC unavailable at startup).
+	// Guard here so a nil cs.contacts never panics; the inbound path is unaffected.
+	if cs.contacts == nil {
+		slog.Warn("bexio: contact service not wired, skipping outbound sync")
+		return
+	}
+
 	modified, err := cs.contacts.ListModifiedSince(ctx, since)
 	if err != nil {
 		slog.Error("bexio: failed to list modified contacts", "error", err)

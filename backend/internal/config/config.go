@@ -131,6 +131,9 @@ type Config struct {
 	BexioClientID     string `env:"BEXIO_CLIENT_ID,default="`
 	BexioClientSecret string `env:"BEXIO_CLIENT_SECRET,default="`
 	BexioRedirectURL  string `env:"BEXIO_REDIRECT_URL,default="`
+	// BexioStateSecret signs OAuth CSRF state tokens (HMAC-SHA256).
+	// Required when BEXIO_CLIENT_ID is set. Generate with: openssl rand -hex 32
+	BexioStateSecret string `env:"BEXIO_STATE_SECRET,default="`
 
 	// Lexware Office Integration (optional)
 	LexwareAPIBaseURL string `env:"LEXWARE_API_BASE_URL,default=https://api.lexware.io"`
@@ -234,6 +237,7 @@ var configDefaultSecrets = map[string][]string{
 	"MINIO_SECRET_KEY":       {"kmuhub_dev", ""},
 	"VAULT_MASTER_SECRET":    {""},
 	"LIVEKIT_WEBHOOK_SECRET": {""},
+	"BEXIO_STATE_SECRET":     {""},
 }
 
 // minJWTSecretLength is enforced in production only — short HMAC keys make
@@ -268,6 +272,15 @@ func validateProductionSecrets(cfg *Config, requirements []Requirement) error {
 			check{"LIVEKIT_API_SECRET", cfg.LiveKitAPISecret, true},
 			// LIVEKIT_WEBHOOK_SECRET must be set when LiveKit is active in production.
 			check{"LIVEKIT_WEBHOOK_SECRET", cfg.LiveKitWebhookSecret, true},
+		)
+	}
+
+	// Bexio secrets are only validated when Bexio integration is configured.
+	// BEXIO_STATE_SECRET is required to sign OAuth CSRF state tokens (G1).
+	bexioConfigured := cfg.BexioClientID != ""
+	if bexioConfigured {
+		checks = append(checks,
+			check{"BEXIO_STATE_SECRET", cfg.BexioStateSecret, true},
 		)
 	}
 

@@ -233,7 +233,7 @@ func main() {
 		gateway.NewEmailRoutes(registry),
 		gateway.NewDocumentRoutes(registry),
 		gateway.NewBizRoutes(registry),
-		gateway.NewBexioRoutes(registry),
+		gateway.NewBexioRoutes(registry, cfg.BexioStateSecret),
 		gateway.NewLexwareRoutes(registry, cfg.LexwareWebhookSecret, isProd),
 		gateway.NewHRRoutes(registry, bizExt),
 		gateway.NewInboxRoutes(registry),

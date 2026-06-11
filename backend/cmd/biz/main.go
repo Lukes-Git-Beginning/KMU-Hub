@@ -269,7 +269,10 @@ func main() {
 			}
 			vaultSvc = vs
 		} else {
-			slog.Warn("VAULT_MASTER_SECRET not set, Bexio token storage unavailable")
+			// G5: Bexio requires Vault for OAuth token storage. Proceeding without it
+			// would cause a nil-pointer panic on the first token write. Fail fast.
+			slog.Error("bexio integration enabled (BEXIO_CLIENT_ID set) but VAULT_MASTER_SECRET is not configured — Bexio token storage requires the Vault; set VAULT_MASTER_SECRET or unset BEXIO_CLIENT_ID")
+			os.Exit(1)
 		}
 
 		bexioClient := bexio.NewClient(bexioConfig, vaultSvc)

@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -12,12 +13,14 @@ import (
 
 // BexioRoutes handles HTTP routes for the Bexio integration.
 type BexioRoutes struct {
-	registry *ServiceRegistry
+	registry    *ServiceRegistry
+	stateSecret string // BEXIO_STATE_SECRET — required when Bexio is active
 }
 
 // NewBexioRoutes creates a new BexioRoutes.
-func NewBexioRoutes(registry *ServiceRegistry) *BexioRoutes {
-	return &BexioRoutes{registry: registry}
+// stateSecret must be a non-empty secret used to sign OAuth state tokens (G1 CSRF fix).
+func NewBexioRoutes(registry *ServiceRegistry, stateSecret string) *BexioRoutes {
+	return &BexioRoutes{registry: registry, stateSecret: stateSecret}
 }
 
 // ServiceName returns "biz" to reuse the existing gRPC connection
@@ -89,9 +92,25 @@ func (br *BexioRoutes) HandleOAuthCallback(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// State contains the tenant_id
+	// G1: Verify the HMAC-signed state token before trusting the tenant_id it carries.
+	// A missing or invalid stateSecret means Bexio was mis-configured at startup.
+	if br.stateSecret == "" {
+		slog.Error("bexio: BEXIO_STATE_SECRET not configured, rejecting OAuth callback")
+		http.Error(w, "OAuth state validation not configured", http.StatusInternalServerError)
+		return
+	}
+	tenantID, stateErr := decodeBexioState(br.stateSecret, state)
+	if stateErr != nil {
+		slog.Warn("bexio: OAuth callback with invalid state token",
+			"error", stateErr,
+			"remote_addr", r.RemoteAddr,
+		)
+		http.Error(w, "invalid or expired OAuth state", http.StatusBadRequest)
+		return
+	}
+
 	resp, err := client.HandleBexioOAuthCallback(r.Context(), &bizv1.HandleBexioOAuthCallbackRequest{
-		TenantId: state,
+		TenantId: tenantID,
 		Code:     code,
 	})
 	if err != nil {
@@ -121,8 +140,23 @@ func (br *BexioRoutes) HandleGetAuthURL(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// G1: Generate a signed, expiring state token so the OAuth callback can
+	// verify authenticity and extract the tenant_id without relying on the
+	// redirect round-trip being tamper-proof.
+	if br.stateSecret == "" {
+		slog.Error("bexio: BEXIO_STATE_SECRET not configured, cannot issue OAuth URL")
+		http.Error(w, "OAuth state secret not configured", http.StatusInternalServerError)
+		return
+	}
+	signedState, stateErr := encodeBexioState(br.stateSecret, tenantID)
+	if stateErr != nil {
+		slog.Error("bexio: failed to encode state token", "error", stateErr)
+		http.Error(w, "failed to generate OAuth state", http.StatusInternalServerError)
+		return
+	}
+
 	resp, err := client.GetBexioAuthURL(r.Context(), &bizv1.GetBexioAuthURLRequest{
-		TenantId:    tenantID,
+		TenantId:    signedState, // biz-side embeds this as the OAuth "state" param
 		RedirectUrl: r.URL.Query().Get("redirect_url"),
 	})
 	if err != nil {
