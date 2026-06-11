@@ -107,5 +107,11 @@ react-grid-layout in `WidgetContainer.tsx` liefert 2D-Grid-Drag+Resize via `isDr
 
 ---
 
+---
+
+## Offene Follow-ups (phasenübergreifend)
+
+- **`unreadCount` hardcoded 0 in `CrossModuleOverview.tsx`** — Chat-Unread-Zähler zeigt immer 0, weil kein Chat-Unread-Selector/-Store existiert. TODO-Kommentar gesetzt (`// TODO(phase-11 follow-up): wire to chat unread store once a selector exists`). Wird behoben, sobald ein dedizierter `useUnreadCount`-Selector im Chat-Store vorhanden ist.
+
 <!-- Phasen-Einträge hier anhängen — Struktur aus _TEMPLATE.md kopieren.
      Status-Legende: ⬜ ungereviewt · 🟡 Feedback offen · ✅ grün -->

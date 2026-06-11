@@ -35,6 +35,7 @@ export const ALL_WIDGET_IDS = [
   'team-chat',
   'absences',
   'birthdays',
+  'cross-module-overview',
 ] as const
 
 export type WidgetId = (typeof ALL_WIDGET_IDS)[number]
@@ -68,6 +69,8 @@ function getDefaultLayout(): Layout[] {
     { i: 'activity-feed', x: 0, y: 18, w: 4, h: 4, minW: 3, minH: 3 },
     { i: 'quick-actions', x: 4, y: 17, w: 4, h: 2, minW: 2, minH: 2 },
     { i: 'notification-summary', x: 8, y: 16, w: 4, h: 3, minW: 2, minH: 2 },
+    // Row 7: cross-module overview (always available)
+    { i: 'cross-module-overview', x: 0, y: 22, w: 6, h: 4, minW: 4, minH: 3 },
   ]
 }
 

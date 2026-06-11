@@ -25,6 +25,7 @@ import {
   MessageCircle,
   UserX,
   Cake,
+  LayoutDashboard,
   type LucideIcon,
 } from 'lucide-react'
 import type { ModuleId } from '@/lib/pricing'
@@ -275,6 +276,17 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
     component: lazy(() => import('../../modules/dashboard/widgets/Birthdays')),
     roles: ['admin', 'manager', 'member'],
     module: 'team',
+  },
+  'cross-module-overview': {
+    id: 'cross-module-overview',
+    name: i18next.t('widgets.registry.crossModuleOverview.name'),
+    description: i18next.t('widgets.registry.crossModuleOverview.description'),
+    icon: LayoutDashboard,
+    defaultSize: { w: 6, h: 4 },
+    minSize: { w: 4, h: 3 },
+    component: lazy(() => import('../../modules/dashboard/widgets/CrossModuleOverview')),
+    roles: ['admin', 'manager', 'member'],
+    // No module gate: always available; individual data sources are flag-gated internally
   },
 }
 
