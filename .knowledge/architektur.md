@@ -1,6 +1,6 @@
 ---
 tags: [architektur, backend, frontend, ci-cd, rls]
-updated: 2026-06-10
+updated: 2026-06-11
 ---
 # Architektur
 
@@ -117,13 +117,21 @@ admin, auth, automatisierung, berichte, buchhaltung, calendar, chat, crm, dashbo
 - EventEmitter: `PGEventEmitter` in `backend/internal/dialer/event_emitter.go` — emittiert `dialer.call.outcome_logged`, `dialer.contact.callback_scheduled`, `dialer.campaign.completed`
 - NotificationType `dialer_callback` + PhoneCall-Icon im NotificationCenter
 
-### Zustand Stores (37 in `stores/`)
-ai, auth, automatisierung, berichte, calendar, contacts, dashboard, **dialer**, einkauf, finance, formulare, fuhrpark, helpdesk, integrations, inventar, kommunikation, locale, mails, meetings, navigation, notifications, presence, produktion, profile, rapporte, schichten, search, settings, team, timetracking, tour, ui, vermietung, vertraege, video, wiki, work
+### Zustand Stores (59 in `stores/`, Stand 2026-06-11)
+Kern-Stores pro Modul (ai, auth, dashboard, dialer, finance, vertraege, work, …) plus etabliertes Begleit-Muster: `<modul>Prefs.ts` (UI-Präferenzen) und `<modul>Settings.ts` (Modul-Einstellungen, von den Settings-Panels der FE-Lane konsumiert) — z.B. dashboardPrefs/dashboardSettings, vertraegePrefs/vertraegeSettings, workPrefs/workSettings. `dashboard.ts` ist persist-versioniert (v2, siehe FE-Lane-Abschnitt).
 
 ### API-Layer-Pattern (2026-04-29, Sprint 2 Welle 4A)
 - **Zentraler Helper:** `desktop/src/renderer/src/api/utils/authenticatedFetch.ts` — kapselt Auth-Header (`Authorization: Bearer …`), Idempotency-Key-Generierung (UUIDv4 fuer Mutations), Offline-Queue-Hooks (enqueue bei `!navigator.onLine`), Error-Mapping (Backend-Error-Shape → typed Errors).
 - **32 API-Clients konsumieren ihn:** automation, berichte, bexio, caldav, calendar, crm-import, datev-upload, dialer, einkauf, email, finance, formulare, fuhrpark, helpdesk, hr, inbox, integration, inventar, lexware, notification, plugin, produktion, rapporte, schichten, security, vermietung, vertraege, video, wiki, plus 3 weitere. Eliminiert Duplikat-Code in jedem Client.
 - **Test-Coverage:** `api/__tests__/idempotency-coverage.test.ts` mit 29 Cases (eine pro API-Client-Familie) verifiziert Idempotency-Key-Header-Setzung — Voraussetzung fuer Idempotency-HardMode-Switch in Welle 4B.
+
+### FE-Lane „Luke-Block" — profil/vertraege/dashboard P1–P4 (2026-06-10/11, Branch `marathon/luke-fe`, 14 Commits bis `ee743c0d`)
+Komplett-Ausbau der drei Module, mock-first wo kein Backend existiert. **Noch NICHT auf main gemerged** — wartet auf Darien-Feinschliff-Review via `.planning/reviews/{vertraege,dashboard,profil,buchhaltung}.md`.
+- **vertraege:** Settings-Panel, Audit-Log+Reminder im DetailPanel, Dokumente↔Dokumente-Modul (Picker/Upload/Preview/Versionen), Canvas-E-Signatur EES (Hybrid-Dispatch), CRM/Finanzen-Verknüpfung (1 Kontakt / 1 Deal / n Rechnungen als Chips mit Navigation `?contact=`/`?invoice=`, 6 History-Codes), KI-Fristencheck als FE-lokales Heuristik-Panel. Store `stores/vertraege.ts` bleibt mock-first; API-Swap → `entity_links`/`useLinkFile` (separate Phase).
+- **profil:** Presence-Picker, Avatar-Upload-UI, Notification-Quick-Card, `components/user/UserProfileCard.tsx` (Radix-Popover-Overlay an 5 Call-Sites) mit Ping→Chat via `useGetOrCreateDM()`; `NavigationIntent` um `userId`/`channelId` erweitert, ChatLayout konsumiert reaktiv.
+- **dashboard:** Settings-Panel, Widget-Gating per `modules.<id>`-Flags (fail-open NUR dashboard-lokal — `useFeatureFlags`/`FeatureGate` app-weit fail-closed unangetastet), `hooks/useAlerts.ts` (aggregiert vertraege-expiring/invoices-overdue/helpdesk-SLA), Widget `cross-module-overview`, Scope-Umschalter Persönlich/Team mit zustand-persist **v1→v2-Migration** (flat `layouts`/`activeWidgets` → `personal*`/`team*`, verlustfrei, Team-Layout mock-first localStorage, debounced PUT nur personal), Widgets `team-worktime` (CSS-Bars) + `open-tickets`.
+- **Fremd-Touches:** FinanzenPage konsumiert `?invoice=<id>` reaktiv (wartet auf Laden, ignoriert unbekannte IDs); finance-MSW-Handler normalisiert `items`→`line_items`/`issue_date`→`invoice_date`.
+- QA-Belege (Playwright-Scripts `scripts/qa-phase*.mjs` + Screenshots + qa-result.json) sind pro Phase mitcommitted.
 
 ### Standalone
 - Guest Chat: Separate Vite SPA unter `/guest/`

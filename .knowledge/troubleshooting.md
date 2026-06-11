@@ -1,6 +1,6 @@
 ---
 tags: [troubleshooting, debug]
-updated: 2026-06-06
+updated: 2026-06-11
 ---
 # Troubleshooting & Bekannte Probleme
 
@@ -62,6 +62,26 @@ Spaltennamen visuell verifizieren, nicht annehmen. golang-migrate killt sonst di
 psql -U kmuhub -d kmuhub -c "UPDATE schema_migrations SET version=<previous>, dirty=false;"
 # dann re-deploy mit gefixter Migration
 ```
+
+## Frontend-QA-Lessons FE-Lane (2026-06-10/11, Marathon Strom L)
+
+### React-ErrorBoundary-Crashes sind Playwright-unsichtbar
+ErrorBoundary-Renderfehler erzeugen KEIN `page.on('pageerror')`-Event — QA, die nur URL-Change + pageErrors prüft, meldet grün, während die Zielseite „Etwas ist schiefgelaufen" zeigt (Phase-10-P0: FinanzenPage-Crash durch Mock-Feldnamen-Mismatch `items`≠`line_items`). Pflicht: nach JEDER Navigation `checkErrorBoundary()` (body.innerText-Scan) als harte fail-Bedingung.
+
+### Literal-Listen-Falle bei dynamischen t()-Codes
+Muster `isActionCode(x) ? t(`prefix.${x}`) : x` mit `as const`-Literal-Array: jeder NEUE Code muss in die Liste, sonst rendert die UI den rohen Code. rawKeys-Scans finden das NICHT (Codes ohne Punkte). Gate: Screenshot der betroffenen Sektion wirklich ansehen (Phase-10-P1: `HISTORY_ACTION_CODES` in VertraegePage).
+
+### Flag-/State-Overrides in Playwright: addInitScript, nie evaluate
+`page.evaluate()` nach dem Mount erreicht `useMemo`-Logik nie — Override via `page.addInitScript()` VOR dem Load + `page.reload({waitUntil:'networkidle'})`. addInitScript akkumuliert über den Browser-Kontext → pro Flag-Szenario frischer `browser.newContext()`. Assert-Muster: Positiv-Kontrolle (Quelle sichtbar mit Flag AN) + gezieltes Verschwinden (Flag AUS) bei weiterhin sichtbarer anderer Quelle.
+
+### Weiche QA-Asserts (wiederkehrendes falsches-Grün-Muster)
+Verboten: bloßer URL-Match, OR-Ketten schwacher Bedingungen, stille Fallback-Zweige („Edit-Button nicht gefunden → pass"). pass muss eine Zustandsänderung beweisen, die NUR durch die Kern-Interaktion entstehen kann. Builder-Selbstreport nie ohne unabhängige Wiederholung (Verifier-Subagent) + eigenes Screenshot-Review trauen.
+
+### Verifier-Subagents: Encoding-Fehlalarme
+Inhalts-Urteile über UTF-8-Dateien NIE via PowerShell `Get-Content` (PS 5.1 ohne `-Encoding utf8` → falscher „Mojibake-P0"-Alarm in Welle 2) — Read/Grep-Tools im Verifier-Prompt vorschreiben; Hauptsession prüft Verifier-P0s einmal selbst gegen, bevor Fix-Zyklen starten.
+
+### tsc-Crash „Debug Failure. No error for last overload signature"
+Bekannter TS-Tooling-Bug bei gescoptem tsc über den Chat-Import-Graphen — erreicht seit Phase 9 (UserProfileCard an 5 Call-Sites) auch den vertraege-Graphen. Kein Code-Fehler (App + QA grün); Scope granularer schneiden, TS-Version-Bump = offene Darien-Frage.
 
 ## Architektur-Fehler (NICHT wiederholen)
 Aus Vorgaenger-Projekt (slot_booking_webapp) gelernt:
