@@ -13,8 +13,10 @@ import { Loader2 } from 'lucide-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useMessages, useMessageWebSocket, useEditMessage, useDeleteMessage, type MessageInfo } from '@/api/hooks/useMessages'
 import { useMarkChannelRead } from '@/api/hooks/useChannels'
+import { useReactionSummary } from '@/api/hooks/useReactions'
 import { useAuthStore } from '@/stores/auth'
 import { MessageBubble } from './MessageBubble'
+import type { ReactionSummary } from '@/api/video-types'
 
 interface MessageListProps {
   channelId: string
@@ -44,6 +46,21 @@ export function MessageList({ channelId, onOpenThread }: MessageListProps) {
   const editMessage = useEditMessage()
   const deleteMessage = useDeleteMessage()
   const markRead = useMarkChannelRead()
+
+  // Batch-fetch reaction summaries for all loaded messages (one request, not N).
+  // Re-runs whenever the message list changes (new messages added / channel switch).
+  const messageIds = useMemo(() => messages.map((m) => m.id ?? '').filter(Boolean), [messages])
+  const { data: reactionSummaryData } = useReactionSummary(messageIds)
+
+  // Build a lookup map: messageId → ReactionSummary[] for O(1) access per bubble.
+  const reactionsByMessage = useMemo<Record<string, ReactionSummary[]>>(() => {
+    const map: Record<string, ReactionSummary[]> = {}
+    for (const s of reactionSummaryData?.summaries ?? []) {
+      if (!map[s.message_id]) map[s.message_id] = []
+      map[s.message_id].push(s)
+    }
+    return map
+  }, [reactionSummaryData])
 
   // Mark the channel read once its newest message is known (and whenever the
   // channel changes or a new message arrives). Clears the unread badge.
@@ -191,6 +208,8 @@ export function MessageList({ channelId, onOpenThread }: MessageListProps) {
                 <MessageBubble
                   message={item.message}
                   isOwn={item.message.created_by === currentUserId}
+                  currentUserId={currentUserId}
+                  reactionSummaries={reactionsByMessage[item.message.id ?? ''] ?? []}
                   onOpenThread={onOpenThread}
                   onEdit={handleEdit}
                   onDelete={handleDelete}

@@ -3,6 +3,9 @@
  *
  * Displays sender avatar, name, timestamp, content, thread indicator,
  * and hover actions (reply, edit, delete for own messages).
+ *
+ * Reactions are driven by a pre-fetched ReactionSummary (batch-loaded in
+ * MessageList via useReactionSummary) to avoid per-bubble GET requests.
  */
 import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -19,12 +22,14 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { usePresenceStore } from '@/stores/presence'
-import { useChatReactionsStore, seedReactions, CURRENT_REACTION_USER } from '@/stores/chatReactions'
+import { useToggleReaction } from '@/api/hooks/useReactions'
 import { ReactionBar } from './ReactionBar'
+import type { Reaction } from './ReactionBar'
 import { ReactionPicker } from './ReactionPicker'
 import { FileAttachmentCard } from './FileAttachmentCard'
 import type { AttachedFile } from './FileDropZone'
 import type { components } from '@/api/types'
+import type { ReactionSummary } from '@/api/video-types'
 
 type MessageInfo = components['schemas']['MessageInfo']
 
@@ -38,13 +43,17 @@ const PRESENCE_COLORS: Record<string, string> = {
 interface MessageBubbleProps {
   message: MessageInfo
   isOwn: boolean
+  /** Pre-fetched reaction summaries for this message (batch-loaded by parent). */
+  reactionSummaries?: ReactionSummary[]
+  /** Current authenticated user ID (passed down from parent to avoid per-bubble auth lookups). */
+  currentUserId?: string
   onOpenThread?: (messageId: string) => void
   onEdit?: (messageId: string, content: string) => void
   onDelete?: (messageId: string) => void
   attachments?: AttachedFile[]
 }
 
-export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete, attachments }: MessageBubbleProps) {
+export function MessageBubble({ message, isOwn, reactionSummaries, currentUserId, onOpenThread, onEdit, onDelete, attachments }: MessageBubbleProps) {
   const { t } = useTranslation()
   const messageId = message.id ?? ''
   const [showActions, setShowActions] = useState(false)
@@ -52,10 +61,15 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete, 
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const presenceMap = usePresenceStore((s) => s.presenceMap)
-  const storedReactions = useChatReactionsStore((s) => s.byMessage[messageId])
-  const toggleStoreReaction = useChatReactionsStore((s) => s.toggle)
-  // Seeded deterministically for display; the store persists toggles for the session.
-  const reactions = storedReactions ?? seedReactions(messageId)
+  const toggleReactionMutation = useToggleReaction()
+
+  // Convert ReactionSummary[] (batch-fetched by parent) to Reaction[] for ReactionBar.
+  // Falls back to empty array when summaries are not yet available.
+  const reactions: Reaction[] = (reactionSummaries ?? []).map((s) => ({
+    emoji: s.emoji,
+    count: s.count,
+    users: s.user_ids,
+  }))
 
   const startEdit = useCallback(() => {
     setDraft(message.content ?? '')
@@ -72,13 +86,17 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete, 
   const presence = message.created_by ? presenceMap[message.created_by] ?? 'offline' : 'offline'
 
   const handleToggleReaction = useCallback((emoji: string) => {
-    toggleStoreReaction(messageId, emoji)
-  }, [toggleStoreReaction, messageId])
+    if (messageId) {
+      toggleReactionMutation.mutate({ message_id: messageId, emoji })
+    }
+  }, [toggleReactionMutation, messageId])
 
   const handlePickEmoji = useCallback((emoji: string) => {
-    toggleStoreReaction(messageId, emoji)
+    if (messageId) {
+      toggleReactionMutation.mutate({ message_id: messageId, emoji })
+    }
     setShowPicker(false)
-  }, [toggleStoreReaction, messageId])
+  }, [toggleReactionMutation, messageId])
 
   const senderName = [message.sender_first_name, message.sender_last_name]
     .filter(Boolean)
@@ -214,7 +232,7 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete, 
         <div className="relative">
           <ReactionBar
             reactions={reactions}
-            currentUserId={CURRENT_REACTION_USER}
+            currentUserId={currentUserId}
             onToggleReaction={handleToggleReaction}
             onOpenPicker={() => setShowPicker(true)}
           />
