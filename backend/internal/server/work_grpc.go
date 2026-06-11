@@ -608,8 +608,18 @@ func (s *WorkGRPCServer) GetTask(ctx context.Context, req *workv1.GetTaskRequest
 		return nil, mapWorkError(err)
 	}
 
+	proto := taskToProto(t)
+
+	// Batch-load labels for this task (single query)
+	labelMap, labelErr := s.labelService.GetLabelsByTaskIDs(ctx, tenantID.String(), []string{t.ID.String()})
+	if labelErr == nil {
+		for _, l := range labelMap[t.ID.String()] {
+			proto.LabelIds = append(proto.LabelIds, l.ID)
+		}
+	}
+
 	return &workv1.GetTaskResponse{
-		Task: taskToProto(t),
+		Task: proto,
 	}, nil
 }
 
@@ -661,6 +671,13 @@ func (s *WorkGRPCServer) ListTasks(ctx context.Context, req *workv1.ListTasksReq
 		t := req.DueDateTo.AsTime()
 		filters.DueDateTo = &t
 	}
+	for _, lidStr := range req.FilterLabelIds {
+		lid, err := uuid.Parse(lidStr)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid label_id in filter_label_ids")
+		}
+		filters.LabelIDs = append(filters.LabelIDs, lid)
+	}
 
 	taskListTenantID, err := uuid.Parse(req.TenantId)
 	if err != nil {
@@ -672,9 +689,28 @@ func (s *WorkGRPCServer) ListTasks(ctx context.Context, req *workv1.ListTasksReq
 		return nil, status.Error(codes.Internal, "failed to list tasks")
 	}
 
+	// Batch-load labels for all returned tasks (single query)
+	var taskIDs []string
+	for _, t := range tasks {
+		taskIDs = append(taskIDs, t.ID.String())
+	}
+	labelMap := make(map[string][]string)
+	if len(taskIDs) > 0 {
+		loaded, labelErr := s.labelService.GetLabelsByTaskIDs(ctx, taskListTenantID.String(), taskIDs)
+		if labelErr == nil {
+			for tid, lbls := range loaded {
+				for _, l := range lbls {
+					labelMap[tid] = append(labelMap[tid], l.ID)
+				}
+			}
+		}
+	}
+
 	var protos []*workv1.TaskProto
 	for _, t := range tasks {
-		protos = append(protos, taskToProto(&t))
+		p := taskToProto(&t)
+		p.LabelIds = labelMap[t.ID.String()]
+		protos = append(protos, p)
 	}
 
 	return &workv1.ListTasksResponse{

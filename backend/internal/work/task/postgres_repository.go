@@ -150,6 +150,14 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 	if filters.IsStandalone != nil && *filters.IsStandalone {
 		conditions = append(conditions, "t.project_id IS NULL")
 	}
+	if len(filters.LabelIDs) > 0 {
+		conditions = append(conditions, fmt.Sprintf(
+			"EXISTS (SELECT 1 FROM task_labels tl JOIN work_labels wl ON wl.id = tl.label_id WHERE tl.task_id = t.id AND tl.label_id = ANY($%d) AND wl.tenant_id = $%d)",
+			argIdx, argIdx+1,
+		))
+		args = append(args, filters.LabelIDs, tenantID)
+		argIdx += 2
+	}
 
 	where := ""
 	if len(conditions) > 0 {

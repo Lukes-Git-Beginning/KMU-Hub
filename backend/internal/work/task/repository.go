@@ -77,7 +77,8 @@ type TaskFilters struct {
 	DueDateFrom  *time.Time
 	DueDateTo    *time.Time
 	Search       string
-	IsStandalone *bool // true = project_id IS NULL
+	IsStandalone *bool       // true = project_id IS NULL
+	LabelIDs     []uuid.UUID // filter: tasks that have at least one of these labels
 	Page         int
 	PageSize     int
 	SortBy       string
