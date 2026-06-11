@@ -10,12 +10,6 @@ import (
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
-// nilGuardRepository is a minimal stub that satisfies Repository for the nil-guard tests.
-// Only the methods called by SyncContacts before inbound/outbound are needed.
-type nilGuardRepository struct {
-	mockRepository // embed the shared mock from service_test.go
-}
-
 // TestContactSyncer_NilContactService_NoOutboundPanic verifies that syncOutbound
 // does not panic when the ContactService is nil (G2 fix).
 func TestContactSyncer_NilContactService_NoOutboundPanic(t *testing.T) {
