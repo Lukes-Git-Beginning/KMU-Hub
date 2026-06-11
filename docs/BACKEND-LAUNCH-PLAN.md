@@ -158,25 +158,28 @@ Welle 11 team P1 (Payroll/DATEV-HR) ──────────────�
 - **Backend-Scope:** OAuth2-Connect + bidirektionaler Sync-Service (Rechnungen/Kontakte) + Mapping-Settings. (bexio-Service-Gerüst existiert in `internal/biz/bexio`.)
 - **Verifikation:** OAuth-Token-Refresh, Sync-Idempotenz, Mapping-Roundtrip.
 
-### Welle 8 — kommunikation P1 (Chat-Reactions + Inbox-Extensions + Canned)
+### Welle 8 — kommunikation P1 (Chat-Reactions + Inbox-Extensions + Canned) — Reactions-Teil ✅ 2026-06-11
 - **Ziel:** Gebautes Kommunikations-Modul scharfschalten. **Deadline:** P1 (nach Pilot). **Prereq:** keine. **Aufwand:** mittel-groß.
 - **Backend-Scope:**
-  - **Chat-Reactions (🔴):** chat-proto deklariert `ToggleReaction/ListReactions/GetReactionSummary`, Service implementiert sie nicht,
-    keine Route, `MessageInfo` ohne `reactions`. → Reactions am chat-Service implementieren **oder** `internal/work/reaction` mitnutzen;
-    `POST/GET /api/v1/messages/{id}/reactions`; `reactions` in `MessageInfo` + OpenAPI. FE 🟢 (`stores/chatReactions.ts`).
+  - ✅ **Chat-Reactions — ERLEDIGT 2026-06-11 (`c9c19380`):** `internal/work/reaction` in ChatGRPCServer wiederverwendet (Contract-Entscheidung),
+    Routen `POST/GET /api/v1/messages/{id}/reactions` + `POST /api/v1/messages/reactions/summary`, 501-Stubs aus route_video entfernt,
+    OpenAPI + FE-Wiring + MSW. Entscheidung: KEIN `reactions`-Feld in `MessageInfo` (separate Calls, Batch-Kosten). Follow-up: `MessageBubble.tsx` auf `useReactions` migrieren.
   - **Inbox-Extensions (mock-first, wiring-ready):** `status`-Feld (offen/wartend/gelöst/geschlossen) + Filter + Set-Status-RPC 🟢;
     Threading (`ListThreadMessages`/Conversation-Modell) 🟡; Tags-CRUD (`AddTag`/`RemoveTag`) 🟢; `ForwardMessage` 🟢; SLA-Tracking 🔴.
   - **Canned Responses:** CRUD-Endpoints 🟢.
 - **Contract-Entscheidung:** Reaction-Storage (chat vs. work/reaction wiederverwenden), Inbox-Status-Enum, Conversation/Thread-Modell.
 - **Hinweis ✅ bereits fertig:** File-Upload (`/files/upload` mit `message_id`), `GetUserMentions`, `SearchChat`.
 
-### Welle 9 — work P1 (Labels + Custom-Field-Defs + Settings-Anwendung)
+### Welle 9 — work P1 (Labels + Custom-Field-Defs + Settings-Anwendung) — Kern ✅ 2026-06-11
 - **Ziel:** work-Modul-Settings scharfschalten. **Deadline:** P1. **Prereq:** Welle 1 (tenant_settings) empfohlen. **Aufwand:** mittel.
-- **Backend-Scope:** Label-Taxonomie (🔴 `/api/v1/work/labels` CRUD + `label_ids` an Task + Filter im `listTasks`-Query) ·
-  Custom-Field-Definitionen (🔴 `/api/v1/work/custom-fields` analog CRM) · Default-Status-Set (tenant-Setting `default_project_statuses`) ·
-  Projekt-Vorlagen löschen · Zeit-Regeln (billable-Default/Stundensatz als tenant-Setting) · Portfolio + Auslastungs-Aggregat (🟡) +
-  optional `start_date` am Task (Gantt) + `due_from`/`due_to`-Filter.
-- **FE:** überwiegend 🟢 (`stores/workSettings.*`, `taskLabels.ts`).
+- **Backend-Scope:**
+  - ✅ **Label-Taxonomie — ERLEDIGT 2026-06-11 (`2b8447b6`, Migr. 000145+000147):** `/api/v1/work/labels` CRUD + `PUT /tasks/{id}/labels` +
+    `label_ids` im TaskProto + Permission-Seeds. Follow-ups: Batch-Load `label_ids` in Get/ListTasks; `filter_label_ids` SQL-JOIN im task-Repo.
+  - ✅ **Custom-Field-Definitionen — ERLEDIGT 2026-06-11 (`2b8447b6`, Migr. 000146+000147):** `/api/v1/work/custom-fields` CRUD, tenant-scoped + RLS.
+    FE-Adapter-Follow-up: `field_type`→`type`, `position`→`sortOrder`.
+  - Offen: Default-Status-Set (tenant-Setting `default_project_statuses`) · Projekt-Vorlagen löschen · Zeit-Regeln (billable-Default/Stundensatz) ·
+    Portfolio + Auslastungs-Aggregat (🟡) + optional `start_date` am Task (Gantt) + `due_from`/`due_to`-Filter.
+- **FE:** überwiegend 🟢 (`stores/workSettings.*`, `taskLabels.ts`) — Wiring auf echte API = FE-Lane.
 
 ### Welle 10 — kontakte P1 (360°-Verknüpfungen + Finanzberatung)
 - **Ziel:** CRM-360° + Finanzberatungs-Features. **Deadline:** P1 (Advisory pilot-nah). **Prereq:** Welle 4 (für Invoices-Sektion). **Aufwand:** mittel-groß.
