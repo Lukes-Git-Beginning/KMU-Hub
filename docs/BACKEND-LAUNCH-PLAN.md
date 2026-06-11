@@ -19,10 +19,8 @@
   - **01.07 = ZFA-Pilot-0** (begrenzter Scope). Pilot-kritisch: Online-Terminbuchung, Dialer-Consent-Absicherung,
     Passwort-Reset, korrekte Demo-Daten.
   - **01.09 = volle P0-Feature-Parität** (E-Rechnung/GoBD/DATEV/Bexio + Rest).
-  - ⚠ **ROADMAP-Sync ausstehend:** `docs/ROADMAP.md` nennt durchgängig 01.07 als Go-Live und kennt 01.09 nicht.
-    Vor der nächsten Session ROADMAP + Gate-S5-Block auf das Zwei-Deadline-Modell aktualisieren (separater Doc-Commit).
-- **Aktueller Stand main:** `f263f974`. S4.1 fertig → **alle neuen HTTP-Handler nutzen `decodeAndValidate[T]`**
-  (siehe Build-Standard). Production auf CCX-Migration/TURN wartet noch (Pilot-0-IP-Bestellung gebündelt).
+  - ✅ **ROADMAP-Sync erledigt 2026-06-11:** `docs/ROADMAP.md` auf Zwei-Deadline-Modell (Pilot-0: 01.07 / volle P0: 01.09) aktualisiert, Gate S5 als Pilot-0-Freigabe umformuliert, BACKEND-LAUNCH-PLAN.md als Playbook verlinkt.
+- **Aktueller Stand main:** `29e77fb7` (S4.1 alle 4 Wellen). **R1-P1.7 Input-Validation ✅ KOMPLETT** — `decodeAndValidate[T]` in allen JSON-Body-Mutation-Handlern über ~52 Route-Files (verbleibende GET-only/Protokoll-Handler: Webhook/WOPI/CalDAV/proto-direct-Passthrough bewusst ausgenommen). Production auf CCX-Migration/TURN wartet noch (Pilot-0-IP-Bestellung gebündelt).
 
 ### Wie dieses Dokument zu benutzen ist
 1. Welle(n) wählen (Reihenfolge/Chains siehe §3 + §4).
@@ -93,16 +91,12 @@ Welle 11 team P1 (Payroll/DATEV-HR) ──────────────�
 > Format je Welle: **Ziel · Deadline · Prereq · Backend-Scope · Contract-Entscheidungen · FE-Status · Verifikation · Aufwand**.
 > 🟢 = FE wiring-ready (Endpoint genügt) · 🟡 = FE teilweise · 🔴 = FE wartet / Contract vorher abstimmen.
 
-### Welle 0 — Quick Wins + Risk-Fixes
+### Welle 0 — Quick Wins + Risk-Fixes ✅ ERLEDIGT 2026-06-11
 - **Ziel:** Compliance-Loch schließen + mehrere Module visuell entsperren. **Deadline:** Pilot (≤01.07). **Prereq:** keine. **Aufwand:** ½–1 Tag.
 - **Backend-Scope:**
-  1. **Dialer-Consent-Fix (⚠ DSGVO):** `cmd/dialer/main.go:87` konstruiert `dialer.NewService(...)` **ohne**
-     Consent-Asserter; `NewServiceWithConsent` existiert, wird aber nur in Tests genutzt. **To-do:** verifizieren ob Consent
-     evtl. im Gateway-Handler vor dem Dialer-Call greift; falls nicht → `NewServiceWithConsent` verdrahten (Asserter aus
-     `crm/consent` injizieren, wie bei `email/send`). Regressions-Test gegen „Call ohne Consent".
-  2. **Demo-`userName`-Fix:** `/api/v1/hr/employees` liefert im Demo-Mode leeren `userName` → team-Modul + Mention/Assignee
-     zeigen „Unbekannt". Demo-Fixtures `userName` befüllen. **Quick Win, entsperrt mehrere Module visuell.** 🟢
-- **Verifikation:** Dialer-Consent-Test rot→grün; Demo-Login → team/Mentions zeigen Namen.
+  1. **Dialer-Consent-Fix (⚠ DSGVO) — ✅ ERLEDIGT 2026-06-09 (Chain PILOT):** `cmd/dialer/main.go:92` nutzt jetzt `NewServiceWithConsent` mit `crm/consent`-Asserter verdrahtet. Regressionstest grün. Keine Anrufe mehr ohne Consent möglich.
+  2. **Demo-`userName`-Fix — ✅ ERLEDIGT 2026-06-11 (`7a367047`):** `mocks/handlers/team.ts` auf `EmployeeProfile`-camelCase-Shape (`userName`) angeglichen. Demo-Login → team/Mentions zeigen jetzt Namen. ⚠ Hinweis: Das echte Gateway serialisiert `hr.pb.go` via `encoding/json` mit snake_case-Tags (`user_name`) — Demo-Mode ist jetzt camelCase-konsistent; gegen das echte Backend würde das team-Modul weiterhin „Unbekannt" zeigen (FE↔BE-Shape-Mismatch, siehe `.planning/backend-gaps.md` §team).
+- **Verifikation:** ✅ Dialer-Consent-Test rot→grün; Demo-Login → team/Mentions zeigen Namen.
 
 ### Welle 2 — Auth P0: Passwort-Reset
 - **Ziel:** „Passwort vergessen"-Flow. **Deadline:** Pilot (≤01.07). **Prereq:** keine. **FE:** 🔴 (Login-Redesign wartet darauf). **Aufwand:** ~1 Tag.
