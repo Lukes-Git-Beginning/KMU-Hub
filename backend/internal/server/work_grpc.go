@@ -513,9 +513,9 @@ func (s *WorkGRPCServer) CreateTask(ctx context.Context, req *workv1.CreateTaskR
 		return nil, status.Error(codes.InvalidArgument, "invalid created_by")
 	}
 
-	taskTenantID, err := uuid.Parse(req.TenantId)
+	taskTenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
 	}
 
 	input := task.CreateInput{
@@ -679,9 +679,9 @@ func (s *WorkGRPCServer) ListTasks(ctx context.Context, req *workv1.ListTasksReq
 		filters.LabelIDs = append(filters.LabelIDs, lid)
 	}
 
-	taskListTenantID, err := uuid.Parse(req.TenantId)
+	taskListTenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
 	}
 
 	tasks, total, err := s.taskService.List(ctx, taskListTenantID, filters)
