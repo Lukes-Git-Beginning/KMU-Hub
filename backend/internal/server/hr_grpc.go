@@ -16,6 +16,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/biz/hr/employee"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/leave"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/timetracking"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	hrv1 "github.com/kmuhub/kmuhub/proto/hr/v1"
 )
@@ -52,9 +53,9 @@ func NewHRGRPCServer(
 // ============================================================================
 
 func (s *HRGRPCServer) CreateLeaveRequest(ctx context.Context, req *hrv1.CreateLeaveRequestReq) (*hrv1.CreateLeaveRequestResp, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
 	}
 
 	userID, err := uuid.Parse(req.GetUserId())
@@ -122,9 +123,9 @@ func (s *HRGRPCServer) GetLeaveRequest(ctx context.Context, req *hrv1.GetLeaveRe
 }
 
 func (s *HRGRPCServer) ListLeaveRequests(ctx context.Context, req *hrv1.ListLeaveRequestsReq) (*hrv1.ListLeaveRequestsResp, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
 	}
 
 	filter := leave.LeaveRequestFilter{
@@ -242,9 +243,9 @@ func (s *HRGRPCServer) CancelLeaveRequest(ctx context.Context, req *hrv1.CancelL
 }
 
 func (s *HRGRPCServer) GetLeaveBalance(ctx context.Context, req *hrv1.GetLeaveBalanceReq) (*hrv1.GetLeaveBalanceResp, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
 	}
 
 	userID, err := uuid.Parse(req.GetUserId())
@@ -263,9 +264,9 @@ func (s *HRGRPCServer) GetLeaveBalance(ctx context.Context, req *hrv1.GetLeaveBa
 }
 
 func (s *HRGRPCServer) GetEmployeeLeaveBalance(ctx context.Context, req *hrv1.GetEmployeeLeaveBalanceReq) (*hrv1.GetEmployeeLeaveBalanceResp, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
 	}
 
 	employeeID, err := uuid.Parse(req.GetEmployeeId())
@@ -284,9 +285,9 @@ func (s *HRGRPCServer) GetEmployeeLeaveBalance(ctx context.Context, req *hrv1.Ge
 }
 
 func (s *HRGRPCServer) ListLeaveTypes(ctx context.Context, req *hrv1.ListLeaveTypesReq) (*hrv1.ListLeaveTypesResp, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
 	}
 
 	types, err := s.leaveService.ListLeaveTypes(ctx, tenantID)
@@ -305,9 +306,9 @@ func (s *HRGRPCServer) ListLeaveTypes(ctx context.Context, req *hrv1.ListLeaveTy
 }
 
 func (s *HRGRPCServer) RecordSickLeave(ctx context.Context, req *hrv1.RecordSickLeaveReq) (*hrv1.RecordSickLeaveResp, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
 	}
 
 	userID, err := uuid.Parse(req.GetUserId())
@@ -347,9 +348,9 @@ func (s *HRGRPCServer) RecordSickLeave(ctx context.Context, req *hrv1.RecordSick
 // ============================================================================
 
 func (s *HRGRPCServer) ClockIn(ctx context.Context, req *hrv1.ClockInReq) (*hrv1.ClockInResp, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
 	}
 
 	userID, err := uuid.Parse(req.GetUserId())
@@ -368,9 +369,9 @@ func (s *HRGRPCServer) ClockIn(ctx context.Context, req *hrv1.ClockInReq) (*hrv1
 }
 
 func (s *HRGRPCServer) ClockOut(ctx context.Context, req *hrv1.ClockOutReq) (*hrv1.ClockOutResp, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
 	}
 
 	userID, err := uuid.Parse(req.GetUserId())
@@ -460,9 +461,9 @@ func (s *HRGRPCServer) GetActiveShift(ctx context.Context, req *hrv1.GetActiveSh
 }
 
 func (s *HRGRPCServer) ListWorkTimeEntries(ctx context.Context, req *hrv1.ListWorkTimeEntriesReq) (*hrv1.ListWorkTimeEntriesResp, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
 	}
 
 	filter := timetracking.WorkTimeFilter{
@@ -553,9 +554,9 @@ func (s *HRGRPCServer) GetWeeklySummary(ctx context.Context, req *hrv1.GetWeekly
 }
 
 func (s *HRGRPCServer) SubmitTimeCorrection(ctx context.Context, req *hrv1.SubmitTimeCorrectionReq) (*hrv1.SubmitTimeCorrectionResp, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
 	}
 
 	userID, err := uuid.Parse(req.GetUserId())
@@ -612,9 +613,9 @@ func (s *HRGRPCServer) ApproveTimeCorrection(ctx context.Context, req *hrv1.Appr
 // ============================================================================
 
 func (s *HRGRPCServer) GetAbsenceCalendar(ctx context.Context, req *hrv1.GetAbsenceCalendarReq) (*hrv1.GetAbsenceCalendarResp, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
 	}
 
 	startDate, err := time.Parse("2006-01-02", req.GetStartDate())
@@ -662,9 +663,9 @@ func (s *HRGRPCServer) GetAbsenceCalendar(ctx context.Context, req *hrv1.GetAbse
 // ============================================================================
 
 func (s *HRGRPCServer) ListEmployees(ctx context.Context, req *hrv1.ListEmployeesReq) (*hrv1.ListEmployeesResp, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
 	}
 
 	filter := employee.EmployeeFilter{
@@ -832,9 +833,9 @@ func (s *HRGRPCServer) ListEmployeeDocuments(ctx context.Context, req *hrv1.List
 }
 
 func (s *HRGRPCServer) UploadEmployeeDocument(ctx context.Context, req *hrv1.UploadEmployeeDocumentReq) (*hrv1.UploadEmployeeDocumentResp, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
 	}
 
 	employeeID, err := uuid.Parse(req.GetEmployeeId())
@@ -876,9 +877,9 @@ func (s *HRGRPCServer) UploadEmployeeDocument(ctx context.Context, req *hrv1.Upl
 }
 
 func (s *HRGRPCServer) CreateEmployee(ctx context.Context, req *hrv1.CreateEmployeeReq) (*hrv1.CreateEmployeeResp, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
 	}
 	userID, err := uuid.Parse(req.GetUserId())
 	if err != nil {
@@ -937,9 +938,9 @@ func (s *HRGRPCServer) CreateEmployee(ctx context.Context, req *hrv1.CreateEmplo
 // ============================================================================
 
 func (s *HRGRPCServer) GetHRSettings(ctx context.Context, req *hrv1.GetHRSettingsReq) (*hrv1.GetHRSettingsResp, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
 	}
 
 	settings, err := s.settingsRepo.GetByTenant(ctx, tenantID)
@@ -953,9 +954,9 @@ func (s *HRGRPCServer) GetHRSettings(ctx context.Context, req *hrv1.GetHRSetting
 }
 
 func (s *HRGRPCServer) UpdateHRSettings(ctx context.Context, req *hrv1.UpdateHRSettingsReq) (*hrv1.UpdateHRSettingsResp, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
 	}
 
 	settings := &models.HRCompanySettings{
