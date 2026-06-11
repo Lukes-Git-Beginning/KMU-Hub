@@ -1,6 +1,6 @@
 ---
 tags: [troubleshooting, debug]
-updated: 2026-06-11
+updated: 2026-06-12
 ---
 # Troubleshooting & Bekannte Probleme
 
@@ -392,6 +392,14 @@ Aus dem Marathon-Deploy `980eba3` → `3abec5f` (Migration 81 → 115). 9 Hotfix
 - **NIE** Force-Push (`git push --force`) auf `main`. Auch nicht "kurz mal zum aufraeumen".
 - **Commit-Messages:** Englisch, imperativ ("Add contact endpoint", nicht "Added contact endpoint"). Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`).
 - **Push-Rhythmus:** Am Ende jeder Session pushen, um lokale/remote Divergenz zu vermeiden.
+
+## Merge-/CI-Lessons FE-Lane-Merge (2026-06-11 Nacht)
+
+- **CI besteht aus ZWEI Workflows: `CI` und `CI Desktop`** — `gh run watch <ein-run>` reicht nach einem Push NICHT. Nach dem FE-Merge war CI grün, CI Desktop aber rot (1 eslint-Error), und **CD wird bei rotem CI Desktop geskippt** → Deploy blieb unbemerkt aus. Regel: nach jedem Push `gh run list --commit <sha>` und ALLE Runs prüfen.
+- **`npm test` im desktop/ = `vitest` im WATCH-Mode** — hängt endlos (kein Exit). Für Gates immer `npx vitest run`.
+- **Explore-Agents + `git grep <branch>` = Branch-SNAPSHOT, nicht Branch-DIFF** — der Treffer kann unverändertes Merge-Base-Erbe sein. Vor Sweep-Planung mit `git diff base...branch -- <datei>` verifizieren, sonst plant man Fixes für Dateien, die der Merge ohnehin von main übernimmt (so geschehen: ContractType-Sweep + Presign-Umstellung waren obsolet).
+- **Merge-Halbschatten bei Store-Mocks:** main-Tests, die zustandsbasierte Stores mocken, brechen still, wenn die Lane neue Selektoren ergänzt (`scope` undefined → Bedingung false → UI-Teil fehlt). Nach Merges Vitest IMMER laufen lassen, Mock-Stores um neue Felder ergänzen.
+- **tsc ist repo-weit wieder 0 Fehler** (Stand 2026-06-11 Nacht) — die ~98 typed-i18n-Altfehler sind beseitigt; Full-`npx tsc --noEmit` taugt wieder als Gate (Exit-Code direkt prüfen, nie durch Pipes).
 
 ## Verwandte Notes
 - [[architektur]] — Architektur-Regeln

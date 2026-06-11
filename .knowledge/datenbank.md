@@ -1,14 +1,14 @@
 ---
 tags: [datenbank, schema, migrations, ai-first, tenant-isolation, rls]
-updated: 2026-06-10
+updated: 2026-06-12
 ---
 # Datenbank
 
 ## Überblick
 - PostgreSQL 16 mit `pgvector/pgvector:pg16`-Image + Redis 7 (nur Cache, KEIN Dual-Write)
 - Änderungen NUR via golang-migrate (`make migrate-create name=xxx`)
-- **138 Migration-Paare** in `backend/migrations/` (076–116 siehe Sprint-2/3-Liste in der Vorversion dieser Note; **Sprint 4: 117 users_tenant_default_and_fk · 118 rls_foundation · 119 child_tables_tenant_id_backfill · 120–124 RLS-Wellen 2+3 · 125–127 RLS-Welle 4 · 128 fix_hr_document_policy_sysctx · 129 seed_missing_module_permissions** [35 nie geseedete Modul-Permissions admin-only, siehe [[security]] RBAC] **· 130 dialer outcome_id-Partial-Indizes + ~10 FK ON DELETE (R2-P1.8/.9) · 131 seed meetings:write fuer admin+manager+member (R2-P1.5)** — 131er-Review-Gate-Fund: Guard auf Bestands-Funktion braucht Seeds fuer ALLE bisher berechtigten Rollen, nicht nur admin · **132 add_finance_line_tables · 133 backfill_finance_line_tables** = ADR-0007 finance line_items relational, siehe Abschnitt unten)
-- **Prod-Stand seit 2026-06-05 Abend:** Migration-Head **`131`** (Code `564f238b`, COSMI_ENV=production scharf — siehe [[deployment]]). **2026-06-08:** Migr. **132/133** (ADR-0007 finance-lines, Commit `3e4c9055`) gepusht → Head **`133`**. **2026-06-09:** Chain PILOT — Migr. **134–136** (password-reset-tokens + booking-pages + RBAC-Seed, Commits `1548a067`+`b4af5739`+`2316d6cd`) → Head **`136`** (auf Server verifiziert 2026-06-10, clean). **2026-06-10:** Marathon-Tag-2-Welle-1 — Migr. **137/138** (advisory_protocols + settings-foundation, Commits `6b211222`+`360f92e6`) gepusht → Head wird **`138`**; nur statisch geprüft (keine lokale Dev-DB), CD-Migrate testet real. Volume: `docker_pgdata` (nicht `docker_postgres-data`). psql-User in Production ist **`kmuhub`**, nicht `postgres` — siehe [[troubleshooting]].
+- **147 Migration-Paare** in `backend/migrations/` (076–116 siehe Sprint-2/3-Liste in der Vorversion dieser Note; **Sprint 4: 117 users_tenant_default_and_fk · 118 rls_foundation · 119 child_tables_tenant_id_backfill · 120–124 RLS-Wellen 2+3 · 125–127 RLS-Welle 4 · 128 fix_hr_document_policy_sysctx · 129 seed_missing_module_permissions** [35 nie geseedete Modul-Permissions admin-only, siehe [[security]] RBAC] **· 130 dialer outcome_id-Partial-Indizes + ~10 FK ON DELETE (R2-P1.8/.9) · 131 seed meetings:write fuer admin+manager+member (R2-P1.5)** — 131er-Review-Gate-Fund: Guard auf Bestands-Funktion braucht Seeds fuer ALLE bisher berechtigten Rollen, nicht nur admin · **132 add_finance_line_tables · 133 backfill_finance_line_tables** = ADR-0007 finance line_items relational, siehe Abschnitt unten)
+- **Prod-Stand seit 2026-06-05 Abend:** Migration-Head **`131`** (Code `564f238b`, COSMI_ENV=production scharf — siehe [[deployment]]). **2026-06-08:** Migr. **132/133** (ADR-0007 finance-lines, Commit `3e4c9055`) gepusht → Head **`133`**. **2026-06-09:** Chain PILOT — Migr. **134–136** (password-reset-tokens + booking-pages + RBAC-Seed, Commits `1548a067`+`b4af5739`+`2316d6cd`) → Head **`136`** (auf Server verifiziert 2026-06-10, clean). **2026-06-10:** Marathon-Tag-2-Welle-1 — Migr. **137/138** (advisory_protocols + settings-foundation, Commits `6b211222`+`360f92e6`) gepusht → Head wird **`138`**; nur statisch geprüft (keine lokale Dev-DB), CD-Migrate testet real. **2026-06-10/11:** Welle 2 + Backend-Sessions — Migr. **139–147** (GoBD/E-Rechnung/Kontakt-FK, RLS-Nachzug, Signaturen, Files-Seeds, Work-Labels/Custom-Fields) → Head **`147`**, Prod auf 147 verifiziert (Session 2 `cc5c1cbd`). 000148 reserviert (contract_events-Audit). Volume: `docker_pgdata` (nicht `docker_postgres-data`). psql-User in Production ist **`kmuhub`**, nicht `postgres` — siehe [[troubleshooting]].
 
 ## RLS-Foundation (Migration 118, Sprint 4 Welle 1a)
 
@@ -328,6 +328,24 @@ Pragmatische Minimal-Version der "AI-First-DB"-Patterns — bewusst ohne Vendor-
 
 - **000137 advisory_protocols:** Beratungsprotokoll ZFA (Finanzberatung). Tabelle `advisory_protocols` — 57 typisierte Spalten über 8 Spec-Abschnitte (nur `products` als JSONB, Muster finance line_items), `tenant_id NOT NULL`, `contact_id FK`, Status `draft → finalized` (`handed_over_at`), CHECK `risk_class 1-7`. **Immutability service-seitig erzwungen** (Repo-Muster, DB-Status-Filter als Doppelnetz), 10J-Retention (DSGVO Art. 6(1)(c)). Plus contacts-Erweiterung: `referred_by_contact_id` (Self-FK) + `client_segment` (CHAR(1) CHECK A/B/C). RBAC-Seeds `advisory-protocols:{read,write,delete}`.
 - **000138 create_settings_foundation:** 3-Ebenen-Settings-Modell (Tenant-Default → Modul-Leiter-Override → User-Override). Drei Tabellen, alle `tenant_id NOT NULL`: `tenant_settings` (PK tenant_id+module_id+key, value JSONB), `user_settings` (PK +user_id, FK users CASCADE), `tenant_module_leads` (PK tenant_id+user_id+module_id, granted_by/granted_at). Key-Namespacing wie FE (`payroll.*`). RBAC-Seeds `module-leads:{read,write}` (write admin-only), `settings:{read,write}`. Resolve serverseitig in `internal/settings` — siehe [[architektur]].
+
+### Marathon Tag 2 Welle 2 — Finance-Compliance & Kontakte-360° (Migrations 139–141, 2026-06-10)
+
+- **000139 gobd_belegarchiv:** `gobd_documents` — revisionssicheres Belegarchiv nach §147 AO (10J-Retention). Immutability by design: KEIN UPDATE/DELETE (service-seitig erzwungen), `retention_until` = 31.12. von (archived_year + 8).
+- **000140 finance_incoming_invoices:** E-Rechnung Eingang (ZUGFeRD/Factur-X CII + XRechnung UBL, E-RechV / EU 2014/55/EU). `line_items`/`tax_breakdown` als JSONB (Muster wie outgoing invoices).
+- **000141 finance_invoices_contact_id:** `contact_id UUID NULL FK → contacts ON DELETE SET NULL` auf `finance_invoices` für Kontakte-360°-Verknüpfung.
+
+### Backend-Sessions 2026-06-11 — RLS-Nachzug, Signaturen, Files, Work-Erweiterungen (Migrations 142–147)
+
+- **000142 rls_pilot_new_tables:** RLS-Aktivierung auf den drei Chain-PILOT-Tabellen `password_reset_tokens`, `booking_pages`, `public_bookings` (schließt die in 000134/000135 angekündigte „separate Welle").
+- **000143 add_signature_to_rapporte_vermietung_vertraege:** `signature_data TEXT NULL` (+Metadaten) auf `work_reports`, vermietung- und vertraege-Tabellen — persistiert die Canvas-EES-Signaturen.
+- **000144 seed_files_permissions:** RBAC-Seed `files:{...}` für die generischen Presign-Routen (`POST /api/v1/files/presign-upload`, `GET .../presign-download`) — Muster 000131, ohne Seed 403 für alle.
+- **000145 work_labels:** `work_labels` (tenant-scoped, Farbe) + `task_labels` (m:n zu Tasks), RLS.
+- **000146 work_custom_field_definitions:** tenant-scoped Custom-Field-Definitionen für Tasks (`field_type` + optionale Select-Options).
+- **000147 seed_work_labels_permissions:** RBAC-Seeds `work_labels:*` + `work_custom_fields:*` (Muster 000144).
+- **Companion ohne Migration (2026-06-11 Nacht, `d028b8ea`):** `label_ids` wird in GetTask/ListTasks per `GetLabelsByTaskIDs`-Batch geladen (1 Query); `filter_label_ids` filtert als tenant-gescopte `EXISTS`-Subquery auf `task_labels`/`work_labels` im task-Repo.
+
+**Head: 000147** · 000148 reserviert für contract_events-Audit.
 
 ## Verwandte Notes
 - [[architektur]] — Service-Architektur, Performance-Patterns

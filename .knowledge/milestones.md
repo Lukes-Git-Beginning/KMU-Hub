@@ -1,8 +1,12 @@
 ---
 tags: [fortschritt, milestones]
-updated: 2026-06-11
+updated: 2026-06-12
 ---
 # Milestones
+
+## 2026-06-11 (Nacht) — FE-Lane in main gemergt + Branch-Hygiene + Welle-B-Follow-ups
+
+FE-Lane `marathon/luke-fe` (15 Commits) per Merge-Commit `1c2665bb` in main; CI + CI Desktop + Playwright-QA grün, Branch gelöscht. Konflikt-Hotspots (mocks/team+documents, settings-registry, i18n ×4) aufgelöst — main's ContractType-/Presign-Umbauten gewannen, Lane-EES-Wording behalten. **Branch-Hygiene: 14 vollständig gemergte Branches entsorgt — Repo hat nur noch `main`.** Danach Welle B: work-Label-Batch-Load + `filter_label_ids`-SQL (`d028b8ea`), MessageBubble auf echte Reactions-Hooks migriert + Demo-Store gelöscht (`507487b9`), hr_grpc-Tenant-Sweep (16×) + 9 pgtc-Integrationstests als display_name-Regressionsschutz (`6ff7989a`); Rest-Sweep work_grpc (`772483fd`), eslint-/Emoji-Fixes bis `4c1d3176`. Lessons (CI-Doppel-Workflow, vitest-Watch-Mode) in [[troubleshooting]].
 
 ## 2026-06-11 — FE-Lane „Luke-Block" komplett (Marathon Strom L, Phasen 1–12)
 
@@ -10,7 +14,7 @@ Der gesamte an Luke delegierte Frontend-Block (profil/vertraege/dashboard, P1–
 
 Die letzten 3 Phasen liefen als Builder→adversarialer-Verifier→Gate-Wellen: 1 echter P0 (FinanzenPage-ErrorBoundary-Crash, QA strukturell blind) + 1 P1 (rohe History-Codes) vor Push gefunden — QA-Lessons in [[troubleshooting#frontend-qa-lessons-fe-lane-2026-06-1011-marathon-strom-l]].
 
-**Nächster Schritt:** Darien-Feinschliff-Review via `.planning/reviews/{vertraege,dashboard,profil,buchhaltung}.md`, danach Merge → main. Offene Backend-Bedarfe: Team-Layout-Endpunkt, per-Employee-HR-Weekly, Helpdesk-Einzelticket-Route, Chat-Unread-Selector, vertraege-API-Swap auf `entity_links`.
+**Update 2026-06-11 Nacht:** ✅ Merge → main erfolgt (`1c2665bb`, siehe Milestone oben). Weiterhin offen: Darien-Feinschliff-Review via `.planning/reviews/{vertraege,dashboard,profil,buchhaltung}.md`; Backend-Bedarfe Team-Layout-Endpunkt, per-Employee-HR-Weekly, Helpdesk-Einzelticket-Route, Chat-Unread-Selector, vertraege-API-Swap auf `entity_links`.
 
 ## 2026-06-05 — Triple-Session: CI/E2E gruen + R2-P1-Batch + LiveKit/COSMI_ENV-Cluster
 

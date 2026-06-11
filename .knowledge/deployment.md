@@ -1,6 +1,6 @@
 ---
 tags: [deployment, docker, ci-cd]
-updated: 2026-06-09
+updated: 2026-06-12
 ---
 # Deployment & Infrastruktur
 
@@ -38,7 +38,7 @@ Datei: `deploy/docker/docker-compose.yml`
 |---------|-------|------|-------|
 | postgres | pgvector/pgvector:pg16 | 5432 | Hauptdatenbank (Volume `docker_pgdata`) |
 | redis | redis:7.4-alpine | 6379 | Cache + Rate Limiting (Pin auf 7.4 wegen RDB-v12-Kompat) |
-| minio | minio/minio:RELEASE.2025-05-21T... | 9000/9001 | S3-kompatibler File-Storage |
+| minio | minio/minio:RELEASE.2025-05-21T... | 9000/9001 | S3-kompatibler File-Storage. **Seit 2026-06-11 public erreichbar als `s3.zentria.tech`** (Caddy-Route, `1aef2f45`) — Presign-URLs (`/api/v1/files/presign-*`) müssen browser-reachable sein. CORS via Server-Env `MINIO_API_CORS_ALLOW_ORIGIN` statt `mc cors set` (existiert nicht, `1e65662a`) |
 | minio/mc | minio/mc:RELEASE.2025-05-21T... | — | Bucket-Init (Tag-Rotation siehe Welle 1) |
 | onlyoffice | onlyoffice/documentserver | 8088/8443 | Document-Editing (unhealthy seit 2 Monaten) |
 | livekit | livekit-server | 7880/7881/7882 | Video/Audio (WebRTC) |

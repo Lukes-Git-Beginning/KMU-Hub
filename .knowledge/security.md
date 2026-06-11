@@ -1,6 +1,6 @@
 ---
 tags: [security, auth, compliance, gdpr, rls, multi-tenant]
-updated: 2026-06-10
+updated: 2026-06-12
 ---
 # Security & Compliance
 
@@ -19,6 +19,8 @@ Gateway propagiert `tenant_id` und `user_id` als gRPC-Metadata an Backend-Servic
 - **Outbound** (`middleware.TenantOutboundUnaryInterceptor` in `internal/gateway/registry.go:94`) — seit Welle 0.6 GLOBAL für alle Service-Verbindungen.
 - **Inbound** (`middleware.TenantInboundUnaryInterceptor`) — seit Welle 0.6 in chat-service, seit Welle 1d in `cmd/auth`, `cmd/crm`, `cmd/dialer`, `cmd/work`. Restliche 16 Services in Welle 5.
 - Inbound ist **soft** (handler wird immer aufgerufen, GetTenantID liefert dann ErrMissingTenantID falls Metadata fehlt) — Login/Register/AcceptInvitation funktionieren ohne Whitelist. Falls Welle 5 hardenet: Whitelist-Methods sind `/auth.AuthService/{Login,Register,RefreshToken,AcceptInvitation,Validate2FALogin}`.
+- **gRPC-Handler-Sweeps `req.GetTenantId()` → `middleware.GetTenantID(ctx)` (W2D-Muster, `codes.Unauthenticated` statt `InvalidArgument`):** crm/dialer/helpdesk (W2D 2026-04-28), 10 weitere Handler (Welle 4A), **hr_grpc.go komplett (16 Stellen, `6ff7989a`) + work_grpc.go Rest (CreateTask/ListTasks, `772483fd`) — 2026-06-11**. Request-Felder `tenant_id` sind damit in keinem dieser Handler mehr spoofbar.
+- **RLS-Nachzug (Migration 142, 2026-06-11, `7317bdc0`):** `enable_tenant_rls` auf den Chain-PILOT-Tabellen `password_reset_tokens`, `booking_pages`, `public_bookings` aktiviert.
 
 ## Authentifizierung
 - JWT Access Token: 15min Expiry, Claims: `uid`, `tid` (Tenant), `roles`, `perms`
