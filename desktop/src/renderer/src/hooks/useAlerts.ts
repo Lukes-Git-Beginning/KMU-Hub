@@ -12,7 +12,6 @@
  *   - NEVER touches useFeatureFlags/FeatureGate wiring (app-wide fail-closed)
  */
 import { useMemo } from 'react'
-import type { LucideIcon } from 'lucide-react'
 import { useVertraegeStore } from '@/stores/vertraege'
 import { useHelpdeskStore } from '@/stores/helpdesk'
 import { useInvoices } from '@/api/hooks/useFinance'
