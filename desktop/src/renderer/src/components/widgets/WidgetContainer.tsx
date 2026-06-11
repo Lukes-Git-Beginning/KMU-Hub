@@ -1,7 +1,7 @@
 /**
  * Widget grid container -- renders the react-grid-layout dashboard grid.
  *
- * Reads active widgets and layout from the dashboard store.
+ * Reads active widgets and layout from the dashboard store (scope-aware).
  * In edit mode, widgets are draggable and resizable. A floating
  * "Add Widget" button opens a picker dialog.
  */
@@ -46,8 +46,15 @@ function useDebouncedLayoutUpdate(
 
 export default function WidgetContainer() {
   const { t } = useTranslation()
-  const layouts = useDashboardStore((s) => s.layouts)
-  const activeWidgets = useDashboardStore((s) => s.activeWidgets)
+
+  // Scope-aware reads
+  const scope = useDashboardStore((s) => s.scope)
+  const layouts = useDashboardStore((s) =>
+    s.scope === 'team' ? s.teamLayouts : s.personalLayouts
+  )
+  const activeWidgets = useDashboardStore((s) =>
+    s.scope === 'team' ? s.teamActiveWidgets : s.personalActiveWidgets
+  )
   const isEditing = useDashboardStore((s) => s.isEditing)
   const updateLayout = useDashboardStore((s) => s.updateLayout)
   const addWidget = useDashboardStore((s) => s.addWidget)
@@ -58,7 +65,6 @@ export default function WidgetContainer() {
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(1200)
 
-   
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
@@ -74,7 +80,7 @@ export default function WidgetContainer() {
 
   // Debounced layout save (500ms)
   const debouncedUpdateLayout = useDebouncedLayoutUpdate(
-    (layout: Layout[]) => updateLayout(layout),
+    (layout: Layout[]) => updateLayout(layout, scope),
     500
   )
 
@@ -189,7 +195,7 @@ export default function WidgetContainer() {
                   key={widget.id}
                   disabled={isActive}
                   onClick={() => {
-                    addWidget(widget.id)
+                    addWidget(widget.id, scope)
                     // Close picker if that was the last available widget
                     if (availableWidgets.length <= 1) {
                       setPickerOpen(false)

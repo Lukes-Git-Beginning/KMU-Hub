@@ -9,6 +9,10 @@
  * 1. On init: load from localStorage immediately (fast startup)
  * 2. Fetch from server and merge (prefer server if newer)
  * 3. On layout changes: update local state, debounce PUT to server
+ *
+ * Version history:
+ *   v1 → v2: Added per-scope (personal/team) layout/activeWidgets.
+ *             Migration: old flat activeWidgets/layouts migrate to personal scope.
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
@@ -36,14 +40,18 @@ export const ALL_WIDGET_IDS = [
   'absences',
   'birthdays',
   'cross-module-overview',
+  'team-worktime',
+  'open-tickets',
 ] as const
 
 export type WidgetId = (typeof ALL_WIDGET_IDS)[number]
 
+export type DashboardScope = 'personal' | 'team'
+
 export type SyncStatus = 'synced' | 'syncing' | 'offline' | 'idle'
 
-/** Default 12-column grid layout: 2 rows of 3 widgets. */
-function getDefaultLayout(): Layout[] {
+/** Default 12-column grid layout for the PERSONAL scope. */
+export function getDefaultPersonalLayout(): Layout[] {
   return [
     // Row 1: personal (visible for ALL employees)
     { i: 'my-tasks', x: 0, y: 0, w: 4, h: 4, minW: 3, minH: 3 },
@@ -74,14 +82,50 @@ function getDefaultLayout(): Layout[] {
   ]
 }
 
+/** Default active widget IDs for the PERSONAL scope. */
+function getDefaultPersonalWidgets(): string[] {
+  return getDefaultPersonalLayout().map((l) => l.i)
+}
+
+/** Default widget IDs for the TEAM scope. */
+export const DEFAULT_TEAM_WIDGET_IDS: string[] = [
+  'team-status',
+  'absences',
+  'birthdays',
+  'time-clock',
+  'team-worktime',
+  'open-tickets',
+]
+
+/** Default 12-column grid layout for the TEAM scope. */
+export function getDefaultTeamLayout(): Layout[] {
+  return [
+    { i: 'team-status',   x: 0, y: 0, w: 4, h: 4, minW: 3, minH: 3 },
+    { i: 'absences',      x: 4, y: 0, w: 4, h: 3, minW: 3, minH: 2 },
+    { i: 'birthdays',     x: 8, y: 0, w: 4, h: 3, minW: 3, minH: 2 },
+    { i: 'time-clock',    x: 0, y: 4, w: 4, h: 3, minW: 3, minH: 2 },
+    { i: 'team-worktime', x: 4, y: 3, w: 4, h: 4, minW: 3, minH: 3 },
+    { i: 'open-tickets',  x: 8, y: 3, w: 4, h: 4, minW: 3, minH: 3 },
+  ]
+}
+
 /** Debounce timer for server sync. */
 let syncTimer: ReturnType<typeof setTimeout> | null = null
 
 interface DashboardState {
-  /** Current grid layout keyed by widget ID. */
-  layouts: Layout[]
-  /** IDs of widgets currently displayed on the dashboard. */
-  activeWidgets: string[]
+  /** Current scope: personal or team. */
+  scope: DashboardScope
+
+  /** Current grid layout for the PERSONAL scope. */
+  personalLayouts: Layout[]
+  /** IDs of widgets currently displayed on the PERSONAL dashboard. */
+  personalActiveWidgets: string[]
+
+  /** Current grid layout for the TEAM scope (mock-first, localStorage only). */
+  teamLayouts: Layout[]
+  /** IDs of widgets currently displayed on the TEAM dashboard. */
+  teamActiveWidgets: string[]
+
   /** Whether the user is in edit mode (drag/resize enabled). */
   isEditing: boolean
   /** Server sync status indicator. */
@@ -89,15 +133,17 @@ interface DashboardState {
   /** Whether the store has been initialized from server. */
   serverInitialized: boolean
 
-  /** Update layout from react-grid-layout onLayoutChange. */
-  updateLayout: (layout: Layout[]) => void
-  /** Add a widget to the dashboard at an optional position. */
-  addWidget: (widgetId: string, position?: { x: number; y: number }) => void
-  /** Remove a widget from the dashboard. */
-  removeWidget: (widgetId: string) => void
+  /** Switch between personal and team scope. */
+  setScope: (scope: DashboardScope) => void
+  /** Update layout from react-grid-layout onLayoutChange (scoped). */
+  updateLayout: (layout: Layout[], scope: DashboardScope) => void
+  /** Add a widget to the dashboard at an optional position (scoped). */
+  addWidget: (widgetId: string, scope: DashboardScope, position?: { x: number; y: number }) => void
+  /** Remove a widget from the dashboard (scoped). */
+  removeWidget: (widgetId: string, scope: DashboardScope) => void
   /** Toggle edit mode on/off. */
   toggleEditing: () => void
-  /** Reset to default layout and widget set (calls server DELETE). */
+  /** Reset to default layout and widget set (personal scope only; calls server DELETE). */
   resetToDefaults: () => void
   /** Ensure defaults are loaded (call on first mount). */
   ensureDefaults: () => void
@@ -108,8 +154,8 @@ interface DashboardState {
 }
 
 /**
- * Debounced save to server. Waits 2 seconds after last layout change
- * before sending PUT to avoid hammering the server during drag operations.
+ * Debounced save to server (PERSONAL scope only).
+ * Team scope is mock-first / localStorage only.
  */
 function debouncedServerSync(layouts: Layout[], activeWidgets: string[], setSyncStatus: (s: SyncStatus) => void) {
   if (syncTimer) clearTimeout(syncTimer)
@@ -117,7 +163,6 @@ function debouncedServerSync(layouts: Layout[], activeWidgets: string[], setSync
   syncTimer = setTimeout(async () => {
     setSyncStatus('syncing')
     try {
-      // Lazy import to avoid circular dependency
       const { apiClient } = await import('@/api/client')
       const { error } = await apiClient.PUT('/api/v1/dashboard/layout', {
         body: {
@@ -145,52 +190,91 @@ function debouncedServerSync(layouts: Layout[], activeWidgets: string[], setSync
 export const useDashboardStore = create<DashboardState>()(
   persist(
     (set, get) => ({
-      layouts: [],
-      activeWidgets: [],
+      scope: 'personal' as DashboardScope,
+
+      personalLayouts: [],
+      personalActiveWidgets: [],
+
+      teamLayouts: [],
+      teamActiveWidgets: [],
+
       isEditing: false,
       serverSyncStatus: 'idle' as SyncStatus,
       serverInitialized: false,
 
-      updateLayout: (layout: Layout[]) => {
-        set({ layouts: layout })
-        // Trigger debounced server sync
-        const { activeWidgets, setSyncStatus } = get()
-        debouncedServerSync(layout, activeWidgets, setSyncStatus)
+      setScope: (scope: DashboardScope) => {
+        set({ scope, isEditing: false })
       },
 
-      addWidget: (widgetId: string, position?: { x: number; y: number }) => {
-        const { activeWidgets, layouts, setSyncStatus } = get()
-        if (activeWidgets.includes(widgetId)) return
-
-        const defaultItem = getDefaultLayout().find((l) => l.i === widgetId)
-        const newItem: Layout = {
-          i: widgetId,
-          x: position?.x ?? 0,
-          y: position?.y ?? Infinity,
-          w: defaultItem?.w ?? 4,
-          h: defaultItem?.h ?? 3,
-          minW: defaultItem?.minW ?? 2,
-          minH: defaultItem?.minH ?? 2,
+      updateLayout: (layout: Layout[], scope: DashboardScope) => {
+        const { personalActiveWidgets, setSyncStatus } = get()
+        if (scope === 'team') {
+          set({ teamLayouts: layout })
+          // Team layout is localStorage-only (mock-first, no server PUT)
+        } else {
+          set({ personalLayouts: layout })
+          debouncedServerSync(layout, personalActiveWidgets, setSyncStatus)
         }
-
-        const newActiveWidgets = [...activeWidgets, widgetId]
-        const newLayouts = [...layouts, newItem]
-        set({
-          activeWidgets: newActiveWidgets,
-          layouts: newLayouts,
-        })
-        debouncedServerSync(newLayouts, newActiveWidgets, setSyncStatus)
       },
 
-      removeWidget: (widgetId: string) => {
-        const { activeWidgets, layouts, setSyncStatus } = get()
-        const newActiveWidgets = activeWidgets.filter((id) => id !== widgetId)
-        const newLayouts = layouts.filter((l) => l.i !== widgetId)
-        set({
-          activeWidgets: newActiveWidgets,
-          layouts: newLayouts,
-        })
-        debouncedServerSync(newLayouts, newActiveWidgets, setSyncStatus)
+      addWidget: (widgetId: string, scope: DashboardScope, position?: { x: number; y: number }) => {
+        const { personalActiveWidgets, personalLayouts, teamActiveWidgets, teamLayouts, setSyncStatus } = get()
+
+        if (scope === 'team') {
+          if (teamActiveWidgets.includes(widgetId)) return
+          const defaultItem = getDefaultTeamLayout().find((l) => l.i === widgetId)
+          const newItem: Layout = {
+            i: widgetId,
+            x: position?.x ?? 0,
+            y: position?.y ?? Infinity,
+            w: defaultItem?.w ?? 4,
+            h: defaultItem?.h ?? 3,
+            minW: defaultItem?.minW ?? 2,
+            minH: defaultItem?.minH ?? 2,
+          }
+          set({
+            teamActiveWidgets: [...teamActiveWidgets, widgetId],
+            teamLayouts: [...teamLayouts, newItem],
+          })
+        } else {
+          if (personalActiveWidgets.includes(widgetId)) return
+          const defaultItem = getDefaultPersonalLayout().find((l) => l.i === widgetId)
+          const newItem: Layout = {
+            i: widgetId,
+            x: position?.x ?? 0,
+            y: position?.y ?? Infinity,
+            w: defaultItem?.w ?? 4,
+            h: defaultItem?.h ?? 3,
+            minW: defaultItem?.minW ?? 2,
+            minH: defaultItem?.minH ?? 2,
+          }
+          const newActiveWidgets = [...personalActiveWidgets, widgetId]
+          const newLayouts = [...personalLayouts, newItem]
+          set({
+            personalActiveWidgets: newActiveWidgets,
+            personalLayouts: newLayouts,
+          })
+          debouncedServerSync(newLayouts, newActiveWidgets, setSyncStatus)
+        }
+      },
+
+      removeWidget: (widgetId: string, scope: DashboardScope) => {
+        const { personalActiveWidgets, personalLayouts, teamActiveWidgets, teamLayouts, setSyncStatus } = get()
+
+        if (scope === 'team') {
+          set({
+            teamActiveWidgets: teamActiveWidgets.filter((id) => id !== widgetId),
+            teamLayouts: teamLayouts.filter((l) => l.i !== widgetId),
+          })
+        } else {
+          const newActiveWidgets = personalActiveWidgets.filter((id) => id !== widgetId)
+          const newLayouts = personalLayouts.filter((l) => l.i !== widgetId)
+          set({
+            personalActiveWidgets: newActiveWidgets,
+            personalLayouts: newLayouts,
+          })
+          debouncedServerSync(newLayouts, newActiveWidgets, setSyncStatus)
+        }
       },
 
       toggleEditing: () => {
@@ -199,31 +283,29 @@ export const useDashboardStore = create<DashboardState>()(
 
       resetToDefaults: () => {
         set({
-          layouts: getDefaultLayout(),
-          activeWidgets: [...ALL_WIDGET_IDS],
+          personalLayouts: getDefaultPersonalLayout(),
+          personalActiveWidgets: getDefaultPersonalWidgets(),
           isEditing: false,
           serverSyncStatus: 'syncing',
         })
 
-        // Call server DELETE then refetch
         ;(async () => {
           try {
             const { apiClient } = await import('@/api/client')
             await apiClient.DELETE('/api/v1/dashboard/layout')
 
-            // Refetch the role default from server
             const { data } = await apiClient.GET('/api/v1/dashboard/layout')
             if (data) {
               const serverLayout = (data.layout ?? []) as unknown as Layout[]
               const serverWidgets = (data.active_widgets ?? []) as string[]
               if (serverLayout.length > 0) {
                 set({
-                  layouts: serverLayout.map((l) => ({
+                  personalLayouts: serverLayout.map((l) => ({
                     ...l,
-                    minW: getDefaultLayout().find((d) => d.i === l.i)?.minW ?? 2,
-                    minH: getDefaultLayout().find((d) => d.i === l.i)?.minH ?? 2,
+                    minW: getDefaultPersonalLayout().find((d) => d.i === l.i)?.minW ?? 2,
+                    minH: getDefaultPersonalLayout().find((d) => d.i === l.i)?.minH ?? 2,
                   })),
-                  activeWidgets: serverWidgets,
+                  personalActiveWidgets: serverWidgets,
                   serverSyncStatus: 'synced',
                 })
                 return
@@ -237,12 +319,18 @@ export const useDashboardStore = create<DashboardState>()(
       },
 
       ensureDefaults: () => {
-        const { activeWidgets } = get()
-        if (activeWidgets.length === 0) {
-          set({
-            layouts: getDefaultLayout(),
-            activeWidgets: [...ALL_WIDGET_IDS],
-          })
+        const { personalActiveWidgets, teamActiveWidgets } = get()
+        const updates: Partial<Pick<DashboardState, 'personalLayouts' | 'personalActiveWidgets' | 'teamLayouts' | 'teamActiveWidgets'>> = {}
+        if (personalActiveWidgets.length === 0) {
+          updates.personalLayouts = getDefaultPersonalLayout()
+          updates.personalActiveWidgets = getDefaultPersonalWidgets()
+        }
+        if (teamActiveWidgets.length === 0) {
+          updates.teamLayouts = getDefaultTeamLayout()
+          updates.teamActiveWidgets = [...DEFAULT_TEAM_WIDGET_IDS]
+        }
+        if (Object.keys(updates).length > 0) {
+          set(updates)
         }
       },
 
@@ -256,7 +344,6 @@ export const useDashboardStore = create<DashboardState>()(
           const { data, error } = await apiClient.GET('/api/v1/dashboard/layout')
 
           if (error || !data) {
-            // Server unreachable -- keep localStorage state
             setSyncStatus('offline')
             set({ serverInitialized: true })
             return
@@ -266,19 +353,17 @@ export const useDashboardStore = create<DashboardState>()(
           const serverWidgets = (data.active_widgets ?? []) as string[]
 
           if (serverLayout.length > 0) {
-            // Merge server layout with minW/minH from defaults
             set({
-              layouts: serverLayout.map((l) => ({
+              personalLayouts: serverLayout.map((l) => ({
                 ...l,
-                minW: getDefaultLayout().find((d) => d.i === l.i)?.minW ?? 2,
-                minH: getDefaultLayout().find((d) => d.i === l.i)?.minH ?? 2,
+                minW: getDefaultPersonalLayout().find((d) => d.i === l.i)?.minW ?? 2,
+                minH: getDefaultPersonalLayout().find((d) => d.i === l.i)?.minH ?? 2,
               })),
-              activeWidgets: serverWidgets,
+              personalActiveWidgets: serverWidgets,
               serverSyncStatus: 'synced',
               serverInitialized: true,
             })
           } else {
-            // No server layout -- use local defaults
             set({ serverSyncStatus: 'synced', serverInitialized: true })
           }
         } catch {
@@ -293,9 +378,35 @@ export const useDashboardStore = create<DashboardState>()(
     }),
     {
       name: 'cosmi-dashboard',
+      version: 2,
+      /**
+       * Persist migration: v1 → v2
+       * v1 stored flat { layouts, activeWidgets }.
+       * v2 stores per-scope { personalLayouts, personalActiveWidgets, teamLayouts, teamActiveWidgets, scope }.
+       * Migration: move old flat fields into personal scope; preserve widget customizations.
+       */
+      migrate(persistedState: unknown, version: number) {
+        if (version < 2) {
+          const old = persistedState as {
+            layouts?: Layout[]
+            activeWidgets?: string[]
+          }
+          return {
+            scope: 'personal' as DashboardScope,
+            personalLayouts: old.layouts ?? [],
+            personalActiveWidgets: old.activeWidgets ?? [],
+            teamLayouts: [] as Layout[],
+            teamActiveWidgets: [] as string[],
+          }
+        }
+        return persistedState
+      },
       partialize: (state) => ({
-        layouts: state.layouts,
-        activeWidgets: state.activeWidgets,
+        scope: state.scope,
+        personalLayouts: state.personalLayouts,
+        personalActiveWidgets: state.personalActiveWidgets,
+        teamLayouts: state.teamLayouts,
+        teamActiveWidgets: state.teamActiveWidgets,
       }),
     }
   )

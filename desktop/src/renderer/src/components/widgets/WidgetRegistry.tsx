@@ -26,6 +26,8 @@ import {
   UserX,
   Cake,
   LayoutDashboard,
+  Clock4,
+  TicketCheck,
   type LucideIcon,
 } from 'lucide-react'
 import type { ModuleId } from '@/lib/pricing'
@@ -287,6 +289,28 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
     component: lazy(() => import('../../modules/dashboard/widgets/CrossModuleOverview')),
     roles: ['admin', 'manager', 'member'],
     // No module gate: always available; individual data sources are flag-gated internally
+  },
+  'team-worktime': {
+    id: 'team-worktime',
+    name: i18next.t('widgets.registry.teamWorktime.name'),
+    description: i18next.t('widgets.registry.teamWorktime.description'),
+    icon: Clock4,
+    defaultSize: { w: 4, h: 4 },
+    minSize: { w: 3, h: 3 },
+    component: lazy(() => import('../../modules/dashboard/widgets/TeamWorktime')),
+    roles: ['admin', 'manager'],
+    module: 'zeiterfassung',
+  },
+  'open-tickets': {
+    id: 'open-tickets',
+    name: i18next.t('widgets.registry.openTickets.name'),
+    description: i18next.t('widgets.registry.openTickets.description'),
+    icon: TicketCheck,
+    defaultSize: { w: 4, h: 4 },
+    minSize: { w: 3, h: 3 },
+    component: lazy(() => import('../../modules/dashboard/widgets/OpenTickets')),
+    roles: ['admin', 'manager', 'member'],
+    module: 'helpdesk',
   },
 }
 

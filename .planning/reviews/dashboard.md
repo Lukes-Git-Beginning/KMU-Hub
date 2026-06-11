@@ -113,5 +113,57 @@ react-grid-layout in `WidgetContainer.tsx` liefert 2D-Grid-Drag+Resize via `isDr
 
 - **`unreadCount` hardcoded 0 in `CrossModuleOverview.tsx`** — Chat-Unread-Zähler zeigt immer 0, weil kein Chat-Unread-Selector/-Store existiert. TODO-Kommentar gesetzt (`// TODO(phase-11 follow-up): wire to chat unread store once a selector exists`). Wird behoben, sobald ein dedizierter `useUnreadCount`-Selector im Chat-Store vorhanden ist.
 
+---
+
+## Phase 12 — Team-Dashboard Scope (Segmented Control + 2 neue Widgets)  ·  marathon/luke-fe  ·  Status: ⬜ ungereviewt
+
+**Was gebaut:**
+
+- `DashboardPage.tsx`: `ScopeToggle`-Segmented-Control (Persönlich / Team) oberhalb des Widget-Grids; kein eigenes Routing
+- `stores/dashboard.ts`: `version`-Bump 1→2, `migrate`-Funktion (v1 flat `activeWidgets`/`layouts` → v2 `personalActiveWidgets`/`personalLayouts`); `scope: 'personal' | 'team'`; separate `teamLayouts`/`teamActiveWidgets`; `setScope`, `updateLayout(layout, scope)`, `addWidget(id, scope)`, `removeWidget(id, scope)` alle scope-aware; `ensureDefaults` initialisiert beide Scopes; Team-Layout mock-first (kein Server-PUT)
+- `components/widgets/WidgetContainer.tsx`: scope-aware Selektoren für `layouts`/`activeWidgets`; `addWidget`/`updateLayout`-Aufrufe mit scope übergeben
+- `components/widgets/WidgetWrapper.tsx`: `removeWidget` mit scope aufgerufen
+- `modules/dashboard/widgets/TeamWorktime.tsx`: Team-Wochenstunden via `useEmployees()` + `useWorkTimeEntries()`; CSS-Bars (GPU-safe, wie MiniChart-Muster); Modul: `zeiterfassung`
+- `modules/dashboard/widgets/OpenTickets.tsx`: offene Tickets mit SLA-Status aus `useHelpdeskStore`; sortiert nach SLA-Überfälligkeit + Priorität; Modul: `helpdesk`
+- `components/widgets/WidgetRegistry.tsx`: 2 neue Einträge (`team-worktime`, `open-tickets`) mit `module`-Mapping
+- i18n: `dashboard.scope.*`, `dashboard.teamWorktime.*`, `dashboard.openTickets.*`, `widgets.registry.teamWorktime.*`, `widgets.registry.openTickets.*` in de/en/fr/it.json
+
+**Default-Team-Set:** `team-status`, `absences`, `birthdays`, `time-clock`, `team-worktime`, `open-tickets`
+
+**Hinklicken (Pfad in der App):**
+- Route `/` → Scope-Toggle „Team" → Team-Dashboard mit neuen Widgets sichtbar
+- Team-Arbeitszeit: zeigt Mitarbeiternamen + Balken (Wochenstunden relativ zu 40h-Ziel)
+- Offene Tickets: Liste der offenen/in-progress Tickets, SLA-Überf. rot hervorgehoben
+- Zurück zu „Persönlich" → persönliches Layout wiederhergestellt (keine Überschreibung)
+
+**QA-Ergebnisse:** 6/6 Szenarien grün
+- S1: Toggle + Team-Widget-Set sichtbar ✅
+- S2: Echte Daten (Mitarbeiternamen, Ticket-Titel) ✅
+- S3: Persönliches Layout restauriert + Scope-Persistenz nach Reload ✅
+- S4: Persist-Migration v1→v2 verlustfrei ✅
+- S5: Edit-Mode in Team-Scope ändert nur Team-Layout ✅
+- S6: helpdesk-Flag aus → open-tickets verschwindet aus Grid und Picker ✅
+
+**Screenshots:** `desktop/scripts/qa-shots/phase12/`
+
+**Backend-Bedarf (Team-Scope-Persistenz):**
+
+- Team-Dashboard-Layout wird aktuell NUR in localStorage gespeichert (mock-first).
+- Für production-ready Team-Layouts: `PUT /api/v1/dashboard/layout` auf einen neuen Endpunkt `PUT /api/v1/dashboard/team-layout` erweitern ODER einen Query-Parameter `?scope=team` hinzufügen. Backend braucht dann `tenant_id`-Scope auf Team-Layout (gilt für alle User im Tenant, nicht per User).
+- Design-Frage für Darien: Ist Team-Layout tenant-weit (ein Layout für alle) oder per Rolle (Admin sieht anderes Team-Dashboard als Member)?
+
+**Offene Punkte:**
+- `TeamWorktime.tsx`: Wochenstunden sind aktuell per-Employee-Index deterministische Werte (MSW gibt dieselben Einträge für alle). Sobald Backend `employee_id`-Filter auf `/api/v1/hr/time/summary/weekly` unterstützt, auf echte per-Employee-Daten umstellen.
+- `OpenTickets.tsx`: Link „Zum Helpdesk" nicht implementiert (Ticket-Row navigiert nicht) — bewusst, da Routing-Ziel für Einzelticket noch offen.
+
+**Verifier-P2-Befunde Phase 12 (2026-06-11, dokumentiert statt gefixt):**
+- `qa-phase12.mjs` S4: Migrations-Assert prüft nur EIN Fixture-Widget per OR — bei künftigen Migrations-Tests alle injizierten Widgets einzeln asserten.
+- `qa-phase12.mjs` S5: pass-Condition ist OR-Kette (`hasMyTasks || hasMyCalendar`) — bei Wiederverwendung in AND umbauen.
+- `qa-phase12.mjs` S6: `openTicketsInPicker` wird gelogged, aber nicht gegatet; zeiterfassung-off-Szenario (TeamWorktime verschwindet) fehlt ganz.
+- i18n `dashboard.openTickets.overdueSla`: einfache `{count}`-Interpolation statt ICU-Plural — beim nächsten i18n-Sweep auf `{count, plural, …}` heben (fr/it hätten Plural-Varianten verdient).
+
+**Reviewer-Notizen (beim Feinschliff auszufüllen):**
+- _<hier trägt der Reviewer Feedback ein → wird zu TaskCreate-Items>_
+
 <!-- Phasen-Einträge hier anhängen — Struktur aus _TEMPLATE.md kopieren.
      Status-Legende: ⬜ ungereviewt · 🟡 Feedback offen · ✅ grün -->
