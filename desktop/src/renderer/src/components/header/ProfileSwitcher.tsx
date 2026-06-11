@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Check, ChevronDown, Plus } from 'lucide-react'
+import { Check, ChevronDown, Plus, Settings } from 'lucide-react'
 import { useProfileStore } from '@/stores/profile'
 import { cn } from '@/lib/cn'
 import { useTranslation } from 'react-i18next'
@@ -56,7 +56,11 @@ export function ProfileSwitcher() {
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-accent transition-colors"
       >
-        <span className="text-base">{activeProfile?.icon ?? '\u2699\uFE0F'}</span>
+        {activeProfile?.icon ? (
+          <span className="text-base">{activeProfile.icon}</span>
+        ) : (
+          <Settings className="h-4 w-4 text-muted-foreground" />
+        )}
         <ChevronDown
           className={cn(
             'h-3.5 w-3.5 text-muted-foreground transition-transform',
