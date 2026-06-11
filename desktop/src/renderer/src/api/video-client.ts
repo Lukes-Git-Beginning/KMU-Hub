@@ -32,7 +32,8 @@ import type {
   PresenceLevel,
   ToggleReactionRequest,
   ToggleReactionResponse,
-  ReactionSummary,
+  ListReactionsApiResponse,
+  ReactionSummaryApiResponse,
 } from './video-types'
 import { authenticatedRequest } from './utils/authenticatedFetch'
 
@@ -208,16 +209,16 @@ export const updatePresenceConfig = (awayTimeoutSeconds: number) =>
   put<void>('/api/v1/video/presence/config', { away_timeout_seconds: awayTimeoutSeconds })
 
 // ---------------------------------------------------------------------------
-// Reactions
+// Reactions (chat service — /api/v1/messages)
 // ---------------------------------------------------------------------------
 
 export const toggleReaction = (req: ToggleReactionRequest) =>
-  post<ToggleReactionResponse>('/api/v1/video/reactions/toggle', req)
+  post<ToggleReactionResponse>(`/api/v1/messages/${req.message_id}/reactions`, { emoji: req.emoji })
 
 export const listReactions = (messageId: string) =>
-  get<ReactionSummary[]>(`/api/v1/video/reactions/${messageId}`)
+  get<ListReactionsApiResponse>(`/api/v1/messages/${messageId}/reactions`)
 
 export const getReactionSummary = (messageIds: string[]) =>
-  post<Record<string, ReactionSummary[]>>('/api/v1/video/reactions/summary', {
+  post<ReactionSummaryApiResponse>('/api/v1/messages/reactions/summary', {
     message_ids: messageIds,
   })

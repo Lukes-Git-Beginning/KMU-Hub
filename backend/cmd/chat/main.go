@@ -24,6 +24,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/metrics"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server"
+	"github.com/kmuhub/kmuhub/internal/work/reaction"
 	chatv1 "github.com/kmuhub/kmuhub/proto/chat/v1"
 )
 
@@ -52,6 +53,7 @@ func main() {
 	messageRepo := message.NewPostgresRepository(pool)
 	fileRepo := file.NewPostgresRepository(pool)
 	searchRepo := search.NewPostgresRepository(pool)
+	reactionRepo := reaction.NewPostgresRepository(pool)
 
 	// Initialize MinIO file store.
 	// When MINIO_PUBLIC_ENDPOINT is set, presigned URLs are signed with the
@@ -95,6 +97,7 @@ func main() {
 	messageService.SetEventEmitter(message.NewPGEventEmitter(pool))
 	fileService := file.NewService(fileRepo, fileStore, fileScanner, thumbnailGen, cfg.FileSizeLimitMB)
 	searchService := search.NewService(searchRepo, langDetector)
+	reactionService := reaction.NewService(reactionRepo)
 
 	// Metrics
 	metricsRegistry := metrics.NewRegistry()
@@ -109,7 +112,7 @@ func main() {
 			metricsRegistry.GRPCStreamInterceptor(),
 		),
 	)
-	chatGRPC := server.NewChatGRPCServer(channelService, messageService, fileService, searchService)
+	chatGRPC := server.NewChatGRPCServer(channelService, messageService, fileService, searchService, reactionService)
 	chatv1.RegisterChatServiceServer(grpcServer, chatGRPC)
 
 	// Initialize gRPC metrics after service registration

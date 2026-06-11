@@ -71,9 +71,14 @@ func (ch *ChatRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 		r.Use(authMiddleware)
 		r.Use(RequireAuthenticated)
 		r.With(middleware.RequirePermission("mentions", "read")).Get("/mentions", ch.HandleGetUserMentions)
+		// Reaction batch summary: static segment must be declared before /{id} to avoid chi ambiguity
+		r.With(middleware.RequirePermission("messages", "read")).Post("/reactions/summary", ch.HandleGetReactionSummary)
 		r.With(middleware.RequirePermission("messages", "read")).Get("/{id}/thread", ch.HandleGetThreadReplies)
 		r.With(middleware.RequirePermission("messages", "write")).Put("/{id}", ch.HandleUpdateMessage)
 		r.With(middleware.RequirePermission("messages", "delete")).Delete("/{id}", ch.HandleDeleteMessage)
+		// Reaction routes per message
+		r.With(middleware.RequirePermission("messages", "write")).Post("/{id}/reactions", ch.HandleToggleReaction)
+		r.With(middleware.RequirePermission("messages", "read")).Get("/{id}/reactions", ch.HandleListReactions)
 	})
 
 	// Files (individual file operations)
@@ -871,6 +876,106 @@ func (ch *ChatRoutes) HandleDeleteFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.JSON(w, http.StatusOK, map[string]string{"status": "file deleted"})
+}
+
+// ============================================================================
+// Chat Search Handler
+// ============================================================================
+
+// ============================================================================
+// Reaction Handlers (Phase 8)
+// ============================================================================
+
+type toggleReactionRequest struct {
+	Emoji string `json:"emoji" validate:"required"`
+}
+
+func (ch *ChatRoutes) HandleToggleReaction(w http.ResponseWriter, r *http.Request) {
+	client, err := ch.getChatClient()
+	if err != nil {
+		respondServiceUnavailable(w, ch.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	messageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[toggleReactionRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.ToggleReaction(r.Context(), &chatv1.ToggleReactionRequest{
+		MessageId: messageID,
+		UserId:    userID,
+		Emoji:     req.Emoji,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (ch *ChatRoutes) HandleListReactions(w http.ResponseWriter, r *http.Request) {
+	client, err := ch.getChatClient()
+	if err != nil {
+		respondServiceUnavailable(w, ch.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	messageID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.ListReactions(r.Context(), &chatv1.ListReactionsRequest{
+		MessageId: messageID,
+		UserId:    userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type getReactionSummaryRequest struct {
+	MessageIDs []string `json:"message_ids" validate:"required,min=1,dive,uuid"`
+}
+
+func (ch *ChatRoutes) HandleGetReactionSummary(w http.ResponseWriter, r *http.Request) {
+	client, err := ch.getChatClient()
+	if err != nil {
+		respondServiceUnavailable(w, ch.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	req, ok := decodeAndValidate[getReactionSummaryRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.GetReactionSummary(r.Context(), &chatv1.GetReactionSummaryRequest{
+		MessageIds: req.MessageIDs,
+		UserId:     userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
 }
 
 // ============================================================================

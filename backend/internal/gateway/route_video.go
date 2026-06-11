@@ -126,11 +126,6 @@ func (vr *VideoRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 		r.Post("/presence/status", vr.HandleSetPresenceStatus)
 		r.With(middleware.RequirePermission("settings", "write")).Put("/presence/config", vr.HandleUpdatePresenceConfig)
 		r.Get("/presence/config", vr.HandleGetPresenceConfig)
-
-		// Reactions (extends chat messages)
-		r.Post("/reactions/toggle", vr.HandleToggleReaction)
-		r.Get("/reactions/{messageId}", vr.HandleListReactions)
-		r.Post("/reactions/summary", vr.HandleGetReactionSummary)
 	})
 
 	// Meeting routes
@@ -1149,26 +1144,6 @@ func (vr *VideoRoutes) HandleGetPresenceConfig(w http.ResponseWriter, r *http.Re
 	}
 
 	response.JSON(w, http.StatusOK, resp)
-}
-
-// ============================================================================
-// Reaction Handlers (via VideoService gRPC -- reactions live in Work binary)
-// ============================================================================
-
-func (vr *VideoRoutes) HandleToggleReaction(w http.ResponseWriter, r *http.Request) {
-	// Reactions are not in the video proto -- they were added to the reaction service
-	// which is wired directly in the Work binary. For now, return 501 until we
-	// add reaction RPCs to the video proto or create a separate route.
-	// The reaction service is accessible via the work service gRPC connection.
-	response.Error(w, http.StatusNotImplemented, "reactions available via WebSocket events")
-}
-
-func (vr *VideoRoutes) HandleListReactions(w http.ResponseWriter, r *http.Request) {
-	response.Error(w, http.StatusNotImplemented, "reactions available via WebSocket events")
-}
-
-func (vr *VideoRoutes) HandleGetReactionSummary(w http.ResponseWriter, r *http.Request) {
-	response.Error(w, http.StatusNotImplemented, "reactions available via WebSocket events")
 }
 
 // ============================================================================

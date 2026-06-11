@@ -276,6 +276,25 @@ export interface ToggleReactionResponse {
   added: boolean
 }
 
+/** Shape returned by GET /api/v1/messages/:id/reactions */
+export interface ReactionItem {
+  message_id: string
+  user_id: string
+  emoji: string
+  created_at: string
+  first_name?: string
+  last_name?: string
+}
+
+export interface ListReactionsApiResponse {
+  reactions: ReactionItem[]
+}
+
+/** Shape returned by POST /api/v1/messages/reactions/summary */
+export interface ReactionSummaryApiResponse {
+  summaries: ReactionSummary[]
+}
+
 // ---------------------------------------------------------------------------
 // Incoming call data (for WebSocket push)
 // ---------------------------------------------------------------------------

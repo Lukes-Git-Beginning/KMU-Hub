@@ -184,6 +184,69 @@ export const chatHandlers = [
     return HttpResponse.json({ messages: [], has_more: false })
   }),
 
+  // -------------------------------------------------------------------------
+  // Reactions (Phase 8 — /api/v1/messages)
+  // -------------------------------------------------------------------------
+
+  // Toggle reaction (POST /{id}/reactions)
+  http.post(`${API}/api/v1/messages/:id/reactions`, async ({ params, request }) => {
+    const { id } = params
+    const body = (await request.json()) as Record<string, unknown>
+    const emoji = (body.emoji as string) ?? '👍'
+    // Return a minimal ToggleReactionResponse mirroring the proto shape
+    return HttpResponse.json({
+      reactions: [
+        {
+          message_id: id,
+          user_id: 'usr-demo',
+          emoji,
+          created_at: new Date().toISOString(),
+          first_name: 'Demo',
+          last_name: 'User',
+        },
+      ],
+      added: true,
+    })
+  }),
+
+  // List reactions (GET /{id}/reactions)
+  http.get(`${API}/api/v1/messages/:id/reactions`, ({ params }) => {
+    const { id } = params
+    // Deterministic seed: same logic as old chatReactions store
+    let hash = 0
+    const idStr = String(id)
+    for (let i = 0; i < idStr.length; i++) hash = (hash + idStr.charCodeAt(i)) % 997
+    const reactions =
+      hash % 2 === 0
+        ? [
+            { message_id: id, user_id: 'usr-u1', emoji: '👍', created_at: new Date().toISOString() },
+            { message_id: id, user_id: 'usr-u2', emoji: '👍', created_at: new Date().toISOString() },
+          ]
+        : []
+    return HttpResponse.json({ reactions })
+  }),
+
+  // Reaction summary batch (POST /reactions/summary)
+  http.post(`${API}/api/v1/messages/reactions/summary`, async ({ request }) => {
+    const body = (await request.json()) as { message_ids?: string[] }
+    const messageIds = body.message_ids ?? []
+    const summaries = messageIds.flatMap((mid) => {
+      let hash = 0
+      for (let i = 0; i < mid.length; i++) hash = (hash + mid.charCodeAt(i)) % 997
+      if (hash % 2 !== 0) return []
+      return [
+        {
+          message_id: mid,
+          emoji: '👍',
+          count: 2,
+          user_ids: ['usr-u1', 'usr-u2'],
+          current_user_reacted: false,
+        },
+      ]
+    })
+    return HttpResponse.json({ summaries })
+  }),
+
   // Full-text search across channel messages (demo: scans mock messages)
   http.get(`${API}/api/v1/chat/search`, ({ request }) => {
     const url = new URL(request.url)

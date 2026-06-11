@@ -1,8 +1,8 @@
 /**
  * TanStack Query hooks for message reactions (emoji).
  *
- * Toggle uses optimistic update: sets reaction data directly in the
- * query cache from the server response to avoid a refetch roundtrip.
+ * Toggle uses optimistic update: invalidates the per-message reaction cache
+ * so the next render re-fetches fresh data from the chat service.
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -16,7 +16,7 @@ import type { ToggleReactionRequest } from '../video-types'
 // Queries
 // ---------------------------------------------------------------------------
 
-/** Get reaction summaries for a single message. */
+/** Get individual reactions for a single message. */
 export function useReactions(messageId: string) {
   return useQuery({
     queryKey: ['reactions', messageId],
@@ -43,12 +43,9 @@ export function useToggleReaction() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (req: ToggleReactionRequest) => toggleReaction(req),
-    onSuccess: (data, variables) => {
-      // Optimistic update: set reaction data directly from server response
-      queryClient.setQueryData(
-        ['reactions', variables.message_id],
-        data.reactions,
-      )
+    onSuccess: (_data, variables) => {
+      // Invalidate the per-message reaction cache so the UI re-fetches
+      void queryClient.invalidateQueries({ queryKey: ['reactions', variables.message_id] })
     },
   })
 }

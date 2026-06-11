@@ -1,15 +1,14 @@
 /**
- * In-session demo backing for chat message reactions.
+ * Chat reactions store.
  *
- * The chat service does not expose reaction endpoints yet (no gateway
- * route, no chat-service impl — see .planning/backend-gaps.md), and
- * MessageInfo carries no reactions field. This Zustand store stands in
- * as the "demo backend": it seeds deterministic reactions per message on
- * first access and persists toggles for the session, so reactions survive
- * list virtualization (which remounts message bubbles).
+ * The real source of truth is now the API (useReactions / useToggleReaction
+ * via TanStack Query, wired to /api/v1/messages). The demo-seed helpers and
+ * in-memory toggle map below are kept for backward-compatibility with
+ * MessageBubble.tsx, which reads from this store while the component migration
+ * (swapping store reads for useReactions) is pending.
  *
- * Wiring-ready: when the backend exposes ToggleReaction/ListReactions,
- * swap the store reads/writes in MessageBubble for the real hooks.
+ * TODO (cleanup sprint): migrate MessageBubble to useReactions, then remove
+ * seedReactions, applyToggle, byMessage and CURRENT_REACTION_USER from here.
  */
 import { create } from 'zustand'
 import type { Reaction } from '@/modules/chat/messages/ReactionBar'
@@ -50,6 +49,9 @@ function applyToggle(list: Reaction[], emoji: string): Reaction[] {
 interface ChatReactionsState {
   byMessage: Record<string, Reaction[]>
   toggle: (messageId: string, emoji: string) => void
+  /** Optimistic hint for components using the real API. */
+  lastToggled: Record<string, string>
+  setLastToggled: (messageId: string, emoji: string) => void
 }
 
 export const useChatReactionsStore = create<ChatReactionsState>((set) => ({
@@ -59,6 +61,9 @@ export const useChatReactionsStore = create<ChatReactionsState>((set) => ({
       const base = s.byMessage[messageId] ?? seedReactions(messageId)
       return { byMessage: { ...s.byMessage, [messageId]: applyToggle(base, emoji) } }
     }),
+  lastToggled: {},
+  setLastToggled: (messageId, emoji) =>
+    set((s) => ({ lastToggled: { ...s.lastToggled, [messageId]: emoji } })),
 }))
 
 export const CURRENT_REACTION_USER = CURRENT_USER

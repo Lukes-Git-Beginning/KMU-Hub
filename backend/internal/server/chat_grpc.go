@@ -15,30 +15,35 @@ import (
 	"github.com/kmuhub/kmuhub/internal/chat/search"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/work/reaction"
 	chatv1 "github.com/kmuhub/kmuhub/proto/chat/v1"
 )
 
 // ChatGRPCServer implements the Chat gRPC service
 type ChatGRPCServer struct {
 	chatv1.UnimplementedChatServiceServer
-	channelService *channel.Service
-	messageService *message.Service
-	fileService    *file.Service
-	searchService  *search.Service
+	channelService  *channel.Service
+	messageService  *message.Service
+	fileService     *file.Service
+	searchService   *search.Service
+	reactionService *reaction.Service
 }
 
-// NewChatGRPCServer creates a new Chat gRPC server
+// NewChatGRPCServer creates a new Chat gRPC server.
+// Signature change (Welle 8): added reactionService *reaction.Service parameter.
 func NewChatGRPCServer(
 	channelService *channel.Service,
 	messageService *message.Service,
 	fileService *file.Service,
 	searchService *search.Service,
+	reactionService *reaction.Service,
 ) *ChatGRPCServer {
 	return &ChatGRPCServer{
-		channelService: channelService,
-		messageService: messageService,
-		fileService:    fileService,
-		searchService:  searchService,
+		channelService:  channelService,
+		messageService:  messageService,
+		fileService:     fileService,
+		searchService:   searchService,
+		reactionService: reactionService,
 	}
 }
 
@@ -867,6 +872,107 @@ func (s *ChatGRPCServer) SearchChat(ctx context.Context, req *chatv1.SearchChatR
 }
 
 // ============================================================================
+// Reactions (Phase 8)
+// ============================================================================
+
+func (s *ChatGRPCServer) ToggleReaction(ctx context.Context, req *chatv1.ToggleReactionRequest) (*chatv1.ToggleReactionResponse, error) {
+	messageID, err := uuid.Parse(req.MessageId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	result, err := s.reactionService.ToggleReaction(ctx, messageID, userID, req.Emoji)
+	if err != nil {
+		return nil, mapChatError(err)
+	}
+
+	var reactions []*chatv1.Reaction
+	for _, rx := range result.Reactions {
+		for _, uid := range rx.UserIDs {
+			reactions = append(reactions, &chatv1.Reaction{
+				MessageId: rx.MessageID.String(),
+				UserId:    uid.String(),
+				Emoji:     rx.Emoji,
+			})
+		}
+	}
+
+	return &chatv1.ToggleReactionResponse{
+		Reactions: reactions,
+		Added:     result.Added,
+	}, nil
+}
+
+func (s *ChatGRPCServer) ListReactions(ctx context.Context, req *chatv1.ListReactionsRequest) (*chatv1.ListReactionsResponse, error) {
+	messageID, err := uuid.Parse(req.MessageId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
+	}
+
+	rxList, err := s.reactionService.ListReactions(ctx, messageID)
+	if err != nil {
+		return nil, mapChatError(err)
+	}
+
+	var reactions []*chatv1.Reaction
+	for _, rx := range rxList {
+		reactions = append(reactions, &chatv1.Reaction{
+			MessageId: rx.MessageID.String(),
+			UserId:    rx.UserID.String(),
+			Emoji:     rx.Emoji,
+			CreatedAt: rx.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		})
+	}
+
+	return &chatv1.ListReactionsResponse{Reactions: reactions}, nil
+}
+
+func (s *ChatGRPCServer) GetReactionSummary(ctx context.Context, req *chatv1.GetReactionSummaryRequest) (*chatv1.GetReactionSummaryResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	var messageIDs []uuid.UUID
+	for _, idStr := range req.MessageIds {
+		mid, parseErr := uuid.Parse(idStr)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid message_id: "+idStr)
+		}
+		messageIDs = append(messageIDs, mid)
+	}
+
+	batchResult, err := s.reactionService.GetBatchReactionSummary(ctx, messageIDs, userID)
+	if err != nil {
+		return nil, mapChatError(err)
+	}
+
+	var summaries []*chatv1.ReactionSummary
+	for _, msgSummaries := range batchResult {
+		for _, rs := range msgSummaries {
+			var userIDStrings []string
+			for _, uid := range rs.UserIDs {
+				userIDStrings = append(userIDStrings, uid.String())
+			}
+			summaries = append(summaries, &chatv1.ReactionSummary{
+				MessageId:          rs.MessageID.String(),
+				Emoji:              rs.Emoji,
+				Count:              int32(rs.Count),
+				UserIds:            userIDStrings,
+				CurrentUserReacted: rs.CurrentUserReacted,
+			})
+		}
+	}
+
+	return &chatv1.GetReactionSummaryResponse{Summaries: summaries}, nil
+}
+
+// ============================================================================
 // Converters
 // ============================================================================
 
@@ -1159,6 +1265,12 @@ func mapChatError(err error) error {
 	case errors.Is(err, search.ErrQueryTooShort):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, search.ErrQueryTooLong):
+		return status.Error(codes.InvalidArgument, err.Error())
+
+	// Reaction errors
+	case errors.Is(err, reaction.ErrEmojiRequired):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, reaction.ErrEmojiTooLong):
 		return status.Error(codes.InvalidArgument, err.Error())
 
 	default:
