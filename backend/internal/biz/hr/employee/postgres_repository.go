@@ -52,9 +52,9 @@ func (r *PostgresEmployeeRepo) GetByID(ctx context.Context, id uuid.UUID) (*mode
 			ep.emergency_contact_name, ep.emergency_contact_phone,
 			ep.address_street, ep.address_city, ep.address_postal_code, ep.address_country,
 			ep.created_at, ep.updated_at,
-			COALESCE(u.display_name, u.email, '') AS user_name,
+			COALESCE(NULLIF(CONCAT_WS(' ', u.first_name, u.last_name), ''), u.email, '') AS user_name,
 			COALESCE(u.email, '') AS user_email,
-			COALESCE(mu.display_name, mu.email, '') AS manager_name
+			COALESCE(NULLIF(CONCAT_WS(' ', mu.first_name, mu.last_name), ''), mu.email, '') AS manager_name
 		FROM hr_employee_profiles ep
 		LEFT JOIN users u ON ep.user_id = u.id
 		LEFT JOIN users mu ON ep.manager_user_id = mu.id
@@ -71,9 +71,9 @@ func (r *PostgresEmployeeRepo) GetByUserID(ctx context.Context, userID uuid.UUID
 			ep.emergency_contact_name, ep.emergency_contact_phone,
 			ep.address_street, ep.address_city, ep.address_postal_code, ep.address_country,
 			ep.created_at, ep.updated_at,
-			COALESCE(u.display_name, u.email, '') AS user_name,
+			COALESCE(NULLIF(CONCAT_WS(' ', u.first_name, u.last_name), ''), u.email, '') AS user_name,
 			COALESCE(u.email, '') AS user_email,
-			COALESCE(mu.display_name, mu.email, '') AS manager_name
+			COALESCE(NULLIF(CONCAT_WS(' ', mu.first_name, mu.last_name), ''), mu.email, '') AS manager_name
 		FROM hr_employee_profiles ep
 		LEFT JOIN users u ON ep.user_id = u.id
 		LEFT JOIN users mu ON ep.manager_user_id = mu.id
@@ -135,9 +135,9 @@ func (r *PostgresEmployeeRepo) List(ctx context.Context, filter EmployeeFilter) 
 			ep.emergency_contact_name, ep.emergency_contact_phone,
 			ep.address_street, ep.address_city, ep.address_postal_code, ep.address_country,
 			ep.created_at, ep.updated_at,
-			COALESCE(u.display_name, u.email, '') AS user_name,
+			COALESCE(NULLIF(CONCAT_WS(' ', u.first_name, u.last_name), ''), u.email, '') AS user_name,
 			COALESCE(u.email, '') AS user_email,
-			COALESCE(mu.display_name, mu.email, '') AS manager_name
+			COALESCE(NULLIF(CONCAT_WS(' ', mu.first_name, mu.last_name), ''), mu.email, '') AS manager_name
 		FROM hr_employee_profiles ep
 		LEFT JOIN users u ON ep.user_id = u.id
 		LEFT JOIN users mu ON ep.manager_user_id = mu.id
@@ -290,7 +290,7 @@ func (r *PostgresEmployeeDocRepo) ListByEmployee(ctx context.Context, employeeID
 			COALESCE(dc.name, '') AS category_name,
 			'' AS file_name,
 			'' AS file_size,
-			COALESCE(u.display_name, u.email, '') AS uploaded_by_name
+			COALESCE(NULLIF(CONCAT_WS(' ', u.first_name, u.last_name), ''), u.email, '') AS uploaded_by_name
 		FROM hr_employee_documents d
 		LEFT JOIN hr_document_categories dc ON d.category_id = dc.id
 		LEFT JOIN users u ON d.uploaded_by = u.id

@@ -64,7 +64,7 @@ func (r *PostgresLeaveRequestRepo) GetByID(ctx context.Context, id uuid.UUID) (*
 			lr.status, lr.approved_by, lr.approval_comment, lr.approved_at,
 			lr.au_document_required, lr.au_document_file_id,
 			lr.created_at, lr.updated_at,
-			COALESCE(u.display_name, u.email, '') AS employee_name,
+			COALESCE(NULLIF(CONCAT_WS(' ', u.first_name, u.last_name), ''), u.email, '') AS employee_name,
 			COALESCE(lt.name, '') AS leave_type_name,
 			COALESCE(lt.color, '') AS leave_type_color
 		FROM hr_leave_requests lr
@@ -138,7 +138,7 @@ func (r *PostgresLeaveRequestRepo) List(ctx context.Context, filter LeaveRequest
 			lr.status, lr.approved_by, lr.approval_comment, lr.approved_at,
 			lr.au_document_required, lr.au_document_file_id,
 			lr.created_at, lr.updated_at,
-			COALESCE(u.display_name, u.email, '') AS employee_name,
+			COALESCE(NULLIF(CONCAT_WS(' ', u.first_name, u.last_name), ''), u.email, '') AS employee_name,
 			COALESCE(lt.name, '') AS leave_type_name,
 			COALESCE(lt.color, '') AS leave_type_color
 		FROM hr_leave_requests lr
