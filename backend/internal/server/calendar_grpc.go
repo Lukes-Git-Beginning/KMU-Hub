@@ -16,6 +16,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/sysctx"
 	"github.com/kmuhub/kmuhub/internal/work/calendar"
 	"github.com/kmuhub/kmuhub/internal/work/event"
 	"github.com/kmuhub/kmuhub/internal/work/holiday"
@@ -1827,6 +1828,8 @@ func (s *CalendarGRPCServer) GetPublicBookingPage(ctx context.Context, req *calv
 	if s.bookingService == nil {
 		return nil, status.Error(codes.Unimplemented, "booking service not configured")
 	}
+	// Public route: no JWT, no tenant metadata — RLS requires system context.
+	ctx = sysctx.With(ctx)
 	page, err := s.bookingService.GetPublicBookingPage(ctx, req.GetSlug())
 	if err != nil {
 		return nil, mapCalendarError(err)
@@ -1850,6 +1853,8 @@ func (s *CalendarGRPCServer) GetAvailability(ctx context.Context, req *calv1.Get
 	if s.bookingService == nil {
 		return nil, status.Error(codes.Unimplemented, "booking service not configured")
 	}
+	// Public route: no JWT, no tenant metadata — RLS requires system context.
+	ctx = sysctx.With(ctx)
 	from, err := parseBookingDate(req.GetDateFrom())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid date_from: "+err.Error())
@@ -1883,6 +1888,8 @@ func (s *CalendarGRPCServer) CreatePublicBooking(ctx context.Context, req *calv1
 	if s.bookingService == nil {
 		return nil, status.Error(codes.Unimplemented, "booking service not configured")
 	}
+	// Public route: no JWT, no tenant metadata — RLS requires system context.
+	ctx = sysctx.With(ctx)
 
 	date, err := parseBookingDate(req.GetDate())
 	if err != nil {
