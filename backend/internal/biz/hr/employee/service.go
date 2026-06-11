@@ -124,6 +124,22 @@ func (s *Service) CreateEmployee(ctx context.Context, input CreateEmployeeInput)
 		return nil, ErrProfileAlreadyExists
 	}
 
+	// Zero values from optional request fields would override the column
+	// defaults and violate chk_hr_work_days / chk_hr_contract_type, so
+	// mirror the schema defaults here.
+	if input.ContractType == "" {
+		input.ContractType = "full_time"
+	}
+	if input.WorkDaysPerWeek == 0 {
+		input.WorkDaysPerWeek = 5
+	}
+	if input.AnnualLeaveDays == 0 {
+		input.AnnualLeaveDays = 20
+	}
+	if input.AddressCountry == "" {
+		input.AddressCountry = "DE"
+	}
+
 	now := time.Now()
 	profile := &models.EmployeeProfile{
 		ID:                    uuid.New(),
