@@ -8,6 +8,7 @@ import {
   mockChannelMembers,
   mockMentions,
 } from '../data/chat-data'
+import { EMPLOYEES } from '../mock-db'
 
 const API = API_BASE_URL
 
@@ -72,23 +73,31 @@ export const chatHandlers = [
     return HttpResponse.json({ success: true })
   }),
 
-  // Create DM
+  // Create DM (get-or-create: reuses an existing DM for the same user and
+  // registers new DMs in mockDMs so detail/list lookups resolve afterwards)
   http.post(`${API}/api/v1/channels/dm`, async ({ request }) => {
     const body = (await request.json()) as Record<string, unknown>
-    return HttpResponse.json(
-      {
-        channel: {
-          id: `dm-new-${Date.now()}`,
-          is_dm: true,
-          is_private: true,
-          other_user_id: body.user_id,
-          other_user_name: 'Neuer Kontakt',
-          member_count: 2,
-          created_at: new Date().toISOString(),
-        },
-      },
-      { status: 201 },
-    )
+    const otherUserId = String(body.other_user_id ?? body.user_id ?? '')
+
+    const existing = mockDMs.channels.find((c) => c.other_user_id === otherUserId)
+    if (existing) {
+      return HttpResponse.json({ channel: existing }, { status: 200 })
+    }
+
+    const employee = EMPLOYEES.find((e) => `usr-${e.id}` === otherUserId)
+    const otherUserName = employee ? `${employee.firstName} ${employee.lastName}` : 'Neuer Kontakt'
+    const channel = {
+      id: `dm-new-${Date.now()}`,
+      name: otherUserName,
+      is_dm: true,
+      is_private: true,
+      other_user_id: otherUserId,
+      other_user_name: otherUserName,
+      member_count: 2,
+      created_at: new Date().toISOString(),
+    }
+    mockDMs.channels.push(channel as (typeof mockDMs.channels)[number])
+    return HttpResponse.json({ channel }, { status: 201 })
   }),
 
   // Mark channel as read

@@ -44,7 +44,7 @@ import { ITAdminTab } from './tabs/ITAdminTab'
 import { ThemePreview } from './ThemePreview'
 import { useTourStore } from '@/stores/tour'
 import { branding } from '@/config/branding'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { formatDate } from '@/lib/format'
 
 type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notifications' | 'company' | 'billing' | 'it-admin' | 'integrations' | 'privacy' | 'ai' | 'about'
@@ -85,9 +85,14 @@ const TAB_GROUP_KEYS = [
 
 export default function SettingsPage() {
   const { t } = useTranslation()
-  const [activeTab, setActiveTab] = useState<TabKey>('profile')
+  const location = useLocation()
   const user = useAuthStore((s) => s.user)
   const navigate = useNavigate()
+
+  // Deep-link support: navigate('/settings', { state: { tab: 'notifications' } })
+  // passes the desired tab via router state so the URL stays clean.
+  const stateTab = (location.state as { tab?: string } | null)?.tab as TabKey | undefined
+  const [activeTab, setActiveTab] = useState<TabKey>(stateTab ?? 'profile')
 
   // Filter tabs:
   // 1. RBAC — restricted tabs are INVISIBLE

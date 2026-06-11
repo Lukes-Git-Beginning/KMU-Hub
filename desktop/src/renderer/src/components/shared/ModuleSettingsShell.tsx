@@ -1,8 +1,7 @@
 import { type ReactNode } from 'react'
 import { Lock, Users, User as UserIcon, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type { ModuleId } from '@/lib/pricing'
-import type { SettingsScope } from '@/lib/module-settings'
+import type { SettingsModuleId, SettingsScope } from '@/lib/module-settings'
 import { useIsModuleLead } from '@/hooks/useModuleSettings'
 import { ModuleSettingsScopeContext } from './module-settings-scope'
 
@@ -22,7 +21,7 @@ export interface ModuleSettingsSection {
 
 export interface ModuleSettingsShellProps {
   /** Module whose Modul-Leiter rights gate the tenant sections. */
-  moduleId: ModuleId
+  moduleId: SettingsModuleId
   titleKey: string
   descriptionKey?: string
   sections: ModuleSettingsSection[]

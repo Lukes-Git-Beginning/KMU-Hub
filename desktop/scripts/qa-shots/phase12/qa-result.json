@@ -1,0 +1,28 @@
+{
+  "scenario1_toggleAndTeamWidgets": {
+    "pass": true,
+    "detail": "hasTeamWorktimeTitle=true, hasTeamHeadline=true"
+  },
+  "scenario2_realDataVisible": {
+    "pass": true,
+    "detail": "employeeName=true, ticketSubject=true"
+  },
+  "scenario3_personalRestoreAndPersistence": {
+    "pass": true,
+    "detail": "hasPersonalContent=true, errorBoundary=null, scopePersisted=personal"
+  },
+  "scenario4_persistMigration": {
+    "pass": true,
+    "detail": "noErrorBoundary=true, hasMigratedWidgets=true, migratedVersion=2, bodyLength=6606"
+  },
+  "scenario5_editModeTeamOnly": {
+    "pass": true,
+    "detail": "noErrorBoundary=true, hasMyTasks=false, hasMyCalendar=true"
+  },
+  "scenario6_helpdeskFlagGating": {
+    "pass": true,
+    "detail": "noErrorBoundary=true, openTicketsInGrid=false (expected false), teamWorktimeInGrid=true (expected true), openTicketsInPicker=false (expected false)"
+  },
+  "rawKeys": [],
+  "pageErrors": []
+}

@@ -85,6 +85,7 @@ export const WidgetWrapper = memo(function WidgetWrapper({
   const { t } = useTranslation()
   const definition = widgetRegistry[widgetId]
   const removeWidget = useDashboardStore((s) => s.removeWidget)
+  const scope = useDashboardStore((s) => s.scope)
 
   if (!definition) return null
 
@@ -109,7 +110,7 @@ export const WidgetWrapper = memo(function WidgetWrapper({
             className="h-6 w-6"
             onClick={(e) => {
               e.stopPropagation()
-              removeWidget(widgetId)
+              removeWidget(widgetId, scope)
             }}
             aria-label={t('widgets.wrapper.removeLabel', { name: definition.name })}
           >

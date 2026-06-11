@@ -38,11 +38,51 @@ export const financeHandlers = [
 
   // Invoice detail
   http.get(`${API}/api/v1/finance/invoices/:id`, ({ params }) => {
-    const invoice = mockInvoices.invoices.find((inv) => inv.id === params.id)
-    if (!invoice) {
+    const raw = mockInvoices.invoices.find((inv) => inv.id === params.id)
+    if (!raw) {
       return HttpResponse.json({ error: 'Invoice not found' }, { status: 404 })
     }
-    return HttpResponse.json({ invoice })
+    // Normalise legacy mock fields so InvoiceDetailPanel gets the right shape:
+    // - `items` → `line_items` (with id/line_total filled)
+    // - `issue_date` → `invoice_date`
+    const inv = raw as Record<string, unknown>
+    const rawItems = (inv.items ?? inv.line_items ?? []) as Array<{
+      description?: string
+      quantity?: number
+      unit_price?: number
+      total?: number
+      tax_rate?: number
+      line_total?: number
+      id?: string
+    }>
+    const line_items = rawItems.map((it, idx) => ({
+      id: it.id ?? `li-${idx}`,
+      description: it.description ?? '',
+      quantity: it.quantity ?? 1,
+      unit_price: it.unit_price ?? 0,
+      tax_rate: it.tax_rate ?? (inv.tax_rate as number | undefined) ?? 19,
+      line_total: it.line_total ?? it.total ?? 0,
+    }))
+    const invoice_date = (inv.invoice_date ?? inv.issue_date ?? new Date().toISOString().split('T')[0]) as string
+    const tax_breakdown = inv.tax_breakdown ?? {
+      subtotal: inv.total_net ?? 0,
+      tax_by_rate: { [(inv.tax_rate as number | undefined) ?? 19]: (inv.total_gross as number ?? 0) - (inv.total_net as number ?? 0) },
+      gross_total: inv.total_gross ?? 0,
+    }
+    const customer = (inv.customer ?? { name: inv.customer_name ?? '', address: '', email: '' }) as Record<string, unknown>
+    const normalised = {
+      ...inv,
+      line_items,
+      invoice_date,
+      tax_breakdown,
+      customer: {
+        name: customer.name ?? '',
+        address: customer.address ?? '',
+        email: customer.email ?? '',
+        ...customer,
+      },
+    }
+    return HttpResponse.json({ invoice: normalised })
   }),
 
   // Create invoice

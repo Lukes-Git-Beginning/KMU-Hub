@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useSearchParams } from 'react-router-dom'
 import {
   FileText,
   Search,
@@ -190,6 +191,31 @@ export default function FinanzenPage() {
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(
     null,
   )
+
+  // Phase 10 (vertraege): consume ?invoice=<id> from CRM/Vertraege navigation chip.
+  // Effect is reactive (depends on searchParams value) so re-fires when navigating
+  // from the same page — intentional, not a mount-only effect.
+  // Guard: only set selectedInvoiceId once invoices have loaded AND the ID is known.
+  // Unknown IDs (e.g. stale links) are silently ignored — no crash.
+  const [searchParams, setSearchParams] = useSearchParams()
+  useEffect(() => {
+    const invoiceParam = searchParams.get('invoice')
+    if (!invoiceParam) return
+    // Wait until invoices are loaded before checking existence
+    if (invoicesLoading) return
+    // Accept the param if the ID exists among loaded invoices, or if the list
+    // is empty (backend may have the invoice even if the filter returns nothing)
+    const loadedInvoices = invoicesData?.invoices ?? []
+    const known = loadedInvoices.length === 0 || loadedInvoices.some((inv) => inv.id === invoiceParam)
+    if (known) {
+      setSelectedInvoiceId(invoiceParam)
+    }
+    // Always remove the query param so the URL is clean
+    const next = new URLSearchParams(searchParams)
+    next.delete('invoice')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams, invoicesLoading, invoicesData])
+
   const [showExport, setShowExport] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<{
     type: string

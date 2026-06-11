@@ -10,6 +10,7 @@ import { useChannelMembers } from '@/api/hooks/useChannels'
 import { PresenceIndicator } from '@/features/presence'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { UserProfileTrigger } from '@/components/user/UserProfileCard'
 
 interface ChannelMemberListProps {
   channelId: string
@@ -56,9 +57,19 @@ export function ChannelMemberList({ channelId }: ChannelMemberListProps) {
                 className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-foreground hover:bg-accent/50"
               >
                 <div className="relative shrink-0">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-                  </Avatar>
+                  {member.user_id ? (
+                    <UserProfileTrigger userId={member.user_id} name={name}>
+                      <button type="button" className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                        </Avatar>
+                      </button>
+                    </UserProfileTrigger>
+                  ) : (
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                    </Avatar>
+                  )}
                   {member.user_id && (
                     <PresenceIndicator
                       userId={member.user_id}

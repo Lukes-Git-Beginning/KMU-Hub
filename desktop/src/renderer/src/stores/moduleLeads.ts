@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ModuleId } from '@/lib/pricing'
+import type { SettingsModuleId } from '@/lib/module-settings'
 
 /**
  * Module-Leiter ("erweiterte Moduleinstellungen").
@@ -21,7 +22,7 @@ import type { ModuleId } from '@/lib/pricing'
 interface ModuleLeadsState {
   /** userId -> module ids where the user is a Modul-Leiter. */
   leads: Record<string, ModuleId[]>
-  isLead: (userId: string, moduleId: ModuleId) => boolean
+  isLead: (userId: string, moduleId: SettingsModuleId) => boolean
   getLeadModules: (userId: string) => ModuleId[]
   setLead: (userId: string, moduleId: ModuleId, value: boolean) => void
   toggleLead: (userId: string, moduleId: ModuleId) => void
@@ -36,7 +37,7 @@ export const useModuleLeadsStore = create<ModuleLeadsState>()(
         'u-pm': ['finance', 'team'],
       },
 
-      isLead: (userId, moduleId) => (get().leads[userId] ?? []).includes(moduleId),
+      isLead: (userId, moduleId) => (get().leads[userId] ?? []).includes(moduleId as ModuleId),
 
       getLeadModules: (userId) => get().leads[userId] ?? [],
 

@@ -1,6 +1,6 @@
 ---
 tags: [frontend, design, tools, skills, audit, motion, philosophy]
-updated: 2026-04-26
+updated: 2026-06-11
 ---
 # Design System
 
@@ -217,6 +217,11 @@ Install-Pattern: `npx shadcn@latest add "https://magicui.design/r/<name>" --yes`
 - Next: FirmenPage + DealsPage (stores/crm.ts Mock entfernen)
 - Phase A remaining: WorkPage, KalenderPage, FinanzenPage, Dashboard-Widgets
 - 11 industry stores stay mock until v2 (Plugin roadmap)
+
+## FE-Lane UI-Patterns (2026-06-11, marathon/luke-fe)
+- **`components/user/UserProfileCard.tsx`** — wiederverwendbares Profil-Overlay (Radix-Popover mit `asChild`-Trigger, kein HoverCard im Projekt): Avatar/Initialen, Presence-Badge, „Nachricht senden" (Ping→Chat). An 5 kuratierten Call-Sites (MessageBubble, ChannelMemberList, zeiterfassung/TeamView, work/CommentThread, dashboard/TeamStatus); 9 weitere als Follow-up dokumentiert.
+- **Dashboard-Widgets ohne Chart-Library** — `team-worktime` und `cross-module-overview` nutzen das CSS-Bars-Muster (`MiniChart.tsx`/`KpiRevenue.tsx`); Regel bestätigt: keine neue Chart-Dependency.
+- **KI-Hinweis-Muster** — Fristencheck-Panel (vertraege): Sparkles-Icon + Badge „KI-Vorschau" + Disclaimer „Vorschau, kein Rechtsrat", Info-Banner-Stil aus ESignaturDialog. Vorlage für künftige FE-lokale Heuristik-Panels (kein Emoji, Personality über Icon+Wording).
 
 ## Weitere Design-Ressourcen (nicht installiert, bei Bedarf)
 - **Aceternity UI** (ui.aceternity.com) — 200+ Wow-Factor Components (3D, Parallax, Spotlight). Copy-Paste, $199 Lifetime Premium.

@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 import {
   Search,
   Plus,
@@ -28,6 +29,20 @@ import {
   FileText,
   Bell,
   LayoutTemplate,
+  FilePlus,
+  FilePen,
+  FileX,
+  BellRing,
+  History,
+  Upload,
+  Loader2,
+  History as VersionIcon,
+  FileSearch,
+  User,
+  Briefcase,
+  Receipt,
+  Sparkles,
+  Link2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -36,10 +51,20 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { useVertraegeStore, type Contract, type ContractType, type ContractStatus, type ContractTemplate } from '@/stores/vertraege'
+import { useVertraegeStore, type Contract, type ContractType, type ContractStatus, type ContractTemplate, type ContractDocument } from '@/stores/vertraege'
+import { useVertraegePrefsStore } from '@/stores/vertraegePrefs'
+import { useVertraegeSettingsStore } from '@/stores/vertraegeSettings'
 import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
 import { formatCurrency, formatDate } from '@/lib/format'
 import ESignaturDialog from './ESignaturDialog'
+import { FilePreviewModal } from '@/modules/dokumente/FilePreviewModal'
+import { VersionHistoryPanel } from '@/modules/dokumente/VersionHistoryPanel'
+import { useDocumentFiles } from '@/api/hooks/useDocuments'
+import { useDocumentUpload } from '@/api/hooks/useDocumentUpload'
+import type { DocumentFile } from '@/api/types/document-types'
+import { useContacts } from '@/api/hooks/useContacts'
+import { useDeals } from '@/api/hooks/useDeals'
+import { useInvoices } from '@/api/hooks/useFinance'
 
 // ─── Type Config ─────────────────────────────────────────────────
 
@@ -66,15 +91,6 @@ const renewalLabelKeys: Record<string, string> = {
   auto: 'vertraege.renewal.auto',
   manual: 'vertraege.renewal.manual',
 }
-
-// ─── Mock Documents ─────────────────────────────────────────────
-
-const MOCK_DOCUMENTS = [
-  'Mietvertrag_2024.pdf',
-  'SLA_Vorlage.pdf',
-  'Rahmenvertrag.pdf',
-  'AGB_2025.pdf',
-]
 
 // ─── Currency Options ───────────────────────────────────────────
 
@@ -123,8 +139,15 @@ interface ContractFormData {
   monthlyCost: number
   notes: string
   currency: string
-  documentRef: string
+  documents: ContractDocument[]
   reminderDays: number[]
+  // Phase 10 — CRM/Finance links
+  contactId?: string
+  contactName?: string
+  dealId?: string
+  dealTitle?: string
+  invoiceIds: string[]
+  invoiceNames: string[]
 }
 
 function ContractDialog({
@@ -140,20 +163,126 @@ function ContractDialog({
   const addContract = useVertraegeStore((s) => s.addContract)
   const updateContract = useVertraegeStore((s) => s.updateContract)
 
+  // Tenant defaults ("Für alle") + personal reminder override (settings panel).
+  const enabledTypes = useVertraegeSettingsStore((s) => s.enabledTypes)
+  const tenantNoticePeriodDays = useVertraegeSettingsStore((s) => s.defaultNoticePeriodDays)
+  const tenantRenewal = useVertraegeSettingsStore((s) => s.defaultRenewal)
+  const tenantReminderDays = useVertraegeSettingsStore((s) => s.tenantReminderDays)
+  const personalReminderDays = useVertraegePrefsStore((s) => s.defaultReminderDays)
+
   const [form, setForm] = useState<ContractFormData>({
     title: initial?.title ?? '',
-    type: initial?.type ?? 'servicevertrag',
+    type: initial?.type ?? (enabledTypes.includes('servicevertrag') ? 'servicevertrag' : enabledTypes[0]),
     partner: initial?.partner ?? '',
     contractNumber: initial?.contractNumber ?? '',
     startDate: initial?.startDate ?? '',
     endDate: initial?.endDate ?? '',
-    noticePeriodDays: initial?.noticePeriodDays ?? 30,
-    renewal: initial?.renewal ?? 'auto',
+    noticePeriodDays: initial?.noticePeriodDays ?? tenantNoticePeriodDays,
+    renewal: initial?.renewal ?? tenantRenewal,
     monthlyCost: initial?.monthlyCost ?? 0,
     notes: initial?.notes ?? '',
     currency: initial?.currency ?? 'EUR',
-    documentRef: initial?.documentRef ?? '',
-    reminderDays: initial?.reminderDays ?? [],
+    documents: initial?.documents ?? [],
+    reminderDays: initial ? (initial.reminderDays ?? []) : (personalReminderDays ?? tenantReminderDays),
+    // Phase 10 — CRM/Finance links
+    contactId: initial?.contactId,
+    contactName: initial?.contactName,
+    dealId: initial?.dealId,
+    dealTitle: initial?.dealTitle,
+    invoiceIds: initial?.invoiceIds ?? [],
+    invoiceNames: initial?.invoiceNames ?? [],
+  })
+
+  // Document picker state
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerSearch, setPickerSearch] = useState('')
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const upload = useDocumentUpload()
+  const { data: filesData } = useDocumentFiles()
+  const allFiles = filesData?.files ?? []
+
+  // Phase 10 — CRM/Finance link pickers
+  const [contactPickerOpen, setContactPickerOpen] = useState(false)
+  const [contactSearch, setContactSearch] = useState('')
+  const [dealPickerOpen, setDealPickerOpen] = useState(false)
+  const [dealSearch, setDealSearch] = useState('')
+  const [invoicePickerOpen, setInvoicePickerOpen] = useState(false)
+  const [invoiceSearch, setInvoiceSearch] = useState('')
+  const { data: contactsData } = useContacts({ page_size: 100 })
+  const allContacts = contactsData?.contacts ?? []
+  const { data: dealsData } = useDeals({ page_size: 100 })
+  const allDeals = dealsData?.deals ?? []
+  const { data: invoicesData } = useInvoices({ page_size: 100 })
+  const allInvoices = invoicesData?.invoices ?? []
+
+  const filteredContacts = allContacts.filter((c) => {
+    if (!contactSearch) return true
+    const name = `${(c as { firstName?: string }).firstName ?? ''} ${(c as { lastName?: string }).lastName ?? ''}`.toLowerCase()
+    return name.includes(contactSearch.toLowerCase())
+  })
+  const filteredDeals = allDeals.filter((d) => {
+    if (!dealSearch) return true
+    return (d as { name?: string }).name?.toLowerCase().includes(dealSearch.toLowerCase())
+  })
+  const filteredInvoices = allInvoices.filter((inv) => {
+    if (!invoiceSearch) return true
+    const num = (inv as { invoice_number?: string; number?: string }).invoice_number ?? (inv as { number?: string }).number ?? ''
+    return num.toLowerCase().includes(invoiceSearch.toLowerCase())
+  })
+
+  const handlePickerSelect = (file: DocumentFile) => {
+    const alreadyAdded = form.documents.some((d) => d.fileId === file.id)
+    if (alreadyAdded) {
+      toast.info(t('vertraege.documents.alreadyAdded'))
+      return
+    }
+    const doc: ContractDocument = {
+      fileId: file.id,
+      name: file.filename,
+      mimeType: file.mime_type,
+      size: file.file_size,
+      addedAt: new Date().toISOString().split('T')[0],
+    }
+    setForm((f) => ({ ...f, documents: [...f.documents, doc] }))
+    setPickerOpen(false)
+    setPickerSearch('')
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    try {
+      setUploadProgress(0)
+      const uploaded = await upload.mutateAsync({
+        folderId: 'fld-verträge',
+        file,
+        onProgress: setUploadProgress,
+      })
+      const doc: ContractDocument = {
+        fileId: uploaded.id,
+        name: uploaded.filename,
+        mimeType: uploaded.mime_type,
+        size: uploaded.file_size,
+        addedAt: new Date().toISOString().split('T')[0],
+      }
+      setForm((f) => ({ ...f, documents: [...f.documents, doc] }))
+      toast.success(t('vertraege.documents.uploadSuccess', { name: uploaded.filename }))
+    } catch (err) {
+      toast.error(t('vertraege.documents.uploadError'))
+    } finally {
+      setUploadProgress(null)
+    }
+  }
+
+  const handleRemoveDoc = (fileId: string) => {
+    setForm((f) => ({ ...f, documents: f.documents.filter((d) => d.fileId !== fileId) }))
+  }
+
+  const filteredPickerFiles = allFiles.filter((f) => {
+    if (!pickerSearch) return true
+    return f.filename.toLowerCase().includes(pickerSearch.toLowerCase())
   })
 
   const isEdit = !!initial
@@ -187,7 +316,25 @@ function ContractDialog({
 
     if (isEdit && initial) {
       updateContract(initial.id, {
-        ...form,
+        title: form.title,
+        type: form.type,
+        partner: form.partner,
+        contractNumber: form.contractNumber,
+        startDate: form.startDate,
+        endDate: form.endDate,
+        noticePeriodDays: form.noticePeriodDays,
+        renewal: form.renewal,
+        monthlyCost: form.monthlyCost,
+        notes: form.notes,
+        currency: form.currency,
+        documents: form.documents,
+        reminderDays: form.reminderDays,
+        contactId: form.contactId,
+        contactName: form.contactName,
+        dealId: form.dealId,
+        dealTitle: form.dealTitle,
+        invoiceIds: form.invoiceIds.length > 0 ? form.invoiceIds : undefined,
+        invoiceNames: form.invoiceNames.length > 0 ? form.invoiceNames : undefined,
         totalValue: form.endDate
           ? form.monthlyCost * Math.max(1, Math.ceil(
               (new Date(form.endDate).getTime() - new Date(form.startDate).getTime()) / (1000 * 60 * 60 * 24 * 30)
@@ -195,7 +342,7 @@ function ContractDialog({
           : 0,
         history: [
           ...initial.history,
-          { date: new Date().toISOString().split('T')[0], action: 'Vertrag aktualisiert', user: 'Aktueller Benutzer' },
+          { date: new Date().toISOString().split('T')[0], action: 'contract_updated', user: 'Aktueller Benutzer' },
         ],
       })
       toast.success(t('vertraege.contractDialog.updateSuccess', { title: form.title }))
@@ -205,14 +352,43 @@ function ContractDialog({
             (new Date(form.endDate).getTime() - new Date(form.startDate).getTime()) / (1000 * 60 * 60 * 24 * 30)
           ))
         : 0
+      const today = new Date().toISOString().split('T')[0]
+      const creationHistory = [
+        { date: today, action: 'contract_created' as const, user: 'Aktueller Benutzer' },
+      ]
+      if (form.contactId && form.contactName) {
+        creationHistory.push({ date: today, action: 'contact_linked' as const, meta: form.contactName, user: 'Aktueller Benutzer' })
+      }
+      if (form.dealId && form.dealTitle) {
+        creationHistory.push({ date: today, action: 'deal_linked' as const, meta: form.dealTitle, user: 'Aktueller Benutzer' })
+      }
+      for (const invName of form.invoiceNames) {
+        creationHistory.push({ date: today, action: 'invoice_linked' as const, meta: invName, user: 'Aktueller Benutzer' })
+      }
       addContract({
         id: `v-${Date.now()}`,
-        ...form,
+        title: form.title,
+        type: form.type,
+        partner: form.partner,
+        contractNumber: form.contractNumber,
+        startDate: form.startDate,
+        endDate: form.endDate,
+        noticePeriodDays: form.noticePeriodDays,
+        renewal: form.renewal,
+        monthlyCost: form.monthlyCost,
+        notes: form.notes,
+        currency: form.currency,
+        documents: form.documents,
+        reminderDays: form.reminderDays,
+        contactId: form.contactId,
+        contactName: form.contactName,
+        dealId: form.dealId,
+        dealTitle: form.dealTitle,
+        invoiceIds: form.invoiceIds.length > 0 ? form.invoiceIds : undefined,
+        invoiceNames: form.invoiceNames.length > 0 ? form.invoiceNames : undefined,
         status: 'active',
         totalValue: form.monthlyCost * months,
-        history: [
-          { date: new Date().toISOString().split('T')[0], action: 'Vertrag angelegt', user: 'Aktueller Benutzer' },
-        ],
+        history: creationHistory,
       })
       toast.success(t('vertraege.contractDialog.createSuccess', { title: form.title }))
     }
@@ -221,6 +397,8 @@ function ContractDialog({
 
   if (!open) return null
 
+  // Tenant taxonomy: only enabled types are offered; a disabled type stays
+  // visible while editing a contract that already uses it.
   const typeOptions: { key: ContractType; labelKey: string; icon: typeof Building }[] = [
     { key: 'mietvertrag', labelKey: 'vertraege.type.mietvertrag', icon: Building },
     { key: 'liefervertrag', labelKey: 'vertraege.type.liefervertrag', icon: Truck },
@@ -228,7 +406,7 @@ function ContractDialog({
     { key: 'arbeitsvertrag', labelKey: 'vertraege.type.arbeitsvertrag', icon: UserCheck },
     { key: 'lizenz', labelKey: 'vertraege.type.lizenz', icon: KeyRound },
     { key: 'versicherung', labelKey: 'vertraege.type.versicherung', icon: Shield },
-  ]
+  ].filter((o) => enabledTypes.includes(o.key) || form.type === o.key)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -401,25 +579,115 @@ function ContractDialog({
             </div>
           </div>
 
-          {/* Dokument-Verknüpfung (10.7) */}
+          {/* Dokument-Verknüpfung (Phase 7) */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">
-              {t('vertraege.contractDialog.labelDocument')} <span className="text-xs text-muted-foreground font-normal">({t('common.optional')})</span>
+              {t('vertraege.documents.label')} <span className="text-xs text-muted-foreground font-normal">({t('common.optional')})</span>
             </label>
-            <div className="relative">
-              <select
-                value={form.documentRef}
-                onChange={(e) => setForm((f) => ({ ...f, documentRef: e.target.value }))}
-                className="w-full appearance-none rounded-lg border border-border bg-card pl-9 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
-              >
-                <option value="">{t('vertraege.contractDialog.noDocument')}</option>
-                {MOCK_DOCUMENTS.map((doc) => (
-                  <option key={doc} value={doc}>{doc}</option>
+
+            {/* Verknüpfte Dokumente */}
+            {form.documents.length > 0 && (
+              <div className="space-y-1.5 mb-2">
+                {form.documents.map((doc) => (
+                  <div
+                    key={doc.fileId}
+                    className="flex items-center gap-2 rounded-lg border border-border bg-secondary/30 px-3 py-2"
+                  >
+                    <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
+                    <span className="flex-1 text-sm text-foreground truncate">{doc.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveDoc(doc.fileId)}
+                      aria-label={t('vertraege.documents.remove')}
+                      className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 ))}
-              </select>
-              <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              </div>
+            )}
+
+            {/* Aktionen: Aus Dokumenten wählen + Hochladen */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                aria-label={t('vertraege.documents.pickFromLibrary')}
+                className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground hover:bg-secondary transition-colors"
+              >
+                <FileSearch className="h-3.5 w-3.5" />
+                {t('vertraege.documents.pickFromLibrary')}
+              </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadProgress !== null}
+                aria-label={t('vertraege.documents.upload')}
+                className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground hover:bg-secondary transition-colors disabled:opacity-50"
+              >
+                {uploadProgress !== null ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    {uploadProgress}%
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-3.5 w-3.5" />
+                    {t('vertraege.documents.upload')}
+                  </>
+                )}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={handleFileUpload}
+                accept=".pdf,.docx,.doc,.xlsx,.xls,.png,.jpg,.jpeg"
+              />
             </div>
+
+            {/* Picker Dropdown */}
+            {pickerOpen && (
+              <div className="rounded-lg border border-border bg-card shadow-lg z-10 relative">
+                <div className="p-2 border-b border-border">
+                  <input
+                    type="text"
+                    value={pickerSearch}
+                    onChange={(e) => setPickerSearch(e.target.value)}
+                    placeholder={t('vertraege.documents.pickerSearch')}
+                    className="w-full rounded-md border border-border bg-secondary/30 px-3 py-1.5 text-xs text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-1 focus:ring-focus-ring"
+                    autoFocus
+                  />
+                </div>
+                <div className="max-h-48 overflow-y-auto">
+                  {filteredPickerFiles.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">{t('vertraege.documents.pickerEmpty')}</p>
+                  ) : (
+                    filteredPickerFiles.slice(0, 20).map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => handlePickerSelect(f)}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-left text-xs hover:bg-secondary transition-colors"
+                      >
+                        <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="flex-1 truncate text-foreground">{f.filename}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+                <div className="p-2 border-t border-border">
+                  <button
+                    type="button"
+                    onClick={() => { setPickerOpen(false); setPickerSearch('') }}
+                    className="w-full text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    {t('common.cancel')}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Erinnerungen (10.8) */}
@@ -454,6 +722,140 @@ function ContractDialog({
               rows={3}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none"
             />
+          </div>
+
+          {/* Verknüpfungen — Phase 10 */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">
+              {t('vertraege.links.label')} <span className="text-xs text-muted-foreground font-normal">({t('common.optional')})</span>
+            </label>
+
+            {/* Kontakt */}
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">{t('vertraege.links.contact')}</p>
+              {form.contactId ? (
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary/30 px-3 py-2">
+                  <User className="h-3.5 w-3.5 text-info shrink-0" />
+                  <span className="flex-1 text-sm text-foreground truncate">{form.contactName}</span>
+                  <button type="button" onClick={() => setForm((f) => ({ ...f, contactId: undefined, contactName: undefined }))} aria-label={t('vertraege.links.removeContact')} className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <button type="button" onClick={() => { setContactPickerOpen(true); setDealPickerOpen(false); setInvoicePickerOpen(false) }} className="w-full flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground hover:bg-secondary transition-colors">
+                    <User className="h-3.5 w-3.5" />
+                    {t('vertraege.links.addContact')}
+                  </button>
+                  {contactPickerOpen && (
+                    <div className="absolute top-full left-0 right-0 z-20 mt-1 rounded-lg border border-border bg-card shadow-lg">
+                      <div className="p-2 border-b border-border">
+                        <input type="text" value={contactSearch} onChange={(e) => setContactSearch(e.target.value)} placeholder={t('vertraege.links.searchContact')} className="w-full rounded-md border border-border bg-secondary/30 px-3 py-1.5 text-xs text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-1 focus:ring-focus-ring" autoFocus />
+                      </div>
+                      <div className="max-h-40 overflow-y-auto">
+                        {filteredContacts.length === 0 ? (
+                          <p className="text-xs text-muted-foreground text-center py-3">{t('vertraege.links.noResults')}</p>
+                        ) : filteredContacts.slice(0, 15).map((c) => {
+                          const name = `${(c as { firstName?: string }).firstName ?? ''} ${(c as { lastName?: string }).lastName ?? ''}`.trim()
+                          return (
+                            <button key={(c as { id: string }).id} type="button" onClick={() => { setForm((f) => ({ ...f, contactId: (c as { id: string }).id, contactName: name })); setContactPickerOpen(false); setContactSearch('') }} className="flex items-center gap-2 w-full px-3 py-2 text-left text-xs hover:bg-secondary transition-colors">
+                              <User className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <span className="flex-1 truncate text-foreground">{name}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <div className="p-2 border-t border-border"><button type="button" onClick={() => { setContactPickerOpen(false); setContactSearch('') }} className="w-full text-xs text-muted-foreground hover:text-foreground">{t('common.cancel')}</button></div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Deal */}
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">{t('vertraege.links.deal')}</p>
+              {form.dealId ? (
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary/30 px-3 py-2">
+                  <Briefcase className="h-3.5 w-3.5 text-warning shrink-0" />
+                  <span className="flex-1 text-sm text-foreground truncate">{form.dealTitle}</span>
+                  <button type="button" onClick={() => setForm((f) => ({ ...f, dealId: undefined, dealTitle: undefined }))} aria-label={t('vertraege.links.removeDeal')} className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <button type="button" onClick={() => { setDealPickerOpen(true); setContactPickerOpen(false); setInvoicePickerOpen(false) }} className="w-full flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground hover:bg-secondary transition-colors">
+                    <Briefcase className="h-3.5 w-3.5" />
+                    {t('vertraege.links.addDeal')}
+                  </button>
+                  {dealPickerOpen && (
+                    <div className="absolute top-full left-0 right-0 z-20 mt-1 rounded-lg border border-border bg-card shadow-lg">
+                      <div className="p-2 border-b border-border">
+                        <input type="text" value={dealSearch} onChange={(e) => setDealSearch(e.target.value)} placeholder={t('vertraege.links.searchDeal')} className="w-full rounded-md border border-border bg-secondary/30 px-3 py-1.5 text-xs text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-1 focus:ring-focus-ring" autoFocus />
+                      </div>
+                      <div className="max-h-40 overflow-y-auto">
+                        {filteredDeals.length === 0 ? (
+                          <p className="text-xs text-muted-foreground text-center py-3">{t('vertraege.links.noResults')}</p>
+                        ) : filteredDeals.slice(0, 15).map((d) => (
+                            <button key={(d as { id: string }).id} type="button" onClick={() => { setForm((f) => ({ ...f, dealId: (d as { id: string }).id, dealTitle: (d as { name?: string }).name ?? '' })); setDealPickerOpen(false); setDealSearch('') }} className="flex items-center gap-2 w-full px-3 py-2 text-left text-xs hover:bg-secondary transition-colors">
+                              <Briefcase className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <span className="flex-1 truncate text-foreground">{(d as { name?: string }).name}</span>
+                            </button>
+                          ))}
+                      </div>
+                      <div className="p-2 border-t border-border"><button type="button" onClick={() => { setDealPickerOpen(false); setDealSearch('') }} className="w-full text-xs text-muted-foreground hover:text-foreground">{t('common.cancel')}</button></div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Rechnungen */}
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">{t('vertraege.links.invoices')}</p>
+              {form.invoiceIds.length > 0 && (
+                <div className="space-y-1.5 mb-1">
+                  {form.invoiceIds.map((invId, idx) => (
+                    <div key={invId} className="flex items-center gap-2 rounded-lg border border-border bg-secondary/30 px-3 py-2">
+                      <Receipt className="h-3.5 w-3.5 text-success shrink-0" />
+                      <span className="flex-1 text-sm text-foreground truncate">{form.invoiceNames[idx] ?? invId}</span>
+                      <button type="button" onClick={() => setForm((f) => ({ ...f, invoiceIds: f.invoiceIds.filter((_, i) => i !== idx), invoiceNames: f.invoiceNames.filter((_, i) => i !== idx) }))} aria-label={t('vertraege.links.removeInvoice')} className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="relative">
+                <button type="button" onClick={() => { setInvoicePickerOpen(true); setContactPickerOpen(false); setDealPickerOpen(false) }} className="w-full flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground hover:bg-secondary transition-colors">
+                  <Receipt className="h-3.5 w-3.5" />
+                  {t('vertraege.links.addInvoice')}
+                </button>
+                {invoicePickerOpen && (
+                  <div className="absolute top-full left-0 right-0 z-20 mt-1 rounded-lg border border-border bg-card shadow-lg">
+                    <div className="p-2 border-b border-border">
+                      <input type="text" value={invoiceSearch} onChange={(e) => setInvoiceSearch(e.target.value)} placeholder={t('vertraege.links.searchInvoice')} className="w-full rounded-md border border-border bg-secondary/30 px-3 py-1.5 text-xs text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-1 focus:ring-focus-ring" autoFocus />
+                    </div>
+                    <div className="max-h-40 overflow-y-auto">
+                      {filteredInvoices.length === 0 ? (
+                        <p className="text-xs text-muted-foreground text-center py-3">{t('vertraege.links.noResults')}</p>
+                      ) : filteredInvoices.slice(0, 15).map((inv) => {
+                        const invNum = (inv as { invoice_number?: string; number?: string }).invoice_number ?? (inv as { number?: string }).number ?? inv.id
+                        const already = form.invoiceIds.includes(inv.id)
+                        return (
+                          <button key={inv.id} type="button" disabled={already} onClick={() => { if (already) return; setForm((f) => ({ ...f, invoiceIds: [...f.invoiceIds, inv.id], invoiceNames: [...f.invoiceNames, invNum] })); setInvoicePickerOpen(false); setInvoiceSearch('') }} className={`flex items-center gap-2 w-full px-3 py-2 text-left text-xs transition-colors ${already ? 'opacity-40 cursor-not-allowed' : 'hover:bg-secondary'}`}>
+                            <Receipt className="h-3 w-3 text-muted-foreground shrink-0" />
+                            <span className="flex-1 truncate text-foreground">{invNum}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <div className="p-2 border-t border-border"><button type="button" onClick={() => { setInvoicePickerOpen(false); setInvoiceSearch('') }} className="w-full text-xs text-muted-foreground hover:text-foreground">{t('common.cancel')}</button></div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -753,14 +1155,20 @@ function TemplateCard({
 
 export default function VertraegePage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const { contracts, contractTemplates, deleteContract, updateContract } = useVertraegeStore()
 
-  const [tab, setTab] = useState<TabKey>('aktiv')
+  // Personal prefs (settings panel): default tab on open + table density.
+  const defaultTab = useVertraegePrefsStore((s) => s.defaultTab)
+  const density = useVertraegePrefsStore((s) => s.density)
+
+  const [tab, setTab] = useState<TabKey>(defaultTab)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
 
-  // Detail panel
-  const [selectedContract, setSelectedContract] = useState<Contract | null>(null)
+  // Detail panel — store the ID, not the snapshot, so mutations are reflected live.
+  const [selectedContractId, setSelectedContractId] = useState<string | null>(null)
+  const selectedContract = contracts.find((c) => c.id === selectedContractId) ?? null
 
   // Dialogs
   const [contractDialogOpen, setContractDialogOpen] = useState(false)
@@ -769,6 +1177,10 @@ export default function VertraegePage() {
   const [terminationContract, setTerminationContract] = useState<Contract | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Contract | null>(null)
   const [eSignaturContract, setESignaturContract] = useState<Contract | null>(null)
+
+  // Phase 7: Dokument-Vorschau und Versions-Panel
+  const [previewDoc, setPreviewDoc] = useState<{ file: DocumentFile; open: boolean } | null>(null)
+  const [versionsDoc, setVersionsDoc] = useState<{ fileId: string; name: string; open: boolean } | null>(null)
 
   // ── Computed ──
 
@@ -884,6 +1296,7 @@ export default function VertraegePage() {
       notes: '',
       templateId: template.id,
       currency: 'EUR',
+      documents: [],
       history: [],
     }
     setEditContract(prefilled)
@@ -891,7 +1304,7 @@ export default function VertraegePage() {
   }
 
   const getContractActions = (contract: Contract) => [
-    { label: t('vertraege.actions.showDetails'), icon: Eye, onClick: () => setSelectedContract(contract) },
+    { label: t('vertraege.actions.showDetails'), icon: Eye, onClick: () => setSelectedContractId(contract.id) },
     { label: t('common.edit'), icon: Edit, onClick: () => openContractDialog(contract) },
     { label: t('vertraege.actions.signature'), icon: Pen, onClick: () => setESignaturContract(contract) },
     ...(contract.status === 'active' || contract.status === 'expiring'
@@ -903,7 +1316,7 @@ export default function VertraegePage() {
   const handleDelete = (contract: Contract) => {
     deleteContract(contract.id)
     setConfirmDelete(null)
-    if (selectedContract?.id === contract.id) setSelectedContract(null)
+    if (selectedContract?.id === contract.id) setSelectedContractId(null)
     toast.success(t('vertraege.delete.success', { title: contract.title }))
   }
 
@@ -1062,7 +1475,7 @@ export default function VertraegePage() {
           ) : (
             <TooltipProvider delayDuration={300}>
               <div className="overflow-x-auto rounded-lg border border-border">
-                <table className="w-full text-sm">
+                <table className={`w-full text-sm ${density === 'compact' ? '[&_td]:py-1.5 [&_th]:py-2' : ''}`}>
                   <thead>
                     <tr className="border-b border-border bg-card">
                       <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('vertraege.table.vertragsnr')}</th>
@@ -1086,7 +1499,7 @@ export default function VertraegePage() {
                       return (
                         <tr
                           key={contract.id}
-                          onClick={() => setSelectedContract(contract)}
+                          onClick={() => setSelectedContractId(contract.id)}
                           className={`border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer ${
                             isSelected ? 'bg-primary-light/30' : ''
                           }`}
@@ -1146,7 +1559,7 @@ export default function VertraegePage() {
       {/* ─── DETAIL PANEL ────────────────────────────────────── */}
       <DetailPanel
         open={!!selectedContract}
-        onClose={() => setSelectedContract(null)}
+        onClose={() => setSelectedContractId(null)}
         title={selectedContract?.title}
         subtitle={selectedContract ? `${selectedContract.contractNumber} · ${selectedContract.partner}` : undefined}
         badge={
@@ -1188,7 +1601,12 @@ export default function VertraegePage() {
         }
       >
         {selectedContract && (
-          <DetailPanelContent contract={selectedContract} />
+          <DetailPanelContent
+            contract={selectedContract}
+            onPreviewDoc={(file) => setPreviewDoc({ file, open: true })}
+            onVersionsDoc={(fileId, name) => setVersionsDoc({ fileId, name, open: true })}
+            onNavigate={(path) => navigate(path)}
+          />
         )}
       </DetailPanel>
 
@@ -1216,8 +1634,9 @@ export default function VertraegePage() {
           open={!!eSignaturContract}
           onClose={() => setESignaturContract(null)}
           contract={eSignaturContract}
-          onUpdateSigners={(signers) => {
-            updateContract(eSignaturContract.id, { signers })
+          onUpdateSigners={(_signers) => {
+            // Signers mutations are handled directly in ESignaturDialog via the store.
+            // This callback is kept for external callers that still pass signers.
           }}
         />
       )}
@@ -1231,13 +1650,443 @@ export default function VertraegePage() {
         variant="destructive"
         onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
       />
+
+      {/* Phase 7: Dokument-Vorschau */}
+      <FilePreviewModal
+        file={previewDoc?.file ?? null}
+        open={previewDoc?.open ?? false}
+        onOpenChange={(open) => {
+          if (!open) setPreviewDoc(null)
+        }}
+      />
+
+      {/* Phase 7: Versions-Panel */}
+      {versionsDoc && (
+        <VersionHistoryPanel
+          fileId={versionsDoc.fileId}
+          fileName={versionsDoc.name}
+          open={versionsDoc.open}
+          onClose={() => setVersionsDoc(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+// ─── Audit-Log helpers ───────────────────────────────────────────
+
+/** Stable action codes that map to i18n keys. */
+const HISTORY_ACTION_CODES = [
+  'contract_created',
+  'contract_updated',
+  'contract_terminated',
+  'contract_signed',
+  'reminder_triggered',
+  'document_added',
+  'document_removed',
+  'contact_linked',
+  'contact_unlinked',
+  'deal_linked',
+  'deal_unlinked',
+  'invoice_linked',
+  'invoice_unlinked',
+] as const satisfies readonly string[]
+
+type HistoryActionCode = typeof HISTORY_ACTION_CODES[number]
+
+function isActionCode(action: string): action is HistoryActionCode {
+  return (HISTORY_ACTION_CODES as readonly string[]).includes(action)
+}
+
+function getHistoryIcon(action: string) {
+  switch (action as HistoryActionCode) {
+    case 'contract_created':
+      return FilePlus
+    case 'contract_updated':
+      return FilePen
+    case 'contract_terminated':
+      return FileX
+    case 'contract_signed':
+      return Pen
+    case 'reminder_triggered':
+      return BellRing
+    case 'document_added':
+      return FileText
+    case 'document_removed':
+      return FileX
+    default:
+      return History
+  }
+}
+
+function getHistoryIconColor(action: string): string {
+  switch (action as HistoryActionCode) {
+    case 'contract_created':
+      return 'text-success bg-success-light'
+    case 'contract_updated':
+      return 'text-primary bg-primary-light'
+    case 'contract_terminated':
+      return 'text-error bg-error-light'
+    case 'contract_signed':
+      return 'text-info bg-info-light'
+    case 'reminder_triggered':
+      return 'text-warning bg-warning-light'
+    case 'document_added':
+      return 'text-info bg-info-light'
+    case 'document_removed':
+      return 'text-muted-foreground bg-secondary'
+    default:
+      return 'text-muted-foreground bg-secondary'
+  }
+}
+
+// ─── Audit Log Feed ──────────────────────────────────────────────
+
+function AuditLogFeed({ history }: { history: import('@/stores/vertraege').ContractHistoryEntry[] }) {
+  const { t } = useTranslation()
+
+  const sorted = [...history].reverse()
+
+  return (
+    <div className="space-y-2">
+      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        {t('vertraege.detail.history', { count: history.length })}
+      </h4>
+      {sorted.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-5 text-center">
+          <History className="h-6 w-6 text-muted-foreground/40 mb-2" />
+          <p className="text-xs text-muted-foreground">{t('vertraege.detail.historyEmpty')}</p>
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {sorted.map((entry, idx) => {
+            const Icon = getHistoryIcon(entry.action)
+            const colorClass = getHistoryIconColor(entry.action)
+            const label = isActionCode(entry.action)
+              ? t(`vertraege.history.action.${entry.action}` as const, { meta: entry.meta ?? '' })
+              : entry.action // legacy free-form text fallback
+
+            return (
+              <div
+                key={idx}
+                className="flex items-start gap-3 rounded-md px-2 py-2 transition-colors hover:bg-secondary/40"
+              >
+                <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${colorClass}`}>
+                  <Icon className="h-3.5 w-3.5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm ${idx === 0 ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
+                    {label}
+                  </p>
+                  {entry.meta && (
+                    <p className="text-xs text-muted-foreground/70 mt-0.5 leading-snug truncate" title={entry.meta}>
+                      {entry.meta}
+                    </p>
+                  )}
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {formatDate(entry.date)}&ensp;&middot;&ensp;{entry.user}
+                  </p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Reminder Schedule ───────────────────────────────────────────
+
+function ReminderSchedule({ contract }: { contract: import('@/stores/vertraege').Contract }) {
+  const { t } = useTranslation()
+
+  const { reminderDays, endDate } = contract
+
+  if (!reminderDays || reminderDays.length === 0) {
+    return (
+      <div className="space-y-2">
+        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          {t('vertraege.detail.erinnerungen')}
+        </h4>
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-4 text-center">
+          <Bell className="h-5 w-5 text-muted-foreground/40 mb-1.5" />
+          <p className="text-xs text-muted-foreground">{t('vertraege.detail.reminderNone')}</p>
+        </div>
+      </div>
+    )
+  }
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const schedule = reminderDays
+    .slice()
+    .sort((a, b) => b - a) // largest offset first = earliest date
+    .map((days) => {
+      if (!endDate) {
+        return { days, dateStr: null, isPast: false }
+      }
+      const target = new Date(endDate + 'T00:00:00')
+      target.setDate(target.getDate() - days)
+      const isPast = target.getTime() < today.getTime()
+      return { days, dateStr: target.toISOString().split('T')[0], isPast }
+    })
+
+  return (
+    <div className="space-y-2">
+      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        {t('vertraege.detail.erinnerungen')}
+      </h4>
+      {!endDate ? (
+        <p className="text-xs text-muted-foreground">{t('vertraege.detail.reminderUnbefristet')}</p>
+      ) : (
+        <div className="space-y-1.5">
+          {schedule.map(({ days, dateStr, isPast }) => (
+            <div
+              key={days}
+              className={`flex items-center justify-between rounded-lg border px-3 py-2 ${
+                isPast
+                  ? 'border-border bg-secondary/20 opacity-50'
+                  : 'border-warning/30 bg-warning-light/30'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Bell className={`h-3.5 w-3.5 shrink-0 ${isPast ? 'text-muted-foreground' : 'text-warning'}`} />
+                <span className={`text-xs font-medium ${isPast ? 'text-muted-foreground' : 'text-foreground'}`}>
+                  {t('vertraege.detail.reminderDaysBefore', { days })}
+                </span>
+              </div>
+              {dateStr && (
+                <span className={`text-[10px] tabular-nums ${isPast ? 'text-muted-foreground line-through' : 'text-muted-foreground'}`}>
+                  {formatDate(dateStr)}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
 // ─── Detail Panel Content ────────────────────────────────────────
 
-function DetailPanelContent({ contract }: { contract: Contract }) {
+// Adapter: ContractDocument → minimal DocumentFile shape for FilePreviewModal
+function contractDocToDocumentFile(doc: ContractDocument): DocumentFile {
+  return {
+    id: doc.fileId,
+    folder_id: 'fld-verträge',
+    filename: doc.name,
+    mime_type: doc.mimeType ?? 'application/octet-stream',
+    file_size: doc.size ?? 0,
+    storage_key: `contract-doc/${doc.fileId}`,
+    thumbnail_key: null,
+    current_version: 1,
+    owner_id: '',
+    is_favorite: false,
+    is_deleted: false,
+    tags: [],
+    created_at: doc.addedAt,
+    updated_at: doc.addedAt,
+  }
+}
+
+function getMimeIcon(mimeType: string) {
+  if (mimeType === 'application/pdf') return FileText
+  if (mimeType.startsWith('image/')) return FileText
+  if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) return FileText
+  return FileText
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(1)} GB`
+  if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${bytes} B`
+}
+
+// ─── Signer Section ──────────────────────────────────────────────
+
+function SignerSection({ contract }: { contract: Contract }) {
+  const { t } = useTranslation()
+  const signers = contract.signers ?? []
+
+  return (
+    <div className="space-y-2">
+      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        {t('vertraege.detail.signaturen')}
+        {signers.length > 0 && (
+          <span className="ml-1.5 text-muted-foreground font-normal normal-case">({signers.length})</span>
+        )}
+      </h4>
+
+      {signers.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-4 text-center">
+          <Pen className="h-5 w-5 text-muted-foreground/40 mb-1.5" />
+          <p className="text-xs text-muted-foreground">{t('vertraege.detail.signaturen.none')}</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {signers.map((signer, idx) => {
+            const statusConf: { labelKey: string; colorClass: string } = {
+              pending: { labelKey: 'vertraege.esignatur.status.pending', colorClass: 'bg-secondary text-muted-foreground' },
+              sent: { labelKey: 'vertraege.esignatur.status.sent', colorClass: 'bg-info-light text-info' },
+              viewed: { labelKey: 'vertraege.esignatur.status.viewed', colorClass: 'bg-warning-light text-warning' },
+              signed: { labelKey: 'vertraege.esignatur.status.signed', colorClass: 'bg-success-light text-success' },
+              declined: { labelKey: 'vertraege.esignatur.status.declined', colorClass: 'bg-error-light text-error' },
+            }[signer.status]
+
+            return (
+              <div key={idx} className="rounded-lg border border-border bg-secondary/20 px-3 py-2.5 space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium text-foreground truncate">{signer.name}</span>
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0 ${statusConf.colorClass}`}>
+                    {t(statusConf.labelKey)}
+                  </span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">{signer.email}</p>
+                {signer.status === 'signed' && signer.signedAt && (
+                  <p className="text-[10px] text-muted-foreground">
+                    {t('vertraege.detail.signaturen.signedAt', { date: formatDate(signer.signedAt) })}
+                  </p>
+                )}
+                {/* Thumbnail — only for canvas signatures */}
+                {signer.status === 'signed' && signer.signatureDataUrl && (
+                  <img
+                    src={signer.signatureDataUrl}
+                    alt={t('vertraege.esignatur.signatureThumbnailAlt')}
+                    className="h-9 w-20 rounded border border-border object-contain bg-white mt-1"
+                  />
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── AI Deadline Check Panel (Phase 10) ─────────────────────────
+
+type DeadlineSeverity = 'warning' | 'info' | 'error'
+
+interface DeadlineFinding {
+  key: string
+  severity: DeadlineSeverity
+}
+
+function computeDeadlineFindings(contract: Contract): DeadlineFinding[] {
+  const findings: DeadlineFinding[] = []
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  // 1. Notice window approaching: endDate - noticePeriodDays <= 30 days from now
+  if (contract.endDate && contract.noticePeriodDays > 0) {
+    const end = new Date(contract.endDate + 'T00:00:00')
+    const noticeDeadline = new Date(end)
+    noticeDeadline.setDate(noticeDeadline.getDate() - contract.noticePeriodDays)
+    const daysToNotice = Math.ceil((noticeDeadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    if (daysToNotice > 0 && daysToNotice <= 30) {
+      findings.push({ key: 'noticeWindowSoon', severity: 'warning' })
+    }
+  }
+
+  // 2. No reminders set and contract has an endDate
+  if (contract.endDate && (!contract.reminderDays || contract.reminderDays.length === 0)) {
+    findings.push({ key: 'noReminders', severity: 'info' })
+  }
+
+  // 3. Contract expired but not terminated / renewed
+  if (contract.endDate && (contract.status === 'active' || contract.status === 'expiring')) {
+    const end = new Date(contract.endDate + 'T00:00:00')
+    if (end < today) {
+      findings.push({ key: 'expiredActive', severity: 'error' })
+    }
+  }
+
+  // 4. Active contract has no documents and no signers
+  if ((contract.status === 'active' || contract.status === 'expiring') &&
+    (!contract.documents || contract.documents.length === 0) &&
+    (!contract.signers || contract.signers.length === 0)) {
+    findings.push({ key: 'noDocumentsOrSignature', severity: 'info' })
+  }
+
+  return findings
+}
+
+const severityStyles: Record<DeadlineSeverity, { bg: string; border: string; dot: string; text: string }> = {
+  error:   { bg: 'bg-error-light',   border: 'border-error/20',   dot: 'bg-error',   text: 'text-error' },
+  warning: { bg: 'bg-warning-light', border: 'border-warning/20', dot: 'bg-warning', text: 'text-warning' },
+  info:    { bg: 'bg-info-light',    border: 'border-info/20',    dot: 'bg-info',    text: 'text-info' },
+}
+
+function DeadlineCheckPanel({ contract }: { contract: Contract }) {
+  const { t } = useTranslation()
+  const [ran, setRan] = useState(false)
+  const [findings, setFindings] = useState<DeadlineFinding[]>([])
+
+  const handleRun = () => {
+    setFindings(computeDeadlineFindings(contract))
+    setRan(true)
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex-1">
+          {t('vertraege.deadlineCheck.title')}
+        </h4>
+        <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary-light px-2 py-0.5 text-[10px] font-medium text-primary">
+          <Sparkles className="h-2.5 w-2.5" />
+          {t('vertraege.deadlineCheck.badge')}
+        </span>
+      </div>
+
+      {!ran ? (
+        <div className="rounded-lg border border-dashed border-border bg-secondary/20 p-3">
+          <p className="text-xs text-muted-foreground mb-2.5">{t('vertraege.deadlineCheck.description')}</p>
+          <button
+            onClick={handleRun}
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors"
+            aria-label={t('vertraege.deadlineCheck.runButton')}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            {t('vertraege.deadlineCheck.runButton')}
+          </button>
+        </div>
+      ) : findings.length === 0 ? (
+        <div className="rounded-lg border border-success/20 bg-success-light p-3">
+          <p className="text-xs text-success font-medium">{t('vertraege.deadlineCheck.allClear')}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{t('vertraege.deadlineCheck.disclaimer')}</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {findings.map((f) => {
+            const styles = severityStyles[f.severity]
+            return (
+              <div key={f.key} className={`rounded-lg border ${styles.bg} ${styles.border} p-3 flex items-start gap-2`}>
+                <span className={`mt-1 h-1.5 w-1.5 rounded-full shrink-0 ${styles.dot}`} />
+                <p className={`text-xs ${styles.text}`}>{t(`vertraege.deadlineCheck.findings.${f.key}`)}</p>
+              </div>
+            )
+          })}
+          <p className="text-[10px] text-muted-foreground">{t('vertraege.deadlineCheck.disclaimer')}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+interface DetailPanelContentProps {
+  contract: Contract
+  onPreviewDoc: (file: DocumentFile) => void
+  onVersionsDoc: (fileId: string, name: string) => void
+  onNavigate: (path: string) => void
+}
+
+function DetailPanelContent({ contract, onPreviewDoc, onVersionsDoc, onNavigate }: DetailPanelContentProps) {
   const { t } = useTranslation()
   const typeConf = contractTypeConfig[contract.type]
   const TypeIcon = typeConf.icon
@@ -1384,23 +2233,8 @@ function DetailPanelContent({ contract }: { contract: Contract }) {
         </div>
       </div>
 
-      {/* Reminders (10.8) */}
-      {contract.reminderDays && contract.reminderDays.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vertraege.detail.erinnerungen')}</h4>
-          <div className="flex flex-wrap gap-1.5">
-            {contract.reminderDays.map((days) => (
-              <span
-                key={days}
-                className="inline-flex items-center gap-1 rounded-full bg-warning-light px-2 py-0.5 text-[10px] font-medium text-warning"
-              >
-                <Bell className="h-3 w-3" />
-                {t('vertraege.detail.reminderBadge', { days })}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Reminder schedule (phase 4) */}
+      <ReminderSchedule contract={contract} />
 
       {/* Next action hint */}
       {contract.endDate && (contract.status === 'active' || contract.status === 'expiring') && (
@@ -1456,52 +2290,117 @@ function DetailPanelContent({ contract }: { contract: Contract }) {
         </div>
       )}
 
-      {/* Document reference (10.7 — clickable) */}
-      {contract.documentRef && (
-        <div className="space-y-2">
-          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vertraege.detail.dokument')}</h4>
-          <button
-            onClick={() => toast.info(t('vertraege.detail.documentOpening', { doc: contract.documentRef }))}
-            className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors w-full text-left"
-          >
-            <FileText className="h-4 w-4 text-primary shrink-0" />
-            <span className="font-mono truncate">{contract.documentRef}</span>
-          </button>
-        </div>
-      )}
-
-      {/* History timeline */}
+      {/* Phase 7: Dokumente-Sektion */}
       <div className="space-y-2">
         <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          {t('vertraege.detail.history', { count: contract.history.length })}
+          {t('vertraege.documents.sectionTitle')}
+          {(contract.documents?.length ?? 0) > 0 && (
+            <span className="ml-1.5 text-muted-foreground font-normal normal-case">
+              ({contract.documents!.length})
+            </span>
+          )}
         </h4>
-        {contract.history.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-2">{t('vertraege.detail.historyEmpty')}</p>
+        {(contract.documents?.length ?? 0) === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-5 text-center">
+            <FileText className="h-6 w-6 text-muted-foreground/40 mb-2" />
+            <p className="text-xs text-muted-foreground">{t('vertraege.documents.emptyState')}</p>
+          </div>
         ) : (
-          <div className="space-y-0">
-            {[...contract.history].reverse().map((entry, idx) => (
-              <div key={idx} className="flex gap-3 pb-3 last:pb-0">
-                {/* Timeline line */}
-                <div className="flex flex-col items-center">
-                  <div className={`h-2 w-2 rounded-full shrink-0 mt-1.5 ${idx === 0 ? 'bg-primary' : 'bg-border'}`} />
-                  {idx < contract.history.length - 1 && (
-                    <div className="w-px flex-1 bg-border" />
+          <div className="space-y-1.5">
+            {contract.documents!.map((doc) => {
+              const DocIcon = getMimeIcon(doc.mimeType ?? '')
+              return (
+                <div
+                  key={doc.fileId}
+                  className="flex items-center gap-2 rounded-lg border border-border bg-secondary/20 px-3 py-2 group"
+                >
+                  <DocIcon className="h-4 w-4 text-primary shrink-0" />
+                  <button
+                    onClick={() => onPreviewDoc(contractDocToDocumentFile(doc))}
+                    aria-label={t('vertraege.documents.preview', { name: doc.name })}
+                    className="flex-1 text-left text-sm text-foreground hover:text-primary transition-colors truncate"
+                  >
+                    {doc.name}
+                  </button>
+                  {doc.size != null && (
+                    <span className="text-[10px] text-muted-foreground shrink-0">
+                      {formatBytes(doc.size)}
+                    </span>
                   )}
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => onVersionsDoc(doc.fileId, doc.name)}
+                          aria-label={t('vertraege.documents.versions', { name: doc.name })}
+                          className="text-muted-foreground hover:text-foreground transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+                        >
+                          <VersionIcon className="h-3.5 w-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">{t('vertraege.documents.versionsTooltip')}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
-                {/* Content */}
-                <div className="min-w-0 pb-1">
-                  <p className="text-sm text-foreground">{entry.action}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[10px] text-muted-foreground">{formatDate(entry.date)}</span>
-                    <span className="text-[10px] text-muted-foreground">&middot;</span>
-                    <span className="text-[10px] text-muted-foreground">{entry.user}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
+
+      {/* Signer section (phase 8) */}
+      <SignerSection contract={contract} />
+
+      {/* Phase 10: CRM/Finance Verknüpfungen */}
+      {(contract.contactId || contract.dealId || (contract.invoiceIds && contract.invoiceIds.length > 0)) && (
+        <div className="space-y-2">
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+            <Link2 className="h-3.5 w-3.5" />
+            {t('vertraege.links.sectionTitle')}
+          </h4>
+          <div className="flex flex-wrap gap-2">
+            {contract.contactId && (
+              <button
+                onClick={() => onNavigate(`/kontakte?contact=${contract.contactId}`)}
+                aria-label={t('vertraege.links.goToContact', { name: contract.contactName })}
+                className="inline-flex items-center gap-1.5 rounded-full border border-info/30 bg-info-light px-2.5 py-1 text-xs font-medium text-info hover:bg-info hover:text-white transition-colors"
+              >
+                <User className="h-3 w-3" />
+                {contract.contactName}
+              </button>
+            )}
+            {contract.dealId && (
+              <button
+                onClick={() => onNavigate(`/kontakte/pipeline/${contract.dealId}`)}
+                aria-label={t('vertraege.links.goToDeal', { name: contract.dealTitle })}
+                className="inline-flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning-light px-2.5 py-1 text-xs font-medium text-warning hover:bg-warning hover:text-white transition-colors"
+              >
+                <Briefcase className="h-3 w-3" />
+                {contract.dealTitle}
+              </button>
+            )}
+            {(contract.invoiceIds ?? []).map((invId, idx) => (
+              <button
+                key={invId}
+                onClick={() => onNavigate(`/finanzen?invoice=${invId}`)}
+                aria-label={t('vertraege.links.goToInvoice', { name: contract.invoiceNames?.[idx] ?? invId })}
+                className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success-light px-2.5 py-1 text-xs font-medium text-success hover:bg-success hover:text-white transition-colors"
+              >
+                <Receipt className="h-3 w-3" />
+                {contract.invoiceNames?.[idx] ?? invId}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Phase 10: AI Fristencheck (Heuristik-Panel) */}
+      <DeadlineCheckPanel contract={contract} />
+
+      {/* Audit log feed (phase 4) */}
+      <AuditLogFeed history={contract.history} />
     </div>
   )
 }

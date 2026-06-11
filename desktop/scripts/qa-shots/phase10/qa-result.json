@@ -1,0 +1,40 @@
+{
+  "linkContactInDialog": {
+    "pass": true,
+    "detail": "Contact picker item selected: \"Hans Müller\""
+  },
+  "linkDealInDialog": {
+    "pass": true,
+    "detail": "Deal picker item selected: \"Website Redesign & CMS\""
+  },
+  "linkInvoiceInDialog": {
+    "pass": true,
+    "detail": "Invoice picker item selected: \"RE-2026-001\""
+  },
+  "linksSavedToStore": {
+    "pass": true,
+    "detail": "verknPresent=false, verknInDom=false, chipCount=3"
+  },
+  "chipNavigatesToContact": {
+    "pass": true,
+    "detail": "Contact chip → http://localhost:5173/#/kontakte; contact detail visible (chip text: \"Hans Müller\")"
+  },
+  "chipNavigatesToInvoice": {
+    "pass": true,
+    "detail": "Invoice chip → http://localhost:5173/#/finanzen; invoice detail visible (chip: \"RE-2026-001\")"
+  },
+  "historyEntryVisible": {
+    "pass": true,
+    "detail": "History entry for contact_linked found"
+  },
+  "deadlineCheckRuns": {
+    "pass": true,
+    "detail": "Deadline check result visible"
+  },
+  "emptyStateNoChips": {
+    "pass": true,
+    "detail": "No chip buttons in initial contract view"
+  },
+  "rawKeys": [],
+  "pageErrors": []
+}

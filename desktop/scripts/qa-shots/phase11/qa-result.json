@@ -1,0 +1,24 @@
+{
+  "scenario1_alertsFromStore": {
+    "pass": true,
+    "detail": "hasContractAlert=true, hasSlaAlert=true, hasOldRawKey=false"
+  },
+  "scenario2_alertClickNoErrorBoundary": {
+    "pass": true,
+    "detail": "Navigated: http://localhost:5173/#/ → http://localhost:5173/#/vertraege"
+  },
+  "scenario3_crossModuleOverviewWidget": {
+    "pass": true,
+    "detail": "hasOverviewContent=true, hasNoDataFallback=false, bodyLength=7698"
+  },
+  "scenario4_qaFlagDisablesSource": {
+    "pass": true,
+    "detail": "positiveControl_hadContractAlertBefore=true, hasQASeedContractAlert=false (expected false when vertraege disabled), hasSlaAlertWhenDisabled=true"
+  },
+  "scenario5_emptyStateClean": {
+    "pass": true,
+    "detail": "dashboardRendered=true, bodyLength=7536"
+  },
+  "rawKeys": [],
+  "pageErrors": []
+}

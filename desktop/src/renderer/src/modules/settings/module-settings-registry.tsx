@@ -13,6 +13,8 @@ import {
   Package,
   KanbanSquare,
   FolderOpen,
+  FileSignature,
+  LayoutDashboard,
   type LucideIcon,
 } from 'lucide-react'
 import type { RoleId } from '@/config/roles'
@@ -29,6 +31,8 @@ import { IntegrationSettingsTab } from './tabs/IntegrationSettingsTab'
 import { ITAdminTab } from './tabs/ITAdminTab'
 import { ModuleAssignmentSettingsPanel } from './panels/ModuleAssignmentSettingsPanel'
 import { DokumenteSettingsPanel } from '@/modules/dokumente/settings/DokumenteSettingsPanel'
+import { VertraegeSettingsPanel } from '@/modules/vertraege/settings/VertraegeSettingsPanel'
+import { DashboardSettingsPanel } from '@/modules/dashboard/settings/DashboardSettingsPanel'
 
 /**
  * Registry for the Module-Settings overlay (opened from the bottom-left
@@ -63,6 +67,9 @@ export const SETTINGS_ENTRIES: SettingsEntry[] = [
   { id: 'team', group: 'module', labelKey: 'moduleSettings.entries.team', icon: Users, navMatch: ['/team'], roles: ['admin', 'hr'], component: TeamSettingsPanel },
   { id: 'work', group: 'module', labelKey: 'moduleSettings.entries.work', icon: KanbanSquare, navMatch: ['/work'], component: WorkSettingsPanel },
   { id: 'dokumente', group: 'module', labelKey: 'moduleSettings.entries.dokumente', icon: FolderOpen, navMatch: ['/dokumente'], component: DokumenteSettingsPanel },
+  { id: 'vertraege', group: 'module', labelKey: 'moduleSettings.entries.vertraege', icon: FileSignature, navMatch: ['/vertraege'], component: VertraegeSettingsPanel },
+  // '/' is exact-match only in the resolver — keep this entry from swallowing other routes.
+  { id: 'dashboard', group: 'module', labelKey: 'moduleSettings.entries.dashboard', icon: LayoutDashboard, navMatch: ['/'], component: DashboardSettingsPanel },
 
   // ── COSMI (Allgemein) ──
   { id: 'company', group: 'cosmi', labelKey: 'moduleSettings.entries.company', icon: Building2, roles: ['admin'], component: CompanySettingsTab },
@@ -74,6 +81,8 @@ export const SETTINGS_ENTRIES: SettingsEntry[] = [
 
 /** Resolve the settings entry id that matches the current route (context preselect). */
 export function resolveEntryForPath(pathname: string): string | undefined {
-  const match = SETTINGS_ENTRIES.find((e) => e.navMatch?.some((p) => pathname.startsWith(p)))
+  const match = SETTINGS_ENTRIES.find((e) =>
+    e.navMatch?.some((p) => (p === '/' ? pathname === '/' : pathname.startsWith(p))),
+  )
   return match?.id
 }

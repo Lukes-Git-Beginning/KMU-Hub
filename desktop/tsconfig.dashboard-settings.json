@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/global.d.ts",
+    "src/renderer/src/vite-env.d.ts",
+    "src/renderer/src/i18n/i18next.d.ts",
+    "src/renderer/src/lib/module-settings.ts",
+    "src/renderer/src/hooks/useModuleSettings.ts",
+    "src/renderer/src/stores/moduleLeads.ts",
+    "src/renderer/src/stores/dashboardPrefs.ts",
+    "src/renderer/src/stores/dashboardSettings.ts",
+    "src/renderer/src/modules/dashboard/settings/DashboardSettingsPanel.tsx",
+    "src/renderer/src/modules/dashboard/DashboardPage.tsx",
+    "src/renderer/src/components/widgets/WidgetContainer.tsx",
+    "src/renderer/src/components/shared/ModuleSettingsShell.tsx",
+    "src/renderer/src/modules/settings/module-settings-registry.tsx"
+  ]
+}

@@ -1,8 +1,16 @@
 ---
 tags: [fortschritt, milestones]
-updated: 2026-06-06
+updated: 2026-06-11
 ---
 # Milestones
+
+## 2026-06-11 — FE-Lane „Luke-Block" komplett (Marathon Strom L, Phasen 1–12)
+
+Der gesamte an Luke delegierte Frontend-Block (profil/vertraege/dashboard, P1–P4 je Modul) ist fertig: **14 Commits auf Branch `marathon/luke-fe`** (Stand `ee743c0d`), main unangetastet. Highlights: vertraege mit Dokumente-Verknüpfung + Canvas-E-Signatur (EES) + CRM/Finanzen-Chips + KI-Fristencheck-Heuristik; profil mit UserProfileCard-Overlay + Ping→Chat; dashboard mit echten Alerts (`useAlerts()`), Übersichts-Widget, Team-Scope inkl. verlustfreier persist-v1→v2-Migration. Details siehe [[architektur#fe-lane-luke-block--profilvertraegedashboard-p1p4-2026-06-1011-branch-marathonluke-fe-14-commits-bis-ee743c0d]].
+
+Die letzten 3 Phasen liefen als Builder→adversarialer-Verifier→Gate-Wellen: 1 echter P0 (FinanzenPage-ErrorBoundary-Crash, QA strukturell blind) + 1 P1 (rohe History-Codes) vor Push gefunden — QA-Lessons in [[troubleshooting#frontend-qa-lessons-fe-lane-2026-06-1011-marathon-strom-l]].
+
+**Nächster Schritt:** Darien-Feinschliff-Review via `.planning/reviews/{vertraege,dashboard,profil,buchhaltung}.md`, danach Merge → main. Offene Backend-Bedarfe: Team-Layout-Endpunkt, per-Employee-HR-Weekly, Helpdesk-Einzelticket-Route, Chat-Unread-Selector, vertraege-API-Swap auf `entity_links`.
 
 ## 2026-06-05 — Triple-Session: CI/E2E gruen + R2-P1-Batch + LiveKit/COSMI_ENV-Cluster
 

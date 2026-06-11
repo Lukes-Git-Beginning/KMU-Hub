@@ -11,6 +11,7 @@ import { de } from 'date-fns/locale'
 import { MessageSquare, Pencil, Trash2, SmilePlus } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { UserProfileTrigger } from '@/components/user/UserProfileCard'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
@@ -137,9 +138,19 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete, 
       onMouseLeave={() => setShowActions(false)}
     >
       <div className="relative mt-0.5 shrink-0">
-        <Avatar className="h-8 w-8">
-          <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-        </Avatar>
+        {message.created_by && !isOwn ? (
+          <UserProfileTrigger userId={message.created_by} name={senderName}>
+            <button type="button" className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+              </Avatar>
+            </button>
+          </UserProfileTrigger>
+        ) : (
+          <Avatar className="h-8 w-8">
+            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+          </Avatar>
+        )}
         <span
           className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card ${PRESENCE_COLORS[presence] ?? 'bg-gray-400'}`}
         />

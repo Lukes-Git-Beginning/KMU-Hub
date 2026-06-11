@@ -20,6 +20,7 @@ import {
 } from '@/api/hooks/useTaskComments'
 import { useProjectMembers } from '@/api/hooks/useProjects'
 import { useAuthStore } from '@/stores/auth'
+import { UserProfileTrigger } from '@/components/user/UserProfileCard'
 
 interface CommentThreadProps {
   taskId: string
@@ -264,11 +265,23 @@ export default function CommentThread({
               >
                 {/* Header */}
                 <div className="flex items-center gap-2">
-                  <Avatar className="h-6 w-6">
-                    <AvatarFallback className="text-[10px]">
-                      {getInitials(comment.author_name)}
-                    </AvatarFallback>
-                  </Avatar>
+                  {comment.author_id ? (
+                    <UserProfileTrigger userId={comment.author_id} name={comment.author_name ?? ''}>
+                      <button type="button" className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+                        <Avatar className="h-6 w-6">
+                          <AvatarFallback className="text-[10px]">
+                            {getInitials(comment.author_name)}
+                          </AvatarFallback>
+                        </Avatar>
+                      </button>
+                    </UserProfileTrigger>
+                  ) : (
+                    <Avatar className="h-6 w-6">
+                      <AvatarFallback className="text-[10px]">
+                        {getInitials(comment.author_name)}
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
                   <span className="text-sm font-medium">
                     {comment.author_name}
                   </span>

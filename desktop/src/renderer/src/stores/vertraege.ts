@@ -1,10 +1,39 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+/** Stable action codes written by store mutations. Legacy mock entries use
+ *  free-form German text which the renderer displays as-is (fallback). */
+export type ContractHistoryActionCode =
+  | 'contract_created'
+  | 'contract_updated'
+  | 'contract_terminated'
+  | 'contract_signed'
+  | 'reminder_triggered'
+  | 'document_added'
+  | 'document_removed'
+  | 'contact_linked'
+  | 'contact_unlinked'
+  | 'deal_linked'
+  | 'deal_unlinked'
+  | 'invoice_linked'
+  | 'invoice_unlinked'
+
+/** A document reference attached to a contract (linked via Dokumente-Modul). */
+export interface ContractDocument {
+  fileId: string
+  name: string
+  mimeType?: string
+  size?: number
+  addedAt: string
+}
+
 export interface ContractHistoryEntry {
   date: string
+  /** Either a ContractHistoryActionCode or legacy free-form text. */
   action: string
   user: string
+  /** Optional extra payload for the action label (e.g. termination reason). */
+  meta?: string
 }
 
 export interface ContractSigner {
@@ -13,6 +42,10 @@ export interface ContractSigner {
   status: 'pending' | 'sent' | 'viewed' | 'signed' | 'declined'
   signedAt?: string
   order: number
+  /** Base64 PNG data URL — present when signed via the on-site canvas (EES). */
+  signatureDataUrl?: string
+  /** How the signer completed (or will complete) the signing step. */
+  signedVia?: 'canvas' | 'dispatch'
 }
 
 export interface Contract {
@@ -28,13 +61,24 @@ export interface Contract {
   renewal: 'auto' | 'manual'
   monthlyCost: number
   totalValue: number
+  /** @deprecated Use `documents` instead — kept for legacy migration only */
   documentRef?: string
+  documents?: ContractDocument[]
   notes: string
   history: ContractHistoryEntry[]
   currency?: string
   reminderDays?: number[]
   templateId?: string
   signers?: ContractSigner[]
+  /** CRM entity links (Phase 10 — mock-first, 1 contact + 1 deal + n invoices) */
+  contactId?: string
+  contactName?: string
+  dealId?: string
+  dealTitle?: string
+  /** Snapshot list of linked invoice IDs */
+  invoiceIds?: string[]
+  /** Snapshot names for display (parallel to invoiceIds) */
+  invoiceNames?: string[]
 }
 
 export type ContractType = Contract['type']
@@ -120,6 +164,28 @@ interface VertraegeStore {
   updateContract: (id: string, updates: Partial<Contract>) => void
   deleteContract: (id: string) => void
   terminateContract: (id: string, reason: string, date: string) => void
+  addDocument: (contractId: string, doc: ContractDocument) => void
+  removeDocument: (contractId: string, fileId: string) => void
+  /** Sign a single signer via canvas or mark as sent via dispatch.
+   *  Always appends a contract_signed history entry. */
+  signSigner: (contractId: string, signerIndex: number, opts: {
+    via: 'canvas' | 'dispatch'
+    signatureDataUrl?: string
+  }) => void
+  /** Replace the signers array without adding a spurious contract_updated entry. */
+  updateSigners: (contractId: string, signers: ContractSigner[]) => void
+  /** Link a contact to a contract (1 contact max). */
+  linkContact: (contractId: string, contactId: string, contactName: string) => void
+  /** Unlink the contact from a contract. */
+  unlinkContact: (contractId: string) => void
+  /** Link a deal to a contract (1 deal max). */
+  linkDeal: (contractId: string, dealId: string, dealTitle: string) => void
+  /** Unlink the deal from a contract. */
+  unlinkDeal: (contractId: string) => void
+  /** Link an invoice to a contract (n invoices). */
+  linkInvoice: (contractId: string, invoiceId: string, invoiceName: string) => void
+  /** Unlink an invoice from a contract by invoiceId. */
+  unlinkInvoice: (contractId: string, invoiceId: string) => void
 }
 
 const MOCK_CONTRACTS: Contract[] = [
@@ -137,6 +203,10 @@ const MOCK_CONTRACTS: Contract[] = [
     monthlyCost: 4500,
     totalValue: 270000,
     documentRef: 'DOC-MV-001',
+    documents: [
+      { fileId: 'file-005', name: 'Vertrag_Gruber_Maschinenbau.pdf', mimeType: 'application/pdf', size: 540000, addedAt: '2024-01-01' },
+      { fileId: 'file-007', name: 'NDA_Rhein_Consulting.pdf', mimeType: 'application/pdf', size: 180000, addedAt: '2024-01-15' },
+    ],
     notes: 'Hauptsitz in Schwabing. Miete inkl. Nebenkosten und 2 Parkplätze in der Tiefgarage. Kaution EUR 13500 hinterlegt bei der Commerzbank.',
     currency: 'EUR',
     reminderDays: [30, 60, 90],
@@ -160,6 +230,9 @@ const MOCK_CONTRACTS: Contract[] = [
     monthlyCost: 189,
     totalValue: 4536,
     documentRef: 'DOC-SV-003',
+    documents: [
+      { fileId: 'file-006', name: 'SLA_Helvetia_Software.pdf', mimeType: 'application/pdf', size: 320000, addedAt: '2025-01-01' },
+    ],
     notes: 'Business Internet XL mit 10 Gbit/s symmetrisch, inkl. Managed Router und SLA 99.9%. Störungshotline 24/7.',
     currency: 'EUR',
     history: [
@@ -181,6 +254,9 @@ const MOCK_CONTRACTS: Contract[] = [
     monthlyCost: 450,
     totalValue: 5400,
     documentRef: 'DOC-LZ-002',
+    documents: [
+      { fileId: 'file-021', name: 'Wartungsvertrag_Bavaria_Elektro.pdf', mimeType: 'application/pdf', size: 410000, addedAt: '2025-04-01' },
+    ],
     notes: '25 Lizenzen Microsoft 365 Business Premium. Inkl. Exchange Online, Teams, SharePoint und Intune. Verlängerung muss manuell bestätigt werden.',
     currency: 'EUR',
     reminderDays: [30, 60, 90],
@@ -426,7 +502,7 @@ export const useVertraegeStore = create<VertraegeStore>()(
           templateId,
           currency: 'EUR',
           history: [
-            { date: today, action: `Aus Vorlage "${template.name}" erstellt`, user: 'Aktueller Benutzer' },
+            { date: today, action: 'contract_created', meta: template.name, user: 'Aktueller Benutzer' },
           ],
           ...overrides,
         }
@@ -435,9 +511,27 @@ export const useVertraegeStore = create<VertraegeStore>()(
 
       updateContract: (id, updates) =>
         set((state) => ({
-          contracts: state.contracts.map((c) =>
-            c.id === id ? { ...c, ...updates } : c
-          ),
+          contracts: state.contracts.map((c) => {
+            if (c.id !== id) return c
+            // Append a history entry unless the caller already supplied one
+            // (ContractDialog passes an updated history array explicitly).
+            const callerProvidesHistory = Array.isArray(updates.history)
+            if (callerProvidesHistory) {
+              return { ...c, ...updates }
+            }
+            return {
+              ...c,
+              ...updates,
+              history: [
+                ...c.history,
+                {
+                  date: new Date().toISOString().split('T')[0],
+                  action: 'contract_updated',
+                  user: 'Aktueller Benutzer',
+                },
+              ],
+            }
+          }),
         })),
 
       deleteContract: (id) =>
@@ -456,13 +550,195 @@ export const useVertraegeStore = create<VertraegeStore>()(
                     ...c.history,
                     {
                       date,
-                      action: `Kündigung eingeleitet: ${reason}`,
+                      action: 'contract_terminated',
+                      meta: reason,
                       user: 'Aktueller Benutzer',
                     },
                   ],
                 }
               : c
           ),
+        })),
+
+      addDocument: (contractId, doc) =>
+        set((state) => ({
+          contracts: state.contracts.map((c) => {
+            if (c.id !== contractId) return c
+            return {
+              ...c,
+              documents: [...(c.documents ?? []), doc],
+              history: [
+                ...c.history,
+                {
+                  date: new Date().toISOString().split('T')[0],
+                  action: 'document_added',
+                  meta: doc.name,
+                  user: 'Aktueller Benutzer',
+                },
+              ],
+            }
+          }),
+        })),
+
+      removeDocument: (contractId, fileId) =>
+        set((state) => ({
+          contracts: state.contracts.map((c) => {
+            if (c.id !== contractId) return c
+            const removed = (c.documents ?? []).find((d) => d.fileId === fileId)
+            return {
+              ...c,
+              documents: (c.documents ?? []).filter((d) => d.fileId !== fileId),
+              history: [
+                ...c.history,
+                {
+                  date: new Date().toISOString().split('T')[0],
+                  action: 'document_removed',
+                  meta: removed?.name ?? fileId,
+                  user: 'Aktueller Benutzer',
+                },
+              ],
+            }
+          }),
+        })),
+
+      signSigner: (contractId, signerIndex, { via, signatureDataUrl }) =>
+        set((state) => ({
+          contracts: state.contracts.map((c) => {
+            if (c.id !== contractId) return c
+            const signers = (c.signers ?? []).map((s, i) => {
+              if (i !== signerIndex) return s
+              return {
+                ...s,
+                status: 'signed' as const,
+                signedAt: new Date().toISOString(),
+                signedVia: via,
+                ...(signatureDataUrl != null ? { signatureDataUrl } : {}),
+              }
+            })
+            const signedSigner = signers[signerIndex]
+            return {
+              ...c,
+              signers,
+              history: [
+                ...c.history,
+                {
+                  date: new Date().toISOString().split('T')[0],
+                  action: 'contract_signed' as const,
+                  meta: signedSigner?.name ?? '',
+                  user: 'Aktueller Benutzer',
+                },
+              ],
+            }
+          }),
+        })),
+
+      updateSigners: (contractId, signers) =>
+        set((state) => ({
+          contracts: state.contracts.map((c) => {
+            if (c.id !== contractId) return c
+            return { ...c, signers }
+          }),
+        })),
+
+      linkContact: (contractId, contactId, contactName) =>
+        set((state) => ({
+          contracts: state.contracts.map((c) => {
+            if (c.id !== contractId) return c
+            return {
+              ...c,
+              contactId,
+              contactName,
+              history: [
+                ...c.history,
+                { date: new Date().toISOString().split('T')[0], action: 'contact_linked' as const, meta: contactName, user: 'Aktueller Benutzer' },
+              ],
+            }
+          }),
+        })),
+
+      unlinkContact: (contractId) =>
+        set((state) => ({
+          contracts: state.contracts.map((c) => {
+            if (c.id !== contractId) return c
+            const name = c.contactName ?? ''
+            return {
+              ...c,
+              contactId: undefined,
+              contactName: undefined,
+              history: [
+                ...c.history,
+                { date: new Date().toISOString().split('T')[0], action: 'contact_unlinked' as const, meta: name, user: 'Aktueller Benutzer' },
+              ],
+            }
+          }),
+        })),
+
+      linkDeal: (contractId, dealId, dealTitle) =>
+        set((state) => ({
+          contracts: state.contracts.map((c) => {
+            if (c.id !== contractId) return c
+            return {
+              ...c,
+              dealId,
+              dealTitle,
+              history: [
+                ...c.history,
+                { date: new Date().toISOString().split('T')[0], action: 'deal_linked' as const, meta: dealTitle, user: 'Aktueller Benutzer' },
+              ],
+            }
+          }),
+        })),
+
+      unlinkDeal: (contractId) =>
+        set((state) => ({
+          contracts: state.contracts.map((c) => {
+            if (c.id !== contractId) return c
+            const title = c.dealTitle ?? ''
+            return {
+              ...c,
+              dealId: undefined,
+              dealTitle: undefined,
+              history: [
+                ...c.history,
+                { date: new Date().toISOString().split('T')[0], action: 'deal_unlinked' as const, meta: title, user: 'Aktueller Benutzer' },
+              ],
+            }
+          }),
+        })),
+
+      linkInvoice: (contractId, invoiceId, invoiceName) =>
+        set((state) => ({
+          contracts: state.contracts.map((c) => {
+            if (c.id !== contractId) return c
+            if ((c.invoiceIds ?? []).includes(invoiceId)) return c
+            return {
+              ...c,
+              invoiceIds: [...(c.invoiceIds ?? []), invoiceId],
+              invoiceNames: [...(c.invoiceNames ?? []), invoiceName],
+              history: [
+                ...c.history,
+                { date: new Date().toISOString().split('T')[0], action: 'invoice_linked' as const, meta: invoiceName, user: 'Aktueller Benutzer' },
+              ],
+            }
+          }),
+        })),
+
+      unlinkInvoice: (contractId, invoiceId) =>
+        set((state) => ({
+          contracts: state.contracts.map((c) => {
+            if (c.id !== contractId) return c
+            const idx = (c.invoiceIds ?? []).indexOf(invoiceId)
+            const name = idx >= 0 ? (c.invoiceNames ?? [])[idx] ?? invoiceId : invoiceId
+            return {
+              ...c,
+              invoiceIds: (c.invoiceIds ?? []).filter((id) => id !== invoiceId),
+              invoiceNames: (c.invoiceNames ?? []).filter((_, i) => i !== idx),
+              history: [
+                ...c.history,
+                { date: new Date().toISOString().split('T')[0], action: 'invoice_unlinked' as const, meta: name, user: 'Aktueller Benutzer' },
+              ],
+            }
+          }),
         })),
     }),
     { name: 'cosmi-verträge' },
