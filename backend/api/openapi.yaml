@@ -6547,22 +6547,34 @@ paths:
           $ref: "#/components/responses/Forbidden"
 
   # ===========================================================================
-  # Reactions
+  # Reactions (via chat service — /api/v1/messages)
   # ===========================================================================
 
-  /api/v1/video/reactions/toggle:
+  /api/v1/messages/{id}/reactions:
     post:
-      summary: Toggle a reaction on a message
+      summary: Toggle a reaction on a message (add or remove)
       tags: [reactions]
       operationId: toggleReaction
       security:
         - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ToggleReactionRequest"
+              type: object
+              required: [emoji]
+              properties:
+                emoji:
+                  type: string
+                  maxLength: 32
       responses:
         "200":
           description: Reaction toggled
@@ -6574,18 +6586,14 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
-        "501":
-          description: Not implemented (reactions available via WebSocket events)
-
-  /api/v1/video/reactions/{messageId}:
     get:
-      summary: List reactions for a message
+      summary: List individual reactions for a message
       tags: [reactions]
       operationId: listReactions
       security:
         - bearerAuth: []
       parameters:
-        - name: messageId
+        - name: id
           in: path
           required: true
           schema:
@@ -6600,12 +6608,10 @@ paths:
                 $ref: "#/components/schemas/ListReactionsResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
-        "501":
-          description: Not implemented (reactions available via WebSocket events)
 
-  /api/v1/video/reactions/summary:
+  /api/v1/messages/reactions/summary:
     post:
-      summary: Get reaction summary for multiple messages
+      summary: Get reaction summary for multiple messages (batch)
       tags: [reactions]
       operationId: getReactionSummary
       security:
@@ -6625,8 +6631,6 @@ paths:
                 $ref: "#/components/schemas/ReactionSummaryResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
-        "501":
-          description: Not implemented (reactions available via WebSocket events)
 
   # ===========================================================================
   # Meetings
@@ -8243,6 +8247,64 @@ paths:
                     items:
                       $ref: "#/components/schemas/EmployeeProfile"
                   total: { type: integer }
+    post:
+      summary: Create employee profile
+      description: Creates a new HR employee profile for an existing auth user. Auth user creation is a separate step.
+      operationId: createEmployee
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, start_date]
+              properties:
+                user_id:
+                  type: string
+                  format: uuid
+                department:
+                  type: string
+                position_title:
+                  type: string
+                contract_type:
+                  type: string
+                  enum: [full_time, part_time, mini_job, intern, temporary]
+                work_days_per_week:
+                  type: integer
+                  minimum: 1
+                  maximum: 7
+                annual_leave_days:
+                  type: integer
+                  minimum: 0
+                manager_user_id:
+                  type: string
+                  format: uuid
+                start_date:
+                  type: string
+                  format: date
+                emergency_contact_name:
+                  type: string
+                emergency_contact_phone:
+                  type: string
+                address_street:
+                  type: string
+                address_city:
+                  type: string
+                address_postal_code:
+                  type: string
+                address_country:
+                  type: string
+      responses:
+        "201":
+          description: Employee profile created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeProfile"
+        "409":
+          description: Employee profile already exists for this user
 
   /api/v1/hr/employees/me:
     get:

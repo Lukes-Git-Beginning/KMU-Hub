@@ -5256,6 +5256,206 @@ func (x *UpdateHRSettingsResp) GetSettings() *HRSettings {
 	return nil
 }
 
+type CreateEmployeeReq struct {
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	TenantId              string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	UserId                string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"` // UUID of an existing auth user
+	Department            string                 `protobuf:"bytes,3,opt,name=department,proto3" json:"department,omitempty"`
+	PositionTitle         string                 `protobuf:"bytes,4,opt,name=position_title,json=positionTitle,proto3" json:"position_title,omitempty"`
+	ContractType          ContractType           `protobuf:"varint,5,opt,name=contract_type,json=contractType,proto3,enum=hr.v1.ContractType" json:"contract_type,omitempty"`
+	WorkDaysPerWeek       int32                  `protobuf:"varint,6,opt,name=work_days_per_week,json=workDaysPerWeek,proto3" json:"work_days_per_week,omitempty"`
+	AnnualLeaveDays       int32                  `protobuf:"varint,7,opt,name=annual_leave_days,json=annualLeaveDays,proto3" json:"annual_leave_days,omitempty"`
+	ManagerUserId         string                 `protobuf:"bytes,8,opt,name=manager_user_id,json=managerUserId,proto3" json:"manager_user_id,omitempty"`
+	StartDate             string                 `protobuf:"bytes,9,opt,name=start_date,json=startDate,proto3" json:"start_date,omitempty"` // YYYY-MM-DD
+	EmergencyContactName  string                 `protobuf:"bytes,10,opt,name=emergency_contact_name,json=emergencyContactName,proto3" json:"emergency_contact_name,omitempty"`
+	EmergencyContactPhone string                 `protobuf:"bytes,11,opt,name=emergency_contact_phone,json=emergencyContactPhone,proto3" json:"emergency_contact_phone,omitempty"`
+	AddressStreet         string                 `protobuf:"bytes,12,opt,name=address_street,json=addressStreet,proto3" json:"address_street,omitempty"`
+	AddressCity           string                 `protobuf:"bytes,13,opt,name=address_city,json=addressCity,proto3" json:"address_city,omitempty"`
+	AddressPostalCode     string                 `protobuf:"bytes,14,opt,name=address_postal_code,json=addressPostalCode,proto3" json:"address_postal_code,omitempty"`
+	AddressCountry        string                 `protobuf:"bytes,15,opt,name=address_country,json=addressCountry,proto3" json:"address_country,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *CreateEmployeeReq) Reset() {
+	*x = CreateEmployeeReq{}
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[70]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateEmployeeReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateEmployeeReq) ProtoMessage() {}
+
+func (x *CreateEmployeeReq) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[70]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateEmployeeReq.ProtoReflect.Descriptor instead.
+func (*CreateEmployeeReq) Descriptor() ([]byte, []int) {
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{70}
+}
+
+func (x *CreateEmployeeReq) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateEmployeeReq) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *CreateEmployeeReq) GetDepartment() string {
+	if x != nil {
+		return x.Department
+	}
+	return ""
+}
+
+func (x *CreateEmployeeReq) GetPositionTitle() string {
+	if x != nil {
+		return x.PositionTitle
+	}
+	return ""
+}
+
+func (x *CreateEmployeeReq) GetContractType() ContractType {
+	if x != nil {
+		return x.ContractType
+	}
+	return ContractType_CONTRACT_TYPE_UNSPECIFIED
+}
+
+func (x *CreateEmployeeReq) GetWorkDaysPerWeek() int32 {
+	if x != nil {
+		return x.WorkDaysPerWeek
+	}
+	return 0
+}
+
+func (x *CreateEmployeeReq) GetAnnualLeaveDays() int32 {
+	if x != nil {
+		return x.AnnualLeaveDays
+	}
+	return 0
+}
+
+func (x *CreateEmployeeReq) GetManagerUserId() string {
+	if x != nil {
+		return x.ManagerUserId
+	}
+	return ""
+}
+
+func (x *CreateEmployeeReq) GetStartDate() string {
+	if x != nil {
+		return x.StartDate
+	}
+	return ""
+}
+
+func (x *CreateEmployeeReq) GetEmergencyContactName() string {
+	if x != nil {
+		return x.EmergencyContactName
+	}
+	return ""
+}
+
+func (x *CreateEmployeeReq) GetEmergencyContactPhone() string {
+	if x != nil {
+		return x.EmergencyContactPhone
+	}
+	return ""
+}
+
+func (x *CreateEmployeeReq) GetAddressStreet() string {
+	if x != nil {
+		return x.AddressStreet
+	}
+	return ""
+}
+
+func (x *CreateEmployeeReq) GetAddressCity() string {
+	if x != nil {
+		return x.AddressCity
+	}
+	return ""
+}
+
+func (x *CreateEmployeeReq) GetAddressPostalCode() string {
+	if x != nil {
+		return x.AddressPostalCode
+	}
+	return ""
+}
+
+func (x *CreateEmployeeReq) GetAddressCountry() string {
+	if x != nil {
+		return x.AddressCountry
+	}
+	return ""
+}
+
+type CreateEmployeeResp struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Employee      *EmployeeProfile       `protobuf:"bytes,1,opt,name=employee,proto3" json:"employee,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateEmployeeResp) Reset() {
+	*x = CreateEmployeeResp{}
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[71]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateEmployeeResp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateEmployeeResp) ProtoMessage() {}
+
+func (x *CreateEmployeeResp) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_hr_v1_hr_proto_msgTypes[71]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateEmployeeResp.ProtoReflect.Descriptor instead.
+func (*CreateEmployeeResp) Descriptor() ([]byte, []int) {
+	return file_proto_hr_v1_hr_proto_rawDescGZIP(), []int{71}
+}
+
+func (x *CreateEmployeeResp) GetEmployee() *EmployeeProfile {
+	if x != nil {
+		return x.Employee
+	}
+	return nil
+}
+
 var File_proto_hr_v1_hr_proto protoreflect.FileDescriptor
 
 const file_proto_hr_v1_hr_proto_rawDesc = "" +
@@ -5714,7 +5914,29 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\x19default_annual_leave_days\x18\x04 \x01(\x05R\x16defaultAnnualLeaveDays\x12\x1a\n" +
 	"\btimezone\x18\x05 \x01(\tR\btimezone\"E\n" +
 	"\x14UpdateHRSettingsResp\x12-\n" +
-	"\bsettings\x18\x01 \x01(\v2\x11.hr.v1.HRSettingsR\bsettings*\x8a\x01\n" +
+	"\bsettings\x18\x01 \x01(\v2\x11.hr.v1.HRSettingsR\bsettings\"\xfb\x04\n" +
+	"\x11CreateEmployeeReq\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x1e\n" +
+	"\n" +
+	"department\x18\x03 \x01(\tR\n" +
+	"department\x12%\n" +
+	"\x0eposition_title\x18\x04 \x01(\tR\rpositionTitle\x128\n" +
+	"\rcontract_type\x18\x05 \x01(\x0e2\x13.hr.v1.ContractTypeR\fcontractType\x12+\n" +
+	"\x12work_days_per_week\x18\x06 \x01(\x05R\x0fworkDaysPerWeek\x12*\n" +
+	"\x11annual_leave_days\x18\a \x01(\x05R\x0fannualLeaveDays\x12&\n" +
+	"\x0fmanager_user_id\x18\b \x01(\tR\rmanagerUserId\x12\x1d\n" +
+	"\n" +
+	"start_date\x18\t \x01(\tR\tstartDate\x124\n" +
+	"\x16emergency_contact_name\x18\n" +
+	" \x01(\tR\x14emergencyContactName\x126\n" +
+	"\x17emergency_contact_phone\x18\v \x01(\tR\x15emergencyContactPhone\x12%\n" +
+	"\x0eaddress_street\x18\f \x01(\tR\raddressStreet\x12!\n" +
+	"\faddress_city\x18\r \x01(\tR\vaddressCity\x12.\n" +
+	"\x13address_postal_code\x18\x0e \x01(\tR\x11addressPostalCode\x12'\n" +
+	"\x0faddress_country\x18\x0f \x01(\tR\x0eaddressCountry\"H\n" +
+	"\x12CreateEmployeeResp\x122\n" +
+	"\bemployee\x18\x01 \x01(\v2\x16.hr.v1.EmployeeProfileR\bemployee*\x8a\x01\n" +
 	"\x12LeaveRequestStatus\x12$\n" +
 	" LEAVE_REQUEST_STATUS_UNSPECIFIED\x10\x00\x12\x11\n" +
 	"\rLEAVE_PENDING\x10\x01\x12\x12\n" +
@@ -5742,7 +5964,7 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\x1fDOCUMENT_VISIBILITY_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bDOCUMENT_VISIBILITY_HR_ONLY\x10\x01\x12\x1f\n" +
 	"\x1bDOCUMENT_VISIBILITY_MANAGER\x10\x02\x12 \n" +
-	"\x1cDOCUMENT_VISIBILITY_EMPLOYEE\x10\x032\xa9\x11\n" +
+	"\x1cDOCUMENT_VISIBILITY_EMPLOYEE\x10\x032\xf0\x11\n" +
 	"\tHRService\x12Q\n" +
 	"\x12CreateLeaveRequest\x12\x1c.hr.v1.CreateLeaveRequestReq\x1a\x1d.hr.v1.CreateLeaveRequestResp\x12H\n" +
 	"\x0fGetLeaveRequest\x12\x19.hr.v1.GetLeaveRequestReq\x1a\x1a.hr.v1.GetLeaveRequestResp\x12N\n" +
@@ -5771,7 +5993,8 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\x0eUpdateEmployee\x12\x18.hr.v1.UpdateEmployeeReq\x1a\x19.hr.v1.UpdateEmployeeResp\x12N\n" +
 	"\x11UpdateSelfProfile\x12\x1b.hr.v1.UpdateSelfProfileReq\x1a\x1c.hr.v1.UpdateSelfProfileResp\x12Z\n" +
 	"\x15ListEmployeeDocuments\x12\x1f.hr.v1.ListEmployeeDocumentsReq\x1a .hr.v1.ListEmployeeDocumentsResp\x12]\n" +
-	"\x16UploadEmployeeDocument\x12 .hr.v1.UploadEmployeeDocumentReq\x1a!.hr.v1.UploadEmployeeDocumentResp\x12B\n" +
+	"\x16UploadEmployeeDocument\x12 .hr.v1.UploadEmployeeDocumentReq\x1a!.hr.v1.UploadEmployeeDocumentResp\x12E\n" +
+	"\x0eCreateEmployee\x12\x18.hr.v1.CreateEmployeeReq\x1a\x19.hr.v1.CreateEmployeeResp\x12B\n" +
 	"\rGetHRSettings\x12\x17.hr.v1.GetHRSettingsReq\x1a\x18.hr.v1.GetHRSettingsResp\x12K\n" +
 	"\x10UpdateHRSettings\x12\x1a.hr.v1.UpdateHRSettingsReq\x1a\x1b.hr.v1.UpdateHRSettingsRespB+Z)github.com/kmuhub/kmuhub/proto/hr/v1;hrv1b\x06proto3"
 
@@ -5788,7 +6011,7 @@ func file_proto_hr_v1_hr_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_hr_v1_hr_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_proto_hr_v1_hr_proto_msgTypes = make([]protoimpl.MessageInfo, 70)
+var file_proto_hr_v1_hr_proto_msgTypes = make([]protoimpl.MessageInfo, 72)
 var file_proto_hr_v1_hr_proto_goTypes = []any{
 	(LeaveRequestStatus)(0),             // 0: hr.v1.LeaveRequestStatus
 	(WorkTimeEntryStatus)(0),            // 1: hr.v1.WorkTimeEntryStatus
@@ -5865,35 +6088,37 @@ var file_proto_hr_v1_hr_proto_goTypes = []any{
 	(*GetHRSettingsResp)(nil),           // 72: hr.v1.GetHRSettingsResp
 	(*UpdateHRSettingsReq)(nil),         // 73: hr.v1.UpdateHRSettingsReq
 	(*UpdateHRSettingsResp)(nil),        // 74: hr.v1.UpdateHRSettingsResp
-	(*timestamppb.Timestamp)(nil),       // 75: google.protobuf.Timestamp
+	(*CreateEmployeeReq)(nil),           // 75: hr.v1.CreateEmployeeReq
+	(*CreateEmployeeResp)(nil),          // 76: hr.v1.CreateEmployeeResp
+	(*timestamppb.Timestamp)(nil),       // 77: google.protobuf.Timestamp
 }
 var file_proto_hr_v1_hr_proto_depIdxs = []int32{
-	75, // 0: hr.v1.LeaveType.created_at:type_name -> google.protobuf.Timestamp
+	77, // 0: hr.v1.LeaveType.created_at:type_name -> google.protobuf.Timestamp
 	3,  // 1: hr.v1.LeaveRequest.half_day_period_start:type_name -> hr.v1.HalfDayPeriod
 	3,  // 2: hr.v1.LeaveRequest.half_day_period_end:type_name -> hr.v1.HalfDayPeriod
 	0,  // 3: hr.v1.LeaveRequest.status:type_name -> hr.v1.LeaveRequestStatus
-	75, // 4: hr.v1.LeaveRequest.approved_at:type_name -> google.protobuf.Timestamp
-	75, // 5: hr.v1.LeaveRequest.created_at:type_name -> google.protobuf.Timestamp
-	75, // 6: hr.v1.LeaveRequest.updated_at:type_name -> google.protobuf.Timestamp
-	75, // 7: hr.v1.LeaveBalance.created_at:type_name -> google.protobuf.Timestamp
-	75, // 8: hr.v1.LeaveBalance.updated_at:type_name -> google.protobuf.Timestamp
-	75, // 9: hr.v1.WorkTimeEntry.clock_in:type_name -> google.protobuf.Timestamp
-	75, // 10: hr.v1.WorkTimeEntry.clock_out:type_name -> google.protobuf.Timestamp
+	77, // 4: hr.v1.LeaveRequest.approved_at:type_name -> google.protobuf.Timestamp
+	77, // 5: hr.v1.LeaveRequest.created_at:type_name -> google.protobuf.Timestamp
+	77, // 6: hr.v1.LeaveRequest.updated_at:type_name -> google.protobuf.Timestamp
+	77, // 7: hr.v1.LeaveBalance.created_at:type_name -> google.protobuf.Timestamp
+	77, // 8: hr.v1.LeaveBalance.updated_at:type_name -> google.protobuf.Timestamp
+	77, // 9: hr.v1.WorkTimeEntry.clock_in:type_name -> google.protobuf.Timestamp
+	77, // 10: hr.v1.WorkTimeEntry.clock_out:type_name -> google.protobuf.Timestamp
 	1,  // 11: hr.v1.WorkTimeEntry.status:type_name -> hr.v1.WorkTimeEntryStatus
-	75, // 12: hr.v1.WorkTimeEntry.correction_approved_at:type_name -> google.protobuf.Timestamp
-	75, // 13: hr.v1.WorkTimeEntry.created_at:type_name -> google.protobuf.Timestamp
-	75, // 14: hr.v1.WorkTimeEntry.updated_at:type_name -> google.protobuf.Timestamp
+	77, // 12: hr.v1.WorkTimeEntry.correction_approved_at:type_name -> google.protobuf.Timestamp
+	77, // 13: hr.v1.WorkTimeEntry.created_at:type_name -> google.protobuf.Timestamp
+	77, // 14: hr.v1.WorkTimeEntry.updated_at:type_name -> google.protobuf.Timestamp
 	9,  // 15: hr.v1.WorkTimeEntry.breaks:type_name -> hr.v1.BreakEntry
-	75, // 16: hr.v1.BreakEntry.start_time:type_name -> google.protobuf.Timestamp
-	75, // 17: hr.v1.BreakEntry.end_time:type_name -> google.protobuf.Timestamp
+	77, // 16: hr.v1.BreakEntry.start_time:type_name -> google.protobuf.Timestamp
+	77, // 17: hr.v1.BreakEntry.end_time:type_name -> google.protobuf.Timestamp
 	2,  // 18: hr.v1.EmployeeProfile.contract_type:type_name -> hr.v1.ContractType
-	75, // 19: hr.v1.EmployeeProfile.created_at:type_name -> google.protobuf.Timestamp
-	75, // 20: hr.v1.EmployeeProfile.updated_at:type_name -> google.protobuf.Timestamp
+	77, // 19: hr.v1.EmployeeProfile.created_at:type_name -> google.protobuf.Timestamp
+	77, // 20: hr.v1.EmployeeProfile.updated_at:type_name -> google.protobuf.Timestamp
 	4,  // 21: hr.v1.HRDocumentCategory.visibility:type_name -> hr.v1.DocumentVisibility
-	75, // 22: hr.v1.HRDocumentCategory.created_at:type_name -> google.protobuf.Timestamp
-	75, // 23: hr.v1.EmployeeDocument.created_at:type_name -> google.protobuf.Timestamp
-	75, // 24: hr.v1.HRSettings.created_at:type_name -> google.protobuf.Timestamp
-	75, // 25: hr.v1.HRSettings.updated_at:type_name -> google.protobuf.Timestamp
+	77, // 22: hr.v1.HRDocumentCategory.created_at:type_name -> google.protobuf.Timestamp
+	77, // 23: hr.v1.EmployeeDocument.created_at:type_name -> google.protobuf.Timestamp
+	77, // 24: hr.v1.HRSettings.created_at:type_name -> google.protobuf.Timestamp
+	77, // 25: hr.v1.HRSettings.updated_at:type_name -> google.protobuf.Timestamp
 	8,  // 26: hr.v1.DailySummary.entries:type_name -> hr.v1.WorkTimeEntry
 	15, // 27: hr.v1.WeeklySummary.daily_summaries:type_name -> hr.v1.DailySummary
 	3,  // 28: hr.v1.CreateLeaveRequestReq.half_day_period_start:type_name -> hr.v1.HalfDayPeriod
@@ -5908,21 +6133,21 @@ var file_proto_hr_v1_hr_proto_depIdxs = []int32{
 	7,  // 37: hr.v1.GetEmployeeLeaveBalanceResp.balance:type_name -> hr.v1.LeaveBalance
 	5,  // 38: hr.v1.ListLeaveTypesResp.leave_types:type_name -> hr.v1.LeaveType
 	6,  // 39: hr.v1.RecordSickLeaveResp.leave_request:type_name -> hr.v1.LeaveRequest
-	75, // 40: hr.v1.ClockInReq.timestamp:type_name -> google.protobuf.Timestamp
+	77, // 40: hr.v1.ClockInReq.timestamp:type_name -> google.protobuf.Timestamp
 	8,  // 41: hr.v1.ClockInResp.entry:type_name -> hr.v1.WorkTimeEntry
-	75, // 42: hr.v1.ClockOutReq.timestamp:type_name -> google.protobuf.Timestamp
+	77, // 42: hr.v1.ClockOutReq.timestamp:type_name -> google.protobuf.Timestamp
 	8,  // 43: hr.v1.ClockOutResp.entry:type_name -> hr.v1.WorkTimeEntry
-	75, // 44: hr.v1.StartBreakReq.timestamp:type_name -> google.protobuf.Timestamp
+	77, // 44: hr.v1.StartBreakReq.timestamp:type_name -> google.protobuf.Timestamp
 	9,  // 45: hr.v1.StartBreakResp.break_entry:type_name -> hr.v1.BreakEntry
-	75, // 46: hr.v1.EndBreakReq.timestamp:type_name -> google.protobuf.Timestamp
+	77, // 46: hr.v1.EndBreakReq.timestamp:type_name -> google.protobuf.Timestamp
 	9,  // 47: hr.v1.EndBreakResp.break_entry:type_name -> hr.v1.BreakEntry
 	8,  // 48: hr.v1.GetActiveShiftResp.entry:type_name -> hr.v1.WorkTimeEntry
 	9,  // 49: hr.v1.GetActiveShiftResp.active_break:type_name -> hr.v1.BreakEntry
 	8,  // 50: hr.v1.ListWorkTimeEntriesResp.entries:type_name -> hr.v1.WorkTimeEntry
 	15, // 51: hr.v1.GetDailySummaryResp.summary:type_name -> hr.v1.DailySummary
 	16, // 52: hr.v1.GetWeeklySummaryResp.summary:type_name -> hr.v1.WeeklySummary
-	75, // 53: hr.v1.SubmitTimeCorrectionReq.corrected_clock_in:type_name -> google.protobuf.Timestamp
-	75, // 54: hr.v1.SubmitTimeCorrectionReq.corrected_clock_out:type_name -> google.protobuf.Timestamp
+	77, // 53: hr.v1.SubmitTimeCorrectionReq.corrected_clock_in:type_name -> google.protobuf.Timestamp
+	77, // 54: hr.v1.SubmitTimeCorrectionReq.corrected_clock_out:type_name -> google.protobuf.Timestamp
 	8,  // 55: hr.v1.SubmitTimeCorrectionResp.correction:type_name -> hr.v1.WorkTimeEntry
 	8,  // 56: hr.v1.ApproveTimeCorrectionResp.correction:type_name -> hr.v1.WorkTimeEntry
 	14, // 57: hr.v1.GetAbsenceCalendarResp.absences:type_name -> hr.v1.AbsenceEntry
@@ -5935,69 +6160,73 @@ var file_proto_hr_v1_hr_proto_depIdxs = []int32{
 	12, // 64: hr.v1.UploadEmployeeDocumentResp.document:type_name -> hr.v1.EmployeeDocument
 	13, // 65: hr.v1.GetHRSettingsResp.settings:type_name -> hr.v1.HRSettings
 	13, // 66: hr.v1.UpdateHRSettingsResp.settings:type_name -> hr.v1.HRSettings
-	17, // 67: hr.v1.HRService.CreateLeaveRequest:input_type -> hr.v1.CreateLeaveRequestReq
-	19, // 68: hr.v1.HRService.GetLeaveRequest:input_type -> hr.v1.GetLeaveRequestReq
-	21, // 69: hr.v1.HRService.ListLeaveRequests:input_type -> hr.v1.ListLeaveRequestsReq
-	23, // 70: hr.v1.HRService.ApproveLeaveRequest:input_type -> hr.v1.ApproveLeaveRequestReq
-	25, // 71: hr.v1.HRService.RejectLeaveRequest:input_type -> hr.v1.RejectLeaveRequestReq
-	27, // 72: hr.v1.HRService.CancelLeaveRequest:input_type -> hr.v1.CancelLeaveRequestReq
-	29, // 73: hr.v1.HRService.GetLeaveBalance:input_type -> hr.v1.GetLeaveBalanceReq
-	31, // 74: hr.v1.HRService.GetEmployeeLeaveBalance:input_type -> hr.v1.GetEmployeeLeaveBalanceReq
-	33, // 75: hr.v1.HRService.ListLeaveTypes:input_type -> hr.v1.ListLeaveTypesReq
-	35, // 76: hr.v1.HRService.RecordSickLeave:input_type -> hr.v1.RecordSickLeaveReq
-	37, // 77: hr.v1.HRService.ClockIn:input_type -> hr.v1.ClockInReq
-	39, // 78: hr.v1.HRService.ClockOut:input_type -> hr.v1.ClockOutReq
-	41, // 79: hr.v1.HRService.StartBreak:input_type -> hr.v1.StartBreakReq
-	43, // 80: hr.v1.HRService.EndBreak:input_type -> hr.v1.EndBreakReq
-	45, // 81: hr.v1.HRService.GetActiveShift:input_type -> hr.v1.GetActiveShiftReq
-	47, // 82: hr.v1.HRService.ListWorkTimeEntries:input_type -> hr.v1.ListWorkTimeEntriesReq
-	49, // 83: hr.v1.HRService.GetDailySummary:input_type -> hr.v1.GetDailySummaryReq
-	51, // 84: hr.v1.HRService.GetWeeklySummary:input_type -> hr.v1.GetWeeklySummaryReq
-	53, // 85: hr.v1.HRService.SubmitTimeCorrection:input_type -> hr.v1.SubmitTimeCorrectionReq
-	55, // 86: hr.v1.HRService.ApproveTimeCorrection:input_type -> hr.v1.ApproveTimeCorrectionReq
-	57, // 87: hr.v1.HRService.GetAbsenceCalendar:input_type -> hr.v1.GetAbsenceCalendarReq
-	59, // 88: hr.v1.HRService.ListEmployees:input_type -> hr.v1.ListEmployeesReq
-	61, // 89: hr.v1.HRService.GetEmployee:input_type -> hr.v1.GetEmployeeReq
-	63, // 90: hr.v1.HRService.UpdateEmployee:input_type -> hr.v1.UpdateEmployeeReq
-	65, // 91: hr.v1.HRService.UpdateSelfProfile:input_type -> hr.v1.UpdateSelfProfileReq
-	67, // 92: hr.v1.HRService.ListEmployeeDocuments:input_type -> hr.v1.ListEmployeeDocumentsReq
-	69, // 93: hr.v1.HRService.UploadEmployeeDocument:input_type -> hr.v1.UploadEmployeeDocumentReq
-	71, // 94: hr.v1.HRService.GetHRSettings:input_type -> hr.v1.GetHRSettingsReq
-	73, // 95: hr.v1.HRService.UpdateHRSettings:input_type -> hr.v1.UpdateHRSettingsReq
-	18, // 96: hr.v1.HRService.CreateLeaveRequest:output_type -> hr.v1.CreateLeaveRequestResp
-	20, // 97: hr.v1.HRService.GetLeaveRequest:output_type -> hr.v1.GetLeaveRequestResp
-	22, // 98: hr.v1.HRService.ListLeaveRequests:output_type -> hr.v1.ListLeaveRequestsResp
-	24, // 99: hr.v1.HRService.ApproveLeaveRequest:output_type -> hr.v1.ApproveLeaveRequestResp
-	26, // 100: hr.v1.HRService.RejectLeaveRequest:output_type -> hr.v1.RejectLeaveRequestResp
-	28, // 101: hr.v1.HRService.CancelLeaveRequest:output_type -> hr.v1.CancelLeaveRequestResp
-	30, // 102: hr.v1.HRService.GetLeaveBalance:output_type -> hr.v1.GetLeaveBalanceResp
-	32, // 103: hr.v1.HRService.GetEmployeeLeaveBalance:output_type -> hr.v1.GetEmployeeLeaveBalanceResp
-	34, // 104: hr.v1.HRService.ListLeaveTypes:output_type -> hr.v1.ListLeaveTypesResp
-	36, // 105: hr.v1.HRService.RecordSickLeave:output_type -> hr.v1.RecordSickLeaveResp
-	38, // 106: hr.v1.HRService.ClockIn:output_type -> hr.v1.ClockInResp
-	40, // 107: hr.v1.HRService.ClockOut:output_type -> hr.v1.ClockOutResp
-	42, // 108: hr.v1.HRService.StartBreak:output_type -> hr.v1.StartBreakResp
-	44, // 109: hr.v1.HRService.EndBreak:output_type -> hr.v1.EndBreakResp
-	46, // 110: hr.v1.HRService.GetActiveShift:output_type -> hr.v1.GetActiveShiftResp
-	48, // 111: hr.v1.HRService.ListWorkTimeEntries:output_type -> hr.v1.ListWorkTimeEntriesResp
-	50, // 112: hr.v1.HRService.GetDailySummary:output_type -> hr.v1.GetDailySummaryResp
-	52, // 113: hr.v1.HRService.GetWeeklySummary:output_type -> hr.v1.GetWeeklySummaryResp
-	54, // 114: hr.v1.HRService.SubmitTimeCorrection:output_type -> hr.v1.SubmitTimeCorrectionResp
-	56, // 115: hr.v1.HRService.ApproveTimeCorrection:output_type -> hr.v1.ApproveTimeCorrectionResp
-	58, // 116: hr.v1.HRService.GetAbsenceCalendar:output_type -> hr.v1.GetAbsenceCalendarResp
-	60, // 117: hr.v1.HRService.ListEmployees:output_type -> hr.v1.ListEmployeesResp
-	62, // 118: hr.v1.HRService.GetEmployee:output_type -> hr.v1.GetEmployeeResp
-	64, // 119: hr.v1.HRService.UpdateEmployee:output_type -> hr.v1.UpdateEmployeeResp
-	66, // 120: hr.v1.HRService.UpdateSelfProfile:output_type -> hr.v1.UpdateSelfProfileResp
-	68, // 121: hr.v1.HRService.ListEmployeeDocuments:output_type -> hr.v1.ListEmployeeDocumentsResp
-	70, // 122: hr.v1.HRService.UploadEmployeeDocument:output_type -> hr.v1.UploadEmployeeDocumentResp
-	72, // 123: hr.v1.HRService.GetHRSettings:output_type -> hr.v1.GetHRSettingsResp
-	74, // 124: hr.v1.HRService.UpdateHRSettings:output_type -> hr.v1.UpdateHRSettingsResp
-	96, // [96:125] is the sub-list for method output_type
-	67, // [67:96] is the sub-list for method input_type
-	67, // [67:67] is the sub-list for extension type_name
-	67, // [67:67] is the sub-list for extension extendee
-	0,  // [0:67] is the sub-list for field type_name
+	2,  // 67: hr.v1.CreateEmployeeReq.contract_type:type_name -> hr.v1.ContractType
+	10, // 68: hr.v1.CreateEmployeeResp.employee:type_name -> hr.v1.EmployeeProfile
+	17, // 69: hr.v1.HRService.CreateLeaveRequest:input_type -> hr.v1.CreateLeaveRequestReq
+	19, // 70: hr.v1.HRService.GetLeaveRequest:input_type -> hr.v1.GetLeaveRequestReq
+	21, // 71: hr.v1.HRService.ListLeaveRequests:input_type -> hr.v1.ListLeaveRequestsReq
+	23, // 72: hr.v1.HRService.ApproveLeaveRequest:input_type -> hr.v1.ApproveLeaveRequestReq
+	25, // 73: hr.v1.HRService.RejectLeaveRequest:input_type -> hr.v1.RejectLeaveRequestReq
+	27, // 74: hr.v1.HRService.CancelLeaveRequest:input_type -> hr.v1.CancelLeaveRequestReq
+	29, // 75: hr.v1.HRService.GetLeaveBalance:input_type -> hr.v1.GetLeaveBalanceReq
+	31, // 76: hr.v1.HRService.GetEmployeeLeaveBalance:input_type -> hr.v1.GetEmployeeLeaveBalanceReq
+	33, // 77: hr.v1.HRService.ListLeaveTypes:input_type -> hr.v1.ListLeaveTypesReq
+	35, // 78: hr.v1.HRService.RecordSickLeave:input_type -> hr.v1.RecordSickLeaveReq
+	37, // 79: hr.v1.HRService.ClockIn:input_type -> hr.v1.ClockInReq
+	39, // 80: hr.v1.HRService.ClockOut:input_type -> hr.v1.ClockOutReq
+	41, // 81: hr.v1.HRService.StartBreak:input_type -> hr.v1.StartBreakReq
+	43, // 82: hr.v1.HRService.EndBreak:input_type -> hr.v1.EndBreakReq
+	45, // 83: hr.v1.HRService.GetActiveShift:input_type -> hr.v1.GetActiveShiftReq
+	47, // 84: hr.v1.HRService.ListWorkTimeEntries:input_type -> hr.v1.ListWorkTimeEntriesReq
+	49, // 85: hr.v1.HRService.GetDailySummary:input_type -> hr.v1.GetDailySummaryReq
+	51, // 86: hr.v1.HRService.GetWeeklySummary:input_type -> hr.v1.GetWeeklySummaryReq
+	53, // 87: hr.v1.HRService.SubmitTimeCorrection:input_type -> hr.v1.SubmitTimeCorrectionReq
+	55, // 88: hr.v1.HRService.ApproveTimeCorrection:input_type -> hr.v1.ApproveTimeCorrectionReq
+	57, // 89: hr.v1.HRService.GetAbsenceCalendar:input_type -> hr.v1.GetAbsenceCalendarReq
+	59, // 90: hr.v1.HRService.ListEmployees:input_type -> hr.v1.ListEmployeesReq
+	61, // 91: hr.v1.HRService.GetEmployee:input_type -> hr.v1.GetEmployeeReq
+	63, // 92: hr.v1.HRService.UpdateEmployee:input_type -> hr.v1.UpdateEmployeeReq
+	65, // 93: hr.v1.HRService.UpdateSelfProfile:input_type -> hr.v1.UpdateSelfProfileReq
+	67, // 94: hr.v1.HRService.ListEmployeeDocuments:input_type -> hr.v1.ListEmployeeDocumentsReq
+	69, // 95: hr.v1.HRService.UploadEmployeeDocument:input_type -> hr.v1.UploadEmployeeDocumentReq
+	75, // 96: hr.v1.HRService.CreateEmployee:input_type -> hr.v1.CreateEmployeeReq
+	71, // 97: hr.v1.HRService.GetHRSettings:input_type -> hr.v1.GetHRSettingsReq
+	73, // 98: hr.v1.HRService.UpdateHRSettings:input_type -> hr.v1.UpdateHRSettingsReq
+	18, // 99: hr.v1.HRService.CreateLeaveRequest:output_type -> hr.v1.CreateLeaveRequestResp
+	20, // 100: hr.v1.HRService.GetLeaveRequest:output_type -> hr.v1.GetLeaveRequestResp
+	22, // 101: hr.v1.HRService.ListLeaveRequests:output_type -> hr.v1.ListLeaveRequestsResp
+	24, // 102: hr.v1.HRService.ApproveLeaveRequest:output_type -> hr.v1.ApproveLeaveRequestResp
+	26, // 103: hr.v1.HRService.RejectLeaveRequest:output_type -> hr.v1.RejectLeaveRequestResp
+	28, // 104: hr.v1.HRService.CancelLeaveRequest:output_type -> hr.v1.CancelLeaveRequestResp
+	30, // 105: hr.v1.HRService.GetLeaveBalance:output_type -> hr.v1.GetLeaveBalanceResp
+	32, // 106: hr.v1.HRService.GetEmployeeLeaveBalance:output_type -> hr.v1.GetEmployeeLeaveBalanceResp
+	34, // 107: hr.v1.HRService.ListLeaveTypes:output_type -> hr.v1.ListLeaveTypesResp
+	36, // 108: hr.v1.HRService.RecordSickLeave:output_type -> hr.v1.RecordSickLeaveResp
+	38, // 109: hr.v1.HRService.ClockIn:output_type -> hr.v1.ClockInResp
+	40, // 110: hr.v1.HRService.ClockOut:output_type -> hr.v1.ClockOutResp
+	42, // 111: hr.v1.HRService.StartBreak:output_type -> hr.v1.StartBreakResp
+	44, // 112: hr.v1.HRService.EndBreak:output_type -> hr.v1.EndBreakResp
+	46, // 113: hr.v1.HRService.GetActiveShift:output_type -> hr.v1.GetActiveShiftResp
+	48, // 114: hr.v1.HRService.ListWorkTimeEntries:output_type -> hr.v1.ListWorkTimeEntriesResp
+	50, // 115: hr.v1.HRService.GetDailySummary:output_type -> hr.v1.GetDailySummaryResp
+	52, // 116: hr.v1.HRService.GetWeeklySummary:output_type -> hr.v1.GetWeeklySummaryResp
+	54, // 117: hr.v1.HRService.SubmitTimeCorrection:output_type -> hr.v1.SubmitTimeCorrectionResp
+	56, // 118: hr.v1.HRService.ApproveTimeCorrection:output_type -> hr.v1.ApproveTimeCorrectionResp
+	58, // 119: hr.v1.HRService.GetAbsenceCalendar:output_type -> hr.v1.GetAbsenceCalendarResp
+	60, // 120: hr.v1.HRService.ListEmployees:output_type -> hr.v1.ListEmployeesResp
+	62, // 121: hr.v1.HRService.GetEmployee:output_type -> hr.v1.GetEmployeeResp
+	64, // 122: hr.v1.HRService.UpdateEmployee:output_type -> hr.v1.UpdateEmployeeResp
+	66, // 123: hr.v1.HRService.UpdateSelfProfile:output_type -> hr.v1.UpdateSelfProfileResp
+	68, // 124: hr.v1.HRService.ListEmployeeDocuments:output_type -> hr.v1.ListEmployeeDocumentsResp
+	70, // 125: hr.v1.HRService.UploadEmployeeDocument:output_type -> hr.v1.UploadEmployeeDocumentResp
+	76, // 126: hr.v1.HRService.CreateEmployee:output_type -> hr.v1.CreateEmployeeResp
+	72, // 127: hr.v1.HRService.GetHRSettings:output_type -> hr.v1.GetHRSettingsResp
+	74, // 128: hr.v1.HRService.UpdateHRSettings:output_type -> hr.v1.UpdateHRSettingsResp
+	99, // [99:129] is the sub-list for method output_type
+	69, // [69:99] is the sub-list for method input_type
+	69, // [69:69] is the sub-list for extension type_name
+	69, // [69:69] is the sub-list for extension extendee
+	0,  // [0:69] is the sub-list for field type_name
 }
 
 func init() { file_proto_hr_v1_hr_proto_init() }
@@ -6011,7 +6240,7 @@ func file_proto_hr_v1_hr_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_hr_v1_hr_proto_rawDesc), len(file_proto_hr_v1_hr_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   70,
+			NumMessages:   72,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

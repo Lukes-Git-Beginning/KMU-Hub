@@ -86,6 +86,7 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 	r.Route("/api/v1/hr/employees", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.With(middleware.RequirePermission("hr", "read")).Get("/", h.HandleListEmployees)
+		r.With(middleware.RequirePermission("hr", "admin")).Post("/", h.HandleCreateEmployee)
 		r.With(middleware.RequirePermission("hr", "read")).Get("/me", h.HandleGetSelfProfile)
 		r.With(middleware.RequirePermission("hr", "write")).Put("/me", h.HandleUpdateSelfProfile)
 		r.With(middleware.RequirePermission("hr", "read")).Get("/{id}", h.HandleGetEmployee)
@@ -1105,6 +1106,72 @@ func (h *HRRoutes) HandleUpdateHRSettings(w http.ResponseWriter, r *http.Request
 	}
 
 	response.JSON(w, http.StatusOK, resp.Settings)
+}
+
+// ============================================================================
+// Employee Profile Handlers
+// ============================================================================
+
+type createEmployeeHTTPReq struct {
+	UserID                string `json:"user_id"                 validate:"required,uuid"`
+	Department            string `json:"department"`
+	PositionTitle         string `json:"position_title"`
+	ContractType          string `json:"contract_type"           validate:"omitempty,oneof=full_time part_time mini_job intern temporary"`
+	WorkDaysPerWeek       int32  `json:"work_days_per_week"      validate:"omitempty,gte=1,lte=7"`
+	AnnualLeaveDays       int32  `json:"annual_leave_days"       validate:"omitempty,gte=0"`
+	ManagerUserID         string `json:"manager_user_id"         validate:"omitempty,uuid"`
+	StartDate             string `json:"start_date"              validate:"required"`
+	EmergencyContactName  string `json:"emergency_contact_name"`
+	EmergencyContactPhone string `json:"emergency_contact_phone" validate:"omitempty,phone_dach"`
+	AddressStreet         string `json:"address_street"`
+	AddressCity           string `json:"address_city"`
+	AddressPostalCode     string `json:"address_postal_code"     validate:"omitempty,plz_dach"`
+	AddressCountry        string `json:"address_country"`
+}
+
+func (h *HRRoutes) HandleCreateEmployee(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+
+	req, ok := decodeAndValidate[createEmployeeHTTPReq](w, r)
+	if !ok {
+		return
+	}
+
+	grpcReq := &hrv1.CreateEmployeeReq{
+		TenantId:              tenantID,
+		UserId:                req.UserID,
+		Department:            req.Department,
+		PositionTitle:         req.PositionTitle,
+		ContractType:          contractTypeHTTPToProto(req.ContractType),
+		WorkDaysPerWeek:       req.WorkDaysPerWeek,
+		AnnualLeaveDays:       req.AnnualLeaveDays,
+		ManagerUserId:         req.ManagerUserID,
+		StartDate:             req.StartDate,
+		EmergencyContactName:  req.EmergencyContactName,
+		EmergencyContactPhone: req.EmergencyContactPhone,
+		AddressStreet:         req.AddressStreet,
+		AddressCity:           req.AddressCity,
+		AddressPostalCode:     req.AddressPostalCode,
+		AddressCountry:        req.AddressCountry,
+	}
+
+	resp, err := client.CreateEmployee(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, resp.Employee)
 }
 
 // ============================================================================

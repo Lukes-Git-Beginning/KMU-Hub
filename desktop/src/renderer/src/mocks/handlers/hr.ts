@@ -304,6 +304,24 @@ export const hrHandlers = [
     })
   }),
 
+  http.post(`${API}/api/v1/hr/employees`, async ({ request }) => {
+    const body = await request.json() as Record<string, unknown>
+    return HttpResponse.json({
+      employee: {
+        id: `emp-${Date.now()}`,
+        user_id: body.user_id ?? '',
+        department: body.department ?? '',
+        position_title: body.position_title ?? '',
+        contract_type: body.contract_type ?? 'full_time',
+        work_days_per_week: body.work_days_per_week ?? 5,
+        annual_leave_days: body.annual_leave_days ?? 20,
+        start_date: body.start_date ?? new Date().toISOString().split('T')[0],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    }, { status: 201 })
+  }),
+
   http.get(`${API}/api/v1/hr/employees`, () => {
     return HttpResponse.json({
       employees: [

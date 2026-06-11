@@ -46,6 +46,7 @@ const (
 	HRService_UpdateSelfProfile_FullMethodName       = "/hr.v1.HRService/UpdateSelfProfile"
 	HRService_ListEmployeeDocuments_FullMethodName   = "/hr.v1.HRService/ListEmployeeDocuments"
 	HRService_UploadEmployeeDocument_FullMethodName  = "/hr.v1.HRService/UploadEmployeeDocument"
+	HRService_CreateEmployee_FullMethodName          = "/hr.v1.HRService/CreateEmployee"
 	HRService_GetHRSettings_FullMethodName           = "/hr.v1.HRService/GetHRSettings"
 	HRService_UpdateHRSettings_FullMethodName        = "/hr.v1.HRService/UpdateHRSettings"
 )
@@ -85,6 +86,7 @@ type HRServiceClient interface {
 	UpdateSelfProfile(ctx context.Context, in *UpdateSelfProfileReq, opts ...grpc.CallOption) (*UpdateSelfProfileResp, error)
 	ListEmployeeDocuments(ctx context.Context, in *ListEmployeeDocumentsReq, opts ...grpc.CallOption) (*ListEmployeeDocumentsResp, error)
 	UploadEmployeeDocument(ctx context.Context, in *UploadEmployeeDocumentReq, opts ...grpc.CallOption) (*UploadEmployeeDocumentResp, error)
+	CreateEmployee(ctx context.Context, in *CreateEmployeeReq, opts ...grpc.CallOption) (*CreateEmployeeResp, error)
 	// ==================== HR Settings ====================
 	GetHRSettings(ctx context.Context, in *GetHRSettingsReq, opts ...grpc.CallOption) (*GetHRSettingsResp, error)
 	UpdateHRSettings(ctx context.Context, in *UpdateHRSettingsReq, opts ...grpc.CallOption) (*UpdateHRSettingsResp, error)
@@ -368,6 +370,16 @@ func (c *hRServiceClient) UploadEmployeeDocument(ctx context.Context, in *Upload
 	return out, nil
 }
 
+func (c *hRServiceClient) CreateEmployee(ctx context.Context, in *CreateEmployeeReq, opts ...grpc.CallOption) (*CreateEmployeeResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateEmployeeResp)
+	err := c.cc.Invoke(ctx, HRService_CreateEmployee_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *hRServiceClient) GetHRSettings(ctx context.Context, in *GetHRSettingsReq, opts ...grpc.CallOption) (*GetHRSettingsResp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetHRSettingsResp)
@@ -423,6 +435,7 @@ type HRServiceServer interface {
 	UpdateSelfProfile(context.Context, *UpdateSelfProfileReq) (*UpdateSelfProfileResp, error)
 	ListEmployeeDocuments(context.Context, *ListEmployeeDocumentsReq) (*ListEmployeeDocumentsResp, error)
 	UploadEmployeeDocument(context.Context, *UploadEmployeeDocumentReq) (*UploadEmployeeDocumentResp, error)
+	CreateEmployee(context.Context, *CreateEmployeeReq) (*CreateEmployeeResp, error)
 	// ==================== HR Settings ====================
 	GetHRSettings(context.Context, *GetHRSettingsReq) (*GetHRSettingsResp, error)
 	UpdateHRSettings(context.Context, *UpdateHRSettingsReq) (*UpdateHRSettingsResp, error)
@@ -516,6 +529,9 @@ func (UnimplementedHRServiceServer) ListEmployeeDocuments(context.Context, *List
 }
 func (UnimplementedHRServiceServer) UploadEmployeeDocument(context.Context, *UploadEmployeeDocumentReq) (*UploadEmployeeDocumentResp, error) {
 	return nil, status.Error(codes.Unimplemented, "method UploadEmployeeDocument not implemented")
+}
+func (UnimplementedHRServiceServer) CreateEmployee(context.Context, *CreateEmployeeReq) (*CreateEmployeeResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateEmployee not implemented")
 }
 func (UnimplementedHRServiceServer) GetHRSettings(context.Context, *GetHRSettingsReq) (*GetHRSettingsResp, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetHRSettings not implemented")
@@ -1030,6 +1046,24 @@ func _HRService_UploadEmployeeDocument_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _HRService_CreateEmployee_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateEmployeeReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).CreateEmployee(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_CreateEmployee_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).CreateEmployee(ctx, req.(*CreateEmployeeReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _HRService_GetHRSettings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetHRSettingsReq)
 	if err := dec(in); err != nil {
@@ -1180,6 +1214,10 @@ var HRService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UploadEmployeeDocument",
 			Handler:    _HRService_UploadEmployeeDocument_Handler,
+		},
+		{
+			MethodName: "CreateEmployee",
+			Handler:    _HRService_CreateEmployee_Handler,
 		},
 		{
 			MethodName: "GetHRSettings",

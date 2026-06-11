@@ -875,6 +875,63 @@ func (s *HRGRPCServer) UploadEmployeeDocument(ctx context.Context, req *hrv1.Upl
 	}, nil
 }
 
+func (s *HRGRPCServer) CreateEmployee(ctx context.Context, req *hrv1.CreateEmployeeReq) (*hrv1.CreateEmployeeResp, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	}
+	userID, err := uuid.Parse(req.GetUserId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	input := employee.CreateEmployeeInput{
+		TenantID:              tenantID,
+		UserID:                userID,
+		Department:            req.GetDepartment(),
+		PositionTitle:         req.GetPositionTitle(),
+		ContractType:          contractTypeFromProto(req.GetContractType()),
+		WorkDaysPerWeek:       int(req.GetWorkDaysPerWeek()),
+		AnnualLeaveDays:       int(req.GetAnnualLeaveDays()),
+		StartDate:             time.Now(), // default; overridden below if provided
+		EmergencyContactName:  req.GetEmergencyContactName(),
+		EmergencyContactPhone: req.GetEmergencyContactPhone(),
+		AddressStreet:         req.GetAddressStreet(),
+		AddressCity:           req.GetAddressCity(),
+		AddressPostalCode:     req.GetAddressPostalCode(),
+		AddressCountry:        req.GetAddressCountry(),
+	}
+
+	if req.GetManagerUserId() != "" {
+		mgrID, mgrErr := uuid.Parse(req.GetManagerUserId())
+		if mgrErr == nil {
+			input.ManagerUserID = &mgrID
+		}
+	}
+
+	if req.GetStartDate() != "" {
+		t, parseErr := time.Parse("2006-01-02", req.GetStartDate())
+		if parseErr == nil {
+			input.StartDate = t
+		}
+	}
+
+	profile, err := s.employeeService.CreateEmployee(ctx, input)
+	if err != nil {
+		return nil, mapHRError(err)
+	}
+
+	// Fetch with denormalized fields (user_name, user_email, manager_name)
+	full, getErr := s.employeeService.GetEmployee(ctx, profile.ID)
+	if getErr != nil {
+		full = profile
+	}
+
+	return &hrv1.CreateEmployeeResp{
+		Employee: toProtoEmployeeProfile(full),
+	}, nil
+}
+
 // ============================================================================
 // HR Settings RPCs
 // ============================================================================
@@ -1308,6 +1365,8 @@ func mapHRError(err error) error {
 	// Employee errors
 	case errors.Is(err, employee.ErrEmployeeNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, employee.ErrProfileAlreadyExists):
+		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, employee.ErrUnauthorizedFieldUpdate):
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, employee.ErrDocumentCategoryNotFound):

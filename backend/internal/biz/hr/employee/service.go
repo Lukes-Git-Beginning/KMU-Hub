@@ -6,6 +6,7 @@ package employee
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -65,6 +66,26 @@ type SelfProfileInput struct {
 	AddressCountry        *string
 }
 
+// CreateEmployeeInput contains the data required to create a new employee profile.
+// It assumes the auth user already exists; only the HR profile row is created here.
+type CreateEmployeeInput struct {
+	TenantID              uuid.UUID
+	UserID                uuid.UUID
+	Department            string
+	PositionTitle         string
+	ContractType          models.HRContractType
+	WorkDaysPerWeek       int
+	AnnualLeaveDays       int
+	ManagerUserID         *uuid.UUID
+	StartDate             time.Time
+	EmergencyContactName  string
+	EmergencyContactPhone string
+	AddressStreet         string
+	AddressCity           string
+	AddressPostalCode     string
+	AddressCountry        string
+}
+
 // UploadDocumentInput contains the data needed to link an HR document.
 type UploadDocumentInput struct {
 	EmployeeID uuid.UUID
@@ -91,6 +112,50 @@ func (s *Service) GetEmployee(ctx context.Context, id uuid.UUID) (*models.Employ
 // GetByUserID retrieves an employee profile by user ID.
 func (s *Service) GetByUserID(ctx context.Context, userID uuid.UUID) (*models.EmployeeProfile, error) {
 	return s.employeeRepo.GetByUserID(ctx, userID)
+}
+
+// CreateEmployee creates a new employee profile for an existing auth user.
+// The caller is responsible for ensuring the user exists in the auth service.
+// Returns ErrProfileAlreadyExists if an employee profile already exists for that user in this tenant.
+func (s *Service) CreateEmployee(ctx context.Context, input CreateEmployeeInput) (*models.EmployeeProfile, error) {
+	// Check for duplicate
+	existing, err := s.employeeRepo.GetByUserID(ctx, input.UserID)
+	if err == nil && existing != nil {
+		return nil, ErrProfileAlreadyExists
+	}
+
+	now := time.Now()
+	profile := &models.EmployeeProfile{
+		ID:                    uuid.New(),
+		TenantID:              input.TenantID,
+		UserID:                input.UserID,
+		Department:            input.Department,
+		PositionTitle:         input.PositionTitle,
+		ContractType:          input.ContractType,
+		WorkDaysPerWeek:       input.WorkDaysPerWeek,
+		AnnualLeaveDays:       input.AnnualLeaveDays,
+		ManagerUserID:         input.ManagerUserID,
+		StartDate:             input.StartDate,
+		EmergencyContactName:  input.EmergencyContactName,
+		EmergencyContactPhone: input.EmergencyContactPhone,
+		AddressStreet:         input.AddressStreet,
+		AddressCity:           input.AddressCity,
+		AddressPostalCode:     input.AddressPostalCode,
+		AddressCountry:        input.AddressCountry,
+		CreatedAt:             now,
+		UpdatedAt:             now,
+	}
+
+	if createErr := s.employeeRepo.Create(ctx, profile); createErr != nil {
+		return nil, fmt.Errorf("create employee profile: %w", createErr)
+	}
+
+	slog.Info("employee profile created",
+		"employee_id", profile.ID,
+		"user_id", profile.UserID,
+		"tenant_id", profile.TenantID,
+	)
+	return profile, nil
 }
 
 // UpdateEmployee updates an employee profile with role-based field restrictions.

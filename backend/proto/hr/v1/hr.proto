@@ -41,6 +41,7 @@ service HRService {
   rpc UpdateSelfProfile(UpdateSelfProfileReq) returns (UpdateSelfProfileResp);
   rpc ListEmployeeDocuments(ListEmployeeDocumentsReq) returns (ListEmployeeDocumentsResp);
   rpc UploadEmployeeDocument(UploadEmployeeDocumentReq) returns (UploadEmployeeDocumentResp);
+  rpc CreateEmployee(CreateEmployeeReq) returns (CreateEmployeeResp);
 
   // ==================== HR Settings ====================
   rpc GetHRSettings(GetHRSettingsReq) returns (GetHRSettingsResp);
@@ -631,4 +632,30 @@ message UpdateHRSettingsReq {
 
 message UpdateHRSettingsResp {
   HRSettings settings = 1;
+}
+
+// ============================================================================
+// Create Employee Requests/Responses
+// ============================================================================
+
+message CreateEmployeeReq {
+  string tenant_id = 1;
+  string user_id = 2;                  // UUID of an existing auth user
+  string department = 3;
+  string position_title = 4;
+  ContractType contract_type = 5;
+  int32 work_days_per_week = 6;
+  int32 annual_leave_days = 7;
+  string manager_user_id = 8;
+  string start_date = 9;               // YYYY-MM-DD
+  string emergency_contact_name = 10;
+  string emergency_contact_phone = 11;
+  string address_street = 12;
+  string address_city = 13;
+  string address_postal_code = 14;
+  string address_country = 15;
+}
+
+message CreateEmployeeResp {
+  EmployeeProfile employee = 1;
 }
