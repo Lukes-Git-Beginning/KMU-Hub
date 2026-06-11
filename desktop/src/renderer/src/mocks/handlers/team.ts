@@ -11,25 +11,33 @@ const API = API_BASE_URL
 // ---------------------------------------------------------------------------
 
 function toHrEmployee(e: (typeof EMPLOYEES)[number]) {
+  const fullName = `${e.firstName} ${e.lastName}`
   return {
+    // canonical camelCase fields matching EmployeeProfile interface (hr-types.ts)
     id: `usr-${e.id}`,
-    first_name: e.firstName,
-    last_name: e.lastName,
+    userId: `usr-${e.id}`,
+    userName: fullName,
+    userEmail: e.email,
+    positionTitle: e.jobTitle,
+    contractType: e.contractType,
+    department: e.department,
+    departmentId: e.departmentId,
+    workDaysPerWeek: 5,
+    annualLeaveDays: 30,
+    startDate: e.joinDate,
+    managerUserId: e.managerId ? `usr-${e.managerId}` : null,
+    // additional fields used by team-module components
+    firstName: e.firstName,
+    lastName: e.lastName,
     initials: e.initials,
     email: e.email,
     phone: e.phone,
     mobile: e.mobile,
     role: e.role,
-    job_title: e.jobTitle,
-    department: e.department,
-    department_id: e.departmentId,
-    contract_type: e.contractType,
     workload: e.workload,
-    join_date: e.joinDate,
     location: e.location,
-    manager_id: e.managerId ? `usr-${e.managerId}` : null,
     status: e.status,
-    avatar_url: e.avatar || null,
+    avatarUrl: e.avatar || null,
   }
 }
 
