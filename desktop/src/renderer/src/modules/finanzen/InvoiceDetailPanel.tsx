@@ -223,7 +223,7 @@ export function InvoiceDetailPanel({
             {t('finanzen.lineItems.positions')}
           </h4>
           <div className="rounded-md border border-border overflow-hidden">
-            {invoice.line_items.map((item, idx) => (
+            {(invoice.line_items ?? []).map((item, idx) => (
               <div
                 key={item.id || idx}
                 className={`flex items-center justify-between px-3 py-2 text-xs ${

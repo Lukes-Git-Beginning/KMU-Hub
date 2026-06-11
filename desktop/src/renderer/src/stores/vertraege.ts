@@ -11,6 +11,12 @@ export type ContractHistoryActionCode =
   | 'reminder_triggered'
   | 'document_added'
   | 'document_removed'
+  | 'contact_linked'
+  | 'contact_unlinked'
+  | 'deal_linked'
+  | 'deal_unlinked'
+  | 'invoice_linked'
+  | 'invoice_unlinked'
 
 /** A document reference attached to a contract (linked via Dokumente-Modul). */
 export interface ContractDocument {
@@ -64,6 +70,15 @@ export interface Contract {
   reminderDays?: number[]
   templateId?: string
   signers?: ContractSigner[]
+  /** CRM entity links (Phase 10 — mock-first, 1 contact + 1 deal + n invoices) */
+  contactId?: string
+  contactName?: string
+  dealId?: string
+  dealTitle?: string
+  /** Snapshot list of linked invoice IDs */
+  invoiceIds?: string[]
+  /** Snapshot names for display (parallel to invoiceIds) */
+  invoiceNames?: string[]
 }
 
 export type ContractType = Contract['type']
@@ -159,6 +174,18 @@ interface VertraegeStore {
   }) => void
   /** Replace the signers array without adding a spurious contract_updated entry. */
   updateSigners: (contractId: string, signers: ContractSigner[]) => void
+  /** Link a contact to a contract (1 contact max). */
+  linkContact: (contractId: string, contactId: string, contactName: string) => void
+  /** Unlink the contact from a contract. */
+  unlinkContact: (contractId: string) => void
+  /** Link a deal to a contract (1 deal max). */
+  linkDeal: (contractId: string, dealId: string, dealTitle: string) => void
+  /** Unlink the deal from a contract. */
+  unlinkDeal: (contractId: string) => void
+  /** Link an invoice to a contract (n invoices). */
+  linkInvoice: (contractId: string, invoiceId: string, invoiceName: string) => void
+  /** Unlink an invoice from a contract by invoiceId. */
+  unlinkInvoice: (contractId: string, invoiceId: string) => void
 }
 
 const MOCK_CONTRACTS: Contract[] = [
@@ -610,6 +637,107 @@ export const useVertraegeStore = create<VertraegeStore>()(
           contracts: state.contracts.map((c) => {
             if (c.id !== contractId) return c
             return { ...c, signers }
+          }),
+        })),
+
+      linkContact: (contractId, contactId, contactName) =>
+        set((state) => ({
+          contracts: state.contracts.map((c) => {
+            if (c.id !== contractId) return c
+            return {
+              ...c,
+              contactId,
+              contactName,
+              history: [
+                ...c.history,
+                { date: new Date().toISOString().split('T')[0], action: 'contact_linked' as const, meta: contactName, user: 'Aktueller Benutzer' },
+              ],
+            }
+          }),
+        })),
+
+      unlinkContact: (contractId) =>
+        set((state) => ({
+          contracts: state.contracts.map((c) => {
+            if (c.id !== contractId) return c
+            const name = c.contactName ?? ''
+            return {
+              ...c,
+              contactId: undefined,
+              contactName: undefined,
+              history: [
+                ...c.history,
+                { date: new Date().toISOString().split('T')[0], action: 'contact_unlinked' as const, meta: name, user: 'Aktueller Benutzer' },
+              ],
+            }
+          }),
+        })),
+
+      linkDeal: (contractId, dealId, dealTitle) =>
+        set((state) => ({
+          contracts: state.contracts.map((c) => {
+            if (c.id !== contractId) return c
+            return {
+              ...c,
+              dealId,
+              dealTitle,
+              history: [
+                ...c.history,
+                { date: new Date().toISOString().split('T')[0], action: 'deal_linked' as const, meta: dealTitle, user: 'Aktueller Benutzer' },
+              ],
+            }
+          }),
+        })),
+
+      unlinkDeal: (contractId) =>
+        set((state) => ({
+          contracts: state.contracts.map((c) => {
+            if (c.id !== contractId) return c
+            const title = c.dealTitle ?? ''
+            return {
+              ...c,
+              dealId: undefined,
+              dealTitle: undefined,
+              history: [
+                ...c.history,
+                { date: new Date().toISOString().split('T')[0], action: 'deal_unlinked' as const, meta: title, user: 'Aktueller Benutzer' },
+              ],
+            }
+          }),
+        })),
+
+      linkInvoice: (contractId, invoiceId, invoiceName) =>
+        set((state) => ({
+          contracts: state.contracts.map((c) => {
+            if (c.id !== contractId) return c
+            if ((c.invoiceIds ?? []).includes(invoiceId)) return c
+            return {
+              ...c,
+              invoiceIds: [...(c.invoiceIds ?? []), invoiceId],
+              invoiceNames: [...(c.invoiceNames ?? []), invoiceName],
+              history: [
+                ...c.history,
+                { date: new Date().toISOString().split('T')[0], action: 'invoice_linked' as const, meta: invoiceName, user: 'Aktueller Benutzer' },
+              ],
+            }
+          }),
+        })),
+
+      unlinkInvoice: (contractId, invoiceId) =>
+        set((state) => ({
+          contracts: state.contracts.map((c) => {
+            if (c.id !== contractId) return c
+            const idx = (c.invoiceIds ?? []).indexOf(invoiceId)
+            const name = idx >= 0 ? (c.invoiceNames ?? [])[idx] ?? invoiceId : invoiceId
+            return {
+              ...c,
+              invoiceIds: (c.invoiceIds ?? []).filter((id) => id !== invoiceId),
+              invoiceNames: (c.invoiceNames ?? []).filter((_, i) => i !== idx),
+              history: [
+                ...c.history,
+                { date: new Date().toISOString().split('T')[0], action: 'invoice_unlinked' as const, meta: name, user: 'Aktueller Benutzer' },
+              ],
+            }
           }),
         })),
     }),

@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 import {
   Search,
   Plus,
@@ -37,6 +38,11 @@ import {
   Loader2,
   History as VersionIcon,
   FileSearch,
+  User,
+  Briefcase,
+  Receipt,
+  Sparkles,
+  Link2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -56,6 +62,9 @@ import { VersionHistoryPanel } from '@/modules/dokumente/VersionHistoryPanel'
 import { useDocumentFiles } from '@/api/hooks/useDocuments'
 import { useDocumentUpload } from '@/api/hooks/useDocumentUpload'
 import type { DocumentFile } from '@/api/types/document-types'
+import { useContacts } from '@/api/hooks/useContacts'
+import { useDeals } from '@/api/hooks/useDeals'
+import { useInvoices } from '@/api/hooks/useFinance'
 
 // ─── Type Config ─────────────────────────────────────────────────
 
@@ -132,6 +141,13 @@ interface ContractFormData {
   currency: string
   documents: ContractDocument[]
   reminderDays: number[]
+  // Phase 10 — CRM/Finance links
+  contactId?: string
+  contactName?: string
+  dealId?: string
+  dealTitle?: string
+  invoiceIds: string[]
+  invoiceNames: string[]
 }
 
 function ContractDialog({
@@ -168,6 +184,13 @@ function ContractDialog({
     currency: initial?.currency ?? 'EUR',
     documents: initial?.documents ?? [],
     reminderDays: initial ? (initial.reminderDays ?? []) : (personalReminderDays ?? tenantReminderDays),
+    // Phase 10 — CRM/Finance links
+    contactId: initial?.contactId,
+    contactName: initial?.contactName,
+    dealId: initial?.dealId,
+    dealTitle: initial?.dealTitle,
+    invoiceIds: initial?.invoiceIds ?? [],
+    invoiceNames: initial?.invoiceNames ?? [],
   })
 
   // Document picker state
@@ -178,6 +201,35 @@ function ContractDialog({
   const upload = useDocumentUpload()
   const { data: filesData } = useDocumentFiles()
   const allFiles = filesData?.files ?? []
+
+  // Phase 10 — CRM/Finance link pickers
+  const [contactPickerOpen, setContactPickerOpen] = useState(false)
+  const [contactSearch, setContactSearch] = useState('')
+  const [dealPickerOpen, setDealPickerOpen] = useState(false)
+  const [dealSearch, setDealSearch] = useState('')
+  const [invoicePickerOpen, setInvoicePickerOpen] = useState(false)
+  const [invoiceSearch, setInvoiceSearch] = useState('')
+  const { data: contactsData } = useContacts({ page_size: 100 })
+  const allContacts = contactsData?.contacts ?? []
+  const { data: dealsData } = useDeals({ page_size: 100 })
+  const allDeals = dealsData?.deals ?? []
+  const { data: invoicesData } = useInvoices({ page_size: 100 })
+  const allInvoices = invoicesData?.invoices ?? []
+
+  const filteredContacts = allContacts.filter((c) => {
+    if (!contactSearch) return true
+    const name = `${(c as { firstName?: string }).firstName ?? ''} ${(c as { lastName?: string }).lastName ?? ''}`.toLowerCase()
+    return name.includes(contactSearch.toLowerCase())
+  })
+  const filteredDeals = allDeals.filter((d) => {
+    if (!dealSearch) return true
+    return (d as { name?: string }).name?.toLowerCase().includes(dealSearch.toLowerCase())
+  })
+  const filteredInvoices = allInvoices.filter((inv) => {
+    if (!invoiceSearch) return true
+    const num = (inv as { invoice_number?: string; number?: string }).invoice_number ?? (inv as { number?: string }).number ?? ''
+    return num.toLowerCase().includes(invoiceSearch.toLowerCase())
+  })
 
   const handlePickerSelect = (file: DocumentFile) => {
     const alreadyAdded = form.documents.some((d) => d.fileId === file.id)
@@ -277,6 +329,12 @@ function ContractDialog({
         currency: form.currency,
         documents: form.documents,
         reminderDays: form.reminderDays,
+        contactId: form.contactId,
+        contactName: form.contactName,
+        dealId: form.dealId,
+        dealTitle: form.dealTitle,
+        invoiceIds: form.invoiceIds.length > 0 ? form.invoiceIds : undefined,
+        invoiceNames: form.invoiceNames.length > 0 ? form.invoiceNames : undefined,
         totalValue: form.endDate
           ? form.monthlyCost * Math.max(1, Math.ceil(
               (new Date(form.endDate).getTime() - new Date(form.startDate).getTime()) / (1000 * 60 * 60 * 24 * 30)
@@ -294,6 +352,19 @@ function ContractDialog({
             (new Date(form.endDate).getTime() - new Date(form.startDate).getTime()) / (1000 * 60 * 60 * 24 * 30)
           ))
         : 0
+      const today = new Date().toISOString().split('T')[0]
+      const creationHistory = [
+        { date: today, action: 'contract_created' as const, user: 'Aktueller Benutzer' },
+      ]
+      if (form.contactId && form.contactName) {
+        creationHistory.push({ date: today, action: 'contact_linked' as const, meta: form.contactName, user: 'Aktueller Benutzer' })
+      }
+      if (form.dealId && form.dealTitle) {
+        creationHistory.push({ date: today, action: 'deal_linked' as const, meta: form.dealTitle, user: 'Aktueller Benutzer' })
+      }
+      for (const invName of form.invoiceNames) {
+        creationHistory.push({ date: today, action: 'invoice_linked' as const, meta: invName, user: 'Aktueller Benutzer' })
+      }
       addContract({
         id: `v-${Date.now()}`,
         title: form.title,
@@ -309,11 +380,15 @@ function ContractDialog({
         currency: form.currency,
         documents: form.documents,
         reminderDays: form.reminderDays,
+        contactId: form.contactId,
+        contactName: form.contactName,
+        dealId: form.dealId,
+        dealTitle: form.dealTitle,
+        invoiceIds: form.invoiceIds.length > 0 ? form.invoiceIds : undefined,
+        invoiceNames: form.invoiceNames.length > 0 ? form.invoiceNames : undefined,
         status: 'active',
         totalValue: form.monthlyCost * months,
-        history: [
-          { date: new Date().toISOString().split('T')[0], action: 'contract_created', user: 'Aktueller Benutzer' },
-        ],
+        history: creationHistory,
       })
       toast.success(t('vertraege.contractDialog.createSuccess', { title: form.title }))
     }
@@ -648,6 +723,140 @@ function ContractDialog({
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none"
             />
           </div>
+
+          {/* Verknüpfungen — Phase 10 */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">
+              {t('vertraege.links.label')} <span className="text-xs text-muted-foreground font-normal">({t('common.optional')})</span>
+            </label>
+
+            {/* Kontakt */}
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">{t('vertraege.links.contact')}</p>
+              {form.contactId ? (
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary/30 px-3 py-2">
+                  <User className="h-3.5 w-3.5 text-info shrink-0" />
+                  <span className="flex-1 text-sm text-foreground truncate">{form.contactName}</span>
+                  <button type="button" onClick={() => setForm((f) => ({ ...f, contactId: undefined, contactName: undefined }))} aria-label={t('vertraege.links.removeContact')} className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <button type="button" onClick={() => { setContactPickerOpen(true); setDealPickerOpen(false); setInvoicePickerOpen(false) }} className="w-full flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground hover:bg-secondary transition-colors">
+                    <User className="h-3.5 w-3.5" />
+                    {t('vertraege.links.addContact')}
+                  </button>
+                  {contactPickerOpen && (
+                    <div className="absolute top-full left-0 right-0 z-20 mt-1 rounded-lg border border-border bg-card shadow-lg">
+                      <div className="p-2 border-b border-border">
+                        <input type="text" value={contactSearch} onChange={(e) => setContactSearch(e.target.value)} placeholder={t('vertraege.links.searchContact')} className="w-full rounded-md border border-border bg-secondary/30 px-3 py-1.5 text-xs text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-1 focus:ring-focus-ring" autoFocus />
+                      </div>
+                      <div className="max-h-40 overflow-y-auto">
+                        {filteredContacts.length === 0 ? (
+                          <p className="text-xs text-muted-foreground text-center py-3">{t('vertraege.links.noResults')}</p>
+                        ) : filteredContacts.slice(0, 15).map((c) => {
+                          const name = `${(c as { firstName?: string }).firstName ?? ''} ${(c as { lastName?: string }).lastName ?? ''}`.trim()
+                          return (
+                            <button key={(c as { id: string }).id} type="button" onClick={() => { setForm((f) => ({ ...f, contactId: (c as { id: string }).id, contactName: name })); setContactPickerOpen(false); setContactSearch('') }} className="flex items-center gap-2 w-full px-3 py-2 text-left text-xs hover:bg-secondary transition-colors">
+                              <User className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <span className="flex-1 truncate text-foreground">{name}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <div className="p-2 border-t border-border"><button type="button" onClick={() => { setContactPickerOpen(false); setContactSearch('') }} className="w-full text-xs text-muted-foreground hover:text-foreground">{t('common.cancel')}</button></div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Deal */}
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">{t('vertraege.links.deal')}</p>
+              {form.dealId ? (
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary/30 px-3 py-2">
+                  <Briefcase className="h-3.5 w-3.5 text-warning shrink-0" />
+                  <span className="flex-1 text-sm text-foreground truncate">{form.dealTitle}</span>
+                  <button type="button" onClick={() => setForm((f) => ({ ...f, dealId: undefined, dealTitle: undefined }))} aria-label={t('vertraege.links.removeDeal')} className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <button type="button" onClick={() => { setDealPickerOpen(true); setContactPickerOpen(false); setInvoicePickerOpen(false) }} className="w-full flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground hover:bg-secondary transition-colors">
+                    <Briefcase className="h-3.5 w-3.5" />
+                    {t('vertraege.links.addDeal')}
+                  </button>
+                  {dealPickerOpen && (
+                    <div className="absolute top-full left-0 right-0 z-20 mt-1 rounded-lg border border-border bg-card shadow-lg">
+                      <div className="p-2 border-b border-border">
+                        <input type="text" value={dealSearch} onChange={(e) => setDealSearch(e.target.value)} placeholder={t('vertraege.links.searchDeal')} className="w-full rounded-md border border-border bg-secondary/30 px-3 py-1.5 text-xs text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-1 focus:ring-focus-ring" autoFocus />
+                      </div>
+                      <div className="max-h-40 overflow-y-auto">
+                        {filteredDeals.length === 0 ? (
+                          <p className="text-xs text-muted-foreground text-center py-3">{t('vertraege.links.noResults')}</p>
+                        ) : filteredDeals.slice(0, 15).map((d) => (
+                            <button key={(d as { id: string }).id} type="button" onClick={() => { setForm((f) => ({ ...f, dealId: (d as { id: string }).id, dealTitle: (d as { name?: string }).name ?? '' })); setDealPickerOpen(false); setDealSearch('') }} className="flex items-center gap-2 w-full px-3 py-2 text-left text-xs hover:bg-secondary transition-colors">
+                              <Briefcase className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <span className="flex-1 truncate text-foreground">{(d as { name?: string }).name}</span>
+                            </button>
+                          ))}
+                      </div>
+                      <div className="p-2 border-t border-border"><button type="button" onClick={() => { setDealPickerOpen(false); setDealSearch('') }} className="w-full text-xs text-muted-foreground hover:text-foreground">{t('common.cancel')}</button></div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Rechnungen */}
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">{t('vertraege.links.invoices')}</p>
+              {form.invoiceIds.length > 0 && (
+                <div className="space-y-1.5 mb-1">
+                  {form.invoiceIds.map((invId, idx) => (
+                    <div key={invId} className="flex items-center gap-2 rounded-lg border border-border bg-secondary/30 px-3 py-2">
+                      <Receipt className="h-3.5 w-3.5 text-success shrink-0" />
+                      <span className="flex-1 text-sm text-foreground truncate">{form.invoiceNames[idx] ?? invId}</span>
+                      <button type="button" onClick={() => setForm((f) => ({ ...f, invoiceIds: f.invoiceIds.filter((_, i) => i !== idx), invoiceNames: f.invoiceNames.filter((_, i) => i !== idx) }))} aria-label={t('vertraege.links.removeInvoice')} className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="relative">
+                <button type="button" onClick={() => { setInvoicePickerOpen(true); setContactPickerOpen(false); setDealPickerOpen(false) }} className="w-full flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground hover:bg-secondary transition-colors">
+                  <Receipt className="h-3.5 w-3.5" />
+                  {t('vertraege.links.addInvoice')}
+                </button>
+                {invoicePickerOpen && (
+                  <div className="absolute top-full left-0 right-0 z-20 mt-1 rounded-lg border border-border bg-card shadow-lg">
+                    <div className="p-2 border-b border-border">
+                      <input type="text" value={invoiceSearch} onChange={(e) => setInvoiceSearch(e.target.value)} placeholder={t('vertraege.links.searchInvoice')} className="w-full rounded-md border border-border bg-secondary/30 px-3 py-1.5 text-xs text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-1 focus:ring-focus-ring" autoFocus />
+                    </div>
+                    <div className="max-h-40 overflow-y-auto">
+                      {filteredInvoices.length === 0 ? (
+                        <p className="text-xs text-muted-foreground text-center py-3">{t('vertraege.links.noResults')}</p>
+                      ) : filteredInvoices.slice(0, 15).map((inv) => {
+                        const invNum = (inv as { invoice_number?: string; number?: string }).invoice_number ?? (inv as { number?: string }).number ?? inv.id
+                        const already = form.invoiceIds.includes(inv.id)
+                        return (
+                          <button key={inv.id} type="button" disabled={already} onClick={() => { if (already) return; setForm((f) => ({ ...f, invoiceIds: [...f.invoiceIds, inv.id], invoiceNames: [...f.invoiceNames, invNum] })); setInvoicePickerOpen(false); setInvoiceSearch('') }} className={`flex items-center gap-2 w-full px-3 py-2 text-left text-xs transition-colors ${already ? 'opacity-40 cursor-not-allowed' : 'hover:bg-secondary'}`}>
+                            <Receipt className="h-3 w-3 text-muted-foreground shrink-0" />
+                            <span className="flex-1 truncate text-foreground">{invNum}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <div className="p-2 border-t border-border"><button type="button" onClick={() => { setInvoicePickerOpen(false); setInvoiceSearch('') }} className="w-full text-xs text-muted-foreground hover:text-foreground">{t('common.cancel')}</button></div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Actions */}
@@ -946,6 +1155,7 @@ function TemplateCard({
 
 export default function VertraegePage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const { contracts, contractTemplates, deleteContract, updateContract } = useVertraegeStore()
 
   // Personal prefs (settings panel): default tab on open + table density.
@@ -1395,6 +1605,7 @@ export default function VertraegePage() {
             contract={selectedContract}
             onPreviewDoc={(file) => setPreviewDoc({ file, open: true })}
             onVersionsDoc={(fileId, name) => setVersionsDoc({ fileId, name, open: true })}
+            onNavigate={(path) => navigate(path)}
           />
         )}
       </DetailPanel>
@@ -1473,6 +1684,12 @@ const HISTORY_ACTION_CODES = [
   'reminder_triggered',
   'document_added',
   'document_removed',
+  'contact_linked',
+  'contact_unlinked',
+  'deal_linked',
+  'deal_unlinked',
+  'invoice_linked',
+  'invoice_unlinked',
 ] as const satisfies readonly string[]
 
 type HistoryActionCode = typeof HISTORY_ACTION_CODES[number]
@@ -1751,13 +1968,125 @@ function SignerSection({ contract }: { contract: Contract }) {
   )
 }
 
+// ─── AI Deadline Check Panel (Phase 10) ─────────────────────────
+
+type DeadlineSeverity = 'warning' | 'info' | 'error'
+
+interface DeadlineFinding {
+  key: string
+  severity: DeadlineSeverity
+}
+
+function computeDeadlineFindings(contract: Contract): DeadlineFinding[] {
+  const findings: DeadlineFinding[] = []
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  // 1. Notice window approaching: endDate - noticePeriodDays <= 30 days from now
+  if (contract.endDate && contract.noticePeriodDays > 0) {
+    const end = new Date(contract.endDate + 'T00:00:00')
+    const noticeDeadline = new Date(end)
+    noticeDeadline.setDate(noticeDeadline.getDate() - contract.noticePeriodDays)
+    const daysToNotice = Math.ceil((noticeDeadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    if (daysToNotice > 0 && daysToNotice <= 30) {
+      findings.push({ key: 'noticeWindowSoon', severity: 'warning' })
+    }
+  }
+
+  // 2. No reminders set and contract has an endDate
+  if (contract.endDate && (!contract.reminderDays || contract.reminderDays.length === 0)) {
+    findings.push({ key: 'noReminders', severity: 'info' })
+  }
+
+  // 3. Contract expired but not terminated / renewed
+  if (contract.endDate && (contract.status === 'active' || contract.status === 'expiring')) {
+    const end = new Date(contract.endDate + 'T00:00:00')
+    if (end < today) {
+      findings.push({ key: 'expiredActive', severity: 'error' })
+    }
+  }
+
+  // 4. Active contract has no documents and no signers
+  if ((contract.status === 'active' || contract.status === 'expiring') &&
+    (!contract.documents || contract.documents.length === 0) &&
+    (!contract.signers || contract.signers.length === 0)) {
+    findings.push({ key: 'noDocumentsOrSignature', severity: 'info' })
+  }
+
+  return findings
+}
+
+const severityStyles: Record<DeadlineSeverity, { bg: string; border: string; dot: string; text: string }> = {
+  error:   { bg: 'bg-error-light',   border: 'border-error/20',   dot: 'bg-error',   text: 'text-error' },
+  warning: { bg: 'bg-warning-light', border: 'border-warning/20', dot: 'bg-warning', text: 'text-warning' },
+  info:    { bg: 'bg-info-light',    border: 'border-info/20',    dot: 'bg-info',    text: 'text-info' },
+}
+
+function DeadlineCheckPanel({ contract }: { contract: Contract }) {
+  const { t } = useTranslation()
+  const [ran, setRan] = useState(false)
+  const [findings, setFindings] = useState<DeadlineFinding[]>([])
+
+  const handleRun = () => {
+    setFindings(computeDeadlineFindings(contract))
+    setRan(true)
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex-1">
+          {t('vertraege.deadlineCheck.title')}
+        </h4>
+        <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary-light px-2 py-0.5 text-[10px] font-medium text-primary">
+          <Sparkles className="h-2.5 w-2.5" />
+          {t('vertraege.deadlineCheck.badge')}
+        </span>
+      </div>
+
+      {!ran ? (
+        <div className="rounded-lg border border-dashed border-border bg-secondary/20 p-3">
+          <p className="text-xs text-muted-foreground mb-2.5">{t('vertraege.deadlineCheck.description')}</p>
+          <button
+            onClick={handleRun}
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors"
+            aria-label={t('vertraege.deadlineCheck.runButton')}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            {t('vertraege.deadlineCheck.runButton')}
+          </button>
+        </div>
+      ) : findings.length === 0 ? (
+        <div className="rounded-lg border border-success/20 bg-success-light p-3">
+          <p className="text-xs text-success font-medium">{t('vertraege.deadlineCheck.allClear')}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{t('vertraege.deadlineCheck.disclaimer')}</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {findings.map((f) => {
+            const styles = severityStyles[f.severity]
+            return (
+              <div key={f.key} className={`rounded-lg border ${styles.bg} ${styles.border} p-3 flex items-start gap-2`}>
+                <span className={`mt-1 h-1.5 w-1.5 rounded-full shrink-0 ${styles.dot}`} />
+                <p className={`text-xs ${styles.text}`}>{t(`vertraege.deadlineCheck.findings.${f.key}`)}</p>
+              </div>
+            )
+          })}
+          <p className="text-[10px] text-muted-foreground">{t('vertraege.deadlineCheck.disclaimer')}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface DetailPanelContentProps {
   contract: Contract
   onPreviewDoc: (file: DocumentFile) => void
   onVersionsDoc: (fileId: string, name: string) => void
+  onNavigate: (path: string) => void
 }
 
-function DetailPanelContent({ contract, onPreviewDoc, onVersionsDoc }: DetailPanelContentProps) {
+function DetailPanelContent({ contract, onPreviewDoc, onVersionsDoc, onNavigate }: DetailPanelContentProps) {
   const { t } = useTranslation()
   const typeConf = contractTypeConfig[contract.type]
   const TypeIcon = typeConf.icon
@@ -2023,6 +2352,52 @@ function DetailPanelContent({ contract, onPreviewDoc, onVersionsDoc }: DetailPan
 
       {/* Signer section (phase 8) */}
       <SignerSection contract={contract} />
+
+      {/* Phase 10: CRM/Finance Verknüpfungen */}
+      {(contract.contactId || contract.dealId || (contract.invoiceIds && contract.invoiceIds.length > 0)) && (
+        <div className="space-y-2">
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+            <Link2 className="h-3.5 w-3.5" />
+            {t('vertraege.links.sectionTitle')}
+          </h4>
+          <div className="flex flex-wrap gap-2">
+            {contract.contactId && (
+              <button
+                onClick={() => onNavigate(`/kontakte?contact=${contract.contactId}`)}
+                aria-label={t('vertraege.links.goToContact', { name: contract.contactName })}
+                className="inline-flex items-center gap-1.5 rounded-full border border-info/30 bg-info-light px-2.5 py-1 text-xs font-medium text-info hover:bg-info hover:text-white transition-colors"
+              >
+                <User className="h-3 w-3" />
+                {contract.contactName}
+              </button>
+            )}
+            {contract.dealId && (
+              <button
+                onClick={() => onNavigate(`/kontakte/pipeline/${contract.dealId}`)}
+                aria-label={t('vertraege.links.goToDeal', { name: contract.dealTitle })}
+                className="inline-flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning-light px-2.5 py-1 text-xs font-medium text-warning hover:bg-warning hover:text-white transition-colors"
+              >
+                <Briefcase className="h-3 w-3" />
+                {contract.dealTitle}
+              </button>
+            )}
+            {(contract.invoiceIds ?? []).map((invId, idx) => (
+              <button
+                key={invId}
+                onClick={() => onNavigate(`/finanzen?invoice=${invId}`)}
+                aria-label={t('vertraege.links.goToInvoice', { name: contract.invoiceNames?.[idx] ?? invId })}
+                className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success-light px-2.5 py-1 text-xs font-medium text-success hover:bg-success hover:text-white transition-colors"
+              >
+                <Receipt className="h-3 w-3" />
+                {contract.invoiceNames?.[idx] ?? invId}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Phase 10: AI Fristencheck (Heuristik-Panel) */}
+      <DeadlineCheckPanel contract={contract} />
 
       {/* Audit log feed (phase 4) */}
       <AuditLogFeed history={contract.history} />
