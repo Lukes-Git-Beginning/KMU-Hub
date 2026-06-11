@@ -17,7 +17,6 @@ import type {
   ListContractsResponse,
   ListPartiesResponse,
   ListRemindersResponse,
-  UploadDocumentResponse,
 } from './vertraege-types'
 import { authenticatedRequest, authenticatedBlobRequest } from './utils/authenticatedFetch'
 
@@ -81,11 +80,46 @@ export function deleteContract(id: string) {
   return request<void>({ method: 'DELETE', path: `${BASE}/contracts/${id}` })
 }
 
-export function uploadDocument(contractId: string) {
-  return request<UploadDocumentResponse>({
+interface PresignUploadResponse {
+  upload_url: string
+  object_key: string
+  expires_at: string
+}
+
+export async function uploadDocument(
+  contractId: string,
+  file: File,
+): Promise<{ object_key: string }> {
+  // Step 1: obtain presigned PUT URL from the files service
+  const presign = await authenticatedRequest<PresignUploadResponse>({
     method: 'POST',
-    path: `${BASE}/contracts/${contractId}/document`,
+    path: '/api/v1/files/presign-upload',
+    body: {
+      scope: 'vertraege',
+      file_name: file.name,
+      content_type: file.type,
+      size_bytes: file.size,
+    },
   })
+
+  // Step 2: PUT the file directly to storage (no Authorization header — presigned!)
+  const uploadResp = await fetch(presign.upload_url, {
+    method: 'PUT',
+    body: file,
+    headers: { 'Content-Type': file.type },
+  })
+  if (!uploadResp.ok) {
+    throw new Error(`Storage upload failed: ${uploadResp.status} ${uploadResp.statusText}`)
+  }
+
+  // Step 3: persist the object_key on the contract
+  await authenticatedRequest<{ contract: unknown }>({
+    method: 'PATCH',
+    path: `${BASE}/contracts/${contractId}`,
+    body: { document_url: presign.object_key },
+  })
+
+  return { object_key: presign.object_key }
 }
 
 export function exportContract(contractId: string) {

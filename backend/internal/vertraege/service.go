@@ -260,13 +260,6 @@ func (s *Service) ListContracts(ctx context.Context, input ListContractsInput) (
 	return s.repo.ListContracts(ctx, input.TenantID, filter, offset, input.PageSize)
 }
 
-// UploadDocument returns a stub signed URL for document upload.
-// TODO: Sprint 3 — integrate with document/MinIO service for actual signed URL generation.
-func (s *Service) UploadDocument(_ context.Context, tenantID, contractID uuid.UUID) (string, error) {
-	// Stub: returns a placeholder path. Phase D wires this to MinIO presign.
-	return fmt.Sprintf("/api/v1/vertraege/contracts/%s/document", contractID), nil
-}
-
 // ExportContract produces a plain-text dump of the contract.
 // TODO: Sprint 3 — replace with PDF renderer (e.g. wkhtmltopdf or gotenberg).
 func (s *Service) ExportContract(ctx context.Context, tenantID, contractID uuid.UUID) ([]byte, error) {

@@ -121,9 +121,10 @@ export function useDeleteContract() {
 export function useUploadDocument() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (contractId: string) => uploadDocument(contractId),
-    onSuccess: (_data, contractId) =>
-      qc.invalidateQueries({ queryKey: vertraegeKeys.contract(contractId) }),
+    mutationFn: ({ contractId, file }: { contractId: string; file: File }) =>
+      uploadDocument(contractId, file),
+    onSuccess: (_data, variables) =>
+      qc.invalidateQueries({ queryKey: vertraegeKeys.contract(variables.contractId) }),
   })
 }
 

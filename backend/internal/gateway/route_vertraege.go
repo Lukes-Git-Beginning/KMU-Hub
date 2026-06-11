@@ -55,7 +55,6 @@ func (vr *VertraegeRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http
 				r.With(middleware.RequirePermission("vertraege:contract", "write")).Patch("/", vr.HandleUpdateContract)
 				r.With(middleware.RequirePermission("vertraege:contract", "write")).Delete("/", vr.HandleDeleteContract)
 
-				r.With(middleware.RequirePermission("vertraege:contract", "write")).Post("/document", vr.HandleUploadDocument)
 				r.With(middleware.RequirePermission("vertraege:contract", "read")).Get("/export", vr.HandleExportContract)
 				r.With(middleware.RequirePermission("vertraege:contract", "write")).Put("/signature", vr.HandleSaveContractSignature)
 
@@ -319,34 +318,6 @@ func (vr *VertraegeRoutes) HandleDeleteContract(w http.ResponseWriter, r *http.R
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func (vr *VertraegeRoutes) HandleUploadDocument(w http.ResponseWriter, r *http.Request) {
-	tenantID, err := middleware.GetTenantID(r.Context())
-	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
-		return
-	}
-	client, err := vr.getClient()
-	if err != nil {
-		respondServiceUnavailable(w, vr.ServiceName())
-		return
-	}
-
-	id, ok := validateUUIDParam(w, r, "id")
-	if !ok {
-		return
-	}
-
-	resp, err := client.UploadDocument(r.Context(), &vertraegev1.UploadDocumentRequest{
-		TenantId:   tenantID.String(),
-		ContractId: id,
-	})
-	if err != nil {
-		respondGRPCError(w, err)
-		return
-	}
-	response.JSON(w, http.StatusOK, resp)
 }
 
 func (vr *VertraegeRoutes) HandleExportContract(w http.ResponseWriter, r *http.Request) {

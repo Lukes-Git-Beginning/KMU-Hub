@@ -212,21 +212,10 @@ func (s *VertraegeGRPCServer) ListContracts(ctx context.Context, req *vertraegev
 	}, nil
 }
 
-func (s *VertraegeGRPCServer) UploadDocument(ctx context.Context, req *vertraegev1.UploadDocumentRequest) (*vertraegev1.UploadDocumentResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
-	}
-	contractID, err := uuid.Parse(req.GetContractId())
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid contract_id: %v", err)
-	}
-
-	uploadURL, uploadErr := s.svc.UploadDocument(ctx, tenantID, contractID)
-	if uploadErr != nil {
-		return nil, mapVertraegeError(uploadErr)
-	}
-	return &vertraegev1.UploadDocumentResponse{UploadUrl: uploadURL}, nil
+// UploadDocument is deprecated. Use POST /api/v1/files/presign-upload with
+// scope=vertraege instead — the client-side presign flow handles this entirely.
+func (s *VertraegeGRPCServer) UploadDocument(_ context.Context, _ *vertraegev1.UploadDocumentRequest) (*vertraegev1.UploadDocumentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "use POST /api/v1/files/presign-upload with scope=vertraege instead")
 }
 
 func (s *VertraegeGRPCServer) ExportContract(ctx context.Context, req *vertraegev1.ExportContractRequest) (*vertraegev1.ExportContractResponse, error) {

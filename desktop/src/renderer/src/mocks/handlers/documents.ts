@@ -774,4 +774,15 @@ export const documentHandlers = [
   http.post(`${API}/api/v1/documents/files/:id/wopi-token`, () => {
     return HttpResponse.json({ access_token: 'demo-wopi-token', access_token_ttl: 3600 })
   }),
+
+  // Presign upload — used by vertraege document upload (and any other module
+  // that calls POST /api/v1/files/presign-upload). In demo mode the PUT to
+  // upload_url is intercepted by the catch-all passthrough, so it succeeds silently.
+  http.post(`${API}/api/v1/files/presign-upload`, () => {
+    return HttpResponse.json({
+      upload_url: 'https://minio.demo.local/vertraege/demo-upload',
+      object_key: `demo-tenant/vertraege/${Date.now()}.pdf`,
+      expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+    })
+  }),
 ]

@@ -25,7 +25,9 @@ service VertraegeService {
   rpc DeleteReminder(DeleteReminderRequest) returns (DeleteReminderResponse);
   rpc ListReminders(ListRemindersRequest) returns (ListRemindersResponse);
 
-  // Document upload helper (returns signed-URL stub; Sprint 3 wires MinIO)
+  // Deprecated: use POST /api/v1/files/presign-upload with scope=vertraege instead.
+  // The client-side presign flow (vertraege-client.ts uploadDocument) handles
+  // presign → PUT → PATCH contract entirely without going through this RPC.
   rpc UploadDocument(UploadDocumentRequest) returns (UploadDocumentResponse);
 
   // Export (text dump for now; Sprint 3 adds PDF renderer)
@@ -236,11 +238,13 @@ message ListRemindersResponse {
 // Document & Export
 // ============================================================================
 
+// Deprecated: client-side presign flow replaces this RPC. See route_files.go.
 message UploadDocumentRequest {
   string tenant_id = 1;
   string contract_id = 2;
 }
 
+// Deprecated: client-side presign flow replaces this RPC. See route_files.go.
 message UploadDocumentResponse {
   // Signed upload URL (stub; Sprint 3 wires MinIO presign).
   string upload_url = 1;

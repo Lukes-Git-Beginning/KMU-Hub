@@ -144,6 +144,3 @@ export interface ListRemindersResponse {
   reminders: ContractReminder[]
 }
 
-export interface UploadDocumentResponse {
-  upload_url: string
-}
