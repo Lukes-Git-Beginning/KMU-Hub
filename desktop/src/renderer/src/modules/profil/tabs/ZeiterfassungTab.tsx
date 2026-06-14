@@ -29,6 +29,7 @@ import {
   useApproveCorrection,
 } from '@/api/hooks/hr-hooks'
 import { useAuthStore } from '@/stores/auth'
+import { useZeiterfassungPrefsStore } from '@/stores/zeiterfassungPrefs'
 import { ManualEntryDialog } from '@/modules/zeiterfassung/components/ManualEntryDialog'
 import { AuswertungenView } from '@/modules/zeiterfassung/components/AuswertungenView'
 import type { WorkTimeEntry, DailySummary as DailySummaryType } from '@/api/hr-types'
@@ -73,7 +74,9 @@ export default function ZeiterfassungTab() {
       default: return ''
     }
   }
-  const [activeView, setActiveView] = useState<ViewKey>('today')
+  const defaultView = useZeiterfassungPrefsStore((s) => s.defaultView)
+  const dailyTargetHours = useZeiterfassungPrefsStore((s) => s.dailyTargetHours)
+  const [activeView, setActiveView] = useState<ViewKey>(defaultView)
   const [showManualEntry, setShowManualEntry] = useState(false)
   const [showCorrectionDialog, setShowCorrectionDialog] = useState(false)
   const [correctionEntryId, setCorrectionEntryId] = useState('')
@@ -148,7 +151,7 @@ export default function ZeiterfassungTab() {
   }, [status?.isClockedIn, updateTimer])
 
   const todayMinutes = dailySummary?.netWorkMinutes ?? status?.todayTotalMinutes ?? 0
-  const targetMinutes = 8 * 60 // 8h standard
+  const targetMinutes = dailyTargetHours * 60
   const overtimeMinutes = Math.max(0, todayMinutes - targetMinutes)
   const progressPercent = Math.min(100, Math.round((todayMinutes / targetMinutes) * 100))
 

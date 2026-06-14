@@ -10,11 +10,12 @@ import { useTranslation } from 'react-i18next'
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
-import { Clock, Receipt, TrendingUp, CalendarRange, Loader2 } from 'lucide-react'
+import { Clock, Receipt, TrendingUp, CalendarRange, Loader2, Download } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useTimeAnalytics } from '@/api/hooks/hr-hooks'
 import { useChartTheme } from '@/modules/berichte/utils/chartTheme'
 import { formatWorkMinutes } from '@/lib/worktime'
+import { ExportDialog } from './ExportDialog'
 import type { TimeAnalyticsRange } from '@/api/hr-types'
 
 const tooltipStyle = {
@@ -33,6 +34,7 @@ export function AuswertungenView() {
   const { t } = useTranslation()
   const theme = useChartTheme()
   const [range, setRange] = useState<TimeAnalyticsRange>('week')
+  const [showExport, setShowExport] = useState(false)
   const { data, isLoading } = useTimeAnalytics(range)
 
   if (isLoading || !data) {
@@ -78,24 +80,35 @@ export function AuswertungenView() {
 
   return (
     <div className="space-y-6">
-      {/* Range toggle */}
+      {/* Range toggle + export */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-foreground">{t('zeiterfassung.analytics.title')}</h3>
-        <div className="flex rounded-lg border border-border p-0.5">
-          {(['week', 'month'] as const).map((r) => (
-            <button
-              key={r}
-              onClick={() => setRange(r)}
-              className={cn(
-                'rounded-md px-3 py-1 text-xs font-medium transition-colors',
-                range === r ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {t(`zeiterfassung.analytics.range.${r}`)}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowExport(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
+          >
+            <Download className="h-3.5 w-3.5" />
+            {t('zeiterfassung.export.action')}
+          </button>
+          <div className="flex rounded-lg border border-border p-0.5">
+            {(['week', 'month'] as const).map((r) => (
+              <button
+                key={r}
+                onClick={() => setRange(r)}
+                className={cn(
+                  'rounded-md px-3 py-1 text-xs font-medium transition-colors',
+                  range === r ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {t(`zeiterfassung.analytics.range.${r}`)}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
+
+      <ExportDialog open={showExport} onOpenChange={setShowExport} />
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

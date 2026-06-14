@@ -106,3 +106,19 @@ Pro Phase: Bau-Loop + **Design-/Polish-Review (impeccable)** (Darien-Vorgabe 14.
 **QA:** `scripts/qa-zeiterfassung-p3.mjs` → `.qa-screenshots/ze-p3/`. **i18n:** 12 Keys ×4 (`zeiterfassung.analytics.*`), Parität. **Typecheck:** LSP 0. **Design:** Theme-Farben, gestapelte Bars lesen korrekt, on-brand.
 
 **Backend-Gap (Luke):** `GET /hr/time/analytics` (KPI-/Trend-/Projekt-Aggregation) FE-mock-first → echter Aggregations-Endpoint (oder client-seitig aus Entries).
+
+---
+
+## ✅ P4 — Export + Arbeitszeit-Regeln + Moduleinstellungen (2026-06-14, autonom verifiziert)
+
+**Status: grün, QA 0 Fehler / 0 Raw-Keys.**
+
+**Gebaut (settings-komplett-Standard):**
+1. **Stores:** `zeiterfassungPrefs` (personal: defaultView, dailyTargetHours, clockOutReminder) + `zeiterfassungSettings` (tenant: weeklyTarget, autoBreakAfterHours/Minutes, rounding, holidayRegion). Persist, mock-first.
+2. **`ZeiterfassungSettingsPanel`** via `ModuleSettingsShell` (moduleId `zeiterfassung`): PERSÖNLICH (Standard-Ansicht, Tagesziel, Ausstempel-Erinnerung) + FÜR ALLE (Arbeitszeit-Regeln inkl. ArbZG-Auto-Pause + Rundung, Feiertagsregion DE/AT/CH). In `module-settings-registry` registriert (Icon Clock, navMatch `/zeiterfassung`) → Kontext-Vorauswahl + „AKTIV"-Badge greifen.
+3. **Echte Verdrahtung (kein totes UI):** `ZeiterfassungTab` initialisiert `activeView` aus `defaultView` und das Tagesziel/Progress aus `dailyTargetHours`.
+4. **`ExportDialog`** (aus Auswertungen): Format CSV (**echter client-seitiger Download** mit BOM, Spalten Datum/Von/Bis/Pause/Netto/Projekt/Kunde/Leistung/Abrechenbar) + Excel/DATEV-Lohn/PDF als „bald" (backend-gap). „Export"-Button neben dem Range-Toggle.
+
+**QA:** `scripts/qa-zeiterfassung-p4.mjs` → `.qa-screenshots/ze-p4/`. Settings-Panel (beide Scope-Gruppen, Admin = editierbar) + Export-Dialog. **i18n:** 45 Keys ×4 (settings + export + Registry-Eintrag), Parität. **Typecheck:** LSP 0. **Design:** ModuleSettingsShell-konsistent, on-brand.
+
+**Backend-Gaps (Luke):** `tenant_settings` für zeiterfassung-Regeln (Wochensoll/Pause/Rundung/Region); Export-Endpoints CSV-Serverside + **DATEV-Lohn (LODAS)** + XLSX + PDF.

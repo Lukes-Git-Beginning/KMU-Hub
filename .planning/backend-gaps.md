@@ -128,7 +128,8 @@ Folgende Verknüpfungen konnten im ContactDetailPanel NICHT gebaut werden, weil 
 
 ### zeiterfassung
 - **`GET /api/v1/hr/time/balance`** (Stundenkonto-Saldo, kumuliert + Perioden-Übertrag) — **P1 FE-mock-first verdrahtet** (`useTimeBalance`, Shape `{balanceMinutes, asOf, periodStart, targetWeeklyMinutes}`); braucht echten Endpoint.
-- Export-API (CSV / DATEV-Lohn)
+- Export-API: CSV ist **P4 client-seitig** real; **DATEV-Lohn (LODAS)** + XLSX + PDF brauchen Serverside-Generierung.
+- `tenant_settings` für zeiterfassung-Regeln (Wochensoll, Auto-Pause-Schwellen, Rundung, Feiertagsregion) — **P4 FE-mock-first** (`stores/zeiterfassungSettings`).
 - **`POST /api/v1/hr/time/entries`** (manueller Eintrag) + **`GET /api/v1/hr/time/projects`** (Projekt-Taxonomie) — **P2 FE-mock-first verdrahtet** (`useCreateTimeEntry`/`useTimeProjects`); brauchen echte Endpoints.
 - **`GET /api/v1/hr/time/analytics?range=week|month`** (KPI-/Tagestrend-/Projekt-/Billable-Aggregation) — **P3 FE-mock-first verdrahtet** (`useTimeAnalytics`); echter Aggregations-Endpoint oder client-seitig aus Entries.
 - HR-Worktime-Entry um `project_id`/`customer_id`/`service_code` (+ `billable`) erweitern — Projekt-Liste ggf. an work-Projekte/CRM-Kunden koppeln statt eigener Taxonomie.

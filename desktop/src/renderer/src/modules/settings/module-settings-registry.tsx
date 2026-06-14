@@ -15,6 +15,7 @@ import {
   FolderOpen,
   FileSignature,
   LayoutDashboard,
+  Clock,
   type LucideIcon,
 } from 'lucide-react'
 import type { RoleId } from '@/config/roles'
@@ -32,6 +33,7 @@ import { ITAdminTab } from './tabs/ITAdminTab'
 import { ModuleAssignmentSettingsPanel } from './panels/ModuleAssignmentSettingsPanel'
 import { DokumenteSettingsPanel } from '@/modules/dokumente/settings/DokumenteSettingsPanel'
 import { VertraegeSettingsPanel } from '@/modules/vertraege/settings/VertraegeSettingsPanel'
+import { ZeiterfassungSettingsPanel } from '@/modules/zeiterfassung/settings/ZeiterfassungSettingsPanel'
 import { DashboardSettingsPanel } from '@/modules/dashboard/settings/DashboardSettingsPanel'
 
 /**
@@ -66,6 +68,7 @@ export const SETTINGS_ENTRIES: SettingsEntry[] = [
   { id: 'kommunikation', group: 'module', labelKey: 'moduleSettings.entries.kommunikation', icon: MessagesSquare, navMatch: ['/kommunikation', '/chat'], component: KommunikationSettingsPanel },
   { id: 'team', group: 'module', labelKey: 'moduleSettings.entries.team', icon: Users, navMatch: ['/team'], roles: ['admin', 'hr'], component: TeamSettingsPanel },
   { id: 'work', group: 'module', labelKey: 'moduleSettings.entries.work', icon: KanbanSquare, navMatch: ['/work'], component: WorkSettingsPanel },
+  { id: 'zeiterfassung', group: 'module', labelKey: 'moduleSettings.entries.zeiterfassung', icon: Clock, navMatch: ['/zeiterfassung'], component: ZeiterfassungSettingsPanel },
   { id: 'dokumente', group: 'module', labelKey: 'moduleSettings.entries.dokumente', icon: FolderOpen, navMatch: ['/dokumente'], component: DokumenteSettingsPanel },
   { id: 'vertraege', group: 'module', labelKey: 'moduleSettings.entries.vertraege', icon: FileSignature, navMatch: ['/vertraege'], component: VertraegeSettingsPanel },
   // '/' is exact-match only in the resolver — keep this entry from swallowing other routes.
