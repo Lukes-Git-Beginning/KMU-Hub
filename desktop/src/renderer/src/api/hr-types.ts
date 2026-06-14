@@ -102,6 +102,23 @@ export interface TimeProject {
   billableDefault: boolean
 }
 
+export type TimeAnalyticsRange = 'week' | 'month'
+
+/** Aggregated time-tracking analytics for the Auswertungen view. */
+export interface TimeAnalytics {
+  range: TimeAnalyticsRange
+  periodStart: string
+  periodEnd: string
+  totalNetMinutes: number
+  billableMinutes: number
+  nonBillableMinutes: number
+  overtimeMinutes: number
+  targetMinutes: number
+  workedDays: number
+  dayTrend: { date: string; netMinutes: number; billableMinutes: number }[]
+  byProject: { projectId: string; name: string; customerName: string; color: string; minutes: number }[]
+}
+
 export interface BreakEntry {
   id: string
   workTimeEntryId: string

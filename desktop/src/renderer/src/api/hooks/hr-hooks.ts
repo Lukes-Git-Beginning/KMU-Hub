@@ -24,6 +24,7 @@ import type {
   RecordSickLeaveInput,
   SubmitCorrectionInput,
   CreateManualEntryInput,
+  TimeAnalyticsRange,
   UpdateEmployeeInput,
   UpdateSelfProfileInput,
   UploadDocumentInput,
@@ -61,6 +62,7 @@ export const hrKeys = {
     ['hr', 'time', 'summary', 'weekly', weekStart] as const,
   timeBalance: () => ['hr', 'time', 'balance'] as const,
   timeProjects: () => ['hr', 'time', 'projects'] as const,
+  timeAnalytics: (range: string) => ['hr', 'time', 'analytics', range] as const,
 
   // Absences
   absenceCalendar: (params: AbsenceCalendarParams) =>
@@ -356,6 +358,15 @@ export function useTimeProjects() {
     queryFn: () => hrTimeApi.listProjects(),
     staleTime: 5 * 60 * 1000,
     select: (data) => data.projects,
+  })
+}
+
+/** Aggregated time-tracking analytics (KPIs, day trend, project + billable split). */
+export function useTimeAnalytics(range: TimeAnalyticsRange) {
+  return useQuery({
+    queryKey: hrKeys.timeAnalytics(range),
+    queryFn: () => hrTimeApi.getAnalytics(range),
+    select: (data) => data.analytics,
   })
 }
 

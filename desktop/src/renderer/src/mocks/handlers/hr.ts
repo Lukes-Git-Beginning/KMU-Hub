@@ -269,6 +269,63 @@ export const hrHandlers = [
     return HttpResponse.json({ projects: mockProjects })
   }),
 
+  // ── Analytics (Auswertungen: KPIs, day trend, project + billable split) ────
+
+  http.get(`${API}/api/v1/hr/time/analytics`, ({ request }) => {
+    const url = new URL(request.url)
+    const range = url.searchParams.get('range') === 'month' ? 'month' : 'week'
+    const days = range === 'month' ? 30 : 7
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const perWorkday = [430, 465, 450, 480, 410, 395, 470]
+
+    const dayTrend: { date: string; netMinutes: number; billableMinutes: number }[] = []
+    let totalNet = 0
+    let totalBillable = 0
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date()
+      d.setDate(d.getDate() - i)
+      const dow = d.getDay()
+      const isWorkday = dow >= 1 && dow <= 5
+      const net = isWorkday ? perWorkday[(d.getDate()) % perWorkday.length] : 0
+      const billable = Math.round(net * 0.72)
+      dayTrend.push({
+        date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+        netMinutes: net,
+        billableMinutes: billable,
+      })
+      totalNet += net
+      totalBillable += billable
+    }
+
+    const weights = [0.18, 0.3, 0.24, 0.16, 0.12]
+    const byProject = mockProjects.map((p, i) => ({
+      projectId: p.id,
+      name: p.name,
+      customerName: p.customerName,
+      color: p.color,
+      minutes: Math.round(totalNet * weights[i % weights.length]),
+    }))
+
+    const workedDays = dayTrend.filter((d) => d.netMinutes > 0).length
+    const targetMinutes = workedDays * 8 * 60
+
+    return HttpResponse.json({
+      analytics: {
+        range,
+        periodStart: dayTrend[0]?.date ?? today(),
+        periodEnd: dayTrend[dayTrend.length - 1]?.date ?? today(),
+        totalNetMinutes: totalNet,
+        billableMinutes: totalBillable,
+        nonBillableMinutes: totalNet - totalBillable,
+        overtimeMinutes: Math.max(0, totalNet - targetMinutes),
+        targetMinutes,
+        workedDays,
+        dayTrend,
+        byProject,
+      },
+    })
+  }),
+
   // ── Manual entry creation ─────────────────────────────────────────────────
 
   http.post(`${API}/api/v1/hr/time/entries`, async ({ request }) => {

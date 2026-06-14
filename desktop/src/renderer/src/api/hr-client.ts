@@ -15,6 +15,8 @@ import type {
   WeeklySummary,
   TimeBalance,
   TimeProject,
+  TimeAnalytics,
+  TimeAnalyticsRange,
   CreateManualEntryInput,
   ArbZGComplianceResult,
   AbsenceEntry,
@@ -334,6 +336,10 @@ export const hrTimeApi = {
 
   listProjects() {
     return request<{ projects: TimeProject[] }>('/api/v1/hr/time/projects')
+  },
+
+  getAnalytics(range: TimeAnalyticsRange) {
+    return request<{ analytics: TimeAnalytics }>(`/api/v1/hr/time/analytics?range=${range}`)
   },
 
   createEntry(data: CreateManualEntryInput) {

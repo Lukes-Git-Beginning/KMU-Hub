@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Play, Square, Clock, Calendar,
-  Coffee, AlertTriangle, Loader2, Edit3, Plus, Receipt,
+  Coffee, AlertTriangle, Loader2, Edit3, Plus, Receipt, BarChart3,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,9 +30,10 @@ import {
 } from '@/api/hooks/hr-hooks'
 import { useAuthStore } from '@/stores/auth'
 import { ManualEntryDialog } from '@/modules/zeiterfassung/components/ManualEntryDialog'
+import { AuswertungenView } from '@/modules/zeiterfassung/components/AuswertungenView'
 import type { WorkTimeEntry, DailySummary as DailySummaryType } from '@/api/hr-types'
 
-type ViewKey = 'today' | 'week' | 'corrections'
+type ViewKey = 'today' | 'week' | 'analytics' | 'corrections'
 
 function formatMinutesDisplay(minutes: number): string {
   const h = Math.floor(minutes / 60)
@@ -60,6 +61,7 @@ export default function ZeiterfassungTab() {
   const VIEWS: { key: ViewKey; label: string; icon: typeof Clock }[] = [
     { key: 'today', label: t('profil.zeiterfassung.viewToday'), icon: Clock },
     { key: 'week', label: t('profil.zeiterfassung.viewWeek'), icon: Calendar },
+    { key: 'analytics', label: t('zeiterfassung.analytics.tab'), icon: BarChart3 },
     { key: 'corrections', label: t('profil.zeiterfassung.viewCorrections'), icon: Edit3 },
   ]
 
@@ -301,6 +303,7 @@ export default function ZeiterfassungTab() {
         {activeView === 'week' && (
           <WeeklyView summary={weeklySummary} />
         )}
+        {activeView === 'analytics' && <AuswertungenView />}
         {activeView === 'corrections' && (
           <CorrectionsView
             entries={entries}

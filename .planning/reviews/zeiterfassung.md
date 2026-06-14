@@ -90,3 +90,19 @@ Pro Phase: Bau-Loop + **Design-/Polish-Review (impeccable)** (Darien-Vorgabe 14.
 **i18n:** 21 Keys ×4 (`zeiterfassung.manual.*` + 2 `api.hr.time.*`), Parität 21/21/21/21. **Typecheck:** LSP 0 auf allen geänderten Dateien. **Design-Review:** clean, on-brand, responsive — kein Polish-Bedarf.
 
 **Backend-Gaps (Luke):** `POST /hr/time/entries` + `GET /hr/time/projects` FE-mock-first; `project_id`/`customer_id`/`service_code` am echten WorkTimeEntry; Projekt-Taxonomie ggf. an work/CRM koppeln statt eigene Liste.
+
+---
+
+## ✅ P3 — Auswertungen (Charts) (2026-06-14, autonom verifiziert)
+
+**Status: grün, QA 0 Fehler / 0 Raw-Keys @ full+small, Woche+Monat.**
+
+**Gebaut:**
+1. **Datenschicht:** `TimeAnalytics`-Typ (KPIs, dayTrend, byProject, billable-Split); `hrTimeApi.getAnalytics(range)`; `useTimeAnalytics(range)`; Mock `GET /hr/time/analytics?range=week|month` (kohärente Demo-Daten: Werktage befüllt, WE leer, 72% abrechenbar).
+2. **`AuswertungenView`** (recharts via `useChartTheme`, kein Rainbow): Range-Toggle Woche/Monat · 4 KPI-Cards (Gesamt, Abrechenbar+%, Überstunden, Ø/Tag) · **Stunden pro Tag** (gestapelte Bars: abrechenbar + Rest = Netto) · **Nach Projekt** (horizontale Bars, Projektfarben) · **Abrechenbar vs. nicht** (Donut). Als 3. Tab „Auswertungen" in ZeiterfassungTab.
+
+**Polish-Fund beim Hinsehen:** „Stunden pro Tag" lief erst als zwei *getrennte* Bars (billable + total nebeneinander → doppeldeutig) → auf einen gestapelten Bar (billable unten + Rest oben = Netto-Höhe) umgestellt.
+
+**QA:** `scripts/qa-zeiterfassung-p3.mjs` → `.qa-screenshots/ze-p3/`. **i18n:** 12 Keys ×4 (`zeiterfassung.analytics.*`), Parität. **Typecheck:** LSP 0. **Design:** Theme-Farben, gestapelte Bars lesen korrekt, on-brand.
+
+**Backend-Gap (Luke):** `GET /hr/time/analytics` (KPI-/Trend-/Projekt-Aggregation) FE-mock-first → echter Aggregations-Endpoint (oder client-seitig aus Entries).
