@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { SlidersHorizontal, Clock, Coffee, CalendarDays, BarChart3, Calendar } from 'lucide-react'
 import { ModuleSettingsShell, type ModuleSettingsSection } from '@/components/shared'
 import { useSelfProfile } from '@/api/hooks/hr-hooks'
+import { STANDARD_DAILY_HOURS } from '@/lib/worktime'
 import {
   useZeiterfassungPrefsStore,
   type ZeiterfassungDefaultView,
@@ -27,13 +28,11 @@ const numInput =
 function PersonalPrefs() {
   const { t } = useTranslation()
   const defaultView = useZeiterfassungPrefsStore((s) => s.defaultView)
-  const dailyTargetHours = useZeiterfassungPrefsStore((s) => s.dailyTargetHours)
   const clockOutReminder = useZeiterfassungPrefsStore((s) => s.clockOutReminder)
   const setDefaultView = useZeiterfassungPrefsStore((s) => s.setDefaultView)
-  const setDailyTargetHours = useZeiterfassungPrefsStore((s) => s.setDailyTargetHours)
   const setClockOutReminder = useZeiterfassungPrefsStore((s) => s.setClockOutReminder)
   const { data: profile } = useSelfProfile()
-  const weeklyHours = profile?.workDaysPerWeek ? profile.workDaysPerWeek * 8 : null
+  const weeklyHours = profile?.workDaysPerWeek ? profile.workDaysPerWeek * STANDARD_DAILY_HOURS : null
 
   const viewOptions = [
     { id: 'today', labelKey: 'profil.zeiterfassung.viewToday', icon: Clock },
@@ -69,20 +68,6 @@ function PersonalPrefs() {
           <p className="mt-0.5 text-xs text-muted-foreground">{t('zeiterfassung.settings.personal.weeklyTargetHint')}</p>
         </div>
       )}
-
-      <div className="space-y-1.5">
-        <label className="text-sm font-medium text-foreground">{t('zeiterfassung.settings.personal.dailyTarget')}</label>
-        <input
-          type="number"
-          min={1}
-          max={24}
-          step={0.5}
-          value={dailyTargetHours}
-          onChange={(e) => setDailyTargetHours(Math.min(24, Math.max(1, Number(e.target.value))))}
-          className={`${numInput} max-w-[120px]`}
-        />
-        <p className="text-xs text-muted-foreground">{t('zeiterfassung.settings.personal.dailyTargetHint')}</p>
-      </div>
 
       <label className="flex cursor-pointer items-center gap-2">
         <input

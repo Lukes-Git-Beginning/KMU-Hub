@@ -2,6 +2,14 @@
  * Shared work-time formatting helpers (zeiterfassung module + header widget).
  */
 
+/**
+ * Contractual full-time daily norm (hours). The daily target is derived from
+ * the employment contract, not a free user setting — weekly target =
+ * workDaysPerWeek × this. Backend-gap: real per-contract weekly hours for
+ * part-time accuracy.
+ */
+export const STANDARD_DAILY_HOURS = 8
+
 /** Format minutes as "Xh Ym" / "Xh" (absolute value, no sign). */
 export function formatWorkMinutes(total: number): string {
   const abs = Math.abs(total)

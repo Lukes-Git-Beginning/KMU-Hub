@@ -30,6 +30,7 @@ import {
 } from '@/api/hooks/hr-hooks'
 import { useAuthStore } from '@/stores/auth'
 import { useZeiterfassungPrefsStore } from '@/stores/zeiterfassungPrefs'
+import { STANDARD_DAILY_HOURS } from '@/lib/worktime'
 import { useIsModuleLead } from '@/hooks/useModuleSettings'
 import { ManualEntryDialog } from '@/modules/zeiterfassung/components/ManualEntryDialog'
 import { AuswertungenView } from '@/modules/zeiterfassung/components/AuswertungenView'
@@ -80,7 +81,6 @@ export default function ZeiterfassungTab() {
     }
   }
   const defaultView = useZeiterfassungPrefsStore((s) => s.defaultView)
-  const dailyTargetHours = useZeiterfassungPrefsStore((s) => s.dailyTargetHours)
   const [activeView, setActiveView] = useState<ViewKey>(defaultView)
   const [showManualEntry, setShowManualEntry] = useState(false)
   const [showCorrectionDialog, setShowCorrectionDialog] = useState(false)
@@ -156,7 +156,7 @@ export default function ZeiterfassungTab() {
   }, [status?.isClockedIn, updateTimer])
 
   const todayMinutes = dailySummary?.netWorkMinutes ?? status?.todayTotalMinutes ?? 0
-  const targetMinutes = dailyTargetHours * 60
+  const targetMinutes = STANDARD_DAILY_HOURS * 60 // contractual daily norm
   const overtimeMinutes = Math.max(0, todayMinutes - targetMinutes)
   const progressPercent = Math.min(100, Math.round((todayMinutes / targetMinutes) * 100))
 
