@@ -42,7 +42,8 @@ export const mockInvoices = {
       total_net: 8400.0,
       total_gross: 9996.0,
       tax_rate: 19,
-      currency: 'EUR',
+      currency: 'CHF',
+      exchange_rate: '1.06',
       items: [
         { description: 'CRM Lizenz Professional (Jahresabo)', quantity: 1, unit_price: 5400.0, total: 5400.0 },
         { description: 'Schulungspaket (3 Tage)', quantity: 3, unit_price: 1000.0, total: 3000.0 },
@@ -129,7 +130,8 @@ export const mockInvoices = {
       total_net: 4200.0,
       total_gross: 4998.0,
       tax_rate: 19,
-      currency: 'EUR',
+      currency: 'CHF',
+      exchange_rate: '1.06',
       items: [
         { description: 'CRM Lizenz Professional (Jahresabo)', quantity: 1, unit_price: 4200.0, total: 4200.0 },
       ],
@@ -326,6 +328,8 @@ export const mockQuotes = {
       customer_name: 'Bern Solar GmbH',
       customer_id: IDS.companies.bernSolar,
       valid_until: daysFromNow(30),
+      currency: 'CHF',
+      exchange_rate: '1.06',
       total_net: 9800.0,
       total_gross: 11662.0,
       items: [

@@ -19,6 +19,8 @@ export type FinanceTabKey =
   | 'stammdaten'
   | 'invoices'
   | 'quotes'
+  | 'recurring'
+  | 'open-items'
   | 'credit-notes'
   | 'expenses'
   | 'transactions'
@@ -77,15 +79,30 @@ export const useFinanceUIStore = create<FinanceUIState>()((set) => ({
 // ---------------------------------------------------------------------------
 
 /**
- * Format a number as EUR with de-DE locale.
+ * Format a number as a currency amount with de-DE locale.
+ * Defaults to EUR; pass 'CHF'/'USD' for foreign-currency documents.
  */
-export function formatEUR(value: number | string): string {
+export function formatMoney(
+  value: number | string,
+  currency: string = 'EUR',
+): string {
   const n = typeof value === 'string' ? Number(value) : value
-  if (isNaN(n)) return '\u20AC 0,00'
+  const cur = currency || 'EUR'
+  if (isNaN(n)) {
+    return new Intl.NumberFormat('de-DE', { style: 'currency', currency: cur }).format(0)
+  }
   return new Intl.NumberFormat('de-DE', {
     style: 'currency',
-    currency: 'EUR',
+    currency: cur,
   }).format(n)
+}
+
+/**
+ * Format a number as EUR with de-DE locale.
+ * Thin wrapper around formatMoney for EUR-only contexts.
+ */
+export function formatEUR(value: number | string): string {
+  return formatMoney(value, 'EUR')
 }
 
 /**

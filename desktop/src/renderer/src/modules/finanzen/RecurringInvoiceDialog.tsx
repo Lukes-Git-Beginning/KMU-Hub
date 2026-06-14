@@ -17,200 +17,108 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Trash2, Info } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useCreateQuote, useUpdateQuote, useCompanySettings } from '@/api/hooks/useFinance'
+import {
+  useCreateRecurringInvoice,
+  useUpdateRecurringInvoice,
+} from '@/api/hooks/useFinance'
 import { formatMoney, calcLineTotal, calcInvoiceSubtotal, calcInvoiceTax, calcInvoiceTotal } from '@/stores/finance'
-import type { Quote, TaxMode, Currency } from '@/types/finance-types'
+import type {
+  RecurringInvoice,
+  RecurringInterval,
+  TaxMode,
+  Currency,
+} from '@/types/finance-types'
 
 interface LineItemDraft {
   key: string
-  position: number
   description: string
   quantity: string
   unit_price: string
   tax_rate: string
 }
 
-const TAX_RATES = [
-  { value: '19', label: '19% (Standard)' },
-  { value: '7', label: '7% (Ermaessigt)' },
-  { value: '0', label: '0%' },
-]
+const INTERVALS: RecurringInterval[] = ['weekly', 'monthly', 'quarterly', 'yearly']
+const CURRENCIES: Currency[] = ['EUR', 'CHF', 'USD']
 
-const CURRENCY_OPTIONS: { value: Currency; label: string }[] = [
-  { value: 'EUR', label: 'Euro (EUR)' },
-  { value: 'CHF', label: 'Schweizer Franken (CHF)' },
-  { value: 'USD', label: 'US-Dollar (USD)' },
-]
-
-function emptyItem(position: number): LineItemDraft {
-  return {
-    key: String(Date.now()) + position,
-    position,
-    description: '',
-    quantity: '1',
-    unit_price: '0',
-    tax_rate: '19',
-  }
+function emptyItem(): LineItemDraft {
+  return { key: String(Date.now() + Math.floor(performance.now())), description: '', quantity: '1', unit_price: '0', tax_rate: '19' }
 }
 
-interface QuoteFormDialogProps {
+interface RecurringInvoiceDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  editQuote?: Quote | null
-  dealId?: string
+  editRecurring?: RecurringInvoice | null
 }
 
-export function QuoteFormDialog({
-  open,
-  onOpenChange,
-  editQuote,
-  dealId,
-}: QuoteFormDialogProps) {
+export function RecurringInvoiceDialog({ open, onOpenChange, editRecurring }: RecurringInvoiceDialogProps) {
   const { t } = useTranslation()
-  const createQuote = useCreateQuote()
-  const updateQuote = useUpdateQuote()
-  const { data: settings } = useCompanySettings()
+  const createRec = useCreateRecurringInvoice()
+  const updateRec = useUpdateRecurringInvoice()
 
+  const [title, setTitle] = useState('')
   const [customerName, setCustomerName] = useState('')
-  const [customerAddress, setCustomerAddress] = useState('')
   const [customerEmail, setCustomerEmail] = useState('')
-  const [customerUstIdNr, setCustomerUstIdNr] = useState('')
+  const [customerAddress, setCustomerAddress] = useState('')
+  const [interval, setInterval] = useState<RecurringInterval>('monthly')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [paymentTermsDays, setPaymentTermsDays] = useState('14')
   const [taxMode, setTaxMode] = useState<TaxMode>('standard')
   const [currency, setCurrency] = useState<Currency>('EUR')
-  const [validUntil, setValidUntil] = useState('')
   const [notes, setNotes] = useState('')
-  const [items, setItems] = useState<LineItemDraft[]>([emptyItem(1)])
+  const [items, setItems] = useState<LineItemDraft[]>([emptyItem()])
 
   const resetForm = useCallback(() => {
+    setTitle('')
     setCustomerName('')
-    setCustomerAddress('')
     setCustomerEmail('')
-    setCustomerUstIdNr('')
+    setCustomerAddress('')
+    setInterval('monthly')
+    setStartDate(new Date().toISOString().split('T')[0])
+    setEndDate('')
+    setPaymentTermsDays('14')
     setTaxMode('standard')
     setCurrency('EUR')
     setNotes('')
-    setItems([emptyItem(1)])
-    const defaultDays = settings?.default_quote_validity_days ?? 30
-    const d = new Date()
-    d.setDate(d.getDate() + defaultDays)
-    setValidUntil(d.toISOString().split('T')[0])
-  }, [settings])
+    setItems([emptyItem()])
+  }, [])
 
   useEffect(() => {
     if (!open) return
-    if (editQuote) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
-      setCustomerName(editQuote.customer.name)
-      setCustomerAddress(editQuote.customer.address)
-      setCustomerEmail(editQuote.customer.email)
-      setCustomerUstIdNr(editQuote.customer.ust_id_nr ?? '')
-      setTaxMode(editQuote.tax_mode)
-      setCurrency((editQuote.currency as Currency) ?? 'EUR')
-      setValidUntil(editQuote.valid_until)
-      setNotes(editQuote.notes ?? '')
-      // Accept both detail-shape (`line_items`) and list-shape (`items`).
-      const rawQuote = editQuote as unknown as {
-        line_items?: Array<Record<string, unknown>>
-        items?: Array<Record<string, unknown>>
-        tax_rate?: number | string
-      }
-      const srcItems = rawQuote.line_items ?? rawQuote.items ?? []
+    if (editRecurring) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop
+      setTitle(editRecurring.title)
+      setCustomerName(editRecurring.customer.name)
+      setCustomerEmail(editRecurring.customer.email)
+      setCustomerAddress(editRecurring.customer.address)
+      setInterval(editRecurring.interval)
+      setStartDate(editRecurring.start_date)
+      setEndDate(editRecurring.end_date ?? '')
+      setPaymentTermsDays(String(editRecurring.payment_terms_days))
+      setTaxMode(editRecurring.tax_mode)
+      setCurrency(editRecurring.currency ?? 'EUR')
+      setNotes(editRecurring.notes ?? '')
       setItems(
-        srcItems.length === 0
-          ? [emptyItem(1)]
-          : srcItems.map((li, idx) => ({
-              key: String(li.id ?? idx),
-              position: Number(li.position ?? idx + 1),
-              description: String(li.description ?? ''),
-              quantity: String(li.quantity ?? '1'),
-              unit_price: String(li.unit_price ?? '0'),
-              tax_rate: String(li.tax_rate ?? rawQuote.tax_rate ?? '19'),
-            })),
+        editRecurring.line_items.map((li, idx) => ({
+          key: li.id || String(idx),
+          description: li.description,
+          quantity: li.quantity,
+          unit_price: li.unit_price,
+          tax_rate: li.tax_rate,
+        })),
       )
     } else {
       resetForm()
     }
-  }, [open, editQuote, resetForm])
+  }, [open, editRecurring, resetForm])
 
-  const updateItem = (idx: number, updates: Partial<LineItemDraft>) => {
-    setItems((prev) =>
-      prev.map((item, i) => (i === idx ? { ...item, ...updates } : item)),
-    )
+  const updateItem = (idx: number, patch: Partial<LineItemDraft>) => {
+    setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)))
   }
-
-  const addItem = () => {
-    setItems((prev) => [...prev, emptyItem(prev.length + 1)])
-  }
-
-  const removeItem = (idx: number) => {
-    if (items.length <= 1) return
-    setItems((prev) => prev.filter((_, i) => i !== idx))
-  }
-
-  const handleSave = () => {
-    if (!customerName.trim()) return
-    const validItems = items.filter(
-      (i) => i.description.trim() && Number(i.unit_price) > 0,
-    )
-    if (validItems.length === 0) return
-
-    const lineItems = validItems.map((i, idx) => ({
-      position: idx + 1,
-      description: i.description.trim(),
-      quantity: i.quantity,
-      unit_price: i.unit_price,
-      tax_rate: taxMode === 'kleinunternehmer' ? '0' : i.tax_rate,
-    }))
-
-    const customer = {
-      name: customerName.trim(),
-      address: customerAddress.trim(),
-      email: customerEmail.trim(),
-      ...(customerUstIdNr.trim() ? { ust_id_nr: customerUstIdNr.trim() } : {}),
-    }
-
-    if (editQuote) {
-      updateQuote.mutate(
-        {
-          id: editQuote.id,
-          customer,
-          tax_mode: taxMode,
-          line_items: lineItems,
-          valid_until: validUntil,
-          currency,
-          notes: notes.trim() || undefined,
-        },
-        {
-          onSuccess: () => {
-            toast.success(t('finanzen.quoteForm.updated'))
-            onOpenChange(false)
-          },
-          onError: (err) => toast.error(err.message),
-        },
-      )
-    } else {
-      createQuote.mutate(
-        {
-          customer,
-          tax_mode: taxMode,
-          line_items: lineItems,
-          valid_until: validUntil || undefined,
-          currency,
-          notes: notes.trim() || undefined,
-          deal_id: dealId,
-        },
-        {
-          onSuccess: () => {
-            toast.success(t('finanzen.quoteForm.created'))
-            onOpenChange(false)
-          },
-          onError: (err) => toast.error(err.message),
-        },
-      )
-    }
-  }
+  const addItem = () => setItems((prev) => [...prev, emptyItem()])
+  const removeItem = (idx: number) => setItems((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx)))
 
   const effectiveItems = items.map((i) => ({
     quantity: i.quantity,
@@ -221,18 +129,81 @@ export function QuoteFormDialog({
   const tax = calcInvoiceTax(effectiveItems)
   const total = calcInvoiceTotal(effectiveItems)
 
-  const isPending = createQuote.isPending || updateQuote.isPending
+  const handleSave = () => {
+    if (!title.trim() || !customerName.trim()) {
+      toast.error(t('finanzen.recurring.titleCustomerRequired'))
+      return
+    }
+    const validItems = items.filter((i) => i.description.trim() && Number(i.unit_price) > 0)
+    if (validItems.length === 0) return
+
+    const payload = {
+      title: title.trim(),
+      customer: {
+        name: customerName.trim(),
+        address: customerAddress.trim(),
+        email: customerEmail.trim(),
+      },
+      line_items: validItems.map((i, idx) => ({
+        position: idx + 1,
+        description: i.description.trim(),
+        quantity: i.quantity,
+        unit_price: i.unit_price,
+        tax_rate: taxMode === 'kleinunternehmer' ? '0' : i.tax_rate,
+      })),
+      tax_mode: taxMode,
+      currency,
+      interval,
+      start_date: startDate,
+      end_date: endDate || undefined,
+      payment_terms_days: Number(paymentTermsDays),
+      notes: notes.trim() || undefined,
+    }
+
+    if (editRecurring) {
+      updateRec.mutate(
+        { id: editRecurring.id, ...payload },
+        {
+          onSuccess: () => {
+            toast.success(t('finanzen.recurring.updated'))
+            onOpenChange(false)
+          },
+          onError: (err) => toast.error(err.message),
+        },
+      )
+    } else {
+      createRec.mutate(payload, {
+        onSuccess: () => {
+          toast.success(t('finanzen.recurring.created'))
+          onOpenChange(false)
+        },
+        onError: (err) => toast.error(err.message),
+      })
+    }
+  }
+
+  const isPending = createRec.isPending || updateRec.isPending
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>
-            {editQuote ? t('finanzen.quoteForm.editTitle') : t('finanzen.quotes.create')}
+            {editRecurring ? t('finanzen.recurring.editTitle') : t('finanzen.recurring.createTitle')}
           </DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4 py-2">
+          {/* Title */}
+          <div className="space-y-1.5">
+            <Label>{t('finanzen.recurring.title')} *</Label>
+            <Input
+              placeholder={t('finanzen.recurring.titlePlaceholder')}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </div>
+
           {/* Customer */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -253,28 +224,50 @@ export function QuoteFormDialog({
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>{t('finanzen.invoiceForm.address')}</Label>
+            <Textarea
+              placeholder={t('finanzen.invoiceForm.addressPlaceholder')}
+              value={customerAddress}
+              onChange={(e) => setCustomerAddress(e.target.value)}
+              rows={2}
+            />
+          </div>
+
+          {/* Schedule */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="space-y-1.5">
-              <Label>{t('finanzen.invoiceForm.address')}</Label>
-              <Textarea
-                placeholder={t('finanzen.invoiceForm.addressPlaceholder')}
-                value={customerAddress}
-                onChange={(e) => setCustomerAddress(e.target.value)}
-                rows={2}
-              />
+              <Label>{t('finanzen.recurring.interval')}</Label>
+              <Select value={interval} onValueChange={(v) => setInterval(v as RecurringInterval)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {INTERVALS.map((iv) => (
+                    <SelectItem key={iv} value={iv}>{t(`finanzen.recurring.intervals.${iv}`)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>{t('finanzen.invoiceForm.vatId')}</Label>
+              <Label>{t('finanzen.recurring.startDate')}</Label>
+              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{t('finanzen.recurring.endDate')}</Label>
+              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{t('finanzen.invoiceForm.paymentTermsDays')}</Label>
               <Input
-                placeholder="DE123456789"
-                value={customerUstIdNr}
-                onChange={(e) => setCustomerUstIdNr(e.target.value)}
+                type="number"
+                min={1}
+                value={paymentTermsDays}
+                onChange={(e) => setPaymentTermsDays(e.target.value)}
               />
             </div>
           </div>
 
-          {/* Tax mode, currency & validity */}
-          <div className="grid grid-cols-3 gap-3">
+          {/* Tax & currency */}
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>{t('finanzen.invoiceForm.taxTreatment')}</Label>
               <Select value={taxMode} onValueChange={(v) => setTaxMode(v as TaxMode)}>
@@ -291,42 +284,19 @@ export function QuoteFormDialog({
               <Select value={currency} onValueChange={(v) => setCurrency(v as Currency)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {CURRENCY_OPTIONS.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                  {CURRENCIES.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label>{t('finanzen.quoteForm.validUntil')}</Label>
-              <Input
-                type="date"
-                value={validUntil}
-                onChange={(e) => setValidUntil(e.target.value)}
-              />
-            </div>
           </div>
 
-          {/* Tax mode info banners */}
-          {taxMode === 'reverse_charge' && (
-            <div className="flex items-start gap-2 rounded-lg border border-info/30 bg-info/5 p-3 text-xs text-info">
-              <Info className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>{t('finanzen.invoiceForm.reverseChargeInfo')}</span>
-            </div>
-          )}
-          {taxMode === 'kleinunternehmer' && (
-            <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
-              <Info className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>{t('finanzen.invoiceForm.kleinunternehmerInfo')}</span>
-            </div>
-          )}
-
-          {/* Line Items */}
+          {/* Line items */}
           <div className="space-y-2">
             <Label>{t('finanzen.lineItems.positions')}</Label>
             <div className="rounded-lg border border-border overflow-hidden">
-              <div className="grid grid-cols-[2rem_1fr_70px_90px_80px_90px_32px] gap-2 px-3 py-2 text-[10px] font-medium text-muted-foreground bg-secondary/30 uppercase tracking-wider">
-                <span>{t('finanzen.lineItems.nr')}</span>
+              <div className="grid grid-cols-[1fr_70px_90px_80px_90px_32px] gap-2 px-3 py-2 text-[10px] font-medium text-muted-foreground bg-secondary/30 uppercase tracking-wider">
                 <span>{t('finanzen.lineItems.description')}</span>
                 <span>{t('finanzen.lineItems.quantity')}</span>
                 <span>{t('finanzen.lineItems.unitPrice')}</span>
@@ -337,9 +307,8 @@ export function QuoteFormDialog({
               {items.map((item, idx) => (
                 <div
                   key={item.key}
-                  className="grid grid-cols-[2rem_1fr_70px_90px_80px_90px_32px] gap-2 px-3 py-1.5 border-t border-border-muted items-center"
+                  className="grid grid-cols-[1fr_70px_90px_80px_90px_32px] gap-2 px-3 py-1.5 border-t border-border-muted items-center"
                 >
-                  <span className="text-xs text-muted-foreground">{idx + 1}</span>
                   <Input
                     placeholder={t('finanzen.lineItems.descriptionPlaceholder')}
                     value={item.description}
@@ -363,15 +332,14 @@ export function QuoteFormDialog({
                     className="h-7 text-xs"
                   />
                   {taxMode !== 'kleinunternehmer' ? (
-                    <select
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.1}
                       value={item.tax_rate}
                       onChange={(e) => updateItem(idx, { tax_rate: e.target.value })}
-                      className="h-7 rounded border border-input-border bg-input-background px-1 text-[10px] text-foreground outline-none"
-                    >
-                      {TAX_RATES.map((r) => (
-                        <option key={r.value} value={r.value}>{r.label}</option>
-                      ))}
-                    </select>
+                      className="h-7 text-xs"
+                    />
                   ) : (
                     <span className="text-xs text-muted-foreground px-1">0%</span>
                   )}
@@ -411,7 +379,7 @@ export function QuoteFormDialog({
                 </div>
               )}
               <div className="flex justify-between font-medium text-sm text-foreground border-t border-border pt-1.5">
-                <span>{t('finanzen.totals.totalAmount')}</span>
+                <span>{t('finanzen.recurring.perInvoice')}</span>
                 <span>{formatMoney(total, currency)}</span>
               </div>
             </div>
@@ -434,11 +402,8 @@ export function QuoteFormDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t('common.cancel')}
           </Button>
-          <Button
-            onClick={handleSave}
-            disabled={!customerName.trim() || isPending}
-          >
-            {isPending ? t('finanzen.saving') : editQuote ? t('common.save') : t('common.create')}
+          <Button onClick={handleSave} disabled={!title.trim() || !customerName.trim() || isPending}>
+            {isPending ? t('finanzen.saving') : editRecurring ? t('common.save') : t('common.create')}
           </Button>
         </div>
       </DialogContent>

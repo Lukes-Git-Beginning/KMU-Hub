@@ -38,6 +38,11 @@ import type {
   LockInvoiceResponse,
   DunningNoticeResponse,
   DateRangeParams,
+  RecurringInvoice,
+  CreateRecurringInvoiceRequest,
+  UpdateRecurringInvoiceRequest,
+  ListRecurringInvoicesResponse,
+  GenerateRecurringInvoiceResponse,
 } from '@/types/finance-types'
 import { authenticatedRequest, authenticatedBlobRequest } from './utils/authenticatedFetch'
 
@@ -361,6 +366,55 @@ export const financeExportApi = {
   exportDATEV(params: ExportDATEVParams) {
     return requestBlob(
       `/api/v1/finance/export/datev${qs(params as Record<string, unknown>)}`,
+    )
+  },
+}
+
+// ---------------------------------------------------------------------------
+// Recurring invoices (finanzen P1)
+// ---------------------------------------------------------------------------
+
+export const financeRecurringApi = {
+  list() {
+    return request<ListRecurringInvoicesResponse>('/api/v1/finance/recurring')
+  },
+
+  create(data: CreateRecurringInvoiceRequest) {
+    return request<{ recurring: RecurringInvoice }>('/api/v1/finance/recurring', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+
+  update(id: string, data: UpdateRecurringInvoiceRequest) {
+    return request<{ recurring: RecurringInvoice }>(`/api/v1/finance/recurring/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  },
+
+  delete(id: string) {
+    return request<Record<string, never>>(`/api/v1/finance/recurring/${id}`, {
+      method: 'DELETE',
+    })
+  },
+
+  pause(id: string) {
+    return request<{ recurring: RecurringInvoice }>(`/api/v1/finance/recurring/${id}/pause`, {
+      method: 'POST',
+    })
+  },
+
+  resume(id: string) {
+    return request<{ recurring: RecurringInvoice }>(`/api/v1/finance/recurring/${id}/resume`, {
+      method: 'POST',
+    })
+  },
+
+  generate(id: string) {
+    return request<GenerateRecurringInvoiceResponse>(
+      `/api/v1/finance/recurring/${id}/generate`,
+      { method: 'POST' },
     )
   },
 }

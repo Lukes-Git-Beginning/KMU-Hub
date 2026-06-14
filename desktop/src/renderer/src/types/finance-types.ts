@@ -16,6 +16,15 @@ export type DunningStatus = 'draft' | 'sent' | 'paid'
 export type TaxMode = 'standard' | 'reverse_charge' | 'kleinunternehmer'
 export type PaymentMethod = 'bank_transfer' | 'cash' | 'credit_card' | 'other'
 
+/** Supported invoicing currencies. EUR is the base/reporting currency. */
+export type Currency = 'EUR' | 'CHF' | 'USD'
+
+/** Recurrence interval for a recurring invoice schedule. */
+export type RecurringInterval = 'weekly' | 'monthly' | 'quarterly' | 'yearly'
+
+/** Lifecycle of a recurring invoice schedule. */
+export type RecurringStatus = 'active' | 'paused' | 'ended'
+
 // ---------------------------------------------------------------------------
 // Core domain types
 // ---------------------------------------------------------------------------
@@ -64,6 +73,13 @@ export interface Quote {
   tax_mode: TaxMode
   tax_breakdown: TaxBreakdown
   valid_until: string
+  /** Denormalised totals carried by mock/list payloads (server uses tax_breakdown). */
+  total_net?: number | string
+  total_gross?: number | string
+  /** Document currency. Defaults to EUR when absent. */
+  currency?: Currency
+  /** Rate to EUR for non-EUR documents (1 unit foreign = N EUR), decimal string. */
+  exchange_rate?: string
   notes?: string
   deal_id?: string
   created_at: string
@@ -84,6 +100,15 @@ export interface Invoice {
   due_date: string
   payment_terms?: string
   source_quote_id?: string
+  /** Denormalised totals carried by mock/list payloads (server uses tax_breakdown). */
+  total_net?: number | string
+  total_gross?: number | string
+  /** Document currency. Defaults to EUR when absent. */
+  currency?: Currency
+  /** Rate to EUR for non-EUR documents (1 unit foreign = N EUR), decimal string. */
+  exchange_rate?: string
+  /** Set when this invoice was generated from a recurring schedule. */
+  recurring_id?: string
   notes?: string
   created_at: string
   updated_at: string
@@ -94,10 +119,18 @@ export interface CreditNote {
   credit_note_number: string
   status: CreditNoteStatus
   original_invoice_id: string
+  /** Human-readable number of the original invoice (denormalised for display). */
+  invoice_number?: string
   customer: CustomerSnapshot
   line_items: LineItem[]
   tax_mode: TaxMode
   tax_breakdown: TaxBreakdown
+  /** Denormalised totals carried by mock/list payloads (server uses tax_breakdown). */
+  total_net?: number | string
+  total_gross?: number | string
+  currency?: Currency
+  /** True when the credit note fully cancels (storniert) the original invoice. */
+  is_storno?: boolean
   reason?: string
   created_at: string
 }
@@ -183,6 +216,8 @@ export interface CreateQuoteRequest {
   tax_mode: TaxMode
   line_items: Omit<LineItem, 'id' | 'line_total'>[]
   valid_until?: string
+  currency?: Currency
+  exchange_rate?: string
   notes?: string
   deal_id?: string
 }
@@ -192,6 +227,8 @@ export interface UpdateQuoteRequest {
   tax_mode?: TaxMode
   line_items?: Omit<LineItem, 'id' | 'line_total'>[]
   valid_until?: string
+  currency?: Currency
+  exchange_rate?: string
   notes?: string
 }
 
@@ -202,6 +239,8 @@ export interface CreateInvoiceRequest {
   invoice_date: string
   delivery_date?: string
   payment_terms_days: number
+  currency?: Currency
+  exchange_rate?: string
   notes?: string
   source_quote_id?: string
 }
@@ -213,6 +252,8 @@ export interface UpdateInvoiceRequest {
   invoice_date?: string
   delivery_date?: string
   payment_terms_days?: number
+  currency?: Currency
+  exchange_rate?: string
   notes?: string
 }
 
@@ -221,6 +262,8 @@ export interface CreateCreditNoteRequest {
   line_items: Omit<LineItem, 'id' | 'line_total'>[]
   tax_mode: TaxMode
   reason?: string
+  /** When true, the original invoice is cancelled (storniert) on creation. */
+  is_storno?: boolean
 }
 
 export interface RecordPaymentRequest {
@@ -387,4 +430,64 @@ export interface LockInvoiceResponse {
 export interface DunningNoticeResponse {
   dunning: DunningRecord
   email_queued?: boolean
+}
+
+// ---------------------------------------------------------------------------
+// Recurring invoices (finanzen P1)
+// ---------------------------------------------------------------------------
+
+/**
+ * A recurring invoice schedule. Acts as a template that emits draft invoices
+ * at the configured interval until the (optional) end date is reached.
+ */
+export interface RecurringInvoice {
+  id: string
+  /** Display title, e.g. "CRM-Lizenz Müller GmbH". */
+  title: string
+  customer: CustomerSnapshot
+  line_items: LineItem[]
+  tax_mode: TaxMode
+  tax_breakdown: TaxBreakdown
+  currency?: Currency
+  interval: RecurringInterval
+  status: RecurringStatus
+  /** First issue date (YYYY-MM-DD). */
+  start_date: string
+  /** Optional last issue date (YYYY-MM-DD). */
+  end_date?: string
+  /** Next scheduled issue date (YYYY-MM-DD). */
+  next_run: string
+  payment_terms_days: number
+  /** Number of invoices already emitted from this schedule. */
+  generated_count: number
+  /** Issue date of the most recent emitted invoice (YYYY-MM-DD). */
+  last_generated_at?: string
+  notes?: string
+  created_at: string
+}
+
+export interface CreateRecurringInvoiceRequest {
+  title: string
+  customer: CustomerSnapshot
+  line_items: Omit<LineItem, 'id' | 'line_total'>[]
+  tax_mode: TaxMode
+  currency?: Currency
+  interval: RecurringInterval
+  start_date: string
+  end_date?: string
+  payment_terms_days: number
+  notes?: string
+}
+
+export type UpdateRecurringInvoiceRequest = Partial<CreateRecurringInvoiceRequest>
+
+export interface ListRecurringInvoicesResponse {
+  recurring: RecurringInvoice[]
+  total: number
+}
+
+/** Response from generating the next invoice of a recurring schedule. */
+export interface GenerateRecurringInvoiceResponse {
+  invoice: Invoice
+  recurring: RecurringInvoice
 }

@@ -25,8 +25,9 @@ import {
   useMarkInvoicePaid,
   useCancelInvoice,
   useDownloadInvoicePDF,
+  useCreditNotes,
 } from '@/api/hooks/useFinance'
-import { formatEUR } from '@/stores/finance'
+import { formatMoney } from '@/stores/finance'
 import type { InvoiceStatus } from '@/types/finance-types'
 import { PDFPreviewPanel } from './PDFPreviewPanel'
 import { formatDate } from '@/lib/format'
@@ -84,6 +85,7 @@ interface InvoiceDetailPanelProps {
   onClose: () => void
   onEdit: () => void
   onRecordPayment: () => void
+  onStorno?: () => void
 }
 
 export function InvoiceDetailPanel({
@@ -91,10 +93,12 @@ export function InvoiceDetailPanel({
   onClose,
   onEdit,
   onRecordPayment,
+  onStorno,
 }: InvoiceDetailPanelProps) {
   const { t } = useTranslation()
   const { data: invoice, isLoading } = useInvoice(invoiceId)
   const { data: paymentsData } = usePayments(invoiceId)
+  const { data: creditNotesData } = useCreditNotes()
   const sendInvoice = useSendInvoice()
   const markPaid = useMarkInvoicePaid()
   const cancelInvoice = useCancelInvoice()
@@ -112,11 +116,16 @@ export function InvoiceDetailPanel({
 
   const status = statusConfig[invoice.status]
   const StatusIcon = status.icon
+  const currency = invoice.currency ?? 'EUR'
+  const money = (v: number | string) => formatMoney(v, currency)
   const grossTotal = Number(invoice.tax_breakdown?.gross_total ?? invoice.total_gross ?? 0)
   const payments = paymentsData?.payments ?? []
   const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0)
   const remaining = Math.max(0, grossTotal - totalPaid)
   const isImmutable = invoice.status !== 'draft'
+  const linkedCreditNotes = (creditNotesData?.credit_notes ?? []).filter(
+    (cn) => cn.original_invoice_id === invoice.id || cn.invoice_number === invoice.invoice_number,
+  )
 
   const handleSend = () => {
     sendInvoice.mutate(invoiceId, {
@@ -235,12 +244,12 @@ export function InvoiceDetailPanel({
                     {item.description}
                   </p>
                   <p className="text-[10px] text-muted-foreground">
-                    {item.quantity} x {formatEUR(item.unit_price)}
+                    {item.quantity} x {money(item.unit_price)}
                     {Number(item.tax_rate) > 0 && ` | ${item.tax_rate}% MwSt`}
                   </p>
                 </div>
                 <span className="text-foreground font-medium ml-3">
-                  {formatEUR(item.line_total)}
+                  {money(item.line_total)}
                 </span>
               </div>
             ))}
@@ -251,7 +260,7 @@ export function InvoiceDetailPanel({
         <div className="space-y-1.5 text-xs">
           <div className="flex justify-between text-muted-foreground">
             <span>{t('finanzen.totals.subtotalNet')}</span>
-            <span>{formatEUR(invoice.tax_breakdown?.subtotal ?? invoice.total_net ?? 0)}</span>
+            <span>{money(invoice.tax_breakdown?.subtotal ?? invoice.total_net ?? 0)}</span>
           </div>
           {Object.entries(invoice.tax_breakdown?.tax_by_rate ?? {}).map(
             ([rate, amount]) => (
@@ -260,29 +269,61 @@ export function InvoiceDetailPanel({
                 className="flex justify-between text-muted-foreground"
               >
                 <span>MwSt {rate}%</span>
-                <span>{formatEUR(amount)}</span>
+                <span>{money(amount)}</span>
               </div>
             ),
           )}
           <div className="flex justify-between font-medium text-sm text-foreground border-t border-border pt-1.5">
             <span>{t('finanzen.totals.totalAmount')}</span>
-            <span>{formatEUR(invoice.tax_breakdown?.gross_total ?? invoice.total_gross ?? 0)}</span>
+            <span>{money(invoice.tax_breakdown?.gross_total ?? invoice.total_gross ?? 0)}</span>
           </div>
           {totalPaid > 0 && (
             <>
               <div className="flex justify-between text-success">
                 <span>{t('finanzen.status.paid')}</span>
-                <span>{formatEUR(totalPaid)}</span>
+                <span>{money(totalPaid)}</span>
               </div>
               {remaining > 0 && (
                 <div className="flex justify-between font-medium text-warning">
                   <span>{t('finanzen.invoiceDetail.open')}</span>
-                  <span>{formatEUR(remaining)}</span>
+                  <span>{money(remaining)}</span>
                 </div>
               )}
             </>
           )}
         </div>
+
+        {/* Linked credit notes / storno */}
+        {linkedCreditNotes.length > 0 && (
+          <section>
+            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+              {t('finanzen.invoiceDetail.linkedCreditNotes')}
+            </h4>
+            <div className="space-y-1.5">
+              {linkedCreditNotes.map((cn) => (
+                <div
+                  key={cn.id}
+                  className="flex items-center justify-between rounded-md border border-border-muted px-3 py-2 text-xs"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-mono text-primary">{cn.credit_note_number}</span>
+                    {cn.is_storno && (
+                      <span className="rounded bg-error-light px-1.5 py-0.5 text-[9px] font-medium text-error">
+                        {t('finanzen.creditNote.stornoBadge')}
+                      </span>
+                    )}
+                    {cn.reason && (
+                      <span className="text-[10px] text-muted-foreground truncate">{cn.reason}</span>
+                    )}
+                  </div>
+                  <span className="text-foreground font-medium ml-2 shrink-0">
+                    {money(cn.tax_breakdown?.gross_total ?? cn.total_gross ?? 0)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Payment history */}
         {payments.length > 0 && (
@@ -306,7 +347,7 @@ export function InvoiceDetailPanel({
                     </p>
                   </div>
                   <span className="text-success font-medium">
-                    {formatEUR(p.amount)}
+                    {money(p.amount)}
                   </span>
                 </div>
               ))}
@@ -329,7 +370,7 @@ export function InvoiceDetailPanel({
           invoiceNumber={invoice.invoice_number}
           customerName={invoice.customer?.name ?? ''}
           date={formatDate(invoice.invoice_date)}
-          amount={formatEUR(invoice.tax_breakdown?.gross_total ?? invoice.total_gross ?? 0)}
+          amount={money(invoice.tax_breakdown?.gross_total ?? invoice.total_gross ?? 0)}
           onDownload={() => downloadPDF.mutate(invoiceId)}
         />
 
@@ -372,7 +413,7 @@ export function InvoiceDetailPanel({
                     action: t('finanzen.invoiceDetail.auditPayment'),
                     user: 'System',
                     date: p.payment_date,
-                    detail: `${formatEUR(p.amount)} via ${PAYMENT_METHOD_LABEL_KEYS[p.method] ? t(PAYMENT_METHOD_LABEL_KEYS[p.method]) : p.method}`,
+                    detail: `${money(p.amount)} via ${PAYMENT_METHOD_LABEL_KEYS[p.method] ? t(PAYMENT_METHOD_LABEL_KEYS[p.method]) : p.method}`,
                   }))
                 : []),
             ].map((entry, idx) => (
@@ -444,16 +485,30 @@ export function InvoiceDetailPanel({
                 <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
                 {t('finanzen.invoiceDetail.markPaid')}
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleCancel}
-                disabled={cancelInvoice.isPending}
-                className="text-error hover:text-error"
-              >
-                <Ban className="mr-1.5 h-3.5 w-3.5" />
-                {t('finanzen.invoiceDetail.cancel')}
-              </Button>
+              {invoice.status === 'draft' ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCancel}
+                  disabled={cancelInvoice.isPending}
+                  className="text-error hover:text-error"
+                >
+                  <Ban className="mr-1.5 h-3.5 w-3.5" />
+                  {t('finanzen.invoiceDetail.cancel')}
+                </Button>
+              ) : (
+                onStorno && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onStorno}
+                    className="text-error hover:text-error"
+                  >
+                    <Ban className="mr-1.5 h-3.5 w-3.5" />
+                    {t('finanzen.invoiceDetail.storno')}
+                  </Button>
+                )
+              )}
             </>
           )}
         </div>

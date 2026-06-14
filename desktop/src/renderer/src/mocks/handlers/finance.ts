@@ -7,8 +7,63 @@ import {
   mockFinanceDashboard,
   mockFinanceSettings,
 } from '../data/invoices'
+import { mockRecurringInvoices, advanceByInterval } from '../data/finance-recurring'
 
 const API = API_BASE_URL
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+interface RawLineItem {
+  description?: string
+  quantity?: string | number
+  unit_price?: string | number
+  tax_rate?: string | number
+}
+
+/** Compute net/tax/gross totals + tax_breakdown from request line items. */
+function computeTotals(lineItems: RawLineItem[]) {
+  const tax_by_rate: Record<string, number> = {}
+  let net = 0
+  const line_items = lineItems.map((it, idx) => {
+    const qty = Number(it.quantity ?? 0)
+    const price = Number(it.unit_price ?? 0)
+    const rate = Number(it.tax_rate ?? 0)
+    const lineNet = qty * price
+    net += lineNet
+    tax_by_rate[rate] = (tax_by_rate[rate] ?? 0) + lineNet * (rate / 100)
+    return {
+      id: `li-${idx}`,
+      position: idx + 1,
+      description: String(it.description ?? ''),
+      quantity: String(it.quantity ?? '0'),
+      unit_price: String(it.unit_price ?? '0'),
+      tax_rate: String(it.tax_rate ?? '0'),
+      line_total: lineNet.toFixed(2),
+    }
+  })
+  const totalTax = Object.values(tax_by_rate).reduce((s, v) => s + v, 0)
+  return {
+    line_items,
+    total_net: net,
+    total_gross: net + totalTax,
+    tax_breakdown: {
+      subtotal: net.toFixed(2),
+      tax_by_rate: Object.fromEntries(
+        Object.entries(tax_by_rate).map(([k, v]) => [k, v.toFixed(2)]),
+      ),
+      total_tax: totalTax.toFixed(2),
+      gross_total: (net + totalTax).toFixed(2),
+    },
+  }
+}
+
+function addDays(dateISO: string, days: number): string {
+  const d = new Date((dateISO || new Date().toISOString().split('T')[0]) + 'T00:00:00')
+  d.setDate(d.getDate() + days)
+  return d.toISOString().split('T')[0]
+}
 
 export const financeHandlers = [
   // ---- Invoices ----
@@ -85,46 +140,84 @@ export const financeHandlers = [
     return HttpResponse.json({ invoice: normalised })
   }),
 
-  // Create invoice
+  // Create invoice — stateful: persists into the mock list so it shows up.
   http.post(`${API}/api/v1/finance/invoices`, async ({ request }) => {
     const body = (await request.json()) as Record<string, unknown>
+    const totals = computeTotals((body.line_items as RawLineItem[]) ?? [])
+    const invoiceDate = (body.invoice_date as string) || new Date().toISOString().split('T')[0]
+    const termsDays = Number(body.payment_terms_days ?? 30)
+    const seq = mockInvoices.invoices.length + 1
+    const customer = (body.customer ?? { name: '', address: '', email: '' }) as Record<string, unknown>
     const newInvoice = {
       id: `inv-${Date.now()}`,
-      number: `RE-2026-${String(mockInvoices.invoices.length + 1).padStart(3, '0')}`,
-      status: 'draft',
-      ...body,
+      number: `RE-2026-${String(seq).padStart(3, '0')}`,
+      invoice_number: `RE-2026-${String(seq).padStart(3, '0')}`,
+      status: 'draft' as const,
+      customer,
+      customer_name: customer.name ?? '',
+      tax_mode: body.tax_mode ?? 'standard',
+      currency: body.currency ?? 'EUR',
+      exchange_rate: body.exchange_rate,
+      issue_date: invoiceDate,
+      invoice_date: invoiceDate,
+      due_date: addDays(invoiceDate, termsDays),
+      payment_terms: String(termsDays),
+      source_quote_id: body.source_quote_id,
+      notes: body.notes ?? '',
+      ...totals,
+      tax_rate: 19,
       created_at: new Date().toISOString(),
     }
+    mockInvoices.invoices.unshift(newInvoice as never)
+    mockInvoices.total = mockInvoices.invoices.length
     return HttpResponse.json({ invoice: newInvoice }, { status: 201 })
   }),
 
-  // Update invoice
+  // Update invoice — stateful: recompute totals when line items change.
   http.put(`${API}/api/v1/finance/invoices/:id`, async ({ params, request }) => {
-    const existing = mockInvoices.invoices.find((inv) => inv.id === params.id)
+    const existing = mockInvoices.invoices.find((inv) => inv.id === params.id) as Record<string, unknown> | undefined
     if (!existing) {
       return HttpResponse.json({ error: 'Invoice not found' }, { status: 404 })
     }
     const body = (await request.json()) as Record<string, unknown>
-    const updated = { ...existing, ...body }
-    return HttpResponse.json({ invoice: updated })
+    Object.assign(existing, body)
+    if (Array.isArray(body.line_items)) {
+      Object.assign(existing, computeTotals(body.line_items as RawLineItem[]))
+    }
+    if (body.payment_terms_days != null) {
+      existing.payment_terms = String(body.payment_terms_days)
+    }
+    return HttpResponse.json({ invoice: existing })
   }),
 
-  // Send invoice
+  // Send invoice — stateful
   http.post(`${API}/api/v1/finance/invoices/:id/send`, ({ params }) => {
-    const existing = mockInvoices.invoices.find((inv) => inv.id === params.id)
+    const existing = mockInvoices.invoices.find((inv) => inv.id === params.id) as Record<string, unknown> | undefined
     if (!existing) {
       return HttpResponse.json({ error: 'Invoice not found' }, { status: 404 })
     }
-    return HttpResponse.json({ invoice: { ...existing, status: 'sent' } })
+    existing.status = 'sent'
+    return HttpResponse.json({ invoice: existing })
   }),
 
-  // Mark invoice as paid
+  // Mark invoice as paid — stateful
   http.post(`${API}/api/v1/finance/invoices/:id/mark-paid`, ({ params }) => {
-    const existing = mockInvoices.invoices.find((inv) => inv.id === params.id)
+    const existing = mockInvoices.invoices.find((inv) => inv.id === params.id) as Record<string, unknown> | undefined
     if (!existing) {
       return HttpResponse.json({ error: 'Invoice not found' }, { status: 404 })
     }
-    return HttpResponse.json({ invoice: { ...existing, status: 'paid' } })
+    existing.status = 'paid'
+    return HttpResponse.json({ invoice: existing })
+  }),
+
+  // Cancel invoice — stateful
+  http.post(`${API}/api/v1/finance/invoices/:id/cancel`, ({ params }) => {
+    const existing = mockInvoices.invoices.find((inv) => inv.id === params.id) as Record<string, unknown> | undefined
+    if (!existing) {
+      return HttpResponse.json({ error: 'Invoice not found' }, { status: 404 })
+    }
+    existing.status = 'cancelled'
+    return HttpResponse.json({ invoice: existing })
   }),
 
   // Invoice payments list
@@ -176,9 +269,67 @@ export const financeHandlers = [
 
   // ---- Credit Notes ----
 
-  // List credit notes
+  // List credit notes — normalise so every note carries a resolvable
+  // original_invoice_id + invoice_number (seed data only had invoice_number).
   http.get(`${API}/api/v1/finance/credit-notes`, () => {
-    return HttpResponse.json(mockCreditNotes)
+    const normalised = mockCreditNotes.credit_notes.map((cn) => {
+      const raw = cn as Record<string, unknown>
+      const linked = mockInvoices.invoices.find(
+        (inv) => inv.invoice_number === raw.invoice_number || inv.id === raw.original_invoice_id,
+      )
+      return {
+        ...raw,
+        original_invoice_id: raw.original_invoice_id ?? linked?.id ?? raw.invoice_number ?? '',
+        invoice_number: raw.invoice_number ?? linked?.invoice_number ?? '',
+        status: raw.status === 'issued' ? 'sent' : raw.status,
+      }
+    })
+    return HttpResponse.json({ credit_notes: normalised, total: normalised.length })
+  }),
+
+  // Create credit note — stateful. With is_storno, cancels the linked invoice.
+  http.post(`${API}/api/v1/finance/credit-notes`, async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>
+    const linked = mockInvoices.invoices.find((inv) => inv.id === body.original_invoice_id) as
+      | Record<string, unknown>
+      | undefined
+    const totals = computeTotals((body.line_items as RawLineItem[]) ?? [])
+    const seq = mockCreditNotes.credit_notes.length + 1
+    const newNote = {
+      id: `cn-${Date.now()}`,
+      number: `GS-2026-${String(seq).padStart(3, '0')}`,
+      credit_note_number: `GS-2026-${String(seq).padStart(3, '0')}`,
+      status: 'draft' as const,
+      original_invoice_id: (body.original_invoice_id as string) ?? '',
+      invoice_number: (linked?.invoice_number as string) ?? '',
+      customer: linked?.customer ?? { name: '', address: '', email: '' },
+      customer_name: (linked?.customer as Record<string, unknown> | undefined)?.name ?? '',
+      tax_mode: body.tax_mode ?? 'standard',
+      currency: linked?.currency ?? 'EUR',
+      is_storno: Boolean(body.is_storno),
+      reason: body.reason ?? '',
+      ...totals,
+      created_at: new Date().toISOString(),
+    }
+    mockCreditNotes.credit_notes.unshift(newNote as never)
+    mockCreditNotes.total = mockCreditNotes.credit_notes.length
+    // Storno semantics: a full credit note cancels the original invoice.
+    if (body.is_storno && linked) {
+      linked.status = 'cancelled'
+    }
+    return HttpResponse.json({ credit_note: newNote }, { status: 201 })
+  }),
+
+  // Send credit note — stateful
+  http.post(`${API}/api/v1/finance/credit-notes/:id/send`, ({ params }) => {
+    const existing = mockCreditNotes.credit_notes.find((cn) => cn.id === params.id) as
+      | Record<string, unknown>
+      | undefined
+    if (!existing) {
+      return HttpResponse.json({ error: 'Credit note not found' }, { status: 404 })
+    }
+    existing.status = 'sent'
+    return HttpResponse.json({ credit_note: existing })
   }),
 
   // ---- Dashboard ----
@@ -214,5 +365,134 @@ export const financeHandlers = [
         ],
       },
     })
+  }),
+
+  // ---- Recurring invoices (finanzen P1) ----
+
+  // List recurring schedules
+  http.get(`${API}/api/v1/finance/recurring`, () => {
+    return HttpResponse.json({
+      recurring: mockRecurringInvoices.recurring,
+      total: mockRecurringInvoices.recurring.length,
+    })
+  }),
+
+  // Create recurring schedule
+  http.post(`${API}/api/v1/finance/recurring`, async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>
+    const totals = computeTotals((body.line_items as RawLineItem[]) ?? [])
+    const startDate = (body.start_date as string) || new Date().toISOString().split('T')[0]
+    const customer = (body.customer ?? { name: '', address: '', email: '' }) as Record<string, unknown>
+    const newRec = {
+      id: `rec-${Date.now()}`,
+      title: (body.title as string) || (customer.name as string) || 'Wiederkehrende Rechnung',
+      customer,
+      tax_mode: body.tax_mode ?? 'standard',
+      currency: body.currency ?? 'EUR',
+      interval: body.interval ?? 'monthly',
+      status: 'active' as const,
+      start_date: startDate,
+      end_date: body.end_date || undefined,
+      next_run: startDate,
+      payment_terms_days: Number(body.payment_terms_days ?? 14),
+      generated_count: 0,
+      notes: body.notes ?? '',
+      line_items: totals.line_items,
+      tax_breakdown: totals.tax_breakdown,
+      created_at: new Date().toISOString(),
+    }
+    mockRecurringInvoices.recurring.unshift(newRec as never)
+    mockRecurringInvoices.total = mockRecurringInvoices.recurring.length
+    return HttpResponse.json({ recurring: newRec }, { status: 201 })
+  }),
+
+  // Update recurring schedule
+  http.put(`${API}/api/v1/finance/recurring/:id`, async ({ params, request }) => {
+    const rec = mockRecurringInvoices.recurring.find((r) => r.id === params.id) as
+      | Record<string, unknown>
+      | undefined
+    if (!rec) return HttpResponse.json({ error: 'Recurring not found' }, { status: 404 })
+    const body = (await request.json()) as Record<string, unknown>
+    Object.assign(rec, body)
+    if (Array.isArray(body.line_items)) {
+      const totals = computeTotals(body.line_items as RawLineItem[])
+      rec.line_items = totals.line_items
+      rec.tax_breakdown = totals.tax_breakdown
+    }
+    return HttpResponse.json({ recurring: rec })
+  }),
+
+  // Delete recurring schedule
+  http.delete(`${API}/api/v1/finance/recurring/:id`, ({ params }) => {
+    const idx = mockRecurringInvoices.recurring.findIndex((r) => r.id === params.id)
+    if (idx >= 0) mockRecurringInvoices.recurring.splice(idx, 1)
+    mockRecurringInvoices.total = mockRecurringInvoices.recurring.length
+    return HttpResponse.json({})
+  }),
+
+  // Pause / resume schedule — stateful
+  http.post(`${API}/api/v1/finance/recurring/:id/pause`, ({ params }) => {
+    const rec = mockRecurringInvoices.recurring.find((r) => r.id === params.id) as
+      | Record<string, unknown>
+      | undefined
+    if (!rec) return HttpResponse.json({ error: 'Recurring not found' }, { status: 404 })
+    rec.status = 'paused'
+    return HttpResponse.json({ recurring: rec })
+  }),
+  http.post(`${API}/api/v1/finance/recurring/:id/resume`, ({ params }) => {
+    const rec = mockRecurringInvoices.recurring.find((r) => r.id === params.id) as
+      | Record<string, unknown>
+      | undefined
+    if (!rec) return HttpResponse.json({ error: 'Recurring not found' }, { status: 404 })
+    if (rec.status !== 'ended') rec.status = 'active'
+    return HttpResponse.json({ recurring: rec })
+  }),
+
+  // Generate next invoice from a schedule — stateful across resources:
+  // emits a real draft invoice into the invoice list + advances next_run.
+  http.post(`${API}/api/v1/finance/recurring/:id/generate`, ({ params }) => {
+    const rec = mockRecurringInvoices.recurring.find((r) => r.id === params.id) as
+      | (Record<string, unknown> & {
+          interval: 'weekly' | 'monthly' | 'quarterly' | 'yearly'
+          next_run: string
+          payment_terms_days: number
+        })
+      | undefined
+    if (!rec) return HttpResponse.json({ error: 'Recurring not found' }, { status: 404 })
+
+    const issueDate = new Date().toISOString().split('T')[0]
+    const seq = mockInvoices.invoices.length + 1
+    const breakdown = rec.tax_breakdown as Record<string, unknown> | undefined
+    const customer = rec.customer as Record<string, unknown>
+    const newInvoice = {
+      id: `inv-${Date.now()}`,
+      number: `RE-2026-${String(seq).padStart(3, '0')}`,
+      invoice_number: `RE-2026-${String(seq).padStart(3, '0')}`,
+      status: 'draft' as const,
+      customer,
+      customer_name: customer.name ?? '',
+      tax_mode: rec.tax_mode ?? 'standard',
+      currency: rec.currency ?? 'EUR',
+      issue_date: issueDate,
+      invoice_date: issueDate,
+      due_date: addDays(issueDate, Number(rec.payment_terms_days ?? 14)),
+      payment_terms: String(rec.payment_terms_days ?? 14),
+      recurring_id: rec.id,
+      notes: `Automatisch erzeugt aus „${rec.title}"`,
+      line_items: rec.line_items,
+      tax_breakdown: breakdown,
+      total_net: Number(breakdown?.subtotal ?? 0),
+      total_gross: Number(breakdown?.gross_total ?? 0),
+      tax_rate: 19,
+      created_at: new Date().toISOString(),
+    }
+    mockInvoices.invoices.unshift(newInvoice as never)
+    mockInvoices.total = mockInvoices.invoices.length
+
+    rec.generated_count = Number(rec.generated_count ?? 0) + 1
+    rec.last_generated_at = issueDate
+    rec.next_run = advanceByInterval(rec.next_run, rec.interval)
+
+    return HttpResponse.json({ invoice: newInvoice, recurring: rec })
   }),
 ]

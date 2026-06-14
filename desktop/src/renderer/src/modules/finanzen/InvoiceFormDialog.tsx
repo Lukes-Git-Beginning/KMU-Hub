@@ -20,7 +20,7 @@ import {
 import { Plus, Trash2, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCreateInvoice, useUpdateInvoice, useCompanySettings } from '@/api/hooks/useFinance'
-import { calcLineTotal, calcInvoiceSubtotal, calcInvoiceTax, calcInvoiceTotal } from '@/stores/finance'
+import { formatEUR, calcLineTotal, calcInvoiceSubtotal, calcInvoiceTax, calcInvoiceTotal } from '@/stores/finance'
 import type { Invoice, TaxMode } from '@/types/finance-types'
 
 interface LineItemDraft {
@@ -115,6 +115,7 @@ export function InvoiceFormDialog({
   const [taxMode, setTaxMode] = useState<TaxMode>('standard')
   const [taxCountry, setTaxCountry] = useState<TaxCountry>('DE')
   const [currency, setCurrency] = useState<InvoiceCurrency>('EUR')
+  const [exchangeRate, setExchangeRate] = useState('1.00')
   const [invoiceDate, setInvoiceDate] = useState('')
   const [deliveryDate, setDeliveryDate] = useState('')
   const [paymentTermsDays, setPaymentTermsDays] = useState('30')
@@ -129,6 +130,7 @@ export function InvoiceFormDialog({
     setTaxMode('standard')
     setTaxCountry('DE')
     setCurrency('EUR')
+    setExchangeRate('1.00')
     setInvoiceDate(new Date().toISOString().split('T')[0])
     setDeliveryDate('')
     setPaymentTermsDays(
@@ -147,19 +149,30 @@ export function InvoiceFormDialog({
       setCustomerEmail(editInvoice.customer.email)
       setCustomerUstIdNr(editInvoice.customer.ust_id_nr ?? '')
       setTaxMode(editInvoice.tax_mode)
+      setCurrency((editInvoice.currency as InvoiceCurrency) ?? 'EUR')
+      setExchangeRate(editInvoice.exchange_rate ?? '1.00')
       setInvoiceDate(editInvoice.invoice_date)
       setDeliveryDate(editInvoice.delivery_date ?? '')
       setPaymentTermsDays(editInvoice.payment_terms ?? '30')
       setNotes(editInvoice.notes ?? '')
+      // Accept both detail-shape (`line_items`) and list-shape (`items`).
+      const rawInv = editInvoice as unknown as {
+        line_items?: Array<Record<string, unknown>>
+        items?: Array<Record<string, unknown>>
+        tax_rate?: number | string
+      }
+      const srcItems = rawInv.line_items ?? rawInv.items ?? []
       setItems(
-        editInvoice.line_items.map((li, idx) => ({
-          key: li.id,
-          position: li.position || idx + 1,
-          description: li.description,
-          quantity: li.quantity,
-          unit_price: li.unit_price,
-          tax_rate: li.tax_rate,
-        })),
+        srcItems.length === 0
+          ? [emptyItem(1)]
+          : srcItems.map((li, idx) => ({
+              key: String(li.id ?? idx),
+              position: Number(li.position ?? idx + 1),
+              description: String(li.description ?? ''),
+              quantity: String(li.quantity ?? '1'),
+              unit_price: String(li.unit_price ?? '0'),
+              tax_rate: String(li.tax_rate ?? rawInv.tax_rate ?? '19'),
+            })),
       )
     } else {
       resetForm()
@@ -213,6 +226,8 @@ export function InvoiceFormDialog({
           invoice_date: invoiceDate,
           delivery_date: deliveryDate || undefined,
           payment_terms_days: Number(paymentTermsDays),
+          currency,
+          exchange_rate: currency === 'EUR' ? undefined : exchangeRate,
           notes: notes.trim() || undefined,
         },
         {
@@ -232,6 +247,8 @@ export function InvoiceFormDialog({
           invoice_date: invoiceDate,
           delivery_date: deliveryDate || undefined,
           payment_terms_days: Number(paymentTermsDays),
+          currency,
+          exchange_rate: currency === 'EUR' ? undefined : exchangeRate,
           notes: notes.trim() || undefined,
           source_quote_id: sourceQuoteId,
         },
@@ -327,8 +344,13 @@ export function InvoiceFormDialog({
                   const country = v as TaxCountry
                   setTaxCountry(country)
                   // Auto-set currency to match country
-                  if (country === 'CH') setCurrency('CHF')
-                  else setCurrency('EUR')
+                  if (country === 'CH') {
+                    setCurrency('CHF')
+                    setExchangeRate('1.06')
+                  } else {
+                    setCurrency('EUR')
+                    setExchangeRate('1.00')
+                  }
                 }}
               >
                 <SelectTrigger>
@@ -345,7 +367,13 @@ export function InvoiceFormDialog({
               <Label>{t('finanzen.invoiceForm.currency')}</Label>
               <Select
                 value={currency}
-                onValueChange={(v) => setCurrency(v as InvoiceCurrency)}
+                onValueChange={(v) => {
+                  const c = v as InvoiceCurrency
+                  setCurrency(c)
+                  if (c === 'EUR') setExchangeRate('1.00')
+                  else if (c === 'CHF') setExchangeRate('1.06')
+                  else setExchangeRate('0.92')
+                }}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -367,6 +395,30 @@ export function InvoiceFormDialog({
               />
             </div>
           </div>
+
+          {/* Exchange rate (only for non-EUR documents) */}
+          {currency !== 'EUR' && (
+            <div className="flex items-end gap-3 rounded-lg border border-info/30 bg-info/5 p-3">
+              <div className="space-y-1.5">
+                <Label className="text-info">{t('finanzen.invoiceForm.exchangeRate')}</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.0001}
+                  value={exchangeRate}
+                  onChange={(e) => setExchangeRate(e.target.value)}
+                  className="h-8 w-32"
+                />
+              </div>
+              <p className="flex-1 pb-1.5 text-xs text-info">
+                {t('finanzen.invoiceForm.exchangeRateHint', {
+                  currency,
+                  rate: exchangeRate || '0',
+                  eur: formatEUR((Number(exchangeRate) || 0) * total),
+                })}
+              </p>
+            </div>
+          )}
 
           {/* Tax mode */}
           <div className="grid grid-cols-2 gap-3">

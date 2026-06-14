@@ -16,6 +16,7 @@ import {
   financeExportApi,
   financeDealApi,
   financeGoBDApi,
+  financeRecurringApi,
 } from '../finance-client'
 import type {
   CreateQuoteRequest,
@@ -31,6 +32,8 @@ import type {
   ListCreditNotesParams,
   ListDunningsParams,
   DateRangeParams,
+  CreateRecurringInvoiceRequest,
+  UpdateRecurringInvoiceRequest,
 } from '@/types/finance-types'
 
 // ---------------------------------------------------------------------------
@@ -56,6 +59,8 @@ export const financeKeys = {
   journalSummary: (year: number) => ['finance', 'journal-summary', year] as const,
   paymentStats: (from: string, to: string) =>
     ['finance', 'payment-stats', from, to] as const,
+  // Recurring invoices (finanzen P1)
+  recurring: () => ['finance', 'recurring'] as const,
 }
 
 // ---------------------------------------------------------------------------
@@ -419,6 +424,71 @@ export function useUpdateDunningConfig() {
       financeDunningApi.updateConfig(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: financeKeys.dunningConfig() })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Recurring invoice hooks (finanzen P1)
+// ---------------------------------------------------------------------------
+
+export function useRecurringInvoices() {
+  return useQuery({
+    queryKey: financeKeys.recurring(),
+    queryFn: () => financeRecurringApi.list(),
+  })
+}
+
+export function useCreateRecurringInvoice() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: CreateRecurringInvoiceRequest) => financeRecurringApi.create(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: financeKeys.recurring() })
+    },
+  })
+}
+
+export function useUpdateRecurringInvoice() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: UpdateRecurringInvoiceRequest & { id: string }) =>
+      financeRecurringApi.update(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: financeKeys.recurring() })
+    },
+  })
+}
+
+export function useDeleteRecurringInvoice() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => financeRecurringApi.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: financeKeys.recurring() })
+    },
+  })
+}
+
+export function usePauseRecurringInvoice() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, paused }: { id: string; paused: boolean }) =>
+      paused ? financeRecurringApi.pause(id) : financeRecurringApi.resume(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: financeKeys.recurring() })
+    },
+  })
+}
+
+export function useGenerateRecurringInvoice() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => financeRecurringApi.generate(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: financeKeys.recurring() })
+      qc.invalidateQueries({ queryKey: ['finance', 'invoices'] })
+      qc.invalidateQueries({ queryKey: ['finance', 'dashboard'] })
     },
   })
 }

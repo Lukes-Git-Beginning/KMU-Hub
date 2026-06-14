@@ -17,10 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Trash2 } from 'lucide-react'
+import { Trash2, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCreateCreditNote, useInvoices } from '@/api/hooks/useFinance'
-import { formatEUR, calcLineTotal, calcInvoiceSubtotal, calcInvoiceTax, calcInvoiceTotal } from '@/stores/finance'
+import { formatMoney, calcLineTotal, calcInvoiceSubtotal, calcInvoiceTax, calcInvoiceTotal } from '@/stores/finance'
 import type { Invoice, TaxMode } from '@/types/finance-types'
 
 interface LineItemDraft {
@@ -35,12 +35,15 @@ interface CreditNoteDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   preselectedInvoice?: Invoice | null
+  /** When true, the dialog issues a full credit note that cancels the invoice. */
+  isStorno?: boolean
 }
 
 export function CreditNoteDialog({
   open,
   onOpenChange,
   preselectedInvoice,
+  isStorno = false,
 }: CreditNoteDialogProps) {
   const { t } = useTranslation()
   const createCreditNote = useCreateCreditNote()
@@ -62,14 +65,23 @@ export function CreditNoteDialog({
     eligibleInvoices.find((inv) => inv.id === selectedInvoiceId)
 
   function populateFromInvoice(inv: Invoice) {
-    setTaxMode(inv.tax_mode)
+    setTaxMode(inv.tax_mode ?? 'standard')
+    // List payloads carry `items` (description/quantity/unit_price/total) while
+    // the detail endpoint normalises to `line_items`. Accept both shapes so the
+    // dialog works whether opened from the list or from a detail view.
+    const raw = inv as unknown as {
+      line_items?: Array<Record<string, unknown>>
+      items?: Array<Record<string, unknown>>
+      tax_rate?: number | string
+    }
+    const source = raw.line_items ?? raw.items ?? []
     setItems(
-      inv.line_items.map((li, idx) => ({
-        key: li.id || String(idx),
-        description: li.description,
-        quantity: li.quantity,
-        unit_price: li.unit_price,
-        tax_rate: li.tax_rate,
+      source.map((li, idx) => ({
+        key: String(li.id ?? idx),
+        description: String(li.description ?? ''),
+        quantity: String(li.quantity ?? '1'),
+        unit_price: String(li.unit_price ?? '0'),
+        tax_rate: String(li.tax_rate ?? raw.tax_rate ?? '19'),
       })),
     )
   }
@@ -81,13 +93,19 @@ export function CreditNoteDialog({
       // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from dialog props
       setSelectedInvoiceId(preselectedInvoice.id)
       populateFromInvoice(preselectedInvoice)
+      setReason(
+        isStorno
+          ? t('finanzen.creditNote.stornoReasonDefault', { number: preselectedInvoice.invoice_number })
+          : '',
+      )
     } else {
       setSelectedInvoiceId('')
       setTaxMode('standard')
       setReason('')
       setItems([])
     }
-  }, [open, preselectedInvoice])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- t intentionally omitted
+  }, [open, preselectedInvoice, isStorno])
 
   const handleInvoiceSelect = (invoiceId: string) => {
     setSelectedInvoiceId(invoiceId)
@@ -130,10 +148,15 @@ export function CreditNoteDialog({
         })),
         tax_mode: taxMode,
         reason: reason.trim(),
+        is_storno: isStorno,
       },
       {
         onSuccess: () => {
-          toast.success(t('finanzen.creditNote.created'))
+          toast.success(
+            isStorno
+              ? t('finanzen.creditNote.stornoDone', { number: selectedInvoice.invoice_number })
+              : t('finanzen.creditNote.created'),
+          )
           onOpenChange(false)
         },
         onError: (err) => toast.error(err.message),
@@ -149,15 +172,26 @@ export function CreditNoteDialog({
   const subtotal = calcInvoiceSubtotal(effectiveItems)
   const tax = calcInvoiceTax(effectiveItems)
   const total = calcInvoiceTotal(effectiveItems)
+  const currency = selectedInvoice?.currency ?? 'EUR'
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>{t('finanzen.creditNote.createTitle')}</DialogTitle>
+          <DialogTitle>
+            {isStorno ? t('finanzen.creditNote.stornoTitle') : t('finanzen.creditNote.createTitle')}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4 py-2">
+          {/* Storno notice */}
+          {isStorno && selectedInvoice && (
+            <div className="flex items-start gap-2 rounded-lg border border-error/30 bg-error/5 p-3 text-xs text-error">
+              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>{t('finanzen.creditNote.stornoNotice', { number: selectedInvoice.invoice_number })}</span>
+            </div>
+          )}
+
           {/* Invoice selection */}
           {!preselectedInvoice && (
             <div className="space-y-1.5">
@@ -169,7 +203,7 @@ export function CreditNoteDialog({
                 <SelectContent>
                   {eligibleInvoices.map((inv) => (
                     <SelectItem key={inv.id} value={inv.id}>
-                      {inv.invoice_number} - {inv.customer?.name ?? ''} ({formatEUR(inv.tax_breakdown?.gross_total ?? inv.total_gross ?? 0)})
+                      {inv.invoice_number} - {inv.customer?.name ?? ''} ({formatMoney(inv.tax_breakdown?.gross_total ?? inv.total_gross ?? 0, inv.currency)})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -194,7 +228,7 @@ export function CreditNoteDialog({
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t('finanzen.invoiceAmount')}</span>
                   <span className="font-medium text-foreground">
-                    {formatEUR(selectedInvoice.tax_breakdown?.gross_total ?? selectedInvoice.total_gross ?? 0)}
+                    {formatMoney(selectedInvoice.tax_breakdown?.gross_total ?? selectedInvoice.total_gross ?? 0, currency)}
                   </span>
                 </div>
               </div>
@@ -252,7 +286,7 @@ export function CreditNoteDialog({
                         {item.tax_rate}%
                       </span>
                       <span className="text-xs text-foreground text-right font-medium">
-                        {formatEUR(calcLineTotal(item.quantity, item.unit_price))}
+                        {formatMoney(calcLineTotal(item.quantity, item.unit_price), currency)}
                       </span>
                       <button
                         onClick={() => removeItem(idx)}
@@ -270,17 +304,17 @@ export function CreditNoteDialog({
                 <div className="w-64 space-y-1.5 text-xs">
                   <div className="flex justify-between text-muted-foreground">
                     <span>{t('finanzen.totals.subtotalNet')}</span>
-                    <span>{formatEUR(subtotal)}</span>
+                    <span>{formatMoney(subtotal, currency)}</span>
                   </div>
                   {taxMode !== 'kleinunternehmer' && (
                     <div className="flex justify-between text-muted-foreground">
                       <span>{t('finanzen.lineItems.vat')}</span>
-                      <span>{formatEUR(tax)}</span>
+                      <span>{formatMoney(tax, currency)}</span>
                     </div>
                   )}
                   <div className="flex justify-between font-medium text-sm text-foreground border-t border-border pt-1.5">
                     <span>{t('finanzen.creditNote.creditAmount')}</span>
-                    <span>{formatEUR(total)}</span>
+                    <span>{formatMoney(total, currency)}</span>
                   </div>
                 </div>
               </div>
@@ -295,11 +329,16 @@ export function CreditNoteDialog({
           </Button>
           <Button
             onClick={handleSave}
+            variant={isStorno ? 'destructive' : 'default'}
             disabled={
               !selectedInvoice || !reason.trim() || items.length === 0 || createCreditNote.isPending
             }
           >
-            {createCreditNote.isPending ? t('finanzen.creditNote.creating') : t('finanzen.creditNote.createTitle')}
+            {createCreditNote.isPending
+              ? t('finanzen.creditNote.creating')
+              : isStorno
+                ? t('finanzen.creditNote.stornoConfirm')
+                : t('finanzen.creditNote.createTitle')}
           </Button>
         </div>
       </DialogContent>

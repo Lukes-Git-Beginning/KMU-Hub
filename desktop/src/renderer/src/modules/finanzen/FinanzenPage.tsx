@@ -16,10 +16,13 @@ import {
   Link2,
   Landmark,
   Timer,
+  Repeat,
+  Wallet,
+  Ban,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ItemActions, ConfirmDialog, EmptyState, PageHeader } from '@/components/shared'
-import { useFinanceUIStore, formatEUR, type FinanceTabKey } from '@/stores/finance'
+import { useFinanceUIStore, formatEUR, formatMoney, type FinanceTabKey } from '@/stores/finance'
 import {
   useInvoices,
   useQuotes,
@@ -53,6 +56,8 @@ import { FinanceDashboard } from './FinanceDashboard'
 import { BelegketteTab } from './BelegketteTab'
 import { ExpensesTab } from './tabs/ExpensesTab'
 import { TransactionsTab } from './tabs/TransactionsTab'
+import { RecurringInvoicesTab } from './RecurringInvoicesTab'
+import { OpenItemsTab } from './OpenItemsTab'
 import { QRRechnungPreview, QRBillIndicator } from './QRRechnungPreview'
 import { EInvoiceBadge, EInvoiceDetailDialog } from './EInvoiceIndicator'
 import { HoursToInvoiceDialog } from './HoursToInvoiceDialog'
@@ -186,7 +191,7 @@ export default function FinanzenPage() {
   const [editInvoice, setEditInvoice] = useState<Invoice | null>(null)
   const [showQuoteForm, setShowQuoteForm] = useState(false)
   const [editQuote, setEditQuote] = useState<Quote | null>(null)
-  const [showCreditNote, setShowCreditNote] = useState(false)
+  const [creditNote, setCreditNote] = useState<{ invoice: Invoice | null; storno: boolean } | null>(null)
   const [paymentInvoiceId, setPaymentInvoiceId] = useState<string | null>(null)
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(
     null,
@@ -333,7 +338,24 @@ export default function FinanzenPage() {
         onClick: () => setPaymentInvoiceId(inv.id),
       })
     }
-    if (inv.status !== 'cancelled' && inv.status !== 'paid') {
+    // Issued invoices are storniert via a linked credit note (GoBD); drafts
+    // can be cancelled directly since they were never issued.
+    if (inv.status === 'sent' || inv.status === 'overdue') {
+      actions.push({
+        separator: true as const,
+        label: '',
+        onClick: () => {},
+      })
+      actions.push({
+        label: t('finanzen.creditNote.createForInvoice'),
+        onClick: () => setCreditNote({ invoice: inv, storno: false }),
+      })
+      actions.push({
+        label: t('finanzen.invoiceDetail.storno'),
+        variant: 'destructive' as const,
+        onClick: () => setCreditNote({ invoice: inv, storno: true }),
+      })
+    } else if (inv.status === 'draft') {
       actions.push({
         separator: true as const,
         label: '',
@@ -446,9 +468,19 @@ export default function FinanzenPage() {
       icon: FileText,
     },
     {
+      key: 'open-items',
+      label: t('finanzen.tabs.openItems'),
+      icon: Wallet,
+    },
+    {
       key: 'quotes',
       label: t('finanzen.tabs.quotes', { count: quotesData?.total ?? 0 }),
       icon: FileText,
+    },
+    {
+      key: 'recurring',
+      label: t('finanzen.tabs.recurring'),
+      icon: Repeat,
     },
     {
       key: 'credit-notes',
@@ -554,7 +586,7 @@ export default function FinanzenPage() {
           )}
           {effectiveTab === 'credit-notes' && (
             <button
-              onClick={() => setShowCreditNote(true)}
+              onClick={() => setCreditNote({ invoice: null, storno: false })}
               className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -600,6 +632,12 @@ export default function FinanzenPage() {
       {/* Dashboard Tab */}
       {effectiveTab === 'dashboard' && <FinanceDashboard />}
 
+      {/* Recurring invoices Tab */}
+      {effectiveTab === 'recurring' && <RecurringInvoicesTab />}
+
+      {/* Open items (OP-Liste) Tab */}
+      {effectiveTab === 'open-items' && <OpenItemsTab />}
+
       {/* Invoices Tab */}
       {effectiveTab === 'invoices' &&
         (invoicesLoading ? (
@@ -641,7 +679,7 @@ export default function FinanzenPage() {
                     {inv.customer.name}
                   </span>
                   <span className="text-sm font-medium text-foreground stat-accent">
-                    {formatEUR(grossTotal)}
+                    {formatMoney(grossTotal, inv.currency)}
                   </span>
                   <span className="text-xs text-muted-foreground">
                     {formatDate(inv.due_date)}
@@ -652,7 +690,7 @@ export default function FinanzenPage() {
                     }`}
                   >
                     {inv.status !== 'paid'
-                      ? formatEUR(inv.tax_breakdown?.gross_total ?? inv.total_gross ?? 0)
+                      ? formatMoney(inv.tax_breakdown?.gross_total ?? inv.total_gross ?? 0, inv.currency)
                       : '--'}
                   </span>
                   <div className="flex items-center gap-1 flex-wrap">
@@ -715,7 +753,7 @@ export default function FinanzenPage() {
                     {q.customer.name}
                   </span>
                   <span className="text-sm font-medium text-foreground">
-                    {formatEUR(q.tax_breakdown?.gross_total ?? q.total_gross ?? 0)}
+                    {formatMoney(q.tax_breakdown?.gross_total ?? q.total_gross ?? 0, q.currency)}
                   </span>
                   <span className="text-xs text-muted-foreground">
                     {formatDate(q.valid_until)}
@@ -744,7 +782,7 @@ export default function FinanzenPage() {
             description={t('finanzen.creditNotes.emptyDescription')}
             action={{
               label: t('finanzen.creditNote.createTitle'),
-              onClick: () => setShowCreditNote(true),
+              onClick: () => setCreditNote({ invoice: null, storno: false }),
             }}
           />
         ) : (
@@ -771,10 +809,15 @@ export default function FinanzenPage() {
                     {cn.customer.name}
                   </span>
                   <span className="text-xs text-muted-foreground font-mono">
-                    {cn.original_invoice_id.slice(0, 8)}...
+                    {cn.invoice_number ?? '--'}
+                    {cn.is_storno && (
+                      <span className="ml-1 rounded bg-error-light px-1 py-0.5 text-[9px] font-medium text-error not-italic">
+                        {t('finanzen.creditNote.stornoBadge')}
+                      </span>
+                    )}
                   </span>
                   <span className="text-sm font-medium text-foreground">
-                    {formatEUR(cn.tax_breakdown?.gross_total ?? cn.total_gross ?? 0)}
+                    {formatMoney(cn.tax_breakdown?.gross_total ?? cn.total_gross ?? 0, cn.currency)}
                   </span>
                   <span
                     className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
@@ -921,6 +964,11 @@ export default function FinanzenPage() {
             setPaymentInvoiceId(selectedInvoiceId)
             setSelectedInvoiceId(null)
           }}
+          onStorno={() => {
+            const inv = invoices.find((i) => i.id === selectedInvoiceId)
+            if (inv) setCreditNote({ invoice: inv, storno: true })
+            setSelectedInvoiceId(null)
+          }}
         />
       )}
 
@@ -940,8 +988,10 @@ export default function FinanzenPage() {
 
       {/* Credit Note Dialog */}
       <CreditNoteDialog
-        open={showCreditNote}
-        onOpenChange={setShowCreditNote}
+        open={!!creditNote}
+        onOpenChange={(open) => !open && setCreditNote(null)}
+        preselectedInvoice={creditNote?.invoice ?? null}
+        isStorno={creditNote?.storno ?? false}
       />
 
       {/* Payment Record */}
