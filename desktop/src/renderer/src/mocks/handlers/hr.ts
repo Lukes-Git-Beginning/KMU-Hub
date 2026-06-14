@@ -141,17 +141,28 @@ let teamRows = [
 ]
 let myWeekStatus: { status: string; submittedAt?: string; approvedBy?: string } = { status: 'open' }
 
+// Live clock state (in-memory) — stateful so clock-in/out/break actually work
+// in the demo. Starts clocked-in for a rich initial view.
+let workStatus: {
+  isClockedIn: boolean
+  isOnBreak: boolean
+  currentShiftStart?: string
+  currentBreakStart?: string
+  todayTotalMinutes: number
+  arbzgSeverity: string
+} = {
+  isClockedIn: true,
+  isOnBreak: false,
+  currentShiftStart: hoursAgo(2, 10),
+  todayTotalMinutes: 370,
+  arbzgSeverity: 'none',
+}
+
 export const hrHandlers = [
   // ── Work Time Status ───────────────────────────────────────────────────
 
   http.get(`${API}/api/v1/hr/time/status`, () => {
-    return HttpResponse.json({
-      isClockedIn: true,
-      isOnBreak: false,
-      currentShiftStart: hoursAgo(2, 10),
-      todayTotalMinutes: 370,
-      arbzgSeverity: 'none',
-    })
+    return HttpResponse.json(workStatus)
   }),
 
   // ── Active Shift ───────────────────────────────────────────────────────
@@ -175,15 +186,29 @@ export const hrHandlers = [
   // ── Clock In/Out ───────────────────────────────────────────────────────
 
   http.post(`${API}/api/v1/hr/time/clock-in`, () => {
+    workStatus = {
+      ...workStatus,
+      isClockedIn: true,
+      isOnBreak: false,
+      currentShiftStart: new Date().toISOString(),
+      currentBreakStart: undefined,
+    }
     return HttpResponse.json({
-      entry: { id: `wte-${Date.now()}`, clockIn: new Date().toISOString() },
+      entry: { id: `wte-${Date.now()}`, clockIn: workStatus.currentShiftStart },
       compliance: { severity: 'none', message: '' },
     })
   }),
 
   http.post(`${API}/api/v1/hr/time/clock-out`, () => {
+    workStatus = {
+      ...workStatus,
+      isClockedIn: false,
+      isOnBreak: false,
+      currentShiftStart: undefined,
+      currentBreakStart: undefined,
+    }
     return HttpResponse.json({
-      entry: { id: 'wte-002', clockOut: new Date().toISOString(), totalMinutes: 480 },
+      entry: { id: `wte-${Date.now()}`, clockOut: new Date().toISOString(), totalMinutes: 480 },
       compliance: { severity: 'none', message: '' },
     })
   }),
@@ -191,12 +216,14 @@ export const hrHandlers = [
   // ── Break ──────────────────────────────────────────────────────────────
 
   http.post(`${API}/api/v1/hr/time/break/start`, () => {
+    workStatus = { ...workStatus, isOnBreak: true, currentBreakStart: new Date().toISOString() }
     return HttpResponse.json({
-      break_entry: { start: new Date().toISOString(), end: null, minutes: 0 },
+      break_entry: { start: workStatus.currentBreakStart, end: null, minutes: 0 },
     })
   }),
 
   http.post(`${API}/api/v1/hr/time/break/end`, () => {
+    workStatus = { ...workStatus, isOnBreak: false, currentBreakStart: undefined }
     return HttpResponse.json({
       break_entry: { start: todayAt(12, 30), end: new Date().toISOString(), minutes: 45 },
     })

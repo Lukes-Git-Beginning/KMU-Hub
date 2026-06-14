@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { SlidersHorizontal, Clock, Coffee, CalendarDays, BarChart3, Calendar } from 'lucide-react'
 import { ModuleSettingsShell, type ModuleSettingsSection } from '@/components/shared'
+import { useSelfProfile } from '@/api/hooks/hr-hooks'
 import {
   useZeiterfassungPrefsStore,
   type ZeiterfassungDefaultView,
@@ -31,6 +32,8 @@ function PersonalPrefs() {
   const setDefaultView = useZeiterfassungPrefsStore((s) => s.setDefaultView)
   const setDailyTargetHours = useZeiterfassungPrefsStore((s) => s.setDailyTargetHours)
   const setClockOutReminder = useZeiterfassungPrefsStore((s) => s.setClockOutReminder)
+  const { data: profile } = useSelfProfile()
+  const weeklyHours = profile?.workDaysPerWeek ? profile.workDaysPerWeek * 8 : null
 
   const viewOptions = [
     { id: 'today', labelKey: 'profil.zeiterfassung.viewToday', icon: Clock },
@@ -54,6 +57,18 @@ function PersonalPrefs() {
           })}
         </div>
       </div>
+
+      {weeklyHours != null && (
+        <div className="rounded-lg border border-border bg-secondary/30 px-3 py-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-foreground">{t('zeiterfassung.settings.personal.weeklyTarget')}</span>
+            <span className="text-sm font-medium tabular-nums text-foreground">
+              {t('zeiterfassung.settings.personal.weeklyTargetValue', { hours: weeklyHours })}
+            </span>
+          </div>
+          <p className="mt-0.5 text-xs text-muted-foreground">{t('zeiterfassung.settings.personal.weeklyTargetHint')}</p>
+        </div>
+      )}
 
       <div className="space-y-1.5">
         <label className="text-sm font-medium text-foreground">{t('zeiterfassung.settings.personal.dailyTarget')}</label>
@@ -86,29 +101,15 @@ function PersonalPrefs() {
 
 function WorkRulesSettings() {
   const { t } = useTranslation()
-  const weeklyTargetHours = useZeiterfassungSettingsStore((s) => s.weeklyTargetHours)
   const autoBreakAfterHours = useZeiterfassungSettingsStore((s) => s.autoBreakAfterHours)
   const autoBreakMinutes = useZeiterfassungSettingsStore((s) => s.autoBreakMinutes)
   const rounding = useZeiterfassungSettingsStore((s) => s.rounding)
-  const setWeeklyTargetHours = useZeiterfassungSettingsStore((s) => s.setWeeklyTargetHours)
   const setAutoBreakAfterHours = useZeiterfassungSettingsStore((s) => s.setAutoBreakAfterHours)
   const setAutoBreakMinutes = useZeiterfassungSettingsStore((s) => s.setAutoBreakMinutes)
   const setRounding = useZeiterfassungSettingsStore((s) => s.setRounding)
 
   return (
     <div className="space-y-4">
-      <div className="space-y-1.5">
-        <label className="text-sm font-medium text-foreground">{t('zeiterfassung.settings.rules.weeklyTarget')}</label>
-        <input
-          type="number"
-          min={1}
-          max={60}
-          value={weeklyTargetHours}
-          onChange={(e) => setWeeklyTargetHours(Math.min(60, Math.max(1, Number(e.target.value))))}
-          className={`${numInput} max-w-[120px]`}
-        />
-      </div>
-
       <div className="space-y-1.5">
         <label className="flex items-center gap-2 text-sm font-medium text-foreground">
           <Coffee className="h-4 w-4 text-muted-foreground" />

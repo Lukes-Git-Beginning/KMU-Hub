@@ -142,5 +142,10 @@ Pro Phase: Bau-Loop + **Design-/Polish-Review (impeccable)** (Darien-Vorgabe 14.
 
 ---
 
+## 🔧 Darien-Feedback-Fix (2026-06-14, nach Live-Ansicht in Cosmi)
+1. **Wochensoll ist KEIN tenant-Setting** (individuell pro Mitarbeiter, im Team/HR gesetzt). → aus dem „Für alle"-Bereich + `zeiterfassungSettings`-Store **entfernt**; stattdessen **read-only im persönlichen Bereich** angezeigt (`useSelfProfile`, „Dein Wochensoll … wird im Team-/HR-Bereich festgelegt"). Tenant behält ArbZG-Pause + Rundung + Feiertagsregion.
+2. **Clock-Mocks stateful gemacht** — der Status-Mock war statisch (Ein-/Ausstempeln/Pause hatten keinen Effekt). Jetzt mutiert `workStatus` in-memory → Buttons reagieren echt im Demo (Ausstempeln → idle, Einstempeln → Timer startet).
+3. QA `scripts/qa-zeiterfassung-fix.mjs` → `.qa-screenshots/ze-fix/` (clock-out idle ✓, settings read-only Wochensoll ✓). i18n +3 ×4. LSP 0.
+
 ## 🏁 MODUL-STATUS: zeiterfassung P1–P5 komplett (2026-06-14)
 Alle 7 Markt-Parität-Features (Benchmark clockodo/Papershift/Harvest) erreicht: Timer ✓ · manuelle Einträge ✓ · §3 ArbZG ✓ · Stundenkonten ✓ · Kunde/Projekt/Leistung ✓ · Pausen-/Arbeitszeit-Regeln ✓ · Auswertung & Export ✓. Plus: Single-Source-Konsolidierung, Moduleinstellungen (settings-komplett), Team-Zeiterfassung + Genehmigung. **Offen (Nächstes):** die 10 toten Store-Views (`profil/tabs/zeiterfassung/`) + `stores/timetracking.ts` löschen (UI ist portiert) — Cleanup-Phase. Mobile/GPS-Stempeln → Phase E/PWA.
