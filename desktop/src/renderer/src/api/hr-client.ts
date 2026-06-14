@@ -13,6 +13,7 @@ import type {
   WorkTimeStatus,
   DailySummary,
   WeeklySummary,
+  TimeBalance,
   ArbZGComplianceResult,
   AbsenceEntry,
   EmployeeProfile,
@@ -323,6 +324,10 @@ export const hrTimeApi = {
     return request<{ summary: WeeklySummary }>(
       `/api/v1/hr/time/summary/weekly?week_start=${weekStart}`,
     )
+  },
+
+  getBalance() {
+    return request<{ balance: TimeBalance }>('/api/v1/hr/time/balance')
   },
 
   submitCorrection(data: SubmitCorrectionInput) {

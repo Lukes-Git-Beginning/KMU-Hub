@@ -21,6 +21,11 @@ function daysAgoAt(days: number, hour: number, minute = 0): string {
   return d.toISOString()
 }
 
+/** ISO timestamp `hours` (+ optional minutes) before now — for a live shift. */
+function hoursAgo(hours: number, minutes = 0): string {
+  return new Date(Date.now() - (hours * 60 + minutes) * 60_000).toISOString()
+}
+
 const mockEntries = [
   // Today
   {
@@ -29,16 +34,17 @@ const mockEntries = [
     date: today(),
     clockIn: todayAt(8, 0),
     clockOut: todayAt(12, 30),
-    breakMinutes: 0,
+    breakMinutes: 30,
+    netWorkMinutes: 240,
     totalMinutes: 270,
     status: 'completed' as const,
-    note: '',
+    note: 'Vormittag',
   },
   {
     id: 'wte-002',
     employee_id: 'usr-001',
     date: today(),
-    clockIn: todayAt(13, 15),
+    clockIn: hoursAgo(2, 10),
     clockOut: null,
     breakMinutes: 0,
     totalMinutes: 0,
@@ -113,8 +119,8 @@ export const hrHandlers = [
     return HttpResponse.json({
       isClockedIn: true,
       isOnBreak: false,
-      currentShiftStart: todayAt(8, 0),
-      todayTotalMinutes: 310,
+      currentShiftStart: hoursAgo(2, 10),
+      todayTotalMinutes: 370,
       arbzgSeverity: 'none',
     })
   }),
@@ -193,9 +199,9 @@ export const hrHandlers = [
     return HttpResponse.json({
       summary: {
         date,
-        totalWorkedMinutes: 310,
-        totalBreakMinutes: 45,
-        netWorkMinutes: 265,
+        totalWorkedMinutes: 400,
+        totalBreakMinutes: 30,
+        netWorkMinutes: 370,
         overtimeMinutes: 0,
         entryCount: 2,
       },
@@ -221,6 +227,19 @@ export const hrHandlers = [
         totalWorkedMinutes: 2230,
         netWorkMinutes: 2005,
         totalOvertimeMinutes: 90,
+      },
+    })
+  }),
+
+  // ── Time Balance (Stundenkonto / Gleitzeit) ───────────────────────────────
+
+  http.get(`${API}/api/v1/hr/time/balance`, () => {
+    return HttpResponse.json({
+      balance: {
+        balanceMinutes: 752, // +12h 32m cumulative overtime credit
+        asOf: today(),
+        periodStart: '2026-01-01',
+        targetWeeklyMinutes: 2400, // 40h
       },
     })
   }),

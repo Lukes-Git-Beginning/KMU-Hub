@@ -127,12 +127,12 @@ Folgende Verknüpfungen konnten im ContactDetailPanel NICHT gebaut werden, weil 
 - Projekt-Portfolio-Entität + Aggregations-Endpoint
 
 ### zeiterfassung
-- Stundenkonto-Saldo-Endpoint (kumuliert, Perioden-Übertrag)
+- **`GET /api/v1/hr/time/balance`** (Stundenkonto-Saldo, kumuliert + Perioden-Übertrag) — **P1 FE-mock-first verdrahtet** (`useTimeBalance`, Shape `{balanceMinutes, asOf, periodStart, targetWeeklyMinutes}`); braucht echten Endpoint.
 - Export-API (CSV / DATEV-Lohn)
-- HR-Worktime-Entry um `project_id`/`customer_id`/`service_code` erweitern
-- Manueller Zeiteintrag: `POST /api/v1/hr/time/entries` fehlt (es gibt nur Clock-In/Out + Korrektur-Workflow)
-- Wochen-Freigabe-Workflow: submit/approve/reject auf Wochenebene
-- ⚠ **Architektur-Entscheidung nötig (Luke + Darien, 2026-06-10):** zwei parallele Zeiterfassungs-UIs — Live-`ZeiterfassungTab` (API-backed) vs. 10 unmounted Store-Views (`profil/tabs/zeiterfassung/`, UI-reich aber Mock) + zwei konkurrierende Topbar-Widgets (`ClockInButton` API vs. `TimeTrackerWidget` Mock). Strom D pausiert das Modul bis zur Entscheidung — Details in `reviews/zeiterfassung.md`.
+- HR-Worktime-Entry um `project_id`/`customer_id`/`service_code` erweitern (P2)
+- Manueller Zeiteintrag: `POST /api/v1/hr/time/entries` fehlt (es gibt nur Clock-In/Out + Korrektur-Workflow) (P2)
+- Wochen-Freigabe-Workflow: submit/approve/reject auf Wochenebene (P5)
+- ✅ **Architektur-Entscheidung getroffen (Darien, 2026-06-14):** HR-API = Single Source. P1 hat das Header-Widget auf API konsolidiert (`WorkClockWidget`; `TimeTrackerWidget`+`ClockInButton` gelöscht) und die Demo-Doppelquelle behoben (idle `/hr/time/*`-Handler aus `team.ts` raus → `hr.ts` serviert). Die 10 toten Store-Views werden ab P2/P3 an die HR-API portiert, danach `stores/timetracking.ts` gelöscht. Details `reviews/zeiterfassung.md`.
 
 ### wiki
 - Share-Token-Routes in `route_wiki.go` registrieren (Repo-Methoden existieren) + öffentl. Read-Endpoint

@@ -15,7 +15,7 @@ import { DEMO_MODE } from '@/mocks/demo-mode'
 import {
   SearchBar,
   HeaderClock,
-  TimeTrackerWidget,
+  WorkClockWidget,
   ProfileSwitcher,
   ProfileMenu,
   HeaderWidgetSlots,
@@ -65,9 +65,9 @@ export function Header() {
 
       {/* Right: controls */}
       <div className="flex shrink-0 min-w-0 items-center gap-[8px] md:gap-[12px]">
-        {/* Unified Time Tracker (clock-in + task tracking) */}
+        {/* Unified work clock (HR-API backed: clock-in/out, break, saldo) */}
         <div className="hidden lg:block">
-          <TimeTrackerWidget />
+          <WorkClockWidget />
         </div>
 
         {/* User presence status picker */}

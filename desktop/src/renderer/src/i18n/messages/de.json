@@ -8629,5 +8629,8 @@
   "work.portfolio.viewPortfolio": "Portfolio",
   "work.budget.estimated": "Geschätzt",
   "work.budget.estimatedHint": "Aus Aufwandsschätzungen × Stundensatz abgeleitet. Live-Daten folgen mit der Zeiterfassung.",
-  "work.utilization.previewBanner": "Vorschau mit Beispieldaten — die Live-Auslastung pro Mitarbeiter folgt mit der Zeiterfassung."
+  "work.utilization.previewBanner": "Vorschau mit Beispieldaten — die Live-Auslastung pro Mitarbeiter folgt mit der Zeiterfassung.",
+  "zeiterfassung.balance.label": "Stundenkonto",
+  "zeiterfassung.shell.subtitle": "ArbZG-konforme Arbeitszeiterfassung",
+  "zeiterfassung.shell.title": "Zeiterfassung"
 }

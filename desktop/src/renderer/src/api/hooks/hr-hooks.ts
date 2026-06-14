@@ -58,6 +58,7 @@ export const hrKeys = {
   dailySummary: (date: string) => ['hr', 'time', 'summary', 'daily', date] as const,
   weeklySummary: (weekStart: string) =>
     ['hr', 'time', 'summary', 'weekly', weekStart] as const,
+  timeBalance: () => ['hr', 'time', 'balance'] as const,
 
   // Absences
   absenceCalendar: (params: AbsenceCalendarParams) =>
@@ -271,6 +272,7 @@ export function useClockOut() {
       qc.invalidateQueries({ queryKey: hrKeys.activeShift() })
       qc.invalidateQueries({ queryKey: ['hr', 'time', 'entries'] })
       qc.invalidateQueries({ queryKey: ['hr', 'time', 'summary'] })
+      qc.invalidateQueries({ queryKey: hrKeys.timeBalance() })
       showArbZGToast(data.compliance)
       toast.success(i18next.t('api.hr.time.clockedOut'))
     },
@@ -333,6 +335,15 @@ export function useWeeklySummary(weekStart: string) {
     queryFn: () => hrTimeApi.getWeeklySummary(weekStart),
     enabled: !!weekStart,
     select: (data) => data.summary,
+  })
+}
+
+/** Cumulative flextime/overtime balance (Stundenkonto). */
+export function useTimeBalance() {
+  return useQuery({
+    queryKey: hrKeys.timeBalance(),
+    queryFn: () => hrTimeApi.getBalance(),
+    select: (data) => data.balance,
   })
 }
 

@@ -121,6 +121,17 @@ export interface WeeklySummary {
   totalOvertimeMinutes: number
 }
 
+/**
+ * Cumulative flextime / overtime balance (Gleitzeit-/Stundenkonto).
+ * Positive = overtime credit, negative = deficit.
+ */
+export interface TimeBalance {
+  balanceMinutes: number
+  asOf: string
+  periodStart: string
+  targetWeeklyMinutes: number
+}
+
 export interface ArbZGComplianceResult {
   severity: ArbZGSeverity
   message: string

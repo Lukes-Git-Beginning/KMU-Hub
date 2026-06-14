@@ -25,3 +25,51 @@
 
 **Reviewer-Notizen:**
 - _Entscheidung Luke/Darien hier eintragen → daraus werden die echten P1-Phasen._
+
+---
+
+## ✅ ENTSCHEIDUNG (Darien, 2026-06-14) — HR-API = Single Source of Truth
+
+Darien hat zeiterfassung als nächstes Modul gewählt + die Architektur ratifiziert (Luke war zu dem Zeitpunkt nicht am PC; sein HR-Backend ist seit der Welle 11.06. belastbar — CreateEmployee, tenant-context, Tests).
+
+**Entscheidung:** Die **HR-API wird die einzige Datenquelle.** Die reiche UI aus den 10 toten Mock-Views wird gerettet und auf HR-Daten umverdrahtet (wo die API es kann), sonst **mock-first** (hr.ts) mit Backend-Gap für Luke. Danach Mock-Store `stores/timetracking.ts` + tote Views löschen, **ein** Header-Widget (API-backed, korrekte Route `/zeiterfassung`). Calendar-Cleanup-Muster.
+
+**Wichtige Code-Funde (14.06., post-merge):**
+- Header rendert das **mock-basierte `TimeTrackerWidget`** (navigiert falsch → `/profil`), NICHT den API-backed `ClockInButton` (existiert, unbenutzt).
+- Lukes Dashboard-Widget `dashboard/widgets/TeamWorktime.tsx` nutzt **bereits HR-API** → Swap bricht es nicht.
+- Mock-Store-Konsumenten: 10 tote Views, `TimeTrackerWidget`, `modules/team/TeamPage.tsx`, `hooks/useTimerTick.ts` → erst nach UI-Port löschen.
+- hr.ts-Mock deckt alle Time-Endpoints ab (status/active/clock-in/out/break/entries/summary daily+weekly/corrections).
+
+**5-Phasen-Plan (volle Markt-Parität, Benchmark clockodo/Papershift/Harvest):**
+- **P1** Fundament & Konsolidierung — Standalone-Shell, ein API-Widget (Mock-Widget raus, Route-Fix), Stundenkonto-Saldo (+/−).
+- **P2** Manuelle Einträge + Projekt/Kunde/Leistung-Zuordnung (+ billable).
+- **P3** Auswertungen + Monatsansicht + Overview-Dashboard (recharts/useChartTheme).
+- **P4** Export (CSV/XLSX/PDF; DATEV/Lohn = backend-gap) + Pausen-/Arbeitszeit-Regeln + ModuleSettingsShell.
+- **P5** Team-Zeiterfassung + Wochen-Freigabe-Workflow + Urlaub/Abwesenheit-Integration.
+
+Pro Phase: Bau-Loop + **Design-/Polish-Review (impeccable)** (Darien-Vorgabe 14.06.). Backend-Gaps gebündelt in `backend-gaps.md`.
+
+---
+
+## ✅ P1 — Fundament & Konsolidierung (2026-06-14, autonom verifiziert)
+
+**Status: grün, QA 0 Fehler / 0 Raw-Keys @ 3 Größen + Widget-Dropdown.**
+
+**Gebaut:**
+1. **Standalone-Modul-Shell** (`modules/zeiterfassung/ZeiterfassungPage.tsx`): echter Modul-Header (Clock-Icon + Titel + „ArbZG-konforme Arbeitszeiterfassung" + Stundenkonto-Badge rechts) statt nacktem Tab-Wrap. Darunter der funktionale Kern (`ZeiterfassungTab`).
+2. **Header-Widget konsolidiert** (`components/header/WorkClockWidget.tsx`, neu): ein **API-backed** Widget ersetzt das mock-basierte `TimeTrackerWidget` (navigierte falsch → /profil) UND den verwaisten `ClockInButton`. **Beide alten Dateien gelöscht.** Dropdown: Live-Timer (rAF) + Tagesfortschritt vs. 8h + Saldo + heutige Einträge + Pause/Ausstempeln + „Zur Zeiterfassung →". Projekt-Picker bewusst raus → P2 (braucht project_id).
+3. **Stundenkonto-Saldo (+/−)** (Markt-Feature): `TimeBalance`-Typ + `hrTimeApi.getBalance()` + `useTimeBalance()` + Mock `/hr/time/balance` (752 min = +12h 32m). `StundenkontoBadge` (Shell) + inline im Widget. `lib/worktime.ts` (`formatSignedMinutes`/`formatWorkMinutes`, geteilt). Invalidierung bei Clock-out.
+
+**⚠ Demo-Daten-Bug gefunden+gefixt (nur durch Screenshot-Hinsehen sichtbar):** `team.ts`-Mock-Handler (lief VOR `hr.ts`) bediente `/hr/time/status|active|entries|summary/*` mit **idle/0**-Daten → Seite zeigte „nicht eingestempelt, 0h, keine Einträge, Korrekturen 5". Die 5 Duplikat-Handler + tote `timeEntries`-Konstante aus `team.ts` **entfernt** → `hr.ts` ist jetzt Single Source (eingestempelt, 2 Einträge heute, kohärente Summen). `hr.ts`-Status auf relativen Shift-Start (`hoursAgo(2,10)`) + kohärente Tageswerte poliert, damit der Live-Timer nicht von fix 08:00 (~11h) läuft.
+
+**i18n:** 3 neue Keys ×4 (`zeiterfassung.shell.title/.subtitle`, `zeiterfassung.balance.label`); Widget nutzt vorhandene `header.timeTracker.*`. Script `scripts/add-zeiterfassung-shell-i18n.mjs`.
+
+**Typecheck:** TS-Language-Server (`getDiagnostics`) 0 auf allen geänderten Dateien — kalter scoped-tsc hängt projektweit (>4 Min), LSP ist hier der schnelle Gate. **Lehre für alle: LSP-Diagnose statt kaltem tsc.**
+
+**QA-Screenshots (angesehen):** `scripts/qa-zeiterfassung-p1.mjs` → `.qa-screenshots/ze-p1/`. Shell @ full/half/small + Widget-Dropdown. Eingestempelt-Zustand, Live-Timer 02:10 konsistent in Header+Toolbar+aktivem Eintrag, Saldo +12h 32m, kein Overflow @ 500px.
+
+**Design-Review:** clean, on-brand, responsive; Hierarchie (Modul=primary-getönt, Daten-Widget=neutral). Tiefe impeccable-Audit → P3 (Charts/Dashboard).
+
+**Backend-Gaps (für Luke, in backend-gaps.md):** `/hr/time/balance` (kumulativer Stundenkonto-Saldo) ist FE-mock-first — braucht echten Endpoint.
+
+**Reviewer-Notizen für Darien:** Pfad `/#/zeiterfassung` anklicken; Header-Widget oben rechts (grüner Live-Timer) öffnen. Offen ab P2: manuelle Einträge, Projekt/Kunde/Leistung, Export, Team, Genehmigung.

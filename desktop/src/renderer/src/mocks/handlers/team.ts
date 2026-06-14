@@ -75,18 +75,6 @@ const leaveBalance = {
 }
 
 // ---------------------------------------------------------------------------
-// Time tracking data
-// ---------------------------------------------------------------------------
-
-const timeEntries = [
-  { id: 'te-001', user_id: IDS.users.stefan, date: daysAgo(0), start: '08:30', end: null, duration_min: null, project: 'Hub V2', task: 'Quartalsbericht', break_min: 0 },
-  { id: 'te-002', user_id: IDS.users.stefan, date: daysAgo(1), start: '08:15', end: '17:30', duration_min: 495, project: 'Hub V2', task: 'Sprint Planning', break_min: 60 },
-  { id: 'te-003', user_id: IDS.users.stefan, date: daysAgo(2), start: '09:00', end: '18:00', duration_min: 480, project: 'Hub V2', task: 'Architektur-Review', break_min: 60 },
-  { id: 'te-004', user_id: IDS.users.stefan, date: daysAgo(3), start: '08:45', end: '17:15', duration_min: 450, project: 'Intern', task: 'Team-Meeting', break_min: 60 },
-  { id: 'te-005', user_id: IDS.users.stefan, date: daysAgo(4), start: '08:00', end: '16:45', duration_min: 465, project: 'Hub V2', task: 'Code Review', break_min: 60 },
-]
-
-// ---------------------------------------------------------------------------
 // Absence calendar
 // ---------------------------------------------------------------------------
 
@@ -167,62 +155,10 @@ export const teamHandlers = [
     return HttpResponse.json({ types: leaveTypes })
   }),
 
-  // Active time clock — no active clock
-  http.get(`${API}/api/v1/hr/time/active`, () => {
-    return HttpResponse.json({ active: null })
-  }),
-
-  // Work time status — matches WorkTimeStatus interface
-  http.get(`${API}/api/v1/hr/time/status`, () => {
-    return HttpResponse.json({
-      isClockedIn: false,
-      isOnBreak: false,
-      todayTotalMinutes: 0,
-      arbzgSeverity: 'none',
-    })
-  }),
-
-  // Time entries for current week
-  http.get(`${API}/api/v1/hr/time/entries`, ({ request }) => {
-    const url = new URL(request.url)
-    const userId = url.searchParams.get('user_id') || IDS.users.stefan
-    const filtered = timeEntries.filter((e) => e.user_id === userId)
-    return HttpResponse.json({ entries: filtered, total: filtered.length })
-  }),
-
-  // Daily summary — matches DailySummary interface
-  http.get(`${API}/api/v1/hr/time/summary/daily`, () => {
-    return HttpResponse.json({
-      summary: {
-        date: today(),
-        totalWorkedMinutes: 0,
-        totalBreakMinutes: 0,
-        netWorkMinutes: 0,
-        overtimeMinutes: 0,
-        entryCount: 0,
-      },
-    })
-  }),
-
-  // Weekly summary — matches WeeklySummary interface
-  http.get(`${API}/api/v1/hr/time/summary/weekly`, () => {
-    return HttpResponse.json({
-      summary: {
-        weekStart: daysAgo(new Date().getDay() === 0 ? 6 : new Date().getDay() - 1),
-        days: [
-          { date: daysAgo(4), totalWorkedMinutes: 465, totalBreakMinutes: 30, netWorkMinutes: 435, overtimeMinutes: 0, entryCount: 1 },
-          { date: daysAgo(3), totalWorkedMinutes: 450, totalBreakMinutes: 30, netWorkMinutes: 420, overtimeMinutes: 0, entryCount: 1 },
-          { date: daysAgo(2), totalWorkedMinutes: 480, totalBreakMinutes: 30, netWorkMinutes: 450, overtimeMinutes: 0, entryCount: 1 },
-          { date: daysAgo(1), totalWorkedMinutes: 495, totalBreakMinutes: 30, netWorkMinutes: 465, overtimeMinutes: 15, entryCount: 1 },
-          { date: daysAgo(0), totalWorkedMinutes: 0, totalBreakMinutes: 0, netWorkMinutes: 0, overtimeMinutes: 0, entryCount: 0 },
-        ],
-        totalWorkedMinutes: 1890,
-        totalBreakMinutes: 120,
-        netWorkMinutes: 1770,
-        totalOvertimeMinutes: 15,
-      },
-    })
-  }),
+  // hr/time/* (status, active, entries, summaries) are owned by the hr.ts
+  // mock handler — single source of truth for the zeiterfassung module.
+  // Removed the duplicate idle/zero handlers here so hr.ts's richer demo
+  // data (clocked-in day, real entries) is served everywhere.
 
   // Absence calendar
   http.get(`${API}/api/v1/hr/absences/calendar`, () => {

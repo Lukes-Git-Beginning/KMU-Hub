@@ -8629,5 +8629,8 @@
   "work.portfolio.viewPortfolio": "Portfolio",
   "work.budget.estimated": "Estimated",
   "work.budget.estimatedHint": "Derived from effort estimates × hourly rate. Live data follows with time tracking.",
-  "work.utilization.previewBanner": "Preview with sample data — live per-member utilization follows with time tracking."
+  "work.utilization.previewBanner": "Preview with sample data — live per-member utilization follows with time tracking.",
+  "zeiterfassung.balance.label": "Time account",
+  "zeiterfassung.shell.subtitle": "Working-hours tracking, ArbZG-compliant",
+  "zeiterfassung.shell.title": "Time Tracking"
 }

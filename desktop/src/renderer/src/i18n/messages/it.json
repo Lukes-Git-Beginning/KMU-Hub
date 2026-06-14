@@ -8595,5 +8595,8 @@
   "work.portfolio.viewPortfolio": "Portfolio",
   "work.budget.estimated": "Stimato",
   "work.budget.estimatedHint": "Derivato dalle stime di impegno × tariffa oraria. Dati live con il tracciamento del tempo.",
-  "work.utilization.previewBanner": "Anteprima con dati di esempio — il carico reale per membro seguirà con il tracciamento del tempo."
+  "work.utilization.previewBanner": "Anteprima con dati di esempio — il carico reale per membro seguirà con il tracciamento del tempo.",
+  "zeiterfassung.balance.label": "Conto ore",
+  "zeiterfassung.shell.subtitle": "Registrazione orari conforme (ArbZG)",
+  "zeiterfassung.shell.title": "Rilevazione presenze"
 }
