@@ -26,7 +26,16 @@ function hoursAgo(hours: number, minutes = 0): string {
   return new Date(Date.now() - (hours * 60 + minutes) * 60_000).toISOString()
 }
 
-const mockEntries = [
+// Billable projects (Kunde → Projekt) for time attribution — clockodo-style.
+const mockProjects = [
+  { id: 'tp-01', name: 'Hub V2', customerId: 'cus-01', customerName: 'Interne Projekte', color: '#6366f1', billableDefault: false },
+  { id: 'tp-02', name: 'Website-Relaunch', customerId: 'cus-02', customerName: 'Brunner AG', color: '#10b981', billableDefault: true },
+  { id: 'tp-03', name: 'CRM-Migration', customerId: 'cus-03', customerName: 'Hoffmann GmbH', color: '#f59e0b', billableDefault: true },
+  { id: 'tp-04', name: 'Support & Wartung', customerId: 'cus-04', customerName: 'Keller & Partner', color: '#3b82f6', billableDefault: true },
+  { id: 'tp-05', name: 'Onboarding', customerId: 'cus-01', customerName: 'Interne Projekte', color: '#8b5cf6', billableDefault: false },
+]
+
+let mockEntries = [
   // Today
   {
     id: 'wte-001',
@@ -38,6 +47,11 @@ const mockEntries = [
     netWorkMinutes: 240,
     totalMinutes: 270,
     status: 'completed' as const,
+    projectId: 'tp-02',
+    projectName: 'Website-Relaunch',
+    customerName: 'Brunner AG',
+    activity: 'Frontend-Umsetzung',
+    billable: true,
     note: 'Vormittag',
   },
   {
@@ -49,6 +63,11 @@ const mockEntries = [
     breakMinutes: 0,
     totalMinutes: 0,
     status: 'active' as const,
+    projectId: 'tp-03',
+    projectName: 'CRM-Migration',
+    customerName: 'Hoffmann GmbH',
+    activity: 'Datenmigration',
+    billable: true,
     note: '',
   },
   // Yesterday
@@ -242,6 +261,52 @@ export const hrHandlers = [
         targetWeeklyMinutes: 2400, // 40h
       },
     })
+  }),
+
+  // ── Projects (Kunde → Projekt) for time attribution ───────────────────────
+
+  http.get(`${API}/api/v1/hr/time/projects`, () => {
+    return HttpResponse.json({ projects: mockProjects })
+  }),
+
+  // ── Manual entry creation ─────────────────────────────────────────────────
+
+  http.post(`${API}/api/v1/hr/time/entries`, async ({ request }) => {
+    const body = (await request.json()) as {
+      clockIn: string
+      clockOut: string
+      breakMinutes?: number
+      projectId?: string
+      activity?: string
+      billable?: boolean
+      note?: string
+    }
+    const project = mockProjects.find((p) => p.id === body.projectId)
+    const grossMinutes = Math.max(
+      0,
+      Math.round((new Date(body.clockOut).getTime() - new Date(body.clockIn).getTime()) / 60_000),
+    )
+    const breakMinutes = body.breakMinutes ?? 0
+    const entry = {
+      id: `wte-${Date.now()}`,
+      employee_id: 'usr-001',
+      date: body.clockIn.slice(0, 10),
+      clockIn: body.clockIn,
+      clockOut: body.clockOut,
+      breakMinutes,
+      netWorkMinutes: Math.max(0, grossMinutes - breakMinutes),
+      totalMinutes: grossMinutes,
+      status: 'completed' as const,
+      isManual: true,
+      projectId: body.projectId,
+      projectName: project?.name,
+      customerName: project?.customerName,
+      activity: body.activity,
+      billable: body.billable ?? project?.billableDefault ?? false,
+      note: body.note ?? '',
+    }
+    mockEntries = [entry, ...mockEntries]
+    return HttpResponse.json({ entry }, { status: 201 })
   }),
 
   // ── Corrections ────────────────────────────────────────────────────────

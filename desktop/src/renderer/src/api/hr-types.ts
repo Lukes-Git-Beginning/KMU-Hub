@@ -82,6 +82,24 @@ export interface WorkTimeEntry {
   correctionApprovedBy?: string
   correctionApprovedAt?: string
   createdAt: string
+  // Project / customer / service attribution (clockodo-style)
+  projectId?: string
+  projectName?: string
+  customerName?: string
+  activity?: string
+  billable?: boolean
+  note?: string
+  isManual?: boolean
+}
+
+/** A billable project a work-time entry can be attributed to (Kunde → Projekt). */
+export interface TimeProject {
+  id: string
+  name: string
+  customerId?: string
+  customerName?: string
+  color: string
+  billableDefault: boolean
 }
 
 export interface BreakEntry {
@@ -252,6 +270,16 @@ export interface SubmitCorrectionInput {
   correctedClockOut: string
   correctedBreakMinutes: number
   reason: string
+}
+
+export interface CreateManualEntryInput {
+  clockIn: string
+  clockOut: string
+  breakMinutes: number
+  projectId?: string
+  activity?: string
+  billable?: boolean
+  note?: string
 }
 
 export interface CreateEmployeeInput {

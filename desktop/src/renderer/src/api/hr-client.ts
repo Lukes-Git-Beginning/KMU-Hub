@@ -14,6 +14,8 @@ import type {
   DailySummary,
   WeeklySummary,
   TimeBalance,
+  TimeProject,
+  CreateManualEntryInput,
   ArbZGComplianceResult,
   AbsenceEntry,
   EmployeeProfile,
@@ -328,6 +330,17 @@ export const hrTimeApi = {
 
   getBalance() {
     return request<{ balance: TimeBalance }>('/api/v1/hr/time/balance')
+  },
+
+  listProjects() {
+    return request<{ projects: TimeProject[] }>('/api/v1/hr/time/projects')
+  },
+
+  createEntry(data: CreateManualEntryInput) {
+    return request<{ entry: WorkTimeEntry }>('/api/v1/hr/time/entries', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
   },
 
   submitCorrection(data: SubmitCorrectionInput) {

@@ -73,3 +73,20 @@ Pro Phase: Bau-Loop + **Design-/Polish-Review (impeccable)** (Darien-Vorgabe 14.
 **Backend-Gaps (für Luke, in backend-gaps.md):** `/hr/time/balance` (kumulativer Stundenkonto-Saldo) ist FE-mock-first — braucht echten Endpoint.
 
 **Reviewer-Notizen für Darien:** Pfad `/#/zeiterfassung` anklicken; Header-Widget oben rechts (grüner Live-Timer) öffnen. Offen ab P2: manuelle Einträge, Projekt/Kunde/Leistung, Export, Team, Genehmigung.
+
+---
+
+## ✅ P2 — Manuelle Einträge + Projekt/Kunde/Leistung (2026-06-14, autonom verifiziert)
+
+**Status: grün, QA 0 Fehler / 0 Raw-Keys; Submit-Flow E2E getestet.**
+
+**Gebaut (clockodo-Taxonomie Kunde → Projekt → Leistung):**
+1. **Datenschicht:** `WorkTimeEntry` um `projectId/projectName/customerName/activity/billable/note/isManual`; `TimeProject`-Typ; `CreateManualEntryInput`; `hrTimeApi.listProjects/createEntry`; `useTimeProjects`/`useCreateTimeEntry`. Mock `GET /hr/time/projects` (5 Kunde/Projekt-Paare) + `POST /hr/time/entries` (in-memory persist, berechnet netto). Bestehende Einträge angereichert.
+2. **`ManualEntryDialog`** (`modules/zeiterfassung/components/`, HR-API): Datum + Von/Bis/Pause (Live-Netto-Berechnung) + Projekt-Picker (Kunde sichtbar, farbcodiert) + Leistung + Abrechenbar-Toggle (defaultet aus Projekt) + Notiz. „Neuer Eintrag"-Button in der ZeiterfassungTab-View-Switcher-Zeile.
+3. **Eintrags-Anzeige angereichert:** Zeilen zeigen Projekt · Kunde — Leistung + Badges (Aktiv/Korrektur/**Manuell**/**Abrechenbar** mit Receipt-Icon).
+
+**QA-Screenshots (angesehen):** `scripts/qa-zeiterfassung-p2.mjs` → `.qa-screenshots/ze-p2/`. Einträge mit voller Attribution; Dialog @ 1440 + 500px (Footer stapelt sauber); Submit → neuer „Manuell"-Eintrag oben in der Liste + Toast „Zeiteintrag erstellt".
+
+**i18n:** 21 Keys ×4 (`zeiterfassung.manual.*` + 2 `api.hr.time.*`), Parität 21/21/21/21. **Typecheck:** LSP 0 auf allen geänderten Dateien. **Design-Review:** clean, on-brand, responsive — kein Polish-Bedarf.
+
+**Backend-Gaps (Luke):** `POST /hr/time/entries` + `GET /hr/time/projects` FE-mock-first; `project_id`/`customer_id`/`service_code` am echten WorkTimeEntry; Projekt-Taxonomie ggf. an work/CRM koppeln statt eigene Liste.

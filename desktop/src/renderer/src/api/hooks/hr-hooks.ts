@@ -23,6 +23,7 @@ import type {
   ApproveRejectInput,
   RecordSickLeaveInput,
   SubmitCorrectionInput,
+  CreateManualEntryInput,
   UpdateEmployeeInput,
   UpdateSelfProfileInput,
   UploadDocumentInput,
@@ -59,6 +60,7 @@ export const hrKeys = {
   weeklySummary: (weekStart: string) =>
     ['hr', 'time', 'summary', 'weekly', weekStart] as const,
   timeBalance: () => ['hr', 'time', 'balance'] as const,
+  timeProjects: () => ['hr', 'time', 'projects'] as const,
 
   // Absences
   absenceCalendar: (params: AbsenceCalendarParams) =>
@@ -344,6 +346,33 @@ export function useTimeBalance() {
     queryKey: hrKeys.timeBalance(),
     queryFn: () => hrTimeApi.getBalance(),
     select: (data) => data.balance,
+  })
+}
+
+/** Billable projects (Kunde → Projekt) a time entry can be attributed to. */
+export function useTimeProjects() {
+  return useQuery({
+    queryKey: hrKeys.timeProjects(),
+    queryFn: () => hrTimeApi.listProjects(),
+    staleTime: 5 * 60 * 1000,
+    select: (data) => data.projects,
+  })
+}
+
+/** Create a manual time entry (back-dated / corrected day). */
+export function useCreateTimeEntry() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: CreateManualEntryInput) => hrTimeApi.createEntry(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['hr', 'time', 'entries'] })
+      qc.invalidateQueries({ queryKey: ['hr', 'time', 'summary'] })
+      qc.invalidateQueries({ queryKey: hrKeys.timeBalance() })
+      toast.success(i18next.t('api.hr.time.entryCreated'))
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || i18next.t('api.hr.time.error.entryCreate'))
+    },
   })
 }
 

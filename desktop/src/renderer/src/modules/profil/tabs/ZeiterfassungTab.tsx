@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Play, Square, Clock, Calendar,
-  Coffee, AlertTriangle, Loader2, Edit3,
+  Coffee, AlertTriangle, Loader2, Edit3, Plus, Receipt,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -29,6 +29,7 @@ import {
   useApproveCorrection,
 } from '@/api/hooks/hr-hooks'
 import { useAuthStore } from '@/stores/auth'
+import { ManualEntryDialog } from '@/modules/zeiterfassung/components/ManualEntryDialog'
 import type { WorkTimeEntry, DailySummary as DailySummaryType } from '@/api/hr-types'
 
 type ViewKey = 'today' | 'week' | 'corrections'
@@ -71,6 +72,7 @@ export default function ZeiterfassungTab() {
     }
   }
   const [activeView, setActiveView] = useState<ViewKey>('today')
+  const [showManualEntry, setShowManualEntry] = useState(false)
   const [showCorrectionDialog, setShowCorrectionDialog] = useState(false)
   const [correctionEntryId, setCorrectionEntryId] = useState('')
   const [correctionClockIn, setCorrectionClockIn] = useState('')
@@ -254,7 +256,7 @@ export default function ZeiterfassungTab() {
       </div>
 
       {/* View Switcher */}
-      <div className="border-b border-border bg-card/30 px-6">
+      <div className="flex items-center justify-between border-b border-border bg-card/30 px-6">
         <nav className="flex gap-1" role="tablist">
           {VIEWS.map((view) => {
             const Icon = view.icon
@@ -282,6 +284,10 @@ export default function ZeiterfassungTab() {
             )
           })}
         </nav>
+        <Button size="sm" variant="outline" onClick={() => setShowManualEntry(true)} className="gap-1.5">
+          <Plus className="h-3.5 w-3.5" />
+          {t('zeiterfassung.manual.newEntry')}
+        </Button>
       </div>
 
       {/* Active View */}
@@ -350,6 +356,8 @@ export default function ZeiterfassungTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ManualEntryDialog open={showManualEntry} onOpenChange={setShowManualEntry} />
     </div>
   )
 }
@@ -398,10 +406,10 @@ function TodayView({ summary, entries }: { summary?: DailySummaryType; entries: 
         ) : (
           <div className="space-y-2">
             {entries.map((entry) => (
-              <div key={entry.id} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card">
-                <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div key={entry.id} className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card">
+                <Clock className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 text-sm">
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="font-mono tabular-nums text-foreground">
                       {formatTimeFromISO(entry.clockIn)}
                       {entry.clockOut ? ` – ${formatTimeFromISO(entry.clockOut)}` : ' – ...'}
@@ -412,7 +420,22 @@ function TodayView({ summary, entries }: { summary?: DailySummaryType; entries: 
                     {entry.isCorrection && (
                       <span className="rounded-full bg-warning-light px-2 py-0.5 text-[10px] font-medium text-warning">{t('profil.zeiterfassung.correction')}</span>
                     )}
+                    {entry.isManual && (
+                      <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">{t('zeiterfassung.manual.manualBadge')}</span>
+                    )}
+                    {entry.billable && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success">
+                        <Receipt className="h-3 w-3" />{t('zeiterfassung.manual.billableShort')}
+                      </span>
+                    )}
                   </div>
+                  {(entry.projectName || entry.activity) && (
+                    <p className="mt-1 truncate text-xs text-foreground">
+                      {entry.projectName}
+                      {entry.customerName && <span className="text-muted-foreground"> · {entry.customerName}</span>}
+                      {entry.activity && <span className="text-muted-foreground"> — {entry.activity}</span>}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {t('profil.zeiterfassung.break')}: {entry.breakMinutes}min
                     {entry.netWorkMinutes != null && ` · ${t('profil.zeiterfassung.net')}: ${formatMinutesDisplay(entry.netWorkMinutes)}`}

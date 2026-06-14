@@ -129,8 +129,8 @@ Folgende Verknüpfungen konnten im ContactDetailPanel NICHT gebaut werden, weil 
 ### zeiterfassung
 - **`GET /api/v1/hr/time/balance`** (Stundenkonto-Saldo, kumuliert + Perioden-Übertrag) — **P1 FE-mock-first verdrahtet** (`useTimeBalance`, Shape `{balanceMinutes, asOf, periodStart, targetWeeklyMinutes}`); braucht echten Endpoint.
 - Export-API (CSV / DATEV-Lohn)
-- HR-Worktime-Entry um `project_id`/`customer_id`/`service_code` erweitern (P2)
-- Manueller Zeiteintrag: `POST /api/v1/hr/time/entries` fehlt (es gibt nur Clock-In/Out + Korrektur-Workflow) (P2)
+- **`POST /api/v1/hr/time/entries`** (manueller Eintrag) + **`GET /api/v1/hr/time/projects`** (Projekt-Taxonomie) — **P2 FE-mock-first verdrahtet** (`useCreateTimeEntry`/`useTimeProjects`); brauchen echte Endpoints.
+- HR-Worktime-Entry um `project_id`/`customer_id`/`service_code` (+ `billable`) erweitern — Projekt-Liste ggf. an work-Projekte/CRM-Kunden koppeln statt eigener Taxonomie.
 - Wochen-Freigabe-Workflow: submit/approve/reject auf Wochenebene (P5)
 - ✅ **Architektur-Entscheidung getroffen (Darien, 2026-06-14):** HR-API = Single Source. P1 hat das Header-Widget auf API konsolidiert (`WorkClockWidget`; `TimeTrackerWidget`+`ClockInButton` gelöscht) und die Demo-Doppelquelle behoben (idle `/hr/time/*`-Handler aus `team.ts` raus → `hr.ts` serviert). Die 10 toten Store-Views werden ab P2/P3 an die HR-API portiert, danach `stores/timetracking.ts` gelöscht. Details `reviews/zeiterfassung.md`.
 
