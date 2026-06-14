@@ -133,7 +133,8 @@ Folgende Verknüpfungen konnten im ContactDetailPanel NICHT gebaut werden, weil 
 - **`POST /api/v1/hr/time/entries`** (manueller Eintrag) + **`GET /api/v1/hr/time/projects`** (Projekt-Taxonomie) — **P2 FE-mock-first verdrahtet** (`useCreateTimeEntry`/`useTimeProjects`); brauchen echte Endpoints.
 - **`GET /api/v1/hr/time/analytics?range=week|month`** (KPI-/Tagestrend-/Projekt-/Billable-Aggregation) — **P3 FE-mock-first verdrahtet** (`useTimeAnalytics`); echter Aggregations-Endpoint oder client-seitig aus Entries.
 - HR-Worktime-Entry um `project_id`/`customer_id`/`service_code` (+ `billable`) erweitern — Projekt-Liste ggf. an work-Projekte/CRM-Kunden koppeln statt eigener Taxonomie.
-- Wochen-Freigabe-Workflow: submit/approve/reject auf Wochenebene (P5)
+- **Wochen-Freigabe-Workflow** (submit/approve/reject auf Wochenebene) + **Team-Wochenübersicht** (`GET /hr/time/team`) — **P5 FE-mock-first verdrahtet** (`useSubmitWeek`/`useApproveWeek`/`useRejectWeek`/`useTeamTime`); brauchen echte Endpoints + `time_week_submissions`-Tabelle.
+- Weekly-Summary braucht `totalBreakMinutes` (pro Tag + Top-Level) — im echten Endpoint mitliefern (Mock war lückenhaft, P5 gefixt).
 - ✅ **Architektur-Entscheidung getroffen (Darien, 2026-06-14):** HR-API = Single Source. P1 hat das Header-Widget auf API konsolidiert (`WorkClockWidget`; `TimeTrackerWidget`+`ClockInButton` gelöscht) und die Demo-Doppelquelle behoben (idle `/hr/time/*`-Handler aus `team.ts` raus → `hr.ts` serviert). Die 10 toten Store-Views werden ab P2/P3 an die HR-API portiert, danach `stores/timetracking.ts` gelöscht. Details `reviews/zeiterfassung.md`.
 
 ### wiki

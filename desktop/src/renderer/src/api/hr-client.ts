@@ -17,6 +17,8 @@ import type {
   TimeProject,
   TimeAnalytics,
   TimeAnalyticsRange,
+  TeamTimeRow,
+  MyWeekStatus,
   CreateManualEntryInput,
   ArbZGComplianceResult,
   AbsenceEntry,
@@ -340,6 +342,35 @@ export const hrTimeApi = {
 
   getAnalytics(range: TimeAnalyticsRange) {
     return request<{ analytics: TimeAnalytics }>(`/api/v1/hr/time/analytics?range=${range}`)
+  },
+
+  getTeamTime(weekStart: string) {
+    return request<{ rows: TeamTimeRow[] }>(`/api/v1/hr/time/team?week_start=${weekStart}`)
+  },
+
+  getMyWeekStatus(weekStart: string) {
+    return request<{ status: MyWeekStatus }>(`/api/v1/hr/time/weeks/status?week_start=${weekStart}`)
+  },
+
+  submitWeek(weekStart: string) {
+    return request<{ status: MyWeekStatus }>('/api/v1/hr/time/weeks/submit', {
+      method: 'POST',
+      body: JSON.stringify({ weekStart }),
+    })
+  },
+
+  approveWeek(employeeId: string, weekStart: string) {
+    return request<{ ok: boolean }>('/api/v1/hr/time/weeks/approve', {
+      method: 'POST',
+      body: JSON.stringify({ employeeId, weekStart }),
+    })
+  },
+
+  rejectWeek(employeeId: string, weekStart: string, reason: string) {
+    return request<{ ok: boolean }>('/api/v1/hr/time/weeks/reject', {
+      method: 'POST',
+      body: JSON.stringify({ employeeId, weekStart, reason }),
+    })
   },
 
   createEntry(data: CreateManualEntryInput) {

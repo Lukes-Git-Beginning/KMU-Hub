@@ -102,6 +102,29 @@ export interface TimeProject {
   billableDefault: boolean
 }
 
+export type WeekStatus = 'open' | 'submitted' | 'approved' | 'rejected'
+
+/** A team member's weekly time summary for the manager team view. */
+export interface TeamTimeRow {
+  employeeId: string
+  name: string
+  department?: string
+  weekMinutes: number
+  targetMinutes: number
+  overtimeMinutes: number
+  clockedIn: boolean
+  weekStatus: WeekStatus
+}
+
+/** The current user's submission state for a given week. */
+export interface MyWeekStatus {
+  weekStart: string
+  status: WeekStatus
+  submittedAt?: string
+  approvedBy?: string
+  rejectionReason?: string
+}
+
 export type TimeAnalyticsRange = 'week' | 'month'
 
 /** Aggregated time-tracking analytics for the Auswertungen view. */

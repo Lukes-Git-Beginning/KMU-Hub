@@ -122,3 +122,25 @@ Pro Phase: Bau-Loop + **Design-/Polish-Review (impeccable)** (Darien-Vorgabe 14.
 **QA:** `scripts/qa-zeiterfassung-p4.mjs` → `.qa-screenshots/ze-p4/`. Settings-Panel (beide Scope-Gruppen, Admin = editierbar) + Export-Dialog. **i18n:** 45 Keys ×4 (settings + export + Registry-Eintrag), Parität. **Typecheck:** LSP 0. **Design:** ModuleSettingsShell-konsistent, on-brand.
 
 **Backend-Gaps (Luke):** `tenant_settings` für zeiterfassung-Regeln (Wochensoll/Pause/Rundung/Region); Export-Endpoints CSV-Serverside + **DATEV-Lohn (LODAS)** + XLSX + PDF.
+
+---
+
+## ✅ P5 — Team-Zeiterfassung + Genehmigungs-Workflow (2026-06-14, autonom verifiziert) — MODUL FERTIG
+
+**Status: grün, QA 0 Fehler / 0 Raw-Keys; Approve- + Submit-Flow E2E getestet.**
+
+**Gebaut:**
+1. **Datenschicht:** `WeekStatus`/`TeamTimeRow`/`MyWeekStatus`; Client + Hooks `useTeamTime`/`useMyWeekStatus`/`useSubmitWeek`/`useApproveWeek`/`useRejectWeek`; Mock `GET /hr/time/team` + `GET/POST /hr/time/weeks/*` mit **in-memory Status-Mutation** (submit → submitted, approve → approved, reject → rejected).
+2. **`TeamView`** (nur für `useIsModuleLead('zeiterfassung')` = Lead/Admin): Tabelle Mitarbeiter/Wochenstunden (Progress)/Überstunden/Status-Badge + Freigeben/Ablehnen pro eingereichter Woche, Clock-in-Indikator, „N zur Freigabe"-Badge. Als Tab „Team" (conditional).
+3. **`WeekSubmitBanner`** (Mitarbeiter, über der Woche-Ansicht): zustandsabhängig (offen → „Woche einreichen", eingereicht → wartet, freigegeben, abgelehnt → erneut einreichen).
+
+**Bug-Fund beim Hinsehen:** Woche-Karte zeigte „Pausen **NaNh NaNm**" — dem Weekly-Summary-Mock fehlte `totalBreakMinutes` (pro Tag + Top-Level) → ergänzt (jetzt 3h 45m + Pause-Spalte befüllt).
+
+**QA:** `scripts/qa-zeiterfassung-p5.mjs` → `.qa-screenshots/ze-p5/`. Team-Tab (Admin), Freigabe (Status→Freigegeben, Badge 3→2, Toast), Woche-Banner, Einreichen (Banner→wartet, Toast). **i18n:** 28 Keys ×4. **Typecheck:** LSP 0. **Design:** Tabelle/Badges/Banner on-brand, konsistent.
+
+**Backend-Gaps (Luke):** `GET /hr/time/team` + Wochen-Submit/Approve/Reject + `time_week_submissions`-Tabelle; Weekly-Summary mit `totalBreakMinutes`.
+
+---
+
+## 🏁 MODUL-STATUS: zeiterfassung P1–P5 komplett (2026-06-14)
+Alle 7 Markt-Parität-Features (Benchmark clockodo/Papershift/Harvest) erreicht: Timer ✓ · manuelle Einträge ✓ · §3 ArbZG ✓ · Stundenkonten ✓ · Kunde/Projekt/Leistung ✓ · Pausen-/Arbeitszeit-Regeln ✓ · Auswertung & Export ✓. Plus: Single-Source-Konsolidierung, Moduleinstellungen (settings-komplett), Team-Zeiterfassung + Genehmigung. **Offen (Nächstes):** die 10 toten Store-Views (`profil/tabs/zeiterfassung/`) + `stores/timetracking.ts` löschen (UI ist portiert) — Cleanup-Phase. Mobile/GPS-Stempeln → Phase E/PWA.

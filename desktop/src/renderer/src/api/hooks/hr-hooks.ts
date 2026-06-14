@@ -63,6 +63,8 @@ export const hrKeys = {
   timeBalance: () => ['hr', 'time', 'balance'] as const,
   timeProjects: () => ['hr', 'time', 'projects'] as const,
   timeAnalytics: (range: string) => ['hr', 'time', 'analytics', range] as const,
+  teamTime: (weekStart: string) => ['hr', 'time', 'team', weekStart] as const,
+  myWeekStatus: (weekStart: string) => ['hr', 'time', 'weeks', 'status', weekStart] as const,
 
   // Absences
   absenceCalendar: (params: AbsenceCalendarParams) =>
@@ -367,6 +369,74 @@ export function useTimeAnalytics(range: TimeAnalyticsRange) {
     queryKey: hrKeys.timeAnalytics(range),
     queryFn: () => hrTimeApi.getAnalytics(range),
     select: (data) => data.analytics,
+  })
+}
+
+/** Team weekly time overview (manager view). */
+export function useTeamTime(weekStart: string) {
+  return useQuery({
+    queryKey: hrKeys.teamTime(weekStart),
+    queryFn: () => hrTimeApi.getTeamTime(weekStart),
+    enabled: !!weekStart,
+    select: (data) => data.rows,
+  })
+}
+
+/** Current user's week submission status. */
+export function useMyWeekStatus(weekStart: string) {
+  return useQuery({
+    queryKey: hrKeys.myWeekStatus(weekStart),
+    queryFn: () => hrTimeApi.getMyWeekStatus(weekStart),
+    enabled: !!weekStart,
+    select: (data) => data.status,
+  })
+}
+
+/** Submit the current week for manager approval. */
+export function useSubmitWeek() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (weekStart: string) => hrTimeApi.submitWeek(weekStart),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['hr', 'time', 'weeks'] })
+      qc.invalidateQueries({ queryKey: ['hr', 'time', 'team'] })
+      toast.success(i18next.t('api.hr.time.weekSubmitted'))
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || i18next.t('api.hr.time.error.weekSubmit'))
+    },
+  })
+}
+
+/** Approve a team member's submitted week. */
+export function useApproveWeek() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ employeeId, weekStart }: { employeeId: string; weekStart: string }) =>
+      hrTimeApi.approveWeek(employeeId, weekStart),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['hr', 'time', 'team'] })
+      toast.success(i18next.t('api.hr.time.weekApproved'))
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || i18next.t('api.hr.time.error.weekApprove'))
+    },
+  })
+}
+
+/** Reject a team member's submitted week. */
+export function useRejectWeek() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ employeeId, weekStart, reason }: { employeeId: string; weekStart: string; reason: string }) =>
+      hrTimeApi.rejectWeek(employeeId, weekStart, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['hr', 'time', 'team'] })
+      toast.success(i18next.t('api.hr.time.weekRejected'))
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || i18next.t('api.hr.time.error.weekReject'))
+    },
   })
 }
 

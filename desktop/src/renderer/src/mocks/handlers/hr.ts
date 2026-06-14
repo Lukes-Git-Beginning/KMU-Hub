@@ -131,6 +131,16 @@ let mockEntries = [
   },
 ]
 
+// Team weekly time + week-submission state (in-memory, mutated by handlers).
+let teamRows = [
+  { employeeId: 'usr-002', name: 'Stefan Klein', department: 'Entwicklung', weekMinutes: 2310, targetMinutes: 2400, overtimeMinutes: 0, clockedIn: true, weekStatus: 'submitted' as const },
+  { employeeId: 'usr-003', name: 'Lena Braun', department: 'Design', weekMinutes: 2460, targetMinutes: 2400, overtimeMinutes: 60, clockedIn: false, weekStatus: 'submitted' as const },
+  { employeeId: 'usr-004', name: 'Felix Krause', department: 'Vertrieb', weekMinutes: 2400, targetMinutes: 2400, overtimeMinutes: 0, clockedIn: true, weekStatus: 'approved' as const },
+  { employeeId: 'usr-005', name: 'Julia Hofmann', department: 'Support', weekMinutes: 1980, targetMinutes: 2400, overtimeMinutes: 0, clockedIn: false, weekStatus: 'open' as const },
+  { employeeId: 'usr-006', name: 'Sophie Lang', department: 'Entwicklung', weekMinutes: 2520, targetMinutes: 2400, overtimeMinutes: 120, clockedIn: true, weekStatus: 'submitted' as const },
+]
+let myWeekStatus: { status: string; submittedAt?: string; approvedBy?: string } = { status: 'open' }
+
 export const hrHandlers = [
   // ── Work Time Status ───────────────────────────────────────────────────
 
@@ -237,13 +247,14 @@ export const hrHandlers = [
       summary: {
         weekStart,
         days: [
-          { date: daysAgo(4), totalWorkedMinutes: 510, netWorkMinutes: 450, overtimeMinutes: 30 },
-          { date: daysAgo(3), totalWorkedMinutes: 420, netWorkMinutes: 390, overtimeMinutes: 0 },
-          { date: daysAgo(2), totalWorkedMinutes: 465, netWorkMinutes: 420, overtimeMinutes: 0 },
-          { date: daysAgo(1), totalWorkedMinutes: 525, netWorkMinutes: 480, overtimeMinutes: 60 },
-          { date: today(), totalWorkedMinutes: 310, netWorkMinutes: 265, overtimeMinutes: 0 },
+          { date: daysAgo(4), totalWorkedMinutes: 510, totalBreakMinutes: 60, netWorkMinutes: 450, overtimeMinutes: 30 },
+          { date: daysAgo(3), totalWorkedMinutes: 420, totalBreakMinutes: 30, netWorkMinutes: 390, overtimeMinutes: 0 },
+          { date: daysAgo(2), totalWorkedMinutes: 465, totalBreakMinutes: 45, netWorkMinutes: 420, overtimeMinutes: 0 },
+          { date: daysAgo(1), totalWorkedMinutes: 525, totalBreakMinutes: 45, netWorkMinutes: 480, overtimeMinutes: 60 },
+          { date: today(), totalWorkedMinutes: 310, totalBreakMinutes: 45, netWorkMinutes: 265, overtimeMinutes: 0 },
         ],
         totalWorkedMinutes: 2230,
+        totalBreakMinutes: 225,
         netWorkMinutes: 2005,
         totalOvertimeMinutes: 90,
       },
@@ -324,6 +335,38 @@ export const hrHandlers = [
         byProject,
       },
     })
+  }),
+
+  // ── Team weekly time (manager view) ───────────────────────────────────────
+
+  http.get(`${API}/api/v1/hr/time/team`, () => {
+    return HttpResponse.json({ rows: teamRows })
+  }),
+
+  // ── Week submission / approval workflow ───────────────────────────────────
+
+  http.get(`${API}/api/v1/hr/time/weeks/status`, ({ request }) => {
+    const url = new URL(request.url)
+    const weekStart = url.searchParams.get('week_start') || today()
+    return HttpResponse.json({ status: { weekStart, ...myWeekStatus } })
+  }),
+
+  http.post(`${API}/api/v1/hr/time/weeks/submit`, async ({ request }) => {
+    const body = (await request.json()) as { weekStart?: string }
+    myWeekStatus = { status: 'submitted', submittedAt: new Date().toISOString() }
+    return HttpResponse.json({ status: { weekStart: body.weekStart ?? today(), ...myWeekStatus } })
+  }),
+
+  http.post(`${API}/api/v1/hr/time/weeks/approve`, async ({ request }) => {
+    const body = (await request.json()) as { employeeId?: string }
+    teamRows = teamRows.map((r) => (r.employeeId === body.employeeId ? { ...r, weekStatus: 'approved' as const } : r))
+    return HttpResponse.json({ ok: true })
+  }),
+
+  http.post(`${API}/api/v1/hr/time/weeks/reject`, async ({ request }) => {
+    const body = (await request.json()) as { employeeId?: string }
+    teamRows = teamRows.map((r) => (r.employeeId === body.employeeId ? { ...r, weekStatus: 'rejected' as const } : r))
+    return HttpResponse.json({ ok: true })
   }),
 
   // ── Manual entry creation ─────────────────────────────────────────────────
