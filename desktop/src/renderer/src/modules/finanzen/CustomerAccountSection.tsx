@@ -100,9 +100,9 @@ export function CustomerAccountSection({ customer, currentDocId }: CustomerAccou
             disabled={!contactId}
             onClick={() => contactId && navigate(`/kontakte?contact=${contactId}`)}
             title={contactId ? undefined : t('finanzen.customerAccount.noCrmMatch')}
-            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
+            className="group inline-flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-secondary hover:text-primary disabled:cursor-not-allowed disabled:border-border disabled:text-foreground disabled:opacity-50"
           >
-            <ArrowUpRight className="h-3 w-3" />
+            <ArrowUpRight className="h-3 w-3 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
             {t('finanzen.customerAccount.openInCrm')}
           </button>
         </div>
@@ -147,7 +147,7 @@ export function CustomerAccountSection({ customer, currentDocId }: CustomerAccou
                   type="button"
                   disabled={!clickable}
                   onClick={() => nav?.open(doc.kind, doc.id)}
-                  className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs transition-colors ${
+                  className={`group flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs transition-colors ${
                     idx > 0 ? 'border-t border-border-muted' : ''
                   } ${clickable ? 'hover:bg-secondary/50' : 'cursor-default'}`}
                 >
@@ -164,7 +164,9 @@ export function CustomerAccountSection({ customer, currentDocId }: CustomerAccou
                     <span className="font-medium tabular-nums text-foreground">
                       {formatMoney(doc.amount, doc.currency)}
                     </span>
-                    {clickable && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                    {clickable && (
+                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground transition-[color,transform] group-hover:translate-x-0.5 group-hover:text-primary" />
+                    )}
                   </span>
                 </button>
               )

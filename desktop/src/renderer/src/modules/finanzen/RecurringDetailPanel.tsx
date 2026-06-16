@@ -168,7 +168,7 @@ export function RecurringDetailPanel({ recurring: r, onClose, onEdit }: Recurrin
                   type="button"
                   disabled={!nav}
                   onClick={() => nav?.open('invoice', inv.id)}
-                  className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs transition-colors hover:bg-secondary/50 disabled:cursor-default disabled:hover:bg-transparent ${
+                  className={`group flex w-full items-center justify-between px-3 py-2 text-left text-xs transition-colors hover:bg-secondary/50 disabled:cursor-default disabled:hover:bg-transparent ${
                     idx > 0 ? 'border-t border-border-muted' : ''
                   }`}
                 >
@@ -180,7 +180,7 @@ export function RecurringDetailPanel({ recurring: r, onClose, onEdit }: Recurrin
                     <span className="font-medium text-foreground">
                       {money(inv.tax_breakdown?.gross_total ?? inv.total_gross ?? 0)}
                     </span>
-                    {nav && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                    {nav && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground transition-[color,transform] group-hover:translate-x-0.5 group-hover:text-primary" />}
                   </span>
                 </button>
               ))}

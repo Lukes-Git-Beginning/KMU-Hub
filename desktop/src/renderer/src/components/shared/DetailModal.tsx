@@ -65,11 +65,14 @@ export function DetailModal({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="-ml-1.5 h-7 w-7 shrink-0"
+                  className="group -ml-1.5 h-7 w-7 shrink-0"
                   onClick={onBack}
                   aria-label={t('shared.detailPanel.back')}
                 >
-                  <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                  <ArrowLeft
+                    className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5"
+                    aria-hidden="true"
+                  />
                 </Button>
               )}
               {title && (

@@ -194,12 +194,12 @@ export function InvoiceDetailPanel({
                 type="button"
                 disabled={!nav}
                 onClick={() => nav?.open('quote', sourceQuote.id)}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary/40 px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-secondary disabled:cursor-default disabled:hover:bg-secondary/40"
+                className="group inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary/40 px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-secondary disabled:cursor-default disabled:hover:bg-secondary/40"
               >
                 <FileCheck className="h-3.5 w-3.5 text-muted-foreground" />
                 {t('finanzen.invoiceDetail.fromQuote')}
                 <span className="font-mono text-primary">{sourceQuote.quote_number}</span>
-                {nav && <ChevronRight className="h-3 w-3 text-muted-foreground" />}
+                {nav && <ChevronRight className="h-3 w-3 text-muted-foreground transition-[color,transform] group-hover:translate-x-0.5 group-hover:text-primary" />}
               </button>
             )}
             {invoice.recurring_id && (
@@ -348,7 +348,7 @@ export function InvoiceDetailPanel({
                   type="button"
                   disabled={!nav}
                   onClick={() => nav?.open('creditNote', cn.id)}
-                  className="flex w-full items-center justify-between rounded-md border border-border-muted px-3 py-2 text-xs text-left transition-colors hover:bg-secondary/50 disabled:cursor-default disabled:hover:bg-transparent"
+                  className="group flex w-full items-center justify-between rounded-md border border-border-muted px-3 py-2 text-xs text-left transition-colors hover:bg-secondary/50 disabled:cursor-default disabled:hover:bg-transparent"
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="font-mono text-primary">{cn.credit_note_number}</span>
@@ -365,7 +365,7 @@ export function InvoiceDetailPanel({
                     <span className="text-foreground font-medium">
                       {money(cn.tax_breakdown?.gross_total ?? cn.total_gross ?? 0)}
                     </span>
-                    {nav && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                    {nav && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground transition-[color,transform] group-hover:translate-x-0.5 group-hover:text-primary" />}
                   </span>
                 </button>
               ))}

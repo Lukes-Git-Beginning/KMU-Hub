@@ -84,14 +84,14 @@ export function CreditNoteDetailPanel({ creditNoteId, onClose, onBack }: CreditN
             type="button"
             disabled={!nav || !cn.original_invoice_id}
             onClick={() => cn.original_invoice_id && nav?.open('invoice', cn.original_invoice_id)}
-            className="flex w-full items-center gap-2 rounded-lg border border-border bg-secondary/40 p-3 text-xs text-left transition-colors hover:bg-secondary disabled:cursor-default disabled:hover:bg-secondary/40"
+            className="group flex w-full items-center gap-2 rounded-lg border border-border bg-secondary/40 p-3 text-xs text-left transition-colors hover:bg-secondary disabled:cursor-default disabled:hover:bg-secondary/40"
           >
             <Link2 className="h-4 w-4 shrink-0 text-muted-foreground" />
             <span className="flex-1 text-muted-foreground">
               {t('finanzen.creditNoteDetail.originalInvoice')}:{' '}
               <span className="font-mono text-foreground">{cn.invoice_number}</span>
             </span>
-            {nav && cn.original_invoice_id && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+            {nav && cn.original_invoice_id && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-[color,transform] group-hover:translate-x-0.5 group-hover:text-primary" />}
           </button>
         )}
 

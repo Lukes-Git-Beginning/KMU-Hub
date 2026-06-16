@@ -116,11 +116,11 @@ export function QuoteDetailPanel({ quoteId, onClose, onEdit, onConverted, onBack
             type="button"
             disabled={!nav || !convertedInvoice}
             onClick={() => convertedInvoice && nav?.open('invoice', convertedInvoice.id)}
-            className="flex w-full items-center gap-2 rounded-lg border border-success/30 bg-success/5 p-3 text-xs text-success transition-colors hover:bg-success/10 disabled:cursor-default disabled:hover:bg-success/5"
+            className="group flex w-full items-center gap-2 rounded-lg border border-success/30 bg-success/5 p-3 text-xs text-success transition-colors hover:bg-success/10 disabled:cursor-default disabled:hover:bg-success/5"
           >
             <FileCheck className="h-4 w-4 shrink-0" />
             <span className="flex-1 text-left">{t('finanzen.quoteDetail.convertedTo', { number: convertedNumber })}</span>
-            {nav && convertedInvoice && <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
+            {nav && convertedInvoice && <ChevronRight className="h-3.5 w-3.5 shrink-0 transition-transform group-hover:translate-x-0.5" />}
           </button>
         )}
 
