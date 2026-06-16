@@ -8,6 +8,7 @@ import {
   mockFinanceSettings,
 } from '../data/invoices'
 import { mockRecurringInvoices, advanceByInterval } from '../data/finance-recurring'
+import { mockExpenses, mockTransactions } from '../data/finance-ledger'
 
 const API = API_BASE_URL
 
@@ -494,5 +495,82 @@ export const financeHandlers = [
     rec.next_run = advanceByInterval(rec.next_run, rec.interval)
 
     return HttpResponse.json({ invoice: newInvoice, recurring: rec })
+  }),
+
+  // ---- Expenses (Ausgaben) — finanzen P2 ----
+  // Swap-ready Mock: kein echtes Backend (siehe backend-gaps.md §finanzen).
+
+  http.get(`${API}/api/v1/finance/expenses`, () => {
+    return HttpResponse.json({ expenses: mockExpenses, total: mockExpenses.length })
+  }),
+
+  http.post(`${API}/api/v1/finance/expenses`, async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>
+    const newExpense = {
+      id: `exp-${Date.now()}`,
+      description: String(body.description ?? ''),
+      amount: Number(body.amount ?? 0),
+      date: (body.date as string) || new Date().toISOString().split('T')[0],
+      category: String(body.category ?? 'Sonstiges'),
+      supplier: String(body.supplier ?? ''),
+      project: (body.project as string) || undefined,
+      account: (body.account as string) || undefined,
+      receipt: Boolean(body.receiptName),
+      receiptName: (body.receiptName as string) || undefined,
+      status: 'pending' as const,
+    }
+    mockExpenses.unshift(newExpense)
+    return HttpResponse.json({ expense: newExpense }, { status: 201 })
+  }),
+
+  http.put(`${API}/api/v1/finance/expenses/:id`, async ({ params, request }) => {
+    const exp = mockExpenses.find((e) => e.id === params.id)
+    if (!exp) return HttpResponse.json({ error: 'Expense not found' }, { status: 404 })
+    const body = (await request.json()) as Record<string, unknown>
+    Object.assign(exp, body)
+    if ('receiptName' in body) exp.receipt = Boolean(body.receiptName)
+    return HttpResponse.json({ expense: exp })
+  }),
+
+  http.post(`${API}/api/v1/finance/expenses/:id/approve`, ({ params }) => {
+    const exp = mockExpenses.find((e) => e.id === params.id)
+    if (!exp) return HttpResponse.json({ error: 'Expense not found' }, { status: 404 })
+    exp.status = 'approved'
+    return HttpResponse.json({ expense: exp })
+  }),
+
+  http.post(`${API}/api/v1/finance/expenses/:id/reject`, ({ params }) => {
+    const exp = mockExpenses.find((e) => e.id === params.id)
+    if (!exp) return HttpResponse.json({ error: 'Expense not found' }, { status: 404 })
+    exp.status = 'rejected'
+    return HttpResponse.json({ expense: exp })
+  }),
+
+  // Beleg anhängen — swap-ready: nur Metadaten (Dateiname), kein Upload-Body.
+  http.post(`${API}/api/v1/finance/expenses/:id/receipt`, async ({ params, request }) => {
+    const exp = mockExpenses.find((e) => e.id === params.id)
+    if (!exp) return HttpResponse.json({ error: 'Expense not found' }, { status: 404 })
+    const body = (await request.json()) as Record<string, unknown>
+    exp.receiptName = (body.receiptName as string) || undefined
+    exp.receipt = Boolean(exp.receiptName)
+    return HttpResponse.json({ expense: exp })
+  }),
+
+  http.delete(`${API}/api/v1/finance/expenses/:id`, ({ params }) => {
+    const idx = mockExpenses.findIndex((e) => e.id === params.id)
+    if (idx >= 0) mockExpenses.splice(idx, 1)
+    return HttpResponse.json({})
+  }),
+
+  // ---- Transactions (Transaktionen) — finanzen P2 ----
+
+  http.get(`${API}/api/v1/finance/transactions`, () => {
+    return HttpResponse.json({ transactions: mockTransactions, total: mockTransactions.length })
+  }),
+
+  http.delete(`${API}/api/v1/finance/transactions/:id`, ({ params }) => {
+    const idx = mockTransactions.findIndex((tx) => tx.id === params.id)
+    if (idx >= 0) mockTransactions.splice(idx, 1)
+    return HttpResponse.json({})
   }),
 ]

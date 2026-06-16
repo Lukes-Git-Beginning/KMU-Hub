@@ -24,6 +24,7 @@ export type FinanceTabKey =
   | 'credit-notes'
   | 'expenses'
   | 'transactions'
+  | 'berichte'
   | 'dunning'
   | 'belegkette'
   | 'banking'
@@ -309,6 +310,10 @@ export interface Expense {
   supplier: string
   project?: string
   receipt?: boolean
+  /** Dateiname des angehängten Belegs (für GoBD-Archiv / DATEV-Beleg-ZIP, P3/P4). */
+  receiptName?: string
+  /** SKR03/04-Sachkonto für den DATEV-Export (leichtes Mapping, kein Buchungssatz). */
+  account?: string
   status: 'pending' | 'approved' | 'rejected'
 }
 

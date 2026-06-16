@@ -44,6 +44,7 @@ import type {
   ListRecurringInvoicesResponse,
   GenerateRecurringInvoiceResponse,
 } from '@/types/finance-types'
+import type { Expense, Transaction } from '@/stores/finance'
 import { authenticatedRequest, authenticatedBlobRequest } from './utils/authenticatedFetch'
 
 // ---------------------------------------------------------------------------
@@ -416,6 +417,82 @@ export const financeRecurringApi = {
       `/api/v1/finance/recurring/${id}/generate`,
       { method: 'POST' },
     )
+  },
+}
+
+// ---------------------------------------------------------------------------
+// Ledger: Expenses & Transactions (finanzen P2)
+// ---------------------------------------------------------------------------
+
+export interface CreateExpenseRequest {
+  description: string
+  amount: number
+  date: string
+  category: string
+  supplier: string
+  project?: string
+  account?: string
+  receiptName?: string
+}
+
+export type UpdateExpenseRequest = Partial<CreateExpenseRequest>
+
+export const financeExpenseApi = {
+  list() {
+    return request<{ expenses: Expense[]; total: number }>('/api/v1/finance/expenses')
+  },
+
+  create(data: CreateExpenseRequest) {
+    return request<{ expense: Expense }>('/api/v1/finance/expenses', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+
+  update(id: string, data: UpdateExpenseRequest) {
+    return request<{ expense: Expense }>(`/api/v1/finance/expenses/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  },
+
+  approve(id: string) {
+    return request<{ expense: Expense }>(`/api/v1/finance/expenses/${id}/approve`, {
+      method: 'POST',
+    })
+  },
+
+  reject(id: string) {
+    return request<{ expense: Expense }>(`/api/v1/finance/expenses/${id}/reject`, {
+      method: 'POST',
+    })
+  },
+
+  attachReceipt(id: string, receiptName: string) {
+    return request<{ expense: Expense }>(`/api/v1/finance/expenses/${id}/receipt`, {
+      method: 'POST',
+      body: JSON.stringify({ receiptName }),
+    })
+  },
+
+  delete(id: string) {
+    return request<Record<string, never>>(`/api/v1/finance/expenses/${id}`, {
+      method: 'DELETE',
+    })
+  },
+}
+
+export const financeTransactionApi = {
+  list() {
+    return request<{ transactions: Transaction[]; total: number }>(
+      '/api/v1/finance/transactions',
+    )
+  },
+
+  delete(id: string) {
+    return request<Record<string, never>>(`/api/v1/finance/transactions/${id}`, {
+      method: 'DELETE',
+    })
   },
 }
 

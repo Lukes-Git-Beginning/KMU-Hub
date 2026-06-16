@@ -1,6 +1,7 @@
-import { SlidersHorizontal, Building2, Receipt, Plug } from 'lucide-react'
+import { SlidersHorizontal, Building2, Receipt, Plug, BookOpen } from 'lucide-react'
 import { ModuleSettingsShell, type ModuleSettingsSection } from '@/components/shared'
 import { FinancePersonalPrefs } from '@/modules/finanzen/FinancePersonalPrefs'
+import { KontierungSettings } from '@/modules/finanzen/KontierungSettings'
 import { StammdatenTab } from '@/modules/finanzen/tabs/StammdatenTab'
 import { FinanzIntegrationenTab } from '@/modules/finanzen/tabs/FinanzIntegrationenTab'
 import { FinanceSettingsTab } from '@/modules/settings/tabs/FinanceSettingsTab'
@@ -36,6 +37,14 @@ export function FinanceSettingsPanel() {
       scope: 'tenant',
       icon: Receipt,
       children: <FinanceSettingsTab embedded />,
+    },
+    {
+      id: 'kontierung',
+      titleKey: 'finanzen.settings.kontierung.title',
+      descriptionKey: 'finanzen.settings.kontierung.desc',
+      scope: 'tenant',
+      icon: BookOpen,
+      children: <KontierungSettings />,
     },
     {
       id: 'integrations',

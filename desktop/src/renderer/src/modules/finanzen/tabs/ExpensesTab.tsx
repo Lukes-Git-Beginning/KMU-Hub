@@ -1,18 +1,26 @@
 /**
- * Ausgaben-Tab fuer den Buchhaltungs-Hub.
+ * Ausgaben-Tab für den Buchhaltungs-Hub (finanzen P2).
  *
- * Migriert aus dem alten `buchhaltung`-Modul (Sprint 1A).
- * Datenquelle: `useFinanceStore` (Zustand-Mock). Backend-Anbindung folgt
- * in einem spaeteren Sprint via TanStack Query (siehe `_DEPRECATED.md`).
+ * Datenquelle: MSW-Handler über `useFinanceLedger` (stateful Mock, swap-ready).
+ * Jede Ausgabe trägt ein SKR-Sachkonto (Kontierung) + optional einen Beleg.
  */
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, Receipt, Search } from 'lucide-react'
+import { Plus, Receipt, Search, Paperclip } from 'lucide-react'
 import { toast } from 'sonner'
-import { useExpenses, useApproveExpense, useRejectExpense, useDeleteExpense } from '@/api/hooks/useFinanceLedger'
+import {
+  useExpenses,
+  useApproveExpense,
+  useRejectExpense,
+  useDeleteExpense,
+} from '@/api/hooks/useFinanceLedger'
+import type { Expense } from '@/stores/finance'
 import { ItemActions, ConfirmDialog, EmptyState } from '@/components/shared'
 import { formatCurrency } from '@/lib/format'
+import { useFinanceTenantStore } from '@/stores/financeTenant'
+import { formatAccount } from '../lib/skr-accounts'
 import { ExpenseFormDialog } from '../ExpenseFormDialog'
+import { ReceiptPreviewDialog } from '../ReceiptPreviewDialog'
 
 export function ExpensesTab() {
   const { t, i18n } = useTranslation()
@@ -20,9 +28,12 @@ export function ExpensesTab() {
   const approveExpense = useApproveExpense()
   const rejectExpense = useRejectExpense()
   const deleteExpense = useDeleteExpense()
+  const framework = useFinanceTenantStore((s) => s.chartFramework)
 
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
+  const [editExpense, setEditExpense] = useState<Expense | null>(null)
+  const [previewExpense, setPreviewExpense] = useState<Expense | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; label: string } | null>(null)
 
   const filtered = useMemo(() => {
@@ -32,7 +43,8 @@ export function ExpensesTab() {
       (e) =>
         e.description.toLowerCase().includes(q) ||
         e.supplier.toLowerCase().includes(q) ||
-        e.category.toLowerCase().includes(q),
+        e.category.toLowerCase().includes(q) ||
+        (e.account ?? '').includes(q),
     )
   }, [expenses, search])
 
@@ -46,6 +58,15 @@ export function ExpensesTab() {
     pending: t('buchhaltung.expenseStatus.pending'),
     approved: t('buchhaltung.expenseStatus.approved'),
     rejected: t('buchhaltung.expenseStatus.rejected'),
+  }
+
+  const openNew = () => {
+    setEditExpense(null)
+    setShowForm(true)
+  }
+  const openEdit = (exp: Expense) => {
+    setEditExpense(exp)
+    setShowForm(true)
   }
 
   return (
@@ -66,7 +87,7 @@ export function ExpensesTab() {
         </div>
         <button
           type="button"
-          onClick={() => setShowForm(true)}
+          onClick={openNew}
           className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
@@ -79,13 +100,14 @@ export function ExpensesTab() {
           icon={Receipt}
           title={t('buchhaltung.empty.expensesTitle')}
           description={t('buchhaltung.empty.expensesDesc')}
-          action={{ label: t('buchhaltung.newExpense'), onClick: () => setShowForm(true) }}
+          action={{ label: t('buchhaltung.newExpense'), onClick: openNew }}
         />
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-card">
-          <div className="grid grid-cols-[1fr_120px_100px_140px_100px_40px] gap-3 border-b border-border bg-secondary/40 px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          <div className="grid grid-cols-[1fr_110px_120px_100px_130px_96px_40px] gap-3 border-b border-border bg-secondary/40 px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
             <span>{t('buchhaltung.table.description')}</span>
             <span>{t('buchhaltung.table.category')}</span>
+            <span>{t('buchhaltung.table.account')}</span>
             <span className="text-right tabular-nums">{t('buchhaltung.table.amount')}</span>
             <span>{t('buchhaltung.table.supplier')}</span>
             <span>{t('common.status')}</span>
@@ -94,16 +116,47 @@ export function ExpensesTab() {
           {filtered.map((exp) => (
             <div
               key={exp.id}
-              className="grid grid-cols-[1fr_120px_100px_140px_100px_40px] items-center gap-3 border-b border-border-muted px-4 py-3 last:border-b-0"
+              className="grid grid-cols-[1fr_110px_120px_100px_130px_96px_40px] items-center gap-3 border-b border-border-muted px-4 py-3 last:border-b-0"
             >
-              <div className="min-w-0">
-                <p className="truncate text-sm text-foreground">{exp.description}</p>
-                <p className="text-[11px] text-muted-foreground">
-                  {new Date(exp.date).toLocaleDateString(i18n.language)}
-                  {exp.project && ` · ${exp.project}`}
-                </p>
+              <div className="flex min-w-0 items-center gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm text-foreground">{exp.description}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {new Date(exp.date).toLocaleDateString(i18n.language)}
+                    {exp.project && ` · ${exp.project}`}
+                  </p>
+                </div>
+                {exp.receipt && (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewExpense(exp)}
+                    aria-label={t('buchhaltung.actions.viewReceipt')}
+                    title={exp.receiptName ?? t('buchhaltung.form.receipt')}
+                    className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                  >
+                    <Paperclip className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                )}
               </div>
-              <span className="truncate text-xs text-muted-foreground">{exp.category}</span>
+              <span className="truncate text-xs text-muted-foreground">
+                {t(`buchhaltung.categories.${exp.category}`, { defaultValue: exp.category })}
+              </span>
+              {exp.account ? (
+                <span
+                  className="truncate font-mono text-xs text-foreground"
+                  title={formatAccount(exp.account, framework)}
+                >
+                  {exp.account}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => openEdit(exp)}
+                  className="w-fit text-xs text-warning underline-offset-2 hover:underline"
+                >
+                  {t('buchhaltung.table.uncategorized')}
+                </button>
+              )}
               <span className="text-right text-sm font-medium tabular-nums text-error">
                 −{formatCurrency(exp.amount)}
               </span>
@@ -113,6 +166,10 @@ export function ExpensesTab() {
               </span>
               <ItemActions
                 items={[
+                  {
+                    label: t('buchhaltung.actions.editExpense'),
+                    onClick: () => openEdit(exp),
+                  },
                   ...(exp.status === 'pending'
                     ? [
                         {
@@ -143,7 +200,9 @@ export function ExpensesTab() {
         </div>
       )}
 
-      <ExpenseFormDialog open={showForm} onOpenChange={setShowForm} />
+      <ExpenseFormDialog open={showForm} onOpenChange={setShowForm} editExpense={editExpense} />
+
+      <ReceiptPreviewDialog expense={previewExpense} onClose={() => setPreviewExpense(null)} />
 
       <ConfirmDialog
         open={!!confirmDelete}

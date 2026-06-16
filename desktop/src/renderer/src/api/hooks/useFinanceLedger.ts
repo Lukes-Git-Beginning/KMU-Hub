@@ -1,35 +1,37 @@
 /**
  * Expenses & transactions (Ausgaben/Transaktionen) — TanStack Query layer.
  *
- * Mock-first: the data still lives in the Zustand finance store (which also backs
- * the deprecated buchhaltung folder, so it must stay), but the finanzen tabs now
- * consume it through TanStack hooks — consistent with the rest of the module and
- * swap-ready. Replace the queryFn/mutationFn bodies with apiClient calls once
- * `/api/v1/finance/expenses` + `/transactions` land (see backend-gaps.md).
+ * finanzen P2: now backed by MSW handlers (`/api/v1/finance/expenses` +
+ * `/transactions`) through `financeExpenseApi` / `financeTransactionApi`. The
+ * mock state is stateful, so approve/reject/create/Kontierung/Beleg-Upload
+ * survive within a session. Swap to the real backend by pointing the API client
+ * at live routes — no hook changes needed (see backend-gaps.md §finanzen).
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useFinanceStore, type Expense, type Transaction } from '@/stores/finance'
+import {
+  financeExpenseApi,
+  financeTransactionApi,
+  type CreateExpenseRequest,
+  type UpdateExpenseRequest,
+} from '@/api/finance-client'
+import type { Expense, Transaction } from '@/stores/finance'
 
 const EXPENSES_KEY = ['finance', 'expenses'] as const
 const TRANSACTIONS_KEY = ['finance', 'transactions'] as const
-
-function delay<T>(value: T): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), 100))
-}
 
 // --- Reads -----------------------------------------------------------------
 
 export function useExpenses() {
   return useQuery({
     queryKey: EXPENSES_KEY,
-    queryFn: () => delay([...useFinanceStore.getState().expenses]),
+    queryFn: async () => (await financeExpenseApi.list()).expenses,
   })
 }
 
 export function useTransactions() {
   return useQuery({
     queryKey: TRANSACTIONS_KEY,
-    queryFn: () => delay([...useFinanceStore.getState().transactions]),
+    queryFn: async () => (await financeTransactionApi.list()).transactions,
   })
 }
 
@@ -38,10 +40,16 @@ export function useTransactions() {
 export function useAddExpense() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (expense: Omit<Expense, 'id'>) => {
-      useFinanceStore.getState().addExpense(expense)
-      return delay(true)
-    },
+    mutationFn: (expense: CreateExpenseRequest) => financeExpenseApi.create(expense),
+    onSuccess: () => qc.invalidateQueries({ queryKey: EXPENSES_KEY }),
+  })
+}
+
+export function useUpdateExpense() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateExpenseRequest }) =>
+      financeExpenseApi.update(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: EXPENSES_KEY }),
   })
 }
@@ -49,10 +57,7 @@ export function useAddExpense() {
 export function useApproveExpense() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => {
-      useFinanceStore.getState().approveExpense(id)
-      return delay(true)
-    },
+    mutationFn: (id: string) => financeExpenseApi.approve(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: EXPENSES_KEY }),
   })
 }
@@ -60,10 +65,16 @@ export function useApproveExpense() {
 export function useRejectExpense() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => {
-      useFinanceStore.getState().rejectExpense(id)
-      return delay(true)
-    },
+    mutationFn: (id: string) => financeExpenseApi.reject(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: EXPENSES_KEY }),
+  })
+}
+
+export function useAttachReceipt() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, receiptName }: { id: string; receiptName: string }) =>
+      financeExpenseApi.attachReceipt(id, receiptName),
     onSuccess: () => qc.invalidateQueries({ queryKey: EXPENSES_KEY }),
   })
 }
@@ -71,10 +82,7 @@ export function useRejectExpense() {
 export function useDeleteExpense() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => {
-      useFinanceStore.getState().deleteExpense(id)
-      return delay(true)
-    },
+    mutationFn: (id: string) => financeExpenseApi.delete(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: EXPENSES_KEY }),
   })
 }
@@ -84,10 +92,7 @@ export function useDeleteExpense() {
 export function useDeleteTransaction() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => {
-      useFinanceStore.getState().deleteTransaction(id)
-      return delay(true)
-    },
+    mutationFn: (id: string) => financeTransactionApi.delete(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: TRANSACTIONS_KEY }),
   })
 }

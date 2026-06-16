@@ -19,6 +19,7 @@ import {
   Repeat,
   Wallet,
   Ban,
+  PieChart,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ItemActions, ConfirmDialog, EmptyState, PageHeader } from '@/components/shared'
@@ -56,6 +57,7 @@ import { FinanceDashboard } from './FinanceDashboard'
 import { BelegketteTab } from './BelegketteTab'
 import { ExpensesTab } from './tabs/ExpensesTab'
 import { TransactionsTab } from './tabs/TransactionsTab'
+import { BerichteTab } from './tabs/BerichteTab'
 import { RecurringInvoicesTab } from './RecurringInvoicesTab'
 import { OpenItemsTab } from './OpenItemsTab'
 import { QRRechnungPreview, QRBillIndicator } from './QRRechnungPreview'
@@ -497,6 +499,7 @@ export default function FinanzenPage() {
       label: t('buchhaltung.tabs.transactions'),
       icon: Timer,
     },
+    { key: 'berichte', label: t('buchhaltung.tabs.reports'), icon: PieChart },
     { key: 'dunning', label: t('finanzen.tabs.dunning'), icon: Gavel },
     { key: 'belegkette', label: t('finanzen.tabs.belegkette'), icon: Link2 },
     { key: 'banking', label: t('finanzen.tabs.banking'), icon: Landmark },
@@ -863,6 +866,9 @@ export default function FinanzenPage() {
 
       {/* Transactions Tab (migriert aus altem buchhaltung-Modul) */}
       {effectiveTab === 'transactions' && <TransactionsTab />}
+
+      {/* Berichte Tab (Einnahmen/Ausgaben + Kategorien, finanzen P2) */}
+      {effectiveTab === 'berichte' && <BerichteTab />}
 
       {/* Dunning Tab */}
       {effectiveTab === 'dunning' && <DunningPanel />}
