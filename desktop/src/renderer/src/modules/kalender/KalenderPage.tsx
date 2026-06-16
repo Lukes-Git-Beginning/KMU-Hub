@@ -51,6 +51,7 @@ import { RoomBookingView } from './RoomBookingView'
 import { CategoryManagerDialog } from './CategoryManagerDialog'
 import { CalendarBrowseDialog } from './CalendarBrowseDialog'
 import { CalendarSettingsTab } from './tabs/CalendarSettingsTab'
+import { BookingPagesPanel } from './booking/BookingPagesPanel'
 
 // ============================================================
 // Types (re-export from adapters)
@@ -165,18 +166,6 @@ const BOOKING_SERVICES: BookingService[] = [
 ]
 
 const BOOKING_STAFF = ['Lena Huber', 'Marco Roth', 'Nina Frei', 'Sandra Wyss']
-
-const MOCK_EXTERNAL_SERVICES = [
-  { id: 'ext1', name: 'Beratungsgespräch 30 Min', duration: 30, price: 0 },
-  { id: 'ext2', name: 'Erstgespräch 60 Min', duration: 60, price: 0 },
-  { id: 'ext3', name: 'Technischer Support 45 Min', duration: 45, price: 0 },
-]
-
-const EXTERNAL_TIME_SLOTS = [
-  '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-  '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
-  '16:00', '16:30', '17:00',
-]
 
 const MOCK_BOOKINGS: BookingAppointment[] = [
   // Today (2026-02-09 as mock "today")
@@ -823,7 +812,6 @@ function TerminbuchungTab() {
   const [showNewBooking, setShowNewBooking] = useState(false)
   const [bookingDate, setBookingDate] = useState('2026-02-09')
   const [bookings, setBookings] = useState(MOCK_BOOKINGS)
-  const [buchungSubTab, setBuchungSubTab] = useState<'übersicht' | 'vorschau'>('übersicht')
 
   const bookingsForDate = useMemo(
     () => bookings
@@ -857,27 +845,9 @@ function TerminbuchungTab() {
   return (
     <div className="flex-1 overflow-auto bg-card">
       <div className="mx-auto max-w-6xl p-6 space-y-6">
-        {/* Sub-tabs: Übersicht / Vorschau */}
-        <div className="flex items-center gap-4 border-b border-border pb-0">
-          <button
-            onClick={() => setBuchungSubTab('übersicht')}
-            className={`border-b-2 px-1 pb-2 text-xs transition-colors ${buchungSubTab === 'übersicht' ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-          >
-            {t('kalender.booking.overview')}
-          </button>
-          <button
-            onClick={() => setBuchungSubTab('vorschau')}
-            className={`border-b-2 px-1 pb-2 text-xs transition-colors ${buchungSubTab === 'vorschau' ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-          >
-            <ExternalLink className="mr-1 inline h-3 w-3" />
-            {t('kalender.booking.linkPreview')}
-          </button>
-        </div>
+        {/* Booking Pages Panel */}
+        <BookingPagesPanel />
 
-        {buchungSubTab === 'vorschau' ? (
-          <ExternalBookingPreview />
-        ) : (
-        <>
         {/* Header row with stats and action */}
         <div className="flex items-center justify-between">
           <div>
@@ -893,37 +863,6 @@ function TerminbuchungTab() {
             <Plus className="h-4 w-4" />
             {t('kalender.booking.newAppointment')}
           </button>
-        </div>
-
-        {/* Service Catalog */}
-        <div>
-          <h3 className="text-sm font-medium text-foreground mb-3">{t('kalender.booking.serviceCatalog')}</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {BOOKING_SERVICES.map((service) => (
-              <div key={service.id} className="rounded-lg border border-border bg-card p-4 hover:shadow-sm transition-shadow">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: service.color }} />
-                    <h4 className="text-sm font-medium text-foreground">{service.name}</h4>
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    <span>{service.dauer} Min.</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Euro className="h-3 w-3" />
-                    <span className="font-medium text-foreground">CHF {service.preis.toFixed(0)}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <User className="h-3 w-3" />
-                    <span>{service.personal.join(', ')}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* Day Overview (Timeline) */}
@@ -1084,344 +1023,6 @@ function TerminbuchungTab() {
           onSave={handleCreateBooking}
         />
       )}
-        </>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ============================================================
-// External Booking Preview (10.14)
-// ============================================================
-
-function ExternalBookingPreview() {
-  const { t } = useTranslation()
-  const [selectedService, setSelectedService] = useState<string | null>(null)
-  const [selectedDate, setSelectedDate] = useState<string | null>(null)
-  const [selectedTime, setSelectedTime] = useState<string | null>(null)
-  const [bookingForm, setBookingForm] = useState({ name: '', email: '', phone: '', notes: '' })
-  const [step, setStep] = useState(1)
-
-  // Generate dates for current + next week (14 days starting from mock today)
-  const availableDates = useMemo(() => {
-    const dates: { key: string; label: string; dayShort: string; dayNum: number; available: boolean }[] = []
-    const baseDate = new Date(2026, 1, 9) // mock today
-    for (let i = 0; i < 14; i++) {
-      const d = new Date(baseDate)
-      d.setDate(baseDate.getDate() + i)
-      const dayOfWeek = d.getDay()
-      // Mon-Fri available, weekends not
-      dates.push({
-        key: formatDateKey(d),
-        label: `${d.getDate()}. ${MONTHS_DE[d.getMonth()].slice(0, 3)}`,
-        dayShort: DAYS_SHORT[(dayOfWeek + 6) % 7],
-        dayNum: d.getDate(),
-        available: dayOfWeek >= 1 && dayOfWeek <= 5,
-      })
-    }
-    return dates
-  }, [])
-
-  // Simulate some slots being taken
-  const availableSlots = useMemo(() => {
-    if (!selectedDate) return []
-    const takenSlots = new Set<string>()
-    // Mock: some slots are taken on certain days
-    if (selectedDate === '2026-02-10') { takenSlots.add('09:00'); takenSlots.add('10:30'); takenSlots.add('14:00') }
-    if (selectedDate === '2026-02-11') { takenSlots.add('11:00'); takenSlots.add('13:30') }
-    if (selectedDate === '2026-02-12') { takenSlots.add('09:30'); takenSlots.add('15:00') }
-    return EXTERNAL_TIME_SLOTS.filter((s) => !takenSlots.has(s))
-  }, [selectedDate])
-
-  const handleBook = () => {
-    if (!bookingForm.name.trim() || !bookingForm.email.trim()) {
-      toast.error(t('kalender.external.fillRequired'))
-      return
-    }
-    toast.success(t('kalender.external.booked'))
-    setStep(1)
-    setSelectedService(null)
-    setSelectedDate(null)
-    setSelectedTime(null)
-    setBookingForm({ name: '', email: '', phone: '', notes: '' })
-  }
-
-  const selectedServiceObj = MOCK_EXTERNAL_SERVICES.find((s) => s.id === selectedService)
-
-  return (
-    <div className="space-y-4">
-      {/* Info banner */}
-      <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary-subtle px-4 py-3">
-        <div className="flex items-center gap-2">
-          <ExternalLink className="h-4 w-4 text-primary" />
-          <p className="text-xs text-primary font-medium">{t('kalender.external.previewBanner')}</p>
-        </div>
-        <button
-          onClick={() => {
-            navigator.clipboard?.writeText('https://booking.zentria.tech/firma/cosmi-demo')
-            toast.success(t('kalender.external.linkCopied'))
-          }}
-          className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
-        >
-          <Copy className="h-3 w-3" />
-          {t('kalender.external.copyLink')}
-        </button>
-      </div>
-
-      {/* Preview panel — simulated customer view */}
-      <div className="mx-auto max-w-xl rounded-xl border border-border bg-card shadow-[var(--shadow-large)] overflow-hidden">
-        {/* Company header */}
-        <div className="border-b border-border bg-primary px-6 py-5 text-center">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white/20 mb-2">
-            <Calendar className="h-6 w-6 text-white" />
-          </div>
-          <h3 className="text-base font-semibold text-white">Cosmi GmbH</h3>
-          <p className="text-xs text-white/70 mt-0.5">{t('kalender.external.onlineBooking')}</p>
-        </div>
-
-        <div className="p-6 space-y-5">
-          {/* Step indicator */}
-          <div className="flex items-center gap-2 justify-center">
-            {[1, 2, 3, 4].map((s) => (
-              <div key={s} className="flex items-center gap-2">
-                <div
-                  className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-medium transition-colors ${
-                    step >= s ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'
-                  }`}
-                >
-                  {s}
-                </div>
-                {s < 4 && <div className={`h-0.5 w-6 rounded-full ${step > s ? 'bg-primary' : 'bg-secondary'}`} />}
-              </div>
-            ))}
-          </div>
-
-          {/* Step 1: Service selection */}
-          {step === 1 && (
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium text-foreground text-center">{t('kalender.external.selectService')}</h4>
-              <div className="space-y-2">
-                {MOCK_EXTERNAL_SERVICES.map((svc) => (
-                  <button
-                    key={svc.id}
-                    onClick={() => {
-                      setSelectedService(svc.id)
-                      setStep(2)
-                    }}
-                    className={`w-full flex items-center justify-between rounded-lg border px-4 py-3 transition-colors ${
-                      selectedService === svc.id
-                        ? 'border-primary bg-primary-subtle'
-                        : 'border-border hover:border-primary/50 hover:bg-secondary/30'
-                    }`}
-                  >
-                    <div className="text-left">
-                      <p className="text-sm font-medium text-foreground">{svc.name}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                          <Clock className="h-3 w-3" /> {svc.duration} Min.
-                        </span>
-                        {svc.price > 0 && (
-                          <span className="text-[10px] text-muted-foreground">EUR {svc.price}</span>
-                        )}
-                        {svc.price === 0 && (
-                          <span className="text-[10px] text-success font-medium">{t('kalender.external.free')}</span>
-                        )}
-                      </div>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: Date selection */}
-          {step === 2 && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <button onClick={() => setStep(1)} className="text-xs text-primary hover:underline">{t('common.back')}</button>
-                <h4 className="text-sm font-medium text-foreground">{t('kalender.external.selectDate')}</h4>
-                <div className="w-10" />
-              </div>
-              {selectedServiceObj && (
-                <p className="text-center text-xs text-muted-foreground">
-                  {selectedServiceObj.name} ({selectedServiceObj.duration} Min.)
-                </p>
-              )}
-              <div className="grid grid-cols-7 gap-1.5">
-                {availableDates.map((d) => (
-                  <button
-                    key={d.key}
-                    disabled={!d.available}
-                    onClick={() => {
-                      if (d.available) {
-                        setSelectedDate(d.key)
-                        setStep(3)
-                      }
-                    }}
-                    className={`flex flex-col items-center rounded-lg py-2 text-xs transition-colors ${
-                      !d.available
-                        ? 'text-text-disabled cursor-not-allowed opacity-40'
-                        : selectedDate === d.key
-                          ? 'bg-primary text-primary-foreground'
-                          : 'hover:bg-secondary text-foreground border border-border'
-                    }`}
-                  >
-                    <span className="text-[9px] uppercase">{d.dayShort}</span>
-                    <span className="text-sm font-medium mt-0.5">{d.dayNum}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Time slot selection */}
-          {step === 3 && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <button onClick={() => setStep(2)} className="text-xs text-primary hover:underline">{t('common.back')}</button>
-                <h4 className="text-sm font-medium text-foreground">{t('kalender.external.selectTime')}</h4>
-                <div className="w-10" />
-              </div>
-              <p className="text-center text-xs text-muted-foreground">
-                {selectedDate && (() => {
-                  const d = new Date(selectedDate)
-                  return `${DAYS_SHORT[(d.getDay() + 6) % 7]}, ${d.getDate()}. ${MONTHS_DE[d.getMonth()]}`
-                })()}
-              </p>
-              {availableSlots.length === 0 ? (
-                <p className="text-center text-sm text-muted-foreground py-4">{t('kalender.external.noSlots')}</p>
-              ) : (
-                <div className="grid grid-cols-3 gap-2">
-                  {availableSlots.map((slot) => (
-                    <button
-                      key={slot}
-                      onClick={() => {
-                        setSelectedTime(slot)
-                        setStep(4)
-                      }}
-                      className={`rounded-lg border py-2.5 text-sm font-medium transition-colors ${
-                        selectedTime === slot
-                          ? 'border-primary bg-primary text-primary-foreground'
-                          : 'border-border hover:border-primary text-foreground hover:bg-primary-subtle'
-                      }`}
-                    >
-                      {slot}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Step 4: Contact form */}
-          {step === 4 && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <button onClick={() => setStep(3)} className="text-xs text-primary hover:underline">{t('common.back')}</button>
-                <h4 className="text-sm font-medium text-foreground">{t('kalender.external.yourData')}</h4>
-                <div className="w-10" />
-              </div>
-
-              {/* Summary */}
-              <div className="rounded-lg bg-secondary/50 p-3 space-y-1 text-xs">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Calendar className="h-3 w-3" />
-                  <span>{selectedServiceObj?.name}</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Clock className="h-3 w-3" />
-                  <span>
-                    {selectedDate && (() => {
-                      const d = new Date(selectedDate)
-                      return `${d.getDate()}. ${MONTHS_DE[d.getMonth()]} ${d.getFullYear()}`
-                    })()} {t('kalender.external.atTime', { time: selectedTime })}
-                  </span>
-                </div>
-              </div>
-
-              {/* Name */}
-              <div>
-                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">
-                  <User className="h-3 w-3 inline mr-1" />
-                  Name *
-                </label>
-                <input
-                  type="text"
-                  placeholder={t('kalender.external.namePlaceholder')}
-                  value={bookingForm.name}
-                  onChange={(e) => setBookingForm({ ...bookingForm, name: e.target.value })}
-                  className="w-full rounded-lg border border-input-border bg-input-background px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder outline-none focus:border-primary"
-                />
-              </div>
-
-              {/* Email */}
-              <div>
-                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">
-                  <Mail className="h-3 w-3 inline mr-1" />
-                  E-Mail *
-                </label>
-                <input
-                  type="email"
-                  placeholder="ihre@email.de"
-                  value={bookingForm.email}
-                  onChange={(e) => setBookingForm({ ...bookingForm, email: e.target.value })}
-                  className="w-full rounded-lg border border-input-border bg-input-background px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder outline-none focus:border-primary"
-                />
-              </div>
-
-              {/* Phone */}
-              <div>
-                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">
-                  <Phone className="h-3 w-3 inline mr-1" />
-                  Telefon
-                </label>
-                <input
-                  type="tel"
-                  placeholder="+49 123 456789"
-                  value={bookingForm.phone}
-                  onChange={(e) => setBookingForm({ ...bookingForm, phone: e.target.value })}
-                  className="w-full rounded-lg border border-input-border bg-input-background px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder outline-none focus:border-primary"
-                />
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">
-                  <FileText className="h-3 w-3 inline mr-1" />
-                  {t('kalender.external.notes')}
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder={t('kalender.external.notesPlaceholder')}
-                  value={bookingForm.notes}
-                  onChange={(e) => setBookingForm({ ...bookingForm, notes: e.target.value })}
-                  className="w-full rounded-lg border border-input-border bg-input-background px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder outline-none resize-none focus:border-primary"
-                />
-              </div>
-
-              {/* Book button */}
-              <button
-                onClick={handleBook}
-                className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors"
-              >
-                {t('kalender.external.bookAppointment')}
-              </button>
-
-              <p className="text-center text-[10px] text-muted-foreground">
-                {t('kalender.external.termsNote')}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="border-t border-border px-6 py-3 text-center">
-          <p className="text-[10px] text-muted-foreground">
-            Powered by <span className="font-medium text-foreground">Cosmi</span>
-          </p>
-        </div>
       </div>
     </div>
   )

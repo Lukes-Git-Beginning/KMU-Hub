@@ -21,6 +21,7 @@ import { settingsHandlers } from './settings'
 import { hrHandlers } from './hr'
 import { dialerHandlers } from './dialer'
 import { berichteHandlers } from './berichte'
+import { bookingHandlers } from './booking'
 
 export const handlers = [
   ...authHandlers,
@@ -42,4 +43,5 @@ export const handlers = [
   ...hrHandlers,
   ...dialerHandlers,
   ...berichteHandlers,
+  ...bookingHandlers,
 ]
