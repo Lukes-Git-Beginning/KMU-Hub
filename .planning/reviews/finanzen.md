@@ -8,6 +8,7 @@
 |---|---|---|
 | **P1** | Faktura-Kette schließen: wiederkehrende Rechnungen · Fremdwährung (EUR/CHF/USD) · OP-Liste · Storno↔Originalrechnung | ✅ **done** (`c597c32`) |
 | **P2** | Ausgaben/Belege + Kontierung: Expenses/Transactions Zustand→MSW · Beleg-Upload · SKR03/04 + manuelle Kontierung · Berichte-Tab migrieren | ✅ **done** (`d5061af`) |
+| **P2.5** | **Demo-Tiefe & Detail-Views (NEU, aus Audit 2026-06-16, Darien-Vorgabe).** Jede Unterkategorie öffnet eine echte Detail-/Inhaltsansicht (wie Dokumente/Kontakte); jeder Download/Export erzeugt eine sichtbare Datei/Viewer im Demo; tote Mutationen + Placeholder-Daten verkabeln. Detail siehe unten. **Empfehlung: läuft als Nächstes, vor/teils parallel zu P3.** | ✗ |
 | P3 | DATEV/Bexio-Export (Settings „Für alle"): DATEV-EXTF-Flow (Berater-/Mandanten-Nr + Konto-Mapping) · Bexio-OAuth-UI · BMD-CSV · fehlende MSW-Handler | ✗ |
 | P4 | E-Rechnung (ZUGFeRD/XRechnung) + GoBD-Belegarchiv (Launch-Blocker, FE + Luke-BE) | ✗ |
 | P5 | Banking (CAMT.053/MT940 + Auto-Matching) · EÜR-Auswertung (recharts) · finanzen-Moduleinstellungen-Feinschliff | ✗ |
@@ -25,6 +26,31 @@ Geändert: `ExpenseFormDialog.tsx` (war null-Stub → echtes Create/Edit-Formula
 **Strategie-Klärung (Darien greenlit):** Kontierung = leichtes Sachkonto-Mapping (Auto-Vorschlag aus Kategorie, manuell überschreibbar) NUR als Daten-Vorbereitung für den DATEV-Export — KEINE Buchungssätze/Soll-Haben (strategie-konform). Beleg-Upload swap-ready: kein Backend → nur Metadaten (Dateiname) + Blob-Cache für Vorschau; Seed-Belege zeigen Platzhalter.
 
 **QA (Playwright, alle Screenshots angesehen):** Ausgaben-Liste, Neu-Formular (Konto auto-vorgeschlagen), „Kontieren"-Edit (zeigt Vorschlag statt „Kein Konto"), Beleg-Vorschau (Platzhalter), Berichte (datengetriebene Monats-Bars + Kategorien), Transaktionen (MSW intakt), Settings-Kontierung (SKR03-Select). Keine Bugs. **Lehre bestätigt:** Onboarding-Modal („Willkommen bei Cosmi") blockt erste Klicks → in QA-Scripts zuerst „Überspringen" klicken.
+
+## P2.5 — Demo-Tiefe & Detail-Views (Audit 2026-06-16)
+Darien-Befund: „In den Unterkategorien gibt es überall Download/Export-Positionen, aber Klick → nichts passiert. Sollte sich wie bei Dokumente/Kontakte öffnen und Inhalt/Infos zeigen — aktuell sehr oberflächlich." Voll-Audit über alle Tabs bestätigt das. Ursache: viele Aktionen sind Toast-Stubs oder rufen Endpoints, die im Demo-Mode (MSW) gar nicht existieren. **4 Buckets:**
+
+**A. Downloads/Exports erzeugen nichts Sichtbares**
+- PDF-Vorschau (`PDFPreviewPanel`) = graue Platzhalter-Kästchen statt echtem, datengetriebenem Dokument; Download/Drucken/Vollbild/Zoom/Seiten = Toast oder tot.
+- PDF-Download Rechnungen/Angebote/Gutschriften/Mahnungen → `getPDF` ruft `/…/pdf` (kein MSW) → Klick schlägt fehl.
+- DATEV-Export (`ExportDialog`) → `/finance/export/datev` (kein MSW). Bexio-CSV + BMD-NTCS (Export-Tab) = nur `toast.success`, keine Datei.
+- QR-Rechnung („PDF herunterladen"/„Drucken"/„An Rechnung anhängen") + E-Rechnung („XML herunterladen"/„Erneut validieren") = nur Toast; QR-Code selbst = grauer Platzhalter mit Hardcoded-Daten.
+- → **Ziel:** jeder Download erzeugt eine echte (Demo-)Datei/Blob + Viewer; PDF-Vorschau aus echten Rechnungsdaten rendern. (DATEV-CSV-Inhalt = P3, echte ZUGFeRD/XRechnung-Erzeugung = P4 — hier nur die Verkabelung/sichtbares Verhalten.)
+
+**B. Detail-/Inhaltsansichten fehlen pro Unterkategorie** (Kern von Dariens Wunsch — wie Dokumente/Kontakte)
+- Nur **Rechnungen** haben ein Detail-Panel (`InvoiceDetailPanel`). KEINE Detail-/Inhaltsansicht bei: **Angebote, Gutschriften, Wiederkehrend, Transaktionen, Ausgaben** (nur Edit-Form), **Mahnungen**, **OP-Liste** (Zeile → sollte Rechnung öffnen), **Dashboard-Mini-Listen** (Zeilen nicht klickbar), **Berichte** (Balken nicht klickbar → kein Drill-down).
+- → **Ziel:** Zeilenklick öffnet überall eine Detail-Ansicht mit allen Infos (Positionen, Historie, Status, Verknüpfungen, Beleg) — konsistentes Muster, idealerweise wiederverwendbares `shared/DetailPanel`-Pattern.
+
+**C. Tote Mutationen verkabeln (MSW fehlt)**
+- Angebot senden/annehmen/ablehnen/in Rechnung umwandeln; Zahlung erfassen (`POST /payments`); Mahnung erkennen/senden/eskalieren + Mahn-Konfig speichern; Settings speichern (`PUT /settings`). Aktuell Klick → Fehler statt State-Änderung.
+
+**D. Placeholder-Daten auf MSW heben**
+- **Banking** (`BankingWidget`): Konten/Transaktionen Hardcoded; „Verbinden"/„Synchronisieren"/Match-Buttons = Toast/ohne Handler. **Belegkette**: `mockChains` hardcoded, „Zum Kunden"/„Nächster Schritt" tot. **Stunden→Rechnung** (`HoursToInvoiceDialog`): `mockTimeEntries` hardcoded, „Rechnung erstellen" = Toast (legt keine Rechnung an). **GoBD-Audit-Log** (im Invoice-Detail): Hardcoded Fake-Einträge.
+
+**Größe:** umfangreich, eigener Phasen-Block (ggf. in 5er-Batch-Unterschritte splitten: B-Detailviews zuerst, dann A-Downloads, dann C/D). Vollständige Aktions-für-Aktions-Tabelle liegt im Audit-Output der Session 2026-06-16.
+
+## Geparkt — technischer Rename `finanzen` → `buchhaltung` (mit Luke klären)
+Darien will den technischen Modulnamen an das User-Label „Buchhaltung" angleichen. **Noch NICHT umsetzen** — erst mit Luke besprechen (Merge-Risiko, er arbeitet ggf. parallel). Umfang wenn beschlossen: toten `modules/buchhaltung/`-Ordner löschen/mergen · `modules/finanzen/` → `modules/buchhaltung/` (alle Imports) · Route `/finanzen` → `/buchhaltung` (Registry-navMatch hat beide schon) · i18n-Namespace konsolidieren (aktuell gemischt `finanzen.*` + `buchhaltung.*`) · Stores optional. Eigener, isolierter Commit.
 
 ## Backend-Gaps (für Luke) — in `backend-gaps.md` §finanzen ergänzen
 Echte Endpoints für: recurring (CRUD/generate/pause), credit-note create+send, invoice cancel, quote-Mutationen (send/accept/reject/convert), payments record. **NEU P2:** `/finance/expenses` (GET/POST/PUT/approve/reject/receipt/DELETE) + `/finance/transactions` (GET/DELETE) — aktuell nur stateful MSW. Beleg-Upload braucht echten File-Upload-Endpoint (+ GoBD-Archiv-Verknüpfung). P3/P4: DATEV-EXTF-Generierung (SKR-Konten kommen jetzt aus `Expense.account`), ZUGFeRD/XRechnung-XML, GoBD-Archiv, Banking (FinAPI/CAMT/MT940), Bexio-OAuth.
