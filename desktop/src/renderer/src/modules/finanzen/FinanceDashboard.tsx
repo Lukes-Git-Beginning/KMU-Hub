@@ -65,7 +65,13 @@ function getPresetRange(preset: DatePreset): { from: string; to: string } {
   }
 }
 
-export function FinanceDashboard() {
+interface FinanceDashboardProps {
+  onOpenInvoice?: (id: string) => void
+  onOpenQuote?: (id: string) => void
+  onOpenDunnings?: () => void
+}
+
+export function FinanceDashboard({ onOpenInvoice, onOpenQuote, onOpenDunnings }: FinanceDashboardProps = {}) {
   const { t } = useTranslation()
   const { dateRange, setDateRange } = useFinanceUIStore()
   const [preset, setPreset] = useState<DatePreset>('year')
@@ -287,9 +293,12 @@ export function FinanceDashboard() {
             </h4>
             <div className="space-y-2">
               {recentInvoices.slice(0, 5).map((inv) => (
-                <div
+                <button
                   key={inv.id}
-                  className="flex items-center justify-between text-xs"
+                  type="button"
+                  onClick={() => onOpenInvoice?.(inv.id)}
+                  disabled={!onOpenInvoice}
+                  className="flex w-full items-center justify-between rounded-md px-1.5 py-1 text-left text-xs transition-colors hover:bg-secondary/50 disabled:cursor-default disabled:hover:bg-transparent"
                 >
                   <div className="min-w-0">
                     <p className="text-foreground font-mono truncate">
@@ -302,7 +311,7 @@ export function FinanceDashboard() {
                   <span className="text-foreground font-medium ml-2 shrink-0">
                     {formatEUR(inv.tax_breakdown?.gross_total ?? inv.total_gross ?? 0)}
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -316,9 +325,12 @@ export function FinanceDashboard() {
             </h4>
             <div className="space-y-2">
               {expiringQuotes.slice(0, 5).map((q) => (
-                <div
+                <button
                   key={q.id}
-                  className="flex items-center justify-between text-xs"
+                  type="button"
+                  onClick={() => onOpenQuote?.(q.id)}
+                  disabled={!onOpenQuote}
+                  className="flex w-full items-center justify-between rounded-md px-1.5 py-1 text-left text-xs transition-colors hover:bg-secondary/50 disabled:cursor-default disabled:hover:bg-transparent"
                 >
                   <div className="min-w-0">
                     <p className="text-foreground font-mono truncate">
@@ -331,7 +343,7 @@ export function FinanceDashboard() {
                   <span className="text-warning text-[10px] ml-2 shrink-0">
                     bis {formatDate(q.valid_until)}
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -345,9 +357,12 @@ export function FinanceDashboard() {
             </h4>
             <div className="space-y-2">
               {pendingDunnings.slice(0, 5).map((d) => (
-                <div
+                <button
                   key={d.id}
-                  className="flex items-center justify-between text-xs"
+                  type="button"
+                  onClick={() => onOpenDunnings?.()}
+                  disabled={!onOpenDunnings}
+                  className="flex w-full items-center justify-between rounded-md px-1.5 py-1 text-xs transition-colors hover:bg-secondary/50 disabled:cursor-default disabled:hover:bg-transparent"
                 >
                   <div className="flex items-center gap-1.5">
                     <AlertTriangle
@@ -364,7 +379,7 @@ export function FinanceDashboard() {
                   <span className="text-foreground font-medium ml-2">
                     {formatEUR(d.fee)}
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           </div>

@@ -21,6 +21,7 @@ import { useFinanceTenantStore } from '@/stores/financeTenant'
 import { formatAccount } from '../lib/skr-accounts'
 import { ExpenseFormDialog } from '../ExpenseFormDialog'
 import { ReceiptPreviewDialog } from '../ReceiptPreviewDialog'
+import { ExpenseDetailPanel } from '../ExpenseDetailPanel'
 
 export function ExpensesTab() {
   const { t, i18n } = useTranslation()
@@ -33,6 +34,7 @@ export function ExpensesTab() {
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editExpense, setEditExpense] = useState<Expense | null>(null)
+  const [detailExpense, setDetailExpense] = useState<Expense | null>(null)
   const [previewExpense, setPreviewExpense] = useState<Expense | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; label: string } | null>(null)
 
@@ -120,7 +122,13 @@ export function ExpensesTab() {
             >
               <div className="flex min-w-0 items-center gap-2">
                 <div className="min-w-0">
-                  <p className="truncate text-sm text-foreground">{exp.description}</p>
+                  <button
+                    type="button"
+                    onClick={() => setDetailExpense(exp)}
+                    className="block max-w-full truncate text-left text-sm text-foreground hover:text-primary hover:underline"
+                  >
+                    {exp.description}
+                  </button>
                   <p className="text-[11px] text-muted-foreground">
                     {new Date(exp.date).toLocaleDateString(i18n.language)}
                     {exp.project && ` · ${exp.project}`}
@@ -167,6 +175,10 @@ export function ExpensesTab() {
               <ItemActions
                 items={[
                   {
+                    label: t('common.details'),
+                    onClick: () => setDetailExpense(exp),
+                  },
+                  {
                     label: t('buchhaltung.actions.editExpense'),
                     onClick: () => openEdit(exp),
                   },
@@ -203,6 +215,17 @@ export function ExpensesTab() {
       <ExpenseFormDialog open={showForm} onOpenChange={setShowForm} editExpense={editExpense} />
 
       <ReceiptPreviewDialog expense={previewExpense} onClose={() => setPreviewExpense(null)} />
+
+      {detailExpense && (
+        <ExpenseDetailPanel
+          expense={detailExpense}
+          onClose={() => setDetailExpense(null)}
+          onEdit={() => {
+            openEdit(detailExpense)
+            setDetailExpense(null)
+          }}
+        />
+      )}
 
       <ConfirmDialog
         open={!!confirmDelete}

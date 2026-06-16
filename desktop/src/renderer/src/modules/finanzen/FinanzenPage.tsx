@@ -641,13 +641,19 @@ export default function FinanzenPage() {
       )}
 
       {/* Dashboard Tab */}
-      {effectiveTab === 'dashboard' && <FinanceDashboard />}
+      {effectiveTab === 'dashboard' && (
+        <FinanceDashboard
+          onOpenInvoice={setSelectedInvoiceId}
+          onOpenQuote={setSelectedQuoteId}
+          onOpenDunnings={() => setActiveTab('dunning')}
+        />
+      )}
 
       {/* Recurring invoices Tab */}
       {effectiveTab === 'recurring' && <RecurringInvoicesTab />}
 
       {/* Open items (OP-Liste) Tab */}
-      {effectiveTab === 'open-items' && <OpenItemsTab />}
+      {effectiveTab === 'open-items' && <OpenItemsTab onOpenInvoice={setSelectedInvoiceId} />}
 
       {/* Invoices Tab */}
       {effectiveTab === 'invoices' &&

@@ -40,7 +40,11 @@ function bucketFor(daysOverdue: number): Bucket {
   return 'd60plus'
 }
 
-export function OpenItemsTab() {
+interface OpenItemsTabProps {
+  onOpenInvoice?: (id: string) => void
+}
+
+export function OpenItemsTab({ onOpenInvoice }: OpenItemsTabProps) {
   const { t } = useTranslation()
   const { data, isLoading } = useInvoices()
   const [activeBucket, setActiveBucket] = useState<Bucket | 'all'>('all')
@@ -183,7 +187,17 @@ export function OpenItemsTab() {
             key={it.invoice.id}
             className="grid grid-cols-[110px_1fr_110px_110px_120px_90px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors"
           >
-            <span className="text-sm font-mono text-primary">{it.invoice.invoice_number}</span>
+            {onOpenInvoice ? (
+              <button
+                type="button"
+                onClick={() => onOpenInvoice(it.invoice.id)}
+                className="text-left text-sm font-mono text-primary hover:underline"
+              >
+                {it.invoice.invoice_number}
+              </button>
+            ) : (
+              <span className="text-sm font-mono text-primary">{it.invoice.invoice_number}</span>
+            )}
             <span className="text-sm text-foreground truncate">{it.invoice.customer?.name ?? ''}</span>
             <span className="text-xs text-muted-foreground">{formatDate(it.invoice.due_date)}</span>
             <span className={`text-xs font-medium ${it.daysOverdue > 0 ? 'text-error' : 'text-muted-foreground'}`}>

@@ -13,6 +13,8 @@ import { useTransactions, useDeleteTransaction } from '@/api/hooks/useFinanceLed
 import { ItemActions, ConfirmDialog, EmptyState } from '@/components/shared'
 import { formatCurrency } from '@/lib/format'
 import { Receipt } from 'lucide-react'
+import type { Transaction } from '@/stores/finance'
+import { TransactionDetailPanel } from '../TransactionDetailPanel'
 
 type TypeFilter = 'all' | 'income' | 'expense'
 
@@ -23,6 +25,7 @@ export function TransactionsTab() {
 
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
+  const [detailTx, setDetailTx] = useState<Transaction | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; label: string } | null>(null)
 
   const filtered = useMemo(() => {
@@ -151,7 +154,13 @@ export function TransactionsTab() {
                   )}
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-sm text-foreground">{tx.description}</p>
+                  <button
+                    type="button"
+                    onClick={() => setDetailTx(tx)}
+                    className="block max-w-full truncate text-left text-sm text-foreground hover:text-primary hover:underline"
+                  >
+                    {tx.description}
+                  </button>
                   {tx.reference && (
                     <p className="truncate text-[11px] text-muted-foreground">{tx.reference}</p>
                   )}
@@ -171,6 +180,10 @@ export function TransactionsTab() {
               </span>
               <ItemActions
                 items={[
+                  {
+                    label: t('common.details'),
+                    onClick: () => setDetailTx(tx),
+                  },
                   {
                     label: t('common.delete'),
                     variant: 'destructive' as const,
@@ -201,6 +214,10 @@ export function TransactionsTab() {
           }
         }}
       />
+
+      {detailTx && (
+        <TransactionDetailPanel transaction={detailTx} onClose={() => setDetailTx(null)} />
+      )}
     </div>
   )
 }

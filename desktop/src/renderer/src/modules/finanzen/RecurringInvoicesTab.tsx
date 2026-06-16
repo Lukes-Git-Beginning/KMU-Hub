@@ -13,6 +13,7 @@ import { formatMoney, formatEUR } from '@/stores/finance'
 import { formatDate } from '@/lib/format'
 import type { RecurringInvoice, RecurringStatus } from '@/types/finance-types'
 import { RecurringInvoiceDialog } from './RecurringInvoiceDialog'
+import { RecurringDetailPanel } from './RecurringDetailPanel'
 
 const STATUS_STYLES: Record<RecurringStatus, string> = {
   active: 'bg-success-light text-success',
@@ -37,6 +38,7 @@ export function RecurringInvoicesTab() {
 
   const [showForm, setShowForm] = useState(false)
   const [editRec, setEditRec] = useState<RecurringInvoice | null>(null)
+  const [detailRec, setDetailRec] = useState<RecurringInvoice | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<RecurringInvoice | null>(null)
 
   const recurring = data?.recurring ?? []
@@ -71,6 +73,7 @@ export function RecurringInvoicesTab() {
 
   const getActions = (r: RecurringInvoice) => {
     const actions: { label: string; onClick: () => void; variant?: 'destructive'; separator?: true }[] = []
+    actions.push({ label: t('common.details'), onClick: () => setDetailRec(r) })
     if (r.status !== 'ended') {
       actions.push({ label: t('finanzen.recurring.generateNow'), onClick: () => handleGenerate(r) })
       actions.push({
@@ -152,7 +155,13 @@ export function RecurringInvoicesTab() {
                 className="grid grid-cols-[1fr_110px_130px_110px_120px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors"
               >
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{r.title}</p>
+                  <button
+                    type="button"
+                    onClick={() => setDetailRec(r)}
+                    className="block max-w-full truncate text-left text-sm font-medium text-foreground hover:text-primary hover:underline"
+                  >
+                    {r.title}
+                  </button>
                   <p className="text-[11px] text-muted-foreground truncate">
                     {r.customer.name}
                     {r.generated_count > 0 && (
@@ -192,6 +201,14 @@ export function RecurringInvoicesTab() {
       )}
 
       <RecurringInvoiceDialog open={showForm} onOpenChange={setShowForm} editRecurring={editRec} />
+
+      {detailRec && (
+        <RecurringDetailPanel
+          recurring={detailRec}
+          onClose={() => setDetailRec(null)}
+          onEdit={() => { setEditRec(detailRec); setShowForm(true); setDetailRec(null) }}
+        />
+      )}
 
       <ConfirmDialog
         open={!!confirmDelete}
