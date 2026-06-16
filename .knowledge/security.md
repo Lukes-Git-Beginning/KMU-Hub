@@ -1,6 +1,6 @@
 ---
 tags: [security, auth, compliance, gdpr, rls, multi-tenant]
-updated: 2026-06-12
+updated: 2026-06-17
 ---
 # Security & Compliance
 
@@ -202,7 +202,7 @@ Zentrales `go-playground/validator/v10`-Framework fuer alle HTTP-Mutation-Handle
 > `COSMI_ENV=production` auf dem Prod-Server SCHARF.
 
 - **Aktivierung:** `COSMI_ENV=production` (case-insensitive) in `Load()` → `validateProductionSecrets`. Fehler → `os.Exit(1)` in allen 24 mains.
-- **Requirements-API (`78043a63`):** `config.Load(ctx, ...Requirement)` — Services deklarieren konsumierte Secret-Gruppen: `RequireVault` (auth, email, biz), `RequireMinIO` (chat, work, email, document, gateway), `RequireWOPI` (document, gateway). Schlanke Modul-Services rufen `Load(ctx)` und werden nur an den universellen Checks gemessen (sonst riss der Go-Default-Rueckfall ihren Start — R1-P0.3 war nie mit den Welle-2-Services kompatibel).
+- **Requirements-API (`78043a63`):** `config.Load(ctx, ...Requirement)` — Services deklarieren konsumierte Secret-Gruppen: `RequireVault` (auth, email, biz), `RequireMinIO` (chat, work, email, document, gateway), `RequireWOPI` (document, gateway), `RequireSystemSMTP` (auth — `SYSTEM_SMTP_HOST/USER/PASSWORD`, seit 2026-06-16 `0f49fd7f`; Brevo-Relay, Detail [[integrationen]]). Schlanke Modul-Services rufen `Load(ctx)` und werden nur an den universellen Checks gemessen (sonst riss der Go-Default-Rueckfall ihren Start — R1-P0.3 war nie mit den Welle-2-Services kompatibel).
 - **Zweigeteilte Deny-Lists** in `config.go`:
   - `composeDevSecrets` (immer verboten, auch ohne Requirement): `docker-dev-secret-…`, `docker-dev-wopi-…`, `docker-dev-vault-…`, `minioadmin`, `devkey`, `devsecret` — ein solcher Wert in Prod heisst Compose/Overlay-Gap.
   - `configDefaultSecrets` ("env not set"-Marker, nur bei Requirement verboten): `wopi-dev-secret-change-me`, `kmuhub`/`kmuhub_dev`, leere Strings.

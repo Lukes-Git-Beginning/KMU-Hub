@@ -1,6 +1,6 @@
 ---
-tags: [integrationen, bexio, lexware, livekit, plugin, wasm]
-updated: 2026-06-06
+tags: [integrationen, bexio, lexware, livekit, plugin, wasm, brevo, smtp]
+updated: 2026-06-17
 ---
 # Externe Integrationen
 
@@ -29,6 +29,14 @@ updated: 2026-06-06
 - **Status:** Export-only, kein Realtime-Sync
 - Gateway: `/api/v1/datev/upload` (CSV-Upload)
 - Code: `backend/internal/biz/datev/`
+
+## Transaktionale E-Mail — Brevo SMTP (seit 2026-06-16)
+- **Provider:** Brevo (EU/Frankreich, GDPR-nativ), Free-Transactional-Tier (~300 Mails/Tag) fuer Pilot-0. Gewaehlt wegen EU-Datensouveraenitaet (Alternativen Mailjet/Scaleway FR, Infomaniak CH; Postmark/SES technisch ok aber US).
+- **SMTP:** `smtp-relay.brevo.com:587` (STARTTLS). User = Brevo-SMTP-Login (`…@smtp-brevo.com`), Passwort = **SMTP-Key** (NICHT API-Key). Werte in `/opt/kmuhub/.env.production`: `SYSTEM_SMTP_HOST/PORT/USER/PASSWORD/FROM`.
+- **Domain-Auth:** `zentria.tech` via 3 DNS-TXT-Records (Brevo-Code am Root, DKIM `mail._domainkey`, DMARC `_dmarc` mit `rua=mailto:rua@dmarc.brevo.com`). SPF/MX nur bei Dedicated IP noetig.
+- **Verbraucher:** `auth`-Service Passwort-Reset-Mailer (`cmd/auth/main.go` `systemMailer`). `PASSWORD_RESET_BASE_URL=https://zentria.tech/reset-password` (zeigt auf die noch zu bauende WP-E Astro-Seite → Mail-Klick erst danach end-to-end). Compose-SMTP-Passthrough aktuell NUR an `auth` — Booking-Bestaetigungsmail-Pfad noch zu verifizieren.
+- **Assertion:** `config.RequireSystemSMTP` (Commit `0f49fd7f`) macht `auth` in `COSMI_ENV=production` hart abhaengig von `SYSTEM_SMTP_HOST/USER/PASSWORD` → Boot-Crash bei Fehlen (vgl. [[security]] Prod-Secrets-Assertion). Dev/CI: leer → Mailer loggt statt sendet.
+- Code: `backend/cmd/auth/main.go`, `backend/internal/config/config.go`.
 
 ## Circuit-Breaker fuer Bexio + DATEV (2026-06-05, `5dd862eb`, R2-P1.4)
 - Neues Package `backend/internal/circuitbreaker` — 3-State (closed/open/half-open), injectable clock fuer Tests
