@@ -118,17 +118,15 @@ export function ExpensesTab() {
           {filtered.map((exp) => (
             <div
               key={exp.id}
-              className="grid grid-cols-[1fr_110px_120px_100px_130px_96px_40px] items-center gap-3 border-b border-border-muted px-4 py-3 last:border-b-0"
+              role="button"
+              tabIndex={0}
+              onClick={() => setDetailExpense(exp)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailExpense(exp) } }}
+              className="grid cursor-pointer grid-cols-[1fr_110px_120px_100px_130px_96px_40px] items-center gap-3 border-b border-border-muted px-4 py-3 transition-colors last:border-b-0 hover:bg-secondary/40 focus-visible:bg-secondary/40 focus-visible:outline-none"
             >
               <div className="flex min-w-0 items-center gap-2">
                 <div className="min-w-0">
-                  <button
-                    type="button"
-                    onClick={() => setDetailExpense(exp)}
-                    className="block max-w-full truncate text-left text-sm text-foreground hover:text-primary hover:underline"
-                  >
-                    {exp.description}
-                  </button>
+                  <p className="truncate text-sm text-foreground">{exp.description}</p>
                   <p className="text-[11px] text-muted-foreground">
                     {new Date(exp.date).toLocaleDateString(i18n.language)}
                     {exp.project && ` · ${exp.project}`}
@@ -137,7 +135,7 @@ export function ExpensesTab() {
                 {exp.receipt && (
                   <button
                     type="button"
-                    onClick={() => setPreviewExpense(exp)}
+                    onClick={(e) => { e.stopPropagation(); setPreviewExpense(exp) }}
                     aria-label={t('buchhaltung.actions.viewReceipt')}
                     title={exp.receiptName ?? t('buchhaltung.form.receipt')}
                     className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
@@ -159,7 +157,7 @@ export function ExpensesTab() {
               ) : (
                 <button
                   type="button"
-                  onClick={() => openEdit(exp)}
+                  onClick={(e) => { e.stopPropagation(); openEdit(exp) }}
                   className="w-fit text-xs text-warning underline-offset-2 hover:underline"
                 >
                   {t('buchhaltung.table.uncategorized')}
@@ -172,6 +170,7 @@ export function ExpensesTab() {
               <span className={`inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[exp.status]}`}>
                 {statusLabels[exp.status]}
               </span>
+              <div onClick={(e) => e.stopPropagation()}>
               <ItemActions
                 items={[
                   {
@@ -207,6 +206,7 @@ export function ExpensesTab() {
                   },
                 ]}
               />
+              </div>
             </div>
           ))}
         </div>

@@ -15,7 +15,7 @@ import {
   Download,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { DetailPanel } from '@/components/shared'
+import { DetailModal } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import {
   useCreditNote,
@@ -38,11 +38,11 @@ export function CreditNoteDetailPanel({ creditNoteId, onClose }: CreditNoteDetai
 
   if (isLoading || !cn) {
     return (
-      <DetailPanel open={true} title={t('finanzen.creditNoteDetail.title')} onClose={onClose}>
+      <DetailModal open={true} title={t('finanzen.creditNoteDetail.title')} onClose={onClose}>
         <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
           {t('common.loading')}
         </div>
-      </DetailPanel>
+      </DetailModal>
     )
   }
 
@@ -51,7 +51,7 @@ export function CreditNoteDetailPanel({ creditNoteId, onClose }: CreditNoteDetai
   const isSent = cn.status === 'sent'
 
   return (
-    <DetailPanel open={true} title={t('finanzen.creditNoteDetail.title')} onClose={onClose}>
+    <DetailModal open={true} title={t('finanzen.creditNoteDetail.title')} onClose={onClose}>
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-start justify-between">
@@ -164,6 +164,6 @@ export function CreditNoteDetailPanel({ creditNoteId, onClose }: CreditNoteDetai
           </Button>
         </div>
       </div>
-    </DetailPanel>
+    </DetailModal>
   )
 }

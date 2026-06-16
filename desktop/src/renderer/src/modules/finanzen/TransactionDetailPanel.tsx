@@ -6,7 +6,7 @@
  */
 import { useTranslation } from 'react-i18next'
 import { ArrowDownRight, ArrowUpRight, Calendar, Tag, Hash, Activity } from 'lucide-react'
-import { DetailPanel } from '@/components/shared'
+import { DetailModal } from '@/components/shared'
 import type { Transaction } from '@/stores/finance'
 import { formatCurrency, formatDate } from '@/lib/format'
 
@@ -29,7 +29,7 @@ export function TransactionDetailPanel({ transaction: tx, onClose }: Transaction
   }
 
   return (
-    <DetailPanel open={true} title={t('buchhaltung.transactionDetail.title')} onClose={onClose}>
+    <DetailModal open={true} title={t('buchhaltung.transactionDetail.title')} onClose={onClose}>
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center gap-3">
@@ -62,6 +62,6 @@ export function TransactionDetailPanel({ transaction: tx, onClose }: Transaction
           ))}
         </div>
       </div>
-    </DetailPanel>
+    </DetailModal>
   )
 }

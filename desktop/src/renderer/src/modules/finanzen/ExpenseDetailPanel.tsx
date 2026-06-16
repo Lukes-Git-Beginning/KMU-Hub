@@ -9,7 +9,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Calendar, Tag, Building2, FolderOpen, BookOpen, Paperclip, CheckCircle2, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { DetailPanel } from '@/components/shared'
+import { DetailModal } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import type { Expense } from '@/stores/finance'
 import { useApproveExpense, useRejectExpense } from '@/api/hooks/useFinanceLedger'
@@ -53,7 +53,7 @@ export function ExpenseDetailPanel({ expense, onClose, onEdit }: ExpenseDetailPa
   }
 
   return (
-    <DetailPanel open={true} title={t('buchhaltung.expenseDetail.title')} onClose={onClose}>
+    <DetailModal open={true} title={t('buchhaltung.expenseDetail.title')} onClose={onClose}>
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
@@ -119,6 +119,6 @@ export function ExpenseDetailPanel({ expense, onClose, onEdit }: ExpenseDetailPa
       </div>
 
       <ReceiptPreviewDialog expense={showReceipt ? expense : null} onClose={() => setShowReceipt(false)} />
-    </DetailPanel>
+    </DetailModal>
   )
 }

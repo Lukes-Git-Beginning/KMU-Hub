@@ -185,19 +185,13 @@ export function OpenItemsTab({ onOpenInvoice }: OpenItemsTabProps) {
         {filtered.map((it) => (
           <div
             key={it.invoice.id}
-            className="grid grid-cols-[110px_1fr_110px_110px_120px_90px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors"
+            role="button"
+            tabIndex={0}
+            onClick={() => onOpenInvoice?.(it.invoice.id)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenInvoice?.(it.invoice.id) } }}
+            className="grid cursor-pointer grid-cols-[110px_1fr_110px_110px_120px_90px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors focus-visible:bg-secondary/40 focus-visible:outline-none"
           >
-            {onOpenInvoice ? (
-              <button
-                type="button"
-                onClick={() => onOpenInvoice(it.invoice.id)}
-                className="text-left text-sm font-mono text-primary hover:underline"
-              >
-                {it.invoice.invoice_number}
-              </button>
-            ) : (
-              <span className="text-sm font-mono text-primary">{it.invoice.invoice_number}</span>
-            )}
+            <span className="text-sm font-mono text-primary">{it.invoice.invoice_number}</span>
             <span className="text-sm text-foreground truncate">{it.invoice.customer?.name ?? ''}</span>
             <span className="text-xs text-muted-foreground">{formatDate(it.invoice.due_date)}</span>
             <span className={`text-xs font-medium ${it.daysOverdue > 0 ? 'text-error' : 'text-muted-foreground'}`}>

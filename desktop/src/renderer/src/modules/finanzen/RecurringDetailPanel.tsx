@@ -7,7 +7,7 @@
 import { useTranslation } from 'react-i18next'
 import { Repeat, CalendarClock, User, Hash, Play, Pause, Zap } from 'lucide-react'
 import { toast } from 'sonner'
-import { DetailPanel } from '@/components/shared'
+import { DetailModal } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import type { RecurringInvoice, RecurringStatus } from '@/types/finance-types'
 import {
@@ -44,7 +44,7 @@ export function RecurringDetailPanel({ recurring: r, onClose, onEdit }: Recurrin
   ]
 
   return (
-    <DetailPanel open={true} title={t('finanzen.recurringDetail.title')} onClose={onClose}>
+    <DetailModal open={true} title={t('finanzen.recurringDetail.title')} onClose={onClose}>
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
@@ -133,6 +133,6 @@ export function RecurringDetailPanel({ recurring: r, onClose, onEdit }: Recurrin
           <Button variant="outline" size="sm" onClick={onEdit}>{t('common.edit')}</Button>
         </div>
       </div>
-    </DetailPanel>
+    </DetailModal>
   )
 }

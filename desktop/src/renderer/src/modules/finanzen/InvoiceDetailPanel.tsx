@@ -16,7 +16,7 @@ import {
   Shield,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { DetailPanel } from '@/components/shared'
+import { DetailModal } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import {
   useInvoice,
@@ -106,11 +106,11 @@ export function InvoiceDetailPanel({
 
   if (isLoading || !invoice) {
     return (
-      <DetailPanel open={true} title={t('finanzen.invoiceDetail.title')} onClose={onClose}>
+      <DetailModal open={true} title={t('finanzen.invoiceDetail.title')} onClose={onClose}>
         <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
           {t('common.loading')}
         </div>
-      </DetailPanel>
+      </DetailModal>
     )
   }
 
@@ -149,7 +149,7 @@ export function InvoiceDetailPanel({
   }
 
   return (
-    <DetailPanel open={true} title={t('finanzen.invoiceDetail.title')} onClose={onClose}>
+    <DetailModal open={true} title={t('finanzen.invoiceDetail.title')} onClose={onClose}>
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-start justify-between">
@@ -519,6 +519,6 @@ export function InvoiceDetailPanel({
           )}
         </div>
       </div>
-    </DetailPanel>
+    </DetailModal>
   )
 }

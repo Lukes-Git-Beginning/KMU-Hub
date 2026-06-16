@@ -152,16 +152,14 @@ export function RecurringInvoicesTab() {
             return (
               <div
                 key={r.id}
-                className="grid grid-cols-[1fr_110px_130px_110px_120px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors"
+                role="button"
+                tabIndex={0}
+                onClick={() => setDetailRec(r)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailRec(r) } }}
+                className="grid cursor-pointer grid-cols-[1fr_110px_130px_110px_120px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors focus-visible:bg-secondary/40 focus-visible:outline-none"
               >
                 <div className="min-w-0">
-                  <button
-                    type="button"
-                    onClick={() => setDetailRec(r)}
-                    className="block max-w-full truncate text-left text-sm font-medium text-foreground hover:text-primary hover:underline"
-                  >
-                    {r.title}
-                  </button>
+                  <p className="truncate text-sm font-medium text-foreground">{r.title}</p>
                   <p className="text-[11px] text-muted-foreground truncate">
                     {r.customer.name}
                     {r.generated_count > 0 && (
@@ -185,7 +183,9 @@ export function RecurringInvoicesTab() {
                   {r.status === 'paused' && <Pause className="h-2.5 w-2.5" />}
                   {t(`finanzen.recurring.status.${r.status}`)}
                 </span>
-                <ItemActions items={getActions(r)} />
+                <div onClick={(e) => e.stopPropagation()}>
+                  <ItemActions items={getActions(r)} />
+                </div>
               </div>
             )
           })}

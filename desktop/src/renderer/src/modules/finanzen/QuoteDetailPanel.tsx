@@ -18,7 +18,7 @@ import {
   FileCheck,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { DetailPanel } from '@/components/shared'
+import { DetailModal } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import {
   useQuote,
@@ -59,11 +59,11 @@ export function QuoteDetailPanel({ quoteId, onClose, onEdit, onConverted }: Quot
 
   if (isLoading || !quote) {
     return (
-      <DetailPanel open={true} title={t('finanzen.quoteDetail.title')} onClose={onClose}>
+      <DetailModal open={true} title={t('finanzen.quoteDetail.title')} onClose={onClose}>
         <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
           {t('common.loading')}
         </div>
-      </DetailPanel>
+      </DetailModal>
     )
   }
 
@@ -85,7 +85,7 @@ export function QuoteDetailPanel({ quoteId, onClose, onEdit, onConverted }: Quot
   }
 
   return (
-    <DetailPanel open={true} title={t('finanzen.quoteDetail.title')} onClose={onClose}>
+    <DetailModal open={true} title={t('finanzen.quoteDetail.title')} onClose={onClose}>
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-start justify-between">
@@ -221,6 +221,6 @@ export function QuoteDetailPanel({ quoteId, onClose, onEdit, onConverted }: Quot
           </Button>
         </div>
       </div>
-    </DetailPanel>
+    </DetailModal>
   )
 }

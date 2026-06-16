@@ -685,14 +685,13 @@ export default function FinanzenPage() {
               return (
                 <div
                   key={inv.id}
-                  className="grid grid-cols-[100px_1fr_100px_100px_100px_160px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedInvoiceId(inv.id)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedInvoiceId(inv.id) } }}
+                  className="grid cursor-pointer grid-cols-[100px_1fr_100px_100px_100px_160px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors focus-visible:bg-secondary/40 focus-visible:outline-none"
                 >
-                  <button
-                    onClick={() => setSelectedInvoiceId(inv.id)}
-                    className="text-sm font-mono text-primary hover:underline text-left"
-                  >
-                    {inv.invoice_number}
-                  </button>
+                  <span className="text-sm font-mono text-primary">{inv.invoice_number}</span>
                   <span className="text-sm text-foreground truncate">
                     {inv.customer.name}
                   </span>
@@ -718,17 +717,21 @@ export default function FinanzenPage() {
                       <StatusIcon className="h-3 w-3" />
                       {t(sc.labelKey)}
                     </span>
-                    <QRBillIndicator
-                      hasQRBill={inv.invoice_number === 'RE-2026-003' || inv.invoice_number === 'RE-2026-008'}
-                      invoiceNumber={inv.invoice_number}
-                      onPreview={() => setQrPreviewInvoice(inv.invoice_number)}
-                    />
-                    <EInvoiceBadge
-                      invoiceNumber={inv.invoice_number}
-                      onClick={() => setEInvoiceDetailNumber(inv.invoice_number)}
-                    />
+                    <span onClick={(e) => e.stopPropagation()} className="contents">
+                      <QRBillIndicator
+                        hasQRBill={inv.invoice_number === 'RE-2026-003' || inv.invoice_number === 'RE-2026-008'}
+                        invoiceNumber={inv.invoice_number}
+                        onPreview={() => setQrPreviewInvoice(inv.invoice_number)}
+                      />
+                      <EInvoiceBadge
+                        invoiceNumber={inv.invoice_number}
+                        onClick={() => setEInvoiceDetailNumber(inv.invoice_number)}
+                      />
+                    </span>
                   </div>
-                  <ItemActions items={getInvoiceActions(inv)} />
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <ItemActions items={getInvoiceActions(inv)} />
+                  </div>
                 </div>
               )
             })}
@@ -762,15 +765,13 @@ export default function FinanzenPage() {
               return (
                 <div
                   key={q.id}
-                  className="grid grid-cols-[100px_1fr_100px_100px_90px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedQuoteId(q.id)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedQuoteId(q.id) } }}
+                  className="grid cursor-pointer grid-cols-[100px_1fr_100px_100px_90px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors focus-visible:bg-secondary/40 focus-visible:outline-none"
                 >
-                  <button
-                    type="button"
-                    onClick={() => setSelectedQuoteId(q.id)}
-                    className="text-left text-sm font-mono text-primary hover:underline"
-                  >
-                    {q.quote_number}
-                  </button>
+                  <span className="text-sm font-mono text-primary">{q.quote_number}</span>
                   <span className="text-sm text-foreground truncate">
                     {q.customer.name}
                   </span>
@@ -786,7 +787,9 @@ export default function FinanzenPage() {
                     <StatusIcon className="h-3 w-3" />
                     {t(sc.labelKey)}
                   </span>
-                  <ItemActions items={getQuoteActions(q)} />
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <ItemActions items={getQuoteActions(q)} />
+                  </div>
                 </div>
               )
             })}
@@ -822,15 +825,13 @@ export default function FinanzenPage() {
               return (
                 <div
                   key={cn.id}
-                  className="grid grid-cols-[100px_1fr_120px_100px_90px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedCreditNoteId(cn.id)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCreditNoteId(cn.id) } }}
+                  className="grid cursor-pointer grid-cols-[100px_1fr_120px_100px_90px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors focus-visible:bg-secondary/40 focus-visible:outline-none"
                 >
-                  <button
-                    type="button"
-                    onClick={() => setSelectedCreditNoteId(cn.id)}
-                    className="text-left text-sm font-mono text-primary hover:underline"
-                  >
-                    {cn.credit_note_number}
-                  </button>
+                  <span className="text-sm font-mono text-primary">{cn.credit_note_number}</span>
                   <span className="text-sm text-foreground truncate">
                     {cn.customer.name}
                   </span>
@@ -854,6 +855,7 @@ export default function FinanzenPage() {
                   >
                     {isDraft ? t('finanzen.status.draft') : t('finanzen.status.sent')}
                   </span>
+                  <div onClick={(e) => e.stopPropagation()}>
                   <ItemActions
                     items={[
                       {
@@ -882,6 +884,7 @@ export default function FinanzenPage() {
                         : []),
                     ]}
                   />
+                  </div>
                 </div>
               )
             })}

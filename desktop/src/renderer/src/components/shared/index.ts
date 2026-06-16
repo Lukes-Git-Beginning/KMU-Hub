@@ -1,6 +1,7 @@
 export { ConfirmDialog } from './ConfirmDialog'
 export { InlineStat, type InlineStatProps } from './InlineStat'
 export { DetailPanel } from './DetailPanel'
+export { DetailModal } from './DetailModal'
 export { EmptyState } from './EmptyState'
 export { ItemActions, type ActionItem } from './ItemActions'
 export { SortMenu, type SortDirection, type SortFieldOption } from './SortMenu'

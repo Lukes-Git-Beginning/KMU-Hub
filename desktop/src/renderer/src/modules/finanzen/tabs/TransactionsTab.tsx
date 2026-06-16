@@ -138,7 +138,11 @@ export function TransactionsTab() {
           {filtered.map((tx) => (
             <div
               key={tx.id}
-              className="grid grid-cols-[1fr_140px_140px_120px_40px] items-center gap-3 border-b border-border-muted px-4 py-3 last:border-b-0"
+              role="button"
+              tabIndex={0}
+              onClick={() => setDetailTx(tx)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailTx(tx) } }}
+              className="grid cursor-pointer grid-cols-[1fr_140px_140px_120px_40px] items-center gap-3 border-b border-border-muted px-4 py-3 transition-colors last:border-b-0 hover:bg-secondary/40 focus-visible:bg-secondary/40 focus-visible:outline-none"
             >
               <div className="flex min-w-0 items-center gap-3">
                 <div
@@ -154,13 +158,7 @@ export function TransactionsTab() {
                   )}
                 </div>
                 <div className="min-w-0">
-                  <button
-                    type="button"
-                    onClick={() => setDetailTx(tx)}
-                    className="block max-w-full truncate text-left text-sm text-foreground hover:text-primary hover:underline"
-                  >
-                    {tx.description}
-                  </button>
+                  <p className="truncate text-sm text-foreground">{tx.description}</p>
                   {tx.reference && (
                     <p className="truncate text-[11px] text-muted-foreground">{tx.reference}</p>
                   )}
@@ -178,6 +176,7 @@ export function TransactionsTab() {
               <span className="text-right text-xs text-muted-foreground tabular-nums">
                 {new Date(tx.date).toLocaleDateString(i18n.language)}
               </span>
+              <div onClick={(e) => e.stopPropagation()}>
               <ItemActions
                 items={[
                   {
@@ -191,6 +190,7 @@ export function TransactionsTab() {
                   },
                 ]}
               />
+              </div>
             </div>
           ))}
         </div>
