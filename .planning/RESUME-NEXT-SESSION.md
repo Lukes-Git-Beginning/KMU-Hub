@@ -1,5 +1,8 @@
 # ▶ HIER STARTEN
 
+> ## ⭐ AKTUELLSTER STAND: `.planning/RESUME-2026-06-16.md`
+> Pilot-0-Readiness (Plan `~/.claude/plans/rolle-du-bist-mein-velvet-muffin.md`): **Phase 1 done & gepusht** (WP-A `932fdee2` Booking→CalEvent, WP-C `650e8690` Passwort-Reset-FE). **WP-B (SMTP-Assertion) hängt lokal uncommitted — erst nach `SYSTEM_SMTP_*` auf dem Server pushen.** **Nächstes: WP-D** (Booking-Admin-UI). Subagent-Delegation für große Wellen. Der Marathon-Block unten ist historisch.
+
 ## 🏃 MARATHON-MODUS (ab 2026-06-09) — 3 Ströme parallel, Darien tagsüber weg
 **Pipeline steht.** Drei Bau-Ströme arbeiten parallel an disjunkten Modul-Lanes auf eigenen Branches; `main` bleibt eingefroren, Darien merged + reviewt beim Zurückkommen.
 - **Starttexte für die 3 Claudes:** `.planning/HANDOFF-TEXTS.md` (Copy-Paste je Strom — DAS gibt Darien morgen früh raus).
