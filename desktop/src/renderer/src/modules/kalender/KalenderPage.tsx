@@ -47,6 +47,7 @@ import {
 import { toast } from 'sonner'
 import { moduleHsl } from '@/components/layout/sidebar/nav-items'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { DetailModal } from '@/components/shared'
 import { RoomBookingView } from './RoomBookingView'
 import { CategoryManagerDialog } from './CategoryManagerDialog'
 import { CalendarBrowseDialog } from './CalendarBrowseDialog'
@@ -151,6 +152,8 @@ interface BookingAppointment {
   endTime: string
   personal: string
   notizen?: string
+  telefon?: string
+  email?: string
   status: 'bestätigt' | 'ausstehend' | 'abgesagt'
 }
 
@@ -169,11 +172,11 @@ const BOOKING_STAFF = ['Lena Huber', 'Marco Roth', 'Nina Frei', 'Sandra Wyss']
 
 const MOCK_BOOKINGS: BookingAppointment[] = [
   // Today (2026-02-09 as mock "today")
-  { id: 'bk1', serviceId: 'bs1', kunde: 'Anna Weber', datum: '2026-02-09', startTime: '09:00', endTime: '09:30', personal: 'Marco Roth', status: 'bestätigt' },
+  { id: 'bk1', serviceId: 'bs1', kunde: 'Anna Weber', datum: '2026-02-09', startTime: '09:00', endTime: '09:30', personal: 'Marco Roth', telefon: '+41 79 123 45 67', email: 'anna.weber@example.ch', notizen: 'Stammkundin — wie immer kurze Seiten.', status: 'bestätigt' },
   { id: 'bk2', serviceId: 'bs2', kunde: 'Markus Steiner', datum: '2026-02-09', startTime: '09:30', endTime: '10:15', personal: 'Lena Huber', status: 'bestätigt' },
   { id: 'bk3', serviceId: 'bs6', kunde: 'Sarah Keller', datum: '2026-02-09', startTime: '10:00', endTime: '10:30', personal: 'Sandra Wyss', status: 'bestätigt' },
-  { id: 'bk4', serviceId: 'bs3', kunde: 'Julia Meier', datum: '2026-02-09', startTime: '11:00', endTime: '12:30', personal: 'Nina Frei', status: 'ausstehend' },
-  { id: 'bk5', serviceId: 'bs5', kunde: 'Thomas Brunner', datum: '2026-02-09', startTime: '13:00', endTime: '14:00', personal: 'Lena Huber', status: 'bestätigt' },
+  { id: 'bk4', serviceId: 'bs3', kunde: 'Julia Meier', datum: '2026-02-09', startTime: '11:00', endTime: '12:30', personal: 'Nina Frei', telefon: '+41 78 555 21 09', email: 'j.meier@example.ch', notizen: 'Farbwunsch: warmes Kupfer, Foto mitgebracht.', status: 'ausstehend' },
+  { id: 'bk5', serviceId: 'bs5', kunde: 'Thomas Brunner', datum: '2026-02-09', startTime: '13:00', endTime: '14:00', personal: 'Lena Huber', telefon: '+41 76 412 88 30', email: 'thomas.brunner@example.ch', notizen: 'Erstgespräch — Interesse an Komplettpaket.', status: 'bestätigt' },
   { id: 'bk6', serviceId: 'bs7', kunde: 'Elena Fischer', datum: '2026-02-09', startTime: '14:00', endTime: '15:00', personal: 'Sandra Wyss', status: 'bestätigt' },
   { id: 'bk7', serviceId: 'bs4', kunde: 'Peter Zimmermann', datum: '2026-02-09', startTime: '15:00', endTime: '15:20', personal: 'Marco Roth', status: 'bestätigt' },
   { id: 'bk8', serviceId: 'bs8', kunde: 'Claudia Berger', datum: '2026-02-09', startTime: '15:30', endTime: '16:15', personal: 'Nina Frei', status: 'ausstehend' },
@@ -812,6 +815,8 @@ function TerminbuchungTab() {
   const [showNewBooking, setShowNewBooking] = useState(false)
   const [bookingDate, setBookingDate] = useState('2026-02-09')
   const [bookings, setBookings] = useState(MOCK_BOOKINGS)
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null)
+  const selectedBooking = bookings.find((b) => b.id === selectedBookingId) ?? null
 
   const bookingsForDate = useMemo(
     () => bookings
@@ -835,6 +840,11 @@ function TerminbuchungTab() {
     setBookings((prev) => [...prev, { ...newBooking, id }])
     setShowNewBooking(false)
     toast.success(t('kalender.booking.createdSuccess'))
+  }
+
+  const updateBookingStatus = (id: string, status: BookingAppointment['status']) => {
+    setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)))
+    toast.success(t('kalender.bookingDetail.statusUpdated', { status: statusLabel(status).text }))
   }
 
   const todayBookingCount = bookings.filter((b) => b.datum === '2026-02-09' && b.status !== 'abgesagt').length
@@ -922,7 +932,11 @@ function TerminbuchungTab() {
                 return (
                   <div
                     key={booking.id}
-                    className="grid grid-cols-[80px_1fr_120px_120px_100px] gap-3 border-b border-border-muted px-4 py-3 hover:bg-secondary/20 transition-colors items-center"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelectedBookingId(booking.id)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedBookingId(booking.id) } }}
+                    className="grid cursor-pointer grid-cols-[80px_1fr_120px_120px_100px] gap-3 border-b border-border-muted px-4 py-3 hover:bg-secondary/20 transition-colors items-center focus-visible:bg-secondary/30 focus-visible:outline-none"
                   >
                     {/* Time */}
                     <div className="text-xs font-medium text-foreground">
@@ -993,7 +1007,11 @@ function TerminbuchungTab() {
                         return (
                           <div
                             key={b.id}
-                            className="absolute top-0.5 bottom-0.5 rounded-[3px] flex items-center px-1.5 overflow-hidden"
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setSelectedBookingId(b.id)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedBookingId(b.id) } }}
+                            className="absolute top-0.5 bottom-0.5 cursor-pointer rounded-[3px] flex items-center px-1.5 overflow-hidden transition-[filter] hover:brightness-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
                             style={{
                               left: `${leftPct}%`,
                               width: `${widthPct}%`,
@@ -1021,6 +1039,22 @@ function TerminbuchungTab() {
         <NewBookingDialog
           onClose={() => setShowNewBooking(false)}
           onSave={handleCreateBooking}
+        />
+      )}
+
+      {/* Booking detail modal — opens on row / timeline-block click */}
+      {selectedBooking && (
+        <BookingDetailModal
+          booking={selectedBooking}
+          service={getServiceById(selectedBooking.serviceId)}
+          customerBookings={bookings
+            .filter((b) => b.kunde === selectedBooking.kunde && b.id !== selectedBooking.id)
+            .sort((a, b) => (a.datum < b.datum ? 1 : a.datum > b.datum ? -1 : timeToMinutes(b.startTime) - timeToMinutes(a.startTime)))}
+          getServiceById={getServiceById}
+          statusLabel={statusLabel}
+          onClose={() => setSelectedBookingId(null)}
+          onUpdateStatus={(status) => updateBookingStatus(selectedBooking.id, status)}
+          onSelectBooking={setSelectedBookingId}
         />
       )}
       </div>
@@ -1209,6 +1243,176 @@ function NewBookingDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ============================================================
+// Booking Detail Modal (Terminbuchung — Tagesübersicht)
+// ============================================================
+
+function BookingDetailModal({
+  booking,
+  service,
+  customerBookings,
+  getServiceById,
+  statusLabel,
+  onClose,
+  onUpdateStatus,
+  onSelectBooking,
+}: {
+  booking: BookingAppointment
+  service?: BookingService
+  customerBookings: BookingAppointment[]
+  getServiceById: (id: string) => BookingService | undefined
+  statusLabel: (s: BookingAppointment['status']) => { text: string; cls: string }
+  onClose: () => void
+  onUpdateStatus: (status: BookingAppointment['status']) => void
+  onSelectBooking: (id: string) => void
+}) {
+  const { t } = useTranslation()
+  const status = statusLabel(booking.status)
+  const dauerMin = service ? service.dauer : timeToMinutes(booking.endTime) - timeToMinutes(booking.startTime)
+  const dateLabel = new Date(booking.datum).toLocaleDateString('de-DE', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  })
+
+  return (
+    <DetailModal open={true} title={t('kalender.bookingDetail.title')} onClose={onClose}>
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: service?.color ?? '#888' }} />
+            <div className="min-w-0">
+              <h3 className="truncate text-base font-medium text-foreground">{service?.name ?? '—'}</h3>
+              <p className="text-xs text-muted-foreground">{booking.startTime} – {booking.endTime} · {dauerMin} Min.</p>
+            </div>
+          </div>
+          <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium ${status.cls}`}>{status.text}</span>
+        </div>
+
+        {/* Schedule + staff */}
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Calendar className="h-3.5 w-3.5 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-[10px] text-muted-foreground">{t('kalender.bookingDetail.schedule')}</p>
+              <p className="text-foreground">{dateLabel}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Users className="h-3.5 w-3.5 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-[10px] text-muted-foreground">{t('kalender.bookingDetail.staff')}</p>
+              <p className="truncate text-foreground">{booking.personal}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Customer */}
+        <section>
+          <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('kalender.bookingDetail.client')}</h4>
+          <div className="space-y-2 rounded-lg border border-border p-3 text-xs">
+            <div className="flex items-center gap-2">
+              <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="font-medium text-foreground">{booking.kunde}</span>
+            </div>
+            {booking.telefon && (
+              <a href={`tel:${booking.telefon.replace(/\s/g, '')}`} className="flex items-center gap-2 text-muted-foreground transition-colors hover:text-primary">
+                <Phone className="h-3.5 w-3.5 shrink-0" />
+                <span>{booking.telefon}</span>
+              </a>
+            )}
+            {booking.email && (
+              <a href={`mailto:${booking.email}`} className="flex items-center gap-2 text-muted-foreground transition-colors hover:text-primary">
+                <Mail className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{booking.email}</span>
+              </a>
+            )}
+            {!booking.telefon && !booking.email && (
+              <p className="text-[11px] text-muted-foreground">{t('kalender.bookingDetail.noContact')}</p>
+            )}
+          </div>
+        </section>
+
+        {/* Service + price */}
+        <section>
+          <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('kalender.bookingDetail.serviceLabel')}</h4>
+          <div className="space-y-1.5 rounded-lg border border-border p-3 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-muted-foreground"><Scissors className="h-3.5 w-3.5" />{service?.name ?? '—'}</span>
+              <span className="text-foreground">{dauerMin} Min.</span>
+            </div>
+            <div className="flex items-center justify-between border-t border-border pt-1.5">
+              <span className="flex items-center gap-2 text-muted-foreground"><Euro className="h-3.5 w-3.5" />{t('kalender.bookingDetail.price')}</span>
+              <span className="text-sm font-semibold text-foreground">CHF {(service?.preis ?? 0).toFixed(2)}</span>
+            </div>
+          </div>
+        </section>
+
+        {/* Notes */}
+        {booking.notizen && (
+          <section>
+            <h4 className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('kalender.bookingDetail.notes')}</h4>
+            <p className="whitespace-pre-wrap text-xs text-muted-foreground">{booking.notizen}</p>
+          </section>
+        )}
+
+        {/* Customer history */}
+        <section>
+          <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('kalender.bookingDetail.customerHistory')}</h4>
+          {customerBookings.length === 0 ? (
+            <p className="text-[11px] text-muted-foreground">{t('kalender.bookingDetail.noHistory')}</p>
+          ) : (
+            <div className="overflow-hidden rounded-md border border-border">
+              {customerBookings.slice(0, 5).map((b, idx) => {
+                const svc = getServiceById(b.serviceId)
+                const st = statusLabel(b.status)
+                return (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => onSelectBooking(b.id)}
+                    className={`group flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-secondary/50 ${idx > 0 ? 'border-t border-border-muted' : ''}`}
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: svc?.color ?? '#888' }} />
+                      <span className="min-w-0">
+                        <span className="block truncate text-foreground">{svc?.name}</span>
+                        <span className="block text-[10px] text-muted-foreground">{new Date(b.datum).toLocaleDateString('de-DE')} · {b.startTime}</span>
+                      </span>
+                    </span>
+                    <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium ${st.cls}`}>{st.text}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* Actions */}
+        <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+          {booking.status === 'ausstehend' && (
+            <button
+              onClick={() => onUpdateStatus('bestätigt')}
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-1.5 text-xs text-primary-foreground transition-colors hover:bg-button-primary-hover"
+            >
+              <Check className="h-3.5 w-3.5" />
+              {t('kalender.bookingDetail.confirm')}
+            </button>
+          )}
+          {booking.status !== 'abgesagt' && (
+            <button
+              onClick={() => onUpdateStatus('abgesagt')}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-4 py-1.5 text-xs text-error transition-colors hover:bg-secondary"
+            >
+              <CircleX className="h-3.5 w-3.5" />
+              {t('kalender.bookingDetail.cancelAppt')}
+            </button>
+          )}
+        </div>
+      </div>
+    </DetailModal>
   )
 }
 
