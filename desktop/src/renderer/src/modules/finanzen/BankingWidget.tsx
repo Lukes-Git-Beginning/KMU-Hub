@@ -19,78 +19,16 @@ import {
   CheckCircle2,
   HelpCircle,
   Zap,
+  Loader2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate } from '@/lib/format'
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface BankAccount {
-  id: string
-  bankName: string
-  iban: string
-  bic: string
-  balance: number
-  currency: string
-  connected: boolean
-  lastSync: string | null
-}
-
-type MatchStatus = 'matched' | 'suggested' | 'unmatched'
-
-interface BankTransaction {
-  id: string
-  date: string
-  description: string
-  amount: number
-  type: 'credit' | 'debit'
-  counterpart: string
-  matchStatus: MatchStatus
-  matchedInvoice?: string
-}
-
-// ---------------------------------------------------------------------------
-// Mock data
-// ---------------------------------------------------------------------------
-
-// TODO: Replace mock data with API call — Backend needed: FinAPI integration endpoints
-// GET /api/v1/finance/bank-accounts, GET /api/v1/finance/bank-transactions
-const mockAccounts: BankAccount[] = [
-  {
-    id: 'ba1',
-    bankName: 'Commerzbank',
-    iban: 'DE89 3704 0044 0532 0130 00',
-    bic: 'COBADEFFXXX',
-    balance: 142850.75,
-    currency: 'EUR',
-    connected: true,
-    lastSync: '2026-02-24 09:15',
-  },
-  {
-    id: 'ba2',
-    bankName: 'Sparkasse München',
-    iban: 'DE72 7015 0000 0012 3456 78',
-    bic: 'SSKMDEMMXXX',
-    balance: 85000.00,
-    currency: 'EUR',
-    connected: false,
-    lastSync: null,
-  },
-]
-
-// TODO: Replace mock data with API call — Backend needed: FinAPI integration endpoints
-// GET /api/v1/finance/bank-transactions (with filtering, pagination, match status)
-const mockTransactions: BankTransaction[] = [
-  { id: 'bt1', date: '2026-02-24', description: 'Eingang Gruber Maschinenbau — Abschlag 3', amount: 16000.00, type: 'credit', counterpart: 'Gruber Maschinenbau GmbH', matchStatus: 'matched', matchedInvoice: 'RE-2026-003' },
-  { id: 'bt2', date: '2026-02-22', description: 'Eingang DataFlow — Analytics Dashboard', amount: 14000.00, type: 'credit', counterpart: 'DataFlow GmbH', matchStatus: 'matched', matchedInvoice: 'RE-2026-011' },
-  { id: 'bt3', date: '2026-02-19', description: 'Eingang Stadler Bau — Intranet Portal', amount: 21000.00, type: 'credit', counterpart: 'Stadler Bauunternehmen GmbH', matchStatus: 'suggested', matchedInvoice: 'RE-2026-008' },
-  { id: 'bt4', date: '2026-02-23', description: 'CloudFirst Hosting — Monatsrechnung Feb', amount: -1890.00, type: 'debit', counterpart: 'CloudFirst Hosting GmbH', matchStatus: 'unmatched' },
-  { id: 'bt5', date: '2026-02-21', description: 'Gehälter Februar 2026', amount: -78500.00, type: 'debit', counterpart: 'Sammelüberweisung', matchStatus: 'unmatched' },
-  { id: 'bt6', date: '2026-02-25', description: 'Eingang Berger — Mobile App Anzahlung', amount: 20000.00, type: 'credit', counterpart: 'Berger & Soehne', matchStatus: 'suggested', matchedInvoice: 'RE-2026-015' },
-  { id: 'bt7', date: '2026-02-18', description: 'Adobe Creative Cloud — Jahresrechnung', amount: -4188.00, type: 'debit', counterpart: 'Adobe Inc.', matchStatus: 'unmatched' },
-]
+import {
+  useBankAccounts,
+  useBankTransactions,
+  useMatchTransaction,
+  useRejectMatch,
+} from '@/api/hooks/useFinance'
 
 // ---------------------------------------------------------------------------
 // Component
@@ -98,10 +36,15 @@ const mockTransactions: BankTransaction[] = [
 
 export function BankingWidget() {
   const { t } = useTranslation()
-  const [syncing, setSyncing] = useState(false)
   const [filter, setFilter] = useState<'all' | 'matched' | 'suggested' | 'unmatched'>('all')
 
-  const connectedAccount = mockAccounts.find((a) => a.connected)
+  const { data: accounts = [], isLoading: accountsLoading } = useBankAccounts()
+  const { data: transactions = [], isLoading: txLoading } = useBankTransactions()
+  const matchMutation = useMatchTransaction()
+  const rejectMutation = useRejectMatch()
+  const [syncing, setSyncing] = useState(false)
+
+  const connectedAccount = accounts.find((a) => a.connected)
 
   const handleSync = () => {
     setSyncing(true)
@@ -111,31 +54,45 @@ export function BankingWidget() {
     }, 2000)
   }
 
-  const handleAcceptMatch = (_txId: string) => {
-    toast.success(t('finanzen.banking.matchConfirmed'))
+  const handleAcceptMatch = (txId: string) => {
+    matchMutation.mutate(txId, {
+      onSuccess: () => toast.success(t('finanzen.banking.matchConfirmed')),
+      onError: (err) => toast.error(err.message),
+    })
   }
 
-  const handleRejectMatch = (_txId: string) => {
-    toast.success(t('finanzen.banking.matchRejected'))
+  const handleRejectMatch = (txId: string) => {
+    rejectMutation.mutate(txId, {
+      onSuccess: () => toast.success(t('finanzen.banking.matchRejected')),
+      onError: (err) => toast.error(err.message),
+    })
   }
 
-  const filteredTx = mockTransactions.filter((tx) => {
+  const filteredTx = transactions.filter((tx) => {
     if (filter === 'all') return true
     return tx.matchStatus === filter
   })
 
-  const matchedCount = mockTransactions.filter((t) => t.matchStatus === 'matched').length
-  const suggestedCount = mockTransactions.filter((t) => t.matchStatus === 'suggested').length
-  const unmatchedCount = mockTransactions.filter((t) => t.matchStatus === 'unmatched').length
+  const matchedCount = transactions.filter((t) => t.matchStatus === 'matched').length
+  const suggestedCount = transactions.filter((t) => t.matchStatus === 'suggested').length
+  const unmatchedCount = transactions.filter((t) => t.matchStatus === 'unmatched').length
 
   const formatEUR = (v: number) =>
     new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v)
+
+  if (accountsLoading || txLoading) {
+    return (
+      <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">
       {/* Bank accounts */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {mockAccounts.map((acc) => (
+        {accounts.map((acc) => (
           <div
             key={acc.id}
             className={`rounded-lg border p-4 ${
@@ -173,7 +130,7 @@ export function BankingWidget() {
                 <div className="flex items-center gap-2">
                   {acc.lastSync && (
                     <span className="text-[9px] text-muted-foreground">
-                      {t('finanzen.banking.lastSync')}: {acc.lastSync}
+                      {t('finanzen.banking.lastSync')}: {formatDate(acc.lastSync)}
                     </span>
                   )}
                   <button
@@ -205,7 +162,7 @@ export function BankingWidget() {
             <h3 className="text-sm font-medium text-foreground">{t('finanzen.banking.transactionMatching')}</h3>
             <div className="flex items-center gap-1.5">
               {([
-                ['all', `${t('finanzen.banking.filterAll')} (${mockTransactions.length})`],
+                ['all', `${t('finanzen.banking.filterAll')} (${transactions.length})`],
                 ['matched', `${t('finanzen.banking.filterMatched')} (${matchedCount})`],
                 ['suggested', `${t('finanzen.banking.filterSuggested')} (${suggestedCount})`],
                 ['unmatched', `${t('finanzen.banking.filterUnmatched')} (${unmatchedCount})`],

@@ -315,6 +315,7 @@ export interface ListQuotesParams {
 
 export interface ListInvoicesParams {
   status?: InvoiceStatus
+  recurring_id?: string
   page?: number
   page_size?: number
 }
@@ -370,6 +371,80 @@ export interface ListPaymentsResponse {
 export interface ListDunningsResponse {
   dunnings: DunningRecord[]
   total: number
+}
+
+// ---------------------------------------------------------------------------
+// Banking / Belegkette / Stunden→Rechnung (finanzen P2.5e)
+// ---------------------------------------------------------------------------
+
+export type BankMatchStatus = 'matched' | 'suggested' | 'unmatched'
+
+export interface BankAccount {
+  id: string
+  bankName: string
+  iban: string
+  bic: string
+  balance: number
+  currency: string
+  connected: boolean
+  lastSync: string | null
+}
+
+export interface BankTransaction {
+  id: string
+  date: string
+  description: string
+  amount: number
+  type: 'credit' | 'debit'
+  counterpart: string
+  matchStatus: BankMatchStatus
+  matchedInvoice?: string
+}
+
+export interface ListBankAccountsResponse {
+  accounts: BankAccount[]
+}
+
+export interface ListBankTransactionsResponse {
+  transactions: BankTransaction[]
+}
+
+export type ChainDocType = 'quote' | 'invoice' | 'payment' | 'credit-note' | 'dunning'
+export type ChainDocStatus = 'completed' | 'active' | 'pending' | 'cancelled' | 'overdue'
+
+export interface ChainNode {
+  type: ChainDocType
+  number: string
+  date: string
+  amount: string
+  status: ChainDocStatus
+}
+
+export interface DocumentChain {
+  id: string
+  customer: string
+  totalValue: string
+  nodes: ChainNode[]
+  isComplete: boolean
+}
+
+export interface ListDocumentChainsResponse {
+  chains: DocumentChain[]
+}
+
+export interface FinanceTimeEntry {
+  id: string
+  date: string
+  project: string
+  task: string
+  employee: string
+  hours: number
+  description: string
+  billed: boolean
+}
+
+export interface ListTimeEntriesResponse {
+  entries: FinanceTimeEntry[]
 }
 
 // ---------------------------------------------------------------------------

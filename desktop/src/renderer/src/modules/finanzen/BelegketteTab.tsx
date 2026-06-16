@@ -20,36 +20,16 @@ import {
   ChevronUp,
   ExternalLink,
   Filter,
+  Loader2,
 } from 'lucide-react'
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-type DocType = 'quote' | 'invoice' | 'payment' | 'credit-note' | 'dunning'
-type DocStatus = 'completed' | 'active' | 'pending' | 'cancelled' | 'overdue'
-
-interface ChainNode {
-  type: DocType
-  number: string
-  date: string
-  amount: string
-  status: DocStatus
-}
-
-interface DocumentChain {
-  id: string
-  customer: string
-  totalValue: string
-  nodes: ChainNode[]
-  isComplete: boolean
-}
+import { useDocumentChains } from '@/api/hooks/useFinance'
+import type { ChainDocType, ChainDocStatus } from '@/types/finance-types'
 
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
 
-const docTypeConfig: Record<DocType, { labelKey: string; icon: typeof FileText; color: string }> = {
+const docTypeConfig: Record<ChainDocType, { labelKey: string; icon: typeof FileText; color: string }> = {
   quote: { labelKey: 'finanzen.docChain.docType.quote', icon: FileText, color: 'text-info' },
   invoice: { labelKey: 'finanzen.docChain.docType.invoice', icon: FileText, color: 'text-primary' },
   payment: { labelKey: 'finanzen.docChain.docType.payment', icon: CreditCard, color: 'text-success' },
@@ -57,86 +37,13 @@ const docTypeConfig: Record<DocType, { labelKey: string; icon: typeof FileText; 
   dunning: { labelKey: 'finanzen.docChain.docType.dunning', icon: AlertCircle, color: 'text-error' },
 }
 
-const statusConfig: Record<DocStatus, { labelKey: string; bg: string; text: string }> = {
+const statusConfig: Record<ChainDocStatus, { labelKey: string; bg: string; text: string }> = {
   completed: { labelKey: 'finanzen.docChain.status.completed', bg: 'bg-success-light', text: 'text-success' },
   active: { labelKey: 'finanzen.docChain.status.active', bg: 'bg-info-light', text: 'text-info' },
   pending: { labelKey: 'finanzen.docChain.status.pending', bg: 'bg-secondary', text: 'text-muted-foreground' },
   cancelled: { labelKey: 'finanzen.docChain.status.cancelled', bg: 'bg-secondary', text: 'text-muted-foreground' },
   overdue: { labelKey: 'finanzen.docChain.status.overdue', bg: 'bg-error-light', text: 'text-error' },
 }
-
-// ---------------------------------------------------------------------------
-// Mock data
-// ---------------------------------------------------------------------------
-
-// TODO: Replace mock data with API call — Backend needed: GET /api/v1/finance/document-chains
-// This aggregation endpoint needs to link invoices, payments, and receipts into chains.
-const mockChains: DocumentChain[] = [
-  {
-    id: 'chain-1',
-    customer: 'Muster AG',
-    totalValue: 'CHF 12.450,00',
-    isComplete: true,
-    nodes: [
-      { type: 'quote', number: 'AN-2026-001', date: '2026-01-10', amount: 'CHF 12.450,00', status: 'completed' },
-      { type: 'invoice', number: 'RE-2026-003', date: '2026-01-25', amount: 'CHF 12.450,00', status: 'completed' },
-      { type: 'payment', number: 'ZA-2026-007', date: '2026-02-10', amount: 'CHF 12.450,00', status: 'completed' },
-    ],
-  },
-  {
-    id: 'chain-2',
-    customer: 'Digital Solutions GmbH',
-    totalValue: 'EUR 8.900,00',
-    isComplete: false,
-    nodes: [
-      { type: 'quote', number: 'AN-2026-004', date: '2026-01-20', amount: 'EUR 8.900,00', status: 'completed' },
-      { type: 'invoice', number: 'RE-2026-008', date: '2026-02-01', amount: 'EUR 8.900,00', status: 'active' },
-      { type: 'dunning', number: 'MA-2026-001', date: '2026-02-18', amount: 'EUR 8.900,00', status: 'active' },
-      { type: 'payment', number: '—', date: '—', amount: 'EUR 8.900,00', status: 'pending' },
-    ],
-  },
-  {
-    id: 'chain-3',
-    customer: 'Weber & Partner',
-    totalValue: 'CHF 5.200,00',
-    isComplete: false,
-    nodes: [
-      { type: 'invoice', number: 'RE-2026-012', date: '2026-02-05', amount: 'CHF 5.200,00', status: 'overdue' },
-      { type: 'payment', number: '—', date: '—', amount: 'CHF 5.200,00', status: 'pending' },
-    ],
-  },
-  {
-    id: 'chain-4',
-    customer: 'TechStart Zürich',
-    totalValue: 'CHF 3.750,00',
-    isComplete: true,
-    nodes: [
-      { type: 'invoice', number: 'RE-2026-006', date: '2026-01-15', amount: 'CHF 3.750,00', status: 'completed' },
-      { type: 'payment', number: 'ZA-2026-012', date: '2026-01-28', amount: 'CHF 2.750,00', status: 'completed' },
-      { type: 'credit-note', number: 'GU-2026-001', date: '2026-02-01', amount: 'CHF 1.000,00', status: 'completed' },
-    ],
-  },
-  {
-    id: 'chain-5',
-    customer: 'Alpen Logistik AG',
-    totalValue: 'EUR 24.800,00',
-    isComplete: false,
-    nodes: [
-      { type: 'quote', number: 'AN-2026-009', date: '2026-02-10', amount: 'EUR 24.800,00', status: 'completed' },
-      { type: 'invoice', number: 'RE-2026-015', date: '2026-02-14', amount: 'EUR 24.800,00', status: 'active' },
-      { type: 'payment', number: '—', date: '—', amount: 'EUR 24.800,00', status: 'pending' },
-    ],
-  },
-  {
-    id: 'chain-6',
-    customer: 'Innovate Labs',
-    totalValue: 'CHF 1.950,00',
-    isComplete: true,
-    nodes: [
-      { type: 'quote', number: 'AN-2026-002', date: '2026-01-05', amount: 'CHF 1.950,00', status: 'cancelled' },
-    ],
-  },
-]
 
 // ---------------------------------------------------------------------------
 // Component
@@ -150,7 +57,9 @@ export function BelegketteTab() {
   const [filter, setFilter] = useState<FilterOption>('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
-  const filtered = mockChains.filter((chain) => {
+  const { data: chains = [], isLoading } = useDocumentChains()
+
+  const filtered = chains.filter((chain) => {
     if (search) {
       const q = search.toLowerCase()
       if (
@@ -167,10 +76,18 @@ export function BelegketteTab() {
   })
 
   const stats = {
-    total: mockChains.length,
-    open: mockChains.filter((c) => !c.isComplete).length,
-    complete: mockChains.filter((c) => c.isComplete).length,
-    overdue: mockChains.filter((c) => c.nodes.some((n) => n.status === 'overdue')).length,
+    total: chains.length,
+    open: chains.filter((c) => !c.isComplete).length,
+    complete: chains.filter((c) => c.isComplete).length,
+    overdue: chains.filter((c) => c.nodes.some((n) => n.status === 'overdue')).length,
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" />
+      </div>
+    )
   }
 
   return (
@@ -210,7 +127,7 @@ export function BelegketteTab() {
         </div>
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <Filter className="h-3.5 w-3.5" />
-          {filtered.length} von {mockChains.length}
+          {filtered.length} von {chains.length}
         </div>
       </div>
 

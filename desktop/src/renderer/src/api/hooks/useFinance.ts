@@ -17,6 +17,9 @@ import {
   financeDealApi,
   financeGoBDApi,
   financeRecurringApi,
+  financeBankingApi,
+  financeChainApi,
+  financeTimeEntryApi,
 } from '../finance-client'
 import type {
   CreateQuoteRequest,
@@ -34,6 +37,7 @@ import type {
   DateRangeParams,
   CreateRecurringInvoiceRequest,
   UpdateRecurringInvoiceRequest,
+  BankMatchStatus,
 } from '@/types/finance-types'
 
 // ---------------------------------------------------------------------------
@@ -61,6 +65,12 @@ export const financeKeys = {
     ['finance', 'payment-stats', from, to] as const,
   // Recurring invoices (finanzen P1)
   recurring: () => ['finance', 'recurring'] as const,
+  // Banking / Belegkette / Stunden→Rechnung (finanzen P2.5e)
+  bankAccounts: () => ['finance', 'bank-accounts'] as const,
+  bankTransactions: (status?: BankMatchStatus | 'all') =>
+    ['finance', 'bank-transactions', status] as const,
+  documentChains: () => ['finance', 'document-chains'] as const,
+  unbilledTimeEntries: () => ['finance', 'time-entries', 'unbilled'] as const,
 }
 
 // ---------------------------------------------------------------------------
@@ -679,5 +689,61 @@ export function useGoBDExport() {
         `gobd-export-${params.from_date}-${params.to_date}.csv`,
       )
     },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Banking / Belegkette / Stunden→Rechnung hooks (finanzen P2.5e)
+// ---------------------------------------------------------------------------
+
+export function useBankAccounts() {
+  return useQuery({
+    queryKey: financeKeys.bankAccounts(),
+    queryFn: () => financeBankingApi.listAccounts(),
+    select: (data) => data.accounts,
+  })
+}
+
+export function useBankTransactions(status?: BankMatchStatus | 'all') {
+  return useQuery({
+    queryKey: financeKeys.bankTransactions(status),
+    queryFn: () => financeBankingApi.listTransactions(status),
+    select: (data) => data.transactions,
+  })
+}
+
+export function useMatchTransaction() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => financeBankingApi.matchTransaction(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['finance', 'bank-transactions'] })
+    },
+  })
+}
+
+export function useRejectMatch() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => financeBankingApi.rejectMatch(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['finance', 'bank-transactions'] })
+    },
+  })
+}
+
+export function useDocumentChains() {
+  return useQuery({
+    queryKey: financeKeys.documentChains(),
+    queryFn: () => financeChainApi.list(),
+    select: (data) => data.chains,
+  })
+}
+
+export function useUnbilledTimeEntries() {
+  return useQuery({
+    queryKey: financeKeys.unbilledTimeEntries(),
+    queryFn: () => financeTimeEntryApi.listUnbilled(),
+    select: (data) => data.entries,
   })
 }

@@ -144,6 +144,42 @@ export function InvoiceDetailPanel({
     : undefined
   const dunnings = [...(dunningsData?.dunnings ?? [])].sort((a, b) => a.level - b.level)
 
+  // GoBD-Änderungsprotokoll — derived from the invoice lifecycle + payments.
+  // Swap-ready: a real backend audit-event stream would replace this block.
+  const auditEntries: { action: string; user: string; date: string; detail: string }[] = [
+    {
+      action: t('finanzen.invoiceDetail.auditCreated'),
+      user: 'Max Müller',
+      date: invoice.invoice_date,
+      detail: t('finanzen.invoiceDetail.auditCreatedDetail', { number: invoice.invoice_number }),
+    },
+    ...(invoice.status !== 'draft'
+      ? [{
+          action: t('finanzen.invoiceDetail.auditSent'),
+          user: 'Max Müller',
+          date: invoice.invoice_date,
+          detail: t('finanzen.invoiceDetail.auditSentDetail', { email: invoice.customer.email }),
+        }]
+      : []),
+    ...(invoice.status === 'cancelled'
+      ? [{
+          action: t('finanzen.invoiceDetail.auditCancelled'),
+          user: 'Max Müller',
+          date: new Date().toISOString().split('T')[0],
+          detail: t('finanzen.invoiceDetail.auditCancelledDetail'),
+        }]
+      : []),
+    ...payments.map((p) => ({
+      action: t('finanzen.invoiceDetail.auditPayment'),
+      user: 'System',
+      date: p.payment_date,
+      detail: t('finanzen.invoiceDetail.auditPaymentDetail', {
+        amount: money(p.amount),
+        method: PAYMENT_METHOD_LABEL_KEYS[p.method] ? t(PAYMENT_METHOD_LABEL_KEYS[p.method]) : p.method,
+      }),
+    })),
+  ]
+
   const handleSend = () => {
     sendInvoice.mutate(invoiceId, {
       onSuccess: () => toast.success(t('finanzen.invoiceDetail.invoiceSent')),
@@ -470,45 +506,10 @@ export function InvoiceDetailPanel({
         <section>
           <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
             <Shield className="h-3 w-3" />
-            GoBD-Änderungsprotokoll
+            {t('finanzen.invoiceDetail.auditTitle')}
           </h4>
           <div className="rounded-md border border-border overflow-hidden">
-            {[
-              {
-                action: t('finanzen.invoiceDetail.auditCreated'),
-                user: 'Max Müller',
-                date: invoice.invoice_date,
-                detail: `Nummer: ${invoice.invoice_number}`,
-              },
-              ...(invoice.status !== 'draft'
-                ? [
-                    {
-                      action: t('finanzen.invoiceDetail.auditSent'),
-                      user: 'Max Müller',
-                      date: invoice.invoice_date,
-                      detail: `An: ${invoice.customer.email}`,
-                    },
-                  ]
-                : []),
-              ...(invoice.status === 'cancelled'
-                ? [
-                    {
-                      action: t('finanzen.invoiceDetail.auditCancelled'),
-                      user: 'Max Müller',
-                      date: new Date().toISOString().split('T')[0],
-                      detail: t('finanzen.invoiceDetail.auditCancelledDetail'),
-                    },
-                  ]
-                : []),
-              ...(payments.length > 0
-                ? payments.map((p) => ({
-                    action: t('finanzen.invoiceDetail.auditPayment'),
-                    user: 'System',
-                    date: p.payment_date,
-                    detail: `${money(p.amount)} via ${PAYMENT_METHOD_LABEL_KEYS[p.method] ? t(PAYMENT_METHOD_LABEL_KEYS[p.method]) : p.method}`,
-                  }))
-                : []),
-            ].map((entry, idx) => (
+            {auditEntries.map((entry, idx) => (
               <div
                 key={idx}
                 className={`flex items-start gap-2 px-3 py-2 text-xs ${

@@ -14,6 +14,7 @@ import {
   Calculator,
   Calendar,
   FolderKanban,
+  Loader2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -23,39 +24,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { formatDate } from '@/lib/format'
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface TimeEntry {
-  id: string
-  date: string
-  project: string
-  task: string
-  employee: string
-  hours: number
-  description: string
-  billed: boolean
-}
-
-// ---------------------------------------------------------------------------
-// Mock data
-// ---------------------------------------------------------------------------
-
-// TODO: Replace mock data with API call — Backend needed: GET /api/v1/time-entries?billed=false
-// Fetch unbilled time entries from Zeiterfassung service, with project/employee filtering
-const mockTimeEntries: TimeEntry[] = [
-  { id: 'te1', date: '2026-02-18', project: 'Website Redesign', task: 'Frontend-Entwicklung', employee: 'Anna Müller', hours: 4.5, description: 'React-Komponenten implementiert', billed: false },
-  { id: 'te2', date: '2026-02-18', project: 'Website Redesign', task: 'Design-Review', employee: 'Anna Müller', hours: 1.5, description: 'Figma-Prototyp reviewt', billed: false },
-  { id: 'te3', date: '2026-02-17', project: 'CRM Integration', task: 'API-Entwicklung', employee: 'Thomas Fischer', hours: 6.0, description: 'REST-Endpoints implementiert', billed: false },
-  { id: 'te4', date: '2026-02-17', project: 'CRM Integration', task: 'Testing', employee: 'Thomas Fischer', hours: 2.0, description: 'Integration Tests geschrieben', billed: false },
-  { id: 'te5', date: '2026-02-16', project: 'Website Redesign', task: 'Deployment', employee: 'Max Schmidt', hours: 3.0, description: 'Staging-Deployment + DNS', billed: false },
-  { id: 'te6', date: '2026-02-15', project: 'Mobile App', task: 'UI-Development', employee: 'Sara Weber', hours: 5.5, description: 'React Native Screens', billed: false },
-  { id: 'te7', date: '2026-02-15', project: 'CRM Integration', task: 'Datenbank-Migration', employee: 'Thomas Fischer', hours: 3.5, description: 'PostgreSQL Migrations', billed: false },
-  { id: 'te8', date: '2026-02-14', project: 'Website Redesign', task: 'Performance', employee: 'Anna Müller', hours: 2.0, description: 'Lighthouse-Optimierung', billed: false },
-  { id: 'te9', date: '2026-02-13', project: 'Beratung', task: 'Workshop', employee: 'Max Schmidt', hours: 4.0, description: 'Onboarding-Workshop beim Kunden', billed: true },
-]
+import { useUnbilledTimeEntries, useCreateInvoice } from '@/api/hooks/useFinance'
+import type { FinanceTimeEntry } from '@/types/finance-types'
 
 // ---------------------------------------------------------------------------
 // Component
@@ -71,12 +41,15 @@ export function HoursToInvoiceDialog({
   onOpenChange,
 }: HoursToInvoiceDialogProps) {
   const { t } = useTranslation()
+  const { data: timeEntries = [], isLoading } = useUnbilledTimeEntries()
+  const createInvoice = useCreateInvoice()
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [hourlyRate, setHourlyRate] = useState('150')
+  const [customerName, setCustomerName] = useState('')
   const [groupBy, setGroupBy] = useState<'project' | 'task' | 'date'>('project')
   const [step, setStep] = useState<'select' | 'preview'>('select')
 
-  const unbilledEntries = mockTimeEntries.filter((e) => !e.billed)
+  const unbilledEntries = timeEntries
 
   const toggleEntry = (id: string) => {
     setSelectedIds((prev) => {
@@ -102,7 +75,7 @@ export function HoursToInvoiceDialog({
 
   // Group selected entries into invoice line items
   const lineItems = useMemo(() => {
-    const groups = new Map<string, { label: string; hours: number; entries: TimeEntry[] }>()
+    const groups = new Map<string, { label: string; hours: number; entries: FinanceTimeEntry[] }>()
 
     for (const entry of selectedEntries) {
       const key =
@@ -128,14 +101,43 @@ export function HoursToInvoiceDialog({
     return Array.from(groups.values())
   }, [selectedEntries, groupBy])
 
-  const formatCHF = (v: number) =>
-    new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'CHF' }).format(v)
+  const formatEUR = (v: number) =>
+    new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v)
 
   const handleCreateInvoice = () => {
-    toast.success(t('finanzen.hours.invoiceCreated', { count: lineItems.length, amount: formatCHF(totalAmount) }))
-    onOpenChange(false)
-    setStep('select')
-    setSelectedIds(new Set())
+    const invoiceDate = new Date().toISOString().split('T')[0]
+    createInvoice.mutate(
+      {
+        customer: { name: customerName.trim(), address: '', email: '' },
+        tax_mode: 'standard',
+        currency: 'EUR',
+        invoice_date: invoiceDate,
+        payment_terms_days: 30,
+        notes: t('finanzen.hours.invoiceNote'),
+        line_items: lineItems.map((item, i) => ({
+          position: i + 1,
+          description: item.label,
+          quantity: item.hours.toFixed(2),
+          unit_price: String(rate),
+          tax_rate: '19',
+        })),
+      },
+      {
+        onSuccess: () => {
+          toast.success(
+            t('finanzen.hours.invoiceCreated', {
+              count: lineItems.length,
+              amount: formatEUR(totalAmount),
+            }),
+          )
+          onOpenChange(false)
+          setStep('select')
+          setSelectedIds(new Set())
+          setCustomerName('')
+        },
+        onError: (err) => toast.error(err.message),
+      },
+    )
   }
 
   const handleClose = () => {
@@ -172,7 +174,7 @@ export function HoursToInvoiceDialog({
                     step={5}
                   />
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
-                    CHF/h
+                    EUR/h
                   </span>
                 </div>
               </div>
@@ -195,7 +197,16 @@ export function HoursToInvoiceDialog({
                 <span className="text-right">{t('finanzen.hours.hours')}</span>
                 <span className="text-right">{t('finanzen.banking.amount')}</span>
               </div>
-              {unbilledEntries.map((entry) => {
+              {isLoading ? (
+                <div className="flex items-center justify-center border-t border-border py-8 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                </div>
+              ) : unbilledEntries.length === 0 ? (
+                <div className="border-t border-border py-8 text-center text-xs text-muted-foreground">
+                  {t('finanzen.hours.noUnbilled')}
+                </div>
+              ) : (
+                unbilledEntries.map((entry) => {
                 const isSelected = selectedIds.has(entry.id)
                 return (
                   <button
@@ -226,11 +237,12 @@ export function HoursToInvoiceDialog({
                       {entry.hours.toFixed(1)}h
                     </span>
                     <span className="text-xs text-foreground text-right">
-                      {formatCHF(entry.hours * rate)}
+                      {formatEUR(entry.hours * rate)}
                     </span>
                   </button>
                 )
-              })}
+                })
+              )}
             </div>
 
             {/* Summary + actions */}
@@ -238,7 +250,7 @@ export function HoursToInvoiceDialog({
               <div className="text-xs text-muted-foreground">
                 <span className="font-medium text-foreground">{selectedIds.size}</span> {t('finanzen.hours.entries')} |{' '}
                 <span className="font-medium text-foreground">{totalHours.toFixed(1)}h</span> |{' '}
-                <span className="font-medium text-primary">{formatCHF(totalAmount)}</span>
+                <span className="font-medium text-primary">{formatEUR(totalAmount)}</span>
               </div>
               <button
                 onClick={() => setStep('preview')}
@@ -254,6 +266,18 @@ export function HoursToInvoiceDialog({
 
         {step === 'preview' && (
           <div className="space-y-4">
+            {/* Customer for the generated draft invoice */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground shrink-0">{t('finanzen.customer')}:</span>
+              <input
+                type="text"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder={t('finanzen.hours.customerPlaceholder')}
+                className="flex-1 rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm text-foreground outline-none placeholder:text-input-placeholder focus:border-primary"
+              />
+            </div>
+
             {/* Group by selector */}
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">{t('finanzen.hours.groupBy')}:</span>
@@ -302,10 +326,10 @@ export function HoursToInvoiceDialog({
                     {item.hours.toFixed(1)}h
                   </span>
                   <span className="text-xs text-muted-foreground text-right">
-                    {formatCHF(rate)}/h
+                    {formatEUR(rate)}/h
                   </span>
                   <span className="text-xs font-medium text-foreground text-right">
-                    {formatCHF(item.hours * rate)}
+                    {formatEUR(item.hours * rate)}
                   </span>
                 </div>
               ))}
@@ -320,11 +344,11 @@ export function HoursToInvoiceDialog({
                 </div>
                 <div className="flex justify-between text-muted-foreground">
                   <span>{t('finanzen.hours.hourlyRate')}</span>
-                  <span>{formatCHF(rate)}</span>
+                  <span>{formatEUR(rate)}</span>
                 </div>
                 <div className="flex justify-between font-medium text-sm text-foreground border-t border-border pt-1.5">
                   <span>{t('finanzen.totals.netAmount')}</span>
-                  <span>{formatCHF(totalAmount)}</span>
+                  <span>{formatEUR(totalAmount)}</span>
                 </div>
               </div>
             </div>
@@ -339,9 +363,14 @@ export function HoursToInvoiceDialog({
               </button>
               <button
                 onClick={handleCreateInvoice}
-                className="flex items-center gap-1.5 h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                disabled={!customerName.trim() || createInvoice.isPending}
+                className="flex items-center gap-1.5 h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
-                <FileText className="h-3.5 w-3.5" />
+                {createInvoice.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <FileText className="h-3.5 w-3.5" />
+                )}
                 {t('finanzen.invoices.create')}
               </button>
             </div>

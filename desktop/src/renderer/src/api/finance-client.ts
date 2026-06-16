@@ -43,6 +43,12 @@ import type {
   UpdateRecurringInvoiceRequest,
   ListRecurringInvoicesResponse,
   GenerateRecurringInvoiceResponse,
+  ListBankAccountsResponse,
+  ListBankTransactionsResponse,
+  BankTransaction,
+  BankMatchStatus,
+  ListDocumentChainsResponse,
+  ListTimeEntriesResponse,
 } from '@/types/finance-types'
 import type { Expense, Transaction } from '@/stores/finance'
 import { authenticatedRequest, authenticatedBlobRequest } from './utils/authenticatedFetch'
@@ -564,5 +570,52 @@ export const financeGoBDApi = {
       method: 'POST',
       body: JSON.stringify({ from_date: params.from_date, to_date: params.to_date }),
     })
+  },
+}
+
+// ---------------------------------------------------------------------------
+// Banking / Belegkette / Stunden→Rechnung (finanzen P2.5e)
+// ---------------------------------------------------------------------------
+
+export const financeBankingApi = {
+  listAccounts() {
+    return request<ListBankAccountsResponse>('/api/v1/finance/bank-accounts')
+  },
+
+  listTransactions(status?: BankMatchStatus | 'all') {
+    return request<ListBankTransactionsResponse>(
+      `/api/v1/finance/bank-transactions${qs({ status })}`,
+    )
+  },
+
+  /** POST .../bank-transactions/{id}/match — confirm a suggested match */
+  matchTransaction(id: string) {
+    return request<{ transaction: BankTransaction }>(
+      `/api/v1/finance/bank-transactions/${id}/match`,
+      { method: 'POST' },
+    )
+  },
+
+  /** POST .../bank-transactions/{id}/reject-match — reject a suggested match */
+  rejectMatch(id: string) {
+    return request<{ transaction: BankTransaction }>(
+      `/api/v1/finance/bank-transactions/${id}/reject-match`,
+      { method: 'POST' },
+    )
+  },
+}
+
+export const financeChainApi = {
+  list() {
+    return request<ListDocumentChainsResponse>('/api/v1/finance/document-chains')
+  },
+}
+
+export const financeTimeEntryApi = {
+  /** GET /api/v1/finance/time-entries?billed=false — unbilled time entries */
+  listUnbilled() {
+    return request<ListTimeEntriesResponse>(
+      '/api/v1/finance/time-entries?billed=false',
+    )
   },
 }

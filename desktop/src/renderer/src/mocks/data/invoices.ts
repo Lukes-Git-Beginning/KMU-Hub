@@ -2,7 +2,60 @@ import { IDS } from './shared-ids'
 import { daysAgo, daysFromNow, monthsAgo, today } from './date-helpers'
 
 // ---------------------------------------------------------------------------
-// Invoices (12)
+// Recurring-generated invoices (finanzen P2.5e)
+// Link a few seed invoices back to their recurring profile (rec-00x) so the
+// "Erzeugte Rechnungen"-Liste im RecurringDetailPanel is populated on load.
+// ---------------------------------------------------------------------------
+
+interface RecurringSeed {
+  seq: number
+  recurring_id: string
+  date: string
+  status: 'paid' | 'sent'
+  customer: { id: string; name: string }
+  currency: string
+  tax_rate: number
+  items: { description: string; quantity: number; unit_price: number; total: number }[]
+}
+
+function buildRecurringInvoice(s: RecurringSeed) {
+  const net = s.items.reduce((sum, it) => sum + it.total, 0)
+  const gross = Math.round(net * (1 + s.tax_rate / 100) * 100) / 100
+  const num = `RE-2026-${String(s.seq).padStart(3, '0')}`
+  return {
+    id: `inv-${s.seq}`,
+    number: num,
+    invoice_number: num,
+    status: s.status,
+    customer: s.customer,
+    customer_name: s.customer.name,
+    customer_id: s.customer.id,
+    issue_date: s.date,
+    invoice_date: s.date,
+    due_date: s.date,
+    total_net: net,
+    total_gross: gross,
+    tax_rate: s.tax_rate,
+    currency: s.currency,
+    recurring_id: s.recurring_id,
+    items: s.items,
+    notes: 'Automatisch erzeugt aus Abo',
+    created_at: s.date,
+  }
+}
+
+const recurringGeneratedInvoices = [
+  buildRecurringInvoice({ seq: 13, recurring_id: 'rec-001', date: monthsAgo(2), status: 'paid', customer: { id: IDS.companies.gruberMaschinenbau, name: 'Gruber Maschinenbau GmbH' }, currency: 'EUR', tax_rate: 19, items: [{ description: 'CRM Lizenz Enterprise — monatliche Rate', quantity: 1, unit_price: 790, total: 790 }] }),
+  buildRecurringInvoice({ seq: 14, recurring_id: 'rec-001', date: monthsAgo(1), status: 'paid', customer: { id: IDS.companies.gruberMaschinenbau, name: 'Gruber Maschinenbau GmbH' }, currency: 'EUR', tax_rate: 19, items: [{ description: 'CRM Lizenz Enterprise — monatliche Rate', quantity: 1, unit_price: 790, total: 790 }] }),
+  buildRecurringInvoice({ seq: 15, recurring_id: 'rec-002', date: monthsAgo(3), status: 'paid', customer: { id: IDS.companies.bavariaElektro, name: 'Bavaria Elektro AG' }, currency: 'EUR', tax_rate: 19, items: [{ description: 'Premium-Support — Quartalspauschale', quantity: 1, unit_price: 1350, total: 1350 }, { description: 'Reaktionszeit-SLA 4h', quantity: 1, unit_price: 450, total: 450 }] }),
+  buildRecurringInvoice({ seq: 16, recurring_id: 'rec-002', date: today(), status: 'sent', customer: { id: IDS.companies.bavariaElektro, name: 'Bavaria Elektro AG' }, currency: 'EUR', tax_rate: 19, items: [{ description: 'Premium-Support — Quartalspauschale', quantity: 1, unit_price: 1350, total: 1350 }, { description: 'Reaktionszeit-SLA 4h', quantity: 1, unit_price: 450, total: 450 }] }),
+  buildRecurringInvoice({ seq: 17, recurring_id: 'rec-003', date: monthsAgo(2), status: 'paid', customer: { id: IDS.companies.helvetiaSoftware, name: 'Helvetia Software AG' }, currency: 'CHF', tax_rate: 8.1, items: [{ description: 'EU-Hosting + Wartung — Monatspauschale', quantity: 1, unit_price: 340, total: 340 }] }),
+  buildRecurringInvoice({ seq: 18, recurring_id: 'rec-003', date: monthsAgo(1), status: 'paid', customer: { id: IDS.companies.helvetiaSoftware, name: 'Helvetia Software AG' }, currency: 'CHF', tax_rate: 8.1, items: [{ description: 'EU-Hosting + Wartung — Monatspauschale', quantity: 1, unit_price: 340, total: 340 }] }),
+  buildRecurringInvoice({ seq: 19, recurring_id: 'rec-004', date: monthsAgo(13), status: 'paid', customer: { id: IDS.companies.rheinConsulting, name: 'Rhein Consulting GmbH' }, currency: 'EUR', tax_rate: 19, items: [{ description: 'Jahres-Wartungsvertrag CRM', quantity: 1, unit_price: 4800, total: 4800 }] }),
+]
+
+// ---------------------------------------------------------------------------
+// Invoices (12 base + recurring-generated)
 // ---------------------------------------------------------------------------
 
 export const mockInvoices = {
@@ -271,8 +324,11 @@ export const mockInvoices = {
       notes: 'Storniert — Kunde hat Projekt verschoben',
       created_at: daysAgo(25),
     },
+
+    // --- Recurring-generated (link back to rec-00x profiles) ---
+    ...recurringGeneratedInvoices,
   ],
-  total: 12,
+  total: 12 + recurringGeneratedInvoices.length,
   page: 1,
   per_page: 50,
 }

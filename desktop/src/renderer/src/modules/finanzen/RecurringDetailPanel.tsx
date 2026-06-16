@@ -44,17 +44,18 @@ interface RecurringDetailPanelProps {
 
 export function RecurringDetailPanel({ recurring: r, onClose, onEdit }: RecurringDetailPanelProps) {
   const { t } = useTranslation()
-  const { data: invoicesData } = useInvoices()
+  const { data: invoicesData } = useInvoices({ recurring_id: r.id })
   const nav = useFinanceDetailNavOptional()
   const pauseRec = usePauseRecurringInvoice()
   const generateRec = useGenerateRecurringInvoice()
   const currency = r.currency ?? 'EUR'
   const money = (v: number | string) => formatMoney(v, currency)
 
-  // Bisher erzeugte Rechnungen dieses Abos (neueste zuerst).
-  const generatedInvoices = (invoicesData?.invoices ?? [])
-    .filter((inv) => inv.recurring_id === r.id)
-    .sort((a, b) => (a.invoice_date < b.invoice_date ? 1 : -1))
+  // Bisher erzeugte Rechnungen dieses Abos (serverseitig nach recurring_id
+  // gefiltert; neueste zuerst).
+  const generatedInvoices = [...(invoicesData?.invoices ?? [])].sort((a, b) =>
+    (a.invoice_date ?? '') < (b.invoice_date ?? '') ? 1 : -1,
+  )
 
   // Vorschau der nächsten drei Läufe (nur solange aktiv und vor End-Datum).
   const upcomingRuns: string[] = []

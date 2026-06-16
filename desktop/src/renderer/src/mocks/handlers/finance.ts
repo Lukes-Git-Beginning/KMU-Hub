@@ -9,6 +9,9 @@ import {
 } from '../data/invoices'
 import { mockRecurringInvoices, advanceByInterval } from '../data/finance-recurring'
 import { mockExpenses, mockTransactions } from '../data/finance-ledger'
+import { mockBanking } from '../data/finance-banking'
+import { mockDocumentChains } from '../data/finance-chains'
+import { mockFinanceTimeEntries } from '../data/finance-time-entries'
 import { buildSimplePdf, type PdfLine } from '@/modules/finanzen/lib/mini-pdf'
 import { buildDatevCsv } from '@/modules/finanzen/lib/finance-export'
 import type { Payment, DunningRecord, DunningStatus, DunningConfig } from '@/types/finance-types'
@@ -236,12 +239,18 @@ export const financeHandlers = [
   http.get(`${API}/api/v1/finance/invoices`, ({ request }) => {
     const url = new URL(request.url)
     const status = url.searchParams.get('status')
+    const recurringId = url.searchParams.get('recurring_id')
     const page = parseInt(url.searchParams.get('page') || '1', 10)
     const perPage = parseInt(url.searchParams.get('per_page') || '50', 10)
 
     let filtered = [...mockInvoices.invoices]
     if (status) {
       filtered = filtered.filter((inv) => inv.status === status)
+    }
+    if (recurringId) {
+      filtered = filtered.filter(
+        (inv) => (inv as { recurring_id?: string }).recurring_id === recurringId,
+      )
     }
 
     const start = (page - 1) * perPage
@@ -955,5 +964,52 @@ export const financeHandlers = [
     return new HttpResponse('﻿' + csv, {
       headers: { 'Content-Type': 'text/csv;charset=utf-8', 'Content-Disposition': 'attachment; filename="EXTF_Buchungsstapel.csv"' },
     })
+  }),
+
+  // ---- Banking (FinAPI placeholder) — finanzen P2.5e ----
+  // Swap-ready Mock: kein echtes Backend (FinAPI-Integration = P5).
+
+  http.get(`${API}/api/v1/finance/bank-accounts`, () => {
+    return HttpResponse.json({ accounts: mockBanking.accounts })
+  }),
+
+  http.get(`${API}/api/v1/finance/bank-transactions`, ({ request }) => {
+    const status = new URL(request.url).searchParams.get('status')
+    let txs = [...mockBanking.transactions]
+    if (status && status !== 'all') {
+      txs = txs.filter((tx) => tx.matchStatus === status)
+    }
+    return HttpResponse.json({ transactions: txs })
+  }),
+
+  // Confirm a suggested match — stateful: flips the transaction to 'matched'.
+  http.post(`${API}/api/v1/finance/bank-transactions/:id/match`, ({ params }) => {
+    const tx = mockBanking.transactions.find((t) => t.id === params.id)
+    if (!tx) return HttpResponse.json({ error: 'Transaction not found' }, { status: 404 })
+    tx.matchStatus = 'matched'
+    return HttpResponse.json({ transaction: tx })
+  }),
+
+  // Reject a suggested match — stateful: clears the suggested invoice.
+  http.post(`${API}/api/v1/finance/bank-transactions/:id/reject-match`, ({ params }) => {
+    const tx = mockBanking.transactions.find((t) => t.id === params.id)
+    if (!tx) return HttpResponse.json({ error: 'Transaction not found' }, { status: 404 })
+    tx.matchStatus = 'unmatched'
+    delete tx.matchedInvoice
+    return HttpResponse.json({ transaction: tx })
+  }),
+
+  // ---- Belegkette (document chains) — finanzen P2.5e ----
+  http.get(`${API}/api/v1/finance/document-chains`, () => {
+    return HttpResponse.json({ chains: mockDocumentChains.chains })
+  }),
+
+  // ---- Stunden → Rechnung — unbilled time entries (finanzen P2.5e) ----
+  // Finance-internal view onto the Zeiterfassung service; ?billed=false filters.
+  http.get(`${API}/api/v1/finance/time-entries`, ({ request }) => {
+    const billed = new URL(request.url).searchParams.get('billed')
+    let entries = [...mockFinanceTimeEntries.entries]
+    if (billed === 'false') entries = entries.filter((e) => !e.billed)
+    return HttpResponse.json({ entries })
   }),
 ]
