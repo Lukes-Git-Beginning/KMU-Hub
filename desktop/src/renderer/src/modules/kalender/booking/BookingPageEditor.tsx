@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -86,6 +86,16 @@ export function BookingPageEditor({ page, onSave, onCancel }: BookingPageEditorP
 
   // Form state
   const [calendarId, setCalendarId] = useState(page?.calendar_id ?? calendars[0]?.id ?? '')
+
+  // The useState initializer runs once on mount — before the calendars query
+  // has resolved — so calendarId stays empty and the POST would send an empty
+  // calendar_id (→ 400). Default-select the first calendar once the list loads.
+  useEffect(() => {
+    if (!isEdit && !calendarId && calendars[0]?.id) {
+      setCalendarId(calendars[0].id)
+    }
+  }, [isEdit, calendarId, calendars])
+
   const [slug, setSlug] = useState(page?.slug ?? '')
   const [slugError, setSlugError] = useState<string | null>(null)
   const [companyName, setCompanyName] = useState(page?.company_name ?? '')
@@ -194,6 +204,12 @@ export function BookingPageEditor({ page, onSave, onCancel }: BookingPageEditorP
       return
     }
 
+    const effectiveCalendarId = calendarId || calendars[0]?.id || ''
+    if (!isEdit && !effectiveCalendarId) {
+      toast.error(t('kalender.booking.pages.editor.calendarRequired'))
+      return
+    }
+
     const rules: AvailabilityRules = {
       weekdays,
       slots_per_weekday: slots,
@@ -217,7 +233,7 @@ export function BookingPageEditor({ page, onSave, onCancel }: BookingPageEditorP
         saved = result.page
       } else {
         const req: CreateBookingPageRequest = {
-          calendar_id: calendarId || calendars[0]?.id || '',
+          calendar_id: effectiveCalendarId,
           slug,
           company_name: companyName,
           logo_url: logoUrl || null,

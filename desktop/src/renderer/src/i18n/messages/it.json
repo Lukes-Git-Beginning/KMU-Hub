@@ -3717,6 +3717,7 @@
   "kalender.booking.pages.editor.breaksTitle": "Pause",
   "kalender.booking.pages.editor.bufferMin": "Buffer (minuti)",
   "kalender.booking.pages.editor.calendarLabel": "Calendario",
+  "kalender.booking.pages.editor.calendarRequired": "Seleziona un calendario",
   "kalender.booking.pages.editor.companyName": "Nome azienda",
   "kalender.booking.pages.editor.leadTimeHours": "Tempo di anticipo (ore)",
   "kalender.booking.pages.editor.logoUrl": "URL logo (opzionale)",
