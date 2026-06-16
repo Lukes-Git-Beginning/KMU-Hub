@@ -365,12 +365,18 @@ export function InvoiceDetailPanel({
           </section>
         )}
 
-        {/* PDF Preview (3.18) */}
+        {/* PDF Preview — echte Belegdaten (P2.5c) */}
         <PDFPreviewPanel
-          invoiceNumber={invoice.invoice_number}
+          heading="RECHNUNG"
+          number={invoice.invoice_number}
           customerName={invoice.customer?.name ?? ''}
+          customerAddress={invoice.customer?.address}
           date={formatDate(invoice.invoice_date)}
-          amount={money(invoice.tax_breakdown?.gross_total ?? invoice.total_gross ?? 0)}
+          lineItems={invoice.line_items ?? []}
+          net={invoice.tax_breakdown?.subtotal ?? invoice.total_net ?? 0}
+          tax={invoice.tax_breakdown?.total_tax ?? 0}
+          gross={invoice.tax_breakdown?.gross_total ?? invoice.total_gross ?? 0}
+          currency={currency}
           onDownload={() => downloadPDF.mutate(invoiceId)}
         />
 

@@ -9,6 +9,8 @@ import {
 } from '../data/invoices'
 import { mockRecurringInvoices, advanceByInterval } from '../data/finance-recurring'
 import { mockExpenses, mockTransactions } from '../data/finance-ledger'
+import { buildSimplePdf, type PdfLine } from '@/modules/finanzen/lib/mini-pdf'
+import { buildDatevCsv } from '@/modules/finanzen/lib/finance-export'
 
 const API = API_BASE_URL
 
@@ -112,6 +114,40 @@ function normalizeDoc(raw: Record<string, unknown>) {
       ...customer,
     },
   }
+}
+
+/** Build a one-page PDF (bytes) for an invoice/quote/credit-note. */
+function buildDocPdf(rawDoc: Record<string, unknown>, heading: string, numberLabel: string): Uint8Array {
+  const doc = normalizeDoc(rawDoc)
+  const customer = doc.customer as { name?: string; address?: string }
+  const tb = doc.tax_breakdown as { subtotal?: string; total_tax?: string; gross_total?: string }
+  const currency = (doc.currency as string) ?? 'EUR'
+  const fmt = (v: unknown) => `${Number(v ?? 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`
+  const lines: PdfLine[] = [
+    { text: 'Zentria GmbH · Cosmi', size: 9 },
+    { text: heading, size: 20, gap: 6 },
+    { text: `${numberLabel}: ${doc[numberLabel === 'Gutschrift-Nr' ? 'credit_note_number' : numberLabel === 'Angebots-Nr' ? 'quote_number' : 'invoice_number'] ?? ''}`, gap: 8 },
+    { text: `Kunde: ${customer?.name ?? ''}` },
+    ...(customer?.address ? [{ text: customer.address, size: 9 }] : []),
+    { text: '', gap: 6 },
+    { text: 'Positionen:', size: 12 },
+  ]
+  for (const it of (doc.line_items as Array<Record<string, unknown>>) ?? []) {
+    lines.push({ text: `${it.quantity} x ${it.description}    ${fmt(it.line_total)}`, size: 10 })
+  }
+  lines.push({ text: '', gap: 6 })
+  lines.push({ text: `Zwischensumme (netto): ${fmt(tb?.subtotal)}`, size: 10 })
+  lines.push({ text: `MwSt: ${fmt(tb?.total_tax)}`, size: 10 })
+  lines.push({ text: `Gesamtbetrag: ${fmt(tb?.gross_total)}`, size: 13, gap: 4 })
+  lines.push({ text: '', gap: 10 })
+  lines.push({ text: 'Demo-Beleg (Cosmi) — finales PDF via ZUGFeRD/XRechnung folgt.', size: 8 })
+  return buildSimplePdf(lines)
+}
+
+function pdfResponse(bytes: Uint8Array, filename: string): Response {
+  return new HttpResponse(bytes, {
+    headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${filename}"` },
+  })
 }
 
 export const financeHandlers = [
@@ -713,5 +749,33 @@ export const financeHandlers = [
     const idx = mockTransactions.findIndex((tx) => tx.id === params.id)
     if (idx >= 0) mockTransactions.splice(idx, 1)
     return HttpResponse.json({})
+  }),
+
+  // ---- PDF + Export (finanzen P2.5c) — return real downloadable files ----
+
+  http.get(`${API}/api/v1/finance/invoices/:id/pdf`, ({ params }) => {
+    const doc = mockInvoices.invoices.find((i) => i.id === params.id) as Record<string, unknown> | undefined
+    if (!doc) return HttpResponse.json({ error: 'Invoice not found' }, { status: 404 })
+    return pdfResponse(buildDocPdf(doc, 'RECHNUNG', 'Rechnungs-Nr'), `${doc.invoice_number ?? 'Rechnung'}.pdf`)
+  }),
+
+  http.get(`${API}/api/v1/finance/quotes/:id/pdf`, ({ params }) => {
+    const doc = mockQuotes.quotes.find((q) => q.id === params.id) as Record<string, unknown> | undefined
+    if (!doc) return HttpResponse.json({ error: 'Quote not found' }, { status: 404 })
+    return pdfResponse(buildDocPdf(doc, 'ANGEBOT', 'Angebots-Nr'), `${doc.quote_number ?? 'Angebot'}.pdf`)
+  }),
+
+  http.get(`${API}/api/v1/finance/credit-notes/:id/pdf`, ({ params }) => {
+    const doc = mockCreditNotes.credit_notes.find((c) => c.id === params.id) as Record<string, unknown> | undefined
+    if (!doc) return HttpResponse.json({ error: 'Credit note not found' }, { status: 404 })
+    return pdfResponse(buildDocPdf(doc, 'GUTSCHRIFT', 'Gutschrift-Nr'), `${doc.credit_note_number ?? 'Gutschrift'}.pdf`)
+  }),
+
+  // DATEV-Buchungsstapel als echte CSV (vereinfacht; volle EXTF-Spec = P3).
+  http.get(`${API}/api/v1/finance/export/datev`, () => {
+    const csv = buildDatevCsv(mockInvoices.invoices as never)
+    return new HttpResponse('﻿' + csv, {
+      headers: { 'Content-Type': 'text/csv;charset=utf-8', 'Content-Disposition': 'attachment; filename="EXTF_Buchungsstapel.csv"' },
+    })
   }),
 ]

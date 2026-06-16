@@ -53,6 +53,7 @@ import { PaymentRecordDialog } from './PaymentRecordDialog'
 import { InvoiceDetailPanel } from './InvoiceDetailPanel'
 import { QuoteDetailPanel } from './QuoteDetailPanel'
 import { CreditNoteDetailPanel } from './CreditNoteDetailPanel'
+import { buildBexioCsv, buildBmdCsv, downloadCsv } from './lib/finance-export'
 import { ExportDialog } from './ExportDialog'
 import { DunningPanel } from './DunningPanel'
 import { FinanceDashboard } from './FinanceDashboard'
@@ -949,7 +950,10 @@ export default function FinanzenPage() {
                 {t('finanzen.exportTab.bexioDescription')}
               </p>
               <button
-                onClick={() => toast.success(t('finanzen.exportTab.bexioDownloaded'))}
+                onClick={() => {
+                  downloadCsv(buildBexioCsv(invoices as never), 'bexio-rechnungen.csv')
+                  toast.success(t('finanzen.exportTab.bexioDownloaded'))
+                }}
                 className="w-full flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium text-foreground hover:bg-accent transition-colors"
               >
                 <Download className="h-3.5 w-3.5" />
@@ -971,7 +975,10 @@ export default function FinanzenPage() {
                 {t('finanzen.exportTab.bmdDescription')}
               </p>
               <button
-                onClick={() => toast.success(t('finanzen.exportTab.bmdDownloaded'))}
+                onClick={() => {
+                  downloadCsv(buildBmdCsv(invoices as never), 'bmd-ntcs-export.csv')
+                  toast.success(t('finanzen.exportTab.bmdDownloaded'))
+                }}
                 className="w-full flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium text-foreground hover:bg-accent transition-colors"
               >
                 <Download className="h-3.5 w-3.5" />
