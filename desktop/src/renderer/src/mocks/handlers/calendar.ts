@@ -23,7 +23,7 @@ function recurringToRrule(recurring: unknown): string | null {
 
 export const calendarHandlers = [
   // List calendars
-  http.get(`${API}/api/v1/calendars`, () => {
+  http.get(`${API}/api/v1/calendar/calendars`, () => {
     return HttpResponse.json(mockCalendars)
   }),
 

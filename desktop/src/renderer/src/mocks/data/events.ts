@@ -9,34 +9,61 @@ import {
 // Calendars
 // ---------------------------------------------------------------------------
 
+// Mirrors the backend ListCalendars wire shape (CalendarWithMemberInfoProto):
+// the calendar fields are NESTED under `calendar`, with member info alongside.
+// Keep this nested so the mock matches reality and does not mask shape bugs.
 export const mockCalendars = {
   calendars: [
     {
-      id: IDS.calendars.personal,
-      name: 'Mein Kalender',
-      color: '#3B82F6',
-      owner_id: IDS.users.stefan,
-      visible: true,
-      is_default: true,
-      created_at: daysAgo(180),
+      calendar: {
+        id: IDS.calendars.personal,
+        name: 'Mein Kalender',
+        description: '',
+        calendar_type: 'personal',
+        color: '#3B82F6',
+        owner_id: IDS.users.stefan,
+        is_default: true,
+        timezone: 'Europe/Berlin',
+        created_at: daysAgo(180),
+        updated_at: daysAgo(180),
+      },
+      permission: 'admin',
+      color_override: null,
+      is_visible: true,
     },
     {
-      id: IDS.calendars.team,
-      name: 'Team Kalender',
-      color: '#10B981',
-      owner_id: IDS.users.admin,
-      visible: true,
-      is_default: false,
-      created_at: daysAgo(180),
+      calendar: {
+        id: IDS.calendars.team,
+        name: 'Team Kalender',
+        description: '',
+        calendar_type: 'shared',
+        color: '#10B981',
+        owner_id: IDS.users.admin,
+        is_default: false,
+        timezone: 'Europe/Berlin',
+        created_at: daysAgo(180),
+        updated_at: daysAgo(180),
+      },
+      permission: 'edit',
+      color_override: null,
+      is_visible: true,
     },
     {
-      id: IDS.calendars.meetings,
-      name: 'Besprechungsräume',
-      color: '#F59E0B',
-      owner_id: IDS.users.admin,
-      visible: true,
-      is_default: false,
-      created_at: daysAgo(180),
+      calendar: {
+        id: IDS.calendars.meetings,
+        name: 'Besprechungsräume',
+        description: '',
+        calendar_type: 'resource',
+        color: '#F59E0B',
+        owner_id: IDS.users.admin,
+        is_default: false,
+        timezone: 'Europe/Berlin',
+        created_at: daysAgo(180),
+        updated_at: daysAgo(180),
+      },
+      permission: 'view',
+      color_override: null,
+      is_visible: true,
     },
   ],
 }

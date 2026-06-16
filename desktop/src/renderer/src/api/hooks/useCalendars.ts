@@ -7,6 +7,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { calendarApi } from '../calendar-client'
 import type {
+  Calendar,
+  CalendarWithMemberInfo,
   CalendarListResponse,
   CalendarResponse,
   CalendarMembersResponse,
@@ -18,6 +20,48 @@ import type {
 } from '../calendar-types'
 
 // ---------------------------------------------------------------------------
+// Wire shapes / adapters
+// ---------------------------------------------------------------------------
+
+/**
+ * Wire shape the backend actually returns for ListCalendars: the calendar
+ * fields are NESTED under `calendar` (gRPC `CalendarWithMemberInfoProto`,
+ * serialized via encoding/json). The rest of the app consumes the FLAT
+ * `CalendarWithMemberInfo` instead, so we unwrap at the hook boundary.
+ */
+interface RawCalendarWithMemberInfo {
+  calendar?: Calendar
+  permission?: CalendarPermission
+  color_override?: string | null
+  is_visible?: boolean
+  /** legacy/mock field name for is_visible */
+  visible?: boolean
+}
+
+interface RawCalendarListResponse {
+  calendars?: RawCalendarWithMemberInfo[]
+}
+
+/**
+ * Flatten the nested ListCalendars wire shape into the flat app type.
+ * Defensive: tolerates an already-flat object (e.g. an MSW mock that mirrors
+ * the flat type) via `?? c`, so dev-mode and tests keep working.
+ */
+function flattenCalendarList(raw: RawCalendarListResponse): CalendarListResponse {
+  return {
+    calendars: (raw?.calendars ?? []).map((c): CalendarWithMemberInfo => {
+      const inner = c.calendar ?? (c as unknown as Calendar)
+      return {
+        ...inner,
+        permission: c.permission ?? 'admin',
+        color_override: c.color_override ?? null,
+        is_visible: c.is_visible ?? c.visible ?? true,
+      }
+    }),
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Calendar queries
 // ---------------------------------------------------------------------------
 
@@ -25,7 +69,12 @@ import type {
 export function useCalendars() {
   return useQuery({
     queryKey: ['calendars'],
-    queryFn: () => calendarApi.GET<CalendarListResponse>('/api/v1/calendars'),
+    queryFn: async (): Promise<CalendarListResponse> => {
+      const raw = await calendarApi.GET<RawCalendarListResponse>(
+        '/api/v1/calendar/calendars',
+      )
+      return flattenCalendarList(raw)
+    },
   })
 }
 
@@ -34,7 +83,7 @@ export function useBrowsableCalendars() {
   return useQuery({
     queryKey: ['calendars', 'browsable'],
     queryFn: () =>
-      calendarApi.GET<CalendarListResponse>('/api/v1/calendars/browse'),
+      calendarApi.GET<CalendarListResponse>('/api/v1/calendar/browse'),
   })
 }
 
@@ -44,7 +93,7 @@ export function useCalendarMembers(calendarId: string) {
     queryKey: ['calendars', calendarId, 'members'],
     queryFn: () =>
       calendarApi.GET<CalendarMembersResponse>(
-        `/api/v1/calendars/${calendarId}/members`,
+        `/api/v1/calendar/calendars/${calendarId}/members`,
       ),
     enabled: !!calendarId,
   })
@@ -56,7 +105,7 @@ export function useCalendarPreferences() {
     queryKey: ['calendar-preferences'],
     queryFn: () =>
       calendarApi.GET<CalendarPreferencesResponse>(
-        '/api/v1/calendars/preferences',
+        '/api/v1/calendar/preferences',
       ),
   })
 }
@@ -66,7 +115,7 @@ export function useEventCategories() {
   return useQuery({
     queryKey: ['event-categories'],
     queryFn: () =>
-      calendarApi.GET<EventCategoriesResponse>('/api/v1/calendars/categories'),
+      calendarApi.GET<EventCategoriesResponse>('/api/v1/calendar/categories'),
   })
 }
 
@@ -78,7 +127,7 @@ export function useCreateCalendar() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (body: CreateCalendarRequest) =>
-      calendarApi.POST<CalendarResponse>('/api/v1/calendars', body),
+      calendarApi.POST<CalendarResponse>('/api/v1/calendar/calendars', body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendars'] })
     },
@@ -89,7 +138,7 @@ export function useUpdateCalendar() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ id, ...body }: UpdateCalendarRequest & { id: string }) =>
-      calendarApi.PUT<CalendarResponse>(`/api/v1/calendars/${id}`, body),
+      calendarApi.PUT<CalendarResponse>(`/api/v1/calendar/calendars/${id}`, body),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['calendars'] })
       queryClient.invalidateQueries({
@@ -102,7 +151,7 @@ export function useUpdateCalendar() {
 export function useDeleteCalendar() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => calendarApi.DELETE(`/api/v1/calendars/${id}`),
+    mutationFn: (id: string) => calendarApi.DELETE(`/api/v1/calendar/calendars/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendars'] })
     },
@@ -125,7 +174,7 @@ export function useAddCalendarMember() {
       user_id: string
       permission: CalendarPermission
     }) =>
-      calendarApi.POST(`/api/v1/calendars/${calendarId}/members`, {
+      calendarApi.POST(`/api/v1/calendar/calendars/${calendarId}/members`, {
         user_id,
         permission,
       }),
@@ -148,7 +197,7 @@ export function useRemoveCalendarMember() {
       userId: string
     }) =>
       calendarApi.DELETE(
-        `/api/v1/calendars/${calendarId}/members/${userId}`,
+        `/api/v1/calendar/calendars/${calendarId}/members/${userId}`,
       ),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
@@ -166,7 +215,7 @@ export function useSubscribeToCalendar() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (calendarId: string) =>
-      calendarApi.POST(`/api/v1/calendars/${calendarId}/subscribe`),
+      calendarApi.POST(`/api/v1/calendar/calendars/${calendarId}/subscribe`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendars'] })
       queryClient.invalidateQueries({ queryKey: ['calendars', 'browsable'] })
@@ -178,7 +227,7 @@ export function useUnsubscribeFromCalendar() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (calendarId: string) =>
-      calendarApi.DELETE(`/api/v1/calendars/${calendarId}/subscribe`),
+      calendarApi.DELETE(`/api/v1/calendar/calendars/${calendarId}/subscribe`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendars'] })
       queryClient.invalidateQueries({ queryKey: ['calendars', 'browsable'] })
@@ -200,7 +249,7 @@ export function useUpdateCalendarPreferences() {
       default_allday_reminder_minutes?: number
       subdivision_code?: string | null
       show_task_deadlines?: boolean
-    }) => calendarApi.PUT('/api/v1/calendars/preferences', body),
+    }) => calendarApi.PUT('/api/v1/calendar/preferences', body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-preferences'] })
     },
@@ -215,7 +264,7 @@ export function useCreateEventCategory() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (body: { name: string; color: string }) =>
-      calendarApi.POST('/api/v1/calendars/categories', body),
+      calendarApi.POST('/api/v1/calendar/categories', body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['event-categories'] })
     },
@@ -226,7 +275,7 @@ export function useDeleteEventCategory() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: string) =>
-      calendarApi.DELETE(`/api/v1/calendars/categories/${id}`),
+      calendarApi.DELETE(`/api/v1/calendar/categories/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['event-categories'] })
     },
