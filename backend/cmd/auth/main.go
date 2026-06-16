@@ -37,7 +37,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cfg, err := config.Load(ctx, config.RequireVault)
+	cfg, err := config.Load(ctx, config.RequireVault, config.RequireSystemSMTP)
 	if err != nil {
 		slog.Error("failed to load config", "error", err)
 		os.Exit(1)
@@ -54,7 +54,9 @@ func main() {
 	tokenMaker := auth.NewTokenMaker(cfg.JWTSecret, cfg.AccessTokenExpiry, cfg.RefreshTokenExpiry)
 	authService := auth.NewService(repo, tokenMaker)
 
-	// Wire password-reset mailer (graceful: logs if SMTP not configured).
+	// Wire password-reset mailer. In production SYSTEM_SMTP_* is required
+	// (config.RequireSystemSMTP) so a missing relay fails fast at startup instead
+	// of silently dropping reset mails; dev/CI falls back to logging.
 	mailer := &systemMailer{
 		host:     cfg.SystemSMTPHost,
 		port:     cfg.SystemSMTPPort,

@@ -227,6 +227,10 @@ const (
 	RequireMinIO
 	// RequireWOPI — service signs/validates WOPI tokens (document, gateway).
 	RequireWOPI
+	// RequireSystemSMTP — service sends transactional email via SYSTEM_SMTP_*
+	// (auth password-reset, public-booking confirmations). Without a configured
+	// relay the mailer silently drops mail, so production must assert it.
+	RequireSystemSMTP
 )
 
 // composeDevSecrets are the docker-compose dev values. A service that receives
@@ -251,6 +255,9 @@ var configDefaultSecrets = map[string][]string{
 	"VAULT_MASTER_SECRET":    {""},
 	"LIVEKIT_WEBHOOK_SECRET": {""},
 	"BEXIO_STATE_SECRET":     {""},
+	"SYSTEM_SMTP_HOST":       {""},
+	"SYSTEM_SMTP_USER":       {""},
+	"SYSTEM_SMTP_PASSWORD":   {""},
 }
 
 // minJWTSecretLength is enforced in production only — short HMAC keys make
@@ -274,6 +281,9 @@ func validateProductionSecrets(cfg *Config, requirements []Requirement) error {
 		{"MINIO_ACCESS_KEY", cfg.MinIOAccessKey, required[RequireMinIO]},
 		{"MINIO_SECRET_KEY", cfg.MinIOSecretKey, required[RequireMinIO]},
 		{"VAULT_MASTER_SECRET", cfg.VaultMasterSecret, required[RequireVault]},
+		{"SYSTEM_SMTP_HOST", cfg.SystemSMTPHost, required[RequireSystemSMTP]},
+		{"SYSTEM_SMTP_USER", cfg.SystemSMTPUser, required[RequireSystemSMTP]},
+		{"SYSTEM_SMTP_PASSWORD", cfg.SystemSMTPPassword, required[RequireSystemSMTP]},
 	}
 
 	// LiveKit secrets are only validated when LiveKit is configured.

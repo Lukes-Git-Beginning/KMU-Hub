@@ -34,6 +34,20 @@ ACCESS_TOKEN_EXPIRY=15m
 REFRESH_TOKEN_EXPIRY=168h
 VAULT_MASTER_SECRET=CHANGE_ME_MINIMUM_64_CHARS_RANDOM_STRING
 
+# ===== TRANSACTIONAL SMTP (password-reset, booking confirmations) =====
+# REQUIRED in production (config.RequireSystemSMTP): the auth service refuses to
+# boot if HOST/USER/PASSWORD are empty, so a misconfigured relay can never silently
+# drop password-reset or booking-confirmation mail. Use a transactional provider
+# (Postmark/SES/Mailgun/…) — USER/PASSWORD are typically the API token. FROM must be
+# a verified sender on a domain you control.
+SYSTEM_SMTP_HOST=CHANGE_ME_smtp.provider.tld
+SYSTEM_SMTP_PORT=587
+SYSTEM_SMTP_USER=CHANGE_ME
+SYSTEM_SMTP_PASSWORD=CHANGE_ME
+SYSTEM_SMTP_FROM=noreply@zentria.tech
+# Frontend origin for password-reset links — must match the reset page route.
+PASSWORD_RESET_BASE_URL=https://zentria.tech/reset-password
+
 # ===== GATEWAY =====
 GATEWAY_HTTP_PORT=:8080
 CORS_ALLOWED_ORIGINS=https://YOUR_DOMAIN_OR_IP
