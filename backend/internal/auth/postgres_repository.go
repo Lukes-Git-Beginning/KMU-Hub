@@ -31,9 +31,12 @@ func (r *PostgresRepository) CreateUser(ctx context.Context, user *models.User) 
 
 func (r *PostgresRepository) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
 	var user models.User
+	// lower(email) match is case-insensitive and index-backed (idx_users_email
+	// on lower(email), migration 000148). Callers normalize the input, but this
+	// also matches any legacy mixed-case row not yet backfilled.
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, email, password_hash, first_name, last_name, is_active, created_at, updated_at
-		 FROM users WHERE email = $1`, email,
+		 FROM users WHERE lower(email) = $1`, email,
 	).Scan(&user.ID, &user.TenantID, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName,
 		&user.IsActive, &user.CreatedAt, &user.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {

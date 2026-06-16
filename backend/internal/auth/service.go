@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -61,7 +62,17 @@ func (s *Service) SetResetBaseURL(url string) {
 	s.resetBaseURL = url
 }
 
+// normalizeEmail lowercases and trims an email so lookups and uniqueness are
+// case-insensitive. Without this, "User@x" and "user@x" become two distinct
+// accounts (a real prod bug) and a case-mismatched password reset silently
+// finds no user. Applied at every service entrypoint that reads or writes an
+// email; the DB unique index (migration 000148) is on lower(email) to match.
+func normalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
+}
+
 func (s *Service) Register(ctx context.Context, email, password, firstName, lastName string) (*models.User, *models.TokenPair, error) {
+	email = normalizeEmail(email)
 	// Pre-JWT path: no tenant context in caller ctx. RLS policies on users
 	// would reject the lookup without system bypass.
 	ctx = sysctx.With(ctx)
@@ -106,6 +117,7 @@ func (s *Service) Register(ctx context.Context, email, password, firstName, last
 }
 
 func (s *Service) Login(ctx context.Context, email, password string) (*models.LoginResult, error) {
+	email = normalizeEmail(email)
 	// Pre-JWT path: caller has no tenant in ctx. RLS would otherwise
 	// reject the user lookup.
 	ctx = sysctx.With(ctx)
@@ -403,6 +415,7 @@ const invitationExpiry = 7 * 24 * time.Hour // 7 days
 
 // CreateInvitation creates a new user invitation
 func (s *Service) CreateInvitation(ctx context.Context, email, role string, createdBy uuid.UUID) (*models.Invitation, string, error) {
+	email = normalizeEmail(email)
 	// Check if email already exists as a user
 	if existing, _ := s.repo.GetUserByEmail(ctx, email); existing != nil {
 		return nil, "", ErrUserExists
@@ -526,6 +539,7 @@ func generateSecureToken() string {
 // To prevent user enumeration the method always returns nil — callers must
 // respond with the same HTTP 200 body whether or not the email is known.
 func (s *Service) RequestPasswordReset(ctx context.Context, email string) error {
+	email = normalizeEmail(email)
 	// Pre-JWT path: no tenant in ctx, need RLS bypass to read users by email.
 	sysCtx := sysctx.With(ctx)
 

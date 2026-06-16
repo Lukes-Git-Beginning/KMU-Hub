@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -444,6 +445,8 @@ type forgotPasswordRequest struct {
 // allowForgotAttempt returns true if the email is under the rate limit.
 // Thread-safe via sync.Map + per-bucket mutex.
 func (a *AuthRoutes) allowForgotAttempt(email string) bool {
+	// Normalize so mixed-case retries (User@x vs user@x) share one bucket.
+	email = strings.ToLower(strings.TrimSpace(email))
 	now := time.Now()
 	actual, _ := a.forgotLimiter.LoadOrStore(email, &forgotBucket{windowEnd: now.Add(forgotRateLimitWindow)})
 	b := actual.(*forgotBucket)
