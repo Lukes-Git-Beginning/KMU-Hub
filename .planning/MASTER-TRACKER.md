@@ -12,7 +12,14 @@
 ## Gesamtstand
 - **~155 offene Phasen** über ~32 Module (grobe, eher konservative Zahl — Verifizieren der Marathon-Module kann sie senken).
 - **Fertig (bei Nico in Review):** kontakte (Kern), zeiterfassung; calendar/dokumente weitgehend (🔁).
-- **Aktive Spur:** finanzen komplett fertigstellen (P2.5b–e → P3–5) → an Nico → nächstes Modul.
+- **Aktive Spur:** finanzen komplett fertigstellen → an Nico → nächstes Modul.
+- **▶ NÄCHSTES (neues Terminal, Darien 2026-06-16):** **Tiefe der Modal-Fenster** ausbauen — die 6 finanzen-Detail-Modals (Invoice/Quote/CreditNote/Expense/Transaction/Recurring) inhaltlich vertiefen (mehr Infos + Funktionen + Verknüpfungen, Richtung Kontakte-360°). DANACH im Phasenplan weiter (P2.5d → e → P3–5).
+
+## Neue projektweite Standards (2026-06-16) — bei JEDEM Modul anwenden
+- **Detail = zentriertes Cosmi-Modal-Fenster** (`shared/DetailModal`), NICHT Slide-over. [[feedback_detail_modal_standard]]
+- **GANZE Zeile klickbar** (`div role=button` + stopPropagation auf inneren Buttons), nicht nur Titel/3-Punkte.
+- **Zurück/Close sticky/immer sichtbar**, nie wegscrollen. [[feedback_sticky_back_buttons]]
+- Im Fenster ALLE Infos + Funktionen.
 
 ## Arbeitsweise: rollierende Modul-Fertigstellung (für Nicos Review-Pipeline)
 [[feedback_rolling_module_completion]] — **Wir bringen Module einzeln komplett zu Ende, nicht phasen-schichtweise.** Sobald ein Modul **review-reif** ist, geht es an Nico, und wir starten das nächste → Nico reviewt **parallel**, die Pipeline läuft nie leer.
