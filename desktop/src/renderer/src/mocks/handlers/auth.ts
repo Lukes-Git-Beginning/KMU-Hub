@@ -40,6 +40,15 @@ export const authHandlers = [
     return HttpResponse.json(mockTokens)
   }),
 
+  // Password reset (enumeration-safe: always 200)
+  http.post(`${API}/api/v1/auth/forgot-password`, () => {
+    return HttpResponse.json({ message: { id: 'demo', content: 'reset link sent' } })
+  }),
+
+  http.post(`${API}/api/v1/auth/reset-password`, () => {
+    return HttpResponse.json({ status: 'ok' })
+  }),
+
   // Sessions
   http.get(`${API}/api/v1/auth/sessions`, () => {
     return HttpResponse.json([

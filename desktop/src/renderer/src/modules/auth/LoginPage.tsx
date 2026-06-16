@@ -244,6 +244,15 @@ export default function LoginPage() {
               />
             </div>
 
+            <div className="flex justify-end -mt-1">
+              <Link
+                to="/forgot-password"
+                className="text-sm text-muted-foreground underline-offset-2 hover:underline"
+              >
+                {t('auth.forgotPassword')}
+              </Link>
+            </div>
+
             {error && (
               <p className="text-sm text-destructive">{error}</p>
             )}

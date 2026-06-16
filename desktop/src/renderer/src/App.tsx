@@ -19,6 +19,8 @@ import { DeskEnvironment } from '@/components/layout/DeskEnvironment'
 import { ModuleLoadingFallback } from '@/components/layout/ModuleShell'
 import LoginPage from '@/modules/auth/LoginPage'
 import RegisterPage from '@/modules/auth/RegisterPage'
+import ForgotPasswordPage from '@/modules/auth/ForgotPasswordPage'
+import ResetPasswordPage from '@/modules/auth/ResetPasswordPage'
 import { DEV_PROFILES } from '@/config/roles'
 import NotificationToast from '@/modules/notifications/NotificationToast'
 import { OfflineBanner } from '@/components/ui/OfflineBanner'
@@ -283,6 +285,16 @@ const router = createHashRouter([
         <RegisterPage />
       </GuestRoute>
     ),
+  },
+  {
+    // No GuestRoute: the reset link is an email landing reachable regardless of
+    // session, and the dev auto-login must not redirect these away during QA.
+    path: '/forgot-password',
+    element: <ForgotPasswordPage />,
+  },
+  {
+    path: '/reset-password',
+    element: <ResetPasswordPage />,
   },
   {
     path: '/compose-window',
