@@ -21,8 +21,8 @@
 
 ---
 
-## ▶ SOFORT — Tiefe-Re-Check der „fertigen" Module (vor Nicos Review)
-Schneller Audit gegen die Tiefe-Vorgabe + offensichtliche Fixes, damit Nico tiefe-vollständige Module reviewt. 1 Phase pro Modul.
+## Tiefe-Re-Check der „fertigen" Module — ⏸ VERTAGT (Darien 2026-06-16: „später")
+Schneller Audit gegen die Tiefe-Vorgabe; die 4 Module sind solange bei Nico in Review (as-is). Wir holen den Re-Check später nach.
 - [ ] **T-1** kontakte — Tiefe-Re-Check (Detail-Views/Downloads/Exporte)
 - [ ] **T-2** calendar — Tiefe-Re-Check + realen Phasen-Stand verifizieren 🔁
 - [ ] **T-3** dokumente — Tiefe-Re-Check + realen Phasen-Stand verifizieren 🔁
@@ -141,9 +141,8 @@ Schneller Audit gegen die Tiefe-Vorgabe + offensichtliche Fixes, damit Nico tief
 ## Cluster 3 — Finanzen
 
 ### finanzen (= „Buchhaltung") — 🔨 aktiv
-- [x] P1 Faktura-Kette · P2 Ausgaben/Kontierung · **P2.5a** Angebots-/Gutschrift-Detail
-- [ ] **P2.5b** Ausgaben-/Transaktions-/Wiederkehrend-Detail + OP-Liste→Rechnung + Dashboard-Listen
-- [ ] **P2.5c** PDF-Vorschau aus echten Daten + Downloads (PDF/CSV) sichtbar wirksam
+- [x] P1 Faktura-Kette · P2 Ausgaben/Kontierung · **P2.5a** Angebots-/Gutschrift-Detail · **P2.5b** Ausgaben-/Transaktions-/Wiederkehrend-Detail + OP-Liste→Rechnung + Dashboard-Listen
+- [ ] **P2.5c** PDF-Vorschau aus echten Daten + Downloads (PDF/CSV) sichtbar wirksam ◀ als Nächstes
 - [ ] **P2.5d** Mahnwesen verkabeln + Mahn-Detail + Zahlung/Settings speichern 🔒
 - [ ] **P2.5e** Hardcoded-Mocks→MSW (Banking, Belegkette, Stunden→Rechnung, Audit-Log)
 - [ ] **P3** DATEV-EXTF + Bexio-OAuth + BMD-CSV 🔒
