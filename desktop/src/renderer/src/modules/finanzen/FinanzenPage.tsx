@@ -18,12 +18,11 @@ import {
   Timer,
   Repeat,
   Wallet,
-  Ban,
   PieChart,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ItemActions, ConfirmDialog, EmptyState, PageHeader } from '@/components/shared'
-import { useFinanceUIStore, formatEUR, formatMoney, type FinanceTabKey } from '@/stores/finance'
+import { useFinanceUIStore, formatMoney, type FinanceTabKey } from '@/stores/finance'
 import {
   useInvoices,
   useQuotes,

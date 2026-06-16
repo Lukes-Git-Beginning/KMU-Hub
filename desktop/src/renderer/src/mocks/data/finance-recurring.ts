@@ -5,7 +5,6 @@
  * interval. The handler mutates `mockRecurringInvoices.recurring` in place so
  * pause/resume/generate feel real in the demo.
  */
-import { IDS } from './shared-ids'
 import { daysAgo, daysFromNow, monthsAgo } from './date-helpers'
 import type { LineItem, TaxBreakdown, RecurringInvoice } from '@/types/finance-types'
 

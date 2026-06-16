@@ -2,7 +2,7 @@ import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
 import { IDS } from '../data/shared-ids'
 import { EMPLOYEES, DEPARTMENTS, COMPANY } from '../mock-db'
-import { daysAgo, daysFromNow, today } from '../data/date-helpers'
+import { daysAgo, daysFromNow } from '../data/date-helpers'
 
 const API = API_BASE_URL
 

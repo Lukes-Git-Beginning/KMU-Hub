@@ -38,8 +38,6 @@ import {
   Euro,
   User,
   FileText,
-  Copy,
-  ExternalLink,
   GripVertical,
   Mail,
   Phone,
