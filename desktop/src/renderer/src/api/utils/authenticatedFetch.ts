@@ -23,7 +23,7 @@
  * boundary.
  */
 
-import { withIdempotencyKey } from '../idempotency'
+import { generateIdempotencyKey } from '../idempotency'
 import { API_BASE_URL } from '@/lib/constants'
 
 // ---------------------------------------------------------------------------
@@ -151,12 +151,13 @@ export async function authenticatedRequest<T>(
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  // Inject idempotency key for mutations
-  if (MUTATION_METHODS.has(method)) {
-    const withKey = withIdempotencyKey(headers)
-    withKey.forEach((value, key) => {
-      headers[key] = value
-    })
+  // Inject idempotency key for mutations. Set it directly on the existing
+  // headers object — do NOT round-trip through a `Headers` instance, which
+  // lowercases keys and would leave BOTH `Authorization` and `authorization`
+  // in the object. fetch then merges those case-only duplicates into a single
+  // comma-joined value ("Bearer x, Bearer x"), which the backend rejects (401).
+  if (MUTATION_METHODS.has(method) && !headers['Idempotency-Key']) {
+    headers['Idempotency-Key'] = generateIdempotencyKey()
   }
 
   // Build request init
@@ -243,11 +244,10 @@ export async function authenticatedBlobRequest(
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  if (MUTATION_METHODS.has(method)) {
-    const withKey = withIdempotencyKey(headers)
-    withKey.forEach((value, key) => {
-      headers[key] = value
-    })
+  if (MUTATION_METHODS.has(method) && !headers['Idempotency-Key']) {
+    // See authenticatedRequest: setting the key via a Headers round-trip would
+    // duplicate the Authorization header (capital + lowercase) and trigger 401.
+    headers['Idempotency-Key'] = generateIdempotencyKey()
   }
 
   const init: RequestInit = { method, headers }
