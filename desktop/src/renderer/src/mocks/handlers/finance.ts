@@ -973,6 +973,15 @@ export const financeHandlers = [
     return HttpResponse.json({ accounts: mockBanking.accounts })
   }),
 
+  // Connect a bank account (FinAPI placeholder) — stateful: balance + sync show.
+  http.post(`${API}/api/v1/finance/bank-accounts/:id/connect`, ({ params }) => {
+    const acc = mockBanking.accounts.find((a) => a.id === params.id)
+    if (!acc) return HttpResponse.json({ error: 'Account not found' }, { status: 404 })
+    acc.connected = true
+    acc.lastSync = new Date().toISOString().split('T')[0]
+    return HttpResponse.json({ account: acc })
+  }),
+
   http.get(`${API}/api/v1/finance/bank-transactions`, ({ request }) => {
     const status = new URL(request.url).searchParams.get('status')
     let txs = [...mockBanking.transactions]
@@ -982,10 +991,13 @@ export const financeHandlers = [
     return HttpResponse.json({ transactions: txs })
   }),
 
-  // Confirm a suggested match — stateful: flips the transaction to 'matched'.
-  http.post(`${API}/api/v1/finance/bank-transactions/:id/match`, ({ params }) => {
+  // Confirm a match — stateful. Optional invoice_number assigns a specific
+  // invoice (manual matching from the detail modal).
+  http.post(`${API}/api/v1/finance/bank-transactions/:id/match`, async ({ params, request }) => {
     const tx = mockBanking.transactions.find((t) => t.id === params.id)
     if (!tx) return HttpResponse.json({ error: 'Transaction not found' }, { status: 404 })
+    const body = (await request.json().catch(() => ({}))) as { invoice_number?: string }
+    if (body.invoice_number) tx.matchedInvoice = body.invoice_number
     tx.matchStatus = 'matched'
     return HttpResponse.json({ transaction: tx })
   }),

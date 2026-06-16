@@ -39,6 +39,9 @@ const transactions: BankTransaction[] = [
   { id: 'bt5', date: daysAgo(4), description: 'Gehälter Februar 2026', amount: -78500.0, type: 'debit', counterpart: 'Sammelüberweisung', matchStatus: 'unmatched' },
   { id: 'bt6', date: daysAgo(0), description: 'Eingang Berger — Mobile App Anzahlung', amount: 20000.0, type: 'credit', counterpart: 'Berger & Soehne', matchStatus: 'suggested', matchedInvoice: 'RE-2026-015' },
   { id: 'bt7', date: daysAgo(7), description: 'Adobe Creative Cloud — Jahresrechnung', amount: -4188.0, type: 'debit', counterpart: 'Adobe Inc.', matchStatus: 'unmatched' },
+  // Offener Eingang ohne automatische Zuordnung — für manuelle Zuordnung zur
+  // überfälligen Rechnung RE-2026-008 (Schwarzwald Holz).
+  { id: 'bt8', date: daysAgo(2), description: 'Eingang Schwarzwald Holz — Überweisung', amount: 6664.0, type: 'credit', counterpart: 'Schwarzwald Holz GmbH', matchStatus: 'unmatched' },
 ]
 
 export const mockBanking: { accounts: BankAccount[]; transactions: BankTransaction[] } = {

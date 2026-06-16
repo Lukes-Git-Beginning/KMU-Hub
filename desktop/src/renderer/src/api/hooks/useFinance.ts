@@ -712,10 +712,21 @@ export function useBankTransactions(status?: BankMatchStatus | 'all') {
   })
 }
 
+export function useConnectBankAccount() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => financeBankingApi.connectAccount(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['finance', 'bank-accounts'] })
+    },
+  })
+}
+
 export function useMatchTransaction() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => financeBankingApi.matchTransaction(id),
+    mutationFn: ({ id, invoiceNumber }: { id: string; invoiceNumber?: string }) =>
+      financeBankingApi.matchTransaction(id, invoiceNumber),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['finance', 'bank-transactions'] })
     },

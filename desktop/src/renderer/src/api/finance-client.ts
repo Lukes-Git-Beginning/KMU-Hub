@@ -45,6 +45,7 @@ import type {
   GenerateRecurringInvoiceResponse,
   ListBankAccountsResponse,
   ListBankTransactionsResponse,
+  BankAccount,
   BankTransaction,
   BankMatchStatus,
   ListDocumentChainsResponse,
@@ -582,17 +583,29 @@ export const financeBankingApi = {
     return request<ListBankAccountsResponse>('/api/v1/finance/bank-accounts')
   },
 
+  /** POST .../bank-accounts/{id}/connect — FinAPI placeholder, stateful */
+  connectAccount(id: string) {
+    return request<{ account: BankAccount }>(
+      `/api/v1/finance/bank-accounts/${id}/connect`,
+      { method: 'POST' },
+    )
+  },
+
   listTransactions(status?: BankMatchStatus | 'all') {
     return request<ListBankTransactionsResponse>(
       `/api/v1/finance/bank-transactions${qs({ status })}`,
     )
   },
 
-  /** POST .../bank-transactions/{id}/match — confirm a suggested match */
-  matchTransaction(id: string) {
+  /** POST .../bank-transactions/{id}/match — confirm match; optional
+   *  invoiceNumber assigns a specific invoice (manual matching). */
+  matchTransaction(id: string, invoiceNumber?: string) {
     return request<{ transaction: BankTransaction }>(
       `/api/v1/finance/bank-transactions/${id}/match`,
-      { method: 'POST' },
+      {
+        method: 'POST',
+        body: invoiceNumber ? JSON.stringify({ invoice_number: invoiceNumber }) : undefined,
+      },
     )
   },
 

@@ -29,6 +29,9 @@ import {
   useMatchTransaction,
   useRejectMatch,
 } from '@/api/hooks/useFinance'
+import type { BankAccount, BankTransaction } from '@/types/finance-types'
+import { BankTransactionDetailPanel } from './BankTransactionDetailPanel'
+import { BankConnectDialog } from './BankConnectDialog'
 
 // ---------------------------------------------------------------------------
 // Component
@@ -43,6 +46,8 @@ export function BankingWidget() {
   const matchMutation = useMatchTransaction()
   const rejectMutation = useRejectMatch()
   const [syncing, setSyncing] = useState(false)
+  const [detailTx, setDetailTx] = useState<BankTransaction | null>(null)
+  const [connectAcc, setConnectAcc] = useState<BankAccount | null>(null)
 
   const connectedAccount = accounts.find((a) => a.connected)
 
@@ -55,10 +60,13 @@ export function BankingWidget() {
   }
 
   const handleAcceptMatch = (txId: string) => {
-    matchMutation.mutate(txId, {
-      onSuccess: () => toast.success(t('finanzen.banking.matchConfirmed')),
-      onError: (err) => toast.error(err.message),
-    })
+    matchMutation.mutate(
+      { id: txId },
+      {
+        onSuccess: () => toast.success(t('finanzen.banking.matchConfirmed')),
+        onError: (err) => toast.error(err.message),
+      },
+    )
   }
 
   const handleRejectMatch = (txId: string) => {
@@ -114,7 +122,10 @@ export function BankingWidget() {
               {acc.connected ? (
                 <CheckCircle2 className="h-4 w-4 text-success" />
               ) : (
-                <button className="flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
+                <button
+                  onClick={() => setConnectAcc(acc)}
+                  className="flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
                   <Link2 className="h-3 w-3" />
                   {t('finanzen.banking.connect')}
                 </button>
@@ -194,7 +205,13 @@ export function BankingWidget() {
             {filteredTx.map((tx) => (
               <div
                 key={tx.id}
-                className={`grid grid-cols-[80px_1fr_120px_90px_100px_70px] gap-2 items-center px-3 py-2.5 border-t border-border transition-colors hover:bg-accent/30 ${
+                role="button"
+                tabIndex={0}
+                onClick={() => setDetailTx(tx)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailTx(tx) }
+                }}
+                className={`grid cursor-pointer grid-cols-[80px_1fr_120px_90px_100px_70px] gap-2 items-center px-3 py-2.5 border-t border-border transition-colors hover:bg-accent/30 focus-visible:bg-accent/30 focus-visible:outline-none ${
                   tx.matchStatus === 'suggested' ? 'bg-warning-light/10' : ''
                 }`}
               >
@@ -236,14 +253,14 @@ export function BankingWidget() {
                   {tx.matchStatus === 'suggested' && (
                     <>
                       <button
-                        onClick={() => handleAcceptMatch(tx.id)}
+                        onClick={(e) => { e.stopPropagation(); handleAcceptMatch(tx.id) }}
                         className="rounded p-1 text-success hover:bg-success-light transition-colors"
                         title={t('finanzen.banking.confirmMatch')}
                       >
                         <Check className="h-3 w-3" />
                       </button>
                       <button
-                        onClick={() => handleRejectMatch(tx.id)}
+                        onClick={(e) => { e.stopPropagation(); handleRejectMatch(tx.id) }}
                         className="rounded p-1 text-muted-foreground hover:bg-accent transition-colors"
                         title={t('finanzen.banking.rejectMatch')}
                       >
@@ -253,7 +270,7 @@ export function BankingWidget() {
                   )}
                   {tx.matchStatus === 'unmatched' && tx.type === 'credit' && (
                     <button
-                      onClick={() => toast.success(t('finanzen.banking.manualMatchOpened'))}
+                      onClick={(e) => { e.stopPropagation(); setDetailTx(tx) }}
                       className="rounded p-1 text-primary hover:bg-primary/10 transition-colors"
                       title={t('finanzen.banking.manualMatch')}
                     >
@@ -265,6 +282,14 @@ export function BankingWidget() {
             ))}
           </div>
         </>
+      )}
+
+      {detailTx && (
+        <BankTransactionDetailPanel transaction={detailTx} onClose={() => setDetailTx(null)} />
+      )}
+
+      {connectAcc && (
+        <BankConnectDialog account={connectAcc} open={!!connectAcc} onClose={() => setConnectAcc(null)} />
       )}
     </div>
   )
