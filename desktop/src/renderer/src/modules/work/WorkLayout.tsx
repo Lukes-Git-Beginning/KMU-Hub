@@ -8,6 +8,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 
 import ProjectsListPage from './projects/ProjectsListPage'
 import ProjectDetailPage from './projects/ProjectDetailPage'
+import GuestProjectView from './projects/GuestProjectView'
 import MyTasksPage from './tasks/MyTasksPage'
 import TaskSearchView from './components/TaskSearchView'
 import { useWorkPrefsStore } from '@/stores/workPrefs'
@@ -26,6 +27,7 @@ export default function WorkLayout() {
         <Routes>
           <Route index element={<WorkIndexRedirect />} />
           <Route path="projects" element={<ProjectsListPage />} />
+          <Route path="projects/:id/guest" element={<GuestProjectView />} />
           <Route path="projects/:id/*" element={<ProjectDetailPage />} />
           <Route path="my-tasks" element={<MyTasksPage />} />
           <Route path="search" element={<TaskSearchView />} />

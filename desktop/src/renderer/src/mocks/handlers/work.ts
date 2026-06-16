@@ -1050,6 +1050,83 @@ export const workHandlers = [
     return HttpResponse.json({ entry })
   }),
 
+  // GET /api/v1/projects/:id/team-utilization — capacity/utilization roll-up
+  // derived from the project's real members (design preview data).
+  http.get(`${API}/api/v1/projects/:id/team-utilization`, ({ params }) => {
+    const projectId = params.id as string
+    const members = membersByProject[projectId] ?? []
+    const ROLES = ['Frontend Lead', 'Backend Dev', 'DevOps', 'UI/UX Design', 'QA Engineer', 'Projektleitung', 'Fullstack Dev']
+    const weeks = ['KW 4', 'KW 5', 'KW 6', 'KW 7', 'KW 8', 'KW 9']
+    const monthsLabels = ['Dez 2025', 'Jan 2026', 'Feb 2026']
+    const gen = (target: number, labels: string[], i: number, mult = 1) =>
+      labels.map((label, j) => ({
+        label,
+        hours:
+          Math.round(target * mult * (0.6 + Math.abs(Math.sin((i + 1) * 2.7 + j * 1.3)) * 0.8) * 10) / 10,
+      }))
+    const team = members.map((m, i) => {
+      const name = `${m.first_name} ${m.last_name}`
+      const weeklyTarget = i % 5 === 2 ? 32 : i % 5 === 4 ? 24 : 40
+      const rate = 120 + (i % 5) * 10
+      return {
+        member: {
+          id: m.user_id,
+          name,
+          role: ROLES[i % ROLES.length],
+          avatarInitial: name.charAt(0),
+          weeklyTarget,
+          rate,
+        },
+        weeklyData: gen(weeklyTarget, weeks, i),
+        monthlyData: gen(weeklyTarget, monthsLabels, i, 4.33),
+      }
+    })
+    return HttpResponse.json({ team })
+  }),
+
+  // GET /api/v1/projects/:id/guest-overview — milestones + status updates for
+  // the read-only guest project view (derived per project, design preview).
+  http.get(`${API}/api/v1/projects/:id/guest-overview`, ({ params }) => {
+    const projectId = params.id as string
+    const project = findProject(projectId)
+    const members = membersByProject[projectId] ?? []
+    const authorAt = (i: number) => {
+      const m = members[i % Math.max(members.length, 1)]
+      return m ? `${m.first_name} ${m.last_name}` : 'Team'
+    }
+    const startMs = project?.start_date ? new Date(project.start_date as string).getTime() : Date.now()
+    const endMs = project?.end_date ? new Date(project.end_date as string).getTime() : Date.now()
+    const total = project?.task_count ? (project.task_count as number) : 1
+    const done = (project?.completed_task_count as number) ?? 0
+    const milestoneTitles = [
+      'Konzept & Setup',
+      'Design-Phase',
+      'Entwicklung Kern',
+      'Integration',
+      'QA & Testing',
+      'Go-Live',
+    ]
+    const completedCount = Math.round((done / Math.max(total, 1)) * milestoneTitles.length)
+    const milestones = milestoneTitles.map((title, i) => {
+      const status = i < completedCount ? 'completed' : i === completedCount ? 'in-progress' : 'upcoming'
+      const dueMs = startMs + ((endMs - startMs) * (i + 1)) / milestoneTitles.length
+      return {
+        id: `ms-${i + 1}`,
+        title,
+        dueDate: new Date(dueMs).toISOString(),
+        status,
+        progress: status === 'completed' ? 100 : status === 'in-progress' ? 60 : 0,
+      }
+    })
+    const statusUpdates = [
+      { id: 'su1', date: daysAgo(2), author: authorAt(0), text: 'Kernfunktionen umgesetzt; Performance-Benchmarks deutlich verbessert.', type: 'update' },
+      { id: 'su2', date: daysAgo(4), author: authorAt(1), text: 'API-Endpoints implementiert und getestet, Authentifizierung steht.', type: 'update' },
+      { id: 'su3', date: daysAgo(7), author: authorAt(0), text: `Meilenstein „${milestoneTitles[Math.max(completedCount - 1, 0)]}" erfolgreich abgeschlossen.`, type: 'milestone' },
+      { id: 'su4', date: daysAgo(9), author: authorAt(2), text: 'Offener Punkt: einzelne Datenfelder migrationsbedürftig — im nächsten Sprint adressiert.', type: 'risk' },
+    ]
+    return HttpResponse.json({ milestones, statusUpdates })
+  }),
+
   // ── Time entries ──────────────────────────────────────────────────────────
 
   // GET /api/v1/projects/:id/time-entries?billed=false — project-level roll-up

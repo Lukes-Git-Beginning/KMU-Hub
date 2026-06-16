@@ -8374,6 +8374,7 @@
   "work.myTasks.createFirst": "Crea attività",
   "work.myTasks.loadError": "Impossibile caricare le attività",
   "work.myTasks.moveToProject": "Sposta nel progetto",
+  "work.utilization.noData": "Nessun dato di carico per questo progetto.",
   "work.hoursInvoice.emptyHint": "Tutte le ore tracciate di questo progetto sono già fatturate.",
   "work.hoursInvoice.note": "Fatturazione delle ore tracciate — progetto {project}",
   "work.panel.taskLabel": "Attività",

@@ -8,6 +8,7 @@
  */
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useParams } from 'react-router-dom'
 import {
   CheckCircle2,
   Circle,
@@ -18,88 +19,23 @@ import {
   Users,
   TrendingUp,
   AlertCircle,
+  Loader2,
 } from 'lucide-react'
 import { cn } from '@/lib'
 import { Badge } from '@/components/ui/badge'
-
-// ---------------------------------------------------------------------------
-// Mock data
-// ---------------------------------------------------------------------------
-
-interface MockMilestone {
-  id: string
-  title: string
-  dueDate: string
-  status: 'completed' | 'in-progress' | 'upcoming'
-  progress: number
-}
-
-interface MockStatusUpdate {
-  id: string
-  date: string
-  author: string
-  text: string
-  type: 'update' | 'milestone' | 'risk'
-}
-
-const MOCK_PROJECT = {
-  name: 'Website Redesign 2026',
-  description:
-    'Kompletter Relaunch der Unternehmenswebsite mit neuem Design-System, verbesserter Performance und modernem Tech-Stack. Inklusive CMS-Migration und SEO-Optimierung.',
-  projectKey: 'WEB',
-  startDate: '2026-01-15',
-  targetDate: '2026-06-30',
-  totalTasks: 48,
-  completedTasks: 22,
-  teamSize: 6,
-}
-
-const MOCK_MILESTONES: MockMilestone[] = [
-  { id: 'ms1', title: 'Design-System fertiggestellt', dueDate: '2026-02-01', status: 'completed', progress: 100 },
-  { id: 'ms2', title: 'Frontend-Grundstruktur', dueDate: '2026-02-28', status: 'completed', progress: 100 },
-  { id: 'ms3', title: 'Backend-API v1', dueDate: '2026-03-15', status: 'in-progress', progress: 65 },
-  { id: 'ms4', title: 'CMS-Migration', dueDate: '2026-04-15', status: 'upcoming', progress: 0 },
-  { id: 'ms5', title: 'QA & Testing', dueDate: '2026-05-15', status: 'upcoming', progress: 0 },
-  { id: 'ms6', title: 'Go-Live', dueDate: '2026-06-30', status: 'upcoming', progress: 0 },
-]
-
-const MOCK_STATUS_UPDATES: MockStatusUpdate[] = [
-  {
-    id: 'su1',
-    date: '2026-02-20',
-    author: 'Anna Müller',
-    text: 'Frontend-Komponenten-Bibliothek zu 85% fertiggestellt. Performance-Benchmarks zeigen deutliche Verbesserungen gegenüber der aktuellen Website.',
-    type: 'update',
-  },
-  {
-    id: 'su2',
-    date: '2026-02-18',
-    author: 'Thomas Fischer',
-    text: 'API-Endpoints für Kontakte und Produkte implementiert und getestet. Authentifizierung via JWT steht.',
-    type: 'update',
-  },
-  {
-    id: 'su3',
-    date: '2026-02-15',
-    author: 'Anna Müller',
-    text: 'Meilenstein "Frontend-Grundstruktur" erfolgreich abgeschlossen. Routing, State Management und Design Tokens integriert.',
-    type: 'milestone',
-  },
-  {
-    id: 'su4',
-    date: '2026-02-12',
-    author: 'Max Schmidt',
-    text: 'CMS-Datenexport zeigt Inkompatibilitaeten bei einigen benutzerdefinierten Feldern. Wird in Sprint 5 adressiert.',
-    type: 'risk',
-  },
-]
+import {
+  useProject,
+  useProjectGuestOverview,
+  type GuestMilestone,
+  type GuestStatusUpdate,
+} from '@/api/hooks/useProjects'
 
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
 
 interface GuestProjectViewProps {
-  /** Project ID (for future API integration). */
+  /** Project ID — falls back to the route param when rendered as a route. */
   projectId?: string
 }
 
@@ -107,16 +43,34 @@ interface GuestProjectViewProps {
 // Component
 // ---------------------------------------------------------------------------
 
-export default function GuestProjectView({ projectId: _projectId }: GuestProjectViewProps) {
+export default function GuestProjectView({ projectId: propProjectId }: GuestProjectViewProps) {
   const { t } = useTranslation()
-  const project = MOCK_PROJECT
+  const params = useParams<{ id: string }>()
+  const projectId = propProjectId ?? params.id ?? ''
+
+  const { data: projectData, isLoading } = useProject(projectId)
+  const { data: overview } = useProjectGuestOverview(projectId)
+  const project = projectData?.project
+
+  const totalTasks = (project?.task_count as number) ?? 0
+  const completedTasks = (project?.completed_task_count as number) ?? 0
+  const milestones: GuestMilestone[] = overview?.milestones ?? []
+  const statusUpdates: GuestStatusUpdate[] = overview?.statusUpdates ?? []
+
   const progressPercent = useMemo(
-    () =>
-      project.totalTasks > 0
-        ? Math.round((project.completedTasks / project.totalTasks) * 100)
-        : 0,
-    [project.completedTasks, project.totalTasks]
+    () => (totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0),
+    [completedTasks, totalTasks]
   )
+
+  if (isLoading || !project) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    )
+  }
+
+  const projectKey = (project.project_key as string) ?? ''
 
   return (
     <div className="min-h-screen bg-background">
@@ -125,7 +79,7 @@ export default function GuestProjectView({ projectId: _projectId }: GuestProject
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-primary text-primary-foreground text-sm font-bold">
-              {project.projectKey.substring(0, 2)}
+              {projectKey.substring(0, 2)}
             </div>
             <div>
               <h1 className="text-lg font-semibold text-foreground">
@@ -158,24 +112,24 @@ export default function GuestProjectView({ projectId: _projectId }: GuestProject
             icon={TrendingUp}
             label={t('work.guest.progress')}
             value={`${progressPercent}%`}
-            sublabel={t('work.guest.taskCount', { completed: project.completedTasks, total: project.totalTasks })}
+            sublabel={t('work.guest.taskCount', { completed: completedTasks, total: totalTasks })}
           />
           <MetricCard
             icon={Users}
             label={t('work.guest.team')}
-            value={`${project.teamSize}`}
+            value={`${(project.member_count as number) ?? 0}`}
             sublabel={t('work.guest.employees')}
           />
           <MetricCard
             icon={CalendarDays}
             label={t('work.guest.startDate')}
-            value={formatDate(project.startDate)}
+            value={formatDate((project.start_date as string) ?? '')}
             sublabel=""
           />
           <MetricCard
             icon={CalendarDays}
             label={t('work.guest.targetDate')}
-            value={formatDate(project.targetDate)}
+            value={formatDate((project.end_date as string) ?? '')}
             sublabel=""
           />
         </section>
@@ -201,7 +155,7 @@ export default function GuestProjectView({ projectId: _projectId }: GuestProject
             {t('work.guest.milestones')}
           </h2>
           <div className="space-y-3">
-            {MOCK_MILESTONES.map((ms) => (
+            {milestones.map((ms) => (
               <MilestoneRow key={ms.id} milestone={ms} />
             ))}
           </div>
@@ -214,7 +168,7 @@ export default function GuestProjectView({ projectId: _projectId }: GuestProject
             {t('work.guest.statusUpdates')}
           </h2>
           <div className="space-y-4">
-            {MOCK_STATUS_UPDATES.map((update) => (
+            {statusUpdates.map((update) => (
               <StatusUpdateCard key={update.id} update={update} />
             ))}
           </div>
@@ -264,7 +218,7 @@ function MetricCard({
   )
 }
 
-function MilestoneRow({ milestone }: { milestone: MockMilestone }) {
+function MilestoneRow({ milestone }: { milestone: GuestMilestone }) {
   const statusIcon =
     milestone.status === 'completed' ? (
       <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
@@ -330,7 +284,7 @@ function MilestoneRow({ milestone }: { milestone: MockMilestone }) {
   )
 }
 
-function StatusUpdateCard({ update }: { update: MockStatusUpdate }) {
+function StatusUpdateCard({ update }: { update: GuestStatusUpdate }) {
   const typeIcon =
     update.type === 'milestone' ? (
       <CheckCircle2 className="h-3.5 w-3.5 text-success" />

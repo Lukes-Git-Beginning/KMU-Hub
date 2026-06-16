@@ -22,6 +22,36 @@ export interface ProjectTimeEntry {
   description: string
 }
 
+/** Team utilization roll-up (GET /projects/:id/team-utilization). */
+export interface MemberUtilization {
+  member: {
+    id: string
+    name: string
+    role: string
+    avatarInitial: string
+    weeklyTarget: number
+    rate: number
+  }
+  weeklyData: { label: string; hours: number }[]
+  monthlyData: { label: string; hours: number }[]
+}
+
+/** Guest project overview (GET /projects/:id/guest-overview). */
+export interface GuestMilestone {
+  id: string
+  title: string
+  dueDate: string
+  status: 'completed' | 'in-progress' | 'upcoming'
+  progress: number
+}
+export interface GuestStatusUpdate {
+  id: string
+  date: string
+  author: string
+  text: string
+  type: 'update' | 'milestone' | 'risk'
+}
+
 // ---------------------------------------------------------------------------
 // Query params
 // ---------------------------------------------------------------------------
@@ -469,5 +499,32 @@ export function useProjectTimeEntries(projectId: string, billed?: boolean) {
       }),
     enabled: !!projectId,
     select: (data) => data.entries,
+  })
+}
+
+/** Team capacity/utilization for a project. Mock-served (design preview). */
+export function useProjectTeamUtilization(projectId: string) {
+  return useQuery({
+    queryKey: ['projects', projectId, 'team-utilization'],
+    queryFn: () =>
+      authenticatedRequest<{ team: MemberUtilization[] }>({
+        method: 'GET',
+        path: `/api/v1/projects/${projectId}/team-utilization`,
+      }),
+    enabled: !!projectId,
+    select: (data) => data.team,
+  })
+}
+
+/** Milestones + status updates for the read-only guest project view. */
+export function useProjectGuestOverview(projectId: string) {
+  return useQuery({
+    queryKey: ['projects', projectId, 'guest-overview'],
+    queryFn: () =>
+      authenticatedRequest<{ milestones: GuestMilestone[]; statusUpdates: GuestStatusUpdate[] }>({
+        method: 'GET',
+        path: `/api/v1/projects/${projectId}/guest-overview`,
+      }),
+    enabled: !!projectId,
   })
 }
