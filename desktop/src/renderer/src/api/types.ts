@@ -2941,6 +2941,11 @@ export interface components {
             description?: string;
             /** Format: uuid */
             status_id?: string;
+            /**
+             * Format: uuid
+             * @description Reassign the task to another project (or to none for a standalone task).
+             */
+            project_id?: string;
             /** @enum {string} */
             priority?: "urgent" | "high" | "normal" | "low";
             /** Format: uuid */

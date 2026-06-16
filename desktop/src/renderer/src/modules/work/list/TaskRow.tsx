@@ -167,8 +167,18 @@ export default function TaskRow({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      onClick={() => task.id && openTaskPanel(task.id)}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          if (task.id) openTaskPanel(task.id)
+        }
+      }}
       className={cn(
-        'group flex items-center gap-2 rounded-md border border-transparent px-2 py-1.5 transition-colors hover:bg-accent/50 hover:border-border',
+        'group flex items-center gap-2 rounded-md border border-transparent px-2 py-1.5 transition-colors cursor-pointer hover:bg-accent/50 hover:border-border focus-visible:bg-accent/50 focus-visible:outline-none',
         task.is_closed && 'opacity-60'
       )}
       style={{ paddingLeft: `${8 + indentPx}px` }}
@@ -179,7 +189,10 @@ export default function TaskRow({
           <button
             type="button"
             className="rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            onClick={onToggleExpand}
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleExpand()
+            }}
           >
             {isExpanded ? (
               <ChevronDown className="h-3.5 w-3.5" />
@@ -205,9 +218,11 @@ export default function TaskRow({
           <Input
             className="h-7 text-sm"
             value={titleValue}
+            onClick={(e) => e.stopPropagation()}
             onChange={(e) => setTitleValue(e.target.value)}
             onBlur={handleTitleSave}
             onKeyDown={(e) => {
+              e.stopPropagation()
               if (e.key === 'Enter') handleTitleSave()
               if (e.key === 'Escape') {
                 setTitleValue(task.title ?? '')
@@ -220,8 +235,14 @@ export default function TaskRow({
           <button
             type="button"
             className="text-sm text-left truncate w-full hover:underline cursor-pointer"
-            onClick={() => task.id && openTaskPanel(task.id)}
-            onDoubleClick={() => setEditingTitle(true)}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (task.id) openTaskPanel(task.id)
+            }}
+            onDoubleClick={(e) => {
+              e.stopPropagation()
+              setEditingTitle(true)
+            }}
             title={t('work.list.clickToOpenDblEdit')}
           >
             {task.title}
@@ -245,6 +266,12 @@ export default function TaskRow({
         </span>
       )}
 
+      {/* Inline-edit controls — clicks must not bubble to the row's open handler */}
+      <div
+        className="flex items-center gap-2 shrink-0"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
       {/* Status (inline edit via popover) */}
       <Popover>
         <PopoverTrigger asChild>
@@ -399,6 +426,7 @@ export default function TaskRow({
           </div>
         </PopoverContent>
       </Popover>
+      </div>
     </div>
   )
 }

@@ -22,6 +22,7 @@ import {
   MoreHorizontal,
   ArrowRight,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -30,6 +31,9 @@ import { ListChecks } from 'lucide-react'
 import { useMyTasks, useCreateTask, useUpdateTask } from '@/api/hooks/useTasks'
 import { useProjects } from '@/api/hooks/useProjects'
 import { useWorkPrefsStore, type MyTasksGroupBy } from '@/stores/workPrefs'
+import { useWorkStore } from '@/stores/work'
+import { useAuthStore } from '@/stores/auth'
+import TaskDetailPanel from './TaskDetailPanel'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -126,7 +130,6 @@ export default function MyTasksPage() {
   const [priorityFilter, setPriorityFilter] = useState<string[]>([])
   const [includeCompleted, setIncludeCompleted] = useState(false)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
-  const [moveTaskId, setMoveTaskId] = useState<string | null>(null)
 
   // Standalone task creation form
   const [newTaskTitle, setNewTaskTitle] = useState('')
@@ -134,6 +137,8 @@ export default function MyTasksPage() {
 
   const createTask = useCreateTask()
   const updateTask = useUpdateTask()
+  const openTaskPanel = useWorkStore((s) => s.openTaskPanel)
+  const currentUserId = useAuthStore((s) => s.user?.id)
 
   const groupBy = useWorkPrefsStore((s) => s.myTasksGroupBy)
   const density = useWorkPrefsStore((s) => s.density)
@@ -244,19 +249,36 @@ export default function MyTasksPage() {
     await createTask.mutateAsync({
       title: newTaskTitle.trim(),
       priority: newTaskPriority as Priority,
+      // Assign to the current user so the standalone task shows up in "My Tasks".
+      assignee_id: currentUserId,
     })
     setNewTaskTitle('')
     setNewTaskPriority('medium')
     setCreateDialogOpen(false)
   }
 
-  async function _handleMoveToProject(_projectId: string) {
-    if (!moveTaskId) return
-    await updateTask.mutateAsync({
-      id: moveTaskId,
-      // Pass project_id in the body -- the API will reassign the task
-    })
-    setMoveTaskId(null)
+  /** Open a task: project tasks go to the full detail page, standalone tasks
+   *  open the centered detail modal (the full page route needs a project). */
+  function openTask(task: TaskItem) {
+    if (!task.id) return
+    if (task.project_id) {
+      navigate(`/work/projects/${task.project_id}/tasks/${task.id}`)
+    } else {
+      openTaskPanel(task.id)
+    }
+  }
+
+  function handleMoveToProject(task: TaskItem, project: { id?: string; name?: string }) {
+    if (!task.id || !project.id) return
+    updateTask.mutate(
+      { id: task.id, project_id: project.id },
+      {
+        onSuccess: () =>
+          toast.success(
+            t('work.myTasks.movedToProject', { project: project.name ?? '' })
+          ),
+      }
+    )
   }
 
   function togglePriorityFilter(value: string) {
@@ -422,15 +444,17 @@ export default function MyTasksPage() {
                     return (
                       <div
                         key={task.id}
+                        role="button"
+                        tabIndex={0}
                         className={cn(
-                          'flex items-center gap-3 rounded-md border border-border px-3 hover:bg-accent/50 cursor-pointer transition-colors',
+                          'flex items-center gap-3 rounded-md border border-border px-3 hover:bg-accent/50 cursor-pointer transition-colors focus-visible:bg-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                           rowPad,
                         )}
-                        onClick={() => {
-                          if (task.project_id && task.id) {
-                            navigate(
-                              `/work/projects/${task.project_id}/tasks/${task.id}`
-                            )
+                        onClick={() => openTask(task)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            openTask(task)
                           }
                         }}
                       >
@@ -497,12 +521,9 @@ export default function MyTasksPage() {
                                       key={p.id}
                                       type="button"
                                       className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent transition-colors"
-                                      onClick={() => {
-                                        if (task.id && p.id) {
-                                          updateTask.mutate({
-                                            id: task.id,
-                                          })
-                                        }
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleMoveToProject(task, p)
                                       }}
                                     >
                                       <ArrowRight className="h-3 w-3 text-muted-foreground" />
@@ -621,6 +642,9 @@ export default function MyTasksPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Detail modal for standalone tasks (project tasks navigate to full page) */}
+      <TaskDetailPanel />
     </div>
   )
 }

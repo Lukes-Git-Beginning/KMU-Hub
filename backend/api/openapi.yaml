@@ -12472,6 +12472,10 @@ components:
         status_id:
           type: string
           format: uuid
+        project_id:
+          type: string
+          format: uuid
+          description: Reassign the task to another project (or to none for a standalone task).
         priority:
           type: string
           enum: [urgent, high, normal, low]

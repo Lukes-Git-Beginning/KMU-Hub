@@ -186,6 +186,7 @@ export function useUpdateTask() {
       title?: string
       description?: string
       status_id?: string
+      project_id?: string
       priority?: 'urgent' | 'high' | 'medium' | 'low'
       assignee_id?: string
       due_date?: string

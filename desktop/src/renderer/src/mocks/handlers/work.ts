@@ -591,12 +591,15 @@ export const workHandlers = [
       filtered = filtered.filter((t) => t.project_id === projectId)
     }
     if (assigneeId) {
-      let mine = filtered.filter((t) => t.assignee_id === assigneeId)
-      // Fallback so My-Tasks isn't empty when the demo user id doesn't match.
-      if (mine.length === 0) {
-        mine = filtered.filter((t) => t.assignee_id === IDS.users.stefan)
-      }
-      filtered = mine
+      const mine = filtered.filter((t) => t.assignee_id === assigneeId)
+      // The demo user id rarely matches the seeded assignees, so show Stefan's
+      // tasks as the baseline "my tasks" — merged with anything actually assigned
+      // to the requester (e.g. freshly created standalone tasks) so those appear
+      // too instead of collapsing the list.
+      const demoFallback = filtered.filter(
+        (t) => t.assignee_id === IDS.users.stefan && t.assignee_id !== assigneeId,
+      )
+      filtered = [...mine, ...demoFallback]
     }
     if (statusId) {
       filtered = filtered.filter((t) => t.status_id === statusId)
@@ -668,6 +671,25 @@ export const workHandlers = [
     }
     if (body.assignee_id) {
       task.assignee_name = userName(body.assignee_id as string)
+    }
+    // Reassign to another project: pull the destination project's key/name and
+    // mint a fresh task number so the moved task renders correctly grouped.
+    if (body.project_id && body.project_id !== task.project_id) {
+      const project = findProject(body.project_id as string)
+      if (project) {
+        task.project_name = project.name
+        task.project_key = project.project_key
+        const maxNumber = tasks
+          .filter((t) => t.project_id === project.id)
+          .reduce((max, t) => Math.max(max, (t.task_number as number) ?? 0), 0)
+        task.task_number = maxNumber + 1
+        const list = statusesByProject[project.id as string] ?? []
+        if (list.length > 0) {
+          task.status_id = list[0].id
+          task.status_name = list[0].name
+          task.status_color = list[0].color
+        }
+      }
     }
     Object.assign(task, body, { updated_at: nowIso() })
     return HttpResponse.json({ task })
