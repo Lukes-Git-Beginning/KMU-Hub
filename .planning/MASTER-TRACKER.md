@@ -13,7 +13,7 @@
 - **~155 offene Phasen** über ~32 Module (grobe, eher konservative Zahl — Verifizieren der Marathon-Module kann sie senken).
 - **Fertig (bei Nico in Review):** kontakte (Kern), zeiterfassung; calendar/dokumente weitgehend (🔁).
 - **Aktive Spur:** finanzen komplett fertigstellen → an Nico → nächstes Modul.
-- **▶ NÄCHSTES (neues Terminal, Darien 2026-06-16):** **Tiefe der Modal-Fenster** ausbauen — die 6 finanzen-Detail-Modals (Invoice/Quote/CreditNote/Expense/Transaction/Recurring) inhaltlich vertiefen (mehr Infos + Funktionen + Verknüpfungen, Richtung Kontakte-360°). DANACH im Phasenplan weiter (P2.5d → e → P3–5).
+- **▶ NÄCHSTES (neues Terminal, Darien 2026-06-16 Abend):** **work-Tiefe-Pass** (review-reif, Option 3 = voll inkl. Daten-Swap). Vollständiger Handoff-Plan mit Audit + Phasen W-1…W-5 + Referenz-Patterns + Gates: **`.planning/work-tiefe-pass.md` ZUERST lesen.** Start: `git fetch` + `git pull --rebase`, dann Zeilennummern verifizieren, dann W-1 (Slide-over→DetailModal). finanzen ist FE-fertig (P1·P2·P2.5a–e·Modal-Tiefe·Banking-Fixes Verbinden/Detail/Manuell) → kann parallel an Nico.
 
 ## Neue projektweite Standards (2026-06-16) — bei JEDEM Modul anwenden
 - **Detail = zentriertes Cosmi-Modal-Fenster** (`shared/DetailModal`), NICHT Slide-over. [[feedback_detail_modal_standard]]
@@ -101,7 +101,8 @@ Schneller Audit gegen die Tiefe-Vorgabe; die 4 Module sind solange bei Nico in R
 - [x] P1–P5 (Standalone, ArbZG-Report, Team, DATEV)
 - [ ] Tiefe + Dead-Code-Cleanup → T-4
 
-### work — ⬜ (sehr vollständig FE)
+### work — 🔨 Tiefe-Pass vorbereitet (Plan: `.planning/work-tiefe-pass.md`)
+- [ ] **W-Tiefe-Pass** (Darien Option 3): Slide-over→DetailModal · Karten/Zeilen klickbar · MyTasks tote Buttons · Stunden→echte Draft-Rechnung · Auslastung/Gast→MSW ◀ als Nächstes (neues Terminal)
 - [ ] **P1** Daily-Use finalisieren (DnD backend, Timer→Zeiteintrag-Bridge, Inline-Edit) 🔒
 - [ ] **P2** Portfolio + Auslastungs-View 🔒
 - [ ] **P3** Automatisierungs-Regeln (wenn/dann)
@@ -149,9 +150,9 @@ Schneller Audit gegen die Tiefe-Vorgabe; die 4 Module sind solange bei Nico in R
 
 ### finanzen (= „Buchhaltung") — 🔨 aktiv
 - [x] P1 Faktura-Kette · P2 Ausgaben/Kontierung · **P2.5a** Angebots-/Gutschrift-Detail · **P2.5b** Ledger-Detail + OP/Dashboard klickbar · **P2.5c** echte PDF-Vorschau + PDF/CSV-Downloads
-- [ ] **P2.5d** Mahnwesen verkabeln + Mahn-Detail + Zahlung/Settings speichern 🔒 ◀ als Nächstes
-- [ ] **P2.5e** Hardcoded-Mocks→MSW (Banking, Belegkette, Stunden→Rechnung, Audit-Log)
-- [ ] **P3** DATEV-EXTF + Bexio-OAuth + BMD-CSV 🔒
+- [x] **P2.5d** Mahnwesen verkabeln + Mahn-Detail + Zahlung/Settings speichern 🔒
+- [x] **P2.5e** Hardcoded-Mocks→MSW (Banking, Belegkette, Stunden→Rechnung, Audit-Log) + Recurring-Liste-Fix
+- [ ] **P3** DATEV-EXTF + Bexio-OAuth + BMD-CSV 🔒 ◀ als Nächstes
 - [ ] **P4** E-Rechnung (ZUGFeRD/XRechnung) + GoBD-Belegarchiv 🔒 *(Launch-Blocker)*
 - [ ] **P5** Banking (CAMT/MT940 + Matching) + EÜR-Auswertung + Settings-Feinschliff 🔒
 
