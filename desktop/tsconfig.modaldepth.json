@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/global.d.ts",
+    "src/renderer/src/vite-env.d.ts",
+    "src/renderer/src/i18n/i18next.d.ts",
+    "src/renderer/src/components/shared/DetailModal.tsx",
+    "src/renderer/src/modules/finanzen/FinanceDetailNav.tsx",
+    "src/renderer/src/modules/finanzen/CustomerAccountSection.tsx",
+    "src/renderer/src/modules/finanzen/lib/customer-account.ts",
+    "src/renderer/src/modules/finanzen/FinanzenPage.tsx",
+    "src/renderer/src/modules/finanzen/InvoiceDetailPanel.tsx",
+    "src/renderer/src/modules/finanzen/QuoteDetailPanel.tsx",
+    "src/renderer/src/modules/finanzen/CreditNoteDetailPanel.tsx",
+    "src/renderer/src/modules/finanzen/RecurringDetailPanel.tsx",
+    "src/renderer/src/modules/finanzen/ExpenseDetailPanel.tsx",
+    "src/renderer/src/modules/finanzen/TransactionDetailPanel.tsx"
+  ]
+}

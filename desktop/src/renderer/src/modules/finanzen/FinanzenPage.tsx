@@ -53,6 +53,7 @@ import { PaymentRecordDialog } from './PaymentRecordDialog'
 import { InvoiceDetailPanel } from './InvoiceDetailPanel'
 import { QuoteDetailPanel } from './QuoteDetailPanel'
 import { CreditNoteDetailPanel } from './CreditNoteDetailPanel'
+import { FinanceDetailNavProvider, useFinanceDetailNav } from './FinanceDetailNav'
 import { buildBexioCsv, buildBmdCsv, downloadCsv } from './lib/finance-export'
 import { ExportDialog } from './ExportDialog'
 import { DunningPanel } from './DunningPanel'
@@ -142,7 +143,17 @@ const quoteStatusConfig: Record<
 // ---------------------------------------------------------------------------
 
 export default function FinanzenPage() {
+  return (
+    <FinanceDetailNavProvider>
+      <FinanzenPageContent />
+    </FinanceDetailNavProvider>
+  )
+}
+
+function FinanzenPageContent() {
   const { t } = useTranslation()
+  const { current: navCurrent, depth: navDepth, open: openDetail, back: navBack, close: navClose } =
+    useFinanceDetailNav()
   const {
     activeTab,
     setActiveTab,
@@ -198,11 +209,6 @@ export default function FinanzenPage() {
   const [editQuote, setEditQuote] = useState<Quote | null>(null)
   const [creditNote, setCreditNote] = useState<{ invoice: Invoice | null; storno: boolean } | null>(null)
   const [paymentInvoiceId, setPaymentInvoiceId] = useState<string | null>(null)
-  const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null)
-  const [selectedCreditNoteId, setSelectedCreditNoteId] = useState<string | null>(null)
-  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(
-    null,
-  )
 
   // Phase 10 (vertraege): consume ?invoice=<id> from CRM/Vertraege navigation chip.
   // Effect is reactive (depends on searchParams value) so re-fires when navigating
@@ -220,13 +226,13 @@ export default function FinanzenPage() {
     const loadedInvoices = invoicesData?.invoices ?? []
     const known = loadedInvoices.length === 0 || loadedInvoices.some((inv) => inv.id === invoiceParam)
     if (known) {
-      setSelectedInvoiceId(invoiceParam)
+      openDetail('invoice', invoiceParam)
     }
     // Always remove the query param so the URL is clean
     const next = new URLSearchParams(searchParams)
     next.delete('invoice')
     setSearchParams(next, { replace: true })
-  }, [searchParams, setSearchParams, invoicesLoading, invoicesData])
+  }, [searchParams, setSearchParams, invoicesLoading, invoicesData, openDetail])
 
   const [showExport, setShowExport] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<{
@@ -312,7 +318,7 @@ export default function FinanzenPage() {
       variant?: 'destructive'
       separator?: true
     }[] = [
-      { label: t('common.details'), onClick: () => setSelectedInvoiceId(inv.id) },
+      { label: t('common.details'), onClick: () => openDetail('invoice', inv.id) },
       {
         label: t('finanzen.pdf.downloadPdf'),
         onClick: () => downloadInvoicePDF.mutate(inv.id),
@@ -392,7 +398,7 @@ export default function FinanzenPage() {
     }[] = [
       {
         label: t('common.details'),
-        onClick: () => setSelectedQuoteId(q.id),
+        onClick: () => openDetail('quote', q.id),
       },
       {
         label: t('finanzen.pdf.downloadPdf'),
@@ -644,8 +650,8 @@ export default function FinanzenPage() {
       {/* Dashboard Tab */}
       {effectiveTab === 'dashboard' && (
         <FinanceDashboard
-          onOpenInvoice={setSelectedInvoiceId}
-          onOpenQuote={setSelectedQuoteId}
+          onOpenInvoice={(id) => openDetail('invoice', id)}
+          onOpenQuote={(id) => openDetail('quote', id)}
           onOpenDunnings={() => setActiveTab('dunning')}
         />
       )}
@@ -654,7 +660,7 @@ export default function FinanzenPage() {
       {effectiveTab === 'recurring' && <RecurringInvoicesTab />}
 
       {/* Open items (OP-Liste) Tab */}
-      {effectiveTab === 'open-items' && <OpenItemsTab onOpenInvoice={setSelectedInvoiceId} />}
+      {effectiveTab === 'open-items' && <OpenItemsTab onOpenInvoice={(id) => openDetail('invoice', id)} />}
 
       {/* Invoices Tab */}
       {effectiveTab === 'invoices' &&
@@ -687,8 +693,8 @@ export default function FinanzenPage() {
                   key={inv.id}
                   role="button"
                   tabIndex={0}
-                  onClick={() => setSelectedInvoiceId(inv.id)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedInvoiceId(inv.id) } }}
+                  onClick={() => openDetail('invoice', inv.id)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail('invoice', inv.id) } }}
                   className="grid cursor-pointer grid-cols-[100px_1fr_100px_100px_100px_160px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors focus-visible:bg-secondary/40 focus-visible:outline-none"
                 >
                   <span className="text-sm font-mono text-primary">{inv.invoice_number}</span>
@@ -767,8 +773,8 @@ export default function FinanzenPage() {
                   key={q.id}
                   role="button"
                   tabIndex={0}
-                  onClick={() => setSelectedQuoteId(q.id)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedQuoteId(q.id) } }}
+                  onClick={() => openDetail('quote', q.id)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail('quote', q.id) } }}
                   className="grid cursor-pointer grid-cols-[100px_1fr_100px_100px_90px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors focus-visible:bg-secondary/40 focus-visible:outline-none"
                 >
                   <span className="text-sm font-mono text-primary">{q.quote_number}</span>
@@ -827,8 +833,8 @@ export default function FinanzenPage() {
                   key={cn.id}
                   role="button"
                   tabIndex={0}
-                  onClick={() => setSelectedCreditNoteId(cn.id)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCreditNoteId(cn.id) } }}
+                  onClick={() => openDetail('creditNote', cn.id)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail('creditNote', cn.id) } }}
                   className="grid cursor-pointer grid-cols-[100px_1fr_120px_100px_90px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors focus-visible:bg-secondary/40 focus-visible:outline-none"
                 >
                   <span className="text-sm font-mono text-primary">{cn.credit_note_number}</span>
@@ -860,7 +866,7 @@ export default function FinanzenPage() {
                     items={[
                       {
                         label: t('common.details'),
-                        onClick: () => setSelectedCreditNoteId(cn.id),
+                        onClick: () => openDetail('creditNote', cn.id),
                       },
                       {
                         label: t('finanzen.pdf.downloadPdf'),
@@ -992,53 +998,55 @@ export default function FinanzenPage() {
         </div>
       )}
 
-      {/* Invoice Detail Panel */}
-      {selectedInvoiceId && (
+      {/* Beleg-Detail-Modals — zentral aus dem Navigations-Stack gerendert.
+          „Zurück" erscheint, sobald die Navigations-Kette tiefer als 1 ist. */}
+      {navCurrent?.kind === 'invoice' && (
         <InvoiceDetailPanel
-          invoiceId={selectedInvoiceId}
-          onClose={() => setSelectedInvoiceId(null)}
+          invoiceId={navCurrent.id}
+          onClose={navClose}
+          onBack={navDepth > 1 ? navBack : undefined}
           onEdit={() => {
-            const inv = invoices.find((i) => i.id === selectedInvoiceId)
+            const inv = invoices.find((i) => i.id === navCurrent.id)
             if (inv) handleEditInvoice(inv)
-            setSelectedInvoiceId(null)
+            navClose()
           }}
           onRecordPayment={() => {
-            setPaymentInvoiceId(selectedInvoiceId)
-            setSelectedInvoiceId(null)
+            setPaymentInvoiceId(navCurrent.id)
+            navClose()
           }}
           onStorno={() => {
-            const inv = invoices.find((i) => i.id === selectedInvoiceId)
+            const inv = invoices.find((i) => i.id === navCurrent.id)
             if (inv) setCreditNote({ invoice: inv, storno: true })
-            setSelectedInvoiceId(null)
+            navClose()
           }}
         />
       )}
 
-      {/* Quote Detail Panel */}
-      {selectedQuoteId && (
+      {navCurrent?.kind === 'quote' && (
         <QuoteDetailPanel
-          quoteId={selectedQuoteId}
-          onClose={() => setSelectedQuoteId(null)}
+          quoteId={navCurrent.id}
+          onClose={navClose}
+          onBack={navDepth > 1 ? navBack : undefined}
           onEdit={() => {
-            const q = (quotesData?.quotes ?? []).find((x) => x.id === selectedQuoteId)
+            const q = (quotesData?.quotes ?? []).find((x) => x.id === navCurrent.id)
             if (q) {
               setEditQuote(q)
               setShowQuoteForm(true)
             }
-            setSelectedQuoteId(null)
+            navClose()
           }}
           onConverted={() => {
-            setSelectedQuoteId(null)
+            navClose()
             setActiveTab('invoices')
           }}
         />
       )}
 
-      {/* Credit Note Detail Panel */}
-      {selectedCreditNoteId && (
+      {navCurrent?.kind === 'creditNote' && (
         <CreditNoteDetailPanel
-          creditNoteId={selectedCreditNoteId}
-          onClose={() => setSelectedCreditNoteId(null)}
+          creditNoteId={navCurrent.id}
+          onClose={navClose}
+          onBack={navDepth > 1 ? navBack : undefined}
         />
       )}
 

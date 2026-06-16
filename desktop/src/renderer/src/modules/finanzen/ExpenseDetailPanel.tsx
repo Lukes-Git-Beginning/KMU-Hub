@@ -12,7 +12,7 @@ import { toast } from 'sonner'
 import { DetailModal } from '@/components/shared'
 import { Button } from '@/components/ui/button'
 import type { Expense } from '@/stores/finance'
-import { useApproveExpense, useRejectExpense } from '@/api/hooks/useFinanceLedger'
+import { useApproveExpense, useRejectExpense, useExpenses } from '@/api/hooks/useFinanceLedger'
 import { useFinanceTenantStore } from '@/stores/financeTenant'
 import { formatCurrency, formatDate } from '@/lib/format'
 import { formatAccount } from './lib/skr-accounts'
@@ -27,9 +27,18 @@ interface ExpenseDetailPanelProps {
 export function ExpenseDetailPanel({ expense, onClose, onEdit }: ExpenseDetailPanelProps) {
   const { t, i18n } = useTranslation()
   const framework = useFinanceTenantStore((s) => s.chartFramework)
+  const { data: allExpenses = [] } = useExpenses()
   const approve = useApproveExpense()
   const reject = useRejectExpense()
   const [showReceipt, setShowReceipt] = useState(false)
+
+  // Lieferanten-Rollup: weitere Ausgaben desselben Lieferanten.
+  const supplierExpenses = expense.supplier
+    ? allExpenses
+        .filter((e) => e.id !== expense.id && e.supplier === expense.supplier)
+        .sort((a, b) => (a.date < b.date ? 1 : -1))
+    : []
+  const supplierTotal = supplierExpenses.reduce((sum, e) => sum + e.amount, 0) + expense.amount
 
   const statusStyles: Record<string, string> = {
     pending: 'bg-warning-light text-warning',
@@ -97,6 +106,44 @@ export function ExpenseDetailPanel({ expense, onClose, onEdit }: ExpenseDetailPa
             <p className="text-xs text-muted-foreground">{t('buchhaltung.expenseDetail.noReceipt')}</p>
           )}
         </section>
+
+        {/* Lieferanten-Rollup */}
+        {expense.supplier && (
+          <section>
+            <h4 className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <Building2 className="h-3 w-3" />
+              {t('buchhaltung.expenseDetail.supplierHistory', { supplier: expense.supplier })}
+            </h4>
+            <div className="overflow-hidden rounded-md border border-border">
+              <div className="flex items-center justify-between border-b border-border-muted bg-secondary/30 px-3 py-2 text-xs">
+                <span className="text-muted-foreground">
+                  {t('buchhaltung.expenseDetail.supplierTotal', { count: supplierExpenses.length + 1 })}
+                </span>
+                <span className="font-semibold tabular-nums text-foreground">{formatCurrency(supplierTotal)}</span>
+              </div>
+              {supplierExpenses.length === 0 ? (
+                <p className="px-3 py-2 text-[11px] text-muted-foreground">
+                  {t('buchhaltung.expenseDetail.supplierOnly')}
+                </p>
+              ) : (
+                supplierExpenses.slice(0, 5).map((e, idx) => (
+                  <div
+                    key={e.id}
+                    className={`flex items-center justify-between px-3 py-2 text-xs ${idx > 0 ? 'border-t border-border-muted' : ''}`}
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="truncate text-foreground">{e.description}</span>
+                      <span className="shrink-0 text-[10px] text-muted-foreground">
+                        {new Date(e.date).toLocaleDateString(i18n.language)}
+                      </span>
+                    </span>
+                    <span className="shrink-0 font-medium tabular-nums text-error">−{formatCurrency(e.amount)}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        )}
 
         {/* Actions */}
         <div className="flex flex-wrap gap-2 border-t border-border pt-4">

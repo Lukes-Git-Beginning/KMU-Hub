@@ -5,10 +5,13 @@
  * Referenz. Daten aus der Liste. Nutzt das shared `DetailPanel`.
  */
 import { useTranslation } from 'react-i18next'
-import { ArrowDownRight, ArrowUpRight, Calendar, Tag, Hash, Activity } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, Calendar, Tag, Hash, Activity, FileText, ChevronRight } from 'lucide-react'
 import { DetailModal } from '@/components/shared'
 import type { Transaction } from '@/stores/finance'
 import { formatCurrency, formatDate } from '@/lib/format'
+import { useInvoices } from '@/api/hooks/useFinance'
+import { useTransactions } from '@/api/hooks/useFinanceLedger'
+import { useFinanceDetailNavOptional } from './FinanceDetailNav'
 
 interface TransactionDetailPanelProps {
   transaction: Transaction
@@ -17,7 +20,21 @@ interface TransactionDetailPanelProps {
 
 export function TransactionDetailPanel({ transaction: tx, onClose }: TransactionDetailPanelProps) {
   const { t, i18n } = useTranslation()
+  const { data: invoicesData } = useInvoices()
+  const { data: allTransactions = [] } = useTransactions()
+  const nav = useFinanceDetailNavOptional()
   const isIncome = tx.type === 'income'
+
+  // Verknüpfte Rechnung (falls die Buchung aus einem Zahlungseingang stammt).
+  const linkedInvoice = tx.invoiceId
+    ? (invoicesData?.invoices ?? []).find((inv) => inv.id === tx.invoiceId)
+    : undefined
+
+  // Verwandte Buchungen derselben Kategorie (neueste zuerst).
+  const relatedTransactions = allTransactions
+    .filter((x) => x.id !== tx.id && x.category === tx.category)
+    .sort((a, b) => (a.date < b.date ? 1 : -1))
+    .slice(0, 5)
 
   const info: { icon: typeof Calendar; label: string; value: string }[] = [
     { icon: Calendar, label: t('buchhaltung.table.date', { defaultValue: 'Datum' }), value: new Date(tx.date).toLocaleDateString(i18n.language) },
@@ -61,6 +78,59 @@ export function TransactionDetailPanel({ transaction: tx, onClose }: Transaction
             </div>
           ))}
         </div>
+
+        {/* Verknüpfte Rechnung (klickbar) */}
+        {linkedInvoice && (
+          <section>
+            <h4 className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <FileText className="h-3 w-3" />
+              {t('buchhaltung.transactionDetail.linkedInvoice')}
+            </h4>
+            <button
+              type="button"
+              disabled={!nav}
+              onClick={() => nav?.open('invoice', linkedInvoice.id)}
+              className="flex w-full items-center justify-between rounded-md border border-border px-3 py-2 text-left text-xs transition-colors hover:bg-secondary/50 disabled:cursor-default disabled:hover:bg-transparent"
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="font-mono text-primary">{linkedInvoice.invoice_number}</span>
+                <span className="truncate text-[10px] text-muted-foreground">{linkedInvoice.customer?.name}</span>
+              </span>
+              {nav && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+            </button>
+          </section>
+        )}
+
+        {/* Verwandte Buchungen derselben Kategorie */}
+        {relatedTransactions.length > 0 && (
+          <section>
+            <h4 className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <Tag className="h-3 w-3" />
+              {t('buchhaltung.transactionDetail.relatedInCategory', { category: tx.category })}
+            </h4>
+            <div className="overflow-hidden rounded-md border border-border">
+              {relatedTransactions.map((x, idx) => {
+                const inc = x.type === 'income'
+                return (
+                  <div
+                    key={x.id}
+                    className={`flex items-center justify-between px-3 py-2 text-xs ${idx > 0 ? 'border-t border-border-muted' : ''}`}
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="truncate text-foreground">{x.description}</span>
+                      <span className="shrink-0 text-[10px] text-muted-foreground">
+                        {new Date(x.date).toLocaleDateString(i18n.language)}
+                      </span>
+                    </span>
+                    <span className={`shrink-0 font-medium tabular-nums ${inc ? 'text-success' : 'text-error'}`}>
+                      {inc ? '+' : '−'}{formatCurrency(Math.abs(x.amount))}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        )}
       </div>
     </DetailModal>
   )

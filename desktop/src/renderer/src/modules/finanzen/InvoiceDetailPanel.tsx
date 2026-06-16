@@ -14,6 +14,10 @@ import {
   Info,
   History,
   Shield,
+  FileCheck,
+  Repeat,
+  Gavel,
+  ChevronRight,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DetailModal } from '@/components/shared'
@@ -26,10 +30,14 @@ import {
   useCancelInvoice,
   useDownloadInvoicePDF,
   useCreditNotes,
+  useQuotes,
+  useDunnings,
 } from '@/api/hooks/useFinance'
 import { formatMoney } from '@/stores/finance'
 import type { InvoiceStatus } from '@/types/finance-types'
 import { PDFPreviewPanel } from './PDFPreviewPanel'
+import { CustomerAccountSection } from './CustomerAccountSection'
+import { useFinanceDetailNavOptional } from './FinanceDetailNav'
 import { formatDate } from '@/lib/format'
 
 const statusConfig: Record<
@@ -86,6 +94,7 @@ interface InvoiceDetailPanelProps {
   onEdit: () => void
   onRecordPayment: () => void
   onStorno?: () => void
+  onBack?: () => void
 }
 
 export function InvoiceDetailPanel({
@@ -94,11 +103,15 @@ export function InvoiceDetailPanel({
   onEdit,
   onRecordPayment,
   onStorno,
+  onBack,
 }: InvoiceDetailPanelProps) {
   const { t } = useTranslation()
   const { data: invoice, isLoading } = useInvoice(invoiceId)
   const { data: paymentsData } = usePayments(invoiceId)
   const { data: creditNotesData } = useCreditNotes()
+  const { data: quotesData } = useQuotes()
+  const { data: dunningsData } = useDunnings({ invoice_id: invoiceId })
+  const nav = useFinanceDetailNavOptional()
   const sendInvoice = useSendInvoice()
   const markPaid = useMarkInvoicePaid()
   const cancelInvoice = useCancelInvoice()
@@ -106,7 +119,7 @@ export function InvoiceDetailPanel({
 
   if (isLoading || !invoice) {
     return (
-      <DetailModal open={true} title={t('finanzen.invoiceDetail.title')} onClose={onClose}>
+      <DetailModal open={true} title={t('finanzen.invoiceDetail.title')} onClose={onClose} onBack={onBack}>
         <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
           {t('common.loading')}
         </div>
@@ -126,6 +139,10 @@ export function InvoiceDetailPanel({
   const linkedCreditNotes = (creditNotesData?.credit_notes ?? []).filter(
     (cn) => cn.original_invoice_id === invoice.id || cn.invoice_number === invoice.invoice_number,
   )
+  const sourceQuote = invoice.source_quote_id
+    ? (quotesData?.quotes ?? []).find((q) => q.id === invoice.source_quote_id)
+    : undefined
+  const dunnings = [...(dunningsData?.dunnings ?? [])].sort((a, b) => a.level - b.level)
 
   const handleSend = () => {
     sendInvoice.mutate(invoiceId, {
@@ -149,7 +166,7 @@ export function InvoiceDetailPanel({
   }
 
   return (
-    <DetailModal open={true} title={t('finanzen.invoiceDetail.title')} onClose={onClose}>
+    <DetailModal open={true} title={t('finanzen.invoiceDetail.title')} onClose={onClose} onBack={onBack}>
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-start justify-between">
@@ -168,6 +185,31 @@ export function InvoiceDetailPanel({
             {t(status.labelKey)}
           </span>
         </div>
+
+        {/* Verknüpfungen — Quell-Angebot / Abo-Herkunft (klickbar) */}
+        {(sourceQuote || invoice.recurring_id) && (
+          <div className="flex flex-wrap gap-2">
+            {sourceQuote && (
+              <button
+                type="button"
+                disabled={!nav}
+                onClick={() => nav?.open('quote', sourceQuote.id)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary/40 px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-secondary disabled:cursor-default disabled:hover:bg-secondary/40"
+              >
+                <FileCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                {t('finanzen.invoiceDetail.fromQuote')}
+                <span className="font-mono text-primary">{sourceQuote.quote_number}</span>
+                {nav && <ChevronRight className="h-3 w-3 text-muted-foreground" />}
+              </button>
+            )}
+            {invoice.recurring_id && (
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary/40 px-2.5 py-1 text-xs text-muted-foreground">
+                <Repeat className="h-3.5 w-3.5" />
+                {t('finanzen.invoiceDetail.fromRecurring')}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Immutability notice */}
         {isImmutable && (
@@ -301,9 +343,12 @@ export function InvoiceDetailPanel({
             </h4>
             <div className="space-y-1.5">
               {linkedCreditNotes.map((cn) => (
-                <div
+                <button
                   key={cn.id}
-                  className="flex items-center justify-between rounded-md border border-border-muted px-3 py-2 text-xs"
+                  type="button"
+                  disabled={!nav}
+                  onClick={() => nav?.open('creditNote', cn.id)}
+                  className="flex w-full items-center justify-between rounded-md border border-border-muted px-3 py-2 text-xs text-left transition-colors hover:bg-secondary/50 disabled:cursor-default disabled:hover:bg-transparent"
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="font-mono text-primary">{cn.credit_note_number}</span>
@@ -316,10 +361,13 @@ export function InvoiceDetailPanel({
                       <span className="text-[10px] text-muted-foreground truncate">{cn.reason}</span>
                     )}
                   </div>
-                  <span className="text-foreground font-medium ml-2 shrink-0">
-                    {money(cn.tax_breakdown?.gross_total ?? cn.total_gross ?? 0)}
+                  <span className="flex items-center gap-1 ml-2 shrink-0">
+                    <span className="text-foreground font-medium">
+                      {money(cn.tax_breakdown?.gross_total ?? cn.total_gross ?? 0)}
+                    </span>
+                    {nav && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           </section>
@@ -354,6 +402,44 @@ export function InvoiceDetailPanel({
             </div>
           </section>
         )}
+
+        {/* Dunning / Mahn-History */}
+        {dunnings.length > 0 && (
+          <section>
+            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
+              <Gavel className="h-3 w-3" />
+              {t('finanzen.invoiceDetail.dunningHistory')}
+            </h4>
+            <div className="rounded-md border border-border overflow-hidden">
+              {dunnings.map((d, idx) => {
+                const fee = Number(d.fee) + Number(d.interest)
+                return (
+                  <div
+                    key={d.id}
+                    className={`flex items-center justify-between px-3 py-2 text-xs ${idx > 0 ? 'border-t border-border-muted' : ''}`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[9px] font-medium text-warning">
+                        {t('finanzen.invoiceDetail.dunningLevel', { level: d.level })}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {d.sent_at ? formatDate(d.sent_at) : t('finanzen.status.draft')}
+                      </span>
+                    </div>
+                    {fee > 0 && (
+                      <span className="text-foreground font-medium">
+                        +{money(fee)}
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Kundenkonto — alle Belege des Kunden + CRM-Sprung */}
+        <CustomerAccountSection customer={invoice.customer} currentDocId={invoice.id} />
 
         {/* Notes */}
         {invoice.notes && (

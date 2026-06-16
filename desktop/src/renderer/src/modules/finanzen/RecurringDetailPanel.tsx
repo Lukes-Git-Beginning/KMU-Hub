@@ -5,17 +5,30 @@
  * Notizen + Aktionen (jetzt generieren/pausieren/bearbeiten). Nutzt shared `DetailPanel`.
  */
 import { useTranslation } from 'react-i18next'
-import { Repeat, CalendarClock, User, Hash, Play, Pause, Zap } from 'lucide-react'
+import { Repeat, CalendarClock, User, Hash, Play, Pause, Zap, FileText, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { DetailModal } from '@/components/shared'
 import { Button } from '@/components/ui/button'
-import type { RecurringInvoice, RecurringStatus } from '@/types/finance-types'
+import type { RecurringInvoice, RecurringInterval, RecurringStatus } from '@/types/finance-types'
 import {
   usePauseRecurringInvoice,
   useGenerateRecurringInvoice,
+  useInvoices,
 } from '@/api/hooks/useFinance'
 import { formatMoney } from '@/stores/finance'
 import { formatDate } from '@/lib/format'
+import { CustomerAccountSection } from './CustomerAccountSection'
+import { useFinanceDetailNavOptional } from './FinanceDetailNav'
+
+/** Nächstes Lauf-Datum nach Intervall (für die Vorschau kommender Läufe). */
+function addInterval(dateStr: string, interval: RecurringInterval): Date {
+  const d = new Date(dateStr)
+  if (interval === 'weekly') d.setDate(d.getDate() + 7)
+  else if (interval === 'monthly') d.setMonth(d.getMonth() + 1)
+  else if (interval === 'quarterly') d.setMonth(d.getMonth() + 3)
+  else if (interval === 'yearly') d.setFullYear(d.getFullYear() + 1)
+  return d
+}
 
 const STATUS_STYLES: Record<RecurringStatus, string> = {
   active: 'bg-success-light text-success',
@@ -31,10 +44,28 @@ interface RecurringDetailPanelProps {
 
 export function RecurringDetailPanel({ recurring: r, onClose, onEdit }: RecurringDetailPanelProps) {
   const { t } = useTranslation()
+  const { data: invoicesData } = useInvoices()
+  const nav = useFinanceDetailNavOptional()
   const pauseRec = usePauseRecurringInvoice()
   const generateRec = useGenerateRecurringInvoice()
   const currency = r.currency ?? 'EUR'
   const money = (v: number | string) => formatMoney(v, currency)
+
+  // Bisher erzeugte Rechnungen dieses Abos (neueste zuerst).
+  const generatedInvoices = (invoicesData?.invoices ?? [])
+    .filter((inv) => inv.recurring_id === r.id)
+    .sort((a, b) => (a.invoice_date < b.invoice_date ? 1 : -1))
+
+  // Vorschau der nächsten drei Läufe (nur solange aktiv und vor End-Datum).
+  const upcomingRuns: string[] = []
+  if (r.status === 'active' && r.next_run) {
+    let cursor = new Date(r.next_run)
+    for (let i = 0; i < 3; i++) {
+      if (r.end_date && cursor > new Date(r.end_date)) break
+      upcomingRuns.push(cursor.toISOString().split('T')[0])
+      cursor = addInterval(cursor.toISOString().split('T')[0], r.interval)
+    }
+  }
 
   const info: { icon: typeof Repeat; label: string; value: string }[] = [
     { icon: Repeat, label: t('finanzen.recurring.intervalCol'), value: t(`finanzen.recurring.intervals.${r.interval}`) },
@@ -98,6 +129,67 @@ export function RecurringDetailPanel({ recurring: r, onClose, onEdit }: Recurrin
           <span>{t('finanzen.recurring.perInvoice')}</span>
           <span>{money(r.tax_breakdown?.gross_total ?? 0)}</span>
         </div>
+
+        {/* Nächste Läufe */}
+        {upcomingRuns.length > 0 && (
+          <section>
+            <h4 className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <CalendarClock className="h-3 w-3" />
+              {t('finanzen.recurringDetail.upcomingRuns')}
+            </h4>
+            <div className="flex flex-wrap gap-1.5">
+              {upcomingRuns.map((run, idx) => (
+                <span
+                  key={run}
+                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] ${
+                    idx === 0
+                      ? 'border-primary/40 bg-primary/5 font-medium text-primary'
+                      : 'border-border bg-secondary/40 text-muted-foreground'
+                  }`}
+                >
+                  {formatDate(run)}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Bereits erzeugte Rechnungen (klickbar) */}
+        {generatedInvoices.length > 0 && (
+          <section>
+            <h4 className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <FileText className="h-3 w-3" />
+              {t('finanzen.recurringDetail.generatedInvoices')}
+            </h4>
+            <div className="overflow-hidden rounded-md border border-border">
+              {generatedInvoices.map((inv, idx) => (
+                <button
+                  key={inv.id}
+                  type="button"
+                  disabled={!nav}
+                  onClick={() => nav?.open('invoice', inv.id)}
+                  className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs transition-colors hover:bg-secondary/50 disabled:cursor-default disabled:hover:bg-transparent ${
+                    idx > 0 ? 'border-t border-border-muted' : ''
+                  }`}
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="font-mono text-primary">{inv.invoice_number}</span>
+                    <span className="text-[10px] text-muted-foreground">{formatDate(inv.invoice_date)}</span>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1">
+                    <span className="font-medium text-foreground">
+                      {money(inv.tax_breakdown?.gross_total ?? inv.total_gross ?? 0)}
+                    </span>
+                    {nav && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Kundenkonto — alle Belege des Kunden + CRM-Sprung */}
+        {r.customer && <CustomerAccountSection customer={r.customer} />}
 
         {/* Notes */}
         {r.notes && (

@@ -1,4 +1,4 @@
-import { X } from 'lucide-react'
+import { X, ArrowLeft } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -25,6 +25,12 @@ interface DetailModalProps {
   className?: string
   /** Tailwind max-w-* Klasse. Default max-w-2xl (Einzel-Detail); max-w-4xl für 360°-Ansichten. */
   maxWidth?: string
+  /**
+   * Optionaler „Zurück"-Handler. Wird gesetzt, sobald das Modal Teil einer
+   * Navigations-Kette ist (z.B. Rechnung → Quell-Angebot). Rendert links im
+   * Header einen Zurück-Chevron zusätzlich zum Schließen-Button.
+   */
+  onBack?: () => void
 }
 
 export function DetailModal({
@@ -37,6 +43,7 @@ export function DetailModal({
   footer,
   className,
   maxWidth = 'max-w-2xl',
+  onBack,
 }: DetailModalProps) {
   const { t } = useTranslation()
   return (
@@ -51,9 +58,20 @@ export function DetailModal({
         {/* Gradient-Stripe (Cosmi-Identität) */}
         <div className="h-0.5 w-full shrink-0 bg-gradient-to-r from-[var(--accent-1)] to-[var(--accent-2)]" />
 
-        {(title || badge) && (
+        {(title || badge || onBack) && (
           <div className="flex items-center justify-between border-b px-5 py-3.5">
             <div className="flex min-w-0 items-center gap-2">
+              {onBack && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="-ml-1.5 h-7 w-7 shrink-0"
+                  onClick={onBack}
+                  aria-label={t('shared.detailPanel.back')}
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                </Button>
+              )}
               {title && (
                 <div className="min-w-0">
                   <h3 className="truncate text-sm font-semibold text-foreground">{title}</h3>

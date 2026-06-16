@@ -16,6 +16,7 @@ import {
   Send,
   Download,
   FileCheck,
+  ChevronRight,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DetailModal } from '@/components/shared'
@@ -27,10 +28,14 @@ import {
   useRejectQuote,
   useConvertQuoteToInvoice,
   useDownloadQuotePDF,
+  useInvoices,
 } from '@/api/hooks/useFinance'
 import { formatMoney } from '@/stores/finance'
 import type { QuoteStatus } from '@/types/finance-types'
 import { formatDate } from '@/lib/format'
+import { PDFPreviewPanel } from './PDFPreviewPanel'
+import { CustomerAccountSection } from './CustomerAccountSection'
+import { useFinanceDetailNavOptional } from './FinanceDetailNav'
 
 const statusConfig: Record<QuoteStatus, { labelKey: string; color: string; bg: string; icon: typeof CheckCircle2 }> = {
   draft: { labelKey: 'finanzen.status.draft', color: 'text-muted-foreground', bg: 'bg-secondary', icon: FileText },
@@ -46,11 +51,14 @@ interface QuoteDetailPanelProps {
   onEdit: () => void
   /** Called after a successful convert-to-invoice so the parent can refocus. */
   onConverted?: () => void
+  onBack?: () => void
 }
 
-export function QuoteDetailPanel({ quoteId, onClose, onEdit, onConverted }: QuoteDetailPanelProps) {
+export function QuoteDetailPanel({ quoteId, onClose, onEdit, onConverted, onBack }: QuoteDetailPanelProps) {
   const { t } = useTranslation()
   const { data: quote, isLoading } = useQuote(quoteId)
+  const { data: invoicesData } = useInvoices()
+  const nav = useFinanceDetailNavOptional()
   const sendQuote = useSendQuote()
   const acceptQuote = useAcceptQuote()
   const rejectQuote = useRejectQuote()
@@ -59,7 +67,7 @@ export function QuoteDetailPanel({ quoteId, onClose, onEdit, onConverted }: Quot
 
   if (isLoading || !quote) {
     return (
-      <DetailModal open={true} title={t('finanzen.quoteDetail.title')} onClose={onClose}>
+      <DetailModal open={true} title={t('finanzen.quoteDetail.title')} onClose={onClose} onBack={onBack}>
         <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
           {t('common.loading')}
         </div>
@@ -72,6 +80,9 @@ export function QuoteDetailPanel({ quoteId, onClose, onEdit, onConverted }: Quot
   const currency = quote.currency ?? 'EUR'
   const money = (v: number | string) => formatMoney(v, currency)
   const convertedNumber = (quote as { converted_invoice_number?: string }).converted_invoice_number
+  const convertedInvoice = convertedNumber
+    ? (invoicesData?.invoices ?? []).find((inv) => inv.invoice_number === convertedNumber)
+    : undefined
 
   const run = (
     mut: { mutate: (id: string, opts: { onSuccess: () => void; onError: (e: Error) => void }) => void },
@@ -85,7 +96,7 @@ export function QuoteDetailPanel({ quoteId, onClose, onEdit, onConverted }: Quot
   }
 
   return (
-    <DetailModal open={true} title={t('finanzen.quoteDetail.title')} onClose={onClose}>
+    <DetailModal open={true} title={t('finanzen.quoteDetail.title')} onClose={onClose} onBack={onBack}>
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-start justify-between">
@@ -99,12 +110,18 @@ export function QuoteDetailPanel({ quoteId, onClose, onEdit, onConverted }: Quot
           </span>
         </div>
 
-        {/* Converted-to-invoice link */}
+        {/* Converted-to-invoice link (klickbar, wenn die Rechnung auffindbar ist) */}
         {convertedNumber && (
-          <div className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/5 p-3 text-xs text-success">
+          <button
+            type="button"
+            disabled={!nav || !convertedInvoice}
+            onClick={() => convertedInvoice && nav?.open('invoice', convertedInvoice.id)}
+            className="flex w-full items-center gap-2 rounded-lg border border-success/30 bg-success/5 p-3 text-xs text-success transition-colors hover:bg-success/10 disabled:cursor-default disabled:hover:bg-success/5"
+          >
             <FileCheck className="h-4 w-4 shrink-0" />
-            <span>{t('finanzen.quoteDetail.convertedTo', { number: convertedNumber })}</span>
-          </div>
+            <span className="flex-1 text-left">{t('finanzen.quoteDetail.convertedTo', { number: convertedNumber })}</span>
+            {nav && convertedInvoice && <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
+          </button>
         )}
 
         {/* Key info */}
@@ -183,6 +200,24 @@ export function QuoteDetailPanel({ quoteId, onClose, onEdit, onConverted }: Quot
             <p className="text-xs text-muted-foreground">{quote.notes}</p>
           </section>
         )}
+
+        {/* PDF-Vorschau — echte Belegdaten */}
+        <PDFPreviewPanel
+          heading="ANGEBOT"
+          number={quote.quote_number}
+          customerName={quote.customer?.name ?? ''}
+          customerAddress={quote.customer?.address}
+          date={formatDate(quote.created_at)}
+          lineItems={quote.line_items ?? []}
+          net={quote.tax_breakdown?.subtotal ?? quote.total_net ?? 0}
+          tax={quote.tax_breakdown?.total_tax ?? 0}
+          gross={quote.tax_breakdown?.gross_total ?? quote.total_gross ?? 0}
+          currency={currency}
+          onDownload={() => downloadPDF.mutate(quoteId)}
+        />
+
+        {/* Kundenkonto — alle Belege des Kunden + CRM-Sprung */}
+        <CustomerAccountSection customer={quote.customer} currentDocId={quote.id} />
 
         {/* Actions */}
         <div className="flex flex-wrap gap-2 border-t border-border pt-4">

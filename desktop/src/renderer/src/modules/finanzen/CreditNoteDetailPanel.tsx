@@ -13,6 +13,7 @@ import {
   Link2,
   Send,
   Download,
+  ChevronRight,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DetailModal } from '@/components/shared'
@@ -24,21 +25,26 @@ import {
 } from '@/api/hooks/useFinance'
 import { formatMoney } from '@/stores/finance'
 import { formatDate } from '@/lib/format'
+import { PDFPreviewPanel } from './PDFPreviewPanel'
+import { CustomerAccountSection } from './CustomerAccountSection'
+import { useFinanceDetailNavOptional } from './FinanceDetailNav'
 
 interface CreditNoteDetailPanelProps {
   creditNoteId: string
   onClose: () => void
+  onBack?: () => void
 }
 
-export function CreditNoteDetailPanel({ creditNoteId, onClose }: CreditNoteDetailPanelProps) {
+export function CreditNoteDetailPanel({ creditNoteId, onClose, onBack }: CreditNoteDetailPanelProps) {
   const { t } = useTranslation()
   const { data: cn, isLoading } = useCreditNote(creditNoteId)
+  const nav = useFinanceDetailNavOptional()
   const sendCreditNote = useSendCreditNote()
   const downloadPDF = useDownloadCreditNotePDF()
 
   if (isLoading || !cn) {
     return (
-      <DetailModal open={true} title={t('finanzen.creditNoteDetail.title')} onClose={onClose}>
+      <DetailModal open={true} title={t('finanzen.creditNoteDetail.title')} onClose={onClose} onBack={onBack}>
         <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
           {t('common.loading')}
         </div>
@@ -51,7 +57,7 @@ export function CreditNoteDetailPanel({ creditNoteId, onClose }: CreditNoteDetai
   const isSent = cn.status === 'sent'
 
   return (
-    <DetailModal open={true} title={t('finanzen.creditNoteDetail.title')} onClose={onClose}>
+    <DetailModal open={true} title={t('finanzen.creditNoteDetail.title')} onClose={onClose} onBack={onBack}>
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-start justify-between">
@@ -72,15 +78,21 @@ export function CreditNoteDetailPanel({ creditNoteId, onClose }: CreditNoteDetai
           </span>
         </div>
 
-        {/* Linked original invoice */}
+        {/* Linked original invoice (klickbar → Original-Rechnung öffnen) */}
         {cn.invoice_number && (
-          <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary/40 p-3 text-xs">
+          <button
+            type="button"
+            disabled={!nav || !cn.original_invoice_id}
+            onClick={() => cn.original_invoice_id && nav?.open('invoice', cn.original_invoice_id)}
+            className="flex w-full items-center gap-2 rounded-lg border border-border bg-secondary/40 p-3 text-xs text-left transition-colors hover:bg-secondary disabled:cursor-default disabled:hover:bg-secondary/40"
+          >
             <Link2 className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <span className="text-muted-foreground">
+            <span className="flex-1 text-muted-foreground">
               {t('finanzen.creditNoteDetail.originalInvoice')}:{' '}
               <span className="font-mono text-foreground">{cn.invoice_number}</span>
             </span>
-          </div>
+            {nav && cn.original_invoice_id && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+          </button>
         )}
 
         {/* Key info */}
@@ -141,6 +153,24 @@ export function CreditNoteDetailPanel({ creditNoteId, onClose }: CreditNoteDetai
             <span>{money(cn.tax_breakdown?.gross_total ?? cn.total_gross ?? 0)}</span>
           </div>
         </div>
+
+        {/* PDF-Vorschau — echte Belegdaten */}
+        <PDFPreviewPanel
+          heading="GUTSCHRIFT"
+          number={cn.credit_note_number}
+          customerName={cn.customer?.name ?? ''}
+          customerAddress={cn.customer?.address}
+          date={formatDate(cn.created_at)}
+          lineItems={cn.line_items ?? []}
+          net={cn.tax_breakdown?.subtotal ?? cn.total_net ?? 0}
+          tax={cn.tax_breakdown?.total_tax ?? 0}
+          gross={cn.tax_breakdown?.gross_total ?? cn.total_gross ?? 0}
+          currency={currency}
+          onDownload={() => downloadPDF.mutate(creditNoteId)}
+        />
+
+        {/* Kundenkonto — alle Belege des Kunden + CRM-Sprung */}
+        <CustomerAccountSection customer={cn.customer} currentDocId={cn.id} />
 
         {/* Actions */}
         <div className="flex flex-wrap gap-2 border-t border-border pt-4">
