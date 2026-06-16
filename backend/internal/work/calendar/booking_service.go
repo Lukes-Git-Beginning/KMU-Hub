@@ -414,6 +414,7 @@ func (s *BookingService) CreatePublicBooking(
 	if calClient != nil {
 		eventTitle := fmt.Sprintf("%s — %s", matchedService.Name, booking.CustomerName)
 		eventID, calErr := calClient.CreateEvent(ctx, PublicBookingCalEventInput{
+			TenantID:    page.TenantID,
 			CalendarID:  page.CalendarID.String(),
 			Title:       eventTitle,
 			Description: fmt.Sprintf("Öffentliche Buchung: %s (%s)", booking.CustomerName, booking.CustomerEmail),
@@ -480,6 +481,7 @@ type PublicBookingCalClient interface {
 
 // PublicBookingCalEventInput holds the fields for the calendar event creation.
 type PublicBookingCalEventInput struct {
+	TenantID    uuid.UUID
 	CalendarID  string
 	Title       string
 	Description string

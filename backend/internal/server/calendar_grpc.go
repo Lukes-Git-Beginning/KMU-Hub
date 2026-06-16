@@ -1922,7 +1922,14 @@ func (s *CalendarGRPCServer) CreatePublicBooking(ctx context.Context, req *calv1
 		emailCli = &grpcEmailClientAdapter{client: s.emailClient}
 	}
 
-	result, err := s.bookingService.CreatePublicBooking(ctx, emailCli, nil, input)
+	// Wire calendar client so a confirmed public booking lands in the internal
+	// calendar of the page owner (the published booking page is the authorization).
+	var calCli calendar.PublicBookingCalClient
+	if s.eventService != nil && s.calendarService != nil {
+		calCli = &grpcCalClientAdapter{events: s.eventService, calendars: s.calendarService}
+	}
+
+	result, err := s.bookingService.CreatePublicBooking(ctx, emailCli, calCli, input)
 	if err != nil {
 		return nil, mapCalendarError(err)
 	}
@@ -2031,4 +2038,37 @@ func (a *grpcEmailClientAdapter) SendConfirmation(ctx context.Context, email cal
 		BodyHtml: "<pre>" + body + "</pre>",
 	})
 	return err
+}
+
+// grpcCalClientAdapter wraps the event + calendar services so a confirmed public
+// booking creates an internal calendar event. The page owner is used as the event
+// actor — the published booking page itself is the authorization, and the public
+// caller has no JWT/actor of its own.
+type grpcCalClientAdapter struct {
+	events    *event.Service
+	calendars *calendar.Service
+}
+
+func (a *grpcCalClientAdapter) CreateEvent(ctx context.Context, in calendar.PublicBookingCalEventInput) (string, error) {
+	calID, err := uuid.Parse(in.CalendarID)
+	if err != nil {
+		return "", fmt.Errorf("invalid calendar id: %w", err)
+	}
+	cal, err := a.calendars.Get(ctx, calID, in.TenantID)
+	if err != nil {
+		return "", err
+	}
+	desc := in.Description
+	evt, err := a.events.Create(ctx, cal.OwnerID, event.CreateInput{
+		TenantID:    in.TenantID,
+		CalendarID:  calID,
+		Title:       in.Title,
+		Description: &desc,
+		StartTime:   in.StartTime,
+		EndTime:     in.EndTime,
+	})
+	if err != nil {
+		return "", err
+	}
+	return evt.ID.String(), nil
 }
