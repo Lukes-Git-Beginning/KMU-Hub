@@ -66,6 +66,54 @@ function addDays(dateISO: string, days: number): string {
   return d.toISOString().split('T')[0]
 }
 
+/**
+ * Normalise a list-shaped finance doc (quote/credit-note seed with `items` +
+ * denormalised totals) into the detail shape the *DetailPanel components expect
+ * (`line_items` + `tax_breakdown` + structured `customer`). Mirrors the invoice
+ * detail normalisation so quotes/credit-notes get the same rich view.
+ */
+function normalizeDoc(raw: Record<string, unknown>) {
+  const rawItems = (raw.items ?? raw.line_items ?? []) as Array<Record<string, unknown>>
+  const line_items = rawItems.map((it, idx) => {
+    const qty = Number(it.quantity ?? 1)
+    const price = Number(it.unit_price ?? 0)
+    return {
+      id: (it.id as string) ?? `li-${idx}`,
+      position: idx + 1,
+      description: String(it.description ?? ''),
+      quantity: qty,
+      unit_price: price,
+      tax_rate: Number(it.tax_rate ?? raw.tax_rate ?? 19),
+      line_total: Number(it.line_total ?? it.total ?? qty * price),
+    }
+  })
+  let tax_breakdown = raw.tax_breakdown as Record<string, unknown> | undefined
+  if (!tax_breakdown) {
+    const subtotal = Number(raw.total_net ?? line_items.reduce((s, it) => s + it.line_total, 0))
+    const gross = Number(raw.total_gross ?? subtotal * 1.19)
+    const totalTax = Math.max(0, gross - subtotal)
+    const rate = subtotal > 0 ? Math.round((totalTax / subtotal) * 100) : 19
+    tax_breakdown = {
+      subtotal: subtotal.toFixed(2),
+      tax_by_rate: { [rate]: totalTax.toFixed(2) },
+      total_tax: totalTax.toFixed(2),
+      gross_total: gross.toFixed(2),
+    }
+  }
+  const customer = (raw.customer ?? { name: raw.customer_name ?? '', address: '', email: '' }) as Record<string, unknown>
+  return {
+    ...raw,
+    line_items,
+    tax_breakdown,
+    customer: {
+      name: customer.name ?? raw.customer_name ?? '',
+      address: customer.address ?? '',
+      email: customer.email ?? '',
+      ...customer,
+    },
+  }
+}
+
 export const financeHandlers = [
   // ---- Invoices ----
 
@@ -246,13 +294,13 @@ export const financeHandlers = [
     })
   }),
 
-  // Quote detail
+  // Quote detail — normalised to the detail shape (line_items + tax_breakdown)
   http.get(`${API}/api/v1/finance/quotes/:id`, ({ params }) => {
     const quote = mockQuotes.quotes.find((q) => q.id === params.id)
     if (!quote) {
       return HttpResponse.json({ error: 'Quote not found' }, { status: 404 })
     }
-    return HttpResponse.json({ quote })
+    return HttpResponse.json({ quote: normalizeDoc(quote as Record<string, unknown>) })
   }),
 
   // Create quote
@@ -261,11 +309,86 @@ export const financeHandlers = [
     const newQuote = {
       id: `qt-${Date.now()}`,
       number: `AN-2026-${String(mockQuotes.quotes.length + 1).padStart(3, '0')}`,
+      quote_number: `AN-2026-${String(mockQuotes.quotes.length + 1).padStart(3, '0')}`,
       status: 'draft',
       ...body,
       created_at: new Date().toISOString(),
     }
+    mockQuotes.quotes.unshift(newQuote as never)
+    mockQuotes.total = mockQuotes.quotes.length
     return HttpResponse.json({ quote: newQuote }, { status: 201 })
+  }),
+
+  // Update quote — stateful
+  http.put(`${API}/api/v1/finance/quotes/:id`, async ({ params, request }) => {
+    const quote = mockQuotes.quotes.find((q) => q.id === params.id) as Record<string, unknown> | undefined
+    if (!quote) return HttpResponse.json({ error: 'Quote not found' }, { status: 404 })
+    Object.assign(quote, (await request.json()) as Record<string, unknown>)
+    return HttpResponse.json({ quote: normalizeDoc(quote) })
+  }),
+
+  // Delete quote — stateful
+  http.delete(`${API}/api/v1/finance/quotes/:id`, ({ params }) => {
+    const idx = mockQuotes.quotes.findIndex((q) => q.id === params.id)
+    if (idx >= 0) mockQuotes.quotes.splice(idx, 1)
+    mockQuotes.total = mockQuotes.quotes.length
+    return HttpResponse.json({})
+  }),
+
+  // Quote lifecycle — stateful status transitions
+  http.post(`${API}/api/v1/finance/quotes/:id/send`, ({ params }) => {
+    const quote = mockQuotes.quotes.find((q) => q.id === params.id) as Record<string, unknown> | undefined
+    if (!quote) return HttpResponse.json({ error: 'Quote not found' }, { status: 404 })
+    quote.status = 'sent'
+    return HttpResponse.json({ quote: normalizeDoc(quote) })
+  }),
+  http.post(`${API}/api/v1/finance/quotes/:id/accept`, ({ params }) => {
+    const quote = mockQuotes.quotes.find((q) => q.id === params.id) as Record<string, unknown> | undefined
+    if (!quote) return HttpResponse.json({ error: 'Quote not found' }, { status: 404 })
+    quote.status = 'accepted'
+    return HttpResponse.json({ quote: normalizeDoc(quote) })
+  }),
+  http.post(`${API}/api/v1/finance/quotes/:id/reject`, ({ params }) => {
+    const quote = mockQuotes.quotes.find((q) => q.id === params.id) as Record<string, unknown> | undefined
+    if (!quote) return HttpResponse.json({ error: 'Quote not found' }, { status: 404 })
+    quote.status = 'rejected'
+    return HttpResponse.json({ quote: normalizeDoc(quote) })
+  }),
+
+  // Convert an accepted quote into a draft invoice — emits a real invoice.
+  http.post(`${API}/api/v1/finance/quotes/:id/convert`, ({ params }) => {
+    const quote = mockQuotes.quotes.find((q) => q.id === params.id) as Record<string, unknown> | undefined
+    if (!quote) return HttpResponse.json({ error: 'Quote not found' }, { status: 404 })
+    const norm = normalizeDoc(quote)
+    const today = new Date().toISOString().split('T')[0]
+    const seq = mockInvoices.invoices.length + 1
+    const invoiceNumber = `RE-2026-${String(seq).padStart(3, '0')}`
+    const newInvoice = {
+      id: `inv-${Date.now()}`,
+      invoice_number: invoiceNumber,
+      number: invoiceNumber,
+      status: 'draft' as const,
+      customer: norm.customer,
+      customer_name: (norm.customer as Record<string, unknown>).name ?? '',
+      invoice_date: today,
+      issue_date: today,
+      due_date: addDays(today, 14),
+      currency: quote.currency ?? 'EUR',
+      payment_terms: 14,
+      line_items: norm.line_items,
+      items: norm.line_items,
+      tax_breakdown: norm.tax_breakdown,
+      total_net: Number((norm.tax_breakdown as Record<string, unknown>).subtotal ?? quote.total_net ?? 0),
+      total_gross: Number((norm.tax_breakdown as Record<string, unknown>).gross_total ?? quote.total_gross ?? 0),
+      source_quote_id: quote.id,
+      created_at: new Date().toISOString(),
+    }
+    mockInvoices.invoices.unshift(newInvoice as never)
+    mockInvoices.total = mockInvoices.invoices.length
+    quote.status = 'accepted'
+    quote.converted_invoice_id = newInvoice.id
+    quote.converted_invoice_number = invoiceNumber
+    return HttpResponse.json({ invoice: newInvoice })
   }),
 
   // ---- Credit Notes ----
@@ -286,6 +409,24 @@ export const financeHandlers = [
       }
     })
     return HttpResponse.json({ credit_notes: normalised, total: normalised.length })
+  }),
+
+  // Credit note detail — normalised (line_items + tax_breakdown + linked invoice)
+  http.get(`${API}/api/v1/finance/credit-notes/:id`, ({ params }) => {
+    const cn = mockCreditNotes.credit_notes.find((c) => c.id === params.id) as
+      | Record<string, unknown>
+      | undefined
+    if (!cn) return HttpResponse.json({ error: 'Credit note not found' }, { status: 404 })
+    const linked = mockInvoices.invoices.find(
+      (inv) => inv.invoice_number === cn.invoice_number || inv.id === cn.original_invoice_id,
+    )
+    const normalised = {
+      ...normalizeDoc(cn),
+      original_invoice_id: cn.original_invoice_id ?? linked?.id ?? cn.invoice_number ?? '',
+      invoice_number: cn.invoice_number ?? linked?.invoice_number ?? '',
+      status: cn.status === 'issued' ? 'sent' : cn.status,
+    }
+    return HttpResponse.json({ credit_note: normalised })
   }),
 
   // Create credit note — stateful. With is_storno, cancels the linked invoice.

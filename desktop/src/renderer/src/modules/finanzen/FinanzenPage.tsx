@@ -51,6 +51,8 @@ import { QuoteFormDialog } from './QuoteFormDialog'
 import { CreditNoteDialog } from './CreditNoteDialog'
 import { PaymentRecordDialog } from './PaymentRecordDialog'
 import { InvoiceDetailPanel } from './InvoiceDetailPanel'
+import { QuoteDetailPanel } from './QuoteDetailPanel'
+import { CreditNoteDetailPanel } from './CreditNoteDetailPanel'
 import { ExportDialog } from './ExportDialog'
 import { DunningPanel } from './DunningPanel'
 import { FinanceDashboard } from './FinanceDashboard'
@@ -195,6 +197,8 @@ export default function FinanzenPage() {
   const [editQuote, setEditQuote] = useState<Quote | null>(null)
   const [creditNote, setCreditNote] = useState<{ invoice: Invoice | null; storno: boolean } | null>(null)
   const [paymentInvoiceId, setPaymentInvoiceId] = useState<string | null>(null)
+  const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null)
+  const [selectedCreditNoteId, setSelectedCreditNoteId] = useState<string | null>(null)
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(
     null,
   )
@@ -385,6 +389,10 @@ export default function FinanzenPage() {
       variant?: 'destructive'
       separator?: true
     }[] = [
+      {
+        label: t('common.details'),
+        onClick: () => setSelectedQuoteId(q.id),
+      },
       {
         label: t('finanzen.pdf.downloadPdf'),
         onClick: () => downloadQuotePDF.mutate(q.id),
@@ -749,9 +757,13 @@ export default function FinanzenPage() {
                   key={q.id}
                   className="grid grid-cols-[100px_1fr_100px_100px_90px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors"
                 >
-                  <span className="text-sm font-mono text-primary">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedQuoteId(q.id)}
+                    className="text-left text-sm font-mono text-primary hover:underline"
+                  >
                     {q.quote_number}
-                  </span>
+                  </button>
                   <span className="text-sm text-foreground truncate">
                     {q.customer.name}
                   </span>
@@ -805,9 +817,13 @@ export default function FinanzenPage() {
                   key={cn.id}
                   className="grid grid-cols-[100px_1fr_120px_100px_90px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors"
                 >
-                  <span className="text-sm font-mono text-primary">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCreditNoteId(cn.id)}
+                    className="text-left text-sm font-mono text-primary hover:underline"
+                  >
                     {cn.credit_note_number}
-                  </span>
+                  </button>
                   <span className="text-sm text-foreground truncate">
                     {cn.customer.name}
                   </span>
@@ -833,6 +849,10 @@ export default function FinanzenPage() {
                   </span>
                   <ItemActions
                     items={[
+                      {
+                        label: t('common.details'),
+                        onClick: () => setSelectedCreditNoteId(cn.id),
+                      },
                       {
                         label: t('finanzen.pdf.downloadPdf'),
                         onClick: () =>
@@ -975,6 +995,34 @@ export default function FinanzenPage() {
             if (inv) setCreditNote({ invoice: inv, storno: true })
             setSelectedInvoiceId(null)
           }}
+        />
+      )}
+
+      {/* Quote Detail Panel */}
+      {selectedQuoteId && (
+        <QuoteDetailPanel
+          quoteId={selectedQuoteId}
+          onClose={() => setSelectedQuoteId(null)}
+          onEdit={() => {
+            const q = (quotesData?.quotes ?? []).find((x) => x.id === selectedQuoteId)
+            if (q) {
+              setEditQuote(q)
+              setShowQuoteForm(true)
+            }
+            setSelectedQuoteId(null)
+          }}
+          onConverted={() => {
+            setSelectedQuoteId(null)
+            setActiveTab('invoices')
+          }}
+        />
+      )}
+
+      {/* Credit Note Detail Panel */}
+      {selectedCreditNoteId && (
+        <CreditNoteDetailPanel
+          creditNoteId={selectedCreditNoteId}
+          onClose={() => setSelectedCreditNoteId(null)}
         />
       )}
 
