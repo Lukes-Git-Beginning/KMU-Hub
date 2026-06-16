@@ -11,8 +11,13 @@
 
 ## Gesamtstand
 - **~155 offene Phasen** über ~32 Module (grobe, eher konservative Zahl — Verifizieren der Marathon-Module kann sie senken).
-- **Fertig:** kontakte (Kern), zeiterfassung; calendar/dokumente weitgehend (🔁).
-- **Aktive Spur:** Tiefe-Re-Check der 4 fertigen Module → finanzen P2.5 → finanzen P3–5 → Module nach Reihenfolge.
+- **Fertig (bei Nico in Review):** kontakte (Kern), zeiterfassung; calendar/dokumente weitgehend (🔁).
+- **Aktive Spur:** finanzen komplett fertigstellen (P2.5b–e → P3–5) → an Nico → nächstes Modul.
+
+## Arbeitsweise: rollierende Modul-Fertigstellung (für Nicos Review-Pipeline)
+[[feedback_rolling_module_completion]] — **Wir bringen Module einzeln komplett zu Ende, nicht phasen-schichtweise.** Sobald ein Modul **review-reif** ist, geht es an Nico, und wir starten das nächste → Nico reviewt **parallel**, die Pipeline läuft nie leer.
+- **„Review-reif" = FE-Phasen ✅ + Demo-Tiefe ✅.** 🔒-Backend-Teile dürfen gemockt/swap-ready sein (Nico reviewt FE/UX, nicht Lukes Backend).
+- **Reihenfolge mischt schnell + langsam:** FE-reiche Module (nur Tiefe-Pass nötig) zwischen größere Neubauten einstreuen → stetiger Nachschub. Siehe „Review-Pipeline" unten.
 
 ---
 
@@ -243,5 +248,26 @@ Schneller Audit gegen die Tiefe-Vorgabe + offensichtliche Fixes, damit Nico tief
 ## Nur-Luke (reine Backend-Blöcke, nicht in unserer FE-Zählung)
 Mail-IMAP/SMTP · LiveKit (video+dialer) · DSGVO-Tools (security, P0) · DATEV (finanzen/team) · Automatisierungs-Engine · MRP (produktion) · Settings-scope-Tabellen · diverse `/finance/*`-Endpoints (siehe `backend-gaps.md`).
 
-## Offene Reihenfolge-Klärung
-Nach finanzen: Vorschlag **security/DSGVO früh** (P0-Blocker) → mails → kommunikation → team → work → dashboard → profil → restliche System → Branchen (pilot-nah). Reihenfolge bestätigen, dann arbeite ich sie hier von oben ab und aktualisiere Haken + Gesamtzahl.
+## Review-Pipeline (rollierend für Nico) — Reihenfolge der Modul-Fertigstellung
+Jedes Modul wird zu **review-reif** gebracht, dann „→ Nico". Vorschlag mischt schnelle Tiefe-Pässe (FE-reife Module) mit Neubauten, damit Nico nie wartet:
+
+| # | Modul | Aufwand bis review-reif | Status |
+|---|---|---|---|
+| — | kontakte, calendar, dokumente, zeiterfassung | (Tiefe-Re-Check später) | ✅ bei Nico |
+| 1 | **finanzen** | P2.5b–e + P3–5 (FE/mock) | 🔨 läuft |
+| 2 | **work** | v.a. Tiefe-Pass (FE sehr vollständig) | ⬜ schnell |
+| 3 | **team** | Tiefe-Pass + 2 Phasen | ⬜ |
+| 4 | **dashboard** | Tiefe-Pass + Persistenz mock | ⬜ schnell |
+| 5 | **vertraege** | Tiefe-Pass + Dok/Signatur mock | ⬜ schnell |
+| 6 | **helpdesk** | Tiefe-Pass + CRM-Lookup | ⬜ schnell |
+| 7 | **automatisierung** | Tiefe-Pass (FE sehr vollständig) | ⬜ |
+| 8 | **profil** | klein | ⬜ schnell |
+| 9 | **security** | FE+Tiefe (DSGVO P0, Backend = Luke früh!) | ⬜ |
+| 10 | **mails** | Neubau (5 Phasen) | ⬜ groß |
+| 11 | **kommunikation** | 4 Phasen | ⬜ |
+| 12 | **video / dialer** | LiveKit-FE | ⬜ |
+| 13 | **settings / admin** | Rest-Phasen | ⬜ |
+| 14 | **berichte / wiki / formulare / notifications** | Marathon-Reste fertig + Tiefe | ⬜ (Stand verifizieren) |
+| 15 | **Branchen ×7** | pilot-nah, zuletzt | ⬜ |
+
+> Reihenfolge ist ein Vorschlag — bei Bedarf umsortieren. **security/DSGVO** ist P0-Launch-Blocker und hängt an Luke → seine Backend-Arbeit dafür früh einplanen, auch wenn das FE-Review später kommt. Nach jedem fertigen Modul: Haken setzen, „→ Nico" markieren, Gesamtzahl aktualisieren.
