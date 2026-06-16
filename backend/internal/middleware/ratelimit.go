@@ -20,14 +20,24 @@ type RateLimiter struct {
 	rps      int
 	window   time.Duration
 	fallback *inMemoryLimiter
+	prefix   string
 }
 
+// NewRateLimiter creates a rate limiter with the default "ratelimit" key prefix.
+// Backward-compatible — existing callers are unaffected.
 func NewRateLimiter(redisClient *redis.Client, rps int) *RateLimiter {
+	return NewRateLimiterWithPrefix(redisClient, rps, "ratelimit")
+}
+
+// NewRateLimiterWithPrefix creates a rate limiter with a custom Redis key prefix.
+// Use this to create scoped limiters with independent counters (e.g. "ratelimit:public").
+func NewRateLimiterWithPrefix(redisClient *redis.Client, rps int, prefix string) *RateLimiter {
 	return &RateLimiter{
 		redis:    redisClient,
 		rps:      rps,
 		window:   time.Second,
 		fallback: newInMemoryLimiter(rps),
+		prefix:   prefix,
 	}
 }
 
@@ -61,7 +71,7 @@ func (rl *RateLimiter) allow(ctx context.Context, key string) (bool, error) {
 		return rl.fallback.allow(key), nil
 	}
 
-	redisKey := fmt.Sprintf("ratelimit:%s", key)
+	redisKey := fmt.Sprintf("%s:%s", rl.prefix, key)
 
 	pipe := rl.redis.Pipeline()
 	incr := pipe.Incr(ctx, redisKey)
@@ -74,6 +84,11 @@ func (rl *RateLimiter) allow(ctx context.Context, key string) (bool, error) {
 
 	return incr.Val() <= int64(rl.rps), nil
 }
+
+// ClientIP extracts the real client IP from the request, preferring the first
+// value of X-Forwarded-For (set by reverse proxies). Falls back to RemoteAddr.
+// Exported so other packages (e.g. gateway handlers) can reuse the same logic.
+func ClientIP(r *http.Request) string { return clientIP(r) }
 
 func clientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {

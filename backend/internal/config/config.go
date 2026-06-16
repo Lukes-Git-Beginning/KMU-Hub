@@ -67,8 +67,17 @@ type Config struct {
 
 	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS,delimiter=;,default=http://localhost:3000;http://localhost:5173"`
 
-	RateLimitRPS int  `env:"RATE_LIMIT_RPS,default=100"`
-	BehindProxy  bool `env:"BEHIND_PROXY,default=false"`
+	RateLimitRPS       int  `env:"RATE_LIMIT_RPS,default=100"`
+	// PublicRateLimitRPS is the per-IP requests-per-second limit applied to
+	// unauthenticated public endpoints (/api/v1/public/*). Kept low to mitigate
+	// scraping and booking-spam; independent counter from the global limiter.
+	PublicRateLimitRPS int  `env:"PUBLIC_RATE_LIMIT_RPS,default=10"`
+	BehindProxy        bool `env:"BEHIND_PROXY,default=false"`
+
+	// Captcha (provider-agnostic siteverify API — Cloudflare Turnstile by default).
+	// When CAPTCHA_SECRET is empty the verifier is disabled and all requests pass through.
+	CaptchaSecret    string `env:"CAPTCHA_SECRET,default="`
+	CaptchaVerifyURL string `env:"CAPTCHA_VERIFY_URL,default=https://challenges.cloudflare.com/turnstile/v0/siteverify"`
 
 	MetricsPort            string `env:"METRICS_PORT,default=:9090"`
 	HealthPort             string `env:"HEALTH_PORT,default=:9091"`

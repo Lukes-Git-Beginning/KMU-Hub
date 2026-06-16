@@ -1,11 +1,13 @@
 package gateway
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
+	"github.com/kmuhub/kmuhub/internal/security"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	calv1 "github.com/kmuhub/kmuhub/proto/calendar/v1"
 )
@@ -16,11 +18,14 @@ import (
 // Both admin and public routes reuse the "work" gRPC connection (calendar service).
 type BookingRoutes struct {
 	registry *ServiceRegistry
+	captcha  *security.CaptchaVerifier
 }
 
 // NewBookingRoutes creates a new BookingRoutes.
-func NewBookingRoutes(registry *ServiceRegistry) *BookingRoutes {
-	return &BookingRoutes{registry: registry}
+// captcha controls the optional Captcha check on public booking submissions.
+// When captcha.Enabled() is false (empty secret) the check is skipped entirely.
+func NewBookingRoutes(registry *ServiceRegistry, captcha *security.CaptchaVerifier) *BookingRoutes {
+	return &BookingRoutes{registry: registry, captcha: captcha}
 }
 
 // ServiceName satisfies RouteRegistrar (admin routes, reuses "work" gRPC port).
@@ -55,12 +60,18 @@ func (br *BookingRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 
 // RegisterPublicRoutes mounts the unauthenticated public booking endpoints.
 // Called from cmd/gateway/main.go OUTSIDE the registrars loop, directly on r.
-func (br *BookingRoutes) RegisterPublicRoutes(r chi.Router) {
-	r.Route("/api/v1/public/booking-pages", func(r chi.Router) {
-		r.Get("/{slug}", br.HandleGetPublicBookingPage)
-		r.Get("/{slug}/availability", br.HandleGetAvailability)
+// publicRateLimit is applied to all routes in this group — it should be a
+// stricter limiter than the global one (e.g. 10 RPS instead of 100).
+func (br *BookingRoutes) RegisterPublicRoutes(r chi.Router, publicRateLimit func(http.Handler) http.Handler) {
+	r.Group(func(r chi.Router) {
+		r.Use(publicRateLimit)
+
+		r.Route("/api/v1/public/booking-pages", func(r chi.Router) {
+			r.Get("/{slug}", br.HandleGetPublicBookingPage)
+			r.Get("/{slug}/availability", br.HandleGetAvailability)
+		})
+		r.Post("/api/v1/public/bookings", br.HandleCreatePublicBooking)
 	})
-	r.Post("/api/v1/public/bookings", br.HandleCreatePublicBooking)
 }
 
 // ============================================================================
@@ -105,6 +116,13 @@ type createPublicBookingRequest struct {
 	Date      string                       `json:"date"       validate:"required"`
 	TimeSlot  string                       `json:"time_slot"  validate:"required"`
 	Customer  publicBookingCustomerRequest  `json:"customer"   validate:"required"`
+	// Website is a honeypot field. Legitimate clients never populate it.
+	// Any submission with a non-empty value is silently rejected as a bot.
+	// No validate tag — the field must be accepted by the decoder but never validated.
+	Website string `json:"website,omitempty"`
+	// CaptchaToken is the client-side challenge token from the captcha widget.
+	// Only checked when the CaptchaVerifier is enabled (CAPTCHA_SECRET is set).
+	CaptchaToken string `json:"captcha_token,omitempty"`
 }
 
 // ============================================================================
@@ -319,6 +337,36 @@ func (br *BookingRoutes) HandleCreatePublicBooking(w http.ResponseWriter, r *htt
 	req, ok := decodeAndValidate[createPublicBookingRequest](w, r)
 	if !ok {
 		return
+	}
+
+	// SECURITY: Honeypot — any submission with the hidden "website" field
+	// populated is almost certainly from a bot. Reject with a generic error
+	// that gives no hint about the honeypot mechanism.
+	if req.Website != "" {
+		slog.Warn("public booking honeypot triggered",
+			"remote_ip", middleware.ClientIP(r),
+			"slug", req.Slug,
+		)
+		response.Error(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+
+	// SECURITY: Captcha verification (provider-agnostic siteverify).
+	// Skipped entirely when the verifier is disabled (empty CAPTCHA_SECRET).
+	if br.captcha.Enabled() {
+		captchaOK, captchaErr := br.captcha.Verify(r.Context(), req.CaptchaToken, middleware.ClientIP(r))
+		if captchaErr != nil {
+			slog.Warn("captcha verification error",
+				"error", captchaErr,
+				"remote_ip", middleware.ClientIP(r),
+			)
+			response.Error(w, http.StatusServiceUnavailable, "captcha verification failed")
+			return
+		}
+		if !captchaOK {
+			response.Error(w, http.StatusBadRequest, "captcha verification failed")
+			return
+		}
 	}
 
 	grpcReq := &calv1.CreatePublicBookingRequest{

@@ -56,11 +56,15 @@ func (r *PostgresBookingRepository) GetBookingPageByID(ctx context.Context, id, 
 	)
 }
 
+// SECURITY: slug is UNIQUE per tenant only (booking_pages_tenant_slug_unique),
+// NOT global. Single-tenant-safe today. Before the Option-B multi-tenant
+// retrofit, this public lookup MUST take a tenant discriminator (e.g. subdomain)
+// — otherwise a cross-tenant slug collision would leak/misroute bookings. See WP-F.
 func (r *PostgresBookingRepository) GetBookingPageBySlug(ctx context.Context, slug string) (*models.BookingPage, error) {
 	return r.scanBookingPage(ctx,
 		`SELECT id, tenant_id, calendar_id, slug, company_name, logo_url,
 		        services, availability_rules, active, created_at, updated_at
-		 FROM booking_pages WHERE slug = $1 AND active = true`,
+		 FROM booking_pages WHERE slug = $1 AND active = true ORDER BY created_at ASC LIMIT 1`,
 		slug,
 	)
 }

@@ -28,6 +28,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/inbox/adapter"
 	"github.com/kmuhub/kmuhub/internal/metrics"
 	"github.com/kmuhub/kmuhub/internal/middleware"
+	"github.com/kmuhub/kmuhub/internal/security"
 	"github.com/kmuhub/kmuhub/internal/server"
 	securityv1 "github.com/kmuhub/kmuhub/proto/security/v1"
 )
@@ -153,6 +154,11 @@ func main() {
 	rateLimiter := middleware.NewRateLimiter(redisClient, cfg.RateLimitRPS)
 	r.Use(rateLimiter.Middleware)
 
+	// Scoped rate limiter for unauthenticated public endpoints (/api/v1/public/*).
+	// Uses a separate Redis key prefix ("ratelimit:public:") so public and global
+	// counters are independent — a burst on booking pages does not exhaust global tokens.
+	publicRateLimiter := middleware.NewRateLimiterWithPrefix(redisClient, cfg.PublicRateLimitRPS, "ratelimit:public")
+
 	// Audit logger: logs security-relevant events via gRPC (worker pool)
 	auditLogger := middleware.NewAuditLogger(func() (securityv1.SecurityServiceClient, error) {
 		conn, err := registry.GetConnection("auth")
@@ -215,8 +221,16 @@ func main() {
 	// after hub construction (hub depends on chat gRPC client, built below).
 	videoRoutes := gateway.NewVideoRoutes(registry, cfg.LiveKitAPIKey, cfg.LiveKitAPISecret)
 
+	// Captcha verifier (provider-agnostic siteverify — Cloudflare Turnstile by default).
+	// Disabled when CAPTCHA_SECRET is empty (default). No prod assertion: the hook
+	// is opt-in; absence is acceptable until frontend widget is wired up.
+	captchaVerifier := security.NewCaptchaVerifier(cfg.CaptchaSecret, cfg.CaptchaVerifyURL)
+	if captchaVerifier.Enabled() {
+		slog.Info("captcha verification enabled", "verify_url", cfg.CaptchaVerifyURL)
+	}
+
 	// Booking routes — admin (via registrars) + public (outside loop)
-	bookingRoutes := gateway.NewBookingRoutes(registry)
+	bookingRoutes := gateway.NewBookingRoutes(registry, captchaVerifier)
 
 	// CRM routes — standard (via registrars) + advisory protocols (outside loop)
 	crmRoutes := gateway.NewCRMRoutes(registry, crmExt)
@@ -300,8 +314,10 @@ func main() {
 	guestRoutes.RegisterPublicRoutes(r)
 	slog.Info("routes registered", "service", "guest")
 
-	// Public booking routes (no auth middleware)
-	bookingRoutes.RegisterPublicRoutes(r)
+	// Public booking routes (no auth middleware).
+	// publicRateLimiter applies a strict per-IP limit (PUBLIC_RATE_LIMIT_RPS, default 10)
+	// independent of the global limiter — prevents booking-spam and page scraping.
+	bookingRoutes.RegisterPublicRoutes(r, publicRateLimiter.Middleware)
 	slog.Info("routes registered", "service", "booking-public")
 
 	// Guest inbox adapter
