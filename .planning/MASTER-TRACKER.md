@@ -13,7 +13,8 @@
 - **~155 offene Phasen** über ~32 Module (grobe, eher konservative Zahl — Verifizieren der Marathon-Module kann sie senken).
 - **Fertig (bei Nico in Review):** kontakte (Kern), zeiterfassung; calendar/dokumente weitgehend (🔁).
 - **Aktive Spur:** finanzen komplett fertigstellen → an Nico → nächstes Modul.
-- **▶ NÄCHSTES (neues Terminal, Darien 2026-06-16 Abend):** **work-Tiefe-Pass** (review-reif, Option 3 = voll inkl. Daten-Swap). Vollständiger Handoff-Plan mit Audit + Phasen W-1…W-5 + Referenz-Patterns + Gates: **`.planning/work-tiefe-pass.md` ZUERST lesen.** Start: `git fetch` + `git pull --rebase`, dann Zeilennummern verifizieren, dann W-1 (Slide-over→DetailModal). finanzen ist FE-fertig (P1·P2·P2.5a–e·Modal-Tiefe·Banking-Fixes Verbinden/Detail/Manuell) → kann parallel an Nico.
+- **▶ ERLEDIGT (2026-06-17):** **work-Tiefe-Pass** komplett (W-1…W-5, Option 3 inkl. Daten-Swap) — 5 Commits `9afc92b4`→`999260ea` gepusht, alle Phasen Playwright-verifiziert. work + finanzen jetzt **beide review-reif → an Nico**.
+- **▶ NÄCHSTES:** Pipeline #3 **team** (Tiefe-Pass + 2 Phasen) ODER #4 **dashboard** (Tiefe-Pass + Persistenz mock, schnell). Reihenfolge mit Darien abstimmen. Standard-Workflow: Ist-Abgleich → besprechen → bauen → Screenshot-QA → Commit/Push → Nico.
 
 ## Neue projektweite Standards (2026-06-16) — bei JEDEM Modul anwenden
 - **Detail = zentriertes Cosmi-Modal-Fenster** (`shared/DetailModal`), NICHT Slide-over. [[feedback_detail_modal_standard]]
@@ -101,8 +102,8 @@ Schneller Audit gegen die Tiefe-Vorgabe; die 4 Module sind solange bei Nico in R
 - [x] P1–P5 (Standalone, ArbZG-Report, Team, DATEV)
 - [ ] Tiefe + Dead-Code-Cleanup → T-4
 
-### work — 🔨 Tiefe-Pass vorbereitet (Plan: `.planning/work-tiefe-pass.md`)
-- [ ] **W-Tiefe-Pass** (Darien Option 3): Slide-over→DetailModal · Karten/Zeilen klickbar · MyTasks tote Buttons · Stunden→echte Draft-Rechnung · Auslastung/Gast→MSW ◀ als Nächstes (neues Terminal)
+### work — ✅ Tiefe-Pass fertig → Nico (Plan: `.planning/work-tiefe-pass.md`)
+- [x] **W-Tiefe-Pass** (Darien Option 3): Slide-over→DetailModal · Karten/Zeilen klickbar · MyTasks tote Buttons (Move-to-Project wirkt) · Stunden→echte Draft-Rechnung (erscheint in finanzen) · Auslastung/Gast→MSW — alle 5 Phasen verifiziert (Screenshots), gepusht `999260ea`. **review-reif → an Nico.** Offen für Nico-Review: Guest-Ansicht rendert noch in der App-Shell (standalone Share-Link = P4).
 - [ ] **P1** Daily-Use finalisieren (DnD backend, Timer→Zeiteintrag-Bridge, Inline-Edit) 🔒
 - [ ] **P2** Portfolio + Auslastungs-View 🔒
 - [ ] **P3** Automatisierungs-Regeln (wenn/dann)
@@ -260,8 +261,8 @@ Jedes Modul wird zu **review-reif** gebracht, dann „→ Nico". Vorschlag misch
 | # | Modul | Aufwand bis review-reif | Status |
 |---|---|---|---|
 | — | kontakte, calendar, dokumente, zeiterfassung | (Tiefe-Re-Check später) | ✅ bei Nico |
-| 1 | **finanzen** | P2.5b–e + P3–5 (FE/mock) | 🔨 läuft |
-| 2 | **work** | v.a. Tiefe-Pass (FE sehr vollständig) | ⬜ schnell |
+| 1 | **finanzen** | P2.5b–e + P3–5 (FE/mock) | ✅ review-reif → Nico |
+| 2 | **work** | Tiefe-Pass W-1…W-5 (verifiziert, `999260ea`) | ✅ review-reif → Nico |
 | 3 | **team** | Tiefe-Pass + 2 Phasen | ⬜ |
 | 4 | **dashboard** | Tiefe-Pass + Persistenz mock | ⬜ schnell |
 | 5 | **vertraege** | Tiefe-Pass + Dok/Signatur mock | ⬜ schnell |
