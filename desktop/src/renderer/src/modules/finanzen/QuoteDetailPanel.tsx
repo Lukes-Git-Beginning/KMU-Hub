@@ -17,6 +17,8 @@ import {
   Download,
   FileCheck,
   ChevronRight,
+  History,
+  Shield,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DetailModal } from '@/components/shared'
@@ -83,6 +85,49 @@ export function QuoteDetailPanel({ quoteId, onClose, onEdit, onConverted, onBack
   const convertedInvoice = convertedNumber
     ? (invoicesData?.invoices ?? []).find((inv) => inv.invoice_number === convertedNumber)
     : undefined
+
+  // GoBD-Änderungsprotokoll — derived from the quote lifecycle.
+  // swap-ready: echter Backend-Audit-Stream ersetzt das später
+  const auditEntries: { action: string; user: string; date: string; detail: string }[] = [
+    {
+      action: t('finanzen.quoteDetail.auditCreated'),
+      user: 'Max Müller',
+      date: quote.created_at,
+      detail: t('finanzen.quoteDetail.auditCreatedDetail', { number: quote.quote_number }),
+    },
+    ...(quote.status !== 'draft'
+      ? [{
+          action: t('finanzen.quoteDetail.auditSent'),
+          user: 'Max Müller',
+          date: quote.created_at,
+          detail: t('finanzen.quoteDetail.auditSentDetail', { email: quote.customer?.name ?? '—' }),
+        }]
+      : []),
+    ...(quote.status === 'accepted'
+      ? [{
+          action: t('finanzen.quoteDetail.auditAccepted'),
+          user: 'Max Müller',
+          date: quote.created_at,
+          detail: t('finanzen.quoteDetail.auditAcceptedDetail'),
+        }]
+      : []),
+    ...(quote.status === 'rejected'
+      ? [{
+          action: t('finanzen.quoteDetail.auditRejected'),
+          user: 'Max Müller',
+          date: quote.created_at,
+          detail: t('finanzen.quoteDetail.auditRejectedDetail'),
+        }]
+      : []),
+    ...(convertedNumber
+      ? [{
+          action: t('finanzen.quoteDetail.auditConverted'),
+          user: 'Max Müller',
+          date: quote.created_at,
+          detail: t('finanzen.quoteDetail.auditConvertedDetail', { number: convertedNumber }),
+        }]
+      : []),
+  ]
 
   const run = (
     mut: { mutate: (id: string, opts: { onSuccess: () => void; onError: (e: Error) => void }) => void },
@@ -215,6 +260,41 @@ export function QuoteDetailPanel({ quoteId, onClose, onEdit, onConverted, onBack
           currency={currency}
           onDownload={() => downloadPDF.mutate(quoteId)}
         />
+
+        {/* GoBD Audit Log — Angebots-Änderungsprotokoll */}
+        <section>
+          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
+            <Shield className="h-3 w-3" />
+            {t('finanzen.invoiceDetail.auditTitle')}
+          </h4>
+          <div className="rounded-md border border-border overflow-hidden">
+            {auditEntries.map((entry, idx) => (
+              <div
+                key={idx}
+                className={`flex items-start gap-2 px-3 py-2 text-xs ${
+                  idx > 0 ? 'border-t border-border-muted' : ''
+                }`}
+              >
+                <History className="h-3 w-3 text-muted-foreground mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-foreground">{entry.action}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {formatDate(entry.date)}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {entry.user} — {entry.detail}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-1 text-[9px] text-muted-foreground flex items-center gap-1">
+            <Shield className="h-2.5 w-2.5" />
+            {t('finanzen.invoiceDetail.gobdCompliance')}
+          </p>
+        </section>
 
         {/* Kundenkonto — alle Belege des Kunden + CRM-Sprung */}
         <CustomerAccountSection customer={quote.customer} currentDocId={quote.id} />

@@ -158,7 +158,7 @@ export function InvoiceDetailPanel({
           action: t('finanzen.invoiceDetail.auditSent'),
           user: 'Max Müller',
           date: invoice.invoice_date,
-          detail: t('finanzen.invoiceDetail.auditSentDetail', { email: invoice.customer.email }),
+          detail: t('finanzen.invoiceDetail.auditSentDetail', { email: invoice.customer.name }),
         }]
       : []),
     ...(invoice.status === 'cancelled'

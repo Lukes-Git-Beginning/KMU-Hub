@@ -9,11 +9,12 @@ import {
   FileText,
   Calendar,
   Clock,
-  CheckCircle2,
   Link2,
   Send,
   Download,
   ChevronRight,
+  History,
+  Shield,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DetailModal } from '@/components/shared'
@@ -55,6 +56,35 @@ export function CreditNoteDetailPanel({ creditNoteId, onClose, onBack }: CreditN
   const currency = cn.currency ?? 'EUR'
   const money = (v: number | string) => formatMoney(v, currency)
   const isSent = cn.status === 'sent'
+
+  // GoBD-Änderungsprotokoll — derived from the credit note lifecycle.
+  // swap-ready: echter Backend-Audit-Stream ersetzt das später
+  const auditEntries: { action: string; user: string; date: string; detail: string }[] = [
+    {
+      action: t('finanzen.creditNoteDetail.auditCreated'),
+      user: 'Max Müller',
+      date: cn.created_at,
+      detail: t('finanzen.creditNoteDetail.auditCreatedDetail', { number: cn.credit_note_number }),
+    },
+    ...(cn.is_storno
+      ? [{
+          action: t('finanzen.creditNoteDetail.auditStorno'),
+          user: 'Max Müller',
+          date: cn.created_at,
+          detail: t('finanzen.creditNoteDetail.auditStornoDetail', {
+            invoice: cn.invoice_number ?? '—',
+          }),
+        }]
+      : []),
+    ...(isSent
+      ? [{
+          action: t('finanzen.creditNoteDetail.auditSent'),
+          user: 'Max Müller',
+          date: cn.created_at,
+          detail: t('finanzen.creditNoteDetail.auditSentDetail', { email: cn.customer?.name ?? '—' }),
+        }]
+      : []),
+  ]
 
   return (
     <DetailModal open={true} title={t('finanzen.creditNoteDetail.title')} onClose={onClose} onBack={onBack}>
@@ -168,6 +198,51 @@ export function CreditNoteDetailPanel({ creditNoteId, onClose, onBack }: CreditN
           currency={currency}
           onDownload={() => downloadPDF.mutate(creditNoteId)}
         />
+
+        {/* Notes */}
+        {cn.reason && (
+          <section>
+            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+              {t('finanzen.creditNoteDetail.reason')}
+            </h4>
+            <p className="text-xs text-muted-foreground">{cn.reason}</p>
+          </section>
+        )}
+
+        {/* GoBD Audit Log — Gutschrift-Änderungsprotokoll */}
+        <section>
+          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
+            <Shield className="h-3 w-3" />
+            {t('finanzen.invoiceDetail.auditTitle')}
+          </h4>
+          <div className="rounded-md border border-border overflow-hidden">
+            {auditEntries.map((entry, idx) => (
+              <div
+                key={idx}
+                className={`flex items-start gap-2 px-3 py-2 text-xs ${
+                  idx > 0 ? 'border-t border-border-muted' : ''
+                }`}
+              >
+                <History className="h-3 w-3 text-muted-foreground mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-foreground">{entry.action}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {formatDate(entry.date)}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {entry.user} — {entry.detail}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-1 text-[9px] text-muted-foreground flex items-center gap-1">
+            <Shield className="h-2.5 w-2.5" />
+            {t('finanzen.invoiceDetail.gobdCompliance')}
+          </p>
+        </section>
 
         {/* Kundenkonto — alle Belege des Kunden + CRM-Sprung */}
         <CustomerAccountSection customer={cn.customer} currentDocId={cn.id} />

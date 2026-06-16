@@ -5,7 +5,7 @@
  * Notizen + Aktionen (jetzt generieren/pausieren/bearbeiten). Nutzt shared `DetailPanel`.
  */
 import { useTranslation } from 'react-i18next'
-import { Repeat, CalendarClock, User, Hash, Play, Pause, Zap, FileText, ChevronRight } from 'lucide-react'
+import { Repeat, CalendarClock, User, Hash, Play, Pause, Zap, FileText, ChevronRight, History, Calendar } from 'lucide-react'
 import { toast } from 'sonner'
 import { DetailModal } from '@/components/shared'
 import { Button } from '@/components/ui/button'
@@ -73,6 +73,34 @@ export function RecurringDetailPanel({ recurring: r, onClose, onEdit }: Recurrin
     { icon: CalendarClock, label: t('finanzen.recurring.nextRun'), value: r.status === 'ended' ? '–' : formatDate(r.next_run) },
     { icon: User, label: t('finanzen.customer'), value: r.customer?.name ?? '' },
     { icon: Hash, label: t('finanzen.recurring.generatedLabel'), value: String(r.generated_count ?? 0) },
+    { icon: Calendar, label: t('finanzen.recurringDetail.endDate'), value: r.end_date ? formatDate(r.end_date) : t('finanzen.recurringDetail.noEndDate') },
+  ]
+
+  // GoBD-Verlauf — swap-ready: ein echtes Audit-Event-Stream würde diesen Block ersetzen.
+  const auditEntries: { action: string; date: string; detail: string }[] = [
+    {
+      action: t('finanzen.recurringDetail.historyCreated'),
+      date: r.start_date || new Date().toISOString().split('T')[0],
+      detail: t('finanzen.recurringDetail.historyCreatedDetail', {
+        title: r.title,
+        interval: t(`finanzen.recurring.intervals.${r.interval}`),
+        date: formatDate(r.start_date),
+      }),
+    },
+    ...(r.status === 'paused'
+      ? [{
+          action: t('finanzen.recurringDetail.historyPaused'),
+          date: new Date().toISOString().split('T')[0],
+          detail: t('finanzen.recurringDetail.historyPausedDetail'),
+        }]
+      : []),
+    ...((r.generated_count ?? 0) > 0
+      ? [{
+          action: t('finanzen.recurringDetail.historyGeneratedCount', { count: r.generated_count ?? 0 }),
+          date: generatedInvoices[0]?.invoice_date || new Date().toISOString().split('T')[0],
+          detail: t('finanzen.recurringDetail.historyGeneratedDetail'),
+        }]
+      : []),
   ]
 
   return (
@@ -191,6 +219,31 @@ export function RecurringDetailPanel({ recurring: r, onClose, onEdit }: Recurrin
 
         {/* Kundenkonto — alle Belege des Kunden + CRM-Sprung */}
         {r.customer && <CustomerAccountSection customer={r.customer} />}
+
+        {/* GoBD-Verlauf — swap-ready: ein echtes Audit-Event-Stream würde diesen Block ersetzen. */}
+        <section>
+          <h4 className="mb-2 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <History className="h-3 w-3" />
+            {t('finanzen.recurringDetail.historyTitle')}
+          </h4>
+          <div className="overflow-hidden rounded-md border border-border">
+            {auditEntries.map((entry, idx) => (
+              <div
+                key={idx}
+                className={`flex items-start gap-2 px-3 py-2 text-xs ${idx > 0 ? 'border-t border-border-muted' : ''}`}
+              >
+                <History className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-foreground">{entry.action}</span>
+                    <span className="text-[10px] text-muted-foreground">{formatDate(entry.date)}</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">{entry.detail}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
 
         {/* Notes */}
         {r.notes && (

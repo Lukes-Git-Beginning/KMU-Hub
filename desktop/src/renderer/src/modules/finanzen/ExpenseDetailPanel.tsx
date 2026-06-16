@@ -7,7 +7,7 @@
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Calendar, Tag, Building2, FolderOpen, BookOpen, Paperclip, CheckCircle2, XCircle } from 'lucide-react'
+import { Calendar, Tag, Building2, FolderOpen, BookOpen, Paperclip, CheckCircle2, XCircle, History } from 'lucide-react'
 import { toast } from 'sonner'
 import { DetailModal } from '@/components/shared'
 import { Button } from '@/components/ui/button'
@@ -25,7 +25,7 @@ interface ExpenseDetailPanelProps {
 }
 
 export function ExpenseDetailPanel({ expense, onClose, onEdit }: ExpenseDetailPanelProps) {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const framework = useFinanceTenantStore((s) => s.chartFramework)
   const { data: allExpenses = [] } = useExpenses()
   const approve = useApproveExpense()
@@ -52,14 +52,37 @@ export function ExpenseDetailPanel({ expense, onClose, onEdit }: ExpenseDetailPa
   }
 
   const info: { icon: typeof Calendar; label: string; value: string }[] = [
-    { icon: Calendar, label: t('buchhaltung.table.date', { defaultValue: 'Datum' }), value: new Date(expense.date).toLocaleDateString(i18n.language) },
+    { icon: Calendar, label: t('buchhaltung.table.date', { defaultValue: 'Datum' }), value: formatDate(expense.date) },
     { icon: Tag, label: t('buchhaltung.table.category'), value: t(`buchhaltung.categories.${expense.category}`, { defaultValue: expense.category }) },
     { icon: Building2, label: t('buchhaltung.table.supplier'), value: expense.supplier || '–' },
-    { icon: BookOpen, label: t('buchhaltung.form.account'), value: expense.account ? formatAccount(expense.account, framework) : t('buchhaltung.table.uncategorized') },
+    { icon: BookOpen, label: t('buchhaltung.expenseDetail.accountSection'), value: expense.account ? formatAccount(expense.account, framework) : t('buchhaltung.table.uncategorized') },
   ]
   if (expense.project) {
-    info.push({ icon: FolderOpen, label: t('buchhaltung.form.project'), value: expense.project })
+    info.push({ icon: FolderOpen, label: t('buchhaltung.expenseDetail.projectSection'), value: expense.project })
   }
+
+  // Verlauf/Audit — swap-ready: ein echtes Audit-Event-Stream würde diesen Block ersetzen.
+  const auditEntries: { action: string; date: string; detail: string }[] = [
+    {
+      action: t('buchhaltung.expenseDetail.historyCreated'),
+      date: expense.date,
+      detail: t('buchhaltung.expenseDetail.historyCreatedDetail', { amount: formatCurrency(expense.amount) }),
+    },
+    ...(expense.status === 'approved'
+      ? [{
+          action: t('buchhaltung.expenseDetail.historyApproved'),
+          date: expense.date,
+          detail: t('buchhaltung.expenseDetail.historyApprovedDetail'),
+        }]
+      : []),
+    ...(expense.status === 'rejected'
+      ? [{
+          action: t('buchhaltung.expenseDetail.historyRejected'),
+          date: expense.date,
+          detail: t('buchhaltung.expenseDetail.historyRejectedDetail'),
+        }]
+      : []),
+  ]
 
   return (
     <DetailModal open={true} title={t('buchhaltung.expenseDetail.title')} onClose={onClose}>
@@ -134,7 +157,7 @@ export function ExpenseDetailPanel({ expense, onClose, onEdit }: ExpenseDetailPa
                     <span className="flex min-w-0 items-center gap-2">
                       <span className="truncate text-foreground">{e.description}</span>
                       <span className="shrink-0 text-[10px] text-muted-foreground">
-                        {new Date(e.date).toLocaleDateString(i18n.language)}
+                        {formatDate(e.date)}
                       </span>
                     </span>
                     <span className="shrink-0 font-medium tabular-nums text-error">−{formatCurrency(e.amount)}</span>
@@ -144,6 +167,31 @@ export function ExpenseDetailPanel({ expense, onClose, onEdit }: ExpenseDetailPa
             </div>
           </section>
         )}
+
+        {/* Verlauf/Audit — swap-ready: ein echtes Audit-Event-Stream würde diesen Block ersetzen. */}
+        <section>
+          <h4 className="mb-2 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <History className="h-3 w-3" />
+            {t('buchhaltung.expenseDetail.historyTitle')}
+          </h4>
+          <div className="overflow-hidden rounded-md border border-border">
+            {auditEntries.map((entry, idx) => (
+              <div
+                key={idx}
+                className={`flex items-start gap-2 px-3 py-2 text-xs ${idx > 0 ? 'border-t border-border-muted' : ''}`}
+              >
+                <History className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-foreground">{entry.action}</span>
+                    <span className="text-[10px] text-muted-foreground">{formatDate(entry.date)}</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">{entry.detail}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
 
         {/* Actions */}
         <div className="flex flex-wrap gap-2 border-t border-border pt-4">

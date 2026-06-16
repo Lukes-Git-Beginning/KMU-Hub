@@ -5,7 +5,7 @@
  * Referenz. Daten aus der Liste. Nutzt das shared `DetailPanel`.
  */
 import { useTranslation } from 'react-i18next'
-import { ArrowDownRight, ArrowUpRight, Calendar, Tag, Hash, Activity, FileText, ChevronRight } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, Calendar, Tag, Hash, Activity, FileText, ChevronRight, History } from 'lucide-react'
 import { DetailModal } from '@/components/shared'
 import type { Transaction } from '@/stores/finance'
 import { formatCurrency, formatDate } from '@/lib/format'
@@ -19,7 +19,7 @@ interface TransactionDetailPanelProps {
 }
 
 export function TransactionDetailPanel({ transaction: tx, onClose }: TransactionDetailPanelProps) {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const { data: invoicesData } = useInvoices()
   const { data: allTransactions = [] } = useTransactions()
   const nav = useFinanceDetailNavOptional()
@@ -37,12 +37,26 @@ export function TransactionDetailPanel({ transaction: tx, onClose }: Transaction
     .slice(0, 5)
 
   const info: { icon: typeof Calendar; label: string; value: string }[] = [
-    { icon: Calendar, label: t('buchhaltung.table.date', { defaultValue: 'Datum' }), value: new Date(tx.date).toLocaleDateString(i18n.language) },
+    { icon: Calendar, label: t('buchhaltung.table.date', { defaultValue: 'Datum' }), value: formatDate(tx.date) },
     { icon: Tag, label: t('buchhaltung.table.category'), value: tx.category },
     { icon: Activity, label: t('common.status'), value: tx.status === 'completed' ? t('buchhaltung.txStatus.completed') : t('buchhaltung.txStatus.pending') },
   ]
   if (tx.reference) {
     info.push({ icon: Hash, label: t('buchhaltung.transactionDetail.reference'), value: tx.reference })
+  }
+
+  // Buchungshistorie-Eintrag — swap-ready: ein echtes Audit-Event-Stream würde diesen Block ersetzen.
+  const typeLabel = isIncome
+    ? t('buchhaltung.transactionDetail.typeIncome')
+    : t('buchhaltung.transactionDetail.typeExpense')
+
+  const historyEntry = {
+    action: t('buchhaltung.transactionDetail.historyBooked'),
+    date: tx.date,
+    detail: t('buchhaltung.transactionDetail.historyBookedDetail', {
+      type: typeLabel,
+      amount: formatCurrency(Math.abs(tx.amount)),
+    }),
   }
 
   return (
@@ -119,7 +133,7 @@ export function TransactionDetailPanel({ transaction: tx, onClose }: Transaction
                     <span className="flex min-w-0 items-center gap-2">
                       <span className="truncate text-foreground">{x.description}</span>
                       <span className="shrink-0 text-[10px] text-muted-foreground">
-                        {new Date(x.date).toLocaleDateString(i18n.language)}
+                        {formatDate(x.date)}
                       </span>
                     </span>
                     <span className={`shrink-0 font-medium tabular-nums ${inc ? 'text-success' : 'text-error'}`}>
@@ -131,6 +145,26 @@ export function TransactionDetailPanel({ transaction: tx, onClose }: Transaction
             </div>
           </section>
         )}
+
+        {/* Buchungshistorie — swap-ready: ein echtes Audit-Event-Stream würde diesen Block ersetzen. */}
+        <section>
+          <h4 className="mb-2 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <History className="h-3 w-3" />
+            {t('buchhaltung.transactionDetail.historyTitle')}
+          </h4>
+          <div className="overflow-hidden rounded-md border border-border">
+            <div className="flex items-start gap-2 px-3 py-2 text-xs">
+              <History className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-foreground">{historyEntry.action}</span>
+                  <span className="text-[10px] text-muted-foreground">{formatDate(historyEntry.date)}</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">{historyEntry.detail}</p>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
     </DetailModal>
   )
