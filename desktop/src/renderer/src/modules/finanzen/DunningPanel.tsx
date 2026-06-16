@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Dialog,
@@ -26,11 +26,14 @@ import {
   useDunningConfig,
   useUpdateDunningConfig,
   useDownloadDunningPDF,
+  useInvoices,
 } from '@/api/hooks/useFinance'
 import { formatEUR } from '@/stores/finance'
-import type { DunningRecord, DunningStatus } from '@/types/finance-types'
+import type { DunningRecord, DunningStatus, Invoice } from '@/types/finance-types'
 import { EmptyState, InlineStat } from '@/components/shared'
 import { formatDate } from '@/lib/format'
+import { DunningDetailPanel } from './DunningDetailPanel'
+import { useFinanceDetailNavOptional } from './FinanceDetailNav'
 
 const LEVEL_LABEL_KEYS: Record<number, string> = {
   1: 'finanzen.dunning.level1',
@@ -58,14 +61,21 @@ export function DunningPanel() {
   const [levelFilter, setLevelFilter] = useState<'all' | 1 | 2 | 3>('all')
   const [statusFilter, setStatusFilter] = useState<'all' | DunningStatus>('all')
   const [showConfig, setShowConfig] = useState(false)
+  const [selectedDunningId, setSelectedDunningId] = useState<string | null>(null)
 
   const { data: dunningsData, isLoading } = useDunnings()
+  const { data: invoicesData } = useInvoices()
+  const nav = useFinanceDetailNavOptional()
   const detectDunnings = useDetectDunnings()
   const sendDunning = useSendDunning()
   const escalateDunning = useEscalateDunning()
   const downloadPDF = useDownloadDunningPDF()
 
   const dunnings = dunningsData?.dunnings ?? []
+  const invoiceById = new Map<string, Invoice>(
+    (invoicesData?.invoices ?? []).map((inv) => [inv.id, inv]),
+  )
+  const selectedDunning = dunnings.find((d) => d.id === selectedDunningId)
 
   const filtered = dunnings
     .filter((d) => levelFilter === 'all' || d.level === levelFilter)
@@ -210,12 +220,27 @@ export function DunningPanel() {
           </div>
           {filtered.map((d) => {
             const sc = STATUS_CONFIG[d.status]
+            const inv = invoiceById.get(d.invoice_id)
             return (
               <div
                 key={d.id}
-                className="grid grid-cols-[80px_1fr_100px_140px_100px_80px_160px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors"
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedDunningId(d.id)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedDunningId(d.id) } }}
+                className="grid cursor-pointer grid-cols-[80px_1fr_100px_140px_100px_80px_160px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors focus-visible:bg-secondary/40 focus-visible:outline-none"
               >
-                <span className="text-sm font-mono text-primary">{d.invoice_id.slice(0, 8)}</span>
+                {inv && nav ? (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); nav.open('invoice', d.invoice_id) }}
+                    className="text-left text-sm font-mono text-primary hover:underline"
+                  >
+                    {inv.invoice_number}
+                  </button>
+                ) : (
+                  <span className="text-sm font-mono text-primary">{inv?.invoice_number ?? d.invoice_id.slice(0, 8)}</span>
+                )}
                 {/* Level with visual indicator */}
                 <div className="flex flex-col gap-1">
                   <span
@@ -262,7 +287,7 @@ export function DunningPanel() {
                 >
                   {t(sc.labelKey)}
                 </span>
-                <div className="flex items-center justify-end gap-1.5">
+                <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                   {d.status === 'draft' && (
                     <button
                       onClick={() => handleSend(d)}
@@ -298,6 +323,15 @@ export function DunningPanel() {
         </div>
       )}
 
+      {/* Mahn-Detail-Modal */}
+      {selectedDunning && (
+        <DunningDetailPanel
+          dunning={selectedDunning}
+          invoice={invoiceById.get(selectedDunning.invoice_id)}
+          onClose={() => setSelectedDunningId(null)}
+        />
+      )}
+
       {/* Dunning Config Dialog */}
       <DunningConfigDialog open={showConfig} onOpenChange={setShowConfig} />
     </div>
@@ -319,24 +353,23 @@ function DunningConfigDialog({
   const { data: config } = useDunningConfig()
   const updateConfig = useUpdateDunningConfig()
 
-  const [l1Days, setL1Days] = useState('14')
-  const [l2Days, setL2Days] = useState('14')
+  const [l1Days, setL1Days] = useState('7')
+  const [l2Days, setL2Days] = useState('7')
   const [l3Days, setL3Days] = useState('14')
-  const [l1Fee, setL1Fee] = useState('0')
-  const [l2Fee, setL2Fee] = useState('5')
-  const [l3Fee, setL3Fee] = useState('10')
+  const [l1Fee, setL1Fee] = useState('0.00')
+  const [l2Fee, setL2Fee] = useState('5.00')
+  const [l3Fee, setL3Fee] = useState('10.00')
 
-  // Populate from config when available
-  useState(() => {
-    if (config) {
-      setL1Days(String(config.level1_days_after_due))
-      setL2Days(String(config.level2_days_after_level1))
-      setL3Days(String(config.level3_days_after_level2))
-      setL1Fee(config.level1_fee)
-      setL2Fee(config.level2_fee)
-      setL3Fee(config.level3_fee)
-    }
-  })
+  // Populate from config once it loads (and whenever it changes).
+  useEffect(() => {
+    if (!config) return
+    setL1Days(String(config.level1_days_after_due))
+    setL2Days(String(config.level2_days_after_level1))
+    setL3Days(String(config.level3_days_after_level2))
+    setL1Fee(config.level1_fee)
+    setL2Fee(config.level2_fee)
+    setL3Fee(config.level3_fee)
+  }, [config])
 
   const handleSave = () => {
     updateConfig.mutate(

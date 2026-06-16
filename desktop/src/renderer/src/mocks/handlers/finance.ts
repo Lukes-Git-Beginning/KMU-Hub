@@ -11,6 +11,7 @@ import { mockRecurringInvoices, advanceByInterval } from '../data/finance-recurr
 import { mockExpenses, mockTransactions } from '../data/finance-ledger'
 import { buildSimplePdf, type PdfLine } from '@/modules/finanzen/lib/mini-pdf'
 import { buildDatevCsv } from '@/modules/finanzen/lib/finance-export'
+import type { Payment, DunningRecord, DunningStatus, DunningConfig } from '@/types/finance-types'
 
 const API = API_BASE_URL
 
@@ -148,6 +149,84 @@ function pdfResponse(bytes: Uint8Array, filename: string): Response {
   return new HttpResponse(bytes, {
     headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${filename}"` },
   })
+}
+
+// ---------------------------------------------------------------------------
+// Stateful demo stores: payments + dunnings (finanzen P2.5d).
+// Session-persistent (in-memory), reset on reload — same pattern as the
+// invoice/quote mutations above.
+// ---------------------------------------------------------------------------
+
+const todayStr = () => new Date().toISOString().split('T')[0]
+const grossOf = (inv: Record<string, unknown>) =>
+  Number((inv.tax_breakdown as { gross_total?: string })?.gross_total ?? inv.total_gross ?? 0)
+
+/** invoiceId -> recorded payments. */
+const paymentsStore: Record<string, Payment[]> = {}
+
+/** Mutable dunning config in the flat shape the UI expects. */
+let dunningConfig: DunningConfig = {
+  level1_days_after_due: 7,
+  level2_days_after_level1: 7,
+  level3_days_after_level2: 14,
+  level1_fee: '0.00',
+  level2_fee: '5.00',
+  level3_fee: '10.00',
+}
+
+const feeForLevel = (level: number) =>
+  level === 1 ? dunningConfig.level1_fee : level === 2 ? dunningConfig.level2_fee : dunningConfig.level3_fee
+
+/** Plausible Verzugszinsen for the demo: 0.5% of gross per dunning level. */
+const interestFor = (gross: number, level: number) => (gross * 0.005 * level).toFixed(2)
+
+let dunningSeq = 0
+function makeDunning(invoice: Record<string, unknown>, level: 1 | 2 | 3, status: DunningStatus): DunningRecord {
+  dunningSeq += 1
+  return {
+    id: `dun-${dunningSeq}`,
+    invoice_id: String(invoice.id),
+    level,
+    status,
+    fee: feeForLevel(level),
+    interest: interestFor(grossOf(invoice), level),
+    sent_at: status === 'sent' ? todayStr() : undefined,
+    created_at: todayStr(),
+  }
+}
+
+const paidTotal = (invoiceId: string) =>
+  (paymentsStore[invoiceId] ?? []).reduce((s, p) => s + Number(p.amount), 0)
+
+/** Overdue = issued (sent/overdue), past due date, not fully paid. */
+function isOverdue(inv: Record<string, unknown>): boolean {
+  if (inv.status !== 'sent' && inv.status !== 'overdue') return false
+  const due = inv.due_date as string | undefined
+  return !!due && due < todayStr() && paidTotal(String(inv.id)) < grossOf(inv)
+}
+
+// Seed payments for already-paid invoices so the payment history is populated.
+for (const inv of mockInvoices.invoices as Record<string, unknown>[]) {
+  if (inv.status === 'paid') {
+    paymentsStore[String(inv.id)] = [
+      {
+        id: `pay-seed-${inv.id}`,
+        invoice_id: String(inv.id),
+        amount: grossOf(inv).toFixed(2),
+        payment_date: (inv.due_date as string) ?? todayStr(),
+        method: 'bank_transfer',
+        reference: `SEPA-${String(inv.invoice_number ?? '').replace(/\D/g, '')}`,
+      },
+    ]
+  }
+}
+
+// Seed a few dunnings for currently-overdue invoices so the panel shows data.
+const dunningsStore: DunningRecord[] = []
+for (const inv of mockInvoices.invoices as Record<string, unknown>[]) {
+  if (dunningsStore.length >= 3 || !isOverdue(inv)) continue
+  const first = dunningsStore.length === 0
+  dunningsStore.push(makeDunning(inv, first ? 2 : 1, first ? 'sent' : 'draft'))
 }
 
 export const financeHandlers = [
@@ -305,9 +384,45 @@ export const financeHandlers = [
     return HttpResponse.json({ invoice: existing })
   }),
 
-  // Invoice payments list
-  http.get(`${API}/api/v1/finance/invoices/:id/payments`, () => {
-    return HttpResponse.json({ payments: [], total: 0 })
+  // Invoice payments list — stateful (P2.5d)
+  http.get(`${API}/api/v1/finance/invoices/:id/payments`, ({ params }) => {
+    const list = paymentsStore[String(params.id)] ?? []
+    return HttpResponse.json({ payments: list, total: list.length })
+  }),
+
+  // Record a payment — stateful. Marks the invoice paid once fully covered and
+  // settles any open dunnings for it.
+  http.post(`${API}/api/v1/finance/invoices/:id/payments`, async ({ params, request }) => {
+    const invoiceId = String(params.id)
+    const invoice = mockInvoices.invoices.find((i) => i.id === invoiceId) as Record<string, unknown> | undefined
+    if (!invoice) return HttpResponse.json({ error: 'Invoice not found' }, { status: 404 })
+    const body = (await request.json()) as Record<string, unknown>
+    const payment: Payment = {
+      id: `pay-${Date.now()}`,
+      invoice_id: invoiceId,
+      amount: String(body.amount ?? '0'),
+      payment_date: (body.payment_date as string) || todayStr(),
+      method: (body.method as Payment['method']) ?? 'bank_transfer',
+      reference: (body.reference as string) || undefined,
+      notes: (body.notes as string) || undefined,
+    }
+    paymentsStore[invoiceId] = [...(paymentsStore[invoiceId] ?? []), payment]
+    // Fully covered → mark paid + settle open dunnings.
+    if (paidTotal(invoiceId) >= grossOf(invoice) - 0.005) {
+      invoice.status = 'paid'
+      for (const d of dunningsStore) {
+        if (d.invoice_id === invoiceId && d.status !== 'paid') d.status = 'paid'
+      }
+    }
+    return HttpResponse.json({ payment }, { status: 201 })
+  }),
+
+  // Delete a payment — stateful
+  http.delete(`${API}/api/v1/finance/payments/:id`, ({ params }) => {
+    for (const key of Object.keys(paymentsStore)) {
+      paymentsStore[key] = (paymentsStore[key] ?? []).filter((p) => p.id !== String(params.id))
+    }
+    return HttpResponse.json({})
   }),
 
   // ---- Quotes ----
@@ -524,25 +639,88 @@ export const financeHandlers = [
     return HttpResponse.json(mockFinanceSettings)
   }),
 
-  // ---- Dunning ----
+  // ---- Dunning (finanzen P2.5d) — stateful ----
 
-  // Dunning list (empty)
-  http.get(`${API}/api/v1/finance/dunnings`, () => {
-    return HttpResponse.json({ dunnings: [], total: 0 })
+  // Dunning list — supports invoice_id / level / status filters.
+  http.get(`${API}/api/v1/finance/dunnings`, ({ request }) => {
+    const url = new URL(request.url)
+    const invoiceId = url.searchParams.get('invoice_id')
+    const level = url.searchParams.get('level')
+    const status = url.searchParams.get('status')
+    let list = [...dunningsStore]
+    if (invoiceId) list = list.filter((d) => d.invoice_id === invoiceId)
+    if (level) list = list.filter((d) => d.level === Number(level))
+    if (status) list = list.filter((d) => d.status === status)
+    return HttpResponse.json({ dunnings: list, total: list.length })
   }),
 
-  // Dunning config
+  // Detect overdue invoices and create level-1 dunnings for those without one.
+  http.post(`${API}/api/v1/finance/dunnings/detect`, () => {
+    const created: DunningRecord[] = []
+    for (const inv of mockInvoices.invoices as Record<string, unknown>[]) {
+      if (!isOverdue(inv)) continue
+      const has = dunningsStore.some((d) => d.invoice_id === String(inv.id) && d.status !== 'paid')
+      if (has) continue
+      const d = makeDunning(inv, 1, 'draft')
+      dunningsStore.unshift(d)
+      created.push(d)
+    }
+    return HttpResponse.json({ dunnings: created })
+  }),
+
+  // Send a dunning — stateful
+  http.post(`${API}/api/v1/finance/dunnings/:id/send`, ({ params }) => {
+    const d = dunningsStore.find((x) => x.id === params.id)
+    if (!d) return HttpResponse.json({ error: 'Dunning not found' }, { status: 404 })
+    d.status = 'sent'
+    d.sent_at = todayStr()
+    return HttpResponse.json({ dunning: d })
+  }),
+
+  // Escalate a dunning to the next level — recomputes fee + interest.
+  http.post(`${API}/api/v1/finance/dunnings/:id/escalate`, ({ params }) => {
+    const d = dunningsStore.find((x) => x.id === params.id)
+    if (!d) return HttpResponse.json({ error: 'Dunning not found' }, { status: 404 })
+    if (d.level < 3) {
+      d.level = (d.level + 1) as 1 | 2 | 3
+      const inv = mockInvoices.invoices.find((i) => i.id === d.invoice_id) as Record<string, unknown> | undefined
+      d.fee = feeForLevel(d.level)
+      d.interest = interestFor(inv ? grossOf(inv) : 0, d.level)
+      d.status = 'draft'
+      d.sent_at = undefined
+    }
+    return HttpResponse.json({ dunning: d })
+  }),
+
+  // Dunning PDF — real downloadable file
+  http.get(`${API}/api/v1/finance/dunnings/:id/pdf`, ({ params }) => {
+    const d = dunningsStore.find((x) => x.id === params.id)
+    if (!d) return HttpResponse.json({ error: 'Dunning not found' }, { status: 404 })
+    const inv = mockInvoices.invoices.find((i) => i.id === d.invoice_id) as Record<string, unknown> | undefined
+    const fmt = (v: unknown) => `${Number(v ?? 0).toLocaleString('de-DE', { minimumFractionDigits: 2 })} EUR`
+    const lines: PdfLine[] = [
+      { text: 'Zentria GmbH · Cosmi', size: 9 },
+      { text: `${d.level}. Mahnung`, size: 20, gap: 6 },
+      { text: `Rechnung: ${inv?.invoice_number ?? d.invoice_id}`, gap: 4 },
+      { text: `Kunde: ${(inv?.customer as { name?: string })?.name ?? ''}`, gap: 8 },
+      { text: `Offener Betrag: ${fmt(inv ? grossOf(inv) : 0)}`, size: 11 },
+      { text: `Mahngebühr: ${fmt(d.fee)}`, size: 11 },
+      { text: `Verzugszinsen: ${fmt(d.interest)}`, size: 11, gap: 6 },
+      { text: 'Demo-Beleg (Cosmi) — finales Mahnschreiben folgt.', size: 8 },
+    ]
+    return pdfResponse(buildSimplePdf(lines), `Mahnung-${inv?.invoice_number ?? d.invoice_id}.pdf`)
+  }),
+
+  // Dunning config — flat shape the UI expects (P2.5d fix).
   http.get(`${API}/api/v1/finance/dunning-config`, () => {
-    return HttpResponse.json({
-      config: {
-        enabled: true,
-        levels: [
-          { level: 1, days_after_due: 7, fee: 0, template: 'Zahlungserinnerung' },
-          { level: 2, days_after_due: 14, fee: 5.0, template: '1. Mahnung' },
-          { level: 3, days_after_due: 28, fee: 10.0, template: '2. Mahnung' },
-        ],
-      },
-    })
+    return HttpResponse.json({ config: dunningConfig })
+  }),
+
+  // Update dunning config — stateful
+  http.put(`${API}/api/v1/finance/dunning-config`, async ({ request }) => {
+    const body = (await request.json()) as Partial<DunningConfig>
+    dunningConfig = { ...dunningConfig, ...body }
+    return HttpResponse.json({ config: dunningConfig })
   }),
 
   // ---- Recurring invoices (finanzen P1) ----
