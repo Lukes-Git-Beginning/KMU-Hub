@@ -1,17 +1,21 @@
 /**
- * HoursToInvoiceDialog (Work module) — Convert project time entries to invoice.
+ * HoursToInvoiceDialog (Work module) — Convert project time entries to a real
+ * draft invoice.
  *
- * Shows a table of time entries for the current project with editable hourly
- * rates. User can select entries and generate an invoice (placeholder toast).
- * Mock data for design — backend swap: real time entries from Zeiterfassung API.
+ * Tracked hours come from MSW (GET /projects/:id/time-entries?billed=false via
+ * useProjectTimeEntries). Selecting entries and confirming creates a *draft*
+ * invoice through useCreateInvoice — it appears in finanzen → Rechnungen for
+ * the bookkeeping team to review. This is the "work generates the deliverable
+ * → bill it → draft goes to accounting" flow.
  */
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Clock,
   FileText,
   Check,
   Calculator,
+  Loader2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatCurrency } from '@/lib'
@@ -23,37 +27,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface TimeEntry {
-  id: string
-  date: string
-  task: string
-  person: string
-  hours: number
-  description: string
-}
-
-// ---------------------------------------------------------------------------
-// Mock data
-// ---------------------------------------------------------------------------
-
-// TODO: Replace with useProjectTimeEntries(projectId, { billed: false }) hook
-// Current API only supports useTimeEntries(taskId) — need project-level endpoint
-// Backend ticket needed: GET /api/v1/projects/{id}/time-entries?billed=false
-const MOCK_TIME_ENTRIES: TimeEntry[] = [
-  { id: 'te-w1', date: '2026-02-20', task: 'Frontend-Entwicklung', person: 'Anna Müller', hours: 6.0, description: 'React-Komponenten implementiert' },
-  { id: 'te-w2', date: '2026-02-20', task: 'Design-Review', person: 'Anna Müller', hours: 1.5, description: 'Figma-Prototyp reviewt' },
-  { id: 'te-w3', date: '2026-02-19', task: 'API-Endpoints', person: 'Thomas Fischer', hours: 5.0, description: 'REST-Endpoints aufgebaut' },
-  { id: 'te-w4', date: '2026-02-19', task: 'Testing', person: 'Thomas Fischer', hours: 2.5, description: 'Integration Tests geschrieben' },
-  { id: 'te-w5', date: '2026-02-18', task: 'Deployment', person: 'Max Schmidt', hours: 3.0, description: 'CI/CD Pipeline eingerichtet' },
-  { id: 'te-w6', date: '2026-02-18', task: 'Datenbank-Migration', person: 'Thomas Fischer', hours: 4.0, description: 'PostgreSQL Migrations' },
-  { id: 'te-w7', date: '2026-02-17', task: 'UI-Polishing', person: 'Sara Weber', hours: 5.5, description: 'Feinschliff + Animationen' },
-  { id: 'te-w8', date: '2026-02-17', task: 'Performance', person: 'Anna Müller', hours: 2.0, description: 'Lighthouse-Optimierung' },
-]
+import { useProjectTimeEntries } from '@/api/hooks/useProjects'
+import { useCreateInvoice } from '@/api/hooks/useFinance'
 
 const DEFAULT_HOURLY_RATE = 120
 
@@ -64,6 +39,7 @@ const DEFAULT_HOURLY_RATE = 120
 interface HoursToInvoiceDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  projectId: string
   projectName?: string
 }
 
@@ -74,19 +50,25 @@ interface HoursToInvoiceDialogProps {
 export default function HoursToInvoiceDialog({
   open,
   onOpenChange,
+  projectId,
   projectName,
 }: HoursToInvoiceDialogProps) {
   const { t } = useTranslation()
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(
-    () => new Set(MOCK_TIME_ENTRIES.map((e) => e.id))
-  )
-  const [rates, setRates] = useState<Record<string, number>>(() => {
-    const map: Record<string, number> = {}
-    for (const entry of MOCK_TIME_ENTRIES) {
-      map[entry.id] = DEFAULT_HOURLY_RATE
-    }
-    return map
-  })
+  const { data: entries = [], isLoading } = useProjectTimeEntries(projectId, false)
+  const createInvoice = useCreateInvoice()
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [rates, setRates] = useState<Record<string, number>>({})
+  const [customerName, setCustomerName] = useState('')
+
+  // On open: preselect all unbilled entries and prefill the customer with the
+  // project name (editable). Keyed on open + entry identity so reopening resets.
+  useEffect(() => {
+    if (!open) return
+    setSelectedIds(new Set(entries.map((e) => e.id)))
+    setCustomerName((prev) => prev || projectName || '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only on open / data arrival
+  }, [open, entries.length])
 
   const toggleEntry = (id: string) => {
     setSelectedIds((prev) => {
@@ -98,10 +80,10 @@ export default function HoursToInvoiceDialog({
   }
 
   const toggleAll = () => {
-    if (selectedIds.size === MOCK_TIME_ENTRIES.length) {
+    if (selectedIds.size === entries.length) {
       setSelectedIds(new Set())
     } else {
-      setSelectedIds(new Set(MOCK_TIME_ENTRIES.map((e) => e.id)))
+      setSelectedIds(new Set(entries.map((e) => e.id)))
     }
   }
 
@@ -112,10 +94,9 @@ export default function HoursToInvoiceDialog({
     }
   }
 
-  // Selected entries with computed totals
   const selectedEntries = useMemo(
-    () => MOCK_TIME_ENTRIES.filter((e) => selectedIds.has(e.id)),
-    [selectedIds]
+    () => entries.filter((e) => selectedIds.has(e.id)),
+    [entries, selectedIds]
   )
 
   const totalHours = useMemo(
@@ -133,10 +114,39 @@ export default function HoursToInvoiceDialog({
   )
 
   const handleCreateInvoice = () => {
-    toast.success(t('work.invoice.creating'), {
-      description: `${selectedEntries.length} Positionen, ${formatCurrency(totalAmount)}`,
-    })
-    onOpenChange(false)
+    const invoiceDate = new Date().toISOString().split('T')[0]
+    createInvoice.mutate(
+      {
+        customer: {
+          name: customerName.trim() || projectName || '',
+          address: '',
+          email: '',
+        },
+        tax_mode: 'standard',
+        currency: 'EUR',
+        invoice_date: invoiceDate,
+        payment_terms_days: 30,
+        notes: t('work.hoursInvoice.note', { project: projectName ?? '' }),
+        line_items: selectedEntries.map((e, i) => ({
+          position: i + 1,
+          description: e.description ? `${e.task} — ${e.description}` : e.task,
+          quantity: e.hours.toFixed(2),
+          unit_price: String(rates[e.id] ?? DEFAULT_HOURLY_RATE),
+          tax_rate: '19',
+        })),
+      },
+      {
+        onSuccess: (data) => {
+          toast.success(
+            t('work.hoursInvoice.created', {
+              number: data.invoice?.invoice_number ?? '',
+            })
+          )
+          onOpenChange(false)
+        },
+        onError: () => toast.error(t('work.hoursInvoice.createError')),
+      }
+    )
   }
 
   return (
@@ -155,22 +165,38 @@ export default function HoursToInvoiceDialog({
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Customer for the generated draft invoice */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground shrink-0">
+              {t('work.hoursInvoice.customer')}:
+            </span>
+            <input
+              type="text"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder={t('work.hoursInvoice.customerPlaceholder')}
+              className="flex-1 rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm text-foreground outline-none placeholder:text-input-placeholder focus:border-primary"
+            />
+          </div>
+
           {/* Select all toggle */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Calculator className="h-4 w-4" />
               <span>
-                {t('work.invoice.entriesSelected', { selected: selectedIds.size, total: MOCK_TIME_ENTRIES.length })}
+                {t('work.invoice.entriesSelected', { selected: selectedIds.size, total: entries.length })}
               </span>
             </div>
-            <button
-              onClick={toggleAll}
-              className="text-xs text-primary hover:underline"
-            >
-              {selectedIds.size === MOCK_TIME_ENTRIES.length
-                ? t('work.invoice.deselectAll')
-                : t('work.invoice.selectAll')}
-            </button>
+            {entries.length > 0 && (
+              <button
+                onClick={toggleAll}
+                className="text-xs text-primary hover:underline"
+              >
+                {selectedIds.size === entries.length
+                  ? t('work.invoice.deselectAll')
+                  : t('work.invoice.selectAll')}
+              </button>
+            )}
           </div>
 
           {/* Time entries table */}
@@ -187,74 +213,90 @@ export default function HoursToInvoiceDialog({
             </div>
 
             {/* Rows */}
-            {MOCK_TIME_ENTRIES.map((entry) => {
-              const isSelected = selectedIds.has(entry.id)
-              const rate = rates[entry.id] ?? DEFAULT_HOURLY_RATE
-              const lineTotal = entry.hours * rate
+            {isLoading ? (
+              <div className="flex items-center justify-center border-t border-border py-10 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+              </div>
+            ) : entries.length === 0 ? (
+              <div className="border-t border-border py-10 text-center text-xs text-muted-foreground">
+                {t('work.hoursInvoice.emptyHint')}
+              </div>
+            ) : (
+              entries.map((entry) => {
+                const isSelected = selectedIds.has(entry.id)
+                const rate = rates[entry.id] ?? DEFAULT_HOURLY_RATE
+                const lineTotal = entry.hours * rate
 
-              return (
-                <div
-                  key={entry.id}
-                  className={`grid grid-cols-[28px_80px_1fr_110px_70px_80px_90px] gap-2 items-center px-3 py-2 border-t border-border transition-colors cursor-pointer ${
-                    isSelected ? 'bg-primary/5' : 'hover:bg-accent/30'
-                  }`}
-                  onClick={() => toggleEntry(entry.id)}
-                >
-                  {/* Checkbox */}
+                return (
                   <div
-                    className={`flex h-4 w-4 items-center justify-center rounded-sm border transition-colors ${
-                      isSelected
-                        ? 'border-primary bg-primary'
-                        : 'border-border'
+                    key={entry.id}
+                    role="button"
+                    tabIndex={0}
+                    className={`grid grid-cols-[28px_80px_1fr_110px_70px_80px_90px] gap-2 items-center px-3 py-2 border-t border-border transition-colors cursor-pointer focus-visible:outline-none focus-visible:bg-accent/40 ${
+                      isSelected ? 'bg-primary/5' : 'hover:bg-accent/30'
                     }`}
+                    onClick={() => toggleEntry(entry.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        toggleEntry(entry.id)
+                      }
+                    }}
                   >
-                    {isSelected && <Check className="h-3 w-3 text-white" />}
+                    {/* Checkbox */}
+                    <div
+                      className={`flex h-4 w-4 items-center justify-center rounded-sm border transition-colors ${
+                        isSelected ? 'border-primary bg-primary' : 'border-border'
+                      }`}
+                    >
+                      {isSelected && <Check className="h-3 w-3 text-white" />}
+                    </div>
+
+                    {/* Date */}
+                    <span className="text-xs text-muted-foreground">
+                      {formatDate(entry.date)}
+                    </span>
+
+                    {/* Task */}
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-foreground truncate">
+                        {entry.task}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        {entry.description}
+                      </p>
+                    </div>
+
+                    {/* Person */}
+                    <span className="text-xs text-muted-foreground truncate">
+                      {entry.person}
+                    </span>
+
+                    {/* Hours */}
+                    <span className="text-xs text-foreground text-right font-mono">
+                      {entry.hours.toFixed(1)}h
+                    </span>
+
+                    {/* Rate (editable) */}
+                    <div className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="number"
+                        value={rate}
+                        onChange={(e) => updateRate(entry.id, e.target.value)}
+                        className="w-16 rounded border border-border bg-transparent px-1.5 py-0.5 text-xs text-right text-foreground outline-none focus:border-primary"
+                        min={0}
+                        step={5}
+                      />
+                    </div>
+
+                    {/* Line total */}
+                    <span className="text-xs font-medium text-foreground text-right">
+                      {formatCurrency(lineTotal)}
+                    </span>
                   </div>
-
-                  {/* Date */}
-                  <span className="text-xs text-muted-foreground">
-                    {formatDate(entry.date)}
-                  </span>
-
-                  {/* Task */}
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium text-foreground truncate">
-                      {entry.task}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground truncate">
-                      {entry.description}
-                    </p>
-                  </div>
-
-                  {/* Person */}
-                  <span className="text-xs text-muted-foreground truncate">
-                    {entry.person}
-                  </span>
-
-                  {/* Hours */}
-                  <span className="text-xs text-foreground text-right font-mono">
-                    {entry.hours.toFixed(1)}h
-                  </span>
-
-                  {/* Rate (editable) */}
-                  <div className="text-right" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="number"
-                      value={rate}
-                      onChange={(e) => updateRate(entry.id, e.target.value)}
-                      className="w-16 rounded border border-border bg-transparent px-1.5 py-0.5 text-xs text-right text-foreground outline-none focus:border-primary"
-                      min={0}
-                      step={5}
-                    />
-                  </div>
-
-                  {/* Line total */}
-                  <span className="text-xs font-medium text-foreground text-right">
-                    {formatCurrency(lineTotal)}
-                  </span>
-                </div>
-              )
-            })}
+                )
+              })
+            )}
           </div>
 
           {/* Summary row */}
@@ -274,11 +316,15 @@ export default function HoursToInvoiceDialog({
             </div>
             <Button
               size="sm"
-              disabled={selectedIds.size === 0}
+              disabled={selectedIds.size === 0 || !customerName.trim() || createInvoice.isPending}
               onClick={handleCreateInvoice}
               className="gap-1.5"
             >
-              <FileText className="h-3.5 w-3.5" />
+              {createInvoice.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <FileText className="h-3.5 w-3.5" />
+              )}
               {t('work.invoice.createInvoice')}
             </Button>
           </div>

@@ -7,6 +7,7 @@
     "src/renderer/src/api/types.ts",
     "src/renderer/src/api/hooks/useTasks.ts",
     "src/renderer/src/api/hooks/useFinance.ts",
+    "src/renderer/src/api/hooks/useProjects.ts",
     "src/renderer/src/mocks/handlers/work.ts"
   ]
 }

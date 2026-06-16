@@ -8408,6 +8408,8 @@
   "work.myTasks.createFirst": "Aufgabe erstellen",
   "work.myTasks.loadError": "Aufgaben konnten nicht geladen werden",
   "work.myTasks.moveToProject": "In Projekt verschieben",
+  "work.hoursInvoice.emptyHint": "Alle getrackten Stunden dieses Projekts sind bereits abgerechnet.",
+  "work.hoursInvoice.note": "Abrechnung getrackter Stunden — Projekt {project}",
   "work.panel.taskLabel": "Aufgabe",
   "work.hoursInvoice.customerPlaceholder": "Kundenname",
   "work.hoursInvoice.customer": "Kunde",

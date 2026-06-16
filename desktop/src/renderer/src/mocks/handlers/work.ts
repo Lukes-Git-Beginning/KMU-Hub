@@ -213,9 +213,18 @@ const timeEntries: AnyRecord[] = [
     duration_seconds: 5_400,
     description: 'WASI-Preview-2 Evaluation',
     is_manual: true,
+    billed: false,
     created_at: daysAgo(1),
     updated_at: daysAgo(1),
   },
+  // Further unbilled hours across Cosmi v2.0 tasks so the project-level
+  // "Stunden abrechnen" dialog has a realistic list to invoice.
+  { id: 'te-003', task_id: 'tsk-001', user_id: IDS.users.julia, user_name: 'Julia Weber', started_at: daysAgo(3), ended_at: daysAgo(3), duration_seconds: 21_600, description: 'Design-System Komponenten umgesetzt', is_manual: false, billed: false, created_at: daysAgo(3), updated_at: daysAgo(3) },
+  { id: 'te-004', task_id: 'tsk-001', user_id: IDS.users.julia, user_name: 'Julia Weber', started_at: daysAgo(4), ended_at: daysAgo(4), duration_seconds: 9_000, description: 'Storybook-Dokumentation', is_manual: true, billed: false, created_at: daysAgo(4), updated_at: daysAgo(4) },
+  { id: 'te-005', task_id: 'tsk-003', user_id: IDS.users.felix, user_name: 'Felix Schmidt', started_at: daysAgo(4), ended_at: daysAgo(4), duration_seconds: 14_400, description: 'Dashboard-Widget-Grid implementiert', is_manual: false, billed: false, created_at: daysAgo(4), updated_at: daysAgo(4) },
+  { id: 'te-006', task_id: 'tsk-004', user_id: IDS.users.thomas, user_name: 'Thomas Braun', started_at: daysAgo(5), ended_at: daysAgo(5), duration_seconds: 18_000, description: 'REST-Endpoints + Tests', is_manual: false, billed: false, created_at: daysAgo(5), updated_at: daysAgo(5) },
+  { id: 'te-007', task_id: 'tsk-005', user_id: IDS.users.markus, user_name: 'Markus Fischer', started_at: daysAgo(6), ended_at: daysAgo(6), duration_seconds: 12_600, description: 'CI/CD-Pipeline eingerichtet', is_manual: true, billed: false, created_at: daysAgo(6), updated_at: daysAgo(6) },
+  { id: 'te-008', task_id: 'tsk-001', user_id: IDS.users.stefan, user_name: 'Stefan Müller', started_at: daysAgo(8), ended_at: daysAgo(8), duration_seconds: 7_200, description: 'Design-Review (bereits abgerechnet)', is_manual: false, billed: true, created_at: daysAgo(8), updated_at: daysAgo(8) },
 ]
 
 // Active timer (null = none running).
@@ -1042,6 +1051,32 @@ export const workHandlers = [
   }),
 
   // ── Time entries ──────────────────────────────────────────────────────────
+
+  // GET /api/v1/projects/:id/time-entries?billed=false — project-level roll-up
+  // of tracked hours (joined task→project), used by "Stunden abrechnen".
+  http.get(`${API}/api/v1/projects/:id/time-entries`, ({ params, request }) => {
+    const projectId = params.id as string
+    const url = new URL(request.url)
+    const billed = url.searchParams.get('billed') // 'false' | 'true' | null
+    const projectTaskIds = new Set(
+      tasks.filter((t) => t.project_id === projectId).map((t) => t.id),
+    )
+    let entries = timeEntries.filter((e) => projectTaskIds.has(e.task_id))
+    if (billed === 'false') entries = entries.filter((e) => !e.billed)
+    else if (billed === 'true') entries = entries.filter((e) => e.billed)
+    const result = entries.map((e) => {
+      const task = findTask(e.task_id as string)
+      return {
+        id: e.id,
+        date: e.started_at,
+        task: task?.title ?? '—',
+        person: e.user_name,
+        hours: Math.round(((e.duration_seconds as number) / 3600) * 10) / 10,
+        description: e.description,
+      }
+    })
+    return HttpResponse.json({ entries: result })
+  }),
 
   // GET /api/v1/tasks/:id/time-entries
   http.get(`${API}/api/v1/tasks/:id/time-entries`, ({ params, request }) => {

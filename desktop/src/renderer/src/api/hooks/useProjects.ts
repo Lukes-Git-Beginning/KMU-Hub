@@ -6,6 +6,21 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../client'
+import { authenticatedRequest } from '../utils/authenticatedFetch'
+
+// ---------------------------------------------------------------------------
+// Project time entries (roll-up across the project's tasks)
+// ---------------------------------------------------------------------------
+
+/** One tracked-hours row as served by GET /projects/:id/time-entries. */
+export interface ProjectTimeEntry {
+  id: string
+  date: string
+  task: string
+  person: string
+  hours: number
+  description: string
+}
 
 // ---------------------------------------------------------------------------
 // Query params
@@ -435,5 +450,24 @@ export function useCreateFromTemplate() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
     },
+  })
+}
+
+/**
+ * Tracked hours for a project, optionally filtered by billed state.
+ * Backs the "Stunden abrechnen" dialog. Mock-served today; the real endpoint
+ * (Zeiterfassung roll-up) is a backend item.
+ */
+export function useProjectTimeEntries(projectId: string, billed?: boolean) {
+  return useQuery({
+    queryKey: ['projects', projectId, 'time-entries', { billed }],
+    queryFn: () =>
+      authenticatedRequest<{ entries: ProjectTimeEntry[] }>({
+        method: 'GET',
+        path: `/api/v1/projects/${projectId}/time-entries`,
+        params: billed === undefined ? undefined : { billed },
+      }),
+    enabled: !!projectId,
+    select: (data) => data.entries,
   })
 }

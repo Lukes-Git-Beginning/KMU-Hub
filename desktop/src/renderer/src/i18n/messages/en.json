@@ -8408,6 +8408,8 @@
   "work.myTasks.createFirst": "Create task",
   "work.myTasks.loadError": "Tasks could not be loaded",
   "work.myTasks.moveToProject": "Move to project",
+  "work.hoursInvoice.emptyHint": "All tracked hours for this project have already been billed.",
+  "work.hoursInvoice.note": "Billing of tracked hours — project {project}",
   "work.panel.taskLabel": "Task",
   "work.hoursInvoice.customerPlaceholder": "Customer name",
   "work.hoursInvoice.customer": "Customer",

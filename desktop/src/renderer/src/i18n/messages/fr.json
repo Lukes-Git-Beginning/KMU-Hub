@@ -8374,6 +8374,8 @@
   "work.myTasks.createFirst": "Créer une tâche",
   "work.myTasks.loadError": "Impossible de charger les tâches",
   "work.myTasks.moveToProject": "Déplacer vers un projet",
+  "work.hoursInvoice.emptyHint": "Toutes les heures suivies de ce projet sont déjà facturées.",
+  "work.hoursInvoice.note": "Facturation des heures suivies — projet {project}",
   "work.panel.taskLabel": "Tâche",
   "work.hoursInvoice.customerPlaceholder": "Nom du client",
   "work.hoursInvoice.customer": "Client",

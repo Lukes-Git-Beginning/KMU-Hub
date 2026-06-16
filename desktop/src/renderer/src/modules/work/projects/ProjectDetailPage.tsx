@@ -297,6 +297,7 @@ function ProjectBoardView() {
       <HoursToInvoiceDialog
         open={invoiceOpen}
         onOpenChange={setInvoiceOpen}
+        projectId={id ?? ''}
         projectName={project.name}
       />
     </div>
