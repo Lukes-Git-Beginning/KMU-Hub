@@ -141,9 +141,8 @@ Schneller Audit gegen die Tiefe-Vorgabe; die 4 Module sind solange bei Nico in R
 ## Cluster 3 — Finanzen
 
 ### finanzen (= „Buchhaltung") — 🔨 aktiv
-- [x] P1 Faktura-Kette · P2 Ausgaben/Kontierung · **P2.5a** Angebots-/Gutschrift-Detail · **P2.5b** Ausgaben-/Transaktions-/Wiederkehrend-Detail + OP-Liste→Rechnung + Dashboard-Listen
-- [ ] **P2.5c** PDF-Vorschau aus echten Daten + Downloads (PDF/CSV) sichtbar wirksam ◀ als Nächstes
-- [ ] **P2.5d** Mahnwesen verkabeln + Mahn-Detail + Zahlung/Settings speichern 🔒
+- [x] P1 Faktura-Kette · P2 Ausgaben/Kontierung · **P2.5a** Angebots-/Gutschrift-Detail · **P2.5b** Ledger-Detail + OP/Dashboard klickbar · **P2.5c** echte PDF-Vorschau + PDF/CSV-Downloads
+- [ ] **P2.5d** Mahnwesen verkabeln + Mahn-Detail + Zahlung/Settings speichern 🔒 ◀ als Nächstes
 - [ ] **P2.5e** Hardcoded-Mocks→MSW (Banking, Belegkette, Stunden→Rechnung, Audit-Log)
 - [ ] **P3** DATEV-EXTF + Bexio-OAuth + BMD-CSV 🔒
 - [ ] **P4** E-Rechnung (ZUGFeRD/XRechnung) + GoBD-Belegarchiv 🔒 *(Launch-Blocker)*
