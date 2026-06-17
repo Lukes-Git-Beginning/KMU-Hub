@@ -4,25 +4,11 @@
  * Star rating (1-5) with optional comment for resolved/closed tickets.
  * Aggregate display for statistics tab.
  */
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Star, MessageSquare } from 'lucide-react'
 import { toast } from 'sonner'
-
-export interface CSATRating {
-  ticketId: string
-  rating: number
-  comment?: string
-  ratedAt: string
-}
-
-// eslint-disable-next-line react-refresh/only-export-components
-export const MOCK_CSAT_RATINGS: CSATRating[] = [
-  { ticketId: 'tk-6', rating: 5, comment: 'Sehr schnelle Hilfe, danke!', ratedAt: '2026-02-14T14:00:00' },
-  { ticketId: 'tk-9', rating: 4, comment: 'Problem geloest, hat aber etwas gedauert.', ratedAt: '2026-02-13T10:00:00' },
-  { ticketId: 'tk-11', rating: 5, ratedAt: '2026-02-13T12:00:00' },
-  { ticketId: 'tk-13', rating: 3, comment: 'Hat funktioniert, aber Kommunikation war knapp.', ratedAt: '2026-02-14T16:00:00' },
-]
+import { useHelpdeskStore } from '@/stores/helpdesk'
 
 function StarRating({ value, onChange, size = 'md', readOnly }: {
   value: number; onChange?: (r: number) => void; size?: 'sm' | 'md'; readOnly?: boolean
@@ -55,15 +41,18 @@ interface CSATWidgetProps {
 
 export function CSATWidget({ ticketId, ticketStatus }: CSATWidgetProps) {
   const { t } = useTranslation()
-  const existing = MOCK_CSAT_RATINGS.find((r) => r.ticketId === ticketId)
-  const [rating, setRating] = useState(existing?.rating ?? 0)
-  const [comment, setComment] = useState(existing?.comment ?? '')
-  const [submitted, setSubmitted] = useState(!!existing)
+  const ticket = useHelpdeskStore((s) => s.tickets.find((x) => x.id === ticketId))
+  const saveCsat = useHelpdeskStore((s) => s.saveCsat)
+  const hasRating = typeof ticket?.csatRating === 'number'
+  const [rating, setRating] = useState(ticket?.csatRating ?? 0)
+  const [comment, setComment] = useState(ticket?.csatComment ?? '')
+  const [submitted, setSubmitted] = useState(hasRating)
 
   if (ticketStatus !== 'resolved' && ticketStatus !== 'closed') return null
 
   const handleSubmit = () => {
     if (rating === 0) { toast.error(t('helpdesk.csat.selectRating')); return }
+    saveCsat(ticketId, rating, comment.trim() || undefined)
     setSubmitted(true)
     toast.success(t('helpdesk.csat.saved'))
   }
@@ -108,10 +97,14 @@ export function CSATWidget({ ticketId, ticketStatus }: CSATWidgetProps) {
 
 export function CSATAggregate() {
   const { t } = useTranslation()
-  const ratings = MOCK_CSAT_RATINGS
+  const tickets = useHelpdeskStore((s) => s.tickets)
+  const ratings = useMemo(
+    () => tickets.filter((x) => typeof x.csatRating === 'number').map((x) => x.csatRating as number),
+    [tickets],
+  )
   if (ratings.length === 0) return null
-  const avg = ratings.reduce((s, r) => s + r.rating, 0) / ratings.length
-  const dist = [5, 4, 3, 2, 1].map((s) => ({ stars: s, count: ratings.filter((r) => r.rating === s).length }))
+  const avg = ratings.reduce((s, r) => s + r, 0) / ratings.length
+  const dist = [5, 4, 3, 2, 1].map((s) => ({ stars: s, count: ratings.filter((r) => r === s).length }))
 
   return (
     <div className="rounded-lg border border-border bg-card p-4">

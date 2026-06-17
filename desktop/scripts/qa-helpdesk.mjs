@@ -19,8 +19,9 @@ await mkdir(outDir, { recursive: true })
 
 const STUB = `const noop=()=>Promise.resolve();const h={get:(_t,p)=>p==='then'?undefined:new Proxy(noop,h),apply:()=>Promise.resolve()};window.electronAPI=new Proxy(noop,h)`
 const ONB = `try{const K='cosmi-ui';const r=localStorage.getItem(K);const p=r?JSON.parse(r):{state:{},version:0};p.state={...(p.state||{}),onboardingCompleted:true};localStorage.setItem(K,JSON.stringify(p))}catch(e){}`
-// Wipe persisted helpdesk store so each run starts from fresh seed data.
-const WIPE = `try{localStorage.removeItem('cosmi-helpdesk')}catch(e){}`
+// Wipe persisted helpdesk store ONCE per browser context (sessionStorage flag),
+// so a reload inside a persistence test keeps the mutated state.
+const WIPE = `try{if(!sessionStorage.getItem('qa-hd-wiped')){localStorage.removeItem('cosmi-helpdesk');sessionStorage.setItem('qa-hd-wiped','1')}}catch(e){}`
 
 // Raw-key / double-brace scanners over visible text.
 function scanners(page) {

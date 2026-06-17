@@ -39,3 +39,24 @@
 - Screenshot-QA `helpdesk-h2`: Zeilen-Klick → `dialogOpen: true`, `gradientStripe: 1`; Modal zentriert, Sticky-Header + Close, alle Sektionen sichtbar, Footer-Reply sticky; **Escape schließt** (KB-Tab-Navigation danach erfolgreich). **0 Raw-Keys, 0 `{{ }}`, 0 pageErrors.** Screenshot angesehen.
 
 **Commit:** `feat(helpdesk): migrate ticket detail to DetailModal + a11y row` auf `parallel/helpdesk`.
+
+---
+
+## H-3 — Bestehende Aktionen verkabeln (Neu / Reply / Status / CSAT) ✅
+
+**Gebaut:**
+- `handleSaveNewTicket` → `addTicket(...)` (statt nur Toast): neues Ticket erscheint **sofort** oben in der Liste mit Auto-Nr.
+- `handleSendReply` → `addReply(id, { author: currentUserName(), body, internal })`: Antwort/interne Notiz hängt sichtbar an den Thread; Autor ist der echte eingeloggte Demo-User (`currentUserName()` aus `stores/auth`).
+- `handleStatusChange` → `updateTicketStatus(id, status)`: Badge ändert sich in Tabelle **und** Modal-Header.
+- `CSATWidget` an Store gebunden: liest `csatRating/csatComment` vom Ticket, Submit → `saveCsat(...)`; `CSATAggregate` rechnet jetzt aus Store-Tickets (via `useMemo`, kein Selector-Churn). `MOCK_CSAT_RATINGS` entfernt (kein anderer Importeur). `key={ticket.id}` am Widget → frischer State pro Ticket.
+- QA-Harness `WIPE` auf **einmalig pro Context** (sessionStorage-Flag) umgestellt, damit der Reload im Persistenz-Test den State behält.
+
+**Verify (Flow-QA `scripts/qa-helpdesk-flow.mjs`, Screenshots angesehen):**
+- Neues Ticket: Zeilen 15 → 16, neue Zeile oben mit **`HD-2026-0316`**.
+- Reply: Thread „Nachrichten (1)" → „(2)", Bubble sichtbar, Autor „Markus Weber", Toast „Antwort gesendet".
+- Status-Control vorhanden & wirkt.
+- **Reload (ohne Wipe): Ticket + Reply bleiben erhalten** (`newStillThere: 1`, `replyPersisted: 1`).
+- Breiter Scan `helpdesk-h3`: **0 Raw-Keys, 0 `{{ }}`, 0 pageErrors.**
+- Bekannter Interim-Artefakt: neue Tickets zeigen SLA „122d übrig" wegen eingefrorener `computeSla`-Uhr → behoben in H-7.
+
+**Commit:** `feat(helpdesk): wire ticket/reply/status/CSAT mutations to store` auf `parallel/helpdesk`.
