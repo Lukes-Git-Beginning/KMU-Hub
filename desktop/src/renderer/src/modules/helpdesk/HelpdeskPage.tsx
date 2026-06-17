@@ -13,6 +13,9 @@ import {
   User,
   ChevronDown,
   ArrowLeft,
+  ArrowUp,
+  UserPlus,
+  GitMerge,
   Lock,
   Zap,
   Route,
@@ -58,6 +61,9 @@ type CategoryFilter = 'all' | string
 
 /** Stable empty thread ref — keeps the zustand selector identity-stable when a ticket has no messages yet. */
 const EMPTY_THREAD: ThreadMessage[] = []
+
+/** Demo agent pool for assign/escalate (no real team lookup — that is CRM/backend). */
+const HELPDESK_AGENTS = ['Marco Hartmann', 'Sandra Bürki'] as const
 
 // ---------------------------------------------------------------------------
 // Label / Color Maps
@@ -697,6 +703,35 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
   const thread = useHelpdeskStore((s) => s.threads[ticket.id]) ?? EMPTY_THREAD
   const internalNoteCount = thread.filter((m) => m.isInternal).length
 
+  // Agent actions (H-4)
+  const allTickets = useHelpdeskStore((s) => s.tickets)
+  const assignTicket = useHelpdeskStore((s) => s.assignTicket)
+  const escalateTicket = useHelpdeskStore((s) => s.escalateTicket)
+  const mergeTicket = useHelpdeskStore((s) => s.mergeTicket)
+  const mergeTargets = useMemo(
+    () => allTickets.filter((x) => x.id !== ticket.id && x.status !== 'closed'),
+    [allTickets, ticket.id],
+  )
+
+  const handleAssign = (agent: string) => {
+    if (agent === ticket.assignedTo) return
+    assignTicket(ticket.id, agent)
+    toast.success(t('helpdesk.ticket.assigned', { ticket: ticket.ticketNr, agent }))
+  }
+  const handleEscalate = () => {
+    if (ticket.priority === 'critical') { toast.info(t('helpdesk.ticket.escalateMax')); return }
+    const ladder: TicketType['priority'][] = ['low', 'medium', 'high', 'critical']
+    const next = ladder[Math.min(ladder.indexOf(ticket.priority) + 1, ladder.length - 1)]
+    escalateTicket(ticket.id, currentUserName())
+    toast.success(t('helpdesk.ticket.escalated', { ticket: ticket.ticketNr, priority: priorityLabels[next] }))
+  }
+  const handleMerge = (targetId: string) => {
+    const target = allTickets.find((x) => x.id === targetId)
+    mergeTicket(ticket.id, targetId)
+    toast.success(t('helpdesk.ticket.merged', { source: ticket.ticketNr, target: target?.ticketNr ?? '' }))
+    onClose()
+  }
+
   const isWarningHours = !ticket.slaOverdue && ticket.slaRemaining.includes('h') && !ticket.slaRemaining.includes('d')
   const parsedHours = parseInt(ticket.slaRemaining, 10)
   const isYellow = isWarningHours && !isNaN(parsedHours) && parsedHours < 4
@@ -843,6 +878,54 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{t('helpdesk.ticket.updated')}</p>
             <p className="text-sm text-foreground">{new Date(ticket.updatedAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+          </div>
+        </div>
+
+        {/* Agent actions (H-4): assign / escalate / merge */}
+        <div className="rounded-lg border border-border bg-secondary/20 p-3">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">{t('helpdesk.ticket.actions')}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Assign */}
+            <div className="relative">
+              <select
+                aria-label={t('helpdesk.ticket.assign')}
+                value={ticket.assignedTo}
+                onChange={(e) => handleAssign(e.target.value)}
+                className="appearance-none rounded-lg border border-border bg-card pl-7 pr-7 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer"
+              >
+                {!HELPDESK_AGENTS.includes(ticket.assignedTo as (typeof HELPDESK_AGENTS)[number]) && (
+                  <option value={ticket.assignedTo}>{ticket.assignedTo}</option>
+                )}
+                {HELPDESK_AGENTS.map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
+              <UserPlus className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            </div>
+
+            {/* Escalate */}
+            <button
+              onClick={handleEscalate}
+              disabled={ticket.priority === 'critical'}
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ArrowUp className="h-3.5 w-3.5" />{t('helpdesk.ticket.escalate')}
+            </button>
+
+            {/* Merge */}
+            <div className="relative">
+              <select
+                aria-label={t('helpdesk.ticket.mergeInto')}
+                value=""
+                disabled={mergeTargets.length === 0}
+                onChange={(e) => { if (e.target.value) handleMerge(e.target.value) }}
+                className="appearance-none rounded-lg border border-border bg-card pl-7 pr-7 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <option value="">{mergeTargets.length === 0 ? t('helpdesk.ticket.mergeNoTarget') : t('helpdesk.ticket.mergeInto')}</option>
+                {mergeTargets.map((tk) => <option key={tk.id} value={tk.id}>{tk.ticketNr} — {tk.subject}</option>)}
+              </select>
+              <GitMerge className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            </div>
           </div>
         </div>
 

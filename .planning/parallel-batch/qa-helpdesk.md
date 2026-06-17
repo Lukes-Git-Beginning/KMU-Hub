@@ -60,3 +60,22 @@
 - Bekannter Interim-Artefakt: neue Tickets zeigen SLA „122d übrig" wegen eingefrorener `computeSla`-Uhr → behoben in H-7.
 
 **Commit:** `feat(helpdesk): wire ticket/reply/status/CSAT mutations to store` auf `parallel/helpdesk`.
+
+---
+
+## H-4 — Eskalieren / Zuweisen / Mergen (neue Demo-Aktionen) ✅
+
+**Gebaut:**
+- Neue **„Aktionen"-Leiste** im Detail-Modal (vor „Status ändern"):
+  - **Zuweisen:** Agent-`<select>` (UserPlus-Icon, Demo-Pool `Marco Hartmann` / `Sandra Bürki`, fremder Bestand bleibt als Option erhalten) → `assignTicket` + Toast; No-op bei gleichem Agent (kein Spam).
+  - **Eskalieren:** Button (ArrowUp) → `escalateTicket(id, currentUserName())`, Priorität eine Stufe hoch (bis `critical`, dann disabled + Info-Toast), Thread-System­eintrag „Eskaliert von X".
+  - **Mergen:** `<select>` der anderen offenen Tickets (GitMerge-Icon) → `mergeTicket(source, target)`: Quell-Thread ans Ziel angehängt, Quelle auf `closed` mit Notiz „Zusammengeführt mit HD-…", Modal schließt + Toast. Leerer Zustand → disabled mit Hinweis.
+- Store-Actions + `tickets` via Selektoren in `TicketDetailPanel`; Merge-Targets via `useMemo`.
+
+**Verify (Flow-QA `scripts/qa-helpdesk-actions.mjs`, Screenshots angesehen):**
+- Escalate: Priorität **Niedrig → Mittel**, Thread „(1)" → „(2) 1 intern", Eskalations-Notiz vorhanden.
+- Assign: tk-5 (default Sandra) → **Marco Hartmann**; Meta + Toast aktualisiert, Thread-Notiz „zugewiesen an Marco Hartmann" (Count 1).
+- Merge: 13 Ziel-Optionen, **Modal schließt**, Quell-Ticket danach `Geschlossen` mit „Zusammengeführt mit"-Notiz.
+- Scan `helpdesk-h4`: Modal offen, **0 Raw-Keys, 0 `{{ }}`, 0 pageErrors.**
+
+**Commit:** `feat(helpdesk): add assign/escalate/merge actions to ticket modal` auf `parallel/helpdesk`.
