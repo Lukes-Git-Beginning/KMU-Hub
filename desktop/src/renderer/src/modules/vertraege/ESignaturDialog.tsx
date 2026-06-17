@@ -15,6 +15,8 @@ import {
   Info,
   Pen,
   Lock,
+  Loader2,
+  RotateCw,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -180,7 +182,8 @@ export default function ESignaturDialog({
 }) {
   const { t } = useTranslation()
   const signSigner = useVertraegeStore((s) => s.signSigner)
-  const updateSigners = useVertraegeStore((s) => s.updateSigners)
+  const dispatchSigners = useVertraegeStore((s) => s.dispatchSigners)
+  const advanceSignerReturn = useVertraegeStore((s) => s.advanceSignerReturn)
 
   const [signers, setSigners] = useState<ContractSigner[]>(contract.signers ?? [])
   const [sequential, setSequential] = useState(true)
@@ -191,6 +194,8 @@ export default function ESignaturDialog({
 
   // Canvas step: which signer index is currently being signed (-1 = none)
   const [canvasSignerIdx, setCanvasSignerIdx] = useState<number>(-1)
+  // Demo: which signer's dispatched return is currently being simulated (-1 = none)
+  const [simulatingIdx, setSimulatingIdx] = useState<number>(-1)
 
   const timeline = useMemo(() => buildTimeline(contract, signers, t), [contract, signers, t])
 
@@ -221,10 +226,16 @@ export default function ESignaturDialog({
     setSigners((prev) => prev.filter((_, i) => i !== index))
   }
 
-  /** Dispatch: mark pending/viewed signers as sent */
+  /** Dispatch: mark pending/viewed signers as sent. Keeps the dialog open so the
+   *  simulated return flow can be triggered per signer (demo). */
   const handleSend = () => {
     if (signers.length === 0) {
       toast.error(t('vertraege.esignatur.errorNoSigners'))
+      return
+    }
+    const pendingCount = signers.filter((s) => s.status === 'pending' || s.status === 'viewed').length
+    if (pendingCount === 0) {
+      toast.error(t('vertraege.esignatur.errorNothingToSend'))
       return
     }
     const updated = signers.map((s) =>
@@ -232,10 +243,36 @@ export default function ESignaturDialog({
         ? { ...s, status: 'sent' as const, signedVia: 'dispatch' as const }
         : s
     )
-    updateSigners(contract.id, updated)
+    dispatchSigners(contract.id, signers)
+    setSigners(updated)
     onUpdateSigners(updated)
-    toast.success(t('vertraege.esignatur.sendSuccess', { count: signers.filter((s) => s.status === 'pending' || s.status === 'viewed').length }))
-    onClose()
+    toast.success(t('vertraege.esignatur.sendSuccess', { count: pendingCount }))
+    // Dialog bewusst offen lassen → Rücklauf simulieren (Demo).
+  }
+
+  /** Demo: simulate the dispatched signer's remote return (sent → viewed → signed)
+   *  on a short timer, writing the matching audit/timeline events. */
+  const handleSimulateReturn = (idx: number) => {
+    if (simulatingIdx >= 0) return // immer nur einen Rücklauf gleichzeitig
+    const name = signers[idx]?.name ?? ''
+    setSimulatingIdx(idx)
+    // Schritt 1: sent → viewed (sofort)
+    advanceSignerReturn(contract.id, idx)
+    setSigners((prev) => prev.map((s, i) => (i === idx ? { ...s, status: 'viewed' as const } : s)))
+    toast(t('vertraege.esignatur.returnViewedToast', { name }))
+    // Schritt 2: viewed → signed (nach kurzer Verzögerung)
+    window.setTimeout(() => {
+      advanceSignerReturn(contract.id, idx)
+      setSigners((prev) =>
+        prev.map((s, i) =>
+          i === idx
+            ? { ...s, status: 'signed' as const, signedAt: new Date().toISOString(), signedVia: 'dispatch' as const }
+            : s,
+        ),
+      )
+      setSimulatingIdx(-1)
+      toast.success(t('vertraege.esignatur.returnSignedToast', { name }))
+    }, 1500)
   }
 
   /** Canvas: signer accepted — write to store immediately */
@@ -376,7 +413,10 @@ export default function ESignaturDialog({
                         {signers.map((signer, idx) => {
                           const statusConf = signerStatusConfig[signer.status]
                           const StatusIcon = statusConf.icon
-                          const canSign = signer.status === 'pending' || signer.status === 'sent' || signer.status === 'viewed'
+                          // Vor Versand: vor Ort per Canvas signieren. Nach Versand: Rücklauf simulieren.
+                          const canSignInPerson = signer.status === 'pending'
+                          const canSimulate = signer.status === 'sent' || signer.status === 'viewed'
+                          const isSimulating = simulatingIdx === idx
                           return (
                             <tr key={idx} className="border-b border-border-muted last:border-0">
                               {sequential && (
@@ -409,13 +449,27 @@ export default function ESignaturDialog({
                               </td>
                               <td className="px-3 py-2 text-right">
                                 <div className="flex items-center gap-1 justify-end">
-                                  {canSign && (
+                                  {canSignInPerson && (
                                     <button
                                       onClick={() => setCanvasSignerIdx(idx)}
                                       className="inline-flex items-center gap-1 rounded-lg bg-primary-light border border-primary/20 px-2 py-1 text-[10px] font-medium text-primary hover:bg-primary hover:text-primary-foreground transition-colors whitespace-nowrap"
                                     >
                                       <Pen className="h-3 w-3" />
                                       {t('vertraege.esignatur.buttonSignNow')}
+                                    </button>
+                                  )}
+                                  {canSimulate && (
+                                    <button
+                                      onClick={() => handleSimulateReturn(idx)}
+                                      disabled={simulatingIdx >= 0}
+                                      className="inline-flex items-center gap-1 rounded-lg border border-warning/30 bg-warning-light px-2 py-1 text-[10px] font-medium text-warning hover:bg-warning hover:text-white transition-colors whitespace-nowrap disabled:opacity-50 disabled:pointer-events-none"
+                                    >
+                                      {isSimulating ? (
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                      ) : (
+                                        <RotateCw className="h-3 w-3" />
+                                      )}
+                                      {t('vertraege.esignatur.buttonSimulateReturn')}
                                     </button>
                                   )}
                                   <button
@@ -431,6 +485,16 @@ export default function ESignaturDialog({
                         })}
                       </tbody>
                     </table>
+                  </div>
+                )}
+
+                {/* Demo-Hinweis: Rücklauf ist simuliert (kein echter Mailversand) */}
+                {signers.some((s) => s.status === 'sent' || s.status === 'viewed') && (
+                  <div className="flex items-start gap-2 rounded-lg border border-warning/20 bg-warning-light/30 px-3 py-2">
+                    <Info className="h-3.5 w-3.5 text-warning mt-0.5 shrink-0" />
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      {t('vertraege.esignatur.demoReturnHint')}
+                    </p>
                   </div>
                 )}
 

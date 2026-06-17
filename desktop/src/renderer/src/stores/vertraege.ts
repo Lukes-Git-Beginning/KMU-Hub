@@ -174,6 +174,19 @@ interface VertraegeStore {
   }) => void
   /** Replace the signers array without adding a spurious contract_updated entry. */
   updateSigners: (contractId: string, signers: ContractSigner[]) => void
+  /**
+   * Dispatch for remote signing: persist the given signer list and move all
+   * pending/viewed signers to `sent` (signedVia `dispatch`), appending one
+   * `contract_sent` audit entry. Accepts the list so locally-added signers are
+   * synced in the same write.
+   */
+  dispatchSigners: (contractId: string, signers: ContractSigner[]) => void
+  /**
+   * Demo: advance one dispatched signer one step along the simulated return
+   * flow (`sent` → `viewed` → `signed`), appending a matching audit entry.
+   * Returns the new status, or null if no transition applied.
+   */
+  advanceSignerReturn: (contractId: string, signerIndex: number) => ContractSigner['status'] | null
   /** Link a contact to a contract (1 contact max). */
   linkContact: (contractId: string, contactId: string, contactName: string) => void
   /** Unlink the contact from a contract. */
@@ -662,6 +675,71 @@ export const useVertraegeStore = create<VertraegeStore>()(
             return { ...c, signers }
           }),
         })),
+
+      dispatchSigners: (contractId, incoming) =>
+        set((state) => ({
+          contracts: state.contracts.map((c) => {
+            if (c.id !== contractId) return c
+            const dispatched = incoming.filter(
+              (s) => s.status === 'pending' || s.status === 'viewed',
+            )
+            if (dispatched.length === 0) return { ...c, signers: incoming }
+            const signers = incoming.map((s) =>
+              s.status === 'pending' || s.status === 'viewed'
+                ? { ...s, status: 'sent' as const, signedVia: 'dispatch' as const }
+                : s,
+            )
+            return {
+              ...c,
+              signers,
+              history: [
+                ...c.history,
+                {
+                  date: new Date().toISOString().split('T')[0],
+                  action: 'contract_sent' as const,
+                  meta: dispatched.map((s) => s.name).join(', '),
+                  user: 'Aktueller Benutzer',
+                },
+              ],
+            }
+          }),
+        })),
+
+      advanceSignerReturn: (contractId, signerIndex) => {
+        let nextStatus: ContractSigner['status'] | null = null
+        set((state) => ({
+          contracts: state.contracts.map((c) => {
+            if (c.id !== contractId) return c
+            const current = (c.signers ?? [])[signerIndex]
+            if (!current) return c
+            // State machine: sent → viewed → signed. Anything else: no-op.
+            if (current.status !== 'sent' && current.status !== 'viewed') return c
+            nextStatus = current.status === 'sent' ? 'viewed' : 'signed'
+            const action = nextStatus === 'viewed' ? 'contract_viewed' : 'contract_signed'
+            const signers = (c.signers ?? []).map((s, i) => {
+              if (i !== signerIndex) return s
+              return nextStatus === 'signed'
+                ? { ...s, status: 'signed' as const, signedAt: new Date().toISOString(), signedVia: 'dispatch' as const }
+                : { ...s, status: 'viewed' as const }
+            })
+            return {
+              ...c,
+              signers,
+              history: [
+                ...c.history,
+                {
+                  date: new Date().toISOString().split('T')[0],
+                  action,
+                  meta: current.name,
+                  // Rücklauf = Aktion des Unterzeichners, nicht des aktuellen Nutzers.
+                  user: current.name,
+                },
+              ],
+            }
+          }),
+        }))
+        return nextStatus
+      },
 
       linkContact: (contractId, contactId, contactName) =>
         set((state) => ({

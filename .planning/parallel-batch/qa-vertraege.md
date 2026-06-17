@@ -66,3 +66,27 @@
 
 **Screenshots:** `desktop/.qa-screenshots/vertraege-reminders/a0-center-direct.png`, `…/c-auslaufend-tab.png`, `…/b-after-reload.png`
 **QA-Status:** ALL PASS (Center zeigt 3 Reminder direkt aus MSW; zustand-Store exakt 3 stabile IDs, identisch nach Reload; Auslaufend-Tab 3 Zeilen; ICU-Plural gerendert; 0 Raw-Keys; 0 Console-Errors).
+
+---
+
+## V-4 — E-Signatur „Senden": realistischer Demo-Flow
+
+**Gebaut:** „Zur Unterschrift senden" versendet jetzt nicht mehr nur (status `sent`) und schließt — der Dialog bleibt offen und bietet pro versendetem Unterzeichner „Rücklauf simulieren". Der simulierte Rücklauf läuft `sent → viewed → signed` über einen kurzen Timer (1,5 s) und schreibt echte Audit- + Timeline-Events. Ein **dezenter Demo-Hinweis** („Demo: Der Rücklauf wird simuliert — es wird keine echte E-Mail versendet.") macht klar, dass kein echter Mailversand passiert. Skribble-Banner unverändert.
+
+**Details:**
+- Store: `dispatchSigners(contractId, signers)` (sync + pending/viewed→sent + ein `contract_sent`-Audit), `advanceSignerReturn(contractId, idx)` (State-Machine sent→viewed→signed, je Schritt ein Audit-Event; Rücklauf-Events tragen den **Unterzeichner** als Akteur, nicht den aktuellen Nutzer).
+- Neue Audit-Action-Codes `contract_sent` (Icon Send) + `contract_viewed` (Icon Eye) inkl. Farben + i18n ×4 → Audit-Log zeigt „Zur Unterschrift versendet" / „Vertrag geöffnet" / „Vertrag unterzeichnet".
+- Vor Versand: Vor-Ort-Canvas-Signatur („Jetzt unterschreiben", nur `pending`). Nach Versand: „Rücklauf simulieren" (`sent`/`viewed`), mit Spinner während der Simulation.
+
+**Schlüsseldateien:** `modules/vertraege/ESignaturDialog.tsx`, `stores/vertraege.ts` (2 Methoden), `VertraegePage.tsx` (Action-Codes/Icons), i18n ×4. QA: `scripts/qa-vertraege-esign-demo.mjs`
+
+**Was Darien anschauen soll:**
+- `/vertraege` → Vertrag mit Unterzeichnern öffnen (z. B. „Müller Metallbau Rahmenvertrag") → Footer „Unterschrift" → Dialog.
+- „Zur Unterschrift senden" → offener Signer wird „Gesendet", **Demo-Hinweis** erscheint, Dialog bleibt offen.
+- „Rücklauf simulieren" → Signer läuft Angesehen → Unterschrieben, Statusverlauf + Audit-Log (Detail-Modal) füllen sich. Ehrliche Kennzeichnung (Toast „… (Demo-Rücklauf)").
+- Skribble-Banner weiterhin „Bald verfügbar" (unverändert).
+
+**Bekannt → wird in V-5 behoben:** Das `contract_sent`-Audit zeigt aktuell noch „Aktueller Benutzer" (Versand = Aktion des eingeloggten Nutzers) — wird in V-5 auf den echten Auth-User umgestellt.
+
+**Screenshots:** `desktop/.qa-screenshots/vertraege-esign/a-after-send.png`, `…/b-after-simulate.png`, `…/c-audit-log.png`
+**QA-Status:** ALL PASS (Senden → Gesendet + Demo-Hinweis + Simulieren-Button; Rücklauf → Unterschrieben + Timeline; Audit-Log zeigt versendet/geöffnet/unterzeichnet; 0 Raw-Keys; 0 Console-Errors).

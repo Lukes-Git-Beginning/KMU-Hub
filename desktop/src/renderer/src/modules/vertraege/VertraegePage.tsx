@@ -43,6 +43,7 @@ import {
   Receipt,
   Sparkles,
   Link2,
+  Send,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -1694,6 +1695,8 @@ const HISTORY_ACTION_CODES = [
   'contract_created',
   'contract_updated',
   'contract_terminated',
+  'contract_sent',
+  'contract_viewed',
   'contract_signed',
   'reminder_triggered',
   'document_added',
@@ -1720,6 +1723,10 @@ function getHistoryIcon(action: string) {
       return FilePen
     case 'contract_terminated':
       return FileX
+    case 'contract_sent':
+      return Send
+    case 'contract_viewed':
+      return Eye
     case 'contract_signed':
       return Pen
     case 'reminder_triggered':
@@ -1741,6 +1748,10 @@ function getHistoryIconColor(action: string): string {
       return 'text-primary bg-primary-light'
     case 'contract_terminated':
       return 'text-error bg-error-light'
+    case 'contract_sent':
+      return 'text-info bg-info-light'
+    case 'contract_viewed':
+      return 'text-warning bg-warning-light'
     case 'contract_signed':
       return 'text-info bg-info-light'
     case 'reminder_triggered':
