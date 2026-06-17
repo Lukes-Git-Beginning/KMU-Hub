@@ -57,6 +57,7 @@ import { useVertraegeSettingsStore } from '@/stores/vertraegeSettings'
 import { ItemActions, ConfirmDialog, EmptyState, DetailModal, PageHeader } from '@/components/shared'
 import { formatCurrency, formatDate } from '@/lib/format'
 import ESignaturDialog from './ESignaturDialog'
+import { useContractExpiryNotifications } from './useContractReminders'
 import { FilePreviewModal } from '@/modules/dokumente/FilePreviewModal'
 import { VersionHistoryPanel } from '@/modules/dokumente/VersionHistoryPanel'
 import { useDocumentFiles } from '@/api/hooks/useDocuments'
@@ -1157,6 +1158,9 @@ export default function VertraegePage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { contracts, contractTemplates, deleteContract, updateContract } = useVertraegeStore()
+
+  // Fristen-Reminder beim Mount in den Notification-Store synchronisieren (idempotent).
+  useContractExpiryNotifications()
 
   // Personal prefs (settings panel): default tab on open + table density.
   const defaultTab = useVertraegePrefsStore((s) => s.defaultTab)

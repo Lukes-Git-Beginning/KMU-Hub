@@ -188,6 +188,22 @@ interface VertraegeStore {
   unlinkInvoice: (contractId: string, invoiceId: string) => void
 }
 
+/**
+ * Demo: keep a few contracts genuinely "expiring soon" relative to today so
+ * the Auslaufend-Tab and the Fristen-Reminder notifications always have data,
+ * regardless of when the demo is opened. Returns an ISO date (YYYY-MM-DD).
+ */
+function isoDaysFromNow(days: number): string {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() + days)
+  // Lokale Datums-Komponenten (nicht toISOString → UTC-Off-by-one in DE-Zeitzonen).
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 const MOCK_CONTRACTS: Contract[] = [
   {
     id: 'v-1',
@@ -246,9 +262,9 @@ const MOCK_CONTRACTS: Contract[] = [
     title: 'Microsoft 365 Business',
     partner: 'Microsoft Ireland Operations Ltd.',
     type: 'lizenz',
-    status: 'expiring',
+    status: 'active',
     startDate: '2025-04-01',
-    endDate: '2026-04-01',
+    endDate: isoDaysFromNow(18),
     noticePeriodDays: 30,
     renewal: 'manual',
     monthlyCost: 450,
@@ -299,7 +315,7 @@ const MOCK_CONTRACTS: Contract[] = [
     type: 'liefervertrag',
     status: 'active',
     startDate: '2025-03-01',
-    endDate: '2026-03-01',
+    endDate: isoDaysFromNow(47),
     noticePeriodDays: 30,
     renewal: 'auto',
     monthlyCost: 2200,
@@ -428,9 +444,9 @@ const MOCK_CONTRACTS: Contract[] = [
     title: 'Lagerraum Augsburg',
     partner: 'Immo-Invest Augsburg GmbH',
     type: 'mietvertrag',
-    status: 'expiring',
+    status: 'active',
     startDate: '2024-06-01',
-    endDate: '2026-06-01',
+    endDate: isoDaysFromNow(82),
     noticePeriodDays: 90,
     renewal: 'manual',
     monthlyCost: 1200,
@@ -438,6 +454,7 @@ const MOCK_CONTRACTS: Contract[] = [
     documentRef: 'DOC-MV-002',
     notes: 'Lagerraum 120m2 im Industriegebiet Augsburg-Lechhausen. Zugang 6-22 Uhr, Rampe für LKW-Anlieferung vorhanden. Heizung und Strom inkl.',
     currency: 'EUR',
+    reminderDays: [30, 60, 90],
     history: [
       { date: '2024-06-01', action: 'Mietvertrag unterzeichnet', user: 'Markus Weber' },
       { date: '2025-01-15', action: 'Lagerregale installiert', user: 'Lukas Brunner' },

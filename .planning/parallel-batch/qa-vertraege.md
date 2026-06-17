@@ -44,3 +44,25 @@
 
 **Screenshots:** `desktop/.qa-screenshots/vertraege-preview/Vertrag_Gruber_Maschinenbau.png`, `…/Arbeitsvertrag_Muster.png`, `…/SLA_Helvetia_Software.png`, `…/Datenschutzerklaerung.png`
 **QA-Status:** ALL PASS (4/4 Verträge, iframe blob:-URL, PDF gerendert, 0 Console-Errors).
+
+---
+
+## V-3 — Fristen-Notifications verkabeln
+
+**Architektur-Befund (wichtig):** Die App hat **zwei** Notification-Systeme. Die sichtbaren Oberflächen (Topbar-Bell, `/notifications`-Center, Dashboard-`NotificationSummary`) lesen via `useNotifications()` aus **MSW** (`mocks/handlers/notifications.ts`). Der zustand-`useNotificationsStore` speist nur den transienten **Toast** (`NotificationToast`); `isDropdownOpen`/`toggleDropdown` sind ungenutzt. → Reminder müssen in die **MSW-Quelle**, sonst erscheinen sie nur als Toast.
+
+**Gebaut (zwei konsistente Kanäle):**
+- **MSW (persistent):** 3 `contract_expiry`-Notifications für die auslaufenden Verträge (v-3 Microsoft/18 T, v-5 Müller/47 T, v-11 Lagerraum/82 T) → erscheinen in Bell + Center + Dashboard-Summary. GET-Handler sortiert jetzt nach `created_at` (neueste zuerst). Idempotent durch deklarative Seeds (kein Duplikat bei Reload).
+- **zustand (Live-Toast):** idempotente `ensureNotification(id)`-Methode + Mount-Hook `useContractExpiryNotifications` (`useContractReminders.ts`) — berechnet je Vertrag genau **eine** Notification (engste erreichte reminderDays-Schwelle, stabile ID `contract-expiry-<id>-<threshold>`), feuert als Toast beim Öffnen des Moduls. Kein Duplikat bei Re-Render/Reload (verifiziert über persistierten Store-State).
+- **Seed-Daten aufgefrischt** (behebt V-2-Nebenbefund): v-3/v-5/v-11 laufen jetzt relativ zu heute aus (`isoDaysFromNow`, lokale Datums-Komponenten gegen UTC-Off-by-one) → „Auslaufend"-Tab gefüllt (3), Dashboard-AlertsSection (liest `useVertraegeStore`) zeigt sie ebenfalls.
+
+**Mitgenommen (Bug-Fix, vorbestehend):** `notifications.center.unread` war als i18next-`_one`/`_other` definiert, das Projekt nutzt aber **ICU-Plural** → Raw-Key „notifications.center.unread" im Center-Subtitle. Auf ICU `{count, plural, …}` umgestellt (×4) → zeigt jetzt „7 ungelesene Benachrichtigungen".
+
+**Schlüsseldateien:** `mocks/handlers/notifications.ts` (3 Seeds + Sort), `stores/notifications.ts` (`ensureNotification`), `modules/vertraege/useContractReminders.ts` (neu), `VertraegePage.tsx` (Hook-Mount), `stores/vertraege.ts` (`isoDaysFromNow` + v-3/v-5/v-11), i18n ×4. QA: `scripts/qa-vertraege-reminders.mjs`
+
+**Was Darien anschauen soll:**
+- Bell/`/notifications` öffnen → „Vertrag läuft bald ab — Microsoft 365 Business … Ablauf in 18 Tagen" (+ Müller 47 T, Lagerraum 82 T), Unread-Badge erhöht, Subtitle „N ungelesene Benachrichtigungen" (kein Raw-Key).
+- `/vertraege` öffnen → kurzer Toast unten rechts (Live-Reminder). Tab „Auslaufend" → 3 Verträge. Mehrmals neu laden → keine Duplikate.
+
+**Screenshots:** `desktop/.qa-screenshots/vertraege-reminders/a0-center-direct.png`, `…/c-auslaufend-tab.png`, `…/b-after-reload.png`
+**QA-Status:** ALL PASS (Center zeigt 3 Reminder direkt aus MSW; zustand-Store exakt 3 stabile IDs, identisch nach Reload; Auslaufend-Tab 3 Zeilen; ICU-Plural gerendert; 0 Raw-Keys; 0 Console-Errors).

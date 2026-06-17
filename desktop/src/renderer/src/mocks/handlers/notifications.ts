@@ -131,6 +131,45 @@ const notifications = [
     resource_id: null,
     created_at: daysAgo(90),
   },
+  // Fristen-Reminder (V-3) — gespiegelt zu den auslaufenden Seed-Verträgen
+  // (v-3/v-5/v-11). Die Vertrag-Detailseite zeigt dieselben Reminder; der
+  // zustand-Toast surfacet sie zusätzlich live beim Öffnen des Moduls.
+  {
+    id: 'notif-contract-v-3',
+    type: 'contract_expiry',
+    title: 'Vertrag läuft bald ab',
+    body: 'Microsoft 365 Business (Microsoft Ireland Operations Ltd.) — Ablauf in 18 Tagen',
+    read: false,
+    actor_id: null,
+    actor_name: 'System',
+    resource_type: 'contract',
+    resource_id: 'v-3',
+    created_at: hoursAgo(3),
+  },
+  {
+    id: 'notif-contract-v-5',
+    type: 'contract_expiry',
+    title: 'Vertrag läuft bald ab',
+    body: 'Müller Metallbau Rahmenvertrag (Müller Metallbau GmbH) — Ablauf in 47 Tagen',
+    read: false,
+    actor_id: null,
+    actor_name: 'System',
+    resource_type: 'contract',
+    resource_id: 'v-5',
+    created_at: daysAgo(1),
+  },
+  {
+    id: 'notif-contract-v-11',
+    type: 'contract_expiry',
+    title: 'Vertrag läuft bald ab',
+    body: 'Lagerraum Augsburg (Immo-Invest Augsburg GmbH) — Ablauf in 82 Tagen',
+    read: false,
+    actor_id: null,
+    actor_name: 'System',
+    resource_type: 'contract',
+    resource_id: 'v-11',
+    created_at: daysAgo(2),
+  },
 ]
 
 // ---------------------------------------------------------------------------
@@ -197,11 +236,13 @@ let muteIdCounter = 1
 // ---------------------------------------------------------------------------
 
 export const notificationHandlers = [
-  // List notifications
+  // List notifications (neueste zuerst)
   http.get(`${API}/api/v1/notifications`, ({ request }) => {
     const url = new URL(request.url)
     const unreadOnly = url.searchParams.get('unread') === 'true'
-    const filtered = unreadOnly ? notifications.filter((n) => !n.read) : notifications
+    const filtered = (unreadOnly ? notifications.filter((n) => !n.read) : notifications)
+      .slice()
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     return HttpResponse.json({ notifications: filtered, total: filtered.length })
   }),
 

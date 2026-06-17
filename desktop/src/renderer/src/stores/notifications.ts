@@ -63,6 +63,13 @@ interface NotificationsState {
   deleteNotification: (id: string) => void
   clearAll: () => void
   addNotification: (notification: Omit<Notification, 'id' | 'createdAt' | 'isRead'>) => void
+  /**
+   * Idempotent insert with a caller-provided stable `id`. Adds the
+   * notification only if no notification with that id exists yet — safe to
+   * call on every mount/reload (e.g. contract-expiry reminders) without
+   * creating duplicates.
+   */
+  ensureNotification: (notification: Omit<Notification, 'isRead'>) => void
   toggleDropdown: () => void
   closeDropdown: () => void
   snoozeNotification: (id: string, until: string) => void
@@ -248,6 +255,14 @@ export const useNotificationsStore = create<NotificationsState>()(
           ],
         }))
       },
+
+      ensureNotification: (notification) =>
+        set((state) => {
+          if (state.notifications.some((n) => n.id === notification.id)) return state
+          return {
+            notifications: [{ ...notification, isRead: false }, ...state.notifications],
+          }
+        }),
 
       toggleDropdown: () =>
         set((state) => ({ isDropdownOpen: !state.isDropdownOpen })),
