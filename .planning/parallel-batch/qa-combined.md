@@ -1,48 +1,56 @@
-# Kombinierte QA-Liste — 10 Phasen (dashboard + vertraege)
+# ▶ QA-REVIEW — Batch 2 (team + helpdesk) — MORGEN ZUERST
 
-> **Beide Module review-reif, alle Commits auf `main`.** Reihenfolge: **Pattern-Entscheidung zuerst** (falls die nicht passt, betrifft sie mehrere Punkte), dann pro Modul. Details + alle Screenshots: `qa-dashboard.md` / `qa-vertraege.md`.
-> Stück für Stück durchgehen; Dev-Server läuft auf **:5173** (frisch gestartet).
-
----
-
-## 🔴 ZUERST — Pattern-Entscheidung
-
-**1. [PATTERN] vertraege: Detail öffnet als zentriertes Modal (V-1)**
-- `/#/vertraege`, Tab „Aktiv" → Zeile klicken (z. B. „Büro-Mietvertrag München").
-- Erwartung: **zentriertes** DetailModal (nicht mehr Slide-over rechts). Beim Scrollen bleiben Header (Close) + Footer (Bearbeiten/Unterschrift/Kündigen) stehen. Ganze Zeile klickbar; Drei-Punkte/Bearbeiten öffnet NICHT das Detail. Tab fokussiert Zeile → Enter öffnet.
-- Worauf achten: Subtitle „Mietvertrag · MV-2024-001", Status-Badge, alle 9+ Sektionen da, kein abgeschnittener Header.
-- **Wenn dir das Modal-Pattern hier zusagt, passt es für alle vertraege-Punkte.**
+> **Darien, das ist deine Review-Liste für heute Früh.** Zwei Module sind diese Session review-reif geworden (Main = team, Sub = helpdesk). Beide auf `main` (helpdesk gemergt). Geh die Punkte durch, hak ab, melde Fund/OK pro Punkt. Dev-Server starten, `/team` und `/helpdesk` öffnen.
+>
+> **Merge-Status:** siehe unten („Merge-Status" — wird beim Merge aktualisiert).
 
 ---
 
-## 🟠 vertraege (V-2…V-5)
+## Modul 1 — team (HR)  ·  Main-Terminal, 8 Commits auf `main`
 
-**2. PDF-Vorschau echt (V-2)** — Vertrag mit Dokument öffnen → Sektion „Dokumente" → Dateiname klicken → **PDF rendert im iframe** (4 Verträge haben echte PDFs: Büro-Mietvertrag, Thomas Berger Arbeitsvertrag, Helvetia SLA, Allianz). *Headed/echte App nötig — headless hat keinen PDF-Viewer.*
+| # | Was prüfen | Klick-Pfad | Erwartet |
+|---|---|---|---|
+| TM-1 | **Abwesenheitskalender** nicht mehr leer | `/team` → Tab **Abwesenheiten** | Lena (Krankheit), Markus (Homeoffice heute), Sophie (Sonderurlaub) mit Abteilungen; Wochen-Navigation filtert korrekt |
+| TM-1b | **Dashboard-Widget** Abwesenheiten | `/` (Übersicht) → Widget „Abwesenheiten" | zeigt heute Abwesende (nicht leer) |
+| TM-2 | **Self-Service = echter User** | `/team` → Tab **Self-Service** → *Mein Profil* | **Stefan Vogel** (nicht „Jonas Diaz"), echte Daten (Telefon/Standort/Eintritt), Salden 17/30 + 4/5 |
+| TM-2b | **Antrag wirkt** | Self-Service → *Meine Anträge* → „Neuer Antrag" (Typ+Zeitraum+Absenden) | neuer Antrag erscheint sofort, Zähler steigt, Toast; taucht auch in Tab *Anfragen* auf |
+| TM-2c | **Gehaltszettel-Download** | Self-Service → *Gehaltsabrechnungen* → PDF-Button | lädt eine echte Datei (kein bloßer Toast) |
+| TM-3 | **Personalakte echt** | `/team` → Tab **Personalakte** | echte Kollegen (Felix Krause/Kevin Baumann/Laura Neumann), KPIs 12/9/1/1, Status-Badges (abgelaufen rot) |
+| TM-3b | **Vorschau + Download** | Personalakte → Auge-Icon (Vorschau), Download-Icon | Vorschau-Dialog mit Metadaten + „Demo-Vorschau"; Download lädt echte Datei; „Hochladen" nimmt Datei an |
+| TM-4 | **OrgChart-Aktionen** | `/team` → Tab **Organigramm** → Person anklicken → E-Mail / Anrufen | öffnet Compose/Call (kein Toast „E-Mail: …") |
+| TM-4b | **i18n** (überall) | sprachweit, v.a. Modul-Zuweisung | keine `{{count}}`/`{{user}}`-Rohtexte; Titel „Team" |
+| TM-5 | **Deaktivieren wirkt** | `/team` → Tab **Mitglieder** → ⋮-Menü einer Person → „Deaktivieren" → bestätigen | Person ausgegraut + „Inaktiv"-Badge, Toast |
+| TM-5b | **Schulungen** | `/team` → Tab **Schulungen** | rendert (Katalog + Teilnahmen); „Schulung anlegen" / „Teilnahme erfassen" wirken (Zustand-Demo) |
+| — | **Umlaut** | überall wo „Geschäftsführung" steht | „Geschäftsführung"/„Geschäftsführer" (nicht „ae") |
 
-**3. Fristen-Reminder (V-3)** — Bell/`/notifications` → „Vertrag läuft bald ab — Microsoft 365 … in 18 Tagen" (+ Müller 47 T, Lagerraum 82 T), Subtitle „N ungelesene Benachrichtigungen" (kein Raw-Key mehr). `/vertraege` öffnen → kurzer Toast. Tab **„Auslaufend" → 3 Verträge**. Mehrmals neu laden → keine Duplikate.
-
-**4. E-Signatur Demo-Rücklauf (V-4)** — Vertrag mit Unterzeichnern (z. B. „Müller Metallbau Rahmenvertrag") → Footer „Unterschrift". „Zur Unterschrift senden" → Signer „Gesendet" + **Demo-Hinweis** (kein echter Mailversand), Dialog bleibt offen. „Rücklauf simulieren" → Angesehen → Unterschrieben, Audit-Log füllt sich. Skribble bleibt „Bald verfügbar".
-
-**5. Nummernkreis + Audit-User + Template (V-5)** — „Vertrag anlegen" → Nummer **vorbefüllt** (V-2026-001), anlegen → erneut öffnen → **002**. Audit-Log zeigt **„Markus Weber"** (kein „Aktueller Benutzer"). Tab „Vorlagen" → „Vertrag aus Vorlage" → ausfüllen → **legt wirklich an** (war toter Button). Einstellungen → Nummernkreis-Format ändern → Live-Vorschau.
-
----
-
-## 🟢 dashboard (D-1…D-5)
-
-**6. Admin-Crash-Fix (D-1)** — `/#/settings/dashboard` → Tab Administrator → **„Aktuelles Layout als Standard"** klicken → grüner Erfolgs-Toast, **kein Weiß-Screen** (war harter Crash). Dashboard anpassen → Widget hinzufügen/entfernen → überlebt Reload.
-
-**7. Tote Buttons jetzt funktional (D-2)** — MyTasks-Zeile klicken → „Meine Aufgaben". „Empfohlene Widgets"-Karte „+" → Toast „… hinzugefügt" + Karte weg. „Heute im Überblick" → **„8 ungelesene Nachrichten"** (war 0). Geburtstage-Widget lädt 5 Einträge.
-
-**8. KPI-Gating (D-3)** — nichts Sichtbares: Demo zeigt absichtlich **alle** Widgets; Lizenz-Gating wirkt technisch (per Flag getestet). Nur zur Info.
-
-**9. Team-Dashboard (D-4)** — Umschalter oben rechts auf **„Team"** → Team-Status (Presence), Geburtstage, Stempeluhr, Offene Tickets, **Team-Arbeitszeit** mit 6 Mitarbeitern + unterschiedlichen Wochenstunden (echte MSW-Daten, kein Fake mehr).
-
-**10. DnD + Cross-Module-Link (D-5)** — „Dashboard anpassen" → jedes Widget bekommt Grip (verschieben) + Eck-Resize + X. „Heute im Überblick" → „offene Aufgaben" klicken → landet in „Meine Aufgaben" (war toter Link).
+**team — bewusst NICHT in diesem Batch (zur Info, kein Mangel):** Schulungen-MSW-Swap (Zustand-Store funktioniert + swap-ready, 🔒 Lukes Backend) · P2 Personalakte↔Dok-Verknüpfung tiefer + Organigramm editierbar. Details: `qa-team.md`.
 
 ---
 
-## ⚠️ Offene Nebenbefunde (zur Kenntnis / Entscheidung)
+## Modul 2 — helpdesk (Tickets)  ·  Sub-Terminal, H-1…H-8
 
-- **dashboard: Abwesenheiten-Widget leer** („0 Personen heute abwesend"). Vorbestehender **HR-Pipeline-Bug außerhalb der dashboard-Lane**: `useAbsenceCalendar` erwartet `data.entries`, Handler liefert `{absences}` + Feld-Mismatch + Duplikat-Handler (`hr.ts` liefert `[]`, überschattet `team.ts`). → eigener HR-/team-Lane-Fix.
-- **vertraege: Branch-Iso nicht genutzt** — das Sub-Terminal hat direct-to-main gepusht statt auf `parallel/vertraege`. Kein Schaden (Lane-Trennung hielt, 0 i18n-Konflikte, 0 Doppel-Keys), aber die geplante Branch-Sicherung griff nicht. Für nächste Parallel-Runde: Umstell-Anweisung früher/expliziter.
-- **vertraege Detail (Dariens alte Frage):** standalone Share-Link etc. nicht Teil dieses Tiefe-Passes.
+> Demo-tief-Pass: Store hatte **keine** Actions (alle Mutationen waren Toast-Stubs) → jetzt verkabelt. Detail: `qa-helpdesk.md` (vom Sub).
+
+| # | Was prüfen | Klick-Pfad | Erwartet |
+|---|---|---|---|
+| H-1/3 | **Mutationen wirken** (Kern!) | `/helpdesk` → Ticket anlegen / Status ändern / Antwort senden / CSAT | jede Aktion wirkt sichtbar + überlebt Reload (war vorher Toast ohne Effekt) |
+| H-2 | **Ticket-Detail = DetailModal** | Ticket-Zeile anklicken | zentriertes Cosmi-Modal (nicht Slide-over); ganze Zeile klickbar; sticky Close |
+| H-4 | **Zuweisen / Eskalieren / Mergen** | im Ticket-Modal die Aktionen | wirken im Store, mit Thread-/Status-Spur |
+| H-5 | **Canned Responses CRUD** | Vorlagen-Panel → anlegen/bearbeiten/löschen | Liste aktualisiert sich, überlebt Reload |
+| H-6 | **Settings-Panel** | Modul-Einstellungen → helpdesk | personal + tenant (Geschäftszeiten + Routing) editier-/speicherbar; Header-Buttons weg |
+| H-7 | **SLA echt + Sortierung** | Ticket-Liste | SLA-Zeiten relativ zu heute (plausibel); Spalten sortierbar (Feld + Richtung) |
+| H-8 | **i18n + Demo-Tiefe-Schliff** | sprachweit | keine Rohtexte/`{{}}`, keine toten Buttons (Stand verifizieren — letzter Sub-Punkt) |
+
+**helpdesk — out of scope (Info):** TanStack-Migration, eigener MSW-Handler, CRM-Kontakt-Lookup (= Lukes Backend / späterer Batch).
+
+---
+
+## Merge-Status ✅
+- **Gemergt:** `parallel/helpdesk` (`edf3c2e1`, H-1…**H-8 komplett**) → `main`, Merge-Commit **`a221278d`**.
+- **i18n:** trotz Sub-Warnung **kein** Git-Konflikt — Auto-Merge kombinierte die Cluster sauber. Verifiziert: alle 4 Sprachen valide, **0 Duplikat-Keys** (de/en 9121, fr/it 9087 Keys).
+- **Cross-Lane (Sub):** `dashboard/widgets/OpenTickets.tsx` (legitimer Verbraucher der neuen Ticket-SLA-Form), `module-settings-registry.tsx` (+helpdesk-Eintrag) — kein team-Overlap.
+- **Build:** ✅ grün (electron-vite, exit 0) nach Merge — team + helpdesk kompilieren zusammen. Gepusht.
+- **Untracked Sub-Helfer** (`vite.qa.config.mjs`, `add-helpdesk-i18n.mjs`) blieben beim Sub-Klon (reisen nicht mit dem Branch) — kein Handlungsbedarf.
+
+## Nach dem Review
+Pro Modul: Funde sammeln → Fix-Runde (wie F1-F7 beim letzten Batch) → dann beide → **Nico**. Nächstes Paar danach: Master-Tracker Review-Pipeline (#6 helpdesk ist dann durch → z.B. automatisierung-Tiefe-Pass / profil).
