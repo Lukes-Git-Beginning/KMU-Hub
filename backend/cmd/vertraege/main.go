@@ -48,7 +48,8 @@ func main() {
 	// Repository, service, and worker
 	repo := vertraege.NewPostgresRepository(pool)
 	svc := vertraege.NewService(repo)
-	worker := vertraege.NewReminderWorker(repo, logger)
+	emitter := vertraege.NewPGEventEmitter(pool)
+	worker := vertraege.NewReminderWorker(repo, emitter, logger)
 
 	// Start reminder worker in background
 	go func() {

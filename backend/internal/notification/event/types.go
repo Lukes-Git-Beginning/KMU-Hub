@@ -103,5 +103,14 @@ const (
 // Well-known module ID for the dialer
 const ModuleDialer = "dialer"
 
+// Vertraege events
+const (
+	EventVertraegeReminderDue = "vertraege.reminder.due"
+	EventVertraegeExpired     = "vertraege.contract.expired"
+)
+
+// Well-known module ID for vertraege
+const ModuleVertraege = "vertraege"
+
 // PostgreSQL LISTEN channel name for the event bus
 const PGNotifyChannel = "events"
