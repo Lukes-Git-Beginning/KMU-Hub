@@ -11,6 +11,8 @@ const mockResetToDefaults = vi.fn()
 const mockSetScope = vi.fn()
 let mockIsEditing = false
 
+const mockInitFromServer = vi.fn().mockResolvedValue(undefined)
+
 vi.mock('@/stores/dashboard', () => ({
   useDashboardStore: (selector: (s: Record<string, unknown>) => unknown) =>
     selector({
@@ -20,6 +22,7 @@ vi.mock('@/stores/dashboard', () => ({
       toggleEditing: mockToggleEditing,
       resetToDefaults: mockResetToDefaults,
       ensureDefaults: mockEnsureDefaults,
+      initFromServer: mockInitFromServer,
     }),
 }))
 
