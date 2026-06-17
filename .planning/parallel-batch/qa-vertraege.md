@@ -22,3 +22,25 @@
 
 **Screenshots:** `desktop/.qa-screenshots/vertraege-modal/a-modal-open.png`, `…/c-scrolled-sticky-header.png`, `…/d-keyboard-open.png`
 **QA-Status:** ALL PASS (zentriert x=336/w=768 in 1440, 9/9 Sektionen, Sticky-Header verifiziert, Keyboard-Open, 0 Raw-Keys, 0 Console-Errors).
+
+---
+
+## V-2 — Dokument-Preview-404 fixen
+
+**Befund:** Der beschriebene 404 besteht **nicht mehr** — die Seed-`fileId`s der Verträge (`file-005/006/007/021`) existieren bereits 1:1 im Dokumente-MSW (`mocks/handlers/documents.ts`) mit passenden Dateinamen; `/documents/files/:id/download` liefert eine echte Blob-PDF-URL. Headed verifiziert: v-1 + v-2 rendern echte PDFs im iframe (kein leerer Viewer).
+
+**Gebaut (Demo-Verbreiterung):** Zwei weiteren **aktiven** Verträgen ein echtes, im Dokumente-MSW vorhandenes PDF angehängt, damit mehr Verträge eine funktionierende Vorschau zeigen:
+- v-7 „Thomas Berger Arbeitsvertrag" → `file-014` Arbeitsvertrag_Muster.pdf (semantisch perfekt)
+- v-4 „Allianz Betriebsversicherung" → `file-018` Datenschutzerklaerung.pdf
+→ Jetzt **4 erreichbare aktive Verträge** mit echter PDF-Vorschau (v-1, v-2, v-7, v-4).
+
+**Nebenbefund (für Darien / V-5):** Mehrere Seed-Verträge haben **vergangene `endDate`s** (relativ zu heute 2026-06-17): v-3 Microsoft 365 + v-11 Lagerraum stehen auf Status `expiring`, fallen aber in **keinen Tab** (Aktiv/Auslaufend/Archiv) → in der Demo unsichtbar. Der „Auslaufend"-Tab ist aktuell **leer** (kein Vertrag 0–90 Tage vor Ablauf). Das betrifft auch V-3 (Reminder feuern nur bei nahem Ablauf) — ich frische dafür in V-3 ein paar Daten auf.
+
+**Schlüsseldateien:** `desktop/src/renderer/src/stores/vertraege.ts` (documents auf v-4 + v-7); QA: `desktop/scripts/qa-vertraege-preview.mjs` (**headed**)
+
+**Was Darien anschauen soll:**
+- Screen: `/#/vertraege`, Tab „Aktiv". Vertrag mit Dokument öffnen (z. B. „Büro-Mietvertrag München" oder „Thomas Berger Arbeitsvertrag") → im Modal zur Sektion **Dokumente** scrollen → auf den **Dateinamen** klicken.
+- Erwartung: FilePreviewModal öffnet, **PDF rendert im iframe** (kein 404, kein leerer Viewer). In Electron/headed sichtbar; headless Chromium hat keinen PDF-Viewer.
+
+**Screenshots:** `desktop/.qa-screenshots/vertraege-preview/Vertrag_Gruber_Maschinenbau.png`, `…/Arbeitsvertrag_Muster.png`, `…/SLA_Helvetia_Software.png`, `…/Datenschutzerklaerung.png`
+**QA-Status:** ALL PASS (4/4 Verträge, iframe blob:-URL, PDF gerendert, 0 Console-Errors).

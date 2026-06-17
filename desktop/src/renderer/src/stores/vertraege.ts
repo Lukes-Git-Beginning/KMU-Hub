@@ -280,6 +280,9 @@ const MOCK_CONTRACTS: Contract[] = [
     monthlyCost: 890,
     totalValue: 32040,
     documentRef: 'DOC-VS-004',
+    documents: [
+      { fileId: 'file-018', name: 'Datenschutzerklaerung.pdf', mimeType: 'application/pdf', size: 340000, addedAt: '2024-06-01' },
+    ],
     notes: 'Kombinierte Betriebsversicherung: Haftpflicht (EUR 5 Mio.), Inventar (EUR 500000), Betriebsunterbrechung (12 Monate). Selbstbehalt EUR 1000 pro Schadensfall.',
     currency: 'EUR',
     history: [
@@ -346,6 +349,9 @@ const MOCK_CONTRACTS: Contract[] = [
     renewal: 'auto',
     monthlyCost: 6500,
     totalValue: 0,
+    documents: [
+      { fileId: 'file-014', name: 'Arbeitsvertrag_Muster.pdf', mimeType: 'application/pdf', size: 290000, addedAt: '2023-03-01' },
+    ],
     notes: 'Unbefristeter Arbeitsvertrag, Senior Entwickler. 100% Pensum, 30 Tage Urlaub. Homeoffice 2 Tage/Woche gemäß Betriebsvereinbarung.',
     currency: 'EUR',
     history: [
