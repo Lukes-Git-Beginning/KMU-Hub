@@ -54,7 +54,7 @@ import {
 import { useVertraegeStore, type Contract, type ContractType, type ContractStatus, type ContractTemplate, type ContractDocument } from '@/stores/vertraege'
 import { useVertraegePrefsStore } from '@/stores/vertraegePrefs'
 import { useVertraegeSettingsStore } from '@/stores/vertraegeSettings'
-import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
+import { ItemActions, ConfirmDialog, EmptyState, DetailModal, PageHeader } from '@/components/shared'
 import { formatCurrency, formatDate } from '@/lib/format'
 import ESignaturDialog from './ESignaturDialog'
 import { FilePreviewModal } from '@/modules/dokumente/FilePreviewModal'
@@ -1500,7 +1500,17 @@ export default function VertraegePage() {
                         <tr
                           key={contract.id}
                           onClick={() => setSelectedContractId(contract.id)}
-                          className={`border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer ${
+                          onKeyDown={(e) => {
+                            // Nur reagieren, wenn die Zeile selbst fokussiert ist —
+                            // Enter/Space auf inneren Buttons (Aktionen) nicht abfangen.
+                            if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
+                              e.preventDefault()
+                              setSelectedContractId(contract.id)
+                            }
+                          }}
+                          tabIndex={0}
+                          aria-label={t('vertraege.table.openDetail', { title: contract.title })}
+                          className={`border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset ${
                             isSelected ? 'bg-primary-light/30' : ''
                           }`}
                         >
@@ -1556,22 +1566,22 @@ export default function VertraegePage() {
         </>
       )}
 
-      {/* ─── DETAIL PANEL ────────────────────────────────────── */}
-      <DetailPanel
+      {/* ─── DETAIL MODAL (zentriert, Cosmi-Standard) ─────────── */}
+      <DetailModal
         open={!!selectedContract}
         onClose={() => setSelectedContractId(null)}
         title={selectedContract?.title}
-        subtitle={selectedContract ? `${selectedContract.contractNumber} · ${selectedContract.partner}` : undefined}
+        subtitle={selectedContract ? `${t(contractTypeConfig[selectedContract.type].labelKey)} · ${selectedContract.contractNumber}` : undefined}
         badge={
           selectedContract ? (
-            <span className={`ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
               statusConfig[selectedContract.status].colorClass
             }`}>
               {t(statusConfig[selectedContract.status].labelKey)}
             </span>
           ) : undefined
         }
-        width="w-[400px]"
+        maxWidth="max-w-3xl"
         footer={
           selectedContract ? (
             <div className="flex gap-2">
@@ -1608,7 +1618,7 @@ export default function VertraegePage() {
             onNavigate={(path) => navigate(path)}
           />
         )}
-      </DetailPanel>
+      </DetailModal>
 
       {/* ─── DIALOGS ─────────────────────────────────────────── */}
       <ContractDialog

@@ -7942,6 +7942,7 @@
   "vertraege.tab.vorlagen": "Modelli",
   "vertraege.table.laufzeit": "Durata",
   "vertraege.table.monthlyCost": "Costi mens.",
+  "vertraege.table.openDetail": "Apri i dettagli di «{title}»",
   "vertraege.table.partner": "Partner",
   "vertraege.table.reminders": "Promemoria: {days} giorni",
   "vertraege.table.status": "Stato",

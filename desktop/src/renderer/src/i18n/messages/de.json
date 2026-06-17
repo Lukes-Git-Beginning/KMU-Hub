@@ -7976,6 +7976,7 @@
   "vertraege.tab.vorlagen": "Vorlagen",
   "vertraege.table.laufzeit": "Laufzeit",
   "vertraege.table.monthlyCost": "Monatl. Kosten",
+  "vertraege.table.openDetail": "Details zu „{title}“ öffnen",
   "vertraege.table.partner": "Partner",
   "vertraege.table.reminders": "Erinnerungen: {days} Tage",
   "vertraege.table.status": "Status",
