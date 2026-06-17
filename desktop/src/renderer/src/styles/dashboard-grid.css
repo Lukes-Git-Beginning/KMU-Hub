@@ -1,0 +1,25 @@
+/**
+ * Dashboard widget grid polish — overrides react-grid-layout defaults to match
+ * the Cosmi look and fix two edit-mode annoyances.
+ */
+
+/* F6: react-grid-layout ships a hard red drag/resize placeholder. Replace it
+   with a subtle Cosmi-accent surface so moving a widget feels native. */
+/* `.layout` prefix raises specificity above react-grid-layout's own
+   `.react-grid-item.react-grid-placeholder { background: red }` (same specificity,
+   loaded later via the WidgetContainer import). */
+.layout .react-grid-item.react-grid-placeholder {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border: 1.5px dashed color-mix(in srgb, var(--primary) 40%, transparent);
+  border-radius: 0.875rem;
+  opacity: 1;
+  transition-duration: 120ms;
+}
+
+/* F7: dragging/resizing a widget should not select the text inside it. The
+   `react-draggable` class is only present while widgets are draggable (edit
+   mode), so normal text remains selectable in view mode. */
+.react-grid-item.react-draggable {
+  user-select: none;
+  -webkit-user-select: none;
+}
