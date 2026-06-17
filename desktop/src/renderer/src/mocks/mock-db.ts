@@ -47,7 +47,7 @@ export interface MockDepartment {
 }
 
 export const DEPARTMENTS: MockDepartment[] = [
-  { id: 'mgmt', name: 'Geschaeftsführung', color: '#6366f1', headId: 'e1' },
+  { id: 'mgmt', name: 'Geschäftsführung', color: '#6366f1', headId: 'e1' },
   { id: 'dev', name: 'Entwicklung', color: '#3b82f6', headId: 'e2' },
   { id: 'design', name: 'Design', color: '#ec4899', headId: 'e9' },
   { id: 'sales', name: 'Vertrieb', color: '#f59e0b', headId: 'e3' },
@@ -90,11 +90,11 @@ export interface MockEmployee {
 }
 
 export const EMPLOYEES: MockEmployee[] = [
-  // --- Geschaeftsführung ---
+  // --- Geschäftsführung ---
   {
     id: 'e1', firstName: 'Stefan', lastName: 'Vogel', initials: 'SV',
     email: 'stefan.vogel@techvision.de', phone: '+49 89 2468 1351', mobile: '+49 171 234 5678',
-    role: 'admin', jobTitle: 'Geschaeftsfuehrer', department: 'Geschaeftsführung', departmentId: 'mgmt',
+    role: 'admin', jobTitle: 'Geschäftsführer', department: 'Geschäftsführung', departmentId: 'mgmt',
     contractType: 'full_time', workload: 100, joinDate: '2021-04-01', birthday: '1978-06-15',
     location: 'München', salary: 12500,
     skills: ['Strategie', 'Business Development', 'Verhandlung'],
@@ -217,7 +217,7 @@ export const EMPLOYEES: MockEmployee[] = [
   {
     id: 'e14', firstName: 'Andrea', lastName: 'Keller', initials: 'AK',
     email: 'andrea.keller@techvision.de', phone: '+49 89 2468 1364', mobile: '+49 178 456 7890',
-    role: 'member', jobTitle: 'Office Managerin', department: 'Geschaeftsführung', departmentId: 'mgmt',
+    role: 'member', jobTitle: 'Office Managerin', department: 'Geschäftsführung', departmentId: 'mgmt',
     contractType: 'part_time', workload: 60, joinDate: '2022-08-01', birthday: '1983-11-30',
     location: 'München', managerId: 'e1', salary: 3200,
     skills: ['Organisation', 'Eventplanung', 'Office 365'],
@@ -293,7 +293,7 @@ export const EXTERNAL_CONTACTS: MockExternalContact[] = [
   {
     id: 'x1', salutation: 'Herr', title: 'Dr.', firstName: 'Hans', lastName: 'Gruber', initials: 'HG',
     email: 'gruber@gruber-maschinenbau.de', phone: '+49 711 123 4567', mobile: '+49 170 111 2233',
-    company: 'Gruber Maschinenbau GmbH', jobTitle: 'Geschaeftsfuehrer',
+    company: 'Gruber Maschinenbau GmbH', jobTitle: 'Geschäftsführer',
     category: 'customer', status: 'active', city: 'Stuttgart',
     tags: ['VIP', 'Maschinenbau', 'Entscheider'], notes: 'Hauptkunde seit 2022. Website-Relaunch + Wartungsvertrag.',
     lastContact: '2026-02-20',
@@ -317,7 +317,7 @@ export const EXTERNAL_CONTACTS: MockExternalContact[] = [
   {
     id: 'x4', salutation: 'Frau', title: '', firstName: 'Katrin', lastName: 'Weiss', initials: 'KW',
     email: 'weiss@weiss-consulting.de', phone: '+49 69 456 7890', mobile: '+49 173 444 5566',
-    company: 'Weiss Consulting GmbH', jobTitle: 'Geschaeftsfuehrerin',
+    company: 'Weiss Consulting GmbH', jobTitle: 'Geschäftsführerin',
     category: 'customer', status: 'active', city: 'Frankfurt am Main',
     tags: ['Beratung', 'KMU'], notes: 'Nutzt Cosmi für internes Projektmanagement. Sehr zufrieden.',
     lastContact: '2026-02-12',
@@ -341,7 +341,7 @@ export const EXTERNAL_CONTACTS: MockExternalContact[] = [
   {
     id: 'x7', salutation: 'Herr', title: '', firstName: 'Robert', lastName: 'Stadler', initials: 'RS',
     email: 'stadler@stadler-bau.de', phone: '+49 821 789 0123', mobile: '+49 176 777 8899',
-    company: 'Stadler Bauunternehmen GmbH', jobTitle: 'Geschaeftsfuehrer',
+    company: 'Stadler Bauunternehmen GmbH', jobTitle: 'Geschäftsführer',
     category: 'customer', status: 'active', city: 'Augsburg',
     tags: ['Bau', 'Intranet'], notes: 'Intranet-Portal für 120 Mitarbeiter. Budget bestätigt.',
     lastContact: '2026-02-14',
@@ -415,7 +415,7 @@ export const EXTERNAL_CONTACTS: MockExternalContact[] = [
   {
     id: 'x16', salutation: 'Frau', title: 'Dr.', firstName: 'Astrid', lastName: 'Vogel', initials: 'AV',
     email: 'vogel@medtech-innovations.de', phone: '+49 7071 666 7788', mobile: '+49 175 667 7889',
-    company: 'MedTech Innovations GmbH', jobTitle: 'Geschaeftsfuehrerin',
+    company: 'MedTech Innovations GmbH', jobTitle: 'Geschäftsführerin',
     category: 'prospect', status: 'prospect', city: 'Tuebingen',
     tags: ['MedTech', 'Prospect', 'Demo'], notes: 'Erstkontakt Messe DMEA. Demo am 28.02. geplant. 45 MA.',
     lastContact: '2026-02-16',
