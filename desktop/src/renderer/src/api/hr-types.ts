@@ -244,6 +244,13 @@ export interface EmployeeProfile {
   addressCountry: string
   createdAt: string
   updatedAt: string
+  // Self-service display fields (optional, passed through from the /me handler).
+  phone?: string
+  mobile?: string
+  location?: string
+  workload?: number
+  initials?: string
+  avatarUrl?: string | null
 }
 
 export interface EmployeeDocument {

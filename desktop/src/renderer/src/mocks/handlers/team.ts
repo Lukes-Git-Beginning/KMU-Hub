@@ -61,7 +61,19 @@ const leaveRequests = [
   { id: 'lr-003', user_id: IDS.users.julia, user_name: 'Julia Hofmann', type: 'Urlaub', type_id: 'lt-001', start_date: daysFromNow(30), end_date: daysFromNow(37), days: 6, status: 'approved', note: '', created_at: daysAgo(10) },
   { id: 'lr-004', user_id: IDS.users.sophie, user_name: 'Sophie Lang', type: 'Sonderurlaub', type_id: 'lt-003', start_date: daysFromNow(5), end_date: daysFromNow(5), days: 1, status: 'approved', note: 'Umzug', created_at: daysAgo(5) },
   { id: 'lr-005', user_id: IDS.users.markus, user_name: 'Markus Weber', type: 'Homeoffice', type_id: 'lt-005', start_date: daysFromNow(1), end_date: daysFromNow(1), days: 1, status: 'approved', note: '', created_at: daysAgo(0) },
+  // Self-service user (Stefan Vogel = /me) — own requests so the self-service tab is not empty.
+  { id: 'lr-006', user_id: IDS.users.stefan, user_name: 'Stefan Vogel', type: 'Urlaub', type_id: 'lt-001', start_date: daysFromNow(45), end_date: daysFromNow(52), days: 6, status: 'pending', note: 'Sommerurlaub', created_at: daysAgo(1) },
+  { id: 'lr-007', user_id: IDS.users.stefan, user_name: 'Stefan Vogel', type: 'Homeoffice', type_id: 'lt-005', start_date: daysAgo(7), end_date: daysAgo(7), days: 1, status: 'approved', note: 'Fokus-Tag', created_at: daysAgo(8) },
+  { id: 'lr-008', user_id: IDS.users.stefan, user_name: 'Stefan Vogel', type: 'Sonderurlaub', type_id: 'lt-003', start_date: daysAgo(20), end_date: daysAgo(20), days: 1, status: 'approved', note: 'Behördengang', created_at: daysAgo(22) },
 ]
+
+const LEAVE_TYPE_NAMES: Record<string, string> = {
+  'lt-001': 'Urlaub',
+  'lt-002': 'Krankheit',
+  'lt-003': 'Sonderurlaub',
+  'lt-004': 'Elternzeit',
+  'lt-005': 'Homeoffice',
+}
 
 const leaveBalance = {
   user_id: IDS.users.stefan,
@@ -153,6 +165,33 @@ export const teamHandlers = [
     }
 
     return HttpResponse.json({ requests: filtered, total: filtered.length })
+  }),
+
+  // Create leave request — pushes into the same in-memory list the GET reads,
+  // so a newly submitted request shows up immediately in the self-service tab.
+  http.post(`${API}/api/v1/hr/leave/requests`, async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>
+    const typeId = String(body.leave_type_id ?? body.leaveTypeId ?? 'lt-001')
+    const start = String(body.start_date ?? body.startDate ?? '')
+    const end = String(body.end_date ?? body.endDate ?? start)
+    const dayMs = 86400000
+    const days =
+      start && end ? Math.max(1, Math.round((new Date(end).getTime() - new Date(start).getTime()) / dayMs) + 1) : 1
+    const newReq = {
+      id: `lr-${Date.now()}`,
+      user_id: IDS.users.stefan,
+      user_name: 'Stefan Vogel',
+      type: LEAVE_TYPE_NAMES[typeId] ?? 'Urlaub',
+      type_id: typeId,
+      start_date: start,
+      end_date: end,
+      days,
+      status: 'pending',
+      note: String(body.reason ?? ''),
+      created_at: new Date().toISOString().slice(0, 10),
+    }
+    leaveRequests.unshift(newReq)
+    return HttpResponse.json({ request: newReq }, { status: 201 })
   }),
 
   // Leave balance

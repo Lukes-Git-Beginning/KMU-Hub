@@ -134,6 +134,12 @@ function adaptEmployee(raw: Record<string, any>): EmployeeProfile {
     addressCountry:        raw.address_country      ?? raw.addressCountry       ?? '',
     createdAt:             raw.created_at           ?? raw.createdAt            ?? '',
     updatedAt:             raw.updated_at           ?? raw.updatedAt            ?? '',
+    phone:                 raw.phone,
+    mobile:                raw.mobile,
+    location:              raw.location,
+    workload:              raw.workload,
+    initials:              raw.initials,
+    avatarUrl:             raw.avatar_url           ?? raw.avatarUrl            ?? null,
   }
 }
 
