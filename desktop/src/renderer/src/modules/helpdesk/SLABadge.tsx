@@ -6,19 +6,20 @@
 import { useTranslation } from 'react-i18next'
 import { Clock, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { slaLabel } from '@/stores/helpdesk'
 
 interface SLABadgeProps {
   overdue: boolean
-  remaining: string
+  days: number
+  hours: number
   dueAt?: string
   compact?: boolean
 }
 
-export function SLABadge({ overdue, remaining, dueAt, compact }: SLABadgeProps) {
+export function SLABadge({ overdue, days, hours, dueAt, compact }: SLABadgeProps) {
   const { t } = useTranslation()
-  const isWarning = !overdue && remaining.includes('h') && !remaining.includes('d')
-  const hours = parseInt(remaining, 10)
-  const isYellow = isWarning && !isNaN(hours) && hours < 4
+  const remaining = slaLabel(t, { slaOverdue: overdue, slaDays: days, slaHours: hours })
+  const isYellow = !overdue && days === 0 && hours < 4
 
   let colorClass = 'text-success'
   let bgClass = 'bg-success-light'

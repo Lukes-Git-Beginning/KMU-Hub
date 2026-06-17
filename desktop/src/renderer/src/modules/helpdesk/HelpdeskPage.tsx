@@ -28,6 +28,7 @@ import {
 import { toast } from 'sonner'
 import {
   useHelpdeskStore,
+  slaLabel,
   type Ticket as TicketType,
   type KBArticle,
   type ThreadMessage,
@@ -52,6 +53,7 @@ import { useHelpdeskPrefsStore } from '@/stores/helpdeskPrefs'
 import { PageHeader, EmptyState, DetailModal, SortMenu, type SortDirection } from '@/components/shared'
 import { EmptyHelpdesk } from '@/components/shared/illustrations'
 import { formatDate } from '@/lib/format'
+import { sanitizeHtml } from '@/lib/sanitize'
 
 type TabKey = 'tickets' | 'wissensdatenbank' | 'statistik'
 type StatusFilter = 'all' | TicketType['status']
@@ -442,7 +444,7 @@ export default function HelpdeskPage() {
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">{ticket.assignedTo}</td>
                       <td className="px-4 py-3">
-                        <SLABadge overdue={ticket.slaOverdue} remaining={ticket.slaRemaining} dueAt={ticket.slaDueAt} compact />
+                        <SLABadge overdue={ticket.slaOverdue} days={ticket.slaDays} hours={ticket.slaHours} dueAt={ticket.slaDueAt} compact />
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">
                         {formatDate(ticket.createdAt)}
@@ -470,7 +472,7 @@ export default function HelpdeskPage() {
       {tab === 'wissensdatenbank' && (
         <div className="animate-fade-up">
           {selectedArticle ? (
-            <KBArticleDetail article={selectedArticle} onBack={() => setSelectedArticleId(null)} />
+            <KBArticleDetail key={selectedArticle.id} article={selectedArticle} onBack={() => setSelectedArticleId(null)} />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {kbArticles.length === 0 ? (
@@ -753,9 +755,7 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
     onClose()
   }
 
-  const isWarningHours = !ticket.slaOverdue && ticket.slaRemaining.includes('h') && !ticket.slaRemaining.includes('d')
-  const parsedHours = parseInt(ticket.slaRemaining, 10)
-  const isYellow = isWarningHours && !isNaN(parsedHours) && parsedHours < 4
+  const isYellow = !ticket.slaOverdue && ticket.slaDays === 0 && ticket.slaHours < 4
   let slaBgClass = 'bg-success-light text-success'
   if (ticket.slaOverdue) slaBgClass = 'bg-error-light text-error'
   else if (isYellow) slaBgClass = 'bg-warning-light text-warning'
@@ -827,7 +827,7 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
     >
       <div className="space-y-5">
         {/* SLA Breach Banner (5.9) */}
-        {ticket.slaOverdue && <SLABreachBanner remaining={ticket.slaRemaining} />}
+        {ticket.slaOverdue && <SLABreachBanner remaining={slaLabel(t, ticket)} />}
 
         {/* Secondary badges: category + auto-routing (status/priority live in the header) */}
         {(ticket.category || ticket.autoRouted) && (
@@ -849,7 +849,7 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
         <div className={`rounded-lg px-3 py-2.5 ${slaBgClass}`}>
           <div className="flex items-center gap-2 text-xs font-medium">
             <Clock className="h-3.5 w-3.5" />
-            <span>{t('helpdesk.ticket.slaLabel')}: {ticket.slaRemaining}</span>
+            <span>{t('helpdesk.ticket.slaLabel')}: {slaLabel(t, ticket)}</span>
           </div>
         </div>
 
@@ -1015,9 +1015,19 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
 
 function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () => void }) {
   const { t } = useTranslation()
-  const body = KB_BODIES[article.id] ?? t('helpdesk.kb.noContent')
+  const savedBody = useHelpdeskStore((s) => s.kbBodies[article.id])
+  const saveKbBody = useHelpdeskStore((s) => s.saveKbBody)
+  const fallback = KB_BODIES[article.id] ?? t('helpdesk.kb.noContent')
   const [editing, setEditing] = useState(false)
-  const [editContent, setEditContent] = useState(() => body.split('\n\n').map((p) => `<p>${p}</p>`).join(''))
+  const [editContent, setEditContent] = useState(
+    () => savedBody ?? fallback.split('\n\n').map((p) => `<p>${p}</p>`).join(''),
+  )
+
+  const handleSaveBody = () => {
+    saveKbBody(article.id, editContent)
+    setEditing(false)
+    toast.success(t('helpdesk.kb.articleSaved'))
+  }
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -1047,7 +1057,7 @@ function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () =
             ) : (
               <div className="flex items-center gap-1.5">
                 <button onClick={() => setEditing(false)} className="rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors">{t('common.cancel')}</button>
-                <button onClick={() => { setEditing(false); toast.success(t('helpdesk.kb.articleSaved')) }} className="rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors">{t('common.save')}</button>
+                <button onClick={handleSaveBody} className="rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors">{t('common.save')}</button>
               </div>
             )}
           </div>
@@ -1064,9 +1074,14 @@ function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () =
             showToolbar
             minHeight="200px"
           />
+        ) : savedBody ? (
+          <div
+            className="prose prose-sm max-w-none text-sm text-foreground leading-relaxed"
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(savedBody) }}
+          />
         ) : (
           <div className="prose prose-sm max-w-none">
-            {body.split('\n\n').map((paragraph, i) => (
+            {fallback.split('\n\n').map((paragraph, i) => (
               <p key={i} className="text-sm text-foreground leading-relaxed mb-3">{paragraph}</p>
             ))}
           </div>
