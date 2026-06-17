@@ -45,11 +45,10 @@ import {
 import { CSATWidget, CSATAggregate } from './CSATWidget'
 import { CannedResponsesPanel } from './CannedResponsesPanel'
 import { CannedResponsePicker } from './CannedResponsePicker'
-import { BusinessHoursDialog } from './BusinessHoursDialog'
-import { TicketRoutingConfig } from './TicketRoutingConfig'
 import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTextEditor'
 import { useAIStore } from '@/stores/ai'
 import { currentUserName } from '@/stores/auth'
+import { useHelpdeskPrefsStore } from '@/stores/helpdeskPrefs'
 import { PageHeader, EmptyState, DetailModal } from '@/components/shared'
 import { EmptyHelpdesk } from '@/components/shared/illustrations'
 import { formatDate } from '@/lib/format'
@@ -140,10 +139,12 @@ export default function HelpdeskPage() {
     closed: t('helpdesk.status.closed'),
   }
 
-  // Tab & filters
-  const [tab, setTab] = useState<TabKey>('tickets')
+  // Tab & filters — seeded from personal prefs (H-6)
+  const startTab = useHelpdeskPrefsStore((s) => s.startTab)
+  const defaultStatusFilter = useHelpdeskPrefsStore((s) => s.defaultStatusFilter)
+  const [tab, setTab] = useState<TabKey>(startTab)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(defaultStatusFilter)
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all')
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all')
 
@@ -164,10 +165,8 @@ export default function HelpdeskPage() {
   // KB article detail
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null)
 
-  // Dialogs (5.6, 5.8, 5.11)
+  // Dialogs (5.6) — business hours + routing now live in the settings panel (H-6)
   const [cannedResponsesOpen, setCannedResponsesOpen] = useState(false)
-  const [businessHoursOpen, setBusinessHoursOpen] = useState(false)
-  const [routingConfigOpen, setRoutingConfigOpen] = useState(false)
 
   // Computed
   const openTickets = tickets.filter((t) => t.status !== 'closed' && t.status !== 'resolved')
@@ -247,20 +246,6 @@ export default function HelpdeskPage() {
         moduleId="helpdesk"
         actions={
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setBusinessHoursOpen(true)}
-              className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-            >
-              <Clock className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">{t('helpdesk.header.businessHours')}</span>
-            </button>
-            <button
-              onClick={() => setRoutingConfigOpen(true)}
-              className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-            >
-              <Route className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Routing</span>
-            </button>
             <button
               onClick={() => setCannedResponsesOpen(true)}
               className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
@@ -635,8 +620,6 @@ export default function HelpdeskPage() {
 
       {/* External Dialogs */}
       <CannedResponsesPanel open={cannedResponsesOpen} onClose={() => setCannedResponsesOpen(false)} onInsert={(content) => { setReplyText(content.replace(/<[^>]+>/g, '')); setCannedResponsesOpen(false) }} />
-      <BusinessHoursDialog open={businessHoursOpen} onClose={() => setBusinessHoursOpen(false)} />
-      <TicketRoutingConfig open={routingConfigOpen} onClose={() => setRoutingConfigOpen(false)} />
     </div>
   )
 }

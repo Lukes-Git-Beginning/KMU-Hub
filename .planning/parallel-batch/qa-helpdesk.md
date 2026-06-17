@@ -95,3 +95,24 @@
 - 0 pageErrors.
 
 **Commit:** `feat(helpdesk): wire canned responses CRUD to store` auf `parallel/helpdesk`.
+
+---
+
+## H-6 — Settings-Panel ✅
+
+**Gebaut:**
+- Neuer `stores/helpdeskPrefs.ts` (personal, persist `cosmi-helpdesk-prefs`): `startTab` + `defaultStatusFilter`.
+- Neuer `modules/helpdesk/settings/HelpdeskSettingsPanel.tsx` über `ModuleSettingsShell` (`moduleId="helpdesk"`):
+  - **personal** „Persönliche Ansicht": Start-Tab- + Standard-Statusfilter-Select (→ Prefs-Store).
+  - **tenant** „Geschäftszeiten" + „Routing-Regeln" (Modul-Leiter/Admin-gated).
+- `BusinessHoursDialog` + `TicketRoutingConfig` um `embedded`-Modus erweitert (Inhalt ohne Dialog-Chrome + Inline-„Speichern"); beide speichern jetzt **echt** via Store-Actions `saveBusinessHours` / `saveRoutingRules` (vorher nur Toast). `TicketRoutingConfig` liest seine Regeln jetzt aus dem Store statt aus lokalem `INITIAL_RULES` (Dubletten-Typ + `TICKET_CATEGORIES` entfernt, `MOCK_CATEGORIES` wiederverwendet).
+- Registry-Eintrag `{ id: 'helpdesk', navMatch: ['/helpdesk'], icon: LifeBuoy, … }` in `module-settings-registry.tsx`.
+- `HelpdeskPage`: die zwei Header-Buttons (Geschäftszeiten + Routing) inkl. State + Dialog-Renders + Imports entfernt (auch der hardcodierte „Routing"-String ist damit weg); Tab + Statusfilter aus den Prefs initialisiert.
+- i18n: `helpdesk.settings.*` (16 Keys ×4) + `moduleSettings.entries.helpdesk` ×4.
+
+**Verify (QA `scripts/qa-helpdesk-settings.mjs`, Screenshots angesehen):**
+- Panel: Overlay öffnet auf /helpdesk **mit Helpdesk preselektiert**; „Helpdesk-Einstellungen" + Start-Tab + Geschäftszeiten + Routing-Regeln rendern; **0 Raw-Keys, 0 `{{ }}`, 0 pageErrors.**
+- Pref-Konsum: `startTab='statistik'` → Helpdesk öffnet auf **Statistik-Tab** (`activeTab: "Statistik"`, Chart sichtbar).
+- Header nach Cleanup: nur noch „Vorlagen" + „Neues Ticket", Liste + Detail-Modal weiter ok, 0 pageErrors.
+
+**Commit:** `feat(helpdesk): add settings panel (prefs + business hours + routing)` auf `parallel/helpdesk`.
