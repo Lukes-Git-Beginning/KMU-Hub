@@ -131,9 +131,10 @@ Schneller Audit gegen die Tiefe-Vorgabe; die 4 Module sind solange bei Nico in R
 - [ ] **P4** DATEV + externe BI 🔒
 - [ ] Demo-Tiefe-Phase
 
-### team — ⬜ (12 Tabs, tw. Query)
-- [ ] **P1** Trainings Backend-Swap + Pflichtschulung-Tracking 🔒
-- [ ] **P2** Personalakte↔Dokumente + Organigramm editierbar + Leave-Typen
+### team — ✅ Tiefe-Pass review-reif → Nico (Main-Terminal TM-1…TM-5, 7 Commits → `8a49415c`)
+- [x] **Tiefe-Pass:** Abwesenheiten-Bug (entries+camelCase+Date-Filter) · SelfService verkabelt (useSelfProfile/Balance/Requests + Create-Flow + Blob-Download) · PersonnelDocuments→MSW (echte MA, Download/Preview-Dialog/Upload) · OrgChart E-Mail/Anruf wirken + 8× `{{}}`→`{}` + page.title · Deactivate komplett wirksam (Action-Item+PUT+status+Inaktiv-Render) · Umlaut-Cleanup. Alle Build-grün + Screenshot-verifiziert. QA: `.planning/parallel-batch/qa-team.md`.
+- [ ] **P1** Trainings Backend-Swap (🔒 Luke — Zustand-Store funktional+swap-ready, im FE-Review nicht nötig) + Pflichtschulung-Tracking
+- [ ] **P2** Personalakte↔Dokumente (Verknüpfung tiefer) + Organigramm editierbar + Leave-Typen
 - [ ] **P3** DATEV-Lohnschnittstelle 🔒
 - [ ] **P4** HR-Selfservice + Minderjährigen-Regeln + Vertrags-Vorlagen
 - [ ] Demo-Tiefe-Phase
@@ -263,7 +264,7 @@ Jedes Modul wird zu **review-reif** gebracht, dann „→ Nico". Vorschlag misch
 | — | kontakte, calendar, dokumente, zeiterfassung | (Tiefe-Re-Check später) | ✅ bei Nico |
 | 1 | **finanzen** | P2.5b–e + P3–5 (FE/mock) | ✅ review-reif → Nico |
 | 2 | **Projekte & Aufgaben** (Code: work) | Tiefe-Pass W-1…W-5 (verifiziert, `999260ea`) | ✅ review-reif → Nico |
-| 3 | **team** | Tiefe-Pass + 2 Phasen | ⬜ |
+| 3 | **team** | TM-1…TM-5 (Abwesenheiten-Bug, SelfService, PersonnelDocuments-MSW, OrgChart+i18n, Deactivate) + Umlaut | ✅ review-reif → Nico |
 | 4 | **dashboard** | D-1…D-5 + Darien-Fixes F6/F7 (`f4a6844d`) | ✅ review-reif → Nico |
 | 5 | **vertraege** | V-1…V-5 + Darien-Fixes F1-F5 (`f4a6844d`) | ✅ review-reif → Nico |
 | 6 | **helpdesk** | Tiefe-Pass + CRM-Lookup | ⬜ schnell |
