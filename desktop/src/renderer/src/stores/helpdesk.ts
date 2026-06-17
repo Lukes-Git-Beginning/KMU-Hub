@@ -139,6 +139,20 @@ export const MOCK_HOLIDAYS: Holiday[] = [
   { id: 'h-8', date: '2026-12-26', name: 'Stephanstag' },
 ]
 
+// ---------------------------------------------------------------------------
+// Message Threads (5.7) — one conversation per ticket, lives in the store so
+// replies/internal notes/escalations persist (was in-file MOCK_THREADS before).
+// ---------------------------------------------------------------------------
+
+export interface ThreadMessage {
+  id: string
+  author: string
+  role: 'customer' | 'agent'
+  text: string
+  timestamp: string
+  isInternal?: boolean
+}
+
 export interface KBArticle {
   id: string
   title: string
@@ -157,14 +171,59 @@ export interface HelpdeskStats {
   weeklyBreakdown: { label: string; count: number }[]
 }
 
+/** Payload for creating a ticket (the rest is derived in addTicket). */
+export interface NewTicketInput {
+  subject: string
+  description: string
+  priority: Ticket['priority']
+  assignedTo: string
+  contactName: string
+  category?: string
+}
+
+const PRIORITY_LADDER: Ticket['priority'][] = ['low', 'medium', 'high', 'critical']
+
 interface HelpdeskStore {
   tickets: Ticket[]
+  threads: Record<string, ThreadMessage[]>
   kbArticles: KBArticle[]
   stats: HelpdeskStats
   cannedResponses: CannedResponse[]
   routingRules: RoutingRule[]
   businessHours: BusinessDay[]
   holidays: Holiday[]
+
+  // ── Ticket actions ──
+  /** Create a ticket with auto number (HD-YYYY-NNNN), SLA + timestamps; prepends it. Returns the new id. */
+  addTicket: (input: NewTicketInput) => string
+  updateTicketStatus: (id: string, status: Ticket['status']) => void
+  assignTicket: (id: string, agent: string) => void
+  /** Bump priority one step (capped at critical) + system thread note. */
+  escalateTicket: (id: string, by: string) => void
+  /** Merge a ticket into another: appends source thread + closes source with a note. */
+  mergeTicket: (sourceId: string, targetId: string) => void
+  addReply: (id: string, msg: { author: string; body: string; internal?: boolean }) => void
+  saveCsat: (id: string, rating: number, comment?: string) => void
+
+  // ── Canned responses ──
+  addCannedResponse: (input: Omit<CannedResponse, 'id'>) => void
+  updateCannedResponse: (id: string, patch: Partial<Omit<CannedResponse, 'id'>>) => void
+  deleteCannedResponse: (id: string) => void
+
+  // ── Config ──
+  saveBusinessHours: (hours: BusinessDay[], holidays: Holiday[]) => void
+  saveRoutingRules: (rules: RoutingRule[]) => void
+}
+
+/** Next ticket number HD-YYYY-NNNN: current year, sequence = highest existing + 1. */
+function nextTicketNr(tickets: Ticket[]): string {
+  const year = new Date().getFullYear()
+  let max = 0
+  for (const t of tickets) {
+    const m = /^HD-\d{4}-(\d+)$/.exec(t.ticketNr)
+    if (m) max = Math.max(max, parseInt(m[1], 10))
+  }
+  return `HD-${year}-${String(max + 1).padStart(4, '0')}`
 }
 
 function computeSla(slaDueAt: string): { overdue: boolean; remaining: string } {
@@ -214,6 +273,73 @@ const MOCK_TICKETS: Ticket[] = [
   makeTicket('tk-15', 'HD-2026-0315', 'Teams-Raum "Säntis" Kamera defekt', 'Die Konferenzkamera im Teams-Raum Säntis zeigt kein Bild mehr. Modell: Logitech Rally.', 'medium', 'open', 'Marco Hartmann', 'Yvonne Stocker', '2026-02-19T17:00:00', '2026-02-14T13:00:00', '2026-02-14T13:00:00', 'Hardware', { 'Gerätetyp': 'Sonstiges', 'Raumnummer': 'Säntis' }),
 ]
 
+// ---------------------------------------------------------------------------
+// Seed threads — one believable conversation per ticket (all 15). Agent vs.
+// customer turns, a couple of internal notes. Replies/notes append here.
+// ---------------------------------------------------------------------------
+
+const MOCK_THREADS: Record<string, ThreadMessage[]> = {
+  'tk-1': [
+    { id: 'tk-1-m1', author: 'Brigitte Schärer', role: 'customer', text: 'Der Drucker im 2. OG zeigt seit heute Morgen "Offline" an. Mehrere Kollegen haben das gleiche Problem.', timestamp: '2026-02-15T08:30:00' },
+    { id: 'tk-1-m2', author: 'Marco Hartmann', role: 'agent', text: 'Danke für die Meldung. Ich prüfe den Druckserver und die Netzwerkverbindung. Bitte kurz Geduld.', timestamp: '2026-02-15T09:15:00' },
+    { id: 'tk-1-m3', author: 'Marco Hartmann', role: 'agent', text: 'Der Druckspooler-Dienst wurde neu gestartet. Bitte testen Sie erneut.', timestamp: '2026-02-15T09:45:00' },
+  ],
+  'tk-2': [
+    { id: 'tk-2-m1', author: 'Stefan Wenger', role: 'customer', text: 'Meine VPN-Verbindung trennt sich alle 10 Minuten. Arbeiten im Home-Office ist so nicht möglich.', timestamp: '2026-02-14T17:45:00' },
+    { id: 'tk-2-m2', author: 'Marco Hartmann', role: 'agent', text: 'Welchen VPN-Client nutzen Sie? Bitte senden Sie mir die Logdatei.', timestamp: '2026-02-15T08:00:00' },
+    { id: 'tk-2-m3', author: 'Stefan Wenger', role: 'customer', text: 'Cisco AnyConnect 4.10. Logs sind im Anhang.', timestamp: '2026-02-15T08:30:00' },
+  ],
+  'tk-3': [
+    { id: 'tk-3-m1', author: 'Karin Pfister', role: 'customer', text: 'Neuer Mitarbeiter Lukas Meier startet am 01.03. in der Buchhaltung. Bitte alle Standardzugänge einrichten.', timestamp: '2026-02-14T14:00:00' },
+    { id: 'tk-3-m2', author: 'Sandra Bürki', role: 'agent', text: 'Wird vorbereitet. AD-Konto, E-Mail, ERP und Zeiterfassung.', timestamp: '2026-02-14T15:00:00', isInternal: true },
+  ],
+  'tk-4': [
+    { id: 'tk-4-m1', author: 'Andreas Müller', role: 'customer', text: 'Termine aus Outlook Desktop tauchen auf dem iPhone nicht auf. Andersrum genauso.', timestamp: '2026-02-14T11:30:00' },
+    { id: 'tk-4-m2', author: 'Marco Hartmann', role: 'agent', text: 'Das klingt nach einem Profilfehler in der Exchange-Synchronisation. Ich brauche das Modell Ihres iPhones.', timestamp: '2026-02-14T16:20:00' },
+  ],
+  'tk-5': [
+    { id: 'tk-5-m1', author: 'Regula Vogt', role: 'customer', text: 'Der Dell-Monitor an B-12 flackert sporadisch, etwa alle paar Minuten kurz.', timestamp: '2026-02-14T09:00:00' },
+  ],
+  'tk-6': [
+    { id: 'tk-6-m1', author: 'Thomas Kunz', role: 'customer', text: 'Beim Erstellen von Rechnungen kommt Fehler 500. Die ganze Buchhaltung steht.', timestamp: '2026-02-14T08:00:00' },
+    { id: 'tk-6-m2', author: 'Marco Hartmann', role: 'agent', text: 'Der ERP-Applikationsdienst hatte sich aufgehängt. Neustart durchgeführt, Rechnungslauf läuft wieder.', timestamp: '2026-02-14T12:30:00' },
+    { id: 'tk-6-m3', author: 'Thomas Kunz', role: 'customer', text: 'Bestätigt, funktioniert wieder. Vielen Dank für die schnelle Hilfe!', timestamp: '2026-02-14T13:00:00' },
+  ],
+  'tk-7': [
+    { id: 'tk-7-m1', author: 'Daniel Roth', role: 'customer', text: 'Im Sitzungszimmer Pilatus bricht das WLAN bei Videokonferenzen ständig ab.', timestamp: '2026-02-13T15:30:00' },
+    { id: 'tk-7-m2', author: 'Sandra Bürki', role: 'agent', text: 'Wir prüfen die Access-Point-Abdeckung. Eventuell ist ein zusätzlicher AP nötig.', timestamp: '2026-02-15T10:00:00', isInternal: true },
+  ],
+  'tk-8': [
+    { id: 'tk-8-m1', author: 'Nicole Berger', role: 'customer', text: 'Die Adobe-CC-Lizenz fürs Marketing ist abgelaufen, niemand kann mehr arbeiten.', timestamp: '2026-02-13T11:00:00' },
+    { id: 'tk-8-m2', author: 'Sandra Bürki', role: 'agent', text: 'Verlängerung ist bei der Beschaffung angefragt. Ich warte auf die Budget-Freigabe.', timestamp: '2026-02-14T10:00:00' },
+  ],
+  'tk-9': [
+    { id: 'tk-9-m1', author: 'System Alert', role: 'customer', text: 'Automatische Meldung: Nächtliches Backup des Fileservers seit 3 Tagen fehlgeschlagen (Speicherplatz unzureichend).', timestamp: '2026-02-12T06:00:00' },
+    { id: 'tk-9-m2', author: 'Marco Hartmann', role: 'agent', text: 'Alte Snapshots bereinigt, Backup-Ziel erweitert. Nächster Lauf erfolgreich verifiziert.', timestamp: '2026-02-13T09:00:00' },
+  ],
+  'tk-10': [
+    { id: 'tk-10-m1', author: 'Eveline Stauffer', role: 'customer', text: 'Meine Zutrittskarte (Z-4412) öffnet das Büro im 3. OG seit heute Morgen nicht mehr.', timestamp: '2026-02-15T07:50:00' },
+  ],
+  'tk-11': [
+    { id: 'tk-11-m1', author: 'Ruth Eberle', role: 'customer', text: 'Bitte eine Rufweiterleitung für den Empfang auf +49 89 555 12 99 einrichten (Urlaub).', timestamp: '2026-02-12T14:00:00' },
+    { id: 'tk-11-m2', author: 'Marco Hartmann', role: 'agent', text: 'Weiterleitung ist aktiv und getestet. Gilt bis auf Widerruf.', timestamp: '2026-02-13T11:00:00' },
+  ],
+  'tk-12': [
+    { id: 'tk-12-m1', author: 'Beat Kuhn', role: 'customer', text: 'Für den Aussendienst-Kollegen Reto Graf brauchen wir ein ThinkPad T14 inkl. Dockingstation.', timestamp: '2026-02-11T16:00:00' },
+  ],
+  'tk-13': [
+    { id: 'tk-13-m1', author: 'Patricia Hofer', role: 'customer', text: 'Das Team von Projekt X braucht Zugriff auf den Sharepoint-Ordner /Projekte/X.', timestamp: '2026-02-13T09:00:00' },
+    { id: 'tk-13-m2', author: 'Sandra Bürki', role: 'agent', text: 'Berechtigungen für Meier, Huber und Keller gesetzt. Bitte einmal abmelden und neu anmelden.', timestamp: '2026-02-14T15:30:00' },
+  ],
+  'tk-14': [
+    { id: 'tk-14-m1', author: 'System Alert', role: 'customer', text: 'Sophos meldet eine verdächtige Datei auf Arbeitsplatz C-03 (Einkauf). Quarantäne ist aktiv.', timestamp: '2026-02-15T06:30:00' },
+    { id: 'tk-14-m2', author: 'Marco Hartmann', role: 'agent', text: 'Datei analysiert — False Positive durch ein Makro. Ich whiteliste die Signatur nach Rücksprache.', timestamp: '2026-02-15T08:45:00', isInternal: true },
+  ],
+  'tk-15': [
+    { id: 'tk-15-m1', author: 'Yvonne Stocker', role: 'customer', text: 'Die Logitech-Rally-Kamera im Teams-Raum Säntis zeigt kein Bild mehr.', timestamp: '2026-02-14T13:00:00' },
+  ],
+}
+
 const MOCK_KB_ARTICLES: KBArticle[] = [
   { id: 'kb-1', title: 'VPN-Verbindung einrichten (Windows)', category: 'Netzwerk', excerpt: 'Schritt-für-Schritt Anleitung zur Einrichtung der VPN-Verbindung unter Windows 10/11 mit dem Cisco AnyConnect Client.', views: 342, published: true, updatedAt: '2026-01-20T10:00:00' },
   { id: 'kb-2', title: 'Drucker hinzufügen im Netzwerk', category: 'Hardware', excerpt: 'So fügen Sie einen Netzwerkdrucker unter Windows oder macOS hinzu. Inkl. Treiber-Download Links.', views: 218, published: true, updatedAt: '2026-01-15T14:00:00' },
@@ -238,16 +364,196 @@ const MOCK_STATS: HelpdeskStats = {
   ],
 }
 
+/** Monotonic id suffix for store-created entities (avoids Date.now collisions in a tick). */
+let _seq = 0
+function uid(prefix: string): string {
+  _seq += 1
+  return `${prefix}-${Date.now().toString(36)}${_seq.toString(36)}`
+}
+
 export const useHelpdeskStore = create<HelpdeskStore>()(
   persist(
-    () => ({
+    (set, get) => ({
       tickets: MOCK_TICKETS,
+      threads: MOCK_THREADS,
       kbArticles: MOCK_KB_ARTICLES,
       stats: MOCK_STATS,
       cannedResponses: MOCK_CANNED_RESPONSES,
       routingRules: MOCK_ROUTING_RULES,
       businessHours: MOCK_BUSINESS_HOURS,
       holidays: MOCK_HOLIDAYS,
+
+      addTicket: (input) => {
+        const now = new Date()
+        const id = uid('tk')
+        // SLA: 8 business-ish hours from now (demo); concrete dueAt drives the badge.
+        const slaDueAt = new Date(now.getTime() + 8 * 3600000).toISOString()
+        const ticket = makeTicket(
+          id,
+          nextTicketNr(get().tickets),
+          input.subject,
+          input.description,
+          input.priority,
+          'open',
+          input.assignedTo,
+          input.contactName || '—',
+          slaDueAt,
+          now.toISOString(),
+          now.toISOString(),
+          input.category,
+        )
+        set((s) => ({
+          tickets: [ticket, ...s.tickets],
+          threads: {
+            ...s.threads,
+            [id]: [
+              {
+                id: uid('m'),
+                author: 'System',
+                role: 'agent',
+                text: input.description || 'Ticket erstellt.',
+                timestamp: now.toISOString(),
+              },
+            ],
+          },
+        }))
+        return id
+      },
+
+      updateTicketStatus: (id, status) =>
+        set((s) => ({
+          tickets: s.tickets.map((t) =>
+            t.id === id ? { ...t, status, updatedAt: new Date().toISOString() } : t,
+          ),
+        })),
+
+      assignTicket: (id, agent) =>
+        set((s) => {
+          const t = s.tickets.find((x) => x.id === id)
+          if (!t || t.assignedTo === agent) {
+            return {
+              tickets: s.tickets.map((x) =>
+                x.id === id ? { ...x, assignedTo: agent, updatedAt: new Date().toISOString() } : x,
+              ),
+            }
+          }
+          const note: ThreadMessage = {
+            id: uid('m'),
+            author: 'System',
+            role: 'agent',
+            text: `Ticket zugewiesen an ${agent}.`,
+            timestamp: new Date().toISOString(),
+            isInternal: true,
+          }
+          return {
+            tickets: s.tickets.map((x) =>
+              x.id === id ? { ...x, assignedTo: agent, updatedAt: new Date().toISOString() } : x,
+            ),
+            threads: { ...s.threads, [id]: [...(s.threads[id] ?? []), note] },
+          }
+        }),
+
+      escalateTicket: (id, by) =>
+        set((s) => {
+          const t = s.tickets.find((x) => x.id === id)
+          if (!t) return {}
+          const idx = PRIORITY_LADDER.indexOf(t.priority)
+          const next = PRIORITY_LADDER[Math.min(idx + 1, PRIORITY_LADDER.length - 1)]
+          const note: ThreadMessage = {
+            id: uid('m'),
+            author: 'System',
+            role: 'agent',
+            text:
+              next === t.priority
+                ? `Eskalation durch ${by} — bereits höchste Priorität.`
+                : `Eskaliert von ${by}: Priorität ${t.priority} → ${next}.`,
+            timestamp: new Date().toISOString(),
+            isInternal: true,
+          }
+          return {
+            tickets: s.tickets.map((x) =>
+              x.id === id ? { ...x, priority: next, updatedAt: new Date().toISOString() } : x,
+            ),
+            threads: { ...s.threads, [id]: [...(s.threads[id] ?? []), note] },
+          }
+        }),
+
+      mergeTicket: (sourceId, targetId) =>
+        set((s) => {
+          const source = s.tickets.find((x) => x.id === sourceId)
+          const target = s.tickets.find((x) => x.id === targetId)
+          if (!source || !target || sourceId === targetId) return {}
+          const now = new Date().toISOString()
+          const movedThread = (s.threads[sourceId] ?? []).map((m) => ({ ...m, id: uid('m') }))
+          const targetNote: ThreadMessage = {
+            id: uid('m'),
+            author: 'System',
+            role: 'agent',
+            text: `Ticket ${source.ticketNr} wurde hier zusammengeführt.`,
+            timestamp: now,
+            isInternal: true,
+          }
+          const sourceNote: ThreadMessage = {
+            id: uid('m'),
+            author: 'System',
+            role: 'agent',
+            text: `Zusammengeführt mit ${target.ticketNr}.`,
+            timestamp: now,
+            isInternal: true,
+          }
+          return {
+            tickets: s.tickets.map((x) =>
+              x.id === sourceId ? { ...x, status: 'closed', updatedAt: now } : x,
+            ),
+            threads: {
+              ...s.threads,
+              [targetId]: [...(s.threads[targetId] ?? []), targetNote, ...movedThread],
+              [sourceId]: [...(s.threads[sourceId] ?? []), sourceNote],
+            },
+          }
+        }),
+
+      addReply: (id, msg) =>
+        set((s) => {
+          const entry: ThreadMessage = {
+            id: uid('m'),
+            author: msg.author,
+            role: 'agent',
+            text: msg.body,
+            timestamp: new Date().toISOString(),
+            isInternal: msg.internal,
+          }
+          return {
+            threads: { ...s.threads, [id]: [...(s.threads[id] ?? []), entry] },
+            tickets: s.tickets.map((t) =>
+              t.id === id ? { ...t, updatedAt: new Date().toISOString() } : t,
+            ),
+          }
+        }),
+
+      saveCsat: (id, rating, comment) =>
+        set((s) => ({
+          tickets: s.tickets.map((t) =>
+            t.id === id
+              ? { ...t, csatRating: rating, csatComment: comment, updatedAt: new Date().toISOString() }
+              : t,
+          ),
+        })),
+
+      addCannedResponse: (input) =>
+        set((s) => ({ cannedResponses: [{ ...input, id: uid('cr') }, ...s.cannedResponses] })),
+
+      updateCannedResponse: (id, patch) =>
+        set((s) => ({
+          cannedResponses: s.cannedResponses.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+        })),
+
+      deleteCannedResponse: (id) =>
+        set((s) => ({ cannedResponses: s.cannedResponses.filter((c) => c.id !== id) })),
+
+      saveBusinessHours: (hours, holidays) => set({ businessHours: hours, holidays }),
+
+      saveRoutingRules: (rules) => set({ routingRules: rules }),
     }),
     { name: 'cosmi-helpdesk' },
   ),

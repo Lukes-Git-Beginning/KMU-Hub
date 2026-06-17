@@ -28,6 +28,7 @@ import {
   useHelpdeskStore,
   type Ticket as TicketType,
   type KBArticle,
+  type ThreadMessage,
   MOCK_CATEGORIES,
   MOCK_CUSTOM_FIELD_DEFS,
 } from '@/stores/helpdesk'
@@ -54,6 +55,9 @@ type TabKey = 'tickets' | 'wissensdatenbank' | 'statistik'
 type StatusFilter = 'all' | TicketType['status']
 type PriorityFilter = 'all' | TicketType['priority']
 type CategoryFilter = 'all' | string
+
+/** Stable empty thread ref — keeps the zustand selector identity-stable when a ticket has no messages yet. */
+const EMPTY_THREAD: ThreadMessage[] = []
 
 // ---------------------------------------------------------------------------
 // Label / Color Maps
@@ -95,42 +99,6 @@ const categoryColors: Record<string, string> = {
   Telefonie: 'bg-secondary text-muted-foreground',
   Sicherheit: 'bg-error-light text-error',
   Sonstiges: 'bg-secondary text-muted-foreground',
-}
-
-// ---------------------------------------------------------------------------
-// Mock message threads per ticket
-// ---------------------------------------------------------------------------
-
-interface ThreadMessage {
-  id: string
-  author: string
-  role: 'customer' | 'agent'
-  text: string
-  timestamp: string
-  isInternal?: boolean
-}
-
-const MOCK_THREADS: Record<string, ThreadMessage[]> = {
-  'tk-1': [
-    { id: 'm1', author: 'Brigitte Schaerer', role: 'customer', text: 'Der Drucker im 2. OG zeigt seit heute Morgen "Offline" an. Mehrere Kollegen haben das gleiche Problem.', timestamp: '2026-02-15T08:30:00' },
-    { id: 'm2', author: 'Marco Hartmann', role: 'agent', text: 'Danke für die Meldung. Ich prüfe den Druckserver und die Netzwerkverbindung. Bitte kurz Geduld.', timestamp: '2026-02-15T09:15:00' },
-    { id: 'm3', author: 'Marco Hartmann', role: 'agent', text: 'Der Druckspooler-Dienst wurde neu gestartet. Bitte testen Sie erneut.', timestamp: '2026-02-15T09:45:00' },
-  ],
-  'tk-2': [
-    { id: 'm1', author: 'Stefan Wenger', role: 'customer', text: 'Meine VPN-Verbindung trennt sich alle 10 Minuten. Arbeiten im Home-Office ist so nicht möglich.', timestamp: '2026-02-14T17:45:00' },
-    { id: 'm2', author: 'Marco Hartmann', role: 'agent', text: 'Welchen VPN-Client nutzen Sie? Bitte senden Sie mir die Logdatei.', timestamp: '2026-02-15T08:00:00' },
-    { id: 'm3', author: 'Stefan Wenger', role: 'customer', text: 'Cisco AnyConnect 4.10. Logs sind im Anhang.', timestamp: '2026-02-15T08:30:00' },
-  ],
-  'tk-3': [
-    { id: 'm1', author: 'Karin Pfister', role: 'customer', text: 'Neuer Mitarbeiter Lukas Meier startet am 01.03. in der Buchhaltung. Bitte alle Standardzugänge einrichten.', timestamp: '2026-02-14T14:00:00' },
-    { id: 'm2', author: 'Sandra Buerki', role: 'agent', text: 'Wird vorbereitet. AD-Konto, E-Mail, ERP und Zeiterfassung.', timestamp: '2026-02-14T15:00:00', isInternal: true },
-  ],
-}
-
-function getThread(ticketId: string): ThreadMessage[] {
-  return MOCK_THREADS[ticketId] ?? [
-    { id: 'default-1', author: 'System', role: 'agent', text: 'Ticket wurde erstellt und dem zustaendigen Techniker zugewiesen.', timestamp: new Date().toISOString() },
-  ]
 }
 
 // ---------------------------------------------------------------------------
@@ -704,7 +672,7 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
     }, 1800)
   }
   const [showCannedPicker, setShowCannedPicker] = useState(false)
-  const thread = getThread(ticket.id)
+  const thread = useHelpdeskStore((s) => s.threads[ticket.id]) ?? EMPTY_THREAD
   const internalNoteCount = thread.filter((m) => m.isInternal).length
 
   const isWarningHours = !ticket.slaOverdue && ticket.slaRemaining.includes('h') && !ticket.slaRemaining.includes('d')
