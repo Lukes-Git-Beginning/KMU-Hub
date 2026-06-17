@@ -46,6 +46,7 @@ import { BusinessHoursDialog } from './BusinessHoursDialog'
 import { TicketRoutingConfig } from './TicketRoutingConfig'
 import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTextEditor'
 import { useAIStore } from '@/stores/ai'
+import { currentUserName } from '@/stores/auth'
 import { PageHeader, EmptyState, DetailModal } from '@/components/shared'
 import { EmptyHelpdesk } from '@/components/shared/illustrations'
 import { formatDate } from '@/lib/format'
@@ -119,6 +120,9 @@ const KB_BODIES: Record<string, string> = {
 export default function HelpdeskPage() {
   const { t } = useTranslation()
   const { tickets, kbArticles, stats } = useHelpdeskStore()
+  const addTicket = useHelpdeskStore((s) => s.addTicket)
+  const addReply = useHelpdeskStore((s) => s.addReply)
+  const updateTicketStatus = useHelpdeskStore((s) => s.updateTicketStatus)
 
   const priorityLabels: Record<string, string> = {
     low: t('helpdesk.priority.low'), medium: t('helpdesk.priority.medium'),
@@ -192,18 +196,29 @@ export default function HelpdeskPage() {
 
   const handleSaveNewTicket = () => {
     if (!ntSubject.trim()) { toast.error(t('helpdesk.newTicket.subjectRequired')); return }
-    toast.success(t('helpdesk.newTicket.created', { subject: ntSubject }))
+    addTicket({
+      subject: ntSubject.trim(),
+      description: ntDescription.trim(),
+      priority: ntPriority,
+      assignedTo: ntAssignee,
+      contactName: ntContact.trim(),
+      category: ntCategory,
+    })
+    toast.success(t('helpdesk.newTicket.created', { subject: ntSubject.trim() }))
     setNewTicketOpen(false)
   }
 
   const handleSendReply = () => {
-    if (!replyText.trim()) return
+    if (!replyText.trim() || !selectedTicket) return
+    addReply(selectedTicket.id, { author: currentUserName(), body: replyText.trim(), internal: showInternalNotes })
     toast.success(showInternalNotes ? t('helpdesk.ticket.internalNoteSaved') : t('helpdesk.ticket.replySent'))
     setReplyText('')
   }
 
   const handleStatusChange = (newStatus: TicketType['status']) => {
-    if (selectedTicket) toast.info(t('helpdesk.ticket.statusChanged', { status: statusLabels[newStatus] }))
+    if (!selectedTicket) return
+    updateTicketStatus(selectedTicket.id, newStatus)
+    toast.info(t('helpdesk.ticket.statusChanged', { status: statusLabels[newStatus] }))
   }
 
   const handleTicketRowClick = (id: string) => {
@@ -857,7 +872,7 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
         <div className="border-t border-border" />
 
         {/* CSAT Widget (5.12) */}
-        <CSATWidget ticketId={ticket.id} ticketStatus={ticket.status} />
+        <CSATWidget key={ticket.id} ticketId={ticket.id} ticketStatus={ticket.status} />
 
         {/* Message thread */}
         <div>
