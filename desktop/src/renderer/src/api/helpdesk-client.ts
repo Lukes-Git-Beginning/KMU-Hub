@@ -94,8 +94,8 @@ export function assignTicket(id: string, assigneeId: string) {
 export function mergeTickets(sourceId: string, targetId: string) {
   return request<void>({
     method: 'POST',
-    path: `${BASE}/tickets/merge`,
-    body: { source_id: sourceId, target_id: targetId },
+    path: `${BASE}/tickets/${sourceId}/merge`,
+    body: { target_ticket_id: targetId },
   })
 }
 
@@ -178,21 +178,23 @@ export function updateSLAPolicy(id: string, body: UpdateSLAPolicyInput) {
   return request<SLAPolicy>({ method: 'PUT', path: `${BASE}/sla-policies/${id}`, body })
 }
 
-export function deleteSLAPolicy(id: string) {
-  return request<void>({ method: 'DELETE', path: `${BASE}/sla-policies/${id}` })
+// TODO: Backend DeleteSLAPolicy RPC fehlt in proto — Route und Handler nicht registriert.
+// Stub exported so the hook compiles; will 404 until backend route is added.
+export function deleteSLAPolicy(_id: string): Promise<void> {
+  return Promise.reject(new Error('deleteSLAPolicy: backend route not yet implemented'))
 }
 
 export function applySLAPolicy(ticketId: string, policyId: string) {
   return request<Ticket>({
     method: 'POST',
     path: `${BASE}/tickets/${ticketId}/sla`,
-    body: { policy_id: policyId },
+    body: { sla_policy_id: policyId },
   })
 }
 
 export function getSLAStatus(ticketId: string) {
   return request<TicketSLAStatus>({
     method: 'GET',
-    path: `${BASE}/tickets/${ticketId}/sla`,
+    path: `${BASE}/tickets/${ticketId}/sla-status`,
   })
 }

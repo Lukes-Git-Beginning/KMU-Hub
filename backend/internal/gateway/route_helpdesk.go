@@ -463,7 +463,13 @@ func (h *HelpdeskRoutes) HandleListQueues(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	resp, err := client.ListQueues(r.Context(), &helpdeskv1.ListQueuesRequest{})
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+
+	resp, err := client.ListQueues(r.Context(), &helpdeskv1.ListQueuesRequest{TenantId: tenantID.String()})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
@@ -559,7 +565,13 @@ func (h *HelpdeskRoutes) HandleListCannedResponses(w http.ResponseWriter, r *htt
 		return
 	}
 
-	resp, err := client.ListCannedResponses(r.Context(), &helpdeskv1.ListCannedResponsesRequest{})
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+
+	resp, err := client.ListCannedResponses(r.Context(), &helpdeskv1.ListCannedResponsesRequest{TenantId: tenantID.String()})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
@@ -656,7 +668,13 @@ func (h *HelpdeskRoutes) HandleListSLAPolicies(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	resp, err := client.ListSLAPolicies(r.Context(), &helpdeskv1.ListSLAPoliciesRequest{})
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+
+	resp, err := client.ListSLAPolicies(r.Context(), &helpdeskv1.ListSLAPoliciesRequest{TenantId: tenantID.String()})
 	if err != nil {
 		respondGRPCError(w, err)
 		return

@@ -7,7 +7,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Zap, Search } from 'lucide-react'
-import { useHelpdeskStore, type CannedResponse } from '@/stores/helpdesk'
+import { useCannedResponses } from '@/api/hooks/useHelpdesk'
+import { wireCannedToDisplay, type DisplayCannedResponse } from '@/api/helpdesk-adapters'
 
 interface CannedResponsePickerProps {
   onSelect: (content: string) => void
@@ -15,7 +16,8 @@ interface CannedResponsePickerProps {
 
 export function CannedResponsePicker({ onSelect }: CannedResponsePickerProps) {
   const { t } = useTranslation()
-  const { cannedResponses } = useHelpdeskStore()
+  const { data: wireCanned = [] } = useCannedResponses()
+  const cannedResponses: DisplayCannedResponse[] = wireCanned.map(wireCannedToDisplay)
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const ref = useRef<HTMLDivElement>(null)
@@ -42,7 +44,7 @@ export function CannedResponsePicker({ onSelect }: CannedResponsePickerProps) {
     )
   })
 
-  const handlePick = (r: CannedResponse) => {
+  const handlePick = (r: DisplayCannedResponse) => {
     onSelect(r.content.replace(/<[^>]*>/g, ''))
     setOpen(false)
     setSearch('')

@@ -94,6 +94,7 @@ export interface CreateTicketInput {
 
 export interface UpdateTicketInput {
   subject?: string
+  status?: TicketStatus
   priority?: TicketPriority
   assignee_id?: string
   queue_id?: string

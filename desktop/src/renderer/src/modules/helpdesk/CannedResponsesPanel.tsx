@@ -19,7 +19,14 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTextEditor'
-import { useHelpdeskStore, type CannedResponse, MOCK_CATEGORIES } from '@/stores/helpdesk'
+import { MOCK_CATEGORIES } from '@/stores/helpdesk'
+import {
+  useCannedResponses,
+  useCreateCannedResponse,
+  useUpdateCannedResponse,
+  useDeleteCannedResponse,
+} from '@/api/hooks/useHelpdesk'
+import { wireCannedToDisplay, displayCannedToWireCreate, type DisplayCannedResponse } from '@/api/helpdesk-adapters'
 
 // ---------------------------------------------------------------------------
 // Category list for canned responses (includes "Allgemein" beyond ticket cats)
@@ -35,15 +42,16 @@ interface CannedResponsesPanelProps {
 
 export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponsesPanelProps) {
   const { t } = useTranslation()
-  const { cannedResponses } = useHelpdeskStore()
-  const addCannedResponse = useHelpdeskStore((s) => s.addCannedResponse)
-  const updateCannedResponse = useHelpdeskStore((s) => s.updateCannedResponse)
-  const deleteCannedResponse = useHelpdeskStore((s) => s.deleteCannedResponse)
+  const { data: wireCanned = [], isLoading } = useCannedResponses()
+  const cannedResponses: DisplayCannedResponse[] = wireCanned.map(wireCannedToDisplay)
+  const createMut = useCreateCannedResponse()
+  const updateMut = useUpdateCannedResponse()
+  const deleteMut = useDeleteCannedResponse()
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
 
   // Edit/Create mode
-  const [editing, setEditing] = useState<CannedResponse | null>(null)
+  const [editing, setEditing] = useState<DisplayCannedResponse | null>(null)
   const [creating, setCreating] = useState(false)
   const [formTitle, setFormTitle] = useState('')
   const [formContent, setFormContent] = useState('')
@@ -74,7 +82,7 @@ export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponse
     setEditing(null)
   }
 
-  const handleStartEdit = (r: CannedResponse) => {
+  const handleStartEdit = (r: DisplayCannedResponse) => {
     setFormTitle(r.title)
     setFormContent(r.content)
     setFormCategory(r.category)
@@ -89,24 +97,40 @@ export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponse
       toast.error(t('helpdesk.cannedResponses.titleRequired'))
       return
     }
-    const payload = { title, content: formContent, category: formCategory, shortcut: formShortcut.trim() }
-    if (editing) {
-      updateCannedResponse(editing.id, payload)
-      toast.success(t('helpdesk.cannedResponses.updated', { title }))
-    } else {
-      addCannedResponse(payload)
-      toast.success(t('helpdesk.cannedResponses.created', { title }))
+    const displayPayload: Omit<DisplayCannedResponse, 'id'> = {
+      title,
+      content: formContent,
+      category: formCategory,
+      shortcut: formShortcut.trim(),
     }
-    setEditing(null)
-    setCreating(false)
+    const wirePayload = displayCannedToWireCreate(displayPayload)
+    if (editing) {
+      updateMut.mutate(
+        { id: editing.id, ...wirePayload },
+        {
+          onSuccess: () => { toast.success(t('helpdesk.cannedResponses.updated', { title })); setEditing(null); setCreating(false) },
+          onError: () => toast.error(t('helpdesk.cannedResponses.saveError')),
+        },
+      )
+    } else {
+      createMut.mutate(
+        wirePayload,
+        {
+          onSuccess: () => { toast.success(t('helpdesk.cannedResponses.created', { title })); setEditing(null); setCreating(false) },
+          onError: () => toast.error(t('helpdesk.cannedResponses.saveError')),
+        },
+      )
+    }
   }
 
-  const handleDelete = (r: CannedResponse) => {
-    deleteCannedResponse(r.id)
-    toast.success(t('helpdesk.cannedResponses.deleted', { title: r.title }))
+  const handleDelete = (r: DisplayCannedResponse) => {
+    deleteMut.mutate(r.id, {
+      onSuccess: () => toast.success(t('helpdesk.cannedResponses.deleted', { title: r.title })),
+      onError: () => toast.error(t('helpdesk.cannedResponses.deleteError')),
+    })
   }
 
-  const handleInsert = (r: CannedResponse) => {
+  const handleInsert = (r: DisplayCannedResponse) => {
     onInsert?.(r.content)
     toast.success(t('helpdesk.cannedResponses.inserted', { title: r.title }))
     onClose()
@@ -120,6 +144,7 @@ export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponse
   if (!open) return null
 
   const isFormMode = editing !== null || creating
+  const isPending = createMut.isPending || updateMut.isPending || deleteMut.isPending
 
   return (
     <div className="fixed inset-y-0 right-0 z-50 w-[480px] max-w-full border-l border-border bg-card shadow-xl flex flex-col overflow-hidden">
@@ -214,7 +239,8 @@ export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponse
             </button>
             <button
               onClick={handleSave}
-              className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+              disabled={isPending}
+              className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {editing ? t('helpdesk.cannedResponses.update') : t('common.create')}
             </button>
@@ -263,7 +289,12 @@ export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponse
 
           {/* Response list */}
           <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-2">
-            {filtered.length === 0 && (
+            {isLoading && (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <p className="text-sm">{t('helpdesk.loading')}</p>
+              </div>
+            )}
+            {!isLoading && filtered.length === 0 && (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                 <Zap className="h-8 w-8 mb-2 opacity-40" />
                 <p className="text-sm font-medium">{t('helpdesk.cannedResponses.noTemplatesFound')}</p>

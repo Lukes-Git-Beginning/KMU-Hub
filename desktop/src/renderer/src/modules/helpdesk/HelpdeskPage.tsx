@@ -29,12 +29,28 @@ import { toast } from 'sonner'
 import {
   useHelpdeskStore,
   slaLabel,
-  type Ticket as TicketType,
   type KBArticle,
-  type ThreadMessage,
   MOCK_CATEGORIES,
   MOCK_CUSTOM_FIELD_DEFS,
 } from '@/stores/helpdesk'
+import {
+  useTickets,
+  useTicketMessages,
+  useCreateTicket,
+  useUpdateTicket,
+  useCloseTicket,
+  useReopenTicket,
+  useAssignTicket,
+  useMergeTickets,
+  useAddMessage,
+} from '@/api/hooks/useHelpdesk'
+import {
+  wireTicketToDisplay,
+  displayStatusToWire,
+  displayPriorityToWire,
+  type DisplayTicket,
+} from '@/api/helpdesk-adapters'
+import type { TicketMessage } from '@/api/helpdesk-types'
 import { SLABadge, SLABreachBanner } from './SLABadge'
 import {
   Dialog,
@@ -48,7 +64,6 @@ import { CannedResponsesPanel } from './CannedResponsesPanel'
 import { CannedResponsePicker } from './CannedResponsePicker'
 import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTextEditor'
 import { useAIStore } from '@/stores/ai'
-import { currentUserName } from '@/stores/auth'
 import { useHelpdeskPrefsStore } from '@/stores/helpdeskPrefs'
 import { PageHeader, EmptyState, DetailModal, SortMenu, type SortDirection } from '@/components/shared'
 import { EmptyHelpdesk } from '@/components/shared/illustrations'
@@ -56,12 +71,9 @@ import { formatDate } from '@/lib/format'
 import { sanitizeHtml } from '@/lib/sanitize'
 
 type TabKey = 'tickets' | 'wissensdatenbank' | 'statistik'
-type StatusFilter = 'all' | TicketType['status']
-type PriorityFilter = 'all' | TicketType['priority']
+type StatusFilter = 'all' | DisplayTicket['status']
+type PriorityFilter = 'all' | DisplayTicket['priority']
 type CategoryFilter = 'all' | string
-
-/** Stable empty thread ref — keeps the zustand selector identity-stable when a ticket has no messages yet. */
-const EMPTY_THREAD: ThreadMessage[] = []
 
 /** Demo agent pool for assign/escalate (no real team lookup — that is CRM/backend). */
 const HELPDESK_AGENTS = ['Marco Hartmann', 'Sandra Bürki'] as const
@@ -73,8 +85,8 @@ const SORT_FIELDS = [
   { value: 'status', labelKey: 'helpdesk.sort.status' },
   { value: 'sla', labelKey: 'helpdesk.sort.sla' },
 ] as const
-const PRIORITY_RANK: Record<TicketType['priority'], number> = { low: 0, medium: 1, high: 2, critical: 3 }
-const STATUS_RANK: Record<TicketType['status'], number> = { open: 0, in_progress: 1, waiting: 2, resolved: 3, closed: 4 }
+const PRIORITY_RANK: Record<DisplayTicket['priority'], number> = { low: 0, medium: 1, high: 2, critical: 3 }
+const STATUS_RANK: Record<DisplayTicket['status'], number> = { open: 0, in_progress: 1, waiting: 2, resolved: 3, closed: 4 }
 
 // ---------------------------------------------------------------------------
 // Label / Color Maps
@@ -136,10 +148,25 @@ const KB_BODIES: Record<string, string> = {
 
 export default function HelpdeskPage() {
   const { t } = useTranslation()
-  const { tickets, kbArticles, stats } = useHelpdeskStore()
-  const addTicket = useHelpdeskStore((s) => s.addTicket)
-  const addReply = useHelpdeskStore((s) => s.addReply)
-  const updateTicketStatus = useHelpdeskStore((s) => s.updateTicketStatus)
+
+  // API hooks — Tickets (core data)
+  const { data: ticketsResponse, isLoading: ticketsLoading, error: ticketsError } = useTickets()
+  const tickets: DisplayTicket[] = useMemo(
+    () => (ticketsResponse?.tickets ?? []).map(wireTicketToDisplay),
+    [ticketsResponse],
+  )
+
+  // Ticket mutations
+  const createTicketMut = useCreateTicket()
+  const updateTicketMut = useUpdateTicket()
+  const closeTicketMut = useCloseTicket()
+  const reopenTicketMut = useReopenTicket()
+  const assignTicketMut = useAssignTicket()
+  const mergeTicketsMut = useMergeTickets()
+  const addMessageMut = useAddMessage()
+
+  // Store — KB + Stats bleiben store-basiert (kein Backend)
+  const { kbArticles, stats } = useHelpdeskStore()
 
   const priorityLabels: Record<string, string> = {
     low: t('helpdesk.priority.low'), medium: t('helpdesk.priority.medium'),
@@ -171,7 +198,7 @@ export default function HelpdeskPage() {
   const [newTicketOpen, setNewTicketOpen] = useState(false)
   const [ntSubject, setNtSubject] = useState('')
   const [ntDescription, setNtDescription] = useState('')
-  const [ntPriority, setNtPriority] = useState<TicketType['priority']>('medium')
+  const [ntPriority, setNtPriority] = useState<DisplayTicket['priority']>('medium')
   const [ntAssignee, setNtAssignee] = useState('Marco Hartmann')
   const [ntContact, setNtContact] = useState('')
   const [ntCategory, setNtCategory] = useState<string>('Sonstiges')
@@ -220,8 +247,8 @@ export default function HelpdeskPage() {
 
   const sortOptions = SORT_FIELDS.map((f) => ({ value: f.value, label: t(f.labelKey) }))
 
-  const selectedTicket = tickets.find((t) => t.id === selectedTicketId) ?? null
-  const selectedArticle = kbArticles.find((a) => a.id === selectedArticleId) ?? null
+  const selectedTicket: DisplayTicket | null = tickets.find((t) => t.id === selectedTicketId) ?? null
+  const selectedArticle: KBArticle | null = kbArticles.find((a) => a.id === selectedArticleId) ?? null
 
   // Handlers
   const handleOpenNewTicket = () => {
@@ -232,29 +259,59 @@ export default function HelpdeskPage() {
 
   const handleSaveNewTicket = () => {
     if (!ntSubject.trim()) { toast.error(t('helpdesk.newTicket.subjectRequired')); return }
-    addTicket({
-      subject: ntSubject.trim(),
-      description: ntDescription.trim(),
-      priority: ntPriority,
-      assignedTo: ntAssignee,
-      contactName: ntContact.trim(),
-      category: ntCategory,
-    })
-    toast.success(t('helpdesk.newTicket.created', { subject: ntSubject.trim() }))
-    setNewTicketOpen(false)
+    createTicketMut.mutate(
+      {
+        subject: ntSubject.trim(),
+        priority: displayPriorityToWire(ntPriority),
+        assignee_id: ntAssignee || undefined,
+      },
+      {
+        onSuccess: () => {
+          toast.success(t('helpdesk.newTicket.created', { subject: ntSubject.trim() }))
+          setNewTicketOpen(false)
+        },
+        onError: () => toast.error(t('helpdesk.newTicket.createError')),
+      },
+    )
   }
 
   const handleSendReply = () => {
     if (!replyText.trim() || !selectedTicket) return
-    addReply(selectedTicket.id, { author: currentUserName(), body: replyText.trim(), internal: showInternalNotes })
-    toast.success(showInternalNotes ? t('helpdesk.ticket.internalNoteSaved') : t('helpdesk.ticket.replySent'))
-    setReplyText('')
+    addMessageMut.mutate(
+      { ticketId: selectedTicket.id, body: replyText.trim(), internal: showInternalNotes },
+      {
+        onSuccess: () => {
+          toast.success(showInternalNotes ? t('helpdesk.ticket.internalNoteSaved') : t('helpdesk.ticket.replySent'))
+          setReplyText('')
+        },
+        onError: () => toast.error(t('helpdesk.ticket.replyError')),
+      },
+    )
   }
 
-  const handleStatusChange = (newStatus: TicketType['status']) => {
+  const handleStatusChange = (newStatus: DisplayTicket['status']) => {
     if (!selectedTicket) return
-    updateTicketStatus(selectedTicket.id, newStatus)
-    toast.info(t('helpdesk.ticket.statusChanged', { status: statusLabels[newStatus] }))
+    const id = selectedTicket.id
+    const onError = () => toast.error(t('helpdesk.ticket.statusChangeError'))
+    if (newStatus === 'closed') {
+      closeTicketMut.mutate(id, {
+        onSuccess: () => toast.info(t('helpdesk.ticket.statusChanged', { status: statusLabels[newStatus] })),
+        onError,
+      })
+    } else if (
+      (selectedTicket.status === 'closed' || selectedTicket.status === 'resolved') &&
+      newStatus === 'open'
+    ) {
+      reopenTicketMut.mutate(id, {
+        onSuccess: () => toast.info(t('helpdesk.ticket.statusChanged', { status: statusLabels[newStatus] })),
+        onError,
+      })
+    } else {
+      updateTicketMut.mutate({ id, status: displayStatusToWire(newStatus) }, {
+        onSuccess: () => toast.info(t('helpdesk.ticket.statusChanged', { status: statusLabels[newStatus] })),
+        onError,
+      })
+    }
   }
 
   const handleTicketRowClick = (id: string) => {
@@ -320,6 +377,12 @@ export default function HelpdeskPage() {
       {/* ================================================================== */}
       {tab === 'tickets' && (
         <div className="animate-fade-up">
+          {ticketsLoading && (
+            <div className="p-8 text-center text-muted-foreground text-sm">{t('helpdesk.loading')}</div>
+          )}
+          {ticketsError && (
+            <div className="p-4 rounded-lg bg-error-light text-error text-sm mb-4">{t('helpdesk.loadError')}</div>
+          )}
           {/* Filters row */}
           <div className="flex flex-wrap items-center gap-3 mb-4">
             <div className="relative flex-1 min-w-[200px] max-w-sm">
@@ -545,7 +608,7 @@ export default function HelpdeskPage() {
             <div className="rounded-lg border border-border bg-card p-4">
               <h3 className="text-sm font-medium text-foreground mb-3">{t('helpdesk.stats.byStatus')}</h3>
               <div className="space-y-2">
-                {(['open', 'in_progress', 'waiting', 'resolved', 'closed'] as const).map((s) => {
+                {(['open', 'in_progress', 'waiting', 'resolved', 'closed'] as DisplayTicket['status'][]).map((s) => {
                   const count = tickets.filter((t) => t.status === s).length
                   const pct = tickets.length > 0 ? Math.round((count / tickets.length) * 100) : 0
                   return (
@@ -563,7 +626,7 @@ export default function HelpdeskPage() {
             <div className="rounded-lg border border-border bg-card p-4">
               <h3 className="text-sm font-medium text-foreground mb-3">{t('helpdesk.stats.byPriority')}</h3>
               <div className="space-y-2">
-                {(['critical', 'high', 'medium', 'low'] as const).map((p) => {
+                {(['critical', 'high', 'medium', 'low'] as DisplayTicket['priority'][]).map((p) => {
                   const count = tickets.filter((t) => t.priority === p).length
                   const pct = tickets.length > 0 ? Math.round((count / tickets.length) * 100) : 0
                   return (
@@ -588,6 +651,7 @@ export default function HelpdeskPage() {
       {selectedTicket && (
         <TicketDetailPanel
           ticket={selectedTicket}
+          allTickets={tickets}
           replyText={replyText}
           onReplyChange={setReplyText}
           showInternalNotes={showInternalNotes}
@@ -595,6 +659,9 @@ export default function HelpdeskPage() {
           onSendReply={handleSendReply}
           onStatusChange={handleStatusChange}
           onClose={() => setSelectedTicketId(null)}
+          assignTicketMut={assignTicketMut}
+          updateTicketMut={updateTicketMut}
+          mergeTicketsMut={mergeTicketsMut}
         />
       )}
 
@@ -628,7 +695,7 @@ export default function HelpdeskPage() {
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.priorityLabel')}</label>
                 <div className="flex gap-2">
-                  {(['low', 'medium', 'high', 'critical'] as const).map((p) => (
+                  {(['low', 'medium', 'high', 'critical'] as DisplayTicket['priority'][]).map((p) => (
                     <label key={p} className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs cursor-pointer transition-colors ${ntPriority === p ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:bg-secondary'}`}>
                       <input type="radio" name="priority" value={p} checked={ntPriority === p} onChange={() => setNtPriority(p)} className="sr-only" />
                       {priorityLabels[p]}
@@ -684,9 +751,22 @@ function StatCard({ icon: Icon, label, value, iconColor, iconBg }: {
   )
 }
 
-function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes, onToggleInternal, onSendReply, onStatusChange, onClose }: {
-  ticket: TicketType; replyText: string; onReplyChange: (v: string) => void; showInternalNotes: boolean
-  onToggleInternal: (v: boolean) => void; onSendReply: () => void; onStatusChange: (s: TicketType['status']) => void; onClose: () => void
+function TicketDetailPanel({
+  ticket, allTickets, replyText, onReplyChange, showInternalNotes, onToggleInternal,
+  onSendReply, onStatusChange, onClose, assignTicketMut, updateTicketMut, mergeTicketsMut,
+}: {
+  ticket: DisplayTicket
+  allTickets: DisplayTicket[]
+  replyText: string
+  onReplyChange: (v: string) => void
+  showInternalNotes: boolean
+  onToggleInternal: (v: boolean) => void
+  onSendReply: () => void
+  onStatusChange: (s: DisplayTicket['status']) => void
+  onClose: () => void
+  assignTicketMut: ReturnType<typeof useAssignTicket>
+  updateTicketMut: ReturnType<typeof useUpdateTicket>
+  mergeTicketsMut: ReturnType<typeof useMergeTickets>
 }) {
   const { t } = useTranslation()
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
@@ -706,12 +786,7 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
   const handleAISuggestion = () => {
     setAISuggestionLoading(true)
     setTimeout(() => {
-      const suggestions: Record<string, string> = {
-        'tk-1': 'Guten Tag,\n\nder Drucker im 2. OG wurde erfolgreich neu konfiguriert. Bitte testen Sie den Druckvorgang erneut. Falls das Problem weiterhin besteht, prüfen Sie bitte die Netzwerkverbindung des Druckers (Kabel am Port 3 im Patchfeld).\n\nBei weiteren Fragen stehe ich Ihnen gerne zur Verfügung.',
-        'tk-2': 'Hallo,\n\nbasierend auf den Logs liegt das Problem an einem veralteten VPN-Profil. Bitte führen Sie folgende Schritte aus:\n\n1. Öffnen Sie AnyConnect → Einstellungen → Profile\n2. Löschen Sie das bestehende Profil "Firma-VPN"\n3. Verbinden Sie sich erneut mit vpn.firma.de\n\nDas neue Profil wird automatisch heruntergeladen.',
-        'tk-3': 'Hallo,\n\nalle Zugänge für den neuen Mitarbeiter wurden eingerichtet:\n\n- Active Directory Konto\n- E-Mail-Konto\n- ERP-Zugang: Standardrolle\n- Zeiterfassung: Profil angelegt\n\nDie Zugangsdaten werden am ersten Arbeitstag persönlich übergeben.',
-      }
-      const suggestion = suggestions[ticket.id] ?? 'Vielen Dank für Ihre Anfrage. Wir haben Ihr Anliegen geprüft und arbeiten an einer Lösung. Wir melden uns kurzfristig mit weiteren Informationen.\n\nMit freundlichen Grüßen'
+      const suggestion = 'Vielen Dank für Ihre Anfrage. Wir haben Ihr Anliegen geprüft und arbeiten an einer Lösung. Wir melden uns kurzfristig mit weiteren Informationen.\n\nMit freundlichen Grüßen'
       onReplyChange(suggestion)
       setAISuggestionLoading(false)
       useAIStore.getState().addActivityLog({
@@ -723,14 +798,12 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
       toast.success(t('helpdesk.ticket.aiSuggestionInserted'))
     }, 1800)
   }
-  const thread = useHelpdeskStore((s) => s.threads[ticket.id]) ?? EMPTY_THREAD
-  const internalNoteCount = thread.filter((m) => m.isInternal).length
+
+  // Messages via API hook
+  const { data: wireMessages = [], isLoading: messagesLoading } = useTicketMessages(ticket.id)
+  const internalNoteCount = wireMessages.filter((m: TicketMessage) => m.internal).length
 
   // Agent actions (H-4)
-  const allTickets = useHelpdeskStore((s) => s.tickets)
-  const assignTicket = useHelpdeskStore((s) => s.assignTicket)
-  const escalateTicket = useHelpdeskStore((s) => s.escalateTicket)
-  const mergeTicket = useHelpdeskStore((s) => s.mergeTicket)
   const mergeTargets = useMemo(
     () => allTickets.filter((x) => x.id !== ticket.id && x.status !== 'closed'),
     [allTickets, ticket.id],
@@ -738,21 +811,32 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
 
   const handleAssign = (agent: string) => {
     if (agent === ticket.assignedTo) return
-    assignTicket(ticket.id, agent)
-    toast.success(t('helpdesk.ticket.assigned', { ticket: ticket.ticketNr, agent }))
+    assignTicketMut.mutate(
+      { ticketId: ticket.id, assigneeId: agent },
+      { onSuccess: () => toast.success(t('helpdesk.ticket.assigned', { ticket: ticket.ticketNr, agent })),
+        onError: () => toast.error(t('helpdesk.ticket.assignError')) },
+    )
   }
   const handleEscalate = () => {
     if (ticket.priority === 'critical') { toast.info(t('helpdesk.ticket.escalateMax')); return }
-    const ladder: TicketType['priority'][] = ['low', 'medium', 'high', 'critical']
+    const ladder: DisplayTicket['priority'][] = ['low', 'medium', 'high', 'critical']
     const next = ladder[Math.min(ladder.indexOf(ticket.priority) + 1, ladder.length - 1)]
-    escalateTicket(ticket.id, currentUserName())
-    toast.success(t('helpdesk.ticket.escalated', { ticket: ticket.ticketNr, priority: priorityLabels[next] }))
+    updateTicketMut.mutate(
+      { id: ticket.id, priority: 'urgent' },
+      { onSuccess: () => toast.success(t('helpdesk.ticket.escalated', { ticket: ticket.ticketNr, priority: priorityLabels[next] })),
+        onError: () => toast.error(t('helpdesk.ticket.escalateError')) },
+    )
   }
   const handleMerge = (targetId: string) => {
     const target = allTickets.find((x) => x.id === targetId)
-    mergeTicket(ticket.id, targetId)
-    toast.success(t('helpdesk.ticket.merged', { source: ticket.ticketNr, target: target?.ticketNr ?? '' }))
-    onClose()
+    mergeTicketsMut.mutate(
+      { sourceId: ticket.id, targetId },
+      { onSuccess: () => {
+          toast.success(t('helpdesk.ticket.merged', { source: ticket.ticketNr, target: target?.ticketNr ?? '' }))
+          onClose()
+        },
+        onError: () => toast.error(t('helpdesk.ticket.mergeError')) },
+    )
   }
 
   const isYellow = !ticket.slaOverdue && ticket.slaDays === 0 && ticket.slaHours < 4
@@ -963,7 +1047,7 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
             </button>
             {statusDropdownOpen && (
               <div className="absolute top-full left-0 right-0 z-10 mt-1 rounded-lg border border-border bg-card py-1 shadow-lg">
-                {(['open', 'in_progress', 'waiting', 'resolved', 'closed'] as const).map((s) => (
+                {(['open', 'in_progress', 'waiting', 'resolved', 'closed'] as DisplayTicket['status'][]).map((s) => (
                   <button key={s} onClick={() => { onStatusChange(s); setStatusDropdownOpen(false) }} className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-secondary ${ticket.status === s ? 'text-primary font-medium' : 'text-foreground'}`}>
                     <span className={`inline-block h-2 w-2 rounded-full ${statusColors[s].split(' ')[0]}`} />{statusLabels[s]}
                   </button>
@@ -982,27 +1066,30 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
         <div>
           <h4 className="text-xs font-medium text-muted-foreground mb-3 flex items-center gap-1.5">
             <MessageSquare className="h-3.5 w-3.5" />
-            {t('helpdesk.ticket.messageThread', { count: thread.length })}
+            {t('helpdesk.ticket.messageThread', { count: wireMessages.length })}
             {internalNoteCount > 0 && (
               <span className="rounded-full bg-warning-light text-warning px-1.5 py-0.5 text-[9px] font-medium ml-1">
                 {t('helpdesk.ticket.internalCount', { count: internalNoteCount })}
               </span>
             )}
           </h4>
+          {messagesLoading && (
+            <p className="text-xs text-muted-foreground text-center py-4">{t('helpdesk.loading')}</p>
+          )}
           <div className="space-y-3">
-            {thread.map((msg) => (
-              <div key={msg.id} className={`flex flex-col ${msg.role === 'agent' ? 'items-end' : 'items-start'}`}>
+            {wireMessages.map((msg: TicketMessage) => (
+              <div key={msg.id} className="flex flex-col items-start">
                 <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-                  msg.isInternal ? 'bg-warning-light/50 border border-warning/30' : msg.role === 'agent' ? 'bg-primary/10 text-foreground' : 'bg-secondary text-foreground'
+                  msg.internal ? 'bg-warning-light/50 border border-warning/30' : 'bg-secondary text-foreground'
                 }`}>
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-[10px] font-medium text-muted-foreground">{msg.author}</span>
-                    {msg.isInternal && (
+                    <span className="text-[10px] font-medium text-muted-foreground">{msg.author_id}</span>
+                    {msg.internal && (
                       <span className="flex items-center gap-0.5 text-[9px] text-warning font-medium"><Lock className="h-2.5 w-2.5" />{t('helpdesk.ticket.internal')}</span>
                     )}
                   </div>
-                  <p className="text-xs leading-relaxed">{msg.text}</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">{new Date(msg.timestamp).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
+                  <p className="text-xs leading-relaxed">{msg.body}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">{new Date(msg.created_at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
               </div>
             ))}
