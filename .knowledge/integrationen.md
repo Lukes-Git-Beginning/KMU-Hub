@@ -13,6 +13,17 @@ updated: 2026-06-17
 - Gateway: `/api/v1/integrations/bexio/…` (OAuth-Flow, Sync Trigger/Status/Logs)
 - Code: `backend/internal/biz/bexio/`
 
+### Härtung 2026-06-17 (5 Scope-Check-Blocker geschlossen)
+Quelle: `.planning/bexio-scope-check.md`. Stand: G1–G5 + G10 zu, Integration testbar/demobar.
+- **G1** OAuth-`state` HMAC-signiert + Nonce + 10-Min-Expiry (`backend/internal/gateway/bexio_state.go`, `encodeBexioState`/`decodeBexioState`) — kein roher `tenant_id` mehr
+- **G5** `cmd/biz` macht ohne `VAULT_MASTER_SECRET` einen `os.Exit(1)` (fail-fast statt nil-Panic)
+- **G2** ContactService verdrahtet: `crmContactAdapter` (`backend/cmd/biz/crm_contact_adapter.go`) über bestehenden CRM-gRPC-Client (`ListContacts`/`GetContact`). Degradiert sauber wenn `CRM_GRPC_ADDRESS` fehlt (nil → Fallback)
+- **G3** `resolveContactBexioIDByEmail` (`contact_resolve.go`): echter CustomerEmail→Contact→Mapping-Lookup statt blind `mappings[0]`; bei 0/≥2 Mappings ohne CRM expliziter Error statt Raten — verhinderte falsche Rechnungs-/Angebots-Empfänger
+- **G10** Sync-Kern getestet (Coverage 28%→42%): ContactSyncer/Invoice-/Quote-Push/PaymentPoller/TokenManager inkl. Idempotenz-Beweisen
+- **Offen (minor):** G4 RevokeTokens-Vault-Orphan, G6 kein HTTP-Config-Endpoint, G7 org_name nie befüllt, G8 Scheduler single-tenant, G9 kein Feature-Flag-Registry-Eintrag/First-Full-Sync
+- **Offene PRODUKT-Entscheidung (G12):** Invoice-Pull Bexio→Cosmi bidirektional oder nur Push+PaymentPoller? Mit Darien vor Bexio-Welle-7 klären
+- **Follow-up:** `*Client` ist konkreter Typ → API-Fehler-Tests laufen über echten Retry-Backoff (bexio-Package-Test ~28s); ein Client-Interface würde Mocking erlauben
+
 ## Lexware (API Key)
 - Contact-Sync (Cosmi → Lexware)
 - Invoice/Quote-Push
