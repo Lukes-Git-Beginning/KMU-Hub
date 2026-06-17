@@ -14,7 +14,10 @@
 - **Fertig (bei Nico in Review):** kontakte (Kern), zeiterfassung; calendar/dokumente weitgehend (🔁).
 - **Aktive Spur:** finanzen komplett fertigstellen → an Nico → nächstes Modul.
 - **▶ ERLEDIGT (2026-06-17):** **work-Tiefe-Pass** komplett (W-1…W-5, Option 3 inkl. Daten-Swap) — 5 Commits `9afc92b4`→`999260ea` gepusht, alle Phasen Playwright-verifiziert. work + finanzen jetzt **beide review-reif → an Nico**.
-- **▶ NÄCHSTES:** Pipeline #3 **team** (Tiefe-Pass + 2 Phasen) ODER #4 **dashboard** (Tiefe-Pass + Persistenz mock, schnell). Reihenfolge mit Darien abstimmen. Standard-Workflow: Ist-Abgleich → besprechen → bauen → Screenshot-QA → Commit/Push → Nico.
+- **▶ NÄCHSTES (Plan für morgen, Darien 2026-06-17): 10 Phasen = dashboard komplett + vertraege starten.** Standard-Workflow je Modul: Ist-Abgleich → besprechen → bauen → Screenshot-QA → Commit/Push → Nico.
+  - **Batch 1 — dashboard (6):** P1 Persistenz+Widget-Konfig 🔒 · P2 DnD-Resize/Reorder · P3 KPI-Widgets modul-/lizenzabhängig · P4 Modul-übergreifende Übersicht+Alerts 🔒 · P5 Team-Dashboard+Rollen-Templates+Presence · Demo-Tiefe → **review-reif → Nico**
+  - **Batch 2 — vertraege (4):** P1 Backend mock+Audit-Log+Erinnerungen 🔒 · P2 Dokumente echt (Upload/Versionen/PDF-Viewer, schwerste der 10) · P3 E-Signatur (EES vs. Skribble) 🔒 · P4 CRM/Finanzen-Verknüpfung+KI-Fristencheck (Demo-Tiefe bleibt übermorgen)
+  - **Tempo-Ziel:** 8–10/Tag; QA ist der Engpass → lieber 8 sauber verifiziert als 10 hastig. **Erst dashboard-Ist-Abgleich** (Tracker sagt „FE vollständig, Persistenz mock" — vor Bau verifizieren).
 
 ## Neue projektweite Standards (2026-06-16) — bei JEDEM Modul anwenden
 - **Detail = zentriertes Cosmi-Modal-Fenster** (`shared/DetailModal`), NICHT Slide-over. [[feedback_detail_modal_standard]]
