@@ -1877,6 +1877,8 @@
   "dashboard.suggestions.timeTracking": "Rilevazione presenze",
   "dashboard.suggestions.timeTrackingDesc": "Avvia timer e ore",
   "dashboard.suggestions.title": "Widget consigliati",
+  "dashboard.suggestions.add": "Aggiungi alla dashboard",
+  "dashboard.suggestions.added": "{name} aggiunto alla dashboard",
   "dashboard.support.contact": "Contatta il supporto",
   "dashboard.support.description": "Il nostro team di supporto è a disposizione",
   "dashboard.support.title": "Hai bisogno di aiuto?",

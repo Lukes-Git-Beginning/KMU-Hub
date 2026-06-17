@@ -1,22 +1,28 @@
 /**
  * Birthdays widget — upcoming team birthdays.
  *
- * TODO: Still uses mock data. EmployeeProfile has no `birthday` field yet.
- * Backend work needed:
- *   1. Add `birthday` (date) column to `employee_profiles` table + migration
- *   2. Expose birthday in EmployeeProfile API response
- *   3. Replace getUpcomingBirthdays() with useEmployees() + birthday filtering
+ * MSW-backed via useBirthdays() (GET /dashboard/birthdays). Backend gap:
+ * EmployeeProfile has no `birthday` column yet — until then the handler serves
+ * mock data, so the swap to a real endpoint is handler-only.
  */
 import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Cake, Gift, PartyPopper } from 'lucide-react'
-import { getUpcomingBirthdays } from '@/mocks/mock-db'
+import { useBirthdays } from '@/api/hooks/useBirthdays'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
-
-const birthdays = getUpcomingBirthdays()
 
 function Birthdays(_props: WidgetProps) {
   const { t } = useTranslation()
+  const { data: birthdays = [], isLoading } = useBirthdays()
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center p-4">
+        <div role="status" aria-label={t('common.loading')} className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}

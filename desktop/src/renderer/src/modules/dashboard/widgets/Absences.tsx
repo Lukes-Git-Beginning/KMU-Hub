@@ -3,6 +3,7 @@
  */
 import { memo, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 import { Palmtree, Thermometer, Baby, GraduationCap, Home } from 'lucide-react'
 import { useAbsenceCalendar } from '@/api/hooks/hr-hooks'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
@@ -49,6 +50,7 @@ function formatDate(dateStr: string): string {
 
 function Absences(_props: WidgetProps) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const todayStr = useMemo(() => {
     const today = new Date()
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
@@ -95,7 +97,16 @@ function Absences(_props: WidgetProps) {
           return (
             <div
               key={absence.id}
-              className="flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 cursor-pointer transition-colors"
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate('/team')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  navigate('/team')
+                }
+              }}
+              className="flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset"
             >
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
                 {absence.initials}

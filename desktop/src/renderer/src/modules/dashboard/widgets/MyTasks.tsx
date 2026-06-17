@@ -4,6 +4,7 @@
  */
 import { memo, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 import { CheckCircle2, Circle, AlertTriangle, Clock } from 'lucide-react'
 import { useMyTasks } from '@/api/hooks/useTasks'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
@@ -47,6 +48,7 @@ interface WidgetTask {
 
 function MyTasks(_props: WidgetProps) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const { data, isLoading } = useMyTasks({ page_size: 8, include_completed: true })
 
   const widgetTasks = useMemo<WidgetTask[]>(() => {
@@ -107,6 +109,13 @@ function MyTasks(_props: WidgetProps) {
             key={task.id}
             role="button"
             tabIndex={0}
+            onClick={() => navigate('/work/my-tasks')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                navigate('/work/my-tasks')
+              }
+            }}
             className="flex items-start gap-3 px-4 py-2.5 hover:bg-accent/50 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset"
           >
             {task.done ? (

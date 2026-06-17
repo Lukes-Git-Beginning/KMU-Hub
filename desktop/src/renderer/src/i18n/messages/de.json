@@ -1907,6 +1907,8 @@
   "dashboard.suggestions.timeTracking": "Zeiterfassung",
   "dashboard.suggestions.timeTrackingDesc": "Timer starten und Stunden",
   "dashboard.suggestions.title": "Empfohlene Widgets",
+  "dashboard.suggestions.add": "Zum Dashboard hinzufügen",
+  "dashboard.suggestions.added": "{name} zum Dashboard hinzugefügt",
   "dashboard.support.contact": "Support kontaktieren",
   "dashboard.support.description": "Unser Support-Team steht Ihnen zur Verfügung",
   "dashboard.support.title": "Benötigen Sie Hilfe?",

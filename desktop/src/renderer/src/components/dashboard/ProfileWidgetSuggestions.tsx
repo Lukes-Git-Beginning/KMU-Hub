@@ -6,6 +6,7 @@
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import {
   Truck,
   FileCheck,
@@ -19,6 +20,7 @@ import {
   Plus,
 } from 'lucide-react'
 import { useProfileStore } from '../../stores/profile'
+import { useDashboardStore, type WidgetId } from '../../stores/dashboard'
 import { moduleHsl, moduleHslBg } from '../../components/layout/sidebar/nav-items'
 import type { BusinessProfileId } from '../../config/business-profiles'
 
@@ -29,23 +31,25 @@ interface WidgetSuggestion {
   icon: React.ElementType
   /** nav-items module ID for color lookup */
   moduleId: string
+  /** real dashboard widget added when the user clicks "+" */
+  widgetId: WidgetId
 }
 
 const profileSuggestions: Record<string, WidgetSuggestion[]> = {
   handwerk: [
-    { id: 'fuhrpark-status', labelKey: 'dashboard.suggestions.fleetStatus', descriptionKey: 'dashboard.suggestions.fleetStatusDesc', icon: Truck, moduleId: 'fuhrpark' },
-    { id: 'aktive-rapporte', labelKey: 'dashboard.suggestions.activeReports', descriptionKey: 'dashboard.suggestions.activeReportsDesc', icon: FileCheck, moduleId: 'rapporte' },
-    { id: 'zeiterfassung-quick', labelKey: 'dashboard.suggestions.timeTracking', descriptionKey: 'dashboard.suggestions.timeTrackingDesc', icon: Clock, moduleId: 'zeiterfassung' },
+    { id: 'fuhrpark-status', labelKey: 'dashboard.suggestions.fleetStatus', descriptionKey: 'dashboard.suggestions.fleetStatusDesc', icon: Truck, moduleId: 'fuhrpark', widgetId: 'cross-module-overview' },
+    { id: 'aktive-rapporte', labelKey: 'dashboard.suggestions.activeReports', descriptionKey: 'dashboard.suggestions.activeReportsDesc', icon: FileCheck, moduleId: 'rapporte', widgetId: 'my-tasks' },
+    { id: 'zeiterfassung-quick', labelKey: 'dashboard.suggestions.timeTracking', descriptionKey: 'dashboard.suggestions.timeTrackingDesc', icon: Clock, moduleId: 'zeiterfassung', widgetId: 'time-clock' },
   ],
   it_tech: [
-    { id: 'offene-tickets', labelKey: 'dashboard.suggestions.openTickets', descriptionKey: 'dashboard.suggestions.openTicketsDesc', icon: Ticket, moduleId: 'helpdesk' },
-    { id: 'sprint-status', labelKey: 'dashboard.suggestions.sprintStatus', descriptionKey: 'dashboard.suggestions.sprintStatusDesc', icon: Rocket, moduleId: 'projects' },
-    { id: 'nachrichten-quick', labelKey: 'dashboard.suggestions.messages', descriptionKey: 'dashboard.suggestions.messagesDesc', icon: MessageSquare, moduleId: 'chat' },
+    { id: 'offene-tickets', labelKey: 'dashboard.suggestions.openTickets', descriptionKey: 'dashboard.suggestions.openTicketsDesc', icon: Ticket, moduleId: 'helpdesk', widgetId: 'open-tickets' },
+    { id: 'sprint-status', labelKey: 'dashboard.suggestions.sprintStatus', descriptionKey: 'dashboard.suggestions.sprintStatusDesc', icon: Rocket, moduleId: 'projects', widgetId: 'my-tasks' },
+    { id: 'nachrichten-quick', labelKey: 'dashboard.suggestions.messages', descriptionKey: 'dashboard.suggestions.messagesDesc', icon: MessageSquare, moduleId: 'chat', widgetId: 'unread-messages' },
   ],
   dienstleistung: [
-    { id: 'nächste-termine', labelKey: 'dashboard.suggestions.nextAppointments', descriptionKey: 'dashboard.suggestions.nextAppointmentsDesc', icon: Clock, moduleId: 'calendar' },
-    { id: 'offene-rechnungen', labelKey: 'dashboard.suggestions.openInvoices', descriptionKey: 'dashboard.suggestions.openInvoicesDesc', icon: Receipt, moduleId: 'finance' },
-    { id: 'kontakte-quick', labelKey: 'dashboard.suggestions.contacts', descriptionKey: 'dashboard.suggestions.contactsDesc', icon: Users, moduleId: 'contacts' },
+    { id: 'nächste-termine', labelKey: 'dashboard.suggestions.nextAppointments', descriptionKey: 'dashboard.suggestions.nextAppointmentsDesc', icon: Clock, moduleId: 'calendar', widgetId: 'calendar-upcoming' },
+    { id: 'offene-rechnungen', labelKey: 'dashboard.suggestions.openInvoices', descriptionKey: 'dashboard.suggestions.openInvoicesDesc', icon: Receipt, moduleId: 'finance', widgetId: 'kpi-revenue' },
+    { id: 'kontakte-quick', labelKey: 'dashboard.suggestions.contacts', descriptionKey: 'dashboard.suggestions.contactsDesc', icon: Users, moduleId: 'contacts', widgetId: 'recent-contacts' },
   ],
 }
 
@@ -62,6 +66,7 @@ function getSuggestionsForProfile(profileId: BusinessProfileId | null): WidgetSu
 export function ProfileWidgetSuggestions() {
   const { t } = useTranslation()
   const { businessProfileId } = useProfileStore()
+  const addWidget = useDashboardStore((s) => s.addWidget)
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
   const [allDismissed, setAllDismissed] = useState(false)
 
@@ -99,7 +104,15 @@ export function ProfileWidgetSuggestions() {
               <p className="text-sm font-medium text-foreground">{t(suggestion.labelKey)}</p>
               <p className="text-xs text-muted-foreground">{t(suggestion.descriptionKey)}</p>
             </div>
-            <button className="ml-2 rounded-md bg-primary/10 p-1.5 text-primary hover:bg-primary/20 transition-colors">
+            <button
+              onClick={() => {
+                addWidget(suggestion.widgetId, 'personal')
+                toast.success(t('dashboard.suggestions.added', { name: t(suggestion.labelKey) }))
+                setDismissed((prev) => new Set(prev).add(suggestion.id))
+              }}
+              aria-label={t('dashboard.suggestions.add')}
+              className="ml-2 rounded-md bg-primary/10 p-1.5 text-primary hover:bg-primary/20 transition-colors"
+            >
               <Plus className="h-3.5 w-3.5" />
             </button>
             <button

@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
 import { IDS } from '../data/shared-ids'
+import { getUpcomingBirthdays } from '../mock-db'
 
 const API = API_BASE_URL
 
@@ -112,6 +113,11 @@ export const dashboardHandlers = [
     const body = (await request.json()) as StoredLayout
     roleDefaults[role] = { layout: body.layout ?? [], active_widgets: body.active_widgets ?? [] }
     return HttpResponse.json(roleDefaults[role])
+  }),
+
+  // Upcoming team birthdays (mock-backed; backend gap: no birthday column yet)
+  http.get(`${API}/api/v1/dashboard/birthdays`, () => {
+    return HttpResponse.json({ birthdays: getUpcomingBirthdays() })
   }),
 
   // Global search

@@ -31,6 +31,7 @@ import { useCalendars } from '@/api/hooks/useCalendars'
 import { useEventsInRange } from '@/api/hooks/useEvents'
 import { useInvoices } from '@/api/hooks/useFinance'
 import { useVertraegeStore } from '@/stores/vertraege'
+import { useUnreadCounts } from '@/api/hooks/useChannels'
 import { useFeatureFlags } from '@/api/hooks/useFeatureFlags'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
@@ -133,14 +134,12 @@ function CrossModuleOverview(_props: WidgetProps) {
 
   // ── Unread messages — proxy from store (kommunikation module = chat) ────
   const chatAllowed = isDashboardModuleAllowed('chat', flags, flagsLoading, flagsError)
+  const { data: unreadData } = useUnreadCounts()
   const unreadCount = useMemo(() => {
     if (!chatAllowed) return null
-    // TODO(phase-11 follow-up): wire to chat unread store once a selector exists
-    // The UnreadMessages widget counts from the API — here we show the same
-    // via a simple placeholder (0 until API connects). The widget is intentionally
-    // not coupled to a live hook here to avoid a heavy query just for the summary.
-    return 0
-  }, [chatAllowed])
+    const counts = (unreadData as { unread_counts?: Record<string, number> } | undefined)?.unread_counts ?? {}
+    return Object.values(counts).reduce((sum, n) => sum + (n ?? 0), 0)
+  }, [unreadData, chatAllowed])
 
   // ── Finance: overdue invoices ──────────────────────────────────────────
   const financeAllowed = isDashboardModuleAllowed('finance', flags, flagsLoading, flagsError)

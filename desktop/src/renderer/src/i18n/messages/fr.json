@@ -1877,6 +1877,8 @@
   "dashboard.suggestions.timeTracking": "Suivi du temps",
   "dashboard.suggestions.timeTrackingDesc": "Démarrer le chronomètre et les heures",
   "dashboard.suggestions.title": "Widgets suggérés",
+  "dashboard.suggestions.add": "Ajouter au tableau de bord",
+  "dashboard.suggestions.added": "{name} ajouté au tableau de bord",
   "dashboard.support.contact": "Contacter le support",
   "dashboard.support.description": "Notre équipe support est à votre disposition",
   "dashboard.support.title": "Besoin d'aide ?",
