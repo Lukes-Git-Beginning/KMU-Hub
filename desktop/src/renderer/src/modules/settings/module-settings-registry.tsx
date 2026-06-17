@@ -16,6 +16,7 @@ import {
   FileSignature,
   LayoutDashboard,
   Clock,
+  LifeBuoy,
   type LucideIcon,
 } from 'lucide-react'
 import type { RoleId } from '@/config/roles'
@@ -35,6 +36,7 @@ import { DokumenteSettingsPanel } from '@/modules/dokumente/settings/DokumenteSe
 import { VertraegeSettingsPanel } from '@/modules/vertraege/settings/VertraegeSettingsPanel'
 import { ZeiterfassungSettingsPanel } from '@/modules/zeiterfassung/settings/ZeiterfassungSettingsPanel'
 import { DashboardSettingsPanel } from '@/modules/dashboard/settings/DashboardSettingsPanel'
+import { HelpdeskSettingsPanel } from '@/modules/helpdesk/settings/HelpdeskSettingsPanel'
 
 /**
  * Registry for the Module-Settings overlay (opened from the bottom-left
@@ -68,6 +70,7 @@ export const SETTINGS_ENTRIES: SettingsEntry[] = [
   { id: 'kommunikation', group: 'module', labelKey: 'moduleSettings.entries.kommunikation', icon: MessagesSquare, navMatch: ['/kommunikation', '/chat'], component: KommunikationSettingsPanel },
   { id: 'team', group: 'module', labelKey: 'moduleSettings.entries.team', icon: Users, navMatch: ['/team'], roles: ['admin', 'hr'], component: TeamSettingsPanel },
   { id: 'work', group: 'module', labelKey: 'moduleSettings.entries.work', icon: KanbanSquare, navMatch: ['/work'], component: WorkSettingsPanel },
+  { id: 'helpdesk', group: 'module', labelKey: 'moduleSettings.entries.helpdesk', icon: LifeBuoy, navMatch: ['/helpdesk'], component: HelpdeskSettingsPanel },
   { id: 'zeiterfassung', group: 'module', labelKey: 'moduleSettings.entries.zeiterfassung', icon: Clock, navMatch: ['/zeiterfassung'], component: ZeiterfassungSettingsPanel },
   { id: 'dokumente', group: 'module', labelKey: 'moduleSettings.entries.dokumente', icon: FolderOpen, navMatch: ['/dokumente'], component: DokumenteSettingsPanel },
   { id: 'vertraege', group: 'module', labelKey: 'moduleSettings.entries.vertraege', icon: FileSignature, navMatch: ['/vertraege'], component: VertraegeSettingsPanel },

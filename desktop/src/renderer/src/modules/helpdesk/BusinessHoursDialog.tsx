@@ -46,13 +46,16 @@ const TIMEZONE_OPTIONS = [
 ] as const
 
 interface BusinessHoursDialogProps {
-  open: boolean
-  onClose: () => void
+  open?: boolean
+  onClose?: () => void
+  /** Render just the editable content (no Dialog chrome) for the settings panel. */
+  embedded?: boolean
 }
 
-export function BusinessHoursDialog({ open, onClose }: BusinessHoursDialogProps) {
+export function BusinessHoursDialog({ open, onClose, embedded }: BusinessHoursDialogProps) {
   const { t } = useTranslation()
   const { businessHours, holidays } = useHelpdeskStore()
+  const saveBusinessHours = useHelpdeskStore((s) => s.saveBusinessHours)
 
   // Local editable state (clone from store/mock)
   const [hours, setHours] = useState<BusinessDay[]>(() =>
@@ -95,24 +98,13 @@ export function BusinessHoursDialog({ open, onClose }: BusinessHoursDialogProps)
   }
 
   const handleSave = () => {
+    saveBusinessHours(hours, holidayList)
     toast.success(t('helpdesk.businessHours.saved'))
-    onClose()
+    onClose?.()
   }
 
-  return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="gap-0 p-0 max-w-2xl max-h-[85vh] flex flex-col">
-        {/* Header */}
-        <DialogHeader className="border-b border-border px-6 py-4 shrink-0">
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-primary" />
-            <DialogTitle className="text-base font-semibold text-foreground">{t('helpdesk.businessHours.title')}</DialogTitle>
-          </div>
-          <DialogDescription className="sr-only">{t('helpdesk.businessHours.description')}</DialogDescription>
-        </DialogHeader>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+  const body = (
+    <>
           {/* Timezone */}
           <div>
             <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.businessHours.timezone')}</label>
@@ -247,12 +239,43 @@ export function BusinessHoursDialog({ open, onClose }: BusinessHoursDialogProps)
               </button>
             </div>
           </div>
-        </div>
+    </>
+  )
 
-        {/* Footer */}
+  // Embedded (settings panel): just the content + a save button.
+  if (embedded) {
+    return (
+      <div className="space-y-6">
+        {body}
+        <div className="flex justify-end">
+          <button
+            onClick={handleSave}
+            className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+          >
+            {t('common.save')}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Standalone dialog (legacy).
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose?.() }}>
+      <DialogContent className="gap-0 p-0 max-w-2xl max-h-[85vh] flex flex-col">
+        <DialogHeader className="border-b border-border px-6 py-4 shrink-0">
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-primary" />
+            <DialogTitle className="text-base font-semibold text-foreground">{t('helpdesk.businessHours.title')}</DialogTitle>
+          </div>
+          <DialogDescription className="sr-only">{t('helpdesk.businessHours.description')}</DialogDescription>
+        </DialogHeader>
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+          {body}
+        </div>
         <DialogFooter className="border-t border-border px-6 py-4 shrink-0">
           <button
-            onClick={onClose}
+            onClick={() => onClose?.()}
             className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
           >
             {t('common.cancel')}
