@@ -187,6 +187,18 @@ export const teamHandlers = [
     return HttpResponse.json({ employee: emp })
   }),
 
+  // Update employee — merges the patch into the in-memory record (e.g. status
+  // for deactivation). The list GET re-reads the same array, so the change shows.
+  http.put(`${API}/api/v1/hr/employees/:id`, async ({ params, request }) => {
+    const emp = hrEmployees.find((e) => e.id === params.id) as Record<string, unknown> | undefined
+    if (!emp) {
+      return HttpResponse.json({ error: 'Employee not found' }, { status: 404 })
+    }
+    const body = (await request.json()) as Record<string, unknown>
+    Object.assign(emp, body)
+    return HttpResponse.json({ employee: emp })
+  }),
+
   // Leave requests
   http.get(`${API}/api/v1/hr/leave/requests`, ({ request }) => {
     const url = new URL(request.url)

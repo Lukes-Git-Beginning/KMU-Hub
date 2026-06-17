@@ -140,6 +140,7 @@ function adaptEmployee(raw: Record<string, any>): EmployeeProfile {
     workload:              raw.workload,
     initials:              raw.initials,
     avatarUrl:             raw.avatar_url           ?? raw.avatarUrl            ?? null,
+    status:                raw.status,
   }
 }
 
@@ -189,6 +190,7 @@ function toSnakeCaseUpdateBody(data: UpdateEmployeeInput): Record<string, unknow
     address_city:            data.addressCity,
     address_postal_code:     data.addressPostalCode,
     address_country:         data.addressCountry,
+    status:                  data.status,
   }
 }
 

@@ -26,6 +26,7 @@ import {
   Network,
   UserCircle,
   Banknote,
+  UserX,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth'
@@ -228,8 +229,7 @@ export default function TeamPage() {
   }
 
   const handleDeactivate = (emp: EmployeeProfile) => {
-    // TODO: Backend needs a dedicated deactivation endpoint; for now update via employee API
-    updateEmployeeMutation.mutate({ id: emp.id, data: {} })
+    updateEmployeeMutation.mutate({ id: emp.id, data: { status: 'inactive' } })
     setConfirmDeactivate(null)
     toast.success(t('team.page.deactivated', { name: emp.userName ?? t('team.member.employee') }))
   }
@@ -251,6 +251,9 @@ export default function TeamPage() {
       { label: t('team.page.action.sendEmail'), icon: Mail, onClick: () => handleEmail(name, emp.userEmail) },
       { label: t('team.page.action.call'), icon: Phone, onClick: () => handleCall(name, initials) },
       { label: t('team.page.action.sendMessage'), icon: MessageSquare, onClick: () => handleMessage(name) },
+      ...(emp.status !== 'inactive'
+        ? [{ label: t('team.page.action.deactivate', { defaultValue: 'Deaktivieren' }), icon: UserX, onClick: () => setConfirmDeactivate(emp), variant: 'destructive' as const, separator: true }]
+        : []),
     ]
   }
 
@@ -679,6 +682,7 @@ interface EmployeeCardProps {
 
 function EmployeeCard({ employee, name, initials, actions, activity, onEmail, onMessage, onCall, onClick }: EmployeeCardProps) {
   const { t } = useTranslation()
+  const isInactive = employee.status === 'inactive'
   const statusDot = activity?.status === 'tracking'
     ? 'bg-success'
     : activity?.status === 'absent'
@@ -691,7 +695,7 @@ function EmployeeCard({ employee, name, initials, actions, activity, onEmail, on
       tabIndex={0}
       onClick={onClick}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
-      className="cursor-pointer rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className={`cursor-pointer rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${isInactive ? 'opacity-60' : ''}`}
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3 text-left">
@@ -704,7 +708,10 @@ function EmployeeCard({ employee, name, initials, actions, activity, onEmail, on
             )}
           </div>
           <div>
-            <h4 className="text-sm font-medium text-foreground">{name}</h4>
+            <div className="flex items-center gap-1.5">
+              <h4 className="text-sm font-medium text-foreground">{name}</h4>
+              {isInactive && <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">{t('team.page.statusInactive', { defaultValue: 'Inaktiv' })}</span>}
+            </div>
             <p className="text-xs text-muted-foreground">{employee.positionTitle ?? ''}</p>
           </div>
         </div>
@@ -785,6 +792,7 @@ interface EmployeeRowProps {
 
 function EmployeeRow({ employee, name, initials, actions, activity, onEmail, onMessage, onClick }: EmployeeRowProps) {
   const { t } = useTranslation()
+  const isInactive = employee.status === 'inactive'
   const statusDot = activity?.status === 'tracking'
     ? 'bg-success'
     : activity?.status === 'absent'
@@ -792,7 +800,7 @@ function EmployeeRow({ employee, name, initials, actions, activity, onEmail, onM
       : 'bg-gray-400'
 
   return (
-    <div className="flex items-center gap-4 rounded-lg border border-border bg-card px-4 py-3 hover:shadow-[var(--shadow-card)] transition-shadow">
+    <div className={`flex items-center gap-4 rounded-lg border border-border bg-card px-4 py-3 hover:shadow-[var(--shadow-card)] transition-shadow ${isInactive ? 'opacity-60' : ''}`}>
       <button onClick={onClick} className="flex items-center gap-3 flex-1 min-w-0 text-left">
         <div className="relative">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-light text-xs font-medium text-primary">
@@ -803,7 +811,10 @@ function EmployeeRow({ employee, name, initials, actions, activity, onEmail, onM
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <span className="text-sm font-medium text-foreground">{name}</span>
+          <span className="flex items-center gap-1.5">
+            <span className="text-sm font-medium text-foreground">{name}</span>
+            {isInactive && <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">{t('team.page.statusInactive', { defaultValue: 'Inaktiv' })}</span>}
+          </span>
           <p className="text-xs text-muted-foreground truncate">
             {employee.positionTitle ?? ''} &middot; {employee.department ?? ''}
           </p>

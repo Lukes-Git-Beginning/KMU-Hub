@@ -251,6 +251,7 @@ export interface EmployeeProfile {
   workload?: number
   initials?: string
   avatarUrl?: string | null
+  status?: string
 }
 
 export interface EmployeeDocument {
@@ -368,6 +369,7 @@ export interface UpdateEmployeeInput {
   addressCity?: string
   addressPostalCode?: string
   addressCountry?: string
+  status?: string
 }
 
 export interface UpdateSelfProfileInput {
