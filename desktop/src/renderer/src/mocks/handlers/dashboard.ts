@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
 import { IDS } from '../data/shared-ids'
-import { getUpcomingBirthdays } from '../mock-db'
+import { getUpcomingBirthdays, EMPLOYEES } from '../mock-db'
 
 const API = API_BASE_URL
 
@@ -118,6 +118,17 @@ export const dashboardHandlers = [
   // Upcoming team birthdays (mock-backed; backend gap: no birthday column yet)
   http.get(`${API}/api/v1/dashboard/birthdays`, () => {
     return HttpResponse.json({ birthdays: getUpcomingBirthdays() })
+  }),
+
+  // Team weekly worktime — per-member deterministic minutes (mock-backed)
+  http.get(`${API}/api/v1/dashboard/team-worktime`, () => {
+    const members = EMPLOYEES.slice(0, 6).map((e) => {
+      // Deterministic weekly minutes from id hash → ~32h–44h range
+      const hash = e.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+      const minutes = 1920 + (hash % 13) * 60
+      return { id: e.id, name: `${e.firstName} ${e.lastName}`, minutes }
+    })
+    return HttpResponse.json({ members })
   }),
 
   // Global search

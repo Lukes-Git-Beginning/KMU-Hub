@@ -2,14 +2,14 @@
  * Team Worktime widget — weekly hours per team member as CSS bars.
  *
  * Module: zeiterfassung
- * Data: useEmployees() for team list; weekly minutes are derived from
- *       the MSW work-time entries (same realistic dataset per employee).
+ * Data: useTeamWorktime() — per-member weekly minutes from the MSW
+ *       /dashboard/team-worktime endpoint (swap-ready, no client-side seeding).
  * CSS bar pattern follows MiniChart.tsx / KpiRevenue.tsx — GPU-safe.
  */
 import { memo, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Clock4, Loader2 } from 'lucide-react'
-import { useEmployees, useWorkTimeEntries } from '@/api/hooks/hr-hooks'
+import { useTeamWorktime } from '@/api/hooks/useTeamWorktime'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
 /** Target weekly work minutes (8h × 5 days). */
@@ -23,13 +23,6 @@ function fmtMinutes(minutes: number): string {
   return `${h}h ${m}m`
 }
 
-/**
- * Deterministic per-employee minute seed.
- * MSW returns the same entries for all employee IDs.
- * We vary by index so bars differ visually.
- */
-const SEEDED_MINUTES_BY_INDEX = [2230, 1980, 2080, 1750, 2300, 1600]
-
 interface EmployeeBar {
   id: string
   name: string
@@ -39,43 +32,18 @@ interface EmployeeBar {
 
 function TeamWorktime(_props: WidgetProps) {
   const { t } = useTranslation()
+  const { data: members = [], isLoading } = useTeamWorktime()
 
-  // Load team list
-  const { data: employeeData, isLoading: loadingEmployees } = useEmployees()
-  const employees = useMemo(
-    () => employeeData?.employees ?? [],
-    [employeeData?.employees],
+  const bars: EmployeeBar[] = useMemo(
+    () =>
+      members.map((m) => ({
+        id: m.id,
+        name: m.name || t('dashboard.teamWorktime.unknownEmployee'),
+        minutes: m.minutes,
+        overTarget: m.minutes > TARGET_WEEKLY_MINUTES,
+      })),
+    [members, t],
   )
-
-  // Load work-time entries to derive weekly totals.
-  // MSW returns the same realistic dataset regardless of employee_id filter.
-  const { data: entriesData, isLoading: loadingEntries } = useWorkTimeEntries()
-  const entries = useMemo(
-    () => (entriesData as { entries?: Array<{ totalMinutes?: number }> } | undefined)?.entries ?? [],
-    [entriesData],
-  )
-
-  // Sum all completed entries as "this week" total for the current user.
-  // For other employees, seed deterministic values so bars differ visually.
-  const currentUserWeekMinutes = useMemo(
-    () => entries.reduce((sum, e) => sum + (e.totalMinutes ?? 0), 0),
-    [entries],
-  )
-
-  const bars: EmployeeBar[] = useMemo(() => {
-    return employees.map((e, i) => {
-      // First employee uses real MSW data, rest use seeded offsets
-      const minutes = i === 0 ? currentUserWeekMinutes || SEEDED_MINUTES_BY_INDEX[0] : (SEEDED_MINUTES_BY_INDEX[i] ?? 2000)
-      return {
-        id: e.id,
-        name: e.userName ?? e.department ?? t('dashboard.teamWorktime.unknownEmployee'),
-        minutes,
-        overTarget: minutes > TARGET_WEEKLY_MINUTES,
-      }
-    })
-  }, [employees, currentUserWeekMinutes, t])
-
-  const isLoading = loadingEmployees || loadingEntries
 
   if (isLoading) {
     return (
