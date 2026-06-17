@@ -14,8 +14,9 @@ import {
   Maximize2,
   Loader2,
 } from 'lucide-react'
-import { toast } from 'sonner'
 import { useEmployees } from '@/api/hooks/hr-hooks'
+import { useMeetingsStore } from '@/stores/meetings'
+import { useNavigationStore } from '@/stores/navigation'
 import type { EmployeeProfile } from '@/api/hr-types'
 import { EmptyState, InlineStat } from '@/components/shared'
 
@@ -199,6 +200,8 @@ function OrgNodeCard({
 
 export function OrgChart() {
   const { t } = useTranslation()
+  const { startCall } = useMeetingsStore()
+  const { setIntent } = useNavigationStore()
   const { data: employeesData, isLoading } = useEmployees()
   const employees = useMemo(() => employeesData?.employees ?? [], [employeesData?.employees])
 
@@ -384,14 +387,14 @@ export function OrgChart() {
 
             <div className="flex gap-2 mt-4">
               <button
-                onClick={() => toast.info(`E-Mail: ${selectedNode.name}`)}
+                onClick={() => setIntent({ type: 'compose-email', data: { to: selectedNode.email, name: selectedNode.name } })}
                 className="flex-1 flex items-center justify-center gap-1 rounded-md border border-border py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
               >
                 <Mail className="h-3 w-3" />
                 E-Mail
               </button>
               <button
-                onClick={() => toast.info(`${t('team.detail.call')}: ${selectedNode.name}`)}
+                onClick={() => startCall(selectedNode.name, selectedNode.initials)}
                 className="flex-1 flex items-center justify-center gap-1 rounded-md border border-border py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
               >
                 <Phone className="h-3 w-3" />
