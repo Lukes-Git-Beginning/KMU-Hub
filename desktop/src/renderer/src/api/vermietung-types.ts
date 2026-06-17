@@ -66,12 +66,17 @@ export interface RentalInspection {
 
 export interface AvailabilityResult {
   available: boolean
-  conflicting_rental_ids?: string[]
+  conflicting_rentals?: Rental[]
+}
+
+export interface CalendarEntry {
+  object_id: string
+  object_name: string
+  rentals: Rental[]
 }
 
 export interface CalendarResult {
-  rentals: Rental[]
-  occupancy: Record<string, number>
+  entries: CalendarEntry[]
 }
 
 // ---------------------------------------------------------------------------

@@ -28,11 +28,16 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
-  useVermietungStore,
-  type RentalObject,
-  type RentalObjectType,
-  type Reservation,
-} from '@/stores/vermietung'
+  useObjectsList,
+  useRentalsList,
+  useCreateObject,
+  useUpdateObject,
+  useDeleteObject,
+  useCreateRental,
+  useDeleteRental,
+} from '@/api/hooks/useVermietung'
+import type { RentalObject, Rental } from '@/api/vermietung-types'
+import { useVermietungPrefsStore } from '@/stores/vermietungPrefs'
 import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
 import { formatCurrency } from '@/lib/format'
 import ZustandsprotokollDialog from './ZustandsprotokollDialog'
@@ -42,7 +47,7 @@ import ZustandsprotokollDialog from './ZustandsprotokollDialog'
 // ============================================================
 
 type TabKey = 'objekte' | 'reservierungen' | 'kalender'
-type ReservationFilter = 'all' | 'active' | 'upcoming' | 'completed'
+type ReservationFilter = 'all' | 'active' | 'reserved' | 'completed'
 
 // ============================================================
 // Constants
@@ -51,7 +56,7 @@ type ReservationFilter = 'all' | 'active' | 'upcoming' | 'completed'
 const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 
 const OBJECT_TYPE_CONFIG: Record<
-  RentalObjectType,
+  string,
   { labelKey: string; icon: typeof Wrench; color: string; bg: string; badgeBg: string }
 > = {
   gerät: { labelKey: 'vermietung.objectType.gerät', icon: Wrench, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/30', badgeBg: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' },
@@ -60,8 +65,20 @@ const OBJECT_TYPE_CONFIG: Record<
   werkzeug: { labelKey: 'vermietung.objectType.werkzeug', icon: Hammer, color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/30', badgeBg: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
 }
 
+const DEFAULT_TYPE_CONFIG = {
+  labelKey: 'vermietung.objectType.gerät',
+  icon: Wrench,
+  color: 'text-muted-foreground',
+  bg: 'bg-secondary',
+  badgeBg: 'bg-secondary text-muted-foreground',
+}
+
+function getTypeCfg(cat: string) {
+  return OBJECT_TYPE_CONFIG[cat] ?? DEFAULT_TYPE_CONFIG
+}
+
 const STATUS_CONFIG: Record<
-  RentalObject['status'],
+  'available' | 'reserved' | 'maintenance',
   { labelKey: string; dot: string; text: string }
 > = {
   available: { labelKey: 'vermietung.status.available', dot: 'bg-success', text: 'text-success' },
@@ -69,23 +86,16 @@ const STATUS_CONFIG: Record<
   maintenance: { labelKey: 'vermietung.status.maintenance', dot: 'bg-warning', text: 'text-warning' },
 }
 
-const RESERVATION_STATUS_CONFIG: Record<
-  Reservation['status'],
-  { labelKey: string; bg: string }
-> = {
+const RESERVATION_STATUS_CONFIG: Record<string, { labelKey: string; bg: string }> = {
   active: { labelKey: 'vermietung.reservationStatus.active', bg: 'bg-success-light text-success' },
-  upcoming: { labelKey: 'vermietung.reservationStatus.upcoming', bg: 'bg-info-light text-info' },
+  reserved: { labelKey: 'vermietung.reservationStatus.upcoming', bg: 'bg-info-light text-info' },
   completed: { labelKey: 'vermietung.reservationStatus.completed', bg: 'bg-secondary text-muted-foreground' },
   cancelled: { labelKey: 'vermietung.reservationStatus.cancelled', bg: 'bg-error-light text-error' },
 }
 
-const DEPOSIT_STATUS_CONFIG: Record<
-  NonNullable<Reservation['depositStatus']>,
-  { labelKey: string; bg: string }
-> = {
+const DEPOSIT_STATUS_CONFIG: Record<'none' | 'collected', { labelKey: string; bg: string }> = {
   none: { labelKey: 'vermietung.depositStatus.none', bg: 'bg-secondary text-muted-foreground' },
   collected: { labelKey: 'vermietung.depositStatus.collected', bg: 'bg-success-light text-success' },
-  returned: { labelKey: 'vermietung.depositStatus.returned', bg: 'bg-info-light text-info' },
 }
 
 const CURRENCY_OPTIONS = ['EUR', 'CHF', 'USD'] as const
@@ -93,6 +103,22 @@ const CURRENCY_OPTIONS = ['EUR', 'CHF', 'USD'] as const
 // ============================================================
 // Helpers
 // ============================================================
+
+function computeObjectStatus(obj: RentalObject, rentals: Rental[]): 'available' | 'reserved' | 'maintenance' {
+  if (!obj.active) return 'maintenance'
+  const today = new Date().toISOString().slice(0, 10)
+  const hasActiveRental = rentals.some(
+    (r) =>
+      r.object_id === obj.id &&
+      (r.status === 'active' || r.status === 'reserved') &&
+      r.end_date.slice(0, 10) >= today,
+  )
+  return hasActiveRental ? 'reserved' : 'available'
+}
+
+function computeDepositStatus(rental: Rental): 'none' | 'collected' {
+  return rental.deposit_paid ? 'collected' : 'none'
+}
 
 function getWeekDates(offset: number): string[] {
   const today = new Date()
@@ -126,7 +152,7 @@ function formatDateRange(dates: string[]): string {
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('de-DE', {
+  return new Date(dateStr.slice(0, 10) + 'T00:00:00').toLocaleDateString('de-DE', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -152,7 +178,7 @@ function computeRentalPrice(
   totalDays: number,
   dailyRate: number,
   weeklyRate?: number,
-): { weeks: number; remainingDays: number; total: number; breakdown: string; currency?: string } {
+): { weeks: number; remainingDays: number; total: number; breakdown: string } {
   if (weeklyRate && totalDays >= 7) {
     const weeks = Math.floor(totalDays / 7)
     const remainingDays = totalDays % 7
@@ -185,46 +211,70 @@ function ObjectDialog({
   initial?: RentalObject | null
 }) {
   const { t } = useTranslation()
-  const { addObject, updateObject } = useVermietungStore()
+  const createObjectMut = useCreateObject()
+  const updateObjectMut = useUpdateObject()
+  const { objectPrefs, setObjectPref } = useVermietungPrefsStore()
   const isEdit = !!initial
 
   const [name, setName] = useState(initial?.name ?? '')
-  const [type, setType] = useState<RentalObjectType>(initial?.type ?? 'gerät')
+  const [type, setType] = useState<string>(initial?.category ?? 'gerät')
   const [location, setLocation] = useState(initial?.location ?? '')
-  const [dailyRate, setDailyRate] = useState(initial?.dailyRate?.toString() ?? '')
-  const [weeklyRate, setWeeklyRate] = useState(initial?.weeklyRate?.toString() ?? '')
-  const [currency, setCurrency] = useState(initial?.currency ?? 'EUR')
+  const [dailyRate, setDailyRate] = useState(initial?.daily_rate?.toString() ?? '')
+  const [weeklyRate, setWeeklyRate] = useState(
+    initial ? (objectPrefs[initial.id]?.weeklyRate?.toString() ?? '') : '',
+  )
+  const [currency, setCurrency] = useState(
+    initial ? (objectPrefs[initial.id]?.currency ?? 'EUR') : 'EUR',
+  )
   const [deposit, setDeposit] = useState(initial?.deposit?.toString() ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
-  const [serialNumber, setSerialNumber] = useState(initial?.serialNumber ?? '')
+  const [serialNumber, setSerialNumber] = useState(
+    initial ? (objectPrefs[initial.id]?.serialNumber ?? '') : '',
+  )
 
   const handleSave = () => {
     if (!name.trim()) { toast.error(t('vermietung.objectDialog.errorName')); return }
     if (!location.trim()) { toast.error(t('vermietung.objectDialog.errorStandort')); return }
     if (!dailyRate || Number(dailyRate) <= 0) { toast.error(t('vermietung.objectDialog.errorDailyRate')); return }
 
-    const obj: RentalObject = {
-      id: initial?.id ?? `obj-${Date.now()}`,
+    const input = {
       name: name.trim(),
-      type,
-      description: description.trim(),
-      location: location.trim(),
-      serialNumber: serialNumber.trim() || undefined,
-      dailyRate: Number(dailyRate),
-      weeklyRate: weeklyRate ? Number(weeklyRate) : undefined,
-      currency,
-      deposit: deposit ? Number(deposit) : undefined,
-      status: initial?.status ?? 'available',
+      description: description.trim() || undefined,
+      category: type,
+      daily_rate: Number(dailyRate),
+      deposit: deposit ? Number(deposit) : 0,
+      location: location.trim() || undefined,
     }
 
-    if (isEdit) {
-      updateObject(obj.id, obj)
-      toast.success(t('vermietung.objectDialog.updateSuccess', { name: obj.name }))
+    if (isEdit && initial) {
+      updateObjectMut.mutate({ id: initial.id, ...input }, {
+        onSuccess: () => {
+          setObjectPref(initial.id, {
+            weeklyRate: weeklyRate ? Number(weeklyRate) : undefined,
+            currency,
+            serialNumber: serialNumber.trim() || undefined,
+          })
+          toast.success(t('vermietung.objectDialog.updateSuccess', { name: name.trim() }))
+          onClose()
+        },
+        onError: () => toast.error('Fehler beim Speichern'),
+      })
     } else {
-      addObject(obj)
-      toast.success(t('vermietung.objectDialog.createSuccess', { name: obj.name }))
+      createObjectMut.mutate(input, {
+        onSuccess: (data) => {
+          if (data?.object?.id) {
+            setObjectPref(data.object.id, {
+              weeklyRate: weeklyRate ? Number(weeklyRate) : undefined,
+              currency,
+              serialNumber: serialNumber.trim() || undefined,
+            })
+          }
+          toast.success(t('vermietung.objectDialog.createSuccess', { name: name.trim() }))
+          onClose()
+        },
+        onError: () => toast.error('Fehler beim Erstellen'),
+      })
     }
-    onClose()
   }
 
   if (!open) return null
@@ -259,7 +309,7 @@ function ObjectDialog({
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">{t('vermietung.objectDialog.labelTyp')} <span className="text-destructive">*</span></label>
             <div className="grid grid-cols-2 gap-2">
-              {(Object.entries(OBJECT_TYPE_CONFIG) as [RentalObjectType, typeof OBJECT_TYPE_CONFIG['gerät']][]).map(([key, cfg]) => {
+              {(Object.entries(OBJECT_TYPE_CONFIG) as [string, typeof OBJECT_TYPE_CONFIG['gerät']][]).map(([key, cfg]) => {
                 const Icon = cfg.icon
                 const isActive = type === key
                 return (
@@ -396,17 +446,20 @@ function ReservationDialog({
   open,
   onClose,
   objects,
+  rentals,
   preSelectedObjectId,
   preSelectedDate,
 }: {
   open: boolean
   onClose: () => void
   objects: RentalObject[]
+  rentals: Rental[]
   preSelectedObjectId?: string
   preSelectedDate?: string
 }) {
   const { t } = useTranslation()
-  const { addReservation } = useVermietungStore()
+  const createRentalMut = useCreateRental()
+  const { objectPrefs, setRentalPref } = useVermietungPrefsStore()
 
   const [objectId, setObjectId] = useState(preSelectedObjectId ?? '')
   const [startDate, setStartDate] = useState(preSelectedDate ?? '')
@@ -418,14 +471,16 @@ function ReservationDialog({
   const [notes, setNotes] = useState('')
 
   const selectedObj = objects.find((o) => o.id === objectId)
+  const objCurrency = objectPrefs[objectId]?.currency ?? 'EUR'
+  const objWeeklyRate = objectPrefs[objectId]?.weeklyRate
 
   // Auto-fill locations when object changes
   const handleObjectChange = (id: string) => {
     setObjectId(id)
     const obj = objects.find((o) => o.id === id)
     if (obj) {
-      setPickupLocation(obj.location)
-      setReturnLocation(obj.location)
+      setPickupLocation(obj.location ?? '')
+      setReturnLocation(obj.location ?? '')
     }
   }
 
@@ -436,36 +491,57 @@ function ReservationDialog({
     if (!renter.trim()) { toast.error(t('vermietung.reservationDialog.errorMieter')); return }
 
     const days = daysBetween(startDate, endDate)
-    const pricing = selectedObj ? computeRentalPrice(days, selectedObj.dailyRate, selectedObj.weeklyRate) : null
-    const objCurrency = selectedObj?.currency ?? 'EUR'
+    const pricing = selectedObj
+      ? computeRentalPrice(days, selectedObj.daily_rate, objWeeklyRate)
+      : null
 
-    const res: Reservation = {
-      // eslint-disable-next-line react-hooks/purity -- Date.now() used for unique ID generation
-      id: `res-${Date.now()}`,
-      objectId,
-      objectName: selectedObj?.name ?? '',
-      startDate,
-      endDate,
-      renter: renter.trim(),
-      renterType,
-      notes: notes.trim(),
-      status: startDate <= new Date().toISOString().split('T')[0] ? 'active' : 'upcoming',
-      pickupLocation: pickupLocation.trim() || selectedObj?.location || '',
-      returnLocation: returnLocation.trim() || selectedObj?.location || '',
-      currency: objCurrency,
-      totalPrice: pricing?.total,
-      depositAmount: selectedObj?.deposit,
-      depositStatus: selectedObj?.deposit ? 'none' : undefined,
-    }
-
-    addReservation(res)
-    toast.success(t('vermietung.reservationDialog.createSuccess', { name: res.objectName }), {
-      description: `${formatDate(startDate)} – ${formatDate(endDate)} (${renter.trim()})`,
-    })
-    onClose()
+    createRentalMut.mutate(
+      {
+        object_id: objectId,
+        renter_name: renter.trim(),
+        start_date: new Date(startDate + 'T00:00:00').toISOString(),
+        end_date: new Date(endDate + 'T23:59:59').toISOString(),
+        total_price: pricing?.total ?? 0,
+        deposit_paid: false,
+        notes: notes.trim() || undefined,
+      },
+      {
+        onSuccess: (data) => {
+          const rentalId = data?.rental?.id
+          if (rentalId) {
+            setRentalPref(rentalId, {
+              renterType,
+              pickupLocation: pickupLocation.trim() || undefined,
+              returnLocation: returnLocation.trim() || undefined,
+              currency: objCurrency,
+            })
+          }
+          toast.success(
+            t('vermietung.reservationDialog.createSuccess', { name: selectedObj?.name ?? '' }),
+            { description: `${formatDate(startDate)} – ${formatDate(endDate)} (${renter.trim()})` },
+          )
+          onClose()
+        },
+        onError: () => toast.error('Fehler beim Erstellen'),
+      },
+    )
   }
 
   if (!open) return null
+
+  // Availability: check if selected object has conflicts
+  const today = new Date().toISOString().slice(0, 10)
+  const objRentals = rentals.filter((r) => r.object_id === objectId && (r.status === 'active' || r.status === 'reserved'))
+  const hasConflict =
+    startDate &&
+    endDate &&
+    startDate <= endDate &&
+    objRentals.some(
+      (r) =>
+        !(r.end_date.slice(0, 10) < startDate || r.start_date.slice(0, 10) > endDate),
+    )
+  void today
+  void hasConflict
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -490,7 +566,7 @@ function ReservationDialog({
               <option value="">{t('vermietung.reservationDialog.selectObjekt')}</option>
               {objects.map((obj) => (
                 <option key={obj.id} value={obj.id}>
-                  {obj.name} ({t(OBJECT_TYPE_CONFIG[obj.type].labelKey)})
+                  {obj.name} ({t(getTypeCfg(obj.category).labelKey)})
                 </option>
               ))}
             </select>
@@ -593,33 +669,32 @@ function ReservationDialog({
             />
           </div>
 
-          {/* Price Calculation (9.12) */}
+          {/* Price Calculation */}
           {selectedObj && startDate && endDate && startDate <= endDate && (
             <div className="rounded-lg border border-border bg-secondary/30 p-3 space-y-2">
               <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vermietung.reservationDialog.priceCalc')}</h4>
               {(() => {
                 const days = daysBetween(startDate, endDate)
-                const objCurrency = selectedObj.currency ?? 'EUR'
-                const pricing = computeRentalPrice(days, selectedObj.dailyRate, selectedObj.weeklyRate)
+                const pricing = computeRentalPrice(days, selectedObj.daily_rate, objWeeklyRate)
 
                 return (
                   <div className="space-y-1">
                     {pricing.weeks > 0 ? (
                       <>
                         <p className="text-xs text-muted-foreground tabular-nums">
-                          {pricing.weeks} Woche{pricing.weeks > 1 ? 'n' : ''} &times; {formatCurrency(selectedObj.weeklyRate!, objCurrency)}/Woche
-                          = {formatCurrency(pricing.weeks * selectedObj.weeklyRate!, objCurrency)}
+                          {pricing.weeks} Woche{pricing.weeks > 1 ? 'n' : ''} &times; {formatCurrency(objWeeklyRate!, objCurrency)}/Woche
+                          = {formatCurrency(pricing.weeks * objWeeklyRate!, objCurrency)}
                         </p>
                         {pricing.remainingDays > 0 && (
                           <p className="text-xs text-muted-foreground tabular-nums">
-                            + {pricing.remainingDays} Tag{pricing.remainingDays > 1 ? 'e' : ''} &times; {formatCurrency(selectedObj.dailyRate, objCurrency)}/Tag
-                            = {formatCurrency(pricing.remainingDays * selectedObj.dailyRate, objCurrency)}
+                            + {pricing.remainingDays} Tag{pricing.remainingDays > 1 ? 'e' : ''} &times; {formatCurrency(selectedObj.daily_rate, objCurrency)}/Tag
+                            = {formatCurrency(pricing.remainingDays * selectedObj.daily_rate, objCurrency)}
                           </p>
                         )}
                       </>
                     ) : (
                       <p className="text-xs text-muted-foreground tabular-nums">
-                        {days} Tag{days > 1 ? 'e' : ''} &times; {formatCurrency(selectedObj.dailyRate, objCurrency)}/Tag
+                        {days} Tag{days > 1 ? 'e' : ''} &times; {formatCurrency(selectedObj.daily_rate, objCurrency)}/Tag
                         = {formatCurrency(pricing.total, objCurrency)}
                       </p>
                     )}
@@ -634,14 +709,14 @@ function ReservationDialog({
             </div>
           )}
 
-          {/* Deposit Notice (9.13) */}
-          {selectedObj?.deposit && (
+          {/* Deposit Notice */}
+          {selectedObj?.deposit ? (
             <div className="rounded-lg border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20 p-3">
               <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
-                {t('vermietung.reservationDialog.depositNotice', { amount: formatCurrency(selectedObj.deposit, selectedObj.currency ?? 'EUR') })}
+                {t('vermietung.reservationDialog.depositNotice', { amount: formatCurrency(selectedObj.deposit, objCurrency) })}
               </p>
             </div>
-          )}
+          ) : null}
         </div>
 
         <div className="flex justify-end gap-2 mt-6">
@@ -658,12 +733,219 @@ function ReservationDialog({
 }
 
 // ============================================================
+// ObjectDetailPanel — ausgelagert um tsc-IIFE-Bug zu vermeiden
+// ============================================================
+
+interface ObjectPrefsMap {
+  [id: string]: { weeklyRate?: number; currency?: string; serialNumber?: string }
+}
+
+function ObjectDetailPanel({
+  selectedObject,
+  rentals,
+  objectPrefs,
+  getActiveRental,
+  getObjectRentals,
+  onClose,
+  onEdit,
+  onReserve,
+  t,
+}: {
+  selectedObject: RentalObject | null
+  rentals: Rental[]
+  objectPrefs: ObjectPrefsMap
+  getActiveRental: (id: string) => Rental | undefined
+  getObjectRentals: (id: string) => Rental[]
+  onClose: () => void
+  onEdit: (obj: RentalObject) => void
+  onReserve: (id: string) => void
+  t: (key: string, opts?: Record<string, unknown>) => string
+}) {
+  if (!selectedObject) {
+    return (
+      <DetailPanel
+        open={false}
+        onClose={onClose}
+        title={undefined}
+        width="w-[380px]"
+      >
+        <div />
+      </DetailPanel>
+    )
+  }
+
+  const objStatus = computeObjectStatus(selectedObject, rentals)
+  const statusCfg = STATUS_CONFIG[objStatus]
+  const badgeClass =
+    statusCfg.dot === 'bg-success'
+      ? 'bg-success-light text-success'
+      : statusCfg.dot === 'bg-info'
+        ? 'bg-info-light text-info'
+        : 'bg-warning-light text-warning'
+
+  const objWeeklyRate = objectPrefs[selectedObject.id]?.weeklyRate
+  const objCurrency = objectPrefs[selectedObject.id]?.currency ?? 'EUR'
+  const objSerial = objectPrefs[selectedObject.id]?.serialNumber
+  const activeRental = getActiveRental(selectedObject.id)
+  const objectRentals = getObjectRentals(selectedObject.id)
+
+  return (
+    <DetailPanel
+      open={true}
+      onClose={onClose}
+      title={selectedObject.name}
+      subtitle={`${t(getTypeCfg(selectedObject.category).labelKey)} · ${selectedObject.location ?? ''}`}
+      badge={
+        <span className={`ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass}`}>
+          {t(statusCfg.labelKey)}
+        </span>
+      }
+      width="w-[380px]"
+      footer={
+        <div className="flex gap-2">
+          <button
+            onClick={() => onEdit(selectedObject)}
+            className="flex-1 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+          >
+            {t('common.edit')}
+          </button>
+          <button
+            onClick={() => onReserve(selectedObject.id)}
+            className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+          >
+            {t('vermietung.detail.buttonReservieren')}
+          </button>
+        </div>
+      }
+    >
+      <div className="space-y-5">
+        {/* Basic info */}
+        <div className="space-y-3">
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vermietung.detail.details')}</h4>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs text-muted-foreground">{t('vermietung.detail.fieldName')}</p>
+              <p className="text-sm text-foreground font-medium">{selectedObject.name}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">{t('vermietung.detail.fieldTyp')}</p>
+              <p className="text-sm text-foreground">{t(getTypeCfg(selectedObject.category).labelKey)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">{t('vermietung.detail.fieldStandort')}</p>
+              <p className="text-sm text-foreground">{selectedObject.location ?? ''}</p>
+            </div>
+            {objSerial && (
+              <div>
+                <p className="text-xs text-muted-foreground">{t('vermietung.detail.fieldSerial')}</p>
+                <p className="text-sm text-foreground font-mono">{objSerial}</p>
+              </div>
+            )}
+          </div>
+          {selectedObject.description && (
+            <div>
+              <p className="text-xs text-muted-foreground">{t('vermietung.detail.fieldDescription')}</p>
+              <p className="text-sm text-foreground">{selectedObject.description}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Pricing */}
+        <div className="space-y-2">
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vermietung.detail.preise')}</h4>
+          <div className="rounded-lg border border-border bg-secondary/30 p-3">
+            <div className="flex items-baseline justify-between">
+              <div>
+                <span className="text-lg font-semibold text-foreground tabular-nums">{formatCurrency(selectedObject.daily_rate, objCurrency)}</span>
+                <span className="text-xs text-muted-foreground ml-1">{t('vermietung.detail.perDay')}</span>
+              </div>
+              {objWeeklyRate && (
+                <div>
+                  <span className="text-sm font-medium text-muted-foreground tabular-nums">{formatCurrency(objWeeklyRate, objCurrency)}</span>
+                  <span className="text-xs text-muted-foreground ml-1">{t('vermietung.detail.perWeek')}</span>
+                </div>
+              )}
+            </div>
+            {selectedObject.deposit > 0 && (
+              <div className="mt-2 pt-2 border-t border-border-muted flex items-baseline justify-between">
+                <span className="text-xs text-muted-foreground">{t('vermietung.detail.kaution')}</span>
+                <span className="text-sm font-medium text-foreground tabular-nums">
+                  {formatCurrency(selectedObject.deposit, objCurrency)}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Current status */}
+        <div className="space-y-2">
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vermietung.detail.currentStatus')}</h4>
+          <div className="rounded-lg border border-border p-3">
+            <div className="flex items-center gap-2">
+              <span className={`h-2.5 w-2.5 rounded-full ${statusCfg.dot}`} />
+              <span className={`text-sm font-medium ${statusCfg.text}`}>
+                {t(statusCfg.labelKey)}
+              </span>
+            </div>
+            {activeRental && (
+              <div className="mt-2 pt-2 border-t border-border-muted">
+                <p className="text-xs text-muted-foreground">{t('vermietung.detail.activeReservation')}</p>
+                <p className="text-sm text-foreground font-medium">{activeRental.renter_name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {formatDate(activeRental.start_date)} – {formatDate(activeRental.end_date)}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Last 5 rentals */}
+        <div className="space-y-2">
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vermietung.detail.lastReservations')}</h4>
+          {objectRentals.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-2">{t('vermietung.detail.noReservations')}</p>
+          ) : (
+            <div className="space-y-1">
+              {objectRentals.map((res) => {
+                const resCfg = RESERVATION_STATUS_CONFIG[res.status] ?? RESERVATION_STATUS_CONFIG['cancelled']
+                return (
+                  <div key={res.id} className="flex items-center gap-2 rounded-md border border-border-muted p-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-foreground">{res.renter_name}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {formatDate(res.start_date)} – {formatDate(res.end_date)}
+                      </p>
+                    </div>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium whitespace-nowrap ${resCfg.bg}`}>
+                      {t(resCfg.labelKey)}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </DetailPanel>
+  )
+}
+
+// ============================================================
 // Main Page
 // ============================================================
 
 export default function VermietungPage() {
   const { t } = useTranslation()
-  const { objects, reservations, zustandsprotokolle, deleteObject, cancelReservation } = useVermietungStore()
+
+  // Data
+  const objectsQuery = useObjectsList({ page: 1, page_size: 200 })
+  const rentalsQuery = useRentalsList({ page: 1, page_size: 500 })
+  const objects: RentalObject[] = objectsQuery.data?.objects ?? []
+  const rentals: Rental[] = rentalsQuery.data?.rentals ?? []
+
+  const deleteObjectMut = useDeleteObject()
+  const deleteRentalMut = useDeleteRental()
+  const { objectPrefs, rentalPrefs } = useVermietungPrefsStore()
 
   // State
   const [tab, setTab] = useState<TabKey>('objekte')
@@ -682,36 +964,22 @@ export default function VermietungPage() {
   const [preSelectedObjectId, setPreSelectedObjectId] = useState<string | undefined>()
   const [preSelectedDate, setPreSelectedDate] = useState<string | undefined>()
   const [confirmDelete, setConfirmDelete] = useState<RentalObject | null>(null)
-  const [confirmCancel, setConfirmCancel] = useState<Reservation | null>(null)
-  const [zustandsprotokollReservation, setZustandsprotokollReservation] = useState<Reservation | null>(null)
+  const [confirmCancel, setConfirmCancel] = useState<Rental | null>(null)
+  const [zustandsprotokollReservation, setZustandsprotokollReservation] = useState<Rental | null>(null)
 
-  // Derived data
-  const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset])
-  const kw = useMemo(() => getKW(weekDates[0]), [weekDates])
-  const dateRange = useMemo(() => formatDateRange(weekDates), [weekDates])
-
-  const availableCount = objects.filter((o) => o.status === 'available').length
-  const reservedCount = objects.filter((o) => o.status === 'reserved').length
-  const maintenanceCount = objects.filter((o) => o.status === 'maintenance').length
-  const activeReservations = reservations.filter((r) => r.status === 'active' || r.status === 'upcoming').length
-  const utilization = objects.length > 0 ? Math.round(((reservedCount + maintenanceCount) / objects.length) * 100) : 0
-
-  // Filtered objects
+  // All hooks before any early returns
   const filteredObjects = useMemo(() => {
     if (!search) return objects
     const q = search.toLowerCase()
     return objects.filter(
       (o) =>
         o.name.toLowerCase().includes(q) ||
-        o.location.toLowerCase().includes(q) ||
-        OBJECT_TYPE_CONFIG[o.type].label.toLowerCase().includes(q) ||
-        (o.serialNumber && o.serialNumber.toLowerCase().includes(q)),
+        (o.location ?? '').toLowerCase().includes(q),
     )
   }, [objects, search])
 
-  // Filtered reservations
-  const filteredReservations = useMemo(() => {
-    let result = [...reservations].sort((a, b) => b.startDate.localeCompare(a.startDate))
+  const filteredRentals = useMemo(() => {
+    let result = [...rentals].sort((a, b) => b.start_date.localeCompare(a.start_date))
 
     if (reservationFilter !== 'all') {
       result = result.filter((r) => r.status === reservationFilter)
@@ -719,67 +987,94 @@ export default function VermietungPage() {
 
     if (search) {
       const q = search.toLowerCase()
-      result = result.filter(
-        (r) =>
-          r.objectName.toLowerCase().includes(q) ||
-          r.renter.toLowerCase().includes(q) ||
-          r.notes.toLowerCase().includes(q),
-      )
+      result = result.filter((r) => {
+        const objName = objects.find((o) => o.id === r.object_id)?.name ?? ''
+        return (
+          objName.toLowerCase().includes(q) ||
+          r.renter_name.toLowerCase().includes(q) ||
+          (r.notes ?? '').toLowerCase().includes(q)
+        )
+      })
     }
 
     return result
-  }, [reservations, reservationFilter, search])
+  }, [rentals, reservationFilter, search, objects])
 
-  // Reservation lookup for calendar
-  const getReservationsForObjectAndDate = useCallback(
+  const getRentalsForObjectAndDate = useCallback(
     (objectId: string, date: string) => {
-      return reservations.filter(
+      return rentals.filter(
         (r) =>
-          r.objectId === objectId &&
-          (r.status === 'active' || r.status === 'upcoming') &&
-          dateInRange(date, r.startDate, r.endDate),
+          r.object_id === objectId &&
+          (r.status === 'active' || r.status === 'reserved') &&
+          dateInRange(date, r.start_date.slice(0, 10), r.end_date.slice(0, 10)),
       )
     },
-    [reservations],
+    [rentals],
   )
 
-  // Object reservations for detail panel
-  const getObjectReservations = useCallback(
+  const getObjectRentals = useCallback(
     (objectId: string) =>
-      reservations
-        .filter((r) => r.objectId === objectId)
-        .sort((a, b) => b.startDate.localeCompare(a.startDate))
+      rentals
+        .filter((r) => r.object_id === objectId)
+        .sort((a, b) => b.start_date.localeCompare(a.start_date))
         .slice(0, 5),
-    [reservations],
+    [rentals],
   )
 
-  // Next reservation for an object
-  const getNextReservation = useCallback(
+  const getNextRental = useCallback(
     (objectId: string) => {
-      const today = new Date().toISOString().split('T')[0]
-      return reservations
-        .filter((r) => r.objectId === objectId && (r.status === 'active' || r.status === 'upcoming') && r.endDate >= today)
-        .sort((a, b) => a.startDate.localeCompare(b.startDate))[0]
+      const today = new Date().toISOString().slice(0, 10)
+      return rentals
+        .filter(
+          (r) =>
+            r.object_id === objectId &&
+            (r.status === 'active' || r.status === 'reserved') &&
+            r.end_date.slice(0, 10) >= today,
+        )
+        .sort((a, b) => a.start_date.localeCompare(b.start_date))[0]
     },
-    [reservations],
+    [rentals],
   )
 
-  // Active reservation for an object (current renter)
-  const getActiveReservation = useCallback(
+  const getActiveRental = useCallback(
     (objectId: string) => {
-      const today = new Date().toISOString().split('T')[0]
-      return reservations.find(
-        (r) => r.objectId === objectId && r.status === 'active' && dateInRange(today, r.startDate, r.endDate),
+      const today = new Date().toISOString().slice(0, 10)
+      return rentals.find(
+        (r) =>
+          r.object_id === objectId &&
+          r.status === 'active' &&
+          dateInRange(today, r.start_date.slice(0, 10), r.end_date.slice(0, 10)),
       )
     },
-    [reservations],
+    [rentals],
   )
 
-  // Check if a reservation has zustandsprotokoll(e)
-  const hasZustandsprotokoll = useCallback(
-    (reservationId: string) => zustandsprotokolle.some((z) => z.reservationId === reservationId),
-    [zustandsprotokolle],
-  )
+  // Loading / Error states (after all hooks)
+  if (objectsQuery.isLoading || rentalsQuery.isLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="text-sm text-muted-foreground">{t('vermietung.loading')}</div>
+      </div>
+    )
+  }
+  if (objectsQuery.isError) {
+    return (
+      <div className="flex-1 p-6">
+        <div className="rounded-lg border border-error/30 bg-error/10 p-4 text-sm text-error">{t('vermietung.errorBanner')}</div>
+      </div>
+    )
+  }
+
+  // Derived data
+  const weekDates = getWeekDates(weekOffset)
+  const kw = getKW(weekDates[0])
+  const dateRange = formatDateRange(weekDates)
+
+  const availableCount = objects.filter((o) => computeObjectStatus(o, rentals) === 'available').length
+  const reservedCount = objects.filter((o) => computeObjectStatus(o, rentals) === 'reserved').length
+  const maintenanceCount = objects.filter((o) => computeObjectStatus(o, rentals) === 'maintenance').length
+  const activeReservations = rentals.filter((r) => r.status === 'active' || r.status === 'reserved').length
+  const utilization = objects.length > 0 ? Math.round(((reservedCount + maintenanceCount) / objects.length) * 100) : 0
 
   // Handlers
   const openObjectDialog = (obj?: RentalObject) => {
@@ -794,32 +1089,39 @@ export default function VermietungPage() {
   }
 
   const handleDeleteObject = (obj: RentalObject) => {
-    deleteObject(obj.id)
-    setConfirmDelete(null)
-    if (selectedObject?.id === obj.id) setSelectedObject(null)
-    toast.success(t('vermietung.delete.success', { name: obj.name }))
+    deleteObjectMut.mutate(obj.id, {
+      onSuccess: () => {
+        if (selectedObject?.id === obj.id) setSelectedObject(null)
+        toast.success(t('vermietung.delete.success', { name: obj.name }))
+        setConfirmDelete(null)
+      },
+      onError: () => toast.error('Fehler beim Löschen'),
+    })
   }
 
-  const handleCancelReservation = (res: Reservation) => {
-    cancelReservation(res.id)
-    setConfirmCancel(null)
-    toast.success(t('vermietung.cancel.success', { name: res.objectName }))
+  const handleCancelReservation = (res: Rental) => {
+    deleteRentalMut.mutate(res.id, {
+      onSuccess: () => {
+        const objName = objects.find((o) => o.id === res.object_id)?.name ?? res.id
+        toast.success(t('vermietung.cancel.success', { name: objName }))
+        setConfirmCancel(null)
+      },
+      onError: () => toast.error('Fehler beim Stornieren'),
+    })
   }
 
-  const handleCalendarCellClick = useCallback(
-    (objectId: string, date: string) => {
-      const existing = getReservationsForObjectAndDate(objectId, date)
-      if (existing.length > 0) {
-        const res = existing[0]
-        toast.info(`${res.objectName}: ${res.renter}`, {
-          description: `${formatDate(res.startDate)} – ${formatDate(res.endDate)}`,
-        })
-      } else {
-        openReservationDialog(objectId, date)
-      }
-    },
-    [getReservationsForObjectAndDate],
-  )
+  const handleCalendarCellClick = (objectId: string, date: string) => {
+    const existing = getRentalsForObjectAndDate(objectId, date)
+    if (existing.length > 0) {
+      const r = existing[0]
+      const objName = objects.find((o) => o.id === r.object_id)?.name ?? r.object_id
+      toast.info(`${objName}: ${r.renter_name}`, {
+        description: `${formatDate(r.start_date)} – ${formatDate(r.end_date)}`,
+      })
+    } else {
+      openReservationDialog(objectId, date)
+    }
+  }
 
   const getObjectActions = (obj: RentalObject) => [
     { label: t('vermietung.actions.showDetails'), icon: Eye, onClick: () => setSelectedObject(obj) },
@@ -908,7 +1210,7 @@ export default function VermietungPage() {
       <div className="flex items-center gap-4 border-b border-border mb-6">
         {([
           { key: 'objekte' as const, label: t('vermietung.tab.objekte', { count: objects.length }), icon: Package },
-          { key: 'reservierungen' as const, label: t('vermietung.tab.reservierungen', { count: reservations.length }), icon: CalendarDays },
+          { key: 'reservierungen' as const, label: t('vermietung.tab.reservierungen', { count: rentals.length }), icon: CalendarDays },
           { key: 'kalender' as const, label: t('vermietung.tab.kalender'), icon: CalendarDays },
         ]).map((tabItem) => {
           const Icon = tabItem.icon
@@ -957,12 +1259,16 @@ export default function VermietungPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {filteredObjects.map((obj) => {
-                const typeCfg = OBJECT_TYPE_CONFIG[obj.type]
-                const statusCfg = STATUS_CONFIG[obj.status]
+                const typeCfg = getTypeCfg(obj.category)
+                const objStatus = computeObjectStatus(obj, rentals)
+                const statusCfg = STATUS_CONFIG[objStatus]
                 const TypeIcon = typeCfg.icon
-                const nextRes = getNextReservation(obj.id)
-                const activeRes = getActiveReservation(obj.id)
+                const nextRental = getNextRental(obj.id)
+                const activeRental = getActiveRental(obj.id)
                 const isSelected = selectedObject?.id === obj.id
+                const objWeeklyRate = objectPrefs[obj.id]?.weeklyRate
+                const objCurrency = objectPrefs[obj.id]?.currency ?? 'EUR'
+                const objSerial = objectPrefs[obj.id]?.serialNumber
 
                 return (
                   <div
@@ -982,7 +1288,7 @@ export default function VermietungPage() {
                           <h4 className="text-sm font-semibold text-foreground truncate">{obj.name}</h4>
                           <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
                             <MapPin className="h-3 w-3 flex-shrink-0" />
-                            <span className="truncate">{obj.location}</span>
+                            <span className="truncate">{obj.location ?? ''}</span>
                           </div>
                         </div>
                       </div>
@@ -998,36 +1304,36 @@ export default function VermietungPage() {
                     <div className="flex items-center gap-2 mb-3">
                       <span className={`h-2 w-2 rounded-full ${statusCfg.dot}`} />
                       <span className={`text-xs font-medium ${statusCfg.text}`}>{t(statusCfg.labelKey)}</span>
-                      {obj.status === 'reserved' && activeRes && (
+                      {objStatus === 'reserved' && activeRental && (
                         <span className="text-xs text-muted-foreground">
-                          &middot; {activeRes.renter} bis {formatDate(activeRes.endDate)}
+                          &middot; {activeRental.renter_name} bis {formatDate(activeRental.end_date)}
                         </span>
                       )}
                     </div>
 
                     {/* Pricing */}
                     <div className="flex items-center gap-3 mb-2">
-                      <span className="text-sm font-medium text-foreground tabular-nums">{formatCurrency(obj.dailyRate, obj.currency)}{t('vermietung.objekte.dailyRate')}</span>
-                      {obj.weeklyRate && (
-                        <span className="text-xs text-muted-foreground tabular-nums">{formatCurrency(obj.weeklyRate, obj.currency)}{t('vermietung.objekte.weeklyRate')}</span>
+                      <span className="text-sm font-medium text-foreground tabular-nums">{formatCurrency(obj.daily_rate, objCurrency)}{t('vermietung.objekte.dailyRate')}</span>
+                      {objWeeklyRate && (
+                        <span className="text-xs text-muted-foreground tabular-nums">{formatCurrency(objWeeklyRate, objCurrency)}{t('vermietung.objekte.weeklyRate')}</span>
                       )}
-                      {obj.deposit && (
-                        <span className="text-[10px] text-muted-foreground tabular-nums">{t('vermietung.objekte.deposit', { amount: formatCurrency(obj.deposit, obj.currency) })}</span>
+                      {obj.deposit > 0 && (
+                        <span className="text-[10px] text-muted-foreground tabular-nums">{t('vermietung.objekte.deposit', { amount: formatCurrency(obj.deposit, objCurrency) })}</span>
                       )}
                     </div>
 
                     {/* Serial number */}
-                    {obj.serialNumber && (
-                      <p className="text-[11px] text-muted-foreground font-mono mb-2">{obj.serialNumber}</p>
+                    {objSerial && (
+                      <p className="text-[11px] text-muted-foreground font-mono mb-2">{objSerial}</p>
                     )}
 
-                    {/* Next reservation or available */}
+                    {/* Next rental or available */}
                     <div className="border-t border-border-muted pt-2 mt-1">
-                      {nextRes ? (
+                      {nextRental ? (
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                           <CalendarDays className="h-3 w-3 flex-shrink-0" />
                           <span>
-                            {t('vermietung.objekte.nextReservation', { start: formatDate(nextRes.startDate), end: formatDate(nextRes.endDate), renter: nextRes.renter })}
+                            {t('vermietung.objekte.nextReservation', { start: formatDate(nextRental.start_date), end: formatDate(nextRental.end_date), renter: nextRental.renter_name })}
                           </span>
                         </div>
                       ) : (
@@ -1070,7 +1376,7 @@ export default function VermietungPage() {
               >
                 <option value="all">{t('vermietung.reservierungen.allStatus')}</option>
                 <option value="active">{t('vermietung.reservationStatus.active')}</option>
-                <option value="upcoming">{t('vermietung.reservationStatus.upcoming')}</option>
+                <option value="reserved">{t('vermietung.reservationStatus.upcoming')}</option>
                 <option value="completed">{t('vermietung.reservationStatus.completed')}</option>
               </select>
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
@@ -1086,7 +1392,7 @@ export default function VermietungPage() {
             )}
           </div>
 
-          {filteredReservations.length === 0 ? (
+          {filteredRentals.length === 0 ? (
             <EmptyState
               icon={CalendarDays}
               title={t('vermietung.reservierungen.empty.title')}
@@ -1109,25 +1415,37 @@ export default function VermietungPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredReservations.map((res) => {
-                    const statusCfg = RESERVATION_STATUS_CONFIG[res.status]
-                    const days = daysBetween(res.startDate, res.endDate)
+                  {filteredRentals.map((r) => {
+                    const statusCfg = RESERVATION_STATUS_CONFIG[r.status] ?? RESERVATION_STATUS_CONFIG['cancelled']
+                    const startStr = r.start_date.slice(0, 10)
+                    const endStr = r.end_date.slice(0, 10)
+                    const days = daysBetween(startStr, endStr)
+                    const objName = objects.find((o) => o.id === r.object_id)?.name ?? r.object_id
+                    const obj = objects.find((o) => o.id === r.object_id)
+                    const depositStatus = computeDepositStatus(r)
+                    const depositCfg = DEPOSIT_STATUS_CONFIG[depositStatus]
+                    const depositAmount = obj?.deposit ?? 0
+                    const rCurrency = rentalPrefs[r.id]?.currency ?? objectPrefs[r.object_id]?.currency ?? 'EUR'
+                    const pickupLoc = rentalPrefs[r.id]?.pickupLocation ?? obj?.location ?? ''
+                    const returnLoc = rentalPrefs[r.id]?.returnLocation ?? obj?.location ?? ''
+                    const renterType = rentalPrefs[r.id]?.renterType ?? 'customer'
+
                     return (
                       <tr
-                        key={res.id}
+                        key={r.id}
                         className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors"
                       >
-                        <td className="px-4 py-3 font-medium text-foreground">{res?.objectName ?? ''}</td>
+                        <td className="px-4 py-3 font-medium text-foreground">{objName}</td>
                         <td className="px-4 py-3">
                           <div className="flex flex-col">
-                            <span className="text-foreground">{res.renter}</span>
+                            <span className="text-foreground">{r.renter_name}</span>
                             <span className="text-[11px] text-muted-foreground">
-                              {res.renterType === 'employee' ? t('vermietung.reservierungen.mieterEmployee') : t('vermietung.reservierungen.mieterCustomer')}
+                              {renterType === 'employee' ? t('vermietung.reservierungen.mieterEmployee') : t('vermietung.reservierungen.mieterCustomer')}
                             </span>
                           </div>
                         </td>
                         <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                          {formatDate(res.startDate)} – {formatDate(res.endDate)}
+                          {formatDate(startStr)} – {formatDate(endStr)}
                         </td>
                         <td className="px-4 py-3 text-right text-foreground tabular-nums">
                           {days} {days === 1 ? t('vermietung.reservierungen.duration.day') : t('vermietung.reservierungen.duration.days')}
@@ -1138,31 +1456,31 @@ export default function VermietungPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          {res.depositStatus ? (
-                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${DEPOSIT_STATUS_CONFIG[res.depositStatus].bg}`}>
-                              {t(DEPOSIT_STATUS_CONFIG[res.depositStatus].labelKey)}
-                              {res.depositAmount ? ` (${formatCurrency(res.depositAmount, res.currency)})` : ''}
+                          {depositAmount > 0 ? (
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${depositCfg.bg}`}>
+                              {t(depositCfg.labelKey)}
+                              {` (${formatCurrency(depositAmount, rCurrency)})`}
                             </span>
                           ) : (
                             <span className="text-xs text-muted-foreground">–</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground">{res.pickupLocation}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{res.returnLocation}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{pickupLoc}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{returnLoc}</td>
                         <td className="px-4 py-3 text-right">
-                          {(res.status === 'active' || res.status === 'upcoming') && (
+                          {(r.status === 'active' || r.status === 'reserved') && (
                             <ItemActions
                               items={[
                                 {
                                   label: t('vermietung.reservierungen.actions.zustandsprotokoll'),
                                   icon: ClipboardCheck,
-                                  onClick: () => setZustandsprotokollReservation(res),
+                                  onClick: () => setZustandsprotokollReservation(r),
                                 },
                                 {
                                   label: t('vermietung.reservierungen.actions.stornieren'),
                                   icon: X,
                                   variant: 'destructive' as const,
-                                  onClick: () => setConfirmCancel(res),
+                                  onClick: () => setConfirmCancel(r),
                                 },
                               ]}
                             />
@@ -1230,22 +1548,22 @@ export default function VermietungPage() {
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vermietung.kalender.objectColumn')}</span>
                 </div>
                 {weekDates.map((date, i) => {
-                  const today = isToday(date)
+                  const todayCell = isToday(date)
                   const dateObj = new Date(date + 'T00:00:00')
                   return (
                     <div
                       key={date}
                       className={`flex flex-col items-center justify-center py-3 ${i < 6 ? 'border-r border-border' : ''} ${
-                        today ? 'bg-primary/5' : ''
+                        todayCell ? 'bg-primary/5' : ''
                       }`}
                     >
-                      <span className={`text-xs font-semibold ${today ? 'text-primary' : i >= 5 ? 'text-muted-foreground' : 'text-foreground'}`}>
+                      <span className={`text-xs font-semibold ${todayCell ? 'text-primary' : i >= 5 ? 'text-muted-foreground' : 'text-foreground'}`}>
                         {WEEKDAYS[i]}
                       </span>
-                      <span className={`text-[11px] ${today ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+                      <span className={`text-[11px] ${todayCell ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
                         {dateObj.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
                       </span>
-                      {today && <div className="mt-1 h-0.5 w-4 rounded-full bg-primary" />}
+                      {todayCell && <div className="mt-1 h-0.5 w-4 rounded-full bg-primary" />}
                     </div>
                   )
                 })}
@@ -1253,8 +1571,9 @@ export default function VermietungPage() {
 
               {/* Grid Body — Object Rows */}
               {objects.map((obj, objIdx) => {
-                const typeCfg = OBJECT_TYPE_CONFIG[obj.type]
+                const typeCfg = getTypeCfg(obj.category)
                 const TypeIcon = typeCfg.icon
+                const isMaintenance = computeObjectStatus(obj, rentals) === 'maintenance'
 
                 return (
                   <div
@@ -1269,31 +1588,28 @@ export default function VermietungPage() {
                       </div>
                       <div className="min-w-0">
                         <p className="text-xs font-medium text-foreground truncate">{obj.name}</p>
-                        <p className="text-[10px] text-muted-foreground truncate">{obj.location}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">{obj.location ?? ''}</p>
                       </div>
                     </div>
 
                     {/* Day Cells */}
                     {weekDates.map((date, dayIdx) => {
                       const cellKey = `${obj.id}-${date}`
-                      const cellReservations = getReservationsForObjectAndDate(obj.id, date)
-                      const isMaintenance = obj.status === 'maintenance'
-                      const hasReservation = cellReservations.length > 0
-                      const today = isToday(date)
+                      const cellRentals = getRentalsForObjectAndDate(obj.id, date)
+                      const hasRental = cellRentals.length > 0
+                      const todayCell = isToday(date)
                       const isHovered = hoveredCell === cellKey
 
-                      // Check if this is the start of a reservation block
-                      const startsHere = cellReservations.find((r) => r.startDate === date)
-                      // Check if reservation continues from previous day
-                      const _continuesFromPrev = hasReservation && !startsHere
+                      // Check if this is the start of a rental block
+                      const startsHere = cellRentals.find((r) => r.start_date.slice(0, 10) === date)
 
                       return (
                         <div
                           key={date}
                           className={`relative flex items-center justify-center px-0.5 py-2 cursor-pointer transition-colors ${
                             dayIdx < 6 ? 'border-r border-border-muted' : ''
-                          } ${today ? 'bg-primary/[0.02]' : ''} ${
-                            !hasReservation && !isMaintenance && isHovered ? 'bg-secondary/60' : ''
+                          } ${todayCell ? 'bg-primary/[0.02]' : ''} ${
+                            !hasRental && !isMaintenance && isHovered ? 'bg-secondary/60' : ''
                           }`}
                           onClick={() => handleCalendarCellClick(obj.id, date)}
                           onMouseEnter={() => setHoveredCell(cellKey)}
@@ -1303,23 +1619,23 @@ export default function VermietungPage() {
                             <div className="w-full h-8 rounded-md bg-warning/10 border border-warning/20 flex items-center justify-center">
                               <AlertTriangle className="h-3 w-3 text-warning" />
                             </div>
-                          ) : hasReservation ? (
+                          ) : hasRental ? (
                             <div
                               className={`w-full h-8 flex items-center px-1.5 transition-shadow ${
                                 startsHere ? 'rounded-l-md' : ''
                               } ${
-                                cellReservations.some((r) => r.endDate === date) ? 'rounded-r-md' : ''
+                                cellRentals.some((r) => r.end_date.slice(0, 10) === date) ? 'rounded-r-md' : ''
                               } ${
                                 isHovered ? 'shadow-sm ring-1 ring-info/30' : ''
                               } bg-info/10 border-y border-info/20 ${
                                 startsHere ? 'border-l border-info/20' : ''
                               } ${
-                                cellReservations.some((r) => r.endDate === date) ? 'border-r border-info/20' : ''
+                                cellRentals.some((r) => r.end_date.slice(0, 10) === date) ? 'border-r border-info/20' : ''
                               }`}
                             >
                               {startsHere && (
                                 <span className="text-[10px] font-medium text-info truncate">
-                                  {startsHere.renter}
+                                  {startsHere.renter_name}
                                 </span>
                               )}
                             </div>
@@ -1371,176 +1687,17 @@ export default function VermietungPage() {
       {/* ============================================================ */}
       {/* DETAIL PANEL                                                  */}
       {/* ============================================================ */}
-      <DetailPanel
-        open={!!selectedObject}
+      <ObjectDetailPanel
+        selectedObject={selectedObject}
+        rentals={rentals}
+        objectPrefs={objectPrefs}
+        getActiveRental={getActiveRental}
+        getObjectRentals={getObjectRentals}
         onClose={() => setSelectedObject(null)}
-        title={selectedObject?.name}
-        subtitle={selectedObject ? `${OBJECT_TYPE_CONFIG[selectedObject.type].label} · ${selectedObject.location}` : undefined}
-        badge={
-          selectedObject ? (
-            <span className={`ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-              STATUS_CONFIG[selectedObject.status].dot === 'bg-success'
-                ? 'bg-success-light text-success'
-                : STATUS_CONFIG[selectedObject.status].dot === 'bg-info'
-                  ? 'bg-info-light text-info'
-                  : 'bg-warning-light text-warning'
-            }`}>
-              {t(STATUS_CONFIG[selectedObject.status].labelKey)}
-            </span>
-          ) : undefined
-        }
-        width="w-[380px]"
-        footer={
-          selectedObject ? (
-            <div className="flex gap-2">
-              <button
-                onClick={() => openObjectDialog(selectedObject)}
-                className="flex-1 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-              >
-                {t('common.edit')}
-              </button>
-              <button
-                onClick={() => {
-                  openReservationDialog(selectedObject.id)
-                  setSelectedObject(null)
-                }}
-                className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-              >
-                {t('vermietung.detail.buttonReservieren')}
-              </button>
-            </div>
-          ) : undefined
-        }
-      >
-        {selectedObject && (
-          <div className="space-y-5">
-            {/* Basic info */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vermietung.detail.details')}</h4>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs text-muted-foreground">{t('vermietung.detail.fieldName')}</p>
-                  <p className="text-sm text-foreground font-medium">{selectedObject.name}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">{t('vermietung.detail.fieldTyp')}</p>
-                  <p className="text-sm text-foreground">{t(OBJECT_TYPE_CONFIG[selectedObject.type].labelKey)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">{t('vermietung.detail.fieldStandort')}</p>
-                  <p className="text-sm text-foreground">{selectedObject.location}</p>
-                </div>
-                {selectedObject.serialNumber && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">{t('vermietung.detail.fieldSerial')}</p>
-                    <p className="text-sm text-foreground font-mono">{selectedObject.serialNumber}</p>
-                  </div>
-                )}
-              </div>
-              {selectedObject.description && (
-                <div>
-                  <p className="text-xs text-muted-foreground">{t('vermietung.detail.fieldDescription')}</p>
-                  <p className="text-sm text-foreground">{selectedObject.description}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Pricing */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vermietung.detail.preise')}</h4>
-              <div className="rounded-lg border border-border bg-secondary/30 p-3">
-                <div className="flex items-baseline justify-between">
-                  <div>
-                    <span className="text-lg font-semibold text-foreground tabular-nums">{formatCurrency(selectedObject.dailyRate, selectedObject.currency)}</span>
-                    <span className="text-xs text-muted-foreground ml-1">{t('vermietung.detail.perDay')}</span>
-                  </div>
-                  {selectedObject.weeklyRate && (
-                    <div>
-                      <span className="text-sm font-medium text-muted-foreground tabular-nums">{formatCurrency(selectedObject.weeklyRate, selectedObject.currency)}</span>
-                      <span className="text-xs text-muted-foreground ml-1">{t('vermietung.detail.perWeek')}</span>
-                    </div>
-                  )}
-                </div>
-                {selectedObject.deposit && (
-                  <div className="mt-2 pt-2 border-t border-border-muted flex items-baseline justify-between">
-                    <span className="text-xs text-muted-foreground">{t('vermietung.detail.kaution')}</span>
-                    <span className="text-sm font-medium text-foreground tabular-nums">
-                      {formatCurrency(selectedObject.deposit, selectedObject.currency)}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Current status */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vermietung.detail.currentStatus')}</h4>
-              <div className="rounded-lg border border-border p-3">
-                <div className="flex items-center gap-2">
-                  <span className={`h-2.5 w-2.5 rounded-full ${STATUS_CONFIG[selectedObject.status].dot}`} />
-                  <span className={`text-sm font-medium ${STATUS_CONFIG[selectedObject.status].text}`}>
-                    {t(STATUS_CONFIG[selectedObject.status].labelKey)}
-                  </span>
-                </div>
-                {(() => {
-                  const activeRes = getActiveReservation(selectedObject.id)
-                  if (activeRes) {
-                    return (
-                      <div className="mt-2 pt-2 border-t border-border-muted">
-                        <p className="text-xs text-muted-foreground">{t('vermietung.detail.activeReservation')}</p>
-                        <p className="text-sm text-foreground font-medium">{activeRes.renter}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(activeRes.startDate)} – {formatDate(activeRes.endDate)}
-                        </p>
-                      </div>
-                    )
-                  }
-                  return null
-                })()}
-              </div>
-            </div>
-
-            {/* Last 5 reservations */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vermietung.detail.lastReservations')}</h4>
-              {(() => {
-                const objectReservations = getObjectReservations(selectedObject.id)
-                if (objectReservations.length === 0) {
-                  return <p className="text-xs text-muted-foreground py-2">{t('vermietung.detail.noReservations')}</p>
-                }
-                return (
-                  <div className="space-y-1">
-                    {objectReservations.map((res) => {
-                      const statusCfg = RESERVATION_STATUS_CONFIG[res.status]
-                      const hasProtokoll = hasZustandsprotokoll(res.id)
-                      return (
-                        <div key={res.id} className="flex items-center gap-2 rounded-md border border-border-muted p-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <p className="text-xs font-medium text-foreground">{res.renter}</p>
-                              {hasProtokoll && (
-                                <span title="Zustandsprotokoll vorhanden" className="flex items-center">
-                                  <ClipboardCheck className="h-3 w-3 text-success" />
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[10px] text-muted-foreground">
-                              {formatDate(res.startDate)} – {formatDate(res.endDate)}
-                            </p>
-                          </div>
-                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium whitespace-nowrap ${statusCfg.bg}`}>
-                            {t(statusCfg.labelKey)}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )
-              })()}
-            </div>
-          </div>
-        )}
-      </DetailPanel>
+        onEdit={openObjectDialog}
+        onReserve={(id) => { openReservationDialog(id); setSelectedObject(null) }}
+        t={t}
+      />
 
       {/* ============================================================ */}
       {/* DIALOGS                                                       */}
@@ -1562,6 +1719,7 @@ export default function VermietungPage() {
           setPreSelectedDate(undefined)
         }}
         objects={objects}
+        rentals={rentals}
         preSelectedObjectId={preSelectedObjectId}
         preSelectedDate={preSelectedDate}
       />
@@ -1577,23 +1735,25 @@ export default function VermietungPage() {
         onConfirm={() => confirmDelete && handleDeleteObject(confirmDelete)}
       />
 
-      {/* Confirm Cancel Reservation */}
+      {/* Confirm Cancel Rental */}
       <ConfirmDialog
         open={!!confirmCancel}
         onOpenChange={() => setConfirmCancel(null)}
         title={t('vermietung.confirm.cancelTitle')}
-        description={t('vermietung.confirm.cancelDesc', { renter: confirmCancel?.renter ?? '', object: confirmCancel?.objectName ?? '' })}
+        description={t('vermietung.confirm.cancelDesc', {
+          renter: confirmCancel?.renter_name ?? '',
+          object: objects.find((o) => o.id === confirmCancel?.object_id)?.name ?? '',
+        })}
         confirmLabel={t('vermietung.confirm.cancelLabel')}
         variant="destructive"
         onConfirm={() => confirmCancel && handleCancelReservation(confirmCancel)}
       />
 
-      {/* Zustandsprotokoll Dialog (9.14) */}
+      {/* Zustandsprotokoll Dialog */}
       <ZustandsprotokollDialog
         open={!!zustandsprotokollReservation}
         onClose={() => setZustandsprotokollReservation(null)}
         reservation={zustandsprotokollReservation}
-        object={zustandsprotokollReservation ? objects.find((o) => o.id === zustandsprotokollReservation.objectId) ?? null : null}
       />
     </div>
   )

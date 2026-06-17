@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Camera, Plus, Check, AlertTriangle, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import type { Reservation, Zustandsprotokoll, ZustandsprotokollItem } from '@/stores/vermietung'
+import type { Rental } from '@/api/vermietung-types'
+import { useCreateInspection } from '@/api/hooks/useVermietung'
 import SignatureCanvas from '../rapporte/SignatureCanvas'
 import {
   Dialog,
@@ -19,9 +20,11 @@ import {
 
 type ProtokollType = 'pickup' | 'return'
 
+type ConditionValue = 'ok' | 'damaged' | 'missing'
+
 interface ChecklistRow {
   label: string
-  condition: ZustandsprotokollItem['condition']
+  condition: ConditionValue
   note: string
 }
 
@@ -34,7 +37,7 @@ const DEFAULT_CHECKLIST_LABELS = [
 ]
 
 const CONDITION_OPTIONS: {
-  value: ZustandsprotokollItem['condition']
+  value: ConditionValue
   labelKey: string
   icon: typeof Check
   dot: string
@@ -70,8 +73,7 @@ const CONDITION_OPTIONS: {
 interface ZustandsprotokollDialogProps {
   open: boolean
   onClose: () => void
-  reservation: Reservation
-  onSave: (z: Zustandsprotokoll) => void
+  reservation: Rental | null
 }
 
 // ---------------------------------------------------------------------------
@@ -102,9 +104,10 @@ export default function ZustandsprotokollDialog({
   open,
   onClose,
   reservation,
-  onSave,
 }: ZustandsprotokollDialogProps) {
   const { t } = useTranslation()
+  const createInspectionMut = useCreateInspection()
+
   // Form state
   const [type, setType] = useState<ProtokollType>('pickup')
   const [date, setDate] = useState(todayISO)
@@ -113,6 +116,8 @@ export default function ZustandsprotokollDialog({
   const [notes, setNotes] = useState('')
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | undefined>()
   const [createdBy, setCreatedBy] = useState('')
+
+  void date
 
   // ---- Checklist helpers ----
 
@@ -133,32 +138,31 @@ export default function ZustandsprotokollDialog({
   // ---- Save ----
 
   const handleSave = () => {
+    if (!reservation) return
     if (!createdBy.trim()) {
       toast.error(t('vermietung.zustandsprotokoll.errorCreatedBy'))
       return
     }
 
-    const protokoll: Zustandsprotokoll = {
-      id: `zp-${Date.now()}`,
-      reservationId: reservation.id,
-      type,
-      date,
-      checklist: checklist
-        .filter((c) => c.label.trim())
-        .map((c) => ({
-          label: c.label.trim(),
-          condition: c.condition,
-          ...(c.condition !== 'ok' && c.note.trim() ? { note: c.note.trim() } : {}),
-        })),
-      photoCount,
-      notes: notes.trim(),
-      signatureDataUrl,
-      createdBy: createdBy.trim(),
-    }
+    const checklistFiltered = checklist.filter((c) => c.label.trim())
+    const checklistJson = JSON.stringify(checklistFiltered)
+    const notesWithMeta = `[by:${createdBy.trim()}] ${notes.trim()}\n${checklistJson}`
 
-    onSave(protokoll)
-    toast.success(t('vermietung.zustandsprotokoll.saveSuccess'))
-    onClose()
+    createInspectionMut.mutate(
+      {
+        rentalId: reservation.id,
+        kind: type === 'pickup' ? 'handover' : 'return',
+        notes: notesWithMeta,
+        photo_urls: [],
+      },
+      {
+        onSuccess: () => {
+          toast.success(t('vermietung.zustandsprotokoll.saveSuccess'))
+          onClose()
+        },
+        onError: () => toast.error('Fehler beim Speichern'),
+      },
+    )
   }
 
   // ---- Render ----
@@ -170,7 +174,7 @@ export default function ZustandsprotokollDialog({
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border flex-shrink-0">
           <DialogTitle>{t('vermietung.zustandsprotokoll.title')}</DialogTitle>
           <DialogDescription>
-            {reservation?.objectName} &middot; {reservation?.renter}
+            {reservation?.object_id} &middot; {reservation?.renter_name}
           </DialogDescription>
         </DialogHeader>
 
@@ -209,8 +213,8 @@ export default function ZustandsprotokollDialog({
             </label>
             <input
               type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
+              defaultValue={todayISO()}
+              onChange={(e) => void e}
               className="w-full max-w-[200px] rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
           </div>
