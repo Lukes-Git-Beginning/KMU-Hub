@@ -58,7 +58,6 @@ import { useVertraegeSettingsStore } from '@/stores/vertraegeSettings'
 import { currentUserName } from '@/stores/auth'
 import { ItemActions, ConfirmDialog, EmptyState, DetailModal, PageHeader } from '@/components/shared'
 import { formatCurrency, formatDate } from '@/lib/format'
-import ESignaturDialog from './ESignaturDialog'
 import { useContractExpiryNotifications } from './useContractReminders'
 import { FilePreviewModal } from '@/modules/dokumente/FilePreviewModal'
 import { VersionHistoryPanel } from '@/modules/dokumente/VersionHistoryPanel'
@@ -426,18 +425,28 @@ function ContractDialog({
   ].filter((o) => enabledTypes.includes(o.key) || form.type === o.key)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-lg rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated max-h-[calc(100vh-2rem)] overflow-y-auto">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold text-foreground">
-            {isEdit ? t('vertraege.contractDialog.titleEdit') : t('vertraege.contractDialog.titleNew')}
-          </h2>
-          <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-            <X className="h-4 w-4" />
+    <DetailModal
+      open={open}
+      onClose={onClose}
+      title={isEdit ? t('vertraege.contractDialog.titleEdit') : t('vertraege.contractDialog.titleNew')}
+      maxWidth="max-w-lg"
+      footer={
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+          >
+            {t('common.cancel')}
+          </button>
+          <button
+            onClick={handleSave}
+            className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+          >
+            {isEdit ? t('common.save') : t('vertraege.contractDialog.buttonCreate')}
           </button>
         </div>
-
+      }
+    >
         <div className="space-y-4">
           {/* Titel */}
           <div className="space-y-1.5">
@@ -875,24 +884,7 @@ function ContractDialog({
             </div>
           </div>
         </div>
-
-        {/* Actions */}
-        <div className="flex justify-end gap-2 mt-6">
-          <button
-            onClick={onClose}
-            className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-          >
-            {t('common.cancel')}
-          </button>
-          <button
-            onClick={handleSave}
-            className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-          >
-            {isEdit ? t('common.save') : t('vertraege.contractDialog.buttonCreate')}
-          </button>
-        </div>
-      </div>
-    </div>
+    </DetailModal>
   )
 }
 
@@ -1199,8 +1191,6 @@ export default function VertraegePage() {
   const [terminationDialogOpen, setTerminationDialogOpen] = useState(false)
   const [terminationContract, setTerminationContract] = useState<Contract | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Contract | null>(null)
-  const [eSignaturContract, setESignaturContract] = useState<Contract | null>(null)
-
   // Phase 7: Dokument-Vorschau und Versions-Panel
   const [previewDoc, setPreviewDoc] = useState<{ file: DocumentFile; open: boolean } | null>(null)
   const [versionsDoc, setVersionsDoc] = useState<{ fileId: string; name: string; open: boolean } | null>(null)
@@ -1285,6 +1275,7 @@ export default function VertraegePage() {
   // ── Actions ──
 
   const openContractDialog = (contract?: Contract) => {
+    setSelectedContractId(null) // close the detail modal so the edit dialog isn't stacked behind it
     setEditContract(contract ?? null)
     setContractDialogKey((k) => k + 1)
     setContractDialogOpen(true)
@@ -1330,9 +1321,7 @@ export default function VertraegePage() {
 
   const getContractActions = (contract: Contract) => [
     { label: t('vertraege.actions.showDetails'), icon: Eye, onClick: () => setSelectedContractId(contract.id) },
-    { label: t('common.edit'), icon: Edit, onClick: () => openContractDialog(contract) },
-    { label: t('vertraege.actions.signature'), icon: Pen, onClick: () => setESignaturContract(contract) },
-    ...(contract.status === 'active' || contract.status === 'expiring'
+    { label: t('common.edit'), icon: Edit, onClick: () => openContractDialog(contract) },    ...(contract.status === 'active' || contract.status === 'expiring'
       ? [{ label: t('vertraege.actions.terminate'), icon: Ban, onClick: () => openTerminationDialog(contract), separator: true }]
       : []),
     { separator: true, label: t('common.delete'), icon: Trash2, variant: 'destructive' as const, onClick: () => setConfirmDelete(contract) },
@@ -1615,15 +1604,7 @@ export default function VertraegePage() {
                 className="flex-1 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
                 {t('vertraege.detail.buttonEdit')}
-              </button>
-              <button
-                onClick={() => setESignaturContract(selectedContract)}
-                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-              >
-                <Pen className="h-3.5 w-3.5" />
-                {t('vertraege.detail.buttonSignature')}
-              </button>
-              {(selectedContract.status === 'active' || selectedContract.status === 'expiring') && (
+              </button>              {(selectedContract.status === 'active' || selectedContract.status === 'expiring') && (
                 <button
                   onClick={() => openTerminationDialog(selectedContract)}
                   className="flex-1 rounded-lg bg-destructive px-3 py-2 text-sm text-white hover:bg-destructive/90 transition-colors"
@@ -1664,18 +1645,6 @@ export default function VertraegePage() {
         }}
         contract={terminationContract}
       />
-
-      {eSignaturContract && (
-        <ESignaturDialog
-          open={!!eSignaturContract}
-          onClose={() => setESignaturContract(null)}
-          contract={eSignaturContract}
-          onUpdateSigners={(_signers) => {
-            // Signers mutations are handled directly in ESignaturDialog via the store.
-            // This callback is kept for external callers that still pass signers.
-          }}
-        />
-      )}
 
       <ConfirmDialog
         open={!!confirmDelete}
@@ -2052,10 +2021,9 @@ function computeDeadlineFindings(contract: Contract): DeadlineFinding[] {
     }
   }
 
-  // 4. Active contract has no documents and no signers
+  // 4. Active contract has no documents
   if ((contract.status === 'active' || contract.status === 'expiring') &&
-    (!contract.documents || contract.documents.length === 0) &&
-    (!contract.signers || contract.signers.length === 0)) {
+    (!contract.documents || contract.documents.length === 0)) {
     findings.push({ key: 'noDocumentsOrSignature', severity: 'info' })
   }
 
@@ -2395,9 +2363,6 @@ function DetailPanelContent({ contract, onPreviewDoc, onVersionsDoc, onNavigate 
           </div>
         )}
       </div>
-
-      {/* Signer section (phase 8) */}
-      <SignerSection contract={contract} />
 
       {/* Phase 10: CRM/Finance Verknüpfungen */}
       {(contract.contactId || contract.dealId || (contract.invoiceIds && contract.invoiceIds.length > 0)) && (
