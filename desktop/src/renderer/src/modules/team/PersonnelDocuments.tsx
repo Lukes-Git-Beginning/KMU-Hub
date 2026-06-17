@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   FileText,
   Upload,
@@ -13,6 +14,7 @@ import {
   File,
   FileCheck,
   FileLock2,
+  X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { EmptyState, InlineStat } from '@/components/shared'
@@ -25,6 +27,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { formatDate } from '@/lib/format'
+import { API_BASE_URL } from '@/lib/constants'
 
 // ============================================================
 // Types
@@ -83,37 +86,34 @@ const statusConfig: Record<DocStatus, { label: string; color: string; icon: type
 }
 
 // ============================================================
-// Mock Data
-// ============================================================
-
-const MOCK_DOCUMENTS: PersonnelDocument[] = [
-  { id: 'doc-1', employeeId: 'm1', employeeName: 'Anna Müller', title: 'Arbeitsvertrag', category: 'vertrag', fileName: 'AV_Müller_2024.pdf', fileSize: '245 KB', uploadedAt: '2024-03-15', uploadedBy: 'Laura Weber', status: 'aktuell' },
-  { id: 'doc-2', employeeId: 'm1', employeeName: 'Anna Müller', title: 'Zwischenzeugnis 2025', category: 'zeugnis', fileName: 'ZZ_Müller_2025.pdf', fileSize: '180 KB', uploadedAt: '2025-12-20', uploadedBy: 'Laura Weber', status: 'aktuell' },
-  { id: 'doc-3', employeeId: 'm2', employeeName: 'Michael Berg', title: 'Arbeitsvertrag', category: 'vertrag', fileName: 'AV_Berg_2024.pdf', fileSize: '260 KB', uploadedAt: '2024-01-10', uploadedBy: 'Laura Weber', status: 'aktuell' },
-  { id: 'doc-4', employeeId: 'm2', employeeName: 'Michael Berg', title: 'AWS Solutions Architect', category: 'zertifikat', fileName: 'Cert_AWS_Berg.pdf', fileSize: '120 KB', uploadedAt: '2025-06-15', uploadedBy: 'Michael Berg', expiresAt: '2028-06-15', status: 'aktuell' },
-  { id: 'doc-5', employeeId: 'm3', employeeName: 'Sarah Klein', title: 'Arbeitsvertrag (Teilzeit)', category: 'vertrag', fileName: 'AV_Klein_2024.pdf', fileSize: '230 KB', uploadedAt: '2024-06-01', uploadedBy: 'Laura Weber', status: 'aktuell' },
-  { id: 'doc-6', employeeId: 'm4', employeeName: 'Jonas Diaz', title: 'React Certification', category: 'zertifikat', fileName: 'Cert_React_Diaz.pdf', fileSize: '95 KB', uploadedAt: '2025-03-10', uploadedBy: 'Jonas Diaz', expiresAt: '2026-03-10', status: 'bald_ablaufend', notes: 'Erneuerung im März fällig' },
-  { id: 'doc-7', employeeId: 'm6', employeeName: 'Peter Koch', title: 'OSCP Zertifikat', category: 'zertifikat', fileName: 'Cert_OSCP_Koch.pdf', fileSize: '110 KB', uploadedAt: '2024-08-20', uploadedBy: 'Peter Koch', expiresAt: '2025-08-20', status: 'abgelaufen', notes: 'Zertifikat seit Aug 2025 abgelaufen!' },
-  { id: 'doc-8', employeeId: 'm8', employeeName: 'Tom Brunner', title: 'Arbeitsvertrag', category: 'vertrag', fileName: 'AV_Brunner_2025.pdf', fileSize: '240 KB', uploadedAt: '2025-06-01', uploadedBy: 'Laura Weber', status: 'aktuell' },
-  { id: 'doc-9', employeeId: 'm10', employeeName: 'Markus Steiner', title: 'Fuehrerschein Kopie', category: 'ausweis', fileName: 'FS_Steiner.pdf', fileSize: '85 KB', uploadedAt: '2025-01-15', uploadedBy: 'Markus Steiner', expiresAt: '2030-01-15', status: 'aktuell' },
-  { id: 'doc-10', employeeId: 'm11', employeeName: 'Laura Weber', title: 'Arbeitsvertrag', category: 'vertrag', fileName: 'AV_Weber_2024.pdf', fileSize: '255 KB', uploadedAt: '2024-05-15', uploadedBy: 'Anna Müller', status: 'aktuell' },
-  { id: 'doc-11', employeeId: 'm5', employeeName: 'Lisa Schmidt', title: 'Personalausweis Kopie', category: 'ausweis', fileName: 'PA_Schmidt.pdf', fileSize: '72 KB', uploadedAt: '2024-09-10', uploadedBy: 'Lisa Schmidt', expiresAt: '2026-04-15', status: 'bald_ablaufend' },
-  { id: 'doc-12', employeeId: 'm12', employeeName: 'Nils Hofer', title: 'Kubernetes CKA', category: 'zertifikat', fileName: 'Cert_CKA_Hofer.pdf', fileSize: '105 KB', uploadedAt: '2025-09-01', uploadedBy: 'Nils Hofer', expiresAt: '2028-09-01', status: 'aktuell' },
-]
-
-// ============================================================
 // Component
 // ============================================================
 
 export function PersonnelDocuments() {
   const { t } = useTranslation()
+  const qc = useQueryClient()
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<DocCategory | 'all'>('all')
   const [statusFilter, setStatusFilter] = useState<DocStatus | 'all'>('all')
   const [showUpload, setShowUpload] = useState(false)
+  const [previewDoc, setPreviewDoc] = useState<PersonnelDocument | null>(null)
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [uploadCategory, setUploadCategory] = useState<DocCategory>('vertrag')
+  const [uploadExpiry, setUploadExpiry] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const { data: documents = [] } = useQuery({
+    queryKey: ['hr', 'personnel-documents'],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE_URL}/api/v1/hr/personnel-documents`)
+      const json = (await res.json()) as { documents: PersonnelDocument[] }
+      return json.documents
+    },
+  })
 
   const filteredDocs = useMemo(() => {
-    return MOCK_DOCUMENTS.filter((doc) => {
+    return documents.filter((doc) => {
       if (categoryFilter !== 'all' && doc.category !== categoryFilter) return false
       if (statusFilter !== 'all' && doc.status !== statusFilter) return false
       if (search) {
@@ -122,7 +122,7 @@ export function PersonnelDocuments() {
       }
       return true
     })
-  }, [search, categoryFilter, statusFilter])
+  }, [documents, search, categoryFilter, statusFilter])
 
   const docsByEmployee = useMemo(() => {
     const map = new Map<string, PersonnelDocument[]>()
@@ -134,17 +134,53 @@ export function PersonnelDocuments() {
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b))
   }, [filteredDocs])
 
-  const totalDocs = MOCK_DOCUMENTS.length
-  const expiredCount = MOCK_DOCUMENTS.filter((d) => d.status === 'abgelaufen').length
-  const expiringCount = MOCK_DOCUMENTS.filter((d) => d.status === 'bald_ablaufend').length
+  const totalDocs = documents.length
+  const expiredCount = documents.filter((d) => d.status === 'abgelaufen').length
+  const expiringCount = documents.filter((d) => d.status === 'bald_ablaufend').length
 
+  // Download a personnel document as a real (demo) blob.
   const handleDownload = (doc: PersonnelDocument) => {
+    const content =
+      `${doc.title}\n${doc.employeeName}\n` +
+      `${t('team.documents.category')}: ${categoryLabels[doc.category]}\n` +
+      `${t('team.personnelDocs.uploaded')}: ${doc.uploadedAt} · ${doc.uploadedBy}\n` +
+      `${doc.expiresAt ? `${t('team.personnelDocs.expires')}: ${doc.expiresAt}\n` : ''}` +
+      `\n[Cosmi — ${t('team.personnelDocs.title', { defaultValue: 'Personalakte' })} (Demo)]\n`
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = doc.fileName.replace(/\.pdf$/i, '.txt')
+    a.click()
+    URL.revokeObjectURL(url)
     toast.success(t('team.personnelDocs.downloadStarted', { name: doc.fileName }))
   }
 
-  const handleUpload = () => {
-    toast.success(t('team.personnelDocs.uploadSuccess'))
-    setShowUpload(false)
+  const handleUpload = async () => {
+    setUploading(true)
+    try {
+      const sizeKb = uploadFile ? Math.max(1, Math.round(uploadFile.size / 1024)) : 120
+      await fetch(`${API_BASE_URL}/api/v1/hr/personnel-documents`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: uploadFile ? uploadFile.name.replace(/\.[^.]+$/, '') : t('team.personnelDocs.uploadDocument'),
+          category: uploadCategory,
+          fileName: uploadFile?.name ?? 'dokument.pdf',
+          fileSize: `${sizeKb} KB`,
+          expiresAt: uploadExpiry || undefined,
+        }),
+      })
+      await qc.invalidateQueries({ queryKey: ['hr', 'personnel-documents'] })
+      toast.success(t('team.personnelDocs.uploadSuccess'))
+      setShowUpload(false)
+      setUploadFile(null)
+      setUploadExpiry('')
+    } catch {
+      toast.error(t('team.personnelDocs.uploadError', { defaultValue: 'Upload fehlgeschlagen' }))
+    } finally {
+      setUploading(false)
+    }
   }
 
   return (
@@ -152,7 +188,7 @@ export function PersonnelDocuments() {
       {/* KPI Row */}
       <dl className="mb-4 flex flex-wrap items-end gap-x-10 gap-y-3 border-b border-border pb-4">
         <InlineStat label={t('team.personnelDocs.totalDocuments')} value={totalDocs} />
-        <InlineStat label={t('team.personnelDocs.employees')} value={new Set(MOCK_DOCUMENTS.map(d => d.employeeId)).size} />
+        <InlineStat label={t('team.personnelDocs.employees')} value={new Set(documents.map((d) => d.employeeId)).size} />
         <InlineStat
           label={t('team.personnelDocs.expiringSoon')}
           value={expiringCount}
@@ -205,7 +241,7 @@ export function PersonnelDocuments() {
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
         >
           <Upload className="h-4 w-4" />
-          Hochladen
+          {t('common.upload')}
         </button>
       </div>
 
@@ -258,7 +294,7 @@ export function PersonnelDocuments() {
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <button
-                          onClick={() => toast.info(`${t('team.personnelDocs.preview')}: ${doc.fileName}`)}
+                          onClick={() => setPreviewDoc(doc)}
                           className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
                           title={t('team.personnelDocs.preview')}
                         >
@@ -267,7 +303,7 @@ export function PersonnelDocuments() {
                         <button
                           onClick={() => handleDownload(doc)}
                           className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
-                          title="Download"
+                          title={t('team.personnelDocs.download', { defaultValue: 'Download' })}
                         >
                           <Download className="h-4 w-4" />
                         </button>
@@ -281,8 +317,48 @@ export function PersonnelDocuments() {
         </div>
       )}
 
+      {/* Preview Dialog */}
+      <Dialog open={!!previewDoc} onOpenChange={(o) => { if (!o) setPreviewDoc(null) }}>
+        <DialogContent className="max-w-lg gap-0 p-0">
+          {previewDoc && (
+            <div className="flex flex-col">
+              <div className="flex items-center justify-between border-b border-border px-5 py-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="rounded-full bg-primary-light px-2 py-0.5 text-[10px] font-medium text-primary">{t('team.personnelDocs.previewBadge', { defaultValue: 'Demo-Vorschau' })}</span>
+                  <span className="text-sm font-medium text-foreground truncate">{previewDoc.fileName}</span>
+                </div>
+                <button onClick={() => setPreviewDoc(null)} className="rounded-md p-1 text-muted-foreground hover:bg-secondary transition-colors">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="px-6 py-8">
+                <div className="mx-auto max-w-sm rounded-lg border border-border bg-secondary/20 p-8">
+                  <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-lg ${categoryColors[previewDoc.category]}`}>
+                    {(() => { const I = categoryIcons[previewDoc.category]; return <I className="h-6 w-6" /> })()}
+                  </div>
+                  <h2 className="text-lg font-semibold text-foreground">{previewDoc.title}</h2>
+                  <p className="text-sm text-muted-foreground">{previewDoc.employeeName} · {categoryLabels[previewDoc.category]}</p>
+                  <dl className="mt-4 space-y-1.5 text-xs">
+                    <div className="flex justify-between"><dt className="text-muted-foreground">{t('team.personnelDocs.uploaded')}</dt><dd className="text-foreground">{formatDate(previewDoc.uploadedAt)} · {previewDoc.uploadedBy}</dd></div>
+                    {previewDoc.expiresAt && <div className="flex justify-between"><dt className="text-muted-foreground">{t('team.personnelDocs.expires')}</dt><dd className={statusConfig[previewDoc.status].color}>{formatDate(previewDoc.expiresAt)}</dd></div>}
+                    <div className="flex justify-between"><dt className="text-muted-foreground">{t('team.personnelDocs.fileSize', { defaultValue: 'Größe' })}</dt><dd className="text-foreground">{previewDoc.fileSize}</dd></div>
+                  </dl>
+                  <p className="mt-5 border-t border-border pt-4 text-xs text-muted-foreground">{t('team.personnelDocs.previewHint', { defaultValue: 'Im Produktivbetrieb wird hier das hinterlegte PDF angezeigt.' })}</p>
+                </div>
+              </div>
+              <div className="flex justify-end border-t border-border px-5 py-3">
+                <button onClick={() => { handleDownload(previewDoc); }} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors">
+                  <Download className="h-3.5 w-3.5" />
+                  {t('team.personnelDocs.download', { defaultValue: 'Download' })}
+                </button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Upload Dialog */}
-      <Dialog open={showUpload} onOpenChange={(o) => { if (!o) setShowUpload(false) }}>
+      <Dialog open={showUpload} onOpenChange={(o) => { if (!o) { setShowUpload(false); setUploadFile(null) } }}>
         <DialogContent className="gap-0 p-0 max-w-md">
           <div className="p-6">
             <DialogHeader className="mb-4">
@@ -290,27 +366,53 @@ export function PersonnelDocuments() {
               <DialogDescription className="sr-only">{t('team.personnelDocs.uploadDocument')}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              <div className="rounded-lg border-2 border-dashed border-border bg-secondary/20 p-8 text-center">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg,.docx"
+                className="hidden"
+                onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full rounded-lg border-2 border-dashed border-border bg-secondary/20 p-8 text-center hover:border-primary/50 transition-colors"
+              >
                 <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">{t('team.personnelDocs.dropOrClick')}</p>
-                <p className="text-xs text-muted-foreground mt-1">{t('team.personnelDocs.allowedFormats')}</p>
-              </div>
+                {uploadFile ? (
+                  <p className="text-sm font-medium text-foreground">{uploadFile.name}</p>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground">{t('team.personnelDocs.dropOrClick')}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{t('team.personnelDocs.allowedFormats')}</p>
+                  </>
+                )}
+              </button>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1.5">{t('team.documents.category')}</label>
-                <select className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring">
+                <select
+                  value={uploadCategory}
+                  onChange={(e) => setUploadCategory(e.target.value as DocCategory)}
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                >
                   {Object.entries(categoryLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1.5">{t('team.personnelDocs.expiryDate')}</label>
-                <input type="date" className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring" />
+                <input
+                  type="date"
+                  value={uploadExpiry}
+                  onChange={(e) => setUploadExpiry(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                />
               </div>
             </div>
             <DialogFooter className="mt-6">
-              <button onClick={() => setShowUpload(false)} className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors">
+              <button onClick={() => { setShowUpload(false); setUploadFile(null) }} className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors">
                 {t('common.cancel')}
               </button>
-              <button onClick={handleUpload} className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">
+              <button onClick={handleUpload} disabled={uploading} className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-60">
                 {t('common.upload')}
               </button>
             </DialogFooter>

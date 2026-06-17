@@ -75,6 +75,43 @@ const LEAVE_TYPE_NAMES: Record<string, string> = {
   'lt-005': 'Homeoffice',
 }
 
+// ---------------------------------------------------------------------------
+// Personnel documents (Personalakte tab) — rich shape with status/expiry,
+// generated from the real hrEmployees so the file shows the same people as
+// the rest of the team module.
+// ---------------------------------------------------------------------------
+
+function surname(full: string): string {
+  const parts = full.trim().split(/\s+/)
+  return parts[parts.length - 1] || full
+}
+
+const personnelDocuments: Array<Record<string, unknown>> = hrEmployees.slice(0, 9).flatMap((emp, i) => {
+  const ln = surname(emp.userName)
+  const docs: Array<Record<string, unknown>> = [
+    {
+      id: `pdoc-${emp.id}-av`, employeeId: emp.id, employeeName: emp.userName,
+      title: 'Arbeitsvertrag', category: 'vertrag',
+      fileName: `AV_${ln}.pdf`, fileSize: `${230 + i * 4} KB`,
+      uploadedAt: daysAgo(420 + i * 12), uploadedBy: 'Laura Weber', status: 'aktuell',
+    },
+  ]
+  if (i % 3 === 0) {
+    const expired = i === 3
+    const soon = i === 0
+    docs.push({
+      id: `pdoc-${emp.id}-cert`, employeeId: emp.id, employeeName: emp.userName,
+      title: 'Zertifikat', category: 'zertifikat',
+      fileName: `Cert_${ln}.pdf`, fileSize: `${95 + i * 3} KB`,
+      uploadedAt: daysAgo(300), uploadedBy: emp.userName,
+      expiresAt: expired ? daysAgo(40) : soon ? daysFromNow(25) : daysFromNow(700),
+      status: expired ? 'abgelaufen' : soon ? 'bald_ablaufend' : 'aktuell',
+      notes: expired ? 'Zertifikat abgelaufen — Erneuerung nötig!' : soon ? 'Erneuerung bald fällig' : undefined,
+    })
+  }
+  return docs
+})
+
 const leaveBalance = {
   user_id: IDS.users.stefan,
   year: new Date().getFullYear(),
@@ -235,6 +272,31 @@ export const teamHandlers = [
     if (start && end) entries = entries.filter((e) => e.startDate <= end && e.endDate >= start)
     if (dept) entries = entries.filter((e) => e.department === dept)
     return HttpResponse.json({ entries })
+  }),
+
+  // Personnel documents (Personalakte tab) — all documents across employees.
+  http.get(`${API}/api/v1/hr/personnel-documents`, () => {
+    return HttpResponse.json({ documents: personnelDocuments })
+  }),
+
+  // Upload a personnel document — pushes into the same list the GET reads.
+  http.post(`${API}/api/v1/hr/personnel-documents`, async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>
+    const doc = {
+      id: `pdoc-${Date.now()}`,
+      employeeId: String(body.employeeId ?? 'usr-e1'),
+      employeeName: String(body.employeeName ?? 'Stefan Vogel'),
+      title: String(body.title ?? 'Neues Dokument'),
+      category: String(body.category ?? 'sonstiges'),
+      fileName: String(body.fileName ?? 'dokument.pdf'),
+      fileSize: String(body.fileSize ?? '120 KB'),
+      uploadedAt: new Date().toISOString().slice(0, 10),
+      uploadedBy: 'Stefan Vogel',
+      expiresAt: body.expiresAt ? String(body.expiresAt) : undefined,
+      status: 'aktuell',
+    }
+    personnelDocuments.unshift(doc)
+    return HttpResponse.json({ document: doc }, { status: 201 })
   }),
 
   // HR settings
