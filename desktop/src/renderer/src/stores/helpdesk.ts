@@ -12,7 +12,9 @@ export interface Ticket {
   contactName: string
   slaDueAt: string
   slaOverdue: boolean
-  slaRemaining: string
+  /** Remaining (or, when overdue, elapsed) time split into days + hours. Label via slaLabel(). */
+  slaDays: number
+  slaHours: number
   createdAt: string
   updatedAt: string
   category?: string
@@ -213,6 +215,11 @@ interface HelpdeskStore {
   // ── Config ──
   saveBusinessHours: (hours: BusinessDay[], holidays: Holiday[]) => void
   saveRoutingRules: (rules: RoutingRule[]) => void
+
+  // ── Knowledge base ──
+  /** Edited KB article bodies (HTML), overriding the static fallback. */
+  kbBodies: Record<string, string>
+  saveKbBody: (id: string, html: string) => void
 }
 
 /** Next ticket number HD-YYYY-NNNN: current year, sequence = highest existing + 1. */
@@ -226,18 +233,40 @@ function nextTicketNr(tickets: Ticket[]): string {
   return `HD-${year}-${String(max + 1).padStart(4, '0')}`
 }
 
-function computeSla(slaDueAt: string): { overdue: boolean; remaining: string } {
+export interface SlaState {
+  overdue: boolean
+  days: number
+  hours: number
+}
+
+/** Structured SLA against the real clock (no German strings — label via slaLabel). */
+function computeSla(slaDueAt: string): SlaState {
   const due = new Date(slaDueAt)
   const now = new Date()
   const diffMs = due.getTime() - now.getTime()
-  if (diffMs < 0) {
-    const hours = Math.abs(Math.floor(diffMs / 3600000))
-    return { overdue: true, remaining: `${hours}h überfällig` }
+  const overdue = diffMs < 0
+  const totalHours = Math.abs(Math.floor(diffMs / 3600000))
+  return { overdue, days: Math.floor(totalHours / 24), hours: totalHours % 24 }
+}
+
+/**
+ * Localised SLA label from structured state. Single source of truth for every
+ * SLA consumer (ticket list, detail modal, dashboard widget) — keeps the unit
+ * strings in i18n instead of hardcoded German in the store.
+ */
+export function slaLabel(
+  t: (key: string, opts?: Record<string, unknown>) => string,
+  sla: Pick<Ticket, 'slaOverdue' | 'slaDays' | 'slaHours'>,
+): string {
+  const { slaOverdue: overdue, slaDays: days, slaHours: hours } = sla
+  if (overdue) {
+    return days > 0
+      ? t('helpdesk.sla.overdueDays', { days, hours })
+      : t('helpdesk.sla.overdueHours', { hours })
   }
-  const hours = Math.floor(diffMs / 3600000)
-  if (hours < 24) return { overdue: false, remaining: `${hours}h übrig` }
-  const days = Math.floor(hours / 24)
-  return { overdue: false, remaining: `${days}d ${hours % 24}h übrig` }
+  return days > 0
+    ? t('helpdesk.sla.remainingDays', { days, hours })
+    : t('helpdesk.sla.remainingHours', { hours })
 }
 
 function makeTicket(
@@ -252,7 +281,7 @@ function makeTicket(
   autoRouted?: boolean,
 ): Ticket {
   const sla = computeSla(slaDueAt)
-  return { id, ticketNr, subject, description, priority, status, assignedTo, contactName, slaDueAt, slaOverdue: sla.overdue, slaRemaining: sla.remaining, createdAt, updatedAt, category, customFields, csatRating, csatComment, autoRouted }
+  return { id, ticketNr, subject, description, priority, status, assignedTo, contactName, slaDueAt, slaOverdue: sla.overdue, slaDays: sla.days, slaHours: sla.hours, createdAt, updatedAt, category, customFields, csatRating, csatComment, autoRouted }
 }
 
 const MOCK_TICKETS_RAW: Ticket[] = [
@@ -311,7 +340,8 @@ const MOCK_TICKETS: Ticket[] = MOCK_TICKETS_RAW.map((t) => {
     updatedAt: new Date(_NOW - s.updatedAgoH * _SLA_H).toISOString(),
     slaDueAt,
     slaOverdue: sla.overdue,
-    slaRemaining: sla.remaining,
+    slaDays: sla.days,
+    slaHours: sla.hours,
   }
 })
 
@@ -424,6 +454,7 @@ export const useHelpdeskStore = create<HelpdeskStore>()(
       routingRules: MOCK_ROUTING_RULES,
       businessHours: MOCK_BUSINESS_HOURS,
       holidays: MOCK_HOLIDAYS,
+      kbBodies: {},
 
       addTicket: (input) => {
         const now = new Date()
@@ -596,6 +627,8 @@ export const useHelpdeskStore = create<HelpdeskStore>()(
       saveBusinessHours: (hours, holidays) => set({ businessHours: hours, holidays }),
 
       saveRoutingRules: (rules) => set({ routingRules: rules }),
+
+      saveKbBody: (id, html) => set((s) => ({ kbBodies: { ...s.kbBodies, [id]: html } })),
     }),
     { name: 'cosmi-helpdesk' },
   ),

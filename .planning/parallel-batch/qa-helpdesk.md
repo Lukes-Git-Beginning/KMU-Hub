@@ -133,3 +133,26 @@
 - 0 pageErrors.
 
 **Commit:** `feat(helpdesk): real-clock SLA + ticket list sorting` auf `parallel/helpdesk`.
+
+---
+
+## H-8 — i18n-Strings + Demo-Tiefe-Schlusscheck ✅
+
+**Gebaut:**
+- **SLA-Strings i18n:** `computeSla` gibt jetzt **strukturiert** `{ overdue, days, hours }` zurück (keine deutschen Strings mehr im Store). `Ticket.slaRemaining: string` → `slaDays`/`slaHours`. Neuer exportierter Formatter `slaLabel(t, ticket)` als Single-Source-of-Truth; baut das Label via `t('helpdesk.sla.{remaining,overdue}{Hours,Days}')` (4 neue Keys ×4). Alle Verbraucher umgestellt: `SLABadge` (Props strukturiert, Yellow-Logik `days===0 && hours<4`), Modal SLA-Timer + `SLABreachBanner` + Warn-Logik in `HelpdeskPage`, **und der Dashboard-Verbraucher `dashboard/widgets/OpenTickets.tsx`** (legitimer Cross-Modul-Consumer der Helpdesk-Daten — kein team-Lane-Overlap).
+- **Hardcodes:** „Auto-Routing" + „SLA:" bereits in H-2 i18n'd, „Routing"-Header-String in H-6 entfernt → keine deutschen UI-Hardcodes mehr im Modul (Ticket-Inhalte/Threads bleiben bewusst deutsch = DACH-Demo-Daten).
+- **KB-Speichern stateful:** Store um `kbBodies: Record<string,string>` + `saveKbBody` ergänzt. `KBArticleDetail` liest Override aus dem Store (sonst statischer `KB_BODIES`-Fallback), speichert den editierten HTML-Body, rendert ihn im View-Modus **sanitisiert** (`lib/sanitize`); `key={article.id}` gegen State-Bleed beim Artikelwechsel.
+
+**Verify (QA `scripts/qa-helpdesk-i18n.mjs`, Screenshots angesehen):**
+- EN-Switch (`cosmi-locale=en`): **15/15 SLA-Badges englisch** („1d 3h left", „4h overdue"), **0 deutsche Reste**, Modal-Aktionen englisch (Escalate/Merge/Change status); **0 Raw-Keys, 0 `{{ }}`, 0 pageErrors.**
+- KB-Save: Marker im Body → **nach Reload erhalten** (`afterSave: 1`, `afterReload: 1`), sanitisiert gerendert.
+
+**Commit:** `feat(helpdesk): i18n SLA strings + stateful KB article save` auf `parallel/helpdesk`.
+
+---
+
+## Definition of Done — helpdesk Demo-tief-Pass ✅ (8/8)
+
+Alle 8 Punkte gebaut, jeweils **Build EXIT 0** (einzige „error"-Zeile = vorbestehende DashboardPage-`use memo`-Warnung) + **Playwright-Screenshots angesehen** + Commit&Push auf `parallel/helpdesk`. 0 Raw-Keys / 0 Doppelklammern / 0 Console-Errors über alle Tabs & Modals. **Out of scope (nicht gebaut, wie beauftragt):** TanStack-Migration, MSW-Handler, CRM-Kontakt-Lookup.
+
+**Merge-Hinweis fürs Main-Terminal:** i18n-Konflikt beim finalen Merge erwartet (beide Lanes hängen an `i18n/messages/*.json`) — helpdesk-Keys liegen im `helpdesk.*`-Cluster + ein `moduleSettings.entries.helpdesk` nach dem team-Eintrag; beide Key-Blöcke behalten, dann `npm run build`. Untracked Helfer (`vite.qa.config.mjs`, `scripts/add-helpdesk-i18n.mjs`) reisen nicht mit dem Branch.

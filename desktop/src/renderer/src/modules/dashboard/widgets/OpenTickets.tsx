@@ -7,7 +7,7 @@
 import { memo, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { TicketCheck, AlertCircle } from 'lucide-react'
-import { useHelpdeskStore } from '@/stores/helpdesk'
+import { useHelpdeskStore, slaLabel } from '@/stores/helpdesk'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
 const PRIORITY_BADGE: Record<string, string> = {
@@ -92,7 +92,7 @@ function OpenTickets(_props: WidgetProps) {
                 <span className="text-[10px] text-muted-foreground">{tk.ticketNr}</span>
                 {tk.slaOverdue && (
                   <span className="text-[10px] font-semibold text-destructive">
-                    {tk.slaRemaining}
+                    {slaLabel(t, tk)}
                   </span>
                 )}
               </div>
