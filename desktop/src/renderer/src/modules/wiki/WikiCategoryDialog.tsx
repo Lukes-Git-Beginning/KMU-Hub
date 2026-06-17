@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Building2, GitBranch, Monitor, Users, BookOpen } from 'lucide-react'
 import { toast } from 'sonner'
-import { useWikiStore } from '@/stores/wiki'
+import { useCreateCategory } from '@/api/hooks/useWiki'
 import {
   Dialog,
   DialogContent,
@@ -34,23 +34,26 @@ interface WikiCategoryDialogProps {
 
 export function WikiCategoryDialog({ open, onOpenChange }: WikiCategoryDialogProps) {
   const { t } = useTranslation()
-  const addCategory = useWikiStore((s) => s.addCategory)
-  const categories = useWikiStore((s) => s.categories)
+  const createCategory = useCreateCategory()
 
   const [name, setName] = useState('')
   const [selectedIcon, setSelectedIcon] = useState('BookOpen')
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!name.trim()) return
-    addCategory({
-      name: name.trim(),
-      icon: selectedIcon,
-      sortOrder: categories.length + 1,
-    })
-    toast.success(t('wiki.category.created'))
-    onOpenChange(false)
-    setName('')
-    setSelectedIcon('BookOpen')
+    try {
+      await createCategory.mutateAsync({
+        name: name.trim(),
+        // icon is UI-only — not stored in the API
+        position: 0,
+      })
+      toast.success(t('wiki.category.created'))
+      onOpenChange(false)
+      setName('')
+      setSelectedIcon('BookOpen')
+    } catch {
+      toast.error(t('wiki.category.createError'))
+    }
   }
 
   return (

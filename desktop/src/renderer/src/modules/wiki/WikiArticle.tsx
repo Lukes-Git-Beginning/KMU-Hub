@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import type { WikiArticle as WikiArticleType } from '@/types/wiki'
 import { useWikiStore } from '@/stores/wiki'
+import { useUpdateArticle } from '@/api/hooks/useWiki'
 import { WikiArticleHeader } from './WikiArticleHeader'
 import { WikiEditor } from './WikiEditor'
 import { WikiVersionHistory } from './WikiVersionHistory'
@@ -20,19 +21,23 @@ interface WikiArticleProps {
 
 export function WikiArticle({ article, onDelete, onShare }: WikiArticleProps) {
   const { t } = useTranslation()
-  const updateArticle = useWikiStore((s) => s.updateArticle)
   const isEditing = useWikiStore((s) => s.isEditing)
   const setEditing = useWikiStore((s) => s.setEditing)
+  const updateArticleMutation = useUpdateArticle()
   const [editContent, setEditContent] = useState(article.content)
   const [showVersions, setShowVersions] = useState(false)
 
-  const handleSave = () => {
-    updateArticle(article.id, {
-      content: editContent,
-      lastEditedBy: t('wiki.article.you'),
-    })
-    setEditing(false)
-    toast.success(t('wiki.article.saved'))
+  const handleSave = async () => {
+    try {
+      await updateArticleMutation.mutateAsync({
+        id: article.id,
+        content: { plain: editContent } as Record<string, unknown>,
+      })
+      setEditing(false)
+      toast.success(t('wiki.article.saved'))
+    } catch {
+      toast.error(t('wiki.article.saveError'))
+    }
   }
 
   const handleCancel = () => {

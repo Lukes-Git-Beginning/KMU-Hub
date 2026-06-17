@@ -3,22 +3,28 @@ import { useTranslation } from 'react-i18next'
 import { BookOpen, Plus, FolderPlus } from 'lucide-react'
 import { moduleHsl } from '@/components/layout/sidebar/nav-items'
 import { useWikiStore } from '@/stores/wiki'
+import type { WikiArticle, WikiCategory } from '@/types/wiki'
 import { WikiSearch } from './WikiSearch'
 import { WikiTreeNode } from './WikiTreeNode'
+
+// ---------------------------------------------------------------------------
+// Props
+// ---------------------------------------------------------------------------
+
+interface WikiSidebarProps {
+  categories: WikiCategory[]
+  articles: WikiArticle[]
+  categoriesLoading?: boolean
+  onNewArticle: () => void
+  onNewCategory: () => void
+}
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-interface WikiSidebarProps {
-  onNewArticle: () => void
-  onNewCategory: () => void
-}
-
-export function WikiSidebar({ onNewArticle, onNewCategory }: WikiSidebarProps) {
+export function WikiSidebar({ categories, articles, categoriesLoading, onNewArticle, onNewCategory }: WikiSidebarProps) {
   const { t } = useTranslation()
-  const categories = useWikiStore((s) => s.categories)
-  const articles = useWikiStore((s) => s.articles)
   const selectedCategoryId = useWikiStore((s) => s.selectedCategoryId)
   const setSelectedCategory = useWikiStore((s) => s.setSelectedCategory)
 
@@ -100,19 +106,27 @@ export function WikiSidebar({ onNewArticle, onNewCategory }: WikiSidebarProps) {
         <div className="my-1.5 border-t border-border" />
 
         {/* Categories */}
-        <div className="space-y-0.5">
-          {(categories ?? []).map((cat) => (
-            <WikiTreeNode
-              key={cat.id}
-              category={cat}
-              isSelected={selectedCategoryId === cat.id}
-              isExpanded={expandedIds.has(cat.id)}
-              onSelect={setSelectedCategory}
-              onToggle={toggleExpand}
-              articleCount={articleCounts[cat.id] ?? 0}
-            />
-          ))}
-        </div>
+        {categoriesLoading ? (
+          <div className="space-y-1">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-7 rounded bg-muted animate-pulse" />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-0.5">
+            {(categories ?? []).map((cat) => (
+              <WikiTreeNode
+                key={cat.id}
+                category={cat}
+                isSelected={selectedCategoryId === cat.id}
+                isExpanded={expandedIds.has(cat.id)}
+                onSelect={setSelectedCategory}
+                onToggle={toggleExpand}
+                articleCount={articleCounts[cat.id] ?? 0}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Stats footer */}

@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FileText, AlertTriangle, BookOpen } from 'lucide-react'
 import { toast } from 'sonner'
-import { useWikiStore } from '@/stores/wiki'
+import { WIKI_TEMPLATES, useWikiStore } from '@/stores/wiki'
+import { useCreateArticle } from '@/api/hooks/useWiki'
 import {
   Dialog,
   DialogContent,
@@ -32,32 +33,30 @@ interface WikiTemplateDialogProps {
 
 export function WikiTemplateDialog({ open, onOpenChange }: WikiTemplateDialogProps) {
   const { t } = useTranslation()
-  const templates = useWikiStore((s) => s.templates)
-  const addArticle = useWikiStore((s) => s.addArticle)
+  const createArticle = useCreateArticle()
   const selectedCategoryId = useWikiStore((s) => s.selectedCategoryId)
 
   const [title, setTitle] = useState('')
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!title.trim()) return
-    const template = selectedTemplate ? templates.find((t) => t.id === selectedTemplate) : null
-    addArticle({
-      title: title.trim(),
-      content: template?.content ?? `<p>${t('wiki.article.defaultContent')}</p>`,
-      categoryId: selectedCategoryId ?? 'wc1',
-      status: 'draft',
-      authorId: 'c1',
-      authorName: 'Anna Müller',
-      tags: [],
-      isPinned: false,
-      lastEditedBy: 'Anna Müller',
-      lastEditedAt: new Date().toISOString().split('T')[0],
-    })
-    toast.success(t('wiki.article.created'))
-    onOpenChange(false)
-    setTitle('')
-    setSelectedTemplate(null)
+    const template = selectedTemplate ? WIKI_TEMPLATES.find((tmpl) => tmpl.id === selectedTemplate) : null
+    const content = template?.content ?? `<p>${t('wiki.article.defaultContent')}</p>`
+    try {
+      await createArticle.mutateAsync({
+        title: title.trim(),
+        content: { plain: content } as Record<string, unknown>,
+        category_id: selectedCategoryId ?? undefined,
+        published: false,
+      })
+      toast.success(t('wiki.article.created'))
+      onOpenChange(false)
+      setTitle('')
+      setSelectedTemplate(null)
+    } catch {
+      toast.error(t('wiki.article.createError'))
+    }
   }
 
   return (
@@ -91,13 +90,13 @@ export function WikiTemplateDialog({ open, onOpenChange }: WikiTemplateDialogPro
               {t('wiki.article.templateLabel')} <span className="text-muted-foreground font-normal">({t('common.optional')})</span>
             </label>
             <div className="grid grid-cols-3 gap-2">
-              {(templates ?? []).map((t) => {
-                const TIcon = templateIconMap[t.icon] ?? FileText
-                const isActive = selectedTemplate === t.id
+              {WIKI_TEMPLATES.map((tmpl) => {
+                const TIcon = templateIconMap[tmpl.icon] ?? FileText
+                const isActive = selectedTemplate === tmpl.id
                 return (
                   <button
-                    key={t.id}
-                    onClick={() => setSelectedTemplate(isActive ? null : t.id)}
+                    key={tmpl.id}
+                    onClick={() => setSelectedTemplate(isActive ? null : tmpl.id)}
                     className={`flex flex-col items-center gap-1.5 rounded-lg border px-3 py-3 text-center transition-colors ${
                       isActive
                         ? 'border-primary bg-primary/5 text-primary'
@@ -105,8 +104,8 @@ export function WikiTemplateDialog({ open, onOpenChange }: WikiTemplateDialogPro
                     }`}
                   >
                     <TIcon className="h-5 w-5" />
-                    <span className="text-xs font-medium">{t.name}</span>
-                    <span className="text-[10px] leading-tight">{t.description}</span>
+                    <span className="text-xs font-medium">{tmpl.name}</span>
+                    <span className="text-[10px] leading-tight">{tmpl.description}</span>
                   </button>
                 )
               })}

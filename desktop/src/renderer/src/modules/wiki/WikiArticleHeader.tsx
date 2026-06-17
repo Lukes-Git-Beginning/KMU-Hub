@@ -13,7 +13,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import type { WikiArticle } from '@/types/wiki'
-import { useWikiStore } from '@/stores/wiki'
+import { useUpdateArticle } from '@/api/hooks/useWiki'
 import { ItemActions } from '@/components/shared'
 import { formatDate as libFormatDate } from '@/lib/format'
 
@@ -52,9 +52,7 @@ export function WikiArticleHeader({
   onShare,
 }: WikiArticleHeaderProps) {
   const { t } = useTranslation()
-  const togglePin = useWikiStore((s) => s.togglePin)
-  const publishArticle = useWikiStore((s) => s.publishArticle)
-  const archiveArticle = useWikiStore((s) => s.archiveArticle)
+  const updateMutation = useUpdateArticle()
 
   const st = statusConfig[article.status]
 
@@ -111,12 +109,32 @@ export function WikiArticleHeader({
           </button>
           <ItemActions
             actions={[
-              { label: article.isPinned ? t('wiki.actions.unpin') : t('wiki.actions.pin'), icon: Pin, onClick: () => togglePin(article.id) },
+              {
+                label: article.isPinned ? t('wiki.actions.unpin') : t('wiki.actions.pin'),
+                icon: Pin,
+                // isPinned not yet in API — show toast until backend supports it
+                onClick: () => toast.info(t('wiki.actions.pinNotAvailable')),
+              },
               ...(article.status === 'draft'
-                ? [{ label: t('wiki.actions.publish'), icon: Send, onClick: () => { publishArticle(article.id); toast.success(t('wiki.actions.published')) } }]
+                ? [{
+                    label: t('wiki.actions.publish'),
+                    icon: Send,
+                    onClick: () => {
+                      updateMutation.mutate({ id: article.id, published: true })
+                      toast.success(t('wiki.actions.published'))
+                    },
+                  }]
                 : []),
               ...(article.status === 'published'
-                ? [{ label: t('wiki.actions.archive'), icon: Archive, onClick: () => { archiveArticle(article.id); toast.success(t('wiki.actions.archived')) } }]
+                ? [{
+                    label: t('wiki.actions.archive'),
+                    icon: Archive,
+                    // archive = unpublish (closest available API equivalent)
+                    onClick: () => {
+                      updateMutation.mutate({ id: article.id, published: false })
+                      toast.success(t('wiki.actions.archived'))
+                    },
+                  }]
                 : []),
               { label: t('common.delete'), icon: Trash2, onClick: onDelete, variant: 'destructive' as const },
             ]}

@@ -6,8 +6,9 @@
  *   Center (flex-1): Article list or article detail (read/edit mode)
  *   Right  (w-64):   WikiVersionHistory — slide-in panel (when toggled)
  *
- * All data from useWikiStore (mock). Backend swap: replace store reads
- * with TanStack Query hooks, keep components identical.
+ * Server state via TanStack Query (useArticles, useCategories).
+ * UI state via useWikiStore (selection, search, editing flag).
+ * Type mapping via adaptArticle / adaptCategory from api/wiki-adapter.ts.
  */
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -18,8 +19,11 @@ import {
   History,
   Tag,
   Clock,
+  AlertCircle,
 } from 'lucide-react'
 import { useWikiStore } from '@/stores/wiki'
+import { useArticles, useCategories, useDeleteArticle } from '@/api/hooks/useWiki'
+import { adaptArticle, adaptCategory } from '@/api/wiki-adapter'
 import type { WikiArticle as WikiArticleType } from '@/types/wiki'
 import { EmptyState, ConfirmDialog } from '@/components/shared'
 import { WikiSidebar } from './WikiSidebar'
@@ -45,24 +49,56 @@ function formatShortDate(dateStr: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Skeleton
+// ---------------------------------------------------------------------------
+
+function ArticleListSkeleton() {
+  return (
+    <div className="divide-y divide-border/50">
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="flex flex-col px-3 py-2.5 gap-1.5">
+          <div className="h-4 w-3/4 rounded bg-muted animate-pulse" />
+          <div className="h-3 w-1/2 rounded bg-muted animate-pulse" />
+          <div className="h-3 w-1/3 rounded bg-muted animate-pulse" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 export default function WikiPage() {
   const { t } = useTranslation()
-  const articles = useWikiStore((s) => s.articles)
+
+  // Server state
+  const { data: articlesData, isLoading: articlesLoading, isError: articlesError } = useArticles()
+  const { data: categoriesData, isLoading: categoriesLoading } = useCategories()
+  const deleteArticleMutation = useDeleteArticle()
+
+  // UI state
   const selectedArticleId = useWikiStore((s) => s.selectedArticleId)
   const selectedCategoryId = useWikiStore((s) => s.selectedCategoryId)
   const searchQuery = useWikiStore((s) => s.searchQuery)
   const setSelectedArticle = useWikiStore((s) => s.setSelectedArticle)
-  const deleteArticle = useWikiStore((s) => s.deleteArticle)
-  const incrementViewCount = useWikiStore((s) => s.incrementViewCount)
 
   // Dialogs
   const [showNewArticle, setShowNewArticle] = useState(false)
   const [showNewCategory, setShowNewCategory] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<WikiArticleType | null>(null)
   const [shareTarget, setShareTarget] = useState<WikiArticleType | null>(null)
+
+  // Adapt API types → UI types
+  const articles = useMemo(
+    () => (articlesData?.articles ?? []).map(adaptArticle),
+    [articlesData],
+  )
+  const categories = useMemo(
+    () => (categoriesData ?? []).map(adaptCategory),
+    [categoriesData],
+  )
 
   // Filtered + sorted articles
   const filteredArticles = useMemo(() => {
@@ -75,8 +111,7 @@ export default function WikiPage() {
       result = result.filter(
         (a) =>
           a.title.toLowerCase().includes(q) ||
-          (a.tags ?? []).some((t) => t.toLowerCase().includes(q)) ||
-          a.authorName.toLowerCase().includes(q),
+          (a.tags ?? []).some((tag) => tag.toLowerCase().includes(q)),
       )
     }
     return result.sort((a, b) => {
@@ -89,15 +124,13 @@ export default function WikiPage() {
 
   const handleSelectArticle = (article: WikiArticleType) => {
     setSelectedArticle(article.id)
-    incrementViewCount(article.id)
+    // viewCount increment not yet available via API
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteTarget) return
-    deleteArticle(deleteTarget.id)
-    if (selectedArticleId === deleteTarget.id) {
-      setSelectedArticle(null)
-    }
+    await deleteArticleMutation.mutateAsync(deleteTarget.id)
+    if (selectedArticleId === deleteTarget.id) setSelectedArticle(null)
     setDeleteTarget(null)
   }
 
@@ -106,6 +139,9 @@ export default function WikiPage() {
       <div className="flex h-full overflow-hidden animate-fade-up">
         {/* Left: Sidebar with tree navigation */}
         <WikiSidebar
+          categories={categories}
+          articles={articles}
+          categoriesLoading={categoriesLoading}
           onNewArticle={() => setShowNewArticle(true)}
           onNewCategory={() => setShowNewCategory(true)}
         />
@@ -123,7 +159,14 @@ export default function WikiPage() {
 
             {/* List */}
             <div className="flex-1 overflow-y-auto">
-              {filteredArticles.length === 0 ? (
+              {articlesError ? (
+                <div className="flex items-center gap-2 px-3 py-4 text-sm text-destructive">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>{t('wiki.list.loadError')}</span>
+                </div>
+              ) : articlesLoading ? (
+                <ArticleListSkeleton />
+              ) : filteredArticles.length === 0 ? (
                 <EmptyState
                   icon={BookOpen}
                   title={t('wiki.list.noArticles')}
@@ -150,8 +193,6 @@ export default function WikiPage() {
 
                         {/* Meta row */}
                         <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground">
-                          <span>{article.authorName}</span>
-                          <span>·</span>
                           <Clock className="h-2.5 w-2.5" />
                           <span>{formatShortDate(article.lastEditedAt)}</span>
                         </div>
