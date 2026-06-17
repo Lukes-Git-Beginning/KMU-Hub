@@ -22,6 +22,10 @@ import { hrHandlers } from './hr'
 import { dialerHandlers } from './dialer'
 import { berichteHandlers } from './berichte'
 import { bookingHandlers } from './booking'
+import { vermietungHandlers } from './vermietung'
+import { wikiHandlers } from './wiki'
+import { schichtenHandlers } from './schichten'
+import { helpdeskHandlers } from './helpdesk'
 
 export const handlers = [
   ...authHandlers,
@@ -44,4 +48,8 @@ export const handlers = [
   ...dialerHandlers,
   ...berichteHandlers,
   ...bookingHandlers,
+  ...vermietungHandlers,
+  ...wikiHandlers,
+  ...schichtenHandlers,
+  ...helpdeskHandlers,
 ]
