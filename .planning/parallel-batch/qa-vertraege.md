@@ -90,3 +90,25 @@
 
 **Screenshots:** `desktop/.qa-screenshots/vertraege-esign/a-after-send.png`, `…/b-after-simulate.png`, `…/c-audit-log.png`
 **QA-Status:** ALL PASS (Senden → Gesendet + Demo-Hinweis + Simulieren-Button; Rücklauf → Unterschrieben + Timeline; Audit-Log zeigt versendet/geöffnet/unterzeichnet; 0 Raw-Keys; 0 Console-Errors).
+
+---
+
+## V-5 — Nummernkreis + Audit-Log echter User + Demo-Tiefe
+
+**Gebaut (drei Teile):**
+1. **Nummernkreis:** `vertraegeSettings` hat jetzt einen `numberCounter`. Beim Anlegen eines neuen Vertrags wird die Vertragsnummer **automatisch** aus Format + Zähler vorbefüllt (`formatContractNumber`, Tokens {JAHR}/{MONAT}/{NR}, NR 3-stellig). Counter erhöht sich nur, wenn der Vorschlag übernommen wurde. Settings-Panel zeigt eine Live-Vorschau der **tatsächlich** nächsten Nummer.
+2. **Audit-Log echter User:** Neuer `currentUserName()`-Helper im Auth-Store (Vorname + Nachname, Fallback E-Mail). Alle ~17 hardcodeten `'Aktueller Benutzer'` (Store + ContractDialog) ersetzt → Audit-Einträge tragen den echten Auth-User (Dev: „Markus Weber").
+3. **Demo-Tiefe-Audit:** Kein `console.log`/Toast-only-Leerlauf gefunden; DeadlineCheckPanel + TerminationDialog sind echt verkabelt. **Ein toter Button gefixt:** Template-„Vertrag aus Vorlage" hatte wegen `isEdit = !!initial` (Template-Draft hat `id=''`) den Edit-Pfad genommen → `updateContract('')` = No-op → **es wurde nie ein Vertrag angelegt**. `isEdit` auf `!!initial?.id` korrigiert → Template-Anlage funktioniert.
+
+**Nebenbefund-Fix (latent):** `ContractDialog` ist dauerhaft gemountet (`if (!open) return null` nach den Hooks) → Form + Auto-Nummer wurden nur einmal initialisiert (zweites Anlegen hätte alte Werte gezeigt). Per Remount-`key` (bumped bei jedem Öffnen) lädt der Dialog jetzt jedes Mal frisch.
+
+**Schlüsseldateien:** `stores/auth.ts` (`currentUserName`), `stores/vertraege.ts` + `VertraegePage.tsx` (User-Ersatz), `stores/vertraegeSettings.ts` (`numberCounter`/`peek`/`bump`/`formatContractNumber`), `VertraegePage.tsx` (Auto-Nummer, `isEdit`-Fix, Dialog-`key`), `settings/VertraegeSettingsPanel.tsx` (Live-Vorschau). QA: `scripts/qa-vertraege-demo-depth.mjs`
+
+**Was Darien anschauen soll:**
+- „Vertrag anlegen" → Vertragsnummer ist **vorbefüllt** (V-2026-001). Anlegen → erneut öffnen → **V-2026-002**.
+- Neuen Vertrag öffnen → Audit-Log „Vertrag angelegt — Markus Weber" (kein „Aktueller Benutzer" mehr).
+- Tab „Vorlagen" → „Vertrag aus Vorlage" → ausfüllen → Anlegen → Vertrag erscheint wirklich (Tab Aktiv).
+- Einstellungen → Nummernkreis: Format ändern → Live-Vorschau zeigt die nächste echte Nummer.
+
+**Screenshots:** `desktop/.qa-screenshots/vertraege-demo-depth/a-new-dialog-autonumber.png`, `…/c-audit-real-user.png`, `…/d-template-created.png`
+**QA-Status:** ALL PASS (Auto-Nummer 001 → Counter 002; Audit „Markus Weber", kein Platzhalter; Template legt wirklich an; 0 Console-Errors).

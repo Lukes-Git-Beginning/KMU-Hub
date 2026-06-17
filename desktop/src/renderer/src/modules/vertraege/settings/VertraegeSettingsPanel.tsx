@@ -27,6 +27,7 @@ import {
 import {
   useVertraegeSettingsStore,
   ALL_CONTRACT_TYPES,
+  formatContractNumber,
 } from '@/stores/vertraegeSettings'
 import type { ContractType } from '@/stores/vertraege'
 
@@ -255,10 +256,10 @@ function NumberFormatSettings() {
   const { t } = useTranslation()
   const numberFormat = useVertraegeSettingsStore((s) => s.numberFormat)
   const setNumberFormat = useVertraegeSettingsStore((s) => s.setNumberFormat)
+  const numberCounter = useVertraegeSettingsStore((s) => s.numberCounter)
 
-  const preview = numberFormat
-    .replace('{JAHR}', String(new Date().getFullYear()))
-    .replace('{NR}', '007')
+  // Live preview of the actual next number (format + running counter).
+  const preview = formatContractNumber(numberFormat, numberCounter)
 
   return (
     <div className="space-y-2">

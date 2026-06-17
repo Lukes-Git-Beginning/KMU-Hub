@@ -55,6 +55,7 @@ import {
 import { useVertraegeStore, type Contract, type ContractType, type ContractStatus, type ContractTemplate, type ContractDocument } from '@/stores/vertraege'
 import { useVertraegePrefsStore } from '@/stores/vertraegePrefs'
 import { useVertraegeSettingsStore } from '@/stores/vertraegeSettings'
+import { currentUserName } from '@/stores/auth'
 import { ItemActions, ConfirmDialog, EmptyState, DetailModal, PageHeader } from '@/components/shared'
 import { formatCurrency, formatDate } from '@/lib/format'
 import ESignaturDialog from './ESignaturDialog'
@@ -170,13 +171,21 @@ function ContractDialog({
   const tenantNoticePeriodDays = useVertraegeSettingsStore((s) => s.defaultNoticePeriodDays)
   const tenantRenewal = useVertraegeSettingsStore((s) => s.defaultRenewal)
   const tenantReminderDays = useVertraegeSettingsStore((s) => s.tenantReminderDays)
+  const peekContractNumber = useVertraegeSettingsStore((s) => s.peekContractNumber)
+  const bumpNumberCounter = useVertraegeSettingsStore((s) => s.bumpNumberCounter)
   const personalReminderDays = useVertraegePrefsStore((s) => s.defaultReminderDays)
+
+  // New contracts get an auto-generated number from the tenant number range
+  // (format + counter). The dialog remounts on each open (key in the parent),
+  // so this re-evaluates with the current counter; it advances on save only if
+  // the suggestion was kept.
+  const [autoNumber] = useState(() => (initial?.id ? '' : peekContractNumber()))
 
   const [form, setForm] = useState<ContractFormData>({
     title: initial?.title ?? '',
     type: initial?.type ?? (enabledTypes.includes('servicevertrag') ? 'servicevertrag' : enabledTypes[0]),
     partner: initial?.partner ?? '',
-    contractNumber: initial?.contractNumber ?? '',
+    contractNumber: initial?.contractNumber || autoNumber,
     startDate: initial?.startDate ?? '',
     endDate: initial?.endDate ?? '',
     noticePeriodDays: initial?.noticePeriodDays ?? tenantNoticePeriodDays,
@@ -287,7 +296,9 @@ function ContractDialog({
     return f.filename.toLowerCase().includes(pickerSearch.toLowerCase())
   })
 
-  const isEdit = !!initial
+  // Edit = an existing contract (has a real id). Template-prefilled drafts carry
+  // an empty id and must go through the create path.
+  const isEdit = !!initial?.id
 
   const toggleReminder = (days: number) => {
     setForm((f) => ({
@@ -344,7 +355,7 @@ function ContractDialog({
           : 0,
         history: [
           ...initial.history,
-          { date: new Date().toISOString().split('T')[0], action: 'contract_updated', user: 'Aktueller Benutzer' },
+          { date: new Date().toISOString().split('T')[0], action: 'contract_updated', user: currentUserName() },
         ],
       })
       toast.success(t('vertraege.contractDialog.updateSuccess', { title: form.title }))
@@ -356,16 +367,16 @@ function ContractDialog({
         : 0
       const today = new Date().toISOString().split('T')[0]
       const creationHistory = [
-        { date: today, action: 'contract_created' as const, user: 'Aktueller Benutzer' },
+        { date: today, action: 'contract_created' as const, user: currentUserName() },
       ]
       if (form.contactId && form.contactName) {
-        creationHistory.push({ date: today, action: 'contact_linked' as const, meta: form.contactName, user: 'Aktueller Benutzer' })
+        creationHistory.push({ date: today, action: 'contact_linked' as const, meta: form.contactName, user: currentUserName() })
       }
       if (form.dealId && form.dealTitle) {
-        creationHistory.push({ date: today, action: 'deal_linked' as const, meta: form.dealTitle, user: 'Aktueller Benutzer' })
+        creationHistory.push({ date: today, action: 'deal_linked' as const, meta: form.dealTitle, user: currentUserName() })
       }
       for (const invName of form.invoiceNames) {
-        creationHistory.push({ date: today, action: 'invoice_linked' as const, meta: invName, user: 'Aktueller Benutzer' })
+        creationHistory.push({ date: today, action: 'invoice_linked' as const, meta: invName, user: currentUserName() })
       }
       addContract({
         id: `v-${Date.now()}`,
@@ -392,6 +403,10 @@ function ContractDialog({
         totalValue: form.monthlyCost * months,
         history: creationHistory,
       })
+      // Only consume the next number if the auto suggestion was kept.
+      if (autoNumber && form.contractNumber === autoNumber) {
+        bumpNumberCounter()
+      }
       toast.success(t('vertraege.contractDialog.createSuccess', { title: form.title }))
     }
     onClose()
@@ -1178,6 +1193,9 @@ export default function VertraegePage() {
   // Dialogs
   const [contractDialogOpen, setContractDialogOpen] = useState(false)
   const [editContract, setEditContract] = useState<Contract | null>(null)
+  // Bumped on every open so the (always-mounted) dialog remounts with a fresh
+  // form + auto-generated number instead of stale once-initialised state.
+  const [contractDialogKey, setContractDialogKey] = useState(0)
   const [terminationDialogOpen, setTerminationDialogOpen] = useState(false)
   const [terminationContract, setTerminationContract] = useState<Contract | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Contract | null>(null)
@@ -1268,6 +1286,7 @@ export default function VertraegePage() {
 
   const openContractDialog = (contract?: Contract) => {
     setEditContract(contract ?? null)
+    setContractDialogKey((k) => k + 1)
     setContractDialogOpen(true)
   }
 
@@ -1305,6 +1324,7 @@ export default function VertraegePage() {
       history: [],
     }
     setEditContract(prefilled)
+    setContractDialogKey((k) => k + 1)
     setContractDialogOpen(true)
   }
 
@@ -1627,6 +1647,7 @@ export default function VertraegePage() {
 
       {/* ─── DIALOGS ─────────────────────────────────────────── */}
       <ContractDialog
+        key={contractDialogKey}
         open={contractDialogOpen}
         onClose={() => {
           setContractDialogOpen(false)

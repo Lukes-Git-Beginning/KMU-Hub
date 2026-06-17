@@ -29,8 +29,10 @@ interface VertraegeSettingsState {
   defaultNoticePeriodDays: number
   /** Default renewal mode for new contracts. */
   defaultRenewal: 'auto' | 'manual'
-  /** Number-range format, e.g. "V-{JAHR}-{NR}". Mock-first (display/suggestion only). */
+  /** Number-range format, e.g. "V-{JAHR}-{NR}". Tokens: {JAHR}, {MONAT}, {NR}. */
   numberFormat: string
+  /** Running counter for the {NR} token, advanced on each auto-numbered contract. */
+  numberCounter: number
   /** Tenant-wide reminder pre-selection (days before end) for new contracts. */
   tenantReminderDays: number[]
 
@@ -40,16 +42,30 @@ interface VertraegeSettingsState {
   setDefaultRenewal: (r: 'auto' | 'manual') => void
   setNumberFormat: (f: string) => void
   toggleTenantReminderDay: (days: number) => void
+  /** Next contract number from format + counter, without advancing the counter. */
+  peekContractNumber: () => string
+  /** Advance the {NR} counter (call after a contract used the auto number). */
+  bumpNumberCounter: () => void
+}
+
+/** Expand the number-range tokens against the current date + counter. */
+export function formatContractNumber(format: string, counter: number): string {
+  const now = new Date()
+  return format
+    .replace(/\{JAHR\}/g, String(now.getFullYear()))
+    .replace(/\{MONAT\}/g, String(now.getMonth() + 1).padStart(2, '0'))
+    .replace(/\{NR\}/g, String(counter).padStart(3, '0'))
 }
 
 export const useVertraegeSettingsStore = create<VertraegeSettingsState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       enabledTypes: [...ALL_CONTRACT_TYPES],
       defaultDurationMonths: 12,
       defaultNoticePeriodDays: 30,
       defaultRenewal: 'auto',
       numberFormat: 'V-{JAHR}-{NR}',
+      numberCounter: 1,
       tenantReminderDays: [30],
 
       toggleType: (type) =>
@@ -67,6 +83,8 @@ export const useVertraegeSettingsStore = create<VertraegeSettingsState>()(
       setDefaultNoticePeriodDays: (defaultNoticePeriodDays) => set({ defaultNoticePeriodDays }),
       setDefaultRenewal: (defaultRenewal) => set({ defaultRenewal }),
       setNumberFormat: (numberFormat) => set({ numberFormat }),
+      peekContractNumber: () => formatContractNumber(get().numberFormat, get().numberCounter),
+      bumpNumberCounter: () => set((s) => ({ numberCounter: s.numberCounter + 1 })),
       toggleTenantReminderDay: (days) =>
         set((s) => ({
           tenantReminderDays: s.tenantReminderDays.includes(days)

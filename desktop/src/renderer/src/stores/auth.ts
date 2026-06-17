@@ -441,3 +441,14 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     }
   },
 }))
+
+/**
+ * Display name of the currently authenticated user, for audit/history entries.
+ * Falls back to the email, then a neutral label when no user is loaded.
+ */
+export function currentUserName(): string {
+  const user = useAuthStore.getState().user
+  if (!user) return 'Aktueller Benutzer'
+  const full = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
+  return full || user.email || 'Aktueller Benutzer'
+}

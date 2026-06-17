@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { currentUserName } from '@/stores/auth'
 
 /** Stable action codes written by store mutations. Legacy mock entries use
  *  free-form German text which the renderer displays as-is (fallback). */
@@ -538,7 +539,7 @@ export const useVertraegeStore = create<VertraegeStore>()(
           templateId,
           currency: 'EUR',
           history: [
-            { date: today, action: 'contract_created', meta: template.name, user: 'Aktueller Benutzer' },
+            { date: today, action: 'contract_created', meta: template.name, user: currentUserName() },
           ],
           ...overrides,
         }
@@ -563,7 +564,7 @@ export const useVertraegeStore = create<VertraegeStore>()(
                 {
                   date: new Date().toISOString().split('T')[0],
                   action: 'contract_updated',
-                  user: 'Aktueller Benutzer',
+                  user: currentUserName(),
                 },
               ],
             }
@@ -588,7 +589,7 @@ export const useVertraegeStore = create<VertraegeStore>()(
                       date,
                       action: 'contract_terminated',
                       meta: reason,
-                      user: 'Aktueller Benutzer',
+                      user: currentUserName(),
                     },
                   ],
                 }
@@ -609,7 +610,7 @@ export const useVertraegeStore = create<VertraegeStore>()(
                   date: new Date().toISOString().split('T')[0],
                   action: 'document_added',
                   meta: doc.name,
-                  user: 'Aktueller Benutzer',
+                  user: currentUserName(),
                 },
               ],
             }
@@ -630,7 +631,7 @@ export const useVertraegeStore = create<VertraegeStore>()(
                   date: new Date().toISOString().split('T')[0],
                   action: 'document_removed',
                   meta: removed?.name ?? fileId,
-                  user: 'Aktueller Benutzer',
+                  user: currentUserName(),
                 },
               ],
             }
@@ -661,7 +662,7 @@ export const useVertraegeStore = create<VertraegeStore>()(
                   date: new Date().toISOString().split('T')[0],
                   action: 'contract_signed' as const,
                   meta: signedSigner?.name ?? '',
-                  user: 'Aktueller Benutzer',
+                  user: currentUserName(),
                 },
               ],
             }
@@ -698,7 +699,7 @@ export const useVertraegeStore = create<VertraegeStore>()(
                   date: new Date().toISOString().split('T')[0],
                   action: 'contract_sent' as const,
                   meta: dispatched.map((s) => s.name).join(', '),
-                  user: 'Aktueller Benutzer',
+                  user: currentUserName(),
                 },
               ],
             }
@@ -751,7 +752,7 @@ export const useVertraegeStore = create<VertraegeStore>()(
               contactName,
               history: [
                 ...c.history,
-                { date: new Date().toISOString().split('T')[0], action: 'contact_linked' as const, meta: contactName, user: 'Aktueller Benutzer' },
+                { date: new Date().toISOString().split('T')[0], action: 'contact_linked' as const, meta: contactName, user: currentUserName() },
               ],
             }
           }),
@@ -768,7 +769,7 @@ export const useVertraegeStore = create<VertraegeStore>()(
               contactName: undefined,
               history: [
                 ...c.history,
-                { date: new Date().toISOString().split('T')[0], action: 'contact_unlinked' as const, meta: name, user: 'Aktueller Benutzer' },
+                { date: new Date().toISOString().split('T')[0], action: 'contact_unlinked' as const, meta: name, user: currentUserName() },
               ],
             }
           }),
@@ -784,7 +785,7 @@ export const useVertraegeStore = create<VertraegeStore>()(
               dealTitle,
               history: [
                 ...c.history,
-                { date: new Date().toISOString().split('T')[0], action: 'deal_linked' as const, meta: dealTitle, user: 'Aktueller Benutzer' },
+                { date: new Date().toISOString().split('T')[0], action: 'deal_linked' as const, meta: dealTitle, user: currentUserName() },
               ],
             }
           }),
@@ -801,7 +802,7 @@ export const useVertraegeStore = create<VertraegeStore>()(
               dealTitle: undefined,
               history: [
                 ...c.history,
-                { date: new Date().toISOString().split('T')[0], action: 'deal_unlinked' as const, meta: title, user: 'Aktueller Benutzer' },
+                { date: new Date().toISOString().split('T')[0], action: 'deal_unlinked' as const, meta: title, user: currentUserName() },
               ],
             }
           }),
@@ -818,7 +819,7 @@ export const useVertraegeStore = create<VertraegeStore>()(
               invoiceNames: [...(c.invoiceNames ?? []), invoiceName],
               history: [
                 ...c.history,
-                { date: new Date().toISOString().split('T')[0], action: 'invoice_linked' as const, meta: invoiceName, user: 'Aktueller Benutzer' },
+                { date: new Date().toISOString().split('T')[0], action: 'invoice_linked' as const, meta: invoiceName, user: currentUserName() },
               ],
             }
           }),
@@ -836,7 +837,7 @@ export const useVertraegeStore = create<VertraegeStore>()(
               invoiceNames: (c.invoiceNames ?? []).filter((_, i) => i !== idx),
               history: [
                 ...c.history,
-                { date: new Date().toISOString().split('T')[0], action: 'invoice_unlinked' as const, meta: name, user: 'Aktueller Benutzer' },
+                { date: new Date().toISOString().split('T')[0], action: 'invoice_unlinked' as const, meta: name, user: currentUserName() },
               ],
             }
           }),
