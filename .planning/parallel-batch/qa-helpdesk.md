@@ -79,3 +79,19 @@
 - Scan `helpdesk-h4`: Modal offen, **0 Raw-Keys, 0 `{{ }}`, 0 pageErrors.**
 
 **Commit:** `feat(helpdesk): add assign/escalate/merge actions to ticket modal` auf `parallel/helpdesk`.
+
+---
+
+## H-5 — Canned Responses CRUD verkabeln ✅
+
+**Gebaut:**
+- `CannedResponsesPanel.handleSave` → `addCannedResponse` / `updateCannedResponse` (statt nur Toast); `handleDelete` → `deleteCannedResponse`. `handleInsert` unverändert (war schon korrekt).
+- Store-Setter via Selektoren geholt; Payload `{ title, content, category, shortcut }` getrimmt.
+
+**Verify (Flow-QA `scripts/qa-helpdesk-canned.mjs`, Screenshots angesehen):**
+- Anlegen: „6 Vorlagen verfügbar" → **7**, neue Vorlage „QA Vorlage Persistenz" erscheint oben (prepend) mit `/qa`-Kürzel, Toast „erstellt".
+- Reload: Anzahl **7** bleibt, Vorlage persistiert.
+- Löschen: **7 → 6** (Trash-Button auf Karten-Hover). `goneNow:1` zählt nur den transienten Lösch-Toast.
+- 0 pageErrors.
+
+**Commit:** `feat(helpdesk): wire canned responses CRUD to store` auf `parallel/helpdesk`.
