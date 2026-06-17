@@ -23,15 +23,17 @@ type QuotePusher struct {
 	repo        Repository
 	fieldMapper *FieldMapper
 	quotes      QuoteReader
+	contacts    ContactService
 }
 
 // NewQuotePusher creates a new quote pusher.
-func NewQuotePusher(client *Client, repo Repository, fieldMapper *FieldMapper, quotes QuoteReader) *QuotePusher {
+func NewQuotePusher(client *Client, repo Repository, fieldMapper *FieldMapper, quotes QuoteReader, contacts ContactService) *QuotePusher {
 	return &QuotePusher{
 		client:      client,
 		repo:        repo,
 		fieldMapper: fieldMapper,
 		quotes:      quotes,
+		contacts:    contacts,
 	}
 }
 
@@ -130,15 +132,5 @@ func (qp *QuotePusher) PushQuote(ctx context.Context, configID, tenantID, quoteI
 }
 
 func (qp *QuotePusher) resolveContactBexioID(ctx context.Context, configID uuid.UUID, quote *models.Quote) (int, error) {
-	if quote.CustomerEmail != "" {
-		mappings, err := qp.repo.ListEntityMappings(ctx, configID, "contact")
-		if err != nil {
-			return 0, fmt.Errorf("list contact mappings: %w", err)
-		}
-		if len(mappings) > 0 {
-			return mappings[0].BexioID, nil
-		}
-	}
-
-	return 0, fmt.Errorf("no synced Bexio contact found for quote customer %q", quote.CustomerEmail)
+	return resolveContactBexioIDByEmail(ctx, qp.repo, qp.contacts, configID, quote.CustomerEmail)
 }

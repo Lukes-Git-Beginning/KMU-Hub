@@ -23,15 +23,17 @@ type InvoicePusher struct {
 	repo        Repository
 	fieldMapper *FieldMapper
 	invoices    InvoiceReader
+	contacts    ContactService
 }
 
 // NewInvoicePusher creates a new invoice pusher.
-func NewInvoicePusher(client *Client, repo Repository, fieldMapper *FieldMapper, invoices InvoiceReader) *InvoicePusher {
+func NewInvoicePusher(client *Client, repo Repository, fieldMapper *FieldMapper, invoices InvoiceReader, contacts ContactService) *InvoicePusher {
 	return &InvoicePusher{
 		client:      client,
 		repo:        repo,
 		fieldMapper: fieldMapper,
 		invoices:    invoices,
+		contacts:    contacts,
 	}
 }
 
@@ -130,21 +132,7 @@ func (ip *InvoicePusher) PushInvoice(ctx context.Context, configID, tenantID, in
 }
 
 func (ip *InvoicePusher) resolveContactBexioID(ctx context.Context, configID uuid.UUID, invoice *models.Invoice) (int, error) {
-	// Try to find contact mapping via snapshot data
-	// The invoice stores customer info, not a direct contact_id reference.
-	// Look for any contact mapping that matches the customer email.
-	if invoice.CustomerEmail != "" {
-		mappings, err := ip.repo.ListEntityMappings(ctx, configID, "contact")
-		if err != nil {
-			return 0, fmt.Errorf("list contact mappings: %w", err)
-		}
-		if len(mappings) > 0 {
-			// Return first contact mapping as default
-			return mappings[0].BexioID, nil
-		}
-	}
-
-	return 0, fmt.Errorf("no synced Bexio contact found for invoice customer %q", invoice.CustomerEmail)
+	return resolveContactBexioIDByEmail(ctx, ip.repo, ip.contacts, configID, invoice.CustomerEmail)
 }
 
 func boolToInt(b bool) int {

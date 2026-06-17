@@ -276,9 +276,21 @@ func main() {
 		}
 
 		bexioClient := bexio.NewClient(bexioConfig, vaultSvc)
+
+		// G2: Wire the CRM contact adapter when the CRM gRPC address is available.
+		// This enables exact email-based contact resolution in invoice/quote push
+		// (resolveContactBexioIDByEmail) and bidirectional contact sync.
+		var bexioContactSvc bexio.ContactService
+		if crmServiceClient != nil {
+			bexioContactSvc = &crmContactAdapter{client: crmServiceClient}
+			slog.Info("bexio: CRM contact adapter wired for exact email-based contact resolution")
+		} else {
+			slog.Warn("bexio: CRM contact service not wired — contact resolution falls back to single-mapping heuristic; set CRM_GRPC_ADDRESS to enable exact lookup")
+		}
+
 		bexioSvc = bexio.NewService(
 			bexioClient, bexioRepo, bexioConfigRepo, vaultSvc, bexioConfig,
-			nil, // ContactService: wired via CRM gRPC in gateway (not available in biz binary)
+			bexioContactSvc,
 			invoiceSvc, invoiceSvc, quoteRepo,
 		)
 

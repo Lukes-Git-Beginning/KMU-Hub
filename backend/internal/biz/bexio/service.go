@@ -46,8 +46,8 @@ func NewService(
 		configRepo:    configRepo,
 		fieldMapper:   fieldMapper,
 		contactSyncer: NewContactSyncer(client, repo, fieldMapper, contacts),
-		invoicePusher: NewInvoicePusher(client, repo, fieldMapper, invoices),
-		quotePusher:   NewQuotePusher(client, repo, fieldMapper, quotes),
+		invoicePusher: NewInvoicePusher(client, repo, fieldMapper, invoices, contacts),
+		quotePusher:   NewQuotePusher(client, repo, fieldMapper, quotes, contacts),
 		paymentPoller: NewPaymentPoller(client, repo, invoiceUpdater),
 		emitter:       noopEmitter{},
 	}
