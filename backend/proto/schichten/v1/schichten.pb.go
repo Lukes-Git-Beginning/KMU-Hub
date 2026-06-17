@@ -2102,6 +2102,498 @@ func (x *ShiftStatsResponse) GetUniqueEmployees() int32 {
 	return 0
 }
 
+type SwapRequest struct {
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	Id                    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId              string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	AssignmentId          string                 `protobuf:"bytes,3,opt,name=assignment_id,json=assignmentId,proto3" json:"assignment_id,omitempty"`
+	ShiftId               string                 `protobuf:"bytes,4,opt,name=shift_id,json=shiftId,proto3" json:"shift_id,omitempty"`
+	RequestedByEmployeeId string                 `protobuf:"bytes,5,opt,name=requested_by_employee_id,json=requestedByEmployeeId,proto3" json:"requested_by_employee_id,omitempty"`
+	SwapWithEmployeeId    string                 `protobuf:"bytes,6,opt,name=swap_with_employee_id,json=swapWithEmployeeId,proto3" json:"swap_with_employee_id,omitempty"`
+	Status                string                 `protobuf:"bytes,7,opt,name=status,proto3" json:"status,omitempty"` // pending|approved|rejected
+	Reason                string                 `protobuf:"bytes,8,opt,name=reason,proto3" json:"reason,omitempty"`
+	IdempotencyKey        string                 `protobuf:"bytes,9,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
+	CreatedAt             *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt             *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *SwapRequest) Reset() {
+	*x = SwapRequest{}
+	mi := &file_proto_schichten_v1_schichten_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SwapRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SwapRequest) ProtoMessage() {}
+
+func (x *SwapRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_schichten_v1_schichten_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SwapRequest.ProtoReflect.Descriptor instead.
+func (*SwapRequest) Descriptor() ([]byte, []int) {
+	return file_proto_schichten_v1_schichten_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *SwapRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *SwapRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *SwapRequest) GetAssignmentId() string {
+	if x != nil {
+		return x.AssignmentId
+	}
+	return ""
+}
+
+func (x *SwapRequest) GetShiftId() string {
+	if x != nil {
+		return x.ShiftId
+	}
+	return ""
+}
+
+func (x *SwapRequest) GetRequestedByEmployeeId() string {
+	if x != nil {
+		return x.RequestedByEmployeeId
+	}
+	return ""
+}
+
+func (x *SwapRequest) GetSwapWithEmployeeId() string {
+	if x != nil {
+		return x.SwapWithEmployeeId
+	}
+	return ""
+}
+
+func (x *SwapRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *SwapRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *SwapRequest) GetIdempotencyKey() string {
+	if x != nil {
+		return x.IdempotencyKey
+	}
+	return ""
+}
+
+func (x *SwapRequest) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *SwapRequest) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type CreateSwapRequestRequest struct {
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	TenantId              string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	AssignmentId          string                 `protobuf:"bytes,2,opt,name=assignment_id,json=assignmentId,proto3" json:"assignment_id,omitempty"`
+	ShiftId               string                 `protobuf:"bytes,3,opt,name=shift_id,json=shiftId,proto3" json:"shift_id,omitempty"`
+	RequestedByEmployeeId string                 `protobuf:"bytes,4,opt,name=requested_by_employee_id,json=requestedByEmployeeId,proto3" json:"requested_by_employee_id,omitempty"`
+	SwapWithEmployeeId    string                 `protobuf:"bytes,5,opt,name=swap_with_employee_id,json=swapWithEmployeeId,proto3" json:"swap_with_employee_id,omitempty"`
+	Reason                string                 `protobuf:"bytes,6,opt,name=reason,proto3" json:"reason,omitempty"`
+	IdempotencyKey        string                 `protobuf:"bytes,7,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *CreateSwapRequestRequest) Reset() {
+	*x = CreateSwapRequestRequest{}
+	mi := &file_proto_schichten_v1_schichten_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateSwapRequestRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateSwapRequestRequest) ProtoMessage() {}
+
+func (x *CreateSwapRequestRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_schichten_v1_schichten_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateSwapRequestRequest.ProtoReflect.Descriptor instead.
+func (*CreateSwapRequestRequest) Descriptor() ([]byte, []int) {
+	return file_proto_schichten_v1_schichten_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *CreateSwapRequestRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateSwapRequestRequest) GetAssignmentId() string {
+	if x != nil {
+		return x.AssignmentId
+	}
+	return ""
+}
+
+func (x *CreateSwapRequestRequest) GetShiftId() string {
+	if x != nil {
+		return x.ShiftId
+	}
+	return ""
+}
+
+func (x *CreateSwapRequestRequest) GetRequestedByEmployeeId() string {
+	if x != nil {
+		return x.RequestedByEmployeeId
+	}
+	return ""
+}
+
+func (x *CreateSwapRequestRequest) GetSwapWithEmployeeId() string {
+	if x != nil {
+		return x.SwapWithEmployeeId
+	}
+	return ""
+}
+
+func (x *CreateSwapRequestRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *CreateSwapRequestRequest) GetIdempotencyKey() string {
+	if x != nil {
+		return x.IdempotencyKey
+	}
+	return ""
+}
+
+type SwapRequestResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SwapRequest   *SwapRequest           `protobuf:"bytes,1,opt,name=swap_request,json=swapRequest,proto3" json:"swap_request,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SwapRequestResponse) Reset() {
+	*x = SwapRequestResponse{}
+	mi := &file_proto_schichten_v1_schichten_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SwapRequestResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SwapRequestResponse) ProtoMessage() {}
+
+func (x *SwapRequestResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_schichten_v1_schichten_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SwapRequestResponse.ProtoReflect.Descriptor instead.
+func (*SwapRequestResponse) Descriptor() ([]byte, []int) {
+	return file_proto_schichten_v1_schichten_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *SwapRequestResponse) GetSwapRequest() *SwapRequest {
+	if x != nil {
+		return x.SwapRequest
+	}
+	return nil
+}
+
+type ListSwapRequestsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ShiftId       *string                `protobuf:"bytes,2,opt,name=shift_id,json=shiftId,proto3,oneof" json:"shift_id,omitempty"`
+	Status        *string                `protobuf:"bytes,3,opt,name=status,proto3,oneof" json:"status,omitempty"` // pending|approved|rejected
+	Page          int32                  `protobuf:"varint,4,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,5,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSwapRequestsRequest) Reset() {
+	*x = ListSwapRequestsRequest{}
+	mi := &file_proto_schichten_v1_schichten_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSwapRequestsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSwapRequestsRequest) ProtoMessage() {}
+
+func (x *ListSwapRequestsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_schichten_v1_schichten_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSwapRequestsRequest.ProtoReflect.Descriptor instead.
+func (*ListSwapRequestsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_schichten_v1_schichten_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *ListSwapRequestsRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListSwapRequestsRequest) GetShiftId() string {
+	if x != nil && x.ShiftId != nil {
+		return *x.ShiftId
+	}
+	return ""
+}
+
+func (x *ListSwapRequestsRequest) GetStatus() string {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return ""
+}
+
+func (x *ListSwapRequestsRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListSwapRequestsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type ListSwapRequestsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SwapRequests  []*SwapRequest         `protobuf:"bytes,1,rep,name=swap_requests,json=swapRequests,proto3" json:"swap_requests,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSwapRequestsResponse) Reset() {
+	*x = ListSwapRequestsResponse{}
+	mi := &file_proto_schichten_v1_schichten_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSwapRequestsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSwapRequestsResponse) ProtoMessage() {}
+
+func (x *ListSwapRequestsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_schichten_v1_schichten_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSwapRequestsResponse.ProtoReflect.Descriptor instead.
+func (*ListSwapRequestsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_schichten_v1_schichten_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *ListSwapRequestsResponse) GetSwapRequests() []*SwapRequest {
+	if x != nil {
+		return x.SwapRequests
+	}
+	return nil
+}
+
+func (x *ListSwapRequestsResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type ApproveSwapRequestRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	RequestId     string                 `protobuf:"bytes,2,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ApproveSwapRequestRequest) Reset() {
+	*x = ApproveSwapRequestRequest{}
+	mi := &file_proto_schichten_v1_schichten_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApproveSwapRequestRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApproveSwapRequestRequest) ProtoMessage() {}
+
+func (x *ApproveSwapRequestRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_schichten_v1_schichten_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApproveSwapRequestRequest.ProtoReflect.Descriptor instead.
+func (*ApproveSwapRequestRequest) Descriptor() ([]byte, []int) {
+	return file_proto_schichten_v1_schichten_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *ApproveSwapRequestRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ApproveSwapRequestRequest) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+type RejectSwapRequestRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	RequestId     string                 `protobuf:"bytes,2,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RejectSwapRequestRequest) Reset() {
+	*x = RejectSwapRequestRequest{}
+	mi := &file_proto_schichten_v1_schichten_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RejectSwapRequestRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RejectSwapRequestRequest) ProtoMessage() {}
+
+func (x *RejectSwapRequestRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_schichten_v1_schichten_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RejectSwapRequestRequest.ProtoReflect.Descriptor instead.
+func (*RejectSwapRequestRequest) Descriptor() ([]byte, []int) {
+	return file_proto_schichten_v1_schichten_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *RejectSwapRequestRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *RejectSwapRequestRequest) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
 var File_proto_schichten_v1_schichten_proto protoreflect.FileDescriptor
 
 const file_proto_schichten_v1_schichten_proto_rawDesc = "" +
@@ -2308,7 +2800,51 @@ const file_proto_schichten_v1_schichten_proto_rawDesc = "" +
 	"\x10published_shifts\x18\x02 \x01(\x05R\x0fpublishedShifts\x12!\n" +
 	"\fdraft_shifts\x18\x03 \x01(\x05R\vdraftShifts\x12+\n" +
 	"\x11total_assignments\x18\x04 \x01(\x05R\x10totalAssignments\x12)\n" +
-	"\x10unique_employees\x18\x05 \x01(\x05R\x0funiqueEmployees2\x96\v\n" +
+	"\x10unique_employees\x18\x05 \x01(\x05R\x0funiqueEmployees\"\xb5\x03\n" +
+	"\vSwapRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12#\n" +
+	"\rassignment_id\x18\x03 \x01(\tR\fassignmentId\x12\x19\n" +
+	"\bshift_id\x18\x04 \x01(\tR\ashiftId\x127\n" +
+	"\x18requested_by_employee_id\x18\x05 \x01(\tR\x15requestedByEmployeeId\x121\n" +
+	"\x15swap_with_employee_id\x18\x06 \x01(\tR\x12swapWithEmployeeId\x12\x16\n" +
+	"\x06status\x18\a \x01(\tR\x06status\x12\x16\n" +
+	"\x06reason\x18\b \x01(\tR\x06reason\x12'\n" +
+	"\x0fidempotency_key\x18\t \x01(\tR\x0eidempotencyKey\x129\n" +
+	"\n" +
+	"created_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xa4\x02\n" +
+	"\x18CreateSwapRequestRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12#\n" +
+	"\rassignment_id\x18\x02 \x01(\tR\fassignmentId\x12\x19\n" +
+	"\bshift_id\x18\x03 \x01(\tR\ashiftId\x127\n" +
+	"\x18requested_by_employee_id\x18\x04 \x01(\tR\x15requestedByEmployeeId\x121\n" +
+	"\x15swap_with_employee_id\x18\x05 \x01(\tR\x12swapWithEmployeeId\x12\x16\n" +
+	"\x06reason\x18\x06 \x01(\tR\x06reason\x12'\n" +
+	"\x0fidempotency_key\x18\a \x01(\tR\x0eidempotencyKey\"S\n" +
+	"\x13SwapRequestResponse\x12<\n" +
+	"\fswap_request\x18\x01 \x01(\v2\x19.schichten.v1.SwapRequestR\vswapRequest\"\xbc\x01\n" +
+	"\x17ListSwapRequestsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1e\n" +
+	"\bshift_id\x18\x02 \x01(\tH\x00R\ashiftId\x88\x01\x01\x12\x1b\n" +
+	"\x06status\x18\x03 \x01(\tH\x01R\x06status\x88\x01\x01\x12\x12\n" +
+	"\x04page\x18\x04 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x05 \x01(\x05R\bpageSizeB\v\n" +
+	"\t_shift_idB\t\n" +
+	"\a_status\"p\n" +
+	"\x18ListSwapRequestsResponse\x12>\n" +
+	"\rswap_requests\x18\x01 \x03(\v2\x19.schichten.v1.SwapRequestR\fswapRequests\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"W\n" +
+	"\x19ApproveSwapRequestRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x02 \x01(\tR\trequestId\"V\n" +
+	"\x18RejectSwapRequestRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x02 \x01(\tR\trequestId2\x9b\x0e\n" +
 	"\x10SchichtenService\x12L\n" +
 	"\vCreateShift\x12 .schichten.v1.CreateShiftRequest\x1a\x1b.schichten.v1.ShiftResponse\x12F\n" +
 	"\bGetShift\x12\x1d.schichten.v1.GetShiftRequest\x1a\x1b.schichten.v1.ShiftResponse\x12L\n" +
@@ -2326,7 +2862,11 @@ const file_proto_schichten_v1_schichten_proto_rawDesc = "" +
 	"\rListTemplates\x12\".schichten.v1.ListTemplatesRequest\x1a#.schichten.v1.ListTemplatesResponse\x12X\n" +
 	"\rApplyTemplate\x12\".schichten.v1.ApplyTemplateRequest\x1a#.schichten.v1.ApplyTemplateResponse\x12m\n" +
 	"\x14CheckArbzgCompliance\x12).schichten.v1.CheckArbzgComplianceRequest\x1a*.schichten.v1.CheckArbzgComplianceResponse\x12U\n" +
-	"\rGetShiftStats\x12\".schichten.v1.GetShiftStatsRequest\x1a .schichten.v1.ShiftStatsResponseB9Z7github.com/kmuhub/kmuhub/proto/schichten/v1;schichtenv1b\x06proto3"
+	"\rGetShiftStats\x12\".schichten.v1.GetShiftStatsRequest\x1a .schichten.v1.ShiftStatsResponse\x12^\n" +
+	"\x11CreateSwapRequest\x12&.schichten.v1.CreateSwapRequestRequest\x1a!.schichten.v1.SwapRequestResponse\x12a\n" +
+	"\x10ListSwapRequests\x12%.schichten.v1.ListSwapRequestsRequest\x1a&.schichten.v1.ListSwapRequestsResponse\x12`\n" +
+	"\x12ApproveSwapRequest\x12'.schichten.v1.ApproveSwapRequestRequest\x1a!.schichten.v1.SwapRequestResponse\x12^\n" +
+	"\x11RejectSwapRequest\x12&.schichten.v1.RejectSwapRequestRequest\x1a!.schichten.v1.SwapRequestResponseB9Z7github.com/kmuhub/kmuhub/proto/schichten/v1;schichtenv1b\x06proto3"
 
 var (
 	file_proto_schichten_v1_schichten_proto_rawDescOnce sync.Once
@@ -2340,7 +2880,7 @@ func file_proto_schichten_v1_schichten_proto_rawDescGZIP() []byte {
 	return file_proto_schichten_v1_schichten_proto_rawDescData
 }
 
-var file_proto_schichten_v1_schichten_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
+var file_proto_schichten_v1_schichten_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
 var file_proto_schichten_v1_schichten_proto_goTypes = []any{
 	(*Shift)(nil),                        // 0: schichten.v1.Shift
 	(*ShiftAssignment)(nil),              // 1: schichten.v1.ShiftAssignment
@@ -2374,74 +2914,93 @@ var file_proto_schichten_v1_schichten_proto_goTypes = []any{
 	(*CheckArbzgComplianceResponse)(nil), // 29: schichten.v1.CheckArbzgComplianceResponse
 	(*GetShiftStatsRequest)(nil),         // 30: schichten.v1.GetShiftStatsRequest
 	(*ShiftStatsResponse)(nil),           // 31: schichten.v1.ShiftStatsResponse
-	(*timestamppb.Timestamp)(nil),        // 32: google.protobuf.Timestamp
+	(*SwapRequest)(nil),                  // 32: schichten.v1.SwapRequest
+	(*CreateSwapRequestRequest)(nil),     // 33: schichten.v1.CreateSwapRequestRequest
+	(*SwapRequestResponse)(nil),          // 34: schichten.v1.SwapRequestResponse
+	(*ListSwapRequestsRequest)(nil),      // 35: schichten.v1.ListSwapRequestsRequest
+	(*ListSwapRequestsResponse)(nil),     // 36: schichten.v1.ListSwapRequestsResponse
+	(*ApproveSwapRequestRequest)(nil),    // 37: schichten.v1.ApproveSwapRequestRequest
+	(*RejectSwapRequestRequest)(nil),     // 38: schichten.v1.RejectSwapRequestRequest
+	(*timestamppb.Timestamp)(nil),        // 39: google.protobuf.Timestamp
 }
 var file_proto_schichten_v1_schichten_proto_depIdxs = []int32{
-	32, // 0: schichten.v1.Shift.start_time:type_name -> google.protobuf.Timestamp
-	32, // 1: schichten.v1.Shift.end_time:type_name -> google.protobuf.Timestamp
-	32, // 2: schichten.v1.Shift.created_at:type_name -> google.protobuf.Timestamp
-	32, // 3: schichten.v1.Shift.updated_at:type_name -> google.protobuf.Timestamp
-	32, // 4: schichten.v1.ShiftAssignment.assigned_at:type_name -> google.protobuf.Timestamp
-	32, // 5: schichten.v1.ShiftTemplate.created_at:type_name -> google.protobuf.Timestamp
-	32, // 6: schichten.v1.ShiftTemplate.updated_at:type_name -> google.protobuf.Timestamp
-	32, // 7: schichten.v1.CreateShiftRequest.start_time:type_name -> google.protobuf.Timestamp
-	32, // 8: schichten.v1.CreateShiftRequest.end_time:type_name -> google.protobuf.Timestamp
-	32, // 9: schichten.v1.UpdateShiftRequest.start_time:type_name -> google.protobuf.Timestamp
-	32, // 10: schichten.v1.UpdateShiftRequest.end_time:type_name -> google.protobuf.Timestamp
+	39, // 0: schichten.v1.Shift.start_time:type_name -> google.protobuf.Timestamp
+	39, // 1: schichten.v1.Shift.end_time:type_name -> google.protobuf.Timestamp
+	39, // 2: schichten.v1.Shift.created_at:type_name -> google.protobuf.Timestamp
+	39, // 3: schichten.v1.Shift.updated_at:type_name -> google.protobuf.Timestamp
+	39, // 4: schichten.v1.ShiftAssignment.assigned_at:type_name -> google.protobuf.Timestamp
+	39, // 5: schichten.v1.ShiftTemplate.created_at:type_name -> google.protobuf.Timestamp
+	39, // 6: schichten.v1.ShiftTemplate.updated_at:type_name -> google.protobuf.Timestamp
+	39, // 7: schichten.v1.CreateShiftRequest.start_time:type_name -> google.protobuf.Timestamp
+	39, // 8: schichten.v1.CreateShiftRequest.end_time:type_name -> google.protobuf.Timestamp
+	39, // 9: schichten.v1.UpdateShiftRequest.start_time:type_name -> google.protobuf.Timestamp
+	39, // 10: schichten.v1.UpdateShiftRequest.end_time:type_name -> google.protobuf.Timestamp
 	0,  // 11: schichten.v1.ShiftResponse.shift:type_name -> schichten.v1.Shift
-	32, // 12: schichten.v1.ListShiftsRequest.from:type_name -> google.protobuf.Timestamp
-	32, // 13: schichten.v1.ListShiftsRequest.to:type_name -> google.protobuf.Timestamp
+	39, // 12: schichten.v1.ListShiftsRequest.from:type_name -> google.protobuf.Timestamp
+	39, // 13: schichten.v1.ListShiftsRequest.to:type_name -> google.protobuf.Timestamp
 	0,  // 14: schichten.v1.ListShiftsResponse.shifts:type_name -> schichten.v1.Shift
-	32, // 15: schichten.v1.PublishShiftsRequest.from:type_name -> google.protobuf.Timestamp
-	32, // 16: schichten.v1.PublishShiftsRequest.to:type_name -> google.protobuf.Timestamp
+	39, // 15: schichten.v1.PublishShiftsRequest.from:type_name -> google.protobuf.Timestamp
+	39, // 16: schichten.v1.PublishShiftsRequest.to:type_name -> google.protobuf.Timestamp
 	1,  // 17: schichten.v1.AssignmentResponse.assignment:type_name -> schichten.v1.ShiftAssignment
 	1,  // 18: schichten.v1.ListAssignmentsResponse.assignments:type_name -> schichten.v1.ShiftAssignment
 	2,  // 19: schichten.v1.TemplateResponse.template:type_name -> schichten.v1.ShiftTemplate
 	2,  // 20: schichten.v1.ListTemplatesResponse.templates:type_name -> schichten.v1.ShiftTemplate
-	32, // 21: schichten.v1.ApplyTemplateRequest.range_start:type_name -> google.protobuf.Timestamp
-	32, // 22: schichten.v1.ApplyTemplateRequest.range_end:type_name -> google.protobuf.Timestamp
+	39, // 21: schichten.v1.ApplyTemplateRequest.range_start:type_name -> google.protobuf.Timestamp
+	39, // 22: schichten.v1.ApplyTemplateRequest.range_end:type_name -> google.protobuf.Timestamp
 	0,  // 23: schichten.v1.ApplyTemplateResponse.shifts:type_name -> schichten.v1.Shift
-	32, // 24: schichten.v1.CheckArbzgComplianceRequest.new_shift_start:type_name -> google.protobuf.Timestamp
-	32, // 25: schichten.v1.CheckArbzgComplianceRequest.new_shift_end:type_name -> google.protobuf.Timestamp
-	32, // 26: schichten.v1.GetShiftStatsRequest.from:type_name -> google.protobuf.Timestamp
-	32, // 27: schichten.v1.GetShiftStatsRequest.to:type_name -> google.protobuf.Timestamp
-	3,  // 28: schichten.v1.SchichtenService.CreateShift:input_type -> schichten.v1.CreateShiftRequest
-	4,  // 29: schichten.v1.SchichtenService.GetShift:input_type -> schichten.v1.GetShiftRequest
-	5,  // 30: schichten.v1.SchichtenService.UpdateShift:input_type -> schichten.v1.UpdateShiftRequest
-	6,  // 31: schichten.v1.SchichtenService.DeleteShift:input_type -> schichten.v1.DeleteShiftRequest
-	9,  // 32: schichten.v1.SchichtenService.ListShifts:input_type -> schichten.v1.ListShiftsRequest
-	11, // 33: schichten.v1.SchichtenService.PublishShifts:input_type -> schichten.v1.PublishShiftsRequest
-	13, // 34: schichten.v1.SchichtenService.AssignEmployee:input_type -> schichten.v1.AssignEmployeeRequest
-	14, // 35: schichten.v1.SchichtenService.UnassignEmployee:input_type -> schichten.v1.UnassignEmployeeRequest
-	17, // 36: schichten.v1.SchichtenService.ListAssignments:input_type -> schichten.v1.ListAssignmentsRequest
-	19, // 37: schichten.v1.SchichtenService.CreateTemplate:input_type -> schichten.v1.CreateTemplateRequest
-	20, // 38: schichten.v1.SchichtenService.UpdateTemplate:input_type -> schichten.v1.UpdateTemplateRequest
-	21, // 39: schichten.v1.SchichtenService.DeleteTemplate:input_type -> schichten.v1.DeleteTemplateRequest
-	24, // 40: schichten.v1.SchichtenService.ListTemplates:input_type -> schichten.v1.ListTemplatesRequest
-	26, // 41: schichten.v1.SchichtenService.ApplyTemplate:input_type -> schichten.v1.ApplyTemplateRequest
-	28, // 42: schichten.v1.SchichtenService.CheckArbzgCompliance:input_type -> schichten.v1.CheckArbzgComplianceRequest
-	30, // 43: schichten.v1.SchichtenService.GetShiftStats:input_type -> schichten.v1.GetShiftStatsRequest
-	8,  // 44: schichten.v1.SchichtenService.CreateShift:output_type -> schichten.v1.ShiftResponse
-	8,  // 45: schichten.v1.SchichtenService.GetShift:output_type -> schichten.v1.ShiftResponse
-	8,  // 46: schichten.v1.SchichtenService.UpdateShift:output_type -> schichten.v1.ShiftResponse
-	7,  // 47: schichten.v1.SchichtenService.DeleteShift:output_type -> schichten.v1.DeleteShiftResponse
-	10, // 48: schichten.v1.SchichtenService.ListShifts:output_type -> schichten.v1.ListShiftsResponse
-	12, // 49: schichten.v1.SchichtenService.PublishShifts:output_type -> schichten.v1.PublishShiftsResponse
-	16, // 50: schichten.v1.SchichtenService.AssignEmployee:output_type -> schichten.v1.AssignmentResponse
-	15, // 51: schichten.v1.SchichtenService.UnassignEmployee:output_type -> schichten.v1.UnassignEmployeeResponse
-	18, // 52: schichten.v1.SchichtenService.ListAssignments:output_type -> schichten.v1.ListAssignmentsResponse
-	23, // 53: schichten.v1.SchichtenService.CreateTemplate:output_type -> schichten.v1.TemplateResponse
-	23, // 54: schichten.v1.SchichtenService.UpdateTemplate:output_type -> schichten.v1.TemplateResponse
-	22, // 55: schichten.v1.SchichtenService.DeleteTemplate:output_type -> schichten.v1.DeleteTemplateResponse
-	25, // 56: schichten.v1.SchichtenService.ListTemplates:output_type -> schichten.v1.ListTemplatesResponse
-	27, // 57: schichten.v1.SchichtenService.ApplyTemplate:output_type -> schichten.v1.ApplyTemplateResponse
-	29, // 58: schichten.v1.SchichtenService.CheckArbzgCompliance:output_type -> schichten.v1.CheckArbzgComplianceResponse
-	31, // 59: schichten.v1.SchichtenService.GetShiftStats:output_type -> schichten.v1.ShiftStatsResponse
-	44, // [44:60] is the sub-list for method output_type
-	28, // [28:44] is the sub-list for method input_type
-	28, // [28:28] is the sub-list for extension type_name
-	28, // [28:28] is the sub-list for extension extendee
-	0,  // [0:28] is the sub-list for field type_name
+	39, // 24: schichten.v1.CheckArbzgComplianceRequest.new_shift_start:type_name -> google.protobuf.Timestamp
+	39, // 25: schichten.v1.CheckArbzgComplianceRequest.new_shift_end:type_name -> google.protobuf.Timestamp
+	39, // 26: schichten.v1.GetShiftStatsRequest.from:type_name -> google.protobuf.Timestamp
+	39, // 27: schichten.v1.GetShiftStatsRequest.to:type_name -> google.protobuf.Timestamp
+	39, // 28: schichten.v1.SwapRequest.created_at:type_name -> google.protobuf.Timestamp
+	39, // 29: schichten.v1.SwapRequest.updated_at:type_name -> google.protobuf.Timestamp
+	32, // 30: schichten.v1.SwapRequestResponse.swap_request:type_name -> schichten.v1.SwapRequest
+	32, // 31: schichten.v1.ListSwapRequestsResponse.swap_requests:type_name -> schichten.v1.SwapRequest
+	3,  // 32: schichten.v1.SchichtenService.CreateShift:input_type -> schichten.v1.CreateShiftRequest
+	4,  // 33: schichten.v1.SchichtenService.GetShift:input_type -> schichten.v1.GetShiftRequest
+	5,  // 34: schichten.v1.SchichtenService.UpdateShift:input_type -> schichten.v1.UpdateShiftRequest
+	6,  // 35: schichten.v1.SchichtenService.DeleteShift:input_type -> schichten.v1.DeleteShiftRequest
+	9,  // 36: schichten.v1.SchichtenService.ListShifts:input_type -> schichten.v1.ListShiftsRequest
+	11, // 37: schichten.v1.SchichtenService.PublishShifts:input_type -> schichten.v1.PublishShiftsRequest
+	13, // 38: schichten.v1.SchichtenService.AssignEmployee:input_type -> schichten.v1.AssignEmployeeRequest
+	14, // 39: schichten.v1.SchichtenService.UnassignEmployee:input_type -> schichten.v1.UnassignEmployeeRequest
+	17, // 40: schichten.v1.SchichtenService.ListAssignments:input_type -> schichten.v1.ListAssignmentsRequest
+	19, // 41: schichten.v1.SchichtenService.CreateTemplate:input_type -> schichten.v1.CreateTemplateRequest
+	20, // 42: schichten.v1.SchichtenService.UpdateTemplate:input_type -> schichten.v1.UpdateTemplateRequest
+	21, // 43: schichten.v1.SchichtenService.DeleteTemplate:input_type -> schichten.v1.DeleteTemplateRequest
+	24, // 44: schichten.v1.SchichtenService.ListTemplates:input_type -> schichten.v1.ListTemplatesRequest
+	26, // 45: schichten.v1.SchichtenService.ApplyTemplate:input_type -> schichten.v1.ApplyTemplateRequest
+	28, // 46: schichten.v1.SchichtenService.CheckArbzgCompliance:input_type -> schichten.v1.CheckArbzgComplianceRequest
+	30, // 47: schichten.v1.SchichtenService.GetShiftStats:input_type -> schichten.v1.GetShiftStatsRequest
+	33, // 48: schichten.v1.SchichtenService.CreateSwapRequest:input_type -> schichten.v1.CreateSwapRequestRequest
+	35, // 49: schichten.v1.SchichtenService.ListSwapRequests:input_type -> schichten.v1.ListSwapRequestsRequest
+	37, // 50: schichten.v1.SchichtenService.ApproveSwapRequest:input_type -> schichten.v1.ApproveSwapRequestRequest
+	38, // 51: schichten.v1.SchichtenService.RejectSwapRequest:input_type -> schichten.v1.RejectSwapRequestRequest
+	8,  // 52: schichten.v1.SchichtenService.CreateShift:output_type -> schichten.v1.ShiftResponse
+	8,  // 53: schichten.v1.SchichtenService.GetShift:output_type -> schichten.v1.ShiftResponse
+	8,  // 54: schichten.v1.SchichtenService.UpdateShift:output_type -> schichten.v1.ShiftResponse
+	7,  // 55: schichten.v1.SchichtenService.DeleteShift:output_type -> schichten.v1.DeleteShiftResponse
+	10, // 56: schichten.v1.SchichtenService.ListShifts:output_type -> schichten.v1.ListShiftsResponse
+	12, // 57: schichten.v1.SchichtenService.PublishShifts:output_type -> schichten.v1.PublishShiftsResponse
+	16, // 58: schichten.v1.SchichtenService.AssignEmployee:output_type -> schichten.v1.AssignmentResponse
+	15, // 59: schichten.v1.SchichtenService.UnassignEmployee:output_type -> schichten.v1.UnassignEmployeeResponse
+	18, // 60: schichten.v1.SchichtenService.ListAssignments:output_type -> schichten.v1.ListAssignmentsResponse
+	23, // 61: schichten.v1.SchichtenService.CreateTemplate:output_type -> schichten.v1.TemplateResponse
+	23, // 62: schichten.v1.SchichtenService.UpdateTemplate:output_type -> schichten.v1.TemplateResponse
+	22, // 63: schichten.v1.SchichtenService.DeleteTemplate:output_type -> schichten.v1.DeleteTemplateResponse
+	25, // 64: schichten.v1.SchichtenService.ListTemplates:output_type -> schichten.v1.ListTemplatesResponse
+	27, // 65: schichten.v1.SchichtenService.ApplyTemplate:output_type -> schichten.v1.ApplyTemplateResponse
+	29, // 66: schichten.v1.SchichtenService.CheckArbzgCompliance:output_type -> schichten.v1.CheckArbzgComplianceResponse
+	31, // 67: schichten.v1.SchichtenService.GetShiftStats:output_type -> schichten.v1.ShiftStatsResponse
+	34, // 68: schichten.v1.SchichtenService.CreateSwapRequest:output_type -> schichten.v1.SwapRequestResponse
+	36, // 69: schichten.v1.SchichtenService.ListSwapRequests:output_type -> schichten.v1.ListSwapRequestsResponse
+	34, // 70: schichten.v1.SchichtenService.ApproveSwapRequest:output_type -> schichten.v1.SwapRequestResponse
+	34, // 71: schichten.v1.SchichtenService.RejectSwapRequest:output_type -> schichten.v1.SwapRequestResponse
+	52, // [52:72] is the sub-list for method output_type
+	32, // [32:52] is the sub-list for method input_type
+	32, // [32:32] is the sub-list for extension type_name
+	32, // [32:32] is the sub-list for extension extendee
+	0,  // [0:32] is the sub-list for field type_name
 }
 
 func init() { file_proto_schichten_v1_schichten_proto_init() }
@@ -2460,13 +3019,14 @@ func file_proto_schichten_v1_schichten_proto_init() {
 	file_proto_schichten_v1_schichten_proto_msgTypes[20].OneofWrappers = []any{}
 	file_proto_schichten_v1_schichten_proto_msgTypes[26].OneofWrappers = []any{}
 	file_proto_schichten_v1_schichten_proto_msgTypes[30].OneofWrappers = []any{}
+	file_proto_schichten_v1_schichten_proto_msgTypes[35].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_schichten_v1_schichten_proto_rawDesc), len(file_proto_schichten_v1_schichten_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   32,
+			NumMessages:   39,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

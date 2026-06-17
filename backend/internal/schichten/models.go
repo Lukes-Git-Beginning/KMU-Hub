@@ -65,3 +65,27 @@ type ShiftStats struct {
 	TotalAssignments  int
 	UniqueEmployees   int
 }
+
+// SwapRequestStatus represents the lifecycle of a shift-swap request.
+type SwapRequestStatus string
+
+const (
+	SwapRequestStatusPending  SwapRequestStatus = "pending"
+	SwapRequestStatusApproved SwapRequestStatus = "approved"
+	SwapRequestStatusRejected SwapRequestStatus = "rejected"
+)
+
+// SwapRequest represents a request by one employee to swap a shift with another.
+type SwapRequest struct {
+	ID                    uuid.UUID         `json:"id"`
+	TenantID              uuid.UUID         `json:"tenant_id"`
+	AssignmentID          uuid.UUID         `json:"assignment_id"`
+	RequestedByEmployeeID uuid.UUID         `json:"requested_by_employee_id"`
+	SwapWithEmployeeID    uuid.UUID         `json:"swap_with_employee_id"`
+	ShiftID               uuid.UUID         `json:"shift_id"`
+	Status                SwapRequestStatus `json:"status"`
+	Reason                string            `json:"reason,omitempty"`
+	IdempotencyKey        string            `json:"idempotency_key,omitempty"`
+	CreatedAt             time.Time         `json:"created_at"`
+	UpdatedAt             time.Time         `json:"updated_at"`
+}

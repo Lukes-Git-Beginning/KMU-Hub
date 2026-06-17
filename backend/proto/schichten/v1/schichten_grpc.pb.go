@@ -35,6 +35,10 @@ const (
 	SchichtenService_ApplyTemplate_FullMethodName        = "/schichten.v1.SchichtenService/ApplyTemplate"
 	SchichtenService_CheckArbzgCompliance_FullMethodName = "/schichten.v1.SchichtenService/CheckArbzgCompliance"
 	SchichtenService_GetShiftStats_FullMethodName        = "/schichten.v1.SchichtenService/GetShiftStats"
+	SchichtenService_CreateSwapRequest_FullMethodName    = "/schichten.v1.SchichtenService/CreateSwapRequest"
+	SchichtenService_ListSwapRequests_FullMethodName     = "/schichten.v1.SchichtenService/ListSwapRequests"
+	SchichtenService_ApproveSwapRequest_FullMethodName   = "/schichten.v1.SchichtenService/ApproveSwapRequest"
+	SchichtenService_RejectSwapRequest_FullMethodName    = "/schichten.v1.SchichtenService/RejectSwapRequest"
 )
 
 // SchichtenServiceClient is the client API for SchichtenService service.
@@ -61,6 +65,11 @@ type SchichtenServiceClient interface {
 	// Compliance & Stats
 	CheckArbzgCompliance(ctx context.Context, in *CheckArbzgComplianceRequest, opts ...grpc.CallOption) (*CheckArbzgComplianceResponse, error)
 	GetShiftStats(ctx context.Context, in *GetShiftStatsRequest, opts ...grpc.CallOption) (*ShiftStatsResponse, error)
+	// Swap Requests
+	CreateSwapRequest(ctx context.Context, in *CreateSwapRequestRequest, opts ...grpc.CallOption) (*SwapRequestResponse, error)
+	ListSwapRequests(ctx context.Context, in *ListSwapRequestsRequest, opts ...grpc.CallOption) (*ListSwapRequestsResponse, error)
+	ApproveSwapRequest(ctx context.Context, in *ApproveSwapRequestRequest, opts ...grpc.CallOption) (*SwapRequestResponse, error)
+	RejectSwapRequest(ctx context.Context, in *RejectSwapRequestRequest, opts ...grpc.CallOption) (*SwapRequestResponse, error)
 }
 
 type schichtenServiceClient struct {
@@ -231,6 +240,46 @@ func (c *schichtenServiceClient) GetShiftStats(ctx context.Context, in *GetShift
 	return out, nil
 }
 
+func (c *schichtenServiceClient) CreateSwapRequest(ctx context.Context, in *CreateSwapRequestRequest, opts ...grpc.CallOption) (*SwapRequestResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SwapRequestResponse)
+	err := c.cc.Invoke(ctx, SchichtenService_CreateSwapRequest_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *schichtenServiceClient) ListSwapRequests(ctx context.Context, in *ListSwapRequestsRequest, opts ...grpc.CallOption) (*ListSwapRequestsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListSwapRequestsResponse)
+	err := c.cc.Invoke(ctx, SchichtenService_ListSwapRequests_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *schichtenServiceClient) ApproveSwapRequest(ctx context.Context, in *ApproveSwapRequestRequest, opts ...grpc.CallOption) (*SwapRequestResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SwapRequestResponse)
+	err := c.cc.Invoke(ctx, SchichtenService_ApproveSwapRequest_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *schichtenServiceClient) RejectSwapRequest(ctx context.Context, in *RejectSwapRequestRequest, opts ...grpc.CallOption) (*SwapRequestResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SwapRequestResponse)
+	err := c.cc.Invoke(ctx, SchichtenService_RejectSwapRequest_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SchichtenServiceServer is the server API for SchichtenService service.
 // All implementations must embed UnimplementedSchichtenServiceServer
 // for forward compatibility.
@@ -255,6 +304,11 @@ type SchichtenServiceServer interface {
 	// Compliance & Stats
 	CheckArbzgCompliance(context.Context, *CheckArbzgComplianceRequest) (*CheckArbzgComplianceResponse, error)
 	GetShiftStats(context.Context, *GetShiftStatsRequest) (*ShiftStatsResponse, error)
+	// Swap Requests
+	CreateSwapRequest(context.Context, *CreateSwapRequestRequest) (*SwapRequestResponse, error)
+	ListSwapRequests(context.Context, *ListSwapRequestsRequest) (*ListSwapRequestsResponse, error)
+	ApproveSwapRequest(context.Context, *ApproveSwapRequestRequest) (*SwapRequestResponse, error)
+	RejectSwapRequest(context.Context, *RejectSwapRequestRequest) (*SwapRequestResponse, error)
 	mustEmbedUnimplementedSchichtenServiceServer()
 }
 
@@ -312,6 +366,18 @@ func (UnimplementedSchichtenServiceServer) CheckArbzgCompliance(context.Context,
 }
 func (UnimplementedSchichtenServiceServer) GetShiftStats(context.Context, *GetShiftStatsRequest) (*ShiftStatsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetShiftStats not implemented")
+}
+func (UnimplementedSchichtenServiceServer) CreateSwapRequest(context.Context, *CreateSwapRequestRequest) (*SwapRequestResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateSwapRequest not implemented")
+}
+func (UnimplementedSchichtenServiceServer) ListSwapRequests(context.Context, *ListSwapRequestsRequest) (*ListSwapRequestsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListSwapRequests not implemented")
+}
+func (UnimplementedSchichtenServiceServer) ApproveSwapRequest(context.Context, *ApproveSwapRequestRequest) (*SwapRequestResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ApproveSwapRequest not implemented")
+}
+func (UnimplementedSchichtenServiceServer) RejectSwapRequest(context.Context, *RejectSwapRequestRequest) (*SwapRequestResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RejectSwapRequest not implemented")
 }
 func (UnimplementedSchichtenServiceServer) mustEmbedUnimplementedSchichtenServiceServer() {}
 func (UnimplementedSchichtenServiceServer) testEmbeddedByValue()                          {}
@@ -622,6 +688,78 @@ func _SchichtenService_GetShiftStats_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SchichtenService_CreateSwapRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateSwapRequestRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SchichtenServiceServer).CreateSwapRequest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SchichtenService_CreateSwapRequest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SchichtenServiceServer).CreateSwapRequest(ctx, req.(*CreateSwapRequestRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SchichtenService_ListSwapRequests_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListSwapRequestsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SchichtenServiceServer).ListSwapRequests(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SchichtenService_ListSwapRequests_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SchichtenServiceServer).ListSwapRequests(ctx, req.(*ListSwapRequestsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SchichtenService_ApproveSwapRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ApproveSwapRequestRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SchichtenServiceServer).ApproveSwapRequest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SchichtenService_ApproveSwapRequest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SchichtenServiceServer).ApproveSwapRequest(ctx, req.(*ApproveSwapRequestRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SchichtenService_RejectSwapRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RejectSwapRequestRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SchichtenServiceServer).RejectSwapRequest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SchichtenService_RejectSwapRequest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SchichtenServiceServer).RejectSwapRequest(ctx, req.(*RejectSwapRequestRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SchichtenService_ServiceDesc is the grpc.ServiceDesc for SchichtenService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -692,6 +830,22 @@ var SchichtenService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetShiftStats",
 			Handler:    _SchichtenService_GetShiftStats_Handler,
+		},
+		{
+			MethodName: "CreateSwapRequest",
+			Handler:    _SchichtenService_CreateSwapRequest_Handler,
+		},
+		{
+			MethodName: "ListSwapRequests",
+			Handler:    _SchichtenService_ListSwapRequests_Handler,
+		},
+		{
+			MethodName: "ApproveSwapRequest",
+			Handler:    _SchichtenService_ApproveSwapRequest_Handler,
+		},
+		{
+			MethodName: "RejectSwapRequest",
+			Handler:    _SchichtenService_RejectSwapRequest_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

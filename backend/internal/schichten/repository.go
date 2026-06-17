@@ -14,6 +14,12 @@ type ListShiftsFilter struct {
 	To     *time.Time
 }
 
+// SwapRequestFilter holds optional filters for swap request list queries.
+type SwapRequestFilter struct {
+	ShiftID *uuid.UUID
+	Status  *SwapRequestStatus
+}
+
 // Repository defines the persistence interface for the schichten module.
 type Repository interface {
 	// Shifts
@@ -48,4 +54,15 @@ type Repository interface {
 
 	// Stats
 	GetStats(ctx context.Context, tenantID uuid.UUID, from, to *time.Time) (*ShiftStats, error)
+
+	// SwapRequests
+	CreateSwapRequest(ctx context.Context, req *SwapRequest) error
+	GetSwapRequest(ctx context.Context, tenantID, requestID uuid.UUID) (*SwapRequest, error)
+	ListSwapRequests(ctx context.Context, tenantID uuid.UUID, filter SwapRequestFilter, offset, limit int) ([]*SwapRequest, int, error)
+	// UpdateSwapRequestStatus sets the status of a swap request and (on approval) atomically
+	// swaps the two assignments within the same transaction.
+	UpdateSwapRequestStatus(ctx context.Context, tenantID, requestID uuid.UUID, status SwapRequestStatus) error
+	// SwapAssignmentsForRequest atomically swaps the employee of two assignments identified
+	// by the swap request's assignment data. Called inside ApproveSwapRequest.
+	SwapAssignmentsForRequest(ctx context.Context, req *SwapRequest) error
 }

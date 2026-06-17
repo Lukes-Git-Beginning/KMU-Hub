@@ -30,6 +30,12 @@ service SchichtenService {
   // Compliance & Stats
   rpc CheckArbzgCompliance(CheckArbzgComplianceRequest) returns (CheckArbzgComplianceResponse);
   rpc GetShiftStats(GetShiftStatsRequest) returns (ShiftStatsResponse);
+
+  // Swap Requests
+  rpc CreateSwapRequest(CreateSwapRequestRequest) returns (SwapRequestResponse);
+  rpc ListSwapRequests(ListSwapRequestsRequest) returns (ListSwapRequestsResponse);
+  rpc ApproveSwapRequest(ApproveSwapRequestRequest) returns (SwapRequestResponse);
+  rpc RejectSwapRequest(RejectSwapRequestRequest) returns (SwapRequestResponse);
 }
 
 // ============================================================================
@@ -259,4 +265,59 @@ message ShiftStatsResponse {
   int32 draft_shifts = 3;
   int32 total_assignments = 4;
   int32 unique_employees = 5;
+}
+
+// ============================================================================
+// Swap Request Messages
+// ============================================================================
+
+message SwapRequest {
+  string id = 1;
+  string tenant_id = 2;
+  string assignment_id = 3;
+  string shift_id = 4;
+  string requested_by_employee_id = 5;
+  string swap_with_employee_id = 6;
+  string status = 7; // pending|approved|rejected
+  string reason = 8;
+  string idempotency_key = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message CreateSwapRequestRequest {
+  string tenant_id = 1;
+  string assignment_id = 2;
+  string shift_id = 3;
+  string requested_by_employee_id = 4;
+  string swap_with_employee_id = 5;
+  string reason = 6;
+  string idempotency_key = 7;
+}
+
+message SwapRequestResponse {
+  SwapRequest swap_request = 1;
+}
+
+message ListSwapRequestsRequest {
+  string tenant_id = 1;
+  optional string shift_id = 2;
+  optional string status = 3; // pending|approved|rejected
+  int32 page = 4;
+  int32 page_size = 5;
+}
+
+message ListSwapRequestsResponse {
+  repeated SwapRequest swap_requests = 1;
+  int32 total = 2;
+}
+
+message ApproveSwapRequestRequest {
+  string tenant_id = 1;
+  string request_id = 2;
+}
+
+message RejectSwapRequestRequest {
+  string tenant_id = 1;
+  string request_id = 2;
 }

@@ -459,6 +459,116 @@ func (s *SchichtenGRPCServer) GetShiftStats(ctx context.Context, req *schichtenv
 }
 
 // ============================================================================
+// Swap Request RPCs
+// ============================================================================
+
+func (s *SchichtenGRPCServer) CreateSwapRequest(ctx context.Context, req *schichtenv1.CreateSwapRequestRequest) (*schichtenv1.SwapRequestResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	assignmentID, err := uuid.Parse(req.GetAssignmentId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid assignment_id: %v", err)
+	}
+	shiftID, err := uuid.Parse(req.GetShiftId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid shift_id: %v", err)
+	}
+	requestedByID, err := uuid.Parse(req.GetRequestedByEmployeeId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid requested_by_employee_id: %v", err)
+	}
+	swapWithID, err := uuid.Parse(req.GetSwapWithEmployeeId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid swap_with_employee_id: %v", err)
+	}
+
+	result, err := s.svc.CreateSwapRequest(ctx, schichten.CreateSwapRequestInput{
+		TenantID:              tenantID,
+		AssignmentID:          assignmentID,
+		ShiftID:               shiftID,
+		RequestedByEmployeeID: requestedByID,
+		SwapWithEmployeeID:    swapWithID,
+		Reason:                req.GetReason(),
+		IdempotencyKey:        req.GetIdempotencyKey(),
+	})
+	if err != nil {
+		return nil, mapSchichtenError(err)
+	}
+	return &schichtenv1.SwapRequestResponse{SwapRequest: swapRequestToProto(result)}, nil
+}
+
+func (s *SchichtenGRPCServer) ListSwapRequests(ctx context.Context, req *schichtenv1.ListSwapRequestsRequest) (*schichtenv1.ListSwapRequestsResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+
+	input := schichten.ListSwapRequestsInput{
+		TenantID: tenantID,
+		Page:     int(req.GetPage()),
+		PageSize: int(req.GetPageSize()),
+	}
+	if sid := req.GetShiftId(); sid != "" {
+		id, parseErr := uuid.Parse(sid)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid shift_id: %v", parseErr)
+		}
+		input.ShiftID = &id
+	}
+	if st := req.GetStatus(); st != "" {
+		ss := schichten.SwapRequestStatus(st)
+		input.Status = &ss
+	}
+
+	results, total, err := s.svc.ListSwapRequests(ctx, input)
+	if err != nil {
+		return nil, mapSchichtenError(err)
+	}
+
+	var pbReqs []*schichtenv1.SwapRequest
+	for _, sr := range results {
+		pbReqs = append(pbReqs, swapRequestToProto(sr))
+	}
+	return &schichtenv1.ListSwapRequestsResponse{SwapRequests: pbReqs, Total: int32(total)}, nil
+}
+
+func (s *SchichtenGRPCServer) ApproveSwapRequest(ctx context.Context, req *schichtenv1.ApproveSwapRequestRequest) (*schichtenv1.SwapRequestResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	requestID, err := uuid.Parse(req.GetRequestId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid request_id: %v", err)
+	}
+
+	result, err := s.svc.ApproveSwapRequest(ctx, tenantID, requestID)
+	if err != nil {
+		return nil, mapSchichtenError(err)
+	}
+	return &schichtenv1.SwapRequestResponse{SwapRequest: swapRequestToProto(result)}, nil
+}
+
+func (s *SchichtenGRPCServer) RejectSwapRequest(ctx context.Context, req *schichtenv1.RejectSwapRequestRequest) (*schichtenv1.SwapRequestResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	requestID, err := uuid.Parse(req.GetRequestId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid request_id: %v", err)
+	}
+
+	result, err := s.svc.RejectSwapRequest(ctx, tenantID, requestID)
+	if err != nil {
+		return nil, mapSchichtenError(err)
+	}
+	return &schichtenv1.SwapRequestResponse{SwapRequest: swapRequestToProto(result)}, nil
+}
+
+// ============================================================================
 // Mapping helpers
 // ============================================================================
 
@@ -518,6 +628,22 @@ func shiftTemplateToProto(t *schichten.ShiftTemplate) *schichtenv1.ShiftTemplate
 	return pb
 }
 
+func swapRequestToProto(sr *schichten.SwapRequest) *schichtenv1.SwapRequest {
+	return &schichtenv1.SwapRequest{
+		Id:                    sr.ID.String(),
+		TenantId:              sr.TenantID.String(),
+		AssignmentId:          sr.AssignmentID.String(),
+		ShiftId:               sr.ShiftID.String(),
+		RequestedByEmployeeId: sr.RequestedByEmployeeID.String(),
+		SwapWithEmployeeId:    sr.SwapWithEmployeeID.String(),
+		Status:                string(sr.Status),
+		Reason:                sr.Reason,
+		IdempotencyKey:        sr.IdempotencyKey,
+		CreatedAt:             timestamppb.New(sr.CreatedAt),
+		UpdatedAt:             timestamppb.New(sr.UpdatedAt),
+	}
+}
+
 func mapSchichtenError(err error) error {
 	switch {
 	case errors.Is(err, schichten.ErrShiftNotFound):
@@ -526,11 +652,15 @@ func mapSchichtenError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, schichten.ErrAssignmentNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, schichten.ErrSwapRequestNotFound):
+		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, schichten.ErrInvalidInput):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, schichten.ErrAlreadyAssigned):
 		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, schichten.ErrArbzgViolation):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, schichten.ErrSwapAlreadyProcessed):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
 		slog.Error("unhandled schichten service error", "error", err)

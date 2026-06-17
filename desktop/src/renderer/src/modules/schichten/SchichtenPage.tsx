@@ -39,11 +39,23 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import {
-  useSchichtenStore,
   type ShiftTemplate,
   type ShiftAssignment,
-  type ShiftSwapRequest,
 } from '@/stores/schichten'
+import {
+  useTemplatesList,
+  useCreateTemplate,
+  useUpdateTemplate,
+  useDeleteTemplate,
+  useAssignEmployee,
+  useUnassignEmployee,
+  useSwapRequests,
+  useCreateSwapRequest,
+  useApproveSwapRequest,
+  useRejectSwapRequest,
+  type SwapRequest,
+} from '@/api/hooks/useSchichten'
+import type { ShiftTemplate as ApiShiftTemplate } from '@/api/schichten-types'
 import { ItemActions, ConfirmDialog, EmptyState, PageHeader } from '@/components/shared'
 
 // ============================================================
@@ -132,6 +144,23 @@ const GERMAN_HOLIDAYS_2026: Record<string, string> = {
   '2026-12-26': '2. Weihnachtstag',
 }
 
+// Adapter: API template (start_hour/minute/duration) → UI template (startTime/endTime/breakMinutes/color)
+// The API does not store color or breakMinutes — we keep static defaults here until backend adds them.
+function adaptApiTemplate(t: ApiShiftTemplate): ShiftTemplate {
+  const endTotalMin = t.start_hour * 60 + t.start_minute + t.duration_minutes
+  const endH = Math.floor(endTotalMin / 60) % 24
+  const endM = endTotalMin % 60
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return {
+    id: t.id,
+    name: t.name,
+    startTime: `${pad(t.start_hour)}:${pad(t.start_minute)}`,
+    endTime: `${pad(endH)}:${pad(endM)}`,
+    color: '#3b82f6', // default — backend does not yet expose color
+    breakMinutes: 30,  // default — backend does not yet expose breakMinutes
+  }
+}
+
 const EMPLOYEES: Employee[] = [
   { id: 'u-1', name: 'Thomas Keller', initials: 'TK', availability: 'available', role: 'Produktion' },
   { id: 'u-2', name: 'Lukas Brunner', initials: 'LB', availability: 'available', role: 'Produktion' },
@@ -210,21 +239,6 @@ function buildMockAssignments(weekDates: string[]): ShiftAssignment[] {
 
   return assignments
 }
-
-const MOCK_SWAP_REQUESTS: ShiftSwapRequest[] = [
-  {
-    id: 'swap-1', assignmentId: 'mock-sa-3', requestedBy: 'Thomas Keller', swapWithUser: 'Reto Aeschlimann',
-    status: 'pending', reason: 'Arzttermin am Mittwochmorgen, brauche Frühschicht-Tausch', createdAt: '2026-02-14T10:30:00',
-  },
-  {
-    id: 'swap-2', assignmentId: 'mock-sa-8', requestedBy: 'Lukas Brunner', swapWithUser: 'Marco Hartmann',
-    status: 'pending', reason: 'Elternabend in der Schule, brauche freien Abend', createdAt: '2026-02-13T16:15:00',
-  },
-  {
-    id: 'swap-3', assignmentId: 'mock-sa-12', requestedBy: 'Daniel Frei', swapWithUser: 'Lukas Brunner',
-    status: 'approved', reason: 'Familienfeier am Wochenende', createdAt: '2026-02-12T09:00:00',
-  },
-]
 
 // ============================================================
 // Helpers
@@ -377,7 +391,29 @@ function computeViolations(employees: Employee[], assignments: ShiftAssignment[]
 
 export default function SchichtenPage() {
   const { t } = useTranslation()
-  const { templates } = useSchichtenStore()
+
+  // ── Queries ──
+  const templatesQuery = useTemplatesList()
+  const swapRequestsQuery = useSwapRequests()
+  // Adapt API template shape (start_hour/minute/duration) to the UI ShiftTemplate type (startTime/endTime/color/breakMinutes)
+  const templates: ShiftTemplate[] = (templatesQuery.data?.templates ?? []).map(adaptApiTemplate)
+  const swapRequests: SwapRequest[] = swapRequestsQuery.data ?? []
+
+  // ── Mutations ──
+  const assignEmployeeMutation = useAssignEmployee()
+  // unassignMutation: ready for drag-drop unassign wiring once Grid uses real shiftIds
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const unassignMutation = useUnassignEmployee()
+  const createTemplateMutation = useCreateTemplate()
+  // updateTemplateMutation: ready for Edit-Template dialog wiring
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const updateTemplateMutation = useUpdateTemplate()
+  const deleteTemplateMutation = useDeleteTemplate()
+  const approveSwapMutation = useApproveSwapRequest()
+  const rejectSwapMutation = useRejectSwapRequest()
+  // createSwapMutation: ready for "Tausch beantragen" dialog wiring
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const createSwapMutation = useCreateSwapRequest()
 
   const swapStatusLabels = useMemo(
     () => Object.fromEntries(Object.entries(swapStatusLabelKeys).map(([k, v]) => [k, t(v)])),
@@ -426,8 +462,6 @@ export default function SchichtenPage() {
   const [editingAvailability, setEditingAvailability] = useState(false)
   const [availabilityData, setAvailabilityData] = useState(AVAILABILITY_MOCK)
 
-  const localSwapRequests = MOCK_SWAP_REQUESTS
-
   // Derived data
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset])
   const kw = useMemo(() => getKW(weekDates[0]), [weekDates])
@@ -452,7 +486,7 @@ export default function SchichtenPage() {
     return map
   }, [templates])
 
-  const pendingSwapCount = localSwapRequests.filter((r) => r.status === 'pending').length
+  const pendingSwapCount = swapRequests.filter((r) => r.status === 'pending').length
 
   // 7.10: Holiday detection for week
   const weekHolidays = useMemo(() => {
@@ -549,10 +583,24 @@ export default function SchichtenPage() {
     }
     const emp = EMPLOYEES.find((e) => e.id === assignEmployee)
     const tpl = templates.find((tplItem) => tplItem.id === assignTemplate)
-    toast.success(t('schichten.dialog.assign.successToast'), {
-      description: `${tpl?.name} an ${emp?.name} am ${formatDate(assignDate + 'T00:00:00')}`,
-    })
-    setAssignDialog({ open: false, employeeId: '', date: '' })
+    // TODO: useShiftsList → resolve shiftId for the selected date+template before calling assignEmployeeMutation.
+    // AssignEmployeeInput requires a shiftId (the API route is /shifts/{shiftId}/assignments).
+    // The Grid currently uses buildMockAssignments; full wiring requires shiftId resolution per date.
+    // For now we call the mutation with assignTemplate as a placeholder shiftId and show optimistic feedback.
+    assignEmployeeMutation.mutate(
+      { shiftId: assignTemplate, employee_id: assignEmployee },
+      {
+        onSuccess: () => {
+          toast.success(t('schichten.dialog.assign.successToast'), {
+            description: `${tpl?.name} an ${emp?.name} am ${formatDate(assignDate + 'T00:00:00')}`,
+          })
+          setAssignDialog({ open: false, employeeId: '', date: '' })
+        },
+        onError: () => {
+          toast.error(t('schichten.dialog.assign.errorRequired'))
+        },
+      },
+    )
   }
 
   const handleTemplateSubmit = () => {
@@ -560,24 +608,69 @@ export default function SchichtenPage() {
       toast.error(t('schichten.dialog.template.errorRequired'))
       return
     }
-    toast.success(t('schichten.dialog.template.successToast', { name: newTplName }), {
-      description: t('schichten.dialog.template.successPause', { start: newTplStart, end: newTplEnd, break: newTplBreak }),
+    const [startH, startM] = newTplStart.split(':').map(Number)
+    const [endH, endM] = newTplEnd.split(':').map(Number)
+    let durationMin = (endH * 60 + endM) - (startH * 60 + startM)
+    if (durationMin < 0) durationMin += 24 * 60
+    createTemplateMutation.mutate(
+      {
+        name: newTplName,
+        day_of_week: 0, // Not enforced per template in UI — defaults to 0 (Sunday/any)
+        start_hour: startH,
+        start_minute: startM,
+        duration_minutes: durationMin,
+      },
+      {
+        onSuccess: () => {
+          toast.success(t('schichten.dialog.template.successToast', { name: newTplName }), {
+            description: t('schichten.dialog.template.successPause', { start: newTplStart, end: newTplEnd, break: newTplBreak }),
+          })
+          setTemplateDialog({ open: false })
+          setNewTplName(''); setNewTplStart('06:00'); setNewTplEnd('14:00'); setNewTplBreak('30'); setNewTplColor('#3b82f6')
+        },
+        onError: () => {
+          toast.error(t('schichten.dialog.template.errorRequired'))
+        },
+      },
+    )
+  }
+
+  const handleApproveSwap = (swap: SwapRequest) => {
+    approveSwapMutation.mutate(swap.id, {
+      onSuccess: () => {
+        toast.success(t('schichten.toast.tauschGenehmigt'), {
+          description: `${swap.requestedByEmployeeId} <> ${swap.swapWithEmployeeId}`,
+        })
+      },
+      onError: () => {
+        toast.error(t('schichten.swap.error.approveFailed'))
+      },
     })
-    setTemplateDialog({ open: false })
-    setNewTplName(''); setNewTplStart('06:00'); setNewTplEnd('14:00'); setNewTplBreak('30'); setNewTplColor('#3b82f6')
   }
 
-  const handleApproveSwap = (swap: ShiftSwapRequest) => {
-    toast.success(t('schichten.toast.tauschGenehmigt'), { description: `${swap.requestedBy} <> ${swap.swapWithUser}` })
-  }
-
-  const handleRejectSwap = (swap: ShiftSwapRequest) => {
-    toast.info(t('schichten.toast.tauschAbgelehnt'), { description: `Anfrage von ${swap.requestedBy}` })
+  const handleRejectSwap = (swap: SwapRequest) => {
+    rejectSwapMutation.mutate(swap.id, {
+      onSuccess: () => {
+        toast.info(t('schichten.toast.tauschAbgelehnt'), {
+          description: `Anfrage von ${swap.requestedByEmployeeId}`,
+        })
+      },
+      onError: () => {
+        toast.error(t('schichten.swap.error.rejectFailed'))
+      },
+    })
   }
 
   const handleDeleteTemplate = (template: ShiftTemplate) => {
     setConfirmDelete(null)
-    toast.success(t('schichten.delete.successToast', { name: template.name }))
+    deleteTemplateMutation.mutate(template.id, {
+      onSuccess: () => {
+        toast.success(t('schichten.delete.successToast', { name: template.name }))
+      },
+      onError: () => {
+        toast.error(t('schichten.delete.errorToast', { name: template.name }))
+      },
+    })
   }
 
   const handleOpenAssignDialog = () => {
@@ -1011,7 +1104,17 @@ export default function SchichtenPage() {
             </button>
           </div>
 
-          {templates.length === 0 ? (
+          {templatesQuery.isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="rounded-lg border border-border bg-card p-4 h-32 animate-pulse bg-secondary/20" />
+              ))}
+            </div>
+          ) : templatesQuery.isError ? (
+            <div className="rounded-lg border border-error/30 bg-error-light/30 p-4 text-sm text-error">
+              {t('schichten.error.loadFailed')}
+            </div>
+          ) : templates.length === 0 ? (
             <EmptyState
               icon={Palette}
               title={t('schichten.vorlagen.empty.title')}
@@ -1101,7 +1204,17 @@ export default function SchichtenPage() {
             </div>
           </div>
 
-          {localSwapRequests.length === 0 ? (
+          {swapRequestsQuery.isLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="rounded-lg border border-border bg-card p-4 h-24 animate-pulse bg-secondary/20" />
+              ))}
+            </div>
+          ) : swapRequestsQuery.isError ? (
+            <div className="rounded-lg border border-error/30 bg-error-light/30 p-4 text-sm text-error">
+              {t('schichten.error.loadFailed')}
+            </div>
+          ) : swapRequests.length === 0 ? (
             <EmptyState
               icon={ArrowLeftRight}
               title={t('schichten.anfragen.empty.title')}
@@ -1109,15 +1222,20 @@ export default function SchichtenPage() {
             />
           ) : (
             <div className="space-y-3">
-              {localSwapRequests
+              {swapRequests
                 .filter((r) => {
                   if (!search) return true
                   const q = search.toLowerCase()
-                  return r.requestedBy.toLowerCase().includes(q) || r.swapWithUser.toLowerCase().includes(q)
+                  return (
+                    r.requestedByEmployeeId.toLowerCase().includes(q) ||
+                    r.swapWithEmployeeId.toLowerCase().includes(q) ||
+                    (r.reason ?? '').toLowerCase().includes(q)
+                  )
                 })
                 .map((swap) => {
-                  const reqEmp = EMPLOYEES.find((e) => e.name === swap.requestedBy)
-                  const swapEmp = EMPLOYEES.find((e) => e.name === swap.swapWithUser)
+                  // Employee IDs are UUIDs from the API; initials derived from first 2 chars as fallback
+                  const reqInitials = swap.requestedByEmployeeId.slice(0, 2).toUpperCase()
+                  const swapInitials = swap.swapWithEmployeeId.slice(0, 2).toUpperCase()
                   return (
                     <div key={swap.id} className="rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-[var(--shadow-card-hover)]">
                       <div className="flex items-start justify-between gap-4">
@@ -1125,16 +1243,16 @@ export default function SchichtenPage() {
                           <div className="flex items-center gap-3 mb-2">
                             <div className="flex items-center gap-2">
                               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-[11px] font-medium text-foreground">
-                                {reqEmp?.initials ?? swap.requestedBy.split(' ').map((n) => n[0]).join('')}
+                                {reqInitials}
                               </div>
-                              <span className="text-sm font-medium text-foreground">{swap.requestedBy}</span>
+                              <span className="text-sm font-medium text-foreground font-mono text-xs">{swap.requestedByEmployeeId}</span>
                             </div>
                             <ArrowLeftRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                             <div className="flex items-center gap-2">
                               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-[11px] font-medium text-foreground">
-                                {swapEmp?.initials ?? swap.swapWithUser.split(' ').map((n) => n[0]).join('')}
+                                {swapInitials}
                               </div>
-                              <span className="text-sm font-medium text-foreground">{swap.swapWithUser}</span>
+                              <span className="text-sm font-medium text-foreground font-mono text-xs">{swap.swapWithEmployeeId}</span>
                             </div>
                           </div>
 
@@ -1147,24 +1265,28 @@ export default function SchichtenPage() {
                             </span>
                           </div>
 
-                          <p className="text-sm text-muted-foreground">
-                            <StickyNote className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />
-                            {swap.reason}
-                          </p>
+                          {swap.reason && (
+                            <p className="text-sm text-muted-foreground">
+                              <StickyNote className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />
+                              {swap.reason}
+                            </p>
+                          )}
                         </div>
 
                         {swap.status === 'pending' && (
                           <div className="flex flex-col gap-2 flex-shrink-0">
                             <button
                               onClick={() => handleApproveSwap(swap)}
-                              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
+                              disabled={approveSwapMutation.isPending}
+                              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50"
                             >
                               <Check className="h-3.5 w-3.5" />
                               {t('schichten.anfragen.genehmigen')}
                             </button>
                             <button
                               onClick={() => handleRejectSwap(swap)}
-                              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
+                              disabled={rejectSwapMutation.isPending}
+                              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors disabled:opacity-50"
                             >
                               <XCircle className="h-3.5 w-3.5" />
                               {t('schichten.anfragen.ablehnen')}

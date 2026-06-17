@@ -476,6 +476,196 @@ func (r *PostgresRepository) GetStats(ctx context.Context, tenantID uuid.UUID, f
 }
 
 // ============================================================================
+// SwapRequests
+// ============================================================================
+
+// CreateSwapRequest inserts a new swap request with idempotency via ON CONFLICT DO NOTHING.
+// If the idempotency_key already exists, it fetches and returns the existing record.
+func (r *PostgresRepository) CreateSwapRequest(ctx context.Context, req *SwapRequest) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO shift_swap_requests
+		    (id, tenant_id, assignment_id, requested_by_employee_id, swap_with_employee_id, shift_id,
+		     status, reason, idempotency_key, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		 ON CONFLICT (idempotency_key) DO NOTHING`,
+		req.ID, req.TenantID, req.AssignmentID,
+		req.RequestedByEmployeeID, req.SwapWithEmployeeID, req.ShiftID,
+		req.Status, req.Reason, req.IdempotencyKey,
+		req.CreatedAt, req.UpdatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("create swap request: %w", err)
+	}
+	// Re-fetch by idempotency_key to populate req.ID in case of conflict.
+	existing := &SwapRequest{}
+	fetchErr := r.pool.QueryRow(ctx,
+		`SELECT id, tenant_id, assignment_id, requested_by_employee_id, swap_with_employee_id, shift_id,
+		        status, reason, idempotency_key, created_at, updated_at
+		 FROM shift_swap_requests WHERE idempotency_key = $1 AND tenant_id = $2`,
+		req.IdempotencyKey, req.TenantID,
+	).Scan(
+		&existing.ID, &existing.TenantID, &existing.AssignmentID,
+		&existing.RequestedByEmployeeID, &existing.SwapWithEmployeeID, &existing.ShiftID,
+		&existing.Status, &existing.Reason, &existing.IdempotencyKey,
+		&existing.CreatedAt, &existing.UpdatedAt,
+	)
+	if fetchErr != nil {
+		return fmt.Errorf("re-fetch swap request by idempotency_key: %w", fetchErr)
+	}
+	*req = *existing
+	return nil
+}
+
+// GetSwapRequest retrieves a single swap request by ID and tenant.
+func (r *PostgresRepository) GetSwapRequest(ctx context.Context, tenantID, requestID uuid.UUID) (*SwapRequest, error) {
+	var req SwapRequest
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, tenant_id, assignment_id, requested_by_employee_id, swap_with_employee_id, shift_id,
+		        status, reason, idempotency_key, created_at, updated_at
+		 FROM shift_swap_requests WHERE id = $1 AND tenant_id = $2`,
+		requestID, tenantID,
+	).Scan(
+		&req.ID, &req.TenantID, &req.AssignmentID,
+		&req.RequestedByEmployeeID, &req.SwapWithEmployeeID, &req.ShiftID,
+		&req.Status, &req.Reason, &req.IdempotencyKey,
+		&req.CreatedAt, &req.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrSwapRequestNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get swap request: %w", err)
+	}
+	return &req, nil
+}
+
+// ListSwapRequests returns paginated swap requests with optional filtering.
+func (r *PostgresRepository) ListSwapRequests(ctx context.Context, tenantID uuid.UUID, filter SwapRequestFilter, offset, limit int) ([]*SwapRequest, int, error) {
+	var conditions []string
+	var args []any
+	argNum := 1
+
+	conditions = append(conditions, fmt.Sprintf("tenant_id = $%d", argNum))
+	args = append(args, tenantID)
+	argNum++
+
+	if filter.ShiftID != nil {
+		conditions = append(conditions, fmt.Sprintf("shift_id = $%d", argNum))
+		args = append(args, *filter.ShiftID)
+		argNum++
+	}
+	if filter.Status != nil {
+		conditions = append(conditions, fmt.Sprintf("status = $%d", argNum))
+		args = append(args, *filter.Status)
+		argNum++
+	}
+
+	whereClause := "WHERE " + strings.Join(conditions, " AND ")
+
+	var total int
+	if err := r.pool.QueryRow(ctx,
+		fmt.Sprintf("SELECT COUNT(*) FROM shift_swap_requests %s", whereClause), args...,
+	).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count swap requests: %w", err)
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id, tenant_id, assignment_id, requested_by_employee_id, swap_with_employee_id, shift_id,
+		       status, reason, idempotency_key, created_at, updated_at
+		FROM shift_swap_requests %s
+		ORDER BY created_at DESC
+		LIMIT $%d OFFSET $%d
+	`, whereClause, argNum, argNum+1)
+	args = append(args, limit, offset)
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list swap requests: %w", err)
+	}
+	defer rows.Close()
+
+	var reqs []*SwapRequest
+	for rows.Next() {
+		req, scanErr := r.scanSwapRequestFromRows(rows)
+		if scanErr != nil {
+			return nil, 0, scanErr
+		}
+		reqs = append(reqs, req)
+	}
+	return reqs, total, rows.Err()
+}
+
+// UpdateSwapRequestStatus updates the status of a swap request.
+func (r *PostgresRepository) UpdateSwapRequestStatus(ctx context.Context, tenantID, requestID uuid.UUID, status SwapRequestStatus) error {
+	ct, err := r.pool.Exec(ctx,
+		`UPDATE shift_swap_requests
+		 SET status = $1, updated_at = NOW()
+		 WHERE id = $2 AND tenant_id = $3`,
+		status, requestID, tenantID,
+	)
+	if err != nil {
+		return fmt.Errorf("update swap request status: %w", err)
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrSwapRequestNotFound
+	}
+	return nil
+}
+
+// SwapAssignmentsForRequest atomically swaps the employee IDs of two shift assignments:
+// the assignment identified by req.AssignmentID (requested_by) gets the swap_with employee,
+// and the complementary assignment (same shift, swap_with employee) gets requested_by.
+// Both updates run in a single DB transaction.
+func (r *PostgresRepository) SwapAssignmentsForRequest(ctx context.Context, req *SwapRequest) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin swap transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	// Update the requester's assignment to swap_with employee.
+	_, err = tx.Exec(ctx,
+		`UPDATE shift_assignments
+		 SET employee_id = $1
+		 WHERE id = $2 AND tenant_id = $3`,
+		req.SwapWithEmployeeID, req.AssignmentID, req.TenantID,
+	)
+	if err != nil {
+		return fmt.Errorf("swap assignment (requester): %w", err)
+	}
+
+	// Update the swap_with employee's assignment on the same shift to requested_by.
+	_, err = tx.Exec(ctx,
+		`UPDATE shift_assignments
+		 SET employee_id = $1
+		 WHERE shift_id = $2 AND employee_id = $3 AND tenant_id = $4`,
+		req.RequestedByEmployeeID, req.ShiftID, req.SwapWithEmployeeID, req.TenantID,
+	)
+	if err != nil {
+		return fmt.Errorf("swap assignment (swap_with): %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit swap transaction: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresRepository) scanSwapRequestFromRows(rows pgx.Rows) (*SwapRequest, error) {
+	var req SwapRequest
+	err := rows.Scan(
+		&req.ID, &req.TenantID, &req.AssignmentID,
+		&req.RequestedByEmployeeID, &req.SwapWithEmployeeID, &req.ShiftID,
+		&req.Status, &req.Reason, &req.IdempotencyKey,
+		&req.CreatedAt, &req.UpdatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("scan swap request row: %w", err)
+	}
+	return &req, nil
+}
+
+// ============================================================================
 // Scan helpers
 // ============================================================================
 

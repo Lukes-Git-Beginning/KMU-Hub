@@ -536,6 +536,151 @@ func (s *Service) GetShiftStats(ctx context.Context, input GetShiftStatsInput) (
 }
 
 // ============================================================================
+// SwapRequest input types
+// ============================================================================
+
+// CreateSwapRequestInput contains data to create a shift-swap request.
+type CreateSwapRequestInput struct {
+	TenantID              uuid.UUID
+	AssignmentID          uuid.UUID
+	RequestedByEmployeeID uuid.UUID
+	SwapWithEmployeeID    uuid.UUID
+	ShiftID               uuid.UUID
+	Reason                string
+	IdempotencyKey        string
+}
+
+// ListSwapRequestsInput contains pagination and filtering for swap request listing.
+type ListSwapRequestsInput struct {
+	TenantID uuid.UUID
+	ShiftID  *uuid.UUID
+	Status   *SwapRequestStatus
+	Page     int
+	PageSize int
+}
+
+// ============================================================================
+// SwapRequest methods
+// ============================================================================
+
+// CreateSwapRequest creates a new shift-swap request with idempotency.
+func (s *Service) CreateSwapRequest(ctx context.Context, input CreateSwapRequestInput) (*SwapRequest, error) {
+	if input.IdempotencyKey == "" {
+		return nil, ErrInvalidInput
+	}
+	if input.RequestedByEmployeeID == uuid.Nil {
+		return nil, ErrInvalidInput
+	}
+	if input.SwapWithEmployeeID == uuid.Nil {
+		return nil, ErrInvalidInput
+	}
+	if input.RequestedByEmployeeID == input.SwapWithEmployeeID {
+		return nil, ErrInvalidInput
+	}
+	if input.ShiftID == uuid.Nil {
+		return nil, ErrInvalidInput
+	}
+
+	now := time.Now()
+	req := &SwapRequest{
+		ID:                    uuid.New(),
+		TenantID:              input.TenantID,
+		AssignmentID:          input.AssignmentID,
+		RequestedByEmployeeID: input.RequestedByEmployeeID,
+		SwapWithEmployeeID:    input.SwapWithEmployeeID,
+		ShiftID:               input.ShiftID,
+		Status:                SwapRequestStatusPending,
+		Reason:                input.Reason,
+		IdempotencyKey:        input.IdempotencyKey,
+		CreatedAt:             now,
+		UpdatedAt:             now,
+	}
+
+	if err := s.repo.CreateSwapRequest(ctx, req); err != nil {
+		return nil, fmt.Errorf("create swap request: %w", err)
+	}
+
+	slog.Info("swap request created",
+		"swap_request_id", req.ID,
+		"shift_id", req.ShiftID,
+		"requested_by", req.RequestedByEmployeeID,
+		"swap_with", req.SwapWithEmployeeID,
+		"tenant_id", req.TenantID,
+	)
+	return req, nil
+}
+
+// ListSwapRequests returns paginated swap requests with optional filtering.
+func (s *Service) ListSwapRequests(ctx context.Context, input ListSwapRequestsInput) ([]*SwapRequest, int, error) {
+	if input.Page < 1 {
+		input.Page = 1
+	}
+	if input.PageSize < 1 || input.PageSize > 200 {
+		input.PageSize = 50
+	}
+	offset := (input.Page - 1) * input.PageSize
+	filter := SwapRequestFilter{
+		ShiftID: input.ShiftID,
+		Status:  input.Status,
+	}
+	return s.repo.ListSwapRequests(ctx, input.TenantID, filter, offset, input.PageSize)
+}
+
+// ApproveSwapRequest approves a swap request and atomically swaps the two assignments.
+func (s *Service) ApproveSwapRequest(ctx context.Context, tenantID, requestID uuid.UUID) (*SwapRequest, error) {
+	req, err := s.repo.GetSwapRequest(ctx, tenantID, requestID)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Status != SwapRequestStatusPending {
+		return nil, ErrSwapAlreadyProcessed
+	}
+
+	// Atomically: update status + swap assignments in one transaction.
+	if err := s.repo.SwapAssignmentsForRequest(ctx, req); err != nil {
+		return nil, fmt.Errorf("approve swap request (swap assignments): %w", err)
+	}
+	if err := s.repo.UpdateSwapRequestStatus(ctx, tenantID, requestID, SwapRequestStatusApproved); err != nil {
+		return nil, fmt.Errorf("approve swap request (update status): %w", err)
+	}
+
+	req.Status = SwapRequestStatusApproved
+	req.UpdatedAt = time.Now()
+
+	slog.Info("swap request approved",
+		"swap_request_id", requestID,
+		"tenant_id", tenantID,
+	)
+	return req, nil
+}
+
+// RejectSwapRequest rejects a pending swap request.
+func (s *Service) RejectSwapRequest(ctx context.Context, tenantID, requestID uuid.UUID) (*SwapRequest, error) {
+	req, err := s.repo.GetSwapRequest(ctx, tenantID, requestID)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Status != SwapRequestStatusPending {
+		return nil, ErrSwapAlreadyProcessed
+	}
+
+	if err := s.repo.UpdateSwapRequestStatus(ctx, tenantID, requestID, SwapRequestStatusRejected); err != nil {
+		return nil, fmt.Errorf("reject swap request: %w", err)
+	}
+
+	req.Status = SwapRequestStatusRejected
+	req.UpdatedAt = time.Now()
+
+	slog.Info("swap request rejected",
+		"swap_request_id", requestID,
+		"tenant_id", tenantID,
+	)
+	return req, nil
+}
+
+// ============================================================================
 // Internal helpers
 // ============================================================================
 

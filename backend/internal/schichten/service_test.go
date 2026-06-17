@@ -15,9 +15,10 @@ import (
 // ============================================================================
 
 type mockRepository struct {
-	shifts      map[uuid.UUID]*Shift
-	assignments map[string]*ShiftAssignment // key: shiftID+":"+employeeID
-	templates   map[uuid.UUID]*ShiftTemplate
+	shifts       map[uuid.UUID]*Shift
+	assignments  map[string]*ShiftAssignment // key: shiftID+":"+employeeID
+	templates    map[uuid.UUID]*ShiftTemplate
+	swapRequests map[uuid.UUID]*SwapRequest
 
 	// per-employee latest shift end (for ArbZG check)
 	employeeLatestEnd map[uuid.UUID]*time.Time
@@ -31,6 +32,7 @@ func newMockRepository() *mockRepository {
 		shifts:            make(map[uuid.UUID]*Shift),
 		assignments:       make(map[string]*ShiftAssignment),
 		templates:         make(map[uuid.UUID]*ShiftTemplate),
+		swapRequests:      make(map[uuid.UUID]*SwapRequest),
 		employeeLatestEnd: make(map[uuid.UUID]*time.Time),
 	}
 }
@@ -259,6 +261,82 @@ func (m *mockRepository) GetStats(ctx context.Context, tenantID uuid.UUID, from,
 		}
 	}
 	return stats, nil
+}
+
+// -- SwapRequests --
+
+func (m *mockRepository) CreateSwapRequest(ctx context.Context, req *SwapRequest) error {
+	// Idempotency: check if key already exists.
+	for _, existing := range m.swapRequests {
+		if existing.IdempotencyKey == req.IdempotencyKey && existing.TenantID == req.TenantID {
+			*req = *existing
+			return nil
+		}
+	}
+	m.swapRequests[req.ID] = req
+	return nil
+}
+
+func (m *mockRepository) GetSwapRequest(ctx context.Context, tenantID, requestID uuid.UUID) (*SwapRequest, error) {
+	req, ok := m.swapRequests[requestID]
+	if !ok || req.TenantID != tenantID {
+		return nil, ErrSwapRequestNotFound
+	}
+	return req, nil
+}
+
+func (m *mockRepository) ListSwapRequests(ctx context.Context, tenantID uuid.UUID, filter SwapRequestFilter, offset, limit int) ([]*SwapRequest, int, error) {
+	var result []*SwapRequest
+	for _, req := range m.swapRequests {
+		if req.TenantID != tenantID {
+			continue
+		}
+		if filter.ShiftID != nil && req.ShiftID != *filter.ShiftID {
+			continue
+		}
+		if filter.Status != nil && req.Status != *filter.Status {
+			continue
+		}
+		result = append(result, req)
+	}
+	total := len(result)
+	if offset >= total {
+		return []*SwapRequest{}, total, nil
+	}
+	end := min(offset+limit, total)
+	return result[offset:end], total, nil
+}
+
+func (m *mockRepository) UpdateSwapRequestStatus(ctx context.Context, tenantID, requestID uuid.UUID, status SwapRequestStatus) error {
+	req, ok := m.swapRequests[requestID]
+	if !ok || req.TenantID != tenantID {
+		return ErrSwapRequestNotFound
+	}
+	req.Status = status
+	req.UpdatedAt = time.Now()
+	return nil
+}
+
+func (m *mockRepository) SwapAssignmentsForRequest(ctx context.Context, req *SwapRequest) error {
+	// Swap employee_id on the requester's assignment.
+	assignKey1 := assignKey(req.ShiftID, req.RequestedByEmployeeID)
+	assignKey2 := assignKey(req.ShiftID, req.SwapWithEmployeeID)
+
+	a1, ok1 := m.assignments[assignKey1]
+	a2, ok2 := m.assignments[assignKey2]
+
+	// Best-effort: update what exists (mirrors DB ON CONFLICT DO NOTHING style).
+	if ok1 {
+		delete(m.assignments, assignKey1)
+		a1.EmployeeID = req.SwapWithEmployeeID
+		m.assignments[assignKey(req.ShiftID, req.SwapWithEmployeeID)] = a1
+	}
+	if ok2 {
+		delete(m.assignments, assignKey2)
+		a2.EmployeeID = req.RequestedByEmployeeID
+		m.assignments[assignKey(req.ShiftID, req.RequestedByEmployeeID)] = a2
+	}
+	return nil
 }
 
 // compile-time interface check
@@ -1055,5 +1133,298 @@ func TestService_AssignEmployee_NoCapacity_Unlimited(t *testing.T) {
 			TenantID: tenantID, ShiftID: shift.ID, EmployeeID: emp,
 		})
 		require.NoError(t, err, "assignment %d must succeed when capacity is unlimited", i+1)
+	}
+}
+
+// ============================================================================
+// SwapRequest Tests
+// ============================================================================
+
+func TestService_CreateSwapRequest_Success(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	shiftID := uuid.New()
+	empA := uuid.New()
+	empB := uuid.New()
+	assignID := uuid.New()
+
+	req, err := svc.CreateSwapRequest(context.Background(), CreateSwapRequestInput{
+		TenantID:              tenantID,
+		AssignmentID:          assignID,
+		RequestedByEmployeeID: empA,
+		SwapWithEmployeeID:    empB,
+		ShiftID:               shiftID,
+		Reason:                "Urlaub",
+		IdempotencyKey:        "idem-key-001",
+	})
+
+	require.NoError(t, err)
+	assert.NotEqual(t, uuid.Nil, req.ID)
+	assert.Equal(t, SwapRequestStatusPending, req.Status)
+	assert.Equal(t, tenantID, req.TenantID)
+}
+
+func TestService_CreateSwapRequest_MissingIdempotencyKey(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	_, err := svc.CreateSwapRequest(context.Background(), CreateSwapRequestInput{
+		TenantID:              uuid.New(),
+		AssignmentID:          uuid.New(),
+		RequestedByEmployeeID: uuid.New(),
+		SwapWithEmployeeID:    uuid.New(),
+		ShiftID:               uuid.New(),
+		IdempotencyKey:        "", // missing
+	})
+
+	assert.ErrorIs(t, err, ErrInvalidInput)
+}
+
+func TestService_CreateSwapRequest_SameEmployee(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	empID := uuid.New()
+	_, err := svc.CreateSwapRequest(context.Background(), CreateSwapRequestInput{
+		TenantID:              uuid.New(),
+		AssignmentID:          uuid.New(),
+		RequestedByEmployeeID: empID,
+		SwapWithEmployeeID:    empID, // same as requester
+		ShiftID:               uuid.New(),
+		IdempotencyKey:        "idem-key-002",
+	})
+
+	assert.ErrorIs(t, err, ErrInvalidInput)
+}
+
+func TestService_CreateSwapRequest_Idempotent(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	input := CreateSwapRequestInput{
+		TenantID:              tenantID,
+		AssignmentID:          uuid.New(),
+		RequestedByEmployeeID: uuid.New(),
+		SwapWithEmployeeID:    uuid.New(),
+		ShiftID:               uuid.New(),
+		IdempotencyKey:        "idem-key-003",
+	}
+
+	req1, err := svc.CreateSwapRequest(context.Background(), input)
+	require.NoError(t, err)
+
+	req2, err := svc.CreateSwapRequest(context.Background(), input)
+	require.NoError(t, err)
+
+	assert.Equal(t, req1.ID, req2.ID, "idempotent call must return same ID")
+}
+
+func TestService_ListSwapRequests_Success(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	shiftID := uuid.New()
+
+	for i := range 3 {
+		repo.swapRequests[uuid.New()] = &SwapRequest{
+			ID:                    uuid.New(),
+			TenantID:              tenantID,
+			ShiftID:               shiftID,
+			RequestedByEmployeeID: uuid.New(),
+			SwapWithEmployeeID:    uuid.New(),
+			AssignmentID:          uuid.New(),
+			Status:                SwapRequestStatusPending,
+			IdempotencyKey:        "key-" + string(rune('A'+i)),
+			CreatedAt:             time.Now(),
+			UpdatedAt:             time.Now(),
+		}
+	}
+
+	reqs, total, err := svc.ListSwapRequests(context.Background(), ListSwapRequestsInput{
+		TenantID: tenantID,
+		ShiftID:  &shiftID,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 3, total)
+	assert.Len(t, reqs, 3)
+}
+
+func TestService_ApproveSwapRequest_Success(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	shiftID := uuid.New()
+	empA := uuid.New()
+	empB := uuid.New()
+	assignID := uuid.New()
+
+	// Pre-seed assignments so swap has something to work with.
+	repo.assignments[assignKey(shiftID, empA)] = &ShiftAssignment{
+		ID: assignID, TenantID: tenantID, ShiftID: shiftID, EmployeeID: empA, AssignedAt: time.Now(),
+	}
+	repo.assignments[assignKey(shiftID, empB)] = &ShiftAssignment{
+		ID: uuid.New(), TenantID: tenantID, ShiftID: shiftID, EmployeeID: empB, AssignedAt: time.Now(),
+	}
+
+	reqID := uuid.New()
+	repo.swapRequests[reqID] = &SwapRequest{
+		ID:                    reqID,
+		TenantID:              tenantID,
+		AssignmentID:          assignID,
+		RequestedByEmployeeID: empA,
+		SwapWithEmployeeID:    empB,
+		ShiftID:               shiftID,
+		Status:                SwapRequestStatusPending,
+		IdempotencyKey:        "idem-key-approve",
+		CreatedAt:             time.Now(),
+		UpdatedAt:             time.Now(),
+	}
+
+	approved, err := svc.ApproveSwapRequest(context.Background(), tenantID, reqID)
+
+	require.NoError(t, err)
+	assert.Equal(t, SwapRequestStatusApproved, approved.Status)
+}
+
+func TestService_ApproveSwapRequest_AlreadyProcessed(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	reqID := uuid.New()
+	repo.swapRequests[reqID] = &SwapRequest{
+		ID:                    reqID,
+		TenantID:              tenantID,
+		AssignmentID:          uuid.New(),
+		RequestedByEmployeeID: uuid.New(),
+		SwapWithEmployeeID:    uuid.New(),
+		ShiftID:               uuid.New(),
+		Status:                SwapRequestStatusApproved, // already processed
+		IdempotencyKey:        "idem-key-already",
+		CreatedAt:             time.Now(),
+		UpdatedAt:             time.Now(),
+	}
+
+	_, err := svc.ApproveSwapRequest(context.Background(), tenantID, reqID)
+	assert.ErrorIs(t, err, ErrSwapAlreadyProcessed)
+}
+
+func TestService_RejectSwapRequest_Success(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	reqID := uuid.New()
+	repo.swapRequests[reqID] = &SwapRequest{
+		ID:                    reqID,
+		TenantID:              tenantID,
+		AssignmentID:          uuid.New(),
+		RequestedByEmployeeID: uuid.New(),
+		SwapWithEmployeeID:    uuid.New(),
+		ShiftID:               uuid.New(),
+		Status:                SwapRequestStatusPending,
+		IdempotencyKey:        "idem-key-reject",
+		CreatedAt:             time.Now(),
+		UpdatedAt:             time.Now(),
+	}
+
+	rejected, err := svc.RejectSwapRequest(context.Background(), tenantID, reqID)
+
+	require.NoError(t, err)
+	assert.Equal(t, SwapRequestStatusRejected, rejected.Status)
+}
+
+func TestService_RejectSwapRequest_NotFound(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	_, err := svc.RejectSwapRequest(context.Background(), uuid.New(), uuid.New())
+	assert.ErrorIs(t, err, ErrSwapRequestNotFound)
+}
+
+// ============================================================================
+// SwapRequest Tenant-Isolation Tests
+// ============================================================================
+
+// Tenant A cannot read Tenant B's swap request → ErrSwapRequestNotFound.
+func TestService_SwapRequest_CrossTenant_NotVisible(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	reqID := uuid.New()
+	repo.swapRequests[reqID] = &SwapRequest{
+		ID:                    reqID,
+		TenantID:              tenantB,
+		AssignmentID:          uuid.New(),
+		RequestedByEmployeeID: uuid.New(),
+		SwapWithEmployeeID:    uuid.New(),
+		ShiftID:               uuid.New(),
+		Status:                SwapRequestStatusPending,
+		IdempotencyKey:        "idem-key-b",
+		CreatedAt:             time.Now(),
+		UpdatedAt:             time.Now(),
+	}
+
+	// Tenant A tries to approve Tenant B's swap request.
+	_, err := svc.ApproveSwapRequest(context.Background(), tenantA, reqID)
+	assert.ErrorIs(t, err, ErrSwapRequestNotFound, "tenant A must not see tenant B's swap requests")
+}
+
+// ListSwapRequests only returns requests for the requesting tenant.
+func TestService_ListSwapRequests_TenantIsolation(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	// Seed 2 requests for A, 1 for B.
+	for i := range 2 {
+		id := uuid.New()
+		repo.swapRequests[id] = &SwapRequest{
+			ID:                    id,
+			TenantID:              tenantA,
+			AssignmentID:          uuid.New(),
+			RequestedByEmployeeID: uuid.New(),
+			SwapWithEmployeeID:    uuid.New(),
+			ShiftID:               uuid.New(),
+			Status:                SwapRequestStatusPending,
+			IdempotencyKey:        "key-a-" + string(rune('0'+i)),
+			CreatedAt:             time.Now(),
+			UpdatedAt:             time.Now(),
+		}
+	}
+	idB := uuid.New()
+	repo.swapRequests[idB] = &SwapRequest{
+		ID:                    idB,
+		TenantID:              tenantB,
+		AssignmentID:          uuid.New(),
+		RequestedByEmployeeID: uuid.New(),
+		SwapWithEmployeeID:    uuid.New(),
+		ShiftID:               uuid.New(),
+		Status:                SwapRequestStatusPending,
+		IdempotencyKey:        "key-b-0",
+		CreatedAt:             time.Now(),
+		UpdatedAt:             time.Now(),
+	}
+
+	reqs, total, err := svc.ListSwapRequests(context.Background(), ListSwapRequestsInput{
+		TenantID: tenantA,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, total, "tenant A must only see its own 2 swap requests")
+	assert.Len(t, reqs, 2)
+	for _, r := range reqs {
+		assert.Equal(t, tenantA, r.TenantID)
 	}
 }

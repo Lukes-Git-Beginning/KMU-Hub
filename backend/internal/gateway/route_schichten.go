@@ -80,6 +80,17 @@ func (sr *SchichtenRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http
 		// Compliance & Stats
 		r.With(middleware.RequirePermission("schichten:shift", "read")).Get("/compliance", sr.HandleCheckArbzgCompliance)
 		r.With(middleware.RequirePermission("schichten:shift", "read")).Get("/stats", sr.HandleGetShiftStats)
+
+		// Swap Requests (direct service — no gRPC round-trip)
+		r.Route("/swap-requests", func(r chi.Router) {
+			r.With(middleware.RequirePermission("schichten:swap", "read")).Get("/", sr.HandleListSwapRequests)
+			r.With(middleware.RequirePermission("schichten:swap", "create")).Post("/", sr.HandleCreateSwapRequest)
+
+			r.Route("/{id}", func(r chi.Router) {
+				r.With(middleware.RequirePermission("schichten:swap", "approve")).Post("/approve", sr.HandleApproveSwapRequest)
+				r.With(middleware.RequirePermission("schichten:swap", "approve")).Post("/reject", sr.HandleRejectSwapRequest)
+			})
+		})
 	})
 }
 
@@ -716,6 +727,152 @@ func (sr *SchichtenRoutes) HandleGetShiftStats(w http.ResponseWriter, r *http.Re
 
 	resp, err := client.GetShiftStats(r.Context(), &schichtenv1.GetShiftStatsRequest{
 		TenantId: tenantID.String(),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Swap Request request types
+// ============================================================================
+
+type createSwapRequestHTTPRequest struct {
+	AssignmentID          string `json:"assignment_id"           validate:"required,uuid"`
+	RequestedByEmployeeID string `json:"requested_by_employee_id" validate:"required,uuid"`
+	SwapWithEmployeeID    string `json:"swap_with_employee_id"   validate:"required,uuid"`
+	ShiftID               string `json:"shift_id"               validate:"required,uuid"`
+	Reason                string `json:"reason"`
+}
+
+// ============================================================================
+// Swap Request Handlers
+// ============================================================================
+
+func (sr *SchichtenRoutes) HandleCreateSwapRequest(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := sr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	req, ok := decodeAndValidate[createSwapRequestHTTPRequest](w, r)
+	if !ok {
+		return
+	}
+
+	idempotencyKey := r.Header.Get("Idempotency-Key")
+	if idempotencyKey == "" {
+		response.Error(w, http.StatusBadRequest, "Idempotency-Key header is required")
+		return
+	}
+
+	resp, err := client.CreateSwapRequest(r.Context(), &schichtenv1.CreateSwapRequestRequest{
+		TenantId:              tenantID.String(),
+		AssignmentId:          req.AssignmentID,
+		ShiftId:               req.ShiftID,
+		RequestedByEmployeeId: req.RequestedByEmployeeID,
+		SwapWithEmployeeId:    req.SwapWithEmployeeID,
+		Reason:                req.Reason,
+		IdempotencyKey:        idempotencyKey,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (sr *SchichtenRoutes) HandleListSwapRequests(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := sr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	page, pageSize := parsePagination(r, 1, 50)
+	q := r.URL.Query()
+
+	grpcReq := &schichtenv1.ListSwapRequestsRequest{
+		TenantId: tenantID.String(),
+		Page:     int32(page),
+		PageSize: int32(pageSize),
+	}
+	if s := q.Get("shift_id"); s != "" {
+		grpcReq.ShiftId = &s
+	}
+	if st := q.Get("status"); st != "" {
+		grpcReq.Status = &st
+	}
+
+	resp, err := client.ListSwapRequests(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (sr *SchichtenRoutes) HandleApproveSwapRequest(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := sr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.ApproveSwapRequest(r.Context(), &schichtenv1.ApproveSwapRequestRequest{
+		TenantId:  tenantID.String(),
+		RequestId: id,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (sr *SchichtenRoutes) HandleRejectSwapRequest(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := sr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.RejectSwapRequest(r.Context(), &schichtenv1.RejectSwapRequestRequest{
+		TenantId:  tenantID.String(),
+		RequestId: id,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

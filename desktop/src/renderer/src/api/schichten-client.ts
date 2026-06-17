@@ -151,7 +151,7 @@ export function checkArbzgCompliance(params: ArbzgCheckParams) {
   return request<ArbzgCheckResult>({
     method: 'GET',
     path: `${BASE}/compliance`,
-    params: params as Record<string, string | number | boolean | undefined>,
+    params: params as unknown as Record<string, string | number | boolean | undefined>,
   })
 }
 
