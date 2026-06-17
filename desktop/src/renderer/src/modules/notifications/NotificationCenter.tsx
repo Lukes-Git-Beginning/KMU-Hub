@@ -7,7 +7,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { BellOff, Check, MessageSquare, TrendingUp, Users, Megaphone, PhoneCall } from 'lucide-react'
+import { BellOff, Check, MessageSquare, TrendingUp, Users, Megaphone, PhoneCall, Pin, PinOff, EyeOff, ArrowRight } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { cn } from '@/lib/cn'
@@ -43,17 +43,39 @@ export default function NotificationCenter() {
   const markRead = useMarkNotificationRead()
   const markAllRead = useMarkAllNotificationsRead()
 
-  const notifications = notificationsData?.notifications ?? []
-  const total = notificationsData?.total ?? 0
-  const hasMore = notifications.length === 20
+  // Local interaction state: expanded card + pinned/dismissed sets.
+  // Demo-stateful within the session (pin/dismiss are client-only until a backend exists).
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set())
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
 
-  const handleNotificationClick = (notification: Notification) => {
-    if (!notification.is_read && notification.id) {
-      markRead.mutate(notification.id)
-    }
-    if (notification.deep_link) {
-      navigate(notification.deep_link)
-    }
+  const rawNotifications = notificationsData?.notifications ?? []
+  const total = notificationsData?.total ?? 0
+  const hasMore = rawNotifications.length === 20
+
+  // Dismissed hidden; pinned floated to the top.
+  const notifications = rawNotifications
+    .filter((n) => !dismissedIds.has(n.id ?? ''))
+    .sort((a, b) => (pinnedIds.has(b.id ?? '') ? 1 : 0) - (pinnedIds.has(a.id ?? '') ? 1 : 0))
+
+  const togglePin = (id: string) =>
+    setPinnedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+
+  const dismiss = (id: string) => {
+    setDismissedIds((prev) => new Set(prev).add(id))
+    setExpandedId((cur) => (cur === id ? null : cur))
+  }
+
+  // "Dorthin springen": mark read + navigate to the notification's target.
+  const openNotification = (notification: Notification) => {
+    if (!notification.is_read && notification.id) markRead.mutate(notification.id)
+    const target = notification.deep_link || (notification.module_id ? `/${notification.module_id}` : null)
+    if (target) navigate(target)
   }
 
   return (
@@ -126,7 +148,14 @@ export default function NotificationCenter() {
                   <NotificationCard
                     key={notification.id}
                     notification={notification}
-                    onClick={() => handleNotificationClick(notification)}
+                    expanded={expandedId === notification.id}
+                    pinned={pinnedIds.has(notification.id ?? '')}
+                    onToggleExpand={() =>
+                      setExpandedId((cur) => (cur === notification.id ? null : notification.id ?? null))
+                    }
+                    onOpen={() => openNotification(notification)}
+                    onPin={() => notification.id && togglePin(notification.id)}
+                    onDismiss={() => notification.id && dismiss(notification.id)}
                     onMarkRead={() => {
                       if (notification.id) markRead.mutate(notification.id)
                     }}
@@ -168,13 +197,24 @@ export default function NotificationCenter() {
 
 function NotificationCard({
   notification,
-  onClick,
+  expanded,
+  pinned,
+  onToggleExpand,
+  onOpen,
+  onPin,
+  onDismiss,
   onMarkRead,
 }: {
   notification: Notification
-  onClick: () => void
+  expanded: boolean
+  pinned: boolean
+  onToggleExpand: () => void
+  onOpen: () => void
+  onPin: () => void
+  onDismiss: () => void
   onMarkRead: () => void
 }) {
+  const { t } = useTranslation()
   const timeAgo = notification.created_at
     ? formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: de })
     : ''
@@ -190,9 +230,10 @@ function NotificationCard({
     <Card
       className={cn(
         'cursor-pointer transition-colors hover:bg-accent/50',
-        !notification.is_read && 'border-l-4 border-l-primary'
+        !notification.is_read && 'border-l-4 border-l-primary',
+        pinned && 'ring-1 ring-primary/40'
       )}
-      onClick={onClick}
+      onClick={onToggleExpand}
     >
       <CardContent className="flex items-start gap-4 p-4">
         <div className={cn('mt-0.5 shrink-0 rounded-md p-2', priorityColor)}>
@@ -202,13 +243,18 @@ function NotificationCard({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className={cn(
-                'text-sm',
-                !notification.is_read ? 'font-semibold text-foreground' : 'text-foreground'
-              )}>
-                {notification.title}
-              </p>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                {pinned && (
+                  <Pin className="h-3 w-3 shrink-0 text-primary" aria-label={t('notifications.actions.pinned')} />
+                )}
+                <p className={cn(
+                  'text-sm',
+                  !notification.is_read ? 'font-semibold text-foreground' : 'text-foreground'
+                )}>
+                  {notification.title}
+                </p>
+              </div>
               {notification.body && (
                 <p className="mt-1 text-sm text-muted-foreground">
                   {notification.body}
@@ -225,6 +271,7 @@ function NotificationCard({
                   e.stopPropagation()
                   onMarkRead()
                 }}
+                aria-label={t('notifications.center.markAllRead')}
               >
                 <Check className="h-3.5 w-3.5" />
               </Button>
@@ -246,6 +293,27 @@ function NotificationCard({
               </Badge>
             )}
           </div>
+
+          {/* Expanded action bar (Darien: open / pin / dismiss) */}
+          {expanded && (
+            <div
+              className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Button variant="default" size="sm" className="h-8" onClick={onOpen}>
+                <ArrowRight className="mr-1.5 h-3.5 w-3.5" />
+                {t('notifications.actions.open')}
+              </Button>
+              <Button variant="outline" size="sm" className="h-8" onClick={onPin}>
+                {pinned ? <PinOff className="mr-1.5 h-3.5 w-3.5" /> : <Pin className="mr-1.5 h-3.5 w-3.5" />}
+                {pinned ? t('notifications.actions.unpin') : t('notifications.actions.pin')}
+              </Button>
+              <Button variant="ghost" size="sm" className="h-8 text-muted-foreground" onClick={onDismiss}>
+                <EyeOff className="mr-1.5 h-3.5 w-3.5" />
+                {t('notifications.actions.dismiss')}
+              </Button>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
