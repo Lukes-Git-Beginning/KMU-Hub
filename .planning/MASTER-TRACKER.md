@@ -13,11 +13,8 @@
 - **~155 offene Phasen** über ~32 Module (grobe, eher konservative Zahl — Verifizieren der Marathon-Module kann sie senken).
 - **Fertig (bei Nico in Review):** kontakte (Kern), zeiterfassung; calendar/dokumente weitgehend (🔁).
 - **Aktive Spur:** finanzen komplett fertigstellen → an Nico → nächstes Modul.
-- **▶ ERLEDIGT (2026-06-17):** **work-Tiefe-Pass** komplett (W-1…W-5, Option 3 inkl. Daten-Swap) — 5 Commits `9afc92b4`→`999260ea` gepusht, alle Phasen Playwright-verifiziert. work + finanzen jetzt **beide review-reif → an Nico**.
-- **▶ NÄCHSTES (Plan für morgen, Darien 2026-06-17): 10 Phasen = dashboard komplett + vertraege starten.** Standard-Workflow je Modul: Ist-Abgleich → besprechen → bauen → Screenshot-QA → Commit/Push → Nico.
-  - **Batch 1 — dashboard (6):** P1 Persistenz+Widget-Konfig 🔒 · P2 DnD-Resize/Reorder · P3 KPI-Widgets modul-/lizenzabhängig · P4 Modul-übergreifende Übersicht+Alerts 🔒 · P5 Team-Dashboard+Rollen-Templates+Presence · Demo-Tiefe → **review-reif → Nico**
-  - **Batch 2 — vertraege (4):** P1 Backend mock+Audit-Log+Erinnerungen 🔒 · P2 Dokumente echt (Upload/Versionen/PDF-Viewer, schwerste der 10) · P3 E-Signatur (EES vs. Skribble) 🔒 · P4 CRM/Finanzen-Verknüpfung+KI-Fristencheck (Demo-Tiefe bleibt übermorgen)
-  - **Tempo-Ziel:** 8–10/Tag; QA ist der Engpass → lieber 8 sauber verifiziert als 10 hastig. **Erst dashboard-Ist-Abgleich** (Tracker sagt „FE vollständig, Persistenz mock" — vor Bau verifizieren).
+- **▶ ERLEDIGT (2026-06-17 Abend):** **Parallel-Batch dashboard + vertraege** (Main-Terminal=dashboard, Sub-Terminal=vertraege, beide Claude). dashboard **D-1…D-5** + vertraege **V-1…V-5** + **Darien-Live-Fix-Runde F1-F7** (E-Signatur RAUS aus vertraege-Detail [Modul=Verwaltung], ContractDialog→shared DetailModal, Detail schließt beim Bearbeiten, Dokumente prominent, Notification-Karten aufklappbar mit Öffnen/Anpinnen/Ignorieren, roter Drag-Placeholder→Cosmi-Türkis, user-select beim Drag) — alle gepusht (main=`f4a6844d`), je Build(echter Exit)+Playwright+Screenshot verifiziert. **dashboard + vertraege = review-reif → Nico** (Dariens finale Live-Abnahme stand beim Session-Ende noch aus). Review-Liste: `.planning/parallel-batch/qa-combined.md`; Detail: MEMORY.md Wiedereinstieg.
+- **▶ NÄCHSTES (neuer Batch, neue Terminals):** Paar-Vorschlag **team (#3 Pipeline, größer) + helpdesk (#6, schnell)** — Darien entscheidet im neuen Main-Terminal. **Reihenfolge:** neues MAIN-Terminal plant (Ist-Abgleich → Klärungsfragen → Sub-Paket+Start-Text), DANN Sub-Terminal wechseln + Text geben. Paket-Muster: `.planning/parallel-batch/`. **Build-Gate immer mit echtem Exit** ([[feedback_build_check_real_exit]], NIE `| tail`).
 
 ## Neue projektweite Standards (2026-06-16) — bei JEDEM Modul anwenden
 - **Detail = zentriertes Cosmi-Modal-Fenster** (`shared/DetailModal`), NICHT Slide-over. [[feedback_detail_modal_standard]]
@@ -267,8 +264,8 @@ Jedes Modul wird zu **review-reif** gebracht, dann „→ Nico". Vorschlag misch
 | 1 | **finanzen** | P2.5b–e + P3–5 (FE/mock) | ✅ review-reif → Nico |
 | 2 | **Projekte & Aufgaben** (Code: work) | Tiefe-Pass W-1…W-5 (verifiziert, `999260ea`) | ✅ review-reif → Nico |
 | 3 | **team** | Tiefe-Pass + 2 Phasen | ⬜ |
-| 4 | **dashboard** | Tiefe-Pass + Persistenz mock | ⬜ schnell |
-| 5 | **vertraege** | Tiefe-Pass + Dok/Signatur mock | ⬜ schnell |
+| 4 | **dashboard** | D-1…D-5 + Darien-Fixes F6/F7 (`f4a6844d`) | ✅ review-reif → Nico |
+| 5 | **vertraege** | V-1…V-5 + Darien-Fixes F1-F5 (`f4a6844d`) | ✅ review-reif → Nico |
 | 6 | **helpdesk** | Tiefe-Pass + CRM-Lookup | ⬜ schnell |
 | 7 | **automatisierung** | Tiefe-Pass (FE sehr vollständig) | ⬜ |
 | 8 | **profil** | klein | ⬜ schnell |
