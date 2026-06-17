@@ -102,7 +102,7 @@ Schneller Audit gegen die Tiefe-Vorgabe; die 4 Module sind solange bei Nico in R
 - [x] P1–P5 (Standalone, ArbZG-Report, Team, DATEV)
 - [ ] Tiefe + Dead-Code-Cleanup → T-4
 
-### work — ✅ Tiefe-Pass fertig → Nico (Plan: `.planning/work-tiefe-pass.md`)
+### Projekte & Aufgaben (Code: `work`) — ✅ Tiefe-Pass fertig → Nico (Plan: `.planning/work-tiefe-pass.md`)
 - [x] **W-Tiefe-Pass** (Darien Option 3): Slide-over→DetailModal · Karten/Zeilen klickbar · MyTasks tote Buttons (Move-to-Project wirkt) · Stunden→echte Draft-Rechnung (erscheint in finanzen) · Auslastung/Gast→MSW — alle 5 Phasen verifiziert (Screenshots), gepusht `999260ea`. **review-reif → an Nico.** Offen für Nico-Review: Guest-Ansicht rendert noch in der App-Shell (standalone Share-Link = P4).
 - [ ] **P1** Daily-Use finalisieren (DnD backend, Timer→Zeiteintrag-Bridge, Inline-Edit) 🔒
 - [ ] **P2** Portfolio + Auslastungs-View 🔒
@@ -262,7 +262,7 @@ Jedes Modul wird zu **review-reif** gebracht, dann „→ Nico". Vorschlag misch
 |---|---|---|---|
 | — | kontakte, calendar, dokumente, zeiterfassung | (Tiefe-Re-Check später) | ✅ bei Nico |
 | 1 | **finanzen** | P2.5b–e + P3–5 (FE/mock) | ✅ review-reif → Nico |
-| 2 | **work** | Tiefe-Pass W-1…W-5 (verifiziert, `999260ea`) | ✅ review-reif → Nico |
+| 2 | **Projekte & Aufgaben** (Code: work) | Tiefe-Pass W-1…W-5 (verifiziert, `999260ea`) | ✅ review-reif → Nico |
 | 3 | **team** | Tiefe-Pass + 2 Phasen | ⬜ |
 | 4 | **dashboard** | Tiefe-Pass + Persistenz mock | ⬜ schnell |
 | 5 | **vertraege** | Tiefe-Pass + Dok/Signatur mock | ⬜ schnell |
