@@ -84,11 +84,13 @@ export default function DashboardPage() {
   const toggleEditing = useDashboardStore((s) => s.toggleEditing)
   const resetToDefaults = useDashboardStore((s) => s.resetToDefaults)
   const ensureDefaults = useDashboardStore((s) => s.ensureDefaults)
+  const initFromServer = useDashboardStore((s) => s.initFromServer)
   const showGreeting = useDashboardPrefsStore((s) => s.showGreeting)
 
   useEffect(() => {
     ensureDefaults()
-  }, [ensureDefaults])
+    void initFromServer()
+  }, [ensureDefaults, initFromServer])
 
   return (
     <div className="h-full overflow-auto">

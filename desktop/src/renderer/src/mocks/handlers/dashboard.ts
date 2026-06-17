@@ -62,13 +62,56 @@ function buildSearchResults(query: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Stateful in-memory dashboard persistence (demo: survives within a session)
+// ---------------------------------------------------------------------------
+
+type StoredLayout = { layout: Array<Record<string, unknown>> | null; active_widgets: string[] }
+
+/** User's personal layout override (null layout → client falls back to defaults). */
+let userLayout: StoredLayout = { layout: null, active_widgets: [] }
+
+/** Role-based default layouts (admin-configurable). */
+const roleDefaults: Record<string, StoredLayout> = {
+  admin: { layout: [], active_widgets: ['kpi-revenue', 'kpi-deals', 'kpi-tasks', 'cross-module-overview', 'team-status', 'activity-feed'] },
+  manager: { layout: [], active_widgets: ['kpi-tasks', 'kpi-deals', 'team-status', 'team-worktime', 'my-tasks', 'calendar-upcoming'] },
+  member: { layout: [], active_widgets: ['my-tasks', 'my-calendar', 'time-clock', 'team-chat', 'absences', 'notification-summary'] },
+}
+
+// ---------------------------------------------------------------------------
 // Handlers
 // ---------------------------------------------------------------------------
 
 export const dashboardHandlers = [
-  // Dashboard layout — null (client uses defaults)
+  // Dashboard layout — user override (stateful; null layout → client uses defaults)
   http.get(`${API}/api/v1/dashboard/layout`, () => {
-    return HttpResponse.json({ layout: null })
+    return HttpResponse.json(userLayout)
+  }),
+
+  // Persist the user's personal layout
+  http.put(`${API}/api/v1/dashboard/layout`, async ({ request }) => {
+    const body = (await request.json()) as StoredLayout
+    userLayout = { layout: body.layout ?? null, active_widgets: body.active_widgets ?? [] }
+    return HttpResponse.json(userLayout)
+  }),
+
+  // Reset the user's layout back to role defaults
+  http.delete(`${API}/api/v1/dashboard/layout`, () => {
+    userLayout = { layout: null, active_widgets: [] }
+    return HttpResponse.json(userLayout)
+  }),
+
+  // Role default layout — fetch (admin)
+  http.get(`${API}/api/v1/dashboard/defaults/:role`, ({ params }) => {
+    const role = String(params.role)
+    return HttpResponse.json(roleDefaults[role] ?? { layout: [], active_widgets: [] })
+  }),
+
+  // Role default layout — save (admin)
+  http.put(`${API}/api/v1/dashboard/defaults/:role`, async ({ params, request }) => {
+    const role = String(params.role)
+    const body = (await request.json()) as StoredLayout
+    roleDefaults[role] = { layout: body.layout ?? [], active_widgets: body.active_widgets ?? [] }
+    return HttpResponse.json(roleDefaults[role])
   }),
 
   // Global search

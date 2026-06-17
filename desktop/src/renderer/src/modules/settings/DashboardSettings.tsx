@@ -76,8 +76,8 @@ function RoleDefaultEditor({ role }: { role: RoleKey }) {
   const { t } = useTranslation()
   const { data: defaults, isLoading } = useDashboardDefaults(role)
   const saveMutation = useSaveDashboardDefaults()
-  const dashboardLayouts = useDashboardStore((s) => s.layouts)
-  const dashboardActiveWidgets = useDashboardStore((s) => s.activeWidgets)
+  const dashboardLayouts = useDashboardStore((s) => s.personalLayouts)
+  const dashboardActiveWidgets = useDashboardStore((s) => s.personalActiveWidgets)
 
   // Local state for editing the widget set
   const [localWidgets, setLocalWidgets] = useState<string[] | null>(null)
