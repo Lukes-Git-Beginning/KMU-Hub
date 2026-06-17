@@ -36,6 +36,9 @@ interface CannedResponsesPanelProps {
 export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponsesPanelProps) {
   const { t } = useTranslation()
   const { cannedResponses } = useHelpdeskStore()
+  const addCannedResponse = useHelpdeskStore((s) => s.addCannedResponse)
+  const updateCannedResponse = useHelpdeskStore((s) => s.updateCannedResponse)
+  const deleteCannedResponse = useHelpdeskStore((s) => s.deleteCannedResponse)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
 
@@ -81,20 +84,25 @@ export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponse
   }
 
   const handleSave = () => {
-    if (!formTitle.trim()) {
+    const title = formTitle.trim()
+    if (!title) {
       toast.error(t('helpdesk.cannedResponses.titleRequired'))
       return
     }
+    const payload = { title, content: formContent, category: formCategory, shortcut: formShortcut.trim() }
     if (editing) {
-      toast.success(t('helpdesk.cannedResponses.updated', { title: formTitle }))
+      updateCannedResponse(editing.id, payload)
+      toast.success(t('helpdesk.cannedResponses.updated', { title }))
     } else {
-      toast.success(t('helpdesk.cannedResponses.created', { title: formTitle }))
+      addCannedResponse(payload)
+      toast.success(t('helpdesk.cannedResponses.created', { title }))
     }
     setEditing(null)
     setCreating(false)
   }
 
   const handleDelete = (r: CannedResponse) => {
+    deleteCannedResponse(r.id)
     toast.success(t('helpdesk.cannedResponses.deleted', { title: r.title }))
   }
 
