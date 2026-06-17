@@ -18,8 +18,7 @@ import (
 // local contact UUID by email and then fetch the exact Bexio entity mapping,
 // rather than guessing from an unordered mapping list.
 type crmContactAdapter struct {
-	client   crmv1.CRMServiceClient
-	tenantID uuid.UUID // propagated as gRPC metadata by TenantOutboundUnaryInterceptor
+	client crmv1.CRMServiceClient
 }
 
 // Verify at compile time that crmContactAdapter satisfies the bexio.ContactService interface.

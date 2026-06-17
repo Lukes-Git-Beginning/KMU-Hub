@@ -237,8 +237,8 @@ func TestSyncInbound_HappyPath_CreateNewContact(t *testing.T) {
 
 	// httptest server: serves contacts list + lookup endpoints
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/contact":
+		switch r.URL.Path {
+		case "/contact":
 			w.Header().Set("Content-Type", "application/json")
 			w.Write(rawContacts)
 		default:
