@@ -49,7 +49,7 @@ import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTe
 import { useAIStore } from '@/stores/ai'
 import { currentUserName } from '@/stores/auth'
 import { useHelpdeskPrefsStore } from '@/stores/helpdeskPrefs'
-import { PageHeader, EmptyState, DetailModal } from '@/components/shared'
+import { PageHeader, EmptyState, DetailModal, SortMenu, type SortDirection } from '@/components/shared'
 import { EmptyHelpdesk } from '@/components/shared/illustrations'
 import { formatDate } from '@/lib/format'
 
@@ -63,6 +63,16 @@ const EMPTY_THREAD: ThreadMessage[] = []
 
 /** Demo agent pool for assign/escalate (no real team lookup — that is CRM/backend). */
 const HELPDESK_AGENTS = ['Marco Hartmann', 'Sandra Bürki'] as const
+
+/** Sort fields for the ticket list (H-7). */
+const SORT_FIELDS = [
+  { value: 'createdAt', labelKey: 'helpdesk.sort.createdAt' },
+  { value: 'priority', labelKey: 'helpdesk.sort.priority' },
+  { value: 'status', labelKey: 'helpdesk.sort.status' },
+  { value: 'sla', labelKey: 'helpdesk.sort.sla' },
+] as const
+const PRIORITY_RANK: Record<TicketType['priority'], number> = { low: 0, medium: 1, high: 2, critical: 3 }
+const STATUS_RANK: Record<TicketType['status'], number> = { open: 0, in_progress: 1, waiting: 2, resolved: 3, closed: 4 }
 
 // ---------------------------------------------------------------------------
 // Label / Color Maps
@@ -147,6 +157,8 @@ export default function HelpdeskPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(defaultStatusFilter)
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all')
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all')
+  const [sortField, setSortField] = useState<string>('createdAt')
+  const [sortDir, setSortDir] = useState<SortDirection>('desc')
 
   // Detail panel
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null)
@@ -188,6 +200,23 @@ export default function HelpdeskPage() {
       return true
     })
   }, [tickets, statusFilter, priorityFilter, categoryFilter, search])
+
+  const sortedTickets = useMemo(() => {
+    const arr = [...filteredTickets]
+    arr.sort((a, b) => {
+      let cmp = 0
+      switch (sortField) {
+        case 'priority': cmp = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority]; break
+        case 'status': cmp = STATUS_RANK[a.status] - STATUS_RANK[b.status]; break
+        case 'sla': cmp = new Date(a.slaDueAt).getTime() - new Date(b.slaDueAt).getTime(); break
+        default: cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      }
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+    return arr
+  }, [filteredTickets, sortField, sortDir])
+
+  const sortOptions = SORT_FIELDS.map((f) => ({ value: f.value, label: t(f.labelKey) }))
 
   const selectedTicket = tickets.find((t) => t.id === selectedTicketId) ?? null
   const selectedArticle = kbArticles.find((a) => a.id === selectedArticleId) ?? null
@@ -344,6 +373,15 @@ export default function HelpdeskPage() {
                 {t('common.resetFilters')}
               </button>
             )}
+
+            <div className="ml-auto">
+              <SortMenu
+                options={sortOptions}
+                field={sortField}
+                direction={sortDir}
+                onChange={(f, d) => { setSortField(f); setSortDir(d) }}
+              />
+            </div>
           </div>
 
           {/* Ticket table */}
@@ -363,7 +401,7 @@ export default function HelpdeskPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTickets.map((ticket) => (
+                  {sortedTickets.map((ticket) => (
                     <tr
                       key={ticket.id}
                       role="button"

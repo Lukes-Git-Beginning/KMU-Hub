@@ -116,3 +116,20 @@
 - Header nach Cleanup: nur noch „Vorlagen" + „Neues Ticket", Liste + Detail-Modal weiter ok, 0 pageErrors.
 
 **Commit:** `feat(helpdesk): add settings panel (prefs + business hours + routing)` auf `parallel/helpdesk`.
+
+---
+
+## H-7 — SortMenu + SLA-Zeit echt ✅
+
+**Gebaut:**
+- **SLA-Fix:** `computeSla` von hardcoded `new Date('2026-02-15T11:00:00')` auf **echtes `new Date()`** umgestellt. Damit alle Seed-Tickets glaubhaft bleiben: `MOCK_TICKETS_RAW` (Originalseed) wird über `SLA_SEED` (per-Ticket-Offsets in Stunden) **relativ zu `Date.now()`** neu basiert → `createdAt`/`updatedAt`/`slaDueAt` + recomputed SLA. Bewusster Mix: 5 überfällig, mehrere bald-fällig (<4h, gelb), Rest komfortabel.
+- **SortMenu:** `shared/SortMenu` in die Filter-Zeile integriert (Felder Erstellt / Priorität / Status / SLA-Restzeit, Richtung asc/desc). `sortedTickets`-`useMemo` mit Comparators (Prioritäts-/Status-Rank, SLA via `slaDueAt`-Timestamp). Default: Erstellt absteigend.
+- i18n: `helpdesk.sort.*` (4 Keys ×4).
+
+**Verify (Flow-QA `scripts/qa-helpdesk-sort.mjs`, Screenshots angesehen):**
+- SLA-Clock: **0 frozen-Artefakte** (kein „122d" mehr), 5 überfällig + 10 übrig, Samples plausibel („3h übrig", „1h übrig", „2d 12h übrig", „4h überfällig").
+- Sort SLA aufsteigend → erste Zeile überfällig (HD-2026-0311); absteigend → komfortabelste (HD-2026-0312); **beidseitig reordered**.
+- Sort Priorität absteigend → erste Zeile **Kritisch**.
+- 0 pageErrors.
+
+**Commit:** `feat(helpdesk): real-clock SLA + ticket list sorting` auf `parallel/helpdesk`.

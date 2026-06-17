@@ -228,7 +228,7 @@ function nextTicketNr(tickets: Ticket[]): string {
 
 function computeSla(slaDueAt: string): { overdue: boolean; remaining: string } {
   const due = new Date(slaDueAt)
-  const now = new Date('2026-02-15T11:00:00')
+  const now = new Date()
   const diffMs = due.getTime() - now.getTime()
   if (diffMs < 0) {
     const hours = Math.abs(Math.floor(diffMs / 3600000))
@@ -255,7 +255,7 @@ function makeTicket(
   return { id, ticketNr, subject, description, priority, status, assignedTo, contactName, slaDueAt, slaOverdue: sla.overdue, slaRemaining: sla.remaining, createdAt, updatedAt, category, customFields, csatRating, csatComment, autoRouted }
 }
 
-const MOCK_TICKETS: Ticket[] = [
+const MOCK_TICKETS_RAW: Ticket[] = [
   makeTicket('tk-1', 'HD-2026-0301', 'Drucker im 2. OG druckt nicht', 'Seit heute Morgen funktioniert der Netzwerkdrucker HP LaserJet im 2. OG nicht mehr. Fehlermeldung: Offline.', 'high', 'in_progress', 'Marco Hartmann', 'Brigitte Schärer', '2026-02-15T16:00:00', '2026-02-15T08:30:00', '2026-02-15T09:15:00', 'Hardware', { 'Gerätetyp': 'Drucker', 'Raumnummer': '2.04', 'Remotezugriff erlaubt': true, 'Geschätzter Aufwand (h)': 1 }, undefined, undefined, true),
   makeTicket('tk-2', 'HD-2026-0302', 'VPN-Verbindung bricht ab', 'VPN-Verbindung zum Firmennetz trennt sich alle 10 Minuten. Betrifft Home-Office Zugang.', 'critical', 'in_progress', 'Marco Hartmann', 'Stefan Wenger', '2026-02-15T12:00:00', '2026-02-14T17:45:00', '2026-02-15T08:00:00', 'Netzwerk', { 'Gerätetyp': 'Laptop', 'Remotezugriff erlaubt': true, 'Geschätzter Aufwand (h)': 3 }, undefined, undefined, true),
   makeTicket('tk-3', 'HD-2026-0303', 'Neuer Mitarbeiter - Zugänge einrichten', 'Ab 01.03.2026 neuer Mitarbeiter: Lukas Meier, Abteilung Buchhaltung. Bitte alle Standardzugänge einrichten.', 'medium', 'open', 'Sandra Bürki', 'Karin Pfister', '2026-02-28T17:00:00', '2026-02-14T14:00:00', '2026-02-14T14:00:00', 'Zugang', { 'Raumnummer': '3.12' }, undefined, undefined, true),
@@ -272,6 +272,48 @@ const MOCK_TICKETS: Ticket[] = [
   makeTicket('tk-14', 'HD-2026-0314', 'Virenwarnung auf Arbeitsplatz C-03', 'Sophos meldet verdächtige Datei auf Arbeitsplatz C-03 (Abt. Einkauf). Quarantäne aktiv.', 'high', 'in_progress', 'Marco Hartmann', 'System Alert', '2026-02-15T14:00:00', '2026-02-15T06:30:00', '2026-02-15T08:45:00', 'Sicherheit', { 'Gerätetyp': 'Desktop', 'Raumnummer': 'C-03', 'Remotezugriff erlaubt': false, 'Geschätzter Aufwand (h)': 2 }, undefined, undefined, true),
   makeTicket('tk-15', 'HD-2026-0315', 'Teams-Raum "Säntis" Kamera defekt', 'Die Konferenzkamera im Teams-Raum Säntis zeigt kein Bild mehr. Modell: Logitech Rally.', 'medium', 'open', 'Marco Hartmann', 'Yvonne Stocker', '2026-02-19T17:00:00', '2026-02-14T13:00:00', '2026-02-14T13:00:00', 'Hardware', { 'Gerätetyp': 'Sonstiges', 'Raumnummer': 'Säntis' }),
 ]
+
+// ---------------------------------------------------------------------------
+// Re-base seed timestamps relative to "now" so SLAs read believably against the
+// real clock (computeSla uses new Date()). Per-ticket offsets in hours: created
+// ago / updated ago / SLA due-in (negative = overdue) — a deliberate mix of
+// overdue, soon-due (<4h = yellow) and comfortable.
+// ---------------------------------------------------------------------------
+
+const _SLA_H = 3600000
+const _NOW = Date.now()
+const SLA_SEED: Record<string, { createdAgoH: number; updatedAgoH: number; dueInH: number }> = {
+  'tk-1': { createdAgoH: 30, updatedAgoH: 5, dueInH: 3 },     // soon (yellow)
+  'tk-2': { createdAgoH: 50, updatedAgoH: 6, dueInH: -4 },    // overdue
+  'tk-3': { createdAgoH: 48, updatedAgoH: 48, dueInH: 60 },   // comfortable
+  'tk-4': { createdAgoH: 70, updatedAgoH: 20, dueInH: 30 },
+  'tk-5': { createdAgoH: 80, updatedAgoH: 80, dueInH: 100 },
+  'tk-6': { createdAgoH: 54, updatedAgoH: 50, dueInH: -40 },  // resolved, was overdue
+  'tk-7': { createdAgoH: 96, updatedAgoH: 8, dueInH: 20 },
+  'tk-8': { createdAgoH: 100, updatedAgoH: 30, dueInH: 2 },   // soon (yellow)
+  'tk-9': { createdAgoH: 130, updatedAgoH: 120, dueInH: -72 },
+  'tk-10': { createdAgoH: 10, updatedAgoH: 10, dueInH: 28 },
+  'tk-11': { createdAgoH: 120, updatedAgoH: 100, dueInH: -90 },
+  'tk-12': { createdAgoH: 140, updatedAgoH: 140, dueInH: 120 },
+  'tk-13': { createdAgoH: 60, updatedAgoH: 30, dueInH: -20 },
+  'tk-14': { createdAgoH: 30, updatedAgoH: 6, dueInH: 1 },    // very soon (yellow)
+  'tk-15': { createdAgoH: 44, updatedAgoH: 44, dueInH: 50 },
+}
+
+const MOCK_TICKETS: Ticket[] = MOCK_TICKETS_RAW.map((t) => {
+  const s = SLA_SEED[t.id]
+  if (!s) return t
+  const slaDueAt = new Date(_NOW + s.dueInH * _SLA_H).toISOString()
+  const sla = computeSla(slaDueAt)
+  return {
+    ...t,
+    createdAt: new Date(_NOW - s.createdAgoH * _SLA_H).toISOString(),
+    updatedAt: new Date(_NOW - s.updatedAgoH * _SLA_H).toISOString(),
+    slaDueAt,
+    slaOverdue: sla.overdue,
+    slaRemaining: sla.remaining,
+  }
+})
 
 // ---------------------------------------------------------------------------
 // Seed threads — one believable conversation per ticket (all 15). Agent vs.
