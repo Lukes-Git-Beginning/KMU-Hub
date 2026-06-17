@@ -2208,6 +2208,66 @@ function DetailPanelContent({ contract, onPreviewDoc, onVersionsDoc, onNavigate 
         </div>
       </div>
 
+      {/* Dokumente — prominent (Verwaltungs-Tool: Verträge + ihre Dokumente) */}
+      <div className="space-y-2">
+        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          {t('vertraege.documents.sectionTitle')}
+          {(contract.documents?.length ?? 0) > 0 && (
+            <span className="ml-1.5 text-muted-foreground font-normal normal-case">
+              ({contract.documents!.length})
+            </span>
+          )}
+        </h4>
+        {(contract.documents?.length ?? 0) === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-5 text-center">
+            <FileText className="h-6 w-6 text-muted-foreground/40 mb-2" />
+            <p className="text-xs text-muted-foreground">{t('vertraege.documents.emptyState')}</p>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {contract.documents!.map((doc) => {
+              const DocIcon = getMimeIcon(doc.mimeType ?? '')
+              return (
+                <div
+                  key={doc.fileId}
+                  className="flex items-center gap-2 rounded-lg border border-border bg-secondary/20 px-3 py-2 group"
+                >
+                  <DocIcon className="h-4 w-4 text-primary shrink-0" />
+                  <button
+                    onClick={() => onPreviewDoc(contractDocToDocumentFile(doc))}
+                    aria-label={t('vertraege.documents.preview', { name: doc.name })}
+                    className="flex-1 text-left text-sm text-foreground hover:text-primary transition-colors truncate"
+                  >
+                    {doc.name}
+                  </button>
+                  {doc.size != null && (
+                    <span className="text-[10px] text-muted-foreground shrink-0">
+                      {formatBytes(doc.size)}
+                    </span>
+                  )}
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => onVersionsDoc(doc.fileId, doc.name)}
+                          aria-label={t('vertraege.documents.versions', { name: doc.name })}
+                          className="text-muted-foreground hover:text-foreground transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+                        >
+                          <VersionIcon className="h-3.5 w-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">{t('vertraege.documents.versionsTooltip')}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
       {/* Financial info (10.10 — currency-aware) */}
       <div className="space-y-2">
         <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vertraege.detail.wert')}</h4>
@@ -2303,66 +2363,6 @@ function DetailPanelContent({ contract, onPreviewDoc, onVersionsDoc, onNavigate 
           <p className="text-sm text-foreground leading-relaxed">{contract.notes}</p>
         </div>
       )}
-
-      {/* Phase 7: Dokumente-Sektion */}
-      <div className="space-y-2">
-        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          {t('vertraege.documents.sectionTitle')}
-          {(contract.documents?.length ?? 0) > 0 && (
-            <span className="ml-1.5 text-muted-foreground font-normal normal-case">
-              ({contract.documents!.length})
-            </span>
-          )}
-        </h4>
-        {(contract.documents?.length ?? 0) === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-5 text-center">
-            <FileText className="h-6 w-6 text-muted-foreground/40 mb-2" />
-            <p className="text-xs text-muted-foreground">{t('vertraege.documents.emptyState')}</p>
-          </div>
-        ) : (
-          <div className="space-y-1.5">
-            {contract.documents!.map((doc) => {
-              const DocIcon = getMimeIcon(doc.mimeType ?? '')
-              return (
-                <div
-                  key={doc.fileId}
-                  className="flex items-center gap-2 rounded-lg border border-border bg-secondary/20 px-3 py-2 group"
-                >
-                  <DocIcon className="h-4 w-4 text-primary shrink-0" />
-                  <button
-                    onClick={() => onPreviewDoc(contractDocToDocumentFile(doc))}
-                    aria-label={t('vertraege.documents.preview', { name: doc.name })}
-                    className="flex-1 text-left text-sm text-foreground hover:text-primary transition-colors truncate"
-                  >
-                    {doc.name}
-                  </button>
-                  {doc.size != null && (
-                    <span className="text-[10px] text-muted-foreground shrink-0">
-                      {formatBytes(doc.size)}
-                    </span>
-                  )}
-                  <TooltipProvider delayDuration={200}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() => onVersionsDoc(doc.fileId, doc.name)}
-                          aria-label={t('vertraege.documents.versions', { name: doc.name })}
-                          className="text-muted-foreground hover:text-foreground transition-colors shrink-0 opacity-0 group-hover:opacity-100"
-                        >
-                          <VersionIcon className="h-3.5 w-3.5" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="text-xs">{t('vertraege.documents.versionsTooltip')}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
 
       {/* Phase 10: CRM/Finance Verknüpfungen */}
       {(contract.contactId || contract.dealId || (contract.invoiceIds && contract.invoiceIds.length > 0)) && (
