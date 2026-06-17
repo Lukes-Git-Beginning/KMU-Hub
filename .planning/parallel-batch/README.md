@@ -24,7 +24,7 @@
 1. **i18n — die einzige garantierte Kollision.** Beide hängen Keys an `i18n/messages/{de,en,fr,it}.json` an.
    - dashboard-Keys leben unter `dashboard.*` / `widgets.*`; vertraege-Keys unter `vertraege.*`. **Verschiedene Top-Level-Objekte** → Git-Konflikt nur an Objektgrenzen (Komma/Klammer), schnell lösbar.
    - **Regel:** Keys ins jeweilige Top-Level-Objekt einsortieren (nie ans Datei-Ende klatschen). `{var}` single-brace ×4 Sprachen, ICU-Plural `{count, plural, …}`.
-   - **Regel:** `git pull --rebase` **vor jedem Push**. Bei JSON-Konflikt: der Rebasende löst auf (meist nur eine Komma/Klammer-Zeile an der Objektgrenze).
+   - **Regel:** Dank Branch-Isolation (Regel 4) entsteht **kein** Live-i18n-Konflikt mehr — der eine mögliche Konflikt wird beim **finalen Merge** durch das Main-Terminal gelöst (beide Key-Blöcke behalten, danach `npm run build`).
 
 2. **`shared/` einfrieren.** In diesem Lauf baut **kein** Terminal neue `shared/`-Komponenten.
    - vertraege V-1 **konsumiert nur** `shared/DetailModal` (existiert bereits, von work/kontakte/dokumente). Nicht ändern, nur nutzen.
@@ -33,7 +33,7 @@
 
 3. **Routing/Sidebar nicht anfassen.** Beide Module sind bereits geroutet. Keine neuen Routen in diesem Batch.
 
-4. **Atomare Pushes:** committen → `git pull --rebase` → push. So bleibt `main` linear (beide schreiben direct-to-main).
+4. **Branch-Isolation (Sicherung gegen main-Konflikte):** Das **Sub-Terminal baut auf `parallel/vertraege`** (nicht direct-to-main), das **Main-Terminal auf `main`**. So gibt es während des Laufs **null Live-Konflikt** auf `main`. Das Main-Terminal merged `parallel/vertraege` am Ende **einmal kontrolliert** (i18n-Konflikt: beide Key-Blöcke behalten, danach `npm run build`). Wiederherstellungspunkt: Branch `backup/pre-parallel-batch` auf origin.
 
 ## Build-+-Verify-Standard — pro Phase IMMER (CLAUDE.md)
 bauen → i18n ×4 (`{var}`, nie `{{var}}`; Plural als ICU) → Demo-/MSW-Handler falls nötig → **gescopter** Typecheck (nie Full-tsc als Gate) → **Playwright-Screenshot-QA + Bilder WIRKLICH ansehen** (Raw-Keys / Doppelklammern / Layout / leere Zustände) → iterieren bis grün → **ein Commit + Push**.

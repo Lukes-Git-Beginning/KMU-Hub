@@ -10,8 +10,11 @@ vertraege ist **~75 % fertig**, store-only auf `useVertraegeStore` (Zustand + pe
 Stores: `stores/vertraege.ts` (CRUD + History/Audit, `MOCK_CONTRACTS` 12 Stück, `MOCK_TEMPLATES` 6), `stores/vertraegePrefs.ts`, `stores/vertraegeSettings.ts`.
 i18n: alles unter `vertraege.*` in `i18n/messages/de.json` (+ en/fr/it).
 
+## Branch-Setup (einmalig, ZUERST — Sicherung gegen main-Konflikte)
+Bau **NICHT** direct-to-main. Erstelle einmal deinen Isolations-Branch: `git checkout -b parallel/vertraege` (trägt deine aktuelle V-1-Arbeit mit). Alle V-Punkte committest + pushst du auf **diesen** Branch (`git push -u origin parallel/vertraege`). **Kein** `git pull --rebase` von main nötig — dein Branch ist isoliert. Das Main-Terminal merged `parallel/vertraege` am Ende kontrolliert.
+
 ## Workflow pro Punkt
-bauen → i18n ×4 (`{var}`, ICU-Plural) → MSW/Demo-Daten falls nötig → Compile-Gate (`npm run build`, da scoped tsc über den Detail-Graphen crasht) → Playwright-Screenshot-QA gegen **:5174** + **Bilder ansehen** → iterieren → `git pull --rebase` → commit + push → Eintrag in `qa-vertraege.md`.
+bauen → i18n ×4 (`{var}`, ICU-Plural) → MSW/Demo-Daten falls nötig → Compile-Gate (`npm run build`, da scoped tsc über den Detail-Graphen crasht) → Playwright-Screenshot-QA gegen **:5174** + **Bilder ansehen** → iterieren → commit + push auf `parallel/vertraege` → Eintrag in `qa-vertraege.md`.
 
 ---
 
