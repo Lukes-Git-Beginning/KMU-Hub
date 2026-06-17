@@ -36,3 +36,18 @@
 1. **Dashboard → „Team"** (Umschalter oben rechts) → **Team-Dashboard** mit Team-Status (Presence), Geburtstage, Stempeluhr, Offene Tickets, Team-Arbeitszeit. Screenshot `2-team-scope.png`.
 2. **Team-Arbeitszeit** → 6 Mitarbeiter mit unterschiedlichen, konsistenten Wochenstunden (39h/40h/42h/43h/44h/32h), Balken über/unter Ziel eingefärbt. Screenshot `1-team-widgets.png`.
 **Verifiziert:** Build exit 0, 6 distinct hour values, ScopeToggle ok, pageErrors 0, raw-keys 0. Screenshots: `.qa-screenshots/dashboard-d4/`. (Abwesenheiten-Widget weiter leer = der unter D-2 dokumentierte HR-Pipeline-Befund.)
+
+## D-5 — Cross-Module/Alerts-Feinschliff + DnD-Verify ✅
+**Befund:** AlertsSection + CrossModule waren großteils schon sauber (alle Rows als `<Link>`, leere Zustände via `return null`/`noData`, echte Quellen). **Ein echter Fix:** CrossModule „offene Aufgaben" zeigte auf den **toten Link `/work/tasks`** (WorkLayout hat nur `my-tasks`, keine `tasks`-Route) → korrigiert auf `/work/my-tasks` (konsistent mit dem MyTasks-Widget, beide nutzen `useMyTasks`).
+**Dateien:** `widgets/CrossModuleOverview.tsx` (Pfad-Fix).
+**DnD verifiziert:** react-grid-layout ist verkabelt — Edit-Modus zeigt Drag-Handles (Grip) + Resize-Handles an jedem Widget (Script: 3 Widgets → 3 drag + 3 resize handles).
+**Was du anschauen sollst:**
+1. **„Dashboard anpassen"** (oben rechts) → jedes Widget bekommt Grip-Handle (verschieben) + Eck-Resize + X (entfernen) + „Widget hinzufügen". Screenshot `3-edit-dnd.png`.
+2. **„Heute im Überblick" → „offene Aufgaben"** klicken → landet jetzt in „Meine Aufgaben" (vorher toter Link).
+**Verifiziert:** Build exit 0, navOk `/work/my-tasks`, dndOk (3+3 handles), Alerts verlinkt, pageErrors 0. Screenshots: `.qa-screenshots/dashboard-d5/`.
+
+---
+
+## ✅ dashboard review-reif — Zusammenfassung für Nico
+Alle 5 Punkte (D-1…D-5) verifiziert + gepusht. dashboard ist **review-reif**. Module-Settings, DnD, Persistenz, Demo-Tiefe, Team-Scope, Lizenz-Gating: durch.
+**Ein offener Nebenbefund (separat, nicht dashboard-Lane):** Abwesenheiten-Widget leer wegen HR-Pipeline-Mismatch (`select: data.entries` vs. Handler `{absences}` + Feld-Mismatch + Duplikat-Handler `hr.ts`/`team.ts`). Kandidat für HR-/team-Lane-Fix.

@@ -169,7 +169,7 @@ function CrossModuleOverview(_props: WidgetProps) {
         labelKey: 'dashboard.crossModuleOverview.openTasks',
         labelVars: { count: openTaskCount },
         value: openTaskCount,
-        path: '/work/tasks',
+        path: '/work/my-tasks',
       })
     }
     if (eventsTodayCount !== null) {
