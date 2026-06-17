@@ -491,10 +491,8 @@ export const hrHandlers = [
   }),
 
   // ── Absences Calendar ──────────────────────────────────────────────────
-
-  http.get(`${API}/api/v1/hr/absences/calendar`, () => {
-    return HttpResponse.json({ absences: [] })
-  }),
+  // (Owned by team.ts handler — single source of truth, returns AbsenceEntry[]
+  // under `entries`. Duplicate empty handler removed so the rich data is served.)
 
   // ── Employee Profile ───────────────────────────────────────────────────
 

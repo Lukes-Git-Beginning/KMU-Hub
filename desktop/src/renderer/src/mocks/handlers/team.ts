@@ -79,11 +79,21 @@ const leaveBalance = {
 // ---------------------------------------------------------------------------
 
 const absences = [
-  { user_id: IDS.users.lena, user_name: 'Lena Braun', type: 'Krankheit', start_date: daysAgo(1), end_date: daysAgo(1), color: '#ef4444' },
+  { user_id: IDS.users.lena, user_name: 'Lena Braun', type: 'Krankheit', start_date: daysAgo(1), end_date: daysFromNow(1), color: '#ef4444' },
+  { user_id: IDS.users.markus, user_name: 'Markus Weber', type: 'Homeoffice', start_date: daysFromNow(0), end_date: daysFromNow(0), color: '#8b5cf6' },
   { user_id: IDS.users.felix, user_name: 'Felix Krause', type: 'Urlaub', start_date: daysFromNow(14), end_date: daysFromNow(21), color: '#3b82f6' },
   { user_id: IDS.users.julia, user_name: 'Julia Hofmann', type: 'Urlaub', start_date: daysFromNow(30), end_date: daysFromNow(37), color: '#3b82f6' },
   { user_id: IDS.users.sophie, user_name: 'Sophie Lang', type: 'Sonderurlaub', start_date: daysFromNow(5), end_date: daysFromNow(5), color: '#f59e0b' },
 ]
+
+// Map German leave-type names to API keys understood by the calendar + dashboard widget.
+const LEAVE_TYPE_KEYS: Record<string, string> = {
+  Urlaub: 'vacation',
+  Krankheit: 'sick',
+  Sonderurlaub: 'special',
+  Homeoffice: 'home',
+  Elternzeit: 'parent',
+}
 
 // ---------------------------------------------------------------------------
 // Handlers
@@ -160,9 +170,32 @@ export const teamHandlers = [
   // Removed the duplicate idle/zero handlers here so hr.ts's richer demo
   // data (clocked-in day, real entries) is served everywhere.
 
-  // Absence calendar
-  http.get(`${API}/api/v1/hr/absences/calendar`, () => {
-    return HttpResponse.json({ absences })
+  // Absence calendar — returns AbsenceEntry[] under `entries`
+  // (matches hr-client `{ entries }` + useAbsenceCalendar `select: data => data.entries`).
+  http.get(`${API}/api/v1/hr/absences/calendar`, ({ request }) => {
+    const url = new URL(request.url)
+    const start = url.searchParams.get('start_date')
+    const end = url.searchParams.get('end_date')
+    const dept = url.searchParams.get('department')
+    let entries = absences.map((a) => {
+      const emp = hrEmployees.find((e) => e.id === a.user_id)
+      return {
+        employeeId: a.user_id,
+        employeeName: a.user_name,
+        department: emp?.department ?? '',
+        leaveTypeName: a.type,
+        leaveTypeKey: LEAVE_TYPE_KEYS[a.type] ?? 'vacation',
+        color: a.color,
+        startDate: a.start_date,
+        endDate: a.end_date,
+        isHalfDayStart: false,
+        isHalfDayEnd: false,
+      }
+    })
+    // Overlap filter: keep entries that intersect the requested [start, end] window.
+    if (start && end) entries = entries.filter((e) => e.startDate <= end && e.endDate >= start)
+    if (dept) entries = entries.filter((e) => e.department === dept)
+    return HttpResponse.json({ entries })
   }),
 
   // HR settings
