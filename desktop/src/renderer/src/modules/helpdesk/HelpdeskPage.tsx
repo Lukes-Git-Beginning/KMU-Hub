@@ -8,7 +8,6 @@ import {
   Clock,
   CheckCircle2,
   Eye,
-  X,
   Send,
   MessageSquare,
   User,
@@ -47,7 +46,7 @@ import { BusinessHoursDialog } from './BusinessHoursDialog'
 import { TicketRoutingConfig } from './TicketRoutingConfig'
 import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTextEditor'
 import { useAIStore } from '@/stores/ai'
-import { PageHeader, EmptyState } from '@/components/shared'
+import { PageHeader, EmptyState, DetailModal } from '@/components/shared'
 import { EmptyHelpdesk } from '@/components/shared/illustrations'
 import { formatDate } from '@/lib/format'
 
@@ -361,8 +360,17 @@ export default function HelpdeskPage() {
                   {filteredTickets.map((ticket) => (
                     <tr
                       key={ticket.id}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${ticket.ticketNr} — ${ticket.subject}`}
                       onClick={() => handleTicketRowClick(ticket.id)}
-                      className={`border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer ${
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          handleTicketRowClick(ticket.id)
+                        }
+                      }}
+                      className={`border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-inset ${
                         selectedTicketId === ticket.id ? 'bg-secondary/70' : ''
                       }`}
                     >
@@ -671,7 +679,6 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
       toast.success(t('helpdesk.ticket.aiSuggestionInserted'))
     }, 1800)
   }
-  const [showCannedPicker, setShowCannedPicker] = useState(false)
   const thread = useHelpdeskStore((s) => s.threads[ticket.id]) ?? EMPTY_THREAD
   const internalNoteCount = thread.filter((m) => m.isInternal).length
 
@@ -682,43 +689,96 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
   if (ticket.slaOverdue) slaBgClass = 'bg-error-light text-error'
   else if (isYellow) slaBgClass = 'bg-warning-light text-warning'
 
-  return (
-    <div className="fixed inset-y-0 right-0 z-40 w-[440px] max-w-full border-l border-border bg-card shadow-xl flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-border px-5 py-4 shrink-0">
-        <div className="min-w-0">
-          <p className="text-xs font-mono text-muted-foreground">{ticket.ticketNr}</p>
-          <h3 className="text-sm font-semibold text-foreground truncate">{ticket.subject}</h3>
-        </div>
-        <button onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary transition-colors shrink-0 ml-2"><X className="h-4 w-4" /></button>
-      </div>
+  const headerBadge = (
+    <div className="flex items-center gap-1.5">
+      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${priorityColors[ticket.priority]}`}>{priorityLabels[ticket.priority]}</span>
+      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[ticket.status]}`}>{statusLabels[ticket.status]}</span>
+    </div>
+  )
 
-      {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+  const footer = (
+    <div>
+      {/* Internal note banner (5.7) */}
+      {showInternalNotes && (
+        <div className="flex items-center gap-1.5 rounded-lg bg-warning-light/30 border border-warning/20 px-2.5 py-1.5 text-[10px] text-warning font-medium mb-2">
+          <Lock className="h-3 w-3" /> {t('helpdesk.ticket.internalOnlyBanner')}
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 mb-2">
+        <button onClick={() => onToggleInternal(false)} className={`rounded-lg px-2.5 py-1 text-xs transition-colors ${!showInternalNotes ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-secondary'}`}>{t('helpdesk.ticket.reply')}</button>
+        <button onClick={() => onToggleInternal(true)} className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs transition-colors ${showInternalNotes ? 'bg-warning-light text-warning font-medium' : 'text-muted-foreground hover:bg-secondary'}`}>
+          <Lock className="h-3 w-3" />{t('helpdesk.ticket.internalNote')}{internalNoteCount > 0 && ` (${internalNoteCount})`}
+        </button>
+        <div className="flex-1" />
+        {aiHelpdeskEnabled && (
+          <button
+            onClick={handleAISuggestion}
+            disabled={aiSuggestionLoading}
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-primary hover:bg-primary-light transition-colors disabled:opacity-40"
+          >
+            {aiSuggestionLoading ? (
+              <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            ) : (
+              <Bot className="h-3 w-3" />
+            )}
+            {t('helpdesk.ticket.aiSuggestion')}
+          </button>
+        )}
+        <CannedResponsePicker onSelect={(content) => onReplyChange(content.replace(/<[^>]+>/g, ''))} />
+      </div>
+      <div className="flex gap-2">
+        <textarea
+          value={replyText}
+          onChange={(e) => onReplyChange(e.target.value)}
+          placeholder={showInternalNotes ? t('helpdesk.ticket.internalNotePlaceholder') : t('helpdesk.ticket.replyPlaceholder')}
+          rows={2}
+          className={`flex-1 rounded-lg border px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 resize-none ${
+            showInternalNotes ? 'border-warning/40 bg-warning-light/20 focus:ring-warning/30' : 'border-border bg-card focus:ring-focus-ring'
+          }`}
+        />
+        <button onClick={onSendReply} disabled={!replyText.trim()} className="self-end rounded-lg bg-primary p-2.5 text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+          <Send className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  )
+
+  return (
+    <DetailModal
+      open
+      onClose={onClose}
+      title={ticket.subject}
+      subtitle={ticket.ticketNr}
+      badge={headerBadge}
+      footer={footer}
+      maxWidth="max-w-2xl"
+    >
+      <div className="space-y-5">
         {/* SLA Breach Banner (5.9) */}
         {ticket.slaOverdue && <SLABreachBanner remaining={ticket.slaRemaining} />}
 
-        {/* Badges row */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${priorityColors[ticket.priority]}`}>{priorityLabels[ticket.priority]}</span>
-          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[ticket.status]}`}>{statusLabels[ticket.status]}</span>
-          {ticket.category && (
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${categoryColors[ticket.category] ?? 'bg-secondary text-muted-foreground'}`}>
-              <Tag className="inline h-2.5 w-2.5 mr-0.5" />{ticket.category}
-            </span>
-          )}
-          {ticket.autoRouted && (
-            <span className="rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-medium">
-              <Route className="inline h-2.5 w-2.5 mr-0.5" />Auto-Routing
-            </span>
-          )}
-        </div>
+        {/* Secondary badges: category + auto-routing (status/priority live in the header) */}
+        {(ticket.category || ticket.autoRouted) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {ticket.category && (
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${categoryColors[ticket.category] ?? 'bg-secondary text-muted-foreground'}`}>
+                <Tag className="inline h-2.5 w-2.5 mr-0.5" />{ticket.category}
+              </span>
+            )}
+            {ticket.autoRouted && (
+              <span className="rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-medium">
+                <Route className="inline h-2.5 w-2.5 mr-0.5" />{t('helpdesk.ticket.autoRouting')}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* SLA Timer */}
         <div className={`rounded-lg px-3 py-2.5 ${slaBgClass}`}>
           <div className="flex items-center gap-2 text-xs font-medium">
             <Clock className="h-3.5 w-3.5" />
-            <span>SLA: {ticket.slaRemaining}</span>
+            <span>{t('helpdesk.ticket.slaLabel')}: {ticket.slaRemaining}</span>
           </div>
         </div>
 
@@ -830,64 +890,7 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
           </div>
         </div>
       </div>
-
-      {/* Reply area */}
-      <div className="border-t border-border px-5 py-3 shrink-0">
-        {/* Internal note banner (5.7) */}
-        {showInternalNotes && (
-          <div className="flex items-center gap-1.5 rounded-lg bg-warning-light/30 border border-warning/20 px-2.5 py-1.5 text-[10px] text-warning font-medium mb-2">
-            <Lock className="h-3 w-3" /> {t('helpdesk.ticket.internalOnlyBanner')}
-          </div>
-        )}
-
-        <div className="flex items-center gap-2 mb-2">
-          <button onClick={() => onToggleInternal(false)} className={`rounded-lg px-2.5 py-1 text-xs transition-colors ${!showInternalNotes ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-secondary'}`}>{t('helpdesk.ticket.reply')}</button>
-          <button onClick={() => onToggleInternal(true)} className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs transition-colors ${showInternalNotes ? 'bg-warning-light text-warning font-medium' : 'text-muted-foreground hover:bg-secondary'}`}>
-            <Lock className="h-3 w-3" />{t('helpdesk.ticket.internalNote')}{internalNoteCount > 0 && ` (${internalNoteCount})`}
-          </button>
-          <div className="flex-1" />
-          {aiHelpdeskEnabled && (
-            <button
-              onClick={handleAISuggestion}
-              disabled={aiSuggestionLoading}
-              className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-primary hover:bg-primary-light transition-colors disabled:opacity-40"
-            >
-              {aiSuggestionLoading ? (
-                <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              ) : (
-                <Bot className="h-3 w-3" />
-              )}
-              {t('helpdesk.ticket.aiSuggestion')}
-            </button>
-          )}
-          <div className="relative">
-            <button onClick={() => setShowCannedPicker(!showCannedPicker)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground hover:bg-secondary transition-colors">
-              <Zap className="h-3 w-3" />{t('helpdesk.ticket.cannedResponse')}
-            </button>
-            {showCannedPicker && (
-              <CannedResponsePicker
-                onSelect={(content) => { onReplyChange(content.replace(/<[^>]+>/g, '')); setShowCannedPicker(false) }}
-                onClose={() => setShowCannedPicker(false)}
-              />
-            )}
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <textarea
-            value={replyText}
-            onChange={(e) => onReplyChange(e.target.value)}
-            placeholder={showInternalNotes ? t('helpdesk.ticket.internalNotePlaceholder') : t('helpdesk.ticket.replyPlaceholder')}
-            rows={2}
-            className={`flex-1 rounded-lg border px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 resize-none ${
-              showInternalNotes ? 'border-warning/40 bg-warning-light/20 focus:ring-warning/30' : 'border-border bg-card focus:ring-focus-ring'
-            }`}
-          />
-          <button onClick={onSendReply} disabled={!replyText.trim()} className="self-end rounded-lg bg-primary p-2.5 text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-            <Send className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-    </div>
+    </DetailModal>
   )
 }
 
