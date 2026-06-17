@@ -26,6 +26,7 @@ import {
   Timer,
   BookOpen,
   PhoneCall,
+  Workflow,
 } from 'lucide-react'
 
 export interface NavBadge {
@@ -120,6 +121,9 @@ export const navItems: NavItemConfig[] = [
 
   // ── Sales & Outbound ──
   { id: 'dialer', to: '/dialer', icon: PhoneCall, label: 'layout.navItems.dialer', enabled: true, section: 'main', color: { h: 142, s: 72 } },
+
+  // ── Automation ──
+  { id: 'automatisierung', to: '/automatisierung', icon: Workflow, label: 'layout.navItems.automatisierung', enabled: true, section: 'main', color: { h: 188, s: 78 } },
 
   // ── System (bottom) ──
   // Admin/organisation settings now live inside the module-settings overlay
