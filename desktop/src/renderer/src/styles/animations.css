@@ -129,6 +129,11 @@
   }
 }
 
+/* ── Skeleton Sweep (GPU-only light sweep for skeleton loaders) ── */
+@keyframes skeleton-sweep {
+  100% { transform: translateX(100%); }
+}
+
 /* ── Glow Pulse (for live indicators, active states) ── */
 @keyframes glow-pulse {
   0%, 100% {
@@ -248,6 +253,29 @@
   animation: glow-pulse 2s ease-in-out infinite;
 }
 
+/* ── Skeleton Loader ──
+   Sanfter Licht-Sweep (Cosmi-Türkis) über das Lade-Gerüst. GPU-only:
+   animiert ausschließlich `transform` auf dem ::after-Overlay. */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--muted);
+  border-radius: 0.5rem;
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in oklch, var(--primary) 16%, transparent) 50%,
+    transparent 100%
+  );
+  animation: skeleton-sweep 1.4s var(--ease-in-out) infinite;
+}
+
 .animate-spin-smooth {
   animation: spin-smooth 600ms linear infinite;
 }
@@ -337,6 +365,7 @@
   .animate-slide-in-left,
   .animate-slide-in-bottom,
   .animate-shimmer,
+  .skeleton::after,
   .animate-glow-pulse,
   .animate-spin-smooth,
   .animate-count-up,

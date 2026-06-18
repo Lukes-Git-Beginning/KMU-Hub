@@ -1,14 +1,14 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
-import { IDS } from '../data/shared-ids'
+import { IDS, CURRENT_USER } from '../data/shared-ids'
 
 const API = API_BASE_URL
 
 const mockUser = {
-  id: IDS.users.stefan,
-  email: 'stefan.mueller@techvision.de',
-  first_name: 'Stefan',
-  last_name: 'Müller',
+  id: CURRENT_USER.id,
+  email: CURRENT_USER.email,
+  first_name: CURRENT_USER.firstName,
+  last_name: CURRENT_USER.lastName,
   roles: ['admin'],
   avatar_url: null,
 }

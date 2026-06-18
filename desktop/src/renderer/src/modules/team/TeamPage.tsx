@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -27,6 +27,16 @@ import {
   UserCircle,
   Banknote,
   UserX,
+  UserCheck,
+  FileText,
+  Video,
+  Link2,
+  Presentation,
+  Target,
+  CheckCircle2,
+  Download,
+  Upload,
+  X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth'
@@ -35,6 +45,7 @@ import {
   useTeamStore,
   type Training,
   type TrainingParticipation,
+  type TrainingMaterial,
 } from '@/stores/team'
 import { useTimeTrackingStore, type TeamActivityEntry } from '@/stores/timetracking'
 import { useMeetingsStore } from '@/stores/meetings'
@@ -54,6 +65,7 @@ import { PersonnelDocuments } from './PersonnelDocuments'
 import { OnboardingChecklist } from './OnboardingChecklist'
 import { OrgChart } from './OrgChart'
 import { SelfServiceView } from './SelfServiceView'
+import { DetailModal } from '@/components/shared/DetailModal'
 import { useTeamPrefsStore } from '@/stores/teamPrefs'
 import {
   Dialog,
@@ -181,6 +193,7 @@ export default function TeamPage() {
   // Schulungen tab state
   const [showAddTraining, setShowAddTraining] = useState(false)
   const [showRecordParticipation, setShowRecordParticipation] = useState(false)
+  const [selectedTraining, setSelectedTraining] = useState<Training | null>(null)
 
   // Employees from API
   const apiEmployees = useMemo(() => employeesData?.employees ?? [], [employeesData?.employees])
@@ -234,6 +247,11 @@ export default function TeamPage() {
     toast.success(t('team.page.deactivated', { name: emp.userName ?? t('team.member.employee') }))
   }
 
+  const handleReactivate = (emp: EmployeeProfile) => {
+    updateEmployeeMutation.mutate({ id: emp.id, data: { status: 'active' } })
+    toast.success(t('team.page.reactivated', { name: emp.userName ?? t('team.member.employee'), defaultValue: '{name} wurde wieder aktiviert' }))
+  }
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -253,7 +271,7 @@ export default function TeamPage() {
       { label: t('team.page.action.sendMessage'), icon: MessageSquare, onClick: () => handleMessage(name) },
       ...(emp.status !== 'inactive'
         ? [{ label: t('team.page.action.deactivate', { defaultValue: 'Deaktivieren' }), icon: UserX, onClick: () => setConfirmDeactivate(emp), variant: 'destructive' as const, separator: true }]
-        : []),
+        : [{ label: t('team.page.action.reactivate', { defaultValue: 'Aktivieren' }), icon: UserCheck, onClick: () => handleReactivate(emp), separator: true }]),
     ]
   }
 
@@ -518,7 +536,14 @@ export default function TeamPage() {
                 {trainings.map((training) => {
                   const TypeIcon = trainingTypeIcons[training.type] || GraduationCap
                   return (
-                    <div key={training.id} className="rounded-lg border border-border bg-card p-4">
+                    <div
+                      key={training.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setSelectedTraining(training)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedTraining(training) } }}
+                      className="rounded-lg border border-border bg-card p-4 cursor-pointer transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${trainingTypeColors[training.type]}`}>
@@ -660,6 +685,144 @@ export default function TeamPage() {
         members={apiEmployees}
         onRecord={recordParticipation}
       />
+
+      {/* Training Detail Modal (zentriertes Cosmi-Fenster) */}
+      <DetailModal
+        open={!!selectedTraining}
+        onClose={() => setSelectedTraining(null)}
+        title={selectedTraining?.name}
+        subtitle={selectedTraining?.provider}
+        maxWidth="max-w-2xl"
+        badge={selectedTraining && (
+          <div className="flex items-center gap-1.5">
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${trainingTypeColors[selectedTraining.type]}`}>
+              {t(`team.page.training.type.${selectedTraining.type}`, { defaultValue: trainingTypeLabels[selectedTraining.type] })}
+            </span>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${selectedTraining.mandatory ? 'bg-error-light text-error' : 'bg-secondary text-muted-foreground'}`}>
+              {selectedTraining.mandatory ? t('team.page.training.required') : t('team.page.training.optional')}
+            </span>
+          </div>
+        )}
+        footer={selectedTraining && (
+          <div className="flex justify-end">
+            <button
+              onClick={() => { setSelectedTraining(null); setShowRecordParticipation(true) }}
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t('team.page.training.recordParticipation')}
+            </button>
+          </div>
+        )}
+      >
+        {selectedTraining && (() => {
+          const participants = trainingParticipations.filter((p) => p.trainingId === selectedTraining.id)
+          const materialIcons = { pdf: FileText, video: Video, link: Link2, slides: Presentation } as const
+          const downloadMaterial = (m: TrainingMaterial) => {
+            const blob = new Blob([`${selectedTraining.name}\n${m.name}\n\n[Cosmi — ${t('team.page.training.materialsLabel', { defaultValue: 'Unterlagen' })} (Demo)]\n`], { type: 'text/plain;charset=utf-8' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = m.name.replace(/\.[^.]+$/, '') + '.txt'
+            a.click()
+            URL.revokeObjectURL(url)
+            toast.success(t('team.personnelDocs.downloadStarted', { name: m.name }))
+          }
+          return (
+            <div className="space-y-5">
+              {/* Meta */}
+              <dl className="flex flex-wrap items-end gap-x-8 gap-y-3 border-b border-border pb-4">
+                <div>
+                  <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">{t('team.page.training.duration')}</dt>
+                  <dd className="mt-0.5 text-sm font-medium text-foreground">{selectedTraining.duration}</dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">{t('team.page.training.validity', { defaultValue: 'Gültigkeit' })}</dt>
+                  <dd className="mt-0.5 text-sm font-medium text-foreground">{selectedTraining.validityMonths > 0 ? t('team.page.training.validMonths', { count: selectedTraining.validityMonths }) : t('team.page.training.noExpiry', { defaultValue: 'Unbegrenzt' })}</dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">{t('team.page.training.participations')}</dt>
+                  <dd className="mt-0.5 text-sm font-medium text-foreground tabular-nums">{participants.length}</dd>
+                </div>
+              </dl>
+
+              {/* Description */}
+              {selectedTraining.description && (
+                <div>
+                  <h4 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-1.5">{t('team.page.training.descriptionLabel', { defaultValue: 'Beschreibung' })}</h4>
+                  <p className="text-sm text-foreground leading-relaxed">{selectedTraining.description}</p>
+                </div>
+              )}
+
+              {/* Objectives */}
+              {selectedTraining.objectives && selectedTraining.objectives.length > 0 && (
+                <div>
+                  <h4 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">
+                    <Target className="h-3.5 w-3.5" />
+                    {t('team.page.training.objectivesLabel', { defaultValue: 'Lernziele' })}
+                  </h4>
+                  <ul className="space-y-1.5">
+                    {selectedTraining.objectives.map((obj, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-foreground">
+                        <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0 mt-0.5" />
+                        <span>{obj}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Materials */}
+              {selectedTraining.materials && selectedTraining.materials.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">{t('team.page.training.materialsLabel', { defaultValue: 'Unterlagen' })}</h4>
+                  <div className="space-y-1.5">
+                    {selectedTraining.materials.map((m) => {
+                      const MIcon = materialIcons[m.type]
+                      return (
+                        <button
+                          key={m.id}
+                          onClick={() => downloadMaterial(m)}
+                          className="flex w-full items-center gap-3 rounded-lg border border-border bg-card px-3 py-2 text-left hover:bg-secondary/30 transition-colors"
+                        >
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
+                            <MIcon className="h-4 w-4" />
+                          </div>
+                          <span className="flex-1 text-sm text-foreground truncate">{m.name}</span>
+                          <Download className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Participants */}
+              <div>
+                <h4 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">{t('team.page.training.participantsLabel', { defaultValue: 'Teilnehmer' })}</h4>
+                {participants.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t('team.page.training.noParticipants', { defaultValue: 'Noch keine Teilnehmer erfasst.' })}</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {participants.map((p) => (
+                      <div key={p.id} className="flex items-center justify-between rounded-lg border border-border-muted px-3 py-2">
+                        <span className="text-sm text-foreground">{p.memberName}</span>
+                        <div className="flex items-center gap-3">
+                          {p.completedAt && <span className="text-xs text-muted-foreground tabular-nums">{new Date(p.completedAt).toLocaleDateString(i18n.language)}</span>}
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${participationStatusColors[p.status]}`}>
+                            {p.status === 'expired' && <AlertTriangle className="h-3 w-3" />}
+                            {t(`team.page.training.status.${p.status}`, { defaultValue: participationStatusLabels[p.status] })}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })()}
+      </DetailModal>
     </div>
   )
 }
@@ -914,14 +1077,49 @@ function AddTrainingDialog({ open, onOpenChange, onAdd }: {
   const [mandatory, setMandatory] = useState(false)
   const [provider, setProvider] = useState('')
   const [validityMonths, setValidityMonths] = useState(0)
+  const [description, setDescription] = useState('')
+  const [objectives, setObjectives] = useState<string[]>([])
+  const [objectiveInput, setObjectiveInput] = useState('')
+  const [materials, setMaterials] = useState<TrainingMaterial[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const reset = () => {
     setName(''); setType('safety'); setDuration(''); setMandatory(false); setProvider(''); setValidityMonths(0)
+    setDescription(''); setObjectives([]); setObjectiveInput(''); setMaterials([])
+  }
+
+  const addObjective = () => {
+    const v = objectiveInput.trim()
+    if (!v) return
+    setObjectives((prev) => [...prev, v])
+    setObjectiveInput('')
+  }
+
+  const detectMaterialType = (filename: string): TrainingMaterial['type'] => {
+    const ext = filename.split('.').pop()?.toLowerCase() ?? ''
+    if (['mp4', 'mov', 'avi', 'webm'].includes(ext)) return 'video'
+    if (['ppt', 'pptx', 'key'].includes(ext)) return 'slides'
+    return 'pdf'
+  }
+
+  const handleFiles = (files: FileList | null) => {
+    if (!files) return
+    const added: TrainingMaterial[] = Array.from(files).map((f, i) => ({
+      id: `m-new-${Date.now()}-${i}`,
+      name: f.name,
+      type: detectMaterialType(f.name),
+    }))
+    setMaterials((prev) => [...prev, ...added])
   }
 
   const handleAdd = () => {
     if (!name.trim() || !duration.trim() || !provider.trim()) return
-    onAdd({ name: name.trim(), type, duration: duration.trim(), mandatory, provider: provider.trim(), validityMonths })
+    onAdd({
+      name: name.trim(), type, duration: duration.trim(), mandatory, provider: provider.trim(), validityMonths,
+      ...(description.trim() ? { description: description.trim() } : {}),
+      ...(objectives.length ? { objectives } : {}),
+      ...(materials.length ? { materials } : {}),
+    })
     toast.success(t('team.page.training.addedToast', { name: name.trim() }))
     reset()
     onOpenChange(false)
@@ -929,7 +1127,7 @@ function AddTrainingDialog({ open, onOpenChange, onAdd }: {
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v) }}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg max-h-[88vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t('team.page.training.addTraining')}</DialogTitle>
         </DialogHeader>
@@ -970,6 +1168,82 @@ function AddTrainingDialog({ open, onOpenChange, onAdd }: {
               <Checkbox id="mandatory" checked={mandatory} onCheckedChange={(v) => setMandatory(v === true)} />
               <Label htmlFor="mandatory" className="text-sm font-normal cursor-pointer">{t('team.page.training.mandatoryLabel')}</Label>
             </div>
+          </div>
+
+          {/* Description */}
+          <div className="space-y-1.5">
+            <Label>{t('team.page.training.fieldDescription', { defaultValue: 'Beschreibung' })}</Label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              placeholder={t('team.page.training.fieldDescriptionPlaceholder', { defaultValue: 'Worum geht es in dieser Schulung?' })}
+              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
+
+          {/* Objectives */}
+          <div className="space-y-1.5">
+            <Label>{t('team.page.training.fieldObjectives', { defaultValue: 'Lernziele' })}</Label>
+            <div className="flex gap-2">
+              <Input
+                value={objectiveInput}
+                onChange={(e) => setObjectiveInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addObjective() } }}
+                placeholder={t('team.page.training.fieldObjectivesPlaceholder', { defaultValue: 'Lernziel hinzufügen…' })}
+              />
+              <Button type="button" variant="outline" size="icon" className="shrink-0" onClick={addObjective}><Plus className="h-4 w-4" /></Button>
+            </div>
+            {objectives.length > 0 && (
+              <ul className="space-y-1 mt-1.5">
+                {objectives.map((obj, i) => (
+                  <li key={i} className="flex items-center gap-2 rounded-md bg-secondary/40 px-2.5 py-1.5 text-sm text-foreground">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-success flex-shrink-0" />
+                    <span className="flex-1">{obj}</span>
+                    <button type="button" onClick={() => setObjectives((prev) => prev.filter((_, idx) => idx !== i))} className="text-muted-foreground hover:text-error transition-colors">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Materials */}
+          <div className="space-y-1.5">
+            <Label>{t('team.page.training.fieldMaterials', { defaultValue: 'Unterlagen' })}</Label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.ppt,.pptx,.key,.mp4,.mov,.webm,.docx"
+              className="hidden"
+              onChange={(e) => { handleFiles(e.target.files); e.target.value = '' }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full rounded-lg border-2 border-dashed border-border bg-secondary/20 p-4 text-center hover:border-primary/50 transition-colors"
+            >
+              <Upload className="h-5 w-5 text-muted-foreground mx-auto mb-1" />
+              <p className="text-xs text-muted-foreground">{t('team.page.training.materialsUpload', { defaultValue: 'Dateien hinzufügen (PDF, Folien, Video…)' })}</p>
+            </button>
+            {materials.length > 0 && (
+              <div className="space-y-1 mt-1.5">
+                {materials.map((m) => {
+                  const MIcon = { pdf: FileText, video: Video, link: Link2, slides: Presentation }[m.type]
+                  return (
+                    <div key={m.id} className="flex items-center gap-2 rounded-md border border-border-muted px-2.5 py-1.5 text-sm">
+                      <MIcon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                      <span className="flex-1 truncate text-foreground">{m.name}</span>
+                      <button type="button" onClick={() => setMaterials((prev) => prev.filter((x) => x.id !== m.id))} className="text-muted-foreground hover:text-error transition-colors">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
         <DialogFooter>

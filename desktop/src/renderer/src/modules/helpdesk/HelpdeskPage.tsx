@@ -66,7 +66,7 @@ import { CannedResponsePicker } from './CannedResponsePicker'
 import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTextEditor'
 import { useAIStore } from '@/stores/ai'
 import { useHelpdeskPrefsStore } from '@/stores/helpdeskPrefs'
-import { PageHeader, EmptyState, DetailModal, SortMenu, type SortDirection } from '@/components/shared'
+import { PageHeader, EmptyState, DetailModal, SortMenu, AbbrTooltip, SkeletonTable, SkeletonText, type SortDirection } from '@/components/shared'
 import { EmptyHelpdesk } from '@/components/shared/illustrations'
 import { formatDate } from '@/lib/format'
 import { sanitizeHtml } from '@/lib/sanitize'
@@ -388,7 +388,7 @@ export default function HelpdeskPage() {
       {tab === 'tickets' && (
         <div className="animate-fade-up">
           {ticketsLoading && (
-            <div className="p-8 text-center text-muted-foreground text-sm">{t('helpdesk.loading')}</div>
+            <SkeletonTable rows={8} cols={6} className="mb-4" />
           )}
           {ticketsError && (
             <div className="p-4 rounded-lg bg-error-light text-error text-sm mb-4">{t('helpdesk.loadError')}</div>
@@ -471,7 +471,7 @@ export default function HelpdeskPage() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.table.priority')}</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('common.status')}</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.table.assignedTo')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">SLA</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground"><AbbrTooltip term="SLA" /></th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.table.createdAt')}</th>
                   </tr>
                 </thead>
@@ -916,7 +916,7 @@ function TicketDetailPanel({
       subtitle={ticket.ticketNr}
       badge={headerBadge}
       footer={footer}
-      maxWidth="max-w-2xl"
+      maxWidth="max-w-3xl"
     >
       <div className="space-y-5">
         {/* SLA Breach Banner (5.9) */}
@@ -942,7 +942,7 @@ function TicketDetailPanel({
         <div className={`rounded-lg px-3 py-2.5 ${slaBgClass}`}>
           <div className="flex items-center gap-2 text-xs font-medium">
             <Clock className="h-3.5 w-3.5" />
-            <span>{t('helpdesk.ticket.slaLabel')}: {slaLabel(t, ticket)}</span>
+            <span><AbbrTooltip term="SLA">{t('helpdesk.ticket.slaLabel')}</AbbrTooltip>: {slaLabel(t, ticket)}</span>
           </div>
         </div>
 
@@ -1083,7 +1083,7 @@ function TicketDetailPanel({
             )}
           </h4>
           {messagesLoading && (
-            <p className="text-xs text-muted-foreground text-center py-4">{t('helpdesk.loading')}</p>
+            <SkeletonText lines={3} className="py-2" />
           )}
           <div className="space-y-3">
             {wireMessages.map((msg: TicketMessage) => (

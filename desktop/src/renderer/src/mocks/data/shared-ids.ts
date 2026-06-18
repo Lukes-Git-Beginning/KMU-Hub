@@ -213,3 +213,22 @@ export const IDS = {
     session001: 'dlr-sess-001',
   },
 } as const
+
+/**
+ * The currently authenticated demo user — single source of truth for the
+ * logged-in identity across ALL mock data (auth/me, seed authors, owners,
+ * email from/to, chat senders, calendar attendees, ...).
+ *
+ * Maps to mock-db employee `e1`. In production this is replaced by the real
+ * authenticated user from the backend, so NEVER hardcode the name/email in
+ * individual handlers or seeds — reference CURRENT_USER instead.
+ */
+export const CURRENT_USER = {
+  id: IDS.users.stefan,
+  firstName: 'Stefan',
+  lastName: 'Vogel',
+  name: 'Stefan Vogel',
+  email: 'stefan.vogel@techvision.de',
+  jobTitle: 'Geschäftsführer',
+  company: 'TechVision GmbH',
+} as const

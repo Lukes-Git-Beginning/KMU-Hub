@@ -18,6 +18,12 @@ export interface PayrollEntry {
   status: 'draft' | 'approved' | 'paid'
 }
 
+export interface TrainingMaterial {
+  id: string
+  name: string
+  type: 'pdf' | 'video' | 'link' | 'slides'
+}
+
 export interface Training {
   id: string
   name: string
@@ -26,6 +32,9 @@ export interface Training {
   mandatory: boolean
   provider: string
   validityMonths: number // 0 = no expiry
+  description?: string
+  objectives?: string[] // Lernziele
+  materials?: TrainingMaterial[] // Unterlagen / Begleitmaterial
 }
 
 export interface TrainingParticipation {
@@ -65,12 +74,62 @@ const INITIAL_PAYROLL: PayrollEntry[] = [
 ]
 
 const INITIAL_TRAININGS: Training[] = [
-  { id: 'tr1', name: 'Erste Hilfe', type: 'safety', duration: '1 Tag', mandatory: true, provider: 'Deutsches Rotes Kreuz', validityMonths: 24 },
-  { id: 'tr2', name: 'Arbeitssicherheit', type: 'safety', duration: '4 Stunden', mandatory: true, provider: 'BG ETEM', validityMonths: 12 },
-  { id: 'tr3', name: 'React Advanced', type: 'technical', duration: '2 Tage', mandatory: false, provider: 'TU München Weiterbildung', validityMonths: 0 },
-  { id: 'tr4', name: 'Datenschutz DSGVO', type: 'compliance', duration: '3 Stunden', mandatory: true, provider: 'IHK München', validityMonths: 12 },
-  { id: 'tr5', name: 'ITIL Foundation', type: 'certification', duration: '3 Tage', mandatory: false, provider: 'SERVIEW GmbH', validityMonths: 0 },
-  { id: 'tr6', name: 'Führungskompetenz', type: 'soft_skills', duration: '2 Tage', mandatory: false, provider: 'WHU Executive Education', validityMonths: 0 },
+  {
+    id: 'tr1', name: 'Erste Hilfe', type: 'safety', duration: '1 Tag', mandatory: true, provider: 'Deutsches Rotes Kreuz', validityMonths: 24,
+    description: 'Grundausbildung in lebensrettenden Sofortmaßnahmen am Arbeitsplatz. Praxisnahe Übungen zu Wundversorgung, stabiler Seitenlage und Reanimation.',
+    objectives: ['Lebensrettende Sofortmaßnahmen durchführen', 'Wunden fachgerecht versorgen', 'Notruf korrekt absetzen und Unfallstelle sichern'],
+    materials: [
+      { id: 'm-tr1-1', name: 'Erste-Hilfe-Leitfaden.pdf', type: 'pdf' },
+      { id: 'm-tr1-2', name: 'Reanimation – Schulungsvideo', type: 'video' },
+      { id: 'm-tr1-3', name: 'Notfall-Checkliste.pdf', type: 'pdf' },
+    ],
+  },
+  {
+    id: 'tr2', name: 'Arbeitssicherheit', type: 'safety', duration: '4 Stunden', mandatory: true, provider: 'BG ETEM', validityMonths: 12,
+    description: 'Jährliche Unterweisung zu Arbeitsschutz und Gefährdungsbeurteilung gemäß ArbSchG. Pflichtschulung für alle Mitarbeitenden.',
+    objectives: ['Gefährdungen am Arbeitsplatz erkennen', 'Schutzmaßnahmen korrekt anwenden', 'Meldewege bei Unfällen kennen'],
+    materials: [
+      { id: 'm-tr2-1', name: 'Unterweisung-Arbeitssicherheit.pdf', type: 'pdf' },
+      { id: 'm-tr2-2', name: 'Präsentation-Grundlagen.pptx', type: 'slides' },
+    ],
+  },
+  {
+    id: 'tr3', name: 'React Advanced', type: 'technical', duration: '2 Tage', mandatory: false, provider: 'TU München Weiterbildung', validityMonths: 0,
+    description: 'Vertiefungskurs zu modernen React-Patterns: Performance-Optimierung, State-Management und Server Components.',
+    objectives: ['Komplexe Komponenten performant strukturieren', 'State-Management-Strategien bewerten', 'Render-Performance messen und optimieren'],
+    materials: [
+      { id: 'm-tr3-1', name: 'Kursunterlagen-React-Advanced.pdf', type: 'pdf' },
+      { id: 'm-tr3-2', name: 'Code-Beispiele (Repository)', type: 'link' },
+    ],
+  },
+  {
+    id: 'tr4', name: 'Datenschutz DSGVO', type: 'compliance', duration: '3 Stunden', mandatory: true, provider: 'IHK München', validityMonths: 12,
+    description: 'Pflichtschulung zur Datenschutz-Grundverordnung: Umgang mit personenbezogenen Daten, Betroffenenrechte und Meldepflichten.',
+    objectives: ['Grundsätze der DSGVO anwenden', 'Betroffenenrechte korrekt umsetzen', 'Datenpannen fristgerecht melden'],
+    materials: [
+      { id: 'm-tr4-1', name: 'DSGVO-Handbuch.pdf', type: 'pdf' },
+      { id: 'm-tr4-2', name: 'Fallbeispiele-Datenschutz.pdf', type: 'pdf' },
+    ],
+  },
+  {
+    id: 'tr5', name: 'ITIL Foundation', type: 'certification', duration: '3 Tage', mandatory: false, provider: 'SERVIEW GmbH', validityMonths: 0,
+    description: 'Zertifizierungskurs zum ITIL-4-Foundation-Framework für IT-Service-Management. Schließt mit offizieller Prüfung ab.',
+    objectives: ['ITIL-4-Grundkonzepte verstehen', 'Service-Wertschöpfungskette anwenden', 'Auf die Foundation-Prüfung vorbereiten'],
+    materials: [
+      { id: 'm-tr5-1', name: 'ITIL-Foundation-Skript.pdf', type: 'pdf' },
+      { id: 'm-tr5-2', name: 'Übungsprüfung.pdf', type: 'pdf' },
+      { id: 'm-tr5-3', name: 'Webinar-Aufzeichnung', type: 'video' },
+    ],
+  },
+  {
+    id: 'tr6', name: 'Führungskompetenz', type: 'soft_skills', duration: '2 Tage', mandatory: false, provider: 'WHU Executive Education', validityMonths: 0,
+    description: 'Entwicklung von Führungsfähigkeiten für Team- und Projektleitende: Mitarbeitergespräche, Feedback-Kultur und Konfliktlösung.',
+    objectives: ['Mitarbeitergespräche wirksam führen', 'Konstruktives Feedback geben', 'Konflikte im Team moderieren'],
+    materials: [
+      { id: 'm-tr6-1', name: 'Leadership-Workbook.pdf', type: 'pdf' },
+      { id: 'm-tr6-2', name: 'Gesprächsleitfaden.pdf', type: 'pdf' },
+    ],
+  },
 ]
 
 const INITIAL_PARTICIPATIONS: TrainingParticipation[] = [

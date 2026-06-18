@@ -66,17 +66,19 @@ export interface DevProfile {
 export const DEV_PROFILES: DevProfile[] = [
   {
     id: 'admin',
+    // Maps to mock-db employee e1 (= IDS.users.stefan) so the logged-in identity
+    // is consistent everywhere: sidebar/topbar, HR self-service, org chart, /auth/me.
     user: {
-      id: 'u-admin',
-      firstName: 'Markus',
-      lastName: 'Weber',
-      email: 'markus.weber@firma.de',
+      id: 'usr-e1',
+      firstName: 'Stefan',
+      lastName: 'Vogel',
+      email: 'stefan.vogel@techvision.de',
       roles: ['admin'],
     },
     label: 'config.roles.admin.label',
     description: 'config.roles.admin.description',
     color: 'hsl(0 72% 51%)',
-    initials: 'MW',
+    initials: 'SV',
   },
   {
     id: 'manager',

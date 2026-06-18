@@ -12,13 +12,13 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
-  Loader2,
 } from 'lucide-react'
 import { useEmployees } from '@/api/hooks/hr-hooks'
 import { useMeetingsStore } from '@/stores/meetings'
 import { useNavigationStore } from '@/stores/navigation'
 import type { EmployeeProfile } from '@/api/hr-types'
-import { EmptyState, InlineStat } from '@/components/shared'
+import { EmptyState, InlineStat, SkeletonList } from '@/components/shared'
+import { DetailModal } from '@/components/shared/DetailModal'
 
 // ============================================================
 // Types
@@ -233,11 +233,7 @@ export function OrgChart() {
   }
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <SkeletonList rows={5} className="max-w-md" />
   }
 
   if (employees.length === 0) {
@@ -310,60 +306,90 @@ export function OrgChart() {
         </button>
       </div>
 
-      {/* Org Chart + Detail Panel */}
-      <div className="flex gap-4">
-        {/* Tree */}
-        <div
-          className="flex-1 rounded-lg border border-border bg-card p-6 overflow-auto min-h-[400px]"
-          style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top left' }}
-        >
-          {rootNodes.map((node) => (
-            <OrgNodeCard
-              key={node.id}
-              node={node}
-              level={0}
-              collapsedIds={collapsedIds}
-              onToggle={toggleNode}
-              onSelect={setSelectedNode}
-              searchHighlight={search}
-            />
-          ))}
-        </div>
+      {/* Org Chart */}
+      <div
+        className="rounded-lg border border-border bg-card p-6 overflow-auto min-h-[400px]"
+        style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top left' }}
+      >
+        {rootNodes.map((node) => (
+          <OrgNodeCard
+            key={node.id}
+            node={node}
+            level={0}
+            collapsedIds={collapsedIds}
+            onToggle={toggleNode}
+            onSelect={setSelectedNode}
+            searchHighlight={search}
+          />
+        ))}
+      </div>
 
-        {/* Detail Panel */}
+      {/* Detail Modal (zentriertes Cosmi-Fenster, sticky Header/Close) */}
+      <DetailModal
+        open={!!selectedNode}
+        onClose={() => setSelectedNode(null)}
+        title={selectedNode?.name}
+        subtitle={selectedNode?.role}
+        badge={selectedNode && (
+          <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${
+            (DEPT_COLORS[selectedNode.department] ?? DEFAULT_DEPT_COLOR).bg
+          } ${(DEPT_COLORS[selectedNode.department] ?? DEFAULT_DEPT_COLOR).text}`}>
+            {selectedNode.department}
+          </span>
+        )}
+        maxWidth="max-w-lg"
+        footer={selectedNode && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => setIntent({ type: 'compose-email', data: { to: selectedNode.email, name: selectedNode.name } })}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
+            >
+              <Mail className="h-3.5 w-3.5" />
+              {t('team.detail.email', { defaultValue: 'E-Mail' })}
+            </button>
+            <button
+              onClick={() => startCall(selectedNode.name, selectedNode.initials)}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
+            >
+              <Phone className="h-3.5 w-3.5" />
+              {t('team.detail.call')}
+            </button>
+          </div>
+        )}
+      >
         {selectedNode && (
-          <div className="w-72 flex-shrink-0 rounded-lg border border-border bg-card p-4 self-start">
-            <div className="flex items-center gap-3 mb-4">
-              <div className={`flex h-12 w-12 items-center justify-center rounded-full ${
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className={`flex h-14 w-14 items-center justify-center rounded-full ${
                 (DEPT_COLORS[selectedNode.department] ?? DEFAULT_DEPT_COLOR).bg
-              } text-sm font-bold ${(DEPT_COLORS[selectedNode.department] ?? DEFAULT_DEPT_COLOR).text}`}>
-                {selectedNode.initials}
+              } text-base font-bold ${(DEPT_COLORS[selectedNode.department] ?? DEFAULT_DEPT_COLOR).text}`}>
+                {selectedNode.isManager ? <Crown className="h-5 w-5" /> : selectedNode.initials}
               </div>
-              <div>
-                <h3 className="text-sm font-semibold text-foreground">{selectedNode.name}</h3>
-                <p className="text-xs text-muted-foreground">{selectedNode.role}</p>
+              <div className="min-w-0">
+                <h3 className="text-base font-semibold text-foreground">{selectedNode.name}</h3>
+                <p className="text-sm text-muted-foreground">{selectedNode.role}</p>
               </div>
             </div>
 
-            <div className="space-y-3 text-sm">
+            <div className="space-y-2.5 text-sm">
               <div className="flex items-center gap-2 text-muted-foreground">
-                <Building2 className="h-3.5 w-3.5" />
+                <Building2 className="h-4 w-4 flex-shrink-0" />
                 <span>{selectedNode.department}</span>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
-                <Mail className="h-3.5 w-3.5" />
+                <Mail className="h-4 w-4 flex-shrink-0" />
                 <span className="truncate">{selectedNode.email}</span>
               </div>
               {selectedNode.isManager && selectedNode.children.length > 0 && (
                 <div className="flex items-center gap-2 text-muted-foreground">
-                  <Users className="h-3.5 w-3.5" />
+                  <Users className="h-4 w-4 flex-shrink-0" />
                   <span>{selectedNode.children.length} {t('team.orgChart.directReports')}</span>
                 </div>
               )}
             </div>
 
             {selectedNode.children.length > 0 && (
-              <div className="mt-4 pt-3 border-t border-border">
+              <div className="pt-3 border-t border-border">
                 <p className="text-xs font-medium text-muted-foreground mb-2">{t('team.orgChart.directReportsLabel')}:</p>
                 <div className="space-y-1.5">
                   {selectedNode.children.map((child) => (
@@ -372,7 +398,7 @@ export function OrgChart() {
                       onClick={() => setSelectedNode(child)}
                       className="flex items-center gap-2 w-full rounded-md px-2 py-1.5 text-left hover:bg-secondary/50 transition-colors"
                     >
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-secondary text-[10px] font-medium text-foreground">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-[10px] font-medium text-foreground">
                         {child.initials}
                       </div>
                       <div>
@@ -384,26 +410,9 @@ export function OrgChart() {
                 </div>
               </div>
             )}
-
-            <div className="flex gap-2 mt-4">
-              <button
-                onClick={() => setIntent({ type: 'compose-email', data: { to: selectedNode.email, name: selectedNode.name } })}
-                className="flex-1 flex items-center justify-center gap-1 rounded-md border border-border py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
-              >
-                <Mail className="h-3 w-3" />
-                E-Mail
-              </button>
-              <button
-                onClick={() => startCall(selectedNode.name, selectedNode.initials)}
-                className="flex-1 flex items-center justify-center gap-1 rounded-md border border-border py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
-              >
-                <Phone className="h-3 w-3" />
-                {t('team.detail.call')}
-              </button>
-            </div>
           </div>
         )}
-      </div>
+      </DetailModal>
 
       {/* Department Legend */}
       <div className="flex flex-wrap items-center gap-3">

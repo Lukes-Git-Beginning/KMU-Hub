@@ -109,9 +109,15 @@ export function wireTicketToDisplay(t: WireTicket): DisplayTicket {
   const slaDays = Math.floor(absDiffMs / (1000 * 60 * 60 * 24))
   const slaHours = Math.floor((absDiffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
 
-  // ticketNr: HD-YYYY-XXXX — Jahr aus created_at, lfd-Nr aus ersten 4 Hex-Chars der UUID
+  // ticketNr: HD-YYYY-XXXX — Jahr aus created_at, lfd-Nr aus ersten 4 Hex-Chars der UUID.
+  // Fallback auf eine deterministische Zeichensumme, falls die ID nicht hex-parsbar
+  // ist (z.B. Demo-IDs wie "tk-10") — sonst entsteht "HD-YYYY-0NaN".
   const year = new Date(t.created_at).getFullYear()
-  const idNum = (parseInt(t.id.replace(/-/g, '').slice(0, 4), 16) % 9999) + 1
+  const parsedId = parseInt(t.id.replace(/-/g, '').slice(0, 4), 16)
+  const idBase = Number.isNaN(parsedId)
+    ? Array.from(t.id).reduce((acc, c) => acc + c.charCodeAt(0), 0)
+    : parsedId
+  const idNum = (idBase % 9999) + 1
   const ticketNr = `HD-${year}-${String(idNum).padStart(4, '0')}`
 
   return {

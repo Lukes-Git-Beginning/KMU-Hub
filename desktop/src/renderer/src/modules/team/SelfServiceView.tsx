@@ -16,6 +16,8 @@ import {
   AlertCircle,
   ChevronRight,
   Loader2,
+  Eye,
+  X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate } from '@/lib/format'
@@ -103,6 +105,7 @@ export function SelfServiceView() {
   const [formStart, setFormStart] = useState('')
   const [formEnd, setFormEnd] = useState('')
   const [formReason, setFormReason] = useState('')
+  const [previewStatement, setPreviewStatement] = useState<SalaryStatement | null>(null)
 
   const { data: self } = useSelfProfile()
   const { data: balance } = useLeaveBalance()
@@ -401,18 +404,34 @@ export function SelfServiceView() {
                 </thead>
                 <tbody>
                   {SALARY_STATEMENTS.map((ss) => (
-                    <tr key={ss.id} className="border-b border-border-muted hover:bg-secondary/20">
+                    <tr
+                      key={ss.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setPreviewStatement(ss)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPreviewStatement(ss) } }}
+                      className="border-b border-border-muted hover:bg-secondary/20 cursor-pointer transition-colors focus:outline-none focus-visible:bg-secondary/30"
+                    >
                       <td className="px-4 py-3 font-medium text-foreground">{ss.label}</td>
                       <td className="px-4 py-3 text-right text-muted-foreground tabular-nums">{formatEUR(ss.gross)}</td>
                       <td className="px-4 py-3 text-right font-medium text-foreground tabular-nums">{formatEUR(ss.net)}</td>
                       <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => downloadStatement(ss)}
-                          className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-foreground hover:bg-secondary transition-colors"
-                        >
-                          <Download className="h-3 w-3" />
-                          {t('team.selfService.download')}
-                        </button>
+                        <div className="inline-flex items-center gap-1">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setPreviewStatement(ss) }}
+                            className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
+                            title={t('team.selfService.preview', { defaultValue: 'Vorschau' })}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); downloadStatement(ss) }}
+                            className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
+                            title={t('team.selfService.download')}
+                          >
+                            <Download className="h-4 w-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -516,6 +535,46 @@ export function SelfServiceView() {
               {t('team.selfService.submitRequest')}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Salary Statement Preview Dialog */}
+      <Dialog open={!!previewStatement} onOpenChange={(o) => { if (!o) setPreviewStatement(null) }}>
+        <DialogContent className="max-w-lg gap-0 p-0">
+          {previewStatement && (
+            <div className="flex flex-col">
+              <div className="flex items-center justify-between border-b border-border px-5 py-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="rounded-full bg-primary-light px-2 py-0.5 text-[10px] font-medium text-primary">{t('team.personnelDocs.previewBadge', { defaultValue: 'Demo-Vorschau' })}</span>
+                  <span className="text-sm font-medium text-foreground truncate">Gehaltsabrechnung-{previewStatement.month}.pdf</span>
+                </div>
+                <button onClick={() => setPreviewStatement(null)} className="rounded-md p-1 text-muted-foreground hover:bg-secondary transition-colors">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="px-6 py-8">
+                <div className="mx-auto max-w-sm rounded-lg border border-border bg-secondary/20 p-8">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary-light text-primary">
+                    <FileText className="h-6 w-6" />
+                  </div>
+                  <h2 className="text-lg font-semibold text-foreground">{previewStatement.label}</h2>
+                  <p className="text-sm text-muted-foreground">{t('team.selfService.salaryStatements')} · {profile.name}</p>
+                  <dl className="mt-4 space-y-1.5 text-xs">
+                    <div className="flex justify-between"><dt className="text-muted-foreground">{t('team.integration.gross')}</dt><dd className="text-foreground tabular-nums">{formatEUR(previewStatement.gross)}</dd></div>
+                    <div className="flex justify-between"><dt className="text-muted-foreground">{t('team.selfService.net')}</dt><dd className="text-foreground tabular-nums font-medium">{formatEUR(previewStatement.net)}</dd></div>
+                    <div className="flex justify-between"><dt className="text-muted-foreground">{t('team.selfService.employeeId')}</dt><dd className="text-foreground">{profile.employeeId}</dd></div>
+                  </dl>
+                  <p className="mt-5 border-t border-border pt-4 text-xs text-muted-foreground">{t('team.selfService.salaryPreviewHint', { defaultValue: 'Im Produktivbetrieb wird hier die hinterlegte PDF-Gehaltsabrechnung angezeigt.' })}</p>
+                </div>
+              </div>
+              <div className="flex justify-end border-t border-border px-5 py-3">
+                <button onClick={() => downloadStatement(previewStatement)} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors">
+                  <Download className="h-3.5 w-3.5" />
+                  {t('team.selfService.download')}
+                </button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

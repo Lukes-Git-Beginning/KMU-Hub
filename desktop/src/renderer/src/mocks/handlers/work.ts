@@ -34,7 +34,7 @@ projects.push(
     priority: 'medium',
     is_template: true,
     owner_id: IDS.users.stefan,
-    owner_name: 'Stefan Müller',
+    owner_name: 'Stefan Vogel',
     progress: 0,
     member_count: 1,
     task_count: 0,
@@ -70,7 +70,7 @@ const findTask = (id: string) => tasks.find((t) => t.id === id)
 
 // Demo team — used to seed project members and time-entry authors.
 const TEAM = [
-  { id: IDS.users.stefan, first_name: 'Stefan', last_name: 'Müller' },
+  { id: IDS.users.stefan, first_name: 'Stefan', last_name: 'Vogel' },
   { id: IDS.users.julia, first_name: 'Julia', last_name: 'Weber' },
   { id: IDS.users.thomas, first_name: 'Thomas', last_name: 'Braun' },
   { id: IDS.users.markus, first_name: 'Markus', last_name: 'Fischer' },
@@ -80,7 +80,7 @@ const TEAM = [
 ]
 const userName = (userId: string) => {
   const u = TEAM.find((t) => t.id === userId)
-  return u ? `${u.first_name} ${u.last_name}` : 'Stefan Müller'
+  return u ? `${u.first_name} ${u.last_name}` : 'Stefan Vogel'
 }
 
 // Project members — owner + a deterministic slice of the team per project.
@@ -166,7 +166,7 @@ const files: AnyRecord[] = [
     storage_key: 'demo/plugin-api-spec-v2.pdf',
     thumbnail_key: '',
     uploaded_by: IDS.users.stefan,
-    uploaded_by_name: 'Stefan Müller',
+    uploaded_by_name: 'Stefan Vogel',
     created_at: daysAgo(8),
   },
   {
@@ -194,7 +194,7 @@ const timeEntries: AnyRecord[] = [
     id: 'te-001',
     task_id: 'tsk-002',
     user_id: IDS.users.stefan,
-    user_name: 'Stefan Müller',
+    user_name: 'Stefan Vogel',
     started_at: daysAgo(2),
     ended_at: daysAgo(2),
     duration_seconds: 7_200,
@@ -224,7 +224,7 @@ const timeEntries: AnyRecord[] = [
   { id: 'te-005', task_id: 'tsk-003', user_id: IDS.users.felix, user_name: 'Felix Schmidt', started_at: daysAgo(4), ended_at: daysAgo(4), duration_seconds: 14_400, description: 'Dashboard-Widget-Grid implementiert', is_manual: false, billed: false, created_at: daysAgo(4), updated_at: daysAgo(4) },
   { id: 'te-006', task_id: 'tsk-004', user_id: IDS.users.thomas, user_name: 'Thomas Braun', started_at: daysAgo(5), ended_at: daysAgo(5), duration_seconds: 18_000, description: 'REST-Endpoints + Tests', is_manual: false, billed: false, created_at: daysAgo(5), updated_at: daysAgo(5) },
   { id: 'te-007', task_id: 'tsk-005', user_id: IDS.users.markus, user_name: 'Markus Fischer', started_at: daysAgo(6), ended_at: daysAgo(6), duration_seconds: 12_600, description: 'CI/CD-Pipeline eingerichtet', is_manual: true, billed: false, created_at: daysAgo(6), updated_at: daysAgo(6) },
-  { id: 'te-008', task_id: 'tsk-001', user_id: IDS.users.stefan, user_name: 'Stefan Müller', started_at: daysAgo(8), ended_at: daysAgo(8), duration_seconds: 7_200, description: 'Design-Review (bereits abgerechnet)', is_manual: false, billed: true, created_at: daysAgo(8), updated_at: daysAgo(8) },
+  { id: 'te-008', task_id: 'tsk-001', user_id: IDS.users.stefan, user_name: 'Stefan Vogel', started_at: daysAgo(8), ended_at: daysAgo(8), duration_seconds: 7_200, description: 'Design-Review (bereits abgerechnet)', is_manual: false, billed: true, created_at: daysAgo(8), updated_at: daysAgo(8) },
 ]
 
 // Active timer (null = none running).
@@ -348,7 +348,7 @@ export const workHandlers = [
       priority: 'medium',
       is_template: false,
       owner_id: IDS.users.stefan,
-      owner_name: 'Stefan Müller',
+      owner_name: 'Stefan Vogel',
       progress: 0,
       member_count: 1,
       task_count: 0,
@@ -365,7 +365,7 @@ export const workHandlers = [
       { id: `${project.id}-st-4`, name: 'Erledigt', color: '#22c55e', sort_order: 3, is_default: false, is_closed: true },
     ]
     membersByProject[project.id as string] = [
-      { project_id: project.id, user_id: IDS.users.stefan, role: 'owner', added_at: nowIso(), first_name: 'Stefan', last_name: 'Müller' },
+      { project_id: project.id, user_id: IDS.users.stefan, role: 'owner', added_at: nowIso(), first_name: 'Stefan', last_name: 'Vogel' },
     ]
     return HttpResponse.json({ project }, { status: 201 })
   }),
@@ -427,7 +427,7 @@ export const workHandlers = [
       task_count: 0,
       completed_task_count: 0,
       owner_id: IDS.users.stefan,
-      owner_name: 'Stefan Müller',
+      owner_name: 'Stefan Vogel',
       created_at: nowIso(),
       updated_at: nowIso(),
     }
@@ -796,7 +796,7 @@ export const workHandlers = [
       id: newId('tcm'),
       task_id: params.id,
       author_id: IDS.users.stefan,
-      author_name: 'Stefan Müller',
+      author_name: 'Stefan Vogel',
       content: (body.content as string) || '',
       quoted_comment_id: body.quoted_comment_id,
       quoted_content_preview: quotedPreview,
@@ -917,7 +917,7 @@ export const workHandlers = [
       storage_key: body.storage_key,
       thumbnail_key: body.thumbnail_key ?? '',
       uploaded_by: IDS.users.stefan,
-      uploaded_by_name: 'Stefan Müller',
+      uploaded_by_name: 'Stefan Vogel',
       created_at: nowIso(),
     }
     files.push(file)
@@ -989,7 +989,7 @@ export const workHandlers = [
         id: newId('te'),
         task_id: activeTimer.task_id,
         user_id: IDS.users.stefan,
-        user_name: 'Stefan Müller',
+        user_name: 'Stefan Vogel',
         started_at: startedAt,
         ended_at: nowIso(),
         duration_seconds: duration,
@@ -1011,7 +1011,7 @@ export const workHandlers = [
       id: activeTimer.id,
       task_id: taskId,
       user_id: IDS.users.stefan,
-      user_name: 'Stefan Müller',
+      user_name: 'Stefan Vogel',
       started_at: activeTimer.started_at,
       duration_seconds: 0,
       description: '',
@@ -1036,7 +1036,7 @@ export const workHandlers = [
       id: newId('te'),
       task_id: activeTimer.task_id,
       user_id: IDS.users.stefan,
-      user_name: 'Stefan Müller',
+      user_name: 'Stefan Vogel',
       started_at: startedAt,
       ended_at: nowIso(),
       duration_seconds: duration,
@@ -1175,7 +1175,7 @@ export const workHandlers = [
       id: newId('te'),
       task_id: params.id,
       user_id: IDS.users.stefan,
-      user_name: 'Stefan Müller',
+      user_name: 'Stefan Vogel',
       started_at: startedAt,
       ended_at: new Date(new Date(startedAt).getTime() + duration * 1000).toISOString(),
       duration_seconds: duration,
