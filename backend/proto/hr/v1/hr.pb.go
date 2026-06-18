@@ -789,7 +789,9 @@ type WorkTimeEntry struct {
 	// Nested break entries for detail view
 	Breaks []*BreakEntry `protobuf:"bytes,17,rep,name=breaks,proto3" json:"breaks,omitempty"`
 	// Denormalized employee name for display
-	EmployeeName  string `protobuf:"bytes,18,opt,name=employee_name,json=employeeName,proto3" json:"employee_name,omitempty"`
+	EmployeeName string `protobuf:"bytes,18,opt,name=employee_name,json=employeeName,proto3" json:"employee_name,omitempty"`
+	// Project assignment (migration 000212)
+	ProjectId     string `protobuf:"bytes,19,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -946,6 +948,13 @@ func (x *WorkTimeEntry) GetBreaks() []*BreakEntry {
 func (x *WorkTimeEntry) GetEmployeeName() string {
 	if x != nil {
 		return x.EmployeeName
+	}
+	return ""
+}
+
+func (x *WorkTimeEntry) GetProjectId() string {
+	if x != nil {
+		return x.ProjectId
 	}
 	return ""
 }
@@ -1466,8 +1475,12 @@ type HRSettings struct {
 	Timezone               string                 `protobuf:"bytes,6,opt,name=timezone,proto3" json:"timezone,omitempty"`
 	CreatedAt              *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt              *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	// Work-hours policy (migration 000213)
+	WorkHoursPerDay int32 `protobuf:"varint,9,opt,name=work_hours_per_day,json=workHoursPerDay,proto3" json:"work_hours_per_day,omitempty"`
+	MaxDailyHours   int32 `protobuf:"varint,10,opt,name=max_daily_hours,json=maxDailyHours,proto3" json:"max_daily_hours,omitempty"`
+	BreakAfterHours int32 `protobuf:"varint,11,opt,name=break_after_hours,json=breakAfterHours,proto3" json:"break_after_hours,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *HRSettings) Reset() {
@@ -1554,6 +1567,27 @@ func (x *HRSettings) GetUpdatedAt() *timestamppb.Timestamp {
 		return x.UpdatedAt
 	}
 	return nil
+}
+
+func (x *HRSettings) GetWorkHoursPerDay() int32 {
+	if x != nil {
+		return x.WorkHoursPerDay
+	}
+	return 0
+}
+
+func (x *HRSettings) GetMaxDailyHours() int32 {
+	if x != nil {
+		return x.MaxDailyHours
+	}
+	return 0
+}
+
+func (x *HRSettings) GetBreakAfterHours() int32 {
+	if x != nil {
+		return x.BreakAfterHours
+	}
+	return 0
 }
 
 type AbsenceEntry struct {
@@ -5143,8 +5177,12 @@ type UpdateHRSettingsReq struct {
 	ShowAbsenceReason      bool                   `protobuf:"varint,3,opt,name=show_absence_reason,json=showAbsenceReason,proto3" json:"show_absence_reason,omitempty"`
 	DefaultAnnualLeaveDays int32                  `protobuf:"varint,4,opt,name=default_annual_leave_days,json=defaultAnnualLeaveDays,proto3" json:"default_annual_leave_days,omitempty"`
 	Timezone               string                 `protobuf:"bytes,5,opt,name=timezone,proto3" json:"timezone,omitempty"`
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	// Work-hours policy (migration 000213)
+	WorkHoursPerDay int32 `protobuf:"varint,6,opt,name=work_hours_per_day,json=workHoursPerDay,proto3" json:"work_hours_per_day,omitempty"`
+	MaxDailyHours   int32 `protobuf:"varint,7,opt,name=max_daily_hours,json=maxDailyHours,proto3" json:"max_daily_hours,omitempty"`
+	BreakAfterHours int32 `protobuf:"varint,8,opt,name=break_after_hours,json=breakAfterHours,proto3" json:"break_after_hours,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *UpdateHRSettingsReq) Reset() {
@@ -5210,6 +5248,27 @@ func (x *UpdateHRSettingsReq) GetTimezone() string {
 		return x.Timezone
 	}
 	return ""
+}
+
+func (x *UpdateHRSettingsReq) GetWorkHoursPerDay() int32 {
+	if x != nil {
+		return x.WorkHoursPerDay
+	}
+	return 0
+}
+
+func (x *UpdateHRSettingsReq) GetMaxDailyHours() int32 {
+	if x != nil {
+		return x.MaxDailyHours
+	}
+	return 0
+}
+
+func (x *UpdateHRSettingsReq) GetBreakAfterHours() int32 {
+	if x != nil {
+		return x.BreakAfterHours
+	}
+	return 0
 }
 
 type UpdateHRSettingsResp struct {
@@ -8104,7 +8163,7 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xcc\x06\n" +
+	"updated_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xeb\x06\n" +
 	"\rWorkTimeEntry\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1f\n" +
@@ -8127,7 +8186,9 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12)\n" +
 	"\x06breaks\x18\x11 \x03(\v2\x11.hr.v1.BreakEntryR\x06breaks\x12#\n" +
-	"\remployee_name\x18\x12 \x01(\tR\femployeeName\"\xe6\x01\n" +
+	"\remployee_name\x18\x12 \x01(\tR\femployeeName\x12\x1d\n" +
+	"\n" +
+	"project_id\x18\x13 \x01(\tR\tprojectId\"\xe6\x01\n" +
 	"\n" +
 	"BreakEntry\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12+\n" +
@@ -8194,7 +8255,7 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\tfile_name\x18\n" +
 	" \x01(\tR\bfileName\x12\x1b\n" +
 	"\tfile_size\x18\v \x01(\tR\bfileSize\x12(\n" +
-	"\x10uploaded_by_name\x18\f \x01(\tR\x0euploadedByName\"\xe2\x02\n" +
+	"\x10uploaded_by_name\x18\f \x01(\tR\x0euploadedByName\"\xe3\x03\n" +
 	"\n" +
 	"HRSettings\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
@@ -8206,7 +8267,11 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x9f\x02\n" +
+	"updated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12+\n" +
+	"\x12work_hours_per_day\x18\t \x01(\x05R\x0fworkHoursPerDay\x12&\n" +
+	"\x0fmax_daily_hours\x18\n" +
+	" \x01(\x05R\rmaxDailyHours\x12*\n" +
+	"\x11break_after_hours\x18\v \x01(\x05R\x0fbreakAfterHours\"\x9f\x02\n" +
 	"\fAbsenceEntry\x12\x1f\n" +
 	"\vemployee_id\x18\x01 \x01(\tR\n" +
 	"employeeId\x12#\n" +
@@ -8486,13 +8551,16 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\x10GetHRSettingsReq\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"B\n" +
 	"\x11GetHRSettingsResp\x12-\n" +
-	"\bsettings\x18\x01 \x01(\v2\x11.hr.v1.HRSettingsR\bsettings\"\xe5\x01\n" +
+	"\bsettings\x18\x01 \x01(\v2\x11.hr.v1.HRSettingsR\bsettings\"\xe6\x02\n" +
 	"\x13UpdateHRSettingsReq\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12*\n" +
 	"\x11au_threshold_days\x18\x02 \x01(\x05R\x0fauThresholdDays\x12.\n" +
 	"\x13show_absence_reason\x18\x03 \x01(\bR\x11showAbsenceReason\x129\n" +
 	"\x19default_annual_leave_days\x18\x04 \x01(\x05R\x16defaultAnnualLeaveDays\x12\x1a\n" +
-	"\btimezone\x18\x05 \x01(\tR\btimezone\"E\n" +
+	"\btimezone\x18\x05 \x01(\tR\btimezone\x12+\n" +
+	"\x12work_hours_per_day\x18\x06 \x01(\x05R\x0fworkHoursPerDay\x12&\n" +
+	"\x0fmax_daily_hours\x18\a \x01(\x05R\rmaxDailyHours\x12*\n" +
+	"\x11break_after_hours\x18\b \x01(\x05R\x0fbreakAfterHours\"E\n" +
 	"\x14UpdateHRSettingsResp\x12-\n" +
 	"\bsettings\x18\x01 \x01(\v2\x11.hr.v1.HRSettingsR\bsettings\"\xfb\x04\n" +
 	"\x11CreateEmployeeReq\x12\x1b\n" +

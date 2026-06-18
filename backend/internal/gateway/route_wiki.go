@@ -63,16 +63,33 @@ func (wr *WikiRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 				r.With(middleware.RequirePermission("wiki:articles", "read")).Get("/attachments", wr.HandleListAttachments)
 				r.With(middleware.RequirePermission("wiki:articles", "write")).Post("/attachments", wr.HandleUploadAttachment)
 				r.With(middleware.RequirePermission("wiki:articles", "write")).Delete("/attachments/{attachmentId}", wr.HandleDeleteAttachment)
+
+				// Share tokens
+				r.With(middleware.RequirePermission("wiki:articles", "write")).Post("/share", wr.HandleCreateShareToken)
 			})
 		})
 
 		// Search
 		r.With(middleware.RequirePermission("wiki:articles", "read")).Get("/search", wr.HandleSearchArticles)
 
+		// Versions (standalone get by ID)
+		r.Route("/versions", func(r chi.Router) {
+			r.With(middleware.RequirePermission("wiki:articles", "read")).Get("/{id}", wr.HandleGetVersion)
+		})
+
 		// Categories
 		r.Route("/categories", func(r chi.Router) {
 			r.With(middleware.RequirePermission("wiki:categories", "read")).Get("/", wr.HandleListCategories)
 			r.With(middleware.RequirePermission("wiki:categories", "write")).Post("/", wr.HandleCreateCategory)
+			r.Route("/{id}", func(r chi.Router) {
+				r.With(middleware.RequirePermission("wiki:categories", "write")).Delete("/", wr.HandleDeleteCategory)
+				r.With(middleware.RequirePermission("wiki:categories", "write")).Patch("/", wr.HandleUpdateCategory)
+			})
+		})
+
+		// Share tokens
+		r.Route("/share", func(r chi.Router) {
+			r.With(middleware.RequirePermission("wiki:articles", "write")).Delete("/{tokenId}", wr.HandleRevokeShareToken)
 		})
 	})
 }
@@ -551,4 +568,174 @@ func (wr *WikiRoutes) HandleCreateCategory(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (wr *WikiRoutes) HandleDeleteCategory(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := wr.getWikiClient()
+	if err != nil {
+		respondServiceUnavailable(w, wr.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	_, err = client.DeleteCategory(r.Context(), &wikiv1.DeleteCategoryRequest{
+		TenantId:   tenantID.String(),
+		CategoryId: id,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+type updateCategoryRequest struct {
+	Name     *string `json:"name,omitempty" validate:"omitempty,min=1"`
+	ParentID *string `json:"parent_id,omitempty"`
+	Position *int32  `json:"position,omitempty"`
+}
+
+func (wr *WikiRoutes) HandleUpdateCategory(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := wr.getWikiClient()
+	if err != nil {
+		respondServiceUnavailable(w, wr.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[updateCategoryRequest](w, r)
+	if !ok {
+		return
+	}
+
+	grpcReq := &wikiv1.UpdateCategoryRequest{
+		TenantId:   tenantID.String(),
+		CategoryId: id,
+		Name:       req.Name,
+		ParentId:   req.ParentID,
+		Position:   req.Position,
+	}
+
+	resp, err := client.UpdateCategory(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type createShareTokenHTTPRequest struct {
+	ExpiresAt   *string `json:"expires_at,omitempty"`
+	Permissions string  `json:"permissions,omitempty"`
+}
+
+func (wr *WikiRoutes) HandleCreateShareToken(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := wr.getWikiClient()
+	if err != nil {
+		respondServiceUnavailable(w, wr.ServiceName())
+		return
+	}
+
+	articleID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[createShareTokenHTTPRequest](w, r)
+	if !ok {
+		return
+	}
+
+	grpcReq := &wikiv1.CreateShareTokenRequest{
+		TenantId:    tenantID.String(),
+		ArticleId:   articleID,
+		Permissions: req.Permissions,
+		ExpiresAt:   req.ExpiresAt,
+	}
+
+	resp, err := client.CreateShareToken(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (wr *WikiRoutes) HandleRevokeShareToken(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := wr.getWikiClient()
+	if err != nil {
+		respondServiceUnavailable(w, wr.ServiceName())
+		return
+	}
+
+	tokenID, ok := validateUUIDParam(w, r, "tokenId")
+	if !ok {
+		return
+	}
+
+	_, err = client.RevokeShareToken(r.Context(), &wikiv1.RevokeShareTokenRequest{
+		TenantId: tenantID.String(),
+		TokenId:  tokenID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (wr *WikiRoutes) HandleGetVersion(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	_ = tenantID // version_id scopes to article which scopes to tenant
+	client, err := wr.getWikiClient()
+	if err != nil {
+		respondServiceUnavailable(w, wr.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GetVersion(r.Context(), &wikiv1.GetVersionRequest{
+		VersionId: id,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
 }

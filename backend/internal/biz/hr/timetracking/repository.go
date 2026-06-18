@@ -23,6 +23,8 @@ type WorkTimeRepository interface {
 	// individual entry IDs for an employee in the given inclusive date range.
 	// Only entries with status='completed' and a non-NULL net_work_minutes are considered.
 	AggregateWorkTimeForInvoice(ctx context.Context, tenantID, employeeID uuid.UUID, from, to time.Time) (totalMinutes int, entryIDs []string, err error)
+	// GetProjectBreakdown returns per-project aggregated net_work_minutes for the given employee and date range.
+	GetProjectBreakdown(ctx context.Context, tenantID, employeeID uuid.UUID, dateFrom, dateTo time.Time) ([]ProjectBreakdown, error)
 }
 
 // BreakRepository defines the interface for break entry persistence.

@@ -28,6 +28,10 @@ service WikiService {
   // Categories
   rpc ListCategories(ListCategoriesRequest) returns (ListCategoriesResponse);
   rpc CreateCategory(CreateCategoryRequest) returns (CategoryResponse);
+  rpc DeleteCategory(DeleteCategoryRequest) returns (DeleteCategoryResponse);
+  rpc UpdateCategory(UpdateCategoryRequest) returns (CategoryResponse);
+  rpc CreateShareToken(CreateShareTokenRequest) returns (ShareTokenResponse);
+  rpc RevokeShareToken(RevokeShareTokenRequest) returns (RevokeShareTokenResponse);
 }
 
 // ============================================================================
@@ -223,3 +227,45 @@ message CreateCategoryRequest {
 message CategoryResponse {
   Category category = 1;
 }
+
+message DeleteCategoryRequest {
+  string tenant_id = 1;
+  string category_id = 2;
+}
+
+message DeleteCategoryResponse {}
+
+message UpdateCategoryRequest {
+  string tenant_id = 1;
+  string category_id = 2;
+  optional string name = 3;
+  optional string parent_id = 4;
+  optional int32 position = 5;
+}
+
+message ShareToken {
+  string id = 1;
+  string article_id = 2;
+  string token = 3;
+  optional string expires_at = 4;
+  string permissions = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message CreateShareTokenRequest {
+  string tenant_id = 1;
+  string article_id = 2;
+  optional string expires_at = 3;
+  string permissions = 4;
+}
+
+message ShareTokenResponse {
+  ShareToken token = 1;
+}
+
+message RevokeShareTokenRequest {
+  string tenant_id = 1;
+  string token_id = 2;
+}
+
+message RevokeShareTokenResponse {}

@@ -969,6 +969,13 @@ func (s *HRGRPCServer) CreateManualEntry(ctx context.Context, req *hrv1.CreateMa
 		}
 	}
 
+	if req.GetProjectId() != "" {
+		projID, projErr := uuid.Parse(req.GetProjectId())
+		if projErr == nil {
+			input.ProjectID = &projID
+		}
+	}
+
 	if req.GetLocationLat() != 0 || req.GetLocationLng() != 0 {
 		lat := req.GetLocationLat()
 		lng := req.GetLocationLng()
@@ -1386,7 +1393,11 @@ func (s *HRGRPCServer) UpdateHRSettings(ctx context.Context, req *hrv1.UpdateHRS
 		ShowAbsenceReason:      req.GetShowAbsenceReason(),
 		DefaultAnnualLeaveDays: int(req.GetDefaultAnnualLeaveDays()),
 		Timezone:               req.GetTimezone(),
-		UpdatedAt:              time.Now(),
+		// Work-hours policy fields (proto fields 6-8, require proto regen to compile)
+		WorkHoursPerDay: int(req.GetWorkHoursPerDay()),
+		MaxDailyHours:   int(req.GetMaxDailyHours()),
+		BreakAfterHours: int(req.GetBreakAfterHours()),
+		UpdatedAt:       time.Now(),
 	}
 
 	if err := s.settingsRepo.Upsert(ctx, settings); err != nil {
@@ -1524,6 +1535,10 @@ func toProtoWorkTimeEntry(e *models.HRWorkTimeEntry) *hrv1.WorkTimeEntry {
 	if e.CorrectionApprovedAt != nil {
 		pe.CorrectionApprovedAt = timestamppb.New(*e.CorrectionApprovedAt)
 	}
+	// Project assignment (proto field project_id = 19, requires proto regen to compile)
+	if e.ProjectID != nil {
+		pe.ProjectId = e.ProjectID.String()
+	}
 	// Nested breaks
 	for _, b := range e.Breaks {
 		pe.Breaks = append(pe.Breaks, toProtoBreakEntry(&b))
@@ -1613,6 +1628,10 @@ func toProtoHRSettings(s *models.HRCompanySettings) *hrv1.HRSettings {
 		Timezone:               s.Timezone,
 		CreatedAt:              timestamppb.New(s.CreatedAt),
 		UpdatedAt:              timestamppb.New(s.UpdatedAt),
+		// Work-hours policy fields (proto fields 9-11, require proto regen to compile)
+		WorkHoursPerDay: int32(s.WorkHoursPerDay),
+		MaxDailyHours:   int32(s.MaxDailyHours),
+		BreakAfterHours: int32(s.BreakAfterHours),
 	}
 }
 

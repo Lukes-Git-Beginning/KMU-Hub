@@ -35,21 +35,21 @@ func (r *PostgresWorkTimeRepo) Create(ctx context.Context, entry *models.HRWorkT
 			break_minutes, auto_break_deducted, net_work_minutes,
 			status, is_correction, original_entry_id,
 			correction_reason, correction_approved_by, correction_approved_at,
-			category_id, location_lat, location_lng, location_address,
+			category_id, project_id, location_lat, location_lng, location_address,
 			created_at, updated_at
 		) VALUES (
 			$1, $2, $3, $4, $5,
 			$6, $7, $8,
 			$9, $10, $11,
 			$12, $13, $14,
-			$15, $16, $17, $18,
-			$19, $20
+			$15, $16, $17, $18, $19,
+			$20, $21
 		)`,
 		entry.ID, entry.TenantID, entry.EmployeeID, entry.ClockIn, entry.ClockOut,
 		entry.BreakMinutes, entry.AutoBreakDeducted, entry.NetWorkMinutes,
 		entry.Status, entry.IsCorrection, entry.OriginalEntryID,
 		entry.CorrectionReason, entry.CorrectionApprovedBy, entry.CorrectionApprovedAt,
-		entry.CategoryID, entry.LocationLat, entry.LocationLng, entry.LocationAddress,
+		entry.CategoryID, entry.ProjectID, entry.LocationLat, entry.LocationLng, entry.LocationAddress,
 		entry.CreatedAt, entry.UpdatedAt,
 	)
 	return err
@@ -62,7 +62,7 @@ func (r *PostgresWorkTimeRepo) GetByID(ctx context.Context, id uuid.UUID) (*mode
 			w.break_minutes, w.auto_break_deducted, w.net_work_minutes,
 			w.status, w.is_correction, w.original_entry_id,
 			w.correction_reason, w.correction_approved_by, w.correction_approved_at,
-			w.created_at, w.updated_at,
+			w.created_at, w.updated_at, w.project_id,
 			COALESCE(u.first_name || ' ' || u.last_name, '') AS employee_name
 		FROM hr_work_time_entries w
 		LEFT JOIN hr_employee_profiles ep ON w.employee_id = ep.user_id
@@ -74,7 +74,7 @@ func (r *PostgresWorkTimeRepo) GetByID(ctx context.Context, id uuid.UUID) (*mode
 		&entry.BreakMinutes, &entry.AutoBreakDeducted, &entry.NetWorkMinutes,
 		&entry.Status, &entry.IsCorrection, &entry.OriginalEntryID,
 		&entry.CorrectionReason, &entry.CorrectionApprovedBy, &entry.CorrectionApprovedAt,
-		&entry.CreatedAt, &entry.UpdatedAt,
+		&entry.CreatedAt, &entry.UpdatedAt, &entry.ProjectID,
 		&entry.EmployeeName,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -188,7 +188,7 @@ func (r *PostgresWorkTimeRepo) List(ctx context.Context, filter WorkTimeFilter) 
 			w.break_minutes, w.auto_break_deducted, w.net_work_minutes,
 			w.status, w.is_correction, w.original_entry_id,
 			w.correction_reason, w.correction_approved_by, w.correction_approved_at,
-			w.created_at, w.updated_at,
+			w.created_at, w.updated_at, w.project_id,
 			COALESCE(u.first_name || ' ' || u.last_name, '') AS employee_name
 		FROM hr_work_time_entries w
 		LEFT JOIN hr_employee_profiles ep ON w.employee_id = ep.user_id
@@ -214,7 +214,7 @@ func (r *PostgresWorkTimeRepo) List(ctx context.Context, filter WorkTimeFilter) 
 			&entry.BreakMinutes, &entry.AutoBreakDeducted, &entry.NetWorkMinutes,
 			&entry.Status, &entry.IsCorrection, &entry.OriginalEntryID,
 			&entry.CorrectionReason, &entry.CorrectionApprovedBy, &entry.CorrectionApprovedAt,
-			&entry.CreatedAt, &entry.UpdatedAt,
+			&entry.CreatedAt, &entry.UpdatedAt, &entry.ProjectID,
 			&entry.EmployeeName,
 		); scanErr != nil {
 			return nil, 0, scanErr
@@ -317,6 +317,43 @@ func (r *PostgresWorkTimeRepo) GetWeeklySummary(ctx context.Context, employeeID 
 	}
 
 	return summary, nil
+}
+
+// GetProjectBreakdown returns per-project aggregated net_work_minutes for the given employee and date range.
+func (r *PostgresWorkTimeRepo) GetProjectBreakdown(ctx context.Context, tenantID, employeeID uuid.UUID, dateFrom, dateTo time.Time) ([]ProjectBreakdown, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT w.project_id, COALESCE(p.name, 'Kein Projekt') AS project_name,
+			COALESCE(SUM(w.net_work_minutes), 0) AS minutes
+		FROM hr_work_time_entries w
+		LEFT JOIN hr_time_projects p ON w.project_id = p.id
+		WHERE w.tenant_id = $1 AND w.employee_id = $2
+			AND w.clock_in >= $3 AND w.clock_in < $4
+			AND w.status = 'completed'
+		GROUP BY w.project_id, p.name
+		ORDER BY minutes DESC`,
+		tenantID, employeeID, dateFrom, dateTo.Add(24*time.Hour),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("get project breakdown: %w", err)
+	}
+	defer rows.Close()
+
+	var result []ProjectBreakdown
+	for rows.Next() {
+		var pb ProjectBreakdown
+		var projectID *uuid.UUID
+		if err := rows.Scan(&projectID, &pb.ProjectName, &pb.Minutes); err != nil {
+			return nil, err
+		}
+		if projectID != nil {
+			pb.ProjectID = *projectID
+		}
+		result = append(result, pb)
+	}
+	if result == nil {
+		result = []ProjectBreakdown{}
+	}
+	return result, rows.Err()
 }
 
 // AggregateWorkTimeForInvoice returns the total net_work_minutes and entry IDs

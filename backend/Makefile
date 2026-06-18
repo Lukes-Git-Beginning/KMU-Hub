@@ -1,4 +1,4 @@
-.PHONY: build build-prod test lint clean run-gateway run-crm run-chat run-auth run-notification run-work run-automation run-dialer run-wiki run-helpdesk run-berichte migrate-up migrate-down migrate-create proto proto-automation proto-dialer proto-wiki proto-helpdesk proto-berichte proto-formulare proto-rapporte proto-vermietung proto-settings proto-vertraege proto-document docker-build docker-up docker-down docker-logs docker-clean e2e-test smoke-test smoke-prod
+.PHONY: build build-prod test lint clean run-gateway run-crm run-chat run-auth run-notification run-work run-automation run-dialer run-wiki run-helpdesk run-berichte migrate-up migrate-down migrate-create proto proto-automation proto-dialer proto-wiki proto-helpdesk proto-berichte proto-formulare proto-rapporte proto-vermietung proto-settings proto-vertraege proto-document proto-hr docker-build docker-up docker-down docker-logs docker-clean e2e-test smoke-test smoke-prod
 
 # Build all services
 build:
@@ -172,6 +172,11 @@ proto-document:
 	protoc --go_out=. --go_opt=module=github.com/kmuhub/kmuhub \
 		--go-grpc_out=. --go-grpc_opt=module=github.com/kmuhub/kmuhub \
 		proto/document/v1/document.proto
+
+proto-hr:
+	protoc --go_out=. --go_opt=module=github.com/kmuhub/kmuhub \
+		--go-grpc_out=. --go-grpc_opt=module=github.com/kmuhub/kmuhub \
+		proto/hr/v1/hr.proto
 
 # Docker operations
 docker-build:

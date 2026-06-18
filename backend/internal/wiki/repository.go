@@ -45,6 +45,7 @@ type Repository interface {
 	ListCategories(ctx context.Context, tenantID uuid.UUID) ([]*Category, error)
 	GetCategory(ctx context.Context, tenantID, categoryID uuid.UUID) (*Category, error)
 	DeleteCategory(ctx context.Context, tenantID, categoryID uuid.UUID) error
+	UpdateCategory(ctx context.Context, category *Category) error
 
 	// Share tokens
 	CreateShareToken(ctx context.Context, token *ShareToken) error

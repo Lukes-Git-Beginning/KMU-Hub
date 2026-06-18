@@ -478,6 +478,7 @@ func (s *Service) CreateManualEntry(ctx context.Context, input ManualEntryInput)
 		NetWorkMinutes:  &netMinutes,
 		Status:          models.WorkTimeStatusCompleted,
 		CategoryID:      input.CategoryID,
+		ProjectID:       input.ProjectID,
 		LocationLat:     input.LocationLat,
 		LocationLng:     input.LocationLng,
 		LocationAddress: &input.LocationAddress,
@@ -589,13 +590,22 @@ func (s *Service) GetTimeAnalytics(ctx context.Context, tenantID, employeeID uui
 		avgDaily = totalMinutes / numDays
 	}
 
+	// Compute project breakdown for the period
+	byProject := []ProjectBreakdown{}
+	if s.projectRepo != nil {
+		pb, pbErr := s.workTimeRepo.GetProjectBreakdown(ctx, tenantID, employeeID, start, start.AddDate(0, 0, numDays-1))
+		if pbErr == nil {
+			byProject = pb
+		}
+	}
+
 	return &TimeAnalytics{
 		TotalMinutes:    totalMinutes,
 		TargetMinutes:   targetMinutes,
 		OvertimeMinutes: overtimeMinutes,
 		AvgDailyMinutes: avgDaily,
 		DayTrend:        trend,
-		ByProject:       []ProjectBreakdown{}, // no project join on entries yet
+		ByProject:       byProject,
 	}, nil
 }
 

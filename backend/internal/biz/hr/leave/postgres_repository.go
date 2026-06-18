@@ -370,7 +370,9 @@ func NewPostgresHRSettingsRepo(pool *pgxpool.Pool) *PostgresHRSettingsRepo {
 func (r *PostgresHRSettingsRepo) GetByTenant(ctx context.Context, tenantID uuid.UUID) (*models.HRCompanySettings, error) {
 	row := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, au_threshold_days, show_absence_reason,
-			default_annual_leave_days, timezone, created_at, updated_at
+			default_annual_leave_days, timezone,
+			work_hours_per_day, max_daily_hours, break_after_hours,
+			created_at, updated_at
 		FROM hr_company_settings
 		WHERE tenant_id = $1`,
 		tenantID,
@@ -378,7 +380,9 @@ func (r *PostgresHRSettingsRepo) GetByTenant(ctx context.Context, tenantID uuid.
 	var s models.HRCompanySettings
 	err := row.Scan(
 		&s.ID, &s.TenantID, &s.AUThresholdDays, &s.ShowAbsenceReason,
-		&s.DefaultAnnualLeaveDays, &s.Timezone, &s.CreatedAt, &s.UpdatedAt,
+		&s.DefaultAnnualLeaveDays, &s.Timezone,
+		&s.WorkHoursPerDay, &s.MaxDailyHours, &s.BreakAfterHours,
+		&s.CreatedAt, &s.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrSettingsNotFound
@@ -393,16 +397,23 @@ func (r *PostgresHRSettingsRepo) Upsert(ctx context.Context, settings *models.HR
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO hr_company_settings (
 			id, tenant_id, au_threshold_days, show_absence_reason,
-			default_annual_leave_days, timezone, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			default_annual_leave_days, timezone,
+			work_hours_per_day, max_daily_hours, break_after_hours,
+			created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		ON CONFLICT (tenant_id) DO UPDATE SET
 			au_threshold_days = EXCLUDED.au_threshold_days,
 			show_absence_reason = EXCLUDED.show_absence_reason,
 			default_annual_leave_days = EXCLUDED.default_annual_leave_days,
 			timezone = EXCLUDED.timezone,
+			work_hours_per_day = EXCLUDED.work_hours_per_day,
+			max_daily_hours = EXCLUDED.max_daily_hours,
+			break_after_hours = EXCLUDED.break_after_hours,
 			updated_at = EXCLUDED.updated_at`,
 		settings.ID, settings.TenantID, settings.AUThresholdDays, settings.ShowAbsenceReason,
-		settings.DefaultAnnualLeaveDays, settings.Timezone, settings.CreatedAt, settings.UpdatedAt,
+		settings.DefaultAnnualLeaveDays, settings.Timezone,
+		settings.WorkHoursPerDay, settings.MaxDailyHours, settings.BreakAfterHours,
+		settings.CreatedAt, settings.UpdatedAt,
 	)
 	return err
 }

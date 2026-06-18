@@ -214,6 +214,11 @@ func (m *mockRepository) DeleteCategory(ctx context.Context, tenantID, categoryI
 	return nil
 }
 
+func (m *mockRepository) UpdateCategory(ctx context.Context, category *Category) error {
+	m.categories[category.ID] = category
+	return nil
+}
+
 func (m *mockRepository) CreateShareToken(ctx context.Context, token *ShareToken) error {
 	m.tokens[token.Token] = token
 	return nil

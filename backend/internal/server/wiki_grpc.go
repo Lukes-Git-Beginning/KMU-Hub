@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -384,6 +386,111 @@ func (s *WikiGRPCServer) CreateCategory(ctx context.Context, req *wikiv1.CreateC
 	return &wikiv1.CategoryResponse{Category: wikiCategoryToProto(category)}, nil
 }
 
+func (s *WikiGRPCServer) DeleteCategory(ctx context.Context, req *wikiv1.DeleteCategoryRequest) (*wikiv1.DeleteCategoryResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	categoryID, err := uuid.Parse(req.GetCategoryId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid category_id: %v", err)
+	}
+
+	if err := s.svc.DeleteCategory(ctx, tenantID, categoryID); err != nil {
+		return nil, mapWikiError(err)
+	}
+	return &wikiv1.DeleteCategoryResponse{}, nil
+}
+
+func (s *WikiGRPCServer) UpdateCategory(ctx context.Context, req *wikiv1.UpdateCategoryRequest) (*wikiv1.CategoryResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	categoryID, err := uuid.Parse(req.GetCategoryId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid category_id: %v", err)
+	}
+
+	input := wiki.UpdateCategoryInput{
+		TenantID:   tenantID,
+		CategoryID: categoryID,
+	}
+
+	if req.Name != nil {
+		input.Name = req.Name
+	}
+	if req.Position != nil {
+		pos := int(*req.Position)
+		input.Position = &pos
+	}
+	if req.ParentId != nil {
+		if *req.ParentId == "" {
+			empty := uuid.Nil
+			input.ParentID = &empty
+		} else {
+			id, parseErr := uuid.Parse(*req.ParentId)
+			if parseErr != nil {
+				return nil, status.Errorf(codes.InvalidArgument, "invalid parent_id: %v", parseErr)
+			}
+			input.ParentID = &id
+		}
+	}
+
+	category, err := s.svc.UpdateCategory(ctx, input)
+	if err != nil {
+		return nil, mapWikiError(err)
+	}
+	return &wikiv1.CategoryResponse{Category: wikiCategoryToProto(category)}, nil
+}
+
+func (s *WikiGRPCServer) CreateShareToken(ctx context.Context, req *wikiv1.CreateShareTokenRequest) (*wikiv1.ShareTokenResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	articleID, err := uuid.Parse(req.GetArticleId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid article_id: %v", err)
+	}
+
+	input := wiki.CreateShareTokenInput{
+		TenantID:    tenantID,
+		ArticleID:   articleID,
+		Permissions: req.GetPermissions(),
+	}
+
+	if req.ExpiresAt != nil {
+		t, parseErr := time.Parse(time.RFC3339, *req.ExpiresAt)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid expires_at: %v", parseErr)
+		}
+		input.ExpiresAt = &t
+	}
+
+	token, err := s.svc.CreateShareToken(ctx, input)
+	if err != nil {
+		return nil, mapWikiError(err)
+	}
+	return &wikiv1.ShareTokenResponse{Token: shareTokenToProto(token)}, nil
+}
+
+func (s *WikiGRPCServer) RevokeShareToken(ctx context.Context, req *wikiv1.RevokeShareTokenRequest) (*wikiv1.RevokeShareTokenResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	tokenID, err := uuid.Parse(req.GetTokenId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid token_id: %v", err)
+	}
+
+	if err := s.svc.RevokeShareToken(ctx, tenantID, tokenID); err != nil {
+		return nil, mapWikiError(err)
+	}
+	return &wikiv1.RevokeShareTokenResponse{}, nil
+}
+
 // ============================================================================
 // Conversion helpers
 // ============================================================================
@@ -464,6 +571,24 @@ func wikiCategoryToProto(c *wiki.Category) *wikiv1.Category {
 		proto.ParentId = &s
 	}
 	return proto
+}
+
+func shareTokenToProto(t *wiki.ShareToken) *wikiv1.ShareToken {
+	if t == nil {
+		return nil
+	}
+	p := &wikiv1.ShareToken{
+		Id:          t.ID.String(),
+		ArticleId:   t.ArticleID.String(),
+		Token:       t.Token,
+		Permissions: strings.Join(t.Permissions, ","),
+		CreatedAt:   timestamppb.New(t.CreatedAt),
+	}
+	if t.ExpiresAt != nil {
+		s := t.ExpiresAt.Format(time.RFC3339)
+		p.ExpiresAt = &s
+	}
+	return p
 }
 
 // ============================================================================

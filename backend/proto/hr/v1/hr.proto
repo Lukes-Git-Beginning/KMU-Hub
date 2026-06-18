@@ -193,6 +193,8 @@ message WorkTimeEntry {
   repeated BreakEntry breaks = 17;
   // Denormalized employee name for display
   string employee_name = 18;
+  // Project assignment (migration 000212)
+  string project_id = 19;
 }
 
 message BreakEntry {
@@ -263,6 +265,10 @@ message HRSettings {
   string timezone = 6;
   google.protobuf.Timestamp created_at = 7;
   google.protobuf.Timestamp updated_at = 8;
+  // Work-hours policy (migration 000213)
+  int32 work_hours_per_day = 9;
+  int32 max_daily_hours = 10;
+  int32 break_after_hours = 11;
 }
 
 message AbsenceEntry {
@@ -650,6 +656,10 @@ message UpdateHRSettingsReq {
   bool show_absence_reason = 3;
   int32 default_annual_leave_days = 4;
   string timezone = 5;
+  // Work-hours policy (migration 000213)
+  int32 work_hours_per_day = 6;
+  int32 max_daily_hours = 7;
+  int32 break_after_hours = 8;
 }
 
 message UpdateHRSettingsResp {

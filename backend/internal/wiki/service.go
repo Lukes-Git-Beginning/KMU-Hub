@@ -78,6 +78,15 @@ type CreateCategoryInput struct {
 	Position int
 }
 
+// UpdateCategoryInput contains data for updating a category.
+type UpdateCategoryInput struct {
+	TenantID   uuid.UUID
+	CategoryID uuid.UUID
+	Name       *string
+	ParentID   *uuid.UUID // uuid.Nil to clear parent
+	Position   *int
+}
+
 // ============================================================================
 // Article methods
 // ============================================================================
@@ -413,6 +422,129 @@ func (s *Service) CreateCategory(ctx context.Context, input CreateCategoryInput)
 	)
 
 	return category, nil
+}
+
+// DeleteCategory removes a wiki category.
+// Articles in this category will have their category_id set to NULL by FK ON DELETE SET NULL.
+func (s *Service) DeleteCategory(ctx context.Context, tenantID, categoryID uuid.UUID) error {
+	if _, err := s.repo.GetCategory(ctx, tenantID, categoryID); err != nil {
+		return err
+	}
+
+	if delErr := s.repo.DeleteCategory(ctx, tenantID, categoryID); delErr != nil {
+		return fmt.Errorf("delete category: %w", delErr)
+	}
+
+	slog.Info("wiki category deleted",
+		"category_id", categoryID,
+		"tenant_id", tenantID,
+	)
+
+	return nil
+}
+
+// UpdateCategory updates a wiki category's fields.
+func (s *Service) UpdateCategory(ctx context.Context, input UpdateCategoryInput) (*Category, error) {
+	category, err := s.repo.GetCategory(ctx, input.TenantID, input.CategoryID)
+	if err != nil {
+		return nil, err
+	}
+
+	if input.Name != nil {
+		name := strings.TrimSpace(*input.Name)
+		if name == "" {
+			return nil, ErrInvalidContent
+		}
+		category.Name = name
+	}
+
+	if input.ParentID != nil {
+		if *input.ParentID == uuid.Nil {
+			category.ParentID = nil
+		} else {
+			if _, parentErr := s.repo.GetCategory(ctx, input.TenantID, *input.ParentID); parentErr != nil {
+				return nil, ErrCategoryNotFound
+			}
+			category.ParentID = input.ParentID
+		}
+	}
+
+	if input.Position != nil {
+		category.Position = *input.Position
+	}
+
+	category.UpdatedAt = time.Now()
+
+	if updateErr := s.repo.UpdateCategory(ctx, category); updateErr != nil {
+		return nil, fmt.Errorf("update category: %w", updateErr)
+	}
+
+	slog.Info("wiki category updated",
+		"category_id", category.ID,
+		"tenant_id", category.TenantID,
+	)
+
+	return category, nil
+}
+
+// ============================================================================
+// Share token methods
+// ============================================================================
+
+// CreateShareTokenInput contains data for creating a share token.
+type CreateShareTokenInput struct {
+	TenantID    uuid.UUID
+	ArticleID   uuid.UUID
+	ExpiresAt   *time.Time
+	Permissions string
+}
+
+// CreateShareToken creates a new share token for an article.
+func (s *Service) CreateShareToken(ctx context.Context, input CreateShareTokenInput) (*ShareToken, error) {
+	// Verify article exists in tenant
+	if _, err := s.repo.GetArticleByID(ctx, input.TenantID, input.ArticleID); err != nil {
+		return nil, err
+	}
+
+	permissions := input.Permissions
+	if permissions == "" {
+		permissions = "read"
+	}
+
+	now := time.Now()
+	token := &ShareToken{
+		ID:          uuid.New(),
+		ArticleID:   input.ArticleID,
+		Token:       uuid.New().String(), // random token
+		ExpiresAt:   input.ExpiresAt,
+		Permissions: []string{permissions},
+		CreatedAt:   now,
+	}
+
+	if createErr := s.repo.CreateShareToken(ctx, token); createErr != nil {
+		return nil, fmt.Errorf("create share token: %w", createErr)
+	}
+
+	slog.Info("wiki share token created",
+		"token_id", token.ID,
+		"article_id", token.ArticleID,
+	)
+
+	return token, nil
+}
+
+// RevokeShareToken deletes a share token.
+func (s *Service) RevokeShareToken(ctx context.Context, tenantID, tokenID uuid.UUID) error {
+	if delErr := s.repo.DeleteShareToken(ctx, tokenID); delErr != nil {
+		return fmt.Errorf("revoke share token: %w", delErr)
+	}
+
+	slog.Info("wiki share token revoked",
+		"token_id", tokenID,
+		"tenant_id", tenantID,
+	)
+
+	return nil
 }
 
 // ============================================================================

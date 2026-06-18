@@ -33,6 +33,10 @@ const (
 	WikiService_DeleteAttachment_FullMethodName = "/wiki.v1.WikiService/DeleteAttachment"
 	WikiService_ListCategories_FullMethodName   = "/wiki.v1.WikiService/ListCategories"
 	WikiService_CreateCategory_FullMethodName   = "/wiki.v1.WikiService/CreateCategory"
+	WikiService_DeleteCategory_FullMethodName   = "/wiki.v1.WikiService/DeleteCategory"
+	WikiService_UpdateCategory_FullMethodName   = "/wiki.v1.WikiService/UpdateCategory"
+	WikiService_CreateShareToken_FullMethodName = "/wiki.v1.WikiService/CreateShareToken"
+	WikiService_RevokeShareToken_FullMethodName = "/wiki.v1.WikiService/RevokeShareToken"
 )
 
 // WikiServiceClient is the client API for WikiService service.
@@ -57,6 +61,10 @@ type WikiServiceClient interface {
 	// Categories
 	ListCategories(ctx context.Context, in *ListCategoriesRequest, opts ...grpc.CallOption) (*ListCategoriesResponse, error)
 	CreateCategory(ctx context.Context, in *CreateCategoryRequest, opts ...grpc.CallOption) (*CategoryResponse, error)
+	DeleteCategory(ctx context.Context, in *DeleteCategoryRequest, opts ...grpc.CallOption) (*DeleteCategoryResponse, error)
+	UpdateCategory(ctx context.Context, in *UpdateCategoryRequest, opts ...grpc.CallOption) (*CategoryResponse, error)
+	CreateShareToken(ctx context.Context, in *CreateShareTokenRequest, opts ...grpc.CallOption) (*ShareTokenResponse, error)
+	RevokeShareToken(ctx context.Context, in *RevokeShareTokenRequest, opts ...grpc.CallOption) (*RevokeShareTokenResponse, error)
 }
 
 type wikiServiceClient struct {
@@ -207,6 +215,46 @@ func (c *wikiServiceClient) CreateCategory(ctx context.Context, in *CreateCatego
 	return out, nil
 }
 
+func (c *wikiServiceClient) DeleteCategory(ctx context.Context, in *DeleteCategoryRequest, opts ...grpc.CallOption) (*DeleteCategoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteCategoryResponse)
+	err := c.cc.Invoke(ctx, WikiService_DeleteCategory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *wikiServiceClient) UpdateCategory(ctx context.Context, in *UpdateCategoryRequest, opts ...grpc.CallOption) (*CategoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CategoryResponse)
+	err := c.cc.Invoke(ctx, WikiService_UpdateCategory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *wikiServiceClient) CreateShareToken(ctx context.Context, in *CreateShareTokenRequest, opts ...grpc.CallOption) (*ShareTokenResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ShareTokenResponse)
+	err := c.cc.Invoke(ctx, WikiService_CreateShareToken_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *wikiServiceClient) RevokeShareToken(ctx context.Context, in *RevokeShareTokenRequest, opts ...grpc.CallOption) (*RevokeShareTokenResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RevokeShareTokenResponse)
+	err := c.cc.Invoke(ctx, WikiService_RevokeShareToken_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WikiServiceServer is the server API for WikiService service.
 // All implementations must embed UnimplementedWikiServiceServer
 // for forward compatibility.
@@ -229,6 +277,10 @@ type WikiServiceServer interface {
 	// Categories
 	ListCategories(context.Context, *ListCategoriesRequest) (*ListCategoriesResponse, error)
 	CreateCategory(context.Context, *CreateCategoryRequest) (*CategoryResponse, error)
+	DeleteCategory(context.Context, *DeleteCategoryRequest) (*DeleteCategoryResponse, error)
+	UpdateCategory(context.Context, *UpdateCategoryRequest) (*CategoryResponse, error)
+	CreateShareToken(context.Context, *CreateShareTokenRequest) (*ShareTokenResponse, error)
+	RevokeShareToken(context.Context, *RevokeShareTokenRequest) (*RevokeShareTokenResponse, error)
 	mustEmbedUnimplementedWikiServiceServer()
 }
 
@@ -280,6 +332,18 @@ func (UnimplementedWikiServiceServer) ListCategories(context.Context, *ListCateg
 }
 func (UnimplementedWikiServiceServer) CreateCategory(context.Context, *CreateCategoryRequest) (*CategoryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateCategory not implemented")
+}
+func (UnimplementedWikiServiceServer) DeleteCategory(context.Context, *DeleteCategoryRequest) (*DeleteCategoryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteCategory not implemented")
+}
+func (UnimplementedWikiServiceServer) UpdateCategory(context.Context, *UpdateCategoryRequest) (*CategoryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateCategory not implemented")
+}
+func (UnimplementedWikiServiceServer) CreateShareToken(context.Context, *CreateShareTokenRequest) (*ShareTokenResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateShareToken not implemented")
+}
+func (UnimplementedWikiServiceServer) RevokeShareToken(context.Context, *RevokeShareTokenRequest) (*RevokeShareTokenResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeShareToken not implemented")
 }
 func (UnimplementedWikiServiceServer) mustEmbedUnimplementedWikiServiceServer() {}
 func (UnimplementedWikiServiceServer) testEmbeddedByValue()                     {}
@@ -554,6 +618,78 @@ func _WikiService_CreateCategory_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WikiService_DeleteCategory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteCategoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WikiServiceServer).DeleteCategory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WikiService_DeleteCategory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WikiServiceServer).DeleteCategory(ctx, req.(*DeleteCategoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WikiService_UpdateCategory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateCategoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WikiServiceServer).UpdateCategory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WikiService_UpdateCategory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WikiServiceServer).UpdateCategory(ctx, req.(*UpdateCategoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WikiService_CreateShareToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateShareTokenRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WikiServiceServer).CreateShareToken(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WikiService_CreateShareToken_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WikiServiceServer).CreateShareToken(ctx, req.(*CreateShareTokenRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WikiService_RevokeShareToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeShareTokenRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WikiServiceServer).RevokeShareToken(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WikiService_RevokeShareToken_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WikiServiceServer).RevokeShareToken(ctx, req.(*RevokeShareTokenRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WikiService_ServiceDesc is the grpc.ServiceDesc for WikiService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -616,6 +752,22 @@ var WikiService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateCategory",
 			Handler:    _WikiService_CreateCategory_Handler,
+		},
+		{
+			MethodName: "DeleteCategory",
+			Handler:    _WikiService_DeleteCategory_Handler,
+		},
+		{
+			MethodName: "UpdateCategory",
+			Handler:    _WikiService_UpdateCategory_Handler,
+		},
+		{
+			MethodName: "CreateShareToken",
+			Handler:    _WikiService_CreateShareToken_Handler,
+		},
+		{
+			MethodName: "RevokeShareToken",
+			Handler:    _WikiService_RevokeShareToken_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

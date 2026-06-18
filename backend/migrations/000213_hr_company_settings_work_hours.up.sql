@@ -1,0 +1,4 @@
+ALTER TABLE hr_company_settings
+    ADD COLUMN IF NOT EXISTS work_hours_per_day INT NOT NULL DEFAULT 8,
+    ADD COLUMN IF NOT EXISTS max_daily_hours INT NOT NULL DEFAULT 10,
+    ADD COLUMN IF NOT EXISTS break_after_hours INT NOT NULL DEFAULT 6;

@@ -142,6 +142,13 @@ export function deleteCategory(id: string) {
   return request<void>({ method: 'DELETE', path: `${BASE}/categories/${id}` })
 }
 
+export function updateCategory(
+  id: string,
+  body: { name?: string; parent_id?: string | null; position?: number },
+) {
+  return request<WikiCategory>({ method: 'PATCH', path: `${BASE}/categories/${id}`, body })
+}
+
 // ---------------------------------------------------------------------------
 // Share tokens
 // ---------------------------------------------------------------------------

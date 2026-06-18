@@ -381,6 +381,17 @@ func (r *PostgresRepository) DeleteCategory(ctx context.Context, tenantID, categ
 	return err
 }
 
+func (r *PostgresRepository) UpdateCategory(ctx context.Context, category *Category) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE wiki_categories
+		 SET name = $1, parent_id = $2, position = $3, updated_at = $4
+		 WHERE id = $5 AND tenant_id = $6`,
+		category.Name, category.ParentID, category.Position, category.UpdatedAt,
+		category.ID, category.TenantID,
+	)
+	return err
+}
+
 // ============================================================================
 // Share tokens
 // ============================================================================

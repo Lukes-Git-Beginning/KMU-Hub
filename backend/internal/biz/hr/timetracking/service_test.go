@@ -91,6 +91,10 @@ func (m *mockWorkTimeRepo) AggregateWorkTimeForInvoice(_ context.Context, _, _ u
 	return 0, nil, nil
 }
 
+func (m *mockWorkTimeRepo) GetProjectBreakdown(_ context.Context, _, _ uuid.UUID, _, _ time.Time) ([]ProjectBreakdown, error) {
+	return []ProjectBreakdown{}, nil
+}
+
 type mockBreakRepo struct {
 	breaks      map[uuid.UUID]*models.HRBreakEntry
 	activeBreak *models.HRBreakEntry

@@ -71,8 +71,12 @@ type HRCompanySettings struct {
 	ShowAbsenceReason     bool      `json:"show_absence_reason"`
 	DefaultAnnualLeaveDays int      `json:"default_annual_leave_days"`
 	Timezone              string    `json:"timezone"`
-	CreatedAt             time.Time `json:"created_at"`
-	UpdatedAt             time.Time `json:"updated_at"`
+	// Work-hours policy (migration 000213)
+	WorkHoursPerDay  int `json:"work_hours_per_day"`
+	MaxDailyHours    int `json:"max_daily_hours"`
+	BreakAfterHours  int `json:"break_after_hours"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 // EmployeeProfile extends users with HR-specific data.
@@ -181,6 +185,7 @@ type HRWorkTimeEntry struct {
 	CorrectionApprovedAt  *time.Time          `json:"correction_approved_at,omitempty"`
 	// Extended fields (migration 000182)
 	CategoryID      *uuid.UUID `json:"category_id,omitempty"`
+	ProjectID       *uuid.UUID `json:"project_id,omitempty"`
 	LocationLat     *float64   `json:"location_lat,omitempty"`
 	LocationLng     *float64   `json:"location_lng,omitempty"`
 	LocationAddress *string    `json:"location_address,omitempty"`

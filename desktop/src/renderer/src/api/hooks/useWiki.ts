@@ -22,6 +22,7 @@ import {
   listCategories,
   createCategory,
   deleteCategory,
+  updateCategory,
   createShareToken,
   revokeShareToken,
 } from '../wiki-client'
@@ -218,6 +219,22 @@ export function useDeleteCategory() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => deleteCategory(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: wikiKeys.categories() }),
+  })
+}
+
+export function useUpdateCategory() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...body
+    }: {
+      id: string
+      name?: string
+      parent_id?: string | null
+      position?: number
+    }) => updateCategory(id, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: wikiKeys.categories() }),
   })
 }

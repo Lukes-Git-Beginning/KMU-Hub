@@ -1094,6 +1094,9 @@ type updateHRSettingsHTTPReq struct {
 	ShowAbsenceReason      bool   `json:"show_absence_reason"`
 	DefaultAnnualLeaveDays int32  `json:"default_annual_leave_days" validate:"omitempty,gte=0"`
 	Timezone               string `json:"timezone"`
+	WorkHoursPerDay        int32  `json:"work_hours_per_day"        validate:"omitempty,gte=1,lte=24"`
+	MaxDailyHours          int32  `json:"max_daily_hours"           validate:"omitempty,gte=1,lte=24"`
+	BreakAfterHours        int32  `json:"break_after_hours"         validate:"omitempty,gte=0,lte=24"`
 }
 
 func (h *HRRoutes) HandleUpdateHRSettings(w http.ResponseWriter, r *http.Request) {
@@ -1120,6 +1123,10 @@ func (h *HRRoutes) HandleUpdateHRSettings(w http.ResponseWriter, r *http.Request
 		ShowAbsenceReason:      req.ShowAbsenceReason,
 		DefaultAnnualLeaveDays: req.DefaultAnnualLeaveDays,
 		Timezone:               req.Timezone,
+		// Work-hours policy fields (proto fields 6-8, require proto regen to compile)
+		WorkHoursPerDay: req.WorkHoursPerDay,
+		MaxDailyHours:   req.MaxDailyHours,
+		BreakAfterHours: req.BreakAfterHours,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
