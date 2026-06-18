@@ -162,6 +162,7 @@ type PurchaseOrder struct {
 	CreatedAt            *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt            *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	Lines                []*POLine              `protobuf:"bytes,14,rep,name=lines,proto3" json:"lines,omitempty"` // populated on GetPO
+	FrameworkContractId  *string                `protobuf:"bytes,15,opt,name=framework_contract_id,json=frameworkContractId,proto3,oneof" json:"framework_contract_id,omitempty"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -292,6 +293,13 @@ func (x *PurchaseOrder) GetLines() []*POLine {
 		return x.Lines
 	}
 	return nil
+}
+
+func (x *PurchaseOrder) GetFrameworkContractId() string {
+	if x != nil && x.FrameworkContractId != nil {
+		return *x.FrameworkContractId
+	}
+	return ""
 }
 
 type POLine struct {
@@ -2238,6 +2246,2574 @@ func (x *ExportPOResponse) GetFilename() string {
 	return ""
 }
 
+type CatalogItem struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	SupplierId    string                 `protobuf:"bytes,3,opt,name=supplier_id,json=supplierId,proto3" json:"supplier_id,omitempty"`
+	Name          string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	Sku           string                 `protobuf:"bytes,5,opt,name=sku,proto3" json:"sku,omitempty"`
+	Category      string                 `protobuf:"bytes,6,opt,name=category,proto3" json:"category,omitempty"`
+	Price         string                 `protobuf:"bytes,7,opt,name=price,proto3" json:"price,omitempty"` // numeric string
+	Currency      string                 `protobuf:"bytes,8,opt,name=currency,proto3" json:"currency,omitempty"`
+	Unit          string                 `protobuf:"bytes,9,opt,name=unit,proto3" json:"unit,omitempty"`
+	Available     bool                   `protobuf:"varint,10,opt,name=available,proto3" json:"available,omitempty"`
+	MinOrderQty   string                 `protobuf:"bytes,11,opt,name=min_order_qty,json=minOrderQty,proto3" json:"min_order_qty,omitempty"` // numeric string
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CatalogItem) Reset() {
+	*x = CatalogItem{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CatalogItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CatalogItem) ProtoMessage() {}
+
+func (x *CatalogItem) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CatalogItem.ProtoReflect.Descriptor instead.
+func (*CatalogItem) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *CatalogItem) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *CatalogItem) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CatalogItem) GetSupplierId() string {
+	if x != nil {
+		return x.SupplierId
+	}
+	return ""
+}
+
+func (x *CatalogItem) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CatalogItem) GetSku() string {
+	if x != nil {
+		return x.Sku
+	}
+	return ""
+}
+
+func (x *CatalogItem) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *CatalogItem) GetPrice() string {
+	if x != nil {
+		return x.Price
+	}
+	return ""
+}
+
+func (x *CatalogItem) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+func (x *CatalogItem) GetUnit() string {
+	if x != nil {
+		return x.Unit
+	}
+	return ""
+}
+
+func (x *CatalogItem) GetAvailable() bool {
+	if x != nil {
+		return x.Available
+	}
+	return false
+}
+
+func (x *CatalogItem) GetMinOrderQty() string {
+	if x != nil {
+		return x.MinOrderQty
+	}
+	return ""
+}
+
+func (x *CatalogItem) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *CatalogItem) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type SupplierRating struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	SupplierId    string                 `protobuf:"bytes,3,opt,name=supplier_id,json=supplierId,proto3" json:"supplier_id,omitempty"`
+	Category      string                 `protobuf:"bytes,4,opt,name=category,proto3" json:"category,omitempty"` // quality|delivery|price
+	Rating        int32                  `protobuf:"varint,5,opt,name=rating,proto3" json:"rating,omitempty"`    // 1-5
+	Comment       string                 `protobuf:"bytes,6,opt,name=comment,proto3" json:"comment,omitempty"`
+	RatedBy       *string                `protobuf:"bytes,7,opt,name=rated_by,json=ratedBy,proto3,oneof" json:"rated_by,omitempty"`
+	RatedAt       *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=rated_at,json=ratedAt,proto3" json:"rated_at,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SupplierRating) Reset() {
+	*x = SupplierRating{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SupplierRating) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SupplierRating) ProtoMessage() {}
+
+func (x *SupplierRating) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SupplierRating.ProtoReflect.Descriptor instead.
+func (*SupplierRating) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *SupplierRating) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *SupplierRating) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *SupplierRating) GetSupplierId() string {
+	if x != nil {
+		return x.SupplierId
+	}
+	return ""
+}
+
+func (x *SupplierRating) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *SupplierRating) GetRating() int32 {
+	if x != nil {
+		return x.Rating
+	}
+	return 0
+}
+
+func (x *SupplierRating) GetComment() string {
+	if x != nil {
+		return x.Comment
+	}
+	return ""
+}
+
+func (x *SupplierRating) GetRatedBy() string {
+	if x != nil && x.RatedBy != nil {
+		return *x.RatedBy
+	}
+	return ""
+}
+
+func (x *SupplierRating) GetRatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.RatedAt
+	}
+	return nil
+}
+
+func (x *SupplierRating) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *SupplierRating) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type FrameworkContract struct {
+	state         protoimpl.MessageState   `protogen:"open.v1"`
+	Id            string                   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId      string                   `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	SupplierId    string                   `protobuf:"bytes,3,opt,name=supplier_id,json=supplierId,proto3" json:"supplier_id,omitempty"`
+	Title         string                   `protobuf:"bytes,4,opt,name=title,proto3" json:"title,omitempty"`
+	ContractNr    string                   `protobuf:"bytes,5,opt,name=contract_nr,json=contractNr,proto3" json:"contract_nr,omitempty"`
+	StartDate     *timestamppb.Timestamp   `protobuf:"bytes,6,opt,name=start_date,json=startDate,proto3,oneof" json:"start_date,omitempty"`
+	EndDate       *timestamppb.Timestamp   `protobuf:"bytes,7,opt,name=end_date,json=endDate,proto3,oneof" json:"end_date,omitempty"`
+	TotalValue    string                   `protobuf:"bytes,8,opt,name=total_value,json=totalValue,proto3" json:"total_value,omitempty"` // numeric string
+	UsedValue     string                   `protobuf:"bytes,9,opt,name=used_value,json=usedValue,proto3" json:"used_value,omitempty"`    // numeric string
+	Currency      string                   `protobuf:"bytes,10,opt,name=currency,proto3" json:"currency,omitempty"`
+	Status        string                   `protobuf:"bytes,11,opt,name=status,proto3" json:"status,omitempty"` // draft|active|expired
+	CreatedAt     *timestamppb.Timestamp   `protobuf:"bytes,12,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp   `protobuf:"bytes,13,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	Items         []*FrameworkContractItem `protobuf:"bytes,14,rep,name=items,proto3" json:"items,omitempty"` // populated on GetFrameworkContract
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FrameworkContract) Reset() {
+	*x = FrameworkContract{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FrameworkContract) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FrameworkContract) ProtoMessage() {}
+
+func (x *FrameworkContract) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FrameworkContract.ProtoReflect.Descriptor instead.
+func (*FrameworkContract) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *FrameworkContract) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *FrameworkContract) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *FrameworkContract) GetSupplierId() string {
+	if x != nil {
+		return x.SupplierId
+	}
+	return ""
+}
+
+func (x *FrameworkContract) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *FrameworkContract) GetContractNr() string {
+	if x != nil {
+		return x.ContractNr
+	}
+	return ""
+}
+
+func (x *FrameworkContract) GetStartDate() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartDate
+	}
+	return nil
+}
+
+func (x *FrameworkContract) GetEndDate() *timestamppb.Timestamp {
+	if x != nil {
+		return x.EndDate
+	}
+	return nil
+}
+
+func (x *FrameworkContract) GetTotalValue() string {
+	if x != nil {
+		return x.TotalValue
+	}
+	return ""
+}
+
+func (x *FrameworkContract) GetUsedValue() string {
+	if x != nil {
+		return x.UsedValue
+	}
+	return ""
+}
+
+func (x *FrameworkContract) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+func (x *FrameworkContract) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *FrameworkContract) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *FrameworkContract) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+func (x *FrameworkContract) GetItems() []*FrameworkContractItem {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+type FrameworkContractItem struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ContractId    string                 `protobuf:"bytes,3,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"`
+	Name          string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	UnitPrice     string                 `protobuf:"bytes,5,opt,name=unit_price,json=unitPrice,proto3" json:"unit_price,omitempty"` // numeric string
+	Unit          string                 `protobuf:"bytes,6,opt,name=unit,proto3" json:"unit,omitempty"`
+	AgreedQty     string                 `protobuf:"bytes,7,opt,name=agreed_qty,json=agreedQty,proto3" json:"agreed_qty,omitempty"` // numeric string
+	CalledQty     string                 `protobuf:"bytes,8,opt,name=called_qty,json=calledQty,proto3" json:"called_qty,omitempty"` // numeric string
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FrameworkContractItem) Reset() {
+	*x = FrameworkContractItem{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FrameworkContractItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FrameworkContractItem) ProtoMessage() {}
+
+func (x *FrameworkContractItem) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FrameworkContractItem.ProtoReflect.Descriptor instead.
+func (*FrameworkContractItem) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *FrameworkContractItem) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *FrameworkContractItem) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *FrameworkContractItem) GetContractId() string {
+	if x != nil {
+		return x.ContractId
+	}
+	return ""
+}
+
+func (x *FrameworkContractItem) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *FrameworkContractItem) GetUnitPrice() string {
+	if x != nil {
+		return x.UnitPrice
+	}
+	return ""
+}
+
+func (x *FrameworkContractItem) GetUnit() string {
+	if x != nil {
+		return x.Unit
+	}
+	return ""
+}
+
+func (x *FrameworkContractItem) GetAgreedQty() string {
+	if x != nil {
+		return x.AgreedQty
+	}
+	return ""
+}
+
+func (x *FrameworkContractItem) GetCalledQty() string {
+	if x != nil {
+		return x.CalledQty
+	}
+	return ""
+}
+
+func (x *FrameworkContractItem) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *FrameworkContractItem) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type FrameworkContractCall struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ContractId    string                 `protobuf:"bytes,3,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"`
+	PoId          *string                `protobuf:"bytes,4,opt,name=po_id,json=poId,proto3,oneof" json:"po_id,omitempty"`
+	Amount        string                 `protobuf:"bytes,5,opt,name=amount,proto3" json:"amount,omitempty"` // numeric string
+	Currency      string                 `protobuf:"bytes,6,opt,name=currency,proto3" json:"currency,omitempty"`
+	CalledAt      *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=called_at,json=calledAt,proto3" json:"called_at,omitempty"`
+	Notes         string                 `protobuf:"bytes,8,opt,name=notes,proto3" json:"notes,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FrameworkContractCall) Reset() {
+	*x = FrameworkContractCall{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FrameworkContractCall) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FrameworkContractCall) ProtoMessage() {}
+
+func (x *FrameworkContractCall) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FrameworkContractCall.ProtoReflect.Descriptor instead.
+func (*FrameworkContractCall) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *FrameworkContractCall) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *FrameworkContractCall) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *FrameworkContractCall) GetContractId() string {
+	if x != nil {
+		return x.ContractId
+	}
+	return ""
+}
+
+func (x *FrameworkContractCall) GetPoId() string {
+	if x != nil && x.PoId != nil {
+		return *x.PoId
+	}
+	return ""
+}
+
+func (x *FrameworkContractCall) GetAmount() string {
+	if x != nil {
+		return x.Amount
+	}
+	return ""
+}
+
+func (x *FrameworkContractCall) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+func (x *FrameworkContractCall) GetCalledAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CalledAt
+	}
+	return nil
+}
+
+func (x *FrameworkContractCall) GetNotes() string {
+	if x != nil {
+		return x.Notes
+	}
+	return ""
+}
+
+func (x *FrameworkContractCall) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *FrameworkContractCall) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type ListCatalogItemsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	SupplierId    *string                `protobuf:"bytes,2,opt,name=supplier_id,json=supplierId,proto3,oneof" json:"supplier_id,omitempty"`
+	Category      string                 `protobuf:"bytes,3,opt,name=category,proto3" json:"category,omitempty"`
+	Search        string                 `protobuf:"bytes,4,opt,name=search,proto3" json:"search,omitempty"`
+	Available     *bool                  `protobuf:"varint,5,opt,name=available,proto3,oneof" json:"available,omitempty"`
+	Page          int32                  `protobuf:"varint,6,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,7,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListCatalogItemsRequest) Reset() {
+	*x = ListCatalogItemsRequest{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListCatalogItemsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListCatalogItemsRequest) ProtoMessage() {}
+
+func (x *ListCatalogItemsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListCatalogItemsRequest.ProtoReflect.Descriptor instead.
+func (*ListCatalogItemsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *ListCatalogItemsRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListCatalogItemsRequest) GetSupplierId() string {
+	if x != nil && x.SupplierId != nil {
+		return *x.SupplierId
+	}
+	return ""
+}
+
+func (x *ListCatalogItemsRequest) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *ListCatalogItemsRequest) GetSearch() string {
+	if x != nil {
+		return x.Search
+	}
+	return ""
+}
+
+func (x *ListCatalogItemsRequest) GetAvailable() bool {
+	if x != nil && x.Available != nil {
+		return *x.Available
+	}
+	return false
+}
+
+func (x *ListCatalogItemsRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListCatalogItemsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type ListCatalogItemsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*CatalogItem         `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListCatalogItemsResponse) Reset() {
+	*x = ListCatalogItemsResponse{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListCatalogItemsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListCatalogItemsResponse) ProtoMessage() {}
+
+func (x *ListCatalogItemsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListCatalogItemsResponse.ProtoReflect.Descriptor instead.
+func (*ListCatalogItemsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *ListCatalogItemsResponse) GetItems() []*CatalogItem {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+func (x *ListCatalogItemsResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type GetCatalogItemRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ItemId        string                 `protobuf:"bytes,2,opt,name=item_id,json=itemId,proto3" json:"item_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCatalogItemRequest) Reset() {
+	*x = GetCatalogItemRequest{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCatalogItemRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCatalogItemRequest) ProtoMessage() {}
+
+func (x *GetCatalogItemRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCatalogItemRequest.ProtoReflect.Descriptor instead.
+func (*GetCatalogItemRequest) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *GetCatalogItemRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *GetCatalogItemRequest) GetItemId() string {
+	if x != nil {
+		return x.ItemId
+	}
+	return ""
+}
+
+type CatalogItemResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Item          *CatalogItem           `protobuf:"bytes,1,opt,name=item,proto3" json:"item,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CatalogItemResponse) Reset() {
+	*x = CatalogItemResponse{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CatalogItemResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CatalogItemResponse) ProtoMessage() {}
+
+func (x *CatalogItemResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CatalogItemResponse.ProtoReflect.Descriptor instead.
+func (*CatalogItemResponse) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *CatalogItemResponse) GetItem() *CatalogItem {
+	if x != nil {
+		return x.Item
+	}
+	return nil
+}
+
+type CreateCatalogItemRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	SupplierId    string                 `protobuf:"bytes,2,opt,name=supplier_id,json=supplierId,proto3" json:"supplier_id,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Sku           string                 `protobuf:"bytes,4,opt,name=sku,proto3" json:"sku,omitempty"`
+	Category      string                 `protobuf:"bytes,5,opt,name=category,proto3" json:"category,omitempty"`
+	Price         string                 `protobuf:"bytes,6,opt,name=price,proto3" json:"price,omitempty"`
+	Currency      string                 `protobuf:"bytes,7,opt,name=currency,proto3" json:"currency,omitempty"`
+	Unit          string                 `protobuf:"bytes,8,opt,name=unit,proto3" json:"unit,omitempty"`
+	Available     bool                   `protobuf:"varint,9,opt,name=available,proto3" json:"available,omitempty"`
+	MinOrderQty   string                 `protobuf:"bytes,10,opt,name=min_order_qty,json=minOrderQty,proto3" json:"min_order_qty,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateCatalogItemRequest) Reset() {
+	*x = CreateCatalogItemRequest{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateCatalogItemRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateCatalogItemRequest) ProtoMessage() {}
+
+func (x *CreateCatalogItemRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateCatalogItemRequest.ProtoReflect.Descriptor instead.
+func (*CreateCatalogItemRequest) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *CreateCatalogItemRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateCatalogItemRequest) GetSupplierId() string {
+	if x != nil {
+		return x.SupplierId
+	}
+	return ""
+}
+
+func (x *CreateCatalogItemRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateCatalogItemRequest) GetSku() string {
+	if x != nil {
+		return x.Sku
+	}
+	return ""
+}
+
+func (x *CreateCatalogItemRequest) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *CreateCatalogItemRequest) GetPrice() string {
+	if x != nil {
+		return x.Price
+	}
+	return ""
+}
+
+func (x *CreateCatalogItemRequest) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+func (x *CreateCatalogItemRequest) GetUnit() string {
+	if x != nil {
+		return x.Unit
+	}
+	return ""
+}
+
+func (x *CreateCatalogItemRequest) GetAvailable() bool {
+	if x != nil {
+		return x.Available
+	}
+	return false
+}
+
+func (x *CreateCatalogItemRequest) GetMinOrderQty() string {
+	if x != nil {
+		return x.MinOrderQty
+	}
+	return ""
+}
+
+type UpdateCatalogItemRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ItemId        string                 `protobuf:"bytes,2,opt,name=item_id,json=itemId,proto3" json:"item_id,omitempty"`
+	Name          *string                `protobuf:"bytes,3,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	Sku           *string                `protobuf:"bytes,4,opt,name=sku,proto3,oneof" json:"sku,omitempty"`
+	Category      *string                `protobuf:"bytes,5,opt,name=category,proto3,oneof" json:"category,omitempty"`
+	Price         *string                `protobuf:"bytes,6,opt,name=price,proto3,oneof" json:"price,omitempty"`
+	Currency      *string                `protobuf:"bytes,7,opt,name=currency,proto3,oneof" json:"currency,omitempty"`
+	Unit          *string                `protobuf:"bytes,8,opt,name=unit,proto3,oneof" json:"unit,omitempty"`
+	Available     *bool                  `protobuf:"varint,9,opt,name=available,proto3,oneof" json:"available,omitempty"`
+	MinOrderQty   *string                `protobuf:"bytes,10,opt,name=min_order_qty,json=minOrderQty,proto3,oneof" json:"min_order_qty,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateCatalogItemRequest) Reset() {
+	*x = UpdateCatalogItemRequest{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateCatalogItemRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateCatalogItemRequest) ProtoMessage() {}
+
+func (x *UpdateCatalogItemRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateCatalogItemRequest.ProtoReflect.Descriptor instead.
+func (*UpdateCatalogItemRequest) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *UpdateCatalogItemRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *UpdateCatalogItemRequest) GetItemId() string {
+	if x != nil {
+		return x.ItemId
+	}
+	return ""
+}
+
+func (x *UpdateCatalogItemRequest) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+func (x *UpdateCatalogItemRequest) GetSku() string {
+	if x != nil && x.Sku != nil {
+		return *x.Sku
+	}
+	return ""
+}
+
+func (x *UpdateCatalogItemRequest) GetCategory() string {
+	if x != nil && x.Category != nil {
+		return *x.Category
+	}
+	return ""
+}
+
+func (x *UpdateCatalogItemRequest) GetPrice() string {
+	if x != nil && x.Price != nil {
+		return *x.Price
+	}
+	return ""
+}
+
+func (x *UpdateCatalogItemRequest) GetCurrency() string {
+	if x != nil && x.Currency != nil {
+		return *x.Currency
+	}
+	return ""
+}
+
+func (x *UpdateCatalogItemRequest) GetUnit() string {
+	if x != nil && x.Unit != nil {
+		return *x.Unit
+	}
+	return ""
+}
+
+func (x *UpdateCatalogItemRequest) GetAvailable() bool {
+	if x != nil && x.Available != nil {
+		return *x.Available
+	}
+	return false
+}
+
+func (x *UpdateCatalogItemRequest) GetMinOrderQty() string {
+	if x != nil && x.MinOrderQty != nil {
+		return *x.MinOrderQty
+	}
+	return ""
+}
+
+type DeleteCatalogItemRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ItemId        string                 `protobuf:"bytes,2,opt,name=item_id,json=itemId,proto3" json:"item_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteCatalogItemRequest) Reset() {
+	*x = DeleteCatalogItemRequest{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteCatalogItemRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteCatalogItemRequest) ProtoMessage() {}
+
+func (x *DeleteCatalogItemRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteCatalogItemRequest.ProtoReflect.Descriptor instead.
+func (*DeleteCatalogItemRequest) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *DeleteCatalogItemRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *DeleteCatalogItemRequest) GetItemId() string {
+	if x != nil {
+		return x.ItemId
+	}
+	return ""
+}
+
+type DeleteCatalogItemResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteCatalogItemResponse) Reset() {
+	*x = DeleteCatalogItemResponse{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteCatalogItemResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteCatalogItemResponse) ProtoMessage() {}
+
+func (x *DeleteCatalogItemResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteCatalogItemResponse.ProtoReflect.Descriptor instead.
+func (*DeleteCatalogItemResponse) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{44}
+}
+
+type ListSupplierRatingsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	SupplierId    string                 `protobuf:"bytes,2,opt,name=supplier_id,json=supplierId,proto3" json:"supplier_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSupplierRatingsRequest) Reset() {
+	*x = ListSupplierRatingsRequest{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSupplierRatingsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSupplierRatingsRequest) ProtoMessage() {}
+
+func (x *ListSupplierRatingsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSupplierRatingsRequest.ProtoReflect.Descriptor instead.
+func (*ListSupplierRatingsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *ListSupplierRatingsRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListSupplierRatingsRequest) GetSupplierId() string {
+	if x != nil {
+		return x.SupplierId
+	}
+	return ""
+}
+
+type ListSupplierRatingsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ratings       []*SupplierRating      `protobuf:"bytes,1,rep,name=ratings,proto3" json:"ratings,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSupplierRatingsResponse) Reset() {
+	*x = ListSupplierRatingsResponse{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSupplierRatingsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSupplierRatingsResponse) ProtoMessage() {}
+
+func (x *ListSupplierRatingsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSupplierRatingsResponse.ProtoReflect.Descriptor instead.
+func (*ListSupplierRatingsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *ListSupplierRatingsResponse) GetRatings() []*SupplierRating {
+	if x != nil {
+		return x.Ratings
+	}
+	return nil
+}
+
+type CreateSupplierRatingRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	SupplierId    string                 `protobuf:"bytes,2,opt,name=supplier_id,json=supplierId,proto3" json:"supplier_id,omitempty"`
+	Category      string                 `protobuf:"bytes,3,opt,name=category,proto3" json:"category,omitempty"` // quality|delivery|price
+	Rating        int32                  `protobuf:"varint,4,opt,name=rating,proto3" json:"rating,omitempty"`    // 1-5
+	Comment       string                 `protobuf:"bytes,5,opt,name=comment,proto3" json:"comment,omitempty"`
+	RatedBy       *string                `protobuf:"bytes,6,opt,name=rated_by,json=ratedBy,proto3,oneof" json:"rated_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateSupplierRatingRequest) Reset() {
+	*x = CreateSupplierRatingRequest{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateSupplierRatingRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateSupplierRatingRequest) ProtoMessage() {}
+
+func (x *CreateSupplierRatingRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateSupplierRatingRequest.ProtoReflect.Descriptor instead.
+func (*CreateSupplierRatingRequest) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *CreateSupplierRatingRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateSupplierRatingRequest) GetSupplierId() string {
+	if x != nil {
+		return x.SupplierId
+	}
+	return ""
+}
+
+func (x *CreateSupplierRatingRequest) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *CreateSupplierRatingRequest) GetRating() int32 {
+	if x != nil {
+		return x.Rating
+	}
+	return 0
+}
+
+func (x *CreateSupplierRatingRequest) GetComment() string {
+	if x != nil {
+		return x.Comment
+	}
+	return ""
+}
+
+func (x *CreateSupplierRatingRequest) GetRatedBy() string {
+	if x != nil && x.RatedBy != nil {
+		return *x.RatedBy
+	}
+	return ""
+}
+
+type SupplierRatingResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Rating        *SupplierRating        `protobuf:"bytes,1,opt,name=rating,proto3" json:"rating,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SupplierRatingResponse) Reset() {
+	*x = SupplierRatingResponse{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SupplierRatingResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SupplierRatingResponse) ProtoMessage() {}
+
+func (x *SupplierRatingResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SupplierRatingResponse.ProtoReflect.Descriptor instead.
+func (*SupplierRatingResponse) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *SupplierRatingResponse) GetRating() *SupplierRating {
+	if x != nil {
+		return x.Rating
+	}
+	return nil
+}
+
+type DeleteSupplierRatingRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	RatingId      string                 `protobuf:"bytes,2,opt,name=rating_id,json=ratingId,proto3" json:"rating_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteSupplierRatingRequest) Reset() {
+	*x = DeleteSupplierRatingRequest{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteSupplierRatingRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteSupplierRatingRequest) ProtoMessage() {}
+
+func (x *DeleteSupplierRatingRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteSupplierRatingRequest.ProtoReflect.Descriptor instead.
+func (*DeleteSupplierRatingRequest) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *DeleteSupplierRatingRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *DeleteSupplierRatingRequest) GetRatingId() string {
+	if x != nil {
+		return x.RatingId
+	}
+	return ""
+}
+
+type DeleteSupplierRatingResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteSupplierRatingResponse) Reset() {
+	*x = DeleteSupplierRatingResponse{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteSupplierRatingResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteSupplierRatingResponse) ProtoMessage() {}
+
+func (x *DeleteSupplierRatingResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteSupplierRatingResponse.ProtoReflect.Descriptor instead.
+func (*DeleteSupplierRatingResponse) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{50}
+}
+
+type ListFrameworkContractsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	SupplierId    *string                `protobuf:"bytes,2,opt,name=supplier_id,json=supplierId,proto3,oneof" json:"supplier_id,omitempty"`
+	Status        *string                `protobuf:"bytes,3,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	Page          int32                  `protobuf:"varint,4,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,5,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListFrameworkContractsRequest) Reset() {
+	*x = ListFrameworkContractsRequest{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListFrameworkContractsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListFrameworkContractsRequest) ProtoMessage() {}
+
+func (x *ListFrameworkContractsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListFrameworkContractsRequest.ProtoReflect.Descriptor instead.
+func (*ListFrameworkContractsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *ListFrameworkContractsRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListFrameworkContractsRequest) GetSupplierId() string {
+	if x != nil && x.SupplierId != nil {
+		return *x.SupplierId
+	}
+	return ""
+}
+
+func (x *ListFrameworkContractsRequest) GetStatus() string {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return ""
+}
+
+func (x *ListFrameworkContractsRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListFrameworkContractsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type ListFrameworkContractsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Contracts     []*FrameworkContract   `protobuf:"bytes,1,rep,name=contracts,proto3" json:"contracts,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListFrameworkContractsResponse) Reset() {
+	*x = ListFrameworkContractsResponse{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListFrameworkContractsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListFrameworkContractsResponse) ProtoMessage() {}
+
+func (x *ListFrameworkContractsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListFrameworkContractsResponse.ProtoReflect.Descriptor instead.
+func (*ListFrameworkContractsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *ListFrameworkContractsResponse) GetContracts() []*FrameworkContract {
+	if x != nil {
+		return x.Contracts
+	}
+	return nil
+}
+
+func (x *ListFrameworkContractsResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type GetFrameworkContractRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ContractId    string                 `protobuf:"bytes,2,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetFrameworkContractRequest) Reset() {
+	*x = GetFrameworkContractRequest{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetFrameworkContractRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetFrameworkContractRequest) ProtoMessage() {}
+
+func (x *GetFrameworkContractRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetFrameworkContractRequest.ProtoReflect.Descriptor instead.
+func (*GetFrameworkContractRequest) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *GetFrameworkContractRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *GetFrameworkContractRequest) GetContractId() string {
+	if x != nil {
+		return x.ContractId
+	}
+	return ""
+}
+
+type FrameworkContractResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Contract      *FrameworkContract     `protobuf:"bytes,1,opt,name=contract,proto3" json:"contract,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FrameworkContractResponse) Reset() {
+	*x = FrameworkContractResponse{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FrameworkContractResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FrameworkContractResponse) ProtoMessage() {}
+
+func (x *FrameworkContractResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FrameworkContractResponse.ProtoReflect.Descriptor instead.
+func (*FrameworkContractResponse) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *FrameworkContractResponse) GetContract() *FrameworkContract {
+	if x != nil {
+		return x.Contract
+	}
+	return nil
+}
+
+type CreateFrameworkContractRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	SupplierId    string                 `protobuf:"bytes,2,opt,name=supplier_id,json=supplierId,proto3" json:"supplier_id,omitempty"`
+	Title         string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
+	ContractNr    string                 `protobuf:"bytes,4,opt,name=contract_nr,json=contractNr,proto3" json:"contract_nr,omitempty"`
+	StartDate     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=start_date,json=startDate,proto3,oneof" json:"start_date,omitempty"`
+	EndDate       *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=end_date,json=endDate,proto3,oneof" json:"end_date,omitempty"`
+	TotalValue    string                 `protobuf:"bytes,7,opt,name=total_value,json=totalValue,proto3" json:"total_value,omitempty"`
+	Currency      string                 `protobuf:"bytes,8,opt,name=currency,proto3" json:"currency,omitempty"`
+	Status        string                 `protobuf:"bytes,9,opt,name=status,proto3" json:"status,omitempty"` // draft|active|expired (default: draft)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateFrameworkContractRequest) Reset() {
+	*x = CreateFrameworkContractRequest{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateFrameworkContractRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateFrameworkContractRequest) ProtoMessage() {}
+
+func (x *CreateFrameworkContractRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateFrameworkContractRequest.ProtoReflect.Descriptor instead.
+func (*CreateFrameworkContractRequest) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *CreateFrameworkContractRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateFrameworkContractRequest) GetSupplierId() string {
+	if x != nil {
+		return x.SupplierId
+	}
+	return ""
+}
+
+func (x *CreateFrameworkContractRequest) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *CreateFrameworkContractRequest) GetContractNr() string {
+	if x != nil {
+		return x.ContractNr
+	}
+	return ""
+}
+
+func (x *CreateFrameworkContractRequest) GetStartDate() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartDate
+	}
+	return nil
+}
+
+func (x *CreateFrameworkContractRequest) GetEndDate() *timestamppb.Timestamp {
+	if x != nil {
+		return x.EndDate
+	}
+	return nil
+}
+
+func (x *CreateFrameworkContractRequest) GetTotalValue() string {
+	if x != nil {
+		return x.TotalValue
+	}
+	return ""
+}
+
+func (x *CreateFrameworkContractRequest) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+func (x *CreateFrameworkContractRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+type UpdateFrameworkContractRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ContractId    string                 `protobuf:"bytes,2,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"`
+	SupplierId    *string                `protobuf:"bytes,3,opt,name=supplier_id,json=supplierId,proto3,oneof" json:"supplier_id,omitempty"`
+	Title         *string                `protobuf:"bytes,4,opt,name=title,proto3,oneof" json:"title,omitempty"`
+	ContractNr    *string                `protobuf:"bytes,5,opt,name=contract_nr,json=contractNr,proto3,oneof" json:"contract_nr,omitempty"`
+	StartDate     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=start_date,json=startDate,proto3,oneof" json:"start_date,omitempty"` // epoch to clear
+	EndDate       *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=end_date,json=endDate,proto3,oneof" json:"end_date,omitempty"`       // epoch to clear
+	TotalValue    *string                `protobuf:"bytes,8,opt,name=total_value,json=totalValue,proto3,oneof" json:"total_value,omitempty"`
+	Currency      *string                `protobuf:"bytes,9,opt,name=currency,proto3,oneof" json:"currency,omitempty"`
+	Status        *string                `protobuf:"bytes,10,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateFrameworkContractRequest) Reset() {
+	*x = UpdateFrameworkContractRequest{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[56]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateFrameworkContractRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateFrameworkContractRequest) ProtoMessage() {}
+
+func (x *UpdateFrameworkContractRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[56]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateFrameworkContractRequest.ProtoReflect.Descriptor instead.
+func (*UpdateFrameworkContractRequest) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{56}
+}
+
+func (x *UpdateFrameworkContractRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *UpdateFrameworkContractRequest) GetContractId() string {
+	if x != nil {
+		return x.ContractId
+	}
+	return ""
+}
+
+func (x *UpdateFrameworkContractRequest) GetSupplierId() string {
+	if x != nil && x.SupplierId != nil {
+		return *x.SupplierId
+	}
+	return ""
+}
+
+func (x *UpdateFrameworkContractRequest) GetTitle() string {
+	if x != nil && x.Title != nil {
+		return *x.Title
+	}
+	return ""
+}
+
+func (x *UpdateFrameworkContractRequest) GetContractNr() string {
+	if x != nil && x.ContractNr != nil {
+		return *x.ContractNr
+	}
+	return ""
+}
+
+func (x *UpdateFrameworkContractRequest) GetStartDate() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartDate
+	}
+	return nil
+}
+
+func (x *UpdateFrameworkContractRequest) GetEndDate() *timestamppb.Timestamp {
+	if x != nil {
+		return x.EndDate
+	}
+	return nil
+}
+
+func (x *UpdateFrameworkContractRequest) GetTotalValue() string {
+	if x != nil && x.TotalValue != nil {
+		return *x.TotalValue
+	}
+	return ""
+}
+
+func (x *UpdateFrameworkContractRequest) GetCurrency() string {
+	if x != nil && x.Currency != nil {
+		return *x.Currency
+	}
+	return ""
+}
+
+func (x *UpdateFrameworkContractRequest) GetStatus() string {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return ""
+}
+
+type DeleteFrameworkContractRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ContractId    string                 `protobuf:"bytes,2,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteFrameworkContractRequest) Reset() {
+	*x = DeleteFrameworkContractRequest{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteFrameworkContractRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteFrameworkContractRequest) ProtoMessage() {}
+
+func (x *DeleteFrameworkContractRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteFrameworkContractRequest.ProtoReflect.Descriptor instead.
+func (*DeleteFrameworkContractRequest) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *DeleteFrameworkContractRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *DeleteFrameworkContractRequest) GetContractId() string {
+	if x != nil {
+		return x.ContractId
+	}
+	return ""
+}
+
+type DeleteFrameworkContractResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteFrameworkContractResponse) Reset() {
+	*x = DeleteFrameworkContractResponse{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteFrameworkContractResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteFrameworkContractResponse) ProtoMessage() {}
+
+func (x *DeleteFrameworkContractResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteFrameworkContractResponse.ProtoReflect.Descriptor instead.
+func (*DeleteFrameworkContractResponse) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{58}
+}
+
+type CreateContractItemRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ContractId    string                 `protobuf:"bytes,2,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	UnitPrice     string                 `protobuf:"bytes,4,opt,name=unit_price,json=unitPrice,proto3" json:"unit_price,omitempty"`
+	Unit          string                 `protobuf:"bytes,5,opt,name=unit,proto3" json:"unit,omitempty"`
+	AgreedQty     string                 `protobuf:"bytes,6,opt,name=agreed_qty,json=agreedQty,proto3" json:"agreed_qty,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateContractItemRequest) Reset() {
+	*x = CreateContractItemRequest{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateContractItemRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateContractItemRequest) ProtoMessage() {}
+
+func (x *CreateContractItemRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateContractItemRequest.ProtoReflect.Descriptor instead.
+func (*CreateContractItemRequest) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{59}
+}
+
+func (x *CreateContractItemRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateContractItemRequest) GetContractId() string {
+	if x != nil {
+		return x.ContractId
+	}
+	return ""
+}
+
+func (x *CreateContractItemRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateContractItemRequest) GetUnitPrice() string {
+	if x != nil {
+		return x.UnitPrice
+	}
+	return ""
+}
+
+func (x *CreateContractItemRequest) GetUnit() string {
+	if x != nil {
+		return x.Unit
+	}
+	return ""
+}
+
+func (x *CreateContractItemRequest) GetAgreedQty() string {
+	if x != nil {
+		return x.AgreedQty
+	}
+	return ""
+}
+
+type UpdateContractItemRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ItemId        string                 `protobuf:"bytes,2,opt,name=item_id,json=itemId,proto3" json:"item_id,omitempty"`
+	Name          *string                `protobuf:"bytes,3,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	UnitPrice     *string                `protobuf:"bytes,4,opt,name=unit_price,json=unitPrice,proto3,oneof" json:"unit_price,omitempty"`
+	Unit          *string                `protobuf:"bytes,5,opt,name=unit,proto3,oneof" json:"unit,omitempty"`
+	AgreedQty     *string                `protobuf:"bytes,6,opt,name=agreed_qty,json=agreedQty,proto3,oneof" json:"agreed_qty,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateContractItemRequest) Reset() {
+	*x = UpdateContractItemRequest{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateContractItemRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateContractItemRequest) ProtoMessage() {}
+
+func (x *UpdateContractItemRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateContractItemRequest.ProtoReflect.Descriptor instead.
+func (*UpdateContractItemRequest) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *UpdateContractItemRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *UpdateContractItemRequest) GetItemId() string {
+	if x != nil {
+		return x.ItemId
+	}
+	return ""
+}
+
+func (x *UpdateContractItemRequest) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+func (x *UpdateContractItemRequest) GetUnitPrice() string {
+	if x != nil && x.UnitPrice != nil {
+		return *x.UnitPrice
+	}
+	return ""
+}
+
+func (x *UpdateContractItemRequest) GetUnit() string {
+	if x != nil && x.Unit != nil {
+		return *x.Unit
+	}
+	return ""
+}
+
+func (x *UpdateContractItemRequest) GetAgreedQty() string {
+	if x != nil && x.AgreedQty != nil {
+		return *x.AgreedQty
+	}
+	return ""
+}
+
+type ContractItemResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Item          *FrameworkContractItem `protobuf:"bytes,1,opt,name=item,proto3" json:"item,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ContractItemResponse) Reset() {
+	*x = ContractItemResponse{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ContractItemResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ContractItemResponse) ProtoMessage() {}
+
+func (x *ContractItemResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ContractItemResponse.ProtoReflect.Descriptor instead.
+func (*ContractItemResponse) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{61}
+}
+
+func (x *ContractItemResponse) GetItem() *FrameworkContractItem {
+	if x != nil {
+		return x.Item
+	}
+	return nil
+}
+
+type DeleteContractItemRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ItemId        string                 `protobuf:"bytes,2,opt,name=item_id,json=itemId,proto3" json:"item_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteContractItemRequest) Reset() {
+	*x = DeleteContractItemRequest{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteContractItemRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteContractItemRequest) ProtoMessage() {}
+
+func (x *DeleteContractItemRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteContractItemRequest.ProtoReflect.Descriptor instead.
+func (*DeleteContractItemRequest) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{62}
+}
+
+func (x *DeleteContractItemRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *DeleteContractItemRequest) GetItemId() string {
+	if x != nil {
+		return x.ItemId
+	}
+	return ""
+}
+
+type DeleteContractItemResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteContractItemResponse) Reset() {
+	*x = DeleteContractItemResponse{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[63]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteContractItemResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteContractItemResponse) ProtoMessage() {}
+
+func (x *DeleteContractItemResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[63]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteContractItemResponse.ProtoReflect.Descriptor instead.
+func (*DeleteContractItemResponse) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{63}
+}
+
+type CreateContractCallRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ContractId    string                 `protobuf:"bytes,2,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"`
+	PoId          *string                `protobuf:"bytes,3,opt,name=po_id,json=poId,proto3,oneof" json:"po_id,omitempty"`
+	Amount        string                 `protobuf:"bytes,4,opt,name=amount,proto3" json:"amount,omitempty"`
+	Currency      string                 `protobuf:"bytes,5,opt,name=currency,proto3" json:"currency,omitempty"`
+	Notes         string                 `protobuf:"bytes,6,opt,name=notes,proto3" json:"notes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateContractCallRequest) Reset() {
+	*x = CreateContractCallRequest{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[64]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateContractCallRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateContractCallRequest) ProtoMessage() {}
+
+func (x *CreateContractCallRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[64]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateContractCallRequest.ProtoReflect.Descriptor instead.
+func (*CreateContractCallRequest) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{64}
+}
+
+func (x *CreateContractCallRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateContractCallRequest) GetContractId() string {
+	if x != nil {
+		return x.ContractId
+	}
+	return ""
+}
+
+func (x *CreateContractCallRequest) GetPoId() string {
+	if x != nil && x.PoId != nil {
+		return *x.PoId
+	}
+	return ""
+}
+
+func (x *CreateContractCallRequest) GetAmount() string {
+	if x != nil {
+		return x.Amount
+	}
+	return ""
+}
+
+func (x *CreateContractCallRequest) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+func (x *CreateContractCallRequest) GetNotes() string {
+	if x != nil {
+		return x.Notes
+	}
+	return ""
+}
+
+type ContractCallResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Call          *FrameworkContractCall `protobuf:"bytes,1,opt,name=call,proto3" json:"call,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ContractCallResponse) Reset() {
+	*x = ContractCallResponse{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ContractCallResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ContractCallResponse) ProtoMessage() {}
+
+func (x *ContractCallResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ContractCallResponse.ProtoReflect.Descriptor instead.
+func (*ContractCallResponse) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *ContractCallResponse) GetCall() *FrameworkContractCall {
+	if x != nil {
+		return x.Call
+	}
+	return nil
+}
+
+type ListContractCallsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ContractId    string                 `protobuf:"bytes,2,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListContractCallsRequest) Reset() {
+	*x = ListContractCallsRequest{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListContractCallsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListContractCallsRequest) ProtoMessage() {}
+
+func (x *ListContractCallsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListContractCallsRequest.ProtoReflect.Descriptor instead.
+func (*ListContractCallsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *ListContractCallsRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListContractCallsRequest) GetContractId() string {
+	if x != nil {
+		return x.ContractId
+	}
+	return ""
+}
+
+type ListContractCallsResponse struct {
+	state         protoimpl.MessageState   `protogen:"open.v1"`
+	Calls         []*FrameworkContractCall `protobuf:"bytes,1,rep,name=calls,proto3" json:"calls,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListContractCallsResponse) Reset() {
+	*x = ListContractCallsResponse{}
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[67]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListContractCallsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListContractCallsResponse) ProtoMessage() {}
+
+func (x *ListContractCallsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_einkauf_v1_einkauf_proto_msgTypes[67]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListContractCallsResponse.ProtoReflect.Descriptor instead.
+func (*ListContractCallsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_einkauf_v1_einkauf_proto_rawDescGZIP(), []int{67}
+}
+
+func (x *ListContractCallsResponse) GetCalls() []*FrameworkContractCall {
+	if x != nil {
+		return x.Calls
+	}
+	return nil
+}
+
 var File_proto_einkauf_v1_einkauf_proto protoreflect.FileDescriptor
 
 const file_proto_einkauf_v1_einkauf_proto_rawDesc = "" +
@@ -2260,7 +4836,7 @@ const file_proto_einkauf_v1_einkauf_proto_rawDesc = "" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
 	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAtB\r\n" +
-	"\v_contact_id\"\xe7\x04\n" +
+	"\v_contact_id\"\xba\x05\n" +
 	"\rPurchaseOrder\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1f\n" +
@@ -2281,9 +4857,11 @@ const file_proto_einkauf_v1_einkauf_proto_rawDesc = "" +
 	"created_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
 	"updated_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12(\n" +
-	"\x05lines\x18\x0e \x03(\v2\x12.einkauf.v1.POLineR\x05linesB\x19\n" +
+	"\x05lines\x18\x0e \x03(\v2\x12.einkauf.v1.POLineR\x05lines\x127\n" +
+	"\x15framework_contract_id\x18\x0f \x01(\tH\x02R\x13frameworkContractId\x88\x01\x01B\x19\n" +
 	"\x17_expected_delivery_dateB\r\n" +
-	"\v_created_by\"\x9d\x03\n" +
+	"\v_created_byB\x18\n" +
+	"\x16_framework_contract_id\"\x9d\x03\n" +
 	"\x06POLine\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x13\n" +
@@ -2470,8 +5048,289 @@ const file_proto_einkauf_v1_einkauf_proto_rawDesc = "" +
 	"\x10ExportPOResponse\x12\x18\n" +
 	"\apayload\x18\x01 \x01(\fR\apayload\x12!\n" +
 	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x12\x1a\n" +
-	"\bfilename\x18\x03 \x01(\tR\bfilename2\xcf\n" +
+	"\bfilename\x18\x03 \x01(\tR\bfilename\"\x9b\x03\n" +
+	"\vCatalogItem\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vsupplier_id\x18\x03 \x01(\tR\n" +
+	"supplierId\x12\x12\n" +
+	"\x04name\x18\x04 \x01(\tR\x04name\x12\x10\n" +
+	"\x03sku\x18\x05 \x01(\tR\x03sku\x12\x1a\n" +
+	"\bcategory\x18\x06 \x01(\tR\bcategory\x12\x14\n" +
+	"\x05price\x18\a \x01(\tR\x05price\x12\x1a\n" +
+	"\bcurrency\x18\b \x01(\tR\bcurrency\x12\x12\n" +
+	"\x04unit\x18\t \x01(\tR\x04unit\x12\x1c\n" +
+	"\tavailable\x18\n" +
+	" \x01(\bR\tavailable\x12\"\n" +
+	"\rmin_order_qty\x18\v \x01(\tR\vminOrderQty\x129\n" +
 	"\n" +
+	"created_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x86\x03\n" +
+	"\x0eSupplierRating\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vsupplier_id\x18\x03 \x01(\tR\n" +
+	"supplierId\x12\x1a\n" +
+	"\bcategory\x18\x04 \x01(\tR\bcategory\x12\x16\n" +
+	"\x06rating\x18\x05 \x01(\x05R\x06rating\x12\x18\n" +
+	"\acomment\x18\x06 \x01(\tR\acomment\x12\x1e\n" +
+	"\brated_by\x18\a \x01(\tH\x00R\aratedBy\x88\x01\x01\x125\n" +
+	"\brated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\aratedAt\x129\n" +
+	"\n" +
+	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAtB\v\n" +
+	"\t_rated_by\"\xd3\x04\n" +
+	"\x11FrameworkContract\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vsupplier_id\x18\x03 \x01(\tR\n" +
+	"supplierId\x12\x14\n" +
+	"\x05title\x18\x04 \x01(\tR\x05title\x12\x1f\n" +
+	"\vcontract_nr\x18\x05 \x01(\tR\n" +
+	"contractNr\x12>\n" +
+	"\n" +
+	"start_date\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\tstartDate\x88\x01\x01\x12:\n" +
+	"\bend_date\x18\a \x01(\v2\x1a.google.protobuf.TimestampH\x01R\aendDate\x88\x01\x01\x12\x1f\n" +
+	"\vtotal_value\x18\b \x01(\tR\n" +
+	"totalValue\x12\x1d\n" +
+	"\n" +
+	"used_value\x18\t \x01(\tR\tusedValue\x12\x1a\n" +
+	"\bcurrency\x18\n" +
+	" \x01(\tR\bcurrency\x12\x16\n" +
+	"\x06status\x18\v \x01(\tR\x06status\x129\n" +
+	"\n" +
+	"created_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x127\n" +
+	"\x05items\x18\x0e \x03(\v2!.einkauf.v1.FrameworkContractItemR\x05itemsB\r\n" +
+	"\v_start_dateB\v\n" +
+	"\t_end_date\"\xe0\x02\n" +
+	"\x15FrameworkContractItem\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vcontract_id\x18\x03 \x01(\tR\n" +
+	"contractId\x12\x12\n" +
+	"\x04name\x18\x04 \x01(\tR\x04name\x12\x1d\n" +
+	"\n" +
+	"unit_price\x18\x05 \x01(\tR\tunitPrice\x12\x12\n" +
+	"\x04unit\x18\x06 \x01(\tR\x04unit\x12\x1d\n" +
+	"\n" +
+	"agreed_qty\x18\a \x01(\tR\tagreedQty\x12\x1d\n" +
+	"\n" +
+	"called_qty\x18\b \x01(\tR\tcalledQty\x129\n" +
+	"\n" +
+	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x82\x03\n" +
+	"\x15FrameworkContractCall\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vcontract_id\x18\x03 \x01(\tR\n" +
+	"contractId\x12\x18\n" +
+	"\x05po_id\x18\x04 \x01(\tH\x00R\x04poId\x88\x01\x01\x12\x16\n" +
+	"\x06amount\x18\x05 \x01(\tR\x06amount\x12\x1a\n" +
+	"\bcurrency\x18\x06 \x01(\tR\bcurrency\x127\n" +
+	"\tcalled_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\bcalledAt\x12\x14\n" +
+	"\x05notes\x18\b \x01(\tR\x05notes\x129\n" +
+	"\n" +
+	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAtB\b\n" +
+	"\x06_po_id\"\x82\x02\n" +
+	"\x17ListCatalogItemsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12$\n" +
+	"\vsupplier_id\x18\x02 \x01(\tH\x00R\n" +
+	"supplierId\x88\x01\x01\x12\x1a\n" +
+	"\bcategory\x18\x03 \x01(\tR\bcategory\x12\x16\n" +
+	"\x06search\x18\x04 \x01(\tR\x06search\x12!\n" +
+	"\tavailable\x18\x05 \x01(\bH\x01R\tavailable\x88\x01\x01\x12\x12\n" +
+	"\x04page\x18\x06 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\a \x01(\x05R\bpageSizeB\x0e\n" +
+	"\f_supplier_idB\f\n" +
+	"\n" +
+	"_available\"_\n" +
+	"\x18ListCatalogItemsResponse\x12-\n" +
+	"\x05items\x18\x01 \x03(\v2\x17.einkauf.v1.CatalogItemR\x05items\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"M\n" +
+	"\x15GetCatalogItemRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
+	"\aitem_id\x18\x02 \x01(\tR\x06itemId\"B\n" +
+	"\x13CatalogItemResponse\x12+\n" +
+	"\x04item\x18\x01 \x01(\v2\x17.einkauf.v1.CatalogItemR\x04item\"\xa2\x02\n" +
+	"\x18CreateCatalogItemRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vsupplier_id\x18\x02 \x01(\tR\n" +
+	"supplierId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x10\n" +
+	"\x03sku\x18\x04 \x01(\tR\x03sku\x12\x1a\n" +
+	"\bcategory\x18\x05 \x01(\tR\bcategory\x12\x14\n" +
+	"\x05price\x18\x06 \x01(\tR\x05price\x12\x1a\n" +
+	"\bcurrency\x18\a \x01(\tR\bcurrency\x12\x12\n" +
+	"\x04unit\x18\b \x01(\tR\x04unit\x12\x1c\n" +
+	"\tavailable\x18\t \x01(\bR\tavailable\x12\"\n" +
+	"\rmin_order_qty\x18\n" +
+	" \x01(\tR\vminOrderQty\"\xa0\x03\n" +
+	"\x18UpdateCatalogItemRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
+	"\aitem_id\x18\x02 \x01(\tR\x06itemId\x12\x17\n" +
+	"\x04name\x18\x03 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x15\n" +
+	"\x03sku\x18\x04 \x01(\tH\x01R\x03sku\x88\x01\x01\x12\x1f\n" +
+	"\bcategory\x18\x05 \x01(\tH\x02R\bcategory\x88\x01\x01\x12\x19\n" +
+	"\x05price\x18\x06 \x01(\tH\x03R\x05price\x88\x01\x01\x12\x1f\n" +
+	"\bcurrency\x18\a \x01(\tH\x04R\bcurrency\x88\x01\x01\x12\x17\n" +
+	"\x04unit\x18\b \x01(\tH\x05R\x04unit\x88\x01\x01\x12!\n" +
+	"\tavailable\x18\t \x01(\bH\x06R\tavailable\x88\x01\x01\x12'\n" +
+	"\rmin_order_qty\x18\n" +
+	" \x01(\tH\aR\vminOrderQty\x88\x01\x01B\a\n" +
+	"\x05_nameB\x06\n" +
+	"\x04_skuB\v\n" +
+	"\t_categoryB\b\n" +
+	"\x06_priceB\v\n" +
+	"\t_currencyB\a\n" +
+	"\x05_unitB\f\n" +
+	"\n" +
+	"_availableB\x10\n" +
+	"\x0e_min_order_qty\"P\n" +
+	"\x18DeleteCatalogItemRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
+	"\aitem_id\x18\x02 \x01(\tR\x06itemId\"\x1b\n" +
+	"\x19DeleteCatalogItemResponse\"Z\n" +
+	"\x1aListSupplierRatingsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vsupplier_id\x18\x02 \x01(\tR\n" +
+	"supplierId\"S\n" +
+	"\x1bListSupplierRatingsResponse\x124\n" +
+	"\aratings\x18\x01 \x03(\v2\x1a.einkauf.v1.SupplierRatingR\aratings\"\xd6\x01\n" +
+	"\x1bCreateSupplierRatingRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vsupplier_id\x18\x02 \x01(\tR\n" +
+	"supplierId\x12\x1a\n" +
+	"\bcategory\x18\x03 \x01(\tR\bcategory\x12\x16\n" +
+	"\x06rating\x18\x04 \x01(\x05R\x06rating\x12\x18\n" +
+	"\acomment\x18\x05 \x01(\tR\acomment\x12\x1e\n" +
+	"\brated_by\x18\x06 \x01(\tH\x00R\aratedBy\x88\x01\x01B\v\n" +
+	"\t_rated_by\"L\n" +
+	"\x16SupplierRatingResponse\x122\n" +
+	"\x06rating\x18\x01 \x01(\v2\x1a.einkauf.v1.SupplierRatingR\x06rating\"W\n" +
+	"\x1bDeleteSupplierRatingRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
+	"\trating_id\x18\x02 \x01(\tR\bratingId\"\x1e\n" +
+	"\x1cDeleteSupplierRatingResponse\"\xcb\x01\n" +
+	"\x1dListFrameworkContractsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12$\n" +
+	"\vsupplier_id\x18\x02 \x01(\tH\x00R\n" +
+	"supplierId\x88\x01\x01\x12\x1b\n" +
+	"\x06status\x18\x03 \x01(\tH\x01R\x06status\x88\x01\x01\x12\x12\n" +
+	"\x04page\x18\x04 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x05 \x01(\x05R\bpageSizeB\x0e\n" +
+	"\f_supplier_idB\t\n" +
+	"\a_status\"s\n" +
+	"\x1eListFrameworkContractsResponse\x12;\n" +
+	"\tcontracts\x18\x01 \x03(\v2\x1d.einkauf.v1.FrameworkContractR\tcontracts\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"[\n" +
+	"\x1bGetFrameworkContractRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vcontract_id\x18\x02 \x01(\tR\n" +
+	"contractId\"V\n" +
+	"\x19FrameworkContractResponse\x129\n" +
+	"\bcontract\x18\x01 \x01(\v2\x1d.einkauf.v1.FrameworkContractR\bcontract\"\x82\x03\n" +
+	"\x1eCreateFrameworkContractRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vsupplier_id\x18\x02 \x01(\tR\n" +
+	"supplierId\x12\x14\n" +
+	"\x05title\x18\x03 \x01(\tR\x05title\x12\x1f\n" +
+	"\vcontract_nr\x18\x04 \x01(\tR\n" +
+	"contractNr\x12>\n" +
+	"\n" +
+	"start_date\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\tstartDate\x88\x01\x01\x12:\n" +
+	"\bend_date\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampH\x01R\aendDate\x88\x01\x01\x12\x1f\n" +
+	"\vtotal_value\x18\a \x01(\tR\n" +
+	"totalValue\x12\x1a\n" +
+	"\bcurrency\x18\b \x01(\tR\bcurrency\x12\x16\n" +
+	"\x06status\x18\t \x01(\tR\x06statusB\r\n" +
+	"\v_start_dateB\v\n" +
+	"\t_end_date\"\x93\x04\n" +
+	"\x1eUpdateFrameworkContractRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vcontract_id\x18\x02 \x01(\tR\n" +
+	"contractId\x12$\n" +
+	"\vsupplier_id\x18\x03 \x01(\tH\x00R\n" +
+	"supplierId\x88\x01\x01\x12\x19\n" +
+	"\x05title\x18\x04 \x01(\tH\x01R\x05title\x88\x01\x01\x12$\n" +
+	"\vcontract_nr\x18\x05 \x01(\tH\x02R\n" +
+	"contractNr\x88\x01\x01\x12>\n" +
+	"\n" +
+	"start_date\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampH\x03R\tstartDate\x88\x01\x01\x12:\n" +
+	"\bend_date\x18\a \x01(\v2\x1a.google.protobuf.TimestampH\x04R\aendDate\x88\x01\x01\x12$\n" +
+	"\vtotal_value\x18\b \x01(\tH\x05R\n" +
+	"totalValue\x88\x01\x01\x12\x1f\n" +
+	"\bcurrency\x18\t \x01(\tH\x06R\bcurrency\x88\x01\x01\x12\x1b\n" +
+	"\x06status\x18\n" +
+	" \x01(\tH\aR\x06status\x88\x01\x01B\x0e\n" +
+	"\f_supplier_idB\b\n" +
+	"\x06_titleB\x0e\n" +
+	"\f_contract_nrB\r\n" +
+	"\v_start_dateB\v\n" +
+	"\t_end_dateB\x0e\n" +
+	"\f_total_valueB\v\n" +
+	"\t_currencyB\t\n" +
+	"\a_status\"^\n" +
+	"\x1eDeleteFrameworkContractRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vcontract_id\x18\x02 \x01(\tR\n" +
+	"contractId\"!\n" +
+	"\x1fDeleteFrameworkContractResponse\"\xbf\x01\n" +
+	"\x19CreateContractItemRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vcontract_id\x18\x02 \x01(\tR\n" +
+	"contractId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x1d\n" +
+	"\n" +
+	"unit_price\x18\x04 \x01(\tR\tunitPrice\x12\x12\n" +
+	"\x04unit\x18\x05 \x01(\tR\x04unit\x12\x1d\n" +
+	"\n" +
+	"agreed_qty\x18\x06 \x01(\tR\tagreedQty\"\xfb\x01\n" +
+	"\x19UpdateContractItemRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
+	"\aitem_id\x18\x02 \x01(\tR\x06itemId\x12\x17\n" +
+	"\x04name\x18\x03 \x01(\tH\x00R\x04name\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"unit_price\x18\x04 \x01(\tH\x01R\tunitPrice\x88\x01\x01\x12\x17\n" +
+	"\x04unit\x18\x05 \x01(\tH\x02R\x04unit\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"agreed_qty\x18\x06 \x01(\tH\x03R\tagreedQty\x88\x01\x01B\a\n" +
+	"\x05_nameB\r\n" +
+	"\v_unit_priceB\a\n" +
+	"\x05_unitB\r\n" +
+	"\v_agreed_qty\"M\n" +
+	"\x14ContractItemResponse\x125\n" +
+	"\x04item\x18\x01 \x01(\v2!.einkauf.v1.FrameworkContractItemR\x04item\"Q\n" +
+	"\x19DeleteContractItemRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
+	"\aitem_id\x18\x02 \x01(\tR\x06itemId\"\x1c\n" +
+	"\x1aDeleteContractItemResponse\"\xc7\x01\n" +
+	"\x19CreateContractCallRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vcontract_id\x18\x02 \x01(\tR\n" +
+	"contractId\x12\x18\n" +
+	"\x05po_id\x18\x03 \x01(\tH\x00R\x04poId\x88\x01\x01\x12\x16\n" +
+	"\x06amount\x18\x04 \x01(\tR\x06amount\x12\x1a\n" +
+	"\bcurrency\x18\x05 \x01(\tR\bcurrency\x12\x14\n" +
+	"\x05notes\x18\x06 \x01(\tR\x05notesB\b\n" +
+	"\x06_po_id\"M\n" +
+	"\x14ContractCallResponse\x125\n" +
+	"\x04call\x18\x01 \x01(\v2!.einkauf.v1.FrameworkContractCallR\x04call\"X\n" +
+	"\x18ListContractCallsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vcontract_id\x18\x02 \x01(\tR\n" +
+	"contractId\"T\n" +
+	"\x19ListContractCallsResponse\x127\n" +
+	"\x05calls\x18\x01 \x03(\v2!.einkauf.v1.FrameworkContractCallR\x05calls2\xe3\x18\n" +
 	"\x0eEinkaufService\x12Q\n" +
 	"\x0eCreateSupplier\x12!.einkauf.v1.CreateSupplierRequest\x1a\x1c.einkauf.v1.SupplierResponse\x12Q\n" +
 	"\x0eUpdateSupplier\x12!.einkauf.v1.UpdateSupplierRequest\x1a\x1c.einkauf.v1.SupplierResponse\x12W\n" +
@@ -2490,7 +5349,25 @@ const file_proto_einkauf_v1_einkauf_proto_rawDesc = "" +
 	"\bSubmitPO\x12\x1b.einkauf.v1.SubmitPORequest\x1a\x16.einkauf.v1.POResponse\x12G\n" +
 	"\fReceiveGoods\x12\x1f.einkauf.v1.ReceiveGoodsRequest\x1a\x16.einkauf.v1.POResponse\x12K\n" +
 	"\x0ePartialReceive\x12!.einkauf.v1.PartialReceiveRequest\x1a\x16.einkauf.v1.POResponse\x12E\n" +
-	"\bExportPO\x12\x1b.einkauf.v1.ExportPORequest\x1a\x1c.einkauf.v1.ExportPOResponseB5Z3github.com/kmuhub/kmuhub/proto/einkauf/v1;einkaufv1b\x06proto3"
+	"\bExportPO\x12\x1b.einkauf.v1.ExportPORequest\x1a\x1c.einkauf.v1.ExportPOResponse\x12]\n" +
+	"\x10ListCatalogItems\x12#.einkauf.v1.ListCatalogItemsRequest\x1a$.einkauf.v1.ListCatalogItemsResponse\x12T\n" +
+	"\x0eGetCatalogItem\x12!.einkauf.v1.GetCatalogItemRequest\x1a\x1f.einkauf.v1.CatalogItemResponse\x12Z\n" +
+	"\x11CreateCatalogItem\x12$.einkauf.v1.CreateCatalogItemRequest\x1a\x1f.einkauf.v1.CatalogItemResponse\x12Z\n" +
+	"\x11UpdateCatalogItem\x12$.einkauf.v1.UpdateCatalogItemRequest\x1a\x1f.einkauf.v1.CatalogItemResponse\x12`\n" +
+	"\x11DeleteCatalogItem\x12$.einkauf.v1.DeleteCatalogItemRequest\x1a%.einkauf.v1.DeleteCatalogItemResponse\x12f\n" +
+	"\x13ListSupplierRatings\x12&.einkauf.v1.ListSupplierRatingsRequest\x1a'.einkauf.v1.ListSupplierRatingsResponse\x12c\n" +
+	"\x14CreateSupplierRating\x12'.einkauf.v1.CreateSupplierRatingRequest\x1a\".einkauf.v1.SupplierRatingResponse\x12i\n" +
+	"\x14DeleteSupplierRating\x12'.einkauf.v1.DeleteSupplierRatingRequest\x1a(.einkauf.v1.DeleteSupplierRatingResponse\x12o\n" +
+	"\x16ListFrameworkContracts\x12).einkauf.v1.ListFrameworkContractsRequest\x1a*.einkauf.v1.ListFrameworkContractsResponse\x12f\n" +
+	"\x14GetFrameworkContract\x12'.einkauf.v1.GetFrameworkContractRequest\x1a%.einkauf.v1.FrameworkContractResponse\x12l\n" +
+	"\x17CreateFrameworkContract\x12*.einkauf.v1.CreateFrameworkContractRequest\x1a%.einkauf.v1.FrameworkContractResponse\x12l\n" +
+	"\x17UpdateFrameworkContract\x12*.einkauf.v1.UpdateFrameworkContractRequest\x1a%.einkauf.v1.FrameworkContractResponse\x12r\n" +
+	"\x17DeleteFrameworkContract\x12*.einkauf.v1.DeleteFrameworkContractRequest\x1a+.einkauf.v1.DeleteFrameworkContractResponse\x12]\n" +
+	"\x12CreateContractItem\x12%.einkauf.v1.CreateContractItemRequest\x1a .einkauf.v1.ContractItemResponse\x12]\n" +
+	"\x12UpdateContractItem\x12%.einkauf.v1.UpdateContractItemRequest\x1a .einkauf.v1.ContractItemResponse\x12c\n" +
+	"\x12DeleteContractItem\x12%.einkauf.v1.DeleteContractItemRequest\x1a&.einkauf.v1.DeleteContractItemResponse\x12]\n" +
+	"\x12CreateContractCall\x12%.einkauf.v1.CreateContractCallRequest\x1a .einkauf.v1.ContractCallResponse\x12`\n" +
+	"\x11ListContractCalls\x12$.einkauf.v1.ListContractCallsRequest\x1a%.einkauf.v1.ListContractCallsResponseB5Z3github.com/kmuhub/kmuhub/proto/einkauf/v1;einkaufv1b\x06proto3"
 
 var (
 	file_proto_einkauf_v1_einkauf_proto_rawDescOnce sync.Once
@@ -2504,106 +5381,206 @@ func file_proto_einkauf_v1_einkauf_proto_rawDescGZIP() []byte {
 	return file_proto_einkauf_v1_einkauf_proto_rawDescData
 }
 
-var file_proto_einkauf_v1_einkauf_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
+var file_proto_einkauf_v1_einkauf_proto_msgTypes = make([]protoimpl.MessageInfo, 68)
 var file_proto_einkauf_v1_einkauf_proto_goTypes = []any{
-	(*Supplier)(nil),               // 0: einkauf.v1.Supplier
-	(*PurchaseOrder)(nil),          // 1: einkauf.v1.PurchaseOrder
-	(*POLine)(nil),                 // 2: einkauf.v1.POLine
-	(*CreateSupplierRequest)(nil),  // 3: einkauf.v1.CreateSupplierRequest
-	(*UpdateSupplierRequest)(nil),  // 4: einkauf.v1.UpdateSupplierRequest
-	(*DeleteSupplierRequest)(nil),  // 5: einkauf.v1.DeleteSupplierRequest
-	(*DeleteSupplierResponse)(nil), // 6: einkauf.v1.DeleteSupplierResponse
-	(*GetSupplierRequest)(nil),     // 7: einkauf.v1.GetSupplierRequest
-	(*SupplierResponse)(nil),       // 8: einkauf.v1.SupplierResponse
-	(*ListSuppliersRequest)(nil),   // 9: einkauf.v1.ListSuppliersRequest
-	(*ListSuppliersResponse)(nil),  // 10: einkauf.v1.ListSuppliersResponse
-	(*CreatePORequest)(nil),        // 11: einkauf.v1.CreatePORequest
-	(*UpdatePORequest)(nil),        // 12: einkauf.v1.UpdatePORequest
-	(*DeletePORequest)(nil),        // 13: einkauf.v1.DeletePORequest
-	(*DeletePOResponse)(nil),       // 14: einkauf.v1.DeletePOResponse
-	(*GetPORequest)(nil),           // 15: einkauf.v1.GetPORequest
-	(*POResponse)(nil),             // 16: einkauf.v1.POResponse
-	(*ListPOsRequest)(nil),         // 17: einkauf.v1.ListPOsRequest
-	(*ListPOsResponse)(nil),        // 18: einkauf.v1.ListPOsResponse
-	(*AddPOLineRequest)(nil),       // 19: einkauf.v1.AddPOLineRequest
-	(*UpdatePOLineRequest)(nil),    // 20: einkauf.v1.UpdatePOLineRequest
-	(*DeletePOLineRequest)(nil),    // 21: einkauf.v1.DeletePOLineRequest
-	(*DeletePOLineResponse)(nil),   // 22: einkauf.v1.DeletePOLineResponse
-	(*ListPOLinesRequest)(nil),     // 23: einkauf.v1.ListPOLinesRequest
-	(*ListPOLinesResponse)(nil),    // 24: einkauf.v1.ListPOLinesResponse
-	(*POLineResponse)(nil),         // 25: einkauf.v1.POLineResponse
-	(*SubmitPORequest)(nil),        // 26: einkauf.v1.SubmitPORequest
-	(*ReceiveGoodsRequest)(nil),    // 27: einkauf.v1.ReceiveGoodsRequest
-	(*PartialReceiveItem)(nil),     // 28: einkauf.v1.PartialReceiveItem
-	(*PartialReceiveRequest)(nil),  // 29: einkauf.v1.PartialReceiveRequest
-	(*ExportPORequest)(nil),        // 30: einkauf.v1.ExportPORequest
-	(*ExportPOResponse)(nil),       // 31: einkauf.v1.ExportPOResponse
-	(*timestamppb.Timestamp)(nil),  // 32: google.protobuf.Timestamp
+	(*Supplier)(nil),                        // 0: einkauf.v1.Supplier
+	(*PurchaseOrder)(nil),                   // 1: einkauf.v1.PurchaseOrder
+	(*POLine)(nil),                          // 2: einkauf.v1.POLine
+	(*CreateSupplierRequest)(nil),           // 3: einkauf.v1.CreateSupplierRequest
+	(*UpdateSupplierRequest)(nil),           // 4: einkauf.v1.UpdateSupplierRequest
+	(*DeleteSupplierRequest)(nil),           // 5: einkauf.v1.DeleteSupplierRequest
+	(*DeleteSupplierResponse)(nil),          // 6: einkauf.v1.DeleteSupplierResponse
+	(*GetSupplierRequest)(nil),              // 7: einkauf.v1.GetSupplierRequest
+	(*SupplierResponse)(nil),                // 8: einkauf.v1.SupplierResponse
+	(*ListSuppliersRequest)(nil),            // 9: einkauf.v1.ListSuppliersRequest
+	(*ListSuppliersResponse)(nil),           // 10: einkauf.v1.ListSuppliersResponse
+	(*CreatePORequest)(nil),                 // 11: einkauf.v1.CreatePORequest
+	(*UpdatePORequest)(nil),                 // 12: einkauf.v1.UpdatePORequest
+	(*DeletePORequest)(nil),                 // 13: einkauf.v1.DeletePORequest
+	(*DeletePOResponse)(nil),                // 14: einkauf.v1.DeletePOResponse
+	(*GetPORequest)(nil),                    // 15: einkauf.v1.GetPORequest
+	(*POResponse)(nil),                      // 16: einkauf.v1.POResponse
+	(*ListPOsRequest)(nil),                  // 17: einkauf.v1.ListPOsRequest
+	(*ListPOsResponse)(nil),                 // 18: einkauf.v1.ListPOsResponse
+	(*AddPOLineRequest)(nil),                // 19: einkauf.v1.AddPOLineRequest
+	(*UpdatePOLineRequest)(nil),             // 20: einkauf.v1.UpdatePOLineRequest
+	(*DeletePOLineRequest)(nil),             // 21: einkauf.v1.DeletePOLineRequest
+	(*DeletePOLineResponse)(nil),            // 22: einkauf.v1.DeletePOLineResponse
+	(*ListPOLinesRequest)(nil),              // 23: einkauf.v1.ListPOLinesRequest
+	(*ListPOLinesResponse)(nil),             // 24: einkauf.v1.ListPOLinesResponse
+	(*POLineResponse)(nil),                  // 25: einkauf.v1.POLineResponse
+	(*SubmitPORequest)(nil),                 // 26: einkauf.v1.SubmitPORequest
+	(*ReceiveGoodsRequest)(nil),             // 27: einkauf.v1.ReceiveGoodsRequest
+	(*PartialReceiveItem)(nil),              // 28: einkauf.v1.PartialReceiveItem
+	(*PartialReceiveRequest)(nil),           // 29: einkauf.v1.PartialReceiveRequest
+	(*ExportPORequest)(nil),                 // 30: einkauf.v1.ExportPORequest
+	(*ExportPOResponse)(nil),                // 31: einkauf.v1.ExportPOResponse
+	(*CatalogItem)(nil),                     // 32: einkauf.v1.CatalogItem
+	(*SupplierRating)(nil),                  // 33: einkauf.v1.SupplierRating
+	(*FrameworkContract)(nil),               // 34: einkauf.v1.FrameworkContract
+	(*FrameworkContractItem)(nil),           // 35: einkauf.v1.FrameworkContractItem
+	(*FrameworkContractCall)(nil),           // 36: einkauf.v1.FrameworkContractCall
+	(*ListCatalogItemsRequest)(nil),         // 37: einkauf.v1.ListCatalogItemsRequest
+	(*ListCatalogItemsResponse)(nil),        // 38: einkauf.v1.ListCatalogItemsResponse
+	(*GetCatalogItemRequest)(nil),           // 39: einkauf.v1.GetCatalogItemRequest
+	(*CatalogItemResponse)(nil),             // 40: einkauf.v1.CatalogItemResponse
+	(*CreateCatalogItemRequest)(nil),        // 41: einkauf.v1.CreateCatalogItemRequest
+	(*UpdateCatalogItemRequest)(nil),        // 42: einkauf.v1.UpdateCatalogItemRequest
+	(*DeleteCatalogItemRequest)(nil),        // 43: einkauf.v1.DeleteCatalogItemRequest
+	(*DeleteCatalogItemResponse)(nil),       // 44: einkauf.v1.DeleteCatalogItemResponse
+	(*ListSupplierRatingsRequest)(nil),      // 45: einkauf.v1.ListSupplierRatingsRequest
+	(*ListSupplierRatingsResponse)(nil),     // 46: einkauf.v1.ListSupplierRatingsResponse
+	(*CreateSupplierRatingRequest)(nil),     // 47: einkauf.v1.CreateSupplierRatingRequest
+	(*SupplierRatingResponse)(nil),          // 48: einkauf.v1.SupplierRatingResponse
+	(*DeleteSupplierRatingRequest)(nil),     // 49: einkauf.v1.DeleteSupplierRatingRequest
+	(*DeleteSupplierRatingResponse)(nil),    // 50: einkauf.v1.DeleteSupplierRatingResponse
+	(*ListFrameworkContractsRequest)(nil),   // 51: einkauf.v1.ListFrameworkContractsRequest
+	(*ListFrameworkContractsResponse)(nil),  // 52: einkauf.v1.ListFrameworkContractsResponse
+	(*GetFrameworkContractRequest)(nil),     // 53: einkauf.v1.GetFrameworkContractRequest
+	(*FrameworkContractResponse)(nil),       // 54: einkauf.v1.FrameworkContractResponse
+	(*CreateFrameworkContractRequest)(nil),  // 55: einkauf.v1.CreateFrameworkContractRequest
+	(*UpdateFrameworkContractRequest)(nil),  // 56: einkauf.v1.UpdateFrameworkContractRequest
+	(*DeleteFrameworkContractRequest)(nil),  // 57: einkauf.v1.DeleteFrameworkContractRequest
+	(*DeleteFrameworkContractResponse)(nil), // 58: einkauf.v1.DeleteFrameworkContractResponse
+	(*CreateContractItemRequest)(nil),       // 59: einkauf.v1.CreateContractItemRequest
+	(*UpdateContractItemRequest)(nil),       // 60: einkauf.v1.UpdateContractItemRequest
+	(*ContractItemResponse)(nil),            // 61: einkauf.v1.ContractItemResponse
+	(*DeleteContractItemRequest)(nil),       // 62: einkauf.v1.DeleteContractItemRequest
+	(*DeleteContractItemResponse)(nil),      // 63: einkauf.v1.DeleteContractItemResponse
+	(*CreateContractCallRequest)(nil),       // 64: einkauf.v1.CreateContractCallRequest
+	(*ContractCallResponse)(nil),            // 65: einkauf.v1.ContractCallResponse
+	(*ListContractCallsRequest)(nil),        // 66: einkauf.v1.ListContractCallsRequest
+	(*ListContractCallsResponse)(nil),       // 67: einkauf.v1.ListContractCallsResponse
+	(*timestamppb.Timestamp)(nil),           // 68: google.protobuf.Timestamp
 }
 var file_proto_einkauf_v1_einkauf_proto_depIdxs = []int32{
-	32, // 0: einkauf.v1.Supplier.created_at:type_name -> google.protobuf.Timestamp
-	32, // 1: einkauf.v1.Supplier.updated_at:type_name -> google.protobuf.Timestamp
-	32, // 2: einkauf.v1.PurchaseOrder.order_date:type_name -> google.protobuf.Timestamp
-	32, // 3: einkauf.v1.PurchaseOrder.expected_delivery_date:type_name -> google.protobuf.Timestamp
-	32, // 4: einkauf.v1.PurchaseOrder.created_at:type_name -> google.protobuf.Timestamp
-	32, // 5: einkauf.v1.PurchaseOrder.updated_at:type_name -> google.protobuf.Timestamp
+	68, // 0: einkauf.v1.Supplier.created_at:type_name -> google.protobuf.Timestamp
+	68, // 1: einkauf.v1.Supplier.updated_at:type_name -> google.protobuf.Timestamp
+	68, // 2: einkauf.v1.PurchaseOrder.order_date:type_name -> google.protobuf.Timestamp
+	68, // 3: einkauf.v1.PurchaseOrder.expected_delivery_date:type_name -> google.protobuf.Timestamp
+	68, // 4: einkauf.v1.PurchaseOrder.created_at:type_name -> google.protobuf.Timestamp
+	68, // 5: einkauf.v1.PurchaseOrder.updated_at:type_name -> google.protobuf.Timestamp
 	2,  // 6: einkauf.v1.PurchaseOrder.lines:type_name -> einkauf.v1.POLine
-	32, // 7: einkauf.v1.POLine.created_at:type_name -> google.protobuf.Timestamp
-	32, // 8: einkauf.v1.POLine.updated_at:type_name -> google.protobuf.Timestamp
+	68, // 7: einkauf.v1.POLine.created_at:type_name -> google.protobuf.Timestamp
+	68, // 8: einkauf.v1.POLine.updated_at:type_name -> google.protobuf.Timestamp
 	0,  // 9: einkauf.v1.SupplierResponse.supplier:type_name -> einkauf.v1.Supplier
 	0,  // 10: einkauf.v1.ListSuppliersResponse.suppliers:type_name -> einkauf.v1.Supplier
-	32, // 11: einkauf.v1.CreatePORequest.order_date:type_name -> google.protobuf.Timestamp
-	32, // 12: einkauf.v1.CreatePORequest.expected_delivery_date:type_name -> google.protobuf.Timestamp
-	32, // 13: einkauf.v1.UpdatePORequest.order_date:type_name -> google.protobuf.Timestamp
-	32, // 14: einkauf.v1.UpdatePORequest.expected_delivery_date:type_name -> google.protobuf.Timestamp
+	68, // 11: einkauf.v1.CreatePORequest.order_date:type_name -> google.protobuf.Timestamp
+	68, // 12: einkauf.v1.CreatePORequest.expected_delivery_date:type_name -> google.protobuf.Timestamp
+	68, // 13: einkauf.v1.UpdatePORequest.order_date:type_name -> google.protobuf.Timestamp
+	68, // 14: einkauf.v1.UpdatePORequest.expected_delivery_date:type_name -> google.protobuf.Timestamp
 	1,  // 15: einkauf.v1.POResponse.po:type_name -> einkauf.v1.PurchaseOrder
-	32, // 16: einkauf.v1.ListPOsRequest.date_from:type_name -> google.protobuf.Timestamp
-	32, // 17: einkauf.v1.ListPOsRequest.date_to:type_name -> google.protobuf.Timestamp
+	68, // 16: einkauf.v1.ListPOsRequest.date_from:type_name -> google.protobuf.Timestamp
+	68, // 17: einkauf.v1.ListPOsRequest.date_to:type_name -> google.protobuf.Timestamp
 	1,  // 18: einkauf.v1.ListPOsResponse.pos:type_name -> einkauf.v1.PurchaseOrder
 	2,  // 19: einkauf.v1.ListPOLinesResponse.lines:type_name -> einkauf.v1.POLine
 	2,  // 20: einkauf.v1.POLineResponse.line:type_name -> einkauf.v1.POLine
 	28, // 21: einkauf.v1.PartialReceiveRequest.items:type_name -> einkauf.v1.PartialReceiveItem
-	3,  // 22: einkauf.v1.EinkaufService.CreateSupplier:input_type -> einkauf.v1.CreateSupplierRequest
-	4,  // 23: einkauf.v1.EinkaufService.UpdateSupplier:input_type -> einkauf.v1.UpdateSupplierRequest
-	5,  // 24: einkauf.v1.EinkaufService.DeleteSupplier:input_type -> einkauf.v1.DeleteSupplierRequest
-	7,  // 25: einkauf.v1.EinkaufService.GetSupplier:input_type -> einkauf.v1.GetSupplierRequest
-	9,  // 26: einkauf.v1.EinkaufService.ListSuppliers:input_type -> einkauf.v1.ListSuppliersRequest
-	11, // 27: einkauf.v1.EinkaufService.CreatePO:input_type -> einkauf.v1.CreatePORequest
-	12, // 28: einkauf.v1.EinkaufService.UpdatePO:input_type -> einkauf.v1.UpdatePORequest
-	13, // 29: einkauf.v1.EinkaufService.DeletePO:input_type -> einkauf.v1.DeletePORequest
-	15, // 30: einkauf.v1.EinkaufService.GetPO:input_type -> einkauf.v1.GetPORequest
-	17, // 31: einkauf.v1.EinkaufService.ListPOs:input_type -> einkauf.v1.ListPOsRequest
-	19, // 32: einkauf.v1.EinkaufService.AddPOLine:input_type -> einkauf.v1.AddPOLineRequest
-	20, // 33: einkauf.v1.EinkaufService.UpdatePOLine:input_type -> einkauf.v1.UpdatePOLineRequest
-	21, // 34: einkauf.v1.EinkaufService.DeletePOLine:input_type -> einkauf.v1.DeletePOLineRequest
-	23, // 35: einkauf.v1.EinkaufService.ListPOLines:input_type -> einkauf.v1.ListPOLinesRequest
-	26, // 36: einkauf.v1.EinkaufService.SubmitPO:input_type -> einkauf.v1.SubmitPORequest
-	27, // 37: einkauf.v1.EinkaufService.ReceiveGoods:input_type -> einkauf.v1.ReceiveGoodsRequest
-	29, // 38: einkauf.v1.EinkaufService.PartialReceive:input_type -> einkauf.v1.PartialReceiveRequest
-	30, // 39: einkauf.v1.EinkaufService.ExportPO:input_type -> einkauf.v1.ExportPORequest
-	8,  // 40: einkauf.v1.EinkaufService.CreateSupplier:output_type -> einkauf.v1.SupplierResponse
-	8,  // 41: einkauf.v1.EinkaufService.UpdateSupplier:output_type -> einkauf.v1.SupplierResponse
-	6,  // 42: einkauf.v1.EinkaufService.DeleteSupplier:output_type -> einkauf.v1.DeleteSupplierResponse
-	8,  // 43: einkauf.v1.EinkaufService.GetSupplier:output_type -> einkauf.v1.SupplierResponse
-	10, // 44: einkauf.v1.EinkaufService.ListSuppliers:output_type -> einkauf.v1.ListSuppliersResponse
-	16, // 45: einkauf.v1.EinkaufService.CreatePO:output_type -> einkauf.v1.POResponse
-	16, // 46: einkauf.v1.EinkaufService.UpdatePO:output_type -> einkauf.v1.POResponse
-	14, // 47: einkauf.v1.EinkaufService.DeletePO:output_type -> einkauf.v1.DeletePOResponse
-	16, // 48: einkauf.v1.EinkaufService.GetPO:output_type -> einkauf.v1.POResponse
-	18, // 49: einkauf.v1.EinkaufService.ListPOs:output_type -> einkauf.v1.ListPOsResponse
-	25, // 50: einkauf.v1.EinkaufService.AddPOLine:output_type -> einkauf.v1.POLineResponse
-	25, // 51: einkauf.v1.EinkaufService.UpdatePOLine:output_type -> einkauf.v1.POLineResponse
-	22, // 52: einkauf.v1.EinkaufService.DeletePOLine:output_type -> einkauf.v1.DeletePOLineResponse
-	24, // 53: einkauf.v1.EinkaufService.ListPOLines:output_type -> einkauf.v1.ListPOLinesResponse
-	16, // 54: einkauf.v1.EinkaufService.SubmitPO:output_type -> einkauf.v1.POResponse
-	16, // 55: einkauf.v1.EinkaufService.ReceiveGoods:output_type -> einkauf.v1.POResponse
-	16, // 56: einkauf.v1.EinkaufService.PartialReceive:output_type -> einkauf.v1.POResponse
-	31, // 57: einkauf.v1.EinkaufService.ExportPO:output_type -> einkauf.v1.ExportPOResponse
-	40, // [40:58] is the sub-list for method output_type
-	22, // [22:40] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	68, // 22: einkauf.v1.CatalogItem.created_at:type_name -> google.protobuf.Timestamp
+	68, // 23: einkauf.v1.CatalogItem.updated_at:type_name -> google.protobuf.Timestamp
+	68, // 24: einkauf.v1.SupplierRating.rated_at:type_name -> google.protobuf.Timestamp
+	68, // 25: einkauf.v1.SupplierRating.created_at:type_name -> google.protobuf.Timestamp
+	68, // 26: einkauf.v1.SupplierRating.updated_at:type_name -> google.protobuf.Timestamp
+	68, // 27: einkauf.v1.FrameworkContract.start_date:type_name -> google.protobuf.Timestamp
+	68, // 28: einkauf.v1.FrameworkContract.end_date:type_name -> google.protobuf.Timestamp
+	68, // 29: einkauf.v1.FrameworkContract.created_at:type_name -> google.protobuf.Timestamp
+	68, // 30: einkauf.v1.FrameworkContract.updated_at:type_name -> google.protobuf.Timestamp
+	35, // 31: einkauf.v1.FrameworkContract.items:type_name -> einkauf.v1.FrameworkContractItem
+	68, // 32: einkauf.v1.FrameworkContractItem.created_at:type_name -> google.protobuf.Timestamp
+	68, // 33: einkauf.v1.FrameworkContractItem.updated_at:type_name -> google.protobuf.Timestamp
+	68, // 34: einkauf.v1.FrameworkContractCall.called_at:type_name -> google.protobuf.Timestamp
+	68, // 35: einkauf.v1.FrameworkContractCall.created_at:type_name -> google.protobuf.Timestamp
+	68, // 36: einkauf.v1.FrameworkContractCall.updated_at:type_name -> google.protobuf.Timestamp
+	32, // 37: einkauf.v1.ListCatalogItemsResponse.items:type_name -> einkauf.v1.CatalogItem
+	32, // 38: einkauf.v1.CatalogItemResponse.item:type_name -> einkauf.v1.CatalogItem
+	33, // 39: einkauf.v1.ListSupplierRatingsResponse.ratings:type_name -> einkauf.v1.SupplierRating
+	33, // 40: einkauf.v1.SupplierRatingResponse.rating:type_name -> einkauf.v1.SupplierRating
+	34, // 41: einkauf.v1.ListFrameworkContractsResponse.contracts:type_name -> einkauf.v1.FrameworkContract
+	34, // 42: einkauf.v1.FrameworkContractResponse.contract:type_name -> einkauf.v1.FrameworkContract
+	68, // 43: einkauf.v1.CreateFrameworkContractRequest.start_date:type_name -> google.protobuf.Timestamp
+	68, // 44: einkauf.v1.CreateFrameworkContractRequest.end_date:type_name -> google.protobuf.Timestamp
+	68, // 45: einkauf.v1.UpdateFrameworkContractRequest.start_date:type_name -> google.protobuf.Timestamp
+	68, // 46: einkauf.v1.UpdateFrameworkContractRequest.end_date:type_name -> google.protobuf.Timestamp
+	35, // 47: einkauf.v1.ContractItemResponse.item:type_name -> einkauf.v1.FrameworkContractItem
+	36, // 48: einkauf.v1.ContractCallResponse.call:type_name -> einkauf.v1.FrameworkContractCall
+	36, // 49: einkauf.v1.ListContractCallsResponse.calls:type_name -> einkauf.v1.FrameworkContractCall
+	3,  // 50: einkauf.v1.EinkaufService.CreateSupplier:input_type -> einkauf.v1.CreateSupplierRequest
+	4,  // 51: einkauf.v1.EinkaufService.UpdateSupplier:input_type -> einkauf.v1.UpdateSupplierRequest
+	5,  // 52: einkauf.v1.EinkaufService.DeleteSupplier:input_type -> einkauf.v1.DeleteSupplierRequest
+	7,  // 53: einkauf.v1.EinkaufService.GetSupplier:input_type -> einkauf.v1.GetSupplierRequest
+	9,  // 54: einkauf.v1.EinkaufService.ListSuppliers:input_type -> einkauf.v1.ListSuppliersRequest
+	11, // 55: einkauf.v1.EinkaufService.CreatePO:input_type -> einkauf.v1.CreatePORequest
+	12, // 56: einkauf.v1.EinkaufService.UpdatePO:input_type -> einkauf.v1.UpdatePORequest
+	13, // 57: einkauf.v1.EinkaufService.DeletePO:input_type -> einkauf.v1.DeletePORequest
+	15, // 58: einkauf.v1.EinkaufService.GetPO:input_type -> einkauf.v1.GetPORequest
+	17, // 59: einkauf.v1.EinkaufService.ListPOs:input_type -> einkauf.v1.ListPOsRequest
+	19, // 60: einkauf.v1.EinkaufService.AddPOLine:input_type -> einkauf.v1.AddPOLineRequest
+	20, // 61: einkauf.v1.EinkaufService.UpdatePOLine:input_type -> einkauf.v1.UpdatePOLineRequest
+	21, // 62: einkauf.v1.EinkaufService.DeletePOLine:input_type -> einkauf.v1.DeletePOLineRequest
+	23, // 63: einkauf.v1.EinkaufService.ListPOLines:input_type -> einkauf.v1.ListPOLinesRequest
+	26, // 64: einkauf.v1.EinkaufService.SubmitPO:input_type -> einkauf.v1.SubmitPORequest
+	27, // 65: einkauf.v1.EinkaufService.ReceiveGoods:input_type -> einkauf.v1.ReceiveGoodsRequest
+	29, // 66: einkauf.v1.EinkaufService.PartialReceive:input_type -> einkauf.v1.PartialReceiveRequest
+	30, // 67: einkauf.v1.EinkaufService.ExportPO:input_type -> einkauf.v1.ExportPORequest
+	37, // 68: einkauf.v1.EinkaufService.ListCatalogItems:input_type -> einkauf.v1.ListCatalogItemsRequest
+	39, // 69: einkauf.v1.EinkaufService.GetCatalogItem:input_type -> einkauf.v1.GetCatalogItemRequest
+	41, // 70: einkauf.v1.EinkaufService.CreateCatalogItem:input_type -> einkauf.v1.CreateCatalogItemRequest
+	42, // 71: einkauf.v1.EinkaufService.UpdateCatalogItem:input_type -> einkauf.v1.UpdateCatalogItemRequest
+	43, // 72: einkauf.v1.EinkaufService.DeleteCatalogItem:input_type -> einkauf.v1.DeleteCatalogItemRequest
+	45, // 73: einkauf.v1.EinkaufService.ListSupplierRatings:input_type -> einkauf.v1.ListSupplierRatingsRequest
+	47, // 74: einkauf.v1.EinkaufService.CreateSupplierRating:input_type -> einkauf.v1.CreateSupplierRatingRequest
+	49, // 75: einkauf.v1.EinkaufService.DeleteSupplierRating:input_type -> einkauf.v1.DeleteSupplierRatingRequest
+	51, // 76: einkauf.v1.EinkaufService.ListFrameworkContracts:input_type -> einkauf.v1.ListFrameworkContractsRequest
+	53, // 77: einkauf.v1.EinkaufService.GetFrameworkContract:input_type -> einkauf.v1.GetFrameworkContractRequest
+	55, // 78: einkauf.v1.EinkaufService.CreateFrameworkContract:input_type -> einkauf.v1.CreateFrameworkContractRequest
+	56, // 79: einkauf.v1.EinkaufService.UpdateFrameworkContract:input_type -> einkauf.v1.UpdateFrameworkContractRequest
+	57, // 80: einkauf.v1.EinkaufService.DeleteFrameworkContract:input_type -> einkauf.v1.DeleteFrameworkContractRequest
+	59, // 81: einkauf.v1.EinkaufService.CreateContractItem:input_type -> einkauf.v1.CreateContractItemRequest
+	60, // 82: einkauf.v1.EinkaufService.UpdateContractItem:input_type -> einkauf.v1.UpdateContractItemRequest
+	62, // 83: einkauf.v1.EinkaufService.DeleteContractItem:input_type -> einkauf.v1.DeleteContractItemRequest
+	64, // 84: einkauf.v1.EinkaufService.CreateContractCall:input_type -> einkauf.v1.CreateContractCallRequest
+	66, // 85: einkauf.v1.EinkaufService.ListContractCalls:input_type -> einkauf.v1.ListContractCallsRequest
+	8,  // 86: einkauf.v1.EinkaufService.CreateSupplier:output_type -> einkauf.v1.SupplierResponse
+	8,  // 87: einkauf.v1.EinkaufService.UpdateSupplier:output_type -> einkauf.v1.SupplierResponse
+	6,  // 88: einkauf.v1.EinkaufService.DeleteSupplier:output_type -> einkauf.v1.DeleteSupplierResponse
+	8,  // 89: einkauf.v1.EinkaufService.GetSupplier:output_type -> einkauf.v1.SupplierResponse
+	10, // 90: einkauf.v1.EinkaufService.ListSuppliers:output_type -> einkauf.v1.ListSuppliersResponse
+	16, // 91: einkauf.v1.EinkaufService.CreatePO:output_type -> einkauf.v1.POResponse
+	16, // 92: einkauf.v1.EinkaufService.UpdatePO:output_type -> einkauf.v1.POResponse
+	14, // 93: einkauf.v1.EinkaufService.DeletePO:output_type -> einkauf.v1.DeletePOResponse
+	16, // 94: einkauf.v1.EinkaufService.GetPO:output_type -> einkauf.v1.POResponse
+	18, // 95: einkauf.v1.EinkaufService.ListPOs:output_type -> einkauf.v1.ListPOsResponse
+	25, // 96: einkauf.v1.EinkaufService.AddPOLine:output_type -> einkauf.v1.POLineResponse
+	25, // 97: einkauf.v1.EinkaufService.UpdatePOLine:output_type -> einkauf.v1.POLineResponse
+	22, // 98: einkauf.v1.EinkaufService.DeletePOLine:output_type -> einkauf.v1.DeletePOLineResponse
+	24, // 99: einkauf.v1.EinkaufService.ListPOLines:output_type -> einkauf.v1.ListPOLinesResponse
+	16, // 100: einkauf.v1.EinkaufService.SubmitPO:output_type -> einkauf.v1.POResponse
+	16, // 101: einkauf.v1.EinkaufService.ReceiveGoods:output_type -> einkauf.v1.POResponse
+	16, // 102: einkauf.v1.EinkaufService.PartialReceive:output_type -> einkauf.v1.POResponse
+	31, // 103: einkauf.v1.EinkaufService.ExportPO:output_type -> einkauf.v1.ExportPOResponse
+	38, // 104: einkauf.v1.EinkaufService.ListCatalogItems:output_type -> einkauf.v1.ListCatalogItemsResponse
+	40, // 105: einkauf.v1.EinkaufService.GetCatalogItem:output_type -> einkauf.v1.CatalogItemResponse
+	40, // 106: einkauf.v1.EinkaufService.CreateCatalogItem:output_type -> einkauf.v1.CatalogItemResponse
+	40, // 107: einkauf.v1.EinkaufService.UpdateCatalogItem:output_type -> einkauf.v1.CatalogItemResponse
+	44, // 108: einkauf.v1.EinkaufService.DeleteCatalogItem:output_type -> einkauf.v1.DeleteCatalogItemResponse
+	46, // 109: einkauf.v1.EinkaufService.ListSupplierRatings:output_type -> einkauf.v1.ListSupplierRatingsResponse
+	48, // 110: einkauf.v1.EinkaufService.CreateSupplierRating:output_type -> einkauf.v1.SupplierRatingResponse
+	50, // 111: einkauf.v1.EinkaufService.DeleteSupplierRating:output_type -> einkauf.v1.DeleteSupplierRatingResponse
+	52, // 112: einkauf.v1.EinkaufService.ListFrameworkContracts:output_type -> einkauf.v1.ListFrameworkContractsResponse
+	54, // 113: einkauf.v1.EinkaufService.GetFrameworkContract:output_type -> einkauf.v1.FrameworkContractResponse
+	54, // 114: einkauf.v1.EinkaufService.CreateFrameworkContract:output_type -> einkauf.v1.FrameworkContractResponse
+	54, // 115: einkauf.v1.EinkaufService.UpdateFrameworkContract:output_type -> einkauf.v1.FrameworkContractResponse
+	58, // 116: einkauf.v1.EinkaufService.DeleteFrameworkContract:output_type -> einkauf.v1.DeleteFrameworkContractResponse
+	61, // 117: einkauf.v1.EinkaufService.CreateContractItem:output_type -> einkauf.v1.ContractItemResponse
+	61, // 118: einkauf.v1.EinkaufService.UpdateContractItem:output_type -> einkauf.v1.ContractItemResponse
+	63, // 119: einkauf.v1.EinkaufService.DeleteContractItem:output_type -> einkauf.v1.DeleteContractItemResponse
+	65, // 120: einkauf.v1.EinkaufService.CreateContractCall:output_type -> einkauf.v1.ContractCallResponse
+	67, // 121: einkauf.v1.EinkaufService.ListContractCalls:output_type -> einkauf.v1.ListContractCallsResponse
+	86, // [86:122] is the sub-list for method output_type
+	50, // [50:86] is the sub-list for method input_type
+	50, // [50:50] is the sub-list for extension type_name
+	50, // [50:50] is the sub-list for extension extendee
+	0,  // [0:50] is the sub-list for field type_name
 }
 
 func init() { file_proto_einkauf_v1_einkauf_proto_init() }
@@ -2619,13 +5596,24 @@ func file_proto_einkauf_v1_einkauf_proto_init() {
 	file_proto_einkauf_v1_einkauf_proto_msgTypes[12].OneofWrappers = []any{}
 	file_proto_einkauf_v1_einkauf_proto_msgTypes[17].OneofWrappers = []any{}
 	file_proto_einkauf_v1_einkauf_proto_msgTypes[20].OneofWrappers = []any{}
+	file_proto_einkauf_v1_einkauf_proto_msgTypes[33].OneofWrappers = []any{}
+	file_proto_einkauf_v1_einkauf_proto_msgTypes[34].OneofWrappers = []any{}
+	file_proto_einkauf_v1_einkauf_proto_msgTypes[36].OneofWrappers = []any{}
+	file_proto_einkauf_v1_einkauf_proto_msgTypes[37].OneofWrappers = []any{}
+	file_proto_einkauf_v1_einkauf_proto_msgTypes[42].OneofWrappers = []any{}
+	file_proto_einkauf_v1_einkauf_proto_msgTypes[47].OneofWrappers = []any{}
+	file_proto_einkauf_v1_einkauf_proto_msgTypes[51].OneofWrappers = []any{}
+	file_proto_einkauf_v1_einkauf_proto_msgTypes[55].OneofWrappers = []any{}
+	file_proto_einkauf_v1_einkauf_proto_msgTypes[56].OneofWrappers = []any{}
+	file_proto_einkauf_v1_einkauf_proto_msgTypes[60].OneofWrappers = []any{}
+	file_proto_einkauf_v1_einkauf_proto_msgTypes[64].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_einkauf_v1_einkauf_proto_rawDesc), len(file_proto_einkauf_v1_einkauf_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   32,
+			NumMessages:   68,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -179,7 +179,7 @@ func (r *PostgresRepository) DeletePO(ctx context.Context, tenantID, poID uuid.U
 func (r *PostgresRepository) GetPO(ctx context.Context, tenantID, poID uuid.UUID) (*PurchaseOrder, error) {
 	return r.scanPO(r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, supplier_id, po_number, status, order_date, expected_delivery_date,
-		        total_amount, currency, notes, created_by, created_at, updated_at
+		        total_amount, currency, notes, created_by, framework_contract_id, created_at, updated_at
 		 FROM purchase_orders WHERE id = $1 AND tenant_id = $2`,
 		poID, tenantID,
 	))
@@ -242,7 +242,7 @@ func (r *PostgresRepository) ListPOs(ctx context.Context, tenantID uuid.UUID, fi
 
 	query := fmt.Sprintf(`
 		SELECT id, tenant_id, supplier_id, po_number, status, order_date, expected_delivery_date,
-		       total_amount, currency, notes, created_by, created_at, updated_at
+		       total_amount, currency, notes, created_by, framework_contract_id, created_at, updated_at
 		FROM purchase_orders %s
 		ORDER BY created_at DESC
 		LIMIT $%d OFFSET $%d
@@ -435,7 +435,7 @@ func (r *PostgresRepository) scanPO(row pgx.Row) (*PurchaseOrder, error) {
 	err := row.Scan(
 		&po.ID, &po.TenantID, &po.SupplierID, &po.PONumber, &po.Status,
 		&po.OrderDate, &po.ExpectedDeliveryDate, &po.TotalAmount, &po.Currency,
-		&po.Notes, &po.CreatedBy, &po.CreatedAt, &po.UpdatedAt,
+		&po.Notes, &po.CreatedBy, &po.FrameworkContractID, &po.CreatedAt, &po.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrPONotFound
@@ -451,7 +451,7 @@ func (r *PostgresRepository) scanPOFromRows(rows pgx.Rows) (*PurchaseOrder, erro
 	err := rows.Scan(
 		&po.ID, &po.TenantID, &po.SupplierID, &po.PONumber, &po.Status,
 		&po.OrderDate, &po.ExpectedDeliveryDate, &po.TotalAmount, &po.Currency,
-		&po.Notes, &po.CreatedBy, &po.CreatedAt, &po.UpdatedAt,
+		&po.Notes, &po.CreatedBy, &po.FrameworkContractID, &po.CreatedAt, &po.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("scan purchase order row: %w", err)

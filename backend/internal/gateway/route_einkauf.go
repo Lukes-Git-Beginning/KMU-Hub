@@ -85,6 +85,9 @@ func (er *EinkaufRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 				})
 			})
 		})
+
+		// Extended routes: Catalog, Supplier Ratings, Framework Contracts
+		er.registerExtendedRoutes(r)
 	})
 }
 

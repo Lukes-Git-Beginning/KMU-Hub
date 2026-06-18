@@ -32,6 +32,30 @@ service EinkaufService {
   rpc ReceiveGoods(ReceiveGoodsRequest) returns (POResponse);
   rpc PartialReceive(PartialReceiveRequest) returns (POResponse);
   rpc ExportPO(ExportPORequest) returns (ExportPOResponse);
+
+  // Catalog
+  rpc ListCatalogItems(ListCatalogItemsRequest) returns (ListCatalogItemsResponse);
+  rpc GetCatalogItem(GetCatalogItemRequest) returns (CatalogItemResponse);
+  rpc CreateCatalogItem(CreateCatalogItemRequest) returns (CatalogItemResponse);
+  rpc UpdateCatalogItem(UpdateCatalogItemRequest) returns (CatalogItemResponse);
+  rpc DeleteCatalogItem(DeleteCatalogItemRequest) returns (DeleteCatalogItemResponse);
+
+  // Supplier Ratings
+  rpc ListSupplierRatings(ListSupplierRatingsRequest) returns (ListSupplierRatingsResponse);
+  rpc CreateSupplierRating(CreateSupplierRatingRequest) returns (SupplierRatingResponse);
+  rpc DeleteSupplierRating(DeleteSupplierRatingRequest) returns (DeleteSupplierRatingResponse);
+
+  // Framework Contracts
+  rpc ListFrameworkContracts(ListFrameworkContractsRequest) returns (ListFrameworkContractsResponse);
+  rpc GetFrameworkContract(GetFrameworkContractRequest) returns (FrameworkContractResponse);
+  rpc CreateFrameworkContract(CreateFrameworkContractRequest) returns (FrameworkContractResponse);
+  rpc UpdateFrameworkContract(UpdateFrameworkContractRequest) returns (FrameworkContractResponse);
+  rpc DeleteFrameworkContract(DeleteFrameworkContractRequest) returns (DeleteFrameworkContractResponse);
+  rpc CreateContractItem(CreateContractItemRequest) returns (ContractItemResponse);
+  rpc UpdateContractItem(UpdateContractItemRequest) returns (ContractItemResponse);
+  rpc DeleteContractItem(DeleteContractItemRequest) returns (DeleteContractItemResponse);
+  rpc CreateContractCall(CreateContractCallRequest) returns (ContractCallResponse);
+  rpc ListContractCalls(ListContractCallsRequest) returns (ListContractCallsResponse);
 }
 
 // ============================================================================
@@ -67,6 +91,7 @@ message PurchaseOrder {
   google.protobuf.Timestamp created_at = 12;
   google.protobuf.Timestamp updated_at = 13;
   repeated POLine lines = 14; // populated on GetPO
+  optional string framework_contract_id = 15;
 }
 
 message POLine {
@@ -278,4 +303,291 @@ message ExportPOResponse {
   bytes payload = 1;
   string content_type = 2;
   string filename = 3;
+}
+
+// ============================================================================
+// Catalog Item Domain Message
+// ============================================================================
+
+message CatalogItem {
+  string id = 1;
+  string tenant_id = 2;
+  string supplier_id = 3;
+  string name = 4;
+  string sku = 5;
+  string category = 6;
+  string price = 7;          // numeric string
+  string currency = 8;
+  string unit = 9;
+  bool available = 10;
+  string min_order_qty = 11; // numeric string
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+}
+
+// ============================================================================
+// Supplier Rating Domain Message
+// ============================================================================
+
+message SupplierRating {
+  string id = 1;
+  string tenant_id = 2;
+  string supplier_id = 3;
+  string category = 4; // quality|delivery|price
+  int32 rating = 5;    // 1-5
+  string comment = 6;
+  optional string rated_by = 7;
+  google.protobuf.Timestamp rated_at = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+// ============================================================================
+// Framework Contract Domain Messages
+// ============================================================================
+
+message FrameworkContract {
+  string id = 1;
+  string tenant_id = 2;
+  string supplier_id = 3;
+  string title = 4;
+  string contract_nr = 5;
+  optional google.protobuf.Timestamp start_date = 6;
+  optional google.protobuf.Timestamp end_date = 7;
+  string total_value = 8; // numeric string
+  string used_value = 9;  // numeric string
+  string currency = 10;
+  string status = 11;     // draft|active|expired
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+  repeated FrameworkContractItem items = 14; // populated on GetFrameworkContract
+}
+
+message FrameworkContractItem {
+  string id = 1;
+  string tenant_id = 2;
+  string contract_id = 3;
+  string name = 4;
+  string unit_price = 5; // numeric string
+  string unit = 6;
+  string agreed_qty = 7; // numeric string
+  string called_qty = 8; // numeric string
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message FrameworkContractCall {
+  string id = 1;
+  string tenant_id = 2;
+  string contract_id = 3;
+  optional string po_id = 4;
+  string amount = 5;   // numeric string
+  string currency = 6;
+  google.protobuf.Timestamp called_at = 7;
+  string notes = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+// ============================================================================
+// Catalog Requests / Responses
+// ============================================================================
+
+message ListCatalogItemsRequest {
+  string tenant_id = 1;
+  optional string supplier_id = 2;
+  string category = 3;
+  string search = 4;
+  optional bool available = 5;
+  int32 page = 6;
+  int32 page_size = 7;
+}
+
+message ListCatalogItemsResponse {
+  repeated CatalogItem items = 1;
+  int32 total = 2;
+}
+
+message GetCatalogItemRequest {
+  string tenant_id = 1;
+  string item_id = 2;
+}
+
+message CatalogItemResponse {
+  CatalogItem item = 1;
+}
+
+message CreateCatalogItemRequest {
+  string tenant_id = 1;
+  string supplier_id = 2;
+  string name = 3;
+  string sku = 4;
+  string category = 5;
+  string price = 6;
+  string currency = 7;
+  string unit = 8;
+  bool available = 9;
+  string min_order_qty = 10;
+}
+
+message UpdateCatalogItemRequest {
+  string tenant_id = 1;
+  string item_id = 2;
+  optional string name = 3;
+  optional string sku = 4;
+  optional string category = 5;
+  optional string price = 6;
+  optional string currency = 7;
+  optional string unit = 8;
+  optional bool available = 9;
+  optional string min_order_qty = 10;
+}
+
+message DeleteCatalogItemRequest {
+  string tenant_id = 1;
+  string item_id = 2;
+}
+
+message DeleteCatalogItemResponse {}
+
+// ============================================================================
+// Supplier Rating Requests / Responses
+// ============================================================================
+
+message ListSupplierRatingsRequest {
+  string tenant_id = 1;
+  string supplier_id = 2;
+}
+
+message ListSupplierRatingsResponse {
+  repeated SupplierRating ratings = 1;
+}
+
+message CreateSupplierRatingRequest {
+  string tenant_id = 1;
+  string supplier_id = 2;
+  string category = 3; // quality|delivery|price
+  int32 rating = 4;    // 1-5
+  string comment = 5;
+  optional string rated_by = 6;
+}
+
+message SupplierRatingResponse {
+  SupplierRating rating = 1;
+}
+
+message DeleteSupplierRatingRequest {
+  string tenant_id = 1;
+  string rating_id = 2;
+}
+
+message DeleteSupplierRatingResponse {}
+
+// ============================================================================
+// Framework Contract Requests / Responses
+// ============================================================================
+
+message ListFrameworkContractsRequest {
+  string tenant_id = 1;
+  optional string supplier_id = 2;
+  optional string status = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+}
+
+message ListFrameworkContractsResponse {
+  repeated FrameworkContract contracts = 1;
+  int32 total = 2;
+}
+
+message GetFrameworkContractRequest {
+  string tenant_id = 1;
+  string contract_id = 2;
+}
+
+message FrameworkContractResponse {
+  FrameworkContract contract = 1;
+}
+
+message CreateFrameworkContractRequest {
+  string tenant_id = 1;
+  string supplier_id = 2;
+  string title = 3;
+  string contract_nr = 4;
+  optional google.protobuf.Timestamp start_date = 5;
+  optional google.protobuf.Timestamp end_date = 6;
+  string total_value = 7;
+  string currency = 8;
+  string status = 9; // draft|active|expired (default: draft)
+}
+
+message UpdateFrameworkContractRequest {
+  string tenant_id = 1;
+  string contract_id = 2;
+  optional string supplier_id = 3;
+  optional string title = 4;
+  optional string contract_nr = 5;
+  optional google.protobuf.Timestamp start_date = 6; // epoch to clear
+  optional google.protobuf.Timestamp end_date = 7;   // epoch to clear
+  optional string total_value = 8;
+  optional string currency = 9;
+  optional string status = 10;
+}
+
+message DeleteFrameworkContractRequest {
+  string tenant_id = 1;
+  string contract_id = 2;
+}
+
+message DeleteFrameworkContractResponse {}
+
+message CreateContractItemRequest {
+  string tenant_id = 1;
+  string contract_id = 2;
+  string name = 3;
+  string unit_price = 4;
+  string unit = 5;
+  string agreed_qty = 6;
+}
+
+message UpdateContractItemRequest {
+  string tenant_id = 1;
+  string item_id = 2;
+  optional string name = 3;
+  optional string unit_price = 4;
+  optional string unit = 5;
+  optional string agreed_qty = 6;
+}
+
+message ContractItemResponse {
+  FrameworkContractItem item = 1;
+}
+
+message DeleteContractItemRequest {
+  string tenant_id = 1;
+  string item_id = 2;
+}
+
+message DeleteContractItemResponse {}
+
+message CreateContractCallRequest {
+  string tenant_id = 1;
+  string contract_id = 2;
+  optional string po_id = 3;
+  string amount = 4;
+  string currency = 5;
+  string notes = 6;
+}
+
+message ContractCallResponse {
+  FrameworkContractCall call = 1;
+}
+
+message ListContractCallsRequest {
+  string tenant_id = 1;
+  string contract_id = 2;
+}
+
+message ListContractCallsResponse {
+  repeated FrameworkContractCall calls = 1;
 }

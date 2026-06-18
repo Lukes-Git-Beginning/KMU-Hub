@@ -18,7 +18,10 @@ import (
 // zu inventar.RecordMovement ist ein Sprint-3-Item; bis dahin hat der
 // Wareneingang keine Auswirkung auf den globalen Lagerbestand.
 type Service struct {
-	repo Repository
+	repo    Repository
+	// repoExt is non-nil when the service was created via NewServiceExtended.
+	// It grants access to the catalog, ratings, and framework contract persistence.
+	repoExt RepositoryExtended
 }
 
 // NewService creates a new einkauf service.

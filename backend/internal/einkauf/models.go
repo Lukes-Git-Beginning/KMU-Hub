@@ -54,6 +54,9 @@ type PurchaseOrder struct {
 	Currency             string     `json:"currency"`
 	Notes                string     `json:"notes"`
 	CreatedBy            *uuid.UUID `json:"created_by,omitempty"`
+	// FrameworkContractID links this PO to a framework contract (optional).
+	// When set, ReceiveGoods will automatically record a contract call-off.
+	FrameworkContractID  *uuid.UUID `json:"framework_contract_id,omitempty"`
 	CreatedAt            time.Time  `json:"created_at"`
 	UpdatedAt            time.Time  `json:"updated_at"`
 

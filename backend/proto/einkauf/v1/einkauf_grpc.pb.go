@@ -19,24 +19,42 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	EinkaufService_CreateSupplier_FullMethodName = "/einkauf.v1.EinkaufService/CreateSupplier"
-	EinkaufService_UpdateSupplier_FullMethodName = "/einkauf.v1.EinkaufService/UpdateSupplier"
-	EinkaufService_DeleteSupplier_FullMethodName = "/einkauf.v1.EinkaufService/DeleteSupplier"
-	EinkaufService_GetSupplier_FullMethodName    = "/einkauf.v1.EinkaufService/GetSupplier"
-	EinkaufService_ListSuppliers_FullMethodName  = "/einkauf.v1.EinkaufService/ListSuppliers"
-	EinkaufService_CreatePO_FullMethodName       = "/einkauf.v1.EinkaufService/CreatePO"
-	EinkaufService_UpdatePO_FullMethodName       = "/einkauf.v1.EinkaufService/UpdatePO"
-	EinkaufService_DeletePO_FullMethodName       = "/einkauf.v1.EinkaufService/DeletePO"
-	EinkaufService_GetPO_FullMethodName          = "/einkauf.v1.EinkaufService/GetPO"
-	EinkaufService_ListPOs_FullMethodName        = "/einkauf.v1.EinkaufService/ListPOs"
-	EinkaufService_AddPOLine_FullMethodName      = "/einkauf.v1.EinkaufService/AddPOLine"
-	EinkaufService_UpdatePOLine_FullMethodName   = "/einkauf.v1.EinkaufService/UpdatePOLine"
-	EinkaufService_DeletePOLine_FullMethodName   = "/einkauf.v1.EinkaufService/DeletePOLine"
-	EinkaufService_ListPOLines_FullMethodName    = "/einkauf.v1.EinkaufService/ListPOLines"
-	EinkaufService_SubmitPO_FullMethodName       = "/einkauf.v1.EinkaufService/SubmitPO"
-	EinkaufService_ReceiveGoods_FullMethodName   = "/einkauf.v1.EinkaufService/ReceiveGoods"
-	EinkaufService_PartialReceive_FullMethodName = "/einkauf.v1.EinkaufService/PartialReceive"
-	EinkaufService_ExportPO_FullMethodName       = "/einkauf.v1.EinkaufService/ExportPO"
+	EinkaufService_CreateSupplier_FullMethodName          = "/einkauf.v1.EinkaufService/CreateSupplier"
+	EinkaufService_UpdateSupplier_FullMethodName          = "/einkauf.v1.EinkaufService/UpdateSupplier"
+	EinkaufService_DeleteSupplier_FullMethodName          = "/einkauf.v1.EinkaufService/DeleteSupplier"
+	EinkaufService_GetSupplier_FullMethodName             = "/einkauf.v1.EinkaufService/GetSupplier"
+	EinkaufService_ListSuppliers_FullMethodName           = "/einkauf.v1.EinkaufService/ListSuppliers"
+	EinkaufService_CreatePO_FullMethodName                = "/einkauf.v1.EinkaufService/CreatePO"
+	EinkaufService_UpdatePO_FullMethodName                = "/einkauf.v1.EinkaufService/UpdatePO"
+	EinkaufService_DeletePO_FullMethodName                = "/einkauf.v1.EinkaufService/DeletePO"
+	EinkaufService_GetPO_FullMethodName                   = "/einkauf.v1.EinkaufService/GetPO"
+	EinkaufService_ListPOs_FullMethodName                 = "/einkauf.v1.EinkaufService/ListPOs"
+	EinkaufService_AddPOLine_FullMethodName               = "/einkauf.v1.EinkaufService/AddPOLine"
+	EinkaufService_UpdatePOLine_FullMethodName            = "/einkauf.v1.EinkaufService/UpdatePOLine"
+	EinkaufService_DeletePOLine_FullMethodName            = "/einkauf.v1.EinkaufService/DeletePOLine"
+	EinkaufService_ListPOLines_FullMethodName             = "/einkauf.v1.EinkaufService/ListPOLines"
+	EinkaufService_SubmitPO_FullMethodName                = "/einkauf.v1.EinkaufService/SubmitPO"
+	EinkaufService_ReceiveGoods_FullMethodName            = "/einkauf.v1.EinkaufService/ReceiveGoods"
+	EinkaufService_PartialReceive_FullMethodName          = "/einkauf.v1.EinkaufService/PartialReceive"
+	EinkaufService_ExportPO_FullMethodName                = "/einkauf.v1.EinkaufService/ExportPO"
+	EinkaufService_ListCatalogItems_FullMethodName        = "/einkauf.v1.EinkaufService/ListCatalogItems"
+	EinkaufService_GetCatalogItem_FullMethodName          = "/einkauf.v1.EinkaufService/GetCatalogItem"
+	EinkaufService_CreateCatalogItem_FullMethodName       = "/einkauf.v1.EinkaufService/CreateCatalogItem"
+	EinkaufService_UpdateCatalogItem_FullMethodName       = "/einkauf.v1.EinkaufService/UpdateCatalogItem"
+	EinkaufService_DeleteCatalogItem_FullMethodName       = "/einkauf.v1.EinkaufService/DeleteCatalogItem"
+	EinkaufService_ListSupplierRatings_FullMethodName     = "/einkauf.v1.EinkaufService/ListSupplierRatings"
+	EinkaufService_CreateSupplierRating_FullMethodName    = "/einkauf.v1.EinkaufService/CreateSupplierRating"
+	EinkaufService_DeleteSupplierRating_FullMethodName    = "/einkauf.v1.EinkaufService/DeleteSupplierRating"
+	EinkaufService_ListFrameworkContracts_FullMethodName  = "/einkauf.v1.EinkaufService/ListFrameworkContracts"
+	EinkaufService_GetFrameworkContract_FullMethodName    = "/einkauf.v1.EinkaufService/GetFrameworkContract"
+	EinkaufService_CreateFrameworkContract_FullMethodName = "/einkauf.v1.EinkaufService/CreateFrameworkContract"
+	EinkaufService_UpdateFrameworkContract_FullMethodName = "/einkauf.v1.EinkaufService/UpdateFrameworkContract"
+	EinkaufService_DeleteFrameworkContract_FullMethodName = "/einkauf.v1.EinkaufService/DeleteFrameworkContract"
+	EinkaufService_CreateContractItem_FullMethodName      = "/einkauf.v1.EinkaufService/CreateContractItem"
+	EinkaufService_UpdateContractItem_FullMethodName      = "/einkauf.v1.EinkaufService/UpdateContractItem"
+	EinkaufService_DeleteContractItem_FullMethodName      = "/einkauf.v1.EinkaufService/DeleteContractItem"
+	EinkaufService_CreateContractCall_FullMethodName      = "/einkauf.v1.EinkaufService/CreateContractCall"
+	EinkaufService_ListContractCalls_FullMethodName       = "/einkauf.v1.EinkaufService/ListContractCalls"
 )
 
 // EinkaufServiceClient is the client API for EinkaufService service.
@@ -65,6 +83,27 @@ type EinkaufServiceClient interface {
 	ReceiveGoods(ctx context.Context, in *ReceiveGoodsRequest, opts ...grpc.CallOption) (*POResponse, error)
 	PartialReceive(ctx context.Context, in *PartialReceiveRequest, opts ...grpc.CallOption) (*POResponse, error)
 	ExportPO(ctx context.Context, in *ExportPORequest, opts ...grpc.CallOption) (*ExportPOResponse, error)
+	// Catalog
+	ListCatalogItems(ctx context.Context, in *ListCatalogItemsRequest, opts ...grpc.CallOption) (*ListCatalogItemsResponse, error)
+	GetCatalogItem(ctx context.Context, in *GetCatalogItemRequest, opts ...grpc.CallOption) (*CatalogItemResponse, error)
+	CreateCatalogItem(ctx context.Context, in *CreateCatalogItemRequest, opts ...grpc.CallOption) (*CatalogItemResponse, error)
+	UpdateCatalogItem(ctx context.Context, in *UpdateCatalogItemRequest, opts ...grpc.CallOption) (*CatalogItemResponse, error)
+	DeleteCatalogItem(ctx context.Context, in *DeleteCatalogItemRequest, opts ...grpc.CallOption) (*DeleteCatalogItemResponse, error)
+	// Supplier Ratings
+	ListSupplierRatings(ctx context.Context, in *ListSupplierRatingsRequest, opts ...grpc.CallOption) (*ListSupplierRatingsResponse, error)
+	CreateSupplierRating(ctx context.Context, in *CreateSupplierRatingRequest, opts ...grpc.CallOption) (*SupplierRatingResponse, error)
+	DeleteSupplierRating(ctx context.Context, in *DeleteSupplierRatingRequest, opts ...grpc.CallOption) (*DeleteSupplierRatingResponse, error)
+	// Framework Contracts
+	ListFrameworkContracts(ctx context.Context, in *ListFrameworkContractsRequest, opts ...grpc.CallOption) (*ListFrameworkContractsResponse, error)
+	GetFrameworkContract(ctx context.Context, in *GetFrameworkContractRequest, opts ...grpc.CallOption) (*FrameworkContractResponse, error)
+	CreateFrameworkContract(ctx context.Context, in *CreateFrameworkContractRequest, opts ...grpc.CallOption) (*FrameworkContractResponse, error)
+	UpdateFrameworkContract(ctx context.Context, in *UpdateFrameworkContractRequest, opts ...grpc.CallOption) (*FrameworkContractResponse, error)
+	DeleteFrameworkContract(ctx context.Context, in *DeleteFrameworkContractRequest, opts ...grpc.CallOption) (*DeleteFrameworkContractResponse, error)
+	CreateContractItem(ctx context.Context, in *CreateContractItemRequest, opts ...grpc.CallOption) (*ContractItemResponse, error)
+	UpdateContractItem(ctx context.Context, in *UpdateContractItemRequest, opts ...grpc.CallOption) (*ContractItemResponse, error)
+	DeleteContractItem(ctx context.Context, in *DeleteContractItemRequest, opts ...grpc.CallOption) (*DeleteContractItemResponse, error)
+	CreateContractCall(ctx context.Context, in *CreateContractCallRequest, opts ...grpc.CallOption) (*ContractCallResponse, error)
+	ListContractCalls(ctx context.Context, in *ListContractCallsRequest, opts ...grpc.CallOption) (*ListContractCallsResponse, error)
 }
 
 type einkaufServiceClient struct {
@@ -255,6 +294,186 @@ func (c *einkaufServiceClient) ExportPO(ctx context.Context, in *ExportPORequest
 	return out, nil
 }
 
+func (c *einkaufServiceClient) ListCatalogItems(ctx context.Context, in *ListCatalogItemsRequest, opts ...grpc.CallOption) (*ListCatalogItemsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListCatalogItemsResponse)
+	err := c.cc.Invoke(ctx, EinkaufService_ListCatalogItems_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *einkaufServiceClient) GetCatalogItem(ctx context.Context, in *GetCatalogItemRequest, opts ...grpc.CallOption) (*CatalogItemResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CatalogItemResponse)
+	err := c.cc.Invoke(ctx, EinkaufService_GetCatalogItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *einkaufServiceClient) CreateCatalogItem(ctx context.Context, in *CreateCatalogItemRequest, opts ...grpc.CallOption) (*CatalogItemResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CatalogItemResponse)
+	err := c.cc.Invoke(ctx, EinkaufService_CreateCatalogItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *einkaufServiceClient) UpdateCatalogItem(ctx context.Context, in *UpdateCatalogItemRequest, opts ...grpc.CallOption) (*CatalogItemResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CatalogItemResponse)
+	err := c.cc.Invoke(ctx, EinkaufService_UpdateCatalogItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *einkaufServiceClient) DeleteCatalogItem(ctx context.Context, in *DeleteCatalogItemRequest, opts ...grpc.CallOption) (*DeleteCatalogItemResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteCatalogItemResponse)
+	err := c.cc.Invoke(ctx, EinkaufService_DeleteCatalogItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *einkaufServiceClient) ListSupplierRatings(ctx context.Context, in *ListSupplierRatingsRequest, opts ...grpc.CallOption) (*ListSupplierRatingsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListSupplierRatingsResponse)
+	err := c.cc.Invoke(ctx, EinkaufService_ListSupplierRatings_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *einkaufServiceClient) CreateSupplierRating(ctx context.Context, in *CreateSupplierRatingRequest, opts ...grpc.CallOption) (*SupplierRatingResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SupplierRatingResponse)
+	err := c.cc.Invoke(ctx, EinkaufService_CreateSupplierRating_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *einkaufServiceClient) DeleteSupplierRating(ctx context.Context, in *DeleteSupplierRatingRequest, opts ...grpc.CallOption) (*DeleteSupplierRatingResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteSupplierRatingResponse)
+	err := c.cc.Invoke(ctx, EinkaufService_DeleteSupplierRating_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *einkaufServiceClient) ListFrameworkContracts(ctx context.Context, in *ListFrameworkContractsRequest, opts ...grpc.CallOption) (*ListFrameworkContractsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListFrameworkContractsResponse)
+	err := c.cc.Invoke(ctx, EinkaufService_ListFrameworkContracts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *einkaufServiceClient) GetFrameworkContract(ctx context.Context, in *GetFrameworkContractRequest, opts ...grpc.CallOption) (*FrameworkContractResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FrameworkContractResponse)
+	err := c.cc.Invoke(ctx, EinkaufService_GetFrameworkContract_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *einkaufServiceClient) CreateFrameworkContract(ctx context.Context, in *CreateFrameworkContractRequest, opts ...grpc.CallOption) (*FrameworkContractResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FrameworkContractResponse)
+	err := c.cc.Invoke(ctx, EinkaufService_CreateFrameworkContract_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *einkaufServiceClient) UpdateFrameworkContract(ctx context.Context, in *UpdateFrameworkContractRequest, opts ...grpc.CallOption) (*FrameworkContractResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FrameworkContractResponse)
+	err := c.cc.Invoke(ctx, EinkaufService_UpdateFrameworkContract_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *einkaufServiceClient) DeleteFrameworkContract(ctx context.Context, in *DeleteFrameworkContractRequest, opts ...grpc.CallOption) (*DeleteFrameworkContractResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteFrameworkContractResponse)
+	err := c.cc.Invoke(ctx, EinkaufService_DeleteFrameworkContract_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *einkaufServiceClient) CreateContractItem(ctx context.Context, in *CreateContractItemRequest, opts ...grpc.CallOption) (*ContractItemResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ContractItemResponse)
+	err := c.cc.Invoke(ctx, EinkaufService_CreateContractItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *einkaufServiceClient) UpdateContractItem(ctx context.Context, in *UpdateContractItemRequest, opts ...grpc.CallOption) (*ContractItemResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ContractItemResponse)
+	err := c.cc.Invoke(ctx, EinkaufService_UpdateContractItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *einkaufServiceClient) DeleteContractItem(ctx context.Context, in *DeleteContractItemRequest, opts ...grpc.CallOption) (*DeleteContractItemResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteContractItemResponse)
+	err := c.cc.Invoke(ctx, EinkaufService_DeleteContractItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *einkaufServiceClient) CreateContractCall(ctx context.Context, in *CreateContractCallRequest, opts ...grpc.CallOption) (*ContractCallResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ContractCallResponse)
+	err := c.cc.Invoke(ctx, EinkaufService_CreateContractCall_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *einkaufServiceClient) ListContractCalls(ctx context.Context, in *ListContractCallsRequest, opts ...grpc.CallOption) (*ListContractCallsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListContractCallsResponse)
+	err := c.cc.Invoke(ctx, EinkaufService_ListContractCalls_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // EinkaufServiceServer is the server API for EinkaufService service.
 // All implementations must embed UnimplementedEinkaufServiceServer
 // for forward compatibility.
@@ -281,6 +500,27 @@ type EinkaufServiceServer interface {
 	ReceiveGoods(context.Context, *ReceiveGoodsRequest) (*POResponse, error)
 	PartialReceive(context.Context, *PartialReceiveRequest) (*POResponse, error)
 	ExportPO(context.Context, *ExportPORequest) (*ExportPOResponse, error)
+	// Catalog
+	ListCatalogItems(context.Context, *ListCatalogItemsRequest) (*ListCatalogItemsResponse, error)
+	GetCatalogItem(context.Context, *GetCatalogItemRequest) (*CatalogItemResponse, error)
+	CreateCatalogItem(context.Context, *CreateCatalogItemRequest) (*CatalogItemResponse, error)
+	UpdateCatalogItem(context.Context, *UpdateCatalogItemRequest) (*CatalogItemResponse, error)
+	DeleteCatalogItem(context.Context, *DeleteCatalogItemRequest) (*DeleteCatalogItemResponse, error)
+	// Supplier Ratings
+	ListSupplierRatings(context.Context, *ListSupplierRatingsRequest) (*ListSupplierRatingsResponse, error)
+	CreateSupplierRating(context.Context, *CreateSupplierRatingRequest) (*SupplierRatingResponse, error)
+	DeleteSupplierRating(context.Context, *DeleteSupplierRatingRequest) (*DeleteSupplierRatingResponse, error)
+	// Framework Contracts
+	ListFrameworkContracts(context.Context, *ListFrameworkContractsRequest) (*ListFrameworkContractsResponse, error)
+	GetFrameworkContract(context.Context, *GetFrameworkContractRequest) (*FrameworkContractResponse, error)
+	CreateFrameworkContract(context.Context, *CreateFrameworkContractRequest) (*FrameworkContractResponse, error)
+	UpdateFrameworkContract(context.Context, *UpdateFrameworkContractRequest) (*FrameworkContractResponse, error)
+	DeleteFrameworkContract(context.Context, *DeleteFrameworkContractRequest) (*DeleteFrameworkContractResponse, error)
+	CreateContractItem(context.Context, *CreateContractItemRequest) (*ContractItemResponse, error)
+	UpdateContractItem(context.Context, *UpdateContractItemRequest) (*ContractItemResponse, error)
+	DeleteContractItem(context.Context, *DeleteContractItemRequest) (*DeleteContractItemResponse, error)
+	CreateContractCall(context.Context, *CreateContractCallRequest) (*ContractCallResponse, error)
+	ListContractCalls(context.Context, *ListContractCallsRequest) (*ListContractCallsResponse, error)
 	mustEmbedUnimplementedEinkaufServiceServer()
 }
 
@@ -344,6 +584,60 @@ func (UnimplementedEinkaufServiceServer) PartialReceive(context.Context, *Partia
 }
 func (UnimplementedEinkaufServiceServer) ExportPO(context.Context, *ExportPORequest) (*ExportPOResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ExportPO not implemented")
+}
+func (UnimplementedEinkaufServiceServer) ListCatalogItems(context.Context, *ListCatalogItemsRequest) (*ListCatalogItemsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListCatalogItems not implemented")
+}
+func (UnimplementedEinkaufServiceServer) GetCatalogItem(context.Context, *GetCatalogItemRequest) (*CatalogItemResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetCatalogItem not implemented")
+}
+func (UnimplementedEinkaufServiceServer) CreateCatalogItem(context.Context, *CreateCatalogItemRequest) (*CatalogItemResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateCatalogItem not implemented")
+}
+func (UnimplementedEinkaufServiceServer) UpdateCatalogItem(context.Context, *UpdateCatalogItemRequest) (*CatalogItemResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateCatalogItem not implemented")
+}
+func (UnimplementedEinkaufServiceServer) DeleteCatalogItem(context.Context, *DeleteCatalogItemRequest) (*DeleteCatalogItemResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteCatalogItem not implemented")
+}
+func (UnimplementedEinkaufServiceServer) ListSupplierRatings(context.Context, *ListSupplierRatingsRequest) (*ListSupplierRatingsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListSupplierRatings not implemented")
+}
+func (UnimplementedEinkaufServiceServer) CreateSupplierRating(context.Context, *CreateSupplierRatingRequest) (*SupplierRatingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateSupplierRating not implemented")
+}
+func (UnimplementedEinkaufServiceServer) DeleteSupplierRating(context.Context, *DeleteSupplierRatingRequest) (*DeleteSupplierRatingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteSupplierRating not implemented")
+}
+func (UnimplementedEinkaufServiceServer) ListFrameworkContracts(context.Context, *ListFrameworkContractsRequest) (*ListFrameworkContractsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListFrameworkContracts not implemented")
+}
+func (UnimplementedEinkaufServiceServer) GetFrameworkContract(context.Context, *GetFrameworkContractRequest) (*FrameworkContractResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetFrameworkContract not implemented")
+}
+func (UnimplementedEinkaufServiceServer) CreateFrameworkContract(context.Context, *CreateFrameworkContractRequest) (*FrameworkContractResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateFrameworkContract not implemented")
+}
+func (UnimplementedEinkaufServiceServer) UpdateFrameworkContract(context.Context, *UpdateFrameworkContractRequest) (*FrameworkContractResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateFrameworkContract not implemented")
+}
+func (UnimplementedEinkaufServiceServer) DeleteFrameworkContract(context.Context, *DeleteFrameworkContractRequest) (*DeleteFrameworkContractResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteFrameworkContract not implemented")
+}
+func (UnimplementedEinkaufServiceServer) CreateContractItem(context.Context, *CreateContractItemRequest) (*ContractItemResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateContractItem not implemented")
+}
+func (UnimplementedEinkaufServiceServer) UpdateContractItem(context.Context, *UpdateContractItemRequest) (*ContractItemResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateContractItem not implemented")
+}
+func (UnimplementedEinkaufServiceServer) DeleteContractItem(context.Context, *DeleteContractItemRequest) (*DeleteContractItemResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteContractItem not implemented")
+}
+func (UnimplementedEinkaufServiceServer) CreateContractCall(context.Context, *CreateContractCallRequest) (*ContractCallResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateContractCall not implemented")
+}
+func (UnimplementedEinkaufServiceServer) ListContractCalls(context.Context, *ListContractCallsRequest) (*ListContractCallsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListContractCalls not implemented")
 }
 func (UnimplementedEinkaufServiceServer) mustEmbedUnimplementedEinkaufServiceServer() {}
 func (UnimplementedEinkaufServiceServer) testEmbeddedByValue()                        {}
@@ -690,6 +984,330 @@ func _EinkaufService_ExportPO_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _EinkaufService_ListCatalogItems_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListCatalogItemsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EinkaufServiceServer).ListCatalogItems(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EinkaufService_ListCatalogItems_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EinkaufServiceServer).ListCatalogItems(ctx, req.(*ListCatalogItemsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EinkaufService_GetCatalogItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCatalogItemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EinkaufServiceServer).GetCatalogItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EinkaufService_GetCatalogItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EinkaufServiceServer).GetCatalogItem(ctx, req.(*GetCatalogItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EinkaufService_CreateCatalogItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateCatalogItemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EinkaufServiceServer).CreateCatalogItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EinkaufService_CreateCatalogItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EinkaufServiceServer).CreateCatalogItem(ctx, req.(*CreateCatalogItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EinkaufService_UpdateCatalogItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateCatalogItemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EinkaufServiceServer).UpdateCatalogItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EinkaufService_UpdateCatalogItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EinkaufServiceServer).UpdateCatalogItem(ctx, req.(*UpdateCatalogItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EinkaufService_DeleteCatalogItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteCatalogItemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EinkaufServiceServer).DeleteCatalogItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EinkaufService_DeleteCatalogItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EinkaufServiceServer).DeleteCatalogItem(ctx, req.(*DeleteCatalogItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EinkaufService_ListSupplierRatings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListSupplierRatingsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EinkaufServiceServer).ListSupplierRatings(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EinkaufService_ListSupplierRatings_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EinkaufServiceServer).ListSupplierRatings(ctx, req.(*ListSupplierRatingsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EinkaufService_CreateSupplierRating_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateSupplierRatingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EinkaufServiceServer).CreateSupplierRating(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EinkaufService_CreateSupplierRating_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EinkaufServiceServer).CreateSupplierRating(ctx, req.(*CreateSupplierRatingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EinkaufService_DeleteSupplierRating_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteSupplierRatingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EinkaufServiceServer).DeleteSupplierRating(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EinkaufService_DeleteSupplierRating_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EinkaufServiceServer).DeleteSupplierRating(ctx, req.(*DeleteSupplierRatingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EinkaufService_ListFrameworkContracts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListFrameworkContractsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EinkaufServiceServer).ListFrameworkContracts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EinkaufService_ListFrameworkContracts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EinkaufServiceServer).ListFrameworkContracts(ctx, req.(*ListFrameworkContractsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EinkaufService_GetFrameworkContract_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetFrameworkContractRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EinkaufServiceServer).GetFrameworkContract(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EinkaufService_GetFrameworkContract_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EinkaufServiceServer).GetFrameworkContract(ctx, req.(*GetFrameworkContractRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EinkaufService_CreateFrameworkContract_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateFrameworkContractRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EinkaufServiceServer).CreateFrameworkContract(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EinkaufService_CreateFrameworkContract_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EinkaufServiceServer).CreateFrameworkContract(ctx, req.(*CreateFrameworkContractRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EinkaufService_UpdateFrameworkContract_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateFrameworkContractRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EinkaufServiceServer).UpdateFrameworkContract(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EinkaufService_UpdateFrameworkContract_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EinkaufServiceServer).UpdateFrameworkContract(ctx, req.(*UpdateFrameworkContractRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EinkaufService_DeleteFrameworkContract_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteFrameworkContractRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EinkaufServiceServer).DeleteFrameworkContract(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EinkaufService_DeleteFrameworkContract_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EinkaufServiceServer).DeleteFrameworkContract(ctx, req.(*DeleteFrameworkContractRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EinkaufService_CreateContractItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateContractItemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EinkaufServiceServer).CreateContractItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EinkaufService_CreateContractItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EinkaufServiceServer).CreateContractItem(ctx, req.(*CreateContractItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EinkaufService_UpdateContractItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateContractItemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EinkaufServiceServer).UpdateContractItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EinkaufService_UpdateContractItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EinkaufServiceServer).UpdateContractItem(ctx, req.(*UpdateContractItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EinkaufService_DeleteContractItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteContractItemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EinkaufServiceServer).DeleteContractItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EinkaufService_DeleteContractItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EinkaufServiceServer).DeleteContractItem(ctx, req.(*DeleteContractItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EinkaufService_CreateContractCall_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateContractCallRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EinkaufServiceServer).CreateContractCall(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EinkaufService_CreateContractCall_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EinkaufServiceServer).CreateContractCall(ctx, req.(*CreateContractCallRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EinkaufService_ListContractCalls_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListContractCallsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EinkaufServiceServer).ListContractCalls(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EinkaufService_ListContractCalls_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EinkaufServiceServer).ListContractCalls(ctx, req.(*ListContractCallsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // EinkaufService_ServiceDesc is the grpc.ServiceDesc for EinkaufService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -768,6 +1386,78 @@ var EinkaufService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ExportPO",
 			Handler:    _EinkaufService_ExportPO_Handler,
+		},
+		{
+			MethodName: "ListCatalogItems",
+			Handler:    _EinkaufService_ListCatalogItems_Handler,
+		},
+		{
+			MethodName: "GetCatalogItem",
+			Handler:    _EinkaufService_GetCatalogItem_Handler,
+		},
+		{
+			MethodName: "CreateCatalogItem",
+			Handler:    _EinkaufService_CreateCatalogItem_Handler,
+		},
+		{
+			MethodName: "UpdateCatalogItem",
+			Handler:    _EinkaufService_UpdateCatalogItem_Handler,
+		},
+		{
+			MethodName: "DeleteCatalogItem",
+			Handler:    _EinkaufService_DeleteCatalogItem_Handler,
+		},
+		{
+			MethodName: "ListSupplierRatings",
+			Handler:    _EinkaufService_ListSupplierRatings_Handler,
+		},
+		{
+			MethodName: "CreateSupplierRating",
+			Handler:    _EinkaufService_CreateSupplierRating_Handler,
+		},
+		{
+			MethodName: "DeleteSupplierRating",
+			Handler:    _EinkaufService_DeleteSupplierRating_Handler,
+		},
+		{
+			MethodName: "ListFrameworkContracts",
+			Handler:    _EinkaufService_ListFrameworkContracts_Handler,
+		},
+		{
+			MethodName: "GetFrameworkContract",
+			Handler:    _EinkaufService_GetFrameworkContract_Handler,
+		},
+		{
+			MethodName: "CreateFrameworkContract",
+			Handler:    _EinkaufService_CreateFrameworkContract_Handler,
+		},
+		{
+			MethodName: "UpdateFrameworkContract",
+			Handler:    _EinkaufService_UpdateFrameworkContract_Handler,
+		},
+		{
+			MethodName: "DeleteFrameworkContract",
+			Handler:    _EinkaufService_DeleteFrameworkContract_Handler,
+		},
+		{
+			MethodName: "CreateContractItem",
+			Handler:    _EinkaufService_CreateContractItem_Handler,
+		},
+		{
+			MethodName: "UpdateContractItem",
+			Handler:    _EinkaufService_UpdateContractItem_Handler,
+		},
+		{
+			MethodName: "DeleteContractItem",
+			Handler:    _EinkaufService_DeleteContractItem_Handler,
+		},
+		{
+			MethodName: "CreateContractCall",
+			Handler:    _EinkaufService_CreateContractCall_Handler,
+		},
+		{
+			MethodName: "ListContractCalls",
+			Handler:    _EinkaufService_ListContractCalls_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

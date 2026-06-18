@@ -44,7 +44,9 @@ func main() {
 
 	// Repository and service
 	repo := einkauf.NewPostgresRepository(pool)
-	einkaufService := einkauf.NewService(repo)
+	// NewServiceExtended wires both the base repo and the extended repo
+	// (catalog, supplier ratings, framework contracts) so all RPCs work.
+	einkaufService := einkauf.NewServiceExtended(repo)
 
 	metricsRegistry := metrics.NewRegistry()
 

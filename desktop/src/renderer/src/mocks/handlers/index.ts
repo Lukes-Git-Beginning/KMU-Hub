@@ -28,6 +28,7 @@ import { schichtenHandlers } from './schichten'
 import { helpdeskHandlers } from './helpdesk'
 import { inventarHandlers } from './inventar'
 import { produktionHandlers } from './produktion'
+import { einkaufHandlers } from './einkauf'
 
 export const handlers = [
   ...authHandlers,
@@ -56,4 +57,5 @@ export const handlers = [
   ...helpdeskHandlers,
   ...inventarHandlers,
   ...produktionHandlers,
+  ...einkaufHandlers,
 ]

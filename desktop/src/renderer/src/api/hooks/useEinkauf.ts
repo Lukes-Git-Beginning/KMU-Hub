@@ -23,6 +23,24 @@ import {
   addPOLine,
   updatePOLine,
   deletePOLine,
+  listCatalogItems,
+  getCatalogItem,
+  createCatalogItem,
+  updateCatalogItem,
+  deleteCatalogItem,
+  listSupplierRatings,
+  createSupplierRating,
+  deleteSupplierRating,
+  listFrameworkContracts,
+  getFrameworkContract,
+  createFrameworkContract,
+  updateFrameworkContract,
+  deleteFrameworkContract,
+  createContractItem,
+  updateContractItem,
+  deleteContractItem,
+  createContractCall,
+  listContractCalls,
 } from '../einkauf-client'
 import type {
   CreateSupplierInput,
@@ -34,6 +52,16 @@ import type {
   AddPOLineInput,
   UpdatePOLineInput,
   PartialReceiveInput,
+  ListCatalogItemsParams,
+  CreateCatalogItemInput,
+  UpdateCatalogItemInput,
+  CreateSupplierRatingInput,
+  ListFrameworkContractsParams,
+  CreateFrameworkContractInput,
+  UpdateFrameworkContractInput,
+  CreateContractItemInput,
+  UpdateContractItemInput,
+  CreateContractCallInput,
 } from '../einkauf-types'
 
 // ---------------------------------------------------------------------------
@@ -47,6 +75,12 @@ export const einkaufKeys = {
   pos: (params?: ListPOsParams) => ['einkauf', 'pos', params] as const,
   po: (id: string) => ['einkauf', 'pos', id] as const,
   poLines: (poId: string) => ['einkauf', 'pos', poId, 'lines'] as const,
+  catalogItems: (params?: ListCatalogItemsParams) => ['einkauf', 'catalog', params] as const,
+  catalogItem: (id: string) => ['einkauf', 'catalog', id] as const,
+  supplierRatings: (supplierId: string) => ['einkauf', 'suppliers', supplierId, 'ratings'] as const,
+  contracts: (params?: ListFrameworkContractsParams) => ['einkauf', 'contracts', params] as const,
+  contract: (id: string) => ['einkauf', 'contracts', id] as const,
+  contractCalls: (contractId: string) => ['einkauf', 'contracts', contractId, 'calls'] as const,
 }
 
 // ---------------------------------------------------------------------------
@@ -233,5 +267,186 @@ export function useDeletePOLine() {
       deletePOLine(poId, lineId),
     onSuccess: (_data, variables) =>
       qc.invalidateQueries({ queryKey: einkaufKeys.poLines(variables.poId) }),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Queries + Mutations — Catalog Items
+// ---------------------------------------------------------------------------
+
+export function useCatalogItems(params?: ListCatalogItemsParams) {
+  return useQuery({
+    queryKey: einkaufKeys.catalogItems(params),
+    queryFn: () => listCatalogItems(params),
+  })
+}
+
+export function useCatalogItem(id: string) {
+  return useQuery({
+    queryKey: einkaufKeys.catalogItem(id),
+    queryFn: () => getCatalogItem(id),
+    enabled: !!id,
+  })
+}
+
+export function useCreateCatalogItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateCatalogItemInput) => createCatalogItem(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['einkauf', 'catalog'] }),
+  })
+}
+
+export function useUpdateCatalogItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...input }: UpdateCatalogItemInput & { id: string }) =>
+      updateCatalogItem(id, input),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: einkaufKeys.catalogItem(variables.id) })
+      qc.invalidateQueries({ queryKey: ['einkauf', 'catalog'] })
+    },
+  })
+}
+
+export function useDeleteCatalogItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteCatalogItem(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['einkauf', 'catalog'] }),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Queries + Mutations — Supplier Ratings
+// ---------------------------------------------------------------------------
+
+export function useSupplierRatings(supplierId: string) {
+  return useQuery({
+    queryKey: einkaufKeys.supplierRatings(supplierId),
+    queryFn: () => listSupplierRatings(supplierId),
+    enabled: !!supplierId,
+  })
+}
+
+export function useCreateSupplierRating() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ supplierId, ...body }: Omit<CreateSupplierRatingInput, 'supplier_id'> & { supplierId: string }) =>
+      createSupplierRating(supplierId, body),
+    onSuccess: (_data, variables) =>
+      qc.invalidateQueries({ queryKey: einkaufKeys.supplierRatings(variables.supplierId) }),
+  })
+}
+
+export function useDeleteSupplierRating() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ supplierId, ratingId }: { supplierId: string; ratingId: string }) =>
+      deleteSupplierRating(supplierId, ratingId),
+    onSuccess: (_data, variables) =>
+      qc.invalidateQueries({ queryKey: einkaufKeys.supplierRatings(variables.supplierId) }),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Queries + Mutations — Framework Contracts
+// ---------------------------------------------------------------------------
+
+export function useFrameworkContracts(params?: ListFrameworkContractsParams) {
+  return useQuery({
+    queryKey: einkaufKeys.contracts(params),
+    queryFn: () => listFrameworkContracts(params),
+  })
+}
+
+export function useFrameworkContract(id: string) {
+  return useQuery({
+    queryKey: einkaufKeys.contract(id),
+    queryFn: () => getFrameworkContract(id),
+    enabled: !!id,
+  })
+}
+
+export function useCreateFrameworkContract() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateFrameworkContractInput) => createFrameworkContract(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['einkauf', 'contracts'] }),
+  })
+}
+
+export function useUpdateFrameworkContract() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...input }: UpdateFrameworkContractInput & { id: string }) =>
+      updateFrameworkContract(id, input),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: einkaufKeys.contract(variables.id) })
+      qc.invalidateQueries({ queryKey: ['einkauf', 'contracts'] })
+    },
+  })
+}
+
+export function useDeleteFrameworkContract() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteFrameworkContract(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['einkauf', 'contracts'] }),
+  })
+}
+
+export function useCreateContractItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ contractId, ...body }: Omit<CreateContractItemInput, 'contract_id'> & { contractId: string }) =>
+      createContractItem(contractId, body),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: einkaufKeys.contract(variables.contractId) })
+      qc.invalidateQueries({ queryKey: ['einkauf', 'contracts'] })
+    },
+  })
+}
+
+export function useUpdateContractItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ contractId, itemId, ...body }: UpdateContractItemInput & { contractId: string; itemId: string }) =>
+      updateContractItem(contractId, itemId, body),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: einkaufKeys.contract(variables.contractId) })
+    },
+  })
+}
+
+export function useDeleteContractItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ contractId, itemId }: { contractId: string; itemId: string }) =>
+      deleteContractItem(contractId, itemId),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: einkaufKeys.contract(variables.contractId) })
+    },
+  })
+}
+
+export function useContractCalls(contractId: string) {
+  return useQuery({
+    queryKey: einkaufKeys.contractCalls(contractId),
+    queryFn: () => listContractCalls(contractId),
+    enabled: !!contractId,
+  })
+}
+
+export function useCreateContractCall() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ contractId, ...body }: Omit<CreateContractCallInput, 'contract_id'> & { contractId: string }) =>
+      createContractCall(contractId, body),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: einkaufKeys.contractCalls(variables.contractId) })
+      qc.invalidateQueries({ queryKey: einkaufKeys.contract(variables.contractId) })
+      qc.invalidateQueries({ queryKey: ['einkauf', 'contracts'] })
+    },
   })
 }

@@ -40,42 +40,56 @@ import {
   ChevronUp,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useEinkaufStore } from '@/stores/einkauf'
+import type {
+  Supplier,
+  PurchaseOrder,
+  CatalogItem,
+  SupplierRating,
+  FrameworkContract,
+} from '@/api/einkauf-types'
 import {
-  useEinkaufStore,
-  type PurchaseOrder,
-  type Supplier,
-  type SupplierRating,
-  type FrameworkContract,
-} from '@/stores/einkauf'
+  useSuppliers,
+  usePOs,
+  useCatalogItems,
+  useFrameworkContracts,
+  useSupplierRatings,
+} from '@/api/hooks/useEinkauf'
 import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
 import { formatAmount, formatCurrency, formatDate } from '@/lib/format'
 
 type TabKey = 'bestellungen' | 'lieferanten' | 'katalog' | 'rahmenverträge'
-type StatusFilter = PurchaseOrder['status'] | 'all'
+type StatusFilter = PurchaseOrder['status'] | 'all' | 'confirmed' | 'partial'
 
 const orderStatusLabels: Record<string, string> = {
   draft: 'einkauf.orderStatus.draft',
+  submitted: 'einkauf.orderStatus.submitted',
   sent: 'einkauf.orderStatus.sent',
   confirmed: 'einkauf.orderStatus.confirmed',
   partial: 'einkauf.orderStatus.partial',
+  partially_received: 'einkauf.orderStatus.partial',
   received: 'einkauf.orderStatus.received',
+  closed: 'einkauf.orderStatus.received',
   cancelled: 'einkauf.orderStatus.cancelled',
 }
 
 const orderStatusColors: Record<string, string> = {
   draft: 'bg-secondary text-muted-foreground',
+  submitted: 'bg-info-light text-info',
   sent: 'bg-info-light text-info',
   confirmed: 'bg-primary-light text-primary',
   partial: 'bg-warning-light text-warning',
+  partially_received: 'bg-warning-light text-warning',
   received: 'bg-success-light text-success',
+  closed: 'bg-success-light text-success',
   cancelled: 'bg-error-light text-error',
 }
 
-const STATUS_TIMELINE: PurchaseOrder['status'][] = [
+type TimelineStatus = 'draft' | 'sent' | 'partially_received' | 'received'
+const STATUS_TIMELINE: TimelineStatus[] = [
   'draft',
   'sent',
-  'confirmed',
-  'partial',
+  'partially_received',
   'received',
 ]
 
@@ -89,23 +103,23 @@ const PAYMENT_TERMS_OPTIONS = [
 ]
 
 // STATUS_FILTER_OPTIONS labels are resolved with t() inside the component
-const STATUS_FILTER_KEYS: StatusFilter[] = ['all', 'draft', 'sent', 'confirmed', 'partial', 'received', 'cancelled']
+const STATUS_FILTER_KEYS: StatusFilter[] = ['all', 'draft', 'submitted', 'sent', 'partially_received', 'received', 'cancelled']
 
 const CURRENCY_OPTIONS = ['EUR', 'CHF', 'USD']
 
-const ratingCategoryLabels: Record<SupplierRating['category'], string> = {
+const ratingCategoryLabels: Record<string, string> = {
   quality: 'einkauf.ratingCategory.quality',
   delivery: 'einkauf.ratingCategory.delivery',
   price: 'einkauf.ratingCategory.price',
 }
 
-const contractStatusColors: Record<FrameworkContract['status'], string> = {
+const contractStatusColors: Record<string, string> = {
   active: 'bg-success-light text-success',
   expired: 'bg-secondary text-muted-foreground',
   draft: 'bg-info-light text-info',
 }
 
-const contractStatusLabels: Record<FrameworkContract['status'], string> = {
+const contractStatusLabels: Record<string, string> = {
   active: 'einkauf.contractStatus.active',
   expired: 'einkauf.contractStatus.expired',
   draft: 'einkauf.contractStatus.draft',
@@ -147,15 +161,7 @@ export default function EinkaufPage() {
     label: key === 'all' ? t('einkauf.statusFilter.all') : t(orderStatusLabels[key] ?? key),
   }))
 
-  const {
-    purchaseOrders,
-    suppliers,
-    purchaseOrderItems,
-    catalogItems,
-    supplierRatings,
-    frameworkContracts,
-    approvalThreshold,
-  } = useEinkaufStore()
+  const { approvalThreshold } = useEinkaufStore()
 
   // Tab & search
   const [tab, setTab] = useState<TabKey>('bestellungen')
@@ -197,6 +203,22 @@ export default function EinkaufPage() {
   const [catalogSearch, setCatalogSearch] = useState('')
   const [catalogCategory, setCatalogCategory] = useState<string>('all')
 
+  // API data
+  const { data: posData, isLoading: posLoading } = usePOs()
+  const purchaseOrders = posData?.pos ?? []
+
+  const { data: suppliersData, isLoading: suppliersLoading } = useSuppliers()
+  const suppliers = suppliersData?.suppliers ?? []
+
+  const { data: catalogData, isLoading: catalogLoading } = useCatalogItems({
+    search: catalogSearch || undefined,
+    category: catalogCategory !== 'all' ? catalogCategory : undefined,
+  })
+  const catalogItems = catalogData?.catalog_items ?? []
+
+  const { data: contractsData, isLoading: contractsLoading } = useFrameworkContracts()
+  const frameworkContracts = contractsData?.contracts ?? []
+
   // Rahmenverträge state
   const [expandedContract, setExpandedContract] = useState<string | null>(null)
 
@@ -212,23 +234,25 @@ export default function EinkaufPage() {
     if (search) {
       const q = search.toLowerCase()
       list = list.filter(
-        (o) =>
-          o.orderNumber.toLowerCase().includes(q) ||
-          o.supplierName.toLowerCase().includes(q),
+        (o) => {
+          const sup = suppliers.find(s => s.id === o.supplier_id)
+          return (
+            o.po_number.toLowerCase().includes(q) ||
+            (sup?.name ?? '').toLowerCase().includes(q)
+          )
+        },
       )
     }
     return list
-  }, [purchaseOrders, search, statusFilter])
+  }, [purchaseOrders, suppliers, search, statusFilter])
 
   const filteredSuppliers = useMemo(() => {
-    if (!search) return suppliers.filter((s) => s.isActive)
+    if (!search) return suppliers
     const q = search.toLowerCase()
     return suppliers.filter(
       (s) =>
-        s.isActive &&
-        (s.name.toLowerCase().includes(q) ||
-          s.contactName.toLowerCase().includes(q) ||
-          s.email.toLowerCase().includes(q)),
+        s.name.toLowerCase().includes(q) ||
+        s.email.toLowerCase().includes(q),
     )
   }, [suppliers, search])
 
@@ -238,62 +262,64 @@ export default function EinkaufPage() {
   }, [catalogItems])
 
   const filteredCatalog = useMemo(() => {
+    // Catalog is already server-filtered via useCatalogItems params — local filtering as fallback
     let list = catalogItems
     if (catalogCategory !== 'all') {
       list = list.filter((c) => c.category === catalogCategory)
     }
     if (catalogSearch) {
       const q = catalogSearch.toLowerCase()
+      const supMap = new Map(suppliers.map(s => [s.id, s.name]))
       list = list.filter(
         (c) =>
           c.name.toLowerCase().includes(q) ||
           c.sku.toLowerCase().includes(q) ||
-          c.supplierName.toLowerCase().includes(q),
+          (supMap.get(c.supplier_id) ?? '').toLowerCase().includes(q),
       )
     }
     return list
-  }, [catalogItems, catalogSearch, catalogCategory])
+  }, [catalogItems, catalogSearch, catalogCategory, suppliers])
 
   const activeOrderCount = purchaseOrders.filter(
-    (o) => o.status !== 'received' && o.status !== 'cancelled',
+    (o) => o.status !== 'received' && o.status !== 'closed' && o.status !== 'cancelled',
   ).length
 
   const totalOpen = purchaseOrders
-    .filter((o) => o.status !== 'received' && o.status !== 'cancelled')
-    .reduce((sum, o) => sum + o.total, 0)
+    .filter((o) => o.status !== 'received' && o.status !== 'closed' && o.status !== 'cancelled')
+    .reduce((sum, o) => sum + parseFloat(o.total_amount), 0)
 
-  const activeSupplierCount = suppliers.filter((s) => s.isActive).length
+  const activeSupplierCount = suppliers.length
 
   const newOrderTotal = useMemo(
     () => newOrderItems.reduce((s, i) => s + i.quantity * i.unitPrice, 0),
     [newOrderItems],
   )
 
-  // Items for a given order
+  // Items for a given order (lines come embedded on the PO from API)
   const getOrderItems = useCallback(
-    (orderId: string) => purchaseOrderItems.filter((i) => i.orderId === orderId),
-    [purchaseOrderItems],
+    (orderId: string) => {
+      const po = purchaseOrders.find(p => p.id === orderId)
+      return po?.lines ?? []
+    },
+    [purchaseOrders],
   )
 
   // Orders for a given supplier
   const getSupplierOrders = useCallback(
-    (supplierId: string) => purchaseOrders.filter((o) => o.supplierId === supplierId),
+    (supplierId: string) => purchaseOrders.filter((o) => o.supplier_id === supplierId),
     [purchaseOrders],
   )
 
-  // Ratings for a given supplier
-  const getSupplierRatings = useCallback(
-    (supplierId: string) => supplierRatings.filter((r) => r.supplierId === supplierId),
-    [supplierRatings],
-  )
+  // Ratings for selected supplier (loaded via hook when supplier is selected)
+  const { data: ratingsData } = useSupplierRatings(selectedSupplier?.id ?? '')
+  const selectedSupplierRatings = ratingsData?.ratings ?? []
 
   const getSupplierAvgRating = useCallback(
-    (supplierId: string) => {
-      const ratings = supplierRatings.filter((r) => r.supplierId === supplierId)
+    (ratings: typeof selectedSupplierRatings) => {
       if (ratings.length === 0) return 0
       return ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length
     },
-    [supplierRatings],
+    [],
   )
 
   // ---------------------------------------------------------------------------
@@ -314,14 +340,14 @@ export default function EinkaufPage() {
       icon: PackageCheck,
       onClick: () => openWareneingang(order),
     },
-    { label: t('einkauf.action.edit'), icon: Edit, onClick: () => toast.info(t('einkauf.toast.editOrder', { orderNumber: order.orderNumber })) },
+    { label: t('einkauf.action.edit'), icon: Edit, onClick: () => toast.info(t('einkauf.toast.editOrder', { orderNumber: order.po_number })) },
     { separator: true as const, label: '', onClick: () => {} },
     { label: t('einkauf.action.cancel'), icon: Trash2, variant: 'destructive' as const, onClick: () => setConfirmDelete(order) },
   ]
 
   const handleCancelOrder = (order: PurchaseOrder) => {
     setConfirmDelete(null)
-    toast.success(t('einkauf.toast.orderCancelled', { orderNumber: order.orderNumber }))
+    toast.success(t('einkauf.toast.orderCancelled', { orderNumber: order.po_number }))
   }
 
   // -- New order dialog helpers --
@@ -357,7 +383,7 @@ export default function EinkaufPage() {
       return
     }
     const sup = suppliers.find((s) => s.id === newOrderSupplierId)
-    const nr = `PO-2026-${String(purchaseOrders.length + 1).padStart(3, '0')}`
+    const nr = `PO-${new Date().getFullYear()}-${String(purchaseOrders.length + 1).padStart(3, '0')}`
     toast.success(t('einkauf.toast.orderCreated', { nr, supplier: sup?.name ?? t('einkauf.detail.supplierSection'), currency: newOrderCurrency, total: newOrderTotal.toLocaleString('de-DE', { minimumFractionDigits: 2 }) }))
     resetNewOrderForm()
     setShowNewOrderDialog(false)
@@ -398,16 +424,16 @@ export default function EinkaufPage() {
   const handleSaveWareneingang = () => {
     if (!showWareneingangDialog) return
     if (bookToInventory) {
-      toast.success(t('einkauf.toast.wareneingangWithInventory', { orderNumber: showWareneingangDialog.orderNumber }))
+      toast.success(t('einkauf.toast.wareneingangWithInventory', { orderNumber: showWareneingangDialog.po_number }))
     } else {
-      toast.success(t('einkauf.toast.wareneingang', { orderNumber: showWareneingangDialog.orderNumber }))
+      toast.success(t('einkauf.toast.wareneingang', { orderNumber: showWareneingangDialog.po_number }))
     }
     setShowWareneingangDialog(null)
   }
 
   // -- Approval --
   const handleApproveOrder = (order: PurchaseOrder) => {
-    toast.success(t('einkauf.toast.orderApproved', { orderNumber: order.orderNumber }))
+    toast.success(t('einkauf.toast.orderApproved', { orderNumber: order.po_number }))
   }
 
   // ---------------------------------------------------------------------------
@@ -419,7 +445,7 @@ export default function EinkaufPage() {
     formatDate(d.includes('T') ? d : d + 'T00:00:00')
 
   /** Status timeline for detail panel */
-  const renderTimeline = (currentStatus: PurchaseOrder['status']) => {
+  const renderTimeline = (currentStatus: string) => {
     if (currentStatus === 'cancelled') {
       return (
         <div className="flex items-center gap-2 text-xs text-error">
@@ -428,7 +454,7 @@ export default function EinkaufPage() {
         </div>
       )
     }
-    const currentIdx = STATUS_TIMELINE.indexOf(currentStatus)
+    const currentIdx = STATUS_TIMELINE.indexOf(currentStatus as TimelineStatus)
     return (
       <div className="flex items-center gap-1">
         {STATUS_TIMELINE.map((s, idx) => {
@@ -510,8 +536,8 @@ export default function EinkaufPage() {
         {([
           { key: 'bestellungen' as const, label: t('einkauf.tab.bestellungen', { count: purchaseOrders.length }) },
           { key: 'lieferanten' as const, label: t('einkauf.tab.lieferanten', { count: activeSupplierCount }) },
-          { key: 'katalog' as const, label: t('einkauf.tab.katalog', { count: catalogItems.length }) },
-          { key: 'rahmenverträge' as const, label: t('einkauf.tab.rahmenvertraege', { count: frameworkContracts.length }) },
+          { key: 'katalog' as const, label: t('einkauf.tab.katalog', { count: catalogData?.total ?? catalogItems.length }) },
+          { key: 'rahmenverträge' as const, label: t('einkauf.tab.rahmenvertraege', { count: contractsData?.total ?? frameworkContracts.length }) },
         ]).map((tabItem) => (
           <button
             key={tabItem.key}
@@ -571,7 +597,11 @@ export default function EinkaufPage() {
       {/* ====================== BESTELLUNGEN TAB ====================== */}
       {tab === 'bestellungen' && (
         <>
-          {filteredOrders.length === 0 ? (
+          {posLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent" />
+            </div>
+          ) : filteredOrders.length === 0 ? (
             <EmptyState
               icon={ShoppingCart}
               title={t('einkauf.empty.noOrders.title')}
@@ -596,7 +626,9 @@ export default function EinkaufPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredOrders.map((order) => (
+                  {filteredOrders.map((order) => {
+                    const sup = suppliers.find(s => s.id === order.supplier_id)
+                    return (
                     <tr
                       key={order.id}
                       onClick={() => {
@@ -606,9 +638,9 @@ export default function EinkaufPage() {
                       className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer"
                     >
                       <td className="px-4 py-3 font-medium text-foreground font-mono text-xs">
-                        {order.orderNumber}
+                        {order.po_number}
                       </td>
-                      <td className="px-4 py-3 text-foreground">{order.supplierName}</td>
+                      <td className="px-4 py-3 text-foreground">{sup?.name ?? order.supplier_id}</td>
                       <td className="px-4 py-3">
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
@@ -619,19 +651,20 @@ export default function EinkaufPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right text-foreground tabular-nums">
-                        {formatCurrency(order.total, order.currency || 'EUR')}
+                        {formatCurrency(parseFloat(order.total_amount), order.currency || 'EUR')}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {order.expectedDelivery ? formatDateLocal(order.expectedDelivery) : '--'}
+                        {order.expected_delivery_date ? formatDateLocal(order.expected_delivery_date) : '--'}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {formatDate(order.createdAt)}
+                        {formatDate(order.created_at)}
                       </td>
                       <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                         <ItemActions items={getOrderActions(order)} />
                       </td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -642,7 +675,11 @@ export default function EinkaufPage() {
       {/* ====================== LIEFERANTEN TAB ====================== */}
       {tab === 'lieferanten' && (
         <>
-          {filteredSuppliers.length === 0 ? (
+          {suppliersLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent" />
+            </div>
+          ) : filteredSuppliers.length === 0 ? (
             <EmptyState
               icon={Truck}
               title={t('einkauf.empty.noSuppliers.title')}
@@ -668,7 +705,7 @@ export default function EinkaufPage() {
                         </div>
                         <div>
                           <h4 className="text-sm font-medium text-foreground">{supplier.name}</h4>
-                          <p className="text-xs text-muted-foreground">{supplier.contactName}</p>
+                          <p className="text-xs text-muted-foreground">{supplier.email}</p>
                         </div>
                       </div>
                       <div onClick={(e) => e.stopPropagation()}>
@@ -705,7 +742,7 @@ export default function EinkaufPage() {
                     </div>
                     <div className="flex items-center justify-between border-t border-border-muted pt-3">
                       <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
-                        {supplier.paymentTerms}
+                        {supplier.payment_terms}
                       </span>
                       <span className="text-xs text-muted-foreground">
                         {supOrders.length !== 1
@@ -751,7 +788,11 @@ export default function EinkaufPage() {
             </select>
           </div>
 
-          {filteredCatalog.length === 0 ? (
+          {catalogLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent" />
+            </div>
+          ) : filteredCatalog.length === 0 ? (
             <EmptyState
               icon={BookOpen}
               title={t('einkauf.empty.noCatalog.title')}
@@ -783,7 +824,7 @@ export default function EinkaufPage() {
                   <div className="space-y-1.5 text-xs text-muted-foreground mb-3 flex-1">
                     <div className="flex items-center gap-2">
                       <Truck className="h-3 w-3" />
-                      <span>{item.supplierName}</span>
+                      <span>{suppliers.find(s => s.id === item.supplier_id)?.name ?? item.supplier_id}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <ScanBarcode className="h-3 w-3" />
@@ -791,14 +832,14 @@ export default function EinkaufPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <PackageCheck className="h-3 w-3" />
-                      <span>{t('einkauf.catalog.minOrder', { qty: item.minOrder, unit: item.unit })}</span>
+                      <span>{t('einkauf.catalog.minOrder', { qty: item.min_order_qty, unit: item.unit })}</span>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between border-t border-border-muted pt-3">
                     <div>
                       <p className="text-base font-semibold text-foreground tabular-nums">
-                        {formatCurrency(item.price, item.currency)}
+                        {formatCurrency(parseFloat(item.price), item.currency)}
                       </p>
                       <p className="text-[10px] text-muted-foreground">{t('einkauf.catalog.perUnit', { unit: item.unit })}</p>
                     </div>
@@ -822,7 +863,11 @@ export default function EinkaufPage() {
       {/* ====================== RAHMENVERTRAEGE TAB ====================== */}
       {tab === 'rahmenverträge' && (
         <>
-          {frameworkContracts.length === 0 ? (
+          {contractsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent" />
+            </div>
+          ) : frameworkContracts.length === 0 ? (
             <EmptyState
               icon={ScrollText}
               title={t('einkauf.empty.noContracts.title')}
@@ -832,8 +877,10 @@ export default function EinkaufPage() {
             <div className="space-y-4">
               {frameworkContracts.map((contract) => {
                 const isExpanded = expandedContract === contract.id
-                const usagePct = contract.totalValue > 0
-                  ? Math.round((contract.usedValue / contract.totalValue) * 100)
+                const totalVal = parseFloat(contract.total_value)
+                const usedVal = parseFloat(contract.used_value)
+                const usagePct = totalVal > 0
+                  ? Math.round((usedVal / totalVal) * 100)
                   : 0
 
                 return (
@@ -862,9 +909,13 @@ export default function EinkaufPage() {
                             </span>
                           </div>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                            <span className="font-mono">{contract.contractNr}</span>
-                            <span>{contract.supplierName}</span>
-                            <span>{formatDateLocal(contract.startDate)} – {formatDateLocal(contract.endDate)}</span>
+                            <span className="font-mono">{contract.contract_nr}</span>
+                            <span>{suppliers.find(s => s.id === contract.supplier_id)?.name ?? contract.supplier_id}</span>
+                            <span>
+                              {contract.start_date ? formatDateLocal(contract.start_date) : '--'}
+                              {' – '}
+                              {contract.end_date ? formatDateLocal(contract.end_date) : '--'}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -885,8 +936,8 @@ export default function EinkaufPage() {
                             />
                           </div>
                           <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-0.5">
-                            <span>{formatCurrency(contract.usedValue, contract.currency)}</span>
-                            <span>{formatCurrency(contract.totalValue, contract.currency)}</span>
+                            <span>{formatCurrency(usedVal, contract.currency)}</span>
+                            <span>{formatCurrency(totalVal, contract.currency)}</span>
                           </div>
                         </div>
                         {isExpanded ? (
@@ -912,10 +963,12 @@ export default function EinkaufPage() {
                               </tr>
                             </thead>
                             <tbody>
-                              {contract.items.map((item, idx) => {
-                                const remaining = item.agreedQty - item.calledQty
-                                const callPct = item.agreedQty > 0
-                                  ? Math.round((item.calledQty / item.agreedQty) * 100)
+                              {(contract.items ?? []).map((item, idx) => {
+                                const agreedQtyN = parseFloat(item.agreed_qty)
+                                const calledQtyN = parseFloat(item.called_qty)
+                                const remaining = agreedQtyN - calledQtyN
+                                const callPct = agreedQtyN > 0
+                                  ? Math.round((calledQtyN / agreedQtyN) * 100)
                                   : 0
                                 return (
                                   <tr key={idx} className="border-b border-border-muted last:border-0">
@@ -926,13 +979,13 @@ export default function EinkaufPage() {
                                       </div>
                                     </td>
                                     <td className="px-4 py-2.5 text-right text-foreground tabular-nums">
-                                      {formatCurrency(item.unitPrice, contract.currency)}
+                                      {formatCurrency(parseFloat(item.unit_price), contract.currency)}
                                     </td>
                                     <td className="px-4 py-2.5 text-right text-muted-foreground tabular-nums">
-                                      {item.agreedQty.toLocaleString('de-DE')}
+                                      {agreedQtyN.toLocaleString('de-DE')}
                                     </td>
                                     <td className="px-4 py-2.5 text-right text-foreground tabular-nums">
-                                      {item.calledQty.toLocaleString('de-DE')}
+                                      {calledQtyN.toLocaleString('de-DE')}
                                     </td>
                                     <td className="px-4 py-2.5 text-right tabular-nums">
                                       <span className={remaining <= 0 ? 'text-error' : 'text-success'}>
@@ -969,8 +1022,8 @@ export default function EinkaufPage() {
       <DetailPanel
         open={!!selectedOrder}
         onClose={() => setSelectedOrder(null)}
-        title={selectedOrder?.orderNumber ?? ''}
-        subtitle={selectedOrder?.supplierName}
+        title={selectedOrder?.po_number ?? ''}
+        subtitle={selectedOrder ? (suppliers.find(s => s.id === selectedOrder.supplier_id)?.name ?? selectedOrder.supplier_id) : undefined}
         badge={
           selectedOrder ? (
             <span
@@ -996,7 +1049,7 @@ export default function EinkaufPage() {
                 {t('einkauf.action.bookReceipt')}
               </button>
               <button
-                onClick={() => toast.info(t('einkauf.toast.editOrder', { orderNumber: selectedOrder.orderNumber }))}
+                onClick={() => toast.info(t('einkauf.toast.editOrder', { orderNumber: selectedOrder.po_number }))}
                 className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
                 {t('einkauf.action.edit')}
@@ -1007,37 +1060,21 @@ export default function EinkaufPage() {
       >
         {selectedOrder && (
           <div className="space-y-5">
-            {/* 8.4 Approval banner */}
-            {selectedOrder.requiresApproval && (
-              <div
-                className={`rounded-lg p-3 flex items-center gap-3 ${
-                  selectedOrder.approvedBy
-                    ? 'bg-success-light border border-success/20'
-                    : 'bg-warning-light border border-warning/20'
-                }`}
-              >
-                <ShieldCheck className={`h-5 w-5 shrink-0 ${
-                  selectedOrder.approvedBy ? 'text-success' : 'text-warning'
-                }`} />
+            {/* 8.4 Approval banner — shown when total exceeds threshold */}
+            {parseFloat(selectedOrder.total_amount) > approvalThreshold && (
+              <div className="rounded-lg p-3 flex items-center gap-3 bg-warning-light border border-warning/20">
+                <ShieldCheck className="h-5 w-5 shrink-0 text-warning" />
                 <div className="flex-1 min-w-0">
-                  {selectedOrder.approvedBy ? (
-                    <p className="text-sm text-success font-medium">
-                      {t('einkauf.detail.approvedBy', { name: selectedOrder.approvedBy })}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-warning font-medium">
-                      {t('einkauf.detail.approvalRequired', { threshold: formatCurrency(approvalThreshold, selectedOrder.currency || 'EUR') })}
-                    </p>
-                  )}
+                  <p className="text-sm text-warning font-medium">
+                    {t('einkauf.detail.approvalRequired', { threshold: formatCurrency(approvalThreshold, selectedOrder.currency || 'EUR') })}
+                  </p>
                 </div>
-                {!selectedOrder.approvedBy && (
-                  <button
-                    onClick={() => handleApproveOrder(selectedOrder)}
-                    className="shrink-0 rounded-lg bg-warning px-3 py-1.5 text-xs font-medium text-warning-foreground hover:opacity-90 transition-opacity"
-                  >
-                    {t('einkauf.action.approve')}
-                  </button>
-                )}
+                <button
+                  onClick={() => handleApproveOrder(selectedOrder)}
+                  className="shrink-0 rounded-lg bg-warning px-3 py-1.5 text-xs font-medium text-warning-foreground hover:opacity-90 transition-opacity"
+                >
+                  {t('einkauf.action.approve')}
+                </button>
               </div>
             )}
 
@@ -1046,12 +1083,12 @@ export default function EinkaufPage() {
               <div className="rounded-lg border border-border bg-secondary/30 p-3">
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{t('einkauf.detail.amount')}</p>
                 <p className="text-lg font-semibold text-foreground tabular-nums">
-                  {formatCurrency(selectedOrder.total, selectedOrder.currency || 'EUR')}
+                  {formatCurrency(parseFloat(selectedOrder.total_amount), selectedOrder.currency || 'EUR')}
                 </p>
               </div>
               <div className="rounded-lg border border-border bg-secondary/30 p-3">
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{t('einkauf.detail.positions')}</p>
-                <p className="text-lg font-semibold text-foreground">{selectedOrder.itemCount}</p>
+                <p className="text-lg font-semibold text-foreground">{selectedOrder.lines?.length ?? 0}</p>
               </div>
             </div>
 
@@ -1061,13 +1098,13 @@ export default function EinkaufPage() {
                 <CalendarDays className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">{t('einkauf.detail.deliveryDateLabel')}</span>
                 <span className="text-foreground">
-                  {selectedOrder.expectedDelivery ? formatDateLocal(selectedOrder.expectedDelivery) : '--'}
+                  {selectedOrder.expected_delivery_date ? formatDateLocal(selectedOrder.expected_delivery_date) : '--'}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">{t('einkauf.detail.createdLabel')}</span>
-                <span className="text-foreground">{formatDate(selectedOrder.createdAt)}</span>
+                <span className="text-foreground">{formatDate(selectedOrder.created_at)}</span>
               </div>
             </div>
 
@@ -1090,26 +1127,31 @@ export default function EinkaufPage() {
                     {t('einkauf.detail.noPositions')}
                   </p>
                 ) : (
-                  getOrderItems(selectedOrder?.id ?? '').map((item) => (
+                  getOrderItems(selectedOrder?.id ?? '').map((item) => {
+                    const qty = parseFloat(item.quantity)
+                    const unitPrice = parseFloat(item.unit_price)
+                    const receivedQty = parseFloat(item.received_quantity)
+                    return (
                     <div key={item.id} className="flex items-center justify-between px-3 py-2.5">
                       <div>
-                        <p className="text-sm text-foreground">{item.itemName}</p>
+                        <p className="text-sm text-foreground">{item.product_name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {t('einkauf.detail.qty', { qty: item.quantity, price: formatCurrency(item.unitPrice, selectedOrder.currency || 'EUR') })}
+                          {t('einkauf.detail.qty', { qty, price: formatCurrency(unitPrice, selectedOrder.currency || 'EUR') })}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-medium text-foreground tabular-nums">
-                          {formatCurrency(item.quantity * item.unitPrice, selectedOrder.currency || 'EUR')}
+                          {formatCurrency(qty * unitPrice, selectedOrder.currency || 'EUR')}
                         </p>
-                        {item.receivedQuantity > 0 && (
+                        {receivedQty > 0 && (
                           <p className="text-[10px] text-success">
-                            {t('einkauf.detail.receivedQty', { received: item.receivedQuantity, total: item.quantity })}
+                            {t('einkauf.detail.receivedQty', { received: receivedQty, total: qty })}
                           </p>
                         )}
                       </div>
                     </div>
-                  ))
+                    )
+                  })
                 )}
               </div>
             </div>
@@ -1121,7 +1163,7 @@ export default function EinkaufPage() {
               </h4>
               <button
                 onClick={() => {
-                  const sup = suppliers.find((s) => s.id === selectedOrder.supplierId)
+                  const sup = suppliers.find((s) => s.id === selectedOrder.supplier_id)
                   if (sup) {
                     setSelectedOrder(null)
                     setTimeout(() => setSelectedSupplier(sup), 200)
@@ -1131,7 +1173,9 @@ export default function EinkaufPage() {
               >
                 <div className="flex items-center gap-2">
                   <Truck className="h-4 w-4 text-primary" />
-                  <span className="text-sm text-foreground">{selectedOrder.supplierName}</span>
+                  <span className="text-sm text-foreground">
+                    {suppliers.find(s => s.id === selectedOrder.supplier_id)?.name ?? selectedOrder.supplier_id}
+                  </span>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </button>
@@ -1153,17 +1197,17 @@ export default function EinkaufPage() {
                     <div className="h-px w-4 bg-border" />
                     {/* Lieferschein */}
                     <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 ${
-                      selectedOrder.status === 'partial' || selectedOrder.status === 'received'
+                      selectedOrder.status === 'partially_received' || selectedOrder.status === 'received' || selectedOrder.status === 'closed'
                         ? 'bg-success-light'
                         : 'bg-secondary'
                     }`}>
                       <Link2 className={`h-3.5 w-3.5 ${
-                        selectedOrder.status === 'partial' || selectedOrder.status === 'received'
+                        selectedOrder.status === 'partially_received' || selectedOrder.status === 'received' || selectedOrder.status === 'closed'
                           ? 'text-success'
                           : 'text-muted-foreground'
                       }`} />
                       <span className={`text-xs font-medium ${
-                        selectedOrder.status === 'partial' || selectedOrder.status === 'received'
+                        selectedOrder.status === 'partially_received' || selectedOrder.status === 'received' || selectedOrder.status === 'closed'
                           ? 'text-success'
                           : 'text-muted-foreground'
                       }`}>{t('einkauf.detail.deliveryNote')}</span>
@@ -1176,7 +1220,7 @@ export default function EinkaufPage() {
                     </div>
                   </div>
                   <button
-                    onClick={() => toast.info(t('einkauf.toast.assignInvoice', { orderNumber: selectedOrder.orderNumber }))}
+                    onClick={() => toast.info(t('einkauf.toast.assignInvoice', { orderNumber: selectedOrder.po_number }))}
                     className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
                   >
                     <Link2 className="h-3 w-3" />
@@ -1194,7 +1238,7 @@ export default function EinkaufPage() {
         open={!!selectedSupplier}
         onClose={() => setSelectedSupplier(null)}
         title={selectedSupplier?.name ?? ''}
-        subtitle={selectedSupplier?.contactName}
+        subtitle={selectedSupplier?.email}
         width="w-[420px]"
         footer={
           selectedSupplier ? (
@@ -1218,7 +1262,7 @@ export default function EinkaufPage() {
                   <UserCircle className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-foreground">{selectedSupplier.contactName}</p>
+                  <p className="text-sm font-medium text-foreground">{selectedSupplier.name}</p>
                   <p className="text-xs text-muted-foreground">{t('einkauf.supplier.contactPerson')}</p>
                 </div>
               </div>
@@ -1234,15 +1278,15 @@ export default function EinkaufPage() {
                 </div>
                 <div className="flex items-center gap-3 px-3 py-2.5">
                   <CreditCard className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-foreground">{selectedSupplier.paymentTerms}</span>
+                  <span className="text-sm text-foreground">{selectedSupplier.payment_terms}</span>
                 </div>
               </div>
             </div>
 
             {/* 8.3 Supplier rating */}
             {(() => {
-              const ratings = getSupplierRatings(selectedSupplier.id)
-              const avg = getSupplierAvgRating(selectedSupplier.id)
+              const ratings = selectedSupplierRatings
+              const avg = getSupplierAvgRating(ratings)
               if (ratings.length === 0) return null
               return (
                 <div>
@@ -1293,14 +1337,8 @@ export default function EinkaufPage() {
 
             {/* Status */}
             <div className="flex items-center gap-2">
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                  selectedSupplier.isActive
-                    ? 'bg-success-light text-success'
-                    : 'bg-error-light text-error'
-                }`}
-              >
-                {selectedSupplier.isActive ? t('einkauf.supplier.active') : t('einkauf.supplier.inactive')}
+              <span className="rounded-full px-2 py-0.5 text-[10px] font-medium bg-success-light text-success">
+                {t('einkauf.supplier.active')}
               </span>
             </div>
 
@@ -1325,9 +1363,9 @@ export default function EinkaufPage() {
                       className="flex w-full items-center justify-between px-3 py-2.5 hover:bg-secondary/50 transition-colors"
                     >
                       <div className="text-left">
-                        <p className="text-sm font-mono text-foreground">{order.orderNumber}</p>
+                        <p className="text-sm font-mono text-foreground">{order.po_number}</p>
                         <p className="text-xs text-muted-foreground">
-                          {formatDate(order.createdAt)} · {formatCurrency(order.total, order.currency || 'EUR')}
+                          {formatDate(order.created_at)} · {formatCurrency(parseFloat(order.total_amount), order.currency || 'EUR')}
                         </p>
                       </div>
                       <span
@@ -1372,7 +1410,6 @@ export default function EinkaufPage() {
                 >
                   <option value="">{t('einkauf.newOrder.supplierPlaceholder')}</option>
                   {suppliers
-                    .filter((s) => s.isActive)
                     .map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.name}
@@ -1621,7 +1658,7 @@ export default function EinkaufPage() {
                 <div>
                   <DialogTitle className="text-base font-semibold text-foreground">{t('einkauf.wareneingang.title')}</DialogTitle>
                   <DialogDescription className="text-xs text-muted-foreground">
-                    {showWareneingangDialog?.orderNumber} — {showWareneingangDialog?.supplierName}
+                    {showWareneingangDialog?.po_number} — {showWareneingangDialog ? (suppliers.find(s => s.id === showWareneingangDialog.supplier_id)?.name ?? showWareneingangDialog.supplier_id) : ''}
                   </DialogDescription>
                 </div>
               </div>
@@ -1635,19 +1672,21 @@ export default function EinkaufPage() {
                   <span className="text-[10px] font-medium text-muted-foreground uppercase text-right">{t('einkauf.wareneingang.ordered')}</span>
                   <span className="text-[10px] font-medium text-muted-foreground uppercase text-right">{t('einkauf.wareneingang.received')}</span>
                 </div>
-                {getOrderItems(showWareneingangDialog?.id ?? '').map((item) => (
-                  <div key={item.id} className="grid grid-cols-[1fr_80px_80px] gap-2 items-center px-3 py-2.5">
+                {getOrderItems(showWareneingangDialog?.id ?? '').map((item) => {
+                  const itemQty = parseFloat(item.quantity)
+                  const itemReceived = parseFloat(item.received_quantity)
+                  return (<div key={item.id} className="grid grid-cols-[1fr_80px_80px] gap-2 items-center px-3 py-2.5">
                     <div>
-                      <p className="text-sm text-foreground">{item.itemName}</p>
+                      <p className="text-sm text-foreground">{item.product_name}</p>
                       <p className="text-[10px] text-muted-foreground">
-                        {t('einkauf.wareneingang.alreadyReceived', { qty: item.receivedQuantity })}
+                        {t('einkauf.wareneingang.alreadyReceived', { qty: itemReceived })}
                       </p>
                     </div>
-                    <p className="text-sm text-muted-foreground text-right tabular-nums">{item.quantity}</p>
+                    <p className="text-sm text-muted-foreground text-right tabular-nums">{itemQty}</p>
                     <input
                       type="number"
                       min={0}
-                      max={item.quantity - item.receivedQuantity}
+                      max={itemQty - itemReceived}
                       value={receivedQtys[item.id] ?? 0}
                       onChange={(e) =>
                         setReceivedQtys((prev) => ({
@@ -1657,8 +1696,8 @@ export default function EinkaufPage() {
                       }
                       className="w-full rounded-lg border border-border bg-card px-2 py-1 text-sm text-foreground text-right tabular-nums focus:outline-none focus:ring-2 focus:ring-focus-ring"
                     />
-                  </div>
-                ))}
+                  </div>)
+                })}
               </div>
 
               {/* Partial delivery checkbox */}
@@ -1714,7 +1753,10 @@ export default function EinkaufPage() {
         open={!!confirmDelete}
         onOpenChange={() => setConfirmDelete(null)}
         title={t('einkauf.confirmCancel.title')}
-        description={t('einkauf.confirmCancel.description', { orderNumber: confirmDelete?.orderNumber, supplierName: confirmDelete?.supplierName })}
+        description={t('einkauf.confirmCancel.description', {
+          orderNumber: confirmDelete?.po_number,
+          supplierName: confirmDelete ? (suppliers.find(s => s.id === confirmDelete.supplier_id)?.name ?? confirmDelete.supplier_id) : '',
+        })}
         confirmLabel={t('einkauf.confirmCancel.confirm')}
         variant="destructive"
         onConfirm={() => confirmDelete && handleCancelOrder(confirmDelete)}

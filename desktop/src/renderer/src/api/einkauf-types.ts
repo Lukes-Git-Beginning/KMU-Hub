@@ -178,3 +178,199 @@ export interface ListPOsResponse {
 export interface ListPOLinesResponse {
   lines: POLine[]
 }
+
+// ---------------------------------------------------------------------------
+// Catalog Items
+// ---------------------------------------------------------------------------
+
+export interface CatalogItem {
+  id: string
+  tenant_id: string
+  supplier_id: string
+  name: string
+  sku: string
+  category: string
+  price: string          // numeric string
+  currency: string
+  unit: string
+  available: boolean
+  min_order_qty: string  // numeric string
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateCatalogItemInput {
+  supplier_id: string
+  name: string
+  sku?: string
+  category?: string
+  price: string
+  currency?: string
+  unit?: string
+  available?: boolean
+  min_order_qty?: string
+}
+
+export interface UpdateCatalogItemInput {
+  name?: string
+  sku?: string
+  category?: string
+  price?: string
+  currency?: string
+  unit?: string
+  available?: boolean
+  min_order_qty?: string
+}
+
+export interface ListCatalogItemsParams {
+  supplier_id?: string
+  category?: string
+  search?: string
+  available?: boolean
+  page?: number
+  page_size?: number
+}
+
+export interface ListCatalogItemsResponse {
+  catalog_items: CatalogItem[]
+  total: number
+}
+
+// ---------------------------------------------------------------------------
+// Supplier Ratings
+// ---------------------------------------------------------------------------
+
+export type RatingCategory = 'quality' | 'delivery' | 'price'
+
+export interface SupplierRating {
+  id: string
+  tenant_id: string
+  supplier_id: string
+  category: RatingCategory
+  rating: number         // 1-5
+  comment: string
+  rated_by: string | null
+  rated_at: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateSupplierRatingInput {
+  supplier_id: string
+  category: RatingCategory
+  rating: number
+  comment?: string
+}
+
+export interface ListSupplierRatingsResponse {
+  ratings: SupplierRating[]
+}
+
+// ---------------------------------------------------------------------------
+// Framework Contracts
+// ---------------------------------------------------------------------------
+
+export type ContractStatus = 'draft' | 'active' | 'expired'
+
+export interface FrameworkContractItem {
+  id: string
+  tenant_id: string
+  contract_id: string
+  name: string
+  unit_price: string    // numeric string
+  unit: string
+  agreed_qty: string    // numeric string
+  called_qty: string    // numeric string
+  created_at: string
+  updated_at: string
+}
+
+export interface FrameworkContractCall {
+  id: string
+  tenant_id: string
+  contract_id: string
+  po_id: string | null
+  amount: string        // numeric string
+  currency: string
+  called_at: string
+  notes: string
+  created_at: string
+  updated_at: string
+}
+
+export interface FrameworkContract {
+  id: string
+  tenant_id: string
+  supplier_id: string
+  title: string
+  contract_nr: string
+  start_date: string | null
+  end_date: string | null
+  total_value: string   // numeric string
+  used_value: string    // numeric string
+  currency: string
+  status: ContractStatus
+  created_at: string
+  updated_at: string
+  items?: FrameworkContractItem[]
+}
+
+export interface CreateFrameworkContractInput {
+  supplier_id: string
+  title: string
+  contract_nr: string
+  start_date?: string
+  end_date?: string
+  total_value?: string
+  currency?: string
+  status?: ContractStatus
+}
+
+export interface UpdateFrameworkContractInput {
+  title?: string
+  contract_nr?: string
+  start_date?: string | null
+  end_date?: string | null
+  total_value?: string
+  currency?: string
+  status?: ContractStatus
+}
+
+export interface ListFrameworkContractsParams {
+  supplier_id?: string
+  status?: ContractStatus
+  page?: number
+  page_size?: number
+}
+
+export interface ListFrameworkContractsResponse {
+  contracts: FrameworkContract[]
+  total: number
+}
+
+export interface CreateContractItemInput {
+  contract_id: string
+  name: string
+  unit_price?: string
+  unit?: string
+  agreed_qty?: string
+}
+
+export interface UpdateContractItemInput {
+  name?: string
+  unit_price?: string
+  unit?: string
+  agreed_qty?: string
+}
+
+export interface CreateContractCallInput {
+  contract_id: string
+  po_id?: string
+  amount: string
+  currency?: string
+  notes?: string
+}
+
+export interface ListContractCallsResponse {
+  calls: FrameworkContractCall[]
+}

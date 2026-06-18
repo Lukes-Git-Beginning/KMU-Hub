@@ -628,6 +628,7 @@ func mapEinkaufError(err error) error {
 		return nil
 	}
 	switch {
+	// Base domain errors
 	case errors.Is(err, einkauf.ErrSupplierNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, einkauf.ErrPONotFound):
@@ -648,6 +649,23 @@ func mapEinkaufError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, einkauf.ErrExceedsOrderedQty):
 		return status.Error(codes.InvalidArgument, err.Error())
+	// Extended domain errors — Catalog
+	case errors.Is(err, einkauf.ErrCatalogItemNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	// Extended domain errors — Supplier Ratings
+	case errors.Is(err, einkauf.ErrSupplierRatingNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, einkauf.ErrDuplicateRating):
+		return status.Error(codes.AlreadyExists, err.Error())
+	// Extended domain errors — Framework Contracts
+	case errors.Is(err, einkauf.ErrContractNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, einkauf.ErrContractItemNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, einkauf.ErrContractNrTaken):
+		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, einkauf.ErrContractCallNotFound):
+		return status.Error(codes.NotFound, err.Error())
 	default:
 		slog.Error("unhandled einkauf service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
