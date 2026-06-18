@@ -8,7 +8,7 @@ import { Component, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
-import { Skeleton, SkeletonTable } from '@/components/shared'
+import { ModuleSkeleton, type ModuleSkeletonVariant } from '@/components/shared'
 
 interface ErrorFallbackProps {
   errorMessage: string | null
@@ -20,28 +20,13 @@ interface ErrorFallbackProps {
   }
 }
 
-/** Skeleton scaffold shown while a lazy-loaded module is loading (no spinner). */
-export function ModuleLoadingFallback() {
-  return (
-    <div className="h-full overflow-hidden p-6 space-y-6">
-      {/* Header (title + description) */}
-      <div className="space-y-2.5">
-        <Skeleton className="h-7 w-56" />
-        <Skeleton className="h-4 w-80" />
-      </div>
-      {/* KPI row */}
-      <div className="flex flex-wrap gap-x-10 gap-y-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="space-y-2">
-            <Skeleton className="h-3 w-20" />
-            <Skeleton className="h-6 w-16" />
-          </div>
-        ))}
-      </div>
-      {/* Content table */}
-      <SkeletonTable rows={7} cols={5} />
-    </div>
-  )
+/**
+ * Skeleton scaffold shown while a lazy-loaded module is loading (no spinner).
+ * The `variant` picks a layout archetype matching the module's real structure
+ * (set per route in App.tsx). Defaults to the list/table layout.
+ */
+export function ModuleLoadingFallback({ variant = 'list' }: { variant?: ModuleSkeletonVariant }) {
+  return <ModuleSkeleton variant={variant} />
 }
 
 interface ErrorBoundaryProps {

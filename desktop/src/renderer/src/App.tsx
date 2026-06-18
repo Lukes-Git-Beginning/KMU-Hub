@@ -17,6 +17,7 @@ import { useAuthStore } from '@/stores/auth'
 import { STALE_TIME, GC_TIME } from '@/lib/constants'
 import { DeskEnvironment } from '@/components/layout/DeskEnvironment'
 import { ModuleLoadingFallback } from '@/components/layout/ModuleShell'
+import type { ModuleSkeletonVariant } from '@/components/shared'
 import LoginPage from '@/modules/auth/LoginPage'
 import RegisterPage from '@/modules/auth/RegisterPage'
 import ForgotPasswordPage from '@/modules/auth/ForgotPasswordPage'
@@ -162,10 +163,11 @@ function GuestRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-/** Helper to wrap a lazy page in Suspense */
-function lazyRoute(Component: React.LazyExoticComponent<() => JSX.Element>) {
+/** Helper to wrap a lazy page in Suspense. The `variant` picks a loading-skeleton
+ *  archetype that matches the module's layout (list = default). */
+function lazyRoute(Component: React.LazyExoticComponent<() => JSX.Element>, variant: ModuleSkeletonVariant = 'list') {
   return (
-    <Suspense fallback={<ModuleLoadingFallback />}>
+    <Suspense fallback={<ModuleLoadingFallback variant={variant} />}>
       <Component />
     </Suspense>
   )
@@ -199,16 +201,16 @@ const router = createHashRouter([
     errorElement: <RouteErrorFallback />,
     children: [
       // Core modules (backend-connected)
-      { index: true, element: lazyRoute(DashboardPage) },
+      { index: true, element: lazyRoute(DashboardPage, 'dashboard') },
       { path: 'crm/*', element: <Navigate to="/kontakte" replace /> },
       { path: 'chat/*', element: <Navigate to="/kommunikation?bereich=team" replace /> },
-      { path: 'work/*', element: lazyRoute(WorkLayout) },
-      { path: 'kalender', element: lazyRoute(KalenderPage) },
+      { path: 'work/*', element: lazyRoute(WorkLayout, 'board') },
+      { path: 'kalender', element: lazyRoute(KalenderPage, 'calendar') },
       { path: 'video/*', element: lazyRoute(VideoPage) },
       { path: 'meetings/*', element: lazyRoute(MeetingsPage) },
       { path: 'notifications', element: lazyRoute(NotificationCenter) },
-      { path: 'settings/dashboard', element: lazyRoute(DashboardSettings) },
-      { path: 'settings', element: lazyRoute(SettingsPage) },
+      { path: 'settings/dashboard', element: lazyRoute(DashboardSettings, 'detail') },
+      { path: 'settings', element: lazyRoute(SettingsPage, 'detail') },
 
       // Admin security hub — legacy redirect (Backwards-Compat, wird in Phase 4 entfernt)
       { path: 'admin/security-legacy', element: lazyRoute(SecurityAdminPage) },
@@ -234,39 +236,39 @@ const router = createHashRouter([
         children: [
           { index: true, element: lazyRoute(KontaktePage) },
           { path: 'firmen', element: lazyRoute(CompaniesListPage) },
-          { path: 'firmen/:id', element: lazyRoute(CompanyDetailPage) },
+          { path: 'firmen/:id', element: lazyRoute(CompanyDetailPage, 'detail') },
           { path: 'leads', element: lazyRoute(LeadsInboxPage) },
           { path: 'pipeline', element: lazyRoute(DealsListPage) },
-          { path: 'pipeline/:id', element: lazyRoute(DealDetailPage) },
+          { path: 'pipeline/:id', element: lazyRoute(DealDetailPage, 'detail') },
           { path: 'aktivitaeten', element: lazyRoute(ActivitiesListPage) },
-          { path: 'auswertungen', element: lazyRoute(AuswertungenPage) },
-          { path: 'protokoll/:contactId/:protocolId', element: lazyRoute(AdvisoryProtocolEditor) },
+          { path: 'auswertungen', element: lazyRoute(AuswertungenPage, 'dashboard') },
+          { path: 'protokoll/:contactId/:protocolId', element: lazyRoute(AdvisoryProtocolEditor, 'detail') },
         ],
       },
       { path: 'dokumente', element: lazyRoute(DokumentePage) },
-      { path: 'mails', element: lazyRoute(MailsPage) },
-      { path: 'kommunikation', element: lazyRoute(KommunikationPage) },
+      { path: 'mails', element: lazyRoute(MailsPage, 'split') },
+      { path: 'kommunikation', element: lazyRoute(KommunikationPage, 'split') },
       { path: 'automatisierung', element: lazyRoute(AutomatisierungPage) },
       { path: 'team', element: lazyRoute(TeamPage) },
-      { path: 'team/member/:id', element: lazyRoute(MemberDetailPage) },
+      { path: 'team/member/:id', element: lazyRoute(MemberDetailPage, 'detail') },
       { path: 'finanzen', element: lazyRoute(FinanzenPage) },
       { path: 'infrastruktur', element: lazyRoute(InfrastrukturPage) },
-      { path: 'profil', element: lazyRoute(ProfilPage) },
+      { path: 'profil', element: lazyRoute(ProfilPage, 'detail') },
 
       // Industry-specific modules
       { path: 'inventar', element: lazyRoute(InventarPage) },
-      { path: 'schichten', element: lazyRoute(SchichtenPage) },
+      { path: 'schichten', element: lazyRoute(SchichtenPage, 'calendar') },
       { path: 'einkauf', element: lazyRoute(EinkaufPage) },
       { path: 'helpdesk', element: lazyRoute(HelpdeskPage) },
       { path: 'fuhrpark', element: lazyRoute(FuhrparkPage) },
       { path: 'produktion', element: lazyRoute(ProduktionPage) },
-      { path: 'berichte', element: lazyRoute(BerichtePage) },
+      { path: 'berichte', element: lazyRoute(BerichtePage, 'dashboard') },
       { path: 'vertraege', element: lazyRoute(VertraegePage) },
       { path: 'formulare', element: lazyRoute(FormularePage) },
       { path: 'vermietung', element: lazyRoute(VermietungPage) },
       { path: 'rapporte', element: lazyRoute(RapportePage) },
       { path: 'zeiterfassung', element: lazyRoute(ZeiterfassungPage) },
-      { path: 'wiki', element: lazyRoute(WikiPage) },
+      { path: 'wiki', element: lazyRoute(WikiPage, 'split') },
       { path: 'dialer/*', element: lazyRoute(DialerLayout) },
     ],
   },

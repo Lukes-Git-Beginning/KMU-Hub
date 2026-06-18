@@ -13,6 +13,7 @@ export { AnimatedList } from './AnimatedList'
 export { LoadingSpinner } from './LoadingSpinner'
 export { AbbrTooltip } from './AbbrTooltip'
 export { Skeleton, SkeletonText, SkeletonList, SkeletonCard, SkeletonTable } from './Skeleton'
+export { ModuleSkeleton, type ModuleSkeletonVariant } from './ModuleSkeleton'
 export { LayoutSwitcher } from './LayoutSwitcher'
 export { PaletteSwitcher } from './PaletteSwitcher'
 export {
