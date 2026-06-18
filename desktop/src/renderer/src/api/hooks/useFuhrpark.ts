@@ -25,6 +25,22 @@ import {
   updateDamage,
   resolveDamage,
   checkTuevDue,
+  listFuelLogs,
+  listVehicleFuelLogs,
+  createFuelLog,
+  updateFuelLog,
+  deleteFuelLog,
+  listTripLogs,
+  listVehicleTripLogs,
+  createTripLog,
+  updateTripLog,
+  deleteTripLog,
+  listVehicleDocuments,
+  createVehicleDocument,
+  deleteVehicleDocument,
+  ingestGpsPositions,
+  getVehicleRoutes,
+  getGpsPositions,
 } from '../fuhrpark-client'
 import type {
   CreateVehicleInput,
@@ -41,7 +57,13 @@ import type {
   ListVehicleHistoryParams,
   CheckTuevDueParams,
   ListUpcomingServicesParams,
-} from '../fuhrpark-types'
+  CreateFuelLogRequest,
+  UpdateFuelLogRequest,
+  CreateTripLogRequest,
+  UpdateTripLogRequest,
+  CreateVehicleDocumentRequest,
+  IngestGpsPositionsRequest,
+} from '../fuhrpark-client'
 
 // ---------------------------------------------------------------------------
 // Query keys
@@ -277,6 +299,216 @@ export function useResolveDamage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['fuhrpark', 'damages'] })
       qc.invalidateQueries({ queryKey: ['fuhrpark', 'vehicles'] })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Queries — Fuel Logs
+// ---------------------------------------------------------------------------
+
+export function useFuelLogs(params: { vehicle_id?: string; page?: number; page_size?: number } = {}) {
+  return useQuery({
+    queryKey: ['fuhrpark', 'fuel-logs', params] as const,
+    queryFn: () => listFuelLogs(params),
+    staleTime: 30_000,
+  })
+}
+
+export function useVehicleFuelLogs(
+  vehicleId: string,
+  params: { page?: number; page_size?: number } = {},
+) {
+  return useQuery({
+    queryKey: ['fuhrpark', 'fuel-logs', 'vehicle', vehicleId, params] as const,
+    queryFn: () => listVehicleFuelLogs(vehicleId, params),
+    staleTime: 30_000,
+    enabled: !!vehicleId,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Mutations — Fuel Logs
+// ---------------------------------------------------------------------------
+
+export function useCreateFuelLog() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ vehicleId, data }: { vehicleId: string; data: CreateFuelLogRequest }) =>
+      createFuelLog(vehicleId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fuhrpark', 'fuel-logs'] })
+    },
+  })
+}
+
+export function useUpdateFuelLog() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateFuelLogRequest }) =>
+      updateFuelLog(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fuhrpark', 'fuel-logs'] })
+    },
+  })
+}
+
+export function useDeleteFuelLog() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteFuelLog(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fuhrpark', 'fuel-logs'] })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Queries — Trip Logs
+// ---------------------------------------------------------------------------
+
+export function useTripLogs(params: { vehicle_id?: string; page?: number; page_size?: number } = {}) {
+  return useQuery({
+    queryKey: ['fuhrpark', 'trip-logs', params] as const,
+    queryFn: () => listTripLogs(params),
+    staleTime: 30_000,
+  })
+}
+
+export function useVehicleTripLogs(
+  vehicleId: string,
+  params: { page?: number; page_size?: number } = {},
+) {
+  return useQuery({
+    queryKey: ['fuhrpark', 'trip-logs', 'vehicle', vehicleId, params] as const,
+    queryFn: () => listVehicleTripLogs(vehicleId, params),
+    staleTime: 30_000,
+    enabled: !!vehicleId,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Mutations — Trip Logs
+// ---------------------------------------------------------------------------
+
+export function useCreateTripLog() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ vehicleId, data }: { vehicleId: string; data: CreateTripLogRequest }) =>
+      createTripLog(vehicleId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fuhrpark', 'trip-logs'] })
+    },
+  })
+}
+
+export function useUpdateTripLog() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateTripLogRequest }) =>
+      updateTripLog(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fuhrpark', 'trip-logs'] })
+    },
+  })
+}
+
+export function useDeleteTripLog() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteTripLog(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fuhrpark', 'trip-logs'] })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Queries — Vehicle Documents
+// ---------------------------------------------------------------------------
+
+export function useVehicleDocuments(
+  vehicleId: string,
+  params: { page?: number; page_size?: number } = {},
+) {
+  return useQuery({
+    queryKey: ['fuhrpark', 'documents', vehicleId, params] as const,
+    queryFn: () => listVehicleDocuments(vehicleId, params),
+    staleTime: 60_000,
+    enabled: !!vehicleId,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Mutations — Vehicle Documents
+// ---------------------------------------------------------------------------
+
+export function useCreateVehicleDocument() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      vehicleId,
+      data,
+    }: {
+      vehicleId: string
+      data: CreateVehicleDocumentRequest
+    }) => createVehicleDocument(vehicleId, data),
+    onSuccess: (_, { vehicleId }) => {
+      qc.invalidateQueries({ queryKey: ['fuhrpark', 'documents', vehicleId] })
+    },
+  })
+}
+
+export function useDeleteVehicleDocument() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, vehicleId: _vehicleId }: { id: string; vehicleId: string }) =>
+      deleteVehicleDocument(id),
+    onSuccess: (_, { vehicleId }) => {
+      qc.invalidateQueries({ queryKey: ['fuhrpark', 'documents', vehicleId] })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Queries — GPS / Tracking
+// ---------------------------------------------------------------------------
+
+export function useVehicleRoutes(
+  params: { date_from?: string; date_to?: string; vehicle_id?: string } = {},
+) {
+  return useQuery({
+    queryKey: ['fuhrpark', 'gps-routes', params] as const,
+    queryFn: () => getVehicleRoutes(params),
+    staleTime: 60_000,
+  })
+}
+
+export function useGpsPositions(params: {
+  vehicle_id: string
+  from?: string
+  to?: string
+  limit?: number
+}) {
+  return useQuery({
+    queryKey: ['fuhrpark', 'gps-positions', params] as const,
+    queryFn: () => getGpsPositions(params),
+    staleTime: 30_000,
+    enabled: !!params.vehicle_id,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Mutations — GPS / Tracking
+// ---------------------------------------------------------------------------
+
+export function useIngestGpsPositions() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: IngestGpsPositionsRequest) => ingestGpsPositions(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fuhrpark', 'gps-routes'] })
+      qc.invalidateQueries({ queryKey: ['fuhrpark', 'gps-positions'] })
     },
   })
 }

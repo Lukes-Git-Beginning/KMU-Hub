@@ -15,6 +15,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/fuhrpark"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	fuhrparkv1 "github.com/kmuhub/kmuhub/proto/fuhrpark/v1"
 )
 
@@ -708,6 +709,478 @@ func damageToProto(d *fuhrpark.VehicleDamage) *fuhrparkv1.Damage {
 	return p
 }
 
+// ============================================================================
+// Fuel Log RPCs
+// ============================================================================
+
+func (s *FuhrparkGRPCServer) ListFuelLogs(ctx context.Context, req *fuhrparkv1.ListFuelLogsRequest) (*fuhrparkv1.ListFuelLogsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	params := fuhrpark.ListFuelLogsParams{
+		TenantID: tenantID,
+		Page:     req.Page,
+		PageSize: req.PageSize,
+	}
+	if req.VehicleId != "" {
+		id, parseErr := uuid.Parse(req.VehicleId)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid vehicle_id: %v", parseErr)
+		}
+		params.VehicleID = id
+	}
+	logs, total, err := s.svc.ListFuelLogs(ctx, params)
+	if err != nil {
+		return nil, mapFuhrparkError(err)
+	}
+	pb := make([]*fuhrparkv1.FuelLog, len(logs))
+	for i, l := range logs {
+		pb[i] = fuelLogToProto(l)
+	}
+	return &fuhrparkv1.ListFuelLogsResponse{FuelLogs: pb, Total: int32(total)}, nil
+}
+
+func (s *FuhrparkGRPCServer) CreateFuelLog(ctx context.Context, req *fuhrparkv1.CreateFuelLogRequest) (*fuhrparkv1.CreateFuelLogResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	vehicleID, err := uuid.Parse(req.VehicleId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid vehicle_id: %v", err)
+	}
+	date, _ := time.Parse("2006-01-02", req.Date)
+	l, err := s.svc.CreateFuelLog(ctx, fuhrpark.FuelLog{
+		TenantID:  tenantID,
+		VehicleID: vehicleID,
+		Date:      date,
+		Liters:    req.Liters,
+		CostCents: req.CostCents,
+		MileageKm: req.MileageKm,
+		FuelType:  req.FuelType,
+		Notes:     req.Notes,
+	})
+	if err != nil {
+		return nil, mapFuhrparkError(err)
+	}
+	return &fuhrparkv1.CreateFuelLogResponse{FuelLog: fuelLogToProto(l)}, nil
+}
+
+func (s *FuhrparkGRPCServer) UpdateFuelLog(ctx context.Context, req *fuhrparkv1.UpdateFuelLogRequest) (*fuhrparkv1.UpdateFuelLogResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid id: %v", err)
+	}
+	date, _ := time.Parse("2006-01-02", req.Date)
+	l, err := s.svc.UpdateFuelLog(ctx, fuhrpark.FuelLog{
+		ID:        id,
+		TenantID:  tenantID,
+		Date:      date,
+		Liters:    req.Liters,
+		CostCents: req.CostCents,
+		MileageKm: req.MileageKm,
+		FuelType:  req.FuelType,
+		Notes:     req.Notes,
+	})
+	if err != nil {
+		return nil, mapFuhrparkError(err)
+	}
+	return &fuhrparkv1.UpdateFuelLogResponse{FuelLog: fuelLogToProto(l)}, nil
+}
+
+func (s *FuhrparkGRPCServer) DeleteFuelLog(ctx context.Context, req *fuhrparkv1.DeleteFuelLogRequest) (*fuhrparkv1.DeleteFuelLogResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid id: %v", err)
+	}
+	if err := s.svc.DeleteFuelLog(ctx, tenantID, id); err != nil {
+		return nil, mapFuhrparkError(err)
+	}
+	return &fuhrparkv1.DeleteFuelLogResponse{}, nil
+}
+
+// ============================================================================
+// Trip Log RPCs
+// ============================================================================
+
+func (s *FuhrparkGRPCServer) ListTripLogs(ctx context.Context, req *fuhrparkv1.ListTripLogsRequest) (*fuhrparkv1.ListTripLogsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	params := fuhrpark.ListTripLogsParams{
+		TenantID: tenantID,
+		Page:     req.Page,
+		PageSize: req.PageSize,
+	}
+	if req.VehicleId != "" {
+		id, parseErr := uuid.Parse(req.VehicleId)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid vehicle_id: %v", parseErr)
+		}
+		params.VehicleID = id
+	}
+	logs, total, err := s.svc.ListTripLogs(ctx, params)
+	if err != nil {
+		return nil, mapFuhrparkError(err)
+	}
+	pb := make([]*fuhrparkv1.TripLog, len(logs))
+	for i, l := range logs {
+		pb[i] = tripLogToProto(l)
+	}
+	return &fuhrparkv1.ListTripLogsResponse{TripLogs: pb, Total: int32(total)}, nil
+}
+
+func (s *FuhrparkGRPCServer) CreateTripLog(ctx context.Context, req *fuhrparkv1.CreateTripLogRequest) (*fuhrparkv1.CreateTripLogResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	vehicleID, err := uuid.Parse(req.VehicleId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid vehicle_id: %v", err)
+	}
+	date, _ := time.Parse("2006-01-02", req.Date)
+	l, err := s.svc.CreateTripLog(ctx, fuhrpark.TripLog{
+		TenantID:      tenantID,
+		VehicleID:     vehicleID,
+		Date:          date,
+		StartLocation: req.StartLocation,
+		EndLocation:   req.EndLocation,
+		Purpose:       req.Purpose,
+		StartKm:       req.StartKm,
+		EndKm:         req.EndKm,
+		IsPrivate:     req.IsPrivate,
+		DriverName:    req.DriverName,
+		Notes:         req.Notes,
+	})
+	if err != nil {
+		return nil, mapFuhrparkError(err)
+	}
+	return &fuhrparkv1.CreateTripLogResponse{TripLog: tripLogToProto(l)}, nil
+}
+
+func (s *FuhrparkGRPCServer) UpdateTripLog(ctx context.Context, req *fuhrparkv1.UpdateTripLogRequest) (*fuhrparkv1.UpdateTripLogResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid id: %v", err)
+	}
+	date, _ := time.Parse("2006-01-02", req.Date)
+	l, err := s.svc.UpdateTripLog(ctx, fuhrpark.TripLog{
+		ID:            id,
+		TenantID:      tenantID,
+		Date:          date,
+		StartLocation: req.StartLocation,
+		EndLocation:   req.EndLocation,
+		Purpose:       req.Purpose,
+		StartKm:       req.StartKm,
+		EndKm:         req.EndKm,
+		IsPrivate:     req.IsPrivate,
+		DriverName:    req.DriverName,
+		Notes:         req.Notes,
+	})
+	if err != nil {
+		return nil, mapFuhrparkError(err)
+	}
+	return &fuhrparkv1.UpdateTripLogResponse{TripLog: tripLogToProto(l)}, nil
+}
+
+func (s *FuhrparkGRPCServer) DeleteTripLog(ctx context.Context, req *fuhrparkv1.DeleteTripLogRequest) (*fuhrparkv1.DeleteTripLogResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid id: %v", err)
+	}
+	if err := s.svc.DeleteTripLog(ctx, tenantID, id); err != nil {
+		return nil, mapFuhrparkError(err)
+	}
+	return &fuhrparkv1.DeleteTripLogResponse{}, nil
+}
+
+// ============================================================================
+// Vehicle Document RPCs
+// ============================================================================
+
+func (s *FuhrparkGRPCServer) ListVehicleDocuments(ctx context.Context, req *fuhrparkv1.ListVehicleDocumentsRequest) (*fuhrparkv1.ListVehicleDocumentsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	vehicleID, err := uuid.Parse(req.VehicleId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid vehicle_id: %v", err)
+	}
+	docs, total, err := s.svc.ListVehicleDocuments(ctx, fuhrpark.ListVehicleDocumentsParams{
+		TenantID:  tenantID,
+		VehicleID: vehicleID,
+		Page:      req.Page,
+		PageSize:  req.PageSize,
+	})
+	if err != nil {
+		return nil, mapFuhrparkError(err)
+	}
+	pb := make([]*fuhrparkv1.VehicleDocument, len(docs))
+	for i, d := range docs {
+		pb[i] = vehicleDocumentToProto(d)
+	}
+	return &fuhrparkv1.ListVehicleDocumentsResponse{Documents: pb, Total: int32(total)}, nil
+}
+
+func (s *FuhrparkGRPCServer) CreateVehicleDocument(ctx context.Context, req *fuhrparkv1.CreateVehicleDocumentRequest) (*fuhrparkv1.CreateVehicleDocumentResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	vehicleID, err := uuid.Parse(req.VehicleId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid vehicle_id: %v", err)
+	}
+	var expiryDate *time.Time
+	if req.ExpiryDate != "" {
+		t, parseErr := time.Parse("2006-01-02", req.ExpiryDate)
+		if parseErr == nil {
+			expiryDate = &t
+		}
+	}
+	doc, err := s.svc.CreateVehicleDocument(ctx, fuhrpark.VehicleDocument{
+		TenantID:   tenantID,
+		VehicleID:  vehicleID,
+		DocType:    req.DocType,
+		Name:       req.Name,
+		ObjectKey:  req.ObjectKey,
+		UploadDate: time.Now(),
+		ExpiryDate: expiryDate,
+	})
+	if err != nil {
+		return nil, mapFuhrparkError(err)
+	}
+	return &fuhrparkv1.CreateVehicleDocumentResponse{Document: vehicleDocumentToProto(doc)}, nil
+}
+
+func (s *FuhrparkGRPCServer) DeleteVehicleDocument(ctx context.Context, req *fuhrparkv1.DeleteVehicleDocumentRequest) (*fuhrparkv1.DeleteVehicleDocumentResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid id: %v", err)
+	}
+	if err := s.svc.DeleteVehicleDocument(ctx, tenantID, id); err != nil {
+		return nil, mapFuhrparkError(err)
+	}
+	return &fuhrparkv1.DeleteVehicleDocumentResponse{}, nil
+}
+
+// ============================================================================
+// GPS RPCs
+// ============================================================================
+
+func (s *FuhrparkGRPCServer) IngestGpsPositions(ctx context.Context, req *fuhrparkv1.IngestGpsPositionsRequest) (*fuhrparkv1.IngestGpsPositionsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	vehicleID, err := uuid.Parse(req.VehicleId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid vehicle_id: %v", err)
+	}
+	positions := make([]fuhrpark.GpsPosition, 0, len(req.Positions))
+	for _, p := range req.Positions {
+		t, _ := time.Parse(time.RFC3339, p.RecordedAt)
+		pos := fuhrpark.GpsPosition{
+			Lat:        p.Lat,
+			Lng:        p.Lng,
+			RecordedAt: t,
+		}
+		if p.SpeedKmh != 0 {
+			v := p.SpeedKmh
+			pos.SpeedKmh = &v
+		}
+		positions = append(positions, pos)
+	}
+	n, err := s.svc.IngestGpsPositions(ctx, tenantID, vehicleID, positions)
+	if err != nil {
+		return nil, mapFuhrparkError(err)
+	}
+	return &fuhrparkv1.IngestGpsPositionsResponse{Ingested: int32(n)}, nil
+}
+
+func (s *FuhrparkGRPCServer) GetVehicleRoutes(ctx context.Context, req *fuhrparkv1.GetVehicleRoutesRequest) (*fuhrparkv1.GetVehicleRoutesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	dateTo, _ := time.Parse("2006-01-02", req.DateTo)
+	dateFrom, _ := time.Parse("2006-01-02", req.DateFrom)
+	if dateTo.IsZero() {
+		dateTo = time.Now()
+	}
+	if dateFrom.IsZero() {
+		dateFrom = dateTo.AddDate(0, 0, -7)
+	}
+	params := fuhrpark.GetVehicleRoutesParams{
+		TenantID: tenantID,
+		DateFrom: dateFrom,
+		DateTo:   dateTo,
+	}
+	if req.VehicleId != "" {
+		id, parseErr := uuid.Parse(req.VehicleId)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid vehicle_id: %v", parseErr)
+		}
+		params.VehicleID = id
+	}
+	routes, err := s.svc.GetVehicleRoutes(ctx, params)
+	if err != nil {
+		return nil, mapFuhrparkError(err)
+	}
+	pb := make([]*fuhrparkv1.VehicleRoute, len(routes))
+	for i, r := range routes {
+		pb[i] = vehicleRouteToProto(r)
+	}
+	return &fuhrparkv1.GetVehicleRoutesResponse{Routes: pb}, nil
+}
+
+func (s *FuhrparkGRPCServer) GetGpsPositions(ctx context.Context, req *fuhrparkv1.GetGpsPositionsRequest) (*fuhrparkv1.GetGpsPositionsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	vehicleID, err := uuid.Parse(req.VehicleId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid vehicle_id: %v", err)
+	}
+	to, _ := time.Parse(time.RFC3339, req.To)
+	from, _ := time.Parse(time.RFC3339, req.From)
+	if to.IsZero() {
+		to = time.Now()
+	}
+	if from.IsZero() {
+		from = to.Add(-24 * time.Hour)
+	}
+	positions, err := s.svc.GetGpsPositions(ctx, fuhrpark.GetGpsPositionsParams{
+		TenantID:  tenantID,
+		VehicleID: vehicleID,
+		From:      from,
+		To:        to,
+		Limit:     req.Limit,
+	})
+	if err != nil {
+		return nil, mapFuhrparkError(err)
+	}
+	pb := make([]*fuhrparkv1.GpsPosition, len(positions))
+	for i, p := range positions {
+		pb[i] = gpsPositionToProto(p)
+	}
+	return &fuhrparkv1.GetGpsPositionsResponse{Positions: pb}, nil
+}
+
+// ============================================================================
+// Proto-Mapping Helpers (extended)
+// ============================================================================
+
+func fuelLogToProto(l fuhrpark.FuelLog) *fuhrparkv1.FuelLog {
+	return &fuhrparkv1.FuelLog{
+		Id:        l.ID.String(),
+		TenantId:  l.TenantID.String(),
+		VehicleId: l.VehicleID.String(),
+		Date:      l.Date.Format("2006-01-02"),
+		Liters:    l.Liters,
+		CostCents: l.CostCents,
+		MileageKm: l.MileageKm,
+		FuelType:  l.FuelType,
+		Notes:     l.Notes,
+		CreatedAt: l.CreatedAt.Format(time.RFC3339),
+		UpdatedAt: l.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
+func tripLogToProto(l fuhrpark.TripLog) *fuhrparkv1.TripLog {
+	return &fuhrparkv1.TripLog{
+		Id:            l.ID.String(),
+		TenantId:      l.TenantID.String(),
+		VehicleId:     l.VehicleID.String(),
+		Date:          l.Date.Format("2006-01-02"),
+		StartLocation: l.StartLocation,
+		EndLocation:   l.EndLocation,
+		Purpose:       l.Purpose,
+		StartKm:       l.StartKm,
+		EndKm:         l.EndKm,
+		Km:            l.Km,
+		IsPrivate:     l.IsPrivate,
+		DriverName:    l.DriverName,
+		Notes:         l.Notes,
+		CreatedAt:     l.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:     l.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
+func vehicleDocumentToProto(d fuhrpark.VehicleDocument) *fuhrparkv1.VehicleDocument {
+	expiry := ""
+	if d.ExpiryDate != nil {
+		expiry = d.ExpiryDate.Format("2006-01-02")
+	}
+	return &fuhrparkv1.VehicleDocument{
+		Id:         d.ID.String(),
+		TenantId:   d.TenantID.String(),
+		VehicleId:  d.VehicleID.String(),
+		DocType:    d.DocType,
+		Name:       d.Name,
+		ObjectKey:  d.ObjectKey,
+		UploadDate: d.UploadDate.Format("2006-01-02"),
+		ExpiryDate: expiry,
+		CreatedAt:  d.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:  d.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
+func gpsPositionToProto(p fuhrpark.GpsPosition) *fuhrparkv1.GpsPosition {
+	speed := 0.0
+	if p.SpeedKmh != nil {
+		speed = *p.SpeedKmh
+	}
+	return &fuhrparkv1.GpsPosition{
+		Id:         p.ID.String(),
+		VehicleId:  p.VehicleID.String(),
+		Lat:        p.Lat,
+		Lng:        p.Lng,
+		SpeedKmh:   speed,
+		RecordedAt: p.RecordedAt.Format(time.RFC3339),
+	}
+}
+
+func vehicleRouteToProto(r fuhrpark.VehicleRouteAggregation) *fuhrparkv1.VehicleRoute {
+	positions := make([]*fuhrparkv1.GpsPosition, len(r.Positions))
+	for i, p := range r.Positions {
+		positions[i] = gpsPositionToProto(p)
+	}
+	return &fuhrparkv1.VehicleRoute{
+		VehicleId:   r.VehicleID.String(),
+		VehicleName: r.VehicleName,
+		Date:        r.Date.Format("2006-01-02"),
+		Positions:   positions,
+		DailyKm:     r.DailyKm,
+		Status:      r.Status,
+	}
+}
+
 func mapFuhrparkError(err error) error {
 	switch {
 	case errors.Is(err, fuhrpark.ErrVehicleNotFound):
@@ -715,6 +1188,12 @@ func mapFuhrparkError(err error) error {
 	case errors.Is(err, fuhrpark.ErrServiceNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, fuhrpark.ErrDamageNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, fuhrpark.ErrFuelLogNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, fuhrpark.ErrTripLogNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, fuhrpark.ErrDocumentNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, fuhrpark.ErrPlateTaken):
 		return status.Error(codes.AlreadyExists, err.Error())

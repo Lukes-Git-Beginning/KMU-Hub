@@ -19,24 +19,38 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	FuhrparkService_CreateVehicle_FullMethodName        = "/fuhrpark.v1.FuhrparkService/CreateVehicle"
-	FuhrparkService_UpdateVehicle_FullMethodName        = "/fuhrpark.v1.FuhrparkService/UpdateVehicle"
-	FuhrparkService_DeleteVehicle_FullMethodName        = "/fuhrpark.v1.FuhrparkService/DeleteVehicle"
-	FuhrparkService_GetVehicle_FullMethodName           = "/fuhrpark.v1.FuhrparkService/GetVehicle"
-	FuhrparkService_ListVehicles_FullMethodName         = "/fuhrpark.v1.FuhrparkService/ListVehicles"
-	FuhrparkService_ScheduleService_FullMethodName      = "/fuhrpark.v1.FuhrparkService/ScheduleService"
-	FuhrparkService_UpdateService_FullMethodName        = "/fuhrpark.v1.FuhrparkService/UpdateService"
-	FuhrparkService_DeleteService_FullMethodName        = "/fuhrpark.v1.FuhrparkService/DeleteService"
-	FuhrparkService_CompleteService_FullMethodName      = "/fuhrpark.v1.FuhrparkService/CompleteService"
-	FuhrparkService_ListServices_FullMethodName         = "/fuhrpark.v1.FuhrparkService/ListServices"
-	FuhrparkService_ReportDamage_FullMethodName         = "/fuhrpark.v1.FuhrparkService/ReportDamage"
-	FuhrparkService_UpdateDamage_FullMethodName         = "/fuhrpark.v1.FuhrparkService/UpdateDamage"
-	FuhrparkService_ResolveDamage_FullMethodName        = "/fuhrpark.v1.FuhrparkService/ResolveDamage"
-	FuhrparkService_ListDamages_FullMethodName          = "/fuhrpark.v1.FuhrparkService/ListDamages"
-	FuhrparkService_GetVehicleHistory_FullMethodName    = "/fuhrpark.v1.FuhrparkService/GetVehicleHistory"
-	FuhrparkService_CheckTuevDue_FullMethodName         = "/fuhrpark.v1.FuhrparkService/CheckTuevDue"
-	FuhrparkService_ListUpcomingServices_FullMethodName = "/fuhrpark.v1.FuhrparkService/ListUpcomingServices"
-	FuhrparkService_ExportVehicleReport_FullMethodName  = "/fuhrpark.v1.FuhrparkService/ExportVehicleReport"
+	FuhrparkService_CreateVehicle_FullMethodName         = "/fuhrpark.v1.FuhrparkService/CreateVehicle"
+	FuhrparkService_UpdateVehicle_FullMethodName         = "/fuhrpark.v1.FuhrparkService/UpdateVehicle"
+	FuhrparkService_DeleteVehicle_FullMethodName         = "/fuhrpark.v1.FuhrparkService/DeleteVehicle"
+	FuhrparkService_GetVehicle_FullMethodName            = "/fuhrpark.v1.FuhrparkService/GetVehicle"
+	FuhrparkService_ListVehicles_FullMethodName          = "/fuhrpark.v1.FuhrparkService/ListVehicles"
+	FuhrparkService_ScheduleService_FullMethodName       = "/fuhrpark.v1.FuhrparkService/ScheduleService"
+	FuhrparkService_UpdateService_FullMethodName         = "/fuhrpark.v1.FuhrparkService/UpdateService"
+	FuhrparkService_DeleteService_FullMethodName         = "/fuhrpark.v1.FuhrparkService/DeleteService"
+	FuhrparkService_CompleteService_FullMethodName       = "/fuhrpark.v1.FuhrparkService/CompleteService"
+	FuhrparkService_ListServices_FullMethodName          = "/fuhrpark.v1.FuhrparkService/ListServices"
+	FuhrparkService_ReportDamage_FullMethodName          = "/fuhrpark.v1.FuhrparkService/ReportDamage"
+	FuhrparkService_UpdateDamage_FullMethodName          = "/fuhrpark.v1.FuhrparkService/UpdateDamage"
+	FuhrparkService_ResolveDamage_FullMethodName         = "/fuhrpark.v1.FuhrparkService/ResolveDamage"
+	FuhrparkService_ListDamages_FullMethodName           = "/fuhrpark.v1.FuhrparkService/ListDamages"
+	FuhrparkService_GetVehicleHistory_FullMethodName     = "/fuhrpark.v1.FuhrparkService/GetVehicleHistory"
+	FuhrparkService_CheckTuevDue_FullMethodName          = "/fuhrpark.v1.FuhrparkService/CheckTuevDue"
+	FuhrparkService_ListUpcomingServices_FullMethodName  = "/fuhrpark.v1.FuhrparkService/ListUpcomingServices"
+	FuhrparkService_ExportVehicleReport_FullMethodName   = "/fuhrpark.v1.FuhrparkService/ExportVehicleReport"
+	FuhrparkService_ListFuelLogs_FullMethodName          = "/fuhrpark.v1.FuhrparkService/ListFuelLogs"
+	FuhrparkService_CreateFuelLog_FullMethodName         = "/fuhrpark.v1.FuhrparkService/CreateFuelLog"
+	FuhrparkService_UpdateFuelLog_FullMethodName         = "/fuhrpark.v1.FuhrparkService/UpdateFuelLog"
+	FuhrparkService_DeleteFuelLog_FullMethodName         = "/fuhrpark.v1.FuhrparkService/DeleteFuelLog"
+	FuhrparkService_ListTripLogs_FullMethodName          = "/fuhrpark.v1.FuhrparkService/ListTripLogs"
+	FuhrparkService_CreateTripLog_FullMethodName         = "/fuhrpark.v1.FuhrparkService/CreateTripLog"
+	FuhrparkService_UpdateTripLog_FullMethodName         = "/fuhrpark.v1.FuhrparkService/UpdateTripLog"
+	FuhrparkService_DeleteTripLog_FullMethodName         = "/fuhrpark.v1.FuhrparkService/DeleteTripLog"
+	FuhrparkService_ListVehicleDocuments_FullMethodName  = "/fuhrpark.v1.FuhrparkService/ListVehicleDocuments"
+	FuhrparkService_CreateVehicleDocument_FullMethodName = "/fuhrpark.v1.FuhrparkService/CreateVehicleDocument"
+	FuhrparkService_DeleteVehicleDocument_FullMethodName = "/fuhrpark.v1.FuhrparkService/DeleteVehicleDocument"
+	FuhrparkService_IngestGpsPositions_FullMethodName    = "/fuhrpark.v1.FuhrparkService/IngestGpsPositions"
+	FuhrparkService_GetVehicleRoutes_FullMethodName      = "/fuhrpark.v1.FuhrparkService/GetVehicleRoutes"
+	FuhrparkService_GetGpsPositions_FullMethodName       = "/fuhrpark.v1.FuhrparkService/GetGpsPositions"
 )
 
 // FuhrparkServiceClient is the client API for FuhrparkService service.
@@ -65,6 +79,24 @@ type FuhrparkServiceClient interface {
 	CheckTuevDue(ctx context.Context, in *CheckTuevDueRequest, opts ...grpc.CallOption) (*CheckTuevDueResponse, error)
 	ListUpcomingServices(ctx context.Context, in *ListUpcomingServicesRequest, opts ...grpc.CallOption) (*ListServicesResponse, error)
 	ExportVehicleReport(ctx context.Context, in *ExportVehicleReportRequest, opts ...grpc.CallOption) (*ExportVehicleReportResponse, error)
+	// Fuel logs
+	ListFuelLogs(ctx context.Context, in *ListFuelLogsRequest, opts ...grpc.CallOption) (*ListFuelLogsResponse, error)
+	CreateFuelLog(ctx context.Context, in *CreateFuelLogRequest, opts ...grpc.CallOption) (*CreateFuelLogResponse, error)
+	UpdateFuelLog(ctx context.Context, in *UpdateFuelLogRequest, opts ...grpc.CallOption) (*UpdateFuelLogResponse, error)
+	DeleteFuelLog(ctx context.Context, in *DeleteFuelLogRequest, opts ...grpc.CallOption) (*DeleteFuelLogResponse, error)
+	// Trip logs
+	ListTripLogs(ctx context.Context, in *ListTripLogsRequest, opts ...grpc.CallOption) (*ListTripLogsResponse, error)
+	CreateTripLog(ctx context.Context, in *CreateTripLogRequest, opts ...grpc.CallOption) (*CreateTripLogResponse, error)
+	UpdateTripLog(ctx context.Context, in *UpdateTripLogRequest, opts ...grpc.CallOption) (*UpdateTripLogResponse, error)
+	DeleteTripLog(ctx context.Context, in *DeleteTripLogRequest, opts ...grpc.CallOption) (*DeleteTripLogResponse, error)
+	// Vehicle documents
+	ListVehicleDocuments(ctx context.Context, in *ListVehicleDocumentsRequest, opts ...grpc.CallOption) (*ListVehicleDocumentsResponse, error)
+	CreateVehicleDocument(ctx context.Context, in *CreateVehicleDocumentRequest, opts ...grpc.CallOption) (*CreateVehicleDocumentResponse, error)
+	DeleteVehicleDocument(ctx context.Context, in *DeleteVehicleDocumentRequest, opts ...grpc.CallOption) (*DeleteVehicleDocumentResponse, error)
+	// GPS / Tracking
+	IngestGpsPositions(ctx context.Context, in *IngestGpsPositionsRequest, opts ...grpc.CallOption) (*IngestGpsPositionsResponse, error)
+	GetVehicleRoutes(ctx context.Context, in *GetVehicleRoutesRequest, opts ...grpc.CallOption) (*GetVehicleRoutesResponse, error)
+	GetGpsPositions(ctx context.Context, in *GetGpsPositionsRequest, opts ...grpc.CallOption) (*GetGpsPositionsResponse, error)
 }
 
 type fuhrparkServiceClient struct {
@@ -255,6 +287,146 @@ func (c *fuhrparkServiceClient) ExportVehicleReport(ctx context.Context, in *Exp
 	return out, nil
 }
 
+func (c *fuhrparkServiceClient) ListFuelLogs(ctx context.Context, in *ListFuelLogsRequest, opts ...grpc.CallOption) (*ListFuelLogsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListFuelLogsResponse)
+	err := c.cc.Invoke(ctx, FuhrparkService_ListFuelLogs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fuhrparkServiceClient) CreateFuelLog(ctx context.Context, in *CreateFuelLogRequest, opts ...grpc.CallOption) (*CreateFuelLogResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateFuelLogResponse)
+	err := c.cc.Invoke(ctx, FuhrparkService_CreateFuelLog_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fuhrparkServiceClient) UpdateFuelLog(ctx context.Context, in *UpdateFuelLogRequest, opts ...grpc.CallOption) (*UpdateFuelLogResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateFuelLogResponse)
+	err := c.cc.Invoke(ctx, FuhrparkService_UpdateFuelLog_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fuhrparkServiceClient) DeleteFuelLog(ctx context.Context, in *DeleteFuelLogRequest, opts ...grpc.CallOption) (*DeleteFuelLogResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteFuelLogResponse)
+	err := c.cc.Invoke(ctx, FuhrparkService_DeleteFuelLog_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fuhrparkServiceClient) ListTripLogs(ctx context.Context, in *ListTripLogsRequest, opts ...grpc.CallOption) (*ListTripLogsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTripLogsResponse)
+	err := c.cc.Invoke(ctx, FuhrparkService_ListTripLogs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fuhrparkServiceClient) CreateTripLog(ctx context.Context, in *CreateTripLogRequest, opts ...grpc.CallOption) (*CreateTripLogResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateTripLogResponse)
+	err := c.cc.Invoke(ctx, FuhrparkService_CreateTripLog_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fuhrparkServiceClient) UpdateTripLog(ctx context.Context, in *UpdateTripLogRequest, opts ...grpc.CallOption) (*UpdateTripLogResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateTripLogResponse)
+	err := c.cc.Invoke(ctx, FuhrparkService_UpdateTripLog_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fuhrparkServiceClient) DeleteTripLog(ctx context.Context, in *DeleteTripLogRequest, opts ...grpc.CallOption) (*DeleteTripLogResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteTripLogResponse)
+	err := c.cc.Invoke(ctx, FuhrparkService_DeleteTripLog_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fuhrparkServiceClient) ListVehicleDocuments(ctx context.Context, in *ListVehicleDocumentsRequest, opts ...grpc.CallOption) (*ListVehicleDocumentsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListVehicleDocumentsResponse)
+	err := c.cc.Invoke(ctx, FuhrparkService_ListVehicleDocuments_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fuhrparkServiceClient) CreateVehicleDocument(ctx context.Context, in *CreateVehicleDocumentRequest, opts ...grpc.CallOption) (*CreateVehicleDocumentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateVehicleDocumentResponse)
+	err := c.cc.Invoke(ctx, FuhrparkService_CreateVehicleDocument_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fuhrparkServiceClient) DeleteVehicleDocument(ctx context.Context, in *DeleteVehicleDocumentRequest, opts ...grpc.CallOption) (*DeleteVehicleDocumentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteVehicleDocumentResponse)
+	err := c.cc.Invoke(ctx, FuhrparkService_DeleteVehicleDocument_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fuhrparkServiceClient) IngestGpsPositions(ctx context.Context, in *IngestGpsPositionsRequest, opts ...grpc.CallOption) (*IngestGpsPositionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(IngestGpsPositionsResponse)
+	err := c.cc.Invoke(ctx, FuhrparkService_IngestGpsPositions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fuhrparkServiceClient) GetVehicleRoutes(ctx context.Context, in *GetVehicleRoutesRequest, opts ...grpc.CallOption) (*GetVehicleRoutesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetVehicleRoutesResponse)
+	err := c.cc.Invoke(ctx, FuhrparkService_GetVehicleRoutes_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fuhrparkServiceClient) GetGpsPositions(ctx context.Context, in *GetGpsPositionsRequest, opts ...grpc.CallOption) (*GetGpsPositionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetGpsPositionsResponse)
+	err := c.cc.Invoke(ctx, FuhrparkService_GetGpsPositions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FuhrparkServiceServer is the server API for FuhrparkService service.
 // All implementations must embed UnimplementedFuhrparkServiceServer
 // for forward compatibility.
@@ -281,6 +453,24 @@ type FuhrparkServiceServer interface {
 	CheckTuevDue(context.Context, *CheckTuevDueRequest) (*CheckTuevDueResponse, error)
 	ListUpcomingServices(context.Context, *ListUpcomingServicesRequest) (*ListServicesResponse, error)
 	ExportVehicleReport(context.Context, *ExportVehicleReportRequest) (*ExportVehicleReportResponse, error)
+	// Fuel logs
+	ListFuelLogs(context.Context, *ListFuelLogsRequest) (*ListFuelLogsResponse, error)
+	CreateFuelLog(context.Context, *CreateFuelLogRequest) (*CreateFuelLogResponse, error)
+	UpdateFuelLog(context.Context, *UpdateFuelLogRequest) (*UpdateFuelLogResponse, error)
+	DeleteFuelLog(context.Context, *DeleteFuelLogRequest) (*DeleteFuelLogResponse, error)
+	// Trip logs
+	ListTripLogs(context.Context, *ListTripLogsRequest) (*ListTripLogsResponse, error)
+	CreateTripLog(context.Context, *CreateTripLogRequest) (*CreateTripLogResponse, error)
+	UpdateTripLog(context.Context, *UpdateTripLogRequest) (*UpdateTripLogResponse, error)
+	DeleteTripLog(context.Context, *DeleteTripLogRequest) (*DeleteTripLogResponse, error)
+	// Vehicle documents
+	ListVehicleDocuments(context.Context, *ListVehicleDocumentsRequest) (*ListVehicleDocumentsResponse, error)
+	CreateVehicleDocument(context.Context, *CreateVehicleDocumentRequest) (*CreateVehicleDocumentResponse, error)
+	DeleteVehicleDocument(context.Context, *DeleteVehicleDocumentRequest) (*DeleteVehicleDocumentResponse, error)
+	// GPS / Tracking
+	IngestGpsPositions(context.Context, *IngestGpsPositionsRequest) (*IngestGpsPositionsResponse, error)
+	GetVehicleRoutes(context.Context, *GetVehicleRoutesRequest) (*GetVehicleRoutesResponse, error)
+	GetGpsPositions(context.Context, *GetGpsPositionsRequest) (*GetGpsPositionsResponse, error)
 	mustEmbedUnimplementedFuhrparkServiceServer()
 }
 
@@ -344,6 +534,48 @@ func (UnimplementedFuhrparkServiceServer) ListUpcomingServices(context.Context, 
 }
 func (UnimplementedFuhrparkServiceServer) ExportVehicleReport(context.Context, *ExportVehicleReportRequest) (*ExportVehicleReportResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ExportVehicleReport not implemented")
+}
+func (UnimplementedFuhrparkServiceServer) ListFuelLogs(context.Context, *ListFuelLogsRequest) (*ListFuelLogsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListFuelLogs not implemented")
+}
+func (UnimplementedFuhrparkServiceServer) CreateFuelLog(context.Context, *CreateFuelLogRequest) (*CreateFuelLogResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateFuelLog not implemented")
+}
+func (UnimplementedFuhrparkServiceServer) UpdateFuelLog(context.Context, *UpdateFuelLogRequest) (*UpdateFuelLogResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateFuelLog not implemented")
+}
+func (UnimplementedFuhrparkServiceServer) DeleteFuelLog(context.Context, *DeleteFuelLogRequest) (*DeleteFuelLogResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteFuelLog not implemented")
+}
+func (UnimplementedFuhrparkServiceServer) ListTripLogs(context.Context, *ListTripLogsRequest) (*ListTripLogsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListTripLogs not implemented")
+}
+func (UnimplementedFuhrparkServiceServer) CreateTripLog(context.Context, *CreateTripLogRequest) (*CreateTripLogResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateTripLog not implemented")
+}
+func (UnimplementedFuhrparkServiceServer) UpdateTripLog(context.Context, *UpdateTripLogRequest) (*UpdateTripLogResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateTripLog not implemented")
+}
+func (UnimplementedFuhrparkServiceServer) DeleteTripLog(context.Context, *DeleteTripLogRequest) (*DeleteTripLogResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteTripLog not implemented")
+}
+func (UnimplementedFuhrparkServiceServer) ListVehicleDocuments(context.Context, *ListVehicleDocumentsRequest) (*ListVehicleDocumentsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListVehicleDocuments not implemented")
+}
+func (UnimplementedFuhrparkServiceServer) CreateVehicleDocument(context.Context, *CreateVehicleDocumentRequest) (*CreateVehicleDocumentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateVehicleDocument not implemented")
+}
+func (UnimplementedFuhrparkServiceServer) DeleteVehicleDocument(context.Context, *DeleteVehicleDocumentRequest) (*DeleteVehicleDocumentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteVehicleDocument not implemented")
+}
+func (UnimplementedFuhrparkServiceServer) IngestGpsPositions(context.Context, *IngestGpsPositionsRequest) (*IngestGpsPositionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method IngestGpsPositions not implemented")
+}
+func (UnimplementedFuhrparkServiceServer) GetVehicleRoutes(context.Context, *GetVehicleRoutesRequest) (*GetVehicleRoutesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetVehicleRoutes not implemented")
+}
+func (UnimplementedFuhrparkServiceServer) GetGpsPositions(context.Context, *GetGpsPositionsRequest) (*GetGpsPositionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetGpsPositions not implemented")
 }
 func (UnimplementedFuhrparkServiceServer) mustEmbedUnimplementedFuhrparkServiceServer() {}
 func (UnimplementedFuhrparkServiceServer) testEmbeddedByValue()                         {}
@@ -690,6 +922,258 @@ func _FuhrparkService_ExportVehicleReport_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FuhrparkService_ListFuelLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListFuelLogsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FuhrparkServiceServer).ListFuelLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FuhrparkService_ListFuelLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FuhrparkServiceServer).ListFuelLogs(ctx, req.(*ListFuelLogsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FuhrparkService_CreateFuelLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateFuelLogRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FuhrparkServiceServer).CreateFuelLog(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FuhrparkService_CreateFuelLog_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FuhrparkServiceServer).CreateFuelLog(ctx, req.(*CreateFuelLogRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FuhrparkService_UpdateFuelLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateFuelLogRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FuhrparkServiceServer).UpdateFuelLog(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FuhrparkService_UpdateFuelLog_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FuhrparkServiceServer).UpdateFuelLog(ctx, req.(*UpdateFuelLogRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FuhrparkService_DeleteFuelLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteFuelLogRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FuhrparkServiceServer).DeleteFuelLog(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FuhrparkService_DeleteFuelLog_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FuhrparkServiceServer).DeleteFuelLog(ctx, req.(*DeleteFuelLogRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FuhrparkService_ListTripLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTripLogsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FuhrparkServiceServer).ListTripLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FuhrparkService_ListTripLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FuhrparkServiceServer).ListTripLogs(ctx, req.(*ListTripLogsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FuhrparkService_CreateTripLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateTripLogRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FuhrparkServiceServer).CreateTripLog(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FuhrparkService_CreateTripLog_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FuhrparkServiceServer).CreateTripLog(ctx, req.(*CreateTripLogRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FuhrparkService_UpdateTripLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateTripLogRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FuhrparkServiceServer).UpdateTripLog(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FuhrparkService_UpdateTripLog_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FuhrparkServiceServer).UpdateTripLog(ctx, req.(*UpdateTripLogRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FuhrparkService_DeleteTripLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteTripLogRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FuhrparkServiceServer).DeleteTripLog(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FuhrparkService_DeleteTripLog_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FuhrparkServiceServer).DeleteTripLog(ctx, req.(*DeleteTripLogRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FuhrparkService_ListVehicleDocuments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListVehicleDocumentsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FuhrparkServiceServer).ListVehicleDocuments(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FuhrparkService_ListVehicleDocuments_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FuhrparkServiceServer).ListVehicleDocuments(ctx, req.(*ListVehicleDocumentsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FuhrparkService_CreateVehicleDocument_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateVehicleDocumentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FuhrparkServiceServer).CreateVehicleDocument(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FuhrparkService_CreateVehicleDocument_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FuhrparkServiceServer).CreateVehicleDocument(ctx, req.(*CreateVehicleDocumentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FuhrparkService_DeleteVehicleDocument_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteVehicleDocumentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FuhrparkServiceServer).DeleteVehicleDocument(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FuhrparkService_DeleteVehicleDocument_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FuhrparkServiceServer).DeleteVehicleDocument(ctx, req.(*DeleteVehicleDocumentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FuhrparkService_IngestGpsPositions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IngestGpsPositionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FuhrparkServiceServer).IngestGpsPositions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FuhrparkService_IngestGpsPositions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FuhrparkServiceServer).IngestGpsPositions(ctx, req.(*IngestGpsPositionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FuhrparkService_GetVehicleRoutes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetVehicleRoutesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FuhrparkServiceServer).GetVehicleRoutes(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FuhrparkService_GetVehicleRoutes_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FuhrparkServiceServer).GetVehicleRoutes(ctx, req.(*GetVehicleRoutesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FuhrparkService_GetGpsPositions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetGpsPositionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FuhrparkServiceServer).GetGpsPositions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FuhrparkService_GetGpsPositions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FuhrparkServiceServer).GetGpsPositions(ctx, req.(*GetGpsPositionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FuhrparkService_ServiceDesc is the grpc.ServiceDesc for FuhrparkService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -768,6 +1252,62 @@ var FuhrparkService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ExportVehicleReport",
 			Handler:    _FuhrparkService_ExportVehicleReport_Handler,
+		},
+		{
+			MethodName: "ListFuelLogs",
+			Handler:    _FuhrparkService_ListFuelLogs_Handler,
+		},
+		{
+			MethodName: "CreateFuelLog",
+			Handler:    _FuhrparkService_CreateFuelLog_Handler,
+		},
+		{
+			MethodName: "UpdateFuelLog",
+			Handler:    _FuhrparkService_UpdateFuelLog_Handler,
+		},
+		{
+			MethodName: "DeleteFuelLog",
+			Handler:    _FuhrparkService_DeleteFuelLog_Handler,
+		},
+		{
+			MethodName: "ListTripLogs",
+			Handler:    _FuhrparkService_ListTripLogs_Handler,
+		},
+		{
+			MethodName: "CreateTripLog",
+			Handler:    _FuhrparkService_CreateTripLog_Handler,
+		},
+		{
+			MethodName: "UpdateTripLog",
+			Handler:    _FuhrparkService_UpdateTripLog_Handler,
+		},
+		{
+			MethodName: "DeleteTripLog",
+			Handler:    _FuhrparkService_DeleteTripLog_Handler,
+		},
+		{
+			MethodName: "ListVehicleDocuments",
+			Handler:    _FuhrparkService_ListVehicleDocuments_Handler,
+		},
+		{
+			MethodName: "CreateVehicleDocument",
+			Handler:    _FuhrparkService_CreateVehicleDocument_Handler,
+		},
+		{
+			MethodName: "DeleteVehicleDocument",
+			Handler:    _FuhrparkService_DeleteVehicleDocument_Handler,
+		},
+		{
+			MethodName: "IngestGpsPositions",
+			Handler:    _FuhrparkService_IngestGpsPositions_Handler,
+		},
+		{
+			MethodName: "GetVehicleRoutes",
+			Handler:    _FuhrparkService_GetVehicleRoutes_Handler,
+		},
+		{
+			MethodName: "GetGpsPositions",
+			Handler:    _FuhrparkService_GetGpsPositions_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

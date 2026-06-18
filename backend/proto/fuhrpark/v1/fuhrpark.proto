@@ -32,6 +32,28 @@ service FuhrparkService {
   rpc CheckTuevDue(CheckTuevDueRequest)                   returns (CheckTuevDueResponse);
   rpc ListUpcomingServices(ListUpcomingServicesRequest)   returns (ListServicesResponse);
   rpc ExportVehicleReport(ExportVehicleReportRequest)     returns (ExportVehicleReportResponse);
+
+  // Fuel logs
+  rpc ListFuelLogs(ListFuelLogsRequest)         returns (ListFuelLogsResponse);
+  rpc CreateFuelLog(CreateFuelLogRequest)       returns (CreateFuelLogResponse);
+  rpc UpdateFuelLog(UpdateFuelLogRequest)       returns (UpdateFuelLogResponse);
+  rpc DeleteFuelLog(DeleteFuelLogRequest)       returns (DeleteFuelLogResponse);
+
+  // Trip logs
+  rpc ListTripLogs(ListTripLogsRequest)         returns (ListTripLogsResponse);
+  rpc CreateTripLog(CreateTripLogRequest)       returns (CreateTripLogResponse);
+  rpc UpdateTripLog(UpdateTripLogRequest)       returns (UpdateTripLogResponse);
+  rpc DeleteTripLog(DeleteTripLogRequest)       returns (DeleteTripLogResponse);
+
+  // Vehicle documents
+  rpc ListVehicleDocuments(ListVehicleDocumentsRequest)     returns (ListVehicleDocumentsResponse);
+  rpc CreateVehicleDocument(CreateVehicleDocumentRequest)   returns (CreateVehicleDocumentResponse);
+  rpc DeleteVehicleDocument(DeleteVehicleDocumentRequest)   returns (DeleteVehicleDocumentResponse);
+
+  // GPS / Tracking
+  rpc IngestGpsPositions(IngestGpsPositionsRequest)   returns (IngestGpsPositionsResponse);
+  rpc GetVehicleRoutes(GetVehicleRoutesRequest)       returns (GetVehicleRoutesResponse);
+  rpc GetGpsPositions(GetGpsPositionsRequest)         returns (GetGpsPositionsResponse);
 }
 
 // ============================================================================
@@ -319,4 +341,193 @@ message ExportVehicleReportResponse {
   bytes payload = 1;
   string content_type = 2;
   string filename = 3;
+}
+
+// ============================================================================
+// Fuel Logs
+// ============================================================================
+
+message FuelLog {
+  string id         = 1;
+  string tenant_id  = 2;
+  string vehicle_id = 3;
+  string date       = 4; // ISO date "2024-01-15"
+  double liters     = 5;
+  int64  cost_cents = 6;
+  int64  mileage_km = 7;
+  string fuel_type  = 8;
+  string notes      = 9;
+  string created_at = 10;
+  string updated_at = 11;
+}
+
+message ListFuelLogsRequest {
+  string vehicle_id = 1; // optional filter
+  int32  page       = 2;
+  int32  page_size  = 3;
+}
+message ListFuelLogsResponse {
+  repeated FuelLog fuel_logs = 1;
+  int32 total = 2;
+}
+message CreateFuelLogRequest {
+  string vehicle_id = 1;
+  string date       = 2;
+  double liters     = 3;
+  int64  cost_cents = 4;
+  int64  mileage_km = 5;
+  string fuel_type  = 6;
+  string notes      = 7;
+}
+message CreateFuelLogResponse { FuelLog fuel_log = 1; }
+message UpdateFuelLogRequest {
+  string id         = 1;
+  string date       = 2;
+  double liters     = 3;
+  int64  cost_cents = 4;
+  int64  mileage_km = 5;
+  string fuel_type  = 6;
+  string notes      = 7;
+}
+message UpdateFuelLogResponse { FuelLog fuel_log = 1; }
+message DeleteFuelLogRequest  { string id = 1; }
+message DeleteFuelLogResponse {}
+
+// ============================================================================
+// Trip Logs
+// ============================================================================
+
+message TripLog {
+  string id             = 1;
+  string tenant_id      = 2;
+  string vehicle_id     = 3;
+  string date           = 4;
+  string start_location = 5;
+  string end_location   = 6;
+  string purpose        = 7;
+  int64  start_km       = 8;
+  int64  end_km         = 9;
+  int64  km             = 10; // computed: end_km - start_km
+  bool   is_private     = 11;
+  string driver_name    = 12;
+  string notes          = 13;
+  string created_at     = 14;
+  string updated_at     = 15;
+}
+message ListTripLogsRequest {
+  string vehicle_id = 1;
+  int32  page       = 2;
+  int32  page_size  = 3;
+}
+message ListTripLogsResponse {
+  repeated TripLog trip_logs = 1;
+  int32 total = 2;
+}
+message CreateTripLogRequest {
+  string vehicle_id     = 1;
+  string date           = 2;
+  string start_location = 3;
+  string end_location   = 4;
+  string purpose        = 5;
+  int64  start_km       = 6;
+  int64  end_km         = 7;
+  bool   is_private     = 8;
+  string driver_name    = 9;
+  string notes          = 10;
+}
+message CreateTripLogResponse { TripLog trip_log = 1; }
+message UpdateTripLogRequest {
+  string id             = 1;
+  string date           = 2;
+  string start_location = 3;
+  string end_location   = 4;
+  string purpose        = 5;
+  int64  start_km       = 6;
+  int64  end_km         = 7;
+  bool   is_private     = 8;
+  string driver_name    = 9;
+  string notes          = 10;
+}
+message UpdateTripLogResponse { TripLog trip_log = 1; }
+message DeleteTripLogRequest  { string id = 1; }
+message DeleteTripLogResponse {}
+
+// ============================================================================
+// Vehicle Documents
+// ============================================================================
+
+message VehicleDocument {
+  string id          = 1;
+  string tenant_id   = 2;
+  string vehicle_id  = 3;
+  string doc_type    = 4;
+  string name        = 5;
+  string object_key  = 6;
+  string upload_date = 7;
+  string expiry_date = 8; // optional
+  string created_at  = 9;
+  string updated_at  = 10;
+}
+message ListVehicleDocumentsRequest {
+  string vehicle_id = 1;
+  int32  page       = 2;
+  int32  page_size  = 3;
+}
+message ListVehicleDocumentsResponse {
+  repeated VehicleDocument documents = 1;
+  int32 total = 2;
+}
+message CreateVehicleDocumentRequest {
+  string vehicle_id  = 1;
+  string doc_type    = 2;
+  string name        = 3;
+  string object_key  = 4;
+  string expiry_date = 5; // optional
+}
+message CreateVehicleDocumentResponse { VehicleDocument document = 1; }
+message DeleteVehicleDocumentRequest  { string id = 1; }
+message DeleteVehicleDocumentResponse {}
+
+// ============================================================================
+// GPS / Tracking
+// ============================================================================
+
+message GpsPosition {
+  string id          = 1;
+  string vehicle_id  = 2;
+  double lat         = 3;
+  double lng         = 4;
+  double speed_kmh   = 5;
+  string recorded_at = 6;
+}
+message VehicleRoute {
+  string vehicle_id   = 1;
+  string vehicle_name = 2;
+  string date         = 3;
+  repeated GpsPosition positions = 4;
+  double daily_km     = 5;
+  string status       = 6; // driving|parked|unknown
+  string driver       = 7;
+}
+message IngestGpsPositionsRequest {
+  string vehicle_id = 1;
+  repeated GpsPosition positions = 2;
+}
+message IngestGpsPositionsResponse { int32 ingested = 1; }
+message GetVehicleRoutesRequest {
+  string date_from  = 1; // ISO date
+  string date_to    = 2; // ISO date
+  string vehicle_id = 3; // optional filter
+}
+message GetVehicleRoutesResponse {
+  repeated VehicleRoute routes = 1;
+}
+message GetGpsPositionsRequest {
+  string vehicle_id = 1;
+  string from       = 2; // RFC3339
+  string to         = 3; // RFC3339
+  int32  limit      = 4;
+}
+message GetGpsPositionsResponse {
+  repeated GpsPosition positions = 1;
 }

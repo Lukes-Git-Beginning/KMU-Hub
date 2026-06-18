@@ -101,3 +101,114 @@ type HistoryEntry struct {
 	Summary    string    `json:"summary"`
 	OccurredAt time.Time `json:"occurred_at"`
 }
+
+// FuelLog represents a fuel/charging record for a vehicle.
+type FuelLog struct {
+	ID        uuid.UUID `json:"id"`
+	TenantID  uuid.UUID `json:"tenant_id"`
+	VehicleID uuid.UUID `json:"vehicle_id"`
+	Date      time.Time `json:"date"`
+	Liters    float64   `json:"liters"`
+	CostCents int64     `json:"cost_cents"`
+	MileageKm int64     `json:"mileage_km"`
+	FuelType  string    `json:"fuel_type"`
+	Notes     string    `json:"notes"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// TripLog represents a single trip/logbook entry.
+type TripLog struct {
+	ID            uuid.UUID `json:"id"`
+	TenantID      uuid.UUID `json:"tenant_id"`
+	VehicleID     uuid.UUID `json:"vehicle_id"`
+	Date          time.Time `json:"date"`
+	StartLocation string    `json:"start_location"`
+	EndLocation   string    `json:"end_location"`
+	Purpose       string    `json:"purpose"`
+	StartKm       int64     `json:"start_km"`
+	EndKm         int64     `json:"end_km"`
+	Km            int64     `json:"km"` // computed column
+	IsPrivate     bool      `json:"is_private"`
+	DriverName    string    `json:"driver_name"`
+	Notes         string    `json:"notes"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+// VehicleDocument represents a document attached to a vehicle.
+type VehicleDocument struct {
+	ID         uuid.UUID  `json:"id"`
+	TenantID   uuid.UUID  `json:"tenant_id"`
+	VehicleID  uuid.UUID  `json:"vehicle_id"`
+	DocType    string     `json:"doc_type"`
+	Name       string     `json:"name"`
+	ObjectKey  string     `json:"object_key"`
+	UploadDate time.Time  `json:"upload_date"`
+	ExpiryDate *time.Time `json:"expiry_date,omitempty"`
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
+}
+
+// GpsPosition represents a single GPS fix for a vehicle.
+type GpsPosition struct {
+	ID         uuid.UUID  `json:"id"`
+	TenantID   uuid.UUID  `json:"tenant_id"`
+	VehicleID  uuid.UUID  `json:"vehicle_id"`
+	Lat        float64    `json:"lat"`
+	Lng        float64    `json:"lng"`
+	SpeedKmh   *float64   `json:"speed_kmh,omitempty"`
+	RecordedAt time.Time  `json:"recorded_at"`
+	CreatedAt  time.Time  `json:"created_at"`
+}
+
+// VehicleRouteAggregation is the result of aggregating GPS positions per vehicle per day.
+type VehicleRouteAggregation struct {
+	VehicleID   uuid.UUID
+	VehicleName string
+	Date        time.Time
+	DailyKm     float64
+	Status      string
+	Positions   []GpsPosition
+}
+
+// ListFuelLogsParams holds filtering and pagination for fuel log queries.
+type ListFuelLogsParams struct {
+	TenantID  uuid.UUID
+	VehicleID uuid.UUID // zero value = no filter
+	Page      int32
+	PageSize  int32
+}
+
+// ListTripLogsParams holds filtering and pagination for trip log queries.
+type ListTripLogsParams struct {
+	TenantID  uuid.UUID
+	VehicleID uuid.UUID // zero value = no filter
+	Page      int32
+	PageSize  int32
+}
+
+// ListVehicleDocumentsParams holds filtering and pagination for vehicle document queries.
+type ListVehicleDocumentsParams struct {
+	TenantID  uuid.UUID
+	VehicleID uuid.UUID
+	Page      int32
+	PageSize  int32
+}
+
+// GetVehicleRoutesParams holds filtering for vehicle route aggregation.
+type GetVehicleRoutesParams struct {
+	TenantID  uuid.UUID
+	DateFrom  time.Time
+	DateTo    time.Time
+	VehicleID uuid.UUID // zero value = no filter
+}
+
+// GetGpsPositionsParams holds filtering for GPS position queries.
+type GetGpsPositionsParams struct {
+	TenantID  uuid.UUID
+	VehicleID uuid.UUID
+	From      time.Time
+	To        time.Time
+	Limit     int32
+}

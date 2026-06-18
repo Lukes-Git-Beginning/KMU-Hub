@@ -514,6 +514,452 @@ func (r *PostgresRepository) MarkTuevReminderSent(ctx context.Context, vehicleID
 }
 
 // ============================================================================
+// Fuel Logs
+// ============================================================================
+
+func (r *PostgresRepository) ListFuelLogs(ctx context.Context, params ListFuelLogsParams) ([]FuelLog, int, error) {
+	pageSize := params.PageSize
+	if pageSize <= 0 {
+		pageSize = 50
+	}
+	page := params.Page
+	if page <= 0 {
+		page = 1
+	}
+	offset := (page - 1) * pageSize
+
+	var logs []FuelLog
+	var total int
+	var err error
+
+	zeroID := uuid.UUID{}
+	if params.VehicleID != zeroID {
+		rows, queryErr := r.pool.Query(ctx, `
+			SELECT id, tenant_id, vehicle_id, date, liters, cost_cents, mileage_km, fuel_type, notes, created_at, updated_at
+			FROM fuel_logs
+			WHERE tenant_id=$1 AND vehicle_id=$2
+			ORDER BY date DESC, created_at DESC
+			LIMIT $3 OFFSET $4`,
+			params.TenantID, params.VehicleID, pageSize, offset)
+		if queryErr != nil {
+			return nil, 0, fmt.Errorf("list fuel logs: %w", queryErr)
+		}
+		logs, err = scanFuelLogs(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		err = r.pool.QueryRow(ctx,
+			`SELECT COUNT(*) FROM fuel_logs WHERE tenant_id=$1 AND vehicle_id=$2`,
+			params.TenantID, params.VehicleID).Scan(&total)
+	} else {
+		rows, queryErr := r.pool.Query(ctx, `
+			SELECT id, tenant_id, vehicle_id, date, liters, cost_cents, mileage_km, fuel_type, notes, created_at, updated_at
+			FROM fuel_logs
+			WHERE tenant_id=$1
+			ORDER BY date DESC, created_at DESC
+			LIMIT $2 OFFSET $3`,
+			params.TenantID, pageSize, offset)
+		if queryErr != nil {
+			return nil, 0, fmt.Errorf("list fuel logs: %w", queryErr)
+		}
+		logs, err = scanFuelLogs(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		err = r.pool.QueryRow(ctx,
+			`SELECT COUNT(*) FROM fuel_logs WHERE tenant_id=$1`,
+			params.TenantID).Scan(&total)
+	}
+	return logs, total, err
+}
+
+func (r *PostgresRepository) CreateFuelLog(ctx context.Context, log FuelLog) (FuelLog, error) {
+	log.ID = uuid.New()
+	now := time.Now()
+	log.CreatedAt = now
+	log.UpdatedAt = now
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO fuel_logs (id, tenant_id, vehicle_id, date, liters, cost_cents, mileage_km, fuel_type, notes, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		log.ID, log.TenantID, log.VehicleID, log.Date, log.Liters,
+		log.CostCents, log.MileageKm, log.FuelType, log.Notes,
+		log.CreatedAt, log.UpdatedAt)
+	return log, err
+}
+
+func (r *PostgresRepository) UpdateFuelLog(ctx context.Context, log FuelLog) (FuelLog, error) {
+	log.UpdatedAt = time.Now()
+	ct, err := r.pool.Exec(ctx, `
+		UPDATE fuel_logs SET
+			date=$3, liters=$4, cost_cents=$5, mileage_km=$6, fuel_type=$7, notes=$8, updated_at=$9
+		WHERE id=$1 AND tenant_id=$2`,
+		log.ID, log.TenantID, log.Date, log.Liters, log.CostCents,
+		log.MileageKm, log.FuelType, log.Notes, log.UpdatedAt)
+	if err != nil {
+		return FuelLog{}, err
+	}
+	if ct.RowsAffected() == 0 {
+		return FuelLog{}, ErrFuelLogNotFound
+	}
+	var updated FuelLog
+	err = r.pool.QueryRow(ctx,
+		`SELECT id, tenant_id, vehicle_id, date, liters, cost_cents, mileage_km, fuel_type, notes, created_at, updated_at
+		 FROM fuel_logs WHERE id=$1 AND tenant_id=$2`,
+		log.ID, log.TenantID).Scan(
+		&updated.ID, &updated.TenantID, &updated.VehicleID, &updated.Date,
+		&updated.Liters, &updated.CostCents, &updated.MileageKm, &updated.FuelType,
+		&updated.Notes, &updated.CreatedAt, &updated.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return FuelLog{}, ErrFuelLogNotFound
+	}
+	return updated, err
+}
+
+func (r *PostgresRepository) DeleteFuelLog(ctx context.Context, tenantID, id uuid.UUID) error {
+	ct, err := r.pool.Exec(ctx,
+		`DELETE FROM fuel_logs WHERE id=$1 AND tenant_id=$2`, id, tenantID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrFuelLogNotFound
+	}
+	return nil
+}
+
+// ============================================================================
+// Trip Logs
+// ============================================================================
+
+func (r *PostgresRepository) ListTripLogs(ctx context.Context, params ListTripLogsParams) ([]TripLog, int, error) {
+	pageSize := params.PageSize
+	if pageSize <= 0 {
+		pageSize = 50
+	}
+	page := params.Page
+	if page <= 0 {
+		page = 1
+	}
+	offset := (page - 1) * pageSize
+
+	var logs []TripLog
+	var total int
+	var err error
+
+	zeroID := uuid.UUID{}
+	if params.VehicleID != zeroID {
+		rows, queryErr := r.pool.Query(ctx, `
+			SELECT id, tenant_id, vehicle_id, date, start_location, end_location, purpose,
+			       start_km, end_km, km, is_private, driver_name, notes, created_at, updated_at
+			FROM trip_logs
+			WHERE tenant_id=$1 AND vehicle_id=$2
+			ORDER BY date DESC, created_at DESC
+			LIMIT $3 OFFSET $4`,
+			params.TenantID, params.VehicleID, pageSize, offset)
+		if queryErr != nil {
+			return nil, 0, fmt.Errorf("list trip logs: %w", queryErr)
+		}
+		logs, err = scanTripLogs(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		err = r.pool.QueryRow(ctx,
+			`SELECT COUNT(*) FROM trip_logs WHERE tenant_id=$1 AND vehicle_id=$2`,
+			params.TenantID, params.VehicleID).Scan(&total)
+	} else {
+		rows, queryErr := r.pool.Query(ctx, `
+			SELECT id, tenant_id, vehicle_id, date, start_location, end_location, purpose,
+			       start_km, end_km, km, is_private, driver_name, notes, created_at, updated_at
+			FROM trip_logs
+			WHERE tenant_id=$1
+			ORDER BY date DESC, created_at DESC
+			LIMIT $2 OFFSET $3`,
+			params.TenantID, pageSize, offset)
+		if queryErr != nil {
+			return nil, 0, fmt.Errorf("list trip logs: %w", queryErr)
+		}
+		logs, err = scanTripLogs(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		err = r.pool.QueryRow(ctx,
+			`SELECT COUNT(*) FROM trip_logs WHERE tenant_id=$1`,
+			params.TenantID).Scan(&total)
+	}
+	return logs, total, err
+}
+
+func (r *PostgresRepository) CreateTripLog(ctx context.Context, log TripLog) (TripLog, error) {
+	if log.EndKm < log.StartKm {
+		return TripLog{}, ErrInvalidInput
+	}
+	log.ID = uuid.New()
+	now := time.Now()
+	log.CreatedAt = now
+	log.UpdatedAt = now
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO trip_logs (id, tenant_id, vehicle_id, date, start_location, end_location, purpose,
+		                       start_km, end_km, is_private, driver_name, notes, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+		log.ID, log.TenantID, log.VehicleID, log.Date, log.StartLocation, log.EndLocation,
+		log.Purpose, log.StartKm, log.EndKm, log.IsPrivate, log.DriverName, log.Notes,
+		log.CreatedAt, log.UpdatedAt)
+	if err != nil {
+		return TripLog{}, err
+	}
+	// Re-fetch to get computed km column
+	var created TripLog
+	err = r.pool.QueryRow(ctx,
+		`SELECT id, tenant_id, vehicle_id, date, start_location, end_location, purpose,
+		        start_km, end_km, km, is_private, driver_name, notes, created_at, updated_at
+		 FROM trip_logs WHERE id=$1`,
+		log.ID).Scan(
+		&created.ID, &created.TenantID, &created.VehicleID, &created.Date,
+		&created.StartLocation, &created.EndLocation, &created.Purpose,
+		&created.StartKm, &created.EndKm, &created.Km,
+		&created.IsPrivate, &created.DriverName, &created.Notes,
+		&created.CreatedAt, &created.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return TripLog{}, ErrTripLogNotFound
+	}
+	return created, err
+}
+
+func (r *PostgresRepository) UpdateTripLog(ctx context.Context, log TripLog) (TripLog, error) {
+	if log.EndKm < log.StartKm {
+		return TripLog{}, ErrInvalidInput
+	}
+	log.UpdatedAt = time.Now()
+	ct, err := r.pool.Exec(ctx, `
+		UPDATE trip_logs SET
+			date=$3, start_location=$4, end_location=$5, purpose=$6,
+			start_km=$7, end_km=$8, is_private=$9, driver_name=$10, notes=$11, updated_at=$12
+		WHERE id=$1 AND tenant_id=$2`,
+		log.ID, log.TenantID, log.Date, log.StartLocation, log.EndLocation,
+		log.Purpose, log.StartKm, log.EndKm, log.IsPrivate, log.DriverName,
+		log.Notes, log.UpdatedAt)
+	if err != nil {
+		return TripLog{}, err
+	}
+	if ct.RowsAffected() == 0 {
+		return TripLog{}, ErrTripLogNotFound
+	}
+	var updated TripLog
+	err = r.pool.QueryRow(ctx,
+		`SELECT id, tenant_id, vehicle_id, date, start_location, end_location, purpose,
+		        start_km, end_km, km, is_private, driver_name, notes, created_at, updated_at
+		 FROM trip_logs WHERE id=$1 AND tenant_id=$2`,
+		log.ID, log.TenantID).Scan(
+		&updated.ID, &updated.TenantID, &updated.VehicleID, &updated.Date,
+		&updated.StartLocation, &updated.EndLocation, &updated.Purpose,
+		&updated.StartKm, &updated.EndKm, &updated.Km,
+		&updated.IsPrivate, &updated.DriverName, &updated.Notes,
+		&updated.CreatedAt, &updated.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return TripLog{}, ErrTripLogNotFound
+	}
+	return updated, err
+}
+
+func (r *PostgresRepository) DeleteTripLog(ctx context.Context, tenantID, id uuid.UUID) error {
+	ct, err := r.pool.Exec(ctx,
+		`DELETE FROM trip_logs WHERE id=$1 AND tenant_id=$2`, id, tenantID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrTripLogNotFound
+	}
+	return nil
+}
+
+// ============================================================================
+// Vehicle Documents
+// ============================================================================
+
+func (r *PostgresRepository) ListVehicleDocuments(ctx context.Context, params ListVehicleDocumentsParams) ([]VehicleDocument, int, error) {
+	pageSize := params.PageSize
+	if pageSize <= 0 {
+		pageSize = 50
+	}
+	page := params.Page
+	if page <= 0 {
+		page = 1
+	}
+	offset := (page - 1) * pageSize
+
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, tenant_id, vehicle_id, doc_type, name, object_key, upload_date, expiry_date, created_at, updated_at
+		FROM vehicle_documents
+		WHERE tenant_id=$1 AND vehicle_id=$2
+		ORDER BY upload_date DESC, created_at DESC
+		LIMIT $3 OFFSET $4`,
+		params.TenantID, params.VehicleID, pageSize, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list vehicle documents: %w", err)
+	}
+	docs, err := scanVehicleDocuments(rows)
+	if err != nil {
+		return nil, 0, err
+	}
+	var total int
+	err = r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM vehicle_documents WHERE tenant_id=$1 AND vehicle_id=$2`,
+		params.TenantID, params.VehicleID).Scan(&total)
+	return docs, total, err
+}
+
+func (r *PostgresRepository) CreateVehicleDocument(ctx context.Context, doc VehicleDocument) (VehicleDocument, error) {
+	doc.ID = uuid.New()
+	now := time.Now()
+	doc.CreatedAt = now
+	doc.UpdatedAt = now
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO vehicle_documents (id, tenant_id, vehicle_id, doc_type, name, object_key, upload_date, expiry_date, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+		doc.ID, doc.TenantID, doc.VehicleID, doc.DocType, doc.Name, doc.ObjectKey,
+		doc.UploadDate, doc.ExpiryDate, doc.CreatedAt, doc.UpdatedAt)
+	return doc, err
+}
+
+func (r *PostgresRepository) DeleteVehicleDocument(ctx context.Context, tenantID, id uuid.UUID) error {
+	ct, err := r.pool.Exec(ctx,
+		`DELETE FROM vehicle_documents WHERE id=$1 AND tenant_id=$2`, id, tenantID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrDocumentNotFound
+	}
+	return nil
+}
+
+// ============================================================================
+// GPS Positions
+// ============================================================================
+
+func (r *PostgresRepository) IngestGpsPositions(ctx context.Context, tenantID, vehicleID uuid.UUID, positions []GpsPosition) (int, error) {
+	if len(positions) == 0 {
+		return 0, nil
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	count := 0
+	now := time.Now()
+	for _, pos := range positions {
+		pos.ID = uuid.New()
+		pos.TenantID = tenantID
+		pos.VehicleID = vehicleID
+		pos.CreatedAt = now
+		_, execErr := tx.Exec(ctx, `
+			INSERT INTO gps_positions (id, tenant_id, vehicle_id, lat, lng, speed_kmh, recorded_at, created_at)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+			pos.ID, pos.TenantID, pos.VehicleID, pos.Lat, pos.Lng, pos.SpeedKmh, pos.RecordedAt, pos.CreatedAt)
+		if execErr != nil {
+			return count, execErr
+		}
+		count++
+	}
+	return count, tx.Commit(ctx)
+}
+
+func (r *PostgresRepository) GetVehicleRoutes(ctx context.Context, params GetVehicleRoutesParams) ([]VehicleRouteAggregation, error) {
+	type aggRow struct {
+		VehicleID    uuid.UUID `json:"vehicle_id"`
+		LicensePlate string    `json:"license_plate"`
+		Date         time.Time `json:"date"`
+		LastRecorded time.Time `json:"last_recorded_at"`
+	}
+
+	query := `
+		SELECT
+			g.vehicle_id,
+			v.license_plate,
+			DATE(g.recorded_at) AS date,
+			MAX(g.recorded_at) AS last_recorded_at
+		FROM gps_positions g
+		JOIN vehicles v ON v.id = g.vehicle_id
+		WHERE g.tenant_id=$1
+		  AND DATE(g.recorded_at) BETWEEN $2 AND $3`
+
+	args := []any{params.TenantID, params.DateFrom.Format("2006-01-02"), params.DateTo.Format("2006-01-02")}
+	argIdx := 4
+	zeroID := uuid.UUID{}
+	if params.VehicleID != zeroID {
+		query += fmt.Sprintf(" AND g.vehicle_id=$%d", argIdx)
+		args = append(args, params.VehicleID)
+	}
+	query += " GROUP BY g.vehicle_id, v.license_plate, DATE(g.recorded_at) ORDER BY date DESC, g.vehicle_id"
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("get vehicle routes: %w", err)
+	}
+	defer rows.Close()
+
+	var aggRows []aggRow
+	for rows.Next() {
+		var row aggRow
+		if scanErr := rows.Scan(&row.VehicleID, &row.LicensePlate, &row.Date, &row.LastRecorded); scanErr != nil {
+			return nil, fmt.Errorf("scan vehicle route row: %w", scanErr)
+		}
+		aggRows = append(aggRows, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	var routes []VehicleRouteAggregation
+	for _, row := range aggRows {
+		status := "parked"
+		if time.Since(row.LastRecorded) < 5*time.Minute {
+			status = "driving"
+		}
+		posRows, posErr := r.pool.Query(ctx,
+			`SELECT id, tenant_id, vehicle_id, lat, lng, speed_kmh, recorded_at, created_at
+			 FROM gps_positions
+			 WHERE tenant_id=$1 AND vehicle_id=$2 AND DATE(recorded_at)=$3
+			 ORDER BY recorded_at ASC`,
+			params.TenantID, row.VehicleID, row.Date.Format("2006-01-02"))
+		var positions []GpsPosition
+		if posErr == nil {
+			positions, _ = scanGpsPositions(posRows)
+		}
+		routes = append(routes, VehicleRouteAggregation{
+			VehicleID:   row.VehicleID,
+			VehicleName: row.LicensePlate,
+			Date:        row.Date,
+			DailyKm:     0, // calculated from positions if needed
+			Status:      status,
+			Positions:   positions,
+		})
+	}
+	return routes, nil
+}
+
+func (r *PostgresRepository) GetGpsPositions(ctx context.Context, params GetGpsPositionsParams) ([]GpsPosition, error) {
+	limit := params.Limit
+	if limit <= 0 || limit > 1000 {
+		limit = 500
+	}
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, tenant_id, vehicle_id, lat, lng, speed_kmh, recorded_at, created_at
+		FROM gps_positions
+		WHERE tenant_id=$1 AND vehicle_id=$2
+		  AND recorded_at BETWEEN $3 AND $4
+		ORDER BY recorded_at ASC
+		LIMIT $5`,
+		params.TenantID, params.VehicleID, params.From, params.To, limit)
+	if err != nil {
+		return nil, fmt.Errorf("get gps positions: %w", err)
+	}
+	return scanGpsPositions(rows)
+}
+
+// ============================================================================
 // Scan helpers
 // ============================================================================
 
@@ -555,4 +1001,72 @@ func (r *PostgresRepository) scanDamage(rows pgx.Rows) (*VehicleDamage, error) {
 		return nil, fmt.Errorf("scan damage row: %w", err)
 	}
 	return &d, nil
+}
+
+func scanFuelLogs(rows pgx.Rows) ([]FuelLog, error) {
+	defer rows.Close()
+	var logs []FuelLog
+	for rows.Next() {
+		var l FuelLog
+		if err := rows.Scan(
+			&l.ID, &l.TenantID, &l.VehicleID, &l.Date,
+			&l.Liters, &l.CostCents, &l.MileageKm, &l.FuelType,
+			&l.Notes, &l.CreatedAt, &l.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan fuel log row: %w", err)
+		}
+		logs = append(logs, l)
+	}
+	return logs, rows.Err()
+}
+
+func scanTripLogs(rows pgx.Rows) ([]TripLog, error) {
+	defer rows.Close()
+	var logs []TripLog
+	for rows.Next() {
+		var l TripLog
+		if err := rows.Scan(
+			&l.ID, &l.TenantID, &l.VehicleID, &l.Date,
+			&l.StartLocation, &l.EndLocation, &l.Purpose,
+			&l.StartKm, &l.EndKm, &l.Km,
+			&l.IsPrivate, &l.DriverName, &l.Notes,
+			&l.CreatedAt, &l.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan trip log row: %w", err)
+		}
+		logs = append(logs, l)
+	}
+	return logs, rows.Err()
+}
+
+func scanVehicleDocuments(rows pgx.Rows) ([]VehicleDocument, error) {
+	defer rows.Close()
+	var docs []VehicleDocument
+	for rows.Next() {
+		var d VehicleDocument
+		if err := rows.Scan(
+			&d.ID, &d.TenantID, &d.VehicleID, &d.DocType, &d.Name, &d.ObjectKey,
+			&d.UploadDate, &d.ExpiryDate, &d.CreatedAt, &d.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan vehicle document row: %w", err)
+		}
+		docs = append(docs, d)
+	}
+	return docs, rows.Err()
+}
+
+func scanGpsPositions(rows pgx.Rows) ([]GpsPosition, error) {
+	defer rows.Close()
+	var positions []GpsPosition
+	for rows.Next() {
+		var p GpsPosition
+		if err := rows.Scan(
+			&p.ID, &p.TenantID, &p.VehicleID, &p.Lat, &p.Lng,
+			&p.SpeedKmh, &p.RecordedAt, &p.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan gps position row: %w", err)
+		}
+		positions = append(positions, p)
+	}
+	return positions, rows.Err()
 }

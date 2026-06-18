@@ -1,10 +1,3 @@
-// TODO (Phase 20): Replace useFuhrparkStore with Plugin API
-// When the Plugin Service is running, vehicle data should come from:
-// - CRM Contacts with custom fields (via Plugin API)
-// - Fuel records from Plugin KV Store
-// - Maintenance records from Work Tasks (filtered by plugin tag)
-// See: docs/PLUGIN_DEVELOPMENT.md (Fuhrpark Walkthrough)
-
 import { useState, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -33,8 +26,117 @@ import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { DetailPanel, EmptyState, PageHeader } from '@/components/shared'
 import { formatAmount, formatDate, formatTime } from '@/lib/format'
-import { useFuhrparkStore, type Vehicle, type MaintenanceRecord, type FuelRecord, type LogbookEntry, type VehicleDocument, type DamageReport } from '@/stores/fuhrpark'
+import type { Vehicle, MaintenanceRecord, FuelRecord, LogbookEntry, VehicleDocument, DamageReport, VehicleRoute } from '@/stores/fuhrpark'
+import {
+  useVehiclesList,
+  useServicesList,
+  useFuelLogs,
+  useTripLogs,
+  useDamagesList,
+  useVehicleDocuments,
+  useVehicleRoutes,
+  useCreateVehicle,
+  useScheduleService,
+  useCreateFuelLog,
+  useReportDamage,
+  useCreateTripLog,
+} from '@/api/hooks/useFuhrpark'
+import type { Vehicle as ApiVehicle, VehicleService, VehicleDamage, FuelLog, TripLog } from '@/api/fuhrpark-client'
 import SchadensmeldungDialog from './SchadensmeldungDialog'
+
+// ---------------------------------------------------------------------------
+// API → Store type adapters (keep UI types stable, map API snake_case fields)
+// ---------------------------------------------------------------------------
+
+function adaptVehicle(v: ApiVehicle): Vehicle {
+  return {
+    id: v.id,
+    licensePlate: v.license_plate,
+    make: v.make,
+    model: v.model,
+    year: v.year,
+    type: 'car', // API has no vehicle type classification yet — default to car
+    currentDriver: v.assigned_driver_id ?? '',
+    mileage: v.mileage_km,
+    nextInspection: v.tuev_due_date ?? '2099-01-01',
+    insuranceExpiry: '2099-01-01', // not yet in API model
+    isActive: v.status === 'active' || v.status === 'in_service',
+  }
+}
+
+function adaptService(s: VehicleService): MaintenanceRecord {
+  const typeMap: Record<string, MaintenanceRecord['type']> = {
+    oil_change: 'service',
+    tire_change: 'tires',
+    inspection: 'inspection',
+    repair: 'repair',
+  }
+  return {
+    id: s.id,
+    vehicleId: s.vehicle_id,
+    vehiclePlate: s.vehicle_id, // plate not returned by API at list level — use id as placeholder
+    type: typeMap[s.service_type] ?? 'service',
+    date: s.scheduled_at,
+    mileage: s.mileage_km ?? 0,
+    cost: (s.cost_cents ?? 0) / 100,
+    notes: s.notes ?? s.description ?? '',
+  }
+}
+
+function adaptFuelLog(f: FuelLog): FuelRecord {
+  return {
+    id: f.id,
+    vehicleId: f.vehicle_id,
+    vehiclePlate: f.vehicle_id, // plate not returned at list level — use vehicle_id as placeholder
+    date: f.date,
+    liters: f.liters,
+    cost: f.cost_cents / 100,
+    mileage: f.mileage_km,
+  }
+}
+
+function adaptTripLog(t: TripLog): LogbookEntry {
+  return {
+    id: t.id,
+    vehicleId: t.vehicle_id,
+    vehiclePlate: t.vehicle_id,
+    date: t.date,
+    startLocation: t.start_location,
+    endLocation: t.end_location,
+    purpose: t.purpose,
+    startKm: t.start_km,
+    endKm: t.end_km,
+    km: t.km,
+    isPrivate: t.is_private,
+    driver: t.driver_name,
+  }
+}
+
+function adaptDamage(d: VehicleDamage): DamageReport {
+  const severityMap: Record<string, DamageReport['severity']> = {
+    minor: 'minor',
+    moderate: 'moderate',
+    major: 'major',
+    totalled: 'major',
+  }
+  const statusMap: Record<string, DamageReport['status']> = {
+    reported: 'open',
+    in_repair: 'in_progress',
+    resolved: 'resolved',
+  }
+  return {
+    id: d.id,
+    vehicleId: d.vehicle_id,
+    vehiclePlate: d.vehicle_id,
+    date: d.created_at.slice(0, 10),
+    description: d.description,
+    severity: severityMap[d.severity] ?? 'minor',
+    location: '',
+    photoCount: d.photo_keys?.length ?? 0,
+    reportedBy: d.reported_by ?? '',
+    status: statusMap[d.status] ?? 'open',
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Types & Constants
@@ -1035,14 +1137,75 @@ function VehicleDetailContent({
 
 export default function FuhrparkPage() {
   const { t } = useTranslation()
-  const { vehicles, maintenanceRecords, fuelRecords, vehicleRoutes, logbookEntries, vehicleDocuments, damageReports, refreshTracking } = useFuhrparkStore()
+
+  // ---------------------------------------------------------------------------
+  // Selected vehicle state (needed before hook calls so useVehicleDocuments can use it)
+  // ---------------------------------------------------------------------------
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null)
+
+  // ---------------------------------------------------------------------------
+  // Queries
+  // ---------------------------------------------------------------------------
+  const { data: vehiclesData, isLoading: vehiclesLoading, error: vehiclesError } = useVehiclesList()
+  const { data: servicesData, isLoading: servicesLoading } = useServicesList()
+  const { data: fuelData, isLoading: fuelLoading } = useFuelLogs()
+  const { data: tripData, isLoading: tripLoading } = useTripLogs()
+  const { data: damagesData, isLoading: _damagesLoading } = useDamagesList()
+  const { data: routesData, isLoading: routesLoading, refetch: refetchRoutes } = useVehicleRoutes()
+  const { data: documentsData } = useVehicleDocuments(selectedVehicle?.id ?? '')
+
+  // Adapt API data to UI store types
+  const vehicles = useMemo(() => (vehiclesData?.vehicles ?? []).map(adaptVehicle), [vehiclesData])
+  const maintenanceRecords = useMemo(() => (servicesData?.services ?? []).map(adaptService), [servicesData])
+  const fuelRecords = useMemo(() => (fuelData?.fuel_logs ?? []).map(adaptFuelLog), [fuelData])
+  const logbookEntries = useMemo(() => (tripData?.trip_logs ?? []).map(adaptTripLog), [tripData])
+  const damageReports = useMemo(() => (damagesData?.damages ?? []).map(adaptDamage), [damagesData])
+  const vehicleRoutes: VehicleRoute[] = useMemo(
+    () =>
+      (routesData?.routes ?? []).map((r) => ({
+        id: `${r.vehicle_id}-${r.date}`,
+        vehicleId: r.vehicle_id,
+        vehicleName: r.vehicle_name,
+        date: r.date,
+        positions: r.positions.map((p) => ({
+          lat: p.lat,
+          lng: p.lng,
+          address: `${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}`,
+          timestamp: p.recorded_at,
+        })),
+        dailyKm: r.daily_km,
+        status: r.status,
+        driver: r.driver,
+      })),
+    [routesData]
+  )
+  const vehicleDocuments: VehicleDocument[] = useMemo(
+    () =>
+      (documentsData?.documents ?? []).map((d) => ({
+        id: d.id,
+        vehicleId: d.vehicle_id,
+        type: d.doc_type as VehicleDocument['type'],
+        name: d.name,
+        uploadDate: d.upload_date,
+        expiryDate: d.expiry_date,
+      })),
+    [documentsData]
+  )
+
+  // ---------------------------------------------------------------------------
+  // Mutations
+  // ---------------------------------------------------------------------------
+  const createVehicleMutation = useCreateVehicle()
+  const scheduleServiceMutation = useScheduleService()
+  const createFuelLogMutation = useCreateFuelLog()
+  const reportDamageMutation = useReportDamage()
+  useCreateTripLog() // mutation prepared; AddTripDialog not yet implemented
 
   const [tab, setTab] = useState<TabKey>('fahrzeuge')
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<'all' | 'car' | 'van' | 'truck'>('all')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
   const [dialog, setDialog] = useState<DialogKey>(null)
-  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null)
   const [dialogPreselectedVehicleId, setDialogPreselectedVehicleId] = useState<string | undefined>()
   const [expandedRouteId, setExpandedRouteId] = useState<string | null>(null)
   const [trackingRefreshing, setTrackingRefreshing] = useState(false)
@@ -1176,35 +1339,72 @@ export default function FuhrparkPage() {
 
   const handleSaveVehicle = useCallback(
     (vehicle: Vehicle) => {
-      useFuhrparkStore.setState((state) => ({
-        vehicles: [...state.vehicles, vehicle],
-      }))
-      setDialog(null)
-      toast.success(t('fuhrpark.toast.vehicleAdded', { plate: vehicle.licensePlate }))
+      createVehicleMutation.mutate(
+        {
+          license_plate: vehicle.licensePlate,
+          make: vehicle.make,
+          model: vehicle.model,
+          year: vehicle.year,
+          fuel_type: 'diesel',
+          mileage_km: vehicle.mileage,
+          tuev_due_date: vehicle.nextInspection !== '2099-01-01' ? vehicle.nextInspection : undefined,
+        },
+        {
+          onSuccess: () => {
+            setDialog(null)
+            toast.success(t('fuhrpark.toast.vehicleAdded', { plate: vehicle.licensePlate }))
+          },
+        }
+      )
     },
-    []
+    [createVehicleMutation, t]
   )
 
   const handleSaveMaintenance = useCallback(
     (record: MaintenanceRecord) => {
-      useFuhrparkStore.setState((state) => ({
-        maintenanceRecords: [...state.maintenanceRecords, record],
-      }))
-      setDialog(null)
-      toast.success(t('fuhrpark.toast.maintenanceAdded', { plate: record.vehiclePlate }))
+      scheduleServiceMutation.mutate(
+        {
+          vehicleId: record.vehicleId,
+          service_type: record.type,
+          scheduled_at: record.date,
+          cost_cents: Math.round(record.cost * 100),
+          mileage_km: record.mileage,
+          notes: record.notes || undefined,
+        },
+        {
+          onSuccess: () => {
+            setDialog(null)
+            toast.success(t('fuhrpark.toast.maintenanceAdded', { plate: record.vehiclePlate }))
+          },
+        }
+      )
     },
-    []
+    [scheduleServiceMutation, t]
   )
 
   const handleSaveFuel = useCallback(
     (record: FuelRecord) => {
-      useFuhrparkStore.setState((state) => ({
-        fuelRecords: [...state.fuelRecords, record],
-      }))
-      setDialog(null)
-      toast.success(t('fuhrpark.toast.fuelAdded', { plate: record.vehiclePlate }))
+      createFuelLogMutation.mutate(
+        {
+          vehicleId: record.vehicleId,
+          data: {
+            vehicle_id: record.vehicleId,
+            date: record.date,
+            liters: record.liters,
+            cost_cents: Math.round(record.cost * 100),
+            mileage_km: record.mileage,
+            fuel_type: 'diesel',
+          },
+        },
+        {
+          onSuccess: () => {
+            setDialog(null)
+            toast.success(t('fuhrpark.toast.fuelAdded', { plate: record.vehiclePlate }))
+          },
+        }
+      )
     },
-    []
+    [createFuelLogMutation, t]
   )
 
   // Tracking stats
@@ -1228,11 +1428,8 @@ export default function FuhrparkPage() {
   // Handle refresh tracking
   const handleRefreshTracking = useCallback(() => {
     setTrackingRefreshing(true)
-    setTimeout(() => {
-      refreshTracking()
-      setTrackingRefreshing(false)
-    }, 800)
-  }, [refreshTracking])
+    refetchRoutes().finally(() => setTrackingRefreshing(false))
+  }, [refetchRoutes])
 
   // Search placeholder based on tab
   const searchPlaceholder =
@@ -1377,6 +1574,14 @@ export default function FuhrparkPage() {
       {/* ================================================================= */}
       {tab === 'fahrzeuge' && (
         <>
+          {vehiclesLoading && (
+            <div className="p-6 text-center text-muted-foreground text-sm">{t('fuhrpark.loading.vehicles')}</div>
+          )}
+          {vehiclesError && !vehiclesLoading && (
+            <div className="p-6 text-center text-error text-sm">{t('fuhrpark.error.vehicles')}</div>
+          )}
+          {!vehiclesLoading && !vehiclesError && (
+          <>
           {/* Wave 9: Reifenwechsel-Erinnerung Banner */}
           <div className="mb-4 flex items-center gap-3 rounded-lg border border-warning/30 bg-warning-light px-4 py-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-warning/20">
@@ -1461,6 +1666,8 @@ export default function FuhrparkPage() {
               })}
             </div>
           )}
+          </>
+          )}
         </>
       )}
 
@@ -1469,6 +1676,11 @@ export default function FuhrparkPage() {
       {/* ================================================================= */}
       {tab === 'wartung' && (
         <>
+          {servicesLoading && (
+            <div className="p-6 text-center text-muted-foreground text-sm">{t('fuhrpark.loading.maintenance')}</div>
+          )}
+          {!servicesLoading && (
+          <>
           {/* Summary cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
             {(['service', 'repair', 'inspection', 'tires'] as const).map((mType) => {
@@ -1546,6 +1758,8 @@ export default function FuhrparkPage() {
               </div>
             </div>
           )}
+          </>
+          )}
         </>
       )}
 
@@ -1554,6 +1768,11 @@ export default function FuhrparkPage() {
       {/* ================================================================= */}
       {tab === 'tankprotokoll' && (
         <>
+          {fuelLoading && (
+            <div className="p-6 text-center text-muted-foreground text-sm">{t('fuhrpark.loading.fuel')}</div>
+          )}
+          {!fuelLoading && (
+          <>
           {/* Monthly summary */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
             <div className="rounded-lg border border-border bg-card p-4">
@@ -1653,6 +1872,8 @@ export default function FuhrparkPage() {
               </div>
             </div>
           )}
+          </>
+          )}
         </>
       )}
 
@@ -1661,6 +1882,11 @@ export default function FuhrparkPage() {
       {/* ================================================================= */}
       {tab === 'fahrtenbuch' && (
         <>
+          {tripLoading && (
+            <div className="p-6 text-center text-muted-foreground text-sm">{t('fuhrpark.loading.logbook')}</div>
+          )}
+          {!tripLoading && (
+          <>
           {/* Summary stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
             <div className="rounded-lg border border-border bg-card p-4">
@@ -1756,6 +1982,8 @@ export default function FuhrparkPage() {
               </div>
             </div>
           )}
+          </>
+          )}
         </>
       )}
 
@@ -1764,6 +1992,11 @@ export default function FuhrparkPage() {
       {/* ================================================================= */}
       {tab === 'tracking' && (
         <>
+          {routesLoading && (
+            <div className="p-6 text-center text-muted-foreground text-sm">{t('fuhrpark.loading.tracking')}</div>
+          )}
+          {!routesLoading && (
+          <>
           {/* Stats row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
             <div className="rounded-lg border border-border bg-card p-3">
@@ -1967,6 +2200,8 @@ export default function FuhrparkPage() {
               })}
             </div>
           )}
+          </>
+          )}
         </>
       )}
 
@@ -2033,11 +2268,20 @@ export default function FuhrparkPage() {
           preselectedVehicleId={dialogPreselectedVehicleId}
           onClose={() => setDialog(null)}
           onSave={(report: DamageReport) => {
-            useFuhrparkStore.setState((state) => ({
-              damageReports: [...state.damageReports, report],
-            }))
-            setDialog(null)
-            toast.success(t('fuhrpark.toast.damageReported', { plate: report.vehiclePlate }))
+            reportDamageMutation.mutate(
+              {
+                vehicleId: report.vehicleId,
+                description: report.description,
+                severity: report.severity === 'major' ? 'major' : report.severity,
+                reported_by: report.reportedBy || undefined,
+              },
+              {
+                onSuccess: () => {
+                  setDialog(null)
+                  toast.success(t('fuhrpark.toast.damageReported', { plate: report.vehiclePlate }))
+                },
+              }
+            )
           }}
         />
       )}

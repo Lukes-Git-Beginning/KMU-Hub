@@ -658,6 +658,113 @@ func (s *Service) ListDamages(ctx context.Context, input ListDamagesInput) ([]*V
 // History
 // ============================================================================
 
+// ============================================================================
+// Fuel Logs
+// ============================================================================
+
+// ListFuelLogs retrieves fuel log entries with optional filtering and pagination.
+func (s *Service) ListFuelLogs(ctx context.Context, params ListFuelLogsParams) ([]FuelLog, int, error) {
+	return s.repo.ListFuelLogs(ctx, params)
+}
+
+// CreateFuelLog creates a new fuel/charging log entry.
+func (s *Service) CreateFuelLog(ctx context.Context, req FuelLog) (FuelLog, error) {
+	if req.VehicleID == (uuid.UUID{}) || req.Liters <= 0 || req.CostCents < 0 || req.MileageKm < 0 {
+		return FuelLog{}, ErrInvalidInput
+	}
+	return s.repo.CreateFuelLog(ctx, req)
+}
+
+// UpdateFuelLog updates an existing fuel log entry.
+func (s *Service) UpdateFuelLog(ctx context.Context, req FuelLog) (FuelLog, error) {
+	if req.ID == (uuid.UUID{}) {
+		return FuelLog{}, ErrInvalidInput
+	}
+	return s.repo.UpdateFuelLog(ctx, req)
+}
+
+// DeleteFuelLog deletes a fuel log entry.
+func (s *Service) DeleteFuelLog(ctx context.Context, tenantID, id uuid.UUID) error {
+	return s.repo.DeleteFuelLog(ctx, tenantID, id)
+}
+
+// ============================================================================
+// Trip Logs
+// ============================================================================
+
+// ListTripLogs retrieves trip log entries with optional filtering and pagination.
+func (s *Service) ListTripLogs(ctx context.Context, params ListTripLogsParams) ([]TripLog, int, error) {
+	return s.repo.ListTripLogs(ctx, params)
+}
+
+// CreateTripLog creates a new trip/logbook entry.
+func (s *Service) CreateTripLog(ctx context.Context, req TripLog) (TripLog, error) {
+	if req.VehicleID == (uuid.UUID{}) || strings.TrimSpace(req.StartLocation) == "" || strings.TrimSpace(req.EndLocation) == "" {
+		return TripLog{}, ErrInvalidInput
+	}
+	if req.EndKm < req.StartKm {
+		return TripLog{}, fmt.Errorf("%w: end_km must be >= start_km", ErrInvalidInput)
+	}
+	return s.repo.CreateTripLog(ctx, req)
+}
+
+// UpdateTripLog updates an existing trip log entry.
+func (s *Service) UpdateTripLog(ctx context.Context, req TripLog) (TripLog, error) {
+	if req.ID == (uuid.UUID{}) {
+		return TripLog{}, ErrInvalidInput
+	}
+	return s.repo.UpdateTripLog(ctx, req)
+}
+
+// DeleteTripLog deletes a trip log entry.
+func (s *Service) DeleteTripLog(ctx context.Context, tenantID, id uuid.UUID) error {
+	return s.repo.DeleteTripLog(ctx, tenantID, id)
+}
+
+// ============================================================================
+// Vehicle Documents
+// ============================================================================
+
+// ListVehicleDocuments retrieves documents attached to a vehicle.
+func (s *Service) ListVehicleDocuments(ctx context.Context, params ListVehicleDocumentsParams) ([]VehicleDocument, int, error) {
+	return s.repo.ListVehicleDocuments(ctx, params)
+}
+
+// CreateVehicleDocument records a new vehicle document (after upload via presign).
+func (s *Service) CreateVehicleDocument(ctx context.Context, doc VehicleDocument) (VehicleDocument, error) {
+	if doc.VehicleID == (uuid.UUID{}) || strings.TrimSpace(doc.ObjectKey) == "" || strings.TrimSpace(doc.Name) == "" {
+		return VehicleDocument{}, ErrInvalidInput
+	}
+	return s.repo.CreateVehicleDocument(ctx, doc)
+}
+
+// DeleteVehicleDocument deletes a vehicle document record.
+func (s *Service) DeleteVehicleDocument(ctx context.Context, tenantID, id uuid.UUID) error {
+	return s.repo.DeleteVehicleDocument(ctx, tenantID, id)
+}
+
+// ============================================================================
+// GPS
+// ============================================================================
+
+// IngestGpsPositions ingests a batch of GPS positions for a vehicle.
+func (s *Service) IngestGpsPositions(ctx context.Context, tenantID, vehicleID uuid.UUID, positions []GpsPosition) (int, error) {
+	if vehicleID == (uuid.UUID{}) || len(positions) == 0 {
+		return 0, ErrInvalidInput
+	}
+	return s.repo.IngestGpsPositions(ctx, tenantID, vehicleID, positions)
+}
+
+// GetVehicleRoutes returns aggregated route data per vehicle per day.
+func (s *Service) GetVehicleRoutes(ctx context.Context, params GetVehicleRoutesParams) ([]VehicleRouteAggregation, error) {
+	return s.repo.GetVehicleRoutes(ctx, params)
+}
+
+// GetGpsPositions returns raw GPS positions for a vehicle in a time range.
+func (s *Service) GetGpsPositions(ctx context.Context, params GetGpsPositionsParams) ([]GpsPosition, error) {
+	return s.repo.GetGpsPositions(ctx, params)
+}
+
 // GetVehicleHistory returns a unified timeline of services and damages.
 func (s *Service) GetVehicleHistory(ctx context.Context, input GetVehicleHistoryInput) ([]*HistoryEntry, int, error) {
 	if input.Page < 1 {

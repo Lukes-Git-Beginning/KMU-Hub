@@ -243,6 +243,48 @@ func (m *mockRepository) MarkTuevReminderSent(ctx context.Context, vehicleID, te
 	return nil
 }
 
+// ── Extended methods (stubs for mock) ────────────────────────────────────────
+
+func (m *mockRepository) ListFuelLogs(_ context.Context, _ ListFuelLogsParams) ([]FuelLog, int, error) {
+	return nil, 0, nil
+}
+func (m *mockRepository) CreateFuelLog(_ context.Context, log FuelLog) (FuelLog, error) {
+	return log, nil
+}
+func (m *mockRepository) UpdateFuelLog(_ context.Context, log FuelLog) (FuelLog, error) {
+	return log, nil
+}
+func (m *mockRepository) DeleteFuelLog(_ context.Context, _, _ uuid.UUID) error { return nil }
+
+func (m *mockRepository) ListTripLogs(_ context.Context, _ ListTripLogsParams) ([]TripLog, int, error) {
+	return nil, 0, nil
+}
+func (m *mockRepository) CreateTripLog(_ context.Context, log TripLog) (TripLog, error) {
+	return log, nil
+}
+func (m *mockRepository) UpdateTripLog(_ context.Context, log TripLog) (TripLog, error) {
+	return log, nil
+}
+func (m *mockRepository) DeleteTripLog(_ context.Context, _, _ uuid.UUID) error { return nil }
+
+func (m *mockRepository) ListVehicleDocuments(_ context.Context, _ ListVehicleDocumentsParams) ([]VehicleDocument, int, error) {
+	return nil, 0, nil
+}
+func (m *mockRepository) CreateVehicleDocument(_ context.Context, doc VehicleDocument) (VehicleDocument, error) {
+	return doc, nil
+}
+func (m *mockRepository) DeleteVehicleDocument(_ context.Context, _, _ uuid.UUID) error { return nil }
+
+func (m *mockRepository) IngestGpsPositions(_ context.Context, _, _ uuid.UUID, positions []GpsPosition) (int, error) {
+	return len(positions), nil
+}
+func (m *mockRepository) GetVehicleRoutes(_ context.Context, _ GetVehicleRoutesParams) ([]VehicleRouteAggregation, error) {
+	return nil, nil
+}
+func (m *mockRepository) GetGpsPositions(_ context.Context, _ GetGpsPositionsParams) ([]GpsPosition, error) {
+	return nil, nil
+}
+
 // compile-time interface check
 var _ Repository = (*mockRepository)(nil)
 

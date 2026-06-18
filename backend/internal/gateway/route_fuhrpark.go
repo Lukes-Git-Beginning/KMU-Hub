@@ -87,6 +87,48 @@ func (fr *FuhrparkRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 			})
 		})
 
+		// Fuel logs
+		r.Route("/fuel-logs", func(r chi.Router) {
+			r.With(middleware.RequirePermission("fuhrpark:fuel", "read")).Get("/", fr.HandleListFuelLogs)
+			r.Route("/{id}", func(r chi.Router) {
+				r.With(middleware.RequirePermission("fuhrpark:fuel", "write")).Patch("/", fr.HandleUpdateFuelLog)
+				r.With(middleware.RequirePermission("fuhrpark:fuel", "write")).Delete("/", fr.HandleDeleteFuelLog)
+			})
+		})
+
+		// Trip logs
+		r.Route("/trip-logs", func(r chi.Router) {
+			r.With(middleware.RequirePermission("fuhrpark:trip", "read")).Get("/", fr.HandleListTripLogs)
+			r.Route("/{id}", func(r chi.Router) {
+				r.With(middleware.RequirePermission("fuhrpark:trip", "write")).Patch("/", fr.HandleUpdateTripLog)
+				r.With(middleware.RequirePermission("fuhrpark:trip", "write")).Delete("/", fr.HandleDeleteTripLog)
+			})
+		})
+
+		// Documents top-level delete
+		r.Route("/documents", func(r chi.Router) {
+			r.Route("/{id}", func(r chi.Router) {
+				r.With(middleware.RequirePermission("fuhrpark:document", "write")).Delete("/", fr.HandleDeleteVehicleDocument)
+			})
+		})
+
+		// GPS
+		r.Route("/gps", func(r chi.Router) {
+			r.With(middleware.RequirePermission("fuhrpark:gps", "write")).Post("/ingest", fr.HandleIngestGpsPositions)
+			r.With(middleware.RequirePermission("fuhrpark:gps", "read")).Get("/routes", fr.HandleGetVehicleRoutes)
+			r.With(middleware.RequirePermission("fuhrpark:gps", "read")).Get("/positions", fr.HandleGetGpsPositions)
+		})
+
+		// Vehicle sub-resources (extended)
+		r.Route("/vehicles/{id}", func(r chi.Router) {
+			r.With(middleware.RequirePermission("fuhrpark:fuel", "read")).Get("/fuel-logs", fr.HandleListVehicleFuelLogs)
+			r.With(middleware.RequirePermission("fuhrpark:fuel", "write")).Post("/fuel-logs", fr.HandleCreateFuelLog)
+			r.With(middleware.RequirePermission("fuhrpark:trip", "read")).Get("/trip-logs", fr.HandleListVehicleTripLogs)
+			r.With(middleware.RequirePermission("fuhrpark:trip", "write")).Post("/trip-logs", fr.HandleCreateTripLog)
+			r.With(middleware.RequirePermission("fuhrpark:document", "read")).Get("/documents", fr.HandleListVehicleDocuments)
+			r.With(middleware.RequirePermission("fuhrpark:document", "write")).Post("/documents", fr.HandleCreateVehicleDocument)
+		})
+
 		// TUEV check
 		r.With(middleware.RequirePermission("fuhrpark:vehicle", "read")).Get("/tuev-due", fr.HandleCheckTuevDue)
 
@@ -177,6 +219,66 @@ type resolveDamageRequest struct {
 	ResolvedBy *string `json:"resolved_by,omitempty"`
 	CostCents  *int64  `json:"cost_cents,omitempty"`
 	Notes      *string `json:"notes,omitempty"`
+}
+
+type createFuelLogRequest struct {
+	Date      string  `json:"date"           validate:"required"`
+	Liters    float64 `json:"liters"         validate:"required,gt=0"`
+	CostCents int64   `json:"cost_cents"     validate:"gte=0"`
+	MileageKm int64   `json:"mileage_km"     validate:"gte=0"`
+	FuelType  string  `json:"fuel_type"      validate:"omitempty,oneof=diesel petrol electric hybrid other"`
+	Notes     string  `json:"notes,omitempty"`
+}
+
+type updateFuelLogRequest struct {
+	Date      *string  `json:"date,omitempty"`
+	Liters    *float64 `json:"liters,omitempty"     validate:"omitempty,gt=0"`
+	CostCents *int64   `json:"cost_cents,omitempty" validate:"omitempty,gte=0"`
+	MileageKm *int64   `json:"mileage_km,omitempty" validate:"omitempty,gte=0"`
+	FuelType  *string  `json:"fuel_type,omitempty"  validate:"omitempty,oneof=diesel petrol electric hybrid other"`
+	Notes     *string  `json:"notes,omitempty"`
+}
+
+type createTripLogRequest struct {
+	Date          string `json:"date"           validate:"required"`
+	StartLocation string `json:"start_location" validate:"required"`
+	EndLocation   string `json:"end_location"   validate:"required"`
+	Purpose       string `json:"purpose"        validate:"required"`
+	StartKm       int64  `json:"start_km"       validate:"gte=0"`
+	EndKm         int64  `json:"end_km"         validate:"gte=0"`
+	IsPrivate     bool   `json:"is_private"`
+	DriverName    string `json:"driver_name"    validate:"required"`
+	Notes         string `json:"notes,omitempty"`
+}
+
+type updateTripLogRequest struct {
+	Date          *string `json:"date,omitempty"`
+	StartLocation *string `json:"start_location,omitempty"`
+	EndLocation   *string `json:"end_location,omitempty"`
+	Purpose       *string `json:"purpose,omitempty"`
+	StartKm       *int64  `json:"start_km,omitempty" validate:"omitempty,gte=0"`
+	EndKm         *int64  `json:"end_km,omitempty"   validate:"omitempty,gte=0"`
+	IsPrivate     *bool   `json:"is_private,omitempty"`
+	DriverName    *string `json:"driver_name,omitempty"`
+	Notes         *string `json:"notes,omitempty"`
+}
+
+type createVehicleDocumentRequest struct {
+	DocType    string  `json:"doc_type"    validate:"required,oneof=registration insurance tuev other"`
+	Name       string  `json:"name"        validate:"required"`
+	ObjectKey  string  `json:"object_key"  validate:"required"`
+	ExpiryDate *string `json:"expiry_date,omitempty"`
+}
+
+type ingestGpsPositionsRequest struct {
+	Positions []gpsPositionInput `json:"positions" validate:"required,min=1"`
+}
+
+type gpsPositionInput struct {
+	Lat        float64  `json:"lat"          validate:"required"`
+	Lng        float64  `json:"lng"          validate:"required"`
+	SpeedKmh   *float64 `json:"speed_kmh,omitempty"`
+	RecordedAt string   `json:"recorded_at"  validate:"required"`
 }
 
 // ============================================================================
@@ -809,6 +911,543 @@ func (fr *FuhrparkRoutes) HandleCheckTuevDue(w http.ResponseWriter, r *http.Requ
 	}
 	resp, err := client.CheckTuevDue(r.Context(), &fuhrparkv1.CheckTuevDueRequest{
 		TenantId: tenantID.String(),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Fuel Log Handlers
+// ============================================================================
+
+func (fr *FuhrparkRoutes) HandleListFuelLogs(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+	page, pageSize := parsePagination(r, 1, 50)
+	grpcReq := &fuhrparkv1.ListFuelLogsRequest{
+		Page:     int32(page),
+		PageSize: int32(pageSize),
+	}
+	if vid := r.URL.Query().Get("vehicle_id"); vid != "" {
+		grpcReq.VehicleId = vid
+	}
+	resp, err := client.ListFuelLogs(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	_ = tenantID // carried via JWT in gRPC context
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (fr *FuhrparkRoutes) HandleListVehicleFuelLogs(w http.ResponseWriter, r *http.Request) {
+	_, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	vehicleID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+	page, pageSize := parsePagination(r, 1, 50)
+	resp, err := client.ListFuelLogs(r.Context(), &fuhrparkv1.ListFuelLogsRequest{
+		VehicleId: vehicleID,
+		Page:      int32(page),
+		PageSize:  int32(pageSize),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (fr *FuhrparkRoutes) HandleCreateFuelLog(w http.ResponseWriter, r *http.Request) {
+	_, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	vehicleID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+	req, ok := decodeAndValidate[createFuelLogRequest](w, r)
+	if !ok {
+		return
+	}
+	fuelType := req.FuelType
+	if fuelType == "" {
+		fuelType = "diesel"
+	}
+	resp, err := client.CreateFuelLog(r.Context(), &fuhrparkv1.CreateFuelLogRequest{
+		VehicleId: vehicleID,
+		Date:      req.Date,
+		Liters:    req.Liters,
+		CostCents: req.CostCents,
+		MileageKm: req.MileageKm,
+		FuelType:  fuelType,
+		Notes:     req.Notes,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (fr *FuhrparkRoutes) HandleUpdateFuelLog(w http.ResponseWriter, r *http.Request) {
+	_, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+	req, ok := decodeAndValidate[updateFuelLogRequest](w, r)
+	if !ok {
+		return
+	}
+	grpcReq := &fuhrparkv1.UpdateFuelLogRequest{Id: id}
+	if req.Date != nil {
+		grpcReq.Date = *req.Date
+	}
+	if req.Liters != nil {
+		grpcReq.Liters = *req.Liters
+	}
+	if req.CostCents != nil {
+		grpcReq.CostCents = *req.CostCents
+	}
+	if req.MileageKm != nil {
+		grpcReq.MileageKm = *req.MileageKm
+	}
+	if req.FuelType != nil {
+		grpcReq.FuelType = *req.FuelType
+	}
+	if req.Notes != nil {
+		grpcReq.Notes = *req.Notes
+	}
+	resp, err := client.UpdateFuelLog(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (fr *FuhrparkRoutes) HandleDeleteFuelLog(w http.ResponseWriter, r *http.Request) {
+	_, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+	_, err = client.DeleteFuelLog(r.Context(), &fuhrparkv1.DeleteFuelLogRequest{Id: id})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ============================================================================
+// Trip Log Handlers
+// ============================================================================
+
+func (fr *FuhrparkRoutes) HandleListTripLogs(w http.ResponseWriter, r *http.Request) {
+	_, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+	page, pageSize := parsePagination(r, 1, 50)
+	grpcReq := &fuhrparkv1.ListTripLogsRequest{
+		Page:     int32(page),
+		PageSize: int32(pageSize),
+	}
+	if vid := r.URL.Query().Get("vehicle_id"); vid != "" {
+		grpcReq.VehicleId = vid
+	}
+	resp, err := client.ListTripLogs(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (fr *FuhrparkRoutes) HandleListVehicleTripLogs(w http.ResponseWriter, r *http.Request) {
+	_, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	vehicleID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+	page, pageSize := parsePagination(r, 1, 50)
+	resp, err := client.ListTripLogs(r.Context(), &fuhrparkv1.ListTripLogsRequest{
+		VehicleId: vehicleID,
+		Page:      int32(page),
+		PageSize:  int32(pageSize),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (fr *FuhrparkRoutes) HandleCreateTripLog(w http.ResponseWriter, r *http.Request) {
+	_, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	vehicleID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+	req, ok := decodeAndValidate[createTripLogRequest](w, r)
+	if !ok {
+		return
+	}
+	resp, err := client.CreateTripLog(r.Context(), &fuhrparkv1.CreateTripLogRequest{
+		VehicleId:     vehicleID,
+		Date:          req.Date,
+		StartLocation: req.StartLocation,
+		EndLocation:   req.EndLocation,
+		Purpose:       req.Purpose,
+		StartKm:       req.StartKm,
+		EndKm:         req.EndKm,
+		IsPrivate:     req.IsPrivate,
+		DriverName:    req.DriverName,
+		Notes:         req.Notes,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (fr *FuhrparkRoutes) HandleUpdateTripLog(w http.ResponseWriter, r *http.Request) {
+	_, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+	req, ok := decodeAndValidate[updateTripLogRequest](w, r)
+	if !ok {
+		return
+	}
+	grpcReq := &fuhrparkv1.UpdateTripLogRequest{Id: id}
+	if req.Date != nil {
+		grpcReq.Date = *req.Date
+	}
+	if req.StartLocation != nil {
+		grpcReq.StartLocation = *req.StartLocation
+	}
+	if req.EndLocation != nil {
+		grpcReq.EndLocation = *req.EndLocation
+	}
+	if req.Purpose != nil {
+		grpcReq.Purpose = *req.Purpose
+	}
+	if req.StartKm != nil {
+		grpcReq.StartKm = *req.StartKm
+	}
+	if req.EndKm != nil {
+		grpcReq.EndKm = *req.EndKm
+	}
+	if req.IsPrivate != nil {
+		grpcReq.IsPrivate = *req.IsPrivate
+	}
+	if req.DriverName != nil {
+		grpcReq.DriverName = *req.DriverName
+	}
+	if req.Notes != nil {
+		grpcReq.Notes = *req.Notes
+	}
+	resp, err := client.UpdateTripLog(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (fr *FuhrparkRoutes) HandleDeleteTripLog(w http.ResponseWriter, r *http.Request) {
+	_, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+	_, err = client.DeleteTripLog(r.Context(), &fuhrparkv1.DeleteTripLogRequest{Id: id})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ============================================================================
+// Vehicle Document Handlers
+// ============================================================================
+
+func (fr *FuhrparkRoutes) HandleListVehicleDocuments(w http.ResponseWriter, r *http.Request) {
+	_, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	vehicleID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+	page, pageSize := parsePagination(r, 1, 50)
+	resp, err := client.ListVehicleDocuments(r.Context(), &fuhrparkv1.ListVehicleDocumentsRequest{
+		VehicleId: vehicleID,
+		Page:      int32(page),
+		PageSize:  int32(pageSize),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (fr *FuhrparkRoutes) HandleCreateVehicleDocument(w http.ResponseWriter, r *http.Request) {
+	_, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	vehicleID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+	req, ok := decodeAndValidate[createVehicleDocumentRequest](w, r)
+	if !ok {
+		return
+	}
+	grpcReq := &fuhrparkv1.CreateVehicleDocumentRequest{
+		VehicleId: vehicleID,
+		DocType:   req.DocType,
+		Name:      req.Name,
+		ObjectKey: req.ObjectKey,
+	}
+	if req.ExpiryDate != nil {
+		grpcReq.ExpiryDate = *req.ExpiryDate
+	}
+	resp, err := client.CreateVehicleDocument(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (fr *FuhrparkRoutes) HandleDeleteVehicleDocument(w http.ResponseWriter, r *http.Request) {
+	_, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+	_, err = client.DeleteVehicleDocument(r.Context(), &fuhrparkv1.DeleteVehicleDocumentRequest{Id: id})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ============================================================================
+// GPS Handlers
+// ============================================================================
+
+func (fr *FuhrparkRoutes) HandleIngestGpsPositions(w http.ResponseWriter, r *http.Request) {
+	_, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+	req, ok := decodeAndValidate[ingestGpsPositionsRequest](w, r)
+	if !ok {
+		return
+	}
+	vehicleID := r.URL.Query().Get("vehicle_id")
+	if vehicleID == "" {
+		http.Error(w, "vehicle_id query param required", http.StatusBadRequest)
+		return
+	}
+	positions := make([]*fuhrparkv1.GpsPosition, len(req.Positions))
+	for i, p := range req.Positions {
+		pos := &fuhrparkv1.GpsPosition{
+			Lat:        p.Lat,
+			Lng:        p.Lng,
+			RecordedAt: p.RecordedAt,
+		}
+		if p.SpeedKmh != nil {
+			pos.SpeedKmh = *p.SpeedKmh
+		}
+		positions[i] = pos
+	}
+	resp, err := client.IngestGpsPositions(r.Context(), &fuhrparkv1.IngestGpsPositionsRequest{
+		VehicleId: vehicleID,
+		Positions: positions,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (fr *FuhrparkRoutes) HandleGetVehicleRoutes(w http.ResponseWriter, r *http.Request) {
+	_, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+	q := r.URL.Query()
+	grpcReq := &fuhrparkv1.GetVehicleRoutesRequest{
+		DateFrom: q.Get("date_from"),
+		DateTo:   q.Get("date_to"),
+	}
+	if vid := q.Get("vehicle_id"); vid != "" {
+		grpcReq.VehicleId = vid
+	}
+	resp, err := client.GetVehicleRoutes(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (fr *FuhrparkRoutes) HandleGetGpsPositions(w http.ResponseWriter, r *http.Request) {
+	_, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+	q := r.URL.Query()
+	vehicleID := q.Get("vehicle_id")
+	if vehicleID == "" {
+		http.Error(w, "vehicle_id query param required", http.StatusBadRequest)
+		return
+	}
+	resp, err := client.GetGpsPositions(r.Context(), &fuhrparkv1.GetGpsPositionsRequest{
+		VehicleId: vehicleID,
+		From:      q.Get("from"),
+		To:        q.Get("to"),
 	})
 	if err != nil {
 		respondGRPCError(w, err)

@@ -52,6 +52,28 @@ type Repository interface {
 	// History
 	GetVehicleHistory(ctx context.Context, tenantID, vehicleID uuid.UUID, offset, limit int) ([]*HistoryEntry, int, error)
 
+	// Fuel logs
+	ListFuelLogs(ctx context.Context, params ListFuelLogsParams) ([]FuelLog, int, error)
+	CreateFuelLog(ctx context.Context, log FuelLog) (FuelLog, error)
+	UpdateFuelLog(ctx context.Context, log FuelLog) (FuelLog, error)
+	DeleteFuelLog(ctx context.Context, tenantID, id uuid.UUID) error
+
+	// Trip logs
+	ListTripLogs(ctx context.Context, params ListTripLogsParams) ([]TripLog, int, error)
+	CreateTripLog(ctx context.Context, log TripLog) (TripLog, error)
+	UpdateTripLog(ctx context.Context, log TripLog) (TripLog, error)
+	DeleteTripLog(ctx context.Context, tenantID, id uuid.UUID) error
+
+	// Vehicle documents
+	ListVehicleDocuments(ctx context.Context, params ListVehicleDocumentsParams) ([]VehicleDocument, int, error)
+	CreateVehicleDocument(ctx context.Context, doc VehicleDocument) (VehicleDocument, error)
+	DeleteVehicleDocument(ctx context.Context, tenantID, id uuid.UUID) error
+
+	// GPS
+	IngestGpsPositions(ctx context.Context, tenantID, vehicleID uuid.UUID, positions []GpsPosition) (int, error)
+	GetVehicleRoutes(ctx context.Context, params GetVehicleRoutesParams) ([]VehicleRouteAggregation, error)
+	GetGpsPositions(ctx context.Context, params GetGpsPositionsParams) ([]GpsPosition, error)
+
 	// TUEV Cron
 	// FindVehiclesDueTuev returns vehicles where tuev_due_date falls in [from, to]
 	// and tuev_reminder_sent_at is NULL or < windowStart (idempotency guard).
