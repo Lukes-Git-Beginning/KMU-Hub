@@ -211,12 +211,19 @@ func (h *HelpdeskRoutes) HandleCreateTicket(w http.ResponseWriter, r *http.Reque
 
 	userID := middleware.GetUserID(r.Context())
 
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+
 	req, ok := decodeAndValidate[createTicketRequest](w, r)
 	if !ok {
 		return
 	}
 
 	grpcReq := &helpdeskv1.CreateTicketRequest{
+		TenantId:    tenantID.String(),
 		RequesterId: userID,
 		Subject:     req.Subject,
 		Priority:    req.Priority,
