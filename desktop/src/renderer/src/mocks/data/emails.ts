@@ -8,8 +8,8 @@ import { hoursAgo, daysAgo, minutesAgo } from './date-helpers'
 export const mockEmailAccount = {
   account: {
     id: IDS.emailAccounts.main,
-    email: 'stefan.mueller@techvision.de',
-    name: 'Stefan Müller',
+    email: 'stefan.vogel@techvision.de',
+    name: 'Stefan Vogel',
     provider: 'imap',
     imap_host: 'imap.techvision.de',
     smtp_host: 'smtp.techvision.de',
@@ -77,7 +77,7 @@ const inboxMessages = [
     id: 'em-001',
     subject: 'Angebot: IT-Infrastruktur Modernisierung',
     from: { name: 'Klaus Gruber', email: 'k.gruber@gruber-maschinenbau.de' },
-    to: [{ name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' }],
+    to: [{ name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' }],
     date: minutesAgo(12),
     snippet:
       'Sehr geehrter Herr Müller, vielen Dank für das ausführliche Gespräch gestern. Anbei sende ich Ihnen unser aktualisiertes Angebot...',
@@ -103,7 +103,7 @@ const inboxMessages = [
     id: 'em-002',
     subject: 'RE: Terminbestaetigung Freitag',
     from: { name: 'Sabine Schneider', email: 's.schneider@rhein-consulting.de' },
-    to: [{ name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' }],
+    to: [{ name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' }],
     date: minutesAgo(45),
     snippet:
       'Hallo Herr Müller, der Termin am Freitag um 10:00 Uhr passt perfekt. Ich bringe Herrn Dr. Weber mit...',
@@ -122,7 +122,7 @@ const inboxMessages = [
     id: 'em-003',
     subject: 'Rechnung #2026-089',
     from: { name: 'Buchhaltung Hetzner', email: 'billing@hetzner.com' },
-    to: [{ name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' }],
+    to: [{ name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' }],
     date: hoursAgo(1.5),
     snippet:
       'Ihre Rechnung für den Monat März 2026 liegt bereit. Betrag: EUR 89,40. Zahlungsziel: 14 Tage...',
@@ -149,7 +149,7 @@ const inboxMessages = [
     subject: 'Einladung: Quartals-Review Q1 2026',
     from: { name: 'Julia Hoffmann', email: 'julia.hoffmann@techvision.de' },
     to: [
-      { name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' },
+      { name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' },
       { name: 'Markus Weber', email: 'markus.weber@techvision.de' },
     ],
     date: hoursAgo(2),
@@ -170,7 +170,7 @@ const inboxMessages = [
     id: 'em-005',
     subject: 'Bewerbung: Senior Go-Entwickler',
     from: { name: 'Tobias Keller', email: 'tobias.keller@protonmail.com' },
-    to: [{ name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' }],
+    to: [{ name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' }],
     date: hoursAgo(3),
     snippet:
       'Sehr geehrter Herr Müller, mit grossem Interesse habe ich Ihre Stellenausschreibung gelesen...',
@@ -202,7 +202,7 @@ const inboxMessages = [
     id: 'em-006',
     subject: 'DSGVO-Audit: Ergebnisbericht',
     from: { name: 'Dr. Andrea Roth', email: 'a.roth@datenschutz-partner.ch' },
-    to: [{ name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' }],
+    to: [{ name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' }],
     date: hoursAgo(4),
     snippet:
       'Sehr geehrter Herr Müller, anbei der Ergebnisbericht des DSGVO-Audits vom 18. März...',
@@ -228,7 +228,7 @@ const inboxMessages = [
     id: 'em-007',
     subject: 'Feedback: Demo-Praesentation letzte Woche',
     from: { name: 'Hans Weber', email: 'h.weber@helvetia-software.ch' },
-    to: [{ name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' }],
+    to: [{ name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' }],
     date: hoursAgo(5),
     snippet:
       'Hallo Herr Müller, nochmals vielen Dank für die ausführliche Demo. Unser Team war beeindruckt...',
@@ -247,13 +247,13 @@ const inboxMessages = [
     id: 'em-008',
     subject: 'GitHub Actions: Build fehlgeschlagen - main',
     from: { name: 'GitHub', email: 'noreply@github.com' },
-    to: [{ name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' }],
+    to: [{ name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' }],
     date: hoursAgo(6),
     snippet: 'Build #847 on main has failed. Click here for details...',
     body_text:
-      'Build #847 on branch main has failed.\n\nCommit: fa17fc3 - feat: add deployment auto-rollback\nAuthor: Stefan Müller\nFailed job: test-integration\n\nError: connection refused on port 5432\n\nView details: https://github.com/Lukes-Git-Beginning/KMU-Hub/actions/runs/847',
+      'Build #847 on branch main has failed.\n\nCommit: fa17fc3 - feat: add deployment auto-rollback\nAuthor: Stefan Vogel\nFailed job: test-integration\n\nError: connection refused on port 5432\n\nView details: https://github.com/Lukes-Git-Beginning/KMU-Hub/actions/runs/847',
     body_html:
-      '<p><strong>Build #847</strong> on branch <code>main</code> has failed.</p><p>Commit: <code>fa17fc3</code> - feat: add deployment auto-rollback<br/>Author: Stefan Müller<br/>Failed job: <code>test-integration</code></p><p>Error: <code>connection refused on port 5432</code></p><p><a href="#">View details</a></p>',
+      '<p><strong>Build #847</strong> on branch <code>main</code> has failed.</p><p>Commit: <code>fa17fc3</code> - feat: add deployment auto-rollback<br/>Author: Stefan Vogel<br/>Failed job: <code>test-integration</code></p><p>Error: <code>connection refused on port 5432</code></p><p><a href="#">View details</a></p>',
     folder_id: IDS.emailFolders.inbox,
     is_read: true,
     is_starred: false,
@@ -265,7 +265,7 @@ const inboxMessages = [
     id: 'em-009',
     subject: 'Vertragsverlaengerung Bavaria Elektro',
     from: { name: 'Maria Huber', email: 'm.huber@bavaria-elektro.de' },
-    to: [{ name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' }],
+    to: [{ name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' }],
     date: hoursAgo(8),
     snippet:
       'Sehr geehrter Herr Müller, wir moechten unseren Vertrag gerne um ein weiteres Jahr verlaengern...',
@@ -284,7 +284,7 @@ const inboxMessages = [
     id: 'em-010',
     subject: 'Neue Datenschutzrichtlinie ab April 2026',
     from: { name: 'BITKOM Newsletter', email: 'newsletter@bitkom.org' },
-    to: [{ name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' }],
+    to: [{ name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' }],
     date: hoursAgo(10),
     snippet:
       'Ab dem 1. April 2026 treten neue EU-Regelungen für Cloud-Dienste in Kraft...',
@@ -303,7 +303,7 @@ const inboxMessages = [
     id: 'em-011',
     subject: 'RE: Serverraum Zugang — neuer Schluessel',
     from: { name: 'Thomas Braun', email: 'thomas.braun@techvision.de' },
-    to: [{ name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' }],
+    to: [{ name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' }],
     date: hoursAgo(12),
     snippet:
       'Hey Stefan, der neue Schluessel liegt bei mir am Schreibtisch. Hol ihn dir wenn du Zeit hast...',
@@ -322,7 +322,7 @@ const inboxMessages = [
     id: 'em-012',
     subject: 'Anfrage: Partnerschaft / Reseller-Programm',
     from: { name: 'Lukas Steiner', email: 'l.steiner@alpen-logistik.at' },
-    to: [{ name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' }],
+    to: [{ name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' }],
     date: hoursAgo(14),
     snippet:
       'Guten Tag Herr Müller, wir sind ein Logistikunternehmen aus Salzburg und suchen eine CRM-Loesung...',
@@ -341,7 +341,7 @@ const inboxMessages = [
     id: 'em-013',
     subject: 'Meeting-Notizen: Sprint Retrospektive',
     from: { name: 'Jan Schulze', email: 'jan.schulze@techvision.de' },
-    to: [{ name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' }],
+    to: [{ name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' }],
     date: daysAgo(1),
     snippet:
       'Hi Stefan, hier die Zusammenfassung der Retro von gestern. Positiv: Deployment-Pipeline...',
@@ -360,7 +360,7 @@ const inboxMessages = [
     id: 'em-014',
     subject: 'Bexio API: Neue Endpunkte verfügbar',
     from: { name: 'Bexio Developer', email: 'developer@bexio.com' },
-    to: [{ name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' }],
+    to: [{ name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' }],
     date: daysAgo(1),
     snippet:
       'Sehr geehrter Entwickler, wir freuen uns Ihnen mitzuteilen, dass neue API-Endpunkte...',
@@ -379,7 +379,7 @@ const inboxMessages = [
     id: 'em-015',
     subject: 'Einladung: Swiss Tech Summit 2026',
     from: { name: 'Swiss Tech Events', email: 'events@swisstechsummit.ch' },
-    to: [{ name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' }],
+    to: [{ name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' }],
     date: daysAgo(1),
     snippet:
       'Sie sind eingeladen zum Swiss Tech Summit am 15.-16. Mai 2026 in Zürich...',
@@ -398,7 +398,7 @@ const inboxMessages = [
     id: 'em-016',
     subject: 'Lizenzverlängerung JetBrains All Products Pack',
     from: { name: 'JetBrains Sales', email: 'sales@jetbrains.com' },
-    to: [{ name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' }],
+    to: [{ name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' }],
     date: daysAgo(2),
     snippet:
       'Ihre JetBrains-Lizenz laeuft in 30 Tagen ab. Verlaengern Sie jetzt mit 20% Rabatt...',
@@ -417,7 +417,7 @@ const inboxMessages = [
     id: 'em-017',
     subject: 'Support-Ticket #891: 2FA Problem geloest',
     from: { name: 'Lisa Werner', email: 'lisa.werner@techvision.de' },
-    to: [{ name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' }],
+    to: [{ name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' }],
     date: daysAgo(2),
     snippet:
       'Hi Stefan, das 2FA-Problem von heute Morgen ist geloest. War ein Timeout beim SMS-Provider...',
@@ -436,7 +436,7 @@ const inboxMessages = [
     id: 'em-018',
     subject: 'Angebot Büromoebel — Ergonomische Arbeitsplaetze',
     from: { name: 'Petra Schwarz', email: 'p.schwarz@officewelt.de' },
-    to: [{ name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' }],
+    to: [{ name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' }],
     date: daysAgo(2),
     snippet:
       'Sehr geehrter Herr Müller, wie telefonisch besprochen sende ich Ihnen unser Angebot...',
@@ -462,7 +462,7 @@ const inboxMessages = [
     id: 'em-019',
     subject: 'RE: API-Dokumentation für Bexio-Integration',
     from: { name: 'Felix Richter', email: 'felix.richter@techvision.de' },
-    to: [{ name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' }],
+    to: [{ name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' }],
     date: daysAgo(3),
     snippet:
       'Hey Stefan, die API-Docs für die Bexio-Integration sind fertig. Link im Wiki...',
@@ -481,7 +481,7 @@ const inboxMessages = [
     id: 'em-020',
     subject: 'Willkommen bei Hetzner Cloud — Ihr Server ist bereit',
     from: { name: 'Hetzner Cloud', email: 'cloud@hetzner.com' },
-    to: [{ name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' }],
+    to: [{ name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' }],
     date: daysAgo(3),
     snippet:
       'Ihr neuer Cloud-Server CPX42 wurde erfolgreich erstellt. IP: 178.104.38.195...',
@@ -502,15 +502,15 @@ const sentMessages = [
   {
     id: 'em-s-001',
     subject: 'RE: Angebot: IT-Infrastruktur Modernisierung',
-    from: { name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' },
+    from: { name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' },
     to: [{ name: 'Klaus Gruber', email: 'k.gruber@gruber-maschinenbau.de' }],
     date: hoursAgo(1),
     snippet:
       'Sehr geehrter Herr Gruber, vielen Dank für das Angebot. Wir prüfen es intern und melden uns...',
     body_text:
-      'Sehr geehrter Herr Gruber,\n\nvielen Dank für das aktualisierte Angebot. Wir prüfen es intern und melden uns bis Ende der Woche.\n\nMit freundlichen Grüßen\nStefan Müller\nTechVision GmbH',
+      'Sehr geehrter Herr Gruber,\n\nvielen Dank für das aktualisierte Angebot. Wir prüfen es intern und melden uns bis Ende der Woche.\n\nMit freundlichen Grüßen\nStefan Vogel\nTechVision GmbH',
     body_html:
-      '<p>Sehr geehrter Herr Gruber,</p><p>vielen Dank für das aktualisierte Angebot. Wir prüfen es intern und melden uns bis Ende der Woche.</p><p>Mit freundlichen Grüßen<br/>Stefan Müller<br/>TechVision GmbH</p>',
+      '<p>Sehr geehrter Herr Gruber,</p><p>vielen Dank für das aktualisierte Angebot. Wir prüfen es intern und melden uns bis Ende der Woche.</p><p>Mit freundlichen Grüßen<br/>Stefan Vogel<br/>TechVision GmbH</p>',
     folder_id: IDS.emailFolders.sent,
     is_read: true,
     is_starred: false,
@@ -521,15 +521,15 @@ const sentMessages = [
   {
     id: 'em-s-002',
     subject: 'Terminvorschlag: Demo Helvetia Software',
-    from: { name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' },
+    from: { name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' },
     to: [{ name: 'Hans Weber', email: 'h.weber@helvetia-software.ch' }],
     date: hoursAgo(4),
     snippet:
       'Hallo Herr Weber, gerne schlage ich folgende Termine für die Demo vor...',
     body_text:
-      'Hallo Herr Weber,\n\ngerne schlage ich folgende Termine für die erweiterte Demo vor:\n\n- Dienstag, 10:00-12:00 Uhr\n- Mittwoch, 14:00-16:00 Uhr\n\nWir können Ihnen auch direkt eine Testumgebung einrichten.\n\nViele Grüße\nStefan Müller',
+      'Hallo Herr Weber,\n\ngerne schlage ich folgende Termine für die erweiterte Demo vor:\n\n- Dienstag, 10:00-12:00 Uhr\n- Mittwoch, 14:00-16:00 Uhr\n\nWir können Ihnen auch direkt eine Testumgebung einrichten.\n\nViele Grüße\nStefan Vogel',
     body_html:
-      '<p>Hallo Herr Weber,</p><p>gerne schlage ich folgende Termine vor:</p><ul><li>Dienstag, 10:00-12:00 Uhr</li><li>Mittwoch, 14:00-16:00 Uhr</li></ul><p>Wir können Ihnen auch direkt eine Testumgebung einrichten.</p><p>Viele Grüße<br/>Stefan Müller</p>',
+      '<p>Hallo Herr Weber,</p><p>gerne schlage ich folgende Termine vor:</p><ul><li>Dienstag, 10:00-12:00 Uhr</li><li>Mittwoch, 14:00-16:00 Uhr</li></ul><p>Wir können Ihnen auch direkt eine Testumgebung einrichten.</p><p>Viele Grüße<br/>Stefan Vogel</p>',
     folder_id: IDS.emailFolders.sent,
     is_read: true,
     is_starred: false,
@@ -540,15 +540,15 @@ const sentMessages = [
   {
     id: 'em-s-003',
     subject: 'RE: Bewerbung: Senior Go-Entwickler',
-    from: { name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' },
+    from: { name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' },
     to: [{ name: 'Tobias Keller', email: 'tobias.keller@protonmail.com' }],
     date: hoursAgo(2),
     snippet:
       'Sehr geehrter Herr Keller, vielen Dank für Ihre Bewerbung. Wir wuerden Sie gerne...',
     body_text:
-      'Sehr geehrter Herr Keller,\n\nvielen Dank für Ihre aussagekraeftige Bewerbung. Ihr Profil passt sehr gut zu unseren Anforderungen.\n\nWuerden Sie nächste Woche Zeit für ein erstes Videogespräch haben? Wir nutzen unser eigenes Tool (Cosmi Video) — Sie erhalten einen Link per Einladung.\n\nMit freundlichen Grüßen\nStefan Müller\nCTO, TechVision GmbH',
+      'Sehr geehrter Herr Keller,\n\nvielen Dank für Ihre aussagekraeftige Bewerbung. Ihr Profil passt sehr gut zu unseren Anforderungen.\n\nWuerden Sie nächste Woche Zeit für ein erstes Videogespräch haben? Wir nutzen unser eigenes Tool (Cosmi Video) — Sie erhalten einen Link per Einladung.\n\nMit freundlichen Grüßen\nStefan Vogel\nGeschäftsführer, TechVision GmbH',
     body_html:
-      '<p>Sehr geehrter Herr Keller,</p><p>vielen Dank für Ihre aussagekraeftige Bewerbung. Ihr Profil passt sehr gut zu unseren Anforderungen.</p><p>Wuerden Sie nächste Woche Zeit für ein erstes Videogespräch haben?</p><p>Mit freundlichen Grüßen<br/>Stefan Müller<br/>CTO, TechVision GmbH</p>',
+      '<p>Sehr geehrter Herr Keller,</p><p>vielen Dank für Ihre aussagekraeftige Bewerbung. Ihr Profil passt sehr gut zu unseren Anforderungen.</p><p>Wuerden Sie nächste Woche Zeit für ein erstes Videogespräch haben?</p><p>Mit freundlichen Grüßen<br/>Stefan Vogel<br/>Geschäftsführer, TechVision GmbH</p>',
     folder_id: IDS.emailFolders.sent,
     is_read: true,
     is_starred: false,
@@ -559,13 +559,13 @@ const sentMessages = [
   {
     id: 'em-s-004',
     subject: 'Vertragsverlaengerung — Angebot Bavaria Elektro',
-    from: { name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' },
+    from: { name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' },
     to: [{ name: 'Maria Huber', email: 'm.huber@bavaria-elektro.de' }],
     date: hoursAgo(6),
     snippet:
       'Sehr geehrte Frau Huber, vielen Dank für Ihr Vertrauen. Anbei das Verlaengerungsangebot...',
     body_text:
-      'Sehr geehrte Frau Huber,\n\nvielen Dank für Ihr Vertrauen in Cosmi! Anbei das Verlaengerungsangebot inklusive der neuen Chat- und Video-Module.\n\nZusammenfassung:\n- Basis-Lizenz (25 User): EUR 12.000/Jahr\n- Chat & Video Add-On: EUR 3.600/Jahr\n- Support Premium: EUR 2.400/Jahr\n- Treuerabatt: -10%\n\nGesamtpreis: EUR 16.200/Jahr (exkl. MwSt.)\n\nMit freundlichen Grüßen\nStefan Müller',
+      'Sehr geehrte Frau Huber,\n\nvielen Dank für Ihr Vertrauen in Cosmi! Anbei das Verlaengerungsangebot inklusive der neuen Chat- und Video-Module.\n\nZusammenfassung:\n- Basis-Lizenz (25 User): EUR 12.000/Jahr\n- Chat & Video Add-On: EUR 3.600/Jahr\n- Support Premium: EUR 2.400/Jahr\n- Treuerabatt: -10%\n\nGesamtpreis: EUR 16.200/Jahr (exkl. MwSt.)\n\nMit freundlichen Grüßen\nStefan Vogel',
     body_html:
       '<p>Sehr geehrte Frau Huber,</p><p>vielen Dank für Ihr Vertrauen in Cosmi! Anbei das Verlaengerungsangebot inklusive der neuen Chat- und Video-Module.</p><table><tr><td>Basis-Lizenz (25 User)</td><td>EUR 12.000/Jahr</td></tr><tr><td>Chat & Video</td><td>EUR 3.600/Jahr</td></tr><tr><td>Support Premium</td><td>EUR 2.400/Jahr</td></tr><tr><td>Treuerabatt</td><td>-10%</td></tr></table><p><strong>Gesamt: EUR 16.200/Jahr (exkl. MwSt.)</strong></p>',
     folder_id: IDS.emailFolders.sent,
@@ -585,7 +585,7 @@ const sentMessages = [
   {
     id: 'em-s-005',
     subject: 'Team-Update: Sprint 42 Zusammenfassung',
-    from: { name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' },
+    from: { name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' },
     to: [
       { name: 'Team', email: 'team@techvision.de' },
     ],
@@ -609,7 +609,7 @@ const draftMessages = [
   {
     id: 'em-d-001',
     subject: 'Antwort: Partnerschaft Alpen Logistik',
-    from: { name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' },
+    from: { name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' },
     to: [{ name: 'Lukas Steiner', email: 'l.steiner@alpen-logistik.at' }],
     date: hoursAgo(1),
     snippet:
@@ -628,7 +628,7 @@ const draftMessages = [
   {
     id: 'em-d-002',
     subject: 'Blog-Post: Warum EU-Hosting für KMUs unverzichtbar ist',
-    from: { name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' },
+    from: { name: 'Stefan Vogel', email: 'stefan.vogel@techvision.de' },
     to: [],
     date: daysAgo(2),
     snippet:
@@ -672,14 +672,14 @@ export const mockSignatures = {
       id: 'sig-001',
       name: 'Standard',
       html_content:
-        '<p>Mit freundlichen Grüßen<br/><strong>Stefan Müller</strong><br/>CTO, TechVision GmbH<br/>stefan.mueller@techvision.de<br/>+49 89 123 456 78</p>',
+        '<p>Mit freundlichen Grüßen<br/><strong>Stefan Vogel</strong><br/>Geschäftsführer, TechVision GmbH<br/>stefan.vogel@techvision.de<br/>+49 89 123 456 78</p>',
       is_default: true,
     },
     {
       id: 'sig-002',
       name: 'Kurz',
       html_content:
-        '<p>Viele Grüße<br/>Stefan Müller | TechVision</p>',
+        '<p>Viele Grüße<br/>Stefan Vogel | TechVision</p>',
       is_default: false,
     },
   ],

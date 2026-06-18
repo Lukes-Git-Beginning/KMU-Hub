@@ -2,7 +2,6 @@ import { X, ArrowLeft } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib'
 
 /**
@@ -95,9 +94,10 @@ export function DetailModal({
           </div>
         )}
 
-        <ScrollArea className="min-h-0 flex-1">
+        {/* Native scroll (reliable) — the global scrollbar-hide rule keeps it invisible. */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <div className="p-5">{children}</div>
-        </ScrollArea>
+        </div>
 
         {footer && <div className="border-t px-5 py-3">{footer}</div>}
       </DialogContent>

@@ -8,6 +8,7 @@ import { Component, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
+import { Skeleton, SkeletonTable } from '@/components/shared'
 
 interface ErrorFallbackProps {
   errorMessage: string | null
@@ -19,15 +20,26 @@ interface ErrorFallbackProps {
   }
 }
 
-/** Centered spinner shown while a lazy-loaded module is loading. */
+/** Skeleton scaffold shown while a lazy-loaded module is loading (no spinner). */
 export function ModuleLoadingFallback() {
-  const { t } = useTranslation()
   return (
-    <div className="flex h-full items-center justify-center">
-      <div className="text-center">
-        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
-        <p className="mt-4 text-sm text-muted-foreground">{t('layout.moduleShell.loading')}</p>
+    <div className="h-full overflow-hidden p-6 space-y-6">
+      {/* Header (title + description) */}
+      <div className="space-y-2.5">
+        <Skeleton className="h-7 w-56" />
+        <Skeleton className="h-4 w-80" />
       </div>
+      {/* KPI row */}
+      <div className="flex flex-wrap gap-x-10 gap-y-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="space-y-2">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-6 w-16" />
+          </div>
+        ))}
+      </div>
+      {/* Content table */}
+      <SkeletonTable rows={7} cols={5} />
     </div>
   )
 }
