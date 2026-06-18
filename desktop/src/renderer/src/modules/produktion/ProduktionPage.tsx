@@ -208,7 +208,7 @@ export default function ProduktionPage() {
     <div className="flex-1 overflow-y-auto p-6 animate-fade-up">
       <PageHeader
         title="Produktion"
-        description={`${activeOrders.length} aktive Auftraege - ${boms.length} Stuecklisten`}
+        description={t('produktion.header.summary', { orders: activeOrders.length, boms: boms.length })}
         icon={Factory}
         moduleId="produktion"
         className="mb-6"

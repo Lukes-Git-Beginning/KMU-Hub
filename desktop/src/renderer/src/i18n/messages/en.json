@@ -9270,5 +9270,6 @@
   "fuhrpark.errors.loadFailed": "Loading failed",
   "fuhrpark.errors.saveFailed": "Saving failed",
   "fuhrpark.errors.deleteFailed": "Deletion failed",
-  "fuhrpark.errors.vehicleNotFound": "Vehicle not found"
+  "fuhrpark.errors.vehicleNotFound": "Vehicle not found",
+  "produktion.header.summary": "{orders} active orders · {boms} bills of materials"
 }

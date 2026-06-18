@@ -16,7 +16,7 @@ const seedBoms = [
     created_at: '2026-01-10T08:00:00Z',
     updated_at: '2026-01-10T08:00:00Z',
     items: [
-      { id: 'bi-001', bom_id: 'bom-001', material_name: 'Gehaeuse 600x800', quantity: 1, unit: 'Stk', sort_order: 0 },
+      { id: 'bi-001', bom_id: 'bom-001', material_name: 'Gehäuse 600x800', quantity: 1, unit: 'Stk', sort_order: 0 },
       { id: 'bi-002', bom_id: 'bom-001', material_name: 'Kabelkanal 40x60', quantity: 4, unit: 'm', sort_order: 1 },
       { id: 'bi-003', bom_id: 'bom-001', material_name: 'Klemmenblock 10pol', quantity: 3, unit: 'Set', sort_order: 2 },
     ],
@@ -32,7 +32,7 @@ const seedBoms = [
     updated_at: '2026-01-15T09:00:00Z',
     items: [
       { id: 'bi-004', bom_id: 'bom-002', material_name: 'Platine STM32F4', quantity: 1, unit: 'Stk', sort_order: 0 },
-      { id: 'bi-005', bom_id: 'bom-002', material_name: 'Kuehlkoerper passiv', quantity: 1, unit: 'Stk', sort_order: 1 },
+      { id: 'bi-005', bom_id: 'bom-002', material_name: 'Kühlkörper passiv', quantity: 1, unit: 'Stk', sort_order: 1 },
       { id: 'bi-006', bom_id: 'bom-002', material_name: 'Kondensator 100uF', quantity: 8, unit: 'Stk', sort_order: 2 },
       { id: 'bi-007', bom_id: 'bom-002', material_name: 'RJ45 Buchse', quantity: 2, unit: 'Stk', sort_order: 3 },
     ],
@@ -43,7 +43,7 @@ const seedMachines = [
   {
     id: 'machine-001',
     tenant_id: 'tenant-demo',
-    name: 'CNC-Fraese Alpha',
+    name: 'CNC-Fräse Alpha',
     type: 'CNC',
     status: 'in_use',
     location: 'Halle A',
@@ -54,7 +54,7 @@ const seedMachines = [
   {
     id: 'machine-002',
     tenant_id: 'tenant-demo',
-    name: 'Schweissroboter R1',
+    name: 'Schweißroboter R1',
     type: 'Roboter',
     status: 'available',
     location: 'Halle B',
@@ -81,7 +81,7 @@ const seedWorkSteps = [
     tenant_id: 'tenant-demo',
     production_order_id: 'order-001',
     step_nr: 1,
-    name: 'Material pruefen',
+    name: 'Material prüfen',
     status: 'completed',
     machine_id: null,
     duration_minutes: 30,
@@ -96,7 +96,7 @@ const seedWorkSteps = [
     tenant_id: 'tenant-demo',
     production_order_id: 'order-001',
     step_nr: 2,
-    name: 'Fraesen',
+    name: 'Fräsen',
     status: 'in_progress',
     machine_id: 'machine-001',
     duration_minutes: 120,
@@ -132,7 +132,7 @@ const seedQualityChecks = [
     checked_at: '2026-06-10T10:00:00Z',
     passed: true,
     defects_found: 0,
-    notes: 'Alle Masse korrekt.',
+    notes: 'Alle Maße korrekt.',
     created_at: '2026-06-10T10:05:00Z',
     updated_at: '2026-06-10T10:05:00Z',
   },
@@ -144,15 +144,95 @@ const seedQualityChecks = [
     checked_at: '2026-06-12T14:00:00Z',
     passed: false,
     defects_found: 2,
-    notes: 'Loetpunkte nacharbeiten.',
+    notes: 'Lötpunkte nacharbeiten.',
     created_at: '2026-06-12T14:10:00Z',
     updated_at: '2026-06-12T14:10:00Z',
   },
 ]
 
-// ---- BOM handlers ----
+const seedOrders = [
+  { id: 'order-001', tenant_id: 'tenant-demo', order_number: 'PA-2026-001', product_name: 'Schaltschrank Typ A', quantity: 12, status: 'in_progress', planned_start: '2026-06-01T07:00:00Z', planned_end: '2026-06-20T16:00:00Z', actual_start: '2026-06-01T07:15:00Z', actual_end: null, priority: 2, bom_id: 'bom-001', notes: 'Eilauftrag Kunde Meier', created_by: null, created_at: '2026-05-28T09:00:00Z', updated_at: '2026-06-02T08:00:00Z' },
+  { id: 'order-002', tenant_id: 'tenant-demo', order_number: 'PA-2026-002', product_name: 'Steuereinheit Kompakt', quantity: 40, status: 'in_progress', planned_start: '2026-06-05T07:00:00Z', planned_end: '2026-06-25T16:00:00Z', actual_start: '2026-06-05T07:30:00Z', actual_end: null, priority: 3, bom_id: 'bom-002', notes: '', created_by: null, created_at: '2026-05-30T09:00:00Z', updated_at: '2026-06-12T14:10:00Z' },
+  { id: 'order-003', tenant_id: 'tenant-demo', order_number: 'PA-2026-003', product_name: 'Schaltschrank Typ A', quantity: 5, status: 'planned', planned_start: '2026-06-22T07:00:00Z', planned_end: '2026-07-02T16:00:00Z', actual_start: null, actual_end: null, priority: 4, bom_id: 'bom-001', notes: '', created_by: null, created_at: '2026-06-10T09:00:00Z', updated_at: '2026-06-10T09:00:00Z' },
+  { id: 'order-004', tenant_id: 'tenant-demo', order_number: 'PA-2026-004', product_name: 'Steuereinheit Kompakt', quantity: 25, status: 'completed', planned_start: '2026-05-10T07:00:00Z', planned_end: '2026-05-28T16:00:00Z', actual_start: '2026-05-10T07:00:00Z', actual_end: '2026-05-27T15:00:00Z', priority: 3, bom_id: 'bom-002', notes: 'Termingerecht fertig.', created_by: null, created_at: '2026-05-02T09:00:00Z', updated_at: '2026-05-27T15:00:00Z' },
+]
+
+const seedBookings = [
+  { id: 'mb-001', tenant_id: 'tenant-demo', machine_id: 'machine-001', production_order_id: 'order-001', starts_at: '2026-06-02T08:00:00Z', ends_at: '2026-06-04T16:00:00Z', status: 'in_use', notes: '', created_by: null, created_at: '2026-06-01T09:00:00Z', updated_at: '2026-06-02T08:00:00Z' },
+  { id: 'mb-002', tenant_id: 'tenant-demo', machine_id: 'machine-002', production_order_id: 'order-002', starts_at: '2026-06-06T08:00:00Z', ends_at: '2026-06-10T16:00:00Z', status: 'booked', notes: '', created_by: null, created_at: '2026-06-03T09:00:00Z', updated_at: '2026-06-03T09:00:00Z' },
+  { id: 'mb-003', tenant_id: 'tenant-demo', machine_id: 'machine-001', production_order_id: 'order-003', starts_at: '2026-06-23T08:00:00Z', ends_at: '2026-06-26T16:00:00Z', status: 'booked', notes: '', created_by: null, created_at: '2026-06-11T09:00:00Z', updated_at: '2026-06-11T09:00:00Z' },
+]
+
+// ---- Order handlers (Fall-A: pre-existing endpoints the rewired page now queries) ----
 
 export const produktionHandlers = [
+  http.get(`${BASE}/orders`, () => {
+    return HttpResponse.json({ orders: seedOrders, total: seedOrders.length })
+  }),
+
+  http.get(`${BASE}/orders/:orderId`, ({ params }) => {
+    const order = seedOrders.find((o) => o.id === params['orderId'])
+    if (!order) return new HttpResponse(null, { status: 404 })
+    return HttpResponse.json(order)
+  }),
+
+  http.post(`${BASE}/orders`, async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>
+    const now = new Date().toISOString()
+    return HttpResponse.json(
+      { id: `order-${Date.now()}`, tenant_id: 'tenant-demo', status: 'planned', priority: 3, actual_start: null, actual_end: null, notes: '', bom_id: undefined, created_by: null, created_at: now, updated_at: now, ...body },
+      { status: 201 },
+    )
+  }),
+
+  http.patch(`${BASE}/orders/:orderId`, async ({ params, request }) => {
+    const order = seedOrders.find((o) => o.id === params['orderId']) ?? { id: params['orderId'] }
+    const body = (await request.json()) as Record<string, unknown>
+    return HttpResponse.json({ ...order, ...body, updated_at: new Date().toISOString() })
+  }),
+
+  http.delete(`${BASE}/orders/:orderId`, () => new HttpResponse(null, { status: 204 })),
+
+  http.post(`${BASE}/orders/:orderId/start`, ({ params }) => {
+    const order = seedOrders.find((o) => o.id === params['orderId']) ?? { id: params['orderId'] }
+    return HttpResponse.json({ ...order, status: 'in_progress', actual_start: new Date().toISOString() })
+  }),
+
+  http.post(`${BASE}/orders/:orderId/complete`, ({ params }) => {
+    const order = seedOrders.find((o) => o.id === params['orderId']) ?? { id: params['orderId'] }
+    return HttpResponse.json({ ...order, status: 'completed', actual_end: new Date().toISOString() })
+  }),
+
+  http.post(`${BASE}/orders/:orderId/cancel`, ({ params }) => {
+    const order = seedOrders.find((o) => o.id === params['orderId']) ?? { id: params['orderId'] }
+    return HttpResponse.json({ ...order, status: 'cancelled' })
+  }),
+
+  // ---- Machine booking handlers (Fall-A) ----
+
+  http.get(`${BASE}/bookings`, () => {
+    return HttpResponse.json({ bookings: seedBookings, total: seedBookings.length })
+  }),
+
+  http.post(`${BASE}/bookings`, async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>
+    const now = new Date().toISOString()
+    return HttpResponse.json(
+      { id: `mb-${Date.now()}`, tenant_id: 'tenant-demo', status: 'booked', notes: '', created_by: null, created_at: now, updated_at: now, ...body },
+      { status: 201 },
+    )
+  }),
+
+  http.patch(`${BASE}/bookings/:bookingId`, async ({ params, request }) => {
+    const booking = seedBookings.find((b) => b.id === params['bookingId']) ?? { id: params['bookingId'] }
+    const body = (await request.json()) as Record<string, unknown>
+    return HttpResponse.json({ ...booking, ...body, updated_at: new Date().toISOString() })
+  }),
+
+  http.delete(`${BASE}/bookings/:bookingId`, () => new HttpResponse(null, { status: 204 })),
+
+  // ---- BOM handlers ----
+
   http.get(`${BASE}/boms`, () => {
     return HttpResponse.json({ boms: seedBoms, total: seedBoms.length })
   }),

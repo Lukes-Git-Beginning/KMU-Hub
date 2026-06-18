@@ -9236,5 +9236,6 @@
   "fuhrpark.errors.loadFailed": "Chargement échoué",
   "fuhrpark.errors.saveFailed": "Enregistrement échoué",
   "fuhrpark.errors.deleteFailed": "Suppression échouée",
-  "fuhrpark.errors.vehicleNotFound": "Véhicule introuvable"
+  "fuhrpark.errors.vehicleNotFound": "Véhicule introuvable",
+  "produktion.header.summary": "{orders} ordres actifs · {boms} nomenclatures"
 }

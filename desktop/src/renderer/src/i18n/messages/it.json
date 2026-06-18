@@ -9236,5 +9236,6 @@
   "fuhrpark.errors.loadFailed": "Caricamento fallito",
   "fuhrpark.errors.saveFailed": "Salvataggio fallito",
   "fuhrpark.errors.deleteFailed": "Eliminazione fallita",
-  "fuhrpark.errors.vehicleNotFound": "Veicolo non trovato"
+  "fuhrpark.errors.vehicleNotFound": "Veicolo non trovato",
+  "produktion.header.summary": "{orders} ordini attivi · {boms} distinte base"
 }

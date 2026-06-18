@@ -5372,7 +5372,7 @@
   "produktion.dialog.position": "Position",
   "produktion.dialog.produktname": "Produktname",
   "produktion.dialog.produktnamePlaceholder": "z.B. Schaltschrank Pro",
-  "produktion.dialog.pruefbericht": "Prüfbericht, Bemerkungen, Massnahmen...",
+  "produktion.dialog.pruefbericht": "Prüfbericht, Bemerkungen, Maßnahmen...",
   "produktion.dialog.pruefer": "Prüfer",
   "produktion.dialog.prueferSelect": "Prüfer auswählen...",
   "produktion.dialog.pruefungErstelltToast": "Qualitätsprüfung für {orderNr} erfasst — {result}",
@@ -9270,5 +9270,6 @@
   "fuhrpark.errors.loadFailed": "Laden fehlgeschlagen",
   "fuhrpark.errors.saveFailed": "Speichern fehlgeschlagen",
   "fuhrpark.errors.deleteFailed": "Löschen fehlgeschlagen",
-  "fuhrpark.errors.vehicleNotFound": "Fahrzeug nicht gefunden"
+  "fuhrpark.errors.vehicleNotFound": "Fahrzeug nicht gefunden",
+  "produktion.header.summary": "{orders} aktive Aufträge · {boms} Stücklisten"
 }
