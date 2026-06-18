@@ -150,3 +150,84 @@ export interface ListTicketsResponse {
   tickets: Ticket[]
   total: number
 }
+
+// ---------------------------------------------------------------------------
+// Knowledge-base articles
+// ---------------------------------------------------------------------------
+
+export type KBArticleStatus = 'draft' | 'published'
+
+export interface KBArticle {
+  id: string
+  tenant_id: string
+  title: string
+  content: string
+  category: string
+  status: KBArticleStatus
+  author_id: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateKBArticleInput {
+  title: string
+  content?: string
+  category?: string
+  status?: KBArticleStatus
+}
+
+export interface UpdateKBArticleInput {
+  title?: string
+  content?: string
+  category?: string
+  status?: KBArticleStatus
+}
+
+// ---------------------------------------------------------------------------
+// Routing rules
+// ---------------------------------------------------------------------------
+
+export interface RoutingRule {
+  id: string
+  tenant_id: string
+  name: string
+  conditions: string
+  target_queue_id: string | null
+  priority: number
+  enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateRoutingRuleInput {
+  name: string
+  conditions?: string
+  target_queue_id?: string
+  priority?: number
+  enabled?: boolean
+}
+
+export interface UpdateRoutingRuleInput {
+  name?: string
+  conditions?: string
+  target_queue_id?: string
+  priority?: number
+  enabled?: boolean
+}
+
+// ---------------------------------------------------------------------------
+// Stats
+// ---------------------------------------------------------------------------
+
+export interface WeeklyDayCount {
+  label: string
+  count: number
+}
+
+export interface HelpdeskStats {
+  open_tickets: number
+  avg_response_time: string
+  resolved_this_week: number
+  customer_satisfaction: string
+  weekly_breakdown: WeeklyDayCount[]
+}

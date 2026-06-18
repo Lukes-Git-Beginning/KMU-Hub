@@ -604,6 +604,15 @@ func (s *Service) ApplySLAPolicy(ctx context.Context, ticketID, policyID uuid.UU
 	return ticket, nil
 }
 
+// DeleteSLAPolicy removes an SLA policy.
+func (s *Service) DeleteSLAPolicy(ctx context.Context, id uuid.UUID) error {
+	if err := s.repo.DeleteSLAPolicy(ctx, id); err != nil {
+		return fmt.Errorf("delete sla policy: %w", err)
+	}
+	s.log.InfoContext(ctx, "helpdesk: sla policy deleted", "policy_id", id)
+	return nil
+}
+
 // GetSLAStatus computes the current SLA health of a ticket.
 func (s *Service) GetSLAStatus(ctx context.Context, ticketID uuid.UUID, policyID *uuid.UUID) (SLAStatus, error) {
 	ticket, err := s.repo.GetTicketByID(ctx, ticketID)
@@ -620,4 +629,228 @@ func (s *Service) GetSLAStatus(ctx context.Context, ticketID uuid.UUID, policyID
 	}
 
 	return ComputeStatus(ticket, policy, time.Now().UTC()), nil
+}
+
+// ---------------------------------------------------------------------------
+// Knowledge-base articles
+// ---------------------------------------------------------------------------
+
+// CreateKBArticle creates a new knowledge-base article.
+func (s *Service) CreateKBArticle(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	authorID uuid.UUID,
+	title, content, category, articleStatus string,
+) (*KBArticle, error) {
+	if title == "" {
+		return nil, fmt.Errorf("kb article title must not be empty")
+	}
+	if articleStatus == "" {
+		articleStatus = string(KBArticleStatusDraft)
+	}
+
+	now := time.Now().UTC()
+	a := &KBArticle{
+		ID:        uuid.New(),
+		TenantID:  tenantID,
+		Title:     title,
+		Content:   content,
+		Category:  category,
+		Status:    articleStatus,
+		AuthorID:  authorID,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	if err := s.repo.CreateKBArticle(ctx, a); err != nil {
+		return nil, fmt.Errorf("create kb article: %w", err)
+	}
+
+	s.log.InfoContext(ctx, "helpdesk: kb article created",
+		"article_id", a.ID,
+		"tenant_id", tenantID,
+	)
+	return a, nil
+}
+
+// GetKBArticle retrieves a KB article by ID.
+func (s *Service) GetKBArticle(ctx context.Context, id uuid.UUID) (*KBArticle, error) {
+	a, err := s.repo.GetKBArticleByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("get kb article: %w", err)
+	}
+	return a, nil
+}
+
+// ListKBArticles returns all KB articles for a tenant.
+func (s *Service) ListKBArticles(ctx context.Context, tenantID uuid.UUID) ([]*KBArticle, error) {
+	articles, err := s.repo.ListKBArticles(ctx, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("list kb articles: %w", err)
+	}
+	return articles, nil
+}
+
+// UpdateKBArticle patches a KB article.
+func (s *Service) UpdateKBArticle(
+	ctx context.Context,
+	id uuid.UUID,
+	title, content, category, articleStatus *string,
+) (*KBArticle, error) {
+	a, err := s.repo.GetKBArticleByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("update kb article – load: %w", err)
+	}
+
+	if title != nil {
+		if *title == "" {
+			return nil, fmt.Errorf("kb article title must not be empty")
+		}
+		a.Title = *title
+	}
+	if content != nil {
+		a.Content = *content
+	}
+	if category != nil {
+		a.Category = *category
+	}
+	if articleStatus != nil {
+		a.Status = *articleStatus
+	}
+	a.UpdatedAt = time.Now().UTC()
+
+	if err := s.repo.UpdateKBArticle(ctx, a); err != nil {
+		return nil, fmt.Errorf("update kb article: %w", err)
+	}
+
+	s.log.InfoContext(ctx, "helpdesk: kb article updated", "article_id", id)
+	return a, nil
+}
+
+// DeleteKBArticle removes a KB article.
+func (s *Service) DeleteKBArticle(ctx context.Context, id uuid.UUID) error {
+	if err := s.repo.DeleteKBArticle(ctx, id); err != nil {
+		return fmt.Errorf("delete kb article: %w", err)
+	}
+	s.log.InfoContext(ctx, "helpdesk: kb article deleted", "article_id", id)
+	return nil
+}
+
+// ---------------------------------------------------------------------------
+// Routing rules
+// ---------------------------------------------------------------------------
+
+// CreateRoutingRule creates a new ticket routing rule.
+func (s *Service) CreateRoutingRule(
+	ctx context.Context,
+	tenantID uuid.UUID,
+	name string,
+	conditions map[string]any,
+	targetQueueID *uuid.UUID,
+	priority int,
+	enabled bool,
+) (*RoutingRule, error) {
+	if name == "" {
+		return nil, fmt.Errorf("routing rule name must not be empty")
+	}
+	if conditions == nil {
+		conditions = map[string]any{}
+	}
+
+	now := time.Now().UTC()
+	rr := &RoutingRule{
+		ID:            uuid.New(),
+		TenantID:      tenantID,
+		Name:          name,
+		Conditions:    conditions,
+		TargetQueueID: targetQueueID,
+		Priority:      priority,
+		Enabled:       enabled,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+
+	if err := s.repo.CreateRoutingRule(ctx, rr); err != nil {
+		return nil, fmt.Errorf("create routing rule: %w", err)
+	}
+
+	s.log.InfoContext(ctx, "helpdesk: routing rule created",
+		"rule_id", rr.ID,
+		"tenant_id", tenantID,
+	)
+	return rr, nil
+}
+
+// ListRoutingRules returns all routing rules for a tenant.
+func (s *Service) ListRoutingRules(ctx context.Context, tenantID uuid.UUID) ([]*RoutingRule, error) {
+	rules, err := s.repo.ListRoutingRules(ctx, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("list routing rules: %w", err)
+	}
+	return rules, nil
+}
+
+// UpdateRoutingRule patches a routing rule.
+func (s *Service) UpdateRoutingRule(
+	ctx context.Context,
+	id uuid.UUID,
+	name *string,
+	conditions map[string]any,
+	targetQueueID *uuid.UUID,
+	priority *int,
+	enabled *bool,
+) (*RoutingRule, error) {
+	rr, err := s.repo.GetRoutingRuleByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("update routing rule – load: %w", err)
+	}
+
+	if name != nil {
+		if *name == "" {
+			return nil, fmt.Errorf("routing rule name must not be empty")
+		}
+		rr.Name = *name
+	}
+	if conditions != nil {
+		rr.Conditions = conditions
+	}
+	if targetQueueID != nil {
+		rr.TargetQueueID = targetQueueID
+	}
+	if priority != nil {
+		rr.Priority = *priority
+	}
+	if enabled != nil {
+		rr.Enabled = *enabled
+	}
+	rr.UpdatedAt = time.Now().UTC()
+
+	if err := s.repo.UpdateRoutingRule(ctx, rr); err != nil {
+		return nil, fmt.Errorf("update routing rule: %w", err)
+	}
+
+	s.log.InfoContext(ctx, "helpdesk: routing rule updated", "rule_id", id)
+	return rr, nil
+}
+
+// DeleteRoutingRule removes a routing rule.
+func (s *Service) DeleteRoutingRule(ctx context.Context, id uuid.UUID) error {
+	if err := s.repo.DeleteRoutingRule(ctx, id); err != nil {
+		return fmt.Errorf("delete routing rule: %w", err)
+	}
+	s.log.InfoContext(ctx, "helpdesk: routing rule deleted", "rule_id", id)
+	return nil
+}
+
+// ---------------------------------------------------------------------------
+// Stats
+// ---------------------------------------------------------------------------
+
+// GetHelpdeskStats returns aggregated helpdesk metrics for a tenant.
+func (s *Service) GetHelpdeskStats(ctx context.Context, tenantID uuid.UUID) (*HelpdeskStats, error) {
+	stats, err := s.repo.GetHelpdeskStats(ctx, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("get helpdesk stats: %w", err)
+	}
+	return stats, nil
 }

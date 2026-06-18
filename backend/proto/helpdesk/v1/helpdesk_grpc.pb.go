@@ -41,8 +41,18 @@ const (
 	HelpdeskService_CreateSLAPolicy_FullMethodName      = "/helpdesk.v1.HelpdeskService/CreateSLAPolicy"
 	HelpdeskService_UpdateSLAPolicy_FullMethodName      = "/helpdesk.v1.HelpdeskService/UpdateSLAPolicy"
 	HelpdeskService_ListSLAPolicies_FullMethodName      = "/helpdesk.v1.HelpdeskService/ListSLAPolicies"
+	HelpdeskService_DeleteSLAPolicy_FullMethodName      = "/helpdesk.v1.HelpdeskService/DeleteSLAPolicy"
 	HelpdeskService_ApplySLAPolicy_FullMethodName       = "/helpdesk.v1.HelpdeskService/ApplySLAPolicy"
 	HelpdeskService_GetSLAStatus_FullMethodName         = "/helpdesk.v1.HelpdeskService/GetSLAStatus"
+	HelpdeskService_ListKBArticle_FullMethodName        = "/helpdesk.v1.HelpdeskService/ListKBArticle"
+	HelpdeskService_CreateKBArticle_FullMethodName      = "/helpdesk.v1.HelpdeskService/CreateKBArticle"
+	HelpdeskService_UpdateKBArticle_FullMethodName      = "/helpdesk.v1.HelpdeskService/UpdateKBArticle"
+	HelpdeskService_DeleteKBArticle_FullMethodName      = "/helpdesk.v1.HelpdeskService/DeleteKBArticle"
+	HelpdeskService_ListRoutingRule_FullMethodName      = "/helpdesk.v1.HelpdeskService/ListRoutingRule"
+	HelpdeskService_CreateRoutingRule_FullMethodName    = "/helpdesk.v1.HelpdeskService/CreateRoutingRule"
+	HelpdeskService_UpdateRoutingRule_FullMethodName    = "/helpdesk.v1.HelpdeskService/UpdateRoutingRule"
+	HelpdeskService_DeleteRoutingRule_FullMethodName    = "/helpdesk.v1.HelpdeskService/DeleteRoutingRule"
+	HelpdeskService_GetHelpdeskStats_FullMethodName     = "/helpdesk.v1.HelpdeskService/GetHelpdeskStats"
 )
 
 // HelpdeskServiceClient is the client API for HelpdeskService service.
@@ -75,8 +85,21 @@ type HelpdeskServiceClient interface {
 	CreateSLAPolicy(ctx context.Context, in *CreateSLAPolicyRequest, opts ...grpc.CallOption) (*SLAPolicy, error)
 	UpdateSLAPolicy(ctx context.Context, in *UpdateSLAPolicyRequest, opts ...grpc.CallOption) (*SLAPolicy, error)
 	ListSLAPolicies(ctx context.Context, in *ListSLAPoliciesRequest, opts ...grpc.CallOption) (*ListSLAPoliciesResponse, error)
+	DeleteSLAPolicy(ctx context.Context, in *DeleteSLAPolicyRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ApplySLAPolicy(ctx context.Context, in *ApplySLAPolicyRequest, opts ...grpc.CallOption) (*Ticket, error)
 	GetSLAStatus(ctx context.Context, in *GetSLAStatusRequest, opts ...grpc.CallOption) (*GetSLAStatusResponse, error)
+	// Knowledge-base articles
+	ListKBArticle(ctx context.Context, in *ListKBArticleRequest, opts ...grpc.CallOption) (*ListKBArticleResponse, error)
+	CreateKBArticle(ctx context.Context, in *CreateKBArticleRequest, opts ...grpc.CallOption) (*KBArticle, error)
+	UpdateKBArticle(ctx context.Context, in *UpdateKBArticleRequest, opts ...grpc.CallOption) (*KBArticle, error)
+	DeleteKBArticle(ctx context.Context, in *DeleteKBArticleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Routing rules
+	ListRoutingRule(ctx context.Context, in *ListRoutingRuleRequest, opts ...grpc.CallOption) (*ListRoutingRuleResponse, error)
+	CreateRoutingRule(ctx context.Context, in *CreateRoutingRuleRequest, opts ...grpc.CallOption) (*RoutingRule, error)
+	UpdateRoutingRule(ctx context.Context, in *UpdateRoutingRuleRequest, opts ...grpc.CallOption) (*RoutingRule, error)
+	DeleteRoutingRule(ctx context.Context, in *DeleteRoutingRuleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Stats
+	GetHelpdeskStats(ctx context.Context, in *GetHelpdeskStatsRequest, opts ...grpc.CallOption) (*HelpdeskStats, error)
 }
 
 type helpdeskServiceClient struct {
@@ -297,6 +320,16 @@ func (c *helpdeskServiceClient) ListSLAPolicies(ctx context.Context, in *ListSLA
 	return out, nil
 }
 
+func (c *helpdeskServiceClient) DeleteSLAPolicy(ctx context.Context, in *DeleteSLAPolicyRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, HelpdeskService_DeleteSLAPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *helpdeskServiceClient) ApplySLAPolicy(ctx context.Context, in *ApplySLAPolicyRequest, opts ...grpc.CallOption) (*Ticket, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Ticket)
@@ -311,6 +344,96 @@ func (c *helpdeskServiceClient) GetSLAStatus(ctx context.Context, in *GetSLAStat
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetSLAStatusResponse)
 	err := c.cc.Invoke(ctx, HelpdeskService_GetSLAStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *helpdeskServiceClient) ListKBArticle(ctx context.Context, in *ListKBArticleRequest, opts ...grpc.CallOption) (*ListKBArticleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListKBArticleResponse)
+	err := c.cc.Invoke(ctx, HelpdeskService_ListKBArticle_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *helpdeskServiceClient) CreateKBArticle(ctx context.Context, in *CreateKBArticleRequest, opts ...grpc.CallOption) (*KBArticle, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(KBArticle)
+	err := c.cc.Invoke(ctx, HelpdeskService_CreateKBArticle_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *helpdeskServiceClient) UpdateKBArticle(ctx context.Context, in *UpdateKBArticleRequest, opts ...grpc.CallOption) (*KBArticle, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(KBArticle)
+	err := c.cc.Invoke(ctx, HelpdeskService_UpdateKBArticle_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *helpdeskServiceClient) DeleteKBArticle(ctx context.Context, in *DeleteKBArticleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, HelpdeskService_DeleteKBArticle_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *helpdeskServiceClient) ListRoutingRule(ctx context.Context, in *ListRoutingRuleRequest, opts ...grpc.CallOption) (*ListRoutingRuleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListRoutingRuleResponse)
+	err := c.cc.Invoke(ctx, HelpdeskService_ListRoutingRule_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *helpdeskServiceClient) CreateRoutingRule(ctx context.Context, in *CreateRoutingRuleRequest, opts ...grpc.CallOption) (*RoutingRule, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RoutingRule)
+	err := c.cc.Invoke(ctx, HelpdeskService_CreateRoutingRule_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *helpdeskServiceClient) UpdateRoutingRule(ctx context.Context, in *UpdateRoutingRuleRequest, opts ...grpc.CallOption) (*RoutingRule, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RoutingRule)
+	err := c.cc.Invoke(ctx, HelpdeskService_UpdateRoutingRule_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *helpdeskServiceClient) DeleteRoutingRule(ctx context.Context, in *DeleteRoutingRuleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, HelpdeskService_DeleteRoutingRule_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *helpdeskServiceClient) GetHelpdeskStats(ctx context.Context, in *GetHelpdeskStatsRequest, opts ...grpc.CallOption) (*HelpdeskStats, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(HelpdeskStats)
+	err := c.cc.Invoke(ctx, HelpdeskService_GetHelpdeskStats_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -347,8 +470,21 @@ type HelpdeskServiceServer interface {
 	CreateSLAPolicy(context.Context, *CreateSLAPolicyRequest) (*SLAPolicy, error)
 	UpdateSLAPolicy(context.Context, *UpdateSLAPolicyRequest) (*SLAPolicy, error)
 	ListSLAPolicies(context.Context, *ListSLAPoliciesRequest) (*ListSLAPoliciesResponse, error)
+	DeleteSLAPolicy(context.Context, *DeleteSLAPolicyRequest) (*emptypb.Empty, error)
 	ApplySLAPolicy(context.Context, *ApplySLAPolicyRequest) (*Ticket, error)
 	GetSLAStatus(context.Context, *GetSLAStatusRequest) (*GetSLAStatusResponse, error)
+	// Knowledge-base articles
+	ListKBArticle(context.Context, *ListKBArticleRequest) (*ListKBArticleResponse, error)
+	CreateKBArticle(context.Context, *CreateKBArticleRequest) (*KBArticle, error)
+	UpdateKBArticle(context.Context, *UpdateKBArticleRequest) (*KBArticle, error)
+	DeleteKBArticle(context.Context, *DeleteKBArticleRequest) (*emptypb.Empty, error)
+	// Routing rules
+	ListRoutingRule(context.Context, *ListRoutingRuleRequest) (*ListRoutingRuleResponse, error)
+	CreateRoutingRule(context.Context, *CreateRoutingRuleRequest) (*RoutingRule, error)
+	UpdateRoutingRule(context.Context, *UpdateRoutingRuleRequest) (*RoutingRule, error)
+	DeleteRoutingRule(context.Context, *DeleteRoutingRuleRequest) (*emptypb.Empty, error)
+	// Stats
+	GetHelpdeskStats(context.Context, *GetHelpdeskStatsRequest) (*HelpdeskStats, error)
 	mustEmbedUnimplementedHelpdeskServiceServer()
 }
 
@@ -422,11 +558,41 @@ func (UnimplementedHelpdeskServiceServer) UpdateSLAPolicy(context.Context, *Upda
 func (UnimplementedHelpdeskServiceServer) ListSLAPolicies(context.Context, *ListSLAPoliciesRequest) (*ListSLAPoliciesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListSLAPolicies not implemented")
 }
+func (UnimplementedHelpdeskServiceServer) DeleteSLAPolicy(context.Context, *DeleteSLAPolicyRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteSLAPolicy not implemented")
+}
 func (UnimplementedHelpdeskServiceServer) ApplySLAPolicy(context.Context, *ApplySLAPolicyRequest) (*Ticket, error) {
 	return nil, status.Error(codes.Unimplemented, "method ApplySLAPolicy not implemented")
 }
 func (UnimplementedHelpdeskServiceServer) GetSLAStatus(context.Context, *GetSLAStatusRequest) (*GetSLAStatusResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetSLAStatus not implemented")
+}
+func (UnimplementedHelpdeskServiceServer) ListKBArticle(context.Context, *ListKBArticleRequest) (*ListKBArticleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListKBArticle not implemented")
+}
+func (UnimplementedHelpdeskServiceServer) CreateKBArticle(context.Context, *CreateKBArticleRequest) (*KBArticle, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateKBArticle not implemented")
+}
+func (UnimplementedHelpdeskServiceServer) UpdateKBArticle(context.Context, *UpdateKBArticleRequest) (*KBArticle, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateKBArticle not implemented")
+}
+func (UnimplementedHelpdeskServiceServer) DeleteKBArticle(context.Context, *DeleteKBArticleRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteKBArticle not implemented")
+}
+func (UnimplementedHelpdeskServiceServer) ListRoutingRule(context.Context, *ListRoutingRuleRequest) (*ListRoutingRuleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListRoutingRule not implemented")
+}
+func (UnimplementedHelpdeskServiceServer) CreateRoutingRule(context.Context, *CreateRoutingRuleRequest) (*RoutingRule, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateRoutingRule not implemented")
+}
+func (UnimplementedHelpdeskServiceServer) UpdateRoutingRule(context.Context, *UpdateRoutingRuleRequest) (*RoutingRule, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateRoutingRule not implemented")
+}
+func (UnimplementedHelpdeskServiceServer) DeleteRoutingRule(context.Context, *DeleteRoutingRuleRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteRoutingRule not implemented")
+}
+func (UnimplementedHelpdeskServiceServer) GetHelpdeskStats(context.Context, *GetHelpdeskStatsRequest) (*HelpdeskStats, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetHelpdeskStats not implemented")
 }
 func (UnimplementedHelpdeskServiceServer) mustEmbedUnimplementedHelpdeskServiceServer() {}
 func (UnimplementedHelpdeskServiceServer) testEmbeddedByValue()                         {}
@@ -827,6 +993,24 @@ func _HelpdeskService_ListSLAPolicies_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _HelpdeskService_DeleteSLAPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteSLAPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HelpdeskServiceServer).DeleteSLAPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HelpdeskService_DeleteSLAPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HelpdeskServiceServer).DeleteSLAPolicy(ctx, req.(*DeleteSLAPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _HelpdeskService_ApplySLAPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ApplySLAPolicyRequest)
 	if err := dec(in); err != nil {
@@ -859,6 +1043,168 @@ func _HelpdeskService_GetSLAStatus_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(HelpdeskServiceServer).GetSLAStatus(ctx, req.(*GetSLAStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HelpdeskService_ListKBArticle_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListKBArticleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HelpdeskServiceServer).ListKBArticle(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HelpdeskService_ListKBArticle_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HelpdeskServiceServer).ListKBArticle(ctx, req.(*ListKBArticleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HelpdeskService_CreateKBArticle_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateKBArticleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HelpdeskServiceServer).CreateKBArticle(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HelpdeskService_CreateKBArticle_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HelpdeskServiceServer).CreateKBArticle(ctx, req.(*CreateKBArticleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HelpdeskService_UpdateKBArticle_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateKBArticleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HelpdeskServiceServer).UpdateKBArticle(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HelpdeskService_UpdateKBArticle_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HelpdeskServiceServer).UpdateKBArticle(ctx, req.(*UpdateKBArticleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HelpdeskService_DeleteKBArticle_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteKBArticleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HelpdeskServiceServer).DeleteKBArticle(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HelpdeskService_DeleteKBArticle_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HelpdeskServiceServer).DeleteKBArticle(ctx, req.(*DeleteKBArticleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HelpdeskService_ListRoutingRule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListRoutingRuleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HelpdeskServiceServer).ListRoutingRule(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HelpdeskService_ListRoutingRule_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HelpdeskServiceServer).ListRoutingRule(ctx, req.(*ListRoutingRuleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HelpdeskService_CreateRoutingRule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateRoutingRuleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HelpdeskServiceServer).CreateRoutingRule(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HelpdeskService_CreateRoutingRule_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HelpdeskServiceServer).CreateRoutingRule(ctx, req.(*CreateRoutingRuleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HelpdeskService_UpdateRoutingRule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateRoutingRuleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HelpdeskServiceServer).UpdateRoutingRule(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HelpdeskService_UpdateRoutingRule_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HelpdeskServiceServer).UpdateRoutingRule(ctx, req.(*UpdateRoutingRuleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HelpdeskService_DeleteRoutingRule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteRoutingRuleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HelpdeskServiceServer).DeleteRoutingRule(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HelpdeskService_DeleteRoutingRule_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HelpdeskServiceServer).DeleteRoutingRule(ctx, req.(*DeleteRoutingRuleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HelpdeskService_GetHelpdeskStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetHelpdeskStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HelpdeskServiceServer).GetHelpdeskStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HelpdeskService_GetHelpdeskStats_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HelpdeskServiceServer).GetHelpdeskStats(ctx, req.(*GetHelpdeskStatsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -955,12 +1301,52 @@ var HelpdeskService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _HelpdeskService_ListSLAPolicies_Handler,
 		},
 		{
+			MethodName: "DeleteSLAPolicy",
+			Handler:    _HelpdeskService_DeleteSLAPolicy_Handler,
+		},
+		{
 			MethodName: "ApplySLAPolicy",
 			Handler:    _HelpdeskService_ApplySLAPolicy_Handler,
 		},
 		{
 			MethodName: "GetSLAStatus",
 			Handler:    _HelpdeskService_GetSLAStatus_Handler,
+		},
+		{
+			MethodName: "ListKBArticle",
+			Handler:    _HelpdeskService_ListKBArticle_Handler,
+		},
+		{
+			MethodName: "CreateKBArticle",
+			Handler:    _HelpdeskService_CreateKBArticle_Handler,
+		},
+		{
+			MethodName: "UpdateKBArticle",
+			Handler:    _HelpdeskService_UpdateKBArticle_Handler,
+		},
+		{
+			MethodName: "DeleteKBArticle",
+			Handler:    _HelpdeskService_DeleteKBArticle_Handler,
+		},
+		{
+			MethodName: "ListRoutingRule",
+			Handler:    _HelpdeskService_ListRoutingRule_Handler,
+		},
+		{
+			MethodName: "CreateRoutingRule",
+			Handler:    _HelpdeskService_CreateRoutingRule_Handler,
+		},
+		{
+			MethodName: "UpdateRoutingRule",
+			Handler:    _HelpdeskService_UpdateRoutingRule_Handler,
+		},
+		{
+			MethodName: "DeleteRoutingRule",
+			Handler:    _HelpdeskService_DeleteRoutingRule_Handler,
+		},
+		{
+			MethodName: "GetHelpdeskStats",
+			Handler:    _HelpdeskService_GetHelpdeskStats_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

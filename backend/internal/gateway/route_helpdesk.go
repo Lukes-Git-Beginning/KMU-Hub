@@ -75,8 +75,24 @@ func (h *HelpdeskRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		r.With(middleware.RequirePermission("helpdesk", "write")).Post("/sla-policies", h.HandleCreateSLAPolicy)
 		r.With(middleware.RequirePermission("helpdesk", "read")).Get("/sla-policies", h.HandleListSLAPolicies)
 		r.With(middleware.RequirePermission("helpdesk", "write")).Put("/sla-policies/{id}", h.HandleUpdateSLAPolicy)
+		r.With(middleware.RequirePermission("helpdesk", "write")).Delete("/sla-policies/{id}", h.HandleDeleteSLAPolicy)
 		r.With(middleware.RequirePermission("helpdesk", "write")).Post("/tickets/{id}/sla", h.HandleApplySLAPolicy)
 		r.With(middleware.RequirePermission("helpdesk", "read")).Get("/tickets/{id}/sla-status", h.HandleGetSLAStatus)
+
+		// Knowledge-base articles
+		r.With(middleware.RequirePermission("helpdesk", "read")).Get("/kb-articles", h.HandleListKBArticles)
+		r.With(middleware.RequirePermission("helpdesk", "write")).Post("/kb-articles", h.HandleCreateKBArticle)
+		r.With(middleware.RequirePermission("helpdesk", "write")).Put("/kb-articles/{id}", h.HandleUpdateKBArticle)
+		r.With(middleware.RequirePermission("helpdesk", "write")).Delete("/kb-articles/{id}", h.HandleDeleteKBArticle)
+
+		// Routing rules
+		r.With(middleware.RequirePermission("helpdesk", "read")).Get("/routing-rules", h.HandleListRoutingRules)
+		r.With(middleware.RequirePermission("helpdesk", "write")).Post("/routing-rules", h.HandleCreateRoutingRule)
+		r.With(middleware.RequirePermission("helpdesk", "write")).Put("/routing-rules/{id}", h.HandleUpdateRoutingRule)
+		r.With(middleware.RequirePermission("helpdesk", "write")).Delete("/routing-rules/{id}", h.HandleDeleteRoutingRule)
+
+		// Stats
+		r.With(middleware.RequirePermission("helpdesk", "read")).Get("/stats", h.HandleGetHelpdeskStats)
 	})
 }
 
@@ -150,6 +166,36 @@ type updateSLAPolicyRequest struct {
 
 type applySLAPolicyRequest struct {
 	SLAPolicyID string `json:"sla_policy_id" validate:"required,uuid"`
+}
+
+type createKBArticleRequest struct {
+	Title    string `json:"title" validate:"required,max=300"`
+	Content  string `json:"content"`
+	Category string `json:"category" validate:"omitempty,max=100"`
+	Status   string `json:"status" validate:"omitempty,oneof=draft published"`
+}
+
+type updateKBArticleRequest struct {
+	Title    *string `json:"title,omitempty" validate:"omitempty,min=1,max=300"`
+	Content  *string `json:"content,omitempty"`
+	Category *string `json:"category,omitempty" validate:"omitempty,max=100"`
+	Status   *string `json:"status,omitempty" validate:"omitempty,oneof=draft published"`
+}
+
+type createHelpdeskRoutingRuleRequest struct {
+	Name          string  `json:"name" validate:"required"`
+	Conditions    string  `json:"conditions"`
+	TargetQueueID *string `json:"target_queue_id,omitempty" validate:"omitempty,uuid"`
+	Priority      int32   `json:"priority"`
+	Enabled       bool    `json:"enabled"`
+}
+
+type updateHelpdeskRoutingRuleRequest struct {
+	Name          *string `json:"name,omitempty" validate:"omitempty,min=1"`
+	Conditions    *string `json:"conditions,omitempty"`
+	TargetQueueID *string `json:"target_queue_id,omitempty" validate:"omitempty,uuid"`
+	Priority      *int32  `json:"priority,omitempty"`
+	Enabled       *bool   `json:"enabled,omitempty"`
 }
 
 // ============================================================================
@@ -762,6 +808,281 @@ func (h *HelpdeskRoutes) HandleGetSLAStatus(w http.ResponseWriter, r *http.Reque
 	}
 
 	resp, err := client.GetSLAStatus(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (h *HelpdeskRoutes) HandleDeleteSLAPolicy(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	policyID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	_, err = client.DeleteSLAPolicy(r.Context(), &helpdeskv1.DeleteSLAPolicyRequest{SlaPolicyId: policyID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "sla policy deleted"})
+}
+
+// ============================================================================
+// KB Article Handlers
+// ============================================================================
+
+func (h *HelpdeskRoutes) HandleListKBArticles(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+
+	resp, err := client.ListKBArticle(r.Context(), &helpdeskv1.ListKBArticleRequest{TenantId: tenantID.String()})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (h *HelpdeskRoutes) HandleCreateKBArticle(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+
+	req, ok := decodeAndValidate[createKBArticleRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.CreateKBArticle(r.Context(), &helpdeskv1.CreateKBArticleRequest{
+		TenantId: tenantID.String(),
+		Title:    req.Title,
+		Content:  req.Content,
+		Category: req.Category,
+		Status:   req.Status,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (h *HelpdeskRoutes) HandleUpdateKBArticle(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	articleID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[updateKBArticleRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.UpdateKBArticle(r.Context(), &helpdeskv1.UpdateKBArticleRequest{
+		ArticleId: articleID,
+		Title:     req.Title,
+		Content:   req.Content,
+		Category:  req.Category,
+		Status:    req.Status,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (h *HelpdeskRoutes) HandleDeleteKBArticle(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	articleID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	_, err = client.DeleteKBArticle(r.Context(), &helpdeskv1.DeleteKBArticleRequest{ArticleId: articleID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "kb article deleted"})
+}
+
+// ============================================================================
+// Routing Rule Handlers
+// ============================================================================
+
+func (h *HelpdeskRoutes) HandleListRoutingRules(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+
+	resp, err := client.ListRoutingRule(r.Context(), &helpdeskv1.ListRoutingRuleRequest{TenantId: tenantID.String()})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (h *HelpdeskRoutes) HandleCreateRoutingRule(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+
+	req, ok := decodeAndValidate[createHelpdeskRoutingRuleRequest](w, r)
+	if !ok {
+		return
+	}
+
+	grpcReq := &helpdeskv1.CreateRoutingRuleRequest{
+		TenantId:      tenantID.String(),
+		Name:          req.Name,
+		Conditions:    req.Conditions,
+		TargetQueueId: req.TargetQueueID,
+		Priority:      req.Priority,
+		Enabled:       req.Enabled,
+	}
+
+	resp, err := client.CreateRoutingRule(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (h *HelpdeskRoutes) HandleUpdateRoutingRule(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	ruleID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[updateHelpdeskRoutingRuleRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.UpdateRoutingRule(r.Context(), &helpdeskv1.UpdateRoutingRuleRequest{
+		RuleId:        ruleID,
+		Name:          req.Name,
+		Conditions:    req.Conditions,
+		TargetQueueId: req.TargetQueueID,
+		Priority:      req.Priority,
+		Enabled:       req.Enabled,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (h *HelpdeskRoutes) HandleDeleteRoutingRule(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	ruleID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	_, err = client.DeleteRoutingRule(r.Context(), &helpdeskv1.DeleteRoutingRuleRequest{RuleId: ruleID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "routing rule deleted"})
+}
+
+// ============================================================================
+// Stats Handler
+// ============================================================================
+
+func (h *HelpdeskRoutes) HandleGetHelpdeskStats(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+
+	resp, err := client.GetHelpdeskStats(r.Context(), &helpdeskv1.GetHelpdeskStatsRequest{TenantId: tenantID.String()})
 	if err != nil {
 		respondGRPCError(w, err)
 		return

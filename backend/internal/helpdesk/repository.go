@@ -62,4 +62,31 @@ type Repository interface {
 	GetSLAPolicyByID(ctx context.Context, id uuid.UUID) (*SLAPolicy, error)
 	ListSLAPolicies(ctx context.Context, tenantID uuid.UUID) ([]*SLAPolicy, error)
 	UpdateSLAPolicy(ctx context.Context, p *SLAPolicy) error
+	DeleteSLAPolicy(ctx context.Context, id uuid.UUID) error
+
+	// -----------------------------------------------------------------------
+	// Knowledge-base articles
+	// -----------------------------------------------------------------------
+
+	CreateKBArticle(ctx context.Context, a *KBArticle) error
+	GetKBArticleByID(ctx context.Context, id uuid.UUID) (*KBArticle, error)
+	ListKBArticles(ctx context.Context, tenantID uuid.UUID) ([]*KBArticle, error)
+	UpdateKBArticle(ctx context.Context, a *KBArticle) error
+	DeleteKBArticle(ctx context.Context, id uuid.UUID) error
+
+	// -----------------------------------------------------------------------
+	// Routing rules
+	// -----------------------------------------------------------------------
+
+	CreateRoutingRule(ctx context.Context, rr *RoutingRule) error
+	GetRoutingRuleByID(ctx context.Context, id uuid.UUID) (*RoutingRule, error)
+	ListRoutingRules(ctx context.Context, tenantID uuid.UUID) ([]*RoutingRule, error)
+	UpdateRoutingRule(ctx context.Context, rr *RoutingRule) error
+	DeleteRoutingRule(ctx context.Context, id uuid.UUID) error
+
+	// -----------------------------------------------------------------------
+	// Stats (aggregate query, no own table)
+	// -----------------------------------------------------------------------
+
+	GetHelpdeskStats(ctx context.Context, tenantID uuid.UUID) (*HelpdeskStats, error)
 }

@@ -31,6 +31,15 @@ import {
   deleteSLAPolicy,
   applySLAPolicy,
   getSLAStatus,
+  listKBArticles,
+  createKBArticle,
+  updateKBArticle,
+  deleteKBArticle,
+  listRoutingRules,
+  createRoutingRule,
+  updateRoutingRule,
+  deleteRoutingRule,
+  getHelpdeskStats,
 } from '../helpdesk-client'
 import type {
   CreateTicketInput,
@@ -43,6 +52,10 @@ import type {
   CreateSLAPolicyInput,
   UpdateSLAPolicyInput,
   TicketStatus,
+  CreateKBArticleInput,
+  UpdateKBArticleInput,
+  CreateRoutingRuleInput,
+  UpdateRoutingRuleInput,
 } from '../helpdesk-types'
 
 // ---------------------------------------------------------------------------
@@ -59,6 +72,9 @@ export const helpdeskKeys = {
   queues: () => ['helpdesk', 'queues'] as const,
   cannedResponses: () => ['helpdesk', 'canned-responses'] as const,
   slaPolicies: () => ['helpdesk', 'sla-policies'] as const,
+  kbArticles: () => ['helpdesk', 'kb-articles'] as const,
+  routingRules: () => ['helpdesk', 'routing-rules'] as const,
+  stats: () => ['helpdesk', 'stats'] as const,
 }
 
 // ---------------------------------------------------------------------------
@@ -312,5 +328,96 @@ export function useApplySLA() {
       qc.invalidateQueries({ queryKey: helpdeskKeys.ticket(variables.ticketId) })
       qc.invalidateQueries({ queryKey: helpdeskKeys.slaStatus(variables.ticketId) })
     },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Queries — KB Articles
+// ---------------------------------------------------------------------------
+
+export function useKBArticles() {
+  return useQuery({
+    queryKey: helpdeskKeys.kbArticles(),
+    queryFn: () => listKBArticles().then((r) => r.articles),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Mutations — KB Articles
+// ---------------------------------------------------------------------------
+
+export function useCreateKBArticle() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateKBArticleInput) => createKBArticle(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: helpdeskKeys.kbArticles() }),
+  })
+}
+
+export function useUpdateKBArticle() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...input }: UpdateKBArticleInput & { id: string }) =>
+      updateKBArticle(id, input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: helpdeskKeys.kbArticles() }),
+  })
+}
+
+export function useDeleteKBArticle() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteKBArticle(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: helpdeskKeys.kbArticles() }),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Queries — Routing Rules
+// ---------------------------------------------------------------------------
+
+export function useRoutingRules() {
+  return useQuery({
+    queryKey: helpdeskKeys.routingRules(),
+    queryFn: () => listRoutingRules().then((r) => r.rules),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Mutations — Routing Rules
+// ---------------------------------------------------------------------------
+
+export function useCreateRoutingRule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateRoutingRuleInput) => createRoutingRule(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: helpdeskKeys.routingRules() }),
+  })
+}
+
+export function useUpdateRoutingRule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...input }: UpdateRoutingRuleInput & { id: string }) =>
+      updateRoutingRule(id, input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: helpdeskKeys.routingRules() }),
+  })
+}
+
+export function useDeleteRoutingRule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteRoutingRule(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: helpdeskKeys.routingRules() }),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Queries — Stats
+// ---------------------------------------------------------------------------
+
+export function useHelpdeskStats() {
+  return useQuery({
+    queryKey: helpdeskKeys.stats(),
+    queryFn: getHelpdeskStats,
   })
 }

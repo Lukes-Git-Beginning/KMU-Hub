@@ -406,6 +406,216 @@ func (r *PostgresRepository) UpdateSLAPolicy(ctx context.Context, p *SLAPolicy) 
 	return err
 }
 
+func (r *PostgresRepository) DeleteSLAPolicy(ctx context.Context, id uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM sla_policies WHERE id = $1`, id)
+	return err
+}
+
+// ---------------------------------------------------------------------------
+// Knowledge-base articles
+// ---------------------------------------------------------------------------
+
+func (r *PostgresRepository) CreateKBArticle(ctx context.Context, a *KBArticle) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO helpdesk_kb_articles
+		    (id, tenant_id, title, content, category, status, author_id, created_at, updated_at)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+		a.ID, a.TenantID, a.Title, a.Content, a.Category, a.Status, a.AuthorID, a.CreatedAt, a.UpdatedAt,
+	)
+	return err
+}
+
+func (r *PostgresRepository) GetKBArticleByID(ctx context.Context, id uuid.UUID) (*KBArticle, error) {
+	row := r.pool.QueryRow(ctx,
+		`SELECT id, tenant_id, title, content, category, status, author_id, created_at, updated_at
+		 FROM helpdesk_kb_articles WHERE id = $1`, id,
+	)
+	return scanKBArticle(row)
+}
+
+func (r *PostgresRepository) ListKBArticles(ctx context.Context, tenantID uuid.UUID) ([]*KBArticle, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, tenant_id, title, content, category, status, author_id, created_at, updated_at
+		 FROM helpdesk_kb_articles
+		 WHERE tenant_id = $1
+		 ORDER BY updated_at DESC`,
+		tenantID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var articles []*KBArticle
+	for rows.Next() {
+		a, err := scanKBArticleFromRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		articles = append(articles, a)
+	}
+	return articles, rows.Err()
+}
+
+func (r *PostgresRepository) UpdateKBArticle(ctx context.Context, a *KBArticle) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE helpdesk_kb_articles
+		 SET title = $1, content = $2, category = $3, status = $4, updated_at = $5
+		 WHERE id = $6`,
+		a.Title, a.Content, a.Category, a.Status, a.UpdatedAt, a.ID,
+	)
+	return err
+}
+
+func (r *PostgresRepository) DeleteKBArticle(ctx context.Context, id uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM helpdesk_kb_articles WHERE id = $1`, id)
+	return err
+}
+
+// ---------------------------------------------------------------------------
+// Routing rules
+// ---------------------------------------------------------------------------
+
+func (r *PostgresRepository) CreateRoutingRule(ctx context.Context, rr *RoutingRule) error {
+	condJSON, err := json.Marshal(rr.Conditions)
+	if err != nil {
+		return fmt.Errorf("marshal conditions: %w", err)
+	}
+	_, err = r.pool.Exec(ctx,
+		`INSERT INTO helpdesk_routing_rules
+		    (id, tenant_id, name, conditions, target_queue_id, priority, enabled, created_at, updated_at)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+		rr.ID, rr.TenantID, rr.Name, condJSON, rr.TargetQueueID, rr.Priority, rr.Enabled, rr.CreatedAt, rr.UpdatedAt,
+	)
+	return err
+}
+
+func (r *PostgresRepository) GetRoutingRuleByID(ctx context.Context, id uuid.UUID) (*RoutingRule, error) {
+	row := r.pool.QueryRow(ctx,
+		`SELECT id, tenant_id, name, conditions, target_queue_id, priority, enabled, created_at, updated_at
+		 FROM helpdesk_routing_rules WHERE id = $1`, id,
+	)
+	return scanRoutingRule(row)
+}
+
+func (r *PostgresRepository) ListRoutingRules(ctx context.Context, tenantID uuid.UUID) ([]*RoutingRule, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, tenant_id, name, conditions, target_queue_id, priority, enabled, created_at, updated_at
+		 FROM helpdesk_routing_rules
+		 WHERE tenant_id = $1
+		 ORDER BY priority ASC, created_at ASC`,
+		tenantID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var rules []*RoutingRule
+	for rows.Next() {
+		rr, err := scanRoutingRuleFromRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		rules = append(rules, rr)
+	}
+	return rules, rows.Err()
+}
+
+func (r *PostgresRepository) UpdateRoutingRule(ctx context.Context, rr *RoutingRule) error {
+	condJSON, err := json.Marshal(rr.Conditions)
+	if err != nil {
+		return fmt.Errorf("marshal conditions: %w", err)
+	}
+	_, err = r.pool.Exec(ctx,
+		`UPDATE helpdesk_routing_rules
+		 SET name = $1, conditions = $2, target_queue_id = $3, priority = $4, enabled = $5, updated_at = $6
+		 WHERE id = $7`,
+		rr.Name, condJSON, rr.TargetQueueID, rr.Priority, rr.Enabled, rr.UpdatedAt, rr.ID,
+	)
+	return err
+}
+
+func (r *PostgresRepository) DeleteRoutingRule(ctx context.Context, id uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM helpdesk_routing_rules WHERE id = $1`, id)
+	return err
+}
+
+// ---------------------------------------------------------------------------
+// Stats
+// ---------------------------------------------------------------------------
+
+func (r *PostgresRepository) GetHelpdeskStats(ctx context.Context, tenantID uuid.UUID) (*HelpdeskStats, error) {
+	var stats HelpdeskStats
+
+	// Open ticket count
+	if err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM tickets WHERE tenant_id = $1 AND status NOT IN ('closed','solved','merged')`,
+		tenantID,
+	).Scan(&stats.OpenTickets); err != nil {
+		return nil, fmt.Errorf("stats open tickets: %w", err)
+	}
+
+	// Resolved this week
+	if err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM tickets
+		 WHERE tenant_id = $1
+		   AND status IN ('solved','closed')
+		   AND resolved_at >= date_trunc('week', NOW())`,
+		tenantID,
+	).Scan(&stats.ResolvedThisWeek); err != nil {
+		return nil, fmt.Errorf("stats resolved this week: %w", err)
+	}
+
+	// Average first response time (human-readable)
+	var avgMinutes *float64
+	if err := r.pool.QueryRow(ctx,
+		`SELECT EXTRACT(EPOCH FROM AVG(first_response_at - created_at)) / 60
+		 FROM tickets
+		 WHERE tenant_id = $1 AND first_response_at IS NOT NULL`,
+		tenantID,
+	).Scan(&avgMinutes); err != nil {
+		return nil, fmt.Errorf("stats avg response: %w", err)
+	}
+	if avgMinutes == nil || *avgMinutes == 0 {
+		stats.AvgResponseTime = "–"
+	} else if *avgMinutes < 60 {
+		stats.AvgResponseTime = fmt.Sprintf("%.0f min", *avgMinutes)
+	} else {
+		stats.AvgResponseTime = fmt.Sprintf("%.1f h", *avgMinutes/60)
+	}
+
+	// Customer satisfaction placeholder (requires CSAT table, not yet in schema)
+	stats.CustomerSatisfaction = "–"
+
+	// Weekly breakdown: tickets created per day of current week
+	rows, err := r.pool.Query(ctx,
+		`SELECT to_char(created_at, 'Dy') AS day_label, COUNT(*) AS cnt
+		 FROM tickets
+		 WHERE tenant_id = $1
+		   AND created_at >= date_trunc('week', NOW())
+		 GROUP BY date_trunc('day', created_at), to_char(created_at, 'Dy')
+		 ORDER BY date_trunc('day', created_at)`,
+		tenantID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("stats weekly breakdown: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var d WeeklyDayCount
+		if err := rows.Scan(&d.Label, &d.Count); err != nil {
+			return nil, err
+		}
+		stats.WeeklyBreakdown = append(stats.WeeklyBreakdown, d)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return &stats, nil
+}
+
 // ---------------------------------------------------------------------------
 // Scan helpers
 // ---------------------------------------------------------------------------
@@ -533,4 +743,64 @@ func scanSLAPolicyFromRows(rows pgx.Rows) (*SLAPolicy, error) {
 		}
 	}
 	return &p, nil
+}
+
+func scanKBArticle(row scannable) (*KBArticle, error) {
+	var a KBArticle
+	err := row.Scan(
+		&a.ID, &a.TenantID, &a.Title, &a.Content, &a.Category, &a.Status, &a.AuthorID, &a.CreatedAt, &a.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrKBArticleNotFound
+	}
+	return &a, err
+}
+
+func scanKBArticleFromRows(rows pgx.Rows) (*KBArticle, error) {
+	var a KBArticle
+	err := rows.Scan(
+		&a.ID, &a.TenantID, &a.Title, &a.Content, &a.Category, &a.Status, &a.AuthorID, &a.CreatedAt, &a.UpdatedAt,
+	)
+	return &a, err
+}
+
+func scanRoutingRule(row scannable) (*RoutingRule, error) {
+	var (
+		rr       RoutingRule
+		condJSON []byte
+	)
+	err := row.Scan(
+		&rr.ID, &rr.TenantID, &rr.Name, &condJSON, &rr.TargetQueueID, &rr.Priority, &rr.Enabled, &rr.CreatedAt, &rr.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrRoutingRuleNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if condJSON != nil {
+		if err := json.Unmarshal(condJSON, &rr.Conditions); err != nil {
+			return nil, fmt.Errorf("unmarshal conditions: %w", err)
+		}
+	}
+	return &rr, nil
+}
+
+func scanRoutingRuleFromRows(rows pgx.Rows) (*RoutingRule, error) {
+	var (
+		rr       RoutingRule
+		condJSON []byte
+	)
+	err := rows.Scan(
+		&rr.ID, &rr.TenantID, &rr.Name, &condJSON, &rr.TargetQueueID, &rr.Priority, &rr.Enabled, &rr.CreatedAt, &rr.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if condJSON != nil {
+		if err := json.Unmarshal(condJSON, &rr.Conditions); err != nil {
+			return nil, fmt.Errorf("unmarshal conditions: %w", err)
+		}
+	}
+	return &rr, nil
 }

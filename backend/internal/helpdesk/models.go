@@ -116,12 +116,61 @@ type CannedResponse struct {
 
 // SLAPolicy defines first-response and resolution time targets for a queue.
 type SLAPolicy struct {
-	ID                 uuid.UUID              `json:"id"`
-	TenantID           uuid.UUID              `json:"tenant_id"`
-	Name               string                 `json:"name"`
-	FirstResponseMins  int                    `json:"first_response_mins"`
-	ResolutionMins     int                    `json:"resolution_mins"`
-	BusinessHours      map[string]any         `json:"business_hours,omitempty"`
-	CreatedAt          time.Time              `json:"created_at"`
-	UpdatedAt          time.Time              `json:"updated_at"`
+	ID                uuid.UUID      `json:"id"`
+	TenantID          uuid.UUID      `json:"tenant_id"`
+	Name              string         `json:"name"`
+	FirstResponseMins int            `json:"first_response_mins"`
+	ResolutionMins    int            `json:"resolution_mins"`
+	BusinessHours     map[string]any `json:"business_hours,omitempty"`
+	CreatedAt         time.Time      `json:"created_at"`
+	UpdatedAt         time.Time      `json:"updated_at"`
+}
+
+// KBArticleStatus represents the publication state of a knowledge-base article.
+type KBArticleStatus string
+
+const (
+	KBArticleStatusDraft     KBArticleStatus = "draft"
+	KBArticleStatusPublished KBArticleStatus = "published"
+)
+
+// KBArticle is a knowledge-base article.
+type KBArticle struct {
+	ID        uuid.UUID `json:"id"`
+	TenantID  uuid.UUID `json:"tenant_id"`
+	Title     string    `json:"title"`
+	Content   string    `json:"content"`
+	Category  string    `json:"category"`
+	Status    string    `json:"status"`
+	AuthorID  uuid.UUID `json:"author_id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// RoutingRule auto-assigns incoming tickets to a target queue based on conditions.
+type RoutingRule struct {
+	ID            uuid.UUID      `json:"id"`
+	TenantID      uuid.UUID      `json:"tenant_id"`
+	Name          string         `json:"name"`
+	Conditions    map[string]any `json:"conditions"`
+	TargetQueueID *uuid.UUID     `json:"target_queue_id,omitempty"`
+	Priority      int            `json:"priority"`
+	Enabled       bool           `json:"enabled"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+}
+
+// HelpdeskStats aggregates key helpdesk metrics for the statistics dashboard.
+type HelpdeskStats struct {
+	OpenTickets          int              `json:"open_tickets"`
+	AvgResponseTime      string           `json:"avg_response_time"`
+	ResolvedThisWeek     int              `json:"resolved_this_week"`
+	CustomerSatisfaction string           `json:"customer_satisfaction"`
+	WeeklyBreakdown      []WeeklyDayCount `json:"weekly_breakdown"`
+}
+
+// WeeklyDayCount is a single bar in the weekly-tickets chart.
+type WeeklyDayCount struct {
+	Label string `json:"label"`
+	Count int    `json:"count"`
 }

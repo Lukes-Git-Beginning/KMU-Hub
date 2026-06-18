@@ -2135,6 +2135,1026 @@ func (x *GetSLAStatusResponse) GetStatus() string {
 	return ""
 }
 
+type DeleteSLAPolicyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SlaPolicyId   string                 `protobuf:"bytes,1,opt,name=sla_policy_id,json=slaPolicyId,proto3" json:"sla_policy_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteSLAPolicyRequest) Reset() {
+	*x = DeleteSLAPolicyRequest{}
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteSLAPolicyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteSLAPolicyRequest) ProtoMessage() {}
+
+func (x *DeleteSLAPolicyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteSLAPolicyRequest.ProtoReflect.Descriptor instead.
+func (*DeleteSLAPolicyRequest) Descriptor() ([]byte, []int) {
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *DeleteSLAPolicyRequest) GetSlaPolicyId() string {
+	if x != nil {
+		return x.SlaPolicyId
+	}
+	return ""
+}
+
+type KBArticle struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Id       string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Title    string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
+	Content  string                 `protobuf:"bytes,4,opt,name=content,proto3" json:"content,omitempty"`
+	Category string                 `protobuf:"bytes,5,opt,name=category,proto3" json:"category,omitempty"`
+	// "draft" | "published"
+	Status        string                 `protobuf:"bytes,6,opt,name=status,proto3" json:"status,omitempty"`
+	AuthorId      string                 `protobuf:"bytes,7,opt,name=author_id,json=authorId,proto3" json:"author_id,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *KBArticle) Reset() {
+	*x = KBArticle{}
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KBArticle) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KBArticle) ProtoMessage() {}
+
+func (x *KBArticle) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KBArticle.ProtoReflect.Descriptor instead.
+func (*KBArticle) Descriptor() ([]byte, []int) {
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *KBArticle) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *KBArticle) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *KBArticle) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *KBArticle) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+func (x *KBArticle) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *KBArticle) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *KBArticle) GetAuthorId() string {
+	if x != nil {
+		return x.AuthorId
+	}
+	return ""
+}
+
+func (x *KBArticle) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *KBArticle) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type ListKBArticleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListKBArticleRequest) Reset() {
+	*x = ListKBArticleRequest{}
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListKBArticleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListKBArticleRequest) ProtoMessage() {}
+
+func (x *ListKBArticleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListKBArticleRequest.ProtoReflect.Descriptor instead.
+func (*ListKBArticleRequest) Descriptor() ([]byte, []int) {
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *ListKBArticleRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+type ListKBArticleResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Articles      []*KBArticle           `protobuf:"bytes,1,rep,name=articles,proto3" json:"articles,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListKBArticleResponse) Reset() {
+	*x = ListKBArticleResponse{}
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListKBArticleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListKBArticleResponse) ProtoMessage() {}
+
+func (x *ListKBArticleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListKBArticleResponse.ProtoReflect.Descriptor instead.
+func (*ListKBArticleResponse) Descriptor() ([]byte, []int) {
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *ListKBArticleResponse) GetArticles() []*KBArticle {
+	if x != nil {
+		return x.Articles
+	}
+	return nil
+}
+
+type CreateKBArticleRequest struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TenantId string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Title    string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Content  string                 `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
+	Category string                 `protobuf:"bytes,4,opt,name=category,proto3" json:"category,omitempty"`
+	// Defaults to "draft" when empty
+	Status        string `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateKBArticleRequest) Reset() {
+	*x = CreateKBArticleRequest{}
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateKBArticleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateKBArticleRequest) ProtoMessage() {}
+
+func (x *CreateKBArticleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateKBArticleRequest.ProtoReflect.Descriptor instead.
+func (*CreateKBArticleRequest) Descriptor() ([]byte, []int) {
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *CreateKBArticleRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateKBArticleRequest) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *CreateKBArticleRequest) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+func (x *CreateKBArticleRequest) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *CreateKBArticleRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+type UpdateKBArticleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ArticleId     string                 `protobuf:"bytes,1,opt,name=article_id,json=articleId,proto3" json:"article_id,omitempty"`
+	Title         *string                `protobuf:"bytes,2,opt,name=title,proto3,oneof" json:"title,omitempty"`
+	Content       *string                `protobuf:"bytes,3,opt,name=content,proto3,oneof" json:"content,omitempty"`
+	Category      *string                `protobuf:"bytes,4,opt,name=category,proto3,oneof" json:"category,omitempty"`
+	Status        *string                `protobuf:"bytes,5,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateKBArticleRequest) Reset() {
+	*x = UpdateKBArticleRequest{}
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateKBArticleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateKBArticleRequest) ProtoMessage() {}
+
+func (x *UpdateKBArticleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateKBArticleRequest.ProtoReflect.Descriptor instead.
+func (*UpdateKBArticleRequest) Descriptor() ([]byte, []int) {
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *UpdateKBArticleRequest) GetArticleId() string {
+	if x != nil {
+		return x.ArticleId
+	}
+	return ""
+}
+
+func (x *UpdateKBArticleRequest) GetTitle() string {
+	if x != nil && x.Title != nil {
+		return *x.Title
+	}
+	return ""
+}
+
+func (x *UpdateKBArticleRequest) GetContent() string {
+	if x != nil && x.Content != nil {
+		return *x.Content
+	}
+	return ""
+}
+
+func (x *UpdateKBArticleRequest) GetCategory() string {
+	if x != nil && x.Category != nil {
+		return *x.Category
+	}
+	return ""
+}
+
+func (x *UpdateKBArticleRequest) GetStatus() string {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return ""
+}
+
+type DeleteKBArticleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ArticleId     string                 `protobuf:"bytes,1,opt,name=article_id,json=articleId,proto3" json:"article_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteKBArticleRequest) Reset() {
+	*x = DeleteKBArticleRequest{}
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteKBArticleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteKBArticleRequest) ProtoMessage() {}
+
+func (x *DeleteKBArticleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteKBArticleRequest.ProtoReflect.Descriptor instead.
+func (*DeleteKBArticleRequest) Descriptor() ([]byte, []int) {
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *DeleteKBArticleRequest) GetArticleId() string {
+	if x != nil {
+		return x.ArticleId
+	}
+	return ""
+}
+
+type RoutingRule struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Id       string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Name     string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	// JSON-encoded conditions map
+	Conditions    string                 `protobuf:"bytes,4,opt,name=conditions,proto3" json:"conditions,omitempty"`
+	TargetQueueId *string                `protobuf:"bytes,5,opt,name=target_queue_id,json=targetQueueId,proto3,oneof" json:"target_queue_id,omitempty"`
+	Priority      int32                  `protobuf:"varint,6,opt,name=priority,proto3" json:"priority,omitempty"`
+	Enabled       bool                   `protobuf:"varint,7,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RoutingRule) Reset() {
+	*x = RoutingRule{}
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RoutingRule) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RoutingRule) ProtoMessage() {}
+
+func (x *RoutingRule) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RoutingRule.ProtoReflect.Descriptor instead.
+func (*RoutingRule) Descriptor() ([]byte, []int) {
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *RoutingRule) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *RoutingRule) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *RoutingRule) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *RoutingRule) GetConditions() string {
+	if x != nil {
+		return x.Conditions
+	}
+	return ""
+}
+
+func (x *RoutingRule) GetTargetQueueId() string {
+	if x != nil && x.TargetQueueId != nil {
+		return *x.TargetQueueId
+	}
+	return ""
+}
+
+func (x *RoutingRule) GetPriority() int32 {
+	if x != nil {
+		return x.Priority
+	}
+	return 0
+}
+
+func (x *RoutingRule) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+func (x *RoutingRule) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *RoutingRule) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type ListRoutingRuleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListRoutingRuleRequest) Reset() {
+	*x = ListRoutingRuleRequest{}
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListRoutingRuleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListRoutingRuleRequest) ProtoMessage() {}
+
+func (x *ListRoutingRuleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListRoutingRuleRequest.ProtoReflect.Descriptor instead.
+func (*ListRoutingRuleRequest) Descriptor() ([]byte, []int) {
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *ListRoutingRuleRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+type ListRoutingRuleResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Rules         []*RoutingRule         `protobuf:"bytes,1,rep,name=rules,proto3" json:"rules,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListRoutingRuleResponse) Reset() {
+	*x = ListRoutingRuleResponse{}
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListRoutingRuleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListRoutingRuleResponse) ProtoMessage() {}
+
+func (x *ListRoutingRuleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListRoutingRuleResponse.ProtoReflect.Descriptor instead.
+func (*ListRoutingRuleResponse) Descriptor() ([]byte, []int) {
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *ListRoutingRuleResponse) GetRules() []*RoutingRule {
+	if x != nil {
+		return x.Rules
+	}
+	return nil
+}
+
+type CreateRoutingRuleRequest struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TenantId string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Name     string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// JSON-encoded conditions map
+	Conditions    string  `protobuf:"bytes,3,opt,name=conditions,proto3" json:"conditions,omitempty"`
+	TargetQueueId *string `protobuf:"bytes,4,opt,name=target_queue_id,json=targetQueueId,proto3,oneof" json:"target_queue_id,omitempty"`
+	Priority      int32   `protobuf:"varint,5,opt,name=priority,proto3" json:"priority,omitempty"`
+	Enabled       bool    `protobuf:"varint,6,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateRoutingRuleRequest) Reset() {
+	*x = CreateRoutingRuleRequest{}
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateRoutingRuleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateRoutingRuleRequest) ProtoMessage() {}
+
+func (x *CreateRoutingRuleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateRoutingRuleRequest.ProtoReflect.Descriptor instead.
+func (*CreateRoutingRuleRequest) Descriptor() ([]byte, []int) {
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *CreateRoutingRuleRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateRoutingRuleRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateRoutingRuleRequest) GetConditions() string {
+	if x != nil {
+		return x.Conditions
+	}
+	return ""
+}
+
+func (x *CreateRoutingRuleRequest) GetTargetQueueId() string {
+	if x != nil && x.TargetQueueId != nil {
+		return *x.TargetQueueId
+	}
+	return ""
+}
+
+func (x *CreateRoutingRuleRequest) GetPriority() int32 {
+	if x != nil {
+		return x.Priority
+	}
+	return 0
+}
+
+func (x *CreateRoutingRuleRequest) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+type UpdateRoutingRuleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RuleId        string                 `protobuf:"bytes,1,opt,name=rule_id,json=ruleId,proto3" json:"rule_id,omitempty"`
+	Name          *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	Conditions    *string                `protobuf:"bytes,3,opt,name=conditions,proto3,oneof" json:"conditions,omitempty"`
+	TargetQueueId *string                `protobuf:"bytes,4,opt,name=target_queue_id,json=targetQueueId,proto3,oneof" json:"target_queue_id,omitempty"`
+	Priority      *int32                 `protobuf:"varint,5,opt,name=priority,proto3,oneof" json:"priority,omitempty"`
+	Enabled       *bool                  `protobuf:"varint,6,opt,name=enabled,proto3,oneof" json:"enabled,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateRoutingRuleRequest) Reset() {
+	*x = UpdateRoutingRuleRequest{}
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateRoutingRuleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateRoutingRuleRequest) ProtoMessage() {}
+
+func (x *UpdateRoutingRuleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateRoutingRuleRequest.ProtoReflect.Descriptor instead.
+func (*UpdateRoutingRuleRequest) Descriptor() ([]byte, []int) {
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *UpdateRoutingRuleRequest) GetRuleId() string {
+	if x != nil {
+		return x.RuleId
+	}
+	return ""
+}
+
+func (x *UpdateRoutingRuleRequest) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+func (x *UpdateRoutingRuleRequest) GetConditions() string {
+	if x != nil && x.Conditions != nil {
+		return *x.Conditions
+	}
+	return ""
+}
+
+func (x *UpdateRoutingRuleRequest) GetTargetQueueId() string {
+	if x != nil && x.TargetQueueId != nil {
+		return *x.TargetQueueId
+	}
+	return ""
+}
+
+func (x *UpdateRoutingRuleRequest) GetPriority() int32 {
+	if x != nil && x.Priority != nil {
+		return *x.Priority
+	}
+	return 0
+}
+
+func (x *UpdateRoutingRuleRequest) GetEnabled() bool {
+	if x != nil && x.Enabled != nil {
+		return *x.Enabled
+	}
+	return false
+}
+
+type DeleteRoutingRuleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RuleId        string                 `protobuf:"bytes,1,opt,name=rule_id,json=ruleId,proto3" json:"rule_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteRoutingRuleRequest) Reset() {
+	*x = DeleteRoutingRuleRequest{}
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteRoutingRuleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteRoutingRuleRequest) ProtoMessage() {}
+
+func (x *DeleteRoutingRuleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteRoutingRuleRequest.ProtoReflect.Descriptor instead.
+func (*DeleteRoutingRuleRequest) Descriptor() ([]byte, []int) {
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *DeleteRoutingRuleRequest) GetRuleId() string {
+	if x != nil {
+		return x.RuleId
+	}
+	return ""
+}
+
+type WeeklyDayCount struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Label         string                 `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Count         int32                  `protobuf:"varint,2,opt,name=count,proto3" json:"count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WeeklyDayCount) Reset() {
+	*x = WeeklyDayCount{}
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WeeklyDayCount) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WeeklyDayCount) ProtoMessage() {}
+
+func (x *WeeklyDayCount) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WeeklyDayCount.ProtoReflect.Descriptor instead.
+func (*WeeklyDayCount) Descriptor() ([]byte, []int) {
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *WeeklyDayCount) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *WeeklyDayCount) GetCount() int32 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
+type HelpdeskStats struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	OpenTickets          int32                  `protobuf:"varint,1,opt,name=open_tickets,json=openTickets,proto3" json:"open_tickets,omitempty"`
+	AvgResponseTime      string                 `protobuf:"bytes,2,opt,name=avg_response_time,json=avgResponseTime,proto3" json:"avg_response_time,omitempty"`
+	ResolvedThisWeek     int32                  `protobuf:"varint,3,opt,name=resolved_this_week,json=resolvedThisWeek,proto3" json:"resolved_this_week,omitempty"`
+	CustomerSatisfaction string                 `protobuf:"bytes,4,opt,name=customer_satisfaction,json=customerSatisfaction,proto3" json:"customer_satisfaction,omitempty"`
+	WeeklyBreakdown      []*WeeklyDayCount      `protobuf:"bytes,5,rep,name=weekly_breakdown,json=weeklyBreakdown,proto3" json:"weekly_breakdown,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *HelpdeskStats) Reset() {
+	*x = HelpdeskStats{}
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HelpdeskStats) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HelpdeskStats) ProtoMessage() {}
+
+func (x *HelpdeskStats) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HelpdeskStats.ProtoReflect.Descriptor instead.
+func (*HelpdeskStats) Descriptor() ([]byte, []int) {
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *HelpdeskStats) GetOpenTickets() int32 {
+	if x != nil {
+		return x.OpenTickets
+	}
+	return 0
+}
+
+func (x *HelpdeskStats) GetAvgResponseTime() string {
+	if x != nil {
+		return x.AvgResponseTime
+	}
+	return ""
+}
+
+func (x *HelpdeskStats) GetResolvedThisWeek() int32 {
+	if x != nil {
+		return x.ResolvedThisWeek
+	}
+	return 0
+}
+
+func (x *HelpdeskStats) GetCustomerSatisfaction() string {
+	if x != nil {
+		return x.CustomerSatisfaction
+	}
+	return ""
+}
+
+func (x *HelpdeskStats) GetWeeklyBreakdown() []*WeeklyDayCount {
+	if x != nil {
+		return x.WeeklyBreakdown
+	}
+	return nil
+}
+
+type GetHelpdeskStatsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetHelpdeskStatsRequest) Reset() {
+	*x = GetHelpdeskStatsRequest{}
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetHelpdeskStatsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetHelpdeskStatsRequest) ProtoMessage() {}
+
+func (x *GetHelpdeskStatsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_helpdesk_v1_helpdesk_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetHelpdeskStatsRequest.ProtoReflect.Descriptor instead.
+func (*GetHelpdeskStatsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *GetHelpdeskStatsRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
 var File_proto_helpdesk_v1_helpdesk_proto protoreflect.FileDescriptor
 
 const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
@@ -2328,7 +3348,103 @@ const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"\rsla_policy_id\x18\x02 \x01(\tH\x00R\vslaPolicyId\x88\x01\x01B\x10\n" +
 	"\x0e_sla_policy_id\".\n" +
 	"\x14GetSLAStatusResponse\x12\x16\n" +
-	"\x06status\x18\x01 \x01(\tR\x06status2\xb9\x0e\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\"<\n" +
+	"\x16DeleteSLAPolicyRequest\x12\"\n" +
+	"\rsla_policy_id\x18\x01 \x01(\tR\vslaPolicyId\"\xaf\x02\n" +
+	"\tKBArticle\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x14\n" +
+	"\x05title\x18\x03 \x01(\tR\x05title\x12\x18\n" +
+	"\acontent\x18\x04 \x01(\tR\acontent\x12\x1a\n" +
+	"\bcategory\x18\x05 \x01(\tR\bcategory\x12\x16\n" +
+	"\x06status\x18\x06 \x01(\tR\x06status\x12\x1b\n" +
+	"\tauthor_id\x18\a \x01(\tR\bauthorId\x129\n" +
+	"\n" +
+	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"3\n" +
+	"\x14ListKBArticleRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"K\n" +
+	"\x15ListKBArticleResponse\x122\n" +
+	"\barticles\x18\x01 \x03(\v2\x16.helpdesk.v1.KBArticleR\barticles\"\x99\x01\n" +
+	"\x16CreateKBArticleRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x14\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\x12\x18\n" +
+	"\acontent\x18\x03 \x01(\tR\acontent\x12\x1a\n" +
+	"\bcategory\x18\x04 \x01(\tR\bcategory\x12\x16\n" +
+	"\x06status\x18\x05 \x01(\tR\x06status\"\xdd\x01\n" +
+	"\x16UpdateKBArticleRequest\x12\x1d\n" +
+	"\n" +
+	"article_id\x18\x01 \x01(\tR\tarticleId\x12\x19\n" +
+	"\x05title\x18\x02 \x01(\tH\x00R\x05title\x88\x01\x01\x12\x1d\n" +
+	"\acontent\x18\x03 \x01(\tH\x01R\acontent\x88\x01\x01\x12\x1f\n" +
+	"\bcategory\x18\x04 \x01(\tH\x02R\bcategory\x88\x01\x01\x12\x1b\n" +
+	"\x06status\x18\x05 \x01(\tH\x03R\x06status\x88\x01\x01B\b\n" +
+	"\x06_titleB\n" +
+	"\n" +
+	"\b_contentB\v\n" +
+	"\t_categoryB\t\n" +
+	"\a_status\"7\n" +
+	"\x16DeleteKBArticleRequest\x12\x1d\n" +
+	"\n" +
+	"article_id\x18\x01 \x01(\tR\tarticleId\"\xdb\x02\n" +
+	"\vRoutingRule\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x1e\n" +
+	"\n" +
+	"conditions\x18\x04 \x01(\tR\n" +
+	"conditions\x12+\n" +
+	"\x0ftarget_queue_id\x18\x05 \x01(\tH\x00R\rtargetQueueId\x88\x01\x01\x12\x1a\n" +
+	"\bpriority\x18\x06 \x01(\x05R\bpriority\x12\x18\n" +
+	"\aenabled\x18\a \x01(\bR\aenabled\x129\n" +
+	"\n" +
+	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAtB\x12\n" +
+	"\x10_target_queue_id\"5\n" +
+	"\x16ListRoutingRuleRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"I\n" +
+	"\x17ListRoutingRuleResponse\x12.\n" +
+	"\x05rules\x18\x01 \x03(\v2\x18.helpdesk.v1.RoutingRuleR\x05rules\"\xe2\x01\n" +
+	"\x18CreateRoutingRuleRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1e\n" +
+	"\n" +
+	"conditions\x18\x03 \x01(\tR\n" +
+	"conditions\x12+\n" +
+	"\x0ftarget_queue_id\x18\x04 \x01(\tH\x00R\rtargetQueueId\x88\x01\x01\x12\x1a\n" +
+	"\bpriority\x18\x05 \x01(\x05R\bpriority\x12\x18\n" +
+	"\aenabled\x18\x06 \x01(\bR\aenabledB\x12\n" +
+	"\x10_target_queue_id\"\xa3\x02\n" +
+	"\x18UpdateRoutingRuleRequest\x12\x17\n" +
+	"\arule_id\x18\x01 \x01(\tR\x06ruleId\x12\x17\n" +
+	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01\x12#\n" +
+	"\n" +
+	"conditions\x18\x03 \x01(\tH\x01R\n" +
+	"conditions\x88\x01\x01\x12+\n" +
+	"\x0ftarget_queue_id\x18\x04 \x01(\tH\x02R\rtargetQueueId\x88\x01\x01\x12\x1f\n" +
+	"\bpriority\x18\x05 \x01(\x05H\x03R\bpriority\x88\x01\x01\x12\x1d\n" +
+	"\aenabled\x18\x06 \x01(\bH\x04R\aenabled\x88\x01\x01B\a\n" +
+	"\x05_nameB\r\n" +
+	"\v_conditionsB\x12\n" +
+	"\x10_target_queue_idB\v\n" +
+	"\t_priorityB\n" +
+	"\n" +
+	"\b_enabled\"3\n" +
+	"\x18DeleteRoutingRuleRequest\x12\x17\n" +
+	"\arule_id\x18\x01 \x01(\tR\x06ruleId\"<\n" +
+	"\x0eWeeklyDayCount\x12\x14\n" +
+	"\x05label\x18\x01 \x01(\tR\x05label\x12\x14\n" +
+	"\x05count\x18\x02 \x01(\x05R\x05count\"\x89\x02\n" +
+	"\rHelpdeskStats\x12!\n" +
+	"\fopen_tickets\x18\x01 \x01(\x05R\vopenTickets\x12*\n" +
+	"\x11avg_response_time\x18\x02 \x01(\tR\x0favgResponseTime\x12,\n" +
+	"\x12resolved_this_week\x18\x03 \x01(\x05R\x10resolvedThisWeek\x123\n" +
+	"\x15customer_satisfaction\x18\x04 \x01(\tR\x14customerSatisfaction\x12F\n" +
+	"\x10weekly_breakdown\x18\x05 \x03(\v2\x1b.helpdesk.v1.WeeklyDayCountR\x0fweeklyBreakdown\"6\n" +
+	"\x17GetHelpdeskStatsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId2\x85\x15\n" +
 	"\x0fHelpdeskService\x12E\n" +
 	"\fCreateTicket\x12 .helpdesk.v1.CreateTicketRequest\x1a\x13.helpdesk.v1.Ticket\x12?\n" +
 	"\tGetTicket\x12\x1d.helpdesk.v1.GetTicketRequest\x1a\x13.helpdesk.v1.Ticket\x12P\n" +
@@ -2352,9 +3468,19 @@ const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"\x13ListCannedResponses\x12'.helpdesk.v1.ListCannedResponsesRequest\x1a(.helpdesk.v1.ListCannedResponsesResponse\x12N\n" +
 	"\x0fCreateSLAPolicy\x12#.helpdesk.v1.CreateSLAPolicyRequest\x1a\x16.helpdesk.v1.SLAPolicy\x12N\n" +
 	"\x0fUpdateSLAPolicy\x12#.helpdesk.v1.UpdateSLAPolicyRequest\x1a\x16.helpdesk.v1.SLAPolicy\x12\\\n" +
-	"\x0fListSLAPolicies\x12#.helpdesk.v1.ListSLAPoliciesRequest\x1a$.helpdesk.v1.ListSLAPoliciesResponse\x12I\n" +
+	"\x0fListSLAPolicies\x12#.helpdesk.v1.ListSLAPoliciesRequest\x1a$.helpdesk.v1.ListSLAPoliciesResponse\x12N\n" +
+	"\x0fDeleteSLAPolicy\x12#.helpdesk.v1.DeleteSLAPolicyRequest\x1a\x16.google.protobuf.Empty\x12I\n" +
 	"\x0eApplySLAPolicy\x12\".helpdesk.v1.ApplySLAPolicyRequest\x1a\x13.helpdesk.v1.Ticket\x12S\n" +
-	"\fGetSLAStatus\x12 .helpdesk.v1.GetSLAStatusRequest\x1a!.helpdesk.v1.GetSLAStatusResponseB7Z5github.com/kmuhub/kmuhub/proto/helpdesk/v1;helpdeskv1b\x06proto3"
+	"\fGetSLAStatus\x12 .helpdesk.v1.GetSLAStatusRequest\x1a!.helpdesk.v1.GetSLAStatusResponse\x12V\n" +
+	"\rListKBArticle\x12!.helpdesk.v1.ListKBArticleRequest\x1a\".helpdesk.v1.ListKBArticleResponse\x12N\n" +
+	"\x0fCreateKBArticle\x12#.helpdesk.v1.CreateKBArticleRequest\x1a\x16.helpdesk.v1.KBArticle\x12N\n" +
+	"\x0fUpdateKBArticle\x12#.helpdesk.v1.UpdateKBArticleRequest\x1a\x16.helpdesk.v1.KBArticle\x12N\n" +
+	"\x0fDeleteKBArticle\x12#.helpdesk.v1.DeleteKBArticleRequest\x1a\x16.google.protobuf.Empty\x12\\\n" +
+	"\x0fListRoutingRule\x12#.helpdesk.v1.ListRoutingRuleRequest\x1a$.helpdesk.v1.ListRoutingRuleResponse\x12T\n" +
+	"\x11CreateRoutingRule\x12%.helpdesk.v1.CreateRoutingRuleRequest\x1a\x18.helpdesk.v1.RoutingRule\x12T\n" +
+	"\x11UpdateRoutingRule\x12%.helpdesk.v1.UpdateRoutingRuleRequest\x1a\x18.helpdesk.v1.RoutingRule\x12R\n" +
+	"\x11DeleteRoutingRule\x12%.helpdesk.v1.DeleteRoutingRuleRequest\x1a\x16.google.protobuf.Empty\x12T\n" +
+	"\x10GetHelpdeskStats\x12$.helpdesk.v1.GetHelpdeskStatsRequest\x1a\x1a.helpdesk.v1.HelpdeskStatsB7Z5github.com/kmuhub/kmuhub/proto/helpdesk/v1;helpdeskv1b\x06proto3"
 
 var (
 	file_proto_helpdesk_v1_helpdesk_proto_rawDescOnce sync.Once
@@ -2368,7 +3494,7 @@ func file_proto_helpdesk_v1_helpdesk_proto_rawDescGZIP() []byte {
 	return file_proto_helpdesk_v1_helpdesk_proto_rawDescData
 }
 
-var file_proto_helpdesk_v1_helpdesk_proto_msgTypes = make([]protoimpl.MessageInfo, 34)
+var file_proto_helpdesk_v1_helpdesk_proto_msgTypes = make([]protoimpl.MessageInfo, 50)
 var file_proto_helpdesk_v1_helpdesk_proto_goTypes = []any{
 	(*Ticket)(nil),                      // 0: helpdesk.v1.Ticket
 	(*TicketMessage)(nil),               // 1: helpdesk.v1.TicketMessage
@@ -2404,78 +3530,121 @@ var file_proto_helpdesk_v1_helpdesk_proto_goTypes = []any{
 	(*ApplySLAPolicyRequest)(nil),       // 31: helpdesk.v1.ApplySLAPolicyRequest
 	(*GetSLAStatusRequest)(nil),         // 32: helpdesk.v1.GetSLAStatusRequest
 	(*GetSLAStatusResponse)(nil),        // 33: helpdesk.v1.GetSLAStatusResponse
-	(*timestamppb.Timestamp)(nil),       // 34: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),               // 35: google.protobuf.Empty
+	(*DeleteSLAPolicyRequest)(nil),      // 34: helpdesk.v1.DeleteSLAPolicyRequest
+	(*KBArticle)(nil),                   // 35: helpdesk.v1.KBArticle
+	(*ListKBArticleRequest)(nil),        // 36: helpdesk.v1.ListKBArticleRequest
+	(*ListKBArticleResponse)(nil),       // 37: helpdesk.v1.ListKBArticleResponse
+	(*CreateKBArticleRequest)(nil),      // 38: helpdesk.v1.CreateKBArticleRequest
+	(*UpdateKBArticleRequest)(nil),      // 39: helpdesk.v1.UpdateKBArticleRequest
+	(*DeleteKBArticleRequest)(nil),      // 40: helpdesk.v1.DeleteKBArticleRequest
+	(*RoutingRule)(nil),                 // 41: helpdesk.v1.RoutingRule
+	(*ListRoutingRuleRequest)(nil),      // 42: helpdesk.v1.ListRoutingRuleRequest
+	(*ListRoutingRuleResponse)(nil),     // 43: helpdesk.v1.ListRoutingRuleResponse
+	(*CreateRoutingRuleRequest)(nil),    // 44: helpdesk.v1.CreateRoutingRuleRequest
+	(*UpdateRoutingRuleRequest)(nil),    // 45: helpdesk.v1.UpdateRoutingRuleRequest
+	(*DeleteRoutingRuleRequest)(nil),    // 46: helpdesk.v1.DeleteRoutingRuleRequest
+	(*WeeklyDayCount)(nil),              // 47: helpdesk.v1.WeeklyDayCount
+	(*HelpdeskStats)(nil),               // 48: helpdesk.v1.HelpdeskStats
+	(*GetHelpdeskStatsRequest)(nil),     // 49: helpdesk.v1.GetHelpdeskStatsRequest
+	(*timestamppb.Timestamp)(nil),       // 50: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),               // 51: google.protobuf.Empty
 }
 var file_proto_helpdesk_v1_helpdesk_proto_depIdxs = []int32{
-	34, // 0: helpdesk.v1.Ticket.due_at:type_name -> google.protobuf.Timestamp
-	34, // 1: helpdesk.v1.Ticket.first_response_at:type_name -> google.protobuf.Timestamp
-	34, // 2: helpdesk.v1.Ticket.resolved_at:type_name -> google.protobuf.Timestamp
-	34, // 3: helpdesk.v1.Ticket.created_at:type_name -> google.protobuf.Timestamp
-	34, // 4: helpdesk.v1.Ticket.updated_at:type_name -> google.protobuf.Timestamp
-	34, // 5: helpdesk.v1.TicketMessage.created_at:type_name -> google.protobuf.Timestamp
-	34, // 6: helpdesk.v1.TicketQueue.created_at:type_name -> google.protobuf.Timestamp
-	34, // 7: helpdesk.v1.TicketQueue.updated_at:type_name -> google.protobuf.Timestamp
-	34, // 8: helpdesk.v1.CannedResponse.created_at:type_name -> google.protobuf.Timestamp
-	34, // 9: helpdesk.v1.CannedResponse.updated_at:type_name -> google.protobuf.Timestamp
-	34, // 10: helpdesk.v1.SLAPolicy.created_at:type_name -> google.protobuf.Timestamp
-	34, // 11: helpdesk.v1.SLAPolicy.updated_at:type_name -> google.protobuf.Timestamp
+	50, // 0: helpdesk.v1.Ticket.due_at:type_name -> google.protobuf.Timestamp
+	50, // 1: helpdesk.v1.Ticket.first_response_at:type_name -> google.protobuf.Timestamp
+	50, // 2: helpdesk.v1.Ticket.resolved_at:type_name -> google.protobuf.Timestamp
+	50, // 3: helpdesk.v1.Ticket.created_at:type_name -> google.protobuf.Timestamp
+	50, // 4: helpdesk.v1.Ticket.updated_at:type_name -> google.protobuf.Timestamp
+	50, // 5: helpdesk.v1.TicketMessage.created_at:type_name -> google.protobuf.Timestamp
+	50, // 6: helpdesk.v1.TicketQueue.created_at:type_name -> google.protobuf.Timestamp
+	50, // 7: helpdesk.v1.TicketQueue.updated_at:type_name -> google.protobuf.Timestamp
+	50, // 8: helpdesk.v1.CannedResponse.created_at:type_name -> google.protobuf.Timestamp
+	50, // 9: helpdesk.v1.CannedResponse.updated_at:type_name -> google.protobuf.Timestamp
+	50, // 10: helpdesk.v1.SLAPolicy.created_at:type_name -> google.protobuf.Timestamp
+	50, // 11: helpdesk.v1.SLAPolicy.updated_at:type_name -> google.protobuf.Timestamp
 	0,  // 12: helpdesk.v1.ListTicketsResponse.tickets:type_name -> helpdesk.v1.Ticket
 	1,  // 13: helpdesk.v1.ListMessagesResponse.messages:type_name -> helpdesk.v1.TicketMessage
 	2,  // 14: helpdesk.v1.ListQueuesResponse.queues:type_name -> helpdesk.v1.TicketQueue
 	3,  // 15: helpdesk.v1.ListCannedResponsesResponse.canned_responses:type_name -> helpdesk.v1.CannedResponse
 	4,  // 16: helpdesk.v1.ListSLAPoliciesResponse.policies:type_name -> helpdesk.v1.SLAPolicy
-	5,  // 17: helpdesk.v1.HelpdeskService.CreateTicket:input_type -> helpdesk.v1.CreateTicketRequest
-	6,  // 18: helpdesk.v1.HelpdeskService.GetTicket:input_type -> helpdesk.v1.GetTicketRequest
-	7,  // 19: helpdesk.v1.HelpdeskService.ListTickets:input_type -> helpdesk.v1.ListTicketsRequest
-	9,  // 20: helpdesk.v1.HelpdeskService.UpdateTicket:input_type -> helpdesk.v1.UpdateTicketRequest
-	10, // 21: helpdesk.v1.HelpdeskService.CloseTicket:input_type -> helpdesk.v1.CloseTicketRequest
-	11, // 22: helpdesk.v1.HelpdeskService.ReopenTicket:input_type -> helpdesk.v1.ReopenTicketRequest
-	12, // 23: helpdesk.v1.HelpdeskService.AssignTicket:input_type -> helpdesk.v1.AssignTicketRequest
-	13, // 24: helpdesk.v1.HelpdeskService.MergeTickets:input_type -> helpdesk.v1.MergeTicketsRequest
-	14, // 25: helpdesk.v1.HelpdeskService.AddMessage:input_type -> helpdesk.v1.AddMessageRequest
-	15, // 26: helpdesk.v1.HelpdeskService.ListMessages:input_type -> helpdesk.v1.ListMessagesRequest
-	17, // 27: helpdesk.v1.HelpdeskService.CreateQueue:input_type -> helpdesk.v1.CreateQueueRequest
-	18, // 28: helpdesk.v1.HelpdeskService.UpdateQueue:input_type -> helpdesk.v1.UpdateQueueRequest
-	19, // 29: helpdesk.v1.HelpdeskService.ListQueues:input_type -> helpdesk.v1.ListQueuesRequest
-	21, // 30: helpdesk.v1.HelpdeskService.DeleteQueue:input_type -> helpdesk.v1.DeleteQueueRequest
-	22, // 31: helpdesk.v1.HelpdeskService.CreateCannedResponse:input_type -> helpdesk.v1.CreateCannedResponseRequest
-	23, // 32: helpdesk.v1.HelpdeskService.UpdateCannedResponse:input_type -> helpdesk.v1.UpdateCannedResponseRequest
-	24, // 33: helpdesk.v1.HelpdeskService.DeleteCannedResponse:input_type -> helpdesk.v1.DeleteCannedResponseRequest
-	25, // 34: helpdesk.v1.HelpdeskService.ListCannedResponses:input_type -> helpdesk.v1.ListCannedResponsesRequest
-	27, // 35: helpdesk.v1.HelpdeskService.CreateSLAPolicy:input_type -> helpdesk.v1.CreateSLAPolicyRequest
-	28, // 36: helpdesk.v1.HelpdeskService.UpdateSLAPolicy:input_type -> helpdesk.v1.UpdateSLAPolicyRequest
-	29, // 37: helpdesk.v1.HelpdeskService.ListSLAPolicies:input_type -> helpdesk.v1.ListSLAPoliciesRequest
-	31, // 38: helpdesk.v1.HelpdeskService.ApplySLAPolicy:input_type -> helpdesk.v1.ApplySLAPolicyRequest
-	32, // 39: helpdesk.v1.HelpdeskService.GetSLAStatus:input_type -> helpdesk.v1.GetSLAStatusRequest
-	0,  // 40: helpdesk.v1.HelpdeskService.CreateTicket:output_type -> helpdesk.v1.Ticket
-	0,  // 41: helpdesk.v1.HelpdeskService.GetTicket:output_type -> helpdesk.v1.Ticket
-	8,  // 42: helpdesk.v1.HelpdeskService.ListTickets:output_type -> helpdesk.v1.ListTicketsResponse
-	0,  // 43: helpdesk.v1.HelpdeskService.UpdateTicket:output_type -> helpdesk.v1.Ticket
-	0,  // 44: helpdesk.v1.HelpdeskService.CloseTicket:output_type -> helpdesk.v1.Ticket
-	0,  // 45: helpdesk.v1.HelpdeskService.ReopenTicket:output_type -> helpdesk.v1.Ticket
-	0,  // 46: helpdesk.v1.HelpdeskService.AssignTicket:output_type -> helpdesk.v1.Ticket
-	35, // 47: helpdesk.v1.HelpdeskService.MergeTickets:output_type -> google.protobuf.Empty
-	1,  // 48: helpdesk.v1.HelpdeskService.AddMessage:output_type -> helpdesk.v1.TicketMessage
-	16, // 49: helpdesk.v1.HelpdeskService.ListMessages:output_type -> helpdesk.v1.ListMessagesResponse
-	2,  // 50: helpdesk.v1.HelpdeskService.CreateQueue:output_type -> helpdesk.v1.TicketQueue
-	2,  // 51: helpdesk.v1.HelpdeskService.UpdateQueue:output_type -> helpdesk.v1.TicketQueue
-	20, // 52: helpdesk.v1.HelpdeskService.ListQueues:output_type -> helpdesk.v1.ListQueuesResponse
-	35, // 53: helpdesk.v1.HelpdeskService.DeleteQueue:output_type -> google.protobuf.Empty
-	3,  // 54: helpdesk.v1.HelpdeskService.CreateCannedResponse:output_type -> helpdesk.v1.CannedResponse
-	3,  // 55: helpdesk.v1.HelpdeskService.UpdateCannedResponse:output_type -> helpdesk.v1.CannedResponse
-	35, // 56: helpdesk.v1.HelpdeskService.DeleteCannedResponse:output_type -> google.protobuf.Empty
-	26, // 57: helpdesk.v1.HelpdeskService.ListCannedResponses:output_type -> helpdesk.v1.ListCannedResponsesResponse
-	4,  // 58: helpdesk.v1.HelpdeskService.CreateSLAPolicy:output_type -> helpdesk.v1.SLAPolicy
-	4,  // 59: helpdesk.v1.HelpdeskService.UpdateSLAPolicy:output_type -> helpdesk.v1.SLAPolicy
-	30, // 60: helpdesk.v1.HelpdeskService.ListSLAPolicies:output_type -> helpdesk.v1.ListSLAPoliciesResponse
-	0,  // 61: helpdesk.v1.HelpdeskService.ApplySLAPolicy:output_type -> helpdesk.v1.Ticket
-	33, // 62: helpdesk.v1.HelpdeskService.GetSLAStatus:output_type -> helpdesk.v1.GetSLAStatusResponse
-	40, // [40:63] is the sub-list for method output_type
-	17, // [17:40] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	50, // 17: helpdesk.v1.KBArticle.created_at:type_name -> google.protobuf.Timestamp
+	50, // 18: helpdesk.v1.KBArticle.updated_at:type_name -> google.protobuf.Timestamp
+	35, // 19: helpdesk.v1.ListKBArticleResponse.articles:type_name -> helpdesk.v1.KBArticle
+	50, // 20: helpdesk.v1.RoutingRule.created_at:type_name -> google.protobuf.Timestamp
+	50, // 21: helpdesk.v1.RoutingRule.updated_at:type_name -> google.protobuf.Timestamp
+	41, // 22: helpdesk.v1.ListRoutingRuleResponse.rules:type_name -> helpdesk.v1.RoutingRule
+	47, // 23: helpdesk.v1.HelpdeskStats.weekly_breakdown:type_name -> helpdesk.v1.WeeklyDayCount
+	5,  // 24: helpdesk.v1.HelpdeskService.CreateTicket:input_type -> helpdesk.v1.CreateTicketRequest
+	6,  // 25: helpdesk.v1.HelpdeskService.GetTicket:input_type -> helpdesk.v1.GetTicketRequest
+	7,  // 26: helpdesk.v1.HelpdeskService.ListTickets:input_type -> helpdesk.v1.ListTicketsRequest
+	9,  // 27: helpdesk.v1.HelpdeskService.UpdateTicket:input_type -> helpdesk.v1.UpdateTicketRequest
+	10, // 28: helpdesk.v1.HelpdeskService.CloseTicket:input_type -> helpdesk.v1.CloseTicketRequest
+	11, // 29: helpdesk.v1.HelpdeskService.ReopenTicket:input_type -> helpdesk.v1.ReopenTicketRequest
+	12, // 30: helpdesk.v1.HelpdeskService.AssignTicket:input_type -> helpdesk.v1.AssignTicketRequest
+	13, // 31: helpdesk.v1.HelpdeskService.MergeTickets:input_type -> helpdesk.v1.MergeTicketsRequest
+	14, // 32: helpdesk.v1.HelpdeskService.AddMessage:input_type -> helpdesk.v1.AddMessageRequest
+	15, // 33: helpdesk.v1.HelpdeskService.ListMessages:input_type -> helpdesk.v1.ListMessagesRequest
+	17, // 34: helpdesk.v1.HelpdeskService.CreateQueue:input_type -> helpdesk.v1.CreateQueueRequest
+	18, // 35: helpdesk.v1.HelpdeskService.UpdateQueue:input_type -> helpdesk.v1.UpdateQueueRequest
+	19, // 36: helpdesk.v1.HelpdeskService.ListQueues:input_type -> helpdesk.v1.ListQueuesRequest
+	21, // 37: helpdesk.v1.HelpdeskService.DeleteQueue:input_type -> helpdesk.v1.DeleteQueueRequest
+	22, // 38: helpdesk.v1.HelpdeskService.CreateCannedResponse:input_type -> helpdesk.v1.CreateCannedResponseRequest
+	23, // 39: helpdesk.v1.HelpdeskService.UpdateCannedResponse:input_type -> helpdesk.v1.UpdateCannedResponseRequest
+	24, // 40: helpdesk.v1.HelpdeskService.DeleteCannedResponse:input_type -> helpdesk.v1.DeleteCannedResponseRequest
+	25, // 41: helpdesk.v1.HelpdeskService.ListCannedResponses:input_type -> helpdesk.v1.ListCannedResponsesRequest
+	27, // 42: helpdesk.v1.HelpdeskService.CreateSLAPolicy:input_type -> helpdesk.v1.CreateSLAPolicyRequest
+	28, // 43: helpdesk.v1.HelpdeskService.UpdateSLAPolicy:input_type -> helpdesk.v1.UpdateSLAPolicyRequest
+	29, // 44: helpdesk.v1.HelpdeskService.ListSLAPolicies:input_type -> helpdesk.v1.ListSLAPoliciesRequest
+	34, // 45: helpdesk.v1.HelpdeskService.DeleteSLAPolicy:input_type -> helpdesk.v1.DeleteSLAPolicyRequest
+	31, // 46: helpdesk.v1.HelpdeskService.ApplySLAPolicy:input_type -> helpdesk.v1.ApplySLAPolicyRequest
+	32, // 47: helpdesk.v1.HelpdeskService.GetSLAStatus:input_type -> helpdesk.v1.GetSLAStatusRequest
+	36, // 48: helpdesk.v1.HelpdeskService.ListKBArticle:input_type -> helpdesk.v1.ListKBArticleRequest
+	38, // 49: helpdesk.v1.HelpdeskService.CreateKBArticle:input_type -> helpdesk.v1.CreateKBArticleRequest
+	39, // 50: helpdesk.v1.HelpdeskService.UpdateKBArticle:input_type -> helpdesk.v1.UpdateKBArticleRequest
+	40, // 51: helpdesk.v1.HelpdeskService.DeleteKBArticle:input_type -> helpdesk.v1.DeleteKBArticleRequest
+	42, // 52: helpdesk.v1.HelpdeskService.ListRoutingRule:input_type -> helpdesk.v1.ListRoutingRuleRequest
+	44, // 53: helpdesk.v1.HelpdeskService.CreateRoutingRule:input_type -> helpdesk.v1.CreateRoutingRuleRequest
+	45, // 54: helpdesk.v1.HelpdeskService.UpdateRoutingRule:input_type -> helpdesk.v1.UpdateRoutingRuleRequest
+	46, // 55: helpdesk.v1.HelpdeskService.DeleteRoutingRule:input_type -> helpdesk.v1.DeleteRoutingRuleRequest
+	49, // 56: helpdesk.v1.HelpdeskService.GetHelpdeskStats:input_type -> helpdesk.v1.GetHelpdeskStatsRequest
+	0,  // 57: helpdesk.v1.HelpdeskService.CreateTicket:output_type -> helpdesk.v1.Ticket
+	0,  // 58: helpdesk.v1.HelpdeskService.GetTicket:output_type -> helpdesk.v1.Ticket
+	8,  // 59: helpdesk.v1.HelpdeskService.ListTickets:output_type -> helpdesk.v1.ListTicketsResponse
+	0,  // 60: helpdesk.v1.HelpdeskService.UpdateTicket:output_type -> helpdesk.v1.Ticket
+	0,  // 61: helpdesk.v1.HelpdeskService.CloseTicket:output_type -> helpdesk.v1.Ticket
+	0,  // 62: helpdesk.v1.HelpdeskService.ReopenTicket:output_type -> helpdesk.v1.Ticket
+	0,  // 63: helpdesk.v1.HelpdeskService.AssignTicket:output_type -> helpdesk.v1.Ticket
+	51, // 64: helpdesk.v1.HelpdeskService.MergeTickets:output_type -> google.protobuf.Empty
+	1,  // 65: helpdesk.v1.HelpdeskService.AddMessage:output_type -> helpdesk.v1.TicketMessage
+	16, // 66: helpdesk.v1.HelpdeskService.ListMessages:output_type -> helpdesk.v1.ListMessagesResponse
+	2,  // 67: helpdesk.v1.HelpdeskService.CreateQueue:output_type -> helpdesk.v1.TicketQueue
+	2,  // 68: helpdesk.v1.HelpdeskService.UpdateQueue:output_type -> helpdesk.v1.TicketQueue
+	20, // 69: helpdesk.v1.HelpdeskService.ListQueues:output_type -> helpdesk.v1.ListQueuesResponse
+	51, // 70: helpdesk.v1.HelpdeskService.DeleteQueue:output_type -> google.protobuf.Empty
+	3,  // 71: helpdesk.v1.HelpdeskService.CreateCannedResponse:output_type -> helpdesk.v1.CannedResponse
+	3,  // 72: helpdesk.v1.HelpdeskService.UpdateCannedResponse:output_type -> helpdesk.v1.CannedResponse
+	51, // 73: helpdesk.v1.HelpdeskService.DeleteCannedResponse:output_type -> google.protobuf.Empty
+	26, // 74: helpdesk.v1.HelpdeskService.ListCannedResponses:output_type -> helpdesk.v1.ListCannedResponsesResponse
+	4,  // 75: helpdesk.v1.HelpdeskService.CreateSLAPolicy:output_type -> helpdesk.v1.SLAPolicy
+	4,  // 76: helpdesk.v1.HelpdeskService.UpdateSLAPolicy:output_type -> helpdesk.v1.SLAPolicy
+	30, // 77: helpdesk.v1.HelpdeskService.ListSLAPolicies:output_type -> helpdesk.v1.ListSLAPoliciesResponse
+	51, // 78: helpdesk.v1.HelpdeskService.DeleteSLAPolicy:output_type -> google.protobuf.Empty
+	0,  // 79: helpdesk.v1.HelpdeskService.ApplySLAPolicy:output_type -> helpdesk.v1.Ticket
+	33, // 80: helpdesk.v1.HelpdeskService.GetSLAStatus:output_type -> helpdesk.v1.GetSLAStatusResponse
+	37, // 81: helpdesk.v1.HelpdeskService.ListKBArticle:output_type -> helpdesk.v1.ListKBArticleResponse
+	35, // 82: helpdesk.v1.HelpdeskService.CreateKBArticle:output_type -> helpdesk.v1.KBArticle
+	35, // 83: helpdesk.v1.HelpdeskService.UpdateKBArticle:output_type -> helpdesk.v1.KBArticle
+	51, // 84: helpdesk.v1.HelpdeskService.DeleteKBArticle:output_type -> google.protobuf.Empty
+	43, // 85: helpdesk.v1.HelpdeskService.ListRoutingRule:output_type -> helpdesk.v1.ListRoutingRuleResponse
+	41, // 86: helpdesk.v1.HelpdeskService.CreateRoutingRule:output_type -> helpdesk.v1.RoutingRule
+	41, // 87: helpdesk.v1.HelpdeskService.UpdateRoutingRule:output_type -> helpdesk.v1.RoutingRule
+	51, // 88: helpdesk.v1.HelpdeskService.DeleteRoutingRule:output_type -> google.protobuf.Empty
+	48, // 89: helpdesk.v1.HelpdeskService.GetHelpdeskStats:output_type -> helpdesk.v1.HelpdeskStats
+	57, // [57:90] is the sub-list for method output_type
+	24, // [24:57] is the sub-list for method input_type
+	24, // [24:24] is the sub-list for extension type_name
+	24, // [24:24] is the sub-list for extension extendee
+	0,  // [0:24] is the sub-list for field type_name
 }
 
 func init() { file_proto_helpdesk_v1_helpdesk_proto_init() }
@@ -2495,13 +3664,17 @@ func file_proto_helpdesk_v1_helpdesk_proto_init() {
 	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[27].OneofWrappers = []any{}
 	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[28].OneofWrappers = []any{}
 	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[32].OneofWrappers = []any{}
+	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[39].OneofWrappers = []any{}
+	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[41].OneofWrappers = []any{}
+	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[44].OneofWrappers = []any{}
+	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[45].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_helpdesk_v1_helpdesk_proto_rawDesc), len(file_proto_helpdesk_v1_helpdesk_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   34,
+			NumMessages:   50,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -23,6 +23,13 @@ import type {
   UpdateSLAPolicyInput,
   ListTicketsResponse,
   TicketStatus,
+  KBArticle,
+  CreateKBArticleInput,
+  UpdateKBArticleInput,
+  RoutingRule,
+  CreateRoutingRuleInput,
+  UpdateRoutingRuleInput,
+  HelpdeskStats,
 } from './helpdesk-types'
 import { authenticatedRequest } from './utils/authenticatedFetch'
 
@@ -178,10 +185,8 @@ export function updateSLAPolicy(id: string, body: UpdateSLAPolicyInput) {
   return request<SLAPolicy>({ method: 'PUT', path: `${BASE}/sla-policies/${id}`, body })
 }
 
-// TODO: Backend DeleteSLAPolicy RPC fehlt in proto — Route und Handler nicht registriert.
-// Stub exported so the hook compiles; will 404 until backend route is added.
-export function deleteSLAPolicy(_id: string): Promise<void> {
-  return Promise.reject(new Error('deleteSLAPolicy: backend route not yet implemented'))
+export function deleteSLAPolicy(id: string) {
+  return request<void>({ method: 'DELETE', path: `${BASE}/sla-policies/${id}` })
 }
 
 export function applySLAPolicy(ticketId: string, policyId: string) {
@@ -197,4 +202,52 @@ export function getSLAStatus(ticketId: string) {
     method: 'GET',
     path: `${BASE}/tickets/${ticketId}/sla-status`,
   })
+}
+
+// ---------------------------------------------------------------------------
+// KB Articles
+// ---------------------------------------------------------------------------
+
+export function listKBArticles() {
+  return request<{ articles: KBArticle[] }>({ method: 'GET', path: `${BASE}/kb-articles` })
+}
+
+export function createKBArticle(body: CreateKBArticleInput) {
+  return request<KBArticle>({ method: 'POST', path: `${BASE}/kb-articles`, body })
+}
+
+export function updateKBArticle(id: string, body: UpdateKBArticleInput) {
+  return request<KBArticle>({ method: 'PUT', path: `${BASE}/kb-articles/${id}`, body })
+}
+
+export function deleteKBArticle(id: string) {
+  return request<void>({ method: 'DELETE', path: `${BASE}/kb-articles/${id}` })
+}
+
+// ---------------------------------------------------------------------------
+// Routing Rules
+// ---------------------------------------------------------------------------
+
+export function listRoutingRules() {
+  return request<{ rules: RoutingRule[] }>({ method: 'GET', path: `${BASE}/routing-rules` })
+}
+
+export function createRoutingRule(body: CreateRoutingRuleInput) {
+  return request<RoutingRule>({ method: 'POST', path: `${BASE}/routing-rules`, body })
+}
+
+export function updateRoutingRule(id: string, body: UpdateRoutingRuleInput) {
+  return request<RoutingRule>({ method: 'PUT', path: `${BASE}/routing-rules/${id}`, body })
+}
+
+export function deleteRoutingRule(id: string) {
+  return request<void>({ method: 'DELETE', path: `${BASE}/routing-rules/${id}` })
+}
+
+// ---------------------------------------------------------------------------
+// Stats
+// ---------------------------------------------------------------------------
+
+export function getHelpdeskStats() {
+  return request<HelpdeskStats>({ method: 'GET', path: `${BASE}/stats` })
 }

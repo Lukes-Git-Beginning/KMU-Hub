@@ -472,6 +472,18 @@ func (s *HelpdeskGRPCServer) ApplySLAPolicy(ctx context.Context, req *helpdeskv1
 	return ticketToProto(t), nil
 }
 
+func (s *HelpdeskGRPCServer) DeleteSLAPolicy(ctx context.Context, req *helpdeskv1.DeleteSLAPolicyRequest) (*emptypb.Empty, error) {
+	id, err := uuid.Parse(req.GetSlaPolicyId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid sla_policy_id: %v", err)
+	}
+	if err := s.svc.DeleteSLAPolicy(ctx, id); err != nil {
+		return nil, mapHelpdeskError(err)
+	}
+	slog.InfoContext(ctx, "helpdesk: sla policy deleted via grpc", "policy_id", id)
+	return &emptypb.Empty{}, nil
+}
+
 func (s *HelpdeskGRPCServer) GetSLAStatus(ctx context.Context, req *helpdeskv1.GetSLAStatusRequest) (*helpdeskv1.GetSLAStatusResponse, error) {
 	ticketID, err := uuid.Parse(req.GetTicketId())
 	if err != nil {
@@ -492,6 +504,195 @@ func (s *HelpdeskGRPCServer) GetSLAStatus(ctx context.Context, req *helpdeskv1.G
 		return nil, mapHelpdeskError(err)
 	}
 	return &helpdeskv1.GetSLAStatusResponse{Status: string(slaStatus)}, nil
+}
+
+// ============================================================================
+// Knowledge-Base Articles (4 RPCs)
+// ============================================================================
+
+func (s *HelpdeskGRPCServer) ListKBArticle(ctx context.Context, req *helpdeskv1.ListKBArticleRequest) (*helpdeskv1.ListKBArticleResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
+	}
+	articles, err := s.svc.ListKBArticles(ctx, tenantID)
+	if err != nil {
+		return nil, mapHelpdeskError(err)
+	}
+	protoArticles := make([]*helpdeskv1.KBArticle, len(articles))
+	for i, a := range articles {
+		protoArticles[i] = kbArticleToProto(a)
+	}
+	return &helpdeskv1.ListKBArticleResponse{Articles: protoArticles}, nil
+}
+
+func (s *HelpdeskGRPCServer) CreateKBArticle(ctx context.Context, req *helpdeskv1.CreateKBArticleRequest) (*helpdeskv1.KBArticle, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
+	}
+	// Use a zero UUID as author placeholder when not provided via context
+	authorID := uuid.Nil
+
+	a, err := s.svc.CreateKBArticle(ctx, tenantID, authorID, req.GetTitle(), req.GetContent(), req.GetCategory(), req.GetStatus())
+	if err != nil {
+		return nil, mapHelpdeskError(err)
+	}
+	slog.InfoContext(ctx, "helpdesk: kb article created via grpc", "article_id", a.ID)
+	return kbArticleToProto(a), nil
+}
+
+func (s *HelpdeskGRPCServer) UpdateKBArticle(ctx context.Context, req *helpdeskv1.UpdateKBArticleRequest) (*helpdeskv1.KBArticle, error) {
+	id, err := uuid.Parse(req.GetArticleId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid article_id: %v", err)
+	}
+	a, err := s.svc.UpdateKBArticle(ctx, id, req.Title, req.Content, req.Category, req.Status)
+	if err != nil {
+		return nil, mapHelpdeskError(err)
+	}
+	return kbArticleToProto(a), nil
+}
+
+func (s *HelpdeskGRPCServer) DeleteKBArticle(ctx context.Context, req *helpdeskv1.DeleteKBArticleRequest) (*emptypb.Empty, error) {
+	id, err := uuid.Parse(req.GetArticleId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid article_id: %v", err)
+	}
+	if err := s.svc.DeleteKBArticle(ctx, id); err != nil {
+		return nil, mapHelpdeskError(err)
+	}
+	slog.InfoContext(ctx, "helpdesk: kb article deleted via grpc", "article_id", id)
+	return &emptypb.Empty{}, nil
+}
+
+// ============================================================================
+// Routing Rules (4 RPCs)
+// ============================================================================
+
+func (s *HelpdeskGRPCServer) ListRoutingRule(ctx context.Context, req *helpdeskv1.ListRoutingRuleRequest) (*helpdeskv1.ListRoutingRuleResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
+	}
+	rules, err := s.svc.ListRoutingRules(ctx, tenantID)
+	if err != nil {
+		return nil, mapHelpdeskError(err)
+	}
+	protoRules := make([]*helpdeskv1.RoutingRule, len(rules))
+	for i, rr := range rules {
+		protoRules[i] = routingRuleToProto(rr)
+	}
+	return &helpdeskv1.ListRoutingRuleResponse{Rules: protoRules}, nil
+}
+
+func (s *HelpdeskGRPCServer) CreateRoutingRule(ctx context.Context, req *helpdeskv1.CreateRoutingRuleRequest) (*helpdeskv1.RoutingRule, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
+	}
+
+	var conditions map[string]any
+	if c := req.GetConditions(); c != "" {
+		if err := json.Unmarshal([]byte(c), &conditions); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid conditions JSON: %v", err)
+		}
+	}
+
+	var targetQueueID *uuid.UUID
+	if req.TargetQueueId != nil {
+		id, err := uuid.Parse(req.GetTargetQueueId())
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid target_queue_id: %v", err)
+		}
+		targetQueueID = &id
+	}
+
+	rr, err := s.svc.CreateRoutingRule(ctx, tenantID, req.GetName(), conditions, targetQueueID, int(req.GetPriority()), req.GetEnabled())
+	if err != nil {
+		return nil, mapHelpdeskError(err)
+	}
+	slog.InfoContext(ctx, "helpdesk: routing rule created via grpc", "rule_id", rr.ID)
+	return routingRuleToProto(rr), nil
+}
+
+func (s *HelpdeskGRPCServer) UpdateRoutingRule(ctx context.Context, req *helpdeskv1.UpdateRoutingRuleRequest) (*helpdeskv1.RoutingRule, error) {
+	id, err := uuid.Parse(req.GetRuleId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid rule_id: %v", err)
+	}
+
+	var conditions map[string]any
+	if req.Conditions != nil && req.GetConditions() != "" {
+		if err := json.Unmarshal([]byte(req.GetConditions()), &conditions); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid conditions JSON: %v", err)
+		}
+	}
+
+	var targetQueueID *uuid.UUID
+	if req.TargetQueueId != nil {
+		qid, err := uuid.Parse(req.GetTargetQueueId())
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid target_queue_id: %v", err)
+		}
+		targetQueueID = &qid
+	}
+
+	var priority *int
+	if req.Priority != nil {
+		p := int(req.GetPriority())
+		priority = &p
+	}
+
+	var enabled *bool
+	if req.Enabled != nil {
+		e := req.GetEnabled()
+		enabled = &e
+	}
+
+	rr, err := s.svc.UpdateRoutingRule(ctx, id, req.Name, conditions, targetQueueID, priority, enabled)
+	if err != nil {
+		return nil, mapHelpdeskError(err)
+	}
+	return routingRuleToProto(rr), nil
+}
+
+func (s *HelpdeskGRPCServer) DeleteRoutingRule(ctx context.Context, req *helpdeskv1.DeleteRoutingRuleRequest) (*emptypb.Empty, error) {
+	id, err := uuid.Parse(req.GetRuleId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid rule_id: %v", err)
+	}
+	if err := s.svc.DeleteRoutingRule(ctx, id); err != nil {
+		return nil, mapHelpdeskError(err)
+	}
+	slog.InfoContext(ctx, "helpdesk: routing rule deleted via grpc", "rule_id", id)
+	return &emptypb.Empty{}, nil
+}
+
+// ============================================================================
+// Stats (1 RPC)
+// ============================================================================
+
+func (s *HelpdeskGRPCServer) GetHelpdeskStats(ctx context.Context, req *helpdeskv1.GetHelpdeskStatsRequest) (*helpdeskv1.HelpdeskStats, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing or invalid tenant_id")
+	}
+	stats, err := s.svc.GetHelpdeskStats(ctx, tenantID)
+	if err != nil {
+		return nil, mapHelpdeskError(err)
+	}
+	protoBreakdown := make([]*helpdeskv1.WeeklyDayCount, len(stats.WeeklyBreakdown))
+	for i, d := range stats.WeeklyBreakdown {
+		protoBreakdown[i] = &helpdeskv1.WeeklyDayCount{Label: d.Label, Count: int32(d.Count)}
+	}
+	return &helpdeskv1.HelpdeskStats{
+		OpenTickets:          int32(stats.OpenTickets),
+		AvgResponseTime:      stats.AvgResponseTime,
+		ResolvedThisWeek:     int32(stats.ResolvedThisWeek),
+		CustomerSatisfaction: stats.CustomerSatisfaction,
+		WeeklyBreakdown:      protoBreakdown,
+	}, nil
 }
 
 // ============================================================================
@@ -594,6 +795,40 @@ func slaPolicyToProto(p *helpdesk.SLAPolicy) *helpdeskv1.SLAPolicy {
 	return msg
 }
 
+func kbArticleToProto(a *helpdesk.KBArticle) *helpdeskv1.KBArticle {
+	return &helpdeskv1.KBArticle{
+		Id:        a.ID.String(),
+		TenantId:  a.TenantID.String(),
+		Title:     a.Title,
+		Content:   a.Content,
+		Category:  a.Category,
+		Status:    a.Status,
+		AuthorId:  a.AuthorID.String(),
+		CreatedAt: timestamppb.New(a.CreatedAt),
+		UpdatedAt: timestamppb.New(a.UpdatedAt),
+	}
+}
+
+func routingRuleToProto(rr *helpdesk.RoutingRule) *helpdeskv1.RoutingRule {
+	msg := &helpdeskv1.RoutingRule{
+		Id:        rr.ID.String(),
+		TenantId:  rr.TenantID.String(),
+		Name:      rr.Name,
+		Priority:  int32(rr.Priority),
+		Enabled:   rr.Enabled,
+		CreatedAt: timestamppb.New(rr.CreatedAt),
+		UpdatedAt: timestamppb.New(rr.UpdatedAt),
+	}
+	if condJSON, err := json.Marshal(rr.Conditions); err == nil {
+		msg.Conditions = string(condJSON)
+	}
+	if rr.TargetQueueID != nil {
+		s := rr.TargetQueueID.String()
+		msg.TargetQueueId = &s
+	}
+	return msg
+}
+
 // ============================================================================
 // Error mapping
 // ============================================================================
@@ -619,6 +854,10 @@ func mapHelpdeskError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, helpdesk.ErrAlreadyMerged):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, helpdesk.ErrKBArticleNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, helpdesk.ErrRoutingRuleNotFound):
+		return status.Error(codes.NotFound, err.Error())
 	default:
 		slog.Error("unhandled helpdesk service error", "error", err)
 		return status.Error(codes.Internal, "internal error")

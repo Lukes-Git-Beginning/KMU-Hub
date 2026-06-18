@@ -38,8 +38,24 @@ service HelpdeskService {
   rpc CreateSLAPolicy(CreateSLAPolicyRequest) returns (SLAPolicy);
   rpc UpdateSLAPolicy(UpdateSLAPolicyRequest) returns (SLAPolicy);
   rpc ListSLAPolicies(ListSLAPoliciesRequest) returns (ListSLAPoliciesResponse);
+  rpc DeleteSLAPolicy(DeleteSLAPolicyRequest) returns (google.protobuf.Empty);
   rpc ApplySLAPolicy(ApplySLAPolicyRequest) returns (Ticket);
   rpc GetSLAStatus(GetSLAStatusRequest) returns (GetSLAStatusResponse);
+
+  // Knowledge-base articles
+  rpc ListKBArticle(ListKBArticleRequest) returns (ListKBArticleResponse);
+  rpc CreateKBArticle(CreateKBArticleRequest) returns (KBArticle);
+  rpc UpdateKBArticle(UpdateKBArticleRequest) returns (KBArticle);
+  rpc DeleteKBArticle(DeleteKBArticleRequest) returns (google.protobuf.Empty);
+
+  // Routing rules
+  rpc ListRoutingRule(ListRoutingRuleRequest) returns (ListRoutingRuleResponse);
+  rpc CreateRoutingRule(CreateRoutingRuleRequest) returns (RoutingRule);
+  rpc UpdateRoutingRule(UpdateRoutingRuleRequest) returns (RoutingRule);
+  rpc DeleteRoutingRule(DeleteRoutingRuleRequest) returns (google.protobuf.Empty);
+
+  // Stats
+  rpc GetHelpdeskStats(GetHelpdeskStatsRequest) returns (HelpdeskStats);
 }
 
 // ============================================================================
@@ -284,4 +300,123 @@ message GetSLAStatusRequest {
 message GetSLAStatusResponse {
   // "on_track" | "at_risk" | "breached"
   string status = 1;
+}
+
+message DeleteSLAPolicyRequest {
+  string sla_policy_id = 1;
+}
+
+// ============================================================================
+// Knowledge-Base Article Messages
+// ============================================================================
+
+message KBArticle {
+  string id = 1;
+  string tenant_id = 2;
+  string title = 3;
+  string content = 4;
+  string category = 5;
+  // "draft" | "published"
+  string status = 6;
+  string author_id = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message ListKBArticleRequest {
+  string tenant_id = 1;
+}
+
+message ListKBArticleResponse {
+  repeated KBArticle articles = 1;
+}
+
+message CreateKBArticleRequest {
+  string tenant_id = 1;
+  string title = 2;
+  string content = 3;
+  string category = 4;
+  // Defaults to "draft" when empty
+  string status = 5;
+}
+
+message UpdateKBArticleRequest {
+  string article_id = 1;
+  optional string title = 2;
+  optional string content = 3;
+  optional string category = 4;
+  optional string status = 5;
+}
+
+message DeleteKBArticleRequest {
+  string article_id = 1;
+}
+
+// ============================================================================
+// Routing Rule Messages
+// ============================================================================
+
+message RoutingRule {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  // JSON-encoded conditions map
+  string conditions = 4;
+  optional string target_queue_id = 5;
+  int32 priority = 6;
+  bool enabled = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message ListRoutingRuleRequest {
+  string tenant_id = 1;
+}
+
+message ListRoutingRuleResponse {
+  repeated RoutingRule rules = 1;
+}
+
+message CreateRoutingRuleRequest {
+  string tenant_id = 1;
+  string name = 2;
+  // JSON-encoded conditions map
+  string conditions = 3;
+  optional string target_queue_id = 4;
+  int32 priority = 5;
+  bool enabled = 6;
+}
+
+message UpdateRoutingRuleRequest {
+  string rule_id = 1;
+  optional string name = 2;
+  optional string conditions = 3;
+  optional string target_queue_id = 4;
+  optional int32 priority = 5;
+  optional bool enabled = 6;
+}
+
+message DeleteRoutingRuleRequest {
+  string rule_id = 1;
+}
+
+// ============================================================================
+// Stats Messages
+// ============================================================================
+
+message WeeklyDayCount {
+  string label = 1;
+  int32 count = 2;
+}
+
+message HelpdeskStats {
+  int32 open_tickets = 1;
+  string avg_response_time = 2;
+  int32 resolved_this_week = 3;
+  string customer_satisfaction = 4;
+  repeated WeeklyDayCount weekly_breakdown = 5;
+}
+
+message GetHelpdeskStatsRequest {
+  string tenant_id = 1;
 }

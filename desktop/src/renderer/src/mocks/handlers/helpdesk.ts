@@ -77,6 +77,38 @@ interface WireTicketSLAStatus {
   first_response_at: string | null
 }
 
+interface WireKBArticle {
+  id: string
+  tenant_id: string
+  title: string
+  content: string
+  category: string
+  status: 'draft' | 'published'
+  author_id: string
+  created_at: string
+  updated_at: string
+}
+
+interface WireRoutingRule {
+  id: string
+  tenant_id: string
+  name: string
+  conditions: string
+  target_queue_id: string | null
+  priority: number
+  enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+interface WireHelpdeskStats {
+  open_tickets: number
+  avg_response_time: string
+  resolved_this_week: number
+  customer_satisfaction: string
+  weekly_breakdown: Array<{ label: string; count: number }>
+}
+
 // ============================================================================
 // Mutable state
 // ============================================================================
@@ -793,5 +825,222 @@ export const helpdeskHandlers = [
     if (body.business_hours !== undefined) policy.business_hours = body.business_hours
     policy.updated_at = new Date().toISOString()
     return HttpResponse.json(policy)
+  }),
+
+  http.delete(`${BASE}/sla-policies/:id`, ({ params }) => {
+    const idx = slaPolicies.findIndex((x) => x.id === params.id)
+    if (idx === -1) return HttpResponse.json({ error: 'sla policy not found' }, { status: 404 })
+    slaPolicies.splice(idx, 1)
+    return HttpResponse.json(undefined, { status: 204 })
+  }),
+
+  // --- KB Articles ---
+
+  ...(() => {
+    const kbArticles: WireKBArticle[] = [
+      {
+        id: 'hd-kb-001',
+        tenant_id: 'tenant-001',
+        title: 'VPN-Einrichtung für Mitarbeiter',
+        content: 'Anleitung zur Einrichtung des VPN-Zugangs mit Cisco AnyConnect.',
+        category: 'Netzwerk',
+        status: 'published',
+        author_id: IDS.users.admin,
+        created_at: new Date(Date.now() - 30 * 24 * 3600000).toISOString(),
+        updated_at: new Date(Date.now() - 5 * 24 * 3600000).toISOString(),
+      },
+      {
+        id: 'hd-kb-002',
+        tenant_id: 'tenant-001',
+        title: 'Netzwerkdrucker einrichten',
+        content: 'Schritt-für-Schritt-Anleitung für Windows und macOS.',
+        category: 'Hardware',
+        status: 'published',
+        author_id: IDS.users.admin,
+        created_at: new Date(Date.now() - 20 * 24 * 3600000).toISOString(),
+        updated_at: new Date(Date.now() - 3 * 24 * 3600000).toISOString(),
+      },
+      {
+        id: 'hd-kb-003',
+        tenant_id: 'tenant-001',
+        title: 'Passwort zurücksetzen',
+        content: 'Self-Service-Portal für Passwort-Reset.',
+        category: 'Sicherheit',
+        status: 'published',
+        author_id: IDS.users.admin,
+        created_at: new Date(Date.now() - 15 * 24 * 3600000).toISOString(),
+        updated_at: new Date(Date.now() - 2 * 24 * 3600000).toISOString(),
+      },
+      {
+        id: 'hd-kb-004',
+        tenant_id: 'tenant-001',
+        title: 'E-Mail-Signatur einrichten',
+        content: 'Offizielle Vorlage und Einrichtungsanleitung für Outlook.',
+        category: 'E-Mail',
+        status: 'draft',
+        author_id: IDS.users.admin,
+        created_at: new Date(Date.now() - 10 * 24 * 3600000).toISOString(),
+        updated_at: new Date(Date.now() - 1 * 24 * 3600000).toISOString(),
+      },
+      {
+        id: 'hd-kb-005',
+        tenant_id: 'tenant-001',
+        title: 'Home-Office IT-Checkliste',
+        content: 'Alle wichtigen Punkte für sicheres Arbeiten im Home-Office.',
+        category: 'Allgemein',
+        status: 'published',
+        author_id: IDS.users.admin,
+        created_at: new Date(Date.now() - 7 * 24 * 3600000).toISOString(),
+        updated_at: new Date(Date.now() - 7 * 24 * 3600000).toISOString(),
+      },
+    ]
+
+    return [
+      http.get(`${BASE}/kb-articles`, () => {
+        return HttpResponse.json({ articles: kbArticles })
+      }),
+
+      http.post(`${BASE}/kb-articles`, async ({ request }) => {
+        const body = (await request.json()) as Partial<WireKBArticle>
+        const now = new Date().toISOString()
+        const article: WireKBArticle = {
+          id: `hd-kb-${Date.now()}`,
+          tenant_id: 'tenant-001',
+          title: body.title ?? '',
+          content: body.content ?? '',
+          category: body.category ?? '',
+          status: body.status ?? 'draft',
+          author_id: IDS.users.admin,
+          created_at: now,
+          updated_at: now,
+        }
+        kbArticles.push(article)
+        return HttpResponse.json(article, { status: 201 })
+      }),
+
+      http.put(`${BASE}/kb-articles/:id`, async ({ params, request }) => {
+        const article = kbArticles.find((x) => x.id === params.id)
+        if (!article) return HttpResponse.json({ error: 'article not found' }, { status: 404 })
+        const body = (await request.json()) as Partial<WireKBArticle>
+        if (body.title != null) article.title = body.title
+        if (body.content != null) article.content = body.content
+        if (body.category != null) article.category = body.category
+        if (body.status != null) article.status = body.status
+        article.updated_at = new Date().toISOString()
+        return HttpResponse.json(article)
+      }),
+
+      http.delete(`${BASE}/kb-articles/:id`, ({ params }) => {
+        const idx = kbArticles.findIndex((x) => x.id === params.id)
+        if (idx === -1) return HttpResponse.json({ error: 'article not found' }, { status: 404 })
+        kbArticles.splice(idx, 1)
+        return HttpResponse.json(undefined, { status: 204 })
+      }),
+    ]
+  })(),
+
+  // --- Routing Rules ---
+
+  ...(() => {
+    const routingRules: WireRoutingRule[] = [
+      {
+        id: 'hd-rr-001',
+        tenant_id: 'tenant-001',
+        name: 'Netzwerk → Support-Team',
+        conditions: JSON.stringify({ category: 'Netzwerk' }),
+        target_queue_id: null,
+        priority: 1,
+        enabled: true,
+        created_at: new Date(Date.now() - 30 * 24 * 3600000).toISOString(),
+        updated_at: new Date(Date.now() - 5 * 24 * 3600000).toISOString(),
+      },
+      {
+        id: 'hd-rr-002',
+        tenant_id: 'tenant-001',
+        name: 'Sicherheit → Kritisch eskalieren',
+        conditions: JSON.stringify({ category: 'Sicherheit' }),
+        target_queue_id: null,
+        priority: 2,
+        enabled: true,
+        created_at: new Date(Date.now() - 20 * 24 * 3600000).toISOString(),
+        updated_at: new Date(Date.now() - 2 * 24 * 3600000).toISOString(),
+      },
+      {
+        id: 'hd-rr-003',
+        tenant_id: 'tenant-001',
+        name: 'Hardware → Außendienst',
+        conditions: JSON.stringify({ category: 'Hardware' }),
+        target_queue_id: null,
+        priority: 3,
+        enabled: false,
+        created_at: new Date(Date.now() - 10 * 24 * 3600000).toISOString(),
+        updated_at: new Date(Date.now() - 10 * 24 * 3600000).toISOString(),
+      },
+    ]
+
+    return [
+      http.get(`${BASE}/routing-rules`, () => {
+        return HttpResponse.json({ rules: routingRules })
+      }),
+
+      http.post(`${BASE}/routing-rules`, async ({ request }) => {
+        const body = (await request.json()) as Partial<WireRoutingRule>
+        const now = new Date().toISOString()
+        const rule: WireRoutingRule = {
+          id: `hd-rr-${Date.now()}`,
+          tenant_id: 'tenant-001',
+          name: body.name ?? '',
+          conditions: body.conditions ?? '{}',
+          target_queue_id: body.target_queue_id ?? null,
+          priority: body.priority ?? 0,
+          enabled: body.enabled ?? true,
+          created_at: now,
+          updated_at: now,
+        }
+        routingRules.push(rule)
+        return HttpResponse.json(rule, { status: 201 })
+      }),
+
+      http.put(`${BASE}/routing-rules/:id`, async ({ params, request }) => {
+        const rule = routingRules.find((x) => x.id === params.id)
+        if (!rule) return HttpResponse.json({ error: 'routing rule not found' }, { status: 404 })
+        const body = (await request.json()) as Partial<WireRoutingRule>
+        if (body.name != null) rule.name = body.name
+        if (body.conditions != null) rule.conditions = body.conditions
+        if (body.target_queue_id !== undefined) rule.target_queue_id = body.target_queue_id
+        if (body.priority != null) rule.priority = body.priority
+        if (body.enabled != null) rule.enabled = body.enabled
+        rule.updated_at = new Date().toISOString()
+        return HttpResponse.json(rule)
+      }),
+
+      http.delete(`${BASE}/routing-rules/:id`, ({ params }) => {
+        const idx = routingRules.findIndex((x) => x.id === params.id)
+        if (idx === -1) return HttpResponse.json({ error: 'routing rule not found' }, { status: 404 })
+        routingRules.splice(idx, 1)
+        return HttpResponse.json(undefined, { status: 204 })
+      }),
+    ]
+  })(),
+
+  // --- Stats ---
+
+  http.get(`${BASE}/stats`, () => {
+    const stats: WireHelpdeskStats = {
+      open_tickets: 8,
+      avg_response_time: '1.4 h',
+      resolved_this_week: 23,
+      customer_satisfaction: '4.6/5',
+      weekly_breakdown: [
+        { label: 'Mo', count: 5 },
+        { label: 'Di', count: 8 },
+        { label: 'Mi', count: 12 },
+        { label: 'Do', count: 6 },
+        { label: 'Fr', count: 9 },
+        { label: 'Sa', count: 2 },
+        { label: 'So', count: 1 },
+      ],
+    }
+    return HttpResponse.json(stats)
   }),
 ]

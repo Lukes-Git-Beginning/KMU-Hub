@@ -7,7 +7,6 @@ import {
   AlertCircle,
   Clock,
   CheckCircle2,
-  Eye,
   Send,
   MessageSquare,
   User,
@@ -29,7 +28,6 @@ import { toast } from 'sonner'
 import {
   useHelpdeskStore,
   slaLabel,
-  type KBArticle,
   MOCK_CATEGORIES,
   MOCK_CUSTOM_FIELD_DEFS,
 } from '@/stores/helpdesk'
@@ -43,7 +41,10 @@ import {
   useAssignTicket,
   useMergeTickets,
   useAddMessage,
+  useKBArticles,
+  useHelpdeskStats,
 } from '@/api/hooks/useHelpdesk'
+import type { KBArticle } from '@/api/helpdesk-types'
 import {
   wireTicketToDisplay,
   displayStatusToWire,
@@ -165,8 +166,17 @@ export default function HelpdeskPage() {
   const mergeTicketsMut = useMergeTickets()
   const addMessageMut = useAddMessage()
 
-  // Store — KB + Stats bleiben store-basiert (kein Backend)
-  const { kbArticles, stats } = useHelpdeskStore()
+  // API hooks — KB articles + Stats
+  const { data: kbArticlesData } = useKBArticles()
+  const kbArticles: KBArticle[] = kbArticlesData ?? []
+  const { data: statsData } = useHelpdeskStats()
+  const stats = statsData ?? {
+    open_tickets: 0,
+    avg_response_time: '–',
+    resolved_this_week: 0,
+    customer_satisfaction: '–',
+    weekly_breakdown: [],
+  }
 
   const priorityLabels: Record<string, string> = {
     low: t('helpdesk.priority.low'), medium: t('helpdesk.priority.medium'),
@@ -550,17 +560,16 @@ export default function HelpdeskPage() {
                   <button type="button" key={article.id} onClick={() => setSelectedArticleId(article.id)} className="rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-[var(--shadow-card-hover)] cursor-pointer text-left w-full">
                     <div className="flex items-start justify-between mb-2">
                       <h4 className="text-sm font-medium text-foreground line-clamp-2">{article.title}</h4>
-                      {article.published ? (
+                      {article.status === 'published' ? (
                         <span className="rounded-full bg-success-light text-success px-2 py-0.5 text-[10px] font-medium shrink-0 ml-2">{t('helpdesk.kb.published')}</span>
                       ) : (
                         <span className="rounded-full bg-secondary text-muted-foreground px-2 py-0.5 text-[10px] font-medium shrink-0 ml-2">{t('helpdesk.kb.draft')}</span>
                       )}
                     </div>
                     <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium mb-2 ${kbCategoryColors[article.category] ?? 'bg-secondary text-muted-foreground'}`}>{article.category}</span>
-                    <p className="text-xs text-muted-foreground line-clamp-3 mb-3">{article.excerpt}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-3 mb-3">{article.content}</p>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{article.views}</span>
-                      <span>{formatDate(article.updatedAt)}</span>
+                      <span>{formatDate(article.updated_at)}</span>
                     </div>
                   </button>
                 ))
@@ -576,10 +585,10 @@ export default function HelpdeskPage() {
       {tab === 'statistik' && (
         <div className="animate-fade-up">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <StatCard icon={AlertCircle} label={t('helpdesk.stats.openTickets')} value={stats.openTickets} iconColor="text-warning" iconBg="bg-warning-light" />
-            <StatCard icon={Clock} label={t('helpdesk.stats.avgResponseTime')} value={stats.avgResponseTime} iconColor="text-info" iconBg="bg-info-light" />
-            <StatCard icon={CheckCircle2} label={t('helpdesk.stats.resolvedThisWeek')} value={stats.resolvedThisWeek} iconColor="text-success" iconBg="bg-success-light" />
-            <StatCard icon={BarChart3} label={t('helpdesk.stats.customerSatisfaction')} value={stats.customerSatisfaction} iconColor="text-primary" iconBg="bg-primary-light" />
+            <StatCard icon={AlertCircle} label={t('helpdesk.stats.openTickets')} value={stats.open_tickets} iconColor="text-warning" iconBg="bg-warning-light" />
+            <StatCard icon={Clock} label={t('helpdesk.stats.avgResponseTime')} value={stats.avg_response_time} iconColor="text-info" iconBg="bg-info-light" />
+            <StatCard icon={CheckCircle2} label={t('helpdesk.stats.resolvedThisWeek')} value={stats.resolved_this_week} iconColor="text-success" iconBg="bg-success-light" />
+            <StatCard icon={BarChart3} label={t('helpdesk.stats.customerSatisfaction')} value={stats.customer_satisfaction} iconColor="text-primary" iconBg="bg-primary-light" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -587,8 +596,8 @@ export default function HelpdeskPage() {
             <div className="rounded-lg border border-border bg-card p-6">
               <h3 className="text-sm font-medium text-foreground mb-4">{t('helpdesk.stats.ticketsPerDay')}</h3>
               <div className="flex items-end gap-3 h-40">
-                {stats.weeklyBreakdown.map((day) => {
-                  const maxCount = Math.max(...stats.weeklyBreakdown.map((d) => d.count), 1)
+                {stats.weekly_breakdown.map((day) => {
+                  const maxCount = Math.max(...stats.weekly_breakdown.map((d) => d.count), 1)
                   return (
                     <div key={day.label} className="flex-1 flex flex-col items-center gap-1">
                       <span className="text-xs text-muted-foreground">{day.count}</span>
@@ -1104,7 +1113,7 @@ function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () =
   const { t } = useTranslation()
   const savedBody = useHelpdeskStore((s) => s.kbBodies[article.id])
   const saveKbBody = useHelpdeskStore((s) => s.saveKbBody)
-  const fallback = KB_BODIES[article.id] ?? t('helpdesk.kb.noContent')
+  const fallback = article.content || KB_BODIES[article.id] || t('helpdesk.kb.noContent')
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(
     () => savedBody ?? fallback.split('\n\n').map((p) => `<p>${p}</p>`).join(''),
@@ -1128,7 +1137,7 @@ function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () =
             <h2 className="text-lg font-semibold text-foreground mb-2">{article.title}</h2>
             <div className="flex items-center gap-3">
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${kbCategoryColors[article.category] ?? 'bg-secondary text-muted-foreground'}`}>{article.category}</span>
-              {article.published ? (
+              {article.status === 'published' ? (
                 <span className="rounded-full bg-success-light text-success px-2 py-0.5 text-[10px] font-medium">{t('helpdesk.kb.published')}</span>
               ) : (
                 <span className="rounded-full bg-secondary text-muted-foreground px-2 py-0.5 text-[10px] font-medium">{t('helpdesk.kb.draft')}</span>
@@ -1136,7 +1145,6 @@ function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () =
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1 text-xs text-muted-foreground"><Eye className="h-3.5 w-3.5" />{article.views}</span>
             {!editing ? (
               <button onClick={() => setEditing(true)} className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors">
                 <Pencil className="h-3 w-3" />{t('common.edit')}
@@ -1176,7 +1184,7 @@ function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () =
 
         <div className="border-t border-border mt-6 pt-4 flex items-center justify-between">
           <p className="text-xs text-muted-foreground">
-            {t('helpdesk.kb.lastUpdated')}: {formatDate(article.updatedAt, { day: '2-digit', month: 'long', year: 'numeric' })}
+            {t('helpdesk.kb.lastUpdated')}: {formatDate(article.updated_at, { day: '2-digit', month: 'long', year: 'numeric' })}
           </p>
           <button onClick={() => toast.info(t('helpdesk.kb.feedbackSent'))} className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors">
             {t('helpdesk.kb.wasHelpful')}

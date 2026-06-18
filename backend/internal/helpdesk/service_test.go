@@ -156,6 +156,55 @@ func (r *mockRepo) UpdateSLAPolicy(_ context.Context, p *SLAPolicy) error {
 	return nil
 }
 
+func (r *mockRepo) DeleteSLAPolicy(_ context.Context, id uuid.UUID) error {
+	delete(r.slaPolicies, id)
+	return nil
+}
+
+func (r *mockRepo) CreateKBArticle(_ context.Context, a *KBArticle) error {
+	return nil
+}
+
+func (r *mockRepo) GetKBArticleByID(_ context.Context, id uuid.UUID) (*KBArticle, error) {
+	return nil, ErrKBArticleNotFound
+}
+
+func (r *mockRepo) ListKBArticles(_ context.Context, _ uuid.UUID) ([]*KBArticle, error) {
+	return nil, nil
+}
+
+func (r *mockRepo) UpdateKBArticle(_ context.Context, _ *KBArticle) error {
+	return nil
+}
+
+func (r *mockRepo) DeleteKBArticle(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
+func (r *mockRepo) CreateRoutingRule(_ context.Context, _ *RoutingRule) error {
+	return nil
+}
+
+func (r *mockRepo) GetRoutingRuleByID(_ context.Context, id uuid.UUID) (*RoutingRule, error) {
+	return nil, ErrRoutingRuleNotFound
+}
+
+func (r *mockRepo) ListRoutingRules(_ context.Context, _ uuid.UUID) ([]*RoutingRule, error) {
+	return nil, nil
+}
+
+func (r *mockRepo) UpdateRoutingRule(_ context.Context, _ *RoutingRule) error {
+	return nil
+}
+
+func (r *mockRepo) DeleteRoutingRule(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
+func (r *mockRepo) GetHelpdeskStats(_ context.Context, _ uuid.UUID) (*HelpdeskStats, error) {
+	return &HelpdeskStats{}, nil
+}
+
 // ---------------------------------------------------------------------------
 // Test harness
 // ---------------------------------------------------------------------------
