@@ -89,7 +89,7 @@ let damages = [...MOCK_DAMAGES_API]
 let fuelLogs = [...MOCK_FUEL_LOGS]
 let tripLogs = [...MOCK_TRIP_LOGS]
 let vehicleDocuments = [...MOCK_VEHICLE_DOCUMENTS]
-let gpsRoutes = [...MOCK_GPS_ROUTES]
+const gpsRoutes = [...MOCK_GPS_ROUTES]
 
 // ============================================================================
 // Helpers

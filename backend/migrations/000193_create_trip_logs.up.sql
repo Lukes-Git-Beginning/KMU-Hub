@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS trip_logs (
     notes           TEXT,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT trip_logs_end_km_check CHECK (end_km >= start_km)
+    CONSTRAINT trip_logs_km_range_check CHECK (end_km >= start_km)
 );
 CREATE INDEX IF NOT EXISTS idx_trip_logs_vehicle_id ON trip_logs(vehicle_id);
 CREATE INDEX IF NOT EXISTS idx_trip_logs_tenant_id ON trip_logs(tenant_id);

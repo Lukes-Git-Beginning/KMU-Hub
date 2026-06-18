@@ -44,9 +44,6 @@ import { useEinkaufStore } from '@/stores/einkauf'
 import type {
   Supplier,
   PurchaseOrder,
-  CatalogItem,
-  SupplierRating,
-  FrameworkContract,
 } from '@/api/einkauf-types'
 import {
   useSuppliers,
