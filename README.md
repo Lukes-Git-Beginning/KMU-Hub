@@ -4,6 +4,13 @@
 
 **Hersteller:** Zentria UG (i.G.) · **Software:** Cosmi · **Production:** [app.zentria.tech](https://app.zentria.tech)
 
+![Status](https://img.shields.io/badge/status-pre--launch-orange)
+![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white)
+![License](https://img.shields.io/badge/license-proprietary-lightgrey)
+
 ---
 
 ## Vision
@@ -26,11 +33,12 @@ Standardsoftware zwingt KMUs in Workflows, die nicht zu ihren Prozessen passen. 
 
 | | |
 |---|---|
-| **Phase** | Pre-Launch (Sprint 3 abgeschlossen 2026-05-08) |
+| **Phase** | Pre-Launch — **Sprint 4 aktiv** (2026-06-08 – 06-21); Sprint 5 (Pre-Launch-Audit) ab 06-22 |
 | **Launch-Datum** | 2026-07-01 (ZFA-Pilot-0) |
 | **Version** | 0.1.0 (Pre-Release) |
-| **Production** | [app.zentria.tech](https://app.zentria.tech) — 25 Application-Services, Migration-Head 115, alle Container healthy |
-| **Repo** | `github.com/Lukes-Git-Beginning/KMU-Hub` (privat) |
+| **Production** | [app.zentria.tech](https://app.zentria.tech) — 24 `cmd`-Services (23 µSvc + Gateway), `COSMI_ENV=production` scharf · **Migrationskopf: Prod 209 / Repo 213** |
+| **Blocker** | Alle 16 P0-Launch-Blocker dicht (2026-06-05); launch-kritisch offen nur R2-P1.10 (Partitionierung) |
+| **Repo** | `github.com/Lukes-Git-Beginning/KMU-Hub` (privat), Branch `main` (direct-to-main) |
 | **Roadmap** | [`docs/ROADMAP.md`](docs/ROADMAP.md) (Single Source of Truth, 6-Sprint-Plan bis Launch) |
 | **Code-Reife** | Kombinierte Launch-Reife 3.7 (Rigorosum Runde 2 — Note 4.1; Runde 3 in Sprint 5) |
 
@@ -74,7 +82,7 @@ Standardsoftware zwingt KMUs in Workflows, die nicht zu ihren Prozessen passen. 
 
 ### Kommunikation & Admin
 
-Unified Inbox · Notifications · Teams-Bot · Slack-Bot · Automation-Engine (Trigger/Condition/Action) · Sicherheit (2FA, Audit-Log, GDPR-Export/Erasure, Vault) · RBAC (admin/manager/member, resource:action-Permissions) · Feature-Flag-Registry (16 Flags, Live)
+Unified Inbox · Notifications · Teams-Bot · Slack-Bot · Automation-Engine (Trigger/Condition/Action) · Sicherheit (2FA, Audit-Log, GDPR-Export/Erasure, Vault) · RBAC (admin/manager/member, resource:action-Permissions) · Feature-Flag-Registry (17 Flags, Live — `backend/internal/featureflag/registry.go`)
 
 Vollständige Modul-Scope-Matrix mit Tabellen/RPCs/Hooks: [`docs/MODULES_SCOPE_MATRIX.md`](docs/MODULES_SCOPE_MATRIX.md)
 
@@ -107,7 +115,7 @@ Onsite-Prozessanalyse + Maßanfertigung als einmalige Onboarding-Pauschale.
                                    │ gRPC (mTLS optional)
    ┌──────────────────────────────┼──────────────────────────────┐
    │                               │                                │
-   │  Kern-Services (10):           │   Branchen-Services (8):       │
+   │  Kern-Services (15):           │   Branchen-Services (8):       │
    │  auth · crm · chat · work       │   inventar · einkauf · produktion │
    │  email · document · biz         │   vertraege · rapporte · schichten│
    │  notification · automation      │   fuhrpark · vermietung           │
@@ -120,12 +128,12 @@ Onsite-Prozessanalyse + Maßanfertigung als einmalige Onboarding-Pauschale.
               ┌─────▼─────┐                    ┌────▼─────┐
               │ PostgreSQL │                    │ Redis 7.4 │
               │  (pgvector│                    │  (Cache,  │
-              │   + 115   │                    │   Rate-   │
+              │   + 213   │                    │   Rate-   │
               │ Migrations)│                    │   Limit)  │
               └────────────┘                    └───────────┘
 ```
 
-**25 Application-Services + Caddy + Postgres + Redis + MinIO + LiveKit (×2) + Monitoring (Prometheus/Grafana/Alertmanager).**
+**24 `cmd`-Services (23 gRPC-Microservices + API-Gateway) + Caddy + Postgres + Redis + MinIO + LiveKit (×2) + OnlyOffice + Monitoring (Prometheus/Grafana/Alertmanager).**
 
 ### Architektur-Prinzipien
 
@@ -146,7 +154,7 @@ ADRs: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Lessons aus Vorgängerproj
 
 | Komponente | Technologie |
 |---|---|
-| Backend | Go 1.25 — 25 Microservices, gRPC + Protocol Buffers |
+| Backend | Go 1.25 — 24 `cmd`-Binaries (23 gRPC-Microservices + API-Gateway), Protocol Buffers |
 | Routing | chi/v5 (HTTP), gRPC mit Interceptor-Stack |
 | Datenbank | PostgreSQL 16 (`pgvector/pgvector:pg16`), pgx/v5 Driver |
 | Cache | Redis 7.4 (Rate-Limit, Idempotency, Agent-Status) |
@@ -170,9 +178,9 @@ ADRs: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Lessons aus Vorgängerproj
 KMU Hub/
 ├── backend/                           # Go Microservices
 │   ├── api/openapi.yaml               # OpenAPI-Spec (~14k Zeilen)
-│   ├── cmd/                           # 25 Service-Binaries
+│   ├── cmd/                           # 24 Service-Binaries (23 µSvc + gateway)
 │   ├── internal/                      # Service-Implementierungen
-│   ├── migrations/                    # PostgreSQL-Migrationen (115 Paare)
+│   ├── migrations/                    # PostgreSQL-Migrationen (182 Dateien, Kopf 000213)
 │   ├── proto/                         # Protocol-Buffer-Definitionen
 │   └── Makefile                       # Build, Test, Lint, Migrate, Proto
 ├── desktop/                           # Electron-App
@@ -195,7 +203,7 @@ KMU Hub/
 │   ├── PRICING.md                     # Pricing-Modell
 │   └── MODULES_SCOPE_MATRIX.md        # 14 Module × Tabellen/RPCs/Flags
 ├── .knowledge/                        # Obsidian Knowledge Base (Architektur, Datenbank, ...)
-├── .github/workflows/                 # ci.yml, ci-desktop.yml, cd.yml, security-review.yml
+├── .github/workflows/                 # ci · ci-desktop · cd · nightly · scans · claude-pr · security-review (7)
 ├── CLAUDE.md                          # Entwicklungsrichtlinien
 └── README.md
 ```
@@ -256,7 +264,7 @@ npm run dev
 ```bash
 cd backend
 
-# Build (alle 25 Services)
+# Build (alle 24 cmd-Binaries)
 make build
 make build-prod          # mit -tags no_wasm (Production-Build)
 
@@ -327,21 +335,18 @@ ansible-playbook -i inventory/hosts.yml site.yml --ask-vault-pass
 
 ### CI/CD
 
-GitHub Actions auf jeden Push:
+7 GitHub-Actions-Workflows. **Pipeline-Split seit 2026-06-09:** per-Push laufen nur die schnellen Gates, schwere Jobs (Smoke/Integration/Security-Scans) sind in Schedule-Workflows ausgelagert.
 
-| Job | Tool | Trigger |
+| Workflow | Trigger | Jobs |
 |---|---|---|
-| Lint | golangci-lint v2.8 | `backend/` |
-| Test | go test + Race-Detector | `backend/` |
-| Build | go build | nach Lint+Test |
-| E2E | Integration-Tests mit Service-Containers | nach Lint+Test |
-| Smoke | Go-Smoke-Tests | nach E2E |
-| OpenAPI | Spec-Validierung | parallel |
-| Security | gosec + trivy + npm audit | parallel |
-| Desktop | typecheck + lint + test + build | `desktop/` |
-| CD | SSH-Deploy auf Production | nach erfolgreichem CI auf main |
+| `ci.yml` | Push/PR auf `backend/**` | lint (golangci-lint v2.8) · test (`-race` + 15 %-Coverage-Gate) · e2e (Service-Container) · openapi-validate |
+| `ci-desktop.yml` | Push/PR auf `desktop/**` | typecheck · lint · test (Vitest) · build |
+| `nightly.yml` | täglich 03:00 UTC + dispatch | smoke (self-contained, 6 Svc) · integration (Finance, testcontainers) |
+| `scans.yml` | wöchentlich Mo + Dependency-Change + dispatch | gosec · trivy (HIGH/CRIT-Gate) · npm-audit |
+| `cd.yml` | Push auf `main` (nach grünem CI) | SSH-Deploy auf Hetzner via `deploy.sh`, Auto-Rollback |
+| `claude-pr.yml` · `security-review.yml` | PR / dispatch | Review-Automation |
 
-CD-Pipeline ist concurrency-gated (`production`-Group), nutzt `deploy.sh` mit Auto-Rollback bei Health-Check- oder Smoke-Failure, postet Slack-Notification.
+CD-Pipeline ist concurrency-gated (`production`-Group), nutzt `deploy.sh` mit Auto-Rollback bei Health-Check- oder Smoke-Failure, postet Discord-Notification (`ALERT_WEBHOOK_URL`).
 
 ---
 
@@ -379,6 +384,8 @@ Designphilosophie + Motion-Tokens + Anti-Patterns: [`.knowledge/design.md`](.kno
 | Dokument | Inhalt |
 |---|---|
 | [`CLAUDE.md`](CLAUDE.md) | Entwicklungsrichtlinien, Architektur-Regeln, Kommandos |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Commit-Konventionen, Branch-Strategie, Build-/Test-Gates |
+| [`.planning/status-overview.md`](.planning/status-overview.md) | Live-Status-Snapshot (Modul-Reifegrad, Blocker-Burndown) |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | 6-Sprint-Plan bis Launch 2026-07-01 (Single Source of Truth) |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Architektur-Entscheidungen (ADRs) |
 | [`docs/LEARNINGS.md`](docs/LEARNINGS.md) | Lessons Learned aus Vorgängerprojekt |

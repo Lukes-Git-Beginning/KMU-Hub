@@ -1,6 +1,6 @@
 ---
 tags: [troubleshooting, debug]
-updated: 2026-06-12
+updated: 2026-06-18
 ---
 # Troubleshooting & Bekannte Probleme
 
@@ -400,6 +400,15 @@ Aus dem Marathon-Deploy `980eba3` → `3abec5f` (Migration 81 → 115). 9 Hotfix
 - **Explore-Agents + `git grep <branch>` = Branch-SNAPSHOT, nicht Branch-DIFF** — der Treffer kann unverändertes Merge-Base-Erbe sein. Vor Sweep-Planung mit `git diff base...branch -- <datei>` verifizieren, sonst plant man Fixes für Dateien, die der Merge ohnehin von main übernimmt (so geschehen: ContractType-Sweep + Presign-Umstellung waren obsolet).
 - **Merge-Halbschatten bei Store-Mocks:** main-Tests, die zustandsbasierte Stores mocken, brechen still, wenn die Lane neue Selektoren ergänzt (`scope` undefined → Bedingung false → UI-Teil fehlt). Nach Merges Vitest IMMER laufen lassen, Mock-Stores um neue Felder ergänzen.
 - **tsc ist repo-weit wieder 0 Fehler** (Stand 2026-06-11 Nacht) — die ~98 typed-i18n-Altfehler sind beseitigt; Full-`npx tsc --noEmit` taugt wieder als Gate (Exit-Code direkt prüfen, nie durch Pipes).
+
+## Multi-Agent-Orchestrierung — Failure-Modes (FE-Wiring Welle 2, 2026-06-18)
+
+Bei parallelen Sonnet-Subagenten (ein Modul je Agent) traten vier Failure-Modes auf, die alle erst durch unabhängige Verifikation auffielen:
+
+- **"Nicht pushen"-Anweisung wird ignoriert.** 2 von 3 Subagenten committeten + pushten trotz expliziter Prompt-Anweisung direkt auf `main` → CI Desktop rot + CD deployte Stub nach Prod. Eine Prompt-Zeile ist KEINE Enforcement-Grenze. **Regel:** Subagenten mit `isolation: "worktree"` starten (physische Trennung von main); die **Main-Session macht ALLE Commits/Pushes**. Vor jedem Commit: `git worktree list`, `git log origin/main`, Dateiliste vs. Report, `TaskStop` laufender Agenten.
+- **"Build/Test grün" ≠ architektonisch korrekt.** Ein Agent rief im Gateway den Service **direkt in-process** auf (eigener DB-Pool) statt über den gRPC-Client → umgeht den Tenant-RLS-Kontext-Hook (`PrepareConn` setzt `app.tenant_id` aus gRPC-Metadata) → in Prod **leere Tabellen / Phantom-404**. Tests waren grün, weil sie Mocks statt echter DB/RLS nutzen. **Regel:** Gateway-Routes MÜSSEN über `sr.getClient()`/gRPC laufen, nie über einen im Gateway instanziierten Service (Architektur-Regel "Thick Services, Thin Handlers" + RLS). Nach Proto-Edit IMMER per-Modul regenerieren und `.pb.go`-Diff prüfen — sonst fließen neue Felder nie durch gRPC.
+- **"Voll end-to-end" gemeldet, aber Stubs geliefert.** gRPC-Handler waren `codes.Unimplemented`; MSW kaschierte es im Demo. **Regel:** Claim per `grep Unimplemented` + Lesen der Handler gegenprüfen.
+- **QA-Assert grün bei gecrashter Seite.** Die store→Hook-Migration verletzte die Rules-of-Hooks (Hook nach early-return) → React-ErrorBoundary fing den Crash ab → kein `pageerror`, keine Raw-Keys → QA-Script meldete „grün", obwohl die Seite tot war. Außerdem: QA-Script mischte puppeteer-Import + Playwright-API → wäre nie gelaufen. **Regel:** Screenshots IMMER wirklich ansehen; im QA-Script auf ErrorBoundary-Text prüfen (z.B. „Etwas ist schiefgelaufen" / „Rendered more hooks"). Playwright-Boilerplate aus `desktop/scripts/qa-welle0-absences.mjs` (electronAPI-Stub + `cosmi-ui`-Onboarding) wiederverwenden.
 
 ## Verwandte Notes
 - [[architektur]] — Architektur-Regeln

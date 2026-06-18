@@ -1,6 +1,6 @@
 ---
 tags: [architektur, backend, frontend, ci-cd, rls]
-updated: 2026-06-11
+updated: 2026-06-18
 ---
 # Architektur
 
@@ -172,7 +172,7 @@ Komplett-Ausbau der drei Module, mock-first wo kein Backend existiert. **Noch NI
   - Typed `Flag{Key, DefaultEnabled, EnvVar, Description, Risk, LLMToggleSafe}`
   - `Risk`-Enum: `safe | breaking | security` — plus `LLMToggleSafe`-Flag, damit spaetere LLM-gesteuerte Toggles wissen, was sie anfassen duerfen
   - Env-Loader, `IsEnabled(key)`, `All()`, sortierte `Keys()`
-  - 16 Flags registriert: 14 Modul-Flags (`modules.<name>`, Default off) + `plugins.wasm` (off) + `plugins.config` (on)
+  - 17 Flags registriert: 14 Modul-Flags (`modules.<name>`, Default off) + `plugins.wasm` (off) + `plugins.config` (on) + `plugins.api` (off — Plugin-HTTP-API-Routen, security-risk, bis Phase D)
   - EnvVar-Konvention Modul-Flags: `COSMI_MODULE_<UPPER>_ENABLED`
 - **API:** `GET /api/v1/feature-flags` (auth-required) → `{flags: {[key]: bool}, version: "v1"}`
 - **Frontend:**

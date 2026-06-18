@@ -1,10 +1,14 @@
 ---
 tags: [index]
-updated: 2026-05-10
+updated: 2026-06-18
 ---
 # Cosmi — Knowledge Base
 
-## Projektstand (2026-05-10)
+## Projektstand (2026-06-18)
+
+**Aktueller Stand (live gemessen 2026-06-18):** Sprint 4 aktiv (2026-06-08–06-21, Tag 11/14), Sprint 5 (Pre-Launch-Audit + Rigorosum R3) ab 06-22. **Alle 16 P0-Launch-Blocker dicht** (7 R1 + 9 R2, zuletzt R2-P0.4 am 2026-06-05); launch-kritisch offen nur noch R2-P1.10 (Partitionierung). `COSMI_ENV=production` seit 2026-06-05 **scharf**, **RLS produktiv**. **Finance-Normalisierung** nach ADR-0007 (Migr. 000132/133) erledigt. **FE↔Backend-Wiring-Wellen** laufen (helpdesk/schichten/hr/wiki/rapporte/inventar/vermietung gewired; fuhrpark/einkauf/produktion Welle 3 offen). **Repo-Migrationskopf 000213 / Production 209** (CD-Lag 4 Migr.), **24 `backend/cmd/*`-Dirs** (23 µSvc + Gateway), **17 Feature-Flags**. Kombinierte Launch-Reife 3.7 (Rigorosum R3 in S5). Detail-Historie: [[milestones]].
+
+### Historie (chronologisch)
 - **Sprint 0 abgeschlossen:** Alle 7 R1-P0-Blocker + Cleanup + Modul-Scope-Matrix gemerged (9 PRs), Gate S0 bestanden
 - **Sprint 1 abgeschlossen (2026-04-26):** 7/7 Module live + 5/5 R2-P0 Batch A done, Gate S1 bestanden
 - **Sprint 2 Welle 1 done (2026-04-26):** inventar/einkauf/produktion + 20-Blocker-Bugfix-Sweep (`ad04191`) auf main
@@ -19,15 +23,15 @@ updated: 2026-05-10
 - **Launch-Datum:** **2026-07-01** (+4 Wochen nach Rigorosum Runde 2)
 - **Alle 20 Feature-Phasen abgeschlossen** (103/103 Plans)
 - **Branding:** "Cosmi" (Software), "Zentria" (Firma), zentria.tech
-- **Naechste Schritte:** Sprint 4 ab 2026-06-08 (`finance_invoices.line_items`-Normalisierung nach ADR-0007, Skeleton in `a1a8d54` bereit, R2-P1) → Sprint 5 (Peer-Review + Rigorosum Runde 3, Launch-Freigabe). **Vor Sprint 4:** Pilot-0-IP nach Hetzner-VM-Bestellung in `deploy/ansible/inventory/hosts.yml` setzen, Smoke-Test 12/21 reparieren (RBAC-Bootstrap via `SMOKE_ADMIN_TOKEN`), CCX21-RAM-Upgrade fuer Pilot-1 evaluieren. **`ALERT_WEBHOOK_URL` live verifiziert in `#cosmi-prod-alerts` (2026-05-09)** — Discord-Notification-Pipeline aktiv, curl-Test-Message angekommen.
+- **Naechste Schritte (Stand 2026-06-18):** Sprint 4 laeuft — Finance-Normalisierung ✅, R2-P1-Batch ✅, FE↔Backend-Wiring Welle 3 offen (fuhrpark/einkauf/produktion) → Sprint 5 ab 06-22 (Peer-Review + Rigorosum Runde 3, Launch-Freigabe). **Offen:** Pilot-0-IP nach Hetzner-VM-Bestellung in `deploy/ansible/inventory/hosts.yml` setzen. **`ALERT_WEBHOOK_URL` live in `#cosmi-prod-alerts`** — Discord-Notification-Pipeline aktiv.
 - **Sprint 1 Welle 1–4 (2026-04-18):** ✅ R2-P0 Batch A komplett (LiveKit-Secrets-Assertion, Egress-Webhook, Lexware-HMAC, Recording-Consent, coturn-Prep flag-off), ✅ Wiki-Modul (15 RPCs, FTS) + Helpdesk-Modul (22 RPCs, SLA + Merge) end-to-end
 - **Sprint 1 Welle 5 (2026-04-18) — berichte Backend-Kern:** ✅ Migration 000079, Proto 14 RPCs, Service-Layer (52.4% Cov), Executor (92.1% Cov), Scheduler (91.5% Cov), Frontend-Client + Recharts-Page
 - **Sprint 1 Welle 6 (2026-04-19) — S1.2 berichte Completion:** ✅ WP-3 Export-Layer (PDF/CSV/XLSX, 80.2% Cov), WP-5 gRPC-Server + cmd (77.6% Cov, Ports 50063/9103), WP-6 Gateway-Routes + ACL-Seed 000080 (57% Cov), WP-7 Docker-Compose, WP-11 Smoke. Gate S1.2 bestanden
-- **Feature-Flag-Registry:** ✅ Live (16 Flags), siehe [[architektur]]
+- **Feature-Flag-Registry:** ✅ Live (17 Flags: 14 Modul-Flags + `plugins.wasm`/`plugins.config`/`plugins.api`), siehe [[architektur]]
 - **Consent-Enforcement:** ✅ Vor SendEmail + DialerCall aktiv, siehe [[security]]
 - **WASM-Plugin-System:** Feature-Flag OFF bis Phase D + Build-Tag `no_wasm`, siehe [[integrationen]]
 - **Mobile:** PWA auf Desktop-Basis (kein React Native mehr)
-- **Hetzner Prod:** ✅ **Live auf `3abec5f` seit 2026-05-08** — alle 25 Application-Services + Caddy + Postgres + Redis (7.4) + MinIO + Prometheus + Grafana + Alertmanager healthy (32 Container). Migration-Head `115`. Welle-1-Marathon 81→115 mit 9 Hotfix-Commits (image-pinning fragility, healthcheck-Bugs, RAM-Limit). OnlyOffice unhealthy seit 2 Monaten (separater Bug, kein Pilot-Blocker). Details in [[deployment]] und [[troubleshooting]].
+- **Hetzner Prod:** ✅ Live — **Production-Migrationskopf 209** (Repo-Kopf 000213, CD-Lag 4 Migr.; live gemessen 2026-06-18 via `psql`), `COSMI_ENV=production` scharf seit 2026-06-05, Smoke zuletzt 24/24. Stack: 24 `cmd`-Binaries (23 µSvc + Gateway) + Caddy + Postgres + Redis 7.4 + MinIO + LiveKit (×2) + OnlyOffice + Monitoring (Prometheus/Grafana/Alertmanager). Historie: Welle-1-Marathon 81→115 (2026-05-08, `3abec5f`) → LiveKit/COSMI_ENV-Cluster (2026-06-06, `564f238b`) → FE-Wiring-Wellen (Migr. 148–213). Details in [[deployment]] und [[troubleshooting]].
 - GitHub: github.com/Lukes-Git-Beginning/KMU-Hub (private), branch: main
 
 ### Roadmap (Single Source of Truth: `docs/ROADMAP.md`)
@@ -40,10 +44,10 @@ updated: 2026-05-10
 | S4 | 2026-06-08–06-21 | `finance_invoices.line_items`-Normalisierung + R1-P1 + R2-P1 |
 | S5 | 2026-06-22–06-30 | End-to-End, Peer-Review, Rigorosum Runde 3, Launch-Freigabe |
 
-### Aktive Blocker
-1. **Legal (AVV/DPA):** wartet auf UG-Gruendung 2026-06-01
-2. **9 R2-P0-Blocker:** auf Sprint 1+2 verteilt, siehe `docs/ROADMAP.md §4`
-3. **~50 Tabellen Option-B-Retrofit:** Sprint 2+3
+### Aktive Blocker (Stand 2026-06-18)
+1. **Legal (AVV/DPA):** an UG-Gruendung gekoppelt (geplant 2026-06-01; Repo nennt weiterhin „Zentria UG i.G.")
+2. ~~**9 R2-P0-Blocker**~~: ✅ alle 16 P0 dicht (2026-06-05). Launch-kritisch offen nur R2-P1.10 (Partitionierung — kein `pg_cron` im pgvector-Image)
+3. ~~**~50 Tabellen Option-B-Retrofit**~~: ✅ abgeschlossen (Sprint 2+3), RLS produktiv seit 2026-06-05
 
 ## Notes
 

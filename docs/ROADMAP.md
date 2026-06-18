@@ -121,7 +121,7 @@ Diese Datei ist die einzige gueltige Roadmap bis zum Launch. Alle anderen werden
 | S0.8 | `mobile/`-Ordner loeschen, Pitch korrigiert (PWA statt Native) | 2h | ✅ Done | #4 |
 | S0.9 | 14-Modul-Backend-Scope-Matrix (`docs/MODULES_SCOPE_MATRIX.md`) | 1d | ✅ Done | #8 |
 
-**Abgeschlossen:** Alle 7 R1-P0 + R2-P1.2 (WASM-OFF, zusammen mit S0.6) gefixt. Feature-Flag-System live mit 16 Flags (14 Module + `plugins.wasm` + `plugins.config`). Modul-Scope final in `docs/MODULES_SCOPE_MATRIX.md`.
+**Abgeschlossen:** Alle 7 R1-P0 + R2-P1.2 (WASM-OFF, zusammen mit S0.6) gefixt. Feature-Flag-System live mit 17 Flags (14 Module + `plugins.wasm`/`plugins.config`/`plugins.api`; `plugins.api` kam in Audit-Response 2026-05-10 dazu). Modul-Scope final in `docs/MODULES_SCOPE_MATRIX.md`.
 
 ---
 
@@ -325,7 +325,7 @@ Quelle: Rigorosum Runde 1 (wild-wren, 2026-04-18) + Rigorosum Runde 2 Vertiefung
 | R2-P1.9 | ~10 FKs ohne ON DELETE nachziehen | ✅ Done 2026-06-05 (`98337921`, Migration 000130) | S4 |
 | R2-P1.10 | Partitionierung + pg_cron-Retention | Pending (S4.10 abgespalten — kein pg_cron im pgvector-Image, braucht Maintenance-Window) | S4 |
 | R2-P1.11 | `CleanupExpiredRecordings`-Cronjob | ✅ Done 2026-06-05 (`f5788d8d`, 24h-Cron) | S4 |
-| R2-P1.12 | `finance_invoices.line_items` normalisieren | Pending (Sprint-4-Kernstück, ADR-0007) | S4 |
+| R2-P1.12 | `finance_invoices.line_items` normalisieren | ✅ Done 2026-06-08 (Migr. 000132/000133 relationaler Cutover, ADR-0007; JSONB synchron befuellt → kein API-Bruch, JSONB-Drop deferred → S5) | S4 |
 
 ### P2 — Vor Pilot-Skalierung (Post-Launch Phase C, August–November)
 
@@ -455,8 +455,8 @@ Jeder Sprint endet mit einem harten Gate. Ohne gruenes Gate kein Fortschritt.
 
 ### Gate S4 (2026-06-21)
 
-- [ ] **`finance_invoices.line_items` normalisiert:** `finance_invoice_lines`-Tabelle existiert, Backfill migriert alle bestehenden Rechnungen, ZUGFeRD-Export laeuft gegen neue Tabelle
-- [ ] **Finance-Service-Coverage ≥50%** (vorher <15%): Rechnungserstellung, Positions-Summen, Steuerberechnung, Zahlungen, Dunning getestet
+- [x] **`finance_invoices.line_items` normalisiert:** ✅ 2026-06-08 — `finance_invoice_lines`/`finance_quote_lines`/`finance_credit_note_lines` (Migr. 000132/000133), Backfill aus `snapshot_data`, ZUGFeRD/PDF/DATEV unveraendert (JSONB synchron befuellt, Drop → S5)
+- [x] **Finance-Service-Coverage ≥50%** (vorher <15%): ✅ invoice 69.6% · quote 63.7% · creditnote 51.3% (testcontainers-go, `-tags=integration`)
 - [ ] Alle R1-P1 + R2-P1 erledigt (Input-Validation, LiveKit-HMAC, Automation-Tenant-Isolation, Circuit-Breaker, Meeting-Rollen, WS-Token, Redis-Subscription-State, DB-FKs-Nachzug, Partitionierung, Recording-Cronjob)
 
 ### Gate S5 (2026-06-30) — PILOT-0-FREIGABE (ZFA, 01.07.)

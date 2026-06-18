@@ -1,10 +1,15 @@
 # Modules Scope Matrix — 14 Cosmi-Module
 
-**Stand:** 2026-05-10
+**Stand (Planungs-Snapshot):** 2026-05-10 — Tabellen/RPCs/Flag-Keys sind die Scope-Planung aus Sprint 0.
 **Purpose:** Basis fuer Feature-Flag-Registry (S0.6), Sprint-1/2-Planung, Pilot-Segmentierung
 **Single Source of Truth:** [docs/ROADMAP.md §5](./ROADMAP.md) — diese Matrix extrahiert operative Details.
 
-> Alle 14 Module haben Mock-Frontend (Stores unter `desktop/src/renderer/src/stores/<modul>.ts`) und werden bis Launch 2026-07-01 mit echtem Backend ausgestattet. `buchhaltung` und `video` sind Completion-Taetigkeiten (Backend teilweise vorhanden), alle anderen sind Neubau.
+> ⚠ **Live-Status statt Plan-Snapshot:** Diese Matrix beschreibt den *geplanten* Scope (Stand 2026-05-10) — die
+> „Mock-Store"-Vermerke pro Modul sind teils ueberholt. Den **aktuellen FE↔Backend-Wiring-Reifegrad** (welche
+> Module store→API verdrahtet sind) fuehrt [`.planning/status-overview.md`](../.planning/status-overview.md)
+> (Modul-Reifegrad-Matrix, laufend gepflegt). Backend-RPCs sind ueber alle 14 Module in Sprint 1+2 gebaut.
+
+> Alle 14 Module hatten initial Mock-Frontend (Stores unter `desktop/src/renderer/src/stores/<modul>.ts`) und werden bis Launch 2026-07-01 mit echtem Backend ausgestattet. `buchhaltung` und `video` sind Completion-Taetigkeiten (Backend teilweise vorhanden), alle anderen sind Neubau.
 
 ---
 
@@ -221,7 +226,7 @@
 
 ## Stand (2026-05-10)
 
-Alle 14 Module haben funktionierende Backend-Packages und Migrations. Die "Neubau"-Eintraege aus Sprint-0-Planung sind obsolet — alle Module sind live (Migration-Head 116). Feature-Flag-Registry aktiv (16 Flags). Option-B-Full-Retrofit durch Sprint 2+3 abgeschlossen (Migrations 000104–000115).
+Alle 14 Module haben funktionierende Backend-Packages und Migrations. Die "Neubau"-Eintraege aus Sprint-0-Planung sind obsolet — alle Module sind live (Migrationskopf 000213 / Prod 209). Feature-Flag-Registry aktiv (17 Flags). Option-B-Full-Retrofit + RLS produktiv (Migrations 000104–000127, `COSMI_ENV=production` scharf seit 2026-06-05).
 
 Naechste offene Punkte: Sprint 4 (`finance_invoice_lines`-Normalisierung nach ADR-0007), Sprint 5 (Peer-Review, Rigorosum Runde 3).
 

@@ -1,10 +1,10 @@
 ---
 tags: [deployment, docker, ci-cd]
-updated: 2026-06-12
+updated: 2026-06-18
 ---
 # Deployment & Infrastruktur
 
-> **Aktueller Prod-Stand (2026-06-06 frueh, nach LiveKit/COSMI_ENV-Cluster):** `app.zentria.tech` auf `564f238b`, Migration-Head **131**, alle Container healthy, **`COSMI_ENV=production` SCHARF** (Prod-Secrets-Assertion aktiv), Smoke **24/24**, **Video-Calls erstmals end-to-end funktional** (`/rtc/validate`=200). Alle Compose-Secrets laufen jetzt ueber `${VAR:-dev-default}`-Interpolation aus `.env.production` (vorher: Dev-Secrets in Prod, Incident-Doku `docs/livekit-env-production-followups.md`). Davor (2026-06-05 nach E2E-Modernisierung): `91a3014c`, Head 129, erster automatischer CD-Deploy. **Lokal/main = Prod synchron, jeder gruene Push auf main deployt automatisch.**
+> **Prod-Stand (live gemessen 2026-06-18):** `app.zentria.tech`, Production-Migrationskopf **209** (Repo-Kopf **000213** — CD-Lag von 4 Migr. zum Mess-Zeitpunkt), **`COSMI_ENV=production` SCHARF**, Container healthy. Seit 2026-06-06 brachten die FE↔Backend-Wiring-Wellen Migr. 148–213. **Vorgeschichte (2026-06-06 frueh, nach LiveKit/COSMI_ENV-Cluster):** `564f238b`, Migration-Head **131**, alle Container healthy, **`COSMI_ENV=production` SCHARF** (Prod-Secrets-Assertion aktiv), Smoke **24/24**, **Video-Calls erstmals end-to-end funktional** (`/rtc/validate`=200). Alle Compose-Secrets laufen jetzt ueber `${VAR:-dev-default}`-Interpolation aus `.env.production` (vorher: Dev-Secrets in Prod, Incident-Doku `docs/livekit-env-production-followups.md`). Davor (2026-06-05 nach E2E-Modernisierung): `91a3014c`, Head 129, erster automatischer CD-Deploy. **Lokal/main = Prod synchron, jeder gruene Push auf main deployt automatisch.**
 >
 > **skip-worktree-Status (Stand 2026-05-08 nach Welle-1-Marathon):** keine aktiven Markierungen mehr. `livekit.yaml`-Patch aus alter Era ist obsolet (livekit-secrets.yaml-render-overlay ersetzt das per `render-configs.sh` in `deploy.sh` Step 2.5).
 >
@@ -165,7 +165,7 @@ Flags: `--base-url URL`, `--verbose`, `--expect-version SHA`
 Cleanup: Smoke-User wird am Ende per DELETE entfernt.
 
 ### healthcheck.sh — Docker Service Health
-- Prueft alle 25 Application-Services + Gateway + Postgres + Redis + Caddy + Monitoring (Prometheus/Grafana/Alertmanager)
+- Prueft alle App-Service-Container (23 gRPC-Microservices + Gateway = 24 `cmd`-Binaries) + Postgres + Redis + MinIO + LiveKit (×2) + OnlyOffice + Caddy + Monitoring (Prometheus/Grafana/Alertmanager)
 - Exit 0 = healthy, Exit 2 = failures
 - Welle-1-Hotfix: `set -e` + `((HEALTHY++))` Bash-Bug behoben (`HEALTHY=$((HEALTHY+1))`); Compose-Pfad align mit `deploy.sh`; Caddy-Healthcheck nutzt `--resolve $CADDY_HEALTHCHECK_HOST:443:127.0.0.1` statt hardcoded `https://localhost`. Welle-1-Standalone: 14/14 ✅.
 

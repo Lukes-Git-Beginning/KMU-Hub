@@ -17,14 +17,10 @@ build/
 .next/
 out/
 
-# === React Native ===
-mobile/ios/Pods/
-mobile/android/.gradle/
-mobile/android/build/
-mobile/android/app/build/
-*.apk
-*.aab
-*.ipa
+# === Planning / QA build artifacts (regenerable) ===
+.planning/pdf-build/
+.planning/*.pdf
+desktop/scripts/screenshots/
 
 # === Environment ===
 .env

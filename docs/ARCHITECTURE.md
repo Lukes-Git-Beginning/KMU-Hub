@@ -168,6 +168,18 @@ Datenbank muss relational (CRM-Daten), performant (Chat), und self-hostable sein
 - PostgreSQL ist die einzige Datenquelle
 - Redis-Daten sind jederzeit aus PostgreSQL rekonstruierbar
 
+## ADR-007: Finance-Line-Items-Normalisierung (JSONB → relationale Tabellen)
+
+**Status:** Akzeptiert · Umgesetzt 2026-06-08 (Sprint 4, Migrationen 000132/000133)
+
+**Volltext:** [`docs/adr/0007-finance-line-items-normalization.md`](adr/0007-finance-line-items-normalization.md)
+
+**Kontext:** `finance_invoices.line_items` (und Quotes/Credit-Notes) lagen als JSONB-Array vor — nicht GoBD-/ZUGFeRD-revisionssicher, keine FKs, keine Constraints, N+1-anfaellig bei Aggregation.
+
+**Entscheidung:** Relationaler Cutover auf eigene Tabellen `finance_invoice_lines` / `finance_quote_lines` / `finance_credit_note_lines` (FK CASCADE, RLS, `tax_rate`-CHECK 0–100 DACH-sicher, `locked_at`/`locked_by` auf `finance_invoices`). Sauberer Cutover ohne Dual-Write/Feature-Flag (keine Prod-Finance-Daten). Die JSONB-Spalte bleibt **synchron befuellt** → gRPC/PDF/DATEV/Dashboard unveraendert (kein API-Bruch, Proto war schon `repeated LineItem`). **JSONB-Drop deferred auf Sprint 5.**
+
+**Konsequenz:** Finance-Test-Coverage via testcontainers-go (echtes PG16, `-tags=integration`): invoice 69.6 % · quote 63.7 % · creditnote 51.3 %. Schliesst R2-P1.12.
+
 ## System-Global Tables (No RLS)
 
 Folgende Tabellen sind bewusst NICHT RLS-aktiviert. Sie sind system-globaler Natur (Schema-Metadata, kontext-unabhaengige Konfiguration, Seed-Daten). Alle anderen Tabellen sind ab Sprint 4 Welle 4 RLS-pflichtig.

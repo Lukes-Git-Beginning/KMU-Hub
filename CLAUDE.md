@@ -16,7 +16,7 @@
 
 | Komponente | Technologie |
 |-----------|-------------|
-| Backend | Go (API Gateway + 24 gRPC-Microservices) |
+| Backend | Go (API-Gateway + 23 gRPC-Microservices = 24 `backend/cmd/*`-Dirs) |
 | Desktop | Electron + React 19 + TypeScript |
 | Mobile | PWA (Phase E, auf Desktop-Basis) |
 | Datenbank | PostgreSQL 16 + Redis 7 (Cache only) |
@@ -38,7 +38,7 @@ Bullet-Liste — Code-Beispiele und Detail-Erlaeuterungen siehe `[[architektur#a
 8. **Graceful Degradation** — Services muessen unabhaengig ausfallen koennen (CRM ohne Chat etc.)
 9. **Config via Env-Vars** — `.env` NIE committen (Pre-Commit-Hook blockt), Production-Secrets-Assertion beim Start
 10. **Idempotente Operationen** — Idempotency-Keys fuer POST (Dialer-Outcomes, Finance-Postings, Webhooks)
-11. **Tenant-Modell** — aktuell Single-Tenant. Neue Tabellen MUESSEN `tenant_id` haben (Option-B-Retrofit Sprint 2/3)
+11. **Tenant-Modell** — Option-B-Full: alle Tabellen `tenant_id UUID NOT NULL` + Row-Level-Security. RLS **produktiv erzwungen** (`COSMI_ENV=production` scharf seit 2026-06-05); App-Services laufen als `kmuhub_app` (NOSUPERUSER NOBYPASSRLS), DDL-Migrations als `kmuhub`. Daten aktuell Single-Tenant, Code Multi-Tenant-fähig. Neue Tabellen MUESSEN `tenant_id` + RLS-Policy haben — oder explizit in die System-Global-Liste (ADR-006, `docs/ARCHITECTURE.md`) eingetragen werden
 
 **Entwicklungs-Kommandos** (Backend / Desktop / Docker): `[[architektur#entwicklungs-kommandos]]`
 
@@ -101,7 +101,7 @@ Single Source of Truth fuer projektspezifisches Wissen. Notes haben YAML-Frontma
 | `stack.md` | Strategy Decisions, Frontend-Bibliotheken, dompurify, Mobile=PWA |
 | `i18n.md` | i18next-Architektur, Schluessel-Konventionen, ICU-Plural-Bug |
 | `design.md` | Design-System, Themes, UI/UX-Direktiven, Magic UI, LanguageSwitcher |
-| `datenbank.md` | Schema, 116 Migrations |
+| `datenbank.md` | Schema, Migrationskopf 000213 (Prod 209) |
 | `api.md` | 28 Endpoint-Domains, Auth-Flow |
 | `security.md` | JWT, RBAC, Consent-Enforcement, Prod-Secrets-Assertion, DOMPurify |
 | `integrationen.md` | Bexio, Lexware, DATEV, LiveKit, OnlyOffice JWT, Plugin-WASM (off) |

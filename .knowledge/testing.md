@@ -1,6 +1,6 @@
 ---
 tags: [testing, qualitaet]
-updated: 2026-06-12
+updated: 2026-06-18
 ---
 # Test-Strategie
 
@@ -101,8 +101,8 @@ Zwei Varianten mit gleicher Abdeckung:
 - CI-Job: Seit 2026-06-09 NICHT mehr in `ci.yml` — laeuft in `nightly.yml` (taeglich 03:00 UTC + `workflow_dispatch`), self-contained (baut eigene 6 Services). Per-Push gatet nur noch E2E. **gruen seit 2026-06-05**
 
 ## Coverage-Ziele
-- **Gesamt:** 80%+ Minimum
-- **Kritische Pfade (Auth, Payments, Data):** 95%+
+- **CI-Gate (enforced):** **15 %** gesamt in `ci.yml` (generierter Proto-Code gefiltert) — der einzige harte Merge-Block; kritische Pfade 60 %+ laut [[architektur]] / CLAUDE.md Regel 6.
+- **Langfrist-Ziel (aspirational, NICHT enforced):** 80 %+ gesamt · 95 %+ kritische Pfade (Auth, Payments, Data)
 - **Jeder PR:** Muss Tests für neuen Code enthalten
 
 ## Test-Pipeline (CI Reihenfolge, seit 2026-06-09 verschlankt)

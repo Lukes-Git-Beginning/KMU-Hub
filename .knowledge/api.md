@@ -1,6 +1,6 @@
 ---
 tags: [api, endpoints, openapi]
-updated: 2026-06-12
+updated: 2026-06-18
 ---
 # API-Referenz
 
@@ -54,7 +54,7 @@ updated: 2026-06-12
 | **Fuhrpark** | `/api/v1/fuhrpark/vehicles`, `/services`, `/damages`, `/upcoming-services`, `/tuv-due` | 18 RPCs (Sprint 2 Welle 2A, 2026-04-28). Vehicle-CRUD, Service-Scheduling, Damage-Reporting mit MinIO-Photos, TÜV-Reminder-Cron-Worker (advisory-lock, 7d/1d-Fenster, idempotent via `tuev_reminder_sent_at`). Hinter `modules.fuhrpark`-Flag + RBAC `fuhrpark:{vehicle,service,damage}:{read,write}`. Ports: 50076/9116. |
 | **Vermietung** | `/api/v1/vermietung/objects`, `/rentals`, `/inspections`, `/availability`, `/calendar` | 20 RPCs (Sprint 2 Welle 2A, 2026-04-28). Object-CRUD, Rental-Lifecycle Reserved→Active→Completed, GIST-tstzrange-Overlap-Check (`CheckAvailability` + Pre-Check vor `CreateRental`), Handover/Return-Inspections mit Photo-Uploads, Calendar-View. Hinter `modules.vermietung`-Flag + RBAC `vermietung:{object,rental,inspection}:{read,write}`. Ports: 50077/9117. |
 | **Files (Presign)** | `/api/v1/files/presign-upload`, `/presign-download` | Generische presigned MinIO-Upload/Download-URLs (2026-06-11, `13a7b90a`+`1aef2f45`): Browser lädt direkt gegen `s3.zentria.tech` (public MinIO-Endpoint), RBAC `files:*` (Seed Migr. 144). Genutzt von vertraege-Dokumenten-Upload (`a362b98d`) |
-| Feature Flags | `/api/v1/feature-flags` | Resolver-Output (16 Flags: 14 Modul-Flags + `plugins.wasm`/`plugins.config`), auth-required |
+| Feature Flags | `/api/v1/feature-flags` | Resolver-Output (17 Flags: 14 Modul-Flags + `plugins.wasm`/`plugins.config`/`plugins.api`), auth-required |
 | Integration Config | `/api/v1/integrations/configs` | Teams/Slack Webhooks + OAuth |
 | Registrar | (intern) | Service-Registrierung im Gateway |
 | Health | `/health` | Public, kein Auth, Version/Commit/BuildTime |
