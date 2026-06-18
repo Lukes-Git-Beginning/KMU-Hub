@@ -1,4 +1,4 @@
--- 000171 Lagerorte (inventory_locations) + location_id FK auf inventory_items
+-- 000184 Lagerorte (inventory_locations) + location_id FK auf inventory_items (renumbered von 000171)
 
 BEGIN;
 SET LOCAL row_security = off;

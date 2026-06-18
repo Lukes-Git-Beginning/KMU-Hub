@@ -1,4 +1,4 @@
--- 000173 Inventur-Sessions und Counts
+-- 000186 Inventur-Sessions und Counts (renumbered von 000173)
 
 BEGIN;
 SET LOCAL row_security = off;

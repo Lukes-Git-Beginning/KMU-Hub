@@ -1,4 +1,4 @@
--- 000172 Permissions für inventory_locations und inventur_sessions
+-- 000185 Permissions für inventory_locations und inventur_sessions (renumbered von 000172)
 
 INSERT INTO permissions (name, resource, action) VALUES
     ('inventar:location:read',   'inventar:location',   'read'),

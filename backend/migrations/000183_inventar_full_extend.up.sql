@@ -1,4 +1,5 @@
--- 000170 Inventar full-extend: neue Felder auf inventory_items und inventory_movements
+-- 000183 Inventar full-extend: neue Felder auf inventory_items und inventory_movements
+-- (renumbered von 000170: Prod-DB stand bereits auf 182 nach zeiterfassung-Deploy)
 
 BEGIN;
 
