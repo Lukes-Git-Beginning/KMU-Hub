@@ -6,7 +6,7 @@
  * template management, and template application.
  * Swap-request query + mutations (list, create, approve, reject).
  */
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
 import { authenticatedRequest } from '../utils/authenticatedFetch'
 import {
   listShifts,
@@ -121,6 +121,56 @@ export function useShiftStats(params?: { from?: string; to?: string }) {
     queryFn: () => getShiftStats(params),
     staleTime: STALE_TIME,
   })
+}
+
+// ---------------------------------------------------------------------------
+// Composite query — shifts + all their assignments for a date range
+// Returns a flat list of { shiftId, shiftTitle, shiftStartTime, employeeId }
+// ---------------------------------------------------------------------------
+
+export interface ShiftWithAssignment {
+  shiftId: string
+  shiftTitle: string
+  shiftStartTime: string  // RFC3339
+  shiftEndTime: string    // RFC3339
+  shiftStatus: 'draft' | 'published'
+  employeeId: string
+  assignmentId: string
+}
+
+export function useShiftsWithAssignments(from: string, to: string) {
+  const shiftsQuery = useShiftsList({ from, to })
+  const shifts = shiftsQuery.data?.shifts ?? []
+
+  const assignmentQueries = useQueries({
+    queries: shifts.map((s) => ({
+      queryKey: schichtenKeys.assignments(s.id),
+      queryFn: () => listAssignments(s.id),
+      staleTime: STALE_TIME,
+    })),
+  })
+
+  const isLoading = shiftsQuery.isLoading || assignmentQueries.some((q) => q.isLoading)
+  const isError = shiftsQuery.isError || assignmentQueries.some((q) => q.isError)
+
+  const combined: ShiftWithAssignment[] = []
+  shifts.forEach((shift, idx) => {
+    const aq = assignmentQueries[idx]
+    if (!aq?.data) return
+    for (const asgn of aq.data.assignments) {
+      combined.push({
+        shiftId: shift.id,
+        shiftTitle: shift.title,
+        shiftStartTime: shift.start_time,
+        shiftEndTime: shift.end_time,
+        shiftStatus: shift.status,
+        employeeId: asgn.employee_id,
+        assignmentId: asgn.id,
+      })
+    }
+  })
+
+  return { data: combined, shifts, isLoading, isError }
 }
 
 // ---------------------------------------------------------------------------

@@ -49,12 +49,16 @@ import {
   useDeleteTemplate,
   useAssignEmployee,
   useUnassignEmployee,
+  useCreateShift,
+  usePublishShifts,
+  useShiftsWithAssignments,
   useSwapRequests,
   useCreateSwapRequest,
   useApproveSwapRequest,
   useRejectSwapRequest,
   type SwapRequest,
 } from '@/api/hooks/useSchichten'
+import { useEmployees } from '@/api/hooks/hr-hooks'
 import type { ShiftTemplate as ApiShiftTemplate } from '@/api/schichten-types'
 import { ItemActions, ConfirmDialog, EmptyState, PageHeader } from '@/components/shared'
 
@@ -161,17 +165,6 @@ function adaptApiTemplate(t: ApiShiftTemplate): ShiftTemplate {
   }
 }
 
-const EMPLOYEES: Employee[] = [
-  { id: 'u-1', name: 'Thomas Keller', initials: 'TK', availability: 'available', role: 'Produktion' },
-  { id: 'u-2', name: 'Lukas Brunner', initials: 'LB', availability: 'available', role: 'Produktion' },
-  { id: 'u-3', name: 'Sandra Müller', initials: 'SM', availability: 'limited', role: 'Logistik' },
-  { id: 'u-4', name: 'Reto Aeschlimann', initials: 'RA', availability: 'available', role: 'Produktion' },
-  { id: 'u-5', name: 'Daniel Frei', initials: 'DF', availability: 'available', role: 'Lager' },
-  { id: 'u-6', name: 'Nicole Berger', initials: 'NB', availability: 'unavailable', role: 'Logistik' },
-  { id: 'u-7', name: 'Marco Hartmann', initials: 'MH', availability: 'available', role: 'Produktion' },
-  { id: 'u-8', name: 'Irene Graf', initials: 'IG', availability: 'limited', role: 'Verwaltung' },
-]
-
 // 7.12: Self-service availability grid mock
 type AvailabilityLevel = 'green' | 'yellow' | 'red'
 const AVAILABILITY_MOCK: Record<string, Record<string, AvailabilityLevel>> = {
@@ -197,47 +190,6 @@ const availabilityLevelColorKeys: Record<AvailabilityLevel, { bg: string; text: 
   green: { bg: 'bg-success/20', text: 'text-success', labelKey: 'schichten.availability.available' },
   yellow: { bg: 'bg-warning/20', text: 'text-warning', labelKey: 'schichten.availability.limited' },
   red: { bg: 'bg-error/20', text: 'text-error', labelKey: 'schichten.availability.unavailable' },
-}
-
-function buildMockAssignments(weekDates: string[]): ShiftAssignment[] {
-  const assignments: ShiftAssignment[] = []
-  let idCounter = 1
-
-  const grid: (string | null)[][] = [
-    ['tpl-1', 'tpl-1', 'tpl-1', null, 'tpl-1', 'tpl-1', null],
-    ['tpl-2', 'tpl-2', null, 'tpl-2', 'tpl-2', null, null],
-    [null, 'tpl-1', 'tpl-1', 'tpl-1', null, null, null],
-    ['tpl-1', null, 'tpl-2', 'tpl-1', 'tpl-1', null, null],
-    ['tpl-3', 'tpl-3', null, 'tpl-3', 'tpl-3', null, 'tpl-3'],
-    [null, null, null, null, null, null, null],
-    [null, 'tpl-2', 'tpl-2', 'tpl-2', null, 'tpl-2', null],
-    ['tpl-1', null, null, 'tpl-1', 'tpl-1', null, null],
-  ]
-
-  const templateNames: Record<string, string> = {
-    'tpl-1': 'Frühschicht',
-    'tpl-2': 'Spätschicht',
-    'tpl-3': 'Nachtschicht',
-  }
-
-  grid.forEach((row, empIdx) => {
-    const emp = EMPLOYEES[empIdx]
-    row.forEach((tplId, dayIdx) => {
-      if (tplId && dayIdx < weekDates.length) {
-        assignments.push({
-          id: `mock-sa-${idCounter++}`,
-          userId: emp.id,
-          userName: emp.name,
-          templateId: tplId,
-          templateName: templateNames[tplId],
-          date: weekDates[dayIdx],
-          status: dayIdx < 2 ? 'confirmed' : 'scheduled',
-        })
-      }
-    })
-  })
-
-  return assignments
 }
 
 // ============================================================
@@ -303,6 +255,24 @@ function getSurchargeLabel(templateId: string, dateStr: string): { label: string
 }
 
 // 7.8+7.9: ArbZG validation
+// Derive initials from a full name ("Thomas Keller" → "TK")
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
+// Match shift RFC3339 start_time to the best template by start_hour, or return null
+function matchTemplateByStartHour(startTime: string, templates: ShiftTemplate[]): ShiftTemplate | null {
+  const hour = new Date(startTime).getUTCHours()
+  // Find template whose startTime hour matches the shift's start hour
+  const match = templates.find((t) => {
+    const tHour = parseInt(t.startTime.split(':')[0], 10)
+    return tHour === hour
+  })
+  return match ?? templates[0] ?? null
+}
+
 function computeViolations(employees: Employee[], assignments: ShiftAssignment[], weekDates: string[]): ArbZGViolation[] {
   const violations: ArbZGViolation[] = []
 
@@ -401,19 +371,17 @@ export default function SchichtenPage() {
 
   // ── Mutations ──
   const assignEmployeeMutation = useAssignEmployee()
-  // unassignMutation: ready for drag-drop unassign wiring once Grid uses real shiftIds
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const unassignMutation = useUnassignEmployee()
   const createTemplateMutation = useCreateTemplate()
-  // updateTemplateMutation: ready for Edit-Template dialog wiring
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const updateTemplateMutation = useUpdateTemplate()
+  // _updateTemplateMutation: ready for Edit-Template dialog wiring
+  const _updateTemplateMutation = useUpdateTemplate()
   const deleteTemplateMutation = useDeleteTemplate()
   const approveSwapMutation = useApproveSwapRequest()
   const rejectSwapMutation = useRejectSwapRequest()
-  // createSwapMutation: ready for "Tausch beantragen" dialog wiring
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const createSwapMutation = useCreateSwapRequest()
+  // _createSwapMutation: ready for "Tausch beantragen" dialog wiring
+  const _createSwapMutation = useCreateSwapRequest()
+  const createShiftMutation = useCreateShift()
+  const publishShiftsMutation = usePublishShifts()
 
   const swapStatusLabels = useMemo(
     () => Object.fromEntries(Object.entries(swapStatusLabelKeys).map(([k, v]) => [k, t(v)])),
@@ -462,23 +430,89 @@ export default function SchichtenPage() {
   const [editingAvailability, setEditingAvailability] = useState(false)
   const [availabilityData, setAvailabilityData] = useState(AVAILABILITY_MOCK)
 
-  // Derived data
+  // Derived data — weekDates must be computed before hooks that depend on it
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset])
   const kw = useMemo(() => getKW(weekDates[0]), [weekDates])
   const dateRange = useMemo(() => formatDateRange(weekDates), [weekDates])
-  const localAssignments = useMemo(() => buildMockAssignments(weekDates), [weekDates])
 
-  const filteredEmployees = useMemo(() => {
-    if (!search) return EMPLOYEES
-    const q = search.toLowerCase()
-    return EMPLOYEES.filter((e) => e.name.toLowerCase().includes(q) || e.role.toLowerCase().includes(q))
-  }, [search])
+  // ── Real data queries (hooks must be at top level, called after weekDates) ──
+  const employeesQuery = useEmployees()
+  const shiftsWithAssignments = useShiftsWithAssignments(
+    weekDates[0] + 'T00:00:00Z',
+    weekDates[6] + 'T23:59:59Z',
+  )
 
+  // Adapt API employees to the local Employee shape
+  const employees: Employee[] = useMemo(() => {
+    const raw = (employeesQuery.data as { employees?: Array<{
+      id: string
+      user_name?: string
+      position_title?: string
+      department?: string
+      contract_type?: string
+    }> } | undefined)?.employees ?? []
+    return raw.map((e) => ({
+      id: e.id,
+      name: e.user_name ?? e.id,
+      initials: getInitials(e.user_name ?? e.id),
+      availability: 'available' as const,
+      role: e.position_title ?? e.department ?? 'Mitarbeiter',
+    }))
+  }, [employeesQuery.data])
+
+  // Build ShiftAssignment[] (local store shape) from real API data
+  const localAssignments: ShiftAssignment[] = useMemo(() => {
+    return shiftsWithAssignments.data.map((swa) => {
+      const date = swa.shiftStartTime.split('T')[0]
+      const matchedTemplate = matchTemplateByStartHour(swa.shiftStartTime, templates)
+      const templateId = matchedTemplate?.id ?? swa.shiftId
+      const templateName = matchedTemplate?.name ?? swa.shiftTitle
+      const empName = employees.find((e) => e.id === swa.employeeId)?.name ?? swa.employeeId
+      return {
+        id: swa.assignmentId,
+        userId: swa.employeeId,
+        userName: empName,
+        templateId,
+        templateName,
+        date,
+        status: swa.shiftStatus === 'published' ? 'confirmed' as const : 'scheduled' as const,
+      }
+    })
+  }, [shiftsWithAssignments.data, templates, employees])
+
+  // Map from employeeId-date → assignment for O(1) grid lookup
+  // When multiple shifts fall on the same date for the same employee (edge case),
+  // prefer 'confirmed' (published) over 'scheduled' (draft).
   const assignmentMap = useMemo(() => {
     const map = new Map<string, ShiftAssignment>()
-    localAssignments.forEach((a) => map.set(`${a.userId}-${a.date}`, a))
+    for (const a of localAssignments) {
+      const key = `${a.userId}-${a.date}`
+      const existing = map.get(key)
+      if (!existing || a.status === 'confirmed') {
+        map.set(key, a)
+      }
+    }
     return map
   }, [localAssignments])
+
+  // Map from shiftId → { id, startTime, employeeIds } for resolving shiftId in assign dialog
+  const shiftsByDateAndTemplate = useMemo(() => {
+    // key: `date-templateId` → shiftId
+    const map = new Map<string, string>()
+    for (const swa of shiftsWithAssignments.shifts) {
+      const date = swa.start_time.split('T')[0]
+      const matchedTemplate = matchTemplateByStartHour(swa.start_time, templates)
+      const templateId = matchedTemplate?.id ?? swa.id
+      map.set(`${date}-${templateId}`, swa.id)
+    }
+    return map
+  }, [shiftsWithAssignments.shifts, templates])
+
+  const filteredEmployees = useMemo(() => {
+    if (!search) return employees
+    const q = search.toLowerCase()
+    return employees.filter((e) => e.name.toLowerCase().includes(q) || e.role.toLowerCase().includes(q))
+  }, [search, employees])
 
   const templateMap = useMemo(() => {
     const map = new Map<string, ShiftTemplate>()
@@ -499,7 +533,7 @@ export default function SchichtenPage() {
   }, [weekDates])
 
   // 7.8+7.9: ArbZG violations
-  const violations = useMemo(() => computeViolations(EMPLOYEES, localAssignments, weekDates), [localAssignments, weekDates])
+  const violations = useMemo(() => computeViolations(employees, localAssignments, weekDates), [employees, localAssignments, weekDates])
   const violationsByEmployee = useMemo(() => {
     const map = new Map<string, ArbZGViolation[]>()
     for (const v of violations) {
@@ -512,7 +546,7 @@ export default function SchichtenPage() {
   const warningCount = violations.filter((v) => v.severity === 'warning').length
 
   // KPI calculations
-  const totalSlots = EMPLOYEES.length * 5
+  const totalSlots = employees.length * 5
   const filledSlots = localAssignments.filter((a) => {
     const dayIdx = weekDates.indexOf(a.date)
     return dayIdx >= 0 && dayIdx < 5
@@ -563,13 +597,42 @@ export default function SchichtenPage() {
 
   const handleDrop = useCallback((empId: string, date: string) => {
     if (!dragState) return
-    const emp = EMPLOYEES.find((e) => e.id === empId)
-    toast.success(t('schichten.toast.verschoben'), {
-      description: `${dragState.templateName} → ${emp?.name} am ${formatDate(date + 'T00:00:00')}`,
-    })
+    const emp = employees.find((e) => e.id === empId)
+    // Resolve the real shiftId for the dragged template on the target date
+    const shiftId = shiftsByDateAndTemplate.get(`${date}-${dragState.templateId}`)
+    if (!shiftId) {
+      // No shift exists for this slot — show optimistic toast only
+      toast.success(t('schichten.toast.verschoben'), {
+        description: `${dragState.templateName} → ${emp?.name} am ${formatDate(date + 'T00:00:00')}`,
+      })
+      setDragState(null)
+      setDropTarget(null)
+      return
+    }
+    // Unassign from source, assign to target
+    unassignMutation.mutate(
+      { shiftId, employeeId: dragState.sourceEmpId },
+      {
+        onSettled: () => {
+          assignEmployeeMutation.mutate(
+            { shiftId, employee_id: empId },
+            {
+              onSuccess: () => {
+                toast.success(t('schichten.toast.verschoben'), {
+                  description: `${dragState.templateName} → ${emp?.name} am ${formatDate(date + 'T00:00:00')}`,
+                })
+              },
+              onError: () => {
+                toast.error(t('schichten.toast.verschobenFehler', { defaultValue: 'Zuweisung fehlgeschlagen' }))
+              },
+            },
+          )
+        },
+      },
+    )
     setDragState(null)
     setDropTarget(null)
-  }, [dragState])
+  }, [dragState, employees, shiftsByDateAndTemplate, unassignMutation, assignEmployeeMutation, t])
 
   const handleDragEnd = useCallback(() => {
     setDragState(null)
@@ -581,26 +644,65 @@ export default function SchichtenPage() {
       toast.error(t('schichten.dialog.assign.errorRequired'))
       return
     }
-    const emp = EMPLOYEES.find((e) => e.id === assignEmployee)
+    const emp = employees.find((e) => e.id === assignEmployee)
     const tpl = templates.find((tplItem) => tplItem.id === assignTemplate)
-    // TODO: useShiftsList → resolve shiftId for the selected date+template before calling assignEmployeeMutation.
-    // AssignEmployeeInput requires a shiftId (the API route is /shifts/{shiftId}/assignments).
-    // The Grid currently uses buildMockAssignments; full wiring requires shiftId resolution per date.
-    // For now we call the mutation with assignTemplate as a placeholder shiftId and show optimistic feedback.
-    assignEmployeeMutation.mutate(
-      { shiftId: assignTemplate, employee_id: assignEmployee },
-      {
-        onSuccess: () => {
-          toast.success(t('schichten.dialog.assign.successToast'), {
-            description: `${tpl?.name} an ${emp?.name} am ${formatDate(assignDate + 'T00:00:00')}`,
-          })
-          setAssignDialog({ open: false, employeeId: '', date: '' })
+
+    // Try to resolve an existing shift for this date + template combination.
+    // If none exists, create the shift first, then assign.
+    const existingShiftId = shiftsByDateAndTemplate.get(`${assignDate}-${assignTemplate}`)
+
+    if (existingShiftId) {
+      assignEmployeeMutation.mutate(
+        { shiftId: existingShiftId, employee_id: assignEmployee },
+        {
+          onSuccess: () => {
+            toast.success(t('schichten.dialog.assign.successToast'), {
+              description: `${tpl?.name} an ${emp?.name} am ${formatDate(assignDate + 'T00:00:00')}`,
+            })
+            setAssignDialog({ open: false, employeeId: '', date: '' })
+          },
+          onError: () => {
+            toast.error(t('schichten.dialog.assign.errorRequired'))
+          },
         },
-        onError: () => {
-          toast.error(t('schichten.dialog.assign.errorRequired'))
+      )
+    } else {
+      // No shift yet for this date+template — create one first, then assign
+      if (!tpl) {
+        toast.error(t('schichten.dialog.assign.errorRequired'))
+        return
+      }
+      const [startH, startM] = tpl.startTime.split(':').map(Number)
+      const [endH, endM] = tpl.endTime.split(':').map(Number)
+      const pad = (n: number) => String(n).padStart(2, '0')
+      const startTime = `${assignDate}T${pad(startH)}:${pad(startM)}:00Z`
+      const endTime = `${assignDate}T${pad(endH)}:${pad(endM)}:00Z`
+      createShiftMutation.mutate(
+        { title: tpl.name, start_time: startTime, end_time: endTime },
+        {
+          onSuccess: (data) => {
+            const newShiftId = data.shift.id
+            assignEmployeeMutation.mutate(
+              { shiftId: newShiftId, employee_id: assignEmployee },
+              {
+                onSuccess: () => {
+                  toast.success(t('schichten.dialog.assign.successToast'), {
+                    description: `${tpl.name} an ${emp?.name} am ${formatDate(assignDate + 'T00:00:00')}`,
+                  })
+                  setAssignDialog({ open: false, employeeId: '', date: '' })
+                },
+                onError: () => {
+                  toast.error(t('schichten.dialog.assign.errorRequired'))
+                },
+              },
+            )
+          },
+          onError: () => {
+            toast.error(t('schichten.dialog.assign.errorRequired'))
+          },
         },
-      },
-    )
+      )
+    }
   }
 
   const handleTemplateSubmit = () => {
@@ -678,6 +780,23 @@ export default function SchichtenPage() {
     setAssignDialog({ open: true, employeeId: '', date: '' })
   }
 
+  // Publish all draft shifts for the current week
+  const handlePublishWeek = () => {
+    publishShiftsMutation.mutate(
+      { from: weekDates[0] + 'T00:00:00Z', to: weekDates[6] + 'T23:59:59Z' },
+      {
+        onSuccess: () => {
+          toast.success(t('schichten.toast.veroeffentlicht'), {
+            description: t('schichten.toast.veroeffentlichtBeschreibung', { kw }),
+          })
+        },
+        onError: () => {
+          toast.error(t('schichten.error.loadFailed'))
+        },
+      },
+    )
+  }
+
   // 7.13: PDF export
   const handlePDFExport = () => {
     toast.success(t('schichten.toast.pdfExport'), {
@@ -711,7 +830,7 @@ export default function SchichtenPage() {
       <PageHeader
         title={t('schichten.page.title')}
         description={t('schichten.page.description', {
-          employees: EMPLOYEES.length,
+          employees: employees.length,
           kw,
           swapInfo: pendingSwapCount > 0 ? t('schichten.page.offeneAnfragen', { count: pendingSwapCount }) : t('schichten.page.keineAnfragen'),
         })}
@@ -726,6 +845,14 @@ export default function SchichtenPage() {
             >
               <FileDown className="h-4 w-4" />
               {t('schichten.actions.pdfExport')}
+            </button>
+            <button
+              onClick={handlePublishWeek}
+              disabled={publishShiftsMutation.isPending}
+              className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors disabled:opacity-50"
+            >
+              <CalendarClock className="h-4 w-4" />
+              {t('schichten.actions.wochePublizieren')}
             </button>
             <button
               onClick={handleOpenAssignDialog}
@@ -879,7 +1006,17 @@ export default function SchichtenPage() {
           </div>
 
           {/* Shift Grid */}
-          {filteredEmployees.length === 0 ? (
+          {shiftsWithAssignments.isLoading || employeesQuery.isLoading ? (
+            <div className="rounded-lg border border-border overflow-hidden">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-14 border-b border-border bg-card animate-pulse bg-secondary/20" />
+              ))}
+            </div>
+          ) : shiftsWithAssignments.isError || employeesQuery.isError ? (
+            <div className="rounded-lg border border-error/30 bg-error-light/30 p-4 text-sm text-error">
+              {t('schichten.error.loadFailed')}
+            </div>
+          ) : filteredEmployees.length === 0 ? (
             <EmptyState
               icon={CalendarDays}
               title={t('schichten.wochenplan.empty.title')}
@@ -1344,10 +1481,10 @@ export default function SchichtenPage() {
             </div>
 
             {/* Body */}
-            {EMPLOYEES.map((emp, empIdx) => (
+            {employees.map((emp, empIdx) => (
               <div
                 key={emp.id}
-                className={`grid ${empIdx < EMPLOYEES.length - 1 ? 'border-b border-border-muted' : ''}`}
+                className={`grid ${empIdx < employees.length - 1 ? 'border-b border-border-muted' : ''}`}
                 style={{ gridTemplateColumns: '220px repeat(7, 1fr)' }}
               >
                 <div className="flex items-center gap-3 px-4 py-3 border-r border-border bg-card/50">
@@ -1420,7 +1557,7 @@ export default function SchichtenPage() {
                 <label className="block text-xs font-medium text-muted-foreground mb-1.5">{t('schichten.dialog.assign.mitarbeiter')}</label>
                 <select value={assignEmployee} onChange={(e) => setAssignEmployee(e.target.value)} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring">
                   <option value="">{t('schichten.dialog.assign.mitarbeiterSelect')}</option>
-                  {EMPLOYEES.map((e) => <option key={e.id} value={e.id}>{e.name} ({e.role})</option>)}
+                  {employees.map((e) => <option key={e.id} value={e.id}>{e.name} ({e.role})</option>)}
                 </select>
               </div>
               <div>
