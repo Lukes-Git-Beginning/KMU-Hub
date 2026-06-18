@@ -332,6 +332,9 @@ export interface HRSettings {
   showAbsenceReason: boolean
   defaultAnnualLeaveDays: number
   timezone: string
+  workHoursPerDay: number
+  maxDailyHours: number
+  breakAfterHours: number
 }
 
 // ---------------------------------------------------------------------------

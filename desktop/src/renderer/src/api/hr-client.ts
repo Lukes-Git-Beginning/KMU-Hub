@@ -121,7 +121,7 @@ function adaptEmployee(raw: Record<string, any>): EmployeeProfile {
   return {
     id:                    raw.id                                               ?? '',
     userId:                raw.user_id              ?? raw.userId               ?? raw.id ?? '',
-    userName:              raw.user_name            ?? raw.userName,
+    userName:              raw.user_name            ?? raw.userName            ?? ([raw.first_name ?? raw.firstName, raw.last_name ?? raw.lastName].filter(Boolean).join(' ') || undefined),
     userEmail:             raw.user_email           ?? raw.userEmail,
     department:            raw.department,
     positionTitle:         raw.position_title       ?? raw.positionTitle,
@@ -552,15 +552,52 @@ export const hrTimeTemplateApi = {
 // Settings
 // ---------------------------------------------------------------------------
 
+/**
+ * Adapts a raw HRSettings payload to the typed, camelCase HRSettings.
+ *
+ * The gateway serialises the proto HRSettings via encoding/json on the pb.go
+ * struct, so the wire is snake_case (au_threshold_days, work_hours_per_day…);
+ * MSW demo handlers emit snake_case too. Uses `?? ` chaining: snake_case first,
+ * camelCase fallback.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function adaptHRSettings(raw: Record<string, any>): HRSettings {
+  return {
+    id:                     raw.id                                                  ?? '',
+    auThresholdDays:        raw.au_threshold_days        ?? raw.auThresholdDays      ?? 3,
+    showAbsenceReason:      raw.show_absence_reason      ?? raw.showAbsenceReason    ?? false,
+    defaultAnnualLeaveDays: raw.default_annual_leave_days ?? raw.defaultAnnualLeaveDays ?? 25,
+    timezone:               raw.timezone                                            ?? 'Europe/Zurich',
+    workHoursPerDay:        raw.work_hours_per_day       ?? raw.workHoursPerDay      ?? 8,
+    maxDailyHours:          raw.max_daily_hours          ?? raw.maxDailyHours        ?? 10,
+    breakAfterHours:        raw.break_after_hours        ?? raw.breakAfterHours      ?? 6,
+  }
+}
+
+/** Converts a Partial<HRSettings> to the snake_case body updateHRSettingsHTTPReq expects. */
+function toSnakeCaseHRSettingsBody(data: Partial<HRSettings>): Record<string, unknown> {
+  const body: Record<string, unknown> = {}
+  if (data.auThresholdDays !== undefined) body.au_threshold_days = data.auThresholdDays
+  if (data.showAbsenceReason !== undefined) body.show_absence_reason = data.showAbsenceReason
+  if (data.defaultAnnualLeaveDays !== undefined) body.default_annual_leave_days = data.defaultAnnualLeaveDays
+  if (data.timezone !== undefined) body.timezone = data.timezone
+  if (data.workHoursPerDay !== undefined) body.work_hours_per_day = data.workHoursPerDay
+  if (data.maxDailyHours !== undefined) body.max_daily_hours = data.maxDailyHours
+  if (data.breakAfterHours !== undefined) body.break_after_hours = data.breakAfterHours
+  return body
+}
+
 export const hrSettingsApi = {
-  get() {
-    return request<{ settings: HRSettings }>('/api/v1/hr/settings')
+  async get(): Promise<{ settings: HRSettings }> {
+    const res = await request<{ settings: Record<string, unknown> }>('/api/v1/hr/settings')
+    return { settings: adaptHRSettings(res.settings ?? {}) }
   },
 
-  update(data: Partial<HRSettings>) {
-    return request<{ settings: HRSettings }>('/api/v1/hr/settings', {
+  async update(data: Partial<HRSettings>): Promise<{ settings: HRSettings }> {
+    const res = await request<{ settings: Record<string, unknown> }>('/api/v1/hr/settings', {
       method: 'PUT',
-      body: JSON.stringify(data),
+      body: JSON.stringify(toSnakeCaseHRSettingsBody(data)),
     })
+    return { settings: adaptHRSettings(res.settings ?? {}) }
   },
 }

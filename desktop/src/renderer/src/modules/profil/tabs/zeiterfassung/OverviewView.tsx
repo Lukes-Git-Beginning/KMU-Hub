@@ -43,10 +43,9 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
   const { data: entriesData } = useWorkTimeEntries()
   const allEntries = entriesData?.entries ?? []
   const { data: status } = useWorkTimeStatus()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: hrSettings } = useHRSettings() as { data: any }
+  const { data: hrSettings } = useHRSettings()
 
-  const dailyTarget = (hrSettings?.work_hours_per_day ?? 8) * 60
+  const dailyTarget = (hrSettings?.workHoursPerDay ?? 8) * 60
   const weeklyTarget = dailyTarget * 5
 
   const todayMinutes = dailySummary?.netWorkMinutes ?? 0

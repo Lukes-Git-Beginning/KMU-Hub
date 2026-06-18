@@ -35,6 +35,20 @@ let mockCategories = [
   { id: 'cat-design', tenant_id: 'tenant-001', name: 'Design', color: '#ec4899', icon: 'Palette', is_default: false, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
 ]
 
+// HR company settings (Firmen-Einstellungen) — snake_case wire shape
+const mockHRSettings: Record<string, unknown> = {
+  id: 'hrset-001',
+  au_threshold_days: 3,
+  show_absence_reason: true,
+  default_annual_leave_days: 25,
+  timezone: 'Europe/Zurich',
+  work_hours_per_day: 8,
+  max_daily_hours: 10,
+  break_after_hours: 6,
+  min_break_minutes: 30,
+  overtime_enabled: true,
+}
+
 // Time templates (Zeiterfassungs-Vorlagen)
 let mockTemplates = [
   { id: 'tpl-1', tenant_id: 'tenant-001', name: 'Sprint Planning', category_id: 'cat-meeting', description: 'Sprint Planning Session', estimated_minutes: 60, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
@@ -629,15 +643,13 @@ export const hrHandlers = [
   }),
 
   http.get(`${API}/api/v1/hr/settings`, () => {
-    return HttpResponse.json({
-      settings: {
-        work_hours_per_day: 8,
-        break_after_hours: 6,
-        min_break_minutes: 30,
-        max_daily_hours: 10,
-        overtime_enabled: true,
-      },
-    })
+    return HttpResponse.json({ settings: { ...mockHRSettings } })
+  }),
+
+  http.put(`${API}/api/v1/hr/settings`, async ({ request }) => {
+    const patch = (await request.json()) as Record<string, unknown>
+    Object.assign(mockHRSettings, patch)
+    return HttpResponse.json({ settings: { ...mockHRSettings } })
   }),
 
   // ── Time categories ───────────────────────────────────────────────────────

@@ -442,21 +442,16 @@ export default function SchichtenPage() {
     weekDates[6] + 'T23:59:59Z',
   )
 
-  // Adapt API employees to the local Employee shape
+  // Adapt API employees to the local Employee shape.
+  // useEmployees() runs adaptEmployee → camelCase EmployeeProfile (userName/positionTitle).
   const employees: Employee[] = useMemo(() => {
-    const raw = (employeesQuery.data as { employees?: Array<{
-      id: string
-      user_name?: string
-      position_title?: string
-      department?: string
-      contract_type?: string
-    }> } | undefined)?.employees ?? []
+    const raw = employeesQuery.data?.employees ?? []
     return raw.map((e) => ({
       id: e.id,
-      name: e.user_name ?? e.id,
-      initials: getInitials(e.user_name ?? e.id),
+      name: e.userName ?? e.id,
+      initials: getInitials(e.userName ?? e.id),
       availability: 'available' as const,
-      role: e.position_title ?? e.department ?? 'Mitarbeiter',
+      role: e.positionTitle ?? e.department ?? 'Mitarbeiter',
     }))
   }, [employeesQuery.data])
 

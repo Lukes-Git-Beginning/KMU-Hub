@@ -37,9 +37,7 @@ export default function CategoriesView() {
   const deleteTemplate = useDeleteTimeTemplate()
 
   // HR Settings for work targets (read-only display; editing via HR-Settings module)
-  // Wire-shape uses snake_case from the gateway; HRSettings type uses camelCase (adapter needed — follow-up).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: hrSettings } = useHRSettings() as { data: any }
+  const { data: hrSettings } = useHRSettings()
 
   // Category form state
   const [showAddCat, setShowAddCat] = useState(false)
@@ -317,15 +315,15 @@ export default function CategoriesView() {
             <>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">{t('profil.zeiterfassung.categories.hoursPerDay')}</span>
-                <span className="font-medium text-foreground">{hrSettings.work_hours_per_day}h</span>
+                <span className="font-medium text-foreground">{hrSettings.workHoursPerDay}h</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">{t('profil.zeiterfassung.categories.maxDailyHours')}</span>
-                <span className="font-medium text-foreground">{hrSettings.max_daily_hours}h</span>
+                <span className="font-medium text-foreground">{hrSettings.maxDailyHours}h</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">{t('profil.zeiterfassung.categories.breakAfterHours')}</span>
-                <span className="font-medium text-foreground">{hrSettings.break_after_hours}h</span>
+                <span className="font-medium text-foreground">{hrSettings.breakAfterHours}h</span>
               </div>
             </>
           ) : (
