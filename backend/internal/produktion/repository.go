@@ -60,4 +60,30 @@ type Repository interface {
 
 	// Capacity
 	GetCapacityOverview(ctx context.Context, tenantID uuid.UUID, machineID string, planID uuid.UUID) (*CapacityOverview, error)
+
+	// BOMs
+	CreateBOM(ctx context.Context, bom *BOM) error
+	UpdateBOM(ctx context.Context, bom *BOM) error
+	GetBOM(ctx context.Context, tenantID, bomID uuid.UUID) (*BOM, error)
+	ListBOMs(ctx context.Context, tenantID uuid.UUID, activeOnly *bool, offset, limit int) ([]*BOM, int, error)
+	DeleteBOM(ctx context.Context, tenantID, bomID uuid.UUID) error
+
+	// Work Steps
+	CreateWorkStep(ctx context.Context, step *WorkStep) error
+	UpdateWorkStep(ctx context.Context, step *WorkStep) error
+	GetWorkStep(ctx context.Context, tenantID, stepID uuid.UUID) (*WorkStep, error)
+	ListWorkSteps(ctx context.Context, tenantID, orderID uuid.UUID) ([]*WorkStep, error)
+	DeleteWorkStep(ctx context.Context, tenantID, stepID uuid.UUID) error
+
+	// Machines
+	CreateMachine(ctx context.Context, machine *Machine) error
+	UpdateMachine(ctx context.Context, machine *Machine) error
+	GetMachine(ctx context.Context, tenantID, machineID uuid.UUID) (*Machine, error)
+	ListMachines(ctx context.Context, tenantID uuid.UUID, status *MachineStatus, offset, limit int) ([]*Machine, int, error)
+	DeleteMachine(ctx context.Context, tenantID, machineID uuid.UUID) error
+
+	// Quality Checks
+	CreateQualityCheck(ctx context.Context, check *QualityCheck) error
+	GetQualityCheck(ctx context.Context, tenantID, checkID uuid.UUID) (*QualityCheck, error)
+	ListQualityChecks(ctx context.Context, tenantID uuid.UUID, orderID *uuid.UUID, offset, limit int) ([]*QualityCheck, int, error)
 }

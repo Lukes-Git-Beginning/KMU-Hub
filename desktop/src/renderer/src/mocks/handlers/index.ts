@@ -27,6 +27,7 @@ import { wikiHandlers } from './wiki'
 import { schichtenHandlers } from './schichten'
 import { helpdeskHandlers } from './helpdesk'
 import { inventarHandlers } from './inventar'
+import { produktionHandlers } from './produktion'
 
 export const handlers = [
   ...authHandlers,
@@ -54,4 +55,5 @@ export const handlers = [
   ...schichtenHandlers,
   ...helpdeskHandlers,
   ...inventarHandlers,
+  ...produktionHandlers,
 ]

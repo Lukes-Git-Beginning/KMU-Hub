@@ -92,3 +92,91 @@ type CapacityOverview struct {
 	BookedHours        float64 `json:"booked_hours"`
 	AvailableHours     float64 `json:"available_hours"`
 }
+
+// WorkStepStatus represents the lifecycle state of a work step.
+type WorkStepStatus string
+
+const (
+	WorkStepStatusPending    WorkStepStatus = "pending"
+	WorkStepStatusInProgress WorkStepStatus = "in_progress"
+	WorkStepStatusCompleted  WorkStepStatus = "completed"
+	WorkStepStatusSkipped    WorkStepStatus = "skipped"
+)
+
+// MachineStatus represents the operational state of a machine.
+type MachineStatus string
+
+const (
+	MachineStatusAvailable   MachineStatus = "available"
+	MachineStatusInUse       MachineStatus = "in_use"
+	MachineStatusMaintenance MachineStatus = "maintenance"
+)
+
+// BomItem is a single line item within a BOM.
+type BomItem struct {
+	ID           uuid.UUID `json:"id"`
+	TenantID     uuid.UUID `json:"tenant_id"`
+	BomID        uuid.UUID `json:"bom_id"`
+	MaterialName string    `json:"material_name"`
+	Quantity     float64   `json:"quantity"`
+	Unit         string    `json:"unit"`
+	SortOrder    int       `json:"sort_order"`
+}
+
+// BOM (Bill of Materials / Stückliste) defines the components of a product.
+type BOM struct {
+	ID          uuid.UUID  `json:"id"`
+	TenantID    uuid.UUID  `json:"tenant_id"`
+	ProductName string     `json:"product_name"`
+	SKU         string     `json:"sku"`
+	Version     string     `json:"version"`
+	Active      bool       `json:"active"`
+	Notes       string     `json:"notes"`
+	Items       []*BomItem `json:"items"`
+	CreatedBy   *uuid.UUID `json:"created_by,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+}
+
+// WorkStep represents a single operation/step within a production order.
+type WorkStep struct {
+	ID              uuid.UUID      `json:"id"`
+	TenantID        uuid.UUID      `json:"tenant_id"`
+	OrderID         uuid.UUID      `json:"order_id"`
+	StepNr          int            `json:"step_nr"`
+	Name            string         `json:"name"`
+	Description     string         `json:"description"`
+	DurationMinutes int            `json:"duration_minutes"`
+	Status          WorkStepStatus `json:"status"`
+	Assignee        string         `json:"assignee"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
+}
+
+// Machine represents a production machine managed as an entity.
+type Machine struct {
+	ID        uuid.UUID     `json:"id"`
+	TenantID  uuid.UUID     `json:"tenant_id"`
+	Name      string        `json:"name"`
+	Type      string        `json:"type"`
+	Status    MachineStatus `json:"status"`
+	Notes     string        `json:"notes"`
+	CreatedBy *uuid.UUID    `json:"created_by,omitempty"`
+	CreatedAt time.Time     `json:"created_at"`
+	UpdatedAt time.Time     `json:"updated_at"`
+}
+
+// QualityCheck represents a quality inspection for a production order.
+type QualityCheck struct {
+	ID           uuid.UUID  `json:"id"`
+	TenantID     uuid.UUID  `json:"tenant_id"`
+	OrderID      uuid.UUID  `json:"order_id"`
+	Inspector    string     `json:"inspector"`
+	CheckedAt    time.Time  `json:"checked_at"`
+	Passed       bool       `json:"passed"`
+	DefectsFound int        `json:"defects_found"`
+	Notes        string     `json:"notes"`
+	CreatedBy    *uuid.UUID `json:"created_by,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+}

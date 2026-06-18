@@ -255,6 +255,49 @@ func (m *mockRepository) GetCapacityOverview(ctx context.Context, tenantID uuid.
 	}, nil
 }
 
+// ============================================================================
+// Extended Repository methods (BOMs, WorkSteps, Machines, QualityChecks)
+// Minimal stubs — returning not-found errors; covered by service_ext tests.
+// ============================================================================
+
+func (m *mockRepository) CreateBOM(_ context.Context, _ *BOM) error            { return nil }
+func (m *mockRepository) UpdateBOM(_ context.Context, _ *BOM) error            { return nil }
+func (m *mockRepository) GetBOM(_ context.Context, _, _ uuid.UUID) (*BOM, error) {
+	return nil, ErrBOMNotFound
+}
+func (m *mockRepository) ListBOMs(_ context.Context, _ uuid.UUID, _ *bool, _, _ int) ([]*BOM, int, error) {
+	return nil, 0, nil
+}
+func (m *mockRepository) DeleteBOM(_ context.Context, _, _ uuid.UUID) error { return nil }
+
+func (m *mockRepository) CreateWorkStep(_ context.Context, _ *WorkStep) error { return nil }
+func (m *mockRepository) UpdateWorkStep(_ context.Context, _ *WorkStep) error { return nil }
+func (m *mockRepository) GetWorkStep(_ context.Context, _, _ uuid.UUID) (*WorkStep, error) {
+	return nil, ErrWorkStepNotFound
+}
+func (m *mockRepository) ListWorkSteps(_ context.Context, _, _ uuid.UUID) ([]*WorkStep, error) {
+	return nil, nil
+}
+func (m *mockRepository) DeleteWorkStep(_ context.Context, _, _ uuid.UUID) error { return nil }
+
+func (m *mockRepository) CreateMachine(_ context.Context, _ *Machine) error { return nil }
+func (m *mockRepository) UpdateMachine(_ context.Context, _ *Machine) error { return nil }
+func (m *mockRepository) GetMachine(_ context.Context, _, _ uuid.UUID) (*Machine, error) {
+	return nil, ErrMachineNotFound
+}
+func (m *mockRepository) ListMachines(_ context.Context, _ uuid.UUID, _ *MachineStatus, _, _ int) ([]*Machine, int, error) {
+	return nil, 0, nil
+}
+func (m *mockRepository) DeleteMachine(_ context.Context, _, _ uuid.UUID) error { return nil }
+
+func (m *mockRepository) CreateQualityCheck(_ context.Context, _ *QualityCheck) error { return nil }
+func (m *mockRepository) GetQualityCheck(_ context.Context, _, _ uuid.UUID) (*QualityCheck, error) {
+	return nil, ErrQualityCheckNotFound
+}
+func (m *mockRepository) ListQualityChecks(_ context.Context, _ uuid.UUID, _ *uuid.UUID, _, _ int) ([]*QualityCheck, int, error) {
+	return nil, 0, nil
+}
+
 // compile-time interface check
 var _ Repository = (*mockRepository)(nil)
 

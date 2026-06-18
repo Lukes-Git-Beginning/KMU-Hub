@@ -35,6 +35,23 @@ const (
 	ProduktionService_UpdatePlan_FullMethodName           = "/produktion.v1.ProduktionService/UpdatePlan"
 	ProduktionService_GetPlan_FullMethodName              = "/produktion.v1.ProduktionService/GetPlan"
 	ProduktionService_GetCapacityOverview_FullMethodName  = "/produktion.v1.ProduktionService/GetCapacityOverview"
+	ProduktionService_CreateBOM_FullMethodName            = "/produktion.v1.ProduktionService/CreateBOM"
+	ProduktionService_UpdateBOM_FullMethodName            = "/produktion.v1.ProduktionService/UpdateBOM"
+	ProduktionService_DeleteBOM_FullMethodName            = "/produktion.v1.ProduktionService/DeleteBOM"
+	ProduktionService_GetBOM_FullMethodName               = "/produktion.v1.ProduktionService/GetBOM"
+	ProduktionService_ListBOMs_FullMethodName             = "/produktion.v1.ProduktionService/ListBOMs"
+	ProduktionService_CreateWorkStep_FullMethodName       = "/produktion.v1.ProduktionService/CreateWorkStep"
+	ProduktionService_UpdateWorkStep_FullMethodName       = "/produktion.v1.ProduktionService/UpdateWorkStep"
+	ProduktionService_DeleteWorkStep_FullMethodName       = "/produktion.v1.ProduktionService/DeleteWorkStep"
+	ProduktionService_ListWorkSteps_FullMethodName        = "/produktion.v1.ProduktionService/ListWorkSteps"
+	ProduktionService_CreateMachine_FullMethodName        = "/produktion.v1.ProduktionService/CreateMachine"
+	ProduktionService_UpdateMachine_FullMethodName        = "/produktion.v1.ProduktionService/UpdateMachine"
+	ProduktionService_DeleteMachine_FullMethodName        = "/produktion.v1.ProduktionService/DeleteMachine"
+	ProduktionService_GetMachine_FullMethodName           = "/produktion.v1.ProduktionService/GetMachine"
+	ProduktionService_ListMachines_FullMethodName         = "/produktion.v1.ProduktionService/ListMachines"
+	ProduktionService_CreateQualityCheck_FullMethodName   = "/produktion.v1.ProduktionService/CreateQualityCheck"
+	ProduktionService_GetQualityCheck_FullMethodName      = "/produktion.v1.ProduktionService/GetQualityCheck"
+	ProduktionService_ListQualityChecks_FullMethodName    = "/produktion.v1.ProduktionService/ListQualityChecks"
 )
 
 // ProduktionServiceClient is the client API for ProduktionService service.
@@ -61,6 +78,27 @@ type ProduktionServiceClient interface {
 	UpdatePlan(ctx context.Context, in *UpdatePlanRequest, opts ...grpc.CallOption) (*PlanResponse, error)
 	GetPlan(ctx context.Context, in *GetPlanRequest, opts ...grpc.CallOption) (*PlanResponse, error)
 	GetCapacityOverview(ctx context.Context, in *GetCapacityOverviewRequest, opts ...grpc.CallOption) (*CapacityOverviewResponse, error)
+	// BOMs (Stücklisten)
+	CreateBOM(ctx context.Context, in *CreateBOMRequest, opts ...grpc.CallOption) (*BOMResponse, error)
+	UpdateBOM(ctx context.Context, in *UpdateBOMRequest, opts ...grpc.CallOption) (*BOMResponse, error)
+	DeleteBOM(ctx context.Context, in *DeleteBOMRequest, opts ...grpc.CallOption) (*DeleteBOMResponse, error)
+	GetBOM(ctx context.Context, in *GetBOMRequest, opts ...grpc.CallOption) (*BOMResponse, error)
+	ListBOMs(ctx context.Context, in *ListBOMsRequest, opts ...grpc.CallOption) (*ListBOMsResponse, error)
+	// Work Steps (Arbeitsschritte)
+	CreateWorkStep(ctx context.Context, in *CreateWorkStepRequest, opts ...grpc.CallOption) (*WorkStepResponse, error)
+	UpdateWorkStep(ctx context.Context, in *UpdateWorkStepRequest, opts ...grpc.CallOption) (*WorkStepResponse, error)
+	DeleteWorkStep(ctx context.Context, in *DeleteWorkStepRequest, opts ...grpc.CallOption) (*DeleteWorkStepResponse, error)
+	ListWorkSteps(ctx context.Context, in *ListWorkStepsRequest, opts ...grpc.CallOption) (*ListWorkStepsResponse, error)
+	// Machines (Maschinen)
+	CreateMachine(ctx context.Context, in *CreateMachineRequest, opts ...grpc.CallOption) (*MachineResponse, error)
+	UpdateMachine(ctx context.Context, in *UpdateMachineRequest, opts ...grpc.CallOption) (*MachineResponse, error)
+	DeleteMachine(ctx context.Context, in *DeleteMachineRequest, opts ...grpc.CallOption) (*DeleteMachineResponse, error)
+	GetMachine(ctx context.Context, in *GetMachineRequest, opts ...grpc.CallOption) (*MachineResponse, error)
+	ListMachines(ctx context.Context, in *ListMachinesRequest, opts ...grpc.CallOption) (*ListMachinesResponse, error)
+	// Quality Checks (Qualitätsprüfungen)
+	CreateQualityCheck(ctx context.Context, in *CreateQualityCheckRequest, opts ...grpc.CallOption) (*QualityCheckResponse, error)
+	GetQualityCheck(ctx context.Context, in *GetQualityCheckRequest, opts ...grpc.CallOption) (*QualityCheckResponse, error)
+	ListQualityChecks(ctx context.Context, in *ListQualityChecksRequest, opts ...grpc.CallOption) (*ListQualityChecksResponse, error)
 }
 
 type produktionServiceClient struct {
@@ -231,6 +269,176 @@ func (c *produktionServiceClient) GetCapacityOverview(ctx context.Context, in *G
 	return out, nil
 }
 
+func (c *produktionServiceClient) CreateBOM(ctx context.Context, in *CreateBOMRequest, opts ...grpc.CallOption) (*BOMResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BOMResponse)
+	err := c.cc.Invoke(ctx, ProduktionService_CreateBOM_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *produktionServiceClient) UpdateBOM(ctx context.Context, in *UpdateBOMRequest, opts ...grpc.CallOption) (*BOMResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BOMResponse)
+	err := c.cc.Invoke(ctx, ProduktionService_UpdateBOM_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *produktionServiceClient) DeleteBOM(ctx context.Context, in *DeleteBOMRequest, opts ...grpc.CallOption) (*DeleteBOMResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteBOMResponse)
+	err := c.cc.Invoke(ctx, ProduktionService_DeleteBOM_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *produktionServiceClient) GetBOM(ctx context.Context, in *GetBOMRequest, opts ...grpc.CallOption) (*BOMResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BOMResponse)
+	err := c.cc.Invoke(ctx, ProduktionService_GetBOM_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *produktionServiceClient) ListBOMs(ctx context.Context, in *ListBOMsRequest, opts ...grpc.CallOption) (*ListBOMsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBOMsResponse)
+	err := c.cc.Invoke(ctx, ProduktionService_ListBOMs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *produktionServiceClient) CreateWorkStep(ctx context.Context, in *CreateWorkStepRequest, opts ...grpc.CallOption) (*WorkStepResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(WorkStepResponse)
+	err := c.cc.Invoke(ctx, ProduktionService_CreateWorkStep_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *produktionServiceClient) UpdateWorkStep(ctx context.Context, in *UpdateWorkStepRequest, opts ...grpc.CallOption) (*WorkStepResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(WorkStepResponse)
+	err := c.cc.Invoke(ctx, ProduktionService_UpdateWorkStep_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *produktionServiceClient) DeleteWorkStep(ctx context.Context, in *DeleteWorkStepRequest, opts ...grpc.CallOption) (*DeleteWorkStepResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteWorkStepResponse)
+	err := c.cc.Invoke(ctx, ProduktionService_DeleteWorkStep_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *produktionServiceClient) ListWorkSteps(ctx context.Context, in *ListWorkStepsRequest, opts ...grpc.CallOption) (*ListWorkStepsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListWorkStepsResponse)
+	err := c.cc.Invoke(ctx, ProduktionService_ListWorkSteps_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *produktionServiceClient) CreateMachine(ctx context.Context, in *CreateMachineRequest, opts ...grpc.CallOption) (*MachineResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MachineResponse)
+	err := c.cc.Invoke(ctx, ProduktionService_CreateMachine_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *produktionServiceClient) UpdateMachine(ctx context.Context, in *UpdateMachineRequest, opts ...grpc.CallOption) (*MachineResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MachineResponse)
+	err := c.cc.Invoke(ctx, ProduktionService_UpdateMachine_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *produktionServiceClient) DeleteMachine(ctx context.Context, in *DeleteMachineRequest, opts ...grpc.CallOption) (*DeleteMachineResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteMachineResponse)
+	err := c.cc.Invoke(ctx, ProduktionService_DeleteMachine_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *produktionServiceClient) GetMachine(ctx context.Context, in *GetMachineRequest, opts ...grpc.CallOption) (*MachineResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MachineResponse)
+	err := c.cc.Invoke(ctx, ProduktionService_GetMachine_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *produktionServiceClient) ListMachines(ctx context.Context, in *ListMachinesRequest, opts ...grpc.CallOption) (*ListMachinesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMachinesResponse)
+	err := c.cc.Invoke(ctx, ProduktionService_ListMachines_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *produktionServiceClient) CreateQualityCheck(ctx context.Context, in *CreateQualityCheckRequest, opts ...grpc.CallOption) (*QualityCheckResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QualityCheckResponse)
+	err := c.cc.Invoke(ctx, ProduktionService_CreateQualityCheck_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *produktionServiceClient) GetQualityCheck(ctx context.Context, in *GetQualityCheckRequest, opts ...grpc.CallOption) (*QualityCheckResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QualityCheckResponse)
+	err := c.cc.Invoke(ctx, ProduktionService_GetQualityCheck_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *produktionServiceClient) ListQualityChecks(ctx context.Context, in *ListQualityChecksRequest, opts ...grpc.CallOption) (*ListQualityChecksResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListQualityChecksResponse)
+	err := c.cc.Invoke(ctx, ProduktionService_ListQualityChecks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ProduktionServiceServer is the server API for ProduktionService service.
 // All implementations must embed UnimplementedProduktionServiceServer
 // for forward compatibility.
@@ -255,6 +463,27 @@ type ProduktionServiceServer interface {
 	UpdatePlan(context.Context, *UpdatePlanRequest) (*PlanResponse, error)
 	GetPlan(context.Context, *GetPlanRequest) (*PlanResponse, error)
 	GetCapacityOverview(context.Context, *GetCapacityOverviewRequest) (*CapacityOverviewResponse, error)
+	// BOMs (Stücklisten)
+	CreateBOM(context.Context, *CreateBOMRequest) (*BOMResponse, error)
+	UpdateBOM(context.Context, *UpdateBOMRequest) (*BOMResponse, error)
+	DeleteBOM(context.Context, *DeleteBOMRequest) (*DeleteBOMResponse, error)
+	GetBOM(context.Context, *GetBOMRequest) (*BOMResponse, error)
+	ListBOMs(context.Context, *ListBOMsRequest) (*ListBOMsResponse, error)
+	// Work Steps (Arbeitsschritte)
+	CreateWorkStep(context.Context, *CreateWorkStepRequest) (*WorkStepResponse, error)
+	UpdateWorkStep(context.Context, *UpdateWorkStepRequest) (*WorkStepResponse, error)
+	DeleteWorkStep(context.Context, *DeleteWorkStepRequest) (*DeleteWorkStepResponse, error)
+	ListWorkSteps(context.Context, *ListWorkStepsRequest) (*ListWorkStepsResponse, error)
+	// Machines (Maschinen)
+	CreateMachine(context.Context, *CreateMachineRequest) (*MachineResponse, error)
+	UpdateMachine(context.Context, *UpdateMachineRequest) (*MachineResponse, error)
+	DeleteMachine(context.Context, *DeleteMachineRequest) (*DeleteMachineResponse, error)
+	GetMachine(context.Context, *GetMachineRequest) (*MachineResponse, error)
+	ListMachines(context.Context, *ListMachinesRequest) (*ListMachinesResponse, error)
+	// Quality Checks (Qualitätsprüfungen)
+	CreateQualityCheck(context.Context, *CreateQualityCheckRequest) (*QualityCheckResponse, error)
+	GetQualityCheck(context.Context, *GetQualityCheckRequest) (*QualityCheckResponse, error)
+	ListQualityChecks(context.Context, *ListQualityChecksRequest) (*ListQualityChecksResponse, error)
 	mustEmbedUnimplementedProduktionServiceServer()
 }
 
@@ -312,6 +541,57 @@ func (UnimplementedProduktionServiceServer) GetPlan(context.Context, *GetPlanReq
 }
 func (UnimplementedProduktionServiceServer) GetCapacityOverview(context.Context, *GetCapacityOverviewRequest) (*CapacityOverviewResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetCapacityOverview not implemented")
+}
+func (UnimplementedProduktionServiceServer) CreateBOM(context.Context, *CreateBOMRequest) (*BOMResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateBOM not implemented")
+}
+func (UnimplementedProduktionServiceServer) UpdateBOM(context.Context, *UpdateBOMRequest) (*BOMResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateBOM not implemented")
+}
+func (UnimplementedProduktionServiceServer) DeleteBOM(context.Context, *DeleteBOMRequest) (*DeleteBOMResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteBOM not implemented")
+}
+func (UnimplementedProduktionServiceServer) GetBOM(context.Context, *GetBOMRequest) (*BOMResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetBOM not implemented")
+}
+func (UnimplementedProduktionServiceServer) ListBOMs(context.Context, *ListBOMsRequest) (*ListBOMsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBOMs not implemented")
+}
+func (UnimplementedProduktionServiceServer) CreateWorkStep(context.Context, *CreateWorkStepRequest) (*WorkStepResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateWorkStep not implemented")
+}
+func (UnimplementedProduktionServiceServer) UpdateWorkStep(context.Context, *UpdateWorkStepRequest) (*WorkStepResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateWorkStep not implemented")
+}
+func (UnimplementedProduktionServiceServer) DeleteWorkStep(context.Context, *DeleteWorkStepRequest) (*DeleteWorkStepResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteWorkStep not implemented")
+}
+func (UnimplementedProduktionServiceServer) ListWorkSteps(context.Context, *ListWorkStepsRequest) (*ListWorkStepsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListWorkSteps not implemented")
+}
+func (UnimplementedProduktionServiceServer) CreateMachine(context.Context, *CreateMachineRequest) (*MachineResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateMachine not implemented")
+}
+func (UnimplementedProduktionServiceServer) UpdateMachine(context.Context, *UpdateMachineRequest) (*MachineResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateMachine not implemented")
+}
+func (UnimplementedProduktionServiceServer) DeleteMachine(context.Context, *DeleteMachineRequest) (*DeleteMachineResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteMachine not implemented")
+}
+func (UnimplementedProduktionServiceServer) GetMachine(context.Context, *GetMachineRequest) (*MachineResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetMachine not implemented")
+}
+func (UnimplementedProduktionServiceServer) ListMachines(context.Context, *ListMachinesRequest) (*ListMachinesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMachines not implemented")
+}
+func (UnimplementedProduktionServiceServer) CreateQualityCheck(context.Context, *CreateQualityCheckRequest) (*QualityCheckResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateQualityCheck not implemented")
+}
+func (UnimplementedProduktionServiceServer) GetQualityCheck(context.Context, *GetQualityCheckRequest) (*QualityCheckResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetQualityCheck not implemented")
+}
+func (UnimplementedProduktionServiceServer) ListQualityChecks(context.Context, *ListQualityChecksRequest) (*ListQualityChecksResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListQualityChecks not implemented")
 }
 func (UnimplementedProduktionServiceServer) mustEmbedUnimplementedProduktionServiceServer() {}
 func (UnimplementedProduktionServiceServer) testEmbeddedByValue()                           {}
@@ -622,6 +902,312 @@ func _ProduktionService_GetCapacityOverview_Handler(srv interface{}, ctx context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ProduktionService_CreateBOM_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateBOMRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProduktionServiceServer).CreateBOM(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProduktionService_CreateBOM_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProduktionServiceServer).CreateBOM(ctx, req.(*CreateBOMRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ProduktionService_UpdateBOM_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateBOMRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProduktionServiceServer).UpdateBOM(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProduktionService_UpdateBOM_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProduktionServiceServer).UpdateBOM(ctx, req.(*UpdateBOMRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ProduktionService_DeleteBOM_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteBOMRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProduktionServiceServer).DeleteBOM(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProduktionService_DeleteBOM_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProduktionServiceServer).DeleteBOM(ctx, req.(*DeleteBOMRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ProduktionService_GetBOM_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBOMRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProduktionServiceServer).GetBOM(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProduktionService_GetBOM_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProduktionServiceServer).GetBOM(ctx, req.(*GetBOMRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ProduktionService_ListBOMs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBOMsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProduktionServiceServer).ListBOMs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProduktionService_ListBOMs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProduktionServiceServer).ListBOMs(ctx, req.(*ListBOMsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ProduktionService_CreateWorkStep_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateWorkStepRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProduktionServiceServer).CreateWorkStep(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProduktionService_CreateWorkStep_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProduktionServiceServer).CreateWorkStep(ctx, req.(*CreateWorkStepRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ProduktionService_UpdateWorkStep_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateWorkStepRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProduktionServiceServer).UpdateWorkStep(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProduktionService_UpdateWorkStep_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProduktionServiceServer).UpdateWorkStep(ctx, req.(*UpdateWorkStepRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ProduktionService_DeleteWorkStep_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteWorkStepRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProduktionServiceServer).DeleteWorkStep(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProduktionService_DeleteWorkStep_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProduktionServiceServer).DeleteWorkStep(ctx, req.(*DeleteWorkStepRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ProduktionService_ListWorkSteps_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListWorkStepsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProduktionServiceServer).ListWorkSteps(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProduktionService_ListWorkSteps_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProduktionServiceServer).ListWorkSteps(ctx, req.(*ListWorkStepsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ProduktionService_CreateMachine_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateMachineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProduktionServiceServer).CreateMachine(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProduktionService_CreateMachine_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProduktionServiceServer).CreateMachine(ctx, req.(*CreateMachineRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ProduktionService_UpdateMachine_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateMachineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProduktionServiceServer).UpdateMachine(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProduktionService_UpdateMachine_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProduktionServiceServer).UpdateMachine(ctx, req.(*UpdateMachineRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ProduktionService_DeleteMachine_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteMachineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProduktionServiceServer).DeleteMachine(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProduktionService_DeleteMachine_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProduktionServiceServer).DeleteMachine(ctx, req.(*DeleteMachineRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ProduktionService_GetMachine_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMachineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProduktionServiceServer).GetMachine(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProduktionService_GetMachine_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProduktionServiceServer).GetMachine(ctx, req.(*GetMachineRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ProduktionService_ListMachines_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMachinesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProduktionServiceServer).ListMachines(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProduktionService_ListMachines_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProduktionServiceServer).ListMachines(ctx, req.(*ListMachinesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ProduktionService_CreateQualityCheck_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateQualityCheckRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProduktionServiceServer).CreateQualityCheck(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProduktionService_CreateQualityCheck_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProduktionServiceServer).CreateQualityCheck(ctx, req.(*CreateQualityCheckRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ProduktionService_GetQualityCheck_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetQualityCheckRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProduktionServiceServer).GetQualityCheck(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProduktionService_GetQualityCheck_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProduktionServiceServer).GetQualityCheck(ctx, req.(*GetQualityCheckRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ProduktionService_ListQualityChecks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListQualityChecksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProduktionServiceServer).ListQualityChecks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProduktionService_ListQualityChecks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProduktionServiceServer).ListQualityChecks(ctx, req.(*ListQualityChecksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ProduktionService_ServiceDesc is the grpc.ServiceDesc for ProduktionService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -692,6 +1278,74 @@ var ProduktionService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetCapacityOverview",
 			Handler:    _ProduktionService_GetCapacityOverview_Handler,
+		},
+		{
+			MethodName: "CreateBOM",
+			Handler:    _ProduktionService_CreateBOM_Handler,
+		},
+		{
+			MethodName: "UpdateBOM",
+			Handler:    _ProduktionService_UpdateBOM_Handler,
+		},
+		{
+			MethodName: "DeleteBOM",
+			Handler:    _ProduktionService_DeleteBOM_Handler,
+		},
+		{
+			MethodName: "GetBOM",
+			Handler:    _ProduktionService_GetBOM_Handler,
+		},
+		{
+			MethodName: "ListBOMs",
+			Handler:    _ProduktionService_ListBOMs_Handler,
+		},
+		{
+			MethodName: "CreateWorkStep",
+			Handler:    _ProduktionService_CreateWorkStep_Handler,
+		},
+		{
+			MethodName: "UpdateWorkStep",
+			Handler:    _ProduktionService_UpdateWorkStep_Handler,
+		},
+		{
+			MethodName: "DeleteWorkStep",
+			Handler:    _ProduktionService_DeleteWorkStep_Handler,
+		},
+		{
+			MethodName: "ListWorkSteps",
+			Handler:    _ProduktionService_ListWorkSteps_Handler,
+		},
+		{
+			MethodName: "CreateMachine",
+			Handler:    _ProduktionService_CreateMachine_Handler,
+		},
+		{
+			MethodName: "UpdateMachine",
+			Handler:    _ProduktionService_UpdateMachine_Handler,
+		},
+		{
+			MethodName: "DeleteMachine",
+			Handler:    _ProduktionService_DeleteMachine_Handler,
+		},
+		{
+			MethodName: "GetMachine",
+			Handler:    _ProduktionService_GetMachine_Handler,
+		},
+		{
+			MethodName: "ListMachines",
+			Handler:    _ProduktionService_ListMachines_Handler,
+		},
+		{
+			MethodName: "CreateQualityCheck",
+			Handler:    _ProduktionService_CreateQualityCheck_Handler,
+		},
+		{
+			MethodName: "GetQualityCheck",
+			Handler:    _ProduktionService_GetQualityCheck_Handler,
+		},
+		{
+			MethodName: "ListQualityChecks",
+			Handler:    _ProduktionService_ListQualityChecks_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

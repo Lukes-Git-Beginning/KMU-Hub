@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/global.d.ts",
+    "src/renderer/src/vite-env.d.ts",
+    "src/renderer/src/i18n/i18next.d.ts",
+    "src/renderer/src/api/produktion-types.ts",
+    "src/renderer/src/api/produktion-client.ts",
+    "src/renderer/src/api/hooks/useProduktion.ts",
+    "src/renderer/src/modules/produktion/ProduktionPage.tsx",
+    "src/renderer/src/modules/produktion/MaschinenbelegungChart.tsx",
+    "src/renderer/src/mocks/handlers/produktion.ts"
+  ]
+}

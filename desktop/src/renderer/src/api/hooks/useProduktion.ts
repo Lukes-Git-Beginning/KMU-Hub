@@ -22,6 +22,22 @@ import {
   getPlan,
   updatePlan,
   getCapacityOverview,
+  listBOMs,
+  getBOM,
+  createBOM,
+  updateBOM,
+  deleteBOM,
+  listWorkSteps,
+  createWorkStep,
+  updateWorkStep,
+  deleteWorkStep,
+  listMachines,
+  createMachine,
+  updateMachine,
+  deleteMachine,
+  listQualityChecks,
+  getQualityCheck,
+  createQualityCheck,
 } from '../produktion-client'
 import type {
   CreateOrderInput,
@@ -32,6 +48,16 @@ import type {
   ListBookingsParams,
   CreatePlanInput,
   UpdatePlanInput,
+  CreateBOMInput,
+  UpdateBOMInput,
+  ListBOMsParams,
+  CreateWorkStepInput,
+  UpdateWorkStepInput,
+  CreateMachineInput,
+  UpdateMachineInput,
+  ListMachinesParams,
+  CreateQualityCheckInput,
+  ListQualityChecksParams,
 } from '../produktion-types'
 
 // ---------------------------------------------------------------------------
@@ -212,5 +238,152 @@ export function useUpdatePlan() {
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: produktionKeys.plan(variables.id) })
     },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Queries — BOMs
+// ---------------------------------------------------------------------------
+
+export function useBOMs(params?: ListBOMsParams) {
+  return useQuery({
+    queryKey: ['produktion', 'boms', params],
+    queryFn: () => listBOMs(params),
+  })
+}
+
+export function useBOM(id: string) {
+  return useQuery({
+    queryKey: ['produktion', 'boms', id],
+    queryFn: () => getBOM(id),
+    enabled: !!id,
+  })
+}
+
+export function useCreateBOM() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateBOMInput) => createBOM(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['produktion', 'boms'] }),
+  })
+}
+
+export function useUpdateBOM() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...input }: UpdateBOMInput & { id: string }) => updateBOM(id, input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['produktion', 'boms'] }),
+  })
+}
+
+export function useDeleteBOM() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteBOM(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['produktion', 'boms'] }),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Queries — Work Steps
+// ---------------------------------------------------------------------------
+
+export function useWorkSteps(orderId: string) {
+  return useQuery({
+    queryKey: ['produktion', 'worksteps', orderId],
+    queryFn: () => listWorkSteps(orderId),
+    enabled: !!orderId,
+  })
+}
+
+export function useCreateWorkStep() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ orderId, ...input }: Omit<CreateWorkStepInput, 'order_id'> & { orderId: string }) =>
+      createWorkStep(orderId, input),
+    onSuccess: (_data, variables) =>
+      qc.invalidateQueries({ queryKey: ['produktion', 'worksteps', variables.orderId] }),
+  })
+}
+
+export function useUpdateWorkStep() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ orderId, stepId, ...input }: UpdateWorkStepInput & { orderId: string; stepId: string }) =>
+      updateWorkStep(orderId, stepId, input),
+    onSuccess: (_data, variables) =>
+      qc.invalidateQueries({ queryKey: ['produktion', 'worksteps', variables.orderId] }),
+  })
+}
+
+export function useDeleteWorkStep() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ orderId, stepId }: { orderId: string; stepId: string }) =>
+      deleteWorkStep(orderId, stepId),
+    onSuccess: (_data, variables) =>
+      qc.invalidateQueries({ queryKey: ['produktion', 'worksteps', variables.orderId] }),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Queries — Machines
+// ---------------------------------------------------------------------------
+
+export function useMachines(params?: ListMachinesParams) {
+  return useQuery({
+    queryKey: ['produktion', 'machines', params],
+    queryFn: () => listMachines(params),
+  })
+}
+
+export function useCreateMachine() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateMachineInput) => createMachine(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['produktion', 'machines'] }),
+  })
+}
+
+export function useUpdateMachine() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...input }: UpdateMachineInput & { id: string }) => updateMachine(id, input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['produktion', 'machines'] }),
+  })
+}
+
+export function useDeleteMachine() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteMachine(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['produktion', 'machines'] }),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Queries — Quality Checks
+// ---------------------------------------------------------------------------
+
+export function useQualityChecks(params?: ListQualityChecksParams) {
+  return useQuery({
+    queryKey: ['produktion', 'quality', params],
+    queryFn: () => listQualityChecks(params),
+  })
+}
+
+export function useGetQualityCheck(id: string) {
+  return useQuery({
+    queryKey: ['produktion', 'quality', id],
+    queryFn: () => getQualityCheck(id),
+    enabled: !!id,
+  })
+}
+
+export function useCreateQualityCheck() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateQualityCheckInput) => createQualityCheck(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['produktion', 'quality'] }),
   })
 }

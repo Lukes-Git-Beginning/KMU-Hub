@@ -1958,6 +1958,2342 @@ func (x *CapacityOverviewResponse) GetOverview() *CapacityOverview {
 	return nil
 }
 
+type BomItem struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	BomId         string                 `protobuf:"bytes,3,opt,name=bom_id,json=bomId,proto3" json:"bom_id,omitempty"`
+	MaterialName  string                 `protobuf:"bytes,4,opt,name=material_name,json=materialName,proto3" json:"material_name,omitempty"`
+	Quantity      float64                `protobuf:"fixed64,5,opt,name=quantity,proto3" json:"quantity,omitempty"`
+	Unit          string                 `protobuf:"bytes,6,opt,name=unit,proto3" json:"unit,omitempty"`
+	SortOrder     int32                  `protobuf:"varint,7,opt,name=sort_order,json=sortOrder,proto3" json:"sort_order,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BomItem) Reset() {
+	*x = BomItem{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BomItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BomItem) ProtoMessage() {}
+
+func (x *BomItem) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BomItem.ProtoReflect.Descriptor instead.
+func (*BomItem) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *BomItem) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *BomItem) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *BomItem) GetBomId() string {
+	if x != nil {
+		return x.BomId
+	}
+	return ""
+}
+
+func (x *BomItem) GetMaterialName() string {
+	if x != nil {
+		return x.MaterialName
+	}
+	return ""
+}
+
+func (x *BomItem) GetQuantity() float64 {
+	if x != nil {
+		return x.Quantity
+	}
+	return 0
+}
+
+func (x *BomItem) GetUnit() string {
+	if x != nil {
+		return x.Unit
+	}
+	return ""
+}
+
+func (x *BomItem) GetSortOrder() int32 {
+	if x != nil {
+		return x.SortOrder
+	}
+	return 0
+}
+
+type BOM struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ProductName   string                 `protobuf:"bytes,3,opt,name=product_name,json=productName,proto3" json:"product_name,omitempty"`
+	Sku           string                 `protobuf:"bytes,4,opt,name=sku,proto3" json:"sku,omitempty"`
+	Version       string                 `protobuf:"bytes,5,opt,name=version,proto3" json:"version,omitempty"`
+	Active        bool                   `protobuf:"varint,6,opt,name=active,proto3" json:"active,omitempty"`
+	Notes         string                 `protobuf:"bytes,7,opt,name=notes,proto3" json:"notes,omitempty"`
+	Items         []*BomItem             `protobuf:"bytes,8,rep,name=items,proto3" json:"items,omitempty"`
+	CreatedBy     *string                `protobuf:"bytes,9,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BOM) Reset() {
+	*x = BOM{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BOM) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BOM) ProtoMessage() {}
+
+func (x *BOM) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BOM.ProtoReflect.Descriptor instead.
+func (*BOM) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *BOM) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *BOM) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *BOM) GetProductName() string {
+	if x != nil {
+		return x.ProductName
+	}
+	return ""
+}
+
+func (x *BOM) GetSku() string {
+	if x != nil {
+		return x.Sku
+	}
+	return ""
+}
+
+func (x *BOM) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *BOM) GetActive() bool {
+	if x != nil {
+		return x.Active
+	}
+	return false
+}
+
+func (x *BOM) GetNotes() string {
+	if x != nil {
+		return x.Notes
+	}
+	return ""
+}
+
+func (x *BOM) GetItems() []*BomItem {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+func (x *BOM) GetCreatedBy() string {
+	if x != nil && x.CreatedBy != nil {
+		return *x.CreatedBy
+	}
+	return ""
+}
+
+func (x *BOM) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *BOM) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type CreateBOMRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ProductName   string                 `protobuf:"bytes,2,opt,name=product_name,json=productName,proto3" json:"product_name,omitempty"`
+	Sku           string                 `protobuf:"bytes,3,opt,name=sku,proto3" json:"sku,omitempty"`
+	Version       string                 `protobuf:"bytes,4,opt,name=version,proto3" json:"version,omitempty"`
+	Active        bool                   `protobuf:"varint,5,opt,name=active,proto3" json:"active,omitempty"`
+	Notes         string                 `protobuf:"bytes,6,opt,name=notes,proto3" json:"notes,omitempty"`
+	Items         []*CreateBomItemInput  `protobuf:"bytes,7,rep,name=items,proto3" json:"items,omitempty"`
+	CreatedBy     *string                `protobuf:"bytes,8,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateBOMRequest) Reset() {
+	*x = CreateBOMRequest{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateBOMRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateBOMRequest) ProtoMessage() {}
+
+func (x *CreateBOMRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateBOMRequest.ProtoReflect.Descriptor instead.
+func (*CreateBOMRequest) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *CreateBOMRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateBOMRequest) GetProductName() string {
+	if x != nil {
+		return x.ProductName
+	}
+	return ""
+}
+
+func (x *CreateBOMRequest) GetSku() string {
+	if x != nil {
+		return x.Sku
+	}
+	return ""
+}
+
+func (x *CreateBOMRequest) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *CreateBOMRequest) GetActive() bool {
+	if x != nil {
+		return x.Active
+	}
+	return false
+}
+
+func (x *CreateBOMRequest) GetNotes() string {
+	if x != nil {
+		return x.Notes
+	}
+	return ""
+}
+
+func (x *CreateBOMRequest) GetItems() []*CreateBomItemInput {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+func (x *CreateBOMRequest) GetCreatedBy() string {
+	if x != nil && x.CreatedBy != nil {
+		return *x.CreatedBy
+	}
+	return ""
+}
+
+type CreateBomItemInput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	MaterialName  string                 `protobuf:"bytes,1,opt,name=material_name,json=materialName,proto3" json:"material_name,omitempty"`
+	Quantity      float64                `protobuf:"fixed64,2,opt,name=quantity,proto3" json:"quantity,omitempty"`
+	Unit          string                 `protobuf:"bytes,3,opt,name=unit,proto3" json:"unit,omitempty"`
+	SortOrder     int32                  `protobuf:"varint,4,opt,name=sort_order,json=sortOrder,proto3" json:"sort_order,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateBomItemInput) Reset() {
+	*x = CreateBomItemInput{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateBomItemInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateBomItemInput) ProtoMessage() {}
+
+func (x *CreateBomItemInput) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateBomItemInput.ProtoReflect.Descriptor instead.
+func (*CreateBomItemInput) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *CreateBomItemInput) GetMaterialName() string {
+	if x != nil {
+		return x.MaterialName
+	}
+	return ""
+}
+
+func (x *CreateBomItemInput) GetQuantity() float64 {
+	if x != nil {
+		return x.Quantity
+	}
+	return 0
+}
+
+func (x *CreateBomItemInput) GetUnit() string {
+	if x != nil {
+		return x.Unit
+	}
+	return ""
+}
+
+func (x *CreateBomItemInput) GetSortOrder() int32 {
+	if x != nil {
+		return x.SortOrder
+	}
+	return 0
+}
+
+type UpdateBOMRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	BomId         string                 `protobuf:"bytes,2,opt,name=bom_id,json=bomId,proto3" json:"bom_id,omitempty"`
+	ProductName   *string                `protobuf:"bytes,3,opt,name=product_name,json=productName,proto3,oneof" json:"product_name,omitempty"`
+	Sku           *string                `protobuf:"bytes,4,opt,name=sku,proto3,oneof" json:"sku,omitempty"`
+	Version       *string                `protobuf:"bytes,5,opt,name=version,proto3,oneof" json:"version,omitempty"`
+	Active        *bool                  `protobuf:"varint,6,opt,name=active,proto3,oneof" json:"active,omitempty"`
+	Notes         *string                `protobuf:"bytes,7,opt,name=notes,proto3,oneof" json:"notes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateBOMRequest) Reset() {
+	*x = UpdateBOMRequest{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateBOMRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateBOMRequest) ProtoMessage() {}
+
+func (x *UpdateBOMRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateBOMRequest.ProtoReflect.Descriptor instead.
+func (*UpdateBOMRequest) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *UpdateBOMRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *UpdateBOMRequest) GetBomId() string {
+	if x != nil {
+		return x.BomId
+	}
+	return ""
+}
+
+func (x *UpdateBOMRequest) GetProductName() string {
+	if x != nil && x.ProductName != nil {
+		return *x.ProductName
+	}
+	return ""
+}
+
+func (x *UpdateBOMRequest) GetSku() string {
+	if x != nil && x.Sku != nil {
+		return *x.Sku
+	}
+	return ""
+}
+
+func (x *UpdateBOMRequest) GetVersion() string {
+	if x != nil && x.Version != nil {
+		return *x.Version
+	}
+	return ""
+}
+
+func (x *UpdateBOMRequest) GetActive() bool {
+	if x != nil && x.Active != nil {
+		return *x.Active
+	}
+	return false
+}
+
+func (x *UpdateBOMRequest) GetNotes() string {
+	if x != nil && x.Notes != nil {
+		return *x.Notes
+	}
+	return ""
+}
+
+type DeleteBOMRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	BomId         string                 `protobuf:"bytes,2,opt,name=bom_id,json=bomId,proto3" json:"bom_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteBOMRequest) Reset() {
+	*x = DeleteBOMRequest{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteBOMRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteBOMRequest) ProtoMessage() {}
+
+func (x *DeleteBOMRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteBOMRequest.ProtoReflect.Descriptor instead.
+func (*DeleteBOMRequest) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *DeleteBOMRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *DeleteBOMRequest) GetBomId() string {
+	if x != nil {
+		return x.BomId
+	}
+	return ""
+}
+
+type DeleteBOMResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteBOMResponse) Reset() {
+	*x = DeleteBOMResponse{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteBOMResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteBOMResponse) ProtoMessage() {}
+
+func (x *DeleteBOMResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteBOMResponse.ProtoReflect.Descriptor instead.
+func (*DeleteBOMResponse) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{32}
+}
+
+type GetBOMRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	BomId         string                 `protobuf:"bytes,2,opt,name=bom_id,json=bomId,proto3" json:"bom_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetBOMRequest) Reset() {
+	*x = GetBOMRequest{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBOMRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBOMRequest) ProtoMessage() {}
+
+func (x *GetBOMRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBOMRequest.ProtoReflect.Descriptor instead.
+func (*GetBOMRequest) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *GetBOMRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *GetBOMRequest) GetBomId() string {
+	if x != nil {
+		return x.BomId
+	}
+	return ""
+}
+
+type BOMResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Bom           *BOM                   `protobuf:"bytes,1,opt,name=bom,proto3" json:"bom,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BOMResponse) Reset() {
+	*x = BOMResponse{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BOMResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BOMResponse) ProtoMessage() {}
+
+func (x *BOMResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BOMResponse.ProtoReflect.Descriptor instead.
+func (*BOMResponse) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *BOMResponse) GetBom() *BOM {
+	if x != nil {
+		return x.Bom
+	}
+	return nil
+}
+
+type ListBOMsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Active        *bool                  `protobuf:"varint,2,opt,name=active,proto3,oneof" json:"active,omitempty"`
+	Page          int32                  `protobuf:"varint,3,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBOMsRequest) Reset() {
+	*x = ListBOMsRequest{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBOMsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBOMsRequest) ProtoMessage() {}
+
+func (x *ListBOMsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBOMsRequest.ProtoReflect.Descriptor instead.
+func (*ListBOMsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *ListBOMsRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListBOMsRequest) GetActive() bool {
+	if x != nil && x.Active != nil {
+		return *x.Active
+	}
+	return false
+}
+
+func (x *ListBOMsRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListBOMsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type ListBOMsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Boms          []*BOM                 `protobuf:"bytes,1,rep,name=boms,proto3" json:"boms,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBOMsResponse) Reset() {
+	*x = ListBOMsResponse{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBOMsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBOMsResponse) ProtoMessage() {}
+
+func (x *ListBOMsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBOMsResponse.ProtoReflect.Descriptor instead.
+func (*ListBOMsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *ListBOMsResponse) GetBoms() []*BOM {
+	if x != nil {
+		return x.Boms
+	}
+	return nil
+}
+
+func (x *ListBOMsResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type WorkStep struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId        string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	OrderId         string                 `protobuf:"bytes,3,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"`
+	StepNr          int32                  `protobuf:"varint,4,opt,name=step_nr,json=stepNr,proto3" json:"step_nr,omitempty"`
+	Name            string                 `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`
+	Description     string                 `protobuf:"bytes,6,opt,name=description,proto3" json:"description,omitempty"`
+	DurationMinutes int32                  `protobuf:"varint,7,opt,name=duration_minutes,json=durationMinutes,proto3" json:"duration_minutes,omitempty"`
+	Status          string                 `protobuf:"bytes,8,opt,name=status,proto3" json:"status,omitempty"` // pending|in_progress|completed|skipped
+	Assignee        string                 `protobuf:"bytes,9,opt,name=assignee,proto3" json:"assignee,omitempty"`
+	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt       *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *WorkStep) Reset() {
+	*x = WorkStep{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkStep) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkStep) ProtoMessage() {}
+
+func (x *WorkStep) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkStep.ProtoReflect.Descriptor instead.
+func (*WorkStep) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *WorkStep) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *WorkStep) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *WorkStep) GetOrderId() string {
+	if x != nil {
+		return x.OrderId
+	}
+	return ""
+}
+
+func (x *WorkStep) GetStepNr() int32 {
+	if x != nil {
+		return x.StepNr
+	}
+	return 0
+}
+
+func (x *WorkStep) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *WorkStep) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *WorkStep) GetDurationMinutes() int32 {
+	if x != nil {
+		return x.DurationMinutes
+	}
+	return 0
+}
+
+func (x *WorkStep) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *WorkStep) GetAssignee() string {
+	if x != nil {
+		return x.Assignee
+	}
+	return ""
+}
+
+func (x *WorkStep) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *WorkStep) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type CreateWorkStepRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	TenantId        string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	OrderId         string                 `protobuf:"bytes,2,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"`
+	StepNr          int32                  `protobuf:"varint,3,opt,name=step_nr,json=stepNr,proto3" json:"step_nr,omitempty"`
+	Name            string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	Description     string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
+	DurationMinutes int32                  `protobuf:"varint,6,opt,name=duration_minutes,json=durationMinutes,proto3" json:"duration_minutes,omitempty"`
+	Assignee        string                 `protobuf:"bytes,7,opt,name=assignee,proto3" json:"assignee,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *CreateWorkStepRequest) Reset() {
+	*x = CreateWorkStepRequest{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateWorkStepRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateWorkStepRequest) ProtoMessage() {}
+
+func (x *CreateWorkStepRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateWorkStepRequest.ProtoReflect.Descriptor instead.
+func (*CreateWorkStepRequest) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *CreateWorkStepRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateWorkStepRequest) GetOrderId() string {
+	if x != nil {
+		return x.OrderId
+	}
+	return ""
+}
+
+func (x *CreateWorkStepRequest) GetStepNr() int32 {
+	if x != nil {
+		return x.StepNr
+	}
+	return 0
+}
+
+func (x *CreateWorkStepRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateWorkStepRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *CreateWorkStepRequest) GetDurationMinutes() int32 {
+	if x != nil {
+		return x.DurationMinutes
+	}
+	return 0
+}
+
+func (x *CreateWorkStepRequest) GetAssignee() string {
+	if x != nil {
+		return x.Assignee
+	}
+	return ""
+}
+
+type UpdateWorkStepRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	TenantId        string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	StepId          string                 `protobuf:"bytes,2,opt,name=step_id,json=stepId,proto3" json:"step_id,omitempty"`
+	Name            *string                `protobuf:"bytes,3,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	Description     *string                `protobuf:"bytes,4,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	DurationMinutes *int32                 `protobuf:"varint,5,opt,name=duration_minutes,json=durationMinutes,proto3,oneof" json:"duration_minutes,omitempty"`
+	Status          *string                `protobuf:"bytes,6,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	Assignee        *string                `protobuf:"bytes,7,opt,name=assignee,proto3,oneof" json:"assignee,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *UpdateWorkStepRequest) Reset() {
+	*x = UpdateWorkStepRequest{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateWorkStepRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateWorkStepRequest) ProtoMessage() {}
+
+func (x *UpdateWorkStepRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateWorkStepRequest.ProtoReflect.Descriptor instead.
+func (*UpdateWorkStepRequest) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *UpdateWorkStepRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *UpdateWorkStepRequest) GetStepId() string {
+	if x != nil {
+		return x.StepId
+	}
+	return ""
+}
+
+func (x *UpdateWorkStepRequest) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+func (x *UpdateWorkStepRequest) GetDescription() string {
+	if x != nil && x.Description != nil {
+		return *x.Description
+	}
+	return ""
+}
+
+func (x *UpdateWorkStepRequest) GetDurationMinutes() int32 {
+	if x != nil && x.DurationMinutes != nil {
+		return *x.DurationMinutes
+	}
+	return 0
+}
+
+func (x *UpdateWorkStepRequest) GetStatus() string {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return ""
+}
+
+func (x *UpdateWorkStepRequest) GetAssignee() string {
+	if x != nil && x.Assignee != nil {
+		return *x.Assignee
+	}
+	return ""
+}
+
+type DeleteWorkStepRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	StepId        string                 `protobuf:"bytes,2,opt,name=step_id,json=stepId,proto3" json:"step_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteWorkStepRequest) Reset() {
+	*x = DeleteWorkStepRequest{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteWorkStepRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteWorkStepRequest) ProtoMessage() {}
+
+func (x *DeleteWorkStepRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteWorkStepRequest.ProtoReflect.Descriptor instead.
+func (*DeleteWorkStepRequest) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *DeleteWorkStepRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *DeleteWorkStepRequest) GetStepId() string {
+	if x != nil {
+		return x.StepId
+	}
+	return ""
+}
+
+type DeleteWorkStepResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteWorkStepResponse) Reset() {
+	*x = DeleteWorkStepResponse{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteWorkStepResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteWorkStepResponse) ProtoMessage() {}
+
+func (x *DeleteWorkStepResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteWorkStepResponse.ProtoReflect.Descriptor instead.
+func (*DeleteWorkStepResponse) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{41}
+}
+
+type WorkStepResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Step          *WorkStep              `protobuf:"bytes,1,opt,name=step,proto3" json:"step,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WorkStepResponse) Reset() {
+	*x = WorkStepResponse{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkStepResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkStepResponse) ProtoMessage() {}
+
+func (x *WorkStepResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkStepResponse.ProtoReflect.Descriptor instead.
+func (*WorkStepResponse) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *WorkStepResponse) GetStep() *WorkStep {
+	if x != nil {
+		return x.Step
+	}
+	return nil
+}
+
+type ListWorkStepsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	OrderId       string                 `protobuf:"bytes,2,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListWorkStepsRequest) Reset() {
+	*x = ListWorkStepsRequest{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWorkStepsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWorkStepsRequest) ProtoMessage() {}
+
+func (x *ListWorkStepsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWorkStepsRequest.ProtoReflect.Descriptor instead.
+func (*ListWorkStepsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *ListWorkStepsRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListWorkStepsRequest) GetOrderId() string {
+	if x != nil {
+		return x.OrderId
+	}
+	return ""
+}
+
+type ListWorkStepsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Steps         []*WorkStep            `protobuf:"bytes,1,rep,name=steps,proto3" json:"steps,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListWorkStepsResponse) Reset() {
+	*x = ListWorkStepsResponse{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWorkStepsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWorkStepsResponse) ProtoMessage() {}
+
+func (x *ListWorkStepsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWorkStepsResponse.ProtoReflect.Descriptor instead.
+func (*ListWorkStepsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *ListWorkStepsResponse) GetSteps() []*WorkStep {
+	if x != nil {
+		return x.Steps
+	}
+	return nil
+}
+
+func (x *ListWorkStepsResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type Machine struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Type          string                 `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`
+	Status        string                 `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"` // available|in_use|maintenance
+	Notes         string                 `protobuf:"bytes,6,opt,name=notes,proto3" json:"notes,omitempty"`
+	CreatedBy     *string                `protobuf:"bytes,7,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Machine) Reset() {
+	*x = Machine{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Machine) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Machine) ProtoMessage() {}
+
+func (x *Machine) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Machine.ProtoReflect.Descriptor instead.
+func (*Machine) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *Machine) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Machine) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *Machine) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Machine) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *Machine) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *Machine) GetNotes() string {
+	if x != nil {
+		return x.Notes
+	}
+	return ""
+}
+
+func (x *Machine) GetCreatedBy() string {
+	if x != nil && x.CreatedBy != nil {
+		return *x.CreatedBy
+	}
+	return ""
+}
+
+func (x *Machine) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *Machine) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type CreateMachineRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Type          string                 `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
+	Notes         string                 `protobuf:"bytes,4,opt,name=notes,proto3" json:"notes,omitempty"`
+	CreatedBy     *string                `protobuf:"bytes,5,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateMachineRequest) Reset() {
+	*x = CreateMachineRequest{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateMachineRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateMachineRequest) ProtoMessage() {}
+
+func (x *CreateMachineRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateMachineRequest.ProtoReflect.Descriptor instead.
+func (*CreateMachineRequest) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *CreateMachineRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateMachineRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateMachineRequest) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *CreateMachineRequest) GetNotes() string {
+	if x != nil {
+		return x.Notes
+	}
+	return ""
+}
+
+func (x *CreateMachineRequest) GetCreatedBy() string {
+	if x != nil && x.CreatedBy != nil {
+		return *x.CreatedBy
+	}
+	return ""
+}
+
+type UpdateMachineRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	MachineId     string                 `protobuf:"bytes,2,opt,name=machine_id,json=machineId,proto3" json:"machine_id,omitempty"`
+	Name          *string                `protobuf:"bytes,3,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	Type          *string                `protobuf:"bytes,4,opt,name=type,proto3,oneof" json:"type,omitempty"`
+	Status        *string                `protobuf:"bytes,5,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	Notes         *string                `protobuf:"bytes,6,opt,name=notes,proto3,oneof" json:"notes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateMachineRequest) Reset() {
+	*x = UpdateMachineRequest{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateMachineRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateMachineRequest) ProtoMessage() {}
+
+func (x *UpdateMachineRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateMachineRequest.ProtoReflect.Descriptor instead.
+func (*UpdateMachineRequest) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *UpdateMachineRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *UpdateMachineRequest) GetMachineId() string {
+	if x != nil {
+		return x.MachineId
+	}
+	return ""
+}
+
+func (x *UpdateMachineRequest) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+func (x *UpdateMachineRequest) GetType() string {
+	if x != nil && x.Type != nil {
+		return *x.Type
+	}
+	return ""
+}
+
+func (x *UpdateMachineRequest) GetStatus() string {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return ""
+}
+
+func (x *UpdateMachineRequest) GetNotes() string {
+	if x != nil && x.Notes != nil {
+		return *x.Notes
+	}
+	return ""
+}
+
+type DeleteMachineRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	MachineId     string                 `protobuf:"bytes,2,opt,name=machine_id,json=machineId,proto3" json:"machine_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteMachineRequest) Reset() {
+	*x = DeleteMachineRequest{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteMachineRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteMachineRequest) ProtoMessage() {}
+
+func (x *DeleteMachineRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteMachineRequest.ProtoReflect.Descriptor instead.
+func (*DeleteMachineRequest) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *DeleteMachineRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *DeleteMachineRequest) GetMachineId() string {
+	if x != nil {
+		return x.MachineId
+	}
+	return ""
+}
+
+type DeleteMachineResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteMachineResponse) Reset() {
+	*x = DeleteMachineResponse{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteMachineResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteMachineResponse) ProtoMessage() {}
+
+func (x *DeleteMachineResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteMachineResponse.ProtoReflect.Descriptor instead.
+func (*DeleteMachineResponse) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{49}
+}
+
+type GetMachineRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	MachineId     string                 `protobuf:"bytes,2,opt,name=machine_id,json=machineId,proto3" json:"machine_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMachineRequest) Reset() {
+	*x = GetMachineRequest{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMachineRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMachineRequest) ProtoMessage() {}
+
+func (x *GetMachineRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMachineRequest.ProtoReflect.Descriptor instead.
+func (*GetMachineRequest) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *GetMachineRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *GetMachineRequest) GetMachineId() string {
+	if x != nil {
+		return x.MachineId
+	}
+	return ""
+}
+
+type MachineResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Machine       *Machine               `protobuf:"bytes,1,opt,name=machine,proto3" json:"machine,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MachineResponse) Reset() {
+	*x = MachineResponse{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MachineResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MachineResponse) ProtoMessage() {}
+
+func (x *MachineResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MachineResponse.ProtoReflect.Descriptor instead.
+func (*MachineResponse) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *MachineResponse) GetMachine() *Machine {
+	if x != nil {
+		return x.Machine
+	}
+	return nil
+}
+
+type ListMachinesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Status        *string                `protobuf:"bytes,2,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	Page          int32                  `protobuf:"varint,3,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMachinesRequest) Reset() {
+	*x = ListMachinesRequest{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMachinesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMachinesRequest) ProtoMessage() {}
+
+func (x *ListMachinesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMachinesRequest.ProtoReflect.Descriptor instead.
+func (*ListMachinesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *ListMachinesRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListMachinesRequest) GetStatus() string {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return ""
+}
+
+func (x *ListMachinesRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListMachinesRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type ListMachinesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Machines      []*Machine             `protobuf:"bytes,1,rep,name=machines,proto3" json:"machines,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMachinesResponse) Reset() {
+	*x = ListMachinesResponse{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMachinesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMachinesResponse) ProtoMessage() {}
+
+func (x *ListMachinesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMachinesResponse.ProtoReflect.Descriptor instead.
+func (*ListMachinesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *ListMachinesResponse) GetMachines() []*Machine {
+	if x != nil {
+		return x.Machines
+	}
+	return nil
+}
+
+func (x *ListMachinesResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type QualityCheck struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	OrderId       string                 `protobuf:"bytes,3,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"`
+	Inspector     string                 `protobuf:"bytes,4,opt,name=inspector,proto3" json:"inspector,omitempty"`
+	CheckedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=checked_at,json=checkedAt,proto3" json:"checked_at,omitempty"`
+	Passed        bool                   `protobuf:"varint,6,opt,name=passed,proto3" json:"passed,omitempty"`
+	DefectsFound  int32                  `protobuf:"varint,7,opt,name=defects_found,json=defectsFound,proto3" json:"defects_found,omitempty"`
+	Notes         string                 `protobuf:"bytes,8,opt,name=notes,proto3" json:"notes,omitempty"`
+	CreatedBy     *string                `protobuf:"bytes,9,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QualityCheck) Reset() {
+	*x = QualityCheck{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QualityCheck) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QualityCheck) ProtoMessage() {}
+
+func (x *QualityCheck) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QualityCheck.ProtoReflect.Descriptor instead.
+func (*QualityCheck) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *QualityCheck) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *QualityCheck) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *QualityCheck) GetOrderId() string {
+	if x != nil {
+		return x.OrderId
+	}
+	return ""
+}
+
+func (x *QualityCheck) GetInspector() string {
+	if x != nil {
+		return x.Inspector
+	}
+	return ""
+}
+
+func (x *QualityCheck) GetCheckedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CheckedAt
+	}
+	return nil
+}
+
+func (x *QualityCheck) GetPassed() bool {
+	if x != nil {
+		return x.Passed
+	}
+	return false
+}
+
+func (x *QualityCheck) GetDefectsFound() int32 {
+	if x != nil {
+		return x.DefectsFound
+	}
+	return 0
+}
+
+func (x *QualityCheck) GetNotes() string {
+	if x != nil {
+		return x.Notes
+	}
+	return ""
+}
+
+func (x *QualityCheck) GetCreatedBy() string {
+	if x != nil && x.CreatedBy != nil {
+		return *x.CreatedBy
+	}
+	return ""
+}
+
+func (x *QualityCheck) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *QualityCheck) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type CreateQualityCheckRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	OrderId       string                 `protobuf:"bytes,2,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"`
+	Inspector     string                 `protobuf:"bytes,3,opt,name=inspector,proto3" json:"inspector,omitempty"`
+	CheckedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=checked_at,json=checkedAt,proto3" json:"checked_at,omitempty"`
+	Passed        bool                   `protobuf:"varint,5,opt,name=passed,proto3" json:"passed,omitempty"`
+	DefectsFound  int32                  `protobuf:"varint,6,opt,name=defects_found,json=defectsFound,proto3" json:"defects_found,omitempty"`
+	Notes         string                 `protobuf:"bytes,7,opt,name=notes,proto3" json:"notes,omitempty"`
+	CreatedBy     *string                `protobuf:"bytes,8,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateQualityCheckRequest) Reset() {
+	*x = CreateQualityCheckRequest{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateQualityCheckRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateQualityCheckRequest) ProtoMessage() {}
+
+func (x *CreateQualityCheckRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateQualityCheckRequest.ProtoReflect.Descriptor instead.
+func (*CreateQualityCheckRequest) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *CreateQualityCheckRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateQualityCheckRequest) GetOrderId() string {
+	if x != nil {
+		return x.OrderId
+	}
+	return ""
+}
+
+func (x *CreateQualityCheckRequest) GetInspector() string {
+	if x != nil {
+		return x.Inspector
+	}
+	return ""
+}
+
+func (x *CreateQualityCheckRequest) GetCheckedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CheckedAt
+	}
+	return nil
+}
+
+func (x *CreateQualityCheckRequest) GetPassed() bool {
+	if x != nil {
+		return x.Passed
+	}
+	return false
+}
+
+func (x *CreateQualityCheckRequest) GetDefectsFound() int32 {
+	if x != nil {
+		return x.DefectsFound
+	}
+	return 0
+}
+
+func (x *CreateQualityCheckRequest) GetNotes() string {
+	if x != nil {
+		return x.Notes
+	}
+	return ""
+}
+
+func (x *CreateQualityCheckRequest) GetCreatedBy() string {
+	if x != nil && x.CreatedBy != nil {
+		return *x.CreatedBy
+	}
+	return ""
+}
+
+type GetQualityCheckRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	CheckId       string                 `protobuf:"bytes,2,opt,name=check_id,json=checkId,proto3" json:"check_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetQualityCheckRequest) Reset() {
+	*x = GetQualityCheckRequest{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[56]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetQualityCheckRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetQualityCheckRequest) ProtoMessage() {}
+
+func (x *GetQualityCheckRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[56]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetQualityCheckRequest.ProtoReflect.Descriptor instead.
+func (*GetQualityCheckRequest) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{56}
+}
+
+func (x *GetQualityCheckRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *GetQualityCheckRequest) GetCheckId() string {
+	if x != nil {
+		return x.CheckId
+	}
+	return ""
+}
+
+type QualityCheckResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Check         *QualityCheck          `protobuf:"bytes,1,opt,name=check,proto3" json:"check,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QualityCheckResponse) Reset() {
+	*x = QualityCheckResponse{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QualityCheckResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QualityCheckResponse) ProtoMessage() {}
+
+func (x *QualityCheckResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QualityCheckResponse.ProtoReflect.Descriptor instead.
+func (*QualityCheckResponse) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *QualityCheckResponse) GetCheck() *QualityCheck {
+	if x != nil {
+		return x.Check
+	}
+	return nil
+}
+
+type ListQualityChecksRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	OrderId       *string                `protobuf:"bytes,2,opt,name=order_id,json=orderId,proto3,oneof" json:"order_id,omitempty"`
+	Page          int32                  `protobuf:"varint,3,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListQualityChecksRequest) Reset() {
+	*x = ListQualityChecksRequest{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListQualityChecksRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListQualityChecksRequest) ProtoMessage() {}
+
+func (x *ListQualityChecksRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListQualityChecksRequest.ProtoReflect.Descriptor instead.
+func (*ListQualityChecksRequest) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{58}
+}
+
+func (x *ListQualityChecksRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListQualityChecksRequest) GetOrderId() string {
+	if x != nil && x.OrderId != nil {
+		return *x.OrderId
+	}
+	return ""
+}
+
+func (x *ListQualityChecksRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListQualityChecksRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type ListQualityChecksResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Checks        []*QualityCheck        `protobuf:"bytes,1,rep,name=checks,proto3" json:"checks,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListQualityChecksResponse) Reset() {
+	*x = ListQualityChecksResponse{}
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListQualityChecksResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListQualityChecksResponse) ProtoMessage() {}
+
+func (x *ListQualityChecksResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_produktion_v1_produktion_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListQualityChecksResponse.ProtoReflect.Descriptor instead.
+func (*ListQualityChecksResponse) Descriptor() ([]byte, []int) {
+	return file_proto_produktion_v1_produktion_proto_rawDescGZIP(), []int{59}
+}
+
+func (x *ListQualityChecksResponse) GetChecks() []*QualityCheck {
+	if x != nil {
+		return x.Checks
+	}
+	return nil
+}
+
+func (x *ListQualityChecksResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
 var File_proto_produktion_v1_produktion_proto protoreflect.FileDescriptor
 
 const file_proto_produktion_v1_produktion_proto_rawDesc = "" +
@@ -2183,7 +4519,228 @@ const file_proto_produktion_v1_produktion_proto_rawDesc = "" +
 	"machine_id\x18\x02 \x01(\tR\tmachineId\x12\x17\n" +
 	"\aplan_id\x18\x03 \x01(\tR\x06planId\"W\n" +
 	"\x18CapacityOverviewResponse\x12;\n" +
-	"\boverview\x18\x01 \x01(\v2\x1f.produktion.v1.CapacityOverviewR\boverview2\x98\v\n" +
+	"\boverview\x18\x01 \x01(\v2\x1f.produktion.v1.CapacityOverviewR\boverview\"\xc1\x01\n" +
+	"\aBomItem\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x15\n" +
+	"\x06bom_id\x18\x03 \x01(\tR\x05bomId\x12#\n" +
+	"\rmaterial_name\x18\x04 \x01(\tR\fmaterialName\x12\x1a\n" +
+	"\bquantity\x18\x05 \x01(\x01R\bquantity\x12\x12\n" +
+	"\x04unit\x18\x06 \x01(\tR\x04unit\x12\x1d\n" +
+	"\n" +
+	"sort_order\x18\a \x01(\x05R\tsortOrder\"\x86\x03\n" +
+	"\x03BOM\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12!\n" +
+	"\fproduct_name\x18\x03 \x01(\tR\vproductName\x12\x10\n" +
+	"\x03sku\x18\x04 \x01(\tR\x03sku\x12\x18\n" +
+	"\aversion\x18\x05 \x01(\tR\aversion\x12\x16\n" +
+	"\x06active\x18\x06 \x01(\bR\x06active\x12\x14\n" +
+	"\x05notes\x18\a \x01(\tR\x05notes\x12,\n" +
+	"\x05items\x18\b \x03(\v2\x16.produktion.v1.BomItemR\x05items\x12\"\n" +
+	"\n" +
+	"created_by\x18\t \x01(\tH\x00R\tcreatedBy\x88\x01\x01\x129\n" +
+	"\n" +
+	"created_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAtB\r\n" +
+	"\v_created_by\"\x98\x02\n" +
+	"\x10CreateBOMRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12!\n" +
+	"\fproduct_name\x18\x02 \x01(\tR\vproductName\x12\x10\n" +
+	"\x03sku\x18\x03 \x01(\tR\x03sku\x12\x18\n" +
+	"\aversion\x18\x04 \x01(\tR\aversion\x12\x16\n" +
+	"\x06active\x18\x05 \x01(\bR\x06active\x12\x14\n" +
+	"\x05notes\x18\x06 \x01(\tR\x05notes\x127\n" +
+	"\x05items\x18\a \x03(\v2!.produktion.v1.CreateBomItemInputR\x05items\x12\"\n" +
+	"\n" +
+	"created_by\x18\b \x01(\tH\x00R\tcreatedBy\x88\x01\x01B\r\n" +
+	"\v_created_by\"\x88\x01\n" +
+	"\x12CreateBomItemInput\x12#\n" +
+	"\rmaterial_name\x18\x01 \x01(\tR\fmaterialName\x12\x1a\n" +
+	"\bquantity\x18\x02 \x01(\x01R\bquantity\x12\x12\n" +
+	"\x04unit\x18\x03 \x01(\tR\x04unit\x12\x1d\n" +
+	"\n" +
+	"sort_order\x18\x04 \x01(\x05R\tsortOrder\"\x96\x02\n" +
+	"\x10UpdateBOMRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x15\n" +
+	"\x06bom_id\x18\x02 \x01(\tR\x05bomId\x12&\n" +
+	"\fproduct_name\x18\x03 \x01(\tH\x00R\vproductName\x88\x01\x01\x12\x15\n" +
+	"\x03sku\x18\x04 \x01(\tH\x01R\x03sku\x88\x01\x01\x12\x1d\n" +
+	"\aversion\x18\x05 \x01(\tH\x02R\aversion\x88\x01\x01\x12\x1b\n" +
+	"\x06active\x18\x06 \x01(\bH\x03R\x06active\x88\x01\x01\x12\x19\n" +
+	"\x05notes\x18\a \x01(\tH\x04R\x05notes\x88\x01\x01B\x0f\n" +
+	"\r_product_nameB\x06\n" +
+	"\x04_skuB\n" +
+	"\n" +
+	"\b_versionB\t\n" +
+	"\a_activeB\b\n" +
+	"\x06_notes\"F\n" +
+	"\x10DeleteBOMRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x15\n" +
+	"\x06bom_id\x18\x02 \x01(\tR\x05bomId\"\x13\n" +
+	"\x11DeleteBOMResponse\"C\n" +
+	"\rGetBOMRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x15\n" +
+	"\x06bom_id\x18\x02 \x01(\tR\x05bomId\"3\n" +
+	"\vBOMResponse\x12$\n" +
+	"\x03bom\x18\x01 \x01(\v2\x12.produktion.v1.BOMR\x03bom\"\x87\x01\n" +
+	"\x0fListBOMsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
+	"\x06active\x18\x02 \x01(\bH\x00R\x06active\x88\x01\x01\x12\x12\n" +
+	"\x04page\x18\x03 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x04 \x01(\x05R\bpageSizeB\t\n" +
+	"\a_active\"P\n" +
+	"\x10ListBOMsResponse\x12&\n" +
+	"\x04boms\x18\x01 \x03(\v2\x12.produktion.v1.BOMR\x04boms\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xf6\x02\n" +
+	"\bWorkStep\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x19\n" +
+	"\border_id\x18\x03 \x01(\tR\aorderId\x12\x17\n" +
+	"\astep_nr\x18\x04 \x01(\x05R\x06stepNr\x12\x12\n" +
+	"\x04name\x18\x05 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x06 \x01(\tR\vdescription\x12)\n" +
+	"\x10duration_minutes\x18\a \x01(\x05R\x0fdurationMinutes\x12\x16\n" +
+	"\x06status\x18\b \x01(\tR\x06status\x12\x1a\n" +
+	"\bassignee\x18\t \x01(\tR\bassignee\x129\n" +
+	"\n" +
+	"created_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xe5\x01\n" +
+	"\x15CreateWorkStepRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x19\n" +
+	"\border_id\x18\x02 \x01(\tR\aorderId\x12\x17\n" +
+	"\astep_nr\x18\x03 \x01(\x05R\x06stepNr\x12\x12\n" +
+	"\x04name\x18\x04 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x05 \x01(\tR\vdescription\x12)\n" +
+	"\x10duration_minutes\x18\x06 \x01(\x05R\x0fdurationMinutes\x12\x1a\n" +
+	"\bassignee\x18\a \x01(\tR\bassignee\"\xc1\x02\n" +
+	"\x15UpdateWorkStepRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
+	"\astep_id\x18\x02 \x01(\tR\x06stepId\x12\x17\n" +
+	"\x04name\x18\x03 \x01(\tH\x00R\x04name\x88\x01\x01\x12%\n" +
+	"\vdescription\x18\x04 \x01(\tH\x01R\vdescription\x88\x01\x01\x12.\n" +
+	"\x10duration_minutes\x18\x05 \x01(\x05H\x02R\x0fdurationMinutes\x88\x01\x01\x12\x1b\n" +
+	"\x06status\x18\x06 \x01(\tH\x03R\x06status\x88\x01\x01\x12\x1f\n" +
+	"\bassignee\x18\a \x01(\tH\x04R\bassignee\x88\x01\x01B\a\n" +
+	"\x05_nameB\x0e\n" +
+	"\f_descriptionB\x13\n" +
+	"\x11_duration_minutesB\t\n" +
+	"\a_statusB\v\n" +
+	"\t_assignee\"M\n" +
+	"\x15DeleteWorkStepRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
+	"\astep_id\x18\x02 \x01(\tR\x06stepId\"\x18\n" +
+	"\x16DeleteWorkStepResponse\"?\n" +
+	"\x10WorkStepResponse\x12+\n" +
+	"\x04step\x18\x01 \x01(\v2\x17.produktion.v1.WorkStepR\x04step\"N\n" +
+	"\x14ListWorkStepsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x19\n" +
+	"\border_id\x18\x02 \x01(\tR\aorderId\"\\\n" +
+	"\x15ListWorkStepsResponse\x12-\n" +
+	"\x05steps\x18\x01 \x03(\v2\x17.produktion.v1.WorkStepR\x05steps\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xb5\x02\n" +
+	"\aMachine\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x12\n" +
+	"\x04type\x18\x04 \x01(\tR\x04type\x12\x16\n" +
+	"\x06status\x18\x05 \x01(\tR\x06status\x12\x14\n" +
+	"\x05notes\x18\x06 \x01(\tR\x05notes\x12\"\n" +
+	"\n" +
+	"created_by\x18\a \x01(\tH\x00R\tcreatedBy\x88\x01\x01\x129\n" +
+	"\n" +
+	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAtB\r\n" +
+	"\v_created_by\"\xa4\x01\n" +
+	"\x14CreateMachineRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
+	"\x04type\x18\x03 \x01(\tR\x04type\x12\x14\n" +
+	"\x05notes\x18\x04 \x01(\tR\x05notes\x12\"\n" +
+	"\n" +
+	"created_by\x18\x05 \x01(\tH\x00R\tcreatedBy\x88\x01\x01B\r\n" +
+	"\v_created_by\"\xe3\x01\n" +
+	"\x14UpdateMachineRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
+	"\n" +
+	"machine_id\x18\x02 \x01(\tR\tmachineId\x12\x17\n" +
+	"\x04name\x18\x03 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x17\n" +
+	"\x04type\x18\x04 \x01(\tH\x01R\x04type\x88\x01\x01\x12\x1b\n" +
+	"\x06status\x18\x05 \x01(\tH\x02R\x06status\x88\x01\x01\x12\x19\n" +
+	"\x05notes\x18\x06 \x01(\tH\x03R\x05notes\x88\x01\x01B\a\n" +
+	"\x05_nameB\a\n" +
+	"\x05_typeB\t\n" +
+	"\a_statusB\b\n" +
+	"\x06_notes\"R\n" +
+	"\x14DeleteMachineRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
+	"\n" +
+	"machine_id\x18\x02 \x01(\tR\tmachineId\"\x17\n" +
+	"\x15DeleteMachineResponse\"O\n" +
+	"\x11GetMachineRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
+	"\n" +
+	"machine_id\x18\x02 \x01(\tR\tmachineId\"C\n" +
+	"\x0fMachineResponse\x120\n" +
+	"\amachine\x18\x01 \x01(\v2\x16.produktion.v1.MachineR\amachine\"\x8b\x01\n" +
+	"\x13ListMachinesRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
+	"\x06status\x18\x02 \x01(\tH\x00R\x06status\x88\x01\x01\x12\x12\n" +
+	"\x04page\x18\x03 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x04 \x01(\x05R\bpageSizeB\t\n" +
+	"\a_status\"`\n" +
+	"\x14ListMachinesResponse\x122\n" +
+	"\bmachines\x18\x01 \x03(\v2\x16.produktion.v1.MachineR\bmachines\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xab\x03\n" +
+	"\fQualityCheck\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x19\n" +
+	"\border_id\x18\x03 \x01(\tR\aorderId\x12\x1c\n" +
+	"\tinspector\x18\x04 \x01(\tR\tinspector\x129\n" +
+	"\n" +
+	"checked_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcheckedAt\x12\x16\n" +
+	"\x06passed\x18\x06 \x01(\bR\x06passed\x12#\n" +
+	"\rdefects_found\x18\a \x01(\x05R\fdefectsFound\x12\x14\n" +
+	"\x05notes\x18\b \x01(\tR\x05notes\x12\"\n" +
+	"\n" +
+	"created_by\x18\t \x01(\tH\x00R\tcreatedBy\x88\x01\x01\x129\n" +
+	"\n" +
+	"created_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAtB\r\n" +
+	"\v_created_by\"\xb2\x02\n" +
+	"\x19CreateQualityCheckRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x19\n" +
+	"\border_id\x18\x02 \x01(\tR\aorderId\x12\x1c\n" +
+	"\tinspector\x18\x03 \x01(\tR\tinspector\x129\n" +
+	"\n" +
+	"checked_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcheckedAt\x12\x16\n" +
+	"\x06passed\x18\x05 \x01(\bR\x06passed\x12#\n" +
+	"\rdefects_found\x18\x06 \x01(\x05R\fdefectsFound\x12\x14\n" +
+	"\x05notes\x18\a \x01(\tR\x05notes\x12\"\n" +
+	"\n" +
+	"created_by\x18\b \x01(\tH\x00R\tcreatedBy\x88\x01\x01B\r\n" +
+	"\v_created_by\"P\n" +
+	"\x16GetQualityCheckRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x19\n" +
+	"\bcheck_id\x18\x02 \x01(\tR\acheckId\"I\n" +
+	"\x14QualityCheckResponse\x121\n" +
+	"\x05check\x18\x01 \x01(\v2\x1b.produktion.v1.QualityCheckR\x05check\"\x95\x01\n" +
+	"\x18ListQualityChecksRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1e\n" +
+	"\border_id\x18\x02 \x01(\tH\x00R\aorderId\x88\x01\x01\x12\x12\n" +
+	"\x04page\x18\x03 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x04 \x01(\x05R\bpageSizeB\v\n" +
+	"\t_order_id\"f\n" +
+	"\x19ListQualityChecksResponse\x123\n" +
+	"\x06checks\x18\x01 \x03(\v2\x1b.produktion.v1.QualityCheckR\x06checks\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total2\xd7\x16\n" +
 	"\x11ProduktionService\x12N\n" +
 	"\vCreateOrder\x12!.produktion.v1.CreateOrderRequest\x1a\x1c.produktion.v1.OrderResponse\x12N\n" +
 	"\vUpdateOrder\x12!.produktion.v1.UpdateOrderRequest\x1a\x1c.produktion.v1.OrderResponse\x12T\n" +
@@ -2204,7 +4761,25 @@ const file_proto_produktion_v1_produktion_proto_rawDesc = "" +
 	"\n" +
 	"UpdatePlan\x12 .produktion.v1.UpdatePlanRequest\x1a\x1b.produktion.v1.PlanResponse\x12E\n" +
 	"\aGetPlan\x12\x1d.produktion.v1.GetPlanRequest\x1a\x1b.produktion.v1.PlanResponse\x12i\n" +
-	"\x13GetCapacityOverview\x12).produktion.v1.GetCapacityOverviewRequest\x1a'.produktion.v1.CapacityOverviewResponseB;Z9github.com/kmuhub/kmuhub/proto/produktion/v1;produktionv1b\x06proto3"
+	"\x13GetCapacityOverview\x12).produktion.v1.GetCapacityOverviewRequest\x1a'.produktion.v1.CapacityOverviewResponse\x12H\n" +
+	"\tCreateBOM\x12\x1f.produktion.v1.CreateBOMRequest\x1a\x1a.produktion.v1.BOMResponse\x12H\n" +
+	"\tUpdateBOM\x12\x1f.produktion.v1.UpdateBOMRequest\x1a\x1a.produktion.v1.BOMResponse\x12N\n" +
+	"\tDeleteBOM\x12\x1f.produktion.v1.DeleteBOMRequest\x1a .produktion.v1.DeleteBOMResponse\x12B\n" +
+	"\x06GetBOM\x12\x1c.produktion.v1.GetBOMRequest\x1a\x1a.produktion.v1.BOMResponse\x12K\n" +
+	"\bListBOMs\x12\x1e.produktion.v1.ListBOMsRequest\x1a\x1f.produktion.v1.ListBOMsResponse\x12W\n" +
+	"\x0eCreateWorkStep\x12$.produktion.v1.CreateWorkStepRequest\x1a\x1f.produktion.v1.WorkStepResponse\x12W\n" +
+	"\x0eUpdateWorkStep\x12$.produktion.v1.UpdateWorkStepRequest\x1a\x1f.produktion.v1.WorkStepResponse\x12]\n" +
+	"\x0eDeleteWorkStep\x12$.produktion.v1.DeleteWorkStepRequest\x1a%.produktion.v1.DeleteWorkStepResponse\x12Z\n" +
+	"\rListWorkSteps\x12#.produktion.v1.ListWorkStepsRequest\x1a$.produktion.v1.ListWorkStepsResponse\x12T\n" +
+	"\rCreateMachine\x12#.produktion.v1.CreateMachineRequest\x1a\x1e.produktion.v1.MachineResponse\x12T\n" +
+	"\rUpdateMachine\x12#.produktion.v1.UpdateMachineRequest\x1a\x1e.produktion.v1.MachineResponse\x12Z\n" +
+	"\rDeleteMachine\x12#.produktion.v1.DeleteMachineRequest\x1a$.produktion.v1.DeleteMachineResponse\x12N\n" +
+	"\n" +
+	"GetMachine\x12 .produktion.v1.GetMachineRequest\x1a\x1e.produktion.v1.MachineResponse\x12W\n" +
+	"\fListMachines\x12\".produktion.v1.ListMachinesRequest\x1a#.produktion.v1.ListMachinesResponse\x12c\n" +
+	"\x12CreateQualityCheck\x12(.produktion.v1.CreateQualityCheckRequest\x1a#.produktion.v1.QualityCheckResponse\x12]\n" +
+	"\x0fGetQualityCheck\x12%.produktion.v1.GetQualityCheckRequest\x1a#.produktion.v1.QualityCheckResponse\x12f\n" +
+	"\x11ListQualityChecks\x12'.produktion.v1.ListQualityChecksRequest\x1a(.produktion.v1.ListQualityChecksResponseB;Z9github.com/kmuhub/kmuhub/proto/produktion/v1;produktionv1b\x06proto3"
 
 var (
 	file_proto_produktion_v1_produktion_proto_rawDescOnce sync.Once
@@ -2218,7 +4793,7 @@ func file_proto_produktion_v1_produktion_proto_rawDescGZIP() []byte {
 	return file_proto_produktion_v1_produktion_proto_rawDescData
 }
 
-var file_proto_produktion_v1_produktion_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
+var file_proto_produktion_v1_produktion_proto_msgTypes = make([]protoimpl.MessageInfo, 60)
 var file_proto_produktion_v1_produktion_proto_goTypes = []any{
 	(*ProductionOrder)(nil),              // 0: produktion.v1.ProductionOrder
 	(*MachineBooking)(nil),               // 1: produktion.v1.MachineBooking
@@ -2246,76 +4821,164 @@ var file_proto_produktion_v1_produktion_proto_goTypes = []any{
 	(*PlanResponse)(nil),                 // 23: produktion.v1.PlanResponse
 	(*GetCapacityOverviewRequest)(nil),   // 24: produktion.v1.GetCapacityOverviewRequest
 	(*CapacityOverviewResponse)(nil),     // 25: produktion.v1.CapacityOverviewResponse
-	(*timestamppb.Timestamp)(nil),        // 26: google.protobuf.Timestamp
+	(*BomItem)(nil),                      // 26: produktion.v1.BomItem
+	(*BOM)(nil),                          // 27: produktion.v1.BOM
+	(*CreateBOMRequest)(nil),             // 28: produktion.v1.CreateBOMRequest
+	(*CreateBomItemInput)(nil),           // 29: produktion.v1.CreateBomItemInput
+	(*UpdateBOMRequest)(nil),             // 30: produktion.v1.UpdateBOMRequest
+	(*DeleteBOMRequest)(nil),             // 31: produktion.v1.DeleteBOMRequest
+	(*DeleteBOMResponse)(nil),            // 32: produktion.v1.DeleteBOMResponse
+	(*GetBOMRequest)(nil),                // 33: produktion.v1.GetBOMRequest
+	(*BOMResponse)(nil),                  // 34: produktion.v1.BOMResponse
+	(*ListBOMsRequest)(nil),              // 35: produktion.v1.ListBOMsRequest
+	(*ListBOMsResponse)(nil),             // 36: produktion.v1.ListBOMsResponse
+	(*WorkStep)(nil),                     // 37: produktion.v1.WorkStep
+	(*CreateWorkStepRequest)(nil),        // 38: produktion.v1.CreateWorkStepRequest
+	(*UpdateWorkStepRequest)(nil),        // 39: produktion.v1.UpdateWorkStepRequest
+	(*DeleteWorkStepRequest)(nil),        // 40: produktion.v1.DeleteWorkStepRequest
+	(*DeleteWorkStepResponse)(nil),       // 41: produktion.v1.DeleteWorkStepResponse
+	(*WorkStepResponse)(nil),             // 42: produktion.v1.WorkStepResponse
+	(*ListWorkStepsRequest)(nil),         // 43: produktion.v1.ListWorkStepsRequest
+	(*ListWorkStepsResponse)(nil),        // 44: produktion.v1.ListWorkStepsResponse
+	(*Machine)(nil),                      // 45: produktion.v1.Machine
+	(*CreateMachineRequest)(nil),         // 46: produktion.v1.CreateMachineRequest
+	(*UpdateMachineRequest)(nil),         // 47: produktion.v1.UpdateMachineRequest
+	(*DeleteMachineRequest)(nil),         // 48: produktion.v1.DeleteMachineRequest
+	(*DeleteMachineResponse)(nil),        // 49: produktion.v1.DeleteMachineResponse
+	(*GetMachineRequest)(nil),            // 50: produktion.v1.GetMachineRequest
+	(*MachineResponse)(nil),              // 51: produktion.v1.MachineResponse
+	(*ListMachinesRequest)(nil),          // 52: produktion.v1.ListMachinesRequest
+	(*ListMachinesResponse)(nil),         // 53: produktion.v1.ListMachinesResponse
+	(*QualityCheck)(nil),                 // 54: produktion.v1.QualityCheck
+	(*CreateQualityCheckRequest)(nil),    // 55: produktion.v1.CreateQualityCheckRequest
+	(*GetQualityCheckRequest)(nil),       // 56: produktion.v1.GetQualityCheckRequest
+	(*QualityCheckResponse)(nil),         // 57: produktion.v1.QualityCheckResponse
+	(*ListQualityChecksRequest)(nil),     // 58: produktion.v1.ListQualityChecksRequest
+	(*ListQualityChecksResponse)(nil),    // 59: produktion.v1.ListQualityChecksResponse
+	(*timestamppb.Timestamp)(nil),        // 60: google.protobuf.Timestamp
 }
 var file_proto_produktion_v1_produktion_proto_depIdxs = []int32{
-	26, // 0: produktion.v1.ProductionOrder.planned_start:type_name -> google.protobuf.Timestamp
-	26, // 1: produktion.v1.ProductionOrder.planned_end:type_name -> google.protobuf.Timestamp
-	26, // 2: produktion.v1.ProductionOrder.actual_start:type_name -> google.protobuf.Timestamp
-	26, // 3: produktion.v1.ProductionOrder.actual_end:type_name -> google.protobuf.Timestamp
-	26, // 4: produktion.v1.ProductionOrder.created_at:type_name -> google.protobuf.Timestamp
-	26, // 5: produktion.v1.ProductionOrder.updated_at:type_name -> google.protobuf.Timestamp
-	26, // 6: produktion.v1.MachineBooking.starts_at:type_name -> google.protobuf.Timestamp
-	26, // 7: produktion.v1.MachineBooking.ends_at:type_name -> google.protobuf.Timestamp
-	26, // 8: produktion.v1.MachineBooking.created_at:type_name -> google.protobuf.Timestamp
-	26, // 9: produktion.v1.MachineBooking.updated_at:type_name -> google.protobuf.Timestamp
-	26, // 10: produktion.v1.ProductionPlan.created_at:type_name -> google.protobuf.Timestamp
-	26, // 11: produktion.v1.ProductionPlan.updated_at:type_name -> google.protobuf.Timestamp
-	26, // 12: produktion.v1.CreateOrderRequest.planned_start:type_name -> google.protobuf.Timestamp
-	26, // 13: produktion.v1.CreateOrderRequest.planned_end:type_name -> google.protobuf.Timestamp
-	26, // 14: produktion.v1.UpdateOrderRequest.planned_start:type_name -> google.protobuf.Timestamp
-	26, // 15: produktion.v1.UpdateOrderRequest.planned_end:type_name -> google.protobuf.Timestamp
+	60, // 0: produktion.v1.ProductionOrder.planned_start:type_name -> google.protobuf.Timestamp
+	60, // 1: produktion.v1.ProductionOrder.planned_end:type_name -> google.protobuf.Timestamp
+	60, // 2: produktion.v1.ProductionOrder.actual_start:type_name -> google.protobuf.Timestamp
+	60, // 3: produktion.v1.ProductionOrder.actual_end:type_name -> google.protobuf.Timestamp
+	60, // 4: produktion.v1.ProductionOrder.created_at:type_name -> google.protobuf.Timestamp
+	60, // 5: produktion.v1.ProductionOrder.updated_at:type_name -> google.protobuf.Timestamp
+	60, // 6: produktion.v1.MachineBooking.starts_at:type_name -> google.protobuf.Timestamp
+	60, // 7: produktion.v1.MachineBooking.ends_at:type_name -> google.protobuf.Timestamp
+	60, // 8: produktion.v1.MachineBooking.created_at:type_name -> google.protobuf.Timestamp
+	60, // 9: produktion.v1.MachineBooking.updated_at:type_name -> google.protobuf.Timestamp
+	60, // 10: produktion.v1.ProductionPlan.created_at:type_name -> google.protobuf.Timestamp
+	60, // 11: produktion.v1.ProductionPlan.updated_at:type_name -> google.protobuf.Timestamp
+	60, // 12: produktion.v1.CreateOrderRequest.planned_start:type_name -> google.protobuf.Timestamp
+	60, // 13: produktion.v1.CreateOrderRequest.planned_end:type_name -> google.protobuf.Timestamp
+	60, // 14: produktion.v1.UpdateOrderRequest.planned_start:type_name -> google.protobuf.Timestamp
+	60, // 15: produktion.v1.UpdateOrderRequest.planned_end:type_name -> google.protobuf.Timestamp
 	0,  // 16: produktion.v1.OrderResponse.order:type_name -> produktion.v1.ProductionOrder
-	26, // 17: produktion.v1.ListOrdersRequest.date_from:type_name -> google.protobuf.Timestamp
-	26, // 18: produktion.v1.ListOrdersRequest.date_to:type_name -> google.protobuf.Timestamp
+	60, // 17: produktion.v1.ListOrdersRequest.date_from:type_name -> google.protobuf.Timestamp
+	60, // 18: produktion.v1.ListOrdersRequest.date_to:type_name -> google.protobuf.Timestamp
 	0,  // 19: produktion.v1.ListOrdersResponse.orders:type_name -> produktion.v1.ProductionOrder
-	26, // 20: produktion.v1.CreateMachineBookingRequest.starts_at:type_name -> google.protobuf.Timestamp
-	26, // 21: produktion.v1.CreateMachineBookingRequest.ends_at:type_name -> google.protobuf.Timestamp
-	26, // 22: produktion.v1.UpdateMachineBookingRequest.starts_at:type_name -> google.protobuf.Timestamp
-	26, // 23: produktion.v1.UpdateMachineBookingRequest.ends_at:type_name -> google.protobuf.Timestamp
+	60, // 20: produktion.v1.CreateMachineBookingRequest.starts_at:type_name -> google.protobuf.Timestamp
+	60, // 21: produktion.v1.CreateMachineBookingRequest.ends_at:type_name -> google.protobuf.Timestamp
+	60, // 22: produktion.v1.UpdateMachineBookingRequest.starts_at:type_name -> google.protobuf.Timestamp
+	60, // 23: produktion.v1.UpdateMachineBookingRequest.ends_at:type_name -> google.protobuf.Timestamp
 	1,  // 24: produktion.v1.MachineBookingResponse.booking:type_name -> produktion.v1.MachineBooking
-	26, // 25: produktion.v1.ListMachineBookingsRequest.date_from:type_name -> google.protobuf.Timestamp
-	26, // 26: produktion.v1.ListMachineBookingsRequest.date_to:type_name -> google.protobuf.Timestamp
+	60, // 25: produktion.v1.ListMachineBookingsRequest.date_from:type_name -> google.protobuf.Timestamp
+	60, // 26: produktion.v1.ListMachineBookingsRequest.date_to:type_name -> google.protobuf.Timestamp
 	1,  // 27: produktion.v1.ListMachineBookingsResponse.bookings:type_name -> produktion.v1.MachineBooking
 	2,  // 28: produktion.v1.PlanResponse.plan:type_name -> produktion.v1.ProductionPlan
 	3,  // 29: produktion.v1.CapacityOverviewResponse.overview:type_name -> produktion.v1.CapacityOverview
-	4,  // 30: produktion.v1.ProduktionService.CreateOrder:input_type -> produktion.v1.CreateOrderRequest
-	5,  // 31: produktion.v1.ProduktionService.UpdateOrder:input_type -> produktion.v1.UpdateOrderRequest
-	6,  // 32: produktion.v1.ProduktionService.DeleteOrder:input_type -> produktion.v1.DeleteOrderRequest
-	8,  // 33: produktion.v1.ProduktionService.GetOrder:input_type -> produktion.v1.GetOrderRequest
-	11, // 34: produktion.v1.ProduktionService.ListOrders:input_type -> produktion.v1.ListOrdersRequest
-	10, // 35: produktion.v1.ProduktionService.StartOrder:input_type -> produktion.v1.OrderActionRequest
-	10, // 36: produktion.v1.ProduktionService.CompleteOrder:input_type -> produktion.v1.OrderActionRequest
-	10, // 37: produktion.v1.ProduktionService.CancelOrder:input_type -> produktion.v1.OrderActionRequest
-	13, // 38: produktion.v1.ProduktionService.CreateMachineBooking:input_type -> produktion.v1.CreateMachineBookingRequest
-	14, // 39: produktion.v1.ProduktionService.UpdateMachineBooking:input_type -> produktion.v1.UpdateMachineBookingRequest
-	15, // 40: produktion.v1.ProduktionService.DeleteMachineBooking:input_type -> produktion.v1.DeleteMachineBookingRequest
-	18, // 41: produktion.v1.ProduktionService.ListMachineBookings:input_type -> produktion.v1.ListMachineBookingsRequest
-	20, // 42: produktion.v1.ProduktionService.CreatePlan:input_type -> produktion.v1.CreatePlanRequest
-	21, // 43: produktion.v1.ProduktionService.UpdatePlan:input_type -> produktion.v1.UpdatePlanRequest
-	22, // 44: produktion.v1.ProduktionService.GetPlan:input_type -> produktion.v1.GetPlanRequest
-	24, // 45: produktion.v1.ProduktionService.GetCapacityOverview:input_type -> produktion.v1.GetCapacityOverviewRequest
-	9,  // 46: produktion.v1.ProduktionService.CreateOrder:output_type -> produktion.v1.OrderResponse
-	9,  // 47: produktion.v1.ProduktionService.UpdateOrder:output_type -> produktion.v1.OrderResponse
-	7,  // 48: produktion.v1.ProduktionService.DeleteOrder:output_type -> produktion.v1.DeleteOrderResponse
-	9,  // 49: produktion.v1.ProduktionService.GetOrder:output_type -> produktion.v1.OrderResponse
-	12, // 50: produktion.v1.ProduktionService.ListOrders:output_type -> produktion.v1.ListOrdersResponse
-	9,  // 51: produktion.v1.ProduktionService.StartOrder:output_type -> produktion.v1.OrderResponse
-	9,  // 52: produktion.v1.ProduktionService.CompleteOrder:output_type -> produktion.v1.OrderResponse
-	9,  // 53: produktion.v1.ProduktionService.CancelOrder:output_type -> produktion.v1.OrderResponse
-	17, // 54: produktion.v1.ProduktionService.CreateMachineBooking:output_type -> produktion.v1.MachineBookingResponse
-	17, // 55: produktion.v1.ProduktionService.UpdateMachineBooking:output_type -> produktion.v1.MachineBookingResponse
-	16, // 56: produktion.v1.ProduktionService.DeleteMachineBooking:output_type -> produktion.v1.DeleteMachineBookingResponse
-	19, // 57: produktion.v1.ProduktionService.ListMachineBookings:output_type -> produktion.v1.ListMachineBookingsResponse
-	23, // 58: produktion.v1.ProduktionService.CreatePlan:output_type -> produktion.v1.PlanResponse
-	23, // 59: produktion.v1.ProduktionService.UpdatePlan:output_type -> produktion.v1.PlanResponse
-	23, // 60: produktion.v1.ProduktionService.GetPlan:output_type -> produktion.v1.PlanResponse
-	25, // 61: produktion.v1.ProduktionService.GetCapacityOverview:output_type -> produktion.v1.CapacityOverviewResponse
-	46, // [46:62] is the sub-list for method output_type
-	30, // [30:46] is the sub-list for method input_type
-	30, // [30:30] is the sub-list for extension type_name
-	30, // [30:30] is the sub-list for extension extendee
-	0,  // [0:30] is the sub-list for field type_name
+	26, // 30: produktion.v1.BOM.items:type_name -> produktion.v1.BomItem
+	60, // 31: produktion.v1.BOM.created_at:type_name -> google.protobuf.Timestamp
+	60, // 32: produktion.v1.BOM.updated_at:type_name -> google.protobuf.Timestamp
+	29, // 33: produktion.v1.CreateBOMRequest.items:type_name -> produktion.v1.CreateBomItemInput
+	27, // 34: produktion.v1.BOMResponse.bom:type_name -> produktion.v1.BOM
+	27, // 35: produktion.v1.ListBOMsResponse.boms:type_name -> produktion.v1.BOM
+	60, // 36: produktion.v1.WorkStep.created_at:type_name -> google.protobuf.Timestamp
+	60, // 37: produktion.v1.WorkStep.updated_at:type_name -> google.protobuf.Timestamp
+	37, // 38: produktion.v1.WorkStepResponse.step:type_name -> produktion.v1.WorkStep
+	37, // 39: produktion.v1.ListWorkStepsResponse.steps:type_name -> produktion.v1.WorkStep
+	60, // 40: produktion.v1.Machine.created_at:type_name -> google.protobuf.Timestamp
+	60, // 41: produktion.v1.Machine.updated_at:type_name -> google.protobuf.Timestamp
+	45, // 42: produktion.v1.MachineResponse.machine:type_name -> produktion.v1.Machine
+	45, // 43: produktion.v1.ListMachinesResponse.machines:type_name -> produktion.v1.Machine
+	60, // 44: produktion.v1.QualityCheck.checked_at:type_name -> google.protobuf.Timestamp
+	60, // 45: produktion.v1.QualityCheck.created_at:type_name -> google.protobuf.Timestamp
+	60, // 46: produktion.v1.QualityCheck.updated_at:type_name -> google.protobuf.Timestamp
+	60, // 47: produktion.v1.CreateQualityCheckRequest.checked_at:type_name -> google.protobuf.Timestamp
+	54, // 48: produktion.v1.QualityCheckResponse.check:type_name -> produktion.v1.QualityCheck
+	54, // 49: produktion.v1.ListQualityChecksResponse.checks:type_name -> produktion.v1.QualityCheck
+	4,  // 50: produktion.v1.ProduktionService.CreateOrder:input_type -> produktion.v1.CreateOrderRequest
+	5,  // 51: produktion.v1.ProduktionService.UpdateOrder:input_type -> produktion.v1.UpdateOrderRequest
+	6,  // 52: produktion.v1.ProduktionService.DeleteOrder:input_type -> produktion.v1.DeleteOrderRequest
+	8,  // 53: produktion.v1.ProduktionService.GetOrder:input_type -> produktion.v1.GetOrderRequest
+	11, // 54: produktion.v1.ProduktionService.ListOrders:input_type -> produktion.v1.ListOrdersRequest
+	10, // 55: produktion.v1.ProduktionService.StartOrder:input_type -> produktion.v1.OrderActionRequest
+	10, // 56: produktion.v1.ProduktionService.CompleteOrder:input_type -> produktion.v1.OrderActionRequest
+	10, // 57: produktion.v1.ProduktionService.CancelOrder:input_type -> produktion.v1.OrderActionRequest
+	13, // 58: produktion.v1.ProduktionService.CreateMachineBooking:input_type -> produktion.v1.CreateMachineBookingRequest
+	14, // 59: produktion.v1.ProduktionService.UpdateMachineBooking:input_type -> produktion.v1.UpdateMachineBookingRequest
+	15, // 60: produktion.v1.ProduktionService.DeleteMachineBooking:input_type -> produktion.v1.DeleteMachineBookingRequest
+	18, // 61: produktion.v1.ProduktionService.ListMachineBookings:input_type -> produktion.v1.ListMachineBookingsRequest
+	20, // 62: produktion.v1.ProduktionService.CreatePlan:input_type -> produktion.v1.CreatePlanRequest
+	21, // 63: produktion.v1.ProduktionService.UpdatePlan:input_type -> produktion.v1.UpdatePlanRequest
+	22, // 64: produktion.v1.ProduktionService.GetPlan:input_type -> produktion.v1.GetPlanRequest
+	24, // 65: produktion.v1.ProduktionService.GetCapacityOverview:input_type -> produktion.v1.GetCapacityOverviewRequest
+	28, // 66: produktion.v1.ProduktionService.CreateBOM:input_type -> produktion.v1.CreateBOMRequest
+	30, // 67: produktion.v1.ProduktionService.UpdateBOM:input_type -> produktion.v1.UpdateBOMRequest
+	31, // 68: produktion.v1.ProduktionService.DeleteBOM:input_type -> produktion.v1.DeleteBOMRequest
+	33, // 69: produktion.v1.ProduktionService.GetBOM:input_type -> produktion.v1.GetBOMRequest
+	35, // 70: produktion.v1.ProduktionService.ListBOMs:input_type -> produktion.v1.ListBOMsRequest
+	38, // 71: produktion.v1.ProduktionService.CreateWorkStep:input_type -> produktion.v1.CreateWorkStepRequest
+	39, // 72: produktion.v1.ProduktionService.UpdateWorkStep:input_type -> produktion.v1.UpdateWorkStepRequest
+	40, // 73: produktion.v1.ProduktionService.DeleteWorkStep:input_type -> produktion.v1.DeleteWorkStepRequest
+	43, // 74: produktion.v1.ProduktionService.ListWorkSteps:input_type -> produktion.v1.ListWorkStepsRequest
+	46, // 75: produktion.v1.ProduktionService.CreateMachine:input_type -> produktion.v1.CreateMachineRequest
+	47, // 76: produktion.v1.ProduktionService.UpdateMachine:input_type -> produktion.v1.UpdateMachineRequest
+	48, // 77: produktion.v1.ProduktionService.DeleteMachine:input_type -> produktion.v1.DeleteMachineRequest
+	50, // 78: produktion.v1.ProduktionService.GetMachine:input_type -> produktion.v1.GetMachineRequest
+	52, // 79: produktion.v1.ProduktionService.ListMachines:input_type -> produktion.v1.ListMachinesRequest
+	55, // 80: produktion.v1.ProduktionService.CreateQualityCheck:input_type -> produktion.v1.CreateQualityCheckRequest
+	56, // 81: produktion.v1.ProduktionService.GetQualityCheck:input_type -> produktion.v1.GetQualityCheckRequest
+	58, // 82: produktion.v1.ProduktionService.ListQualityChecks:input_type -> produktion.v1.ListQualityChecksRequest
+	9,  // 83: produktion.v1.ProduktionService.CreateOrder:output_type -> produktion.v1.OrderResponse
+	9,  // 84: produktion.v1.ProduktionService.UpdateOrder:output_type -> produktion.v1.OrderResponse
+	7,  // 85: produktion.v1.ProduktionService.DeleteOrder:output_type -> produktion.v1.DeleteOrderResponse
+	9,  // 86: produktion.v1.ProduktionService.GetOrder:output_type -> produktion.v1.OrderResponse
+	12, // 87: produktion.v1.ProduktionService.ListOrders:output_type -> produktion.v1.ListOrdersResponse
+	9,  // 88: produktion.v1.ProduktionService.StartOrder:output_type -> produktion.v1.OrderResponse
+	9,  // 89: produktion.v1.ProduktionService.CompleteOrder:output_type -> produktion.v1.OrderResponse
+	9,  // 90: produktion.v1.ProduktionService.CancelOrder:output_type -> produktion.v1.OrderResponse
+	17, // 91: produktion.v1.ProduktionService.CreateMachineBooking:output_type -> produktion.v1.MachineBookingResponse
+	17, // 92: produktion.v1.ProduktionService.UpdateMachineBooking:output_type -> produktion.v1.MachineBookingResponse
+	16, // 93: produktion.v1.ProduktionService.DeleteMachineBooking:output_type -> produktion.v1.DeleteMachineBookingResponse
+	19, // 94: produktion.v1.ProduktionService.ListMachineBookings:output_type -> produktion.v1.ListMachineBookingsResponse
+	23, // 95: produktion.v1.ProduktionService.CreatePlan:output_type -> produktion.v1.PlanResponse
+	23, // 96: produktion.v1.ProduktionService.UpdatePlan:output_type -> produktion.v1.PlanResponse
+	23, // 97: produktion.v1.ProduktionService.GetPlan:output_type -> produktion.v1.PlanResponse
+	25, // 98: produktion.v1.ProduktionService.GetCapacityOverview:output_type -> produktion.v1.CapacityOverviewResponse
+	34, // 99: produktion.v1.ProduktionService.CreateBOM:output_type -> produktion.v1.BOMResponse
+	34, // 100: produktion.v1.ProduktionService.UpdateBOM:output_type -> produktion.v1.BOMResponse
+	32, // 101: produktion.v1.ProduktionService.DeleteBOM:output_type -> produktion.v1.DeleteBOMResponse
+	34, // 102: produktion.v1.ProduktionService.GetBOM:output_type -> produktion.v1.BOMResponse
+	36, // 103: produktion.v1.ProduktionService.ListBOMs:output_type -> produktion.v1.ListBOMsResponse
+	42, // 104: produktion.v1.ProduktionService.CreateWorkStep:output_type -> produktion.v1.WorkStepResponse
+	42, // 105: produktion.v1.ProduktionService.UpdateWorkStep:output_type -> produktion.v1.WorkStepResponse
+	41, // 106: produktion.v1.ProduktionService.DeleteWorkStep:output_type -> produktion.v1.DeleteWorkStepResponse
+	44, // 107: produktion.v1.ProduktionService.ListWorkSteps:output_type -> produktion.v1.ListWorkStepsResponse
+	51, // 108: produktion.v1.ProduktionService.CreateMachine:output_type -> produktion.v1.MachineResponse
+	51, // 109: produktion.v1.ProduktionService.UpdateMachine:output_type -> produktion.v1.MachineResponse
+	49, // 110: produktion.v1.ProduktionService.DeleteMachine:output_type -> produktion.v1.DeleteMachineResponse
+	51, // 111: produktion.v1.ProduktionService.GetMachine:output_type -> produktion.v1.MachineResponse
+	53, // 112: produktion.v1.ProduktionService.ListMachines:output_type -> produktion.v1.ListMachinesResponse
+	57, // 113: produktion.v1.ProduktionService.CreateQualityCheck:output_type -> produktion.v1.QualityCheckResponse
+	57, // 114: produktion.v1.ProduktionService.GetQualityCheck:output_type -> produktion.v1.QualityCheckResponse
+	59, // 115: produktion.v1.ProduktionService.ListQualityChecks:output_type -> produktion.v1.ListQualityChecksResponse
+	83, // [83:116] is the sub-list for method output_type
+	50, // [50:83] is the sub-list for method input_type
+	50, // [50:50] is the sub-list for extension type_name
+	50, // [50:50] is the sub-list for extension extendee
+	0,  // [0:50] is the sub-list for field type_name
 }
 
 func init() { file_proto_produktion_v1_produktion_proto_init() }
@@ -2334,13 +4997,25 @@ func file_proto_produktion_v1_produktion_proto_init() {
 	file_proto_produktion_v1_produktion_proto_msgTypes[18].OneofWrappers = []any{}
 	file_proto_produktion_v1_produktion_proto_msgTypes[20].OneofWrappers = []any{}
 	file_proto_produktion_v1_produktion_proto_msgTypes[21].OneofWrappers = []any{}
+	file_proto_produktion_v1_produktion_proto_msgTypes[27].OneofWrappers = []any{}
+	file_proto_produktion_v1_produktion_proto_msgTypes[28].OneofWrappers = []any{}
+	file_proto_produktion_v1_produktion_proto_msgTypes[30].OneofWrappers = []any{}
+	file_proto_produktion_v1_produktion_proto_msgTypes[35].OneofWrappers = []any{}
+	file_proto_produktion_v1_produktion_proto_msgTypes[39].OneofWrappers = []any{}
+	file_proto_produktion_v1_produktion_proto_msgTypes[45].OneofWrappers = []any{}
+	file_proto_produktion_v1_produktion_proto_msgTypes[46].OneofWrappers = []any{}
+	file_proto_produktion_v1_produktion_proto_msgTypes[47].OneofWrappers = []any{}
+	file_proto_produktion_v1_produktion_proto_msgTypes[52].OneofWrappers = []any{}
+	file_proto_produktion_v1_produktion_proto_msgTypes[54].OneofWrappers = []any{}
+	file_proto_produktion_v1_produktion_proto_msgTypes[55].OneofWrappers = []any{}
+	file_proto_produktion_v1_produktion_proto_msgTypes[58].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_produktion_v1_produktion_proto_rawDesc), len(file_proto_produktion_v1_produktion_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   26,
+			NumMessages:   60,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Cpu } from 'lucide-react'
-import type { Machine, MachineBooking } from '@/stores/produktion'
+import type { MachineResponse as Machine, MachineBooking } from '@/api/produktion-types'
 
 interface MaschinenbelegungChartProps {
   machines: Machine[]
@@ -22,6 +22,15 @@ const machineStatusConfigKeys: Record<string, { dot: string; labelKey: string }>
 function getDayOffset(dateStr: string): number {
   const date = new Date(dateStr)
   return Math.floor((date.getTime() - RANGE_START.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+function hashColor(id: string): string {
+  const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#14b8a6']
+  let hash = 0
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash * 31 + id.charCodeAt(i)) & 0xffff
+  }
+  return colors[hash % colors.length]
 }
 
 function getMondays(): { offset: number; label: string }[] {
@@ -60,7 +69,7 @@ export default function MaschinenbelegungChart({ machines, bookings }: Maschinen
     const map = new Map<string, MachineBooking[]>()
     machines.forEach((m) => map.set(m.id, []))
     bookings.forEach((b) => {
-      const list = map.get(b.machineId)
+      const list = map.get(b.machine_id)
       if (list) list.push(b)
     })
     return map
@@ -117,7 +126,7 @@ export default function MaschinenbelegungChart({ machines, bookings }: Maschinen
                 >
                   {/* Machine info */}
                   <div className="w-[200px] shrink-0 px-4 py-3 border-r border-border flex items-center gap-2">
-                    <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${statusCfg.dot}`} />
+                    <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${statusCfg?.dot ?? 'bg-muted'}`} />
                     <div className="min-w-0">
                       <p className="text-xs font-medium text-foreground truncate">{machine.name}</p>
                       <p className="text-[10px] text-muted-foreground">{machine.type}</p>
@@ -137,9 +146,11 @@ export default function MaschinenbelegungChart({ machines, bookings }: Maschinen
 
                     {/* Booking blocks */}
                     {mBookings.map((booking) => {
-                      const startOffset = Math.max(0, getDayOffset(booking.startDate))
-                      const endOffset = Math.min(TOTAL_DAYS, getDayOffset(booking.endDate))
+                      const startOffset = Math.max(0, getDayOffset(booking.starts_at))
+                      const endOffset = Math.min(TOTAL_DAYS, getDayOffset(booking.ends_at))
                       const span = endOffset - startOffset
+                      const color = hashColor(booking.id)
+                      const orderLabel = booking.production_order_id.slice(0, 8)
 
                       if (span <= 0) return null
 
@@ -151,16 +162,16 @@ export default function MaschinenbelegungChart({ machines, bookings }: Maschinen
                             left: startOffset * DAY_WIDTH + 1,
                             width: span * DAY_WIDTH - 2,
                             height: 32,
-                            backgroundColor: booking.color + '30',
-                            borderLeft: `3px solid ${booking.color}`,
+                            backgroundColor: color + '30',
+                            borderLeft: `3px solid ${color}`,
                           }}
-                          title={`${booking.orderNr} — ${booking.product}\n${booking.startDate} bis ${booking.endDate}`}
+                          title={`${orderLabel}\n${booking.starts_at.slice(0, 10)} – ${booking.ends_at.slice(0, 10)}`}
                         >
                           <span
                             className="text-[10px] font-medium truncate"
-                            style={{ color: booking.color }}
+                            style={{ color }}
                           >
-                            {booking.orderNr}
+                            {orderLabel}
                           </span>
                         </div>
                       )
@@ -190,15 +201,19 @@ export default function MaschinenbelegungChart({ machines, bookings }: Maschinen
         {bookings.length > 0 && (
           <div className="flex items-center gap-4">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('produktion.chart.auftraege')}</span>
-            {Array.from(new Map(bookings.map((b) => [b.orderNr, b])).values()).map((b) => (
-              <div key={b.orderNr} className="flex items-center gap-1.5">
-                <span
-                  className="h-2.5 w-5 rounded-sm"
-                  style={{ backgroundColor: b.color + '60', borderLeft: `2px solid ${b.color}` }}
-                />
-                <span className="text-xs text-muted-foreground">{b.orderNr}</span>
-              </div>
-            ))}
+            {Array.from(new Map(bookings.map((b) => [b.production_order_id, b])).values()).map((b) => {
+              const color = hashColor(b.id)
+              const label = b.production_order_id.slice(0, 8)
+              return (
+                <div key={b.id} className="flex items-center gap-1.5">
+                  <span
+                    className="h-2.5 w-5 rounded-sm"
+                    style={{ backgroundColor: color + '60', borderLeft: `2px solid ${color}` }}
+                  />
+                  <span className="text-xs text-muted-foreground">{label}</span>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>

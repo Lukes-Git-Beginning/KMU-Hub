@@ -5377,6 +5377,7 @@
   "produktion.status.cancelled": "Annullato",
   "produktion.status.completed": "Completato",
   "produktion.status.inProgress": "In produzione",
+  "produktion.status.in_progress": "In produzione",
   "produktion.status.paused": "In pausa",
   "produktion.status.planned": "Pianificato",
   "produktion.statusChange.toast": "Stato di {orderNr} cambiato in \"{status}\"",

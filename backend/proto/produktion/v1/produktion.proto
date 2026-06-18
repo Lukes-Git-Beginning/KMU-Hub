@@ -30,6 +30,31 @@ service ProduktionService {
   rpc UpdatePlan(UpdatePlanRequest) returns (PlanResponse);
   rpc GetPlan(GetPlanRequest) returns (PlanResponse);
   rpc GetCapacityOverview(GetCapacityOverviewRequest) returns (CapacityOverviewResponse);
+
+  // BOMs (Stücklisten)
+  rpc CreateBOM(CreateBOMRequest) returns (BOMResponse);
+  rpc UpdateBOM(UpdateBOMRequest) returns (BOMResponse);
+  rpc DeleteBOM(DeleteBOMRequest) returns (DeleteBOMResponse);
+  rpc GetBOM(GetBOMRequest) returns (BOMResponse);
+  rpc ListBOMs(ListBOMsRequest) returns (ListBOMsResponse);
+
+  // Work Steps (Arbeitsschritte)
+  rpc CreateWorkStep(CreateWorkStepRequest) returns (WorkStepResponse);
+  rpc UpdateWorkStep(UpdateWorkStepRequest) returns (WorkStepResponse);
+  rpc DeleteWorkStep(DeleteWorkStepRequest) returns (DeleteWorkStepResponse);
+  rpc ListWorkSteps(ListWorkStepsRequest) returns (ListWorkStepsResponse);
+
+  // Machines (Maschinen)
+  rpc CreateMachine(CreateMachineRequest) returns (MachineResponse);
+  rpc UpdateMachine(UpdateMachineRequest) returns (MachineResponse);
+  rpc DeleteMachine(DeleteMachineRequest) returns (DeleteMachineResponse);
+  rpc GetMachine(GetMachineRequest) returns (MachineResponse);
+  rpc ListMachines(ListMachinesRequest) returns (ListMachinesResponse);
+
+  // Quality Checks (Qualitätsprüfungen)
+  rpc CreateQualityCheck(CreateQualityCheckRequest) returns (QualityCheckResponse);
+  rpc GetQualityCheck(GetQualityCheckRequest) returns (QualityCheckResponse);
+  rpc ListQualityChecks(ListQualityChecksRequest) returns (ListQualityChecksResponse);
 }
 
 // ============================================================================
@@ -247,4 +272,258 @@ message GetCapacityOverviewRequest {
 
 message CapacityOverviewResponse {
   CapacityOverview overview = 1;
+}
+
+// ============================================================================
+// BOM Messages
+// ============================================================================
+
+message BomItem {
+  string id = 1;
+  string tenant_id = 2;
+  string bom_id = 3;
+  string material_name = 4;
+  double quantity = 5;
+  string unit = 6;
+  int32 sort_order = 7;
+}
+
+message BOM {
+  string id = 1;
+  string tenant_id = 2;
+  string product_name = 3;
+  string sku = 4;
+  string version = 5;
+  bool active = 6;
+  string notes = 7;
+  repeated BomItem items = 8;
+  optional string created_by = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message CreateBOMRequest {
+  string tenant_id = 1;
+  string product_name = 2;
+  string sku = 3;
+  string version = 4;
+  bool active = 5;
+  string notes = 6;
+  repeated CreateBomItemInput items = 7;
+  optional string created_by = 8;
+}
+
+message CreateBomItemInput {
+  string material_name = 1;
+  double quantity = 2;
+  string unit = 3;
+  int32 sort_order = 4;
+}
+
+message UpdateBOMRequest {
+  string tenant_id = 1;
+  string bom_id = 2;
+  optional string product_name = 3;
+  optional string sku = 4;
+  optional string version = 5;
+  optional bool active = 6;
+  optional string notes = 7;
+}
+
+message DeleteBOMRequest {
+  string tenant_id = 1;
+  string bom_id = 2;
+}
+
+message DeleteBOMResponse {}
+
+message GetBOMRequest {
+  string tenant_id = 1;
+  string bom_id = 2;
+}
+
+message BOMResponse {
+  BOM bom = 1;
+}
+
+message ListBOMsRequest {
+  string tenant_id = 1;
+  optional bool active = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListBOMsResponse {
+  repeated BOM boms = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// Work Step Messages
+// ============================================================================
+
+message WorkStep {
+  string id = 1;
+  string tenant_id = 2;
+  string order_id = 3;
+  int32 step_nr = 4;
+  string name = 5;
+  string description = 6;
+  int32 duration_minutes = 7;
+  string status = 8; // pending|in_progress|completed|skipped
+  string assignee = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message CreateWorkStepRequest {
+  string tenant_id = 1;
+  string order_id = 2;
+  int32 step_nr = 3;
+  string name = 4;
+  string description = 5;
+  int32 duration_minutes = 6;
+  string assignee = 7;
+}
+
+message UpdateWorkStepRequest {
+  string tenant_id = 1;
+  string step_id = 2;
+  optional string name = 3;
+  optional string description = 4;
+  optional int32 duration_minutes = 5;
+  optional string status = 6;
+  optional string assignee = 7;
+}
+
+message DeleteWorkStepRequest {
+  string tenant_id = 1;
+  string step_id = 2;
+}
+
+message DeleteWorkStepResponse {}
+
+message WorkStepResponse {
+  WorkStep step = 1;
+}
+
+message ListWorkStepsRequest {
+  string tenant_id = 1;
+  string order_id = 2;
+}
+
+message ListWorkStepsResponse {
+  repeated WorkStep steps = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// Machine Messages
+// ============================================================================
+
+message Machine {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  string type = 4;
+  string status = 5; // available|in_use|maintenance
+  string notes = 6;
+  optional string created_by = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message CreateMachineRequest {
+  string tenant_id = 1;
+  string name = 2;
+  string type = 3;
+  string notes = 4;
+  optional string created_by = 5;
+}
+
+message UpdateMachineRequest {
+  string tenant_id = 1;
+  string machine_id = 2;
+  optional string name = 3;
+  optional string type = 4;
+  optional string status = 5;
+  optional string notes = 6;
+}
+
+message DeleteMachineRequest {
+  string tenant_id = 1;
+  string machine_id = 2;
+}
+
+message DeleteMachineResponse {}
+
+message GetMachineRequest {
+  string tenant_id = 1;
+  string machine_id = 2;
+}
+
+message MachineResponse {
+  Machine machine = 1;
+}
+
+message ListMachinesRequest {
+  string tenant_id = 1;
+  optional string status = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListMachinesResponse {
+  repeated Machine machines = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// Quality Check Messages
+// ============================================================================
+
+message QualityCheck {
+  string id = 1;
+  string tenant_id = 2;
+  string order_id = 3;
+  string inspector = 4;
+  google.protobuf.Timestamp checked_at = 5;
+  bool passed = 6;
+  int32 defects_found = 7;
+  string notes = 8;
+  optional string created_by = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message CreateQualityCheckRequest {
+  string tenant_id = 1;
+  string order_id = 2;
+  string inspector = 3;
+  google.protobuf.Timestamp checked_at = 4;
+  bool passed = 5;
+  int32 defects_found = 6;
+  string notes = 7;
+  optional string created_by = 8;
+}
+
+message GetQualityCheckRequest {
+  string tenant_id = 1;
+  string check_id = 2;
+}
+
+message QualityCheckResponse {
+  QualityCheck check = 1;
+}
+
+message ListQualityChecksRequest {
+  string tenant_id = 1;
+  optional string order_id = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListQualityChecksResponse {
+  repeated QualityCheck checks = 1;
+  int32 total = 2;
 }
