@@ -3,47 +3,49 @@ import { useTranslation } from 'react-i18next'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/cn'
-import { useTimeTrackingStore } from '@/stores/timetracking'
+import { useWorkTimeEntries } from '@/api/hooks/hr-hooks'
 import {
   getMonthDates, dateToStr, getMonthLabel, formatMinutes, isToday,
 } from './time-utils'
+import type { WorkTimeEntry } from '@/api/hr-types'
 
 export default function MonthView() {
   const { t } = useTranslation()
   const [monthOffset, setMonthOffset] = useState(0)
-  const entries = useTimeTrackingStore((s) => s.entries)
-  const categories = useTimeTrackingStore((s) => s.categories)
-  const targets = useTimeTrackingStore((s) => s.targets)
 
   const monthDates = useMemo(() => getMonthDates(monthOffset), [monthOffset])
-  const dailyTarget = targets.dailyHours * 60
+  const dailyTarget = 480 // 8h default; real target from HRSettings (follow-up)
 
-  // Minutes per day per category
+  // Build date range for API query
+  const startDate = useMemo(() => dateToStr(monthDates[0]), [monthDates])
+  const endDate = useMemo(() => dateToStr(monthDates[monthDates.length - 1]), [monthDates])
+
+  const { data: entriesData } = useWorkTimeEntries({
+    start_date: startDate,
+    end_date: endDate,
+  })
+  const allEntries = entriesData?.entries ?? []
+
+  // Minutes per day
   const dayData = useMemo(() => {
-    const data: Record<string, { total: number; byCat: Record<string, number> }> = {}
+    const data: Record<string, { total: number }> = {}
     for (const d of monthDates) {
-      const ds = dateToStr(d)
-      data[ds] = { total: 0, byCat: {} }
+      data[dateToStr(d)] = { total: 0 }
     }
-    for (const entry of entries) {
-      if (data[entry.date]) {
-        data[entry.date].total += entry.durationMinutes
-        data[entry.date].byCat[entry.categoryId] =
-          (data[entry.date].byCat[entry.categoryId] || 0) + entry.durationMinutes
+    for (const entry of allEntries as WorkTimeEntry[]) {
+      const date = entry.clockIn?.slice(0, 10) ?? ''
+      if (data[date]) {
+        data[date].total += entry.netWorkMinutes ?? 0
       }
     }
     return data
-  }, [entries, monthDates])
+  }, [allEntries, monthDates])
 
-  // Stats
   const daysWithEntries = Object.values(dayData).filter((d) => d.total > 0).length
   const totalMinutes = Object.values(dayData).reduce((s, d) => s + d.total, 0)
   const avgPerDay = daysWithEntries > 0 ? Math.round(totalMinutes / daysWithEntries) : 0
-
-  // Working days in month (Mon-Fri)
   const workDays = monthDates.filter((d) => d.getDay() >= 1 && d.getDay() <= 5).length
   const monthTarget = workDays * dailyTarget
-
   const maxMinutesInDay = Math.max(dailyTarget, ...Object.values(dayData).map((d) => d.total))
 
   return (
@@ -73,15 +75,10 @@ export default function MonthView() {
         <div className="flex items-end gap-[3px] min-w-[600px]" style={{ height: 200 }}>
           {monthDates.map((date) => {
             const ds = dateToStr(date)
-            const data = dayData[ds]
+            const total = dayData[ds]?.total ?? 0
             const isWeekend = date.getDay() === 0 || date.getDay() === 6
-            const barHeight = data.total > 0 ? Math.max(4, (data.total / maxMinutesInDay) * 180) : 0
+            const barHeight = total > 0 ? Math.max(4, (total / maxMinutesInDay) * 180) : 0
             const targetLine = (dailyTarget / maxMinutesInDay) * 180
-            const _isUnderTarget = data.total > 0 && data.total < dailyTarget && !isWeekend
-
-            // Stack categories
-            const catEntries = Object.entries(data.byCat)
-            let _stackOffset = 0
 
             return (
               <div
@@ -89,35 +86,19 @@ export default function MonthView() {
                 className="flex-1 relative group"
                 style={{ height: '100%' }}
               >
-                {/* Target line */}
                 {!isWeekend && (
                   <div
                     className="absolute left-0 right-0 border-t border-dashed border-muted-foreground/30"
                     style={{ bottom: targetLine }}
                   />
                 )}
-
-                {/* Stacked bars */}
                 <div
-                  className="absolute bottom-0 left-[1px] right-[1px] rounded-t-sm overflow-hidden transition-all"
+                  className={cn(
+                    'absolute bottom-0 left-[1px] right-[1px] rounded-t-sm transition-all',
+                    total >= dailyTarget && !isWeekend ? 'bg-success' : total > 0 ? 'bg-primary/60' : 'bg-transparent',
+                  )}
                   style={{ height: barHeight }}
-                >
-                  {catEntries.map(([catId, mins]) => {
-                    const cat = categories.find((c) => c.id === catId)
-                    const segHeight = (mins / data.total) * 100
-                    const el = (
-                      <div
-                        key={catId}
-                        style={{ height: `${segHeight}%`, backgroundColor: cat?.color || '#6b7280' }}
-                      />
-                    )
-                    _stackOffset += segHeight
-                    return el
-                  })}
-                  {catEntries.length === 0 && <div className="w-full h-full bg-muted" />}
-                </div>
-
-                {/* Date label */}
+                />
                 <div className={cn(
                   'absolute -bottom-5 left-0 right-0 text-center text-[9px]',
                   isToday(ds) ? 'text-primary font-bold' : isWeekend ? 'text-muted-foreground/40' : 'text-muted-foreground',
@@ -125,27 +106,17 @@ export default function MonthView() {
                   {date.getDate()}
                 </div>
 
-                {/* Tooltip on hover */}
+                {/* Tooltip */}
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10 pointer-events-none">
                   <div className="bg-popover border border-border text-popover-foreground text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap">
                     <p className="font-medium">{date.getDate()}. {getMonthLabel(monthOffset).split(' ')[0]}</p>
-                    <p>{data.total > 0 ? formatMinutes(data.total) : t('profil.zeiterfassung.noEntries')}</p>
+                    <p>{total > 0 ? formatMinutes(total) : t('profil.zeiterfassung.noEntries')}</p>
                   </div>
                 </div>
               </div>
             )
           })}
         </div>
-      </div>
-
-      {/* Legend */}
-      <div className="flex flex-wrap gap-3">
-        {categories.filter((c) => entries.some((e) => e.categoryId === c.id)).map((cat) => (
-          <span key={cat.id} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
-            {cat.name}
-          </span>
-        ))}
       </div>
 
       {/* Month Summary */}

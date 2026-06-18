@@ -1,32 +1,29 @@
 import { useTranslation } from 'react-i18next'
 import { CheckCircle2, Clock, XCircle, Send, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useTimeTrackingStore } from '@/stores/timetracking'
-import { toast } from 'sonner'
+import { useSubmitWeek } from '@/api/hooks/hr-hooks'
+import type { MyWeekStatus } from '@/api/hr-types'
 
 interface ApprovalBannerProps {
   weekStart: string // YYYY-MM-DD (Monday)
+  weekStatus?: MyWeekStatus
 }
 
-export default function ApprovalBanner({ weekStart }: ApprovalBannerProps) {
+export default function ApprovalBanner({ weekStart, weekStatus }: ApprovalBannerProps) {
   const { t } = useTranslation()
-  const weekApprovals = useTimeTrackingStore((s) => s.weekApprovals)
-  const submitWeekReport = useTimeTrackingStore((s) => s.submitWeekReport)
+  const submitWeek = useSubmitWeek()
 
-  const approval = weekApprovals.find((a) => a.weekStart === weekStart)
-  const status = approval?.status ?? 'draft'
+  const status = weekStatus?.status ?? 'open'
 
   const handleSubmit = () => {
-    submitWeekReport(weekStart)
-    toast.success(t('profil.zeiterfassung.approval.submitted'))
+    submitWeek.mutate(weekStart)
   }
 
   const handleResubmit = () => {
-    submitWeekReport(weekStart)
-    toast.success(t('profil.zeiterfassung.approval.resubmitted'))
+    submitWeek.mutate(weekStart)
   }
 
-  if (status === 'draft') {
+  if (status === 'open') {
     return (
       <div className="rounded-lg border border-border bg-card p-4 flex items-center gap-3">
         <Clock className="h-5 w-5 text-muted-foreground shrink-0" />
@@ -38,7 +35,7 @@ export default function ApprovalBanner({ weekStart }: ApprovalBannerProps) {
             {t('profil.zeiterfassung.approval.draftDescription')}
           </p>
         </div>
-        <Button size="sm" onClick={handleSubmit} className="gap-1.5">
+        <Button size="sm" onClick={handleSubmit} disabled={submitWeek.isPending} className="gap-1.5">
           <Send className="h-3.5 w-3.5" />
           {t('profil.zeiterfassung.approval.submit')}
         </Button>
@@ -46,7 +43,7 @@ export default function ApprovalBanner({ weekStart }: ApprovalBannerProps) {
     )
   }
 
-  if (status === 'pending') {
+  if (status === 'submitted') {
     return (
       <div className="rounded-lg border border-warning/30 bg-warning-light p-4 flex items-center gap-3">
         <Clock className="h-5 w-5 text-warning-foreground shrink-0 animate-pulse" />
@@ -54,9 +51,10 @@ export default function ApprovalBanner({ weekStart }: ApprovalBannerProps) {
           <p className="text-sm font-medium text-warning-foreground">
             {t('profil.zeiterfassung.approval.pendingTitle')}
           </p>
-          {approval?.submittedAt && (
+          {weekStatus?.submittedAt && (
             <p className="text-xs text-warning-foreground mt-0.5">
-              {t('profil.zeiterfassung.approval.submittedAt')} {new Date(approval.submittedAt).toLocaleDateString('de-DE', {
+              {t('profil.zeiterfassung.approval.submittedAt')}{' '}
+              {new Date(weekStatus.submittedAt).toLocaleDateString('de-DE', {
                 day: '2-digit',
                 month: '2-digit',
                 year: 'numeric',
@@ -77,17 +75,8 @@ export default function ApprovalBanner({ weekStart }: ApprovalBannerProps) {
         <div className="flex-1">
           <p className="text-sm font-medium text-success">
             {t('profil.zeiterfassung.approval.approvedTitle')}
-            {approval?.reviewedBy && ` ${t('profil.zeiterfassung.approval.by')} ${approval.reviewedBy}`}
+            {weekStatus?.approvedBy && ` ${t('profil.zeiterfassung.approval.by')} ${weekStatus.approvedBy}`}
           </p>
-          {approval?.reviewedAt && (
-            <p className="text-xs text-success mt-0.5">
-              {t('profil.zeiterfassung.approval.approvedAt')} {new Date(approval.reviewedAt).toLocaleDateString('de-DE', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-              })}
-            </p>
-          )}
         </div>
       </div>
     )
@@ -100,15 +89,21 @@ export default function ApprovalBanner({ weekStart }: ApprovalBannerProps) {
       <div className="flex-1">
         <p className="text-sm font-medium text-destructive">
           {t('profil.zeiterfassung.approval.rejectedTitle')}
-          {approval?.reviewedBy && ` ${t('profil.zeiterfassung.approval.by')} ${approval.reviewedBy}`}
+          {weekStatus?.approvedBy && ` ${t('profil.zeiterfassung.approval.by')} ${weekStatus.approvedBy}`}
         </p>
-        {approval?.comment && (
+        {weekStatus?.rejectionReason && (
           <p className="text-xs text-destructive mt-0.5">
-            {t('profil.zeiterfassung.reason')}: {approval.comment}
+            {t('profil.zeiterfassung.reason')}: {weekStatus.rejectionReason}
           </p>
         )}
       </div>
-      <Button size="sm" variant="outline" onClick={handleResubmit} className="gap-1.5 border-destructive/30 hover:bg-error-light">
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={handleResubmit}
+        disabled={submitWeek.isPending}
+        className="gap-1.5 border-destructive/30 hover:bg-error-light"
+      >
         <RotateCcw className="h-3.5 w-3.5" />
         {t('profil.zeiterfassung.approval.resubmit')}
       </Button>

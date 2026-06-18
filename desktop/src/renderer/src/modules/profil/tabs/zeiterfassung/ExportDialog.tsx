@@ -4,13 +4,10 @@ import { Download, FileSpreadsheet, FileText, Building2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
-import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/cn'
-import { useTimeTrackingStore } from '@/stores/timetracking'
+import { useWorkTimeEntries } from '@/api/hooks/hr-hooks'
 import { formatMinutes } from './time-utils'
 import { toast } from 'sonner'
 
@@ -44,8 +41,6 @@ const FORMAT_OPTIONS: { key: ExportFormat; label: string; description: string; i
 
 export default function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
   const { t } = useTranslation()
-  const entries = useTimeTrackingStore((s) => s.entries)
-  const categories = useTimeTrackingStore((s) => s.categories)
 
   // Default range: last 30 days
   const today = new Date()
@@ -55,18 +50,23 @@ export default function ExportDialog({ open, onOpenChange }: ExportDialogProps) 
   const [format, setFormat] = useState<ExportFormat>('csv')
   const [dateFrom, setDateFrom] = useState(thirtyDaysAgo.toISOString().split('T')[0])
   const [dateTo, setDateTo] = useState(today.toISOString().split('T')[0])
-  const [categoryFilter, setCategoryFilter] = useState<string>('all')
 
-  // Filter entries for preview
-  const filteredEntries = useMemo(() => {
-    return entries.filter((e) => {
-      if (e.date < dateFrom || e.date > dateTo) return false
-      if (categoryFilter !== 'all' && e.categoryId !== categoryFilter) return false
-      return true
-    })
-  }, [entries, dateFrom, dateTo, categoryFilter])
+  const { data: entriesData } = useWorkTimeEntries({
+    start_date: dateFrom,
+    end_date: dateTo,
+  })
+  const allEntries = entriesData?.entries ?? []
 
-  const totalMinutes = filteredEntries.reduce((sum, e) => sum + e.durationMinutes, 0)
+  const filteredEntries = useMemo(
+    () =>
+      allEntries.filter((e) => {
+        const date = e.clockIn?.slice(0, 10) ?? ''
+        return date >= dateFrom && date <= dateTo
+      }),
+    [allEntries, dateFrom, dateTo],
+  )
+
+  const totalMinutes = filteredEntries.reduce((sum, e) => sum + (e.netWorkMinutes ?? 0), 0)
   const totalHours = (totalMinutes / 60).toFixed(1)
 
   const handleExport = () => {
@@ -145,30 +145,6 @@ export default function ExportDialog({ open, onOpenChange }: ExportDialogProps) 
                 onChange={(e) => setDateTo(e.target.value)}
               />
             </div>
-          </div>
-
-          {/* Category Filter */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">{t('profil.zeiterfassung.export.category')} ({t('common.optional')})</label>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder={t('profil.zeiterfassung.export.allCategories')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('profil.zeiterfassung.export.allCategories')}</SelectItem>
-                {categories.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.id}>
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="h-2.5 w-2.5 rounded-full shrink-0"
-                        style={{ backgroundColor: cat.color }}
-                      />
-                      {cat.name}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           {/* Preview */}

@@ -16,6 +16,8 @@ import {
   hrAbsenceApi,
   hrEmployeeApi,
   hrSettingsApi,
+  hrTimeCategoryApi,
+  hrTimeTemplateApi,
 } from '../hr-client'
 import type {
   CreateLeaveRequestInput,
@@ -34,6 +36,9 @@ import type {
   AbsenceCalendarParams,
   ArbZGComplianceResult,
   HRSettings,
+  CreateTimeCategoryInput,
+  UpdateTimeCategoryInput,
+  CreateTimeTemplateInput,
 } from '../hr-types'
 
 // ---------------------------------------------------------------------------
@@ -82,6 +87,10 @@ export const hrKeys = {
 
   // Settings
   hrSettings: () => ['hr', 'settings'] as const,
+
+  // Time categories & templates
+  timeCategories: () => ['hr', 'time', 'categories'] as const,
+  timeTemplates: () => ['hr', 'time', 'templates'] as const,
 }
 
 // ---------------------------------------------------------------------------
@@ -638,6 +647,103 @@ export function useUpdateHRSettings() {
     },
     onError: (err: Error) => {
       toast.error(err.message || i18next.t('api.hr.settings.error.update'))
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Time category hooks
+// ---------------------------------------------------------------------------
+
+export function useTimeCategories() {
+  return useQuery({
+    queryKey: hrKeys.timeCategories(),
+    queryFn: () => hrTimeCategoryApi.list(),
+    staleTime: 5 * 60 * 1000,
+    select: (data) => data.categories,
+  })
+}
+
+export function useCreateTimeCategory() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: CreateTimeCategoryInput) => hrTimeCategoryApi.create(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: hrKeys.timeCategories() })
+      toast.success(i18next.t('profil.zeiterfassung.categories.categoryAdded'))
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || i18next.t('common.error'))
+    },
+  })
+}
+
+export function useUpdateTimeCategory() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateTimeCategoryInput }) =>
+      hrTimeCategoryApi.update(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: hrKeys.timeCategories() })
+      toast.success(i18next.t('profil.zeiterfassung.categories.categoryUpdated'))
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || i18next.t('common.error'))
+    },
+  })
+}
+
+export function useDeleteTimeCategory() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => hrTimeCategoryApi.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: hrKeys.timeCategories() })
+      toast.success(i18next.t('profil.zeiterfassung.categories.categoryDeleted'))
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || i18next.t('common.error'))
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Time template hooks
+// ---------------------------------------------------------------------------
+
+export function useTimeTemplates() {
+  return useQuery({
+    queryKey: hrKeys.timeTemplates(),
+    queryFn: () => hrTimeTemplateApi.list(),
+    staleTime: 5 * 60 * 1000,
+    select: (data) => data.templates,
+  })
+}
+
+export function useCreateTimeTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: CreateTimeTemplateInput) => hrTimeTemplateApi.create(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: hrKeys.timeTemplates() })
+      toast.success(i18next.t('profil.zeiterfassung.categories.templateAdded'))
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || i18next.t('common.error'))
+    },
+  })
+}
+
+export function useDeleteTimeTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => hrTimeTemplateApi.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: hrKeys.timeTemplates() })
+      toast.success(i18next.t('profil.zeiterfassung.categories.templateDeleted'))
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || i18next.t('common.error'))
     },
   })
 }

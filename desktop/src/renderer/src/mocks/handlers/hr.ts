@@ -26,6 +26,23 @@ function hoursAgo(hours: number, minutes = 0): string {
   return new Date(Date.now() - (hours * 60 + minutes) * 60_000).toISOString()
 }
 
+// Time categories (Zeiterfassungs-Kategorien)
+let mockCategories = [
+  { id: 'cat-dev', tenant_id: 'tenant-001', name: 'Entwicklung', color: '#3b82f6', icon: 'Code', is_default: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
+  { id: 'cat-meeting', tenant_id: 'tenant-001', name: 'Meeting', color: '#8b5cf6', icon: 'Users', is_default: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
+  { id: 'cat-client', tenant_id: 'tenant-001', name: 'Kundengespräch', color: '#f59e0b', icon: 'Phone', is_default: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
+  { id: 'cat-admin', tenant_id: 'tenant-001', name: 'Admin', color: '#6b7280', icon: 'FileText', is_default: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
+  { id: 'cat-design', tenant_id: 'tenant-001', name: 'Design', color: '#ec4899', icon: 'Palette', is_default: false, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
+]
+
+// Time templates (Zeiterfassungs-Vorlagen)
+let mockTemplates = [
+  { id: 'tpl-1', tenant_id: 'tenant-001', name: 'Sprint Planning', category_id: 'cat-meeting', description: 'Sprint Planning Session', estimated_minutes: 60, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
+  { id: 'tpl-2', tenant_id: 'tenant-001', name: 'Code Review', category_id: 'cat-dev', description: 'Pull Request Review', estimated_minutes: 30, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
+  { id: 'tpl-3', tenant_id: 'tenant-001', name: 'Daily Standup', category_id: 'cat-meeting', description: 'Tägliches Team-Meeting', estimated_minutes: 15, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
+  { id: 'tpl-4', tenant_id: 'tenant-001', name: 'Kundendemo', category_id: 'cat-client', description: 'Produkt-Demo für Kunden', estimated_minutes: 45, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
+]
+
 // Billable projects (Kunde → Projekt) for time attribution — clockodo-style.
 const mockProjects = [
   { id: 'tp-01', name: 'Hub V2', customerId: 'cus-01', customerName: 'Interne Projekte', color: '#6366f1', billableDefault: false },
@@ -621,5 +638,68 @@ export const hrHandlers = [
         overtime_enabled: true,
       },
     })
+  }),
+
+  // ── Time categories ───────────────────────────────────────────────────────
+
+  http.get(`${API}/api/v1/hr/time/categories`, () => {
+    return HttpResponse.json({ categories: mockCategories })
+  }),
+
+  http.post(`${API}/api/v1/hr/time/categories`, async ({ request }) => {
+    const body = (await request.json()) as { name: string; color?: string; icon?: string; is_default?: boolean }
+    const category = {
+      id: `cat-${Date.now()}`,
+      tenant_id: 'tenant-001',
+      name: body.name,
+      color: body.color ?? '#6b7280',
+      icon: body.icon ?? 'Tag',
+      is_default: body.is_default ?? false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+    mockCategories = [category, ...mockCategories]
+    return HttpResponse.json({ category }, { status: 201 })
+  }),
+
+  http.put(`${API}/api/v1/hr/time/categories/:id`, async ({ params, request }) => {
+    const body = (await request.json()) as { name?: string; color?: string; icon?: string; is_default?: boolean }
+    mockCategories = mockCategories.map((c) =>
+      c.id === params.id ? { ...c, ...body, updated_at: new Date().toISOString() } : c,
+    )
+    const category = mockCategories.find((c) => c.id === params.id)
+    return HttpResponse.json({ category })
+  }),
+
+  http.delete(`${API}/api/v1/hr/time/categories/:id`, ({ params }) => {
+    mockCategories = mockCategories.filter((c) => c.id !== params.id)
+    return HttpResponse.json({})
+  }),
+
+  // ── Time templates ────────────────────────────────────────────────────────
+
+  http.get(`${API}/api/v1/hr/time/templates`, () => {
+    return HttpResponse.json({ templates: mockTemplates })
+  }),
+
+  http.post(`${API}/api/v1/hr/time/templates`, async ({ request }) => {
+    const body = (await request.json()) as { name: string; category_id: string; description?: string; estimated_minutes?: number }
+    const template = {
+      id: `tpl-${Date.now()}`,
+      tenant_id: 'tenant-001',
+      name: body.name,
+      category_id: body.category_id,
+      description: body.description ?? '',
+      estimated_minutes: body.estimated_minutes ?? 30,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+    mockTemplates = [template, ...mockTemplates]
+    return HttpResponse.json({ template }, { status: 201 })
+  }),
+
+  http.delete(`${API}/api/v1/hr/time/templates/:id`, ({ params }) => {
+    mockTemplates = mockTemplates.filter((t) => t.id !== params.id)
+    return HttpResponse.json({})
   }),
 ]

@@ -35,6 +35,11 @@ import type {
   UpdateEmployeeInput,
   UpdateSelfProfileInput,
   UploadDocumentInput,
+  TimeCategory,
+  CreateTimeCategoryInput,
+  UpdateTimeCategoryInput,
+  TimeTemplate,
+  CreateTimeTemplateInput,
 } from './hr-types'
 import { authenticatedRequest } from './utils/authenticatedFetch'
 
@@ -487,6 +492,59 @@ export const hrEmployeeApi = {
     return request<{ categories: HRDocumentCategory[] }>(
       `/api/v1/hr/employees/${id}/documents/categories`,
     )
+  },
+}
+
+// ---------------------------------------------------------------------------
+// Time categories
+// ---------------------------------------------------------------------------
+
+export const hrTimeCategoryApi = {
+  list() {
+    return request<{ categories: TimeCategory[] }>('/api/v1/hr/time/categories')
+  },
+
+  create(data: CreateTimeCategoryInput) {
+    return request<{ category: TimeCategory }>('/api/v1/hr/time/categories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+
+  update(id: string, data: UpdateTimeCategoryInput) {
+    return request<{ category: TimeCategory }>(`/api/v1/hr/time/categories/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  },
+
+  delete(id: string) {
+    return request<Record<string, never>>(`/api/v1/hr/time/categories/${id}`, {
+      method: 'DELETE',
+    })
+  },
+}
+
+// ---------------------------------------------------------------------------
+// Time templates
+// ---------------------------------------------------------------------------
+
+export const hrTimeTemplateApi = {
+  list() {
+    return request<{ templates: TimeTemplate[] }>('/api/v1/hr/time/templates')
+  },
+
+  create(data: CreateTimeTemplateInput) {
+    return request<{ template: TimeTemplate }>('/api/v1/hr/time/templates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+
+  delete(id: string) {
+    return request<Record<string, never>>(`/api/v1/hr/time/templates/${id}`, {
+      method: 'DELETE',
+    })
   },
 }
 

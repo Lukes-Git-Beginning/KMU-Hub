@@ -9237,5 +9237,19 @@
   "fuhrpark.errors.saveFailed": "Salvataggio fallito",
   "fuhrpark.errors.deleteFailed": "Eliminazione fallita",
   "fuhrpark.errors.vehicleNotFound": "Veicolo non trovato",
-  "produktion.header.summary": "{orders} ordini attivi · {boms} distinte base"
+  "produktion.header.summary": "{orders} ordini attivi · {boms} distinte base",
+  "profil.zeiterfassung.today.activeShift": "Turno in corso",
+  "profil.zeiterfassung.today.breakMinutes": "Pausa: {count} min",
+  "profil.zeiterfassung.today.billable": "fatturabile",
+  "profil.zeiterfassung.today.manual": "manuale",
+  "profil.zeiterfassung.overview.since": "dal {date}",
+  "profil.zeiterfassung.overview.seeAbsences": "Vedi assenzemodule",
+  "profil.zeiterfassung.team.noData": "Nessun dato del team disponibile",
+  "profil.zeiterfassung.approval.status.open": "aperto",
+  "profil.zeiterfassung.approval.status.submitted": "inviato",
+  "profil.zeiterfassung.approval.status.approved": "approvato",
+  "profil.zeiterfassung.approval.status.rejected": "rifiutato",
+  "profil.zeiterfassung.categories.maxDailyHours": "Ore max/giorno",
+  "profil.zeiterfassung.categories.breakAfterHours": "Pausa dopo (h)",
+  "profil.zeiterfassung.categories.workTargetsHint": "Gli obiettivi del tempo di lavoro sono gestiti nelle impostazioni HR."
 }

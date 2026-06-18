@@ -9271,5 +9271,19 @@
   "fuhrpark.errors.saveFailed": "Saving failed",
   "fuhrpark.errors.deleteFailed": "Deletion failed",
   "fuhrpark.errors.vehicleNotFound": "Vehicle not found",
-  "produktion.header.summary": "{orders} active orders · {boms} bills of materials"
+  "produktion.header.summary": "{orders} active orders · {boms} bills of materials",
+  "profil.zeiterfassung.today.activeShift": "Shift running",
+  "profil.zeiterfassung.today.breakMinutes": "Break: {count} min",
+  "profil.zeiterfassung.today.billable": "billable",
+  "profil.zeiterfassung.today.manual": "manual",
+  "profil.zeiterfassung.overview.since": "since {date}",
+  "profil.zeiterfassung.overview.seeAbsences": "See absence module",
+  "profil.zeiterfassung.team.noData": "No team data available",
+  "profil.zeiterfassung.approval.status.open": "open",
+  "profil.zeiterfassung.approval.status.submitted": "submitted",
+  "profil.zeiterfassung.approval.status.approved": "approved",
+  "profil.zeiterfassung.approval.status.rejected": "rejected",
+  "profil.zeiterfassung.categories.maxDailyHours": "Max hours/day",
+  "profil.zeiterfassung.categories.breakAfterHours": "Break after (h)",
+  "profil.zeiterfassung.categories.workTargetsHint": "Work time targets are managed in HR settings."
 }

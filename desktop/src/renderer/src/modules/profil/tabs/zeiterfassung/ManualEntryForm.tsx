@@ -8,9 +8,8 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
-import { useTimeTrackingStore } from '@/stores/timetracking'
+import { useCreateTimeEntry, useTimeCategories } from '@/api/hooks/hr-hooks'
 import { minutesBetween, todayStr } from './time-utils'
-import { toast } from 'sonner'
 
 interface ManualEntryFormProps {
   open: boolean
@@ -19,46 +18,46 @@ interface ManualEntryFormProps {
 
 export default function ManualEntryForm({ open, onOpenChange }: ManualEntryFormProps) {
   const { t } = useTranslation()
-  const categories = useTimeTrackingStore((s) => s.categories)
-  const addManualEntry = useTimeTrackingStore((s) => s.addManualEntry)
+  const { data: categories = [] } = useTimeCategories()
+  const createEntry = useCreateTimeEntry()
 
   const [date, setDate] = useState(todayStr())
   const [startTime, setStartTime] = useState('09:00')
   const [endTime, setEndTime] = useState('10:00')
-  const [categoryId, setCategoryId] = useState(categories[0]?.id || '')
+  const [categoryId, setCategoryId] = useState('')
   const [description, setDescription] = useState('')
 
   const duration = minutesBetween(startTime, endTime)
   const isValid = date && startTime && endTime && categoryId && duration > 0
 
   const handleSubmit = () => {
-    if (!isValid) {
-      toast.error(t('profil.zeiterfassung.errorFillAllFields'))
-      return
-    }
+    if (!isValid) return
     if (date > todayStr()) {
-      toast.error(t('profil.zeiterfassung.manual.noFutureDate'))
       return
     }
 
-    addManualEntry({
-      categoryId,
-      description,
-      date,
-      startTime,
-      endTime,
-      durationMinutes: duration,
-      projectId: null,
-      taskId: null,
-      location: null,
-    })
+    // Wire-Shape: clockIn/clockOut as ISO timestamps
+    const clockIn = `${date}T${startTime}:00Z`
+    const clockOut = `${date}T${endTime}:00Z`
 
-    toast.success(t('profil.zeiterfassung.manual.entryAdded'))
-    onOpenChange(false)
-    setDescription('')
-    setStartTime('09:00')
-    setEndTime('10:00')
-    setDate(todayStr())
+    createEntry.mutate(
+      {
+        clockIn,
+        clockOut,
+        breakMinutes: 0,
+        activity: description || undefined,
+        note: description || undefined,
+      },
+      {
+        onSuccess: () => {
+          onOpenChange(false)
+          setDescription('')
+          setStartTime('09:00')
+          setEndTime('10:00')
+          setDate(todayStr())
+        },
+      },
+    )
   }
 
   return (
@@ -99,7 +98,10 @@ export default function ManualEntryForm({ open, onOpenChange }: ManualEntryFormP
 
           {duration > 0 && (
             <p className="text-sm text-muted-foreground">
-              {t('profil.zeiterfassung.manual.duration')}: <span className="font-medium text-foreground">{Math.floor(duration / 60)}h {duration % 60}m</span>
+              {t('profil.zeiterfassung.manual.duration')}:{' '}
+              <span className="font-medium text-foreground">
+                {Math.floor(duration / 60)}h {duration % 60}m
+              </span>
             </p>
           )}
           {duration <= 0 && startTime && endTime && (
@@ -110,7 +112,10 @@ export default function ManualEntryForm({ open, onOpenChange }: ManualEntryFormP
 
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">{t('profil.zeiterfassung.manual.category')}</label>
-            <Select value={categoryId} onValueChange={setCategoryId}>
+            <Select
+              value={categoryId}
+              onValueChange={setCategoryId}
+            >
               <SelectTrigger>
                 <SelectValue placeholder={t('profil.zeiterfassung.manual.selectCategory')} />
               </SelectTrigger>
@@ -142,7 +147,12 @@ export default function ManualEntryForm({ open, onOpenChange }: ManualEntryFormP
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
-          <Button onClick={handleSubmit} disabled={!isValid}>{t('profil.zeiterfassung.manual.createEntry')}</Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={!isValid || createEntry.isPending}
+          >
+            {t('profil.zeiterfassung.manual.createEntry')}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

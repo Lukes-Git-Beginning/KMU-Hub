@@ -276,6 +276,53 @@ export interface HRDocumentCategory {
 }
 
 // ---------------------------------------------------------------------------
+// Time categories & templates (Zeiterfassung-Kategorien)
+// ---------------------------------------------------------------------------
+
+export interface TimeCategory {
+  id: string
+  tenant_id: string
+  name: string
+  color: string
+  icon: string
+  is_default: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateTimeCategoryInput {
+  name: string
+  color: string
+  icon?: string
+  is_default?: boolean
+}
+
+export interface UpdateTimeCategoryInput {
+  name?: string
+  color?: string
+  icon?: string
+  is_default?: boolean
+}
+
+export interface TimeTemplate {
+  id: string
+  tenant_id: string
+  name: string
+  category_id: string
+  description: string
+  estimated_minutes: number
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateTimeTemplateInput {
+  name: string
+  category_id: string
+  description?: string
+  estimated_minutes?: number
+}
+
+// ---------------------------------------------------------------------------
 // HR settings
 // ---------------------------------------------------------------------------
 

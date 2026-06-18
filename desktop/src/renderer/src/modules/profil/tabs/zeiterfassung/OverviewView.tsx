@@ -6,88 +6,56 @@ import {
   ArrowRight, Timer,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
-import { useTimeTrackingStore, getOvertimeSaldo } from '@/stores/timetracking'
-import { useTimerTick, formatElapsed } from '@/hooks/useTimerTick'
 import {
-  formatMinutes, formatHoursDecimal, isToday,
-  getWeekDates, dateToStr,
-} from './time-utils'
-
-const VACATION_TOTAL = 25
-const VACATION_USED = 10
+  useDailySummary,
+  useWeeklySummary,
+  useTimeBalance,
+  useWorkTimeEntries,
+  useWorkTimeStatus,
+  useHRSettings,
+} from '@/api/hooks/hr-hooks'
+import { useTimerTick, formatElapsed } from '@/hooks/useTimerTick'
+import { formatMinutes, formatHoursDecimal, getWeekDates, dateToStr, isToday } from './time-utils'
+import type { WorkTimeEntry } from '@/api/hr-types'
 
 interface OverviewViewProps {
   onNavigate: (view: string) => void
 }
 
+function getWeekStartStr(): string {
+  const d = new Date()
+  const day = d.getDay()
+  const mondayOffset = day === 0 ? -6 : 1 - day
+  d.setDate(d.getDate() + mondayOffset)
+  return d.toISOString().split('T')[0]
+}
+
 export default function OverviewView({ onNavigate }: OverviewViewProps) {
   const { t } = useTranslation()
-  const entries = useTimeTrackingStore((s) => s.entries)
-  const categories = useTimeTrackingStore((s) => s.categories)
-  const targets = useTimeTrackingStore((s) => s.targets)
-  const absences = useTimeTrackingStore((s) => s.absences)
-  const activeTimer = useTimeTrackingStore((s) => s.activeTimer)
   const elapsed = useTimerTick()
 
-  // ── This Week ───────────────────────────────────────
-  const thisWeekDates = useMemo(() => getWeekDates(0).map(dateToStr), [])
-  const thisWeekEntries = useMemo(
-    () => entries.filter((e) => thisWeekDates.includes(e.date)),
-    [entries, thisWeekDates],
-  )
-  const weekMinutes = thisWeekEntries.reduce((s, e) => s + e.durationMinutes, 0)
-  const weekTarget = targets.weeklyHours * 60
-  const weekPercent = Math.min(100, Math.round((weekMinutes / weekTarget) * 100))
+  const weekStart = getWeekStartStr()
+  const today = new Date().toISOString().split('T')[0]
 
-  // ── Today ───────────────────────────────────────────
-  const todayEntries = useMemo(
-    () => entries.filter((e) => isToday(e.date)),
-    [entries],
-  )
-  const todayMinutes = todayEntries.reduce((s, e) => s + e.durationMinutes, 0)
-  const dailyTarget = targets.dailyHours * 60
+  const { data: dailySummary } = useDailySummary(today)
+  const { data: weeklySummary } = useWeeklySummary(weekStart)
+  const { data: balance } = useTimeBalance()
+  const { data: entriesData } = useWorkTimeEntries()
+  const allEntries = entriesData?.entries ?? []
+  const { data: status } = useWorkTimeStatus()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: hrSettings } = useHRSettings() as { data: any }
+
+  const dailyTarget = (hrSettings?.work_hours_per_day ?? 8) * 60
+  const weeklyTarget = dailyTarget * 5
+
+  const todayMinutes = dailySummary?.netWorkMinutes ?? 0
+  const weekMinutes = weeklySummary?.netWorkMinutes ?? 0
+  const overtimeMinutes = balance?.balanceMinutes ?? 0
   const todayPercent = Math.min(100, Math.round((todayMinutes / dailyTarget) * 100))
+  const weekPercent = Math.min(100, Math.round((weekMinutes / weeklyTarget) * 100))
 
-  // ── Overtime (all-time, using helper 6.8) ───────────
-  const overtime = useMemo(() => getOvertimeSaldo(entries, targets), [entries, targets])
-  const uniqueDates = [...new Set(entries.map((e) => e.date))]
-  const workingDays = uniqueDates.filter((ds) => {
-    const d = new Date(ds)
-    return d.getDay() >= 1 && d.getDay() <= 5
-  }).length
-  const totalMinutesAllTime = entries.reduce((s, e) => s + e.durationMinutes, 0)
-  const totalTarget = workingDays * targets.dailyHours * 60
-
-  // ── This Month ──────────────────────────────────────
-  const thisMonth = new Date().toISOString().slice(0, 7) // YYYY-MM
-  const monthEntries = useMemo(
-    () => entries.filter((e) => e.date?.startsWith(thisMonth)),
-    [entries, thisMonth],
-  )
-  const monthMinutes = monthEntries.reduce((s, e) => s + e.durationMinutes, 0)
-
-  // ── Vacation ────────────────────────────────────────
-  const vacationRemaining = VACATION_TOTAL - VACATION_USED
-  const pendingVacation = absences.filter(
-    (a) => a.type === 'vacation' && a.status === 'pending',
-  ).reduce((s, a) => s + a.days, 0)
-  const sickDays = absences.filter(
-    (a) => a.type === 'sick' && a.status === 'approved',
-  ).reduce((s, a) => s + a.days, 0)
-
-  // ── Category breakdown this week ────────────────────
-  const weekCategoryStats = useMemo(() => {
-    const stats: Record<string, number> = {}
-    for (const e of thisWeekEntries) {
-      stats[e.categoryId] = (stats[e.categoryId] || 0) + e.durationMinutes
-    }
-    return categories
-      .map((cat) => ({ ...cat, minutes: stats[cat.id] || 0 }))
-      .filter((c) => c.minutes > 0)
-      .sort((a, b) => b.minutes - a.minutes)
-  }, [thisWeekEntries, categories])
-
-  // ── Daily breakdown this week ───────────────────────
+  // Daily bar chart: last 7 days
   const weekDayData = useMemo(() => {
     const dayNames = [
       t('profil.zeiterfassung.dayShort.mon'),
@@ -98,43 +66,48 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
       t('profil.zeiterfassung.dayShort.sat'),
       t('profil.zeiterfassung.dayShort.sun'),
     ]
+    if (weeklySummary?.days) {
+      return weeklySummary.days.map((day, i) => ({
+        day: dayNames[i] ?? String(i),
+        date: day.date,
+        minutes: day.netWorkMinutes,
+        isToday: isToday(day.date),
+      }))
+    }
+    // Fallback: derive from allEntries
     return getWeekDates(0).map((date, i) => {
       const ds = dateToStr(date)
-      const mins = entries
-        .filter((e) => e.date === ds)
-        .reduce((s, e) => s + e.durationMinutes, 0)
-      return { day: dayNames[i], date: ds, minutes: mins, isToday: isToday(ds) }
+      const mins = (allEntries as WorkTimeEntry[])
+        .filter((e) => e.clockIn?.slice(0, 10) === ds)
+        .reduce((s, e) => s + (e.netWorkMinutes ?? 0), 0)
+      return { day: dayNames[i] ?? String(i), date: ds, minutes: mins, isToday: isToday(ds) }
     })
-  }, [entries])
+  }, [weeklySummary, allEntries, t])
 
-  // ── Recent entries ──────────────────────────────────
+  // Recent entries (last 5)
   const recentEntries = useMemo(
-    () => [...entries]
-      .sort((a, b) => `${b.date}${b.startTime}`.localeCompare(`${a.date}${a.startTime}`))
-      .slice(0, 5),
-    [entries],
+    () =>
+      [...(allEntries as WorkTimeEntry[])]
+        .sort((a, b) => (b.clockIn ?? '').localeCompare(a.clockIn ?? ''))
+        .slice(0, 5),
+    [allEntries],
   )
 
-  const getCat = (id: string) => categories.find((c) => c.id === id)
+  const isClockedIn = status?.isClockedIn ?? false
 
   return (
     <div className="p-6 space-y-6 max-w-4xl mx-auto">
-      {/* Active Timer Banner */}
-      {activeTimer.status !== 'idle' && activeTimer.categoryId && (
+      {/* Active Shift Banner */}
+      {isClockedIn && (
         <div className="rounded-xl border-2 border-primary/50 bg-primary/5 p-4">
           <div className="flex items-center gap-3">
             <div className="relative">
               <Timer className="h-5 w-5 text-primary" />
-              {activeTimer.status === 'running' && (
-                <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-success animate-pulse" />
-              )}
+              <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-success animate-pulse" />
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium text-foreground">
-                {getCat(activeTimer.categoryId)?.name}
-                {activeTimer.description && (
-                  <span className="text-muted-foreground ml-2">— {activeTimer.description}</span>
-                )}
+                {t('profil.zeiterfassung.today.activeShift')}
               </p>
             </div>
             <span className="text-2xl font-mono font-bold text-primary tabular-nums">
@@ -152,7 +125,9 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
           className="rounded-xl border border-border bg-card p-5 text-left hover:border-primary/40 transition-colors group"
         >
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('profil.zeiterfassung.viewToday')}</span>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              {t('profil.zeiterfassung.viewToday')}
+            </span>
             <Clock className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
           </div>
           <div className="flex items-end gap-1.5 mb-2">
@@ -183,14 +158,16 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
           className="rounded-xl border border-border bg-card p-5 text-left hover:border-primary/40 transition-colors group"
         >
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('profil.zeiterfassung.overview.thisWeek')}</span>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              {t('profil.zeiterfassung.overview.thisWeek')}
+            </span>
             <Calendar className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
           </div>
           <div className="flex items-end gap-1.5 mb-2">
             <span className="text-2xl font-bold text-foreground tabular-nums">
               {formatHoursDecimal(weekMinutes)}
             </span>
-            <span className="text-sm text-muted-foreground mb-0.5">/ {targets.weeklyHours}h</span>
+            <span className="text-sm text-muted-foreground mb-0.5">/ {formatHoursDecimal(weeklyTarget)}h</span>
           </div>
           <div className="w-full h-2 rounded-full bg-secondary overflow-hidden">
             <div
@@ -210,8 +187,10 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
           className="rounded-xl border border-border bg-card p-5 text-left hover:border-primary/40 transition-colors group"
         >
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('profil.zeiterfassung.overtime')}</span>
-            {overtime >= 0 ? (
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              {t('profil.zeiterfassung.overtime')}
+            </span>
+            {overtimeMinutes >= 0 ? (
               <TrendingUp className="h-4 w-4 text-success" />
             ) : (
               <TrendingDown className="h-4 w-4 text-warning" />
@@ -220,47 +199,37 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
           <div className="flex items-end gap-1.5 mb-2">
             <span className={cn(
               'text-2xl font-bold tabular-nums',
-              overtime >= 0 ? 'text-success' : 'text-warning-foreground',
+              overtimeMinutes >= 0 ? 'text-success' : 'text-warning-foreground',
             )}>
-              {overtime >= 0 ? '+' : ''}{formatHoursDecimal(overtime)}h
+              {overtimeMinutes >= 0 ? '+' : ''}{formatHoursDecimal(overtimeMinutes)}h
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-1.5">
-            {t('profil.zeiterfassung.overview.target')}: {formatMinutes(totalTarget)} | {t('profil.zeiterfassung.overview.actual')}: {formatMinutes(totalMinutesAllTime)}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {t('profil.zeiterfassung.overview.basedOnDays', { count: workingDays })}
+            {balance?.periodStart
+              ? t('profil.zeiterfassung.overview.since', { date: balance.periodStart })
+              : t('profil.zeiterfassung.overtime')}
           </p>
         </button>
 
-        {/* Vacation */}
+        {/* Vacation placeholder — real data from leave balance (separate hook) */}
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('profil.zeiterfassung.overview.remainingVacation')}</span>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              {t('profil.zeiterfassung.overview.remainingVacation')}
+            </span>
             <Palmtree className="h-4 w-4 text-success" />
           </div>
           <div className="flex items-end gap-1.5 mb-2">
-            <span className="text-2xl font-bold text-foreground tabular-nums">{vacationRemaining}</span>
-            <span className="text-sm text-muted-foreground mb-0.5">/ {VACATION_TOTAL} {t('profil.zeiterfassung.overview.days')}</span>
+            <span className="text-2xl font-bold text-foreground tabular-nums">—</span>
           </div>
-          <div className="w-full h-2 rounded-full bg-secondary overflow-hidden">
-            <div
-              className="h-full rounded-full bg-success transition-all"
-              style={{ width: `${Math.round((VACATION_USED / VACATION_TOTAL) * 100)}%` }}
-            />
-          </div>
-          <div className="flex items-center gap-3 mt-1.5">
-            <span className="text-xs text-muted-foreground">{VACATION_USED} {t('profil.zeiterfassung.overview.taken')}</span>
-            {pendingVacation > 0 && (
-              <span className="text-xs text-warning-foreground">{pendingVacation} {t('profil.zeiterfassung.overview.requested')}</span>
-            )}
-          </div>
+          <p className="text-xs text-muted-foreground mt-1.5">
+            {t('profil.zeiterfassung.overview.seeAbsences')}
+          </p>
         </div>
       </div>
 
-      {/* Week at a Glance + Category Breakdown */}
+      {/* Week at a Glance */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Daily Bar Chart */}
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-foreground">{t('profil.zeiterfassung.overview.weekAtGlance')}</h3>
@@ -283,12 +252,6 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
                     {day.minutes > 0 ? formatHoursDecimal(day.minutes) : ''}
                   </span>
                   <div className="w-full relative" style={{ height: 80 }}>
-                    {!isWeekend && (
-                      <div
-                        className="absolute left-0 right-0 border-t border-dashed border-muted-foreground/30"
-                        style={{ bottom: '100%' }}
-                      />
-                    )}
                     <div
                       className={cn(
                         'absolute bottom-0 left-1 right-1 rounded-t-md transition-all',
@@ -308,96 +271,11 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
             })}
           </div>
           <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
-            <span>{t('profil.zeiterfassung.overview.target')}: {targets.weeklyHours}h</span>
+            <span>{t('profil.zeiterfassung.overview.target')}: {formatHoursDecimal(weeklyTarget)}h</span>
             <span>|</span>
-            <span className={cn(
-              'font-medium',
-              weekMinutes >= weekTarget ? 'text-success' : 'text-foreground',
-            )}>
+            <span className={cn('font-medium', weekMinutes >= weeklyTarget ? 'text-success' : 'text-foreground')}>
               {t('profil.zeiterfassung.overview.actual')}: {formatHoursDecimal(weekMinutes)}h
             </span>
-            <span>|</span>
-            <span className={cn(
-              'font-medium',
-              weekMinutes >= weekTarget ? 'text-success' : 'text-warning-foreground',
-            )}>
-              {weekMinutes >= weekTarget ? '+' : ''}{formatMinutes(weekMinutes - weekTarget)}
-            </span>
-          </div>
-        </div>
-
-        {/* Category Breakdown */}
-        <div className="rounded-xl border border-border bg-card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-foreground">{t('profil.zeiterfassung.overview.categoriesThisWeek')}</h3>
-            <button
-              onClick={() => onNavigate('categories')}
-              className="text-xs text-primary hover:underline flex items-center gap-1"
-            >
-              {t('profil.zeiterfassung.overview.manage')} <ArrowRight className="h-3 w-3" />
-            </button>
-          </div>
-          {weekCategoryStats.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">{t('profil.zeiterfassung.overview.noEntriesThisWeek')}</p>
-          ) : (
-            <div className="space-y-3">
-              {weekCategoryStats.map((cat) => {
-                const percent = weekMinutes > 0 ? Math.round((cat.minutes / weekMinutes) * 100) : 0
-                return (
-                  <div key={cat.id}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="flex items-center gap-2 text-sm">
-                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
-                        <span className="text-foreground">{cat.name}</span>
-                      </span>
-                      <span className="text-xs text-muted-foreground tabular-nums">
-                        {formatHoursDecimal(cat.minutes)}h ({percent}%)
-                      </span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-secondary overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{ width: `${percent}%`, backgroundColor: cat.color }}
-                      />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Key Metrics + Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Key Metrics */}
-        <div className="rounded-xl border border-border bg-card p-5">
-          <h3 className="text-sm font-semibold text-foreground mb-4">{t('profil.zeiterfassung.overview.contract')}</h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">{t('profil.zeiterfassung.overview.weeklyTarget')}</span>
-              <span className="font-medium text-foreground">{targets.weeklyHours}h</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">{t('profil.zeiterfassung.overview.dailyTarget')}</span>
-              <span className="font-medium text-foreground">{targets.dailyHours}h</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">{t('profil.zeiterfassung.overview.monthlyTarget')}</span>
-              <span className="font-medium text-foreground">{targets.monthlyHours}h</span>
-            </div>
-            <div className="border-t border-border pt-3 flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">{t('profil.zeiterfassung.overview.thisMonthActual')}</span>
-              <span className="font-semibold text-foreground">{formatHoursDecimal(monthMinutes)}h</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">{t('profil.zeiterfassung.overview.sickDays')}</span>
-              <span className="font-medium text-foreground">{sickDays} {t('profil.zeiterfassung.overview.days')}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">{t('profil.zeiterfassung.overview.vacationEntitlement')}</span>
-              <span className="font-medium text-foreground">{VACATION_TOTAL} {t('profil.zeiterfassung.overview.daysPerYear')}</span>
-            </div>
           </div>
         </div>
 
@@ -417,25 +295,19 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
           ) : (
             <div className="space-y-2">
               {recentEntries.map((entry) => {
-                const cat = getCat(entry.categoryId)
-                const entryIsToday = isToday(entry.date)
+                const entryDate = entry.clockIn?.slice(0, 10) ?? ''
+                const entryIsToday = isToday(entryDate)
                 return (
-                  <div
-                    key={entry.id}
-                    className="flex items-center gap-2.5 py-1.5"
-                  >
-                    <span
-                      className="h-2 w-2 rounded-full shrink-0"
-                      style={{ backgroundColor: cat?.color || '#6b7280' }}
-                    />
+                  <div key={entry.id} className="flex items-center gap-2.5 py-1.5">
+                    <span className="h-2 w-2 rounded-full shrink-0 bg-primary/50" />
                     <span className="text-xs text-muted-foreground w-16 shrink-0 tabular-nums">
-                      {entryIsToday ? t('profil.zeiterfassung.viewToday') : formatDateLabel(entry.date)}
+                      {entryIsToday ? t('profil.zeiterfassung.viewToday') : formatDateLabel(entryDate)}
                     </span>
                     <span className="text-sm text-foreground truncate flex-1">
-                      {entry.description}
+                      {entry.activity ?? entry.note ?? t('profil.zeiterfassung.unknown')}
                     </span>
                     <span className="text-xs text-muted-foreground tabular-nums shrink-0">
-                      {formatMinutes(entry.durationMinutes)}
+                      {formatMinutes(entry.netWorkMinutes ?? 0)}
                     </span>
                   </div>
                 )
@@ -453,8 +325,6 @@ function formatDateLabel(dateStr: string): string {
   const today = new Date()
   const yesterday = new Date()
   yesterday.setDate(today.getDate() - 1)
-
   if (dateStr === yesterday.toISOString().split('T')[0]) return i18next.t('profil.zeiterfassung.overview.yesterday')
-
   return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.`
 }

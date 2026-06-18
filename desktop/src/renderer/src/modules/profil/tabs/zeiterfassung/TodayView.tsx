@@ -1,15 +1,20 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, Trash2, Clock, MapPin, FolderKanban, Palmtree, ThermometerSun, Home, BookOpen, AlertTriangle } from 'lucide-react'
+import { Plus, Clock, FolderKanban, Palmtree, ThermometerSun, Home, BookOpen, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
 import { cn } from '@/lib/cn'
-import { useTimeTrackingStore, MOCK_PROJECTS, MOCK_TASKS, getOvertimeForDay } from '@/stores/timetracking'
+import {
+  useWorkTimeEntries,
+  useDailySummary,
+  useActiveShift,
+  useWorkTimeStatus,
+  useTimeProjects,
+  useTimeCategories,
+} from '@/api/hooks/hr-hooks'
 import { useTimerTick, formatElapsed } from '@/hooks/useTimerTick'
 import { formatMinutes, isToday, todayStr } from './time-utils'
 import ManualEntryForm from './ManualEntryForm'
-
-// ABSENCE_LABELS moved inside component for i18n
+import type { WorkTimeEntry } from '@/api/hr-types'
 
 const ABSENCE_ICONS: Record<string, typeof Palmtree> = {
   vacation: Palmtree,
@@ -23,110 +28,68 @@ export default function TodayView() {
   const { t } = useTranslation()
   const [showManualForm, setShowManualForm] = useState(false)
 
-  const ABSENCE_LABELS: Record<string, string> = {
-    vacation: t('profil.zeiterfassung.absenceType.vacation'),
-    sick: t('profil.zeiterfassung.absenceType.sick'),
-    homeoffice: t('profil.zeiterfassung.absenceType.homeoffice'),
-    education: t('profil.zeiterfassung.absenceType.education'),
-    other: t('profil.zeiterfassung.absenceType.other'),
-  }
-  const [_editingId, _setEditingId] = useState<string | null>(null)
+  // API hooks
+  const { data: entriesData } = useWorkTimeEntries()
+  const allEntries = entriesData?.entries ?? []
+  const { data: status } = useWorkTimeStatus()
+  const { data: activeShift } = useActiveShift()
+  const { data: dailySummary } = useDailySummary(todayStr())
+  const { data: projects = [] } = useTimeProjects()
+  const { data: categories = [] } = useTimeCategories()
 
-  const entries = useTimeTrackingStore((s) => s.entries)
-  const categories = useTimeTrackingStore((s) => s.categories)
-  const activeTimer = useTimeTrackingStore((s) => s.activeTimer)
-  const targets = useTimeTrackingStore((s) => s.targets)
-  const absences = useTimeTrackingStore((s) => s.absences)
-  const deleteEntry = useTimeTrackingStore((s) => s.deleteEntry)
   const elapsed = useTimerTick()
 
-  // Check today's absence (6.10)
-  const todayAbsence = useMemo(() => {
-    const today = todayStr()
-    return absences.find((a) => {
-      if (a.status !== 'approved') return false
-      return today >= a.startDate && today <= a.endDate
-    })
-  }, [absences])
-
+  // Filter today's entries (Wire-Shape: clockIn is ISO timestamp)
   const todayEntries = useMemo(
     () =>
-      entries
-        .filter((e) => isToday(e.date))
-        .sort((a, b) => a.startTime.localeCompare(b.startTime)),
-    [entries],
+      (allEntries as WorkTimeEntry[])
+        .filter((e) => {
+          const date = e.clockIn?.slice(0, 10) ?? ''
+          return isToday(date)
+        })
+        .sort((a, b) => (a.clockIn ?? '').localeCompare(b.clockIn ?? '')),
+    [allEntries],
   )
 
-  const totalMinutes = todayEntries.reduce((sum, e) => sum + e.durationMinutes, 0)
-  const targetMinutes = targets.dailyHours * 60
+  const totalMinutes = dailySummary?.netWorkMinutes ?? todayEntries.reduce((s, e) => s + (e.netWorkMinutes ?? 0), 0)
+  // 480 = 8h default; real target comes from HRSettings (separate follow-up)
+  const targetMinutes = 480
   const progressPercent = Math.min(100, Math.round((totalMinutes / targetMinutes) * 100))
+  const dailyOvertime = totalMinutes - targetMinutes
 
-  // Daily overtime (6.8)
-  const dailyOvertime = getOvertimeForDay(entries, todayStr(), targetMinutes)
+  const getProjectName = (projectId: string | null | undefined) =>
+    projectId ? projects.find((p) => p.id === projectId)?.name : null
 
-  const getCategoryInfo = (catId: string) =>
-    categories.find((c) => c.id === catId)
-
-  const getProjectName = (projectId: string | null) =>
-    projectId ? MOCK_PROJECTS.find((p) => p.id === projectId)?.name : null
-
-  const getTaskLabel = (taskId: string | null) => {
-    if (!taskId) return null
-    const task = MOCK_TASKS.find((t) => t.id === taskId)
-    return task ? `${task.key}: ${task.title}` : null
-  }
+  const isClockedIn = status?.isClockedIn ?? false
+  const isOnBreak = status?.isOnBreak ?? false
+  const activeColor = categories[0]?.color ?? '#6366f1'
 
   return (
     <div className="p-6 space-y-4 max-w-3xl mx-auto">
-      {/* Absence Banner (6.10) */}
-      {todayAbsence && (() => {
-        const AbsIcon = ABSENCE_ICONS[todayAbsence.type] || AlertTriangle
-        return (
-          <div className={cn(
-            'rounded-lg border p-3 flex items-center gap-3',
-            todayAbsence.type === 'vacation' ? 'border-warning/30 bg-warning-light' :
-            todayAbsence.type === 'sick' ? 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/30' :
-            'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/30',
-          )}>
-            <AbsIcon className={cn(
-              'h-5 w-5 shrink-0',
-              todayAbsence.type === 'vacation' ? 'text-warning-foreground' :
-              todayAbsence.type === 'sick' ? 'text-gray-500' :
-              'text-blue-500 dark:text-blue-400',
-            )} />
-            <span className="text-sm font-medium text-foreground">
-              Heute: {ABSENCE_LABELS[todayAbsence.type]}
-            </span>
-            {(todayAbsence.type === 'vacation' || todayAbsence.type === 'sick') && (
-              <span className="text-xs text-muted-foreground ml-auto">
-                {t('profil.zeiterfassung.today.timerLocked')}
-              </span>
-            )}
-          </div>
-        )
-      })()}
-
-      {/* Running Timer */}
-      {activeTimer.status !== 'idle' && activeTimer.categoryId && (
+      {/* Running Shift Banner */}
+      {isClockedIn && (
         <div className="rounded-xl border-2 border-primary/50 bg-primary/5 p-4 animate-in fade-in">
           <div className="flex items-center gap-3">
             <div className="relative">
               <span
                 className="h-3 w-3 rounded-full inline-block"
-                style={{ backgroundColor: getCategoryInfo(activeTimer.categoryId)?.color }}
+                style={{ backgroundColor: activeColor }}
               />
-              {activeTimer.status === 'running' && (
-                <span className="absolute inset-0 h-3 w-3 rounded-full animate-ping opacity-40"
-                  style={{ backgroundColor: getCategoryInfo(activeTimer.categoryId)?.color }}
+              {!isOnBreak && (
+                <span
+                  className="absolute inset-0 h-3 w-3 rounded-full animate-ping opacity-40"
+                  style={{ backgroundColor: activeColor }}
                 />
               )}
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium text-foreground">
-                {getCategoryInfo(activeTimer.categoryId)?.name}
-                {activeTimer.description && (
-                  <span className="text-muted-foreground ml-2">— {activeTimer.description}</span>
-                )}
+                {t('profil.zeiterfassung.today.activeShift')}
+                {activeShift?.shift?.total_break_minutes ? (
+                  <span className="text-muted-foreground ml-2">
+                    — {t('profil.zeiterfassung.today.breakMinutes', { count: activeShift.shift.total_break_minutes })}
+                  </span>
+                ) : null}
               </p>
             </div>
             <span className="text-xl font-mono font-bold text-primary tabular-nums">
@@ -134,11 +97,11 @@ export default function TodayView() {
             </span>
             <span className={cn(
               'px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider',
-              activeTimer.status === 'running'
-                ? 'bg-success-light text-success'
-                : 'bg-warning-light text-warning-foreground',
+              isOnBreak
+                ? 'bg-warning-light text-warning-foreground'
+                : 'bg-success-light text-success',
             )}>
-              {activeTimer.status === 'running' ? t('profil.zeiterfassung.today.running') : t('profil.zeiterfassung.today.paused')}
+              {isOnBreak ? t('profil.zeiterfassung.today.paused') : t('profil.zeiterfassung.today.running')}
             </span>
           </div>
         </div>
@@ -156,7 +119,7 @@ export default function TodayView() {
           </Button>
         </div>
 
-        {todayEntries.length === 0 && activeTimer.status === 'idle' && (
+        {todayEntries.length === 0 && !isClockedIn && (
           <div className="text-center py-12 text-muted-foreground">
             <Clock className="h-10 w-10 mx-auto mb-3 opacity-50" />
             <p className="font-medium">{t('profil.zeiterfassung.noEntriesToday')}</p>
@@ -165,9 +128,10 @@ export default function TodayView() {
         )}
 
         {todayEntries.map((entry) => {
-          const cat = getCategoryInfo(entry.categoryId)
           const projectName = getProjectName(entry.projectId)
-          const taskLabel = getTaskLabel(entry.taskId)
+          const clockInTime = entry.clockIn?.slice(11, 16) ?? ''
+          const clockOutTime = entry.clockOut?.slice(11, 16) ?? '...'
+          const netMins = entry.netWorkMinutes ?? 0
           return (
             <div
               key={entry.id}
@@ -175,76 +139,54 @@ export default function TodayView() {
             >
               {/* Time */}
               <div className="text-sm font-mono text-muted-foreground w-28 shrink-0 tabular-nums">
-                {entry.startTime} - {entry.endTime || '...'}
+                {clockInTime} - {clockOutTime}
               </div>
 
-              {/* Category */}
-              <span
-                className="h-2.5 w-2.5 rounded-full shrink-0"
-                style={{ backgroundColor: cat?.color || '#6b7280' }}
-              />
-              <span className="text-sm font-medium text-foreground w-32 truncate shrink-0">
-                {cat?.name || t('profil.zeiterfassung.unknown')}
-              </span>
-
-              {/* Description + Project/Task (6.6) */}
+              {/* Activity / Note */}
               <div className="flex-1 min-w-0">
                 <span className="text-sm text-muted-foreground truncate block">
-                  {entry.description}
+                  {entry.activity ?? entry.note ?? t('profil.zeiterfassung.unknown')}
                 </span>
-                {(projectName || taskLabel) && (
+                {projectName && (
                   <span className="flex items-center gap-1.5 text-[11px] text-primary/70 mt-0.5">
                     <FolderKanban className="h-3 w-3 shrink-0" />
+                    {entry.customerName && (
+                      <span className="text-muted-foreground">{entry.customerName} /</span>
+                    )}
                     {projectName}
-                    {taskLabel && <span className="text-muted-foreground">/ {taskLabel}</span>}
                   </span>
                 )}
               </div>
 
-              {/* GPS Location (6.11) */}
-              {entry.location && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="shrink-0 text-muted-foreground hover:text-primary transition-colors cursor-default">
-                        <MapPin className="h-3.5 w-3.5" />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="text-xs">{entry.location.address}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+              {/* Billable */}
+              {entry.billable && (
+                <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded shrink-0">
+                  {t('profil.zeiterfassung.today.billable')}
+                </span>
               )}
 
               {/* Duration */}
               <span className="text-sm font-medium text-foreground w-16 text-right shrink-0 tabular-nums">
-                {formatMinutes(entry.durationMinutes)}
+                {formatMinutes(netMins)}
               </span>
 
-              {/* Actions */}
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                {entry.isManual && (
-                  <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">
-                    manuell
-                  </span>
-                )}
-                <button
-                  onClick={() => deleteEntry(entry.id)}
-                  className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
+              {/* Manual marker */}
+              {entry.isManual && (
+                <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                  {t('profil.zeiterfassung.today.manual')}
+                </span>
+              )}
             </div>
           )
         })}
       </div>
 
-      {/* Soll/Ist Footer with Overtime (6.8) */}
+      {/* Soll/Ist Footer */}
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm text-muted-foreground">{t('profil.zeiterfassung.overview.target')} / {t('profil.zeiterfassung.overview.actual')}</span>
+          <span className="text-sm text-muted-foreground">
+            {t('profil.zeiterfassung.overview.target')} / {t('profil.zeiterfassung.overview.actual')}
+          </span>
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-foreground">
               {formatMinutes(totalMinutes)} / {formatMinutes(targetMinutes)}
@@ -275,12 +217,12 @@ export default function TodayView() {
         )}
         {totalMinutes < targetMinutes && totalMinutes > 0 && (
           <p className="text-xs text-muted-foreground mt-1">
-            {t('profil.zeiterfassung.overview.remaining')} {formatMinutes(targetMinutes - totalMinutes)} {t('profil.zeiterfassung.today.untilTarget')}
+            {t('profil.zeiterfassung.overview.remaining')} {formatMinutes(targetMinutes - totalMinutes)}{' '}
+            {t('profil.zeiterfassung.today.untilTarget')}
           </p>
         )}
       </div>
 
-      {/* Manual Entry Form Dialog */}
       <ManualEntryForm open={showManualForm} onOpenChange={setShowManualForm} />
     </div>
   )

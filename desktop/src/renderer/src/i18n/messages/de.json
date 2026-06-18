@@ -9271,5 +9271,19 @@
   "fuhrpark.errors.saveFailed": "Speichern fehlgeschlagen",
   "fuhrpark.errors.deleteFailed": "Löschen fehlgeschlagen",
   "fuhrpark.errors.vehicleNotFound": "Fahrzeug nicht gefunden",
-  "produktion.header.summary": "{orders} aktive Aufträge · {boms} Stücklisten"
+  "produktion.header.summary": "{orders} aktive Aufträge · {boms} Stücklisten",
+  "profil.zeiterfassung.today.activeShift": "Schicht läuft",
+  "profil.zeiterfassung.today.breakMinutes": "Pause: {count} min",
+  "profil.zeiterfassung.today.billable": "abrechenbar",
+  "profil.zeiterfassung.today.manual": "manuell",
+  "profil.zeiterfassung.overview.since": "seit {date}",
+  "profil.zeiterfassung.overview.seeAbsences": "Urlaub-/Abwesenheitsmodul",
+  "profil.zeiterfassung.team.noData": "Keine Team-Daten verfügbar",
+  "profil.zeiterfassung.approval.status.open": "offen",
+  "profil.zeiterfassung.approval.status.submitted": "eingereicht",
+  "profil.zeiterfassung.approval.status.approved": "genehmigt",
+  "profil.zeiterfassung.approval.status.rejected": "abgelehnt",
+  "profil.zeiterfassung.categories.maxDailyHours": "Max. Stunden/Tag",
+  "profil.zeiterfassung.categories.breakAfterHours": "Pause nach (h)",
+  "profil.zeiterfassung.categories.workTargetsHint": "Arbeitszeitziele werden in den HR-Einstellungen verwaltet."
 }

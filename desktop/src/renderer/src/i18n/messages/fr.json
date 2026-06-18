@@ -9237,5 +9237,19 @@
   "fuhrpark.errors.saveFailed": "Enregistrement échoué",
   "fuhrpark.errors.deleteFailed": "Suppression échouée",
   "fuhrpark.errors.vehicleNotFound": "Véhicule introuvable",
-  "produktion.header.summary": "{orders} ordres actifs · {boms} nomenclatures"
+  "produktion.header.summary": "{orders} ordres actifs · {boms} nomenclatures",
+  "profil.zeiterfassung.today.activeShift": "Plage en cours",
+  "profil.zeiterfassung.today.breakMinutes": "Pause : {count} min",
+  "profil.zeiterfassung.today.billable": "facturable",
+  "profil.zeiterfassung.today.manual": "manuel",
+  "profil.zeiterfassung.overview.since": "depuis {date}",
+  "profil.zeiterfassung.overview.seeAbsences": "Voir les absences",
+  "profil.zeiterfassung.team.noData": "Aucune donnée d'équipe disponible",
+  "profil.zeiterfassung.approval.status.open": "ouvert",
+  "profil.zeiterfassung.approval.status.submitted": "soumis",
+  "profil.zeiterfassung.approval.status.approved": "approuvé",
+  "profil.zeiterfassung.approval.status.rejected": "refusé",
+  "profil.zeiterfassung.categories.maxDailyHours": "Max. heures/jour",
+  "profil.zeiterfassung.categories.breakAfterHours": "Pause après (h)",
+  "profil.zeiterfassung.categories.workTargetsHint": "Les objectifs de temps de travail sont gérés dans les paramètres RH."
 }
