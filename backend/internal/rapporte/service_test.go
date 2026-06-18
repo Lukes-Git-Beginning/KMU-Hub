@@ -232,6 +232,103 @@ func (m *mockRepository) SaveSignature(_ context.Context, tenantID, reportID uui
 	return rep, nil
 }
 
+// ============================================================================
+// Workers stubs
+// ============================================================================
+
+func (m *mockRepository) AddWorker(_ context.Context, tenantID, reportID uuid.UUID, name, role string, hours float64) (*Worker, error) {
+	w := &Worker{
+		ID:       uuid.New(),
+		TenantID: tenantID,
+		ReportID: reportID,
+		Name:     name,
+	}
+	return w, nil
+}
+
+func (m *mockRepository) RemoveWorker(_ context.Context, tenantID, workerID uuid.UUID) error {
+	return nil
+}
+
+func (m *mockRepository) ListWorkers(_ context.Context, tenantID, reportID uuid.UUID) ([]Worker, error) {
+	return nil, nil
+}
+
+// ============================================================================
+// Measurement stubs
+// ============================================================================
+
+func (m *mockRepository) CreateMeasurement(_ context.Context, tenantID uuid.UUID, reportID *uuid.UUID, title, location, measuredBy, measuredAt, notes string) (*Measurement, error) {
+	meas := &Measurement{
+		ID:       uuid.New(),
+		TenantID: tenantID,
+		ReportID: reportID,
+		Title:    title,
+	}
+	return meas, nil
+}
+
+func (m *mockRepository) GetMeasurement(_ context.Context, tenantID, measurementID uuid.UUID) (*Measurement, error) {
+	return nil, ErrMeasurementNotFound
+}
+
+func (m *mockRepository) ListMeasurements(_ context.Context, tenantID uuid.UUID, reportID *uuid.UUID, page, pageSize int) ([]Measurement, int, error) {
+	return nil, 0, nil
+}
+
+func (m *mockRepository) UpdateMeasurement(_ context.Context, tenantID, measurementID uuid.UUID, title, location, measuredBy, measuredAt, notes string) (*Measurement, error) {
+	return nil, ErrMeasurementNotFound
+}
+
+func (m *mockRepository) DeleteMeasurement(_ context.Context, tenantID, measurementID uuid.UUID) error {
+	return nil
+}
+
+func (m *mockRepository) AddMeasurementPosition(_ context.Context, tenantID, measurementID uuid.UUID, positionNumber int, description, unit string, quantity, unitPrice float64) (*MeasurementPosition, error) {
+	p := &MeasurementPosition{
+		ID:             uuid.New(),
+		TenantID:       tenantID,
+		MeasurementID:  measurementID,
+		PositionNumber: positionNumber,
+		Description:    description,
+	}
+	return p, nil
+}
+
+func (m *mockRepository) DeleteMeasurementPosition(_ context.Context, tenantID, positionID uuid.UUID) error {
+	return nil
+}
+
+// ============================================================================
+// Template stubs
+// ============================================================================
+
+func (m *mockRepository) CreateTemplate(_ context.Context, tenantID uuid.UUID, name, description, category, defaultLinesJSON string) (*ReportTemplate, error) {
+	t := &ReportTemplate{
+		ID:       uuid.New(),
+		TenantID: tenantID,
+		Name:     name,
+		IsActive: true,
+	}
+	return t, nil
+}
+
+func (m *mockRepository) GetTemplate(_ context.Context, tenantID, templateID uuid.UUID) (*ReportTemplate, error) {
+	return nil, ErrTemplateNotFound
+}
+
+func (m *mockRepository) ListTemplates(_ context.Context, tenantID uuid.UUID, activeOnly bool, page, pageSize int) ([]ReportTemplate, int, error) {
+	return nil, 0, nil
+}
+
+func (m *mockRepository) UpdateTemplate(_ context.Context, tenantID, templateID uuid.UUID, name, description, category, defaultLinesJSON string, isActive bool) (*ReportTemplate, error) {
+	return nil, ErrTemplateNotFound
+}
+
+func (m *mockRepository) DeleteTemplate(_ context.Context, tenantID, templateID uuid.UUID) error {
+	return nil
+}
+
 // compile-time interface check
 var _ Repository = (*mockRepository)(nil)
 
@@ -823,4 +920,42 @@ func TestService_ListReports_DefaultPagination(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 60, total)
 	assert.Len(t, reports, 50)
+}
+
+// ============================================================================
+// New: Measurement + Template tests
+// ============================================================================
+
+// TestRepo_CreateMeasurement_TenantIsolation verifies that CreateMeasurement
+// stamps the correct tenant_id and that a different tenant cannot retrieve it
+// via GetMeasurement (which returns ErrMeasurementNotFound for unknown IDs).
+func TestRepo_CreateMeasurement_TenantIsolation(t *testing.T) {
+	repo := newMockRepository()
+
+	tenantA := uuid.New()
+	tenantB := uuid.New()
+
+	// Create a measurement for tenantA
+	m, err := repo.CreateMeasurement(context.Background(), tenantA, nil, "Dachfläche Nord", "", "", "", "")
+	require.NoError(t, err)
+	assert.Equal(t, tenantA, m.TenantID, "tenant_id must match caller")
+	assert.NotEqual(t, uuid.Nil, m.ID)
+
+	// tenantB cannot retrieve tenantA's measurement
+	_, err = repo.GetMeasurement(context.Background(), tenantB, m.ID)
+	assert.ErrorIs(t, err, ErrMeasurementNotFound, "cross-tenant measurement lookup must return ErrMeasurementNotFound")
+}
+
+// TestRepo_CreateTemplate_HappyPath verifies that CreateTemplate returns a
+// well-formed ReportTemplate with correct tenant/name and is_active=true.
+func TestRepo_CreateTemplate_HappyPath(t *testing.T) {
+	repo := newMockRepository()
+
+	tenantID := uuid.New()
+	tmpl, err := repo.CreateTemplate(context.Background(), tenantID, "Standard-Bericht", "Vorlage für Standardberichte", "allgemein", `[{"description":"Arbeitszeit","unit":"h"}]`)
+	require.NoError(t, err)
+	assert.NotEqual(t, uuid.Nil, tmpl.ID)
+	assert.Equal(t, tenantID, tmpl.TenantID)
+	assert.Equal(t, "Standard-Bericht", tmpl.Name)
+	assert.True(t, tmpl.IsActive, "newly created template must be active")
 }

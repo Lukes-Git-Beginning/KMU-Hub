@@ -49,4 +49,25 @@ type Repository interface {
 	DeleteAttachment(ctx context.Context, tenantID, attachmentID uuid.UUID) error
 	GetAttachment(ctx context.Context, tenantID, attachmentID uuid.UUID) (*ReportAttachment, error)
 	ListAttachments(ctx context.Context, tenantID, reportID uuid.UUID, lineID *uuid.UUID) ([]*ReportAttachment, error)
+
+	// Workers (report_workers table)
+	AddWorker(ctx context.Context, tenantID, reportID uuid.UUID, name, role string, hours float64) (*Worker, error)
+	RemoveWorker(ctx context.Context, tenantID, workerID uuid.UUID) error
+	ListWorkers(ctx context.Context, tenantID, reportID uuid.UUID) ([]Worker, error)
+
+	// Measurements
+	CreateMeasurement(ctx context.Context, tenantID uuid.UUID, reportID *uuid.UUID, title, location, measuredBy, measuredAt, notes string) (*Measurement, error)
+	GetMeasurement(ctx context.Context, tenantID, measurementID uuid.UUID) (*Measurement, error)
+	ListMeasurements(ctx context.Context, tenantID uuid.UUID, reportID *uuid.UUID, page, pageSize int) ([]Measurement, int, error)
+	UpdateMeasurement(ctx context.Context, tenantID, measurementID uuid.UUID, title, location, measuredBy, measuredAt, notes string) (*Measurement, error)
+	DeleteMeasurement(ctx context.Context, tenantID, measurementID uuid.UUID) error
+	AddMeasurementPosition(ctx context.Context, tenantID, measurementID uuid.UUID, positionNumber int, description, unit string, quantity, unitPrice float64) (*MeasurementPosition, error)
+	DeleteMeasurementPosition(ctx context.Context, tenantID, positionID uuid.UUID) error
+
+	// Templates
+	CreateTemplate(ctx context.Context, tenantID uuid.UUID, name, description, category, defaultLinesJSON string) (*ReportTemplate, error)
+	GetTemplate(ctx context.Context, tenantID, templateID uuid.UUID) (*ReportTemplate, error)
+	ListTemplates(ctx context.Context, tenantID uuid.UUID, activeOnly bool, page, pageSize int) ([]ReportTemplate, int, error)
+	UpdateTemplate(ctx context.Context, tenantID, templateID uuid.UUID, name, description, category, defaultLinesJSON string, isActive bool) (*ReportTemplate, error)
+	DeleteTemplate(ctx context.Context, tenantID, templateID uuid.UUID) error
 }

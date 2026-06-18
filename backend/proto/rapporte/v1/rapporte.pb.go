@@ -41,6 +41,14 @@ type WorkReport struct {
 	SignatureData string                 `protobuf:"bytes,15,opt,name=signature_data,json=signatureData,proto3" json:"signature_data,omitempty"` // data:image/png;base64,... or data:image/svg+xml;base64,...
 	SignedAt      *timestamppb.Timestamp `protobuf:"bytes,16,opt,name=signed_at,json=signedAt,proto3,oneof" json:"signed_at,omitempty"`
 	SignedBy      string                 `protobuf:"bytes,17,opt,name=signed_by,json=signedBy,proto3" json:"signed_by,omitempty"`
+	// Extended fields (Migration 000162)
+	Weather       string    `protobuf:"bytes,18,opt,name=weather,proto3" json:"weather,omitempty"`
+	Temperature   float64   `protobuf:"fixed64,19,opt,name=temperature,proto3" json:"temperature,omitempty"`
+	WorkStart     string    `protobuf:"bytes,20,opt,name=work_start,json=workStart,proto3" json:"work_start,omitempty"` // HH:MM
+	WorkEnd       string    `protobuf:"bytes,21,opt,name=work_end,json=workEnd,proto3" json:"work_end,omitempty"`       // HH:MM
+	BreakMinutes  int32     `protobuf:"varint,22,opt,name=break_minutes,json=breakMinutes,proto3" json:"break_minutes,omitempty"`
+	ProjectName   string    `protobuf:"bytes,23,opt,name=project_name,json=projectName,proto3" json:"project_name,omitempty"`
+	Workers       []*Worker `protobuf:"bytes,24,rep,name=workers,proto3" json:"workers,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -194,18 +202,70 @@ func (x *WorkReport) GetSignedBy() string {
 	return ""
 }
 
+func (x *WorkReport) GetWeather() string {
+	if x != nil {
+		return x.Weather
+	}
+	return ""
+}
+
+func (x *WorkReport) GetTemperature() float64 {
+	if x != nil {
+		return x.Temperature
+	}
+	return 0
+}
+
+func (x *WorkReport) GetWorkStart() string {
+	if x != nil {
+		return x.WorkStart
+	}
+	return ""
+}
+
+func (x *WorkReport) GetWorkEnd() string {
+	if x != nil {
+		return x.WorkEnd
+	}
+	return ""
+}
+
+func (x *WorkReport) GetBreakMinutes() int32 {
+	if x != nil {
+		return x.BreakMinutes
+	}
+	return 0
+}
+
+func (x *WorkReport) GetProjectName() string {
+	if x != nil {
+		return x.ProjectName
+	}
+	return ""
+}
+
+func (x *WorkReport) GetWorkers() []*Worker {
+	if x != nil {
+		return x.Workers
+	}
+	return nil
+}
+
 type ReportLine struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ReportId      string                 `protobuf:"bytes,3,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
-	Position      int32                  `protobuf:"varint,4,opt,name=position,proto3" json:"position,omitempty"`
-	Description   string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
-	Quantity      float64                `protobuf:"fixed64,6,opt,name=quantity,proto3" json:"quantity,omitempty"`
-	Unit          string                 `protobuf:"bytes,7,opt,name=unit,proto3" json:"unit,omitempty"`
-	Notes         string                 `protobuf:"bytes,8,opt,name=notes,proto3" json:"notes,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Id          string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId    string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ReportId    string                 `protobuf:"bytes,3,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
+	Position    int32                  `protobuf:"varint,4,opt,name=position,proto3" json:"position,omitempty"`
+	Description string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
+	Quantity    float64                `protobuf:"fixed64,6,opt,name=quantity,proto3" json:"quantity,omitempty"`
+	Unit        string                 `protobuf:"bytes,7,opt,name=unit,proto3" json:"unit,omitempty"`
+	Notes       string                 `protobuf:"bytes,8,opt,name=notes,proto3" json:"notes,omitempty"`
+	CreatedAt   *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt   *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// Extended fields (Migration 000162)
+	Category      string `protobuf:"bytes,11,opt,name=category,proto3" json:"category,omitempty"`
+	Article       string `protobuf:"bytes,12,opt,name=article,proto3" json:"article,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -308,6 +368,20 @@ func (x *ReportLine) GetUpdatedAt() *timestamppb.Timestamp {
 		return x.UpdatedAt
 	}
 	return nil
+}
+
+func (x *ReportLine) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *ReportLine) GetArticle() string {
+	if x != nil {
+		return x.Article
+	}
+	return ""
 }
 
 type ReportAttachment struct {
@@ -434,6 +508,438 @@ func (x *ReportAttachment) GetCreatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+type Worker struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ReportId      string                 `protobuf:"bytes,3,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
+	Name          string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	Role          string                 `protobuf:"bytes,5,opt,name=role,proto3" json:"role,omitempty"`
+	Hours         float64                `protobuf:"fixed64,6,opt,name=hours,proto3" json:"hours,omitempty"`
+	CreatedAt     string                 `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Worker) Reset() {
+	*x = Worker{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Worker) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Worker) ProtoMessage() {}
+
+func (x *Worker) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Worker.ProtoReflect.Descriptor instead.
+func (*Worker) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *Worker) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Worker) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *Worker) GetReportId() string {
+	if x != nil {
+		return x.ReportId
+	}
+	return ""
+}
+
+func (x *Worker) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Worker) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *Worker) GetHours() float64 {
+	if x != nil {
+		return x.Hours
+	}
+	return 0
+}
+
+func (x *Worker) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+type Measurement struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ReportId      string                 `protobuf:"bytes,3,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
+	Title         string                 `protobuf:"bytes,4,opt,name=title,proto3" json:"title,omitempty"`
+	Location      string                 `protobuf:"bytes,5,opt,name=location,proto3" json:"location,omitempty"`
+	MeasuredBy    string                 `protobuf:"bytes,6,opt,name=measured_by,json=measuredBy,proto3" json:"measured_by,omitempty"`
+	MeasuredAt    string                 `protobuf:"bytes,7,opt,name=measured_at,json=measuredAt,proto3" json:"measured_at,omitempty"`
+	Notes         string                 `protobuf:"bytes,8,opt,name=notes,proto3" json:"notes,omitempty"`
+	Positions     []*MeasurementPosition `protobuf:"bytes,9,rep,name=positions,proto3" json:"positions,omitempty"`
+	CreatedAt     string                 `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     string                 `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Measurement) Reset() {
+	*x = Measurement{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Measurement) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Measurement) ProtoMessage() {}
+
+func (x *Measurement) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Measurement.ProtoReflect.Descriptor instead.
+func (*Measurement) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *Measurement) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Measurement) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *Measurement) GetReportId() string {
+	if x != nil {
+		return x.ReportId
+	}
+	return ""
+}
+
+func (x *Measurement) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *Measurement) GetLocation() string {
+	if x != nil {
+		return x.Location
+	}
+	return ""
+}
+
+func (x *Measurement) GetMeasuredBy() string {
+	if x != nil {
+		return x.MeasuredBy
+	}
+	return ""
+}
+
+func (x *Measurement) GetMeasuredAt() string {
+	if x != nil {
+		return x.MeasuredAt
+	}
+	return ""
+}
+
+func (x *Measurement) GetNotes() string {
+	if x != nil {
+		return x.Notes
+	}
+	return ""
+}
+
+func (x *Measurement) GetPositions() []*MeasurementPosition {
+	if x != nil {
+		return x.Positions
+	}
+	return nil
+}
+
+func (x *Measurement) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *Measurement) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
+type MeasurementPosition struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId       string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	MeasurementId  string                 `protobuf:"bytes,3,opt,name=measurement_id,json=measurementId,proto3" json:"measurement_id,omitempty"`
+	PositionNumber int32                  `protobuf:"varint,4,opt,name=position_number,json=positionNumber,proto3" json:"position_number,omitempty"`
+	Description    string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
+	Unit           string                 `protobuf:"bytes,6,opt,name=unit,proto3" json:"unit,omitempty"`
+	Quantity       float64                `protobuf:"fixed64,7,opt,name=quantity,proto3" json:"quantity,omitempty"`
+	UnitPrice      float64                `protobuf:"fixed64,8,opt,name=unit_price,json=unitPrice,proto3" json:"unit_price,omitempty"`
+	CreatedAt      string                 `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *MeasurementPosition) Reset() {
+	*x = MeasurementPosition{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MeasurementPosition) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MeasurementPosition) ProtoMessage() {}
+
+func (x *MeasurementPosition) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MeasurementPosition.ProtoReflect.Descriptor instead.
+func (*MeasurementPosition) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *MeasurementPosition) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *MeasurementPosition) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *MeasurementPosition) GetMeasurementId() string {
+	if x != nil {
+		return x.MeasurementId
+	}
+	return ""
+}
+
+func (x *MeasurementPosition) GetPositionNumber() int32 {
+	if x != nil {
+		return x.PositionNumber
+	}
+	return 0
+}
+
+func (x *MeasurementPosition) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *MeasurementPosition) GetUnit() string {
+	if x != nil {
+		return x.Unit
+	}
+	return ""
+}
+
+func (x *MeasurementPosition) GetQuantity() float64 {
+	if x != nil {
+		return x.Quantity
+	}
+	return 0
+}
+
+func (x *MeasurementPosition) GetUnitPrice() float64 {
+	if x != nil {
+		return x.UnitPrice
+	}
+	return 0
+}
+
+func (x *MeasurementPosition) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+type ReportTemplate struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId         string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Name             string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Description      string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
+	Category         string                 `protobuf:"bytes,5,opt,name=category,proto3" json:"category,omitempty"`
+	DefaultLinesJson string                 `protobuf:"bytes,6,opt,name=default_lines_json,json=defaultLinesJson,proto3" json:"default_lines_json,omitempty"`
+	IsActive         bool                   `protobuf:"varint,7,opt,name=is_active,json=isActive,proto3" json:"is_active,omitempty"`
+	CreatedAt        string                 `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt        string                 `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *ReportTemplate) Reset() {
+	*x = ReportTemplate{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReportTemplate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReportTemplate) ProtoMessage() {}
+
+func (x *ReportTemplate) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReportTemplate.ProtoReflect.Descriptor instead.
+func (*ReportTemplate) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *ReportTemplate) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ReportTemplate) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ReportTemplate) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ReportTemplate) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *ReportTemplate) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *ReportTemplate) GetDefaultLinesJson() string {
+	if x != nil {
+		return x.DefaultLinesJson
+	}
+	return ""
+}
+
+func (x *ReportTemplate) GetIsActive() bool {
+	if x != nil {
+		return x.IsActive
+	}
+	return false
+}
+
+func (x *ReportTemplate) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *ReportTemplate) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
 type CreateReportRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
@@ -443,13 +949,19 @@ type CreateReportRequest struct {
 	Lat           *float64               `protobuf:"fixed64,5,opt,name=lat,proto3,oneof" json:"lat,omitempty"`
 	Lon           *float64               `protobuf:"fixed64,6,opt,name=lon,proto3,oneof" json:"lon,omitempty"`
 	ReportDate    string                 `protobuf:"bytes,7,opt,name=report_date,json=reportDate,proto3" json:"report_date,omitempty"` // YYYY-MM-DD, empty = today
+	Weather       string                 `protobuf:"bytes,8,opt,name=weather,proto3" json:"weather,omitempty"`
+	Temperature   float64                `protobuf:"fixed64,9,opt,name=temperature,proto3" json:"temperature,omitempty"`
+	WorkStart     string                 `protobuf:"bytes,10,opt,name=work_start,json=workStart,proto3" json:"work_start,omitempty"`
+	WorkEnd       string                 `protobuf:"bytes,11,opt,name=work_end,json=workEnd,proto3" json:"work_end,omitempty"`
+	BreakMinutes  int32                  `protobuf:"varint,12,opt,name=break_minutes,json=breakMinutes,proto3" json:"break_minutes,omitempty"`
+	ProjectName   string                 `protobuf:"bytes,13,opt,name=project_name,json=projectName,proto3" json:"project_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateReportRequest) Reset() {
 	*x = CreateReportRequest{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[3]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -461,7 +973,7 @@ func (x *CreateReportRequest) String() string {
 func (*CreateReportRequest) ProtoMessage() {}
 
 func (x *CreateReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[3]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -474,7 +986,7 @@ func (x *CreateReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateReportRequest.ProtoReflect.Descriptor instead.
 func (*CreateReportRequest) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{3}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *CreateReportRequest) GetTenantId() string {
@@ -526,6 +1038,48 @@ func (x *CreateReportRequest) GetReportDate() string {
 	return ""
 }
 
+func (x *CreateReportRequest) GetWeather() string {
+	if x != nil {
+		return x.Weather
+	}
+	return ""
+}
+
+func (x *CreateReportRequest) GetTemperature() float64 {
+	if x != nil {
+		return x.Temperature
+	}
+	return 0
+}
+
+func (x *CreateReportRequest) GetWorkStart() string {
+	if x != nil {
+		return x.WorkStart
+	}
+	return ""
+}
+
+func (x *CreateReportRequest) GetWorkEnd() string {
+	if x != nil {
+		return x.WorkEnd
+	}
+	return ""
+}
+
+func (x *CreateReportRequest) GetBreakMinutes() int32 {
+	if x != nil {
+		return x.BreakMinutes
+	}
+	return 0
+}
+
+func (x *CreateReportRequest) GetProjectName() string {
+	if x != nil {
+		return x.ProjectName
+	}
+	return ""
+}
+
 type GetReportRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
@@ -536,7 +1090,7 @@ type GetReportRequest struct {
 
 func (x *GetReportRequest) Reset() {
 	*x = GetReportRequest{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[4]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -548,7 +1102,7 @@ func (x *GetReportRequest) String() string {
 func (*GetReportRequest) ProtoMessage() {}
 
 func (x *GetReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[4]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -561,7 +1115,7 @@ func (x *GetReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetReportRequest.ProtoReflect.Descriptor instead.
 func (*GetReportRequest) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{4}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetReportRequest) GetTenantId() string {
@@ -587,13 +1141,19 @@ type UpdateReportRequest struct {
 	Lat           *float64               `protobuf:"fixed64,5,opt,name=lat,proto3,oneof" json:"lat,omitempty"`
 	Lon           *float64               `protobuf:"fixed64,6,opt,name=lon,proto3,oneof" json:"lon,omitempty"`
 	ReportDate    *string                `protobuf:"bytes,7,opt,name=report_date,json=reportDate,proto3,oneof" json:"report_date,omitempty"`
+	Weather       *string                `protobuf:"bytes,8,opt,name=weather,proto3,oneof" json:"weather,omitempty"`
+	Temperature   *float64               `protobuf:"fixed64,9,opt,name=temperature,proto3,oneof" json:"temperature,omitempty"`
+	WorkStart     *string                `protobuf:"bytes,10,opt,name=work_start,json=workStart,proto3,oneof" json:"work_start,omitempty"`
+	WorkEnd       *string                `protobuf:"bytes,11,opt,name=work_end,json=workEnd,proto3,oneof" json:"work_end,omitempty"`
+	BreakMinutes  *int32                 `protobuf:"varint,12,opt,name=break_minutes,json=breakMinutes,proto3,oneof" json:"break_minutes,omitempty"`
+	ProjectName   *string                `protobuf:"bytes,13,opt,name=project_name,json=projectName,proto3,oneof" json:"project_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpdateReportRequest) Reset() {
 	*x = UpdateReportRequest{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[5]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -605,7 +1165,7 @@ func (x *UpdateReportRequest) String() string {
 func (*UpdateReportRequest) ProtoMessage() {}
 
 func (x *UpdateReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[5]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -618,7 +1178,7 @@ func (x *UpdateReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateReportRequest.ProtoReflect.Descriptor instead.
 func (*UpdateReportRequest) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{5}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *UpdateReportRequest) GetTenantId() string {
@@ -670,6 +1230,48 @@ func (x *UpdateReportRequest) GetReportDate() string {
 	return ""
 }
 
+func (x *UpdateReportRequest) GetWeather() string {
+	if x != nil && x.Weather != nil {
+		return *x.Weather
+	}
+	return ""
+}
+
+func (x *UpdateReportRequest) GetTemperature() float64 {
+	if x != nil && x.Temperature != nil {
+		return *x.Temperature
+	}
+	return 0
+}
+
+func (x *UpdateReportRequest) GetWorkStart() string {
+	if x != nil && x.WorkStart != nil {
+		return *x.WorkStart
+	}
+	return ""
+}
+
+func (x *UpdateReportRequest) GetWorkEnd() string {
+	if x != nil && x.WorkEnd != nil {
+		return *x.WorkEnd
+	}
+	return ""
+}
+
+func (x *UpdateReportRequest) GetBreakMinutes() int32 {
+	if x != nil && x.BreakMinutes != nil {
+		return *x.BreakMinutes
+	}
+	return 0
+}
+
+func (x *UpdateReportRequest) GetProjectName() string {
+	if x != nil && x.ProjectName != nil {
+		return *x.ProjectName
+	}
+	return ""
+}
+
 type DeleteReportRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
@@ -680,7 +1282,7 @@ type DeleteReportRequest struct {
 
 func (x *DeleteReportRequest) Reset() {
 	*x = DeleteReportRequest{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[6]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -692,7 +1294,7 @@ func (x *DeleteReportRequest) String() string {
 func (*DeleteReportRequest) ProtoMessage() {}
 
 func (x *DeleteReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[6]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -705,7 +1307,7 @@ func (x *DeleteReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteReportRequest.ProtoReflect.Descriptor instead.
 func (*DeleteReportRequest) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{6}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *DeleteReportRequest) GetTenantId() string {
@@ -730,7 +1332,7 @@ type DeleteReportResponse struct {
 
 func (x *DeleteReportResponse) Reset() {
 	*x = DeleteReportResponse{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[7]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -742,7 +1344,7 @@ func (x *DeleteReportResponse) String() string {
 func (*DeleteReportResponse) ProtoMessage() {}
 
 func (x *DeleteReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[7]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -755,7 +1357,7 @@ func (x *DeleteReportResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteReportResponse.ProtoReflect.Descriptor instead.
 func (*DeleteReportResponse) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{7}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{11}
 }
 
 type ReportResponse struct {
@@ -767,7 +1369,7 @@ type ReportResponse struct {
 
 func (x *ReportResponse) Reset() {
 	*x = ReportResponse{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[8]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -779,7 +1381,7 @@ func (x *ReportResponse) String() string {
 func (*ReportResponse) ProtoMessage() {}
 
 func (x *ReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[8]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -792,7 +1394,7 @@ func (x *ReportResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReportResponse.ProtoReflect.Descriptor instead.
 func (*ReportResponse) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{8}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ReportResponse) GetReport() *WorkReport {
@@ -816,7 +1418,7 @@ type ListReportsRequest struct {
 
 func (x *ListReportsRequest) Reset() {
 	*x = ListReportsRequest{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[9]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -828,7 +1430,7 @@ func (x *ListReportsRequest) String() string {
 func (*ListReportsRequest) ProtoMessage() {}
 
 func (x *ListReportsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[9]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -841,7 +1443,7 @@ func (x *ListReportsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListReportsRequest.ProtoReflect.Descriptor instead.
 func (*ListReportsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{9}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ListReportsRequest) GetTenantId() string {
@@ -896,7 +1498,7 @@ type ListReportsResponse struct {
 
 func (x *ListReportsResponse) Reset() {
 	*x = ListReportsResponse{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[10]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -908,7 +1510,7 @@ func (x *ListReportsResponse) String() string {
 func (*ListReportsResponse) ProtoMessage() {}
 
 func (x *ListReportsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[10]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -921,7 +1523,7 @@ func (x *ListReportsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListReportsResponse.ProtoReflect.Descriptor instead.
 func (*ListReportsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{10}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ListReportsResponse) GetReports() []*WorkReport {
@@ -948,7 +1550,7 @@ type SubmitReportRequest struct {
 
 func (x *SubmitReportRequest) Reset() {
 	*x = SubmitReportRequest{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[11]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -960,7 +1562,7 @@ func (x *SubmitReportRequest) String() string {
 func (*SubmitReportRequest) ProtoMessage() {}
 
 func (x *SubmitReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[11]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -973,7 +1575,7 @@ func (x *SubmitReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitReportRequest.ProtoReflect.Descriptor instead.
 func (*SubmitReportRequest) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{11}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *SubmitReportRequest) GetTenantId() string {
@@ -1002,7 +1604,7 @@ type ApproveReportRequest struct {
 
 func (x *ApproveReportRequest) Reset() {
 	*x = ApproveReportRequest{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[12]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1014,7 +1616,7 @@ func (x *ApproveReportRequest) String() string {
 func (*ApproveReportRequest) ProtoMessage() {}
 
 func (x *ApproveReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[12]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1027,7 +1629,7 @@ func (x *ApproveReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApproveReportRequest.ProtoReflect.Descriptor instead.
 func (*ApproveReportRequest) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{12}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ApproveReportRequest) GetTenantId() string {
@@ -1070,7 +1672,7 @@ type RejectReportRequest struct {
 
 func (x *RejectReportRequest) Reset() {
 	*x = RejectReportRequest{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[13]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1082,7 +1684,7 @@ func (x *RejectReportRequest) String() string {
 func (*RejectReportRequest) ProtoMessage() {}
 
 func (x *RejectReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[13]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1095,7 +1697,7 @@ func (x *RejectReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RejectReportRequest.ProtoReflect.Descriptor instead.
 func (*RejectReportRequest) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{13}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *RejectReportRequest) GetTenantId() string {
@@ -1135,13 +1737,15 @@ type AddLineRequest struct {
 	Unit          string                 `protobuf:"bytes,5,opt,name=unit,proto3" json:"unit,omitempty"`
 	Notes         string                 `protobuf:"bytes,6,opt,name=notes,proto3" json:"notes,omitempty"`
 	Position      int32                  `protobuf:"varint,7,opt,name=position,proto3" json:"position,omitempty"`
+	Category      string                 `protobuf:"bytes,8,opt,name=category,proto3" json:"category,omitempty"`
+	Article       string                 `protobuf:"bytes,9,opt,name=article,proto3" json:"article,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *AddLineRequest) Reset() {
 	*x = AddLineRequest{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[14]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1153,7 +1757,7 @@ func (x *AddLineRequest) String() string {
 func (*AddLineRequest) ProtoMessage() {}
 
 func (x *AddLineRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[14]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1166,7 +1770,7 @@ func (x *AddLineRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddLineRequest.ProtoReflect.Descriptor instead.
 func (*AddLineRequest) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{14}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *AddLineRequest) GetTenantId() string {
@@ -1218,6 +1822,20 @@ func (x *AddLineRequest) GetPosition() int32 {
 	return 0
 }
 
+func (x *AddLineRequest) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *AddLineRequest) GetArticle() string {
+	if x != nil {
+		return x.Article
+	}
+	return ""
+}
+
 type UpdateLineRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
@@ -1227,13 +1845,15 @@ type UpdateLineRequest struct {
 	Unit          *string                `protobuf:"bytes,5,opt,name=unit,proto3,oneof" json:"unit,omitempty"`
 	Notes         *string                `protobuf:"bytes,6,opt,name=notes,proto3,oneof" json:"notes,omitempty"`
 	Position      *int32                 `protobuf:"varint,7,opt,name=position,proto3,oneof" json:"position,omitempty"`
+	Category      *string                `protobuf:"bytes,8,opt,name=category,proto3,oneof" json:"category,omitempty"`
+	Article       *string                `protobuf:"bytes,9,opt,name=article,proto3,oneof" json:"article,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpdateLineRequest) Reset() {
 	*x = UpdateLineRequest{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[15]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1245,7 +1865,7 @@ func (x *UpdateLineRequest) String() string {
 func (*UpdateLineRequest) ProtoMessage() {}
 
 func (x *UpdateLineRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[15]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1258,7 +1878,7 @@ func (x *UpdateLineRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateLineRequest.ProtoReflect.Descriptor instead.
 func (*UpdateLineRequest) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{15}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *UpdateLineRequest) GetTenantId() string {
@@ -1310,6 +1930,20 @@ func (x *UpdateLineRequest) GetPosition() int32 {
 	return 0
 }
 
+func (x *UpdateLineRequest) GetCategory() string {
+	if x != nil && x.Category != nil {
+		return *x.Category
+	}
+	return ""
+}
+
+func (x *UpdateLineRequest) GetArticle() string {
+	if x != nil && x.Article != nil {
+		return *x.Article
+	}
+	return ""
+}
+
 type DeleteLineRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
@@ -1320,7 +1954,7 @@ type DeleteLineRequest struct {
 
 func (x *DeleteLineRequest) Reset() {
 	*x = DeleteLineRequest{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[16]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1332,7 +1966,7 @@ func (x *DeleteLineRequest) String() string {
 func (*DeleteLineRequest) ProtoMessage() {}
 
 func (x *DeleteLineRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[16]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1345,7 +1979,7 @@ func (x *DeleteLineRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteLineRequest.ProtoReflect.Descriptor instead.
 func (*DeleteLineRequest) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{16}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *DeleteLineRequest) GetTenantId() string {
@@ -1370,7 +2004,7 @@ type DeleteLineResponse struct {
 
 func (x *DeleteLineResponse) Reset() {
 	*x = DeleteLineResponse{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[17]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1382,7 +2016,7 @@ func (x *DeleteLineResponse) String() string {
 func (*DeleteLineResponse) ProtoMessage() {}
 
 func (x *DeleteLineResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[17]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1395,7 +2029,7 @@ func (x *DeleteLineResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteLineResponse.ProtoReflect.Descriptor instead.
 func (*DeleteLineResponse) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{17}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{21}
 }
 
 type LineResponse struct {
@@ -1407,7 +2041,7 @@ type LineResponse struct {
 
 func (x *LineResponse) Reset() {
 	*x = LineResponse{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[18]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1419,7 +2053,7 @@ func (x *LineResponse) String() string {
 func (*LineResponse) ProtoMessage() {}
 
 func (x *LineResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[18]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1432,7 +2066,7 @@ func (x *LineResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LineResponse.ProtoReflect.Descriptor instead.
 func (*LineResponse) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{18}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *LineResponse) GetLine() *ReportLine {
@@ -1452,7 +2086,7 @@ type ListLinesRequest struct {
 
 func (x *ListLinesRequest) Reset() {
 	*x = ListLinesRequest{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[19]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1464,7 +2098,7 @@ func (x *ListLinesRequest) String() string {
 func (*ListLinesRequest) ProtoMessage() {}
 
 func (x *ListLinesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[19]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1477,7 +2111,7 @@ func (x *ListLinesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLinesRequest.ProtoReflect.Descriptor instead.
 func (*ListLinesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{19}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ListLinesRequest) GetTenantId() string {
@@ -1503,7 +2137,7 @@ type ListLinesResponse struct {
 
 func (x *ListLinesResponse) Reset() {
 	*x = ListLinesResponse{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[20]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1515,7 +2149,7 @@ func (x *ListLinesResponse) String() string {
 func (*ListLinesResponse) ProtoMessage() {}
 
 func (x *ListLinesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[20]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1528,7 +2162,7 @@ func (x *ListLinesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLinesResponse.ProtoReflect.Descriptor instead.
 func (*ListLinesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{20}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ListLinesResponse) GetLines() []*ReportLine {
@@ -1554,7 +2188,7 @@ type UploadAttachmentRequest struct {
 
 func (x *UploadAttachmentRequest) Reset() {
 	*x = UploadAttachmentRequest{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[21]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1566,7 +2200,7 @@ func (x *UploadAttachmentRequest) String() string {
 func (*UploadAttachmentRequest) ProtoMessage() {}
 
 func (x *UploadAttachmentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[21]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1579,7 +2213,7 @@ func (x *UploadAttachmentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadAttachmentRequest.ProtoReflect.Descriptor instead.
 func (*UploadAttachmentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{21}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *UploadAttachmentRequest) GetTenantId() string {
@@ -1649,7 +2283,7 @@ type ListAttachmentsRequest struct {
 
 func (x *ListAttachmentsRequest) Reset() {
 	*x = ListAttachmentsRequest{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[22]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1661,7 +2295,7 @@ func (x *ListAttachmentsRequest) String() string {
 func (*ListAttachmentsRequest) ProtoMessage() {}
 
 func (x *ListAttachmentsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[22]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1674,7 +2308,7 @@ func (x *ListAttachmentsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAttachmentsRequest.ProtoReflect.Descriptor instead.
 func (*ListAttachmentsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{22}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ListAttachmentsRequest) GetTenantId() string {
@@ -1707,7 +2341,7 @@ type ListAttachmentsResponse struct {
 
 func (x *ListAttachmentsResponse) Reset() {
 	*x = ListAttachmentsResponse{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[23]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1719,7 +2353,7 @@ func (x *ListAttachmentsResponse) String() string {
 func (*ListAttachmentsResponse) ProtoMessage() {}
 
 func (x *ListAttachmentsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[23]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1732,7 +2366,7 @@ func (x *ListAttachmentsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAttachmentsResponse.ProtoReflect.Descriptor instead.
 func (*ListAttachmentsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{23}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ListAttachmentsResponse) GetAttachments() []*ReportAttachment {
@@ -1751,7 +2385,7 @@ type AttachmentResponse struct {
 
 func (x *AttachmentResponse) Reset() {
 	*x = AttachmentResponse{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[24]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1763,7 +2397,7 @@ func (x *AttachmentResponse) String() string {
 func (*AttachmentResponse) ProtoMessage() {}
 
 func (x *AttachmentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[24]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1776,7 +2410,7 @@ func (x *AttachmentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AttachmentResponse.ProtoReflect.Descriptor instead.
 func (*AttachmentResponse) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{24}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *AttachmentResponse) GetAttachment() *ReportAttachment {
@@ -1796,7 +2430,7 @@ type DeleteAttachmentRequest struct {
 
 func (x *DeleteAttachmentRequest) Reset() {
 	*x = DeleteAttachmentRequest{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[25]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1808,7 +2442,7 @@ func (x *DeleteAttachmentRequest) String() string {
 func (*DeleteAttachmentRequest) ProtoMessage() {}
 
 func (x *DeleteAttachmentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[25]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1821,7 +2455,7 @@ func (x *DeleteAttachmentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteAttachmentRequest.ProtoReflect.Descriptor instead.
 func (*DeleteAttachmentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{25}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *DeleteAttachmentRequest) GetTenantId() string {
@@ -1846,7 +2480,7 @@ type DeleteAttachmentResponse struct {
 
 func (x *DeleteAttachmentResponse) Reset() {
 	*x = DeleteAttachmentResponse{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[26]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1858,7 +2492,7 @@ func (x *DeleteAttachmentResponse) String() string {
 func (*DeleteAttachmentResponse) ProtoMessage() {}
 
 func (x *DeleteAttachmentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[26]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1871,7 +2505,7 @@ func (x *DeleteAttachmentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteAttachmentResponse.ProtoReflect.Descriptor instead.
 func (*DeleteAttachmentResponse) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{26}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{30}
 }
 
 type GetReportStatsRequest struct {
@@ -1883,7 +2517,7 @@ type GetReportStatsRequest struct {
 
 func (x *GetReportStatsRequest) Reset() {
 	*x = GetReportStatsRequest{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[27]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1895,7 +2529,7 @@ func (x *GetReportStatsRequest) String() string {
 func (*GetReportStatsRequest) ProtoMessage() {}
 
 func (x *GetReportStatsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[27]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1908,7 +2542,7 @@ func (x *GetReportStatsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetReportStatsRequest.ProtoReflect.Descriptor instead.
 func (*GetReportStatsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{27}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *GetReportStatsRequest) GetTenantId() string {
@@ -1931,7 +2565,7 @@ type ReportStatsResponse struct {
 
 func (x *ReportStatsResponse) Reset() {
 	*x = ReportStatsResponse{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[28]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1943,7 +2577,7 @@ func (x *ReportStatsResponse) String() string {
 func (*ReportStatsResponse) ProtoMessage() {}
 
 func (x *ReportStatsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[28]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1956,7 +2590,7 @@ func (x *ReportStatsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReportStatsResponse.ProtoReflect.Descriptor instead.
 func (*ReportStatsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{28}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *ReportStatsResponse) GetTotalReports() int32 {
@@ -2005,7 +2639,7 @@ type ListPendingApprovalsRequest struct {
 
 func (x *ListPendingApprovalsRequest) Reset() {
 	*x = ListPendingApprovalsRequest{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[29]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2017,7 +2651,7 @@ func (x *ListPendingApprovalsRequest) String() string {
 func (*ListPendingApprovalsRequest) ProtoMessage() {}
 
 func (x *ListPendingApprovalsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[29]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2030,7 +2664,7 @@ func (x *ListPendingApprovalsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPendingApprovalsRequest.ProtoReflect.Descriptor instead.
 func (*ListPendingApprovalsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{29}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ListPendingApprovalsRequest) GetTenantId() string {
@@ -2064,7 +2698,7 @@ type ExportPDFRequest struct {
 
 func (x *ExportPDFRequest) Reset() {
 	*x = ExportPDFRequest{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[30]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2076,7 +2710,7 @@ func (x *ExportPDFRequest) String() string {
 func (*ExportPDFRequest) ProtoMessage() {}
 
 func (x *ExportPDFRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[30]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2089,7 +2723,7 @@ func (x *ExportPDFRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportPDFRequest.ProtoReflect.Descriptor instead.
 func (*ExportPDFRequest) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{30}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ExportPDFRequest) GetTenantId() string {
@@ -2117,7 +2751,7 @@ type ExportPDFResponse struct {
 
 func (x *ExportPDFResponse) Reset() {
 	*x = ExportPDFResponse{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[31]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2129,7 +2763,7 @@ func (x *ExportPDFResponse) String() string {
 func (*ExportPDFResponse) ProtoMessage() {}
 
 func (x *ExportPDFResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[31]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2142,7 +2776,7 @@ func (x *ExportPDFResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportPDFResponse.ProtoReflect.Descriptor instead.
 func (*ExportPDFResponse) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{31}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ExportPDFResponse) GetPayload() []byte {
@@ -2178,7 +2812,7 @@ type SaveReportSignatureRequest struct {
 
 func (x *SaveReportSignatureRequest) Reset() {
 	*x = SaveReportSignatureRequest{}
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[32]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2190,7 +2824,7 @@ func (x *SaveReportSignatureRequest) String() string {
 func (*SaveReportSignatureRequest) ProtoMessage() {}
 
 func (x *SaveReportSignatureRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[32]
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2203,7 +2837,7 @@ func (x *SaveReportSignatureRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveReportSignatureRequest.ProtoReflect.Descriptor instead.
 func (*SaveReportSignatureRequest) Descriptor() ([]byte, []int) {
-	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{32}
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *SaveReportSignatureRequest) GetTenantId() string {
@@ -2234,11 +2868,1723 @@ func (x *SaveReportSignatureRequest) GetSignedBy() string {
 	return ""
 }
 
+type AddWorkerRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ReportId      string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Role          string                 `protobuf:"bytes,4,opt,name=role,proto3" json:"role,omitempty"`
+	Hours         float64                `protobuf:"fixed64,5,opt,name=hours,proto3" json:"hours,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddWorkerRequest) Reset() {
+	*x = AddWorkerRequest{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddWorkerRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddWorkerRequest) ProtoMessage() {}
+
+func (x *AddWorkerRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddWorkerRequest.ProtoReflect.Descriptor instead.
+func (*AddWorkerRequest) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *AddWorkerRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *AddWorkerRequest) GetReportId() string {
+	if x != nil {
+		return x.ReportId
+	}
+	return ""
+}
+
+func (x *AddWorkerRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *AddWorkerRequest) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *AddWorkerRequest) GetHours() float64 {
+	if x != nil {
+		return x.Hours
+	}
+	return 0
+}
+
+type AddWorkerResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Worker        *Worker                `protobuf:"bytes,1,opt,name=worker,proto3" json:"worker,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddWorkerResponse) Reset() {
+	*x = AddWorkerResponse{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddWorkerResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddWorkerResponse) ProtoMessage() {}
+
+func (x *AddWorkerResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddWorkerResponse.ProtoReflect.Descriptor instead.
+func (*AddWorkerResponse) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *AddWorkerResponse) GetWorker() *Worker {
+	if x != nil {
+		return x.Worker
+	}
+	return nil
+}
+
+type RemoveWorkerRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	WorkerId      string                 `protobuf:"bytes,2,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveWorkerRequest) Reset() {
+	*x = RemoveWorkerRequest{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveWorkerRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveWorkerRequest) ProtoMessage() {}
+
+func (x *RemoveWorkerRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveWorkerRequest.ProtoReflect.Descriptor instead.
+func (*RemoveWorkerRequest) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *RemoveWorkerRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *RemoveWorkerRequest) GetWorkerId() string {
+	if x != nil {
+		return x.WorkerId
+	}
+	return ""
+}
+
+type RemoveWorkerResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveWorkerResponse) Reset() {
+	*x = RemoveWorkerResponse{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveWorkerResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveWorkerResponse) ProtoMessage() {}
+
+func (x *RemoveWorkerResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveWorkerResponse.ProtoReflect.Descriptor instead.
+func (*RemoveWorkerResponse) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *RemoveWorkerResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+type ListWorkersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ReportId      string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListWorkersRequest) Reset() {
+	*x = ListWorkersRequest{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWorkersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWorkersRequest) ProtoMessage() {}
+
+func (x *ListWorkersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWorkersRequest.ProtoReflect.Descriptor instead.
+func (*ListWorkersRequest) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *ListWorkersRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListWorkersRequest) GetReportId() string {
+	if x != nil {
+		return x.ReportId
+	}
+	return ""
+}
+
+type ListWorkersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Workers       []*Worker              `protobuf:"bytes,1,rep,name=workers,proto3" json:"workers,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListWorkersResponse) Reset() {
+	*x = ListWorkersResponse{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWorkersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWorkersResponse) ProtoMessage() {}
+
+func (x *ListWorkersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWorkersResponse.ProtoReflect.Descriptor instead.
+func (*ListWorkersResponse) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *ListWorkersResponse) GetWorkers() []*Worker {
+	if x != nil {
+		return x.Workers
+	}
+	return nil
+}
+
+type CreateMeasurementRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	TenantId       string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ReportId       string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
+	Title          string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
+	Location       string                 `protobuf:"bytes,4,opt,name=location,proto3" json:"location,omitempty"`
+	MeasuredBy     string                 `protobuf:"bytes,5,opt,name=measured_by,json=measuredBy,proto3" json:"measured_by,omitempty"`
+	MeasuredAt     string                 `protobuf:"bytes,6,opt,name=measured_at,json=measuredAt,proto3" json:"measured_at,omitempty"`
+	Notes          string                 `protobuf:"bytes,7,opt,name=notes,proto3" json:"notes,omitempty"`
+	IdempotencyKey string                 `protobuf:"bytes,8,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *CreateMeasurementRequest) Reset() {
+	*x = CreateMeasurementRequest{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateMeasurementRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateMeasurementRequest) ProtoMessage() {}
+
+func (x *CreateMeasurementRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateMeasurementRequest.ProtoReflect.Descriptor instead.
+func (*CreateMeasurementRequest) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *CreateMeasurementRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateMeasurementRequest) GetReportId() string {
+	if x != nil {
+		return x.ReportId
+	}
+	return ""
+}
+
+func (x *CreateMeasurementRequest) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *CreateMeasurementRequest) GetLocation() string {
+	if x != nil {
+		return x.Location
+	}
+	return ""
+}
+
+func (x *CreateMeasurementRequest) GetMeasuredBy() string {
+	if x != nil {
+		return x.MeasuredBy
+	}
+	return ""
+}
+
+func (x *CreateMeasurementRequest) GetMeasuredAt() string {
+	if x != nil {
+		return x.MeasuredAt
+	}
+	return ""
+}
+
+func (x *CreateMeasurementRequest) GetNotes() string {
+	if x != nil {
+		return x.Notes
+	}
+	return ""
+}
+
+func (x *CreateMeasurementRequest) GetIdempotencyKey() string {
+	if x != nil {
+		return x.IdempotencyKey
+	}
+	return ""
+}
+
+type CreateMeasurementResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Measurement   *Measurement           `protobuf:"bytes,1,opt,name=measurement,proto3" json:"measurement,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateMeasurementResponse) Reset() {
+	*x = CreateMeasurementResponse{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateMeasurementResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateMeasurementResponse) ProtoMessage() {}
+
+func (x *CreateMeasurementResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateMeasurementResponse.ProtoReflect.Descriptor instead.
+func (*CreateMeasurementResponse) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *CreateMeasurementResponse) GetMeasurement() *Measurement {
+	if x != nil {
+		return x.Measurement
+	}
+	return nil
+}
+
+type GetMeasurementRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	MeasurementId string                 `protobuf:"bytes,2,opt,name=measurement_id,json=measurementId,proto3" json:"measurement_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMeasurementRequest) Reset() {
+	*x = GetMeasurementRequest{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMeasurementRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMeasurementRequest) ProtoMessage() {}
+
+func (x *GetMeasurementRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMeasurementRequest.ProtoReflect.Descriptor instead.
+func (*GetMeasurementRequest) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *GetMeasurementRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *GetMeasurementRequest) GetMeasurementId() string {
+	if x != nil {
+		return x.MeasurementId
+	}
+	return ""
+}
+
+type GetMeasurementResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Measurement   *Measurement           `protobuf:"bytes,1,opt,name=measurement,proto3" json:"measurement,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMeasurementResponse) Reset() {
+	*x = GetMeasurementResponse{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMeasurementResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMeasurementResponse) ProtoMessage() {}
+
+func (x *GetMeasurementResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMeasurementResponse.ProtoReflect.Descriptor instead.
+func (*GetMeasurementResponse) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *GetMeasurementResponse) GetMeasurement() *Measurement {
+	if x != nil {
+		return x.Measurement
+	}
+	return nil
+}
+
+type ListMeasurementsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ReportId      string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
+	Page          int32                  `protobuf:"varint,3,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMeasurementsRequest) Reset() {
+	*x = ListMeasurementsRequest{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMeasurementsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMeasurementsRequest) ProtoMessage() {}
+
+func (x *ListMeasurementsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMeasurementsRequest.ProtoReflect.Descriptor instead.
+func (*ListMeasurementsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *ListMeasurementsRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListMeasurementsRequest) GetReportId() string {
+	if x != nil {
+		return x.ReportId
+	}
+	return ""
+}
+
+func (x *ListMeasurementsRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListMeasurementsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type ListMeasurementsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Measurements  []*Measurement         `protobuf:"bytes,1,rep,name=measurements,proto3" json:"measurements,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMeasurementsResponse) Reset() {
+	*x = ListMeasurementsResponse{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMeasurementsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMeasurementsResponse) ProtoMessage() {}
+
+func (x *ListMeasurementsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMeasurementsResponse.ProtoReflect.Descriptor instead.
+func (*ListMeasurementsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *ListMeasurementsResponse) GetMeasurements() []*Measurement {
+	if x != nil {
+		return x.Measurements
+	}
+	return nil
+}
+
+func (x *ListMeasurementsResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type UpdateMeasurementRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	MeasurementId string                 `protobuf:"bytes,2,opt,name=measurement_id,json=measurementId,proto3" json:"measurement_id,omitempty"`
+	Title         string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
+	Location      string                 `protobuf:"bytes,4,opt,name=location,proto3" json:"location,omitempty"`
+	MeasuredBy    string                 `protobuf:"bytes,5,opt,name=measured_by,json=measuredBy,proto3" json:"measured_by,omitempty"`
+	MeasuredAt    string                 `protobuf:"bytes,6,opt,name=measured_at,json=measuredAt,proto3" json:"measured_at,omitempty"`
+	Notes         string                 `protobuf:"bytes,7,opt,name=notes,proto3" json:"notes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateMeasurementRequest) Reset() {
+	*x = UpdateMeasurementRequest{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateMeasurementRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateMeasurementRequest) ProtoMessage() {}
+
+func (x *UpdateMeasurementRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateMeasurementRequest.ProtoReflect.Descriptor instead.
+func (*UpdateMeasurementRequest) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *UpdateMeasurementRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *UpdateMeasurementRequest) GetMeasurementId() string {
+	if x != nil {
+		return x.MeasurementId
+	}
+	return ""
+}
+
+func (x *UpdateMeasurementRequest) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *UpdateMeasurementRequest) GetLocation() string {
+	if x != nil {
+		return x.Location
+	}
+	return ""
+}
+
+func (x *UpdateMeasurementRequest) GetMeasuredBy() string {
+	if x != nil {
+		return x.MeasuredBy
+	}
+	return ""
+}
+
+func (x *UpdateMeasurementRequest) GetMeasuredAt() string {
+	if x != nil {
+		return x.MeasuredAt
+	}
+	return ""
+}
+
+func (x *UpdateMeasurementRequest) GetNotes() string {
+	if x != nil {
+		return x.Notes
+	}
+	return ""
+}
+
+type UpdateMeasurementResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Measurement   *Measurement           `protobuf:"bytes,1,opt,name=measurement,proto3" json:"measurement,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateMeasurementResponse) Reset() {
+	*x = UpdateMeasurementResponse{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateMeasurementResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateMeasurementResponse) ProtoMessage() {}
+
+func (x *UpdateMeasurementResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateMeasurementResponse.ProtoReflect.Descriptor instead.
+func (*UpdateMeasurementResponse) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *UpdateMeasurementResponse) GetMeasurement() *Measurement {
+	if x != nil {
+		return x.Measurement
+	}
+	return nil
+}
+
+type DeleteMeasurementRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	MeasurementId string                 `protobuf:"bytes,2,opt,name=measurement_id,json=measurementId,proto3" json:"measurement_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteMeasurementRequest) Reset() {
+	*x = DeleteMeasurementRequest{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteMeasurementRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteMeasurementRequest) ProtoMessage() {}
+
+func (x *DeleteMeasurementRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteMeasurementRequest.ProtoReflect.Descriptor instead.
+func (*DeleteMeasurementRequest) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *DeleteMeasurementRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *DeleteMeasurementRequest) GetMeasurementId() string {
+	if x != nil {
+		return x.MeasurementId
+	}
+	return ""
+}
+
+type DeleteMeasurementResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteMeasurementResponse) Reset() {
+	*x = DeleteMeasurementResponse{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteMeasurementResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteMeasurementResponse) ProtoMessage() {}
+
+func (x *DeleteMeasurementResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteMeasurementResponse.ProtoReflect.Descriptor instead.
+func (*DeleteMeasurementResponse) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *DeleteMeasurementResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+type AddMeasurementPositionRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	TenantId       string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	MeasurementId  string                 `protobuf:"bytes,2,opt,name=measurement_id,json=measurementId,proto3" json:"measurement_id,omitempty"`
+	PositionNumber int32                  `protobuf:"varint,3,opt,name=position_number,json=positionNumber,proto3" json:"position_number,omitempty"`
+	Description    string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
+	Unit           string                 `protobuf:"bytes,5,opt,name=unit,proto3" json:"unit,omitempty"`
+	Quantity       float64                `protobuf:"fixed64,6,opt,name=quantity,proto3" json:"quantity,omitempty"`
+	UnitPrice      float64                `protobuf:"fixed64,7,opt,name=unit_price,json=unitPrice,proto3" json:"unit_price,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *AddMeasurementPositionRequest) Reset() {
+	*x = AddMeasurementPositionRequest{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddMeasurementPositionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddMeasurementPositionRequest) ProtoMessage() {}
+
+func (x *AddMeasurementPositionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddMeasurementPositionRequest.ProtoReflect.Descriptor instead.
+func (*AddMeasurementPositionRequest) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *AddMeasurementPositionRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *AddMeasurementPositionRequest) GetMeasurementId() string {
+	if x != nil {
+		return x.MeasurementId
+	}
+	return ""
+}
+
+func (x *AddMeasurementPositionRequest) GetPositionNumber() int32 {
+	if x != nil {
+		return x.PositionNumber
+	}
+	return 0
+}
+
+func (x *AddMeasurementPositionRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *AddMeasurementPositionRequest) GetUnit() string {
+	if x != nil {
+		return x.Unit
+	}
+	return ""
+}
+
+func (x *AddMeasurementPositionRequest) GetQuantity() float64 {
+	if x != nil {
+		return x.Quantity
+	}
+	return 0
+}
+
+func (x *AddMeasurementPositionRequest) GetUnitPrice() float64 {
+	if x != nil {
+		return x.UnitPrice
+	}
+	return 0
+}
+
+type AddMeasurementPositionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Position      *MeasurementPosition   `protobuf:"bytes,1,opt,name=position,proto3" json:"position,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddMeasurementPositionResponse) Reset() {
+	*x = AddMeasurementPositionResponse{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddMeasurementPositionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddMeasurementPositionResponse) ProtoMessage() {}
+
+func (x *AddMeasurementPositionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddMeasurementPositionResponse.ProtoReflect.Descriptor instead.
+func (*AddMeasurementPositionResponse) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *AddMeasurementPositionResponse) GetPosition() *MeasurementPosition {
+	if x != nil {
+		return x.Position
+	}
+	return nil
+}
+
+type DeleteMeasurementPositionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	PositionId    string                 `protobuf:"bytes,2,opt,name=position_id,json=positionId,proto3" json:"position_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteMeasurementPositionRequest) Reset() {
+	*x = DeleteMeasurementPositionRequest{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteMeasurementPositionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteMeasurementPositionRequest) ProtoMessage() {}
+
+func (x *DeleteMeasurementPositionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteMeasurementPositionRequest.ProtoReflect.Descriptor instead.
+func (*DeleteMeasurementPositionRequest) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *DeleteMeasurementPositionRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *DeleteMeasurementPositionRequest) GetPositionId() string {
+	if x != nil {
+		return x.PositionId
+	}
+	return ""
+}
+
+type DeleteMeasurementPositionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteMeasurementPositionResponse) Reset() {
+	*x = DeleteMeasurementPositionResponse{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[56]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteMeasurementPositionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteMeasurementPositionResponse) ProtoMessage() {}
+
+func (x *DeleteMeasurementPositionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[56]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteMeasurementPositionResponse.ProtoReflect.Descriptor instead.
+func (*DeleteMeasurementPositionResponse) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{56}
+}
+
+func (x *DeleteMeasurementPositionResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+type CreateTemplateRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	TenantId         string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Name             string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Description      string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Category         string                 `protobuf:"bytes,4,opt,name=category,proto3" json:"category,omitempty"`
+	DefaultLinesJson string                 `protobuf:"bytes,5,opt,name=default_lines_json,json=defaultLinesJson,proto3" json:"default_lines_json,omitempty"`
+	IdempotencyKey   string                 `protobuf:"bytes,6,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *CreateTemplateRequest) Reset() {
+	*x = CreateTemplateRequest{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateTemplateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateTemplateRequest) ProtoMessage() {}
+
+func (x *CreateTemplateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateTemplateRequest.ProtoReflect.Descriptor instead.
+func (*CreateTemplateRequest) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *CreateTemplateRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateTemplateRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateTemplateRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *CreateTemplateRequest) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *CreateTemplateRequest) GetDefaultLinesJson() string {
+	if x != nil {
+		return x.DefaultLinesJson
+	}
+	return ""
+}
+
+func (x *CreateTemplateRequest) GetIdempotencyKey() string {
+	if x != nil {
+		return x.IdempotencyKey
+	}
+	return ""
+}
+
+type CreateTemplateResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Template      *ReportTemplate        `protobuf:"bytes,1,opt,name=template,proto3" json:"template,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateTemplateResponse) Reset() {
+	*x = CreateTemplateResponse{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateTemplateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateTemplateResponse) ProtoMessage() {}
+
+func (x *CreateTemplateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateTemplateResponse.ProtoReflect.Descriptor instead.
+func (*CreateTemplateResponse) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{58}
+}
+
+func (x *CreateTemplateResponse) GetTemplate() *ReportTemplate {
+	if x != nil {
+		return x.Template
+	}
+	return nil
+}
+
+type GetTemplateRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	TemplateId    string                 `protobuf:"bytes,2,opt,name=template_id,json=templateId,proto3" json:"template_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTemplateRequest) Reset() {
+	*x = GetTemplateRequest{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTemplateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTemplateRequest) ProtoMessage() {}
+
+func (x *GetTemplateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTemplateRequest.ProtoReflect.Descriptor instead.
+func (*GetTemplateRequest) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{59}
+}
+
+func (x *GetTemplateRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *GetTemplateRequest) GetTemplateId() string {
+	if x != nil {
+		return x.TemplateId
+	}
+	return ""
+}
+
+type GetTemplateResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Template      *ReportTemplate        `protobuf:"bytes,1,opt,name=template,proto3" json:"template,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTemplateResponse) Reset() {
+	*x = GetTemplateResponse{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTemplateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTemplateResponse) ProtoMessage() {}
+
+func (x *GetTemplateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTemplateResponse.ProtoReflect.Descriptor instead.
+func (*GetTemplateResponse) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *GetTemplateResponse) GetTemplate() *ReportTemplate {
+	if x != nil {
+		return x.Template
+	}
+	return nil
+}
+
+type UpdateTemplateRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	TenantId         string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	TemplateId       string                 `protobuf:"bytes,2,opt,name=template_id,json=templateId,proto3" json:"template_id,omitempty"`
+	Name             string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Description      string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
+	Category         string                 `protobuf:"bytes,5,opt,name=category,proto3" json:"category,omitempty"`
+	DefaultLinesJson string                 `protobuf:"bytes,6,opt,name=default_lines_json,json=defaultLinesJson,proto3" json:"default_lines_json,omitempty"`
+	IsActive         bool                   `protobuf:"varint,7,opt,name=is_active,json=isActive,proto3" json:"is_active,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *UpdateTemplateRequest) Reset() {
+	*x = UpdateTemplateRequest{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateTemplateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateTemplateRequest) ProtoMessage() {}
+
+func (x *UpdateTemplateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateTemplateRequest.ProtoReflect.Descriptor instead.
+func (*UpdateTemplateRequest) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{61}
+}
+
+func (x *UpdateTemplateRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *UpdateTemplateRequest) GetTemplateId() string {
+	if x != nil {
+		return x.TemplateId
+	}
+	return ""
+}
+
+func (x *UpdateTemplateRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *UpdateTemplateRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *UpdateTemplateRequest) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *UpdateTemplateRequest) GetDefaultLinesJson() string {
+	if x != nil {
+		return x.DefaultLinesJson
+	}
+	return ""
+}
+
+func (x *UpdateTemplateRequest) GetIsActive() bool {
+	if x != nil {
+		return x.IsActive
+	}
+	return false
+}
+
+type UpdateTemplateResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Template      *ReportTemplate        `protobuf:"bytes,1,opt,name=template,proto3" json:"template,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateTemplateResponse) Reset() {
+	*x = UpdateTemplateResponse{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateTemplateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateTemplateResponse) ProtoMessage() {}
+
+func (x *UpdateTemplateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateTemplateResponse.ProtoReflect.Descriptor instead.
+func (*UpdateTemplateResponse) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{62}
+}
+
+func (x *UpdateTemplateResponse) GetTemplate() *ReportTemplate {
+	if x != nil {
+		return x.Template
+	}
+	return nil
+}
+
+type DeleteTemplateRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	TemplateId    string                 `protobuf:"bytes,2,opt,name=template_id,json=templateId,proto3" json:"template_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteTemplateRequest) Reset() {
+	*x = DeleteTemplateRequest{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[63]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteTemplateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteTemplateRequest) ProtoMessage() {}
+
+func (x *DeleteTemplateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[63]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteTemplateRequest.ProtoReflect.Descriptor instead.
+func (*DeleteTemplateRequest) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{63}
+}
+
+func (x *DeleteTemplateRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *DeleteTemplateRequest) GetTemplateId() string {
+	if x != nil {
+		return x.TemplateId
+	}
+	return ""
+}
+
+type DeleteTemplateResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteTemplateResponse) Reset() {
+	*x = DeleteTemplateResponse{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[64]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteTemplateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteTemplateResponse) ProtoMessage() {}
+
+func (x *DeleteTemplateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[64]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteTemplateResponse.ProtoReflect.Descriptor instead.
+func (*DeleteTemplateResponse) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{64}
+}
+
+func (x *DeleteTemplateResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+type ListTemplatesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ActiveOnly    bool                   `protobuf:"varint,2,opt,name=active_only,json=activeOnly,proto3" json:"active_only,omitempty"`
+	Page          int32                  `protobuf:"varint,3,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListTemplatesRequest) Reset() {
+	*x = ListTemplatesRequest{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTemplatesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTemplatesRequest) ProtoMessage() {}
+
+func (x *ListTemplatesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTemplatesRequest.ProtoReflect.Descriptor instead.
+func (*ListTemplatesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *ListTemplatesRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListTemplatesRequest) GetActiveOnly() bool {
+	if x != nil {
+		return x.ActiveOnly
+	}
+	return false
+}
+
+func (x *ListTemplatesRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListTemplatesRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type ListTemplatesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Templates     []*ReportTemplate      `protobuf:"bytes,1,rep,name=templates,proto3" json:"templates,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListTemplatesResponse) Reset() {
+	*x = ListTemplatesResponse{}
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTemplatesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTemplatesResponse) ProtoMessage() {}
+
+func (x *ListTemplatesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_rapporte_v1_rapporte_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTemplatesResponse.ProtoReflect.Descriptor instead.
+func (*ListTemplatesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_rapporte_v1_rapporte_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *ListTemplatesResponse) GetTemplates() []*ReportTemplate {
+	if x != nil {
+		return x.Templates
+	}
+	return nil
+}
+
+func (x *ListTemplatesResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
 var File_proto_rapporte_v1_rapporte_proto protoreflect.FileDescriptor
 
 const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\n" +
-	" proto/rapporte/v1/rapporte.proto\x12\vrapporte.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb4\x05\n" +
+	" proto/rapporte/v1/rapporte.proto\x12\vrapporte.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa1\a\n" +
 	"\n" +
 	"WorkReport\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
@@ -2264,13 +4610,21 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"updated_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12%\n" +
 	"\x0esignature_data\x18\x0f \x01(\tR\rsignatureData\x12<\n" +
 	"\tsigned_at\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampH\x04R\bsignedAt\x88\x01\x01\x12\x1b\n" +
-	"\tsigned_by\x18\x11 \x01(\tR\bsignedByB\x0e\n" +
+	"\tsigned_by\x18\x11 \x01(\tR\bsignedBy\x12\x18\n" +
+	"\aweather\x18\x12 \x01(\tR\aweather\x12 \n" +
+	"\vtemperature\x18\x13 \x01(\x01R\vtemperature\x12\x1d\n" +
+	"\n" +
+	"work_start\x18\x14 \x01(\tR\tworkStart\x12\x19\n" +
+	"\bwork_end\x18\x15 \x01(\tR\aworkEnd\x12#\n" +
+	"\rbreak_minutes\x18\x16 \x01(\x05R\fbreakMinutes\x12!\n" +
+	"\fproject_name\x18\x17 \x01(\tR\vprojectName\x12-\n" +
+	"\aworkers\x18\x18 \x03(\v2\x13.rapporte.v1.WorkerR\aworkersB\x0e\n" +
 	"\f_reviewer_idB\x0e\n" +
 	"\f_reviewed_atB\x06\n" +
 	"\x04_latB\x06\n" +
 	"\x04_lonB\f\n" +
 	"\n" +
-	"_signed_at\"\xd0\x02\n" +
+	"_signed_at\"\x86\x03\n" +
 	"\n" +
 	"ReportLine\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
@@ -2285,7 +4639,9 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
 	"updated_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x84\x03\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x1a\n" +
+	"\bcategory\x18\v \x01(\tR\bcategory\x12\x18\n" +
+	"\aarticle\x18\f \x01(\tR\aarticle\"\x84\x03\n" +
 	"\x10ReportAttachment\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1b\n" +
@@ -2304,7 +4660,57 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAtB\n" +
 	"\n" +
-	"\b_line_id\"\xe6\x01\n" +
+	"\b_line_id\"\xaf\x01\n" +
+	"\x06Worker\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1b\n" +
+	"\treport_id\x18\x03 \x01(\tR\breportId\x12\x12\n" +
+	"\x04name\x18\x04 \x01(\tR\x04name\x12\x12\n" +
+	"\x04role\x18\x05 \x01(\tR\x04role\x12\x14\n" +
+	"\x05hours\x18\x06 \x01(\x01R\x05hours\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\a \x01(\tR\tcreatedAt\"\xdf\x02\n" +
+	"\vMeasurement\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1b\n" +
+	"\treport_id\x18\x03 \x01(\tR\breportId\x12\x14\n" +
+	"\x05title\x18\x04 \x01(\tR\x05title\x12\x1a\n" +
+	"\blocation\x18\x05 \x01(\tR\blocation\x12\x1f\n" +
+	"\vmeasured_by\x18\x06 \x01(\tR\n" +
+	"measuredBy\x12\x1f\n" +
+	"\vmeasured_at\x18\a \x01(\tR\n" +
+	"measuredAt\x12\x14\n" +
+	"\x05notes\x18\b \x01(\tR\x05notes\x12>\n" +
+	"\tpositions\x18\t \x03(\v2 .rapporte.v1.MeasurementPositionR\tpositions\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\n" +
+	" \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\v \x01(\tR\tupdatedAt\"\xa2\x02\n" +
+	"\x13MeasurementPosition\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12%\n" +
+	"\x0emeasurement_id\x18\x03 \x01(\tR\rmeasurementId\x12'\n" +
+	"\x0fposition_number\x18\x04 \x01(\x05R\x0epositionNumber\x12 \n" +
+	"\vdescription\x18\x05 \x01(\tR\vdescription\x12\x12\n" +
+	"\x04unit\x18\x06 \x01(\tR\x04unit\x12\x1a\n" +
+	"\bquantity\x18\a \x01(\x01R\bquantity\x12\x1d\n" +
+	"\n" +
+	"unit_price\x18\b \x01(\x01R\tunitPrice\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\t \x01(\tR\tcreatedAt\"\x98\x02\n" +
+	"\x0eReportTemplate\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x04 \x01(\tR\vdescription\x12\x1a\n" +
+	"\bcategory\x18\x05 \x01(\tR\bcategory\x12,\n" +
+	"\x12default_lines_json\x18\x06 \x01(\tR\x10defaultLinesJson\x12\x1b\n" +
+	"\tis_active\x18\a \x01(\bR\bisActive\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\b \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\t \x01(\tR\tupdatedAt\"\xa4\x03\n" +
 	"\x13CreateReportRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -2313,12 +4719,20 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\x03lat\x18\x05 \x01(\x01H\x00R\x03lat\x88\x01\x01\x12\x15\n" +
 	"\x03lon\x18\x06 \x01(\x01H\x01R\x03lon\x88\x01\x01\x12\x1f\n" +
 	"\vreport_date\x18\a \x01(\tR\n" +
-	"reportDateB\x06\n" +
+	"reportDate\x12\x18\n" +
+	"\aweather\x18\b \x01(\tR\aweather\x12 \n" +
+	"\vtemperature\x18\t \x01(\x01R\vtemperature\x12\x1d\n" +
+	"\n" +
+	"work_start\x18\n" +
+	" \x01(\tR\tworkStart\x12\x19\n" +
+	"\bwork_end\x18\v \x01(\tR\aworkEnd\x12#\n" +
+	"\rbreak_minutes\x18\f \x01(\x05R\fbreakMinutes\x12!\n" +
+	"\fproject_name\x18\r \x01(\tR\vprojectNameB\x06\n" +
 	"\x04_latB\x06\n" +
 	"\x04_lon\"L\n" +
 	"\x10GetReportRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
-	"\treport_id\x18\x02 \x01(\tR\breportId\"\x9f\x02\n" +
+	"\treport_id\x18\x02 \x01(\tR\breportId\"\xd6\x04\n" +
 	"\x13UpdateReportRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
 	"\treport_id\x18\x02 \x01(\tR\breportId\x12\x19\n" +
@@ -2327,12 +4741,28 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\x03lat\x18\x05 \x01(\x01H\x02R\x03lat\x88\x01\x01\x12\x15\n" +
 	"\x03lon\x18\x06 \x01(\x01H\x03R\x03lon\x88\x01\x01\x12$\n" +
 	"\vreport_date\x18\a \x01(\tH\x04R\n" +
-	"reportDate\x88\x01\x01B\b\n" +
+	"reportDate\x88\x01\x01\x12\x1d\n" +
+	"\aweather\x18\b \x01(\tH\x05R\aweather\x88\x01\x01\x12%\n" +
+	"\vtemperature\x18\t \x01(\x01H\x06R\vtemperature\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"work_start\x18\n" +
+	" \x01(\tH\aR\tworkStart\x88\x01\x01\x12\x1e\n" +
+	"\bwork_end\x18\v \x01(\tH\bR\aworkEnd\x88\x01\x01\x12(\n" +
+	"\rbreak_minutes\x18\f \x01(\x05H\tR\fbreakMinutes\x88\x01\x01\x12&\n" +
+	"\fproject_name\x18\r \x01(\tH\n" +
+	"R\vprojectName\x88\x01\x01B\b\n" +
 	"\x06_titleB\x0e\n" +
 	"\f_descriptionB\x06\n" +
 	"\x04_latB\x06\n" +
 	"\x04_lonB\x0e\n" +
-	"\f_report_date\"O\n" +
+	"\f_report_dateB\n" +
+	"\n" +
+	"\b_weatherB\x0e\n" +
+	"\f_temperatureB\r\n" +
+	"\v_work_startB\v\n" +
+	"\t_work_endB\x10\n" +
+	"\x0e_break_minutesB\x0f\n" +
+	"\r_project_name\"O\n" +
 	"\x13DeleteReportRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
 	"\treport_id\x18\x02 \x01(\tR\breportId\"\x16\n" +
@@ -2368,7 +4798,7 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\vreviewer_id\x18\x03 \x01(\tR\n" +
 	"reviewerId\x12\x1f\n" +
 	"\vreview_note\x18\x04 \x01(\tR\n" +
-	"reviewNote\"\xce\x01\n" +
+	"reviewNote\"\x84\x02\n" +
 	"\x0eAddLineRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
 	"\treport_id\x18\x02 \x01(\tR\breportId\x12 \n" +
@@ -2376,7 +4806,9 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\bquantity\x18\x04 \x01(\x01R\bquantity\x12\x12\n" +
 	"\x04unit\x18\x05 \x01(\tR\x04unit\x12\x14\n" +
 	"\x05notes\x18\x06 \x01(\tR\x05notes\x12\x1a\n" +
-	"\bposition\x18\a \x01(\x05R\bposition\"\xa3\x02\n" +
+	"\bposition\x18\a \x01(\x05R\bposition\x12\x1a\n" +
+	"\bcategory\x18\b \x01(\tR\bcategory\x12\x18\n" +
+	"\aarticle\x18\t \x01(\tR\aarticle\"\xfc\x02\n" +
 	"\x11UpdateLineRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
 	"\aline_id\x18\x02 \x01(\tR\x06lineId\x12%\n" +
@@ -2384,12 +4816,17 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\bquantity\x18\x04 \x01(\x01H\x01R\bquantity\x88\x01\x01\x12\x17\n" +
 	"\x04unit\x18\x05 \x01(\tH\x02R\x04unit\x88\x01\x01\x12\x19\n" +
 	"\x05notes\x18\x06 \x01(\tH\x03R\x05notes\x88\x01\x01\x12\x1f\n" +
-	"\bposition\x18\a \x01(\x05H\x04R\bposition\x88\x01\x01B\x0e\n" +
+	"\bposition\x18\a \x01(\x05H\x04R\bposition\x88\x01\x01\x12\x1f\n" +
+	"\bcategory\x18\b \x01(\tH\x05R\bcategory\x88\x01\x01\x12\x1d\n" +
+	"\aarticle\x18\t \x01(\tH\x06R\aarticle\x88\x01\x01B\x0e\n" +
 	"\f_descriptionB\v\n" +
 	"\t_quantityB\a\n" +
 	"\x05_unitB\b\n" +
 	"\x06_notesB\v\n" +
-	"\t_position\"I\n" +
+	"\t_positionB\v\n" +
+	"\t_categoryB\n" +
+	"\n" +
+	"\b_article\"I\n" +
 	"\x11DeleteLineRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
 	"\aline_id\x18\x02 \x01(\tR\x06lineId\"\x14\n" +
@@ -2455,7 +4892,126 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
 	"\treport_id\x18\x02 \x01(\tR\breportId\x12%\n" +
 	"\x0esignature_data\x18\x03 \x01(\tR\rsignatureData\x12\x1b\n" +
-	"\tsigned_by\x18\x04 \x01(\tR\bsignedBy2\xae\f\n" +
+	"\tsigned_by\x18\x04 \x01(\tR\bsignedBy\"\x8a\x01\n" +
+	"\x10AddWorkerRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
+	"\treport_id\x18\x02 \x01(\tR\breportId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x12\n" +
+	"\x04role\x18\x04 \x01(\tR\x04role\x12\x14\n" +
+	"\x05hours\x18\x05 \x01(\x01R\x05hours\"@\n" +
+	"\x11AddWorkerResponse\x12+\n" +
+	"\x06worker\x18\x01 \x01(\v2\x13.rapporte.v1.WorkerR\x06worker\"O\n" +
+	"\x13RemoveWorkerRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
+	"\tworker_id\x18\x02 \x01(\tR\bworkerId\"0\n" +
+	"\x14RemoveWorkerResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"N\n" +
+	"\x12ListWorkersRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
+	"\treport_id\x18\x02 \x01(\tR\breportId\"D\n" +
+	"\x13ListWorkersResponse\x12-\n" +
+	"\aworkers\x18\x01 \x03(\v2\x13.rapporte.v1.WorkerR\aworkers\"\x87\x02\n" +
+	"\x18CreateMeasurementRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
+	"\treport_id\x18\x02 \x01(\tR\breportId\x12\x14\n" +
+	"\x05title\x18\x03 \x01(\tR\x05title\x12\x1a\n" +
+	"\blocation\x18\x04 \x01(\tR\blocation\x12\x1f\n" +
+	"\vmeasured_by\x18\x05 \x01(\tR\n" +
+	"measuredBy\x12\x1f\n" +
+	"\vmeasured_at\x18\x06 \x01(\tR\n" +
+	"measuredAt\x12\x14\n" +
+	"\x05notes\x18\a \x01(\tR\x05notes\x12'\n" +
+	"\x0fidempotency_key\x18\b \x01(\tR\x0eidempotencyKey\"W\n" +
+	"\x19CreateMeasurementResponse\x12:\n" +
+	"\vmeasurement\x18\x01 \x01(\v2\x18.rapporte.v1.MeasurementR\vmeasurement\"[\n" +
+	"\x15GetMeasurementRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12%\n" +
+	"\x0emeasurement_id\x18\x02 \x01(\tR\rmeasurementId\"T\n" +
+	"\x16GetMeasurementResponse\x12:\n" +
+	"\vmeasurement\x18\x01 \x01(\v2\x18.rapporte.v1.MeasurementR\vmeasurement\"\x84\x01\n" +
+	"\x17ListMeasurementsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
+	"\treport_id\x18\x02 \x01(\tR\breportId\x12\x12\n" +
+	"\x04page\x18\x03 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\"n\n" +
+	"\x18ListMeasurementsResponse\x12<\n" +
+	"\fmeasurements\x18\x01 \x03(\v2\x18.rapporte.v1.MeasurementR\fmeasurements\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xe8\x01\n" +
+	"\x18UpdateMeasurementRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12%\n" +
+	"\x0emeasurement_id\x18\x02 \x01(\tR\rmeasurementId\x12\x14\n" +
+	"\x05title\x18\x03 \x01(\tR\x05title\x12\x1a\n" +
+	"\blocation\x18\x04 \x01(\tR\blocation\x12\x1f\n" +
+	"\vmeasured_by\x18\x05 \x01(\tR\n" +
+	"measuredBy\x12\x1f\n" +
+	"\vmeasured_at\x18\x06 \x01(\tR\n" +
+	"measuredAt\x12\x14\n" +
+	"\x05notes\x18\a \x01(\tR\x05notes\"W\n" +
+	"\x19UpdateMeasurementResponse\x12:\n" +
+	"\vmeasurement\x18\x01 \x01(\v2\x18.rapporte.v1.MeasurementR\vmeasurement\"^\n" +
+	"\x18DeleteMeasurementRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12%\n" +
+	"\x0emeasurement_id\x18\x02 \x01(\tR\rmeasurementId\"5\n" +
+	"\x19DeleteMeasurementResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"\xfd\x01\n" +
+	"\x1dAddMeasurementPositionRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12%\n" +
+	"\x0emeasurement_id\x18\x02 \x01(\tR\rmeasurementId\x12'\n" +
+	"\x0fposition_number\x18\x03 \x01(\x05R\x0epositionNumber\x12 \n" +
+	"\vdescription\x18\x04 \x01(\tR\vdescription\x12\x12\n" +
+	"\x04unit\x18\x05 \x01(\tR\x04unit\x12\x1a\n" +
+	"\bquantity\x18\x06 \x01(\x01R\bquantity\x12\x1d\n" +
+	"\n" +
+	"unit_price\x18\a \x01(\x01R\tunitPrice\"^\n" +
+	"\x1eAddMeasurementPositionResponse\x12<\n" +
+	"\bposition\x18\x01 \x01(\v2 .rapporte.v1.MeasurementPositionR\bposition\"`\n" +
+	" DeleteMeasurementPositionRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vposition_id\x18\x02 \x01(\tR\n" +
+	"positionId\"=\n" +
+	"!DeleteMeasurementPositionResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"\xdd\x01\n" +
+	"\x15CreateTemplateRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1a\n" +
+	"\bcategory\x18\x04 \x01(\tR\bcategory\x12,\n" +
+	"\x12default_lines_json\x18\x05 \x01(\tR\x10defaultLinesJson\x12'\n" +
+	"\x0fidempotency_key\x18\x06 \x01(\tR\x0eidempotencyKey\"Q\n" +
+	"\x16CreateTemplateResponse\x127\n" +
+	"\btemplate\x18\x01 \x01(\v2\x1b.rapporte.v1.ReportTemplateR\btemplate\"R\n" +
+	"\x12GetTemplateRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vtemplate_id\x18\x02 \x01(\tR\n" +
+	"templateId\"N\n" +
+	"\x13GetTemplateResponse\x127\n" +
+	"\btemplate\x18\x01 \x01(\v2\x1b.rapporte.v1.ReportTemplateR\btemplate\"\xf2\x01\n" +
+	"\x15UpdateTemplateRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vtemplate_id\x18\x02 \x01(\tR\n" +
+	"templateId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x04 \x01(\tR\vdescription\x12\x1a\n" +
+	"\bcategory\x18\x05 \x01(\tR\bcategory\x12,\n" +
+	"\x12default_lines_json\x18\x06 \x01(\tR\x10defaultLinesJson\x12\x1b\n" +
+	"\tis_active\x18\a \x01(\bR\bisActive\"Q\n" +
+	"\x16UpdateTemplateResponse\x127\n" +
+	"\btemplate\x18\x01 \x01(\v2\x1b.rapporte.v1.ReportTemplateR\btemplate\"U\n" +
+	"\x15DeleteTemplateRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vtemplate_id\x18\x02 \x01(\tR\n" +
+	"templateId\"2\n" +
+	"\x16DeleteTemplateResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"\x85\x01\n" +
+	"\x14ListTemplatesRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vactive_only\x18\x02 \x01(\bR\n" +
+	"activeOnly\x12\x12\n" +
+	"\x04page\x18\x03 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\"h\n" +
+	"\x15ListTemplatesResponse\x129\n" +
+	"\ttemplates\x18\x01 \x03(\v2\x1b.rapporte.v1.ReportTemplateR\ttemplates\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total2\xb3\x17\n" +
 	"\x0fRapporteService\x12M\n" +
 	"\fCreateReport\x12 .rapporte.v1.CreateReportRequest\x1a\x1b.rapporte.v1.ReportResponse\x12G\n" +
 	"\tGetReport\x12\x1d.rapporte.v1.GetReportRequest\x1a\x1b.rapporte.v1.ReportResponse\x12M\n" +
@@ -2477,7 +5033,22 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\x0eGetReportStats\x12\".rapporte.v1.GetReportStatsRequest\x1a .rapporte.v1.ReportStatsResponse\x12b\n" +
 	"\x14ListPendingApprovals\x12(.rapporte.v1.ListPendingApprovalsRequest\x1a .rapporte.v1.ListReportsResponse\x12J\n" +
 	"\tExportPDF\x12\x1d.rapporte.v1.ExportPDFRequest\x1a\x1e.rapporte.v1.ExportPDFResponse\x12U\n" +
-	"\rSaveSignature\x12'.rapporte.v1.SaveReportSignatureRequest\x1a\x1b.rapporte.v1.ReportResponseB7Z5github.com/kmuhub/kmuhub/proto/rapporte/v1;rapportev1b\x06proto3"
+	"\rSaveSignature\x12'.rapporte.v1.SaveReportSignatureRequest\x1a\x1b.rapporte.v1.ReportResponse\x12J\n" +
+	"\tAddWorker\x12\x1d.rapporte.v1.AddWorkerRequest\x1a\x1e.rapporte.v1.AddWorkerResponse\x12S\n" +
+	"\fRemoveWorker\x12 .rapporte.v1.RemoveWorkerRequest\x1a!.rapporte.v1.RemoveWorkerResponse\x12P\n" +
+	"\vListWorkers\x12\x1f.rapporte.v1.ListWorkersRequest\x1a .rapporte.v1.ListWorkersResponse\x12b\n" +
+	"\x11CreateMeasurement\x12%.rapporte.v1.CreateMeasurementRequest\x1a&.rapporte.v1.CreateMeasurementResponse\x12Y\n" +
+	"\x0eGetMeasurement\x12\".rapporte.v1.GetMeasurementRequest\x1a#.rapporte.v1.GetMeasurementResponse\x12_\n" +
+	"\x10ListMeasurements\x12$.rapporte.v1.ListMeasurementsRequest\x1a%.rapporte.v1.ListMeasurementsResponse\x12b\n" +
+	"\x11UpdateMeasurement\x12%.rapporte.v1.UpdateMeasurementRequest\x1a&.rapporte.v1.UpdateMeasurementResponse\x12b\n" +
+	"\x11DeleteMeasurement\x12%.rapporte.v1.DeleteMeasurementRequest\x1a&.rapporte.v1.DeleteMeasurementResponse\x12q\n" +
+	"\x16AddMeasurementPosition\x12*.rapporte.v1.AddMeasurementPositionRequest\x1a+.rapporte.v1.AddMeasurementPositionResponse\x12z\n" +
+	"\x19DeleteMeasurementPosition\x12-.rapporte.v1.DeleteMeasurementPositionRequest\x1a..rapporte.v1.DeleteMeasurementPositionResponse\x12Y\n" +
+	"\x0eCreateTemplate\x12\".rapporte.v1.CreateTemplateRequest\x1a#.rapporte.v1.CreateTemplateResponse\x12P\n" +
+	"\vGetTemplate\x12\x1f.rapporte.v1.GetTemplateRequest\x1a .rapporte.v1.GetTemplateResponse\x12V\n" +
+	"\rListTemplates\x12!.rapporte.v1.ListTemplatesRequest\x1a\".rapporte.v1.ListTemplatesResponse\x12Y\n" +
+	"\x0eUpdateTemplate\x12\".rapporte.v1.UpdateTemplateRequest\x1a#.rapporte.v1.UpdateTemplateResponse\x12Y\n" +
+	"\x0eDeleteTemplate\x12\".rapporte.v1.DeleteTemplateRequest\x1a#.rapporte.v1.DeleteTemplateResponseB7Z5github.com/kmuhub/kmuhub/proto/rapporte/v1;rapportev1b\x06proto3"
 
 var (
 	file_proto_rapporte_v1_rapporte_proto_rawDescOnce sync.Once
@@ -2491,100 +5062,177 @@ func file_proto_rapporte_v1_rapporte_proto_rawDescGZIP() []byte {
 	return file_proto_rapporte_v1_rapporte_proto_rawDescData
 }
 
-var file_proto_rapporte_v1_rapporte_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
+var file_proto_rapporte_v1_rapporte_proto_msgTypes = make([]protoimpl.MessageInfo, 67)
 var file_proto_rapporte_v1_rapporte_proto_goTypes = []any{
-	(*WorkReport)(nil),                  // 0: rapporte.v1.WorkReport
-	(*ReportLine)(nil),                  // 1: rapporte.v1.ReportLine
-	(*ReportAttachment)(nil),            // 2: rapporte.v1.ReportAttachment
-	(*CreateReportRequest)(nil),         // 3: rapporte.v1.CreateReportRequest
-	(*GetReportRequest)(nil),            // 4: rapporte.v1.GetReportRequest
-	(*UpdateReportRequest)(nil),         // 5: rapporte.v1.UpdateReportRequest
-	(*DeleteReportRequest)(nil),         // 6: rapporte.v1.DeleteReportRequest
-	(*DeleteReportResponse)(nil),        // 7: rapporte.v1.DeleteReportResponse
-	(*ReportResponse)(nil),              // 8: rapporte.v1.ReportResponse
-	(*ListReportsRequest)(nil),          // 9: rapporte.v1.ListReportsRequest
-	(*ListReportsResponse)(nil),         // 10: rapporte.v1.ListReportsResponse
-	(*SubmitReportRequest)(nil),         // 11: rapporte.v1.SubmitReportRequest
-	(*ApproveReportRequest)(nil),        // 12: rapporte.v1.ApproveReportRequest
-	(*RejectReportRequest)(nil),         // 13: rapporte.v1.RejectReportRequest
-	(*AddLineRequest)(nil),              // 14: rapporte.v1.AddLineRequest
-	(*UpdateLineRequest)(nil),           // 15: rapporte.v1.UpdateLineRequest
-	(*DeleteLineRequest)(nil),           // 16: rapporte.v1.DeleteLineRequest
-	(*DeleteLineResponse)(nil),          // 17: rapporte.v1.DeleteLineResponse
-	(*LineResponse)(nil),                // 18: rapporte.v1.LineResponse
-	(*ListLinesRequest)(nil),            // 19: rapporte.v1.ListLinesRequest
-	(*ListLinesResponse)(nil),           // 20: rapporte.v1.ListLinesResponse
-	(*UploadAttachmentRequest)(nil),     // 21: rapporte.v1.UploadAttachmentRequest
-	(*ListAttachmentsRequest)(nil),      // 22: rapporte.v1.ListAttachmentsRequest
-	(*ListAttachmentsResponse)(nil),     // 23: rapporte.v1.ListAttachmentsResponse
-	(*AttachmentResponse)(nil),          // 24: rapporte.v1.AttachmentResponse
-	(*DeleteAttachmentRequest)(nil),     // 25: rapporte.v1.DeleteAttachmentRequest
-	(*DeleteAttachmentResponse)(nil),    // 26: rapporte.v1.DeleteAttachmentResponse
-	(*GetReportStatsRequest)(nil),       // 27: rapporte.v1.GetReportStatsRequest
-	(*ReportStatsResponse)(nil),         // 28: rapporte.v1.ReportStatsResponse
-	(*ListPendingApprovalsRequest)(nil), // 29: rapporte.v1.ListPendingApprovalsRequest
-	(*ExportPDFRequest)(nil),            // 30: rapporte.v1.ExportPDFRequest
-	(*ExportPDFResponse)(nil),           // 31: rapporte.v1.ExportPDFResponse
-	(*SaveReportSignatureRequest)(nil),  // 32: rapporte.v1.SaveReportSignatureRequest
-	(*timestamppb.Timestamp)(nil),       // 33: google.protobuf.Timestamp
+	(*WorkReport)(nil),                        // 0: rapporte.v1.WorkReport
+	(*ReportLine)(nil),                        // 1: rapporte.v1.ReportLine
+	(*ReportAttachment)(nil),                  // 2: rapporte.v1.ReportAttachment
+	(*Worker)(nil),                            // 3: rapporte.v1.Worker
+	(*Measurement)(nil),                       // 4: rapporte.v1.Measurement
+	(*MeasurementPosition)(nil),               // 5: rapporte.v1.MeasurementPosition
+	(*ReportTemplate)(nil),                    // 6: rapporte.v1.ReportTemplate
+	(*CreateReportRequest)(nil),               // 7: rapporte.v1.CreateReportRequest
+	(*GetReportRequest)(nil),                  // 8: rapporte.v1.GetReportRequest
+	(*UpdateReportRequest)(nil),               // 9: rapporte.v1.UpdateReportRequest
+	(*DeleteReportRequest)(nil),               // 10: rapporte.v1.DeleteReportRequest
+	(*DeleteReportResponse)(nil),              // 11: rapporte.v1.DeleteReportResponse
+	(*ReportResponse)(nil),                    // 12: rapporte.v1.ReportResponse
+	(*ListReportsRequest)(nil),                // 13: rapporte.v1.ListReportsRequest
+	(*ListReportsResponse)(nil),               // 14: rapporte.v1.ListReportsResponse
+	(*SubmitReportRequest)(nil),               // 15: rapporte.v1.SubmitReportRequest
+	(*ApproveReportRequest)(nil),              // 16: rapporte.v1.ApproveReportRequest
+	(*RejectReportRequest)(nil),               // 17: rapporte.v1.RejectReportRequest
+	(*AddLineRequest)(nil),                    // 18: rapporte.v1.AddLineRequest
+	(*UpdateLineRequest)(nil),                 // 19: rapporte.v1.UpdateLineRequest
+	(*DeleteLineRequest)(nil),                 // 20: rapporte.v1.DeleteLineRequest
+	(*DeleteLineResponse)(nil),                // 21: rapporte.v1.DeleteLineResponse
+	(*LineResponse)(nil),                      // 22: rapporte.v1.LineResponse
+	(*ListLinesRequest)(nil),                  // 23: rapporte.v1.ListLinesRequest
+	(*ListLinesResponse)(nil),                 // 24: rapporte.v1.ListLinesResponse
+	(*UploadAttachmentRequest)(nil),           // 25: rapporte.v1.UploadAttachmentRequest
+	(*ListAttachmentsRequest)(nil),            // 26: rapporte.v1.ListAttachmentsRequest
+	(*ListAttachmentsResponse)(nil),           // 27: rapporte.v1.ListAttachmentsResponse
+	(*AttachmentResponse)(nil),                // 28: rapporte.v1.AttachmentResponse
+	(*DeleteAttachmentRequest)(nil),           // 29: rapporte.v1.DeleteAttachmentRequest
+	(*DeleteAttachmentResponse)(nil),          // 30: rapporte.v1.DeleteAttachmentResponse
+	(*GetReportStatsRequest)(nil),             // 31: rapporte.v1.GetReportStatsRequest
+	(*ReportStatsResponse)(nil),               // 32: rapporte.v1.ReportStatsResponse
+	(*ListPendingApprovalsRequest)(nil),       // 33: rapporte.v1.ListPendingApprovalsRequest
+	(*ExportPDFRequest)(nil),                  // 34: rapporte.v1.ExportPDFRequest
+	(*ExportPDFResponse)(nil),                 // 35: rapporte.v1.ExportPDFResponse
+	(*SaveReportSignatureRequest)(nil),        // 36: rapporte.v1.SaveReportSignatureRequest
+	(*AddWorkerRequest)(nil),                  // 37: rapporte.v1.AddWorkerRequest
+	(*AddWorkerResponse)(nil),                 // 38: rapporte.v1.AddWorkerResponse
+	(*RemoveWorkerRequest)(nil),               // 39: rapporte.v1.RemoveWorkerRequest
+	(*RemoveWorkerResponse)(nil),              // 40: rapporte.v1.RemoveWorkerResponse
+	(*ListWorkersRequest)(nil),                // 41: rapporte.v1.ListWorkersRequest
+	(*ListWorkersResponse)(nil),               // 42: rapporte.v1.ListWorkersResponse
+	(*CreateMeasurementRequest)(nil),          // 43: rapporte.v1.CreateMeasurementRequest
+	(*CreateMeasurementResponse)(nil),         // 44: rapporte.v1.CreateMeasurementResponse
+	(*GetMeasurementRequest)(nil),             // 45: rapporte.v1.GetMeasurementRequest
+	(*GetMeasurementResponse)(nil),            // 46: rapporte.v1.GetMeasurementResponse
+	(*ListMeasurementsRequest)(nil),           // 47: rapporte.v1.ListMeasurementsRequest
+	(*ListMeasurementsResponse)(nil),          // 48: rapporte.v1.ListMeasurementsResponse
+	(*UpdateMeasurementRequest)(nil),          // 49: rapporte.v1.UpdateMeasurementRequest
+	(*UpdateMeasurementResponse)(nil),         // 50: rapporte.v1.UpdateMeasurementResponse
+	(*DeleteMeasurementRequest)(nil),          // 51: rapporte.v1.DeleteMeasurementRequest
+	(*DeleteMeasurementResponse)(nil),         // 52: rapporte.v1.DeleteMeasurementResponse
+	(*AddMeasurementPositionRequest)(nil),     // 53: rapporte.v1.AddMeasurementPositionRequest
+	(*AddMeasurementPositionResponse)(nil),    // 54: rapporte.v1.AddMeasurementPositionResponse
+	(*DeleteMeasurementPositionRequest)(nil),  // 55: rapporte.v1.DeleteMeasurementPositionRequest
+	(*DeleteMeasurementPositionResponse)(nil), // 56: rapporte.v1.DeleteMeasurementPositionResponse
+	(*CreateTemplateRequest)(nil),             // 57: rapporte.v1.CreateTemplateRequest
+	(*CreateTemplateResponse)(nil),            // 58: rapporte.v1.CreateTemplateResponse
+	(*GetTemplateRequest)(nil),                // 59: rapporte.v1.GetTemplateRequest
+	(*GetTemplateResponse)(nil),               // 60: rapporte.v1.GetTemplateResponse
+	(*UpdateTemplateRequest)(nil),             // 61: rapporte.v1.UpdateTemplateRequest
+	(*UpdateTemplateResponse)(nil),            // 62: rapporte.v1.UpdateTemplateResponse
+	(*DeleteTemplateRequest)(nil),             // 63: rapporte.v1.DeleteTemplateRequest
+	(*DeleteTemplateResponse)(nil),            // 64: rapporte.v1.DeleteTemplateResponse
+	(*ListTemplatesRequest)(nil),              // 65: rapporte.v1.ListTemplatesRequest
+	(*ListTemplatesResponse)(nil),             // 66: rapporte.v1.ListTemplatesResponse
+	(*timestamppb.Timestamp)(nil),             // 67: google.protobuf.Timestamp
 }
 var file_proto_rapporte_v1_rapporte_proto_depIdxs = []int32{
-	33, // 0: rapporte.v1.WorkReport.reviewed_at:type_name -> google.protobuf.Timestamp
-	33, // 1: rapporte.v1.WorkReport.created_at:type_name -> google.protobuf.Timestamp
-	33, // 2: rapporte.v1.WorkReport.updated_at:type_name -> google.protobuf.Timestamp
-	33, // 3: rapporte.v1.WorkReport.signed_at:type_name -> google.protobuf.Timestamp
-	33, // 4: rapporte.v1.ReportLine.created_at:type_name -> google.protobuf.Timestamp
-	33, // 5: rapporte.v1.ReportLine.updated_at:type_name -> google.protobuf.Timestamp
-	33, // 6: rapporte.v1.ReportAttachment.created_at:type_name -> google.protobuf.Timestamp
-	0,  // 7: rapporte.v1.ReportResponse.report:type_name -> rapporte.v1.WorkReport
-	0,  // 8: rapporte.v1.ListReportsResponse.reports:type_name -> rapporte.v1.WorkReport
-	1,  // 9: rapporte.v1.LineResponse.line:type_name -> rapporte.v1.ReportLine
-	1,  // 10: rapporte.v1.ListLinesResponse.lines:type_name -> rapporte.v1.ReportLine
-	2,  // 11: rapporte.v1.ListAttachmentsResponse.attachments:type_name -> rapporte.v1.ReportAttachment
-	2,  // 12: rapporte.v1.AttachmentResponse.attachment:type_name -> rapporte.v1.ReportAttachment
-	3,  // 13: rapporte.v1.RapporteService.CreateReport:input_type -> rapporte.v1.CreateReportRequest
-	4,  // 14: rapporte.v1.RapporteService.GetReport:input_type -> rapporte.v1.GetReportRequest
-	5,  // 15: rapporte.v1.RapporteService.UpdateReport:input_type -> rapporte.v1.UpdateReportRequest
-	6,  // 16: rapporte.v1.RapporteService.DeleteReport:input_type -> rapporte.v1.DeleteReportRequest
-	9,  // 17: rapporte.v1.RapporteService.ListReports:input_type -> rapporte.v1.ListReportsRequest
-	11, // 18: rapporte.v1.RapporteService.SubmitReport:input_type -> rapporte.v1.SubmitReportRequest
-	12, // 19: rapporte.v1.RapporteService.ApproveReport:input_type -> rapporte.v1.ApproveReportRequest
-	13, // 20: rapporte.v1.RapporteService.RejectReport:input_type -> rapporte.v1.RejectReportRequest
-	14, // 21: rapporte.v1.RapporteService.AddLine:input_type -> rapporte.v1.AddLineRequest
-	15, // 22: rapporte.v1.RapporteService.UpdateLine:input_type -> rapporte.v1.UpdateLineRequest
-	16, // 23: rapporte.v1.RapporteService.DeleteLine:input_type -> rapporte.v1.DeleteLineRequest
-	19, // 24: rapporte.v1.RapporteService.ListLines:input_type -> rapporte.v1.ListLinesRequest
-	21, // 25: rapporte.v1.RapporteService.UploadAttachment:input_type -> rapporte.v1.UploadAttachmentRequest
-	22, // 26: rapporte.v1.RapporteService.ListAttachments:input_type -> rapporte.v1.ListAttachmentsRequest
-	25, // 27: rapporte.v1.RapporteService.DeleteAttachment:input_type -> rapporte.v1.DeleteAttachmentRequest
-	27, // 28: rapporte.v1.RapporteService.GetReportStats:input_type -> rapporte.v1.GetReportStatsRequest
-	29, // 29: rapporte.v1.RapporteService.ListPendingApprovals:input_type -> rapporte.v1.ListPendingApprovalsRequest
-	30, // 30: rapporte.v1.RapporteService.ExportPDF:input_type -> rapporte.v1.ExportPDFRequest
-	32, // 31: rapporte.v1.RapporteService.SaveSignature:input_type -> rapporte.v1.SaveReportSignatureRequest
-	8,  // 32: rapporte.v1.RapporteService.CreateReport:output_type -> rapporte.v1.ReportResponse
-	8,  // 33: rapporte.v1.RapporteService.GetReport:output_type -> rapporte.v1.ReportResponse
-	8,  // 34: rapporte.v1.RapporteService.UpdateReport:output_type -> rapporte.v1.ReportResponse
-	7,  // 35: rapporte.v1.RapporteService.DeleteReport:output_type -> rapporte.v1.DeleteReportResponse
-	10, // 36: rapporte.v1.RapporteService.ListReports:output_type -> rapporte.v1.ListReportsResponse
-	8,  // 37: rapporte.v1.RapporteService.SubmitReport:output_type -> rapporte.v1.ReportResponse
-	8,  // 38: rapporte.v1.RapporteService.ApproveReport:output_type -> rapporte.v1.ReportResponse
-	8,  // 39: rapporte.v1.RapporteService.RejectReport:output_type -> rapporte.v1.ReportResponse
-	18, // 40: rapporte.v1.RapporteService.AddLine:output_type -> rapporte.v1.LineResponse
-	18, // 41: rapporte.v1.RapporteService.UpdateLine:output_type -> rapporte.v1.LineResponse
-	17, // 42: rapporte.v1.RapporteService.DeleteLine:output_type -> rapporte.v1.DeleteLineResponse
-	20, // 43: rapporte.v1.RapporteService.ListLines:output_type -> rapporte.v1.ListLinesResponse
-	24, // 44: rapporte.v1.RapporteService.UploadAttachment:output_type -> rapporte.v1.AttachmentResponse
-	23, // 45: rapporte.v1.RapporteService.ListAttachments:output_type -> rapporte.v1.ListAttachmentsResponse
-	26, // 46: rapporte.v1.RapporteService.DeleteAttachment:output_type -> rapporte.v1.DeleteAttachmentResponse
-	28, // 47: rapporte.v1.RapporteService.GetReportStats:output_type -> rapporte.v1.ReportStatsResponse
-	10, // 48: rapporte.v1.RapporteService.ListPendingApprovals:output_type -> rapporte.v1.ListReportsResponse
-	31, // 49: rapporte.v1.RapporteService.ExportPDF:output_type -> rapporte.v1.ExportPDFResponse
-	8,  // 50: rapporte.v1.RapporteService.SaveSignature:output_type -> rapporte.v1.ReportResponse
-	32, // [32:51] is the sub-list for method output_type
-	13, // [13:32] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	67, // 0: rapporte.v1.WorkReport.reviewed_at:type_name -> google.protobuf.Timestamp
+	67, // 1: rapporte.v1.WorkReport.created_at:type_name -> google.protobuf.Timestamp
+	67, // 2: rapporte.v1.WorkReport.updated_at:type_name -> google.protobuf.Timestamp
+	67, // 3: rapporte.v1.WorkReport.signed_at:type_name -> google.protobuf.Timestamp
+	3,  // 4: rapporte.v1.WorkReport.workers:type_name -> rapporte.v1.Worker
+	67, // 5: rapporte.v1.ReportLine.created_at:type_name -> google.protobuf.Timestamp
+	67, // 6: rapporte.v1.ReportLine.updated_at:type_name -> google.protobuf.Timestamp
+	67, // 7: rapporte.v1.ReportAttachment.created_at:type_name -> google.protobuf.Timestamp
+	5,  // 8: rapporte.v1.Measurement.positions:type_name -> rapporte.v1.MeasurementPosition
+	0,  // 9: rapporte.v1.ReportResponse.report:type_name -> rapporte.v1.WorkReport
+	0,  // 10: rapporte.v1.ListReportsResponse.reports:type_name -> rapporte.v1.WorkReport
+	1,  // 11: rapporte.v1.LineResponse.line:type_name -> rapporte.v1.ReportLine
+	1,  // 12: rapporte.v1.ListLinesResponse.lines:type_name -> rapporte.v1.ReportLine
+	2,  // 13: rapporte.v1.ListAttachmentsResponse.attachments:type_name -> rapporte.v1.ReportAttachment
+	2,  // 14: rapporte.v1.AttachmentResponse.attachment:type_name -> rapporte.v1.ReportAttachment
+	3,  // 15: rapporte.v1.AddWorkerResponse.worker:type_name -> rapporte.v1.Worker
+	3,  // 16: rapporte.v1.ListWorkersResponse.workers:type_name -> rapporte.v1.Worker
+	4,  // 17: rapporte.v1.CreateMeasurementResponse.measurement:type_name -> rapporte.v1.Measurement
+	4,  // 18: rapporte.v1.GetMeasurementResponse.measurement:type_name -> rapporte.v1.Measurement
+	4,  // 19: rapporte.v1.ListMeasurementsResponse.measurements:type_name -> rapporte.v1.Measurement
+	4,  // 20: rapporte.v1.UpdateMeasurementResponse.measurement:type_name -> rapporte.v1.Measurement
+	5,  // 21: rapporte.v1.AddMeasurementPositionResponse.position:type_name -> rapporte.v1.MeasurementPosition
+	6,  // 22: rapporte.v1.CreateTemplateResponse.template:type_name -> rapporte.v1.ReportTemplate
+	6,  // 23: rapporte.v1.GetTemplateResponse.template:type_name -> rapporte.v1.ReportTemplate
+	6,  // 24: rapporte.v1.UpdateTemplateResponse.template:type_name -> rapporte.v1.ReportTemplate
+	6,  // 25: rapporte.v1.ListTemplatesResponse.templates:type_name -> rapporte.v1.ReportTemplate
+	7,  // 26: rapporte.v1.RapporteService.CreateReport:input_type -> rapporte.v1.CreateReportRequest
+	8,  // 27: rapporte.v1.RapporteService.GetReport:input_type -> rapporte.v1.GetReportRequest
+	9,  // 28: rapporte.v1.RapporteService.UpdateReport:input_type -> rapporte.v1.UpdateReportRequest
+	10, // 29: rapporte.v1.RapporteService.DeleteReport:input_type -> rapporte.v1.DeleteReportRequest
+	13, // 30: rapporte.v1.RapporteService.ListReports:input_type -> rapporte.v1.ListReportsRequest
+	15, // 31: rapporte.v1.RapporteService.SubmitReport:input_type -> rapporte.v1.SubmitReportRequest
+	16, // 32: rapporte.v1.RapporteService.ApproveReport:input_type -> rapporte.v1.ApproveReportRequest
+	17, // 33: rapporte.v1.RapporteService.RejectReport:input_type -> rapporte.v1.RejectReportRequest
+	18, // 34: rapporte.v1.RapporteService.AddLine:input_type -> rapporte.v1.AddLineRequest
+	19, // 35: rapporte.v1.RapporteService.UpdateLine:input_type -> rapporte.v1.UpdateLineRequest
+	20, // 36: rapporte.v1.RapporteService.DeleteLine:input_type -> rapporte.v1.DeleteLineRequest
+	23, // 37: rapporte.v1.RapporteService.ListLines:input_type -> rapporte.v1.ListLinesRequest
+	25, // 38: rapporte.v1.RapporteService.UploadAttachment:input_type -> rapporte.v1.UploadAttachmentRequest
+	26, // 39: rapporte.v1.RapporteService.ListAttachments:input_type -> rapporte.v1.ListAttachmentsRequest
+	29, // 40: rapporte.v1.RapporteService.DeleteAttachment:input_type -> rapporte.v1.DeleteAttachmentRequest
+	31, // 41: rapporte.v1.RapporteService.GetReportStats:input_type -> rapporte.v1.GetReportStatsRequest
+	33, // 42: rapporte.v1.RapporteService.ListPendingApprovals:input_type -> rapporte.v1.ListPendingApprovalsRequest
+	34, // 43: rapporte.v1.RapporteService.ExportPDF:input_type -> rapporte.v1.ExportPDFRequest
+	36, // 44: rapporte.v1.RapporteService.SaveSignature:input_type -> rapporte.v1.SaveReportSignatureRequest
+	37, // 45: rapporte.v1.RapporteService.AddWorker:input_type -> rapporte.v1.AddWorkerRequest
+	39, // 46: rapporte.v1.RapporteService.RemoveWorker:input_type -> rapporte.v1.RemoveWorkerRequest
+	41, // 47: rapporte.v1.RapporteService.ListWorkers:input_type -> rapporte.v1.ListWorkersRequest
+	43, // 48: rapporte.v1.RapporteService.CreateMeasurement:input_type -> rapporte.v1.CreateMeasurementRequest
+	45, // 49: rapporte.v1.RapporteService.GetMeasurement:input_type -> rapporte.v1.GetMeasurementRequest
+	47, // 50: rapporte.v1.RapporteService.ListMeasurements:input_type -> rapporte.v1.ListMeasurementsRequest
+	49, // 51: rapporte.v1.RapporteService.UpdateMeasurement:input_type -> rapporte.v1.UpdateMeasurementRequest
+	51, // 52: rapporte.v1.RapporteService.DeleteMeasurement:input_type -> rapporte.v1.DeleteMeasurementRequest
+	53, // 53: rapporte.v1.RapporteService.AddMeasurementPosition:input_type -> rapporte.v1.AddMeasurementPositionRequest
+	55, // 54: rapporte.v1.RapporteService.DeleteMeasurementPosition:input_type -> rapporte.v1.DeleteMeasurementPositionRequest
+	57, // 55: rapporte.v1.RapporteService.CreateTemplate:input_type -> rapporte.v1.CreateTemplateRequest
+	59, // 56: rapporte.v1.RapporteService.GetTemplate:input_type -> rapporte.v1.GetTemplateRequest
+	65, // 57: rapporte.v1.RapporteService.ListTemplates:input_type -> rapporte.v1.ListTemplatesRequest
+	61, // 58: rapporte.v1.RapporteService.UpdateTemplate:input_type -> rapporte.v1.UpdateTemplateRequest
+	63, // 59: rapporte.v1.RapporteService.DeleteTemplate:input_type -> rapporte.v1.DeleteTemplateRequest
+	12, // 60: rapporte.v1.RapporteService.CreateReport:output_type -> rapporte.v1.ReportResponse
+	12, // 61: rapporte.v1.RapporteService.GetReport:output_type -> rapporte.v1.ReportResponse
+	12, // 62: rapporte.v1.RapporteService.UpdateReport:output_type -> rapporte.v1.ReportResponse
+	11, // 63: rapporte.v1.RapporteService.DeleteReport:output_type -> rapporte.v1.DeleteReportResponse
+	14, // 64: rapporte.v1.RapporteService.ListReports:output_type -> rapporte.v1.ListReportsResponse
+	12, // 65: rapporte.v1.RapporteService.SubmitReport:output_type -> rapporte.v1.ReportResponse
+	12, // 66: rapporte.v1.RapporteService.ApproveReport:output_type -> rapporte.v1.ReportResponse
+	12, // 67: rapporte.v1.RapporteService.RejectReport:output_type -> rapporte.v1.ReportResponse
+	22, // 68: rapporte.v1.RapporteService.AddLine:output_type -> rapporte.v1.LineResponse
+	22, // 69: rapporte.v1.RapporteService.UpdateLine:output_type -> rapporte.v1.LineResponse
+	21, // 70: rapporte.v1.RapporteService.DeleteLine:output_type -> rapporte.v1.DeleteLineResponse
+	24, // 71: rapporte.v1.RapporteService.ListLines:output_type -> rapporte.v1.ListLinesResponse
+	28, // 72: rapporte.v1.RapporteService.UploadAttachment:output_type -> rapporte.v1.AttachmentResponse
+	27, // 73: rapporte.v1.RapporteService.ListAttachments:output_type -> rapporte.v1.ListAttachmentsResponse
+	30, // 74: rapporte.v1.RapporteService.DeleteAttachment:output_type -> rapporte.v1.DeleteAttachmentResponse
+	32, // 75: rapporte.v1.RapporteService.GetReportStats:output_type -> rapporte.v1.ReportStatsResponse
+	14, // 76: rapporte.v1.RapporteService.ListPendingApprovals:output_type -> rapporte.v1.ListReportsResponse
+	35, // 77: rapporte.v1.RapporteService.ExportPDF:output_type -> rapporte.v1.ExportPDFResponse
+	12, // 78: rapporte.v1.RapporteService.SaveSignature:output_type -> rapporte.v1.ReportResponse
+	38, // 79: rapporte.v1.RapporteService.AddWorker:output_type -> rapporte.v1.AddWorkerResponse
+	40, // 80: rapporte.v1.RapporteService.RemoveWorker:output_type -> rapporte.v1.RemoveWorkerResponse
+	42, // 81: rapporte.v1.RapporteService.ListWorkers:output_type -> rapporte.v1.ListWorkersResponse
+	44, // 82: rapporte.v1.RapporteService.CreateMeasurement:output_type -> rapporte.v1.CreateMeasurementResponse
+	46, // 83: rapporte.v1.RapporteService.GetMeasurement:output_type -> rapporte.v1.GetMeasurementResponse
+	48, // 84: rapporte.v1.RapporteService.ListMeasurements:output_type -> rapporte.v1.ListMeasurementsResponse
+	50, // 85: rapporte.v1.RapporteService.UpdateMeasurement:output_type -> rapporte.v1.UpdateMeasurementResponse
+	52, // 86: rapporte.v1.RapporteService.DeleteMeasurement:output_type -> rapporte.v1.DeleteMeasurementResponse
+	54, // 87: rapporte.v1.RapporteService.AddMeasurementPosition:output_type -> rapporte.v1.AddMeasurementPositionResponse
+	56, // 88: rapporte.v1.RapporteService.DeleteMeasurementPosition:output_type -> rapporte.v1.DeleteMeasurementPositionResponse
+	58, // 89: rapporte.v1.RapporteService.CreateTemplate:output_type -> rapporte.v1.CreateTemplateResponse
+	60, // 90: rapporte.v1.RapporteService.GetTemplate:output_type -> rapporte.v1.GetTemplateResponse
+	66, // 91: rapporte.v1.RapporteService.ListTemplates:output_type -> rapporte.v1.ListTemplatesResponse
+	62, // 92: rapporte.v1.RapporteService.UpdateTemplate:output_type -> rapporte.v1.UpdateTemplateResponse
+	64, // 93: rapporte.v1.RapporteService.DeleteTemplate:output_type -> rapporte.v1.DeleteTemplateResponse
+	60, // [60:94] is the sub-list for method output_type
+	26, // [26:60] is the sub-list for method input_type
+	26, // [26:26] is the sub-list for extension type_name
+	26, // [26:26] is the sub-list for extension extendee
+	0,  // [0:26] is the sub-list for field type_name
 }
 
 func init() { file_proto_rapporte_v1_rapporte_proto_init() }
@@ -2594,19 +5242,19 @@ func file_proto_rapporte_v1_rapporte_proto_init() {
 	}
 	file_proto_rapporte_v1_rapporte_proto_msgTypes[0].OneofWrappers = []any{}
 	file_proto_rapporte_v1_rapporte_proto_msgTypes[2].OneofWrappers = []any{}
-	file_proto_rapporte_v1_rapporte_proto_msgTypes[3].OneofWrappers = []any{}
-	file_proto_rapporte_v1_rapporte_proto_msgTypes[5].OneofWrappers = []any{}
+	file_proto_rapporte_v1_rapporte_proto_msgTypes[7].OneofWrappers = []any{}
 	file_proto_rapporte_v1_rapporte_proto_msgTypes[9].OneofWrappers = []any{}
-	file_proto_rapporte_v1_rapporte_proto_msgTypes[15].OneofWrappers = []any{}
-	file_proto_rapporte_v1_rapporte_proto_msgTypes[21].OneofWrappers = []any{}
-	file_proto_rapporte_v1_rapporte_proto_msgTypes[22].OneofWrappers = []any{}
+	file_proto_rapporte_v1_rapporte_proto_msgTypes[13].OneofWrappers = []any{}
+	file_proto_rapporte_v1_rapporte_proto_msgTypes[19].OneofWrappers = []any{}
+	file_proto_rapporte_v1_rapporte_proto_msgTypes[25].OneofWrappers = []any{}
+	file_proto_rapporte_v1_rapporte_proto_msgTypes[26].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_rapporte_v1_rapporte_proto_rawDesc), len(file_proto_rapporte_v1_rapporte_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   33,
+			NumMessages:   67,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

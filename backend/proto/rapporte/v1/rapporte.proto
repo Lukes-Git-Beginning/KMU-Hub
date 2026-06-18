@@ -37,6 +37,27 @@ service RapporteService {
 
   // Signature
   rpc SaveSignature(SaveReportSignatureRequest) returns (ReportResponse);
+
+  // Workers
+  rpc AddWorker(AddWorkerRequest) returns (AddWorkerResponse);
+  rpc RemoveWorker(RemoveWorkerRequest) returns (RemoveWorkerResponse);
+  rpc ListWorkers(ListWorkersRequest) returns (ListWorkersResponse);
+
+  // Measurements
+  rpc CreateMeasurement(CreateMeasurementRequest) returns (CreateMeasurementResponse);
+  rpc GetMeasurement(GetMeasurementRequest) returns (GetMeasurementResponse);
+  rpc ListMeasurements(ListMeasurementsRequest) returns (ListMeasurementsResponse);
+  rpc UpdateMeasurement(UpdateMeasurementRequest) returns (UpdateMeasurementResponse);
+  rpc DeleteMeasurement(DeleteMeasurementRequest) returns (DeleteMeasurementResponse);
+  rpc AddMeasurementPosition(AddMeasurementPositionRequest) returns (AddMeasurementPositionResponse);
+  rpc DeleteMeasurementPosition(DeleteMeasurementPositionRequest) returns (DeleteMeasurementPositionResponse);
+
+  // Templates
+  rpc CreateTemplate(CreateTemplateRequest) returns (CreateTemplateResponse);
+  rpc GetTemplate(GetTemplateRequest) returns (GetTemplateResponse);
+  rpc ListTemplates(ListTemplatesRequest) returns (ListTemplatesResponse);
+  rpc UpdateTemplate(UpdateTemplateRequest) returns (UpdateTemplateResponse);
+  rpc DeleteTemplate(DeleteTemplateRequest) returns (DeleteTemplateResponse);
 }
 
 // ============================================================================
@@ -61,6 +82,14 @@ message WorkReport {
   string signature_data = 15; // data:image/png;base64,... or data:image/svg+xml;base64,...
   optional google.protobuf.Timestamp signed_at = 16;
   string signed_by = 17;
+  // Extended fields (Migration 000162)
+  string weather = 18;
+  double temperature = 19;
+  string work_start = 20;   // HH:MM
+  string work_end = 21;     // HH:MM
+  int32 break_minutes = 22;
+  string project_name = 23;
+  repeated Worker workers = 24;
 }
 
 message ReportLine {
@@ -74,6 +103,9 @@ message ReportLine {
   string notes = 8;
   google.protobuf.Timestamp created_at = 9;
   google.protobuf.Timestamp updated_at = 10;
+  // Extended fields (Migration 000162)
+  string category = 11;
+  string article = 12;
 }
 
 message ReportAttachment {
@@ -91,6 +123,66 @@ message ReportAttachment {
 }
 
 // ============================================================================
+// Worker Message (report_workers table)
+// ============================================================================
+
+message Worker {
+  string id = 1;
+  string tenant_id = 2;
+  string report_id = 3;
+  string name = 4;
+  string role = 5;
+  double hours = 6;
+  string created_at = 7;
+}
+
+// ============================================================================
+// Measurement Messages
+// ============================================================================
+
+message Measurement {
+  string id = 1;
+  string tenant_id = 2;
+  string report_id = 3;
+  string title = 4;
+  string location = 5;
+  string measured_by = 6;
+  string measured_at = 7;
+  string notes = 8;
+  repeated MeasurementPosition positions = 9;
+  string created_at = 10;
+  string updated_at = 11;
+}
+
+message MeasurementPosition {
+  string id = 1;
+  string tenant_id = 2;
+  string measurement_id = 3;
+  int32 position_number = 4;
+  string description = 5;
+  string unit = 6;
+  double quantity = 7;
+  double unit_price = 8;
+  string created_at = 9;
+}
+
+// ============================================================================
+// Template Message
+// ============================================================================
+
+message ReportTemplate {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  string description = 4;
+  string category = 5;
+  string default_lines_json = 6;
+  bool is_active = 7;
+  string created_at = 8;
+  string updated_at = 9;
+}
+
+// ============================================================================
 // Report Requests / Responses
 // ============================================================================
 
@@ -102,6 +194,12 @@ message CreateReportRequest {
   optional double lat = 5;
   optional double lon = 6;
   string report_date = 7; // YYYY-MM-DD, empty = today
+  string weather = 8;
+  double temperature = 9;
+  string work_start = 10;
+  string work_end = 11;
+  int32 break_minutes = 12;
+  string project_name = 13;
 }
 
 message GetReportRequest {
@@ -117,6 +215,12 @@ message UpdateReportRequest {
   optional double lat = 5;
   optional double lon = 6;
   optional string report_date = 7;
+  optional string weather = 8;
+  optional double temperature = 9;
+  optional string work_start = 10;
+  optional string work_end = 11;
+  optional int32 break_minutes = 12;
+  optional string project_name = 13;
 }
 
 message DeleteReportRequest {
@@ -179,6 +283,8 @@ message AddLineRequest {
   string unit = 5;
   string notes = 6;
   int32 position = 7;
+  string category = 8;
+  string article = 9;
 }
 
 message UpdateLineRequest {
@@ -189,6 +295,8 @@ message UpdateLineRequest {
   optional string unit = 5;
   optional string notes = 6;
   optional int32 position = 7;
+  optional string category = 8;
+  optional string article = 9;
 }
 
 message DeleteLineRequest {
@@ -289,4 +397,185 @@ message SaveReportSignatureRequest {
   string report_id = 2;
   string signature_data = 3; // data:image/png;base64,... or data:image/svg+xml;base64,...
   string signed_by = 4;
+}
+
+// ============================================================================
+// Worker Requests / Responses
+// ============================================================================
+
+message AddWorkerRequest {
+  string tenant_id = 1;
+  string report_id = 2;
+  string name = 3;
+  string role = 4;
+  double hours = 5;
+}
+
+message AddWorkerResponse {
+  Worker worker = 1;
+}
+
+message RemoveWorkerRequest {
+  string tenant_id = 1;
+  string worker_id = 2;
+}
+
+message RemoveWorkerResponse {
+  bool success = 1;
+}
+
+message ListWorkersRequest {
+  string tenant_id = 1;
+  string report_id = 2;
+}
+
+message ListWorkersResponse {
+  repeated Worker workers = 1;
+}
+
+// ============================================================================
+// Measurement Requests / Responses
+// ============================================================================
+
+message CreateMeasurementRequest {
+  string tenant_id = 1;
+  string report_id = 2;
+  string title = 3;
+  string location = 4;
+  string measured_by = 5;
+  string measured_at = 6;
+  string notes = 7;
+  string idempotency_key = 8;
+}
+
+message CreateMeasurementResponse {
+  Measurement measurement = 1;
+}
+
+message GetMeasurementRequest {
+  string tenant_id = 1;
+  string measurement_id = 2;
+}
+
+message GetMeasurementResponse {
+  Measurement measurement = 1;
+}
+
+message ListMeasurementsRequest {
+  string tenant_id = 1;
+  string report_id = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListMeasurementsResponse {
+  repeated Measurement measurements = 1;
+  int32 total = 2;
+}
+
+message UpdateMeasurementRequest {
+  string tenant_id = 1;
+  string measurement_id = 2;
+  string title = 3;
+  string location = 4;
+  string measured_by = 5;
+  string measured_at = 6;
+  string notes = 7;
+}
+
+message UpdateMeasurementResponse {
+  Measurement measurement = 1;
+}
+
+message DeleteMeasurementRequest {
+  string tenant_id = 1;
+  string measurement_id = 2;
+}
+
+message DeleteMeasurementResponse {
+  bool success = 1;
+}
+
+message AddMeasurementPositionRequest {
+  string tenant_id = 1;
+  string measurement_id = 2;
+  int32 position_number = 3;
+  string description = 4;
+  string unit = 5;
+  double quantity = 6;
+  double unit_price = 7;
+}
+
+message AddMeasurementPositionResponse {
+  MeasurementPosition position = 1;
+}
+
+message DeleteMeasurementPositionRequest {
+  string tenant_id = 1;
+  string position_id = 2;
+}
+
+message DeleteMeasurementPositionResponse {
+  bool success = 1;
+}
+
+// ============================================================================
+// Template Requests / Responses
+// ============================================================================
+
+message CreateTemplateRequest {
+  string tenant_id = 1;
+  string name = 2;
+  string description = 3;
+  string category = 4;
+  string default_lines_json = 5;
+  string idempotency_key = 6;
+}
+
+message CreateTemplateResponse {
+  ReportTemplate template = 1;
+}
+
+message GetTemplateRequest {
+  string tenant_id = 1;
+  string template_id = 2;
+}
+
+message GetTemplateResponse {
+  ReportTemplate template = 1;
+}
+
+message UpdateTemplateRequest {
+  string tenant_id = 1;
+  string template_id = 2;
+  string name = 3;
+  string description = 4;
+  string category = 5;
+  string default_lines_json = 6;
+  bool is_active = 7;
+}
+
+message UpdateTemplateResponse {
+  ReportTemplate template = 1;
+}
+
+message DeleteTemplateRequest {
+  string tenant_id = 1;
+  string template_id = 2;
+}
+
+message DeleteTemplateResponse {
+  bool success = 1;
+}
+
+message ListTemplatesRequest {
+  string tenant_id = 1;
+  bool active_only = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListTemplatesResponse {
+  repeated ReportTemplate templates = 1;
+  int32 total = 2;
 }

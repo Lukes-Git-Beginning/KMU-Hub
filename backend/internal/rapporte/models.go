@@ -1,6 +1,7 @@
 package rapporte
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,9 +34,17 @@ type WorkReport struct {
 	SignatureData *string      `json:"signature_data,omitempty"`
 	SignedAt      *time.Time   `json:"signed_at,omitempty"`
 	SignedBy      *string      `json:"signed_by,omitempty"`
-	CreatedAt     time.Time    `json:"created_at"`
-	UpdatedAt     time.Time    `json:"updated_at"`
-	DeletedAt     *time.Time   `json:"deleted_at,omitempty"`
+	// Extended fields (Migration 000162)
+	Weather      *string  `json:"weather,omitempty"`
+	Temperature  *float64 `json:"temperature,omitempty"`
+	WorkStart    *string  `json:"work_start,omitempty"` // HH:MM
+	WorkEnd      *string  `json:"work_end,omitempty"`   // HH:MM
+	BreakMinutes *int     `json:"break_minutes,omitempty"`
+	ProjectName  *string  `json:"project_name,omitempty"`
+	Workers      []Worker `json:"workers,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+	DeletedAt    *time.Time `json:"deleted_at,omitempty"`
 }
 
 // ReportLine is a single line item within a work report.
@@ -48,8 +57,11 @@ type ReportLine struct {
 	Quantity    float64   `json:"quantity"`
 	Unit        string    `json:"unit"`
 	Notes       string    `json:"notes"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	// Extended fields (Migration 000162)
+	Category  *string `json:"category,omitempty"`
+	Article   *string `json:"article,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // ReportAttachment stores metadata for a file uploaded to MinIO.
@@ -73,4 +85,56 @@ type ReportStats struct {
 	SubmittedCount int
 	ApprovedCount  int
 	RejectedCount  int
+}
+
+// Worker represents an individual assigned to a work report.
+type Worker struct {
+	ID        uuid.UUID       `json:"id"`
+	TenantID  uuid.UUID       `json:"tenant_id"`
+	ReportID  uuid.UUID       `json:"report_id"`
+	Name      string          `json:"name"`
+	Role      sql.NullString  `json:"role"`
+	Hours     sql.NullFloat64 `json:"hours"`
+	CreatedAt time.Time       `json:"created_at"`
+}
+
+// Measurement is a set of measured positions for a project.
+type Measurement struct {
+	ID         uuid.UUID             `json:"id"`
+	TenantID   uuid.UUID             `json:"tenant_id"`
+	ReportID   *uuid.UUID            `json:"report_id,omitempty"`
+	Title      string                `json:"title"`
+	Location   sql.NullString        `json:"location"`
+	MeasuredBy sql.NullString        `json:"measured_by"`
+	MeasuredAt sql.NullString        `json:"measured_at"` // DATE as string YYYY-MM-DD
+	Notes      sql.NullString        `json:"notes"`
+	Positions  []MeasurementPosition `json:"positions,omitempty"`
+	CreatedAt  time.Time             `json:"created_at"`
+	UpdatedAt  time.Time             `json:"updated_at"`
+}
+
+// MeasurementPosition is a single line within a Measurement.
+type MeasurementPosition struct {
+	ID             uuid.UUID       `json:"id"`
+	TenantID       uuid.UUID       `json:"tenant_id"`
+	MeasurementID  uuid.UUID       `json:"measurement_id"`
+	PositionNumber int             `json:"position_number"`
+	Description    string          `json:"description"`
+	Unit           sql.NullString  `json:"unit"`
+	Quantity       sql.NullFloat64 `json:"quantity"`
+	UnitPrice      sql.NullFloat64 `json:"unit_price"`
+	CreatedAt      time.Time       `json:"created_at"`
+}
+
+// ReportTemplate is a reusable template for pre-filling report lines.
+type ReportTemplate struct {
+	ID               uuid.UUID      `json:"id"`
+	TenantID         uuid.UUID      `json:"tenant_id"`
+	Name             string         `json:"name"`
+	Description      sql.NullString `json:"description"`
+	Category         sql.NullString `json:"category"`
+	DefaultLinesJSON sql.NullString `json:"default_lines_json"`
+	IsActive         bool           `json:"is_active"`
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
 }

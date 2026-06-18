@@ -88,6 +88,28 @@ func (rr *RapporteRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		// Stats & approvals
 		r.With(middleware.RequirePermission("rapporte:report", "read")).Get("/stats", rr.HandleGetReportStats)
 		r.With(middleware.RequirePermission("rapporte:report", "read")).Get("/pending", rr.HandleListPendingApprovals)
+
+		// Measurements
+		r.With(middleware.RequirePermission("rapporte:measurement", "read")).Get("/measurements", rr.HandleListMeasurements)
+		r.With(middleware.RequirePermission("rapporte:measurement", "write")).Post("/measurements", rr.HandleCreateMeasurement)
+		r.Route("/measurements/{id}", func(r chi.Router) {
+			r.With(middleware.RequirePermission("rapporte:measurement", "read")).Get("/", rr.HandleGetMeasurement)
+			r.With(middleware.RequirePermission("rapporte:measurement", "write")).Put("/", rr.HandleUpdateMeasurement)
+			r.With(middleware.RequirePermission("rapporte:measurement", "write")).Delete("/", rr.HandleDeleteMeasurement)
+			r.With(middleware.RequirePermission("rapporte:measurement", "write")).Post("/positions", rr.HandleAddMeasurementPosition)
+		})
+		r.Route("/measurements/positions/{pos_id}", func(r chi.Router) {
+			r.With(middleware.RequirePermission("rapporte:measurement", "write")).Delete("/", rr.HandleDeleteMeasurementPosition)
+		})
+
+		// Templates
+		r.With(middleware.RequirePermission("rapporte:template", "read")).Get("/templates", rr.HandleListTemplates)
+		r.With(middleware.RequirePermission("rapporte:template", "write")).Post("/templates", rr.HandleCreateTemplate)
+		r.Route("/templates/{id}", func(r chi.Router) {
+			r.With(middleware.RequirePermission("rapporte:template", "read")).Get("/", rr.HandleGetTemplate)
+			r.With(middleware.RequirePermission("rapporte:template", "write")).Put("/", rr.HandleUpdateTemplate)
+			r.With(middleware.RequirePermission("rapporte:template", "write")).Delete("/", rr.HandleDeleteTemplate)
+		})
 	})
 }
 
@@ -789,4 +811,436 @@ func (rr *RapporteRoutes) HandleExportPDF(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Disposition", "attachment; filename=\""+resp.GetFilename()+"\"")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(resp.GetPayload())
+}
+
+// ============================================================================
+// Measurement request types
+// ============================================================================
+
+type createMeasurementRequest struct {
+	ReportID   string `json:"report_id,omitempty"  validate:"omitempty,uuid"`
+	Title      string `json:"title"                validate:"required"`
+	Location   string `json:"location,omitempty"`
+	MeasuredBy string `json:"measured_by,omitempty"`
+	MeasuredAt string `json:"measured_at,omitempty"`
+	Notes      string `json:"notes,omitempty"`
+}
+
+type updateMeasurementRequest struct {
+	Title      string `json:"title"                validate:"required"`
+	Location   string `json:"location,omitempty"`
+	MeasuredBy string `json:"measured_by,omitempty"`
+	MeasuredAt string `json:"measured_at,omitempty"`
+	Notes      string `json:"notes,omitempty"`
+}
+
+type addMeasurementPositionRequest struct {
+	PositionNumber int     `json:"position_number"`
+	Description    string  `json:"description"   validate:"required"`
+	Unit           string  `json:"unit,omitempty"`
+	Quantity       float64 `json:"quantity,omitempty"`
+	UnitPrice      float64 `json:"unit_price,omitempty"`
+}
+
+// ============================================================================
+// Measurement Handlers
+// ============================================================================
+
+func (rr *RapporteRoutes) HandleListMeasurements(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := rr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, rr.ServiceName())
+		return
+	}
+
+	page, pageSize := parsePagination(r, 1, 50)
+	grpcReq := &rapportev1.ListMeasurementsRequest{
+		TenantId: tenantID.String(),
+		Page:     int32(page),
+		PageSize: int32(pageSize),
+	}
+	if rid := r.URL.Query().Get("report_id"); rid != "" {
+		grpcReq.ReportId = rid
+	}
+
+	resp, err := client.ListMeasurements(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (rr *RapporteRoutes) HandleCreateMeasurement(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := rr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, rr.ServiceName())
+		return
+	}
+
+	req, ok := decodeAndValidate[createMeasurementRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.CreateMeasurement(r.Context(), &rapportev1.CreateMeasurementRequest{
+		TenantId:   tenantID.String(),
+		ReportId:   req.ReportID,
+		Title:      req.Title,
+		Location:   req.Location,
+		MeasuredBy: req.MeasuredBy,
+		MeasuredAt: req.MeasuredAt,
+		Notes:      req.Notes,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (rr *RapporteRoutes) HandleGetMeasurement(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := rr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, rr.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GetMeasurement(r.Context(), &rapportev1.GetMeasurementRequest{
+		TenantId:      tenantID.String(),
+		MeasurementId: id,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (rr *RapporteRoutes) HandleUpdateMeasurement(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := rr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, rr.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[updateMeasurementRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.UpdateMeasurement(r.Context(), &rapportev1.UpdateMeasurementRequest{
+		TenantId:      tenantID.String(),
+		MeasurementId: id,
+		Title:         req.Title,
+		Location:      req.Location,
+		MeasuredBy:    req.MeasuredBy,
+		MeasuredAt:    req.MeasuredAt,
+		Notes:         req.Notes,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (rr *RapporteRoutes) HandleDeleteMeasurement(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := rr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, rr.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	_, err = client.DeleteMeasurement(r.Context(), &rapportev1.DeleteMeasurementRequest{
+		TenantId:      tenantID.String(),
+		MeasurementId: id,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (rr *RapporteRoutes) HandleAddMeasurementPosition(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := rr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, rr.ServiceName())
+		return
+	}
+
+	measurementID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[addMeasurementPositionRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.AddMeasurementPosition(r.Context(), &rapportev1.AddMeasurementPositionRequest{
+		TenantId:       tenantID.String(),
+		MeasurementId:  measurementID,
+		PositionNumber: int32(req.PositionNumber),
+		Description:    req.Description,
+		Unit:           req.Unit,
+		Quantity:       req.Quantity,
+		UnitPrice:      req.UnitPrice,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (rr *RapporteRoutes) HandleDeleteMeasurementPosition(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := rr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, rr.ServiceName())
+		return
+	}
+
+	posID, ok := validateUUIDParam(w, r, "pos_id")
+	if !ok {
+		return
+	}
+
+	_, err = client.DeleteMeasurementPosition(r.Context(), &rapportev1.DeleteMeasurementPositionRequest{
+		TenantId:   tenantID.String(),
+		PositionId: posID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ============================================================================
+// Template request types
+// ============================================================================
+
+type createRapporteTemplateRequest struct {
+	Name             string `json:"name"              validate:"required"`
+	Description      string `json:"description,omitempty"`
+	Category         string `json:"category,omitempty"`
+	DefaultLinesJSON string `json:"default_lines_json,omitempty"`
+}
+
+type updateRapporteTemplateRequest struct {
+	Name             string `json:"name"              validate:"required"`
+	Description      string `json:"description,omitempty"`
+	Category         string `json:"category,omitempty"`
+	DefaultLinesJSON string `json:"default_lines_json,omitempty"`
+	IsActive         bool   `json:"is_active"`
+}
+
+// ============================================================================
+// Template Handlers
+// ============================================================================
+
+func (rr *RapporteRoutes) HandleListTemplates(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := rr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, rr.ServiceName())
+		return
+	}
+
+	page, pageSize := parsePagination(r, 1, 50)
+	activeOnly := r.URL.Query().Get("active_only") == "true"
+
+	resp, err := client.ListTemplates(r.Context(), &rapportev1.ListTemplatesRequest{
+		TenantId:   tenantID.String(),
+		ActiveOnly: activeOnly,
+		Page:       int32(page),
+		PageSize:   int32(pageSize),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (rr *RapporteRoutes) HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := rr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, rr.ServiceName())
+		return
+	}
+
+	req, ok := decodeAndValidate[createRapporteTemplateRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.CreateTemplate(r.Context(), &rapportev1.CreateTemplateRequest{
+		TenantId:         tenantID.String(),
+		Name:             req.Name,
+		Description:      req.Description,
+		Category:         req.Category,
+		DefaultLinesJson: req.DefaultLinesJSON,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (rr *RapporteRoutes) HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := rr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, rr.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GetTemplate(r.Context(), &rapportev1.GetTemplateRequest{
+		TenantId:   tenantID.String(),
+		TemplateId: id,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (rr *RapporteRoutes) HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := rr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, rr.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[updateRapporteTemplateRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.UpdateTemplate(r.Context(), &rapportev1.UpdateTemplateRequest{
+		TenantId:         tenantID.String(),
+		TemplateId:       id,
+		Name:             req.Name,
+		Description:      req.Description,
+		Category:         req.Category,
+		DefaultLinesJson: req.DefaultLinesJSON,
+		IsActive:         req.IsActive,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (rr *RapporteRoutes) HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := rr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, rr.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	_, err = client.DeleteTemplate(r.Context(), &rapportev1.DeleteTemplateRequest{
+		TenantId:   tenantID.String(),
+		TemplateId: id,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

@@ -19,25 +19,40 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	RapporteService_CreateReport_FullMethodName         = "/rapporte.v1.RapporteService/CreateReport"
-	RapporteService_GetReport_FullMethodName            = "/rapporte.v1.RapporteService/GetReport"
-	RapporteService_UpdateReport_FullMethodName         = "/rapporte.v1.RapporteService/UpdateReport"
-	RapporteService_DeleteReport_FullMethodName         = "/rapporte.v1.RapporteService/DeleteReport"
-	RapporteService_ListReports_FullMethodName          = "/rapporte.v1.RapporteService/ListReports"
-	RapporteService_SubmitReport_FullMethodName         = "/rapporte.v1.RapporteService/SubmitReport"
-	RapporteService_ApproveReport_FullMethodName        = "/rapporte.v1.RapporteService/ApproveReport"
-	RapporteService_RejectReport_FullMethodName         = "/rapporte.v1.RapporteService/RejectReport"
-	RapporteService_AddLine_FullMethodName              = "/rapporte.v1.RapporteService/AddLine"
-	RapporteService_UpdateLine_FullMethodName           = "/rapporte.v1.RapporteService/UpdateLine"
-	RapporteService_DeleteLine_FullMethodName           = "/rapporte.v1.RapporteService/DeleteLine"
-	RapporteService_ListLines_FullMethodName            = "/rapporte.v1.RapporteService/ListLines"
-	RapporteService_UploadAttachment_FullMethodName     = "/rapporte.v1.RapporteService/UploadAttachment"
-	RapporteService_ListAttachments_FullMethodName      = "/rapporte.v1.RapporteService/ListAttachments"
-	RapporteService_DeleteAttachment_FullMethodName     = "/rapporte.v1.RapporteService/DeleteAttachment"
-	RapporteService_GetReportStats_FullMethodName       = "/rapporte.v1.RapporteService/GetReportStats"
-	RapporteService_ListPendingApprovals_FullMethodName = "/rapporte.v1.RapporteService/ListPendingApprovals"
-	RapporteService_ExportPDF_FullMethodName            = "/rapporte.v1.RapporteService/ExportPDF"
-	RapporteService_SaveSignature_FullMethodName        = "/rapporte.v1.RapporteService/SaveSignature"
+	RapporteService_CreateReport_FullMethodName              = "/rapporte.v1.RapporteService/CreateReport"
+	RapporteService_GetReport_FullMethodName                 = "/rapporte.v1.RapporteService/GetReport"
+	RapporteService_UpdateReport_FullMethodName              = "/rapporte.v1.RapporteService/UpdateReport"
+	RapporteService_DeleteReport_FullMethodName              = "/rapporte.v1.RapporteService/DeleteReport"
+	RapporteService_ListReports_FullMethodName               = "/rapporte.v1.RapporteService/ListReports"
+	RapporteService_SubmitReport_FullMethodName              = "/rapporte.v1.RapporteService/SubmitReport"
+	RapporteService_ApproveReport_FullMethodName             = "/rapporte.v1.RapporteService/ApproveReport"
+	RapporteService_RejectReport_FullMethodName              = "/rapporte.v1.RapporteService/RejectReport"
+	RapporteService_AddLine_FullMethodName                   = "/rapporte.v1.RapporteService/AddLine"
+	RapporteService_UpdateLine_FullMethodName                = "/rapporte.v1.RapporteService/UpdateLine"
+	RapporteService_DeleteLine_FullMethodName                = "/rapporte.v1.RapporteService/DeleteLine"
+	RapporteService_ListLines_FullMethodName                 = "/rapporte.v1.RapporteService/ListLines"
+	RapporteService_UploadAttachment_FullMethodName          = "/rapporte.v1.RapporteService/UploadAttachment"
+	RapporteService_ListAttachments_FullMethodName           = "/rapporte.v1.RapporteService/ListAttachments"
+	RapporteService_DeleteAttachment_FullMethodName          = "/rapporte.v1.RapporteService/DeleteAttachment"
+	RapporteService_GetReportStats_FullMethodName            = "/rapporte.v1.RapporteService/GetReportStats"
+	RapporteService_ListPendingApprovals_FullMethodName      = "/rapporte.v1.RapporteService/ListPendingApprovals"
+	RapporteService_ExportPDF_FullMethodName                 = "/rapporte.v1.RapporteService/ExportPDF"
+	RapporteService_SaveSignature_FullMethodName             = "/rapporte.v1.RapporteService/SaveSignature"
+	RapporteService_AddWorker_FullMethodName                 = "/rapporte.v1.RapporteService/AddWorker"
+	RapporteService_RemoveWorker_FullMethodName              = "/rapporte.v1.RapporteService/RemoveWorker"
+	RapporteService_ListWorkers_FullMethodName               = "/rapporte.v1.RapporteService/ListWorkers"
+	RapporteService_CreateMeasurement_FullMethodName         = "/rapporte.v1.RapporteService/CreateMeasurement"
+	RapporteService_GetMeasurement_FullMethodName            = "/rapporte.v1.RapporteService/GetMeasurement"
+	RapporteService_ListMeasurements_FullMethodName          = "/rapporte.v1.RapporteService/ListMeasurements"
+	RapporteService_UpdateMeasurement_FullMethodName         = "/rapporte.v1.RapporteService/UpdateMeasurement"
+	RapporteService_DeleteMeasurement_FullMethodName         = "/rapporte.v1.RapporteService/DeleteMeasurement"
+	RapporteService_AddMeasurementPosition_FullMethodName    = "/rapporte.v1.RapporteService/AddMeasurementPosition"
+	RapporteService_DeleteMeasurementPosition_FullMethodName = "/rapporte.v1.RapporteService/DeleteMeasurementPosition"
+	RapporteService_CreateTemplate_FullMethodName            = "/rapporte.v1.RapporteService/CreateTemplate"
+	RapporteService_GetTemplate_FullMethodName               = "/rapporte.v1.RapporteService/GetTemplate"
+	RapporteService_ListTemplates_FullMethodName             = "/rapporte.v1.RapporteService/ListTemplates"
+	RapporteService_UpdateTemplate_FullMethodName            = "/rapporte.v1.RapporteService/UpdateTemplate"
+	RapporteService_DeleteTemplate_FullMethodName            = "/rapporte.v1.RapporteService/DeleteTemplate"
 )
 
 // RapporteServiceClient is the client API for RapporteService service.
@@ -69,6 +84,24 @@ type RapporteServiceClient interface {
 	ExportPDF(ctx context.Context, in *ExportPDFRequest, opts ...grpc.CallOption) (*ExportPDFResponse, error)
 	// Signature
 	SaveSignature(ctx context.Context, in *SaveReportSignatureRequest, opts ...grpc.CallOption) (*ReportResponse, error)
+	// Workers
+	AddWorker(ctx context.Context, in *AddWorkerRequest, opts ...grpc.CallOption) (*AddWorkerResponse, error)
+	RemoveWorker(ctx context.Context, in *RemoveWorkerRequest, opts ...grpc.CallOption) (*RemoveWorkerResponse, error)
+	ListWorkers(ctx context.Context, in *ListWorkersRequest, opts ...grpc.CallOption) (*ListWorkersResponse, error)
+	// Measurements
+	CreateMeasurement(ctx context.Context, in *CreateMeasurementRequest, opts ...grpc.CallOption) (*CreateMeasurementResponse, error)
+	GetMeasurement(ctx context.Context, in *GetMeasurementRequest, opts ...grpc.CallOption) (*GetMeasurementResponse, error)
+	ListMeasurements(ctx context.Context, in *ListMeasurementsRequest, opts ...grpc.CallOption) (*ListMeasurementsResponse, error)
+	UpdateMeasurement(ctx context.Context, in *UpdateMeasurementRequest, opts ...grpc.CallOption) (*UpdateMeasurementResponse, error)
+	DeleteMeasurement(ctx context.Context, in *DeleteMeasurementRequest, opts ...grpc.CallOption) (*DeleteMeasurementResponse, error)
+	AddMeasurementPosition(ctx context.Context, in *AddMeasurementPositionRequest, opts ...grpc.CallOption) (*AddMeasurementPositionResponse, error)
+	DeleteMeasurementPosition(ctx context.Context, in *DeleteMeasurementPositionRequest, opts ...grpc.CallOption) (*DeleteMeasurementPositionResponse, error)
+	// Templates
+	CreateTemplate(ctx context.Context, in *CreateTemplateRequest, opts ...grpc.CallOption) (*CreateTemplateResponse, error)
+	GetTemplate(ctx context.Context, in *GetTemplateRequest, opts ...grpc.CallOption) (*GetTemplateResponse, error)
+	ListTemplates(ctx context.Context, in *ListTemplatesRequest, opts ...grpc.CallOption) (*ListTemplatesResponse, error)
+	UpdateTemplate(ctx context.Context, in *UpdateTemplateRequest, opts ...grpc.CallOption) (*UpdateTemplateResponse, error)
+	DeleteTemplate(ctx context.Context, in *DeleteTemplateRequest, opts ...grpc.CallOption) (*DeleteTemplateResponse, error)
 }
 
 type rapporteServiceClient struct {
@@ -269,6 +302,156 @@ func (c *rapporteServiceClient) SaveSignature(ctx context.Context, in *SaveRepor
 	return out, nil
 }
 
+func (c *rapporteServiceClient) AddWorker(ctx context.Context, in *AddWorkerRequest, opts ...grpc.CallOption) (*AddWorkerResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AddWorkerResponse)
+	err := c.cc.Invoke(ctx, RapporteService_AddWorker_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rapporteServiceClient) RemoveWorker(ctx context.Context, in *RemoveWorkerRequest, opts ...grpc.CallOption) (*RemoveWorkerResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RemoveWorkerResponse)
+	err := c.cc.Invoke(ctx, RapporteService_RemoveWorker_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rapporteServiceClient) ListWorkers(ctx context.Context, in *ListWorkersRequest, opts ...grpc.CallOption) (*ListWorkersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListWorkersResponse)
+	err := c.cc.Invoke(ctx, RapporteService_ListWorkers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rapporteServiceClient) CreateMeasurement(ctx context.Context, in *CreateMeasurementRequest, opts ...grpc.CallOption) (*CreateMeasurementResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateMeasurementResponse)
+	err := c.cc.Invoke(ctx, RapporteService_CreateMeasurement_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rapporteServiceClient) GetMeasurement(ctx context.Context, in *GetMeasurementRequest, opts ...grpc.CallOption) (*GetMeasurementResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetMeasurementResponse)
+	err := c.cc.Invoke(ctx, RapporteService_GetMeasurement_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rapporteServiceClient) ListMeasurements(ctx context.Context, in *ListMeasurementsRequest, opts ...grpc.CallOption) (*ListMeasurementsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMeasurementsResponse)
+	err := c.cc.Invoke(ctx, RapporteService_ListMeasurements_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rapporteServiceClient) UpdateMeasurement(ctx context.Context, in *UpdateMeasurementRequest, opts ...grpc.CallOption) (*UpdateMeasurementResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateMeasurementResponse)
+	err := c.cc.Invoke(ctx, RapporteService_UpdateMeasurement_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rapporteServiceClient) DeleteMeasurement(ctx context.Context, in *DeleteMeasurementRequest, opts ...grpc.CallOption) (*DeleteMeasurementResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteMeasurementResponse)
+	err := c.cc.Invoke(ctx, RapporteService_DeleteMeasurement_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rapporteServiceClient) AddMeasurementPosition(ctx context.Context, in *AddMeasurementPositionRequest, opts ...grpc.CallOption) (*AddMeasurementPositionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AddMeasurementPositionResponse)
+	err := c.cc.Invoke(ctx, RapporteService_AddMeasurementPosition_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rapporteServiceClient) DeleteMeasurementPosition(ctx context.Context, in *DeleteMeasurementPositionRequest, opts ...grpc.CallOption) (*DeleteMeasurementPositionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteMeasurementPositionResponse)
+	err := c.cc.Invoke(ctx, RapporteService_DeleteMeasurementPosition_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rapporteServiceClient) CreateTemplate(ctx context.Context, in *CreateTemplateRequest, opts ...grpc.CallOption) (*CreateTemplateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateTemplateResponse)
+	err := c.cc.Invoke(ctx, RapporteService_CreateTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rapporteServiceClient) GetTemplate(ctx context.Context, in *GetTemplateRequest, opts ...grpc.CallOption) (*GetTemplateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTemplateResponse)
+	err := c.cc.Invoke(ctx, RapporteService_GetTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rapporteServiceClient) ListTemplates(ctx context.Context, in *ListTemplatesRequest, opts ...grpc.CallOption) (*ListTemplatesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTemplatesResponse)
+	err := c.cc.Invoke(ctx, RapporteService_ListTemplates_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rapporteServiceClient) UpdateTemplate(ctx context.Context, in *UpdateTemplateRequest, opts ...grpc.CallOption) (*UpdateTemplateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateTemplateResponse)
+	err := c.cc.Invoke(ctx, RapporteService_UpdateTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rapporteServiceClient) DeleteTemplate(ctx context.Context, in *DeleteTemplateRequest, opts ...grpc.CallOption) (*DeleteTemplateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteTemplateResponse)
+	err := c.cc.Invoke(ctx, RapporteService_DeleteTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RapporteServiceServer is the server API for RapporteService service.
 // All implementations must embed UnimplementedRapporteServiceServer
 // for forward compatibility.
@@ -298,6 +481,24 @@ type RapporteServiceServer interface {
 	ExportPDF(context.Context, *ExportPDFRequest) (*ExportPDFResponse, error)
 	// Signature
 	SaveSignature(context.Context, *SaveReportSignatureRequest) (*ReportResponse, error)
+	// Workers
+	AddWorker(context.Context, *AddWorkerRequest) (*AddWorkerResponse, error)
+	RemoveWorker(context.Context, *RemoveWorkerRequest) (*RemoveWorkerResponse, error)
+	ListWorkers(context.Context, *ListWorkersRequest) (*ListWorkersResponse, error)
+	// Measurements
+	CreateMeasurement(context.Context, *CreateMeasurementRequest) (*CreateMeasurementResponse, error)
+	GetMeasurement(context.Context, *GetMeasurementRequest) (*GetMeasurementResponse, error)
+	ListMeasurements(context.Context, *ListMeasurementsRequest) (*ListMeasurementsResponse, error)
+	UpdateMeasurement(context.Context, *UpdateMeasurementRequest) (*UpdateMeasurementResponse, error)
+	DeleteMeasurement(context.Context, *DeleteMeasurementRequest) (*DeleteMeasurementResponse, error)
+	AddMeasurementPosition(context.Context, *AddMeasurementPositionRequest) (*AddMeasurementPositionResponse, error)
+	DeleteMeasurementPosition(context.Context, *DeleteMeasurementPositionRequest) (*DeleteMeasurementPositionResponse, error)
+	// Templates
+	CreateTemplate(context.Context, *CreateTemplateRequest) (*CreateTemplateResponse, error)
+	GetTemplate(context.Context, *GetTemplateRequest) (*GetTemplateResponse, error)
+	ListTemplates(context.Context, *ListTemplatesRequest) (*ListTemplatesResponse, error)
+	UpdateTemplate(context.Context, *UpdateTemplateRequest) (*UpdateTemplateResponse, error)
+	DeleteTemplate(context.Context, *DeleteTemplateRequest) (*DeleteTemplateResponse, error)
 	mustEmbedUnimplementedRapporteServiceServer()
 }
 
@@ -364,6 +565,51 @@ func (UnimplementedRapporteServiceServer) ExportPDF(context.Context, *ExportPDFR
 }
 func (UnimplementedRapporteServiceServer) SaveSignature(context.Context, *SaveReportSignatureRequest) (*ReportResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SaveSignature not implemented")
+}
+func (UnimplementedRapporteServiceServer) AddWorker(context.Context, *AddWorkerRequest) (*AddWorkerResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AddWorker not implemented")
+}
+func (UnimplementedRapporteServiceServer) RemoveWorker(context.Context, *RemoveWorkerRequest) (*RemoveWorkerResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RemoveWorker not implemented")
+}
+func (UnimplementedRapporteServiceServer) ListWorkers(context.Context, *ListWorkersRequest) (*ListWorkersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListWorkers not implemented")
+}
+func (UnimplementedRapporteServiceServer) CreateMeasurement(context.Context, *CreateMeasurementRequest) (*CreateMeasurementResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateMeasurement not implemented")
+}
+func (UnimplementedRapporteServiceServer) GetMeasurement(context.Context, *GetMeasurementRequest) (*GetMeasurementResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetMeasurement not implemented")
+}
+func (UnimplementedRapporteServiceServer) ListMeasurements(context.Context, *ListMeasurementsRequest) (*ListMeasurementsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMeasurements not implemented")
+}
+func (UnimplementedRapporteServiceServer) UpdateMeasurement(context.Context, *UpdateMeasurementRequest) (*UpdateMeasurementResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateMeasurement not implemented")
+}
+func (UnimplementedRapporteServiceServer) DeleteMeasurement(context.Context, *DeleteMeasurementRequest) (*DeleteMeasurementResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteMeasurement not implemented")
+}
+func (UnimplementedRapporteServiceServer) AddMeasurementPosition(context.Context, *AddMeasurementPositionRequest) (*AddMeasurementPositionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AddMeasurementPosition not implemented")
+}
+func (UnimplementedRapporteServiceServer) DeleteMeasurementPosition(context.Context, *DeleteMeasurementPositionRequest) (*DeleteMeasurementPositionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteMeasurementPosition not implemented")
+}
+func (UnimplementedRapporteServiceServer) CreateTemplate(context.Context, *CreateTemplateRequest) (*CreateTemplateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateTemplate not implemented")
+}
+func (UnimplementedRapporteServiceServer) GetTemplate(context.Context, *GetTemplateRequest) (*GetTemplateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTemplate not implemented")
+}
+func (UnimplementedRapporteServiceServer) ListTemplates(context.Context, *ListTemplatesRequest) (*ListTemplatesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListTemplates not implemented")
+}
+func (UnimplementedRapporteServiceServer) UpdateTemplate(context.Context, *UpdateTemplateRequest) (*UpdateTemplateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateTemplate not implemented")
+}
+func (UnimplementedRapporteServiceServer) DeleteTemplate(context.Context, *DeleteTemplateRequest) (*DeleteTemplateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteTemplate not implemented")
 }
 func (UnimplementedRapporteServiceServer) mustEmbedUnimplementedRapporteServiceServer() {}
 func (UnimplementedRapporteServiceServer) testEmbeddedByValue()                         {}
@@ -728,6 +974,276 @@ func _RapporteService_SaveSignature_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RapporteService_AddWorker_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddWorkerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RapporteServiceServer).AddWorker(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RapporteService_AddWorker_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RapporteServiceServer).AddWorker(ctx, req.(*AddWorkerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RapporteService_RemoveWorker_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveWorkerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RapporteServiceServer).RemoveWorker(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RapporteService_RemoveWorker_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RapporteServiceServer).RemoveWorker(ctx, req.(*RemoveWorkerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RapporteService_ListWorkers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListWorkersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RapporteServiceServer).ListWorkers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RapporteService_ListWorkers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RapporteServiceServer).ListWorkers(ctx, req.(*ListWorkersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RapporteService_CreateMeasurement_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateMeasurementRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RapporteServiceServer).CreateMeasurement(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RapporteService_CreateMeasurement_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RapporteServiceServer).CreateMeasurement(ctx, req.(*CreateMeasurementRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RapporteService_GetMeasurement_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMeasurementRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RapporteServiceServer).GetMeasurement(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RapporteService_GetMeasurement_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RapporteServiceServer).GetMeasurement(ctx, req.(*GetMeasurementRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RapporteService_ListMeasurements_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMeasurementsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RapporteServiceServer).ListMeasurements(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RapporteService_ListMeasurements_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RapporteServiceServer).ListMeasurements(ctx, req.(*ListMeasurementsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RapporteService_UpdateMeasurement_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateMeasurementRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RapporteServiceServer).UpdateMeasurement(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RapporteService_UpdateMeasurement_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RapporteServiceServer).UpdateMeasurement(ctx, req.(*UpdateMeasurementRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RapporteService_DeleteMeasurement_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteMeasurementRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RapporteServiceServer).DeleteMeasurement(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RapporteService_DeleteMeasurement_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RapporteServiceServer).DeleteMeasurement(ctx, req.(*DeleteMeasurementRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RapporteService_AddMeasurementPosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddMeasurementPositionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RapporteServiceServer).AddMeasurementPosition(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RapporteService_AddMeasurementPosition_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RapporteServiceServer).AddMeasurementPosition(ctx, req.(*AddMeasurementPositionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RapporteService_DeleteMeasurementPosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteMeasurementPositionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RapporteServiceServer).DeleteMeasurementPosition(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RapporteService_DeleteMeasurementPosition_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RapporteServiceServer).DeleteMeasurementPosition(ctx, req.(*DeleteMeasurementPositionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RapporteService_CreateTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RapporteServiceServer).CreateTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RapporteService_CreateTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RapporteServiceServer).CreateTemplate(ctx, req.(*CreateTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RapporteService_GetTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RapporteServiceServer).GetTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RapporteService_GetTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RapporteServiceServer).GetTemplate(ctx, req.(*GetTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RapporteService_ListTemplates_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTemplatesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RapporteServiceServer).ListTemplates(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RapporteService_ListTemplates_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RapporteServiceServer).ListTemplates(ctx, req.(*ListTemplatesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RapporteService_UpdateTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RapporteServiceServer).UpdateTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RapporteService_UpdateTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RapporteServiceServer).UpdateTemplate(ctx, req.(*UpdateTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RapporteService_DeleteTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RapporteServiceServer).DeleteTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RapporteService_DeleteTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RapporteServiceServer).DeleteTemplate(ctx, req.(*DeleteTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RapporteService_ServiceDesc is the grpc.ServiceDesc for RapporteService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -810,6 +1326,66 @@ var RapporteService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SaveSignature",
 			Handler:    _RapporteService_SaveSignature_Handler,
+		},
+		{
+			MethodName: "AddWorker",
+			Handler:    _RapporteService_AddWorker_Handler,
+		},
+		{
+			MethodName: "RemoveWorker",
+			Handler:    _RapporteService_RemoveWorker_Handler,
+		},
+		{
+			MethodName: "ListWorkers",
+			Handler:    _RapporteService_ListWorkers_Handler,
+		},
+		{
+			MethodName: "CreateMeasurement",
+			Handler:    _RapporteService_CreateMeasurement_Handler,
+		},
+		{
+			MethodName: "GetMeasurement",
+			Handler:    _RapporteService_GetMeasurement_Handler,
+		},
+		{
+			MethodName: "ListMeasurements",
+			Handler:    _RapporteService_ListMeasurements_Handler,
+		},
+		{
+			MethodName: "UpdateMeasurement",
+			Handler:    _RapporteService_UpdateMeasurement_Handler,
+		},
+		{
+			MethodName: "DeleteMeasurement",
+			Handler:    _RapporteService_DeleteMeasurement_Handler,
+		},
+		{
+			MethodName: "AddMeasurementPosition",
+			Handler:    _RapporteService_AddMeasurementPosition_Handler,
+		},
+		{
+			MethodName: "DeleteMeasurementPosition",
+			Handler:    _RapporteService_DeleteMeasurementPosition_Handler,
+		},
+		{
+			MethodName: "CreateTemplate",
+			Handler:    _RapporteService_CreateTemplate_Handler,
+		},
+		{
+			MethodName: "GetTemplate",
+			Handler:    _RapporteService_GetTemplate_Handler,
+		},
+		{
+			MethodName: "ListTemplates",
+			Handler:    _RapporteService_ListTemplates_Handler,
+		},
+		{
+			MethodName: "UpdateTemplate",
+			Handler:    _RapporteService_UpdateTemplate_Handler,
+		},
+		{
+			MethodName: "DeleteTemplate",
+			Handler:    _RapporteService_DeleteTemplate_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

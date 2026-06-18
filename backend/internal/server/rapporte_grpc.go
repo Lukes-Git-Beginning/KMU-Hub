@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/rapporte"
 	rapportev1 "github.com/kmuhub/kmuhub/proto/rapporte/v1"
 )
@@ -19,12 +20,13 @@ import (
 // RapporteGRPCServer implements the RapporteService gRPC server.
 type RapporteGRPCServer struct {
 	rapportev1.UnimplementedRapporteServiceServer
-	svc *rapporte.Service
+	svc  *rapporte.Service
+	repo rapporte.Repository
 }
 
 // NewRapporteGRPCServer creates a new Rapporte gRPC server.
-func NewRapporteGRPCServer(svc *rapporte.Service) *RapporteGRPCServer {
-	return &RapporteGRPCServer{svc: svc}
+func NewRapporteGRPCServer(svc *rapporte.Service, repo rapporte.Repository) *RapporteGRPCServer {
+	return &RapporteGRPCServer{svc: svc, repo: repo}
 }
 
 // ============================================================================
@@ -32,9 +34,9 @@ func NewRapporteGRPCServer(svc *rapporte.Service) *RapporteGRPCServer {
 // ============================================================================
 
 func (s *RapporteGRPCServer) CreateReport(ctx context.Context, req *rapportev1.CreateReportRequest) (*rapportev1.ReportResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
 	}
 	authorID, err := uuid.Parse(req.GetAuthorId())
 	if err != nil {
@@ -65,9 +67,9 @@ func (s *RapporteGRPCServer) CreateReport(ctx context.Context, req *rapportev1.C
 }
 
 func (s *RapporteGRPCServer) GetReport(ctx context.Context, req *rapportev1.GetReportRequest) (*rapportev1.ReportResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
 	}
 	reportID, err := uuid.Parse(req.GetReportId())
 	if err != nil {
@@ -82,9 +84,9 @@ func (s *RapporteGRPCServer) GetReport(ctx context.Context, req *rapportev1.GetR
 }
 
 func (s *RapporteGRPCServer) UpdateReport(ctx context.Context, req *rapportev1.UpdateReportRequest) (*rapportev1.ReportResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
 	}
 	reportID, err := uuid.Parse(req.GetReportId())
 	if err != nil {
@@ -115,9 +117,9 @@ func (s *RapporteGRPCServer) UpdateReport(ctx context.Context, req *rapportev1.U
 }
 
 func (s *RapporteGRPCServer) DeleteReport(ctx context.Context, req *rapportev1.DeleteReportRequest) (*rapportev1.DeleteReportResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
 	}
 	reportID, err := uuid.Parse(req.GetReportId())
 	if err != nil {
@@ -131,9 +133,9 @@ func (s *RapporteGRPCServer) DeleteReport(ctx context.Context, req *rapportev1.D
 }
 
 func (s *RapporteGRPCServer) ListReports(ctx context.Context, req *rapportev1.ListReportsRequest) (*rapportev1.ListReportsResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
 	}
 
 	input := rapporte.ListReportsInput{
@@ -174,9 +176,9 @@ func (s *RapporteGRPCServer) ListReports(ctx context.Context, req *rapportev1.Li
 // ============================================================================
 
 func (s *RapporteGRPCServer) SubmitReport(ctx context.Context, req *rapportev1.SubmitReportRequest) (*rapportev1.ReportResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
 	}
 	reportID, err := uuid.Parse(req.GetReportId())
 	if err != nil {
@@ -194,9 +196,9 @@ func (s *RapporteGRPCServer) SubmitReport(ctx context.Context, req *rapportev1.S
 }
 
 func (s *RapporteGRPCServer) ApproveReport(ctx context.Context, req *rapportev1.ApproveReportRequest) (*rapportev1.ReportResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
 	}
 	reportID, err := uuid.Parse(req.GetReportId())
 	if err != nil {
@@ -220,9 +222,9 @@ func (s *RapporteGRPCServer) ApproveReport(ctx context.Context, req *rapportev1.
 }
 
 func (s *RapporteGRPCServer) RejectReport(ctx context.Context, req *rapportev1.RejectReportRequest) (*rapportev1.ReportResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
 	}
 	reportID, err := uuid.Parse(req.GetReportId())
 	if err != nil {
@@ -250,9 +252,9 @@ func (s *RapporteGRPCServer) RejectReport(ctx context.Context, req *rapportev1.R
 // ============================================================================
 
 func (s *RapporteGRPCServer) AddLine(ctx context.Context, req *rapportev1.AddLineRequest) (*rapportev1.LineResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
 	}
 	reportID, err := uuid.Parse(req.GetReportId())
 	if err != nil {
@@ -275,9 +277,9 @@ func (s *RapporteGRPCServer) AddLine(ctx context.Context, req *rapportev1.AddLin
 }
 
 func (s *RapporteGRPCServer) UpdateLine(ctx context.Context, req *rapportev1.UpdateLineRequest) (*rapportev1.LineResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
 	}
 	lineID, err := uuid.Parse(req.GetLineId())
 	if err != nil {
@@ -307,9 +309,9 @@ func (s *RapporteGRPCServer) UpdateLine(ctx context.Context, req *rapportev1.Upd
 }
 
 func (s *RapporteGRPCServer) DeleteLine(ctx context.Context, req *rapportev1.DeleteLineRequest) (*rapportev1.DeleteLineResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
 	}
 	lineID, err := uuid.Parse(req.GetLineId())
 	if err != nil {
@@ -323,9 +325,9 @@ func (s *RapporteGRPCServer) DeleteLine(ctx context.Context, req *rapportev1.Del
 }
 
 func (s *RapporteGRPCServer) ListLines(ctx context.Context, req *rapportev1.ListLinesRequest) (*rapportev1.ListLinesResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
 	}
 	reportID, err := uuid.Parse(req.GetReportId())
 	if err != nil {
@@ -349,9 +351,9 @@ func (s *RapporteGRPCServer) ListLines(ctx context.Context, req *rapportev1.List
 // ============================================================================
 
 func (s *RapporteGRPCServer) UploadAttachment(ctx context.Context, req *rapportev1.UploadAttachmentRequest) (*rapportev1.AttachmentResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
 	}
 	reportID, err := uuid.Parse(req.GetReportId())
 	if err != nil {
@@ -387,9 +389,9 @@ func (s *RapporteGRPCServer) UploadAttachment(ctx context.Context, req *rapporte
 }
 
 func (s *RapporteGRPCServer) ListAttachments(ctx context.Context, req *rapportev1.ListAttachmentsRequest) (*rapportev1.ListAttachmentsResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
 	}
 	reportID, err := uuid.Parse(req.GetReportId())
 	if err != nil {
@@ -418,9 +420,9 @@ func (s *RapporteGRPCServer) ListAttachments(ctx context.Context, req *rapportev
 }
 
 func (s *RapporteGRPCServer) DeleteAttachment(ctx context.Context, req *rapportev1.DeleteAttachmentRequest) (*rapportev1.DeleteAttachmentResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
 	}
 	attachmentID, err := uuid.Parse(req.GetAttachmentId())
 	if err != nil {
@@ -438,9 +440,9 @@ func (s *RapporteGRPCServer) DeleteAttachment(ctx context.Context, req *rapporte
 // ============================================================================
 
 func (s *RapporteGRPCServer) SaveSignature(ctx context.Context, req *rapportev1.SaveReportSignatureRequest) (*rapportev1.ReportResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
 	}
 	reportID, err := uuid.Parse(req.GetReportId())
 	if err != nil {
@@ -459,9 +461,9 @@ func (s *RapporteGRPCServer) SaveSignature(ctx context.Context, req *rapportev1.
 // ============================================================================
 
 func (s *RapporteGRPCServer) GetReportStats(ctx context.Context, req *rapportev1.GetReportStatsRequest) (*rapportev1.ReportStatsResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
 	}
 
 	stats, err := s.svc.GetReportStats(ctx, tenantID)
@@ -478,9 +480,9 @@ func (s *RapporteGRPCServer) GetReportStats(ctx context.Context, req *rapportev1
 }
 
 func (s *RapporteGRPCServer) ListPendingApprovals(ctx context.Context, req *rapportev1.ListPendingApprovalsRequest) (*rapportev1.ListReportsResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
 	}
 
 	reports, total, err := s.svc.ListPendingApprovals(ctx, tenantID, int(req.GetPage()), int(req.GetPageSize()))
@@ -499,9 +501,9 @@ func (s *RapporteGRPCServer) ListPendingApprovals(ctx context.Context, req *rapp
 }
 
 func (s *RapporteGRPCServer) ExportPDF(ctx context.Context, req *rapportev1.ExportPDFRequest) (*rapportev1.ExportPDFResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
 	}
 	reportID, err := uuid.Parse(req.GetReportId())
 	if err != nil {
@@ -519,6 +521,304 @@ func (s *RapporteGRPCServer) ExportPDF(ctx context.Context, req *rapportev1.Expo
 		ContentType: "text/plain", // TODO Sprint 3: application/pdf
 		Filename:    filename,
 	}, nil
+}
+
+// ============================================================================
+// Worker RPCs
+// ============================================================================
+
+func (s *RapporteGRPCServer) AddWorker(ctx context.Context, req *rapportev1.AddWorkerRequest) (*rapportev1.AddWorkerResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
+	}
+	reportID, err := uuid.Parse(req.GetReportId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid report_id: %v", err)
+	}
+
+	w, err := s.repo.AddWorker(ctx, tenantID, reportID, req.GetName(), req.GetRole(), req.GetHours())
+	if err != nil {
+		return nil, mapRapporteError(err)
+	}
+	slog.InfoContext(ctx, "worker added", "worker_id", w.ID, "report_id", reportID)
+	return &rapportev1.AddWorkerResponse{Worker: rapporteWorkerToProto(w)}, nil
+}
+
+func (s *RapporteGRPCServer) RemoveWorker(ctx context.Context, req *rapportev1.RemoveWorkerRequest) (*rapportev1.RemoveWorkerResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
+	}
+	workerID, err := uuid.Parse(req.GetWorkerId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid worker_id: %v", err)
+	}
+
+	if err := s.repo.RemoveWorker(ctx, tenantID, workerID); err != nil {
+		return nil, mapRapporteError(err)
+	}
+	return &rapportev1.RemoveWorkerResponse{Success: true}, nil
+}
+
+func (s *RapporteGRPCServer) ListWorkers(ctx context.Context, req *rapportev1.ListWorkersRequest) (*rapportev1.ListWorkersResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
+	}
+	reportID, err := uuid.Parse(req.GetReportId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid report_id: %v", err)
+	}
+
+	workers, err := s.repo.ListWorkers(ctx, tenantID, reportID)
+	if err != nil {
+		return nil, mapRapporteError(err)
+	}
+
+	protoWorkers := make([]*rapportev1.Worker, len(workers))
+	for i, w := range workers {
+		wCopy := w
+		protoWorkers[i] = rapporteWorkerToProto(&wCopy)
+	}
+	return &rapportev1.ListWorkersResponse{Workers: protoWorkers}, nil
+}
+
+// ============================================================================
+// Measurement RPCs
+// ============================================================================
+
+func (s *RapporteGRPCServer) CreateMeasurement(ctx context.Context, req *rapportev1.CreateMeasurementRequest) (*rapportev1.CreateMeasurementResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
+	}
+
+	var reportID *uuid.UUID
+	if rid := req.GetReportId(); rid != "" {
+		parsed, parseErr := uuid.Parse(rid)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid report_id: %v", parseErr)
+		}
+		reportID = &parsed
+	}
+
+	m, err := s.repo.CreateMeasurement(ctx, tenantID, reportID,
+		req.GetTitle(), req.GetLocation(), req.GetMeasuredBy(), req.GetMeasuredAt(), req.GetNotes())
+	if err != nil {
+		return nil, mapRapporteError(err)
+	}
+	slog.InfoContext(ctx, "measurement created", "measurement_id", m.ID, "tenant_id", tenantID)
+	return &rapportev1.CreateMeasurementResponse{Measurement: rapporteMeasurementToProto(m)}, nil
+}
+
+func (s *RapporteGRPCServer) GetMeasurement(ctx context.Context, req *rapportev1.GetMeasurementRequest) (*rapportev1.GetMeasurementResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
+	}
+	measurementID, err := uuid.Parse(req.GetMeasurementId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid measurement_id: %v", err)
+	}
+
+	m, err := s.repo.GetMeasurement(ctx, tenantID, measurementID)
+	if err != nil {
+		return nil, mapRapporteError(err)
+	}
+	return &rapportev1.GetMeasurementResponse{Measurement: rapporteMeasurementToProto(m)}, nil
+}
+
+func (s *RapporteGRPCServer) ListMeasurements(ctx context.Context, req *rapportev1.ListMeasurementsRequest) (*rapportev1.ListMeasurementsResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
+	}
+
+	var reportID *uuid.UUID
+	if rid := req.GetReportId(); rid != "" {
+		parsed, parseErr := uuid.Parse(rid)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid report_id: %v", parseErr)
+		}
+		reportID = &parsed
+	}
+
+	measurements, total, err := s.repo.ListMeasurements(ctx, tenantID, reportID, int(req.GetPage()), int(req.GetPageSize()))
+	if err != nil {
+		return nil, mapRapporteError(err)
+	}
+
+	protoMeasurements := make([]*rapportev1.Measurement, len(measurements))
+	for i, m := range measurements {
+		mCopy := m
+		protoMeasurements[i] = rapporteMeasurementToProto(&mCopy)
+	}
+	return &rapportev1.ListMeasurementsResponse{
+		Measurements: protoMeasurements,
+		Total:        int32(total),
+	}, nil
+}
+
+func (s *RapporteGRPCServer) UpdateMeasurement(ctx context.Context, req *rapportev1.UpdateMeasurementRequest) (*rapportev1.UpdateMeasurementResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
+	}
+	measurementID, err := uuid.Parse(req.GetMeasurementId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid measurement_id: %v", err)
+	}
+
+	m, err := s.repo.UpdateMeasurement(ctx, tenantID, measurementID,
+		req.GetTitle(), req.GetLocation(), req.GetMeasuredBy(), req.GetMeasuredAt(), req.GetNotes())
+	if err != nil {
+		return nil, mapRapporteError(err)
+	}
+	return &rapportev1.UpdateMeasurementResponse{Measurement: rapporteMeasurementToProto(m)}, nil
+}
+
+func (s *RapporteGRPCServer) DeleteMeasurement(ctx context.Context, req *rapportev1.DeleteMeasurementRequest) (*rapportev1.DeleteMeasurementResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
+	}
+	measurementID, err := uuid.Parse(req.GetMeasurementId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid measurement_id: %v", err)
+	}
+
+	if err := s.repo.DeleteMeasurement(ctx, tenantID, measurementID); err != nil {
+		return nil, mapRapporteError(err)
+	}
+	return &rapportev1.DeleteMeasurementResponse{Success: true}, nil
+}
+
+func (s *RapporteGRPCServer) AddMeasurementPosition(ctx context.Context, req *rapportev1.AddMeasurementPositionRequest) (*rapportev1.AddMeasurementPositionResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
+	}
+	measurementID, err := uuid.Parse(req.GetMeasurementId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid measurement_id: %v", err)
+	}
+
+	p, err := s.repo.AddMeasurementPosition(ctx, tenantID, measurementID,
+		int(req.GetPositionNumber()), req.GetDescription(), req.GetUnit(),
+		req.GetQuantity(), req.GetUnitPrice())
+	if err != nil {
+		return nil, mapRapporteError(err)
+	}
+	return &rapportev1.AddMeasurementPositionResponse{Position: rapportePositionToProto(p)}, nil
+}
+
+func (s *RapporteGRPCServer) DeleteMeasurementPosition(ctx context.Context, req *rapportev1.DeleteMeasurementPositionRequest) (*rapportev1.DeleteMeasurementPositionResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
+	}
+	positionID, err := uuid.Parse(req.GetPositionId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid position_id: %v", err)
+	}
+
+	if err := s.repo.DeleteMeasurementPosition(ctx, tenantID, positionID); err != nil {
+		return nil, mapRapporteError(err)
+	}
+	return &rapportev1.DeleteMeasurementPositionResponse{Success: true}, nil
+}
+
+// ============================================================================
+// Template RPCs
+// ============================================================================
+
+func (s *RapporteGRPCServer) CreateTemplate(ctx context.Context, req *rapportev1.CreateTemplateRequest) (*rapportev1.CreateTemplateResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
+	}
+
+	t, err := s.repo.CreateTemplate(ctx, tenantID,
+		req.GetName(), req.GetDescription(), req.GetCategory(), req.GetDefaultLinesJson())
+	if err != nil {
+		return nil, mapRapporteError(err)
+	}
+	slog.InfoContext(ctx, "template created", "template_id", t.ID, "tenant_id", tenantID)
+	return &rapportev1.CreateTemplateResponse{Template: rapporteTemplateToProto(t)}, nil
+}
+
+func (s *RapporteGRPCServer) GetTemplate(ctx context.Context, req *rapportev1.GetTemplateRequest) (*rapportev1.GetTemplateResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
+	}
+	templateID, err := uuid.Parse(req.GetTemplateId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid template_id: %v", err)
+	}
+
+	t, err := s.repo.GetTemplate(ctx, tenantID, templateID)
+	if err != nil {
+		return nil, mapRapporteError(err)
+	}
+	return &rapportev1.GetTemplateResponse{Template: rapporteTemplateToProto(t)}, nil
+}
+
+func (s *RapporteGRPCServer) ListTemplates(ctx context.Context, req *rapportev1.ListTemplatesRequest) (*rapportev1.ListTemplatesResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
+	}
+
+	templates, total, err := s.repo.ListTemplates(ctx, tenantID, req.GetActiveOnly(), int(req.GetPage()), int(req.GetPageSize()))
+	if err != nil {
+		return nil, mapRapporteError(err)
+	}
+
+	protoTemplates := make([]*rapportev1.ReportTemplate, len(templates))
+	for i, t := range templates {
+		tCopy := t
+		protoTemplates[i] = rapporteTemplateToProto(&tCopy)
+	}
+	return &rapportev1.ListTemplatesResponse{
+		Templates: protoTemplates,
+		Total:     int32(total),
+	}, nil
+}
+
+func (s *RapporteGRPCServer) UpdateTemplate(ctx context.Context, req *rapportev1.UpdateTemplateRequest) (*rapportev1.UpdateTemplateResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
+	}
+	templateID, err := uuid.Parse(req.GetTemplateId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid template_id: %v", err)
+	}
+
+	t, err := s.repo.UpdateTemplate(ctx, tenantID, templateID,
+		req.GetName(), req.GetDescription(), req.GetCategory(), req.GetDefaultLinesJson(), req.GetIsActive())
+	if err != nil {
+		return nil, mapRapporteError(err)
+	}
+	return &rapportev1.UpdateTemplateResponse{Template: rapporteTemplateToProto(t)}, nil
+}
+
+func (s *RapporteGRPCServer) DeleteTemplate(ctx context.Context, req *rapportev1.DeleteTemplateRequest) (*rapportev1.DeleteTemplateResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
+	}
+	templateID, err := uuid.Parse(req.GetTemplateId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid template_id: %v", err)
+	}
+
+	if err := s.repo.DeleteTemplate(ctx, tenantID, templateID); err != nil {
+		return nil, mapRapporteError(err)
+	}
+	return &rapportev1.DeleteTemplateResponse{Success: true}, nil
 }
 
 // ============================================================================
@@ -554,6 +854,44 @@ func rapporteReportToProto(r *rapporte.WorkReport) *rapportev1.WorkReport {
 	if r.Lon != nil {
 		proto.Lon = r.Lon
 	}
+	// Signature fields (fix: was missing in original)
+	if r.SignatureData != nil {
+		proto.SignatureData = *r.SignatureData
+	}
+	if r.SignedAt != nil {
+		proto.SignedAt = timestamppb.New(*r.SignedAt)
+	}
+	if r.SignedBy != nil {
+		proto.SignedBy = *r.SignedBy
+	}
+	// Extended fields
+	if r.Weather != nil {
+		proto.Weather = *r.Weather
+	}
+	if r.Temperature != nil {
+		proto.Temperature = *r.Temperature
+	}
+	if r.WorkStart != nil {
+		proto.WorkStart = *r.WorkStart
+	}
+	if r.WorkEnd != nil {
+		proto.WorkEnd = *r.WorkEnd
+	}
+	if r.BreakMinutes != nil {
+		proto.BreakMinutes = int32(*r.BreakMinutes)
+	}
+	if r.ProjectName != nil {
+		proto.ProjectName = *r.ProjectName
+	}
+	// Workers
+	if len(r.Workers) > 0 {
+		protoWorkers := make([]*rapportev1.Worker, len(r.Workers))
+		for i, w := range r.Workers {
+			wCopy := w
+			protoWorkers[i] = rapporteWorkerToProto(&wCopy)
+		}
+		proto.Workers = protoWorkers
+	}
 	return proto
 }
 
@@ -561,7 +899,7 @@ func rapporteLineToProto(l *rapporte.ReportLine) *rapportev1.ReportLine {
 	if l == nil {
 		return nil
 	}
-	return &rapportev1.ReportLine{
+	proto := &rapportev1.ReportLine{
 		Id:          l.ID.String(),
 		TenantId:    l.TenantID.String(),
 		ReportId:    l.ReportID.String(),
@@ -573,6 +911,13 @@ func rapporteLineToProto(l *rapporte.ReportLine) *rapportev1.ReportLine {
 		CreatedAt:   timestamppb.New(l.CreatedAt),
 		UpdatedAt:   timestamppb.New(l.UpdatedAt),
 	}
+	if l.Category != nil {
+		proto.Category = *l.Category
+	}
+	if l.Article != nil {
+		proto.Article = *l.Article
+	}
+	return proto
 }
 
 func rapporteAttachmentToProto(a *rapporte.ReportAttachment) *rapportev1.ReportAttachment {
@@ -598,6 +943,84 @@ func rapporteAttachmentToProto(a *rapporte.ReportAttachment) *rapportev1.ReportA
 	return proto
 }
 
+func rapporteWorkerToProto(w *rapporte.Worker) *rapportev1.Worker {
+	if w == nil {
+		return nil
+	}
+	return &rapportev1.Worker{
+		Id:        w.ID.String(),
+		TenantId:  w.TenantID.String(),
+		ReportId:  w.ReportID.String(),
+		Name:      w.Name,
+		Role:      w.Role.String,
+		Hours:     w.Hours.Float64,
+		CreatedAt: w.CreatedAt.Format(time.RFC3339),
+	}
+}
+
+func rapporteMeasurementToProto(m *rapporte.Measurement) *rapportev1.Measurement {
+	if m == nil {
+		return nil
+	}
+	proto := &rapportev1.Measurement{
+		Id:        m.ID.String(),
+		TenantId:  m.TenantID.String(),
+		Title:     m.Title,
+		Location:  m.Location.String,
+		MeasuredBy: m.MeasuredBy.String,
+		MeasuredAt: m.MeasuredAt.String,
+		Notes:     m.Notes.String,
+		CreatedAt: m.CreatedAt.Format(time.RFC3339),
+		UpdatedAt: m.UpdatedAt.Format(time.RFC3339),
+	}
+	if m.ReportID != nil {
+		proto.ReportId = m.ReportID.String()
+	}
+	if len(m.Positions) > 0 {
+		protoPositions := make([]*rapportev1.MeasurementPosition, len(m.Positions))
+		for i, p := range m.Positions {
+			pCopy := p
+			protoPositions[i] = rapportePositionToProto(&pCopy)
+		}
+		proto.Positions = protoPositions
+	}
+	return proto
+}
+
+func rapportePositionToProto(p *rapporte.MeasurementPosition) *rapportev1.MeasurementPosition {
+	if p == nil {
+		return nil
+	}
+	return &rapportev1.MeasurementPosition{
+		Id:             p.ID.String(),
+		TenantId:       p.TenantID.String(),
+		MeasurementId:  p.MeasurementID.String(),
+		PositionNumber: int32(p.PositionNumber),
+		Description:    p.Description,
+		Unit:           p.Unit.String,
+		Quantity:       p.Quantity.Float64,
+		UnitPrice:      p.UnitPrice.Float64,
+		CreatedAt:      p.CreatedAt.Format(time.RFC3339),
+	}
+}
+
+func rapporteTemplateToProto(t *rapporte.ReportTemplate) *rapportev1.ReportTemplate {
+	if t == nil {
+		return nil
+	}
+	return &rapportev1.ReportTemplate{
+		Id:              t.ID.String(),
+		TenantId:        t.TenantID.String(),
+		Name:            t.Name,
+		Description:     t.Description.String,
+		Category:        t.Category.String,
+		DefaultLinesJson: t.DefaultLinesJSON.String,
+		IsActive:        t.IsActive,
+		CreatedAt:       t.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:       t.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
 // ============================================================================
 // Error mapping
 // ============================================================================
@@ -612,6 +1035,14 @@ func mapRapporteError(err error) error {
 	case errors.Is(err, rapporte.ErrLineNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, rapporte.ErrAttachmentNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, rapporte.ErrWorkerNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, rapporte.ErrMeasurementNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, rapporte.ErrPositionNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, rapporte.ErrTemplateNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, rapporte.ErrAlreadyApproved):
 		return status.Error(codes.FailedPrecondition, err.Error())

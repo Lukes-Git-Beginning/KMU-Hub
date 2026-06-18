@@ -57,7 +57,7 @@ func main() {
 		),
 	)
 
-	rapporteGRPC := server.NewRapporteGRPCServer(rapporteService)
+	rapporteGRPC := server.NewRapporteGRPCServer(rapporteService, repo)
 	rapportev1.RegisterRapporteServiceServer(grpcServer, rapporteGRPC)
 
 	metricsRegistry.InitializeGRPCMetrics(grpcServer)
