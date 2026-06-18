@@ -111,6 +111,28 @@ tags:
     description: Automation workflow management (CRUD, enable/disable, execution logs, templates, catalog, testing)
   - name: public-booking
     description: Public booking pages and slot reservation (unauthenticated)
+  - name: helpdesk-tickets
+    description: Helpdesk ticket management (create, update, close, reopen, assign, merge)
+  - name: helpdesk-messages
+    description: Helpdesk ticket messages (agent and customer replies)
+  - name: helpdesk-queues
+    description: Helpdesk queue management
+  - name: helpdesk-canned-responses
+    description: Helpdesk canned (template) responses
+  - name: helpdesk-sla
+    description: Helpdesk SLA policy management and ticket SLA status
+  - name: wiki-articles
+    description: Wiki article management (CRUD, versions, attachments, search)
+  - name: wiki-categories
+    description: Wiki category management
+  - name: schichten
+    description: Shift planning (shifts, assignments, templates, compliance, swap requests)
+  - name: produktion
+    description: Production order and machine booking management
+  - name: fuhrpark
+    description: Fleet vehicle management (vehicles, services, damages, fuel logs, trip logs, GPS)
+  - name: einkauf
+    description: Purchasing management (suppliers, purchase orders, lines)
 
 paths:
   /health:
@@ -10485,6 +10507,2713 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  # ===========================================================================
+  # Helpdesk
+  # ===========================================================================
+
+  /api/v1/helpdesk/tickets:
+    get:
+      summary: List helpdesk tickets
+      tags: [helpdesk-tickets]
+      operationId: listHelpdeskTickets
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [open, pending, closed, resolved] } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        "200":
+          description: Paginated ticket list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Create a helpdesk ticket
+      tags: [helpdesk-tickets]
+      operationId: createHelpdeskTicket
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subject]
+              properties:
+                subject: { type: string, maxLength: 200 }
+                priority: { type: string, enum: [low, normal, high, urgent] }
+                assignee_id: { type: string, format: uuid }
+                queue_id: { type: string, format: uuid }
+      responses:
+        "201":
+          description: Ticket created
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/helpdesk/tickets/{id}:
+    get:
+      summary: Get a helpdesk ticket by ID
+      tags: [helpdesk-tickets]
+      operationId: getHelpdeskTicket
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Ticket
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      summary: Update a helpdesk ticket
+      tags: [helpdesk-tickets]
+      operationId: updateHelpdeskTicket
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                subject: { type: string, maxLength: 200 }
+                priority: { type: string, enum: [low, normal, high, urgent] }
+                assignee_id: { type: string, format: uuid }
+                queue_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Ticket updated
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/helpdesk/tickets/{id}/close:
+    post:
+      summary: Close a helpdesk ticket
+      tags: [helpdesk-tickets]
+      operationId: closeHelpdeskTicket
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Ticket closed
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/helpdesk/tickets/{id}/reopen:
+    post:
+      summary: Reopen a closed helpdesk ticket
+      tags: [helpdesk-tickets]
+      operationId: reopenHelpdeskTicket
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Ticket reopened
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/helpdesk/tickets/{id}/assign:
+    post:
+      summary: Assign a helpdesk ticket to an agent
+      tags: [helpdesk-tickets]
+      operationId: assignHelpdeskTicket
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assignee_id]
+              properties:
+                assignee_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Ticket assigned
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/helpdesk/tickets/{id}/merge:
+    post:
+      summary: Merge a ticket into another ticket
+      tags: [helpdesk-tickets]
+      operationId: mergeHelpdeskTickets
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid }, description: Source ticket ID }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target_ticket_id]
+              properties:
+                target_ticket_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Tickets merged
+          content:
+            application/json:
+              schema: { type: object, properties: { status: { type: string } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/helpdesk/tickets/{id}/messages:
+    get:
+      summary: List messages on a helpdesk ticket
+      tags: [helpdesk-messages]
+      operationId: listHelpdeskMessages
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Message list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      summary: Add a message to a helpdesk ticket
+      tags: [helpdesk-messages]
+      operationId: addHelpdeskMessage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string }
+                internal: { type: boolean, description: Internal note (not visible to requester) }
+                attachments: { type: array, items: { type: string } }
+      responses:
+        "201":
+          description: Message added
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/helpdesk/queues:
+    get:
+      summary: List helpdesk queues
+      tags: [helpdesk-queues]
+      operationId: listHelpdeskQueues
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Queue list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Create a helpdesk queue
+      tags: [helpdesk-queues]
+      operationId: createHelpdeskQueue
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                default_assignee_id: { type: string, format: uuid }
+                sla_policy_id: { type: string, format: uuid }
+      responses:
+        "201":
+          description: Queue created
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/helpdesk/queues/{id}:
+    put:
+      summary: Update a helpdesk queue
+      tags: [helpdesk-queues]
+      operationId: updateHelpdeskQueue
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                default_assignee_id: { type: string, format: uuid }
+                sla_policy_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Queue updated
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a helpdesk queue
+      tags: [helpdesk-queues]
+      operationId: deleteHelpdeskQueue
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Queue deleted
+          content:
+            application/json:
+              schema: { type: object, properties: { status: { type: string } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/helpdesk/canned-responses:
+    get:
+      summary: List canned (template) responses
+      tags: [helpdesk-canned-responses]
+      operationId: listCannedResponses
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Canned response list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Create a canned response
+      tags: [helpdesk-canned-responses]
+      operationId: createCannedResponse
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, body]
+              properties:
+                name: { type: string }
+                body: { type: string }
+      responses:
+        "201":
+          description: Canned response created
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/helpdesk/canned-responses/{id}:
+    put:
+      summary: Update a canned response
+      tags: [helpdesk-canned-responses]
+      operationId: updateCannedResponse
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                body: { type: string }
+      responses:
+        "200":
+          description: Canned response updated
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a canned response
+      tags: [helpdesk-canned-responses]
+      operationId: deleteCannedResponse
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Canned response deleted
+          content:
+            application/json:
+              schema: { type: object, properties: { status: { type: string } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/helpdesk/sla-policies:
+    get:
+      summary: List SLA policies
+      tags: [helpdesk-sla]
+      operationId: listSLAPolicies
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: SLA policy list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Create an SLA policy
+      tags: [helpdesk-sla]
+      operationId: createSLAPolicy
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                first_response_mins: { type: integer, description: Minutes until first response }
+                resolution_mins: { type: integer, description: Minutes until resolution }
+                business_hours: { type: string }
+      responses:
+        "201":
+          description: SLA policy created
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/helpdesk/sla-policies/{id}:
+    put:
+      summary: Update an SLA policy
+      tags: [helpdesk-sla]
+      operationId: updateSLAPolicy
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                first_response_mins: { type: integer }
+                resolution_mins: { type: integer }
+                business_hours: { type: string }
+      responses:
+        "200":
+          description: SLA policy updated
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/helpdesk/tickets/{id}/sla:
+    post:
+      summary: Apply an SLA policy to a ticket
+      tags: [helpdesk-sla]
+      operationId: applySLAPolicy
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sla_policy_id]
+              properties:
+                sla_policy_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: SLA applied
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/helpdesk/tickets/{id}/sla-status:
+    get:
+      summary: Get SLA status for a ticket
+      tags: [helpdesk-sla]
+      operationId: getHelpdeskSLAStatus
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: sla_policy_id, in: query, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: SLA status
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ===========================================================================
+  # Wiki
+  # ===========================================================================
+
+  /api/v1/wiki/articles:
+    get:
+      summary: List wiki articles
+      tags: [wiki-articles]
+      operationId: listWikiArticles
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: search, in: query, schema: { type: string } }
+        - { name: category_id, in: query, schema: { type: string, format: uuid } }
+        - { name: author_id, in: query, schema: { type: string, format: uuid } }
+        - { name: published, in: query, schema: { type: boolean } }
+        - { name: sort_by, in: query, schema: { type: string } }
+        - { name: sort_desc, in: query, schema: { type: boolean } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        "200":
+          description: Paginated article list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Create a wiki article
+      tags: [wiki-articles]
+      operationId: createWikiArticle
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string }
+                slug: { type: string }
+                content: { type: string, format: byte }
+                category_id: { type: string, format: uuid }
+                published: { type: boolean }
+      responses:
+        "201":
+          description: Article created
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/wiki/articles/{id}:
+    get:
+      summary: Get a wiki article
+      tags: [wiki-articles]
+      operationId: getWikiArticle
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Article
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Update a wiki article
+      tags: [wiki-articles]
+      operationId: updateWikiArticle
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                slug: { type: string }
+                content: { type: string, format: byte }
+                category_id: { type: string, format: uuid }
+                published: { type: boolean }
+      responses:
+        "200":
+          description: Article updated
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a wiki article
+      tags: [wiki-articles]
+      operationId: deleteWikiArticle
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/wiki/articles/{id}/versions:
+    get:
+      summary: List versions of a wiki article
+      tags: [wiki-articles]
+      operationId: listWikiArticleVersions
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Version list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/wiki/articles/{id}/versions/{versionId}/restore:
+    post:
+      summary: Restore a previous version of a wiki article
+      tags: [wiki-articles]
+      operationId: restoreWikiArticleVersion
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: versionId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Article restored to version
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/wiki/articles/{id}/attachments:
+    get:
+      summary: List attachments of a wiki article
+      tags: [wiki-articles]
+      operationId: listWikiArticleAttachments
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Attachment list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Upload an attachment to a wiki article
+      tags: [wiki-articles]
+      operationId: uploadWikiArticleAttachment
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [file_ref]
+              properties:
+                file_ref: { type: string }
+                mime: { type: string }
+                size: { type: integer, format: int64 }
+      responses:
+        "201":
+          description: Attachment uploaded
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/wiki/articles/{id}/attachments/{attachmentId}:
+    delete:
+      summary: Delete a wiki article attachment
+      tags: [wiki-articles]
+      operationId: deleteWikiArticleAttachment
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: attachmentId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Attachment deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/wiki/search:
+    get:
+      summary: Full-text search across wiki articles
+      tags: [wiki-articles]
+      operationId: searchWikiArticles
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/wiki/categories:
+    get:
+      summary: List wiki categories
+      tags: [wiki-categories]
+      operationId: listWikiCategories
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Category list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Create a wiki category
+      tags: [wiki-categories]
+      operationId: createWikiCategory
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                parent_id: { type: string, format: uuid }
+                position: { type: integer }
+      responses:
+        "201":
+          description: Category created
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ===========================================================================
+  # Schichten (Shift Planning)
+  # ===========================================================================
+
+  /api/v1/schichten/shifts:
+    get:
+      summary: List shifts
+      tags: [schichten]
+      operationId: listShifts
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Paginated shift list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Create a shift
+      tags: [schichten]
+      operationId: createShift
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, start_time, end_time]
+              properties:
+                title: { type: string }
+                description: { type: string }
+                start_time: { type: string, format: date-time }
+                end_time: { type: string, format: date-time }
+                location: { type: string }
+                created_by: { type: string, format: uuid }
+      responses:
+        "201":
+          description: Shift created
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/schichten/shifts/publish:
+    post:
+      summary: Publish shifts for a time range
+      tags: [schichten]
+      operationId: publishShifts
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [from, to]
+              properties:
+                from: { type: string, format: date-time }
+                to: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Shifts published
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/schichten/shifts/{id}:
+    get:
+      summary: Get a shift by ID
+      tags: [schichten]
+      operationId: getShift
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Shift
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Update a shift
+      tags: [schichten]
+      operationId: updateShift
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                description: { type: string }
+                start_time: { type: string, format: date-time }
+                end_time: { type: string, format: date-time }
+                location: { type: string }
+      responses:
+        "200":
+          description: Shift updated
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a shift
+      tags: [schichten]
+      operationId: deleteShift
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/schichten/shifts/{id}/assignments:
+    get:
+      summary: List employee assignments for a shift
+      tags: [schichten]
+      operationId: listShiftAssignments
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Assignment list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Assign an employee to a shift
+      tags: [schichten]
+      operationId: assignEmployeeToShift
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [employee_id]
+              properties:
+                employee_id: { type: string, format: uuid }
+                assigned_by: { type: string, format: uuid }
+      responses:
+        "201":
+          description: Employee assigned
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/schichten/shifts/{id}/assignments/{employee_id}:
+    delete:
+      summary: Unassign an employee from a shift
+      tags: [schichten]
+      operationId: unassignEmployeeFromShift
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: employee_id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Unassigned
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/schichten/templates:
+    get:
+      summary: List shift templates
+      tags: [schichten]
+      operationId: listShiftTemplates
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Template list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Create a shift template
+      tags: [schichten]
+      operationId: createShiftTemplate
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, day_of_week, duration_minutes]
+              properties:
+                name: { type: string }
+                description: { type: string }
+                day_of_week: { type: integer, minimum: 0, maximum: 6 }
+                start_hour: { type: integer, minimum: 0, maximum: 23 }
+                start_minute: { type: integer, minimum: 0, maximum: 59 }
+                duration_minutes: { type: integer, minimum: 1 }
+                location: { type: string }
+      responses:
+        "201":
+          description: Template created
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/schichten/templates/{id}:
+    patch:
+      summary: Update a shift template
+      tags: [schichten]
+      operationId: updateShiftTemplate
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                description: { type: string }
+                day_of_week: { type: integer }
+                start_hour: { type: integer }
+                start_minute: { type: integer }
+                duration_minutes: { type: integer }
+                location: { type: string }
+      responses:
+        "200":
+          description: Template updated
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a shift template
+      tags: [schichten]
+      operationId: deleteShiftTemplate
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/schichten/templates/{id}/apply:
+    post:
+      summary: Apply a shift template to a date range
+      tags: [schichten]
+      operationId: applyShiftTemplate
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [range_start, range_end]
+              properties:
+                range_start: { type: string, format: date-time }
+                range_end: { type: string, format: date-time }
+                created_by: { type: string, format: uuid }
+      responses:
+        "201":
+          description: Shifts created from template
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/schichten/compliance:
+    get:
+      summary: Check ArbZG compliance for a planned shift
+      tags: [schichten]
+      operationId: checkArbzgCompliance
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: employee_id, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: new_shift_start, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: new_shift_end, in: query, required: true, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: Compliance check result
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/schichten/stats:
+    get:
+      summary: Get shift planning statistics
+      tags: [schichten]
+      operationId: getShiftStats
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Shift statistics
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/schichten/swap-requests:
+    get:
+      summary: List shift swap requests
+      tags: [schichten]
+      operationId: listSwapRequests
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: shift_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Swap request list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Create a shift swap request
+      tags: [schichten]
+      operationId: createSwapRequest
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assignment_id, shift_id, requested_by_employee_id, swap_with_employee_id]
+              properties:
+                assignment_id: { type: string, format: uuid }
+                shift_id: { type: string, format: uuid }
+                requested_by_employee_id: { type: string, format: uuid }
+                swap_with_employee_id: { type: string, format: uuid }
+                reason: { type: string }
+      responses:
+        "201":
+          description: Swap request created
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/schichten/swap-requests/{id}/approve:
+    post:
+      summary: Approve a shift swap request
+      tags: [schichten]
+      operationId: approveSwapRequest
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Swap request approved
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/schichten/swap-requests/{id}/reject:
+    post:
+      summary: Reject a shift swap request
+      tags: [schichten]
+      operationId: rejectSwapRequest
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Swap request rejected
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ===========================================================================
+  # Produktion (Production)
+  # ===========================================================================
+
+  /api/v1/produktion/orders:
+    get:
+      summary: List production orders
+      tags: [produktion]
+      operationId: listProductionOrders
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { type: string } }
+        - { name: priority, in: query, schema: { type: integer } }
+        - { name: date_from, in: query, schema: { type: string, format: date-time } }
+        - { name: date_to, in: query, schema: { type: string, format: date-time } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        "200":
+          description: Paginated order list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Create a production order
+      tags: [produktion]
+      operationId: createProductionOrder
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [order_number, product_name, quantity, planned_start, planned_end]
+              properties:
+                order_number: { type: string }
+                product_name: { type: string }
+                quantity: { type: integer, minimum: 1 }
+                planned_start: { type: string, format: date-time }
+                planned_end: { type: string, format: date-time }
+                priority: { type: integer }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Order created
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/produktion/orders/{id}:
+    get:
+      summary: Get a production order
+      tags: [produktion]
+      operationId: getProductionOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Production order
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Update a production order
+      tags: [produktion]
+      operationId: updateProductionOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                product_name: { type: string }
+                quantity: { type: integer }
+                planned_start: { type: string, format: date-time }
+                planned_end: { type: string, format: date-time }
+                priority: { type: integer }
+                notes: { type: string }
+      responses:
+        "200":
+          description: Order updated
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a production order
+      tags: [produktion]
+      operationId: deleteProductionOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/produktion/orders/{id}/start:
+    post:
+      summary: Start production on an order
+      tags: [produktion]
+      operationId: startProductionOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Order started
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/produktion/orders/{id}/complete:
+    post:
+      summary: Complete a production order
+      tags: [produktion]
+      operationId: completeProductionOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Order completed
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/produktion/orders/{id}/cancel:
+    post:
+      summary: Cancel a production order
+      tags: [produktion]
+      operationId: cancelProductionOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Order cancelled
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/produktion/bookings:
+    get:
+      summary: List machine bookings
+      tags: [produktion]
+      operationId: listMachineBookings
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: machine_id, in: query, schema: { type: string, format: uuid } }
+        - { name: production_order_id, in: query, schema: { type: string, format: uuid } }
+        - { name: date_from, in: query, schema: { type: string, format: date-time } }
+        - { name: date_to, in: query, schema: { type: string, format: date-time } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        "200":
+          description: Machine booking list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Create a machine booking
+      tags: [produktion]
+      operationId: createMachineBooking
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [machine_id, production_order_id, starts_at, ends_at]
+              properties:
+                machine_id: { type: string, format: uuid }
+                production_order_id: { type: string, format: uuid }
+                starts_at: { type: string, format: date-time }
+                ends_at: { type: string, format: date-time }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Booking created
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/produktion/bookings/{id}:
+    patch:
+      summary: Update a machine booking
+      tags: [produktion]
+      operationId: updateMachineBooking
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                machine_id: { type: string, format: uuid }
+                production_order_id: { type: string, format: uuid }
+                starts_at: { type: string, format: date-time }
+                ends_at: { type: string, format: date-time }
+                notes: { type: string }
+      responses:
+        "200":
+          description: Booking updated
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a machine booking
+      tags: [produktion]
+      operationId: deleteMachineBooking
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/produktion/plans:
+    post:
+      summary: Create a production plan
+      tags: [produktion]
+      operationId: createProductionPlan
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, total_capacity_hours]
+              properties:
+                name: { type: string }
+                week_number: { type: integer }
+                year: { type: integer }
+                total_capacity_hours: { type: number, format: float }
+                planned_capacity_hours: { type: number, format: float }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Plan created
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/produktion/plans/{id}:
+    get:
+      summary: Get a production plan
+      tags: [produktion]
+      operationId: getProductionPlan
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Production plan
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Update a production plan
+      tags: [produktion]
+      operationId: updateProductionPlan
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                week_number: { type: integer }
+                year: { type: integer }
+                total_capacity_hours: { type: number, format: float }
+                planned_capacity_hours: { type: number, format: float }
+                status: { type: string }
+                notes: { type: string }
+      responses:
+        "200":
+          description: Plan updated
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/produktion/plans/{id}/capacity:
+    get:
+      summary: Get capacity overview for a production plan and machine
+      tags: [produktion]
+      operationId: getProductionCapacityOverview
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: machine_id, in: query, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Capacity overview
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ===========================================================================
+  # Fuhrpark (Fleet Management)
+  # ===========================================================================
+
+  /api/v1/fuhrpark/vehicles:
+    get:
+      summary: List fleet vehicles
+      tags: [fuhrpark]
+      operationId: listVehicles
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: search, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: fuel_type, in: query, schema: { type: string, enum: [petrol, diesel, electric, hybrid, other] } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Paginated vehicle list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Create (register) a vehicle
+      tags: [fuhrpark]
+      operationId: createVehicle
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [license_plate, make, model]
+              properties:
+                license_plate: { type: string }
+                make: { type: string }
+                model: { type: string }
+                year: { type: integer }
+                vin: { type: string }
+                color: { type: string }
+                fuel_type: { type: string, enum: [petrol, diesel, electric, hybrid, other] }
+                mileage_km: { type: integer, format: int64 }
+                tuev_due_date: { type: string }
+                assigned_driver_id: { type: string, format: uuid }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Vehicle created
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/fuhrpark/vehicles/{id}:
+    get:
+      summary: Get a vehicle by ID
+      tags: [fuhrpark]
+      operationId: getVehicle
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Vehicle
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Update a vehicle
+      tags: [fuhrpark]
+      operationId: updateVehicle
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                license_plate: { type: string }
+                make: { type: string }
+                model: { type: string }
+                year: { type: integer }
+                vin: { type: string }
+                color: { type: string }
+                fuel_type: { type: string }
+                status: { type: string }
+                mileage_km: { type: integer, format: int64 }
+                tuev_due_date: { type: string }
+                assigned_driver_id: { type: string, format: uuid }
+                notes: { type: string }
+      responses:
+        "200":
+          description: Vehicle updated
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a vehicle
+      tags: [fuhrpark]
+      operationId: deleteVehicle
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/fuhrpark/vehicles/{id}/history:
+    get:
+      summary: Get event history for a vehicle
+      tags: [fuhrpark]
+      operationId: getVehicleHistory
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Vehicle history
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/fuhrpark/vehicles/{id}/services:
+    get:
+      summary: List services for a vehicle
+      tags: [fuhrpark]
+      operationId: listVehicleServices
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Service list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Schedule a service for a vehicle
+      tags: [fuhrpark]
+      operationId: scheduleVehicleService
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [service_type, scheduled_at]
+              properties:
+                service_type: { type: string }
+                description: { type: string }
+                scheduled_at: { type: string }
+                cost_cents: { type: integer, format: int64 }
+                workshop: { type: string }
+                mileage_km: { type: integer, format: int64 }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Service scheduled
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/fuhrpark/vehicles/{id}/damages:
+    get:
+      summary: List damage reports for a vehicle
+      tags: [fuhrpark]
+      operationId: listVehicleDamages
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Damage list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Report damage for a vehicle
+      tags: [fuhrpark]
+      operationId: reportVehicleDamage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [description]
+              properties:
+                description: { type: string }
+                severity: { type: string, enum: [minor, moderate, major, totalled] }
+                reported_by: { type: string, format: uuid }
+                photo_keys: { type: array, items: { type: string } }
+                cost_cents: { type: integer, format: int64 }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Damage reported
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/fuhrpark/vehicles/{id}/fuel-logs:
+    get:
+      summary: List fuel logs for a vehicle
+      tags: [fuhrpark]
+      operationId: listVehicleFuelLogs
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Fuel log list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Add a fuel log entry for a vehicle
+      tags: [fuhrpark]
+      operationId: createVehicleFuelLog
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date, liters]
+              properties:
+                date: { type: string, format: date }
+                liters: { type: number, format: float }
+                cost_cents: { type: integer, format: int64 }
+                mileage_km: { type: integer, format: int64 }
+                fuel_type: { type: string, enum: [diesel, petrol, electric, hybrid, other] }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Fuel log created
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/fuhrpark/vehicles/{id}/trip-logs:
+    get:
+      summary: List trip logs for a vehicle
+      tags: [fuhrpark]
+      operationId: listVehicleTripLogs
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Trip log list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Add a trip log entry for a vehicle
+      tags: [fuhrpark]
+      operationId: createVehicleTripLog
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date, start_location, end_location, purpose, driver_name]
+              properties:
+                date: { type: string, format: date }
+                start_location: { type: string }
+                end_location: { type: string }
+                purpose: { type: string }
+                start_km: { type: integer, format: int64 }
+                end_km: { type: integer, format: int64 }
+                is_private: { type: boolean }
+                driver_name: { type: string }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Trip log created
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/fuhrpark/vehicles/{id}/documents:
+    get:
+      summary: List documents for a vehicle
+      tags: [fuhrpark]
+      operationId: listVehicleDocuments
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Document list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Attach a document to a vehicle
+      tags: [fuhrpark]
+      operationId: createVehicleDocument
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [doc_type, name, object_key]
+              properties:
+                doc_type: { type: string, enum: [registration, insurance, tuev, other] }
+                name: { type: string }
+                object_key: { type: string }
+                expiry_date: { type: string, format: date }
+      responses:
+        "201":
+          description: Document attached
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/fuhrpark/services:
+    get:
+      summary: List all vehicle services (tenant-wide)
+      tags: [fuhrpark]
+      operationId: listAllVehicleServices
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { type: string } }
+        - { name: vehicle_id, in: query, schema: { type: string, format: uuid } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Service list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/fuhrpark/services/upcoming:
+    get:
+      summary: List upcoming vehicle services
+      tags: [fuhrpark]
+      operationId: listUpcomingVehicleServices
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Upcoming service list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/fuhrpark/services/{id}:
+    patch:
+      summary: Update a vehicle service record
+      tags: [fuhrpark]
+      operationId: updateVehicleService
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                service_type: { type: string }
+                description: { type: string }
+                scheduled_at: { type: string }
+                cost_cents: { type: integer, format: int64 }
+                workshop: { type: string }
+                mileage_km: { type: integer, format: int64 }
+                status: { type: string }
+                notes: { type: string }
+      responses:
+        "200":
+          description: Service updated
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a vehicle service record
+      tags: [fuhrpark]
+      operationId: deleteVehicleService
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/fuhrpark/services/{id}/complete:
+    post:
+      summary: Mark a vehicle service as completed
+      tags: [fuhrpark]
+      operationId: completeVehicleService
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cost_cents: { type: integer, format: int64 }
+                mileage_km: { type: integer, format: int64 }
+                notes: { type: string }
+      responses:
+        "200":
+          description: Service completed
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/fuhrpark/damages:
+    get:
+      summary: List all damage reports (tenant-wide)
+      tags: [fuhrpark]
+      operationId: listAllVehicleDamages
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { type: string } }
+        - { name: vehicle_id, in: query, schema: { type: string, format: uuid } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Damage list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/fuhrpark/damages/{id}:
+    patch:
+      summary: Update a damage report
+      tags: [fuhrpark]
+      operationId: updateVehicleDamage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description: { type: string }
+                severity: { type: string, enum: [minor, moderate, major, totalled] }
+                status: { type: string }
+                photo_keys: { type: array, items: { type: string } }
+                cost_cents: { type: integer, format: int64 }
+                notes: { type: string }
+      responses:
+        "200":
+          description: Damage updated
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/fuhrpark/damages/{id}/resolve:
+    post:
+      summary: Mark a damage report as resolved
+      tags: [fuhrpark]
+      operationId: resolveVehicleDamage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                resolved_by: { type: string, format: uuid }
+                cost_cents: { type: integer, format: int64 }
+                notes: { type: string }
+      responses:
+        "200":
+          description: Damage resolved
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/fuhrpark/fuel-logs:
+    get:
+      summary: List fuel logs (tenant-wide)
+      tags: [fuhrpark]
+      operationId: listAllFuelLogs
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: vehicle_id, in: query, schema: { type: string, format: uuid } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Fuel log list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/fuhrpark/fuel-logs/{id}:
+    patch:
+      summary: Update a fuel log entry
+      tags: [fuhrpark]
+      operationId: updateFuelLog
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                date: { type: string, format: date }
+                liters: { type: number, format: float }
+                cost_cents: { type: integer, format: int64 }
+                mileage_km: { type: integer, format: int64 }
+                fuel_type: { type: string }
+                notes: { type: string }
+      responses:
+        "200":
+          description: Fuel log updated
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a fuel log entry
+      tags: [fuhrpark]
+      operationId: deleteFuelLog
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/fuhrpark/trip-logs:
+    get:
+      summary: List trip logs (tenant-wide)
+      tags: [fuhrpark]
+      operationId: listAllTripLogs
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: vehicle_id, in: query, schema: { type: string, format: uuid } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: Trip log list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/fuhrpark/trip-logs/{id}:
+    patch:
+      summary: Update a trip log entry
+      tags: [fuhrpark]
+      operationId: updateTripLog
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                date: { type: string, format: date }
+                start_location: { type: string }
+                end_location: { type: string }
+                purpose: { type: string }
+                start_km: { type: integer, format: int64 }
+                end_km: { type: integer, format: int64 }
+                is_private: { type: boolean }
+                driver_name: { type: string }
+                notes: { type: string }
+      responses:
+        "200":
+          description: Trip log updated
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a trip log entry
+      tags: [fuhrpark]
+      operationId: deleteTripLog
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/fuhrpark/documents/{id}:
+    delete:
+      summary: Delete a vehicle document
+      tags: [fuhrpark]
+      operationId: deleteVehicleDocument
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/fuhrpark/gps/ingest:
+    post:
+      summary: Ingest GPS positions for a vehicle
+      tags: [fuhrpark]
+      operationId: ingestGpsPositions
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: vehicle_id, in: query, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [positions]
+              properties:
+                positions:
+                  type: array
+                  items:
+                    type: object
+                    required: [lat, lng, recorded_at]
+                    properties:
+                      lat: { type: number, format: double }
+                      lng: { type: number, format: double }
+                      speed_kmh: { type: number, format: double }
+                      recorded_at: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Positions ingested
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/fuhrpark/gps/routes:
+    get:
+      summary: Get vehicle routes from GPS data
+      tags: [fuhrpark]
+      operationId: getVehicleRoutes
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: vehicle_id, in: query, schema: { type: string, format: uuid } }
+        - { name: date_from, in: query, schema: { type: string, format: date } }
+        - { name: date_to, in: query, schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: Vehicle routes
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/fuhrpark/gps/positions:
+    get:
+      summary: Get GPS positions for a vehicle
+      tags: [fuhrpark]
+      operationId: getGpsPositions
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: vehicle_id, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: GPS positions
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/fuhrpark/tuev-due:
+    get:
+      summary: List vehicles with upcoming or overdue TUV inspections
+      tags: [fuhrpark]
+      operationId: checkVehiclesTuevDue
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: TUV-due vehicle list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/fuhrpark/export:
+    get:
+      summary: Export vehicle fleet report (CSV or PDF)
+      tags: [fuhrpark]
+      operationId: exportVehicleReport
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: format, in: query, schema: { type: string, enum: [csv, pdf], default: csv } }
+      responses:
+        "200":
+          description: Report file
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ===========================================================================
+  # Einkauf (Purchasing)
+  # ===========================================================================
+
+  /api/v1/einkauf/suppliers:
+    get:
+      summary: List suppliers
+      tags: [einkauf]
+      operationId: listSuppliers
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: search, in: query, schema: { type: string } }
+        - { name: active_only, in: query, schema: { type: boolean } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        "200":
+          description: Supplier list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Create a supplier
+      tags: [einkauf]
+      operationId: createSupplier
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                contact_id: { type: string, format: uuid }
+                email: { type: string, format: email }
+                phone: { type: string }
+                address: { type: string }
+                payment_terms: { type: string }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Supplier created
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/einkauf/suppliers/{id}:
+    get:
+      summary: Get a supplier
+      tags: [einkauf]
+      operationId: getSupplier
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Supplier
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Update a supplier
+      tags: [einkauf]
+      operationId: updateSupplier
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                contact_id: { type: string, format: uuid }
+                email: { type: string, format: email }
+                phone: { type: string }
+                address: { type: string }
+                payment_terms: { type: string }
+                notes: { type: string }
+      responses:
+        "200":
+          description: Supplier updated
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a supplier
+      tags: [einkauf]
+      operationId: deleteSupplier
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/einkauf/pos:
+    get:
+      summary: List purchase orders
+      tags: [einkauf]
+      operationId: listPurchaseOrders
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: supplier_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        "200":
+          description: Purchase order list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Create a purchase order
+      tags: [einkauf]
+      operationId: createPurchaseOrder
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [supplier_id, po_number]
+              properties:
+                supplier_id: { type: string, format: uuid }
+                po_number: { type: string }
+                order_date: { type: string, format: date }
+                expected_delivery_date: { type: string, format: date }
+                currency: { type: string, example: EUR }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Purchase order created
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/einkauf/pos/{id}:
+    get:
+      summary: Get a purchase order
+      tags: [einkauf]
+      operationId: getPurchaseOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Purchase order
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Update a purchase order
+      tags: [einkauf]
+      operationId: updatePurchaseOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                supplier_id: { type: string, format: uuid }
+                po_number: { type: string }
+                order_date: { type: string, format: date }
+                expected_delivery_date: { type: string, format: date }
+                currency: { type: string }
+                notes: { type: string }
+      responses:
+        "200":
+          description: Purchase order updated
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a purchase order
+      tags: [einkauf]
+      operationId: deletePurchaseOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/einkauf/pos/{id}/submit:
+    post:
+      summary: Submit a purchase order to the supplier
+      tags: [einkauf]
+      operationId: submitPurchaseOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Purchase order submitted
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/einkauf/pos/{id}/receive:
+    post:
+      summary: Mark a purchase order as fully received
+      tags: [einkauf]
+      operationId: receivePurchaseOrderGoods
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Goods received
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/einkauf/pos/{id}/partial-receive:
+    post:
+      summary: Record partial goods receipt for specific order lines
+      tags: [einkauf]
+      operationId: partialReceivePurchaseOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      line_id: { type: string, format: uuid }
+                      received_quantity: { type: string }
+      responses:
+        "200":
+          description: Partial receipt recorded
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/einkauf/pos/{id}/export:
+    post:
+      summary: Export a purchase order as PDF or other format
+      tags: [einkauf]
+      operationId: exportPurchaseOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: format, in: query, schema: { type: string, enum: [pdf, csv], default: pdf } }
+      responses:
+        "200":
+          description: Export file
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/einkauf/pos/{id}/lines:
+    get:
+      summary: List lines of a purchase order
+      tags: [einkauf]
+      operationId: listPurchaseOrderLines
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Line list
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      summary: Add a line item to a purchase order
+      tags: [einkauf]
+      operationId: addPurchaseOrderLine
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [product_name, quantity, unit_price]
+              properties:
+                product_name: { type: string }
+                sku: { type: string }
+                quantity: { type: string }
+                unit_price: { type: string }
+                tax_rate: { type: string }
+                line_position: { type: integer }
+      responses:
+        "201":
+          description: Line added
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/einkauf/pos/{id}/lines/{lineId}:
+    patch:
+      summary: Update a purchase order line
+      tags: [einkauf]
+      operationId: updatePurchaseOrderLine
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: lineId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                product_name: { type: string }
+                sku: { type: string }
+                quantity: { type: string }
+                unit_price: { type: string }
+                tax_rate: { type: string }
+                line_position: { type: integer }
+      responses:
+        "200":
+          description: Line updated
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete a purchase order line
+      tags: [einkauf]
+      operationId: deletePurchaseOrderLine
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: lineId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Deleted
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -15046,6 +17775,9 @@ components:
         show_absence_reason: { type: boolean }
         default_annual_leave_days: { type: integer }
         timezone: { type: string }
+        work_hours_per_day: { type: number, format: float, description: Standard work hours per day (e.g. 8.0) }
+        max_daily_hours: { type: number, format: float, description: Maximum allowed working hours per day (ArbZG) }
+        break_after_hours: { type: number, format: float, description: Hours worked after which a mandatory break is required }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 
@@ -15056,6 +17788,9 @@ components:
         show_absence_reason: { type: boolean }
         default_annual_leave_days: { type: integer }
         timezone: { type: string }
+        work_hours_per_day: { type: number, format: float }
+        max_daily_hours: { type: number, format: float }
+        break_after_hours: { type: number, format: float }
 
     # =========================================================================
     # Inbox Schemas
