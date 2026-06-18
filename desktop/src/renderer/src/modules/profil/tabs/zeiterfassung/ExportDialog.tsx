@@ -10,8 +10,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/cn'
-import { useWorkTimeEntries, useTimeCategories } from '@/api/hooks/hr-hooks'
-import { adaptWorkTimeEntryToFE } from '@/api/hr-client'
+import { useTimeTrackingStore } from '@/stores/timetracking'
 import { formatMinutes } from './time-utils'
 import { toast } from 'sonner'
 
@@ -45,34 +44,27 @@ const FORMAT_OPTIONS: { key: ExportFormat; label: string; description: string; i
 
 export default function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
   const { t } = useTranslation()
+  const entries = useTimeTrackingStore((s) => s.entries)
+  const categories = useTimeTrackingStore((s) => s.categories)
 
   // Default range: last 30 days
-  const today = useMemo(() => new Date(), [])
-  const thirtyDaysAgo = useMemo(() => {
-    const d = new Date()
-    d.setDate(d.getDate() - 30)
-    return d
-  }, [])
+  const today = new Date()
+  const thirtyDaysAgo = new Date()
+  thirtyDaysAgo.setDate(today.getDate() - 30)
 
   const [format, setFormat] = useState<ExportFormat>('csv')
   const [dateFrom, setDateFrom] = useState(thirtyDaysAgo.toISOString().split('T')[0])
   const [dateTo, setDateTo] = useState(today.toISOString().split('T')[0])
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
 
-  const { data: categories = [] } = useTimeCategories()
-  const { data: entriesRaw } = useWorkTimeEntries({ start_date: dateFrom, end_date: dateTo, limit: 1000 })
-  const allEntries = useMemo(
-    () => (entriesRaw?.entries ?? []).map(adaptWorkTimeEntryToFE),
-    [entriesRaw],
-  )
-
   // Filter entries for preview
   const filteredEntries = useMemo(() => {
-    return allEntries.filter((e) => {
+    return entries.filter((e) => {
+      if (e.date < dateFrom || e.date > dateTo) return false
       if (categoryFilter !== 'all' && e.categoryId !== categoryFilter) return false
       return true
     })
-  }, [allEntries, categoryFilter])
+  }, [entries, dateFrom, dateTo, categoryFilter])
 
   const totalMinutes = filteredEntries.reduce((sum, e) => sum + e.durationMinutes, 0)
   const totalHours = (totalMinutes / 60).toFixed(1)

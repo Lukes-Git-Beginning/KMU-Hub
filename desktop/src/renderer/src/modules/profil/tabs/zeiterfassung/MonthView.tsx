@@ -3,8 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/cn'
-import { useWorkTimeEntries, useTimeCategories } from '@/api/hooks/hr-hooks'
-import { adaptWorkTimeEntryToFE } from '@/api/hr-client'
+import { useTimeTrackingStore } from '@/stores/timetracking'
 import {
   getMonthDates, dateToStr, getMonthLabel, formatMinutes, isToday,
 } from './time-utils'
@@ -12,20 +11,12 @@ import {
 export default function MonthView() {
   const { t } = useTranslation()
   const [monthOffset, setMonthOffset] = useState(0)
+  const entries = useTimeTrackingStore((s) => s.entries)
+  const categories = useTimeTrackingStore((s) => s.categories)
+  const targets = useTimeTrackingStore((s) => s.targets)
 
   const monthDates = useMemo(() => getMonthDates(monthOffset), [monthOffset])
-  const monthStartStr = useMemo(() => dateToStr(monthDates[0]), [monthDates])
-  const monthEndStr = useMemo(() => dateToStr(monthDates[monthDates.length - 1]), [monthDates])
-
-  const { data: categoriesData } = useTimeCategories()
-  const categories = categoriesData ?? []
-  const { data: entriesRaw } = useWorkTimeEntries({ start_date: monthStartStr, end_date: monthEndStr, limit: 1000 })
-  const entries = useMemo(
-    () => (entriesRaw?.entries ?? []).map(adaptWorkTimeEntryToFE),
-    [entriesRaw],
-  )
-
-  const dailyTarget = 8.4 * 60 // 8h 24min = 8.4h, fallback target
+  const dailyTarget = targets.dailyHours * 60
 
   // Minutes per day per category
   const dayData = useMemo(() => {
@@ -37,9 +28,8 @@ export default function MonthView() {
     for (const entry of entries) {
       if (data[entry.date]) {
         data[entry.date].total += entry.durationMinutes
-        const catKey = entry.categoryId ?? '__none__'
-        data[entry.date].byCat[catKey] =
-          (data[entry.date].byCat[catKey] || 0) + entry.durationMinutes
+        data[entry.date].byCat[entry.categoryId] =
+          (data[entry.date].byCat[entry.categoryId] || 0) + entry.durationMinutes
       }
     }
     return data

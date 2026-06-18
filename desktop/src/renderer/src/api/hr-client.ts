@@ -35,11 +35,6 @@ import type {
   UpdateEmployeeInput,
   UpdateSelfProfileInput,
   UploadDocumentInput,
-  TimeCategory,
-  TimeTemplate,
-  CreateTimeCategoryInput,
-  UpdateTimeCategoryInput,
-  CreateTimeTemplateInput,
 } from './hr-types'
 import { authenticatedRequest } from './utils/authenticatedFetch'
 
@@ -406,46 +401,6 @@ export const hrTimeApi = {
       { method: 'POST' },
     )
   },
-
-  listCategories() {
-    return request<{ categories: TimeCategory[] }>('/api/v1/hr/time/categories')
-  },
-  createCategory(data: CreateTimeCategoryInput) {
-    return request<{ category: TimeCategory }>('/api/v1/hr/time/categories', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    })
-  },
-  updateCategory(id: string, data: UpdateTimeCategoryInput) {
-    return request<{ category: TimeCategory }>(`/api/v1/hr/time/categories/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    })
-  },
-  deleteCategory(id: string) {
-    return request<Record<string, never>>(`/api/v1/hr/time/categories/${id}`, {
-      method: 'DELETE',
-    })
-  },
-  listTemplates() {
-    return request<{ templates: TimeTemplate[] }>('/api/v1/hr/time/templates')
-  },
-  createTemplate(data: CreateTimeTemplateInput) {
-    return request<{ template: TimeTemplate }>('/api/v1/hr/time/templates', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    })
-  },
-  deleteTemplate(id: string) {
-    return request<Record<string, never>>(`/api/v1/hr/time/templates/${id}`, {
-      method: 'DELETE',
-    })
-  },
-  deleteEntry(id: string) {
-    return request<Record<string, never>>(`/api/v1/hr/time/entries/${id}`, {
-      method: 'DELETE',
-    })
-  },
 }
 
 // ---------------------------------------------------------------------------
@@ -550,70 +505,4 @@ export const hrSettingsApi = {
       body: JSON.stringify(data),
     })
   },
-}
-
-// ---------------------------------------------------------------------------
-// Shape adapters (ISO timestamp ↔ FE date+HH:mm)
-// ---------------------------------------------------------------------------
-
-/** Converts a WorkTimeEntry from wire-shape (clockIn/clockOut ISO) to FE display shape. */
-export function adaptWorkTimeEntryToFE(entry: WorkTimeEntry): {
-  id: string
-  date: string
-  startTime: string
-  endTime: string | null
-  durationMinutes: number
-  categoryId: string | null
-  projectId: string | null
-  description: string
-  isManual: boolean
-  location: { lat: number; lng: number; address: string } | null
-  status: string
-} {
-  const clockIn = new Date(entry.clockIn)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  const startTime = `${pad(clockIn.getHours())}:${pad(clockIn.getMinutes())}`
-  let endTime: string | null = null
-  let durationMinutes = entry.netWorkMinutes ?? 0
-  if (entry.clockOut) {
-    const clockOut = new Date(entry.clockOut)
-    endTime = `${pad(clockOut.getHours())}:${pad(clockOut.getMinutes())}`
-    const gross = Math.round((clockOut.getTime() - clockIn.getTime()) / 60_000)
-    durationMinutes = Math.max(0, gross - (entry.breakMinutes ?? 0))
-  }
-  return {
-    id: entry.id,
-    date: entry.clockIn.slice(0, 10),
-    startTime,
-    endTime,
-    durationMinutes,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    categoryId: (entry as any).categoryId as string | null ?? null,
-    projectId: entry.projectId ?? null,
-    description: entry.note ?? entry.activity ?? '',
-    isManual: entry.isManual ?? false,
-    location: null,
-    status: entry.status,
-  }
-}
-
-/** Converts FE date+HH:mm to ISO clockIn/clockOut timestamps for CreateManualEntryInput. */
-export function adaptFEEntryToWire(
-  date: string,
-  startTime: string,
-  endTime: string,
-  breakMinutes: number,
-  opts: { categoryId?: string; projectId?: string; note?: string; billable?: boolean },
-): CreateManualEntryInput {
-  const clockIn = `${date}T${startTime}:00.000Z`
-  const clockOut = `${date}T${endTime}:00.000Z`
-  return {
-    clockIn,
-    clockOut,
-    breakMinutes,
-    projectId: opts.projectId,
-    activity: opts.note,
-    billable: opts.billable,
-    note: opts.note,
-  }
 }

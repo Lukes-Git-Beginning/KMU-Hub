@@ -70,23 +70,6 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(middleware.RequirePermission("hr", "write")).Post("/corrections", h.HandleSubmitCorrection)
 		r.With(middleware.RequirePermission("hr", "write")).Post("/corrections/{id}/approve", h.HandleApproveCorrection)
 
-		r.With(middleware.RequirePermission("hr:time_category", "read")).Get("/categories", h.HandleListTimeCategories)
-		r.With(middleware.RequirePermission("hr:time_category", "write")).Post("/categories", h.HandleCreateTimeCategory)
-		r.With(middleware.RequirePermission("hr:time_category", "write")).Put("/categories/{id}", h.HandleUpdateTimeCategory)
-		r.With(middleware.RequirePermission("hr:time_category", "write")).Delete("/categories/{id}", h.HandleDeleteTimeCategory)
-		r.With(middleware.RequirePermission("hr:time_category", "read")).Get("/templates", h.HandleListTimeTemplates)
-		r.With(middleware.RequirePermission("hr:time_category", "write")).Post("/templates", h.HandleCreateTimeTemplate)
-		r.With(middleware.RequirePermission("hr:time_category", "write")).Delete("/templates/{id}", h.HandleDeleteTimeTemplate)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/projects", h.HandleListTimeProjects)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/balance", h.HandleGetTimeBalance)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/analytics", h.HandleGetTimeAnalytics)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/team", h.HandleGetTeamTime)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/weeks/status", h.HandleGetMyWeekStatus)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/weeks/submit", h.HandleSubmitWeek)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/weeks/approve", h.HandleApproveWeek)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/weeks/reject", h.HandleRejectWeek)
-		r.With(middleware.RequirePermission("hr", "write")).Delete("/entries/{id}", h.HandleDeleteWorkTimeEntry)
-
 		// Extension: time-tracking → invoice conversion
 		if h.bizExt != nil {
 			h.bizExt.registerTimeExtRoutes(r)
@@ -1189,94 +1172,6 @@ func (h *HRRoutes) HandleCreateEmployee(w http.ResponseWriter, r *http.Request) 
 	}
 
 	response.JSON(w, http.StatusCreated, resp.Employee)
-}
-
-// ============================================================================
-// Time Category Handlers (stub — Phase B, MSW-only)
-// ============================================================================
-
-func (h *HRRoutes) HandleListTimeCategories(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, `{"error":"not implemented"}`, http.StatusNotImplemented)
-}
-
-func (h *HRRoutes) HandleCreateTimeCategory(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, `{"error":"not implemented"}`, http.StatusNotImplemented)
-}
-
-func (h *HRRoutes) HandleUpdateTimeCategory(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, `{"error":"not implemented"}`, http.StatusNotImplemented)
-}
-
-func (h *HRRoutes) HandleDeleteTimeCategory(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, `{"error":"not implemented"}`, http.StatusNotImplemented)
-}
-
-// ============================================================================
-// Time Template Handlers (stub)
-// ============================================================================
-
-func (h *HRRoutes) HandleListTimeTemplates(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, `{"error":"not implemented"}`, http.StatusNotImplemented)
-}
-
-func (h *HRRoutes) HandleCreateTimeTemplate(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, `{"error":"not implemented"}`, http.StatusNotImplemented)
-}
-
-func (h *HRRoutes) HandleDeleteTimeTemplate(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, `{"error":"not implemented"}`, http.StatusNotImplemented)
-}
-
-// ============================================================================
-// Time Project Handler (stub)
-// ============================================================================
-
-func (h *HRRoutes) HandleListTimeProjects(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, `{"error":"not implemented"}`, http.StatusNotImplemented)
-}
-
-// ============================================================================
-// Time Balance / Analytics / Team Handlers (stub)
-// ============================================================================
-
-func (h *HRRoutes) HandleGetTimeBalance(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, `{"error":"not implemented"}`, http.StatusNotImplemented)
-}
-
-func (h *HRRoutes) HandleGetTimeAnalytics(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, `{"error":"not implemented"}`, http.StatusNotImplemented)
-}
-
-func (h *HRRoutes) HandleGetTeamTime(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, `{"error":"not implemented"}`, http.StatusNotImplemented)
-}
-
-// ============================================================================
-// Week Approval Handlers (stub)
-// ============================================================================
-
-func (h *HRRoutes) HandleGetMyWeekStatus(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, `{"error":"not implemented"}`, http.StatusNotImplemented)
-}
-
-func (h *HRRoutes) HandleSubmitWeek(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, `{"error":"not implemented"}`, http.StatusNotImplemented)
-}
-
-func (h *HRRoutes) HandleApproveWeek(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, `{"error":"not implemented"}`, http.StatusNotImplemented)
-}
-
-func (h *HRRoutes) HandleRejectWeek(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, `{"error":"not implemented"}`, http.StatusNotImplemented)
-}
-
-// ============================================================================
-// Delete Work Time Entry Handler (stub)
-// ============================================================================
-
-func (h *HRRoutes) HandleDeleteWorkTimeEntry(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, `{"error":"not implemented"}`, http.StatusNotImplemented)
 }
 
 // ============================================================================

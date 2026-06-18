@@ -9131,17 +9131,5 @@
   "helpdesk.ticket.mergeError": "Fusion échouée.",
   "helpdesk.cannedResponses.saveError": "Impossible d'enregistrer le modèle.",
   "helpdesk.cannedResponses.deleteError": "Impossible de supprimer le modèle.",
-  "schichten.delete.errorToast": "Impossible de supprimer {name}.",
-  "api.hr.time.categoryCreated": "Catégorie créée",
-  "api.hr.time.categoryUpdated": "Catégorie mise à jour",
-  "api.hr.time.categoryDeleted": "Catégorie supprimée",
-  "api.hr.time.templateCreated": "Modèle créé",
-  "api.hr.time.templateDeleted": "Modèle supprimé",
-  "api.hr.time.entryDeleted": "Entrée supprimée",
-  "api.hr.time.error.categoryCreate": "Impossible de créer la catégorie",
-  "api.hr.time.error.categoryUpdate": "Impossible de mettre à jour la catégorie",
-  "api.hr.time.error.categoryDelete": "Impossible de supprimer la catégorie",
-  "api.hr.time.error.templateCreate": "Impossible de créer le modèle",
-  "api.hr.time.error.templateDelete": "Impossible de supprimer le modèle",
-  "api.hr.time.error.entryDelete": "Impossible de supprimer l'entrée"
+  "schichten.delete.errorToast": "Impossible de supprimer {name}."
 }

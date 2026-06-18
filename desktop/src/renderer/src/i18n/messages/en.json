@@ -9165,17 +9165,5 @@
   "helpdesk.ticket.mergeError": "Merge failed.",
   "helpdesk.cannedResponses.saveError": "Could not save template.",
   "helpdesk.cannedResponses.deleteError": "Could not delete template.",
-  "schichten.delete.errorToast": "Could not delete {name}.",
-  "api.hr.time.categoryCreated": "Category created",
-  "api.hr.time.categoryUpdated": "Category updated",
-  "api.hr.time.categoryDeleted": "Category deleted",
-  "api.hr.time.templateCreated": "Template created",
-  "api.hr.time.templateDeleted": "Template deleted",
-  "api.hr.time.entryDeleted": "Entry deleted",
-  "api.hr.time.error.categoryCreate": "Could not create category",
-  "api.hr.time.error.categoryUpdate": "Could not update category",
-  "api.hr.time.error.categoryDelete": "Could not delete category",
-  "api.hr.time.error.templateCreate": "Could not create template",
-  "api.hr.time.error.templateDelete": "Could not delete template",
-  "api.hr.time.error.entryDelete": "Could not delete entry"
+  "schichten.delete.errorToast": "Could not delete {name}."
 }
