@@ -23,20 +23,27 @@ const (
 )
 
 type Item struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	Sku           string                 `protobuf:"bytes,4,opt,name=sku,proto3" json:"sku,omitempty"`
-	Barcode       *string                `protobuf:"bytes,5,opt,name=barcode,proto3,oneof" json:"barcode,omitempty"`
-	Quantity      int64                  `protobuf:"varint,6,opt,name=quantity,proto3" json:"quantity,omitempty"`
-	MinQuantity   int64                  `protobuf:"varint,7,opt,name=min_quantity,json=minQuantity,proto3" json:"min_quantity,omitempty"`
-	Unit          string                 `protobuf:"bytes,8,opt,name=unit,proto3" json:"unit,omitempty"`
-	Location      *string                `protobuf:"bytes,9,opt,name=location,proto3,oneof" json:"location,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	Id                  string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId            string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Name                string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Sku                 string                 `protobuf:"bytes,4,opt,name=sku,proto3" json:"sku,omitempty"`
+	Barcode             *string                `protobuf:"bytes,5,opt,name=barcode,proto3,oneof" json:"barcode,omitempty"`
+	Quantity            int64                  `protobuf:"varint,6,opt,name=quantity,proto3" json:"quantity,omitempty"`
+	MinQuantity         int64                  `protobuf:"varint,7,opt,name=min_quantity,json=minQuantity,proto3" json:"min_quantity,omitempty"`
+	Unit                string                 `protobuf:"bytes,8,opt,name=unit,proto3" json:"unit,omitempty"`
+	Location            *string                `protobuf:"bytes,9,opt,name=location,proto3,oneof" json:"location,omitempty"`
+	CreatedAt           *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt           *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	LocationId          *string                `protobuf:"bytes,12,opt,name=location_id,json=locationId,proto3,oneof" json:"location_id,omitempty"`
+	Category            *string                `protobuf:"bytes,13,opt,name=category,proto3,oneof" json:"category,omitempty"`
+	Price               *float64               `protobuf:"fixed64,14,opt,name=price,proto3,oneof" json:"price,omitempty"`
+	Currency            *string                `protobuf:"bytes,15,opt,name=currency,proto3,oneof" json:"currency,omitempty"`
+	BatchNumber         *string                `protobuf:"bytes,16,opt,name=batch_number,json=batchNumber,proto3,oneof" json:"batch_number,omitempty"`
+	SerialNumbers       []string               `protobuf:"bytes,17,rep,name=serial_numbers,json=serialNumbers,proto3" json:"serial_numbers,omitempty"`
+	LinkedPurchaseOrder *string                `protobuf:"bytes,18,opt,name=linked_purchase_order,json=linkedPurchaseOrder,proto3,oneof" json:"linked_purchase_order,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *Item) Reset() {
@@ -146,6 +153,55 @@ func (x *Item) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Item) GetLocationId() string {
+	if x != nil && x.LocationId != nil {
+		return *x.LocationId
+	}
+	return ""
+}
+
+func (x *Item) GetCategory() string {
+	if x != nil && x.Category != nil {
+		return *x.Category
+	}
+	return ""
+}
+
+func (x *Item) GetPrice() float64 {
+	if x != nil && x.Price != nil {
+		return *x.Price
+	}
+	return 0
+}
+
+func (x *Item) GetCurrency() string {
+	if x != nil && x.Currency != nil {
+		return *x.Currency
+	}
+	return ""
+}
+
+func (x *Item) GetBatchNumber() string {
+	if x != nil && x.BatchNumber != nil {
+		return *x.BatchNumber
+	}
+	return ""
+}
+
+func (x *Item) GetSerialNumbers() []string {
+	if x != nil {
+		return x.SerialNumbers
+	}
+	return nil
+}
+
+func (x *Item) GetLinkedPurchaseOrder() string {
+	if x != nil && x.LinkedPurchaseOrder != nil {
+		return *x.LinkedPurchaseOrder
+	}
+	return ""
+}
+
 type Movement struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -156,6 +212,10 @@ type Movement struct {
 	PerformedBy   *string                `protobuf:"bytes,6,opt,name=performed_by,json=performedBy,proto3,oneof" json:"performed_by,omitempty"`
 	Reason        string                 `protobuf:"bytes,7,opt,name=reason,proto3" json:"reason,omitempty"`
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	Reference     *string                `protobuf:"bytes,9,opt,name=reference,proto3,oneof" json:"reference,omitempty"`
+	LocationFrom  *string                `protobuf:"bytes,10,opt,name=location_from,json=locationFrom,proto3,oneof" json:"location_from,omitempty"`
+	LocationTo    *string                `protobuf:"bytes,11,opt,name=location_to,json=locationTo,proto3,oneof" json:"location_to,omitempty"`
+	Notes         *string                `protobuf:"bytes,12,opt,name=notes,proto3,oneof" json:"notes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -244,6 +304,34 @@ func (x *Movement) GetCreatedAt() *timestamppb.Timestamp {
 		return x.CreatedAt
 	}
 	return nil
+}
+
+func (x *Movement) GetReference() string {
+	if x != nil && x.Reference != nil {
+		return *x.Reference
+	}
+	return ""
+}
+
+func (x *Movement) GetLocationFrom() string {
+	if x != nil && x.LocationFrom != nil {
+		return *x.LocationFrom
+	}
+	return ""
+}
+
+func (x *Movement) GetLocationTo() string {
+	if x != nil && x.LocationTo != nil {
+		return *x.LocationTo
+	}
+	return ""
+}
+
+func (x *Movement) GetNotes() string {
+	if x != nil && x.Notes != nil {
+		return *x.Notes
+	}
+	return ""
 }
 
 type Warning struct {
@@ -355,17 +443,24 @@ func (x *Warning) GetAcknowledgedBy() string {
 }
 
 type CreateItemRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Sku           string                 `protobuf:"bytes,3,opt,name=sku,proto3" json:"sku,omitempty"`
-	Barcode       *string                `protobuf:"bytes,4,opt,name=barcode,proto3,oneof" json:"barcode,omitempty"`
-	Quantity      int64                  `protobuf:"varint,5,opt,name=quantity,proto3" json:"quantity,omitempty"`
-	MinQuantity   int64                  `protobuf:"varint,6,opt,name=min_quantity,json=minQuantity,proto3" json:"min_quantity,omitempty"`
-	Unit          string                 `protobuf:"bytes,7,opt,name=unit,proto3" json:"unit,omitempty"`
-	Location      *string                `protobuf:"bytes,8,opt,name=location,proto3,oneof" json:"location,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	TenantId            string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Name                string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Sku                 string                 `protobuf:"bytes,3,opt,name=sku,proto3" json:"sku,omitempty"`
+	Barcode             *string                `protobuf:"bytes,4,opt,name=barcode,proto3,oneof" json:"barcode,omitempty"`
+	Quantity            int64                  `protobuf:"varint,5,opt,name=quantity,proto3" json:"quantity,omitempty"`
+	MinQuantity         int64                  `protobuf:"varint,6,opt,name=min_quantity,json=minQuantity,proto3" json:"min_quantity,omitempty"`
+	Unit                string                 `protobuf:"bytes,7,opt,name=unit,proto3" json:"unit,omitempty"`
+	Location            *string                `protobuf:"bytes,8,opt,name=location,proto3,oneof" json:"location,omitempty"`
+	LocationId          *string                `protobuf:"bytes,9,opt,name=location_id,json=locationId,proto3,oneof" json:"location_id,omitempty"`
+	Category            *string                `protobuf:"bytes,10,opt,name=category,proto3,oneof" json:"category,omitempty"`
+	Price               *float64               `protobuf:"fixed64,11,opt,name=price,proto3,oneof" json:"price,omitempty"`
+	Currency            *string                `protobuf:"bytes,12,opt,name=currency,proto3,oneof" json:"currency,omitempty"`
+	BatchNumber         *string                `protobuf:"bytes,13,opt,name=batch_number,json=batchNumber,proto3,oneof" json:"batch_number,omitempty"`
+	SerialNumbers       []string               `protobuf:"bytes,14,rep,name=serial_numbers,json=serialNumbers,proto3" json:"serial_numbers,omitempty"`
+	LinkedPurchaseOrder *string                `protobuf:"bytes,15,opt,name=linked_purchase_order,json=linkedPurchaseOrder,proto3,oneof" json:"linked_purchase_order,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *CreateItemRequest) Reset() {
@@ -454,6 +549,55 @@ func (x *CreateItemRequest) GetLocation() string {
 	return ""
 }
 
+func (x *CreateItemRequest) GetLocationId() string {
+	if x != nil && x.LocationId != nil {
+		return *x.LocationId
+	}
+	return ""
+}
+
+func (x *CreateItemRequest) GetCategory() string {
+	if x != nil && x.Category != nil {
+		return *x.Category
+	}
+	return ""
+}
+
+func (x *CreateItemRequest) GetPrice() float64 {
+	if x != nil && x.Price != nil {
+		return *x.Price
+	}
+	return 0
+}
+
+func (x *CreateItemRequest) GetCurrency() string {
+	if x != nil && x.Currency != nil {
+		return *x.Currency
+	}
+	return ""
+}
+
+func (x *CreateItemRequest) GetBatchNumber() string {
+	if x != nil && x.BatchNumber != nil {
+		return *x.BatchNumber
+	}
+	return ""
+}
+
+func (x *CreateItemRequest) GetSerialNumbers() []string {
+	if x != nil {
+		return x.SerialNumbers
+	}
+	return nil
+}
+
+func (x *CreateItemRequest) GetLinkedPurchaseOrder() string {
+	if x != nil && x.LinkedPurchaseOrder != nil {
+		return *x.LinkedPurchaseOrder
+	}
+	return ""
+}
+
 type GetItemRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
@@ -507,17 +651,23 @@ func (x *GetItemRequest) GetItemId() string {
 }
 
 type UpdateItemRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ItemId        string                 `protobuf:"bytes,2,opt,name=item_id,json=itemId,proto3" json:"item_id,omitempty"`
-	Name          *string                `protobuf:"bytes,3,opt,name=name,proto3,oneof" json:"name,omitempty"`
-	Sku           *string                `protobuf:"bytes,4,opt,name=sku,proto3,oneof" json:"sku,omitempty"`
-	Barcode       *string                `protobuf:"bytes,5,opt,name=barcode,proto3,oneof" json:"barcode,omitempty"`
-	MinQuantity   *int64                 `protobuf:"varint,6,opt,name=min_quantity,json=minQuantity,proto3,oneof" json:"min_quantity,omitempty"`
-	Unit          *string                `protobuf:"bytes,7,opt,name=unit,proto3,oneof" json:"unit,omitempty"`
-	Location      *string                `protobuf:"bytes,8,opt,name=location,proto3,oneof" json:"location,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	TenantId            string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ItemId              string                 `protobuf:"bytes,2,opt,name=item_id,json=itemId,proto3" json:"item_id,omitempty"`
+	Name                *string                `protobuf:"bytes,3,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	Sku                 *string                `protobuf:"bytes,4,opt,name=sku,proto3,oneof" json:"sku,omitempty"`
+	Barcode             *string                `protobuf:"bytes,5,opt,name=barcode,proto3,oneof" json:"barcode,omitempty"`
+	MinQuantity         *int64                 `protobuf:"varint,6,opt,name=min_quantity,json=minQuantity,proto3,oneof" json:"min_quantity,omitempty"`
+	Unit                *string                `protobuf:"bytes,7,opt,name=unit,proto3,oneof" json:"unit,omitempty"`
+	Location            *string                `protobuf:"bytes,8,opt,name=location,proto3,oneof" json:"location,omitempty"`
+	LocationId          *string                `protobuf:"bytes,9,opt,name=location_id,json=locationId,proto3,oneof" json:"location_id,omitempty"`
+	Category            *string                `protobuf:"bytes,10,opt,name=category,proto3,oneof" json:"category,omitempty"`
+	Price               *float64               `protobuf:"fixed64,11,opt,name=price,proto3,oneof" json:"price,omitempty"`
+	Currency            *string                `protobuf:"bytes,12,opt,name=currency,proto3,oneof" json:"currency,omitempty"`
+	BatchNumber         *string                `protobuf:"bytes,13,opt,name=batch_number,json=batchNumber,proto3,oneof" json:"batch_number,omitempty"`
+	LinkedPurchaseOrder *string                `protobuf:"bytes,14,opt,name=linked_purchase_order,json=linkedPurchaseOrder,proto3,oneof" json:"linked_purchase_order,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *UpdateItemRequest) Reset() {
@@ -602,6 +752,48 @@ func (x *UpdateItemRequest) GetUnit() string {
 func (x *UpdateItemRequest) GetLocation() string {
 	if x != nil && x.Location != nil {
 		return *x.Location
+	}
+	return ""
+}
+
+func (x *UpdateItemRequest) GetLocationId() string {
+	if x != nil && x.LocationId != nil {
+		return *x.LocationId
+	}
+	return ""
+}
+
+func (x *UpdateItemRequest) GetCategory() string {
+	if x != nil && x.Category != nil {
+		return *x.Category
+	}
+	return ""
+}
+
+func (x *UpdateItemRequest) GetPrice() float64 {
+	if x != nil && x.Price != nil {
+		return *x.Price
+	}
+	return 0
+}
+
+func (x *UpdateItemRequest) GetCurrency() string {
+	if x != nil && x.Currency != nil {
+		return *x.Currency
+	}
+	return ""
+}
+
+func (x *UpdateItemRequest) GetBatchNumber() string {
+	if x != nil && x.BatchNumber != nil {
+		return *x.BatchNumber
+	}
+	return ""
+}
+
+func (x *UpdateItemRequest) GetLinkedPurchaseOrder() string {
+	if x != nil && x.LinkedPurchaseOrder != nil {
+		return *x.LinkedPurchaseOrder
 	}
 	return ""
 }
@@ -1962,11 +2154,1363 @@ func (x *ExportInventoryResponse) GetFilename() string {
 	return ""
 }
 
+type Location struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Address       string                 `protobuf:"bytes,4,opt,name=address,proto3" json:"address,omitempty"`
+	Type          string                 `protobuf:"bytes,5,opt,name=type,proto3" json:"type,omitempty"` // warehouse|store|vehicle
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Location) Reset() {
+	*x = Location{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Location) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Location) ProtoMessage() {}
+
+func (x *Location) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Location.ProtoReflect.Descriptor instead.
+func (*Location) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *Location) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Location) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *Location) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Location) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+func (x *Location) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *Location) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *Location) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type CreateLocationRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Address       string                 `protobuf:"bytes,3,opt,name=address,proto3" json:"address,omitempty"`
+	Type          string                 `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateLocationRequest) Reset() {
+	*x = CreateLocationRequest{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateLocationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateLocationRequest) ProtoMessage() {}
+
+func (x *CreateLocationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateLocationRequest.ProtoReflect.Descriptor instead.
+func (*CreateLocationRequest) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *CreateLocationRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateLocationRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateLocationRequest) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+func (x *CreateLocationRequest) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+type GetLocationRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	LocationId    string                 `protobuf:"bytes,2,opt,name=location_id,json=locationId,proto3" json:"location_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetLocationRequest) Reset() {
+	*x = GetLocationRequest{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetLocationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetLocationRequest) ProtoMessage() {}
+
+func (x *GetLocationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetLocationRequest.ProtoReflect.Descriptor instead.
+func (*GetLocationRequest) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *GetLocationRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *GetLocationRequest) GetLocationId() string {
+	if x != nil {
+		return x.LocationId
+	}
+	return ""
+}
+
+type UpdateLocationRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	LocationId    string                 `protobuf:"bytes,2,opt,name=location_id,json=locationId,proto3" json:"location_id,omitempty"`
+	Name          *string                `protobuf:"bytes,3,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	Address       *string                `protobuf:"bytes,4,opt,name=address,proto3,oneof" json:"address,omitempty"`
+	Type          *string                `protobuf:"bytes,5,opt,name=type,proto3,oneof" json:"type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateLocationRequest) Reset() {
+	*x = UpdateLocationRequest{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateLocationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateLocationRequest) ProtoMessage() {}
+
+func (x *UpdateLocationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateLocationRequest.ProtoReflect.Descriptor instead.
+func (*UpdateLocationRequest) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *UpdateLocationRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *UpdateLocationRequest) GetLocationId() string {
+	if x != nil {
+		return x.LocationId
+	}
+	return ""
+}
+
+func (x *UpdateLocationRequest) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+func (x *UpdateLocationRequest) GetAddress() string {
+	if x != nil && x.Address != nil {
+		return *x.Address
+	}
+	return ""
+}
+
+func (x *UpdateLocationRequest) GetType() string {
+	if x != nil && x.Type != nil {
+		return *x.Type
+	}
+	return ""
+}
+
+type DeleteLocationRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	LocationId    string                 `protobuf:"bytes,2,opt,name=location_id,json=locationId,proto3" json:"location_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteLocationRequest) Reset() {
+	*x = DeleteLocationRequest{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteLocationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteLocationRequest) ProtoMessage() {}
+
+func (x *DeleteLocationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteLocationRequest.ProtoReflect.Descriptor instead.
+func (*DeleteLocationRequest) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *DeleteLocationRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *DeleteLocationRequest) GetLocationId() string {
+	if x != nil {
+		return x.LocationId
+	}
+	return ""
+}
+
+type DeleteLocationResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteLocationResponse) Reset() {
+	*x = DeleteLocationResponse{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteLocationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteLocationResponse) ProtoMessage() {}
+
+func (x *DeleteLocationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteLocationResponse.ProtoReflect.Descriptor instead.
+func (*DeleteLocationResponse) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{34}
+}
+
+type LocationResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Location      *Location              `protobuf:"bytes,1,opt,name=location,proto3" json:"location,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LocationResponse) Reset() {
+	*x = LocationResponse{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LocationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LocationResponse) ProtoMessage() {}
+
+func (x *LocationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LocationResponse.ProtoReflect.Descriptor instead.
+func (*LocationResponse) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *LocationResponse) GetLocation() *Location {
+	if x != nil {
+		return x.Location
+	}
+	return nil
+}
+
+type ListLocationsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Page          int32                  `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListLocationsRequest) Reset() {
+	*x = ListLocationsRequest{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListLocationsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListLocationsRequest) ProtoMessage() {}
+
+func (x *ListLocationsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListLocationsRequest.ProtoReflect.Descriptor instead.
+func (*ListLocationsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *ListLocationsRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListLocationsRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListLocationsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type ListLocationsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Locations     []*Location            `protobuf:"bytes,1,rep,name=locations,proto3" json:"locations,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListLocationsResponse) Reset() {
+	*x = ListLocationsResponse{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListLocationsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListLocationsResponse) ProtoMessage() {}
+
+func (x *ListLocationsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListLocationsResponse.ProtoReflect.Descriptor instead.
+func (*ListLocationsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *ListLocationsResponse) GetLocations() []*Location {
+	if x != nil {
+		return x.Locations
+	}
+	return nil
+}
+
+func (x *ListLocationsResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type InventurCount struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	SessionId     string                 `protobuf:"bytes,3,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	ItemId        string                 `protobuf:"bytes,4,opt,name=item_id,json=itemId,proto3" json:"item_id,omitempty"`
+	Expected      int64                  `protobuf:"varint,5,opt,name=expected,proto3" json:"expected,omitempty"`
+	Counted       *int64                 `protobuf:"varint,6,opt,name=counted,proto3,oneof" json:"counted,omitempty"`
+	CountedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=counted_at,json=countedAt,proto3,oneof" json:"counted_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *InventurCount) Reset() {
+	*x = InventurCount{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InventurCount) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InventurCount) ProtoMessage() {}
+
+func (x *InventurCount) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InventurCount.ProtoReflect.Descriptor instead.
+func (*InventurCount) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *InventurCount) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *InventurCount) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *InventurCount) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *InventurCount) GetItemId() string {
+	if x != nil {
+		return x.ItemId
+	}
+	return ""
+}
+
+func (x *InventurCount) GetExpected() int64 {
+	if x != nil {
+		return x.Expected
+	}
+	return 0
+}
+
+func (x *InventurCount) GetCounted() int64 {
+	if x != nil && x.Counted != nil {
+		return *x.Counted
+	}
+	return 0
+}
+
+func (x *InventurCount) GetCountedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CountedAt
+	}
+	return nil
+}
+
+type InventurSession struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Date          *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=date,proto3" json:"date,omitempty"`
+	Status        string                 `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"` // open|counting|review|completed
+	LocationId    *string                `protobuf:"bytes,6,opt,name=location_id,json=locationId,proto3,oneof" json:"location_id,omitempty"`
+	CreatedBy     *string                `protobuf:"bytes,7,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
+	Counts        []*InventurCount       `protobuf:"bytes,8,rep,name=counts,proto3" json:"counts,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *InventurSession) Reset() {
+	*x = InventurSession{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InventurSession) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InventurSession) ProtoMessage() {}
+
+func (x *InventurSession) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InventurSession.ProtoReflect.Descriptor instead.
+func (*InventurSession) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *InventurSession) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *InventurSession) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *InventurSession) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *InventurSession) GetDate() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Date
+	}
+	return nil
+}
+
+func (x *InventurSession) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *InventurSession) GetLocationId() string {
+	if x != nil && x.LocationId != nil {
+		return *x.LocationId
+	}
+	return ""
+}
+
+func (x *InventurSession) GetCreatedBy() string {
+	if x != nil && x.CreatedBy != nil {
+		return *x.CreatedBy
+	}
+	return ""
+}
+
+func (x *InventurSession) GetCounts() []*InventurCount {
+	if x != nil {
+		return x.Counts
+	}
+	return nil
+}
+
+func (x *InventurSession) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *InventurSession) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type CreateInventurSessionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Date          *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=date,proto3" json:"date,omitempty"`
+	LocationId    *string                `protobuf:"bytes,4,opt,name=location_id,json=locationId,proto3,oneof" json:"location_id,omitempty"`
+	CreatedBy     *string                `protobuf:"bytes,5,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
+	ItemIds       []string               `protobuf:"bytes,6,rep,name=item_ids,json=itemIds,proto3" json:"item_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateInventurSessionRequest) Reset() {
+	*x = CreateInventurSessionRequest{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateInventurSessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateInventurSessionRequest) ProtoMessage() {}
+
+func (x *CreateInventurSessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateInventurSessionRequest.ProtoReflect.Descriptor instead.
+func (*CreateInventurSessionRequest) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *CreateInventurSessionRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateInventurSessionRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateInventurSessionRequest) GetDate() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Date
+	}
+	return nil
+}
+
+func (x *CreateInventurSessionRequest) GetLocationId() string {
+	if x != nil && x.LocationId != nil {
+		return *x.LocationId
+	}
+	return ""
+}
+
+func (x *CreateInventurSessionRequest) GetCreatedBy() string {
+	if x != nil && x.CreatedBy != nil {
+		return *x.CreatedBy
+	}
+	return ""
+}
+
+func (x *CreateInventurSessionRequest) GetItemIds() []string {
+	if x != nil {
+		return x.ItemIds
+	}
+	return nil
+}
+
+type GetInventurSessionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	SessionId     string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetInventurSessionRequest) Reset() {
+	*x = GetInventurSessionRequest{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetInventurSessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetInventurSessionRequest) ProtoMessage() {}
+
+func (x *GetInventurSessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetInventurSessionRequest.ProtoReflect.Descriptor instead.
+func (*GetInventurSessionRequest) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *GetInventurSessionRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *GetInventurSessionRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+type UpdateInventurSessionStatusRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	SessionId     string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateInventurSessionStatusRequest) Reset() {
+	*x = UpdateInventurSessionStatusRequest{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateInventurSessionStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateInventurSessionStatusRequest) ProtoMessage() {}
+
+func (x *UpdateInventurSessionStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateInventurSessionStatusRequest.ProtoReflect.Descriptor instead.
+func (*UpdateInventurSessionStatusRequest) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *UpdateInventurSessionStatusRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *UpdateInventurSessionStatusRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *UpdateInventurSessionStatusRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+type DeleteInventurSessionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	SessionId     string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteInventurSessionRequest) Reset() {
+	*x = DeleteInventurSessionRequest{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteInventurSessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteInventurSessionRequest) ProtoMessage() {}
+
+func (x *DeleteInventurSessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteInventurSessionRequest.ProtoReflect.Descriptor instead.
+func (*DeleteInventurSessionRequest) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *DeleteInventurSessionRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *DeleteInventurSessionRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+type DeleteInventurSessionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteInventurSessionResponse) Reset() {
+	*x = DeleteInventurSessionResponse{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteInventurSessionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteInventurSessionResponse) ProtoMessage() {}
+
+func (x *DeleteInventurSessionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteInventurSessionResponse.ProtoReflect.Descriptor instead.
+func (*DeleteInventurSessionResponse) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{44}
+}
+
+type ListInventurSessionsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Page          int32                  `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListInventurSessionsRequest) Reset() {
+	*x = ListInventurSessionsRequest{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListInventurSessionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListInventurSessionsRequest) ProtoMessage() {}
+
+func (x *ListInventurSessionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListInventurSessionsRequest.ProtoReflect.Descriptor instead.
+func (*ListInventurSessionsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *ListInventurSessionsRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListInventurSessionsRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListInventurSessionsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type ListInventurSessionsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Sessions      []*InventurSession     `protobuf:"bytes,1,rep,name=sessions,proto3" json:"sessions,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListInventurSessionsResponse) Reset() {
+	*x = ListInventurSessionsResponse{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListInventurSessionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListInventurSessionsResponse) ProtoMessage() {}
+
+func (x *ListInventurSessionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListInventurSessionsResponse.ProtoReflect.Descriptor instead.
+func (*ListInventurSessionsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *ListInventurSessionsResponse) GetSessions() []*InventurSession {
+	if x != nil {
+		return x.Sessions
+	}
+	return nil
+}
+
+func (x *ListInventurSessionsResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type UpsertInventurCountRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	SessionId     string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	ItemId        string                 `protobuf:"bytes,3,opt,name=item_id,json=itemId,proto3" json:"item_id,omitempty"`
+	Counted       int64                  `protobuf:"varint,4,opt,name=counted,proto3" json:"counted,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpsertInventurCountRequest) Reset() {
+	*x = UpsertInventurCountRequest{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpsertInventurCountRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpsertInventurCountRequest) ProtoMessage() {}
+
+func (x *UpsertInventurCountRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpsertInventurCountRequest.ProtoReflect.Descriptor instead.
+func (*UpsertInventurCountRequest) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *UpsertInventurCountRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *UpsertInventurCountRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *UpsertInventurCountRequest) GetItemId() string {
+	if x != nil {
+		return x.ItemId
+	}
+	return ""
+}
+
+func (x *UpsertInventurCountRequest) GetCounted() int64 {
+	if x != nil {
+		return x.Counted
+	}
+	return 0
+}
+
+type InventurCountResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Count         *InventurCount         `protobuf:"bytes,1,opt,name=count,proto3" json:"count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *InventurCountResponse) Reset() {
+	*x = InventurCountResponse{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InventurCountResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InventurCountResponse) ProtoMessage() {}
+
+func (x *InventurCountResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InventurCountResponse.ProtoReflect.Descriptor instead.
+func (*InventurCountResponse) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *InventurCountResponse) GetCount() *InventurCount {
+	if x != nil {
+		return x.Count
+	}
+	return nil
+}
+
+type BookInventurDifferencesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	SessionId     string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	BookedBy      *string                `protobuf:"bytes,3,opt,name=booked_by,json=bookedBy,proto3,oneof" json:"booked_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BookInventurDifferencesRequest) Reset() {
+	*x = BookInventurDifferencesRequest{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BookInventurDifferencesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BookInventurDifferencesRequest) ProtoMessage() {}
+
+func (x *BookInventurDifferencesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BookInventurDifferencesRequest.ProtoReflect.Descriptor instead.
+func (*BookInventurDifferencesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *BookInventurDifferencesRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *BookInventurDifferencesRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *BookInventurDifferencesRequest) GetBookedBy() string {
+	if x != nil && x.BookedBy != nil {
+		return *x.BookedBy
+	}
+	return ""
+}
+
+type InventurSessionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Session       *InventurSession       `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *InventurSessionResponse) Reset() {
+	*x = InventurSessionResponse{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InventurSessionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InventurSessionResponse) ProtoMessage() {}
+
+func (x *InventurSessionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InventurSessionResponse.ProtoReflect.Descriptor instead.
+func (*InventurSessionResponse) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *InventurSessionResponse) GetSession() *InventurSession {
+	if x != nil {
+		return x.Session
+	}
+	return nil
+}
+
 var File_proto_inventar_v1_inventar_proto protoreflect.FileDescriptor
 
 const file_proto_inventar_v1_inventar_proto_rawDesc = "" +
 	"\n" +
-	" proto/inventar/v1/inventar.proto\x12\vinventar.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xfb\x02\n" +
+	" proto/inventar/v1/inventar.proto\x12\vinventar.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe5\x05\n" +
 	"\x04Item\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x12\n" +
@@ -1981,10 +3525,24 @@ const file_proto_inventar_v1_inventar_proto_rawDesc = "" +
 	"created_at\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAtB\n" +
+	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12$\n" +
+	"\vlocation_id\x18\f \x01(\tH\x02R\n" +
+	"locationId\x88\x01\x01\x12\x1f\n" +
+	"\bcategory\x18\r \x01(\tH\x03R\bcategory\x88\x01\x01\x12\x19\n" +
+	"\x05price\x18\x0e \x01(\x01H\x04R\x05price\x88\x01\x01\x12\x1f\n" +
+	"\bcurrency\x18\x0f \x01(\tH\x05R\bcurrency\x88\x01\x01\x12&\n" +
+	"\fbatch_number\x18\x10 \x01(\tH\x06R\vbatchNumber\x88\x01\x01\x12%\n" +
+	"\x0eserial_numbers\x18\x11 \x03(\tR\rserialNumbers\x127\n" +
+	"\x15linked_purchase_order\x18\x12 \x01(\tH\aR\x13linkedPurchaseOrder\x88\x01\x01B\n" +
 	"\n" +
 	"\b_barcodeB\v\n" +
-	"\t_location\"\x9d\x02\n" +
+	"\t_locationB\x0e\n" +
+	"\f_location_idB\v\n" +
+	"\t_categoryB\b\n" +
+	"\x06_priceB\v\n" +
+	"\t_currencyB\x0f\n" +
+	"\r_batch_numberB\x18\n" +
+	"\x16_linked_purchase_order\"\xe5\x03\n" +
 	"\bMovement\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x17\n" +
@@ -1994,8 +3552,19 @@ const file_proto_inventar_v1_inventar_proto_rawDesc = "" +
 	"\fperformed_by\x18\x06 \x01(\tH\x00R\vperformedBy\x88\x01\x01\x12\x16\n" +
 	"\x06reason\x18\a \x01(\tR\x06reason\x129\n" +
 	"\n" +
-	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAtB\x0f\n" +
-	"\r_performed_by\"\x8b\x03\n" +
+	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12!\n" +
+	"\treference\x18\t \x01(\tH\x01R\treference\x88\x01\x01\x12(\n" +
+	"\rlocation_from\x18\n" +
+	" \x01(\tH\x02R\flocationFrom\x88\x01\x01\x12$\n" +
+	"\vlocation_to\x18\v \x01(\tH\x03R\n" +
+	"locationTo\x88\x01\x01\x12\x19\n" +
+	"\x05notes\x18\f \x01(\tH\x04R\x05notes\x88\x01\x01B\x0f\n" +
+	"\r_performed_byB\f\n" +
+	"\n" +
+	"_referenceB\x10\n" +
+	"\x0e_location_fromB\x0e\n" +
+	"\f_location_toB\b\n" +
+	"\x06_notes\"\x8b\x03\n" +
 	"\aWarning\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x17\n" +
@@ -2008,7 +3577,7 @@ const file_proto_inventar_v1_inventar_proto_rawDesc = "" +
 	"\x0facknowledged_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampH\x00R\x0eacknowledgedAt\x88\x01\x01\x12,\n" +
 	"\x0facknowledged_by\x18\t \x01(\tH\x01R\x0eacknowledgedBy\x88\x01\x01B\x12\n" +
 	"\x10_acknowledged_atB\x12\n" +
-	"\x10_acknowledged_by\"\x82\x02\n" +
+	"\x10_acknowledged_by\"\xec\x04\n" +
 	"\x11CreateItemRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -2017,13 +3586,28 @@ const file_proto_inventar_v1_inventar_proto_rawDesc = "" +
 	"\bquantity\x18\x05 \x01(\x03R\bquantity\x12!\n" +
 	"\fmin_quantity\x18\x06 \x01(\x03R\vminQuantity\x12\x12\n" +
 	"\x04unit\x18\a \x01(\tR\x04unit\x12\x1f\n" +
-	"\blocation\x18\b \x01(\tH\x01R\blocation\x88\x01\x01B\n" +
+	"\blocation\x18\b \x01(\tH\x01R\blocation\x88\x01\x01\x12$\n" +
+	"\vlocation_id\x18\t \x01(\tH\x02R\n" +
+	"locationId\x88\x01\x01\x12\x1f\n" +
+	"\bcategory\x18\n" +
+	" \x01(\tH\x03R\bcategory\x88\x01\x01\x12\x19\n" +
+	"\x05price\x18\v \x01(\x01H\x04R\x05price\x88\x01\x01\x12\x1f\n" +
+	"\bcurrency\x18\f \x01(\tH\x05R\bcurrency\x88\x01\x01\x12&\n" +
+	"\fbatch_number\x18\r \x01(\tH\x06R\vbatchNumber\x88\x01\x01\x12%\n" +
+	"\x0eserial_numbers\x18\x0e \x03(\tR\rserialNumbers\x127\n" +
+	"\x15linked_purchase_order\x18\x0f \x01(\tH\aR\x13linkedPurchaseOrder\x88\x01\x01B\n" +
 	"\n" +
 	"\b_barcodeB\v\n" +
-	"\t_location\"F\n" +
+	"\t_locationB\x0e\n" +
+	"\f_location_idB\v\n" +
+	"\t_categoryB\b\n" +
+	"\x06_priceB\v\n" +
+	"\t_currencyB\x0f\n" +
+	"\r_batch_numberB\x18\n" +
+	"\x16_linked_purchase_order\"F\n" +
 	"\x0eGetItemRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
-	"\aitem_id\x18\x02 \x01(\tR\x06itemId\"\xbe\x02\n" +
+	"\aitem_id\x18\x02 \x01(\tR\x06itemId\"\x81\x05\n" +
 	"\x11UpdateItemRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
 	"\aitem_id\x18\x02 \x01(\tR\x06itemId\x12\x17\n" +
@@ -2032,14 +3616,29 @@ const file_proto_inventar_v1_inventar_proto_rawDesc = "" +
 	"\abarcode\x18\x05 \x01(\tH\x02R\abarcode\x88\x01\x01\x12&\n" +
 	"\fmin_quantity\x18\x06 \x01(\x03H\x03R\vminQuantity\x88\x01\x01\x12\x17\n" +
 	"\x04unit\x18\a \x01(\tH\x04R\x04unit\x88\x01\x01\x12\x1f\n" +
-	"\blocation\x18\b \x01(\tH\x05R\blocation\x88\x01\x01B\a\n" +
+	"\blocation\x18\b \x01(\tH\x05R\blocation\x88\x01\x01\x12$\n" +
+	"\vlocation_id\x18\t \x01(\tH\x06R\n" +
+	"locationId\x88\x01\x01\x12\x1f\n" +
+	"\bcategory\x18\n" +
+	" \x01(\tH\aR\bcategory\x88\x01\x01\x12\x19\n" +
+	"\x05price\x18\v \x01(\x01H\bR\x05price\x88\x01\x01\x12\x1f\n" +
+	"\bcurrency\x18\f \x01(\tH\tR\bcurrency\x88\x01\x01\x12&\n" +
+	"\fbatch_number\x18\r \x01(\tH\n" +
+	"R\vbatchNumber\x88\x01\x01\x127\n" +
+	"\x15linked_purchase_order\x18\x0e \x01(\tH\vR\x13linkedPurchaseOrder\x88\x01\x01B\a\n" +
 	"\x05_nameB\x06\n" +
 	"\x04_skuB\n" +
 	"\n" +
 	"\b_barcodeB\x0f\n" +
 	"\r_min_quantityB\a\n" +
 	"\x05_unitB\v\n" +
-	"\t_location\"I\n" +
+	"\t_locationB\x0e\n" +
+	"\f_location_idB\v\n" +
+	"\t_categoryB\b\n" +
+	"\x06_priceB\v\n" +
+	"\t_currencyB\x0f\n" +
+	"\r_batch_numberB\x18\n" +
+	"\x16_linked_purchase_order\"I\n" +
 	"\x11DeleteItemRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
 	"\aitem_id\x18\x02 \x01(\tR\x06itemId\"\x14\n" +
@@ -2138,8 +3737,131 @@ const file_proto_inventar_v1_inventar_proto_rawDesc = "" +
 	"\x17ExportInventoryResponse\x12\x18\n" +
 	"\apayload\x18\x01 \x01(\fR\apayload\x12!\n" +
 	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x12\x1a\n" +
-	"\bfilename\x18\x03 \x01(\tR\bfilename2\xb8\n" +
+	"\bfilename\x18\x03 \x01(\tR\bfilename\"\xef\x01\n" +
+	"\bLocation\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x18\n" +
+	"\aaddress\x18\x04 \x01(\tR\aaddress\x12\x12\n" +
+	"\x04type\x18\x05 \x01(\tR\x04type\x129\n" +
 	"\n" +
+	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"v\n" +
+	"\x15CreateLocationRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
+	"\aaddress\x18\x03 \x01(\tR\aaddress\x12\x12\n" +
+	"\x04type\x18\x04 \x01(\tR\x04type\"R\n" +
+	"\x12GetLocationRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vlocation_id\x18\x02 \x01(\tR\n" +
+	"locationId\"\xc4\x01\n" +
+	"\x15UpdateLocationRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vlocation_id\x18\x02 \x01(\tR\n" +
+	"locationId\x12\x17\n" +
+	"\x04name\x18\x03 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x1d\n" +
+	"\aaddress\x18\x04 \x01(\tH\x01R\aaddress\x88\x01\x01\x12\x17\n" +
+	"\x04type\x18\x05 \x01(\tH\x02R\x04type\x88\x01\x01B\a\n" +
+	"\x05_nameB\n" +
+	"\n" +
+	"\b_addressB\a\n" +
+	"\x05_type\"U\n" +
+	"\x15DeleteLocationRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\vlocation_id\x18\x02 \x01(\tR\n" +
+	"locationId\"\x18\n" +
+	"\x16DeleteLocationResponse\"E\n" +
+	"\x10LocationResponse\x121\n" +
+	"\blocation\x18\x01 \x01(\v2\x15.inventar.v1.LocationR\blocation\"d\n" +
+	"\x14ListLocationsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x12\n" +
+	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\"b\n" +
+	"\x15ListLocationsResponse\x123\n" +
+	"\tlocations\x18\x01 \x03(\v2\x15.inventar.v1.LocationR\tlocations\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\x8a\x02\n" +
+	"\rInventurCount\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x03 \x01(\tR\tsessionId\x12\x17\n" +
+	"\aitem_id\x18\x04 \x01(\tR\x06itemId\x12\x1a\n" +
+	"\bexpected\x18\x05 \x01(\x03R\bexpected\x12\x1d\n" +
+	"\acounted\x18\x06 \x01(\x03H\x00R\acounted\x88\x01\x01\x12>\n" +
+	"\n" +
+	"counted_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampH\x01R\tcountedAt\x88\x01\x01B\n" +
+	"\n" +
+	"\b_countedB\r\n" +
+	"\v_counted_at\"\xad\x03\n" +
+	"\x0fInventurSession\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12.\n" +
+	"\x04date\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x04date\x12\x16\n" +
+	"\x06status\x18\x05 \x01(\tR\x06status\x12$\n" +
+	"\vlocation_id\x18\x06 \x01(\tH\x00R\n" +
+	"locationId\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"created_by\x18\a \x01(\tH\x01R\tcreatedBy\x88\x01\x01\x122\n" +
+	"\x06counts\x18\b \x03(\v2\x1a.inventar.v1.InventurCountR\x06counts\x129\n" +
+	"\n" +
+	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAtB\x0e\n" +
+	"\f_location_idB\r\n" +
+	"\v_created_by\"\x83\x02\n" +
+	"\x1cCreateInventurSessionRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12.\n" +
+	"\x04date\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x04date\x12$\n" +
+	"\vlocation_id\x18\x04 \x01(\tH\x00R\n" +
+	"locationId\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"created_by\x18\x05 \x01(\tH\x01R\tcreatedBy\x88\x01\x01\x12\x19\n" +
+	"\bitem_ids\x18\x06 \x03(\tR\aitemIdsB\x0e\n" +
+	"\f_location_idB\r\n" +
+	"\v_created_by\"W\n" +
+	"\x19GetInventurSessionRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\"x\n" +
+	"\"UpdateInventurSessionStatusRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\"Z\n" +
+	"\x1cDeleteInventurSessionRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\"\x1f\n" +
+	"\x1dDeleteInventurSessionResponse\"k\n" +
+	"\x1bListInventurSessionsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x12\n" +
+	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\"n\n" +
+	"\x1cListInventurSessionsResponse\x128\n" +
+	"\bsessions\x18\x01 \x03(\v2\x1c.inventar.v1.InventurSessionR\bsessions\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\x8b\x01\n" +
+	"\x1aUpsertInventurCountRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\x12\x17\n" +
+	"\aitem_id\x18\x03 \x01(\tR\x06itemId\x12\x18\n" +
+	"\acounted\x18\x04 \x01(\x03R\acounted\"I\n" +
+	"\x15InventurCountResponse\x120\n" +
+	"\x05count\x18\x01 \x01(\v2\x1a.inventar.v1.InventurCountR\x05count\"\x8c\x01\n" +
+	"\x1eBookInventurDifferencesRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\x12 \n" +
+	"\tbooked_by\x18\x03 \x01(\tH\x00R\bbookedBy\x88\x01\x01B\f\n" +
+	"\n" +
+	"_booked_by\"Q\n" +
+	"\x17InventurSessionResponse\x126\n" +
+	"\asession\x18\x01 \x01(\v2\x1c.inventar.v1.InventurSessionR\asession2\xd7\x13\n" +
 	"\x0fInventarService\x12G\n" +
 	"\n" +
 	"CreateItem\x12\x1e.inventar.v1.CreateItemRequest\x1a\x19.inventar.v1.ItemResponse\x12A\n" +
@@ -2159,7 +3881,19 @@ const file_proto_inventar_v1_inventar_proto_rawDesc = "" +
 	"\x12AcknowledgeWarning\x12&.inventar.v1.AcknowledgeWarningRequest\x1a\x1c.inventar.v1.WarningResponse\x12S\n" +
 	"\fListWarnings\x12 .inventar.v1.ListWarningsRequest\x1a!.inventar.v1.ListWarningsResponse\x12V\n" +
 	"\x0eGetStockReport\x12\".inventar.v1.GetStockReportRequest\x1a .inventar.v1.StockReportResponse\x12\\\n" +
-	"\x0fExportInventory\x12#.inventar.v1.ExportInventoryRequest\x1a$.inventar.v1.ExportInventoryResponseB7Z5github.com/kmuhub/kmuhub/proto/inventar/v1;inventarv1b\x06proto3"
+	"\x0fExportInventory\x12#.inventar.v1.ExportInventoryRequest\x1a$.inventar.v1.ExportInventoryResponse\x12S\n" +
+	"\x0eCreateLocation\x12\".inventar.v1.CreateLocationRequest\x1a\x1d.inventar.v1.LocationResponse\x12M\n" +
+	"\vGetLocation\x12\x1f.inventar.v1.GetLocationRequest\x1a\x1d.inventar.v1.LocationResponse\x12S\n" +
+	"\x0eUpdateLocation\x12\".inventar.v1.UpdateLocationRequest\x1a\x1d.inventar.v1.LocationResponse\x12Y\n" +
+	"\x0eDeleteLocation\x12\".inventar.v1.DeleteLocationRequest\x1a#.inventar.v1.DeleteLocationResponse\x12V\n" +
+	"\rListLocations\x12!.inventar.v1.ListLocationsRequest\x1a\".inventar.v1.ListLocationsResponse\x12h\n" +
+	"\x15CreateInventurSession\x12).inventar.v1.CreateInventurSessionRequest\x1a$.inventar.v1.InventurSessionResponse\x12b\n" +
+	"\x12GetInventurSession\x12&.inventar.v1.GetInventurSessionRequest\x1a$.inventar.v1.InventurSessionResponse\x12t\n" +
+	"\x1bUpdateInventurSessionStatus\x12/.inventar.v1.UpdateInventurSessionStatusRequest\x1a$.inventar.v1.InventurSessionResponse\x12n\n" +
+	"\x15DeleteInventurSession\x12).inventar.v1.DeleteInventurSessionRequest\x1a*.inventar.v1.DeleteInventurSessionResponse\x12k\n" +
+	"\x14ListInventurSessions\x12(.inventar.v1.ListInventurSessionsRequest\x1a).inventar.v1.ListInventurSessionsResponse\x12b\n" +
+	"\x13UpsertInventurCount\x12'.inventar.v1.UpsertInventurCountRequest\x1a\".inventar.v1.InventurCountResponse\x12l\n" +
+	"\x17BookInventurDifferences\x12+.inventar.v1.BookInventurDifferencesRequest\x1a$.inventar.v1.InventurSessionResponseB7Z5github.com/kmuhub/kmuhub/proto/inventar/v1;inventarv1b\x06proto3"
 
 var (
 	file_proto_inventar_v1_inventar_proto_rawDescOnce sync.Once
@@ -2173,88 +3907,147 @@ func file_proto_inventar_v1_inventar_proto_rawDescGZIP() []byte {
 	return file_proto_inventar_v1_inventar_proto_rawDescData
 }
 
-var file_proto_inventar_v1_inventar_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
+var file_proto_inventar_v1_inventar_proto_msgTypes = make([]protoimpl.MessageInfo, 51)
 var file_proto_inventar_v1_inventar_proto_goTypes = []any{
-	(*Item)(nil),                      // 0: inventar.v1.Item
-	(*Movement)(nil),                  // 1: inventar.v1.Movement
-	(*Warning)(nil),                   // 2: inventar.v1.Warning
-	(*CreateItemRequest)(nil),         // 3: inventar.v1.CreateItemRequest
-	(*GetItemRequest)(nil),            // 4: inventar.v1.GetItemRequest
-	(*UpdateItemRequest)(nil),         // 5: inventar.v1.UpdateItemRequest
-	(*DeleteItemRequest)(nil),         // 6: inventar.v1.DeleteItemRequest
-	(*DeleteItemResponse)(nil),        // 7: inventar.v1.DeleteItemResponse
-	(*ItemResponse)(nil),              // 8: inventar.v1.ItemResponse
-	(*ListItemsRequest)(nil),          // 9: inventar.v1.ListItemsRequest
-	(*ListItemsResponse)(nil),         // 10: inventar.v1.ListItemsResponse
-	(*AdjustStockRequest)(nil),        // 11: inventar.v1.AdjustStockRequest
-	(*TransferStockRequest)(nil),      // 12: inventar.v1.TransferStockRequest
-	(*TransferStockResponse)(nil),     // 13: inventar.v1.TransferStockResponse
-	(*RecordMovementRequest)(nil),     // 14: inventar.v1.RecordMovementRequest
-	(*MovementResponse)(nil),          // 15: inventar.v1.MovementResponse
-	(*ListMovementsRequest)(nil),      // 16: inventar.v1.ListMovementsRequest
-	(*ListMovementsResponse)(nil),     // 17: inventar.v1.ListMovementsResponse
-	(*GetStockHistoryRequest)(nil),    // 18: inventar.v1.GetStockHistoryRequest
-	(*CreateWarningRequest)(nil),      // 19: inventar.v1.CreateWarningRequest
-	(*UpdateWarningRequest)(nil),      // 20: inventar.v1.UpdateWarningRequest
-	(*AcknowledgeWarningRequest)(nil), // 21: inventar.v1.AcknowledgeWarningRequest
-	(*WarningResponse)(nil),           // 22: inventar.v1.WarningResponse
-	(*ListWarningsRequest)(nil),       // 23: inventar.v1.ListWarningsRequest
-	(*ListWarningsResponse)(nil),      // 24: inventar.v1.ListWarningsResponse
-	(*GetStockReportRequest)(nil),     // 25: inventar.v1.GetStockReportRequest
-	(*StockReportResponse)(nil),       // 26: inventar.v1.StockReportResponse
-	(*ExportInventoryRequest)(nil),    // 27: inventar.v1.ExportInventoryRequest
-	(*ExportInventoryResponse)(nil),   // 28: inventar.v1.ExportInventoryResponse
-	(*timestamppb.Timestamp)(nil),     // 29: google.protobuf.Timestamp
+	(*Item)(nil),                               // 0: inventar.v1.Item
+	(*Movement)(nil),                           // 1: inventar.v1.Movement
+	(*Warning)(nil),                            // 2: inventar.v1.Warning
+	(*CreateItemRequest)(nil),                  // 3: inventar.v1.CreateItemRequest
+	(*GetItemRequest)(nil),                     // 4: inventar.v1.GetItemRequest
+	(*UpdateItemRequest)(nil),                  // 5: inventar.v1.UpdateItemRequest
+	(*DeleteItemRequest)(nil),                  // 6: inventar.v1.DeleteItemRequest
+	(*DeleteItemResponse)(nil),                 // 7: inventar.v1.DeleteItemResponse
+	(*ItemResponse)(nil),                       // 8: inventar.v1.ItemResponse
+	(*ListItemsRequest)(nil),                   // 9: inventar.v1.ListItemsRequest
+	(*ListItemsResponse)(nil),                  // 10: inventar.v1.ListItemsResponse
+	(*AdjustStockRequest)(nil),                 // 11: inventar.v1.AdjustStockRequest
+	(*TransferStockRequest)(nil),               // 12: inventar.v1.TransferStockRequest
+	(*TransferStockResponse)(nil),              // 13: inventar.v1.TransferStockResponse
+	(*RecordMovementRequest)(nil),              // 14: inventar.v1.RecordMovementRequest
+	(*MovementResponse)(nil),                   // 15: inventar.v1.MovementResponse
+	(*ListMovementsRequest)(nil),               // 16: inventar.v1.ListMovementsRequest
+	(*ListMovementsResponse)(nil),              // 17: inventar.v1.ListMovementsResponse
+	(*GetStockHistoryRequest)(nil),             // 18: inventar.v1.GetStockHistoryRequest
+	(*CreateWarningRequest)(nil),               // 19: inventar.v1.CreateWarningRequest
+	(*UpdateWarningRequest)(nil),               // 20: inventar.v1.UpdateWarningRequest
+	(*AcknowledgeWarningRequest)(nil),          // 21: inventar.v1.AcknowledgeWarningRequest
+	(*WarningResponse)(nil),                    // 22: inventar.v1.WarningResponse
+	(*ListWarningsRequest)(nil),                // 23: inventar.v1.ListWarningsRequest
+	(*ListWarningsResponse)(nil),               // 24: inventar.v1.ListWarningsResponse
+	(*GetStockReportRequest)(nil),              // 25: inventar.v1.GetStockReportRequest
+	(*StockReportResponse)(nil),                // 26: inventar.v1.StockReportResponse
+	(*ExportInventoryRequest)(nil),             // 27: inventar.v1.ExportInventoryRequest
+	(*ExportInventoryResponse)(nil),            // 28: inventar.v1.ExportInventoryResponse
+	(*Location)(nil),                           // 29: inventar.v1.Location
+	(*CreateLocationRequest)(nil),              // 30: inventar.v1.CreateLocationRequest
+	(*GetLocationRequest)(nil),                 // 31: inventar.v1.GetLocationRequest
+	(*UpdateLocationRequest)(nil),              // 32: inventar.v1.UpdateLocationRequest
+	(*DeleteLocationRequest)(nil),              // 33: inventar.v1.DeleteLocationRequest
+	(*DeleteLocationResponse)(nil),             // 34: inventar.v1.DeleteLocationResponse
+	(*LocationResponse)(nil),                   // 35: inventar.v1.LocationResponse
+	(*ListLocationsRequest)(nil),               // 36: inventar.v1.ListLocationsRequest
+	(*ListLocationsResponse)(nil),              // 37: inventar.v1.ListLocationsResponse
+	(*InventurCount)(nil),                      // 38: inventar.v1.InventurCount
+	(*InventurSession)(nil),                    // 39: inventar.v1.InventurSession
+	(*CreateInventurSessionRequest)(nil),       // 40: inventar.v1.CreateInventurSessionRequest
+	(*GetInventurSessionRequest)(nil),          // 41: inventar.v1.GetInventurSessionRequest
+	(*UpdateInventurSessionStatusRequest)(nil), // 42: inventar.v1.UpdateInventurSessionStatusRequest
+	(*DeleteInventurSessionRequest)(nil),       // 43: inventar.v1.DeleteInventurSessionRequest
+	(*DeleteInventurSessionResponse)(nil),      // 44: inventar.v1.DeleteInventurSessionResponse
+	(*ListInventurSessionsRequest)(nil),        // 45: inventar.v1.ListInventurSessionsRequest
+	(*ListInventurSessionsResponse)(nil),       // 46: inventar.v1.ListInventurSessionsResponse
+	(*UpsertInventurCountRequest)(nil),         // 47: inventar.v1.UpsertInventurCountRequest
+	(*InventurCountResponse)(nil),              // 48: inventar.v1.InventurCountResponse
+	(*BookInventurDifferencesRequest)(nil),     // 49: inventar.v1.BookInventurDifferencesRequest
+	(*InventurSessionResponse)(nil),            // 50: inventar.v1.InventurSessionResponse
+	(*timestamppb.Timestamp)(nil),              // 51: google.protobuf.Timestamp
 }
 var file_proto_inventar_v1_inventar_proto_depIdxs = []int32{
-	29, // 0: inventar.v1.Item.created_at:type_name -> google.protobuf.Timestamp
-	29, // 1: inventar.v1.Item.updated_at:type_name -> google.protobuf.Timestamp
-	29, // 2: inventar.v1.Movement.created_at:type_name -> google.protobuf.Timestamp
-	29, // 3: inventar.v1.Warning.created_at:type_name -> google.protobuf.Timestamp
-	29, // 4: inventar.v1.Warning.acknowledged_at:type_name -> google.protobuf.Timestamp
+	51, // 0: inventar.v1.Item.created_at:type_name -> google.protobuf.Timestamp
+	51, // 1: inventar.v1.Item.updated_at:type_name -> google.protobuf.Timestamp
+	51, // 2: inventar.v1.Movement.created_at:type_name -> google.protobuf.Timestamp
+	51, // 3: inventar.v1.Warning.created_at:type_name -> google.protobuf.Timestamp
+	51, // 4: inventar.v1.Warning.acknowledged_at:type_name -> google.protobuf.Timestamp
 	0,  // 5: inventar.v1.ItemResponse.item:type_name -> inventar.v1.Item
 	0,  // 6: inventar.v1.ListItemsResponse.items:type_name -> inventar.v1.Item
 	1,  // 7: inventar.v1.MovementResponse.movement:type_name -> inventar.v1.Movement
 	1,  // 8: inventar.v1.ListMovementsResponse.movements:type_name -> inventar.v1.Movement
 	2,  // 9: inventar.v1.WarningResponse.warning:type_name -> inventar.v1.Warning
 	2,  // 10: inventar.v1.ListWarningsResponse.warnings:type_name -> inventar.v1.Warning
-	3,  // 11: inventar.v1.InventarService.CreateItem:input_type -> inventar.v1.CreateItemRequest
-	4,  // 12: inventar.v1.InventarService.GetItem:input_type -> inventar.v1.GetItemRequest
-	5,  // 13: inventar.v1.InventarService.UpdateItem:input_type -> inventar.v1.UpdateItemRequest
-	6,  // 14: inventar.v1.InventarService.DeleteItem:input_type -> inventar.v1.DeleteItemRequest
-	9,  // 15: inventar.v1.InventarService.ListItems:input_type -> inventar.v1.ListItemsRequest
-	11, // 16: inventar.v1.InventarService.AdjustStock:input_type -> inventar.v1.AdjustStockRequest
-	12, // 17: inventar.v1.InventarService.TransferStock:input_type -> inventar.v1.TransferStockRequest
-	14, // 18: inventar.v1.InventarService.RecordMovement:input_type -> inventar.v1.RecordMovementRequest
-	16, // 19: inventar.v1.InventarService.ListMovements:input_type -> inventar.v1.ListMovementsRequest
-	18, // 20: inventar.v1.InventarService.GetStockHistory:input_type -> inventar.v1.GetStockHistoryRequest
-	19, // 21: inventar.v1.InventarService.CreateWarning:input_type -> inventar.v1.CreateWarningRequest
-	20, // 22: inventar.v1.InventarService.UpdateWarning:input_type -> inventar.v1.UpdateWarningRequest
-	21, // 23: inventar.v1.InventarService.AcknowledgeWarning:input_type -> inventar.v1.AcknowledgeWarningRequest
-	23, // 24: inventar.v1.InventarService.ListWarnings:input_type -> inventar.v1.ListWarningsRequest
-	25, // 25: inventar.v1.InventarService.GetStockReport:input_type -> inventar.v1.GetStockReportRequest
-	27, // 26: inventar.v1.InventarService.ExportInventory:input_type -> inventar.v1.ExportInventoryRequest
-	8,  // 27: inventar.v1.InventarService.CreateItem:output_type -> inventar.v1.ItemResponse
-	8,  // 28: inventar.v1.InventarService.GetItem:output_type -> inventar.v1.ItemResponse
-	8,  // 29: inventar.v1.InventarService.UpdateItem:output_type -> inventar.v1.ItemResponse
-	7,  // 30: inventar.v1.InventarService.DeleteItem:output_type -> inventar.v1.DeleteItemResponse
-	10, // 31: inventar.v1.InventarService.ListItems:output_type -> inventar.v1.ListItemsResponse
-	8,  // 32: inventar.v1.InventarService.AdjustStock:output_type -> inventar.v1.ItemResponse
-	13, // 33: inventar.v1.InventarService.TransferStock:output_type -> inventar.v1.TransferStockResponse
-	15, // 34: inventar.v1.InventarService.RecordMovement:output_type -> inventar.v1.MovementResponse
-	17, // 35: inventar.v1.InventarService.ListMovements:output_type -> inventar.v1.ListMovementsResponse
-	17, // 36: inventar.v1.InventarService.GetStockHistory:output_type -> inventar.v1.ListMovementsResponse
-	22, // 37: inventar.v1.InventarService.CreateWarning:output_type -> inventar.v1.WarningResponse
-	22, // 38: inventar.v1.InventarService.UpdateWarning:output_type -> inventar.v1.WarningResponse
-	22, // 39: inventar.v1.InventarService.AcknowledgeWarning:output_type -> inventar.v1.WarningResponse
-	24, // 40: inventar.v1.InventarService.ListWarnings:output_type -> inventar.v1.ListWarningsResponse
-	26, // 41: inventar.v1.InventarService.GetStockReport:output_type -> inventar.v1.StockReportResponse
-	28, // 42: inventar.v1.InventarService.ExportInventory:output_type -> inventar.v1.ExportInventoryResponse
-	27, // [27:43] is the sub-list for method output_type
-	11, // [11:27] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	51, // 11: inventar.v1.Location.created_at:type_name -> google.protobuf.Timestamp
+	51, // 12: inventar.v1.Location.updated_at:type_name -> google.protobuf.Timestamp
+	29, // 13: inventar.v1.LocationResponse.location:type_name -> inventar.v1.Location
+	29, // 14: inventar.v1.ListLocationsResponse.locations:type_name -> inventar.v1.Location
+	51, // 15: inventar.v1.InventurCount.counted_at:type_name -> google.protobuf.Timestamp
+	51, // 16: inventar.v1.InventurSession.date:type_name -> google.protobuf.Timestamp
+	38, // 17: inventar.v1.InventurSession.counts:type_name -> inventar.v1.InventurCount
+	51, // 18: inventar.v1.InventurSession.created_at:type_name -> google.protobuf.Timestamp
+	51, // 19: inventar.v1.InventurSession.updated_at:type_name -> google.protobuf.Timestamp
+	51, // 20: inventar.v1.CreateInventurSessionRequest.date:type_name -> google.protobuf.Timestamp
+	39, // 21: inventar.v1.ListInventurSessionsResponse.sessions:type_name -> inventar.v1.InventurSession
+	38, // 22: inventar.v1.InventurCountResponse.count:type_name -> inventar.v1.InventurCount
+	39, // 23: inventar.v1.InventurSessionResponse.session:type_name -> inventar.v1.InventurSession
+	3,  // 24: inventar.v1.InventarService.CreateItem:input_type -> inventar.v1.CreateItemRequest
+	4,  // 25: inventar.v1.InventarService.GetItem:input_type -> inventar.v1.GetItemRequest
+	5,  // 26: inventar.v1.InventarService.UpdateItem:input_type -> inventar.v1.UpdateItemRequest
+	6,  // 27: inventar.v1.InventarService.DeleteItem:input_type -> inventar.v1.DeleteItemRequest
+	9,  // 28: inventar.v1.InventarService.ListItems:input_type -> inventar.v1.ListItemsRequest
+	11, // 29: inventar.v1.InventarService.AdjustStock:input_type -> inventar.v1.AdjustStockRequest
+	12, // 30: inventar.v1.InventarService.TransferStock:input_type -> inventar.v1.TransferStockRequest
+	14, // 31: inventar.v1.InventarService.RecordMovement:input_type -> inventar.v1.RecordMovementRequest
+	16, // 32: inventar.v1.InventarService.ListMovements:input_type -> inventar.v1.ListMovementsRequest
+	18, // 33: inventar.v1.InventarService.GetStockHistory:input_type -> inventar.v1.GetStockHistoryRequest
+	19, // 34: inventar.v1.InventarService.CreateWarning:input_type -> inventar.v1.CreateWarningRequest
+	20, // 35: inventar.v1.InventarService.UpdateWarning:input_type -> inventar.v1.UpdateWarningRequest
+	21, // 36: inventar.v1.InventarService.AcknowledgeWarning:input_type -> inventar.v1.AcknowledgeWarningRequest
+	23, // 37: inventar.v1.InventarService.ListWarnings:input_type -> inventar.v1.ListWarningsRequest
+	25, // 38: inventar.v1.InventarService.GetStockReport:input_type -> inventar.v1.GetStockReportRequest
+	27, // 39: inventar.v1.InventarService.ExportInventory:input_type -> inventar.v1.ExportInventoryRequest
+	30, // 40: inventar.v1.InventarService.CreateLocation:input_type -> inventar.v1.CreateLocationRequest
+	31, // 41: inventar.v1.InventarService.GetLocation:input_type -> inventar.v1.GetLocationRequest
+	32, // 42: inventar.v1.InventarService.UpdateLocation:input_type -> inventar.v1.UpdateLocationRequest
+	33, // 43: inventar.v1.InventarService.DeleteLocation:input_type -> inventar.v1.DeleteLocationRequest
+	36, // 44: inventar.v1.InventarService.ListLocations:input_type -> inventar.v1.ListLocationsRequest
+	40, // 45: inventar.v1.InventarService.CreateInventurSession:input_type -> inventar.v1.CreateInventurSessionRequest
+	41, // 46: inventar.v1.InventarService.GetInventurSession:input_type -> inventar.v1.GetInventurSessionRequest
+	42, // 47: inventar.v1.InventarService.UpdateInventurSessionStatus:input_type -> inventar.v1.UpdateInventurSessionStatusRequest
+	43, // 48: inventar.v1.InventarService.DeleteInventurSession:input_type -> inventar.v1.DeleteInventurSessionRequest
+	45, // 49: inventar.v1.InventarService.ListInventurSessions:input_type -> inventar.v1.ListInventurSessionsRequest
+	47, // 50: inventar.v1.InventarService.UpsertInventurCount:input_type -> inventar.v1.UpsertInventurCountRequest
+	49, // 51: inventar.v1.InventarService.BookInventurDifferences:input_type -> inventar.v1.BookInventurDifferencesRequest
+	8,  // 52: inventar.v1.InventarService.CreateItem:output_type -> inventar.v1.ItemResponse
+	8,  // 53: inventar.v1.InventarService.GetItem:output_type -> inventar.v1.ItemResponse
+	8,  // 54: inventar.v1.InventarService.UpdateItem:output_type -> inventar.v1.ItemResponse
+	7,  // 55: inventar.v1.InventarService.DeleteItem:output_type -> inventar.v1.DeleteItemResponse
+	10, // 56: inventar.v1.InventarService.ListItems:output_type -> inventar.v1.ListItemsResponse
+	8,  // 57: inventar.v1.InventarService.AdjustStock:output_type -> inventar.v1.ItemResponse
+	13, // 58: inventar.v1.InventarService.TransferStock:output_type -> inventar.v1.TransferStockResponse
+	15, // 59: inventar.v1.InventarService.RecordMovement:output_type -> inventar.v1.MovementResponse
+	17, // 60: inventar.v1.InventarService.ListMovements:output_type -> inventar.v1.ListMovementsResponse
+	17, // 61: inventar.v1.InventarService.GetStockHistory:output_type -> inventar.v1.ListMovementsResponse
+	22, // 62: inventar.v1.InventarService.CreateWarning:output_type -> inventar.v1.WarningResponse
+	22, // 63: inventar.v1.InventarService.UpdateWarning:output_type -> inventar.v1.WarningResponse
+	22, // 64: inventar.v1.InventarService.AcknowledgeWarning:output_type -> inventar.v1.WarningResponse
+	24, // 65: inventar.v1.InventarService.ListWarnings:output_type -> inventar.v1.ListWarningsResponse
+	26, // 66: inventar.v1.InventarService.GetStockReport:output_type -> inventar.v1.StockReportResponse
+	28, // 67: inventar.v1.InventarService.ExportInventory:output_type -> inventar.v1.ExportInventoryResponse
+	35, // 68: inventar.v1.InventarService.CreateLocation:output_type -> inventar.v1.LocationResponse
+	35, // 69: inventar.v1.InventarService.GetLocation:output_type -> inventar.v1.LocationResponse
+	35, // 70: inventar.v1.InventarService.UpdateLocation:output_type -> inventar.v1.LocationResponse
+	34, // 71: inventar.v1.InventarService.DeleteLocation:output_type -> inventar.v1.DeleteLocationResponse
+	37, // 72: inventar.v1.InventarService.ListLocations:output_type -> inventar.v1.ListLocationsResponse
+	50, // 73: inventar.v1.InventarService.CreateInventurSession:output_type -> inventar.v1.InventurSessionResponse
+	50, // 74: inventar.v1.InventarService.GetInventurSession:output_type -> inventar.v1.InventurSessionResponse
+	50, // 75: inventar.v1.InventarService.UpdateInventurSessionStatus:output_type -> inventar.v1.InventurSessionResponse
+	44, // 76: inventar.v1.InventarService.DeleteInventurSession:output_type -> inventar.v1.DeleteInventurSessionResponse
+	46, // 77: inventar.v1.InventarService.ListInventurSessions:output_type -> inventar.v1.ListInventurSessionsResponse
+	48, // 78: inventar.v1.InventarService.UpsertInventurCount:output_type -> inventar.v1.InventurCountResponse
+	50, // 79: inventar.v1.InventarService.BookInventurDifferences:output_type -> inventar.v1.InventurSessionResponse
+	52, // [52:80] is the sub-list for method output_type
+	24, // [24:52] is the sub-list for method input_type
+	24, // [24:24] is the sub-list for extension type_name
+	24, // [24:24] is the sub-list for extension extendee
+	0,  // [0:24] is the sub-list for field type_name
 }
 
 func init() { file_proto_inventar_v1_inventar_proto_init() }
@@ -2272,13 +4065,18 @@ func file_proto_inventar_v1_inventar_proto_init() {
 	file_proto_inventar_v1_inventar_proto_msgTypes[12].OneofWrappers = []any{}
 	file_proto_inventar_v1_inventar_proto_msgTypes[14].OneofWrappers = []any{}
 	file_proto_inventar_v1_inventar_proto_msgTypes[23].OneofWrappers = []any{}
+	file_proto_inventar_v1_inventar_proto_msgTypes[32].OneofWrappers = []any{}
+	file_proto_inventar_v1_inventar_proto_msgTypes[38].OneofWrappers = []any{}
+	file_proto_inventar_v1_inventar_proto_msgTypes[39].OneofWrappers = []any{}
+	file_proto_inventar_v1_inventar_proto_msgTypes[40].OneofWrappers = []any{}
+	file_proto_inventar_v1_inventar_proto_msgTypes[49].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_inventar_v1_inventar_proto_rawDesc), len(file_proto_inventar_v1_inventar_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   29,
+			NumMessages:   51,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

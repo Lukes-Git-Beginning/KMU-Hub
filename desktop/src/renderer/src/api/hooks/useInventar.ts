@@ -22,6 +22,18 @@ import {
   updateWarning,
   acknowledgeWarning,
   getStockReport,
+  listLocations,
+  getLocation,
+  createLocation,
+  updateLocation,
+  deleteLocation,
+  listInventurSessions,
+  getInventurSession,
+  createInventurSession,
+  updateInventurSessionStatus,
+  deleteInventurSession,
+  upsertInventurCount,
+  bookInventurDifferences,
 } from '../inventar-client'
 import type {
   CreateItemInput,
@@ -35,6 +47,10 @@ import type {
   UpdateWarningInput,
   AcknowledgeWarningInput,
   ListWarningsParams,
+  CreateLocationInput,
+  UpdateLocationInput,
+  CreateInventurSessionInput,
+  InventurStatus,
 } from '../inventar-types'
 
 // ---------------------------------------------------------------------------
@@ -222,6 +238,125 @@ export function useAcknowledgeStockWarning() {
       acknowledgeWarning(id, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['inventar', 'warnings'] })
+      qc.invalidateQueries({ queryKey: inventarKeys.report() })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Queries — Locations
+// ---------------------------------------------------------------------------
+
+export function useInventarLocations(params?: { page?: number; page_size?: number }) {
+  return useQuery({
+    queryKey: ['inventar', 'locations', params] as const,
+    queryFn: () => listLocations(params),
+  })
+}
+
+export function useInventarLocation(id: string) {
+  return useQuery({
+    queryKey: ['inventar', 'locations', id] as const,
+    queryFn: () => getLocation(id),
+    enabled: !!id,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Queries — Inventur Sessions
+// ---------------------------------------------------------------------------
+
+export function useInventurSessions(params?: { page?: number; page_size?: number }) {
+  return useQuery({
+    queryKey: ['inventar', 'inventur', params] as const,
+    queryFn: () => listInventurSessions(params),
+  })
+}
+
+export function useInventurSession(id: string) {
+  return useQuery({
+    queryKey: ['inventar', 'inventur', id] as const,
+    queryFn: () => getInventurSession(id),
+    enabled: !!id,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Mutations — Locations
+// ---------------------------------------------------------------------------
+
+export function useCreateInventarLocation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateLocationInput) => createLocation(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['inventar', 'locations'] }),
+  })
+}
+
+export function useUpdateInventarLocation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...body }: UpdateLocationInput & { id: string }) => updateLocation(id, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['inventar', 'locations'] }),
+  })
+}
+
+export function useDeleteInventarLocation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteLocation(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['inventar', 'locations'] }),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Mutations — Inventur Sessions
+// ---------------------------------------------------------------------------
+
+export function useCreateInventurSession() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateInventurSessionInput) => createInventurSession(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['inventar', 'inventur'] }),
+  })
+}
+
+export function useUpdateInventurSessionStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: InventurStatus }) =>
+      updateInventurSessionStatus(id, { status }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['inventar', 'inventur'] }),
+  })
+}
+
+export function useDeleteInventurSession() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteInventurSession(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['inventar', 'inventur'] }),
+  })
+}
+
+export function useUpsertInventurCount() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ sessionId, ...body }: { sessionId: string; item_id: string; counted: number }) =>
+      upsertInventurCount(sessionId, body),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ['inventar', 'inventur', variables.sessionId] })
+    },
+  })
+}
+
+export function useBookInventurDifferences() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ sessionId, booked_by }: { sessionId: string; booked_by?: string }) =>
+      bookInventurDifferences(sessionId, booked_by ? { booked_by } : undefined),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['inventar', 'inventur'] })
+      qc.invalidateQueries({ queryKey: ['inventar', 'items'] })
       qc.invalidateQueries({ queryKey: inventarKeys.report() })
     },
   })

@@ -40,14 +40,27 @@ func (s *InventarGRPCServer) CreateItem(ctx context.Context, req *inventarv1.Cre
 	}
 
 	input := inventar.CreateItemInput{
-		TenantID:    tenantID,
-		Name:        req.GetName(),
-		SKU:         req.GetSku(),
-		Barcode:     req.Barcode,
-		Quantity:    req.GetQuantity(),
-		MinQuantity: req.GetMinQuantity(),
-		Unit:        req.GetUnit(),
-		Location:    req.Location,
+		TenantID:            tenantID,
+		Name:                req.GetName(),
+		SKU:                 req.GetSku(),
+		Barcode:             req.Barcode,
+		Quantity:            req.GetQuantity(),
+		MinQuantity:         req.GetMinQuantity(),
+		Unit:                req.GetUnit(),
+		Location:            req.Location,
+		Category:            req.Category,
+		Price:               req.Price,
+		Currency:            req.Currency,
+		BatchNumber:         req.BatchNumber,
+		SerialNumbers:       req.GetSerialNumbers(),
+		LinkedPurchaseOrder: req.LinkedPurchaseOrder,
+	}
+	if req.LocationId != nil {
+		locID, parseErr := uuid.Parse(*req.LocationId)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid location_id: %v", parseErr)
+		}
+		input.LocationID = &locID
 	}
 
 	item, err := s.svc.CreateItem(ctx, input)
@@ -85,16 +98,28 @@ func (s *InventarGRPCServer) UpdateItem(ctx context.Context, req *inventarv1.Upd
 	}
 
 	input := inventar.UpdateItemInput{
-		TenantID: tenantID,
-		ItemID:   itemID,
-		Name:     req.Name,
-		SKU:      req.Sku,
-		Barcode:  req.Barcode,
-		Unit:     req.Unit,
-		Location: req.Location,
+		TenantID:            tenantID,
+		ItemID:              itemID,
+		Name:                req.Name,
+		SKU:                 req.Sku,
+		Barcode:             req.Barcode,
+		Unit:                req.Unit,
+		Location:            req.Location,
+		Category:            req.Category,
+		Price:               req.Price,
+		Currency:            req.Currency,
+		BatchNumber:         req.BatchNumber,
+		LinkedPurchaseOrder: req.LinkedPurchaseOrder,
 	}
 	if req.MinQuantity != nil {
 		input.MinQuantity = req.MinQuantity
+	}
+	if req.LocationId != nil {
+		locID, parseErr := uuid.Parse(*req.LocationId)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid location_id: %v", parseErr)
+		}
+		input.LocationID = &locID
 	}
 
 	item, err := s.svc.UpdateItem(ctx, input)
@@ -501,6 +526,271 @@ func (s *InventarGRPCServer) ExportInventory(ctx context.Context, req *inventarv
 }
 
 // ============================================================================
+// Location RPCs
+// ============================================================================
+
+func (s *InventarGRPCServer) CreateLocation(ctx context.Context, req *inventarv1.CreateLocationRequest) (*inventarv1.LocationResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	loc, err := s.svc.CreateLocation(ctx, inventar.CreateLocationInput{
+		TenantID: tenantID,
+		Name:     req.GetName(),
+		Address:  req.GetAddress(),
+		Type:     inventar.LocationType(req.GetType()),
+	})
+	if err != nil {
+		return nil, mapInventarError(err)
+	}
+	return &inventarv1.LocationResponse{Location: locationToProto(loc)}, nil
+}
+
+func (s *InventarGRPCServer) GetLocation(ctx context.Context, req *inventarv1.GetLocationRequest) (*inventarv1.LocationResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	locID, err := uuid.Parse(req.GetLocationId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid location_id: %v", err)
+	}
+	loc, err := s.svc.GetLocation(ctx, tenantID, locID)
+	if err != nil {
+		return nil, mapInventarError(err)
+	}
+	return &inventarv1.LocationResponse{Location: locationToProto(loc)}, nil
+}
+
+func (s *InventarGRPCServer) UpdateLocation(ctx context.Context, req *inventarv1.UpdateLocationRequest) (*inventarv1.LocationResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	locID, err := uuid.Parse(req.GetLocationId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid location_id: %v", err)
+	}
+	input := inventar.UpdateLocationInput{
+		TenantID:   tenantID,
+		LocationID: locID,
+		Name:       req.Name,
+		Address:    req.Address,
+	}
+	if req.Type != nil {
+		lt := inventar.LocationType(*req.Type)
+		input.Type = &lt
+	}
+	loc, err := s.svc.UpdateLocation(ctx, input)
+	if err != nil {
+		return nil, mapInventarError(err)
+	}
+	return &inventarv1.LocationResponse{Location: locationToProto(loc)}, nil
+}
+
+func (s *InventarGRPCServer) DeleteLocation(ctx context.Context, req *inventarv1.DeleteLocationRequest) (*inventarv1.DeleteLocationResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	locID, err := uuid.Parse(req.GetLocationId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid location_id: %v", err)
+	}
+	if err := s.svc.DeleteLocation(ctx, tenantID, locID); err != nil {
+		return nil, mapInventarError(err)
+	}
+	return &inventarv1.DeleteLocationResponse{}, nil
+}
+
+func (s *InventarGRPCServer) ListLocations(ctx context.Context, req *inventarv1.ListLocationsRequest) (*inventarv1.ListLocationsResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	locs, total, err := s.svc.ListLocations(ctx, inventar.ListLocationsInput{
+		TenantID: tenantID,
+		Page:     int(req.GetPage()),
+		PageSize: int(req.GetPageSize()),
+	})
+	if err != nil {
+		return nil, mapInventarError(err)
+	}
+	protoLocs := make([]*inventarv1.Location, len(locs))
+	for i, loc := range locs {
+		protoLocs[i] = locationToProto(loc)
+	}
+	return &inventarv1.ListLocationsResponse{Locations: protoLocs, Total: int32(total)}, nil
+}
+
+// ============================================================================
+// Inventur Session RPCs
+// ============================================================================
+
+func (s *InventarGRPCServer) CreateInventurSession(ctx context.Context, req *inventarv1.CreateInventurSessionRequest) (*inventarv1.InventurSessionResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	input := inventar.CreateInventurSessionInput{
+		TenantID: tenantID,
+		Name:     req.GetName(),
+	}
+	if req.GetDate() != nil {
+		input.Date = req.GetDate().AsTime()
+	}
+	if req.LocationId != nil {
+		id, parseErr := uuid.Parse(*req.LocationId)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid location_id: %v", parseErr)
+		}
+		input.LocationID = &id
+	}
+	if req.CreatedBy != nil {
+		id, parseErr := uuid.Parse(*req.CreatedBy)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid created_by: %v", parseErr)
+		}
+		input.CreatedBy = &id
+	}
+	for _, raw := range req.GetItemIds() {
+		id, parseErr := uuid.Parse(raw)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid item_id %q: %v", raw, parseErr)
+		}
+		input.ItemIDs = append(input.ItemIDs, id)
+	}
+	session, err := s.svc.CreateInventurSession(ctx, input)
+	if err != nil {
+		return nil, mapInventarError(err)
+	}
+	return &inventarv1.InventurSessionResponse{Session: inventurSessionToProto(session)}, nil
+}
+
+func (s *InventarGRPCServer) GetInventurSession(ctx context.Context, req *inventarv1.GetInventurSessionRequest) (*inventarv1.InventurSessionResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	sessionID, err := uuid.Parse(req.GetSessionId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid session_id: %v", err)
+	}
+	session, err := s.svc.GetInventurSession(ctx, tenantID, sessionID)
+	if err != nil {
+		return nil, mapInventarError(err)
+	}
+	return &inventarv1.InventurSessionResponse{Session: inventurSessionToProto(session)}, nil
+}
+
+func (s *InventarGRPCServer) UpdateInventurSessionStatus(ctx context.Context, req *inventarv1.UpdateInventurSessionStatusRequest) (*inventarv1.InventurSessionResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	sessionID, err := uuid.Parse(req.GetSessionId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid session_id: %v", err)
+	}
+	session, err := s.svc.UpdateInventurSessionStatus(ctx, inventar.UpdateInventurSessionStatusInput{
+		TenantID:  tenantID,
+		SessionID: sessionID,
+		Status:    inventar.InventurStatus(req.GetStatus()),
+	})
+	if err != nil {
+		return nil, mapInventarError(err)
+	}
+	return &inventarv1.InventurSessionResponse{Session: inventurSessionToProto(session)}, nil
+}
+
+func (s *InventarGRPCServer) DeleteInventurSession(ctx context.Context, req *inventarv1.DeleteInventurSessionRequest) (*inventarv1.DeleteInventurSessionResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	sessionID, err := uuid.Parse(req.GetSessionId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid session_id: %v", err)
+	}
+	if err := s.svc.DeleteInventurSession(ctx, tenantID, sessionID); err != nil {
+		return nil, mapInventarError(err)
+	}
+	return &inventarv1.DeleteInventurSessionResponse{}, nil
+}
+
+func (s *InventarGRPCServer) ListInventurSessions(ctx context.Context, req *inventarv1.ListInventurSessionsRequest) (*inventarv1.ListInventurSessionsResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	sessions, total, err := s.svc.ListInventurSessions(ctx, inventar.ListInventurSessionsInput{
+		TenantID: tenantID,
+		Page:     int(req.GetPage()),
+		PageSize: int(req.GetPageSize()),
+	})
+	if err != nil {
+		return nil, mapInventarError(err)
+	}
+	protoSessions := make([]*inventarv1.InventurSession, len(sessions))
+	for i, sess := range sessions {
+		protoSessions[i] = inventurSessionToProto(sess)
+	}
+	return &inventarv1.ListInventurSessionsResponse{Sessions: protoSessions, Total: int32(total)}, nil
+}
+
+func (s *InventarGRPCServer) UpsertInventurCount(ctx context.Context, req *inventarv1.UpsertInventurCountRequest) (*inventarv1.InventurCountResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	sessionID, err := uuid.Parse(req.GetSessionId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid session_id: %v", err)
+	}
+	itemID, err := uuid.Parse(req.GetItemId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid item_id: %v", err)
+	}
+	count, err := s.svc.UpsertInventurCount(ctx, inventar.UpsertInventurCountInput{
+		TenantID:  tenantID,
+		SessionID: sessionID,
+		ItemID:    itemID,
+		Counted:   req.GetCounted(),
+	})
+	if err != nil {
+		return nil, mapInventarError(err)
+	}
+	return &inventarv1.InventurCountResponse{Count: inventurCountToProto(count)}, nil
+}
+
+func (s *InventarGRPCServer) BookInventurDifferences(ctx context.Context, req *inventarv1.BookInventurDifferencesRequest) (*inventarv1.InventurSessionResponse, error) {
+	tenantID, err := uuid.Parse(req.GetTenantId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+	}
+	sessionID, err := uuid.Parse(req.GetSessionId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid session_id: %v", err)
+	}
+	input := inventar.BookInventurDifferencesInput{
+		TenantID:  tenantID,
+		SessionID: sessionID,
+	}
+	if req.BookedBy != nil {
+		id, parseErr := uuid.Parse(*req.BookedBy)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid booked_by: %v", parseErr)
+		}
+		input.BookedBy = &id
+	}
+	session, err := s.svc.BookInventurDifferences(ctx, input)
+	if err != nil {
+		return nil, mapInventarError(err)
+	}
+	return &inventarv1.InventurSessionResponse{Session: inventurSessionToProto(session)}, nil
+}
+
+// ============================================================================
 // Conversion helpers
 // ============================================================================
 
@@ -508,19 +798,30 @@ func itemToProto(item *inventar.Item) *inventarv1.Item {
 	if item == nil {
 		return nil
 	}
-	return &inventarv1.Item{
-		Id:          item.ID.String(),
-		TenantId:    item.TenantID.String(),
-		Name:        item.Name,
-		Sku:         item.SKU,
-		Barcode:     item.Barcode,
-		Quantity:    item.Quantity,
-		MinQuantity: item.MinQuantity,
-		Unit:        item.Unit,
-		Location:    item.Location,
-		CreatedAt:   timestamppb.New(item.CreatedAt),
-		UpdatedAt:   timestamppb.New(item.UpdatedAt),
+	proto := &inventarv1.Item{
+		Id:                  item.ID.String(),
+		TenantId:            item.TenantID.String(),
+		Name:                item.Name,
+		Sku:                 item.SKU,
+		Barcode:             item.Barcode,
+		Quantity:            item.Quantity,
+		MinQuantity:         item.MinQuantity,
+		Unit:                item.Unit,
+		Location:            item.Location,
+		Category:            item.Category,
+		Price:               item.Price,
+		Currency:            item.Currency,
+		BatchNumber:         item.BatchNumber,
+		SerialNumbers:       item.SerialNumbers,
+		LinkedPurchaseOrder: item.LinkedPurchaseOrder,
+		CreatedAt:           timestamppb.New(item.CreatedAt),
+		UpdatedAt:           timestamppb.New(item.UpdatedAt),
 	}
+	if item.LocationID != nil {
+		s := item.LocationID.String()
+		proto.LocationId = &s
+	}
+	return proto
 }
 
 func movementToProto(m *inventar.Movement) *inventarv1.Movement {
@@ -534,6 +835,10 @@ func movementToProto(m *inventar.Movement) *inventarv1.Movement {
 		MovementType: string(m.MovementType),
 		Quantity:     m.Quantity,
 		Reason:       m.Reason,
+		Reference:    m.Reference,
+		LocationFrom: m.LocationFrom,
+		LocationTo:   m.LocationTo,
+		Notes:        m.Notes,
 		CreatedAt:    timestamppb.New(m.CreatedAt),
 	}
 	if m.PerformedBy != nil {
@@ -566,6 +871,66 @@ func warningToProto(w *inventar.Warning) *inventarv1.Warning {
 	return proto
 }
 
+func locationToProto(loc *inventar.InventoryLocation) *inventarv1.Location {
+	if loc == nil {
+		return nil
+	}
+	return &inventarv1.Location{
+		Id:        loc.ID.String(),
+		TenantId:  loc.TenantID.String(),
+		Name:      loc.Name,
+		Address:   loc.Address,
+		Type:      string(loc.Type),
+		CreatedAt: timestamppb.New(loc.CreatedAt),
+		UpdatedAt: timestamppb.New(loc.UpdatedAt),
+	}
+}
+
+func inventurCountToProto(c *inventar.InventurCount) *inventarv1.InventurCount {
+	if c == nil {
+		return nil
+	}
+	proto := &inventarv1.InventurCount{
+		Id:        c.ID.String(),
+		TenantId:  c.TenantID.String(),
+		SessionId: c.SessionID.String(),
+		ItemId:    c.ItemID.String(),
+		Expected:  c.Expected,
+		Counted:   c.Counted,
+	}
+	if c.CountedAt != nil {
+		proto.CountedAt = timestamppb.New(*c.CountedAt)
+	}
+	return proto
+}
+
+func inventurSessionToProto(sess *inventar.InventurSession) *inventarv1.InventurSession {
+	if sess == nil {
+		return nil
+	}
+	proto := &inventarv1.InventurSession{
+		Id:        sess.ID.String(),
+		TenantId:  sess.TenantID.String(),
+		Name:      sess.Name,
+		Date:      timestamppb.New(sess.Date),
+		Status:    string(sess.Status),
+		CreatedAt: timestamppb.New(sess.CreatedAt),
+		UpdatedAt: timestamppb.New(sess.UpdatedAt),
+	}
+	if sess.LocationID != nil {
+		s := sess.LocationID.String()
+		proto.LocationId = &s
+	}
+	if sess.CreatedBy != nil {
+		s := sess.CreatedBy.String()
+		proto.CreatedBy = &s
+	}
+	for i := range sess.Counts {
+		proto.Counts = append(proto.Counts, inventurCountToProto(&sess.Counts[i]))
+	}
+	return proto
+}
+
 // ============================================================================
 // Error mapping
 // ============================================================================
@@ -581,6 +946,14 @@ func mapInventarError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, inventar.ErrWarningNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, inventar.ErrLocationNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, inventar.ErrInventurSessionNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, inventar.ErrInventurCountNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, inventar.ErrInventurAlreadyCompleted):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, inventar.ErrSKUTaken):
 		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, inventar.ErrInvalidInput):

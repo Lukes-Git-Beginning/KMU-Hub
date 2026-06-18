@@ -40,13 +40,22 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { useInventarStore, type InventoryItem, type InventurSession } from '@/stores/inventar'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  useInventarItems, useInventarMovements, useStockWarnings, useStockReport,
+  useInventarLocations, useInventurSessions,
+  useCreateInventarItem, useUpdateInventarItem, useDeleteInventarItem,
+  useAdjustStock, useRecordMovement,
+  useCreateInventarLocation, useUpdateInventarLocation, useDeleteInventarLocation,
+  useCreateInventurSession, useUpdateInventurSessionStatus, useBookInventurDifferences,
+} from '@/api/hooks/useInventar'
+import type { InventarItem, InventoryLocation, InventurSession, InventurCount } from '@/api/inventar-types'
 import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/format'
 
 type TabKey = 'artikel' | 'lagerorte' | 'bewegungen' | 'inventur'
 type StatusFilter = 'all' | 'ok' | 'warning' | 'critical'
-type MovementType = 'in' | 'out' | 'transfer' | 'adjustment'
+type MovementTypeLocal = 'in' | 'out' | 'transfer' | 'adjustment'
 
 const movementTypeKeys: Record<string, string> = {
   in: 'inventar.movementType.in',
@@ -99,9 +108,9 @@ const CURRENCY_OPTIONS = ['EUR', 'CHF', 'USD']
 
 const UNIT_OPTIONS = ['Stück', 'kg', 'Meter', 'Liter', 'Packung', 'Rolle']
 
-function getStockStatus(item: InventoryItem): 'ok' | 'warning' | 'critical' {
-  if (item.currentStock <= item.minStock) return 'critical'
-  if (item.currentStock < item.minStock * 2) return 'warning'
+function getStockStatus(item: InventarItem): 'ok' | 'warning' | 'critical' {
+  if (item.quantity <= item.min_quantity) return 'critical'
+  if (item.quantity < item.min_quantity * 2) return 'warning'
   return 'ok'
 }
 
@@ -111,14 +120,12 @@ const stockStatusLabelKeys: Record<string, string> = {
   ok: 'inventar.status.ok',
 }
 
-function getStockStatusDisplay(item: InventoryItem): { color: string; labelKey: string; dotColor: string } {
+function getStockStatusDisplay(item: InventarItem): { color: string; labelKey: string; dotColor: string } {
   const status = getStockStatus(item)
   if (status === 'critical') return { color: 'bg-error', labelKey: stockStatusLabelKeys.critical, dotColor: 'bg-error' }
   if (status === 'warning') return { color: 'bg-warning', labelKey: stockStatusLabelKeys.warning, dotColor: 'bg-warning' }
   return { color: 'bg-success', labelKey: stockStatusLabelKeys.ok, dotColor: 'bg-success' }
 }
-
-// formatDate / formatDateTime imported from @/lib/format (locale-aware)
 
 // ─── Barcode Scanner Dialog ─────────────────────────────────────
 function BarcodeScannerDialog({
@@ -210,24 +217,29 @@ function ArtikelDialog({
   open,
   onClose,
   initial,
+  onSuccess,
 }: {
   open: boolean
   onClose: () => void
-  initial?: InventoryItem | null
+  initial?: InventarItem | null
+  onSuccess?: () => void
 }) {
   const { t } = useTranslation()
   const [form, setForm] = useState<ArtikelFormData>({
     name: initial?.name ?? '',
     sku: initial?.sku ?? '',
     category: initial?.category ?? '',
-    minStock: initial?.minStock ?? 0,
+    minStock: initial?.min_quantity ?? 0,
     unit: initial?.unit ?? 'Stück',
     currency: initial?.currency ?? 'EUR',
-    batchNumber: initial?.batchNumber ?? '',
-    serialNumbers: initial?.serialNumbers?.join(', ') ?? '',
+    batchNumber: initial?.batch_number ?? '',
+    serialNumbers: initial?.serial_numbers?.join(', ') ?? '',
   })
 
   const isEdit = !!initial
+
+  const createMutation = useCreateInventarItem()
+  const updateMutation = useUpdateInventarItem()
 
   const handleSave = () => {
     if (!form.name.trim()) {
@@ -238,8 +250,35 @@ function ArtikelDialog({
       toast.error(t('inventar.artikel.errorSku'))
       return
     }
-    toast.success(isEdit ? t('inventar.artikel.saveSuccess', { name: form.name }) : t('inventar.artikel.createSuccess', { name: form.name }))
-    onClose()
+    const payload = {
+      name: form.name,
+      sku: form.sku,
+      category: form.category || undefined,
+      min_quantity: form.minStock,
+      unit: form.unit,
+      currency: form.currency,
+      batch_number: form.batchNumber || undefined,
+      serial_numbers: form.serialNumbers ? form.serialNumbers.split(',').map(s => s.trim()).filter(Boolean) : [],
+    }
+    if (isEdit && initial) {
+      updateMutation.mutate({ id: initial.id, ...payload }, {
+        onSuccess: () => {
+          toast.success(t('inventar.artikel.saveSuccess', { name: form.name }))
+          onSuccess?.()
+          onClose()
+        },
+        onError: () => toast.error(t('common.error')),
+      })
+    } else {
+      createMutation.mutate({ ...payload, unit: form.unit }, {
+        onSuccess: () => {
+          toast.success(t('inventar.artikel.createSuccess', { name: form.name }))
+          onSuccess?.()
+          onClose()
+        },
+        onError: () => toast.error(t('common.error')),
+      })
+    }
   }
 
   return (
@@ -393,27 +432,52 @@ function BewegungDialog({
 }: {
   open: boolean
   onClose: () => void
-  item: InventoryItem | null
+  item: InventarItem | null
   locations: { id: string; name: string }[]
 }) {
   const { t } = useTranslation()
-  const [typ, setTyp] = useState<MovementType>('in')
+  const [typ, setTyp] = useState<MovementTypeLocal>('in')
   const [menge, setMenge] = useState<number>(1)
   const [lagerort, setLagerort] = useState(locations[0]?.name ?? '')
   const [referenz, setReferenz] = useState('')
   const [notizen, setNotizen] = useState('')
 
+  const recordMovementMutation = useRecordMovement()
+  const adjustStockMutation = useAdjustStock()
+
   const handleSave = () => {
+    if (!item) return
     if (menge <= 0) {
       toast.error(t('inventar.bewegung.errorMenge'))
       return
     }
     const label = t(movementTypeKeys[typ])
-    toast.success(t('inventar.bewegung.success', { label, menge, unit: item?.unit ?? 'Stk', name: item?.name }))
-    onClose()
+    if (typ === 'adjustment') {
+      adjustStockMutation.mutate(
+        { itemId: item.id, delta: menge, reason: referenz || 'Manuelle Anpassung' },
+        {
+          onSuccess: () => {
+            toast.success(t('inventar.bewegung.success', { label, menge, unit: item.unit, name: item.name }))
+            onClose()
+          },
+          onError: () => toast.error(t('common.error')),
+        }
+      )
+    } else {
+      recordMovementMutation.mutate(
+        { itemId: item.id, movement_type: typ as 'in' | 'out' | 'transfer', quantity: menge, reason: referenz || label },
+        {
+          onSuccess: () => {
+            toast.success(t('inventar.bewegung.success', { label, menge, unit: item.unit, name: item.name }))
+            onClose()
+          },
+          onError: () => toast.error(t('common.error')),
+        }
+      )
+    }
   }
 
-  const typeOptions: { key: MovementType; label: string; icon: typeof ArrowDownToLine }[] = [
+  const typeOptions: { key: MovementTypeLocal; label: string; icon: typeof ArrowDownToLine }[] = [
     { key: 'in', label: t('inventar.movementType.in'), icon: ArrowDownToLine },
     { key: 'out', label: t('inventar.movementType.out'), icon: ArrowUpFromLine },
     { key: 'transfer', label: t('inventar.movementType.transfer'), icon: RefreshCw },
@@ -559,9 +623,11 @@ function StockBar({ current, min }: { current: number; min: number }) {
 }
 
 // ─── Inventur Session Card ────────────────────────────────────────
-function InventurSessionCard({ session }: { session: InventurSession }) {
+function InventurSessionCard({ session, allItems }: { session: InventurSession; allItems: InventarItem[] }) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
+
+  const bookMutation = useBookInventurDifferences()
 
   const totalItems = session.counts.length
   const itemsWithDiff = session.counts.filter((c) => c.counted !== null && c.counted !== c.expected).length
@@ -582,7 +648,7 @@ function InventurSessionCard({ session }: { session: InventurSession }) {
           <div className="min-w-0">
             <h4 className="text-sm font-medium text-foreground truncate">{session.name}</h4>
             <p className="text-xs text-muted-foreground">
-              {formatDate(session.date)} · {session.locationName} · {session.createdBy}
+              {formatDate(session.date)} · {session.created_by ?? ''}
             </p>
           </div>
         </div>
@@ -609,7 +675,7 @@ function InventurSessionCard({ session }: { session: InventurSession }) {
                 </tr>
               </thead>
               <tbody>
-                {session.counts.map((count) => {
+                {session.counts.map((count: InventurCount) => {
                   const diff = count.counted !== null ? count.counted - count.expected : null
                   const diffColor = diff === null
                     ? 'text-muted-foreground'
@@ -618,10 +684,11 @@ function InventurSessionCard({ session }: { session: InventurSession }) {
                       : diff < 0
                         ? 'text-error'
                         : 'text-info'
+                  const matchedItem = allItems.find(i => i.id === count.item_id)
                   return (
-                    <tr key={count.itemId} className="border-b border-border-muted last:border-0">
-                      <td className="px-4 py-2 text-foreground">{count.itemName}</td>
-                      <td className="px-4 py-2 text-muted-foreground font-mono text-xs">{count.sku}</td>
+                    <tr key={count.item_id} className="border-b border-border-muted last:border-0">
+                      <td className="px-4 py-2 text-foreground">{matchedItem?.name ?? count.item_id}</td>
+                      <td className="px-4 py-2 text-muted-foreground font-mono text-xs">{matchedItem?.sku ?? '—'}</td>
                       <td className="px-4 py-2 text-right text-muted-foreground tabular-nums">{count.expected}</td>
                       <td className="px-4 py-2 text-right text-foreground tabular-nums">
                         {count.counted !== null ? count.counted : '—'}
@@ -657,7 +724,9 @@ function InventurSessionCard({ session }: { session: InventurSession }) {
           {session.status === 'review' && (
             <div className="flex justify-end p-3 border-t border-border">
               <button
-                onClick={() => toast.success(t('inventar.inventur.bookDifferencesSuccess', { name: session.name }))}
+                onClick={() => bookMutation.mutate({ sessionId: session.id }, {
+                  onSuccess: () => toast.success(t('inventar.inventur.bookDifferencesSuccess', { name: session.name }))
+                })}
                 className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
               >
                 <ClipboardCheck className="h-4 w-4" />
@@ -674,27 +743,39 @@ function InventurSessionCard({ session }: { session: InventurSession }) {
 // ─── Main Page ────────────────────────────────────────────────────
 export default function InventarPage() {
   const { t } = useTranslation()
-  const { items, locations, movements, inventurSessions } = useInventarStore()
+
+  const itemsQuery = useInventarItems({ page: 1, page_size: 200 })
+  const locationsQuery = useInventarLocations({ page: 1, page_size: 100 })
+  const inventurSessionsQuery = useInventurSessions()
+
+  const items: InventarItem[] = itemsQuery.data?.items ?? []
+  const locations: InventoryLocation[] = locationsQuery.data?.locations ?? []
+  const inventurSessions: InventurSession[] = inventurSessionsQuery.data?.sessions ?? []
 
   const [tab, setTab] = useState<TabKey>('artikel')
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
-  const [confirmDelete, setConfirmDelete] = useState<InventoryItem | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<InventarItem | null>(null)
 
   // Detail panel
-  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
+  const [selectedItem, setSelectedItem] = useState<InventarItem | null>(null)
 
   // Dialogs
   const [artikelDialogOpen, setArtikelDialogOpen] = useState(false)
-  const [editItem, setEditItem] = useState<InventoryItem | null>(null)
+  const [editItem, setEditItem] = useState<InventarItem | null>(null)
   const [bewegungDialogOpen, setBewegungDialogOpen] = useState(false)
-  const [bewegungItem, setBewegungItem] = useState<InventoryItem | null>(null)
+  const [bewegungItem, setBewegungItem] = useState<InventarItem | null>(null)
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
+
+  // selectedItem movements (conditional)
+  const selectedItemMovementsQuery = useInventarMovements(selectedItem?.id ?? '', { page: 1, page_size: 5 })
+
+  const deleteItemMutation = useDeleteInventarItem()
 
   // Get unique categories from items
   const allCategories = useMemo(() => {
-    const cats = new Set(items.map((i) => i.category))
+    const cats = new Set(items.map((i) => i.category).filter(Boolean) as string[])
     return ['all', ...Array.from(cats).sort()]
   }, [items])
 
@@ -716,8 +797,8 @@ export default function InventarPage() {
         (item) =>
           item.name.toLowerCase().includes(q) ||
           item.sku.toLowerCase().includes(q) ||
-          item.category.toLowerCase().includes(q) ||
-          item.locationName.toLowerCase().includes(q),
+          (item.category ?? '').toLowerCase().includes(q) ||
+          (item.location ?? '').toLowerCase().includes(q),
       )
     }
 
@@ -732,38 +813,32 @@ export default function InventarPage() {
     )
   }, [locations, search])
 
-  const filteredMovements = useMemo(() => {
-    if (!search) return movements
-    const q = search.toLowerCase()
-    return movements.filter(
-      (mov) =>
-        mov.itemName.toLowerCase().includes(q) ||
-        mov.reference.toLowerCase().includes(q) ||
-        mov.createdBy.toLowerCase().includes(q),
-    )
-  }, [movements, search])
-
-  const lowStockCount = items.filter((i) => i.currentStock <= i.minStock).length
+  const lowStockCount = items.filter((i) => i.quantity <= i.min_quantity).length
   const warningCount = items.filter((i) => getStockStatus(i) === 'warning').length
-
-  // Movements for a specific item (detail panel)
-  const getItemMovements = useCallback(
-    (itemId: string) => movements.filter((m) => m.itemId === itemId).slice(0, 5),
-    [movements],
-  )
 
   // Items at a specific location (detail panel)
   const getLocationItems = useCallback(
-    (locationName: string) => items.filter((i) => i.locationName === locationName),
+    (locationName: string) => items.filter((i) => i.location === locationName),
     [items],
   )
 
-  const openArtikelDialog = (item?: InventoryItem) => {
+  // Loading guard AFTER all hooks (rules-of-hooks: hook count must be stable)
+  if (itemsQuery.isLoading) {
+    return (
+      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    )
+  }
+
+  const openArtikelDialog = (item?: InventarItem) => {
     setEditItem(item ?? null)
     setArtikelDialogOpen(true)
   }
 
-  const openBewegungDialog = (item: InventoryItem) => {
+  const openBewegungDialog = (item: InventarItem) => {
     setBewegungItem(item)
     setBewegungDialogOpen(true)
   }
@@ -780,7 +855,7 @@ export default function InventarPage() {
     }
   }
 
-  const getItemActions = (item: InventoryItem) => [
+  const getItemActions = (item: InventarItem) => [
     { label: t('inventar.actions.showDetails'), icon: Eye, onClick: () => setSelectedItem(item) },
     { label: t('common.edit'), icon: Edit, onClick: () => openArtikelDialog(item) },
     { label: t('inventar.actions.movement'), icon: ArrowRightLeft, onClick: () => openBewegungDialog(item), separator: true },
@@ -788,10 +863,13 @@ export default function InventarPage() {
     { label: t('common.delete'), icon: Trash2, variant: 'destructive' as const, onClick: () => setConfirmDelete(item) },
   ]
 
-  const handleDelete = (item: InventoryItem) => {
+  const handleDelete = (item: InventarItem) => {
     setConfirmDelete(null)
     if (selectedItem?.id === item.id) setSelectedItem(null)
-    toast.success(t('inventar.delete.success', { name: item.name }))
+    deleteItemMutation.mutate(item.id, {
+      onSuccess: () => toast.success(t('inventar.delete.success', { name: item.name })),
+      onError: () => toast.error(t('common.error')),
+    })
   }
 
   return (
@@ -818,7 +896,7 @@ export default function InventarPage() {
         {([
           { key: 'artikel' as const, label: t('inventar.tab.artikel'), count: items.length },
           { key: 'lagerorte' as const, label: t('inventar.tab.lagerorte'), count: locations.length },
-          { key: 'bewegungen' as const, label: t('inventar.tab.bewegungen'), count: movements.length },
+          { key: 'bewegungen' as const, label: t('inventar.tab.bewegungen'), count: selectedItem ? (selectedItemMovementsQuery.data?.total ?? 0) : 0 },
           { key: 'inventur' as const, label: t('inventar.tab.inventur'), count: inventurSessions.length },
         ]).map((tabItem) => (
           <button
@@ -955,7 +1033,7 @@ export default function InventarPage() {
                                 <span className={`inline-block h-2.5 w-2.5 rounded-full ${status.dotColor}`} />
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p className="text-xs">{t('inventar.tooltip.stockInfo', { current: item.currentStock, min: item.minStock })}</p>
+                                <p className="text-xs">{t('inventar.tooltip.stockInfo', { current: item.quantity, min: item.min_quantity })}</p>
                                 <p className="text-xs font-medium">{t(status.labelKey)}</p>
                               </TooltipContent>
                             </Tooltip>
@@ -963,7 +1041,7 @@ export default function InventarPage() {
                           <td className="px-4 py-3 font-medium text-foreground">{item.name}</td>
                           <td className="px-4 py-3 text-muted-foreground font-mono text-xs">{item.sku}</td>
                           <td className="px-4 py-3">
-                            <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">{item.category}</span>
+                            <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">{item.category ?? ''}</span>
                           </td>
                           <td className="px-4 py-3 text-right text-foreground tabular-nums">
                             <span className="inline-flex items-center gap-1.5">
@@ -977,15 +1055,15 @@ export default function InventarPage() {
                                   </TooltipContent>
                                 </Tooltip>
                               )}
-                              {item.currentStock} {item.unit}
+                              {item.quantity} {item.unit}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-right text-muted-foreground tabular-nums">
-                            {item.minStock}
+                            {item.min_quantity}
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground">{item.locationName}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{item.location ?? '—'}</td>
                           <td className="px-4 py-3 text-right text-foreground tabular-nums">
-                            {formatCurrency(item.price, item.currency || 'EUR')}
+                            {formatCurrency(item.price ?? 0, item.currency ?? 'EUR')}
                           </td>
                           <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                             <ItemActions items={getItemActions(item)} />
@@ -1039,7 +1117,7 @@ export default function InventarPage() {
                             <div key={li.id} className="flex items-center gap-2 text-xs text-muted-foreground">
                               <span className={`h-1.5 w-1.5 rounded-full ${st.dotColor}`} />
                               <span className="truncate flex-1">{li.name}</span>
-                              <span className="tabular-nums">{li.currentStock} {li.unit}</span>
+                              <span className="tabular-nums">{li.quantity} {li.unit}</span>
                             </div>
                           )
                         })}
@@ -1062,7 +1140,7 @@ export default function InventarPage() {
                           </span>
                         )}
                       </div>
-                      <span className="text-sm text-foreground font-medium">{t('inventar.lagerort.itemCount', { count: loc.itemCount })}</span>
+                      <span className="text-sm text-foreground font-medium">{t('inventar.lagerort.itemCount', { count: locItems.length })}</span>
                     </div>
                   </div>
                 )
@@ -1075,7 +1153,17 @@ export default function InventarPage() {
       {/* ─── BEWEGUNGEN TAB ─────────────────────────────────── */}
       {tab === 'bewegungen' && (
         <>
-          {filteredMovements.length === 0 ? (
+          {!selectedItem ? (
+            <EmptyState
+              icon={ArrowRightLeft}
+              title={t('inventar.empty.bewegungen.title')}
+              description={t('inventar.empty.bewegungen.selectItem')}
+            />
+          ) : selectedItemMovementsQuery.isLoading ? (
+            <div className="space-y-2">
+              {[1,2,3].map(n => <Skeleton key={n} className="h-12 w-full" />)}
+            </div>
+          ) : (selectedItemMovementsQuery.data?.movements ?? []).length === 0 ? (
             <EmptyState
               icon={ArrowRightLeft}
               title={t('inventar.empty.bewegungen.title')}
@@ -1092,37 +1180,33 @@ export default function InventarPage() {
                     <th className="px-4 py-3 text-right font-medium text-muted-foreground">{t('inventar.bewegungen.table.menge')}</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('inventar.bewegungen.table.vonNach')}</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('inventar.bewegungen.table.referenz')}</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('inventar.bewegungen.table.createdBy')}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredMovements.map((mov) => {
-                    const MIcon = movementTypeIcons[mov.type]
+                  {(selectedItemMovementsQuery.data?.movements ?? []).map((mov) => {
+                    const MIcon = movementTypeIcons[mov.movement_type]
                     return (
                       <tr key={mov.id} className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors">
                         <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                          {formatDate(mov.createdAt)}{' '}
-                          <span className="text-xs">{formatDateTime(mov.createdAt, { timeStyle: 'short' })}</span>
+                          {formatDate(mov.created_at)}{' '}
+                          <span className="text-xs">{formatDateTime(mov.created_at, { timeStyle: 'short' })}</span>
                         </td>
-                        <td className="px-4 py-3 font-medium text-foreground">{mov.itemName}</td>
+                        <td className="px-4 py-3 font-medium text-foreground">{selectedItem.name}</td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${movementTypeColors[mov.type] ?? 'bg-secondary text-muted-foreground'}`}>
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${movementTypeColors[mov.movement_type] ?? 'bg-secondary text-muted-foreground'}`}>
                             {MIcon && <MIcon className="h-3 w-3" />}
-                            {movementTypeKeys[mov.type] ? t(movementTypeKeys[mov.type]) : mov.type}
+                            {movementTypeKeys[mov.movement_type] ? t(movementTypeKeys[mov.movement_type]) : mov.movement_type}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right text-foreground tabular-nums">
                           {mov.quantity > 0 ? `+${mov.quantity}` : mov.quantity}
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">
-                          {mov.locationFrom && mov.locationTo
-                            ? `${mov.locationFrom} → ${mov.locationTo}`
-                            : mov.locationFrom
-                              ? mov.locationFrom
-                              : mov.locationTo ?? '—'}
+                          {mov.location_from && mov.location_to
+                            ? `${mov.location_from} → ${mov.location_to}`
+                            : mov.location_from ?? mov.location_to ?? '—'}
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground font-mono text-xs">{mov.reference}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{mov.createdBy}</td>
+                        <td className="px-4 py-3 text-muted-foreground font-mono text-xs">{mov.reference ?? '—'}</td>
                       </tr>
                     )
                   })}
@@ -1160,7 +1244,7 @@ export default function InventarPage() {
           ) : (
             <div className="space-y-3">
               {inventurSessions.map((session) => (
-                <InventurSessionCard key={session.id} session={session} />
+                <InventurSessionCard key={session.id} session={session} allItems={items} />
               ))}
             </div>
           )}
@@ -1172,7 +1256,7 @@ export default function InventarPage() {
         open={!!selectedItem}
         onClose={() => setSelectedItem(null)}
         title={selectedItem?.name}
-        subtitle={selectedItem ? `${selectedItem.sku} · ${selectedItem.category}` : undefined}
+        subtitle={selectedItem ? `${selectedItem.sku} · ${selectedItem.category ?? ''}` : undefined}
         badge={
           selectedItem ? (
             <span className={`ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -1213,7 +1297,7 @@ export default function InventarPage() {
         {selectedItem && (
           <div className="space-y-5">
             {/* Nachbestell-Banner (critical stock) */}
-            {selectedItem.currentStock <= selectedItem.minStock && (
+            {selectedItem.quantity <= selectedItem.min_quantity && (
               <div className="rounded-lg border border-error/30 bg-error-light p-3">
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 text-error mt-0.5 shrink-0" />
@@ -1222,7 +1306,7 @@ export default function InventarPage() {
                       {t('inventar.detail.criticalBanner.title')}
                     </p>
                     <p className="text-xs text-error/80 mt-0.5">
-                      {t('inventar.detail.criticalBanner.desc', { current: selectedItem.currentStock, min: selectedItem.minStock })}
+                      {t('inventar.detail.criticalBanner.desc', { current: selectedItem.quantity, min: selectedItem.min_quantity })}
                     </p>
                   </div>
                 </div>
@@ -1250,7 +1334,7 @@ export default function InventarPage() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">{t('inventar.detail.fieldCategory')}</p>
-                  <p className="text-sm text-foreground">{selectedItem.category}</p>
+                  <p className="text-sm text-foreground">{selectedItem.category ?? '—'}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">{t('inventar.detail.fieldUnit')}</p>
@@ -1258,11 +1342,11 @@ export default function InventarPage() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">{t('inventar.detail.fieldPrice')}</p>
-                  <p className="text-sm text-foreground">{formatCurrency(selectedItem.price, selectedItem.currency || 'EUR')}</p>
+                  <p className="text-sm text-foreground">{formatCurrency(selectedItem.price ?? 0, selectedItem.currency ?? 'EUR')}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">{t('inventar.detail.fieldLastMovement')}</p>
-                  <p className="text-sm text-foreground">{formatDate(selectedItem.lastMovement)}</p>
+                  <p className="text-sm text-foreground">{formatDate(selectedItem.updated_at)}</p>
                 </div>
               </div>
               {selectedItem.barcode && (
@@ -1279,36 +1363,36 @@ export default function InventarPage() {
               <div className="rounded-lg border border-border bg-secondary/30 p-3">
                 <div className="flex items-baseline justify-between mb-2">
                   <span className="text-2xl font-semibold text-foreground tabular-nums">
-                    {selectedItem.currentStock}
+                    {selectedItem.quantity}
                   </span>
                   <span className="text-sm text-muted-foreground">
-                    Min: {selectedItem.minStock} {selectedItem.unit}
+                    Min: {selectedItem.min_quantity} {selectedItem.unit}
                   </span>
                 </div>
-                <StockBar current={selectedItem.currentStock} min={selectedItem.minStock} />
+                <StockBar current={selectedItem.quantity} min={selectedItem.min_quantity} />
               </div>
             </div>
 
             {/* Chargen & Seriennummern */}
-            {(selectedItem.batchNumber || (selectedItem.serialNumbers && selectedItem.serialNumbers.length > 0)) && (
+            {(selectedItem.batch_number || (selectedItem.serial_numbers && selectedItem.serial_numbers.length > 0)) && (
               <div className="space-y-2">
                 <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('inventar.detail.chargenTitle')}</h4>
                 <div className="rounded-lg border border-border p-3 space-y-2">
-                  {selectedItem.batchNumber && (
+                  {selectedItem.batch_number && (
                     <div className="flex items-center gap-2">
                       <Hash className="h-3.5 w-3.5 text-muted-foreground" />
                       <span className="text-xs text-muted-foreground">{t('inventar.detail.chargeLabel')}</span>
-                      <span className="text-sm text-foreground font-mono">{selectedItem.batchNumber}</span>
+                      <span className="text-sm text-foreground font-mono">{selectedItem.batch_number}</span>
                     </div>
                   )}
-                  {selectedItem.serialNumbers && selectedItem.serialNumbers.length > 0 && (
+                  {selectedItem.serial_numbers && selectedItem.serial_numbers.length > 0 && (
                     <div>
                       <div className="flex items-center gap-2 mb-1.5">
                         <Hash className="h-3.5 w-3.5 text-muted-foreground" />
                         <span className="text-xs text-muted-foreground">{t('inventar.detail.serialLabel')}</span>
                       </div>
                       <div className="flex flex-wrap gap-1">
-                        {selectedItem.serialNumbers.map((sn) => (
+                        {selectedItem.serial_numbers.map((sn) => (
                           <span
                             key={sn}
                             className="inline-flex items-center rounded-md bg-secondary px-2 py-0.5 text-xs font-mono text-foreground"
@@ -1324,18 +1408,18 @@ export default function InventarPage() {
             )}
 
             {/* Belegkette / Einkauf-Anbindung */}
-            {selectedItem.linkedPurchaseOrder && (
+            {selectedItem.linked_purchase_order && (
               <div className="space-y-2">
                 <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('inventar.detail.einkaufTitle')}</h4>
                 <div className="rounded-lg border border-border p-3">
                   <div className="flex items-center gap-2 mb-2">
                     <Link2 className="h-4 w-4 text-primary" />
                     <span className="text-sm text-foreground">
-                      {t('inventar.detail.linkedOrder')} <span className="font-mono font-medium">{selectedItem.linkedPurchaseOrder}</span>
+                      {t('inventar.detail.linkedOrder')} <span className="font-mono font-medium">{selectedItem.linked_purchase_order}</span>
                     </span>
                   </div>
                   <button
-                    onClick={() => toast.info(`Wechsle zu Bestellung ${selectedItem.linkedPurchaseOrder}`)}
+                    onClick={() => toast.info(`Wechsle zu Bestellung ${selectedItem.linked_purchase_order}`)}
                     className="w-full flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
                   >
                     <Link2 className="h-3.5 w-3.5" />
@@ -1351,17 +1435,17 @@ export default function InventarPage() {
               <div className="rounded-lg border border-border p-3">
                 <div className="flex items-center gap-2">
                   {(() => {
-                    const loc = locations.find((l) => l.id === selectedItem.locationId)
+                    const loc = locations.find((l) => l.id === selectedItem.location_id)
                     const LIcon = loc ? locationTypeIcons[loc.type] || Warehouse : Warehouse
                     return (
                       <>
                         <LIcon className="h-4 w-4 text-primary" />
                         <div className="flex-1">
-                          <p className="text-sm font-medium text-foreground">{selectedItem.locationName}</p>
+                          <p className="text-sm font-medium text-foreground">{selectedItem.location ?? '—'}</p>
                           {loc && <p className="text-xs text-muted-foreground">{loc.address}</p>}
                         </div>
                         <span className="text-sm tabular-nums text-foreground font-medium">
-                          {selectedItem.currentStock} {selectedItem.unit}
+                          {selectedItem.quantity} {selectedItem.unit}
                         </span>
                       </>
                     )
@@ -1374,7 +1458,7 @@ export default function InventarPage() {
             <div className="space-y-2">
               <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('inventar.detail.lastMovements')}</h4>
               {(() => {
-                const itemMovements = getItemMovements(selectedItem.id)
+                const itemMovements = selectedItemMovementsQuery.data?.movements?.slice(0, 5) ?? []
                 if (itemMovements.length === 0) {
                   return (
                     <p className="text-xs text-muted-foreground py-2">{t('inventar.detail.noMovements')}</p>
@@ -1383,23 +1467,23 @@ export default function InventarPage() {
                 return (
                   <div className="space-y-1">
                     {itemMovements.map((mov) => {
-                      const MIcon = movementTypeIcons[mov.type]
+                      const MIcon = movementTypeIcons[mov.movement_type]
                       return (
                         <div key={mov.id} className="flex items-center gap-2 rounded-md border border-border-muted p-2">
-                          <span className={`flex h-6 w-6 items-center justify-center rounded-md ${movementTypeColors[mov.type]}`}>
+                          <span className={`flex h-6 w-6 items-center justify-center rounded-md ${movementTypeColors[mov.movement_type]}`}>
                             {MIcon && <MIcon className="h-3 w-3" />}
                           </span>
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-medium text-foreground">
-                              {movementTypeKeys[mov.type] ? t(movementTypeKeys[mov.type]) : mov.type}
+                              {movementTypeKeys[mov.movement_type] ? t(movementTypeKeys[mov.movement_type]) : mov.movement_type}
                               {mov.quantity > 0 ? ` +${mov.quantity}` : ` ${mov.quantity}`}
                             </p>
                             <p className="text-[10px] text-muted-foreground truncate">
-                              {mov.reference} · {mov.createdBy}
+                              {mov.reference ?? '—'} · {mov.performed_by ?? '—'}
                             </p>
                           </div>
                           <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                            {formatDateTime(mov.createdAt)}
+                            {formatDateTime(mov.created_at)}
                           </span>
                         </div>
                       )

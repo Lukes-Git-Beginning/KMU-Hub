@@ -188,6 +188,62 @@ func (m *mockRepository) ListWarnings(ctx context.Context, tenantID uuid.UUID, s
 	return result[offset:end], total, nil
 }
 
+// ============================================================================
+// Location mock methods
+// ============================================================================
+
+func (m *mockRepository) CreateLocation(_ context.Context, loc *InventoryLocation) error {
+	return nil
+}
+
+func (m *mockRepository) UpdateLocation(_ context.Context, loc *InventoryLocation) error {
+	return nil
+}
+
+func (m *mockRepository) SoftDeleteLocation(_ context.Context, tenantID, locID uuid.UUID) error {
+	return nil
+}
+
+func (m *mockRepository) GetLocation(_ context.Context, tenantID, locID uuid.UUID) (*InventoryLocation, error) {
+	return nil, ErrLocationNotFound
+}
+
+func (m *mockRepository) ListLocations(_ context.Context, tenantID uuid.UUID, offset, limit int) ([]*InventoryLocation, int, error) {
+	return nil, 0, nil
+}
+
+// ============================================================================
+// Inventur Session mock methods
+// ============================================================================
+
+func (m *mockRepository) CreateInventurSession(_ context.Context, session *InventurSession) error {
+	return nil
+}
+
+func (m *mockRepository) UpdateInventurSession(_ context.Context, session *InventurSession) error {
+	return nil
+}
+
+func (m *mockRepository) DeleteInventurSession(_ context.Context, tenantID, sessionID uuid.UUID) error {
+	return nil
+}
+
+func (m *mockRepository) GetInventurSession(_ context.Context, tenantID, sessionID uuid.UUID) (*InventurSession, error) {
+	return nil, ErrInventurSessionNotFound
+}
+
+func (m *mockRepository) ListInventurSessions(_ context.Context, tenantID uuid.UUID, offset, limit int) ([]*InventurSession, int, error) {
+	return nil, 0, nil
+}
+
+func (m *mockRepository) UpsertInventurCount(_ context.Context, count *InventurCount) error {
+	return nil
+}
+
+func (m *mockRepository) ListInventurCounts(_ context.Context, sessionID uuid.UUID) ([]*InventurCount, error) {
+	return nil, nil
+}
+
 // compile-time interface check
 var _ Repository = (*mockRepository)(nil)
 

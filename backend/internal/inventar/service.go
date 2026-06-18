@@ -27,26 +27,39 @@ func NewService(repo Repository) *Service {
 
 // CreateItemInput contains data to create an inventory item.
 type CreateItemInput struct {
-	TenantID    uuid.UUID
-	Name        string
-	SKU         string
-	Barcode     *string
-	Quantity    int64
-	MinQuantity int64
-	Unit        string
-	Location    *string
+	TenantID            uuid.UUID
+	Name                string
+	SKU                 string
+	Barcode             *string
+	Quantity            int64
+	MinQuantity         int64
+	Unit                string
+	Location            *string
+	LocationID          *uuid.UUID
+	Category            *string
+	Price               *float64
+	Currency            *string
+	BatchNumber         *string
+	SerialNumbers       []string
+	LinkedPurchaseOrder *string
 }
 
 // UpdateItemInput contains fields that can be updated on an item.
 type UpdateItemInput struct {
-	TenantID    uuid.UUID
-	ItemID      uuid.UUID
-	Name        *string
-	SKU         *string
-	Barcode     *string
-	MinQuantity *int64
-	Unit        *string
-	Location    *string
+	TenantID            uuid.UUID
+	ItemID              uuid.UUID
+	Name                *string
+	SKU                 *string
+	Barcode             *string
+	MinQuantity         *int64
+	Unit                *string
+	Location            *string
+	LocationID          *uuid.UUID
+	Category            *string
+	Price               *float64
+	Currency            *string
+	BatchNumber         *string
+	LinkedPurchaseOrder *string
 }
 
 // ListItemsInput contains pagination and filtering for item listing.
@@ -162,17 +175,24 @@ func (s *Service) CreateItem(ctx context.Context, input CreateItemInput) (*Item,
 
 	now := time.Now()
 	item := &Item{
-		ID:          uuid.New(),
-		TenantID:    input.TenantID,
-		Name:        name,
-		SKU:         sku,
-		Barcode:     input.Barcode,
-		Quantity:    input.Quantity,
-		MinQuantity: input.MinQuantity,
-		Unit:        input.Unit,
-		Location:    input.Location,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:                  uuid.New(),
+		TenantID:            input.TenantID,
+		Name:                name,
+		SKU:                 sku,
+		Barcode:             input.Barcode,
+		Quantity:            input.Quantity,
+		MinQuantity:         input.MinQuantity,
+		Unit:                input.Unit,
+		Location:            input.Location,
+		LocationID:          input.LocationID,
+		Category:            input.Category,
+		Price:               input.Price,
+		Currency:            input.Currency,
+		BatchNumber:         input.BatchNumber,
+		SerialNumbers:       input.SerialNumbers,
+		LinkedPurchaseOrder: input.LinkedPurchaseOrder,
+		CreatedAt:           now,
+		UpdatedAt:           now,
 	}
 
 	if createErr := s.repo.CreateItem(ctx, item); createErr != nil {
@@ -232,6 +252,24 @@ func (s *Service) UpdateItem(ctx context.Context, input UpdateItemInput) (*Item,
 	}
 	if input.Location != nil {
 		item.Location = input.Location
+	}
+	if input.LocationID != nil {
+		item.LocationID = input.LocationID
+	}
+	if input.Category != nil {
+		item.Category = input.Category
+	}
+	if input.Price != nil {
+		item.Price = input.Price
+	}
+	if input.Currency != nil {
+		item.Currency = input.Currency
+	}
+	if input.BatchNumber != nil {
+		item.BatchNumber = input.BatchNumber
+	}
+	if input.LinkedPurchaseOrder != nil {
+		item.LinkedPurchaseOrder = input.LinkedPurchaseOrder
 	}
 
 	item.UpdatedAt = time.Now()
@@ -572,6 +610,315 @@ func (s *Service) GetStockReport(ctx context.Context, tenantID uuid.UUID) (*Stoc
 		LowStockCount:  lowStockCount,
 		ActiveWarnings: activeWarnings,
 	}, nil
+}
+
+// ============================================================================
+// Location inputs
+// ============================================================================
+
+// CreateLocationInput holds fields required to create an inventory location.
+type CreateLocationInput struct {
+	TenantID uuid.UUID
+	Name     string
+	Address  string
+	Type     LocationType
+}
+
+// UpdateLocationInput holds fields for updating an inventory location.
+type UpdateLocationInput struct {
+	TenantID   uuid.UUID
+	LocationID uuid.UUID
+	Name       *string
+	Address    *string
+	Type       *LocationType
+}
+
+// ListLocationsInput holds pagination for listing locations.
+type ListLocationsInput struct {
+	TenantID uuid.UUID
+	Page     int
+	PageSize int
+}
+
+// ============================================================================
+// Location service methods
+// ============================================================================
+
+// CreateLocation creates a new inventory location.
+func (s *Service) CreateLocation(ctx context.Context, input CreateLocationInput) (*InventoryLocation, error) {
+	if input.Name == "" {
+		return nil, fmt.Errorf("%w: name is required", ErrInvalidInput)
+	}
+	if input.Type != LocationTypeWarehouse && input.Type != LocationTypeStore && input.Type != LocationTypeVehicle {
+		input.Type = LocationTypeWarehouse
+	}
+	now := time.Now()
+	loc := &InventoryLocation{
+		ID:        uuid.New(),
+		TenantID:  input.TenantID,
+		Name:      input.Name,
+		Address:   input.Address,
+		Type:      input.Type,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	if err := s.repo.CreateLocation(ctx, loc); err != nil {
+		return nil, fmt.Errorf("create location: %w", err)
+	}
+	slog.InfoContext(ctx, "inventory location created", "location_id", loc.ID, "tenant_id", loc.TenantID)
+	return loc, nil
+}
+
+// GetLocation retrieves a single inventory location.
+func (s *Service) GetLocation(ctx context.Context, tenantID, locID uuid.UUID) (*InventoryLocation, error) {
+	return s.repo.GetLocation(ctx, tenantID, locID)
+}
+
+// UpdateLocation updates mutable fields of an inventory location.
+func (s *Service) UpdateLocation(ctx context.Context, input UpdateLocationInput) (*InventoryLocation, error) {
+	loc, err := s.repo.GetLocation(ctx, input.TenantID, input.LocationID)
+	if err != nil {
+		return nil, err
+	}
+	if input.Name != nil {
+		loc.Name = *input.Name
+	}
+	if input.Address != nil {
+		loc.Address = *input.Address
+	}
+	if input.Type != nil {
+		loc.Type = *input.Type
+	}
+	loc.UpdatedAt = time.Now()
+	if err := s.repo.UpdateLocation(ctx, loc); err != nil {
+		return nil, fmt.Errorf("update location: %w", err)
+	}
+	return loc, nil
+}
+
+// DeleteLocation soft-deletes an inventory location.
+func (s *Service) DeleteLocation(ctx context.Context, tenantID, locID uuid.UUID) error {
+	return s.repo.SoftDeleteLocation(ctx, tenantID, locID)
+}
+
+// ListLocations returns a paginated list of inventory locations.
+func (s *Service) ListLocations(ctx context.Context, input ListLocationsInput) ([]*InventoryLocation, int, error) {
+	page := input.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := input.PageSize
+	if pageSize < 1 || pageSize > 200 {
+		pageSize = 50
+	}
+	offset := (page - 1) * pageSize
+	return s.repo.ListLocations(ctx, input.TenantID, offset, pageSize)
+}
+
+// ============================================================================
+// Inventur Session inputs
+// ============================================================================
+
+// CreateInventurSessionInput holds fields for creating an inventur session.
+type CreateInventurSessionInput struct {
+	TenantID   uuid.UUID
+	Name       string
+	Date       time.Time
+	LocationID *uuid.UUID
+	CreatedBy  *uuid.UUID
+	ItemIDs    []uuid.UUID // items to include in counting — pre-populated with current quantities
+}
+
+// UpdateInventurSessionStatusInput holds fields for updating session status.
+type UpdateInventurSessionStatusInput struct {
+	TenantID  uuid.UUID
+	SessionID uuid.UUID
+	Status    InventurStatus
+}
+
+// UpsertInventurCountInput holds fields for recording a count for one item.
+type UpsertInventurCountInput struct {
+	TenantID  uuid.UUID
+	SessionID uuid.UUID
+	ItemID    uuid.UUID
+	Counted   int64
+}
+
+// ListInventurSessionsInput holds pagination for listing sessions.
+type ListInventurSessionsInput struct {
+	TenantID uuid.UUID
+	Page     int
+	PageSize int
+}
+
+// BookInventurDifferencesInput triggers stock adjustments for all counted differences.
+type BookInventurDifferencesInput struct {
+	TenantID  uuid.UUID
+	SessionID uuid.UUID
+	BookedBy  *uuid.UUID
+}
+
+// ============================================================================
+// Inventur Session service methods
+// ============================================================================
+
+// CreateInventurSession creates a new inventur session with optional pre-populated counts.
+func (s *Service) CreateInventurSession(ctx context.Context, input CreateInventurSessionInput) (*InventurSession, error) {
+	if input.Name == "" {
+		return nil, fmt.Errorf("%w: session name is required", ErrInvalidInput)
+	}
+	date := input.Date
+	if date.IsZero() {
+		date = time.Now()
+	}
+	now := time.Now()
+	session := &InventurSession{
+		ID:         uuid.New(),
+		TenantID:   input.TenantID,
+		Name:       input.Name,
+		Date:       date,
+		Status:     InventurStatusOpen,
+		LocationID: input.LocationID,
+		CreatedBy:  input.CreatedBy,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+	}
+	if err := s.repo.CreateInventurSession(ctx, session); err != nil {
+		return nil, fmt.Errorf("create inventur session: %w", err)
+	}
+
+	// Pre-populate counts for given items
+	for _, itemID := range input.ItemIDs {
+		item, err := s.repo.GetItem(ctx, input.TenantID, itemID)
+		if err != nil {
+			continue // skip items not found
+		}
+		count := &InventurCount{
+			ID:        uuid.New(),
+			TenantID:  input.TenantID,
+			SessionID: session.ID,
+			ItemID:    itemID,
+			Expected:  item.Quantity,
+		}
+		_ = s.repo.UpsertInventurCount(ctx, count)
+	}
+
+	slog.InfoContext(ctx, "inventur session created", "session_id", session.ID, "tenant_id", session.TenantID)
+	return session, nil
+}
+
+// GetInventurSession retrieves a single inventur session including counts.
+func (s *Service) GetInventurSession(ctx context.Context, tenantID, sessionID uuid.UUID) (*InventurSession, error) {
+	return s.repo.GetInventurSession(ctx, tenantID, sessionID)
+}
+
+// UpdateInventurSessionStatus updates the status of an inventur session.
+func (s *Service) UpdateInventurSessionStatus(ctx context.Context, input UpdateInventurSessionStatusInput) (*InventurSession, error) {
+	session, err := s.repo.GetInventurSession(ctx, input.TenantID, input.SessionID)
+	if err != nil {
+		return nil, err
+	}
+	if session.Status == InventurStatusCompleted {
+		return nil, ErrInventurAlreadyCompleted
+	}
+	session.Status = input.Status
+	session.UpdatedAt = time.Now()
+	if err := s.repo.UpdateInventurSession(ctx, session); err != nil {
+		return nil, fmt.Errorf("update inventur session status: %w", err)
+	}
+	return session, nil
+}
+
+// DeleteInventurSession deletes an inventur session (cascades to counts).
+func (s *Service) DeleteInventurSession(ctx context.Context, tenantID, sessionID uuid.UUID) error {
+	return s.repo.DeleteInventurSession(ctx, tenantID, sessionID)
+}
+
+// ListInventurSessions returns a paginated list of inventur sessions.
+func (s *Service) ListInventurSessions(ctx context.Context, input ListInventurSessionsInput) ([]*InventurSession, int, error) {
+	page := input.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := input.PageSize
+	if pageSize < 1 || pageSize > 200 {
+		pageSize = 50
+	}
+	offset := (page - 1) * pageSize
+	return s.repo.ListInventurSessions(ctx, input.TenantID, offset, pageSize)
+}
+
+// UpsertInventurCount records or updates the counted quantity for one item in a session.
+func (s *Service) UpsertInventurCount(ctx context.Context, input UpsertInventurCountInput) (*InventurCount, error) {
+	session, err := s.repo.GetInventurSession(ctx, input.TenantID, input.SessionID)
+	if err != nil {
+		return nil, err
+	}
+	if session.Status == InventurStatusCompleted {
+		return nil, ErrInventurAlreadyCompleted
+	}
+	now := time.Now()
+	count := &InventurCount{
+		ID:        uuid.New(),
+		TenantID:  input.TenantID,
+		SessionID: input.SessionID,
+		ItemID:    input.ItemID,
+		Counted:   &input.Counted,
+		CountedAt: &now,
+	}
+	// Fetch expected from item
+	item, err := s.repo.GetItem(ctx, input.TenantID, input.ItemID)
+	if err == nil {
+		count.Expected = item.Quantity
+	}
+	if err := s.repo.UpsertInventurCount(ctx, count); err != nil {
+		return nil, fmt.Errorf("upsert inventur count: %w", err)
+	}
+	return count, nil
+}
+
+// BookInventurDifferences applies stock adjustments for all counted differences and marks session completed.
+func (s *Service) BookInventurDifferences(ctx context.Context, input BookInventurDifferencesInput) (*InventurSession, error) {
+	session, err := s.repo.GetInventurSession(ctx, input.TenantID, input.SessionID)
+	if err != nil {
+		return nil, err
+	}
+	if session.Status == InventurStatusCompleted {
+		return nil, ErrInventurAlreadyCompleted
+	}
+
+	counts, err := s.repo.ListInventurCounts(ctx, input.SessionID)
+	if err != nil {
+		return nil, fmt.Errorf("list counts for booking: %w", err)
+	}
+
+	for _, count := range counts {
+		if count.Counted == nil {
+			continue // uncounted items are skipped
+		}
+		diff := *count.Counted - count.Expected
+		if diff == 0 {
+			continue
+		}
+		adjustInput := AdjustStockInput{
+			TenantID:    input.TenantID,
+			ItemID:      count.ItemID,
+			Delta:       diff,
+			Reason:      "Inventur-Buchung: " + session.Name,
+			PerformedBy: input.BookedBy,
+		}
+		if _, err := s.AdjustStock(ctx, adjustInput); err != nil {
+			slog.WarnContext(ctx, "book inventur difference failed", "item_id", count.ItemID, "error", err)
+		}
+	}
+
+	session.Status = InventurStatusCompleted
+	session.UpdatedAt = time.Now()
+	if err := s.repo.UpdateInventurSession(ctx, session); err != nil {
+		return nil, fmt.Errorf("complete inventur session: %w", err)
+	}
+	slog.InfoContext(ctx, "inventur session booked", "session_id", session.ID, "tenant_id", session.TenantID)
+	return session, nil
 }
 
 // ============================================================================

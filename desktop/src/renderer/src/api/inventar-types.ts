@@ -24,6 +24,13 @@ export interface InventarItem {
   location: string | null
   created_at: string
   updated_at: string
+  location_id: string | null
+  category: string | null
+  price: number | null
+  currency: string | null
+  batch_number: string | null
+  serial_numbers: string[]
+  linked_purchase_order: string | null
 }
 
 export interface InventarMovement {
@@ -35,6 +42,10 @@ export interface InventarMovement {
   performed_by: string | null
   reason: string
   created_at: string
+  reference: string | null
+  location_from: string | null
+  location_to: string | null
+  notes: string | null
 }
 
 export interface StockWarning {
@@ -150,6 +161,75 @@ export interface ListMovementsResponse {
 export interface ListWarningsResponse {
   warnings: StockWarning[]
   total: number
+}
+
+export type LocationType = 'warehouse' | 'store' | 'vehicle'
+export type InventurStatus = 'open' | 'counting' | 'review' | 'completed'
+
+export interface InventoryLocation {
+  id: string
+  tenant_id: string
+  name: string
+  address: string
+  type: LocationType
+  created_at: string
+  updated_at: string
+}
+
+export interface InventurCount {
+  id: string
+  tenant_id: string
+  session_id: string
+  item_id: string
+  expected: number
+  counted: number | null
+  counted_at: string | null
+}
+
+export interface InventurSession {
+  id: string
+  tenant_id: string
+  name: string
+  date: string
+  status: InventurStatus
+  location_id: string | null
+  created_by: string | null
+  counts: InventurCount[]
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateLocationInput {
+  name: string
+  address: string
+  type: LocationType
+}
+
+export interface UpdateLocationInput {
+  name?: string
+  address?: string
+  type?: LocationType
+}
+
+export interface CreateInventurSessionInput {
+  name: string
+  date?: string
+  location_id?: string
+  item_ids?: string[]
+}
+
+export interface ListLocationsParams {
+  page?: number
+  page_size?: number
+}
+
+export interface ListInventurSessionsParams {
+  page?: number
+  page_size?: number
+}
+
+export interface ExportInventoryResponse {
+  url: string
 }
 
 export interface ExportInventoryParams {

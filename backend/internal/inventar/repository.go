@@ -34,4 +34,22 @@ type Repository interface {
 	GetWarning(ctx context.Context, tenantID, warningID uuid.UUID) (*Warning, error)
 	GetActiveWarningForItem(ctx context.Context, tenantID, itemID uuid.UUID) (*Warning, error)
 	ListWarnings(ctx context.Context, tenantID uuid.UUID, status *WarningStatus, offset, limit int) ([]*Warning, int, error)
+
+	// Locations
+	CreateLocation(ctx context.Context, loc *InventoryLocation) error
+	UpdateLocation(ctx context.Context, loc *InventoryLocation) error
+	SoftDeleteLocation(ctx context.Context, tenantID, locID uuid.UUID) error
+	GetLocation(ctx context.Context, tenantID, locID uuid.UUID) (*InventoryLocation, error)
+	ListLocations(ctx context.Context, tenantID uuid.UUID, offset, limit int) ([]*InventoryLocation, int, error)
+
+	// Inventur Sessions
+	CreateInventurSession(ctx context.Context, session *InventurSession) error
+	UpdateInventurSession(ctx context.Context, session *InventurSession) error
+	DeleteInventurSession(ctx context.Context, tenantID, sessionID uuid.UUID) error
+	GetInventurSession(ctx context.Context, tenantID, sessionID uuid.UUID) (*InventurSession, error)
+	ListInventurSessions(ctx context.Context, tenantID uuid.UUID, offset, limit int) ([]*InventurSession, int, error)
+
+	// Inventur Counts
+	UpsertInventurCount(ctx context.Context, count *InventurCount) error
+	ListInventurCounts(ctx context.Context, sessionID uuid.UUID) ([]*InventurCount, error)
 }

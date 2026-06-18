@@ -26,6 +26,7 @@ import { vermietungHandlers } from './vermietung'
 import { wikiHandlers } from './wiki'
 import { schichtenHandlers } from './schichten'
 import { helpdeskHandlers } from './helpdesk'
+import { inventarHandlers } from './inventar'
 
 export const handlers = [
   ...authHandlers,
@@ -52,4 +53,5 @@ export const handlers = [
   ...wikiHandlers,
   ...schichtenHandlers,
   ...helpdeskHandlers,
+  ...inventarHandlers,
 ]

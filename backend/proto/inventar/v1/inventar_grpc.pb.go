@@ -19,22 +19,34 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	InventarService_CreateItem_FullMethodName         = "/inventar.v1.InventarService/CreateItem"
-	InventarService_GetItem_FullMethodName            = "/inventar.v1.InventarService/GetItem"
-	InventarService_UpdateItem_FullMethodName         = "/inventar.v1.InventarService/UpdateItem"
-	InventarService_DeleteItem_FullMethodName         = "/inventar.v1.InventarService/DeleteItem"
-	InventarService_ListItems_FullMethodName          = "/inventar.v1.InventarService/ListItems"
-	InventarService_AdjustStock_FullMethodName        = "/inventar.v1.InventarService/AdjustStock"
-	InventarService_TransferStock_FullMethodName      = "/inventar.v1.InventarService/TransferStock"
-	InventarService_RecordMovement_FullMethodName     = "/inventar.v1.InventarService/RecordMovement"
-	InventarService_ListMovements_FullMethodName      = "/inventar.v1.InventarService/ListMovements"
-	InventarService_GetStockHistory_FullMethodName    = "/inventar.v1.InventarService/GetStockHistory"
-	InventarService_CreateWarning_FullMethodName      = "/inventar.v1.InventarService/CreateWarning"
-	InventarService_UpdateWarning_FullMethodName      = "/inventar.v1.InventarService/UpdateWarning"
-	InventarService_AcknowledgeWarning_FullMethodName = "/inventar.v1.InventarService/AcknowledgeWarning"
-	InventarService_ListWarnings_FullMethodName       = "/inventar.v1.InventarService/ListWarnings"
-	InventarService_GetStockReport_FullMethodName     = "/inventar.v1.InventarService/GetStockReport"
-	InventarService_ExportInventory_FullMethodName    = "/inventar.v1.InventarService/ExportInventory"
+	InventarService_CreateItem_FullMethodName                  = "/inventar.v1.InventarService/CreateItem"
+	InventarService_GetItem_FullMethodName                     = "/inventar.v1.InventarService/GetItem"
+	InventarService_UpdateItem_FullMethodName                  = "/inventar.v1.InventarService/UpdateItem"
+	InventarService_DeleteItem_FullMethodName                  = "/inventar.v1.InventarService/DeleteItem"
+	InventarService_ListItems_FullMethodName                   = "/inventar.v1.InventarService/ListItems"
+	InventarService_AdjustStock_FullMethodName                 = "/inventar.v1.InventarService/AdjustStock"
+	InventarService_TransferStock_FullMethodName               = "/inventar.v1.InventarService/TransferStock"
+	InventarService_RecordMovement_FullMethodName              = "/inventar.v1.InventarService/RecordMovement"
+	InventarService_ListMovements_FullMethodName               = "/inventar.v1.InventarService/ListMovements"
+	InventarService_GetStockHistory_FullMethodName             = "/inventar.v1.InventarService/GetStockHistory"
+	InventarService_CreateWarning_FullMethodName               = "/inventar.v1.InventarService/CreateWarning"
+	InventarService_UpdateWarning_FullMethodName               = "/inventar.v1.InventarService/UpdateWarning"
+	InventarService_AcknowledgeWarning_FullMethodName          = "/inventar.v1.InventarService/AcknowledgeWarning"
+	InventarService_ListWarnings_FullMethodName                = "/inventar.v1.InventarService/ListWarnings"
+	InventarService_GetStockReport_FullMethodName              = "/inventar.v1.InventarService/GetStockReport"
+	InventarService_ExportInventory_FullMethodName             = "/inventar.v1.InventarService/ExportInventory"
+	InventarService_CreateLocation_FullMethodName              = "/inventar.v1.InventarService/CreateLocation"
+	InventarService_GetLocation_FullMethodName                 = "/inventar.v1.InventarService/GetLocation"
+	InventarService_UpdateLocation_FullMethodName              = "/inventar.v1.InventarService/UpdateLocation"
+	InventarService_DeleteLocation_FullMethodName              = "/inventar.v1.InventarService/DeleteLocation"
+	InventarService_ListLocations_FullMethodName               = "/inventar.v1.InventarService/ListLocations"
+	InventarService_CreateInventurSession_FullMethodName       = "/inventar.v1.InventarService/CreateInventurSession"
+	InventarService_GetInventurSession_FullMethodName          = "/inventar.v1.InventarService/GetInventurSession"
+	InventarService_UpdateInventurSessionStatus_FullMethodName = "/inventar.v1.InventarService/UpdateInventurSessionStatus"
+	InventarService_DeleteInventurSession_FullMethodName       = "/inventar.v1.InventarService/DeleteInventurSession"
+	InventarService_ListInventurSessions_FullMethodName        = "/inventar.v1.InventarService/ListInventurSessions"
+	InventarService_UpsertInventurCount_FullMethodName         = "/inventar.v1.InventarService/UpsertInventurCount"
+	InventarService_BookInventurDifferences_FullMethodName     = "/inventar.v1.InventarService/BookInventurDifferences"
 )
 
 // InventarServiceClient is the client API for InventarService service.
@@ -61,6 +73,20 @@ type InventarServiceClient interface {
 	// Reports
 	GetStockReport(ctx context.Context, in *GetStockReportRequest, opts ...grpc.CallOption) (*StockReportResponse, error)
 	ExportInventory(ctx context.Context, in *ExportInventoryRequest, opts ...grpc.CallOption) (*ExportInventoryResponse, error)
+	// Locations
+	CreateLocation(ctx context.Context, in *CreateLocationRequest, opts ...grpc.CallOption) (*LocationResponse, error)
+	GetLocation(ctx context.Context, in *GetLocationRequest, opts ...grpc.CallOption) (*LocationResponse, error)
+	UpdateLocation(ctx context.Context, in *UpdateLocationRequest, opts ...grpc.CallOption) (*LocationResponse, error)
+	DeleteLocation(ctx context.Context, in *DeleteLocationRequest, opts ...grpc.CallOption) (*DeleteLocationResponse, error)
+	ListLocations(ctx context.Context, in *ListLocationsRequest, opts ...grpc.CallOption) (*ListLocationsResponse, error)
+	// Inventur sessions
+	CreateInventurSession(ctx context.Context, in *CreateInventurSessionRequest, opts ...grpc.CallOption) (*InventurSessionResponse, error)
+	GetInventurSession(ctx context.Context, in *GetInventurSessionRequest, opts ...grpc.CallOption) (*InventurSessionResponse, error)
+	UpdateInventurSessionStatus(ctx context.Context, in *UpdateInventurSessionStatusRequest, opts ...grpc.CallOption) (*InventurSessionResponse, error)
+	DeleteInventurSession(ctx context.Context, in *DeleteInventurSessionRequest, opts ...grpc.CallOption) (*DeleteInventurSessionResponse, error)
+	ListInventurSessions(ctx context.Context, in *ListInventurSessionsRequest, opts ...grpc.CallOption) (*ListInventurSessionsResponse, error)
+	UpsertInventurCount(ctx context.Context, in *UpsertInventurCountRequest, opts ...grpc.CallOption) (*InventurCountResponse, error)
+	BookInventurDifferences(ctx context.Context, in *BookInventurDifferencesRequest, opts ...grpc.CallOption) (*InventurSessionResponse, error)
 }
 
 type inventarServiceClient struct {
@@ -231,6 +257,126 @@ func (c *inventarServiceClient) ExportInventory(ctx context.Context, in *ExportI
 	return out, nil
 }
 
+func (c *inventarServiceClient) CreateLocation(ctx context.Context, in *CreateLocationRequest, opts ...grpc.CallOption) (*LocationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LocationResponse)
+	err := c.cc.Invoke(ctx, InventarService_CreateLocation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inventarServiceClient) GetLocation(ctx context.Context, in *GetLocationRequest, opts ...grpc.CallOption) (*LocationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LocationResponse)
+	err := c.cc.Invoke(ctx, InventarService_GetLocation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inventarServiceClient) UpdateLocation(ctx context.Context, in *UpdateLocationRequest, opts ...grpc.CallOption) (*LocationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LocationResponse)
+	err := c.cc.Invoke(ctx, InventarService_UpdateLocation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inventarServiceClient) DeleteLocation(ctx context.Context, in *DeleteLocationRequest, opts ...grpc.CallOption) (*DeleteLocationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteLocationResponse)
+	err := c.cc.Invoke(ctx, InventarService_DeleteLocation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inventarServiceClient) ListLocations(ctx context.Context, in *ListLocationsRequest, opts ...grpc.CallOption) (*ListLocationsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListLocationsResponse)
+	err := c.cc.Invoke(ctx, InventarService_ListLocations_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inventarServiceClient) CreateInventurSession(ctx context.Context, in *CreateInventurSessionRequest, opts ...grpc.CallOption) (*InventurSessionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InventurSessionResponse)
+	err := c.cc.Invoke(ctx, InventarService_CreateInventurSession_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inventarServiceClient) GetInventurSession(ctx context.Context, in *GetInventurSessionRequest, opts ...grpc.CallOption) (*InventurSessionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InventurSessionResponse)
+	err := c.cc.Invoke(ctx, InventarService_GetInventurSession_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inventarServiceClient) UpdateInventurSessionStatus(ctx context.Context, in *UpdateInventurSessionStatusRequest, opts ...grpc.CallOption) (*InventurSessionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InventurSessionResponse)
+	err := c.cc.Invoke(ctx, InventarService_UpdateInventurSessionStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inventarServiceClient) DeleteInventurSession(ctx context.Context, in *DeleteInventurSessionRequest, opts ...grpc.CallOption) (*DeleteInventurSessionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteInventurSessionResponse)
+	err := c.cc.Invoke(ctx, InventarService_DeleteInventurSession_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inventarServiceClient) ListInventurSessions(ctx context.Context, in *ListInventurSessionsRequest, opts ...grpc.CallOption) (*ListInventurSessionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListInventurSessionsResponse)
+	err := c.cc.Invoke(ctx, InventarService_ListInventurSessions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inventarServiceClient) UpsertInventurCount(ctx context.Context, in *UpsertInventurCountRequest, opts ...grpc.CallOption) (*InventurCountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InventurCountResponse)
+	err := c.cc.Invoke(ctx, InventarService_UpsertInventurCount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inventarServiceClient) BookInventurDifferences(ctx context.Context, in *BookInventurDifferencesRequest, opts ...grpc.CallOption) (*InventurSessionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InventurSessionResponse)
+	err := c.cc.Invoke(ctx, InventarService_BookInventurDifferences_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // InventarServiceServer is the server API for InventarService service.
 // All implementations must embed UnimplementedInventarServiceServer
 // for forward compatibility.
@@ -255,6 +401,20 @@ type InventarServiceServer interface {
 	// Reports
 	GetStockReport(context.Context, *GetStockReportRequest) (*StockReportResponse, error)
 	ExportInventory(context.Context, *ExportInventoryRequest) (*ExportInventoryResponse, error)
+	// Locations
+	CreateLocation(context.Context, *CreateLocationRequest) (*LocationResponse, error)
+	GetLocation(context.Context, *GetLocationRequest) (*LocationResponse, error)
+	UpdateLocation(context.Context, *UpdateLocationRequest) (*LocationResponse, error)
+	DeleteLocation(context.Context, *DeleteLocationRequest) (*DeleteLocationResponse, error)
+	ListLocations(context.Context, *ListLocationsRequest) (*ListLocationsResponse, error)
+	// Inventur sessions
+	CreateInventurSession(context.Context, *CreateInventurSessionRequest) (*InventurSessionResponse, error)
+	GetInventurSession(context.Context, *GetInventurSessionRequest) (*InventurSessionResponse, error)
+	UpdateInventurSessionStatus(context.Context, *UpdateInventurSessionStatusRequest) (*InventurSessionResponse, error)
+	DeleteInventurSession(context.Context, *DeleteInventurSessionRequest) (*DeleteInventurSessionResponse, error)
+	ListInventurSessions(context.Context, *ListInventurSessionsRequest) (*ListInventurSessionsResponse, error)
+	UpsertInventurCount(context.Context, *UpsertInventurCountRequest) (*InventurCountResponse, error)
+	BookInventurDifferences(context.Context, *BookInventurDifferencesRequest) (*InventurSessionResponse, error)
 	mustEmbedUnimplementedInventarServiceServer()
 }
 
@@ -312,6 +472,42 @@ func (UnimplementedInventarServiceServer) GetStockReport(context.Context, *GetSt
 }
 func (UnimplementedInventarServiceServer) ExportInventory(context.Context, *ExportInventoryRequest) (*ExportInventoryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ExportInventory not implemented")
+}
+func (UnimplementedInventarServiceServer) CreateLocation(context.Context, *CreateLocationRequest) (*LocationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateLocation not implemented")
+}
+func (UnimplementedInventarServiceServer) GetLocation(context.Context, *GetLocationRequest) (*LocationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetLocation not implemented")
+}
+func (UnimplementedInventarServiceServer) UpdateLocation(context.Context, *UpdateLocationRequest) (*LocationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateLocation not implemented")
+}
+func (UnimplementedInventarServiceServer) DeleteLocation(context.Context, *DeleteLocationRequest) (*DeleteLocationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteLocation not implemented")
+}
+func (UnimplementedInventarServiceServer) ListLocations(context.Context, *ListLocationsRequest) (*ListLocationsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListLocations not implemented")
+}
+func (UnimplementedInventarServiceServer) CreateInventurSession(context.Context, *CreateInventurSessionRequest) (*InventurSessionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateInventurSession not implemented")
+}
+func (UnimplementedInventarServiceServer) GetInventurSession(context.Context, *GetInventurSessionRequest) (*InventurSessionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetInventurSession not implemented")
+}
+func (UnimplementedInventarServiceServer) UpdateInventurSessionStatus(context.Context, *UpdateInventurSessionStatusRequest) (*InventurSessionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateInventurSessionStatus not implemented")
+}
+func (UnimplementedInventarServiceServer) DeleteInventurSession(context.Context, *DeleteInventurSessionRequest) (*DeleteInventurSessionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteInventurSession not implemented")
+}
+func (UnimplementedInventarServiceServer) ListInventurSessions(context.Context, *ListInventurSessionsRequest) (*ListInventurSessionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListInventurSessions not implemented")
+}
+func (UnimplementedInventarServiceServer) UpsertInventurCount(context.Context, *UpsertInventurCountRequest) (*InventurCountResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpsertInventurCount not implemented")
+}
+func (UnimplementedInventarServiceServer) BookInventurDifferences(context.Context, *BookInventurDifferencesRequest) (*InventurSessionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BookInventurDifferences not implemented")
 }
 func (UnimplementedInventarServiceServer) mustEmbedUnimplementedInventarServiceServer() {}
 func (UnimplementedInventarServiceServer) testEmbeddedByValue()                         {}
@@ -622,6 +818,222 @@ func _InventarService_ExportInventory_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _InventarService_CreateLocation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateLocationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventarServiceServer).CreateLocation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventarService_CreateLocation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventarServiceServer).CreateLocation(ctx, req.(*CreateLocationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InventarService_GetLocation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetLocationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventarServiceServer).GetLocation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventarService_GetLocation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventarServiceServer).GetLocation(ctx, req.(*GetLocationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InventarService_UpdateLocation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateLocationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventarServiceServer).UpdateLocation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventarService_UpdateLocation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventarServiceServer).UpdateLocation(ctx, req.(*UpdateLocationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InventarService_DeleteLocation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteLocationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventarServiceServer).DeleteLocation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventarService_DeleteLocation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventarServiceServer).DeleteLocation(ctx, req.(*DeleteLocationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InventarService_ListLocations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListLocationsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventarServiceServer).ListLocations(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventarService_ListLocations_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventarServiceServer).ListLocations(ctx, req.(*ListLocationsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InventarService_CreateInventurSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateInventurSessionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventarServiceServer).CreateInventurSession(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventarService_CreateInventurSession_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventarServiceServer).CreateInventurSession(ctx, req.(*CreateInventurSessionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InventarService_GetInventurSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetInventurSessionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventarServiceServer).GetInventurSession(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventarService_GetInventurSession_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventarServiceServer).GetInventurSession(ctx, req.(*GetInventurSessionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InventarService_UpdateInventurSessionStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateInventurSessionStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventarServiceServer).UpdateInventurSessionStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventarService_UpdateInventurSessionStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventarServiceServer).UpdateInventurSessionStatus(ctx, req.(*UpdateInventurSessionStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InventarService_DeleteInventurSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteInventurSessionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventarServiceServer).DeleteInventurSession(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventarService_DeleteInventurSession_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventarServiceServer).DeleteInventurSession(ctx, req.(*DeleteInventurSessionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InventarService_ListInventurSessions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListInventurSessionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventarServiceServer).ListInventurSessions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventarService_ListInventurSessions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventarServiceServer).ListInventurSessions(ctx, req.(*ListInventurSessionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InventarService_UpsertInventurCount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertInventurCountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventarServiceServer).UpsertInventurCount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventarService_UpsertInventurCount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventarServiceServer).UpsertInventurCount(ctx, req.(*UpsertInventurCountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InventarService_BookInventurDifferences_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BookInventurDifferencesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventarServiceServer).BookInventurDifferences(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventarService_BookInventurDifferences_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventarServiceServer).BookInventurDifferences(ctx, req.(*BookInventurDifferencesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // InventarService_ServiceDesc is the grpc.ServiceDesc for InventarService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -692,6 +1104,54 @@ var InventarService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ExportInventory",
 			Handler:    _InventarService_ExportInventory_Handler,
+		},
+		{
+			MethodName: "CreateLocation",
+			Handler:    _InventarService_CreateLocation_Handler,
+		},
+		{
+			MethodName: "GetLocation",
+			Handler:    _InventarService_GetLocation_Handler,
+		},
+		{
+			MethodName: "UpdateLocation",
+			Handler:    _InventarService_UpdateLocation_Handler,
+		},
+		{
+			MethodName: "DeleteLocation",
+			Handler:    _InventarService_DeleteLocation_Handler,
+		},
+		{
+			MethodName: "ListLocations",
+			Handler:    _InventarService_ListLocations_Handler,
+		},
+		{
+			MethodName: "CreateInventurSession",
+			Handler:    _InventarService_CreateInventurSession_Handler,
+		},
+		{
+			MethodName: "GetInventurSession",
+			Handler:    _InventarService_GetInventurSession_Handler,
+		},
+		{
+			MethodName: "UpdateInventurSessionStatus",
+			Handler:    _InventarService_UpdateInventurSessionStatus_Handler,
+		},
+		{
+			MethodName: "DeleteInventurSession",
+			Handler:    _InventarService_DeleteInventurSession_Handler,
+		},
+		{
+			MethodName: "ListInventurSessions",
+			Handler:    _InventarService_ListInventurSessions_Handler,
+		},
+		{
+			MethodName: "UpsertInventurCount",
+			Handler:    _InventarService_UpsertInventurCount_Handler,
+		},
+		{
+			MethodName: "BookInventurDifferences",
+			Handler:    _InventarService_BookInventurDifferences_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

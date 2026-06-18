@@ -30,6 +30,22 @@ service InventarService {
   // Reports
   rpc GetStockReport(GetStockReportRequest) returns (StockReportResponse);
   rpc ExportInventory(ExportInventoryRequest) returns (ExportInventoryResponse);
+
+  // Locations
+  rpc CreateLocation(CreateLocationRequest) returns (LocationResponse);
+  rpc GetLocation(GetLocationRequest) returns (LocationResponse);
+  rpc UpdateLocation(UpdateLocationRequest) returns (LocationResponse);
+  rpc DeleteLocation(DeleteLocationRequest) returns (DeleteLocationResponse);
+  rpc ListLocations(ListLocationsRequest) returns (ListLocationsResponse);
+
+  // Inventur sessions
+  rpc CreateInventurSession(CreateInventurSessionRequest) returns (InventurSessionResponse);
+  rpc GetInventurSession(GetInventurSessionRequest) returns (InventurSessionResponse);
+  rpc UpdateInventurSessionStatus(UpdateInventurSessionStatusRequest) returns (InventurSessionResponse);
+  rpc DeleteInventurSession(DeleteInventurSessionRequest) returns (DeleteInventurSessionResponse);
+  rpc ListInventurSessions(ListInventurSessionsRequest) returns (ListInventurSessionsResponse);
+  rpc UpsertInventurCount(UpsertInventurCountRequest) returns (InventurCountResponse);
+  rpc BookInventurDifferences(BookInventurDifferencesRequest) returns (InventurSessionResponse);
 }
 
 // ============================================================================
@@ -48,6 +64,13 @@ message Item {
   optional string location = 9;
   google.protobuf.Timestamp created_at = 10;
   google.protobuf.Timestamp updated_at = 11;
+  optional string location_id = 12;
+  optional string category = 13;
+  optional double price = 14;
+  optional string currency = 15;
+  optional string batch_number = 16;
+  repeated string serial_numbers = 17;
+  optional string linked_purchase_order = 18;
 }
 
 message Movement {
@@ -59,6 +82,10 @@ message Movement {
   optional string performed_by = 6;
   string reason = 7;
   google.protobuf.Timestamp created_at = 8;
+  optional string reference = 9;
+  optional string location_from = 10;
+  optional string location_to = 11;
+  optional string notes = 12;
 }
 
 message Warning {
@@ -86,6 +113,13 @@ message CreateItemRequest {
   int64 min_quantity = 6;
   string unit = 7;
   optional string location = 8;
+  optional string location_id = 9;
+  optional string category = 10;
+  optional double price = 11;
+  optional string currency = 12;
+  optional string batch_number = 13;
+  repeated string serial_numbers = 14;
+  optional string linked_purchase_order = 15;
 }
 
 message GetItemRequest {
@@ -102,6 +136,12 @@ message UpdateItemRequest {
   optional int64 min_quantity = 6;
   optional string unit = 7;
   optional string location = 8;
+  optional string location_id = 9;
+  optional string category = 10;
+  optional double price = 11;
+  optional string currency = 12;
+  optional string batch_number = 13;
+  optional string linked_purchase_order = 14;
 }
 
 message DeleteItemRequest {
@@ -247,4 +287,146 @@ message ExportInventoryResponse {
   bytes payload = 1;
   string content_type = 2;
   string filename = 3;
+}
+
+// ============================================================================
+// Location Messages
+// ============================================================================
+
+message Location {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  string address = 4;
+  string type = 5; // warehouse|store|vehicle
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message CreateLocationRequest {
+  string tenant_id = 1;
+  string name = 2;
+  string address = 3;
+  string type = 4;
+}
+
+message GetLocationRequest {
+  string tenant_id = 1;
+  string location_id = 2;
+}
+
+message UpdateLocationRequest {
+  string tenant_id = 1;
+  string location_id = 2;
+  optional string name = 3;
+  optional string address = 4;
+  optional string type = 5;
+}
+
+message DeleteLocationRequest {
+  string tenant_id = 1;
+  string location_id = 2;
+}
+
+message DeleteLocationResponse {}
+
+message LocationResponse {
+  Location location = 1;
+}
+
+message ListLocationsRequest {
+  string tenant_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListLocationsResponse {
+  repeated Location locations = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// Inventur Session Messages
+// ============================================================================
+
+message InventurCount {
+  string id = 1;
+  string tenant_id = 2;
+  string session_id = 3;
+  string item_id = 4;
+  int64 expected = 5;
+  optional int64 counted = 6;
+  optional google.protobuf.Timestamp counted_at = 7;
+}
+
+message InventurSession {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  google.protobuf.Timestamp date = 4;
+  string status = 5; // open|counting|review|completed
+  optional string location_id = 6;
+  optional string created_by = 7;
+  repeated InventurCount counts = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message CreateInventurSessionRequest {
+  string tenant_id = 1;
+  string name = 2;
+  google.protobuf.Timestamp date = 3;
+  optional string location_id = 4;
+  optional string created_by = 5;
+  repeated string item_ids = 6;
+}
+
+message GetInventurSessionRequest {
+  string tenant_id = 1;
+  string session_id = 2;
+}
+
+message UpdateInventurSessionStatusRequest {
+  string tenant_id = 1;
+  string session_id = 2;
+  string status = 3;
+}
+
+message DeleteInventurSessionRequest {
+  string tenant_id = 1;
+  string session_id = 2;
+}
+
+message DeleteInventurSessionResponse {}
+
+message ListInventurSessionsRequest {
+  string tenant_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListInventurSessionsResponse {
+  repeated InventurSession sessions = 1;
+  int32 total = 2;
+}
+
+message UpsertInventurCountRequest {
+  string tenant_id = 1;
+  string session_id = 2;
+  string item_id = 3;
+  int64 counted = 4;
+}
+
+message InventurCountResponse {
+  InventurCount count = 1;
+}
+
+message BookInventurDifferencesRequest {
+  string tenant_id = 1;
+  string session_id = 2;
+  optional string booked_by = 3;
+}
+
+message InventurSessionResponse {
+  InventurSession session = 1;
 }

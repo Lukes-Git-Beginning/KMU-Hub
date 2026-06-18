@@ -23,8 +23,16 @@ import type {
   ListItemsResponse,
   ListMovementsResponse,
   ListWarningsResponse,
+  InventoryLocation,
+  InventurSession,
+  InventurCount,
+  CreateLocationInput,
+  UpdateLocationInput,
+  CreateInventurSessionInput,
+  InventurStatus,
 } from './inventar-types'
 import { authenticatedRequest } from './utils/authenticatedFetch'
+import { API_BASE_URL } from '@/lib/constants'
 
 // ---------------------------------------------------------------------------
 // Request helper
@@ -157,4 +165,66 @@ export function getStockReport() {
 
 export function getExportUrl(format: 'csv' = 'csv') {
   return `${API_BASE_URL}${BASE}/export?format=${format}`
+}
+
+// ---------------------------------------------------------------------------
+// Locations
+// ---------------------------------------------------------------------------
+export function listLocations(params?: { page?: number; page_size?: number }) {
+  return request<{ locations: InventoryLocation[]; total: number }>({
+    method: 'GET',
+    path: `${BASE}/locations`,
+    params: params as Record<string, string | number | boolean | undefined>,
+  })
+}
+
+export function getLocation(id: string) {
+  return request<{ location: InventoryLocation }>({ method: 'GET', path: `${BASE}/locations/${id}` })
+}
+
+export function createLocation(body: CreateLocationInput) {
+  return request<{ location: InventoryLocation }>({ method: 'POST', path: `${BASE}/locations`, body })
+}
+
+export function updateLocation(id: string, body: UpdateLocationInput) {
+  return request<{ location: InventoryLocation }>({ method: 'PATCH', path: `${BASE}/locations/${id}`, body })
+}
+
+export function deleteLocation(id: string) {
+  return request<void>({ method: 'DELETE', path: `${BASE}/locations/${id}` })
+}
+
+// ---------------------------------------------------------------------------
+// Inventur Sessions
+// ---------------------------------------------------------------------------
+export function listInventurSessions(params?: { page?: number; page_size?: number }) {
+  return request<{ sessions: InventurSession[]; total: number }>({
+    method: 'GET',
+    path: `${BASE}/inventur`,
+    params: params as Record<string, string | number | boolean | undefined>,
+  })
+}
+
+export function getInventurSession(id: string) {
+  return request<{ session: InventurSession }>({ method: 'GET', path: `${BASE}/inventur/${id}` })
+}
+
+export function createInventurSession(body: CreateInventurSessionInput) {
+  return request<{ session: InventurSession }>({ method: 'POST', path: `${BASE}/inventur`, body })
+}
+
+export function updateInventurSessionStatus(id: string, body: { status: InventurStatus }) {
+  return request<{ session: InventurSession }>({ method: 'PATCH', path: `${BASE}/inventur/${id}/status`, body })
+}
+
+export function deleteInventurSession(id: string) {
+  return request<void>({ method: 'DELETE', path: `${BASE}/inventur/${id}` })
+}
+
+export function upsertInventurCount(sessionId: string, body: { item_id: string; counted: number }) {
+  return request<{ count: InventurCount }>({ method: 'POST', path: `${BASE}/inventur/${sessionId}/counts`, body })
+}
+
+export function bookInventurDifferences(sessionId: string, body?: { booked_by?: string }) {
+  return request<{ session: InventurSession }>({ method: 'POST', path: `${BASE}/inventur/${sessionId}/book`, body })
 }

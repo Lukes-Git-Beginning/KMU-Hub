@@ -2,8 +2,10 @@ package gateway
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/featureflag"
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -81,6 +83,32 @@ func (ir *InventarRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		// Reports
 		r.With(middleware.RequirePermission("inventar:item", "read")).Get("/report", ir.HandleGetStockReport)
 		r.With(middleware.RequirePermission("inventar:item", "read")).Get("/export", ir.HandleExportInventory)
+
+		// Locations
+		r.Route("/locations", func(r chi.Router) {
+			r.With(middleware.RequirePermission("inventar:location", "read")).Get("/", ir.HandleListLocations)
+			r.With(middleware.RequirePermission("inventar:location", "write")).Post("/", ir.HandleCreateLocation)
+
+			r.Route("/{id}", func(r chi.Router) {
+				r.With(middleware.RequirePermission("inventar:location", "read")).Get("/", ir.HandleGetLocation)
+				r.With(middleware.RequirePermission("inventar:location", "write")).Patch("/", ir.HandleUpdateLocation)
+				r.With(middleware.RequirePermission("inventar:location", "write")).Delete("/", ir.HandleDeleteLocation)
+			})
+		})
+
+		// Inventur sessions
+		r.Route("/inventur", func(r chi.Router) {
+			r.With(middleware.RequirePermission("inventar:inventur", "read")).Get("/", ir.HandleListInventurSessions)
+			r.With(middleware.RequirePermission("inventar:inventur", "write")).Post("/", ir.HandleCreateInventurSession)
+
+			r.Route("/{id}", func(r chi.Router) {
+				r.With(middleware.RequirePermission("inventar:inventur", "read")).Get("/", ir.HandleGetInventurSession)
+				r.With(middleware.RequirePermission("inventar:inventur", "write")).Patch("/status", ir.HandleUpdateInventurSessionStatus)
+				r.With(middleware.RequirePermission("inventar:inventur", "write")).Delete("/", ir.HandleDeleteInventurSession)
+				r.With(middleware.RequirePermission("inventar:inventur", "write")).Post("/counts", ir.HandleUpsertInventurCount)
+				r.With(middleware.RequirePermission("inventar:inventur", "write")).Post("/book", ir.HandleBookInventurDifferences)
+			})
+		})
 	})
 }
 
@@ -699,4 +727,423 @@ func (ir *InventarRoutes) HandleExportInventory(w http.ResponseWriter, r *http.R
 	w.Header().Set("Content-Disposition", "attachment; filename="+formatFilename(filename))
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(resp.GetPayload())
+}
+
+// ============================================================================
+// Location request types
+// ============================================================================
+
+type createLocationRequest struct {
+	Name    string `json:"name"    validate:"required"`
+	Address string `json:"address"`
+	Type    string `json:"type"    validate:"omitempty,oneof=warehouse store vehicle"`
+}
+
+type updateLocationRequest struct {
+	Name    *string `json:"name,omitempty"`
+	Address *string `json:"address,omitempty"`
+	Type    *string `json:"type,omitempty" validate:"omitempty,oneof=warehouse store vehicle"`
+}
+
+// ============================================================================
+// Inventur session request types
+// ============================================================================
+
+type createInventurSessionRequest struct {
+	Name       string   `json:"name"                validate:"required"`
+	Date       *string  `json:"date,omitempty"`       // YYYY-MM-DD
+	LocationID *string  `json:"location_id,omitempty" validate:"omitempty,uuid"`
+	ItemIDs    []string `json:"item_ids,omitempty"`
+}
+
+type updateInventurSessionStatusRequest struct {
+	Status string `json:"status" validate:"required,oneof=open counting review completed"`
+}
+
+type upsertInventurCountRequest struct {
+	ItemID  string `json:"item_id" validate:"required,uuid"`
+	Counted int64  `json:"counted" validate:"gte=0"`
+}
+
+type bookInventurDifferencesRequest struct {
+	BookedBy *string `json:"booked_by,omitempty" validate:"omitempty,uuid"`
+}
+
+// ============================================================================
+// Location Handlers (via gRPC client — tenant context flows through metadata)
+// ============================================================================
+
+func (ir *InventarRoutes) HandleListLocations(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := ir.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	page, pageSize := parsePagination(r, 1, 50)
+	resp, err := client.ListLocations(r.Context(), &inventarv1.ListLocationsRequest{
+		TenantId: tenantID.String(),
+		Page:     int32(page),
+		PageSize: int32(pageSize),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (ir *InventarRoutes) HandleCreateLocation(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := ir.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	req, ok := decodeAndValidate[createLocationRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.CreateLocation(r.Context(), &inventarv1.CreateLocationRequest{
+		TenantId: tenantID.String(),
+		Name:     req.Name,
+		Address:  req.Address,
+		Type:     req.Type,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (ir *InventarRoutes) HandleGetLocation(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := ir.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GetLocation(r.Context(), &inventarv1.GetLocationRequest{
+		TenantId:   tenantID.String(),
+		LocationId: id,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (ir *InventarRoutes) HandleUpdateLocation(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := ir.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[updateLocationRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.UpdateLocation(r.Context(), &inventarv1.UpdateLocationRequest{
+		TenantId:   tenantID.String(),
+		LocationId: id,
+		Name:       req.Name,
+		Address:    req.Address,
+		Type:       req.Type,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (ir *InventarRoutes) HandleDeleteLocation(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := ir.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	_, err = client.DeleteLocation(r.Context(), &inventarv1.DeleteLocationRequest{
+		TenantId:   tenantID.String(),
+		LocationId: id,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ============================================================================
+// Inventur Session Handlers (via gRPC client)
+// ============================================================================
+
+func (ir *InventarRoutes) HandleListInventurSessions(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := ir.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	page, pageSize := parsePagination(r, 1, 50)
+	resp, err := client.ListInventurSessions(r.Context(), &inventarv1.ListInventurSessionsRequest{
+		TenantId: tenantID.String(),
+		Page:     int32(page),
+		PageSize: int32(pageSize),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (ir *InventarRoutes) HandleCreateInventurSession(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := ir.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	req, ok := decodeAndValidate[createInventurSessionRequest](w, r)
+	if !ok {
+		return
+	}
+
+	grpcReq := &inventarv1.CreateInventurSessionRequest{
+		TenantId:   tenantID.String(),
+		Name:       req.Name,
+		LocationId: req.LocationID,
+		ItemIds:    req.ItemIDs,
+	}
+	if req.Date != nil {
+		parsed, parseErr := time.Parse("2006-01-02", *req.Date)
+		if parseErr != nil {
+			response.Error(w, http.StatusBadRequest, "invalid date format, expected YYYY-MM-DD")
+			return
+		}
+		grpcReq.Date = timestamppb.New(parsed)
+	}
+
+	resp, err := client.CreateInventurSession(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (ir *InventarRoutes) HandleGetInventurSession(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := ir.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GetInventurSession(r.Context(), &inventarv1.GetInventurSessionRequest{
+		TenantId:  tenantID.String(),
+		SessionId: id,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (ir *InventarRoutes) HandleUpdateInventurSessionStatus(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := ir.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[updateInventurSessionStatusRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.UpdateInventurSessionStatus(r.Context(), &inventarv1.UpdateInventurSessionStatusRequest{
+		TenantId:  tenantID.String(),
+		SessionId: id,
+		Status:    req.Status,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (ir *InventarRoutes) HandleDeleteInventurSession(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := ir.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	_, err = client.DeleteInventurSession(r.Context(), &inventarv1.DeleteInventurSessionRequest{
+		TenantId:  tenantID.String(),
+		SessionId: id,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (ir *InventarRoutes) HandleUpsertInventurCount(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := ir.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[upsertInventurCountRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.UpsertInventurCount(r.Context(), &inventarv1.UpsertInventurCountRequest{
+		TenantId:  tenantID.String(),
+		SessionId: id,
+		ItemId:    req.ItemID,
+		Counted:   req.Counted,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (ir *InventarRoutes) HandleBookInventurDifferences(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	client, err := ir.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, ir.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	req, ok := decodeAndValidate[bookInventurDifferencesRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.BookInventurDifferences(r.Context(), &inventarv1.BookInventurDifferencesRequest{
+		TenantId:  tenantID.String(),
+		SessionId: id,
+		BookedBy:  req.BookedBy,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, resp)
 }
