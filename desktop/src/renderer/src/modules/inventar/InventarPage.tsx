@@ -42,12 +42,10 @@ import {
 } from '@/components/ui/tooltip'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  useInventarItems, useInventarMovements, useStockWarnings, useStockReport,
+  useInventarItems, useInventarMovements,
   useInventarLocations, useInventurSessions,
   useCreateInventarItem, useUpdateInventarItem, useDeleteInventarItem,
-  useAdjustStock, useRecordMovement,
-  useCreateInventarLocation, useUpdateInventarLocation, useDeleteInventarLocation,
-  useCreateInventurSession, useUpdateInventurSessionStatus, useBookInventurDifferences,
+  useAdjustStock, useRecordMovement, useBookInventurDifferences,
 } from '@/api/hooks/useInventar'
 import type { InventarItem, InventoryLocation, InventurSession, InventurCount } from '@/api/inventar-types'
 import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
