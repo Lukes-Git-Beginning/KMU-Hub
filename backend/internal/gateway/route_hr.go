@@ -65,10 +65,31 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(middleware.RequirePermission("hr", "read")).Get("/active", h.HandleGetActiveShift)
 		r.With(middleware.RequirePermission("hr", "read")).Get("/status", h.HandleGetWorkTimeStatus)
 		r.With(middleware.RequirePermission("hr", "read")).Get("/entries", h.HandleListWorkTimeEntries)
+		r.With(middleware.RequirePermission("hr", "write")).Post("/entries", h.HandleCreateManualEntry)
 		r.With(middleware.RequirePermission("hr", "read")).Get("/summary/daily", h.HandleDailySummary)
 		r.With(middleware.RequirePermission("hr", "read")).Get("/summary/weekly", h.HandleWeeklySummary)
 		r.With(middleware.RequirePermission("hr", "write")).Post("/corrections", h.HandleSubmitCorrection)
 		r.With(middleware.RequirePermission("hr", "write")).Post("/corrections/{id}/approve", h.HandleApproveCorrection)
+		r.With(middleware.RequirePermission("hr", "read")).Get("/balance", h.HandleGetTimeBalance)
+		r.With(middleware.RequirePermission("hr", "read")).Get("/analytics", h.HandleGetTimeAnalytics)
+		r.With(middleware.RequirePermission("hr", "read")).Get("/team", h.HandleGetTeamTime)
+		// Week approvals
+		r.With(middleware.RequirePermission("hr", "read")).Get("/weeks/status", h.HandleGetMyWeekStatus)
+		r.With(middleware.RequirePermission("hr", "write")).Post("/weeks/submit", h.HandleSubmitWeek)
+		r.With(middleware.RequirePermission("hr", "write")).Post("/weeks/approve", h.HandleApproveWeek)
+		r.With(middleware.RequirePermission("hr", "write")).Post("/weeks/reject", h.HandleRejectWeek)
+		// Time categories
+		r.With(middleware.RequirePermission("hr:time_category", "read")).Get("/categories", h.HandleListTimeCategories)
+		r.With(middleware.RequirePermission("hr:time_category", "write")).Post("/categories", h.HandleCreateTimeCategory)
+		r.With(middleware.RequirePermission("hr:time_category", "write")).Put("/categories/{id}", h.HandleUpdateTimeCategory)
+		r.With(middleware.RequirePermission("hr:time_category", "write")).Delete("/categories/{id}", h.HandleDeleteTimeCategory)
+		// Time templates
+		r.With(middleware.RequirePermission("hr:time_template", "read")).Get("/templates", h.HandleListTimeTemplates)
+		r.With(middleware.RequirePermission("hr:time_template", "write")).Post("/templates", h.HandleCreateTimeTemplate)
+		r.With(middleware.RequirePermission("hr:time_template", "write")).Delete("/templates/{id}", h.HandleDeleteTimeTemplate)
+		// Time projects
+		r.With(middleware.RequirePermission("hr:time_project", "read")).Get("/projects", h.HandleListTimeProjects)
+		r.With(middleware.RequirePermission("hr:time_project", "write")).Post("/projects", h.HandleCreateTimeProject)
 
 		// Extension: time-tracking → invoice conversion
 		if h.bizExt != nil {
@@ -1172,6 +1193,607 @@ func (h *HRRoutes) HandleCreateEmployee(w http.ResponseWriter, r *http.Request) 
 	}
 
 	response.JSON(w, http.StatusCreated, resp.Employee)
+}
+
+// ============================================================================
+// Extended Time Tracking Handlers (Fall-B)
+// ============================================================================
+
+type createManualEntryHTTPReq struct {
+	ClockIn         string  `json:"clock_in"          validate:"required"`
+	ClockOut        string  `json:"clock_out"         validate:"required"`
+	BreakMinutes    int32   `json:"break_minutes"     validate:"gte=0"`
+	CategoryID      string  `json:"category_id"       validate:"omitempty,uuid"`
+	Activity        string  `json:"activity"`
+	Note            string  `json:"note"`
+	Billable        bool    `json:"billable"`
+	LocationLat     float64 `json:"location_lat"`
+	LocationLng     float64 `json:"location_lng"`
+	LocationAddress string  `json:"location_address"`
+}
+
+func (h *HRRoutes) HandleCreateManualEntry(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	userID := middleware.GetUserID(r.Context())
+
+	idempotencyKey := r.Header.Get("Idempotency-Key")
+	if idempotencyKey == "" {
+		response.Error(w, http.StatusBadRequest, "Idempotency-Key header is required")
+		return
+	}
+
+	req, ok := decodeAndValidate[createManualEntryHTTPReq](w, r)
+	if !ok {
+		return
+	}
+
+	clockIn, err := time.Parse(time.RFC3339, req.ClockIn)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid clock_in, use RFC3339")
+		return
+	}
+	clockOut, err := time.Parse(time.RFC3339, req.ClockOut)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid clock_out, use RFC3339")
+		return
+	}
+
+	grpcReq := &hrv1.CreateManualEntryReq{
+		TenantId:        tenantID,
+		UserId:          userID,
+		ClockIn:         timestamppb.New(clockIn),
+		ClockOut:        timestamppb.New(clockOut),
+		BreakMinutes:    req.BreakMinutes,
+		CategoryId:      req.CategoryID,
+		Activity:        req.Activity,
+		Note:            req.Note,
+		Billable:        req.Billable,
+		LocationLat:     req.LocationLat,
+		LocationLng:     req.LocationLng,
+		LocationAddress: req.LocationAddress,
+		IdempotencyKey:  idempotencyKey,
+	}
+
+	resp, err := client.CreateManualEntry(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, resp.Entry)
+}
+
+func (h *HRRoutes) HandleGetTimeBalance(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	userID := middleware.GetUserID(r.Context())
+
+	resp, err := client.GetTimeBalance(r.Context(), &hrv1.GetTimeBalanceReq{
+		TenantId: tenantID,
+		UserId:   userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"balance_minutes":       resp.BalanceMinutes,
+		"target_weekly_minutes": resp.TargetWeeklyMinutes,
+		"period_start":          resp.PeriodStart,
+		"as_of":                 resp.AsOf,
+	})
+}
+
+func (h *HRRoutes) HandleGetTimeAnalytics(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	userID := middleware.GetUserID(r.Context())
+	rangeParam := r.URL.Query().Get("range")
+	if rangeParam == "" {
+		rangeParam = "week"
+	}
+
+	resp, err := client.GetTimeAnalytics(r.Context(), &hrv1.GetTimeAnalyticsReq{
+		TenantId: tenantID,
+		UserId:   userID,
+		Range:    rangeParam,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"total_minutes":    resp.TotalMinutes,
+		"target_minutes":   resp.TargetMinutes,
+		"overtime_minutes": resp.OvertimeMinutes,
+		"avg_daily_minutes": resp.AvgDailyMinutes,
+		"day_trend":        resp.DayTrend,
+		"by_project":       resp.ByProject,
+	})
+}
+
+func (h *HRRoutes) HandleGetTeamTime(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+
+	resp, err := client.GetTeamTime(r.Context(), &hrv1.GetTeamTimeReq{
+		TenantId:  tenantID,
+		WeekStart: r.URL.Query().Get("week_start"),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"team": resp.Team,
+	})
+}
+
+func (h *HRRoutes) HandleGetMyWeekStatus(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	userID := middleware.GetUserID(r.Context())
+
+	resp, err := client.GetMyWeekStatus(r.Context(), &hrv1.GetMyWeekStatusReq{
+		TenantId:  tenantID,
+		UserId:    userID,
+		WeekStart: r.URL.Query().Get("week_start"),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"week_approval":  resp.WeekApproval,
+		"total_minutes":  resp.TotalMinutes,
+		"target_minutes": resp.TargetMinutes,
+	})
+}
+
+type submitWeekHTTPReq struct {
+	WeekStart string `json:"week_start" validate:"required"`
+}
+
+func (h *HRRoutes) HandleSubmitWeek(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	userID := middleware.GetUserID(r.Context())
+
+	req, ok := decodeAndValidate[submitWeekHTTPReq](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.SubmitWeek(r.Context(), &hrv1.SubmitWeekReq{
+		TenantId:  tenantID,
+		UserId:    userID,
+		WeekStart: req.WeekStart,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp.WeekApproval)
+}
+
+type approveWeekHTTPReq struct {
+	EmployeeID string `json:"employee_id" validate:"required,uuid"`
+	WeekStart  string `json:"week_start"  validate:"required"`
+}
+
+func (h *HRRoutes) HandleApproveWeek(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	approverID := middleware.GetUserID(r.Context())
+
+	req, ok := decodeAndValidate[approveWeekHTTPReq](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.ApproveWeek(r.Context(), &hrv1.ApproveWeekReq{
+		TenantId:   tenantID,
+		ApproverId: approverID,
+		EmployeeId: req.EmployeeID,
+		WeekStart:  req.WeekStart,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp.WeekApproval)
+}
+
+type rejectWeekHTTPReq struct {
+	EmployeeID      string `json:"employee_id"       validate:"required,uuid"`
+	WeekStart       string `json:"week_start"        validate:"required"`
+	RejectionReason string `json:"rejection_reason"`
+}
+
+func (h *HRRoutes) HandleRejectWeek(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+	approverID := middleware.GetUserID(r.Context())
+
+	req, ok := decodeAndValidate[rejectWeekHTTPReq](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.RejectWeek(r.Context(), &hrv1.RejectWeekReq{
+		TenantId:        tenantID,
+		ApproverId:      approverID,
+		EmployeeId:      req.EmployeeID,
+		WeekStart:       req.WeekStart,
+		RejectionReason: req.RejectionReason,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp.WeekApproval)
+}
+
+// ============================================================================
+// Time Category Handlers
+// ============================================================================
+
+func (h *HRRoutes) HandleListTimeCategories(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+
+	resp, err := client.ListTimeCategories(r.Context(), &hrv1.ListTimeCategoriesReq{TenantId: tenantID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"categories": resp.Categories,
+	})
+}
+
+type createTimeCategoryHTTPReq struct {
+	Name      string `json:"name"       validate:"required"`
+	Color     string `json:"color"`
+	Icon      string `json:"icon"`
+	IsDefault bool   `json:"is_default"`
+}
+
+func (h *HRRoutes) HandleCreateTimeCategory(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+
+	req, ok := decodeAndValidate[createTimeCategoryHTTPReq](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.CreateTimeCategory(r.Context(), &hrv1.CreateTimeCategoryReq{
+		TenantId:  tenantID,
+		Name:      req.Name,
+		Color:     req.Color,
+		Icon:      req.Icon,
+		IsDefault: req.IsDefault,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, resp.Category)
+}
+
+type updateTimeCategoryHTTPReq struct {
+	Name      string `json:"name"       validate:"required"`
+	Color     string `json:"color"`
+	Icon      string `json:"icon"`
+	IsDefault bool   `json:"is_default"`
+}
+
+func (h *HRRoutes) HandleUpdateTimeCategory(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	req, ok := decodeAndValidate[updateTimeCategoryHTTPReq](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.UpdateTimeCategory(r.Context(), &hrv1.UpdateTimeCategoryReq{
+		Id:        id,
+		TenantId:  tenantID,
+		Name:      req.Name,
+		Color:     req.Color,
+		Icon:      req.Icon,
+		IsDefault: req.IsDefault,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp.Category)
+}
+
+func (h *HRRoutes) HandleDeleteTimeCategory(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+
+	_, err = client.DeleteTimeCategory(r.Context(), &hrv1.DeleteTimeCategoryReq{Id: id})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ============================================================================
+// Time Template Handlers
+// ============================================================================
+
+func (h *HRRoutes) HandleListTimeTemplates(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+
+	resp, err := client.ListTimeTemplates(r.Context(), &hrv1.ListTimeTemplatesReq{TenantId: tenantID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"templates": resp.Templates,
+	})
+}
+
+type createTimeTemplateHTTPReq struct {
+	Name             string `json:"name"              validate:"required"`
+	CategoryID       string `json:"category_id"       validate:"omitempty,uuid"`
+	Description      string `json:"description"`
+	EstimatedMinutes int32  `json:"estimated_minutes" validate:"gte=0"`
+}
+
+func (h *HRRoutes) HandleCreateTimeTemplate(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+
+	req, ok := decodeAndValidate[createTimeTemplateHTTPReq](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.CreateTimeTemplate(r.Context(), &hrv1.CreateTimeTemplateReq{
+		TenantId:         tenantID,
+		Name:             req.Name,
+		CategoryId:       req.CategoryID,
+		Description:      req.Description,
+		EstimatedMinutes: req.EstimatedMinutes,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, resp.Template)
+}
+
+func (h *HRRoutes) HandleDeleteTimeTemplate(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+
+	_, err = client.DeleteTimeTemplate(r.Context(), &hrv1.DeleteTimeTemplateReq{Id: id})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ============================================================================
+// Time Project Handlers
+// ============================================================================
+
+func (h *HRRoutes) HandleListTimeProjects(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+
+	resp, err := client.ListTimeProjects(r.Context(), &hrv1.ListTimeProjectsReq{TenantId: tenantID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"projects": resp.Projects,
+	})
+}
+
+type createTimeProjectHTTPReq struct {
+	Name            string `json:"name"             validate:"required"`
+	CustomerName    string `json:"customer_name"`
+	Color           string `json:"color"`
+	BillableDefault bool   `json:"billable_default"`
+}
+
+func (h *HRRoutes) HandleCreateTimeProject(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		return
+	}
+
+	req, ok := decodeAndValidate[createTimeProjectHTTPReq](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.CreateTimeProject(r.Context(), &hrv1.CreateTimeProjectReq{
+		TenantId:        tenantID,
+		Name:            req.Name,
+		CustomerName:    req.CustomerName,
+		Color:           req.Color,
+		BillableDefault: req.BillableDefault,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, resp.Project)
 }
 
 // ============================================================================

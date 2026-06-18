@@ -934,6 +934,427 @@ func (s *HRGRPCServer) CreateEmployee(ctx context.Context, req *hrv1.CreateEmplo
 }
 
 // ============================================================================
+// Extended Time Tracking RPCs (Fall-B)
+// ============================================================================
+
+func (s *HRGRPCServer) CreateManualEntry(ctx context.Context, req *hrv1.CreateManualEntryReq) (*hrv1.CreateManualEntryResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	userID, err := uuid.Parse(req.GetUserId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	if req.GetClockIn() == nil || req.GetClockOut() == nil {
+		return nil, status.Error(codes.InvalidArgument, "clock_in and clock_out are required")
+	}
+
+	input := timetracking.ManualEntryInput{
+		TenantID:        tenantID,
+		EmployeeID:      userID,
+		ClockIn:         req.GetClockIn().AsTime(),
+		ClockOut:        req.GetClockOut().AsTime(),
+		BreakMinutes:    int(req.GetBreakMinutes()),
+		LocationAddress: req.GetLocationAddress(),
+		IdempotencyKey:  req.GetIdempotencyKey(),
+	}
+
+	if req.GetCategoryId() != "" {
+		catID, catErr := uuid.Parse(req.GetCategoryId())
+		if catErr == nil {
+			input.CategoryID = &catID
+		}
+	}
+
+	if req.GetLocationLat() != 0 || req.GetLocationLng() != 0 {
+		lat := req.GetLocationLat()
+		lng := req.GetLocationLng()
+		input.LocationLat = &lat
+		input.LocationLng = &lng
+	}
+
+	entry, err := s.timetrackingService.CreateManualEntry(ctx, input)
+	if err != nil {
+		return nil, mapHRError(err)
+	}
+
+	return &hrv1.CreateManualEntryResp{Entry: toProtoWorkTimeEntry(entry)}, nil
+}
+
+func (s *HRGRPCServer) GetTimeBalance(ctx context.Context, req *hrv1.GetTimeBalanceReq) (*hrv1.GetTimeBalanceResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+	_ = tenantID // used via context
+
+	userID, err := uuid.Parse(req.GetUserId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	balance, target, periodStart, err := s.timetrackingService.GetTimeBalance(ctx, tenantID, userID)
+	if err != nil {
+		return nil, mapHRError(err)
+	}
+
+	return &hrv1.GetTimeBalanceResp{
+		BalanceMinutes:      int32(balance),
+		TargetWeeklyMinutes: int32(target),
+		PeriodStart:         periodStart.Format("2006-01-02"),
+		AsOf:                time.Now().Format("2006-01-02"),
+	}, nil
+}
+
+func (s *HRGRPCServer) GetTimeAnalytics(ctx context.Context, req *hrv1.GetTimeAnalyticsReq) (*hrv1.GetTimeAnalyticsResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	userID, err := uuid.Parse(req.GetUserId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	analytics, err := s.timetrackingService.GetTimeAnalytics(ctx, tenantID, userID, req.GetRange())
+	if err != nil {
+		return nil, mapHRError(err)
+	}
+
+	trend := make([]*hrv1.DayTrendEntry, 0, len(analytics.DayTrend))
+	for _, d := range analytics.DayTrend {
+		trend = append(trend, &hrv1.DayTrendEntry{
+			Date:          d.Date.Format("2006-01-02"),
+			NetMinutes:    int32(d.NetMinutes),
+			TargetMinutes: int32(d.TargetMinutes),
+		})
+	}
+
+	byProject := make([]*hrv1.ProjectBreakdown, 0, len(analytics.ByProject))
+	for _, p := range analytics.ByProject {
+		byProject = append(byProject, &hrv1.ProjectBreakdown{
+			ProjectId:   p.ProjectID.String(),
+			ProjectName: p.ProjectName,
+			Minutes:     int32(p.Minutes),
+		})
+	}
+
+	return &hrv1.GetTimeAnalyticsResp{
+		TotalMinutes:    int32(analytics.TotalMinutes),
+		TargetMinutes:   int32(analytics.TargetMinutes),
+		OvertimeMinutes: int32(analytics.OvertimeMinutes),
+		AvgDailyMinutes: int32(analytics.AvgDailyMinutes),
+		DayTrend:        trend,
+		ByProject:       byProject,
+	}, nil
+}
+
+func (s *HRGRPCServer) GetTeamTime(ctx context.Context, req *hrv1.GetTeamTimeReq) (*hrv1.GetTeamTimeResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	weekStart := time.Now()
+	if req.GetWeekStart() != "" {
+		ws, parseErr := time.Parse("2006-01-02", req.GetWeekStart())
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid week_start")
+		}
+		weekStart = ws
+	}
+
+	entries, err := s.timetrackingService.GetTeamTime(ctx, tenantID, weekStart)
+	if err != nil {
+		return nil, mapHRError(err)
+	}
+
+	team := make([]*hrv1.TeamTimeEntry, 0, len(entries))
+	for _, e := range entries {
+		team = append(team, &hrv1.TeamTimeEntry{
+			EmployeeId:      e.EmployeeID.String(),
+			Name:            e.Name,
+			Department:      e.Department,
+			WeekMinutes:     int32(e.WeekMinutes),
+			TargetMinutes:   int32(e.TargetMinutes),
+			OvertimeMinutes: int32(e.OvertimeMinutes),
+			ClockedIn:       e.ClockedIn,
+			WeekStatus:      e.WeekStatus,
+		})
+	}
+
+	return &hrv1.GetTeamTimeResp{Team: team}, nil
+}
+
+func (s *HRGRPCServer) GetMyWeekStatus(ctx context.Context, req *hrv1.GetMyWeekStatusReq) (*hrv1.GetMyWeekStatusResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	userID, err := uuid.Parse(req.GetUserId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	weekStart := time.Now()
+	if req.GetWeekStart() != "" {
+		ws, parseErr := time.Parse("2006-01-02", req.GetWeekStart())
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid week_start")
+		}
+		weekStart = ws
+	}
+
+	wa, totalMinutes, targetMinutes, err := s.timetrackingService.GetMyWeekStatus(ctx, tenantID, userID, weekStart)
+	if err != nil {
+		return nil, mapHRError(err)
+	}
+
+	return &hrv1.GetMyWeekStatusResp{
+		WeekApproval:  toProtoWeekApproval(wa),
+		TotalMinutes:  int32(totalMinutes),
+		TargetMinutes: int32(targetMinutes),
+	}, nil
+}
+
+func (s *HRGRPCServer) SubmitWeek(ctx context.Context, req *hrv1.SubmitWeekReq) (*hrv1.SubmitWeekResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	userID, err := uuid.Parse(req.GetUserId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	weekStart, err := time.Parse("2006-01-02", req.GetWeekStart())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid week_start")
+	}
+
+	wa, err := s.timetrackingService.SubmitWeek(ctx, tenantID, userID, weekStart)
+	if err != nil {
+		return nil, mapHRError(err)
+	}
+
+	return &hrv1.SubmitWeekResp{WeekApproval: toProtoWeekApproval(wa)}, nil
+}
+
+func (s *HRGRPCServer) ApproveWeek(ctx context.Context, req *hrv1.ApproveWeekReq) (*hrv1.ApproveWeekResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	approverID, err := uuid.Parse(req.GetApproverId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid approver_id")
+	}
+
+	employeeID, err := uuid.Parse(req.GetEmployeeId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid employee_id")
+	}
+
+	weekStart, err := time.Parse("2006-01-02", req.GetWeekStart())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid week_start")
+	}
+
+	wa, err := s.timetrackingService.ApproveWeek(ctx, tenantID, approverID, employeeID, weekStart)
+	if err != nil {
+		return nil, mapHRError(err)
+	}
+
+	return &hrv1.ApproveWeekResp{WeekApproval: toProtoWeekApproval(wa)}, nil
+}
+
+func (s *HRGRPCServer) RejectWeek(ctx context.Context, req *hrv1.RejectWeekReq) (*hrv1.RejectWeekResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	approverID, err := uuid.Parse(req.GetApproverId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid approver_id")
+	}
+
+	employeeID, err := uuid.Parse(req.GetEmployeeId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid employee_id")
+	}
+
+	weekStart, err := time.Parse("2006-01-02", req.GetWeekStart())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid week_start")
+	}
+
+	wa, err := s.timetrackingService.RejectWeek(ctx, tenantID, approverID, employeeID, weekStart, req.GetRejectionReason())
+	if err != nil {
+		return nil, mapHRError(err)
+	}
+
+	return &hrv1.RejectWeekResp{WeekApproval: toProtoWeekApproval(wa)}, nil
+}
+
+// ============================================================================
+// Time Category RPCs
+// ============================================================================
+
+func (s *HRGRPCServer) ListTimeCategories(ctx context.Context, req *hrv1.ListTimeCategoriesReq) (*hrv1.ListTimeCategoriesResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	cats, err := s.timetrackingService.ListTimeCategories(ctx, tenantID)
+	if err != nil {
+		return nil, mapHRError(err)
+	}
+
+	protoCats := make([]*hrv1.TimeCategory, 0, len(cats))
+	for _, c := range cats {
+		protoCats = append(protoCats, toProtoTimeCategory(c))
+	}
+	return &hrv1.ListTimeCategoriesResp{Categories: protoCats}, nil
+}
+
+func (s *HRGRPCServer) CreateTimeCategory(ctx context.Context, req *hrv1.CreateTimeCategoryReq) (*hrv1.CreateTimeCategoryResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	cat, err := s.timetrackingService.CreateTimeCategory(ctx, tenantID, req.GetName(), req.GetColor(), req.GetIcon(), req.GetIsDefault())
+	if err != nil {
+		return nil, mapHRError(err)
+	}
+	return &hrv1.CreateTimeCategoryResp{Category: toProtoTimeCategory(cat)}, nil
+}
+
+func (s *HRGRPCServer) UpdateTimeCategory(ctx context.Context, req *hrv1.UpdateTimeCategoryReq) (*hrv1.UpdateTimeCategoryResp, error) {
+	id, err := uuid.Parse(req.GetId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid id")
+	}
+
+	cat, err := s.timetrackingService.UpdateTimeCategory(ctx, id, req.GetName(), req.GetColor(), req.GetIcon(), req.GetIsDefault())
+	if err != nil {
+		return nil, mapHRError(err)
+	}
+	return &hrv1.UpdateTimeCategoryResp{Category: toProtoTimeCategory(cat)}, nil
+}
+
+func (s *HRGRPCServer) DeleteTimeCategory(ctx context.Context, req *hrv1.DeleteTimeCategoryReq) (*hrv1.DeleteTimeCategoryResp, error) {
+	id, err := uuid.Parse(req.GetId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid id")
+	}
+
+	if err := s.timetrackingService.DeleteTimeCategory(ctx, id); err != nil {
+		return nil, mapHRError(err)
+	}
+	return &hrv1.DeleteTimeCategoryResp{}, nil
+}
+
+// ============================================================================
+// Time Template RPCs
+// ============================================================================
+
+func (s *HRGRPCServer) ListTimeTemplates(ctx context.Context, req *hrv1.ListTimeTemplatesReq) (*hrv1.ListTimeTemplatesResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	templates, err := s.timetrackingService.ListTimeTemplates(ctx, tenantID)
+	if err != nil {
+		return nil, mapHRError(err)
+	}
+
+	protoTemplates := make([]*hrv1.TimeTemplate, 0, len(templates))
+	for _, t := range templates {
+		protoTemplates = append(protoTemplates, toProtoTimeTemplate(t))
+	}
+	return &hrv1.ListTimeTemplatesResp{Templates: protoTemplates}, nil
+}
+
+func (s *HRGRPCServer) CreateTimeTemplate(ctx context.Context, req *hrv1.CreateTimeTemplateReq) (*hrv1.CreateTimeTemplateResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	var categoryID *uuid.UUID
+	if req.GetCategoryId() != "" {
+		id, parseErr := uuid.Parse(req.GetCategoryId())
+		if parseErr == nil {
+			categoryID = &id
+		}
+	}
+
+	t, err := s.timetrackingService.CreateTimeTemplate(ctx, tenantID, req.GetName(), categoryID, req.GetDescription(), int(req.GetEstimatedMinutes()))
+	if err != nil {
+		return nil, mapHRError(err)
+	}
+	return &hrv1.CreateTimeTemplateResp{Template: toProtoTimeTemplate(t)}, nil
+}
+
+func (s *HRGRPCServer) DeleteTimeTemplate(ctx context.Context, req *hrv1.DeleteTimeTemplateReq) (*hrv1.DeleteTimeTemplateResp, error) {
+	id, err := uuid.Parse(req.GetId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid id")
+	}
+
+	if err := s.timetrackingService.DeleteTimeTemplate(ctx, id); err != nil {
+		return nil, mapHRError(err)
+	}
+	return &hrv1.DeleteTimeTemplateResp{}, nil
+}
+
+// ============================================================================
+// Time Project RPCs
+// ============================================================================
+
+func (s *HRGRPCServer) ListTimeProjects(ctx context.Context, req *hrv1.ListTimeProjectsReq) (*hrv1.ListTimeProjectsResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	projects, err := s.timetrackingService.ListTimeProjects(ctx, tenantID)
+	if err != nil {
+		return nil, mapHRError(err)
+	}
+
+	protoProjects := make([]*hrv1.TimeProject, 0, len(projects))
+	for _, p := range projects {
+		protoProjects = append(protoProjects, toProtoTimeProject(p))
+	}
+	return &hrv1.ListTimeProjectsResp{Projects: protoProjects}, nil
+}
+
+func (s *HRGRPCServer) CreateTimeProject(ctx context.Context, req *hrv1.CreateTimeProjectReq) (*hrv1.CreateTimeProjectResp, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	p, err := s.timetrackingService.CreateTimeProject(ctx, tenantID, req.GetName(), req.GetCustomerName(), req.GetColor(), req.GetBillableDefault())
+	if err != nil {
+		return nil, mapHRError(err)
+	}
+	return &hrv1.CreateTimeProjectResp{Project: toProtoTimeProject(p)}, nil
+}
+
+// ============================================================================
 // HR Settings RPCs
 // ============================================================================
 
@@ -1321,6 +1742,85 @@ func halfDayPeriodFromProto(p hrv1.HalfDayPeriod) models.HalfDayPeriod {
 	}
 }
 
+func toProtoTimeCategory(c *models.HRTimeCategory) *hrv1.TimeCategory {
+	if c == nil {
+		return nil
+	}
+	return &hrv1.TimeCategory{
+		Id:        c.ID.String(),
+		TenantId:  c.TenantID.String(),
+		Name:      c.Name,
+		Color:     c.Color,
+		Icon:      c.Icon,
+		IsDefault: c.IsDefault,
+		CreatedAt: timestamppb.New(c.CreatedAt),
+		UpdatedAt: timestamppb.New(c.UpdatedAt),
+	}
+}
+
+func toProtoTimeTemplate(t *models.HRTimeTemplate) *hrv1.TimeTemplate {
+	if t == nil {
+		return nil
+	}
+	pt := &hrv1.TimeTemplate{
+		Id:               t.ID.String(),
+		TenantId:         t.TenantID.String(),
+		Name:             t.Name,
+		Description:      t.Description,
+		EstimatedMinutes: int32(t.EstimatedMinutes),
+		CreatedAt:        timestamppb.New(t.CreatedAt),
+		UpdatedAt:        timestamppb.New(t.UpdatedAt),
+	}
+	if t.CategoryID != nil {
+		pt.CategoryId = t.CategoryID.String()
+	}
+	return pt
+}
+
+func toProtoTimeProject(p *models.HRTimeProject) *hrv1.TimeProject {
+	if p == nil {
+		return nil
+	}
+	return &hrv1.TimeProject{
+		Id:              p.ID.String(),
+		TenantId:        p.TenantID.String(),
+		Name:            p.Name,
+		CustomerName:    p.CustomerName,
+		Color:           p.Color,
+		BillableDefault: p.BillableDefault,
+		CreatedAt:       timestamppb.New(p.CreatedAt),
+		UpdatedAt:       timestamppb.New(p.UpdatedAt),
+	}
+}
+
+func toProtoWeekApproval(w *models.HRWeekApproval) *hrv1.WeekApproval {
+	if w == nil {
+		return nil
+	}
+	pw := &hrv1.WeekApproval{
+		Id:         w.ID.String(),
+		TenantId:   w.TenantID.String(),
+		EmployeeId: w.EmployeeID.String(),
+		WeekStart:  w.WeekStart.Format("2006-01-02"),
+		Status:     string(w.Status),
+		CreatedAt:  timestamppb.New(w.CreatedAt),
+		UpdatedAt:  timestamppb.New(w.UpdatedAt),
+	}
+	if w.SubmittedAt != nil {
+		pw.SubmittedAt = timestamppb.New(*w.SubmittedAt)
+	}
+	if w.ApprovedBy != nil {
+		pw.ApprovedBy = w.ApprovedBy.String()
+	}
+	if w.ApprovedAt != nil {
+		pw.ApprovedAt = timestamppb.New(*w.ApprovedAt)
+	}
+	if w.RejectionReason != nil {
+		pw.RejectionReason = *w.RejectionReason
+	}
+	return pw
+}
+
 // ============================================================================
 // Error Mapping
 // ============================================================================
@@ -1362,6 +1862,20 @@ func mapHRError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, timetracking.ErrWorkTimeEntryNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, timetracking.ErrTimeCategoryNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, timetracking.ErrTimeTemplateNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, timetracking.ErrTimeProjectNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, timetracking.ErrWeekApprovalNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, timetracking.ErrWeekAlreadySubmitted):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, timetracking.ErrWeekNotSubmitted):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, timetracking.ErrInvalidManualEntry):
+		return status.Error(codes.InvalidArgument, err.Error())
 
 	// Employee errors
 	case errors.Is(err, employee.ErrEmployeeNotFound):

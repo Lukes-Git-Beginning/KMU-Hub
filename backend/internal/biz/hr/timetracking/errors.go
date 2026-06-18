@@ -21,4 +21,13 @@ var (
 	ErrMaxDailyHoursExceeded = errors.New("ArbZG: maximum daily work time of 10 hours reached")
 	// ErrWorkTimeEntryNotFound is returned when a work time entry does not exist.
 	ErrWorkTimeEntryNotFound = errors.New("work time entry not found")
+
+	// Extended time-tracking errors
+	ErrTimeCategoryNotFound  = errors.New("time category not found")
+	ErrTimeTemplateNotFound  = errors.New("time template not found")
+	ErrTimeProjectNotFound   = errors.New("time project not found")
+	ErrWeekApprovalNotFound  = errors.New("week approval not found")
+	ErrWeekAlreadySubmitted  = errors.New("week already submitted")
+	ErrWeekNotSubmitted      = errors.New("week not in submitted state")
+	ErrInvalidManualEntry    = errors.New("clock_out must be after clock_in")
 )

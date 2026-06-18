@@ -39,6 +39,23 @@ const (
 	HRService_GetWeeklySummary_FullMethodName        = "/hr.v1.HRService/GetWeeklySummary"
 	HRService_SubmitTimeCorrection_FullMethodName    = "/hr.v1.HRService/SubmitTimeCorrection"
 	HRService_ApproveTimeCorrection_FullMethodName   = "/hr.v1.HRService/ApproveTimeCorrection"
+	HRService_CreateManualEntry_FullMethodName       = "/hr.v1.HRService/CreateManualEntry"
+	HRService_GetTimeBalance_FullMethodName          = "/hr.v1.HRService/GetTimeBalance"
+	HRService_GetTimeAnalytics_FullMethodName        = "/hr.v1.HRService/GetTimeAnalytics"
+	HRService_GetTeamTime_FullMethodName             = "/hr.v1.HRService/GetTeamTime"
+	HRService_GetMyWeekStatus_FullMethodName         = "/hr.v1.HRService/GetMyWeekStatus"
+	HRService_SubmitWeek_FullMethodName              = "/hr.v1.HRService/SubmitWeek"
+	HRService_ApproveWeek_FullMethodName             = "/hr.v1.HRService/ApproveWeek"
+	HRService_RejectWeek_FullMethodName              = "/hr.v1.HRService/RejectWeek"
+	HRService_ListTimeCategories_FullMethodName      = "/hr.v1.HRService/ListTimeCategories"
+	HRService_CreateTimeCategory_FullMethodName      = "/hr.v1.HRService/CreateTimeCategory"
+	HRService_UpdateTimeCategory_FullMethodName      = "/hr.v1.HRService/UpdateTimeCategory"
+	HRService_DeleteTimeCategory_FullMethodName      = "/hr.v1.HRService/DeleteTimeCategory"
+	HRService_ListTimeTemplates_FullMethodName       = "/hr.v1.HRService/ListTimeTemplates"
+	HRService_CreateTimeTemplate_FullMethodName      = "/hr.v1.HRService/CreateTimeTemplate"
+	HRService_DeleteTimeTemplate_FullMethodName      = "/hr.v1.HRService/DeleteTimeTemplate"
+	HRService_ListTimeProjects_FullMethodName        = "/hr.v1.HRService/ListTimeProjects"
+	HRService_CreateTimeProject_FullMethodName       = "/hr.v1.HRService/CreateTimeProject"
 	HRService_GetAbsenceCalendar_FullMethodName      = "/hr.v1.HRService/GetAbsenceCalendar"
 	HRService_ListEmployees_FullMethodName           = "/hr.v1.HRService/ListEmployees"
 	HRService_GetEmployee_FullMethodName             = "/hr.v1.HRService/GetEmployee"
@@ -77,6 +94,28 @@ type HRServiceClient interface {
 	GetWeeklySummary(ctx context.Context, in *GetWeeklySummaryReq, opts ...grpc.CallOption) (*GetWeeklySummaryResp, error)
 	SubmitTimeCorrection(ctx context.Context, in *SubmitTimeCorrectionReq, opts ...grpc.CallOption) (*SubmitTimeCorrectionResp, error)
 	ApproveTimeCorrection(ctx context.Context, in *ApproveTimeCorrectionReq, opts ...grpc.CallOption) (*ApproveTimeCorrectionResp, error)
+	// Extended time-tracking RPCs (Fall-B)
+	CreateManualEntry(ctx context.Context, in *CreateManualEntryReq, opts ...grpc.CallOption) (*CreateManualEntryResp, error)
+	GetTimeBalance(ctx context.Context, in *GetTimeBalanceReq, opts ...grpc.CallOption) (*GetTimeBalanceResp, error)
+	GetTimeAnalytics(ctx context.Context, in *GetTimeAnalyticsReq, opts ...grpc.CallOption) (*GetTimeAnalyticsResp, error)
+	GetTeamTime(ctx context.Context, in *GetTeamTimeReq, opts ...grpc.CallOption) (*GetTeamTimeResp, error)
+	// Week approvals
+	GetMyWeekStatus(ctx context.Context, in *GetMyWeekStatusReq, opts ...grpc.CallOption) (*GetMyWeekStatusResp, error)
+	SubmitWeek(ctx context.Context, in *SubmitWeekReq, opts ...grpc.CallOption) (*SubmitWeekResp, error)
+	ApproveWeek(ctx context.Context, in *ApproveWeekReq, opts ...grpc.CallOption) (*ApproveWeekResp, error)
+	RejectWeek(ctx context.Context, in *RejectWeekReq, opts ...grpc.CallOption) (*RejectWeekResp, error)
+	// Time categories
+	ListTimeCategories(ctx context.Context, in *ListTimeCategoriesReq, opts ...grpc.CallOption) (*ListTimeCategoriesResp, error)
+	CreateTimeCategory(ctx context.Context, in *CreateTimeCategoryReq, opts ...grpc.CallOption) (*CreateTimeCategoryResp, error)
+	UpdateTimeCategory(ctx context.Context, in *UpdateTimeCategoryReq, opts ...grpc.CallOption) (*UpdateTimeCategoryResp, error)
+	DeleteTimeCategory(ctx context.Context, in *DeleteTimeCategoryReq, opts ...grpc.CallOption) (*DeleteTimeCategoryResp, error)
+	// Time templates
+	ListTimeTemplates(ctx context.Context, in *ListTimeTemplatesReq, opts ...grpc.CallOption) (*ListTimeTemplatesResp, error)
+	CreateTimeTemplate(ctx context.Context, in *CreateTimeTemplateReq, opts ...grpc.CallOption) (*CreateTimeTemplateResp, error)
+	DeleteTimeTemplate(ctx context.Context, in *DeleteTimeTemplateReq, opts ...grpc.CallOption) (*DeleteTimeTemplateResp, error)
+	// Time projects
+	ListTimeProjects(ctx context.Context, in *ListTimeProjectsReq, opts ...grpc.CallOption) (*ListTimeProjectsResp, error)
+	CreateTimeProject(ctx context.Context, in *CreateTimeProjectReq, opts ...grpc.CallOption) (*CreateTimeProjectResp, error)
 	// ==================== Absences ====================
 	GetAbsenceCalendar(ctx context.Context, in *GetAbsenceCalendarReq, opts ...grpc.CallOption) (*GetAbsenceCalendarResp, error)
 	// ==================== Employee Profiles ====================
@@ -300,6 +339,176 @@ func (c *hRServiceClient) ApproveTimeCorrection(ctx context.Context, in *Approve
 	return out, nil
 }
 
+func (c *hRServiceClient) CreateManualEntry(ctx context.Context, in *CreateManualEntryReq, opts ...grpc.CallOption) (*CreateManualEntryResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateManualEntryResp)
+	err := c.cc.Invoke(ctx, HRService_CreateManualEntry_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hRServiceClient) GetTimeBalance(ctx context.Context, in *GetTimeBalanceReq, opts ...grpc.CallOption) (*GetTimeBalanceResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTimeBalanceResp)
+	err := c.cc.Invoke(ctx, HRService_GetTimeBalance_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hRServiceClient) GetTimeAnalytics(ctx context.Context, in *GetTimeAnalyticsReq, opts ...grpc.CallOption) (*GetTimeAnalyticsResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTimeAnalyticsResp)
+	err := c.cc.Invoke(ctx, HRService_GetTimeAnalytics_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hRServiceClient) GetTeamTime(ctx context.Context, in *GetTeamTimeReq, opts ...grpc.CallOption) (*GetTeamTimeResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTeamTimeResp)
+	err := c.cc.Invoke(ctx, HRService_GetTeamTime_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hRServiceClient) GetMyWeekStatus(ctx context.Context, in *GetMyWeekStatusReq, opts ...grpc.CallOption) (*GetMyWeekStatusResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetMyWeekStatusResp)
+	err := c.cc.Invoke(ctx, HRService_GetMyWeekStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hRServiceClient) SubmitWeek(ctx context.Context, in *SubmitWeekReq, opts ...grpc.CallOption) (*SubmitWeekResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SubmitWeekResp)
+	err := c.cc.Invoke(ctx, HRService_SubmitWeek_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hRServiceClient) ApproveWeek(ctx context.Context, in *ApproveWeekReq, opts ...grpc.CallOption) (*ApproveWeekResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ApproveWeekResp)
+	err := c.cc.Invoke(ctx, HRService_ApproveWeek_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hRServiceClient) RejectWeek(ctx context.Context, in *RejectWeekReq, opts ...grpc.CallOption) (*RejectWeekResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RejectWeekResp)
+	err := c.cc.Invoke(ctx, HRService_RejectWeek_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hRServiceClient) ListTimeCategories(ctx context.Context, in *ListTimeCategoriesReq, opts ...grpc.CallOption) (*ListTimeCategoriesResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTimeCategoriesResp)
+	err := c.cc.Invoke(ctx, HRService_ListTimeCategories_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hRServiceClient) CreateTimeCategory(ctx context.Context, in *CreateTimeCategoryReq, opts ...grpc.CallOption) (*CreateTimeCategoryResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateTimeCategoryResp)
+	err := c.cc.Invoke(ctx, HRService_CreateTimeCategory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hRServiceClient) UpdateTimeCategory(ctx context.Context, in *UpdateTimeCategoryReq, opts ...grpc.CallOption) (*UpdateTimeCategoryResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateTimeCategoryResp)
+	err := c.cc.Invoke(ctx, HRService_UpdateTimeCategory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hRServiceClient) DeleteTimeCategory(ctx context.Context, in *DeleteTimeCategoryReq, opts ...grpc.CallOption) (*DeleteTimeCategoryResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteTimeCategoryResp)
+	err := c.cc.Invoke(ctx, HRService_DeleteTimeCategory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hRServiceClient) ListTimeTemplates(ctx context.Context, in *ListTimeTemplatesReq, opts ...grpc.CallOption) (*ListTimeTemplatesResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTimeTemplatesResp)
+	err := c.cc.Invoke(ctx, HRService_ListTimeTemplates_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hRServiceClient) CreateTimeTemplate(ctx context.Context, in *CreateTimeTemplateReq, opts ...grpc.CallOption) (*CreateTimeTemplateResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateTimeTemplateResp)
+	err := c.cc.Invoke(ctx, HRService_CreateTimeTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hRServiceClient) DeleteTimeTemplate(ctx context.Context, in *DeleteTimeTemplateReq, opts ...grpc.CallOption) (*DeleteTimeTemplateResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteTimeTemplateResp)
+	err := c.cc.Invoke(ctx, HRService_DeleteTimeTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hRServiceClient) ListTimeProjects(ctx context.Context, in *ListTimeProjectsReq, opts ...grpc.CallOption) (*ListTimeProjectsResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTimeProjectsResp)
+	err := c.cc.Invoke(ctx, HRService_ListTimeProjects_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hRServiceClient) CreateTimeProject(ctx context.Context, in *CreateTimeProjectReq, opts ...grpc.CallOption) (*CreateTimeProjectResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateTimeProjectResp)
+	err := c.cc.Invoke(ctx, HRService_CreateTimeProject_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *hRServiceClient) GetAbsenceCalendar(ctx context.Context, in *GetAbsenceCalendarReq, opts ...grpc.CallOption) (*GetAbsenceCalendarResp, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetAbsenceCalendarResp)
@@ -426,6 +635,28 @@ type HRServiceServer interface {
 	GetWeeklySummary(context.Context, *GetWeeklySummaryReq) (*GetWeeklySummaryResp, error)
 	SubmitTimeCorrection(context.Context, *SubmitTimeCorrectionReq) (*SubmitTimeCorrectionResp, error)
 	ApproveTimeCorrection(context.Context, *ApproveTimeCorrectionReq) (*ApproveTimeCorrectionResp, error)
+	// Extended time-tracking RPCs (Fall-B)
+	CreateManualEntry(context.Context, *CreateManualEntryReq) (*CreateManualEntryResp, error)
+	GetTimeBalance(context.Context, *GetTimeBalanceReq) (*GetTimeBalanceResp, error)
+	GetTimeAnalytics(context.Context, *GetTimeAnalyticsReq) (*GetTimeAnalyticsResp, error)
+	GetTeamTime(context.Context, *GetTeamTimeReq) (*GetTeamTimeResp, error)
+	// Week approvals
+	GetMyWeekStatus(context.Context, *GetMyWeekStatusReq) (*GetMyWeekStatusResp, error)
+	SubmitWeek(context.Context, *SubmitWeekReq) (*SubmitWeekResp, error)
+	ApproveWeek(context.Context, *ApproveWeekReq) (*ApproveWeekResp, error)
+	RejectWeek(context.Context, *RejectWeekReq) (*RejectWeekResp, error)
+	// Time categories
+	ListTimeCategories(context.Context, *ListTimeCategoriesReq) (*ListTimeCategoriesResp, error)
+	CreateTimeCategory(context.Context, *CreateTimeCategoryReq) (*CreateTimeCategoryResp, error)
+	UpdateTimeCategory(context.Context, *UpdateTimeCategoryReq) (*UpdateTimeCategoryResp, error)
+	DeleteTimeCategory(context.Context, *DeleteTimeCategoryReq) (*DeleteTimeCategoryResp, error)
+	// Time templates
+	ListTimeTemplates(context.Context, *ListTimeTemplatesReq) (*ListTimeTemplatesResp, error)
+	CreateTimeTemplate(context.Context, *CreateTimeTemplateReq) (*CreateTimeTemplateResp, error)
+	DeleteTimeTemplate(context.Context, *DeleteTimeTemplateReq) (*DeleteTimeTemplateResp, error)
+	// Time projects
+	ListTimeProjects(context.Context, *ListTimeProjectsReq) (*ListTimeProjectsResp, error)
+	CreateTimeProject(context.Context, *CreateTimeProjectReq) (*CreateTimeProjectResp, error)
 	// ==================== Absences ====================
 	GetAbsenceCalendar(context.Context, *GetAbsenceCalendarReq) (*GetAbsenceCalendarResp, error)
 	// ==================== Employee Profiles ====================
@@ -508,6 +739,57 @@ func (UnimplementedHRServiceServer) SubmitTimeCorrection(context.Context, *Submi
 }
 func (UnimplementedHRServiceServer) ApproveTimeCorrection(context.Context, *ApproveTimeCorrectionReq) (*ApproveTimeCorrectionResp, error) {
 	return nil, status.Error(codes.Unimplemented, "method ApproveTimeCorrection not implemented")
+}
+func (UnimplementedHRServiceServer) CreateManualEntry(context.Context, *CreateManualEntryReq) (*CreateManualEntryResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateManualEntry not implemented")
+}
+func (UnimplementedHRServiceServer) GetTimeBalance(context.Context, *GetTimeBalanceReq) (*GetTimeBalanceResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTimeBalance not implemented")
+}
+func (UnimplementedHRServiceServer) GetTimeAnalytics(context.Context, *GetTimeAnalyticsReq) (*GetTimeAnalyticsResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTimeAnalytics not implemented")
+}
+func (UnimplementedHRServiceServer) GetTeamTime(context.Context, *GetTeamTimeReq) (*GetTeamTimeResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTeamTime not implemented")
+}
+func (UnimplementedHRServiceServer) GetMyWeekStatus(context.Context, *GetMyWeekStatusReq) (*GetMyWeekStatusResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetMyWeekStatus not implemented")
+}
+func (UnimplementedHRServiceServer) SubmitWeek(context.Context, *SubmitWeekReq) (*SubmitWeekResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method SubmitWeek not implemented")
+}
+func (UnimplementedHRServiceServer) ApproveWeek(context.Context, *ApproveWeekReq) (*ApproveWeekResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method ApproveWeek not implemented")
+}
+func (UnimplementedHRServiceServer) RejectWeek(context.Context, *RejectWeekReq) (*RejectWeekResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method RejectWeek not implemented")
+}
+func (UnimplementedHRServiceServer) ListTimeCategories(context.Context, *ListTimeCategoriesReq) (*ListTimeCategoriesResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListTimeCategories not implemented")
+}
+func (UnimplementedHRServiceServer) CreateTimeCategory(context.Context, *CreateTimeCategoryReq) (*CreateTimeCategoryResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateTimeCategory not implemented")
+}
+func (UnimplementedHRServiceServer) UpdateTimeCategory(context.Context, *UpdateTimeCategoryReq) (*UpdateTimeCategoryResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateTimeCategory not implemented")
+}
+func (UnimplementedHRServiceServer) DeleteTimeCategory(context.Context, *DeleteTimeCategoryReq) (*DeleteTimeCategoryResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteTimeCategory not implemented")
+}
+func (UnimplementedHRServiceServer) ListTimeTemplates(context.Context, *ListTimeTemplatesReq) (*ListTimeTemplatesResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListTimeTemplates not implemented")
+}
+func (UnimplementedHRServiceServer) CreateTimeTemplate(context.Context, *CreateTimeTemplateReq) (*CreateTimeTemplateResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateTimeTemplate not implemented")
+}
+func (UnimplementedHRServiceServer) DeleteTimeTemplate(context.Context, *DeleteTimeTemplateReq) (*DeleteTimeTemplateResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteTimeTemplate not implemented")
+}
+func (UnimplementedHRServiceServer) ListTimeProjects(context.Context, *ListTimeProjectsReq) (*ListTimeProjectsResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListTimeProjects not implemented")
+}
+func (UnimplementedHRServiceServer) CreateTimeProject(context.Context, *CreateTimeProjectReq) (*CreateTimeProjectResp, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateTimeProject not implemented")
 }
 func (UnimplementedHRServiceServer) GetAbsenceCalendar(context.Context, *GetAbsenceCalendarReq) (*GetAbsenceCalendarResp, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetAbsenceCalendar not implemented")
@@ -920,6 +1202,312 @@ func _HRService_ApproveTimeCorrection_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _HRService_CreateManualEntry_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateManualEntryReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).CreateManualEntry(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_CreateManualEntry_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).CreateManualEntry(ctx, req.(*CreateManualEntryReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HRService_GetTimeBalance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTimeBalanceReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).GetTimeBalance(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_GetTimeBalance_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).GetTimeBalance(ctx, req.(*GetTimeBalanceReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HRService_GetTimeAnalytics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTimeAnalyticsReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).GetTimeAnalytics(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_GetTimeAnalytics_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).GetTimeAnalytics(ctx, req.(*GetTimeAnalyticsReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HRService_GetTeamTime_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTeamTimeReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).GetTeamTime(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_GetTeamTime_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).GetTeamTime(ctx, req.(*GetTeamTimeReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HRService_GetMyWeekStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMyWeekStatusReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).GetMyWeekStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_GetMyWeekStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).GetMyWeekStatus(ctx, req.(*GetMyWeekStatusReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HRService_SubmitWeek_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SubmitWeekReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).SubmitWeek(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_SubmitWeek_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).SubmitWeek(ctx, req.(*SubmitWeekReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HRService_ApproveWeek_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ApproveWeekReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).ApproveWeek(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_ApproveWeek_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).ApproveWeek(ctx, req.(*ApproveWeekReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HRService_RejectWeek_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RejectWeekReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).RejectWeek(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_RejectWeek_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).RejectWeek(ctx, req.(*RejectWeekReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HRService_ListTimeCategories_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTimeCategoriesReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).ListTimeCategories(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_ListTimeCategories_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).ListTimeCategories(ctx, req.(*ListTimeCategoriesReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HRService_CreateTimeCategory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateTimeCategoryReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).CreateTimeCategory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_CreateTimeCategory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).CreateTimeCategory(ctx, req.(*CreateTimeCategoryReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HRService_UpdateTimeCategory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateTimeCategoryReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).UpdateTimeCategory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_UpdateTimeCategory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).UpdateTimeCategory(ctx, req.(*UpdateTimeCategoryReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HRService_DeleteTimeCategory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteTimeCategoryReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).DeleteTimeCategory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_DeleteTimeCategory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).DeleteTimeCategory(ctx, req.(*DeleteTimeCategoryReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HRService_ListTimeTemplates_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTimeTemplatesReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).ListTimeTemplates(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_ListTimeTemplates_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).ListTimeTemplates(ctx, req.(*ListTimeTemplatesReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HRService_CreateTimeTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateTimeTemplateReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).CreateTimeTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_CreateTimeTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).CreateTimeTemplate(ctx, req.(*CreateTimeTemplateReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HRService_DeleteTimeTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteTimeTemplateReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).DeleteTimeTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_DeleteTimeTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).DeleteTimeTemplate(ctx, req.(*DeleteTimeTemplateReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HRService_ListTimeProjects_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTimeProjectsReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).ListTimeProjects(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_ListTimeProjects_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).ListTimeProjects(ctx, req.(*ListTimeProjectsReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HRService_CreateTimeProject_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateTimeProjectReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HRServiceServer).CreateTimeProject(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HRService_CreateTimeProject_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HRServiceServer).CreateTimeProject(ctx, req.(*CreateTimeProjectReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _HRService_GetAbsenceCalendar_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetAbsenceCalendarReq)
 	if err := dec(in); err != nil {
@@ -1186,6 +1774,74 @@ var HRService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ApproveTimeCorrection",
 			Handler:    _HRService_ApproveTimeCorrection_Handler,
+		},
+		{
+			MethodName: "CreateManualEntry",
+			Handler:    _HRService_CreateManualEntry_Handler,
+		},
+		{
+			MethodName: "GetTimeBalance",
+			Handler:    _HRService_GetTimeBalance_Handler,
+		},
+		{
+			MethodName: "GetTimeAnalytics",
+			Handler:    _HRService_GetTimeAnalytics_Handler,
+		},
+		{
+			MethodName: "GetTeamTime",
+			Handler:    _HRService_GetTeamTime_Handler,
+		},
+		{
+			MethodName: "GetMyWeekStatus",
+			Handler:    _HRService_GetMyWeekStatus_Handler,
+		},
+		{
+			MethodName: "SubmitWeek",
+			Handler:    _HRService_SubmitWeek_Handler,
+		},
+		{
+			MethodName: "ApproveWeek",
+			Handler:    _HRService_ApproveWeek_Handler,
+		},
+		{
+			MethodName: "RejectWeek",
+			Handler:    _HRService_RejectWeek_Handler,
+		},
+		{
+			MethodName: "ListTimeCategories",
+			Handler:    _HRService_ListTimeCategories_Handler,
+		},
+		{
+			MethodName: "CreateTimeCategory",
+			Handler:    _HRService_CreateTimeCategory_Handler,
+		},
+		{
+			MethodName: "UpdateTimeCategory",
+			Handler:    _HRService_UpdateTimeCategory_Handler,
+		},
+		{
+			MethodName: "DeleteTimeCategory",
+			Handler:    _HRService_DeleteTimeCategory_Handler,
+		},
+		{
+			MethodName: "ListTimeTemplates",
+			Handler:    _HRService_ListTimeTemplates_Handler,
+		},
+		{
+			MethodName: "CreateTimeTemplate",
+			Handler:    _HRService_CreateTimeTemplate_Handler,
+		},
+		{
+			MethodName: "DeleteTimeTemplate",
+			Handler:    _HRService_DeleteTimeTemplate_Handler,
+		},
+		{
+			MethodName: "ListTimeProjects",
+			Handler:    _HRService_ListTimeProjects_Handler,
+		},
+		{
+			MethodName: "CreateTimeProject",
+			Handler:    _HRService_CreateTimeProject_Handler,
 		},
 		{
 			MethodName: "GetAbsenceCalendar",

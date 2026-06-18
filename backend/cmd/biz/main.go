@@ -245,6 +245,13 @@ func main() {
 	absenceSvc := absence.NewService(absenceRepo, hrSettingsRepo)
 	timetrackingSvc := timetracking.NewService(workTimeRepo, breakRepo, employeeRepo, hrSettingsRepo, pool)
 
+	// Wire Fall-B extended repos
+	timeCategoryRepo := timetracking.NewPostgresTimeCategoryRepo(pool)
+	timeTemplateRepo := timetracking.NewPostgresTimeTemplateRepo(pool)
+	timeProjectRepo := timetracking.NewPostgresTimeProjectRepo(pool)
+	weekApprovalRepo := timetracking.NewPostgresWeekApprovalRepo(pool)
+	timetrackingSvc.SetExtendedRepos(timeCategoryRepo, timeTemplateRepo, timeProjectRepo, weekApprovalRepo)
+
 	hrGRPC := server.NewHRGRPCServer(leaveSvc, timetrackingSvc, employeeSvc, absenceSvc, hrSettingsRepo)
 	hrv1.RegisterHRServiceServer(grpcServer, hrGRPC)
 

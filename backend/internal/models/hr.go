@@ -179,8 +179,14 @@ type HRWorkTimeEntry struct {
 	CorrectionReason      string              `json:"correction_reason"`
 	CorrectionApprovedBy  *uuid.UUID          `json:"correction_approved_by,omitempty"`
 	CorrectionApprovedAt  *time.Time          `json:"correction_approved_at,omitempty"`
-	CreatedAt             time.Time           `json:"created_at"`
-	UpdatedAt             time.Time           `json:"updated_at"`
+	// Extended fields (migration 000182)
+	CategoryID      *uuid.UUID `json:"category_id,omitempty"`
+	LocationLat     *float64   `json:"location_lat,omitempty"`
+	LocationLng     *float64   `json:"location_lng,omitempty"`
+	LocationAddress *string    `json:"location_address,omitempty"`
+	DeletedAt       *time.Time `json:"deleted_at,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
 
 	// Nested break entries (populated on detail fetch)
 	Breaks []HRBreakEntry `json:"breaks,omitempty"`
@@ -227,4 +233,65 @@ type EmployeeDocument struct {
 	FileName       string `json:"file_name,omitempty"`
 	FileSize       string `json:"file_size,omitempty"`
 	UploadedByName string `json:"uploaded_by_name,omitempty"`
+}
+
+// HRTimeCategory represents a classification for work time entries.
+type HRTimeCategory struct {
+	ID        uuid.UUID `json:"id"`
+	TenantID  uuid.UUID `json:"tenant_id"`
+	Name      string    `json:"name"`
+	Color     string    `json:"color"`
+	Icon      string    `json:"icon"`
+	IsDefault bool      `json:"is_default"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// HRTimeTemplate is a pre-defined work entry template.
+type HRTimeTemplate struct {
+	ID               uuid.UUID  `json:"id"`
+	TenantID         uuid.UUID  `json:"tenant_id"`
+	Name             string     `json:"name"`
+	CategoryID       *uuid.UUID `json:"category_id,omitempty"`
+	Description      string     `json:"description"`
+	EstimatedMinutes int        `json:"estimated_minutes"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
+}
+
+// HRTimeProject represents a billable project for time entries.
+type HRTimeProject struct {
+	ID              uuid.UUID `json:"id"`
+	TenantID        uuid.UUID `json:"tenant_id"`
+	Name            string    `json:"name"`
+	CustomerName    string    `json:"customer_name"`
+	Color           string    `json:"color"`
+	BillableDefault bool      `json:"billable_default"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+// WeekApprovalStatus is the lifecycle status of a week approval.
+type WeekApprovalStatus string
+
+const (
+	WeekApprovalOpen      WeekApprovalStatus = "open"
+	WeekApprovalSubmitted WeekApprovalStatus = "submitted"
+	WeekApprovalApproved  WeekApprovalStatus = "approved"
+	WeekApprovalRejected  WeekApprovalStatus = "rejected"
+)
+
+// HRWeekApproval represents the approval record for an employee's work week.
+type HRWeekApproval struct {
+	ID              uuid.UUID          `json:"id"`
+	TenantID        uuid.UUID          `json:"tenant_id"`
+	EmployeeID      uuid.UUID          `json:"employee_id"`
+	WeekStart       time.Time          `json:"week_start"`
+	Status          WeekApprovalStatus `json:"status"`
+	SubmittedAt     *time.Time         `json:"submitted_at,omitempty"`
+	ApprovedBy      *uuid.UUID         `json:"approved_by,omitempty"`
+	ApprovedAt      *time.Time         `json:"approved_at,omitempty"`
+	RejectionReason *string            `json:"rejection_reason,omitempty"`
+	CreatedAt       time.Time          `json:"created_at"`
+	UpdatedAt       time.Time          `json:"updated_at"`
 }

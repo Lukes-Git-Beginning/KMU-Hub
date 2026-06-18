@@ -30,6 +30,28 @@ service HRService {
   rpc GetWeeklySummary(GetWeeklySummaryReq) returns (GetWeeklySummaryResp);
   rpc SubmitTimeCorrection(SubmitTimeCorrectionReq) returns (SubmitTimeCorrectionResp);
   rpc ApproveTimeCorrection(ApproveTimeCorrectionReq) returns (ApproveTimeCorrectionResp);
+  // Extended time-tracking RPCs (Fall-B)
+  rpc CreateManualEntry(CreateManualEntryReq) returns (CreateManualEntryResp);
+  rpc GetTimeBalance(GetTimeBalanceReq) returns (GetTimeBalanceResp);
+  rpc GetTimeAnalytics(GetTimeAnalyticsReq) returns (GetTimeAnalyticsResp);
+  rpc GetTeamTime(GetTeamTimeReq) returns (GetTeamTimeResp);
+  // Week approvals
+  rpc GetMyWeekStatus(GetMyWeekStatusReq) returns (GetMyWeekStatusResp);
+  rpc SubmitWeek(SubmitWeekReq) returns (SubmitWeekResp);
+  rpc ApproveWeek(ApproveWeekReq) returns (ApproveWeekResp);
+  rpc RejectWeek(RejectWeekReq) returns (RejectWeekResp);
+  // Time categories
+  rpc ListTimeCategories(ListTimeCategoriesReq) returns (ListTimeCategoriesResp);
+  rpc CreateTimeCategory(CreateTimeCategoryReq) returns (CreateTimeCategoryResp);
+  rpc UpdateTimeCategory(UpdateTimeCategoryReq) returns (UpdateTimeCategoryResp);
+  rpc DeleteTimeCategory(DeleteTimeCategoryReq) returns (DeleteTimeCategoryResp);
+  // Time templates
+  rpc ListTimeTemplates(ListTimeTemplatesReq) returns (ListTimeTemplatesResp);
+  rpc CreateTimeTemplate(CreateTimeTemplateReq) returns (CreateTimeTemplateResp);
+  rpc DeleteTimeTemplate(DeleteTimeTemplateReq) returns (DeleteTimeTemplateResp);
+  // Time projects
+  rpc ListTimeProjects(ListTimeProjectsReq) returns (ListTimeProjectsResp);
+  rpc CreateTimeProject(CreateTimeProjectReq) returns (CreateTimeProjectResp);
 
   // ==================== Absences ====================
   rpc GetAbsenceCalendar(GetAbsenceCalendarReq) returns (GetAbsenceCalendarResp);
@@ -658,4 +680,295 @@ message CreateEmployeeReq {
 
 message CreateEmployeeResp {
   EmployeeProfile employee = 1;
+}
+
+// ============================================================================
+// Time Category Domain Messages + Requests/Responses
+// ============================================================================
+
+message TimeCategory {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  string color = 4;
+  string icon = 5;
+  bool is_default = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message ListTimeCategoriesReq {
+  string tenant_id = 1;
+}
+
+message ListTimeCategoriesResp {
+  repeated TimeCategory categories = 1;
+}
+
+message CreateTimeCategoryReq {
+  string tenant_id = 1;
+  string name = 2;
+  string color = 3;
+  string icon = 4;
+  bool is_default = 5;
+}
+
+message CreateTimeCategoryResp {
+  TimeCategory category = 1;
+}
+
+message UpdateTimeCategoryReq {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  string color = 4;
+  string icon = 5;
+  bool is_default = 6;
+}
+
+message UpdateTimeCategoryResp {
+  TimeCategory category = 1;
+}
+
+message DeleteTimeCategoryReq {
+  string id = 1;
+  string tenant_id = 2;
+}
+
+message DeleteTimeCategoryResp {}
+
+// ============================================================================
+// Time Template Domain Messages + Requests/Responses
+// ============================================================================
+
+message TimeTemplate {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  string category_id = 4;
+  string description = 5;
+  int32 estimated_minutes = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message ListTimeTemplatesReq {
+  string tenant_id = 1;
+}
+
+message ListTimeTemplatesResp {
+  repeated TimeTemplate templates = 1;
+}
+
+message CreateTimeTemplateReq {
+  string tenant_id = 1;
+  string name = 2;
+  string category_id = 3;
+  string description = 4;
+  int32 estimated_minutes = 5;
+}
+
+message CreateTimeTemplateResp {
+  TimeTemplate template = 1;
+}
+
+message DeleteTimeTemplateReq {
+  string id = 1;
+  string tenant_id = 2;
+}
+
+message DeleteTimeTemplateResp {}
+
+// ============================================================================
+// Time Project Domain Messages + Requests/Responses
+// ============================================================================
+
+message TimeProject {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  string customer_name = 4;
+  string color = 5;
+  bool billable_default = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message ListTimeProjectsReq {
+  string tenant_id = 1;
+}
+
+message ListTimeProjectsResp {
+  repeated TimeProject projects = 1;
+}
+
+message CreateTimeProjectReq {
+  string tenant_id = 1;
+  string name = 2;
+  string customer_name = 3;
+  string color = 4;
+  bool billable_default = 5;
+}
+
+message CreateTimeProjectResp {
+  TimeProject project = 1;
+}
+
+// ============================================================================
+// Manual Entry Requests/Responses
+// ============================================================================
+
+message CreateManualEntryReq {
+  string tenant_id = 1;
+  string user_id = 2;
+  google.protobuf.Timestamp clock_in = 3;
+  google.protobuf.Timestamp clock_out = 4;
+  int32 break_minutes = 5;
+  string project_id = 6;
+  string category_id = 7;
+  string activity = 8;
+  string note = 9;
+  bool billable = 10;
+  double location_lat = 11;
+  double location_lng = 12;
+  string location_address = 13;
+  string idempotency_key = 14;
+}
+
+message CreateManualEntryResp {
+  WorkTimeEntry entry = 1;
+}
+
+// ============================================================================
+// Time Balance Requests/Responses
+// ============================================================================
+
+message GetTimeBalanceReq {
+  string tenant_id = 1;
+  string user_id = 2;
+}
+
+message GetTimeBalanceResp {
+  int32 balance_minutes = 1;
+  int32 target_weekly_minutes = 2;
+  string period_start = 3;   // YYYY-MM-DD
+  string as_of = 4;          // YYYY-MM-DD
+}
+
+// ============================================================================
+// Time Analytics Requests/Responses
+// ============================================================================
+
+message DayTrendEntry {
+  string date = 1;          // YYYY-MM-DD
+  int32 net_minutes = 2;
+  int32 target_minutes = 3;
+}
+
+message ProjectBreakdown {
+  string project_id = 1;
+  string project_name = 2;
+  int32 minutes = 3;
+}
+
+message GetTimeAnalyticsReq {
+  string tenant_id = 1;
+  string user_id = 2;
+  string range = 3;          // "week" | "month"
+}
+
+message GetTimeAnalyticsResp {
+  int32 total_minutes = 1;
+  int32 target_minutes = 2;
+  int32 overtime_minutes = 3;
+  int32 avg_daily_minutes = 4;
+  repeated DayTrendEntry day_trend = 5;
+  repeated ProjectBreakdown by_project = 6;
+}
+
+// ============================================================================
+// Team Time Requests/Responses
+// ============================================================================
+
+message TeamTimeEntry {
+  string employee_id = 1;
+  string name = 2;
+  string department = 3;
+  int32 week_minutes = 4;
+  int32 target_minutes = 5;
+  int32 overtime_minutes = 6;
+  bool clocked_in = 7;
+  string week_status = 8;    // open | submitted | approved | rejected
+}
+
+message GetTeamTimeReq {
+  string tenant_id = 1;
+  string week_start = 2;     // YYYY-MM-DD
+}
+
+message GetTeamTimeResp {
+  repeated TeamTimeEntry team = 1;
+}
+
+// ============================================================================
+// Week Approval Requests/Responses
+// ============================================================================
+
+message WeekApproval {
+  string id = 1;
+  string tenant_id = 2;
+  string employee_id = 3;
+  string week_start = 4;      // YYYY-MM-DD
+  string status = 5;          // open | submitted | approved | rejected
+  google.protobuf.Timestamp submitted_at = 6;
+  string approved_by = 7;
+  google.protobuf.Timestamp approved_at = 8;
+  string rejection_reason = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message GetMyWeekStatusReq {
+  string tenant_id = 1;
+  string user_id = 2;
+  string week_start = 3;      // YYYY-MM-DD
+}
+
+message GetMyWeekStatusResp {
+  WeekApproval week_approval = 1;
+  int32 total_minutes = 2;
+  int32 target_minutes = 3;
+}
+
+message SubmitWeekReq {
+  string tenant_id = 1;
+  string user_id = 2;
+  string week_start = 3;      // YYYY-MM-DD
+}
+
+message SubmitWeekResp {
+  WeekApproval week_approval = 1;
+}
+
+message ApproveWeekReq {
+  string tenant_id = 1;
+  string approver_id = 2;
+  string employee_id = 3;
+  string week_start = 4;      // YYYY-MM-DD
+}
+
+message ApproveWeekResp {
+  WeekApproval week_approval = 1;
+}
+
+message RejectWeekReq {
+  string tenant_id = 1;
+  string approver_id = 2;
+  string employee_id = 3;
+  string week_start = 4;      // YYYY-MM-DD
+  string rejection_reason = 5;
+}
+
+message RejectWeekResp {
+  WeekApproval week_approval = 1;
 }

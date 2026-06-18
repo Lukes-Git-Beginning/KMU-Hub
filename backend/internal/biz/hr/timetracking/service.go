@@ -25,12 +25,16 @@ import (
 
 // Service handles work time tracking business logic with ArbZG enforcement.
 type Service struct {
-	workTimeRepo WorkTimeRepository
-	breakRepo    BreakRepository
-	employeeRepo employee.EmployeeRepository
-	settingsRepo leave.HRSettingsRepository
-	pool         *pgxpool.Pool // For event emission
-	emitter      EventEmitter
+	workTimeRepo     WorkTimeRepository
+	breakRepo        BreakRepository
+	employeeRepo     employee.EmployeeRepository
+	settingsRepo     leave.HRSettingsRepository
+	pool             *pgxpool.Pool // For event emission
+	emitter          EventEmitter
+	categoryRepo     TimeCategoryRepository
+	templateRepo     TimeTemplateRepository
+	projectRepo      TimeProjectRepository
+	weekApprovalRepo WeekApprovalRepository
 }
 
 // NewService creates a new time tracking service.
@@ -48,6 +52,19 @@ func NewService(
 		settingsRepo: settingsRepo,
 		pool:         pool,
 	}
+}
+
+// SetExtendedRepos wires the Fall-B repositories after construction.
+func (s *Service) SetExtendedRepos(
+	categoryRepo TimeCategoryRepository,
+	templateRepo TimeTemplateRepository,
+	projectRepo TimeProjectRepository,
+	weekApprovalRepo WeekApprovalRepository,
+) {
+	s.categoryRepo = categoryRepo
+	s.templateRepo = templateRepo
+	s.projectRepo = projectRepo
+	s.weekApprovalRepo = weekApprovalRepo
 }
 
 // SetEventEmitter sets the optional event emitter for notification events.
@@ -430,6 +447,477 @@ func (s *Service) ApproveTimeCorrection(ctx context.Context, correctionID, appro
 	)
 
 	return correction, nil
+}
+
+// ============================================================================
+// Manual Entry
+// ============================================================================
+
+// CreateManualEntry inserts a completed work time entry manually (no active-shift lifecycle).
+func (s *Service) CreateManualEntry(ctx context.Context, input ManualEntryInput) (*models.HRWorkTimeEntry, error) {
+	if !input.ClockOut.After(input.ClockIn) {
+		return nil, ErrInvalidManualEntry
+	}
+
+	// Calculate net work minutes
+	totalMinutes := int(input.ClockOut.Sub(input.ClockIn).Minutes())
+	netMinutes := totalMinutes - input.BreakMinutes
+	if netMinutes < 0 {
+		netMinutes = 0
+	}
+
+	now := time.Now()
+	clockOut := input.ClockOut
+	entry := &models.HRWorkTimeEntry{
+		ID:              uuid.New(),
+		TenantID:        input.TenantID,
+		EmployeeID:      input.EmployeeID,
+		ClockIn:         input.ClockIn,
+		ClockOut:        &clockOut,
+		BreakMinutes:    input.BreakMinutes,
+		NetWorkMinutes:  &netMinutes,
+		Status:          models.WorkTimeStatusCompleted,
+		CategoryID:      input.CategoryID,
+		LocationLat:     input.LocationLat,
+		LocationLng:     input.LocationLng,
+		LocationAddress: &input.LocationAddress,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}
+	if input.LocationAddress == "" {
+		entry.LocationAddress = nil
+	}
+
+	if err := s.workTimeRepo.Create(ctx, entry); err != nil {
+		return nil, err
+	}
+
+	slog.Info("hr.time.manual_entry",
+		"work_time_entry_id", entry.ID,
+		"employee_id", input.EmployeeID,
+		"net_work_minutes", netMinutes,
+	)
+
+	return entry, nil
+}
+
+// ============================================================================
+// Time Balance
+// ============================================================================
+
+// GetTimeBalance returns the accumulated overtime/undertime balance for the current period.
+func (s *Service) GetTimeBalance(ctx context.Context, tenantID, employeeID uuid.UUID) (balanceMinutes, targetWeeklyMinutes int, periodStart time.Time, err error) {
+	// Get employee profile for contracted weekly hours
+	ep, epErr := s.employeeRepo.GetByUserID(ctx, employeeID)
+	workDays := 5
+	if epErr == nil && ep.WorkDaysPerWeek > 0 {
+		workDays = ep.WorkDaysPerWeek
+	}
+	targetWeeklyMinutes = workDays * 8 * 60 // 8h per work day
+
+	// Current week start (Monday)
+	now := time.Now()
+	weekStart := now
+	for weekStart.Weekday() != time.Monday {
+		weekStart = weekStart.AddDate(0, 0, -1)
+	}
+	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
+
+	weekly, summaryErr := s.workTimeRepo.GetWeeklySummary(ctx, employeeID, weekStart)
+	if summaryErr != nil {
+		return 0, targetWeeklyMinutes, weekStart, summaryErr
+	}
+
+	balanceMinutes = weekly.NetWorkMinutes - targetWeeklyMinutes
+	return balanceMinutes, targetWeeklyMinutes, weekStart, nil
+}
+
+// ============================================================================
+// Time Analytics
+// ============================================================================
+
+// GetTimeAnalytics returns KPIs and trends for the employee over a given range.
+func (s *Service) GetTimeAnalytics(ctx context.Context, tenantID, employeeID uuid.UUID, rangeStr string) (*TimeAnalytics, error) {
+	ep, epErr := s.employeeRepo.GetByUserID(ctx, employeeID)
+	workDays := 5
+	if epErr == nil && ep.WorkDaysPerWeek > 0 {
+		workDays = ep.WorkDaysPerWeek
+	}
+	targetWeeklyMinutes := workDays * 8 * 60
+
+	now := time.Now()
+	var start time.Time
+	var numDays int
+	if rangeStr == "month" {
+		start = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+		numDays = now.Day()
+	} else {
+		// Default: week
+		start = now
+		for start.Weekday() != time.Monday {
+			start = start.AddDate(0, 0, -1)
+		}
+		start = time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
+		numDays = 7
+	}
+
+	targetMinutes := targetWeeklyMinutes * numDays / 5 // pro-rated
+
+	var trend []DayTrendEntry
+	totalMinutes := 0
+	for i := 0; i < numDays; i++ {
+		day := start.AddDate(0, 0, i)
+		daily, dailyErr := s.workTimeRepo.GetDailySummary(ctx, employeeID, day)
+		if dailyErr != nil {
+			continue
+		}
+		trend = append(trend, DayTrendEntry{
+			Date:          daily.Date,
+			NetMinutes:    daily.NetWorkMinutes,
+			TargetMinutes: workDays * 8 * 60 / 5,
+		})
+		totalMinutes += daily.NetWorkMinutes
+	}
+
+	overtimeMinutes := totalMinutes - targetMinutes
+	if overtimeMinutes < 0 {
+		overtimeMinutes = 0
+	}
+
+	avgDaily := 0
+	if numDays > 0 {
+		avgDaily = totalMinutes / numDays
+	}
+
+	return &TimeAnalytics{
+		TotalMinutes:    totalMinutes,
+		TargetMinutes:   targetMinutes,
+		OvertimeMinutes: overtimeMinutes,
+		AvgDailyMinutes: avgDaily,
+		DayTrend:        trend,
+		ByProject:       []ProjectBreakdown{}, // no project join on entries yet
+	}, nil
+}
+
+// ============================================================================
+// Team Time
+// ============================================================================
+
+// GetTeamTime returns aggregated weekly time for all employees of the tenant.
+func (s *Service) GetTeamTime(ctx context.Context, tenantID uuid.UUID, weekStart time.Time) ([]TeamTimeEntry, error) {
+	// Ensure Monday
+	for weekStart.Weekday() != time.Monday {
+		weekStart = weekStart.AddDate(0, 0, -1)
+	}
+	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
+
+	employees, _, listErr := s.employeeRepo.List(ctx, employee.EmployeeFilter{TenantID: tenantID, Page: 1, PerPage: 500})
+	if listErr != nil {
+		return nil, listErr
+	}
+
+	var teamEntries []TeamTimeEntry
+	for _, emp := range employees {
+		// Work time entries are keyed by employee_id = user_id
+		weekly, weekErr := s.workTimeRepo.GetWeeklySummary(ctx, emp.UserID, weekStart)
+		weekMinutes := 0
+		if weekErr == nil {
+			weekMinutes = weekly.NetWorkMinutes
+		}
+
+		workDays := emp.WorkDaysPerWeek
+		if workDays <= 0 {
+			workDays = 5
+		}
+		targetMinutes := workDays * 8 * 60
+
+		overtime := weekMinutes - targetMinutes
+		if overtime < 0 {
+			overtime = 0
+		}
+
+		activeShift, _ := s.workTimeRepo.GetActiveShift(ctx, emp.UserID)
+
+		weekStatus := "open"
+		if s.weekApprovalRepo != nil {
+			wa, waErr := s.weekApprovalRepo.GetByEmployeeWeek(ctx, tenantID, emp.UserID, weekStart)
+			if waErr == nil && wa != nil {
+				weekStatus = string(wa.Status)
+			}
+		}
+
+		teamEntries = append(teamEntries, TeamTimeEntry{
+			EmployeeID:      emp.UserID,
+			Name:            emp.UserName,
+			Department:      emp.Department,
+			WeekMinutes:     weekMinutes,
+			TargetMinutes:   targetMinutes,
+			OvertimeMinutes: overtime,
+			ClockedIn:       activeShift != nil,
+			WeekStatus:      weekStatus,
+		})
+	}
+
+	if teamEntries == nil {
+		teamEntries = []TeamTimeEntry{}
+	}
+	return teamEntries, nil
+}
+
+// ============================================================================
+// Week Approvals
+// ============================================================================
+
+// GetMyWeekStatus returns the approval status for an employee's week.
+func (s *Service) GetMyWeekStatus(ctx context.Context, tenantID, employeeID uuid.UUID, weekStart time.Time) (*models.HRWeekApproval, int, int, error) {
+	// Ensure Monday
+	for weekStart.Weekday() != time.Monday {
+		weekStart = weekStart.AddDate(0, 0, -1)
+	}
+	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
+
+	ep, _ := s.employeeRepo.GetByUserID(ctx, employeeID)
+	workDays := 5
+	if ep != nil && ep.WorkDaysPerWeek > 0 {
+		workDays = ep.WorkDaysPerWeek
+	}
+	targetMinutes := workDays * 8 * 60
+
+	weekly, weekErr := s.workTimeRepo.GetWeeklySummary(ctx, employeeID, weekStart)
+	totalMinutes := 0
+	if weekErr == nil {
+		totalMinutes = weekly.NetWorkMinutes
+	}
+
+	wa, waErr := s.weekApprovalRepo.GetByEmployeeWeek(ctx, tenantID, employeeID, weekStart)
+	if waErr != nil {
+		// No record yet → synthesise an open one
+		now := time.Now()
+		wa = &models.HRWeekApproval{
+			ID:         uuid.New(),
+			TenantID:   tenantID,
+			EmployeeID: employeeID,
+			WeekStart:  weekStart,
+			Status:     models.WeekApprovalOpen,
+			CreatedAt:  now,
+			UpdatedAt:  now,
+		}
+	}
+
+	return wa, totalMinutes, targetMinutes, nil
+}
+
+// SubmitWeek transitions an employee's week to submitted state.
+func (s *Service) SubmitWeek(ctx context.Context, tenantID, employeeID uuid.UUID, weekStart time.Time) (*models.HRWeekApproval, error) {
+	for weekStart.Weekday() != time.Monday {
+		weekStart = weekStart.AddDate(0, 0, -1)
+	}
+	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
+
+	wa, waErr := s.weekApprovalRepo.GetByEmployeeWeek(ctx, tenantID, employeeID, weekStart)
+	now := time.Now()
+	if waErr != nil {
+		// Create fresh record
+		wa = &models.HRWeekApproval{
+			ID:         uuid.New(),
+			TenantID:   tenantID,
+			EmployeeID: employeeID,
+			WeekStart:  weekStart,
+			Status:     models.WeekApprovalOpen,
+			CreatedAt:  now,
+			UpdatedAt:  now,
+		}
+	}
+
+	if wa.Status == models.WeekApprovalSubmitted || wa.Status == models.WeekApprovalApproved {
+		return nil, ErrWeekAlreadySubmitted
+	}
+
+	wa.Status = models.WeekApprovalSubmitted
+	wa.SubmittedAt = &now
+	wa.UpdatedAt = now
+
+	if err := s.weekApprovalRepo.Upsert(ctx, wa); err != nil {
+		return nil, err
+	}
+
+	slog.Info("hr.time.week_submitted",
+		"employee_id", employeeID,
+		"week_start", weekStart.Format("2006-01-02"),
+	)
+	return wa, nil
+}
+
+// ApproveWeek approves a submitted week.
+func (s *Service) ApproveWeek(ctx context.Context, tenantID, approverID, employeeID uuid.UUID, weekStart time.Time) (*models.HRWeekApproval, error) {
+	for weekStart.Weekday() != time.Monday {
+		weekStart = weekStart.AddDate(0, 0, -1)
+	}
+	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
+
+	wa, waErr := s.weekApprovalRepo.GetByEmployeeWeek(ctx, tenantID, employeeID, weekStart)
+	if waErr != nil {
+		return nil, ErrWeekApprovalNotFound
+	}
+
+	if wa.Status != models.WeekApprovalSubmitted {
+		return nil, ErrWeekNotSubmitted
+	}
+
+	now := time.Now()
+	wa.Status = models.WeekApprovalApproved
+	wa.ApprovedBy = &approverID
+	wa.ApprovedAt = &now
+	wa.UpdatedAt = now
+
+	if err := s.weekApprovalRepo.Upsert(ctx, wa); err != nil {
+		return nil, err
+	}
+
+	slog.Info("hr.time.week_approved",
+		"employee_id", employeeID,
+		"approver_id", approverID,
+		"week_start", weekStart.Format("2006-01-02"),
+	)
+	return wa, nil
+}
+
+// RejectWeek rejects a submitted week with a reason.
+func (s *Service) RejectWeek(ctx context.Context, tenantID, approverID, employeeID uuid.UUID, weekStart time.Time, reason string) (*models.HRWeekApproval, error) {
+	for weekStart.Weekday() != time.Monday {
+		weekStart = weekStart.AddDate(0, 0, -1)
+	}
+	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
+
+	wa, waErr := s.weekApprovalRepo.GetByEmployeeWeek(ctx, tenantID, employeeID, weekStart)
+	if waErr != nil {
+		return nil, ErrWeekApprovalNotFound
+	}
+
+	if wa.Status != models.WeekApprovalSubmitted {
+		return nil, ErrWeekNotSubmitted
+	}
+
+	now := time.Now()
+	wa.Status = models.WeekApprovalRejected
+	wa.RejectionReason = &reason
+	wa.UpdatedAt = now
+
+	if err := s.weekApprovalRepo.Upsert(ctx, wa); err != nil {
+		return nil, err
+	}
+
+	slog.Info("hr.time.week_rejected",
+		"employee_id", employeeID,
+		"approver_id", approverID,
+		"week_start", weekStart.Format("2006-01-02"),
+	)
+	return wa, nil
+}
+
+// ============================================================================
+// Time Categories
+// ============================================================================
+
+func (s *Service) ListTimeCategories(ctx context.Context, tenantID uuid.UUID) ([]*models.HRTimeCategory, error) {
+	return s.categoryRepo.List(ctx, tenantID)
+}
+
+func (s *Service) CreateTimeCategory(ctx context.Context, tenantID uuid.UUID, name, color, icon string, isDefault bool) (*models.HRTimeCategory, error) {
+	now := time.Now()
+	cat := &models.HRTimeCategory{
+		ID:        uuid.New(),
+		TenantID:  tenantID,
+		Name:      name,
+		Color:     color,
+		Icon:      icon,
+		IsDefault: isDefault,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	if err := s.categoryRepo.Create(ctx, cat); err != nil {
+		return nil, err
+	}
+	slog.Info("hr.time.category_created", "category_id", cat.ID, "name", name)
+	return cat, nil
+}
+
+func (s *Service) UpdateTimeCategory(ctx context.Context, id uuid.UUID, name, color, icon string, isDefault bool) (*models.HRTimeCategory, error) {
+	cat, err := s.categoryRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, ErrTimeCategoryNotFound
+	}
+	cat.Name = name
+	cat.Color = color
+	cat.Icon = icon
+	cat.IsDefault = isDefault
+	cat.UpdatedAt = time.Now()
+	if err := s.categoryRepo.Update(ctx, cat); err != nil {
+		return nil, err
+	}
+	return cat, nil
+}
+
+func (s *Service) DeleteTimeCategory(ctx context.Context, id uuid.UUID) error {
+	return s.categoryRepo.Delete(ctx, id)
+}
+
+// ============================================================================
+// Time Templates
+// ============================================================================
+
+func (s *Service) ListTimeTemplates(ctx context.Context, tenantID uuid.UUID) ([]*models.HRTimeTemplate, error) {
+	return s.templateRepo.List(ctx, tenantID)
+}
+
+func (s *Service) CreateTimeTemplate(ctx context.Context, tenantID uuid.UUID, name string, categoryID *uuid.UUID, description string, estimatedMinutes int) (*models.HRTimeTemplate, error) {
+	now := time.Now()
+	t := &models.HRTimeTemplate{
+		ID:               uuid.New(),
+		TenantID:         tenantID,
+		Name:             name,
+		CategoryID:       categoryID,
+		Description:      description,
+		EstimatedMinutes: estimatedMinutes,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+	}
+	if err := s.templateRepo.Create(ctx, t); err != nil {
+		return nil, err
+	}
+	slog.Info("hr.time.template_created", "template_id", t.ID, "name", name)
+	return t, nil
+}
+
+func (s *Service) DeleteTimeTemplate(ctx context.Context, id uuid.UUID) error {
+	return s.templateRepo.Delete(ctx, id)
+}
+
+// ============================================================================
+// Time Projects
+// ============================================================================
+
+func (s *Service) ListTimeProjects(ctx context.Context, tenantID uuid.UUID) ([]*models.HRTimeProject, error) {
+	return s.projectRepo.List(ctx, tenantID)
+}
+
+func (s *Service) CreateTimeProject(ctx context.Context, tenantID uuid.UUID, name, customerName, color string, billableDefault bool) (*models.HRTimeProject, error) {
+	now := time.Now()
+	p := &models.HRTimeProject{
+		ID:              uuid.New(),
+		TenantID:        tenantID,
+		Name:            name,
+		CustomerName:    customerName,
+		Color:           color,
+		BillableDefault: billableDefault,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}
+	if err := s.projectRepo.Create(ctx, p); err != nil {
+		return nil, err
+	}
+	slog.Info("hr.time.project_created", "project_id", p.ID, "name", name)
+	return p, nil
 }
 
 // GetWorkTimeStatus returns a convenience status for the header quick-toggle button.

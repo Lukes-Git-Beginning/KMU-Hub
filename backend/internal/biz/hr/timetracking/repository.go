@@ -82,3 +82,86 @@ type WorkTimeStatus struct {
 	TodayTotalMinutes int
 	ArbZGSeverity     string
 }
+
+// TimeCategoryRepository defines CRUD for hr_time_categories.
+type TimeCategoryRepository interface {
+	List(ctx context.Context, tenantID uuid.UUID) ([]*models.HRTimeCategory, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*models.HRTimeCategory, error)
+	Create(ctx context.Context, cat *models.HRTimeCategory) error
+	Update(ctx context.Context, cat *models.HRTimeCategory) error
+	Delete(ctx context.Context, id uuid.UUID) error
+}
+
+// TimeTemplateRepository defines CRUD for hr_time_templates.
+type TimeTemplateRepository interface {
+	List(ctx context.Context, tenantID uuid.UUID) ([]*models.HRTimeTemplate, error)
+	Create(ctx context.Context, t *models.HRTimeTemplate) error
+	Delete(ctx context.Context, id uuid.UUID) error
+}
+
+// TimeProjectRepository defines CRUD for hr_time_projects.
+type TimeProjectRepository interface {
+	List(ctx context.Context, tenantID uuid.UUID) ([]*models.HRTimeProject, error)
+	Create(ctx context.Context, p *models.HRTimeProject) error
+}
+
+// WeekApprovalRepository defines lifecycle for hr_week_approvals.
+type WeekApprovalRepository interface {
+	GetByEmployeeWeek(ctx context.Context, tenantID, employeeID uuid.UUID, weekStart time.Time) (*models.HRWeekApproval, error)
+	Upsert(ctx context.Context, w *models.HRWeekApproval) error
+	ListByWeek(ctx context.Context, tenantID uuid.UUID, weekStart time.Time) ([]*models.HRWeekApproval, error)
+}
+
+// ManualEntryInput contains data for creating a manual work time entry.
+type ManualEntryInput struct {
+	TenantID        uuid.UUID
+	EmployeeID      uuid.UUID
+	ClockIn         time.Time
+	ClockOut        time.Time
+	BreakMinutes    int
+	ProjectID       *uuid.UUID
+	CategoryID      *uuid.UUID
+	Activity        string
+	Note            string
+	Billable        bool
+	LocationLat     *float64
+	LocationLng     *float64
+	LocationAddress string
+	IdempotencyKey  string
+}
+
+// TeamTimeEntry holds aggregated time info for one employee for a week.
+type TeamTimeEntry struct {
+	EmployeeID    uuid.UUID
+	Name          string
+	Department    string
+	WeekMinutes   int
+	TargetMinutes int
+	OvertimeMinutes int
+	ClockedIn     bool
+	WeekStatus    string
+}
+
+// DayTrendEntry is one day of analytics data.
+type DayTrendEntry struct {
+	Date          time.Time
+	NetMinutes    int
+	TargetMinutes int
+}
+
+// ProjectBreakdown is time grouped by project.
+type ProjectBreakdown struct {
+	ProjectID   uuid.UUID
+	ProjectName string
+	Minutes     int
+}
+
+// TimeAnalytics contains aggregated analytics for a period.
+type TimeAnalytics struct {
+	TotalMinutes    int
+	TargetMinutes   int
+	OvertimeMinutes int
+	AvgDailyMinutes int
+	DayTrend        []DayTrendEntry
+	ByProject       []ProjectBreakdown
+}

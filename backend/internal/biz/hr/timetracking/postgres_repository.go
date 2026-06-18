@@ -35,18 +35,21 @@ func (r *PostgresWorkTimeRepo) Create(ctx context.Context, entry *models.HRWorkT
 			break_minutes, auto_break_deducted, net_work_minutes,
 			status, is_correction, original_entry_id,
 			correction_reason, correction_approved_by, correction_approved_at,
+			category_id, location_lat, location_lng, location_address,
 			created_at, updated_at
 		) VALUES (
 			$1, $2, $3, $4, $5,
 			$6, $7, $8,
 			$9, $10, $11,
 			$12, $13, $14,
-			$15, $16
+			$15, $16, $17, $18,
+			$19, $20
 		)`,
 		entry.ID, entry.TenantID, entry.EmployeeID, entry.ClockIn, entry.ClockOut,
 		entry.BreakMinutes, entry.AutoBreakDeducted, entry.NetWorkMinutes,
 		entry.Status, entry.IsCorrection, entry.OriginalEntryID,
 		entry.CorrectionReason, entry.CorrectionApprovedBy, entry.CorrectionApprovedAt,
+		entry.CategoryID, entry.LocationLat, entry.LocationLng, entry.LocationAddress,
 		entry.CreatedAt, entry.UpdatedAt,
 	)
 	return err
