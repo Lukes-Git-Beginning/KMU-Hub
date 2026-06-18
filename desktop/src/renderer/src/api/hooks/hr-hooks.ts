@@ -34,6 +34,9 @@ import type {
   AbsenceCalendarParams,
   ArbZGComplianceResult,
   HRSettings,
+  CreateTimeCategoryInput,
+  UpdateTimeCategoryInput,
+  CreateTimeTemplateInput,
 } from '../hr-types'
 
 // ---------------------------------------------------------------------------
@@ -65,6 +68,8 @@ export const hrKeys = {
   timeAnalytics: (range: string) => ['hr', 'time', 'analytics', range] as const,
   teamTime: (weekStart: string) => ['hr', 'time', 'team', weekStart] as const,
   myWeekStatus: (weekStart: string) => ['hr', 'time', 'weeks', 'status', weekStart] as const,
+  timeCategories: () => ['hr', 'time', 'categories'] as const,
+  timeTemplates: () => ['hr', 'time', 'templates'] as const,
 
   // Absences
   absenceCalendar: (params: AbsenceCalendarParams) =>
@@ -638,6 +643,122 @@ export function useUpdateHRSettings() {
     },
     onError: (err: Error) => {
       toast.error(err.message || i18next.t('api.hr.settings.error.update'))
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Time Category hooks
+// ---------------------------------------------------------------------------
+
+export function useTimeCategories() {
+  return useQuery({
+    queryKey: hrKeys.timeCategories(),
+    queryFn: () => hrTimeApi.listCategories(),
+    staleTime: 5 * 60 * 1000,
+    select: (data) => data.categories,
+  })
+}
+
+export function useCreateTimeCategory() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: CreateTimeCategoryInput) => hrTimeApi.createCategory(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: hrKeys.timeCategories() })
+      toast.success(i18next.t('api.hr.time.categoryCreated'))
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || i18next.t('api.hr.time.error.categoryCreate'))
+    },
+  })
+}
+
+export function useUpdateTimeCategory() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateTimeCategoryInput }) =>
+      hrTimeApi.updateCategory(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: hrKeys.timeCategories() })
+      toast.success(i18next.t('api.hr.time.categoryUpdated'))
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || i18next.t('api.hr.time.error.categoryUpdate'))
+    },
+  })
+}
+
+export function useDeleteTimeCategory() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => hrTimeApi.deleteCategory(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: hrKeys.timeCategories() })
+      toast.success(i18next.t('api.hr.time.categoryDeleted'))
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || i18next.t('api.hr.time.error.categoryDelete'))
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Time Template hooks
+// ---------------------------------------------------------------------------
+
+export function useTimeTemplates() {
+  return useQuery({
+    queryKey: hrKeys.timeTemplates(),
+    queryFn: () => hrTimeApi.listTemplates(),
+    staleTime: 5 * 60 * 1000,
+    select: (data) => data.templates,
+  })
+}
+
+export function useCreateTimeTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: CreateTimeTemplateInput) => hrTimeApi.createTemplate(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: hrKeys.timeTemplates() })
+      toast.success(i18next.t('api.hr.time.templateCreated'))
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || i18next.t('api.hr.time.error.templateCreate'))
+    },
+  })
+}
+
+export function useDeleteTimeTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => hrTimeApi.deleteTemplate(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: hrKeys.timeTemplates() })
+      toast.success(i18next.t('api.hr.time.templateDeleted'))
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || i18next.t('api.hr.time.error.templateDelete'))
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Delete time entry hook
+// ---------------------------------------------------------------------------
+
+export function useDeleteTimeEntry() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => hrTimeApi.deleteEntry(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['hr', 'time', 'entries'] })
+      qc.invalidateQueries({ queryKey: ['hr', 'time', 'summary'] })
+      toast.success(i18next.t('api.hr.time.entryDeleted'))
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || i18next.t('api.hr.time.error.entryDelete'))
     },
   })
 }

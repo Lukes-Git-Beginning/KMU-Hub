@@ -4,8 +4,11 @@ import { Plus, Pencil, Trash2, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/cn'
-import { useTimeTrackingStore } from '@/stores/timetracking'
-import { toast } from 'sonner'
+import {
+  useTimeCategories, useCreateTimeCategory, useUpdateTimeCategory, useDeleteTimeCategory,
+  useTimeTemplates, useCreateTimeTemplate, useDeleteTimeTemplate,
+} from '@/api/hooks/hr-hooks'
+import type { CreateTimeCategoryInput, CreateTimeTemplateInput } from '@/api/hr-types'
 
 const COLOR_PRESETS = [
   '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b',
@@ -15,15 +18,13 @@ const COLOR_PRESETS = [
 
 export default function CategoriesView() {
   const { t } = useTranslation()
-  const categories = useTimeTrackingStore((s) => s.categories)
-  const templates = useTimeTrackingStore((s) => s.templates)
-  const targets = useTimeTrackingStore((s) => s.targets)
-  const addCategory = useTimeTrackingStore((s) => s.addCategory)
-  const updateCategory = useTimeTrackingStore((s) => s.updateCategory)
-  const deleteCategory = useTimeTrackingStore((s) => s.deleteCategory)
-  const addTemplate = useTimeTrackingStore((s) => s.addTemplate)
-  const deleteTemplate = useTimeTrackingStore((s) => s.deleteTemplate)
-  const updateTargets = useTimeTrackingStore((s) => s.updateTargets)
+  const categories = useTimeCategories().data ?? []
+  const templates = useTimeTemplates().data ?? []
+  const createCategory = useCreateTimeCategory()
+  const updateCategory = useUpdateTimeCategory()
+  const deleteCategory = useDeleteTimeCategory()
+  const createTemplate = useCreateTimeTemplate()
+  const deleteTemplate = useDeleteTimeTemplate()
 
   const [showAddCat, setShowAddCat] = useState(false)
   const [newCatName, setNewCatName] = useState('')
@@ -37,47 +38,33 @@ export default function CategoriesView() {
   const [newTplDesc, setNewTplDesc] = useState('')
   const [newTplMins, setNewTplMins] = useState('30')
 
-  const [dailyHours, setDailyHours] = useState(String(targets.dailyHours))
-  const [weeklyHours, setWeeklyHours] = useState(String(targets.weeklyHours))
-
   const handleAddCategory = () => {
     if (!newCatName.trim()) return
-    addCategory({ name: newCatName, color: newCatColor, icon: 'Tag', isDefault: false })
-    setNewCatName('')
-    setShowAddCat(false)
-    toast.success(t('profil.zeiterfassung.categories.categoryAdded'))
+    createCategory.mutate(
+      { name: newCatName, color: newCatColor, icon: 'Tag' } satisfies CreateTimeCategoryInput,
+      { onSuccess: () => { setNewCatName(''); setShowAddCat(false) } },
+    )
   }
 
   const handleSaveEdit = (id: string) => {
     if (!editName.trim()) return
-    updateCategory(id, { name: editName })
-    setEditingCat(null)
-    toast.success(t('profil.zeiterfassung.categories.categoryUpdated'))
+    updateCategory.mutate(
+      { id, data: { name: editName } },
+      { onSuccess: () => setEditingCat(null) },
+    )
   }
 
   const handleAddTemplate = () => {
     if (!newTplName.trim() || !newTplCatId) return
-    addTemplate({
-      name: newTplName,
-      categoryId: newTplCatId,
-      description: newTplDesc,
-      estimatedMinutes: parseInt(newTplMins) || 30,
-    })
-    setNewTplName('')
-    setNewTplDesc('')
-    setShowAddTpl(false)
-    toast.success(t('profil.zeiterfassung.categories.templateAdded'))
-  }
-
-  const handleSaveTargets = () => {
-    const dh = parseFloat(dailyHours)
-    const wh = parseFloat(weeklyHours)
-    if (isNaN(dh) || isNaN(wh) || dh <= 0 || wh <= 0) {
-      toast.error(t('profil.zeiterfassung.categories.invalidNumbers'))
-      return
-    }
-    updateTargets({ dailyHours: dh, weeklyHours: wh, monthlyHours: Math.round(wh * 4.33) })
-    toast.success(t('profil.zeiterfassung.categories.targetsUpdated'))
+    createTemplate.mutate(
+      {
+        name: newTplName,
+        categoryId: newTplCatId,
+        description: newTplDesc,
+        estimatedMinutes: parseInt(newTplMins) || 30,
+      } satisfies CreateTimeTemplateInput,
+      { onSuccess: () => { setNewTplName(''); setNewTplDesc(''); setShowAddTpl(false) } },
+    )
   }
 
   return (
@@ -134,7 +121,7 @@ export default function CategoriesView() {
                     </button>
                     {!cat.isDefault && (
                       <button
-                        onClick={() => { deleteCategory(cat.id); toast.success(t('profil.zeiterfassung.categories.categoryDeleted')) }}
+                        onClick={() => deleteCategory.mutate(cat.id)}
                         className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -204,7 +191,7 @@ export default function CategoriesView() {
                   </p>
                 </div>
                 <button
-                  onClick={() => { deleteTemplate(tpl.id); toast.success(t('profil.zeiterfassung.categories.templateDeleted')) }}
+                  onClick={() => deleteTemplate.mutate(tpl.id)}
                   className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -250,36 +237,6 @@ export default function CategoriesView() {
               </div>
             </div>
           )}
-        </div>
-      </section>
-
-      {/* Work Targets */}
-      <section>
-        <h3 className="text-sm font-semibold text-foreground mb-4">{t('profil.zeiterfassung.categories.workTargets')}</h3>
-        <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">{t('profil.zeiterfassung.categories.hoursPerDay')}</label>
-              <Input
-                type="number"
-                step="0.1"
-                value={dailyHours}
-                onChange={(e) => setDailyHours(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">{t('profil.zeiterfassung.categories.hoursPerWeek')}</label>
-              <Input
-                type="number"
-                step="0.5"
-                value={weeklyHours}
-                onChange={(e) => setWeeklyHours(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="flex justify-end">
-            <Button size="sm" onClick={handleSaveTargets}>{t('common.save')}</Button>
-          </div>
         </div>
       </section>
     </div>

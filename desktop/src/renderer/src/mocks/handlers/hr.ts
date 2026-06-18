@@ -141,6 +141,22 @@ let teamRows = [
 ]
 let myWeekStatus: { status: string; submittedAt?: string; approvedBy?: string } = { status: 'open' }
 
+let mockCategories = [
+  { id: 'cat-dev', name: 'Entwicklung', color: '#3b82f6', icon: 'Code', is_default: true },
+  { id: 'cat-meeting', name: 'Meeting', color: '#8b5cf6', icon: 'Users', is_default: true },
+  { id: 'cat-client', name: 'Kundengespräch', color: '#f59e0b', icon: 'Phone', is_default: true },
+  { id: 'cat-admin', name: 'Admin', color: '#6b7280', icon: 'FileText', is_default: true },
+  { id: 'cat-break', name: 'Pause', color: '#94a3b8', icon: 'Coffee', is_default: true },
+  { id: 'cat-design', name: 'Design', color: '#ec4899', icon: 'Palette', is_default: true },
+]
+
+let mockTemplates = [
+  { id: 'tpl-1', name: 'Sprint Planning', categoryId: 'cat-meeting', description: 'Sprint Planning Session', estimatedMinutes: 60 },
+  { id: 'tpl-2', name: 'Code Review', categoryId: 'cat-dev', description: 'Pull Request Review', estimatedMinutes: 30 },
+  { id: 'tpl-3', name: 'Daily Standup', categoryId: 'cat-meeting', description: 'Tägliches Team-Meeting', estimatedMinutes: 15 },
+  { id: 'tpl-4', name: 'Kundendemo', categoryId: 'cat-client', description: 'Produkt-Demo für Kunden', estimatedMinutes: 45 },
+]
+
 // Live clock state (in-memory) — stateful so clock-in/out/break actually work
 // in the demo. Starts clocked-in for a rich initial view.
 let workStatus: {
@@ -621,5 +637,46 @@ export const hrHandlers = [
         overtime_enabled: true,
       },
     })
+  }),
+
+  // ── Time Categories ─────────────────────────────────────────────────────────
+  http.get(`${API}/api/v1/hr/time/categories`, () => {
+    return HttpResponse.json({ categories: mockCategories })
+  }),
+  http.post(`${API}/api/v1/hr/time/categories`, async ({ request }) => {
+    const body = (await request.json()) as { name: string; color?: string; icon?: string }
+    const cat = { id: `cat-${Date.now()}`, name: body.name, color: body.color ?? '#6b7280', icon: body.icon ?? 'Tag', is_default: false }
+    mockCategories = [...mockCategories, cat]
+    return HttpResponse.json({ category: cat }, { status: 201 })
+  }),
+  http.put(`${API}/api/v1/hr/time/categories/:id`, async ({ params, request }) => {
+    const body = (await request.json()) as { name?: string; color?: string }
+    mockCategories = mockCategories.map((c) => c.id === params.id ? { ...c, ...body } : c)
+    return HttpResponse.json({ category: mockCategories.find((c) => c.id === params.id) })
+  }),
+  http.delete(`${API}/api/v1/hr/time/categories/:id`, ({ params }) => {
+    mockCategories = mockCategories.filter((c) => c.id !== params.id)
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  // ── Time Templates ───────────────────────────────────────────────────────────
+  http.get(`${API}/api/v1/hr/time/templates`, () => {
+    return HttpResponse.json({ templates: mockTemplates })
+  }),
+  http.post(`${API}/api/v1/hr/time/templates`, async ({ request }) => {
+    const body = (await request.json()) as { name: string; categoryId?: string; description?: string; estimatedMinutes?: number }
+    const tpl = { id: `tpl-${Date.now()}`, name: body.name, categoryId: body.categoryId ?? '', description: body.description ?? '', estimatedMinutes: body.estimatedMinutes ?? 30 }
+    mockTemplates = [...mockTemplates, tpl]
+    return HttpResponse.json({ template: tpl }, { status: 201 })
+  }),
+  http.delete(`${API}/api/v1/hr/time/templates/:id`, ({ params }) => {
+    mockTemplates = mockTemplates.filter((t) => t.id !== params.id)
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  // ── Delete entry (soft delete) ───────────────────────────────────────────────
+  http.delete(`${API}/api/v1/hr/time/entries/:id`, ({ params }) => {
+    mockEntries = mockEntries.filter((e) => e.id !== params.id)
+    return new HttpResponse(null, { status: 204 })
   }),
 ]

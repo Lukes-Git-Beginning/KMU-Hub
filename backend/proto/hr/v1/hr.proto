@@ -46,6 +46,37 @@ service HRService {
   // ==================== HR Settings ====================
   rpc GetHRSettings(GetHRSettingsReq) returns (GetHRSettingsResp);
   rpc UpdateHRSettings(UpdateHRSettingsReq) returns (UpdateHRSettingsResp);
+
+  // ==================== Time Categories ====================
+  rpc ListTimeCategories(ListTimeCategoriesReq) returns (ListTimeCategoriesResp);
+  rpc CreateTimeCategory(CreateTimeCategoryReq) returns (CreateTimeCategoryResp);
+  rpc UpdateTimeCategory(UpdateTimeCategoryReq) returns (UpdateTimeCategoryResp);
+  rpc DeleteTimeCategory(DeleteTimeCategoryReq) returns (DeleteTimeCategoryResp);
+
+  // ==================== Time Templates ====================
+  rpc ListTimeTemplates(ListTimeTemplatesReq) returns (ListTimeTemplatesResp);
+  rpc CreateTimeTemplate(CreateTimeTemplateReq) returns (CreateTimeTemplateResp);
+  rpc DeleteTimeTemplate(DeleteTimeTemplateReq) returns (DeleteTimeTemplateResp);
+
+  // ==================== Time Projects ====================
+  rpc ListTimeProjects(ListTimeProjectsReq) returns (ListTimeProjectsResp);
+
+  // ==================== Time Balance / Analytics / Team ====================
+  rpc GetTimeBalance(GetTimeBalanceReq) returns (GetTimeBalanceResp);
+  rpc GetTimeAnalytics(GetTimeAnalyticsReq) returns (GetTimeAnalyticsResp);
+  rpc GetTeamTime(GetTeamTimeReq) returns (GetTeamTimeResp);
+
+  // ==================== Week Approvals ====================
+  rpc GetMyWeekStatus(GetMyWeekStatusReq) returns (GetMyWeekStatusResp);
+  rpc SubmitWeek(SubmitWeekReq) returns (SubmitWeekResp);
+  rpc ApproveWeek(ApproveWeekReq) returns (ApproveWeekResp);
+  rpc RejectWeek(RejectWeekReq) returns (RejectWeekResp);
+
+  // ==================== Entry Delete ====================
+  rpc DeleteWorkTimeEntry(DeleteWorkTimeEntryReq) returns (DeleteWorkTimeEntryResp);
+
+  // ==================== Work Time Status ====================
+  rpc GetWorkTimeStatus(GetWorkTimeStatusReq) returns (GetWorkTimeStatusResp);
 }
 
 // ============================================================================
@@ -659,3 +690,162 @@ message CreateEmployeeReq {
 message CreateEmployeeResp {
   EmployeeProfile employee = 1;
 }
+
+// ============================================================================
+// Time Categories
+// ============================================================================
+
+message TimeCategory {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  string color = 4;
+  string icon = 5;
+  bool is_default = 6;
+}
+message ListTimeCategoriesReq { string tenant_id = 1; }
+message ListTimeCategoriesResp { repeated TimeCategory categories = 1; }
+message CreateTimeCategoryReq { string tenant_id = 1; string name = 2; string color = 3; string icon = 4; }
+message CreateTimeCategoryResp { TimeCategory category = 1; }
+message UpdateTimeCategoryReq { string tenant_id = 1; string id = 2; string name = 3; string color = 4; }
+message UpdateTimeCategoryResp { TimeCategory category = 1; }
+message DeleteTimeCategoryReq { string tenant_id = 1; string id = 2; }
+message DeleteTimeCategoryResp {}
+
+// ============================================================================
+// Time Templates
+// ============================================================================
+
+message TimeTemplate {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  string category_id = 4;
+  string description = 5;
+  int32 estimated_minutes = 6;
+}
+message ListTimeTemplatesReq { string tenant_id = 1; }
+message ListTimeTemplatesResp { repeated TimeTemplate templates = 1; }
+message CreateTimeTemplateReq { string tenant_id = 1; string name = 2; string category_id = 3; string description = 4; int32 estimated_minutes = 5; }
+message CreateTimeTemplateResp { TimeTemplate template = 1; }
+message DeleteTimeTemplateReq { string tenant_id = 1; string id = 2; }
+message DeleteTimeTemplateResp {}
+
+// ============================================================================
+// Time Projects
+// ============================================================================
+
+message TimeProject {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  string customer_name = 4;
+  string color = 5;
+  bool billable_default = 6;
+}
+message ListTimeProjectsReq { string tenant_id = 1; }
+message ListTimeProjectsResp { repeated TimeProject projects = 1; }
+
+// ============================================================================
+// Time Balance
+// ============================================================================
+
+message TimeBalance {
+  int32 balance_minutes = 1;
+  string as_of = 2;
+  string period_start = 3;
+  int32 target_weekly_minutes = 4;
+}
+message GetTimeBalanceReq { string tenant_id = 1; string user_id = 2; }
+message GetTimeBalanceResp { TimeBalance balance = 1; }
+
+// ============================================================================
+// Time Analytics
+// ============================================================================
+
+message DayTrendPoint {
+  string date = 1;
+  int32 net_minutes = 2;
+  int32 billable_minutes = 3;
+}
+message ProjectTimePoint {
+  string project_id = 1;
+  string name = 2;
+  string customer_name = 3;
+  string color = 4;
+  int32 minutes = 5;
+}
+message TimeAnalytics {
+  string range = 1;
+  string period_start = 2;
+  string period_end = 3;
+  int32 total_net_minutes = 4;
+  int32 billable_minutes = 5;
+  int32 non_billable_minutes = 6;
+  int32 overtime_minutes = 7;
+  int32 target_minutes = 8;
+  int32 worked_days = 9;
+  repeated DayTrendPoint day_trend = 10;
+  repeated ProjectTimePoint by_project = 11;
+}
+message GetTimeAnalyticsReq { string tenant_id = 1; string user_id = 2; string range = 3; }
+message GetTimeAnalyticsResp { TimeAnalytics analytics = 1; }
+
+// ============================================================================
+// Team Time
+// ============================================================================
+
+message TeamTimeRow {
+  string employee_id = 1;
+  string name = 2;
+  string department = 3;
+  int32 week_minutes = 4;
+  int32 target_minutes = 5;
+  int32 overtime_minutes = 6;
+  bool clocked_in = 7;
+  string week_status = 8;
+}
+message GetTeamTimeReq { string tenant_id = 1; string week_start = 2; }
+message GetTeamTimeResp { repeated TeamTimeRow rows = 1; }
+
+// ============================================================================
+// Week Status
+// ============================================================================
+
+message WeekStatus {
+  string week_start = 1;
+  string status = 2;
+  string submitted_at = 3;
+  string approved_by = 4;
+  string rejection_reason = 5;
+}
+message GetMyWeekStatusReq { string tenant_id = 1; string user_id = 2; string week_start = 3; }
+message GetMyWeekStatusResp { WeekStatus week_status = 1; }
+message SubmitWeekReq { string tenant_id = 1; string user_id = 2; string week_start = 3; }
+message SubmitWeekResp { WeekStatus week_status = 1; }
+message ApproveWeekReq { string tenant_id = 1; string employee_id = 2; string week_start = 3; }
+message ApproveWeekResp { bool ok = 1; }
+message RejectWeekReq { string tenant_id = 1; string employee_id = 2; string week_start = 3; string reason = 4; }
+message RejectWeekResp { bool ok = 1; }
+
+// ============================================================================
+// Delete Work Time Entry
+// ============================================================================
+
+message DeleteWorkTimeEntryReq { string tenant_id = 1; string user_id = 2; string id = 3; }
+message DeleteWorkTimeEntryResp {}
+
+// ============================================================================
+// Get Work Time Status
+// ============================================================================
+
+message WorkTimeStatus {
+  bool is_clocked_in = 1;
+  bool is_on_break = 2;
+  string current_shift_start = 3;
+  string current_break_start = 4;
+  int32 today_total_minutes = 5;
+  string arbzg_severity = 6;
+}
+message GetWorkTimeStatusReq { string tenant_id = 1; string user_id = 2; }
+message GetWorkTimeStatusResp { WorkTimeStatus status = 1; }

@@ -9165,5 +9165,17 @@
   "helpdesk.ticket.mergeError": "Zusammenführung fehlgeschlagen.",
   "helpdesk.cannedResponses.saveError": "Vorlage konnte nicht gespeichert werden.",
   "helpdesk.cannedResponses.deleteError": "Vorlage konnte nicht gelöscht werden.",
-  "schichten.delete.errorToast": "{name} konnte nicht gelöscht werden."
+  "schichten.delete.errorToast": "{name} konnte nicht gelöscht werden.",
+  "api.hr.time.categoryCreated": "Kategorie erstellt",
+  "api.hr.time.categoryUpdated": "Kategorie aktualisiert",
+  "api.hr.time.categoryDeleted": "Kategorie gelöscht",
+  "api.hr.time.templateCreated": "Vorlage erstellt",
+  "api.hr.time.templateDeleted": "Vorlage gelöscht",
+  "api.hr.time.entryDeleted": "Eintrag gelöscht",
+  "api.hr.time.error.categoryCreate": "Kategorie konnte nicht erstellt werden",
+  "api.hr.time.error.categoryUpdate": "Kategorie konnte nicht aktualisiert werden",
+  "api.hr.time.error.categoryDelete": "Kategorie konnte nicht gelöscht werden",
+  "api.hr.time.error.templateCreate": "Vorlage konnte nicht erstellt werden",
+  "api.hr.time.error.templateDelete": "Vorlage konnte nicht gelöscht werden",
+  "api.hr.time.error.entryDelete": "Eintrag konnte nicht gelöscht werden"
 }

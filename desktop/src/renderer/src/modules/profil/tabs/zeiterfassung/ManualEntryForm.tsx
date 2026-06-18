@@ -8,9 +8,9 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
-import { useTimeTrackingStore } from '@/stores/timetracking'
+import { useTimeCategories, useCreateTimeEntry } from '@/api/hooks/hr-hooks'
+import { adaptFEEntryToWire } from '@/api/hr-client'
 import { minutesBetween, todayStr } from './time-utils'
-import { toast } from 'sonner'
 
 interface ManualEntryFormProps {
   open: boolean
@@ -19,8 +19,8 @@ interface ManualEntryFormProps {
 
 export default function ManualEntryForm({ open, onOpenChange }: ManualEntryFormProps) {
   const { t } = useTranslation()
-  const categories = useTimeTrackingStore((s) => s.categories)
-  const addManualEntry = useTimeTrackingStore((s) => s.addManualEntry)
+  const categories = useTimeCategories().data ?? []
+  const createEntry = useCreateTimeEntry()
 
   const [date, setDate] = useState(todayStr())
   const [startTime, setStartTime] = useState('09:00')
@@ -29,36 +29,22 @@ export default function ManualEntryForm({ open, onOpenChange }: ManualEntryFormP
   const [description, setDescription] = useState('')
 
   const duration = minutesBetween(startTime, endTime)
-  const isValid = date && startTime && endTime && categoryId && duration > 0
+  const isValid = date && startTime && endTime && duration > 0
 
   const handleSubmit = () => {
-    if (!isValid) {
-      toast.error(t('profil.zeiterfassung.errorFillAllFields'))
-      return
-    }
-    if (date > todayStr()) {
-      toast.error(t('profil.zeiterfassung.manual.noFutureDate'))
-      return
-    }
+    if (!isValid) return
+    if (date > todayStr()) return
 
-    addManualEntry({
-      categoryId,
-      description,
-      date,
-      startTime,
-      endTime,
-      durationMinutes: duration,
-      projectId: null,
-      taskId: null,
-      location: null,
+    const input = adaptFEEntryToWire(date, startTime, endTime, 0, { note: description })
+    createEntry.mutate(input, {
+      onSuccess: () => {
+        onOpenChange(false)
+        setDescription('')
+        setStartTime('09:00')
+        setEndTime('10:00')
+        setDate(todayStr())
+      },
     })
-
-    toast.success(t('profil.zeiterfassung.manual.entryAdded'))
-    onOpenChange(false)
-    setDescription('')
-    setStartTime('09:00')
-    setEndTime('10:00')
-    setDate(todayStr())
   }
 
   return (
@@ -142,7 +128,7 @@ export default function ManualEntryForm({ open, onOpenChange }: ManualEntryFormP
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
-          <Button onClick={handleSubmit} disabled={!isValid}>{t('profil.zeiterfassung.manual.createEntry')}</Button>
+          <Button onClick={handleSubmit} disabled={!isValid || createEntry.isPending}>{t('profil.zeiterfassung.manual.createEntry')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

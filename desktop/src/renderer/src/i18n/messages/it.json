@@ -9131,5 +9131,17 @@
   "helpdesk.ticket.mergeError": "Unione fallita.",
   "helpdesk.cannedResponses.saveError": "Impossibile salvare il modello.",
   "helpdesk.cannedResponses.deleteError": "Impossibile eliminare il modello.",
-  "schichten.delete.errorToast": "Impossibile eliminare {name}."
+  "schichten.delete.errorToast": "Impossibile eliminare {name}.",
+  "api.hr.time.categoryCreated": "Categoria creata",
+  "api.hr.time.categoryUpdated": "Categoria aggiornata",
+  "api.hr.time.categoryDeleted": "Categoria eliminata",
+  "api.hr.time.templateCreated": "Modello creato",
+  "api.hr.time.templateDeleted": "Modello eliminato",
+  "api.hr.time.entryDeleted": "Voce eliminata",
+  "api.hr.time.error.categoryCreate": "Impossibile creare la categoria",
+  "api.hr.time.error.categoryUpdate": "Impossibile aggiornare la categoria",
+  "api.hr.time.error.categoryDelete": "Impossibile eliminare la categoria",
+  "api.hr.time.error.templateCreate": "Impossibile creare il modello",
+  "api.hr.time.error.templateDelete": "Impossibile eliminare il modello",
+  "api.hr.time.error.entryDelete": "Impossibile eliminare la voce"
 }

@@ -422,3 +422,41 @@ export interface AbsenceCalendarParams {
   end_date: string
   department?: string
 }
+
+// ---------------------------------------------------------------------------
+// Time categories and templates (new in migration 000178/000179)
+// ---------------------------------------------------------------------------
+
+export interface TimeCategory {
+  id: string
+  name: string
+  color: string
+  icon: string
+  isDefault: boolean
+}
+
+export interface TimeTemplate {
+  id: string
+  name: string
+  categoryId: string
+  description: string
+  estimatedMinutes: number
+}
+
+export interface CreateTimeCategoryInput {
+  name: string
+  color: string
+  icon?: string
+}
+
+export interface UpdateTimeCategoryInput {
+  name?: string
+  color?: string
+}
+
+export interface CreateTimeTemplateInput {
+  name: string
+  categoryId: string
+  description?: string
+  estimatedMinutes: number
+}

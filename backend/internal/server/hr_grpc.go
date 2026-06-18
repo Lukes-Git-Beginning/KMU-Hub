@@ -1383,5 +1383,118 @@ func mapHRError(err error) error {
 	}
 }
 
+// ============================================================================
+// Time Category RPCs (stubs — Phase B MSW-only)
+// ============================================================================
+
+func (s *HRGRPCServer) ListTimeCategories(ctx context.Context, req *hrv1.ListTimeCategoriesReq) (*hrv1.ListTimeCategoriesResp, error) {
+	slog.Warn("ListTimeCategories not implemented")
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (s *HRGRPCServer) CreateTimeCategory(ctx context.Context, req *hrv1.CreateTimeCategoryReq) (*hrv1.CreateTimeCategoryResp, error) {
+	slog.Warn("CreateTimeCategory not implemented")
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (s *HRGRPCServer) UpdateTimeCategory(ctx context.Context, req *hrv1.UpdateTimeCategoryReq) (*hrv1.UpdateTimeCategoryResp, error) {
+	slog.Warn("UpdateTimeCategory not implemented")
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (s *HRGRPCServer) DeleteTimeCategory(ctx context.Context, req *hrv1.DeleteTimeCategoryReq) (*hrv1.DeleteTimeCategoryResp, error) {
+	slog.Warn("DeleteTimeCategory not implemented")
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+// ============================================================================
+// Time Template RPCs (stubs)
+// ============================================================================
+
+func (s *HRGRPCServer) ListTimeTemplates(ctx context.Context, req *hrv1.ListTimeTemplatesReq) (*hrv1.ListTimeTemplatesResp, error) {
+	slog.Warn("ListTimeTemplates not implemented")
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (s *HRGRPCServer) CreateTimeTemplate(ctx context.Context, req *hrv1.CreateTimeTemplateReq) (*hrv1.CreateTimeTemplateResp, error) {
+	slog.Warn("CreateTimeTemplate not implemented")
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (s *HRGRPCServer) DeleteTimeTemplate(ctx context.Context, req *hrv1.DeleteTimeTemplateReq) (*hrv1.DeleteTimeTemplateResp, error) {
+	slog.Warn("DeleteTimeTemplate not implemented")
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+// ============================================================================
+// Time Project RPCs (stubs)
+// ============================================================================
+
+func (s *HRGRPCServer) ListTimeProjects(ctx context.Context, req *hrv1.ListTimeProjectsReq) (*hrv1.ListTimeProjectsResp, error) {
+	slog.Warn("ListTimeProjects not implemented")
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+// ============================================================================
+// Time Balance / Analytics / Team RPCs (stubs)
+// ============================================================================
+
+func (s *HRGRPCServer) GetTimeBalance(ctx context.Context, req *hrv1.GetTimeBalanceReq) (*hrv1.GetTimeBalanceResp, error) {
+	slog.Warn("GetTimeBalance not implemented")
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (s *HRGRPCServer) GetTimeAnalytics(ctx context.Context, req *hrv1.GetTimeAnalyticsReq) (*hrv1.GetTimeAnalyticsResp, error) {
+	slog.Warn("GetTimeAnalytics not implemented")
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (s *HRGRPCServer) GetTeamTime(ctx context.Context, req *hrv1.GetTeamTimeReq) (*hrv1.GetTeamTimeResp, error) {
+	slog.Warn("GetTeamTime not implemented")
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+// ============================================================================
+// Week Approval RPCs (stubs)
+// ============================================================================
+
+func (s *HRGRPCServer) GetMyWeekStatus(ctx context.Context, req *hrv1.GetMyWeekStatusReq) (*hrv1.GetMyWeekStatusResp, error) {
+	slog.Warn("GetMyWeekStatus not implemented")
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (s *HRGRPCServer) SubmitWeek(ctx context.Context, req *hrv1.SubmitWeekReq) (*hrv1.SubmitWeekResp, error) {
+	slog.Warn("SubmitWeek not implemented")
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (s *HRGRPCServer) ApproveWeek(ctx context.Context, req *hrv1.ApproveWeekReq) (*hrv1.ApproveWeekResp, error) {
+	slog.Warn("ApproveWeek not implemented")
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (s *HRGRPCServer) RejectWeek(ctx context.Context, req *hrv1.RejectWeekReq) (*hrv1.RejectWeekResp, error) {
+	slog.Warn("RejectWeek not implemented")
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+// ============================================================================
+// Delete Work Time Entry RPC (stub)
+// ============================================================================
+
+func (s *HRGRPCServer) DeleteWorkTimeEntry(ctx context.Context, req *hrv1.DeleteWorkTimeEntryReq) (*hrv1.DeleteWorkTimeEntryResp, error) {
+	slog.Warn("DeleteWorkTimeEntry not implemented")
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+// ============================================================================
+// Get Work Time Status RPC (stub)
+// ============================================================================
+
+func (s *HRGRPCServer) GetWorkTimeStatus(ctx context.Context, req *hrv1.GetWorkTimeStatusReq) (*hrv1.GetWorkTimeStatusResp, error) {
+	slog.Warn("GetWorkTimeStatus not implemented")
+	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
 // Suppress unused import warnings for decimal
 var _ = decimal.Zero

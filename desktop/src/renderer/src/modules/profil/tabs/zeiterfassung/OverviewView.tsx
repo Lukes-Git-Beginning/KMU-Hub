@@ -6,15 +6,12 @@ import {
   ArrowRight, Timer,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
-import { useTimeTrackingStore, getOvertimeSaldo } from '@/stores/timetracking'
-import { useTimerTick, formatElapsed } from '@/hooks/useTimerTick'
 import {
-  formatMinutes, formatHoursDecimal, isToday,
-  getWeekDates, dateToStr,
-} from './time-utils'
-
-const VACATION_TOTAL = 25
-const VACATION_USED = 10
+  useWorkTimeStatus, useDailySummary, useWeeklySummary, useTimeBalance,
+  useLeaveBalance, useWorkTimeEntries, useTimeCategories,
+} from '@/api/hooks/hr-hooks'
+import { adaptWorkTimeEntryToFE } from '@/api/hr-client'
+import { formatMinutes, formatHoursDecimal, isToday, getWeekDates, dateToStr } from './time-utils'
 
 interface OverviewViewProps {
   onNavigate: (view: string) => void
@@ -22,72 +19,63 @@ interface OverviewViewProps {
 
 export default function OverviewView({ onNavigate }: OverviewViewProps) {
   const { t } = useTranslation()
-  const entries = useTimeTrackingStore((s) => s.entries)
-  const categories = useTimeTrackingStore((s) => s.categories)
-  const targets = useTimeTrackingStore((s) => s.targets)
-  const absences = useTimeTrackingStore((s) => s.absences)
-  const activeTimer = useTimeTrackingStore((s) => s.activeTimer)
-  const elapsed = useTimerTick()
 
-  // ── This Week ───────────────────────────────────────
-  const thisWeekDates = useMemo(() => getWeekDates(0).map(dateToStr), [])
-  const thisWeekEntries = useMemo(
-    () => entries.filter((e) => thisWeekDates.includes(e.date)),
-    [entries, thisWeekDates],
-  )
-  const weekMinutes = thisWeekEntries.reduce((s, e) => s + e.durationMinutes, 0)
-  const weekTarget = targets.weeklyHours * 60
-  const weekPercent = Math.min(100, Math.round((weekMinutes / weekTarget) * 100))
+  const today = useMemo(() => new Date().toISOString().split('T')[0], [])
+  const weekDates = useMemo(() => getWeekDates(0), [])
+  const weekStartStr = useMemo(() => dateToStr(weekDates[0]), [weekDates])
+  const weekEndStr = useMemo(() => dateToStr(weekDates[6]), [weekDates])
+
+  const { data: workStatus } = useWorkTimeStatus()
+  const { data: dailySummary } = useDailySummary(today)
+  const { data: weeklySummary } = useWeeklySummary(weekStartStr)
+  const { data: balance } = useTimeBalance()
+  const { data: leaveBalance } = useLeaveBalance()
+  const { data: categories = [] } = useTimeCategories()
+  const { data: recentRaw } = useWorkTimeEntries({ limit: 5 })
+  const { data: weekEntriesRaw } = useWorkTimeEntries({ start_date: weekStartStr, end_date: weekEndStr })
 
   // ── Today ───────────────────────────────────────────
-  const todayEntries = useMemo(
-    () => entries.filter((e) => isToday(e.date)),
-    [entries],
-  )
-  const todayMinutes = todayEntries.reduce((s, e) => s + e.durationMinutes, 0)
-  const dailyTarget = targets.dailyHours * 60
+  const todayMinutes = dailySummary?.netWorkMinutes ?? 0
+  const dailyTarget = 8.4 * 60
   const todayPercent = Math.min(100, Math.round((todayMinutes / dailyTarget) * 100))
 
-  // ── Overtime (all-time, using helper 6.8) ───────────
-  const overtime = useMemo(() => getOvertimeSaldo(entries, targets), [entries, targets])
-  const uniqueDates = [...new Set(entries.map((e) => e.date))]
-  const workingDays = uniqueDates.filter((ds) => {
-    const d = new Date(ds)
-    return d.getDay() >= 1 && d.getDay() <= 5
-  }).length
-  const totalMinutesAllTime = entries.reduce((s, e) => s + e.durationMinutes, 0)
-  const totalTarget = workingDays * targets.dailyHours * 60
+  // ── This Week ───────────────────────────────────────
+  const weekMinutes = weeklySummary?.netWorkMinutes ?? 0
+  const weekTarget = 5 * 8.4 * 60
+  const weekPercent = Math.min(100, Math.round((weekMinutes / weekTarget) * 100))
 
-  // ── This Month ──────────────────────────────────────
-  const thisMonth = new Date().toISOString().slice(0, 7) // YYYY-MM
-  const monthEntries = useMemo(
-    () => entries.filter((e) => e.date?.startsWith(thisMonth)),
-    [entries, thisMonth],
-  )
-  const monthMinutes = monthEntries.reduce((s, e) => s + e.durationMinutes, 0)
+  // ── Overtime ────────────────────────────────────────
+  const overtime = balance?.balanceMinutes ?? 0
 
   // ── Vacation ────────────────────────────────────────
-  const vacationRemaining = VACATION_TOTAL - VACATION_USED
-  const pendingVacation = absences.filter(
-    (a) => a.type === 'vacation' && a.status === 'pending',
-  ).reduce((s, a) => s + a.days, 0)
-  const sickDays = absences.filter(
-    (a) => a.type === 'sick' && a.status === 'approved',
-  ).reduce((s, a) => s + a.days, 0)
+  const vacationTotal = leaveBalance?.totalEntitlement ?? 25
+  const vacationUsed = leaveBalance?.used ?? 0
+  const vacationRemaining = leaveBalance?.remaining ?? (vacationTotal - vacationUsed)
+
+  // ── Recent entries ──────────────────────────────────
+  const recentEntries = useMemo(
+    () => (recentRaw?.entries ?? []).map(adaptWorkTimeEntryToFE),
+    [recentRaw],
+  )
+
+  const weekEntries = useMemo(
+    () => (weekEntriesRaw?.entries ?? []).map(adaptWorkTimeEntryToFE),
+    [weekEntriesRaw],
+  )
 
   // ── Category breakdown this week ────────────────────
   const weekCategoryStats = useMemo(() => {
     const stats: Record<string, number> = {}
-    for (const e of thisWeekEntries) {
-      stats[e.categoryId] = (stats[e.categoryId] || 0) + e.durationMinutes
+    for (const e of weekEntries) {
+      if (e.categoryId) stats[e.categoryId] = (stats[e.categoryId] || 0) + e.durationMinutes
     }
     return categories
       .map((cat) => ({ ...cat, minutes: stats[cat.id] || 0 }))
       .filter((c) => c.minutes > 0)
       .sort((a, b) => b.minutes - a.minutes)
-  }, [thisWeekEntries, categories])
+  }, [weekEntries, categories])
 
-  // ── Daily breakdown this week ───────────────────────
+  // ── Daily bar chart ─────────────────────────────────
   const weekDayData = useMemo(() => {
     const dayNames = [
       t('profil.zeiterfassung.dayShort.mon'),
@@ -98,48 +86,40 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
       t('profil.zeiterfassung.dayShort.sat'),
       t('profil.zeiterfassung.dayShort.sun'),
     ]
+    const dayMap: Record<string, number> = {}
+    if (weeklySummary?.days) {
+      for (const d of weeklySummary.days) dayMap[d.date] = d.netWorkMinutes
+    } else {
+      for (const e of weekEntries) dayMap[e.date] = (dayMap[e.date] || 0) + e.durationMinutes
+    }
     return getWeekDates(0).map((date, i) => {
       const ds = dateToStr(date)
-      const mins = entries
-        .filter((e) => e.date === ds)
-        .reduce((s, e) => s + e.durationMinutes, 0)
-      return { day: dayNames[i], date: ds, minutes: mins, isToday: isToday(ds) }
+      return { day: dayNames[i], date: ds, minutes: dayMap[ds] ?? 0, isToday: isToday(ds) }
     })
-  }, [entries])
+  }, [weeklySummary, weekEntries, t])
 
-  // ── Recent entries ──────────────────────────────────
-  const recentEntries = useMemo(
-    () => [...entries]
-      .sort((a, b) => `${b.date}${b.startTime}`.localeCompare(`${a.date}${a.startTime}`))
-      .slice(0, 5),
-    [entries],
-  )
+  const getCat = (id: string | null) => id ? categories.find((c) => c.id === id) : undefined
 
-  const getCat = (id: string) => categories.find((c) => c.id === id)
+  // Active shift banner
+  const isActiveShift = workStatus?.isClockedIn && workStatus.currentShiftStart
 
   return (
     <div className="p-6 space-y-6 max-w-4xl mx-auto">
       {/* Active Timer Banner */}
-      {activeTimer.status !== 'idle' && activeTimer.categoryId && (
+      {isActiveShift && (
         <div className="rounded-xl border-2 border-primary/50 bg-primary/5 p-4">
           <div className="flex items-center gap-3">
             <div className="relative">
               <Timer className="h-5 w-5 text-primary" />
-              {activeTimer.status === 'running' && (
-                <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-success animate-pulse" />
-              )}
+              <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-success animate-pulse" />
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium text-foreground">
-                {getCat(activeTimer.categoryId)?.name}
-                {activeTimer.description && (
-                  <span className="text-muted-foreground ml-2">— {activeTimer.description}</span>
-                )}
+                {workStatus.isOnBreak
+                  ? t('profil.zeiterfassung.break')
+                  : t('profil.zeiterfassung.active')}
               </p>
             </div>
-            <span className="text-2xl font-mono font-bold text-primary tabular-nums">
-              {formatElapsed(elapsed)}
-            </span>
           </div>
         </div>
       )}
@@ -190,7 +170,7 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
             <span className="text-2xl font-bold text-foreground tabular-nums">
               {formatHoursDecimal(weekMinutes)}
             </span>
-            <span className="text-sm text-muted-foreground mb-0.5">/ {targets.weeklyHours}h</span>
+            <span className="text-sm text-muted-foreground mb-0.5">/ {formatHoursDecimal(weekTarget)}h</span>
           </div>
           <div className="w-full h-2 rounded-full bg-secondary overflow-hidden">
             <div
@@ -225,12 +205,11 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
               {overtime >= 0 ? '+' : ''}{formatHoursDecimal(overtime)}h
             </span>
           </div>
-          <p className="text-xs text-muted-foreground mt-1.5">
-            {t('profil.zeiterfassung.overview.target')}: {formatMinutes(totalTarget)} | {t('profil.zeiterfassung.overview.actual')}: {formatMinutes(totalMinutesAllTime)}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {t('profil.zeiterfassung.overview.basedOnDays', { count: workingDays })}
-          </p>
+          {balance?.periodStart && (
+            <p className="text-xs text-muted-foreground mt-1.5">
+              {t('profil.zeiterfassung.overview.target')}: {new Date(balance.periodStart).toLocaleDateString('de-DE')}
+            </p>
+          )}
         </button>
 
         {/* Vacation */}
@@ -241,19 +220,16 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
           </div>
           <div className="flex items-end gap-1.5 mb-2">
             <span className="text-2xl font-bold text-foreground tabular-nums">{vacationRemaining}</span>
-            <span className="text-sm text-muted-foreground mb-0.5">/ {VACATION_TOTAL} {t('profil.zeiterfassung.overview.days')}</span>
+            <span className="text-sm text-muted-foreground mb-0.5">/ {vacationTotal} {t('profil.zeiterfassung.overview.days')}</span>
           </div>
           <div className="w-full h-2 rounded-full bg-secondary overflow-hidden">
             <div
               className="h-full rounded-full bg-success transition-all"
-              style={{ width: `${Math.round((VACATION_USED / VACATION_TOTAL) * 100)}%` }}
+              style={{ width: `${Math.round((vacationUsed / vacationTotal) * 100)}%` }}
             />
           </div>
           <div className="flex items-center gap-3 mt-1.5">
-            <span className="text-xs text-muted-foreground">{VACATION_USED} {t('profil.zeiterfassung.overview.taken')}</span>
-            {pendingVacation > 0 && (
-              <span className="text-xs text-warning-foreground">{pendingVacation} {t('profil.zeiterfassung.overview.requested')}</span>
-            )}
+            <span className="text-xs text-muted-foreground">{vacationUsed} {t('profil.zeiterfassung.overview.taken')}</span>
           </div>
         </div>
       </div>
@@ -308,7 +284,7 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
             })}
           </div>
           <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
-            <span>{t('profil.zeiterfassung.overview.target')}: {targets.weeklyHours}h</span>
+            <span>{t('profil.zeiterfassung.overview.target')}: {formatHoursDecimal(weekTarget)}h</span>
             <span>|</span>
             <span className={cn(
               'font-medium',
@@ -376,27 +352,19 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
           <div className="space-y-3">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">{t('profil.zeiterfassung.overview.weeklyTarget')}</span>
-              <span className="font-medium text-foreground">{targets.weeklyHours}h</span>
+              <span className="font-medium text-foreground">{formatHoursDecimal(weekTarget)}h</span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">{t('profil.zeiterfassung.overview.dailyTarget')}</span>
-              <span className="font-medium text-foreground">{targets.dailyHours}h</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">{t('profil.zeiterfassung.overview.monthlyTarget')}</span>
-              <span className="font-medium text-foreground">{targets.monthlyHours}h</span>
+              <span className="font-medium text-foreground">{formatHoursDecimal(dailyTarget)}h</span>
             </div>
             <div className="border-t border-border pt-3 flex items-center justify-between text-sm">
               <span className="text-muted-foreground">{t('profil.zeiterfassung.overview.thisMonthActual')}</span>
-              <span className="font-semibold text-foreground">{formatHoursDecimal(monthMinutes)}h</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">{t('profil.zeiterfassung.overview.sickDays')}</span>
-              <span className="font-medium text-foreground">{sickDays} {t('profil.zeiterfassung.overview.days')}</span>
+              <span className="font-semibold text-foreground">{formatHoursDecimal(weekMinutes)}h</span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">{t('profil.zeiterfassung.overview.vacationEntitlement')}</span>
-              <span className="font-medium text-foreground">{VACATION_TOTAL} {t('profil.zeiterfassung.overview.daysPerYear')}</span>
+              <span className="font-medium text-foreground">{vacationTotal} {t('profil.zeiterfassung.overview.daysPerYear')}</span>
             </div>
           </div>
         </div>
