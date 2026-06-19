@@ -1,3 +1,6 @@
+# === Cosmi one-off i18n helper scripts (per convention not tracked) ===
+desktop/scripts/add-*-i18n.mjs
+
 # === Go ===
 *.exe
 *.exe~
