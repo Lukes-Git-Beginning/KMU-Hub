@@ -46,3 +46,34 @@ Lesbares Label („Kontakte") kommt mit der zentralen Modul-Label-Funktion in N-
 braucht dieselbe Quelle) — dann Badge + Filter konsistent.
 
 **Commit:** siehe `feat(notifications): fix seed schema …` auf `parallel/notifications`.
+
+---
+
+## N-2 — Modul-Filter + Sortierung  ✅ (2026-06-19)
+
+**Geändert:** `modules/notifications/NotificationCenter.tsx` (Filter/Sort-Leiste,
+lesbare Badges), `i18n/messages/{de,en,fr,it}.json` (+6 Keys ins notifications-Cluster).
+
+**Was:**
+- **Modul-Filter-Chips** (client-seitig, auf der geladenen Liste): „Alle Module" +
+  ein Chip je vorkommendem Modul, jeweils mit Farb-Dot (aus dem Nav-Farbsystem,
+  `moduleHsl`) + Count. Reihenfolge wie Sidebar. Toggle-Verhalten (zweiter Klick = aus).
+- **`shared/SortMenu`** mit Feldern Datum / Priorität × Richtung asc/desc. Priorität-Rank
+  urgent>high>normal>low.
+- **Lesbare Modul-Badges:** rohe id („contacts") → Nav-Label („Kontakte") via `navItems`-
+  Lookup (wiederverwendet vorhandene 4-Sprachen-Labels, konsistent mit der Sidebar —
+  finance→„Buchhaltung"). Sonderfall `settings`→neuer Key `notifications.modules.security`
+  („Sicherheit") statt „Modul-Einstellungen".
+- Gefilterter Leerzustand: `EmptyState` filtered-Variante (`emptyFiltered`/…Description).
+- Pagination-Count respektiert den Filter (`Seite 1 (3 gesamt)` bei Verträge-Filter).
+- Neue i18n-Keys (single-brace, ×4): `center.allModules`, `center.emptyFiltered{module}`,
+  `center.emptyFilteredDescription`, `sort.date`, `sort.priority`, `modules.security`.
+
+**Verify (qa-notif-n2.mjs, :5174, 1440×1000, DE):**
+- Filterbar: 10 Chips (Alle Module 13 + 9 Module mit Counts: Kontakte 2, Verträge 3, …),
+  Farb-Dots, SortMenu „Datum ↓".
+- Badges lesbar: „Kontakte / Aufgaben / Kommunikation / Team / Verträge" (kein raw id).
+- Verträge-Chip → genau **3** Cards, „Seite 1 (3 gesamt)".
+- Sort Priorität ↓ → erste Card „Sicherheitswarnung" (urgent), danach high → normal.
+- **0 Raw-Keys, 0 `{{}}`.** (Console: nur WS `ERR_CONNECTION_REFUSED`, P4 out-of-scope.)
+- `EmptyState` filtered-Variante gebaut; visueller Edge-Case-Shot im N-5-Sweep.
