@@ -25,6 +25,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/biz/payment"
 	"github.com/kmuhub/kmuhub/internal/biz/pdf"
 	"github.com/kmuhub/kmuhub/internal/biz/quote"
+	"github.com/kmuhub/kmuhub/internal/biz/tax"
 	"github.com/kmuhub/kmuhub/internal/models"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
 	crmv1 "github.com/kmuhub/kmuhub/proto/crm/v1"
@@ -118,6 +119,32 @@ func (s *BizGRPCServer) requireCompanySettings(ctx context.Context, tenantID uui
 		return nil, status.Error(codes.FailedPrecondition, "company settings not configured")
 	}
 	return settings, nil
+}
+
+// taxRateForMode returns the line-item tax rate for the given tax mode.
+// Kleinunternehmer (section 19 UStG) and reverse-charge are tax-exempt (0%);
+// the standard rate (19%) applies otherwise.
+func taxRateForMode(mode string) decimal.Decimal {
+	switch mode {
+	case models.TaxModeKleinunternehmer, models.TaxModeReverseCharge:
+		return decimal.Zero
+	default:
+		return tax.StandardRate()
+	}
+}
+
+// resolveTaxMode picks the effective tax mode for a generated invoice. An
+// explicit request mode always wins; otherwise a Kleinunternehmer company
+// (section 19 UStG) defaults to kleinunternehmer, else standard. Reverse-charge
+// is customer-/document-driven and only ever comes from an explicit request.
+func resolveTaxMode(requestMode string, settings *models.CompanySettings) string {
+	if requestMode != "" {
+		return requestMode
+	}
+	if settings != nil && settings.IsKleinunternehmer {
+		return models.TaxModeKleinunternehmer
+	}
+	return models.TaxModeStandard
 }
 
 func (s *BizGRPCServer) GetCompanySettings(ctx context.Context, req *bizv1.GetCompanySettingsRequest) (*bizv1.GetCompanySettingsResponse, error) {
@@ -1887,9 +1914,17 @@ func (s *BizGRPCServer) CreateInvoiceFromTimeEntries(ctx context.Context, req *b
 		return nil, status.Error(codes.InvalidArgument, "invalid hourly_rate")
 	}
 
+	// Resolve the effective tax mode. An explicit request mode wins; otherwise a
+	// Kleinunternehmer company (section 19 UStG) must not charge VAT, so derive
+	// the mode from company settings (soft fallback to standard on load error).
 	taxMode := req.GetTaxMode()
 	if taxMode == "" {
-		taxMode = models.TaxModeStandard
+		settings, sErr := s.companySettings.GetByTenantID(ctx, tenantID)
+		if sErr != nil {
+			slog.Warn("failed to load company settings for time-entry invoice tax mode",
+				"tenant_id", tenantID, "error", sErr)
+		}
+		taxMode = resolveTaxMode("", settings)
 	}
 
 	if s.timetrackingRepo == nil {
@@ -1922,7 +1957,7 @@ func (s *BizGRPCServer) CreateInvoiceFromTimeEntries(ctx context.Context, req *b
 		Description: description,
 		Quantity:    hours,
 		UnitPrice:   hourlyRate,
-		TaxRate:     decimal.NewFromInt(19),
+		TaxRate:     taxRateForMode(taxMode),
 		LineTotal:   lineTotal,
 	}
 
