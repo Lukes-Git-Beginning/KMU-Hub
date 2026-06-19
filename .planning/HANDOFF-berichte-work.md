@@ -1,30 +1,15 @@
-# Handoff — berichte-Fixes done, work-Aufgaben + berichte-Erstellen offen
+# Handoff — work-Quick-Actions DONE, berichte-Erstellen-Builder offen
 
-> **Stand 2026-06-19 spät.** Context-Schnitt für neues Terminal. main=`8e06cd5c` (sauber, gepusht). Build grün.
+> **Stand 2026-06-19 nachts.** main=`a046b0d9` (sauber, gepusht). Build grün. wip-Branch gelöscht.
 
 ## ✅ Fertig + gepusht (main)
-- **berichte B-1…B-5** (Batch 4 Main) + **F1/F2 Live-Fixes**: Schedule-Zeilen klickbar → DetailModal mit Lauf-Historie; Dashboard-KPI-Sparklines mit echten Werten + Hover-Tooltip. Alle verifiziert.
-- **notifications N-1…N-5** (Batch 4 Sub) gemergt + reviews/notifications.md.
-- Nico-Review-Dateien: `.planning/reviews/{berichte,notifications,…}.md`.
+- **work Quick-Actions W-1…W-3** (`a046b0d9`, Squash-Merge): MyTasks-Zeilen als Geschwister-Buttons (kein `role=button`-Div mehr — das schluckte den Accessible-Name des Menü-Buttons → Menü navigierte statt zu öffnen). Quick-Complete-Checkbox + Aktions-Menü (Erledigen/Mir zuweisen/Fälligkeit/In Projekt verschieben/Löschen) + Löschen-Confirm. **Kanban-Karten** dieselben Quick-Actions (Checkbox + Hover-Menü, dnd-sicher via `data-card-control`-Guard + `onPointerDown`-Stop). **Task-Detail-Panel + -Page** Löschen-Button mit Confirm. 14 i18n-Keys ×4. QA: `qa-work-mytasks.mjs` + `qa-work-kanban.mjs` (alle grün, Screenshots verifiziert).
+  - **Lehre (tsc):** scoped `tsconfig.workqa.json` crasht **flaky** mit internem TS-Bug `Debug Failure. No error for last overload signature` (NICHT dateispezifisch — alle 3 Bisects crashten, eine frühere identische Config lief sauber durch). Gate war Vite+Playwright-QA, wie projektüblich ([[project_typecheck_slow]]).
+- **berichte B-1…B-5** + **F1/F2 Live-Fixes** (Schedule→DetailModal, KPI-Sparklines+Tooltip).
+- **notifications N-1…N-5** gemergt + reviews-Dateien.
 
-## 🔧 OFFEN 1 — work „Aufgaben"-Schnellaktionen (Darien-Befund)
-**Befund (Ist-Abgleich):** Aktionen existieren in der Projekt-**Liste** (TaskRow, Inline-Popovers) + im **Detail-Fenster**, aber NICHT in **„Meine Aufgaben"** (MyTasksPage, Hauptansicht) und nicht auf **Kanban-Karten**. **Quick-Complete fehlt überall** (man muss Status-Dropdown auf „Erledigt"). **Löschen** hat gar keine UI (Hook+MSW fertig). Alle Mutationen sind MSW-stateful → reiner FE-Fix.
+## 🔧 OFFEN — berichte „Erstellen"-Builder (Darien: viel mehr Tiefe)
 
-### W-1 — MyTasks Quick-Actions: auf Branch `wip/work-quick-actions` (NICHT in main!)
-Gebaut: Quick-Complete-Checkbox links, Aktions-Menü (Erledigen/Mir zuweisen/Fälligkeit-Quickpick/In Projekt verschieben/Löschen), Löschen-Confirm-Dialog; `useUpdateTask` um `completed_at`/`is_closed`/nullable `due_date` erweitert. Build grün.
-**⚠ OFFENER BUG:** Klick auf das Drei-Punkte-Menü **navigiert zur Detail-Page statt das Popover zu öffnen** (`detailLeaked: true` im QA, Popover öffnet nie). QA: `desktop/scripts/qa-work-mytasks.mjs` (auf dem Branch).
-**Debugging-Hypothesen fürs neue Terminal:**
-1. Die ganze Zeile ist `<div role="button" onClick={openTask}>`; der `closest('button')`-Guard im Zeilen-onClick greift nicht zuverlässig mit Radix `PopoverTrigger asChild`. **Sicherste Lösung:** Zeile NICHT als role=button auf dem ganzen Div — stattdessen nur den Titel-/Meta-Bereich als eigenen klickbaren Button, Checkbox+Menü daneben als Geschwister (kein Bubbling-Konflikt).
-2. QA: `getByRole('button', {name:/Aktionen/})` zählte **10** statt 5 → evtl. matcht der Selektor zu viel / klickt den falschen Button. i18n-Key `work.myTasks.actions` prüfen (existiert er mit anderem Wert?).
-3. Der `role="presentation"`-Wrapper mit `stopPropagation` um den Popover ist evtl. kontraproduktiv → entfernen und Hypothese 1 umsetzen.
-
-### W-2 — Kanban-Karte Quick-Actions (offen, nicht gebaut)
-KanbanCard: Quick-Complete-Checkbox + Hover-Aktionsleiste (Fälligkeit, Assignee, Drei-Punkte mit Löschen). Bisher nur DnD + Detail-Klick.
-
-### W-3 — Löschen im Task-Detail (offen, nicht gebaut)
-`TaskDetailPanel` + `TaskDetailPage`: Löschen-Button (Confirm) im Footer/Header. `useDeleteTask` ready.
-
-## 🔧 OFFEN 2 — berichte „Erstellen"-Builder (Darien: viel mehr Tiefe, Marktanalyse gemacht)
 Aktueller „Erstellen"-Tab ist flach (nur System-Bericht-Dropdown + Format + Zeitraum). **Marktanalyse-Ergebnis (Metabase/HubSpot/Looker Studio) → 5-Phasen-Roadmap, FE-mock-first** (echter Query-Executor = Luke 🔒):
 - **E-1 — Feld-Picker + Viz-Switcher (Kern):** Modul wählen → Felder als Checkbox-Liste → Visualisierungstyp-Picker (Tabelle/Balken/Linie/Donut/KPI) mit sofortiger recharts-Live-Vorschau + Zeitraum-Selektor. Bericht benennen + als eigene Definition speichern (MSW-stub).
 - **E-2 — Filter-Builder (Kern):** typ-aware Filter (Feld → Operator is/contains/>/</between → Wert), bis 5 Filter mit AND/OR, Filter-Chips, Vorschau reagiert.
@@ -33,7 +18,7 @@ Aktueller „Erstellen"-Tab ist flach (nur System-Bericht-Dropdown + Format + Ze
 - **E-5 — Advanced (Post-MVP):** berechnete Felder (FE-Formel), Scheduled Export 🔒, Sharing 🔒, KI-Viz-Empfehlung (heuristisch FE).
 - Visualisierungs-Kern-Set (recharts-baubar): Tabelle · Balken · Linie · Fläche · Donut · KPI-Zahl · Combo · Gauge.
 
-## Vorgehen neues Terminal (Darien-Wunsch: „beide nacheinander")
-1. **Erst W-1 fixen** (Branch `wip/work-quick-actions` auschecken, Bug nach Hypothese 1 lösen, QA grün, dann W-2 + W-3), nach main mergen.
-2. **Dann berichte-Erstellen-Builder** (E-1 ff.) als neue Phasen.
-Dev-Server-Regel: nur 1 auf :5173, vor Neustart killen (PowerShell). Build-Gate echter Exit. add-*-i18n.mjs sind gitignored.
+## Vorgehen (Stand jetzt)
+1. ✅ **work W-1…W-3 erledigt + in main** (`a046b0d9`).
+2. ⏭ **berichte-Erstellen-Builder** (E-1 ff.) als neue Phasen — Scope vor E-1 mit Darien kurz abstimmen (welche Module/Felder im Picker, Viz-Kernset, MSW-Shape).
+Dev-Server-Regel: nur 1 auf :5173 (läuft frisch via `npm run dev`), vor Neustart killen (PowerShell). Gate = Vite+Playwright-QA (tsc crasht flaky). add-*-i18n.mjs sind gitignored.
