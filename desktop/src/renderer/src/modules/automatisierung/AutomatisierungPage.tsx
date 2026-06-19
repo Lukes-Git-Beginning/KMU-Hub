@@ -32,6 +32,7 @@ import type { Automation } from '@/api/automation-types'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { EmptyAutomation } from '@/components/shared/illustrations'
 import { AutomationWizard } from './AutomationWizard'
+import { AutomationEditor } from './AutomationEditor'
 import { AutomationDetailModal } from './AutomationDetailModal'
 import { TemplateGallery } from './TemplateGallery'
 import { ExecutionLogViewer } from './ExecutionLogViewer'
@@ -235,7 +236,7 @@ export default function AutomatisierungPage() {
   const { t } = useTranslation()
   const [wizardOpen, setWizardOpen] = useState(false)
   const [detailAutomation, setDetailAutomation] = useState<Automation | null>(null)
-  const { resetDraft, loadAutomationIntoDraft, setEditorMode } =
+  const { resetDraft, loadAutomationIntoDraft, setEditorMode, editorMode } =
     useAutomatisierungStore()
 
   const handleNew = () => {
@@ -322,8 +323,13 @@ export default function AutomatisierungPage() {
         onEdit={handleEditFromDetail}
       />
 
-      {/* Wizard dialog */}
-      {wizardOpen && <AutomationWizard onClose={handleWizardClose} />}
+      {/* Wizard / visual editor dialog (editorMode toggles between them) */}
+      {wizardOpen &&
+        (editorMode === 'editor' ? (
+          <AutomationEditor onClose={handleWizardClose} />
+        ) : (
+          <AutomationWizard onClose={handleWizardClose} />
+        ))}
     </div>
   )
 }

@@ -134,6 +134,17 @@ export function getExecution(executionId: string): Promise<AutomationExecution> 
   return autoGet<AutomationExecution>(`/executions/${executionId}`)
 }
 
+/** List executions across all automations (page-level log tab). */
+export function listAllExecutions(
+  params?: ExecutionListParams,
+): Promise<ExecutionListResponse> {
+  const queryParams: Record<string, string | number | boolean | undefined> = {}
+  if (params?.status) queryParams.status = params.status
+  if (params?.limit) queryParams.limit = params.limit
+  if (params?.offset) queryParams.offset = params.offset
+  return autoGet<ExecutionListResponse>('/executions', queryParams)
+}
+
 // ---------------------------------------------------------------------------
 // Catalog
 // ---------------------------------------------------------------------------
@@ -179,6 +190,8 @@ export function testCondition(data: {
 export function dryRunAutomation(data: {
   automation_id: string
   sample_env: Record<string, unknown>
+  /** Draft actions for simulating an unsaved automation. */
+  actions?: { type: string }[]
 }): Promise<DryRunResponse> {
   return autoPost<DryRunResponse>('/dry-run', data)
 }

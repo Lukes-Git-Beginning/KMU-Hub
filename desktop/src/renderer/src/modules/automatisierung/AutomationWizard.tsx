@@ -98,10 +98,10 @@ function ReviewStep() {
   const actions = (draftWorkflow.actions ?? []) as ActionConfig[]
 
   const handleDryRun = () => {
-    if (!draftWorkflow.id) return
     dryRunMutation.mutate({
-      automation_id: draftWorkflow.id,
+      automation_id: draftWorkflow.id ?? '',
       sample_env: {},
+      actions: actions.map((a) => ({ type: a.type })),
     })
   }
 
@@ -180,7 +180,7 @@ function ReviewStep() {
           </div>
           <button
             onClick={handleDryRun}
-            disabled={!draftWorkflow.id || dryRunMutation.isPending}
+            disabled={dryRunMutation.isPending}
             className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {dryRunMutation.isPending ? (
@@ -191,12 +191,6 @@ function ReviewStep() {
             {dryRunMutation.isPending ? t('automatisierung.simulation.running') : t('automatisierung.simulation.start')}
           </button>
         </div>
-
-        {!draftWorkflow.id && (
-          <p className="text-[11px] text-muted-foreground italic">
-            {t('automatisierung.simulation.saveFirst')}
-          </p>
-        )}
 
         {dryResult && (
           <div className="space-y-2 pt-1">

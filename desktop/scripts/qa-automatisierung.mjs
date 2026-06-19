@@ -53,12 +53,24 @@ try {
   if (out.tabCount >= 3) {
     await tabs.nth(2).click({ force: true })
     await page.waitForTimeout(1400)
+    out.logRows = await page.locator('table tbody tr').count().catch(() => -1)
     await page.screenshot({ path: resolve(outDir, '3-log.png') })
   }
-  // Raw-key sniff
+  // Raw-key sniff (on the log/list state)
   const body = await page.evaluate(() => document.body.innerText)
   out.rawKeys = (body.match(/automatisierung\.[a-zA-Z.]+/g) || []).slice(0, 8)
   out.doubleBraces = (body.match(/\{\{[^}]+\}\}/g) || []).slice(0, 5)
+  // A-4: open wizard → switch to visual editor (React Flow canvas)
+  await page.getByRole('button', { name: /Neue Automatisierung/i }).first().click()
+  await page.waitForTimeout(1100)
+  await page.screenshot({ path: resolve(outDir, '5-wizard.png') })
+  const editorBtn = page.getByRole('button', { name: /Editor/i })
+  if ((await editorBtn.count()) > 0) {
+    await editorBtn.first().click()
+    await page.waitForTimeout(1600)
+    out.editorCanvas = await page.locator('.react-flow').first().isVisible().catch(() => false)
+    await page.screenshot({ path: resolve(outDir, '6-editor.png') })
+  }
 } catch (e) { out.error = String(e).split('\n')[0] } finally {
   out.consoleErrors = errors.slice(0, 8)
   await ctx.close(); await browser.close()

@@ -14,6 +14,8 @@ import {
   Receipt,
   UserCheck,
   Calendar,
+  LifeBuoy,
+  Settings,
   Zap,
 } from 'lucide-react'
 import { useTriggerDefinitions } from '@/api/hooks/useAutomation'
@@ -34,6 +36,8 @@ const MODULE_CONFIG: Record<
   finance: { icon: Receipt, labelKey: 'automatisierung.modules.finance', color: 'text-warning-foreground' },
   hr: { icon: UserCheck, labelKey: 'automatisierung.modules.hr', color: 'text-rose-500' },
   calendar: { icon: Calendar, labelKey: 'automatisierung.modules.calendar', color: 'text-cyan-500' },
+  support: { icon: LifeBuoy, labelKey: 'automatisierung.modules.support', color: 'text-orange-500' },
+  system: { icon: Settings, labelKey: 'automatisierung.modules.system', color: 'text-slate-500' },
 }
 
 function getModuleConfig(module: string) {
@@ -57,7 +61,9 @@ export function TriggerSelector() {
   const [search, setSearch] = useState('')
 
   const triggers = useMemo(() => data?.triggers ?? [], [data?.triggers])
-  const selectedType = draftWorkflow?.trigger_type ?? ''
+  // Selection is tracked by event_type (unique); multiple triggers share type 'event'.
+  const selectedEvent =
+    (draftWorkflow?.trigger_config?.event_type as string) ?? draftWorkflow?.trigger_type ?? ''
 
   // Group by module
   const grouped = useMemo(() => {
@@ -80,7 +86,7 @@ export function TriggerSelector() {
   }, [triggers, search])
 
   const handleSelect = (trigger: TriggerDefinition) => {
-    updateDraftTrigger(trigger.type, {})
+    updateDraftTrigger(trigger.type, { event_type: trigger.event_type })
   }
 
   if (isLoading) {
@@ -117,10 +123,10 @@ export function TriggerSelector() {
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               {moduleTriggers.map((trigger) => {
-                const isSelected = selectedType === trigger.type
+                const isSelected = selectedEvent === trigger.event_type
                 return (
                   <button
-                    key={trigger.type}
+                    key={trigger.event_type}
                     onClick={() => handleSelect(trigger)}
                     className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors ${
                       isSelected

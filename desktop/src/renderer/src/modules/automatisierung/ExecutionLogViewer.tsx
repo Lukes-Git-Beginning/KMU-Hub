@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
-import { useAutomationExecutions } from '@/api/hooks/useAutomation'
+import { useAutomationExecutions, useAllExecutions } from '@/api/hooks/useAutomation'
 import { useAutomatisierungStore } from '@/stores/automatisierung'
 import type {
   AutomationExecution,
@@ -210,12 +210,14 @@ export function ExecutionLogViewer({
   const { executionLogFilter, setExecutionLogFilter } = useAutomatisierungStore()
   const [limit, setLimit] = useState(20)
 
-  // Use a placeholder ID when showing all executions (page-level view)
-  const queryId = automationId ?? ''
-  const { data, isLoading } = useAutomationExecutions(queryId, {
+  const filterParams = {
     status: (executionLogFilter.status as ExecutionStatus) || undefined,
     limit,
-  })
+  }
+  // Scoped to one automation (detail) vs. all automations (page-level log tab).
+  const scoped = useAutomationExecutions(automationId ?? '', filterParams)
+  const all = useAllExecutions(filterParams, !automationId)
+  const { data, isLoading } = automationId ? scoped : all
 
   const executions = data?.executions ?? []
 

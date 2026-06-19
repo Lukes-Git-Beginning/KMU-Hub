@@ -674,6 +674,8 @@
   "automatisierung.modules.hr": "Personale",
   "automatisierung.modules.notification": "Notifiche",
   "automatisierung.modules.work": "Progetti",
+  "automatisierung.modules.support": "Helpdesk",
+  "automatisierung.modules.system": "Sistema",
   "automatisierung.newAutomation": "Nuova automazione",
   "automatisierung.node.action": "Azione",
   "automatisierung.node.condition": "Condizione",

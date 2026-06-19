@@ -77,6 +77,16 @@ export function useAutomationExecution(executionId: string) {
   })
 }
 
+/** Executions across all automations — for the page-level log tab. */
+export function useAllExecutions(params?: ExecutionListParams, enabled = true) {
+  return useQuery({
+    queryKey: ['automations', 'executions', 'all', params] as const,
+    queryFn: () => automationClient.listAllExecutions(params),
+    enabled,
+    staleTime: 30 * 1000,
+  })
+}
+
 export function useTriggerDefinitions() {
   return useQuery({
     queryKey: automationKeys.triggers(),
@@ -255,6 +265,7 @@ export function useDryRunAutomation() {
     mutationFn: (data: {
       automation_id: string
       sample_env: Record<string, unknown>
+      actions?: { type: string }[]
     }) => automationClient.dryRunAutomation(data),
   })
 }

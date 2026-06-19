@@ -216,10 +216,10 @@ const executions = [
 // ---------------------------------------------------------------------------
 
 const triggerDefinitions = [
-  { type: 'event', module: 'kontakte', name: 'Kontakt erstellt', description: 'Löst aus, wenn ein neuer Kontakt angelegt wird', event_type: 'contact.created', fields: [{ key: 'company', label: 'Firma', type: 'string', operators: ['equals', 'contains'] }, { key: 'tags', label: 'Tags', type: 'string', operators: ['contains'] }], config_params: [] },
-  { type: 'event', module: 'kontakte', name: 'Deal gewonnen', description: 'Löst aus, wenn ein Deal als gewonnen markiert wird', event_type: 'deal.won', fields: [{ key: 'value', label: 'Wert', type: 'number', operators: ['gt', 'lt', 'equals'] }, { key: 'stage', label: 'Phase', type: 'string', operators: ['equals'] }], config_params: [] },
-  { type: 'event', module: 'finanzen', name: 'Rechnung überfällig', description: 'Löst aus, wenn eine Rechnung das Fälligkeitsdatum überschreitet', event_type: 'invoice.overdue', fields: [{ key: 'amount', label: 'Betrag', type: 'number', operators: ['gt', 'lt'] }, { key: 'days_overdue', label: 'Tage überfällig', type: 'number', operators: ['gt'] }], config_params: [] },
-  { type: 'event', module: 'helpdesk', name: 'Ticket erstellt', description: 'Löst aus, wenn ein neues Ticket eingeht', event_type: 'ticket.created', fields: [{ key: 'priority', label: 'Priorität', type: 'string', operators: ['equals'] }, { key: 'category', label: 'Kategorie', type: 'string', operators: ['equals'] }], config_params: [] },
+  { type: 'event', module: 'crm', name: 'Kontakt erstellt', description: 'Löst aus, wenn ein neuer Kontakt angelegt wird', event_type: 'contact.created', fields: [{ key: 'company', label: 'Firma', type: 'string', operators: ['equals', 'contains'] }, { key: 'tags', label: 'Tags', type: 'string', operators: ['contains'] }], config_params: [] },
+  { type: 'event', module: 'crm', name: 'Deal gewonnen', description: 'Löst aus, wenn ein Deal als gewonnen markiert wird', event_type: 'deal.won', fields: [{ key: 'value', label: 'Wert', type: 'number', operators: ['gt', 'lt', 'equals'] }, { key: 'stage', label: 'Phase', type: 'string', operators: ['equals'] }], config_params: [] },
+  { type: 'event', module: 'finance', name: 'Rechnung überfällig', description: 'Löst aus, wenn eine Rechnung das Fälligkeitsdatum überschreitet', event_type: 'invoice.overdue', fields: [{ key: 'amount', label: 'Betrag', type: 'number', operators: ['gt', 'lt'] }, { key: 'days_overdue', label: 'Tage überfällig', type: 'number', operators: ['gt'] }], config_params: [] },
+  { type: 'event', module: 'support', name: 'Ticket erstellt', description: 'Löst aus, wenn ein neues Ticket eingeht', event_type: 'ticket.created', fields: [{ key: 'priority', label: 'Priorität', type: 'string', operators: ['equals'] }, { key: 'category', label: 'Kategorie', type: 'string', operators: ['equals'] }], config_params: [] },
   { type: 'event', module: 'work', name: 'Projekt abgeschlossen', description: 'Löst aus, wenn ein Projekt abgeschlossen wird', event_type: 'project.completed', fields: [{ key: 'project_type', label: 'Projekttyp', type: 'string', operators: ['equals'] }], config_params: [] },
   { type: 'schedule', module: 'system', name: 'Zeitgesteuert', description: 'Cron-basierter Zeitplan', event_type: 'schedule', fields: [], config_params: [{ key: 'cron', label: 'Cron-Ausdruck', type: 'string', required: true, default_value: '0 9 * * 1-5' }] },
   { type: 'webhook', module: 'system', name: 'Webhook', description: 'Externer HTTP-Trigger', event_type: 'webhook', fields: [], config_params: [{ key: 'secret', label: 'Signatur-Secret', type: 'string', required: false, default_value: '' }] },
@@ -230,11 +230,11 @@ const actionDefinitions = [
   { type: 'email', module: 'kommunikation', name: 'E-Mail senden', description: 'Versendet eine E-Mail aus einer Vorlage', params: [{ key: 'template', label: 'Vorlage', type: 'string', required: true, default_value: '' }, { key: 'delay', label: 'Verzögerung (Sek.)', type: 'number', required: false, default_value: 0 }], output_fields: [{ key: 'message_id', label: 'Nachrichten-ID', type: 'string' }] },
   { type: 'notify', module: 'kommunikation', name: 'Benachrichtigung', description: 'Sendet eine interne Benachrichtigung', params: [{ key: 'channel', label: 'Kanal', type: 'string', required: true, default_value: 'email' }, { key: 'target', label: 'Empfänger', type: 'string', required: true, default_value: '' }], output_fields: [] },
   { type: 'update', module: 'system', name: 'Datensatz aktualisieren', description: 'Setzt ein Feld auf einen Wert', params: [{ key: 'field', label: 'Feld', type: 'string', required: true, default_value: '' }, { key: 'value', label: 'Wert', type: 'string', required: true, default_value: '' }], output_fields: [] },
-  { type: 'assign', module: 'kontakte', name: 'Zuweisen', description: 'Weist einen Datensatz einem Bearbeiter zu', params: [{ key: 'rule', label: 'Regel', type: 'string', required: true, default_value: 'round_robin' }, { key: 'team', label: 'Team', type: 'string', required: false, default_value: '' }], output_fields: [{ key: 'assignee_id', label: 'Bearbeiter', type: 'string' }] },
+  { type: 'assign', module: 'crm', name: 'Zuweisen', description: 'Weist einen Datensatz einem Bearbeiter zu', params: [{ key: 'rule', label: 'Regel', type: 'string', required: true, default_value: 'round_robin' }, { key: 'team', label: 'Team', type: 'string', required: false, default_value: '' }], output_fields: [{ key: 'assignee_id', label: 'Bearbeiter', type: 'string' }] },
   { type: 'query', module: 'system', name: 'Daten abfragen', description: 'Liest Datensätze über einen Filter', params: [{ key: 'filter', label: 'Filter', type: 'string', required: true, default_value: '' }], output_fields: [{ key: 'count', label: 'Treffer', type: 'number' }] },
   { type: 'delay', module: 'system', name: 'Verzögerung', description: 'Wartet eine definierte Zeit', params: [{ key: 'duration', label: 'Dauer (Sek.)', type: 'number', required: true, default_value: 3600 }], output_fields: [] },
-  { type: 'score', module: 'kontakte', name: 'Scoring', description: 'Berechnet einen Score', params: [{ key: 'model', label: 'Modell', type: 'string', required: true, default_value: 'lead_default' }], output_fields: [{ key: 'score', label: 'Score', type: 'number' }] },
-  { type: 'enrich', module: 'kontakte', name: 'Daten anreichern', description: 'Reichert einen Datensatz über einen Anbieter an', params: [{ key: 'provider', label: 'Anbieter', type: 'string', required: true, default_value: 'clearbit' }], output_fields: [] },
+  { type: 'score', module: 'crm', name: 'Scoring', description: 'Berechnet einen Score', params: [{ key: 'model', label: 'Modell', type: 'string', required: true, default_value: 'lead_default' }], output_fields: [{ key: 'score', label: 'Score', type: 'number' }] },
+  { type: 'enrich', module: 'crm', name: 'Daten anreichern', description: 'Reichert einen Datensatz über einen Anbieter an', params: [{ key: 'provider', label: 'Anbieter', type: 'string', required: true, default_value: 'clearbit' }], output_fields: [] },
   { type: 'aggregate', module: 'system', name: 'Aggregieren', description: 'Fasst Daten mehrerer Quellen zusammen', params: [{ key: 'sources', label: 'Quellen', type: 'string', required: true, default_value: '' }], output_fields: [] },
   { type: 'check', module: 'system', name: 'Status prüfen', description: 'Prüft einen Systemstatus', params: [{ key: 'target', label: 'Ziel', type: 'string', required: true, default_value: '' }], output_fields: [{ key: 'ok', label: 'OK', type: 'boolean' }] },
   { type: 'log', module: 'system', name: 'Protokollieren', description: 'Schreibt einen Protokolleintrag', params: [{ key: 'category', label: 'Kategorie', type: 'string', required: false, default_value: '' }], output_fields: [] },
@@ -304,6 +304,14 @@ export const automationHandlers = [
     return HttpResponse.json({ templates: list })
   }),
 
+  // All executions across automations (page-level log tab) — literal `/executions`
+  http.get(`${API}/api/v1/automations/executions`, ({ request }) => {
+    const status = new URL(request.url).searchParams.get('status')
+    let list = [...executions].sort((a, b) => b.started_at.localeCompare(a.started_at))
+    if (status) list = list.filter((e) => e.status === status)
+    return HttpResponse.json({ executions: list, total: list.length })
+  }),
+
   // Single execution (literal `/executions/:id` before `/:id/...`)
   http.get(`${API}/api/v1/automations/executions/:executionId`, ({ params }) => {
     const exec = executions.find((e) => e.id === params.executionId)
@@ -316,11 +324,12 @@ export const automationHandlers = [
     return HttpResponse.json({ matches: true, error: '' })
   }),
 
-  // Dry run
+  // Dry run — uses draft actions when an unsaved automation is simulated
   http.post(`${API}/api/v1/automations/dry-run`, async ({ request }) => {
-    const body = (await request.json()) as { automation_id?: string }
+    const body = (await request.json()) as { automation_id?: string; actions?: { type: string }[] }
     const auto = automations.find((a) => a.id === body.automation_id)
-    const steps = (auto?.actions ?? [{ type: 'email' }]).map((a) => step(a.type, 120))
+    const acts = body.actions?.length ? body.actions : (auto?.actions ?? [{ type: 'email' }])
+    const steps = acts.map((a) => step(a.type, 120))
     return HttpResponse.json({ condition_result: true, steps, would_execute: true })
   }),
 
