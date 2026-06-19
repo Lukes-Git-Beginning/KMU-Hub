@@ -268,8 +268,8 @@ Jedes Modul wird zu **review-reif** gebracht, dann „→ Nico". Vorschlag misch
 | 4 | **dashboard** | D-1…D-5 + Darien-Fixes F6/F7 (`f4a6844d`) | ✅ review-reif → Nico |
 | 5 | **vertraege** | V-1…V-5 + Darien-Fixes F1-F5 (`f4a6844d`) | ✅ review-reif → Nico |
 | 6 | **helpdesk** | Demo-tief H-1…H-8 (Store-Actions, DetailModal, Assign/Escalate/Merge, Canned-CRUD, Settings, SLA+Sort, i18n) | ✅ review-reif → Nico (gemergt `a221278d`, QA pending) |
-| 7 | **automatisierung** | Tiefe-Pass (FE sehr vollständig) | ⬜ |
-| 8 | **profil** | klein | ⬜ schnell |
+| 7 | **automatisierung** | A-1…A-5 (MSW-Vertrag, DetailModal, Löschen/Duplizieren, Log/Editor, Settings) | ✅ review-reif → Nico (`8274f821`→`29b7d5cd`) |
+| 8 | **profil** | P-1…P-5 (Stefan-Vogel-seed, Dokumente-MSW, Avatar/DND, Cleanup, Schlusscheck) | ✅ review-reif → Nico (Sub, gemergt `6f44d65a`) |
 | 9 | **security** | FE+Tiefe (DSGVO P0, Backend = Luke früh!) | ⬜ |
 | 10 | **mails** | Neubau (5 Phasen) | ⬜ groß |
 | 11 | **kommunikation** | 4 Phasen | ⬜ |
