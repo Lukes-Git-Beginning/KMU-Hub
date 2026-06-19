@@ -142,6 +142,28 @@ func decodeAndValidate[T any](w http.ResponseWriter, r *http.Request) (T, bool) 
 	return req, true
 }
 
+// validateCustomerVAT rejects a customer VAT identification number that is
+// present but invalid (DE/AT/CH check digits are verified; the rest of the EU
+// stays structural-only). It mirrors decodeAndValidate's {error, code, details}
+// response shape and returns false after writing the response on failure. An
+// empty id passes — the field is optional. Use it after decodeAndValidate in
+// the invoice/quote/credit-note create handlers, whose customer is a generated
+// proto type that cannot carry validate tags.
+func validateCustomerVAT(w http.ResponseWriter, vatID string) bool {
+	body := struct {
+		UstID string `json:"customer.ust_id_nr" validate:"omitempty,ustid_eu"`
+	}{UstID: vatID}
+	if err := validation.Validate(&body); err != nil {
+		if errBody, ok := validation.ErrorBody(err); ok {
+			response.JSON(w, http.StatusBadRequest, errBody)
+		} else {
+			response.Error(w, http.StatusBadRequest, "validation failed")
+		}
+		return false
+	}
+	return true
+}
+
 // RequireAuthenticated is a chi middleware that rejects requests without
 // a valid user ID in the context. Apply as a route-group middleware to
 // eliminate per-handler auth guards.

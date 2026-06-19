@@ -41,6 +41,9 @@ func (b *BizRoutes) HandleCreateQuote(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if !validateCustomerVAT(w, req.Customer.GetUstIdNr()) {
+		return
+	}
 
 	resp, err := client.CreateQuote(r.Context(), &bizv1.CreateQuoteRequest{
 		TenantId:   tenantID,

@@ -86,6 +86,22 @@ func TestHandleCreateInvoice_InvalidInvoiceDate(t *testing.T) {
 	assertValidationError(t, rec, "invoice_date")
 }
 
+func TestHandleCreateInvoice_InvalidCustomerVAT(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	rec := httptest.NewRecorder()
+	// DE123456789 is structurally valid (DE + 9 digits) but has a wrong check
+	// digit, so it must be rejected before the gRPC call.
+	req := httptest.NewRequest("POST", "/api/v1/finance/invoices", jsonBody(t, map[string]interface{}{
+		"customer":     map[string]interface{}{"name": "ACME", "ust_id_nr": "DE123456789"},
+		"line_items":   []interface{}{map[string]interface{}{"description": "x"}},
+		"tax_mode":     "standard",
+		"invoice_date": "2026-01-01",
+	}))
+	req = withTenantID(req, testTenantID)
+	routes.HandleCreateInvoice(rec, req)
+	assertValidationError(t, rec, "customer.ust_id_nr")
+}
+
 func TestHandleListInvoices_ServiceUnavailable(t *testing.T) {
 	routes := NewBizRoutes(emptyRegistry())
 	rec := httptest.NewRecorder()

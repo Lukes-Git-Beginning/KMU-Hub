@@ -41,6 +41,9 @@ func (b *BizRoutes) HandleCreateCreditNote(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
+	if !validateCustomerVAT(w, req.Customer.GetUstIdNr()) {
+		return
+	}
 
 	resp, err := client.CreateCreditNote(r.Context(), &bizv1.CreateCreditNoteRequest{
 		TenantId:          tenantID,

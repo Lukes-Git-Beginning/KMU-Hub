@@ -46,6 +46,9 @@ func (b *BizRoutes) HandleCreateInvoice(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
+	if !validateCustomerVAT(w, req.Customer.GetUstIdNr()) {
+		return
+	}
 
 	grpcCreateReq := &bizv1.CreateInvoiceRequest{
 		TenantId:      tenantID,
