@@ -38,6 +38,15 @@ func (m *MockRepository) Create(ctx context.Context, payment *models.Payment) er
 	if m.createErr != nil {
 		return m.createErr
 	}
+	// Mimic the DB partial-unique-index dedup (F5): a second insert with the same
+	// non-empty idempotency key for the tenant is rejected.
+	if payment.IdempotencyKey != "" {
+		for _, existing := range m.payments {
+			if existing.TenantID == payment.TenantID && existing.IdempotencyKey == payment.IdempotencyKey {
+				return ErrDuplicatePayment
+			}
+		}
+	}
 	m.payments[payment.ID] = payment
 	return nil
 }
@@ -85,6 +94,18 @@ func (m *MockRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*
 		return nil, errors.New("payment not found")
 	}
 	return p, nil
+}
+
+func (m *MockRepository) GetByIdempotencyKey(ctx context.Context, tenantID uuid.UUID, key string) (*models.Payment, error) {
+	if key == "" {
+		return nil, nil
+	}
+	for _, p := range m.payments {
+		if p.TenantID == tenantID && p.IdempotencyKey == key {
+			return p, nil
+		}
+	}
+	return nil, nil
 }
 
 // MockInvoiceReader implements InvoiceReader for testing.
@@ -188,6 +209,48 @@ func TestRecord_Success(t *testing.T) {
 	assert.Equal(t, "REF-001", payment.Reference)
 	assert.Equal(t, "Test payment", payment.Notes)
 	assert.NotZero(t, payment.CreatedAt)
+}
+
+// TestRecord_IdempotentOnDuplicateKey guards F5: a retry carrying the same
+// Idempotency-Key records exactly one payment and returns the original.
+func TestRecord_IdempotentOnDuplicateKey(t *testing.T) {
+	svc, repo, reader, _ := newTestService()
+
+	tenantID := uuid.New()
+	inv := newSentInvoice(tenantID, decimal.NewFromInt(1000))
+	reader.invoices[inv.ID] = inv
+
+	input := newRecordInput(tenantID, inv.ID, decimal.NewFromInt(500))
+	input.IdempotencyKey = "idem-key-abc"
+
+	first, err := svc.Record(context.Background(), input)
+	require.NoError(t, err)
+
+	// Same key again (a retry) must not record a second payment.
+	second, err := svc.Record(context.Background(), input)
+	require.NoError(t, err)
+
+	assert.Equal(t, first.ID, second.ID, "retry with same key must return the original payment")
+	assert.Len(t, repo.payments, 1, "exactly one payment must be persisted for a duplicate key")
+}
+
+// TestRecord_NoDedupWithoutKey ensures payments without an idempotency key are
+// not deduplicated — two legitimate submissions both record.
+func TestRecord_NoDedupWithoutKey(t *testing.T) {
+	svc, repo, reader, _ := newTestService()
+
+	tenantID := uuid.New()
+	inv := newSentInvoice(tenantID, decimal.NewFromInt(10000))
+	reader.invoices[inv.ID] = inv
+
+	input := newRecordInput(tenantID, inv.ID, decimal.NewFromInt(100)) // no IdempotencyKey
+
+	_, err := svc.Record(context.Background(), input)
+	require.NoError(t, err)
+	_, err = svc.Record(context.Background(), input)
+	require.NoError(t, err)
+
+	assert.Len(t, repo.payments, 2, "without an idempotency key each submission records a distinct payment")
 }
 
 func TestRecord_Success_OverdueInvoice(t *testing.T) {

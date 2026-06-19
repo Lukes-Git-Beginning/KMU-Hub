@@ -5,6 +5,7 @@ package payment
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -45,6 +46,9 @@ type RecordInput struct {
 	Reference string
 	Notes     string
 	UserID    uuid.UUID
+	// IdempotencyKey is the client Idempotency-Key (when present) used for
+	// DB-level deduplication so a retried submission records exactly one payment.
+	IdempotencyKey string
 }
 
 // Record records a payment against an invoice. After recording, checks if the sum
@@ -80,19 +84,37 @@ func (s *Service) Record(ctx context.Context, input RecordInput) (*models.Paymen
 	}
 
 	payment := &models.Payment{
-		ID:          uuid.New(),
-		TenantID:    input.TenantID,
-		InvoiceID:   input.InvoiceID,
-		Amount:      input.Amount,
-		PaymentDate: paymentDate,
-		Method:      input.Method,
-		Reference:   input.Reference,
-		Notes:       input.Notes,
-		CreatedBy:   input.UserID,
-		CreatedAt:   now,
+		ID:             uuid.New(),
+		TenantID:       input.TenantID,
+		InvoiceID:      input.InvoiceID,
+		Amount:         input.Amount,
+		PaymentDate:    paymentDate,
+		Method:         input.Method,
+		Reference:      input.Reference,
+		Notes:          input.Notes,
+		CreatedBy:      input.UserID,
+		CreatedAt:      now,
+		IdempotencyKey: input.IdempotencyKey,
 	}
 
 	if createErr := s.repo.Create(ctx, payment); createErr != nil {
+		// DB-level idempotency (F5): a duplicate key means this payment was already
+		// recorded (e.g. a retry that bypassed or outran the HTTP middleware). Return
+		// the existing payment and skip side effects rather than double-recording.
+		if errors.Is(createErr, ErrDuplicatePayment) {
+			existing, getErr := s.repo.GetByIdempotencyKey(ctx, input.TenantID, input.IdempotencyKey)
+			if getErr != nil {
+				return nil, getErr
+			}
+			if existing != nil {
+				slog.Info("payment idempotent replay (duplicate idempotency key)",
+					"payment_id", existing.ID,
+					"invoice_id", existing.InvoiceID,
+					"tenant_id", existing.TenantID,
+				)
+				return existing, nil
+			}
+		}
 		return nil, createErr
 	}
 

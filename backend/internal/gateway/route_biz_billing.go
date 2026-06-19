@@ -209,6 +209,9 @@ func (b *BizRoutes) HandleRecordPayment(w http.ResponseWriter, r *http.Request) 
 		Reference:   req.Reference,
 		Notes:       req.Notes,
 		CreatedBy:   userID,
+		// Forward the client Idempotency-Key (already required by the idempotency
+		// middleware in HardMode) to the biz service for DB-level dedup (F5).
+		IdempotencyKey: r.Header.Get("Idempotency-Key"),
 	})
 	if err != nil {
 		respondGRPCError(w, err)

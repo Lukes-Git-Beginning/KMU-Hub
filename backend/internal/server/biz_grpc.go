@@ -847,14 +847,15 @@ func (s *BizGRPCServer) RecordPayment(ctx context.Context, req *bizv1.RecordPaym
 	}
 
 	input := payment.RecordInput{
-		TenantID:  tenantID,
-		InvoiceID: invoiceID,
-		Amount:    amount,
-		Date:      paymentDate,
-		Method:    paymentMethodFromProto(req.GetMethod()),
-		Reference: req.GetReference(),
-		Notes:     req.GetNotes(),
-		UserID:    userID,
+		TenantID:       tenantID,
+		InvoiceID:      invoiceID,
+		Amount:         amount,
+		Date:           paymentDate,
+		Method:         paymentMethodFromProto(req.GetMethod()),
+		Reference:      req.GetReference(),
+		Notes:          req.GetNotes(),
+		UserID:         userID,
+		IdempotencyKey: req.GetIdempotencyKey(),
 	}
 
 	p, err := s.paymentService.Record(ctx, input)

@@ -626,6 +626,7 @@ message RecordPaymentRequest {
   string reference = 6;
   string notes = 7;
   string created_by = 8;
+  string idempotency_key = 9;     // Client Idempotency-Key for DB-level dedup (F5); optional
 }
 
 message RecordPaymentResponse {

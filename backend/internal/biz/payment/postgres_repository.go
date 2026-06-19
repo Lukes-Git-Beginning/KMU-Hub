@@ -24,15 +24,30 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 }
 
 func (r *PostgresRepository) Create(ctx context.Context, p *models.Payment) error {
-	_, err := r.pool.Exec(ctx,
+	// Persist the idempotency key as NULL when absent so payments without a key
+	// never collide on the partial unique index (F5).
+	var keyArg any
+	if p.IdempotencyKey != "" {
+		keyArg = p.IdempotencyKey
+	}
+	tag, err := r.pool.Exec(ctx,
 		`INSERT INTO finance_payments (
 			id, tenant_id, invoice_id, amount, payment_date,
-			method, reference, notes, created_by, created_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+			method, reference, notes, created_by, created_at, idempotency_key
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		ON CONFLICT (tenant_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING`,
 		p.ID, p.TenantID, p.InvoiceID, p.Amount, p.PaymentDate,
-		p.Method, p.Reference, p.Notes, p.CreatedBy, p.CreatedAt,
+		p.Method, p.Reference, p.Notes, p.CreatedBy, p.CreatedAt, keyArg,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	// A keyed insert that affected no row hit the dedup guard: a payment with this
+	// key already exists. Signal the caller to return the existing one.
+	if p.IdempotencyKey != "" && tag.RowsAffected() == 0 {
+		return ErrDuplicatePayment
+	}
+	return nil
 }
 
 func (r *PostgresRepository) List(ctx context.Context, tenantID, invoiceID uuid.UUID) ([]*models.Payment, error) {
@@ -113,6 +128,38 @@ func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID
 	if err != nil {
 		return nil, fmt.Errorf("parse payment amount %q: %w", amountStr, err)
 	}
+	return &p, nil
+}
+
+// GetByIdempotencyKey returns the payment recorded with the given idempotency
+// key for the tenant, or (nil, nil) if none exists.
+func (r *PostgresRepository) GetByIdempotencyKey(ctx context.Context, tenantID uuid.UUID, key string) (*models.Payment, error) {
+	if key == "" {
+		return nil, nil
+	}
+	var p models.Payment
+	var amountStr string
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, tenant_id, invoice_id, amount, payment_date,
+			method, reference, notes, created_by, created_at
+		FROM finance_payments
+		WHERE tenant_id = $1 AND idempotency_key = $2`,
+		tenantID, key,
+	).Scan(
+		&p.ID, &p.TenantID, &p.InvoiceID, &amountStr, &p.PaymentDate,
+		&p.Method, &p.Reference, &p.Notes, &p.CreatedBy, &p.CreatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	p.Amount, err = decimal.NewFromString(amountStr)
+	if err != nil {
+		return nil, fmt.Errorf("parse payment amount %q: %w", amountStr, err)
+	}
+	p.IdempotencyKey = key
 	return &p, nil
 }
 

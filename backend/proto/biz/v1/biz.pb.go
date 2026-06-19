@@ -4598,17 +4598,18 @@ func (x *SendCreditNoteResponse) GetCreditNote() *CreditNote {
 }
 
 type RecordPaymentRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	InvoiceId     string                 `protobuf:"bytes,2,opt,name=invoice_id,json=invoiceId,proto3" json:"invoice_id,omitempty"`
-	Amount        string                 `protobuf:"bytes,3,opt,name=amount,proto3" json:"amount,omitempty"`                              // Decimal as string
-	PaymentDate   string                 `protobuf:"bytes,4,opt,name=payment_date,json=paymentDate,proto3" json:"payment_date,omitempty"` // Date string YYYY-MM-DD
-	Method        PaymentMethod          `protobuf:"varint,5,opt,name=method,proto3,enum=biz.v1.PaymentMethod" json:"method,omitempty"`
-	Reference     string                 `protobuf:"bytes,6,opt,name=reference,proto3" json:"reference,omitempty"`
-	Notes         string                 `protobuf:"bytes,7,opt,name=notes,proto3" json:"notes,omitempty"`
-	CreatedBy     string                 `protobuf:"bytes,8,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	TenantId       string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	InvoiceId      string                 `protobuf:"bytes,2,opt,name=invoice_id,json=invoiceId,proto3" json:"invoice_id,omitempty"`
+	Amount         string                 `protobuf:"bytes,3,opt,name=amount,proto3" json:"amount,omitempty"`                              // Decimal as string
+	PaymentDate    string                 `protobuf:"bytes,4,opt,name=payment_date,json=paymentDate,proto3" json:"payment_date,omitempty"` // Date string YYYY-MM-DD
+	Method         PaymentMethod          `protobuf:"varint,5,opt,name=method,proto3,enum=biz.v1.PaymentMethod" json:"method,omitempty"`
+	Reference      string                 `protobuf:"bytes,6,opt,name=reference,proto3" json:"reference,omitempty"`
+	Notes          string                 `protobuf:"bytes,7,opt,name=notes,proto3" json:"notes,omitempty"`
+	CreatedBy      string                 `protobuf:"bytes,8,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	IdempotencyKey string                 `protobuf:"bytes,9,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"` // Client Idempotency-Key for DB-level dedup (F5); optional
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *RecordPaymentRequest) Reset() {
@@ -4693,6 +4694,13 @@ func (x *RecordPaymentRequest) GetNotes() string {
 func (x *RecordPaymentRequest) GetCreatedBy() string {
 	if x != nil {
 		return x.CreatedBy
+	}
+	return ""
+}
+
+func (x *RecordPaymentRequest) GetIdempotencyKey() string {
+	if x != nil {
+		return x.IdempotencyKey
 	}
 	return ""
 }
@@ -9602,7 +9610,7 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\"M\n" +
 	"\x16SendCreditNoteResponse\x123\n" +
 	"\vcredit_note\x18\x01 \x01(\v2\x12.biz.v1.CreditNoteR\n" +
-	"creditNote\"\x8f\x02\n" +
+	"creditNote\"\xb8\x02\n" +
 	"\x14RecordPaymentRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
 	"\n" +
@@ -9613,7 +9621,8 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\treference\x18\x06 \x01(\tR\treference\x12\x14\n" +
 	"\x05notes\x18\a \x01(\tR\x05notes\x12\x1d\n" +
 	"\n" +
-	"created_by\x18\b \x01(\tR\tcreatedBy\"B\n" +
+	"created_by\x18\b \x01(\tR\tcreatedBy\x12'\n" +
+	"\x0fidempotency_key\x18\t \x01(\tR\x0eidempotencyKey\"B\n" +
 	"\x15RecordPaymentResponse\x12)\n" +
 	"\apayment\x18\x01 \x01(\v2\x0f.biz.v1.PaymentR\apayment\"\x80\x01\n" +
 	"\x13ListPaymentsRequest\x12\x1b\n" +

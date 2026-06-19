@@ -1,6 +1,6 @@
 ---
 tags: [deployment, docker, ci-cd]
-updated: 2026-06-18
+updated: 2026-06-19
 ---
 # Deployment & Infrastruktur
 
@@ -8,7 +8,7 @@ updated: 2026-06-18
 >
 > **skip-worktree-Status (Stand 2026-05-08 nach Welle-1-Marathon):** keine aktiven Markierungen mehr. `livekit.yaml`-Patch aus alter Era ist obsolet (livekit-secrets.yaml-render-overlay ersetzt das per `render-configs.sh` in `deploy.sh` Step 2.5).
 >
-> **Welle 4B (2026-05-07):** `deploy/docker/docker-compose.yml` und `backend/.env.example` setzen `IDEMPOTENCY_MODE=hard` im Gateway-Environment fuer Dev. Production bleibt unset → WarnMode default. Prod-Cutover auf HardMode ist post-Pilot-1-Aktion.
+> **Welle 4B (2026-05-07):** `deploy/docker/docker-compose.yml` und `backend/.env.example` setzen `IDEMPOTENCY_MODE=hard` im Gateway-Environment fuer Dev. **Update (Wave-3-Finance, 2026-06-19):** Production ist seit dem Prod-Cutover (`8b6a981`) ebenfalls HardMode — `deploy/docker/docker-compose.prod.yml` setzt `IDEMPOTENCY_MODE=hard`. Mutationen ohne `Idempotency-Key` → 400; das Desktop-Frontend injiziert den Key automatisch fuer alle Clients (Coverage-Test). Zusaetzlich seit F5: DB-Level-Dedup auf `finance_payments` via partial unique index auf `(tenant_id, idempotency_key)` (Migr. 000215) — greift selbst bei Middleware-fail-open.
 >
 > **Ansible-Playbook (Sprint 3, 2026-05-08):** `deploy/ansible/` ist live mit 4 Roles (foundation/secrets/app-deploy/turn) und 50 Tasks insgesamt. Inventory `pilots` + `turn` mit Platzhalter-IPs (Pilot-0-IP wird vor Real-Provisioning gesetzt). ansible-lint **production-profile 0 failures**. Verifikation auf Windows via Docker-Wrapper (`willhallonline/ansible:latest` + `MSYS_NO_PATHCONV=1`). Details siehe Abschnitt "Ansible Pilot-Provisioning" unten.
 

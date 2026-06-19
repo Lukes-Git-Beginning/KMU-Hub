@@ -252,6 +252,10 @@ type Payment struct {
 	Notes       string          `json:"notes"`
 	CreatedBy   uuid.UUID       `json:"created_by"`
 	CreatedAt   time.Time       `json:"created_at"`
+	// IdempotencyKey is the client-supplied Idempotency-Key used for DB-level
+	// payment deduplication (F5). Empty for payments recorded without one.
+	// Internal only — not exposed in API responses.
+	IdempotencyKey string `json:"-"`
 }
 
 // DunningRecord represents a dunning notice (Mahnung) for an overdue invoice.
