@@ -186,7 +186,7 @@ function TemplatePreviewDialog({
           {/* Trigger */}
           <div className="rounded-lg border border-border p-3">
             <h4 className="text-xs font-medium text-muted-foreground mb-1">
-              Trigger
+              {t('automatisierung.detail.trigger')}
             </h4>
             <p className="text-sm text-foreground">{template.trigger_type}</p>
           </div>

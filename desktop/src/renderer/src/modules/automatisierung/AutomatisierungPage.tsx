@@ -28,6 +28,7 @@ import {
   useDisableAutomation,
 } from '@/api/hooks/useAutomation'
 import { useAutomatisierungStore } from '@/stores/automatisierung'
+import { useAutomatisierungPrefsStore } from '@/stores/automatisierungPrefs'
 import type { Automation } from '@/api/automation-types'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { EmptyAutomation } from '@/components/shared/illustrations'
@@ -238,6 +239,7 @@ export default function AutomatisierungPage() {
   const [detailAutomation, setDetailAutomation] = useState<Automation | null>(null)
   const { resetDraft, loadAutomationIntoDraft, setEditorMode, editorMode } =
     useAutomatisierungStore()
+  const startTab = useAutomatisierungPrefsStore((s) => s.startTab)
 
   const handleNew = () => {
     resetDraft()
@@ -267,7 +269,7 @@ export default function AutomatisierungPage() {
       <StatsBar />
 
       <div className="flex-1 overflow-hidden">
-        <Tabs.Root defaultValue="automations" className="flex h-full flex-col">
+        <Tabs.Root defaultValue={startTab} className="flex h-full flex-col">
           <div className="flex items-center justify-between border-b border-border px-6">
             <Tabs.List className="flex gap-4">
               <Tabs.Trigger
