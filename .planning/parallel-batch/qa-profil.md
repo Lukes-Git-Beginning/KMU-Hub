@@ -140,3 +140,45 @@ Zeilenbasierte Entfernung + JSON-Validierung. Untracked Helper
 - Da entfernte Keys 0 Live-Referenzen hatten, kann keine View einen Raw-Key zeigen.
 
 **Commit:** `refactor(profil): remove orphaned zeiterfassung folder + 151 dead i18n keys`
+
+---
+
+## P-5 — Demo-Tiefe-Schlusscheck + Profil-Karte  ✅ fertig
+**Build:** `npm run build` → EXIT 0 (0 Fehler).
+**Geändert:**
+- i18n: 2 nach dem P-2-Rewrite tote `profil.documents.*`-Keys entfernt
+  (`uploadConnecting`, `previewOpening` — waren die ersetzten Toast-Stubs), ×4.
+- Tracked QA: `scripts/qa-profil-card.mjs` (Profil-Karten-Flow).
+
+**Profil-Karte (`components/user/UserProfileCard.tsx`) — verifiziert:**
+- Code-Review: Overlay via `UserProfileTrigger` (PopoverTrigger asChild, genutzt in
+  dashboard/chat/work); Fremd-User → Presence + Position/Abteilung + „Nachricht senden"
+  (`getOrCreateDM` → NavigationIntent → `/kommunikation?bereich=team`); eigener User →
+  „Mein Profil öffnen" (→ `/profil`). Keine toten Buttons. Profitiert von P-1
+  (eigener-User-Karte zeigt jetzt Stefan Vogel). DM-Endpoint `POST /channels/dm` ist gemockt.
+- Live (`qa-profil-card.mjs`): 18 Trigger im Team-Dashboard, Karte öffnet (Markus Weber),
+  Presence „Offline" sichtbar, „Nachricht senden" vorhanden → Klick **navigiert zu
+  `/#/kommunikation?bereich=team`** ✓. 0 pageErrors.
+
+**Schlusscheck alle 4 Tabs (DE+EN, 1440+1024):**
+- Sweep: keine `console.log`/`toast.info`-Stubs/toten Buttons/leeren `onClick` mehr in
+  `modules/profil/` (nur legitime Input-Placeholders). Doc-Preview = `shared/DetailModal`
+  mit sticky Header-Close.
+- Raw-Keys / `{{var}}`: **0** über alle 4 Tabs, beide Viewports, DE+EN.
+- Identität: Stefan Vogel / Geschäftsführer / stefan.vogel@techvision.de / „Mitglied seit"
+  durchgängig; kein „Darien"/„Morales".
+- Page-Errors: **0**. Console: nur app-globales `feature-flags` (Demo-Lücke, nicht profil).
+
+**Commit:** `chore(profil): verify profile card + final demo-depth sweep, drop 2 dead doc keys`
+
+---
+
+## Definition of Done — profil review-reif  ✅ 5/5
+Alle 5 Phasen verifiziert (Screenshots angesehen), 0 Raw-Keys / 0 Doppelklammern /
+0 Console-Errors (außer app-globalem feature-flags), je ein Commit+Push auf
+`parallel/profil`. **Out of scope eingehalten:** kein echtes Avatar-/Dokument-Storage-
+Backend, keine echte DND-Backend-Anbindung, kein Settings-Registry-Eintrag.
+**Bonus (in-lane):** AbwesenheitenTab-Crash (camelCase↔snake_case Datenvertrag) gefixt.
+
+Untracked Helper (per Konvention nicht getrackt): `scripts/add-profil-i18n.mjs`,
+`scripts/purge-profil-zeiterfassung-i18n.mjs`.
