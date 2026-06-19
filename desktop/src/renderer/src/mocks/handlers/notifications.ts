@@ -7,128 +7,174 @@ import type { QuietHours, DNDStatus, MutedResource } from '@/api/notification-cl
 const API = API_BASE_URL
 
 // ---------------------------------------------------------------------------
-// Notifications (10 recent)
+// Notifications (13 recent)
+//
+// Schema mirrors `components['schemas']['Notification']` so the Center + Bell
+// render unread state (is_read), priority colour (priority), the module badge
+// (module_id) and the "Öffnen" deep-link (deep_link → a real app route).
+// 6 of the 13 are unread → Bell badge + unread tab are alive on first load.
 // ---------------------------------------------------------------------------
 
-const notifications = [
+interface SeedNotification {
+  id: string
+  event_type_key: string
+  module_id?: string
+  priority: 'low' | 'normal' | 'high' | 'urgent'
+  title: string
+  body: string
+  is_read: boolean
+  read_at?: string
+  actor_id: string | null
+  actor_name: string
+  resource_id: string | null
+  deep_link?: string
+  created_at: string
+}
+
+const notifications: SeedNotification[] = [
   {
     id: 'notif-001',
-    type: 'deal_created',
+    event_type_key: 'deal_created',
+    module_id: 'contacts',
+    priority: 'normal',
     title: 'Neuer Deal erstellt',
     body: 'Thomas Meier hat den Deal "KI Beratung" (CHF 45\'000) erstellt.',
-    read: false,
+    is_read: false,
     actor_id: IDS.users.thomas,
     actor_name: 'Thomas Meier',
-    resource_type: 'deal',
     resource_id: IDS.deals.kiBeratung,
+    deep_link: '/pipeline',
     created_at: minutesAgo(15),
   },
   {
     id: 'notif-002',
-    type: 'task_due',
-    title: 'Task fällig morgen',
+    event_type_key: 'task_due',
+    module_id: 'tasks',
+    priority: 'high',
+    title: 'Aufgabe fällig morgen',
     body: 'Sprint Review vorbereiten — fällig am morgigen Tag.',
-    read: false,
+    is_read: false,
     actor_id: null,
     actor_name: 'System',
-    resource_type: 'task',
     resource_id: 'task-001',
+    deep_link: '/work/my-tasks',
     created_at: minutesAgo(45),
   },
   {
     id: 'notif-003',
-    type: 'chat_mention',
+    event_type_key: 'chat_mention',
+    module_id: 'chat',
+    priority: 'normal',
     title: 'Nachricht in #entwicklung',
     body: 'Markus Weber hat dich in #entwicklung erwähnt: "@Stefan schau dir mal den PR an"',
-    read: false,
+    is_read: false,
     actor_id: IDS.users.markus,
     actor_name: 'Markus Weber',
-    resource_type: 'channel',
     resource_id: IDS.channels.entwicklung,
+    deep_link: '/kommunikation',
     created_at: hoursAgo(1),
   },
   {
     id: 'notif-004',
-    type: 'leave_request',
+    event_type_key: 'leave_request',
+    module_id: 'team',
+    priority: 'normal',
     title: 'Urlaubsantrag eingegangen',
     body: 'Felix Krause beantragt Urlaub vom 09.04. bis 16.04.2026 (6 Tage).',
-    read: false,
+    is_read: true,
+    read_at: hoursAgo(1),
     actor_id: IDS.users.felix,
     actor_name: 'Felix Krause',
-    resource_type: 'leave_request',
     resource_id: 'lr-001',
+    deep_link: '/team',
     created_at: hoursAgo(2),
   },
   {
     id: 'notif-005',
-    type: 'document_shared',
+    event_type_key: 'document_shared',
+    module_id: 'documents',
+    priority: 'low',
     title: 'Dokument geteilt',
     body: 'Lena Braun hat "Brandbook_2026.pdf" mit dir geteilt.',
-    read: true,
+    is_read: true,
+    read_at: hoursAgo(3),
     actor_id: IDS.users.lena,
     actor_name: 'Lena Braun',
-    resource_type: 'document',
     resource_id: 'file-010',
+    deep_link: '/dokumente',
     created_at: hoursAgo(4),
   },
   {
     id: 'notif-006',
-    type: 'deal_stage_changed',
+    event_type_key: 'deal_stage_changed',
+    module_id: 'contacts',
+    priority: 'high',
     title: 'Deal-Phase geändert',
     body: 'Deal "ERP Migration" wurde nach "Proposal" verschoben.',
-    read: true,
+    is_read: false,
     actor_id: IDS.users.thomas,
     actor_name: 'Thomas Meier',
-    resource_type: 'deal',
     resource_id: IDS.deals.erpMigration,
+    deep_link: '/pipeline',
     created_at: hoursAgo(8),
   },
   {
     id: 'notif-007',
-    type: 'invoice_paid',
+    event_type_key: 'invoice_paid',
+    module_id: 'finance',
+    priority: 'normal',
     title: 'Rechnung bezahlt',
     body: 'Rechnung RE-2026-077 (EUR 12\'500) wurde als bezahlt markiert.',
-    read: true,
+    is_read: true,
+    read_at: hoursAgo(20),
     actor_id: IDS.users.michael,
     actor_name: 'Petra Zimmermann',
-    resource_type: 'invoice',
     resource_id: IDS.invoices.inv007,
+    deep_link: '/finanzen',
     created_at: daysAgo(1),
   },
   {
     id: 'notif-008',
-    type: 'project_update',
+    event_type_key: 'project_update',
+    module_id: 'projects',
+    priority: 'low',
     title: 'Projekt-Update',
     body: 'Sarah Beck hat das Projekt "Hub V2" aktualisiert — neuer Meilenstein hinzugefügt.',
-    read: true,
+    is_read: true,
+    read_at: hoursAgo(22),
     actor_id: IDS.users.elena,
     actor_name: 'Sarah Beck',
-    resource_type: 'project',
     resource_id: IDS.projects.hubV2,
+    deep_link: '/work/projects',
     created_at: daysAgo(1),
   },
   {
     id: 'notif-009',
-    type: 'security_alert',
+    event_type_key: 'security_alert',
+    module_id: 'settings',
+    priority: 'urgent',
     title: 'Sicherheitswarnung',
     body: '3 fehlgeschlagene Login-Versuche von IP 203.0.113.88 blockiert.',
-    read: true,
+    is_read: false,
     actor_id: null,
     actor_name: 'System',
-    resource_type: 'security',
     resource_id: null,
+    deep_link: '/admin/security',
     created_at: daysAgo(2),
   },
   {
     id: 'notif-010',
-    type: 'welcome',
+    event_type_key: 'welcome',
+    module_id: undefined,
+    priority: 'low',
     title: 'Willkommen bei Cosmi!',
     body: 'Ihr Arbeitsbereich ist eingerichtet. Erkunden Sie die Module im Seitenmenue.',
-    read: true,
+    is_read: true,
+    read_at: daysAgo(89),
     actor_id: null,
     actor_name: 'System',
-    resource_type: null,
     resource_id: null,
+    deep_link: '/',
     created_at: daysAgo(90),
   },
   // Fristen-Reminder (V-3) — gespiegelt zu den auslaufenden Seed-Verträgen
@@ -136,80 +182,90 @@ const notifications = [
   // zustand-Toast surfacet sie zusätzlich live beim Öffnen des Moduls.
   {
     id: 'notif-contract-v-3',
-    type: 'contract_expiry',
+    event_type_key: 'contract_expiry',
+    module_id: 'vertraege',
+    priority: 'high',
     title: 'Vertrag läuft bald ab',
     body: 'Microsoft 365 Business (Microsoft Ireland Operations Ltd.) — Ablauf in 18 Tagen',
-    read: false,
+    is_read: false,
     actor_id: null,
     actor_name: 'System',
-    resource_type: 'contract',
     resource_id: 'v-3',
+    deep_link: '/vertraege',
     created_at: hoursAgo(3),
   },
   {
     id: 'notif-contract-v-5',
-    type: 'contract_expiry',
+    event_type_key: 'contract_expiry',
+    module_id: 'vertraege',
+    priority: 'normal',
     title: 'Vertrag läuft bald ab',
     body: 'Müller Metallbau Rahmenvertrag (Müller Metallbau GmbH) — Ablauf in 47 Tagen',
-    read: false,
+    is_read: true,
+    read_at: hoursAgo(12),
     actor_id: null,
     actor_name: 'System',
-    resource_type: 'contract',
     resource_id: 'v-5',
+    deep_link: '/vertraege',
     created_at: daysAgo(1),
   },
   {
     id: 'notif-contract-v-11',
-    type: 'contract_expiry',
+    event_type_key: 'contract_expiry',
+    module_id: 'vertraege',
+    priority: 'low',
     title: 'Vertrag läuft bald ab',
     body: 'Lagerraum Augsburg (Immo-Invest Augsburg GmbH) — Ablauf in 82 Tagen',
-    read: false,
+    is_read: true,
+    read_at: daysAgo(1),
     actor_id: null,
     actor_name: 'System',
-    resource_type: 'contract',
     resource_id: 'v-11',
+    deep_link: '/vertraege',
     created_at: daysAgo(2),
   },
 ]
 
 // ---------------------------------------------------------------------------
-// Notification preferences
+// Notification preferences — per-event-type in-app/desktop toggles.
+//
+// Returned as an array of `NotificationPreference` (matching the hook + the
+// Center's PreferencesPanel, which does `preferences.find(p => p.event_type_key)`).
+// PUT upserts into this state → checkboxes survive a refetch within the session.
 // ---------------------------------------------------------------------------
 
-const preferences = {
-  channels: {
-    in_app: true,
-    email: true,
-    desktop: true,
-    mobile: false,
-  },
-  categories: {
-    deals: { in_app: true, email: true, desktop: true },
-    tasks: { in_app: true, email: false, desktop: true },
-    chat: { in_app: true, email: false, desktop: true },
-    documents: { in_app: true, email: false, desktop: false },
-    finance: { in_app: true, email: true, desktop: false },
-    security: { in_app: true, email: true, desktop: true },
-    hr: { in_app: true, email: true, desktop: false },
-    system: { in_app: true, email: true, desktop: true },
-  },
+interface NotificationPreference {
+  id: string
+  event_type_key: string
+  module_id?: string
+  in_app: boolean
+  desktop_push: boolean
+  sound?: string
 }
 
+const preferencesState: NotificationPreference[] = [
+  { id: 'pref-1', event_type_key: 'document_shared', module_id: 'documents', in_app: true, desktop_push: false },
+  { id: 'pref-2', event_type_key: 'invoice_overdue', module_id: 'finance', in_app: true, desktop_push: true },
+]
+let prefIdCounter = 3
+
+// Event types grouped by module — the PreferencesPanel groups by `module_id`
+// and renders `display_name`/`description` + in-app/desktop checkboxes.
 const eventTypes = [
-  { type: 'deal_created', label: 'Deal erstellt', category: 'deals' },
-  { type: 'deal_stage_changed', label: 'Deal-Phase geändert', category: 'deals' },
-  { type: 'deal_won', label: 'Deal gewonnen', category: 'deals' },
-  { type: 'deal_lost', label: 'Deal verloren', category: 'deals' },
-  { type: 'task_due', label: 'Task fällig', category: 'tasks' },
-  { type: 'task_assigned', label: 'Task zugewiesen', category: 'tasks' },
-  { type: 'chat_mention', label: 'Erwähnung im Chat', category: 'chat' },
-  { type: 'chat_dm', label: 'Direktnachricht', category: 'chat' },
-  { type: 'document_shared', label: 'Dokument geteilt', category: 'documents' },
-  { type: 'invoice_paid', label: 'Rechnung bezahlt', category: 'finance' },
-  { type: 'invoice_overdue', label: 'Rechnung überfällig', category: 'finance' },
-  { type: 'leave_request', label: 'Urlaubsantrag', category: 'hr' },
-  { type: 'security_alert', label: 'Sicherheitswarnung', category: 'security' },
-  { type: 'project_update', label: 'Projekt-Update', category: 'tasks' },
+  { id: 'et-01', module_id: 'contacts', event_key: 'deal_created', display_name: 'Deal erstellt', description: 'Wenn ein neuer Deal angelegt wird', default_in_app: true, default_desktop_push: true },
+  { id: 'et-02', module_id: 'contacts', event_key: 'deal_stage_changed', display_name: 'Deal-Phase geändert', description: 'Wenn ein Deal die Phase wechselt', default_in_app: true, default_desktop_push: true },
+  { id: 'et-03', module_id: 'contacts', event_key: 'deal_won', display_name: 'Deal gewonnen', description: 'Wenn ein Deal als gewonnen markiert wird', default_in_app: true, default_desktop_push: true },
+  { id: 'et-04', module_id: 'tasks', event_key: 'task_due', display_name: 'Aufgabe fällig', description: 'Erinnerung an fällige Aufgaben', default_in_app: true, default_desktop_push: true },
+  { id: 'et-05', module_id: 'tasks', event_key: 'task_assigned', display_name: 'Aufgabe zugewiesen', description: 'Wenn dir eine Aufgabe zugewiesen wird', default_in_app: true, default_desktop_push: false },
+  { id: 'et-06', module_id: 'chat', event_key: 'chat_mention', display_name: 'Erwähnung im Chat', description: 'Wenn dich jemand im Chat erwähnt', default_in_app: true, default_desktop_push: true },
+  { id: 'et-07', module_id: 'chat', event_key: 'chat_dm', display_name: 'Direktnachricht', description: 'Neue Direktnachricht', default_in_app: true, default_desktop_push: true },
+  { id: 'et-08', module_id: 'documents', event_key: 'document_shared', display_name: 'Dokument geteilt', description: 'Wenn ein Dokument mit dir geteilt wird', default_in_app: true, default_desktop_push: false },
+  { id: 'et-09', module_id: 'finance', event_key: 'invoice_paid', display_name: 'Rechnung bezahlt', description: 'Wenn eine Rechnung als bezahlt markiert wird', default_in_app: true, default_desktop_push: false },
+  { id: 'et-10', module_id: 'finance', event_key: 'invoice_overdue', display_name: 'Rechnung überfällig', description: 'Wenn eine Rechnung überfällig ist', default_in_app: true, default_desktop_push: true },
+  { id: 'et-11', module_id: 'team', event_key: 'leave_request', display_name: 'Urlaubsantrag', description: 'Neuer Urlaubsantrag im Team', default_in_app: true, default_desktop_push: false },
+  { id: 'et-12', module_id: 'vertraege', event_key: 'contract_expiry', display_name: 'Vertrag läuft ab', description: 'Wenn ein Vertrag bald ausläuft', default_in_app: true, default_desktop_push: true },
+  { id: 'et-13', module_id: 'projects', event_key: 'project_update', display_name: 'Projekt-Update', description: 'Updates zu deinen Projekten', default_in_app: true, default_desktop_push: false },
+  { id: 'et-14', module_id: 'system', event_key: 'security_alert', display_name: 'Sicherheitswarnung', description: 'Sicherheitsrelevante Ereignisse', default_in_app: true, default_desktop_push: true },
 ]
 
 // ---------------------------------------------------------------------------
@@ -236,44 +292,104 @@ let muteIdCounter = 1
 // ---------------------------------------------------------------------------
 
 export const notificationHandlers = [
-  // List notifications (neueste zuerst)
+  // List notifications (neueste zuerst). Supports is_read + module_id filters
+  // (sent by the hook) plus legacy `unread=true` and page/page_size paging.
   http.get(`${API}/api/v1/notifications`, ({ request }) => {
     const url = new URL(request.url)
+    const isReadParam = url.searchParams.get('is_read')
+    const moduleId = url.searchParams.get('module_id')
     const unreadOnly = url.searchParams.get('unread') === 'true'
-    const filtered = (unreadOnly ? notifications.filter((n) => !n.read) : notifications)
-      .slice()
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    return HttpResponse.json({ notifications: filtered, total: filtered.length })
+
+    let list = notifications.slice()
+    if (moduleId) list = list.filter((n) => n.module_id === moduleId)
+    if (isReadParam === 'true') list = list.filter((n) => n.is_read)
+    else if (isReadParam === 'false') list = list.filter((n) => !n.is_read)
+    if (unreadOnly) list = list.filter((n) => !n.is_read)
+
+    list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    const total = list.length
+
+    const page = Number(url.searchParams.get('page') ?? '1')
+    const pageSize = Number(url.searchParams.get('page_size') ?? '0')
+    const paged = pageSize > 0 ? list.slice((page - 1) * pageSize, page * pageSize) : list
+
+    return HttpResponse.json({ notifications: paged, total })
   }),
 
   // Unread count
   http.get(`${API}/api/v1/notifications/unread-count`, () => {
-    const count = notifications.filter((n) => !n.read).length
+    const count = notifications.filter((n) => !n.is_read).length
     return HttpResponse.json({ count })
   }),
 
-  // Mark single as read
+  // Mark single as read (stateful — survives refetch within the session)
   http.post(`${API}/api/v1/notifications/:id/read`, ({ params }) => {
     const notif = notifications.find((n) => n.id === params.id)
     if (!notif) {
       return HttpResponse.json({ error: 'Notification not found' }, { status: 404 })
     }
-    return HttpResponse.json({ success: true })
+    notif.is_read = true
+    notif.read_at = new Date().toISOString()
+    return HttpResponse.json(notif)
   }),
 
-  // Mark all as read
-  http.post(`${API}/api/v1/notifications/read-all`, () => {
-    return HttpResponse.json({ success: true, updated: notifications.filter((n) => !n.read).length })
+  // Mark all as read (stateful), optionally filtered by module
+  http.post(`${API}/api/v1/notifications/read-all`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as { module_id?: string }
+    const target = body.module_id
+      ? notifications.filter((n) => n.module_id === body.module_id && !n.is_read)
+      : notifications.filter((n) => !n.is_read)
+    const now = new Date().toISOString()
+    target.forEach((n) => {
+      n.is_read = true
+      n.read_at = now
+    })
+    return HttpResponse.json({ marked_count: target.length })
   }),
 
-  // Notification preferences
-  http.get(`${API}/api/v1/notifications/preferences`, () => {
-    return HttpResponse.json({ preferences })
+  // Notification preferences — list (per-event in-app/desktop toggles)
+  http.get(`${API}/api/v1/notifications/preferences`, ({ request }) => {
+    const moduleId = new URL(request.url).searchParams.get('module_id')
+    const prefs = moduleId
+      ? preferencesState.filter((p) => p.module_id === moduleId)
+      : preferencesState
+    return HttpResponse.json({ preferences: prefs })
+  }),
+
+  // Notification preferences — update (stateful upsert by event_type_key)
+  http.put(`${API}/api/v1/notifications/preferences`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as {
+      event_type_key?: string
+      module_id?: string
+      in_app?: boolean
+      desktop_push?: boolean
+      sound?: string
+    }
+    const key = body.event_type_key
+    let pref = preferencesState.find((p) => p.event_type_key === key)
+    if (pref) {
+      if (body.in_app !== undefined) pref.in_app = body.in_app
+      if (body.desktop_push !== undefined) pref.desktop_push = body.desktop_push
+      if (body.sound !== undefined) pref.sound = body.sound
+    } else {
+      pref = {
+        id: `pref-${prefIdCounter++}`,
+        event_type_key: key ?? '',
+        module_id: body.module_id,
+        in_app: body.in_app ?? true,
+        desktop_push: body.desktop_push ?? true,
+        sound: body.sound,
+      }
+      preferencesState.push(pref)
+    }
+    return HttpResponse.json(pref)
   }),
 
   // Event types
-  http.get(`${API}/api/v1/notifications/event-types`, () => {
-    return HttpResponse.json({ event_types: eventTypes })
+  http.get(`${API}/api/v1/notifications/event-types`, ({ request }) => {
+    const moduleId = new URL(request.url).searchParams.get('module_id')
+    const types = moduleId ? eventTypes.filter((e) => e.module_id === moduleId) : eventTypes
+    return HttpResponse.json({ event_types: types })
   }),
 
   // Quiet hours — get
