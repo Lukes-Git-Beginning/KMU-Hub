@@ -29,19 +29,19 @@ func (b *BizRoutes) HandleImportInvoice(w http.ResponseWriter, r *http.Request) 
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	userID := middleware.GetUserID(r.Context())
 
 	if err := r.ParseMultipartForm(maxEInvoiceUploadBytes); err != nil {
-		http.Error(w, "invalid multipart form: "+err.Error(), http.StatusBadRequest)
+		response.Error(w, http.StatusBadRequest, "invalid multipart form: "+err.Error())
 		return
 	}
 
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		http.Error(w, "file field is required", http.StatusBadRequest)
+		response.Error(w, http.StatusBadRequest, "file field is required")
 		return
 	}
 	defer file.Close()
@@ -51,21 +51,21 @@ func (b *BizRoutes) HandleImportInvoice(w http.ResponseWriter, r *http.Request) 
 		mimeType = "application/octet-stream"
 	}
 	if !isEInvoiceMIME(mimeType) {
-		http.Error(w, "unsupported file type: expected application/pdf, application/xml, or text/xml", http.StatusUnsupportedMediaType)
+		response.Error(w, http.StatusUnsupportedMediaType, "unsupported file type: expected application/pdf, application/xml, or text/xml")
 		return
 	}
 
 	content, readErr := io.ReadAll(io.LimitReader(file, maxEInvoiceUploadBytes+1))
 	if readErr != nil {
-		http.Error(w, "failed to read uploaded file", http.StatusInternalServerError)
+		response.Error(w, http.StatusInternalServerError, "failed to read uploaded file")
 		return
 	}
 	if len(content) == 0 {
-		http.Error(w, "uploaded file is empty", http.StatusBadRequest)
+		response.Error(w, http.StatusBadRequest, "uploaded file is empty")
 		return
 	}
 	if len(content) > maxEInvoiceUploadBytes {
-		http.Error(w, "uploaded file exceeds 10 MiB limit", http.StatusRequestEntityTooLarge)
+		response.Error(w, http.StatusRequestEntityTooLarge, "uploaded file exceeds 10 MiB limit")
 		return
 	}
 
@@ -94,7 +94,7 @@ func (b *BizRoutes) HandleListIncomingInvoices(w http.ResponseWriter, r *http.Re
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -130,7 +130,7 @@ func (b *BizRoutes) HandleGetIncomingInvoice(w http.ResponseWriter, r *http.Requ
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -162,7 +162,7 @@ func (b *BizRoutes) HandleUpdateIncomingInvoiceStatus(w http.ResponseWriter, r *
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")

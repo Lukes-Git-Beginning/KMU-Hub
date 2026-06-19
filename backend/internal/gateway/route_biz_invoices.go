@@ -37,7 +37,7 @@ func (b *BizRoutes) HandleCreateInvoice(w http.ResponseWriter, r *http.Request) 
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	userID := middleware.GetUserID(r.Context())
@@ -81,7 +81,7 @@ func (b *BizRoutes) HandleListInvoices(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	page, pageSize := parsePagination(r, 1, 50)
@@ -94,7 +94,13 @@ func (b *BizRoutes) HandleListInvoices(w http.ResponseWriter, r *http.Request) {
 	}
 	if cid := r.URL.Query().Get("contact_id"); cid != "" {
 		if _, parseErr := uuid.Parse(cid); parseErr != nil {
-			http.Error(w, `{"error":"invalid contact_id: must be a valid UUID","code":"INVALID_CONTACT_ID"}`, http.StatusBadRequest)
+			response.JSON(w, http.StatusBadRequest, struct {
+				Error string `json:"error"`
+				Code  string `json:"code"`
+			}{
+				Error: "invalid contact_id: must be a valid UUID",
+				Code:  "INVALID_CONTACT_ID",
+			})
 			return
 		}
 		req.ContactId = &cid
@@ -121,7 +127,7 @@ func (b *BizRoutes) HandleGetInvoice(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -158,7 +164,7 @@ func (b *BizRoutes) HandleUpdateInvoice(w http.ResponseWriter, r *http.Request) 
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -197,7 +203,7 @@ func (b *BizRoutes) HandleSendInvoice(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -223,7 +229,7 @@ func (b *BizRoutes) HandleMarkInvoicePaid(w http.ResponseWriter, r *http.Request
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -249,7 +255,7 @@ func (b *BizRoutes) HandleCancelInvoice(w http.ResponseWriter, r *http.Request) 
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -275,7 +281,7 @@ func (b *BizRoutes) HandleGenerateInvoicePDF(w http.ResponseWriter, r *http.Requ
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")

@@ -32,7 +32,7 @@ func (b *BizRoutes) HandleCreateCreditNote(w http.ResponseWriter, r *http.Reques
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	userID := middleware.GetUserID(r.Context())
@@ -68,7 +68,7 @@ func (b *BizRoutes) HandleListCreditNotes(w http.ResponseWriter, r *http.Request
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	page, pageSize := parsePagination(r, 1, 50)
@@ -99,7 +99,7 @@ func (b *BizRoutes) HandleGetCreditNote(w http.ResponseWriter, r *http.Request) 
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -125,7 +125,7 @@ func (b *BizRoutes) HandleSendCreditNote(w http.ResponseWriter, r *http.Request)
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -151,7 +151,7 @@ func (b *BizRoutes) HandleGenerateCreditNotePDF(w http.ResponseWriter, r *http.R
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -189,7 +189,7 @@ func (b *BizRoutes) HandleRecordPayment(w http.ResponseWriter, r *http.Request) 
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	userID := middleware.GetUserID(r.Context())
@@ -230,7 +230,7 @@ func (b *BizRoutes) HandleListPayments(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	invoiceID := chi.URLParam(r, "id")
@@ -262,7 +262,7 @@ func (b *BizRoutes) HandleDeletePayment(w http.ResponseWriter, r *http.Request) 
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -292,7 +292,7 @@ func (b *BizRoutes) HandleListDunnings(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	page, pageSize := parsePagination(r, 1, 50)
@@ -331,7 +331,7 @@ func (b *BizRoutes) HandleCreateDunning(w http.ResponseWriter, r *http.Request) 
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	userID := middleware.GetUserID(r.Context())
@@ -366,7 +366,7 @@ func (b *BizRoutes) HandleSendDunning(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -392,7 +392,7 @@ func (b *BizRoutes) HandleEscalateDunning(w http.ResponseWriter, r *http.Request
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	userID := middleware.GetUserID(r.Context())
@@ -429,7 +429,7 @@ func (b *BizRoutes) HandleGenerateDunningPDF(w http.ResponseWriter, r *http.Requ
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -455,7 +455,7 @@ func (b *BizRoutes) HandleGetDunningConfig(w http.ResponseWriter, r *http.Reques
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -488,7 +488,7 @@ func (b *BizRoutes) HandleUpdateDunningConfig(w http.ResponseWriter, r *http.Req
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -530,7 +530,7 @@ func (b *BizRoutes) HandleGetFinanceDashboard(w http.ResponseWriter, r *http.Req
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -564,7 +564,7 @@ func (b *BizRoutes) HandleExportDATEV(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -605,7 +605,7 @@ func (b *BizRoutes) HandleGetJournalSummary(w http.ResponseWriter, r *http.Reque
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	yearStr := r.URL.Query().Get("year")
@@ -642,7 +642,7 @@ func (b *BizRoutes) HandleValidateInvoiceNumber(w http.ResponseWriter, r *http.R
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	number := r.URL.Query().Get("number")
@@ -674,7 +674,7 @@ func (b *BizRoutes) HandleLockInvoice(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -704,7 +704,7 @@ func (b *BizRoutes) HandleGetPaymentStats(w http.ResponseWriter, r *http.Request
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	fromDate := r.URL.Query().Get("from")
@@ -738,7 +738,7 @@ func (b *BizRoutes) HandleUpdateDunningStatus(w http.ResponseWriter, r *http.Req
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -775,7 +775,7 @@ func (b *BizRoutes) HandleSendDunningNotice(w http.ResponseWriter, r *http.Reque
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -806,7 +806,7 @@ func (b *BizRoutes) HandleGenerateGoBDExport(w http.ResponseWriter, r *http.Requ
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 

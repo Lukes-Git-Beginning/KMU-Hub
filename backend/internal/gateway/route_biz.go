@@ -185,7 +185,7 @@ func (b *BizRoutes) HandleGetCompanySettings(w http.ResponseWriter, r *http.Requ
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -229,7 +229,7 @@ func (b *BizRoutes) HandleUpdateCompanySettings(w http.ResponseWriter, r *http.R
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 

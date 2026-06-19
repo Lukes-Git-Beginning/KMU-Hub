@@ -96,7 +96,7 @@ func (br *BexioRoutes) HandleOAuthCallback(w http.ResponseWriter, r *http.Reques
 	// A missing or invalid stateSecret means Bexio was mis-configured at startup.
 	if br.stateSecret == "" {
 		slog.Error("bexio: BEXIO_STATE_SECRET not configured, rejecting OAuth callback")
-		http.Error(w, "OAuth state validation not configured", http.StatusInternalServerError)
+		response.Error(w, http.StatusInternalServerError, "OAuth state validation not configured")
 		return
 	}
 	tenantID, stateErr := decodeBexioState(br.stateSecret, state)
@@ -105,7 +105,7 @@ func (br *BexioRoutes) HandleOAuthCallback(w http.ResponseWriter, r *http.Reques
 			"error", stateErr,
 			"remote_addr", r.RemoteAddr,
 		)
-		http.Error(w, "invalid or expired OAuth state", http.StatusBadRequest)
+		response.Error(w, http.StatusBadRequest, "invalid or expired OAuth state")
 		return
 	}
 
@@ -136,7 +136,7 @@ func (br *BexioRoutes) HandleGetAuthURL(w http.ResponseWriter, r *http.Request) 
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -145,13 +145,13 @@ func (br *BexioRoutes) HandleGetAuthURL(w http.ResponseWriter, r *http.Request) 
 	// redirect round-trip being tamper-proof.
 	if br.stateSecret == "" {
 		slog.Error("bexio: BEXIO_STATE_SECRET not configured, cannot issue OAuth URL")
-		http.Error(w, "OAuth state secret not configured", http.StatusInternalServerError)
+		response.Error(w, http.StatusInternalServerError, "OAuth state secret not configured")
 		return
 	}
 	signedState, stateErr := encodeBexioState(br.stateSecret, tenantID)
 	if stateErr != nil {
 		slog.Error("bexio: failed to encode state token", "error", stateErr)
-		http.Error(w, "failed to generate OAuth state", http.StatusInternalServerError)
+		response.Error(w, http.StatusInternalServerError, "failed to generate OAuth state")
 		return
 	}
 
@@ -179,7 +179,7 @@ func (br *BexioRoutes) HandleDisconnect(w http.ResponseWriter, r *http.Request) 
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -204,7 +204,7 @@ func (br *BexioRoutes) HandleGetConnectionStatus(w http.ResponseWriter, r *http.
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -241,7 +241,7 @@ func (br *BexioRoutes) HandleTriggerSync(w http.ResponseWriter, r *http.Request)
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -282,7 +282,7 @@ func (br *BexioRoutes) HandleGetSyncStatus(w http.ResponseWriter, r *http.Reques
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -329,7 +329,7 @@ func (br *BexioRoutes) HandleListSyncLogs(w http.ResponseWriter, r *http.Request
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	limit := parseLimit(r, 20, 100)
@@ -381,7 +381,7 @@ func (br *BexioRoutes) HandleGetFieldMappings(w http.ResponseWriter, r *http.Req
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	entityType := chi.URLParam(r, "entity_type")
@@ -408,7 +408,7 @@ func (br *BexioRoutes) HandleUpdateFieldMappings(w http.ResponseWriter, r *http.
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	entityType := chi.URLParam(r, "entity_type")
@@ -448,7 +448,7 @@ func (br *BexioRoutes) HandlePushInvoice(w http.ResponseWriter, r *http.Request)
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	invoiceID := chi.URLParam(r, "invoice_id")
@@ -485,7 +485,7 @@ func (br *BexioRoutes) HandlePushQuote(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	quoteID := chi.URLParam(r, "quote_id")

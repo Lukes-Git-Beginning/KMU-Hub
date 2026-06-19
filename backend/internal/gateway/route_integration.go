@@ -502,7 +502,7 @@ func (ir *IntegrationRoutes) HandleGetLinkStatus(w http.ResponseWriter, r *http.
 
 func (ir *IntegrationRoutes) HandleTeamsWebhook(w http.ResponseWriter, r *http.Request) {
 	if ir.teamsWebhook == nil {
-		http.Error(w, "teams integration not configured", http.StatusNotFound)
+		response.Error(w, http.StatusNotFound, "teams integration not configured")
 		return
 	}
 	ir.teamsWebhook.HandleWebhook(w, r)
@@ -510,7 +510,7 @@ func (ir *IntegrationRoutes) HandleTeamsWebhook(w http.ResponseWriter, r *http.R
 
 func (ir *IntegrationRoutes) HandleSlackInteraction(w http.ResponseWriter, r *http.Request) {
 	if ir.slackWebhook == nil {
-		http.Error(w, "slack integration not configured", http.StatusNotFound)
+		response.Error(w, http.StatusNotFound, "slack integration not configured")
 		return
 	}
 	ir.slackWebhook.HandleInteraction(w, r)
@@ -518,7 +518,7 @@ func (ir *IntegrationRoutes) HandleSlackInteraction(w http.ResponseWriter, r *ht
 
 func (ir *IntegrationRoutes) HandleSlackSlashCommand(w http.ResponseWriter, r *http.Request) {
 	if ir.slackWebhook == nil {
-		http.Error(w, "slack integration not configured", http.StatusNotFound)
+		response.Error(w, http.StatusNotFound, "slack integration not configured")
 		return
 	}
 	ir.slackWebhook.HandleSlashCommand(w, r)
@@ -526,7 +526,7 @@ func (ir *IntegrationRoutes) HandleSlackSlashCommand(w http.ResponseWriter, r *h
 
 func (ir *IntegrationRoutes) HandleSlackOAuthInstall(w http.ResponseWriter, r *http.Request) {
 	if ir.slackOAuth == nil {
-		http.Error(w, "slack oauth not configured", http.StatusNotFound)
+		response.Error(w, http.StatusNotFound, "slack oauth not configured")
 		return
 	}
 	ir.slackOAuth.HandleInstall(w, r)
@@ -534,7 +534,7 @@ func (ir *IntegrationRoutes) HandleSlackOAuthInstall(w http.ResponseWriter, r *h
 
 func (ir *IntegrationRoutes) HandleSlackOAuthCallback(w http.ResponseWriter, r *http.Request) {
 	if ir.slackOAuth == nil {
-		http.Error(w, "slack oauth not configured", http.StatusNotFound)
+		response.Error(w, http.StatusNotFound, "slack oauth not configured")
 		return
 	}
 	ir.slackOAuth.HandleCallback(w, r)

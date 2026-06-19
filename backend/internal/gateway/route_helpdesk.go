@@ -213,7 +213,7 @@ func (h *HelpdeskRoutes) HandleCreateTicket(w http.ResponseWriter, r *http.Reque
 
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -518,7 +518,7 @@ func (h *HelpdeskRoutes) HandleListQueues(w http.ResponseWriter, r *http.Request
 
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -620,7 +620,7 @@ func (h *HelpdeskRoutes) HandleListCannedResponses(w http.ResponseWriter, r *htt
 
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -723,7 +723,7 @@ func (h *HelpdeskRoutes) HandleListSLAPolicies(w http.ResponseWriter, r *http.Re
 
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -857,7 +857,7 @@ func (h *HelpdeskRoutes) HandleListKBArticles(w http.ResponseWriter, r *http.Req
 
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -879,7 +879,7 @@ func (h *HelpdeskRoutes) HandleCreateKBArticle(w http.ResponseWriter, r *http.Re
 
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -969,7 +969,7 @@ func (h *HelpdeskRoutes) HandleListRoutingRules(w http.ResponseWriter, r *http.R
 
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -991,7 +991,7 @@ func (h *HelpdeskRoutes) HandleCreateRoutingRule(w http.ResponseWriter, r *http.
 
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -1085,7 +1085,7 @@ func (h *HelpdeskRoutes) HandleGetHelpdeskStats(w http.ResponseWriter, r *http.R
 
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 

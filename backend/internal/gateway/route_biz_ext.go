@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
+	"github.com/kmuhub/kmuhub/internal/server/response"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
 )
 
@@ -50,7 +51,7 @@ type createInvoiceFromTimeRequest struct {
 func (b *BizExtRoutes) HandleCreateInvoiceFromTime(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	userID := middleware.GetUserID(r.Context())

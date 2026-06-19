@@ -32,7 +32,7 @@ func (b *BizRoutes) HandleCreateQuote(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	userID := middleware.GetUserID(r.Context())
@@ -69,7 +69,7 @@ func (b *BizRoutes) HandleListQuotes(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	page, pageSize := parsePagination(r, 1, 50)
@@ -103,7 +103,7 @@ func (b *BizRoutes) HandleGetQuote(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -137,7 +137,7 @@ func (b *BizRoutes) HandleUpdateQuote(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -173,7 +173,7 @@ func (b *BizRoutes) HandleDeleteQuote(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -199,7 +199,7 @@ func (b *BizRoutes) HandleSendQuote(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -225,7 +225,7 @@ func (b *BizRoutes) HandleAcceptQuote(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -251,7 +251,7 @@ func (b *BizRoutes) HandleRejectQuote(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -284,7 +284,7 @@ func (b *BizRoutes) HandleConvertQuoteToInvoice(w http.ResponseWriter, r *http.R
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -319,7 +319,7 @@ func (b *BizRoutes) HandleGenerateQuotePDF(w http.ResponseWriter, r *http.Reques
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -352,7 +352,7 @@ func (b *BizRoutes) HandleCreateQuoteFromDeal(w http.ResponseWriter, r *http.Req
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	userID := middleware.GetUserID(r.Context())

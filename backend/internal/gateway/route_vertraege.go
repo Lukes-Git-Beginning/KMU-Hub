@@ -141,7 +141,7 @@ type updateReminderRequest struct {
 func (vr *VertraegeRoutes) HandleListContracts(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -166,7 +166,13 @@ func (vr *VertraegeRoutes) HandleListContracts(w http.ResponseWriter, r *http.Re
 	}
 	if cid := q.Get("contact_id"); cid != "" {
 		if _, parseErr := uuid.Parse(cid); parseErr != nil {
-			http.Error(w, `{"error":"invalid contact_id: must be a valid UUID","code":"INVALID_CONTACT_ID"}`, http.StatusBadRequest)
+			response.JSON(w, http.StatusBadRequest, struct {
+				Error string `json:"error"`
+				Code  string `json:"code"`
+			}{
+				Error: "invalid contact_id: must be a valid UUID",
+				Code:  "INVALID_CONTACT_ID",
+			})
 			return
 		}
 		grpcReq.ContactId = &cid
@@ -183,7 +189,7 @@ func (vr *VertraegeRoutes) HandleListContracts(w http.ResponseWriter, r *http.Re
 func (vr *VertraegeRoutes) HandleCreateContract(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -222,7 +228,7 @@ func (vr *VertraegeRoutes) HandleCreateContract(w http.ResponseWriter, r *http.R
 func (vr *VertraegeRoutes) HandleGetContract(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -250,7 +256,7 @@ func (vr *VertraegeRoutes) HandleGetContract(w http.ResponseWriter, r *http.Requ
 func (vr *VertraegeRoutes) HandleUpdateContract(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -295,7 +301,7 @@ func (vr *VertraegeRoutes) HandleUpdateContract(w http.ResponseWriter, r *http.R
 func (vr *VertraegeRoutes) HandleDeleteContract(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -323,7 +329,7 @@ func (vr *VertraegeRoutes) HandleDeleteContract(w http.ResponseWriter, r *http.R
 func (vr *VertraegeRoutes) HandleExportContract(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -367,7 +373,7 @@ func (vr *VertraegeRoutes) HandleExportContract(w http.ResponseWriter, r *http.R
 func (vr *VertraegeRoutes) HandleSaveContractSignature(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -406,7 +412,7 @@ func (vr *VertraegeRoutes) HandleSaveContractSignature(w http.ResponseWriter, r 
 func (vr *VertraegeRoutes) HandleListParties(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -434,7 +440,7 @@ func (vr *VertraegeRoutes) HandleListParties(w http.ResponseWriter, r *http.Requ
 func (vr *VertraegeRoutes) HandleAddParty(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -480,7 +486,7 @@ func (vr *VertraegeRoutes) HandleAddParty(w http.ResponseWriter, r *http.Request
 func (vr *VertraegeRoutes) HandleRemoveParty(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -512,7 +518,7 @@ func (vr *VertraegeRoutes) HandleRemoveParty(w http.ResponseWriter, r *http.Requ
 func (vr *VertraegeRoutes) HandleListReminders(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -544,7 +550,7 @@ func (vr *VertraegeRoutes) HandleListReminders(w http.ResponseWriter, r *http.Re
 func (vr *VertraegeRoutes) HandleCreateReminder(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -582,7 +588,7 @@ func (vr *VertraegeRoutes) HandleCreateReminder(w http.ResponseWriter, r *http.R
 func (vr *VertraegeRoutes) HandleUpdateReminder(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -621,7 +627,7 @@ func (vr *VertraegeRoutes) HandleUpdateReminder(w http.ResponseWriter, r *http.R
 func (vr *VertraegeRoutes) HandleDeleteReminder(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()

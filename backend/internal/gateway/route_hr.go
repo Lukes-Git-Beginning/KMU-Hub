@@ -148,7 +148,7 @@ func (h *HRRoutes) HandleCreateLeaveRequest(w http.ResponseWriter, r *http.Reque
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	userID := middleware.GetUserID(r.Context())
@@ -199,7 +199,7 @@ func (h *HRRoutes) HandleListLeaveRequests(w http.ResponseWriter, r *http.Reques
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	page, pageSize := parsePagination(r, 1, 50)
@@ -339,7 +339,7 @@ func (h *HRRoutes) HandleGetLeaveBalance(w http.ResponseWriter, r *http.Request)
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	userID := middleware.GetUserID(r.Context())
@@ -365,7 +365,7 @@ func (h *HRRoutes) HandleGetEmployeeLeaveBalance(w http.ResponseWriter, r *http.
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	employeeID := chi.URLParam(r, "userId")
@@ -391,7 +391,7 @@ func (h *HRRoutes) HandleListLeaveTypes(w http.ResponseWriter, r *http.Request) 
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -421,7 +421,7 @@ func (h *HRRoutes) HandleRecordSickLeave(w http.ResponseWriter, r *http.Request)
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	userID := middleware.GetUserID(r.Context())
@@ -462,7 +462,7 @@ func (h *HRRoutes) HandleClockIn(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	userID := middleware.GetUserID(r.Context())
@@ -488,7 +488,7 @@ func (h *HRRoutes) HandleClockOut(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	userID := middleware.GetUserID(r.Context())
@@ -647,7 +647,7 @@ func (h *HRRoutes) HandleListWorkTimeEntries(w http.ResponseWriter, r *http.Requ
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	page, pageSize := parsePagination(r, 1, 50)
@@ -745,7 +745,7 @@ func (h *HRRoutes) HandleSubmitCorrection(w http.ResponseWriter, r *http.Request
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	userID := middleware.GetUserID(r.Context())
@@ -820,7 +820,7 @@ func (h *HRRoutes) HandleGetAbsenceCalendar(w http.ResponseWriter, r *http.Reque
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -853,7 +853,7 @@ func (h *HRRoutes) HandleListEmployees(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	page, pageSize := parsePagination(r, 1, 50)
@@ -1034,7 +1034,7 @@ func (h *HRRoutes) HandleUploadEmployeeDocument(w http.ResponseWriter, r *http.R
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	employeeID := chi.URLParam(r, "id")
@@ -1074,7 +1074,7 @@ func (h *HRRoutes) HandleGetHRSettings(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -1108,7 +1108,7 @@ func (h *HRRoutes) HandleUpdateHRSettings(w http.ResponseWriter, r *http.Request
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -1166,7 +1166,7 @@ func (h *HRRoutes) HandleCreateEmployee(w http.ResponseWriter, r *http.Request) 
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -1228,7 +1228,7 @@ func (h *HRRoutes) HandleCreateManualEntry(w http.ResponseWriter, r *http.Reques
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	userID := middleware.GetUserID(r.Context())
@@ -1289,7 +1289,7 @@ func (h *HRRoutes) HandleGetTimeBalance(w http.ResponseWriter, r *http.Request) 
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	userID := middleware.GetUserID(r.Context())
@@ -1320,7 +1320,7 @@ func (h *HRRoutes) HandleGetTimeAnalytics(w http.ResponseWriter, r *http.Request
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	userID := middleware.GetUserID(r.Context())
@@ -1358,7 +1358,7 @@ func (h *HRRoutes) HandleGetTeamTime(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -1385,7 +1385,7 @@ func (h *HRRoutes) HandleGetMyWeekStatus(w http.ResponseWriter, r *http.Request)
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	userID := middleware.GetUserID(r.Context())
@@ -1420,7 +1420,7 @@ func (h *HRRoutes) HandleSubmitWeek(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	userID := middleware.GetUserID(r.Context())
@@ -1457,7 +1457,7 @@ func (h *HRRoutes) HandleApproveWeek(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	approverID := middleware.GetUserID(r.Context())
@@ -1496,7 +1496,7 @@ func (h *HRRoutes) HandleRejectWeek(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	approverID := middleware.GetUserID(r.Context())
@@ -1534,7 +1534,7 @@ func (h *HRRoutes) HandleListTimeCategories(w http.ResponseWriter, r *http.Reque
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -1565,7 +1565,7 @@ func (h *HRRoutes) HandleCreateTimeCategory(w http.ResponseWriter, r *http.Reque
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -1605,7 +1605,7 @@ func (h *HRRoutes) HandleUpdateTimeCategory(w http.ResponseWriter, r *http.Reque
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -1662,7 +1662,7 @@ func (h *HRRoutes) HandleListTimeTemplates(w http.ResponseWriter, r *http.Reques
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -1693,7 +1693,7 @@ func (h *HRRoutes) HandleCreateTimeTemplate(w http.ResponseWriter, r *http.Reque
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -1748,7 +1748,7 @@ func (h *HRRoutes) HandleListTimeProjects(w http.ResponseWriter, r *http.Request
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -1779,7 +1779,7 @@ func (h *HRRoutes) HandleCreateTimeProject(w http.ResponseWriter, r *http.Reques
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 

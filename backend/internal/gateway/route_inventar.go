@@ -177,7 +177,7 @@ type acknowledgeWarningRequest struct {
 func (ir *InventarRoutes) HandleListItems(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -213,7 +213,7 @@ func (ir *InventarRoutes) HandleListItems(w http.ResponseWriter, r *http.Request
 func (ir *InventarRoutes) HandleCreateItem(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -249,7 +249,7 @@ func (ir *InventarRoutes) HandleCreateItem(w http.ResponseWriter, r *http.Reques
 func (ir *InventarRoutes) HandleGetItem(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -277,7 +277,7 @@ func (ir *InventarRoutes) HandleGetItem(w http.ResponseWriter, r *http.Request) 
 func (ir *InventarRoutes) HandleUpdateItem(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -320,7 +320,7 @@ func (ir *InventarRoutes) HandleUpdateItem(w http.ResponseWriter, r *http.Reques
 func (ir *InventarRoutes) HandleDeleteItem(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -352,7 +352,7 @@ func (ir *InventarRoutes) HandleDeleteItem(w http.ResponseWriter, r *http.Reques
 func (ir *InventarRoutes) HandleAdjustStock(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -390,7 +390,7 @@ func (ir *InventarRoutes) HandleAdjustStock(w http.ResponseWriter, r *http.Reque
 func (ir *InventarRoutes) HandleTransferStock(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -424,7 +424,7 @@ func (ir *InventarRoutes) HandleTransferStock(w http.ResponseWriter, r *http.Req
 func (ir *InventarRoutes) HandleListMovements(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -456,7 +456,7 @@ func (ir *InventarRoutes) HandleListMovements(w http.ResponseWriter, r *http.Req
 func (ir *InventarRoutes) HandleGetStockHistory(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -488,7 +488,7 @@ func (ir *InventarRoutes) HandleGetStockHistory(w http.ResponseWriter, r *http.R
 func (ir *InventarRoutes) HandleRecordMovement(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -531,7 +531,7 @@ func (ir *InventarRoutes) HandleRecordMovement(w http.ResponseWriter, r *http.Re
 func (ir *InventarRoutes) HandleListWarnings(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -563,7 +563,7 @@ func (ir *InventarRoutes) HandleListWarnings(w http.ResponseWriter, r *http.Requ
 func (ir *InventarRoutes) HandleCreateWarning(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -593,7 +593,7 @@ func (ir *InventarRoutes) HandleCreateWarning(w http.ResponseWriter, r *http.Req
 func (ir *InventarRoutes) HandleUpdateWarning(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -627,7 +627,7 @@ func (ir *InventarRoutes) HandleUpdateWarning(w http.ResponseWriter, r *http.Req
 func (ir *InventarRoutes) HandleAcknowledgeWarning(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -669,7 +669,7 @@ func (ir *InventarRoutes) HandleAcknowledgeWarning(w http.ResponseWriter, r *htt
 func (ir *InventarRoutes) HandleGetStockReport(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -691,7 +691,7 @@ func (ir *InventarRoutes) HandleGetStockReport(w http.ResponseWriter, r *http.Re
 func (ir *InventarRoutes) HandleExportInventory(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -776,7 +776,7 @@ type bookInventurDifferencesRequest struct {
 func (ir *InventarRoutes) HandleListLocations(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -801,7 +801,7 @@ func (ir *InventarRoutes) HandleListLocations(w http.ResponseWriter, r *http.Req
 func (ir *InventarRoutes) HandleCreateLocation(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -831,7 +831,7 @@ func (ir *InventarRoutes) HandleCreateLocation(w http.ResponseWriter, r *http.Re
 func (ir *InventarRoutes) HandleGetLocation(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -859,7 +859,7 @@ func (ir *InventarRoutes) HandleGetLocation(w http.ResponseWriter, r *http.Reque
 func (ir *InventarRoutes) HandleUpdateLocation(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -895,7 +895,7 @@ func (ir *InventarRoutes) HandleUpdateLocation(w http.ResponseWriter, r *http.Re
 func (ir *InventarRoutes) HandleDeleteLocation(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -927,7 +927,7 @@ func (ir *InventarRoutes) HandleDeleteLocation(w http.ResponseWriter, r *http.Re
 func (ir *InventarRoutes) HandleListInventurSessions(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -952,7 +952,7 @@ func (ir *InventarRoutes) HandleListInventurSessions(w http.ResponseWriter, r *h
 func (ir *InventarRoutes) HandleCreateInventurSession(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -992,7 +992,7 @@ func (ir *InventarRoutes) HandleCreateInventurSession(w http.ResponseWriter, r *
 func (ir *InventarRoutes) HandleGetInventurSession(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -1020,7 +1020,7 @@ func (ir *InventarRoutes) HandleGetInventurSession(w http.ResponseWriter, r *htt
 func (ir *InventarRoutes) HandleUpdateInventurSessionStatus(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -1054,7 +1054,7 @@ func (ir *InventarRoutes) HandleUpdateInventurSessionStatus(w http.ResponseWrite
 func (ir *InventarRoutes) HandleDeleteInventurSession(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -1082,7 +1082,7 @@ func (ir *InventarRoutes) HandleDeleteInventurSession(w http.ResponseWriter, r *
 func (ir *InventarRoutes) HandleUpsertInventurCount(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()
@@ -1117,7 +1117,7 @@ func (ir *InventarRoutes) HandleUpsertInventurCount(w http.ResponseWriter, r *ht
 func (ir *InventarRoutes) HandleBookInventurDifferences(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := ir.getClient()

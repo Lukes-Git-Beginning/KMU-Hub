@@ -288,7 +288,7 @@ type gpsPositionInput struct {
 func (fr *FuhrparkRoutes) HandleListVehicles(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -324,7 +324,7 @@ func (fr *FuhrparkRoutes) HandleListVehicles(w http.ResponseWriter, r *http.Requ
 func (fr *FuhrparkRoutes) HandleCreateVehicle(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -364,7 +364,7 @@ func (fr *FuhrparkRoutes) HandleCreateVehicle(w http.ResponseWriter, r *http.Req
 func (fr *FuhrparkRoutes) HandleGetVehicle(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -392,7 +392,7 @@ func (fr *FuhrparkRoutes) HandleGetVehicle(w http.ResponseWriter, r *http.Reques
 func (fr *FuhrparkRoutes) HandleUpdateVehicle(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -441,7 +441,7 @@ func (fr *FuhrparkRoutes) HandleUpdateVehicle(w http.ResponseWriter, r *http.Req
 func (fr *FuhrparkRoutes) HandleDeleteVehicle(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -469,7 +469,7 @@ func (fr *FuhrparkRoutes) HandleDeleteVehicle(w http.ResponseWriter, r *http.Req
 func (fr *FuhrparkRoutes) HandleGetVehicleHistory(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -505,7 +505,7 @@ func (fr *FuhrparkRoutes) HandleGetVehicleHistory(w http.ResponseWriter, r *http
 func (fr *FuhrparkRoutes) HandleScheduleService(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -545,7 +545,7 @@ func (fr *FuhrparkRoutes) HandleScheduleService(w http.ResponseWriter, r *http.R
 func (fr *FuhrparkRoutes) HandleListVehicleServices(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id, ok := validateUUIDParam(w, r, "id")
@@ -574,7 +574,7 @@ func (fr *FuhrparkRoutes) HandleListVehicleServices(w http.ResponseWriter, r *ht
 func (fr *FuhrparkRoutes) HandleListServices(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -606,7 +606,7 @@ func (fr *FuhrparkRoutes) HandleListServices(w http.ResponseWriter, r *http.Requ
 func (fr *FuhrparkRoutes) HandleUpdateService(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -644,7 +644,7 @@ func (fr *FuhrparkRoutes) HandleUpdateService(w http.ResponseWriter, r *http.Req
 func (fr *FuhrparkRoutes) HandleDeleteService(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -670,7 +670,7 @@ func (fr *FuhrparkRoutes) HandleDeleteService(w http.ResponseWriter, r *http.Req
 func (fr *FuhrparkRoutes) HandleCompleteService(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -703,7 +703,7 @@ func (fr *FuhrparkRoutes) HandleCompleteService(w http.ResponseWriter, r *http.R
 func (fr *FuhrparkRoutes) HandleListUpcomingServices(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -731,7 +731,7 @@ func (fr *FuhrparkRoutes) HandleListUpcomingServices(w http.ResponseWriter, r *h
 func (fr *FuhrparkRoutes) HandleReportDamage(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -767,7 +767,7 @@ func (fr *FuhrparkRoutes) HandleReportDamage(w http.ResponseWriter, r *http.Requ
 func (fr *FuhrparkRoutes) HandleListVehicleDamages(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id, ok := validateUUIDParam(w, r, "id")
@@ -796,7 +796,7 @@ func (fr *FuhrparkRoutes) HandleListVehicleDamages(w http.ResponseWriter, r *htt
 func (fr *FuhrparkRoutes) HandleListDamages(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -828,7 +828,7 @@ func (fr *FuhrparkRoutes) HandleListDamages(w http.ResponseWriter, r *http.Reque
 func (fr *FuhrparkRoutes) HandleUpdateDamage(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -864,7 +864,7 @@ func (fr *FuhrparkRoutes) HandleUpdateDamage(w http.ResponseWriter, r *http.Requ
 func (fr *FuhrparkRoutes) HandleResolveDamage(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -901,7 +901,7 @@ func (fr *FuhrparkRoutes) HandleResolveDamage(w http.ResponseWriter, r *http.Req
 func (fr *FuhrparkRoutes) HandleCheckTuevDue(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -926,7 +926,7 @@ func (fr *FuhrparkRoutes) HandleCheckTuevDue(w http.ResponseWriter, r *http.Requ
 func (fr *FuhrparkRoutes) HandleListFuelLogs(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -954,7 +954,7 @@ func (fr *FuhrparkRoutes) HandleListFuelLogs(w http.ResponseWriter, r *http.Requ
 func (fr *FuhrparkRoutes) HandleListVehicleFuelLogs(w http.ResponseWriter, r *http.Request) {
 	_, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	vehicleID, ok := validateUUIDParam(w, r, "id")
@@ -982,7 +982,7 @@ func (fr *FuhrparkRoutes) HandleListVehicleFuelLogs(w http.ResponseWriter, r *ht
 func (fr *FuhrparkRoutes) HandleCreateFuelLog(w http.ResponseWriter, r *http.Request) {
 	_, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	vehicleID, ok := validateUUIDParam(w, r, "id")
@@ -1021,7 +1021,7 @@ func (fr *FuhrparkRoutes) HandleCreateFuelLog(w http.ResponseWriter, r *http.Req
 func (fr *FuhrparkRoutes) HandleUpdateFuelLog(w http.ResponseWriter, r *http.Request) {
 	_, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id, ok := validateUUIDParam(w, r, "id")
@@ -1067,7 +1067,7 @@ func (fr *FuhrparkRoutes) HandleUpdateFuelLog(w http.ResponseWriter, r *http.Req
 func (fr *FuhrparkRoutes) HandleDeleteFuelLog(w http.ResponseWriter, r *http.Request) {
 	_, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id, ok := validateUUIDParam(w, r, "id")
@@ -1094,7 +1094,7 @@ func (fr *FuhrparkRoutes) HandleDeleteFuelLog(w http.ResponseWriter, r *http.Req
 func (fr *FuhrparkRoutes) HandleListTripLogs(w http.ResponseWriter, r *http.Request) {
 	_, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -1121,7 +1121,7 @@ func (fr *FuhrparkRoutes) HandleListTripLogs(w http.ResponseWriter, r *http.Requ
 func (fr *FuhrparkRoutes) HandleListVehicleTripLogs(w http.ResponseWriter, r *http.Request) {
 	_, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	vehicleID, ok := validateUUIDParam(w, r, "id")
@@ -1149,7 +1149,7 @@ func (fr *FuhrparkRoutes) HandleListVehicleTripLogs(w http.ResponseWriter, r *ht
 func (fr *FuhrparkRoutes) HandleCreateTripLog(w http.ResponseWriter, r *http.Request) {
 	_, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	vehicleID, ok := validateUUIDParam(w, r, "id")
@@ -1187,7 +1187,7 @@ func (fr *FuhrparkRoutes) HandleCreateTripLog(w http.ResponseWriter, r *http.Req
 func (fr *FuhrparkRoutes) HandleUpdateTripLog(w http.ResponseWriter, r *http.Request) {
 	_, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id, ok := validateUUIDParam(w, r, "id")
@@ -1242,7 +1242,7 @@ func (fr *FuhrparkRoutes) HandleUpdateTripLog(w http.ResponseWriter, r *http.Req
 func (fr *FuhrparkRoutes) HandleDeleteTripLog(w http.ResponseWriter, r *http.Request) {
 	_, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id, ok := validateUUIDParam(w, r, "id")
@@ -1269,7 +1269,7 @@ func (fr *FuhrparkRoutes) HandleDeleteTripLog(w http.ResponseWriter, r *http.Req
 func (fr *FuhrparkRoutes) HandleListVehicleDocuments(w http.ResponseWriter, r *http.Request) {
 	_, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	vehicleID, ok := validateUUIDParam(w, r, "id")
@@ -1297,7 +1297,7 @@ func (fr *FuhrparkRoutes) HandleListVehicleDocuments(w http.ResponseWriter, r *h
 func (fr *FuhrparkRoutes) HandleCreateVehicleDocument(w http.ResponseWriter, r *http.Request) {
 	_, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	vehicleID, ok := validateUUIDParam(w, r, "id")
@@ -1333,7 +1333,7 @@ func (fr *FuhrparkRoutes) HandleCreateVehicleDocument(w http.ResponseWriter, r *
 func (fr *FuhrparkRoutes) HandleDeleteVehicleDocument(w http.ResponseWriter, r *http.Request) {
 	_, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	id, ok := validateUUIDParam(w, r, "id")
@@ -1360,7 +1360,7 @@ func (fr *FuhrparkRoutes) HandleDeleteVehicleDocument(w http.ResponseWriter, r *
 func (fr *FuhrparkRoutes) HandleIngestGpsPositions(w http.ResponseWriter, r *http.Request) {
 	_, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -1374,7 +1374,7 @@ func (fr *FuhrparkRoutes) HandleIngestGpsPositions(w http.ResponseWriter, r *htt
 	}
 	vehicleID := r.URL.Query().Get("vehicle_id")
 	if vehicleID == "" {
-		http.Error(w, "vehicle_id query param required", http.StatusBadRequest)
+		response.Error(w, http.StatusBadRequest, "vehicle_id query param required")
 		return
 	}
 	positions := make([]*fuhrparkv1.GpsPosition, len(req.Positions))
@@ -1403,7 +1403,7 @@ func (fr *FuhrparkRoutes) HandleIngestGpsPositions(w http.ResponseWriter, r *htt
 func (fr *FuhrparkRoutes) HandleGetVehicleRoutes(w http.ResponseWriter, r *http.Request) {
 	_, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -1430,7 +1430,7 @@ func (fr *FuhrparkRoutes) HandleGetVehicleRoutes(w http.ResponseWriter, r *http.
 func (fr *FuhrparkRoutes) HandleGetGpsPositions(w http.ResponseWriter, r *http.Request) {
 	_, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -1441,7 +1441,7 @@ func (fr *FuhrparkRoutes) HandleGetGpsPositions(w http.ResponseWriter, r *http.R
 	q := r.URL.Query()
 	vehicleID := q.Get("vehicle_id")
 	if vehicleID == "" {
-		http.Error(w, "vehicle_id query param required", http.StatusBadRequest)
+		response.Error(w, http.StatusBadRequest, "vehicle_id query param required")
 		return
 	}
 	resp, err := client.GetGpsPositions(r.Context(), &fuhrparkv1.GetGpsPositionsRequest{
@@ -1459,7 +1459,7 @@ func (fr *FuhrparkRoutes) HandleGetGpsPositions(w http.ResponseWriter, r *http.R
 func (fr *FuhrparkRoutes) HandleExportVehicleReport(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()

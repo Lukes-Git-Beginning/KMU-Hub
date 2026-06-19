@@ -34,37 +34,37 @@ func (b *BizRoutes) HandleArchiveDocument(w http.ResponseWriter, r *http.Request
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	userID := middleware.GetUserID(r.Context())
 
 	// Parse multipart (max 55 MiB: 50 MiB file + 5 MiB form fields)
 	if err := r.ParseMultipartForm(55 << 20); err != nil {
-		http.Error(w, "failed to parse multipart form", http.StatusBadRequest)
+		response.Error(w, http.StatusBadRequest, "failed to parse multipart form")
 		return
 	}
 
 	f, header, err := r.FormFile("file")
 	if err != nil {
-		http.Error(w, "missing field 'file'", http.StatusBadRequest)
+		response.Error(w, http.StatusBadRequest, "missing field 'file'")
 		return
 	}
 	defer f.Close()
 
 	fileBytes, err := io.ReadAll(io.LimitReader(f, maxGobdDocumentBytes+1))
 	if err != nil {
-		http.Error(w, "failed to read file", http.StatusBadRequest)
+		response.Error(w, http.StatusBadRequest, "failed to read file")
 		return
 	}
 	if len(fileBytes) > maxGobdDocumentBytes {
-		http.Error(w, "document exceeds 50 MiB limit", http.StatusRequestEntityTooLarge)
+		response.Error(w, http.StatusRequestEntityTooLarge, "document exceeds 50 MiB limit")
 		return
 	}
 
 	docType := r.FormValue("doc_type")
 	if docType == "" {
-		http.Error(w, "missing field 'doc_type'", http.StatusBadRequest)
+		response.Error(w, http.StatusBadRequest, "missing field 'doc_type'")
 		return
 	}
 
@@ -101,7 +101,7 @@ func (b *BizRoutes) HandleArchiveInvoiceDocument(w http.ResponseWriter, r *http.
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	userID := middleware.GetUserID(r.Context())
@@ -130,7 +130,7 @@ func (b *BizRoutes) HandleListGobdDocuments(w http.ResponseWriter, r *http.Reque
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -162,7 +162,7 @@ func (b *BizRoutes) HandleGetGobdDocument(w http.ResponseWriter, r *http.Request
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -188,7 +188,7 @@ func (b *BizRoutes) HandleDownloadGobdDocument(w http.ResponseWriter, r *http.Re
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	userID := middleware.GetUserID(r.Context())
@@ -220,7 +220,7 @@ func (b *BizRoutes) HandleAddDocumentAnnotation(w http.ResponseWriter, r *http.R
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	userID := middleware.GetUserID(r.Context())

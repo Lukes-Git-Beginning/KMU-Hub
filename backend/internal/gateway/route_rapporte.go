@@ -176,7 +176,7 @@ type rapporteUploadAttachmentRequest struct {
 func (rr *RapporteRoutes) HandleListReports(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -212,7 +212,7 @@ func (rr *RapporteRoutes) HandleListReports(w http.ResponseWriter, r *http.Reque
 func (rr *RapporteRoutes) HandleCreateReport(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -247,7 +247,7 @@ func (rr *RapporteRoutes) HandleCreateReport(w http.ResponseWriter, r *http.Requ
 func (rr *RapporteRoutes) HandleGetReport(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -275,7 +275,7 @@ func (rr *RapporteRoutes) HandleGetReport(w http.ResponseWriter, r *http.Request
 func (rr *RapporteRoutes) HandleUpdateReport(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -315,7 +315,7 @@ func (rr *RapporteRoutes) HandleUpdateReport(w http.ResponseWriter, r *http.Requ
 func (rr *RapporteRoutes) HandleDeleteReport(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -347,7 +347,7 @@ func (rr *RapporteRoutes) HandleDeleteReport(w http.ResponseWriter, r *http.Requ
 func (rr *RapporteRoutes) HandleSubmitReport(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -375,7 +375,7 @@ func (rr *RapporteRoutes) HandleSubmitReport(w http.ResponseWriter, r *http.Requ
 func (rr *RapporteRoutes) HandleApproveReport(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -410,7 +410,7 @@ func (rr *RapporteRoutes) HandleApproveReport(w http.ResponseWriter, r *http.Req
 func (rr *RapporteRoutes) HandleRejectReport(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -449,7 +449,7 @@ func (rr *RapporteRoutes) HandleRejectReport(w http.ResponseWriter, r *http.Requ
 func (rr *RapporteRoutes) HandleListLines(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -477,7 +477,7 @@ func (rr *RapporteRoutes) HandleListLines(w http.ResponseWriter, r *http.Request
 func (rr *RapporteRoutes) HandleAddLine(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -515,7 +515,7 @@ func (rr *RapporteRoutes) HandleAddLine(w http.ResponseWriter, r *http.Request) 
 func (rr *RapporteRoutes) HandleUpdateLine(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -559,7 +559,7 @@ func (rr *RapporteRoutes) HandleUpdateLine(w http.ResponseWriter, r *http.Reques
 func (rr *RapporteRoutes) HandleDeleteLine(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -591,7 +591,7 @@ func (rr *RapporteRoutes) HandleDeleteLine(w http.ResponseWriter, r *http.Reques
 func (rr *RapporteRoutes) HandleListAttachments(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -624,7 +624,7 @@ func (rr *RapporteRoutes) HandleListAttachments(w http.ResponseWriter, r *http.R
 func (rr *RapporteRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -665,7 +665,7 @@ func (rr *RapporteRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.
 func (rr *RapporteRoutes) HandleDeleteAttachment(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -697,7 +697,7 @@ func (rr *RapporteRoutes) HandleDeleteAttachment(w http.ResponseWriter, r *http.
 func (rr *RapporteRoutes) HandleSaveReportSignature(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -736,7 +736,7 @@ func (rr *RapporteRoutes) HandleSaveReportSignature(w http.ResponseWriter, r *ht
 func (rr *RapporteRoutes) HandleGetReportStats(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -758,7 +758,7 @@ func (rr *RapporteRoutes) HandleGetReportStats(w http.ResponseWriter, r *http.Re
 func (rr *RapporteRoutes) HandleListPendingApprovals(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -784,7 +784,7 @@ func (rr *RapporteRoutes) HandleListPendingApprovals(w http.ResponseWriter, r *h
 func (rr *RapporteRoutes) HandleExportPDF(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -849,7 +849,7 @@ type addMeasurementPositionRequest struct {
 func (rr *RapporteRoutes) HandleListMeasurements(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -879,7 +879,7 @@ func (rr *RapporteRoutes) HandleListMeasurements(w http.ResponseWriter, r *http.
 func (rr *RapporteRoutes) HandleCreateMeasurement(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -912,7 +912,7 @@ func (rr *RapporteRoutes) HandleCreateMeasurement(w http.ResponseWriter, r *http
 func (rr *RapporteRoutes) HandleGetMeasurement(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -940,7 +940,7 @@ func (rr *RapporteRoutes) HandleGetMeasurement(w http.ResponseWriter, r *http.Re
 func (rr *RapporteRoutes) HandleUpdateMeasurement(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -978,7 +978,7 @@ func (rr *RapporteRoutes) HandleUpdateMeasurement(w http.ResponseWriter, r *http
 func (rr *RapporteRoutes) HandleDeleteMeasurement(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -1006,7 +1006,7 @@ func (rr *RapporteRoutes) HandleDeleteMeasurement(w http.ResponseWriter, r *http
 func (rr *RapporteRoutes) HandleAddMeasurementPosition(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -1044,7 +1044,7 @@ func (rr *RapporteRoutes) HandleAddMeasurementPosition(w http.ResponseWriter, r 
 func (rr *RapporteRoutes) HandleDeleteMeasurementPosition(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -1095,7 +1095,7 @@ type updateRapporteTemplateRequest struct {
 func (rr *RapporteRoutes) HandleListTemplates(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -1123,7 +1123,7 @@ func (rr *RapporteRoutes) HandleListTemplates(w http.ResponseWriter, r *http.Req
 func (rr *RapporteRoutes) HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -1154,7 +1154,7 @@ func (rr *RapporteRoutes) HandleCreateTemplate(w http.ResponseWriter, r *http.Re
 func (rr *RapporteRoutes) HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -1182,7 +1182,7 @@ func (rr *RapporteRoutes) HandleGetTemplate(w http.ResponseWriter, r *http.Reque
 func (rr *RapporteRoutes) HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()
@@ -1220,7 +1220,7 @@ func (rr *RapporteRoutes) HandleUpdateTemplate(w http.ResponseWriter, r *http.Re
 func (rr *RapporteRoutes) HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := rr.getClient()

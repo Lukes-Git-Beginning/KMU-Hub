@@ -142,7 +142,7 @@ type toggleScheduleRequest struct {
 func (br *BerichteRoutes) HandleListDefinitions(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := br.getClient()
@@ -187,7 +187,7 @@ func (br *BerichteRoutes) HandleListDefinitions(w http.ResponseWriter, r *http.R
 func (br *BerichteRoutes) HandleCreateDefinition(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := br.getClient()
@@ -226,7 +226,7 @@ func (br *BerichteRoutes) HandleCreateDefinition(w http.ResponseWriter, r *http.
 func (br *BerichteRoutes) HandleGetDefinition(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := br.getClient()
@@ -254,7 +254,7 @@ func (br *BerichteRoutes) HandleGetDefinition(w http.ResponseWriter, r *http.Req
 func (br *BerichteRoutes) HandleUpdateDefinition(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := br.getClient()
@@ -298,7 +298,7 @@ func (br *BerichteRoutes) HandleUpdateDefinition(w http.ResponseWriter, r *http.
 func (br *BerichteRoutes) HandleDeleteDefinition(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := br.getClient()
@@ -330,7 +330,7 @@ func (br *BerichteRoutes) HandleDeleteDefinition(w http.ResponseWriter, r *http.
 func (br *BerichteRoutes) HandleRunReport(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := br.getClient()
@@ -371,7 +371,7 @@ func (br *BerichteRoutes) HandleRunReport(w http.ResponseWriter, r *http.Request
 func (br *BerichteRoutes) HandleExportReport(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := br.getClient()
@@ -442,7 +442,7 @@ func formatFilename(name string) string {
 func (br *BerichteRoutes) HandleInvalidateCache(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := br.getClient()
@@ -474,7 +474,7 @@ func (br *BerichteRoutes) HandleInvalidateCache(w http.ResponseWriter, r *http.R
 func (br *BerichteRoutes) HandleListSchedules(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := br.getClient()
@@ -510,7 +510,7 @@ func (br *BerichteRoutes) HandleListSchedules(w http.ResponseWriter, r *http.Req
 func (br *BerichteRoutes) HandleCreateSchedule(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := br.getClient()
@@ -549,7 +549,7 @@ func (br *BerichteRoutes) HandleCreateSchedule(w http.ResponseWriter, r *http.Re
 func (br *BerichteRoutes) HandleUpdateSchedule(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := br.getClient()
@@ -591,7 +591,7 @@ func (br *BerichteRoutes) HandleUpdateSchedule(w http.ResponseWriter, r *http.Re
 func (br *BerichteRoutes) HandleDeleteSchedule(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := br.getClient()
@@ -619,7 +619,7 @@ func (br *BerichteRoutes) HandleDeleteSchedule(w http.ResponseWriter, r *http.Re
 func (br *BerichteRoutes) HandleToggleSchedule(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := br.getClient()
@@ -657,7 +657,7 @@ func (br *BerichteRoutes) HandleToggleSchedule(w http.ResponseWriter, r *http.Re
 func (br *BerichteRoutes) HandleGetDashboardKPIs(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := br.getClient()

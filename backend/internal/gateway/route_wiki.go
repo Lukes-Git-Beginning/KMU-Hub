@@ -133,7 +133,7 @@ type createCategoryRequest struct {
 func (wr *WikiRoutes) HandleListArticles(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := wr.getWikiClient()
@@ -178,7 +178,7 @@ func (wr *WikiRoutes) HandleListArticles(w http.ResponseWriter, r *http.Request)
 func (wr *WikiRoutes) HandleCreateArticle(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := wr.getWikiClient()
@@ -215,7 +215,7 @@ func (wr *WikiRoutes) HandleCreateArticle(w http.ResponseWriter, r *http.Request
 func (wr *WikiRoutes) HandleGetArticle(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := wr.getWikiClient()
@@ -243,7 +243,7 @@ func (wr *WikiRoutes) HandleGetArticle(w http.ResponseWriter, r *http.Request) {
 func (wr *WikiRoutes) HandleUpdateArticle(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := wr.getWikiClient()
@@ -286,7 +286,7 @@ func (wr *WikiRoutes) HandleUpdateArticle(w http.ResponseWriter, r *http.Request
 func (wr *WikiRoutes) HandleDeleteArticle(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := wr.getWikiClient()
@@ -314,7 +314,7 @@ func (wr *WikiRoutes) HandleDeleteArticle(w http.ResponseWriter, r *http.Request
 func (wr *WikiRoutes) HandleSearchArticles(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := wr.getWikiClient()
@@ -350,7 +350,7 @@ func (wr *WikiRoutes) HandleSearchArticles(w http.ResponseWriter, r *http.Reques
 func (wr *WikiRoutes) HandleListVersions(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	_ = tenantID // validated; article_id already scopes to tenant via FK
@@ -378,7 +378,7 @@ func (wr *WikiRoutes) HandleListVersions(w http.ResponseWriter, r *http.Request)
 func (wr *WikiRoutes) HandleRestoreVersion(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := wr.getWikiClient()
@@ -418,7 +418,7 @@ func (wr *WikiRoutes) HandleRestoreVersion(w http.ResponseWriter, r *http.Reques
 func (wr *WikiRoutes) HandleListAttachments(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	_ = tenantID // validated; article_id already scopes to tenant via FK
@@ -446,7 +446,7 @@ func (wr *WikiRoutes) HandleListAttachments(w http.ResponseWriter, r *http.Reque
 func (wr *WikiRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	_ = tenantID // validated; article_id already scopes to tenant via FK
@@ -487,7 +487,7 @@ func (wr *WikiRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.Requ
 func (wr *WikiRoutes) HandleDeleteAttachment(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	_ = tenantID // validated; attachment_id already scopes to tenant via article FK
@@ -519,7 +519,7 @@ func (wr *WikiRoutes) HandleDeleteAttachment(w http.ResponseWriter, r *http.Requ
 func (wr *WikiRoutes) HandleListCategories(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := wr.getWikiClient()
@@ -541,7 +541,7 @@ func (wr *WikiRoutes) HandleListCategories(w http.ResponseWriter, r *http.Reques
 func (wr *WikiRoutes) HandleCreateCategory(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := wr.getWikiClient()
@@ -573,7 +573,7 @@ func (wr *WikiRoutes) HandleCreateCategory(w http.ResponseWriter, r *http.Reques
 func (wr *WikiRoutes) HandleDeleteCategory(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := wr.getWikiClient()
@@ -607,7 +607,7 @@ type updateCategoryRequest struct {
 func (wr *WikiRoutes) HandleUpdateCategory(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := wr.getWikiClient()
@@ -650,7 +650,7 @@ type createShareTokenHTTPRequest struct {
 func (wr *WikiRoutes) HandleCreateShareToken(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := wr.getWikiClient()
@@ -687,7 +687,7 @@ func (wr *WikiRoutes) HandleCreateShareToken(w http.ResponseWriter, r *http.Requ
 func (wr *WikiRoutes) HandleRevokeShareToken(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := wr.getWikiClient()
@@ -715,7 +715,7 @@ func (wr *WikiRoutes) HandleRevokeShareToken(w http.ResponseWriter, r *http.Requ
 func (wr *WikiRoutes) HandleGetVersion(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	_ = tenantID // version_id scopes to article which scopes to tenant

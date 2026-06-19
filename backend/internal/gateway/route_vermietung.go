@@ -168,7 +168,7 @@ type updateInspectionRequest struct {
 func (vr *VermietungRoutes) HandleListObjects(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -205,7 +205,7 @@ func (vr *VermietungRoutes) HandleListObjects(w http.ResponseWriter, r *http.Req
 func (vr *VermietungRoutes) HandleCreateObject(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -239,7 +239,7 @@ func (vr *VermietungRoutes) HandleCreateObject(w http.ResponseWriter, r *http.Re
 func (vr *VermietungRoutes) HandleGetObject(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -267,7 +267,7 @@ func (vr *VermietungRoutes) HandleGetObject(w http.ResponseWriter, r *http.Reque
 func (vr *VermietungRoutes) HandleUpdateObject(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -314,7 +314,7 @@ func (vr *VermietungRoutes) HandleUpdateObject(w http.ResponseWriter, r *http.Re
 func (vr *VermietungRoutes) HandleDeleteObject(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -342,7 +342,7 @@ func (vr *VermietungRoutes) HandleDeleteObject(w http.ResponseWriter, r *http.Re
 func (vr *VermietungRoutes) HandleCheckAvailability(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -400,7 +400,7 @@ func (vr *VermietungRoutes) HandleCheckAvailability(w http.ResponseWriter, r *ht
 func (vr *VermietungRoutes) HandleListRentals(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -447,7 +447,7 @@ func (vr *VermietungRoutes) HandleListRentals(w http.ResponseWriter, r *http.Req
 func (vr *VermietungRoutes) HandleCreateRental(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -495,7 +495,7 @@ func (vr *VermietungRoutes) HandleCreateRental(w http.ResponseWriter, r *http.Re
 func (vr *VermietungRoutes) HandleGetRental(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -523,7 +523,7 @@ func (vr *VermietungRoutes) HandleGetRental(w http.ResponseWriter, r *http.Reque
 func (vr *VermietungRoutes) HandleUpdateRental(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -582,7 +582,7 @@ func (vr *VermietungRoutes) HandleUpdateRental(w http.ResponseWriter, r *http.Re
 func (vr *VermietungRoutes) HandleDeleteRental(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -610,7 +610,7 @@ func (vr *VermietungRoutes) HandleDeleteRental(w http.ResponseWriter, r *http.Re
 func (vr *VermietungRoutes) HandleStartRental(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -638,7 +638,7 @@ func (vr *VermietungRoutes) HandleStartRental(w http.ResponseWriter, r *http.Req
 func (vr *VermietungRoutes) HandleEndRental(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -670,7 +670,7 @@ func (vr *VermietungRoutes) HandleEndRental(w http.ResponseWriter, r *http.Reque
 func (vr *VermietungRoutes) HandleSaveRentalSignature(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -709,7 +709,7 @@ func (vr *VermietungRoutes) HandleSaveRentalSignature(w http.ResponseWriter, r *
 func (vr *VermietungRoutes) HandleListInspections(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -741,7 +741,7 @@ func (vr *VermietungRoutes) HandleListInspections(w http.ResponseWriter, r *http
 func (vr *VermietungRoutes) HandleCreateInspection(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -778,7 +778,7 @@ func (vr *VermietungRoutes) HandleCreateInspection(w http.ResponseWriter, r *htt
 func (vr *VermietungRoutes) HandleGetInspection(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -806,7 +806,7 @@ func (vr *VermietungRoutes) HandleGetInspection(w http.ResponseWriter, r *http.R
 func (vr *VermietungRoutes) HandleUpdateInspection(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -845,7 +845,7 @@ func (vr *VermietungRoutes) HandleUpdateInspection(w http.ResponseWriter, r *htt
 func (vr *VermietungRoutes) HandleGetRentalCalendar(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()
@@ -883,7 +883,7 @@ func (vr *VermietungRoutes) HandleGetRentalCalendar(w http.ResponseWriter, r *ht
 func (vr *VermietungRoutes) HandleExportRentalReport(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := vr.getClient()

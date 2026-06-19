@@ -84,7 +84,7 @@ func (dr *DatevUploadRoutes) HandleGetAuthURL(w http.ResponseWriter, r *http.Req
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -93,13 +93,13 @@ func (dr *DatevUploadRoutes) HandleGetAuthURL(w http.ResponseWriter, r *http.Req
 	// (CSRF protection — mirrors the Bexio flow).
 	if dr.stateSecret == "" {
 		slog.Error("datev: state secret not configured, cannot issue OAuth URL")
-		http.Error(w, "OAuth state secret not configured", http.StatusInternalServerError)
+		response.Error(w, http.StatusInternalServerError, "OAuth state secret not configured")
 		return
 	}
 	signedState, stateErr := encodeBexioState(dr.stateSecret, tenantID)
 	if stateErr != nil {
 		slog.Error("datev: failed to encode state token", "error", stateErr)
-		http.Error(w, "failed to generate OAuth state", http.StatusInternalServerError)
+		response.Error(w, http.StatusInternalServerError, "failed to generate OAuth state")
 		return
 	}
 
@@ -181,7 +181,7 @@ func (dr *DatevUploadRoutes) HandleDisconnect(w http.ResponseWriter, r *http.Req
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -206,7 +206,7 @@ func (dr *DatevUploadRoutes) HandleGetConnectionStatus(w http.ResponseWriter, r 
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -237,7 +237,7 @@ func (dr *DatevUploadRoutes) HandleUploadBuchungsstapel(w http.ResponseWriter, r
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -284,7 +284,7 @@ func (dr *DatevUploadRoutes) HandleUploadBeleg(w http.ResponseWriter, r *http.Re
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	invoiceID := chi.URLParam(r, "invoice_id")
@@ -322,7 +322,7 @@ func (dr *DatevUploadRoutes) HandleGetUploadConfig(w http.ResponseWriter, r *htt
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -351,7 +351,7 @@ func (dr *DatevUploadRoutes) HandleUpdateUploadConfig(w http.ResponseWriter, r *
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -393,7 +393,7 @@ func (dr *DatevUploadRoutes) HandleListUploadLogs(w http.ResponseWriter, r *http
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	limit := parseLimit(r, 20, 100)

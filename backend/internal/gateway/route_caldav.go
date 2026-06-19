@@ -157,7 +157,7 @@ func (c *CalDAVRoutes) basicAuthMiddleware() func(http.Handler) http.Handler {
 			username, password, ok := r.BasicAuth()
 			if !ok {
 				w.Header().Set("WWW-Authenticate", `Basic realm="KMU Hub CalDAV"`)
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				response.Error(w, http.StatusUnauthorized, "Unauthorized")
 				return
 			}
 
@@ -168,7 +168,7 @@ func (c *CalDAVRoutes) basicAuthMiddleware() func(http.Handler) http.Handler {
 					"error", err,
 				)
 				w.Header().Set("WWW-Authenticate", `Basic realm="KMU Hub CalDAV"`)
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				response.Error(w, http.StatusUnauthorized, "Unauthorized")
 				return
 			}
 

@@ -146,7 +146,7 @@ type createContractCallRequest struct {
 func (er *EinkaufRoutes) HandleListCatalogItems(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := er.getClient()
@@ -187,7 +187,7 @@ func (er *EinkaufRoutes) HandleListCatalogItems(w http.ResponseWriter, r *http.R
 func (er *EinkaufRoutes) HandleGetCatalogItem(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := er.getClient()
@@ -215,7 +215,7 @@ func (er *EinkaufRoutes) HandleGetCatalogItem(w http.ResponseWriter, r *http.Req
 func (er *EinkaufRoutes) HandleCreateCatalogItem(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := er.getClient()
@@ -251,7 +251,7 @@ func (er *EinkaufRoutes) HandleCreateCatalogItem(w http.ResponseWriter, r *http.
 func (er *EinkaufRoutes) HandleUpdateCatalogItem(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := er.getClient()
@@ -292,7 +292,7 @@ func (er *EinkaufRoutes) HandleUpdateCatalogItem(w http.ResponseWriter, r *http.
 func (er *EinkaufRoutes) HandleDeleteCatalogItem(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := er.getClient()
@@ -324,7 +324,7 @@ func (er *EinkaufRoutes) HandleDeleteCatalogItem(w http.ResponseWriter, r *http.
 func (er *EinkaufRoutes) HandleListSupplierRatings(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := er.getClient()
@@ -352,7 +352,7 @@ func (er *EinkaufRoutes) HandleListSupplierRatings(w http.ResponseWriter, r *htt
 func (er *EinkaufRoutes) HandleCreateSupplierRating(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := er.getClient()
@@ -391,7 +391,7 @@ func (er *EinkaufRoutes) HandleCreateSupplierRating(w http.ResponseWriter, r *ht
 func (er *EinkaufRoutes) HandleDeleteSupplierRating(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := er.getClient()
@@ -423,7 +423,7 @@ func (er *EinkaufRoutes) HandleDeleteSupplierRating(w http.ResponseWriter, r *ht
 func (er *EinkaufRoutes) HandleListFrameworkContracts(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := er.getClient()
@@ -458,7 +458,7 @@ func (er *EinkaufRoutes) HandleListFrameworkContracts(w http.ResponseWriter, r *
 func (er *EinkaufRoutes) HandleGetFrameworkContract(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := er.getClient()
@@ -486,7 +486,7 @@ func (er *EinkaufRoutes) HandleGetFrameworkContract(w http.ResponseWriter, r *ht
 func (er *EinkaufRoutes) HandleCreateFrameworkContract(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := er.getClient()
@@ -519,7 +519,7 @@ func (er *EinkaufRoutes) HandleCreateFrameworkContract(w http.ResponseWriter, r 
 func (er *EinkaufRoutes) HandleUpdateFrameworkContract(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := er.getClient()
@@ -558,7 +558,7 @@ func (er *EinkaufRoutes) HandleUpdateFrameworkContract(w http.ResponseWriter, r 
 func (er *EinkaufRoutes) HandleDeleteFrameworkContract(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := er.getClient()
@@ -590,7 +590,7 @@ func (er *EinkaufRoutes) HandleDeleteFrameworkContract(w http.ResponseWriter, r 
 func (er *EinkaufRoutes) HandleCreateContractItem(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := er.getClient()
@@ -627,7 +627,7 @@ func (er *EinkaufRoutes) HandleCreateContractItem(w http.ResponseWriter, r *http
 func (er *EinkaufRoutes) HandleUpdateContractItem(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := er.getClient()
@@ -669,7 +669,7 @@ func (er *EinkaufRoutes) HandleUpdateContractItem(w http.ResponseWriter, r *http
 func (er *EinkaufRoutes) HandleDeleteContractItem(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := er.getClient()
@@ -706,7 +706,7 @@ func (er *EinkaufRoutes) HandleDeleteContractItem(w http.ResponseWriter, r *http
 func (er *EinkaufRoutes) HandleListContractCalls(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := er.getClient()
@@ -734,7 +734,7 @@ func (er *EinkaufRoutes) HandleListContractCalls(w http.ResponseWriter, r *http.
 func (er *EinkaufRoutes) HandleCreateContractCall(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := er.getClient()

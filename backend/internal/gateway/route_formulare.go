@@ -151,7 +151,7 @@ type updateWebhookRequest struct {
 func (fr *FormulareRoutes) HandleListFormSchemas(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -182,7 +182,7 @@ func (fr *FormulareRoutes) HandleListFormSchemas(w http.ResponseWriter, r *http.
 func (fr *FormulareRoutes) HandleCreateFormSchema(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -220,7 +220,7 @@ func (fr *FormulareRoutes) HandleCreateFormSchema(w http.ResponseWriter, r *http
 func (fr *FormulareRoutes) HandleGetFormSchema(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -248,7 +248,7 @@ func (fr *FormulareRoutes) HandleGetFormSchema(w http.ResponseWriter, r *http.Re
 func (fr *FormulareRoutes) HandleUpdateFormSchema(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -292,7 +292,7 @@ func (fr *FormulareRoutes) HandleUpdateFormSchema(w http.ResponseWriter, r *http
 func (fr *FormulareRoutes) HandleDeleteFormSchema(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -320,7 +320,7 @@ func (fr *FormulareRoutes) HandleDeleteFormSchema(w http.ResponseWriter, r *http
 func (fr *FormulareRoutes) HandleDuplicateFormSchema(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -358,7 +358,7 @@ func (fr *FormulareRoutes) HandleDuplicateFormSchema(w http.ResponseWriter, r *h
 func (fr *FormulareRoutes) HandleCreateSubmission(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -404,7 +404,7 @@ func (fr *FormulareRoutes) HandleCreateSubmission(w http.ResponseWriter, r *http
 func (fr *FormulareRoutes) HandleListSubmissions(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -439,7 +439,7 @@ func (fr *FormulareRoutes) HandleListSubmissions(w http.ResponseWriter, r *http.
 func (fr *FormulareRoutes) HandleGetSubmission(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -467,7 +467,7 @@ func (fr *FormulareRoutes) HandleGetSubmission(w http.ResponseWriter, r *http.Re
 func (fr *FormulareRoutes) HandleUpdateSubmissionStatus(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -514,7 +514,7 @@ func (fr *FormulareRoutes) HandleUpdateSubmissionStatus(w http.ResponseWriter, r
 func (fr *FormulareRoutes) HandleExportSubmissions(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -576,7 +576,7 @@ func (fr *FormulareRoutes) HandleExportSubmissions(w http.ResponseWriter, r *htt
 func (fr *FormulareRoutes) HandleListWebhooks(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -604,7 +604,7 @@ func (fr *FormulareRoutes) HandleListWebhooks(w http.ResponseWriter, r *http.Req
 func (fr *FormulareRoutes) HandleCreateWebhook(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -643,7 +643,7 @@ func (fr *FormulareRoutes) HandleCreateWebhook(w http.ResponseWriter, r *http.Re
 func (fr *FormulareRoutes) HandleGetWebhook(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -671,7 +671,7 @@ func (fr *FormulareRoutes) HandleGetWebhook(w http.ResponseWriter, r *http.Reque
 func (fr *FormulareRoutes) HandleUpdateWebhook(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -711,7 +711,7 @@ func (fr *FormulareRoutes) HandleUpdateWebhook(w http.ResponseWriter, r *http.Re
 func (fr *FormulareRoutes) HandleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -745,7 +745,7 @@ func (fr *FormulareRoutes) HandleDeleteWebhook(w http.ResponseWriter, r *http.Re
 func (fr *FormulareRoutes) HandleListWebhookDeliveriesForWebhook(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -782,7 +782,7 @@ func (fr *FormulareRoutes) HandleListWebhookDeliveriesForWebhook(w http.Response
 func (fr *FormulareRoutes) HandleGetFormStats(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()
@@ -812,7 +812,7 @@ func (fr *FormulareRoutes) HandleGetFormStats(w http.ResponseWriter, r *http.Req
 func (fr *FormulareRoutes) HandleListWebhookDeliveries(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	client, err := fr.getClient()

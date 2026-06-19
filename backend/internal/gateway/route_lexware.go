@@ -97,7 +97,7 @@ func (lr *LexwareRoutes) HandleConnect(w http.ResponseWriter, r *http.Request) {
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -136,7 +136,7 @@ func (lr *LexwareRoutes) HandleDisconnect(w http.ResponseWriter, r *http.Request
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -161,7 +161,7 @@ func (lr *LexwareRoutes) HandleGetConnectionStatus(w http.ResponseWriter, r *htt
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -193,7 +193,7 @@ func (lr *LexwareRoutes) HandleTestConnection(w http.ResponseWriter, r *http.Req
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -229,7 +229,7 @@ func (lr *LexwareRoutes) HandleTriggerSync(w http.ResponseWriter, r *http.Reques
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -270,7 +270,7 @@ func (lr *LexwareRoutes) HandleGetSyncStatus(w http.ResponseWriter, r *http.Requ
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 
@@ -314,7 +314,7 @@ func (lr *LexwareRoutes) HandleListSyncLogs(w http.ResponseWriter, r *http.Reque
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	limit := parseLimit(r, 20, 100)
@@ -366,7 +366,7 @@ func (lr *LexwareRoutes) HandleGetFieldMappings(w http.ResponseWriter, r *http.R
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	entityType := chi.URLParam(r, "entity_type")
@@ -393,7 +393,7 @@ func (lr *LexwareRoutes) HandleUpdateFieldMappings(w http.ResponseWriter, r *htt
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	entityType := chi.URLParam(r, "entity_type")
@@ -433,7 +433,7 @@ func (lr *LexwareRoutes) HandlePushInvoice(w http.ResponseWriter, r *http.Reques
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	invoiceID := chi.URLParam(r, "id")
@@ -470,7 +470,7 @@ func (lr *LexwareRoutes) HandlePushQuote(w http.ResponseWriter, r *http.Request)
 
 	tenantID, err := getTenantID(r)
 	if err != nil {
-		http.Error(w, "missing or invalid tenant", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
 	quoteID := chi.URLParam(r, "id")
