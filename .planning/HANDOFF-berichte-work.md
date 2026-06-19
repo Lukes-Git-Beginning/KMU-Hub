@@ -4,7 +4,7 @@
 
 ## ✅ Fertig + gepusht (main)
 - **work Quick-Actions W-1…W-3** (`a046b0d9`, Squash-Merge): MyTasks-Zeilen als Geschwister-Buttons (kein `role=button`-Div mehr — das schluckte den Accessible-Name des Menü-Buttons → Menü navigierte statt zu öffnen). Quick-Complete-Checkbox + Aktions-Menü (Erledigen/Mir zuweisen/Fälligkeit/In Projekt verschieben/Löschen) + Löschen-Confirm. **Kanban-Karten** dieselben Quick-Actions (Checkbox + Hover-Menü, dnd-sicher via `data-card-control`-Guard + `onPointerDown`-Stop). **Task-Detail-Panel + -Page** Löschen-Button mit Confirm. 14 i18n-Keys ×4. QA: `qa-work-mytasks.mjs` + `qa-work-kanban.mjs` (alle grün, Screenshots verifiziert).
-  - **Lehre (tsc):** scoped `tsconfig.workqa.json` crasht **flaky** mit internem TS-Bug `Debug Failure. No error for last overload signature` (NICHT dateispezifisch — alle 3 Bisects crashten, eine frühere identische Config lief sauber durch). Gate war Vite+Playwright-QA, wie projektüblich ([[project_typecheck_slow]]).
+  - **tsc-Crash GEFIXT** (`87868ade`): Der `Debug Failure. No error for last overload signature`-Crash kam von `i18next.d.ts` `resources: typeof de.json` (~8.5k Keys) × überladenes `t()` (TS-Bug #63195). Fix: `resources`-Typ weggelassen → `t()` = `(key)=>string`. **tsc läuft wieder durch.** Trade-off: keine compile-zeitliche t()-Key-Validierung (Gate bleibt Screenshot-QA). Deckt jetzt ~31 **vorbestehende** latente Typfehler im work-Modul auf → `.planning/tsc-latent-type-errors.md` (Aufräum-Aufgabe, keiner aus dem Quick-Actions-Code).
 - **berichte B-1…B-5** + **F1/F2 Live-Fixes** (Schedule→DetailModal, KPI-Sparklines+Tooltip).
 - **notifications N-1…N-5** gemergt + reviews-Dateien.
 
