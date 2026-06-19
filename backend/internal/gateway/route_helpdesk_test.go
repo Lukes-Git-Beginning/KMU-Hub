@@ -38,7 +38,7 @@ func TestHandleCreateTicket_InvalidJSON(t *testing.T) {
 	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/v1/helpdesk/tickets", invalidJSON())
-	req = withUserID(req, "user-123")
+	req = withAuth(req, "user-123", testTenantID)
 	routes.HandleCreateTicket(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid request body")
@@ -50,7 +50,7 @@ func TestHandleCreateTicket_MissingSubject(t *testing.T) {
 	req := httptest.NewRequest("POST", "/api/v1/helpdesk/tickets", jsonBody(t, map[string]interface{}{
 		"priority": "normal",
 	}))
-	req = withUserID(req, "user-123")
+	req = withAuth(req, "user-123", testTenantID)
 	routes.HandleCreateTicket(rec, req)
 	assertValidationError(t, rec, "subject")
 }
@@ -65,7 +65,7 @@ func TestHandleCreateTicket_SubjectTooLong(t *testing.T) {
 	req := httptest.NewRequest("POST", "/api/v1/helpdesk/tickets", jsonBody(t, map[string]interface{}{
 		"subject": string(longSubject),
 	}))
-	req = withUserID(req, "user-123")
+	req = withAuth(req, "user-123", testTenantID)
 	routes.HandleCreateTicket(rec, req)
 	assertValidationError(t, rec, "subject")
 }
@@ -77,7 +77,7 @@ func TestHandleCreateTicket_InvalidPriority(t *testing.T) {
 		"subject":  "Test ticket",
 		"priority": "critical", // not a valid value
 	}))
-	req = withUserID(req, "user-123")
+	req = withAuth(req, "user-123", testTenantID)
 	routes.HandleCreateTicket(rec, req)
 	assertValidationError(t, rec, "priority")
 }
@@ -90,7 +90,7 @@ func TestHandleCreateTicket_InvalidAssigneeID(t *testing.T) {
 		"subject":     "Test ticket",
 		"assignee_id": assignee,
 	}))
-	req = withUserID(req, "user-123")
+	req = withAuth(req, "user-123", testTenantID)
 	routes.HandleCreateTicket(rec, req)
 	assertValidationError(t, rec, "assignee_id")
 }
