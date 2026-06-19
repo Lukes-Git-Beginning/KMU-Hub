@@ -2288,57 +2288,16 @@ func (s *BizGRPCServer) SendDunningNotice(ctx context.Context, req *bizv1.SendDu
 // GoBD Export (Sprint 2 / Wave 1.B)
 // ============================================================================
 
-func (s *BizGRPCServer) GenerateGoBDExport(ctx context.Context, req *bizv1.GenerateGoBDExportRequest) (*bizv1.GenerateGoBDExportResponse, error) {
-	tenantID, err := uuid.Parse(req.GetTenantId())
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
-	}
-
-	// FromDate/ToDate are YYYY-MM-DD strings per biz_gobd.pb.go
-	fromDate, fromErr := time.Parse("2006-01-02", req.GetFromDate())
-	if fromErr != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid from_date: expected YYYY-MM-DD")
-	}
-	toDate, toErr := time.Parse("2006-01-02", req.GetToDate())
-	if toErr != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid to_date: expected YYYY-MM-DD")
-	}
-	if toDate.Before(fromDate) {
-		return nil, status.Error(codes.InvalidArgument, "to_date must be after from_date")
-	}
-
-	// Fetch invoices from invoice service and convert to dunning.GoBDExportRow
-	invoices, fetchErr := s.invoiceService.ListForGoBDExport(ctx, tenantID, fromDate, toDate)
-	if fetchErr != nil {
-		slog.Error("GenerateGoBDExport: fetch invoices failed", "tenant_id", tenantID, "error", fetchErr)
-		return nil, mapBizError(fetchErr)
-	}
-
-	rows := make([]dunning.GoBDExportRow, 0, len(invoices))
-	for _, inv := range invoices {
-		rows = append(rows, dunning.GoBDExportRow{
-			InvoiceNumber: inv.InvoiceNumber,
-			InvoiceDate:   inv.InvoiceDate.Format("2006-01-02"),
-			CustomerName:  inv.CustomerName,
-			GrossTotal:    inv.GrossTotal.StringFixed(2),
-			Status:        inv.Status,
-			TaxMode:       inv.TaxMode,
-		})
-	}
-
-	result, exportErr := s.dunningService.GenerateGoBDExport(ctx, tenantID, fromDate, toDate, rows)
-	if exportErr != nil {
-		slog.Error("GenerateGoBDExport: CSV generation failed", "tenant_id", tenantID, "error", exportErr)
-		return nil, mapBizError(exportErr)
-	}
-
-	filename := fmt.Sprintf("gobd-export-%s-%s.csv", fromDate.Format("2006-01-02"), toDate.Format("2006-01-02"))
-	return &bizv1.GenerateGoBDExportResponse{
-		CsvData:       result.CSVData,
-		Filename:      filename,
-		RecordCount:   int32(result.RowCount),
-		FormatVersion: "GoBD-Sprint3-Preview-NotYetCompliant",
-	}, nil
+func (s *BizGRPCServer) GenerateGoBDExport(_ context.Context, _ *bizv1.GenerateGoBDExportRequest) (*bizv1.GenerateGoBDExportResponse, error) {
+	// F3: the GoBD CSV export is not yet IDEA/BMF-compliant — it omits the mandatory
+	// posting columns (Buchungsbetrag netto, MwSt-Betrag, Steuerschlüssel,
+	// Soll/Haben-Konto, Buchungstext, interne Belegnummer). Returning a "preview"
+	// file that looks like a GoBD export risks an operator filing a non-compliant
+	// document with the Finanzamt. Disable the endpoint (HTTP 501 at the gateway)
+	// until the format is completed. The CSV builder in dunning.GenerateGoBDExport
+	// and its tests remain in place for the rebuild.
+	return nil, status.Error(codes.Unimplemented,
+		"GoBD export is not yet IDEA/BMF-compliant and is temporarily disabled")
 }
 
 // ============================================================================

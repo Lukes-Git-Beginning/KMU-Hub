@@ -24,6 +24,15 @@ const (
 
 // GenerateZUGFeRDXML generates a Factur-X / ZUGFeRD 2.1 XML (Cross-Industry Invoice, EN16931 profile).
 func GenerateZUGFeRDXML(invoice models.Invoice, settings models.CompanySettings) ([]byte, error) {
+	if invoice.InvoiceDate.IsZero() {
+		return nil, fmt.Errorf("zugferd: invoice %s is missing the issue date (BT-2)", invoice.InvoiceNumber)
+	}
+	if invoice.DueDate.IsZero() {
+		return nil, fmt.Errorf("zugferd: invoice %s is missing the due date (BT-9)", invoice.InvoiceNumber)
+	}
+	if err := ValidateCompanySettingsForPDF(settings); err != nil {
+		return nil, fmt.Errorf("zugferd: %w", err)
+	}
 	lineItems, err := parseLineItems(invoice.LineItems)
 	if err != nil {
 		return nil, fmt.Errorf("parse line items for zugferd: %w", err)

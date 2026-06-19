@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/johnfercher/maroto/v2"
 	"github.com/johnfercher/maroto/v2/pkg/components/row"
@@ -23,6 +24,33 @@ type Generator struct {
 // NewGenerator creates a new PDF generator with company settings for defaults.
 func NewGenerator(settings models.CompanySettings) *Generator {
 	return &Generator{settings: settings}
+}
+
+// ValidateCompanySettingsForPDF checks that the §14 UStG mandatory issuer fields
+// are present before a legal document (invoice, credit note, ZUGFeRD) is rendered.
+// It returns a descriptive error naming the missing fields so the caller can surface
+// a clear message instead of silently emitting a document that omits Pflichtangaben.
+func ValidateCompanySettingsForPDF(s models.CompanySettings) error {
+	var missing []string
+	if strings.TrimSpace(s.Name) == "" {
+		missing = append(missing, "name")
+	}
+	if strings.TrimSpace(s.Street) == "" {
+		missing = append(missing, "street")
+	}
+	if strings.TrimSpace(s.PLZ) == "" {
+		missing = append(missing, "plz")
+	}
+	if strings.TrimSpace(s.City) == "" {
+		missing = append(missing, "city")
+	}
+	if strings.TrimSpace(s.Steuernummer) == "" && strings.TrimSpace(s.UStIDNr) == "" {
+		missing = append(missing, "steuernummer or ust_id_nr")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("incomplete company settings for legal document (§14 UStG): missing %s", strings.Join(missing, ", "))
+	}
+	return nil
 }
 
 // newMaroto creates a configured maroto instance with A4 page, 15mm margins, and Pflichtangaben footer.
@@ -120,6 +148,9 @@ func (g *Generator) GenerateQuotePDF(quote models.Quote) ([]byte, error) {
 // GenerateInvoicePDF generates a PDF for an invoice (Rechnung).
 // Uses snapshot_data if available (sent invoice), otherwise live data (draft preview).
 func (g *Generator) GenerateInvoicePDF(invoice models.Invoice) ([]byte, error) {
+	if err := ValidateCompanySettingsForPDF(g.settings); err != nil {
+		return nil, err
+	}
 	m := g.newMaroto()
 	accentColor := parseColor(g.settings.AccentColor)
 
@@ -184,6 +215,9 @@ func (g *Generator) GenerateInvoicePDF(invoice models.Invoice) ([]byte, error) {
 
 // GenerateCreditNotePDF generates a PDF for a credit note (Gutschrift).
 func (g *Generator) GenerateCreditNotePDF(creditNote models.CreditNote) ([]byte, error) {
+	if err := ValidateCompanySettingsForPDF(g.settings); err != nil {
+		return nil, err
+	}
 	m := g.newMaroto()
 	accentColor := parseColor(g.settings.AccentColor)
 
