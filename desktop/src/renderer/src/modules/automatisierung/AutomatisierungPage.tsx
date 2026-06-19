@@ -32,6 +32,7 @@ import type { Automation } from '@/api/automation-types'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { EmptyAutomation } from '@/components/shared/illustrations'
 import { AutomationWizard } from './AutomationWizard'
+import { AutomationDetailModal } from './AutomationDetailModal'
 import { TemplateGallery } from './TemplateGallery'
 import { ExecutionLogViewer } from './ExecutionLogViewer'
 
@@ -78,10 +79,10 @@ function StatsBar() {
 
 function AutomationRow({
   automation,
-  onEdit,
+  onOpen,
 }: {
   automation: Automation
-  onEdit: (a: Automation) => void
+  onOpen: (a: Automation) => void
 }) {
   const { t } = useTranslation()
   const enableMutation = useEnableAutomation()
@@ -97,8 +98,17 @@ function AutomationRow({
 
   return (
     <tr
-      className="border-b border-border hover:bg-secondary/50 transition-colors cursor-pointer"
-      onClick={() => onEdit(automation)}
+      role="button"
+      tabIndex={0}
+      aria-label={automation.name}
+      className="border-b border-border hover:bg-secondary/50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-inset"
+      onClick={() => onOpen(automation)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onOpen(automation)
+        }
+      }}
     >
       <td className="px-4 py-3">
         <div>
@@ -157,10 +167,10 @@ function AutomationRow({
 
 function AutomationList({
   onNew,
-  onEdit,
+  onOpen,
 }: {
   onNew: () => void
-  onEdit: (a: Automation) => void
+  onOpen: (a: Automation) => void
 }) {
   const { t } = useTranslation()
   const { data, isLoading } = useAutomations()
@@ -209,7 +219,7 @@ function AutomationList({
         </thead>
         <tbody>
           {automations.map((a) => (
-            <AutomationRow key={a.id} automation={a} onEdit={onEdit} />
+            <AutomationRow key={a.id} automation={a} onOpen={onOpen} />
           ))}
         </tbody>
       </table>
@@ -224,6 +234,7 @@ function AutomationList({
 export default function AutomatisierungPage() {
   const { t } = useTranslation()
   const [wizardOpen, setWizardOpen] = useState(false)
+  const [detailAutomation, setDetailAutomation] = useState<Automation | null>(null)
   const { resetDraft, loadAutomationIntoDraft, setEditorMode } =
     useAutomatisierungStore()
 
@@ -236,6 +247,14 @@ export default function AutomatisierungPage() {
     loadAutomationIntoDraft(automation)
     setEditorMode('wizard')
     setWizardOpen(true)
+  }
+
+  // Row click opens the read-only detail; editing is reached from inside it.
+  const handleOpenDetail = (automation: Automation) => setDetailAutomation(automation)
+
+  const handleEditFromDetail = (automation: Automation) => {
+    setDetailAutomation(null)
+    handleEdit(automation)
   }
 
   const handleWizardClose = () => {
@@ -282,7 +301,7 @@ export default function AutomatisierungPage() {
           </div>
 
           <Tabs.Content value="automations" className="flex-1 overflow-y-auto">
-            <AutomationList onNew={handleNew} onEdit={handleEdit} />
+            <AutomationList onNew={handleNew} onOpen={handleOpenDetail} />
           </Tabs.Content>
 
           <Tabs.Content value="templates" className="flex-1 overflow-y-auto p-6">
@@ -294,6 +313,14 @@ export default function AutomatisierungPage() {
           </Tabs.Content>
         </Tabs.Root>
       </div>
+
+      {/* Detail modal (row click) */}
+      <AutomationDetailModal
+        automation={detailAutomation}
+        open={!!detailAutomation}
+        onClose={() => setDetailAutomation(null)}
+        onEdit={handleEditFromDetail}
+      />
 
       {/* Wizard dialog */}
       {wizardOpen && <AutomationWizard onClose={handleWizardClose} />}

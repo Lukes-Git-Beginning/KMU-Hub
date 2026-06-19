@@ -24,6 +24,23 @@ try {
   await page.screenshot({ path: resolve(outDir, '1-automations.png') })
   out.rows = await page.locator('table tbody tr').count().catch(() => -1)
   out.emptyState = await page.getByText(/keine|empty|noch keine/i).first().isVisible().catch(() => false)
+  // Row click → detail modal
+  await page.locator('table tbody tr[role="button"]').first().click()
+  await page.waitForTimeout(900)
+  out.detailOpen = await page.locator('[role="dialog"]').isVisible().catch(() => false)
+  await page.screenshot({ path: resolve(outDir, '4-detail.png') })
+  // A-3: Duplicate (copy is unshifted to the top of the list)
+  await page.getByRole('button', { name: /Duplizieren/i }).click()
+  await page.waitForTimeout(1100)
+  out.rowsAfterDuplicate = await page.locator('table tbody tr').count().catch(() => -1)
+  // A-3: Delete the new copy via the confirm dialog
+  await page.locator('table tbody tr[role="button"]').first().click()
+  await page.waitForTimeout(800)
+  await page.getByRole('button', { name: /^Löschen/i }).click()
+  await page.waitForTimeout(500)
+  await page.locator('[role="alertdialog"]').getByRole('button', { name: /Löschen/i }).click()
+  await page.waitForTimeout(1100)
+  out.rowsAfterDelete = await page.locator('table tbody tr').count().catch(() => -1)
   // Tabs (Radix role=tab): 0=automations, 1=templates, 2=log
   const tabs = page.getByRole('tab')
   out.tabCount = await tabs.count().catch(() => -1)
