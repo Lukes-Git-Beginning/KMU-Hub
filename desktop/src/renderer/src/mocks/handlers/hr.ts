@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
 import { daysAgo, today } from '../data/date-helpers'
+import { CURRENT_USER } from '../data/shared-ids'
 
 const API = API_BASE_URL
 
@@ -188,6 +189,32 @@ let workStatus: {
   todayTotalMinutes: 370,
   arbzgSeverity: 'none',
 }
+
+// ── Employee documents (Personalakte / Self-Service) ──────────────────────
+// camelCase wire shape — hrEmployeeApi.listDocuments/uploadDocument return the
+// raw JSON typed as EmployeeDocument[], no adapter. Stateful for the session so
+// uploads survive until reload.
+const hrDocumentCategories = [
+  { id: 'hrcat-contract',     name: 'Arbeitsvertrag',        key: 'contract',    visibility: 'employee' as const, isSystem: true },
+  { id: 'hrcat-payroll',      name: 'Gehaltsabrechnungen',   key: 'payroll',     visibility: 'employee' as const, isSystem: true },
+  { id: 'hrcat-certificate',  name: 'Zertifikate',           key: 'certificate', visibility: 'employee' as const, isSystem: false },
+  { id: 'hrcat-attestation',  name: 'Bescheinigungen',       key: 'attestation', visibility: 'employee' as const, isSystem: false },
+  { id: 'hrcat-other',        name: 'Sonstiges',             key: 'other',       visibility: 'employee' as const, isSystem: true },
+]
+
+const HR_DOC_BY_CAT: Record<string, string> = Object.fromEntries(
+  hrDocumentCategories.map((c) => [c.id, c.name]),
+)
+
+let hrEmployeeDocs = [
+  { id: 'hrdoc-001', employeeId: CURRENT_USER.id, categoryId: 'hrcat-contract',    categoryName: 'Arbeitsvertrag',      fileId: 'file-hrdoc-001', fileName: 'Arbeitsvertrag_Stefan_Vogel.pdf',     fileSize: '248 KB', uploadedBy: 'usr-hr', uploaderName: 'Personalabteilung', notes: 'Unbefristet, Eintritt 03/2021', createdAt: daysAgo(1180) },
+  { id: 'hrdoc-002', employeeId: CURRENT_USER.id, categoryId: 'hrcat-payroll',     categoryName: 'Gehaltsabrechnungen', fileId: 'file-hrdoc-002', fileName: 'Gehaltsabrechnung_2026-05.pdf',         fileSize: '92 KB',  uploadedBy: 'usr-hr', uploaderName: 'Personalabteilung', createdAt: daysAgo(18) },
+  { id: 'hrdoc-003', employeeId: CURRENT_USER.id, categoryId: 'hrcat-payroll',     categoryName: 'Gehaltsabrechnungen', fileId: 'file-hrdoc-003', fileName: 'Gehaltsabrechnung_2026-04.pdf',         fileSize: '91 KB',  uploadedBy: 'usr-hr', uploaderName: 'Personalabteilung', createdAt: daysAgo(49) },
+  { id: 'hrdoc-004', employeeId: CURRENT_USER.id, categoryId: 'hrcat-payroll',     categoryName: 'Gehaltsabrechnungen', fileId: 'file-hrdoc-004', fileName: 'Gehaltsabrechnung_2026-03.pdf',         fileSize: '90 KB',  uploadedBy: 'usr-hr', uploaderName: 'Personalabteilung', createdAt: daysAgo(80) },
+  { id: 'hrdoc-005', employeeId: CURRENT_USER.id, categoryId: 'hrcat-certificate', categoryName: 'Zertifikate',         fileId: 'file-hrdoc-005', fileName: 'Zertifikat_Datenschutz_DSGVO.pdf',     fileSize: '320 KB', uploadedBy: CURRENT_USER.id, uploaderName: CURRENT_USER.name, notes: 'Gültig bis 12/2026', createdAt: daysAgo(140) },
+  { id: 'hrdoc-006', employeeId: CURRENT_USER.id, categoryId: 'hrcat-attestation', categoryName: 'Bescheinigungen',     fileId: 'file-hrdoc-006', fileName: 'Arbeitsbescheinigung_2025.pdf',         fileSize: '64 KB',  uploadedBy: 'usr-hr', uploaderName: 'Personalabteilung', createdAt: daysAgo(210) },
+  { id: 'hrdoc-007', employeeId: CURRENT_USER.id, categoryId: 'hrcat-certificate', categoryName: 'Zertifikate',         fileId: 'file-hrdoc-007', fileName: 'Zertifikat_Scrum_Master.pdf',          fileSize: '410 KB', uploadedBy: CURRENT_USER.id, uploaderName: CURRENT_USER.name, createdAt: daysAgo(300) },
+]
 
 export const hrHandlers = [
   // ── Work Time Status ───────────────────────────────────────────────────
@@ -640,6 +667,46 @@ export const hrHandlers = [
       ],
       total: 6,
     })
+  }),
+
+  // ── Employee documents (Personalakte) ──────────────────────────────────
+  // NOTE: more specific path (/categories) registered before the list GET so
+  // it cannot be shadowed by it.
+
+  http.get(`${API}/api/v1/hr/employees/:id/documents/categories`, () => {
+    return HttpResponse.json({ categories: hrDocumentCategories })
+  }),
+
+  http.get(`${API}/api/v1/hr/employees/:id/documents`, ({ params }) => {
+    const docs = hrEmployeeDocs.filter((d) => d.employeeId === params.id)
+    // Demo fallback: if the requested employee has no seeded docs, still serve
+    // the current user's set so the self-service tab is never empty in the demo.
+    return HttpResponse.json({ documents: docs.length ? docs : hrEmployeeDocs })
+  }),
+
+  http.post(`${API}/api/v1/hr/employees/:id/documents`, async ({ params, request }) => {
+    const body = (await request.json()) as {
+      categoryId: string
+      fileId?: string
+      fileName?: string
+      fileSize?: string
+      notes?: string
+    }
+    const doc = {
+      id: `hrdoc-${Date.now()}`,
+      employeeId: String(params.id),
+      categoryId: body.categoryId,
+      categoryName: HR_DOC_BY_CAT[body.categoryId] ?? 'Sonstiges',
+      fileId: body.fileId ?? `file-${Date.now()}`,
+      fileName: body.fileName ?? 'dokument.pdf',
+      fileSize: body.fileSize ?? '—',
+      uploadedBy: CURRENT_USER.id,
+      uploaderName: CURRENT_USER.name,
+      notes: body.notes || undefined,
+      createdAt: new Date().toISOString().slice(0, 10),
+    }
+    hrEmployeeDocs = [doc, ...hrEmployeeDocs]
+    return HttpResponse.json({ document: doc }, { status: 201 })
   }),
 
   http.get(`${API}/api/v1/hr/settings`, () => {

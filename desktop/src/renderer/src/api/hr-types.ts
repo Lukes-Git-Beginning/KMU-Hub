@@ -261,6 +261,7 @@ export interface EmployeeDocument {
   categoryName?: string
   fileId: string
   fileName?: string
+  fileSize?: string
   uploadedBy: string
   uploaderName?: string
   notes?: string
@@ -434,6 +435,8 @@ export interface UpdateSelfProfileInput {
 export interface UploadDocumentInput {
   categoryId: string
   fileId: string
+  fileName?: string
+  fileSize?: string
   notes?: string
 }
 

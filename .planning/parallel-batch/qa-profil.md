@@ -47,3 +47,41 @@
 - Page-Errors: **0**. Console-Errors: nur die o.g. Demo-Lücken (feature-flags, documents).
 
 **Commit:** `feat(profil): seed current-user as Stefan Vogel + member-since, fix absences data contract`
+
+---
+
+## P-2 — Dokumente-Tab echt (MSW)  ✅ fertig
+**Build:** `npm run build` → EXIT 0 (`✓ built in 1m 25s`, 0 TS/Rollup-Fehler).
+**Geändert:**
+- `mocks/handlers/hr.ts`: neue Handler (camelCase wire shape, kein Adapter im
+  hr-client) — `GET …/employees/:id/documents/categories` (5 Kategorien),
+  `GET …/employees/:id/documents` (7 Demo-Docs: Arbeitsvertrag,
+  3× Gehaltsabrechnung, 2× Zertifikat, Bescheinigung — mit Kategorie, Dateiname,
+  Größe, Datum, Uploader, Notizen), `POST …/documents` (Upload → neues Doc,
+  **stateful** in der Session). `categories` vor der Liste registriert
+  (Shadowing-frei). `/employees/:id/documents*` ist exklusiv hr.ts (geprüft).
+- `api/hr-types.ts`: additiv `EmployeeDocument.fileSize?`, `UploadDocumentInput.fileName?/fileSize?`.
+- `modules/profil/tabs/DokumenteTab.tsx`: `handleUpload`-Toast-Stub raus →
+  echter Upload-Dialog (Datei + Kategorie + Notiz) über `useUploadEmployeeDocument`;
+  Preview-Toast-Stub raus → zentriertes `shared/DetailModal` (Metadaten +
+  Platzhalter-Vorschau + Demo-Vorschau-Badge + sticky Download-Footer);
+  Download-Toast-Stub raus → echter Blob-Download (Muster team `PersonnelDocuments`);
+  Doc-Zeilen ganze Zeile klickbar (`role=button`, Enter/Space, aria-label).
+- i18n: +13 `profil.documents.*`-Keys ×4 (upload/preview/fileSize/uploaded/note/
+  openDocument/selectFileFirst), single-brace `{name}`, via untracked
+  `scripts/add-profil-i18n.mjs` ins zusammenhängende `profil.documents.`-Sub-Cluster
+  einsortiert (voller `profil.*`-Cluster ist NICHT zusammenhängend — zeiterfassung verstreut).
+
+**Verify (Screenshots angesehen, `qa-profil-docs.mjs` + `qa-profil.mjs`):**
+- Liste: **7 Demo-Docs** mit PDF-Badge/Datum/Größe/Kategorie/Uploader/Notiz;
+  Sidebar-Counts korrekt (Arbeitsvertrag 1 / Gehaltsabrechnungen 3 / Zertifikate 2 /
+  Bescheinigungen 1 / Sonstiges 0).
+- Zeilen-Klick → **DetailModal-Preview** (Demo-Vorschau-Badge, Metadaten,
+  „Im Produktivbetrieb…"-Hinweis, sticky **Herunterladen**).
+- Upload-Dialog → Datei (synthetisch) → submit → **8 Docs**, neues „Test-Zeugnis_2026.pdf"
+  oben (Von Stefan Vogel), Erfolgs-Toast „Dokument hochgeladen", überlebt im Session-State.
+- Download = client-seitiger Blob (wie team), Preview + Zeile verkabelt.
+- Raw-Keys/`{{var}}`: **0** (DE+EN, beide Viewports). Page-Errors: **0**.
+  Console: `documents`-Connection-Refused **weg**; nur noch app-globales feature-flags.
+
+**Commit:** `feat(profil): wire documents tab to MSW (list/upload/preview/download)`
