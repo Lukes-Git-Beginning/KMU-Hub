@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -13,11 +14,17 @@ import (
 // DatevUploadRoutes handles HTTP routes for the DATEV upload integration.
 type DatevUploadRoutes struct {
 	registry *ServiceRegistry
+	// stateSecret signs/verifies the OAuth CSRF state token (HMAC-SHA256), reusing
+	// the shared gateway helpers (encode/decodeBexioState). Must be non-empty for
+	// the OAuth endpoints to operate; otherwise they refuse the request.
+	stateSecret string
 }
 
-// NewDatevUploadRoutes creates a new DatevUploadRoutes.
-func NewDatevUploadRoutes(registry *ServiceRegistry) *DatevUploadRoutes {
-	return &DatevUploadRoutes{registry: registry}
+// NewDatevUploadRoutes creates a new DatevUploadRoutes. stateSecret signs and
+// verifies the OAuth CSRF state token; pass the shared gateway OAuth state secret
+// (e.g. cfg.BexioStateSecret, or a dedicated DATEV secret when introduced).
+func NewDatevUploadRoutes(registry *ServiceRegistry, stateSecret string) *DatevUploadRoutes {
+	return &DatevUploadRoutes{registry: registry, stateSecret: stateSecret}
 }
 
 // ServiceName returns "biz" to reuse the existing gRPC connection
@@ -81,8 +88,23 @@ func (dr *DatevUploadRoutes) HandleGetAuthURL(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// Sign an expiring, HMAC-protected state token so the OAuth callback can verify
+	// authenticity and recover the tenant_id without trusting the redirect round-trip
+	// (CSRF protection — mirrors the Bexio flow).
+	if dr.stateSecret == "" {
+		slog.Error("datev: state secret not configured, cannot issue OAuth URL")
+		http.Error(w, "OAuth state secret not configured", http.StatusInternalServerError)
+		return
+	}
+	signedState, stateErr := encodeBexioState(dr.stateSecret, tenantID)
+	if stateErr != nil {
+		slog.Error("datev: failed to encode state token", "error", stateErr)
+		http.Error(w, "failed to generate OAuth state", http.StatusInternalServerError)
+		return
+	}
+
 	resp, err := client.GetDatevAuthURL(r.Context(), &bizv1.GetDatevAuthURLRequest{
-		TenantId:    tenantID,
+		TenantId:    signedState, // biz-side embeds this as the OAuth "state" param
 		RedirectUrl: r.URL.Query().Get("redirect_url"),
 	})
 	if err != nil {
@@ -115,9 +137,24 @@ func (dr *DatevUploadRoutes) HandleOAuthCallback(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// State contains the tenant_id
+	// Verify the HMAC-signed state token before trusting the tenant_id it carries.
+	if dr.stateSecret == "" {
+		slog.Error("datev: state secret not configured, rejecting OAuth callback")
+		http.Redirect(w, r, "/settings/integrations?datev_error=state_not_configured", http.StatusFound)
+		return
+	}
+	tenantID, stateErr := decodeBexioState(dr.stateSecret, state)
+	if stateErr != nil {
+		slog.Warn("datev: OAuth callback with invalid state token",
+			"error", stateErr,
+			"remote_addr", r.RemoteAddr,
+		)
+		http.Redirect(w, r, "/settings/integrations?datev_error=invalid_state", http.StatusFound)
+		return
+	}
+
 	resp, err := client.HandleDatevOAuthCallback(r.Context(), &bizv1.HandleDatevOAuthCallbackRequest{
-		TenantId:    state,
+		TenantId:    tenantID,
 		Code:        code,
 		RedirectUrl: r.URL.Query().Get("redirect_url"),
 	})
