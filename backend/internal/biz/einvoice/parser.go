@@ -258,6 +258,9 @@ func ParseCII(xmlData []byte) (*ParsedInvoice, error) {
 	subtotal := mustDecimal(settlement.MonetarySummation.LineTotalAmount)
 	totalTax := mustDecimal(settlement.MonetarySummation.TaxTotalAmount)
 	grossTotal := mustDecimal(settlement.MonetarySummation.GrandTotalAmount)
+	if grossTotal.IsZero() {
+		return nil, fmt.Errorf("%w: grand total amount missing or unparseable (got %q)", ErrParseFailed, settlement.MonetarySummation.GrandTotalAmount)
+	}
 
 	// Line items
 	lineItems := make([]ParsedLineItem, 0, len(env.SupplyChainTrade.LineItems))
@@ -449,6 +452,9 @@ func ParseUBL(xmlData []byte) (*ParsedInvoice, error) {
 	grossTotal := mustDecimal(inv.LegalMonetaryTotal.TaxInclusiveAmount)
 	if grossTotal.IsZero() {
 		grossTotal = mustDecimal(inv.LegalMonetaryTotal.PayableAmount)
+	}
+	if grossTotal.IsZero() {
+		return nil, fmt.Errorf("%w: tax-inclusive/payable amount missing or unparseable", ErrParseFailed)
 	}
 
 	// Line items

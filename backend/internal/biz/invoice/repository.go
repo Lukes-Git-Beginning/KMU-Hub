@@ -34,7 +34,7 @@ type Repository interface {
 	// LinkTimeTracking persists a time_tracking_source JSONB payload on the invoice.
 	// Used after invoice creation to attach the audit trail from the HR time-tracking
 	// module. The operation is best-effort: callers should treat errors as non-fatal.
-	LinkTimeTracking(ctx context.Context, invoiceID uuid.UUID, src json.RawMessage) error
+	LinkTimeTracking(ctx context.Context, tenantID, invoiceID uuid.UUID, src json.RawMessage) error
 	// SetLock sets locked_at and locked_by on a single invoice without triggering
 	// a full Update (ADR-0007 / Migration 000132 — replaces snapshot_data lock hack).
 	SetLock(ctx context.Context, tenantID, id uuid.UUID, lockedAt time.Time, lockedBy uuid.UUID) error

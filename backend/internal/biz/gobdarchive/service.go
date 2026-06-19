@@ -265,12 +265,12 @@ func (s *Service) ListEvents(ctx context.Context, tenantID, id uuid.UUID) ([]*mo
 // Private helpers
 // ============================================================================
 
-// computeRetentionUntil returns 31.12 of (archivedAt.Year + 8) in UTC.
-// Example: archivedAt=2026-03-15 → 2034-12-31; archivedAt=2026-12-31 → 2034-12-31.
-// This gives every document in a given year the same maximum retention deadline,
-// covering at least 8 full calendar years from any archival date in that year.
+// computeRetentionUntil returns 31.12 of (archivedAt.Year + 10) in UTC.
+// Example: archivedAt=2026-03-15 → 2036-12-31; archivedAt=2026-12-31 → 2036-12-31.
+// §147 Abs. 3 AO mandates a 10-year retention for invoices and books, counted from
+// the end of the calendar year of the last entry — hence year+10 at 31.12.
 func computeRetentionUntil(archivedAt time.Time) time.Time {
-	return time.Date(archivedAt.Year()+8, time.December, 31, 0, 0, 0, 0, time.UTC)
+	return time.Date(archivedAt.Year()+10, time.December, 31, 0, 0, 0, 0, time.UTC)
 }
 
 // isValidDocType returns true if the string is a known gobd_document_type ENUM value.

@@ -249,7 +249,7 @@ func (br *BexioRoutes) HandleTriggerSync(w http.ResponseWriter, r *http.Request)
 		SyncType string `json:"sync_type"`
 	}
 	var body triggerBexioSyncRequest
-	if r.Body != nil {
+	if r.ContentLength != 0 {
 		var ok bool
 		body, ok = decodeAndValidate[triggerBexioSyncRequest](w, r)
 		if !ok {

@@ -173,7 +173,7 @@ func (b *BizRoutes) HandleGenerateCreditNotePDF(w http.ResponseWriter, r *http.R
 // ============================================================================
 
 type recordPaymentRequest struct {
-	Amount      string `json:"amount"       validate:"required"`
+	Amount      string `json:"amount"       validate:"required,decimal_gt0"`
 	PaymentDate string `json:"payment_date" validate:"required,datetime=2006-01-02"`
 	Method      string `json:"method"       validate:"required,oneof=bank_transfer cash credit_card other"`
 	Reference   string `json:"reference"`

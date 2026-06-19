@@ -16,6 +16,11 @@ import (
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
 )
 
+// maxGobdDocumentBytes caps a single archived document at 50 MiB. The multipart
+// form permits 55 MiB total (50 MiB file + 5 MiB form fields); this bounds the
+// in-memory read so a malicious upload cannot exhaust the heap.
+const maxGobdDocumentBytes = 50 << 20
+
 // HandleArchiveDocument handles POST /api/v1/finance/gobd-archive
 // Multipart form with field "file" (the document) and form fields:
 //   - doc_type: required
@@ -47,9 +52,13 @@ func (b *BizRoutes) HandleArchiveDocument(w http.ResponseWriter, r *http.Request
 	}
 	defer f.Close()
 
-	fileBytes, err := io.ReadAll(f)
+	fileBytes, err := io.ReadAll(io.LimitReader(f, maxGobdDocumentBytes+1))
 	if err != nil {
 		http.Error(w, "failed to read file", http.StatusBadRequest)
+		return
+	}
+	if len(fileBytes) > maxGobdDocumentBytes {
+		http.Error(w, "document exceeds 50 MiB limit", http.StatusRequestEntityTooLarge)
 		return
 	}
 

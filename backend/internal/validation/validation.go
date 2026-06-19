@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/shopspring/decimal"
 
 	"github.com/kmuhub/kmuhub/internal/dachfmt"
 )
@@ -72,6 +73,16 @@ func validate() *validator.Validate {
 		})
 		mustRegister(v, "steuernr", func(fl validator.FieldLevel) bool {
 			return dachfmt.ValidateSteuernummer(fl.Field().String())
+		})
+		// decimal_gt0 accepts a decimal string strictly greater than zero. Used for
+		// monetary amounts (e.g. payment amounts) that arrive as JSON strings and
+		// must never be negative, zero, or non-numeric.
+		mustRegister(v, "decimal_gt0", func(fl validator.FieldLevel) bool {
+			d, err := decimal.NewFromString(strings.TrimSpace(fl.Field().String()))
+			if err != nil {
+				return false
+			}
+			return d.GreaterThan(decimal.Zero)
 		})
 
 		instance = v

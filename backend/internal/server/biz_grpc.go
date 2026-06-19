@@ -1968,7 +1968,7 @@ func (s *BizGRPCServer) CreateInvoiceFromTimeEntries(ctx context.Context, req *b
 	ttSourceJSON, _ := json.Marshal(ttSource)
 
 	// Attach time_tracking_source to the invoice record (best-effort, non-fatal)
-	if linkErr := s.invoiceService.LinkTimeTracking(ctx, inv.ID, json.RawMessage(ttSourceJSON)); linkErr != nil {
+	if linkErr := s.invoiceService.LinkTimeTracking(ctx, inv.TenantID, inv.ID, json.RawMessage(ttSourceJSON)); linkErr != nil {
 		slog.Warn("failed to link time tracking source to invoice",
 			"invoice_id", inv.ID,
 			"error", linkErr,

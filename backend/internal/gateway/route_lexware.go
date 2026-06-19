@@ -237,7 +237,7 @@ func (lr *LexwareRoutes) HandleTriggerSync(w http.ResponseWriter, r *http.Reques
 		SyncType string `json:"sync_type"`
 	}
 	var body triggerLexwareSyncRequest
-	if r.Body != nil {
+	if r.ContentLength != 0 {
 		var ok bool
 		body, ok = decodeAndValidate[triggerLexwareSyncRequest](w, r)
 		if !ok {

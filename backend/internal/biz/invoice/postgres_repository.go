@@ -143,9 +143,7 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 
 	if filter.Overdue {
 		conditions = append(conditions, "status = 'sent'")
-		conditions = append(conditions, fmt.Sprintf("due_date < $%d", argNum))
-		args = append(args, "now()")
-		argNum++
+		conditions = append(conditions, "due_date < NOW()")
 	}
 
 	if filter.ContactID != nil {
@@ -395,10 +393,10 @@ func (r *PostgresRepository) GetByQuoteID(ctx context.Context, tenantID, quoteID
 }
 
 // LinkTimeTracking persists the time_tracking_source JSONB column on an invoice.
-func (r *PostgresRepository) LinkTimeTracking(ctx context.Context, invoiceID uuid.UUID, src json.RawMessage) error {
+func (r *PostgresRepository) LinkTimeTracking(ctx context.Context, tenantID, invoiceID uuid.UUID, src json.RawMessage) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE finance_invoices SET time_tracking_source = $1 WHERE id = $2`,
-		src, invoiceID,
+		`UPDATE finance_invoices SET time_tracking_source = $1 WHERE id = $2 AND tenant_id = $3`,
+		src, invoiceID, tenantID,
 	)
 	return err
 }

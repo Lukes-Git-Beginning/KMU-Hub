@@ -136,26 +136,26 @@ func newTestService() (*Service, *mockRepository, *mockFileStore) {
 
 func TestComputeRetentionUntil_Normal(t *testing.T) {
 	t.Parallel()
-	// 2026-03-15 → retention until 2034-12-31
+	// 2026-03-15 → retention until 2036-12-31 (§147 AO: 10 years)
 	archivedAt := time.Date(2026, 3, 15, 12, 0, 0, 0, time.UTC)
 	got := computeRetentionUntil(archivedAt)
-	assert.Equal(t, time.Date(2034, 12, 31, 0, 0, 0, 0, time.UTC), got)
+	assert.Equal(t, time.Date(2036, 12, 31, 0, 0, 0, 0, time.UTC), got)
 }
 
 func TestComputeRetentionUntil_Dec31(t *testing.T) {
 	t.Parallel()
-	// 2026-12-31 → retention still 2034-12-31 (same year)
+	// 2026-12-31 → retention still 2036-12-31 (same year)
 	archivedAt := time.Date(2026, 12, 31, 23, 59, 59, 0, time.UTC)
 	got := computeRetentionUntil(archivedAt)
-	assert.Equal(t, time.Date(2034, 12, 31, 0, 0, 0, 0, time.UTC), got)
+	assert.Equal(t, time.Date(2036, 12, 31, 0, 0, 0, 0, time.UTC), got)
 }
 
 func TestComputeRetentionUntil_Jan1(t *testing.T) {
 	t.Parallel()
-	// 2027-01-01 → retention until 2035-12-31
+	// 2027-01-01 → retention until 2037-12-31
 	archivedAt := time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)
 	got := computeRetentionUntil(archivedAt)
-	assert.Equal(t, time.Date(2035, 12, 31, 0, 0, 0, 0, time.UTC), got)
+	assert.Equal(t, time.Date(2037, 12, 31, 0, 0, 0, 0, time.UTC), got)
 }
 
 // ============================================================================

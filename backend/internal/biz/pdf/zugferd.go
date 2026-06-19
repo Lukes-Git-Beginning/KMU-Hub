@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
@@ -157,12 +158,16 @@ func EmbedZUGFeRDXML(pdfBytes []byte, xmlBytes []byte, invoiceNumber string) ([]
 	// Write XML to temp file (pdfcpu AddAttachments requires file paths)
 	tmpDir, err := os.MkdirTemp("", "zugferd-*")
 	if err != nil {
+		slog.Warn("zugferd embed skipped: mkdir temp failed, returning PDF without XML attachment",
+			"invoice_number", invoiceNumber, "error", err)
 		return pdfBytes, nil
 	}
 	defer os.RemoveAll(tmpDir)
 
 	xmlPath := filepath.Join(tmpDir, fileName)
 	if err := os.WriteFile(xmlPath, xmlBytes, 0o600); err != nil {
+		slog.Warn("zugferd embed skipped: write temp XML failed, returning PDF without XML attachment",
+			"invoice_number", invoiceNumber, "error", err)
 		return pdfBytes, nil
 	}
 
@@ -172,10 +177,14 @@ func EmbedZUGFeRDXML(pdfBytes []byte, xmlBytes []byte, invoiceNumber string) ([]
 
 	var outBuf bytes.Buffer
 	if err := api.AddAttachments(io.ReadSeeker(pdfReader), &outBuf, []string{xmlPath}, false, conf); err != nil {
+		slog.Warn("zugferd embed skipped: AddAttachments failed, returning PDF without XML attachment",
+			"invoice_number", invoiceNumber, "error", err)
 		return pdfBytes, nil
 	}
 
 	if outBuf.Len() == 0 {
+		slog.Warn("zugferd embed skipped: AddAttachments produced empty output, returning original PDF",
+			"invoice_number", invoiceNumber)
 		return pdfBytes, nil
 	}
 
