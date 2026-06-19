@@ -1,7 +1,11 @@
 #!/bin/bash
-# Hook: Prevent committing files that likely contain secrets
-# Runs as PreToolUse on Bash tool when git add is detected
-# Exit 2 = block, Exit 0 = allow
+# Hook: verhindert das Stagen von Dateien, die wahrscheinlich Secrets enthalten.
+# Laeuft als PreToolUse auf dem Bash-Tool, wenn `git add` erkannt wird.
+# Exit 2 = blockieren, Exit 0 = erlauben.
+#
+# KANONISCH (Source of Truth: claude-command-center). Robuste Variante:
+# iteriert ueber die echten Pfad-Argumente + Suffix-Allowlist (statt blindem
+# Substring-Match ueber das ganze Kommando).
 
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | grep -oP '(git add .*)' || true)
@@ -11,18 +15,18 @@ if [ -z "$COMMAND" ]; then
 fi
 
 BLOCKED_PATTERNS=(".env" "credentials.json" ".pem" ".key" "secrets.json" "service-account.json")
-ALLOWED_SUFFIXES=(".example" ".template" ".sample")
+ALLOWED_SUFFIXES=(".example" ".template" ".sample" ".dist")
 
-# Strip leading "git add" and iterate actual path arguments.
+# "git add" abstreifen und ueber die echten Pfad-Argumente iterieren.
 PATHS=$(echo "$COMMAND" | sed -E 's/^git add //')
 
 for PATH_ARG in $PATHS; do
-  # Skip flags and empty entries.
+  # Flags und Leeres ueberspringen.
   case "$PATH_ARG" in
     -*|"") continue ;;
   esac
 
-  # Skip paths that are clearly example/template/sample files.
+  # Beispiel-/Template-/Sample-/Dist-Dateien sind erlaubt.
   IS_ALLOWED=false
   for SUFFIX in "${ALLOWED_SUFFIXES[@]}"; do
     case "$PATH_ARG" in
@@ -34,11 +38,10 @@ for PATH_ARG in $PATHS; do
   for PATTERN in "${BLOCKED_PATTERNS[@]}"; do
     case "$PATH_ARG" in
       *"$PATTERN"*)
-        echo "BLOCKED: Attempting to stage file matching sensitive pattern: $PATTERN" >&2
-        echo "Path: $PATH_ARG" >&2
-        echo "Secrets and credentials must never be committed." >&2
-        echo "Use environment variables instead (see CLAUDE.md section 9)." >&2
-        echo "Hint: filenames ending in .example, .template, or .sample are exempt." >&2
+        echo "BLOCKED: Versuch, eine Datei mit sensiblem Muster zu stagen: $PATTERN" >&2
+        echo "Pfad: $PATH_ARG" >&2
+        echo "Secrets/Credentials gehoeren nie ins Repo — nutze Umgebungsvariablen (siehe CLAUDE.md)." >&2
+        echo "Hinweis: Dateien auf .example, .template, .sample, .dist sind ausgenommen." >&2
         exit 2
         ;;
     esac
