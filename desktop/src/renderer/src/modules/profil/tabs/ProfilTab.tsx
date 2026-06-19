@@ -43,7 +43,7 @@ const MAX_AVATAR_BYTES = 1.5 * 1024 * 1024
 const KNOWN_ROLE_KEYS = ['admin', 'manager', 'employee'] as const satisfies ReadonlyArray<string>
 
 export default function ProfilTab() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const profile = useSettingsStore((s) => s.profile)
   const updateProfile = useSettingsStore((s) => s.updateProfile)
   const mailSignature = useSettingsStore((s) => s.mail.signature)
@@ -127,6 +127,15 @@ export default function ProfilTab() {
 
   // Email from auth store (single source of truth), falls back to profile store.
   const displayEmail = user?.email ?? form.email
+
+  // "Member since" — demo join date from the profile seed (real backend will
+  // supply this via /auth/me). Formatted as month + year in the active locale.
+  const memberSince = profile.joinedAt
+    ? new Date(profile.joinedAt).toLocaleDateString(i18n.language, {
+        year: 'numeric',
+        month: 'long',
+      })
+    : null
 
   const handleChange = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -351,8 +360,12 @@ export default function ProfilTab() {
             <p className="text-xs text-muted-foreground">{t('profil.field.email')}</p>
             <p className="text-sm font-medium text-foreground">{displayEmail || '—'}</p>
           </div>
-          {/* memberSince removed: User object has no created_at field.
-              Backend /auth/me needs a created_at field — open Darien question, see profil.md Phase 6. */}
+          {memberSince && (
+            <div>
+              <p className="text-xs text-muted-foreground">{t('profil.info.memberSince')}</p>
+              <p className="text-sm font-medium text-foreground">{memberSince}</p>
+            </div>
+          )}
         </div>
       </div>
 
