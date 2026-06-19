@@ -3,7 +3,8 @@
  *
  * Displays all notifications with filter tabs (All, Unread), a per-module
  * filter + sort control, batch mark-all-as-read action, and links to
- * notification preferences.
+ * notification preferences. A row click opens the shared DetailModal with the
+ * full notification (actor, module, priority, body) and its actions.
  */
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -28,7 +29,9 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { SortMenu, type SortDirection } from '@/components/shared/SortMenu'
+import { DetailModal } from '@/components/shared/DetailModal'
 import { navItems, moduleHsl } from '@/components/layout/sidebar/nav-items'
 
 // Priority ordering for the sort control (highest first when descending).
@@ -37,6 +40,9 @@ const PRIORITY_RANK: Record<string, number> = { urgent: 3, high: 2, normal: 1, l
 // Module ids whose readable label differs from the matching nav item label.
 const MODULE_LABEL_OVERRIDE: Record<string, string> = { settings: 'notifications.modules.security' }
 
+// Seeds carry actor_name beyond the openapi Notification type — read it safely.
+type NotificationWithActor = Notification & { actor_name?: string }
+
 /** Readable label for a notification's module_id, reusing the nav-item labels. */
 function moduleLabelOf(t: TFunction, moduleId?: string): string {
   if (!moduleId) return ''
@@ -44,6 +50,12 @@ function moduleLabelOf(t: TFunction, moduleId?: string): string {
   if (override) return t(override) as string
   const item = navItems.find((i) => i.id === moduleId)
   return item ? (t(item.label) as string) : moduleId
+}
+
+/** Up to two uppercase initials from a display name. */
+function getInitials(name: string): string {
+  const parts = name.split(/\s+/).filter(Boolean).slice(0, 2)
+  return parts.map((w) => w[0]?.toUpperCase() ?? '').join('') || '?'
 }
 
 export default function NotificationCenter() {
@@ -67,9 +79,9 @@ export default function NotificationCenter() {
   const markRead = useMarkNotificationRead()
   const markAllRead = useMarkAllNotificationsRead()
 
-  // Local interaction state: expanded card + pinned/dismissed sets.
+  // Local interaction state: open detail row + pinned/dismissed sets.
   // Demo-stateful within the session (pin/dismiss are client-only until a backend exists).
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [detailId, setDetailId] = useState<string | null>(null)
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set())
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
 
@@ -113,6 +125,7 @@ export default function NotificationCenter() {
 
   const hasMore = !moduleFilter && rawNotifications.length === 20
   const displayTotal = moduleFilter ? notifications.length : total
+  const detailNotification = detailId ? rawNotifications.find((n) => n.id === detailId) ?? null : null
 
   const sortOptions = useMemo(
     () => [
@@ -132,7 +145,7 @@ export default function NotificationCenter() {
 
   const dismiss = (id: string) => {
     setDismissedIds((prev) => new Set(prev).add(id))
-    setExpandedId((cur) => (cur === id ? null : cur))
+    setDetailId((cur) => (cur === id ? null : cur))
   }
 
   // "Dorthin springen": mark read + navigate to the notification's target.
@@ -255,14 +268,8 @@ export default function NotificationCenter() {
                   <NotificationCard
                     key={notification.id}
                     notification={notification}
-                    expanded={expandedId === notification.id}
                     pinned={pinnedIds.has(notification.id ?? '')}
-                    onToggleExpand={() =>
-                      setExpandedId((cur) => (cur === notification.id ? null : notification.id ?? null))
-                    }
-                    onOpen={() => openNotification(notification)}
-                    onPin={() => notification.id && togglePin(notification.id)}
-                    onDismiss={() => notification.id && dismiss(notification.id)}
+                    onOpenDetail={() => setDetailId(notification.id ?? null)}
                     onMarkRead={() => {
                       if (notification.id) markRead.mutate(notification.id)
                     }}
@@ -298,6 +305,22 @@ export default function NotificationCenter() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Row detail — centred shared modal with all fields + actions */}
+      {detailNotification && (
+        <NotificationDetailModal
+          notification={detailNotification}
+          pinned={pinnedIds.has(detailNotification.id ?? '')}
+          onClose={() => setDetailId(null)}
+          onOpen={() => {
+            openNotification(detailNotification)
+            setDetailId(null)
+          }}
+          onPin={() => detailNotification.id && togglePin(detailNotification.id)}
+          onDismiss={() => detailNotification.id && dismiss(detailNotification.id)}
+          onMarkRead={() => detailNotification.id && markRead.mutate(detailNotification.id)}
+        />
+      )}
     </div>
   )
 }
@@ -336,23 +359,31 @@ function FilterChip({
   )
 }
 
+/** Small priority pill (colour + localized label) for cards/modal. */
+function PriorityPill({ priority }: { priority?: string }) {
+  const { t } = useTranslation()
+  if (!priority) return null
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+        getPriorityColor(priority)
+      )}
+    >
+      {t(`notifications.priority.${priority}`)}
+    </span>
+  )
+}
+
 function NotificationCard({
   notification,
-  expanded,
   pinned,
-  onToggleExpand,
-  onOpen,
-  onPin,
-  onDismiss,
+  onOpenDetail,
   onMarkRead,
 }: {
   notification: Notification
-  expanded: boolean
   pinned: boolean
-  onToggleExpand: () => void
-  onOpen: () => void
-  onPin: () => void
-  onDismiss: () => void
+  onOpenDetail: () => void
   onMarkRead: () => void
 }) {
   const { t } = useTranslation()
@@ -369,12 +400,21 @@ function NotificationCard({
 
   return (
     <Card
+      role="button"
+      tabIndex={0}
+      aria-label={notification.title}
       className={cn(
-        'cursor-pointer transition-colors hover:bg-accent/50',
+        'cursor-pointer transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         !notification.is_read && 'border-l-4 border-l-primary',
         pinned && 'ring-1 ring-primary/40'
       )}
-      onClick={onToggleExpand}
+      onClick={onOpenDetail}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onOpenDetail()
+        }
+      }}
     >
       <CardContent className="flex items-start gap-4 p-4">
         <div className={cn('mt-0.5 shrink-0 rounded-md p-2', priorityColor)}>
@@ -397,7 +437,7 @@ function NotificationCard({
                 </p>
               </div>
               {notification.body && (
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
                   {notification.body}
                 </p>
               )}
@@ -412,7 +452,7 @@ function NotificationCard({
                   e.stopPropagation()
                   onMarkRead()
                 }}
-                aria-label={t('notifications.center.markAllRead')}
+                aria-label={t('notifications.actions.markRead')}
               >
                 <Check className="h-3.5 w-3.5" />
               </Button>
@@ -434,30 +474,120 @@ function NotificationCard({
               </Badge>
             )}
           </div>
-
-          {/* Expanded action bar (Darien: open / pin / dismiss) */}
-          {expanded && (
-            <div
-              className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Button variant="default" size="sm" className="h-8" onClick={onOpen}>
-                <ArrowRight className="mr-1.5 h-3.5 w-3.5" />
-                {t('notifications.actions.open')}
-              </Button>
-              <Button variant="outline" size="sm" className="h-8" onClick={onPin}>
-                {pinned ? <PinOff className="mr-1.5 h-3.5 w-3.5" /> : <Pin className="mr-1.5 h-3.5 w-3.5" />}
-                {pinned ? t('notifications.actions.unpin') : t('notifications.actions.pin')}
-              </Button>
-              <Button variant="ghost" size="sm" className="h-8 text-muted-foreground" onClick={onDismiss}>
-                <EyeOff className="mr-1.5 h-3.5 w-3.5" />
-                {t('notifications.actions.dismiss')}
-              </Button>
-            </div>
-          )}
         </div>
       </CardContent>
     </Card>
+  )
+}
+
+function NotificationDetailModal({
+  notification,
+  pinned,
+  onClose,
+  onOpen,
+  onPin,
+  onDismiss,
+  onMarkRead,
+}: {
+  notification: Notification
+  pinned: boolean
+  onClose: () => void
+  onOpen: () => void
+  onPin: () => void
+  onDismiss: () => void
+  onMarkRead: () => void
+}) {
+  const { t } = useTranslation()
+  const isSystem = !notification.actor_id
+  const actorName = (notification as NotificationWithActor).actor_name || t('notifications.detail.system')
+  const timeAgo = notification.created_at
+    ? formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: de })
+    : ''
+  const fullDate = notification.created_at
+    ? format(new Date(notification.created_at), 'dd.MM.yyyy HH:mm', { locale: de })
+    : '—'
+  const moduleName = moduleLabelOf(t, notification.module_id)
+
+  return (
+    <DetailModal
+      open
+      onClose={onClose}
+      title={notification.title}
+      badge={<PriorityPill priority={notification.priority} />}
+      footer={
+        <div className="flex flex-wrap items-center gap-2">
+          {(notification.deep_link || notification.module_id) && (
+            <Button size="sm" onClick={onOpen}>
+              <ArrowRight className="mr-1.5 h-3.5 w-3.5" />
+              {t('notifications.actions.open')}
+            </Button>
+          )}
+          {!notification.is_read && (
+            <Button variant="outline" size="sm" onClick={onMarkRead}>
+              <Check className="mr-1.5 h-3.5 w-3.5" />
+              {t('notifications.actions.markRead')}
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={onPin}>
+            {pinned ? <PinOff className="mr-1.5 h-3.5 w-3.5" /> : <Pin className="mr-1.5 h-3.5 w-3.5" />}
+            {pinned ? t('notifications.actions.unpin') : t('notifications.actions.pin')}
+          </Button>
+          <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={onDismiss}>
+            <EyeOff className="mr-1.5 h-3.5 w-3.5" />
+            {t('notifications.actions.dismiss')}
+          </Button>
+        </div>
+      }
+    >
+      {/* Actor */}
+      <div className="flex items-center gap-3">
+        <Avatar className="h-10 w-10">
+          <AvatarFallback className={cn(isSystem && 'bg-primary/10 text-primary')}>
+            {isSystem ? <Megaphone className="h-4 w-4" /> : getInitials(actorName)}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">{actorName}</p>
+          <p className="text-xs text-muted-foreground" title={fullDate}>
+            {timeAgo}
+          </p>
+        </div>
+      </div>
+
+      {/* Body */}
+      {notification.body && (
+        <p className="mt-4 text-sm leading-relaxed text-foreground">{notification.body}</p>
+      )}
+
+      {/* Meta */}
+      <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-border pt-4">
+        {notification.module_id && (
+          <MetaRow label={t('notifications.detail.module')}>
+            <Badge variant="secondary" className="text-xs">{moduleName}</Badge>
+          </MetaRow>
+        )}
+        {notification.priority && (
+          <MetaRow label={t('notifications.detail.priority')}>
+            <PriorityPill priority={notification.priority} />
+          </MetaRow>
+        )}
+        <MetaRow label={t('notifications.detail.from')}>
+          <span className="text-sm text-foreground">{actorName}</span>
+        </MetaRow>
+        <MetaRow label={t('notifications.detail.received')}>
+          <span className="text-sm text-foreground">{fullDate}</span>
+        </MetaRow>
+      </dl>
+    </DetailModal>
+  )
+}
+
+function MetaRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd>{children}</dd>
+    </div>
   )
 }
 

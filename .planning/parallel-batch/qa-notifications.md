@@ -77,3 +77,33 @@ lesbare Badges), `i18n/messages/{de,en,fr,it}.json` (+6 Keys ins notifications-C
 - Sort Priorität ↓ → erste Card „Sicherheitswarnung" (urgent), danach high → normal.
 - **0 Raw-Keys, 0 `{{}}`.** (Console: nur WS `ERR_CONNECTION_REFUSED`, P4 out-of-scope.)
 - `EmptyState` filtered-Variante gebaut; visueller Edge-Case-Shot im N-5-Sweep.
+
+---
+
+## N-3 — Zeilenklick → `shared/DetailModal`  ✅ (2026-06-19)
+
+**Geändert:** `modules/notifications/NotificationCenter.tsx` (In-Card-Expand → zentriertes
+Modal), `i18n/messages/{de,en,fr,it}.json` (+10 Keys ins notifications-Cluster).
+
+**Was:**
+- Die alte In-Card-Expansion entfernt; Zeilenklick öffnet jetzt **`shared/DetailModal`**
+  (zentriert, Gradient-Stripe, sticky Header-Close + intern scrollender Body — wie
+  helpdesk/vertraege/automatisierung).
+- Ganze Zeile klickbar: `role="button"` + `tabIndex=0` + Enter/Space-Handler +
+  `focus-visible`-Ring. Innerer Quick-Mark-Read-Button mit `stopPropagation`.
+- Modal-Inhalt: **Akteur + Avatar** (Initialen; System → Megaphone-Icon, getönt),
+  relative Zeit, **Volltext-Body**, Meta-Grid (Modul-Badge / Priorität-Pill / Von /
+  Erhalten), Header-`PriorityPill`. Footer: **Öffnen** (deep_link, schließt + navigiert),
+  **Als gelesen markieren** (nur unread), **Anpinnen/Lösen**, **Ignorieren**.
+- `actor_name` ist nicht im openapi-`Notification`-Typ → gezielter `NotificationWithActor`-Cast.
+- Neue i18n-Keys (×4): `actions.markRead`, `priority.{low,normal,high,urgent}`,
+  `detail.{from,system,module,priority,received}`. Priority-Label dynamisch
+  `t('notifications.priority.'+priority)`.
+
+**Verify (qa-notif-n3.mjs, :5174, 1440×1000, DE):**
+- Klick → Dialog offen, alle 4 Footer-Buttons, Akteur „Thomas Meier", Meta „Von".
+- „Öffnen" → URL `#/pipeline` (deep-link-Navigation greift).
+- System-Modal (Sicherheitswarnung): „Dringend"-Pill rot, „Sicherheit"-Badge,
+  System-Avatar (Megaphone).
+- Pin im Modal → Button flippt auf „Lösen". ESC schließt; Enter auf fokussierter Zeile öffnet.
+- **0 Raw-Keys.** (Console: nur WS, P4 out-of-scope.)
