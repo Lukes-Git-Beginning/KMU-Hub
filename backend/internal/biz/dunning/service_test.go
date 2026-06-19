@@ -29,6 +29,8 @@ type MockRepository struct {
 	highestErr    error
 	createdCalls  []*models.DunningRecord
 	updatedCalls  []updateStatusCall
+
+	getByInvoiceIDsCalls int
 }
 
 type updateStatusCall struct {
@@ -102,6 +104,20 @@ func (m *MockRepository) GetByInvoiceID(_ context.Context, _ uuid.UUID, invoiceI
 		return nil, m.byInvoiceErr
 	}
 	return m.byInvoice[invoiceID], nil
+}
+
+func (m *MockRepository) GetByInvoiceIDs(_ context.Context, _ uuid.UUID, invoiceIDs []uuid.UUID) (map[uuid.UUID][]*models.DunningRecord, error) {
+	m.getByInvoiceIDsCalls++
+	if m.byInvoiceErr != nil {
+		return nil, m.byInvoiceErr
+	}
+	result := make(map[uuid.UUID][]*models.DunningRecord)
+	for _, id := range invoiceIDs {
+		if recs := m.byInvoice[id]; len(recs) > 0 {
+			result[id] = recs
+		}
+	}
+	return result, nil
 }
 
 func (m *MockRepository) GetHighestLevelByInvoiceID(_ context.Context, _ uuid.UUID, invoiceID uuid.UUID) (*models.DunningRecord, error) {
@@ -348,6 +364,32 @@ func TestDetectAndCreate_Level1(t *testing.T) {
 	assert.Equal(t, models.DunningStatusDraft, created[0].Status)
 	assert.Equal(t, inv.ID, created[0].InvoiceID)
 	assert.True(t, created[0].Fee.Equal(decimal.Zero)) // Level 1 fee = 0
+}
+
+func TestDetectAndCreate_BatchesExistingDunningLookup(t *testing.T) {
+	tenantID := uuid.New()
+
+	// Several overdue invoices — the detector must fetch existing dunning records
+	// for all of them with a single batched query, not one query per invoice.
+	const n = 5
+	overdue := make([]*models.Invoice, n)
+	for i := range overdue {
+		overdue[i] = makeInvoice(tenantID, time.Now().AddDate(0, 0, -30)) // 30 days overdue
+	}
+
+	repo := NewMockRepository()
+	configRepo := &MockConfigRepository{config: defaultConfig(tenantID)}
+	invReader := NewMockInvoiceReader()
+	invReader.overdue = overdue
+
+	svc := NewService(repo, configRepo, invReader)
+
+	created, err := svc.DetectAndCreateDunnings(context.Background(), tenantID)
+	require.NoError(t, err)
+	require.Len(t, created, n) // each invoice gets a Level 1 draft
+
+	assert.Equal(t, 1, repo.getByInvoiceIDsCalls,
+		"existing dunning records must be loaded in one batched query, not N")
 }
 
 func TestDetectAndCreate_Level2(t *testing.T) {

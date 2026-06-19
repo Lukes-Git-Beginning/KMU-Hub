@@ -143,19 +143,23 @@ func (s *Service) DetectAndCreateDunnings(ctx context.Context, tenantID uuid.UUI
 		return nil, fmt.Errorf("get overdue invoices: %w", err)
 	}
 
+	// Pre-fetch existing dunning records for all overdue invoices in one query to
+	// avoid an N+1 (previously one GetByInvoiceID per overdue invoice).
+	invoiceIDs := make([]uuid.UUID, len(overdueInvoices))
+	for i, inv := range overdueInvoices {
+		invoiceIDs[i] = inv.ID
+	}
+	dunningByInvoice, err := s.repo.GetByInvoiceIDs(ctx, tenantID, invoiceIDs)
+	if err != nil {
+		return nil, fmt.Errorf("get dunning records for overdue invoices: %w", err)
+	}
+
 	var created []*models.DunningRecord
 	now := time.Now()
 
 	for _, inv := range overdueInvoices {
-		// Get existing dunning records for this invoice
-		existing, existErr := s.repo.GetByInvoiceID(ctx, tenantID, inv.ID)
-		if existErr != nil {
-			slog.Warn("failed to get dunning records for invoice",
-				"invoice_id", inv.ID,
-				"error", existErr,
-			)
-			continue
-		}
+		// Existing dunning records for this invoice (from the batch pre-fetch).
+		existing := dunningByInvoice[inv.ID]
 
 		// Determine the highest sent dunning level
 		highestSentLevel := 0

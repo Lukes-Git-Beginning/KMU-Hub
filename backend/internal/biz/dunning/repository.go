@@ -16,6 +16,9 @@ type Repository interface {
 	List(ctx context.Context, tenantID uuid.UUID, filter ListFilter) ([]*models.DunningRecord, int, error)
 	UpdateStatus(ctx context.Context, tenantID, id uuid.UUID, status string, sentAt *time.Time) error
 	GetByInvoiceID(ctx context.Context, tenantID, invoiceID uuid.UUID) ([]*models.DunningRecord, error)
+	// GetByInvoiceIDs batch-loads dunning records for multiple invoices in one
+	// query, grouped by invoice ID, to avoid an N+1 in dunning detection.
+	GetByInvoiceIDs(ctx context.Context, tenantID uuid.UUID, invoiceIDs []uuid.UUID) (map[uuid.UUID][]*models.DunningRecord, error)
 	GetHighestLevelByInvoiceID(ctx context.Context, tenantID, invoiceID uuid.UUID) (*models.DunningRecord, error)
 }
 

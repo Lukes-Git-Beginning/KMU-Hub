@@ -48,6 +48,10 @@ func (s *stubDunningRepo) GetByInvoiceID(context.Context, uuid.UUID, uuid.UUID) 
 	return nil, nil
 }
 
+func (s *stubDunningRepo) GetByInvoiceIDs(context.Context, uuid.UUID, []uuid.UUID) (map[uuid.UUID][]*models.DunningRecord, error) {
+	return nil, nil
+}
+
 func (s *stubDunningRepo) GetHighestLevelByInvoiceID(context.Context, uuid.UUID, uuid.UUID) (*models.DunningRecord, error) {
 	return nil, nil
 }

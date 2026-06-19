@@ -172,6 +172,38 @@ func (r *PostgresRepository) GetByInvoiceID(ctx context.Context, tenantID, invoi
 	return records, rows.Err()
 }
 
+// GetByInvoiceIDs returns dunning records for multiple invoices in a single
+// query, grouped by invoice ID. This avoids the N+1 that DetectAndCreateDunnings
+// would otherwise incur by fetching existing records one invoice at a time.
+func (r *PostgresRepository) GetByInvoiceIDs(ctx context.Context, tenantID uuid.UUID, invoiceIDs []uuid.UUID) (map[uuid.UUID][]*models.DunningRecord, error) {
+	result := make(map[uuid.UUID][]*models.DunningRecord)
+	if len(invoiceIDs) == 0 {
+		return result, nil
+	}
+
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, tenant_id, invoice_id, level, status,
+			fee, interest, sent_at, created_by, created_at
+		FROM finance_dunning_records
+		WHERE tenant_id = $1 AND invoice_id = ANY($2)
+		ORDER BY invoice_id, level ASC, created_at ASC`,
+		tenantID, invoiceIDs,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		record, scanErr := r.scanDunningFromRows(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		result[record.InvoiceID] = append(result[record.InvoiceID], record)
+	}
+	return result, rows.Err()
+}
+
 // GetHighestLevelByInvoiceID returns the dunning record with the highest level for an invoice.
 func (r *PostgresRepository) GetHighestLevelByInvoiceID(ctx context.Context, tenantID, invoiceID uuid.UUID) (*models.DunningRecord, error) {
 	var record models.DunningRecord
