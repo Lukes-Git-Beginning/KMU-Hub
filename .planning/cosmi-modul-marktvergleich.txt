@@ -1,0 +1,1698 @@
+PAGES: 11
+===== PAGE 1 =====
+Cosmi Modul-Marktvergleich
+BY ZENTRIA · 32 MODULE · 235 FEATURES · DACH-MARKTSTANDARD JE MODUL
+Stand: 26.05.2026 · Je Modul: gängige Marktprogramme im Feature-für-Feature-Vergleich + Cosmi-Spalte zum Erfassen
+Programm hat Feature: ✓ ja
+◐ teilweise / Add-on
+✗ fehlt
+COSMI-Spalte = leer zum Eintragen
+⚙️  System & Konto
+Administration
+admin
+MS 365 Admin
+92%
+Zoho One
+83%
+Frontegg
+92%
+COSMI
+—
+FEATURE
+MS 365 Admin
+Zoho One
+Frontegg
+COSMI
+Mandanten-/Tenant-Verwaltung (Isolation)
+✓
+✓
+✓
+○
+Automatisches Tenant-Provisioning
+✓
+◐
+✓
+○
+Benutzerverwaltung & Einladungen
+✓
+✓
+✓
+○
+Admin-Ebenen (Company vs. System)
+✓
+✓
+✓
+○
+Lizenz-/Abo-Übersicht
+✓
+✓
+◐
+○
+Ressourcen-Monitoring pro Tenant
+◐
+◐
+✓
+○
+Dashboard
+dashboard
+Monday
+92%
+Zoho
+92%
+Bitrix24
+100%
+COSMI
+—
+FEATURE
+Monday
+Zoho
+Bitrix24
+COSMI
+Konfigurierbare Widgets
+✓
+✓
+✓
+○
+KPIs / Kennzahlen
+✓
+✓
+✓
+○
+Schnellzugriffe
+✓
+✓
+✓
+○
+Aktivitäts-Feed
+✓
+✓
+✓
+○
+Personalisierung pro Nutzer
+✓
+◐
+✓
+○
+Modul-übergreifende Übersicht
+◐
+✓
+✓
+○
+Profil
+profil
+MS 365
+83%
+Google WS
+92%
+Slack
+100%
+COSMI
+—
+FEATURE
+MS 365
+Google WS
+Slack
+COSMI
+Persönliche Daten
+✓
+✓
+✓
+○
+Avatar / Foto
+✓
+✓
+✓
+○
+Spracheinstellung
+✓
+✓
+✓
+○
+Benachrichtigungs-Präferenzen
+✓
+✓
+✓
+○
+Theme-Auswahl (hell/dunkel)
+◐
+◐
+✓
+○
+Status / Presence
+◐
+✓
+✓
+○
+
+===== PAGE 2 =====
+Security & Auth
+security
+Keycloak
+79%
+Authentik
+79%
+caralegal
+38%
+COSMI
+—
+FEATURE
+Keycloak
+Authentik
+caralegal
+COSMI
+Login + passwordless / Passkeys
+✓
+✓
+✗
+○
+MFA: TOTP / WebAuthn
+✓
+✓
+✗
+○
+SSO: SAML / OAuth2 / OIDC
+✓
+✓
+✗
+○
+Federation (LDAP / AD)
+✓
+✓
+✗
+○
+Session-Mgmt & Token-Revocation
+✓
+✓
+✗
+○
+RBAC / ABAC
+✓
+✓
+◐
+○
+Passwort-Policy
+✓
+✓
+✗
+○
+Login-Verlauf / aktive Sessions
+✓
+✓
+✗
+○
+Unveränderbare Audit-Logs (Export)
+✓
+✓
+✓
+○
+DSGVO-Datenexport (Art. 30)
+✗
+✗
+✓
+○
+DSAR / Betroffenenanfragen
+✗
+✗
+✓
+○
+Recht auf Vergessen / Lösch-Workflow
+◐
+◐
+✓
+○
+Settings
+settings
+Zoho One
+90%
+Bitrix24
+100%
+Slack
+90%
+COSMI
+—
+FEATURE
+Zoho One
+Bitrix24
+Slack
+COSMI
+Workspace-Branding
+✓
+✓
+◐
+○
+Integrationen verwalten
+✓
+✓
+✓
+○
+Standard-Werte / Defaults
+✓
+✓
+✓
+○
+Modul-Aktivierung
+◐
+✓
+✓
+○
+Sprach- & Regionseinstellung
+✓
+✓
+✓
+○
+📈  CRM & Vertrieb
+CRM
+crm
+Pipedrive
+68%
+HubSpot
+100%
+Zoho CRM
+95%
+COSMI
+—
+FEATURE
+Pipedrive
+HubSpot
+Zoho CRM
+COSMI
+Kontakt- & Firmenverwaltung
+✓
+✓
+✓
+○
+Visuelle Deal-Pipeline (Drag&Drop)
+✓
+✓
+✓
+○
+Aktivitäten & Aufgaben am Kontakt
+✓
+✓
+✓
+○
+E-Mail-Integration / 2-Wege-Sync
+✓
+✓
+✓
+○
+Lead-Scoring
+◐
+✓
+✓
+○
+Angebote / Quotes aus Deal
+◐
+✓
+✓
+○
+Umsatz-Forecasting
+◐
+✓
+✓
+○
+E-Mail-Marketing / Kampagnen
+✗
+✓
+◐
+○
+Workflow-Automatisierung
+◐
+✓
+✓
+○
+Mobile App
+✓
+✓
+✓
+○
+Pipeline-/Conversion-Reporting
+◐
+✓
+✓
+○
+
+===== PAGE 3 =====
+Kontakte
+kontakte
+Pipedrive
+92%
+Google Kontakte
+67%
+HubSpot
+100%
+COSMI
+—
+FEATURE
+Pipedrive
+Google Kontakte
+HubSpot
+COSMI
+Zentrale Kontaktdatenbank
+✓
+✓
+✓
+○
+Import (CSV / Excel)
+✓
+✓
+✓
+○
+Tags & Segmentierung
+✓
+◐
+✓
+○
+Dubletten-Erkennung
+◐
+◐
+✓
+○
+Kontakthistorie / Timeline
+✓
+◐
+✓
+○
+Custom Fields
+✓
+◐
+✓
+○
+Dialer
+dialer
+Dialfire
+100%
+Aircall
+79%
+LeadDesk
+100%
+COSMI
+—
+FEATURE
+Dialfire
+Aircall
+LeadDesk
+COSMI
+Click-to-Dial
+✓
+✓
+✓
+○
+Predictive / Auto-Dialer
+✓
+◐
+✓
+○
+Kampagnen- & Kontaktlisten
+✓
+◐
+✓
+○
+Gesprächsaufzeichnung
+✓
+✓
+✓
+○
+Agent-Dashboard & Statistiken
+✓
+✓
+✓
+○
+CRM-Verknüpfung (CTI)
+✓
+✓
+✓
+○
+AMD (Anrufbeantworter-Erkennung)
+✓
+◐
+✓
+○
+💬  Kommunikation
+Kommunikation (inkl. Chat)
+kommunikation
+Slack
+89%
+MS Teams
+94%
+Mattermost
+100%
+COSMI
+—
+FEATURE
+Slack
+MS Teams
+Mattermost
+COSMI
+Channels (öffentlich/privat)
+✓
+✓
+✓
+○
+Direktnachrichten (DMs)
+✓
+✓
+✓
+○
+Threads
+✓
+✓
+✓
+○
+Reaktionen & @Mentions
+✓
+✓
+✓
+○
+Datei-Sharing im Chat
+✓
+✓
+✓
+○
+Volltextsuche im Verlauf
+✓
+✓
+✓
+○
+Audio-/Video-Call integriert
+◐
+✓
+✓
+○
+Unified Inbox (kanalübergreifend)
+◐
+◐
+✓
+○
+Bots / Integrationen
+✓
+✓
+✓
+○
+
+===== PAGE 4 =====
+Mails
+mails
+Outlook
+88%
+eM Client
+100%
+Mailbird
+81%
+COSMI
+—
+FEATURE
+Outlook
+eM Client
+Mailbird
+COSMI
+IMAP / SMTP Anbindung
+✓
+✓
+✓
+○
+Mehrere Konten / Unified Inbox
+✓
+✓
+✓
+○
+Signaturen (pro Konto)
+✓
+✓
+✓
+○
+Vorlagen / Quicktext
+◐
+✓
+✓
+○
+Regeln & Filter
+✓
+✓
+◐
+○
+Volltextsuche
+✓
+✓
+✓
+○
+Exchange / EWS Support
+✓
+✓
+◐
+○
+Verschlüsselung (PGP/S-MIME)
+◐
+✓
+◐
+○
+Video / Meetings
+video
+Jitsi
+94%
+Zoom
+75%
+MS Teams
+81%
+COSMI
+—
+FEATURE
+Jitsi
+Zoom
+MS Teams
+COSMI
+Video-/Audio-Call (WebRTC)
+✓
+✓
+✓
+○
+Screen Sharing
+✓
+✓
+✓
+○
+Recording
+✓
+✓
+✓
+○
+Lobby / Moderation
+✓
+✓
+✓
+○
+Breakout-Räume
+✓
+✓
+✓
+○
+Consent-Banner (DSGVO)
+◐
+◐
+✓
+○
+Browser-basiert (kein Plugin)
+✓
+◐
+◐
+○
+Self-hosted / EU-Daten
+✓
+✗
+✗
+○
+Notifications
+notifications
+Novu
+83%
+Slack
+75%
+MS Teams
+83%
+COSMI
+—
+FEATURE
+Novu
+Slack
+MS Teams
+COSMI
+Zentrales In-App Notification-Center
+✓
+✓
+✓
+○
+Multi-Channel (Push/Mail/SMS)
+✓
+◐
+◐
+○
+Pro-Nutzer Präferenzen
+✓
+✓
+✓
+○
+Do-Not-Disturb / Stummschaltung
+◐
+✓
+✓
+○
+Gruppierung nach Modul
+◐
+◐
+✓
+○
+Trigger-/Workflow-basiert
+✓
+◐
+◐
+○
+🗂  Produktivität
+
+===== PAGE 5 =====
+Kalender
+calendar
+Outlook
+94%
+Google Kal.
+88%
+Apple Kal.
+75%
+COSMI
+—
+FEATURE
+Outlook
+Google Kal.
+Apple Kal.
+COSMI
+Termine & Events
+✓
+✓
+✓
+○
+Mehrere / geteilte Kalender
+✓
+✓
+✓
+○
+Wiederholungen (RRULE)
+✓
+✓
+✓
+○
+Erinnerungen
+✓
+✓
+✓
+○
+Ressourcen-Buchung (Räume)
+✓
+◐
+✗
+○
+iCal / CalDAV Sync
+✓
+✓
+✓
+○
+Verfügbarkeit / Terminbuchungs-Link
+◐
+◐
+✗
+○
+Einladungen & RSVP
+✓
+✓
+✓
+○
+Work (Projekte/Aufgaben)
+work
+Asana
+94%
+Monday
+94%
+factro
+89%
+COSMI
+—
+FEATURE
+Asana
+Monday
+factro
+COSMI
+Aufgaben mit Zuweisung & Fälligkeit
+✓
+✓
+✓
+○
+Kanban-Board
+✓
+✓
+✓
+○
+Listen-Ansicht
+✓
+✓
+✓
+○
+Gantt / Zeitleiste
+✓
+✓
+✓
+○
+Abhängigkeiten & Teilaufgaben
+✓
+✓
+✓
+○
+Kommentare & Anhänge
+✓
+✓
+✓
+○
+Automatisierte Regeln
+✓
+✓
+◐
+○
+Projekt-Portfolios
+✓
+✓
+◐
+○
+Zeiterfassung integriert
+◐
+◐
+✓
+○
+Zeiterfassung
+zeiterfassung
+clockodo
+100%
+Papershift
+93%
+Harvest
+79%
+COSMI
+—
+FEATURE
+clockodo
+Papershift
+Harvest
+COSMI
+Timer (Start/Stop)
+✓
+✓
+✓
+○
+Manuelle Zeiteinträge
+✓
+✓
+✓
+○
+Gesetzeskonform (§3 ArbZG)
+✓
+✓
+◐
+○
+Stundenkonten (Plus/Minus)
+✓
+✓
+◐
+○
+Zuordnung Kunde/Projekt/Leistung
+✓
+◐
+✓
+○
+Pausen-/Arbeitszeit-Regeln
+✓
+✓
+◐
+○
+Auswertung & Export
+✓
+✓
+✓
+○
+
+===== PAGE 6 =====
+Dokumente
+dokumente
+Nextcloud
+100%
+SharePoint
+88%
+Google Drive
+88%
+COSMI
+—
+FEATURE
+Nextcloud
+SharePoint
+Google Drive
+COSMI
+Datei-Upload & Ordnerstruktur
+✓
+✓
+✓
+○
+Versionierung & Wiederherstellung
+✓
+✓
+✓
+○
+Granulare Freigaben/Rechte
+✓
+✓
+✓
+○
+Online-Bearbeitung (WOPI/Office)
+✓
+✓
+✓
+○
+Volltextsuche
+✓
+✓
+✓
+○
+Kommentare
+✓
+✓
+✓
+○
+Externe Share-Links
+✓
+✓
+✓
+○
+Self-hosted / EU-Daten
+✓
+✗
+✗
+○
+Wiki
+wiki
+Confluence
+100%
+Notion
+100%
+BookStack
+86%
+COSMI
+—
+FEATURE
+Confluence
+Notion
+BookStack
+COSMI
+Artikel / Seiten mit Editor
+✓
+✓
+✓
+○
+Versionsverlauf
+✓
+✓
+✓
+○
+Volltextsuche
+✓
+✓
+✓
+○
+Labels / Kategorien
+✓
+✓
+◐
+○
+Verschachtelte Struktur
+✓
+✓
+✓
+○
+Share-Links
+✓
+✓
+✓
+○
+Inline-Anhänge / Dateien
+✓
+✓
+◐
+○
+Team
+team
+Personio
+100%
+HiBob
+88%
+Factorial
+81%
+COSMI
+—
+FEATURE
+Personio
+HiBob
+Factorial
+COSMI
+Mitgliederverwaltung
+✓
+✓
+✓
+○
+Organigramm
+✓
+✓
+✓
+○
+Rollen im Team
+✓
+✓
+✓
+○
+Digitale Personalakte
+✓
+✓
+✓
+○
+Abwesenheits-Übersicht (Team)
+✓
+✓
+✓
+○
+Onboarding-Workflows
+✓
+✓
+✓
+○
+HR-Admin-Ansicht (separat)
+✓
+✓
+◐
+○
+DATEV-Anbindung
+✓
+✗
+✗
+○
+🛠  Service & Auswertung
+
+===== PAGE 7 =====
+Helpdesk
+helpdesk
+Zammad
+100%
+Zendesk
+81%
+Freshdesk
+81%
+COSMI
+—
+FEATURE
+Zammad
+Zendesk
+Freshdesk
+COSMI
+Ticket-Verwaltung
+✓
+✓
+✓
+○
+SLA / Eskalation
+✓
+✓
+✓
+○
+Canned Responses
+✓
+✓
+✓
+○
+Ticket-Merge
+✓
+✓
+✓
+○
+Ticket-Zeiterfassung
+✓
+◐
+◐
+○
+Kunden-/Org-Zuordnung
+✓
+✓
+✓
+○
+Multi-Channel (Mail/Chat/Tel)
+✓
+✓
+✓
+○
+Self-hosted / EU-Daten
+✓
+✗
+✗
+○
+Formulare
+formulare
+Jotform
+93%
+Typeform
+86%
+Fillout
+93%
+COSMI
+—
+FEATURE
+Jotform
+Typeform
+Fillout
+COSMI
+Drag & Drop Form-Builder
+✓
+✓
+✓
+○
+Bedingte Logik (Show/Hide)
+✓
+✓
+✓
+○
+Submissions-Verwaltung
+✓
+✓
+✓
+○
+Webhooks
+✓
+◐
+✓
+○
+Vorlagen
+✓
+✓
+◐
+○
+DSGVO-konform (EU-Hosting)
+◐
+◐
+✓
+○
+Mehrseitige Formulare
+✓
+✓
+✓
+○
+Berichte (BI)
+berichte
+Metabase
+100%
+Power BI
+93%
+Superset
+86%
+COSMI
+—
+FEATURE
+Metabase
+Power BI
+Superset
+COSMI
+KPI-Dashboards
+✓
+✓
+✓
+○
+No-Code Query-Builder
+✓
+◐
+◐
+○
+Drill-Down / Drill-Through
+✓
+✓
+✓
+○
+Export PDF / CSV / XLSX
+✓
+✓
+✓
+○
+Filter & Breakouts
+✓
+✓
+✓
+○
+Geplante Berichte + Alerts
+✓
+✓
+◐
+○
+Datenquellen-übergreifend
+✓
+✓
+✓
+○
+💶  Finanzen
+
+===== PAGE 8 =====
+Finanzen (Angebote/Rechnungen)
+finanzen
+sevdesk
+100%
+Lexware Office
+94%
+WISO MeinBüro
+94%
+COSMI
+—
+FEATURE
+sevdesk
+Lexware Office
+WISO MeinBüro
+COSMI
+Angebote erstellen
+✓
+✓
+✓
+○
+Rechnungen erstellen
+✓
+✓
+✓
+○
+E-Rechnung: XRechnung & ZUGFeRD
+✓
+✓
+✓
+○
+Angebot → Rechnung Übernahme
+✓
+✓
+✓
+○
+Wiederkehrende Rechnungen
+✓
+✓
+✓
+○
+Zahlungsabgleich (Bank)
+✓
+✓
+✓
+○
+Fremdwährungs-Rechnungen
+✓
+◐
+◐
+○
+GoBD-konformes Archiv
+✓
+✓
+✓
+○
+Buchhaltung
+buchhaltung
+DATEV
+100%
+sevdesk
+86%
+Buchh.Butler
+79%
+COSMI
+—
+FEATURE
+DATEV
+sevdesk
+Buchh.Butler
+COSMI
+GoBD-konformes Journal
+✓
+✓
+✓
+○
+DATEV-Export / Schnittstelle
+✓
+✓
+✓
+○
+Belegerfassung & -archiv
+✓
+✓
+✓
+○
+Automatische Kontierung
+✓
+◐
+◐
+○
+Mahnwesen (mehrstufig)
+✓
+✓
+✗
+○
+EÜR / Auswertungen
+✓
+◐
+✓
+○
+Steuerberater-Zugang
+✓
+✓
+✓
+○
+Verträge
+vertraege
+ContractHero
+92%
+Juro
+100%
+DocuSign CLM
+92%
+COSMI
+—
+FEATURE
+ContractHero
+Juro
+DocuSign CLM
+COSMI
+Vertrags-Ablage
+✓
+✓
+✓
+○
+Laufzeiten & Fristen
+✓
+✓
+✓
+○
+Kündigungs-Erinnerungen
+✓
+✓
+◐
+○
+Versionen & Anhänge
+✓
+✓
+✓
+○
+Digitale Signatur
+◐
+✓
+✓
+○
+Audit-Log / Nachverfolgung
+✓
+✓
+✓
+○
+🏭  Operations / Branchen
+
+===== PAGE 9 =====
+Arbeitsrapporte
+rapporte
+HERO
+86%
+mfr
+93%
+Craftboxx
+86%
+COSMI
+—
+FEATURE
+HERO
+mfr
+Craftboxx
+COSMI
+Mobile Rapport-Erfassung
+✓
+✓
+✓
+○
+Foto-Dokumentation
+✓
+✓
+✓
+○
+Approval-Workflow
+✓
+◐
+✓
+○
+GPS-Tag / Standort
+◐
+✓
+✓
+○
+Material & Leistung erfassen
+✓
+✓
+✓
+○
+Offline-Fähigkeit
+◐
+✓
+◐
+○
+Digitale Unterschrift vor Ort
+✓
+✓
+◐
+○
+Schichten
+schichten
+Papershift
+93%
+shyftplan
+93%
+Shiftbase
+86%
+COSMI
+—
+FEATURE
+Papershift
+shyftplan
+Shiftbase
+COSMI
+Schicht-/Dienstplan-Erstellung
+✓
+✓
+✓
+○
+Auto-Planer (regelbasiert)
+✓
+✓
+◐
+○
+ArbZG-Compliance-Prüfung
+✓
+✓
+◐
+○
+Verfügbarkeiten & Qualifikationen
+✓
+✓
+✓
+○
+Schichttausch durch Mitarbeiter
+✓
+✓
+✓
+○
+Mobile App-Ansicht
+✓
+✓
+✓
+○
+Minderjährigen-Regeln (Azubis)
+◐
+◐
+✓
+○
+Fuhrpark
+fuhrpark
+Vimcar
+94%
+Mobexo
+88%
+Fleetster
+81%
+COSMI
+—
+FEATURE
+Vimcar
+Mobexo
+Fleetster
+COSMI
+Digitale Fahrzeugakte
+✓
+✓
+✓
+○
+Elektr. Führerscheinkontrolle
+✓
+✓
+✓
+○
+GPS-Ortung
+✓
+◐
+◐
+○
+Fahrtenbuch (finanzamtkonform)
+✓
+◐
+✓
+○
+Wartung / TÜV-Reminder
+✓
+✓
+✓
+○
+Fahrzeugbuchung (Pool)
+✓
+✓
+✓
+○
+Kosten-/Tankkartenverwaltung
+✓
+✓
+◐
+○
+Schadenmanagement
+◐
+✓
+◐
+○
+
+===== PAGE 10 =====
+Vermietung
+vermietung
+Rentman
+83%
+Booqable
+83%
+easyJob
+92%
+COSMI
+—
+FEATURE
+Rentman
+Booqable
+easyJob
+COSMI
+Mietobjekt-Verwaltung
+✓
+✓
+✓
+○
+Buchungen & Verfügbarkeit
+✓
+✓
+✓
+○
+Zustandsprotokolle
+◐
+◐
+✓
+○
+Preis-/Tarifmodelle
+✓
+✓
+✓
+○
+Übergabe-Dokumentation
+◐
+◐
+✓
+○
+Online-Buchungsportal
+✓
+✓
+◐
+○
+Inventar / Lager
+inventar
+weclapp
+100%
+Myfactory
+100%
+Zoho Inventory
+88%
+COSMI
+—
+FEATURE
+weclapp
+Myfactory
+Zoho Inventory
+COSMI
+Artikel-Stammdaten
+✓
+✓
+✓
+○
+Bestandsführung
+✓
+✓
+✓
+○
+Bestands-Alarm (Mindestmenge)
+✓
+✓
+✓
+○
+Chargen / Seriennummern
+✓
+✓
+◐
+○
+Inventur
+✓
+✓
+✓
+○
+Wareneingang / -ausgang
+✓
+✓
+✓
+○
+Kommissionierung / Picklisten
+✓
+✓
+◐
+○
+Barcode / QR-Scan
+✓
+✓
+✓
+○
+Einkauf
+einkauf
+weclapp
+92%
+Myfactory
+100%
+SOG ERP
+83%
+COSMI
+—
+FEATURE
+weclapp
+Myfactory
+SOG ERP
+COSMI
+Lieferantenverwaltung
+✓
+✓
+✓
+○
+Bestellungen
+✓
+✓
+✓
+○
+Automatische Bestellvorschläge
+✓
+✓
+◐
+○
+Wareneingangskontrolle
+✓
+✓
+✓
+○
+Preis-/Konditionsverwaltung
+✓
+✓
+◐
+○
+Bestellfreigabe-Workflow
+◐
+✓
+✓
+○
+Produktion
+produktion
+weclapp
+83%
+abas ERP
+100%
+TaxMetall
+83%
+COSMI
+—
+FEATURE
+weclapp
+abas ERP
+TaxMetall
+COSMI
+Produktionsaufträge
+✓
+✓
+✓
+○
+Stücklisten (BOM)
+✓
+✓
+✓
+○
+Maschinenbelegung / Planung
+◐
+✓
+✓
+○
+Kalkulation
+✓
+✓
+✓
+○
+Fortschritts-Tracking
+✓
+✓
+◐
+○
+Material-Verfügbarkeit (MRP)
+◐
+✓
+◐
+○
+
+===== PAGE 11 =====
+⚡  Automatisierung
+Automatisierung
+automatisierung
+Zapier
+71%
+Make
+79%
+n8n
+100%
+COSMI
+—
+FEATURE
+Zapier
+Make
+n8n
+COSMI
+Trigger / Aktion Logik
+✓
+✓
+✓
+○
+Bedingungen (if/then)
+✓
+✓
+✓
+○
+Verzweigungen (branching/merge)
+◐
+✓
+✓
+○
+Templates
+✓
+✓
+✓
+○
+Webhooks / API-Aufrufe
+✓
+✓
+✓
+○
+Modul-übergreifende Workflows
+◐
+◐
+✓
+○
+Self-hosted / EU-Daten
+✗
+✗
+✓
+○
+Lesart: Pro Modul stehen die im DACH-Raum gängigen Programme Feature-für-Feature im Vergleich. Die %-Werte zeigen, wie vollständig jedes Programm
+den jeweiligen Feature-Katalog abdeckt. Die COSMI-Spalte ist absichtlich leer — als Soll-Abgleich zum Eintragen des eigenen Stands.
+Cosmi-Strukturvorteile (im Markt selten ✓): DATEV-Anbindung (HiBob/Factorial: ✗) · Self-hosted/EU-Daten über Orbit (Zoom, Drive, Zapier: ✗) · echte
+modul-übergreifende Automatisierung & Unified Inbox · DSGVO-Tools wie DSAR/Art.30-Export selbst bei IAM-Spezialisten oft ✗.
+Hinweis: CRM-Bewertungen aus aktueller Vergleichsrecherche. ERP-/Branchenmodule (Inventar, Einkauf, Produktion u.a.) teils Experteneinschätzung aus
+Sammelrecherche, nicht jede Zelle einzeln verifiziert. · Cosmi UI · Zentria UG (i.Gr.) · intern

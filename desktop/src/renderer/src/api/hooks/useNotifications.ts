@@ -5,7 +5,7 @@
  * and real-time WebSocket subscription that triggers native desktop
  * notifications when the app is not focused.
  */
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
 import { wsManager } from '@/api/websocket'
@@ -69,6 +69,21 @@ export function useUnreadNotificationCount() {
     // Poll every 30 seconds as fallback to WebSocket
     refetchInterval: 30_000,
   })
+}
+
+/**
+ * Unread notification counts grouped by module_id — the source for the sidebar
+ * per-module badges. Reuses the notifications list query (unread-only).
+ */
+export function useModuleUnreadCounts(): Record<string, number> {
+  const { data } = useNotifications({ isRead: false, pageSize: 100 })
+  return useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const n of data?.notifications ?? []) {
+      if (n.module_id && !n.is_read) counts[n.module_id] = (counts[n.module_id] ?? 0) + 1
+    }
+    return counts
+  }, [data])
 }
 
 /** Mark a single notification as read. */

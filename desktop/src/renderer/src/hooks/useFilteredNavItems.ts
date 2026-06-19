@@ -7,6 +7,7 @@ import { canSeeNavItem } from '@/config/roles'
 import { isModuleAllowedForProfile } from '@/config/business-profiles'
 import { navItems, type NavItemConfig } from '@/components/layout/sidebar/nav-items'
 import { useFeatureFlags } from '@/api/hooks/useFeatureFlags'
+import { useModuleUnreadCounts } from '@/api/hooks/useNotifications'
 
 /**
  * Nav item IDs that correspond to optional backend feature flags.
@@ -34,18 +35,31 @@ export function useFilteredNavItems() {
   const enabledOptionals = useProfileStore((s) => s.enabledOptionalModules)
   const { isEnabled: isFlagEnabled, isLoading: flagsLoading } = useFeatureFlags()
   const openSettingsOverlay = useUIStore((s) => s.openSettingsOverlay)
+  const moduleUnreadCounts = useModuleUnreadCounts()
 
   return useMemo(() => {
-    const resolve = (item: NavItemConfig): NavItemConfig => ({
-      ...item,
-      label: t(item.label),
-      badge: item.badge
-        ? { ...item.badge, value: item.badge.value ? t(item.badge.value) : item.badge.value }
-        : item.badge,
-      // The bottom "Einstellungen" item opens the module-settings overlay
-      // instead of navigating to a route.
-      onActivate: item.id === 'settings' ? () => openSettingsOverlay() : undefined,
-    })
+    const resolve = (item: NavItemConfig): NavItemConfig => {
+      // Live notification unread count surfaces as a numeric badge. It never
+      // overrides a 'live' real-time indicator (e.g. meetings) and falls back
+      // to the item's own (translated) badge when there are no unreads.
+      const liveUnread = moduleUnreadCounts[item.id] ?? 0
+      const badge =
+        item.badge?.type === 'live'
+          ? item.badge
+          : liveUnread > 0
+            ? { type: 'text' as const, value: String(liveUnread) }
+            : item.badge
+              ? { ...item.badge, value: item.badge.value ? t(item.badge.value) : item.badge.value }
+              : item.badge
+      return {
+        ...item,
+        label: t(item.label),
+        badge,
+        // The bottom "Einstellungen" item opens the module-settings overlay
+        // instead of navigating to a route.
+        onActivate: item.id === 'settings' ? () => openSettingsOverlay() : undefined,
+      }
+    }
 
     const filter = (items: NavItemConfig[]) =>
       items.filter((item) => {
@@ -74,5 +88,5 @@ export function useFilteredNavItems() {
       bottomItems: filter(bottom).map(resolve),
       allItems: filter(navItems).map(resolve),
     }
-  }, [t, user, businessProfileId, devShowAll, enabledOptionals, isFlagEnabled, flagsLoading, openSettingsOverlay])
+  }, [t, user, businessProfileId, devShowAll, enabledOptionals, isFlagEnabled, flagsLoading, openSettingsOverlay, moduleUnreadCounts])
 }
