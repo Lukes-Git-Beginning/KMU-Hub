@@ -43,6 +43,9 @@ desktop/scripts/screenshots/
 !.claude/commands/
 .claude/commands/gsd/
 .claude/commands/gsd-*
+# Design/agent skills relocated from .agents/ (npx skills, vercel-labs/skills) —
+# install future skills with `npx skills add <pkg> --agent claude-code`
+!.claude/skills/
 *.swp
 *.swo
 *~

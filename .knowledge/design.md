@@ -101,20 +101,22 @@ Wo darf gespielt werden, wo bleibt es streng:
 - Erzwingt BOLD aesthetic direction vor Code-Generierung
 
 ### impeccable (pbakaus, 13.8k Stars)
-- 21 Skills installiert in `.agents/skills/`
+- 21 Skills installiert in `.claude/skills/` (relocated 2026-06-19 von `.agents/skills/` →
+  Claude-Code-nativer Pfad; künftige Installs **immer** mit `--agent claude-code`, sonst Drift
+  zurück nach `.agents/`)
 - Key Commands: `/audit`, `/critique`, `/polish`, `/animate`, `/normalize`, `/bolder`, `/overdrive`, `/typeset`, `/colorize`, `/harden`, `/adapt`, `/distill`, `/extract`, `/delight`, `/clarify`, `/arrange`, `/optimize`, `/quieter`, `/onboard`, `/teach-impeccable`
 - `/audit` — Qualitaets-Check mit P0-P3 Severity Levels
 - `/critique` — UX-Review gegen Nielsen's 10 Heuristiken + Persona Testing
 - `/polish` — Final Pass für pixelperfekte Perfektion
 
 ### emilkowalski/skill (on-demand, 2026-04-26)
-- Install: `npx skills add emilkowalski/skill`
+- Install: `npx skills add emilkowalski/skill --agent claude-code`
 - **Nicht auto-load** — manuell triggern bei Motion-Reviews, neuen Komponenten mit States, `/animate`-Calls
 - Quelle der Motion-Tokens (siehe oben)
 - Empfehlung des Autors: case-by-case, nicht always-on
 
 ### kylezantos/design-motion-principles (on-demand, 2026-04-26)
-- Install: `npx skills add kylezantos/design-motion-principles`
+- Install: `npx skills add kylezantos/design-motion-principles --agent claude-code`
 - Audit-Tool: 3-Designer-Linse (Emil Kowalski / Jakub Krehel / Jhey Tompkins)
 - Workflow: Reconnaissance → Audit → Report mit Severity Levels
 - Einsatz: Pre-Sprint-End, Pre-Launch-Pass
