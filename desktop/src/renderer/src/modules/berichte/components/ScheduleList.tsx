@@ -395,7 +395,7 @@ export function ScheduleList({ definitions }: ScheduleListProps) {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Monatlicher Umsatzbericht"
+                placeholder={t('berichte.dialog.namePlaceholder', { defaultValue: 'Monatlicher Umsatzbericht' })}
                 className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
               />
             </div>
