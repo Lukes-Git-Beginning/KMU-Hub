@@ -958,21 +958,15 @@ func (s *BizGRPCServer) SendDunning(ctx context.Context, req *bizv1.SendDunningR
 		return nil, mapBizError(err)
 	}
 
-	// SendDunningResponse returns the dunning record
-	// We need to re-fetch since Send() only returns error
-	records, _, listErr := s.dunningService.List(ctx, tenantID, dunning.ListFilter{
-		Limit: 1,
-	})
-	if listErr == nil && len(records) > 0 {
-		// Find the specific record
-		for _, r := range records {
-			if r.ID == id {
-				return &bizv1.SendDunningResponse{Dunning: toProtoDunningRecord(r)}, nil
-			}
-		}
+	// Re-fetch by ID since Send() only returns an error. Fetching by ID (not a
+	// List(Limit:1), which never reliably hits the sent record) guarantees the
+	// response carries the dunning that was just sent (status, sent_at populated).
+	record, fetchErr := s.dunningService.GetByID(ctx, tenantID, id)
+	if fetchErr != nil {
+		return nil, mapBizError(fetchErr)
 	}
 
-	return &bizv1.SendDunningResponse{}, nil
+	return &bizv1.SendDunningResponse{Dunning: toProtoDunningRecord(record)}, nil
 }
 
 func (s *BizGRPCServer) EscalateDunning(ctx context.Context, req *bizv1.EscalateDunningRequest) (*bizv1.EscalateDunningResponse, error) {
