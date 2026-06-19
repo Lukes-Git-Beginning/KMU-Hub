@@ -336,9 +336,10 @@ func NewPostgresNumberSequenceRepo(pool *pgxpool.Pool) *PostgresNumberSequenceRe
 	return &PostgresNumberSequenceRepo{pool: pool}
 }
 
-// NextNumber returns the next gap-free document number for the given type and fiscal year.
-// Uses SELECT FOR UPDATE to serialize access. If no sequence row exists for the fiscal year,
-// it inserts one within the same transaction.
+// NextNumber returns the next gap-free document number for the given type and fiscal year,
+// running in its own transaction. Callers that must atomically couple numbering with another
+// write (invoice/credit-note Send) should use NextNumberInTx within their own transaction so a
+// failed status/number update rolls the sequence increment back instead of burning a number.
 func (r *PostgresNumberSequenceRepo) NextNumber(ctx context.Context, tenantID uuid.UUID, documentType string, fiscalYear int, prefix string) (string, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -346,8 +347,23 @@ func (r *PostgresNumberSequenceRepo) NextNumber(ctx context.Context, tenantID uu
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
+	number, err := r.NextNumberInTx(ctx, tx, tenantID, documentType, fiscalYear, prefix)
+	if err != nil {
+		return "", err
+	}
+
+	if commitErr := tx.Commit(ctx); commitErr != nil {
+		return "", fmt.Errorf("commit tx: %w", commitErr)
+	}
+	return number, nil
+}
+
+// NextNumberInTx performs the gap-free sequence increment within the provided transaction.
+// Uses SELECT FOR UPDATE to serialize access; inserts the sequence row on first use. The
+// caller owns the transaction (Begin/Commit/Rollback).
+func (r *PostgresNumberSequenceRepo) NextNumberInTx(ctx context.Context, tx pgx.Tx, tenantID uuid.UUID, documentType string, fiscalYear int, prefix string) (string, error) {
 	var currentNumber int
-	err = tx.QueryRow(ctx,
+	err := tx.QueryRow(ctx,
 		`SELECT current_number FROM finance_number_sequences
 		WHERE tenant_id = $1 AND document_type = $2 AND fiscal_year = $3
 		FOR UPDATE`,
@@ -378,10 +394,6 @@ func (r *PostgresNumberSequenceRepo) NextNumber(ctx context.Context, tenantID uu
 		if updateErr != nil {
 			return "", fmt.Errorf("update sequence: %w", updateErr)
 		}
-	}
-
-	if commitErr := tx.Commit(ctx); commitErr != nil {
-		return "", fmt.Errorf("commit tx: %w", commitErr)
 	}
 
 	// Format: PREFIX-YEAR-PADDED e.g., AN-2026-0001

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
 	"github.com/kmuhub/kmuhub/internal/models"
@@ -28,6 +29,9 @@ type Repository interface {
 	GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Invoice, error)
 	List(ctx context.Context, tenantID uuid.UUID, filter ListFilter) ([]*models.Invoice, int, error)
 	Update(ctx context.Context, invoice *models.Invoice) error
+	// UpdateInTx performs Update within a caller-owned transaction (used by Send to
+	// couple number assignment + status/number update atomically — GoBD).
+	UpdateInTx(ctx context.Context, tx pgx.Tx, invoice *models.Invoice) error
 	UpdateStatus(ctx context.Context, tenantID, id uuid.UUID, status string) error
 	GetOverdue(ctx context.Context, tenantID uuid.UUID) ([]*models.Invoice, error)
 	GetByQuoteID(ctx context.Context, tenantID, quoteID uuid.UUID) (*models.Invoice, error)
@@ -78,6 +82,9 @@ type SequenceInfo struct {
 // Uses SELECT FOR UPDATE on finance_number_sequences for serialization.
 type NumberSequenceRepo interface {
 	NextNumber(ctx context.Context, tenantID uuid.UUID, documentType string, fiscalYear int, prefix string) (string, error)
+	// NextNumberInTx assigns the next number within a caller-owned transaction so
+	// numbering can be rolled back if the coupled document update fails (GoBD).
+	NextNumberInTx(ctx context.Context, tx pgx.Tx, tenantID uuid.UUID, documentType string, fiscalYear int, prefix string) (string, error)
 	// GetSequenceInfo returns the current sequence state for the given document type
 	// and fiscal year, or nil if no sequence exists yet.
 	GetSequenceInfo(ctx context.Context, tenantID uuid.UUID, documentType string, fiscalYear int) (*SequenceInfo, error)

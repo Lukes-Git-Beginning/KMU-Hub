@@ -8,12 +8,27 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kmuhub/kmuhub/internal/models"
 )
+
+// noopTxBeginner returns no-op transactions so Send's orchestration can run with
+// mock repos in unit tests; the mock repo/sequence methods ignore the tx and the
+// real DB rollback is covered by the integration test.
+type noopTxBeginner struct{}
+
+func (noopTxBeginner) Begin(context.Context) (pgx.Tx, error) { return noopTx{}, nil }
+
+// noopTx satisfies pgx.Tx with no-op Commit/Rollback; all other methods are never
+// called by the mock-backed Send path (embedded nil pgx.Tx).
+type noopTx struct{ pgx.Tx }
+
+func (noopTx) Commit(context.Context) error   { return nil }
+func (noopTx) Rollback(context.Context) error { return nil }
 
 // ============================================================================
 // Mock Repositories
@@ -77,6 +92,14 @@ func (m *MockRepository) List(ctx context.Context, tenantID uuid.UUID, filter Li
 }
 
 func (m *MockRepository) Update(ctx context.Context, invoice *models.Invoice) error {
+	if m.updateErr != nil {
+		return m.updateErr
+	}
+	m.invoices[invoice.ID] = invoice
+	return nil
+}
+
+func (m *MockRepository) UpdateInTx(_ context.Context, _ pgx.Tx, invoice *models.Invoice) error {
 	if m.updateErr != nil {
 		return m.updateErr
 	}
@@ -188,6 +211,10 @@ func (m *MockNumberSequenceRepo) NextNumber(ctx context.Context, tenantID uuid.U
 	return "RE-2026-0001", nil
 }
 
+func (m *MockNumberSequenceRepo) NextNumberInTx(ctx context.Context, _ pgx.Tx, tenantID uuid.UUID, documentType string, fiscalYear int, prefix string) (string, error) {
+	return m.NextNumber(ctx, tenantID, documentType, fiscalYear, prefix)
+}
+
 // GetSequenceInfo returns the configured seqInfo (nil by default = no sequence exists).
 func (m *MockNumberSequenceRepo) GetSequenceInfo(_ context.Context, _ uuid.UUID, _ string, _ int) (*SequenceInfo, error) {
 	if m.seqInfoErr != nil {
@@ -274,7 +301,7 @@ func newTestService() (*Service, *MockRepository, *MockNumberSequenceRepo, *Mock
 	numSeq := &MockNumberSequenceRepo{}
 	cs := &MockCompanySettingsRepo{}
 	qr := NewMockQuoteReader()
-	svc := NewService(repo, numSeq, cs, qr)
+	svc := NewService(repo, numSeq, cs, qr, noopTxBeginner{})
 	return svc, repo, numSeq, cs, qr
 }
 
@@ -944,7 +971,7 @@ func TestService_CreateFromQuote_NilQuoteReader(t *testing.T) {
 	repo := NewMockRepository()
 	numSeq := &MockNumberSequenceRepo{}
 	cs := &MockCompanySettingsRepo{}
-	svc := NewService(repo, numSeq, cs, nil) // nil quoteReader
+	svc := NewService(repo, numSeq, cs, nil, noopTxBeginner{}) // nil quoteReader
 
 	_, err := svc.CreateFromQuote(context.Background(), uuid.New(), uuid.New(), uuid.New())
 
@@ -1179,7 +1206,7 @@ func TestService_GetPaymentStats_Aggregates(t *testing.T) {
 
 	numSeq := &MockNumberSequenceRepo{}
 	cs := &MockCompanySettingsRepo{}
-	svc := NewService(repo, numSeq, cs, NewMockQuoteReader())
+	svc := NewService(repo, numSeq, cs, NewMockQuoteReader(), noopTxBeginner{})
 	tenantID := uuid.New()
 	from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)

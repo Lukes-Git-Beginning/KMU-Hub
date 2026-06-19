@@ -12,11 +12,19 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/kmuhub/kmuhub/internal/biz/tax"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/notification/event"
 )
+
+// txBeginner begins a transaction. Satisfied by *pgxpool.Pool in production and
+// injected as a fake in unit tests so Send's orchestration can be exercised
+// without a database (real atomicity is covered by the integration test).
+type txBeginner interface {
+	Begin(ctx context.Context) (pgx.Tx, error)
+}
 
 // Service handles invoice business logic with GoBD compliance.
 type Service struct {
@@ -25,21 +33,28 @@ type Service struct {
 	companySettings CompanySettingsRepo
 	quoteReader     QuoteReader
 	emitter         EventEmitter
+	// pool backs the atomic Send transaction (number assignment + status/number
+	// update in one tx). May be nil in unit tests that do not exercise Send.
+	pool txBeginner
 }
 
 // NewService creates a new invoice service.
 // quoteReader may be nil if quote-to-invoice conversion is not needed.
+// pool is required for Send (atomic numbering); it may be nil in unit tests
+// that do not call Send.
 func NewService(
 	repo Repository,
 	numberSeqRepo NumberSequenceRepo,
 	companySettings CompanySettingsRepo,
 	quoteReader QuoteReader,
+	pool txBeginner,
 ) *Service {
 	return &Service{
 		repo:            repo,
 		numberSeqRepo:   numberSeqRepo,
 		companySettings: companySettings,
 		quoteReader:     quoteReader,
+		pool:            pool,
 	}
 }
 
@@ -350,6 +365,10 @@ func (s *Service) Update(ctx context.Context, tenantID, id uuid.UUID, input Upda
 // - Sets invoice_date if not already set
 // After this call, the invoice can NEVER be modified (GoBD compliance).
 func (s *Service) Send(ctx context.Context, tenantID, id, userID uuid.UUID) error {
+	if s.pool == nil {
+		return fmt.Errorf("invoice service: pool not configured (required for Send)")
+	}
+
 	inv, err := s.repo.GetByID(ctx, tenantID, id)
 	if err != nil {
 		return err
@@ -359,14 +378,8 @@ func (s *Service) Send(ctx context.Context, tenantID, id, userID uuid.UUID) erro
 		return ErrInvoiceNotDraft
 	}
 
-	// Assign sequential invoice number via gap-free sequence
-	fiscalYear := time.Now().Year()
-	number, numErr := s.numberSeqRepo.NextNumber(ctx, tenantID, models.DocumentTypeInvoice, fiscalYear, "RE")
-	if numErr != nil {
-		return fmt.Errorf("assign invoice number: %w", numErr)
-	}
-
-	// Load company settings for snapshot
+	// Load company settings for snapshot (read-only; the number is assigned in the
+	// transaction below).
 	settings, settingsErr := s.companySettings.GetByTenantID(ctx, tenantID)
 	if settingsErr != nil {
 		slog.Warn("failed to load company settings for invoice snapshot",
@@ -379,6 +392,23 @@ func (s *Service) Send(ctx context.Context, tenantID, id, userID uuid.UUID) erro
 	companySnapshotJSON, csErr := marshalCompanySnapshot(settings)
 	if csErr != nil {
 		return fmt.Errorf("build company snapshot: %w", csErr)
+	}
+
+	fiscalYear := time.Now().Year()
+
+	// Assign the sequential number and persist the sent state in ONE transaction.
+	// Previously NextNumber committed its own tx before repo.Update ran in a second
+	// tx; a failed update left the number consumed (GoBD gap). Coupling both in one
+	// tx makes the rollback atomic: a failed update returns the number.
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin send tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	number, numErr := s.numberSeqRepo.NextNumberInTx(ctx, tx, tenantID, models.DocumentTypeInvoice, fiscalYear, "RE")
+	if numErr != nil {
+		return fmt.Errorf("assign invoice number: %w", numErr)
 	}
 
 	// Build complete invoice snapshot (the entire document at send time)
@@ -419,8 +449,12 @@ func (s *Service) Send(ctx context.Context, tenantID, id, userID uuid.UUID) erro
 	inv.SnapshotData = snapshotJSON
 	inv.UpdatedAt = time.Now()
 
-	if updateErr := s.repo.Update(ctx, inv); updateErr != nil {
+	if updateErr := s.repo.UpdateInTx(ctx, tx, inv); updateErr != nil {
 		return updateErr
+	}
+
+	if commitErr := tx.Commit(ctx); commitErr != nil {
+		return fmt.Errorf("commit send tx: %w", commitErr)
 	}
 
 	slog.Info("invoice sent (now immutable)",

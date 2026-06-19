@@ -237,7 +237,19 @@ func (r *PostgresRepository) Update(ctx context.Context, inv *models.Invoice) er
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
-	_, err = tx.Exec(ctx,
+	if err := r.UpdateInTx(ctx, tx, inv); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// UpdateInTx performs the invoice update (header + replace-strategy line items)
+// within the provided transaction. The caller owns the transaction. Used by
+// invoice.Service.Send to couple number assignment and the status/number update
+// atomically (GoBD: a failed update must not burn a sequence number).
+func (r *PostgresRepository) UpdateInTx(ctx context.Context, tx pgx.Tx, inv *models.Invoice) error {
+	_, err := tx.Exec(ctx,
 		`UPDATE finance_invoices SET
 			invoice_number = $1, status = $2,
 			customer_name = $3, customer_address = $4, customer_email = $5, customer_ust_id_nr = $6,
@@ -270,11 +282,7 @@ func (r *PostgresRepository) Update(ctx context.Context, inv *models.Invoice) er
 		return fmt.Errorf("delete invoice lines: %w", err)
 	}
 
-	if err := r.insertInvoiceLines(ctx, tx, inv); err != nil {
-		return err
-	}
-
-	return tx.Commit(ctx)
+	return r.insertInvoiceLines(ctx, tx, inv)
 }
 
 func (r *PostgresRepository) UpdateStatus(ctx context.Context, tenantID, id uuid.UUID, status string) error {

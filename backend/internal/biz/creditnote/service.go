@@ -11,28 +11,43 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/kmuhub/kmuhub/internal/biz/tax"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
+
+// txBeginner begins a transaction. Satisfied by *pgxpool.Pool in production and
+// injected as a fake in unit tests so Send's orchestration can be exercised
+// without a database (real atomicity is covered by the integration test).
+type txBeginner interface {
+	Begin(ctx context.Context) (pgx.Tx, error)
+}
 
 // Service handles credit note business logic.
 type Service struct {
 	repo          Repository
 	invoiceReader InvoiceReader
 	numberSeqRepo NumberSequenceRepo
+	// pool backs the atomic Send transaction (number assignment + status/number
+	// update in one tx). May be nil in unit tests that do not exercise Send.
+	pool txBeginner
 }
 
 // NewService creates a new credit note service.
+// pool is required for Send (atomic numbering); it may be nil in unit tests
+// that do not call Send.
 func NewService(
 	repo Repository,
 	invoiceReader InvoiceReader,
 	numberSeqRepo NumberSequenceRepo,
+	pool txBeginner,
 ) *Service {
 	return &Service{
 		repo:          repo,
 		invoiceReader: invoiceReader,
 		numberSeqRepo: numberSeqRepo,
+		pool:          pool,
 	}
 }
 
@@ -143,6 +158,10 @@ func (s *Service) List(ctx context.Context, tenantID uuid.UUID, filter ListFilte
 // Send transitions a draft credit note to sent and assigns a gap-free GS number.
 // Format: GS-{year}-{padded} e.g., GS-2026-0001
 func (s *Service) Send(ctx context.Context, tenantID, id, userID uuid.UUID) error {
+	if s.pool == nil {
+		return fmt.Errorf("credit note service: pool not configured (required for Send)")
+	}
+
 	cn, err := s.repo.GetByID(ctx, tenantID, id)
 	if err != nil {
 		return err
@@ -152,9 +171,17 @@ func (s *Service) Send(ctx context.Context, tenantID, id, userID uuid.UUID) erro
 		return ErrCreditNoteNotDraft
 	}
 
-	// Assign sequential credit note number via gap-free sequence
 	fiscalYear := time.Now().Year()
-	number, numErr := s.numberSeqRepo.NextNumber(ctx, tenantID, models.DocumentTypeCreditNote, fiscalYear, "GS")
+
+	// Assign the sequential number and persist the sent state in ONE transaction so
+	// a failed update rolls the number assignment back (GoBD: no burned numbers).
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin send tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	number, numErr := s.numberSeqRepo.NextNumberInTx(ctx, tx, tenantID, models.DocumentTypeCreditNote, fiscalYear, "GS")
 	if numErr != nil {
 		return fmt.Errorf("assign credit note number: %w", numErr)
 	}
@@ -163,8 +190,12 @@ func (s *Service) Send(ctx context.Context, tenantID, id, userID uuid.UUID) erro
 	cn.Status = models.CreditNoteStatusSent
 	cn.UpdatedAt = time.Now()
 
-	if updateErr := s.repo.Update(ctx, cn); updateErr != nil {
+	if updateErr := s.repo.UpdateInTx(ctx, tx, cn); updateErr != nil {
 		return updateErr
+	}
+
+	if commitErr := tx.Commit(ctx); commitErr != nil {
+		return fmt.Errorf("commit send tx: %w", commitErr)
 	}
 
 	slog.Info("credit note sent",

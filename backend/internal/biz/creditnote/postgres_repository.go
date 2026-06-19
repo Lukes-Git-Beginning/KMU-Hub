@@ -110,7 +110,19 @@ func (r *PostgresRepository) Update(ctx context.Context, cn *models.CreditNote) 
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
-	_, err = tx.Exec(ctx,
+	if err := r.UpdateInTx(ctx, tx, cn); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// UpdateInTx performs the credit-note update (header + replace-strategy line
+// items) within the provided transaction. The caller owns the transaction.
+// Used by creditnote.Service.Send to couple number assignment and the
+// status/number update atomically (GoBD: a failed update must not burn a number).
+func (r *PostgresRepository) UpdateInTx(ctx context.Context, tx pgx.Tx, cn *models.CreditNote) error {
+	_, err := tx.Exec(ctx,
 		`UPDATE finance_credit_notes SET
 			credit_note_number = $1, status = $2,
 			customer_name = $3, customer_address = $4, customer_email = $5, customer_ust_id_nr = $6,
@@ -138,11 +150,7 @@ func (r *PostgresRepository) Update(ctx context.Context, cn *models.CreditNote) 
 		return fmt.Errorf("delete credit note lines: %w", err)
 	}
 
-	if err := r.insertCreditNoteLines(ctx, tx, cn); err != nil {
-		return err
-	}
-
-	return tx.Commit(ctx)
+	return r.insertCreditNoteLines(ctx, tx, cn)
 }
 
 func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filter ListFilter) ([]*models.CreditNote, int, error) {

@@ -6,12 +6,27 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kmuhub/kmuhub/internal/models"
 )
+
+// noopTxBeginner returns no-op transactions so Send's orchestration can run with
+// mock repos in unit tests; the mock repo/sequence methods ignore the tx and the
+// real DB rollback is covered by the integration test.
+type noopTxBeginner struct{}
+
+func (noopTxBeginner) Begin(context.Context) (pgx.Tx, error) { return noopTx{}, nil }
+
+// noopTx satisfies pgx.Tx with no-op Commit/Rollback; all other methods are never
+// called by the mock-backed Send path (embedded nil pgx.Tx).
+type noopTx struct{ pgx.Tx }
+
+func (noopTx) Commit(context.Context) error   { return nil }
+func (noopTx) Rollback(context.Context) error { return nil }
 
 // ============================================================================
 // Mock Repository
@@ -54,6 +69,14 @@ func (m *MockRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*
 }
 
 func (m *MockRepository) Update(ctx context.Context, cn *models.CreditNote) error {
+	if m.updateErr != nil {
+		return m.updateErr
+	}
+	m.creditNotes[cn.ID] = cn
+	return nil
+}
+
+func (m *MockRepository) UpdateInTx(_ context.Context, _ pgx.Tx, cn *models.CreditNote) error {
 	if m.updateErr != nil {
 		return m.updateErr
 	}
@@ -146,6 +169,10 @@ func (m *MockNumberSequenceRepo) NextNumber(ctx context.Context, tenantID uuid.U
 	return m.nextNumber, nil
 }
 
+func (m *MockNumberSequenceRepo) NextNumberInTx(ctx context.Context, _ pgx.Tx, tenantID uuid.UUID, documentType string, fiscalYear int, prefix string) (string, error) {
+	return m.NextNumber(ctx, tenantID, documentType, fiscalYear, prefix)
+}
+
 // ============================================================================
 // Helpers
 // ============================================================================
@@ -177,7 +204,7 @@ func newTestService() (*Service, *MockRepository, *MockInvoiceReader, *MockNumbe
 	repo := NewMockRepository()
 	invReader := NewMockInvoiceReader()
 	numSeq := NewMockNumberSequenceRepo()
-	svc := NewService(repo, invReader, numSeq)
+	svc := NewService(repo, invReader, numSeq, noopTxBeginner{})
 	return svc, repo, invReader, numSeq
 }
 
