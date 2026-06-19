@@ -15,7 +15,9 @@ import {
   User,
   ListTree,
   Send,
+  Trash2,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib'
 import { DetailModal } from '@/components/shared'
 import { Button } from '@/components/ui/button'
@@ -26,7 +28,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { useTask, useUpdateTask, useSubtasks } from '@/api/hooks/useTasks'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { useTask, useUpdateTask, useDeleteTask, useSubtasks } from '@/api/hooks/useTasks'
 import { useProjectStatuses, useProjectMembers } from '@/api/hooks/useProjects'
 import { useCreateComment } from '@/api/hooks/useTaskComments'
 import { useWorkStore } from '@/stores/work'
@@ -53,7 +61,9 @@ export default function TaskDetailPanel() {
   const { data: membersData } = useProjectMembers(projectId)
   const { data: subtasksData } = useSubtasks(activeTaskId ?? '')
   const updateTask = useUpdateTask()
+  const deleteTask = useDeleteTask()
   const createComment = useCreateComment()
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const statuses = statusesData?.statuses ?? []
   const members = membersData?.members ?? []
@@ -151,6 +161,17 @@ export default function TaskDetailPanel() {
     }
   }
 
+  function handleDelete() {
+    if (!activeTaskId) return
+    deleteTask.mutate(activeTaskId, {
+      onSuccess: () => {
+        toast.success(t('work.myTasks.deletedToast', { defaultValue: 'Aufgabe gelöscht' }))
+        setConfirmDelete(false)
+        closeTaskPanel()
+      },
+    })
+  }
+
   if (!taskPanelOpen) return null
 
   const taskKey =
@@ -169,20 +190,34 @@ export default function TaskDetailPanel() {
       : t('work.panel.notFound')
   const headerSubtitle = task ? taskKey || undefined : undefined
 
-  // "Erweitern" → full detail page (only reachable for project-bound tasks).
-  const expandButton =
-    task && projectId ? (
+  // Header actions: "Erweitern" → full detail page (project-bound tasks only) +
+  // delete (with confirm). Rendered in the modal's badge slot next to the title.
+  const headerActions = task ? (
+    <div className="flex items-center gap-0.5">
+      {projectId && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 shrink-0"
+          onClick={handleExpand}
+          title={t('work.panel.expand')}
+          aria-label={t('work.panel.expand')}
+        >
+          <Maximize2 className="h-3.5 w-3.5" aria-hidden="true" />
+        </Button>
+      )}
       <Button
         variant="ghost"
         size="icon"
-        className="h-7 w-7 shrink-0"
-        onClick={handleExpand}
-        title={t('work.panel.expand')}
-        aria-label={t('work.panel.expand')}
+        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+        onClick={() => setConfirmDelete(true)}
+        title={t('common.delete', { defaultValue: 'Löschen' })}
+        aria-label={t('common.delete', { defaultValue: 'Löschen' })}
       >
-        <Maximize2 className="h-3.5 w-3.5" aria-hidden="true" />
+        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
       </Button>
-    ) : undefined
+    </div>
+  ) : undefined
 
   const commentComposer = task ? (
     <div className="relative">
@@ -215,12 +250,13 @@ export default function TaskDetailPanel() {
   ) : undefined
 
   return (
+    <>
     <DetailModal
       open={taskPanelOpen}
       onClose={closeTaskPanel}
       title={headerTitle}
       subtitle={headerSubtitle}
-      badge={expandButton}
+      badge={headerActions}
       maxWidth="max-w-2xl"
       footer={commentComposer}
     >
@@ -545,5 +581,29 @@ export default function TaskDetailPanel() {
         </div>
       )}
     </DetailModal>
+
+    {/* Delete confirmation */}
+    <Dialog open={confirmDelete} onOpenChange={(v) => { if (!v) setConfirmDelete(false) }}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{t('work.myTasks.deleteTitle', { defaultValue: 'Aufgabe löschen?' })}</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          {t('work.myTasks.deleteBody', {
+            defaultValue: '„{title}" wird dauerhaft gelöscht. Das kann nicht rückgängig gemacht werden.',
+            title: task?.title ?? '',
+          })}
+        </p>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" onClick={() => setConfirmDelete(false)}>
+            {t('common.cancel')}
+          </Button>
+          <Button variant="destructive" onClick={handleDelete} disabled={deleteTask.isPending}>
+            {t('common.delete', { defaultValue: 'Löschen' })}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }

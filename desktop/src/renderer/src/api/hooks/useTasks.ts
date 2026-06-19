@@ -189,12 +189,17 @@ export function useUpdateTask() {
       project_id?: string
       priority?: 'urgent' | 'high' | 'medium' | 'low'
       assignee_id?: string
-      due_date?: string
+      due_date?: string | null
+      /** Demo quick-complete: marks the task done without a per-project status. */
+      completed_at?: string | null
+      is_closed?: boolean
       custom_fields?: Array<{ field_id: string; value: string }>
     }) => {
       const { data, error } = await apiClient.PUT('/api/v1/tasks/{id}', {
         params: { path: { id } },
-        body,
+        // completed_at/is_closed go beyond the OpenAPI body shape — the demo MSW
+        // accepts them via Object.assign; cast keeps the typed client happy.
+        body: body as Record<string, unknown>,
       })
       if (error) throw error
       return data

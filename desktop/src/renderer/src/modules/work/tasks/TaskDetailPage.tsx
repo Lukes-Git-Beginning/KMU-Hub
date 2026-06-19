@@ -15,7 +15,9 @@ import {
   ListTree,
   Plus,
   Clock,
+  Trash2,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib'
 import { formatDate } from '@/lib/format'
 import { Button } from '@/components/ui/button'
@@ -30,8 +32,15 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   useTask,
   useUpdateTask,
+  useDeleteTask,
   useSubtasks,
 } from '@/api/hooks/useTasks'
 import {
@@ -80,6 +89,7 @@ export default function TaskDetailPage() {
   const { data: membersData } = useProjectMembers(effectiveProjectId)
   const { data: subtasksData } = useSubtasks(taskId ?? '')
   const updateTask = useUpdateTask()
+  const deleteTask = useDeleteTask()
 
   const project = projectData?.project
   const statuses = statusesData?.statuses ?? []
@@ -88,6 +98,7 @@ export default function TaskDetailPage() {
 
   const [createSubtaskOpen, setCreateSubtaskOpen] = useState(false)
   const [manualTimeEntryOpen, setManualTimeEntryOpen] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleValue, setTitleValue] = useState('')
   const [editingDesc, setEditingDesc] = useState(false)
@@ -137,6 +148,17 @@ export default function TaskDetailPage() {
 
   function handleDueDateChange(date: string) {
     if (taskId) updateTask.mutate({ id: taskId, due_date: date || undefined })
+  }
+
+  function handleDelete() {
+    if (!taskId) return
+    deleteTask.mutate(taskId, {
+      onSuccess: () => {
+        toast.success(t('work.myTasks.deletedToast', { defaultValue: 'Aufgabe gelöscht' }))
+        setConfirmDelete(false)
+        handleBack()
+      },
+    })
   }
 
   function toDateInputValue(date: unknown): string {
@@ -231,6 +253,16 @@ export default function TaskDetailPage() {
             </Badge>
           </>
         )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="ml-auto gap-1.5 px-2 text-muted-foreground hover:text-destructive"
+          onClick={() => setConfirmDelete(true)}
+          title={t('common.delete', { defaultValue: 'Löschen' })}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          <span className="text-xs">{t('common.delete', { defaultValue: 'Löschen' })}</span>
+        </Button>
       </div>
 
       {/* Two-column layout */}
@@ -742,6 +774,29 @@ export default function TaskDetailPage() {
         onOpenChange={setManualTimeEntryOpen}
         taskId={taskId ?? ''}
       />
+
+      {/* Delete confirmation */}
+      <Dialog open={confirmDelete} onOpenChange={(v) => { if (!v) setConfirmDelete(false) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t('work.myTasks.deleteTitle', { defaultValue: 'Aufgabe löschen?' })}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {t('work.myTasks.deleteBody', {
+              defaultValue: '„{title}" wird dauerhaft gelöscht. Das kann nicht rückgängig gemacht werden.',
+              title: task.title ?? '',
+            })}
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setConfirmDelete(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleteTask.isPending}>
+              {t('common.delete', { defaultValue: 'Löschen' })}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
