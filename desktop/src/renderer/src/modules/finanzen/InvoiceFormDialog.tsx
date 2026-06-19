@@ -327,7 +327,7 @@ export function InvoiceFormDialog({
             <div className="space-y-1.5">
               <Label>{t('finanzen.invoiceForm.vatId')}</Label>
               <Input
-                placeholder="DE123456789"
+                placeholder="DE136695976"
                 value={customerUstIdNr}
                 onChange={(e) => setCustomerUstIdNr(e.target.value)}
               />

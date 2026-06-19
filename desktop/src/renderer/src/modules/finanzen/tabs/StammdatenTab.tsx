@@ -247,7 +247,7 @@ export function StammdatenTab({ embedded = false }: { embedded?: boolean } = {})
               id="stamm-ustid"
               value={ustIdNr}
               onChange={(e) => setUstIdNr(e.target.value)}
-              placeholder="DE123456789"
+              placeholder="DE136695976"
               className="font-mono text-xs tabular-nums"
             />
           </div>

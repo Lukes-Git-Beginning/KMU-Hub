@@ -187,7 +187,7 @@ export const useSettingsStore = create<SettingsState>()(
         bankName: 'Commerzbank AG',
         iban: 'DE89 3704 0044 0532 0130 00',
         bic: 'COBADEFFXXX',
-        vatNumber: 'DE123456789',
+        vatNumber: 'DE136695976',
         defaultVatRate: 19,
         invoicePrefix: 'RE-',
         nextInvoiceNumber: 2026001,

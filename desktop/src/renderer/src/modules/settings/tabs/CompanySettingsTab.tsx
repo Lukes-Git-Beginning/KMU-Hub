@@ -180,7 +180,7 @@ export function CompanySettingsTab() {
             <Input
               value={ustIdNr}
               onChange={(e) => setUstIdNr(e.target.value)}
-              placeholder="DE123456789"
+              placeholder="DE136695976"
               className="font-mono text-xs"
             />
           </div>
