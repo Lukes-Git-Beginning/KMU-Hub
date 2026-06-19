@@ -3,6 +3,7 @@ package dashboard
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,14 +27,15 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 func (r *PostgresRepository) GetDashboardMetrics(ctx context.Context, tenantID uuid.UUID, dateFrom, dateTo time.Time) (*Metrics, error) {
 	metrics := &Metrics{}
 
-	// Query 1: Revenue metrics from invoices within date range
-	var totalInvoiced, totalPaid, totalOutstanding, overdueAmount float64
+	// Query 1: Revenue metrics from invoices within date range.
+	// Monetary sums are scanned as strings + decimal to avoid float64 precision loss (ADR-0007).
+	var totalInvoiced, totalPaid, totalOutstanding, overdueAmount string
 	err := r.pool.QueryRow(ctx,
 		`SELECT
-			COALESCE(SUM(CASE WHEN status IN ('sent','paid','overdue') THEN gross_total ELSE 0 END), 0) as total_invoiced,
-			COALESCE(SUM(CASE WHEN status = 'paid' THEN gross_total ELSE 0 END), 0) as total_paid,
-			COALESCE(SUM(CASE WHEN status IN ('sent','overdue') THEN gross_total ELSE 0 END), 0) as total_outstanding,
-			COALESCE(SUM(CASE WHEN status = 'overdue' THEN gross_total ELSE 0 END), 0) as overdue_amount
+			COALESCE(SUM(CASE WHEN status IN ('sent','paid','overdue') THEN gross_total ELSE 0 END), 0)::text as total_invoiced,
+			COALESCE(SUM(CASE WHEN status = 'paid' THEN gross_total ELSE 0 END), 0)::text as total_paid,
+			COALESCE(SUM(CASE WHEN status IN ('sent','overdue') THEN gross_total ELSE 0 END), 0)::text as total_outstanding,
+			COALESCE(SUM(CASE WHEN status = 'overdue' THEN gross_total ELSE 0 END), 0)::text as overdue_amount
 		FROM finance_invoices
 		WHERE tenant_id = $1 AND invoice_date >= $2 AND invoice_date <= $3`,
 		tenantID, dateFrom, dateTo,
@@ -41,13 +43,29 @@ func (r *PostgresRepository) GetDashboardMetrics(ctx context.Context, tenantID u
 	if err != nil {
 		return nil, err
 	}
-	metrics.Revenue = models.RevenueMetrics{
-		TotalInvoiced:    decimal.NewFromFloat(totalInvoiced),
-		TotalPaid:        decimal.NewFromFloat(totalPaid),
-		TotalOutstanding: decimal.NewFromFloat(totalOutstanding),
-		OverdueAmount:    decimal.NewFromFloat(overdueAmount),
+	invoicedDec, err := parseDecimal(totalInvoiced)
+	if err != nil {
+		return nil, err
 	}
-	metrics.MonthlyRevenue = decimal.NewFromFloat(totalPaid)
+	paidDec, err := parseDecimal(totalPaid)
+	if err != nil {
+		return nil, err
+	}
+	outstandingDec, err := parseDecimal(totalOutstanding)
+	if err != nil {
+		return nil, err
+	}
+	overdueDec, err := parseDecimal(overdueAmount)
+	if err != nil {
+		return nil, err
+	}
+	metrics.Revenue = models.RevenueMetrics{
+		TotalInvoiced:    invoicedDec,
+		TotalPaid:        paidDec,
+		TotalOutstanding: outstandingDec,
+		OverdueAmount:    overdueDec,
+	}
+	metrics.MonthlyRevenue = paidDec
 
 	// Calculate months in range for forecast
 	months := monthsBetween(dateFrom, dateTo)
@@ -59,17 +77,21 @@ func (r *PostgresRepository) GetDashboardMetrics(ctx context.Context, tenantID u
 	// Query 2: Pipeline metrics from quotes within date range
 	var quotesPending int
 	var quotesTotal, quotesAccepted int
-	var avgDealSize float64
+	var avgDealSize string
 	err = r.pool.QueryRow(ctx,
 		`SELECT
 			COALESCE(SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END), 0) as quotes_pending,
 			COUNT(*) as quotes_total,
 			COALESCE(SUM(CASE WHEN status = 'accepted' THEN 1 ELSE 0 END), 0) as quotes_accepted,
-			COALESCE(AVG(CASE WHEN status IN ('sent','accepted') THEN gross_total END), 0) as avg_deal_size
+			COALESCE(AVG(CASE WHEN status IN ('sent','accepted') THEN gross_total END), 0)::text as avg_deal_size
 		FROM finance_quotes
 		WHERE tenant_id = $1 AND created_at >= $2 AND created_at <= $3`,
 		tenantID, dateFrom, dateTo,
 	).Scan(&quotesPending, &quotesTotal, &quotesAccepted, &avgDealSize)
+	if err != nil {
+		return nil, err
+	}
+	avgDealSizeDec, err := parseDecimal(avgDealSize)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +106,7 @@ func (r *PostgresRepository) GetDashboardMetrics(ctx context.Context, tenantID u
 	metrics.Pipeline = models.PipelineMetrics{
 		QuotesPending:   quotesPending,
 		ConversionRate:  conversionRate,
-		AverageDealSize: decimal.NewFromFloat(avgDealSize).Round(2),
+		AverageDealSize: avgDealSizeDec.Round(2),
 	}
 
 	// Query 3: Invoice status breakdown (all time for tenant, not date filtered)
@@ -200,6 +222,17 @@ func (r *PostgresRepository) GetDashboardMetrics(ctx context.Context, tenantID u
 	return metrics, nil
 }
 
+// parseDecimal parses a NUMERIC column (scanned as a string) into a decimal,
+// avoiding the float64 precision loss that decimal.NewFromFloat introduces on
+// monetary values (ADR-0007).
+func parseDecimal(s string) (decimal.Decimal, error) {
+	d, err := decimal.NewFromString(s)
+	if err != nil {
+		return decimal.Zero, fmt.Errorf("parse decimal %q: %w", s, err)
+	}
+	return d, nil
+}
+
 // monthsBetween calculates the approximate number of months between two dates.
 func monthsBetween(from, to time.Time) int {
 	months := (to.Year()-from.Year())*12 + int(to.Month()) - int(from.Month())
@@ -212,12 +245,12 @@ func monthsBetween(from, to time.Time) int {
 // scanInvoice scans an invoice row from a query result.
 func scanInvoice(rows interface{ Scan(dest ...any) error }) (*models.Invoice, error) {
 	var inv models.Invoice
-	var subtotalFloat, totalTaxFloat, grossTotalFloat float64
+	var subtotalStr, totalTaxStr, grossTotalStr string
 	err := rows.Scan(
 		&inv.ID, &inv.TenantID, &inv.InvoiceNumber, &inv.Status,
 		&inv.CustomerName, &inv.CustomerAddress, &inv.CustomerEmail, &inv.CustomerUStIDNr,
 		&inv.CompanySnapshotRaw, &inv.TaxMode, &inv.LineItems, &inv.TaxBreakdownRaw,
-		&subtotalFloat, &totalTaxFloat, &grossTotalFloat,
+		&subtotalStr, &totalTaxStr, &grossTotalStr,
 		&inv.InvoiceDate, &inv.DeliveryDate, &inv.DueDate, &inv.PaymentTerms,
 		&inv.SnapshotData, &inv.SourceQuoteID, &inv.Notes,
 		&inv.CreatedBy, &inv.CreatedAt, &inv.UpdatedAt,
@@ -225,46 +258,65 @@ func scanInvoice(rows interface{ Scan(dest ...any) error }) (*models.Invoice, er
 	if err != nil {
 		return nil, err
 	}
-	inv.Subtotal = decimal.NewFromFloat(subtotalFloat)
-	inv.TotalTax = decimal.NewFromFloat(totalTaxFloat)
-	inv.GrossTotal = decimal.NewFromFloat(grossTotalFloat)
+	// Scan monetary values as string + decimal to avoid float64 precision loss (ADR-0007).
+	if inv.Subtotal, err = parseDecimal(subtotalStr); err != nil {
+		return nil, err
+	}
+	if inv.TotalTax, err = parseDecimal(totalTaxStr); err != nil {
+		return nil, err
+	}
+	if inv.GrossTotal, err = parseDecimal(grossTotalStr); err != nil {
+		return nil, err
+	}
 	return &inv, nil
 }
 
 // scanQuote scans a quote row from a query result.
 func scanQuote(rows interface{ Scan(dest ...any) error }) (*models.Quote, error) {
 	var q models.Quote
-	var subtotalFloat, totalTaxFloat, grossTotalFloat float64
+	var subtotalStr, totalTaxStr, grossTotalStr string
 	err := rows.Scan(
 		&q.ID, &q.TenantID, &q.QuoteNumber, &q.Status,
 		&q.CustomerName, &q.CustomerAddress, &q.CustomerEmail, &q.CustomerUStIDNr,
 		&q.TaxMode, &q.LineItems, &q.TaxBreakdownRaw,
-		&subtotalFloat, &totalTaxFloat, &grossTotalFloat,
+		&subtotalStr, &totalTaxStr, &grossTotalStr,
 		&q.ValidUntil, &q.Notes, &q.DealID, &q.SourceQuoteID,
 		&q.CreatedBy, &q.CreatedAt, &q.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
-	q.Subtotal = decimal.NewFromFloat(subtotalFloat)
-	q.TotalTax = decimal.NewFromFloat(totalTaxFloat)
-	q.GrossTotal = decimal.NewFromFloat(grossTotalFloat)
+	// Scan monetary values as string + decimal to avoid float64 precision loss (ADR-0007).
+	if q.Subtotal, err = parseDecimal(subtotalStr); err != nil {
+		return nil, err
+	}
+	if q.TotalTax, err = parseDecimal(totalTaxStr); err != nil {
+		return nil, err
+	}
+	if q.GrossTotal, err = parseDecimal(grossTotalStr); err != nil {
+		return nil, err
+	}
 	return &q, nil
 }
 
 // scanDunning scans a dunning record row from a query result.
 func scanDunning(rows interface{ Scan(dest ...any) error }) (*models.DunningRecord, error) {
 	var d models.DunningRecord
-	var feeFloat, interestFloat float64
+	var feeStr, interestStr string
 	err := rows.Scan(
 		&d.ID, &d.TenantID, &d.InvoiceID, &d.Level, &d.Status,
-		&feeFloat, &interestFloat, &d.SentAt, &d.CreatedBy, &d.CreatedAt,
+		&feeStr, &interestStr, &d.SentAt, &d.CreatedBy, &d.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
-	d.Fee = decimal.NewFromFloat(feeFloat)
-	d.Interest = decimal.NewFromFloat(interestFloat)
+	// Scan monetary values as string + decimal to avoid float64 precision loss (ADR-0007).
+	if d.Fee, err = parseDecimal(feeStr); err != nil {
+		return nil, err
+	}
+	if d.Interest, err = parseDecimal(interestStr); err != nil {
+		return nil, err
+	}
 	return &d, nil
 }
 

@@ -3,6 +3,7 @@ package payment
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -68,25 +69,29 @@ func (r *PostgresRepository) Delete(ctx context.Context, tenantID, id uuid.UUID)
 }
 
 // SumByInvoiceID returns the total of all payments for a given invoice.
+// The sum is scanned as a string and parsed via decimal to avoid float64
+// precision loss on monetary values (ADR-0007). COALESCE keeps the result
+// non-NULL when no payments exist.
 func (r *PostgresRepository) SumByInvoiceID(ctx context.Context, tenantID, invoiceID uuid.UUID) (decimal.Decimal, error) {
-	var sumFloat *float64
+	var sumStr string
 	err := r.pool.QueryRow(ctx,
-		`SELECT SUM(amount) FROM finance_payments WHERE tenant_id = $1 AND invoice_id = $2`,
+		`SELECT COALESCE(SUM(amount), 0)::text FROM finance_payments WHERE tenant_id = $1 AND invoice_id = $2`,
 		tenantID, invoiceID,
-	).Scan(&sumFloat)
+	).Scan(&sumStr)
 	if err != nil {
 		return decimal.Zero, err
 	}
-	if sumFloat == nil {
-		return decimal.Zero, nil
+	sum, parseErr := decimal.NewFromString(sumStr)
+	if parseErr != nil {
+		return decimal.Zero, fmt.Errorf("parse payment sum %q: %w", sumStr, parseErr)
 	}
-	return decimal.NewFromFloat(*sumFloat), nil
+	return sum, nil
 }
 
 // GetByID retrieves a single payment by ID.
 func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Payment, error) {
 	var p models.Payment
-	var amountFloat float64
+	var amountStr string
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, invoice_id, amount, payment_date,
 			method, reference, notes, created_by, created_at
@@ -94,7 +99,7 @@ func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID
 		WHERE tenant_id = $1 AND id = $2`,
 		tenantID, id,
 	).Scan(
-		&p.ID, &p.TenantID, &p.InvoiceID, &amountFloat, &p.PaymentDate,
+		&p.ID, &p.TenantID, &p.InvoiceID, &amountStr, &p.PaymentDate,
 		&p.Method, &p.Reference, &p.Notes, &p.CreatedBy, &p.CreatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -103,20 +108,28 @@ func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID
 	if err != nil {
 		return nil, err
 	}
-	p.Amount = decimal.NewFromFloat(amountFloat)
+	// Scan amount as string + decimal to avoid float64 precision loss (ADR-0007).
+	p.Amount, err = decimal.NewFromString(amountStr)
+	if err != nil {
+		return nil, fmt.Errorf("parse payment amount %q: %w", amountStr, err)
+	}
 	return &p, nil
 }
 
 func (r *PostgresRepository) scanPaymentFromRows(rows pgx.Rows) (*models.Payment, error) {
 	var p models.Payment
-	var amountFloat float64
+	var amountStr string
 	err := rows.Scan(
-		&p.ID, &p.TenantID, &p.InvoiceID, &amountFloat, &p.PaymentDate,
+		&p.ID, &p.TenantID, &p.InvoiceID, &amountStr, &p.PaymentDate,
 		&p.Method, &p.Reference, &p.Notes, &p.CreatedBy, &p.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
-	p.Amount = decimal.NewFromFloat(amountFloat)
+	// Scan amount as string + decimal to avoid float64 precision loss (ADR-0007).
+	p.Amount, err = decimal.NewFromString(amountStr)
+	if err != nil {
+		return nil, fmt.Errorf("parse payment amount %q: %w", amountStr, err)
+	}
 	return &p, nil
 }

@@ -39,7 +39,7 @@ func (r *PostgresRepository) Create(ctx context.Context, record *models.DunningR
 
 func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.DunningRecord, error) {
 	var record models.DunningRecord
-	var feeFloat, interestFloat float64
+	var feeStr, interestStr string
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, invoice_id, level, status,
 			fee, interest, sent_at, created_by, created_at
@@ -48,7 +48,7 @@ func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID
 		tenantID, id,
 	).Scan(
 		&record.ID, &record.TenantID, &record.InvoiceID, &record.Level, &record.Status,
-		&feeFloat, &interestFloat, &record.SentAt, &record.CreatedBy, &record.CreatedAt,
+		&feeStr, &interestStr, &record.SentAt, &record.CreatedBy, &record.CreatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrDunningNotFound
@@ -56,8 +56,13 @@ func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID
 	if err != nil {
 		return nil, err
 	}
-	record.Fee = decimal.NewFromFloat(feeFloat)
-	record.Interest = decimal.NewFromFloat(interestFloat)
+	// Scan monetary values as string + decimal to avoid float64 precision loss (ADR-0007).
+	if record.Fee, err = decimal.NewFromString(feeStr); err != nil {
+		return nil, fmt.Errorf("parse dunning fee %q: %w", feeStr, err)
+	}
+	if record.Interest, err = decimal.NewFromString(interestStr); err != nil {
+		return nil, fmt.Errorf("parse dunning interest %q: %w", interestStr, err)
+	}
 	return &record, nil
 }
 
@@ -170,7 +175,7 @@ func (r *PostgresRepository) GetByInvoiceID(ctx context.Context, tenantID, invoi
 // GetHighestLevelByInvoiceID returns the dunning record with the highest level for an invoice.
 func (r *PostgresRepository) GetHighestLevelByInvoiceID(ctx context.Context, tenantID, invoiceID uuid.UUID) (*models.DunningRecord, error) {
 	var record models.DunningRecord
-	var feeFloat, interestFloat float64
+	var feeStr, interestStr string
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, invoice_id, level, status,
 			fee, interest, sent_at, created_by, created_at
@@ -181,7 +186,7 @@ func (r *PostgresRepository) GetHighestLevelByInvoiceID(ctx context.Context, ten
 		tenantID, invoiceID,
 	).Scan(
 		&record.ID, &record.TenantID, &record.InvoiceID, &record.Level, &record.Status,
-		&feeFloat, &interestFloat, &record.SentAt, &record.CreatedBy, &record.CreatedAt,
+		&feeStr, &interestStr, &record.SentAt, &record.CreatedBy, &record.CreatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil // No dunning records exist yet
@@ -189,23 +194,33 @@ func (r *PostgresRepository) GetHighestLevelByInvoiceID(ctx context.Context, ten
 	if err != nil {
 		return nil, err
 	}
-	record.Fee = decimal.NewFromFloat(feeFloat)
-	record.Interest = decimal.NewFromFloat(interestFloat)
+	// Scan monetary values as string + decimal to avoid float64 precision loss (ADR-0007).
+	if record.Fee, err = decimal.NewFromString(feeStr); err != nil {
+		return nil, fmt.Errorf("parse dunning fee %q: %w", feeStr, err)
+	}
+	if record.Interest, err = decimal.NewFromString(interestStr); err != nil {
+		return nil, fmt.Errorf("parse dunning interest %q: %w", interestStr, err)
+	}
 	return &record, nil
 }
 
 func (r *PostgresRepository) scanDunningFromRows(rows pgx.Rows) (*models.DunningRecord, error) {
 	var record models.DunningRecord
-	var feeFloat, interestFloat float64
+	var feeStr, interestStr string
 	err := rows.Scan(
 		&record.ID, &record.TenantID, &record.InvoiceID, &record.Level, &record.Status,
-		&feeFloat, &interestFloat, &record.SentAt, &record.CreatedBy, &record.CreatedAt,
+		&feeStr, &interestStr, &record.SentAt, &record.CreatedBy, &record.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
-	record.Fee = decimal.NewFromFloat(feeFloat)
-	record.Interest = decimal.NewFromFloat(interestFloat)
+	// Scan monetary values as string + decimal to avoid float64 precision loss (ADR-0007).
+	if record.Fee, err = decimal.NewFromString(feeStr); err != nil {
+		return nil, fmt.Errorf("parse dunning fee %q: %w", feeStr, err)
+	}
+	if record.Interest, err = decimal.NewFromString(interestStr); err != nil {
+		return nil, fmt.Errorf("parse dunning interest %q: %w", interestStr, err)
+	}
 	return &record, nil
 }
 
@@ -221,7 +236,7 @@ func NewPostgresConfigRepository(pool *pgxpool.Pool) *PostgresConfigRepository {
 
 func (r *PostgresConfigRepository) Get(ctx context.Context, tenantID uuid.UUID) (*models.DunningConfig, error) {
 	var config models.DunningConfig
-	var l1Fee, l2Fee, l3Fee float64
+	var l1Fee, l2Fee, l3Fee string
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id,
 			level1_days_after_due, level2_days_after_level1, level3_days_after_level2,
@@ -242,9 +257,16 @@ func (r *PostgresConfigRepository) Get(ctx context.Context, tenantID uuid.UUID) 
 	if err != nil {
 		return nil, err
 	}
-	config.Level1Fee = decimal.NewFromFloat(l1Fee)
-	config.Level2Fee = decimal.NewFromFloat(l2Fee)
-	config.Level3Fee = decimal.NewFromFloat(l3Fee)
+	// Scan fee values as string + decimal to avoid float64 precision loss (ADR-0007).
+	if config.Level1Fee, err = decimal.NewFromString(l1Fee); err != nil {
+		return nil, fmt.Errorf("parse level1_fee %q: %w", l1Fee, err)
+	}
+	if config.Level2Fee, err = decimal.NewFromString(l2Fee); err != nil {
+		return nil, fmt.Errorf("parse level2_fee %q: %w", l2Fee, err)
+	}
+	if config.Level3Fee, err = decimal.NewFromString(l3Fee); err != nil {
+		return nil, fmt.Errorf("parse level3_fee %q: %w", l3Fee, err)
+	}
 	return &config, nil
 }
 
