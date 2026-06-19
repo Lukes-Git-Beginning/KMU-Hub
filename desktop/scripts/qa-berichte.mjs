@@ -2,7 +2,7 @@ import { chromium } from 'playwright'
 import { mkdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
-// QA: berichte (Reports/BI) — all 4 tabs live in demo mode (B-1 MSW build).
+// QA: berichte (Reports/BI) — all 4 tabs + drilldown modal + DATEV toggle.
 // Run: node scripts/qa-berichte.mjs   (dev server on :5173)
 const BASE = 'http://localhost:5173'
 const outDir = resolve('.qa-screenshots/berichte')
@@ -47,39 +47,55 @@ const clickTab = async (re) => {
 
 try {
   await page.goto(`${BASE}/#/berichte`, { waitUntil: 'domcontentloaded', timeout: 20000 })
-  await page.waitForTimeout(3000)
+  await page.waitForTimeout(4000) // allow hero auto-load
 
   // --- Tab 1: Dashboard ---
   out.kpiCards = await page.locator('.text-2xl.font-semibold').count()
-  out.sparklines = await page.locator('.recharts-line, .recharts-surface').count()
+  out.rechartsSurfaces = await page.locator('.recharts-surface').count()
+  const dashText = await page.evaluate(() => document.body.innerText)
+  out.heroLoaded = !dashText.includes('Noch keine Daten geladen')
   await page.screenshot({ path: resolve(outDir, '1-dashboard.png'), fullPage: true })
 
-  // --- Tab 2: Erstellen (report builder dropdown should be filled) ---
+  // --- Drilldown modal (KPI click) ---
+  await page.getByText('Umsatz (MTD)').first().click()
+  await page.waitForTimeout(900)
+  const dialog = page.locator('[role="dialog"]')
+  out.drilldownOpen = await dialog.isVisible().catch(() => false)
+  out.drilldownChart = await dialog.locator('.recharts-surface').count().catch(() => 0)
+  await page.screenshot({ path: resolve(outDir, '1b-drilldown.png') })
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(500)
+
+  // --- Tab 2: Erstellen ---
   await clickTab(/^Erstellen/)
   const selects = page.locator('select')
   out.erstellenOptions = await selects.first().locator('option').count()
-  // pick first real option, check generate button enables
   const opts = await selects.first().locator('option').all()
   if (opts.length > 1) {
     const val = await opts[1].getAttribute('value')
     if (val) await selects.first().selectOption(val)
   }
   await page.waitForTimeout(400)
-  const genBtn = page.getByRole('button', { name: /Bericht generieren/ })
-  out.generateDisabled = await genBtn.isDisabled().catch(() => 'n/a')
+  out.generateDisabled = await page.getByRole('button', { name: /Bericht generieren/ }).isDisabled().catch(() => 'n/a')
   await page.screenshot({ path: resolve(outDir, '2-erstellen.png'), fullPage: true })
 
-  // --- Tab 3: Geplant (schedules table) ---
+  // --- Tab 3: Geplant ---
   await clickTab(/^Geplant/)
   out.scheduleRows = await page.locator('table tbody tr').count()
   await page.screenshot({ path: resolve(outDir, '3-geplant.png'), fullPage: true })
 
-  // --- Tab 4: DATEV (run-driven table) ---
+  // --- Tab 4: DATEV + variant toggle ---
   await clickTab(/^DATEV$/)
   await page.waitForTimeout(2000)
-  out.datevRows = await page.locator('table tbody tr').count()
-  out.datevVariantBtns = await page.locator('button:has-text("BWA"), button:has-text("Summen")').count()
-  await page.screenshot({ path: resolve(outDir, '4-datev.png'), fullPage: true })
+  out.datevRowsBwa = await page.locator('table tbody tr').count()
+  out.datevHeaderBwa = await page.locator('th:has-text("Aktuelles Jahr")').count()
+  await page.screenshot({ path: resolve(outDir, '4-datev-bwa.png'), fullPage: true })
+  // toggle to SuSa
+  await page.getByRole('button', { name: /Summen/ }).first().click()
+  await page.waitForTimeout(2000)
+  out.datevHeaderSusa = await page.locator('th:has-text("Konto"), th:has-text("Saldo")').count()
+  out.datevRowsSusa = await page.locator('table tbody tr').count()
+  await page.screenshot({ path: resolve(outDir, '4b-datev-susa.png'), fullPage: true })
 
   out.rawKeys = await scanRawKeys(page)
   out.doubleBraces = await scanDoubleBraces(page)

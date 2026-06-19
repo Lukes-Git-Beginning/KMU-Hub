@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BarChart3, Download, Loader2, Table2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -53,7 +53,13 @@ export function DatevView({ definitions }: DatevViewProps) {
     [bwaDef, susaDef],
   )
 
-  const activeVariant: DatevVariant = availableVariants[0]?.value ?? 'bwa'
+  const [activeVariant, setActiveVariant] = useState<DatevVariant>('bwa')
+  // Keep the selected variant within the available set (e.g. only one defined).
+  useEffect(() => {
+    if (availableVariants.length && !availableVariants.some((v) => v.value === activeVariant)) {
+      setActiveVariant(availableVariants[0].value)
+    }
+  }, [availableVariants, activeVariant])
   const activeDef = activeVariant === 'bwa' ? bwaDef : susaDef
 
   useEffect(() => {
@@ -95,6 +101,7 @@ export function DatevView({ definitions }: DatevViewProps) {
           {availableVariants.map((v) => (
             <button
               key={v.value}
+              onClick={() => setActiveVariant(v.value)}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
                 activeVariant === v.value
                   ? 'bg-primary/10 font-medium text-primary'
