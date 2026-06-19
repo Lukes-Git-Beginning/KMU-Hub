@@ -57,7 +57,7 @@ const DAY_LABEL_KEYS = [
   'settings.notifications.day.sat',
 ]
 
-export function NotificationSettingsTab() {
+export function NotificationSettingsTab({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation()
   const { notifications, updateNotification } = useSettingsStore()
 
@@ -115,11 +115,15 @@ export function NotificationSettingsTab() {
   const unmuteMutation = useUnmuteResource()
 
   return (
-    <div className="max-w-2xl">
-      <h2 className="text-foreground mb-1">{t('settings.notifications.title')}</h2>
-      <p className="text-sm text-muted-foreground mb-6">
-        {t('settings.notifications.subtitle')}
-      </p>
+    <div className={embedded ? '' : 'max-w-2xl'}>
+      {!embedded && (
+        <>
+          <h2 className="text-foreground mb-1">{t('settings.notifications.title')}</h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            {t('settings.notifications.subtitle')}
+          </p>
+        </>
+      )}
 
       {/* ── Module × Channel Matrix ──────────────────── */}
       <section className="mb-8">

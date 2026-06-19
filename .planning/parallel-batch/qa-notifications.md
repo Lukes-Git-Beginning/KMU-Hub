@@ -107,3 +107,42 @@ Modal), `i18n/messages/{de,en,fr,it}.json` (+10 Keys ins notifications-Cluster).
   System-Avatar (Megaphone).
 - Pin im Modal → Button flippt auf „Lösen". ESC schließt; Enter auf fokussierter Zeile öffnet.
 - **0 Raw-Keys.** (Console: nur WS, P4 out-of-scope.)
+
+---
+
+## N-4 — Sidebar-Badges + Modul-Einstellungen  ✅ (2026-06-19)
+
+**Geändert:** `api/hooks/useNotifications.ts` (`useModuleUnreadCounts`),
+`hooks/useFilteredNavItems.ts` (Badge-Injektion), `lib/module-settings.ts`
+(`SettingsModuleId` + `'notifications'`), `modules/settings/tabs/NotificationSettingsTab.tsx`
+(`embedded`-Prop), **neu** `modules/settings/panels/NotificationsSettingsPanel.tsx`,
+`modules/settings/module-settings-registry.tsx` (Eintrag), `i18n/{de,en,fr,it}.json` (+3 Keys).
+
+**Was — Sidebar-Badges:**
+- `useModuleUnreadCounts()` gruppiert die ungelesenen Notifications nach `module_id`
+  (reuse der Listen-Query, unread-only).
+- In `useFilteredNavItems.resolve` injiziert: hat ein Nav-Item Live-Unreads, wird sein
+  Badge zum Zahl-Badge (überschreibt den statischen Text-Badge). `'live'`-Indikatoren
+  (meetings) bleiben unangetastet; Items ohne Unreads behalten ihren (übersetzten) Badge.
+  → ein zentraler Ort, alle Layout-Varianten profitieren, `nav-items`-Config bleibt read-only.
+
+**Was — Modul-Settings-Eintrag:**
+- `SettingsModuleId` um `'notifications'` erweitert (wie `dashboard`/`automatisierung` —
+  Querschnitts-Surface, nicht im Pricing-`ModuleId`).
+- `NotificationSettingsTab` bekommt `embedded`-Prop (lässt eigenen h2/Subtitle + `max-w-2xl`
+  weg, wenn in einer Shell-Section).
+- `NotificationsSettingsPanel`: `ModuleSettingsShell` (moduleId `notifications`) mit **nur
+  personal**-Section, die die **echte** `NotificationSettingsTab embedded` rendert — Präferenzen
+  erreichbar gemacht, **nicht dupliziert**. Keine tenant-Section (notifications nicht leadable
+  → keine echte tenant-Rolle; tote tenant-Controls vermieden, Plan-`tenant` ist optional).
+- Registry-Eintrag `id:'notifications'`, Bell-Icon, `navMatch:['/notifications']` → bei
+  `/notifications` automatisch vorausgewählt. ⚠ Main trägt zeitgleich `berichte` in dieselbe
+  Registry — finaler Merge behält beide (Branch-Iso).
+
+**Verify (qa-notif-n4.mjs, :5174, 1440×1000, DE):**
+- Sidebar: Aufgaben **1**, Kommunikation **1**, Kontakte **2** (neu), Modul-Einstellungen **1**;
+  E-Mail 12 / Buchhaltung „Neu" bleiben (keine Notification-Unreads). → „Kontakte 2, Aufgaben 1".
+- Settings-Overlay listet „Benachrichtigungen" (Bell, AKTIV bei /notifications); Panel zeigt
+  „Meine Benachrichtigungen" + embedded Matrix (Nachrichten/Aufgaben/…), DND, Quiet-Hours —
+  kein Doppel-Header.
+- **0 Raw-Keys.** (Console: nur WS, P4 out-of-scope.)

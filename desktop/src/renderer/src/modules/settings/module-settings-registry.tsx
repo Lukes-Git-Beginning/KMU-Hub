@@ -18,6 +18,7 @@ import {
   Clock,
   LifeBuoy,
   Workflow,
+  Bell,
   type LucideIcon,
 } from 'lucide-react'
 import type { RoleId } from '@/config/roles'
@@ -39,6 +40,7 @@ import { ZeiterfassungSettingsPanel } from '@/modules/zeiterfassung/settings/Zei
 import { DashboardSettingsPanel } from '@/modules/dashboard/settings/DashboardSettingsPanel'
 import { HelpdeskSettingsPanel } from '@/modules/helpdesk/settings/HelpdeskSettingsPanel'
 import { AutomatisierungSettingsPanel } from '@/modules/automatisierung/settings/AutomatisierungSettingsPanel'
+import { NotificationsSettingsPanel } from './panels/NotificationsSettingsPanel'
 
 /**
  * Registry for the Module-Settings overlay (opened from the bottom-left
@@ -77,6 +79,7 @@ export const SETTINGS_ENTRIES: SettingsEntry[] = [
   { id: 'zeiterfassung', group: 'module', labelKey: 'moduleSettings.entries.zeiterfassung', icon: Clock, navMatch: ['/zeiterfassung'], component: ZeiterfassungSettingsPanel },
   { id: 'dokumente', group: 'module', labelKey: 'moduleSettings.entries.dokumente', icon: FolderOpen, navMatch: ['/dokumente'], component: DokumenteSettingsPanel },
   { id: 'vertraege', group: 'module', labelKey: 'moduleSettings.entries.vertraege', icon: FileSignature, navMatch: ['/vertraege'], component: VertraegeSettingsPanel },
+  { id: 'notifications', group: 'module', labelKey: 'moduleSettings.entries.notifications', icon: Bell, navMatch: ['/notifications'], component: NotificationsSettingsPanel },
   // '/' is exact-match only in the resolver — keep this entry from swallowing other routes.
   { id: 'dashboard', group: 'module', labelKey: 'moduleSettings.entries.dashboard', icon: LayoutDashboard, navMatch: ['/'], component: DashboardSettingsPanel },
 
