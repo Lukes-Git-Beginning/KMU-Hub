@@ -24,6 +24,7 @@ import {
   X,
 } from 'lucide-react'
 import { useNotificationsStore, type Notification } from '../../stores/notifications'
+import { playNotificationSound, prefersReducedMotion } from '@/lib/notification-sound'
 
 // ---------------------------------------------------------------------------
 // Icon mapping
@@ -223,6 +224,7 @@ export default function NotificationToast() {
     if (currentLen > prevLengthRef.current) {
       // New notification(s) added at the front
       const newCount = currentLen - prevLengthRef.current
+      let chimed = false
       for (let i = 0; i < newCount; i++) {
         const n = notifications[i]
         if (n.snoozedUntil && new Date(n.snoozedUntil) > new Date()) continue
@@ -230,6 +232,11 @@ export default function NotificationToast() {
           duration: n.priority === 'high' ? 8000 : 5000,
           id: `notif-${n.id}`,
         })
+        // One subtle chime per batch, if sound is on and motion isn't reduced.
+        if (!chimed && useNotificationsStore.getState().soundEnabled && !prefersReducedMotion()) {
+          playNotificationSound()
+          chimed = true
+        }
       }
     }
     prevLengthRef.current = currentLen

@@ -146,3 +146,47 @@ Modal), `i18n/messages/{de,en,fr,it}.json` (+10 Keys ins notifications-Cluster).
   „Meine Benachrichtigungen" + embedded Matrix (Nachrichten/Aufgaben/…), DND, Quiet-Hours —
   kein Doppel-Header.
 - **0 Raw-Keys.** (Console: nur WS, P4 out-of-scope.)
+
+---
+
+## N-5 — Sound-Toggle wirksam + Demo-Tiefe-Schlusscheck  ✅ (2026-06-19)
+
+**Geändert:** **neu** `lib/notification-sound.ts`, `modules/notifications/NotificationToast.tsx`
+(Chime-Trigger), `modules/settings/tabs/NotificationSettingsTab.tsx` (Ton-Sektion),
+`i18n/{de,en,fr,it}.json` (+4 Keys).
+
+**Was — Sound:**
+- `lib/notification-sound.ts`: `playNotificationSound()` — dezenter Web-Audio-Chime
+  (zwei Töne C6→G6, kein Asset), no-op wenn Audio blockiert/unverfügbar, wirft nie.
+  `prefersReducedMotion()`-Helfer.
+- `NotificationToast`: spielt **einen** Chime pro neuem Toast-Batch, wenn
+  `useNotificationsStore.soundEnabled` **und** nicht `prefers-reduced-motion`.
+- `NotificationSettingsTab`: neue „Ton"-Sektion — Switch (`soundEnabled`/`toggleSound`)
+  + „Testen"-Button (`playNotificationSound`, disabled wenn Ton aus). Sichtbar in den
+  Präferenzen (auch im Modul-Settings-Overlay, da embedded). +4 i18n-Keys ×4.
+
+**Verify (qa-notif-n5.mjs, :5174 — AudioContext-Oszillator-Spy):**
+- „Testen" → `__chimes` 0→2 (Chime spielt tatsächlich). Ton-Sektion sichtbar.
+- **Sweep DE+EN × 1440/1024:**
+  - DE @1440: Center sauber; Empty-Unread nach Mark-all-read = „Alle gelesen" (BellOff) —
+    **und Sidebar-Badges fallen live zurück** (Aufgaben 5/Kommunikation 3 statisch, Kontakte
+    ohne Badge, Bell-Badge weg) → beweist die Live-Datenbindung aus N-4.
+  - EN @1440: voll übersetzt (Notifications / 6 unread / All modules / Security / Mark as read /
+    Date / Modul-Badges) — Nav-Label-Wiederverwendung trägt alle 4 Sprachen. Modal: „Open/Mark as read".
+  - DE @1024: collapsed Sidebar mit Live-Badge-Dots, Filter-Chips wrappen sauber, kein Layout-Bruch.
+- **0 Raw-Keys / 0 `{{}}` / 0 echte Console-Errors** über alle Zustände (WS gefiltert, P4).
+- Tote-Buttons-Sweep: Center/Bell/Toast/SettingsTab — alle Buttons wirken (Filter/Sort/Tabs/
+  Mark-Read/Modal-Aktionen/Snooze/Sound). Kein Toast-only-Stub mehr.
+
+---
+
+## Definition of Done — notifications review-reif  ✅ 5/5
+
+Alle 5 Punkte verifiziert (Screenshots angesehen). Unread/Priorität/Modul/Deep-Link lebendig,
+Filter+Sort, DetailModal, Sidebar-Badges + Settings-Eintrag, Sound wirksam.
+**0 Raw-Keys / 0 Doppelklammern / 0 echte Console-Errors** (nur WS = P4 🔒). Jede Phase
+ein Commit+Push auf `parallel/notifications`. Bereit für den finalen Merge durchs Main-Terminal
+(i18n + `module-settings-registry.tsx`: beide Key-/Eintrags-Blöcke behalten, dann `npm run build`).
+
+**Offen für Luke (out-of-scope):** P4 echtes Realtime/WebSocket (die `ERR_CONNECTION_REFUSED`-
+Konsolenmeldungen stammen daher), P5 Multi-Channel/Push, OS-Desktop-Notifications.

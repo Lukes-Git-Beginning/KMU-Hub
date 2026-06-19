@@ -11,11 +11,14 @@ import {
   Moon,
   BellOff,
   VolumeX,
+  Volume2,
   Loader2,
   Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSettingsStore, type NotificationModule, type NotificationPrefs } from '@/stores/settings'
+import { useNotificationsStore } from '@/stores/notifications'
+import { playNotificationSound } from '@/lib/notification-sound'
 import {
   useQuietHours,
   useUpdateQuietHours,
@@ -60,6 +63,8 @@ const DAY_LABEL_KEYS = [
 export function NotificationSettingsTab({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation()
   const { notifications, updateNotification } = useSettingsStore()
+  const soundEnabled = useNotificationsStore((s) => s.soundEnabled)
+  const toggleSound = useNotificationsStore((s) => s.toggleSound)
 
   // Quiet Hours (from API)
   const { data: quietHours, isLoading: qhLoading } = useQuietHours()
@@ -161,6 +166,38 @@ export function NotificationSettingsTab({ embedded = false }: { embedded?: boole
         </div>
 
         <p className="text-xs text-muted-foreground mt-3">{t('settings.notifications.matrix.autoSave')}</p>
+      </section>
+
+      <Separator className="mb-8" />
+
+      {/* ── Ton ──────────────────────────────────────── */}
+      <section className="mb-8">
+        <div className="flex items-center gap-2 mb-4">
+          {soundEnabled ? (
+            <Volume2 className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <VolumeX className="h-4 w-4 text-muted-foreground" />
+          )}
+          <h3 className="text-sm font-medium text-foreground">{t('settings.notifications.sound.title')}</h3>
+        </div>
+
+        <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
+          <div>
+            <p className="text-sm text-foreground">{t('settings.notifications.sound.label')}</p>
+            <p className="text-xs text-muted-foreground">{t('settings.notifications.sound.desc')}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => playNotificationSound()}
+              disabled={!soundEnabled}
+            >
+              {t('settings.notifications.sound.test')}
+            </Button>
+            <Switch checked={soundEnabled} onCheckedChange={toggleSound} />
+          </div>
+        </div>
       </section>
 
       <Separator className="mb-8" />
