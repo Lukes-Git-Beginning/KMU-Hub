@@ -41,33 +41,6 @@ function shouldInvertGoodness(label: string): boolean {
   return INVERT_MARKERS.some((m) => lower.includes(m))
 }
 
-const SPARKLINE_POINTS = 8
-
-/**
- * Deterministic demo trend for a KPI card sparkline.
- *
- * The KPI payload has no time-series (the backend KPI service is not yet
- * available — see backend-gaps.md), so we synthesise a stable series seeded
- * from the KPI id. The trend direction follows `change_percent` so the line
- * visually agrees with the change badge. Same id → same series across renders.
- */
-function buildSparklineSeries(kpi: DashboardKPI): { value: number }[] {
-  let seed = 0
-  for (let i = 0; i < kpi.id.length; i++) seed = (seed * 31 + kpi.id.charCodeAt(i)) >>> 0
-
-  const change = kpi.change_percent ?? 2
-  const drift = change / 100 // per-step trend share
-  const points: { value: number }[] = []
-  let value = 1
-  for (let i = 0; i < SPARKLINE_POINTS; i++) {
-    seed = (seed * 1664525 + 1013904223) >>> 0
-    const noise = (seed / 0xffffffff - 0.5) * 0.12
-    value = value * (1 + drift / SPARKLINE_POINTS) + noise
-    points.push({ value: Math.max(0.05, value) })
-  }
-  return points
-}
-
 /** Parse a German-formatted KPI value string ("84.532" / "2,4") to a number. */
 function parseKpiValue(v: string): number {
   const n = parseFloat(v.replace(/\./g, '').replace(',', '.'))
@@ -91,8 +64,10 @@ function buildDrilldownSeries(kpi: DashboardKPI, labels: string[]): { label: str
     seed = (seed * 1664525 + 1013904223) >>> 0
     const noise = (seed / 0xffffffff - 0.5) * 0.06
     const lin = start + ((end - start) * i) / span
-    const value = i === labels.length - 1 ? end : Math.max(0, lin * (1 + noise))
-    return { label, value: Math.round(value * 10) / 10 }
+    const raw = i === labels.length - 1 ? end : Math.max(0, lin * (1 + noise))
+    // Whole numbers for large values (€, counts); one decimal for small ones (%, hours).
+    const value = raw >= 100 ? Math.round(raw) : Math.round(raw * 10) / 10
+    return { label, value }
   })
 }
 
@@ -218,7 +193,7 @@ export function DashboardGrid({
             active={drilldownKpiId === kpi.id}
             onClick={() => handleKpiClick(kpi)}
             invertGoodness={shouldInvertGoodness(kpi.label)}
-            sparklineData={buildSparklineSeries(kpi)}
+            sparklineData={buildDrilldownSeries(kpi, monthLabels)}
           />
         ))}
       </div>

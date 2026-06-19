@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Bell, CalendarClock, Clock, Mail, Plus, Trash2, X } from 'lucide-react'
+import { Bell, CalendarClock, Clock, FileText, History, Mail, Plus, Trash2, Users, X } from 'lucide-react'
 import { SortMenu, type SortDirection, type SortFieldOption } from '@/components/shared/SortMenu'
+import { DetailModal } from '@/components/shared/DetailModal'
 import { useBerichtePrefsStore } from '@/stores/berichtePrefs'
 import { toast } from 'sonner'
 import {
@@ -14,7 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { EmptyReports } from '@/components/shared/illustrations'
-import type { ReportDefinition, ReportFormat } from '@/api/berichte-types'
+import type { ReportDefinition, ReportFormat, ReportSchedule } from '@/api/berichte-types'
 import {
   useCreateSchedule,
   useDeleteSchedule,
@@ -63,6 +64,33 @@ function computeNextRun(cron: string, from: Date = new Date()): Date | null {
   return null
 }
 
+interface RunHistoryEntry {
+  at: string
+  status: 'success' | 'failed' | 'skipped'
+  durationMs: number
+}
+
+/** Demo run history: last ~5 runs back from last_run_at, seeded per schedule. */
+function buildRunHistory(s: ReportSchedule): RunHistoryEntry[] {
+  if (!s.last_run_at) return []
+  const base = new Date(s.last_run_at).getTime()
+  const cron = s.cron_expression
+  const stepDays = /MON|TUE|WED|THU|FRI|SAT|SUN/i.test(cron)
+    ? 7
+    : cron.trim().split(/\s+/)[2] !== '*'
+      ? 30
+      : 1
+  let seed = 0
+  for (let i = 0; i < s.id.length; i++) seed = (seed * 31 + s.id.charCodeAt(i)) >>> 0
+  return Array.from({ length: 5 }, (_, i) => {
+    seed = (seed * 1664525 + 1013904223) >>> 0
+    const r = seed / 0xffffffff
+    const status: RunHistoryEntry['status'] =
+      i === 0 ? (s.last_run_status ?? 'success') : r < 0.12 ? 'skipped' : r < 0.2 ? 'failed' : 'success'
+    return { at: new Date(base - i * stepDays * 86_400_000).toISOString(), status, durationMs: 800 + Math.floor(r * 4200) }
+  })
+}
+
 export function ScheduleList({ definitions }: ScheduleListProps) {
   const { t } = useTranslation()
   const schedulesQuery = useSchedules()
@@ -78,6 +106,7 @@ export function ScheduleList({ definitions }: ScheduleListProps) {
   const [format, setFormat] = useState<ReportFormat>(defaultFormat)
   const [sortField, setSortField] = useState('name')
   const [sortDir, setSortDir] = useState<SortDirection>('asc')
+  const [detailId, setDetailId] = useState<string | null>(null)
   const [emailInput, setEmailInput] = useState('')
   const [recipients, setRecipients] = useState<string[]>([])
   const [alertThreshold, setAlertThreshold] = useState('')
@@ -101,6 +130,12 @@ export function ScheduleList({ definitions }: ScheduleListProps) {
     })
     return arr
   }, [schedules, sortField, sortDir])
+
+  const detailSchedule = detailId ? schedules.find((s) => s.id === detailId) ?? null : null
+  const detailDef = detailSchedule
+    ? definitions.find((d) => d.id === detailSchedule.definition_id) ?? null
+    : null
+  const runHistory = detailSchedule ? buildRunHistory(detailSchedule) : []
 
   const handleToggle = (id: string, next: boolean) => {
     toggleMutation.mutate(
@@ -252,7 +287,16 @@ export function ScheduleList({ definitions }: ScheduleListProps) {
               {sortedSchedules.map((s) => (
                 <tr
                   key={s.id}
-                  className="border-b border-border-muted transition-colors last:border-0 hover:bg-secondary/50"
+                  onClick={() => setDetailId(s.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      setDetailId(s.id)
+                    }
+                  }}
+                  className="cursor-pointer border-b border-border-muted transition-colors last:border-0 hover:bg-secondary/50 focus:outline-none focus-visible:bg-secondary/50"
                 >
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
@@ -310,7 +354,10 @@ export function ScheduleList({ definitions }: ScheduleListProps) {
                   <td className="px-4 py-3">
                     <div className="flex justify-center">
                       <button
-                        onClick={() => handleToggle(s.id, !s.active)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleToggle(s.id, !s.active)
+                        }}
                         className={`flex h-6 w-10 items-center rounded-full p-0.5 transition-colors ${
                           s.active ? 'bg-primary' : 'bg-secondary'
                         }`}
@@ -330,7 +377,10 @@ export function ScheduleList({ definitions }: ScheduleListProps) {
                   </td>
                   <td className="px-4 py-3">
                     <button
-                      onClick={() => handleDelete(s.id)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDelete(s.id)
+                      }}
                       className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-error-light hover:text-error"
                       aria-label={t('common.delete', { defaultValue: 'Löschen' })}
                     >
@@ -535,6 +585,138 @@ export function ScheduleList({ definitions }: ScheduleListProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Schedule detail modal */}
+      <DetailModal
+        open={!!detailSchedule}
+        onClose={() => setDetailId(null)}
+        title={detailSchedule?.name}
+        subtitle={detailDef?.name}
+        badge={
+          detailSchedule ? (
+            <span
+              className={`ml-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                detailSchedule.active ? 'bg-success-light text-success' : 'bg-secondary text-muted-foreground'
+              }`}
+            >
+              {detailSchedule.active
+                ? t('berichte.geplant.table.aktiv')
+                : t('berichte.geplant.pausiert', { defaultValue: 'Pausiert' })}
+            </span>
+          ) : null
+        }
+      >
+        {detailSchedule && (
+          <div className="space-y-5">
+            {/* Facts grid */}
+            <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border text-sm">
+              <div className="bg-card px-4 py-3">
+                <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <FileText className="h-3 w-3" />
+                  {t('berichte.detail.bericht', { defaultValue: 'Bericht' })}
+                </dt>
+                <dd className="mt-0.5 font-medium text-foreground">{detailDef?.name ?? '—'}</dd>
+              </div>
+              <div className="bg-card px-4 py-3">
+                <dt className="text-xs text-muted-foreground">
+                  {t('berichte.detail.format', { defaultValue: 'Format' })}
+                </dt>
+                <dd className="mt-0.5 font-medium uppercase text-foreground">{detailSchedule.format}</dd>
+              </div>
+              <div className="bg-card px-4 py-3">
+                <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <CalendarClock className="h-3 w-3" />
+                  {t('berichte.geplant.table.zeitplan')}
+                </dt>
+                <dd className="mt-0.5">
+                  <code className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+                    {detailSchedule.cron_expression}
+                  </code>
+                </dd>
+              </div>
+              <div className="bg-card px-4 py-3">
+                <dt className="text-xs text-muted-foreground">
+                  {t('berichte.geplant.table.naechsterLauf', { defaultValue: 'Nächster Lauf' })}
+                </dt>
+                <dd className="mt-0.5 font-medium text-foreground">
+                  {detailSchedule.active
+                    ? formatDateTime(computeNextRun(detailSchedule.cron_expression)?.toISOString() ?? null)
+                    : t('berichte.geplant.pausiert', { defaultValue: 'Pausiert' })}
+                </dd>
+              </div>
+              {typeof (detailSchedule.params as { alert_threshold?: number }).alert_threshold === 'number' && (
+                <div className="col-span-2 bg-card px-4 py-3">
+                  <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Bell className="h-3 w-3" />
+                    {t('berichte.detail.alert', { defaultValue: 'Alert-Schwellwert' })}
+                  </dt>
+                  <dd className="mt-0.5 font-medium text-foreground">
+                    {(detailSchedule.params as { alert_threshold?: number }).alert_threshold?.toLocaleString('de-DE')}
+                  </dd>
+                </div>
+              )}
+            </dl>
+
+            {/* Recipients */}
+            <div>
+              <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <Users className="h-3 w-3" />
+                {t('berichte.geplant.table.empfaenger')}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {detailSchedule.recipients.map((email) => (
+                  <span
+                    key={email}
+                    className="flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs text-foreground"
+                  >
+                    <Mail className="h-3 w-3 text-muted-foreground" />
+                    {email}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Run history */}
+            <div>
+              <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <History className="h-3 w-3" />
+                {t('berichte.detail.historie', { defaultValue: 'Lauf-Historie' })}
+              </p>
+              {runHistory.length === 0 ? (
+                <p className="rounded-lg border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
+                  {t('berichte.detail.keineHistorie', { defaultValue: 'Noch keine Läufe.' })}
+                </p>
+              ) : (
+                <ul className="overflow-hidden rounded-lg border border-border">
+                  {runHistory.map((run, i) => (
+                    <li
+                      key={i}
+                      className="flex items-center justify-between border-b border-border-muted bg-card px-4 py-2.5 text-sm last:border-0"
+                    >
+                      <span className="flex items-center gap-2 text-foreground">
+                        <Clock className="h-3 w-3 text-muted-foreground" />
+                        {formatDateTime(run.at)}
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {(run.durationMs / 1000).toFixed(1)}s
+                        </span>
+                        <span
+                          className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                            STATUS_STYLES[run.status] ?? 'bg-secondary text-muted-foreground'
+                          }`}
+                        >
+                          {run.status}
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
+      </DetailModal>
     </>
   )
 }

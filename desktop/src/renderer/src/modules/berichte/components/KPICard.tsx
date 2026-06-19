@@ -1,6 +1,6 @@
 import { ArrowDownRight, ArrowUpRight, ChevronRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Line, LineChart, ResponsiveContainer } from 'recharts'
+import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts'
 import type { DashboardKPI } from '@/api/berichte-types'
 import { useChartTheme } from '../utils/chartTheme'
 import { usePrefersReducedMotion } from '../utils/chartMotion'
@@ -16,9 +16,10 @@ interface KPICardProps {
   invertGoodness?: boolean
   /**
    * Optional mini trend series rendered as a sparkline at the bottom of the
-   * card. When omitted or empty the card renders exactly as before.
+   * card. When omitted or empty the card renders exactly as before. The `label`
+   * (period) drives the hover tooltip so values are readable without a click.
    */
-  sparklineData?: { value: number }[]
+  sparklineData?: { label?: string; value: number }[]
 }
 
 export function KPICard({
@@ -71,15 +72,33 @@ export function KPICard({
       </div>
       <p className="text-[10px] text-muted-foreground">{t('berichte.dashboard.vorMonat')}</p>
       {hasSparkline && (
-        <div className="mt-2 h-8" aria-hidden="true">
+        <div className="mt-2 h-10">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={sparklineData} margin={{ top: 2, right: 0, bottom: 2, left: 0 }}>
+            <LineChart data={sparklineData} margin={{ top: 4, right: 2, bottom: 2, left: 2 }}>
+              <XAxis dataKey="label" hide />
+              <Tooltip
+                cursor={{ stroke: theme.grid, strokeWidth: 1 }}
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null
+                  const v = Number(payload[0].value)
+                  return (
+                    <div className="rounded-md border border-border bg-card px-2 py-1 text-[11px] shadow-sm">
+                      {label && <span className="text-muted-foreground">{label}: </span>}
+                      <span className="font-medium text-foreground">
+                        {v.toLocaleString('de-DE')}
+                        {kpi.unit ? ` ${kpi.unit}` : ''}
+                      </span>
+                    </div>
+                  )
+                }}
+              />
               <Line
                 type="monotone"
                 dataKey="value"
                 stroke={theme.primary}
                 strokeWidth={2}
                 dot={false}
+                activeDot={{ r: 3, fill: theme.primary }}
                 isAnimationActive={!prefersReducedMotion}
               />
             </LineChart>
