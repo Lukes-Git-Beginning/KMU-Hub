@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CalendarClock, Clock, Mail, Plus, Trash2, X } from 'lucide-react'
+import { Bell, CalendarClock, Clock, Mail, Plus, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -35,6 +35,32 @@ const STATUS_STYLES: Record<string, string> = {
   skipped: 'bg-warning-light text-warning',
 }
 
+const DOW_MAP: Record<string, number> = { SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 }
+
+/**
+ * Demo-grade next-run estimate from a 5-field cron expression
+ * (min hour dom mon dow). Month is ignored for the demo; iterates day-by-day.
+ */
+function computeNextRun(cron: string, from: Date = new Date()): Date | null {
+  const parts = cron.trim().split(/\s+/)
+  if (parts.length < 5) return null
+  const [minF, hourF, domF, , dowF] = parts
+  const min = minF === '*' ? 0 : parseInt(minF, 10)
+  const hour = hourF === '*' ? null : parseInt(hourF, 10)
+  const dom = domF === '*' ? null : parseInt(domF, 10)
+  const dow = dowF === '*' ? null : DOW_MAP[dowF.toUpperCase()] ?? parseInt(dowF, 10)
+  if (Number.isNaN(min)) return null
+  for (let i = 0; i < 366; i++) {
+    const d = new Date(from)
+    d.setDate(from.getDate() + i)
+    d.setHours(hour ?? from.getHours() + (i === 0 ? 1 : 0), min, 0, 0)
+    if (dom !== null && d.getDate() !== dom) continue
+    if (dow !== null && d.getDay() !== dow) continue
+    if (d > from) return d
+  }
+  return null
+}
+
 export function ScheduleList({ definitions }: ScheduleListProps) {
   const { t } = useTranslation()
   const schedulesQuery = useSchedules()
@@ -49,6 +75,7 @@ export function ScheduleList({ definitions }: ScheduleListProps) {
   const [format, setFormat] = useState<ReportFormat>('pdf')
   const [emailInput, setEmailInput] = useState('')
   const [recipients, setRecipients] = useState<string[]>([])
+  const [alertThreshold, setAlertThreshold] = useState('')
 
   const schedules = schedulesQuery.data?.schedules ?? []
   const activeCount = schedules.filter((s) => s.active).length
@@ -84,6 +111,7 @@ export function ScheduleList({ definitions }: ScheduleListProps) {
     setFormat('pdf')
     setEmailInput('')
     setRecipients([])
+    setAlertThreshold('')
   }
 
   const openDialog = () => {
@@ -131,7 +159,7 @@ export function ScheduleList({ definitions }: ScheduleListProps) {
         cron_expression: cronExpression.trim(),
         recipients,
         format,
-        params: {},
+        params: alertThreshold.trim() ? { alert_threshold: Number(alertThreshold) } : {},
         active: true,
       },
       {
@@ -176,6 +204,9 @@ export function ScheduleList({ definitions }: ScheduleListProps) {
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
                   {t('berichte.geplant.table.letzterLauf')}
                 </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                  {t('berichte.geplant.table.naechsterLauf', { defaultValue: 'Nächster Lauf' })}
+                </th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">
                   {t('berichte.geplant.table.aktiv')}
                 </th>
@@ -189,7 +220,15 @@ export function ScheduleList({ definitions }: ScheduleListProps) {
                   className="border-b border-border-muted transition-colors last:border-0 hover:bg-secondary/50"
                 >
                   <td className="px-4 py-3">
-                    <span className="font-medium text-foreground">{s.name}</span>
+                    <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                      {s.name}
+                      {typeof (s.params as { alert_threshold?: number }).alert_threshold === 'number' && (
+                        <Bell
+                          className="h-3 w-3 text-primary"
+                          aria-label={t('berichte.dialog.alertAktiv', { defaultValue: 'Alert aktiv' })}
+                        />
+                      )}
+                    </span>
                   </td>
                   <td className="px-4 py-3">
                     <code className="rounded bg-secondary px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
@@ -211,7 +250,9 @@ export function ScheduleList({ definitions }: ScheduleListProps) {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <Clock className="h-3 w-3" />
-                      {formatDateTime(s.last_run_at)}
+                      {s.last_run_at
+                        ? formatDateTime(s.last_run_at)
+                        : t('berichte.geplant.nieGelaufen', { defaultValue: 'Noch nicht gelaufen' })}
                       {s.last_run_status && (
                         <span
                           className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
@@ -221,6 +262,14 @@ export function ScheduleList({ definitions }: ScheduleListProps) {
                           {s.last_run_status}
                         </span>
                       )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <CalendarClock className="h-3 w-3" />
+                      {s.active
+                        ? formatDateTime(computeNextRun(s.cron_expression)?.toISOString() ?? null)
+                        : t('berichte.geplant.pausiert', { defaultValue: 'Pausiert' })}
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -355,6 +404,27 @@ export function ScheduleList({ definitions }: ScheduleListProps) {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Alert threshold (optional, demo) */}
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <Bell className="h-3 w-3" />
+                {t('berichte.dialog.alertSchwelle', { defaultValue: 'Alert-Schwellwert (optional)' })}
+              </label>
+              <input
+                type="number"
+                value={alertThreshold}
+                onChange={(e) => setAlertThreshold(e.target.value)}
+                placeholder={t('berichte.dialog.alertPlaceholder', { defaultValue: 'z. B. 100000' })}
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              />
+              <p className="mt-1 text-[10px] text-muted-foreground/60">
+                {t('berichte.dialog.alertHint', {
+                  defaultValue:
+                    'Benachrichtigung, sobald der Hauptwert des Berichts diese Schwelle überschreitet.',
+                })}
+              </p>
             </div>
 
             {/* Recipients */}
