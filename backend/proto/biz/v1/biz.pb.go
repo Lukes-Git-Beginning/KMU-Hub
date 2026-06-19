@@ -6404,6 +6404,7 @@ type CreateQuoteFromDealRequest struct {
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	DealId        string                 `protobuf:"bytes,2,opt,name=deal_id,json=dealId,proto3" json:"deal_id,omitempty"`
 	CreatedBy     string                 `protobuf:"bytes,3,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	TaxMode       string                 `protobuf:"bytes,4,opt,name=tax_mode,json=taxMode,proto3" json:"tax_mode,omitempty"` // Optional; defaults to company-derived mode
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -6455,6 +6456,13 @@ func (x *CreateQuoteFromDealRequest) GetDealId() string {
 func (x *CreateQuoteFromDealRequest) GetCreatedBy() string {
 	if x != nil {
 		return x.CreatedBy
+	}
+	return ""
+}
+
+func (x *CreateQuoteFromDealRequest) GetTaxMode() string {
+	if x != nil {
+		return x.TaxMode
 	}
 	return ""
 }
@@ -9736,12 +9744,13 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\n" +
 	"created_by\x18\v \x01(\tR\tcreatedBy\"I\n" +
 	"$CreateInvoiceFromTimeEntriesResponse\x12!\n" +
-	"\finvoice_json\x18\x01 \x01(\fR\vinvoiceJson\"q\n" +
+	"\finvoice_json\x18\x01 \x01(\fR\vinvoiceJson\"\x8c\x01\n" +
 	"\x1aCreateQuoteFromDealRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
 	"\adeal_id\x18\x02 \x01(\tR\x06dealId\x12\x1d\n" +
 	"\n" +
-	"created_by\x18\x03 \x01(\tR\tcreatedBy\"B\n" +
+	"created_by\x18\x03 \x01(\tR\tcreatedBy\x12\x19\n" +
+	"\btax_mode\x18\x04 \x01(\tR\ataxMode\"B\n" +
 	"\x1bCreateQuoteFromDealResponse\x12#\n" +
 	"\x05quote\x18\x01 \x01(\v2\r.biz.v1.QuoteR\x05quote\"K\n" +
 	"\x18GetJournalSummaryRequest\x12\x1b\n" +

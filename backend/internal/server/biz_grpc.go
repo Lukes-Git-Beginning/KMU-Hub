@@ -2118,6 +2118,19 @@ func (s *BizGRPCServer) CreateQuoteFromDeal(ctx context.Context, req *bizv1.Crea
 		return nil, status.Error(codes.InvalidArgument, "invalid deal_id: must be a UUID")
 	}
 
+	// Resolve the effective tax mode. An explicit request mode wins; otherwise a
+	// Kleinunternehmer company (section 19 UStG) must not charge VAT, so derive
+	// the mode from company settings (soft fallback to standard on load error).
+	taxMode := req.GetTaxMode()
+	if taxMode == "" {
+		settings, sErr := s.companySettings.GetByTenantID(ctx, tenantID)
+		if sErr != nil {
+			slog.Warn("failed to load company settings for deal-to-quote tax mode",
+				"tenant_id", tenantID, "error", sErr)
+		}
+		taxMode = resolveTaxMode("", settings)
+	}
+
 	// A single placeholder line item is required by the service; the user fills
 	// in the actual items after opening the quote in the UI.
 	placeholderItem := models.LineItem{
@@ -2126,7 +2139,7 @@ func (s *BizGRPCServer) CreateQuoteFromDeal(ctx context.Context, req *bizv1.Crea
 		Description: "Leistungsbeschreibung (bitte ausfüllen)",
 		Quantity:    decimal.NewFromInt(1),
 		UnitPrice:   decimal.Zero,
-		TaxRate:     decimal.NewFromInt(19),
+		TaxRate:     taxRateForMode(taxMode),
 		LineTotal:   decimal.Zero,
 	}
 
@@ -2135,7 +2148,7 @@ func (s *BizGRPCServer) CreateQuoteFromDeal(ctx context.Context, req *bizv1.Crea
 		CustomerName:    customerName,
 		CustomerAddress: customerAddress,
 		CustomerEmail:   customerEmail,
-		TaxMode:         models.TaxModeStandard,
+		TaxMode:         taxMode,
 		LineItems:       []models.LineItem{placeholderItem},
 		DealID:          &dealUUID,
 		UserID:          userID,

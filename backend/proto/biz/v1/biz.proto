@@ -823,6 +823,7 @@ message CreateQuoteFromDealRequest {
   string tenant_id = 1;
   string deal_id = 2;
   string created_by = 3;
+  string tax_mode = 4;           // Optional; defaults to company-derived mode
 }
 
 message CreateQuoteFromDealResponse {
