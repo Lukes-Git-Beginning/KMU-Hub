@@ -2,7 +2,7 @@
 
 > **Der eine Ort zum Abarbeiten.** Jede Phase = eine abhakbare Zeile. Detail-Beschreibungen je Phase: `.planning/module-phase-plans.md` + `.planning/reviews/<modul>.md`.
 > **Rollen:** Luke = Backend · Nico = Reviews fertiger Module · wir = Phasen abarbeiten.
-> **Stand:** 2026-06-16.
+> **Stand:** 2026-06-19 (work Quick-Actions done; berichte-Erstellen-Builder E-1…E-5 als Phasen eingetragen).
 
 ## Legende & Zählung
 ✅ fertig · 🔨 läuft · ⬜ offen · 🔒 FE bau ich mock-first, echtes Backend kommt von Luke · 🔁 Stand verifizieren
@@ -14,7 +14,8 @@
 - **Fertig (bei Nico in Review):** kontakte (Kern), zeiterfassung; calendar/dokumente weitgehend (🔁).
 - **Aktive Spur:** finanzen komplett fertigstellen → an Nico → nächstes Modul.
 - **▶ ERLEDIGT (2026-06-17 Abend):** **Parallel-Batch dashboard + vertraege** (Main-Terminal=dashboard, Sub-Terminal=vertraege, beide Claude). dashboard **D-1…D-5** + vertraege **V-1…V-5** + **Darien-Live-Fix-Runde F1-F7** (E-Signatur RAUS aus vertraege-Detail [Modul=Verwaltung], ContractDialog→shared DetailModal, Detail schließt beim Bearbeiten, Dokumente prominent, Notification-Karten aufklappbar mit Öffnen/Anpinnen/Ignorieren, roter Drag-Placeholder→Cosmi-Türkis, user-select beim Drag) — alle gepusht (main=`f4a6844d`), je Build(echter Exit)+Playwright+Screenshot verifiziert. **dashboard + vertraege = review-reif → Nico** (Dariens finale Live-Abnahme stand beim Session-Ende noch aus). Review-Liste: `.planning/parallel-batch/qa-combined.md`; Detail: MEMORY.md Wiedereinstieg.
-- **▶ NÄCHSTES (neuer Batch, neue Terminals):** Paar-Vorschlag **team (#3 Pipeline, größer) + helpdesk (#6, schnell)** — Darien entscheidet im neuen Main-Terminal. **Reihenfolge:** neues MAIN-Terminal plant (Ist-Abgleich → Klärungsfragen → Sub-Paket+Start-Text), DANN Sub-Terminal wechseln + Text geben. Paket-Muster: `.planning/parallel-batch/`. **Build-Gate immer mit echtem Exit** ([[feedback_build_check_real_exit]], NIE `| tail`).
+- **▶ ERLEDIGT (2026-06-19 nachts):** **work Quick-Actions W-1…W-3** (main `a046b0d9`, Squash, wip-Branch weg): MyTasks Geschwister-Button-Layout (kein `role=button`-Zeile mehr → Menü öffnet statt zu navigieren) + Quick-Complete + Aktions-Menü + Löschen; Kanban-Karten dieselben Quick-Actions (dnd-sicher via `data-card-control`); Task-Detail-Panel+-Page Löschen-Confirm. 14 i18n ×4. QA `qa-work-mytasks.mjs`+`qa-work-kanban.mjs` grün + Screenshots. **tsc-Lehre:** `tsconfig.workqa.json` crasht flaky (interner TS-Bug, nicht dateispezifisch) → Gate = Vite+Playwright-QA.
+- **▶ NÄCHSTES (neuer Batch, 2 Terminals):** Kandidaten: **berichte-Erstellen-Builder E-1…E-5** (siehe berichte-Block unten — FE-mock-first, E-1-Kern = Feld-Picker+Viz+Live-Vorschau) · **formulare** (P1 DnD+DSGVO) · **wiki** (0 i18n-Keys + TipTap). Darien entscheidet die Paarung im neuen MAIN-Terminal. **Reihenfolge:** neues MAIN-Terminal plant (Ist-Abgleich → Klärungsfragen → Sub-Paket+Start-Text), DANN Sub-Terminal wechseln + Text geben. Paket-Muster: `.planning/parallel-batch/`. Zwei-Terminal-Ablauf: `.planning/two-terminal-nico-workflow.md`. **Build-Gate immer mit echtem Exit** ([[feedback_build_check_real_exit]], NIE `| tail`).
 
 ## Neue projektweite Standards (2026-06-16) — bei JEDEM Modul anwenden
 - **Detail = zentriertes Cosmi-Modal-Fenster** (`shared/DetailModal`), NICHT Slide-over. [[feedback_detail_modal_standard]]
@@ -124,12 +125,18 @@ Schneller Audit gegen die Tiefe-Vorgabe; die 4 Module sind solange bei Nico in R
 - [ ] **P4** Zahlungen (Stripe) + E-Signatur 🔒
 - [ ] Demo-Tiefe-Phase
 
-### berichte — 🔨 (Nico-Sparklines, tw.)
-- [ ] **P1** echte Charts (recharts) + Zeitraum-Filter + verschiebbare Kacheln
-- [ ] **P2** No-Code Query-Builder (modul-übergreifend) 🔒
-- [ ] **P3** Export (PDF/CSV/XLSX) + geplante Berichte + Alerts
-- [ ] **P4** DATEV + externe BI 🔒
-- [ ] Demo-Tiefe-Phase
+### berichte — 🔨 Charts/Schedules/Export ✅ (B-1…B-5 + F1/F2) · Erstellen-Builder (E-1…E-5) offen
+- [x] **P1 + P3 (B-1…B-5 + Live-Fixes, main `a046b0d9`):** echte recharts-Charts + Zeitraum-Filter + verschiebbare Kacheln · Export (PDF/CSV/XLSX als MSW-Blob) + geplante Berichte (stateful, Nächster-Lauf/Cron) + Alert-Schwellwerte · Schedule-Zeilen→DetailModal+Lauf-Historie · KPI-Sparklines mit Hover-Tooltip · SortMenu + Modul-Settings + 38 i18n-Keys ×4.
+- [ ] **P4** DATEV-EXTF-Detail + externe BI 🔒
+
+**▶ Erstellen-Builder** (= alte „P2 No-Code Query-Builder"; **FE-mock-first**, echter Query-Executor = Luke 🔒). Ist heute flach (`ReportBuilder.tsx`: System-Bericht-Dropdown + Zeitraum + Format/Export). Marktanalyse (Metabase/HubSpot/Looker Studio) → 5 Phasen. Detail-Roadmap + Bug-Kontext: `.planning/HANDOFF-berichte-work.md`.
+- [ ] **E-1** Modus-Switch „System-Bericht ↔ Eigener Bericht" · Datenquelle (Modul) wählen → **Feld-Picker** (Checkbox-Liste) → **Viz-Typ-Picker** (Tabelle/Balken/Linie/Fläche/Donut/KPI) → **sofortige recharts-Live-Vorschau** + Zeitraum-Selektor. MSW: Feld-Metadaten + Demo-Series je Modul. **Datenquellen-Start (Vorschlag, beim E-1-Start mit Darien bestätigen): finanzen + work tief**, kontakte/deals danach.
+- [ ] **E-2** Filter-Builder: typ-aware (Feld→Operator is/contains/>/</between→Wert), bis 5 Filter mit AND/OR, Filter-Chips, Vorschau reagiert.
+- [ ] **E-3** Aggregation + Grouping: Dimension vs. Measure, Aggregation (Count/Sum/Avg/Min/Max), Group-by bis 2 Dimensionen, Pivot-light. `query_config` ausdehnen, MSW liefert passende series/totals.
+- [ ] **E-4** Speichern + Bibliothek + Dashboard-Pin: „Meine Berichte"-Liste (benennen, Modul-Badge, zuletzt bearbeitet) · öffnen stellt Builder-State wieder her · „Zu Dashboard hinzufügen". (🔒 echter Persist-Endpoint = Luke; FE-State reicht für Demo.)
+- [ ] **E-5** Advanced (Post-MVP): berechnete Felder (FE-Formel) · Scheduled Export 🔒 · Sharing 🔒 · KI-Viz-Empfehlung (heuristisch FE).
+- Viz-Kernset (recharts-baubar): Tabelle · Balken · Linie · Fläche · Donut · KPI-Zahl · Combo · Gauge.
+- [ ] **Demo-Tiefe-Phase** (nach E-1…E-4: Zeilen-Klick→Detail, echte Downloads, leere Zustände)
 
 ### team — ✅ Tiefe-Pass review-reif → Nico (Main-Terminal TM-1…TM-5, 7 Commits → `8a49415c`)
 - [x] **Tiefe-Pass:** Abwesenheiten-Bug (entries+camelCase+Date-Filter) · SelfService verkabelt (useSelfProfile/Balance/Requests + Create-Flow + Blob-Download) · PersonnelDocuments→MSW (echte MA, Download/Preview-Dialog/Upload) · OrgChart E-Mail/Anruf wirken + 8× `{{}}`→`{}` + page.title · Deactivate komplett wirksam (Action-Item+PUT+status+Inaktiv-Render) · Umlaut-Cleanup. Alle Build-grün + Screenshot-verifiziert. QA: `.planning/parallel-batch/qa-team.md`.
