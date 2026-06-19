@@ -141,6 +141,8 @@ func (r *PostgresRepository) GetDashboardMetrics(ctx context.Context, tenantID u
 			subtotal, total_tax, gross_total,
 			invoice_date, delivery_date, due_date, payment_terms,
 			snapshot_data, source_quote_id, notes,
+			zugferd_profile, time_tracking_source, locked_at, locked_by,
+			contact_id,
 			created_by, created_at, updated_at
 		FROM finance_invoices
 		WHERE tenant_id = $1
@@ -253,6 +255,8 @@ func scanInvoice(rows interface{ Scan(dest ...any) error }) (*models.Invoice, er
 		&subtotalStr, &totalTaxStr, &grossTotalStr,
 		&inv.InvoiceDate, &inv.DeliveryDate, &inv.DueDate, &inv.PaymentTerms,
 		&inv.SnapshotData, &inv.SourceQuoteID, &inv.Notes,
+		&inv.ZUGFeRDProfile, &inv.TimeTrackingSource, &inv.LockedAt, &inv.LockedBy,
+		&inv.ContactID,
 		&inv.CreatedBy, &inv.CreatedAt, &inv.UpdatedAt,
 	)
 	if err != nil {
