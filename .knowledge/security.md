@@ -1,6 +1,6 @@
 ---
 tags: [security, auth, compliance, gdpr, rls, multi-tenant]
-updated: 2026-06-17
+updated: 2026-06-19
 ---
 # Security & Compliance
 
@@ -170,11 +170,11 @@ Welle-3.5-Verschaerfung der W2D-C-Lehre: gRPC-Server lasen `tenant_id` aus den P
 
 Zentrales `go-playground/validator/v10`-Framework fuer alle HTTP-Mutation-Handler. Folgt "Thick Services, Thin Handlers": Validierung im Handler zwischen Parse und gRPC-Call.
 
-- **`internal/dachfmt/`** (Leaf, dependency-frei) — pure DACH-Format-Funktionen: `NormalizePhoneE164` (DE/AT/CH, **hierher verschoben aus `dialer`** — Single Source of Truth, `dialer` haelt duennen Alias), `ValidateIBAN` (ISO 7064 mod-97 + Laender-Laengen), `ValidateBIC`, `ValidatePLZ`/`ValidatePLZAny`, `ValidateUStIDDACH`/`ValidateUStIDEU` (VIES-Tabelle aller EU + CH), `ValidateSteuernummer`/`ForBundesland`.
+- **`internal/dachfmt/`** (Leaf, dependency-frei) — pure DACH-Format-Funktionen: `NormalizePhoneE164` (DE/AT/CH, **hierher verschoben aus `dialer`** — Single Source of Truth, `dialer` haelt duennen Alias), `ValidateIBAN` (ISO 7064 mod-97 + Laender-Laengen), `ValidateBIC`, `ValidatePLZ`/`ValidatePLZAny`, `ValidateUStIDDACH`/`ValidateUStIDEU` (VIES-Tabelle aller EU + CH; **2026-06-19 F21: echte Pruefziffer fuer DE (ISO 7064 MOD 11,10)/AT/CH in `ustid_checkdigit.go`, gegen python-stdnum-Vektoren verifiziert — nur DACH gegatet, Rest-EU strukturell, damit valide Nummern nie faelschlich abgelehnt werden**), `ValidateSteuernummer`/`ForBundesland`.
 - **`internal/validation/`** — Singleton-`validator` (lazy `sync.Once`), `RegisterTagNameFunc` ⇒ `details[].field` = JSON-Name. 7 Custom-Validatoren: `phone_dach`, `iban`, `bic`, `plz_dach`, `ustid_dach`, `ustid_eu`, `steuernr`. Custom-Validatoren scheitern auf Leerstring (wie Builtin `email`) ⇒ optionale Felder brauchen `omitempty,<rule>`. `Validate(s) error` → `*Errors`; `ErrorBody(err) (any, bool)` baut den Response-Body.
 - **`gateway.decodeAndValidate[T](w, r) (T, bool)`** (`helpers.go`) — der eine Parse+Validate-Einstieg. Decode-Fehler → `{"error":"invalid request body"}` (Contract-stabil); Validation-Fehler → strukturierte 400.
 - **Error-Shape:** `{"error": "<lesbarer Aggregat-String>", "code": "validation_failed", "details": [{"field","rule","param"}]}`. `error`-Feld bleibt (Frontend `authenticatedFetch.ts` liest nur `.error`); `code`+`details` additiv fuer Field-Level-UI + Frontend-i18n-Mapping. **Backend bleibt EN-only** (kein i18n), Lokalisierung Frontend-seitig via `code`/`rule`.
-- **Grenze (verschachtelte Proto):** Verschachtelte Proto-Typen (`*bizv1.LineItem`) tragen keine `validate`-Tags → nur `required`/`min=1`; tiefere Line-Validierung bleibt DB-CHECK (ADR-0007 Migr. 132: `quantity>0`, `tax_rate 0–100`) + Service-Layer.
+- **Grenze (verschachtelte Proto):** Verschachtelte Proto-Typen (`*bizv1.LineItem`) tragen keine `validate`-Tags → nur `required`/`min=1`; tiefere Line-Validierung bleibt DB-CHECK (ADR-0007 Migr. 132: `quantity>0`, `tax_rate 0–100`) + Service-Layer. **Ausnahme seit F21 (2026-06-19):** Kunden-`ust_id_nr` (`*bizv1.CustomerSnapshot`) wird in Invoice/Quote/CreditNote-Create explizit via `validateCustomerVAT` (Helper in `gateway/helpers.go`, `ustid_eu`-Regel, gleiche `{error,code,details}`-Shape) geprueft.
 - **Grenze (dynamisches JSON):** `json.RawMessage`/`[]byte`/`structpb`-Felder (Inbox-Routing-Rules `conditions`/`actions`, Automation `trigger_config`/`conditions`/`actions`, Formular-`answers`/`fields`, Dashboard-`layout`/`active_widgets`, Berichte-`query_config`/`params`) tragen **keine** Content-Tags — nur die Scalar-Felder werden getaggt; bestehende `json.Valid()`-/Cross-Field-Checks bleiben als Code nach `decodeAndValidate`.
 - **Grenze (proto-direct):** Handler, die den Body **direkt in einen Proto-Typ** dekodieren (kein lokales DTO), folgen „Wrapper nur wo wertvoll": E-Mail-Versand (`to/cc/bcc` → `dive,email`) + Pflicht-IDs/Enums bekommen ein lokales Wrapper-DTO; reine Passthrough-CRUD (Email-Account-CRUD, Plugin-Manifest/Rules-CRUD) bleibt unveraendert mit Code-Notiz `// proto-direct: no local DTO (S4.1 boundary)`.
 - **Test-Helper:** `assertValidationError(t, rec, "field")` (`testutil_test.go`) prueft 400 + `code=="validation_failed"` + Feld in `details`; Malformed-JSON-Tests bleiben auf `assertErrorContains(rec, "invalid request body")`.

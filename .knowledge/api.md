@@ -1,6 +1,6 @@
 ---
 tags: [api, endpoints, openapi]
-updated: 2026-06-18
+updated: 2026-06-19
 ---
 # API-Referenz
 
@@ -8,6 +8,7 @@ updated: 2026-06-18
 - Datei: `backend/api/openapi.yaml` (14.000+ Zeilen, OpenAPI 3.0.3)
 - TypeScript-Generierung: `npm run api:generate` → `desktop/src/renderer/src/api/types.ts` (232KB)
 - Gateway: HTTP REST auf Port 8080, leitet intern an gRPC-Services weiter
+- **Fehler-Shape (vereinheitlicht 2026-06-19, F20):** Gateway-Handler antworten mit JSON `{error}` (via `response.Error`) bzw. `{error, code, details}` fuer Validierungsfehler (via `decodeAndValidate`/`internal/validation`). Kein `text/plain http.Error` mehr — ~420 Stellen ueber 27 `route_*.go` umgestellt.
 
 ## Endpoint-Gruppen
 
@@ -26,7 +27,7 @@ updated: 2026-06-18
 | **Calendar Booking-Pages** (auth) | `/api/v1/calendar/booking-pages`, `/{id}` | CRUD, RequirePermission `booking-pages`, hinter `modules.calendar`-Flag. Verwaltet `booking_pages`+`public_bookings` — siehe [[datenbank]] Chain PILOT |
 | **Public Booking** (unauthenticated) | `/api/v1/public/booking-pages/{slug}`, `/{slug}/availability`, `/bookings` | Eigene Route-Gruppe ohne authMiddleware (Muster `route_guest.go`), IP-Rate-Limit. `GET /{slug}`: öffentliche Page-Info. `GET /{slug}/availability`: freie Slots (aus `availability_rules` minus belegte Calendar-Events). `POST /bookings`: legt Calendar-Event an + Bestaetigungsmail |
 | Video | `/api/v1/video/calls`, `/recordings` | LiveKit-basiert |
-| Finance | `/api/v1/quotes`, `/invoices`, `/datev/export` | Payments, Credit Notes, Dunning, ZUGFeRD |
+| Finance | `/api/v1/quotes`, `/invoices`, `/datev/export` | Payments, Credit Notes, Dunning, ZUGFeRD. **2026-06-19 (Wave 4):** CreateQuoteFromDeal akzeptiert optionales `tax_mode` (Proto-Feld 4; leer → Settings-Fallback via `resolveTaxMode`). Kunden-`ust_id_nr` wird bei Invoice/Quote/CreditNote-Create gegen DACH-Pruefziffer validiert (`ustid_eu`, `validateCustomerVAT`) — siehe [[security]] |
 | Inbox | `/api/v1/inbox` | Messages, Routing Rules, Teams (Unified Inbox) |
 | Automation | `/api/v1/automations` | Workflow CRUD, Execution Logs, Templates |
 | HR | `/api/v1/hr/employees`, `/hr/leave`, `/hr/absences` | Teilt "biz" gRPC-Server. **Seit 2026-06-11:** `POST /hr/employees` (CreateEmployee mit Schema-Defaults `97f30324`), FE↔BE-Shape via `adaptEmployee()` (camelCase, ContractType `intern`/`temporary`/`mini_job` statt `praktikum`/`freelance`, `67fd78b9`); hr_grpc komplett auf `middleware.GetTenantID(ctx)` (`6ff7989a`) |

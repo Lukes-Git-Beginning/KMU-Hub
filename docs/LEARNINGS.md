@@ -215,3 +215,65 @@ zutreffend: die `Idempotency`-Middleware war bereits global aktiv, Production li
 Middleware-Wiring, Prod-Compose/Env, Frontend-Verhalten. Sonst baut man eine Parallel-Mechanik.
 Knowledge-Notizen koennen veraltet sein → gegen den Code/Compose pruefen, nicht der Notiz vertrauen.
 (Defense-in-Depth auf DB-Ebene kann trotzdem sinnvoll sein — aber als bewusste Entscheidung, nicht als "Fix".)
+
+---
+
+## 14. Mechanischer Call-Site-Sweep: gezieltes `sed` statt `goimports -w` über das ganze Glob
+
+**Problem (Finance Wave 4, F20):** ~420 `http.Error(w, msg, code)` → `response.Error(w, code, msg)` über
+27 `route_*.go`. Erster Versuch `goimports -w route_*.go` formatierte **unbeteiligte** Dateien um
+(`route_crm_advisory.go` 192 Zeilen u.a.) — die waren vorbestehend gofmt-dirty, und goimports „repariert"
+beim Schreiben den ganzen File → fremder Churn im Commit.
+
+**Lösung:**
+- Transform per `sed -E -i 's/.../.../g'` **nur** auf den Match-Zeilen (ändert nichts anderes). Vorher per
+  Inverse-Grep verifizieren, dass alle Stellen demselben regulären Muster folgen.
+- Die wenigen **irregulären** Call-Sites (Komma in `fmt.Sprintf`-Message, bereits-JSON-Body, Konkatenation)
+  von Hand — ein naives Regex bricht an Kommas in Argumenten.
+- Fehlenden Import **nur** in den Files ergänzen, wo der Compiler ihn vermisst (`go build` zeigt sie), nicht
+  flächig via goimports.
+
+**Learning:** Für einen großflächigen mechanischen Edit ist ein zeilenbasiertes `sed` mit verifiziert-regulärem
+Muster sauberer (minimaler Diff) als ein AST-/goimports-Rewrite, der ganze Files neu schreibt. AST nur, wenn das
+Muster wirklich unregelmäßig ist.
+
+---
+
+## 15. CRLF-Working-Tree vs. LF-Blob: den **staged Blob** prüfen, nicht den Arbeitsbaum
+
+**Problem (Wave 4, F11/F17/F22):** `core.autocrlf=true` → manche Dateien liegen als CRLF auf Disk. `gofmt -l`
+und `gofmt -d` melden dann einen **Whole-File-Diff** (`@@ -1,N +1,N @@`, jede Zeile geändert) — reines
+EOL-Artefakt, kein echtes Format-Problem. `git -c core.autocrlf=false diff` zeigt denselben Schein-Diff.
+
+**Lösung:**
+- Logischen Diff über **normales** `git diff --cached` ansehen (autocrlf normalisiert auf LF) — zeigt nur die
+  echten Änderungen.
+- gofmt-Sauberkeit am **gestagten Blob** prüfen: `git show :pfad | gofmt -l` (leer = clean). Der Commit-Blob
+  ist immer LF, der `git add`-clean-Filter wandelt CRLF→LF.
+- `gofmt -w` auf ein CRLF-Working-File ist okay (schreibt LF), zieht aber pre-existing-Dirtiness rein, wenn der
+  HEAD-Blob schon dirty war → vorher `git show HEAD:pfad | gofmt -l` prüfen; bei Bedarf File zurücksetzen und
+  die Edits chirurgisch neu anwenden.
+
+**Learning:** Auf Windows mit autocrlf ist der Arbeitsbaum-EOL irreführend. Maßgeblich ist der Blob:
+`git diff --cached` + `git show :pfad | gofmt -l`, nicht `gofmt -l` auf der Disk-Datei.
+
+---
+
+## 16. Prüfziffer-Validierung nur gegen autoritative Vektoren — und nur dort gaten
+
+**Problem (Wave 4, F21):** USt-IdNr-Validierung sollte von rein struktureller Regexp auf echte Prüfziffer
+erweitert werden (DE/AT/CH). Ein **falscher** Check-Digit-Algorithmus lehnt **valide** Nummern ab → blockiert
+echte Kunden. Zusätzlich: die bestehenden „valid"-Test-Vektoren (`DE123456789`, `ATU12345678`, `CHE-123.456.789`)
+waren erfundene Sequenzen — mit echter Prüfziffer-Validierung schlagen sie fehl.
+
+**Lösung:**
+- Algorithmen + **echte gültige/ungültige Vektoren** aus autoritativer Quelle (python-stdnum) holen und jeden
+  Algorithmus gegen den Vektor verifizieren (DE 136695976, AT U13585627, CH 100155212), bevor man ihm vertraut.
+- **Hardrule:** Prüfziffer nur für Länder gaten, deren Algorithmus verifiziert ist (DACH). Alle anderen
+  EU-Länder strukturell lassen — niemals eine strukturell valide Nummer mit ungeprüftem Checksum-Algorithmus
+  ablehnen.
+- Erfundene Test-Fixtures durch echte ersetzen + Wrong-Check-Digit-Negativfälle ergänzen.
+
+**Learning:** Validierung verschärfen ist asymmetrisch riskant — ein False-Reject blockiert echte Daten. Nur
+verschärfen, wo man gegen autoritative Vektoren verifiziert hat; im Zweifel die schwächere (strukturelle) Prüfung
+behalten. Und: gemachte Test-Vektoren sind eine Falle, sobald die Validierung echt wird.
