@@ -158,3 +158,60 @@ Dieses Dokument haelt alle Fehler und Erkenntnisse aus dem Vorgaenger-Projekt fe
 - Circuit Breaker Pattern fuer externe Services
 - `DRY_RUN` Flag fuer alle externen Write-Operationen in Development
 - Fallback-Verhalten definieren (Was passiert wenn LiveKit down ist?)
+
+---
+
+# KMU Hub eigene Learnings
+
+Erkenntnisse aus der KMU-Hub-Entwicklung selbst (nicht aus dem Vorgaenger).
+
+---
+
+## 11. Integrationstest bei Import-Zyklus -> externes `*_test`-Paket
+
+**Problem (Finance Wave 3, F6):** Die atomare `invoice.Send`/`creditnote.Send`-Tx brauchte
+im Test den echten `quote.PostgresNumberSequenceRepo`. Aber `quote` importiert `invoice` (fuer
+`SequenceInfo`) — ein interner Test in `package invoice`, der `quote` importiert, erzeugt einen
+Import-Zyklus ("import cycle not allowed in test").
+
+**Loesung:**
+- Integrationstest in ein **externes** Testpaket legen (`package invoice_test` statt `package invoice`).
+  Es darf sowohl `invoice` als auch `quote` importieren, ohne Zyklus (keine Rueck-Kante auf `invoice_test`).
+- Kosten: keine Sicht auf unexportierte Test-Helper des internen Pakets (`makeInvoice`, `seedTenant`) —
+  diese minimal im externen Paket nachbauen.
+
+**Learning:** Wenn Paket A das zu testende Paket B importiert und der Test B+A braucht, gehoert der
+Test in `package B_test`, nicht `package B`.
+
+---
+
+## 12. Transaktionaler Refactor: `txBeginner`-Interface haelt Unit-Tests am Leben
+
+**Problem (F6):** Sobald `Send` eine echte DB-Tx oeffnet (`pool.Begin`), schlagen alle Mock-basierten
+Send-Unit-Tests fehl (kein echter Pool).
+
+**Loesung:**
+- Service haengt nicht an `*pgxpool.Pool`, sondern an einem winzigen `txBeginner`-Interface
+  (`Begin(ctx) (pgx.Tx, error)`), das `*pgxpool.Pool` in Produktion erfuellt.
+- Unit-Test injiziert einen No-op-Fake (`noopTx` mit eingebettetem nil-`pgx.Tx`, nur `Commit`/`Rollback`
+  ueberschrieben). Mock-Repos ignorieren die Tx -> Orchestrierung (Reihenfolge NextNumberInTx -> UpdateInTx
+  -> Commit) bleibt unit-testbar.
+- Die **echte Atomizitaet** (Rollback) ist NUR per Integrationstest beweisbar: deterministischer Trigger =
+  eine DB-Constraint-Verletzung (`chk_*_lines_quantity > 0` per JSONB-Korruption) erzwingt den Update-Fehler
+  NACH der Nummernvergabe in derselben Tx; danach assert: `current_number` unveraendert + Status `draft`.
+
+**Learning:** Pool-Abhaengigkeit hinter ein Mini-Interface kapseln; Orchestrierung = Unit, Atomizitaet = Integration.
+
+---
+
+## 13. Vermeintliche Luecke erst gegen den Ist-Zustand pruefen
+
+**Problem (F5):** Der Befund "Payment-RecordPayment ohne Idempotency -> Doppelzahlung" war so nicht mehr
+zutreffend: die `Idempotency`-Middleware war bereits global aktiv, Production lief in **HardMode**
+(`docker-compose.prod.yml`), und das Desktop-Frontend injizierte den `Idempotency-Key` automatisch
+(Coverage-Test). Eine veraltete `.knowledge`-Notiz hatte das Gegenteil behauptet.
+
+**Learning:** Bevor man einen "fehlenden" Mechanismus baut, den realen Ist-Zustand verifizieren —
+Middleware-Wiring, Prod-Compose/Env, Frontend-Verhalten. Sonst baut man eine Parallel-Mechanik.
+Knowledge-Notizen koennen veraltet sein → gegen den Code/Compose pruefen, nicht der Notiz vertrauen.
+(Defense-in-Depth auf DB-Ebene kann trotzdem sinnvoll sein — aber als bewusste Entscheidung, nicht als "Fix".)
