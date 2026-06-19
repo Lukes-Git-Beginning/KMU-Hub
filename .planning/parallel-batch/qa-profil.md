@@ -85,3 +85,31 @@
   Console: `documents`-Connection-Refused **weg**; nur noch app-globales feature-flags.
 
 **Commit:** `feat(profil): wire documents tab to MSW (list/upload/preview/download)`
+
+---
+
+## P-3 — Avatar-Upload demo-real (MSW) + DND-Fallback  ✅ fertig
+**Build:** `npm run build` → EXIT 0 (0 TS/Rollup-Fehler).
+**Geändert:**
+- `mocks/handlers/hr.ts`: `POST …/employees/:id/avatar` (Demo — gibt die hochgeladene
+  Data-URL als gespeicherte URL zurück).
+- `modules/profil/tabs/ProfilTab.tsx`:
+  - **Avatar**: `handleAvatarFile` führt den Upload jetzt über eine `useMutation`
+    gegen den MSW-Endpoint (statt nur lokale Data-URL); on success `updateProfile`
+    + lokale Persistenz bleibt (überlebt Reload). „Upload folgt…"-Disclaimer entfernt
+    (`profil.avatar.saved` = „Profilbild gespeichert."), neuer `profil.avatar.error`.
+  - **DND**: kein `disabled` mehr im Demo — Backend-Pfad (MSW `/notifications/dnd`
+    ist stateful gemockt) wenn erreichbar, sonst **lokaler Demo-Fallback** (`dndDemoActive`),
+    der den Schalter umschaltbar hält + den Zustand sichtbar zeigt; Status-Text spiegelt
+    den aktiven Zustand (statt „Backend nicht erreichbar").
+- i18n: `profil.avatar.saved` aktualisiert + `profil.avatar.error` ×4 (via add-Script,
+  Multi-Sub-Cluster: profil.documents. + profil.avatar.).
+
+**Verify (Screenshots angesehen, `qa-profil-avatar-dnd.mjs`):**
+- Avatar: synthetisches PNG → `img[src^="data:image"]` erscheint (0→1) **und überlebt
+  Reload** (1) — Upload läuft über MSW, lokale Persistenz greift.
+- DND: Switch **enabled** (nicht disabled), aria-checked false→true, Status „Deaktiviert"
+  → „Aktiv", Toast „Bitte-nicht-stören aktiviert".
+- Raw-Keys/`{{var}}`: 0. Page-Errors: 0. Console: nur feature-flags (Demo-Lücke).
+
+**Commit:** `feat(profil): route avatar upload through MSW + add DND demo fallback`

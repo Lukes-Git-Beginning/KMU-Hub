@@ -684,6 +684,13 @@ export const hrHandlers = [
     return HttpResponse.json({ documents: docs.length ? docs : hrEmployeeDocs })
   }),
 
+  // Avatar upload (demo) — echoes the uploaded data URL back as the stored
+  // avatar URL. Real backend stores the file and returns a CDN URL.
+  http.post(`${API}/api/v1/hr/employees/:id/avatar`, async ({ request }) => {
+    const body = (await request.json()) as { avatarUrl?: string }
+    return HttpResponse.json({ avatarUrl: body.avatarUrl ?? '' })
+  }),
+
   http.post(`${API}/api/v1/hr/employees/:id/documents`, async ({ params, request }) => {
     const body = (await request.json()) as {
       categoryId: string
