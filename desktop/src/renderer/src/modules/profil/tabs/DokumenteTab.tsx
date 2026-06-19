@@ -1,10 +1,14 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  FileText, Upload, Download, Eye, FolderOpen, Search, Loader2,
+  FileText, Upload, Download, FolderOpen, Search, Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog'
+import { DetailModal } from '@/components/shared/DetailModal'
 import { cn } from '@/lib/cn'
 import { toast } from 'sonner'
 import {
@@ -13,11 +17,20 @@ import {
   useUploadEmployeeDocument,
   useSelfProfile,
 } from '@/api/hooks/hr-hooks'
+import type { EmployeeDocument } from '@/api/hr-types'
 
 export default function DokumenteTab() {
   const { t } = useTranslation()
   const [activeCategory, setActiveCategory] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [previewDoc, setPreviewDoc] = useState<EmployeeDocument | null>(null)
+
+  // Upload dialog state
+  const [showUpload, setShowUpload] = useState(false)
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [uploadCategoryId, setUploadCategoryId] = useState('')
+  const [uploadNotes, setUploadNotes] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Get current employee profile for the employee ID
   const { data: selfProfile } = useSelfProfile()
@@ -26,7 +39,7 @@ export default function DokumenteTab() {
   // TanStack Query hooks
   const { data: documents, isLoading: docsLoading } = useEmployeeDocuments(employeeId)
   const { data: categories } = useDocumentCategories(employeeId)
-  const _uploadMutation = useUploadEmployeeDocument()
+  const uploadMutation = useUploadEmployeeDocument()
 
   const allDocuments = useMemo(() => documents ?? [], [documents])
   const allCategories = categories ?? []
@@ -76,9 +89,59 @@ export default function DokumenteTab() {
     }
   }
 
-  const handleUpload = () => {
-    // Placeholder -- integrate with document service upload flow
-    toast.info(t('profil.documents.uploadConnecting'))
+  // Download a document as a real (demo) text blob — the production backend will
+  // stream the stored file; here we synthesise a placeholder from the metadata.
+  const handleDownload = (doc: EmployeeDocument) => {
+    const lines = [
+      doc.fileName ?? t('profil.documents.unnamed'),
+      doc.categoryName ?? '',
+      `${t('profil.documents.uploaded')}: ${formatDate(doc.createdAt)}${doc.uploaderName ? ` · ${doc.uploaderName}` : ''}`,
+      doc.fileSize ? `${t('profil.documents.fileSize')}: ${doc.fileSize}` : '',
+      doc.notes ? `\n${doc.notes}` : '',
+      `\n[Cosmi — ${t('profil.tabs.documents')} (Demo)]`,
+    ].filter(Boolean)
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = (doc.fileName ?? 'dokument.pdf').replace(/\.[^.]+$/i, '.txt')
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success(t('profil.documents.downloading', { name: doc.fileName ?? '' }))
+  }
+
+  const openUpload = () => {
+    setUploadFile(null)
+    setUploadNotes('')
+    setUploadCategoryId(allCategories[0]?.id ?? '')
+    setShowUpload(true)
+  }
+
+  const handleUploadSubmit = () => {
+    if (!uploadFile) {
+      toast.error(t('profil.documents.selectFileFirst'))
+      return
+    }
+    const sizeKb = Math.max(1, Math.round(uploadFile.size / 1024))
+    uploadMutation.mutate(
+      {
+        employeeId,
+        data: {
+          categoryId: uploadCategoryId || allCategories[0]?.id || 'hrcat-other',
+          fileId: `file-${Date.now()}`,
+          fileName: uploadFile.name,
+          fileSize: `${sizeKb} KB`,
+          notes: uploadNotes.trim() || undefined,
+        },
+      },
+      {
+        onSuccess: () => {
+          setShowUpload(false)
+          setUploadFile(null)
+          setUploadNotes('')
+        },
+      },
+    )
   }
 
   return (
@@ -146,7 +209,7 @@ export default function DokumenteTab() {
               size="sm"
               variant="outline"
               className="gap-2"
-              onClick={handleUpload}
+              onClick={openUpload}
             >
               <Upload className="h-4 w-4" />
               {t('common.upload')}
@@ -194,7 +257,17 @@ export default function DokumenteTab() {
                 return (
                   <div
                     key={doc.id}
-                    className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card hover:border-primary/30 transition-colors group"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setPreviewDoc(doc)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setPreviewDoc(doc)
+                      }
+                    }}
+                    aria-label={t('profil.documents.openDocument', { name: doc.fileName ?? t('profil.documents.unnamed') })}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card hover:border-primary/30 hover:bg-secondary/30 transition-colors group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {/* File type badge */}
                     <span className={cn(
@@ -209,6 +282,12 @@ export default function DokumenteTab() {
                       <p className="text-sm font-medium text-foreground truncate">{doc.fileName ?? t('profil.documents.unnamed')}</p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                         <span>{formatDate(doc.createdAt)}</span>
+                        {doc.fileSize && (
+                          <>
+                            <span className="text-border">|</span>
+                            <span>{doc.fileSize}</span>
+                          </>
+                        )}
                         {doc.categoryName && (
                           <>
                             <span className="text-border">|</span>
@@ -228,18 +307,12 @@ export default function DokumenteTab() {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                       <button
-                        onClick={() => toast.info(t('profil.documents.previewOpening'))}
-                        className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-                        title={t('profil.documents.preview')}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => toast.success(t('profil.documents.downloading', { name: doc.fileName }))}
+                        onClick={(e) => { e.stopPropagation(); handleDownload(doc) }}
                         className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
                         title={t('common.download')}
+                        aria-label={t('common.download')}
                       >
                         <Download className="h-4 w-4" />
                       </button>
@@ -251,6 +324,131 @@ export default function DokumenteTab() {
           )}
         </div>
       </div>
+
+      {/* Preview — centered DetailModal (metadata + placeholder preview) */}
+      <DetailModal
+        open={!!previewDoc}
+        onClose={() => setPreviewDoc(null)}
+        title={previewDoc?.fileName ?? t('profil.documents.unnamed')}
+        subtitle={previewDoc?.categoryName}
+        badge={
+          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+            {t('profil.documents.previewBadge')}
+          </span>
+        }
+        maxWidth="max-w-lg"
+        footer={
+          previewDoc && (
+            <div className="flex justify-end">
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => handleDownload(previewDoc)}>
+                <Download className="h-3.5 w-3.5" />
+                {t('common.download')}
+              </Button>
+            </div>
+          )
+        }
+      >
+        {previewDoc && (
+          <div className="space-y-5">
+            <div className="mx-auto max-w-sm rounded-lg border border-border bg-secondary/20 p-8 text-center">
+              <div className={cn(
+                'mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg',
+                getTypeColor(getFileExtension(previewDoc.fileName ?? '')),
+              )}>
+                <FileText className="h-6 w-6" />
+              </div>
+              <p className="text-sm font-semibold text-foreground break-all">{previewDoc.fileName}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{previewDoc.categoryName}</p>
+            </div>
+            <dl className="space-y-2 text-xs">
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">{t('profil.documents.uploaded')}</dt>
+                <dd className="text-foreground text-right">{formatDate(previewDoc.createdAt)}{previewDoc.uploaderName ? ` · ${previewDoc.uploaderName}` : ''}</dd>
+              </div>
+              {previewDoc.fileSize && (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted-foreground">{t('profil.documents.fileSize')}</dt>
+                  <dd className="text-foreground">{previewDoc.fileSize}</dd>
+                </div>
+              )}
+              {previewDoc.notes && (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted-foreground">{t('profil.documents.note')}</dt>
+                  <dd className="text-foreground text-right">{previewDoc.notes}</dd>
+                </div>
+              )}
+            </dl>
+            <p className="border-t border-border pt-4 text-xs text-muted-foreground">
+              {t('profil.documents.previewHint')}
+            </p>
+          </div>
+        )}
+      </DetailModal>
+
+      {/* Upload dialog */}
+      <Dialog open={showUpload} onOpenChange={(o) => { if (!o) { setShowUpload(false); setUploadFile(null) } }}>
+        <DialogContent className="gap-0 p-0 max-w-md">
+          <div className="p-6">
+            <DialogHeader className="mb-4">
+              <DialogTitle className="text-base font-semibold text-foreground">{t('profil.documents.uploadTitle')}</DialogTitle>
+              <DialogDescription className="sr-only">{t('profil.documents.uploadTitle')}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg,.docx"
+                className="hidden"
+                onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full rounded-lg border-2 border-dashed border-border bg-secondary/20 p-8 text-center hover:border-primary/50 transition-colors"
+              >
+                <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                {uploadFile ? (
+                  <p className="text-sm font-medium text-foreground break-all">{uploadFile.name}</p>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground">{t('profil.documents.uploadDropOrClick')}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{t('profil.documents.uploadAllowedFormats')}</p>
+                  </>
+                )}
+              </button>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{t('profil.documents.uploadCategory')}</label>
+                <select
+                  value={uploadCategoryId}
+                  onChange={(e) => setUploadCategoryId(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                >
+                  {allCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{t('profil.documents.uploadNotes')}</label>
+                <textarea
+                  value={uploadNotes}
+                  onChange={(e) => setUploadNotes(e.target.value)}
+                  rows={2}
+                  placeholder={t('profil.documents.uploadNotesPlaceholder')}
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                />
+              </div>
+            </div>
+            <DialogFooter className="mt-6">
+              <Button variant="outline" size="sm" onClick={() => { setShowUpload(false); setUploadFile(null) }}>
+                {t('common.cancel')}
+              </Button>
+              <Button size="sm" onClick={handleUploadSubmit} disabled={uploadMutation.isPending}>
+                {uploadMutation.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                {t('common.upload')}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

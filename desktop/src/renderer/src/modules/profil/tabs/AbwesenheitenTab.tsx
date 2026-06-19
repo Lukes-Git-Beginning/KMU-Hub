@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Plus, Palmtree, Thermometer, Home, GraduationCap, HelpCircle,
@@ -35,6 +35,59 @@ const LEAVE_TYPE_ICONS: Record<string, typeof Palmtree> = {
   homeoffice: Home,
   weiterbildung: GraduationCap,
   sonderurlaub: HelpCircle,
+}
+
+// Maps the demo leave-type ids (team.ts seed) to the icon keys above.
+const LEAVE_TYPE_KEY_BY_ID: Record<string, string> = {
+  'lt-001': 'urlaub',
+  'lt-002': 'krankheit',
+  'lt-003': 'sonderurlaub',
+  'lt-004': 'urlaub',
+  'lt-005': 'homeoffice',
+}
+
+/** Shape this tab renders — a tolerant subset of the camelCase LeaveRequest. */
+interface NormalisedLeave {
+  id: string
+  userId: string
+  leaveType: { key: string; name: string }
+  startDate: string
+  endDate: string
+  totalDays: number
+  isHalfDayStart: boolean
+  isHalfDayEnd: boolean
+  reason: string
+  approvalComment: string
+  auDocumentRequired: boolean
+  auDocumentFileId?: string
+  status: string
+  createdAt: string
+}
+
+/** Normalises a raw leave request (snake_case wire shape or camelCase) to the
+ *  shape this tab renders, so it stays robust regardless of which demo handler
+ *  serves the data. */
+function normaliseLeaveRequest(r: Record<string, unknown>): NormalisedLeave {
+  const typeId = String(r.leaveTypeId ?? r.type_id ?? r.leave_type_id ?? '')
+  const lt = r.leaveType as { key?: string; name?: string } | undefined
+  const key = lt?.key ?? LEAVE_TYPE_KEY_BY_ID[typeId] ?? ''
+  const name = lt?.name ?? (r.type as string | undefined) ?? ''
+  return {
+    id: String(r.id ?? ''),
+    userId: String(r.employeeId ?? r.user_id ?? r.userId ?? ''),
+    leaveType: { key, name },
+    startDate: String(r.startDate ?? r.start_date ?? ''),
+    endDate: String(r.endDate ?? r.end_date ?? ''),
+    totalDays: Number(r.totalDays ?? r.days ?? 0),
+    isHalfDayStart: Boolean(r.isHalfDayStart ?? r.is_half_day_start),
+    isHalfDayEnd: Boolean(r.isHalfDayEnd ?? r.is_half_day_end),
+    reason: String(r.reason ?? r.note ?? ''),
+    approvalComment: String(r.approvalComment ?? r.approval_comment ?? ''),
+    auDocumentRequired: Boolean(r.auDocumentRequired ?? r.au_document_required),
+    auDocumentFileId: (r.auDocumentFileId ?? r.au_document_file_id) as string | undefined,
+    status: String(r.status ?? 'pending'),
+    createdAt: String(r.createdAt ?? r.created_at ?? ''),
+  }
 }
 
 export default function AbwesenheitenTab() {
@@ -75,16 +128,33 @@ export default function AbwesenheitenTab() {
   const cancelMutation = useCancelLeaveRequest()
   const sickMutation = useRecordSickLeave()
 
-  const requests = requestsData?.requests ?? []
+  // The demo leave-request endpoint serves the shared HR snake_case shape (the
+  // team self-service + approval views consume it raw) and ignores employee_id.
+  // This self-profile tab was written against the camelCase LeaveRequest type,
+  // so normalise the wire shape here and show only the current user's own
+  // requests (client-side filter, since the server returns everyone's).
+  const requests = useMemo(
+    () =>
+      (requestsData?.requests ?? [])
+        .map((r) => normaliseLeaveRequest(r as Record<string, unknown>))
+        .filter((r) => !user || r.userId === user.id),
+    [requestsData, user],
+  )
   const filtered = filter === 'all' ? requests : requests.filter((r) => r.status === filter)
   const sorted = [...filtered].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 
-  // Stats
-  const vacationUsed = balance?.used ?? 0
-  const vacationTotal = balance?.totalEntitlement ?? 0
-  const vacationRemaining = balance?.remaining ?? 0
-  const carriedOver = balance?.carriedOver ?? 0
-  const carryoverExpired = balance?.carryoverExpired ?? false
+  // Stats — tolerate both the camelCase LeaveBalance type and the demo handler's
+  // snake-ish shape (entitlement/taken) so the numbers stay consistent.
+  const bal = (balance ?? {}) as Record<string, unknown>
+  const num = (...vals: unknown[]) => {
+    const v = vals.find((x) => typeof x === 'number')
+    return typeof v === 'number' ? v : 0
+  }
+  const vacationUsed = num(bal.used, bal.taken)
+  const vacationTotal = num(bal.totalEntitlement, bal.entitlement)
+  const vacationRemaining = num(bal.remaining)
+  const carriedOver = num(bal.carriedOver, bal.carried_over)
+  const carryoverExpired = Boolean(bal.carryoverExpired ?? bal.carryover_expired ?? false)
   const vacationPercent = vacationTotal > 0 ? Math.round((vacationUsed / vacationTotal) * 100) : 0
 
   // Carryover warning: show if carried over > 0 and it's past February 1

@@ -20,6 +20,8 @@ import type { PresenceLevel } from '@/api/video-types'
 import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTextEditor'
 import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom'
+import { useMutation } from '@tanstack/react-query'
+import { API_BASE_URL } from '@/lib/constants'
 import {
   useDNDStatus,
   useEnableDND,
@@ -43,7 +45,7 @@ const MAX_AVATAR_BYTES = 1.5 * 1024 * 1024
 const KNOWN_ROLE_KEYS = ['admin', 'manager', 'employee'] as const satisfies ReadonlyArray<string>
 
 export default function ProfilTab() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const profile = useSettingsStore((s) => s.profile)
   const updateProfile = useSettingsStore((s) => s.updateProfile)
   const mailSignature = useSettingsStore((s) => s.mail.signature)
@@ -67,14 +69,24 @@ export default function ProfilTab() {
   const soundEnabled = useNotificationsStore((s) => s.soundEnabled)
   const toggleSound = useNotificationsStore((s) => s.toggleSound)
 
-  // DND — backend-driven via React Query. isLoading = backend unreachable in dev.
+  // DND — backend-driven via React Query when reachable (demo MSW serves it);
+  // otherwise a local demo fallback keeps the toggle switchable and stateful.
   const { data: dndStatus, isLoading: dndLoading, isError: dndError } = useDNDStatus()
   const enableDND = useEnableDND()
   const disableDND = useDisableDND()
   const dndBackendAvailable = !dndLoading && !dndError
+  const [dndDemoActive, setDndDemoActive] = useState(false)
+  const dndActive = dndBackendAvailable ? (dndStatus?.is_active ?? false) : dndDemoActive
 
   const handleToggleDND = () => {
-    if (!dndBackendAvailable) return
+    if (!dndBackendAvailable) {
+      // Local demo fallback (no backend) — toggle + reflect state.
+      setDndDemoActive((prev) => {
+        toast.success(t(prev ? 'settings.notifications.dnd.deactivated' : 'settings.notifications.dnd.activated'))
+        return !prev
+      })
+      return
+    }
     if (dndStatus?.is_active) {
       disableDND.mutate(undefined, {
         onSuccess: () => toast.success(t('settings.notifications.dnd.deactivated')),
@@ -86,10 +98,29 @@ export default function ProfilTab() {
     }
   }
 
-  // Avatar upload UI — local preview + mock-first persistence as data URL in
-  // the settings store; the real upload endpoint is Luke's backend (handover).
+  // Avatar upload — routed through a demo MSW endpoint (POST .../avatar echoes
+  // the URL back), then persisted locally so it survives reload. The real
+  // backend stores the file and returns a CDN URL (same mutation shape).
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+
+  const avatarMutation = useMutation({
+    mutationFn: async (dataUrl: string): Promise<string> => {
+      const res = await fetch(`${API_BASE_URL}/api/v1/hr/employees/${user?.id ?? 'me'}/avatar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatarUrl: dataUrl }),
+      })
+      const json = (await res.json()) as { avatarUrl?: string }
+      return json.avatarUrl || dataUrl
+    },
+    onSuccess: (url) => {
+      updateProfile({ avatarUrl: url })
+      setAvatarPreview(null)
+      toast.success(t('profil.avatar.saved'))
+    },
+    onError: () => toast.error(t('profil.avatar.error')),
+  })
 
   const handleAvatarFile = (file: File | undefined) => {
     if (!file) return
@@ -105,8 +136,7 @@ export default function ProfilTab() {
     const reader = new FileReader()
     reader.onload = () => {
       if (typeof reader.result === 'string') {
-        updateProfile({ avatarUrl: reader.result })
-        toast.success(t('profil.avatar.saved'))
+        avatarMutation.mutate(reader.result)
       }
     }
     reader.readAsDataURL(file)
@@ -127,6 +157,15 @@ export default function ProfilTab() {
 
   // Email from auth store (single source of truth), falls back to profile store.
   const displayEmail = user?.email ?? form.email
+
+  // "Member since" — demo join date from the profile seed (real backend will
+  // supply this via /auth/me). Formatted as month + year in the active locale.
+  const memberSince = profile.joinedAt
+    ? new Date(profile.joinedAt).toLocaleDateString(i18n.language, {
+        year: 'numeric',
+        month: 'long',
+      })
+    : null
 
   const handleChange = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -243,18 +282,16 @@ export default function ProfilTab() {
                 <p className="text-xs text-muted-foreground">
                   {dndLoading
                     ? t('profil.notifications.dnd.loading')
-                    : dndError
-                      ? t('profil.notifications.dnd.unavailable')
-                      : dndStatus?.is_active
-                        ? t('settings.notifications.dnd.statusActive')
-                        : t('settings.notifications.dnd.statusInactive')}
+                    : dndActive
+                      ? t('settings.notifications.dnd.statusActive')
+                      : t('settings.notifications.dnd.statusInactive')}
                 </p>
               </div>
             </div>
             <Switch
-              checked={dndBackendAvailable ? (dndStatus?.is_active ?? false) : false}
+              checked={dndActive}
               onCheckedChange={handleToggleDND}
-              disabled={!dndBackendAvailable || enableDND.isPending || disableDND.isPending}
+              disabled={dndLoading || (dndBackendAvailable && (enableDND.isPending || disableDND.isPending))}
               aria-label={t('profil.notifications.dnd.label')}
             />
           </div>
@@ -351,8 +388,12 @@ export default function ProfilTab() {
             <p className="text-xs text-muted-foreground">{t('profil.field.email')}</p>
             <p className="text-sm font-medium text-foreground">{displayEmail || '—'}</p>
           </div>
-          {/* memberSince removed: User object has no created_at field.
-              Backend /auth/me needs a created_at field — open Darien question, see profil.md Phase 6. */}
+          {memberSince && (
+            <div>
+              <p className="text-xs text-muted-foreground">{t('profil.info.memberSince')}</p>
+              <p className="text-sm font-medium text-foreground">{memberSince}</p>
+            </div>
+          )}
         </div>
       </div>
 

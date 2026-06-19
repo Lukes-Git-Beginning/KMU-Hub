@@ -21,6 +21,9 @@ export interface ProfileSettings {
   position: string
   bio: string
   avatarUrl: string | null
+  /** Demo "member since" date (ISO). Mirrors the authenticated user's join
+   *  date; the real backend will supply this via /auth/me in production. */
+  joinedAt: string
 }
 
 export interface AppearanceSettings {
@@ -121,14 +124,19 @@ interface SettingsState {
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
+      // Seed mirrors the authenticated demo user (Stefan Vogel / usr-e1, the
+      // single source of truth in mocks/data/shared-ids.ts → CURRENT_USER and
+      // /auth/me). Kept as plain literals so mock data never enters the prod
+      // bundle; the real backend overwrites these from the user profile.
       profile: {
-        firstName: 'Darien',
-        lastName: 'Morales',
-        email: 'darien@firma.de',
-        phone: '+49 170 123 45 67',
-        position: 'UI/UX Designer',
-        bio: 'Designer mit Leidenschaft für schöne und funktionale Interfaces.',
+        firstName: 'Stefan',
+        lastName: 'Vogel',
+        email: 'stefan.vogel@techvision.de',
+        phone: '+49 151 2345 6789',
+        position: 'Geschäftsführer',
+        bio: 'Geschäftsführer der TechVision GmbH — Fokus auf nachhaltige Digitalisierung im Mittelstand.',
         avatarUrl: null,
+        joinedAt: '2021-03-01',
       },
 
       appearance: {
@@ -154,12 +162,12 @@ export const useSettingsStore = create<SettingsState>()(
       },
 
       mail: {
-        imapHost: 'imap.firma.de',
+        imapHost: 'imap.techvision.de',
         imapPort: 993,
-        smtpHost: 'smtp.firma.de',
+        smtpHost: 'smtp.techvision.de',
         smtpPort: 587,
-        username: 'darien@firma.de',
-        signature: '<p>Mit freundlichen Grüßen<br/>Darien Morales<br/>UI/UX Designer</p>',
+        username: 'stefan.vogel@techvision.de',
+        signature: '<p>Mit freundlichen Grüßen<br/>Stefan Vogel<br/>Geschäftsführer</p>',
         autoReplyEnabled: false,
         autoReplyMessage: 'Vielen Dank für Ihre Nachricht. Ich bin derzeit nicht im Büro und werde mich nach meiner Rückkehr bei Ihnen melden.',
       },
