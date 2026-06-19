@@ -113,3 +113,30 @@
 - Raw-Keys/`{{var}}`: 0. Page-Errors: 0. Console: nur feature-flags (Demo-Lücke).
 
 **Commit:** `feat(profil): route avatar upload through MSW + add DND demo fallback`
+
+---
+
+## P-4 — Dead-Code-Cleanup (verwaister zeiterfassung-Ordner)  ✅ fertig
+**Build:** `npm run build` → EXIT 0 (0 „Could not resolve"/TS/Rollup-Fehler).
+**Abgesichert vor Löschung:** grep über `src/` — **kein** Import (absolut, relativ
+`./`, `../`, oder via Pfad-Substring `tabs/zeiterfassung`) zeigt in den Ordner;
+`ZeiterfassungTab.tsx` nutzt ausschließlich `@/modules/zeiterfassung/components/*`
+(das echte Modul) + hr-hooks. → 11 verwaiste Dateien gelöscht
+(`TodayView/WeekView/MonthView/ReportsView/TeamView/OverviewView/CategoriesView/
+ApprovalBanner/ExportDialog/ManualEntryForm/time-utils`).
+**i18n-Purge (konservativ):** keine dynamische/konkatenierte `profil.zeiterfassung.*`-
+Nutzung (geprüft) → statisches Greppen zuverlässig. Pro Key Live-Usage über den
+**gesamten** ts/tsx-Tree gezählt: **151 von 199** Keys mit **null** Live-Referenz
+(gehörten exklusiv zu den gelöschten Views) → in allen 4 Sprachen entfernt; die
+**48** aktiv genutzten (echtes zeiterfassung-Modul + hr-hooks) **behalten**.
+Zeilenbasierte Entfernung + JSON-Validierung. Untracked Helper
+`scripts/purge-profil-zeiterfassung-i18n.mjs` (recomputet das Dead-Set).
+
+**Verify (Screenshots angesehen):**
+- Build grün, keine Missing-Import-Fehler.
+- Zeiterfassung-Tab unverändert funktional: Heute (KPIs + Einträge), Woche,
+  **Auswertungen** (KPIs, Stunden-pro-Tag-Chart, Nach-Projekt, Abrechenbar-Donut),
+  Team, Korrekturen — alle gerendert, **0 Raw-Keys** in allen Sub-Tabs (1440+1024).
+- Da entfernte Keys 0 Live-Referenzen hatten, kann keine View einen Raw-Key zeigen.
+
+**Commit:** `refactor(profil): remove orphaned zeiterfassung folder + 151 dead i18n keys`
