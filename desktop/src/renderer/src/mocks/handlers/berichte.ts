@@ -1,17 +1,26 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
-import type { DashboardKPI } from '@/api/berichte-types'
+import { buildSimplePdf, type PdfLine } from '@/modules/finanzen/lib/mini-pdf'
+import type {
+  DashboardKPI,
+  ReportColumn,
+  ReportDefinition,
+  ReportResult,
+  ReportSchedule,
+  ReportSeries,
+} from '@/api/berichte-types'
 
 const API = API_BASE_URL
+const TENANT = 't-demo'
 
 // ---------------------------------------------------------------------------
 // Dashboard KPIs
 //
 // The berichte (Reports/BI) backend is not yet available; the renderer fetches
-// `/api/v1/berichte/kpis` directly. Without this handler the dashboard renders
-// its empty state and no KPI cards (so the sparkline feature would be invisible
-// in demo mode). We serve a stable, representative set of KPIs per module.
-// Backend gap (real time-series + KPI service) tracked in backend-gaps.md.
+// `/api/v1/berichte/*` directly. This handler serves a representative, stateful
+// demo surface so all four tabs (Dashboard / Erstellen / Geplant / DATEV) live
+// in demo mode. Backend gap (real time-series + KPI + schedule service) tracked
+// in backend-gaps.md. No-Code query builder + real DATEV stay 🔒 (Luke).
 // ---------------------------------------------------------------------------
 
 const DEMO_KPIS: DashboardKPI[] = [
@@ -26,7 +35,258 @@ const DEMO_KPIS: DashboardKPI[] = [
   { id: 'kpi-aktive-projekte', label: 'Aktive Projekte', value: '9', unit: '', change_percent: null, module_id: 'cross' },
 ]
 
+// ---------------------------------------------------------------------------
+// Report definitions (system, published)
+// ---------------------------------------------------------------------------
+
+function def(
+  id: string,
+  name: string,
+  description: string,
+  module: ReportDefinition['module'],
+  configKind: string,
+): ReportDefinition {
+  const now = new Date().toISOString()
+  return {
+    id,
+    tenant_id: TENANT,
+    name,
+    description,
+    module,
+    kind: 'system',
+    query_config: { kind: configKind },
+    default_format: 'pdf',
+    created_by: null,
+    is_published: true,
+    created_at: now,
+    updated_at: now,
+  }
+}
+
+const DEMO_DEFINITIONS: ReportDefinition[] = [
+  def('def-umsatz', 'Umsatzverlauf', 'Monatlicher Umsatz der letzten 12 Monate inkl. Trend.', 'finanzen', 'revenue'),
+  def('def-tickets', 'Helpdesk-Auslastung', 'Offene und gelöste Tickets pro Monat.', 'helpdesk', 'tickets'),
+  def('def-lager', 'Lagerwert-Entwicklung', 'Entwicklung des Lagerwerts über das Jahr.', 'inventar', 'inventory_value'),
+  def('def-leads', 'Lead-Conversion', 'Conversion-Rate neuer Leads je Monat.', 'crm', 'lead_conversion'),
+  def('def-datev-bwa', 'DATEV BWA', 'Betriebswirtschaftliche Auswertung (DATEV-Format).', 'finanzen', 'datev_bwa'),
+  def('def-datev-susa', 'DATEV Summen- und Saldenliste', 'Summen- und Saldenliste je Konto (DATEV-Format).', 'finanzen', 'datev_susa'),
+]
+
+// ---------------------------------------------------------------------------
+// Report results (per definition) — series for charts, columns+rows for tables
+// ---------------------------------------------------------------------------
+
+const MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
+
+function monthlySeries(id: string, label: string, base: number, step: number, jitter: number): ReportSeries {
+  return {
+    id,
+    label,
+    data: MONTHS.map((m, i) => ({
+      label: m,
+      value: Math.round(base + step * i + Math.sin(i * 1.3) * jitter),
+    })),
+  }
+}
+
+function seriesToRows(series: ReportSeries, valueKey: string): Record<string, unknown>[] {
+  return series.data.map((p) => ({ monat: p.label, [valueKey]: p.value }))
+}
+
+function metaFor(id: string, rowCount: number): ReportResult['meta'] {
+  return { generated_at: new Date().toISOString(), row_count: rowCount, definition_id: id }
+}
+
+function buildResults(): Record<string, ReportResult> {
+  const results: Record<string, ReportResult> = {}
+
+  const umsatz = monthlySeries('umsatz', 'Umsatz (€)', 62000, 2100, 4800)
+  results['def-umsatz'] = {
+    columns: [
+      { key: 'monat', label: 'Monat', type: 'string' },
+      { key: 'wert', label: 'Umsatz', type: 'currency' },
+    ],
+    rows: seriesToRows(umsatz, 'wert'),
+    series: [umsatz],
+    totals: { wert: umsatz.data.reduce((s, p) => s + p.value, 0) },
+    meta: metaFor('def-umsatz', 12),
+  }
+
+  const ticketsOpen = monthlySeries('open', 'Offen', 18, -0.4, 5)
+  const ticketsSolved = monthlySeries('solved', 'Gelöst', 42, 1.1, 7)
+  results['def-tickets'] = {
+    columns: [
+      { key: 'monat', label: 'Monat', type: 'string' },
+      { key: 'offen', label: 'Offen', type: 'number' },
+      { key: 'geloest', label: 'Gelöst', type: 'number' },
+    ],
+    rows: MONTHS.map((m, i) => ({ monat: m, offen: ticketsOpen.data[i].value, geloest: ticketsSolved.data[i].value })),
+    series: [ticketsOpen, ticketsSolved],
+    meta: metaFor('def-tickets', 12),
+  }
+
+  const lager = monthlySeries('lager', 'Lagerwert (€)', 392000, 2400, 9000)
+  results['def-lager'] = {
+    columns: [
+      { key: 'monat', label: 'Monat', type: 'string' },
+      { key: 'wert', label: 'Lagerwert', type: 'currency' },
+    ],
+    rows: seriesToRows(lager, 'wert'),
+    series: [lager],
+    totals: { wert: lager.data[lager.data.length - 1].value },
+    meta: metaFor('def-lager', 12),
+  }
+
+  const leads = monthlySeries('conv', 'Conversion (%)', 26, 0.6, 3)
+  results['def-leads'] = {
+    columns: [
+      { key: 'monat', label: 'Monat', type: 'string' },
+      { key: 'rate', label: 'Conversion-Rate', type: 'percent' },
+    ],
+    rows: seriesToRows(leads, 'rate'),
+    series: [leads],
+    meta: metaFor('def-leads', 12),
+  }
+
+  // DATEV BWA — position / current / prior year
+  const bwaCols: ReportColumn[] = [
+    { key: 'position', label: 'Position', type: 'string' },
+    { key: 'betrag', label: 'Aktuelles Jahr', type: 'currency' },
+    { key: 'vorjahr', label: 'Vorjahr', type: 'currency' },
+  ]
+  const bwaRows: Record<string, unknown>[] = [
+    { position: 'Umsatzerlöse', betrag: 984500, vorjahr: 902300 },
+    { position: 'Materialaufwand', betrag: -312400, vorjahr: -298100 },
+    { position: 'Rohertrag', betrag: 672100, vorjahr: 604200 },
+    { position: 'Personalkosten', betrag: -348900, vorjahr: -321500 },
+    { position: 'Raumkosten', betrag: -58200, vorjahr: -56800 },
+    { position: 'Abschreibungen', betrag: -41300, vorjahr: -39900 },
+    { position: 'Sonstige Kosten', betrag: -72600, vorjahr: -68400 },
+    { position: 'Betriebsergebnis', betrag: 151100, vorjahr: 117600 },
+  ]
+  results['def-datev-bwa'] = {
+    columns: bwaCols,
+    rows: bwaRows,
+    meta: metaFor('def-datev-bwa', bwaRows.length),
+  }
+
+  // DATEV SuSa — account / name / debit / credit / balance
+  const susaCols: ReportColumn[] = [
+    { key: 'konto', label: 'Konto', type: 'string' },
+    { key: 'bezeichnung', label: 'Bezeichnung', type: 'string' },
+    { key: 'soll', label: 'Soll', type: 'currency' },
+    { key: 'haben', label: 'Haben', type: 'currency' },
+    { key: 'saldo', label: 'Saldo', type: 'currency' },
+  ]
+  const susaRows: Record<string, unknown>[] = [
+    { konto: '1200', bezeichnung: 'Bank', soll: 248300, haben: 191200, saldo: 57100 },
+    { konto: '1400', bezeichnung: 'Forderungen aL+L', soll: 132900, haben: 98400, saldo: 34500 },
+    { konto: '1600', bezeichnung: 'Verbindlichkeiten aL+L', soll: 72100, haben: 114800, saldo: -42700 },
+    { konto: '1576', bezeichnung: 'Vorsteuer 19 %', soll: 59400, haben: 0, saldo: 59400 },
+    { konto: '1776', bezeichnung: 'Umsatzsteuer 19 %', soll: 0, haben: 187100, saldo: -187100 },
+    { konto: '4000', bezeichnung: 'Umsatzerlöse', soll: 0, haben: 984500, saldo: -984500 },
+    { konto: '6000', bezeichnung: 'Personalkosten', soll: 348900, haben: 0, saldo: 348900 },
+  ]
+  results['def-datev-susa'] = {
+    columns: susaCols,
+    rows: susaRows,
+    meta: metaFor('def-datev-susa', susaRows.length),
+  }
+
+  return results
+}
+
+const REPORT_RESULTS = buildResults()
+
+// ---------------------------------------------------------------------------
+// Export helpers (real Blob downloads — CSV text + one-page PDF)
+// ---------------------------------------------------------------------------
+
+function resultToCsv(result: ReportResult): string {
+  const header = result.columns.map((c) => c.label).join(';')
+  const lines = result.rows.map((row) =>
+    result.columns
+      .map((c) => {
+        const v = row[c.key]
+        return v === null || v === undefined ? '' : String(v)
+      })
+      .join(';'),
+  )
+  return [header, ...lines].join('\r\n')
+}
+
+function resultToPdf(definition: ReportDefinition, result: ReportResult): Uint8Array {
+  const lines: PdfLine[] = [
+    { text: 'Zentria GmbH · Cosmi', size: 9 },
+    { text: definition.name, size: 20, gap: 6 },
+    { text: definition.description, size: 9, gap: 8 },
+  ]
+  // Header row
+  lines.push({ text: result.columns.map((c) => c.label).join('   '), size: 10, gap: 2 })
+  for (const row of result.rows.slice(0, 30)) {
+    lines.push({
+      text: result.columns.map((c) => String(row[c.key] ?? '—')).join('   '),
+      size: 9,
+    })
+  }
+  lines.push({ text: '', gap: 8 })
+  lines.push({ text: 'Demo-Bericht (Cosmi) — finale BI-/DATEV-Anbindung folgt.', size: 8 })
+  return buildSimplePdf(lines)
+}
+
+const CONTENT_TYPES: Record<string, string> = {
+  pdf: 'application/pdf',
+  csv: 'text/csv;charset=utf-8',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+}
+
+function slugify(name: string): string {
+  return name
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+}
+
+// ---------------------------------------------------------------------------
+// Schedules — stateful, session-persistent (in-memory, reset on reload)
+// ---------------------------------------------------------------------------
+
+function hoursAgo(h: number): string {
+  return new Date(Date.now() - h * 3600_000).toISOString()
+}
+
+let SCHEDULES: ReportSchedule[] = [
+  {
+    id: 'sch-1', tenant_id: TENANT, definition_id: 'def-umsatz',
+    name: 'Wöchentlicher Umsatzbericht', cron_expression: '0 8 * * MON',
+    recipients: ['finanzen@zentria.tech'], format: 'pdf', params: {},
+    active: true, last_run_at: hoursAgo(20), last_run_status: 'success', last_run_error: null,
+    created_by: null, created_at: hoursAgo(720), updated_at: hoursAgo(20),
+  },
+  {
+    id: 'sch-2', tenant_id: TENANT, definition_id: 'def-datev-bwa',
+    name: 'Monatliche BWA', cron_expression: '0 6 1 * *',
+    recipients: ['buchhaltung@zentria.tech', 'gf@zentria.tech'], format: 'xlsx', params: {},
+    active: true, last_run_at: hoursAgo(54), last_run_status: 'success', last_run_error: null,
+    created_by: null, created_at: hoursAgo(2160), updated_at: hoursAgo(54),
+  },
+  {
+    id: 'sch-3', tenant_id: TENANT, definition_id: 'def-tickets',
+    name: 'Täglicher Ticket-Report', cron_expression: '0 18 * * *',
+    recipients: ['support@zentria.tech'], format: 'csv', params: {},
+    active: false, last_run_at: hoursAgo(96), last_run_status: 'skipped', last_run_error: null,
+    created_by: null, created_at: hoursAgo(480), updated_at: hoursAgo(96),
+  },
+]
+
+let scheduleCounter = SCHEDULES.length
+
+// ---------------------------------------------------------------------------
+// Handlers
+// ---------------------------------------------------------------------------
+
 export const berichteHandlers = [
+  // --- Dashboard KPIs ---
   http.get(`${API}/api/v1/berichte/kpis`, ({ request }) => {
     const url = new URL(request.url)
     const modules = url.searchParams.getAll('modules').filter(Boolean)
@@ -34,9 +294,135 @@ export const berichteHandlers = [
       modules.length > 0
         ? DEMO_KPIS.filter((k) => modules.includes(String(k.module_id)))
         : DEMO_KPIS
+    return HttpResponse.json({ kpis, generated_at: new Date().toISOString() })
+  }),
+
+  // --- Definitions ---
+  http.get(`${API}/api/v1/berichte/definitions`, ({ request }) => {
+    const url = new URL(request.url)
+    const module = url.searchParams.get('module')
+    const kind = url.searchParams.get('kind')
+    const isPublished = url.searchParams.get('is_published')
+    let defs = DEMO_DEFINITIONS
+    if (module) defs = defs.filter((d) => d.module === module)
+    if (kind) defs = defs.filter((d) => d.kind === kind)
+    if (isPublished != null) defs = defs.filter((d) => d.is_published === (isPublished === 'true'))
+    return HttpResponse.json({ definitions: defs, total: defs.length })
+  }),
+
+  http.get(`${API}/api/v1/berichte/definitions/:id`, ({ params }) => {
+    const definition = DEMO_DEFINITIONS.find((d) => d.id === params.id)
+    if (!definition) return new HttpResponse(null, { status: 404 })
+    return HttpResponse.json({ definition })
+  }),
+
+  // --- Run ---
+  http.post(`${API}/api/v1/berichte/definitions/:id/run`, ({ params }) => {
+    const id = String(params.id)
+    const result = REPORT_RESULTS[id]
+    if (!result) return new HttpResponse(null, { status: 404 })
+    const now = new Date().toISOString()
     return HttpResponse.json({
-      kpis,
-      generated_at: new Date().toISOString(),
+      result: { ...result, meta: { ...result.meta, generated_at: now } },
+      run: {
+        id: `run-${id}-${Date.now()}`,
+        tenant_id: TENANT,
+        definition_id: id,
+        schedule_id: null,
+        trigger: 'manual',
+        params: {},
+        duration_ms: 38,
+        row_count: result.rows.length,
+        status: 'success',
+        error: null,
+        started_at: now,
+        completed_at: now,
+      },
     })
+  }),
+
+  // --- Export (real Blob) ---
+  http.post(`${API}/api/v1/berichte/definitions/:id/export`, ({ params, request }) => {
+    const id = String(params.id)
+    const definition = DEMO_DEFINITIONS.find((d) => d.id === id)
+    const result = REPORT_RESULTS[id]
+    if (!definition || !result) return new HttpResponse(null, { status: 404 })
+    const url = new URL(request.url)
+    const format = (url.searchParams.get('format') ?? 'pdf') as 'pdf' | 'csv' | 'xlsx'
+    const filename = `${slugify(definition.name)}.${format}`
+    const body: BodyInit =
+      format === 'pdf' ? resultToPdf(definition, result) : resultToCsv(result)
+    return new HttpResponse(body, {
+      headers: {
+        'Content-Type': CONTENT_TYPES[format] ?? 'application/octet-stream',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+      },
+    })
+  }),
+
+  // --- Cache invalidation (no-op demo) ---
+  http.delete(`${API}/api/v1/berichte/definitions/:id/cache`, () =>
+    HttpResponse.json({ evicted: 0 }),
+  ),
+
+  // --- Schedules ---
+  http.get(`${API}/api/v1/berichte/schedules`, ({ request }) => {
+    const url = new URL(request.url)
+    const definitionId = url.searchParams.get('definition_id')
+    const active = url.searchParams.get('active')
+    let list = SCHEDULES
+    if (definitionId) list = list.filter((s) => s.definition_id === definitionId)
+    if (active != null) list = list.filter((s) => s.active === (active === 'true'))
+    return HttpResponse.json({ schedules: list, total: list.length })
+  }),
+
+  http.post(`${API}/api/v1/berichte/schedules`, async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>
+    const now = new Date().toISOString()
+    scheduleCounter += 1
+    const schedule: ReportSchedule = {
+      id: `sch-${scheduleCounter}`,
+      tenant_id: TENANT,
+      definition_id: String(body.definition_id ?? ''),
+      name: String(body.name ?? 'Neuer Bericht'),
+      cron_expression: String(body.cron_expression ?? '0 8 * * MON'),
+      recipients: Array.isArray(body.recipients) ? (body.recipients as string[]) : [],
+      format: (body.format as ReportSchedule['format']) ?? 'pdf',
+      params: (body.params as Record<string, unknown>) ?? {},
+      active: body.active != null ? Boolean(body.active) : true,
+      last_run_at: null,
+      last_run_status: null,
+      last_run_error: null,
+      created_by: null,
+      created_at: now,
+      updated_at: now,
+    }
+    SCHEDULES = [schedule, ...SCHEDULES]
+    return HttpResponse.json({ schedule }, { status: 201 })
+  }),
+
+  http.patch(`${API}/api/v1/berichte/schedules/:id`, async ({ params, request }) => {
+    const body = (await request.json()) as Record<string, unknown>
+    const idx = SCHEDULES.findIndex((s) => s.id === params.id)
+    if (idx === -1) return new HttpResponse(null, { status: 404 })
+    SCHEDULES[idx] = { ...SCHEDULES[idx], ...body, updated_at: new Date().toISOString() }
+    return HttpResponse.json({ schedule: SCHEDULES[idx] })
+  }),
+
+  http.delete(`${API}/api/v1/berichte/schedules/:id`, ({ params }) => {
+    SCHEDULES = SCHEDULES.filter((s) => s.id !== params.id)
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  http.post(`${API}/api/v1/berichte/schedules/:id/toggle`, async ({ params, request }) => {
+    const body = (await request.json().catch(() => ({}))) as { active?: boolean }
+    const idx = SCHEDULES.findIndex((s) => s.id === params.id)
+    if (idx === -1) return new HttpResponse(null, { status: 404 })
+    SCHEDULES[idx] = {
+      ...SCHEDULES[idx],
+      active: body.active != null ? Boolean(body.active) : !SCHEDULES[idx].active,
+      updated_at: new Date().toISOString(),
+    }
+    return HttpResponse.json({ schedule: SCHEDULES[idx] })
   }),
 ]
