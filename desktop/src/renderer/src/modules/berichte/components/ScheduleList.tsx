@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Bell, CalendarClock, Clock, Mail, Plus, Trash2, X } from 'lucide-react'
+import { SortMenu, type SortDirection, type SortFieldOption } from '@/components/shared/SortMenu'
+import { useBerichtePrefsStore } from '@/stores/berichtePrefs'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -67,18 +69,38 @@ export function ScheduleList({ definitions }: ScheduleListProps) {
   const toggleMutation = useToggleSchedule()
   const createMutation = useCreateSchedule()
   const deleteMutation = useDeleteSchedule()
+  const defaultFormat = useBerichtePrefsStore((s) => s.defaultFormat)
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [defId, setDefId] = useState('')
   const [name, setName] = useState('')
   const [cronExpression, setCronExpression] = useState('0 8 * * MON')
-  const [format, setFormat] = useState<ReportFormat>('pdf')
+  const [format, setFormat] = useState<ReportFormat>(defaultFormat)
+  const [sortField, setSortField] = useState('name')
+  const [sortDir, setSortDir] = useState<SortDirection>('asc')
   const [emailInput, setEmailInput] = useState('')
   const [recipients, setRecipients] = useState<string[]>([])
   const [alertThreshold, setAlertThreshold] = useState('')
 
   const schedules = schedulesQuery.data?.schedules ?? []
   const activeCount = schedules.filter((s) => s.active).length
+
+  const sortFields: SortFieldOption[] = [
+    { value: 'name', label: t('berichte.geplant.table.name') },
+    { value: 'cron', label: t('berichte.geplant.table.zeitplan') },
+    { value: 'status', label: t('berichte.geplant.table.aktiv') },
+  ]
+  const sortedSchedules = useMemo(() => {
+    const arr = [...schedules]
+    arr.sort((a, b) => {
+      let cmp = 0
+      if (sortField === 'name') cmp = a.name.localeCompare(b.name)
+      else if (sortField === 'cron') cmp = a.cron_expression.localeCompare(b.cron_expression)
+      else if (sortField === 'status') cmp = Number(a.active) - Number(b.active)
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+    return arr
+  }, [schedules, sortField, sortDir])
 
   const handleToggle = (id: string, next: boolean) => {
     toggleMutation.mutate(
@@ -108,7 +130,7 @@ export function ScheduleList({ definitions }: ScheduleListProps) {
     setDefId('')
     setName('')
     setCronExpression('0 8 * * MON')
-    setFormat('pdf')
+    setFormat(defaultFormat)
     setEmailInput('')
     setRecipients([])
     setAlertThreshold('')
@@ -178,13 +200,26 @@ export function ScheduleList({ definitions }: ScheduleListProps) {
         <p className="text-sm text-muted-foreground">
           {t('berichte.geplant.aktivInfo', { active: activeCount, total: schedules.length })}
         </p>
-        <button
-          onClick={openDialog}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
-        >
-          <Plus className="h-4 w-4" />
-          {t('berichte.geplant.neuerBericht')}
-        </button>
+        <div className="flex items-center gap-2">
+          {schedules.length > 0 && (
+            <SortMenu
+              options={sortFields}
+              field={sortField}
+              direction={sortDir}
+              onChange={(f, d) => {
+                setSortField(f)
+                setSortDir(d)
+              }}
+            />
+          )}
+          <button
+            onClick={openDialog}
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
+          >
+            <Plus className="h-4 w-4" />
+            {t('berichte.geplant.neuerBericht')}
+          </button>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-border bg-card">
@@ -214,7 +249,7 @@ export function ScheduleList({ definitions }: ScheduleListProps) {
               </tr>
             </thead>
             <tbody>
-              {schedules.map((s) => (
+              {sortedSchedules.map((s) => (
                 <tr
                   key={s.id}
                   className="border-b border-border-muted transition-colors last:border-0 hover:bg-secondary/50"

@@ -4,6 +4,7 @@ import { Calendar, Download, FileBarChart, FilePlus, FileText, Loader2 } from 'l
 import { toast } from 'sonner'
 import type { ReportDefinition, ReportFormat } from '@/api/berichte-types'
 import { useExportReport } from '@/api/hooks/useBerichte'
+import { useBerichtePrefsStore } from '@/stores/berichtePrefs'
 
 interface ReportBuilderProps {
   definitions: ReportDefinition[]
@@ -25,10 +26,11 @@ export function ReportBuilder({ definitions, isLoading }: ReportBuilderProps) {
     [definitions],
   )
 
+  const prefDefaultFormat = useBerichtePrefsStore((s) => s.defaultFormat)
   const [selectedDefId, setSelectedDefId] = useState<string>('')
   const [dateFrom, setDateFrom] = useState<string>('')
   const [dateTo, setDateTo] = useState<string>('')
-  const [format, setFormat] = useState<ReportFormat>('pdf')
+  const [format, setFormat] = useState<ReportFormat>(prefDefaultFormat)
 
   const selectedDef = systemDefs.find((d) => d.id === selectedDefId) ?? null
 
