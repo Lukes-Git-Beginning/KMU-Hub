@@ -1,55 +1,51 @@
-# Parallel-Batch — Koordination (Main + Sub) — automatisierung + profil
+# Parallel-Batch — Koordination (Main + Sub) — berichte + notifications
 
-> **Stand 2026-06-19 (Batch 3).** Zwei Terminals bauen parallel, je **5 Phasen**, damit sie sich **nicht in die Quere kommen**. Main = **automatisierung** (Tiefe-Pass, MSW-Vertrag reparieren), Sub = **profil** (Dokumente echt + Cleanup). Vorheriger Batch (team + helpdesk) ist durch.
+> **Stand 2026-06-19 (Batch 4).** Zwei Terminals bauen parallel, damit sie sich **nicht in die Quere kommen**. Main = **berichte** (Reporting/BI, mittel — MSW-Ausbau + Drilldown + Schedules), Sub = **notifications** (Benachrichtigungen, klein — Schema-Fix + DetailModal + Sidebar-Badges). Vorheriger Batch (automatisierung + profil) ist durch + bei Nico → siehe `.planning/archiv/parallel-batch/batch3-automatisierung-profil/` und `.planning/reviews/`.
 
 ## Rollen & Klone
 
 | | **Main-Terminal** | **Sub-Terminal** |
 |---|---|---|
-| Klon | `…/KMU Hub` (Hauptklon) | `…/KMU-Hub-review` (auf `main @ 0596e5bc`, node_modules ready) |
+| Klon | `…/KMU Hub` (Hauptklon) | `…/KMU-Hub-review` (frisch geklont, node_modules ready) |
 | Dev-Port | **5173** | **5174** |
-| Modul | **automatisierung** (A-1…A-5) | **profil** (P-1…P-5) |
-| Plan-Datei | `main-automatisierung.md` | `sub-profil.md` |
-| QA-Protokoll | `qa-automatisierung.md` (selbst anlegen) | `qa-profil.md` (selbst anlegen) |
-| Branch | **`main`** (Hauptklon, direct-to-main) | **`parallel/profil`** (Iso, NICHT direct-to-main) |
-| Zusatzrolle | plant beide Batches, beantwortet Klärungen, merged am Ende `parallel/profil`, stellt kombinierte QA-Liste | baut nur ab, meldet Darien Fortschritt (`P-x fertig, n/5`) |
+| Modul | **berichte** (B-1…B-5) | **notifications** (N-1…N-5) |
+| Plan-Datei | `main-berichte.md` | `sub-notifications.md` |
+| QA-Protokoll | `qa-berichte.md` (selbst anlegen) | `qa-notifications.md` (selbst anlegen) |
+| Branch | **`main`** (Hauptklon) | **`parallel/notifications`** (Iso, NICHT direct-to-main) |
+| Zusatzrolle | plant beide Batches, beantwortet Klärungen, merged am Ende `parallel/notifications`, stellt kombinierte QA-Liste + Nico-Review-Dateien | baut nur ab, meldet Darien Fortschritt (`N-x fertig, n/5`) |
 
 ## Lane-Trennung — was kollidiert NICHT
-- **Modul-Code disjunkt:** `modules/automatisierung/` vs. `modules/profil/`. Kein Overlap.
-- **Stores disjunkt:** automatisierung nutzt `stores/automatisierung.ts` · profil nutzt `stores/settings`/`presence`/`notifications`/`auth` (read). Kein Overlap.
-- **MSW-Handler:** Main fasst NUR `mocks/handlers/automation.ts` an (+ ggf. EINMALIG `mocks/handlers/index.ts`, falls `automationHandlers` dort noch nicht registriert ist — A-1). Sub fasst NUR `mocks/handlers/hr.ts` an (Dokumente/Avatar-Handler, **bereits** in `index.ts` registriert → **kein** `index.ts`-Touch). → höchstens Main berührt `index.ts`, Sub nie → **null index.ts-Konflikt**.
-- **Settings-Registry:** Main (A-5) ergänzt EINEN `automatisierung`-Eintrag in `module-settings-registry.tsx`. **Sub fasst diese Datei NICHT an** (profil-Einstellungen leben per Designentscheidung unter `/settings`, nicht in der Modul-Registry) → kein Konflikt.
+- **Modul-Code disjunkt:** `modules/berichte/` vs. `modules/notifications/`. Kein Overlap.
+- **Stores disjunkt:** berichte ist MSW-/Query-getrieben (kein eigener großer Store) · notifications nutzt `stores/notifications.ts` (transienter Toast) + `mocks/handlers/notifications.ts` (Center/Bell-Quelle). Kein Overlap.
+- **MSW-Handler:** beide Handler (`mocks/handlers/berichte.ts`, `mocks/handlers/notifications.ts`) sind **bereits in `index.ts` registriert** → **kein** `index.ts`-Touch von beiden Seiten → **null `mocks/index.ts`-Konflikt.** Jeder fasst nur seinen eigenen Handler an.
 - **QA-Protokolle disjunkt:** jeder schreibt nur seine eigene `qa-*.md`.
+- **shared/ einfrieren:** beide **konsumieren nur** `shared/DetailModal` + `shared/SortMenu` (existieren bereits). **Niemand** baut neue `shared/`-Komponenten. Falls doch nötig → stopp, mit Main absprechen.
 
 ## Lane-Trennung — die echten Reibungspunkte (Regeln verbindlich)
 
-1. **i18n — die einzige garantierte Kollision.** Beide hängen Keys an `i18n/messages/{de,en,fr,it}.json` an.
-   - automatisierung-Keys leben unter `automatisierung.*` (+ `api.automation.*`) · profil-Keys unter `profil.*`. **Verschiedene Prefix-Cluster** → Git-Konflikt nur an Objektgrenzen.
+1. **i18n — garantierte Kollision (an Objektgrenze, schnell lösbar).** Beide hängen Keys an `i18n/messages/{de,en,fr,it}.json` an.
+   - berichte-Keys leben unter `berichte.*` · notifications-Keys unter `notifications.*`. **Verschiedene Prefix-Cluster.**
    - **Regel:** Keys ins jeweilige Prefix-Cluster einsortieren (nicht ans Datei-Ende klatschen). `{var}` **single-brace** ×4 Sprachen, ICU-Plural `{count, plural, …}` — **nie** `{{var}}`, nie `_one`/`_other`.
-   - Dank Branch-Isolation (Regel 4) entsteht **kein** Live-i18n-Konflikt — der eine mögliche Konflikt wird beim **finalen Merge** durch das Main-Terminal gelöst (beide Key-Blöcke behalten, danach `npm run build`).
+   - Dank Branch-Isolation (Regel 3) **kein** Live-Konflikt — wird beim finalen Merge durchs Main-Terminal gelöst (beide Key-Blöcke behalten, danach `npm run build`).
 
-2. **`shared/` einfrieren.** In diesem Lauf baut **kein** Terminal neue `shared/`-Komponenten.
-   - automatisierung **konsumiert nur** `shared/DetailModal` + `shared/ConfirmDialog` (existieren). profil **konsumiert nur** `shared/DetailModal` + `shared/RichTextEditor` (existieren). Nicht ändern, nur nutzen.
-   - Falls doch ein neues shared-Pattern nötig wird → **stopp, mit Darien/Main absprechen**, Main baut es zuerst + pusht, Sub pullt. Nicht parallel.
+2. **`module-settings-registry.tsx` — zweite (kleine) Kollision.** Beide fügen je **einen** Eintrag hinzu (B-4 berichte, N-4 notifications).
+   - Andere `id` + andere Stelle im Array → Git-Konflikt nur an der Array-Grenze, beim finalen Merge **beide Einträge behalten**.
+   - **Sub trägt den Eintrag auf `parallel/notifications` ein**, Main auf `main`. Kein Live-Konflikt.
 
-3. **Routing/Sidebar/nav-items nicht anfassen.** Beide Module sind bereits geroutet. Sub fasst Routing/Sidebar NICHT an. (Main braucht für A-1…A-5 auch keine Routing-Änderung.)
+3. **Branch-Isolation (Sicherung gegen main-Konflikte):** Das **Sub-Terminal baut auf `parallel/notifications`** (nicht direct-to-main), das **Main-Terminal auf `main`**. So gibt es während des Laufs **null Live-Konflikt** auf `main`. Das Main-Terminal merged `parallel/notifications` am Ende **einmal kontrolliert** (i18n + registry: beide Blöcke behalten, danach `npm run build`).
 
-4. **Branch-Isolation (Sicherung gegen main-Konflikte):** Das **Sub-Terminal baut auf `parallel/profil`** (nicht direct-to-main), das **Main-Terminal auf `main`**. So gibt es während des Laufs **null Live-Konflikt** auf `main`. Das Main-Terminal merged `parallel/profil` am Ende **einmal kontrolliert** (i18n-Konflikt: beide Key-Blöcke behalten, danach `npm run build`).
+4. **Sidebar/Routing:** Nur das **Sub** fasst die Sidebar an (N-4 = Modul-Unread-Badges in der Sidebar). berichte fasst Sidebar/Routing **nicht** an → kein Konflikt. Sub: minimal-invasiv am bestehenden Sidebar-/Nav-Render, kein Umbau.
 
-5. **`git pull` vor erstem Branch (Sub) und vor jedem Main-Push.** Beide starten auf `0596e5bc`; Main pusht laufend nach main, Sub bleibt isoliert bis zum Merge.
-
-## Scope-Entscheidungen (Darien-Default — keine Rückfragen nötig)
-- **automatisierung = „Tiefe-Pass, FE-mock-first":** MSW-Vertrag reparieren (Demo wird lebendig), DetailModal, Löschen/Duplizieren, Log/Editor verkabeln, Settings-Panel, i18n-Schlusscheck. **KEINE** echte Engine, **KEIN** echtes Backend (das ist Lukes Block). Ziel: review-reif als FE-mock-first.
-- **profil = „Dokumente echt (MSW) + current-user + Cleanup":** Dokumente-Tab über MSW lebendig, current-user-Single-Source, Avatar/DND demo-tief, toter `tabs/zeiterfassung/`-Ordner weg, Demo-Tiefe-Schlusscheck. **KEIN** echtes Avatar-/Doc-Storage-Backend (Luke). Ziel: review-reif als FE-mock-first.
+## Entscheidungen (Darien delegiert: „such du aus" — hier festgelegt, keine Rückfragen mehr nötig)
+- **berichte-Scope = „MSW-Ausbau + Demo-Tiefe + FE-Parität":** Die 3 toten Tabs (Erstellen/Geplant/DATEV) leben machen via MSW-Handler, Drilldown auf `shared/DetailModal`, Schedules stateful + Alerts-UI, SortMenu + Settings-Eintrag, i18n-Bereinigung. **KEIN** echter No-Code-Query-Builder (P2 🔒 Luke), **kein** echtes DATEV-Backend (P4 🔒). Ziel: review-reif als FE-mock-first.
+- **notifications-Scope = „Schema-Fix + Demo-Tiefe + UX-Parität":** Seed-Schema reparieren (Unread/Priorität/Modul/Deep-Link leben), Modul-Filter + Sort, Zeilenklick → `DetailModal`, Sidebar-Badges + Settings-Eintrag, Sound-Toggle + QA. **KEIN** echter WebSocket/Realtime (P4 🔒), **kein** Multi-Channel/Push (P5 🔒). Ziel: review-reif als FE-mock-first.
 
 ## Build-+-Verify-Standard — pro Phase IMMER (CLAUDE.md)
-bauen → i18n ×4 (`{var}`, nie `{{var}}`; Plural als ICU) → Demo-/MSW-Daten falls nötig → **Compile-Gate `npm run build`** (nie Full-tsc als Gate) → **Playwright-Screenshot-QA gegen den eigenen Port + Bilder WIRKLICH ansehen** (Raw-Keys / Doppelklammern / Layout / leere Zustände) → iterieren bis grün → **ein Commit + Push** → Eintrag in `qa-<modul>.md`.
+bauen → i18n ×4 (`{var}`, nie `{{var}}`; Plural als ICU) → MSW/Demo-Daten falls nötig → Compile-Gate (`npm run build > /tmp/build.log 2>&1; echo "EXIT $?"` + `grep -i error`, **nie `| tail`**) → **Playwright-Screenshot-QA + Bilder WIRKLICH ansehen** (Raw-Keys / Doppelklammern / Layout / leere Zustände) → iterieren bis grün → **ein Commit + Push** → Eintrag in `qa-<modul>.md`.
 
-## Gates & Fallen (bewährt — beachten!)
-- **Build-Gate IMMER mit echtem Exit. NIE `npm run build | tail`** — `$?` ist dann tails Exit (immer 0) und maskiert Build-Fehler! Stattdessen: `npm run build > /tmp/build.log 2>&1; echo "EXIT $?"` + `grep -i error /tmp/build.log`. [[feedback_build_check_real_exit]]
-- `npm run build` (electron-vite, ~1:20) ist das Compile-Gate, weil kalter/scoped tsc über den DetailModal-Graphen crasht. [[project_typecheck_slow]]
-- **`\n`-Prefix-Edit-Trick beim Entfernen von Code kann Import-Zeilen VERSCHMELZEN** → nach solchen Edits IMMER Build prüfen.
-- **Dev-Server killen unter Windows:** `pkill -f vite` greift NICHT. PowerShell `Get-NetTCPConnection -LocalPort 5173` (Main) bzw. `5174` (Sub) + `Stop-Process`. Nur 1 Dev-Server pro QA-Runde pro Klon.
-- **Playwright-Skeleton/Suspense + 20px-Icons:** JS-Klick-Fallback `locator.evaluate(el => el.click())`; Onboarding via `localStorage cosmi-ui onboardingCompleted=true` + electronAPI-Stub (siehe `scripts/qa-skeletons.mjs`).
-- **Datei-Tracking:** `add-*-i18n.mjs`-Scripts bleiben **untracked**; `qa-*.mjs` werden **getrackt**. Neue Dateien unter `mocks/data/` brauchen `git add -f` (`.gitignore` ignoriert `data/`).
-- **Sub: QA-Script `BASE` auf `http://localhost:5174` setzen** (nicht 5173).
+## Gates & Fallen (bewährt — diese Lehren beachten!)
+- **Build-Gate IMMER mit echtem Exit. NIE `npm run build | tail`** — `$?` ist dann tails Exit (immer 0) und maskiert echte Build-Fehler! Stattdessen: `npm run build > /tmp/build.log 2>&1; echo "EXIT $?"` + `grep -i error /tmp/build.log`.
+- `npm run build` (electron-vite) ist das Compile-Gate (~1:20), weil **kalter/scoped tsc über den DetailModal-Graphen crasht** ([[project_typecheck_slow]]). Gescopter `tsconfig.*check.json` nur über reine Datenschicht-Dateien (handlers/hooks/types/stores) geht crashfrei.
+- **Dev-Server killen unter Windows:** `pkill -f vite` greift NICHT (Git Bash sieht den cmd→node→esbuild-Baum nicht). PowerShell `Get-NetTCPConnection -LocalPort 5173` (bzw. 5174) + `Stop-Process`. Nur **1 Dev-Server pro QA-Runde** (war: 6 Cosmi-Fenster offen).
+- **Playwright-Klick auf 20px-Icons timeout't** → JS-Klick-Fallback `locator.evaluate(el => el.click())`.
+- **Datei-Tracking:** `add-*-i18n.mjs`-Scripts bleiben **untracked**; `qa-*.mjs` + `tsconfig.*check.json` werden **getrackt**. Neue Dateien unter `mocks/data/` brauchen `git add -f` (`.gitignore` ignoriert `data/`).
