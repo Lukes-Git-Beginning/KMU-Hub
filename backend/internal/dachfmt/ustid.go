@@ -41,7 +41,7 @@ var euVATPatterns = map[string]*regexp.Regexp{
 
 // chVATPattern matches a Swiss UID/VAT number (CHE + 9 digits) with an optional
 // MWST/TVA/IVA suffix. Formatting dots/hyphens are stripped before matching, so
-// "CHE-123.456.789 MWST" → "CHE123456789MWST".
+// "CHE-100.155.212 MWST" → "CHE100155212MWST".
 var chVATPattern = regexp.MustCompile(`^CHE\d{9}(MWST|TVA|IVA)?$`)
 
 // normalizeVAT upper-cases raw and removes spaces, dots and hyphens.
@@ -55,28 +55,28 @@ func normalizeVAT(raw string) string {
 // optional MWST/TVA/IVA suffix). Spaces, dots and hyphens are ignored.
 func ValidateUStIDDACH(raw string) bool {
 	s := normalizeVAT(raw)
-	if strings.HasPrefix(s, "CH") {
-		return chVATPattern.MatchString(s)
-	}
-	if len(s) < 2 {
-		return false
-	}
-	switch s[:2] {
-	case "DE":
-		return euVATPatterns["DE"].MatchString(s)
-	case "AT":
-		return euVATPatterns["AT"].MatchString(s)
+	switch {
+	case strings.HasPrefix(s, "CHE"):
+		return chVATPattern.MatchString(s) && checkDigitCH(s[3:12])
+	case strings.HasPrefix(s, "DE"):
+		return euVATPatterns["DE"].MatchString(s) && checkDigitDE(s[2:11])
+	case strings.HasPrefix(s, "AT"):
+		return euVATPatterns["AT"].MatchString(s) && checkDigitAT(s[3:11])
 	}
 	return false
 }
 
-// ValidateUStIDEU reports whether raw is a structurally valid VAT identification
-// number for any EU member state (VIES format) or Switzerland. Spaces, dots and
-// hyphens are ignored; the two-letter country prefix is required.
+// ValidateUStIDEU reports whether raw is a valid VAT identification number for
+// any EU member state (VIES format) or Switzerland. Spaces, dots and hyphens
+// are ignored; the two-letter country prefix is required. The structural format
+// is always checked; the check digit is additionally verified for the DACH
+// countries (DE/AT/CH) whose algorithm is implemented, while the rest of the EU
+// stays structural-only so a legitimate number is never rejected on an
+// unverified checksum.
 func ValidateUStIDEU(raw string) bool {
 	s := normalizeVAT(raw)
 	if strings.HasPrefix(s, "CHE") {
-		return chVATPattern.MatchString(s)
+		return chVATPattern.MatchString(s) && checkDigitCH(s[3:12])
 	}
 	if len(s) < 2 {
 		return false
@@ -85,5 +85,14 @@ func ValidateUStIDEU(raw string) bool {
 	if !ok {
 		return false
 	}
-	return p.MatchString(s)
+	if !p.MatchString(s) {
+		return false
+	}
+	switch s[:2] {
+	case "DE":
+		return checkDigitDE(s[2:11])
+	case "AT":
+		return checkDigitAT(s[3:11])
+	}
+	return true
 }

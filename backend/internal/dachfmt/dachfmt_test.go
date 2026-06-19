@@ -112,13 +112,16 @@ func TestValidatePLZ(t *testing.T) {
 }
 
 func TestValidateUStIDDACH(t *testing.T) {
-	valid := []string{"DE123456789", "ATU12345678", "CHE-123.456.789", "CHE-123.456.789 MWST", "CHE123456789TVA"}
+	// Authentic check-digit-valid numbers (test vectors from python-stdnum).
+	valid := []string{"DE136695976", "ATU13585627", "CHE-100.155.212", "CHE-100.155.212 MWST", "CHE100155212TVA"}
 	for _, s := range valid {
 		if !ValidateUStIDDACH(s) {
 			t.Errorf("ValidateUStIDDACH(%q) = false, want true", s)
 		}
 	}
-	invalid := []string{"DE12345678", "ATU1234567", "FR12345678901", "CHE12345678", ""}
+	// Wrong length / wrong country plus structurally-valid-but-wrong-check-digit.
+	invalid := []string{"DE12345678", "ATU1234567", "FR12345678901", "CHE12345678", "",
+		"DE136695978", "ATU13585626", "CHE-100.155.213"}
 	for _, s := range invalid {
 		if ValidateUStIDDACH(s) {
 			t.Errorf("ValidateUStIDDACH(%q) = true, want false", s)
@@ -127,13 +130,16 @@ func TestValidateUStIDDACH(t *testing.T) {
 }
 
 func TestValidateUStIDEU(t *testing.T) {
-	valid := []string{"DE123456789", "ATU12345678", "FR40303265045", "NL123456789B01", "IT12345678901", "CHE-123.456.789"}
+	// DACH numbers are check-digit-valid; the non-DACH ones are structural-only.
+	valid := []string{"DE136695976", "ATU13585627", "FR40303265045", "NL123456789B01", "IT12345678901", "CHE-100.155.212"}
 	for _, s := range valid {
 		if !ValidateUStIDEU(s) {
 			t.Errorf("ValidateUStIDEU(%q) = false, want true", s)
 		}
 	}
-	invalid := []string{"ZZ123456789", "DE12345678", "NL123456789X01", ""}
+	// Unknown prefix, wrong length, bad NL structure, and a DACH number whose
+	// check digit is wrong (must be rejected because DE/AT/CH are gated).
+	invalid := []string{"ZZ123456789", "DE12345678", "NL123456789X01", "", "DE136695978", "ATU13585626"}
 	for _, s := range invalid {
 		if ValidateUStIDEU(s) {
 			t.Errorf("ValidateUStIDEU(%q) = true, want false", s)
