@@ -623,6 +623,54 @@ else
 fi
 
 # ==========================================
+# Dialer (Pilot-0 core)
+# ==========================================
+section "Dialer"
+
+if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
+    DIALER_RESP=$(curl -s -w "\n%{http_code}" "$BASE_URL/api/v1/dialer/campaigns" \
+        -H "Authorization: Bearer $SMOKE_TOKEN" 2>/dev/null)
+    DIALER_CODE=$(echo "$DIALER_RESP" | tail -1)
+    DIALER_BODY=$(echo "$DIALER_RESP" | sed '$d')
+    if [[ "$DIALER_CODE" == "200" ]]; then
+        # P0-1 regression guard: timestamps must serialize as RFC3339 strings,
+        # never as raw proto {"seconds":...,"nanos":...}.
+        if echo "$DIALER_BODY" | grep -q '"seconds"'; then
+            fail "Dialer campaigns expose raw proto timestamps ({seconds,nanos})" "$DIALER_BODY"
+        else
+            pass "GET /dialer/campaigns = 200 (timestamps serialized cleanly)"
+        fi
+    elif [[ "$DIALER_CODE" == "401" || "$DIALER_CODE" == "403" ]]; then
+        pass "Dialer reachable ($DIALER_CODE — smoke user lacks dialer permission, skip)"
+    else
+        fail "GET /dialer/campaigns returned $DIALER_CODE" "$DIALER_BODY"
+    fi
+else
+    pass "Dialer probe skipped (no auth token)"
+fi
+
+# ==========================================
+# Finance (invoices)
+# ==========================================
+section "Finance"
+
+if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
+    FIN_RESP=$(curl -s -w "\n%{http_code}" "$BASE_URL/api/v1/finance/invoices" \
+        -H "Authorization: Bearer $SMOKE_TOKEN" 2>/dev/null)
+    FIN_CODE=$(echo "$FIN_RESP" | tail -1)
+    FIN_BODY=$(echo "$FIN_RESP" | sed '$d')
+    if [[ "$FIN_CODE" == "200" ]]; then
+        pass "GET /finance/invoices = 200"
+    elif [[ "$FIN_CODE" == "401" || "$FIN_CODE" == "403" ]]; then
+        pass "Finance reachable ($FIN_CODE — smoke user lacks finance permission, skip)"
+    else
+        fail "GET /finance/invoices returned $FIN_CODE" "$FIN_BODY"
+    fi
+else
+    pass "Finance probe skipped (no auth token)"
+fi
+
+# ==========================================
 # Cleanup
 # ==========================================
 section "Cleanup"

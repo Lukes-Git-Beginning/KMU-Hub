@@ -19,7 +19,13 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-COMPOSE="docker compose -f $COMPOSE_DIR/docker-compose.yml -f $COMPOSE_DIR/docker-compose.prod.yml"
+# Mirror deploy.sh: the compose files live under deploy/docker and the env file
+# must be passed explicitly, otherwise rolled-back containers start with empty
+# secrets and crash-loop, and `-f $COMPOSE_DIR/docker-compose.yml` points at a
+# path that does not exist.
+COMPOSE_FILES_DIR="${COMPOSE_FILES_DIR:-$COMPOSE_DIR/deploy/docker}"
+ENV_FILE="${ENV_FILE:-$COMPOSE_DIR/.env.production}"
+COMPOSE="docker compose --env-file $ENV_FILE -f $COMPOSE_FILES_DIR/docker-compose.yml -f $COMPOSE_FILES_DIR/docker-compose.prod.yml"
 
 log() { echo "[rollback] $(date '+%Y-%m-%d %H:%M:%S') $*"; }
 

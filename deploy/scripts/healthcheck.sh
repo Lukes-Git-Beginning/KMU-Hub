@@ -32,21 +32,20 @@ echo ""
 # Gateway (HTTP)
 check "Gateway (HTTP)" "curl -sf http://localhost:8080/health"
 
-# Service health endpoints
-for port in 9091 9092 9093 9094 9095 9096 9097 9098 9099 9100; do
-    case $port in
-        9091) name="Auth" ;;
-        9092) name="CRM" ;;
-        9093) name="Chat" ;;
-        9094) name="Notification" ;;
-        9095) name="Work" ;;
-        9096) name="Email" ;;
-        9097) name="Document" ;;
-        9098) name="Biz" ;;
-        9099) name="Automation" ;;
-        9100) name="Plugin" ;;
-    esac
-    check "$name (port $port)" "$COMPOSE exec -T gateway wget --spider --quiet http://\$(echo $name | tr '[:upper:]' '[:lower:]'):$port/health 2>/dev/null"
+# Service health endpoints — all 23 backend services (gateway is checked above).
+# Each entry is "service_dns_name:health_port"; the DNS name matches the compose
+# service (= cmd dir). Ports come from config.go (*_HEALTH_PORT defaults).
+SERVICES=(
+    "auth:9091" "crm:9092" "chat:9093" "notification:9094" "work:9095"
+    "email:9096" "document:9097" "biz:9098" "automation:9099" "plugin:9100"
+    "dialer:9101" "wiki:9102" "berichte:9103" "formulare:9104" "helpdesk:9105"
+    "inventar:9110" "einkauf:9111" "produktion:9112" "vertraege:9113" "rapporte:9114"
+    "schichten:9115" "fuhrpark:9116" "vermietung:9117"
+)
+for entry in "${SERVICES[@]}"; do
+    svc="${entry%%:*}"
+    port="${entry##*:}"
+    check "$svc (port $port)" "$COMPOSE exec -T gateway wget --spider --quiet http://$svc:$port/health 2>/dev/null"
 done
 
 # Infrastructure
