@@ -24,6 +24,7 @@ import {
   listDefinitions,
   listReportDocuments,
   listReportTemplates,
+  attachReportToTask,
   listSchedules,
   runScheduleNow,
   previewReport,
@@ -265,6 +266,17 @@ export function useRunScheduleNow() {
     mutationFn: (id: string) => runScheduleNow(id),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: ['berichte', 'schedules'] }),
+  })
+}
+
+/** Attach a report as a reference to a work task (R-5 integration). */
+export function useAttachReportToTask() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ taskId, doc }: { taskId: string; doc: { id: string; title: string } }) =>
+      attachReportToTask(taskId, doc),
+    onSuccess: (_data, vars) =>
+      qc.invalidateQueries({ queryKey: ['task-files', vars.taskId] }),
   })
 }
 

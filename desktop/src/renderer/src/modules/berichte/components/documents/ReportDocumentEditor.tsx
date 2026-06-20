@@ -15,6 +15,7 @@ import { ReportStatusBadge } from './ReportStatusBadge'
 import { BlockEditor } from './BlockEditor'
 import { DocumentReader } from './DocumentReader'
 import { ScheduleReportModal } from './ScheduleReportModal'
+import { ShareActionsMenu } from './ShareActionsMenu'
 import { blockCount, estimatePageCount } from './doc-utils'
 
 interface ReportDocumentEditorProps {
@@ -212,6 +213,9 @@ function DocumentEditorInner({
             {t('berichte.docs.print')}
           </button>
         )}
+
+        {/* Share / distribute (R-5) — attach to task/contact, PDF, share link. */}
+        {mode === 'read' && <ShareActionsMenu doc={doc} />}
 
         {saveState === 'saving' ? (
           <span className="text-xs text-muted-foreground">{t('berichte.docs.saving')}</span>

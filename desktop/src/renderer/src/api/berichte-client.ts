@@ -221,6 +221,32 @@ export function runScheduleNow(id: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Integration (R-5) — attach a report as a reference to other modules.
+// These talk to non-berichte endpoints on purpose (cross-module linking).
+// ---------------------------------------------------------------------------
+
+/** A lightweight report reference used when attaching to tasks/contacts. */
+export interface ReportRef {
+  id: string
+  title: string
+}
+
+/** Attach a report document as a reference (not a file copy) to a work task. */
+export function attachReportToTask(taskId: string, doc: ReportRef) {
+  return request<{ file: unknown }>({
+    method: 'POST',
+    path: `/api/v1/tasks/${taskId}/files`,
+    body: {
+      filename: doc.title,
+      mime_type: 'application/cosmi-report',
+      file_size: 0,
+      storage_key: `report://${doc.id}`,
+      thumbnail_key: '',
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Dashboard KPIs
 // ---------------------------------------------------------------------------
 
