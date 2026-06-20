@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
+  BarChart3,
   Columns2,
   Columns3,
   GripVertical,
@@ -8,6 +9,7 @@ import {
   Heading2,
   MoreVertical,
   Plus,
+  RefreshCw,
   Square,
   Trash2,
   X,
@@ -28,20 +30,25 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { RichTextEditor } from '@/components/shared/RichTextEditor'
+import { Skeleton } from '@/components/shared'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useReportResult } from '@/api/hooks/useBerichte'
 import type {
+  ChartBlock,
   ReportBlock,
   ReportBlockType,
   ReportDocColumn,
   ReportRow,
 } from '@/api/berichte-types'
 import { BLOCK_META } from './doc-utils'
+import { ChartBlockPicker } from './ChartBlockPicker'
+import { ChartRenderer } from '../charts/ChartRenderer'
 
 /** Block id helper — unique per inserted block. */
 const uid = (p: string): string => `${p}-${crypto.randomUUID().slice(0, 8)}`
 
-/** Simple block types insertable in the core editor (chart/table/kpi = R-1b). */
-const INSERTABLE: ReportBlockType[] = ['heading', 'text', 'bullet', 'divider', 'pagebreak']
+/** Block types insertable in the core editor (table/kpi/callout/image = later R-1b). */
+const INSERTABLE: ReportBlockType[] = ['heading', 'text', 'chart', 'bullet', 'divider', 'pagebreak']
 
 /** Width presets per column count (flex weights, carried into the read mode). */
 const WIDTH_PRESETS: Record<number, { label: string; widths: number[] }[]> = {
@@ -61,6 +68,8 @@ function makeBlock(type: ReportBlockType): ReportBlock {
       return { id: uid('b'), type: 'text', html: '' }
     case 'bullet':
       return { id: uid('b'), type: 'bullet', items: [''] }
+    case 'chart':
+      return { id: uid('b'), type: 'chart' }
     case 'divider':
       return { id: uid('b'), type: 'divider' }
     case 'pagebreak':
@@ -640,7 +649,10 @@ function BlockEdit({
         </div>
       )
 
-    // chart / table / kpi / image — placeholder until R-1b (source picker).
+    case 'chart':
+      return <ChartBlockEdit block={block} onPatch={onPatch} />
+
+    // table / kpi / callout / image — placeholder until their R-1b phase.
     default: {
       const meta = BLOCK_META[block.type]
       const Icon = meta.icon
@@ -661,4 +673,89 @@ function BlockEdit({
       )
     }
   }
+}
+
+/** Chart block: pick a saved definition, then preview + caption (R-1b). */
+function ChartBlockEdit({
+  block,
+  onPatch,
+}: {
+  block: ChartBlock
+  onPatch: (patch: Partial<ReportBlock>) => void
+}) {
+  const { t } = useTranslation()
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const { data, isLoading } = useReportResult(block.definitionId)
+  const result = data?.result
+  const captionCls =
+    'w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-center text-xs text-muted-foreground hover:border-border focus:border-border focus:outline-none'
+
+  if (!block.definitionId) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setPickerOpen(true)}
+          className="flex w-full items-center gap-2.5 rounded-xl border border-dashed border-border bg-secondary/20 p-3 text-left transition-colors hover:border-primary/40 hover:bg-secondary/40"
+        >
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-secondary text-muted-foreground">
+            <BarChart3 className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-foreground">
+              {t('berichte.docs.blockType.chart')}
+            </p>
+            <p className="truncate text-[11px] text-primary">{t('berichte.docs.configureChart')}</p>
+          </div>
+        </button>
+        <ChartBlockPicker
+          open={pickerOpen}
+          onClose={() => setPickerOpen(false)}
+          mode="chart"
+          onApply={(patch) => onPatch(patch)}
+        />
+      </>
+    )
+  }
+
+  return (
+    <>
+      <div className="space-y-2 rounded-xl border border-border bg-card p-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-muted-foreground">
+            {t('berichte.docs.blockType.chart')}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            <RefreshCw className="h-3 w-3" />
+            {t('berichte.docs.changeChart')}
+          </button>
+        </div>
+        {result ? (
+          <ChartRenderer result={result} viz={block.viz ?? 'bar'} height={220} />
+        ) : isLoading ? (
+          <Skeleton className="h-[200px] w-full rounded-lg" />
+        ) : (
+          <div className="flex h-[160px] items-center justify-center text-sm text-muted-foreground">
+            {t('berichte.docs.noChartSource')}
+          </div>
+        )}
+        <input
+          value={block.caption ?? ''}
+          onChange={(e) => onPatch({ caption: e.target.value })}
+          placeholder={t('berichte.docs.ph.caption')}
+          className={captionCls}
+        />
+      </div>
+      <ChartBlockPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        mode="chart"
+        onApply={(patch) => onPatch(patch)}
+      />
+    </>
+  )
 }
