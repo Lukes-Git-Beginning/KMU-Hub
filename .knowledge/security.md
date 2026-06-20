@@ -1,6 +1,6 @@
 ---
 tags: [security, auth, compliance, gdpr, rls, multi-tenant]
-updated: 2026-06-19
+updated: 2026-06-20
 ---
 # Security & Compliance
 
@@ -16,8 +16,8 @@ updated: 2026-06-19
 ## gRPC-Tenant-Trust (Welle 0.6 + Welle 1d)
 
 Gateway propagiert `tenant_id` und `user_id` als gRPC-Metadata an Backend-Services:
-- **Outbound** (`middleware.TenantOutboundUnaryInterceptor` in `internal/gateway/registry.go:94`) — seit Welle 0.6 GLOBAL für alle Service-Verbindungen.
-- **Inbound** (`middleware.TenantInboundUnaryInterceptor`) — seit Welle 0.6 in chat-service, seit Welle 1d in `cmd/auth`, `cmd/crm`, `cmd/dialer`, `cmd/work`. Restliche 16 Services in Welle 5.
+- **Outbound** (`internal/gateway/registry.go`) — seit Welle 0.6 GLOBAL für alle Service-Verbindungen; seit **Welle 7b-4** via `grpc.WithChainUnaryInterceptor(middleware.DeadlineOutboundUnaryInterceptor(d), TenantOutboundUnaryInterceptor())` — jeder Outbound-Unary-Call bekommt eine Deadline (`GATEWAY_GRPC_TIMEOUT`, Default 30s), falls der Request-Context keine kürzere trägt (verhindert Goroutine-Erschöpfung bei hängendem Downstream; Streaming unangetastet).
+- **Inbound** (`middleware.TenantInboundUnaryInterceptor`) — in 10 cmd-Binaries (auth, biz, chat, work, document, crm, dialer, email, formulare, notification). ⚠ **R3-P0-3 (offen):** 13 Binaries fehlen noch (wiki, helpdesk, berichte, inventar, einkauf, produktion, schichten, vermietung, fuhrpark, rapporte, vertraege, automation, plugin) → deren RLS-Tabellen geben Phantom-404 beim Modul-Einschalten. Nicht Pilot-0-blockierend (Kern nutzt sie nicht).
 - Inbound ist **soft** (handler wird immer aufgerufen, GetTenantID liefert dann ErrMissingTenantID falls Metadata fehlt) — Login/Register/AcceptInvitation funktionieren ohne Whitelist. Falls Welle 5 hardenet: Whitelist-Methods sind `/auth.AuthService/{Login,Register,RefreshToken,AcceptInvitation,Validate2FALogin}`.
 - **gRPC-Handler-Sweeps `req.GetTenantId()` → `middleware.GetTenantID(ctx)` (W2D-Muster, `codes.Unauthenticated` statt `InvalidArgument`):** crm/dialer/helpdesk (W2D 2026-04-28), 10 weitere Handler (Welle 4A), **hr_grpc.go komplett (16 Stellen, `6ff7989a`) + work_grpc.go Rest (CreateTask/ListTasks, `772483fd`) — 2026-06-11**. Request-Felder `tenant_id` sind damit in keinem dieser Handler mehr spoofbar.
 - **RLS-Nachzug (Migration 142, 2026-06-11, `7317bdc0`):** `enable_tenant_rls` auf den Chain-PILOT-Tabellen `password_reset_tokens`, `booking_pages`, `public_bookings` aktiviert.
@@ -85,11 +85,10 @@ Gateway propagiert `tenant_id` und `user_id` als gRPC-Metadata an Backend-Servic
 - Sendet via gRPC an Security-Service (`CreateAuditEntry`)
 - `Start(10)` + `defer Close()` in `gateway/main.go`
 
-## IP Filter (2026-04-09)
-- Cache-TTL: 60s Refresh, 5min Max-Staleness
-- Fail-Close: Blockiert Traffic wenn Auth-Service >5min unerreichbar oder nie geladen
-- Fail-Stale: Serviert gecachte Regeln innerhalb 5min Fenster
-- `rulesEverLoaded` Flag unterscheidet "nie geladen" von "leere Regelliste"
+## IP Filter (2026-04-09; Cold-Start-Härtung Welle 7b-3, 2026-06-20)
+- Cache-TTL: 60s Refresh, 5min Max-Staleness. Regeln werden lazy im Request-Pfad geladen (mit Request-Context → Tenant, da `ip_access_rules` RLS/tenant-scoped ist; ein tenant-loser Background-Loader sähe 0 Regeln und würde Filtering still abschalten).
+- **Cold-Start = Fail-OPEN (7b-3):** `handleFetchFailure` bei `!rulesEverLoaded` → `nil,nil` (Request durch) statt 503. Vorher 503 für ALLE Requests inkl. `/auth/login`, solange auth beim Compose-Start noch nicht antwortet (Kaskade). Sobald einmal geladen, gilt wieder Fail-Stale (5min) bzw. Fail-Close (>5min).
+- **Client-IP via `middleware.ClientIPTrusted(r, behindProxy)` (7b-3):** hinter Caddy (`BEHIND_PROXY=true`, prod) ist der **letzte** XFF-Eintrag maßgeblich (Caddy hängt die echte Peer-IP hinten an; der linkeste Wert ist client-kontrolliert/spoofbar). Ohne Proxy nur `RemoteAddr`. Gilt identisch für IP-Filter UND Rate-Limiter.
 
 ## gRPC mTLS (2026-04-09)
 - Optional via `GRPC_TLS_CERT_FILE`, `GRPC_TLS_KEY_FILE`, `GRPC_TLS_CA_FILE`
@@ -141,8 +140,10 @@ Welle-3.5-Verschaerfung der W2D-C-Lehre: gRPC-Server lasen `tenant_id` aus den P
 ## Rate Limiting
 - Redis-basiert mit In-Memory-Fallback
 - Key: `ratelimit:{user_id_or_ip}`, 1-Sekunden Sliding Window
-- Default: 100 rps (`RATE_LIMIT_RPS`)
+- Default: 100 rps (`RATE_LIMIT_RPS`); Public-Endpoints separat (`PUBLIC_RATE_LIMIT_RPS`, eigener Prefix)
 - Response: 429 mit `Retry-After: 1`
+- **XFF-Trust (7b-3):** Client-IP via `middleware.ClientIPTrusted(r, behindProxy)` — hinter Proxy letzter XFF-Eintrag, sonst `RemoteAddr` (kein blindes `parts[0]` mehr; sonst spoofbar für unauth. Endpoints wie `/forgot-password`). Authentifizierte Requests keyen auf UserID.
+- **Forgot-PW Rate-Limit (7b-3):** per-Email Sliding-Window (`route_auth.go`, 5/10min) mit per-Bucket-`sync.Mutex` — vorher Data-Race auf `count++` (sync.Map schützt nur die Map, nicht den Value).
 
 ## Vault Service (Secrets)
 - Verschluesselte Secrets in PostgreSQL
@@ -185,14 +186,14 @@ Zentrales `go-playground/validator/v10`-Framework fuer alle HTTP-Mutation-Handle
 - **Package:** `backend/internal/crm/consent/`
 - **API:** `Asserter.Assert(ctx, contactID, channel)` — `channel ∈ {ChannelEmail, ChannelPhone}`
 - **Hooks:**
-  - `email/send/service.go:161` — vor SMTP-Dispatch ⚠ **derzeit TOT** (siehe R3-Befund unten)
+  - `email/send/service.go:161` — vor SMTP-Dispatch ✅ **verdrahtet seit Welle 7a** (`cmd/email/main.go` nutzt `NewServiceWithConsent`); feuert aber erst voll mit `contact_id`-Plumbing (P0-4-Rest offen, sonst ist `input.ContactID` leer und der Guard skippt)
   - `dialer/service.go` — vor Twilio/Dialer-Call ✅ scharf (`cmd/dialer/main.go:92`)
 - **Query:** `consent_records WHERE contact_id=$1 AND consent_type=$2 AND granted=true AND revoked_at IS NULL`
 - **Transactional Skip:** `ChannelEmail` + Contact ohne E-Mail → `nil` (nichts zu senden, kein Consent noetig)
 - **Block-Log:** `slog.Warn("consent_block", "contact_id", id, "channel", ch)` + `ErrNoConsent`
 - **Status:** Launch-Blocker R1-P0.2 erledigt (PR #10). Gateway-Wiring via additive `NewServiceWithConsent()`-Constructors. **Dialer-Wiring Chain PILOT (2026-06-09, `1548a067`):** `cmd/dialer/main.go` rief bisher `dialer.NewService(...)` ohne Consent-Asserter — der nil-safe Guard im Service war tot, `AssertConsent(ChannelPhone)` wurde nie aufgerufen. Jetzt `dialer.NewServiceWithConsent(...)` mit Postgres-Consent-Asserter verdrahtet — analog zu email/send. DSGVO-Consent-Check vor `InitiateDialerCall` ist damit scharf in Production.
 - **gRPC-Mapping (Sprint 3 Welle 2A, Commit `1f6c4c0`, 2026-05-08):** `mapDialerError` in `backend/internal/server/dialer_grpc.go` mappt `consent.ErrNoConsent` jetzt auf `codes.PermissionDenied` (vorher fiel es durch auf `codes.Internal`, weil keine explizite Sentinel-Klausel). Test-Case in `dialer_grpc_test.go::TestMapDialerError` deckt alle 10 Sentinels ab (`ErrCampaignNotFound`, `ErrCallSessionNotFound`, `ErrOutcomeNotFound`, `ErrCampaignNotDraft`, `ErrCampaignNotActive`, `ErrInvalidStatusTransition`, `ErrNoContactsAvailable`, `ErrContactAlreadyInCampaign`, `ErrAgentNotAvailable`, `ErrCampaignHasNoContacts`, plus `consent.ErrNoConsent` → `PermissionDenied` plus `nil` → `nil` plus unknown → `Internal`).
-- ⚠ **KORREKTUR Rigorosum R3 (2026-06-20, P0-4):** Die obige Aussage „Consent vor SendEmail aktiv" / „analog zu email/send" war/ist für den **E-Mail-Pfad FALSCH.** `cmd/email/main.go:99` verdrahtet `send.NewService(...)` **ohne** Consent-Asserter — exakt der gleiche tote-nil-Guard-Bug wie beim Dialer vor `1548a067`. Der Check in `send/service.go:161` läuft nie, weil `consentAsserter == nil`. Das Gateway (`route_email.go:520 HandleSendEmail`) prüft ebenfalls keinen Consent. **Konsequenz:** kontaktbezogene E-Mails (mit `ContactID`) werden ohne Einwilligungsprüfung versendet → UWG §7 / DSGVO-Risiko. **Fix (Welle 7a):** `cmd/email/main.go` auf `send.NewServiceWithConsent(...)` mit `consent.NewPostgresAssertRepo(pool)` + `consent.NewAsserter(...)` umstellen (Muster `cmd/dialer/main.go:88-92`); zusätzlich `ContactID`-Propagation Gateway→Email-Service verifizieren (sonst triggert der Guard auch nach Wiring nicht).
+- ⚠ **KORREKTUR Rigorosum R3 (2026-06-20, P0-4):** Die obige Aussage „Consent vor SendEmail aktiv" / „analog zu email/send" war/ist für den **E-Mail-Pfad FALSCH.** `cmd/email/main.go:99` verdrahtet `send.NewService(...)` **ohne** Consent-Asserter — exakt der gleiche tote-nil-Guard-Bug wie beim Dialer vor `1548a067`. Der Check in `send/service.go:161` läuft nie, weil `consentAsserter == nil`. Das Gateway (`route_email.go:520 HandleSendEmail`) prüft ebenfalls keinen Consent. **Konsequenz:** kontaktbezogene E-Mails (mit `ContactID`) werden ohne Einwilligungsprüfung versendet → UWG §7 / DSGVO-Risiko. **Fix Welle 7a ✅ (2026-06-20, `d382bbd8`):** `cmd/email/main.go` auf `send.NewServiceWithConsent(...)` mit Postgres-Consent-Asserter umgestellt (Muster `cmd/dialer/main.go`). ⚠ **Voll wirksam erst mit P0-4-Rest:** `contact_id` muss durch `SendEmailRequest` → Gateway `route_email.go` → `email_grpc.go` → `input.ContactID` propagiert werden (+ FE sendet contact_id); bis dahin ist `ContactID` leer und der Guard skippt (kein Versand-Block).
 
 ## Prod-Secrets Startup-Assertion (S0.3, scharf + Requirements-API seit 2026-06-05)
 
@@ -274,6 +275,17 @@ trivy fs --severity HIGH,CRITICAL --ignore-unfixed .
 # npm-audit
 cd desktop && npm audit --audit-level=high --omit=dev
 ```
+
+## Welle 7a/7b Pre-Launch-Härtung (Rigorosum R3, 2026-06-20)
+
+Kombinierte Audit-Note 3,0 → ~2,6; Pilot-0-Pfad (Dialer/Auth/Login/Resilienz) alle Blocker zu. Vollständig: `~/.claude/plans/rigorosum-r3-pre-launch-audit.md` + Memory `project_rigorosum_r3_wave7_20260620`.
+
+- **Panic-Recovery-Interceptor (7a, `d382bbd8`):** `middleware.RecoveryUnaryInterceptor`/`RecoveryStreamInterceptor` als ERSTER Interceptor in allen 23 gRPC-Services — grpc-go recovert Handler-Panics nicht by default, ein nil-Deref killte sonst den Service-Prozess.
+- **Proto-Timestamp-Serialisierung (7a Dialer + 7b-5 Video):** rohe Proto-Responses via `response.Proto()` (protojson) statt `response.JSON()` (encoding/json marshalt `timestamppb` als `{seconds,nanos}` → FE-Datum kaputt). ⚠ int64-Felder werden von protojson als **String** serialisiert → FE-Typen prüfen. P0-1-Rest: weitere `route_*.go` (CRM-Timeline, Calendar) noch offen.
+- **FailedPrecondition → 409 Conflict (7b-4, `helpers.go`):** war 410 Gone (signalisiert „dauerhaft weg" für State-Conflict-Fehler: ConsentPending, Invitation expired/used). Blanket-Change; AcceptInvitation-OpenAPI-410 driftet (kein FE-Runtime-Impact, OpenAPI-Resync offen).
+- **Outbound-gRPC-Deadlines + XFF-Trust + Forgot-PW-Mutex:** s. „gRPC-Tenant-Trust", „IP Filter", „Rate Limiting" oben.
+- **SMTP/LiveKit-Timeouts (7b-2):** `email/send` + `cmd/auth/mailer` bauen SMTP via `net.DialTimeout`/`tls.DialWithDialer` + `conn.SetDeadline` (net/smtp.SendMail hat keinen Timeout → hängender Server blockt Goroutine, im Auth-Pfad den Password-Reset-Handler); LiveKit CreateRoom/DeleteRoom `context.WithTimeout`.
+- **Video TURN ice_servers (7b-5):** `JoinCallResponse.ice_servers` (Proto+protojson) exponiert per-session coturn-Credentials; FE setzt `rtcConfig` vor Connect (Relay in NAT-Netzen). Detail [[integrationen]] LiveKit/TURN. ⚠ Video-Call-UI (`VideoCallView`) aktuell von keiner Route gemountet → FE ready, kein Runtime-Effekt bis Mount.
 
 ## Verwandte Notes
 - [[architektur]] — Service-Architektur

@@ -1,6 +1,6 @@
 ---
 tags: [integrationen, bexio, lexware, livekit, plugin, wasm, brevo, smtp]
-updated: 2026-06-17
+updated: 2026-06-20
 ---
 # Externe Integrationen
 
@@ -78,6 +78,7 @@ Quelle: `.planning/bexio-scope-check.md`. Stand: G1–G5 + G10 zu, Integration t
 - **Protokoll:** plain TURN/UDP (MVP, kein TLS); `lt-cred-mech` mit `use-auth-secret`
 - **Secret-Sharing:** `static-auth-secret` in `/etc/turnserver.conf` = `TURN_SECRET` in `.env.production` auf App-Server
 - **Client-Auth:** Per-Session-Credentials via HMAC-SHA1, eingebettet als Metadata-JSON im LiveKit `AccessToken` (`RoomManager.GenerateToken` + `Service.TURNIceServers`) — Wiring seit R2-P0.1 (2026-04-26, `e4b98b9`+`ad04191`) LIVE
+- **Explizite `ice_servers` in JoinCallResponse (Welle 7b-5, 2026-06-20, `a150fd0f`):** Token-Metadata allein reicht nicht — der deklarative LiveKit-JS-Client (`<LiveKitRoom>`) wendet sie nicht vor dem Connect an. Daher exponiert `JoinCallResponse.ice_servers` (Proto, repeated `IceServer`) die Credentials zusaetzlich explizit; Gateway serialisiert via `response.Proto()` (protojson). Backend: `video.RoomManager.TURNIceServers(userID) []IceServerConfig` (livekit-Adapter mappt internen `IceServer` → Domaenen-Typ, kein Import-Zyklus); gRPC-`JoinCall` befuellt `ice_servers` aus den coturn-Credentials. FE setzt `rtcConfig.iceServers` (+ STUN-Fallback) vor `<LiveKitRoom>`-Mount. ⚠ **Aber:** `VideoCallView`/`<LiveKitRoom>` wird aktuell von keiner Route gerendert (`VideoPage` = Mock-Dashboard) → FE-Wiring ready, kein Runtime-Effekt bis die Call-UI gemountet wird. Backend-Teil voll wirksam. Video = nicht Pilot-0-Scope.
 - **Assertion-Guard:** TURN-Symmetrie (`COTURN_HOST`↔`TURN_SECRET` beide oder keiner) wird in Prod beim Start erzwungen, siehe [[security]]
 - **Deploy-Doku:** `deploy/turn/livekit-integration.md` (Option B)
 
