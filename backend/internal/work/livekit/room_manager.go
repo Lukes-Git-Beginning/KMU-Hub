@@ -4,11 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	lkauth "github.com/livekit/protocol/auth"
 	lkproto "github.com/livekit/protocol/livekit"
 	lksdk "github.com/livekit/server-sdk-go/v2"
 )
+
+// livekitAPITimeout bounds each LiveKit server API call so a hung control-plane
+// connection cannot block the caller indefinitely when the caller passes a
+// context without its own deadline.
+const livekitAPITimeout = 10 * time.Second
 
 // RoomManager implements the video.RoomManager interface using the LiveKit server SDK.
 // When LiveKit is not configured, callers should pass nil (the video service handles nil gracefully).
@@ -45,6 +51,8 @@ func NewRoomManagerWithTURN(apiKey, apiSecret, wsURL, turnSecret, coturnHost str
 
 // CreateRoom creates a new LiveKit room with the given name and max participants.
 func (rm *RoomManager) CreateRoom(ctx context.Context, name string, maxParticipants uint32) error {
+	ctx, cancel := context.WithTimeout(ctx, livekitAPITimeout)
+	defer cancel()
 	_, err := rm.client.CreateRoom(ctx, &lkproto.CreateRoomRequest{
 		Name:            name,
 		MaxParticipants: maxParticipants,
@@ -57,6 +65,8 @@ func (rm *RoomManager) CreateRoom(ctx context.Context, name string, maxParticipa
 
 // DeleteRoom deletes a LiveKit room by name.
 func (rm *RoomManager) DeleteRoom(ctx context.Context, name string) error {
+	ctx, cancel := context.WithTimeout(ctx, livekitAPITimeout)
+	defer cancel()
 	_, err := rm.client.DeleteRoom(ctx, &lkproto.DeleteRoomRequest{
 		Room: name,
 	})

@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/smtp"
 	"strings"
 	"time"
@@ -340,7 +341,23 @@ func (s *Service) SaveDraft(ctx context.Context, input DraftInput) (*models.Emai
 	return msg, nil
 }
 
-// sendSMTP sends raw email data via SMTP.
+// smtpDialTimeout bounds the TCP connect to the SMTP server. An unreachable
+// server fails fast instead of blocking the calling goroutine indefinitely.
+//
+// smtpExchangeDeadline bounds the entire SMTP exchange (handshake, auth, data)
+// once connected, so a server that stalls mid-conversation cannot leak the
+// goroutine. net/smtp itself offers no per-operation timeout.
+//
+// Both are vars (not consts) only so tests can shrink them; production never
+// reassigns them.
+var (
+	smtpDialTimeout      = 10 * time.Second
+	smtpExchangeDeadline = 30 * time.Second
+)
+
+// sendSMTP sends raw email data via SMTP. Both transports are bounded by a dial
+// timeout and an exchange deadline; net/smtp's SendMail offers neither, which
+// would let an unresponsive SMTP server block the calling goroutine forever.
 func (s *Service) sendSMTP(creds *Credentials, from string, to []string, msg []byte) error {
 	addr := fmt.Sprintf("%s:%d", creds.SMTPHost, creds.SMTPPort)
 	auth := smtp.PlainAuth("", creds.Username, creds.Password, creds.SMTPHost)
@@ -351,20 +368,19 @@ func (s *Service) sendSMTP(creds *Credentials, from string, to []string, msg []b
 	}
 
 	// Port 587: STARTTLS
-	return smtp.SendMail(addr, auth, from, to, msg)
+	return s.sendSMTPStartTLS(addr, auth, creds.SMTPHost, from, to, msg)
 }
 
-// sendSMTPTLS sends via direct TLS connection (port 465).
-func (s *Service) sendSMTPTLS(addr string, auth smtp.Auth, host, from string, to []string, msg []byte) error {
-	tlsConfig := &tls.Config{
-		ServerName: host,
-	}
-
-	conn, err := tls.Dial("tcp", addr, tlsConfig)
+// sendSMTPStartTLS sends via STARTTLS (port 587) with bounded dial + exchange.
+// It mirrors net/smtp.SendMail (hello → STARTTLS if offered → auth → data) but
+// adds a net.DialTimeout and a connection deadline.
+func (s *Service) sendSMTPStartTLS(addr string, auth smtp.Auth, host, from string, to []string, msg []byte) error {
+	conn, err := net.DialTimeout("tcp", addr, smtpDialTimeout)
 	if err != nil {
-		return fmt.Errorf("TLS dial failed: %w", err)
+		return fmt.Errorf("SMTP dial failed: %w", err)
 	}
 	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(smtpExchangeDeadline))
 
 	client, err := smtp.NewClient(conn, host)
 	if err != nil {
@@ -372,8 +388,40 @@ func (s *Service) sendSMTPTLS(addr string, auth smtp.Auth, host, from string, to
 	}
 	defer client.Close()
 
-	if err := client.Auth(auth); err != nil {
-		return fmt.Errorf("%w: %v", ErrSMTPAuthFailed, err)
+	if ok, _ := client.Extension("STARTTLS"); ok {
+		if err := client.StartTLS(&tls.Config{ServerName: host}); err != nil {
+			return fmt.Errorf("STARTTLS failed: %w", err)
+		}
+	}
+
+	return s.smtpDeliver(client, auth, from, to, msg)
+}
+
+// sendSMTPTLS sends via direct TLS connection (port 465) with bounded dial +
+// exchange.
+func (s *Service) sendSMTPTLS(addr string, auth smtp.Auth, host, from string, to []string, msg []byte) error {
+	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: smtpDialTimeout}, "tcp", addr, &tls.Config{ServerName: host})
+	if err != nil {
+		return fmt.Errorf("TLS dial failed: %w", err)
+	}
+	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(smtpExchangeDeadline))
+
+	client, err := smtp.NewClient(conn, host)
+	if err != nil {
+		return fmt.Errorf("SMTP client creation failed: %w", err)
+	}
+	defer client.Close()
+
+	return s.smtpDeliver(client, auth, from, to, msg)
+}
+
+// smtpDeliver runs the auth + envelope + data phase shared by both transports.
+func (s *Service) smtpDeliver(client *smtp.Client, auth smtp.Auth, from string, to []string, msg []byte) error {
+	if auth != nil {
+		if err := client.Auth(auth); err != nil {
+			return fmt.Errorf("%w: %v", ErrSMTPAuthFailed, err)
+		}
 	}
 
 	if err := client.Mail(from); err != nil {

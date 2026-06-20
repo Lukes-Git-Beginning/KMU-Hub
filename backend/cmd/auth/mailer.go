@@ -2,9 +2,20 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/smtp"
+	"time"
+)
+
+// smtpDialTimeout bounds the TCP connect; smtpExchangeDeadline bounds the whole
+// SMTP exchange. net/smtp.SendMail offers neither, so an unresponsive SMTP
+// server would otherwise block the password-reset request handler indefinitely.
+const (
+	smtpDialTimeout      = 10 * time.Second
+	smtpExchangeDeadline = 30 * time.Second
 )
 
 // systemMailer implements auth.Mailer using a dedicated system SMTP account.
@@ -53,10 +64,62 @@ func (m *systemMailer) SendPasswordResetEmail(_ context.Context, toEmail, toName
 		auth = smtp.PlainAuth("", m.username, m.password, m.host)
 	}
 
-	if err := smtp.SendMail(addr, auth, m.from, []string{toEmail}, msg); err != nil {
+	if err := m.sendMail(addr, auth, []string{toEmail}, msg); err != nil {
 		return fmt.Errorf("system mailer: send to %s: %w", toEmail, err)
 	}
 
 	slog.Info("password reset email sent", "to", toEmail)
 	return nil
+}
+
+// sendMail delivers a message over STARTTLS (or plain) with a bounded dial
+// timeout and exchange deadline. It mirrors net/smtp.SendMail's flow
+// (hello → STARTTLS if offered → auth → data) but cannot block forever on an
+// unresponsive server.
+func (m *systemMailer) sendMail(addr string, auth smtp.Auth, to []string, msg []byte) error {
+	conn, err := net.DialTimeout("tcp", addr, smtpDialTimeout)
+	if err != nil {
+		return fmt.Errorf("smtp dial: %w", err)
+	}
+	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(smtpExchangeDeadline))
+
+	client, err := smtp.NewClient(conn, m.host)
+	if err != nil {
+		return fmt.Errorf("smtp client: %w", err)
+	}
+	defer client.Close()
+
+	if ok, _ := client.Extension("STARTTLS"); ok {
+		if err := client.StartTLS(&tls.Config{ServerName: m.host}); err != nil {
+			return fmt.Errorf("smtp starttls: %w", err)
+		}
+	}
+	if auth != nil {
+		if err := client.Auth(auth); err != nil {
+			return fmt.Errorf("smtp auth: %w", err)
+		}
+	}
+
+	if err := client.Mail(m.from); err != nil {
+		return err
+	}
+	for _, rcpt := range to {
+		if err := client.Rcpt(rcpt); err != nil {
+			return err
+		}
+	}
+
+	wc, err := client.Data()
+	if err != nil {
+		return err
+	}
+	if _, err := wc.Write(msg); err != nil {
+		return err
+	}
+	if err := wc.Close(); err != nil {
+		return err
+	}
+
+	return client.Quit()
 }
