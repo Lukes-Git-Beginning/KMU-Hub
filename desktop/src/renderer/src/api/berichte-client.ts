@@ -6,6 +6,7 @@
  * PDF/CSV/XLSX export endpoint (Content-Disposition filename extraction).
  */
 import type {
+  BuilderQueryConfig,
   CreateDefinitionInput,
   CreateScheduleInput,
   DashboardKPIsResponse,
@@ -17,6 +18,7 @@ import type {
   ListDefinitionsResponse,
   ListSchedulesParams,
   ListSchedulesResponse,
+  PreviewReportResponse,
   ReportFormat,
   RunReportInput,
   RunReportResponse,
@@ -149,6 +151,15 @@ export function invalidateCache(definitionId: string) {
   return request<InvalidateCacheResponse>({
     method: 'DELETE',
     path: `${BASE}/definitions/${definitionId}/cache`,
+  })
+}
+
+/** Builder live preview — runs a no-code query and returns a ReportResult. */
+export function previewReport(query: BuilderQueryConfig) {
+  return request<PreviewReportResponse>({
+    method: 'POST',
+    path: `${BASE}/preview`,
+    body: { query },
   })
 }
 

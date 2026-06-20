@@ -20,12 +20,14 @@ import {
   invalidateCache,
   listDefinitions,
   listSchedules,
+  previewReport,
   runReport,
   toggleSchedule,
   updateDefinition,
   updateSchedule,
 } from '../berichte-client'
 import type {
+  BuilderQueryConfig,
   CreateDefinitionInput,
   CreateScheduleInput,
   ExportReportInput,
@@ -173,6 +175,19 @@ export function useExportReport() {
     onSuccess: (result) => {
       downloadBlob(result.blob, result.filename)
     },
+  })
+}
+
+/**
+ * Builder live preview — declarative query keyed on the builder config.
+ * Keeps the previous result while refetching so the chart never flickers.
+ */
+export function useReportPreview(query: BuilderQueryConfig | null) {
+  return useQuery({
+    queryKey: ['berichte', 'preview', query],
+    queryFn: () => previewReport(query as BuilderQueryConfig),
+    enabled: !!query,
+    placeholderData: (prev) => prev,
   })
 }
 

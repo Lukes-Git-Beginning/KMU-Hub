@@ -14,7 +14,7 @@ import {
   useSchedules,
 } from '@/api/hooks/useBerichte'
 import { DashboardGrid } from './components/DashboardGrid'
-import { ReportBuilder } from './components/ReportBuilder'
+import { ReportBuilderShell } from './components/builder/ReportBuilderShell'
 import { ScheduleList } from './components/ScheduleList'
 import { DatevView } from './components/DatevView'
 
@@ -118,9 +118,7 @@ export default function BerichtePage() {
         />
       )}
 
-      {tab === 'erstellen' && (
-        <ReportBuilder definitions={definitions} isLoading={definitionsQuery.isLoading} />
-      )}
+      {tab === 'erstellen' && <ReportBuilderShell />}
 
       {tab === 'geplant' && <ScheduleList definitions={definitions} />}
 

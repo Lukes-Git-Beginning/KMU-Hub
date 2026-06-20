@@ -347,7 +347,7 @@ export function ScheduleList({ definitions }: ScheduleListProps) {
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <CalendarClock className="h-3 w-3" />
                       {s.active
-                        ? formatDateTime(computeNextRun(s.cron_expression)?.toISOString() ?? null)
+                        ? formatDateTime(computeNextRun(s.cron_expression)?.toISOString() ?? '')
                         : t('berichte.geplant.pausiert', { defaultValue: 'Pausiert' })}
                     </div>
                   </td>
@@ -640,7 +640,7 @@ export function ScheduleList({ definitions }: ScheduleListProps) {
                 </dt>
                 <dd className="mt-0.5 font-medium text-foreground">
                   {detailSchedule.active
-                    ? formatDateTime(computeNextRun(detailSchedule.cron_expression)?.toISOString() ?? null)
+                    ? formatDateTime(computeNextRun(detailSchedule.cron_expression)?.toISOString() ?? '')
                     : t('berichte.geplant.pausiert', { defaultValue: 'Pausiert' })}
                 </dd>
               </div>

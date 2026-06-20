@@ -1,7 +1,10 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
 import { buildSimplePdf, type PdfLine } from '@/modules/finanzen/lib/mini-pdf'
+import { resolveSource } from '@/modules/berichte/report-sources/registry'
+import { executeQuery } from '@/modules/berichte/report-sources/query-executor'
 import type {
+  BuilderQueryConfig,
   DashboardKPI,
   ReportColumn,
   ReportDefinition,
@@ -351,7 +354,7 @@ export const berichteHandlers = [
     const format = (url.searchParams.get('format') ?? 'pdf') as 'pdf' | 'csv' | 'xlsx'
     const filename = `${slugify(definition.name)}.${format}`
     const body: BodyInit =
-      format === 'pdf' ? resultToPdf(definition, result) : resultToCsv(result)
+      format === 'pdf' ? (resultToPdf(definition, result) as BodyInit) : resultToCsv(result)
     return new HttpResponse(body, {
       headers: {
         'Content-Type': CONTENT_TYPES[format] ?? 'application/octet-stream',
@@ -364,6 +367,21 @@ export const berichteHandlers = [
   http.delete(`${API}/api/v1/berichte/definitions/:id/cache`, () =>
     HttpResponse.json({ evicted: 0 }),
   ),
+
+  // --- Builder preview (query executor stub; real executor = Luke) ---
+  http.post(`${API}/api/v1/berichte/preview`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as { query?: BuilderQueryConfig }
+    const query = body.query
+    if (!query || query.kind !== 'builder') {
+      return HttpResponse.json({ error: 'Invalid builder query' }, { status: 400 })
+    }
+    const source = resolveSource(query.sourceId)
+    if (!source) {
+      return HttpResponse.json({ error: `Unknown source: ${query.sourceId}` }, { status: 404 })
+    }
+    const result = executeQuery(source, query, source.sampleRows())
+    return HttpResponse.json({ result })
+  }),
 
   // --- Schedules ---
   http.get(`${API}/api/v1/berichte/schedules`, ({ request }) => {
