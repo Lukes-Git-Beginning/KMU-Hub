@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/global.d.ts",
+    "src/renderer/src/vite-env.d.ts",
+    "src/renderer/src/i18n/i18next.d.ts",
+    "src/renderer/src/mocks/handlers/berichte.ts",
+    "src/renderer/src/modules/berichte/components/builder/SaveReportBar.tsx",
+    "src/renderer/src/modules/berichte/components/builder/MyReportsLibrary.tsx",
+    "src/renderer/src/modules/berichte/components/builder/ReportBuilderShell.tsx"
+  ]
+}

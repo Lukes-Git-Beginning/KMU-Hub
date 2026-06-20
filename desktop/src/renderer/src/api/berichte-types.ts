@@ -133,7 +133,7 @@ export interface CreateDefinitionInput {
   description?: string
   module: ReportModule
   kind?: ReportKind
-  query_config: QueryConfig
+  query_config: QueryConfig | BuilderQueryConfig
   default_format?: ReportFormat
   is_published?: boolean
 }
@@ -142,7 +142,7 @@ export interface UpdateDefinitionInput {
   name?: string
   description?: string
   module?: ReportModule
-  query_config?: QueryConfig
+  query_config?: QueryConfig | BuilderQueryConfig
   default_format?: ReportFormat
   is_published?: boolean
 }

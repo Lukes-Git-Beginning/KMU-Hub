@@ -3,6 +3,7 @@ import { API_BASE_URL } from '@/lib/constants'
 import { buildSimplePdf, type PdfLine } from '@/modules/finanzen/lib/mini-pdf'
 import { resolveSource } from '@/modules/berichte/report-sources/registry'
 import { executeQuery } from '@/modules/berichte/report-sources/query-executor'
+import { isBuilderQuery } from '@/api/berichte-types'
 import type {
   BuilderQueryConfig,
   DashboardKPI,
@@ -66,7 +67,8 @@ function def(
   }
 }
 
-const DEMO_DEFINITIONS: ReportDefinition[] = [
+// Session-persistent: system defs (seeded) + custom defs created via the builder.
+let DEMO_DEFINITIONS: ReportDefinition[] = [
   def('def-umsatz', 'Umsatzverlauf', 'Monatlicher Umsatz der letzten 12 Monate inkl. Trend.', 'finanzen', 'revenue'),
   def('def-tickets', 'Helpdesk-Auslastung', 'Offene und gelöste Tickets pro Monat.', 'helpdesk', 'tickets'),
   def('def-lager', 'Lagerwert-Entwicklung', 'Entwicklung des Lagerwerts über das Jahr.', 'inventar', 'inventory_value'),
@@ -74,6 +76,7 @@ const DEMO_DEFINITIONS: ReportDefinition[] = [
   def('def-datev-bwa', 'DATEV BWA', 'Betriebswirtschaftliche Auswertung (DATEV-Format).', 'finanzen', 'datev_bwa'),
   def('def-datev-susa', 'DATEV Summen- und Saldenliste', 'Summen- und Saldenliste je Konto (DATEV-Format).', 'finanzen', 'datev_susa'),
 ]
+let definitionCounter = 0
 
 // ---------------------------------------------------------------------------
 // Report results (per definition) — series for charts, columns+rows for tables
@@ -319,6 +322,48 @@ export const berichteHandlers = [
     return HttpResponse.json({ definition })
   }),
 
+  // --- Create custom definition (from the builder) ---
+  http.post(`${API}/api/v1/berichte/definitions`, async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
+    definitionCounter += 1
+    const now = new Date().toISOString()
+    const definition: ReportDefinition = {
+      id: `def-custom-${definitionCounter}`,
+      tenant_id: TENANT,
+      name: String(body.name ?? 'Neuer Bericht'),
+      description: String(body.description ?? ''),
+      module: (body.module as ReportDefinition['module']) ?? 'cross',
+      kind: 'custom',
+      query_config: (body.query_config as ReportDefinition['query_config']) ?? {},
+      default_format: (body.default_format as ReportDefinition['default_format']) ?? 'pdf',
+      created_by: 'u-demo',
+      is_published: body.is_published != null ? Boolean(body.is_published) : false,
+      created_at: now,
+      updated_at: now,
+    }
+    DEMO_DEFINITIONS = [definition, ...DEMO_DEFINITIONS]
+    return HttpResponse.json({ definition }, { status: 201 })
+  }),
+
+  // --- Update definition (rename, edit query, pin to dashboard) ---
+  http.patch(`${API}/api/v1/berichte/definitions/:id`, async ({ params, request }) => {
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
+    const idx = DEMO_DEFINITIONS.findIndex((d) => d.id === params.id)
+    if (idx === -1) return new HttpResponse(null, { status: 404 })
+    DEMO_DEFINITIONS[idx] = {
+      ...DEMO_DEFINITIONS[idx],
+      ...body,
+      updated_at: new Date().toISOString(),
+    }
+    return HttpResponse.json({ definition: DEMO_DEFINITIONS[idx] })
+  }),
+
+  // --- Delete definition ---
+  http.delete(`${API}/api/v1/berichte/definitions/:id`, ({ params }) => {
+    DEMO_DEFINITIONS = DEMO_DEFINITIONS.filter((d) => d.id !== params.id)
+    return new HttpResponse(null, { status: 204 })
+  }),
+
   // --- Run ---
   http.post(`${API}/api/v1/berichte/definitions/:id/run`, ({ params }) => {
     const id = String(params.id)
@@ -348,8 +393,14 @@ export const berichteHandlers = [
   http.post(`${API}/api/v1/berichte/definitions/:id/export`, ({ params, request }) => {
     const id = String(params.id)
     const definition = DEMO_DEFINITIONS.find((d) => d.id === id)
-    const result = REPORT_RESULTS[id]
-    if (!definition || !result) return new HttpResponse(null, { status: 404 })
+    if (!definition) return new HttpResponse(null, { status: 404 })
+    // System defs use canned results; custom builder defs run through the executor.
+    let result = REPORT_RESULTS[id]
+    if (!result && isBuilderQuery(definition.query_config)) {
+      const source = resolveSource(definition.query_config.sourceId)
+      if (source) result = executeQuery(source, definition.query_config, source.sampleRows())
+    }
+    if (!result) return new HttpResponse(null, { status: 404 })
     const url = new URL(request.url)
     const format = (url.searchParams.get('format') ?? 'pdf') as 'pdf' | 'csv' | 'xlsx'
     const filename = `${slugify(definition.name)}.${format}`
