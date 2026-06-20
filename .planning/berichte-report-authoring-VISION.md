@@ -7,7 +7,12 @@
 > **Der bisher gebaute Builder (E-0…E-5, `.planning/berichte-builder-plan.md`) ist NICHT weg** —
 > er wird zur untersten „Grafik-Widget"-Schicht (ein Baustein im Dokument).
 >
-> **R-0 ist ABGESCHLOSSEN (commit 424fa859).** Nächster Schritt: R-1a beginnen.
+> **Stand 2026-06-20 (Hauptterminal-Batch 1 fertig):** R-0 ✅ · **R-1a ✅** (Block-Editor-Kern:
+> Skeleton, Vorlagen-Picker, +-Menü, Inline-Edit, dnd-Reorder, Löschen, Auto-Save) · **B1-6 ✅**
+> (Lese-Reader-Grundlage: Deckblatt/Text/KPI/Chart/Callout gerendert, echte Diagramme).
+> **Darien-Feedback zum Reader: „ok fürs Erste, aber da müssen wir nochmal deutlich rüber" →
+> neue Phase R-2p (Reader-Premium-Politur).** Nächste Batches: R-1b (Spalten + Chart-Block-Picker),
+> R-2 (Lebenszyklus-Übergänge), R-2p (Reader-Politur).
 
 ---
 
@@ -263,6 +268,34 @@
 
 **FE-mockbar:** Snapshot-Record in MSW simulierbar.
 **Backend-Bedarf:** Snapshot-Persistenz (JSONB) → Luke; Status-Guards FE-seitig.
+
+---
+
+### R-2p — Reader-Premium-Politur (Darien-Feedback 2026-06-20)
+
+**Kontext:** B1-6 (commit 2916acd9) hat den Lese-Reader **funktional** gebaut — Deckblatt,
+Überschriften, Fließtext, KPI-Kacheln, echte Diagramme (ChartRenderer), Callouts, Spalten-Layout.
+Darien: *„ist ok fürs Erste, aber da müssen wir nochmal deutlich rüber."* Ziel dieser Phase: vom
+funktionalen Reader zum **echten Premium-Bericht-Dokument**, das wie ein gedruckter Geschäftsbericht
+wirkt (und optisch dem späteren PDF aus R-3 entspricht).
+
+**Akzeptanzkriterien (reine Layout-/Design-Arbeit, kein Backend):**
+- **Echtes Papier-/Seiten-Gefühl:** A4-Proportionen, klare Seitenränder, dezenter Schatten;
+  Seitenumbrüche optional sichtbar als Seitentrennung. Kopf-/Fußzeile gerendert (Logo + „Seite X
+  von Y" aus `settings.showHeader/showFooter/showPageNumbers`).
+- **Editorial-Typografie:** echte Hierarchie (Deckblatt-Titel groß, Serif-Option Playfair Display
+  für Titel/H1; H1 ≠ H2 klar), Lesebreite (~65ch) für Fließtext, vertikaler Rhythmus + konsistente
+  Section-Abstände.
+- **Deckblatt-Design:** vollwertiges Cover (vertikal komponiert, Akzentlinie/-fläche aus
+  `settings.accentColor`, Logo-Platz, Periode/Autor/Datum sauber gesetzt) — nicht nur zentrierter Text.
+- **KPI-Kacheln & Diagramme:** konsistente Höhen + Rahmen, Diagramm-Titel/Legende, Akzentfarbe
+  durchziehen; Tabellen-Block poliert.
+- **Callouts:** ruhigere, professionellere Boxen (Icon je `variant`, dezente Farbe).
+- **Drucknah:** Reader-Layout als Print-CSS-Vorbereitung für R-3 (gleiche Maße/Typo).
+
+**FE-mockbar:** vollständig. **Backend-Bedarf:** keiner.
+**Skills gezielt einsetzen:** `frontend-design`, `typeset`, `polish`, `arrange`, `impeccable`.
+**Einordnung:** eigener Batch oder mit R-1b/R-2 kombinierbar; Design-lastig → Hauptterminal.
 
 ---
 
