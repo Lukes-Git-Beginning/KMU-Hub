@@ -212,6 +212,14 @@ export function toggleSchedule(id: string, active: boolean) {
   })
 }
 
+/** Trigger an immediate manual run of a schedule ("send now"). */
+export function runScheduleNow(id: string) {
+  return request<ScheduleResponse>({
+    method: 'POST',
+    path: `${BASE}/schedules/${id}/run`,
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Dashboard KPIs
 // ---------------------------------------------------------------------------

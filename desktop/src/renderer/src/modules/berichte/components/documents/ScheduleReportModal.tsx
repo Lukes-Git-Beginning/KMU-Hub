@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, CalendarClock, Mail, Search, X } from 'lucide-react'
+import { AlertTriangle, CalendarClock, Clock, History, Mail, Search, Send, X } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -11,14 +11,22 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import type { ReportDocument, ReportFormat } from '@/api/berichte-types'
-import { useCreateSchedule, useSchedules, useUpdateSchedule } from '@/api/hooks/useBerichte'
+import {
+  useCreateSchedule,
+  useRunScheduleNow,
+  useSchedules,
+  useUpdateSchedule,
+} from '@/api/hooks/useBerichte'
 import { useBerichtePrefsStore } from '@/stores/berichtePrefs'
 import { CURRENT_USER } from '@/mocks/data/shared-ids'
 import { EMPLOYEES } from '@/mocks/mock-db'
+import { formatDateTime } from '@/lib/format'
 import {
   DEFAULT_RHYTHM,
   EMAIL_RE,
   WEEKDAYS,
+  buildRunHistory,
+  computeNextRun,
   type Rhythm,
   type RhythmKind,
   cronToRhythm,
@@ -50,6 +58,12 @@ const INTERNAL_USERS: InternalUser[] = EMPLOYEES.map((e) => ({
 }))
 const INTERNAL_BY_EMAIL = new Map(INTERNAL_USERS.map((u) => [u.email, u]))
 
+const RUN_STATUS_STYLES: Record<string, string> = {
+  success: 'bg-success-light text-success',
+  failed: 'bg-error-light text-error',
+  skipped: 'bg-warning-light text-warning',
+}
+
 /**
  * Per-document scheduling modal (R-4). Couples a ReportSchedule to the report
  * document via `definition_id = doc.id`, and offers a friendly rhythm picker
@@ -63,6 +77,7 @@ export function ScheduleReportModal({ doc, open, onClose }: ScheduleReportModalP
   const schedulesQuery = useSchedules({ definition_id: doc.id })
   const createMutation = useCreateSchedule()
   const updateMutation = useUpdateSchedule()
+  const runNowMutation = useRunScheduleNow()
   const defaultFormat = useBerichtePrefsStore((s) => s.defaultFormat)
 
   const existing = schedulesQuery.data?.schedules.find((s) => s.definition_id === doc.id) ?? null
@@ -131,6 +146,19 @@ export function ScheduleReportModal({ doc, open, onClose }: ScheduleReportModalP
     }
     addRecipient(email)
     setEmailInput('')
+  }
+
+  // Live "next run" preview from the currently chosen rhythm; run history is
+  // only meaningful once a schedule exists on the server.
+  const nextRun = isReleased ? computeNextRun(rhythmToCron(rhythm)) : null
+  const runHistory = existing ? buildRunHistory(existing) : []
+
+  const handleRunNow = () => {
+    if (!existing) return
+    runNowMutation.mutate(existing.id, {
+      onSuccess: () => toast.success(t('berichte.docs.schedule.sentNow')),
+      onError: (err) => toast.error((err as Error).message),
+    })
   }
 
   const handleSave = () => {
@@ -439,6 +467,71 @@ export function ScheduleReportModal({ doc, open, onClose }: ScheduleReportModalP
               />
             </button>
           </div>
+
+          {/* Next-run preview (read-only, from the chosen rhythm) */}
+          <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/40 px-4 py-3">
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <CalendarClock className="h-3.5 w-3.5" />
+              {t('berichte.docs.schedule.nextRun')}
+            </span>
+            <span className="text-sm font-medium text-foreground">
+              {active && nextRun ? formatDateTime(nextRun.toISOString()) : '—'}
+            </span>
+          </div>
+
+          {/* Run history + manual "send now" — only once a schedule exists */}
+          {existing && (
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <History className="h-3.5 w-3.5" />
+                  {t('berichte.docs.schedule.history')}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleRunNow}
+                  disabled={runNowMutation.isPending}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-50"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  {t('berichte.docs.schedule.sendNow')}
+                </button>
+              </div>
+              {runHistory.length === 0 ? (
+                <p className="rounded-lg border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
+                  {t('berichte.docs.schedule.noRuns')}
+                </p>
+              ) : (
+                <ul className="overflow-hidden rounded-lg border border-border">
+                  {runHistory.map((run, i) => (
+                    <li
+                      key={i}
+                      className="flex items-center justify-between gap-3 border-b border-border-muted bg-card px-4 py-2.5 text-sm last:border-0"
+                    >
+                      <span className="flex items-center gap-2 text-foreground">
+                        <Clock className="h-3 w-3 text-muted-foreground" />
+                        {formatDateTime(run.at)}
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {t('berichte.docs.schedule.recipientCount', {
+                            count: existing.recipients.length,
+                          })}
+                        </span>
+                        <span
+                          className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                            RUN_STATUS_STYLES[run.status] ?? 'bg-secondary text-muted-foreground'
+                          }`}
+                        >
+                          {t(`berichte.docs.schedule.runStatus.${run.status}`)}
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
 
         <DialogFooter className="border-t border-border px-6 py-4">

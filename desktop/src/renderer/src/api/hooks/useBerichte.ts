@@ -25,6 +25,7 @@ import {
   listReportDocuments,
   listReportTemplates,
   listSchedules,
+  runScheduleNow,
   previewReport,
   runReport,
   toggleSchedule,
@@ -253,6 +254,15 @@ export function useToggleSchedule() {
   return useMutation({
     mutationFn: ({ id, active }: { id: string; active: boolean }) =>
       toggleSchedule(id, active),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ['berichte', 'schedules'] }),
+  })
+}
+
+export function useRunScheduleNow() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => runScheduleNow(id),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: ['berichte', 'schedules'] }),
   })

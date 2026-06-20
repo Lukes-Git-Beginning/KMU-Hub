@@ -836,4 +836,19 @@ export const berichteHandlers = [
     }
     return HttpResponse.json({ schedule: SCHEDULES[idx] })
   }),
+
+  // Manual "send now" — records an immediate successful run on the schedule.
+  http.post(`${API}/api/v1/berichte/schedules/:id/run`, ({ params }) => {
+    const idx = SCHEDULES.findIndex((s) => s.id === params.id)
+    if (idx === -1) return new HttpResponse(null, { status: 404 })
+    const now = new Date().toISOString()
+    SCHEDULES[idx] = {
+      ...SCHEDULES[idx],
+      last_run_at: now,
+      last_run_status: 'success',
+      last_run_error: null,
+      updated_at: now,
+    }
+    return HttpResponse.json({ schedule: SCHEDULES[idx] })
+  }),
 ]
