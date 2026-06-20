@@ -18,15 +18,17 @@ const NAMED: Record<Exclude<PaletteId, 'default' | 'mono'>, string[]> = {
   forest: ['#15803d', '#65a30d', '#0d9488', '#84cc16', '#166534'],
 }
 
-/** Resolve a palette to a colour array, cycling to cover `n` series. */
+/** Resolve a palette to a colour array, cycling to cover `n` series.
+ *  Unknown/legacy ids (e.g. older docs saved with a theme name) fall back to the
+ *  active theme palette so a stale value never breaks rendering. */
 export function resolvePalette(theme: ChartTheme, id: PaletteId | undefined, n: number): string[] {
   let base: string[]
-  if (!id || id === 'default') {
-    base = categoricalPalette(theme)
-  } else if (id === 'mono') {
+  if (id === 'mono') {
     base = [theme.primary, `${theme.primary}cc`, `${theme.primary}99`, `${theme.primary}66`, `${theme.primary}40`]
+  } else if (id && id in NAMED) {
+    base = NAMED[id as keyof typeof NAMED]
   } else {
-    base = NAMED[id]
+    base = categoricalPalette(theme)
   }
   return Array.from({ length: Math.max(n, 1) }, (_, i) => base[i % base.length])
 }

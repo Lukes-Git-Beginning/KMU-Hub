@@ -24,6 +24,7 @@ import { useReportResult } from '@/api/hooks/useBerichte'
 import { Skeleton } from '@/components/shared'
 import { formatDate } from '@/lib/format'
 import { ChartRenderer } from '../charts/ChartRenderer'
+import './report-print.css'
 
 const CALLOUT_STYLE: Record<CalloutVariant, string> = {
   info: 'border-info/25 bg-info-light',
@@ -129,6 +130,7 @@ function ReportPage({
 }) {
   const { t } = useTranslation()
   const accent = settings?.accentColor
+  const palette = settings?.palette
   const hasCover = rows[0]?.columns[0]?.blocks[0]?.type === 'cover'
   // Real reports leave the cover page without running header/footer/page number.
   const showHeader = !hasCover && settings?.showHeader && Boolean(settings.headerText || settings.logoUrl)
@@ -165,7 +167,7 @@ function ReportPage({
               {row.columns.map((col) => (
                 <div key={col.id} className="min-w-0 space-y-6" style={{ flex: col.width ?? 1 }}>
                   {col.blocks.map((block) => (
-                    <BlockView key={block.id} block={block} accent={accent} />
+                    <BlockView key={block.id} block={block} accent={accent} palette={palette} />
                   ))}
                 </div>
               ))}
@@ -188,7 +190,15 @@ function ReportPage({
   )
 }
 
-function BlockView({ block, accent }: { block: ReportBlock; accent?: string }) {
+function BlockView({
+  block,
+  accent,
+  palette,
+}: {
+  block: ReportBlock
+  accent?: string
+  palette?: string
+}) {
   switch (block.type) {
     case 'cover':
       return <CoverView block={block} accent={accent} />
@@ -216,12 +226,12 @@ function BlockView({ block, accent }: { block: ReportBlock; accent?: string }) {
 
     case 'chart':
     case 'table':
-      return <ChartBlockView block={block} />
+      return <ChartBlockView block={block} palette={palette} />
 
     case 'callout': {
       const { icon: CalloutIcon, tone } = CALLOUT_ICON[block.variant]
       return (
-        <div className={`flex gap-3 rounded-xl border p-4 ${CALLOUT_STYLE[block.variant]}`}>
+        <div className={`report-keep flex gap-3 rounded-xl border p-4 ${CALLOUT_STYLE[block.variant]}`}>
           <CalloutIcon className={`mt-0.5 h-4 w-4 shrink-0 ${tone}`} aria-hidden="true" />
           <div className="min-w-0">
             {block.title && (
@@ -259,7 +269,7 @@ function BlockView({ block, accent }: { block: ReportBlock; accent?: string }) {
 
     case 'image':
       return (
-        <figure className="space-y-2">
+        <figure className="report-keep space-y-2">
           <img
             src={block.url}
             alt={block.alt ?? ''}
@@ -338,7 +348,7 @@ function CoverView({ block, accent }: { block: CoverBlock; accent?: string }) {
 function KpiView({ block }: { block: KpiBlock }) {
   const positive = (block.changePercent ?? 0) >= 0
   return (
-    <div className="flex h-full flex-col rounded-lg border border-border-muted bg-card p-4">
+    <div className="report-keep flex h-full flex-col rounded-lg border border-border-muted bg-card p-4">
       <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         {block.label}
       </p>
@@ -369,17 +379,28 @@ function KpiView({ block }: { block: KpiBlock }) {
   )
 }
 
-function ChartBlockView({ block }: { block: ChartBlock | TableBlock }) {
+function ChartBlockView({
+  block,
+  palette,
+}: {
+  block: ChartBlock | TableBlock
+  palette?: string
+}) {
   const { t } = useTranslation()
   const { data, isLoading } = useReportResult(block.definitionId)
   const result = data?.result
   const viz = block.type === 'table' ? 'table' : (block.viz ?? 'bar')
 
   return (
-    <figure className="space-y-2.5">
+    <figure className="report-keep space-y-2.5">
       <div className="rounded-lg border border-border-muted bg-card p-4">
         {result ? (
-          <ChartRenderer result={result} viz={viz} height={280} />
+          <ChartRenderer
+            result={result}
+            viz={viz}
+            height={280}
+            options={palette ? { palette } : undefined}
+          />
         ) : isLoading ? (
           <Skeleton className="h-[240px] w-full rounded-lg" />
         ) : (

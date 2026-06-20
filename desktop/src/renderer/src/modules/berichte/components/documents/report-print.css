@@ -1,0 +1,51 @@
+/*
+ * Print foundation for report documents (R-2p groundwork).
+ * The reader already renders the report as A4 sheets; these rules make a browser
+ * print / PDF export (R-3a adds the window.print() trigger + app-chrome hiding)
+ * map each sheet onto a real A4 page without shadows, without cutting atomic
+ * blocks across page boundaries, and breaking on explicit page-break rows.
+ */
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  /* The on-screen tinted "desk" becomes plain paper when printed. */
+  .report-desk {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    min-height: 0 !important;
+  }
+
+  /* Each sheet is one printed page; the last one must not add a trailing page. */
+  .report-page {
+    width: 100% !important;
+    max-width: none !important;
+    min-height: auto !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    break-after: page;
+    page-break-after: always;
+  }
+  .report-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  /* Keep atomic blocks (charts, tables, KPIs, callouts, images) intact. */
+  .report-keep,
+  .report-page figure {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Headings should not be orphaned at the bottom of a page. */
+  .report-page h1,
+  .report-page h2,
+  .report-page h3 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+}
