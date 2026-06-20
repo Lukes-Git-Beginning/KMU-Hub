@@ -1028,6 +1028,8 @@
   "berichte.docs.lifecycle.toast.released": "Rapporto pubblicato",
   "berichte.docs.lifecycle.toast.archived": "Rapporto archiviato",
   "berichte.docs.pageXofY": "Pagina {x} di {y}",
+  "berichte.docs.cover.author": "Autore",
+  "berichte.docs.cover.date": "Data",
   "berichte.tabs.geplant": "Pianificati ({count})",
   "berichte.tickets.count": "{count} ticket",
   "berichte.tickets.hoch": "Alto",

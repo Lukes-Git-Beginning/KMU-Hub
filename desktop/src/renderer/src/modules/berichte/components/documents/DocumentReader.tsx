@@ -4,6 +4,7 @@ import DOMPurify from 'dompurify'
 import type {
   CalloutVariant,
   ChartBlock,
+  CoverBlock,
   KpiBlock,
   ReportBlock,
   ReportDocSettings,
@@ -139,7 +140,7 @@ function ReportPage({
               {row.columns.map((col) => (
                 <div key={col.id} className="min-w-0 space-y-6" style={{ flex: col.width ?? 1 }}>
                   {col.blocks.map((block) => (
-                    <BlockView key={block.id} block={block} />
+                    <BlockView key={block.id} block={block} accent={accent} />
                   ))}
                 </div>
               ))}
@@ -162,36 +163,25 @@ function ReportPage({
   )
 }
 
-function BlockView({ block }: { block: ReportBlock }) {
+function BlockView({ block, accent }: { block: ReportBlock; accent?: string }) {
   switch (block.type) {
     case 'cover':
-      return (
-        <div className="flex flex-col items-center gap-2 py-12 text-center">
-          {block.logoUrl && (
-            <img src={block.logoUrl} alt="" className="mb-2 h-12 object-contain" />
-          )}
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">{block.title}</h1>
-          {block.subtitle && <p className="text-lg text-muted-foreground">{block.subtitle}</p>}
-          {block.author && <p className="mt-1 text-sm text-muted-foreground">{block.author}</p>}
-          {block.showDate && (
-            <p className="text-sm text-muted-foreground">{formatDate(new Date().toISOString())}</p>
-          )}
-        </div>
-      )
+      return <CoverView block={block} accent={accent} />
 
     case 'heading':
+      // H1 is the editorial serif voice; H2 stays in the sans body face.
       return block.level === 1 ? (
-        <h2 className="border-b border-border pb-1.5 text-2xl font-bold text-foreground">
+        <h2 className="report-serif mt-2 text-[2rem] font-semibold leading-tight tracking-tight text-foreground">
           {block.text}
         </h2>
       ) : (
-        <h3 className="text-xl font-semibold text-foreground">{block.text}</h3>
+        <h3 className="text-lg font-semibold tracking-tight text-foreground">{block.text}</h3>
       )
 
     case 'text':
       return (
         <div
-          className="tiptap-content prose prose-sm max-w-none text-foreground dark:prose-invert"
+          className="tiptap-content prose prose-sm max-w-[65ch] leading-relaxed text-foreground dark:prose-invert"
           dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(block.html) }}
         />
       )
@@ -245,6 +235,61 @@ function BlockView({ block }: { block: ReportBlock }) {
       // Page breaks are invisible on screen; they only matter in the PDF (R-3).
       return null
   }
+}
+
+/** Editorial cover page: kicker accent, large serif title, footed meta block. */
+function CoverView({ block, accent }: { block: CoverBlock; accent?: string }) {
+  const { t } = useTranslation()
+  const accentStyle = accent ? { backgroundColor: accent } : undefined
+  return (
+    <div className="flex min-h-[920px] flex-col py-2">
+      {block.logoUrl && (
+        <img src={block.logoUrl} alt="" className="h-10 self-start object-contain" />
+      )}
+
+      <div className="mt-28 max-w-[20ch]">
+        <div
+          className={`mb-7 h-1.5 w-16 rounded-full ${
+            accent ? '' : 'bg-gradient-to-r from-[var(--accent-1)] to-[var(--accent-2)]'
+          }`}
+          style={accentStyle}
+        />
+        <h1 className="report-serif text-[3.25rem] font-semibold leading-[1.06] tracking-tight text-foreground">
+          {block.title}
+        </h1>
+        {block.subtitle && (
+          <p className="mt-5 max-w-[34ch] text-lg leading-snug text-muted-foreground">
+            {block.subtitle}
+          </p>
+        )}
+      </div>
+
+      <div className="flex-1" />
+
+      <div className="border-t border-border-muted pt-5">
+        <dl className="flex flex-wrap gap-x-14 gap-y-3">
+          {block.author && (
+            <div>
+              <dt className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                {t('berichte.docs.cover.author')}
+              </dt>
+              <dd className="mt-0.5 text-sm text-foreground">{block.author}</dd>
+            </div>
+          )}
+          {block.showDate && (
+            <div>
+              <dt className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                {t('berichte.docs.cover.date')}
+              </dt>
+              <dd className="mt-0.5 text-sm text-foreground">
+                {formatDate(new Date().toISOString())}
+              </dd>
+            </div>
+          )}
+        </dl>
+      </div>
+    </div>
+  )
 }
 
 function KpiView({ block }: { block: KpiBlock }) {

@@ -1028,6 +1028,8 @@
   "berichte.docs.lifecycle.toast.released": "Bericht freigegeben",
   "berichte.docs.lifecycle.toast.archived": "Bericht archiviert",
   "berichte.docs.pageXofY": "Seite {x} von {y}",
+  "berichte.docs.cover.author": "Autor",
+  "berichte.docs.cover.date": "Datum",
   "berichte.tabs.geplant": "Geplant ({count})",
   "berichte.tickets.count": "{count} Tickets",
   "berichte.tickets.hoch": "Hoch",
