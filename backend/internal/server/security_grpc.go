@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -470,6 +471,56 @@ func (s *SecurityGRPCServer) ExecuteErasure(ctx context.Context, req *securityv1
 		ConfirmationHash: entry.ConfirmationHash,
 		ModulesAffected:  pbModules,
 	}, nil
+}
+
+// DSARSearch performs an Art. 15 GDPR cross-module lookup for a person within the
+// caller's tenant. The tenant is taken from the authenticated context (not the
+// request) so a caller cannot search another tenant's data.
+func (s *SecurityGRPCServer) DSARSearch(ctx context.Context, req *securityv1.DSARSearchRequest) (*securityv1.DSARSearchResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "missing tenant_id: %v", err)
+	}
+
+	query := strings.TrimSpace(req.Query)
+	if len([]rune(query)) < 2 {
+		return nil, status.Error(codes.InvalidArgument, "query must be at least 2 characters")
+	}
+
+	persons, err := gdpr.SearchByQuery(ctx, s.pool, tenantID, query)
+	if err != nil {
+		slog.Error("dsar search failed", "error", err)
+		return nil, status.Error(codes.Internal, "dsar search failed")
+	}
+
+	resp := &securityv1.DSARSearchResponse{Persons: make([]*securityv1.DSARPerson, 0, len(persons))}
+	for _, p := range persons {
+		pbPerson := &securityv1.DSARPerson{
+			Id:      p.ID,
+			Name:    p.Name,
+			Email:   p.Email,
+			Company: p.Company,
+			Avatar:  p.Avatar,
+			Modules: make([]*securityv1.DSARModule, 0, len(p.Modules)),
+		}
+		for _, m := range p.Modules {
+			pbModule := &securityv1.DSARModule{
+				Module:  m.Module,
+				Columns: m.Columns,
+				Records: make([]*securityv1.DSARRecord, 0, len(m.Records)),
+			}
+			for _, r := range m.Records {
+				pbRecord := &securityv1.DSARRecord{Fields: make([]*securityv1.DSARField, 0, len(r.Fields))}
+				for _, f := range r.Fields {
+					pbRecord.Fields = append(pbRecord.Fields, &securityv1.DSARField{Key: f.Key, Value: f.Value})
+				}
+				pbModule.Records = append(pbModule.Records, pbRecord)
+			}
+			pbPerson.Modules = append(pbPerson.Modules, pbModule)
+		}
+		resp.Persons = append(resp.Persons, pbPerson)
+	}
+	return resp, nil
 }
 
 // ============================================================================

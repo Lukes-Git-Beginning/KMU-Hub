@@ -34,6 +34,7 @@ const (
 	SecurityService_GetExportDownload_FullMethodName    = "/security.v1.SecurityService/GetExportDownload"
 	SecurityService_PreviewErasure_FullMethodName       = "/security.v1.SecurityService/PreviewErasure"
 	SecurityService_ExecuteErasure_FullMethodName       = "/security.v1.SecurityService/ExecuteErasure"
+	SecurityService_DSARSearch_FullMethodName           = "/security.v1.SecurityService/DSARSearch"
 	SecurityService_GetPasswordPolicy_FullMethodName    = "/security.v1.SecurityService/GetPasswordPolicy"
 	SecurityService_UpdatePasswordPolicy_FullMethodName = "/security.v1.SecurityService/UpdatePasswordPolicy"
 	SecurityService_ValidatePassword_FullMethodName     = "/security.v1.SecurityService/ValidatePassword"
@@ -64,6 +65,7 @@ type SecurityServiceClient interface {
 	GetExportDownload(ctx context.Context, in *GetExportDownloadRequest, opts ...grpc.CallOption) (*GetExportDownloadResponse, error)
 	PreviewErasure(ctx context.Context, in *PreviewErasureRequest, opts ...grpc.CallOption) (*PreviewErasureResponse, error)
 	ExecuteErasure(ctx context.Context, in *ExecuteErasureRequest, opts ...grpc.CallOption) (*ExecuteErasureResponse, error)
+	DSARSearch(ctx context.Context, in *DSARSearchRequest, opts ...grpc.CallOption) (*DSARSearchResponse, error)
 	// Password Policy
 	GetPasswordPolicy(ctx context.Context, in *GetPasswordPolicyRequest, opts ...grpc.CallOption) (*GetPasswordPolicyResponse, error)
 	UpdatePasswordPolicy(ctx context.Context, in *UpdatePasswordPolicyRequest, opts ...grpc.CallOption) (*UpdatePasswordPolicyResponse, error)
@@ -232,6 +234,16 @@ func (c *securityServiceClient) ExecuteErasure(ctx context.Context, in *ExecuteE
 	return out, nil
 }
 
+func (c *securityServiceClient) DSARSearch(ctx context.Context, in *DSARSearchRequest, opts ...grpc.CallOption) (*DSARSearchResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DSARSearchResponse)
+	err := c.cc.Invoke(ctx, SecurityService_DSARSearch_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *securityServiceClient) GetPasswordPolicy(ctx context.Context, in *GetPasswordPolicyRequest, opts ...grpc.CallOption) (*GetPasswordPolicyResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetPasswordPolicyResponse)
@@ -314,6 +326,7 @@ type SecurityServiceServer interface {
 	GetExportDownload(context.Context, *GetExportDownloadRequest) (*GetExportDownloadResponse, error)
 	PreviewErasure(context.Context, *PreviewErasureRequest) (*PreviewErasureResponse, error)
 	ExecuteErasure(context.Context, *ExecuteErasureRequest) (*ExecuteErasureResponse, error)
+	DSARSearch(context.Context, *DSARSearchRequest) (*DSARSearchResponse, error)
 	// Password Policy
 	GetPasswordPolicy(context.Context, *GetPasswordPolicyRequest) (*GetPasswordPolicyResponse, error)
 	UpdatePasswordPolicy(context.Context, *UpdatePasswordPolicyRequest) (*UpdatePasswordPolicyResponse, error)
@@ -376,6 +389,9 @@ func (UnimplementedSecurityServiceServer) PreviewErasure(context.Context, *Previ
 }
 func (UnimplementedSecurityServiceServer) ExecuteErasure(context.Context, *ExecuteErasureRequest) (*ExecuteErasureResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ExecuteErasure not implemented")
+}
+func (UnimplementedSecurityServiceServer) DSARSearch(context.Context, *DSARSearchRequest) (*DSARSearchResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DSARSearch not implemented")
 }
 func (UnimplementedSecurityServiceServer) GetPasswordPolicy(context.Context, *GetPasswordPolicyRequest) (*GetPasswordPolicyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetPasswordPolicy not implemented")
@@ -686,6 +702,24 @@ func _SecurityService_ExecuteErasure_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SecurityService_DSARSearch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DSARSearchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SecurityServiceServer).DSARSearch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SecurityService_DSARSearch_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SecurityServiceServer).DSARSearch(ctx, req.(*DSARSearchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SecurityService_GetPasswordPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetPasswordPolicyRequest)
 	if err := dec(in); err != nil {
@@ -860,6 +894,10 @@ var SecurityService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ExecuteErasure",
 			Handler:    _SecurityService_ExecuteErasure_Handler,
+		},
+		{
+			MethodName: "DSARSearch",
+			Handler:    _SecurityService_DSARSearch_Handler,
 		},
 		{
 			MethodName: "GetPasswordPolicy",

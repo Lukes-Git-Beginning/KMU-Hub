@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth'
+import { authenticatedRequest } from '@/api/utils/authenticatedFetch'
 
 interface ModuleData {
   module: string
@@ -43,190 +44,55 @@ interface PersonResult {
   modules: ModuleData[]
 }
 
-const MOCK_PERSONS: Record<string, PersonResult> = {
-  'max': {
-    id: 'user-1',
-    name: 'Max Mustermann',
-    email: 'max@example.com',
-    company: 'Mustermann GmbH',
-    avatar: 'MM',
-    modules: [
-      {
-        module: 'CRM Kontakte',
-        icon: User,
-        columns: ['Feld', 'Wert'],
-        records: [
-          { Feld: 'Name', Wert: 'Max Mustermann' },
-          { Feld: 'E-Mail', Wert: 'max@example.com' },
-          { Feld: 'Telefon', Wert: '+49 170 1234567' },
-          { Feld: 'Firma', Wert: 'Mustermann GmbH' },
-          { Feld: 'Position', Wert: 'Geschaeftsfuehrer' },
-          { Feld: 'Erstellt am', Wert: '2025-03-12' },
-        ],
-      },
-      {
-        module: 'CRM Deals',
-        icon: BarChart3,
-        columns: ['Deal', 'Status', 'Wert'],
-        records: [
-          { Deal: 'Website Redesign', Status: 'Gewonnen', Wert: '12.500 EUR' },
-          { Deal: 'SEO-Paket 2026', Status: 'Verhandlung', Wert: '4.800 EUR' },
-          { Deal: 'App-Entwicklung', Status: 'Angebot', Wert: '35.000 EUR' },
-        ],
-      },
-      {
-        module: 'E-Mails',
-        icon: Mail,
-        columns: ['Betreff', 'Datum', 'Richtung'],
-        records: [
-          { Betreff: 'Angebot Website Redesign', Datum: '2026-02-18', Richtung: 'Gesendet' },
-          { Betreff: 'Re: Vertragsentwurf', Datum: '2026-02-15', Richtung: 'Empfangen' },
-          { Betreff: 'Terminbestaetigung', Datum: '2026-02-10', Richtung: 'Gesendet' },
-          { Betreff: 'Anfrage SEO-Paket', Datum: '2026-01-28', Richtung: 'Empfangen' },
-          { Betreff: 'Rechnung RE-2025-089', Datum: '2025-12-15', Richtung: 'Gesendet' },
-        ],
-      },
-      {
-        module: 'Chat-Nachrichten',
-        icon: MessageSquare,
-        columns: ['Kanal', 'Nachrichten', 'Zeitraum'],
-        records: [
-          { Kanal: '#projekt-mustermann', Nachrichten: '127', Zeitraum: 'Marz 2025 – Feb 2026' },
-          { Kanal: 'Direktnachricht', Nachrichten: '43', Zeitraum: 'Jan 2026 – Feb 2026' },
-        ],
-      },
-      {
-        module: 'Kalender',
-        icon: Calendar,
-        columns: ['Termin', 'Datum', 'Teilnehmer'],
-        records: [
-          { Termin: 'Kick-off Meeting', Datum: '2025-04-01', Teilnehmer: '4' },
-          { Termin: 'Sprint Review', Datum: '2025-06-15', Teilnehmer: '6' },
-          { Termin: 'Abnahme Website', Datum: '2025-09-20', Teilnehmer: '3' },
-          { Termin: 'Jahresgespräch 2026', Datum: '2026-01-10', Teilnehmer: '2' },
-        ],
-      },
-      {
-        module: 'Dokumente',
-        icon: FileText,
-        columns: ['Dateiname', 'Hochgeladen', 'Größe'],
-        records: [
-          { Dateiname: 'Vertrag_Mustermann_2025.pdf', Hochgeladen: '2025-03-15', Größe: '245 KB' },
-          { Dateiname: 'Angebot_Redesign_v2.pdf', Hochgeladen: '2025-04-02', Größe: '1.2 MB' },
-          { Dateiname: 'Logo_Mustermann.png', Hochgeladen: '2025-04-10', Größe: '89 KB' },
-        ],
-      },
-      {
-        module: 'Helpdesk-Tickets',
-        icon: Headphones,
-        columns: ['Ticket', 'Betreff', 'Status'],
-        records: [
-          { Ticket: 'TK-0847', Betreff: 'Login-Problem Portal', Status: 'Geschlossen' },
-          { Ticket: 'TK-1102', Betreff: 'PDF-Export fehlerhaft', Status: 'Offen' },
-        ],
-      },
-      {
-        module: 'Rechnungen',
-        icon: Receipt,
-        columns: ['Nummer', 'Betrag', 'Datum', 'Status'],
-        records: [
-          { Nummer: 'RE-2025-089', Betrag: '12.500,00 EUR', Datum: '2025-12-15', Status: 'Bezahlt' },
-          { Nummer: 'RE-2026-012', Betrag: '4.800,00 EUR', Datum: '2026-02-01', Status: 'Offen' },
-        ],
-      },
-      {
-        module: 'Projekte',
-        icon: FolderKanban,
-        columns: ['Projekt', 'Rolle', 'Zeitraum'],
-        records: [
-          { Projekt: 'Website Redesign Mustermann', Rolle: 'Auftraggeber', Zeitraum: 'Apr 2025 – Okt 2025' },
-          { Projekt: 'SEO Optimierung', Rolle: 'Ansprechpartner', Zeitraum: 'Feb 2026 – laufend' },
-        ],
-      },
-      {
-        module: 'Formulare',
-        icon: ClipboardList,
-        columns: ['Formular', 'Eingereicht', 'Status'],
-        records: [
-          { Formular: 'Kontaktformular Website', Eingereicht: '2025-02-28', Status: 'Verarbeitet' },
-        ],
-      },
-    ],
-  },
-  'anna': {
-    id: 'user-2',
-    name: 'Anna Schmidt',
-    email: 'anna@example.com',
-    company: 'Schmidt & Partner',
-    avatar: 'AS',
-    modules: [
-      {
-        module: 'CRM Kontakte',
-        icon: User,
-        columns: ['Feld', 'Wert'],
-        records: [
-          { Feld: 'Name', Wert: 'Anna Schmidt' },
-          { Feld: 'E-Mail', Wert: 'anna@example.com' },
-          { Feld: 'Telefon', Wert: '+49 151 9876543' },
-          { Feld: 'Firma', Wert: 'Schmidt & Partner' },
-        ],
-      },
-      {
-        module: 'E-Mails',
-        icon: Mail,
-        columns: ['Betreff', 'Datum', 'Richtung'],
-        records: [
-          { Betreff: 'Partnervertrag 2026', Datum: '2026-01-20', Richtung: 'Empfangen' },
-          { Betreff: 'Re: Partnervertrag', Datum: '2026-01-22', Richtung: 'Gesendet' },
-        ],
-      },
-      {
-        module: 'Rechnungen',
-        icon: Receipt,
-        columns: ['Nummer', 'Betrag', 'Datum', 'Status'],
-        records: [
-          { Nummer: 'RE-2025-045', Betrag: '8.900,00 EUR', Datum: '2025-08-10', Status: 'Bezahlt' },
-        ],
-      },
-    ],
-  },
-  'peter': {
-    id: 'user-3',
-    name: 'Peter Müller',
-    email: 'peter@example.com',
-    company: 'Müller Technik AG',
-    avatar: 'PM',
-    modules: [
-      {
-        module: 'CRM Kontakte',
-        icon: User,
-        columns: ['Feld', 'Wert'],
-        records: [
-          { Feld: 'Name', Wert: 'Peter Müller' },
-          { Feld: 'E-Mail', Wert: 'peter@example.com' },
-          { Feld: 'Firma', Wert: 'Müller Technik AG' },
-        ],
-      },
-      {
-        module: 'Helpdesk-Tickets',
-        icon: Headphones,
-        columns: ['Ticket', 'Betreff', 'Status'],
-        records: [
-          { Ticket: 'TK-0523', Betreff: 'Server-Migration Fragen', Status: 'Geschlossen' },
-          { Ticket: 'TK-0890', Betreff: 'API Zugang beantragen', Status: 'Geschlossen' },
-          { Ticket: 'TK-1205', Betreff: 'SSL Zertifikat erneuern', Status: 'Offen' },
-        ],
-      },
-      {
-        module: 'Projekte',
-        icon: FolderKanban,
-        columns: ['Projekt', 'Rolle', 'Zeitraum'],
-        records: [
-          { Projekt: 'Cloud-Migration Müller', Rolle: 'Technischer Leiter', Zeitraum: 'Nov 2025 – laufend' },
-        ],
-      },
-    ],
-  },
+// Backend DSAR response shapes (see gateway HandleDSARSearch).
+interface BackendModule {
+  module: string
+  columns: string[]
+  records: Array<Record<string, string>>
+}
+
+interface BackendPerson {
+  id: string
+  name: string
+  email: string
+  company: string
+  avatar: string
+  modules: BackendModule[]
+}
+
+// The backend returns module names only; the icon is a pure UI concern. Map the
+// full module catalogue so newly surfaced modules render with a sensible icon.
+const MODULE_ICONS: Record<string, typeof Mail> = {
+  'CRM Kontakte': User,
+  'CRM Deals': BarChart3,
+  Benutzerkonto: User,
+  Einwilligungen: ClipboardList,
+  Anrufe: Headphones,
+  'E-Mails': Mail,
+  Chat: MessageSquare,
+  Kalender: Calendar,
+  Dokumente: FileText,
+  Helpdesk: Headphones,
+  Rechnungen: Receipt,
+  Projekte: FolderKanban,
+  Formulare: ClipboardList,
+  Berichte: BarChart3,
+}
+
+function toPersonResult(p: BackendPerson): PersonResult {
+  return {
+    id: p.id,
+    name: p.name,
+    email: p.email,
+    company: p.company,
+    avatar: p.avatar,
+    modules: p.modules.map((m) => ({
+      module: m.module,
+      icon: MODULE_ICONS[m.module] ?? FileText,
+      columns: m.columns,
+      records: m.records,
+    })),
+  }
 }
 
 export default function DSARSearchPage() {
@@ -239,24 +105,33 @@ export default function DSARSearchPage() {
   const [result, setResult] = useState<PersonResult | null>(null)
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set())
 
-  const handleSearch = useCallback(() => {
+  const handleSearch = useCallback(async () => {
     if (searchQuery.length < 2) return
     setIsSearching(true)
     setResult(null)
     setExpandedModules(new Set())
 
-    setTimeout(() => {
-      const q = searchQuery.toLowerCase()
-      const found = Object.values(MOCK_PERSONS).find(
-        (p) => p.name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q),
-      )
-      setResult(found ?? null)
-      if (found) {
-        setExpandedModules(new Set([found.modules[0]?.module]))
+    try {
+      const data = await authenticatedRequest<{ results: BackendPerson[] }>({
+        method: 'GET',
+        path: '/api/v1/security/dsar/search',
+        params: { q: searchQuery },
+      })
+      const first = data.results?.[0]
+      if (first) {
+        const mapped = toPersonResult(first)
+        setResult(mapped)
+        setExpandedModules(new Set([mapped.modules[0]?.module]))
+      } else {
+        setResult(null)
       }
+    } catch {
+      setResult(null)
+      toast.error(t('security.dsar.search.error'))
+    } finally {
       setIsSearching(false)
-    }, 600)
-  }, [searchQuery])
+    }
+  }, [searchQuery, t])
 
   const toggleModule = (mod: string) => {
     setExpandedModules((prev) => {
@@ -305,13 +180,13 @@ export default function DSARSearchPage() {
               <input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                onKeyDown={(e) => { if (e.key === 'Enter') void handleSearch() }}
                 placeholder={t('security.dsar.search.placeholder')}
                 className="w-full rounded-lg border border-border bg-card pl-10 pr-3 py-2.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
               />
             </div>
             <button
-              onClick={handleSearch}
+              onClick={() => void handleSearch()}
               disabled={searchQuery.length < 2 || isSearching}
               className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-40"
             >

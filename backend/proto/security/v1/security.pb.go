@@ -2058,6 +2058,345 @@ func (x *ExecuteErasureResponse) GetModulesAffected() []*ModuleErasurePreview {
 	return nil
 }
 
+// DSAR (Data Subject Access Request) cross-module search — Art. 15 GDPR.
+type DSARSearchRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Query         string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
+	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DSARSearchRequest) Reset() {
+	*x = DSARSearchRequest{}
+	mi := &file_proto_security_v1_security_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DSARSearchRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DSARSearchRequest) ProtoMessage() {}
+
+func (x *DSARSearchRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_security_v1_security_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DSARSearchRequest.ProtoReflect.Descriptor instead.
+func (*DSARSearchRequest) Descriptor() ([]byte, []int) {
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *DSARSearchRequest) GetQuery() string {
+	if x != nil {
+		return x.Query
+	}
+	return ""
+}
+
+func (x *DSARSearchRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+// A single record is an ordered set of field/value pairs. Modelled as a
+// repeated key/value list (not map<>) so column order is preserved on the wire.
+type DSARField struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value         string                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DSARField) Reset() {
+	*x = DSARField{}
+	mi := &file_proto_security_v1_security_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DSARField) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DSARField) ProtoMessage() {}
+
+func (x *DSARField) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_security_v1_security_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DSARField.ProtoReflect.Descriptor instead.
+func (*DSARField) Descriptor() ([]byte, []int) {
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *DSARField) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *DSARField) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+type DSARRecord struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Fields        []*DSARField           `protobuf:"bytes,1,rep,name=fields,proto3" json:"fields,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DSARRecord) Reset() {
+	*x = DSARRecord{}
+	mi := &file_proto_security_v1_security_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DSARRecord) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DSARRecord) ProtoMessage() {}
+
+func (x *DSARRecord) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_security_v1_security_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DSARRecord.ProtoReflect.Descriptor instead.
+func (*DSARRecord) Descriptor() ([]byte, []int) {
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *DSARRecord) GetFields() []*DSARField {
+	if x != nil {
+		return x.Fields
+	}
+	return nil
+}
+
+type DSARModule struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Module        string                 `protobuf:"bytes,1,opt,name=module,proto3" json:"module,omitempty"`
+	Columns       []string               `protobuf:"bytes,2,rep,name=columns,proto3" json:"columns,omitempty"`
+	Records       []*DSARRecord          `protobuf:"bytes,3,rep,name=records,proto3" json:"records,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DSARModule) Reset() {
+	*x = DSARModule{}
+	mi := &file_proto_security_v1_security_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DSARModule) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DSARModule) ProtoMessage() {}
+
+func (x *DSARModule) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_security_v1_security_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DSARModule.ProtoReflect.Descriptor instead.
+func (*DSARModule) Descriptor() ([]byte, []int) {
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *DSARModule) GetModule() string {
+	if x != nil {
+		return x.Module
+	}
+	return ""
+}
+
+func (x *DSARModule) GetColumns() []string {
+	if x != nil {
+		return x.Columns
+	}
+	return nil
+}
+
+func (x *DSARModule) GetRecords() []*DSARRecord {
+	if x != nil {
+		return x.Records
+	}
+	return nil
+}
+
+type DSARPerson struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Email         string                 `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`
+	Company       string                 `protobuf:"bytes,4,opt,name=company,proto3" json:"company,omitempty"`
+	Avatar        string                 `protobuf:"bytes,5,opt,name=avatar,proto3" json:"avatar,omitempty"`
+	Modules       []*DSARModule          `protobuf:"bytes,6,rep,name=modules,proto3" json:"modules,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DSARPerson) Reset() {
+	*x = DSARPerson{}
+	mi := &file_proto_security_v1_security_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DSARPerson) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DSARPerson) ProtoMessage() {}
+
+func (x *DSARPerson) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_security_v1_security_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DSARPerson.ProtoReflect.Descriptor instead.
+func (*DSARPerson) Descriptor() ([]byte, []int) {
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *DSARPerson) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *DSARPerson) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *DSARPerson) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *DSARPerson) GetCompany() string {
+	if x != nil {
+		return x.Company
+	}
+	return ""
+}
+
+func (x *DSARPerson) GetAvatar() string {
+	if x != nil {
+		return x.Avatar
+	}
+	return ""
+}
+
+func (x *DSARPerson) GetModules() []*DSARModule {
+	if x != nil {
+		return x.Modules
+	}
+	return nil
+}
+
+type DSARSearchResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Persons       []*DSARPerson          `protobuf:"bytes,1,rep,name=persons,proto3" json:"persons,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DSARSearchResponse) Reset() {
+	*x = DSARSearchResponse{}
+	mi := &file_proto_security_v1_security_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DSARSearchResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DSARSearchResponse) ProtoMessage() {}
+
+func (x *DSARSearchResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_security_v1_security_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DSARSearchResponse.ProtoReflect.Descriptor instead.
+func (*DSARSearchResponse) Descriptor() ([]byte, []int) {
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *DSARSearchResponse) GetPersons() []*DSARPerson {
+	if x != nil {
+		return x.Persons
+	}
+	return nil
+}
+
 type PasswordPolicy struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	Id                string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -2077,7 +2416,7 @@ type PasswordPolicy struct {
 
 func (x *PasswordPolicy) Reset() {
 	*x = PasswordPolicy{}
-	mi := &file_proto_security_v1_security_proto_msgTypes[35]
+	mi := &file_proto_security_v1_security_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2089,7 +2428,7 @@ func (x *PasswordPolicy) String() string {
 func (*PasswordPolicy) ProtoMessage() {}
 
 func (x *PasswordPolicy) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_security_v1_security_proto_msgTypes[35]
+	mi := &file_proto_security_v1_security_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2102,7 +2441,7 @@ func (x *PasswordPolicy) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PasswordPolicy.ProtoReflect.Descriptor instead.
 func (*PasswordPolicy) Descriptor() ([]byte, []int) {
-	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{35}
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *PasswordPolicy) GetId() string {
@@ -2190,7 +2529,7 @@ type GetPasswordPolicyRequest struct {
 
 func (x *GetPasswordPolicyRequest) Reset() {
 	*x = GetPasswordPolicyRequest{}
-	mi := &file_proto_security_v1_security_proto_msgTypes[36]
+	mi := &file_proto_security_v1_security_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2202,7 +2541,7 @@ func (x *GetPasswordPolicyRequest) String() string {
 func (*GetPasswordPolicyRequest) ProtoMessage() {}
 
 func (x *GetPasswordPolicyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_security_v1_security_proto_msgTypes[36]
+	mi := &file_proto_security_v1_security_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2215,7 +2554,7 @@ func (x *GetPasswordPolicyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPasswordPolicyRequest.ProtoReflect.Descriptor instead.
 func (*GetPasswordPolicyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{36}
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{42}
 }
 
 type GetPasswordPolicyResponse struct {
@@ -2227,7 +2566,7 @@ type GetPasswordPolicyResponse struct {
 
 func (x *GetPasswordPolicyResponse) Reset() {
 	*x = GetPasswordPolicyResponse{}
-	mi := &file_proto_security_v1_security_proto_msgTypes[37]
+	mi := &file_proto_security_v1_security_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2239,7 +2578,7 @@ func (x *GetPasswordPolicyResponse) String() string {
 func (*GetPasswordPolicyResponse) ProtoMessage() {}
 
 func (x *GetPasswordPolicyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_security_v1_security_proto_msgTypes[37]
+	mi := &file_proto_security_v1_security_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2252,7 +2591,7 @@ func (x *GetPasswordPolicyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPasswordPolicyResponse.ProtoReflect.Descriptor instead.
 func (*GetPasswordPolicyResponse) Descriptor() ([]byte, []int) {
-	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{37}
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *GetPasswordPolicyResponse) GetPolicy() *PasswordPolicy {
@@ -2272,7 +2611,7 @@ type UpdatePasswordPolicyRequest struct {
 
 func (x *UpdatePasswordPolicyRequest) Reset() {
 	*x = UpdatePasswordPolicyRequest{}
-	mi := &file_proto_security_v1_security_proto_msgTypes[38]
+	mi := &file_proto_security_v1_security_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2284,7 +2623,7 @@ func (x *UpdatePasswordPolicyRequest) String() string {
 func (*UpdatePasswordPolicyRequest) ProtoMessage() {}
 
 func (x *UpdatePasswordPolicyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_security_v1_security_proto_msgTypes[38]
+	mi := &file_proto_security_v1_security_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2297,7 +2636,7 @@ func (x *UpdatePasswordPolicyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdatePasswordPolicyRequest.ProtoReflect.Descriptor instead.
 func (*UpdatePasswordPolicyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{38}
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *UpdatePasswordPolicyRequest) GetPolicy() *PasswordPolicy {
@@ -2323,7 +2662,7 @@ type UpdatePasswordPolicyResponse struct {
 
 func (x *UpdatePasswordPolicyResponse) Reset() {
 	*x = UpdatePasswordPolicyResponse{}
-	mi := &file_proto_security_v1_security_proto_msgTypes[39]
+	mi := &file_proto_security_v1_security_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2335,7 +2674,7 @@ func (x *UpdatePasswordPolicyResponse) String() string {
 func (*UpdatePasswordPolicyResponse) ProtoMessage() {}
 
 func (x *UpdatePasswordPolicyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_security_v1_security_proto_msgTypes[39]
+	mi := &file_proto_security_v1_security_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2348,7 +2687,7 @@ func (x *UpdatePasswordPolicyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdatePasswordPolicyResponse.ProtoReflect.Descriptor instead.
 func (*UpdatePasswordPolicyResponse) Descriptor() ([]byte, []int) {
-	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{39}
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *UpdatePasswordPolicyResponse) GetPolicy() *PasswordPolicy {
@@ -2368,7 +2707,7 @@ type ValidatePasswordRequest struct {
 
 func (x *ValidatePasswordRequest) Reset() {
 	*x = ValidatePasswordRequest{}
-	mi := &file_proto_security_v1_security_proto_msgTypes[40]
+	mi := &file_proto_security_v1_security_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2380,7 +2719,7 @@ func (x *ValidatePasswordRequest) String() string {
 func (*ValidatePasswordRequest) ProtoMessage() {}
 
 func (x *ValidatePasswordRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_security_v1_security_proto_msgTypes[40]
+	mi := &file_proto_security_v1_security_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2393,7 +2732,7 @@ func (x *ValidatePasswordRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidatePasswordRequest.ProtoReflect.Descriptor instead.
 func (*ValidatePasswordRequest) Descriptor() ([]byte, []int) {
-	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{40}
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *ValidatePasswordRequest) GetPassword() string {
@@ -2421,7 +2760,7 @@ type ValidatePasswordResponse struct {
 
 func (x *ValidatePasswordResponse) Reset() {
 	*x = ValidatePasswordResponse{}
-	mi := &file_proto_security_v1_security_proto_msgTypes[41]
+	mi := &file_proto_security_v1_security_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2433,7 +2772,7 @@ func (x *ValidatePasswordResponse) String() string {
 func (*ValidatePasswordResponse) ProtoMessage() {}
 
 func (x *ValidatePasswordResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_security_v1_security_proto_msgTypes[41]
+	mi := &file_proto_security_v1_security_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2446,7 +2785,7 @@ func (x *ValidatePasswordResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidatePasswordResponse.ProtoReflect.Descriptor instead.
 func (*ValidatePasswordResponse) Descriptor() ([]byte, []int) {
-	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{41}
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *ValidatePasswordResponse) GetValid() bool {
@@ -2484,7 +2823,7 @@ type IPAccessRule struct {
 
 func (x *IPAccessRule) Reset() {
 	*x = IPAccessRule{}
-	mi := &file_proto_security_v1_security_proto_msgTypes[42]
+	mi := &file_proto_security_v1_security_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2496,7 +2835,7 @@ func (x *IPAccessRule) String() string {
 func (*IPAccessRule) ProtoMessage() {}
 
 func (x *IPAccessRule) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_security_v1_security_proto_msgTypes[42]
+	mi := &file_proto_security_v1_security_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2509,7 +2848,7 @@ func (x *IPAccessRule) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IPAccessRule.ProtoReflect.Descriptor instead.
 func (*IPAccessRule) Descriptor() ([]byte, []int) {
-	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{42}
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *IPAccessRule) GetId() string {
@@ -2563,7 +2902,7 @@ type ListIPRulesRequest struct {
 
 func (x *ListIPRulesRequest) Reset() {
 	*x = ListIPRulesRequest{}
-	mi := &file_proto_security_v1_security_proto_msgTypes[43]
+	mi := &file_proto_security_v1_security_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2575,7 +2914,7 @@ func (x *ListIPRulesRequest) String() string {
 func (*ListIPRulesRequest) ProtoMessage() {}
 
 func (x *ListIPRulesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_security_v1_security_proto_msgTypes[43]
+	mi := &file_proto_security_v1_security_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2588,7 +2927,7 @@ func (x *ListIPRulesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListIPRulesRequest.ProtoReflect.Descriptor instead.
 func (*ListIPRulesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{43}
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *ListIPRulesRequest) GetRuleType() string {
@@ -2607,7 +2946,7 @@ type ListIPRulesResponse struct {
 
 func (x *ListIPRulesResponse) Reset() {
 	*x = ListIPRulesResponse{}
-	mi := &file_proto_security_v1_security_proto_msgTypes[44]
+	mi := &file_proto_security_v1_security_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2619,7 +2958,7 @@ func (x *ListIPRulesResponse) String() string {
 func (*ListIPRulesResponse) ProtoMessage() {}
 
 func (x *ListIPRulesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_security_v1_security_proto_msgTypes[44]
+	mi := &file_proto_security_v1_security_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2632,7 +2971,7 @@ func (x *ListIPRulesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListIPRulesResponse.ProtoReflect.Descriptor instead.
 func (*ListIPRulesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{44}
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *ListIPRulesResponse) GetRules() []*IPAccessRule {
@@ -2654,7 +2993,7 @@ type CreateIPRuleRequest struct {
 
 func (x *CreateIPRuleRequest) Reset() {
 	*x = CreateIPRuleRequest{}
-	mi := &file_proto_security_v1_security_proto_msgTypes[45]
+	mi := &file_proto_security_v1_security_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2666,7 +3005,7 @@ func (x *CreateIPRuleRequest) String() string {
 func (*CreateIPRuleRequest) ProtoMessage() {}
 
 func (x *CreateIPRuleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_security_v1_security_proto_msgTypes[45]
+	mi := &file_proto_security_v1_security_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2679,7 +3018,7 @@ func (x *CreateIPRuleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateIPRuleRequest.ProtoReflect.Descriptor instead.
 func (*CreateIPRuleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{45}
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *CreateIPRuleRequest) GetIpCidr() string {
@@ -2719,7 +3058,7 @@ type CreateIPRuleResponse struct {
 
 func (x *CreateIPRuleResponse) Reset() {
 	*x = CreateIPRuleResponse{}
-	mi := &file_proto_security_v1_security_proto_msgTypes[46]
+	mi := &file_proto_security_v1_security_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2731,7 +3070,7 @@ func (x *CreateIPRuleResponse) String() string {
 func (*CreateIPRuleResponse) ProtoMessage() {}
 
 func (x *CreateIPRuleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_security_v1_security_proto_msgTypes[46]
+	mi := &file_proto_security_v1_security_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2744,7 +3083,7 @@ func (x *CreateIPRuleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateIPRuleResponse.ProtoReflect.Descriptor instead.
 func (*CreateIPRuleResponse) Descriptor() ([]byte, []int) {
-	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{46}
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *CreateIPRuleResponse) GetRule() *IPAccessRule {
@@ -2763,7 +3102,7 @@ type DeleteIPRuleRequest struct {
 
 func (x *DeleteIPRuleRequest) Reset() {
 	*x = DeleteIPRuleRequest{}
-	mi := &file_proto_security_v1_security_proto_msgTypes[47]
+	mi := &file_proto_security_v1_security_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2775,7 +3114,7 @@ func (x *DeleteIPRuleRequest) String() string {
 func (*DeleteIPRuleRequest) ProtoMessage() {}
 
 func (x *DeleteIPRuleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_security_v1_security_proto_msgTypes[47]
+	mi := &file_proto_security_v1_security_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2788,7 +3127,7 @@ func (x *DeleteIPRuleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteIPRuleRequest.ProtoReflect.Descriptor instead.
 func (*DeleteIPRuleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{47}
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *DeleteIPRuleRequest) GetRuleId() string {
@@ -2806,7 +3145,7 @@ type DeleteIPRuleResponse struct {
 
 func (x *DeleteIPRuleResponse) Reset() {
 	*x = DeleteIPRuleResponse{}
-	mi := &file_proto_security_v1_security_proto_msgTypes[48]
+	mi := &file_proto_security_v1_security_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2818,7 +3157,7 @@ func (x *DeleteIPRuleResponse) String() string {
 func (*DeleteIPRuleResponse) ProtoMessage() {}
 
 func (x *DeleteIPRuleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_security_v1_security_proto_msgTypes[48]
+	mi := &file_proto_security_v1_security_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2831,7 +3170,7 @@ func (x *DeleteIPRuleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteIPRuleResponse.ProtoReflect.Descriptor instead.
 func (*DeleteIPRuleResponse) Descriptor() ([]byte, []int) {
-	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{48}
+	return file_proto_security_v1_security_proto_rawDescGZIP(), []int{54}
 }
 
 var File_proto_security_v1_security_proto protoreflect.FileDescriptor
@@ -2993,7 +3332,31 @@ const file_proto_security_v1_security_proto_rawDesc = "" +
 	"\x16ExecuteErasureResponse\x12)\n" +
 	"\x10anonymized_label\x18\x01 \x01(\tR\x0fanonymizedLabel\x12+\n" +
 	"\x11confirmation_hash\x18\x02 \x01(\tR\x10confirmationHash\x12L\n" +
-	"\x10modules_affected\x18\x03 \x03(\v2!.security.v1.ModuleErasurePreviewR\x0fmodulesAffected\"\xb4\x03\n" +
+	"\x10modules_affected\x18\x03 \x03(\v2!.security.v1.ModuleErasurePreviewR\x0fmodulesAffected\"F\n" +
+	"\x11DSARSearchRequest\x12\x14\n" +
+	"\x05query\x18\x01 \x01(\tR\x05query\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\"3\n" +
+	"\tDSARField\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\"<\n" +
+	"\n" +
+	"DSARRecord\x12.\n" +
+	"\x06fields\x18\x01 \x03(\v2\x16.security.v1.DSARFieldR\x06fields\"q\n" +
+	"\n" +
+	"DSARModule\x12\x16\n" +
+	"\x06module\x18\x01 \x01(\tR\x06module\x12\x18\n" +
+	"\acolumns\x18\x02 \x03(\tR\acolumns\x121\n" +
+	"\arecords\x18\x03 \x03(\v2\x17.security.v1.DSARRecordR\arecords\"\xab\x01\n" +
+	"\n" +
+	"DSARPerson\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
+	"\x05email\x18\x03 \x01(\tR\x05email\x12\x18\n" +
+	"\acompany\x18\x04 \x01(\tR\acompany\x12\x16\n" +
+	"\x06avatar\x18\x05 \x01(\tR\x06avatar\x121\n" +
+	"\amodules\x18\x06 \x03(\v2\x17.security.v1.DSARModuleR\amodules\"G\n" +
+	"\x12DSARSearchResponse\x121\n" +
+	"\apersons\x18\x01 \x03(\v2\x17.security.v1.DSARPersonR\apersons\"\xb4\x03\n" +
 	"\x0ePasswordPolicy\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -3053,7 +3416,7 @@ const file_proto_security_v1_security_proto_rawDesc = "" +
 	"\x04rule\x18\x01 \x01(\v2\x19.security.v1.IPAccessRuleR\x04rule\".\n" +
 	"\x13DeleteIPRuleRequest\x12\x17\n" +
 	"\arule_id\x18\x01 \x01(\tR\x06ruleId\"\x16\n" +
-	"\x14DeleteIPRuleResponse2\xd3\x0f\n" +
+	"\x14DeleteIPRuleResponse2\xa2\x10\n" +
 	"\x0fSecurityService\x12_\n" +
 	"\x10CreateAuditEntry\x12$.security.v1.CreateAuditEntryRequest\x1a%.security.v1.CreateAuditEntryResponse\x12_\n" +
 	"\x10ListAuditEntries\x12$.security.v1.ListAuditEntriesRequest\x1a%.security.v1.ListAuditEntriesResponse\x12Y\n" +
@@ -3069,7 +3432,9 @@ const file_proto_security_v1_security_proto_rawDesc = "" +
 	"\x0eDenyDataExport\x12\".security.v1.DenyDataExportRequest\x1a#.security.v1.DenyDataExportResponse\x12b\n" +
 	"\x11GetExportDownload\x12%.security.v1.GetExportDownloadRequest\x1a&.security.v1.GetExportDownloadResponse\x12Y\n" +
 	"\x0ePreviewErasure\x12\".security.v1.PreviewErasureRequest\x1a#.security.v1.PreviewErasureResponse\x12Y\n" +
-	"\x0eExecuteErasure\x12\".security.v1.ExecuteErasureRequest\x1a#.security.v1.ExecuteErasureResponse\x12b\n" +
+	"\x0eExecuteErasure\x12\".security.v1.ExecuteErasureRequest\x1a#.security.v1.ExecuteErasureResponse\x12M\n" +
+	"\n" +
+	"DSARSearch\x12\x1e.security.v1.DSARSearchRequest\x1a\x1f.security.v1.DSARSearchResponse\x12b\n" +
 	"\x11GetPasswordPolicy\x12%.security.v1.GetPasswordPolicyRequest\x1a&.security.v1.GetPasswordPolicyResponse\x12k\n" +
 	"\x14UpdatePasswordPolicy\x12(.security.v1.UpdatePasswordPolicyRequest\x1a).security.v1.UpdatePasswordPolicyResponse\x12_\n" +
 	"\x10ValidatePassword\x12$.security.v1.ValidatePasswordRequest\x1a%.security.v1.ValidatePasswordResponse\x12P\n" +
@@ -3089,7 +3454,7 @@ func file_proto_security_v1_security_proto_rawDescGZIP() []byte {
 	return file_proto_security_v1_security_proto_rawDescData
 }
 
-var file_proto_security_v1_security_proto_msgTypes = make([]protoimpl.MessageInfo, 49)
+var file_proto_security_v1_security_proto_msgTypes = make([]protoimpl.MessageInfo, 55)
 var file_proto_security_v1_security_proto_goTypes = []any{
 	(*AuditEntry)(nil),                   // 0: security.v1.AuditEntry
 	(*AuditFilter)(nil),                  // 1: security.v1.AuditFilter
@@ -3126,100 +3491,112 @@ var file_proto_security_v1_security_proto_goTypes = []any{
 	(*PreviewErasureResponse)(nil),       // 32: security.v1.PreviewErasureResponse
 	(*ExecuteErasureRequest)(nil),        // 33: security.v1.ExecuteErasureRequest
 	(*ExecuteErasureResponse)(nil),       // 34: security.v1.ExecuteErasureResponse
-	(*PasswordPolicy)(nil),               // 35: security.v1.PasswordPolicy
-	(*GetPasswordPolicyRequest)(nil),     // 36: security.v1.GetPasswordPolicyRequest
-	(*GetPasswordPolicyResponse)(nil),    // 37: security.v1.GetPasswordPolicyResponse
-	(*UpdatePasswordPolicyRequest)(nil),  // 38: security.v1.UpdatePasswordPolicyRequest
-	(*UpdatePasswordPolicyResponse)(nil), // 39: security.v1.UpdatePasswordPolicyResponse
-	(*ValidatePasswordRequest)(nil),      // 40: security.v1.ValidatePasswordRequest
-	(*ValidatePasswordResponse)(nil),     // 41: security.v1.ValidatePasswordResponse
-	(*IPAccessRule)(nil),                 // 42: security.v1.IPAccessRule
-	(*ListIPRulesRequest)(nil),           // 43: security.v1.ListIPRulesRequest
-	(*ListIPRulesResponse)(nil),          // 44: security.v1.ListIPRulesResponse
-	(*CreateIPRuleRequest)(nil),          // 45: security.v1.CreateIPRuleRequest
-	(*CreateIPRuleResponse)(nil),         // 46: security.v1.CreateIPRuleResponse
-	(*DeleteIPRuleRequest)(nil),          // 47: security.v1.DeleteIPRuleRequest
-	(*DeleteIPRuleResponse)(nil),         // 48: security.v1.DeleteIPRuleResponse
-	(*timestamppb.Timestamp)(nil),        // 49: google.protobuf.Timestamp
+	(*DSARSearchRequest)(nil),            // 35: security.v1.DSARSearchRequest
+	(*DSARField)(nil),                    // 36: security.v1.DSARField
+	(*DSARRecord)(nil),                   // 37: security.v1.DSARRecord
+	(*DSARModule)(nil),                   // 38: security.v1.DSARModule
+	(*DSARPerson)(nil),                   // 39: security.v1.DSARPerson
+	(*DSARSearchResponse)(nil),           // 40: security.v1.DSARSearchResponse
+	(*PasswordPolicy)(nil),               // 41: security.v1.PasswordPolicy
+	(*GetPasswordPolicyRequest)(nil),     // 42: security.v1.GetPasswordPolicyRequest
+	(*GetPasswordPolicyResponse)(nil),    // 43: security.v1.GetPasswordPolicyResponse
+	(*UpdatePasswordPolicyRequest)(nil),  // 44: security.v1.UpdatePasswordPolicyRequest
+	(*UpdatePasswordPolicyResponse)(nil), // 45: security.v1.UpdatePasswordPolicyResponse
+	(*ValidatePasswordRequest)(nil),      // 46: security.v1.ValidatePasswordRequest
+	(*ValidatePasswordResponse)(nil),     // 47: security.v1.ValidatePasswordResponse
+	(*IPAccessRule)(nil),                 // 48: security.v1.IPAccessRule
+	(*ListIPRulesRequest)(nil),           // 49: security.v1.ListIPRulesRequest
+	(*ListIPRulesResponse)(nil),          // 50: security.v1.ListIPRulesResponse
+	(*CreateIPRuleRequest)(nil),          // 51: security.v1.CreateIPRuleRequest
+	(*CreateIPRuleResponse)(nil),         // 52: security.v1.CreateIPRuleResponse
+	(*DeleteIPRuleRequest)(nil),          // 53: security.v1.DeleteIPRuleRequest
+	(*DeleteIPRuleResponse)(nil),         // 54: security.v1.DeleteIPRuleResponse
+	(*timestamppb.Timestamp)(nil),        // 55: google.protobuf.Timestamp
 }
 var file_proto_security_v1_security_proto_depIdxs = []int32{
-	49, // 0: security.v1.AuditEntry.timestamp:type_name -> google.protobuf.Timestamp
-	49, // 1: security.v1.AuditFilter.date_from:type_name -> google.protobuf.Timestamp
-	49, // 2: security.v1.AuditFilter.date_to:type_name -> google.protobuf.Timestamp
+	55, // 0: security.v1.AuditEntry.timestamp:type_name -> google.protobuf.Timestamp
+	55, // 1: security.v1.AuditFilter.date_from:type_name -> google.protobuf.Timestamp
+	55, // 2: security.v1.AuditFilter.date_to:type_name -> google.protobuf.Timestamp
 	0,  // 3: security.v1.CreateAuditEntryResponse.entry:type_name -> security.v1.AuditEntry
 	1,  // 4: security.v1.ListAuditEntriesRequest.filter:type_name -> security.v1.AuditFilter
 	0,  // 5: security.v1.ListAuditEntriesResponse.entries:type_name -> security.v1.AuditEntry
 	1,  // 6: security.v1.ExportAuditLogRequest.filter:type_name -> security.v1.AuditFilter
-	49, // 7: security.v1.VerifyAuditChainRequest.from:type_name -> google.protobuf.Timestamp
-	49, // 8: security.v1.VerifyAuditChainRequest.to:type_name -> google.protobuf.Timestamp
-	49, // 9: security.v1.VaultSecret.created_at:type_name -> google.protobuf.Timestamp
-	49, // 10: security.v1.VaultSecret.updated_at:type_name -> google.protobuf.Timestamp
+	55, // 7: security.v1.VerifyAuditChainRequest.from:type_name -> google.protobuf.Timestamp
+	55, // 8: security.v1.VerifyAuditChainRequest.to:type_name -> google.protobuf.Timestamp
+	55, // 9: security.v1.VaultSecret.created_at:type_name -> google.protobuf.Timestamp
+	55, // 10: security.v1.VaultSecret.updated_at:type_name -> google.protobuf.Timestamp
 	10, // 11: security.v1.GetVaultSecretResponse.secret:type_name -> security.v1.VaultSecret
 	10, // 12: security.v1.SetVaultSecretResponse.secret:type_name -> security.v1.VaultSecret
 	10, // 13: security.v1.ListVaultSecretsResponse.secrets:type_name -> security.v1.VaultSecret
-	49, // 14: security.v1.GDPRExportRequest.requested_at:type_name -> google.protobuf.Timestamp
-	49, // 15: security.v1.GDPRExportRequest.reviewed_at:type_name -> google.protobuf.Timestamp
-	49, // 16: security.v1.GDPRExportRequest.download_expires_at:type_name -> google.protobuf.Timestamp
+	55, // 14: security.v1.GDPRExportRequest.requested_at:type_name -> google.protobuf.Timestamp
+	55, // 15: security.v1.GDPRExportRequest.reviewed_at:type_name -> google.protobuf.Timestamp
+	55, // 16: security.v1.GDPRExportRequest.download_expires_at:type_name -> google.protobuf.Timestamp
 	19, // 17: security.v1.RequestDataExportResponse.export_request:type_name -> security.v1.GDPRExportRequest
 	19, // 18: security.v1.ListDataExportsResponse.export_requests:type_name -> security.v1.GDPRExportRequest
 	19, // 19: security.v1.ApproveDataExportResponse.export_request:type_name -> security.v1.GDPRExportRequest
 	19, // 20: security.v1.DenyDataExportResponse.export_request:type_name -> security.v1.GDPRExportRequest
 	30, // 21: security.v1.PreviewErasureResponse.modules:type_name -> security.v1.ModuleErasurePreview
 	30, // 22: security.v1.ExecuteErasureResponse.modules_affected:type_name -> security.v1.ModuleErasurePreview
-	49, // 23: security.v1.PasswordPolicy.updated_at:type_name -> google.protobuf.Timestamp
-	35, // 24: security.v1.GetPasswordPolicyResponse.policy:type_name -> security.v1.PasswordPolicy
-	35, // 25: security.v1.UpdatePasswordPolicyRequest.policy:type_name -> security.v1.PasswordPolicy
-	35, // 26: security.v1.UpdatePasswordPolicyResponse.policy:type_name -> security.v1.PasswordPolicy
-	49, // 27: security.v1.IPAccessRule.created_at:type_name -> google.protobuf.Timestamp
-	42, // 28: security.v1.ListIPRulesResponse.rules:type_name -> security.v1.IPAccessRule
-	42, // 29: security.v1.CreateIPRuleResponse.rule:type_name -> security.v1.IPAccessRule
-	2,  // 30: security.v1.SecurityService.CreateAuditEntry:input_type -> security.v1.CreateAuditEntryRequest
-	4,  // 31: security.v1.SecurityService.ListAuditEntries:input_type -> security.v1.ListAuditEntriesRequest
-	6,  // 32: security.v1.SecurityService.ExportAuditLog:input_type -> security.v1.ExportAuditLogRequest
-	8,  // 33: security.v1.SecurityService.VerifyAuditChain:input_type -> security.v1.VerifyAuditChainRequest
-	11, // 34: security.v1.SecurityService.GetVaultSecret:input_type -> security.v1.GetVaultSecretRequest
-	13, // 35: security.v1.SecurityService.SetVaultSecret:input_type -> security.v1.SetVaultSecretRequest
-	15, // 36: security.v1.SecurityService.ListVaultSecrets:input_type -> security.v1.ListVaultSecretsRequest
-	17, // 37: security.v1.SecurityService.DeleteVaultSecret:input_type -> security.v1.DeleteVaultSecretRequest
-	20, // 38: security.v1.SecurityService.RequestDataExport:input_type -> security.v1.RequestDataExportRequest
-	22, // 39: security.v1.SecurityService.ListDataExports:input_type -> security.v1.ListDataExportsRequest
-	24, // 40: security.v1.SecurityService.ApproveDataExport:input_type -> security.v1.ApproveDataExportRequest
-	26, // 41: security.v1.SecurityService.DenyDataExport:input_type -> security.v1.DenyDataExportRequest
-	28, // 42: security.v1.SecurityService.GetExportDownload:input_type -> security.v1.GetExportDownloadRequest
-	31, // 43: security.v1.SecurityService.PreviewErasure:input_type -> security.v1.PreviewErasureRequest
-	33, // 44: security.v1.SecurityService.ExecuteErasure:input_type -> security.v1.ExecuteErasureRequest
-	36, // 45: security.v1.SecurityService.GetPasswordPolicy:input_type -> security.v1.GetPasswordPolicyRequest
-	38, // 46: security.v1.SecurityService.UpdatePasswordPolicy:input_type -> security.v1.UpdatePasswordPolicyRequest
-	40, // 47: security.v1.SecurityService.ValidatePassword:input_type -> security.v1.ValidatePasswordRequest
-	43, // 48: security.v1.SecurityService.ListIPRules:input_type -> security.v1.ListIPRulesRequest
-	45, // 49: security.v1.SecurityService.CreateIPRule:input_type -> security.v1.CreateIPRuleRequest
-	47, // 50: security.v1.SecurityService.DeleteIPRule:input_type -> security.v1.DeleteIPRuleRequest
-	3,  // 51: security.v1.SecurityService.CreateAuditEntry:output_type -> security.v1.CreateAuditEntryResponse
-	5,  // 52: security.v1.SecurityService.ListAuditEntries:output_type -> security.v1.ListAuditEntriesResponse
-	7,  // 53: security.v1.SecurityService.ExportAuditLog:output_type -> security.v1.ExportAuditLogResponse
-	9,  // 54: security.v1.SecurityService.VerifyAuditChain:output_type -> security.v1.VerifyAuditChainResponse
-	12, // 55: security.v1.SecurityService.GetVaultSecret:output_type -> security.v1.GetVaultSecretResponse
-	14, // 56: security.v1.SecurityService.SetVaultSecret:output_type -> security.v1.SetVaultSecretResponse
-	16, // 57: security.v1.SecurityService.ListVaultSecrets:output_type -> security.v1.ListVaultSecretsResponse
-	18, // 58: security.v1.SecurityService.DeleteVaultSecret:output_type -> security.v1.DeleteVaultSecretResponse
-	21, // 59: security.v1.SecurityService.RequestDataExport:output_type -> security.v1.RequestDataExportResponse
-	23, // 60: security.v1.SecurityService.ListDataExports:output_type -> security.v1.ListDataExportsResponse
-	25, // 61: security.v1.SecurityService.ApproveDataExport:output_type -> security.v1.ApproveDataExportResponse
-	27, // 62: security.v1.SecurityService.DenyDataExport:output_type -> security.v1.DenyDataExportResponse
-	29, // 63: security.v1.SecurityService.GetExportDownload:output_type -> security.v1.GetExportDownloadResponse
-	32, // 64: security.v1.SecurityService.PreviewErasure:output_type -> security.v1.PreviewErasureResponse
-	34, // 65: security.v1.SecurityService.ExecuteErasure:output_type -> security.v1.ExecuteErasureResponse
-	37, // 66: security.v1.SecurityService.GetPasswordPolicy:output_type -> security.v1.GetPasswordPolicyResponse
-	39, // 67: security.v1.SecurityService.UpdatePasswordPolicy:output_type -> security.v1.UpdatePasswordPolicyResponse
-	41, // 68: security.v1.SecurityService.ValidatePassword:output_type -> security.v1.ValidatePasswordResponse
-	44, // 69: security.v1.SecurityService.ListIPRules:output_type -> security.v1.ListIPRulesResponse
-	46, // 70: security.v1.SecurityService.CreateIPRule:output_type -> security.v1.CreateIPRuleResponse
-	48, // 71: security.v1.SecurityService.DeleteIPRule:output_type -> security.v1.DeleteIPRuleResponse
-	51, // [51:72] is the sub-list for method output_type
-	30, // [30:51] is the sub-list for method input_type
-	30, // [30:30] is the sub-list for extension type_name
-	30, // [30:30] is the sub-list for extension extendee
-	0,  // [0:30] is the sub-list for field type_name
+	36, // 23: security.v1.DSARRecord.fields:type_name -> security.v1.DSARField
+	37, // 24: security.v1.DSARModule.records:type_name -> security.v1.DSARRecord
+	38, // 25: security.v1.DSARPerson.modules:type_name -> security.v1.DSARModule
+	39, // 26: security.v1.DSARSearchResponse.persons:type_name -> security.v1.DSARPerson
+	55, // 27: security.v1.PasswordPolicy.updated_at:type_name -> google.protobuf.Timestamp
+	41, // 28: security.v1.GetPasswordPolicyResponse.policy:type_name -> security.v1.PasswordPolicy
+	41, // 29: security.v1.UpdatePasswordPolicyRequest.policy:type_name -> security.v1.PasswordPolicy
+	41, // 30: security.v1.UpdatePasswordPolicyResponse.policy:type_name -> security.v1.PasswordPolicy
+	55, // 31: security.v1.IPAccessRule.created_at:type_name -> google.protobuf.Timestamp
+	48, // 32: security.v1.ListIPRulesResponse.rules:type_name -> security.v1.IPAccessRule
+	48, // 33: security.v1.CreateIPRuleResponse.rule:type_name -> security.v1.IPAccessRule
+	2,  // 34: security.v1.SecurityService.CreateAuditEntry:input_type -> security.v1.CreateAuditEntryRequest
+	4,  // 35: security.v1.SecurityService.ListAuditEntries:input_type -> security.v1.ListAuditEntriesRequest
+	6,  // 36: security.v1.SecurityService.ExportAuditLog:input_type -> security.v1.ExportAuditLogRequest
+	8,  // 37: security.v1.SecurityService.VerifyAuditChain:input_type -> security.v1.VerifyAuditChainRequest
+	11, // 38: security.v1.SecurityService.GetVaultSecret:input_type -> security.v1.GetVaultSecretRequest
+	13, // 39: security.v1.SecurityService.SetVaultSecret:input_type -> security.v1.SetVaultSecretRequest
+	15, // 40: security.v1.SecurityService.ListVaultSecrets:input_type -> security.v1.ListVaultSecretsRequest
+	17, // 41: security.v1.SecurityService.DeleteVaultSecret:input_type -> security.v1.DeleteVaultSecretRequest
+	20, // 42: security.v1.SecurityService.RequestDataExport:input_type -> security.v1.RequestDataExportRequest
+	22, // 43: security.v1.SecurityService.ListDataExports:input_type -> security.v1.ListDataExportsRequest
+	24, // 44: security.v1.SecurityService.ApproveDataExport:input_type -> security.v1.ApproveDataExportRequest
+	26, // 45: security.v1.SecurityService.DenyDataExport:input_type -> security.v1.DenyDataExportRequest
+	28, // 46: security.v1.SecurityService.GetExportDownload:input_type -> security.v1.GetExportDownloadRequest
+	31, // 47: security.v1.SecurityService.PreviewErasure:input_type -> security.v1.PreviewErasureRequest
+	33, // 48: security.v1.SecurityService.ExecuteErasure:input_type -> security.v1.ExecuteErasureRequest
+	35, // 49: security.v1.SecurityService.DSARSearch:input_type -> security.v1.DSARSearchRequest
+	42, // 50: security.v1.SecurityService.GetPasswordPolicy:input_type -> security.v1.GetPasswordPolicyRequest
+	44, // 51: security.v1.SecurityService.UpdatePasswordPolicy:input_type -> security.v1.UpdatePasswordPolicyRequest
+	46, // 52: security.v1.SecurityService.ValidatePassword:input_type -> security.v1.ValidatePasswordRequest
+	49, // 53: security.v1.SecurityService.ListIPRules:input_type -> security.v1.ListIPRulesRequest
+	51, // 54: security.v1.SecurityService.CreateIPRule:input_type -> security.v1.CreateIPRuleRequest
+	53, // 55: security.v1.SecurityService.DeleteIPRule:input_type -> security.v1.DeleteIPRuleRequest
+	3,  // 56: security.v1.SecurityService.CreateAuditEntry:output_type -> security.v1.CreateAuditEntryResponse
+	5,  // 57: security.v1.SecurityService.ListAuditEntries:output_type -> security.v1.ListAuditEntriesResponse
+	7,  // 58: security.v1.SecurityService.ExportAuditLog:output_type -> security.v1.ExportAuditLogResponse
+	9,  // 59: security.v1.SecurityService.VerifyAuditChain:output_type -> security.v1.VerifyAuditChainResponse
+	12, // 60: security.v1.SecurityService.GetVaultSecret:output_type -> security.v1.GetVaultSecretResponse
+	14, // 61: security.v1.SecurityService.SetVaultSecret:output_type -> security.v1.SetVaultSecretResponse
+	16, // 62: security.v1.SecurityService.ListVaultSecrets:output_type -> security.v1.ListVaultSecretsResponse
+	18, // 63: security.v1.SecurityService.DeleteVaultSecret:output_type -> security.v1.DeleteVaultSecretResponse
+	21, // 64: security.v1.SecurityService.RequestDataExport:output_type -> security.v1.RequestDataExportResponse
+	23, // 65: security.v1.SecurityService.ListDataExports:output_type -> security.v1.ListDataExportsResponse
+	25, // 66: security.v1.SecurityService.ApproveDataExport:output_type -> security.v1.ApproveDataExportResponse
+	27, // 67: security.v1.SecurityService.DenyDataExport:output_type -> security.v1.DenyDataExportResponse
+	29, // 68: security.v1.SecurityService.GetExportDownload:output_type -> security.v1.GetExportDownloadResponse
+	32, // 69: security.v1.SecurityService.PreviewErasure:output_type -> security.v1.PreviewErasureResponse
+	34, // 70: security.v1.SecurityService.ExecuteErasure:output_type -> security.v1.ExecuteErasureResponse
+	40, // 71: security.v1.SecurityService.DSARSearch:output_type -> security.v1.DSARSearchResponse
+	43, // 72: security.v1.SecurityService.GetPasswordPolicy:output_type -> security.v1.GetPasswordPolicyResponse
+	45, // 73: security.v1.SecurityService.UpdatePasswordPolicy:output_type -> security.v1.UpdatePasswordPolicyResponse
+	47, // 74: security.v1.SecurityService.ValidatePassword:output_type -> security.v1.ValidatePasswordResponse
+	50, // 75: security.v1.SecurityService.ListIPRules:output_type -> security.v1.ListIPRulesResponse
+	52, // 76: security.v1.SecurityService.CreateIPRule:output_type -> security.v1.CreateIPRuleResponse
+	54, // 77: security.v1.SecurityService.DeleteIPRule:output_type -> security.v1.DeleteIPRuleResponse
+	56, // [56:78] is the sub-list for method output_type
+	34, // [34:56] is the sub-list for method input_type
+	34, // [34:34] is the sub-list for extension type_name
+	34, // [34:34] is the sub-list for extension extendee
+	0,  // [0:34] is the sub-list for field type_name
 }
 
 func init() { file_proto_security_v1_security_proto_init() }
@@ -3233,7 +3610,7 @@ func file_proto_security_v1_security_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_security_v1_security_proto_rawDesc), len(file_proto_security_v1_security_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   49,
+			NumMessages:   55,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

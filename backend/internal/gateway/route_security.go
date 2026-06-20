@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -57,6 +58,7 @@ func (sr *SecurityRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		r.Get("/gdpr/download/{token}", sr.HandleGetExportDownload)
 		r.With(middleware.RequireRole("admin")).Post("/gdpr/erasure/preview", sr.HandlePreviewErasure)
 		r.With(middleware.RequireRole("admin")).Post("/gdpr/erasure/execute", sr.HandleExecuteErasure)
+		r.With(middleware.RequireRole("admin")).Get("/dsar/search", sr.HandleDSARSearch)
 
 		// Password policy
 		r.Get("/password/policy", sr.HandleGetPasswordPolicy)
@@ -482,6 +484,76 @@ func (sr *SecurityRoutes) HandleExecuteErasure(w http.ResponseWriter, r *http.Re
 	}
 
 	response.JSON(w, http.StatusOK, resp)
+}
+
+// dsarModuleJSON / dsarPersonJSON mirror the exact flat shape the DSAR search
+// page consumes (records as plain key→value objects), so we transform the nested
+// proto response here rather than passing it through.
+type dsarModuleJSON struct {
+	Module  string              `json:"module"`
+	Columns []string            `json:"columns"`
+	Records []map[string]string `json:"records"`
+}
+
+type dsarPersonJSON struct {
+	ID      string           `json:"id"`
+	Name    string           `json:"name"`
+	Email   string           `json:"email"`
+	Company string           `json:"company"`
+	Avatar  string           `json:"avatar"`
+	Modules []dsarModuleJSON `json:"modules"`
+}
+
+// HandleDSARSearch performs an Art. 15 GDPR cross-module person search (admin only).
+// GET /api/v1/security/dsar/search?q=<query>
+func (sr *SecurityRoutes) HandleDSARSearch(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	if len([]rune(query)) < 2 {
+		response.Error(w, http.StatusBadRequest, "query must be at least 2 characters")
+		return
+	}
+
+	resp, err := client.DSARSearch(r.Context(), &securityv1.DSARSearchRequest{Query: query})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	results := make([]dsarPersonJSON, 0, len(resp.Persons))
+	for _, p := range resp.Persons {
+		person := dsarPersonJSON{
+			ID:      p.Id,
+			Name:    p.Name,
+			Email:   p.Email,
+			Company: p.Company,
+			Avatar:  p.Avatar,
+			Modules: make([]dsarModuleJSON, 0, len(p.Modules)),
+		}
+		for _, m := range p.Modules {
+			mod := dsarModuleJSON{
+				Module:  m.Module,
+				Columns: m.Columns,
+				Records: make([]map[string]string, 0, len(m.Records)),
+			}
+			for _, rec := range m.Records {
+				obj := make(map[string]string, len(rec.Fields))
+				for _, f := range rec.Fields {
+					obj[f.Key] = f.Value
+				}
+				mod.Records = append(mod.Records, obj)
+			}
+			person.Modules = append(person.Modules, mod)
+		}
+		results = append(results, person)
+	}
+
+	response.JSON(w, http.StatusOK, map[string]any{"results": results})
 }
 
 // ============================================================================
