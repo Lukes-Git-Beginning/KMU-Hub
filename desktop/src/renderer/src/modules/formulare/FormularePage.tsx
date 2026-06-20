@@ -65,6 +65,7 @@ import {
   LayoutList,
   Ban,
   Ruler,
+  Star,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -164,6 +165,7 @@ const FIELD_TYPE_LABEL_KEYS: Record<FormFieldType, string> = {
   number: 'formulare.fieldType.number',
   file: 'formulare.fieldType.file',
   consent: 'formulare.fieldType.consent',
+  rating: 'formulare.fieldType.rating',
 }
 
 const FIELD_TYPE_ICONS: Record<FormFieldType, typeof Type> = {
@@ -177,6 +179,7 @@ const FIELD_TYPE_ICONS: Record<FormFieldType, typeof Type> = {
   number: Hash,
   file: Paperclip,
   consent: ShieldCheck,
+  rating: Star,
 }
 
 const FIELD_TYPE_OPTION_KEYS: { value: FormFieldType; labelKey: string }[] = [
@@ -189,6 +192,7 @@ const FIELD_TYPE_OPTION_KEYS: { value: FormFieldType; labelKey: string }[] = [
   { value: 'date', labelKey: 'formulare.fieldType.date' },
   { value: 'number', labelKey: 'formulare.fieldType.number' },
   { value: 'file', labelKey: 'formulare.fieldType.fileUpload' },
+  { value: 'rating', labelKey: 'formulare.fieldType.rating' },
   { value: 'consent', labelKey: 'formulare.fieldType.consent' },
 ]
 
@@ -263,6 +267,84 @@ function validateFieldValue(field: FormField, rawValue: unknown): ValidationErro
 }
 
 // ---------------------------------------------------------------------------
+// FT-2b — rating field renderer (1–5 stars or 1–10 NPS scale). Reused by the
+// builder preview (disabled), the submission detail (read-only value) and the
+// interactive fill preview (`light` = public-page styling, not theme tokens).
+// ---------------------------------------------------------------------------
+
+function RatingInput({
+  scale,
+  value,
+  onChange,
+  disabled,
+  light,
+}: {
+  scale: number
+  value: number
+  onChange?: (v: number) => void
+  disabled?: boolean
+  light?: boolean
+}) {
+  const steps = Array.from({ length: Math.max(1, scale) }, (_, i) => i + 1)
+
+  if (scale >= 10) {
+    return (
+      <div className="flex flex-wrap gap-1.5">
+        {steps.map((n) => {
+          const selected = value === n
+          return (
+            <button
+              key={n}
+              type="button"
+              disabled={disabled}
+              onClick={() => onChange?.(n)}
+              className={`h-8 w-8 rounded-md border text-xs font-medium transition-colors ${
+                selected
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : light
+                    ? 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                    : 'border-border text-muted-foreground hover:bg-secondary'
+              } ${disabled ? 'cursor-default' : ''}`}
+            >
+              {n}
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      {steps.map((n) => {
+        const filled = value >= n
+        const emptyCls = light ? 'text-gray-300' : 'text-muted-foreground/40'
+        return (
+          <button
+            key={n}
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange?.(n)}
+            className={`transition-transform ${disabled ? 'cursor-default' : 'hover:scale-110'}`}
+            aria-label={String(n)}
+          >
+            <Star
+              className={`h-6 w-6 ${
+                filled
+                  ? light
+                    ? 'fill-amber-400 text-amber-400'
+                    : 'fill-warning text-warning'
+                  : emptyCls
+              }`}
+            />
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Helper: map FormSchema → DraftSchema for the editor
 // ---------------------------------------------------------------------------
 
@@ -275,6 +357,8 @@ function schemaToDraft(schema: FormSchema): DraftSchema {
     fields: schema.fields as FormField[],
     isPublic: schema.isPublic,
     pageCount: schema.pageCount,
+    thankYouMessage: schema.thankYouMessage,
+    redirectUrl: schema.redirectUrl,
     actions: [],
   }
 }
@@ -454,6 +538,8 @@ export default function FormularePage() {
   const [configMin, setConfigMin] = useState('')
   const [configMax, setConfigMax] = useState('')
   const [configPatternType, setConfigPatternType] = useState<FieldPatternType>('free')
+  // FT-2b — rating scale (5 = stars, 10 = NPS)
+  const [configRatingScale, setConfigRatingScale] = useState(5)
 
   // 10.1 — Conditional logic state
   const [configConditionalEnabled, setConfigConditionalEnabled] =
@@ -608,6 +694,8 @@ export default function FormularePage() {
         fields: draft.fields as Parameters<typeof updateSchema.mutateAsync>[0]['fields'],
         isPublic: draft.isPublic,
         pageCount: draft.pageCount,
+        thankYouMessage: draft.thankYouMessage?.trim() || undefined,
+        redirectUrl: draft.redirectUrl?.trim() || undefined,
       })
       toast.success(t('formulare.toast.gespeichert'))
       closeDraft()
@@ -971,6 +1059,7 @@ export default function FormularePage() {
         type === 'select' || type === 'radio'
           ? ['Option 1', 'Option 2']
           : undefined,
+      ratingScale: type === 'rating' ? 5 : undefined,
     })
     setShowAddFieldMenu(false)
   }
@@ -991,6 +1080,7 @@ export default function FormularePage() {
     setConfigMin(field.validation?.min?.toString() ?? '')
     setConfigMax(field.validation?.max?.toString() ?? '')
     setConfigPatternType(field.validation?.patternType ?? 'free')
+    setConfigRatingScale(field.ratingScale ?? 5)
     setConfigConditionalEnabled(!!field.conditionalLogic)
     setConfigConditionalFieldId(field.conditionalLogic?.fieldId ?? '')
     setConfigConditionalOperator(field.conditionalLogic?.operator ?? 'equals')
@@ -1042,6 +1132,7 @@ export default function FormularePage() {
               .map((o) => o.trim())
               .filter(Boolean)
           : field.options,
+      ratingScale: field.type === 'rating' ? configRatingScale : field.ratingScale,
       conditionalLogic:
         configConditionalEnabled && configConditionalFieldId
           ? {
@@ -1279,6 +1370,18 @@ export default function FormularePage() {
             {t('formulare.submission.keineDatei')}
           </span>
         )
+      case 'rating': {
+        const n = Number(value) || 0
+        const scale = field.ratingScale ?? 5
+        return (
+          <span className="inline-flex items-center gap-2">
+            <RatingInput scale={scale} value={n} disabled />
+            <span className="text-xs text-muted-foreground">
+              {n}/{scale}
+            </span>
+          </span>
+        )
+      }
       default:
         return (
           <span className="text-sm text-foreground">
@@ -1376,6 +1479,8 @@ export default function FormularePage() {
             {t('formulare.editor.dateiZiehen')}
           </div>
         )
+      case 'rating':
+        return <RatingInput scale={field.ratingScale ?? 5} value={0} disabled />
       case 'consent':
         return (
           <label className="flex items-start gap-2.5 rounded-lg border border-border bg-secondary/30 p-3">
@@ -1598,6 +1703,9 @@ export default function FormularePage() {
                             pageBreakLabel={t('formulare.editor.seitenumbruchLabel', {
                               page: pageNum + 1,
                             })}
+                            onPageTitleChange={(value) =>
+                              updateField(field.id, { pageTitle: value })
+                            }
                             t={t}
                             onRemove={() => handleRemoveField(field.id)}
                           />
@@ -1671,6 +1779,21 @@ export default function FormularePage() {
                 </div>
               )}
 
+              {/* FT-2b — title of the current page (from the page-break entry) */}
+              {totalPages > 1 &&
+                previewPage > 0 &&
+                (() => {
+                  const breaks = draft.fields.filter(
+                    (f) => f.label === '__page_break__',
+                  )
+                  const title = breaks[previewPage - 1]?.pageTitle?.trim()
+                  return title ? (
+                    <h3 className="border-b border-border pb-1.5 text-base font-semibold text-foreground">
+                      {title}
+                    </h3>
+                  ) : null
+                })()}
+
               {draft.fields.length === 0 ? (
                 <p className="text-sm text-muted-foreground italic">
                   {t('formulare.editor.vorschauHinweis')}
@@ -1721,6 +1844,48 @@ export default function FormularePage() {
           </div>
         </div>
 
+        {/* FT-2b — "After submit": thank-you message + optional redirect */}
+        <div className="mt-6 rounded-xl border border-border bg-card p-5">
+          <div className="mb-1 flex items-center gap-2">
+            <Check className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-medium text-foreground">
+              {t('formulare.thankYou.title')}
+            </h3>
+          </div>
+          <p className="mb-4 text-xs text-muted-foreground">
+            {t('formulare.thankYou.subtitle')}
+          </p>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">
+                {t('formulare.thankYou.messageLabel')}
+              </label>
+              <textarea
+                value={draft.thankYouMessage ?? ''}
+                onChange={(e) => updateDraftMeta({ thankYouMessage: e.target.value })}
+                rows={3}
+                placeholder={t('formulare.thankYou.messagePlaceholder')}
+                className="w-full resize-none rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">
+                {t('formulare.thankYou.redirectLabel')}
+              </label>
+              <input
+                type="url"
+                value={draft.redirectUrl ?? ''}
+                onChange={(e) => updateDraftMeta({ redirectUrl: e.target.value })}
+                placeholder="https://…"
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                {t('formulare.thankYou.redirectHint')}
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* ====================== 10.4 — PUBLIC PREVIEW MODAL ====================== */}
         <Dialog
           open={showPublicPreview && !!draft}
@@ -1749,6 +1914,8 @@ export default function FormularePage() {
               fields={draft.fields as FormField[]}
               title={draft.title || t('formulare.preview.formularname')}
               description={draft.description}
+              thankYouMessage={draft.thankYouMessage}
+              redirectUrl={draft.redirectUrl}
               t={t}
             />
           </DialogContent>
@@ -1884,6 +2051,40 @@ export default function FormularePage() {
                     placeholder={t('formulare.fieldConfig.optionenPlaceholder')}
                     className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                   />
+                </div>
+              )}
+
+              {/* FT-2b — Rating scale (stars vs NPS) */}
+              {showFieldConfigDialog?.field.type === 'rating' && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">
+                    {t('formulare.rating.scaleLabel')}
+                  </label>
+                  <div className="flex gap-2">
+                    {([5, 10] as const).map((s) => {
+                      const on = configRatingScale === s
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setConfigRatingScale(s)}
+                          className={`flex-1 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                            on
+                              ? 'border-primary bg-primary-light text-primary'
+                              : 'border-border text-muted-foreground hover:bg-secondary'
+                          }`}
+                          aria-pressed={on}
+                        >
+                          {s === 5
+                            ? t('formulare.rating.scaleStars')
+                            : t('formulare.rating.scaleNps')}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {t('formulare.rating.scaleHint')}
+                  </p>
                 </div>
               )}
 
@@ -3781,14 +3982,37 @@ interface PreviewFillFormProps {
   fields: FormField[]
   title: string
   description?: string
+  /** FT-2b — custom thank-you message + optional redirect shown after submit. */
+  thankYouMessage?: string
+  redirectUrl?: string
   t: (key: string, opts?: Record<string, unknown>) => string
 }
 
-function PreviewFillForm({ fields, title, description, t }: PreviewFillFormProps) {
+function PreviewFillForm({
+  fields,
+  title,
+  description,
+  thankYouMessage,
+  redirectUrl,
+  t,
+}: PreviewFillFormProps) {
   const dataFields = useMemo(
     () => fields.filter((f) => f.label !== '__page_break__'),
     [fields],
   )
+  // FT-2b — group fields into pages so each page break's title renders as <h3>.
+  const pages = useMemo(() => {
+    const out: { title?: string; fields: FormField[] }[] = [{ fields: [] }]
+    for (const f of fields) {
+      if (f.label === '__page_break__') {
+        out.push({ title: f.pageTitle?.trim() || undefined, fields: [] })
+      } else {
+        out[out.length - 1].fields.push(f)
+      }
+    }
+    return out.filter((p) => p.fields.length > 0 || p.title)
+  }, [fields])
+
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)
@@ -3811,7 +4035,9 @@ function PreviewFillForm({ fields, title, description, t }: PreviewFillFormProps
       const missing =
         field.type === 'consent' || field.type === 'checkbox'
           ? raw !== true
-          : str.trim() === ''
+          : field.type === 'rating'
+            ? !(Number(raw) > 0)
+            : str.trim() === ''
       if (field.required && missing) {
         next[field.id] = t('formulare.validation.error.required')
         continue
@@ -3839,9 +4065,15 @@ function PreviewFillForm({ fields, title, description, t }: PreviewFillFormProps
           <p className="text-base font-semibold text-gray-900">
             {t('formulare.preview.thankYouTitle')}
           </p>
-          <p className="max-w-sm text-sm leading-relaxed text-gray-600">
-            {t('formulare.preview.thankYouDefault')}
+          <p className="max-w-sm whitespace-pre-line text-sm leading-relaxed text-gray-600">
+            {thankYouMessage?.trim() || t('formulare.preview.thankYouDefault')}
           </p>
+          {redirectUrl?.trim() && (
+            <p className="inline-flex items-center gap-1.5 text-xs text-gray-500">
+              <ExternalLink className="h-3.5 w-3.5" />
+              {t('formulare.preview.redirectHint', { url: redirectUrl.trim() })}
+            </p>
+          )}
           <button
             onClick={reset}
             className="mt-1 text-xs font-medium text-blue-600 hover:underline"
@@ -3858,6 +4090,131 @@ function PreviewFillForm({ fields, title, description, t }: PreviewFillFormProps
       ? 'border-red-400 focus:ring-red-400'
       : 'border-gray-300 focus:ring-blue-500'
 
+  const renderField = (field: FormField) => {
+    const val = values[field.id]
+    return (
+      <div key={field.id} className="space-y-1.5">
+        <label className="text-sm font-medium text-gray-700">
+          {field.label}
+          {field.required && <span className="ml-0.5 text-destructive">*</span>}
+        </label>
+        {(field.type === 'text' ||
+          field.type === 'number' ||
+          field.type === 'email') && (
+          <input
+            type={field.type === 'email' ? 'email' : field.type}
+            value={typeof val === 'string' ? val : ''}
+            onChange={(e) => setVal(field.id, e.target.value)}
+            placeholder={
+              field.placeholder ||
+              (field.type === 'email' ? 'name@beispiel.de' : field.label)
+            }
+            className={`w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 ${errorCls(field.id)}`}
+          />
+        )}
+        {field.type === 'textarea' && (
+          <textarea
+            rows={3}
+            value={typeof val === 'string' ? val : ''}
+            onChange={(e) => setVal(field.id, e.target.value)}
+            placeholder={field.placeholder || field.label}
+            className={`w-full resize-none rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 ${errorCls(field.id)}`}
+          />
+        )}
+        {field.type === 'select' && (
+          <select
+            value={typeof val === 'string' ? val : ''}
+            onChange={(e) => setVal(field.id, e.target.value)}
+            className={`w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 ${errorCls(field.id)}`}
+          >
+            <option value="">{t('formulare.editor.selectPlaceholder')}</option>
+            {field.options?.map((opt) => (
+              <option key={opt}>{opt}</option>
+            ))}
+          </select>
+        )}
+        {field.type === 'radio' && (
+          <div className="space-y-1.5">
+            {field.options?.map((opt) => (
+              <label
+                key={opt}
+                className="flex items-center gap-2 text-sm text-gray-700"
+              >
+                <input
+                  type="radio"
+                  name={field.id}
+                  checked={val === opt}
+                  onChange={() => setVal(field.id, opt)}
+                  className="h-4 w-4 text-blue-600"
+                />
+                {opt}
+              </label>
+            ))}
+          </div>
+        )}
+        {field.type === 'checkbox' && (
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={val === true}
+              onChange={(e) => setVal(field.id, e.target.checked)}
+              className="h-4 w-4 rounded text-blue-600"
+            />
+            {field.label}
+          </label>
+        )}
+        {field.type === 'rating' && (
+          <RatingInput
+            scale={field.ratingScale ?? 5}
+            value={Number(val) || 0}
+            onChange={(v) => setVal(field.id, v)}
+            light
+          />
+        )}
+        {field.type === 'date' && (
+          <input
+            type="date"
+            value={typeof val === 'string' ? val : ''}
+            onChange={(e) => setVal(field.id, e.target.value)}
+            className={`w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 ${errorCls(field.id)}`}
+          />
+        )}
+        {field.type === 'file' && (
+          <div className="flex items-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-500">
+            <Paperclip className="h-4 w-4" />
+            {t('formulare.editor.dateiZiehen')}
+          </div>
+        )}
+        {field.type === 'consent' && (
+          <label className="flex items-start gap-2.5 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={val === true}
+              onChange={(e) => setVal(field.id, e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded text-blue-600"
+            />
+            <span className="text-xs leading-relaxed text-gray-600">
+              {field.consentText || DEFAULT_CONSENT_TEXT}
+              {field.privacyUrl && (
+                <a
+                  href={field.privacyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-1 text-blue-600 underline"
+                >
+                  {t('formulare.consent.privacyLink')}
+                </a>
+              )}
+            </span>
+          </label>
+        )}
+        {errors[field.id] && (
+          <p className="text-xs text-red-600">{errors[field.id]}</p>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="p-8">
       <div className="mb-6">
@@ -3865,123 +4222,17 @@ function PreviewFillForm({ fields, title, description, t }: PreviewFillFormProps
         {description && <p className="mt-1 text-sm text-gray-500">{description}</p>}
       </div>
 
-      <div className="space-y-5">
-        {dataFields.map((field) => {
-          const val = values[field.id]
-          return (
-            <div key={field.id} className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-700">
-                {field.label}
-                {field.required && <span className="ml-0.5 text-destructive">*</span>}
-              </label>
-              {(field.type === 'text' ||
-                field.type === 'number' ||
-                field.type === 'email') && (
-                <input
-                  type={field.type === 'email' ? 'email' : field.type}
-                  value={typeof val === 'string' ? val : ''}
-                  onChange={(e) => setVal(field.id, e.target.value)}
-                  placeholder={
-                    field.placeholder ||
-                    (field.type === 'email' ? 'name@beispiel.de' : field.label)
-                  }
-                  className={`w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 ${errorCls(field.id)}`}
-                />
-              )}
-              {field.type === 'textarea' && (
-                <textarea
-                  rows={3}
-                  value={typeof val === 'string' ? val : ''}
-                  onChange={(e) => setVal(field.id, e.target.value)}
-                  placeholder={field.placeholder || field.label}
-                  className={`w-full resize-none rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 ${errorCls(field.id)}`}
-                />
-              )}
-              {field.type === 'select' && (
-                <select
-                  value={typeof val === 'string' ? val : ''}
-                  onChange={(e) => setVal(field.id, e.target.value)}
-                  className={`w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 ${errorCls(field.id)}`}
-                >
-                  <option value="">{t('formulare.editor.selectPlaceholder')}</option>
-                  {field.options?.map((opt) => (
-                    <option key={opt}>{opt}</option>
-                  ))}
-                </select>
-              )}
-              {field.type === 'radio' && (
-                <div className="space-y-1.5">
-                  {field.options?.map((opt) => (
-                    <label
-                      key={opt}
-                      className="flex items-center gap-2 text-sm text-gray-700"
-                    >
-                      <input
-                        type="radio"
-                        name={field.id}
-                        checked={val === opt}
-                        onChange={() => setVal(field.id, opt)}
-                        className="h-4 w-4 text-blue-600"
-                      />
-                      {opt}
-                    </label>
-                  ))}
-                </div>
-              )}
-              {field.type === 'checkbox' && (
-                <label className="flex items-center gap-2 text-sm text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={val === true}
-                    onChange={(e) => setVal(field.id, e.target.checked)}
-                    className="h-4 w-4 rounded text-blue-600"
-                  />
-                  {field.label}
-                </label>
-              )}
-              {field.type === 'date' && (
-                <input
-                  type="date"
-                  value={typeof val === 'string' ? val : ''}
-                  onChange={(e) => setVal(field.id, e.target.value)}
-                  className={`w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 ${errorCls(field.id)}`}
-                />
-              )}
-              {field.type === 'file' && (
-                <div className="flex items-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-500">
-                  <Paperclip className="h-4 w-4" />
-                  {t('formulare.editor.dateiZiehen')}
-                </div>
-              )}
-              {field.type === 'consent' && (
-                <label className="flex items-start gap-2.5 text-sm text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={val === true}
-                    onChange={(e) => setVal(field.id, e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded text-blue-600"
-                  />
-                  <span className="text-xs leading-relaxed text-gray-600">
-                    {field.consentText || DEFAULT_CONSENT_TEXT}
-                    {field.privacyUrl && (
-                      <a
-                        href={field.privacyUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="ml-1 text-blue-600 underline"
-                      >
-                        {t('formulare.consent.privacyLink')}
-                      </a>
-                    )}
-                  </span>
-                </label>
-              )}
-              {errors[field.id] && (
-                <p className="text-xs text-red-600">{errors[field.id]}</p>
-              )}
-            </div>
-          )
-        })}
+      <div className="space-y-6">
+        {pages.map((page, i) => (
+          <div key={i} className="space-y-5">
+            {page.title && (
+              <h3 className="border-b border-gray-100 pb-1.5 text-base font-semibold text-gray-900">
+                {page.title}
+              </h3>
+            )}
+            {page.fields.map(renderField)}
+          </div>
+        ))}
       </div>
 
       {dataFields.length > 0 && (
@@ -4074,6 +4325,8 @@ interface SortableFieldItemProps {
   typeLabel?: string
   /** When set, renders the page-break divider variant instead of a field row. */
   pageBreakLabel?: string
+  /** FT-2b — page-break only: edit the title of the page that follows. */
+  onPageTitleChange?: (value: string) => void
   t: (key: string, opts?: Record<string, unknown>) => string
   onEdit?: () => void
   onRemove: () => void
@@ -4084,6 +4337,7 @@ function SortableFieldItem({
   icon: Icon,
   typeLabel,
   pageBreakLabel,
+  onPageTitleChange,
   t,
   onEdit,
   onRemove,
@@ -4098,31 +4352,44 @@ function SortableFieldItem({
       <div
         ref={setNodeRef}
         style={style}
-        className={`flex items-center gap-2 py-2 group ${isDragging ? 'opacity-50' : ''}`}
+        className={`space-y-1.5 py-2 group ${isDragging ? 'opacity-50' : ''}`}
       >
-        <button
-          type="button"
-          {...attributes}
-          {...listeners}
-          className="shrink-0 cursor-grab text-primary/40 transition-colors hover:text-primary/70 active:cursor-grabbing"
-          aria-label={t('formulare.editor.feldVerschieben')}
-        >
-          <GripVertical className="h-4 w-4" />
-        </button>
-        <div className="flex-1 border-t border-dashed border-primary/40" />
-        <span className="text-xs font-medium text-primary/70 whitespace-nowrap">
-          {pageBreakLabel}
-        </span>
-        <div className="flex-1 border-t border-dashed border-primary/40" />
-        <button
-          data-field-control
-          onPointerDown={stop}
-          onClick={onRemove}
-          className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-error-light hover:text-error opacity-0 group-hover:opacity-100"
-          title={t('formulare.editor.seitenumbruch')}
-        >
-          <Trash2 className="h-3 w-3" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            className="shrink-0 cursor-grab text-primary/40 transition-colors hover:text-primary/70 active:cursor-grabbing"
+            aria-label={t('formulare.editor.feldVerschieben')}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+          <div className="flex-1 border-t border-dashed border-primary/40" />
+          <span className="text-xs font-medium text-primary/70 whitespace-nowrap">
+            {pageBreakLabel}
+          </span>
+          <div className="flex-1 border-t border-dashed border-primary/40" />
+          <button
+            data-field-control
+            onPointerDown={stop}
+            onClick={onRemove}
+            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-error-light hover:text-error opacity-0 group-hover:opacity-100"
+            title={t('formulare.editor.seitenumbruch')}
+          >
+            <Trash2 className="h-3 w-3" />
+          </button>
+        </div>
+        {/* FT-2b — optional title for the page that starts after this break */}
+        {onPageTitleChange && (
+          <input
+            data-field-control
+            onPointerDown={stop}
+            value={field.pageTitle ?? ''}
+            onChange={(e) => onPageTitleChange(e.target.value)}
+            placeholder={t('formulare.editor.seitentitelPlaceholder')}
+            className="ml-6 w-[calc(100%-1.5rem)] rounded-md border border-border bg-card px-2.5 py-1 text-xs text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+          />
+        )}
       </div>
     )
   }

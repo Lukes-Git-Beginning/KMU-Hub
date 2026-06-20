@@ -48,6 +48,20 @@ function f(field: Omit<FormField, 'id'>): FormField {
   return { id: `fld-${fieldSeq++}`, ...field }
 }
 
+const STD_CONSENT_TEXT =
+  'Ich willige ein, dass meine Angaben zur Bearbeitung meiner Anfrage gemäß der Datenschutzerklärung verarbeitet werden. Die Einwilligung kann jederzeit widerrufen werden.'
+
+/** Standard DSGVO consent field reused by the DACH template pack (FT-2b). */
+function consentField(): FormField {
+  return f({
+    type: 'consent',
+    label: 'Datenschutz-Einwilligung',
+    required: true,
+    consentText: STD_CONSENT_TEXT,
+    privacyUrl: 'https://www.zentria.tech/datenschutz',
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Seed — schemas (forms + templates)
 // ---------------------------------------------------------------------------
@@ -240,6 +254,106 @@ function buildSchemas(): FormSchema[] {
         f({ type: 'text', label: 'Name', required: true }),
         f({ type: 'email', label: 'E-Mail', required: true }),
         f({ type: 'number', label: 'Anzahl Personen', required: true }),
+      ],
+    }),
+    // ── DACH-KMU template pack (FT-2b) ──
+    base({
+      id: 'tmpl-reklamation',
+      title: 'Reklamationserfassung',
+      description: 'Strukturierte Erfassung von Kundenreklamationen mit Foto-Upload.',
+      status: 'active',
+      isTemplate: true,
+      submissionCount: 0,
+      createdBy: null,
+      createdAt: isoAgo(90 * DAY),
+      updatedAt: isoAgo(90 * DAY),
+      fields: [
+        f({ type: 'text', label: 'Name', required: true, placeholder: 'Vor- und Nachname' }),
+        f({ type: 'text', label: 'Bestell- / Rechnungsnummer', required: true, placeholder: 'z.B. 2026-04711' }),
+        f({ type: 'select', label: 'Reklamationsgrund', required: true, options: ['Falschlieferung', 'Beschädigung', 'Qualitätsmangel', 'Fehlmenge', 'Sonstiges'] }),
+        f({ type: 'textarea', label: 'Beschreibung', required: true, placeholder: 'Was ist passiert?' }),
+        f({ type: 'file', label: 'Foto / Beleg', required: false }),
+        consentField(),
+      ],
+    }),
+    base({
+      id: 'tmpl-urlaubsantrag',
+      title: 'Urlaubsantrag (intern)',
+      description: 'Interner Antrag auf Erholungsurlaub mit Vertretungsregelung.',
+      status: 'active',
+      isTemplate: true,
+      submissionCount: 0,
+      createdBy: null,
+      createdAt: isoAgo(90 * DAY),
+      updatedAt: isoAgo(90 * DAY),
+      fields: [
+        f({ type: 'text', label: 'Name', required: true, placeholder: 'Vor- und Nachname' }),
+        f({ type: 'text', label: 'Abteilung', required: true, placeholder: 'z.B. Vertrieb' }),
+        f({ type: 'date', label: 'Von', required: true }),
+        f({ type: 'date', label: 'Bis', required: true }),
+        f({ type: 'text', label: 'Vertretung', required: false, placeholder: 'Wer übernimmt?' }),
+        f({ type: 'textarea', label: 'Anmerkung', required: false }),
+        consentField(),
+      ],
+    }),
+    base({
+      id: 'tmpl-lieferantenbewertung',
+      title: 'Lieferantenbewertung',
+      description: 'Bewertung von Lieferanten nach Liefertreue, Qualität und Weiterempfehlung.',
+      status: 'active',
+      isTemplate: true,
+      submissionCount: 0,
+      createdBy: null,
+      createdAt: isoAgo(90 * DAY),
+      updatedAt: isoAgo(90 * DAY),
+      fields: [
+        f({ type: 'text', label: 'Lieferant', required: true, placeholder: 'Firmenname' }),
+        f({ type: 'rating', label: 'Liefertreue', required: true, ratingScale: 5 }),
+        f({ type: 'rating', label: 'Qualität', required: true, ratingScale: 5 }),
+        f({ type: 'rating', label: 'Weiterempfehlung (0–10)', required: true, ratingScale: 10 }),
+        f({ type: 'textarea', label: 'Anmerkungen', required: false, placeholder: 'Optionales Feedback …' }),
+        consentField(),
+      ],
+    }),
+    base({
+      id: 'tmpl-schadensanzeige',
+      title: 'Schadensanzeige',
+      description: 'Meldung eines Schadens mit Hergang und geschätzter Schadenshöhe.',
+      status: 'active',
+      isTemplate: true,
+      submissionCount: 0,
+      createdBy: null,
+      createdAt: isoAgo(90 * DAY),
+      updatedAt: isoAgo(90 * DAY),
+      fields: [
+        f({ type: 'text', label: 'Name', required: true, placeholder: 'Vor- und Nachname' }),
+        f({ type: 'date', label: 'Schadensdatum', required: true }),
+        f({ type: 'text', label: 'Schadensort', required: true, placeholder: 'Ort / Adresse' }),
+        f({ type: 'textarea', label: 'Schadenshergang', required: true, placeholder: 'Bitte schildern Sie den Ablauf.' }),
+        f({ type: 'number', label: 'Geschätzte Schadenshöhe (EUR)', required: false, placeholder: '0', validation: { min: 0 } }),
+        f({ type: 'file', label: 'Foto / Nachweis', required: false }),
+        consentField(),
+      ],
+    }),
+    base({
+      id: 'tmpl-aufmass',
+      title: 'Aufmaßerfassung Handwerk',
+      description: 'Aufnahme von Raummaßen für Angebote und Kalkulation vor Ort.',
+      status: 'active',
+      isTemplate: true,
+      submissionCount: 0,
+      createdBy: null,
+      createdAt: isoAgo(90 * DAY),
+      updatedAt: isoAgo(90 * DAY),
+      fields: [
+        f({ type: 'text', label: 'Kunde', required: true, placeholder: 'Name / Firma' }),
+        f({ type: 'text', label: 'Objektadresse', required: true, placeholder: 'Straße, PLZ, Ort' }),
+        f({ type: 'text', label: 'Raum / Bereich', required: true, placeholder: 'z.B. Wohnzimmer' }),
+        f({ type: 'number', label: 'Länge (m)', required: true, placeholder: '0.00', validation: { min: 0 } }),
+        f({ type: 'number', label: 'Breite (m)', required: true, placeholder: '0.00', validation: { min: 0 } }),
+        f({ type: 'number', label: 'Höhe (m)', required: false, placeholder: '0.00', validation: { min: 0 } }),
+        f({ type: 'textarea', label: 'Bemerkung', required: false, placeholder: 'Besonderheiten vor Ort …' }),
+        consentField(),
       ],
     }),
   ]
@@ -559,6 +673,8 @@ export const formulareHandlers = [
       isPublic: body.isPublic ?? false,
       pageCount: body.pageCount ?? 1,
       closedMessage: body.closedMessage,
+      thankYouMessage: body.thankYouMessage,
+      redirectUrl: body.redirectUrl,
       submissionCount: 0,
       createdBy: 'Du',
       createdAt: now,
@@ -745,6 +861,8 @@ export const formulareHandlers = [
     if (body.isPublic !== undefined) schema.isPublic = body.isPublic
     if (body.pageCount !== undefined) schema.pageCount = body.pageCount
     if (body.closedMessage !== undefined) schema.closedMessage = body.closedMessage
+    if (body.thankYouMessage !== undefined) schema.thankYouMessage = body.thankYouMessage
+    if (body.redirectUrl !== undefined) schema.redirectUrl = body.redirectUrl
     schema.updatedAt = new Date().toISOString()
     return HttpResponse.json(schema)
   }),

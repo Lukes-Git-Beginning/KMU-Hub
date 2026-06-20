@@ -27,6 +27,8 @@ export type FormFieldType =
   // Frontend/demo pseudo-type: a DSGVO consent checkbox (purpose-bound, with a
   // linked privacy policy). Not in the backend proto whitelist.
   | 'consent'
+  // Frontend/demo pseudo-type (FT-2b): a 1–5 star / 1–10 NPS rating scale.
+  | 'rating'
 
 /**
  * Preset pattern for text-field validation (FT-2a). The concrete regex is
@@ -65,6 +67,10 @@ export interface FormField {
   }
   /** FT-2a — optional validation rules applied in the fill-out preview. */
   validation?: FieldValidation
+  /** rating only (FT-2b): scale length — 5 = stars, 10 = NPS number scale. */
+  ratingScale?: number
+  /** page-break only (FT-2b): title of the page that starts after this break. */
+  pageTitle?: string
   page?: number
 }
 
@@ -86,6 +92,10 @@ export interface DraftSchema {
   fields: FormField[]
   isPublic: boolean
   pageCount: number
+  /** FT-2b — thank-you message shown after a successful submit (optional). */
+  thankYouMessage?: string
+  /** FT-2b — redirect URL applied after submit on the public page (optional). */
+  redirectUrl?: string
   /** Frontend-only: post-submission actions (not yet persisted to backend) */
   actions: FormAction[]
 }
@@ -100,7 +110,7 @@ interface FormulareClientState {
 
   openDraft: (draft: DraftSchema) => void
   closeDraft: () => void
-  updateDraftMeta: (updates: Partial<Pick<DraftSchema, 'title' | 'description' | 'isPublic' | 'pageCount'>>) => void
+  updateDraftMeta: (updates: Partial<Pick<DraftSchema, 'title' | 'description' | 'isPublic' | 'pageCount' | 'thankYouMessage' | 'redirectUrl'>>) => void
 
   addField: (field: Omit<FormField, 'id'>) => void
   removeField: (fieldId: string) => void

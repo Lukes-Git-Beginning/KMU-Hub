@@ -42,6 +42,7 @@ export type FormFieldType =
   | 'date'
   | 'file'
   | 'consent'
+  | 'rating'
 
 // ---------------------------------------------------------------------------
 // Domain models
@@ -70,6 +71,8 @@ export interface FormField {
   privacyUrl?: string // consent only: link to the Datenschutzerklärung
   conditionalLogic?: unknown // TBD in späterem Sprint
   validation?: FieldValidation // FT-2a — length / value / pattern rules
+  ratingScale?: number // rating only (FT-2b): 5 = stars, 10 = NPS scale
+  pageTitle?: string // page-break only (FT-2b): title of the following page
   page?: number
 }
 
@@ -85,6 +88,10 @@ export interface FormSchema {
   pageCount: number
   /** Message shown on the public fill-out page once the form is `closed`. */
   closedMessage?: string
+  /** FT-2b — custom thank-you message shown after a successful submit. */
+  thankYouMessage?: string
+  /** FT-2b — redirect URL applied after submit on the public page. */
+  redirectUrl?: string
   submissionCount: number
   createdBy: string | null
   createdAt: string
@@ -169,6 +176,8 @@ export interface CreateFormSchemaInput {
   isPublic?: boolean
   pageCount?: number
   closedMessage?: string
+  thankYouMessage?: string
+  redirectUrl?: string
 }
 
 export interface UpdateFormSchemaInput {
@@ -180,6 +189,8 @@ export interface UpdateFormSchemaInput {
   isPublic?: boolean
   pageCount?: number
   closedMessage?: string
+  thankYouMessage?: string
+  redirectUrl?: string
 }
 
 export interface DuplicateFormSchemaInput {
