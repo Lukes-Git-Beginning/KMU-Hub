@@ -63,6 +63,7 @@ import {
   Check,
   LayoutGrid,
   LayoutList,
+  Ban,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -85,6 +86,9 @@ import {
   useExportSubmissions,
   useUpdateSubmissionStatus,
   useCreateShareLink,
+  useShareLinks,
+  useUpdateShareLink,
+  useDeleteShareLink,
   formulareKeys,
 } from '@/api/hooks/useFormulare'
 import { listSubmissions } from '@/api/formulare-client'
@@ -94,6 +98,7 @@ import type {
   FormSubmission,
   FormSubmissionStatus,
   ShareChannel,
+  ShareLinkStatus,
 } from '@/api/formulare-types'
 import {
   ItemActions,
@@ -239,6 +244,8 @@ export default function FormularePage() {
   const exportSubs = useExportSubmissions()
   const updateSubStatus = useUpdateSubmissionStatus()
   const createShareLink = useCreateShareLink()
+  const updateShareLinkMut = useUpdateShareLink()
+  const deleteShareLinkMut = useDeleteShareLink()
 
   // -------------------------------------------------------------------------
   // Client state (Zustand — editor draft)
@@ -329,6 +336,8 @@ export default function FormularePage() {
     schema: FormSchema
     newCount: number
   } | null>(null)
+  // FD-2 — confirm deleting a single share link from the distribution overview
+  const [shareLinkToDelete, setShareLinkToDelete] = useState<FormShareLink | null>(null)
 
   // Standalone public-facing form preview (decoupled from the editor draft)
   const [previewSchema, setPreviewSchema] = useState<FormSchema | null>(null)
@@ -403,6 +412,10 @@ export default function FormularePage() {
     return map
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeForms, submissionQueries.map((q) => q.dataUpdatedAt).join(',')])
+
+  // FD-2 — share links for the open form (powers the Verteilung tab + count).
+  const formShareLinks = useShareLinks(selectedForm?.id ?? '')
+  const shareLinkCount = formShareLinks.data?.length ?? 0
 
   // ---------------------------------------------------------------------------
   // Derived data
@@ -638,10 +651,42 @@ export default function FormularePage() {
   }
 
   /** Embed channel copies an iframe snippet; everything else copies the URL. */
-  const shareValueOf = (link: FormShareLink): string =>
+  const shareValueOf = (link: FormShareLink, title = ''): string =>
     link.channel === 'embed'
-      ? `<iframe src="${link.url}" width="100%" height="640" style="border:0" title="${showShareDialog?.title ?? ''}"></iframe>`
+      ? `<iframe src="${link.url}" width="100%" height="640" style="border:0" title="${title}"></iframe>`
       : link.url
+
+  // FD-2 — distribution overview actions (toggle / delete a share link).
+  const toggleShareLink = (link: FormShareLink) => {
+    const next: ShareLinkStatus = link.status === 'disabled' ? 'active' : 'disabled'
+    updateShareLinkMut.mutate(
+      { id: link.id, formSchemaId: link.formSchemaId, status: next },
+      {
+        onSuccess: () =>
+          toast.success(
+            next === 'disabled'
+              ? t('formulare.share.toast.deactivated')
+              : t('formulare.share.toast.reactivated'),
+          ),
+        onError: (err) =>
+          toast.error(err instanceof Error ? err.message : t('common.error')),
+      },
+    )
+  }
+
+  const confirmDeleteShareLink = () => {
+    if (!shareLinkToDelete) return
+    const link = shareLinkToDelete
+    deleteShareLinkMut.mutate(
+      { id: link.id, formSchemaId: link.formSchemaId },
+      {
+        onSuccess: () => toast.success(t('formulare.share.toast.deleted')),
+        onError: (err) =>
+          toast.error(err instanceof Error ? err.message : t('common.error')),
+      },
+    )
+    setShareLinkToDelete(null)
+  }
 
   const copyToClipboard = async (value: string) => {
     try {
@@ -668,7 +713,7 @@ export default function FormularePage() {
       {
         onSuccess: (link) => {
           setShareCreatedLink(link)
-          void copyToClipboard(shareValueOf(link))
+          void copyToClipboard(shareValueOf(link, showShareDialog?.title))
         },
         onError: (err) =>
           toast.error(err instanceof Error ? err.message : t('common.error')),
@@ -2918,6 +2963,12 @@ export default function FormularePage() {
                       count: selectedForm.submissionCount,
                     }),
                   },
+                  {
+                    key: 'verteilung' as const,
+                    label: t('formulare.detail.tabVerteilung', {
+                      count: shareLinkCount,
+                    }),
+                  },
                 ]
               ).map((tab) => (
                 <button
@@ -3052,6 +3103,22 @@ export default function FormularePage() {
                   t={t}
                 />
               </div>
+            )}
+
+            {/* FD-2 — distribution overview: shared links per form */}
+            {formDetailTab === 'verteilung' && (
+              <ShareLinksPanel
+                schemaId={selectedForm.id}
+                canShare={isShareable(selectedForm)}
+                onShare={() => requestShare(selectedForm)}
+                onCopy={(link) =>
+                  copyToClipboard(shareValueOf(link, selectedForm.title))
+                }
+                onToggle={toggleShareLink}
+                onDelete={(link) => setShareLinkToDelete(link)}
+                formatDate={formatDate}
+                t={t}
+              />
             )}
           </div>
         )}
@@ -3335,20 +3402,20 @@ export default function FormularePage() {
                       <textarea
                         readOnly
                         rows={3}
-                        value={shareValueOf(shareCreatedLink)}
+                        value={shareValueOf(shareCreatedLink, showShareDialog?.title)}
                         onFocus={(e) => e.currentTarget.select()}
                         className="w-full resize-none rounded-lg border border-border bg-secondary/30 px-3 py-2 font-mono text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
                       />
                     ) : (
                       <input
                         readOnly
-                        value={shareValueOf(shareCreatedLink)}
+                        value={shareValueOf(shareCreatedLink, showShareDialog?.title)}
                         onFocus={(e) => e.currentTarget.select()}
                         className="w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
                       />
                     )}
                     <button
-                      onClick={() => copyToClipboard(shareValueOf(shareCreatedLink))}
+                      onClick={() => copyToClipboard(shareValueOf(shareCreatedLink, showShareDialog?.title))}
                       className="flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
                     >
                       {shareCopied ? (
@@ -3523,6 +3590,17 @@ export default function FormularePage() {
           if (archiveConfirm) doArchive(archiveConfirm.schema)
           setArchiveConfirm(null)
         }}
+      />
+
+      {/* ====================== SHARE LINK DELETE (FD-2) ====================== */}
+      <ConfirmDialog
+        open={!!shareLinkToDelete}
+        onOpenChange={() => setShareLinkToDelete(null)}
+        title={t('formulare.share.deleteTitle')}
+        description={t('formulare.share.deleteDescription')}
+        confirmLabel={t('common.delete')}
+        variant="destructive"
+        onConfirm={confirmDeleteShareLink}
       />
 
       {/* ====================== CLOSE FORM DIALOG (FD-0) ====================== */}
@@ -4006,3 +4084,178 @@ function SubmissionsPanel({
 
 // Import useSubmissions here to keep the sub-component working
 import { useSubmissions } from '@/api/hooks/useFormulare'
+
+// ---------------------------------------------------------------------------
+// ShareLinksPanel — FD-2 distribution overview: every share link of one form
+// with channel, validity, views, responses (+conversion) and per-link actions.
+// ---------------------------------------------------------------------------
+
+const SHARE_CHANNEL_META: Record<ShareChannel, { icon: typeof Type; labelKey: string }> = {
+  link: { icon: Link2, labelKey: 'formulare.share.channel.link' },
+  email: { icon: Mail, labelKey: 'formulare.share.channel.email' },
+  embed: { icon: Code2, labelKey: 'formulare.share.channel.embed' },
+  qr: { icon: QrCode, labelKey: 'formulare.share.channel.qr' },
+}
+
+const SHARE_STATUS_META: Record<ShareLinkStatus, { cls: string; labelKey: string }> = {
+  active: { cls: 'bg-success-light text-success', labelKey: 'formulare.share.status.active' },
+  expired: { cls: 'bg-secondary text-muted-foreground', labelKey: 'formulare.share.status.expired' },
+  disabled: { cls: 'bg-warning-light text-warning', labelKey: 'formulare.share.status.disabled' },
+}
+
+interface ShareLinksPanelProps {
+  schemaId: string
+  canShare: boolean
+  onShare: () => void
+  onCopy: (link: FormShareLink) => void
+  onToggle: (link: FormShareLink) => void
+  onDelete: (link: FormShareLink) => void
+  formatDate: (d: string) => string
+  t: (key: string, opts?: Record<string, unknown>) => string
+}
+
+function ShareLinksPanel({
+  schemaId,
+  canShare,
+  onShare,
+  onCopy,
+  onToggle,
+  onDelete,
+  formatDate,
+  t,
+}: ShareLinksPanelProps) {
+  const { data, isLoading } = useShareLinks(schemaId)
+  const links = data ?? []
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-12 animate-pulse rounded-lg bg-secondary" />
+        ))}
+      </div>
+    )
+  }
+
+  if (links.length === 0) {
+    return (
+      <EmptyState
+        icon={Share2}
+        title={t('formulare.share.empty.title')}
+        description={
+          canShare
+            ? t('formulare.share.empty.hint')
+            : t('formulare.share.empty.hintInactive')
+        }
+        action={
+          canShare
+            ? { label: t('formulare.actions.teilen'), onClick: onShare }
+            : undefined
+        }
+      />
+    )
+  }
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-border">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border-muted bg-secondary/30 text-xs text-muted-foreground">
+            <th className="px-4 py-2.5 text-left font-medium">
+              {t('formulare.share.channelLabel')}
+            </th>
+            <th className="hidden px-4 py-2.5 text-left font-medium sm:table-cell">
+              {t('formulare.detail.createdAt')}
+            </th>
+            <th className="px-4 py-2.5 text-left font-medium">
+              {t('formulare.share.col.expires')}
+            </th>
+            <th className="px-4 py-2.5 text-right font-medium">
+              {t('formulare.share.col.views')}
+            </th>
+            <th className="px-4 py-2.5 text-right font-medium">
+              {t('formulare.submission.antworten')}
+            </th>
+            <th className="px-4 py-2.5 text-left font-medium">
+              {t('formulare.submission.table.status')}
+            </th>
+            <th className="px-4 py-2.5 text-right font-medium" />
+          </tr>
+        </thead>
+        <tbody>
+          {links.map((link) => {
+            const ch = SHARE_CHANNEL_META[link.channel]
+            const st = SHARE_STATUS_META[link.status]
+            const ChIcon = ch.icon
+            const conv =
+              link.views > 0 ? Math.round((link.submissions / link.views) * 100) : 0
+            return (
+              <tr
+                key={link.id}
+                className="border-b border-border-muted last:border-0"
+              >
+                <td className="px-4 py-2.5">
+                  <span className="inline-flex items-center gap-1.5 text-foreground">
+                    <ChIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                    {t(ch.labelKey)}
+                  </span>
+                </td>
+                <td className="hidden px-4 py-2.5 text-muted-foreground sm:table-cell">
+                  {formatDate(link.createdAt)}
+                </td>
+                <td className="px-4 py-2.5 text-muted-foreground">
+                  {link.expiresAt
+                    ? formatDate(link.expiresAt)
+                    : t('formulare.share.noExpiry')}
+                </td>
+                <td className="px-4 py-2.5 text-right text-muted-foreground">
+                  {link.views}
+                </td>
+                <td className="px-4 py-2.5 text-right text-muted-foreground">
+                  {link.submissions}
+                  <span className="ml-1 text-[10px] text-muted-foreground/70">
+                    ({conv}%)
+                  </span>
+                </td>
+                <td className="px-4 py-2.5">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${st.cls}`}
+                  >
+                    {t(st.labelKey)}
+                  </span>
+                </td>
+                <td className="px-4 py-2.5 text-right">
+                  <ItemActions
+                    items={[
+                      {
+                        label: t('formulare.share.linkKopieren'),
+                        icon: Copy,
+                        onClick: () => onCopy(link),
+                      },
+                      {
+                        label:
+                          link.status === 'disabled'
+                            ? t('formulare.share.reactivate')
+                            : t('formulare.share.deactivate'),
+                        icon: link.status === 'disabled' ? Check : Ban,
+                        onClick: () => onToggle(link),
+                        disabled: link.status === 'expired',
+                      },
+                      {
+                        separator: true,
+                        label: t('common.delete'),
+                        icon: Trash2,
+                        variant: 'destructive',
+                        onClick: () => onDelete(link),
+                      },
+                    ]}
+                  />
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
