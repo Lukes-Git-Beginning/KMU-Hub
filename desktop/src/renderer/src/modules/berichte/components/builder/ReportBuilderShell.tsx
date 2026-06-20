@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { BuilderState } from './builder-utils'
 import { emptyBuilderState, MAX_DIMENSIONS, suggestViz, toQuery } from './builder-utils'
-import type { ReportDateRange, ReportFilter, VisualizationType } from '@/api/berichte-types'
+import type { AggregationFn, ReportDateRange, ReportFilter, VisualizationType } from '@/api/berichte-types'
 import { useReportPreview } from '@/api/hooks/useBerichte'
 import { resolveSource } from '../../report-sources/registry'
 import { fieldByKey } from '../../report-sources/types'
 import { SourcePicker } from './SourcePicker'
 import { FieldPicker } from './FieldPicker'
+import { SummarizeBlock } from './SummarizeBlock'
 import { DateRangePicker } from './DateRangePicker'
 import { FilterBuilder } from './FilterBuilder'
 import { VizSwitcher } from './VizSwitcher'
@@ -71,6 +72,13 @@ export function ReportBuilderShell() {
     setState((s) => ({ ...s, filters }))
   }
 
+  function setMeasureAgg(field: string, agg: AggregationFn) {
+    setState((s) => ({
+      ...s,
+      measures: s.measures.map((m) => (m.field === field ? { ...m, agg } : m)),
+    }))
+  }
+
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-[340px_minmax(0,1fr)]">
       {/* Config column */}
@@ -80,7 +88,7 @@ export function ReportBuilderShell() {
         </div>
 
         {source && (
-          <div className="rounded-xl border border-border bg-card p-4">
+          <div className="space-y-4 rounded-xl border border-border bg-card p-4">
             <FieldPicker
               source={source}
               dimensions={state.dimensions}
@@ -88,6 +96,16 @@ export function ReportBuilderShell() {
               onToggleDimension={toggleDimension}
               onToggleMeasure={toggleMeasure}
             />
+            {(state.measures.length > 0 || state.dimensions.length > 0) && (
+              <div className="border-t border-border-muted pt-4">
+                <SummarizeBlock
+                  source={source}
+                  measures={state.measures}
+                  dimensions={state.dimensions}
+                  onChangeAgg={setMeasureAgg}
+                />
+              </div>
+            )}
           </div>
         )}
 
