@@ -48,7 +48,7 @@ describe('LoginPage', () => {
     await user.click(screen.getByRole('button', { name: 'auth.login' }))
 
     await waitFor(() => {
-      expect(loginMock).toHaveBeenCalledWith('test@firma.de', 'correct')
+      expect(loginMock).toHaveBeenCalledWith('test@firma.de', 'correct', true)
     })
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })
@@ -120,7 +120,7 @@ describe('LoginPage', () => {
     await user.click(screen.getByRole('button', { name: 'security.2fa.verify' }))
 
     await waitFor(() => {
-      expect(complete2FAMock).toHaveBeenCalledWith('pending-2fa-token', '123456')
+      expect(complete2FAMock).toHaveBeenCalledWith('pending-2fa-token', '123456', true)
     })
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })

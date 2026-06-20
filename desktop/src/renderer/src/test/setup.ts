@@ -30,6 +30,14 @@ Object.defineProperty(navigator, 'onLine', {
   writable: true,
 })
 
+// Polyfill ResizeObserver — jsdom lacks it, but Radix UI primitives
+// (e.g. Checkbox) reference it on render and throw without this stub.
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
 // Mock import.meta.env
 vi.stubEnv('RENDERER_VITE_API_URL', 'http://localhost:8080')
 
