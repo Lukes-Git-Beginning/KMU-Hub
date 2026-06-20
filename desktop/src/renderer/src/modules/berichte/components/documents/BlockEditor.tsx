@@ -4,6 +4,7 @@ import {
   BarChart3,
   Columns2,
   Columns3,
+  Gauge,
   GripVertical,
   Heading1,
   Heading2,
@@ -12,6 +13,8 @@ import {
   RefreshCw,
   Square,
   Trash2,
+  TrendingDown,
+  TrendingUp,
   X,
 } from 'lucide-react'
 import {
@@ -35,6 +38,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useReportResult } from '@/api/hooks/useBerichte'
 import type {
   ChartBlock,
+  KpiBlock,
   ReportBlock,
   ReportBlockType,
   ReportDocColumn,
@@ -47,8 +51,16 @@ import { ChartRenderer } from '../charts/ChartRenderer'
 /** Block id helper — unique per inserted block. */
 const uid = (p: string): string => `${p}-${crypto.randomUUID().slice(0, 8)}`
 
-/** Block types insertable in the core editor (table/kpi/callout/image = later R-1b). */
-const INSERTABLE: ReportBlockType[] = ['heading', 'text', 'chart', 'bullet', 'divider', 'pagebreak']
+/** Block types insertable in the core editor (table/callout/image = later R-1b). */
+const INSERTABLE: ReportBlockType[] = [
+  'heading',
+  'text',
+  'chart',
+  'kpi',
+  'bullet',
+  'divider',
+  'pagebreak',
+]
 
 /** Width presets per column count (flex weights, carried into the read mode). */
 const WIDTH_PRESETS: Record<number, { label: string; widths: number[] }[]> = {
@@ -70,6 +82,8 @@ function makeBlock(type: ReportBlockType): ReportBlock {
       return { id: uid('b'), type: 'bullet', items: [''] }
     case 'chart':
       return { id: uid('b'), type: 'chart' }
+    case 'kpi':
+      return { id: uid('b'), type: 'kpi', label: '', value: '' }
     case 'divider':
       return { id: uid('b'), type: 'divider' }
     case 'pagebreak':
@@ -138,6 +152,21 @@ export function BlockEditor({ rows, onChange }: BlockEditorProps) {
     onChange([
       ...rows,
       { id: uid('row'), columns: Array.from({ length: count }, emptyColumn) },
+    ])
+    setPickerOpen(false)
+  }
+
+  /** Append a KPI row: three columns, each with one KPI block. */
+  function addKpiRow() {
+    onChange([
+      ...rows,
+      {
+        id: uid('row'),
+        columns: Array.from({ length: 3 }, () => ({
+          ...emptyColumn(),
+          blocks: [makeBlock('kpi')],
+        })),
+      },
     ])
     setPickerOpen(false)
   }
@@ -306,6 +335,14 @@ export function BlockEditor({ rows, onChange }: BlockEditorProps) {
               >
                 <Columns3 className="h-3.5 w-3.5 text-muted-foreground" />
                 {t('berichte.docs.columnCount', { count: 3 })}
+              </button>
+              <button
+                type="button"
+                onClick={addKpiRow}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-foreground transition-colors hover:border-primary/40 hover:bg-secondary"
+              >
+                <Gauge className="h-3.5 w-3.5 text-muted-foreground" />
+                {t('berichte.docs.kpiRow')}
               </button>
             </div>
           </div>
@@ -652,12 +689,14 @@ function BlockEdit({
     case 'chart':
       return <ChartBlockEdit block={block} onPatch={onPatch} />
 
-    // table / kpi / callout / image — placeholder until their R-1b phase.
+    case 'kpi':
+      return <KpiBlockEdit block={block} onPatch={onPatch} />
+
+    // table / callout / image — placeholder until their R-1b phase.
     default: {
       const meta = BLOCK_META[block.type]
       const Icon = meta.icon
-      const caption =
-        'caption' in block ? block.caption : 'label' in block ? block.label : undefined
+      const caption = 'caption' in block ? block.caption : undefined
       return (
         <div className="flex items-center gap-2.5 rounded-xl border border-dashed border-border bg-secondary/20 p-3">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-secondary text-muted-foreground">
@@ -757,5 +796,73 @@ function ChartBlockEdit({
         onApply={(patch) => onPatch(patch)}
       />
     </>
+  )
+}
+
+/** KPI block: highlighted metric (label / value / unit / trend / source). */
+function KpiBlockEdit({
+  block,
+  onPatch,
+}: {
+  block: KpiBlock
+  onPatch: (patch: Partial<ReportBlock>) => void
+}) {
+  const { t } = useTranslation()
+  const positive = (block.changePercent ?? 0) >= 0
+  const hasTrend = block.changePercent != null
+  const fieldCls =
+    'rounded-md border border-transparent bg-transparent px-2 py-1 text-sm text-foreground hover:border-border focus:border-border focus:outline-none'
+
+  return (
+    <div className="space-y-2 rounded-xl border border-border bg-secondary/20 p-3">
+      <input
+        value={block.label}
+        onChange={(e) => onPatch({ label: e.target.value })}
+        placeholder={t('berichte.docs.ph.kpiLabel')}
+        className={`${fieldCls} w-full text-xs text-muted-foreground`}
+      />
+      <div className="flex items-baseline gap-1.5">
+        <input
+          value={block.value}
+          onChange={(e) => onPatch({ value: e.target.value })}
+          placeholder={t('berichte.docs.ph.kpiValue')}
+          className={`${fieldCls} min-w-0 flex-1 text-2xl font-semibold`}
+        />
+        <input
+          value={block.unit ?? ''}
+          onChange={(e) => onPatch({ unit: e.target.value })}
+          placeholder={t('berichte.docs.ph.kpiUnit')}
+          className={`${fieldCls} w-16 text-base text-muted-foreground`}
+        />
+      </div>
+      <div className="flex items-center gap-2 border-t border-border-muted pt-2">
+        <span className="text-muted-foreground">
+          {hasTrend ? (
+            positive ? (
+              <TrendingUp className="h-3.5 w-3.5 text-success" />
+            ) : (
+              <TrendingDown className="h-3.5 w-3.5 text-destructive" />
+            )
+          ) : (
+            <TrendingUp className="h-3.5 w-3.5 text-muted-foreground/40" />
+          )}
+        </span>
+        <input
+          type="number"
+          value={block.changePercent ?? ''}
+          onChange={(e) =>
+            onPatch({ changePercent: e.target.value === '' ? null : Number(e.target.value) })
+          }
+          placeholder={t('berichte.docs.ph.kpiTrend')}
+          className={`${fieldCls} w-20 text-xs`}
+        />
+        <input
+          value={block.source ?? ''}
+          onChange={(e) => onPatch({ source: e.target.value })}
+          placeholder={t('berichte.docs.ph.kpiSource')}
+          className={`${fieldCls} min-w-0 flex-1 text-xs text-muted-foreground`}
+        />
+      </div>
+    </div>
   )
 }

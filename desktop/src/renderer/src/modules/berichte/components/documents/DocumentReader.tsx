@@ -154,14 +154,23 @@ function KpiView({ block }: { block: KpiBlock }) {
           <span className="ml-1 text-base font-normal text-muted-foreground">{block.unit}</span>
         )}
       </p>
-      {block.changePercent != null && (
-        <p
-          className={`mt-1 inline-flex items-center gap-1 text-xs ${positive ? 'text-success' : 'text-destructive'}`}
-        >
-          {positive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-          {Math.abs(block.changePercent)} %
-        </p>
-      )}
+      <div className="mt-1 flex items-center justify-between gap-2">
+        {block.changePercent != null ? (
+          <span
+            className={`inline-flex items-center gap-1 text-xs ${positive ? 'text-success' : 'text-destructive'}`}
+          >
+            {positive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+            {Math.abs(block.changePercent)} %
+          </span>
+        ) : (
+          <span />
+        )}
+        {block.source && (
+          <span className="truncate text-[10px] uppercase tracking-wide text-muted-foreground/70">
+            {block.source}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
