@@ -47,11 +47,21 @@
 - i18n ×4: `fieldType.consent`, `consent.*` (8), `submission.ipAdresse`, `export.downloadStarted`/`perFormHint` — 12 Keys.
 - **QA** (`scripts/qa-formulare-f4.mjs`): consent im Form-Detail, Submission-Consent-Block + IP, **echter Download** (`kundenfeedback_eingaenge.csv`, `downloaded: true`), Consent-Feld via Palette hinzugefügt. **0 pageErrors, 0 failedApi.** Screenshots gesichtet.
 
+### F-5 — Moduleinstellungen + i18n + QA ✅
+- **Neuer Prefs-Store** `stores/formularePrefs.ts` (zustand+persist): personal (`defaultTab`, `defaultExportFormat`) + tenant (`defaultConsentText`, `defaultPrivacyUrl`, `notifyOnSubmission`, `retentionDays`).
+- **`FormulareSettingsPanel`** via `ModuleSettingsShell` (personal-Section „Ansicht" + tenant-Section „Datenschutz & Eingänge"), in `module-settings-registry.tsx` registriert (`id: formulare`, Gruppe `module`, `navMatch ['/formulare']`, Icon `FileInput`).
+- **Prefs greifen echt**: `defaultTab` → Initial-Tab der Page (QA: öffnet auf „Vorlagen"); `defaultExportFormat` → ExportMenu listet das Standard-Format zuerst + „Standard"-Marker (QA: XLSX zuerst); `defaultConsentText`/`defaultPrivacyUrl` → Vorbelegung neuer Consent-Felder (Konstanten in den Store verschoben).
+- i18n ×4: `moduleSettings.entries.formulare`, `formulare.settings.*` (23), `formulare.export.standard` — 24 Keys. **Parität: alle 4 Sprachen 200 `formulare.*`-Keys.**
+- **QA** (`scripts/qa-formulare-f5.mjs`): Settings-Overlay rendert das Panel (personal + tenant, keine Raw-Keys), defaultTab + defaultExportFormat greifen, Screenshots bei 1440/1280/1024. **0 pageErrors.** Screenshots gesichtet (Overlay + Reflow).
+
+## Ergebnis
+Alle 5 Phasen grün, je Phase ein Commit + Push auf `parallel/formulare`. i18n DE/EN/FR/IT vollständig + paritätisch, gescopter Typecheck grün, Demo lebendig (0 failedApi/pageErrors). Modul ist review-reif.
+
 ## Definition of Done
 - [x] Demo-Mode lebendig (0 failedApiRequests/pageErrors, Listen + Details + Submissions gefüllt) — F-1
 - [x] Formular-Zeile + Submission-Zeile → DetailModal mit allen Infos/Aktionen — F-2
 - [x] DnD-Formular-Builder, alle Feldtypen, Live-Vorschau, Reihenfolge persistent — F-3
 - [x] DSGVO-Einwilligungsfeld + Consent im Submission-Detail + echter Export-Download — F-4
-- [ ] Moduleinstellungen (personal + tenant) via ModuleSettingsShell — F-5
-- [ ] i18n ×4 vollständig, 0 Raw-Keys, 0 `{{}}` (per Screenshot verifiziert) — laufend
+- [x] Moduleinstellungen (personal + tenant) via ModuleSettingsShell — F-5
+- [x] i18n ×4 vollständig, 0 Raw-Keys, 0 `{{}}` (per Screenshot verifiziert) — laufend
 - [x] `reviews/formulare.md` mit DoD-Häkchen + Befunden, je Phase ein Commit/Push

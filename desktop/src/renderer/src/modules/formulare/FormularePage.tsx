@@ -63,6 +63,11 @@ import {
   type FormFieldType,
 } from '@/stores/formulare'
 import {
+  useFormularePrefsStore,
+  DEFAULT_CONSENT_TEXT,
+  DEFAULT_PRIVACY_URL,
+} from '@/stores/formularePrefs'
+import {
   useFormSchemas,
   useCreateFormSchema,
   useUpdateFormSchema,
@@ -152,11 +157,6 @@ const FIELD_TYPE_OPTION_KEYS: { value: FormFieldType; labelKey: string }[] = [
   { value: 'file', labelKey: 'formulare.fieldType.fileUpload' },
   { value: 'consent', labelKey: 'formulare.fieldType.consent' },
 ]
-
-/** DSGVO default when adding a consent field (overridable per tenant in F-5). */
-const DEFAULT_CONSENT_TEXT =
-  'Ich willige ein, dass meine Angaben zur Bearbeitung meiner Anfrage gemäß der Datenschutzerklärung verarbeitet werden. Die Einwilligung kann jederzeit widerrufen werden.'
-const DEFAULT_PRIVACY_URL = 'https://www.zentria.tech/datenschutz'
 
 // ---------------------------------------------------------------------------
 // Helper: map FormSchema → DraftSchema for the editor
@@ -273,8 +273,14 @@ export default function FormularePage() {
     [t],
   )
 
-  // Tab & search
-  const [tab, setTab] = useState<TabKey>('formulare')
+  // Module preferences (personal + tenant) — see formularePrefs store.
+  const prefsDefaultTab = useFormularePrefsStore((s) => s.defaultTab)
+  const prefsExportFormat = useFormularePrefsStore((s) => s.defaultExportFormat)
+  const prefsConsentText = useFormularePrefsStore((s) => s.defaultConsentText)
+  const prefsPrivacyUrl = useFormularePrefsStore((s) => s.defaultPrivacyUrl)
+
+  // Tab & search — initial tab honours the personal default.
+  const [tab, setTab] = useState<TabKey>(prefsDefaultTab)
   const [search, setSearch] = useState('')
 
   // Detail modal for a single submission
@@ -559,12 +565,13 @@ export default function FormularePage() {
   const handleAddField = (type: FormFieldType) => {
     if (type === 'consent') {
       // DSGVO consent is a required, purpose-bound checkbox by definition.
+      // Defaults come from the tenant settings (overridable per field).
       addField({
         type,
         label: t('formulare.consent.defaultLabel'),
         required: true,
-        consentText: DEFAULT_CONSENT_TEXT,
-        privacyUrl: DEFAULT_PRIVACY_URL,
+        consentText: prefsConsentText || DEFAULT_CONSENT_TEXT,
+        privacyUrl: prefsPrivacyUrl || DEFAULT_PRIVACY_URL,
       })
       setShowAddFieldMenu(false)
       return
@@ -2016,6 +2023,7 @@ export default function FormularePage() {
                           onExport={handleExportSubmissions}
                           t={t}
                           compact
+                          defaultFormat={prefsExportFormat}
                         />
                       )}
                     </div>
@@ -2423,6 +2431,7 @@ export default function FormularePage() {
                     onExport={handleExportSubmissions}
                     t={t}
                     compact
+                    defaultFormat={prefsExportFormat}
                   />
                 )}
                 <button
@@ -2820,10 +2829,19 @@ interface ExportMenuProps {
   onExport: (schema: FormSchema, format: 'csv' | 'xlsx') => void
   t: (key: string, opts?: Record<string, unknown>) => string
   compact?: boolean
+  /** Personal default — listed first and marked as the default option. */
+  defaultFormat?: 'csv' | 'xlsx'
 }
 
-function ExportMenu({ schema, onExport, t, compact }: ExportMenuProps) {
+function ExportMenu({ schema, onExport, t, compact, defaultFormat = 'csv' }: ExportMenuProps) {
   const [open, setOpen] = useState(false)
+  const formats: { value: 'csv' | 'xlsx'; labelKey: string }[] = [
+    { value: 'csv', labelKey: 'formulare.export.csv' },
+    { value: 'xlsx', labelKey: 'formulare.export.excel' },
+  ]
+  formats.sort((a, b) =>
+    a.value === defaultFormat ? -1 : b.value === defaultFormat ? 1 : 0,
+  )
   return (
     <div className="relative" onClick={(e) => e.stopPropagation()}>
       <button
@@ -2840,27 +2858,25 @@ function ExportMenu({ schema, onExport, t, compact }: ExportMenuProps) {
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full z-20 mt-1 w-44 rounded-lg border border-border bg-card py-1 shadow-xl">
-            <button
-              onClick={() => {
-                onExport(schema, 'csv')
-                setOpen(false)
-              }}
-              className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
-            >
-              <Download className="h-4 w-4 text-muted-foreground" />
-              {t('formulare.export.csv')}
-            </button>
-            <button
-              onClick={() => {
-                onExport(schema, 'xlsx')
-                setOpen(false)
-              }}
-              className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
-            >
-              <Download className="h-4 w-4 text-muted-foreground" />
-              {t('formulare.export.excel')}
-            </button>
+          <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-lg border border-border bg-card py-1 shadow-xl">
+            {formats.map((f) => (
+              <button
+                key={f.value}
+                onClick={() => {
+                  onExport(schema, f.value)
+                  setOpen(false)
+                }}
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
+              >
+                <Download className="h-4 w-4 text-muted-foreground" />
+                <span className="flex-1 text-left">{t(f.labelKey)}</span>
+                {f.value === defaultFormat && (
+                  <span className="text-[10px] text-muted-foreground">
+                    {t('formulare.export.standard')}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
         </>
       )}
