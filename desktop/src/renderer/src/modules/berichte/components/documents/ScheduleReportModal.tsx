@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, CalendarClock } from 'lucide-react'
+import { AlertTriangle, CalendarClock, Mail, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -14,8 +14,10 @@ import type { ReportDocument, ReportFormat } from '@/api/berichte-types'
 import { useCreateSchedule, useSchedules, useUpdateSchedule } from '@/api/hooks/useBerichte'
 import { useBerichtePrefsStore } from '@/stores/berichtePrefs'
 import { CURRENT_USER } from '@/mocks/data/shared-ids'
+import { EMPLOYEES } from '@/mocks/mock-db'
 import {
   DEFAULT_RHYTHM,
+  EMAIL_RE,
   WEEKDAYS,
   type Rhythm,
   type RhythmKind,
@@ -32,6 +34,21 @@ interface ScheduleReportModalProps {
 
 const RHYTHM_KINDS: RhythmKind[] = ['daily', 'weekly', 'monthly', 'quarterly']
 const FORMATS: ReportFormat[] = ['pdf', 'xlsx', 'csv']
+
+/** Internal users available as recipients (demo: from the mock employee DB). */
+interface InternalUser {
+  name: string
+  email: string
+  initials: string
+  jobTitle: string
+}
+const INTERNAL_USERS: InternalUser[] = EMPLOYEES.map((e) => ({
+  name: `${e.firstName} ${e.lastName}`,
+  email: e.email,
+  initials: e.initials,
+  jobTitle: e.jobTitle,
+}))
+const INTERNAL_BY_EMAIL = new Map(INTERNAL_USERS.map((u) => [u.email, u]))
 
 /**
  * Per-document scheduling modal (R-4). Couples a ReportSchedule to the report
@@ -55,11 +72,15 @@ export function ScheduleReportModal({ doc, open, onClose }: ScheduleReportModalP
   const [format, setFormat] = useState<ReportFormat>(defaultFormat)
   const [active, setActive] = useState(true)
   const [recipients, setRecipients] = useState<string[]>([CURRENT_USER.email])
+  const [userQuery, setUserQuery] = useState('')
+  const [emailInput, setEmailInput] = useState('')
 
   // Hydrate the form from an existing schedule (or reset to defaults) whenever
   // the modal opens for a different document / schedule.
   useEffect(() => {
     if (!open) return
+    setUserQuery('')
+    setEmailInput('')
     if (existing) {
       setRhythm(cronToRhythm(existing.cron_expression))
       setFormat(existing.format)
@@ -78,6 +99,38 @@ export function ScheduleReportModal({ doc, open, onClose }: ScheduleReportModalP
   const setTime = (value: string) => {
     const [h, m] = value.split(':').map((n) => parseInt(n, 10))
     setRhythm((r) => ({ ...r, hour: Number.isNaN(h) ? r.hour : h, minute: Number.isNaN(m) ? r.minute : m }))
+  }
+
+  // Internal-user typeahead: match name/email, exclude already-picked users.
+  const userMatches = useMemo(() => {
+    const q = userQuery.trim().toLowerCase()
+    if (!q) return []
+    return INTERNAL_USERS.filter(
+      (u) =>
+        !recipients.includes(u.email) &&
+        (u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)),
+    ).slice(0, 6)
+  }, [userQuery, recipients])
+
+  const addRecipient = (email: string) => {
+    setRecipients((prev) => (prev.includes(email) ? prev : [...prev, email]))
+  }
+  const removeRecipient = (email: string) =>
+    setRecipients((prev) => prev.filter((e) => e !== email))
+
+  const addExternalEmail = () => {
+    const email = emailInput.trim().toLowerCase()
+    if (!email) return
+    if (!EMAIL_RE.test(email)) {
+      toast.error(t('berichte.docs.schedule.errorEmail'))
+      return
+    }
+    if (recipients.includes(email)) {
+      toast.error(t('berichte.docs.schedule.errorEmailDup'))
+      return
+    }
+    addRecipient(email)
+    setEmailInput('')
   }
 
   const handleSave = () => {
@@ -220,6 +273,119 @@ export function ScheduleReportModal({ doc, open, onClose }: ScheduleReportModalP
                 className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring disabled:opacity-50"
               />
             </div>
+          </div>
+
+          {/* Recipients — internal users (typeahead) + external email addresses */}
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              {t('berichte.docs.schedule.recipients')}
+            </label>
+
+            {/* Internal user typeahead */}
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                value={userQuery}
+                disabled={!isReleased}
+                onChange={(e) => setUserQuery(e.target.value)}
+                placeholder={t('berichte.docs.schedule.searchUser')}
+                className="w-full rounded-lg border border-border bg-card py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring disabled:opacity-50"
+              />
+              {userMatches.length > 0 && (
+                <div className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-border bg-card py-1 shadow-lg">
+                  {userMatches.map((u) => (
+                    <button
+                      key={u.email}
+                      type="button"
+                      onClick={() => {
+                        addRecipient(u.email)
+                        setUserQuery('')
+                      }}
+                      className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left transition-colors hover:bg-secondary"
+                    >
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-light text-[10px] font-semibold text-primary">
+                        {u.initials}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm text-foreground">{u.name}</span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {u.jobTitle}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* External email input */}
+            <div className="mt-2 flex gap-2">
+              <div className="relative flex-1">
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="email"
+                  value={emailInput}
+                  disabled={!isReleased}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addExternalEmail()
+                    }
+                  }}
+                  placeholder={t('berichte.docs.schedule.externalEmail')}
+                  className="w-full rounded-lg border border-border bg-card py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring disabled:opacity-50"
+                />
+              </div>
+              <button
+                type="button"
+                disabled={!isReleased}
+                onClick={addExternalEmail}
+                className="rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-50"
+              >
+                {t('berichte.docs.schedule.add')}
+              </button>
+            </div>
+
+            {/* Recipient chips */}
+            {recipients.length > 0 ? (
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
+                {recipients.map((email) => {
+                  const internal = INTERNAL_BY_EMAIL.get(email)
+                  return (
+                    <span
+                      key={email}
+                      className="flex items-center gap-1.5 rounded-full bg-secondary py-0.5 pl-1 pr-2 text-xs text-foreground"
+                    >
+                      {internal ? (
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary-light text-[9px] font-semibold text-primary">
+                          {internal.initials}
+                        </span>
+                      ) : (
+                        <Mail className="ml-1 h-3 w-3 text-muted-foreground" />
+                      )}
+                      <span className="max-w-[12rem] truncate">
+                        {internal ? internal.name : email}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={!isReleased}
+                        onClick={() => removeRecipient(email)}
+                        aria-label={t('berichte.docs.schedule.removeRecipient')}
+                        className="rounded-full p-0.5 transition-colors hover:bg-error-light hover:text-error disabled:opacity-50"
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    </span>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="mt-1.5 text-[10px] text-muted-foreground/60">
+                {t('berichte.docs.schedule.errorRecipients')}
+              </p>
+            )}
           </div>
 
           {/* Format */}
