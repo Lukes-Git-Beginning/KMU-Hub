@@ -7,6 +7,7 @@ import {
   CartesianGrid,
   Cell,
   ComposedChart,
+  LabelList,
   Legend,
   Line,
   LineChart,
@@ -21,21 +22,16 @@ import {
   YAxis,
 } from 'recharts'
 import type { ReportColumn, ReportResult, ReportViewOptions, VisualizationType } from '@/api/berichte-types'
-import { useChartTheme, categoricalPalette, type ChartTheme } from '../../utils/chartTheme'
+import { useChartTheme } from '../../utils/chartTheme'
 import { usePrefersReducedMotion } from '../../utils/chartMotion'
 import { formatAxisTick, formatValue } from './chart-format'
+import { resolvePalette, type PaletteId } from './palettes'
 
 interface ChartRendererProps {
   result: ReportResult
   viz: VisualizationType
   options?: ReportViewOptions
   height?: number
-}
-
-/** Cycle the 4-colour categorical palette for an arbitrary number of series. */
-function paletteOf(theme: ChartTheme, n: number): string[] {
-  const base = categoricalPalette(theme)
-  return Array.from({ length: n }, (_, i) => base[i % base.length])
 }
 
 /** Pivot ReportSeries[] into a recharts-friendly row array. */
@@ -95,7 +91,11 @@ export function ChartRenderer({ result, viz, options, height = 320 }: ChartRende
   const animate = !reduceMotion
   const { data, keys } = useMemo(() => pivot(result), [result])
   const vType = measureType(result)
-  const colors = paletteOf(theme, Math.max(keys.length, result.rows.length))
+  const colors = resolvePalette(
+    theme,
+    options?.palette as PaletteId | undefined,
+    Math.max(keys.length, result.rows.length),
+  )
   const showLegend = options?.showLegend ?? keys.length > 1
   const legendPos = options?.legendPosition ?? 'bottom'
 
@@ -327,7 +327,17 @@ export function ChartRenderer({ result, viz, options, height = 320 }: ChartRende
             radius={[4, 4, 0, 0]}
             stackId={options?.stacked ? '1' : undefined}
             isAnimationActive={animate}
-          />
+          >
+            {options?.showDataLabels && keys.length === 1 && (
+              <LabelList
+                dataKey={k}
+                position="top"
+                fill={theme.muted}
+                fontSize={10}
+                formatter={(v) => formatAxisTick(Number(v ?? 0), vType)}
+              />
+            )}
+          </Bar>
         ))}
       </BarChart>
     </ResponsiveContainer>

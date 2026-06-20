@@ -4,6 +4,7 @@ import { ChevronDown, Plus, Send, SlidersHorizontal, X } from 'lucide-react'
 import { ModuleSettingsShell, type ModuleSettingsSection } from '@/components/shared'
 import { useBerichtePrefsStore, type BerichtePeriod } from '@/stores/berichtePrefs'
 import type { ReportFormat } from '@/api/berichte-types'
+import { PALETTE_OPTIONS } from '../components/charts/palettes'
 
 const FORMATS: ReportFormat[] = ['pdf', 'xlsx', 'csv']
 const PERIODS: { value: BerichtePeriod; defaultLabel: string }[] = [
@@ -19,8 +20,10 @@ function PersonalPrefs() {
   const { t } = useTranslation()
   const defaultFormat = useBerichtePrefsStore((s) => s.defaultFormat)
   const defaultPeriod = useBerichtePrefsStore((s) => s.defaultPeriod)
+  const defaultPalette = useBerichtePrefsStore((s) => s.defaultPalette)
   const setDefaultFormat = useBerichtePrefsStore((s) => s.setDefaultFormat)
   const setDefaultPeriod = useBerichtePrefsStore((s) => s.setDefaultPeriod)
+  const setDefaultPalette = useBerichtePrefsStore((s) => s.setDefaultPalette)
 
   return (
     <div className="space-y-5">
@@ -70,6 +73,31 @@ function PersonalPrefs() {
         <p className="text-xs text-muted-foreground">
           {t('berichte.settings.personal.periodHint', {
             defaultValue: 'Vorbelegung für den Zeitraum-Filter neuer Berichte.',
+          })}
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium text-foreground">
+          {t('berichte.settings.personal.palette', { defaultValue: 'Standard-Farbpalette' })}
+        </label>
+        <div className="relative w-64 max-w-full">
+          <select
+            value={defaultPalette}
+            onChange={(e) => setDefaultPalette(e.target.value)}
+            className="w-full appearance-none rounded-lg border border-border bg-card px-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer"
+          >
+            {PALETTE_OPTIONS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {t('berichte.settings.personal.paletteHint', {
+            defaultValue: 'Farbpalette, mit der neue Berichte im Builder starten.',
           })}
         </p>
       </div>

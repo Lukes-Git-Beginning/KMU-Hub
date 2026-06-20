@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/global.d.ts",
+    "src/renderer/src/vite-env.d.ts",
+    "src/renderer/src/i18n/i18next.d.ts",
+    "src/renderer/src/stores/berichtePrefs.ts",
+    "src/renderer/src/modules/berichte/components/charts/palettes.ts",
+    "src/renderer/src/modules/berichte/components/charts/ChartRenderer.tsx",
+    "src/renderer/src/modules/berichte/components/builder/ReportStylePanel.tsx",
+    "src/renderer/src/modules/berichte/components/builder/ReportBuilderShell.tsx",
+    "src/renderer/src/modules/berichte/components/PinnedReports.tsx",
+    "src/renderer/src/modules/berichte/settings/BerichteSettingsPanel.tsx",
+    "src/renderer/src/modules/berichte/BerichtePage.tsx"
+  ]
+}

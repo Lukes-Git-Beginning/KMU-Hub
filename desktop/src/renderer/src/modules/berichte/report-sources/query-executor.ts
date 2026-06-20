@@ -249,7 +249,28 @@ export function executeQuery(
     }
     buckets.get(key)!.rows.push(row)
   }
-  const ordered = [...buckets.values()].sort((a, b) => a.sort.localeCompare(b.sort))
+  // Aggregated value of a measure within a bucket (for sort + series).
+  const bucketMeasure = (b: { rows: Record<string, unknown>[] }, m: { field: string; agg: AggregationFn }) => {
+    const vals = b.rows.map((r) => Number(r[m.field])).filter((v) => !Number.isNaN(v))
+    return aggregate(m.agg === 'count' ? b.rows.map(() => 1) : vals, m.agg)
+  }
+
+  let ordered = [...buckets.values()]
+  // Sort: by a chosen measure (desc/asc) else natural/chronological order.
+  if (query.sort) {
+    const sm = measures.find((m) => m.field === query.sort!.field)
+    ordered.sort((a, b) => {
+      const av = sm ? bucketMeasure(a, sm) : a.sort
+      const bv = sm ? bucketMeasure(b, sm) : b.sort
+      const cmp =
+        typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv))
+      return query.sort!.dir === 'desc' ? -cmp : cmp
+    })
+  } else {
+    ordered.sort((a, b) => a.sort.localeCompare(b.sort))
+  }
+  // Top-N limit applies to the buckets so charts and table agree.
+  if (query.limit && query.limit > 0) ordered = ordered.slice(0, query.limit)
 
   const columns: ReportColumn[] = [{ key: dim0Key, label: dim0?.label ?? dim0Key, type: colType(dim0) }]
   const series: ReportSeries[] = []
@@ -293,7 +314,7 @@ export function executeQuery(
     }
   }
 
-  // Build table rows from series.
+  // Build table rows from the (already sorted + limited) ordered buckets.
   const tableRows: Record<string, unknown>[] = ordered.map((b, i) => {
     const row: Record<string, unknown> = { [dim0Key]: b.label }
     for (const s of series) {
@@ -303,24 +324,9 @@ export function executeQuery(
     return row
   })
 
-  // Sort + limit (Top-N) applied on the dim0 ordering by first measure.
-  let finalRows = tableRows
-  if (query.sort) {
-    const sk = query.sort.field
-    finalRows = [...tableRows].sort((a, b) => {
-      const av = a[sk]
-      const bv = b[sk]
-      const cmp = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv))
-      return query.sort!.dir === 'desc' ? -cmp : cmp
-    })
-  }
-  if (query.limit && query.limit > 0) {
-    finalRows = finalRows.slice(0, query.limit)
-  }
-
   return {
     columns,
-    rows: finalRows,
+    rows: tableRows,
     series,
     totals,
     meta: { generated_at: now, row_count: rows.length, definition_id: query.sourceId },

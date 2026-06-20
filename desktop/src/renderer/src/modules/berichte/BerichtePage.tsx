@@ -14,6 +14,7 @@ import {
   useSchedules,
 } from '@/api/hooks/useBerichte'
 import { DashboardGrid } from './components/DashboardGrid'
+import { PinnedReports } from './components/PinnedReports'
 import { ReportBuilderShell } from './components/builder/ReportBuilderShell'
 import { ScheduleList } from './components/ScheduleList'
 import { DatevView } from './components/DatevView'
@@ -108,14 +109,17 @@ export default function BerichtePage() {
       </div>
 
       {tab === 'dashboard' && (
-        <DashboardGrid
-          kpis={kpis}
-          definitions={definitions}
-          moduleFilter={moduleFilter}
-          onModuleFilterChange={setModuleFilter}
-          moduleOptions={MODULE_OPTIONS}
-          isLoading={kpisQuery.isLoading || definitionsQuery.isLoading}
-        />
+        <>
+          <PinnedReports />
+          <DashboardGrid
+            kpis={kpis}
+            definitions={definitions}
+            moduleFilter={moduleFilter}
+            onModuleFilterChange={setModuleFilter}
+            moduleOptions={MODULE_OPTIONS}
+            isLoading={kpisQuery.isLoading || definitionsQuery.isLoading}
+          />
+        </>
       )}
 
       {tab === 'erstellen' && <ReportBuilderShell />}

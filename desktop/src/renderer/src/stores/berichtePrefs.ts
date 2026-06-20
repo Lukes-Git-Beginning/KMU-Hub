@@ -14,10 +14,13 @@ export type BerichtePeriod = 'last30' | 'thisMonth' | 'thisQuarter' | 'thisYear'
 interface BerichtePrefsState {
   defaultFormat: ReportFormat
   defaultPeriod: BerichtePeriod
+  /** Default colour palette for new builder reports (palette id). */
+  defaultPalette: string
   allowedFormats: ReportFormat[]
   scheduleDomains: string[]
   setDefaultFormat: (f: ReportFormat) => void
   setDefaultPeriod: (p: BerichtePeriod) => void
+  setDefaultPalette: (p: string) => void
   toggleAllowedFormat: (f: ReportFormat) => void
   addScheduleDomain: (d: string) => void
   removeScheduleDomain: (d: string) => void
@@ -28,10 +31,12 @@ export const useBerichtePrefsStore = create<BerichtePrefsState>()(
     (set, get) => ({
       defaultFormat: 'pdf',
       defaultPeriod: 'thisMonth',
+      defaultPalette: 'default',
       allowedFormats: ['pdf', 'xlsx', 'csv'],
       scheduleDomains: ['zentria.tech'],
       setDefaultFormat: (defaultFormat) => set({ defaultFormat }),
       setDefaultPeriod: (defaultPeriod) => set({ defaultPeriod }),
+      setDefaultPalette: (defaultPalette) => set({ defaultPalette }),
       toggleAllowedFormat: (f) => {
         const cur = get().allowedFormats
         // keep at least one format enabled

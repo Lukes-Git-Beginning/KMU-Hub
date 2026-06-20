@@ -9,6 +9,7 @@ import type {
   ReportDateRange,
   ReportDefinition,
   ReportFilter,
+  ReportViewOptions,
   VisualizationType,
 } from '@/api/berichte-types'
 import { isBuilderQuery } from '@/api/berichte-types'
@@ -18,6 +19,7 @@ import {
   useReportPreview,
   useUpdateDefinition,
 } from '@/api/hooks/useBerichte'
+import { useBerichtePrefsStore } from '@/stores/berichtePrefs'
 import { resolveSource } from '../../report-sources/registry'
 import { fieldByKey } from '../../report-sources/types'
 import { SourcePicker } from './SourcePicker'
@@ -26,6 +28,7 @@ import { SummarizeBlock } from './SummarizeBlock'
 import { DateRangePicker } from './DateRangePicker'
 import { FilterBuilder } from './FilterBuilder'
 import { VizSwitcher } from './VizSwitcher'
+import { ReportStylePanel } from './ReportStylePanel'
 import { LivePreview } from './LivePreview'
 import { SaveReportBar } from './SaveReportBar'
 import { MyReportsLibrary } from './MyReportsLibrary'
@@ -55,9 +58,12 @@ export function ReportBuilderShell() {
   const updateMutation = useUpdateDefinition()
   const customDefs = useDefinitions({ kind: 'custom' })
   const customCount = customDefs.data?.definitions.length ?? 0
+  const defaultPalette = useBerichtePrefsStore((s) => s.defaultPalette)
 
   function setSource(id: string) {
-    setState(() => applyAutoViz({ ...emptyBuilderState(), sourceId: id }))
+    setState(() =>
+      applyAutoViz({ ...emptyBuilderState(), sourceId: id, options: { palette: defaultPalette } }),
+    )
     setEditingId(null)
   }
 
@@ -102,6 +108,18 @@ export function ReportBuilderShell() {
       ...s,
       measures: s.measures.map((m) => (m.field === field ? { ...m, agg } : m)),
     }))
+  }
+
+  function setOptions(patch: Partial<ReportViewOptions>) {
+    setState((s) => ({ ...s, options: { ...s.options, ...patch } }))
+  }
+
+  function setSort(sort: { field: string; dir: 'asc' | 'desc' } | undefined) {
+    setState((s) => ({ ...s, sort }))
+  }
+
+  function setLimit(limit: number | undefined) {
+    setState((s) => ({ ...s, limit }))
   }
 
   function setName(name: string) {
@@ -213,7 +231,7 @@ export function ReportBuilderShell() {
           </div>
 
           {/* Builder grid */}
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[340px_minmax(0,1fr)]">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[340px_minmax(0,1fr)] lg:items-start">
             <div className="space-y-4">
               <div className="rounded-xl border border-border bg-card p-4">
                 <SourcePicker value={state.sourceId} onChange={setSource} />
@@ -253,9 +271,26 @@ export function ReportBuilderShell() {
                   <VizSwitcher value={state.viz} auto={!state.vizManual} onSelect={selectViz} />
                 </div>
               )}
+
+              {source && query && (
+                <div className="rounded-xl border border-border bg-card p-4">
+                  <ReportStylePanel
+                    viz={state.viz}
+                    source={source}
+                    dimensions={state.dimensions}
+                    measures={state.measures}
+                    options={state.options}
+                    onChangeOptions={setOptions}
+                    sort={state.sort}
+                    limit={state.limit}
+                    onChangeSort={setSort}
+                    onChangeLimit={setLimit}
+                  />
+                </div>
+              )}
             </div>
 
-            <div className="min-h-[480px]">
+            <div className="min-h-[480px] lg:sticky lg:top-4">
               <LivePreview
                 query={query}
                 result={preview.data?.result}
