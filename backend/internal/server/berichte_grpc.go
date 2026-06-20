@@ -33,7 +33,7 @@ type BerichteExporter interface {
 }
 
 // BerichteExporterFactory returns an exporter for the given format (pdf|csv|xlsx).
-// TODO(sprint-1 wave-3): wire export.NewExporter here after WP-3 merge
+// Use export.NewExporter from the berichte/export package as the concrete factory.
 type BerichteExporterFactory func(format string) (BerichteExporter, error)
 
 // ============================================================================
@@ -48,8 +48,8 @@ type BerichteGRPCServer struct {
 }
 
 // NewBerichteGRPCServer creates a new Berichte gRPC server.
-// exporterFactory may be nil; in that case ExportReport returns Unimplemented
-// until WP-3 is wired.
+// exporterFactory must be non-nil; pass export.NewExporter (berichte/export package)
+// as the factory. A nil factory causes ExportReport to return codes.Internal.
 func NewBerichteGRPCServer(svc *berichte.Service, exporterFactory BerichteExporterFactory) *BerichteGRPCServer {
 	return &BerichteGRPCServer{
 		svc:            svc,
@@ -276,8 +276,11 @@ func (s *BerichteGRPCServer) InvalidateCache(ctx context.Context, req *berichtev
 
 func (s *BerichteGRPCServer) ExportReport(ctx context.Context, req *berichtev1.ExportReportRequest) (*berichtev1.ExportReportResponse, error) {
 	if s.exporterFactory == nil {
-		// TODO(sprint-1 wave-3): wire export.NewExporter here after WP-3 merge
-		return nil, status.Error(codes.Unimplemented, "export not wired yet")
+		// exporterFactory must always be set by the caller (see cmd/berichte/main.go).
+		// Return Internal rather than Unimplemented so misconfiguration is surfaced
+		// immediately as a server-side error rather than a "feature not available" signal.
+		slog.Error("ExportReport called but exporterFactory is nil — check service wiring")
+		return nil, status.Error(codes.Internal, "export not configured")
 	}
 
 	tenantID, err := uuid.Parse(req.GetTenantId())

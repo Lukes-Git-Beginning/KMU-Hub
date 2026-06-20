@@ -500,12 +500,12 @@ func (s *Service) ListServices(ctx context.Context, input ListServicesInput) ([]
 }
 
 // ListUpcomingServices returns scheduled services within daysAhead days.
-// TODO Sprint 3: pass daysAhead into the date-range filter once ListServicesFilter supports it.
+// Only services with scheduled_at <= now+daysAhead are returned, so the caller
+// sees genuinely upcoming work rather than the entire scheduled backlog.
 func (s *Service) ListUpcomingServices(ctx context.Context, tenantID uuid.UUID, daysAhead, page, pageSize int) ([]*VehicleService, int, error) {
 	if daysAhead <= 0 {
-		daysAhead = 30 //nolint:ineffassign // default retained for future filter wiring
+		daysAhead = 30
 	}
-	_ = daysAhead // not yet wired into filter — see TODO above
 	if page < 1 {
 		page = 1
 	}
@@ -513,8 +513,12 @@ func (s *Service) ListUpcomingServices(ctx context.Context, tenantID uuid.UUID, 
 		pageSize = 50
 	}
 	status := ServiceStatusScheduled
+	cutoff := time.Now().AddDate(0, 0, daysAhead)
 	offset := (page - 1) * pageSize
-	return s.repo.ListServices(ctx, tenantID, ListServicesFilter{Status: &status}, offset, pageSize)
+	return s.repo.ListServices(ctx, tenantID, ListServicesFilter{
+		Status:          &status,
+		ScheduledBefore: &cutoff,
+	}, offset, pageSize)
 }
 
 // ============================================================================

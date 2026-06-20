@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/kmuhub/kmuhub/internal/database"
+	"github.com/kmuhub/kmuhub/internal/models"
+	notificationevent "github.com/kmuhub/kmuhub/internal/notification/event"
 )
 
 // tuevCronLockKey is a stable int64 derived from the string "fuhrpark_tuev_cron".
@@ -21,11 +23,12 @@ func stableHash(s string) int64 {
 	return int64(h.Sum64())
 }
 
-// TuevWorker polls for vehicles with approaching TUEV due dates and inserts
-// notifications. Uses pg_try_advisory_xact_lock for leader-election so only
+// TuevWorker polls for vehicles with approaching TUEV due dates and emits
+// notification events. Uses pg_try_advisory_xact_lock for leader-election so only
 // one replica runs per interval.
 type TuevWorker struct {
 	repo          Repository
+	emitter       EventEmitter // optional — nil-safe, log-only when nil
 	logger        *slog.Logger
 	claimInterval time.Duration
 	runInterval   time.Duration
@@ -49,6 +52,7 @@ type TuevRow interface {
 
 // NewTuevWorker creates a TuevWorker with default intervals.
 // pool is the raw pgxpool (passed as any to avoid circular dep; cast internally).
+// emitter is optional; pass nil to log-only without emitting events (useful in tests).
 func NewTuevWorker(repo Repository, pool any, logger *slog.Logger) *TuevWorker {
 	if logger == nil {
 		logger = slog.Default()
@@ -59,6 +63,13 @@ func NewTuevWorker(repo Repository, pool any, logger *slog.Logger) *TuevWorker {
 		claimInterval: 5 * time.Minute,
 		runInterval:   60 * time.Minute,
 	}
+}
+
+// WithEventEmitter sets the optional EventEmitter for notification delivery.
+// Call this after NewTuevWorker to wire the emitter (e.g. PGEventEmitter).
+func (w *TuevWorker) WithEventEmitter(emitter EventEmitter) *TuevWorker {
+	w.emitter = emitter
+	return w
 }
 
 // Run blocks until ctx is cancelled. On each run-ticker tick it acquires an
@@ -96,7 +107,7 @@ func (w *TuevWorker) Run(ctx context.Context, acquireLockAndRun func(ctx context
 }
 
 // ProcessTuevReminders is the core scan logic. It checks for vehicles with
-// tuev_due_date in 1-day and 7-day windows and inserts notifications for each.
+// tuev_due_date in 1-day and 7-day windows and emits notification events.
 // Idempotency: tuev_reminder_sent_at is stamped so a second run in the same
 // window will not re-notify.
 // Window extended to 2 hours to tolerate cron drift at the 60-min interval.
@@ -134,16 +145,35 @@ func (w *TuevWorker) processWindow(ctx context.Context, from, to time.Time, labe
 	}
 
 	for _, v := range vehicles {
-		// TODO: Sprint 3 — wire to notification service for actual delivery.
-		// For now: write a stub to the notifications table if the schema aligns,
-		// or log only (notifications table uses user_id NOT NULL — vehicle tenant
-		// notification delivery needs a notification service RPC).
-		w.logger.Info("fuhrpark TUEV reminder triggered (delivery stub)",
-			"vehicle_id", v.ID,
-			"license_plate", v.LicensePlate,
-			"tuev_due_date", v.TuevDueDate,
-			"window", label,
-		)
+		// Emit notification event via the wired EventEmitter (e.g. pg_notify).
+		// The event is tenant-scoped; the notification service fans out to users
+		// with the fuhrpark module enabled.
+		if w.emitter != nil {
+			payload := w.buildTuevEventPayload(v, label)
+			if emitErr := w.emitter.EmitTuevEvent(ctx, payload); emitErr != nil {
+				// Log and continue — the reminder is still marked sent in DB.
+				w.logger.Error("fuhrpark TUEV: failed to emit notification event",
+					"vehicle_id", v.ID,
+					"tenant_id", v.TenantID,
+					"window", label,
+					"error", emitErr,
+				)
+			} else {
+				w.logger.Info("fuhrpark TUEV reminder event emitted",
+					"vehicle_id", v.ID,
+					"license_plate", v.LicensePlate,
+					"tuev_due_date", v.TuevDueDate,
+					"window", label,
+				)
+			}
+		} else {
+			w.logger.Info("fuhrpark TUEV reminder triggered (no emitter configured)",
+				"vehicle_id", v.ID,
+				"license_plate", v.LicensePlate,
+				"tuev_due_date", v.TuevDueDate,
+				"window", label,
+			)
+		}
 
 		if markErr := w.repo.MarkTuevReminderSent(ctx, v.ID, v.TenantID); markErr != nil {
 			w.logger.Error("fuhrpark TUEV: failed to mark reminder sent",
@@ -155,6 +185,39 @@ func (w *TuevWorker) processWindow(ctx context.Context, from, to time.Time, labe
 	}
 
 	return len(vehicles), nil
+}
+
+// buildTuevEventPayload constructs the notification event payload for a TUEV reminder.
+// TargetUserIDs is empty here; the notification service fans out to all users
+// with the fuhrpark module enabled for this tenant.
+func (w *TuevWorker) buildTuevEventPayload(v *Vehicle, window string) models.EventPayload {
+	resourceID := v.ID.String()
+	deepLink := fmt.Sprintf("/fuhrpark/%s", v.ID)
+
+	title := fmt.Sprintf("TUEV fällig: %s %s (%s)", v.Make, v.Model, v.LicensePlate)
+	body := fmt.Sprintf("Fälligkeitsfenster: %s", window)
+	if v.TuevDueDate != nil {
+		body = fmt.Sprintf("TUEV fällig am %s — Fenster: %s",
+			v.TuevDueDate.Format("2006-01-02"), window)
+	}
+
+	priority := models.PriorityNormal
+	if window == "1_day" {
+		priority = models.PriorityUrgent
+	}
+
+	return models.EventPayload{
+		Type:       notificationevent.EventFuhrparkTuevReminderDue,
+		TenantID:   v.TenantID,
+		Priority:   priority,
+		ModuleID:   notificationevent.ModuleFuhrpark,
+		ResourceID: resourceID,
+		Title:      title,
+		Body:       body,
+		DeepLink:   deepLink,
+		GroupKey:   fmt.Sprintf("fuhrpark.tuev.%s", v.ID),
+		Timestamp:  time.Now(),
+	}
 }
 
 // LockKey returns the advisory lock key used for leader election.

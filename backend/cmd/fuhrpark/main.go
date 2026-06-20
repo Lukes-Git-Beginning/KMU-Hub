@@ -51,8 +51,11 @@ func main() {
 	repo := fuhrpark.NewPostgresRepository(pool)
 	svc := fuhrpark.NewService(repo)
 
-	// Start TUEV reminder cron worker in background
-	worker := fuhrpark.NewTuevWorker(repo, pool, logger)
+	// Start TUEV reminder cron worker in background.
+	// Wire PGEventEmitter so reminders emit pg_notify events that the notification
+	// service picks up and fans out to users with the fuhrpark module enabled.
+	tuevEmitter := fuhrpark.NewPGEventEmitter(pool)
+	worker := fuhrpark.NewTuevWorker(repo, pool, logger).WithEventEmitter(tuevEmitter)
 	go func() {
 		if runErr := worker.Run(ctx, tuevLockAndRun(ctx, pool, repo, worker)); runErr != nil {
 			slog.Error("fuhrpark TUEV worker exited with error", "error", runErr)

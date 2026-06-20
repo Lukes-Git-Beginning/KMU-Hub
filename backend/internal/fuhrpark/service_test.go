@@ -149,6 +149,9 @@ func (m *mockRepository) ListServices(ctx context.Context, tenantID uuid.UUID, f
 		if filter.Status != nil && s.Status != *filter.Status {
 			continue
 		}
+		if filter.ScheduledBefore != nil && s.ScheduledAt.After(*filter.ScheduledBefore) {
+			continue
+		}
 		result = append(result, s)
 	}
 	total := len(result)

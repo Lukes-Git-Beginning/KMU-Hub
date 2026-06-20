@@ -270,6 +270,11 @@ func (r *PostgresRepository) ListServices(ctx context.Context, tenantID uuid.UUI
 		args = append(args, *filter.Status)
 		argNum++
 	}
+	if filter.ScheduledBefore != nil {
+		conditions = append(conditions, fmt.Sprintf("scheduled_at <= $%d", argNum))
+		args = append(args, *filter.ScheduledBefore)
+		argNum++
+	}
 
 	whereClause := "WHERE " + strings.Join(conditions, " AND ")
 

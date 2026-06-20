@@ -16,8 +16,9 @@ type ListVehiclesFilter struct {
 
 // ListServicesFilter holds optional filtering for service list queries.
 type ListServicesFilter struct {
-	VehicleID *uuid.UUID
-	Status    *ServiceStatus
+	VehicleID       *uuid.UUID
+	Status          *ServiceStatus
+	ScheduledBefore *time.Time // upper bound on scheduled_at (inclusive); used by ListUpcomingServices daysAhead filter
 }
 
 // ListDamagesFilter holds optional filtering for damage list queries.

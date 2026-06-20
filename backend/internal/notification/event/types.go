@@ -112,5 +112,14 @@ const (
 // Well-known module ID for vertraege
 const ModuleVertraege = "vertraege"
 
+// Fuhrpark events
+const (
+	EventFuhrparkServiceDue      = "fuhrpark.service.due"
+	EventFuhrparkTuevReminderDue = "fuhrpark.tuev.reminder_due"
+)
+
+// Well-known module ID for fuhrpark
+const ModuleFuhrpark = "fuhrpark"
+
 // PostgreSQL LISTEN channel name for the event bus
 const PGNotifyChannel = "events"
