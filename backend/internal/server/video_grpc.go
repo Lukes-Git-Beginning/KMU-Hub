@@ -123,12 +123,27 @@ func (s *VideoGRPCServer) JoinCall(ctx context.Context, req *videov1.JoinCallReq
 		return nil, mapVideoError(err)
 	}
 
-	return &videov1.JoinCallResponse{
+	resp := &videov1.JoinCallResponse{
 		Token:    token,
 		RoomName: sessionWithP.RoomName,
 		WsUrl:    s.publicWSURL,
 		Call:     callSessionWithParticipantsToProto(sessionWithP),
-	}, nil
+	}
+
+	// Expose per-session TURN credentials so the client can set RTCConfiguration
+	// before connecting (the declarative LiveKit client does not apply the
+	// token-embedded metadata pre-connect). Empty when TURN is not configured.
+	if s.tokenGen != nil {
+		for _, ice := range s.tokenGen.TURNIceServers(userID.String()) {
+			resp.IceServers = append(resp.IceServers, &videov1.IceServer{
+				Urls:       ice.URLs,
+				Username:   ice.Username,
+				Credential: ice.Credential,
+			})
+		}
+	}
+
+	return resp, nil
 }
 
 func (s *VideoGRPCServer) EndCall(ctx context.Context, req *videov1.EndCallRequest) (*emptypb.Empty, error) {

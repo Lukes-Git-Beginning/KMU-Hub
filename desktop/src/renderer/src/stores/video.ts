@@ -6,7 +6,7 @@
  * Call state is inherently transient and should not survive app restart.
  */
 import { create } from 'zustand'
-import type { CallSession, IncomingCallData } from '@/api/video-types'
+import type { CallSession, IceServer, IncomingCallData } from '@/api/video-types'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -17,6 +17,8 @@ interface VideoState {
   activeCall: CallSession | null
   activeCallToken: string | null
   livekitWsUrl: string | null
+  /** Per-session TURN servers for RTCConfiguration; null when TURN is off. */
+  activeCallIceServers: IceServer[] | null
   isInCall: boolean
   isFloatingBarVisible: boolean
   callDuration: number // seconds since call start
@@ -25,7 +27,7 @@ interface VideoState {
   incomingCall: IncomingCallData | null
 
   // Actions
-  setActiveCall: (call: CallSession, token: string, wsUrl: string) => void
+  setActiveCall: (call: CallSession, token: string, wsUrl: string, iceServers?: IceServer[]) => void
   clearActiveCall: () => void
   setFloatingBarVisible: (visible: boolean) => void
   setCallDuration: (seconds: number) => void
@@ -41,16 +43,18 @@ export const useVideoStore = create<VideoState>()((set) => ({
   activeCall: null,
   activeCallToken: null,
   livekitWsUrl: null,
+  activeCallIceServers: null,
   isInCall: false,
   isFloatingBarVisible: false,
   callDuration: 0,
   incomingCall: null,
 
-  setActiveCall: (call: CallSession, token: string, wsUrl: string) =>
+  setActiveCall: (call: CallSession, token: string, wsUrl: string, iceServers?: IceServer[]) =>
     set({
       activeCall: call,
       activeCallToken: token,
       livekitWsUrl: wsUrl,
+      activeCallIceServers: iceServers ?? null,
       isInCall: true,
       isFloatingBarVisible: true,
       callDuration: 0,
@@ -61,6 +65,7 @@ export const useVideoStore = create<VideoState>()((set) => ({
       activeCall: null,
       activeCallToken: null,
       livekitWsUrl: null,
+      activeCallIceServers: null,
       isInCall: false,
       isFloatingBarVisible: false,
       callDuration: 0,

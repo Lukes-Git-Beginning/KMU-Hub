@@ -9,6 +9,8 @@ import (
 	lkauth "github.com/livekit/protocol/auth"
 	lkproto "github.com/livekit/protocol/livekit"
 	lksdk "github.com/livekit/server-sdk-go/v2"
+
+	"github.com/kmuhub/kmuhub/internal/work/video"
 )
 
 // livekitAPITimeout bounds each LiveKit server API call so a hung control-plane
@@ -103,4 +105,29 @@ func (rm *RoomManager) GenerateToken(roomName, userID, displayName string) (stri
 	}
 
 	return at.ToJWT()
+}
+
+// TURNIceServers returns per-session coturn credentials for the user as
+// video.IceServerConfig, or nil when TURN is not configured on this manager.
+// This lets the gateway expose iceServers in the join response so clients can
+// set RTCConfiguration before connecting (the token-embedded metadata alone is
+// not applied by the declarative LiveKit client before connect).
+func (rm *RoomManager) TURNIceServers(userID string) []video.IceServerConfig {
+	if rm.turnSecret == "" || rm.coturnHost == "" {
+		return nil
+	}
+	svc := &Service{turnSecret: rm.turnSecret, coturnHost: rm.coturnHost}
+	servers := svc.TURNIceServers(userID)
+	if len(servers) == 0 {
+		return nil
+	}
+	out := make([]video.IceServerConfig, 0, len(servers))
+	for _, s := range servers {
+		out = append(out, video.IceServerConfig{
+			URLs:       s.URLs,
+			Username:   s.Username,
+			Credential: s.Credential,
+		})
+	}
+	return out
 }

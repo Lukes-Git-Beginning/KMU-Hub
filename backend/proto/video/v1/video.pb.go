@@ -1603,19 +1603,83 @@ func (x *JoinCallRequest) GetUserId() string {
 	return ""
 }
 
+// IceServer carries per-session WebRTC ICE/TURN credentials (RTCIceServer shape)
+// so the client can apply them to RTCConfiguration before opening the peer
+// connection — required for relaying in NAT'd networks where STUN alone fails.
+type IceServer struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Urls          []string               `protobuf:"bytes,1,rep,name=urls,proto3" json:"urls,omitempty"`
+	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
+	Credential    string                 `protobuf:"bytes,3,opt,name=credential,proto3" json:"credential,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IceServer) Reset() {
+	*x = IceServer{}
+	mi := &file_proto_video_v1_video_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IceServer) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IceServer) ProtoMessage() {}
+
+func (x *IceServer) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_video_v1_video_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IceServer.ProtoReflect.Descriptor instead.
+func (*IceServer) Descriptor() ([]byte, []int) {
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *IceServer) GetUrls() []string {
+	if x != nil {
+		return x.Urls
+	}
+	return nil
+}
+
+func (x *IceServer) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *IceServer) GetCredential() string {
+	if x != nil {
+		return x.Credential
+	}
+	return ""
+}
+
 type JoinCallResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
 	RoomName      string                 `protobuf:"bytes,2,opt,name=room_name,json=roomName,proto3" json:"room_name,omitempty"`
 	WsUrl         string                 `protobuf:"bytes,3,opt,name=ws_url,json=wsUrl,proto3" json:"ws_url,omitempty"`
 	Call          *CallSession           `protobuf:"bytes,4,opt,name=call,proto3" json:"call,omitempty"`
+	IceServers    []*IceServer           `protobuf:"bytes,5,rep,name=ice_servers,json=iceServers,proto3" json:"ice_servers,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *JoinCallResponse) Reset() {
 	*x = JoinCallResponse{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[14]
+	mi := &file_proto_video_v1_video_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1627,7 +1691,7 @@ func (x *JoinCallResponse) String() string {
 func (*JoinCallResponse) ProtoMessage() {}
 
 func (x *JoinCallResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[14]
+	mi := &file_proto_video_v1_video_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1640,7 +1704,7 @@ func (x *JoinCallResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JoinCallResponse.ProtoReflect.Descriptor instead.
 func (*JoinCallResponse) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{14}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *JoinCallResponse) GetToken() string {
@@ -1671,6 +1735,13 @@ func (x *JoinCallResponse) GetCall() *CallSession {
 	return nil
 }
 
+func (x *JoinCallResponse) GetIceServers() []*IceServer {
+	if x != nil {
+		return x.IceServers
+	}
+	return nil
+}
+
 type EndCallRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	CallId        string                 `protobuf:"bytes,1,opt,name=call_id,json=callId,proto3" json:"call_id,omitempty"`
@@ -1681,7 +1752,7 @@ type EndCallRequest struct {
 
 func (x *EndCallRequest) Reset() {
 	*x = EndCallRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[15]
+	mi := &file_proto_video_v1_video_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1693,7 +1764,7 @@ func (x *EndCallRequest) String() string {
 func (*EndCallRequest) ProtoMessage() {}
 
 func (x *EndCallRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[15]
+	mi := &file_proto_video_v1_video_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1706,7 +1777,7 @@ func (x *EndCallRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EndCallRequest.ProtoReflect.Descriptor instead.
 func (*EndCallRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{15}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *EndCallRequest) GetCallId() string {
@@ -1732,7 +1803,7 @@ type GetCallRequest struct {
 
 func (x *GetCallRequest) Reset() {
 	*x = GetCallRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[16]
+	mi := &file_proto_video_v1_video_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1744,7 +1815,7 @@ func (x *GetCallRequest) String() string {
 func (*GetCallRequest) ProtoMessage() {}
 
 func (x *GetCallRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[16]
+	mi := &file_proto_video_v1_video_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1757,7 +1828,7 @@ func (x *GetCallRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCallRequest.ProtoReflect.Descriptor instead.
 func (*GetCallRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{16}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *GetCallRequest) GetCallId() string {
@@ -1776,7 +1847,7 @@ type ListActiveCallsRequest struct {
 
 func (x *ListActiveCallsRequest) Reset() {
 	*x = ListActiveCallsRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[17]
+	mi := &file_proto_video_v1_video_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1788,7 +1859,7 @@ func (x *ListActiveCallsRequest) String() string {
 func (*ListActiveCallsRequest) ProtoMessage() {}
 
 func (x *ListActiveCallsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[17]
+	mi := &file_proto_video_v1_video_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1801,7 +1872,7 @@ func (x *ListActiveCallsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListActiveCallsRequest.ProtoReflect.Descriptor instead.
 func (*ListActiveCallsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{17}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ListActiveCallsRequest) GetUserId() string {
@@ -1820,7 +1891,7 @@ type ListActiveCallsResponse struct {
 
 func (x *ListActiveCallsResponse) Reset() {
 	*x = ListActiveCallsResponse{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[18]
+	mi := &file_proto_video_v1_video_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1832,7 +1903,7 @@ func (x *ListActiveCallsResponse) String() string {
 func (*ListActiveCallsResponse) ProtoMessage() {}
 
 func (x *ListActiveCallsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[18]
+	mi := &file_proto_video_v1_video_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1845,7 +1916,7 @@ func (x *ListActiveCallsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListActiveCallsResponse.ProtoReflect.Descriptor instead.
 func (*ListActiveCallsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{18}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ListActiveCallsResponse) GetCalls() []*CallSession {
@@ -1866,7 +1937,7 @@ type StartRecordingRequest struct {
 
 func (x *StartRecordingRequest) Reset() {
 	*x = StartRecordingRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[19]
+	mi := &file_proto_video_v1_video_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1878,7 +1949,7 @@ func (x *StartRecordingRequest) String() string {
 func (*StartRecordingRequest) ProtoMessage() {}
 
 func (x *StartRecordingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[19]
+	mi := &file_proto_video_v1_video_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1891,7 +1962,7 @@ func (x *StartRecordingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartRecordingRequest.ProtoReflect.Descriptor instead.
 func (*StartRecordingRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{19}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *StartRecordingRequest) GetCallId() string {
@@ -1925,7 +1996,7 @@ type StopRecordingRequest struct {
 
 func (x *StopRecordingRequest) Reset() {
 	*x = StopRecordingRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[20]
+	mi := &file_proto_video_v1_video_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1937,7 +2008,7 @@ func (x *StopRecordingRequest) String() string {
 func (*StopRecordingRequest) ProtoMessage() {}
 
 func (x *StopRecordingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[20]
+	mi := &file_proto_video_v1_video_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1950,7 +2021,7 @@ func (x *StopRecordingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopRecordingRequest.ProtoReflect.Descriptor instead.
 func (*StopRecordingRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{20}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *StopRecordingRequest) GetRecordingId() string {
@@ -1978,7 +2049,7 @@ type SetRecordingConsentRequest struct {
 
 func (x *SetRecordingConsentRequest) Reset() {
 	*x = SetRecordingConsentRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[21]
+	mi := &file_proto_video_v1_video_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1990,7 +2061,7 @@ func (x *SetRecordingConsentRequest) String() string {
 func (*SetRecordingConsentRequest) ProtoMessage() {}
 
 func (x *SetRecordingConsentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[21]
+	mi := &file_proto_video_v1_video_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2003,7 +2074,7 @@ func (x *SetRecordingConsentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetRecordingConsentRequest.ProtoReflect.Descriptor instead.
 func (*SetRecordingConsentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{21}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *SetRecordingConsentRequest) GetRecordingId() string {
@@ -2036,7 +2107,7 @@ type GetRecordingConsentRequest struct {
 
 func (x *GetRecordingConsentRequest) Reset() {
 	*x = GetRecordingConsentRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[22]
+	mi := &file_proto_video_v1_video_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2048,7 +2119,7 @@ func (x *GetRecordingConsentRequest) String() string {
 func (*GetRecordingConsentRequest) ProtoMessage() {}
 
 func (x *GetRecordingConsentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[22]
+	mi := &file_proto_video_v1_video_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2061,7 +2132,7 @@ func (x *GetRecordingConsentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRecordingConsentRequest.ProtoReflect.Descriptor instead.
 func (*GetRecordingConsentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{22}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *GetRecordingConsentRequest) GetRecordingId() string {
@@ -2083,7 +2154,7 @@ type ListRecordingsRequest struct {
 
 func (x *ListRecordingsRequest) Reset() {
 	*x = ListRecordingsRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[23]
+	mi := &file_proto_video_v1_video_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2095,7 +2166,7 @@ func (x *ListRecordingsRequest) String() string {
 func (*ListRecordingsRequest) ProtoMessage() {}
 
 func (x *ListRecordingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[23]
+	mi := &file_proto_video_v1_video_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2108,7 +2179,7 @@ func (x *ListRecordingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRecordingsRequest.ProtoReflect.Descriptor instead.
 func (*ListRecordingsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{23}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ListRecordingsRequest) GetCallId() string {
@@ -2149,7 +2220,7 @@ type ListRecordingsResponse struct {
 
 func (x *ListRecordingsResponse) Reset() {
 	*x = ListRecordingsResponse{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[24]
+	mi := &file_proto_video_v1_video_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2161,7 +2232,7 @@ func (x *ListRecordingsResponse) String() string {
 func (*ListRecordingsResponse) ProtoMessage() {}
 
 func (x *ListRecordingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[24]
+	mi := &file_proto_video_v1_video_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2174,7 +2245,7 @@ func (x *ListRecordingsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRecordingsResponse.ProtoReflect.Descriptor instead.
 func (*ListRecordingsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{24}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ListRecordingsResponse) GetRecordings() []*Recording {
@@ -2201,7 +2272,7 @@ type DeleteRecordingRequest struct {
 
 func (x *DeleteRecordingRequest) Reset() {
 	*x = DeleteRecordingRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[25]
+	mi := &file_proto_video_v1_video_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2213,7 +2284,7 @@ func (x *DeleteRecordingRequest) String() string {
 func (*DeleteRecordingRequest) ProtoMessage() {}
 
 func (x *DeleteRecordingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[25]
+	mi := &file_proto_video_v1_video_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2226,7 +2297,7 @@ func (x *DeleteRecordingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRecordingRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRecordingRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{25}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *DeleteRecordingRequest) GetRecordingId() string {
@@ -2260,7 +2331,7 @@ type CreateMeetingRequest struct {
 
 func (x *CreateMeetingRequest) Reset() {
 	*x = CreateMeetingRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[26]
+	mi := &file_proto_video_v1_video_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2272,7 +2343,7 @@ func (x *CreateMeetingRequest) String() string {
 func (*CreateMeetingRequest) ProtoMessage() {}
 
 func (x *CreateMeetingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[26]
+	mi := &file_proto_video_v1_video_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2285,7 +2356,7 @@ func (x *CreateMeetingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateMeetingRequest.ProtoReflect.Descriptor instead.
 func (*CreateMeetingRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{26}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *CreateMeetingRequest) GetTitle() string {
@@ -2360,7 +2431,7 @@ type GetMeetingRequest struct {
 
 func (x *GetMeetingRequest) Reset() {
 	*x = GetMeetingRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[27]
+	mi := &file_proto_video_v1_video_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2372,7 +2443,7 @@ func (x *GetMeetingRequest) String() string {
 func (*GetMeetingRequest) ProtoMessage() {}
 
 func (x *GetMeetingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[27]
+	mi := &file_proto_video_v1_video_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2385,7 +2456,7 @@ func (x *GetMeetingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMeetingRequest.ProtoReflect.Descriptor instead.
 func (*GetMeetingRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{27}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *GetMeetingRequest) GetMeetingId() string {
@@ -2410,7 +2481,7 @@ type UpdateMeetingRequest struct {
 
 func (x *UpdateMeetingRequest) Reset() {
 	*x = UpdateMeetingRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[28]
+	mi := &file_proto_video_v1_video_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2422,7 +2493,7 @@ func (x *UpdateMeetingRequest) String() string {
 func (*UpdateMeetingRequest) ProtoMessage() {}
 
 func (x *UpdateMeetingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[28]
+	mi := &file_proto_video_v1_video_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2435,7 +2506,7 @@ func (x *UpdateMeetingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateMeetingRequest.ProtoReflect.Descriptor instead.
 func (*UpdateMeetingRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{28}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *UpdateMeetingRequest) GetMeetingId() string {
@@ -2497,7 +2568,7 @@ type DeleteMeetingRequest struct {
 
 func (x *DeleteMeetingRequest) Reset() {
 	*x = DeleteMeetingRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[29]
+	mi := &file_proto_video_v1_video_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2509,7 +2580,7 @@ func (x *DeleteMeetingRequest) String() string {
 func (*DeleteMeetingRequest) ProtoMessage() {}
 
 func (x *DeleteMeetingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[29]
+	mi := &file_proto_video_v1_video_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2522,7 +2593,7 @@ func (x *DeleteMeetingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteMeetingRequest.ProtoReflect.Descriptor instead.
 func (*DeleteMeetingRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{29}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *DeleteMeetingRequest) GetMeetingId() string {
@@ -2553,7 +2624,7 @@ type ListMeetingsRequest struct {
 
 func (x *ListMeetingsRequest) Reset() {
 	*x = ListMeetingsRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[30]
+	mi := &file_proto_video_v1_video_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2565,7 +2636,7 @@ func (x *ListMeetingsRequest) String() string {
 func (*ListMeetingsRequest) ProtoMessage() {}
 
 func (x *ListMeetingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[30]
+	mi := &file_proto_video_v1_video_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2578,7 +2649,7 @@ func (x *ListMeetingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMeetingsRequest.ProtoReflect.Descriptor instead.
 func (*ListMeetingsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{30}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ListMeetingsRequest) GetUserId() string {
@@ -2633,7 +2704,7 @@ type ListMeetingsResponse struct {
 
 func (x *ListMeetingsResponse) Reset() {
 	*x = ListMeetingsResponse{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[31]
+	mi := &file_proto_video_v1_video_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2645,7 +2716,7 @@ func (x *ListMeetingsResponse) String() string {
 func (*ListMeetingsResponse) ProtoMessage() {}
 
 func (x *ListMeetingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[31]
+	mi := &file_proto_video_v1_video_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2658,7 +2729,7 @@ func (x *ListMeetingsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMeetingsResponse.ProtoReflect.Descriptor instead.
 func (*ListMeetingsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{31}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *ListMeetingsResponse) GetMeetings() []*Meeting {
@@ -2685,7 +2756,7 @@ type StartMeetingRequest struct {
 
 func (x *StartMeetingRequest) Reset() {
 	*x = StartMeetingRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[32]
+	mi := &file_proto_video_v1_video_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2697,7 +2768,7 @@ func (x *StartMeetingRequest) String() string {
 func (*StartMeetingRequest) ProtoMessage() {}
 
 func (x *StartMeetingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[32]
+	mi := &file_proto_video_v1_video_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2710,7 +2781,7 @@ func (x *StartMeetingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartMeetingRequest.ProtoReflect.Descriptor instead.
 func (*StartMeetingRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{32}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *StartMeetingRequest) GetMeetingId() string {
@@ -2739,7 +2810,7 @@ type StartMeetingResponse struct {
 
 func (x *StartMeetingResponse) Reset() {
 	*x = StartMeetingResponse{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[33]
+	mi := &file_proto_video_v1_video_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2751,7 +2822,7 @@ func (x *StartMeetingResponse) String() string {
 func (*StartMeetingResponse) ProtoMessage() {}
 
 func (x *StartMeetingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[33]
+	mi := &file_proto_video_v1_video_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2764,7 +2835,7 @@ func (x *StartMeetingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartMeetingResponse.ProtoReflect.Descriptor instead.
 func (*StartMeetingResponse) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{33}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *StartMeetingResponse) GetMeeting() *Meeting {
@@ -2805,7 +2876,7 @@ type EndMeetingRequest struct {
 
 func (x *EndMeetingRequest) Reset() {
 	*x = EndMeetingRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[34]
+	mi := &file_proto_video_v1_video_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2817,7 +2888,7 @@ func (x *EndMeetingRequest) String() string {
 func (*EndMeetingRequest) ProtoMessage() {}
 
 func (x *EndMeetingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[34]
+	mi := &file_proto_video_v1_video_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2830,7 +2901,7 @@ func (x *EndMeetingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EndMeetingRequest.ProtoReflect.Descriptor instead.
 func (*EndMeetingRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{34}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *EndMeetingRequest) GetMeetingId() string {
@@ -2859,7 +2930,7 @@ type SaveMeetingNotesRequest struct {
 
 func (x *SaveMeetingNotesRequest) Reset() {
 	*x = SaveMeetingNotesRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[35]
+	mi := &file_proto_video_v1_video_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2871,7 +2942,7 @@ func (x *SaveMeetingNotesRequest) String() string {
 func (*SaveMeetingNotesRequest) ProtoMessage() {}
 
 func (x *SaveMeetingNotesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[35]
+	mi := &file_proto_video_v1_video_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2884,7 +2955,7 @@ func (x *SaveMeetingNotesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveMeetingNotesRequest.ProtoReflect.Descriptor instead.
 func (*SaveMeetingNotesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{35}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *SaveMeetingNotesRequest) GetMeetingId() string {
@@ -2925,7 +2996,7 @@ type GetMeetingNotesRequest struct {
 
 func (x *GetMeetingNotesRequest) Reset() {
 	*x = GetMeetingNotesRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[36]
+	mi := &file_proto_video_v1_video_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2937,7 +3008,7 @@ func (x *GetMeetingNotesRequest) String() string {
 func (*GetMeetingNotesRequest) ProtoMessage() {}
 
 func (x *GetMeetingNotesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[36]
+	mi := &file_proto_video_v1_video_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2950,7 +3021,7 @@ func (x *GetMeetingNotesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMeetingNotesRequest.ProtoReflect.Descriptor instead.
 func (*GetMeetingNotesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{36}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *GetMeetingNotesRequest) GetMeetingId() string {
@@ -2978,7 +3049,7 @@ type GetPreviousMeetingNotesRequest struct {
 
 func (x *GetPreviousMeetingNotesRequest) Reset() {
 	*x = GetPreviousMeetingNotesRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[37]
+	mi := &file_proto_video_v1_video_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2990,7 +3061,7 @@ func (x *GetPreviousMeetingNotesRequest) String() string {
 func (*GetPreviousMeetingNotesRequest) ProtoMessage() {}
 
 func (x *GetPreviousMeetingNotesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[37]
+	mi := &file_proto_video_v1_video_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3003,7 +3074,7 @@ func (x *GetPreviousMeetingNotesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPreviousMeetingNotesRequest.ProtoReflect.Descriptor instead.
 func (*GetPreviousMeetingNotesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{37}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *GetPreviousMeetingNotesRequest) GetRecurringMeetingId() string {
@@ -3039,7 +3110,7 @@ type CreateActionItemRequest struct {
 
 func (x *CreateActionItemRequest) Reset() {
 	*x = CreateActionItemRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[38]
+	mi := &file_proto_video_v1_video_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3051,7 +3122,7 @@ func (x *CreateActionItemRequest) String() string {
 func (*CreateActionItemRequest) ProtoMessage() {}
 
 func (x *CreateActionItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[38]
+	mi := &file_proto_video_v1_video_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3064,7 +3135,7 @@ func (x *CreateActionItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateActionItemRequest.ProtoReflect.Descriptor instead.
 func (*CreateActionItemRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{38}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *CreateActionItemRequest) GetMeetingId() string {
@@ -3108,7 +3179,7 @@ type UpdateActionItemRequest struct {
 
 func (x *UpdateActionItemRequest) Reset() {
 	*x = UpdateActionItemRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[39]
+	mi := &file_proto_video_v1_video_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3120,7 +3191,7 @@ func (x *UpdateActionItemRequest) String() string {
 func (*UpdateActionItemRequest) ProtoMessage() {}
 
 func (x *UpdateActionItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[39]
+	mi := &file_proto_video_v1_video_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3133,7 +3204,7 @@ func (x *UpdateActionItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateActionItemRequest.ProtoReflect.Descriptor instead.
 func (*UpdateActionItemRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{39}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *UpdateActionItemRequest) GetActionItemId() string {
@@ -3180,7 +3251,7 @@ type DeleteActionItemRequest struct {
 
 func (x *DeleteActionItemRequest) Reset() {
 	*x = DeleteActionItemRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[40]
+	mi := &file_proto_video_v1_video_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3192,7 +3263,7 @@ func (x *DeleteActionItemRequest) String() string {
 func (*DeleteActionItemRequest) ProtoMessage() {}
 
 func (x *DeleteActionItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[40]
+	mi := &file_proto_video_v1_video_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3205,7 +3276,7 @@ func (x *DeleteActionItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteActionItemRequest.ProtoReflect.Descriptor instead.
 func (*DeleteActionItemRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{40}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *DeleteActionItemRequest) GetActionItemId() string {
@@ -3224,7 +3295,7 @@ type ListActionItemsRequest struct {
 
 func (x *ListActionItemsRequest) Reset() {
 	*x = ListActionItemsRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[41]
+	mi := &file_proto_video_v1_video_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3236,7 +3307,7 @@ func (x *ListActionItemsRequest) String() string {
 func (*ListActionItemsRequest) ProtoMessage() {}
 
 func (x *ListActionItemsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[41]
+	mi := &file_proto_video_v1_video_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3249,7 +3320,7 @@ func (x *ListActionItemsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListActionItemsRequest.ProtoReflect.Descriptor instead.
 func (*ListActionItemsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{41}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *ListActionItemsRequest) GetMeetingId() string {
@@ -3268,7 +3339,7 @@ type ListActionItemsResponse struct {
 
 func (x *ListActionItemsResponse) Reset() {
 	*x = ListActionItemsResponse{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[42]
+	mi := &file_proto_video_v1_video_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3280,7 +3351,7 @@ func (x *ListActionItemsResponse) String() string {
 func (*ListActionItemsResponse) ProtoMessage() {}
 
 func (x *ListActionItemsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[42]
+	mi := &file_proto_video_v1_video_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3293,7 +3364,7 @@ func (x *ListActionItemsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListActionItemsResponse.ProtoReflect.Descriptor instead.
 func (*ListActionItemsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{42}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *ListActionItemsResponse) GetActionItems() []*ActionItem {
@@ -3314,7 +3385,7 @@ type ConvertActionItemsToTasksRequest struct {
 
 func (x *ConvertActionItemsToTasksRequest) Reset() {
 	*x = ConvertActionItemsToTasksRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[43]
+	mi := &file_proto_video_v1_video_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3326,7 +3397,7 @@ func (x *ConvertActionItemsToTasksRequest) String() string {
 func (*ConvertActionItemsToTasksRequest) ProtoMessage() {}
 
 func (x *ConvertActionItemsToTasksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[43]
+	mi := &file_proto_video_v1_video_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3339,7 +3410,7 @@ func (x *ConvertActionItemsToTasksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConvertActionItemsToTasksRequest.ProtoReflect.Descriptor instead.
 func (*ConvertActionItemsToTasksRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{43}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *ConvertActionItemsToTasksRequest) GetActionItemIds() []string {
@@ -3373,7 +3444,7 @@ type ConvertActionItemsToTasksResponse struct {
 
 func (x *ConvertActionItemsToTasksResponse) Reset() {
 	*x = ConvertActionItemsToTasksResponse{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[44]
+	mi := &file_proto_video_v1_video_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3385,7 +3456,7 @@ func (x *ConvertActionItemsToTasksResponse) String() string {
 func (*ConvertActionItemsToTasksResponse) ProtoMessage() {}
 
 func (x *ConvertActionItemsToTasksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[44]
+	mi := &file_proto_video_v1_video_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3398,7 +3469,7 @@ func (x *ConvertActionItemsToTasksResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use ConvertActionItemsToTasksResponse.ProtoReflect.Descriptor instead.
 func (*ConvertActionItemsToTasksResponse) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{44}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *ConvertActionItemsToTasksResponse) GetActionItems() []*ActionItem {
@@ -3424,7 +3495,7 @@ type GetPresenceRequest struct {
 
 func (x *GetPresenceRequest) Reset() {
 	*x = GetPresenceRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[45]
+	mi := &file_proto_video_v1_video_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3436,7 +3507,7 @@ func (x *GetPresenceRequest) String() string {
 func (*GetPresenceRequest) ProtoMessage() {}
 
 func (x *GetPresenceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[45]
+	mi := &file_proto_video_v1_video_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3449,7 +3520,7 @@ func (x *GetPresenceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPresenceRequest.ProtoReflect.Descriptor instead.
 func (*GetPresenceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{45}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *GetPresenceRequest) GetUserId() string {
@@ -3468,7 +3539,7 @@ type GetBulkPresenceRequest struct {
 
 func (x *GetBulkPresenceRequest) Reset() {
 	*x = GetBulkPresenceRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[46]
+	mi := &file_proto_video_v1_video_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3480,7 +3551,7 @@ func (x *GetBulkPresenceRequest) String() string {
 func (*GetBulkPresenceRequest) ProtoMessage() {}
 
 func (x *GetBulkPresenceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[46]
+	mi := &file_proto_video_v1_video_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3493,7 +3564,7 @@ func (x *GetBulkPresenceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBulkPresenceRequest.ProtoReflect.Descriptor instead.
 func (*GetBulkPresenceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{46}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *GetBulkPresenceRequest) GetUserIds() []string {
@@ -3512,7 +3583,7 @@ type GetBulkPresenceResponse struct {
 
 func (x *GetBulkPresenceResponse) Reset() {
 	*x = GetBulkPresenceResponse{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[47]
+	mi := &file_proto_video_v1_video_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3524,7 +3595,7 @@ func (x *GetBulkPresenceResponse) String() string {
 func (*GetBulkPresenceResponse) ProtoMessage() {}
 
 func (x *GetBulkPresenceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[47]
+	mi := &file_proto_video_v1_video_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3537,7 +3608,7 @@ func (x *GetBulkPresenceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBulkPresenceResponse.ProtoReflect.Descriptor instead.
 func (*GetBulkPresenceResponse) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{47}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *GetBulkPresenceResponse) GetStatuses() []*PresenceStatus {
@@ -3557,7 +3628,7 @@ type SetPresenceStatusRequest struct {
 
 func (x *SetPresenceStatusRequest) Reset() {
 	*x = SetPresenceStatusRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[48]
+	mi := &file_proto_video_v1_video_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3569,7 +3640,7 @@ func (x *SetPresenceStatusRequest) String() string {
 func (*SetPresenceStatusRequest) ProtoMessage() {}
 
 func (x *SetPresenceStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[48]
+	mi := &file_proto_video_v1_video_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3582,7 +3653,7 @@ func (x *SetPresenceStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetPresenceStatusRequest.ProtoReflect.Descriptor instead.
 func (*SetPresenceStatusRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{48}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *SetPresenceStatusRequest) GetUserId() string {
@@ -3608,7 +3679,7 @@ type UpdatePresenceConfigRequest struct {
 
 func (x *UpdatePresenceConfigRequest) Reset() {
 	*x = UpdatePresenceConfigRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[49]
+	mi := &file_proto_video_v1_video_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3620,7 +3691,7 @@ func (x *UpdatePresenceConfigRequest) String() string {
 func (*UpdatePresenceConfigRequest) ProtoMessage() {}
 
 func (x *UpdatePresenceConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[49]
+	mi := &file_proto_video_v1_video_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3633,7 +3704,7 @@ func (x *UpdatePresenceConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdatePresenceConfigRequest.ProtoReflect.Descriptor instead.
 func (*UpdatePresenceConfigRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{49}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *UpdatePresenceConfigRequest) GetAwayTimeoutSeconds() int32 {
@@ -3651,7 +3722,7 @@ type GetPresenceConfigRequest struct {
 
 func (x *GetPresenceConfigRequest) Reset() {
 	*x = GetPresenceConfigRequest{}
-	mi := &file_proto_video_v1_video_proto_msgTypes[50]
+	mi := &file_proto_video_v1_video_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3663,7 +3734,7 @@ func (x *GetPresenceConfigRequest) String() string {
 func (*GetPresenceConfigRequest) ProtoMessage() {}
 
 func (x *GetPresenceConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_video_v1_video_proto_msgTypes[50]
+	mi := &file_proto_video_v1_video_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3676,7 +3747,7 @@ func (x *GetPresenceConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPresenceConfigRequest.ProtoReflect.Descriptor instead.
 func (*GetPresenceConfigRequest) Descriptor() ([]byte, []int) {
-	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{50}
+	return file_proto_video_v1_video_proto_rawDescGZIP(), []int{51}
 }
 
 var File_proto_video_v1_video_proto protoreflect.FileDescriptor
@@ -3849,12 +3920,20 @@ const file_proto_video_v1_video_proto_rawDesc = "" +
 	"\v_channel_id\"C\n" +
 	"\x0fJoinCallRequest\x12\x17\n" +
 	"\acall_id\x18\x01 \x01(\tR\x06callId\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\tR\x06userId\"\x87\x01\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\"[\n" +
+	"\tIceServer\x12\x12\n" +
+	"\x04urls\x18\x01 \x03(\tR\x04urls\x12\x1a\n" +
+	"\busername\x18\x02 \x01(\tR\busername\x12\x1e\n" +
+	"\n" +
+	"credential\x18\x03 \x01(\tR\n" +
+	"credential\"\xbd\x01\n" +
 	"\x10JoinCallResponse\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12\x1b\n" +
 	"\troom_name\x18\x02 \x01(\tR\broomName\x12\x15\n" +
 	"\x06ws_url\x18\x03 \x01(\tR\x05wsUrl\x12)\n" +
-	"\x04call\x18\x04 \x01(\v2\x15.video.v1.CallSessionR\x04call\"B\n" +
+	"\x04call\x18\x04 \x01(\v2\x15.video.v1.CallSessionR\x04call\x124\n" +
+	"\vice_servers\x18\x05 \x03(\v2\x13.video.v1.IceServerR\n" +
+	"iceServers\"B\n" +
 	"\x0eEndCallRequest\x12\x17\n" +
 	"\acall_id\x18\x01 \x01(\tR\x06callId\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\")\n" +
@@ -4110,7 +4189,7 @@ func file_proto_video_v1_video_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_video_v1_video_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
-var file_proto_video_v1_video_proto_msgTypes = make([]protoimpl.MessageInfo, 51)
+var file_proto_video_v1_video_proto_msgTypes = make([]protoimpl.MessageInfo, 52)
 var file_proto_video_v1_video_proto_goTypes = []any{
 	(CallType)(0),                             // 0: video.v1.CallType
 	(CallStatus)(0),                           // 1: video.v1.CallStatus
@@ -4132,158 +4211,160 @@ var file_proto_video_v1_video_proto_goTypes = []any{
 	(*PresenceConfig)(nil),                    // 17: video.v1.PresenceConfig
 	(*CreateCallRequest)(nil),                 // 18: video.v1.CreateCallRequest
 	(*JoinCallRequest)(nil),                   // 19: video.v1.JoinCallRequest
-	(*JoinCallResponse)(nil),                  // 20: video.v1.JoinCallResponse
-	(*EndCallRequest)(nil),                    // 21: video.v1.EndCallRequest
-	(*GetCallRequest)(nil),                    // 22: video.v1.GetCallRequest
-	(*ListActiveCallsRequest)(nil),            // 23: video.v1.ListActiveCallsRequest
-	(*ListActiveCallsResponse)(nil),           // 24: video.v1.ListActiveCallsResponse
-	(*StartRecordingRequest)(nil),             // 25: video.v1.StartRecordingRequest
-	(*StopRecordingRequest)(nil),              // 26: video.v1.StopRecordingRequest
-	(*SetRecordingConsentRequest)(nil),        // 27: video.v1.SetRecordingConsentRequest
-	(*GetRecordingConsentRequest)(nil),        // 28: video.v1.GetRecordingConsentRequest
-	(*ListRecordingsRequest)(nil),             // 29: video.v1.ListRecordingsRequest
-	(*ListRecordingsResponse)(nil),            // 30: video.v1.ListRecordingsResponse
-	(*DeleteRecordingRequest)(nil),            // 31: video.v1.DeleteRecordingRequest
-	(*CreateMeetingRequest)(nil),              // 32: video.v1.CreateMeetingRequest
-	(*GetMeetingRequest)(nil),                 // 33: video.v1.GetMeetingRequest
-	(*UpdateMeetingRequest)(nil),              // 34: video.v1.UpdateMeetingRequest
-	(*DeleteMeetingRequest)(nil),              // 35: video.v1.DeleteMeetingRequest
-	(*ListMeetingsRequest)(nil),               // 36: video.v1.ListMeetingsRequest
-	(*ListMeetingsResponse)(nil),              // 37: video.v1.ListMeetingsResponse
-	(*StartMeetingRequest)(nil),               // 38: video.v1.StartMeetingRequest
-	(*StartMeetingResponse)(nil),              // 39: video.v1.StartMeetingResponse
-	(*EndMeetingRequest)(nil),                 // 40: video.v1.EndMeetingRequest
-	(*SaveMeetingNotesRequest)(nil),           // 41: video.v1.SaveMeetingNotesRequest
-	(*GetMeetingNotesRequest)(nil),            // 42: video.v1.GetMeetingNotesRequest
-	(*GetPreviousMeetingNotesRequest)(nil),    // 43: video.v1.GetPreviousMeetingNotesRequest
-	(*CreateActionItemRequest)(nil),           // 44: video.v1.CreateActionItemRequest
-	(*UpdateActionItemRequest)(nil),           // 45: video.v1.UpdateActionItemRequest
-	(*DeleteActionItemRequest)(nil),           // 46: video.v1.DeleteActionItemRequest
-	(*ListActionItemsRequest)(nil),            // 47: video.v1.ListActionItemsRequest
-	(*ListActionItemsResponse)(nil),           // 48: video.v1.ListActionItemsResponse
-	(*ConvertActionItemsToTasksRequest)(nil),  // 49: video.v1.ConvertActionItemsToTasksRequest
-	(*ConvertActionItemsToTasksResponse)(nil), // 50: video.v1.ConvertActionItemsToTasksResponse
-	(*GetPresenceRequest)(nil),                // 51: video.v1.GetPresenceRequest
-	(*GetBulkPresenceRequest)(nil),            // 52: video.v1.GetBulkPresenceRequest
-	(*GetBulkPresenceResponse)(nil),           // 53: video.v1.GetBulkPresenceResponse
-	(*SetPresenceStatusRequest)(nil),          // 54: video.v1.SetPresenceStatusRequest
-	(*UpdatePresenceConfigRequest)(nil),       // 55: video.v1.UpdatePresenceConfigRequest
-	(*GetPresenceConfigRequest)(nil),          // 56: video.v1.GetPresenceConfigRequest
-	(*timestamppb.Timestamp)(nil),             // 57: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),                     // 58: google.protobuf.Empty
+	(*IceServer)(nil),                         // 20: video.v1.IceServer
+	(*JoinCallResponse)(nil),                  // 21: video.v1.JoinCallResponse
+	(*EndCallRequest)(nil),                    // 22: video.v1.EndCallRequest
+	(*GetCallRequest)(nil),                    // 23: video.v1.GetCallRequest
+	(*ListActiveCallsRequest)(nil),            // 24: video.v1.ListActiveCallsRequest
+	(*ListActiveCallsResponse)(nil),           // 25: video.v1.ListActiveCallsResponse
+	(*StartRecordingRequest)(nil),             // 26: video.v1.StartRecordingRequest
+	(*StopRecordingRequest)(nil),              // 27: video.v1.StopRecordingRequest
+	(*SetRecordingConsentRequest)(nil),        // 28: video.v1.SetRecordingConsentRequest
+	(*GetRecordingConsentRequest)(nil),        // 29: video.v1.GetRecordingConsentRequest
+	(*ListRecordingsRequest)(nil),             // 30: video.v1.ListRecordingsRequest
+	(*ListRecordingsResponse)(nil),            // 31: video.v1.ListRecordingsResponse
+	(*DeleteRecordingRequest)(nil),            // 32: video.v1.DeleteRecordingRequest
+	(*CreateMeetingRequest)(nil),              // 33: video.v1.CreateMeetingRequest
+	(*GetMeetingRequest)(nil),                 // 34: video.v1.GetMeetingRequest
+	(*UpdateMeetingRequest)(nil),              // 35: video.v1.UpdateMeetingRequest
+	(*DeleteMeetingRequest)(nil),              // 36: video.v1.DeleteMeetingRequest
+	(*ListMeetingsRequest)(nil),               // 37: video.v1.ListMeetingsRequest
+	(*ListMeetingsResponse)(nil),              // 38: video.v1.ListMeetingsResponse
+	(*StartMeetingRequest)(nil),               // 39: video.v1.StartMeetingRequest
+	(*StartMeetingResponse)(nil),              // 40: video.v1.StartMeetingResponse
+	(*EndMeetingRequest)(nil),                 // 41: video.v1.EndMeetingRequest
+	(*SaveMeetingNotesRequest)(nil),           // 42: video.v1.SaveMeetingNotesRequest
+	(*GetMeetingNotesRequest)(nil),            // 43: video.v1.GetMeetingNotesRequest
+	(*GetPreviousMeetingNotesRequest)(nil),    // 44: video.v1.GetPreviousMeetingNotesRequest
+	(*CreateActionItemRequest)(nil),           // 45: video.v1.CreateActionItemRequest
+	(*UpdateActionItemRequest)(nil),           // 46: video.v1.UpdateActionItemRequest
+	(*DeleteActionItemRequest)(nil),           // 47: video.v1.DeleteActionItemRequest
+	(*ListActionItemsRequest)(nil),            // 48: video.v1.ListActionItemsRequest
+	(*ListActionItemsResponse)(nil),           // 49: video.v1.ListActionItemsResponse
+	(*ConvertActionItemsToTasksRequest)(nil),  // 50: video.v1.ConvertActionItemsToTasksRequest
+	(*ConvertActionItemsToTasksResponse)(nil), // 51: video.v1.ConvertActionItemsToTasksResponse
+	(*GetPresenceRequest)(nil),                // 52: video.v1.GetPresenceRequest
+	(*GetBulkPresenceRequest)(nil),            // 53: video.v1.GetBulkPresenceRequest
+	(*GetBulkPresenceResponse)(nil),           // 54: video.v1.GetBulkPresenceResponse
+	(*SetPresenceStatusRequest)(nil),          // 55: video.v1.SetPresenceStatusRequest
+	(*UpdatePresenceConfigRequest)(nil),       // 56: video.v1.UpdatePresenceConfigRequest
+	(*GetPresenceConfigRequest)(nil),          // 57: video.v1.GetPresenceConfigRequest
+	(*timestamppb.Timestamp)(nil),             // 58: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),                     // 59: google.protobuf.Empty
 }
 var file_proto_video_v1_video_proto_depIdxs = []int32{
 	0,  // 0: video.v1.CallSession.call_type:type_name -> video.v1.CallType
 	1,  // 1: video.v1.CallSession.status:type_name -> video.v1.CallStatus
-	57, // 2: video.v1.CallSession.created_at:type_name -> google.protobuf.Timestamp
-	57, // 3: video.v1.CallSession.ended_at:type_name -> google.protobuf.Timestamp
+	58, // 2: video.v1.CallSession.created_at:type_name -> google.protobuf.Timestamp
+	58, // 3: video.v1.CallSession.ended_at:type_name -> google.protobuf.Timestamp
 	7,  // 4: video.v1.CallSession.participants:type_name -> video.v1.CallParticipant
-	57, // 5: video.v1.CallParticipant.joined_at:type_name -> google.protobuf.Timestamp
-	57, // 6: video.v1.CallParticipant.left_at:type_name -> google.protobuf.Timestamp
+	58, // 5: video.v1.CallParticipant.joined_at:type_name -> google.protobuf.Timestamp
+	58, // 6: video.v1.CallParticipant.left_at:type_name -> google.protobuf.Timestamp
 	2,  // 7: video.v1.Meeting.status:type_name -> video.v1.MeetingStatus
-	57, // 8: video.v1.Meeting.scheduled_start:type_name -> google.protobuf.Timestamp
-	57, // 9: video.v1.Meeting.scheduled_end:type_name -> google.protobuf.Timestamp
-	57, // 10: video.v1.Meeting.actual_start:type_name -> google.protobuf.Timestamp
-	57, // 11: video.v1.Meeting.actual_end:type_name -> google.protobuf.Timestamp
-	57, // 12: video.v1.Meeting.created_at:type_name -> google.protobuf.Timestamp
-	57, // 13: video.v1.Meeting.updated_at:type_name -> google.protobuf.Timestamp
+	58, // 8: video.v1.Meeting.scheduled_start:type_name -> google.protobuf.Timestamp
+	58, // 9: video.v1.Meeting.scheduled_end:type_name -> google.protobuf.Timestamp
+	58, // 10: video.v1.Meeting.actual_start:type_name -> google.protobuf.Timestamp
+	58, // 11: video.v1.Meeting.actual_end:type_name -> google.protobuf.Timestamp
+	58, // 12: video.v1.Meeting.created_at:type_name -> google.protobuf.Timestamp
+	58, // 13: video.v1.Meeting.updated_at:type_name -> google.protobuf.Timestamp
 	9,  // 14: video.v1.Meeting.attendees:type_name -> video.v1.MeetingAttendee
 	5,  // 15: video.v1.MeetingAttendee.rsvp_status:type_name -> video.v1.RsvpStatus
-	57, // 16: video.v1.MeetingNotes.created_at:type_name -> google.protobuf.Timestamp
-	57, // 17: video.v1.MeetingNotes.updated_at:type_name -> google.protobuf.Timestamp
-	57, // 18: video.v1.ActionItem.created_at:type_name -> google.protobuf.Timestamp
+	58, // 16: video.v1.MeetingNotes.created_at:type_name -> google.protobuf.Timestamp
+	58, // 17: video.v1.MeetingNotes.updated_at:type_name -> google.protobuf.Timestamp
+	58, // 18: video.v1.ActionItem.created_at:type_name -> google.protobuf.Timestamp
 	11, // 19: video.v1.MeetingSummary.action_items:type_name -> video.v1.ActionItem
 	3,  // 20: video.v1.Recording.status:type_name -> video.v1.RecordingStatus
-	57, // 21: video.v1.Recording.retention_expires_at:type_name -> google.protobuf.Timestamp
-	57, // 22: video.v1.Recording.created_at:type_name -> google.protobuf.Timestamp
+	58, // 21: video.v1.Recording.retention_expires_at:type_name -> google.protobuf.Timestamp
+	58, // 22: video.v1.Recording.created_at:type_name -> google.protobuf.Timestamp
 	15, // 23: video.v1.RecordingConsentStatus.consents:type_name -> video.v1.RecordingConsent
-	57, // 24: video.v1.RecordingConsent.responded_at:type_name -> google.protobuf.Timestamp
+	58, // 24: video.v1.RecordingConsent.responded_at:type_name -> google.protobuf.Timestamp
 	4,  // 25: video.v1.PresenceStatus.status:type_name -> video.v1.PresenceLevel
-	57, // 26: video.v1.PresenceStatus.last_activity:type_name -> google.protobuf.Timestamp
+	58, // 26: video.v1.PresenceStatus.last_activity:type_name -> google.protobuf.Timestamp
 	0,  // 27: video.v1.CreateCallRequest.call_type:type_name -> video.v1.CallType
 	6,  // 28: video.v1.JoinCallResponse.call:type_name -> video.v1.CallSession
-	6,  // 29: video.v1.ListActiveCallsResponse.calls:type_name -> video.v1.CallSession
-	13, // 30: video.v1.ListRecordingsResponse.recordings:type_name -> video.v1.Recording
-	57, // 31: video.v1.CreateMeetingRequest.scheduled_start:type_name -> google.protobuf.Timestamp
-	57, // 32: video.v1.CreateMeetingRequest.scheduled_end:type_name -> google.protobuf.Timestamp
-	57, // 33: video.v1.UpdateMeetingRequest.scheduled_start:type_name -> google.protobuf.Timestamp
-	57, // 34: video.v1.UpdateMeetingRequest.scheduled_end:type_name -> google.protobuf.Timestamp
-	2,  // 35: video.v1.ListMeetingsRequest.status_filter:type_name -> video.v1.MeetingStatus
-	57, // 36: video.v1.ListMeetingsRequest.start_after:type_name -> google.protobuf.Timestamp
-	57, // 37: video.v1.ListMeetingsRequest.start_before:type_name -> google.protobuf.Timestamp
-	8,  // 38: video.v1.ListMeetingsResponse.meetings:type_name -> video.v1.Meeting
-	8,  // 39: video.v1.StartMeetingResponse.meeting:type_name -> video.v1.Meeting
-	11, // 40: video.v1.ListActionItemsResponse.action_items:type_name -> video.v1.ActionItem
-	11, // 41: video.v1.ConvertActionItemsToTasksResponse.action_items:type_name -> video.v1.ActionItem
-	16, // 42: video.v1.GetBulkPresenceResponse.statuses:type_name -> video.v1.PresenceStatus
-	4,  // 43: video.v1.SetPresenceStatusRequest.status:type_name -> video.v1.PresenceLevel
-	18, // 44: video.v1.VideoService.CreateCall:input_type -> video.v1.CreateCallRequest
-	19, // 45: video.v1.VideoService.JoinCall:input_type -> video.v1.JoinCallRequest
-	21, // 46: video.v1.VideoService.EndCall:input_type -> video.v1.EndCallRequest
-	22, // 47: video.v1.VideoService.GetCall:input_type -> video.v1.GetCallRequest
-	23, // 48: video.v1.VideoService.ListActiveCalls:input_type -> video.v1.ListActiveCallsRequest
-	25, // 49: video.v1.VideoService.StartRecording:input_type -> video.v1.StartRecordingRequest
-	26, // 50: video.v1.VideoService.StopRecording:input_type -> video.v1.StopRecordingRequest
-	27, // 51: video.v1.VideoService.SetRecordingConsent:input_type -> video.v1.SetRecordingConsentRequest
-	28, // 52: video.v1.VideoService.GetRecordingConsent:input_type -> video.v1.GetRecordingConsentRequest
-	29, // 53: video.v1.VideoService.ListRecordings:input_type -> video.v1.ListRecordingsRequest
-	31, // 54: video.v1.VideoService.DeleteRecording:input_type -> video.v1.DeleteRecordingRequest
-	32, // 55: video.v1.VideoService.CreateMeeting:input_type -> video.v1.CreateMeetingRequest
-	33, // 56: video.v1.VideoService.GetMeeting:input_type -> video.v1.GetMeetingRequest
-	34, // 57: video.v1.VideoService.UpdateMeeting:input_type -> video.v1.UpdateMeetingRequest
-	35, // 58: video.v1.VideoService.DeleteMeeting:input_type -> video.v1.DeleteMeetingRequest
-	36, // 59: video.v1.VideoService.ListMeetings:input_type -> video.v1.ListMeetingsRequest
-	38, // 60: video.v1.VideoService.StartMeeting:input_type -> video.v1.StartMeetingRequest
-	40, // 61: video.v1.VideoService.EndMeeting:input_type -> video.v1.EndMeetingRequest
-	41, // 62: video.v1.VideoService.SaveMeetingNotes:input_type -> video.v1.SaveMeetingNotesRequest
-	42, // 63: video.v1.VideoService.GetMeetingNotes:input_type -> video.v1.GetMeetingNotesRequest
-	43, // 64: video.v1.VideoService.GetPreviousMeetingNotes:input_type -> video.v1.GetPreviousMeetingNotesRequest
-	44, // 65: video.v1.VideoService.CreateActionItem:input_type -> video.v1.CreateActionItemRequest
-	45, // 66: video.v1.VideoService.UpdateActionItem:input_type -> video.v1.UpdateActionItemRequest
-	46, // 67: video.v1.VideoService.DeleteActionItem:input_type -> video.v1.DeleteActionItemRequest
-	47, // 68: video.v1.VideoService.ListActionItems:input_type -> video.v1.ListActionItemsRequest
-	49, // 69: video.v1.VideoService.ConvertActionItemsToTasks:input_type -> video.v1.ConvertActionItemsToTasksRequest
-	51, // 70: video.v1.VideoService.GetPresence:input_type -> video.v1.GetPresenceRequest
-	52, // 71: video.v1.VideoService.GetBulkPresence:input_type -> video.v1.GetBulkPresenceRequest
-	54, // 72: video.v1.VideoService.SetPresenceStatus:input_type -> video.v1.SetPresenceStatusRequest
-	55, // 73: video.v1.VideoService.UpdatePresenceConfig:input_type -> video.v1.UpdatePresenceConfigRequest
-	56, // 74: video.v1.VideoService.GetPresenceConfig:input_type -> video.v1.GetPresenceConfigRequest
-	6,  // 75: video.v1.VideoService.CreateCall:output_type -> video.v1.CallSession
-	20, // 76: video.v1.VideoService.JoinCall:output_type -> video.v1.JoinCallResponse
-	58, // 77: video.v1.VideoService.EndCall:output_type -> google.protobuf.Empty
-	6,  // 78: video.v1.VideoService.GetCall:output_type -> video.v1.CallSession
-	24, // 79: video.v1.VideoService.ListActiveCalls:output_type -> video.v1.ListActiveCallsResponse
-	13, // 80: video.v1.VideoService.StartRecording:output_type -> video.v1.Recording
-	13, // 81: video.v1.VideoService.StopRecording:output_type -> video.v1.Recording
-	58, // 82: video.v1.VideoService.SetRecordingConsent:output_type -> google.protobuf.Empty
-	14, // 83: video.v1.VideoService.GetRecordingConsent:output_type -> video.v1.RecordingConsentStatus
-	30, // 84: video.v1.VideoService.ListRecordings:output_type -> video.v1.ListRecordingsResponse
-	58, // 85: video.v1.VideoService.DeleteRecording:output_type -> google.protobuf.Empty
-	8,  // 86: video.v1.VideoService.CreateMeeting:output_type -> video.v1.Meeting
-	8,  // 87: video.v1.VideoService.GetMeeting:output_type -> video.v1.Meeting
-	8,  // 88: video.v1.VideoService.UpdateMeeting:output_type -> video.v1.Meeting
-	58, // 89: video.v1.VideoService.DeleteMeeting:output_type -> google.protobuf.Empty
-	37, // 90: video.v1.VideoService.ListMeetings:output_type -> video.v1.ListMeetingsResponse
-	39, // 91: video.v1.VideoService.StartMeeting:output_type -> video.v1.StartMeetingResponse
-	12, // 92: video.v1.VideoService.EndMeeting:output_type -> video.v1.MeetingSummary
-	10, // 93: video.v1.VideoService.SaveMeetingNotes:output_type -> video.v1.MeetingNotes
-	10, // 94: video.v1.VideoService.GetMeetingNotes:output_type -> video.v1.MeetingNotes
-	10, // 95: video.v1.VideoService.GetPreviousMeetingNotes:output_type -> video.v1.MeetingNotes
-	11, // 96: video.v1.VideoService.CreateActionItem:output_type -> video.v1.ActionItem
-	11, // 97: video.v1.VideoService.UpdateActionItem:output_type -> video.v1.ActionItem
-	58, // 98: video.v1.VideoService.DeleteActionItem:output_type -> google.protobuf.Empty
-	48, // 99: video.v1.VideoService.ListActionItems:output_type -> video.v1.ListActionItemsResponse
-	50, // 100: video.v1.VideoService.ConvertActionItemsToTasks:output_type -> video.v1.ConvertActionItemsToTasksResponse
-	16, // 101: video.v1.VideoService.GetPresence:output_type -> video.v1.PresenceStatus
-	53, // 102: video.v1.VideoService.GetBulkPresence:output_type -> video.v1.GetBulkPresenceResponse
-	58, // 103: video.v1.VideoService.SetPresenceStatus:output_type -> google.protobuf.Empty
-	58, // 104: video.v1.VideoService.UpdatePresenceConfig:output_type -> google.protobuf.Empty
-	17, // 105: video.v1.VideoService.GetPresenceConfig:output_type -> video.v1.PresenceConfig
-	75, // [75:106] is the sub-list for method output_type
-	44, // [44:75] is the sub-list for method input_type
-	44, // [44:44] is the sub-list for extension type_name
-	44, // [44:44] is the sub-list for extension extendee
-	0,  // [0:44] is the sub-list for field type_name
+	20, // 29: video.v1.JoinCallResponse.ice_servers:type_name -> video.v1.IceServer
+	6,  // 30: video.v1.ListActiveCallsResponse.calls:type_name -> video.v1.CallSession
+	13, // 31: video.v1.ListRecordingsResponse.recordings:type_name -> video.v1.Recording
+	58, // 32: video.v1.CreateMeetingRequest.scheduled_start:type_name -> google.protobuf.Timestamp
+	58, // 33: video.v1.CreateMeetingRequest.scheduled_end:type_name -> google.protobuf.Timestamp
+	58, // 34: video.v1.UpdateMeetingRequest.scheduled_start:type_name -> google.protobuf.Timestamp
+	58, // 35: video.v1.UpdateMeetingRequest.scheduled_end:type_name -> google.protobuf.Timestamp
+	2,  // 36: video.v1.ListMeetingsRequest.status_filter:type_name -> video.v1.MeetingStatus
+	58, // 37: video.v1.ListMeetingsRequest.start_after:type_name -> google.protobuf.Timestamp
+	58, // 38: video.v1.ListMeetingsRequest.start_before:type_name -> google.protobuf.Timestamp
+	8,  // 39: video.v1.ListMeetingsResponse.meetings:type_name -> video.v1.Meeting
+	8,  // 40: video.v1.StartMeetingResponse.meeting:type_name -> video.v1.Meeting
+	11, // 41: video.v1.ListActionItemsResponse.action_items:type_name -> video.v1.ActionItem
+	11, // 42: video.v1.ConvertActionItemsToTasksResponse.action_items:type_name -> video.v1.ActionItem
+	16, // 43: video.v1.GetBulkPresenceResponse.statuses:type_name -> video.v1.PresenceStatus
+	4,  // 44: video.v1.SetPresenceStatusRequest.status:type_name -> video.v1.PresenceLevel
+	18, // 45: video.v1.VideoService.CreateCall:input_type -> video.v1.CreateCallRequest
+	19, // 46: video.v1.VideoService.JoinCall:input_type -> video.v1.JoinCallRequest
+	22, // 47: video.v1.VideoService.EndCall:input_type -> video.v1.EndCallRequest
+	23, // 48: video.v1.VideoService.GetCall:input_type -> video.v1.GetCallRequest
+	24, // 49: video.v1.VideoService.ListActiveCalls:input_type -> video.v1.ListActiveCallsRequest
+	26, // 50: video.v1.VideoService.StartRecording:input_type -> video.v1.StartRecordingRequest
+	27, // 51: video.v1.VideoService.StopRecording:input_type -> video.v1.StopRecordingRequest
+	28, // 52: video.v1.VideoService.SetRecordingConsent:input_type -> video.v1.SetRecordingConsentRequest
+	29, // 53: video.v1.VideoService.GetRecordingConsent:input_type -> video.v1.GetRecordingConsentRequest
+	30, // 54: video.v1.VideoService.ListRecordings:input_type -> video.v1.ListRecordingsRequest
+	32, // 55: video.v1.VideoService.DeleteRecording:input_type -> video.v1.DeleteRecordingRequest
+	33, // 56: video.v1.VideoService.CreateMeeting:input_type -> video.v1.CreateMeetingRequest
+	34, // 57: video.v1.VideoService.GetMeeting:input_type -> video.v1.GetMeetingRequest
+	35, // 58: video.v1.VideoService.UpdateMeeting:input_type -> video.v1.UpdateMeetingRequest
+	36, // 59: video.v1.VideoService.DeleteMeeting:input_type -> video.v1.DeleteMeetingRequest
+	37, // 60: video.v1.VideoService.ListMeetings:input_type -> video.v1.ListMeetingsRequest
+	39, // 61: video.v1.VideoService.StartMeeting:input_type -> video.v1.StartMeetingRequest
+	41, // 62: video.v1.VideoService.EndMeeting:input_type -> video.v1.EndMeetingRequest
+	42, // 63: video.v1.VideoService.SaveMeetingNotes:input_type -> video.v1.SaveMeetingNotesRequest
+	43, // 64: video.v1.VideoService.GetMeetingNotes:input_type -> video.v1.GetMeetingNotesRequest
+	44, // 65: video.v1.VideoService.GetPreviousMeetingNotes:input_type -> video.v1.GetPreviousMeetingNotesRequest
+	45, // 66: video.v1.VideoService.CreateActionItem:input_type -> video.v1.CreateActionItemRequest
+	46, // 67: video.v1.VideoService.UpdateActionItem:input_type -> video.v1.UpdateActionItemRequest
+	47, // 68: video.v1.VideoService.DeleteActionItem:input_type -> video.v1.DeleteActionItemRequest
+	48, // 69: video.v1.VideoService.ListActionItems:input_type -> video.v1.ListActionItemsRequest
+	50, // 70: video.v1.VideoService.ConvertActionItemsToTasks:input_type -> video.v1.ConvertActionItemsToTasksRequest
+	52, // 71: video.v1.VideoService.GetPresence:input_type -> video.v1.GetPresenceRequest
+	53, // 72: video.v1.VideoService.GetBulkPresence:input_type -> video.v1.GetBulkPresenceRequest
+	55, // 73: video.v1.VideoService.SetPresenceStatus:input_type -> video.v1.SetPresenceStatusRequest
+	56, // 74: video.v1.VideoService.UpdatePresenceConfig:input_type -> video.v1.UpdatePresenceConfigRequest
+	57, // 75: video.v1.VideoService.GetPresenceConfig:input_type -> video.v1.GetPresenceConfigRequest
+	6,  // 76: video.v1.VideoService.CreateCall:output_type -> video.v1.CallSession
+	21, // 77: video.v1.VideoService.JoinCall:output_type -> video.v1.JoinCallResponse
+	59, // 78: video.v1.VideoService.EndCall:output_type -> google.protobuf.Empty
+	6,  // 79: video.v1.VideoService.GetCall:output_type -> video.v1.CallSession
+	25, // 80: video.v1.VideoService.ListActiveCalls:output_type -> video.v1.ListActiveCallsResponse
+	13, // 81: video.v1.VideoService.StartRecording:output_type -> video.v1.Recording
+	13, // 82: video.v1.VideoService.StopRecording:output_type -> video.v1.Recording
+	59, // 83: video.v1.VideoService.SetRecordingConsent:output_type -> google.protobuf.Empty
+	14, // 84: video.v1.VideoService.GetRecordingConsent:output_type -> video.v1.RecordingConsentStatus
+	31, // 85: video.v1.VideoService.ListRecordings:output_type -> video.v1.ListRecordingsResponse
+	59, // 86: video.v1.VideoService.DeleteRecording:output_type -> google.protobuf.Empty
+	8,  // 87: video.v1.VideoService.CreateMeeting:output_type -> video.v1.Meeting
+	8,  // 88: video.v1.VideoService.GetMeeting:output_type -> video.v1.Meeting
+	8,  // 89: video.v1.VideoService.UpdateMeeting:output_type -> video.v1.Meeting
+	59, // 90: video.v1.VideoService.DeleteMeeting:output_type -> google.protobuf.Empty
+	38, // 91: video.v1.VideoService.ListMeetings:output_type -> video.v1.ListMeetingsResponse
+	40, // 92: video.v1.VideoService.StartMeeting:output_type -> video.v1.StartMeetingResponse
+	12, // 93: video.v1.VideoService.EndMeeting:output_type -> video.v1.MeetingSummary
+	10, // 94: video.v1.VideoService.SaveMeetingNotes:output_type -> video.v1.MeetingNotes
+	10, // 95: video.v1.VideoService.GetMeetingNotes:output_type -> video.v1.MeetingNotes
+	10, // 96: video.v1.VideoService.GetPreviousMeetingNotes:output_type -> video.v1.MeetingNotes
+	11, // 97: video.v1.VideoService.CreateActionItem:output_type -> video.v1.ActionItem
+	11, // 98: video.v1.VideoService.UpdateActionItem:output_type -> video.v1.ActionItem
+	59, // 99: video.v1.VideoService.DeleteActionItem:output_type -> google.protobuf.Empty
+	49, // 100: video.v1.VideoService.ListActionItems:output_type -> video.v1.ListActionItemsResponse
+	51, // 101: video.v1.VideoService.ConvertActionItemsToTasks:output_type -> video.v1.ConvertActionItemsToTasksResponse
+	16, // 102: video.v1.VideoService.GetPresence:output_type -> video.v1.PresenceStatus
+	54, // 103: video.v1.VideoService.GetBulkPresence:output_type -> video.v1.GetBulkPresenceResponse
+	59, // 104: video.v1.VideoService.SetPresenceStatus:output_type -> google.protobuf.Empty
+	59, // 105: video.v1.VideoService.UpdatePresenceConfig:output_type -> google.protobuf.Empty
+	17, // 106: video.v1.VideoService.GetPresenceConfig:output_type -> video.v1.PresenceConfig
+	76, // [76:107] is the sub-list for method output_type
+	45, // [45:76] is the sub-list for method input_type
+	45, // [45:45] is the sub-list for extension type_name
+	45, // [45:45] is the sub-list for extension extendee
+	0,  // [0:45] is the sub-list for field type_name
 }
 
 func init() { file_proto_video_v1_video_proto_init() }
@@ -4300,20 +4381,20 @@ func file_proto_video_v1_video_proto_init() {
 	file_proto_video_v1_video_proto_msgTypes[9].OneofWrappers = []any{}
 	file_proto_video_v1_video_proto_msgTypes[10].OneofWrappers = []any{}
 	file_proto_video_v1_video_proto_msgTypes[12].OneofWrappers = []any{}
-	file_proto_video_v1_video_proto_msgTypes[19].OneofWrappers = []any{}
-	file_proto_video_v1_video_proto_msgTypes[23].OneofWrappers = []any{}
-	file_proto_video_v1_video_proto_msgTypes[26].OneofWrappers = []any{}
-	file_proto_video_v1_video_proto_msgTypes[28].OneofWrappers = []any{}
-	file_proto_video_v1_video_proto_msgTypes[30].OneofWrappers = []any{}
-	file_proto_video_v1_video_proto_msgTypes[38].OneofWrappers = []any{}
+	file_proto_video_v1_video_proto_msgTypes[20].OneofWrappers = []any{}
+	file_proto_video_v1_video_proto_msgTypes[24].OneofWrappers = []any{}
+	file_proto_video_v1_video_proto_msgTypes[27].OneofWrappers = []any{}
+	file_proto_video_v1_video_proto_msgTypes[29].OneofWrappers = []any{}
+	file_proto_video_v1_video_proto_msgTypes[31].OneofWrappers = []any{}
 	file_proto_video_v1_video_proto_msgTypes[39].OneofWrappers = []any{}
+	file_proto_video_v1_video_proto_msgTypes[40].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_video_v1_video_proto_rawDesc), len(file_proto_video_v1_video_proto_rawDesc)),
 			NumEnums:      6,
-			NumMessages:   51,
+			NumMessages:   52,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

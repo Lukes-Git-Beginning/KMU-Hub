@@ -128,6 +128,7 @@ export function IncomingCallOverlay({ className }: IncomingCallOverlayProps) {
         },
         response.token,
         response.ws_url,
+        response.ice_servers,
       )
       setIncomingCall(null)
       navigate(`/video/call/${incomingCall.callId}`)

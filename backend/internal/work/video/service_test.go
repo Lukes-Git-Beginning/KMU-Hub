@@ -27,6 +27,7 @@ type mockRoomManager struct {
 	tokenErr     error
 	lastToken    string
 	deleteCalled bool
+	iceServers   []IceServerConfig
 }
 
 func newMockRoomManager() *mockRoomManager {
@@ -58,6 +59,10 @@ func (m *mockRoomManager) GenerateToken(_, _, _ string) (string, error) {
 		return "", m.tokenErr
 	}
 	return m.lastToken, nil
+}
+
+func (m *mockRoomManager) TURNIceServers(_ string) []IceServerConfig {
+	return m.iceServers
 }
 
 // --- Mock Repository ---

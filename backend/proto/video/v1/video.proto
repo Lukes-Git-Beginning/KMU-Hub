@@ -249,11 +249,21 @@ message JoinCallRequest {
   string user_id = 2;
 }
 
+// IceServer carries per-session WebRTC ICE/TURN credentials (RTCIceServer shape)
+// so the client can apply them to RTCConfiguration before opening the peer
+// connection — required for relaying in NAT'd networks where STUN alone fails.
+message IceServer {
+  repeated string urls = 1;
+  string username = 2;
+  string credential = 3;
+}
+
 message JoinCallResponse {
   string token = 1;
   string room_name = 2;
   string ws_url = 3;
   CallSession call = 4;
+  repeated IceServer ice_servers = 5;
 }
 
 message EndCallRequest {

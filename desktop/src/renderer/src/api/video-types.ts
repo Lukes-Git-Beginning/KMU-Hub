@@ -49,9 +49,18 @@ export interface CreateCallRequest {
   channel_id?: string
 }
 
+/** WebRTC ICE/TURN server (RTCIceServer shape) for relaying in NAT'd networks. */
+export interface IceServer {
+  urls: string[]
+  username: string
+  credential: string
+}
+
 export interface JoinCallResponse {
   token: string
   ws_url: string
+  /** Per-session TURN credentials; empty/absent when TURN is not configured. */
+  ice_servers?: IceServer[]
 }
 
 // ---------------------------------------------------------------------------

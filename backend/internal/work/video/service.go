@@ -17,11 +17,24 @@ const MaxGroupParticipants = 25
 // MaxOneToOneParticipants is the maximum number of participants in a 1:1 call
 const MaxOneToOneParticipants = 2
 
+// IceServerConfig carries per-session WebRTC ICE/TURN credentials (RTCIceServer
+// shape) so the client can apply them to RTCConfiguration before opening the
+// peer connection. It is the domain-side mirror of the LiveKit adapter's
+// IceServer, keeping this package decoupled from the livekit package.
+type IceServerConfig struct {
+	URLs       []string
+	Username   string
+	Credential string
+}
+
 // RoomManager abstracts LiveKit room operations for testability
 type RoomManager interface {
 	CreateRoom(ctx context.Context, name string, maxParticipants uint32) error
 	DeleteRoom(ctx context.Context, name string) error
 	GenerateToken(roomName, userID, displayName string) (string, error)
+	// TURNIceServers returns per-session TURN credentials for the given user, or
+	// nil when TURN is not configured. Callers must treat nil as "no relay".
+	TURNIceServers(userID string) []IceServerConfig
 }
 
 // Service handles video call business logic

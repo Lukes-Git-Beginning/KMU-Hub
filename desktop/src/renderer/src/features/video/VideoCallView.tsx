@@ -32,9 +32,15 @@ import { Track, RoomEvent, type Participant } from 'livekit-client'
 import '@livekit/components-styles'
 
 import { useVideoStore } from '@/stores/video'
+import type { IceServer } from '@/api/video-types'
 import { CallControls } from './CallControls'
+import { RecordingActiveBanner } from './RecordingActiveBanner'
 import { ScreenShareView } from './ScreenShareView'
 import { cn } from '@/lib'
+
+// Public STUN fallback used alongside any self-hosted TURN servers so plain NAT
+// traversal still works when TURN is not configured.
+const DEFAULT_ICE_SERVERS: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }]
 
 // ---------------------------------------------------------------------------
 // Types
@@ -47,6 +53,8 @@ export interface VideoCallViewProps {
   token: string
   /** LiveKit server WebSocket URL. */
   wsUrl: string
+  /** Per-session TURN servers from the join response; applied to RTCConfiguration. */
+  iceServers?: IceServer[]
   /** Called when the local participant leaves the call. */
   onLeave?: () => void
 }
@@ -166,6 +174,10 @@ function InnerCallView({
 
   return (
     <div className="relative flex h-full w-full flex-col bg-zinc-950">
+      {/* DSGVO: visible recording indicator for every participant. Self-renders
+          only while a recording is active (useIsRecording). The stop control
+          lives in CallControls, so no activeRecordingId is needed here. */}
+      <RecordingActiveBanner activeRecordingId={null} />
       {/* Main video area */}
       <div className="relative flex-1 overflow-hidden">
         {isScreenSharing ? (
@@ -271,6 +283,7 @@ export function VideoCallView({
   callId,
   token,
   wsUrl,
+  iceServers,
   onLeave,
 }: VideoCallViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('gallery')
@@ -284,6 +297,17 @@ export function VideoCallView({
     onLeave?.()
   }, [clearActiveCall, onLeave])
 
+  // Apply self-hosted TURN servers (plus a public STUN fallback) before the peer
+  // connection opens, so relaying works in NAT'd networks where STUN alone fails.
+  const roomOptions = useMemo(
+    () => ({
+      rtcConfig: {
+        iceServers: [...DEFAULT_ICE_SERVERS, ...(iceServers ?? [])],
+      },
+    }),
+    [iceServers],
+  )
+
   return (
     <LiveKitRoom
       token={token}
@@ -291,6 +315,7 @@ export function VideoCallView({
       connect={true}
       audio={true}
       video={true}
+      options={roomOptions}
       onDisconnected={handleDisconnect}
       className="h-full w-full"
       data-lk-theme="default"

@@ -296,7 +296,9 @@ func (vr *VideoRoutes) HandleJoinCall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	// protojson so ice_servers and the nested call timestamps serialize in the
+	// wire shape the frontend expects (RFC3339, not {seconds,nanos}).
+	response.Proto(w, http.StatusOK, resp)
 }
 
 func (vr *VideoRoutes) HandleEndCall(w http.ResponseWriter, r *http.Request) {
