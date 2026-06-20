@@ -11,6 +11,7 @@ import (
 
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
+	"github.com/shopspring/decimal"
 
 	"github.com/kmuhub/kmuhub/internal/models"
 )
@@ -82,6 +83,19 @@ func GenerateZUGFeRDXML(invoice models.Invoice, settings models.CompanySettings)
 		currency = models.DefaultCurrency
 	}
 
+	// BT-72 Actual delivery date (Leistungsdatum): use the explicit delivery date
+	// when set, otherwise fall back to the issue date. EN16931 requires a non-empty
+	// ApplicableHeaderTradeDelivery for a §14 UStG invoice.
+	deliveryDate := invoice.InvoiceDate
+	if invoice.DeliveryDate != nil && !invoice.DeliveryDate.IsZero() {
+		deliveryDate = *invoice.DeliveryDate
+	}
+	deliveryDateStr := deliveryDate.Format("20060102")
+
+	// BG-23 VAT breakdown (one ram:ApplicableTradeTax per category/rate). Without it
+	// no EN16931 validator accepts the invoice.
+	headerTradeTax := buildHeaderTradeTax(lineItems, invoice.TaxMode, invoice.Subtotal)
+
 	xml := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <rsm:CrossIndustryInvoice
 	xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
@@ -121,11 +135,17 @@ func GenerateZUGFeRDXML(invoice models.Invoice, settings models.CompanySettings)
 			</ram:BuyerTradeParty>
 		</ram:ApplicableHeaderTradeAgreement>
 
-		<ram:ApplicableHeaderTradeDelivery/>
+		<ram:ApplicableHeaderTradeDelivery>
+			<ram:ActualDeliverySupplyChainEvent>
+				<ram:OccurrenceDateTime>
+					<udt:DateTimeString format="102">%s</udt:DateTimeString>
+				</ram:OccurrenceDateTime>
+			</ram:ActualDeliverySupplyChainEvent>
+		</ram:ApplicableHeaderTradeDelivery>
 
 		<ram:ApplicableHeaderTradeSettlement>
 			<ram:PaymentReference>%s</ram:PaymentReference>
-			<ram:InvoiceCurrencyCode>%s</ram:InvoiceCurrencyCode>
+			<ram:InvoiceCurrencyCode>%s</ram:InvoiceCurrencyCode>%s
 			<ram:SpecifiedTradePaymentTerms>
 				<ram:DueDateDateTime>
 					<udt:DateTimeString format="102">%s</udt:DateTimeString>
@@ -133,6 +153,7 @@ func GenerateZUGFeRDXML(invoice models.Invoice, settings models.CompanySettings)
 			</ram:SpecifiedTradePaymentTerms>
 			<ram:SpecifiedTradeSettlementHeaderMonetarySummation>
 				<ram:LineTotalAmount>%s</ram:LineTotalAmount>
+				<ram:TaxBasisTotalAmount>%s</ram:TaxBasisTotalAmount>
 				<ram:TaxTotalAmount currencyID="%s">%s</ram:TaxTotalAmount>
 				<ram:GrandTotalAmount>%s</ram:GrandTotalAmount>
 				<ram:DuePayableAmount>%s</ram:DuePayableAmount>
@@ -151,9 +172,12 @@ func GenerateZUGFeRDXML(invoice models.Invoice, settings models.CompanySettings)
 		countryCode(settings.Country),
 		xmlEscape(settings.UStIDNr),
 		xmlEscape(invoice.CustomerName),
+		deliveryDateStr,
 		xmlEscape(invoice.InvoiceNumber),
 		currency,
+		headerTradeTax,
 		dueDateStr,
+		invoice.Subtotal.StringFixed(2),
 		invoice.Subtotal.StringFixed(2),
 		currency,
 		invoice.TotalTax.StringFixed(2),
@@ -163,6 +187,73 @@ func GenerateZUGFeRDXML(invoice models.Invoice, settings models.CompanySettings)
 	)
 
 	return []byte(xml), nil
+}
+
+// buildHeaderTradeTax renders the EN16931 BG-23 VAT breakdown — one
+// ram:ApplicableTradeTax per VAT category/rate — for the header settlement block.
+// Standard mode groups line items by their rate (basis = sum of line nets,
+// calculated = sum of per-line rounded tax, matching tax.Calculate). The tax-free
+// modes emit a single exempt category with the statutory exemption reason.
+func buildHeaderTradeTax(items []models.LineItem, taxMode string, subtotal decimal.Decimal) string {
+	var buf bytes.Buffer
+
+	switch taxMode {
+	case models.TaxModeReverseCharge:
+		buf.WriteString(fmt.Sprintf(`
+			<ram:ApplicableTradeTax>
+				<ram:CalculatedAmount>0.00</ram:CalculatedAmount>
+				<ram:TypeCode>VAT</ram:TypeCode>
+				<ram:ExemptionReason>Reverse charge</ram:ExemptionReason>
+				<ram:BasisAmount>%s</ram:BasisAmount>
+				<ram:CategoryCode>AE</ram:CategoryCode>
+				<ram:RateApplicablePercent>0.00</ram:RateApplicablePercent>
+			</ram:ApplicableTradeTax>`, subtotal.StringFixed(2)))
+	case models.TaxModeKleinunternehmer:
+		buf.WriteString(fmt.Sprintf(`
+			<ram:ApplicableTradeTax>
+				<ram:CalculatedAmount>0.00</ram:CalculatedAmount>
+				<ram:TypeCode>VAT</ram:TypeCode>
+				<ram:ExemptionReason>Kleinunternehmer gemaess Paragraph 19 UStG</ram:ExemptionReason>
+				<ram:BasisAmount>%s</ram:BasisAmount>
+				<ram:CategoryCode>E</ram:CategoryCode>
+				<ram:RateApplicablePercent>0.00</ram:RateApplicablePercent>
+			</ram:ApplicableTradeTax>`, subtotal.StringFixed(2)))
+	default: // standard — one block per distinct VAT rate, in first-seen order
+		hundred := decimal.NewFromInt(100)
+		type rateGroup struct {
+			rate  decimal.Decimal
+			basis decimal.Decimal
+			tax   decimal.Decimal
+		}
+		order := make([]string, 0)
+		groups := make(map[string]*rateGroup)
+		for _, item := range items {
+			lineTotal := item.Quantity.Mul(item.UnitPrice)
+			lineTax := lineTotal.Mul(item.TaxRate).Div(hundred).Round(2)
+			key := item.TaxRate.StringFixed(2)
+			g, ok := groups[key]
+			if !ok {
+				g = &rateGroup{rate: item.TaxRate}
+				groups[key] = g
+				order = append(order, key)
+			}
+			g.basis = g.basis.Add(lineTotal)
+			g.tax = g.tax.Add(lineTax)
+		}
+		for _, key := range order {
+			g := groups[key]
+			buf.WriteString(fmt.Sprintf(`
+			<ram:ApplicableTradeTax>
+				<ram:CalculatedAmount>%s</ram:CalculatedAmount>
+				<ram:TypeCode>VAT</ram:TypeCode>
+				<ram:BasisAmount>%s</ram:BasisAmount>
+				<ram:CategoryCode>S</ram:CategoryCode>
+				<ram:RateApplicablePercent>%s</ram:RateApplicablePercent>
+			</ram:ApplicableTradeTax>`, g.tax.StringFixed(2), g.basis.StringFixed(2), g.rate.StringFixed(2)))
+		}
+	}
+
+	return buf.String()
 }
 
 // EmbedZUGFeRDXML embeds the Factur-X XML into an existing PDF as /EmbeddedFiles.
