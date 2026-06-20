@@ -445,7 +445,10 @@ func NewPostgresCompanySettingsRepo(pool *pgxpool.Pool) *PostgresCompanySettings
 
 func (r *PostgresCompanySettingsRepo) GetByTenantID(ctx context.Context, tenantID uuid.UUID) (*models.CompanySettings, error) {
 	var cs models.CompanySettings
-	var basiszinssatzFloat float64
+	// Scan the NUMERIC(5,2) basiszinssatz as a string and parse it as decimal,
+	// matching the rest of this repo (ADR-0007) — a float64 round-trip loses
+	// precision.
+	var basiszinssatzStr string
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, name, street, plz, city, country,
 			steuernummer, ust_id_nr, handelsregister,
@@ -462,7 +465,7 @@ func (r *PostgresCompanySettingsRepo) GetByTenantID(ctx context.Context, tenantI
 		&cs.BankName, &cs.IBAN, &cs.BIC,
 		&cs.LogoURL, &cs.AccentColor,
 		&cs.IsKleinunternehmer, &cs.DefaultPaymentTermsDays, &cs.DefaultQuoteValidityDays,
-		&basiszinssatzFloat, &cs.DefaultCurrency, &cs.DatevBeraterNr, &cs.DatevMandantNr, &cs.CreatedAt, &cs.UpdatedAt,
+		&basiszinssatzStr, &cs.DefaultCurrency, &cs.DatevBeraterNr, &cs.DatevMandantNr, &cs.CreatedAt, &cs.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil // No settings configured yet
@@ -470,7 +473,7 @@ func (r *PostgresCompanySettingsRepo) GetByTenantID(ctx context.Context, tenantI
 	if err != nil {
 		return nil, err
 	}
-	cs.Basiszinssatz = decimal.NewFromFloat(basiszinssatzFloat)
+	cs.Basiszinssatz, _ = decimal.NewFromString(basiszinssatzStr)
 	return &cs, nil
 }
 
@@ -523,7 +526,7 @@ func (r *PostgresCompanySettingsRepo) Upsert(ctx context.Context, settings *mode
 		settings.BankName, settings.IBAN, settings.BIC,
 		settings.LogoURL, settings.AccentColor,
 		settings.IsKleinunternehmer, settings.DefaultPaymentTermsDays, settings.DefaultQuoteValidityDays,
-		settings.Basiszinssatz.InexactFloat64(), defaultCurrency,
+		settings.Basiszinssatz.String(), defaultCurrency,
 		settings.DatevBeraterNr, settings.DatevMandantNr, settings.UpdatedAt,
 	)
 	return err
