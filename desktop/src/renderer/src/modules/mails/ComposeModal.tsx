@@ -44,6 +44,9 @@ interface ComposeModalProps {
   replyTo?: EmailMessageInfo | null
   prefillTo?: string
   accountId: string
+  // contactId opts the send into the backend marketing-consent check (UWG §7).
+  // Pass it only when composing outreach to a known CRM contact.
+  contactId?: string
 }
 
 export function ComposeModal({
@@ -53,6 +56,7 @@ export function ComposeModal({
   replyTo,
   prefillTo,
   accountId,
+  contactId,
 }: ComposeModalProps) {
   const { t } = useTranslation()
   const sendEmail = useSendEmail()
@@ -215,6 +219,7 @@ export function ComposeModal({
           subject: subject.trim(),
           body_html: body,
           body_text: bodyText,
+          contact_id: contactId,
         },
         {
           onSuccess: () => { toast.success(t('mails.toast.emailSent')); onOpenChange(false) },

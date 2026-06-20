@@ -2333,8 +2333,11 @@ type SendEmailRequest struct {
 	AttachmentIds      []string               `protobuf:"bytes,8,rep,name=attachment_ids,json=attachmentIds,proto3" json:"attachment_ids,omitempty"`
 	InReplyToMessageId *string                `protobuf:"bytes,9,opt,name=in_reply_to_message_id,json=inReplyToMessageId,proto3,oneof" json:"in_reply_to_message_id,omitempty"` // For threading
 	SignatureId        *string                `protobuf:"bytes,10,opt,name=signature_id,json=signatureId,proto3,oneof" json:"signature_id,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// contact_id, when set, triggers a marketing-consent pre-check (UWG §7) for
+	// ChannelEmail. Leave unset for transactional/system mail that needs no consent.
+	ContactId     *string `protobuf:"bytes,11,opt,name=contact_id,json=contactId,proto3,oneof" json:"contact_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SendEmailRequest) Reset() {
@@ -2433,6 +2436,13 @@ func (x *SendEmailRequest) GetInReplyToMessageId() string {
 func (x *SendEmailRequest) GetSignatureId() string {
 	if x != nil && x.SignatureId != nil {
 		return *x.SignatureId
+	}
+	return ""
+}
+
+func (x *SendEmailRequest) GetContactId() string {
+	if x != nil && x.ContactId != nil {
+		return *x.ContactId
 	}
 	return ""
 }
@@ -5117,7 +5127,7 @@ const file_backend_proto_email_v1_email_proto_rawDesc = "" +
 	"\x14MoveToFolderResponse\"&\n" +
 	"\x14DeleteMessageRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x17\n" +
-	"\x15DeleteMessageResponse\"\xb3\x03\n" +
+	"\x15DeleteMessageResponse\"\xe6\x03\n" +
 	"\x10SendEmailRequest\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\tR\taccountId\x12&\n" +
@@ -5130,9 +5140,12 @@ const file_backend_proto_email_v1_email_proto_rawDesc = "" +
 	"\x0eattachment_ids\x18\b \x03(\tR\rattachmentIds\x127\n" +
 	"\x16in_reply_to_message_id\x18\t \x01(\tH\x00R\x12inReplyToMessageId\x88\x01\x01\x12&\n" +
 	"\fsignature_id\x18\n" +
-	" \x01(\tH\x01R\vsignatureId\x88\x01\x01B\x19\n" +
+	" \x01(\tH\x01R\vsignatureId\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"contact_id\x18\v \x01(\tH\x02R\tcontactId\x88\x01\x01B\x19\n" +
 	"\x17_in_reply_to_message_idB\x0f\n" +
-	"\r_signature_id\"I\n" +
+	"\r_signature_idB\r\n" +
+	"\v_contact_id\"I\n" +
 	"\x11SendEmailResponse\x124\n" +
 	"\amessage\x18\x01 \x01(\v2\x1a.email.v1.EmailMessageInfoR\amessage\"\xa7\x03\n" +
 	"\x10SaveDraftRequest\x12\x1d\n" +

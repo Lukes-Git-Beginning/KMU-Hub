@@ -524,6 +524,17 @@ func (s *EmailGRPCServer) SendEmail(ctx context.Context, req *emailv1.SendEmailR
 		}
 	}
 
+	// contact_id, when supplied, opts this send into the marketing-consent
+	// pre-check (UWG §7). An invalid UUID is rejected rather than silently
+	// dropped, so a bad client cannot bypass the consent gate.
+	if req.ContactId != nil && *req.ContactId != "" {
+		contactID, cidErr := uuid.Parse(*req.ContactId)
+		if cidErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+		}
+		input.ContactID = &contactID
+	}
+
 	msg, err := s.sendService.Send(ctx, input)
 	if err != nil {
 		return nil, mapEmailError(err)

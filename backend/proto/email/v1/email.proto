@@ -321,6 +321,9 @@ message SendEmailRequest {
   repeated string attachment_ids = 8;
   optional string in_reply_to_message_id = 9;  // For threading
   optional string signature_id = 10;
+  // contact_id, when set, triggers a marketing-consent pre-check (UWG §7) for
+  // ChannelEmail. Leave unset for transactional/system mail that needs no consent.
+  optional string contact_id = 11;
 }
 
 message SendEmailResponse {

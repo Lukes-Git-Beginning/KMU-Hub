@@ -34,6 +34,9 @@ type sendEmailDTO struct {
 	Subject   string   `json:"subject"`
 	BodyHtml  string   `json:"body_html"`
 	BodyText  string   `json:"body_text"`
+	// ContactID, when set, makes the email service enforce marketing consent
+	// (UWG §7) for the recipient. Omit for transactional/system mail.
+	ContactID string `json:"contact_id" validate:"omitempty,uuid"`
 }
 
 type saveDraftDTO struct {
@@ -537,6 +540,9 @@ func (e *EmailRoutes) HandleSendEmail(w http.ResponseWriter, r *http.Request) {
 		Subject:   dto.Subject,
 		BodyHtml:  dto.BodyHtml,
 		BodyText:  dto.BodyText,
+	}
+	if dto.ContactID != "" {
+		req.ContactId = &dto.ContactID
 	}
 
 	resp, err := client.SendEmail(r.Context(), req)

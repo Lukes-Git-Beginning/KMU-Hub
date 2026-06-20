@@ -33,6 +33,9 @@ interface ComposeInlineProps {
   replyTo?: EmailMessageInfo | null
   prefillTo?: string
   accountId: string
+  // contactId opts the send into the backend marketing-consent check (UWG §7).
+  // Pass it only when composing outreach to a known CRM contact.
+  contactId?: string
   onClose: () => void
 }
 
@@ -41,6 +44,7 @@ export function ComposeInline({
   replyTo,
   prefillTo,
   accountId,
+  contactId,
   onClose,
 }: ComposeInlineProps) {
   const { t } = useTranslation()
@@ -181,6 +185,7 @@ export function ComposeInline({
           subject: subject.trim(),
           body_html: body,
           body_text: bodyText,
+          contact_id: contactId,
         },
         {
           onSuccess: () => { toast.success(t('mails.toast.emailSent')); onClose() },

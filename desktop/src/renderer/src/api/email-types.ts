@@ -170,6 +170,10 @@ export interface SendEmailRequest {
   attachment_ids?: string[]
   in_reply_to_message_id?: string
   signature_id?: string
+  // contact_id, when set, makes the backend enforce marketing consent (UWG §7)
+  // for the recipient. Set only for outreach to a CRM contact, not for
+  // transactional or ad-hoc mail.
+  contact_id?: string
 }
 
 export interface SaveDraftRequest {
