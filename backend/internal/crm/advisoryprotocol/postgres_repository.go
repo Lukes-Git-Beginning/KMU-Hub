@@ -43,7 +43,12 @@ func (r *PostgresRepository) Create(ctx context.Context, p *Protocol) error {
 			recommendation_summary, suitability_reasoning, goal_reference, alternatives, not_recommended,
 			main_concerns, warnings_given, document_delivered, delivery_form, advisor_signature,
 			customer_confirmation, document_waiver, internal_notes,
-			created_at, updated_at
+			created_at, updated_at,
+			date, birth_date,
+			monthly_net_income, recurring_liabilities, liquid_assets, current_investments,
+			max_loss_capacity_abs, max_loss_capacity_pct,
+			one_time_amount, monthly_savings,
+			document_delivered_date, followup_date
 		) VALUES (
 			$1,$2,$3,$4,$5,
 			$6,$7,$8,$9,$10,$11,$12,
@@ -56,7 +61,12 @@ func (r *PostgresRepository) Create(ctx context.Context, p *Protocol) error {
 			$30,$31,$32,$33,$34,
 			$35,$36,$37,$38,$39,
 			$40,$41,$42,
-			$43,$44
+			$43,$44,
+			$45,$46,
+			$47,$48,$49,$50,
+			$51,$52,
+			$53,$54,
+			$55,$56
 		)`,
 		p.ID, p.TenantID, p.ContactID, p.CreatedBy, p.Status,
 		emptyToNil(p.TimeFrom), emptyToNil(p.TimeTo), emptyToNil(p.Location), p.Advisor,
@@ -71,6 +81,11 @@ func (r *PostgresRepository) Create(ctx context.Context, p *Protocol) error {
 		p.MainConcerns, warnings, p.DocumentDelivered, p.DeliveryForm, p.AdvisorSignature,
 		p.CustomerConfirmation, p.DocumentWaiver, p.InternalNotes,
 		p.CreatedAt, p.UpdatedAt,
+		p.Date, p.BirthDate,
+		p.MonthlyNetIncome, p.RecurringLiabilities, p.LiquidAssets, p.CurrentInvestments,
+		p.MaxLossCapacityAbs, p.MaxLossCapacityPct,
+		p.OneTimeAmount, p.MonthlySavings,
+		p.DocumentDeliveredDate, p.FollowupDate,
 	)
 	return err
 }

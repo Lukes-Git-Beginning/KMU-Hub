@@ -151,7 +151,7 @@ func main() {
 	quoteSvc := quote.NewService(quoteRepo, numberSeqRepo, companySettingsRepo, dealUpdater, pool)
 	invoiceSvc := invoice.NewService(invoiceRepo, numberSeqRepo, companySettingsRepo, quoteRepo, pool)
 	creditNoteSvc := creditnote.NewService(creditNoteRepo, invoiceRepo, numberSeqRepo, pool)
-	paymentSvc := payment.NewService(paymentRepo, invoiceRepo, invoiceRepo)
+	paymentSvc := payment.NewService(paymentRepo, invoiceRepo, invoiceRepo, pool)
 	dunningSvc := dunning.NewService(dunningRepo, dunningConfigRepo, invoiceRepo)
 	dashboardSvc := dashboard.NewService(dashboardRepo)
 

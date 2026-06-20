@@ -7,12 +7,27 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kmuhub/kmuhub/internal/models"
 )
+
+// noopTxBeginner returns no-op transactions so Record/Delete orchestration can run
+// with mock repos in unit tests; the mock InTx methods ignore the tx and the real
+// atomicity is covered by the integration test.
+type noopTxBeginner struct{}
+
+func (noopTxBeginner) Begin(context.Context) (pgx.Tx, error) { return noopTx{}, nil }
+
+// noopTx satisfies pgx.Tx with no-op Commit/Rollback; all other methods are never
+// called by the mock-backed paths (embedded nil pgx.Tx).
+type noopTx struct{ pgx.Tx }
+
+func (noopTx) Commit(context.Context) error   { return nil }
+func (noopTx) Rollback(context.Context) error { return nil }
 
 // ============================================================================
 // Mock Implementations
@@ -108,6 +123,20 @@ func (m *MockRepository) GetByIdempotencyKey(ctx context.Context, tenantID uuid.
 	return nil, nil
 }
 
+// InTx variants ignore the (no-op) tx and reuse the in-memory logic so the
+// service orchestration is exercised without a real database.
+func (m *MockRepository) CreateInTx(ctx context.Context, _ pgx.Tx, payment *models.Payment) error {
+	return m.Create(ctx, payment)
+}
+
+func (m *MockRepository) DeleteInTx(ctx context.Context, _ pgx.Tx, tenantID, id uuid.UUID) error {
+	return m.Delete(ctx, tenantID, id)
+}
+
+func (m *MockRepository) SumByInvoiceIDInTx(ctx context.Context, _ pgx.Tx, tenantID, invoiceID uuid.UUID) (decimal.Decimal, error) {
+	return m.SumByInvoiceID(ctx, tenantID, invoiceID)
+}
+
 // MockInvoiceReader implements InvoiceReader for testing.
 type MockInvoiceReader struct {
 	invoices map[uuid.UUID]*models.Invoice
@@ -151,6 +180,10 @@ func (m *MockInvoiceStatusUpdater) UpdateStatus(ctx context.Context, tenantID, i
 	return nil
 }
 
+func (m *MockInvoiceStatusUpdater) UpdateStatusInTx(ctx context.Context, _ pgx.Tx, tenantID, id uuid.UUID, status string) error {
+	return m.UpdateStatus(ctx, tenantID, id, status)
+}
+
 // ============================================================================
 // Helpers
 // ============================================================================
@@ -159,7 +192,7 @@ func newTestService() (*Service, *MockRepository, *MockInvoiceReader, *MockInvoi
 	repo := NewMockRepository()
 	reader := NewMockInvoiceReader()
 	updater := NewMockInvoiceStatusUpdater()
-	svc := NewService(repo, reader, updater)
+	svc := NewService(repo, reader, updater, noopTxBeginner{})
 	return svc, repo, reader, updater
 }
 
@@ -421,6 +454,55 @@ func TestRecord_RepoCreateError(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "database connection lost")
+}
+
+// TestRecord_StatusUpdateErrorFailsRecord guards the B4 atomicity fix: a failed
+// invoice status transition must fail the whole Record (and roll back the payment
+// in production) instead of being swallowed as a warning that drifts the status.
+func TestRecord_StatusUpdateErrorFailsRecord(t *testing.T) {
+	svc, _, reader, updater := newTestService()
+
+	tenantID := uuid.New()
+	inv := newSentInvoice(tenantID, decimal.NewFromInt(1000))
+	reader.invoices[inv.ID] = inv
+	updater.updateErr = errors.New("status write failed")
+
+	// A full payment triggers the transition-to-paid, which now fails.
+	input := newRecordInput(tenantID, inv.ID, decimal.NewFromInt(1000))
+	_, err := svc.Record(context.Background(), input)
+
+	require.Error(t, err, "a failed status transition must fail Record, not drift silently")
+	assert.Contains(t, err.Error(), "transition to paid")
+}
+
+// TestDelete_StatusUpdateErrorFailsDelete is the Delete-side counterpart: a failed
+// revert must fail the whole Delete instead of being swallowed.
+func TestDelete_StatusUpdateErrorFailsDelete(t *testing.T) {
+	svc, repo, reader, updater := newTestService()
+
+	tenantID := uuid.New()
+	invoiceID := uuid.New()
+	paymentID := uuid.New()
+	reader.invoices[invoiceID] = &models.Invoice{
+		ID:         invoiceID,
+		TenantID:   tenantID,
+		Status:     models.InvoiceStatusPaid,
+		GrossTotal: decimal.NewFromInt(1000),
+		DueDate:    time.Now().Add(30 * 24 * time.Hour),
+	}
+	repo.payments[paymentID] = &models.Payment{
+		ID:        paymentID,
+		TenantID:  tenantID,
+		InvoiceID: invoiceID,
+		Amount:    decimal.NewFromInt(1000),
+		CreatedAt: time.Now(),
+	}
+	updater.updateErr = errors.New("status write failed")
+
+	err := svc.Delete(context.Background(), tenantID, paymentID)
+
+	require.Error(t, err, "a failed revert must fail Delete, not drift silently")
+	assert.Contains(t, err.Error(), "revert from paid")
 }
 
 func TestRecord_DefaultsDateWhenZero(t *testing.T) {

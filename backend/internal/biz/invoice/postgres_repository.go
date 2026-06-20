@@ -296,6 +296,16 @@ func (r *PostgresRepository) UpdateStatus(ctx context.Context, tenantID, id uuid
 	return err
 }
 
+// UpdateStatusInTx updates the invoice status within the caller's transaction so a
+// payment write and the coupled status transition commit (or roll back) atomically.
+func (r *PostgresRepository) UpdateStatusInTx(ctx context.Context, tx pgx.Tx, tenantID, id uuid.UUID, status string) error {
+	_, err := tx.Exec(ctx,
+		`UPDATE finance_invoices SET status = $1, updated_at = NOW() WHERE tenant_id = $2 AND id = $3`,
+		status, tenantID, id,
+	)
+	return err
+}
+
 // SetLock sets locked_at and locked_by on the invoice without triggering a
 // full Update (which would unnecessarily re-write all line items).
 // Used by LockInvoice (service_gobd.go).

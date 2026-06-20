@@ -117,6 +117,16 @@ func (m *MockRepository) UpdateStatus(ctx context.Context, tenantID, id uuid.UUI
 	return nil
 }
 
+func (m *MockRepository) UpdateStatusInTx(_ context.Context, _ pgx.Tx, _, id uuid.UUID, status string) error {
+	if m.updateStatusErr != nil {
+		return m.updateStatusErr
+	}
+	if inv, ok := m.invoices[id]; ok {
+		inv.Status = status
+	}
+	return nil
+}
+
 func (m *MockRepository) GetOverdue(ctx context.Context, tenantID uuid.UUID) ([]*models.Invoice, error) {
 	if m.overdueErr != nil {
 		return nil, m.overdueErr

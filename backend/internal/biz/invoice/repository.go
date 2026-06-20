@@ -33,6 +33,9 @@ type Repository interface {
 	// couple number assignment + status/number update atomically — GoBD).
 	UpdateInTx(ctx context.Context, tx pgx.Tx, invoice *models.Invoice) error
 	UpdateStatus(ctx context.Context, tenantID, id uuid.UUID, status string) error
+	// UpdateStatusInTx updates the invoice status within a caller-owned transaction,
+	// so a payment write and the coupled status transition commit atomically.
+	UpdateStatusInTx(ctx context.Context, tx pgx.Tx, tenantID, id uuid.UUID, status string) error
 	GetOverdue(ctx context.Context, tenantID uuid.UUID) ([]*models.Invoice, error)
 	GetByQuoteID(ctx context.Context, tenantID, quoteID uuid.UUID) (*models.Invoice, error)
 	// LinkTimeTracking persists a time_tracking_source JSONB payload on the invoice.

@@ -11,28 +11,42 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
 	"github.com/kmuhub/kmuhub/internal/models"
 )
+
+// txBeginner begins a transaction. Satisfied by *pgxpool.Pool in production and a
+// no-op fake in unit tests so the orchestration runs without a database (real
+// atomicity is covered by the integration test).
+type txBeginner interface {
+	Begin(ctx context.Context) (pgx.Tx, error)
+}
 
 // Service handles payment business logic.
 type Service struct {
 	repo           Repository
 	invoiceReader  InvoiceReader
 	invoiceUpdater InvoiceStatusUpdater
+	// pool backs the atomic Record/Delete transactions (payment write + invoice
+	// status transition in one tx). Required for Record and Delete.
+	pool txBeginner
 }
 
-// NewService creates a new payment service.
+// NewService creates a new payment service. pool is required for Record/Delete so
+// the payment write and the coupled invoice status transition commit atomically.
 func NewService(
 	repo Repository,
 	invoiceReader InvoiceReader,
 	invoiceUpdater InvoiceStatusUpdater,
+	pool txBeginner,
 ) *Service {
 	return &Service{
 		repo:           repo,
 		invoiceReader:  invoiceReader,
 		invoiceUpdater: invoiceUpdater,
+		pool:           pool,
 	}
 }
 
@@ -97,10 +111,19 @@ func (s *Service) Record(ctx context.Context, input RecordInput) (*models.Paymen
 		IdempotencyKey: input.IdempotencyKey,
 	}
 
-	if createErr := s.repo.Create(ctx, payment); createErr != nil {
+	if s.pool == nil {
+		return nil, fmt.Errorf("payment service: pool not configured (required for Record)")
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	if createErr := s.repo.CreateInTx(ctx, tx, payment); createErr != nil {
 		// DB-level idempotency (F5): a duplicate key means this payment was already
-		// recorded (e.g. a retry that bypassed or outran the HTTP middleware). Return
-		// the existing payment and skip side effects rather than double-recording.
+		// recorded; its original transaction also ran the status transition, so we
+		// drop this tx and return the existing payment without re-applying side effects.
 		if errors.Is(createErr, ErrDuplicatePayment) {
 			existing, getErr := s.repo.GetByIdempotencyKey(ctx, input.TenantID, input.IdempotencyKey)
 			if getErr != nil {
@@ -118,6 +141,16 @@ func (s *Service) Record(ctx context.Context, input RecordInput) (*models.Paymen
 		return nil, createErr
 	}
 
+	// Transition the invoice to paid within the same transaction so the payment and
+	// the coupled status change commit atomically — no status drift on partial failure.
+	if err := s.transitionToPaidInTx(ctx, tx, input.TenantID, input.InvoiceID, inv); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit tx: %w", err)
+	}
+
 	slog.Info("payment recorded",
 		"payment_id", payment.ID,
 		"invoice_id", payment.InvoiceID,
@@ -125,14 +158,6 @@ func (s *Service) Record(ctx context.Context, input RecordInput) (*models.Paymen
 		"amount", payment.Amount,
 		"method", payment.Method,
 	)
-
-	// Check if invoice is now fully paid
-	if err := s.checkAndTransitionToPaid(ctx, input.TenantID, input.InvoiceID, inv); err != nil {
-		slog.Warn("failed to check/transition invoice to paid",
-			"invoice_id", input.InvoiceID,
-			"error", err,
-		)
-	}
 
 	return payment, nil
 }
@@ -162,8 +187,29 @@ func (s *Service) Delete(ctx context.Context, tenantID, id uuid.UUID) error {
 		return fmt.Errorf("cannot delete payment on cancelled invoice")
 	}
 
-	if delErr := s.repo.Delete(ctx, tenantID, id); delErr != nil {
+	if s.pool == nil {
+		return fmt.Errorf("payment service: pool not configured (required for Delete)")
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	if delErr := s.repo.DeleteInTx(ctx, tx, tenantID, id); delErr != nil {
 		return delErr
+	}
+
+	// Re-evaluate the invoice status within the same transaction so the deletion and
+	// the coupled revert commit atomically — no drift on partial failure.
+	if inv.Status == models.InvoiceStatusPaid {
+		if revertErr := s.revertPaidStatusInTx(ctx, tx, tenantID, payment.InvoiceID, inv); revertErr != nil {
+			return revertErr
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit tx: %w", err)
 	}
 
 	slog.Info("payment deleted",
@@ -172,34 +218,25 @@ func (s *Service) Delete(ctx context.Context, tenantID, id uuid.UUID) error {
 		"tenant_id", tenantID,
 	)
 
-	// Re-evaluate invoice status after payment deletion
-	if inv.Status == models.InvoiceStatusPaid {
-		if revertErr := s.revertPaidStatus(ctx, tenantID, payment.InvoiceID, inv); revertErr != nil {
-			slog.Warn("failed to revert invoice paid status",
-				"invoice_id", payment.InvoiceID,
-				"error", revertErr,
-			)
-		}
-	}
-
 	return nil
 }
 
-// checkAndTransitionToPaid checks if the sum of payments covers the invoice total
-// and transitions to paid if so.
-func (s *Service) checkAndTransitionToPaid(ctx context.Context, tenantID, invoiceID uuid.UUID, inv *models.Invoice) error {
+// transitionToPaidInTx checks whether payments now cover the invoice total and, if
+// so, transitions the invoice to paid within the caller's transaction (atomic with
+// the payment write).
+func (s *Service) transitionToPaidInTx(ctx context.Context, tx pgx.Tx, tenantID, invoiceID uuid.UUID, inv *models.Invoice) error {
 	// Skip if already paid
 	if inv.Status == models.InvoiceStatusPaid {
 		return nil
 	}
 
-	totalPaid, err := s.repo.SumByInvoiceID(ctx, tenantID, invoiceID)
+	totalPaid, err := s.repo.SumByInvoiceIDInTx(ctx, tx, tenantID, invoiceID)
 	if err != nil {
 		return fmt.Errorf("sum payments: %w", err)
 	}
 
 	if totalPaid.GreaterThanOrEqual(inv.GrossTotal) {
-		if updateErr := s.invoiceUpdater.UpdateStatus(ctx, tenantID, invoiceID, models.InvoiceStatusPaid); updateErr != nil {
+		if updateErr := s.invoiceUpdater.UpdateStatusInTx(ctx, tx, tenantID, invoiceID, models.InvoiceStatusPaid); updateErr != nil {
 			return fmt.Errorf("transition to paid: %w", updateErr)
 		}
 		slog.Info("invoice auto-transitioned to paid",
@@ -213,10 +250,11 @@ func (s *Service) checkAndTransitionToPaid(ctx context.Context, tenantID, invoic
 	return nil
 }
 
-// revertPaidStatus reverts an invoice from paid to sent or overdue
-// when a payment is deleted and the total no longer covers the invoice amount.
-func (s *Service) revertPaidStatus(ctx context.Context, tenantID, invoiceID uuid.UUID, inv *models.Invoice) error {
-	totalPaid, err := s.repo.SumByInvoiceID(ctx, tenantID, invoiceID)
+// revertPaidStatusInTx reverts an invoice from paid to sent or overdue when a
+// payment is deleted and the remaining total no longer covers the invoice amount,
+// within the caller's transaction (atomic with the deletion).
+func (s *Service) revertPaidStatusInTx(ctx context.Context, tx pgx.Tx, tenantID, invoiceID uuid.UUID, inv *models.Invoice) error {
+	totalPaid, err := s.repo.SumByInvoiceIDInTx(ctx, tx, tenantID, invoiceID)
 	if err != nil {
 		return fmt.Errorf("sum payments: %w", err)
 	}
@@ -228,7 +266,7 @@ func (s *Service) revertPaidStatus(ctx context.Context, tenantID, invoiceID uuid
 			newStatus = models.InvoiceStatusOverdue
 		}
 
-		if updateErr := s.invoiceUpdater.UpdateStatus(ctx, tenantID, invoiceID, newStatus); updateErr != nil {
+		if updateErr := s.invoiceUpdater.UpdateStatusInTx(ctx, tx, tenantID, invoiceID, newStatus); updateErr != nil {
 			return fmt.Errorf("revert from paid: %w", updateErr)
 		}
 		slog.Info("invoice reverted from paid",
