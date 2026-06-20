@@ -5624,6 +5624,7 @@
   "meetings.toast.duplicated": "Riunione duplicata",
   "meetings.toast.invitationsSent": "Inviti inviati a {count} partecipanti (incl. invito calendario .ics)",
   "meetings.toast.left": "Riunione abbandonata",
+  "meetings.toast.startFailed": "Impossibile avviare la riunione",
   "meetings.toast.updated": "Riunione aggiornata",
   "meetings.view.grid": "Vista griglia",
   "meetings.view.timeline": "Vista timeline",

@@ -5624,6 +5624,7 @@
   "meetings.toast.duplicated": "Réunion dupliquée",
   "meetings.toast.invitationsSent": "Invitations envoyées à {count} participant(s) (incl. invitation .ics)",
   "meetings.toast.left": "Réunion quittée",
+  "meetings.toast.startFailed": "Impossible de démarrer la réunion",
   "meetings.toast.updated": "Réunion mise à jour",
   "meetings.view.grid": "Vue grille",
   "meetings.view.timeline": "Vue chronologique",

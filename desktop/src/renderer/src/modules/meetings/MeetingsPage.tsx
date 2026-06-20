@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Video,
@@ -21,10 +21,12 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useMeetingsStore, type Meeting } from '@/stores/meetings'
+import { useMeetings, useStartMeeting } from '@/api/hooks/useMeetings'
 import { ItemActions, ConfirmDialog, EmptyState, PageHeader, type ActionItem } from '@/components/shared'
 import { MeetingFormDialog } from './MeetingFormDialog'
 import { MeetingDetailPanel } from './MeetingDetailPanel'
 import { MeetingRoomView } from './MeetingRoomView'
+import { backendMeetingToUI } from './mappers'
 import { formatDate } from '@/lib/format'
 
 type FilterTab = 'all' | 'live' | 'scheduled' | 'past'
@@ -80,8 +82,24 @@ function groupByDate(meetings: Meeting[], _t: (key: string) => string): { label:
 
 export default function MeetingsPage() {
   const { t } = useTranslation()
-  const { meetings, addMeeting, updateMeeting, deleteMeeting, cancelMeeting, duplicateMeeting } =
+  const { meetings: localMeetings, addMeeting, updateMeeting, deleteMeeting, cancelMeeting, duplicateMeeting } =
     useMeetingsStore()
+
+  // Real meetings from the backend (read-only projection). Local store meetings
+  // remain the source for create/edit/delete/cancel/duplicate until the backend
+  // meeting model gains the richer UI fields (R3-E3, pragmatic scope).
+  const { data: apiMeetings } = useMeetings()
+  const startMeeting = useStartMeeting()
+
+  const apiUIMeetings = useMemo(
+    () => (apiMeetings ?? []).map(backendMeetingToUI),
+    [apiMeetings],
+  )
+  const apiIds = useMemo(() => new Set(apiUIMeetings.map((m) => m.id)), [apiUIMeetings])
+  const meetings = useMemo(
+    () => [...apiUIMeetings, ...localMeetings],
+    [apiUIMeetings, localMeetings],
+  )
 
   const [filter, setFilter] = useState<FilterTab>('all')
   const [search, setSearch] = useState('')
@@ -93,6 +111,20 @@ export default function MeetingsPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null)
   const [meetingRoomId, setMeetingRoomId] = useState<string | null>(null)
+
+  // Joining a backend meeting starts it server-side (transitions to in_progress
+  // and provisions the LiveKit room + token) before opening the room. Local mock
+  // meetings just open the room directly.
+  const handleJoin = (id: string) => {
+    if (apiIds.has(id)) {
+      startMeeting.mutate(id, {
+        onSuccess: () => setMeetingRoomId(id),
+        onError: () => toast.error(t('meetings.toast.startFailed')),
+      })
+    } else {
+      setMeetingRoomId(id)
+    }
+  }
 
   const filtered = meetings.filter((m) => {
     if (filter !== 'all' && m.status !== filter) return false
@@ -264,7 +296,7 @@ export default function MeetingsPage() {
                     key={m.id}
                     meeting={m}
                     actions={getMeetingActions(m)}
-                    onJoin={() => setMeetingRoomId(m.id)}
+                    onJoin={() => handleJoin(m.id)}
                     onDetails={() => setSelectedMeetingId(m.id)}
                     onAdvanced={() => setSelectedMeetingId(m.id)}
                   />
@@ -323,7 +355,7 @@ export default function MeetingsPage() {
                     key={m.id}
                     meeting={m}
                     actions={getMeetingActions(m)}
-                    onJoin={() => setMeetingRoomId(m.id)}
+                    onJoin={() => handleJoin(m.id)}
                     onDetails={() => setSelectedMeetingId(m.id)}
                     onAdvanced={() => setSelectedMeetingId(m.id)}
                   />
@@ -358,7 +390,7 @@ export default function MeetingsPage() {
         onClose={() => setSelectedMeetingId(null)}
         onEdit={(m) => { setSelectedMeetingId(null); setEditMeeting(m); setFormOpen(true) }}
         onDelete={(id) => { setSelectedMeetingId(null); setDeleteConfirmId(id) }}
-        onJoin={(id) => { setSelectedMeetingId(null); setMeetingRoomId(id) }}
+        onJoin={(id) => { setSelectedMeetingId(null); handleJoin(id) }}
       />
 
       {/* Meeting Room */}

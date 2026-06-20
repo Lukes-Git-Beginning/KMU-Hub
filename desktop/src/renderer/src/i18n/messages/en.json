@@ -5658,6 +5658,7 @@
   "meetings.toast.duplicated": "Meeting duplicated",
   "meetings.toast.invitationsSent": "Invitations sent to {count} participants (incl. .ics calendar invite)",
   "meetings.toast.left": "Meeting left",
+  "meetings.toast.startFailed": "Could not start the meeting",
   "meetings.toast.updated": "Meeting updated",
   "meetings.view.grid": "Grid view",
   "meetings.view.timeline": "Timeline view",
