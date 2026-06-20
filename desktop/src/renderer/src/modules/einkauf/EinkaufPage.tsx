@@ -207,16 +207,16 @@ export default function EinkaufPage() {
 
   // API data
   const { data: posData, isLoading: posLoading } = usePOs()
-  const purchaseOrders = posData?.pos ?? []
+  const purchaseOrders = useMemo(() => posData?.pos ?? [], [posData])
 
   const { data: suppliersData, isLoading: suppliersLoading } = useSuppliers()
-  const suppliers = suppliersData?.suppliers ?? []
+  const suppliers = useMemo(() => suppliersData?.suppliers ?? [], [suppliersData])
 
   const { data: catalogData, isLoading: catalogLoading } = useCatalogItems({
     search: catalogSearch || undefined,
     category: catalogCategory !== 'all' ? catalogCategory : undefined,
   })
-  const catalogItems = catalogData?.catalog_items ?? []
+  const catalogItems = useMemo(() => catalogData?.catalog_items ?? [], [catalogData])
 
   const { data: contractsData, isLoading: contractsLoading } = useFrameworkContracts()
   const frameworkContracts = contractsData?.contracts ?? []
