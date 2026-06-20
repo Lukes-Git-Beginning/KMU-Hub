@@ -12,6 +12,7 @@
     "src/renderer/src/modules/berichte/components/documents/doc-utils.ts",
     "src/renderer/src/modules/berichte/components/documents/ReportStatusBadge.tsx",
     "src/renderer/src/modules/berichte/components/documents/BerichtLibrary.tsx",
+    "src/renderer/src/modules/berichte/components/documents/BlockEditor.tsx",
     "src/renderer/src/modules/berichte/components/documents/ReportDocumentEditor.tsx"
   ]
 }
