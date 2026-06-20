@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { useWikiPrefsStore } from '@/stores/wikiPrefs'
 import { WikiRichEditor } from './WikiRichEditor'
 
 // ---------------------------------------------------------------------------
@@ -22,19 +23,23 @@ interface WikiEditorProps {
  */
 export function WikiEditor({ content, onChange, onSave, onCancel, saving }: WikiEditorProps) {
   const { t } = useTranslation()
+  const readingWidth = useWikiPrefsStore((s) => s.readingWidth)
+  const widthClass = readingWidth === 'wide' ? 'max-w-none' : 'max-w-3xl mx-auto'
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       {/* Editor */}
       <div className="flex-1 overflow-y-auto px-4 py-3">
-        <WikiRichEditor
-          content={content}
-          onChange={onChange}
-          placeholder={t('wiki.editor.placeholder')}
-          autofocus
-          onSave={onSave}
-          onCancel={onCancel}
-        />
+        <div className={widthClass}>
+          <WikiRichEditor
+            content={content}
+            onChange={onChange}
+            placeholder={t('wiki.editor.placeholder')}
+            autofocus
+            onSave={onSave}
+            onCancel={onCancel}
+          />
+        </div>
       </div>
 
       {/* Footer actions */}

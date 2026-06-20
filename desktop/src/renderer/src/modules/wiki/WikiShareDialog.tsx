@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import type { WikiArticle } from '@/types/wiki'
 import type { WikiShareToken } from '@/api/wiki-types'
 import { useCreateShareToken } from '@/api/hooks/useWiki'
+import { useWikiSettingsStore } from '@/stores/wikiSettings'
 import {
   Dialog,
   DialogContent,
@@ -39,14 +40,16 @@ export function WikiShareDialog({ open, onOpenChange, article }: WikiShareDialog
   const [copied, setCopied] = useState(false)
   const [token, setToken] = useState<WikiShareToken | null>(null)
   const createShareToken = useCreateShareToken()
+  const shareDefault = useWikiSettingsStore((s) => s.shareDefault)
 
-  // Reset the generated link when the dialog targets a different article.
+  // Reset the generated link when the dialog targets a different article, seeding
+  // the access level from the tenant default ('internal' → team, 'public').
   const articleId = article?.id
   useEffect(() => {
     setToken(null)
-    setAccess('team')
+    setAccess(shareDefault === 'public' ? 'public' : 'team')
     setCopied(false)
-  }, [articleId])
+  }, [articleId, shareDefault])
 
   if (!article) return null
 

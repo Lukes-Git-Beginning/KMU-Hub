@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { BookOpen, Plus, FolderPlus } from 'lucide-react'
 import { moduleHsl } from '@/components/layout/sidebar/nav-items'
 import { useWikiStore } from '@/stores/wiki'
+import { useWikiPrefsStore } from '@/stores/wikiPrefs'
 import type { WikiArticle, WikiCategory } from '@/types/wiki'
 import { WikiSearch } from './WikiSearch'
 import { WikiTreeNode } from './WikiTreeNode'
@@ -27,8 +28,12 @@ export function WikiSidebar({ categories, articles, categoriesLoading, onNewArti
   const { t } = useTranslation()
   const selectedCategoryId = useWikiStore((s) => s.selectedCategoryId)
   const setSelectedCategory = useWikiStore((s) => s.setSelectedCategory)
+  const defaultView = useWikiPrefsStore((s) => s.defaultView)
+  const sidebarDefaultOpen = useWikiPrefsStore((s) => s.sidebarDefaultOpen)
 
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set((categories ?? []).map((c) => c.id)))
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() =>
+    sidebarDefaultOpen ? new Set((categories ?? []).map((c) => c.id)) : new Set(),
+  )
 
   const totalArticles = articles.length
   const publishedCount = articles.filter((a) => a.status === 'published').length
@@ -103,29 +108,32 @@ export function WikiSidebar({ categories, articles, categoriesLoading, onNewArti
           <span className="text-[10px] text-muted-foreground">{totalArticles}</span>
         </button>
 
-        <div className="my-1.5 border-t border-border" />
-
-        {/* Categories */}
-        {categoriesLoading ? (
-          <div className="space-y-1">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-7 rounded bg-muted animate-pulse" />
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-0.5">
-            {(categories ?? []).map((cat) => (
-              <WikiTreeNode
-                key={cat.id}
-                category={cat}
-                isSelected={selectedCategoryId === cat.id}
-                isExpanded={expandedIds.has(cat.id)}
-                onSelect={setSelectedCategory}
-                onToggle={toggleExpand}
-                articleCount={articleCounts[cat.id] ?? 0}
-              />
-            ))}
-          </div>
+        {/* Categories — hidden in the flat 'list' view */}
+        {defaultView === 'tree' && (
+          <>
+            <div className="my-1.5 border-t border-border" />
+            {categoriesLoading ? (
+              <div className="space-y-1">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-7 rounded bg-muted animate-pulse" />
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-0.5">
+                {(categories ?? []).map((cat) => (
+                  <WikiTreeNode
+                    key={cat.id}
+                    category={cat}
+                    isSelected={selectedCategoryId === cat.id}
+                    isExpanded={expandedIds.has(cat.id)}
+                    onSelect={setSelectedCategory}
+                    onToggle={toggleExpand}
+                    articleCount={articleCounts[cat.id] ?? 0}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 
