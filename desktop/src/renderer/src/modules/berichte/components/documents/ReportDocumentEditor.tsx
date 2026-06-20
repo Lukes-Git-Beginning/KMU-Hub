@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Archive, ArrowLeft, Check, CheckCircle2, Copy, Eye, MoreVertical, Pencil, Printer, Send } from 'lucide-react'
+import { Archive, ArrowLeft, CalendarClock, Check, CheckCircle2, Copy, Eye, MoreVertical, Pencil, Printer, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ReportDocStatus, ReportDocument, ReportRow } from '@/api/berichte-types'
 import {
@@ -14,6 +14,7 @@ import { formatDate } from '@/lib/format'
 import { ReportStatusBadge } from './ReportStatusBadge'
 import { BlockEditor } from './BlockEditor'
 import { DocumentReader } from './DocumentReader'
+import { ScheduleReportModal } from './ScheduleReportModal'
 import { blockCount, estimatePageCount } from './doc-utils'
 
 interface ReportDocumentEditorProps {
@@ -80,6 +81,7 @@ function DocumentEditorInner({
   const [rows, setRows] = useState<ReportRow[]>(doc.rows)
   const [mode, setMode] = useState<'read' | 'edit'>(locked ? 'read' : initialMode)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [scheduleOpen, setScheduleOpen] = useState(false)
 
   const totalBlocks = blockCount({ ...doc, rows })
 
@@ -181,6 +183,24 @@ function DocumentEditorInner({
           </div>
         )}
 
+        {/* Schedule — only meaningful once released; otherwise a guarded hint. */}
+        {mode === 'read' && (
+          <button
+            type="button"
+            onClick={() => doc.status === 'released' && setScheduleOpen(true)}
+            disabled={doc.status !== 'released'}
+            title={
+              doc.status !== 'released'
+                ? t('berichte.docs.schedule.guardNotReleased')
+                : undefined
+            }
+            className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+          >
+            <CalendarClock className="h-3.5 w-3.5" />
+            {t('berichte.docs.schedule.button')}
+          </button>
+        )}
+
         {/* Print / Save as PDF — available whenever the report is being read. */}
         {mode === 'read' && (
           <button
@@ -221,6 +241,8 @@ function DocumentEditorInner({
           <DocumentReader rows={rows} settings={doc.settings} />
         )}
       </div>
+
+      <ScheduleReportModal doc={doc} open={scheduleOpen} onClose={() => setScheduleOpen(false)} />
     </div>
   )
 }

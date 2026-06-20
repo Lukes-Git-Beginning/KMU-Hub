@@ -23,12 +23,11 @@ import {
   useToggleSchedule,
 } from '@/api/hooks/useBerichte'
 import { formatDateTime } from '@/lib/format'
+import { EMAIL_RE, buildRunHistory, computeNextRun } from './schedule-utils'
 
 interface ScheduleListProps {
   definitions: ReportDefinition[]
 }
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 // formatDateTime imported from @/lib/format (locale-aware)
 
@@ -36,59 +35,6 @@ const STATUS_STYLES: Record<string, string> = {
   success: 'bg-success-light text-success',
   failed: 'bg-error-light text-error',
   skipped: 'bg-warning-light text-warning',
-}
-
-const DOW_MAP: Record<string, number> = { SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 }
-
-/**
- * Demo-grade next-run estimate from a 5-field cron expression
- * (min hour dom mon dow). Month is ignored for the demo; iterates day-by-day.
- */
-function computeNextRun(cron: string, from: Date = new Date()): Date | null {
-  const parts = cron.trim().split(/\s+/)
-  if (parts.length < 5) return null
-  const [minF, hourF, domF, , dowF] = parts
-  const min = minF === '*' ? 0 : parseInt(minF, 10)
-  const hour = hourF === '*' ? null : parseInt(hourF, 10)
-  const dom = domF === '*' ? null : parseInt(domF, 10)
-  const dow = dowF === '*' ? null : DOW_MAP[dowF.toUpperCase()] ?? parseInt(dowF, 10)
-  if (Number.isNaN(min)) return null
-  for (let i = 0; i < 366; i++) {
-    const d = new Date(from)
-    d.setDate(from.getDate() + i)
-    d.setHours(hour ?? from.getHours() + (i === 0 ? 1 : 0), min, 0, 0)
-    if (dom !== null && d.getDate() !== dom) continue
-    if (dow !== null && d.getDay() !== dow) continue
-    if (d > from) return d
-  }
-  return null
-}
-
-interface RunHistoryEntry {
-  at: string
-  status: 'success' | 'failed' | 'skipped'
-  durationMs: number
-}
-
-/** Demo run history: last ~5 runs back from last_run_at, seeded per schedule. */
-function buildRunHistory(s: ReportSchedule): RunHistoryEntry[] {
-  if (!s.last_run_at) return []
-  const base = new Date(s.last_run_at).getTime()
-  const cron = s.cron_expression
-  const stepDays = /MON|TUE|WED|THU|FRI|SAT|SUN/i.test(cron)
-    ? 7
-    : cron.trim().split(/\s+/)[2] !== '*'
-      ? 30
-      : 1
-  let seed = 0
-  for (let i = 0; i < s.id.length; i++) seed = (seed * 31 + s.id.charCodeAt(i)) >>> 0
-  return Array.from({ length: 5 }, (_, i) => {
-    seed = (seed * 1664525 + 1013904223) >>> 0
-    const r = seed / 0xffffffff
-    const status: RunHistoryEntry['status'] =
-      i === 0 ? (s.last_run_status ?? 'success') : r < 0.12 ? 'skipped' : r < 0.2 ? 'failed' : 'success'
-    return { at: new Date(base - i * stepDays * 86_400_000).toISOString(), status, durationMs: 800 + Math.floor(r * 4200) }
-  })
 }
 
 export function ScheduleList({ definitions }: ScheduleListProps) {

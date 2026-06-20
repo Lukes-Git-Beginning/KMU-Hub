@@ -10,6 +10,9 @@
     "src/renderer/src/mocks/handlers/berichte.ts",
     "src/renderer/src/modules/berichte/components/documents/doc-utils.ts",
     "src/renderer/src/modules/berichte/components/documents/DocumentReader.tsx",
-    "src/renderer/src/modules/berichte/components/documents/ReportDocumentEditor.tsx"
+    "src/renderer/src/modules/berichte/components/documents/ReportDocumentEditor.tsx",
+    "src/renderer/src/modules/berichte/components/documents/ScheduleReportModal.tsx",
+    "src/renderer/src/modules/berichte/components/schedule-utils.ts",
+    "src/renderer/src/modules/berichte/components/ScheduleList.tsx"
   ]
 }
