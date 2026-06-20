@@ -46,23 +46,23 @@ export const WIKI_TEMPLATES: WikiTemplate[] = [
 ]
 
 // ---------------------------------------------------------------------------
-// Article meta (mock-first — pin state + tags have no backend field yet)
+// Article meta (mock-first — pin state has no backend field yet; tags are now
+// a real article field served by MSW + the adapter)
 // ---------------------------------------------------------------------------
 
 export interface WikiArticleMeta {
   pinned: boolean
-  tags: string[]
 }
 
-/** Demo seed so the list shows pins + tags before the backend exposes them. */
+/** Demo seed so the list shows pins before the backend exposes them. */
 const SEED_ARTICLE_META: Record<string, WikiArticleMeta> = {
-  'wart-001': { pinned: true, tags: ['Onboarding', 'Übersicht'] },
-  'wart-002': { pinned: true, tags: ['HR', 'Checkliste'] },
-  'wart-003': { pinned: false, tags: ['Finanzen', 'DATEV', 'Prozess'] },
-  'wart-004': { pinned: false, tags: ['IT', 'Notfall'] },
-  'wart-005': { pinned: false, tags: ['DSGVO', 'Recht'] },
-  'wart-006': { pinned: false, tags: ['CRM', 'Vertrieb'] },
-  'wart-007': { pinned: false, tags: ['IT', 'Intern'] },
+  'wart-001': { pinned: true },
+  'wart-002': { pinned: true },
+  'wart-003': { pinned: false },
+  'wart-004': { pinned: false },
+  'wart-005': { pinned: false },
+  'wart-006': { pinned: false },
+  'wart-007': { pinned: false },
 }
 
 // ---------------------------------------------------------------------------
@@ -98,7 +98,7 @@ export const useWikiStore = create<WikiUIState>()(
       setSearchQuery: (searchQuery) => set({ searchQuery }),
       togglePin: (id) =>
         set((state) => {
-          const current = state.articleMeta[id] ?? { pinned: false, tags: [] }
+          const current = state.articleMeta[id] ?? { pinned: false }
           return {
             articleMeta: {
               ...state.articleMeta,
@@ -109,7 +109,7 @@ export const useWikiStore = create<WikiUIState>()(
     }),
     {
       name: 'cosmi-wiki',
-      version: 4,
+      version: 5,
       partialize: (state) => ({
         selectedCategoryId: state.selectedCategoryId,
         articleMeta: state.articleMeta,

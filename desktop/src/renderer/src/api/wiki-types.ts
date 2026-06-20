@@ -23,6 +23,8 @@ export interface WikiArticle {
   author_id: string
   category_id: string | null
   published: boolean
+  /** Free-form labels for filtering/grouping. */
+  tags?: string[]
   /** Read counter — incremented by the backend on article detail GET. */
   view_count?: number
   created_at: string
@@ -77,6 +79,7 @@ export interface CreateArticleInput {
   content?: TipTapContent
   category_id?: string
   published?: boolean
+  tags?: string[]
 }
 
 export interface UpdateArticleInput {
@@ -85,6 +88,7 @@ export interface UpdateArticleInput {
   content?: TipTapContent
   category_id?: string | null
   published?: boolean
+  tags?: string[]
 }
 
 export interface ListArticlesParams {

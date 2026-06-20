@@ -21,11 +21,13 @@ import { WikiAttachments } from './WikiAttachments'
 interface WikiArticleProps {
   article: WikiArticleType
   categories: WikiCategory[]
+  /** All tags across articles — drives the tag-editor suggestions. */
+  allTags: string[]
   onDelete: () => void
   onShare: () => void
 }
 
-export function WikiArticle({ article, categories, onDelete, onShare }: WikiArticleProps) {
+export function WikiArticle({ article, categories, allTags, onDelete, onShare }: WikiArticleProps) {
   const { t } = useTranslation()
   const isEditing = useWikiStore((s) => s.isEditing)
   const setEditing = useWikiStore((s) => s.setEditing)
@@ -102,6 +104,7 @@ export function WikiArticle({ article, categories, onDelete, onShare }: WikiArti
         <WikiArticleHeader
           article={article}
           categories={categories}
+          allTags={allTags}
           versionCount={versions.length}
           viewCount={viewCount}
           onEdit={handleStartEdit}

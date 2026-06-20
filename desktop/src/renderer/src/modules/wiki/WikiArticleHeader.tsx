@@ -9,7 +9,6 @@ import {
   Share2,
   Eye,
   Clock,
-  Tag,
   FolderInput,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -20,6 +19,7 @@ import { useWikiStore } from '@/stores/wiki'
 import { ItemActions } from '@/components/shared'
 import { formatDate as libFormatDate } from '@/lib/format'
 import { WikiMoveDialog } from './WikiMoveDialog'
+import { WikiTagEditor } from './WikiTagEditor'
 
 // ---------------------------------------------------------------------------
 // Status config
@@ -44,6 +44,8 @@ interface WikiArticleHeaderProps {
   article: WikiArticle
   /** All categories — needed for the move dialog. */
   categories: WikiCategory[]
+  /** All tags across articles — drives the tag-editor suggestions. */
+  allTags: string[]
   /** Live version count from the per-article versions query. */
   versionCount?: number
   /** Live view count (incremented on detail GET). */
@@ -57,6 +59,7 @@ interface WikiArticleHeaderProps {
 export function WikiArticleHeader({
   article,
   categories,
+  allTags,
   versionCount,
   viewCount,
   onEdit,
@@ -68,8 +71,26 @@ export function WikiArticleHeader({
   const updateMutation = useUpdateArticle()
   const togglePin = useWikiStore((s) => s.togglePin)
   const [moveOpen, setMoveOpen] = useState(false)
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [draftTitle, setDraftTitle] = useState(article.title)
 
   const st = statusConfig[article.status]
+
+  const commitTitle = async () => {
+    const title = draftTitle.trim()
+    setEditingTitle(false)
+    if (!title || title === article.title) {
+      setDraftTitle(article.title)
+      return
+    }
+    try {
+      await updateMutation.mutateAsync({ id: article.id, title })
+      toast.success(t('wiki.header.titleRenamed'))
+    } catch {
+      setDraftTitle(article.title)
+      toast.error(t('wiki.header.renameError'))
+    }
+  }
 
   return (
     <div className="border-b border-border px-5 py-3">
@@ -78,7 +99,34 @@ export function WikiArticleHeader({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             {article.isPinned && <Pin className="h-3.5 w-3.5 shrink-0 text-primary" />}
-            <h2 className="text-lg font-semibold text-foreground truncate">{article.title}</h2>
+            {editingTitle ? (
+              <input
+                value={draftTitle}
+                onChange={(e) => setDraftTitle(e.target.value)}
+                onBlur={commitTitle}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitTitle()
+                  if (e.key === 'Escape') {
+                    setDraftTitle(article.title)
+                    setEditingTitle(false)
+                  }
+                }}
+                autoFocus
+                aria-label={t('wiki.header.renameTitle')}
+                className="min-w-0 flex-1 rounded border border-primary/50 bg-background px-1.5 py-0.5 text-lg font-semibold text-foreground outline-none"
+              />
+            ) : (
+              <button
+                onClick={() => {
+                  setDraftTitle(article.title)
+                  setEditingTitle(true)
+                }}
+                title={t('wiki.header.renameTitle')}
+                className="min-w-0 truncate rounded text-left text-lg font-semibold text-foreground hover:bg-accent/50 px-1 -mx-1 transition-colors"
+              >
+                {article.title}
+              </button>
+            )}
             <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${st?.bg ?? ''}`}>
               {st ? t(st.key) : article.status}
             </span>
@@ -160,16 +208,8 @@ export function WikiArticleHeader({
         </div>
       </div>
 
-      {/* Tags */}
-      {(article.tags ?? []).length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          {(article.tags ?? []).map((tag) => (
-            <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs text-muted-foreground">
-              <Tag className="h-3 w-3" />{tag}
-            </span>
-          ))}
-        </div>
-      )}
+      {/* Tags (editable) */}
+      <WikiTagEditor articleId={article.id} tags={article.tags ?? []} suggestions={allTags} />
 
       <WikiMoveDialog
         open={moveOpen}

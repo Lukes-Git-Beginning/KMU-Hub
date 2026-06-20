@@ -103,8 +103,8 @@ export function adaptArticle(api: ApiArticle): WikiArticle {
     authorId: api.author_id,
     // authorName not returned by API — needs a join/lookup
     authorName: '',
-    // tags + isPinned are mock-first via the wiki store (no backend field yet)
-    tags: [],
+    // tags are a real article field now; isPinned stays mock-first via the store
+    tags: api.tags ?? [],
     isPinned: false,
     // view_count is backend-tracked; tags/isPinned are enriched in the page
     viewCount: api.view_count ?? 0,

@@ -90,6 +90,7 @@ const ARTICLES: WikiArticle[] = [
     author_id: CURRENT_USER.id,
     category_id: 'wcat-001',
     published: true,
+    tags: ['Onboarding', 'Übersicht'],
     view_count: 342,
     created_at: daysAgo(58) + 'T09:00:00Z',
     updated_at: daysAgo(5) + 'T10:30:00Z',
@@ -105,6 +106,7 @@ const ARTICLES: WikiArticle[] = [
     author_id: IDS.users.julia,
     category_id: 'wcat-004',
     published: true,
+    tags: ['HR', 'Checkliste'],
     view_count: 158,
     created_at: daysAgo(45) + 'T08:00:00Z',
     updated_at: daysAgo(3) + 'T14:00:00Z',
@@ -120,6 +122,7 @@ const ARTICLES: WikiArticle[] = [
     author_id: IDS.users.markus,
     category_id: 'wcat-002',
     published: true,
+    tags: ['Finanzen', 'DATEV', 'Prozess'],
     view_count: 97,
     created_at: daysAgo(40) + 'T10:00:00Z',
     updated_at: daysAgo(10) + 'T16:00:00Z',
@@ -135,6 +138,7 @@ const ARTICLES: WikiArticle[] = [
     author_id: IDS.users.thomas,
     category_id: 'wcat-003',
     published: true,
+    tags: ['IT', 'Notfall'],
     view_count: 64,
     created_at: daysAgo(30) + 'T11:00:00Z',
     updated_at: daysAgo(8) + 'T09:15:00Z',
@@ -150,6 +154,7 @@ const ARTICLES: WikiArticle[] = [
     author_id: IDS.users.sarah,
     category_id: 'wcat-005',
     published: true,
+    tags: ['DSGVO', 'Recht'],
     view_count: 211,
     created_at: daysAgo(25) + 'T13:00:00Z',
     updated_at: daysAgo(2) + 'T11:00:00Z',
@@ -165,6 +170,7 @@ const ARTICLES: WikiArticle[] = [
     author_id: IDS.users.laura,
     category_id: 'wcat-002',
     published: true,
+    tags: ['CRM', 'Vertrieb'],
     view_count: 129,
     created_at: daysAgo(20) + 'T08:30:00Z',
     updated_at: hoursAgo(36),
@@ -180,6 +186,7 @@ const ARTICLES: WikiArticle[] = [
     author_id: IDS.users.thomas,
     category_id: 'wcat-003',
     published: false,
+    tags: ['IT', 'Intern'],
     view_count: 18,
     created_at: daysAgo(15) + 'T16:00:00Z',
     updated_at: daysAgo(1) + 'T17:45:00Z',
@@ -409,6 +416,7 @@ export const wikiHandlers = [
       author_id: CURRENT_USER.id,
       category_id: body.category_id ?? null,
       published: body.published ?? false,
+      tags: body.tags ?? [],
       view_count: 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -431,6 +439,7 @@ export const wikiHandlers = [
     }
     if (body.category_id !== undefined) article.category_id = body.category_id
     if (body.published !== undefined) article.published = body.published
+    if (body.tags !== undefined) article.tags = body.tags
     article.updated_at = new Date().toISOString()
     return HttpResponse.json(article)
   }),
