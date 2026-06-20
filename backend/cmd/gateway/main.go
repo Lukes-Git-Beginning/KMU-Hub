@@ -68,6 +68,7 @@ func main() {
 		slog.Info("gRPC mTLS enabled for service-to-service communication")
 	}
 	registry := gateway.NewServiceRegistry(tlsCfg)
+	registry.SetGRPCTimeout(cfg.GRPCTimeout)
 	registry.Register("auth", cfg.AuthGRPCAddress)
 	registry.Register("crm", cfg.CRMGRPCAddress)
 	registry.Register("chat", cfg.ChatGRPCAddress)

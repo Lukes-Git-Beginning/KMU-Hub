@@ -74,6 +74,12 @@ type Config struct {
 	PublicRateLimitRPS int  `env:"PUBLIC_RATE_LIMIT_RPS,default=10"`
 	BehindProxy        bool `env:"BEHIND_PROXY,default=false"`
 
+	// GRPCTimeout bounds each outbound gateway→service unary gRPC call when the
+	// request context carries no shorter deadline. Prevents a hung downstream
+	// from pinning gateway goroutines. Generous default so slow-but-legitimate
+	// calls are not severed; lower it via env if needed.
+	GRPCTimeout time.Duration `env:"GATEWAY_GRPC_TIMEOUT,default=30s"`
+
 	// Captcha (provider-agnostic siteverify API — Cloudflare Turnstile by default).
 	// When CAPTCHA_SECRET is empty the verifier is disabled and all requests pass through.
 	CaptchaSecret    string `env:"CAPTCHA_SECRET,default="`

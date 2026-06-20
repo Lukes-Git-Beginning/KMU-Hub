@@ -22,22 +22,37 @@ type ServiceConnection struct {
 	mu      sync.RWMutex
 }
 
+// defaultGRPCTimeout bounds outbound unary calls unless overridden via
+// SetGRPCTimeout. Generous so slow-but-legitimate downstream calls survive.
+const defaultGRPCTimeout = 30 * time.Second
+
 // ServiceRegistry manages lazy gRPC connections to backend services.
 // Services are registered with their addresses at startup, and connections
 // are created lazily on first use via GetConnection.
 type ServiceRegistry struct {
-	services  map[string]*ServiceConnection
-	mu        sync.RWMutex
-	tlsConfig *tls.Config // nil = insecure (local dev)
+	services    map[string]*ServiceConnection
+	mu          sync.RWMutex
+	tlsConfig   *tls.Config   // nil = insecure (local dev)
+	grpcTimeout time.Duration // per-call outbound deadline (default 30s)
 }
 
 // NewServiceRegistry creates a new empty ServiceRegistry.
 // Pass a non-nil tlsConfig to enable mTLS for all gRPC connections.
 func NewServiceRegistry(tlsConfig *tls.Config) *ServiceRegistry {
 	return &ServiceRegistry{
-		services:  make(map[string]*ServiceConnection),
-		tlsConfig: tlsConfig,
+		services:    make(map[string]*ServiceConnection),
+		tlsConfig:   tlsConfig,
+		grpcTimeout: defaultGRPCTimeout,
 	}
+}
+
+// SetGRPCTimeout overrides the per-call outbound deadline applied to every
+// gateway→service unary call. Call once at startup before any GetConnection.
+// A non-positive value disables the deadline.
+func (r *ServiceRegistry) SetGRPCTimeout(d time.Duration) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.grpcTimeout = d
 }
 
 // Register adds a service address to the registry without connecting.
@@ -59,6 +74,7 @@ func (r *ServiceRegistry) Register(name, address string) {
 func (r *ServiceRegistry) GetConnection(name string) (*grpc.ClientConn, error) {
 	r.mu.RLock()
 	svc, ok := r.services[name]
+	timeout := r.grpcTimeout
 	r.mu.RUnlock()
 
 	if !ok {
@@ -91,7 +107,10 @@ func (r *ServiceRegistry) GetConnection(name string) (*grpc.ClientConn, error) {
 			Timeout:             10 * time.Second,
 			PermitWithoutStream: true,
 		}),
-		grpc.WithUnaryInterceptor(middleware.TenantOutboundUnaryInterceptor()),
+		grpc.WithChainUnaryInterceptor(
+			middleware.DeadlineOutboundUnaryInterceptor(timeout),
+			middleware.TenantOutboundUnaryInterceptor(),
+		),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gRPC client for %q at %s: %w", name, svc.address, err)

@@ -50,7 +50,10 @@ func grpcStatusToHTTP(code codes.Code) int {
 	case codes.InvalidArgument:
 		return http.StatusBadRequest
 	case codes.FailedPrecondition:
-		return http.StatusGone
+		// 409 Conflict: the request conflicts with the resource's current state
+		// (consent pending, invitation expired/used, invalid state transition).
+		// Not 410 Gone — the resource is not permanently removed.
+		return http.StatusConflict
 	case codes.Unavailable:
 		return http.StatusServiceUnavailable
 	case codes.DeadlineExceeded:

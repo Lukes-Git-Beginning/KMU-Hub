@@ -20,7 +20,7 @@ func TestGrpcStatusToHTTP(t *testing.T) {
 		{codes.Unauthenticated, http.StatusUnauthorized},
 		{codes.PermissionDenied, http.StatusForbidden},
 		{codes.InvalidArgument, http.StatusBadRequest},
-		{codes.FailedPrecondition, http.StatusGone},
+		{codes.FailedPrecondition, http.StatusConflict},
 		{codes.Unavailable, http.StatusServiceUnavailable},
 		{codes.DeadlineExceeded, http.StatusGatewayTimeout},
 		{codes.ResourceExhausted, http.StatusTooManyRequests},

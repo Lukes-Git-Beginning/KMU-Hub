@@ -288,6 +288,9 @@ services:
       # HardMode: reject duplicate POSTs with missing/duplicate Idempotency-Key (400).
       # WarnMode (default) only logs — enables silent data duplication in production.
       IDEMPOTENCY_MODE: hard
+      # Per-call deadline for outbound gateway→service gRPC. Override via
+      # .env.production if a legitimately slow endpoint needs more headroom.
+      GATEWAY_GRPC_TIMEOUT: "${GATEWAY_GRPC_TIMEOUT:-30s}"
     logging: *default-logging
     deploy:
       resources:
