@@ -51,6 +51,43 @@ func (r *PostgresIntegrationConfigRepo) GetByPlatform(ctx context.Context, platf
 	return cfg, nil
 }
 
+// ListActiveByPlatform returns all active integration_configs for a given platform.
+// Caller must provide a system context (database.WithSystemContext) so that RLS
+// does not restrict the result to a single tenant.
+func (r *PostgresIntegrationConfigRepo) ListActiveByPlatform(ctx context.Context, platform string) ([]*IntegrationConfig, error) {
+	query := `
+		SELECT id, tenant_id, platform, is_active, credentials_vault_key, metadata, created_by, created_at, updated_at
+		FROM integration_configs
+		WHERE platform = $1 AND is_active = true`
+
+	rows, err := r.pool.Query(ctx, query, platform)
+	if err != nil {
+		return nil, fmt.Errorf("bexio: list active configs by platform: %w", err)
+	}
+	defer rows.Close()
+
+	var configs []*IntegrationConfig
+	for rows.Next() {
+		cfg := &IntegrationConfig{}
+		var metadataJSON []byte
+		if err := rows.Scan(
+			&cfg.ID, &cfg.TenantID, &cfg.Platform, &cfg.IsActive, &cfg.CredentialsVaultKey,
+			&metadataJSON, &cfg.CreatedBy, &cfg.CreatedAt, &cfg.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("bexio: scan config row: %w", err)
+		}
+		if metadataJSON != nil {
+			_ = json.Unmarshal(metadataJSON, &cfg.Metadata)
+		}
+		configs = append(configs, cfg)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("bexio: list active configs iteration: %w", err)
+	}
+
+	return configs, nil
+}
+
 // Upsert creates or updates an integration config.
 func (r *PostgresIntegrationConfigRepo) Upsert(ctx context.Context, config *IntegrationConfig) error {
 	metadataJSON, err := json.Marshal(config.Metadata)

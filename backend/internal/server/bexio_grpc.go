@@ -86,6 +86,7 @@ func (s *BexioGRPCServer) GetBexioConnectionStatus(ctx context.Context, req *biz
 
 	resp := &bizv1.GetBexioConnectionStatusResponse{
 		Connected: connStatus.Connected,
+		OrgName:   connStatus.OrgName,
 	}
 	if connStatus.ConnectedAt != nil {
 		resp.ConnectedAt = timestamppb.New(*connStatus.ConnectedAt)
@@ -136,6 +137,28 @@ func (s *BexioGRPCServer) GetBexioSyncStatus(ctx context.Context, req *bizv1.Get
 	}
 
 	return syncStatusToProto(syncStatus), nil
+}
+
+// UpdateBexioSyncConfig persists updated sync flags and polling intervals.
+func (s *BexioGRPCServer) UpdateBexioSyncConfig(ctx context.Context, req *bizv1.UpdateBexioSyncConfigRequest) (*bizv1.UpdateBexioSyncConfigResponse, error) {
+	if req.GetTenantId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "tenant_id is required")
+	}
+
+	update := &models.BexioSyncConfig{
+		ContactSyncEnabled:     req.GetContactSyncEnabled(),
+		ContactSyncIntervalMin: int(req.GetContactSyncIntervalMinutes()),
+		InvoicePushEnabled:     req.GetInvoicePushEnabled(),
+		QuotePushEnabled:       req.GetQuotePushEnabled(),
+		PaymentPollEnabled:     req.GetPaymentPollEnabled(),
+		PaymentPollIntervalMin: int(req.GetPaymentPollIntervalMinutes()),
+	}
+
+	if err := s.bexioService.UpdateSyncConfig(ctx, update); err != nil {
+		return nil, mapBexioError(err)
+	}
+
+	return &bizv1.UpdateBexioSyncConfigResponse{Success: true}, nil
 }
 
 // ListBexioSyncLogs returns recent sync log entries.

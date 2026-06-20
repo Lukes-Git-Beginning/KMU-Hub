@@ -229,3 +229,7 @@ func (c *countingVaultService) SetSecret(ctx context.Context, keyName, plaintext
 	*c.setCalls++
 	return c.inner.SetSecret(ctx, keyName, plaintext, description, createdBy)
 }
+
+func (c *countingVaultService) DeleteByKeyName(ctx context.Context, keyName string) error {
+	return c.inner.DeleteByKeyName(ctx, keyName)
+}

@@ -2,21 +2,62 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v6.33.4
-// source: proto/biz/v1/bexio.proto
+// source: backend/proto/biz/v1/bexio.proto
 
 package bizv1
 
 import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
 )
 
-// ============================================================================
-// OAuth Messages
-// ============================================================================
+const (
+	// Verify that this generated code is sufficiently up-to-date.
+	_ = protoimpl.EnforceVersion(20 - protoimpl.MinVersion)
+	// Verify that runtime/protoimpl is sufficiently up-to-date.
+	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
+)
 
 type GetBexioAuthURLRequest struct {
-	TenantId    string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	RedirectUrl string `protobuf:"bytes,2,opt,name=redirect_url,json=redirectUrl,proto3" json:"redirect_url,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	RedirectUrl   string                 `protobuf:"bytes,2,opt,name=redirect_url,json=redirectUrl,proto3" json:"redirect_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetBexioAuthURLRequest) Reset() {
+	*x = GetBexioAuthURLRequest{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBexioAuthURLRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBexioAuthURLRequest) ProtoMessage() {}
+
+func (x *GetBexioAuthURLRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBexioAuthURLRequest.ProtoReflect.Descriptor instead.
+func (*GetBexioAuthURLRequest) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *GetBexioAuthURLRequest) GetTenantId() string {
@@ -34,7 +75,40 @@ func (x *GetBexioAuthURLRequest) GetRedirectUrl() string {
 }
 
 type GetBexioAuthURLResponse struct {
-	AuthorizationUrl string `protobuf:"bytes,1,opt,name=authorization_url,json=authorizationUrl,proto3" json:"authorization_url,omitempty"`
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	AuthorizationUrl string                 `protobuf:"bytes,1,opt,name=authorization_url,json=authorizationUrl,proto3" json:"authorization_url,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *GetBexioAuthURLResponse) Reset() {
+	*x = GetBexioAuthURLResponse{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBexioAuthURLResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBexioAuthURLResponse) ProtoMessage() {}
+
+func (x *GetBexioAuthURLResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBexioAuthURLResponse.ProtoReflect.Descriptor instead.
+func (*GetBexioAuthURLResponse) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *GetBexioAuthURLResponse) GetAuthorizationUrl() string {
@@ -45,8 +119,41 @@ func (x *GetBexioAuthURLResponse) GetAuthorizationUrl() string {
 }
 
 type HandleBexioOAuthCallbackRequest struct {
-	TenantId string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	Code     string `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Code          string                 `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HandleBexioOAuthCallbackRequest) Reset() {
+	*x = HandleBexioOAuthCallbackRequest{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HandleBexioOAuthCallbackRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HandleBexioOAuthCallbackRequest) ProtoMessage() {}
+
+func (x *HandleBexioOAuthCallbackRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HandleBexioOAuthCallbackRequest.ProtoReflect.Descriptor instead.
+func (*HandleBexioOAuthCallbackRequest) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *HandleBexioOAuthCallbackRequest) GetTenantId() string {
@@ -64,8 +171,41 @@ func (x *HandleBexioOAuthCallbackRequest) GetCode() string {
 }
 
 type HandleBexioOAuthCallbackResponse struct {
-	Success      bool   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	ErrorMessage string `protobuf:"bytes,2,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	ErrorMessage  string                 `protobuf:"bytes,2,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HandleBexioOAuthCallbackResponse) Reset() {
+	*x = HandleBexioOAuthCallbackResponse{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HandleBexioOAuthCallbackResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HandleBexioOAuthCallbackResponse) ProtoMessage() {}
+
+func (x *HandleBexioOAuthCallbackResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HandleBexioOAuthCallbackResponse.ProtoReflect.Descriptor instead.
+func (*HandleBexioOAuthCallbackResponse) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *HandleBexioOAuthCallbackResponse) GetSuccess() bool {
@@ -83,7 +223,40 @@ func (x *HandleBexioOAuthCallbackResponse) GetErrorMessage() string {
 }
 
 type DisconnectBexioRequest struct {
-	TenantId string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DisconnectBexioRequest) Reset() {
+	*x = DisconnectBexioRequest{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DisconnectBexioRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DisconnectBexioRequest) ProtoMessage() {}
+
+func (x *DisconnectBexioRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DisconnectBexioRequest.ProtoReflect.Descriptor instead.
+func (*DisconnectBexioRequest) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *DisconnectBexioRequest) GetTenantId() string {
@@ -94,7 +267,40 @@ func (x *DisconnectBexioRequest) GetTenantId() string {
 }
 
 type DisconnectBexioResponse struct {
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DisconnectBexioResponse) Reset() {
+	*x = DisconnectBexioResponse{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DisconnectBexioResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DisconnectBexioResponse) ProtoMessage() {}
+
+func (x *DisconnectBexioResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DisconnectBexioResponse.ProtoReflect.Descriptor instead.
+func (*DisconnectBexioResponse) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *DisconnectBexioResponse) GetSuccess() bool {
@@ -105,7 +311,40 @@ func (x *DisconnectBexioResponse) GetSuccess() bool {
 }
 
 type GetBexioConnectionStatusRequest struct {
-	TenantId string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetBexioConnectionStatusRequest) Reset() {
+	*x = GetBexioConnectionStatusRequest{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBexioConnectionStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBexioConnectionStatusRequest) ProtoMessage() {}
+
+func (x *GetBexioConnectionStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBexioConnectionStatusRequest.ProtoReflect.Descriptor instead.
+func (*GetBexioConnectionStatusRequest) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetBexioConnectionStatusRequest) GetTenantId() string {
@@ -116,9 +355,42 @@ func (x *GetBexioConnectionStatusRequest) GetTenantId() string {
 }
 
 type GetBexioConnectionStatusResponse struct {
-	Connected   bool                   `protobuf:"varint,1,opt,name=connected,proto3" json:"connected,omitempty"`
-	OrgName     string                 `protobuf:"bytes,2,opt,name=org_name,json=orgName,proto3" json:"org_name,omitempty"`
-	ConnectedAt *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=connected_at,json=connectedAt,proto3" json:"connected_at,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Connected     bool                   `protobuf:"varint,1,opt,name=connected,proto3" json:"connected,omitempty"`
+	OrgName       string                 `protobuf:"bytes,2,opt,name=org_name,json=orgName,proto3" json:"org_name,omitempty"`
+	ConnectedAt   *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=connected_at,json=connectedAt,proto3" json:"connected_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetBexioConnectionStatusResponse) Reset() {
+	*x = GetBexioConnectionStatusResponse{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBexioConnectionStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBexioConnectionStatusResponse) ProtoMessage() {}
+
+func (x *GetBexioConnectionStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBexioConnectionStatusResponse.ProtoReflect.Descriptor instead.
+func (*GetBexioConnectionStatusResponse) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetBexioConnectionStatusResponse) GetConnected() bool {
@@ -142,13 +414,42 @@ func (x *GetBexioConnectionStatusResponse) GetConnectedAt() *timestamppb.Timesta
 	return nil
 }
 
-// ============================================================================
-// Sync Messages
-// ============================================================================
-
 type TriggerBexioSyncRequest struct {
-	TenantId string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	SyncType string `protobuf:"bytes,2,opt,name=sync_type,json=syncType,proto3" json:"sync_type,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	SyncType      string                 `protobuf:"bytes,2,opt,name=sync_type,json=syncType,proto3" json:"sync_type,omitempty"` // Optional: "contacts", "payments", or empty for all
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TriggerBexioSyncRequest) Reset() {
+	*x = TriggerBexioSyncRequest{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TriggerBexioSyncRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TriggerBexioSyncRequest) ProtoMessage() {}
+
+func (x *TriggerBexioSyncRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TriggerBexioSyncRequest.ProtoReflect.Descriptor instead.
+func (*TriggerBexioSyncRequest) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *TriggerBexioSyncRequest) GetTenantId() string {
@@ -166,8 +467,41 @@ func (x *TriggerBexioSyncRequest) GetSyncType() string {
 }
 
 type TriggerBexioSyncResponse struct {
-	SyncId string `protobuf:"bytes,1,opt,name=sync_id,json=syncId,proto3" json:"sync_id,omitempty"`
-	Status string `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SyncId        string                 `protobuf:"bytes,1,opt,name=sync_id,json=syncId,proto3" json:"sync_id,omitempty"`
+	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TriggerBexioSyncResponse) Reset() {
+	*x = TriggerBexioSyncResponse{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TriggerBexioSyncResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TriggerBexioSyncResponse) ProtoMessage() {}
+
+func (x *TriggerBexioSyncResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TriggerBexioSyncResponse.ProtoReflect.Descriptor instead.
+func (*TriggerBexioSyncResponse) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *TriggerBexioSyncResponse) GetSyncId() string {
@@ -185,7 +519,40 @@ func (x *TriggerBexioSyncResponse) GetStatus() string {
 }
 
 type GetBexioSyncStatusRequest struct {
-	TenantId string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetBexioSyncStatusRequest) Reset() {
+	*x = GetBexioSyncStatusRequest{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBexioSyncStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBexioSyncStatusRequest) ProtoMessage() {}
+
+func (x *GetBexioSyncStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBexioSyncStatusRequest.ProtoReflect.Descriptor instead.
+func (*GetBexioSyncStatusRequest) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetBexioSyncStatusRequest) GetTenantId() string {
@@ -196,6 +563,7 @@ func (x *GetBexioSyncStatusRequest) GetTenantId() string {
 }
 
 type GetBexioSyncStatusResponse struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
 	ContactSyncEnabled  bool                   `protobuf:"varint,1,opt,name=contact_sync_enabled,json=contactSyncEnabled,proto3" json:"contact_sync_enabled,omitempty"`
 	InvoicePushEnabled  bool                   `protobuf:"varint,2,opt,name=invoice_push_enabled,json=invoicePushEnabled,proto3" json:"invoice_push_enabled,omitempty"`
 	QuotePushEnabled    bool                   `protobuf:"varint,3,opt,name=quote_push_enabled,json=quotePushEnabled,proto3" json:"quote_push_enabled,omitempty"`
@@ -207,6 +575,38 @@ type GetBexioSyncStatusResponse struct {
 	TotalQuotesMapped   int32                  `protobuf:"varint,9,opt,name=total_quotes_mapped,json=totalQuotesMapped,proto3" json:"total_quotes_mapped,omitempty"`
 	LastSyncError       string                 `protobuf:"bytes,10,opt,name=last_sync_error,json=lastSyncError,proto3" json:"last_sync_error,omitempty"`
 	LastSyncErrorAt     *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=last_sync_error_at,json=lastSyncErrorAt,proto3" json:"last_sync_error_at,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *GetBexioSyncStatusResponse) Reset() {
+	*x = GetBexioSyncStatusResponse{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBexioSyncStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBexioSyncStatusResponse) ProtoMessage() {}
+
+func (x *GetBexioSyncStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBexioSyncStatusResponse.ProtoReflect.Descriptor instead.
+func (*GetBexioSyncStatusResponse) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GetBexioSyncStatusResponse) GetContactSyncEnabled() bool {
@@ -286,9 +686,178 @@ func (x *GetBexioSyncStatusResponse) GetLastSyncErrorAt() *timestamppb.Timestamp
 	return nil
 }
 
+type UpdateBexioSyncConfigRequest struct {
+	state                      protoimpl.MessageState `protogen:"open.v1"`
+	TenantId                   string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ContactSyncEnabled         bool                   `protobuf:"varint,2,opt,name=contact_sync_enabled,json=contactSyncEnabled,proto3" json:"contact_sync_enabled,omitempty"`
+	ContactSyncIntervalMinutes int32                  `protobuf:"varint,3,opt,name=contact_sync_interval_minutes,json=contactSyncIntervalMinutes,proto3" json:"contact_sync_interval_minutes,omitempty"`
+	InvoicePushEnabled         bool                   `protobuf:"varint,4,opt,name=invoice_push_enabled,json=invoicePushEnabled,proto3" json:"invoice_push_enabled,omitempty"`
+	QuotePushEnabled           bool                   `protobuf:"varint,5,opt,name=quote_push_enabled,json=quotePushEnabled,proto3" json:"quote_push_enabled,omitempty"`
+	PaymentPollEnabled         bool                   `protobuf:"varint,6,opt,name=payment_poll_enabled,json=paymentPollEnabled,proto3" json:"payment_poll_enabled,omitempty"`
+	PaymentPollIntervalMinutes int32                  `protobuf:"varint,7,opt,name=payment_poll_interval_minutes,json=paymentPollIntervalMinutes,proto3" json:"payment_poll_interval_minutes,omitempty"`
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
+}
+
+func (x *UpdateBexioSyncConfigRequest) Reset() {
+	*x = UpdateBexioSyncConfigRequest{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateBexioSyncConfigRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateBexioSyncConfigRequest) ProtoMessage() {}
+
+func (x *UpdateBexioSyncConfigRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateBexioSyncConfigRequest.ProtoReflect.Descriptor instead.
+func (*UpdateBexioSyncConfigRequest) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *UpdateBexioSyncConfigRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *UpdateBexioSyncConfigRequest) GetContactSyncEnabled() bool {
+	if x != nil {
+		return x.ContactSyncEnabled
+	}
+	return false
+}
+
+func (x *UpdateBexioSyncConfigRequest) GetContactSyncIntervalMinutes() int32 {
+	if x != nil {
+		return x.ContactSyncIntervalMinutes
+	}
+	return 0
+}
+
+func (x *UpdateBexioSyncConfigRequest) GetInvoicePushEnabled() bool {
+	if x != nil {
+		return x.InvoicePushEnabled
+	}
+	return false
+}
+
+func (x *UpdateBexioSyncConfigRequest) GetQuotePushEnabled() bool {
+	if x != nil {
+		return x.QuotePushEnabled
+	}
+	return false
+}
+
+func (x *UpdateBexioSyncConfigRequest) GetPaymentPollEnabled() bool {
+	if x != nil {
+		return x.PaymentPollEnabled
+	}
+	return false
+}
+
+func (x *UpdateBexioSyncConfigRequest) GetPaymentPollIntervalMinutes() int32 {
+	if x != nil {
+		return x.PaymentPollIntervalMinutes
+	}
+	return 0
+}
+
+type UpdateBexioSyncConfigResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateBexioSyncConfigResponse) Reset() {
+	*x = UpdateBexioSyncConfigResponse{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateBexioSyncConfigResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateBexioSyncConfigResponse) ProtoMessage() {}
+
+func (x *UpdateBexioSyncConfigResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateBexioSyncConfigResponse.ProtoReflect.Descriptor instead.
+func (*UpdateBexioSyncConfigResponse) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *UpdateBexioSyncConfigResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
 type ListBexioSyncLogsRequest struct {
-	TenantId string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	Limit    int32  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBexioSyncLogsRequest) Reset() {
+	*x = ListBexioSyncLogsRequest{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBexioSyncLogsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBexioSyncLogsRequest) ProtoMessage() {}
+
+func (x *ListBexioSyncLogsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBexioSyncLogsRequest.ProtoReflect.Descriptor instead.
+func (*ListBexioSyncLogsRequest) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ListBexioSyncLogsRequest) GetTenantId() string {
@@ -306,7 +875,40 @@ func (x *ListBexioSyncLogsRequest) GetLimit() int32 {
 }
 
 type ListBexioSyncLogsResponse struct {
-	Entries []*BexioSyncLogEntry `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Entries       []*BexioSyncLogEntry   `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBexioSyncLogsResponse) Reset() {
+	*x = ListBexioSyncLogsResponse{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBexioSyncLogsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBexioSyncLogsResponse) ProtoMessage() {}
+
+func (x *ListBexioSyncLogsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBexioSyncLogsResponse.ProtoReflect.Descriptor instead.
+func (*ListBexioSyncLogsResponse) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ListBexioSyncLogsResponse) GetEntries() []*BexioSyncLogEntry {
@@ -317,6 +919,7 @@ func (x *ListBexioSyncLogsResponse) GetEntries() []*BexioSyncLogEntry {
 }
 
 type BexioSyncLogEntry struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
 	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	SyncType       string                 `protobuf:"bytes,2,opt,name=sync_type,json=syncType,proto3" json:"sync_type,omitempty"`
 	Status         string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
@@ -327,6 +930,38 @@ type BexioSyncLogEntry struct {
 	ErrorMessage   string                 `protobuf:"bytes,8,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
 	StartedAt      *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
 	CompletedAt    *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=completed_at,json=completedAt,proto3" json:"completed_at,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *BexioSyncLogEntry) Reset() {
+	*x = BexioSyncLogEntry{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BexioSyncLogEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BexioSyncLogEntry) ProtoMessage() {}
+
+func (x *BexioSyncLogEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BexioSyncLogEntry.ProtoReflect.Descriptor instead.
+func (*BexioSyncLogEntry) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *BexioSyncLogEntry) GetId() string {
@@ -399,13 +1034,42 @@ func (x *BexioSyncLogEntry) GetCompletedAt() *timestamppb.Timestamp {
 	return nil
 }
 
-// ============================================================================
-// Field Mapping Messages
-// ============================================================================
-
 type GetBexioFieldMappingsRequest struct {
-	TenantId   string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	EntityType string `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	EntityType    string                 `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetBexioFieldMappingsRequest) Reset() {
+	*x = GetBexioFieldMappingsRequest{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBexioFieldMappingsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBexioFieldMappingsRequest) ProtoMessage() {}
+
+func (x *GetBexioFieldMappingsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBexioFieldMappingsRequest.ProtoReflect.Descriptor instead.
+func (*GetBexioFieldMappingsRequest) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *GetBexioFieldMappingsRequest) GetTenantId() string {
@@ -423,7 +1087,40 @@ func (x *GetBexioFieldMappingsRequest) GetEntityType() string {
 }
 
 type GetBexioFieldMappingsResponse struct {
-	Mappings []*BexioFieldMappingEntry `protobuf:"bytes,1,rep,name=mappings,proto3" json:"mappings,omitempty"`
+	state         protoimpl.MessageState    `protogen:"open.v1"`
+	Mappings      []*BexioFieldMappingEntry `protobuf:"bytes,1,rep,name=mappings,proto3" json:"mappings,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetBexioFieldMappingsResponse) Reset() {
+	*x = GetBexioFieldMappingsResponse{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBexioFieldMappingsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBexioFieldMappingsResponse) ProtoMessage() {}
+
+func (x *GetBexioFieldMappingsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBexioFieldMappingsResponse.ProtoReflect.Descriptor instead.
+func (*GetBexioFieldMappingsResponse) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *GetBexioFieldMappingsResponse) GetMappings() []*BexioFieldMappingEntry {
@@ -434,10 +1131,43 @@ func (x *GetBexioFieldMappingsResponse) GetMappings() []*BexioFieldMappingEntry 
 }
 
 type BexioFieldMappingEntry struct {
-	KmuhubField string `protobuf:"bytes,1,opt,name=kmuhub_field,json=kmuhubField,proto3" json:"kmuhub_field,omitempty"`
-	BexioField  string `protobuf:"bytes,2,opt,name=bexio_field,json=bexioField,proto3" json:"bexio_field,omitempty"`
-	Direction   string `protobuf:"bytes,3,opt,name=direction,proto3" json:"direction,omitempty"`
-	Required    bool   `protobuf:"varint,4,opt,name=required,proto3" json:"required,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	KmuhubField   string                 `protobuf:"bytes,1,opt,name=kmuhub_field,json=kmuhubField,proto3" json:"kmuhub_field,omitempty"`
+	BexioField    string                 `protobuf:"bytes,2,opt,name=bexio_field,json=bexioField,proto3" json:"bexio_field,omitempty"`
+	Direction     string                 `protobuf:"bytes,3,opt,name=direction,proto3" json:"direction,omitempty"`
+	Required      bool                   `protobuf:"varint,4,opt,name=required,proto3" json:"required,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BexioFieldMappingEntry) Reset() {
+	*x = BexioFieldMappingEntry{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BexioFieldMappingEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BexioFieldMappingEntry) ProtoMessage() {}
+
+func (x *BexioFieldMappingEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BexioFieldMappingEntry.ProtoReflect.Descriptor instead.
+func (*BexioFieldMappingEntry) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *BexioFieldMappingEntry) GetKmuhubField() string {
@@ -469,9 +1199,42 @@ func (x *BexioFieldMappingEntry) GetRequired() bool {
 }
 
 type UpdateBexioFieldMappingsRequest struct {
-	TenantId   string                   `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	EntityType string                   `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
-	Mappings   []*BexioFieldMappingEntry `protobuf:"bytes,3,rep,name=mappings,proto3" json:"mappings,omitempty"`
+	state         protoimpl.MessageState    `protogen:"open.v1"`
+	TenantId      string                    `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	EntityType    string                    `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
+	Mappings      []*BexioFieldMappingEntry `protobuf:"bytes,3,rep,name=mappings,proto3" json:"mappings,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateBexioFieldMappingsRequest) Reset() {
+	*x = UpdateBexioFieldMappingsRequest{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateBexioFieldMappingsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateBexioFieldMappingsRequest) ProtoMessage() {}
+
+func (x *UpdateBexioFieldMappingsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateBexioFieldMappingsRequest.ProtoReflect.Descriptor instead.
+func (*UpdateBexioFieldMappingsRequest) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *UpdateBexioFieldMappingsRequest) GetTenantId() string {
@@ -496,7 +1259,40 @@ func (x *UpdateBexioFieldMappingsRequest) GetMappings() []*BexioFieldMappingEntr
 }
 
 type UpdateBexioFieldMappingsResponse struct {
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateBexioFieldMappingsResponse) Reset() {
+	*x = UpdateBexioFieldMappingsResponse{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateBexioFieldMappingsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateBexioFieldMappingsResponse) ProtoMessage() {}
+
+func (x *UpdateBexioFieldMappingsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateBexioFieldMappingsResponse.ProtoReflect.Descriptor instead.
+func (*UpdateBexioFieldMappingsResponse) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *UpdateBexioFieldMappingsResponse) GetSuccess() bool {
@@ -506,13 +1302,42 @@ func (x *UpdateBexioFieldMappingsResponse) GetSuccess() bool {
 	return false
 }
 
-// ============================================================================
-// Push Messages
-// ============================================================================
-
 type PushInvoiceToBexioRequest struct {
-	TenantId  string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	InvoiceId string `protobuf:"bytes,2,opt,name=invoice_id,json=invoiceId,proto3" json:"invoice_id,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	InvoiceId     string                 `protobuf:"bytes,2,opt,name=invoice_id,json=invoiceId,proto3" json:"invoice_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PushInvoiceToBexioRequest) Reset() {
+	*x = PushInvoiceToBexioRequest{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PushInvoiceToBexioRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PushInvoiceToBexioRequest) ProtoMessage() {}
+
+func (x *PushInvoiceToBexioRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PushInvoiceToBexioRequest.ProtoReflect.Descriptor instead.
+func (*PushInvoiceToBexioRequest) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *PushInvoiceToBexioRequest) GetTenantId() string {
@@ -530,9 +1355,42 @@ func (x *PushInvoiceToBexioRequest) GetInvoiceId() string {
 }
 
 type PushInvoiceToBexioResponse struct {
-	Success      bool   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	BexioId      string `protobuf:"bytes,2,opt,name=bexio_id,json=bexioId,proto3" json:"bexio_id,omitempty"`
-	ErrorMessage string `protobuf:"bytes,3,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	BexioId       string                 `protobuf:"bytes,2,opt,name=bexio_id,json=bexioId,proto3" json:"bexio_id,omitempty"`
+	ErrorMessage  string                 `protobuf:"bytes,3,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PushInvoiceToBexioResponse) Reset() {
+	*x = PushInvoiceToBexioResponse{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PushInvoiceToBexioResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PushInvoiceToBexioResponse) ProtoMessage() {}
+
+func (x *PushInvoiceToBexioResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PushInvoiceToBexioResponse.ProtoReflect.Descriptor instead.
+func (*PushInvoiceToBexioResponse) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *PushInvoiceToBexioResponse) GetSuccess() bool {
@@ -557,8 +1415,41 @@ func (x *PushInvoiceToBexioResponse) GetErrorMessage() string {
 }
 
 type PushQuoteToBexioRequest struct {
-	TenantId string `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	QuoteId  string `protobuf:"bytes,2,opt,name=quote_id,json=quoteId,proto3" json:"quote_id,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	QuoteId       string                 `protobuf:"bytes,2,opt,name=quote_id,json=quoteId,proto3" json:"quote_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PushQuoteToBexioRequest) Reset() {
+	*x = PushQuoteToBexioRequest{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PushQuoteToBexioRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PushQuoteToBexioRequest) ProtoMessage() {}
+
+func (x *PushQuoteToBexioRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PushQuoteToBexioRequest.ProtoReflect.Descriptor instead.
+func (*PushQuoteToBexioRequest) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *PushQuoteToBexioRequest) GetTenantId() string {
@@ -576,9 +1467,42 @@ func (x *PushQuoteToBexioRequest) GetQuoteId() string {
 }
 
 type PushQuoteToBexioResponse struct {
-	Success      bool   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	BexioId      string `protobuf:"bytes,2,opt,name=bexio_id,json=bexioId,proto3" json:"bexio_id,omitempty"`
-	ErrorMessage string `protobuf:"bytes,3,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	BexioId       string                 `protobuf:"bytes,2,opt,name=bexio_id,json=bexioId,proto3" json:"bexio_id,omitempty"`
+	ErrorMessage  string                 `protobuf:"bytes,3,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PushQuoteToBexioResponse) Reset() {
+	*x = PushQuoteToBexioResponse{}
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PushQuoteToBexioResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PushQuoteToBexioResponse) ProtoMessage() {}
+
+func (x *PushQuoteToBexioResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_backend_proto_biz_v1_bexio_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PushQuoteToBexioResponse.ProtoReflect.Descriptor instead.
+func (*PushQuoteToBexioResponse) Descriptor() ([]byte, []int) {
+	return file_backend_proto_biz_v1_bexio_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *PushQuoteToBexioResponse) GetSuccess() bool {
@@ -600,4 +1524,234 @@ func (x *PushQuoteToBexioResponse) GetErrorMessage() string {
 		return x.ErrorMessage
 	}
 	return ""
+}
+
+var File_backend_proto_biz_v1_bexio_proto protoreflect.FileDescriptor
+
+const file_backend_proto_biz_v1_bexio_proto_rawDesc = "" +
+	"\n" +
+	" backend/proto/biz/v1/bexio.proto\x12\x06biz.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"X\n" +
+	"\x16GetBexioAuthURLRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12!\n" +
+	"\fredirect_url\x18\x02 \x01(\tR\vredirectUrl\"F\n" +
+	"\x17GetBexioAuthURLResponse\x12+\n" +
+	"\x11authorization_url\x18\x01 \x01(\tR\x10authorizationUrl\"R\n" +
+	"\x1fHandleBexioOAuthCallbackRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x12\n" +
+	"\x04code\x18\x02 \x01(\tR\x04code\"a\n" +
+	" HandleBexioOAuthCallbackResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12#\n" +
+	"\rerror_message\x18\x02 \x01(\tR\ferrorMessage\"5\n" +
+	"\x16DisconnectBexioRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"3\n" +
+	"\x17DisconnectBexioResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\">\n" +
+	"\x1fGetBexioConnectionStatusRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"\x9a\x01\n" +
+	" GetBexioConnectionStatusResponse\x12\x1c\n" +
+	"\tconnected\x18\x01 \x01(\bR\tconnected\x12\x19\n" +
+	"\borg_name\x18\x02 \x01(\tR\aorgName\x12=\n" +
+	"\fconnected_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\vconnectedAt\"S\n" +
+	"\x17TriggerBexioSyncRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
+	"\tsync_type\x18\x02 \x01(\tR\bsyncType\"K\n" +
+	"\x18TriggerBexioSyncResponse\x12\x17\n" +
+	"\async_id\x18\x01 \x01(\tR\x06syncId\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\"8\n" +
+	"\x19GetBexioSyncStatusRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"\x83\x05\n" +
+	"\x1aGetBexioSyncStatusResponse\x120\n" +
+	"\x14contact_sync_enabled\x18\x01 \x01(\bR\x12contactSyncEnabled\x120\n" +
+	"\x14invoice_push_enabled\x18\x02 \x01(\bR\x12invoicePushEnabled\x12,\n" +
+	"\x12quote_push_enabled\x18\x03 \x01(\bR\x10quotePushEnabled\x120\n" +
+	"\x14payment_poll_enabled\x18\x04 \x01(\bR\x12paymentPollEnabled\x12K\n" +
+	"\x14last_contact_sync_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\x11lastContactSyncAt\x12K\n" +
+	"\x14last_payment_poll_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x11lastPaymentPollAt\x122\n" +
+	"\x15total_contacts_mapped\x18\a \x01(\x05R\x13totalContactsMapped\x122\n" +
+	"\x15total_invoices_mapped\x18\b \x01(\x05R\x13totalInvoicesMapped\x12.\n" +
+	"\x13total_quotes_mapped\x18\t \x01(\x05R\x11totalQuotesMapped\x12&\n" +
+	"\x0flast_sync_error\x18\n" +
+	" \x01(\tR\rlastSyncError\x12G\n" +
+	"\x12last_sync_error_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\x0flastSyncErrorAt\"\x85\x03\n" +
+	"\x1cUpdateBexioSyncConfigRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x120\n" +
+	"\x14contact_sync_enabled\x18\x02 \x01(\bR\x12contactSyncEnabled\x12A\n" +
+	"\x1dcontact_sync_interval_minutes\x18\x03 \x01(\x05R\x1acontactSyncIntervalMinutes\x120\n" +
+	"\x14invoice_push_enabled\x18\x04 \x01(\bR\x12invoicePushEnabled\x12,\n" +
+	"\x12quote_push_enabled\x18\x05 \x01(\bR\x10quotePushEnabled\x120\n" +
+	"\x14payment_poll_enabled\x18\x06 \x01(\bR\x12paymentPollEnabled\x12A\n" +
+	"\x1dpayment_poll_interval_minutes\x18\a \x01(\x05R\x1apaymentPollIntervalMinutes\"9\n" +
+	"\x1dUpdateBexioSyncConfigResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"M\n" +
+	"\x18ListBexioSyncLogsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\"P\n" +
+	"\x19ListBexioSyncLogsResponse\x123\n" +
+	"\aentries\x18\x01 \x03(\v2\x19.biz.v1.BexioSyncLogEntryR\aentries\"\x8d\x03\n" +
+	"\x11BexioSyncLogEntry\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\tsync_type\x18\x02 \x01(\tR\bsyncType\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\x12'\n" +
+	"\x0fitems_processed\x18\x04 \x01(\x05R\x0eitemsProcessed\x12#\n" +
+	"\ritems_created\x18\x05 \x01(\x05R\fitemsCreated\x12#\n" +
+	"\ritems_updated\x18\x06 \x01(\x05R\fitemsUpdated\x12!\n" +
+	"\fitems_failed\x18\a \x01(\x05R\vitemsFailed\x12#\n" +
+	"\rerror_message\x18\b \x01(\tR\ferrorMessage\x129\n" +
+	"\n" +
+	"started_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x12=\n" +
+	"\fcompleted_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\vcompletedAt\"\\\n" +
+	"\x1cGetBexioFieldMappingsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\ventity_type\x18\x02 \x01(\tR\n" +
+	"entityType\"[\n" +
+	"\x1dGetBexioFieldMappingsResponse\x12:\n" +
+	"\bmappings\x18\x01 \x03(\v2\x1e.biz.v1.BexioFieldMappingEntryR\bmappings\"\x96\x01\n" +
+	"\x16BexioFieldMappingEntry\x12!\n" +
+	"\fkmuhub_field\x18\x01 \x01(\tR\vkmuhubField\x12\x1f\n" +
+	"\vbexio_field\x18\x02 \x01(\tR\n" +
+	"bexioField\x12\x1c\n" +
+	"\tdirection\x18\x03 \x01(\tR\tdirection\x12\x1a\n" +
+	"\brequired\x18\x04 \x01(\bR\brequired\"\x9b\x01\n" +
+	"\x1fUpdateBexioFieldMappingsRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
+	"\ventity_type\x18\x02 \x01(\tR\n" +
+	"entityType\x12:\n" +
+	"\bmappings\x18\x03 \x03(\v2\x1e.biz.v1.BexioFieldMappingEntryR\bmappings\"<\n" +
+	" UpdateBexioFieldMappingsResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"W\n" +
+	"\x19PushInvoiceToBexioRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
+	"\n" +
+	"invoice_id\x18\x02 \x01(\tR\tinvoiceId\"v\n" +
+	"\x1aPushInvoiceToBexioResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x19\n" +
+	"\bbexio_id\x18\x02 \x01(\tR\abexioId\x12#\n" +
+	"\rerror_message\x18\x03 \x01(\tR\ferrorMessage\"Q\n" +
+	"\x17PushQuoteToBexioRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x19\n" +
+	"\bquote_id\x18\x02 \x01(\tR\aquoteId\"t\n" +
+	"\x18PushQuoteToBexioResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x19\n" +
+	"\bbexio_id\x18\x02 \x01(\tR\abexioId\x12#\n" +
+	"\rerror_message\x18\x03 \x01(\tR\ferrorMessage2\x9c\t\n" +
+	"\x17BexioIntegrationService\x12R\n" +
+	"\x0fGetBexioAuthURL\x12\x1e.biz.v1.GetBexioAuthURLRequest\x1a\x1f.biz.v1.GetBexioAuthURLResponse\x12m\n" +
+	"\x18HandleBexioOAuthCallback\x12'.biz.v1.HandleBexioOAuthCallbackRequest\x1a(.biz.v1.HandleBexioOAuthCallbackResponse\x12R\n" +
+	"\x0fDisconnectBexio\x12\x1e.biz.v1.DisconnectBexioRequest\x1a\x1f.biz.v1.DisconnectBexioResponse\x12m\n" +
+	"\x18GetBexioConnectionStatus\x12'.biz.v1.GetBexioConnectionStatusRequest\x1a(.biz.v1.GetBexioConnectionStatusResponse\x12U\n" +
+	"\x10TriggerBexioSync\x12\x1f.biz.v1.TriggerBexioSyncRequest\x1a .biz.v1.TriggerBexioSyncResponse\x12[\n" +
+	"\x12GetBexioSyncStatus\x12!.biz.v1.GetBexioSyncStatusRequest\x1a\".biz.v1.GetBexioSyncStatusResponse\x12d\n" +
+	"\x15UpdateBexioSyncConfig\x12$.biz.v1.UpdateBexioSyncConfigRequest\x1a%.biz.v1.UpdateBexioSyncConfigResponse\x12X\n" +
+	"\x11ListBexioSyncLogs\x12 .biz.v1.ListBexioSyncLogsRequest\x1a!.biz.v1.ListBexioSyncLogsResponse\x12d\n" +
+	"\x15GetBexioFieldMappings\x12$.biz.v1.GetBexioFieldMappingsRequest\x1a%.biz.v1.GetBexioFieldMappingsResponse\x12m\n" +
+	"\x18UpdateBexioFieldMappings\x12'.biz.v1.UpdateBexioFieldMappingsRequest\x1a(.biz.v1.UpdateBexioFieldMappingsResponse\x12[\n" +
+	"\x12PushInvoiceToBexio\x12!.biz.v1.PushInvoiceToBexioRequest\x1a\".biz.v1.PushInvoiceToBexioResponse\x12U\n" +
+	"\x10PushQuoteToBexio\x12\x1f.biz.v1.PushQuoteToBexioRequest\x1a .biz.v1.PushQuoteToBexioResponseB-Z+github.com/kmuhub/kmuhub/proto/biz/v1;bizv1b\x06proto3"
+
+var (
+	file_backend_proto_biz_v1_bexio_proto_rawDescOnce sync.Once
+	file_backend_proto_biz_v1_bexio_proto_rawDescData []byte
+)
+
+func file_backend_proto_biz_v1_bexio_proto_rawDescGZIP() []byte {
+	file_backend_proto_biz_v1_bexio_proto_rawDescOnce.Do(func() {
+		file_backend_proto_biz_v1_bexio_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_backend_proto_biz_v1_bexio_proto_rawDesc), len(file_backend_proto_biz_v1_bexio_proto_rawDesc)))
+	})
+	return file_backend_proto_biz_v1_bexio_proto_rawDescData
+}
+
+var file_backend_proto_biz_v1_bexio_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
+var file_backend_proto_biz_v1_bexio_proto_goTypes = []any{
+	(*GetBexioAuthURLRequest)(nil),           // 0: biz.v1.GetBexioAuthURLRequest
+	(*GetBexioAuthURLResponse)(nil),          // 1: biz.v1.GetBexioAuthURLResponse
+	(*HandleBexioOAuthCallbackRequest)(nil),  // 2: biz.v1.HandleBexioOAuthCallbackRequest
+	(*HandleBexioOAuthCallbackResponse)(nil), // 3: biz.v1.HandleBexioOAuthCallbackResponse
+	(*DisconnectBexioRequest)(nil),           // 4: biz.v1.DisconnectBexioRequest
+	(*DisconnectBexioResponse)(nil),          // 5: biz.v1.DisconnectBexioResponse
+	(*GetBexioConnectionStatusRequest)(nil),  // 6: biz.v1.GetBexioConnectionStatusRequest
+	(*GetBexioConnectionStatusResponse)(nil), // 7: biz.v1.GetBexioConnectionStatusResponse
+	(*TriggerBexioSyncRequest)(nil),          // 8: biz.v1.TriggerBexioSyncRequest
+	(*TriggerBexioSyncResponse)(nil),         // 9: biz.v1.TriggerBexioSyncResponse
+	(*GetBexioSyncStatusRequest)(nil),        // 10: biz.v1.GetBexioSyncStatusRequest
+	(*GetBexioSyncStatusResponse)(nil),       // 11: biz.v1.GetBexioSyncStatusResponse
+	(*UpdateBexioSyncConfigRequest)(nil),     // 12: biz.v1.UpdateBexioSyncConfigRequest
+	(*UpdateBexioSyncConfigResponse)(nil),    // 13: biz.v1.UpdateBexioSyncConfigResponse
+	(*ListBexioSyncLogsRequest)(nil),         // 14: biz.v1.ListBexioSyncLogsRequest
+	(*ListBexioSyncLogsResponse)(nil),        // 15: biz.v1.ListBexioSyncLogsResponse
+	(*BexioSyncLogEntry)(nil),                // 16: biz.v1.BexioSyncLogEntry
+	(*GetBexioFieldMappingsRequest)(nil),     // 17: biz.v1.GetBexioFieldMappingsRequest
+	(*GetBexioFieldMappingsResponse)(nil),    // 18: biz.v1.GetBexioFieldMappingsResponse
+	(*BexioFieldMappingEntry)(nil),           // 19: biz.v1.BexioFieldMappingEntry
+	(*UpdateBexioFieldMappingsRequest)(nil),  // 20: biz.v1.UpdateBexioFieldMappingsRequest
+	(*UpdateBexioFieldMappingsResponse)(nil), // 21: biz.v1.UpdateBexioFieldMappingsResponse
+	(*PushInvoiceToBexioRequest)(nil),        // 22: biz.v1.PushInvoiceToBexioRequest
+	(*PushInvoiceToBexioResponse)(nil),       // 23: biz.v1.PushInvoiceToBexioResponse
+	(*PushQuoteToBexioRequest)(nil),          // 24: biz.v1.PushQuoteToBexioRequest
+	(*PushQuoteToBexioResponse)(nil),         // 25: biz.v1.PushQuoteToBexioResponse
+	(*timestamppb.Timestamp)(nil),            // 26: google.protobuf.Timestamp
+}
+var file_backend_proto_biz_v1_bexio_proto_depIdxs = []int32{
+	26, // 0: biz.v1.GetBexioConnectionStatusResponse.connected_at:type_name -> google.protobuf.Timestamp
+	26, // 1: biz.v1.GetBexioSyncStatusResponse.last_contact_sync_at:type_name -> google.protobuf.Timestamp
+	26, // 2: biz.v1.GetBexioSyncStatusResponse.last_payment_poll_at:type_name -> google.protobuf.Timestamp
+	26, // 3: biz.v1.GetBexioSyncStatusResponse.last_sync_error_at:type_name -> google.protobuf.Timestamp
+	16, // 4: biz.v1.ListBexioSyncLogsResponse.entries:type_name -> biz.v1.BexioSyncLogEntry
+	26, // 5: biz.v1.BexioSyncLogEntry.started_at:type_name -> google.protobuf.Timestamp
+	26, // 6: biz.v1.BexioSyncLogEntry.completed_at:type_name -> google.protobuf.Timestamp
+	19, // 7: biz.v1.GetBexioFieldMappingsResponse.mappings:type_name -> biz.v1.BexioFieldMappingEntry
+	19, // 8: biz.v1.UpdateBexioFieldMappingsRequest.mappings:type_name -> biz.v1.BexioFieldMappingEntry
+	0,  // 9: biz.v1.BexioIntegrationService.GetBexioAuthURL:input_type -> biz.v1.GetBexioAuthURLRequest
+	2,  // 10: biz.v1.BexioIntegrationService.HandleBexioOAuthCallback:input_type -> biz.v1.HandleBexioOAuthCallbackRequest
+	4,  // 11: biz.v1.BexioIntegrationService.DisconnectBexio:input_type -> biz.v1.DisconnectBexioRequest
+	6,  // 12: biz.v1.BexioIntegrationService.GetBexioConnectionStatus:input_type -> biz.v1.GetBexioConnectionStatusRequest
+	8,  // 13: biz.v1.BexioIntegrationService.TriggerBexioSync:input_type -> biz.v1.TriggerBexioSyncRequest
+	10, // 14: biz.v1.BexioIntegrationService.GetBexioSyncStatus:input_type -> biz.v1.GetBexioSyncStatusRequest
+	12, // 15: biz.v1.BexioIntegrationService.UpdateBexioSyncConfig:input_type -> biz.v1.UpdateBexioSyncConfigRequest
+	14, // 16: biz.v1.BexioIntegrationService.ListBexioSyncLogs:input_type -> biz.v1.ListBexioSyncLogsRequest
+	17, // 17: biz.v1.BexioIntegrationService.GetBexioFieldMappings:input_type -> biz.v1.GetBexioFieldMappingsRequest
+	20, // 18: biz.v1.BexioIntegrationService.UpdateBexioFieldMappings:input_type -> biz.v1.UpdateBexioFieldMappingsRequest
+	22, // 19: biz.v1.BexioIntegrationService.PushInvoiceToBexio:input_type -> biz.v1.PushInvoiceToBexioRequest
+	24, // 20: biz.v1.BexioIntegrationService.PushQuoteToBexio:input_type -> biz.v1.PushQuoteToBexioRequest
+	1,  // 21: biz.v1.BexioIntegrationService.GetBexioAuthURL:output_type -> biz.v1.GetBexioAuthURLResponse
+	3,  // 22: biz.v1.BexioIntegrationService.HandleBexioOAuthCallback:output_type -> biz.v1.HandleBexioOAuthCallbackResponse
+	5,  // 23: biz.v1.BexioIntegrationService.DisconnectBexio:output_type -> biz.v1.DisconnectBexioResponse
+	7,  // 24: biz.v1.BexioIntegrationService.GetBexioConnectionStatus:output_type -> biz.v1.GetBexioConnectionStatusResponse
+	9,  // 25: biz.v1.BexioIntegrationService.TriggerBexioSync:output_type -> biz.v1.TriggerBexioSyncResponse
+	11, // 26: biz.v1.BexioIntegrationService.GetBexioSyncStatus:output_type -> biz.v1.GetBexioSyncStatusResponse
+	13, // 27: biz.v1.BexioIntegrationService.UpdateBexioSyncConfig:output_type -> biz.v1.UpdateBexioSyncConfigResponse
+	15, // 28: biz.v1.BexioIntegrationService.ListBexioSyncLogs:output_type -> biz.v1.ListBexioSyncLogsResponse
+	18, // 29: biz.v1.BexioIntegrationService.GetBexioFieldMappings:output_type -> biz.v1.GetBexioFieldMappingsResponse
+	21, // 30: biz.v1.BexioIntegrationService.UpdateBexioFieldMappings:output_type -> biz.v1.UpdateBexioFieldMappingsResponse
+	23, // 31: biz.v1.BexioIntegrationService.PushInvoiceToBexio:output_type -> biz.v1.PushInvoiceToBexioResponse
+	25, // 32: biz.v1.BexioIntegrationService.PushQuoteToBexio:output_type -> biz.v1.PushQuoteToBexioResponse
+	21, // [21:33] is the sub-list for method output_type
+	9,  // [9:21] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
+}
+
+func init() { file_backend_proto_biz_v1_bexio_proto_init() }
+func file_backend_proto_biz_v1_bexio_proto_init() {
+	if File_backend_proto_biz_v1_bexio_proto != nil {
+		return
+	}
+	type x struct{}
+	out := protoimpl.TypeBuilder{
+		File: protoimpl.DescBuilder{
+			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_backend_proto_biz_v1_bexio_proto_rawDesc), len(file_backend_proto_biz_v1_bexio_proto_rawDesc)),
+			NumEnums:      0,
+			NumMessages:   26,
+			NumExtensions: 0,
+			NumServices:   1,
+		},
+		GoTypes:           file_backend_proto_biz_v1_bexio_proto_goTypes,
+		DependencyIndexes: file_backend_proto_biz_v1_bexio_proto_depIdxs,
+		MessageInfos:      file_backend_proto_biz_v1_bexio_proto_msgTypes,
+	}.Build()
+	File_backend_proto_biz_v1_bexio_proto = out.File
+	file_backend_proto_biz_v1_bexio_proto_goTypes = nil
+	file_backend_proto_biz_v1_bexio_proto_depIdxs = nil
 }

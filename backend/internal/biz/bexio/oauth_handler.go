@@ -17,6 +17,7 @@ import (
 // ConnectionStatus represents the current Bexio connection state.
 type ConnectionStatus struct {
 	Connected   bool       `json:"connected"`
+	OrgName     string     `json:"org_name,omitempty"`
 	ConfigID    *uuid.UUID `json:"config_id,omitempty"`
 	ConnectedAt *time.Time `json:"connected_at,omitempty"`
 }
@@ -24,6 +25,9 @@ type ConnectionStatus struct {
 // IntegrationConfigRepo defines access to the shared integration_configs table.
 type IntegrationConfigRepo interface {
 	GetByPlatform(ctx context.Context, platform string) (*IntegrationConfig, error)
+	// ListActiveByPlatform returns all active integration_configs for a platform.
+	// Must be called with a system context to bypass per-tenant RLS.
+	ListActiveByPlatform(ctx context.Context, platform string) ([]*IntegrationConfig, error)
 	Upsert(ctx context.Context, config *IntegrationConfig) error
 	Deactivate(ctx context.Context, id uuid.UUID) error
 }
@@ -44,6 +48,7 @@ type IntegrationConfig struct {
 // OAuthHandler manages the Bexio OAuth2 connect/disconnect flow.
 type OAuthHandler struct {
 	tokenManager *TokenManager
+	client       *Client
 	repo         Repository
 	configRepo   IntegrationConfigRepo
 	vault        VaultService
@@ -51,9 +56,10 @@ type OAuthHandler struct {
 }
 
 // NewOAuthHandler creates a new OAuth handler.
-func NewOAuthHandler(tokenManager *TokenManager, repo Repository, configRepo IntegrationConfigRepo, vault VaultService, config ClientConfig) *OAuthHandler {
+func NewOAuthHandler(tokenManager *TokenManager, client *Client, repo Repository, configRepo IntegrationConfigRepo, vault VaultService, config ClientConfig) *OAuthHandler {
 	return &OAuthHandler{
 		tokenManager: tokenManager,
+		client:       client,
 		repo:         repo,
 		configRepo:   configRepo,
 		vault:        vault,
@@ -86,18 +92,32 @@ func (h *OAuthHandler) HandleCallback(ctx context.Context, tenantID uuid.UUID, c
 		return fmt.Errorf("bexio oauth callback: %w", err)
 	}
 
-	// Create or update integration config
+	// Fetch the company profile to populate org_name.
 	now := time.Now().UTC()
+	metadata := map[string]any{"connected_at": now.Format(time.RFC3339)}
+	if h.client != nil {
+		profile, profileErr := h.client.GetCompanyProfile(ctx, tenantID)
+		if profileErr != nil {
+			slog.Warn("bexio oauth: could not fetch company profile, org_name will be empty",
+				"tenant_id", tenantID,
+				"error", profileErr,
+			)
+		} else if profile != nil && profile.Name != "" {
+			metadata["org_name"] = profile.Name
+		}
+	}
+
+	// Create or update integration config
 	ic := &IntegrationConfig{
-		ID:                 uuid.New(),
-		TenantID:           tenantID,
-		Platform:           "bexio",
-		IsActive:           true,
+		ID:                  uuid.New(),
+		TenantID:            tenantID,
+		Platform:            "bexio",
+		IsActive:            true,
 		CredentialsVaultKey: vaultKey(tenantID),
-		Metadata:           map[string]any{"connected_at": now.Format(time.RFC3339)},
-		CreatedBy:          tenantID,
-		CreatedAt:          now,
-		UpdatedAt:          now,
+		Metadata:            metadata,
+		CreatedBy:           tenantID,
+		CreatedAt:           now,
+		UpdatedAt:           now,
 	}
 
 	if err := h.configRepo.Upsert(ctx, ic); err != nil {
@@ -183,6 +203,10 @@ func (h *OAuthHandler) GetConnectionStatus(ctx context.Context) (*ConnectionStat
 		if t, err := time.Parse(time.RFC3339, connAt); err == nil {
 			status.ConnectedAt = &t
 		}
+	}
+
+	if orgName, ok := config.Metadata["org_name"].(string); ok {
+		status.OrgName = orgName
 	}
 
 	return status, nil

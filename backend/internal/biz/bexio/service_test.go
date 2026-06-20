@@ -109,6 +109,10 @@ func (m *mockConfigRepo) GetByPlatform(ctx context.Context, platform string) (*I
 	return nil, errors.New("not found")
 }
 
+func (m *mockConfigRepo) ListActiveByPlatform(_ context.Context, _ string) ([]*IntegrationConfig, error) {
+	return nil, nil
+}
+
 func (m *mockConfigRepo) Upsert(context.Context, *IntegrationConfig) error { return nil }
 
 func (m *mockConfigRepo) Deactivate(context.Context, uuid.UUID) error { return nil }

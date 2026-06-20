@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v6.33.4
-// source: proto/biz/v1/bexio.proto
+// source: backend/proto/biz/v1/bexio.proto
 
 package bizv1
 
@@ -15,23 +15,27 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
+// Requires gRPC-Go v1.64.0 or later.
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	BexioIntegrationService_GetBexioAuthURL_FullMethodName           = "/biz.v1.BexioIntegrationService/GetBexioAuthURL"
-	BexioIntegrationService_HandleBexioOAuthCallback_FullMethodName  = "/biz.v1.BexioIntegrationService/HandleBexioOAuthCallback"
-	BexioIntegrationService_DisconnectBexio_FullMethodName           = "/biz.v1.BexioIntegrationService/DisconnectBexio"
-	BexioIntegrationService_GetBexioConnectionStatus_FullMethodName  = "/biz.v1.BexioIntegrationService/GetBexioConnectionStatus"
-	BexioIntegrationService_TriggerBexioSync_FullMethodName          = "/biz.v1.BexioIntegrationService/TriggerBexioSync"
-	BexioIntegrationService_GetBexioSyncStatus_FullMethodName        = "/biz.v1.BexioIntegrationService/GetBexioSyncStatus"
-	BexioIntegrationService_ListBexioSyncLogs_FullMethodName         = "/biz.v1.BexioIntegrationService/ListBexioSyncLogs"
-	BexioIntegrationService_GetBexioFieldMappings_FullMethodName     = "/biz.v1.BexioIntegrationService/GetBexioFieldMappings"
-	BexioIntegrationService_UpdateBexioFieldMappings_FullMethodName  = "/biz.v1.BexioIntegrationService/UpdateBexioFieldMappings"
-	BexioIntegrationService_PushInvoiceToBexio_FullMethodName        = "/biz.v1.BexioIntegrationService/PushInvoiceToBexio"
-	BexioIntegrationService_PushQuoteToBexio_FullMethodName          = "/biz.v1.BexioIntegrationService/PushQuoteToBexio"
+	BexioIntegrationService_GetBexioAuthURL_FullMethodName          = "/biz.v1.BexioIntegrationService/GetBexioAuthURL"
+	BexioIntegrationService_HandleBexioOAuthCallback_FullMethodName = "/biz.v1.BexioIntegrationService/HandleBexioOAuthCallback"
+	BexioIntegrationService_DisconnectBexio_FullMethodName          = "/biz.v1.BexioIntegrationService/DisconnectBexio"
+	BexioIntegrationService_GetBexioConnectionStatus_FullMethodName = "/biz.v1.BexioIntegrationService/GetBexioConnectionStatus"
+	BexioIntegrationService_TriggerBexioSync_FullMethodName         = "/biz.v1.BexioIntegrationService/TriggerBexioSync"
+	BexioIntegrationService_GetBexioSyncStatus_FullMethodName       = "/biz.v1.BexioIntegrationService/GetBexioSyncStatus"
+	BexioIntegrationService_UpdateBexioSyncConfig_FullMethodName    = "/biz.v1.BexioIntegrationService/UpdateBexioSyncConfig"
+	BexioIntegrationService_ListBexioSyncLogs_FullMethodName        = "/biz.v1.BexioIntegrationService/ListBexioSyncLogs"
+	BexioIntegrationService_GetBexioFieldMappings_FullMethodName    = "/biz.v1.BexioIntegrationService/GetBexioFieldMappings"
+	BexioIntegrationService_UpdateBexioFieldMappings_FullMethodName = "/biz.v1.BexioIntegrationService/UpdateBexioFieldMappings"
+	BexioIntegrationService_PushInvoiceToBexio_FullMethodName       = "/biz.v1.BexioIntegrationService/PushInvoiceToBexio"
+	BexioIntegrationService_PushQuoteToBexio_FullMethodName         = "/biz.v1.BexioIntegrationService/PushQuoteToBexio"
 )
 
-// BexioIntegrationServiceClient is the client API for BexioIntegrationService.
+// BexioIntegrationServiceClient is the client API for BexioIntegrationService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type BexioIntegrationServiceClient interface {
 	// OAuth
 	GetBexioAuthURL(ctx context.Context, in *GetBexioAuthURLRequest, opts ...grpc.CallOption) (*GetBexioAuthURLResponse, error)
@@ -41,6 +45,7 @@ type BexioIntegrationServiceClient interface {
 	// Sync Operations
 	TriggerBexioSync(ctx context.Context, in *TriggerBexioSyncRequest, opts ...grpc.CallOption) (*TriggerBexioSyncResponse, error)
 	GetBexioSyncStatus(ctx context.Context, in *GetBexioSyncStatusRequest, opts ...grpc.CallOption) (*GetBexioSyncStatusResponse, error)
+	UpdateBexioSyncConfig(ctx context.Context, in *UpdateBexioSyncConfigRequest, opts ...grpc.CallOption) (*UpdateBexioSyncConfigResponse, error)
 	ListBexioSyncLogs(ctx context.Context, in *ListBexioSyncLogsRequest, opts ...grpc.CallOption) (*ListBexioSyncLogsResponse, error)
 	// Field Mappings
 	GetBexioFieldMappings(ctx context.Context, in *GetBexioFieldMappingsRequest, opts ...grpc.CallOption) (*GetBexioFieldMappingsResponse, error)
@@ -59,8 +64,9 @@ func NewBexioIntegrationServiceClient(cc grpc.ClientConnInterface) BexioIntegrat
 }
 
 func (c *bexioIntegrationServiceClient) GetBexioAuthURL(ctx context.Context, in *GetBexioAuthURLRequest, opts ...grpc.CallOption) (*GetBexioAuthURLResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetBexioAuthURLResponse)
-	err := c.cc.Invoke(ctx, BexioIntegrationService_GetBexioAuthURL_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, BexioIntegrationService_GetBexioAuthURL_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -68,8 +74,9 @@ func (c *bexioIntegrationServiceClient) GetBexioAuthURL(ctx context.Context, in 
 }
 
 func (c *bexioIntegrationServiceClient) HandleBexioOAuthCallback(ctx context.Context, in *HandleBexioOAuthCallbackRequest, opts ...grpc.CallOption) (*HandleBexioOAuthCallbackResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(HandleBexioOAuthCallbackResponse)
-	err := c.cc.Invoke(ctx, BexioIntegrationService_HandleBexioOAuthCallback_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, BexioIntegrationService_HandleBexioOAuthCallback_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -77,8 +84,9 @@ func (c *bexioIntegrationServiceClient) HandleBexioOAuthCallback(ctx context.Con
 }
 
 func (c *bexioIntegrationServiceClient) DisconnectBexio(ctx context.Context, in *DisconnectBexioRequest, opts ...grpc.CallOption) (*DisconnectBexioResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DisconnectBexioResponse)
-	err := c.cc.Invoke(ctx, BexioIntegrationService_DisconnectBexio_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, BexioIntegrationService_DisconnectBexio_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -86,8 +94,9 @@ func (c *bexioIntegrationServiceClient) DisconnectBexio(ctx context.Context, in 
 }
 
 func (c *bexioIntegrationServiceClient) GetBexioConnectionStatus(ctx context.Context, in *GetBexioConnectionStatusRequest, opts ...grpc.CallOption) (*GetBexioConnectionStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetBexioConnectionStatusResponse)
-	err := c.cc.Invoke(ctx, BexioIntegrationService_GetBexioConnectionStatus_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, BexioIntegrationService_GetBexioConnectionStatus_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -95,8 +104,9 @@ func (c *bexioIntegrationServiceClient) GetBexioConnectionStatus(ctx context.Con
 }
 
 func (c *bexioIntegrationServiceClient) TriggerBexioSync(ctx context.Context, in *TriggerBexioSyncRequest, opts ...grpc.CallOption) (*TriggerBexioSyncResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(TriggerBexioSyncResponse)
-	err := c.cc.Invoke(ctx, BexioIntegrationService_TriggerBexioSync_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, BexioIntegrationService_TriggerBexioSync_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -104,8 +114,19 @@ func (c *bexioIntegrationServiceClient) TriggerBexioSync(ctx context.Context, in
 }
 
 func (c *bexioIntegrationServiceClient) GetBexioSyncStatus(ctx context.Context, in *GetBexioSyncStatusRequest, opts ...grpc.CallOption) (*GetBexioSyncStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetBexioSyncStatusResponse)
-	err := c.cc.Invoke(ctx, BexioIntegrationService_GetBexioSyncStatus_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, BexioIntegrationService_GetBexioSyncStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bexioIntegrationServiceClient) UpdateBexioSyncConfig(ctx context.Context, in *UpdateBexioSyncConfigRequest, opts ...grpc.CallOption) (*UpdateBexioSyncConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateBexioSyncConfigResponse)
+	err := c.cc.Invoke(ctx, BexioIntegrationService_UpdateBexioSyncConfig_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -113,8 +134,9 @@ func (c *bexioIntegrationServiceClient) GetBexioSyncStatus(ctx context.Context, 
 }
 
 func (c *bexioIntegrationServiceClient) ListBexioSyncLogs(ctx context.Context, in *ListBexioSyncLogsRequest, opts ...grpc.CallOption) (*ListBexioSyncLogsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListBexioSyncLogsResponse)
-	err := c.cc.Invoke(ctx, BexioIntegrationService_ListBexioSyncLogs_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, BexioIntegrationService_ListBexioSyncLogs_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -122,8 +144,9 @@ func (c *bexioIntegrationServiceClient) ListBexioSyncLogs(ctx context.Context, i
 }
 
 func (c *bexioIntegrationServiceClient) GetBexioFieldMappings(ctx context.Context, in *GetBexioFieldMappingsRequest, opts ...grpc.CallOption) (*GetBexioFieldMappingsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetBexioFieldMappingsResponse)
-	err := c.cc.Invoke(ctx, BexioIntegrationService_GetBexioFieldMappings_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, BexioIntegrationService_GetBexioFieldMappings_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -131,8 +154,9 @@ func (c *bexioIntegrationServiceClient) GetBexioFieldMappings(ctx context.Contex
 }
 
 func (c *bexioIntegrationServiceClient) UpdateBexioFieldMappings(ctx context.Context, in *UpdateBexioFieldMappingsRequest, opts ...grpc.CallOption) (*UpdateBexioFieldMappingsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UpdateBexioFieldMappingsResponse)
-	err := c.cc.Invoke(ctx, BexioIntegrationService_UpdateBexioFieldMappings_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, BexioIntegrationService_UpdateBexioFieldMappings_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -140,8 +164,9 @@ func (c *bexioIntegrationServiceClient) UpdateBexioFieldMappings(ctx context.Con
 }
 
 func (c *bexioIntegrationServiceClient) PushInvoiceToBexio(ctx context.Context, in *PushInvoiceToBexioRequest, opts ...grpc.CallOption) (*PushInvoiceToBexioResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(PushInvoiceToBexioResponse)
-	err := c.cc.Invoke(ctx, BexioIntegrationService_PushInvoiceToBexio_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, BexioIntegrationService_PushInvoiceToBexio_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -149,76 +174,100 @@ func (c *bexioIntegrationServiceClient) PushInvoiceToBexio(ctx context.Context, 
 }
 
 func (c *bexioIntegrationServiceClient) PushQuoteToBexio(ctx context.Context, in *PushQuoteToBexioRequest, opts ...grpc.CallOption) (*PushQuoteToBexioResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(PushQuoteToBexioResponse)
-	err := c.cc.Invoke(ctx, BexioIntegrationService_PushQuoteToBexio_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, BexioIntegrationService_PushQuoteToBexio_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// BexioIntegrationServiceServer is the server API for BexioIntegrationService.
+// BexioIntegrationServiceServer is the server API for BexioIntegrationService service.
+// All implementations must embed UnimplementedBexioIntegrationServiceServer
+// for forward compatibility.
 type BexioIntegrationServiceServer interface {
+	// OAuth
 	GetBexioAuthURL(context.Context, *GetBexioAuthURLRequest) (*GetBexioAuthURLResponse, error)
 	HandleBexioOAuthCallback(context.Context, *HandleBexioOAuthCallbackRequest) (*HandleBexioOAuthCallbackResponse, error)
 	DisconnectBexio(context.Context, *DisconnectBexioRequest) (*DisconnectBexioResponse, error)
 	GetBexioConnectionStatus(context.Context, *GetBexioConnectionStatusRequest) (*GetBexioConnectionStatusResponse, error)
+	// Sync Operations
 	TriggerBexioSync(context.Context, *TriggerBexioSyncRequest) (*TriggerBexioSyncResponse, error)
 	GetBexioSyncStatus(context.Context, *GetBexioSyncStatusRequest) (*GetBexioSyncStatusResponse, error)
+	UpdateBexioSyncConfig(context.Context, *UpdateBexioSyncConfigRequest) (*UpdateBexioSyncConfigResponse, error)
 	ListBexioSyncLogs(context.Context, *ListBexioSyncLogsRequest) (*ListBexioSyncLogsResponse, error)
+	// Field Mappings
 	GetBexioFieldMappings(context.Context, *GetBexioFieldMappingsRequest) (*GetBexioFieldMappingsResponse, error)
 	UpdateBexioFieldMappings(context.Context, *UpdateBexioFieldMappingsRequest) (*UpdateBexioFieldMappingsResponse, error)
+	// Manual Push
 	PushInvoiceToBexio(context.Context, *PushInvoiceToBexioRequest) (*PushInvoiceToBexioResponse, error)
 	PushQuoteToBexio(context.Context, *PushQuoteToBexioRequest) (*PushQuoteToBexioResponse, error)
 	mustEmbedUnimplementedBexioIntegrationServiceServer()
 }
 
-// UnimplementedBexioIntegrationServiceServer should be embedded to have
+// UnimplementedBexioIntegrationServiceServer must be embedded to have
 // forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
 type UnimplementedBexioIntegrationServiceServer struct{}
 
 func (UnimplementedBexioIntegrationServiceServer) GetBexioAuthURL(context.Context, *GetBexioAuthURLRequest) (*GetBexioAuthURLResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetBexioAuthURL not implemented")
+	return nil, status.Error(codes.Unimplemented, "method GetBexioAuthURL not implemented")
 }
 func (UnimplementedBexioIntegrationServiceServer) HandleBexioOAuthCallback(context.Context, *HandleBexioOAuthCallbackRequest) (*HandleBexioOAuthCallbackResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method HandleBexioOAuthCallback not implemented")
+	return nil, status.Error(codes.Unimplemented, "method HandleBexioOAuthCallback not implemented")
 }
 func (UnimplementedBexioIntegrationServiceServer) DisconnectBexio(context.Context, *DisconnectBexioRequest) (*DisconnectBexioResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DisconnectBexio not implemented")
+	return nil, status.Error(codes.Unimplemented, "method DisconnectBexio not implemented")
 }
 func (UnimplementedBexioIntegrationServiceServer) GetBexioConnectionStatus(context.Context, *GetBexioConnectionStatusRequest) (*GetBexioConnectionStatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetBexioConnectionStatus not implemented")
+	return nil, status.Error(codes.Unimplemented, "method GetBexioConnectionStatus not implemented")
 }
 func (UnimplementedBexioIntegrationServiceServer) TriggerBexioSync(context.Context, *TriggerBexioSyncRequest) (*TriggerBexioSyncResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method TriggerBexioSync not implemented")
+	return nil, status.Error(codes.Unimplemented, "method TriggerBexioSync not implemented")
 }
 func (UnimplementedBexioIntegrationServiceServer) GetBexioSyncStatus(context.Context, *GetBexioSyncStatusRequest) (*GetBexioSyncStatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetBexioSyncStatus not implemented")
+	return nil, status.Error(codes.Unimplemented, "method GetBexioSyncStatus not implemented")
+}
+func (UnimplementedBexioIntegrationServiceServer) UpdateBexioSyncConfig(context.Context, *UpdateBexioSyncConfigRequest) (*UpdateBexioSyncConfigResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateBexioSyncConfig not implemented")
 }
 func (UnimplementedBexioIntegrationServiceServer) ListBexioSyncLogs(context.Context, *ListBexioSyncLogsRequest) (*ListBexioSyncLogsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListBexioSyncLogs not implemented")
+	return nil, status.Error(codes.Unimplemented, "method ListBexioSyncLogs not implemented")
 }
 func (UnimplementedBexioIntegrationServiceServer) GetBexioFieldMappings(context.Context, *GetBexioFieldMappingsRequest) (*GetBexioFieldMappingsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetBexioFieldMappings not implemented")
+	return nil, status.Error(codes.Unimplemented, "method GetBexioFieldMappings not implemented")
 }
 func (UnimplementedBexioIntegrationServiceServer) UpdateBexioFieldMappings(context.Context, *UpdateBexioFieldMappingsRequest) (*UpdateBexioFieldMappingsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateBexioFieldMappings not implemented")
+	return nil, status.Error(codes.Unimplemented, "method UpdateBexioFieldMappings not implemented")
 }
 func (UnimplementedBexioIntegrationServiceServer) PushInvoiceToBexio(context.Context, *PushInvoiceToBexioRequest) (*PushInvoiceToBexioResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PushInvoiceToBexio not implemented")
+	return nil, status.Error(codes.Unimplemented, "method PushInvoiceToBexio not implemented")
 }
 func (UnimplementedBexioIntegrationServiceServer) PushQuoteToBexio(context.Context, *PushQuoteToBexioRequest) (*PushQuoteToBexioResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PushQuoteToBexio not implemented")
+	return nil, status.Error(codes.Unimplemented, "method PushQuoteToBexio not implemented")
 }
 func (UnimplementedBexioIntegrationServiceServer) mustEmbedUnimplementedBexioIntegrationServiceServer() {
 }
+func (UnimplementedBexioIntegrationServiceServer) testEmbeddedByValue() {}
 
 // UnsafeBexioIntegrationServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to BexioIntegrationServiceServer will
+// result in compilation errors.
 type UnsafeBexioIntegrationServiceServer interface {
 	mustEmbedUnimplementedBexioIntegrationServiceServer()
 }
 
 func RegisterBexioIntegrationServiceServer(s grpc.ServiceRegistrar, srv BexioIntegrationServiceServer) {
+	// If the following call panics, it indicates UnimplementedBexioIntegrationServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
 	s.RegisterService(&BexioIntegrationService_ServiceDesc, srv)
 }
 
@@ -230,10 +279,14 @@ func _BexioIntegrationService_GetBexioAuthURL_Handler(srv interface{}, ctx conte
 	if interceptor == nil {
 		return srv.(BexioIntegrationServiceServer).GetBexioAuthURL(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: BexioIntegrationService_GetBexioAuthURL_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BexioIntegrationService_GetBexioAuthURL_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(BexioIntegrationServiceServer).GetBexioAuthURL(ctx, req.(*GetBexioAuthURLRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _BexioIntegrationService_HandleBexioOAuthCallback_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -244,10 +297,14 @@ func _BexioIntegrationService_HandleBexioOAuthCallback_Handler(srv interface{}, 
 	if interceptor == nil {
 		return srv.(BexioIntegrationServiceServer).HandleBexioOAuthCallback(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: BexioIntegrationService_HandleBexioOAuthCallback_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BexioIntegrationService_HandleBexioOAuthCallback_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(BexioIntegrationServiceServer).HandleBexioOAuthCallback(ctx, req.(*HandleBexioOAuthCallbackRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _BexioIntegrationService_DisconnectBexio_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -258,10 +315,14 @@ func _BexioIntegrationService_DisconnectBexio_Handler(srv interface{}, ctx conte
 	if interceptor == nil {
 		return srv.(BexioIntegrationServiceServer).DisconnectBexio(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: BexioIntegrationService_DisconnectBexio_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BexioIntegrationService_DisconnectBexio_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(BexioIntegrationServiceServer).DisconnectBexio(ctx, req.(*DisconnectBexioRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _BexioIntegrationService_GetBexioConnectionStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -272,10 +333,14 @@ func _BexioIntegrationService_GetBexioConnectionStatus_Handler(srv interface{}, 
 	if interceptor == nil {
 		return srv.(BexioIntegrationServiceServer).GetBexioConnectionStatus(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: BexioIntegrationService_GetBexioConnectionStatus_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BexioIntegrationService_GetBexioConnectionStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(BexioIntegrationServiceServer).GetBexioConnectionStatus(ctx, req.(*GetBexioConnectionStatusRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _BexioIntegrationService_TriggerBexioSync_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -286,10 +351,14 @@ func _BexioIntegrationService_TriggerBexioSync_Handler(srv interface{}, ctx cont
 	if interceptor == nil {
 		return srv.(BexioIntegrationServiceServer).TriggerBexioSync(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: BexioIntegrationService_TriggerBexioSync_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BexioIntegrationService_TriggerBexioSync_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(BexioIntegrationServiceServer).TriggerBexioSync(ctx, req.(*TriggerBexioSyncRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _BexioIntegrationService_GetBexioSyncStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -300,10 +369,32 @@ func _BexioIntegrationService_GetBexioSyncStatus_Handler(srv interface{}, ctx co
 	if interceptor == nil {
 		return srv.(BexioIntegrationServiceServer).GetBexioSyncStatus(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: BexioIntegrationService_GetBexioSyncStatus_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BexioIntegrationService_GetBexioSyncStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(BexioIntegrationServiceServer).GetBexioSyncStatus(ctx, req.(*GetBexioSyncStatusRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BexioIntegrationService_UpdateBexioSyncConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateBexioSyncConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BexioIntegrationServiceServer).UpdateBexioSyncConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BexioIntegrationService_UpdateBexioSyncConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BexioIntegrationServiceServer).UpdateBexioSyncConfig(ctx, req.(*UpdateBexioSyncConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _BexioIntegrationService_ListBexioSyncLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -314,10 +405,14 @@ func _BexioIntegrationService_ListBexioSyncLogs_Handler(srv interface{}, ctx con
 	if interceptor == nil {
 		return srv.(BexioIntegrationServiceServer).ListBexioSyncLogs(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: BexioIntegrationService_ListBexioSyncLogs_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BexioIntegrationService_ListBexioSyncLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(BexioIntegrationServiceServer).ListBexioSyncLogs(ctx, req.(*ListBexioSyncLogsRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _BexioIntegrationService_GetBexioFieldMappings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -328,10 +423,14 @@ func _BexioIntegrationService_GetBexioFieldMappings_Handler(srv interface{}, ctx
 	if interceptor == nil {
 		return srv.(BexioIntegrationServiceServer).GetBexioFieldMappings(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: BexioIntegrationService_GetBexioFieldMappings_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BexioIntegrationService_GetBexioFieldMappings_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(BexioIntegrationServiceServer).GetBexioFieldMappings(ctx, req.(*GetBexioFieldMappingsRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _BexioIntegrationService_UpdateBexioFieldMappings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -342,10 +441,14 @@ func _BexioIntegrationService_UpdateBexioFieldMappings_Handler(srv interface{}, 
 	if interceptor == nil {
 		return srv.(BexioIntegrationServiceServer).UpdateBexioFieldMappings(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: BexioIntegrationService_UpdateBexioFieldMappings_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BexioIntegrationService_UpdateBexioFieldMappings_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(BexioIntegrationServiceServer).UpdateBexioFieldMappings(ctx, req.(*UpdateBexioFieldMappingsRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _BexioIntegrationService_PushInvoiceToBexio_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -356,10 +459,14 @@ func _BexioIntegrationService_PushInvoiceToBexio_Handler(srv interface{}, ctx co
 	if interceptor == nil {
 		return srv.(BexioIntegrationServiceServer).PushInvoiceToBexio(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: BexioIntegrationService_PushInvoiceToBexio_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BexioIntegrationService_PushInvoiceToBexio_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(BexioIntegrationServiceServer).PushInvoiceToBexio(ctx, req.(*PushInvoiceToBexioRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _BexioIntegrationService_PushQuoteToBexio_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -370,29 +477,72 @@ func _BexioIntegrationService_PushQuoteToBexio_Handler(srv interface{}, ctx cont
 	if interceptor == nil {
 		return srv.(BexioIntegrationServiceServer).PushQuoteToBexio(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: BexioIntegrationService_PushQuoteToBexio_FullMethodName}
-	return interceptor(ctx, in, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BexioIntegrationService_PushQuoteToBexio_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(BexioIntegrationServiceServer).PushQuoteToBexio(ctx, req.(*PushQuoteToBexioRequest))
-	})
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 // BexioIntegrationService_ServiceDesc is the grpc.ServiceDesc for BexioIntegrationService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
 var BexioIntegrationService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "biz.v1.BexioIntegrationService",
 	HandlerType: (*BexioIntegrationServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{MethodName: "GetBexioAuthURL", Handler: _BexioIntegrationService_GetBexioAuthURL_Handler},
-		{MethodName: "HandleBexioOAuthCallback", Handler: _BexioIntegrationService_HandleBexioOAuthCallback_Handler},
-		{MethodName: "DisconnectBexio", Handler: _BexioIntegrationService_DisconnectBexio_Handler},
-		{MethodName: "GetBexioConnectionStatus", Handler: _BexioIntegrationService_GetBexioConnectionStatus_Handler},
-		{MethodName: "TriggerBexioSync", Handler: _BexioIntegrationService_TriggerBexioSync_Handler},
-		{MethodName: "GetBexioSyncStatus", Handler: _BexioIntegrationService_GetBexioSyncStatus_Handler},
-		{MethodName: "ListBexioSyncLogs", Handler: _BexioIntegrationService_ListBexioSyncLogs_Handler},
-		{MethodName: "GetBexioFieldMappings", Handler: _BexioIntegrationService_GetBexioFieldMappings_Handler},
-		{MethodName: "UpdateBexioFieldMappings", Handler: _BexioIntegrationService_UpdateBexioFieldMappings_Handler},
-		{MethodName: "PushInvoiceToBexio", Handler: _BexioIntegrationService_PushInvoiceToBexio_Handler},
-		{MethodName: "PushQuoteToBexio", Handler: _BexioIntegrationService_PushQuoteToBexio_Handler},
+		{
+			MethodName: "GetBexioAuthURL",
+			Handler:    _BexioIntegrationService_GetBexioAuthURL_Handler,
+		},
+		{
+			MethodName: "HandleBexioOAuthCallback",
+			Handler:    _BexioIntegrationService_HandleBexioOAuthCallback_Handler,
+		},
+		{
+			MethodName: "DisconnectBexio",
+			Handler:    _BexioIntegrationService_DisconnectBexio_Handler,
+		},
+		{
+			MethodName: "GetBexioConnectionStatus",
+			Handler:    _BexioIntegrationService_GetBexioConnectionStatus_Handler,
+		},
+		{
+			MethodName: "TriggerBexioSync",
+			Handler:    _BexioIntegrationService_TriggerBexioSync_Handler,
+		},
+		{
+			MethodName: "GetBexioSyncStatus",
+			Handler:    _BexioIntegrationService_GetBexioSyncStatus_Handler,
+		},
+		{
+			MethodName: "UpdateBexioSyncConfig",
+			Handler:    _BexioIntegrationService_UpdateBexioSyncConfig_Handler,
+		},
+		{
+			MethodName: "ListBexioSyncLogs",
+			Handler:    _BexioIntegrationService_ListBexioSyncLogs_Handler,
+		},
+		{
+			MethodName: "GetBexioFieldMappings",
+			Handler:    _BexioIntegrationService_GetBexioFieldMappings_Handler,
+		},
+		{
+			MethodName: "UpdateBexioFieldMappings",
+			Handler:    _BexioIntegrationService_UpdateBexioFieldMappings_Handler,
+		},
+		{
+			MethodName: "PushInvoiceToBexio",
+			Handler:    _BexioIntegrationService_PushInvoiceToBexio_Handler,
+		},
+		{
+			MethodName: "PushQuoteToBexio",
+			Handler:    _BexioIntegrationService_PushQuoteToBexio_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/biz/v1/bexio.proto",
+	Metadata: "backend/proto/biz/v1/bexio.proto",
 }

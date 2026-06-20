@@ -52,7 +52,7 @@ func NewService(
 		emitter:       noopEmitter{},
 	}
 
-	s.oauthHandler = NewOAuthHandler(client.TokenManager(), repo, configRepo, vault, config)
+	s.oauthHandler = NewOAuthHandler(client.TokenManager(), client, repo, configRepo, vault, config)
 	s.scheduler = NewScheduler(s, repo, configRepo)
 
 	return s
@@ -288,6 +288,33 @@ func (s *Service) UpdateFieldMappings(ctx context.Context, entityType string, ma
 		Mappings:   mappings,
 	}
 	return s.repo.UpsertFieldMappings(ctx, fm)
+}
+
+// UpdateSyncConfig persists updated sync flags and polling intervals.
+func (s *Service) UpdateSyncConfig(ctx context.Context, update *models.BexioSyncConfig) error {
+	configID, err := s.getConfigID(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Load existing config so we only overwrite the provided fields.
+	existing, err := s.repo.GetSyncConfig(ctx, configID)
+	if err != nil {
+		return fmt.Errorf("bexio: load sync config for update: %w", err)
+	}
+
+	existing.ContactSyncEnabled = update.ContactSyncEnabled
+	existing.InvoicePushEnabled = update.InvoicePushEnabled
+	existing.QuotePushEnabled = update.QuotePushEnabled
+	existing.PaymentPollEnabled = update.PaymentPollEnabled
+	if update.ContactSyncIntervalMin > 0 {
+		existing.ContactSyncIntervalMin = update.ContactSyncIntervalMin
+	}
+	if update.PaymentPollIntervalMin > 0 {
+		existing.PaymentPollIntervalMin = update.PaymentPollIntervalMin
+	}
+
+	return s.repo.UpsertSyncConfig(ctx, existing)
 }
 
 // StartScheduler starts the background polling scheduler for all active tenants.

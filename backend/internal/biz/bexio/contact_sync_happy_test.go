@@ -54,6 +54,7 @@ type mockVaultService struct {
 	token     string
 	getErr    error
 	setErr    error
+	deleteErr error
 }
 
 func (m *mockVaultService) GetSecret(_ context.Context, _ string) (string, error) {
@@ -65,6 +66,10 @@ func (m *mockVaultService) GetSecret(_ context.Context, _ string) (string, error
 
 func (m *mockVaultService) SetSecret(_ context.Context, _, _, _ string, _ uuid.UUID) error {
 	return m.setErr
+}
+
+func (m *mockVaultService) DeleteByKeyName(_ context.Context, _ string) error {
+	return m.deleteErr
 }
 
 // fullSyncRepo is a Repository mock that supports all methods needed by

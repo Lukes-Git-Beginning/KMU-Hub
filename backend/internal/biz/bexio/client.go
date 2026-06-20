@@ -206,6 +206,25 @@ func (c *Client) doWithRetry(ctx context.Context, tenantID uuid.UUID, method, pa
 	return fmt.Errorf("bexio: request failed after %d retries", maxRetries)
 }
 
+// BexioCompanyProfile holds the response from GET /2.0/company_profile.
+type BexioCompanyProfile struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetCompanyProfile fetches the authenticated tenant's company name from Bexio.
+func (c *Client) GetCompanyProfile(ctx context.Context, tenantID uuid.UUID) (*BexioCompanyProfile, error) {
+	// Bexio returns an array from GET /company_profile.
+	var profiles []BexioCompanyProfile
+	if err := c.do(ctx, tenantID, http.MethodGet, "company_profile", nil, &profiles); err != nil {
+		return nil, fmt.Errorf("bexio: get company profile: %w", err)
+	}
+	if len(profiles) == 0 {
+		return nil, fmt.Errorf("bexio: company_profile returned empty list")
+	}
+	return &profiles[0], nil
+}
+
 // doList executes a paginated list request against the Bexio API.
 func (c *Client) doList(ctx context.Context, tenantID uuid.UUID, path string, params url.Values, result any) error {
 	if params == nil {

@@ -158,6 +158,31 @@ func (s *Service) DeleteSecret(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+// DeleteByKeyName removes a vault secret by key name.
+// It resolves the ID via GetByKeyName then calls Delete.
+// Returns nil (no-op) if the key does not exist.
+func (s *Service) DeleteByKeyName(ctx context.Context, keyName string) error {
+	if keyName == "" {
+		return ErrEmptyKeyName
+	}
+
+	secret, err := s.repo.GetByKeyName(ctx, keyName)
+	if err != nil {
+		if errors.Is(err, ErrSecretNotFound) {
+			// Already gone — treat as success.
+			return nil
+		}
+		return err
+	}
+
+	if err := s.repo.Delete(ctx, secret.ID); err != nil {
+		return err
+	}
+
+	slog.Info("vault secret deleted by key name", "key_name", keyName)
+	return nil
+}
+
 // EncryptTOTPSecret encrypts a TOTP secret using the dedicated TOTP key.
 // This keeps TOTP encryption separate from general vault encryption.
 func (s *Service) EncryptTOTPSecret(secret string) (string, error) {

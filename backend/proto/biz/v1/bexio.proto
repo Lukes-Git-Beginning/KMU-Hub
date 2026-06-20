@@ -16,6 +16,7 @@ service BexioIntegrationService {
   // Sync Operations
   rpc TriggerBexioSync(TriggerBexioSyncRequest) returns (TriggerBexioSyncResponse);
   rpc GetBexioSyncStatus(GetBexioSyncStatusRequest) returns (GetBexioSyncStatusResponse);
+  rpc UpdateBexioSyncConfig(UpdateBexioSyncConfigRequest) returns (UpdateBexioSyncConfigResponse);
   rpc ListBexioSyncLogs(ListBexioSyncLogsRequest) returns (ListBexioSyncLogsResponse);
 
   // Field Mappings
@@ -98,6 +99,20 @@ message GetBexioSyncStatusResponse {
   int32 total_quotes_mapped = 9;
   string last_sync_error = 10;
   google.protobuf.Timestamp last_sync_error_at = 11;
+}
+
+message UpdateBexioSyncConfigRequest {
+  string tenant_id = 1;
+  bool contact_sync_enabled = 2;
+  int32 contact_sync_interval_minutes = 3;
+  bool invoice_push_enabled = 4;
+  bool quote_push_enabled = 5;
+  bool payment_poll_enabled = 6;
+  int32 payment_poll_interval_minutes = 7;
+}
+
+message UpdateBexioSyncConfigResponse {
+  bool success = 1;
 }
 
 message ListBexioSyncLogsRequest {

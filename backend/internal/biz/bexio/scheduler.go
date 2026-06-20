@@ -40,30 +40,36 @@ func NewScheduler(service *Service, repo Repository, configRepo IntegrationConfi
 	}
 }
 
-// StartAll loads all active Bexio integrations and starts their schedulers.
+// StartAll loads all active Bexio integrations and starts a scheduler per tenant.
 func (s *Scheduler) StartAll(ctx context.Context) error {
 	ctx = database.WithSystemContext(ctx)
 	s.parentCtx = ctx
 
-	// For now, we look up the single bexio config (single-tenant mode).
-	// Multi-tenant: iterate all active integration_configs where platform='bexio'.
-	config, err := s.configRepo.GetByPlatform(ctx, "bexio")
+	configs, err := s.configRepo.ListActiveByPlatform(ctx, "bexio")
 	if err != nil {
-		slog.Info("bexio scheduler: no active integration found, skipping")
+		slog.Info("bexio scheduler: failed to list active integrations, skipping", "error", err)
 		return nil
 	}
 
-	if !config.IsActive {
-		slog.Info("bexio scheduler: integration not active, skipping")
+	if len(configs) == 0 {
+		slog.Info("bexio scheduler: no active integrations found, skipping")
 		return nil
 	}
 
-	tenantID := config.CreatedBy // In single-tenant mode, created_by is the tenant
-	if err := s.AddTenant(ctx, config.ID, tenantID); err != nil {
-		return err
+	started := 0
+	for _, config := range configs {
+		if err := s.AddTenant(ctx, config.ID, config.TenantID); err != nil {
+			slog.Error("bexio scheduler: failed to start tenant scheduler",
+				"tenant_id", config.TenantID,
+				"config_id", config.ID,
+				"error", err,
+			)
+			continue
+		}
+		started++
 	}
 
-	slog.Info("bexio scheduler started", "tenants", 1)
+	slog.Info("bexio scheduler started", "tenants", started, "total_configs", len(configs))
 	return nil
 }
 

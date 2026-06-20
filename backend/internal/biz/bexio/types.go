@@ -34,4 +34,7 @@ func DefaultClientConfig(clientID, clientSecret, redirectURL string) ClientConfi
 type VaultService interface {
 	GetSecret(ctx context.Context, keyName string) (string, error)
 	SetSecret(ctx context.Context, keyName, plaintext, description string, createdBy uuid.UUID) error
+	// DeleteByKeyName removes a vault secret by key name. Used to purge OAuth
+	// refresh tokens when a Bexio integration is disconnected.
+	DeleteByKeyName(ctx context.Context, keyName string) error
 }

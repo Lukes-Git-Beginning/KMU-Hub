@@ -55,6 +55,7 @@ func (br *BexioRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 			// Sync
 			r.Post("/sync/trigger", br.HandleTriggerSync)
 			r.Get("/sync/status", br.HandleGetSyncStatus)
+			r.Put("/sync/config", br.HandleUpdateSyncConfig)
 			r.Get("/sync/logs", br.HandleListSyncLogs)
 
 			// Field mappings
@@ -317,6 +318,50 @@ func (br *BexioRoutes) HandleGetSyncStatus(w http.ResponseWriter, r *http.Reques
 	}
 
 	response.JSON(w, http.StatusOK, result)
+}
+
+// HandleUpdateSyncConfig updates Bexio sync flags and polling intervals.
+func (br *BexioRoutes) HandleUpdateSyncConfig(w http.ResponseWriter, r *http.Request) {
+	client, err := br.getBexioClient()
+	if err != nil {
+		respondServiceUnavailable(w, br.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
+	type updateSyncConfigRequest struct {
+		ContactSyncEnabled        bool `json:"contact_sync_enabled"`
+		ContactSyncIntervalMinutes int32 `json:"contact_sync_interval_minutes"`
+		InvoicePushEnabled        bool `json:"invoice_push_enabled"`
+		QuotePushEnabled          bool `json:"quote_push_enabled"`
+		PaymentPollEnabled        bool `json:"payment_poll_enabled"`
+		PaymentPollIntervalMinutes int32 `json:"payment_poll_interval_minutes"`
+	}
+	body, ok := decodeAndValidate[updateSyncConfigRequest](w, r)
+	if !ok {
+		return
+	}
+
+	_, err = client.UpdateBexioSyncConfig(r.Context(), &bizv1.UpdateBexioSyncConfigRequest{
+		TenantId:                   tenantID,
+		ContactSyncEnabled:         body.ContactSyncEnabled,
+		ContactSyncIntervalMinutes: body.ContactSyncIntervalMinutes,
+		InvoicePushEnabled:         body.InvoicePushEnabled,
+		QuotePushEnabled:           body.QuotePushEnabled,
+		PaymentPollEnabled:         body.PaymentPollEnabled,
+		PaymentPollIntervalMinutes: body.PaymentPollIntervalMinutes,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
 // HandleListSyncLogs returns recent sync log entries.

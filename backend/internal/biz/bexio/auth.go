@@ -197,15 +197,23 @@ func (tm *TokenManager) ExchangeCode(ctx context.Context, tenantID uuid.UUID, co
 	return nil
 }
 
-// RevokeTokens clears all stored tokens for a tenant.
+// RevokeTokens clears all stored tokens for a tenant, including the vault entry.
 func (tm *TokenManager) RevokeTokens(ctx context.Context, tenantID uuid.UUID) error {
 	tm.mu.Lock()
 	delete(tm.cache, tenantID)
 	tm.mu.Unlock()
 
-	// Vault SetSecret with empty value would fail, so we just log a note
-	// The integration_configs deletion cascades and the vault key becomes orphaned
-	// This is acceptable since vault.DeleteSecret is ID-based not key-based
+	// Delete the refresh token from the vault so no orphaned secrets remain
+	// after disconnect. DeleteByKeyName treats ErrSecretNotFound as a no-op,
+	// so it is safe to call even if the token was already absent.
+	if err := tm.vault.DeleteByKeyName(ctx, vaultKey(tenantID)); err != nil {
+		slog.Error("bexio: failed to delete vault refresh token on revoke",
+			"tenant_id", tenantID,
+			"error", err,
+		)
+		return fmt.Errorf("bexio: revoke vault token: %w", err)
+	}
+
 	slog.Info("bexio tokens revoked", "tenant_id", tenantID)
 	return nil
 }
