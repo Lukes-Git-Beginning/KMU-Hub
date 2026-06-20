@@ -61,6 +61,8 @@ import {
   QrCode,
   Code2,
   Check,
+  LayoutGrid,
+  LayoutList,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -308,6 +310,9 @@ export default function FormularePage() {
   // Tab & search — initial tab honours the personal default.
   const [tab, setTab] = useState<TabKey>(prefsDefaultTab)
   const [search, setSearch] = useState('')
+  // FT-4 — Formulare tab: status quick-filter + grid/list view
+  const [formStatusFilter, setFormStatusFilter] = useState<'all' | FormSchema['status']>('all')
+  const [formView, setFormView] = useState<'grid' | 'list'>('grid')
 
   // Detail modal for a single submission
   const [selectedSubmission, setSelectedSubmission] =
@@ -404,14 +409,32 @@ export default function FormularePage() {
   // ---------------------------------------------------------------------------
 
   const filteredForms = useMemo(() => {
-    if (!search) return activeForms
-    const q = search.toLowerCase()
-    return activeForms.filter(
-      (f) =>
-        f.title.toLowerCase().includes(q) ||
-        f.description.toLowerCase().includes(q),
-    )
-  }, [activeForms, search])
+    let list = activeForms
+    if (formStatusFilter !== 'all') {
+      list = list.filter((f) => f.status === formStatusFilter)
+    }
+    if (search) {
+      const q = search.toLowerCase()
+      list = list.filter(
+        (f) =>
+          f.title.toLowerCase().includes(q) ||
+          f.description.toLowerCase().includes(q),
+      )
+    }
+    return list
+  }, [activeForms, search, formStatusFilter])
+
+  // FT-4 — counts per status for the quick-filter chips.
+  const formStatusCounts = useMemo(
+    () => ({
+      all: activeForms.length,
+      draft: activeForms.filter((f) => f.status === 'draft').length,
+      active: activeForms.filter((f) => f.status === 'active').length,
+      closed: activeForms.filter((f) => f.status === 'closed').length,
+      archived: activeForms.filter((f) => f.status === 'archived').length,
+    }),
+    [activeForms],
+  )
 
   // All known submissions flattened
   const allSubmissions = useMemo(
@@ -2102,100 +2125,264 @@ export default function FormularePage() {
       {/* ====================== MEINE FORMULARE TAB ====================== */}
       {tab === 'formulare' && (
         <>
-          {filteredForms.length === 0 ? (
+          {activeForms.length === 0 ? (
             <EmptyState
               icon={FileText}
               title={t('formulare.empty.noFormulare')}
-              description={
-                search
-                  ? t('formulare.empty.suchHint')
-                  : t('formulare.empty.createHint')
-              }
-              action={
-                !search
-                  ? {
-                      label: t('formulare.empty.createLabel'),
-                      onClick: () => {
-                        resetNewFormDialog()
-                        setShowNewFormDialog(true)
-                      },
-                    }
-                  : undefined
-              }
+              description={t('formulare.empty.createHint')}
+              action={{
+                label: t('formulare.empty.createLabel'),
+                onClick: () => {
+                  resetNewFormDialog()
+                  setShowNewFormDialog(true)
+                },
+              }}
             />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {filteredForms.map((schema) => (
-                <div
-                  key={schema.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => openFormDetail(schema)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      openFormDetail(schema)
-                    }
-                  }}
-                  className="rounded-xl border border-border bg-card p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-light shrink-0">
-                        <FileText className="h-5 w-5 text-primary" />
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="text-sm font-medium text-foreground truncate">
-                          {schema.title}
-                        </h4>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {schema.createdBy ?? ''}
-                        </p>
-                      </div>
-                    </div>
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <ItemActions items={getFormActions(schema)} />
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
-                    {schema.description}
-                  </p>
-
-                  <div className="flex items-center gap-2 mb-3 flex-wrap">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                        formStatusColors[schema.status]
-                      }`}
-                    >
-                      {formStatusLabels[schema.status]}
-                    </span>
-                    {/* 10.4 — Public badge */}
-                    {schema.isPublic && (
-                      <span className="rounded-full bg-info-light px-2 py-0.5 text-[10px] font-medium text-info">
-                        {t('formulare.card.oeffentlich')}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-between border-t border-border-muted pt-3 text-xs text-muted-foreground">
-                    <span>
-                      {t('formulare.card.felder', {
-                        count: schema.fields.filter(
-                          (f) => (f as FormField).label !== '__page_break__',
-                        ).length,
-                      })}
-                    </span>
-                    <span>
-                      {t('formulare.card.eingaenge', {
-                        count: schema.submissionCount,
-                      })}
-                    </span>
-                    <span>{formatDate(schema.createdAt)}</span>
-                  </div>
+            <>
+              {/* FT-4 — status quick-filter chips + grid/list view toggle */}
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {(
+                    [
+                      { value: 'all', label: t('formulare.submission.filter.all'), count: formStatusCounts.all },
+                      { value: 'draft', label: formStatusLabels.draft, count: formStatusCounts.draft },
+                      { value: 'active', label: formStatusLabels.active, count: formStatusCounts.active },
+                      { value: 'closed', label: formStatusLabels.closed, count: formStatusCounts.closed },
+                      { value: 'archived', label: formStatusLabels.archived, count: formStatusCounts.archived },
+                    ] as const
+                  ).map((chip) => {
+                    const active = formStatusFilter === chip.value
+                    return (
+                      <button
+                        key={chip.value}
+                        onClick={() => setFormStatusFilter(chip.value)}
+                        className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs transition-colors ${
+                          active
+                            ? 'bg-primary-light text-primary font-medium'
+                            : 'text-muted-foreground hover:bg-secondary'
+                        }`}
+                      >
+                        {chip.label}
+                        <span
+                          className={`rounded-full px-1.5 text-[10px] ${
+                            active ? 'bg-primary/15' : 'bg-secondary'
+                          }`}
+                        >
+                          {chip.count}
+                        </span>
+                      </button>
+                    )
+                  })}
                 </div>
-              ))}
-            </div>
+                <div className="flex items-center rounded-md border border-border">
+                  <button
+                    onClick={() => setFormView('grid')}
+                    title={t('formulare.view.grid')}
+                    aria-label={t('formulare.view.grid')}
+                    className={`rounded-l-md p-1.5 transition-colors ${
+                      formView === 'grid'
+                        ? 'bg-secondary text-foreground'
+                        : 'text-muted-foreground hover:bg-secondary'
+                    }`}
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setFormView('list')}
+                    title={t('formulare.view.list')}
+                    aria-label={t('formulare.view.list')}
+                    className={`rounded-r-md border-l border-border p-1.5 transition-colors ${
+                      formView === 'list'
+                        ? 'bg-secondary text-foreground'
+                        : 'text-muted-foreground hover:bg-secondary'
+                    }`}
+                  >
+                    <LayoutList className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              {filteredForms.length === 0 ? (
+                <EmptyState
+                  icon={FileText}
+                  title={t('formulare.empty.noFormulare')}
+                  description={t('formulare.empty.suchHint')}
+                  action={{
+                    label: t('formulare.empty.resetFilter'),
+                    onClick: () => {
+                      setSearch('')
+                      setFormStatusFilter('all')
+                    },
+                  }}
+                />
+              ) : formView === 'grid' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {filteredForms.map((schema) => (
+                    <div
+                      key={schema.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openFormDetail(schema)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          openFormDetail(schema)
+                        }
+                      }}
+                      className="rounded-xl border border-border bg-card p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-light shrink-0">
+                            <FileText className="h-5 w-5 text-primary" />
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="text-sm font-medium text-foreground truncate">
+                              {schema.title}
+                            </h4>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {schema.createdBy ?? ''}
+                            </p>
+                          </div>
+                        </div>
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <ItemActions items={getFormActions(schema)} />
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
+                        {schema.description}
+                      </p>
+
+                      <div className="flex items-center gap-2 mb-3 flex-wrap">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                            formStatusColors[schema.status]
+                          }`}
+                        >
+                          {formStatusLabels[schema.status]}
+                        </span>
+                        {/* 10.4 — Public badge */}
+                        {schema.isPublic && (
+                          <span className="rounded-full bg-info-light px-2 py-0.5 text-[10px] font-medium text-info">
+                            {t('formulare.card.oeffentlich')}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between border-t border-border-muted pt-3 text-xs text-muted-foreground">
+                        <span>
+                          {t('formulare.card.felder', {
+                            count: schema.fields.filter(
+                              (f) => (f as FormField).label !== '__page_break__',
+                            ).length,
+                          })}
+                        </span>
+                        <span>
+                          {t('formulare.card.eingaenge', {
+                            count: schema.submissionCount,
+                          })}
+                        </span>
+                        <span>{formatDate(schema.createdAt)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                /* FT-4 — compact list view */
+                <div className="overflow-hidden rounded-xl border border-border">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border-muted bg-secondary/30 text-xs text-muted-foreground">
+                        <th className="px-4 py-2.5 text-left font-medium">
+                          {t('formulare.list.title')}
+                        </th>
+                        <th className="px-4 py-2.5 text-left font-medium">
+                          {t('formulare.submission.table.status')}
+                        </th>
+                        <th className="px-4 py-2.5 text-right font-medium">
+                          {t('formulare.list.fields')}
+                        </th>
+                        <th className="px-4 py-2.5 text-right font-medium">
+                          {t('formulare.detail.submissions')}
+                        </th>
+                        <th className="hidden px-4 py-2.5 text-left font-medium sm:table-cell">
+                          {t('formulare.detail.createdAt')}
+                        </th>
+                        <th className="px-4 py-2.5 text-right font-medium" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredForms.map((schema) => (
+                        <tr
+                          key={schema.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => openFormDetail(schema)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              openFormDetail(schema)
+                            }
+                          }}
+                          className="cursor-pointer border-b border-border-muted last:border-0 transition-colors hover:bg-secondary/50 focus:outline-none focus-visible:bg-secondary/50"
+                        >
+                          <td className="px-4 py-2.5">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary-light">
+                                <FileText className="h-3.5 w-3.5 text-primary" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate font-medium text-foreground">
+                                  {schema.title}
+                                </p>
+                                <p className="truncate text-xs text-muted-foreground">
+                                  {schema.createdBy ?? ''}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                  formStatusColors[schema.status]
+                                }`}
+                              >
+                                {formStatusLabels[schema.status]}
+                              </span>
+                              {schema.isPublic && (
+                                <span className="rounded-full bg-info-light px-2 py-0.5 text-[10px] font-medium text-info">
+                                  {t('formulare.card.oeffentlich')}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-muted-foreground">
+                            {schema.fields.filter(
+                              (f) => (f as FormField).label !== '__page_break__',
+                            ).length}
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-muted-foreground">
+                            {schema.submissionCount}
+                          </td>
+                          <td className="hidden px-4 py-2.5 text-muted-foreground sm:table-cell">
+                            {formatDate(schema.createdAt)}
+                          </td>
+                          <td
+                            className="px-4 py-2.5 text-right"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ItemActions items={getFormActions(schema)} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
           )}
         </>
       )}
