@@ -796,6 +796,8 @@
   "berichte.settings.tenant.domainAdd": "Hinzufügen",
   "berichte.settings.tenant.domainsPlaceholder": "z. B. firma.de",
   "berichte.settings.tenant.domainsHint": "Geplante Berichte dürfen nur an diese Domains versendet werden.",
+  "berichte.settings.tenant.releaseGateHint": "Geplante Berichte werden erst ab dem Status „Freigegeben“ ausgeführt.",
+  "berichte.geplant.fromDocument": "Aus Bericht",
   "berichte.settings.tenant.domains": "Zulässige E-Mail-Domains",
   "berichte.settings.tenant.allowedFormatsHint": "Formate, die im gesamten Arbeitsbereich exportiert werden dürfen.",
   "berichte.settings.tenant.allowedFormats": "Erlaubte Export-Formate",

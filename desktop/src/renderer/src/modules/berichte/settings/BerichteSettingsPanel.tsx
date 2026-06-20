@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, Plus, Send, SlidersHorizontal, X } from 'lucide-react'
+import { ChevronDown, Info, Plus, Send, SlidersHorizontal, X } from 'lucide-react'
 import { ModuleSettingsShell, type ModuleSettingsSection } from '@/components/shared'
 import { useBerichtePrefsStore, type BerichtePeriod } from '@/stores/berichtePrefs'
 import type { ReportFormat } from '@/api/berichte-types'
@@ -202,6 +202,16 @@ function TenantPrefs() {
         <p className="text-xs text-muted-foreground">
           {t('berichte.settings.tenant.domainsHint', {
             defaultValue: 'Geplante Berichte dürfen nur an diese Domains versendet werden.',
+          })}
+        </p>
+      </div>
+
+      <div className="flex items-start gap-2.5 rounded-lg border border-info/25 bg-info-light px-3.5 py-3 text-xs text-foreground">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden="true" />
+        <p>
+          {t('berichte.settings.tenant.releaseGateHint', {
+            defaultValue:
+              'Geplante Berichte werden erst ab dem Status „Freigegeben“ ausgeführt.',
           })}
         </p>
       </div>

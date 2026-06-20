@@ -796,6 +796,8 @@
   "berichte.settings.tenant.domainAdd": "Aggiungi",
   "berichte.settings.tenant.domainsPlaceholder": "ad es. azienda.it",
   "berichte.settings.tenant.domainsHint": "I report pianificati possono essere inviati solo a questi domini.",
+  "berichte.settings.tenant.releaseGateHint": "I report pianificati vengono eseguiti solo dopo la pubblicazione.",
+  "berichte.geplant.fromDocument": "Dal report",
   "berichte.settings.tenant.domains": "Domini e-mail consentiti",
   "berichte.settings.tenant.allowedFormatsHint": "Formati esportabili nell'intero spazio di lavoro.",
   "berichte.settings.tenant.allowedFormats": "Formati di esportazione consentiti",

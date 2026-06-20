@@ -79,6 +79,12 @@ export function ScheduleReportModal({ doc, open, onClose }: ScheduleReportModalP
   const updateMutation = useUpdateSchedule()
   const runNowMutation = useRunScheduleNow()
   const defaultFormat = useBerichtePrefsStore((s) => s.defaultFormat)
+  const allowedFormats = useBerichtePrefsStore((s) => s.allowedFormats)
+
+  // Only formats permitted by the tenant settings are offered (fall back to all
+  // if an admin disabled every format).
+  const availableFormats = FORMATS.filter((f) => allowedFormats.includes(f))
+  const formats = availableFormats.length > 0 ? availableFormats : FORMATS
 
   const existing = schedulesQuery.data?.schedules.find((s) => s.definition_id === doc.id) ?? null
   const isReleased = doc.status === 'released'
@@ -422,7 +428,7 @@ export function ScheduleReportModal({ doc, open, onClose }: ScheduleReportModalP
               {t('berichte.docs.schedule.format')}
             </label>
             <div className="flex gap-2">
-              {FORMATS.map((f) => (
+              {formats.map((f) => (
                 <button
                   key={f}
                   type="button"

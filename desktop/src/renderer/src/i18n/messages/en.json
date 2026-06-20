@@ -796,6 +796,8 @@
   "berichte.settings.tenant.domainAdd": "Add",
   "berichte.settings.tenant.domainsPlaceholder": "e.g. company.com",
   "berichte.settings.tenant.domainsHint": "Scheduled reports may only be sent to these domains.",
+  "berichte.settings.tenant.releaseGateHint": "Scheduled reports only run once the report is released.",
+  "berichte.geplant.fromDocument": "From report",
   "berichte.settings.tenant.domains": "Permitted email domains",
   "berichte.settings.tenant.allowedFormatsHint": "Formats that may be exported across the workspace.",
   "berichte.settings.tenant.allowedFormats": "Allowed export formats",

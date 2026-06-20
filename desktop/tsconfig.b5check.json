@@ -13,6 +13,8 @@
     "src/renderer/src/modules/berichte/components/documents/ReportDocumentEditor.tsx",
     "src/renderer/src/modules/berichte/components/documents/ScheduleReportModal.tsx",
     "src/renderer/src/modules/berichte/components/schedule-utils.ts",
-    "src/renderer/src/modules/berichte/components/ScheduleList.tsx"
+    "src/renderer/src/modules/berichte/components/ScheduleList.tsx",
+    "src/renderer/src/modules/berichte/BerichtePage.tsx",
+    "src/renderer/src/modules/berichte/settings/BerichteSettingsPanel.tsx"
   ]
 }

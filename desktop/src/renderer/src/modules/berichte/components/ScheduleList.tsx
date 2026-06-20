@@ -19,6 +19,7 @@ import type { ReportDefinition, ReportFormat, ReportSchedule } from '@/api/beric
 import {
   useCreateSchedule,
   useDeleteSchedule,
+  useReportDocuments,
   useSchedules,
   useToggleSchedule,
 } from '@/api/hooks/useBerichte'
@@ -27,6 +28,9 @@ import { EMAIL_RE, buildRunHistory, computeNextRun } from './schedule-utils'
 
 interface ScheduleListProps {
   definitions: ReportDefinition[]
+  /** When set, schedules bound to a report document open the document instead
+   *  of the detail modal (R-4 coupling back to the source report). */
+  onOpenDocument?: (docId: string) => void
 }
 
 // formatDateTime imported from @/lib/format (locale-aware)
@@ -37,13 +41,25 @@ const STATUS_STYLES: Record<string, string> = {
   skipped: 'bg-warning-light text-warning',
 }
 
-export function ScheduleList({ definitions }: ScheduleListProps) {
+export function ScheduleList({ definitions, onOpenDocument }: ScheduleListProps) {
   const { t } = useTranslation()
   const schedulesQuery = useSchedules()
+  const documentsQuery = useReportDocuments()
   const toggleMutation = useToggleSchedule()
   const createMutation = useCreateSchedule()
   const deleteMutation = useDeleteSchedule()
   const defaultFormat = useBerichtePrefsStore((s) => s.defaultFormat)
+
+  // Schedules whose definition_id points at a report document (created from the
+  // per-document modal) link back to that document instead of the detail modal.
+  const documentIds = useMemo(
+    () => new Set((documentsQuery.data?.documents ?? []).map((d) => d.id)),
+    [documentsQuery.data],
+  )
+  const openRow = (s: ReportSchedule) => {
+    if (onOpenDocument && documentIds.has(s.definition_id)) onOpenDocument(s.definition_id)
+    else setDetailId(s.id)
+  }
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [defId, setDefId] = useState('')
@@ -233,13 +249,13 @@ export function ScheduleList({ definitions }: ScheduleListProps) {
               {sortedSchedules.map((s) => (
                 <tr
                   key={s.id}
-                  onClick={() => setDetailId(s.id)}
+                  onClick={() => openRow(s)}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault()
-                      setDetailId(s.id)
+                      openRow(s)
                     }
                   }}
                   className="cursor-pointer border-b border-border-muted transition-colors last:border-0 hover:bg-secondary/50 focus:outline-none focus-visible:bg-secondary/50"
@@ -247,6 +263,14 @@ export function ScheduleList({ definitions }: ScheduleListProps) {
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
                       {s.name}
+                      {documentIds.has(s.definition_id) && (
+                        <FileText
+                          className="h-3 w-3 text-muted-foreground"
+                          aria-label={t('berichte.geplant.fromDocument', {
+                            defaultValue: 'Aus Bericht',
+                          })}
+                        />
+                      )}
                       {typeof (s.params as { alert_threshold?: number }).alert_threshold === 'number' && (
                         <Bell
                           className="h-3 w-3 text-primary"

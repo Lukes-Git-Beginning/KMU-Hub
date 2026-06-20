@@ -165,7 +165,15 @@ export default function BerichtePage() {
         />
       )}
 
-      {tab === 'geplant' && <ScheduleList definitions={definitions} />}
+      {tab === 'geplant' && (
+        <ScheduleList
+          definitions={definitions}
+          onOpenDocument={(id) => {
+            setOpenMode('read')
+            setOpenDocId(id)
+          }}
+        />
+      )}
 
       {tab === 'datev' && <DatevView definitions={definitions} />}
     </div>

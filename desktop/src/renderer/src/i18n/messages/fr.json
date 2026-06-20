@@ -796,6 +796,8 @@
   "berichte.settings.tenant.domainAdd": "Ajouter",
   "berichte.settings.tenant.domainsPlaceholder": "p. ex. entreprise.fr",
   "berichte.settings.tenant.domainsHint": "Les rapports planifiés ne peuvent être envoyés qu'à ces domaines.",
+  "berichte.settings.tenant.releaseGateHint": "Les rapports planifiés ne s'exécutent qu'une fois le rapport publié.",
+  "berichte.geplant.fromDocument": "Depuis le rapport",
   "berichte.settings.tenant.domains": "Domaines e-mail autorisés",
   "berichte.settings.tenant.allowedFormatsHint": "Formats pouvant être exportés dans tout l'espace de travail.",
   "berichte.settings.tenant.allowedFormats": "Formats d'export autorisés",
