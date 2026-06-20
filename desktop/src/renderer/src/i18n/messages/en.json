@@ -1027,6 +1027,7 @@
   "berichte.docs.lifecycle.toast.final": "Marked as final",
   "berichte.docs.lifecycle.toast.released": "Report released",
   "berichte.docs.lifecycle.toast.archived": "Report archived",
+  "berichte.docs.pageXofY": "Page {x} of {y}",
   "berichte.tabs.geplant": "Scheduled ({count})",
   "berichte.tickets.count": "{count} Tickets",
   "berichte.tickets.hoch": "High",

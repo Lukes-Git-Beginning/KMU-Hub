@@ -1027,6 +1027,7 @@
   "berichte.docs.lifecycle.toast.final": "Segnato come definitivo",
   "berichte.docs.lifecycle.toast.released": "Rapporto pubblicato",
   "berichte.docs.lifecycle.toast.archived": "Rapporto archiviato",
+  "berichte.docs.pageXofY": "Pagina {x} di {y}",
   "berichte.tabs.geplant": "Pianificati ({count})",
   "berichte.tickets.count": "{count} ticket",
   "berichte.tickets.hoch": "Alto",

@@ -22,7 +22,30 @@ const CALLOUT_STYLE: Record<CalloutVariant, string> = {
   recommendation: 'border-primary/30 bg-primary-light',
 }
 
-/** Renders a report document as a clean, readable page (the read mode). */
+/** A row that is purely a page break — used as a sheet separator in read mode. */
+function isPageBreakRow(row: ReportRow): boolean {
+  return (
+    row.columns.length === 1 &&
+    row.columns[0].blocks.length === 1 &&
+    row.columns[0].blocks[0].type === 'pagebreak'
+  )
+}
+
+/** Split the document into sheets on dedicated page-break rows. */
+function paginate(rows: ReportRow[]): ReportRow[][] {
+  const pages: ReportRow[][] = [[]]
+  for (const row of rows) {
+    if (isPageBreakRow(row)) pages.push([])
+    else pages[pages.length - 1].push(row)
+  }
+  return pages.filter((page) => page.length > 0)
+}
+
+/**
+ * Renders a report document as a stack of A4 sheets on a tinted desk — the
+ * premium "printed report" read mode (R-2p). Page breaks separate the sheets;
+ * each sheet carries an accent rule and a running header/footer per settings.
+ */
 export function DocumentReader({
   rows,
   settings,
@@ -47,31 +70,95 @@ export function DocumentReader({
     )
   }
 
-  return (
-    <div className="mx-auto max-w-3xl rounded-xl border border-border bg-card px-10 py-10 shadow-sm">
-      {settings?.showHeader && settings.headerText && (
-        <div className="mb-8 border-b border-border pb-3 text-xs text-muted-foreground">
-          {settings.headerText}
-        </div>
-      )}
+  const pages = paginate(rows)
 
-      <div className="space-y-6">
-        {rows.map((row) => (
-          <div
-            key={row.id}
-            className={row.columns.length > 1 ? 'flex flex-wrap gap-5' : undefined}
-          >
-            {row.columns.map((col) => (
-              <div key={col.id} className="min-w-0 space-y-6" style={{ flex: col.width ?? 1 }}>
-                {col.blocks.map((block) => (
-                  <BlockView key={block.id} block={block} />
-                ))}
-              </div>
-            ))}
-          </div>
+  return (
+    <div className="report-desk -mx-6 -my-6 min-h-full bg-secondary/50 px-6 py-10">
+      <div className="mx-auto flex flex-col items-center gap-8">
+        {pages.map((pageRows, i) => (
+          <ReportPage
+            key={i}
+            rows={pageRows}
+            settings={settings}
+            pageIndex={i}
+            pageCount={pages.length}
+          />
         ))}
       </div>
     </div>
+  )
+}
+
+/** A single A4 sheet with accent rule, running header/footer and body blocks. */
+function ReportPage({
+  rows,
+  settings,
+  pageIndex,
+  pageCount,
+}: {
+  rows: ReportRow[]
+  settings?: ReportDocSettings
+  pageIndex: number
+  pageCount: number
+}) {
+  const { t } = useTranslation()
+  const accent = settings?.accentColor
+  const hasCover = rows[0]?.columns[0]?.blocks[0]?.type === 'cover'
+  // Real reports leave the cover page without running header/footer/page number.
+  const showHeader = !hasCover && settings?.showHeader && Boolean(settings.headerText || settings.logoUrl)
+  const showFooter = !hasCover && (settings?.showFooter || settings?.showPageNumbers)
+
+  return (
+    <article
+      className="report-page relative flex w-[794px] max-w-full flex-col rounded-[2px] bg-card shadow-[0_2px_4px_-1px_rgba(15,23,42,0.06),0_22px_48px_-20px_rgba(15,23,42,0.24)]"
+      style={{ minHeight: 1123 }}
+    >
+      {/* Accent rule — custom colour or the Cosmi brand gradient */}
+      {accent ? (
+        <div className="h-1 w-full rounded-t-[2px]" style={{ backgroundColor: accent }} />
+      ) : (
+        <div className="h-1 w-full rounded-t-[2px] bg-gradient-to-r from-[var(--accent-1)] to-[var(--accent-2)]" />
+      )}
+
+      {showHeader && (
+        <header className="flex items-center justify-between gap-4 border-b border-border-muted px-[72px] pb-4 pt-7 text-xs text-muted-foreground">
+          <span className="truncate">{settings?.headerText}</span>
+          {settings?.logoUrl && (
+            <img src={settings.logoUrl} alt="" className="h-6 shrink-0 object-contain" />
+          )}
+        </header>
+      )}
+
+      <div className="flex-1 px-[72px] py-[56px]">
+        <div className="space-y-7">
+          {rows.map((row) => (
+            <div
+              key={row.id}
+              className={row.columns.length > 1 ? 'flex flex-wrap gap-6' : undefined}
+            >
+              {row.columns.map((col) => (
+                <div key={col.id} className="min-w-0 space-y-6" style={{ flex: col.width ?? 1 }}>
+                  {col.blocks.map((block) => (
+                    <BlockView key={block.id} block={block} />
+                  ))}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {showFooter && (
+        <footer className="mt-auto flex items-center justify-between gap-4 border-t border-border-muted px-[72px] pb-7 pt-4 text-[11px] text-muted-foreground">
+          <span className="truncate">{settings?.showFooter ? settings?.headerText : ''}</span>
+          {settings?.showPageNumbers && (
+            <span className="shrink-0 tabular-nums">
+              {t('berichte.docs.pageXofY', { x: pageIndex + 1, y: pageCount })}
+            </span>
+          )}
+        </footer>
+      )}
+    </article>
   )
 }
 
