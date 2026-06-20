@@ -5067,6 +5067,10 @@ function EvaluationPanel({ schema, t }: EvaluationPanelProps) {
     },
   ]
 
+  const totalViews = stats.totalViews ?? 0
+  const conversionPct = Math.round((stats.conversionRate ?? 0) * 100)
+  const conversionSubs = Math.round((stats.conversionRate ?? 0) * totalViews)
+
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -5079,6 +5083,62 @@ function EvaluationPanel({ schema, t }: EvaluationPanelProps) {
           </div>
         ))}
       </div>
+
+      {/* FT-3b — conversion (share-link views → submissions) */}
+      {totalViews > 0 && (
+        <div className="space-y-2.5 rounded-xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-medium text-foreground">
+              {t('formulare.eval.conversionTitle')}
+            </h4>
+            <span className="text-lg font-semibold text-primary">{conversionPct}%</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
+              <Eye className="h-3.5 w-3.5" />
+              {t('formulare.eval.viewsCount', { count: totalViews })}
+            </span>
+            <ChevronRight className="h-3.5 w-3.5" />
+            <span>{t('formulare.eval.responsesCount', { count: conversionSubs })}</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-secondary">
+            <div
+              className="h-full rounded-full bg-primary transition-all"
+              style={{ width: `${Math.min(100, conversionPct)}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* FT-3b — per-page drop-off funnel for multi-page forms */}
+      {stats.pageDropoff && stats.pageDropoff.length > 1 && (
+        <div className="space-y-2.5 rounded-xl border border-border bg-card p-4">
+          <h4 className="text-sm font-medium text-foreground">
+            {t('formulare.eval.dropoffTitle')}
+          </h4>
+          <p className="text-[11px] text-muted-foreground">
+            {t('formulare.eval.dropoffHint')}
+          </p>
+          <div className="space-y-2">
+            {stats.pageDropoff.map((p) => (
+              <div key={p.page} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-foreground">
+                    {t('formulare.eval.pageN', { page: p.page })}
+                  </span>
+                  <span className="text-muted-foreground">{p.percent}%</span>
+                </div>
+                <div className="h-3 overflow-hidden rounded-full bg-secondary">
+                  <div
+                    className="h-full rounded-full bg-info transition-all"
+                    style={{ width: `${p.percent}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="space-y-3">
         {dataFields.map((field) => {

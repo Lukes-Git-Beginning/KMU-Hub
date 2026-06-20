@@ -167,6 +167,8 @@ function buildSchemas(): FormSchema[] {
       // stay visible for evaluation and the form can be re-opened.
       status: 'closed',
       isPublic: true,
+      // Multi-page demo (FT-3b): drives the per-page drop-off funnel.
+      pageCount: 2,
       closedMessage:
         'Die Anmeldung zum Sommerfest ist abgeschlossen. Vielen Dank für Ihr Interesse — wir freuen uns auf das nächste Event!',
       submissionCount: 5,
@@ -176,6 +178,7 @@ function buildSchemas(): FormSchema[] {
         f({ type: 'text', label: 'Name', required: true, placeholder: 'Vor- und Nachname' }),
         f({ type: 'email', label: 'E-Mail', required: true, placeholder: 'name@beispiel.de' }),
         f({ type: 'number', label: 'Anzahl Personen', required: true, placeholder: '1' }),
+        f({ type: 'text', label: '__page_break__', required: false, page: 1, pageTitle: 'Verpflegung & Einwilligung' }),
         f({ type: 'radio', label: 'Verpflegung', required: true, options: ['Mit Fleisch', 'Vegetarisch', 'Vegan'] }),
         f({ type: 'checkbox', label: 'Newsletter abonnieren', required: false }),
         f({
@@ -785,6 +788,24 @@ export const formulareHandlers = [
     const subs = SUBMISSIONS.filter((s) => s.formSchemaId === schema.id)
     const weekAgo = Date.now() - 7 * DAY
     const monthAgo = Date.now() - 30 * DAY
+
+    // FT-3b — conversion from the FD-2 share-link views → submissions.
+    const links = SHARE_LINKS.filter((l) => l.formSchemaId === schema.id)
+    const totalViews = links.reduce((sum, l) => sum + l.views, 0)
+    const linkSubmissions = links.reduce((sum, l) => sum + l.submissions, 0)
+    const conversionRate = totalViews > 0 ? linkSubmissions / totalViews : 0
+
+    // FT-3b — simulated per-page drop-off for multi-page forms (real tracking
+    // would be Luke's lane). Deterministic decreasing sequence.
+    const DROPOFF_SEQ = [100, 74, 61, 52, 45, 40, 36]
+    const pageDropoff =
+      schema.pageCount > 1
+        ? Array.from({ length: schema.pageCount }, (_, i) => ({
+            page: i + 1,
+            percent: DROPOFF_SEQ[i] ?? Math.max(20, 100 - i * 18),
+          }))
+        : undefined
+
     return HttpResponse.json({
       totalSubmissions: subs.length,
       newSubmissions: subs.filter((s) => s.status === 'new').length,
@@ -794,6 +815,9 @@ export const formulareHandlers = [
       submissionsThisMonth: subs.filter((s) => new Date(s.submittedAt).getTime() >= monthAgo).length,
       averageCompletionRate: 0.87,
       fieldStats: computeFieldStats(schema, subs),
+      totalViews,
+      conversionRate,
+      pageDropoff,
     })
   }),
 

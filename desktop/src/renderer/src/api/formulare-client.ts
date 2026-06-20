@@ -266,6 +266,11 @@ export interface FormStatsResponse {
   averageCompletionRate: number
   /** FT-3a — per-field analysis, keyed by field id. */
   fieldStats?: Record<string, FieldStat>
+  /** FT-3b — aggregated share-link views → submissions conversion. */
+  totalViews?: number
+  conversionRate?: number
+  /** FT-3b — simulated per-page drop-off (only for multi-page forms). */
+  pageDropoff?: { page: number; percent: number }[]
 }
 
 export function getFormStats(schemaId: string) {
